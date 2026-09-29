@@ -1524,7 +1524,7 @@ bash
 
 Execute shell commands in the run's workspace, or with cwd in one of its roots, with sandbox restrictions.
 
-Execute a bash command in the working directory, or in the folder given as cwd. Returns stdout and stderr; a nonzero exit code is reported at the end of the result (for example grep without a match), not as a tool error. Output is truncated to last 2000 lines or 20KB (whichever is hit first), and lines longer than 1000 characters are shortened. If anything was cut, the full output is saved to a temp file. Optionally provide a timeout in seconds.
+Execute a bash command in the working directory, or in the folder given as cwd. Returns stdout and stderr; a nonzero exit code is reported at the end of the result (for example grep without a match), not as a tool error. Output is truncated to last 2000 lines or 20KB (whichever is hit first), and lines longer than 1000 characters are shortened. If anything was cut, the full output is saved to a temp file. A command is stopped after 120 seconds unless you pass a larger timeout (at most 600 seconds); builds, test runs, installs and other long commands need one.
 
 Eigentümer: ragents.workspace. Scope: per-turn. Natives Modellwerkzeug: ja. Verfügbarkeit: always.
 
@@ -1545,7 +1545,10 @@ In jedem Modell-Turn verfügbar.
     },
     "timeout": {
       "type": "number",
-      "description": "Timeout in seconds (optional, no default timeout)"
+      "exclusiveMinimum": 0,
+      "maximum": 600,
+      "default": 120,
+      "description": "Timeout in seconds (default 120, maximum 600)"
     },
     "cwd": {
       "type": "string",

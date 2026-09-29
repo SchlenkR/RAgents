@@ -13,11 +13,13 @@ const usage = (): string => `Verwendung: [RAGENTS_TOKEN=<token>] pnpm workspace-
 Meldet die Ordner als Arbeitsplatz beim Server an und führt dessen Aufträge mit dem Executor
 dieses Rechners aus - dasselbe, was die VS-Code-Erweiterung tut, nur ohne VS Code. Ohne Ordner
 gilt das aktuelle Verzeichnis. Jeder Werkzeugaufruf erscheint als eine Zeile auf stdout.
-Sprachserver und Chromium holt der Start auf diesen Rechner (dasselbe wie pnpm provision
---workspace); ROSLYN_LANGUAGE_SERVER, FSHARP_LANGUAGE_SERVER und BROWSER_EXECUTABLE_PATH
-übersteuern das, TypeScript und playwright-core kommen aus dem Host-Ordner. Unter Windows nennt
+Was die Plugins des Servers zum Executor beitragen, etwa Sprachserver, lädt der Arbeitsplatz bei
+der Anmeldung aus den Bundles dieses Hosts; ihre Werkzeuge holt der Start auf diesen Rechner
+(dasselbe wie pnpm provision --workspace). Unter Windows nennt
 RAGENTS_BASH die bash.exe, die RAgents mitbringt (aus der Windows-Fassung der VS-Code-Erweiterung);
-ohne sie scheitert das Werkzeug bash. Das Skript läuft, bis es mit Strg-C beendet wird.`;
+ohne sie scheitert das Werkzeug bash. RAGENTS_RG nennt ein rg, dessen Ordner die Bash vorn im PATH
+hat, etwa das aus der Erweiterung; ohne Angabe gilt eines im PATH. Das Skript läuft, bis es mit
+Strg-C beendet wird.`;
 
 export interface WorkspaceClientArguments {
   readonly serverUrl: string;
@@ -79,6 +81,7 @@ const main = async (): Promise<void> => {
   const client = new WorkspaceClient(transport, identity, {
     hostRoot,
     bash: process.env.RAGENTS_BASH || undefined,
+    rg: process.env.RAGENTS_RG || undefined,
     onExecuted: ({ runId, operation, durationMs, error }) =>
       console.log(`== ${runId.slice(0, 8)} ${operation} ${durationMs} ms ${error ?? "ok"}`),
   });

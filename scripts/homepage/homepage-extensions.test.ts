@@ -129,9 +129,8 @@ import { productRuntimeToken, type ProductRuntimePolicy } from "../../apps/serve
 import { workspaceResolverToken, gitWorkspaceViewToken, type GitWorkspaceView } from "../../apps/server/src/ragents/workspace-runtime.ts";
 import { documentStoreToken, type DocumentStore } from "../../apps/server/src/ragents/document-store.ts";
 import type { PluginModule } from "../../apps/server/src/plugin-support/plugin-module.ts";
-import { resolveRootDirectory, type LanguageServerAdapter } from "../../packages/workspace-executor/src/index.ts";
+import type { LanguageServerDescription, WorkspaceExecutorContribution } from "../../packages/workspace-executor/src/index.ts";
 import { createLanguageServerPlugin } from "../../apps/server/src/plugin-support/language-server/plugin.ts";
-import { createRequire } from "node:module";
 import { pathToFileURL } from "node:url";
 import path from "node:path";
 declare const host: PluginRegistration;

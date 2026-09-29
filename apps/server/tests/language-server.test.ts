@@ -13,7 +13,6 @@ import {
   createSandboxTools,
   diagnosticEntries,
   formatDiagnostics,
-  solutionProjects,
   withAnnotation,
   workspaceProcessContext,
   type LanguageServerSnapshot,
@@ -22,6 +21,7 @@ import {
   JsonRpcConnection,
   JsonRpcError,
 } from "@ragents/workspace-executor/src/language-server/json-rpc.ts";
+import { solutionProjects } from "../../../plugins/ragents.lsp-fsharp/executor.ts";
 import { createLanguageServerSnapshotMethod, createLanguageServerSolutionMethods } from "../src/plugin-support/language-server/snapshot-method.ts";
 import type { SandboxServices } from "../src/plugin-support/workspace-sandbox-host.ts";
 import { createAccessContext, type MethodConnection, type MethodContext } from "@ragents/engine";

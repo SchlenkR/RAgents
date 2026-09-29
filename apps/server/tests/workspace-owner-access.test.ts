@@ -72,7 +72,7 @@ const { composeProfile } = await import("../src/profile/compose.ts");
 const composed = async (): Promise<PluginHost> => {
   const loaded = await loadPlugins(showcaseFixture.plugins);
   const host = composeProfile(
-    { product: showcaseFixture.product, pluginIds: showcaseFixture.plugins, modules: loaded.modules, web: loaded.web },
+    { product: showcaseFixture.product, pluginIds: showcaseFixture.plugins, modules: loaded.modules, web: loaded.web, executor: loaded.executor },
     {
       ensureSession: () => {},
       ensureWorkspaceAccess: (access, runId) => assertRunWorkspaceAccess(access, runId, policy),

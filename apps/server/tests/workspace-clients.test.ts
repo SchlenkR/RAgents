@@ -4,7 +4,7 @@ import { mkdir, mkdtemp, realpath, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import test, { type TestContext } from "node:test";
-import { createAccessContext, DomainError, MethodContributionRegistry, RpcError, StartOptionContributionRegistry, type MethodConnection, type PluginHost } from "@ragents/engine";
+import { createAccessContext, DomainError, MethodContributionRegistry, RPC_ERROR_CODES, RpcError, StartOptionContributionRegistry, type MethodConnection, type PluginHost } from "@ragents/engine";
 import { RUN_MARKER_ENV, WORKSPACE_EXECUTOR_VERSION } from "@ragents/workspace-executor";
 import { RpcClient } from "../../web/src/rpc/client.ts";
 import { WORKSPACE_BINDING_OPTION_ID, workspaceClientContracts, workspaceContracts } from "../../../plugins/ragents.workspace/contract.ts";
@@ -19,7 +19,7 @@ import { coreSources, dispatchMethod, startRpcServer } from "./rpc-fixture.ts";
 const CLIENT = "client-00000001";
 
 const description = (folders: string[] = ["/home/beispiel/project"]) =>
-  ({ label: "Laptop", hostname: "laptop", platform: "darwin", folders, runsDirectory: "/home/beispiel/.local/share/ragents/workspace/runs" });
+  ({ label: "Laptop", hostname: "laptop", platform: "darwin", folders, runsDirectory: "/home/beispiel/.local/share/ragents/workspace/runs", ripgrep: true });
 
 const onServer = (folder: "fresh" | { path: string }) => ({ machine: "server", folder });
 
@@ -57,15 +57,15 @@ const stubConnection = (userId: string | null = "alice", streamless = false): St
 };
 
 const registryWith = async () => {
-  const registry = new WorkspaceClientRegistry();
+  const registry = new WorkspaceClientRegistry([]);
   const connection = stubConnection();
-  await registry.register(CLIENT, description(), WORKSPACE_EXECUTOR_VERSION, connection);
+  await registry.register(CLIENT, description(), WORKSPACE_EXECUTOR_VERSION, [], connection);
   return { registry, connection };
 };
 
 /** Server mit den Arbeitsplatz-Methoden und ein Client, der die Rückrufe beantwortet. */
 const fixture = async (t: TestContext) => {
-  const registry = new WorkspaceClientRegistry();
+  const registry = new WorkspaceClientRegistry([]);
   const { url } = await startRpcServer(t, { methods: clientMethods(registry) });
   const client = new RpcClient({ baseUrl: url, retryDelayMs: 50 });
   t.after(() => client.close());
@@ -73,13 +73,13 @@ const fixture = async (t: TestContext) => {
 };
 
 test("registration binds the calling connection, checks the executor and its end removes the workstation", async () => {
-  const registry = new WorkspaceClientRegistry();
+  const registry = new WorkspaceClientRegistry([]);
   const connection = stubConnection();
-  const info = await registry.register(CLIENT, description(), WORKSPACE_EXECUTOR_VERSION, connection);
+  const info = await registry.register(CLIENT, description(), WORKSPACE_EXECUTOR_VERSION, [], connection);
   assert.deepEqual(info, { ...description(), id: CLIENT });
-  await assert.rejects(registry.register("client-00000004", description(), "abweichend", stubConnection()), (error: unknown) =>
+  await assert.rejects(registry.register("client-00000004", description(), "abweichend", [], stubConnection()), (error: unknown) =>
     error instanceof DomainError && error.code === "workspace-executor-version" && error.status === 409);
-  await assert.rejects(registry.register("client-00000003", description(), WORKSPACE_EXECUTOR_VERSION, stubConnection("alice", true)), (error: unknown) =>
+  await assert.rejects(registry.register("client-00000003", description(), WORKSPACE_EXECUTOR_VERSION, [], stubConnection("alice", true)), (error: unknown) =>
     error instanceof DomainError && error.code === "stream-required" && error.status === 409);
 
   assert.deepEqual(registry.list("alice").map((entry) => entry.id), [CLIENT]);
@@ -87,7 +87,7 @@ test("registration binds the calling connection, checks the executor and its end
   assert.equal(registry.info("alice", CLIENT), undefined);
 
   const renewed = stubConnection();
-  await registry.register(CLIENT, description(), WORKSPACE_EXECUTOR_VERSION, renewed);
+  await registry.register(CLIENT, description(), WORKSPACE_EXECUTOR_VERSION, [], renewed);
   connection.end();
   assert.equal(registry.info("alice", CLIENT)?.id, CLIENT);
 
@@ -99,27 +99,27 @@ test("registration binds the calling connection, checks the executor and its end
 });
 
 test("the same id under two users gives two workstations that never touch each other", async () => {
-  const registry = new WorkspaceClientRegistry();
+  const registry = new WorkspaceClientRegistry([]);
   const alices = stubConnection("alice");
   const bobs = stubConnection("bob");
-  await registry.register(CLIENT, description(["/home/alice/project"]), WORKSPACE_EXECUTOR_VERSION, alices);
-  await registry.register(CLIENT, description(["/home/bob/project"]), WORKSPACE_EXECUTOR_VERSION, bobs);
+  await registry.register(CLIENT, description(["/home/alice/project"]), WORKSPACE_EXECUTOR_VERSION, [], alices);
+  await registry.register(CLIENT, description(["/home/bob/project"]), WORKSPACE_EXECUTOR_VERSION, [], bobs);
   assert.deepEqual(registry.info("alice", CLIENT)?.folders, ["/home/alice/project"]);
   assert.deepEqual(registry.info("bob", CLIENT)?.folders, ["/home/bob/project"]);
   assert.equal(registry.info(null, CLIENT), undefined, "ohne Benutzer gibt es diesen Arbeitsplatz nicht");
 
   registry.unregister("bob", CLIENT, bobs);
   assert.deepEqual(registry.info("alice", CLIENT)?.folders, ["/home/alice/project"], "die Abmeldung eines anderen trifft ihn nicht");
-  await registry.register(CLIENT, description(["/home/bob/project"]), WORKSPACE_EXECUTOR_VERSION, bobs);
+  await registry.register(CLIENT, description(["/home/bob/project"]), WORKSPACE_EXECUTOR_VERSION, [], bobs);
   alices.end();
   assert.equal(registry.info("alice", CLIENT), undefined);
   assert.deepEqual(registry.info("bob", CLIENT)?.folders, ["/home/bob/project"], "die Trennung eines anderen trifft ihn nicht");
 });
 
 test("a user lists only the workstations he registered himself", async () => {
-  const registry = new WorkspaceClientRegistry();
-  await registry.register(CLIENT, description(["/home/alice/project"]), WORKSPACE_EXECUTOR_VERSION, stubConnection("alice"));
-  await registry.register("client-00000002", description(["/home/bob/project"]), WORKSPACE_EXECUTOR_VERSION, stubConnection("bob"));
+  const registry = new WorkspaceClientRegistry([]);
+  await registry.register(CLIENT, description(["/home/alice/project"]), WORKSPACE_EXECUTOR_VERSION, [], stubConnection("alice"));
+  await registry.register("client-00000002", description(["/home/bob/project"]), WORKSPACE_EXECUTOR_VERSION, [], stubConnection("bob"));
   const methods = new MethodContributionRegistry();
   methods.register("ragents.workspace", clientMethods(registry));
   const listed = async (userId: string) => {
@@ -147,7 +147,7 @@ test("the server runs the executor of the registered workstation over its connec
   await until(() => client.status.kind === "connected");
 
   const registered = await client.call(workspaceContracts.clients.register, {
-    id: CLIENT, ...description(), executor: WORKSPACE_EXECUTOR_VERSION,
+    id: CLIENT, ...description(), executor: WORKSPACE_EXECUTOR_VERSION, contributions: [],
   });
   assert.deepEqual(registered, { ...description(), id: CLIENT });
   assert.deepEqual(await client.call(workspaceContracts.clients.list, {}), [registered]);
@@ -194,8 +194,29 @@ test("the server runs the executor of the registered workstation over its connec
 test("a registration without an event stream is refused", async (t) => {
   const { client } = await fixture(t);
   await assert.rejects(client.call(workspaceContracts.clients.register, {
-    id: CLIENT, ...description(), executor: WORKSPACE_EXECUTOR_VERSION,
+    id: CLIENT, ...description(), executor: WORKSPACE_EXECUTOR_VERSION, contributions: [],
   }), (error: unknown) => error instanceof RpcError && error.domainCode === "stream-required" && error.status === 409);
+});
+
+test("an older or newer workstation learns both executor versions and what to update, not which of its fields the server does not know", async (t) => {
+  const { client } = await fixture(t);
+  t.after(client.handle(workspaceClientContracts.execute, async () => ({ value: null })));
+  await until(() => client.status.kind === "connected");
+  const { ripgrep: _ripgrep, ...olderDescription } = description();
+  const versionRefusal = (message: string) => (error: unknown) =>
+    error instanceof RpcError && error.domainCode === "workspace-executor-version" && error.status === 409 && error.message === message;
+  await assert.rejects(client.call(workspaceContracts.clients.register, { id: CLIENT, ...olderDescription, executor: "5" }), versionRefusal(
+    `Der Arbeitsplatz Laptop bringt den Executor 5 mit, der Server verlangt ${WORKSPACE_EXECUTOR_VERSION}. `
+      + "Die RAgents-Erweiterung in VS Code beziehungsweise das Paket @schlenkr/ragents auf dem Arbeitsplatz aktualisieren."));
+  const newerExecutor = String(Number(WORKSPACE_EXECUTOR_VERSION) + 1);
+  const newer = { id: CLIENT, ...description(), shell: "zsh", executor: newerExecutor };
+  await assert.rejects(client.call(workspaceContracts.clients.register, newer), versionRefusal(
+    `Der Arbeitsplatz Laptop bringt den Executor ${newerExecutor} mit, der Server verlangt ${WORKSPACE_EXECUTOR_VERSION}. `
+      + "Den Server auf die Fassung des Arbeitsplatzes aktualisieren."));
+  await assert.rejects(client.call(workspaceContracts.clients.register, { id: CLIENT, ...olderDescription, executor: WORKSPACE_EXECUTOR_VERSION, contributions: [] }), (error: unknown) =>
+    error instanceof RpcError && error.code === RPC_ERROR_CODES.invalidParams
+    && error.message === "Ungültige Eingabe für ragents.workspace.clients.register: params is missing required field ripgrep");
+  assert.deepEqual(await client.call(workspaceContracts.clients.list, {}), []);
 });
 
 test("the start option accepts only bindings that can be resolved later, on both machines and with both folders", async () => {
@@ -243,9 +264,9 @@ test("the start option accepts only bindings that can be resolved later, on both
 });
 
 test("a new folder per run on a workstation sits under its runs folder with the separator of that machine", async () => {
-  const registry = new WorkspaceClientRegistry();
+  const registry = new WorkspaceClientRegistry([]);
   await registry.register(CLIENT, { ...description(["C:\\projekte\\werkstatt"]), platform: "win32", runsDirectory: "C:\\ragents\\runs\\" },
-    WORKSPACE_EXECUTOR_VERSION, stubConnection());
+    WORKSPACE_EXECUTOR_VERSION, [], stubConnection());
   const option = workspaceBindingOption(registry, () => undefined);
   assert.deepEqual(option.accept(onLaptop("fresh"), { runId: "run-7", userId: "alice" }), {
     machine: { client: CLIENT, label: "Laptop" },
@@ -382,12 +403,36 @@ test("without runs.inspect the user binds folder and workstation but neither see
   assert.deepEqual(chosen.get(modelStartOptionId), { model: "private-model", thinking: "off" });
 });
 
+test("a workstation carries exactly the executor contributions of the server, learns them before it registers and is refused with any other", async (t) => {
+  const roslyn = { plugin: "acme.lsp-demo", stand: "a".repeat(64) };
+  const other = { plugin: "acme.lsp-other", stand: "b".repeat(64) };
+  const registry = new WorkspaceClientRegistry([roslyn, other]);
+  assert.deepEqual((await registry.register(CLIENT, description(), WORKSPACE_EXECUTOR_VERSION, [other, roslyn], stubConnection())).id, CLIENT, "die Reihenfolge zählt nicht");
+  const refusal = (given: string, expected: string) => (error: unknown) =>
+    error instanceof DomainError && error.code === "workspace-executor-contributions" && error.status === 409
+    && error.message.includes(`bringt die Executor-Beiträge ${given} mit, der Server verlangt ${expected}`);
+  await assert.rejects(registry.register("client-00000005", description(), WORKSPACE_EXECUTOR_VERSION, [roslyn], stubConnection()),
+    refusal("acme.lsp-demo (aaaaaaaaaaaa)", "acme.lsp-demo (aaaaaaaaaaaa), acme.lsp-other (bbbbbbbbbbbb)"));
+  await assert.rejects(registry.register("client-00000006", description(), WORKSPACE_EXECUTOR_VERSION, [roslyn, { ...other, stand: "c".repeat(64) }], stubConnection()),
+    refusal("acme.lsp-demo (aaaaaaaaaaaa), acme.lsp-other (cccccccccccc)", "acme.lsp-demo (aaaaaaaaaaaa), acme.lsp-other (bbbbbbbbbbbb)"));
+  await assert.rejects(new WorkspaceClientRegistry([]).register(CLIENT, description(), WORKSPACE_EXECUTOR_VERSION, [roslyn], stubConnection()), refusal("acme.lsp-demo (aaaaaaaaaaaa)", "keine"));
+
+  const { url } = await startRpcServer(t, { methods: clientMethods(registry) });
+  const client = new RpcClient({ baseUrl: url, retryDelayMs: 50 });
+  t.after(() => client.close());
+  assert.deepEqual(await client.call(workspaceContracts.clients.contributions, { label: "Laptop", executor: WORKSPACE_EXECUTOR_VERSION }), [roslyn, other]);
+  const newerExecutor = String(Number(WORKSPACE_EXECUTOR_VERSION) + 1);
+  await assert.rejects(client.call(workspaceContracts.clients.contributions, { label: "Laptop", executor: newerExecutor, shell: "zsh" } as never), (error: unknown) =>
+    error instanceof RpcError && error.domainCode === "workspace-executor-version" && error.status === 409
+    && error.message.includes(`bringt den Executor ${newerExecutor} mit, der Server verlangt ${WORKSPACE_EXECUTOR_VERSION}`));
+});
+
 test("a sign-off removes only the entry its own connection holds", async () => {
-  const registry = new WorkspaceClientRegistry();
+  const registry = new WorkspaceClientRegistry([]);
   const first = stubConnection("alice");
   const second = stubConnection("alice");
-  await registry.register(CLIENT, description(["/home/alice/a"]), WORKSPACE_EXECUTOR_VERSION, first);
-  await registry.register(CLIENT, description(["/home/alice/b"]), WORKSPACE_EXECUTOR_VERSION, second);
+  await registry.register(CLIENT, description(["/home/alice/a"]), WORKSPACE_EXECUTOR_VERSION, [], first);
+  await registry.register(CLIENT, description(["/home/alice/b"]), WORKSPACE_EXECUTOR_VERSION, [], second);
   registry.unregister("alice", CLIENT, first);
   assert.deepEqual(registry.info("alice", CLIENT)?.folders, ["/home/alice/b"], "eine alte Verbindung meldet die neue nicht ab");
   first.end();
@@ -407,7 +452,7 @@ const workstation = async (t: TestContext, url: string, hang: readonly string[] 
   }));
   t.after(() => client.close());
   await until(() => client.status.kind === "connected");
-  await client.call(workspaceContracts.clients.register, { id: CLIENT, ...description(), executor: WORKSPACE_EXECUTOR_VERSION });
+  await client.call(workspaceContracts.clients.register, { id: CLIENT, ...description(), executor: WORKSPACE_EXECUTOR_VERSION, contributions: [] });
   return { client, operations };
 };
 
@@ -452,13 +497,13 @@ test("a new connection of the same workstation takes over: open calls of the old
 });
 
 test("without user sign-in the server accepts a workstation only over a loopback connection", async (t) => {
-  const registry = new WorkspaceClientRegistry();
+  const registry = new WorkspaceClientRegistry([]);
   const remote = await startRpcServer(t, { methods: clientMethods(registry), local: false });
   const client = new RpcClient({ baseUrl: remote.url, retryDelayMs: 50 });
   t.after(client.handle(workspaceClientContracts.execute, () => ({ value: null })));
   t.after(() => client.close());
   await until(() => client.status.kind === "connected");
-  const register = () => client.call(workspaceContracts.clients.register, { id: CLIENT, ...description(), executor: WORKSPACE_EXECUTOR_VERSION });
+  const register = () => client.call(workspaceContracts.clients.register, { id: CLIENT, ...description(), executor: WORKSPACE_EXECUTOR_VERSION, contributions: [] });
   await assert.rejects(register(), (error: unknown) =>
     error instanceof RpcError && error.domainCode === "workspace-client-login-required" && error.status === 403 && /Loopback/.test(error.message));
   assert.deepEqual(registry.list(null), []);
@@ -474,6 +519,6 @@ test("without user sign-in the server accepts a workstation only over a loopback
   t.after(nearby.handle(workspaceClientContracts.execute, () => ({ value: null })));
   t.after(() => nearby.close());
   await until(() => nearby.status.kind === "connected");
-  await nearby.call(workspaceContracts.clients.register, { id: CLIENT, ...description(), executor: WORKSPACE_EXECUTOR_VERSION });
+  await nearby.call(workspaceContracts.clients.register, { id: CLIENT, ...description(), executor: WORKSPACE_EXECUTOR_VERSION, contributions: [] });
   assert.deepEqual(registry.list(null).map((entry) => entry.id), [CLIENT]);
 });

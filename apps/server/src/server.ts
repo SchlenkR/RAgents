@@ -170,6 +170,7 @@ const composition: ProfileComposition = {
   pluginIds: loaded.ids,
   modules: loaded.modules,
   web: loaded.web,
+  executor: loaded.executor,
   ...(defaultStartEntry !== undefined ? { defaultStartEntry } : {}),
 };
 

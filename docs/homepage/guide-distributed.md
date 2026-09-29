@@ -191,9 +191,14 @@ The local host and workspace also run on Windows. Requirements are:
 - **The VS Code extension for Windows** brings its own bash. The Marketplace delivers a
   `win32-x64` or `win32-arm64` build that contains a slim bash with the GNU tools (coreutils,
   `grep`, `sed`, `awk`, `find`, `diff`, `patch`, `tar`, `unzip`, `cygpath` and more), taken from
-  a fixed Git for Windows release. The `bash` tool uses only this bash, for the workspace and for
-  the local host; an installed Git Bash or a `bash.exe` on `PATH` is never used. PowerShell and
-  `cmd.exe` are not used either.
+  a fixed Git for Windows release, plus `rg.exe` (ripgrep) from a fixed ripgrep release. The
+  `bash` tool uses only this bash, for the workspace and for the local host; an installed Git
+  Bash or a `bash.exe` on `PATH` is never used. PowerShell and `cmd.exe` are not used either.
+- **Code search** runs through `rg`, which skips `node_modules`, `bin`, `obj` and everything else
+  `.gitignore` excludes. The extension builds for macOS and Linux carry `rg` as well and put it at
+  the front of the `bash` tool's `PATH`, on the workstation and for the local host. The system
+  prompt tells the model to search with `rg` only when the machine running `bash` has one;
+  otherwise it tells the model to exclude dependency and build folders from `grep -r`.
 - **Git** is your own `git.exe` on `PATH`, for example from Git for Windows. The bundled bash
   contains no git, so your login works as usual: Git Credential Manager, `~/.gitconfig` and
   `~/.ssh`. On your own machine the bash inherits your whole environment, except the variables of
@@ -201,7 +206,10 @@ The local host and workspace also run on Windows. Requirements are:
 - **Without the extension** (`ragents start` or `ragents workspace-client` from the npm package)
   set `RAGENTS_BASH` to the `bash.exe` of such a bundle, for example
   `<extension folder>\dist\bash\win32-x64\usr\bin\bash.exe`. Without it every `bash` call fails
-  and names what is missing.
+  and names what is missing. `RAGENTS_RG` names an `rg` in the same way, for example
+  `<extension folder>\dist\rg\win32-x64\rg.exe`, on every platform; without it, an `rg` on
+  `PATH` is used if there is one. A `RAGENTS_RG` that points to a missing file stops the server
+  start or the workstation's registration.
 - **Node.js** is enough with `@schlenkr/ragents`. A checkout additionally needs **pnpm**, and
   `pnpm install`, `pnpm build:agent`, and `scripts/start.sh` need a bash of your own, such as
   Git Bash.

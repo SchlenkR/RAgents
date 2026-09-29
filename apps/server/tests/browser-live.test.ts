@@ -4,7 +4,8 @@ import { mkdtemp, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import test from "node:test";
-import { WorkspaceOperationExecutor, browserModule, workspaceProcessContext } from "@ragents/workspace-executor";
+import { WorkspaceOperationExecutor, executorMachine, workspaceProcessContext } from "@ragents/workspace-executor";
+import { browserModule } from "../../../plugins/ragents.browser/executor/module.ts";
 import { RunBrowser } from "../../../plugins/ragents.browser/server/browser.ts";
 import { hostRoot } from "../src/host-version.ts";
 
@@ -26,7 +27,7 @@ const serverBrowser = (filesFor: (runId: string) => Promise<string>) => {
     contextFor: async (runId) => workspaceProcessContext({
       runId, cwd: tmpdir(), root: tmpdir(), home: { home: tmpdir() }, logDirectory: tmpdir(), hostRoot: hostRoot(),
     }),
-    modules: [browserModule({ timeoutMs: 2500, checkTimeoutMs: 500 })],
+    modules: [browserModule(executorMachine("/unbenutzt"), { timeoutMs: 2500, checkTimeoutMs: 500 })],
   });
   return { browser: new RunBrowser({ sandbox: executor, filesFor }), executor };
 };

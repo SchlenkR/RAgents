@@ -74,6 +74,8 @@ const contracts: Contract[] = [
   { id: "gitView", file: "apps/server/src/ragents/workspace-runtime.ts", name: "GitWorkspaceView" },
   { id: "driver", file: "packages/ragents/src/drivers/types.ts", name: "AgentDriver" },
   { id: "lsp", file: "packages/workspace-executor/src/language-server/host.ts", name: "LanguageServerAdapter" },
+  { id: "executorParts", file: "packages/workspace-executor/src/contributions.ts", name: "WorkspaceExecutorParts" },
+  { id: "executorMachine", file: "packages/workspace-executor/src/contributions.ts", name: "WorkspaceExecutorMachine" },
 ];
 
 const entry = (id: string, category: string, title: string, description: string, environment: string,
@@ -785,31 +787,36 @@ const testDriver: AgentDriver<"agent"> = {
     "request liefert unter anderem die zugestellte Eingabe, Prompt, Modellwahl, Werkzeugliste, invoke und recordContext; ein Modellschritt im Modellkontext ist zugleich die sichtbare Antwort. Der Rückgabewert enthält failure und usage.",
     "Es gibt keine host.drivers-Registry. Die derzeitige DriverRegistry kennt die festen Arten agent und script; eine neue Art verlangt eine bewusste Engine-Integration. profiles allein erweitert diese Grenze nicht.",
   ]),
-  entry("language-server", "Produkt- und Laufzeitverträge", "Einen Language Server anbinden", "Ein Language Server analysiert Quellcode und liefert Sprachfunktionen wie Fehlermeldungen und Symbolsuche. Ein Adapter beschreibt, wie RAgents das passende Projekt erkennt und den Server startet. Die vorhandene Einbindung macht diese Funktionen als Werkzeuge und Serverzugriffe verfügbar.", "Server-Einstieg für einen einfachen TypeScript-LSP. Node-Helfer und die neutralen language-server-Hosttypen werden importiert.", `
-const require = createRequire(import.meta.url);
+  entry("language-server", "Produkt- und Laufzeitverträge", "Einen Language Server anbinden", "Ein Language Server analysiert Quellcode und liefert Sprachfunktionen wie Fehlermeldungen und Symbolsuche. Ein Adapter beschreibt, wie RAgents das passende Projekt erkennt und den Server startet. Das Plugin bringt ihn als Beitrag zum Executor mit, der auf jeder Maschine läuft, auf der ein Arbeitsbereich liegt; die vorhandene Einbindung macht seine Funktionen als Werkzeuge und Serverzugriffe verfügbar.", "executor.ts und server/index.ts eines einfachen TypeScript-LSP, hier in einer Datei. Vom Host importiert der Beitrag nur Typen.", `
 const languages = { ".ts": "typescript" };
-const adapter: LanguageServerAdapter = {
-  id: "example", label: "TypeScript", languages,
-  rootDescription: "Projektverzeichnis",
-  resolveRoot: resolveRootDirectory,
+export const exampleLanguageServer: LanguageServerDescription = {
+  id: "example", label: "TypeScript", languages, rootDescription: "Projektverzeichnis",
+};
+export const executor: WorkspaceExecutorContribution = (machine) => ({ languageServers: [{
+  ...exampleLanguageServer,
+  resolveRoot: machine.resolveRootDirectory,
   rootDirectory: (root) => root,
   launch: async (context, root) => ({
     label: "TypeScript", command: process.execPath,
-    args: [require.resolve("typescript-language-server/lib/cli.mjs"), "--stdio"],
+    args: [machine.hostPackageFile(context.hostRoot, "typescript-language-server/lib/cli.mjs"), "--stdio"],
     cwd: root, env: context.env, uid: context.uid, gid: context.gid,
     rootUri: pathToFileURL(root).href, languages,
-    initializationOptions: { tsserver: { path: path.dirname(require.resolve("typescript")) } },
+    initializationOptions: { tsserver: { path: path.dirname(machine.hostPackageFile(context.hostRoot, "typescript")) } },
   }),
   open: async () => "TypeScript-Server bereit.",
-};
+}] });
 export const plugin: PluginModule = {
   requires: ["ragents.workspace"],
-  create: () => createLanguageServerPlugin({ id: "ragents.lsp-example", adapter }),
-};`, ["lsp.id", "lsp.label", "lsp.languages", "lsp.rootDescription", "lsp.solutionExtensions", "lsp.resolveRoot", "lsp.rootDirectory", "lsp.launch", "lsp.open"], [
+  create: () => createLanguageServerPlugin({ id: "ragents.lsp-example", languageServer: exampleLanguageServer }),
+};`, ["lsp.id", "lsp.label", "lsp.languages", "lsp.rootDescription", "lsp.solutionExtensions", "lsp.resolveRoot", "lsp.rootDirectory", "lsp.launch", "lsp.open",
+    "executorParts.languageServers", "executorParts.modules", "executorMachine.toolsDirectory", "executorMachine.hostPackageFile", "executorMachine.resolveRootFile",
+    "executorMachine.resolveRootDirectory", "executorMachine.operationError", "executorMachine.processEnvironment"], [
     "languages ordnet Dateiendungen Sprachkennungen zu. resolveRoot prüft das Projektziel, rootDirectory nennt den Ordner, dem eine Datei dieses Ziels zugeordnet wird (das Projektverzeichnis selbst bei TypeScript, der Ordner der Projektdatei bei Roslyn und FSAC), launch liefert den Prozessstartvertrag für den Sandbox-Kontext und open ergänzt bei Bedarf serverspezifische Öffnungsschritte.",
     "solutionExtensions ist optional und nennt die Endungen der Solutions, etwa .sln und .slnx; damit bekommt das Plugin das Werkzeug <id>_solutions, die Solution-Liste und das Umschalten im Reiter. Ein Verzeichnis-Adapter wie dieser lässt es weg.",
-    "Die nötigen Serverprogramme werden als Pluginabhängigkeit installiert. Ein fehlendes Programm wird als Fehler gemeldet; es wird kein Ersatzprozess still gestartet.",
-    "Benötigte Imports: createRequire aus node:module, path aus node:path, pathToFileURL aus node:url und die neutralen Helfer LanguageServerAdapter, resolveRootDirectory, createLanguageServerPlugin sowie PluginModule. Die LSP-Initialisierung übernimmt der Host; open ergänzt danach nur serverspezifische Schritte.",
+    "executor ist eine Funktion der Maschine und liefert languageServers und modules; modules sind weitere Module mit eigenen Operationen, etwa der Browser von ragents.browser. Die Maschine gibt den Werkzeugordner des Plugins (toolsDirectory), Dateien aus den Paketen des Hosts (hostPackageFile), die geprüfte Wurzelauflösung (resolveRootFile, resolveRootDirectory), fachliche Fehler (operationError) und die Umgebung eigener Prozesse (processEnvironment).",
+    "Das Bauwerkzeug macht aus executor.ts eine in sich geschlossene Datei executor/index.mjs; ein Import eines Host-Moduls oder eines anderen Plugins ist dort ein Baufehler. Server und Arbeitsplätze laden dieselbe Datei, ein Arbeitsplatz aus den Bundles seines eigenen Hosts. Die Server-Hälfte importiert die Beschreibung relativ aus executor.ts.",
+    "Die nötigen Serverprogramme kommen über die Provisionierung des Plugins oder aus den Paketen des Hosts. Ein fehlendes Programm wird als Fehler gemeldet; es wird kein Ersatzprozess still gestartet.",
+    "Benötigte Imports: path aus node:path, pathToFileURL aus node:url, die Typen LanguageServerDescription und WorkspaceExecutorContribution aus @ragents/workspace-executor, in der Server-Hälfte createLanguageServerPlugin sowie PluginModule. Die LSP-Initialisierung übernimmt der Host; open ergänzt danach nur serverspezifische Schritte.",
   ]),
 ];
 

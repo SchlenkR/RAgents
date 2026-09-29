@@ -1,19 +1,23 @@
 import assert from "node:assert/strict";
-import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { chmod, mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import test from "node:test";
 import {
+  EXECUTOR_CONTRIBUTION_FILE,
   RUN_MARKER_ENV,
   languageServerOpenOperation,
   languageServerSnapshotOperation,
-  typescriptAdapter,
+  loadExecutorContribution,
+  ripgrepAvailable,
+  type ExecutorContributionStand,
   type LanguageServerSnapshot,
 } from "@ragents/workspace-executor";
 import { runContracts } from "../../../packages/ragents/src/http/contracts";
 import { coreContracts } from "../../server/src/api/contracts";
 import { workspaceClientContracts } from "../../../plugins/ragents.workspace/contract";
 import { WorkspaceClient } from "../../../plugins/ragents.workspace/client/workspace-client";
+import { typescriptLanguageServer } from "../../../plugins/ragents.lsp-typescript/executor";
 import { ServerClient } from "../src/server-client";
 import { startStubServer, waitFor, type StubServer } from "./fixtures";
 
@@ -28,7 +32,7 @@ const textOf = (value: unknown): string =>
     .map((part) => part.text)
     .join("\n");
 
-const started = async (server: StubServer) => {
+const started = async (server: StubServer, rg?: string) => {
   const client = new ServerClient(server.url, undefined);
   const directory = await folder();
   const runs = await folder();
@@ -39,7 +43,7 @@ const started = async (server: StubServer) => {
     platform: process.platform,
     folders: [directory],
     runsDirectory: runs,
-  }, { hostRoot: () => undefined });
+  }, { hostRoot: () => undefined, rg });
   await workspace.register();
   assert.deepEqual(workspace.status, { kind: "registered" });
   const connection = server.workspaceConnection(CLIENT_ID);
@@ -71,6 +75,7 @@ test("der Arbeitsplatz meldet sich an und führt die Werkzeuge in seinem Ordner 
   try {
     assert.deepEqual(server.workspaceClients().get(CLIENT_ID), {
       label: "Notebook", hostname: "notebook.local", platform: process.platform, folders: [directory], runsDirectory: runs,
+      ripgrep: ripgrepAvailable(undefined, process.env),
     });
     await writeFile(join(directory, "notiz.md"), "Grüße\n", "utf8");
     assert.match(textOf((await execute("read", { path: "notiz.md" })).value), /Grüße/);
@@ -126,6 +131,46 @@ test("die Bash des Arbeitsplatzes erbt die Umgebung dieses Rechners, ohne VS-Cod
   }
 });
 
+test("mit mitgebrachtem rg meldet der Arbeitsplatz rg an und seine Bash findet genau dieses zuerst", async () => {
+  const tools = await folder();
+  const rg = join(tools, "rg", process.platform === "win32" ? "rg.exe" : "rg");
+  await mkdir(join(tools, "rg"), { recursive: true });
+  await writeFile(rg, "#!/bin/sh\necho rg-mitgebracht\n", "utf8");
+  await chmod(rg, 0o755);
+  const server = await startStubServer();
+  const { client, directory, runs, execute } = await started(server, rg);
+  try {
+    assert.equal(server.workspaceClients().get(CLIENT_ID)?.ripgrep, true);
+    const output = textOf((await execute("bash", { command: "command -v rg; rg --version" })).value);
+    assert.deepEqual(output.trim().split("\n"), [rg, "rg-mitgebracht"]);
+  } finally {
+    client.rpc.close();
+    await rm(directory, { recursive: true, force: true });
+    await rm(runs, { recursive: true, force: true });
+    await rm(tools, { recursive: true, force: true });
+    await server.close();
+  }
+});
+
+test("ein genanntes rg, das fehlt, lässt die Anmeldung mit Ursache scheitern", async () => {
+  const server = await startStubServer();
+  const client = new ServerClient(server.url, undefined);
+  const missing = join(tmpdir(), "ragents-kein-rg", "rg");
+  const workspace = new WorkspaceClient(client, {
+    id: CLIENT_ID, label: "Notebook", hostname: "notebook.local", platform: process.platform, folders: [tmpdir()], runsDirectory: join(tmpdir(), "ragents-runs"),
+  }, { hostRoot: () => undefined, rg: missing });
+  try {
+    await workspace.register();
+    assert.equal(workspace.status.kind, "failed");
+    assert.match(workspace.status.kind === "failed" ? workspace.status.message : "", /Das rg dieses Executors fehlt: .*ragents-kein-rg/);
+    assert.equal(server.workspaceClients().has(CLIENT_ID), false);
+  } finally {
+    await workspace.unregister();
+    client.rpc.close();
+    await server.close();
+  }
+});
+
 test("der neue Ordner eines Runs entsteht im Ordner für Runs des Arbeitsplatzes, und nur dieser eine ist neben den angebotenen erlaubt", async () => {
   const server = await startStubServer();
   const { client, directory, runs, call } = await started(server);
@@ -170,7 +215,7 @@ test("bash liefert Ausgabe als Fortschritt, Exit-Code, Teilergebnis bei Abbruch 
     controller.abort();
     assert.match(textOf((await pending).value), /gestartet/);
 
-    await assert.rejects(execute("bash", { command: "sleep 30", timeout: 1 }), /timed out after 1 seconds/);
+    await assert.rejects(execute("bash", { command: "sleep 30", timeout: 1 }), /Command stopped after 1 seconds \(timeout\)/);
   } finally {
     client.rpc.close();
     await rm(directory, { recursive: true, force: true });
@@ -196,13 +241,21 @@ test("ein Stopp über dieselbe Verbindung läuft durch, während ein Auftrag des
   }
 });
 
+const HOST_ROOT = resolve(import.meta.dirname, "../../..");
+
+/** Der TypeScript-Beitrag aus den gebauten Bundles dieses Checkouts, so wie ein Server ihn verlangt. */
+const typescriptContribution = async (): Promise<ExecutorContributionStand> => {
+  const { plugin, stand } = await loadExecutorContribution("ragents.lsp-typescript", join(HOST_ROOT, "bundles", "ragents.lsp-typescript", EXECUTOR_CONTRIBUTION_FILE));
+  return { plugin, stand };
+};
+
 /** Ein Arbeitsplatz mit dem TypeScript-Sprachserver aus dem Host dieses Checkouts; der Sprachserver-Host hält Zustand über Aufrufe hinweg. */
 const withLanguageServer = async (server: StubServer) => {
   const client = new ServerClient(server.url, undefined);
   const directory = await folder();
   const workspace = new WorkspaceClient(client, {
     id: CLIENT_ID, label: "Notebook", hostname: "notebook.local", platform: process.platform, folders: [directory], runsDirectory: join(directory, "..", "runs"),
-  }, { hostRoot: () => resolve(import.meta.dirname, "../../..") });
+  }, { hostRoot: () => HOST_ROOT });
   const execute = (operation: string, input: unknown) => {
     const connection = server.workspaceConnection(CLIENT_ID);
     assert.ok(connection, "der Arbeitsplatz ist beim Server angemeldet");
@@ -212,8 +265,8 @@ const withLanguageServer = async (server: StubServer) => {
     client,
     directory,
     workspace,
-    open: async () => (await execute(languageServerOpenOperation(typescriptAdapter.id), { root: "." })).value as string,
-    states: async () => ((await execute(languageServerSnapshotOperation(typescriptAdapter.id), null)).value as LanguageServerSnapshot)
+    open: async () => (await execute(languageServerOpenOperation(typescriptLanguageServer.id), { root: "." })).value as string,
+    states: async () => ((await execute(languageServerSnapshotOperation(typescriptLanguageServer.id), null)).value as LanguageServerSnapshot)
       .instances.map((instance) => instance.state),
     close: async () => {
       await workspace.unregister();
@@ -225,7 +278,7 @@ const withLanguageServer = async (server: StubServer) => {
 };
 
 test("nach leeren Ordnern und erneutem Angebot öffnet der Arbeitsplatz wieder Sprachserver", { timeout: 120_000 }, async () => {
-  const server = await startStubServer();
+  const server = await startStubServer({ contributions: [await typescriptContribution()] });
   const { directory, workspace, open, states, close } = await withLanguageServer(server);
   try {
     await workspace.register();
@@ -247,7 +300,7 @@ test("nach leeren Ordnern und erneutem Angebot öffnet der Arbeitsplatz wieder S
 });
 
 test("eine Abmeldung, die beim erneuten Angebot noch läuft, entfernt die neue Anmeldung beim Server nicht",{ timeout: 120_000 }, async () => {
-  const server = await startStubServer();
+  const server = await startStubServer({ contributions: [await typescriptContribution()] });
   const { client, directory, workspace, open, close } = await withLanguageServer(server);
   const unsubscribe = client.rpc.subscribe(coreContracts.channels.runs, {}, () => undefined);
   try {
@@ -264,6 +317,47 @@ test("eine Abmeldung, die beim erneuten Angebot noch läuft, entfernt die neue A
   } finally {
     unsubscribe();
     await close();
+  }
+});
+
+test("ohne verlangte Beiträge kennt der Executor des Arbeitsplatzes keinen Sprachserver", async () => {
+  const server = await startStubServer();
+  const { client, execute, workspace, directory, runs } = await started(server);
+  try {
+    await assert.rejects(execute(languageServerSnapshotOperation(typescriptLanguageServer.id), null), /Der Executor kennt die Operation typescript_snapshot nicht/);
+    await workspace.unregister();
+  } finally {
+    client.rpc.close();
+    await rm(directory, { recursive: true, force: true });
+    await rm(runs, { recursive: true, force: true });
+    await server.close();
+  }
+});
+
+test("ein fehlendes Bundle, ein anderer Stand oder ein fehlender Host lassen die Anmeldung mit Ursache scheitern", async () => {
+  const cases: Array<{ contributions: ExecutorContributionStand[]; hostRoot: string | undefined; expected: RegExp }> = [
+    { contributions: [{ plugin: "acme.fehlt", stand: "0".repeat(64) }], hostRoot: HOST_ROOT, expected: /Der Executor-Beitrag von acme\.fehlt fehlt unter .*acme\.fehlt[/\\]executor[/\\]index\.mjs.*muss dieselben Bundles tragen wie der Server/ },
+    { contributions: [{ plugin: "ragents.lsp-typescript", stand: "0".repeat(64) }], hostRoot: HOST_ROOT, expected: /hat den Stand [0-9a-f]{12}, verlangt ist 000000000000\. Der Host dieses Arbeitsplatzes/ },
+    { contributions: [await typescriptContribution()], hostRoot: undefined, expected: /Der Server verlangt die Executor-Beiträge von ragents\.lsp-typescript; dieser Arbeitsplatz kennt keinen Host/ },
+  ];
+  for (const { contributions, hostRoot, expected } of cases) {
+    const server = await startStubServer({ contributions });
+    const client = new ServerClient(server.url, undefined);
+    const directory = await folder();
+    try {
+      const workspace = new WorkspaceClient(client, {
+        id: CLIENT_ID, label: "Notebook", hostname: "notebook.local", platform: process.platform, folders: [directory], runsDirectory: join(directory, "..", "runs"),
+      }, { hostRoot: () => hostRoot });
+      await workspace.register();
+      assert.equal(workspace.status.kind, "failed");
+      assert.match((workspace.status as { message: string }).message, expected);
+      assert.equal(server.workspaceClients().has(CLIENT_ID), false, "der Server sieht keine Anmeldung");
+      await workspace.unregister();
+    } finally {
+      client.rpc.close();
+      await rm(directory, { recursive: true, force: true });
+      await server.close();
+    }
   }
 });
 

@@ -2,6 +2,7 @@ import { statSync } from "node:fs";
 import path from "node:path";
 import { Type } from "typebox";
 import { DomainError, type JsonValue, type RunState, type StartOptionContribution } from "@ragents/engine";
+import type { ShellTools } from "@ragents/workspace-executor";
 import { shellPlatformChapter } from "./shell-platform.js";
 import { storedStartOption } from "@ragents/host/ragents/start-option-state.js";
 import type { WorkspaceResolver } from "@ragents/host/ragents/workspace-runtime.js";
@@ -87,13 +88,18 @@ export const serverDirectoryFolder = (directory: string): ExistingWorkspaceFolde
   return { path: resolved };
 };
 
-/** Die Bash eines Runs läuft auf dem Executor seiner Bindung; der Prompt nennt deshalb dessen Plattform, nicht die des Servers. */
-export const executorShellChapter = (registry: WorkspaceClientRegistry, owner: string | null, binding: WorkspaceBinding): string => {
+/** Die Bash eines Runs läuft auf dem Executor seiner Bindung; der Prompt nennt deshalb dessen Plattform und Werkzeuge, nicht die des Servers. */
+export const executorShellChapter = (
+  registry: WorkspaceClientRegistry,
+  owner: string | null,
+  binding: WorkspaceBinding,
+  serverTools: ShellTools,
+): string => {
   const { machine } = binding;
-  if (machine === "server") return shellPlatformChapter(process.platform);
+  if (machine === "server") return shellPlatformChapter(process.platform, serverTools);
   const client = registry.info(owner, machine.client);
   return client
-    ? shellPlatformChapter(client.platform as NodeJS.Platform)
+    ? shellPlatformChapter(client.platform as NodeJS.Platform, { ripgrep: client.ripgrep })
     : `## Shell platform\n\nThe workstation ${machine.label} that holds this project is not registered right now, `
       + "so the platform of its shell is unknown; the workspace tools fail until it connects again.";
 };

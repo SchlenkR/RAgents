@@ -264,7 +264,7 @@
     "build": "pnpm --filter @ragents/web build:panel && node esbuild.mjs",
     "watch": "node esbuild.mjs --watch",
     "typecheck": "tsc --noEmit",
-    "test": "node --import tsx --test tests/*.test.ts",
+    "test": "pnpm --dir ../.. build:plugins && node --import tsx --test tests/*.test.ts",
     "test:host": "node tests/host/launch.mjs"
   },
   "devDependencies": {

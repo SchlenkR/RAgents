@@ -549,7 +549,7 @@ const payloadOf = (type: EventType, value: unknown, path: string) => {
                 "model",
                 "readFiles",
                 "modifiedFiles",
-            ]);
+            ], ["threshold"]);
             stringOf(payload.turnId, `${path}.turnId`);
             nonEmptyStringOf(payload.summary, `${path}.summary`);
             nonEmptyStringOf(payload.firstKeptEventId, `${path}.firstKeptEventId`);
@@ -558,6 +558,15 @@ const payloadOf = (type: EventType, value: unknown, path: string) => {
             nonEmptyStringOf(payload.model, `${path}.model`);
             stringArrayOf(payload.readFiles, `${path}.readFiles`);
             stringArrayOf(payload.modifiedFiles, `${path}.modifiedFiles`);
+
+            if (Object.hasOwn(payload, "threshold")) {
+                const threshold = exactObject(payload.threshold, `${path}.threshold`, ["tokens", "source"]);
+                if (!Number.isSafeInteger(threshold.tokens))
+                    fail(`${path}.threshold.tokens`, "must be a safe integer");
+                if (threshold.source !== "model" && threshold.source !== "catalog")
+                    fail(`${path}.threshold.source`, "must be model or catalog");
+            }
+
             return;
         }
 

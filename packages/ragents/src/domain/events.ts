@@ -152,6 +152,8 @@ export type EventPayloads = {
         model: string;
         readFiles: string[];
         modifiedFiles: string[];
+        /** The compaction threshold of the model and whether it is the model's own or the catalog standard; absent before file format 9. */
+        threshold?: { tokens: number; source: "model" | "catalog" };
     };
     "model.output.completed": {
         turnId: TurnId;

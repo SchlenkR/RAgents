@@ -1,6 +1,5 @@
 import type { Browser } from "playwright-core";
-import { WorkspaceOperationError } from "../errors.js";
-import type { WorkspaceModuleFactory } from "../module.js";
+import type { WorkspaceExecutorMachine, WorkspaceModuleFactory } from "@ragents/workspace-executor";
 import { BROWSER_OPERATIONS, type BrowserCheck, type BrowserTarget, type BrowserViewport } from "./contract.js";
 import { BrowserPages } from "./pages.js";
 import { launchChromium } from "./playwright.js";
@@ -14,38 +13,33 @@ export interface BrowserModuleOptions {
   checkTimeoutMs?: number;
 }
 
-const invalid = (message: string): WorkspaceOperationError => new WorkspaceOperationError("browser-input-invalid", message, 400);
-
-const fieldsOf = (input: unknown): Readonly<Record<string, unknown>> => {
-  if (typeof input !== "object" || input === null || Array.isArray(input)) throw invalid("Die Eingabe einer Browseroperation ist ein Objekt");
-  return input as Readonly<Record<string, unknown>>;
-};
-
-const textOf = (input: unknown, key: string): string => {
-  const value = fieldsOf(input)[key];
-  if (typeof value !== "string") throw invalid(`Die Browseroperation braucht ${key} als Text`);
-  return value;
-};
-
-const targetOf = (input: unknown): BrowserTarget => {
-  const value = fieldsOf(input).target;
-  if (typeof value !== "object" || value === null || Array.isArray(value)) throw invalid("Die Browseroperation braucht ein Ziel");
-  return value as BrowserTarget;
-};
-
-const viewportOf = (input: unknown): BrowserViewport => {
-  const { width, height } = fieldsOf(input);
-  if (typeof width !== "number" || typeof height !== "number" || !Number.isInteger(width) || !Number.isInteger(height) || width <= 0 || height <= 0) {
-    throw invalid("Ein Viewport braucht Breite und Höhe als positive ganze Zahlen");
-  }
-  return { width, height };
-};
-
 /** Der Browser eines Runs auf dieser Maschine: Seite, Aktionen, Prüfungen und Aufnahmen; Evidenz und Ablage hält der Aufrufer. */
-export const browserModule = (options: BrowserModuleOptions = {}): WorkspaceModuleFactory => (host) => {
+export const browserModule = (machine: WorkspaceExecutorMachine, options: BrowserModuleOptions = {}): WorkspaceModuleFactory => (host) => {
+  const invalid = (message: string): Error => machine.operationError("browser-input-invalid", message, 400);
+  const fieldsOf = (input: unknown): Readonly<Record<string, unknown>> => {
+    if (typeof input !== "object" || input === null || Array.isArray(input)) throw invalid("Die Eingabe einer Browseroperation ist ein Objekt");
+    return input as Readonly<Record<string, unknown>>;
+  };
+  const textOf = (input: unknown, key: string): string => {
+    const value = fieldsOf(input)[key];
+    if (typeof value !== "string") throw invalid(`Die Browseroperation braucht ${key} als Text`);
+    return value;
+  };
+  const targetOf = (input: unknown): BrowserTarget => {
+    const value = fieldsOf(input).target;
+    if (typeof value !== "object" || value === null || Array.isArray(value)) throw invalid("Die Browseroperation braucht ein Ziel");
+    return value as BrowserTarget;
+  };
+  const viewportOf = (input: unknown): BrowserViewport => {
+    const { width, height } = fieldsOf(input);
+    if (typeof width !== "number" || typeof height !== "number" || !Number.isInteger(width) || !Number.isInteger(height) || width <= 0 || height <= 0) {
+      throw invalid("Ein Viewport braucht Breite und Höhe als positive ganze Zahlen");
+    }
+    return { width, height };
+  };
   const timeoutMs = options.timeoutMs ?? BROWSER_TIMEOUT_MS;
   const pages = new BrowserPages({
-    launch: options.launch ?? (async (runId) => launchChromium((await host.contextFor(runId)).hostRoot, runId, timeoutMs)),
+    launch: options.launch ?? (async (runId) => launchChromium(machine, (await host.contextFor(runId)).hostRoot, runId, timeoutMs)),
     timeoutMs,
     checkTimeoutMs: options.checkTimeoutMs ?? Math.min(5_000, timeoutMs),
   });

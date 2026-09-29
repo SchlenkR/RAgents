@@ -11,28 +11,35 @@ import { DEFAULT_MAX_LINES, formatSize, type TruncationResult } from "./truncate
 
 export const BASH_MAX_BYTES = 20 * 1024;
 export const BASH_MAX_LINE_CHARS = 1000;
+export const BASH_DEFAULT_TIMEOUT_SECONDS = 120;
+export const BASH_MAX_TIMEOUT_SECONDS = 600;
 
-const MAX_TIMEOUT_MS = 2_147_483_647;
-const MAX_TIMEOUT_SECONDS = MAX_TIMEOUT_MS / 1000;
-
-function resolveTimeoutMs(timeout: number | undefined): number | undefined {
-	if (timeout === undefined) return undefined;
+function checkedTimeoutSeconds(timeout: number, label: string): number {
 	if (!Number.isFinite(timeout) || timeout <= 0) {
-		throw new Error("Invalid timeout: must be a finite number of seconds");
+		throw new Error(`Invalid ${label} ${timeout}: must be a positive number of seconds`);
 	}
-
-	const timeoutMs = timeout * 1000;
-	if (timeoutMs > MAX_TIMEOUT_MS) {
-		throw new Error(`Invalid timeout: maximum is ${MAX_TIMEOUT_SECONDS} seconds`);
+	if (timeout > BASH_MAX_TIMEOUT_SECONDS) {
+		throw new Error(`Invalid ${label} ${timeout}: the maximum is ${BASH_MAX_TIMEOUT_SECONDS} seconds`);
 	}
-	return timeoutMs;
+	return timeout;
 }
 
-const bashSchema = Type.Object({
+const bashSchemaFor = (defaultTimeoutSeconds: number) => Type.Object({
 	command: Type.String({ description: "Bash command to execute" }),
-	timeout: Type.Optional(Type.Number({ description: "Timeout in seconds (optional, no default timeout)" })),
+	timeout: Type.Optional(Type.Number({
+		exclusiveMinimum: 0,
+		maximum: BASH_MAX_TIMEOUT_SECONDS,
+		default: defaultTimeoutSeconds,
+		description: `Timeout in seconds (default ${defaultTimeoutSeconds}, maximum ${BASH_MAX_TIMEOUT_SECONDS})`,
+	})),
 	cwd: Type.Optional(Type.String({ description: "Folder to run the command in: relative to the working directory or starting with a workspace alias such as @name; defaults to the working directory" })),
 });
+
+type BashSchema = ReturnType<typeof bashSchemaFor>;
+
+const timeoutNotice = (seconds: number): string => seconds < BASH_MAX_TIMEOUT_SECONDS
+	? `Command stopped after ${seconds} seconds (timeout). Narrow the command, for example search with rg instead of grep -r, or pass a larger timeout, up to ${BASH_MAX_TIMEOUT_SECONDS} seconds.`
+	: `Command stopped after ${seconds} seconds, the maximum timeout. Narrow the command, for example search with rg instead of grep -r, or split it into shorter steps.`;
 
 
 export interface BashToolDetails {
@@ -58,7 +65,8 @@ export interface BashOperations {
 		options: {
 			onData: (data: Buffer) => void;
 			signal?: AbortSignal;
-			timeout?: number;
+			/** Seconds until the command is stopped. */
+			timeout: number;
 			env?: NodeJS.ProcessEnv;
 		},
 	) => Promise<{ exitCode: number | null }>;
@@ -68,7 +76,6 @@ export interface BashOperations {
 export function createLocalBashOperations(options?: { shellPath?: string }): BashOperations {
 	return {
 		exec: async (command, cwd, { onData, signal, timeout, env }) => {
-			const timeoutMs = resolveTimeoutMs(timeout);
 			if (signal?.aborted) {
 				throw new Error("aborted");
 			}
@@ -87,19 +94,15 @@ export function createLocalBashOperations(options?: { shellPath?: string }): Bas
 				windowsHide: true,
 			});
 			let timedOut = false;
-			let timeoutHandle: NodeJS.Timeout | undefined;
 			const onAbort = () => {
 				if (child.pid) killProcessTree(child.pid);
 			};
+			const timeoutHandle = setTimeout(() => {
+				timedOut = true;
+				if (child.pid) killProcessTree(child.pid);
+			}, timeout * 1000);
 
 			try {
-				// Set timeout if provided.
-				if (timeoutMs !== undefined) {
-					timeoutHandle = setTimeout(() => {
-						timedOut = true;
-						if (child.pid) killProcessTree(child.pid);
-					}, timeoutMs);
-				}
 				// Stream stdout and stderr.
 				child.stdout?.on("data", onData);
 				child.stderr?.on("data", onData);
@@ -119,7 +122,7 @@ export function createLocalBashOperations(options?: { shellPath?: string }): Bas
 				}
 				return { exitCode };
 			} finally {
-				if (timeoutHandle) clearTimeout(timeoutHandle);
+				clearTimeout(timeoutHandle);
 				if (signal) signal.removeEventListener("abort", onAbort);
 			}
 		},
@@ -148,6 +151,8 @@ export interface BashToolOptions {
 	shellPath?: string;
 	/** Hook to adjust command, cwd, or env before execution */
 	spawnHook?: BashSpawnHook;
+	/** Timeout in seconds for a call without one, at most BASH_MAX_TIMEOUT_SECONDS. Default: BASH_DEFAULT_TIMEOUT_SECONDS */
+	defaultTimeoutSeconds?: number;
 }
 
 const BASH_UPDATE_THROTTLE_MS = 100;
@@ -155,21 +160,23 @@ const BASH_UPDATE_THROTTLE_MS = 100;
 export function createBashToolDefinition(
 	cwd: string,
 	options?: BashToolOptions,
-): ToolDefinition<typeof bashSchema, BashToolDetails | undefined> {
+): ToolDefinition<BashSchema, BashToolDetails | undefined> {
 	const ops = options?.operations ?? createLocalBashOperations({ shellPath: options?.shellPath });
 	const commandPrefix = options?.commandPrefix;
 	const spawnHook = options?.spawnHook;
+	const defaultTimeoutSeconds = checkedTimeoutSeconds(options?.defaultTimeoutSeconds ?? BASH_DEFAULT_TIMEOUT_SECONDS, "default timeout");
 	return {
 		name: "bash",
 		label: "bash",
-		description: `Execute a bash command in the working directory, or in the folder given as cwd. Returns stdout and stderr; a nonzero exit code is reported at the end of the result (for example grep without a match), not as a tool error. Output is truncated to last ${DEFAULT_MAX_LINES} lines or ${BASH_MAX_BYTES / 1024}KB (whichever is hit first), and lines longer than ${BASH_MAX_LINE_CHARS} characters are shortened. If anything was cut, the full output is saved to a temp file. Optionally provide a timeout in seconds.`,
-		parameters: bashSchema,
+		description: `Execute a bash command in the working directory, or in the folder given as cwd. Returns stdout and stderr; a nonzero exit code is reported at the end of the result (for example grep without a match), not as a tool error. Output is truncated to last ${DEFAULT_MAX_LINES} lines or ${BASH_MAX_BYTES / 1024}KB (whichever is hit first), and lines longer than ${BASH_MAX_LINE_CHARS} characters are shortened. If anything was cut, the full output is saved to a temp file. A command is stopped after ${defaultTimeoutSeconds} seconds unless you pass a larger timeout (at most ${BASH_MAX_TIMEOUT_SECONDS} seconds); builds, test runs, installs and other long commands need one.`,
+		parameters: bashSchemaFor(defaultTimeoutSeconds),
 		async execute(
 			_toolCallId,
 			{ command, timeout, cwd: folder }: { command: string; timeout?: number; cwd?: string },
 			signal?: AbortSignal,
 			onUpdate?,
 		) {
+			const timeoutSeconds = timeout === undefined ? defaultTimeoutSeconds : checkedTimeoutSeconds(timeout, "timeout");
 			const resolvedCommand = commandPrefix ? `${commandPrefix}\n${command}` : command;
 			const spawnContext = resolveSpawnContext(resolvedCommand, folder === undefined ? cwd : resolvePath(folder, cwd), spawnHook);
 			const output = new OutputAccumulator({ maxBytes: BASH_MAX_BYTES, maxLineChars: BASH_MAX_LINE_CHARS, tempFilePrefix: "agent-bash" });
@@ -265,7 +272,7 @@ export function createBashToolDefinition(
 					const result = await ops.exec(spawnContext.command, spawnContext.cwd, {
 						onData: handleData,
 						signal,
-						timeout,
+						timeout: timeoutSeconds,
 						env: spawnContext.env,
 					});
 					exitCode = result.exitCode;
@@ -276,8 +283,7 @@ export function createBashToolDefinition(
 						throw new Error(appendStatus(text, "Command aborted"));
 					}
 					if (err instanceof Error && err.message.startsWith("timeout:")) {
-						const timeoutSecs = err.message.split(":")[1];
-						throw new Error(appendStatus(text, `Command timed out after ${timeoutSecs} seconds`));
+						throw new Error(appendStatus(text, timeoutNotice(timeoutSeconds)));
 					}
 					throw err;
 				}

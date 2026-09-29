@@ -89,7 +89,7 @@ registrierten Konfigurationsdeklarationen; Sektionen bekannter, aber inaktiver P
 Hinweis ignoriert.
 Listen stehen in der Datei als echte `string[]` und reisen als JSON-Array durch die Umgebung -
 `process.env` ist eine String-Map und bleibt der Transport zu Sandbox-bash, Language Servern und
-der Agent-Runtime.
+der Agent-Runtime. `MODEL_ALIASES` ist die eine Liste von Objekten und reist ebenso als JSON.
 
 Die Sektion ist Dokumentation und Prüfrahmen, KEIN Namensraum: jeder Schlüssel wird unter seinem
 blanken Namen in `process.env` materialisiert. Zwei Produkte mit gleichnamigen Schlüsseln
@@ -155,18 +155,41 @@ und registriert den Anbieter `relay` über einen Profil-Beitrag (`providers` in
 `ProfileContribution`) in der einen Modelllaufzeit des Servers, bevor Titelmodell, Vorbereitung
 oder Engine ein Modell nachschlagen. `AGENT_MODEL`, `AGENT_COORDINATOR_MODEL`, `AGENT_MODELS`,
 `COMPACTION_MODEL` (mit `COMPACTION_PROVIDER: "relay"`) und das Titelmodell nennen dann Aliasse
-des Relays; die Modellauswahl zeigt sie als `relay/<alias>`. Ein nicht erreichbares Relay, eine
-abgelehnte Anmeldung oder ein leerer Katalog sind Startfehler mit Adresse und Ursache. Auch ein
-zur Laufzeit abgelehnter Modellaufruf nennt die Relay-Adresse vor Status und Text der Antwort.
+des Relays; die Modellauswahl zeigt sie als `relay/<alias>`. Jeder Alias kommt mit den
+Kompaktierungswerten, die er auf dem Server hat, und der Client kompaktiert mit denselben Werten;
+die Vorgabe-Denktiefe eines Alias gibt das Relay nicht weiter. Ein nicht erreichbares Relay, eine abgelehnte Anmeldung,
+ein leerer Katalog oder ein Alias ohne gültige Kompaktierungswerte sind Startfehler mit Adresse und
+Ursache. Auch ein zur Laufzeit abgelehnter Modellaufruf nennt die Relay-Adresse vor Status und Text
+der Antwort.
 
 Ein Profil kann seine Modelle unter eigenen Namen anbieten: `MODEL_ALIASES` im Abschnitt `host`
-ist eine Liste `alias=anbieter/modell` oder `alias=anbieter/modell@denktiefe`
-(`plugin-support/model-aliases.ts`). Das Ziel ist ein Modell aus dem eingebauten Katalog eines
-Anbieters, die Denktiefe eine Stufe, die dieses Modell hat; sonst bricht der Start ab. Dieselbe
-Liste gilt für die eigenen Runs und für `ragents.model-relay`. Für die eigenen Runs registriert
-der Server die Aliasse unter dem Anbieter `alias` in der einen Modelllaufzeit
-(`ModelRuntime.registerAliases`): Ein Alias trägt Katalogdaten und Denkstufen seines Ziels unter
-seinem eigenen Namen, eine Anfrage geht mit dem echten Modell an dessen Anbieter, und jede
+ist eine Liste von Objekten (`plugin-support/model-aliases.ts`, Typ `ProfileModelAlias` in
+`config-definition.ts`):
+
+```typescript
+MODEL_ALIASES: [
+  { alias: "team-standard", model: "openrouter/qwen/qwen3.8-27b", thinking: "medium",
+    compaction: { threshold: 160_000, keepRecentTokens: 24_000, summaryTokens: 16_000 } },
+],
+```
+
+`model` nennt das Ziel als `anbieter/modell`, ein Modell aus dem eingebauten Katalog des Anbieters;
+`thinking` ist optional eine Stufe, die dieses Modell hat. `compaction` ist Pflicht und gilt für
+das Modell unter diesem Alias: `threshold` ist die absolute Tokenzahl, ab der kompaktiert wird,
+`keepRecentTokens` der wörtlich behaltene Rest, `summaryTokens` das Budget der Zusammenfassung
+(Ablauf in [core.md](core.md), Abschnitt Wiederholung und Kompaktierung). Die Werte stehen am
+Alias, weil der Katalog als Kontextfenster das größte über alle Anbieter eines Modells nennt; wer
+erst kurz davor kompaktiert, landet mit einem langen Kontext still bei einem der wenigen Anbieter
+mit so großem Fenster. Der Start bricht mit Alias und Ursache ab, wenn `compaction` fehlt, ein
+Wert keine positive ganze Zahl ist, `keepRecentTokens + summaryTokens` nicht unter `threshold`
+liegt, `threshold + summaryTokens` nicht unter dem Kontextfenster des Ziels oder `summaryTokens`
+über seiner Ausgabegrenze; ebenso bei einem unbekannten Schlüssel, einem doppelten Alias, einem
+Ziel außerhalb des Katalogs oder einer Denktiefe, die das Ziel nicht hat. In der Umgebung steht die
+Liste als JSON. Dieselbe Liste gilt für die eigenen Runs und für `ragents.model-relay`. Für die
+eigenen Runs registriert der Server die Aliasse unter dem Anbieter `alias` in der einen
+Modelllaufzeit (`ModelRuntime.registerAliases`): Ein Alias trägt Katalogdaten und Denkstufen seines
+Ziels und seine eigenen Kompaktierungswerte unter seinem eigenen Namen, eine Anfrage geht mit dem
+echten Modell an dessen Anbieter, und jede
 Antwort, jeder Zwischenstand und jede Fehlermeldung kommt mit Alias und Anbieter `alias` zurück;
 frühere Antworten des Alias gelten beim Ziel als eigene, damit Reasoning-Signaturen über Turns
 erhalten bleiben. Mit `AGENT_PROVIDER: "alias"` nennen `AGENT_MODEL`,

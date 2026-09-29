@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { createHash } from "node:crypto";
 import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { writeFile } from "node:fs/promises";
 import { isBuiltin } from "node:module";
@@ -10,10 +11,11 @@ import { HOST_API_VERSION, HOST_MODULES_GLOBAL, providedByHost } from "../src/ho
 import { readHostApiRecord } from "../src/host-version.ts";
 import { buildPlugins, watchPlugins, type PluginBuildOutcome } from "../src/plugin-build/build.ts";
 import { BUNDLE_FORMAT, bundleStand, sourceStandOf, type BundleManifest } from "../src/profile/bundle-manifest.ts";
-import { importBundles, resolvePluginEntries } from "../src/profile/plugin-discovery.ts";
+import { importBundles, loadPlugins, resolvePluginEntries } from "../src/profile/plugin-discovery.ts";
 import { readPluginSource, sourceFileOf } from "../src/plugin-build/plugin-description.ts";
 import { pluginsRoot } from "../src/plugin-support/plugins-root.ts";
 import { parsePluginArguments } from "../../../scripts/plugin/plugin-cli.ts";
+import { EXECUTOR_CONTRIBUTION_FILE, prepareExecutorContribution } from "@ragents/workspace-executor";
 
 const scratch = (): string => mkdtempSync(path.join(tmpdir(), "ragents-plugin-build-"));
 
@@ -93,6 +95,11 @@ test("alle eingebauten Plugins bauen zu Bundles mit genau einem Einsprungpunkt, 
       if (manifest.web) {
         assert.ok(existsSync(path.join(bundle, manifest.web.entry)));
         assert.ok(Array.isArray(JSON.parse(readFileSync(path.join(bundle, manifest.web.classes), "utf8"))));
+      }
+      assert.equal(manifest.executor !== undefined, sourceFileOf(path.join(folder, "executor")) !== undefined, `${id}: Executor-Beitrag`);
+      if (manifest.executor) {
+        assert.deepEqual(importsOf(path.join(bundle, manifest.executor)).filter((specifier) => !isBuiltin(specifier)), [],
+          `${id}: der Executor-Beitrag lädt ohne Host und importiert nur node:*`);
       }
       for (const half of ["server", "web"] as const) {
         assert.deepEqual(Object.keys(manifest.exports[half]), source.description.exports[half], `${id}: Exporte ${half}`);
@@ -260,6 +267,12 @@ test("das Bauwerkzeug lehnt jede Stelle, die im Bundle nicht trägt, mit Ursache
       "acme.namespace-web": { files: { "web/index.ts": `import * as ui from "@ragents/web/ui";\nexport const webPlugin = { id: "acme.namespace-web", button: ui.Button, missing: ui.Irgendwas };\n` }, expected: /web\/index\.ts:\d+:\d+: Import "Irgendwas" will always be undefined/ },
       "acme.dynamic-web": { files: { "web/index.ts": `export const webPlugin = { id: "acme.dynamic-web", load: () => import("@ragents/web/ui") };\n` }, expected: /import\(\) von @ragents\/web\/ui: ein Modul des Hosts wird statisch importiert/ },
       "acme.require-host": { files: { "server/index.ts": SERVER_INDEX("acme.require-host", `import probe from "requiring-probe";\nvoid probe;`), ...requiringPackage }, expected: /require\("typebox"\): der Host liefert typebox nur per import/ },
+      "acme.executor-host": { files: { "executor.ts": `import { RUN_MARKER_ENV } from "@ragents/workspace-executor";\nexport const executor = () => ({ marker: RUN_MARKER_ENV });\n` },
+        expected: /executor: .*@ragents\/workspace-executor: der Executor-Beitrag lädt in jedem Node-Prozess ohne die Auflösung des Hosts/ },
+      "acme.executor-sibling": { files: { "executor.ts": `import { baseContract } from "../acme.base/server/contract.ts";\nexport const executor = () => ({ baseContract });\n` },
+        expected: /@ragents\/plugins\/acme\.base\/server\/contract: der Executor-Beitrag lädt in jedem Node-Prozess/ },
+      "acme.executor-require": { files: { "executor.ts": `import { createRequire } from "node:module";\nexport const executor = () => ({ load: createRequire("/") });\n` },
+        expected: /executor\.ts:\d+:\d+: createRequire ist im Bundle nicht erlaubt/ },
     };
     writeFiles(root, {
       ...BASE_PLUGIN,
@@ -270,6 +283,42 @@ test("das Bauwerkzeug lehnt jede Stelle, die im Bundle nicht trägt, mit Ursache
     for (const [id, { expected }] of Object.entries(cases)) assert.match(problemsOf(outcomes, id), expected, id);
     assert.match(problemsOf(outcomes, "acme.no-server"), /server\/index\.ts fehlt/);
     assert.deepEqual(readdirSync(path.join(root, "dist")), [], "ein abgelehntes Plugin hinterlässt nichts");
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("ein Executor-Beitrag wird eine in sich geschlossene Datei, die der Server mit dem Bundle lädt und die Server-Hälfte mitbenutzt", async () => {
+  const root = scratch();
+  try {
+    writeFiles(root, plainPlugin("acme.lsp-demo", {
+      "executor.ts": `import path from "node:path";
+import type { LanguageServerDescription, WorkspaceExecutorContribution } from "@ragents/workspace-executor";
+export const demoLanguageServer: LanguageServerDescription = { id: "demo", label: "Demo", languages: { ".demo": "demo" }, rootDescription: "the directory" };
+export const executor: WorkspaceExecutorContribution = (machine) => ({ languageServers: [{
+  ...demoLanguageServer,
+  resolveRoot: machine.resolveRootDirectory,
+  rootDirectory: (root) => root,
+  launch: async (context, root) => ({ label: "Demo", command: path.join(machine.toolsDirectory, "demo"), args: [], cwd: root, env: context.env, rootUri: root, languages: demoLanguageServer.languages }),
+  open: async () => "offen",
+}] });
+`,
+      "server/index.ts": SERVER_INDEX("acme.lsp-demo", `import { demoLanguageServer } from "../executor.ts";\nexport const label = demoLanguageServer.label;`),
+    }));
+    const [outcome] = await buildPlugins([path.join(root, "acme.lsp-demo")], { out: path.join(root, "dist"), typecheck: true });
+    const { manifest, bundle } = built(outcome);
+    assert.equal(manifest.executor, EXECUTOR_CONTRIBUTION_FILE);
+    const file = path.join(bundle, EXECUTOR_CONTRIBUTION_FILE);
+    assert.deepEqual(importsOf(file), ["node:module", "node:path"]);
+    assert.deepEqual(readdirSync(path.join(bundle, "executor")).sort(), ["index.mjs", "index.mjs.map"], "eine Datei, keine Chunks");
+    const loaded = await loadPlugins([bundle]);
+    assert.equal(loaded.modules.get("acme.lsp-demo") !== undefined, true);
+    assert.deepEqual(loaded.executor.map(({ plugin, stand }) => ({ plugin, stand })), [
+      { plugin: "acme.lsp-demo", stand: createHash("sha256").update(readFileSync(file)).digest("hex") },
+    ]);
+    const { parts } = prepareExecutorContribution(loaded.executor[0]!, "/werkzeuge/acme.lsp-demo");
+    assert.deepEqual(parts.languageServers?.map((server) => server.id), ["demo"]);
+    assert.equal((await parts.languageServers![0]!.launch({ env: {} } as never, "/projekt")).command, path.join("/werkzeuge/acme.lsp-demo", "demo"));
   } finally {
     rmSync(root, { recursive: true, force: true });
   }

@@ -2,6 +2,7 @@ import { existsSync, readdirSync, realpathSync, statSync } from "node:fs";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
 import type { PluginWebAddresses } from "@ragents/engine";
+import { loadExecutorContribution, type LoadedExecutorContribution } from "@ragents/workspace-executor";
 import { announceBundles } from "../host-resolution.js";
 import { checkedHostApiRecord } from "../host-version.js";
 import { isPluginModule, type PluginModule } from "../plugin-support/plugin-module.js";
@@ -133,6 +134,8 @@ export interface LoadedPlugins {
   readonly bundles: readonly ResolvedPlugin[];
   /** The plugins whose bundle carries a web half, with the addresses the browser loads it from. */
   readonly web: ReadonlyMap<string, PluginWebAddresses>;
+  /** The contributions to every executor, in the order of the plugin list; each machine builds them for itself. */
+  readonly executor: readonly LoadedExecutorContribution[];
 }
 
 export const loadPlugins = async (
@@ -160,5 +163,7 @@ export const loadPlugins = async (
     const addresses = webAddressesOf(plugin);
     return addresses === undefined ? [] : [[plugin.id, addresses] as const];
   }));
-  return { known, ids, modules, bundles: plugins, web };
+  const executor = await Promise.all(plugins.flatMap((plugin) => plugin.manifest.executor === undefined ? []
+    : [loadExecutorContribution(plugin.id, path.join(plugin.folder, plugin.manifest.executor))]));
+  return { known, ids, modules, bundles: plugins, web, executor };
 };

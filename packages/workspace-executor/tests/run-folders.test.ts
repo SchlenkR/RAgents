@@ -12,7 +12,7 @@ import {
 
 const executorWith = (runFolder?: (runId: string) => string): WorkspaceOperationExecutor => new WorkspaceOperationExecutor({
   contextFor: () => Promise.reject(new Error("Der Ordner je Run braucht keinen Kontext")),
-  modules: workspaceExecutorModules(runFolder ? { runFolder } : {}),
+  modules: workspaceExecutorModules(runFolder ? { runFolder, contributions: [] } : { contributions: [] }),
 });
 
 test("a workstation creates the new folder of a run once, keeps what is in it and removes only that folder", async () => {

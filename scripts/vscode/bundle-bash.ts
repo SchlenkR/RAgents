@@ -171,23 +171,24 @@ Git for Windows and MSYS2 projects:
 
 const sha256Of = (buffer: Buffer): string => createHash("sha256").update(buffer).digest("hex");
 
-/** Lädt das Archiv einmal in den Cache und prüft es bei jedem Gebrauch gegen den festen Hash. */
-const cachedArchive = async (source: TargetSource, cache: string, log: (line: string) => void): Promise<string> => {
-  const file = path.join(cache, source.asset);
+/** Lädt ein Archiv einmal in den Cache und prüft es bei jedem Gebrauch gegen den festen Hash. */
+export const cachedArchive = async (url: string, sha256: string, cache: string, log: (line: string) => void): Promise<string> => {
+  const asset = path.posix.basename(new URL(url).pathname);
+  const file = path.join(cache, asset);
   if (!existsSync(file)) {
-    log(`== ${source.asset} laden`);
-    const response = await fetch(`${RELEASE_URL}/${source.asset}`);
-    if (!response.ok) throw new Error(`${RELEASE_URL}/${source.asset} antwortete mit ${response.status}`);
+    log(`== ${asset} laden`);
+    const response = await fetch(url);
+    if (!response.ok) throw new Error(`${url} antwortete mit ${response.status}`);
     const downloaded = Buffer.from(await response.arrayBuffer());
     const hash = sha256Of(downloaded);
-    if (hash !== source.sha256) throw new Error(`${source.asset} hat den SHA-256 ${hash}, erwartet ist ${source.sha256}`);
+    if (hash !== sha256) throw new Error(`${asset} hat den SHA-256 ${hash}, erwartet ist ${sha256}`);
     mkdirSync(cache, { recursive: true });
     writeFileSync(`${file}.part`, downloaded);
     renameSync(`${file}.part`, file);
     return file;
   }
   const hash = sha256Of(readFileSync(file));
-  if (hash !== source.sha256) throw new Error(`${file} hat den SHA-256 ${hash}, erwartet ist ${source.sha256}; die Datei löschen und neu laden lassen`);
+  if (hash !== sha256) throw new Error(`${file} hat den SHA-256 ${hash}, erwartet ist ${sha256}; die Datei löschen und neu laden lassen`);
   return file;
 };
 
@@ -225,7 +226,7 @@ const filesUnder = (directory: string): readonly string[] => readdirSync(directo
   return entry.isDirectory() ? filesUnder(full) : [full];
 });
 
-const megabytes = (bytes: number): string => `${(bytes / 1024 / 1024).toFixed(1)} MB`;
+export const megabytes = (bytes: number): string => `${(bytes / 1024 / 1024).toFixed(1)} MB`;
 
 export interface BashBundle {
   readonly target: BashTarget;
@@ -251,7 +252,7 @@ export const bundleBash = async (target: BashTarget, options: BundleOptions = {}
   const log = options.log ?? (() => undefined);
   const source = BASH_TARGETS[target];
   const cache = options.cache ?? path.join(tmpdir(), "ragents-bash-cache");
-  const archive = await cachedArchive(source, cache, log);
+  const archive = await cachedArchive(`${RELEASE_URL}/${source.asset}`, source.sha256, cache, log);
   const files = extracted(archive, source, cache, log);
   const bin = path.join(files, "usr", "bin");
   const available = new Map(readdirSync(bin).map((name) => [name.toLowerCase(), name] as const));

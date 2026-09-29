@@ -23,7 +23,7 @@ const isolated = async () => {
     runOperation: (operation) => operation(),
   };
   const forbidden = async (): Promise<never> => { throw new Error("Product workspace must not be prepared for global chat"); };
-  const host = new WorkspaceSandboxHost({ contributorName: "test.workspace", workspaceFor: async () => workspace,
+  const host = new WorkspaceSandboxHost({ contributorName: "test.workspace", contributions: [], workspaceFor: async () => workspace,
     identFor: forbidden, homeFor: forbidden, skillPaths: forbidden });
   const tools = await host.workspaceTools().tools({ runId: "overseer" } as PluginContext);
   const invoke = async (name: string, params: unknown) => {

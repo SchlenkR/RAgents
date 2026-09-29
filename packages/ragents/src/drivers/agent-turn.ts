@@ -10,6 +10,7 @@ import {
     type AgentTool,
     calculateContextTokens,
     compact,
+    compactionOf,
     contextMessages,
     convertToLlm,
     EMPTY_RESPONSE_NUDGE,
@@ -626,12 +627,11 @@ export class AgentTurn {
         return true;
     }
 
-    /** After a context overflow compacts and retries once; over the threshold compacts without a retry. */
+    /** After a context overflow compacts and retries once; over the threshold of the turn's model compacts without a retry. */
     async #checkCompaction(assistant: AssistantMessage | undefined, skipAborted = true): Promise<boolean> {
-        const settings = this.#options.settings.compaction;
         const { model } = this.#options;
 
-        if (!assistant || !settings.enabled || (skipAborted && assistant.stopReason === "aborted"))
+        if (!assistant || (skipAborted && assistant.stopReason === "aborted"))
             return false;
 
         const contextWindow = model.contextWindow ?? 0;
@@ -672,12 +672,13 @@ export class AgentTurn {
             contextTokens = estimate.tokens;
         }
 
-        return shouldCompact(contextTokens, contextWindow, settings) ? this.#compact(false) : false;
+        return shouldCompact(contextTokens, compactionOf(model).values) ? this.#compact(false) : false;
     }
 
     async #compact(retry: boolean): Promise<boolean> {
-        const { model, modelRuntime, thinkingLevel, settings } = this.#options;
-        const preparation = prepareCompaction([...this.#request.modelContext().entries], settings.compaction);
+        const { model, modelRuntime, thinkingLevel } = this.#options;
+        const compaction = compactionOf(model);
+        const preparation = prepareCompaction([...this.#request.modelContext().entries], compaction.values);
 
         if (!preparation)
             return false;
@@ -715,6 +716,7 @@ export class AgentTurn {
                     model: model.id,
                     readFiles: result.readFiles,
                     modifiedFiles: result.modifiedFiles,
+                    threshold: { tokens: compaction.values.threshold, source: compaction.source },
                 },
             });
             const messages = this.#request.modelContext().messages;

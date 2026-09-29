@@ -1,6 +1,8 @@
 import { randomUUID } from "node:crypto";
 import { mkdir, readFile, rename, writeFile } from "node:fs/promises";
 import path from "node:path";
+import type { SandboxServices } from "@ragents/host/plugin-support/workspace-sandbox-host.js";
+import { documentsApiPrefix } from "@ragents/plugins/ragents.documents/contract.js";
 import {
   BROWSER_OPERATIONS,
   type BrowserCheck,
@@ -10,9 +12,7 @@ import {
   type BrowserStep,
   type BrowserTarget,
   type BrowserViewport,
-} from "@ragents/workspace-executor";
-import type { SandboxServices } from "@ragents/host/plugin-support/workspace-sandbox-host.js";
-import { documentsApiPrefix } from "@ragents/plugins/ragents.documents/contract.js";
+} from "../executor/contract.js";
 import type { BrowserCallOptions, BrowserEvidence, BrowserRuntime } from "./contract.js";
 
 export const DEFAULT_VIEWPORT: BrowserViewport = { width: 1920, height: 1080 };

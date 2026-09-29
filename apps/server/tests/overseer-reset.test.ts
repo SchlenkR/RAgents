@@ -51,7 +51,7 @@ test("confirmed reset recovers durably and isolates unavailable journals across 
     management = bridges.sessions!();
     const host = new PluginHost({ product: { id: "test", title: "Test" }, dataDirectory: directory });
     host.provideHost(runManagementToken, () => management);
-    const sandbox = new WorkspaceSandboxHost({ contributorName: "test.workspace", workspaceFor: bridges.sessionWorkspaceFor,
+    const sandbox = new WorkspaceSandboxHost({ contributorName: "test.workspace", contributions: [], workspaceFor: bridges.sessionWorkspaceFor,
       identFor: async () => undefined, homeFor: async () => ({ home: directory }), skillPaths: async () => [] });
     host.register({ manifest: { id: "test.product" }, register: (registration) => {
       registration.provide(sandboxServicesToken, sandbox);

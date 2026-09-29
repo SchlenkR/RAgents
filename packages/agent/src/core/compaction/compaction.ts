@@ -1,7 +1,7 @@
 /** Context compaction over the context log of one agent; pure functions, the caller persists the result. */
 
 import type { AgentMessage, StreamFn, ThinkingLevel } from "../../loop/index.ts";
-import type { AssistantMessage, Context, Model, SimpleStreamOptions, Usage } from "@ragents/ai";
+import type { AssistantMessage, Context, Model, ModelCompaction, SimpleStreamOptions, Usage } from "@ragents/ai";
 import { completeSimple } from "@ragents/ai";
 import { type ContextCompaction, type ContextLogEntry, contextEntryMessages, contextMessages } from "../context-log.ts";
 import { convertToLlm } from "../messages.ts";
@@ -42,14 +42,61 @@ export interface CompactionResult {
 }
 
 // ============================================================================
-// Types
+// Compaction values of a model
 // ============================================================================
 
-export interface CompactionSettings {
-	enabled: boolean;
-	reserveTokens: number;
-	keepRecentTokens: number;
+const CATALOG_RESERVE_TOKENS = 16384;
+
+/** The catalog standard of a model without own values: compact 16384 tokens below its context window. */
+export function catalogCompaction(model: Pick<Model<any>, "contextWindow">): ModelCompaction {
+	return {
+		threshold: model.contextWindow - CATALOG_RESERVE_TOKENS,
+		keepRecentTokens: 20000,
+		summaryTokens: Math.floor(0.8 * CATALOG_RESERVE_TOKENS),
+	};
 }
+
+/** Where the compaction values of a model come from. */
+export type CompactionSource = "model" | "catalog";
+
+/** The compaction values an agent applies on a model: its own, else the catalog standard. */
+export function compactionOf(model: Model<any>): { values: ModelCompaction; source: CompactionSource } {
+	return model.compaction
+		? { values: model.compaction, source: "model" }
+		: { values: catalogCompaction(model), source: "catalog" };
+}
+
+const COMPACTION_KEYS: readonly string[] = ["threshold", "keepRecentTokens", "summaryTokens"];
+
+/** Why a value is no valid set of compaction values, or undefined; with a model also whether they fit its context window and output limit. */
+export function compactionProblem(
+	value: unknown,
+	model?: Pick<Model<any>, "contextWindow" | "maxTokens">,
+): string | undefined {
+	if (!value || typeof value !== "object" || Array.isArray(value)) {
+		return "compaction needs threshold, keepRecentTokens and summaryTokens";
+	}
+	const fields = value as Record<string, unknown>;
+	const unknown = Object.keys(fields).find((key) => !COMPACTION_KEYS.includes(key));
+	if (unknown) return `compaction.${unknown} is not supported`;
+	const invalid = COMPACTION_KEYS.find((key) => !Number.isSafeInteger(fields[key]) || (fields[key] as number) < 1);
+	if (invalid) return `compaction.${invalid} must be a positive integer`;
+	const { threshold, keepRecentTokens, summaryTokens } = value as ModelCompaction;
+	if (keepRecentTokens + summaryTokens >= threshold) {
+		return `compaction: keepRecentTokens plus summaryTokens (${keepRecentTokens + summaryTokens}) must stay below threshold (${threshold})`;
+	}
+	if (!model) return undefined;
+	if (threshold + summaryTokens >= model.contextWindow) {
+		return `compaction: threshold plus summaryTokens (${threshold + summaryTokens}) must stay below the context window (${model.contextWindow})`;
+	}
+	if (model.maxTokens > 0 && summaryTokens > model.maxTokens) {
+		return `compaction.summaryTokens (${summaryTokens}) exceeds the output limit (${model.maxTokens})`;
+	}
+	return undefined;
+}
+
+/** The summary of a split turn's beginning gets five eighths of the summary budget, the ratio the forked runtime used. */
+const turnPrefixTokens = (summaryTokens: number): number => Math.round((summaryTokens * 5) / 8);
 
 // ============================================================================
 // Token calculation
@@ -131,12 +178,9 @@ export function estimateContextTokens(messages: AgentMessage[]): ContextUsageEst
 	};
 }
 
-/**
- * Check if compaction should trigger based on context usage.
- */
-export function shouldCompact(contextTokens: number, contextWindow: number, settings: CompactionSettings): boolean {
-	if (!settings.enabled) return false;
-	return contextTokens > contextWindow - settings.reserveTokens;
+/** Whether a context of this size lies above the compaction threshold. */
+export function shouldCompact(contextTokens: number, compaction: ModelCompaction): boolean {
+	return contextTokens > compaction.threshold;
 }
 
 // ============================================================================
@@ -420,7 +464,7 @@ async function completeSummarization(
 export async function generateSummary(
 	currentMessages: AgentMessage[],
 	model: Model<any>,
-	reserveTokens: number,
+	summaryTokens: number,
 	apiKey: string | undefined,
 	headers?: Record<string, string>,
 	signal?: AbortSignal,
@@ -430,10 +474,7 @@ export async function generateSummary(
 	streamFn?: StreamFn,
 	env?: Record<string, string>,
 ): Promise<string> {
-	const maxTokens = Math.min(
-		Math.floor(0.8 * reserveTokens),
-		model.maxTokens > 0 ? model.maxTokens : Number.POSITIVE_INFINITY,
-	);
+	const maxTokens = Math.min(summaryTokens, model.maxTokens > 0 ? model.maxTokens : Number.POSITIVE_INFINITY);
 
 	// Use update prompt if we have a previous summary, otherwise initial prompt
 	let basePrompt = previousSummary ? UPDATE_SUMMARIZATION_PROMPT : SUMMARIZATION_PROMPT;
@@ -500,13 +541,13 @@ export interface CompactionPreparation {
 	previousSummary?: string;
 	/** File operations extracted from messagesToSummarize */
 	fileOps: FileOperations;
-	settings: CompactionSettings;
+	compaction: ModelCompaction;
 }
 
 /** Prepares a compaction of the whole context log; undefined when there is nothing to summarize. */
 export function prepareCompaction(
 	entries: ContextLogEntry[],
-	settings: CompactionSettings,
+	compaction: ModelCompaction,
 ): CompactionPreparation | undefined {
 	if (entries.length > 0 && entries[entries.length - 1].kind === "compaction") {
 		return undefined;
@@ -530,7 +571,7 @@ export function prepareCompaction(
 
 	const tokensBefore = estimateContextTokens(contextMessages(entries)).tokens;
 
-	const cutPoint = findCutPoint(entries, boundaryStart, boundaryEnd, settings.keepRecentTokens);
+	const cutPoint = findCutPoint(entries, boundaryStart, boundaryEnd, compaction.keepRecentTokens);
 	const firstKeptEntry = entries[cutPoint.firstKeptEntryIndex];
 	if (!firstKeptEntry) {
 		return undefined;
@@ -571,7 +612,7 @@ export function prepareCompaction(
 		tokensBefore,
 		previousSummary: previous?.summary,
 		fileOps,
-		settings,
+		compaction,
 	};
 }
 
@@ -614,7 +655,7 @@ export async function compact(
 		tokensBefore,
 		previousSummary,
 		fileOps,
-		settings,
+		compaction,
 	} = preparation;
 
 	// Generate summaries and merge into one
@@ -626,7 +667,7 @@ export async function compact(
 				? await generateSummary(
 						messagesToSummarize,
 						model,
-						settings.reserveTokens,
+						compaction.summaryTokens,
 						apiKey,
 						headers,
 						signal,
@@ -640,7 +681,7 @@ export async function compact(
 		const turnPrefixResult = await generateTurnPrefixSummary(
 			turnPrefixMessages,
 			model,
-			settings.reserveTokens,
+			turnPrefixTokens(compaction.summaryTokens),
 			apiKey,
 			headers,
 			env,
@@ -655,7 +696,7 @@ export async function compact(
 		summary = await generateSummary(
 			messagesToSummarize,
 			model,
-			settings.reserveTokens,
+			compaction.summaryTokens,
 			apiKey,
 			headers,
 			signal,
@@ -679,7 +720,7 @@ export async function compact(
 async function generateTurnPrefixSummary(
 	messages: AgentMessage[],
 	model: Model<any>,
-	reserveTokens: number,
+	budgetTokens: number,
 	apiKey: string | undefined,
 	headers?: Record<string, string>,
 	env?: Record<string, string>,
@@ -687,10 +728,7 @@ async function generateTurnPrefixSummary(
 	thinkingLevel?: ThinkingLevel,
 	streamFn?: StreamFn,
 ): Promise<string> {
-	const maxTokens = Math.min(
-		Math.floor(0.5 * reserveTokens),
-		model.maxTokens > 0 ? model.maxTokens : Number.POSITIVE_INFINITY,
-	); // Smaller budget for turn prefix
+	const maxTokens = Math.min(budgetTokens, model.maxTokens > 0 ? model.maxTokens : Number.POSITIVE_INFINITY);
 	const llmMessages = convertToLlm(messages);
 	const conversationText = serializeConversation(llmMessages);
 	const promptText = `<conversation>\n${conversationText}\n</conversation>\n\n${TURN_PREFIX_SUMMARIZATION_PROMPT}`;

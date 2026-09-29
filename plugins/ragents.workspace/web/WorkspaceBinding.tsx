@@ -42,7 +42,7 @@ const isClientInfo = (value: unknown): value is WorkspaceClientInfo => {
     && typeof raw.id === "string" && typeof raw.label === "string"
     && typeof raw.hostname === "string" && typeof raw.platform === "string"
     && Array.isArray(raw.folders) && raw.folders.every((folder) => typeof folder === "string")
-    && typeof raw.runsDirectory === "string";
+    && typeof raw.runsDirectory === "string" && typeof raw.ripgrep === "boolean";
 };
 
 const isFreshLabels = (value: unknown): value is FreshWorkspaceLabels => {

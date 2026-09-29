@@ -1,7 +1,7 @@
 import { serviceToken } from "@ragents/engine";
-import type { BrowserSnapshot } from "@ragents/workspace-executor";
+import type { BrowserSnapshot } from "../executor/contract.js";
 
-export type { BrowserSnapshot, BrowserTarget } from "@ragents/workspace-executor";
+export type { BrowserSnapshot, BrowserTarget } from "../executor/contract.js";
 
 export interface BrowserEvidence {
   checkedAt?: string;

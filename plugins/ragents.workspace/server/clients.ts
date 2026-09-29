@@ -1,8 +1,10 @@
+import { Value } from "typebox/value";
 import {
   DomainError,
   RPC_ERROR_CODES,
   RpcError,
   implement,
+  schemaComplaints,
   type AccessContext,
   type MethodConnection,
   type MethodContribution,
@@ -10,11 +12,13 @@ import {
 import {
   WORKSPACE_EXECUTOR_VERSION,
   sandboxRunEnvironment,
+  type ExecutorContributionStand,
   type WorkspaceExecuteOptions,
   type WorkspaceExecutor,
 } from "@ragents/workspace-executor";
 import {
   WORKSPACE_CLIENT_STOP_OPERATION,
+  clientRegistrationSchema,
   workspaceClientContracts,
   workspaceContracts,
   type WorkspaceClientDescription,
@@ -75,6 +79,35 @@ const messageOf = (cause: unknown): string => cause instanceof Error ? cause.mes
 /** Ein Arbeitsplatz ist erst durch Besitzer und Kennung bestimmt; zwei Benutzer mit derselben Kennung teilen nichts. */
 const keyOf = (owner: string | null, id: string): string => JSON.stringify([owner, id]);
 
+/** Server und Arbeitsplatz brauchen denselben Executor; die Meldung sagt, wer von beiden zu alt ist. */
+const assertExecutor = (label: string, executor: string): void => {
+  if (executor === WORKSPACE_EXECUTOR_VERSION) return;
+  const action = Number(executor) > Number(WORKSPACE_EXECUTOR_VERSION)
+    ? "Den Server auf die Fassung des Arbeitsplatzes aktualisieren."
+    : "Die RAgents-Erweiterung in VS Code beziehungsweise das Paket @schlenkr/ragents auf dem Arbeitsplatz aktualisieren.";
+  throw new DomainError(
+    "workspace-executor-version",
+    `Der Arbeitsplatz ${label} bringt den Executor ${executor} mit, der Server verlangt ${WORKSPACE_EXECUTOR_VERSION}. ${action}`,
+    409,
+  );
+};
+
+const described = (contributions: readonly ExecutorContributionStand[]): string =>
+  contributions.map(({ plugin, stand }) => `${plugin} (${stand.slice(0, 12)})`).join(", ") || "keine";
+
+/** Ein Arbeitsplatz führt aus, was die Plugins des Servers beitragen; mit anderen Beiträgen liefen dieselben Werkzeuge dort anders als auf dem Server. */
+const assertContributions = (label: string, expected: readonly ExecutorContributionStand[], given: readonly ExecutorContributionStand[]): void => {
+  const key = (entry: ExecutorContributionStand): string => `${entry.plugin}\0${entry.stand}`;
+  const same = expected.length === given.length && expected.every((entry) => given.some((other) => key(other) === key(entry)));
+  if (same) return;
+  throw new DomainError(
+    "workspace-executor-contributions",
+    `Der Arbeitsplatz ${label} bringt die Executor-Beiträge ${described(given)} mit, der Server verlangt ${described(expected)}. `
+      + "Der Arbeitsplatz fragt sie mit ragents.workspace.clients.contributions ab und meldet sich danach erneut an.",
+    409,
+  );
+};
+
 /** Über das Netz nimmt der Server Arbeitsplätze nur von angemeldeten Benutzern an; ohne Benutzer gäbe es nur einen Besitzer für alle Zugänge. */
 export const assertMayRegister = (access: AccessContext, local: boolean): void => {
   if (local || (access.enabled && access.user !== null)) return;
@@ -88,27 +121,29 @@ export const assertMayRegister = (access: AccessContext, local: boolean): void =
 
 /** Kennt die angemeldeten Arbeitsplätze je Besitzer, hält je Client die Verbindung, über die der Server ihn zurückruft, und die Stopps, die ihn nicht erreicht haben. */
 export class WorkspaceClientRegistry {
+  /** Was die Plugins des Servers zum Executor beitragen; jeder Arbeitsplatz muss genau diese Beiträge tragen. */
+  readonly contributions: readonly ExecutorContributionStand[];
   readonly #clients = new Map<string, ClientEntry>();
   /** Stopps, die den Arbeitsplatz noch nicht erreicht haben, je Arbeitsplatz und Run mit dem Ordner der Bindung. */
   readonly #pendingStops = new Map<string, Map<string, string>>();
   readonly #stopRetries = new Map<string, NodeJS.Timeout>();
 
+  constructor(contributions: readonly ExecutorContributionStand[]) {
+    this.contributions = contributions.map(({ plugin, stand }) => ({ plugin, stand }));
+  }
+
   async register(
     id: string,
     description: WorkspaceClientDescription,
     executor: string,
+    contributions: readonly ExecutorContributionStand[],
     connection: MethodConnection,
   ): Promise<WorkspaceClientInfo> {
     if (connection.streamless) {
       throw new DomainError("stream-required", "Die Anmeldung eines Arbeitsplatzes braucht einen Ereignisstrom.", 409);
     }
-    if (executor !== WORKSPACE_EXECUTOR_VERSION) {
-      throw new DomainError(
-        "workspace-executor-version",
-        `Der Arbeitsplatz ${description.label} bringt den Executor ${executor} mit, der Server verlangt ${WORKSPACE_EXECUTOR_VERSION}.`,
-        409,
-      );
-    }
+    assertExecutor(description.label, executor);
+    assertContributions(description.label, this.contributions, contributions);
     const owner = connection.userId;
     const key = keyOf(owner, id);
     const previous = this.#clients.get(key);
@@ -318,9 +353,21 @@ export class WorkspaceClientRegistry {
 
 export const clientMethods = (registry: WorkspaceClientRegistry): MethodContribution[] => [
   implement(workspaceContracts.clients.list, (_input, { access }) => registry.list(ownerOf(access))),
-  implement(workspaceContracts.clients.register, ({ id, executor, ...description }, { access, connection, local }) => {
+  implement(workspaceContracts.clients.contributions, ({ label, executor }, { access, local }) => {
     assertMayRegister(access, local);
-    return registry.register(id, description, executor, connection);
+    assertExecutor(label, executor);
+    return registry.contributions.map((entry) => ({ ...entry }));
+  }),
+  implement(workspaceContracts.clients.register, (input, { access, connection, local }) => {
+    assertMayRegister(access, local);
+    // Erst der Stand: ein Arbeitsplatz mit einem anderen kennt die Form dieses Stands nicht, mit diesem gilt sie ganz.
+    assertExecutor(input.label, input.executor);
+    if (!Value.Check(clientRegistrationSchema, input)) {
+      throw new RpcError(RPC_ERROR_CODES.invalidParams,
+        `Ungültige Eingabe für ${workspaceContracts.clients.register.id}: ${schemaComplaints(clientRegistrationSchema, input, "params")}`);
+    }
+    const { id, executor, contributions, ...description } = input;
+    return registry.register(id, description, executor, contributions, connection);
   }),
   implement(workspaceContracts.clients.unregister, ({ id }, { access, connection }) => {
     registry.unregister(ownerOf(access), id, connection);

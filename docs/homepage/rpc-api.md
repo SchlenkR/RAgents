@@ -85,6 +85,7 @@ Kennungen aus Ergebnissen werden programmgesteuert weiterverwendet, nicht abgesc
 | ragents.startOptions.select | host | runs.read, runs.write, runs.create |
 | ragents.workspace.browse.list | ragents.workspace | runs.read, runs.inspect |
 | ragents.workspace.browse.preview | ragents.workspace | runs.read, runs.inspect |
+| ragents.workspace.clients.contributions | ragents.workspace | runs.write |
 | ragents.workspace.clients.list | ragents.workspace | runs.read |
 | ragents.workspace.clients.register | ragents.workspace | runs.write |
 | ragents.workspace.clients.unregister | ragents.workspace | runs.write |
@@ -3537,6 +3538,68 @@ Eigentümer: ragents.workspace. Rechte: runs.read, runs.inspect. Ausführung: de
 }
 ```
 
+## ragents.workspace.clients.contributions
+
+Die Beiträge der Plugins zum Executor, die ein Arbeitsplatz vor der Anmeldung lädt und mit ihr zurückmeldet. Ein Arbeitsplatz mit anderem Executor-Stand scheitert an seinem Stand; weitere Felder zählen nicht.
+
+Eigentümer: ragents.workspace. Rechte: runs.write. Ausführung: der Server.
+
+### Eingabe
+
+```json
+{
+  "type": "object",
+  "required": [
+    "label",
+    "executor"
+  ],
+  "properties": {
+    "label": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 120
+    },
+    "executor": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 64,
+      "description": "Stand des Executors, den der Arbeitsplatz mitbringt"
+    }
+  }
+}
+```
+
+### Ergebnis
+
+```json
+{
+  "type": "array",
+  "items": {
+    "type": "object",
+    "required": [
+      "plugin",
+      "stand"
+    ],
+    "properties": {
+      "plugin": {
+        "type": "string",
+        "pattern": "^[a-z0-9]+(?:[.-][a-z0-9]+)*$",
+        "maxLength": 128,
+        "description": "Kennung des Plugins"
+      },
+      "stand": {
+        "type": "string",
+        "pattern": "^[0-9a-f]{64}$",
+        "description": "SHA-256 der Datei des Beitrags"
+      }
+    },
+    "additionalProperties": false
+  },
+  "maxItems": 64,
+  "description": "Die Beiträge der Plugins zum Executor, in der Reihenfolge der Pluginliste des Servers"
+}
+```
+
 ## ragents.workspace.clients.list
 
 Die angemeldeten Arbeitsplätze des Aufrufers; fremde erscheinen auch mit runs.read.all nicht.
@@ -3566,7 +3629,8 @@ Eigentümer: ragents.workspace. Rechte: runs.read. Ausführung: der Server.
       "hostname",
       "platform",
       "folders",
-      "runsDirectory"
+      "runsDirectory",
+      "ripgrep"
     ],
     "properties": {
       "id": {
@@ -3597,6 +3661,10 @@ Eigentümer: ragents.workspace. Rechte: runs.read. Ausführung: der Server.
         "type": "string",
         "minLength": 1,
         "description": "Absoluter Ordner, unter dem der Arbeitsplatz die neuen Ordner je Run anlegt"
+      },
+      "ripgrep": {
+        "type": "boolean",
+        "description": "Ob die Bash des Arbeitsplatzes rg findet"
       }
     },
     "additionalProperties": false
@@ -3606,7 +3674,7 @@ Eigentümer: ragents.workspace. Rechte: runs.read. Ausführung: der Server.
 
 ## ragents.workspace.clients.register
 
-Einen Arbeitsplatz anmelden oder seine Ordner erneuern; die Verbindung dieser Anfrage wird sein Rückweg und braucht einen Ereignisstrom.
+Einen Arbeitsplatz anmelden oder seine Ordner erneuern; die Verbindung dieser Anfrage wird sein Rückweg und braucht einen Ereignisstrom. Ein Arbeitsplatz mit anderem Executor-Stand scheitert an seinem Stand, bevor die übrige Form zählt.
 
 Eigentümer: ragents.workspace. Rechte: runs.write. Ausführung: der Server.
 
@@ -3614,56 +3682,113 @@ Eigentümer: ragents.workspace. Rechte: runs.write. Ausführung: der Server.
 
 ```json
 {
-  "type": "object",
-  "required": [
-    "id",
-    "label",
-    "hostname",
-    "platform",
-    "folders",
-    "runsDirectory",
-    "executor"
-  ],
-  "properties": {
-    "id": {
-      "type": "string",
-      "pattern": "^[A-Za-z0-9_-]{8,64}$",
-      "description": "Stabile Kennung des Arbeitsplatzes"
-    },
-    "label": {
-      "type": "string",
-      "minLength": 1,
-      "maxLength": 120
-    },
-    "hostname": {
-      "type": "string",
-      "minLength": 1
-    },
-    "platform": {
-      "type": "string",
-      "minLength": 1
-    },
-    "folders": {
-      "type": "array",
-      "items": {
-        "type": "string",
-        "minLength": 1
+  "anyOf": [
+    {
+      "type": "object",
+      "required": [
+        "id",
+        "label",
+        "hostname",
+        "platform",
+        "folders",
+        "runsDirectory",
+        "ripgrep",
+        "executor",
+        "contributions"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9_-]{8,64}$",
+          "description": "Stabile Kennung des Arbeitsplatzes"
+        },
+        "label": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 120
+        },
+        "hostname": {
+          "type": "string",
+          "minLength": 1
+        },
+        "platform": {
+          "type": "string",
+          "minLength": 1
+        },
+        "folders": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "maxItems": 32
+        },
+        "runsDirectory": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Absoluter Ordner, unter dem der Arbeitsplatz die neuen Ordner je Run anlegt"
+        },
+        "ripgrep": {
+          "type": "boolean",
+          "description": "Ob die Bash des Arbeitsplatzes rg findet"
+        },
+        "executor": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 64,
+          "description": "Stand des Executors, den der Arbeitsplatz mitbringt"
+        },
+        "contributions": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": [
+              "plugin",
+              "stand"
+            ],
+            "properties": {
+              "plugin": {
+                "type": "string",
+                "pattern": "^[a-z0-9]+(?:[.-][a-z0-9]+)*$",
+                "maxLength": 128,
+                "description": "Kennung des Plugins"
+              },
+              "stand": {
+                "type": "string",
+                "pattern": "^[0-9a-f]{64}$",
+                "description": "SHA-256 der Datei des Beitrags"
+              }
+            },
+            "additionalProperties": false
+          },
+          "maxItems": 64,
+          "description": "Die Beiträge der Plugins zum Executor, in der Reihenfolge der Pluginliste des Servers"
+        }
       },
-      "maxItems": 32
+      "additionalProperties": false
     },
-    "runsDirectory": {
-      "type": "string",
-      "minLength": 1,
-      "description": "Absoluter Ordner, unter dem der Arbeitsplatz die neuen Ordner je Run anlegt"
-    },
-    "executor": {
-      "type": "string",
-      "minLength": 1,
-      "maxLength": 64,
-      "description": "Stand des Executors, den der Arbeitsplatz mitbringt"
+    {
+      "type": "object",
+      "required": [
+        "label",
+        "executor"
+      ],
+      "properties": {
+        "label": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 120
+        },
+        "executor": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 64,
+          "description": "Stand des Executors, den der Arbeitsplatz mitbringt"
+        }
+      },
+      "description": "Anmeldung mit einem anderen Executor-Stand in beliebiger Form; der Server lehnt sie mit workspace-executor-version ab"
     }
-  },
-  "additionalProperties": false
+  ]
 }
 ```
 
@@ -3678,7 +3803,8 @@ Eigentümer: ragents.workspace. Rechte: runs.write. Ausführung: der Server.
     "hostname",
     "platform",
     "folders",
-    "runsDirectory"
+    "runsDirectory",
+    "ripgrep"
   ],
   "properties": {
     "id": {
@@ -3709,6 +3835,10 @@ Eigentümer: ragents.workspace. Rechte: runs.write. Ausführung: der Server.
       "type": "string",
       "minLength": 1,
       "description": "Absoluter Ordner, unter dem der Arbeitsplatz die neuen Ordner je Run anlegt"
+    },
+    "ripgrep": {
+      "type": "boolean",
+      "description": "Ob die Bash des Arbeitsplatzes rg findet"
     }
   },
   "additionalProperties": false

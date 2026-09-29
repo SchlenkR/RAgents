@@ -160,7 +160,8 @@ conversation memory.
 
 When the context grows too large, the agent compacts it: older parts are replaced by a summary
 written by the model, and recent parts are kept. A compaction is recorded in the journal as well,
-and the chat shows a short system note.
+and the chat shows a short system note. When it starts, how much recent context stays verbatim,
+and how long the summary may be are values of the model; a profile sets them for each model alias.
 <!-- /guide:runtime -->
 
 ## Modellkontext und Agentenlaufzeit
@@ -199,7 +200,8 @@ verbindlichen Payloads stehen in `domain/events.ts`):
   `recordOutput` oder durch einen Hook.
 - `context.compacted`: eine Kompaktierung mit Zusammenfassung, dem ersten behaltenen Kontext-Event
   (`firstKeptEventId`), `tokensBefore`, dem verwendeten Modell und den gelesenen und geänderten
-  Dateien.
+  Dateien, ab Dateiformat 9 dazu die Schwelle des Modells und ihre Herkunft (`threshold` mit
+  `tokens` und `source`: `model` für eigene Werte, `catalog` für den Katalog-Standard).
 
 Ein Modellschritt ist erst Kontext, wenn sein Command geschrieben ist. Die Agentenschleife bekommt
 den Kontext vor jeder Modellanfrage neu aus der Projektion (`transformContext`), nicht aus ihrem
@@ -309,18 +311,37 @@ Anfrage mit 4xx außer 408, 409 und 429) wird bis zu dreimal mit
 exponentiellem Abstand ab zwei Sekunden wiederholt; der Fehlerschritt bleibt im Journal, das Modell
 sieht ihn nicht.
 
-Kompaktiert wird wie bisher, jetzt auf der Projektion: nach einer Antwort, deren Kontext über
-`contextWindow - reserveTokens` liegt, ohne Wiederholung; nach einem Überlauffehler desselben
-Modells einmal je Nutzer-Nachricht mit anschließender Wiederholung; und vor einem neuen Turn, wenn
-die letzte Antwort dafür spricht. Behalten werden rund `keepRecentTokens` der jüngsten Einträge, nie
-ab einem Werkzeugergebnis; schneidet das mitten in einen Turn, fasst ein zweiter Aufruf dessen
-Anfang eigens zusammen. Eine vorhandene Zusammenfassung wird fortgeschrieben, nicht neu erstellt.
-Ob eine Antwort vor der letzten Kompaktierung liegt, entscheidet ihre Stelle im Journal. Eine
-Wiederholung und die Fortsetzung nach einer Kompaktierung setzen hinter allen Fehlerschritten am Ende
-des Kontexts an, weil das Journal jeden davon behält. Die
-Vorgaben (`reserveTokens` 16384, `keepRecentTokens` 20000) setzt der Host über
-`AGENT_COMPACTION_RESERVE_TOKENS` und `AGENT_COMPACTION_KEEP_RECENT_TOKENS` (`docs/operations.md`).
-Eine gescheiterte Kompaktierung steht im Serverprotokoll; der Turn läuft ohne sie weiter.
+Kompaktiert wird auf der Projektion, mit den Werten des Modells, das den Turn ausführt
+(`Model.compaction`, Typ `ModelCompaction` in `packages/ai/src/types.ts`, ausgewertet von
+`compactionOf` in `packages/agent/src/core/compaction/compaction.ts`): nach einer Antwort, deren
+Kontext über `threshold` liegt, einer absoluten Tokenzahl dieses Modells, ohne Wiederholung; nach
+einem Überlauffehler desselben Modells einmal je Nutzer-Nachricht mit anschließender Wiederholung;
+und vor einem neuen Turn, wenn die letzte Antwort dafür spricht. Behalten werden rund
+`keepRecentTokens` der jüngsten Einträge, nie ab einem Werkzeugergebnis; schneidet das mitten in
+einen Turn, fasst ein zweiter Aufruf dessen Anfang eigens zusammen. Die Zusammenfassung darf
+`summaryTokens` lang werden, die des Turn-Anfangs fünf Achtel davon, das Verhältnis der beiden
+Budgets in der gegabelten Laufzeit; beide begrenzt die Ausgabegrenze des Modells. Eine vorhandene
+Zusammenfassung wird fortgeschrieben, nicht neu erstellt. Ob eine Antwort vor der letzten
+Kompaktierung liegt, entscheidet ihre Stelle im Journal. Eine Wiederholung und die Fortsetzung nach
+einer Kompaktierung setzen hinter allen Fehlerschritten am Ende des Kontexts an, weil das Journal
+jeden davon behält. Eine gescheiterte Kompaktierung steht im Serverprotokoll; der Turn läuft ohne
+sie weiter.
+
+Eigene Werte bekommt ein Modell über einen Alias des Profils (`MODEL_ALIASES`,
+[profiles.md](profiles.md)), auf einem Client über das Relay, das die Werte der Aliasse seines
+Servers weitergibt, oder über die Modelldefinition eines zur Laufzeit registrierten Anbieters
+(`ProviderConfigInput`). Die Modelllaufzeit prüft sie bei der Registrierung (`compactionProblem`):
+drei positive ganze Zahlen, `keepRecentTokens + summaryTokens` unter `threshold`,
+`threshold + summaryTokens` unter dem Kontextfenster und `summaryTokens` höchstens die
+Ausgabegrenze; sonst scheitert die Registrierung und damit der Start. Ein Modell ohne eigene Werte,
+etwa ein Katalogmodell ohne Alias, hat den Katalog-Standard (`catalogCompaction`): `threshold`
+gleich `contextWindow - 16384`, `keepRecentTokens` 20000 und `summaryTokens` 13107, 80 Prozent von
+16384, für den Turn-Anfang also 8192. Der Katalog nennt als Kontextfenster das größte über alle
+Anbieter eines Modells; die Schwelle des Standards liegt deshalb oft über dem Fenster der meisten
+Anbieter, und wer das nicht will, gibt dem Modell über einen Alias eigene Werte. Welche Werte
+galten, steht in `context.compacted` (`threshold` mit `source` `model` oder `catalog`). Maßgeblich
+ist das Modell des Turns: ein Modellwechsel gilt ab dem nächsten Turn, und schon dessen Prüfung vor
+dem ersten Schritt misst den bisherigen Kontext an der Schwelle des neuen Modells.
 
 ### Hooks und Skills
 
@@ -1114,15 +1135,16 @@ liest vollständige Zeilen und verwirft einen unvollständigen letzten Schreibvo
 bleiben beschreibbar. Fehler beim Vorbereiten einer Inhaltsdatei vor dem Journal-Append lassen
 dagegen einen unmittelbaren Wiederholungsversuch zu.
 
-Das Journal schreibt Dateiformat 8 und liest die Formate 7 und 8, beide mit internem Eventschema 3.
+Das Journal schreibt Dateiformat 9 und liest die Formate 7 bis 9, alle mit internem Eventschema 3.
 Format 7 bringt den Modellkontext (`model.input.presented`, `model.step.completed`,
 `model.tool-result.presented`, `context.compacted`); ältere Journale tragen keinen und werden mit
 dieser Ursache ohne Migration für den betroffenen Run abgewiesen. Format 8 bringt `origin` an
-`actor.input.enqueued` (Abschnitt Herkunft eines Inputs); eine Zeile im Format 7 trägt das Feld
-nie und bleibt deshalb lesbar, ein Format nach 8 wird abgewiesen. Die Kodierung ist seit 4
-unverändert; die Nummer steigt, sobald ein älterer Stand neu geschriebene Zeilen ablehnen würde,
-damit er an der ersten solchen Zeile mit der Formatversion scheitert statt an einem semantischen
-Widerspruch.
+`actor.input.enqueued` (Abschnitt Herkunft eines Inputs), Format 9 `threshold` an
+`context.compacted` (Abschnitt Wiederholung und Kompaktierung); eine Zeile eines älteren Formats
+trägt das jeweilige Feld nie und bleibt deshalb lesbar, ein Format nach 9 wird abgewiesen. Die
+Kodierung ist seit 4 unverändert; die Nummer steigt, sobald ein älterer Stand neu geschriebene
+Zeilen ablehnen würde, damit er an der ersten solchen Zeile mit der Formatversion scheitert statt an
+einem semantischen Widerspruch.
 Jeder Run wird zunächst vollständig geprüft und projiziert, bevor seine Events, Kennungen
 und Zustände in die gemeinsame Laufzeit übernommen werden. Ein altes Format, beschädigtes JSON,
 ein ungültiges Event, ein semantischer Widerspruch, ein unlesbares Journal oder eine fehlende

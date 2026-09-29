@@ -11,9 +11,12 @@ import {
   RUN_MARKER_ENV,
   WORKSPACE_EXECUTOR_VERSION,
   WorkspaceOperationError,
+  EXECUTOR_CONTRIBUTION_FILE,
   WorkspaceOperationExecutor,
-  browserModule,
   commandModule,
+  executorMachine,
+  loadExecutorContribution,
+  prepareExecutorContribution,
   fileModule,
   hasProcessTable,
   processModule,
@@ -23,6 +26,7 @@ import {
   workspaceProcessContext,
   type FileListing,
   type FileText,
+  type PreparedExecutorContribution,
   type ProcessTable,
   type WorkspaceModuleFactory,
   type WorkspaceProcessContext,
@@ -47,7 +51,9 @@ import { ActorProgramRuntime } from "../../../plugins/ragents.actor-programs/ser
 import { createActorProgramToolContributors } from "../../../plugins/ragents.actor-programs/server/tool-contributor.ts";
 import { runProcessesOf } from "../../../plugins/ragents.processes/server/run-processes.ts";
 import { RunBrowser } from "../../../plugins/ragents.browser/server/browser.ts";
-import { stubBrowser } from "../../../packages/workspace-executor/tests/browser-stub.ts";
+import { browserModule } from "../../../plugins/ragents.browser/executor/module.ts";
+import { stubBrowser } from "./browser-stub.ts";
+import { hostRoot } from "../src/host-version.ts";
 import { NodeTypeScriptExecutor } from "../src/plugin-support/native-typescript-executor.ts";
 import { createTypeScriptToolContributor } from "../src/ragents/typescript-tools.ts";
 import type { WorkspaceResolver } from "../src/ragents/workspace-runtime.ts";
@@ -118,17 +124,22 @@ const foreignWorkstation = async (
     await executor.shutdown();
   });
   await until(() => client.status.kind === "connected");
+  const contributions = await client.call(workspaceContracts.clients.contributions, { label, executor: WORKSPACE_EXECUTOR_VERSION });
   await client.call(workspaceContracts.clients.register, {
-    id, label, hostname: "fremder-rechner", platform: process.platform, folders: Object.keys(folders), runsDirectory, executor: WORKSPACE_EXECUTOR_VERSION,
+    id, label, hostname: "fremder-rechner", platform: process.platform, folders: Object.keys(folders), runsDirectory, ripgrep: false, executor: WORKSPACE_EXECUTOR_VERSION, contributions,
   });
   return { operations, disconnect: () => client.close() };
 };
 
 /** Der Server mit dem echten Arbeitsbereich-Plugin; jeder Run ist an den Arbeitsplatz gebunden, den der Test ihm gibt. */
-const serverFixture = async (t: TestContext, { resolver, skills = [] }: { resolver?: WorkspaceResolver; skills?: readonly string[] } = {}) => {
+const serverFixture = async (t: TestContext, { resolver, skills = [], contributions = [] }: {
+  resolver?: WorkspaceResolver;
+  skills?: readonly string[];
+  contributions?: readonly PreparedExecutorContribution[];
+} = {}) => {
   const root = await realpath(await mkdtemp(path.join(tmpdir(), "ragents-foreign-machine-")));
   t.after(() => rm(root, { recursive: true, force: true }));
-  const registry = new WorkspaceClientRegistry();
+  const registry = new WorkspaceClientRegistry(contributions);
   const { url } = await startRpcServer(t, { methods: clientMethods(registry) });
   const bindings = new Map<string, WorkspaceBinding>();
   const runState = (runId: string): RunState => {
@@ -150,6 +161,7 @@ const serverFixture = async (t: TestContext, { resolver, skills = [] }: { resolv
     runState,
     storeBinding: () => { throw new Error("Der Test bindet nicht um"); },
     clients: registry,
+    contributions: contributions.map((contribution) => contribution.parts),
   });
   t.after(() => runtime.shutdown());
   const browseOptions = {
@@ -373,7 +385,9 @@ test("eine Bash ohne Alias läuft auf dem Arbeitsplatz, mit @actors als cwd auf 
 });
 
 test("die Sprachserver öffnen @actors in einem Arbeitsplatz-Run auf dem Server, ein Aufruf über beide Rechner scheitert mit Ursache", async (t) => {
-  const server = await serverFixture(t);
+  const file = path.join(hostRoot(), "bundles", "ragents.lsp-typescript", EXECUTOR_CONTRIBUTION_FILE);
+  const typescript = prepareExecutorContribution(await loadExecutorContribution("ragents.lsp-typescript", file), "/unbenutzt");
+  const server = await serverFixture(t, { contributions: [typescript] });
   const actors = await actorRoot(server);
   await writeFile(path.join(actors, "app", "src", "index.ts"), "export const wert: number = \"Text\";\n");
   const { offered, project } = await workstationProject(server);
@@ -517,7 +531,7 @@ test("die Browserprüfung läuft auf dem Arbeitsplatz, ihre Aufnahmen liegen in 
     "/": { title: "App auf dem Arbeitsplatz", elements: [{ role: "button", name: "Speichern", onClick: (page) => page.show({ role: "status", name: "Gespeichert" }) }] },
   });
   const workstation = await foreignWorkstation(t, server.url, "notebook-0004", "Notebook", { [offered]: project },
-    [browserModule({ launch: stub.launch, timeoutMs: 500, checkTimeoutMs: 50 })]);
+    [browserModule(executorMachine("/unbenutzt"), { launch: stub.launch, timeoutMs: 500, checkTimeoutMs: 50 })]);
   const runId = "fremder-browser";
   server.bindings.set(runId, { machine: { client: "notebook-0004", label: "Notebook" }, folder: { path: offered } });
   const documents = path.join(server.root, "server", "documents", runId);

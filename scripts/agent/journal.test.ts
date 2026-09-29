@@ -18,7 +18,7 @@ const events: readonly JournalEvent[] = [
   ].map((entry) => ({ ...entry, actorId: "agent_coordinator", occurredAt: "2026-09-21T10:00:00.000Z" })),
   { sequence: 5, type: "actor.input.enqueued", actorId: "human_alice", occurredAt: "2026-09-21T10:00:01.000Z", payload: { actorId: "agent_coordinator", subscriptionId: null, content: "Bitte weiter" } },
   { sequence: 6, type: "model.step.completed", actorId: "agent_coordinator", occurredAt: "2026-09-21T10:00:02.000Z", payload: { usage: { input: 5, output: 1 } } },
-  { sequence: 7, type: "context.compacted", actorId: "agent_coordinator", occurredAt: "2026-09-21T10:00:03.000Z", payload: { tokensBefore: 1200 } },
+  { sequence: 7, type: "context.compacted", actorId: "agent_coordinator", occurredAt: "2026-09-21T10:00:03.000Z", payload: { tokensBefore: 1200, threshold: { tokens: 160000, source: "model" } } },
   { sequence: 8, type: "actor.input.enqueued", actorId: "agent_coordinator", occurredAt: "2026-09-21T10:00:04.000Z", payload: { actorId: "agent_watcher", subscriptionId: "sub-1", sourceEventIds: ["event-4"] } },
 ];
 
@@ -34,7 +34,7 @@ test("journalLines filtert nach Modus und Sequenz", () => {
     "[3] tool.call.failed agent_coordina: {\"name\":\"typescript_eval\",\"error\":\"kaputt\"}",
     "[4] agent_coordina: Fertig",
     "[5] INPUT -> agent_coordina: Bitte weiter",
-    "[7] CONTEXT COMPACTED agent_coordina: about 1200 tokens summarized",
+    "[7] CONTEXT COMPACTED agent_coordina: about 1200 tokens summarized (threshold 160000 from model)",
     "[8] INPUT -> agent_watcher: [event event-4]",
     "-- letzte Sequenz: 8",
   ]);

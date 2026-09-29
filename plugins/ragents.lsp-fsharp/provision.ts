@@ -1,6 +1,5 @@
 import { stat } from "node:fs/promises";
 import path from "node:path";
-import { FSHARP_SERVER_FILE } from "@ragents/workspace-executor";
 import {
   DOTNET_INSTRUCTION,
   downloadArchive,
@@ -15,6 +14,7 @@ import {
   type PluginProvision,
   type ProvisionState,
 } from "@ragents/host/plugin-support/provision.js";
+import { FSHARP_SERVER_FILE } from "./executor.js";
 
 export const FSAUTOCOMPLETE_VERSION = "0.83.0";
 

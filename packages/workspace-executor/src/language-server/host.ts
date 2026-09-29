@@ -27,6 +27,9 @@ export interface LanguageServerAdapter {
   open: (session: LanguageServerSession, root: string, timeoutMs: number) => Promise<string>;
 }
 
+/** Was der Server über einen Sprachserver wissen muss, um Werkzeuge und Reiter zu beschreiben; gestartet wird er nur im Executor. */
+export type LanguageServerDescription = Pick<LanguageServerAdapter, "id" | "label" | "languages" | "rootDescription" | "solutionExtensions">;
+
 export interface LanguageServerHostOptions {
   idleMs?: number;
   openTimeoutMs?: number;

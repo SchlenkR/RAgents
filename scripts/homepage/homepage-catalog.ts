@@ -61,7 +61,7 @@ async function collect(repoRoot: string) {
   if (stale.length > 0) throw new Error(`Eingebaute Bundles passen nicht mehr zu ihren Quellen unter plugins/: ${stale.join(", ")}; vorher pnpm build:plugins`);
   const loaded = await loadPlugins(ids);
   const workspace = process.env.DATA_DIR!;
-  const host = composeProfile({ product: { id: "ragents", title: "RAgents" }, pluginIds: loaded.ids, modules: loaded.modules, web: loaded.web }, {
+  const host = composeProfile({ product: { id: "ragents", title: "RAgents" }, pluginIds: loaded.ids, modules: loaded.modules, web: loaded.web, executor: loaded.executor }, {
     ensureSession: () => { throw new Error("Referenzgenerierung darf keine Runs anlegen."); },
     runtime: () => { throw new Error("Referenzgenerierung darf keine Laufzeit starten."); },
     ensureWorkspaceAccess: () => { throw new Error("Referenzgenerierung greift auf keinen Arbeitsbereich zu."); },

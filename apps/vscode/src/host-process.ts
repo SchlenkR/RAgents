@@ -1,5 +1,5 @@
 import { spawn, type ChildProcess } from "node:child_process";
-import { accessSync, constants, readFileSync, statSync } from "node:fs";
+import { accessSync, constants, existsSync, readFileSync, statSync } from "node:fs";
 import { mkdir } from "node:fs/promises";
 import path from "node:path";
 import { createInterface, type Interface } from "node:readline";
@@ -33,6 +33,8 @@ export interface HostStartOptions {
   command: HostCommand;
   /** Die mitgebrachte Bash für den Executor des Hosts; unter Windows Pflicht, sonst ohne Angabe die des Systems. */
   bash: string | undefined;
+  /** Das mitgebrachte rg für den Executor des Hosts; ohne Angabe gilt eines im PATH. */
+  rg: string | undefined;
   startTimeoutMs?: number;
 }
 
@@ -47,6 +49,12 @@ export const inheritedEnvironment = (): Record<string, string> => editorFreeEnvi
 /** Die Bash, die die Windows-Fassung der Erweiterung mitbringt; auf anderen Plattformen gilt die des Systems. */
 export const bundledBash = (extensionPath: string, platform: NodeJS.Platform = process.platform, arch: string = process.arch): string | undefined =>
   platform === "win32" ? path.join(extensionPath, "dist", "bash", `${platform}-${arch}`, "usr", "bin", "bash.exe") : undefined;
+
+/** Das rg, das die Fassung der Erweiterung für diese Plattform mitbringt; die universelle trägt keines, dann gilt eines im PATH. */
+export const bundledRipgrep = (extensionPath: string, platform: NodeJS.Platform = process.platform, arch: string = process.arch): string | undefined => {
+  const file = path.join(extensionPath, "dist", "rg", `${platform}-${arch}`, platform === "win32" ? "rg.exe" : "rg");
+  return existsSync(file) ? file : undefined;
+};
 
 /** Sucht ein Programm im PATH; unter Windows mit den Endungen aus PATHEXT. */
 export const findExecutable = (name: string, environment: NodeJS.ProcessEnv = process.env): string | undefined => {
@@ -166,6 +174,7 @@ export const startHost = (options: HostStartOptions): Promise<RunningHost> => ne
     // Der lokale Host ist der Arbeitsplatz des Entwicklers: dort bleibt es seine eigene Bash.
     PROCESS_SANDBOX: options.environment.PROCESS_SANDBOX ?? "off",
     ...(options.bash === undefined ? {} : { RAGENTS_BASH: options.bash }),
+    ...(options.rg === undefined ? {} : { RAGENTS_RG: options.rg }),
     // Der Host überwacht diesen Prozess und beendet sich, wenn ihn ein Reload oder Absturz von VS Code mitnimmt.
     RAGENTS_PARENT_PID: String(process.pid),
   };

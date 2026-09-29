@@ -1,5 +1,5 @@
 /** The number of the host API a plugin is built against; it changes with every incompatible change of a list, a listed name or a library. */
-export const HOST_API_VERSION = 6;
+export const HOST_API_VERSION = 7;
 
 /** A library the host shares whole, as its installed version exports it; host code instead names each value it offers. */
 export const LIBRARY = "library";
@@ -90,7 +90,8 @@ export const hostApi: { readonly server: HostApiModules; readonly web: HostApiMo
     "@ragents/host/ragents/document-store": ["documentStoreToken"],
     "@ragents/host/ragents/global-chat": ["globalChatToken", "runManagementToken"],
     "@ragents/host/ragents/host-services": [
-      "hostAddressToken", "runtimeProviderToken", "secretEnvNamesToken", "runGuardToken", "runWorkspaceProviderToken", "workspaceGuardToken",
+      "executorContributionsToken", "hostAddressToken", "runtimeProviderToken", "secretEnvNamesToken", "runGuardToken", "runWorkspaceProviderToken",
+      "workspaceGuardToken",
     ],
     "@ragents/host/ragents/product-runtime": ["productRuntimeToken"],
     "@ragents/host/ragents/runtime-bridge": ["runtimeBridgeToken"],
@@ -100,11 +101,9 @@ export const hostApi: { readonly server: HostApiModules; readonly web: HostApiMo
     ],
     "@ragents/workflow": ["defineWorkflow", "workflowInstructions"],
     "@ragents/workspace-executor": [
-      "BROWSER_EXECUTABLE_VARIABLE", "BROWSER_OPERATIONS", "COMMAND_OPERATIONS", "FILE_OPERATIONS",
-      "FSHARP_SERVER_FILE", "FSHARP_SERVER_VARIABLE", "PROCESS_OPERATIONS", "ROSLYN_SERVER_FILE",
-      "ROSLYN_SERVER_VARIABLE", "RUN_FOLDER_OPERATIONS", "RUN_MARKER_ENV", "WORKSPACE_EXECUTOR_VERSION", "fsharpAdapter",
-      "languageServerOpenOperation", "languageServerSolutionsOperation", "listDirectory", "readTextFile", "roslynAdapter", "runManagedProcess", "safeProcessEnvironment", "sandboxRunEnvironment", "sandboxedLaunch",
-      "shellPlatformText", "startManagedService", "typescriptAdapter", "watchDirectory",
+      "COMMAND_OPERATIONS", "FILE_OPERATIONS", "PROCESS_OPERATIONS", "RUN_FOLDER_OPERATIONS", "RUN_MARKER_ENV", "WORKSPACE_EXECUTOR_VERSION",
+      "languageServerOpenOperation", "languageServerSolutionsOperation", "listDirectory", "readTextFile", "ripgrepAvailable", "runManagedProcess", "safeProcessEnvironment", "sandboxRunEnvironment", "sandboxedLaunch",
+      "shellPlatformText", "startManagedService", "watchDirectory",
     ],
     "@ragents/workspace-executor/src/git-config-environment": ["withGitConfigPairs"],
     "@ragents/workspace-executor/src/managed-process": ["ProcessGroupJoinError"],

@@ -39,16 +39,20 @@ take precedence over profile values; no `.env` file is loaded. Startup reports a
 referenced variable as an error. Configured models and reasoning levels must be valid in the
 available model catalog.
 
-A profile can also name its models by alias: `MODEL_ALIASES` in the `host` section lists
-`alias=provider/model` or `alias=provider/model@thinking`, and `AGENT_PROVIDER: "alias"` makes the
-product use them. The interface, the chat, and the journal then show only the alias names.
+A profile can also name its models by alias: `MODEL_ALIASES` in the `host` section lists objects
+with `alias`, `model` as `provider/model`, an optional default `thinking` level, and the model's
+`compaction` values: the context size in tokens at which an agent compacts (`threshold`), how much
+recent context stays verbatim (`keepRecentTokens`), and the summary budget (`summaryTokens`).
+`AGENT_PROVIDER: "alias"` makes the product use them. The interface, the chat, and the journal then
+show only the alias names.
 
 Alternatively, a profile can obtain its models from another RAgents server running the
-`ragents.model-relay` plugin, which offers that server's `MODEL_ALIASES`: set
-`AGENT_PROVIDER: "relay"`, point `RELAY_URL` to that server, use `RELAY_TOKEN: env("...")` with a
-user's personal token there, and use relay aliases for every model key. Only the relay server can
-see which model is behind an alias. Its log at `plugins/ragents.model-relay/relay.log` records the
-user, alias, target, and token count for each request.
+`ragents.model-relay` plugin, which offers that server's `MODEL_ALIASES` with their compaction
+values: set `AGENT_PROVIDER: "relay"`, point `RELAY_URL` to that server, use
+`RELAY_TOKEN: env("...")` with a user's personal token there, and use relay aliases for every model
+key. Only the relay server can see which model is behind an alias. Its log at
+`plugins/ragents.model-relay/relay.log` records the user, alias, target, and token count for each
+request.
 
 Then start the neutral profile:
 
@@ -323,9 +327,14 @@ The local host and workspace also run on Windows. Requirements are:
 - **The VS Code extension for Windows** brings its own bash. The Marketplace delivers a
   `win32-x64` or `win32-arm64` build that contains a slim bash with the GNU tools (coreutils,
   `grep`, `sed`, `awk`, `find`, `diff`, `patch`, `tar`, `unzip`, `cygpath` and more), taken from
-  a fixed Git for Windows release. The `bash` tool uses only this bash, for the workspace and for
-  the local host; an installed Git Bash or a `bash.exe` on `PATH` is never used. PowerShell and
-  `cmd.exe` are not used either.
+  a fixed Git for Windows release, plus `rg.exe` (ripgrep) from a fixed ripgrep release. The
+  `bash` tool uses only this bash, for the workspace and for the local host; an installed Git
+  Bash or a `bash.exe` on `PATH` is never used. PowerShell and `cmd.exe` are not used either.
+- **Code search** runs through `rg`, which skips `node_modules`, `bin`, `obj` and everything else
+  `.gitignore` excludes. The extension builds for macOS and Linux carry `rg` as well and put it at
+  the front of the `bash` tool's `PATH`, on the workstation and for the local host. The system
+  prompt tells the model to search with `rg` only when the machine running `bash` has one;
+  otherwise it tells the model to exclude dependency and build folders from `grep -r`.
 - **Git** is your own `git.exe` on `PATH`, for example from Git for Windows. The bundled bash
   contains no git, so your login works as usual: Git Credential Manager, `~/.gitconfig` and
   `~/.ssh`. On your own machine the bash inherits your whole environment, except the variables of
@@ -333,7 +342,10 @@ The local host and workspace also run on Windows. Requirements are:
 - **Without the extension** (`ragents start` or `ragents workspace-client` from the npm package)
   set `RAGENTS_BASH` to the `bash.exe` of such a bundle, for example
   `<extension folder>\dist\bash\win32-x64\usr\bin\bash.exe`. Without it every `bash` call fails
-  and names what is missing.
+  and names what is missing. `RAGENTS_RG` names an `rg` in the same way, for example
+  `<extension folder>\dist\rg\win32-x64\rg.exe`, on every platform; without it, an `rg` on
+  `PATH` is used if there is one. A `RAGENTS_RG` that points to a missing file stops the server
+  start or the workstation's registration.
 - **Node.js** is enough with `@schlenkr/ragents`. A checkout additionally needs **pnpm**, and
   `pnpm install`, `pnpm build:agent`, and `scripts/start.sh` need a bash of your own, such as
   Git Bash.
@@ -400,25 +412,56 @@ immer erlaubt. Ein Werkzeug, das ins Netz will, bekommt außerhalb der Liste die
 Proxys. Unter macOS braucht pnpm über corepack ein `packageManager` in der `package.json` des
 Arbeitsbereichs, weil corepack sonst an einem gesperrten Ordner oberhalb abbricht.
 
+## Zeitgrenze von `bash`
+
+Ein Befehl des Werkzeugs `bash` endet nach 120 Sekunden, wenn der Aufruf keinen `timeout` nennt;
+ein Aufruf darf bis zu 600 Sekunden verlangen. Beides steht in der Beschreibung des Werkzeugs, dazu
+der Satz, dass Builds, Testläufe und Installationen einen größeren `timeout` brauchen. Läuft die
+Zeit ab, bekommt das Modell die bisherige Ausgabe, die Sekunden und den Hinweis, den Befehl
+einzugrenzen, etwa mit `rg` statt `grep -r`, oder einen größeren `timeout` zu übergeben. Der Server
+setzt die Zeitgrenze in jeden Aufruf ein; sie gilt deshalb auch auf einem Arbeitsplatz.
+
+Die Vorgabe ändert `RAGENTS_BASH_TIMEOUT_SECONDS` in der Sektion `ragents.workspace` oder in der
+Umgebung des Servers:
+
+```ts
+"ragents.workspace": {
+  RAGENTS_BASH_TIMEOUT_SECONDS: 300, // Vorgabe für Aufrufe ohne timeout, höchstens 600
+},
+```
+
+Die Obergrenze bleibt 600 Sekunden: ein größerer, ein nicht positiver oder ein nicht numerischer
+Wert bricht den Start ab. Ein Arbeitsplatz (VS-Code-Erweiterung, `ragents workspace-client`) liest
+die Variable nicht; für seine Runs gilt die Vorgabe des Servers. Was länger als zehn Minuten
+braucht, geht nicht über `bash`, sondern über einen Ablauf eines Plugins mit eigener Zeitgrenze
+([plugins.md](spec/plugins.md), Offene Grenzen).
+
 ## Kompaktierung des Modellkontexts
 
 Der Modellkontext eines Agenten steht im Journal (`docs/spec/core.md`, Modellkontext und
 Agentenlaufzeit). Wird er zu groß, verdichtet ihn die Agentenlaufzeit: nach einer Antwort, deren
-Kontext über `contextWindow - reserveTokens` liegt, und nach einem Überlauffehler des Anbieters.
-Behalten werden rund `keepRecentTokens` der jüngsten Einträge; der Rest wird zu einer
-Zusammenfassung. Jede Verdichtung steht als `context.compacted` im Journal, der Chat zeigt eine
-Systemzeile. Die Vorgaben sind `reserveTokens` 16384 und `keepRecentTokens` 20000. Der Host setzt
-sie für alle Agenten über zwei Umgebungsvariablen, die auch in `host` eines Profils stehen dürfen:
+Kontext über der Schwelle des Modells liegt, und nach einem Überlauffehler des Anbieters. Behalten
+werden rund `keepRecentTokens` der jüngsten Einträge; der Rest wird zu einer Zusammenfassung von
+höchstens `summaryTokens`. Jede Verdichtung steht als `context.compacted` im Journal, mit der
+Schwelle, die galt, und ihrer Herkunft (`model` oder `catalog`); der Chat zeigt eine Systemzeile,
+`pnpm driver journal <runId>` beides.
 
-- `AGENT_COMPACTION_RESERVE_TOKENS`: der Abstand zum Kontextfenster des Modells; zugleich die
-  Grenze für die Länge der Zusammenfassung (80 Prozent davon, höchstens die Ausgabegrenze des
-  Modells).
-- `AGENT_COMPACTION_KEEP_RECENT_TOKENS`: wie viel des jüngsten Verlaufs unverdichtet bleibt.
+Die drei Werte gehören zum Modell, eine hostweite Einstellung gibt es nicht. Ein Profil setzt sie je
+Alias in `MODEL_ALIASES` im Abschnitt `host` (Regeln in `docs/spec/profiles.md`); ein Client des
+Relays übernimmt sie vom Server. Ein Katalogmodell ohne Alias verdichtet nach dem Katalog-Standard:
+ab `contextWindow - 16384` Token, mit `keepRecentTokens` 20000 und einer Zusammenfassung bis 13107
+Token. Weil der Katalog als Kontextfenster das größte über alle Anbieter eines Modells nennt, liegt
+diese Schwelle oft jenseits dessen, was die meisten Anbieter können; wer mit einem Modell lange
+Verläufe führt, gibt ihm deshalb einen Alias mit einer Schwelle unter dem Fenster der üblichen
+Anbieter.
 
-Beide sind positive Zahlen; ein ungültiger Wert bricht den Start ab. Um eine Verdichtung gezielt
-auszulösen, etwa für eine Vorführung, liegt `AGENT_COMPACTION_RESERVE_TOKENS` knapp unter dem
-Kontextfenster des gewählten Modells (bei 200000 Token etwa 196000, dann verdichtet schon ein
-Kontext über 4000 Token) und `AGENT_COMPACTION_KEEP_RECENT_TOKENS` klein (etwa 1000).
+Um eine Verdichtung gezielt auszulösen, etwa für eine Vorführung, bekommt ein Alias kleine Werte;
+dann verdichtet schon ein Kontext über 4000 Token:
+
+```typescript
+{ alias: "demo-compact", model: "openrouter/z-ai/glm-5.3-flash",
+  compaction: { threshold: 4_000, keepRecentTokens: 1_000, summaryTokens: 1_000 } },
+```
 
 ## Datenablage und Protokolle
 
@@ -535,7 +578,16 @@ Sandbox-Werkzeuge und Prozesse".
 
 Ohne VS Code meldet `pnpm workspace-client <server-url> [ordner ...]` denselben Arbeitsplatz von
 der Kommandozeile an; `RAGENTS_TOKEN` setzt den persönlichen Token, wenn der Server eine Anmeldung
-verlangt. Der Arbeitsplatz liest seine Sprachserver und seinen Browser aus seiner eigenen
+verlangt. Arbeitsplatz und Server brauchen denselben Stand des Executors; bringt ein Arbeitsplatz
+einen anderen mit, lehnt der Server die Anmeldung mit beiden Ständen ab und nennt, was zu
+aktualisieren ist: bei einem älteren Arbeitsplatz die RAgents-Erweiterung beziehungsweise
+`@schlenkr/ragents` dort, bei einem neueren den Server. Ebenso brauchen beide dieselben Beiträge
+der Plugins zum Executor, etwa die Sprachserver und den Browser: der Server nennt sie vor der
+Anmeldung, der Arbeitsplatz lädt sie aus den Bundles seines eigenen Hosts. Kennt er keinen Host,
+fehlt dort ein Bundle oder hat es einen anderen Stand, scheitert die Anmeldung mit dieser Ursache;
+dann den Host des Arbeitsplatzes (`ragents.hostPath` oder das Paket) auf die Fassung des Servers
+bringen. Die VS-Code-Erweiterung zeigt die Meldung am Server als "Arbeitsplatz nicht angemeldet".
+Der Arbeitsplatz liest die Werkzeuge dieser Beiträge aus seiner eigenen
 Prozessumgebung, nicht aus dem Profil des Servers: der Start ruft `pnpm provision --workspace`,
 legt Roslyn und fsautocomplete unter `~/.local/share/ragents/workspace/tools/<plugin-id>/` ab und
 holt Chromium in den Browsercache von Playwright; TypeScript und `playwright-core` kommen aus dem

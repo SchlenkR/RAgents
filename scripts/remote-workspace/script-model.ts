@@ -124,7 +124,10 @@ const catalog = {
     id: SCRIPT_MODEL,
     object: "model",
     owned_by: "relay",
-    catalog: { reasoning: false, input: ["text"], contextWindow: 200_000, maxTokens: 8_192 },
+    catalog: {
+      reasoning: false, input: ["text"], contextWindow: 200_000, maxTokens: 8_192,
+      compaction: { threshold: 150_000, keepRecentTokens: 20_000, summaryTokens: 8_000 },
+    },
   }],
 };
 

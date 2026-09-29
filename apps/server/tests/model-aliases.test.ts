@@ -8,11 +8,15 @@ import { modelStartOption } from "../src/plugin-support/product-start-options.ts
 import { declaredEnvironment } from "../src/plugin-support/plugin-config.ts";
 import { roleThinkingLevel } from "../src/plugin-support/thinking-level.ts";
 
+const compaction = { threshold: 160_000, keepRecentTokens: 24_000, summaryTokens: 16_000 };
+
+const aliasEntry = (alias: string, model: string, extra: Record<string, unknown> = {}) => ({ alias, model, compaction, ...extra });
+
 const aliases = parseModelAliases([
-  "standard=openrouter/qwen/qwen3.8-27b",
-  "strong=openrouter/z-ai/glm-5.3",
-  "fast=openrouter/z-ai/glm-5.3-flash",
-  "reasoning=openrouter/deepseek/deepseek-v4.1-flash",
+  aliasEntry("standard", "openrouter/qwen/qwen3.8-27b"),
+  aliasEntry("strong", "openrouter/z-ai/glm-5.3"),
+  aliasEntry("fast", "openrouter/z-ai/glm-5.3-flash"),
+  aliasEntry("reasoning", "openrouter/deepseek/deepseek-v4.1-flash"),
 ]);
 
 /** Die Stufen, die OpenRouter je Zielmodell im reasoning-Block von /api/v1/models nennt; "off" nur, wo Reasoning nicht Pflicht ist. */
@@ -43,14 +47,27 @@ const capturedPayload = async (models: ModelRuntime, alias: string, reasoning: s
 };
 
 test("MODEL_ALIASES bildet Aliasse auf Modelle eingebauter Kataloge ab und zeigt keinen Anbieter", () => {
-  assert.throws(() => parseModelAliases(["kein-alias"]), /MODEL_ALIASES: "kein-alias" hat nicht das Format/);
-  assert.throws(() => parseModelAliases(["x=openrouter/z-ai/glm-5.3@sehr"]), /unbekannte Denktiefe "sehr"/);
-  assert.deepEqual(parseModelAliases(["x=openrouter/z-ai/glm-5.3@high"]), [{ alias: "x", upstream: "openrouter", model: "z-ai/glm-5.3", thinking: "high" }]);
-  assert.throws(() => aliasCatalog(parseModelAliases(["x=openrouter/z-ai/glm-5.3@medium"])), /Denktiefe medium gibt es für x nicht \(gültig: low, high, max\)/);
-  assert.throws(() => aliasCatalog([]), /braucht MODEL_ALIASES im Abschnitt host/);
-  assert.throws(() => aliasCatalog(parseModelAliases(["x=openrouter/vendor/unknown"])), /vendor\/unknown hinter x fehlt im Katalog von openrouter/);
+  assert.throws(() => parseModelAliases("x"), /MODEL_ALIASES must be a list of aliases/);
+  assert.throws(() => parseModelAliases(["x=openrouter/z-ai/glm-5.3"]), /MODEL_ALIASES\[0\] must be an object with alias, model, compaction and optionally thinking/);
+  assert.throws(() => parseModelAliases([aliasEntry("X", "openrouter/z-ai/glm-5.3")]), /MODEL_ALIASES\[0\]\.alias needs 1 to 64 lowercase letters/);
+  assert.throws(() => parseModelAliases([aliasEntry("x", "z-ai")]), /MODEL_ALIASES\[0\]\.model of x needs the form "provider\/model"/);
+  assert.throws(() => parseModelAliases([aliasEntry("x", "openrouter/z-ai/glm-5.3", { thinking: "sehr" })]), /unknown thinking level "sehr"/);
+  assert.throws(() => parseModelAliases([aliasEntry("x", "openrouter/z-ai/glm-5.3", { reserve: 1 })]), /MODEL_ALIASES\[0\]\.reserve is not supported/);
+  assert.throws(() => parseModelAliases([{ alias: "x", model: "openrouter/z-ai/glm-5.3" }]), /MODEL_ALIASES\[0\], x: compaction needs threshold, keepRecentTokens and summaryTokens/);
+  assert.throws(() => parseModelAliases([aliasEntry("x", "openrouter/z-ai/glm-5.3", { compaction: { ...compaction, summaryTokens: 0 } })]), /compaction\.summaryTokens must be a positive integer/);
+  assert.throws(() => parseModelAliases([aliasEntry("x", "openrouter/z-ai/glm-5.3", { compaction: { ...compaction, keepRecentTokens: 150_000 } })]), /keepRecentTokens plus summaryTokens \(166000\) must stay below threshold \(160000\)/);
+  assert.throws(() => parseModelAliases([aliasEntry("x", "openrouter/a/b"), aliasEntry("x", "openrouter/c/d")]), /names the alias x more than once/);
+  assert.deepEqual(parseModelAliases([aliasEntry("x", "openrouter/z-ai/glm-5.3", { thinking: "high" })]), [{ alias: "x", upstream: "openrouter", model: "z-ai/glm-5.3", thinking: "high", compaction }]);
+  assert.throws(() => aliasCatalog(parseModelAliases([aliasEntry("x", "openrouter/z-ai/glm-5.3", { thinking: "medium" })])), /thinking level medium does not exist for x \(valid: low, high, max\)/);
+  assert.throws(() => aliasCatalog([]), /needs MODEL_ALIASES in the host section/);
+  assert.throws(() => aliasCatalog(parseModelAliases([aliasEntry("x", "openrouter/vendor/unknown")])), /vendor\/unknown behind x is missing from the catalog of openrouter/);
+  const oversized = { threshold: 990_000, keepRecentTokens: 24_000, summaryTokens: 16_000 };
+  assert.throws(() => aliasCatalog(parseModelAliases([aliasEntry("x", "openrouter/qwen/qwen3.8-27b", { compaction: oversized })])), /x on openrouter\/qwen\/qwen3\.8-27b: compaction: threshold plus summaryTokens \(1006000\) must stay below the context window \(1000000\)/);
+  const longSummary = { threshold: 700_000, keepRecentTokens: 24_000, summaryTokens: 140_000 };
+  assert.throws(() => aliasCatalog(parseModelAliases([aliasEntry("x", "openrouter/z-ai/glm-5.3", { compaction: longSummary })])), /summaryTokens \(140000\) exceeds the output limit \(131072\)/);
   const catalog = aliasCatalog(aliases);
   assert.deepEqual(catalog.map((model) => [model.provider, model.id, model.name]), aliases.map((entry) => [ALIAS_PROVIDER, entry.alias, entry.alias]));
+  assert.deepEqual(catalog.map((model) => model.compaction), aliases.map(() => compaction));
   for (const model of catalog) assert.deepEqual(getSupportedThinkingLevels(model), expectedLevels[model.id], model.id);
   assert.equal(displayProvider(ALIAS_PROVIDER), "");
   assert.equal(modelLabel(ALIAS_PROVIDER, "standard"), "standard");
@@ -58,8 +75,9 @@ test("MODEL_ALIASES bildet Aliasse auf Modelle eingebauter Kataloge ab und zeigt
 });
 
 test("die Modellwahl des Anbieters alias bietet alle Aliasse mit den Stufen und der Denktiefe ihres Zielmodells an", (t) => {
-  const withThinking: Record<string, string> = { standard: "@medium", strong: "@high", fast: "@low" };
-  process.env.MODEL_ALIASES = JSON.stringify(aliases.map((entry) => `${entry.alias}=${entry.upstream}/${entry.model}${withThinking[entry.alias] ?? ""}`));
+  const withThinking: Record<string, string> = { standard: "medium", strong: "high", fast: "low" };
+  process.env.MODEL_ALIASES = JSON.stringify(aliases.map((entry) => aliasEntry(entry.alias, `${entry.upstream}/${entry.model}`,
+    withThinking[entry.alias] ? { thinking: withThinking[entry.alias] } : {})));
   t.after(() => { delete process.env.MODEL_ALIASES; });
   const choice = modelChoiceFromEnvironment(declaredEnvironment(modelChoiceEnvDescriptors), {
     selectable: true,
@@ -90,6 +108,7 @@ test("die Modellwahl des Anbieters alias bietet alle Aliasse mit den Stufen und 
 test("die Modelllaufzeit schickt je Stufe das Zielmodell mit genau der gewählten Stufe an OpenRouter", async () => {
   const models = runtime();
   assert.deepEqual(models.getModels(ALIAS_PROVIDER).map((model) => model.id), ["standard", "strong", "fast", "reasoning"]);
+  assert.deepEqual(models.getModels(ALIAS_PROVIDER).map((model) => model.compaction), aliases.map(() => compaction));
   for (const entry of aliases) {
     const alias = models.getModel(ALIAS_PROVIDER, entry.alias)!;
     assert.deepEqual(getSupportedThinkingLevels(alias), expectedLevels[entry.alias], entry.alias);
@@ -138,7 +157,9 @@ test("Antworten tragen nur den Alias, und frühere Antworten des Alias gelten be
 
 test("Aliasse brauchen ein konfiguriertes Ziel und einen eigenen Anbieternamen", async () => {
   const models = ModelRuntime.create();
-  assert.throws(() => models.registerAliases(ALIAS_PROVIDER, parseModelAliases(["x=openrouter/vendor/unknown"])), /Alias x: model openrouter\/vendor\/unknown is not configured/);
+  assert.throws(() => models.registerAliases(ALIAS_PROVIDER, parseModelAliases([aliasEntry("x", "openrouter/vendor/unknown")])), /Alias x: model openrouter\/vendor\/unknown is not configured/);
+  const oversized = parseModelAliases([aliasEntry("x", "openrouter/qwen/qwen3.8-27b", { compaction: { ...compaction, threshold: 990_000 } })]);
+  assert.throws(() => models.registerAliases(ALIAS_PROVIDER, oversized), /Alias x: compaction: threshold plus summaryTokens \(1006000\) must stay below the context window \(1000000\)/);
   assert.throws(() => models.registerAliases("openrouter", aliases), /collides with a registered provider/);
   models.registerAliases(ALIAS_PROVIDER, aliases);
   assert.throws(() => models.registerAliases(ALIAS_PROVIDER, aliases), /already registered/);

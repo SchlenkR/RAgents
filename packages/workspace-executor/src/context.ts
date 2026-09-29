@@ -27,6 +27,8 @@ export interface WorkspaceProcessContext {
   sandbox?: ProcessSandbox;
   /** Die Bash, mit der das Werkzeug bash startet; unter Windows Pflicht, sonst gilt ohne Angabe die des Systems. */
   bash?: string;
+  /** Das rg, dessen Ordner das Werkzeug bash vorn im PATH hat; ohne Angabe gilt eines im PATH, falls es eines gibt. */
+  rg?: string;
 }
 
 export interface SandboxHomeEnvironment {
@@ -103,6 +105,7 @@ export interface WorkspaceContextOptions {
   source?: NodeJS.ProcessEnv;
   baseEnvironment?: BaseEnvironment;
   bash?: string;
+  rg?: string;
 }
 
 const namedEntries = (
@@ -151,5 +154,6 @@ export const workspaceProcessContext = (options: WorkspaceContextOptions): Works
     ...(options.runOperation === undefined ? {} : { runOperation: options.runOperation }),
     ...(options.sandbox === undefined ? {} : { sandbox: options.sandbox }),
     ...(options.bash === undefined ? {} : { bash: options.bash }),
+    ...(options.rg === undefined ? {} : { rg: options.rg }),
   };
 };

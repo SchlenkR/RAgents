@@ -18,6 +18,7 @@ export interface ResolvedAlias {
   readonly alias: string;
   readonly upstream: ModelUpstream;
   readonly model: ModelUpstream["models"][number];
+  readonly compaction: ModelAlias["compaction"];
 }
 
 /** Jeder Alias muss auf einen konfigurierten Anbieter und ein Modell aus dessen Katalog zeigen. */
@@ -30,10 +31,10 @@ export const resolveAliases = (aliases: readonly ModelAlias[], upstreams: readon
     }
     const model = upstream.models.find((candidate) => candidate.id === entry.model);
     if (!model) throw new Error(`MODEL_ALIASES: das Modell ${entry.model} hinter ${entry.alias} fehlt im Katalog von ${entry.upstream}`);
-    return { alias: entry.alias, upstream, model };
+    return { alias: entry.alias, upstream, model, compaction: entry.compaction };
   });
 
-/** Der Katalogeintrag nennt nur, was der Verbraucher für den Draht braucht; Name, Anbieter und Kosten bleiben beim Server. */
+/** Der Katalogeintrag nennt nur, was der Verbraucher für Draht und Kompaktierung braucht; Name, Anbieter und Kosten bleiben beim Server. */
 export const catalogEntryOf = (resolved: ResolvedAlias) => ({
   id: resolved.alias,
   object: "model" as const,
@@ -44,6 +45,7 @@ export const catalogEntryOf = (resolved: ResolvedAlias) => ({
     input: [...resolved.model.input],
     contextWindow: resolved.model.contextWindow,
     maxTokens: resolved.model.maxTokens,
+    compaction: resolved.compaction,
     ...(resolved.model.compat ? { compat: resolved.model.compat } : {}),
   },
 });

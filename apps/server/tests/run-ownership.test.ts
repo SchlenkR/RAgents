@@ -453,7 +453,7 @@ test("ein an einen Arbeitsplatz gebundener Run ist Ã¼ber die Laufzeitmethoden fÃ
   try {
     const runtime = new Orchestration(journal, testServices());
     const startOptions = new StartOptionContributionRegistry();
-    startOptions.register("ragents.workspace", [workspaceBindingOption(new WorkspaceClientRegistry(), () => undefined)]);
+    startOptions.register("ragents.workspace", [workspaceBindingOption(new WorkspaceClientRegistry([]), () => undefined)]);
     const workstation = { kind: "client", client: "client-00000001", label: "Laptop", path: "/home/alice/project" };
     runtime.createRun({ commandId: "create-bound" }, {
       runId: BOUND, title: "Gebunden", ownerHandle: "alice", ownerDisplayName: "Alice", ownerUserId: "alice",

@@ -19,7 +19,7 @@ export interface PluginSource {
 
 const ID_PATTERN = /^[a-z0-9]+(?:[.-][a-z0-9]+)*$/;
 /** Places of the bundle the build tool writes itself; an asset there would overwrite its output or publish sources under /plugins/<id>/web/. */
-const RESERVED_ASSET_ROOTS = new Set(["server", "web", "ragents-bundle.json"]);
+const RESERVED_ASSET_ROOTS = new Set(["server", "web", "executor", "ragents-bundle.json"]);
 const DESCRIPTION_KEYS = new Set(["id", "exports", "assets"]);
 const HALVES = new Set(["server", "web"]);
 

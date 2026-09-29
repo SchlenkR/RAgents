@@ -7,10 +7,12 @@ import {
 	type InputModality,
 	lazyStream,
 	type Model,
+	type ModelCompaction,
 	type Provider,
 	type SimpleStreamOptions,
 	type StreamOptions,
 } from "@ragents/ai";
+import { compactionProblem } from "./compaction/compaction.ts";
 
 /** A provider registered at runtime: its models and a literal API key, over the built-in provider of the same id. */
 export interface ProviderConfigInput {
@@ -30,6 +32,7 @@ export interface ProviderConfigInput {
 		cost: Model<Api>["cost"];
 		contextWindow: number;
 		maxTokens: number;
+		compaction?: ModelCompaction;
 		compat?: Model<Api>["compat"];
 	}>;
 }
@@ -52,6 +55,8 @@ function registeredModels(
 		}
 		const baseUrl = definition.baseUrl ?? config.baseUrl ?? defaults?.baseUrl;
 		if (!baseUrl) throw new Error(`Provider ${providerId}: "baseUrl" is required when defining custom models.`);
+		const problem = definition.compaction === undefined ? undefined : compactionProblem(definition.compaction, definition);
+		if (problem) throw new Error(`Provider ${providerId}, model ${definition.id}: ${problem}.`);
 		return {
 			...definition,
 			api,

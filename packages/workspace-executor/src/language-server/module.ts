@@ -1,5 +1,5 @@
 import { WorkspaceOperationError } from "../errors.js";
-import type { WorkspaceModuleFactory, WorkspaceOperation } from "../module.js";
+import type { WorkspaceExecutorModule, WorkspaceModuleFactory, WorkspaceModuleHost, WorkspaceOperation } from "../module.js";
 import { rootsOfFields, type OperationFootprint } from "../paths.js";
 import { LanguageServerHost, type LanguageServerAdapter, type LanguageServerHostOptions } from "./host.js";
 
@@ -89,7 +89,17 @@ const footprintsOf = (server: LanguageServerHost): Array<readonly [string, (inpu
 export const languageServerModule = (
   adapters: readonly LanguageServerAdapter[],
   options: LanguageServerHostOptions = {},
-): WorkspaceModuleFactory => (host) => {
+): WorkspaceModuleFactory => {
+  const duplicate = adapters.find((adapter, index) => adapters.findIndex((other) => other.id === adapter.id) !== index);
+  if (duplicate) throw new Error(`Der Sprachserver ${duplicate.id} kommt im Executor zweimal vor; seine Operationen gehören genau einem Beitrag`);
+  return (host) => languageServersOn(host, adapters, options);
+};
+
+const languageServersOn = (
+  host: WorkspaceModuleHost,
+  adapters: readonly LanguageServerAdapter[],
+  options: LanguageServerHostOptions,
+): WorkspaceExecutorModule => {
   const servers = adapters.map((adapter) => new LanguageServerHost(adapter, host.contextFor, options));
   return {
     operations: Object.fromEntries(servers.flatMap(operationsOf)),

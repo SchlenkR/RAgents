@@ -561,6 +561,16 @@ export interface ModelCost extends ModelCostRates {
 	tiers?: ModelCostTier[];
 }
 
+/** When an agent compacts its context on a model and how much it keeps, in absolute tokens of that model. */
+export interface ModelCompaction {
+	/** Context tokens above which the agent compacts. */
+	threshold: number;
+	/** Tokens of the newest context the compaction keeps verbatim. */
+	keepRecentTokens: number;
+	/** Output budget of the summary. */
+	summaryTokens: number;
+}
+
 // Model interface for the unified model system
 export interface Model<TApi extends Api> {
 	id: string;
@@ -578,6 +588,8 @@ export interface Model<TApi extends Api> {
 	cost: ModelCost;
 	contextWindow: number;
 	maxTokens: number;
+	/** The model's own compaction values; without them the agent applies the catalog standard of its context window. */
+	compaction?: ModelCompaction;
 	headers?: Record<string, string>;
 	/** Compatibility overrides for OpenAI-compatible APIs. If not set, auto-detected from baseUrl. */
 	compat?: TApi extends "openai-completions"

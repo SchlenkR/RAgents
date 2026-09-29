@@ -4,15 +4,11 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import test, { type TestContext } from "node:test";
 import type { Browser } from "playwright-core";
-import {
-  WorkspaceOperationExecutor,
-  browserModule,
-  workspaceProcessContext,
-  type BrowserModuleOptions,
-} from "@ragents/workspace-executor";
+import { WorkspaceOperationExecutor, executorMachine, workspaceProcessContext } from "@ragents/workspace-executor";
+import { browserModule, type BrowserModuleOptions } from "../../../plugins/ragents.browser/executor/module.ts";
 import { RunBrowser } from "../../../plugins/ragents.browser/server/browser.ts";
 import { createBrowserFunctions, createBrowserImageContribution } from "../../../plugins/ragents.browser/server/tools.ts";
-import { stubBrowser, type StubDocument } from "../../../packages/workspace-executor/tests/browser-stub.ts";
+import { stubBrowser, type StubDocument } from "./browser-stub.ts";
 
 const unusedSandbox = { execute: async () => { throw new Error("Dieser Test ruft keinen Executor"); } };
 
@@ -33,7 +29,7 @@ const localBrowser = (options: BrowserModuleOptions, filesFor: (runId: string) =
     contextFor: async (runId) => workspaceProcessContext({
       runId, cwd: tmpdir(), root: tmpdir(), home: { home: tmpdir() }, logDirectory: tmpdir(), hostRoot: undefined,
     }),
-    modules: [browserModule({ timeoutMs: 500, checkTimeoutMs: 50, ...options })],
+    modules: [browserModule(executorMachine("/unbenutzt"), { timeoutMs: 500, checkTimeoutMs: 50, ...options })],
   });
   return { browser: new RunBrowser({ sandbox: executor, filesFor }), executor };
 };

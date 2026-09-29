@@ -1,6 +1,5 @@
 import { stat } from "node:fs/promises";
 import path from "node:path";
-import { ROSLYN_SERVER_FILE } from "@ragents/workspace-executor";
 import {
   DOTNET_INSTRUCTION,
   downloadArchive,
@@ -14,6 +13,7 @@ import {
   type PluginProvision,
   type ProvisionState,
 } from "@ragents/host/plugin-support/provision.js";
+import { ROSLYN_SERVER_FILE } from "./executor.js";
 
 export const ROSLYN_VERSION = "5.4.0-2.26179.14";
 

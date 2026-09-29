@@ -31,7 +31,7 @@ const workflow = async (t: TestContext) => {
         },
     })] });
     const sandbox = new WorkspaceSandboxHost({
-        contributorName: "test-workspace",
+        contributorName: "test-workspace", contributions: [],
         workspaceFor: async () => ({ cwd: directory, currentRoot: async () => directory, runOperation: async (operation) => operation() }),
         identFor: async () => undefined,
         skillPaths: async () => [],

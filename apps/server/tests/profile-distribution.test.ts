@@ -26,7 +26,8 @@ const fixture = async (t: TestContext, profileBody?: string) => {
   await mkdir(path.dirname(profileFile), { recursive: true });
   await writeFile(profileFile, profileBody ?? `const env = (name) => ({ kind: "environment", name });
 export const config = {
-  host: { PRODUCT_PROFILE: "werkstatt-client", PRODUCT_ID: "werkstatt", PRODUCT_TITLE: "Werkstatt", PORT: 4720, PLUGINS: ["ragents.orchestration", "../plugins/werkstatt.demo"] },
+  host: { PRODUCT_PROFILE: "werkstatt-client", PRODUCT_ID: "werkstatt", PRODUCT_TITLE: "Werkstatt", PORT: 4720, PLUGINS: ["ragents.orchestration", "../plugins/werkstatt.demo"],
+    MODEL_ALIASES: [{ alias: "werkstatt", model: "openrouter/z-ai/glm-5.3-flash", compaction: { threshold: 160000, keepRecentTokens: 24000, summaryTokens: 12000 } }] },
   "werkstatt.demo": { DEMO_ENDPOINT: "https://example.invalid", DEMO_TOKEN: env("DEMO_TOKEN_VALUE") },
 };
 export const users = [{ id: "dev", password: env("DEV_PASSWORD_VALUE"), token: env("DEV_TOKEN_VALUE"), rights: ["*"] }];
@@ -71,6 +72,7 @@ test("fehlerhafte Client-Profile brechen die Verteilung mit Ursache ab", async (
   await broken(`export const config = { host: { PRODUCT_PROFILE: "werkstatt-client", PLUGINS: ["../plugins/werkstatt.demo"] }, "werkstatt.other": {} };\n`, /Sektion werkstatt\.other/);
   await broken(`export const config = { host: { PRODUCT_PROFILE: "werkstatt-client", PLUGINS: ["../plugins/werkstatt.demo"] }, "werkstatt.demo": { DEMO_TOKEN: "klartext" } };\n`, /DEMO_TOKEN ist ein Secret/);
   await broken(`export const config = { host: { PRODUCT_PROFILE: "werkstatt-client", UNKNOWN: 1, PLUGINS: ["../plugins/werkstatt.demo"] } };\n`, /host\.UNKNOWN/);
+  await broken(`export const config = { host: { PRODUCT_PROFILE: "werkstatt-client", MODEL_ALIASES: [1], PLUGINS: ["../plugins/werkstatt.demo"] } };\n`, /host\.MODEL_ALIASES hat keinen gültigen Wert/);
   const { pluginsRoot, profileFile, client } = await fixture(t);
   await rm(path.join(client, "ragents-bundle.json"));
   await writeFile(path.join(client, "server", "index.ts"), PLUGIN_ENTRY_SOURCE);

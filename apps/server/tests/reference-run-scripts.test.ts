@@ -54,7 +54,7 @@ const referenceFixture = async () => {
   const profile = await coreProfile();
   const loaded = await loadPlugins(profile.plugins);
   const host = composeProfile(
-    { product: profile.product, pluginIds: profile.plugins, modules: loaded.modules, web: loaded.web },
+    { product: profile.product, pluginIds: profile.plugins, modules: loaded.modules, web: loaded.web, executor: loaded.executor },
     {
       ensureSession: () => {},
       ensureWorkspaceAccess: () => {},

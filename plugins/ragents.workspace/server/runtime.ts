@@ -8,6 +8,7 @@ import {
   type SandboxHomeEnvironment,
   type WorkspaceExecuteOptions,
   type WorkspaceExecutor,
+  type WorkspaceExecutorParts,
 } from "@ragents/workspace-executor";
 import type {
   SessionWorkspace,
@@ -46,10 +47,16 @@ export interface RunWorkspaceRuntimeOptions {
   runState: (runId: string) => RunState | null;
   storeBinding: (runId: string, binding: WorkspaceBinding) => void;
   clients: WorkspaceClientRegistry;
+  /** Was die Plugins des Profils zum Executor des Servers beitragen; die Arbeitsplätze laden dieselben Beiträge selbst. */
+  contributions: readonly WorkspaceExecutorParts[];
   /** Die Prozess-Sandbox des Servers; ohne sie laufen die Prozesse des Servers ohne. */
   processSandbox?: RunProcessSandboxes;
   /** Die Bash des Servers aus RAGENTS_BASH; unter Windows Pflicht für das Werkzeug bash. */
   bash?: string;
+  /** Das rg des Servers aus RAGENTS_RG; ohne Angabe gilt eines im PATH. */
+  rg?: string;
+  /** Die Zeitgrenze von bash aus RAGENTS_BASH_TIMEOUT_SECONDS; ohne Angabe die des Werkzeugs. */
+  bashTimeoutSeconds?: number;
 }
 
 const runNotStarted = (): DomainError => new DomainError(
@@ -141,6 +148,7 @@ export class RunWorkspaceRuntime implements WorkspaceRuntime {
     this.#nugetCacheDirectory = path.join(options.globalDirectory, "nuget-cache");
     this.sandbox = new WorkspaceSandboxHost({
       contributorName: "ragents.workspace.sandbox",
+      contributions: options.contributions,
       workspaceFor: options.sessionWorkspaceFor,
       identFor: () => Promise.resolve(undefined),
       skillPaths: options.skillPaths,
@@ -150,6 +158,8 @@ export class RunWorkspaceRuntime implements WorkspaceRuntime {
       serverDirectoryFor: (runId) => this.#serverDirectoryFor(runId),
       ...(options.processSandbox ? { processSandbox: options.processSandbox } : {}),
       ...(options.bash === undefined ? {} : { bash: options.bash }),
+      ...(options.rg === undefined ? {} : { rg: options.rg }),
+      ...(options.bashTimeoutSeconds === undefined ? {} : { bashTimeoutSeconds: options.bashTimeoutSeconds }),
     });
   }
 

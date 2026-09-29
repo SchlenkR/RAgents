@@ -5,7 +5,11 @@ root="$(cd "$(dirname "$0")/../.." && pwd)"
 
 cd "$root"
 pnpm package:vscode
-vsix="$(ls -t dist/ragents-vscode-*.vsix | head -1)"
+# Wie der Marketplace: die Fassung dieser Plattform samt rg, sonst die universelle.
+version="$(node -p 'require("./apps/vscode/package.json").version')"
+target="$(node -p 'process.platform + "-" + process.arch')"
+vsix="dist/ragents-vscode-$target-$version.vsix"
+[ -f "$vsix" ] || vsix="dist/ragents-vscode-$version.vsix"
 
 code_binary="$(command -v code || echo '/Applications/Visual Studio Code.app/Contents/Resources/app/bin/code')"
 if [ ! -x "$code_binary" ]; then

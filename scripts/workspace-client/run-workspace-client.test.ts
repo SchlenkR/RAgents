@@ -5,9 +5,12 @@ import path from "node:path";
 import test, { type TestContext } from "node:test";
 import { DomainError, implement, pluginStateKey, type RunState } from "@ragents/engine";
 import {
+  EXECUTOR_CONTRIBUTION_FILE,
   FILE_OPERATIONS,
   PROCESS_OPERATIONS,
   WORKSPACE_EXECUTOR_VERSION,
+  loadExecutorContribution,
+  type ExecutorContributionStand,
   type FileListing,
   type FileWatchProgress,
   type WorkspaceProcessSnapshot,
@@ -82,10 +85,10 @@ test("ohne ausdrücklichen Ordner gilt der Aufrufer aus RAGENTS_CWD, nicht das A
 });
 
 /** Der kopflose Arbeitsplatz gegen echte Server-Methoden: Anmeldung, Executor und Abmeldung ohne VS Code. */
-const started = async (t: TestContext) => {
+const started = async (t: TestContext, contributions: readonly ExecutorContributionStand[] = []) => {
   const directory = await realpath(await mkdtemp(path.join(tmpdir(), "ragents-cli-client-")));
   const runs = await realpath(await mkdtemp(path.join(tmpdir(), "ragents-cli-runs-")));
-  const registry = new WorkspaceClientRegistry();
+  const registry = new WorkspaceClientRegistry(contributions);
   const { url } = await startRpcServer(t, { methods: clientMethods(registry) });
   const transport = workspaceClientTransport(url, undefined);
   const client = new WorkspaceClient(transport, {
@@ -136,6 +139,33 @@ test("der kopflose Arbeitsplatz meldet sich an und führt die Werkzeuge des Serv
   assert.deepEqual(registry.list(null), []);
 });
 
+test("der kopflose Arbeitsplatz lädt die Beiträge, die der Server verlangt, aus den Bundles seines Hosts und bedient ihre Operationen", async (t) => {
+  const typescript = await loadExecutorContribution("ragents.lsp-typescript", path.join(hostRoot(), "bundles", "ragents.lsp-typescript", EXECUTOR_CONTRIBUTION_FILE));
+  const { directory, registry, client } = await started(t, [{ plugin: typescript.plugin, stand: typescript.stand }]);
+  await client.register();
+  assert.deepEqual(client.status, { kind: "registered" });
+  const executor = registry.executorFor(null, CLIENT, "Kopflos", directory);
+  assert.deepEqual(await executor.execute("run-1", "typescript_snapshot", null), { instances: [] });
+  await assert.rejects(executor.execute("run-1", "roslyn_snapshot", null), /Der Executor kennt die Operation roslyn_snapshot nicht/);
+  await client.unregister();
+});
+
+test("ein älterer Server ohne die Frage nach den Beiträgen nimmt den Arbeitsplatz nicht an, und die Meldung sagt, wer zu aktualisieren ist", async (t) => {
+  const registry = new WorkspaceClientRegistry([]);
+  const older = clientMethods(registry).filter((method) => method.contract.id !== workspaceContracts.clients.contributions.id);
+  const { url } = await startRpcServer(t, { methods: older });
+  const transport = workspaceClientTransport(url, undefined);
+  t.after(() => transport.rpc.close());
+  const client = new WorkspaceClient(transport, {
+    id: CLIENT, label: "Kopflos", hostname: "cli-host", platform: process.platform, folders: [tmpdir()], runsDirectory: path.join(tmpdir(), "runs"),
+  }, { hostRoot });
+  await client.register();
+  assert.equal(client.status.kind, "failed");
+  assert.match((client.status as { message: string }).message,
+    new RegExp(`Der Server kennt ragents\\.workspace\\.clients\\.contributions nicht; er ist älter als dieser Arbeitsplatz mit dem Executor ${WORKSPACE_EXECUTOR_VERSION}\\. Den Server auf die Fassung des Arbeitsplatzes aktualisieren`));
+  assert.deepEqual(registry.list(null), []);
+});
+
 test("ein Run mit neuem Ordner je Run arbeitet im Ordner für Runs des kopflosen Arbeitsplatzes, und das Löschen nimmt ihn mit", async (t) => {
   const { runs, registry, client } = await started(t);
   await client.register();
@@ -161,6 +191,7 @@ test("ein Run mit neuem Ordner je Run arbeitet im Ordner für Runs des kopflosen
     runState: () => state,
     storeBinding: () => { throw new Error("nicht gefragt"); },
     clients: registry,
+    contributions: [],
   });
   t.after(async () => {
     await runtime.shutdown();
@@ -306,7 +337,7 @@ test("ein Arbeitsplatz mit dem Ordner / führt Aufträge in jedem Ordner darunte
 test("die Abmeldung wartet nur begrenzt auf den Server und beendet den Executor trotzdem", { timeout: 30_000 }, async (t) => {
   const directory = await realpath(await mkdtemp(path.join(tmpdir(), "ragents-cli-hang-")));
   t.after(() => rm(directory, { recursive: true, force: true }));
-  const registry = new WorkspaceClientRegistry();
+  const registry = new WorkspaceClientRegistry([]);
   const methods = [
     ...clientMethods(registry).filter((method) => method.contract.id !== workspaceContracts.clients.unregister.id),
     implement(workspaceContracts.clients.unregister, () => new Promise<null>(() => undefined)),

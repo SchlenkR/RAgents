@@ -84,6 +84,8 @@ const PACKAGE_NAME_PATTERN = /^(@[a-z0-9-~][a-z0-9-._~]*\/)?[a-z0-9-~][a-z0-9-._
 const SCAN_SKIPPED = new Set(["node_modules", "dist"]);
 const SCANNED_EXTENSIONS = new Set([".ts", ".tsx", ".mts", ".mjs", ".js", ".css"]);
 const IMPORT_PATTERN = /\b(?:from|import|require(?:\.resolve)?)\s*\(?\s*["']([^"'\n]+)["']/g;
+/** Ein Beitrag zum Executor löst Pakete zur Laufzeit aus dem Host auf; auch sie muss das Paket tragen. */
+const HOST_PACKAGE_PATTERN = /\bhostPackageFile\([^,()]*,\s*["']([^"'\n]+)["']/g;
 
 const files = async (folder: string, skippedFolders: ReadonlySet<string> = SKIPPED_FOLDERS): Promise<readonly string[]> => {
   const found: string[] = [];
@@ -149,7 +151,7 @@ export const requiredPackages = (packageDirectory: string): ReadonlyMap<string, 
   for (const folder of scanRoots(packageDirectory)) {
     for (const file of scannedFiles(folder)) {
       const content = readFileSync(file, "utf8");
-      for (const match of content.matchAll(IMPORT_PATTERN)) {
+      for (const match of [...content.matchAll(IMPORT_PATTERN), ...content.matchAll(HOST_PACKAGE_PATTERN)]) {
         const name = packageNameOf(match[1]!);
         if (name && !sources.has(name)) sources.set(name, path.relative(packageDirectory, file));
       }

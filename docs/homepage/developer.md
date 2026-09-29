@@ -1358,30 +1358,31 @@ Vertragsfelder: driver.kind, driver.supportsPlainLlm, driver.runTurn, driver.dis
 
 ### Einen Language Server anbinden
 
-Ein Language Server analysiert Quellcode und liefert Sprachfunktionen wie Fehlermeldungen und Symbolsuche. Ein Adapter beschreibt, wie RAgents das passende Projekt erkennt und den Server startet. Die vorhandene Einbindung macht diese Funktionen als Werkzeuge und Serverzugriffe verfügbar.
+Ein Language Server analysiert Quellcode und liefert Sprachfunktionen wie Fehlermeldungen und Symbolsuche. Ein Adapter beschreibt, wie RAgents das passende Projekt erkennt und den Server startet. Das Plugin bringt ihn als Beitrag zum Executor mit, der auf jeder Maschine läuft, auf der ein Arbeitsbereich liegt; die vorhandene Einbindung macht seine Funktionen als Werkzeuge und Serverzugriffe verfügbar.
 
-Einsatzort: Server-Einstieg für einen einfachen TypeScript-LSP. Node-Helfer und die neutralen language-server-Hosttypen werden importiert.
+Einsatzort: executor.ts und server/index.ts eines einfachen TypeScript-LSP, hier in einer Datei. Vom Host importiert der Beitrag nur Typen.
 
 ```typescript
-const require = createRequire(import.meta.url);
 const languages = { ".ts": "typescript" };
-const adapter: LanguageServerAdapter = {
-  id: "example", label: "TypeScript", languages,
-  rootDescription: "Projektverzeichnis",
-  resolveRoot: resolveRootDirectory,
+export const exampleLanguageServer: LanguageServerDescription = {
+  id: "example", label: "TypeScript", languages, rootDescription: "Projektverzeichnis",
+};
+export const executor: WorkspaceExecutorContribution = (machine) => ({ languageServers: [{
+  ...exampleLanguageServer,
+  resolveRoot: machine.resolveRootDirectory,
   rootDirectory: (root) => root,
   launch: async (context, root) => ({
     label: "TypeScript", command: process.execPath,
-    args: [require.resolve("typescript-language-server/lib/cli.mjs"), "--stdio"],
+    args: [machine.hostPackageFile(context.hostRoot, "typescript-language-server/lib/cli.mjs"), "--stdio"],
     cwd: root, env: context.env, uid: context.uid, gid: context.gid,
     rootUri: pathToFileURL(root).href, languages,
-    initializationOptions: { tsserver: { path: path.dirname(require.resolve("typescript")) } },
+    initializationOptions: { tsserver: { path: path.dirname(machine.hostPackageFile(context.hostRoot, "typescript")) } },
   }),
   open: async () => "TypeScript-Server bereit.",
-};
+}] });
 export const plugin: PluginModule = {
   requires: ["ragents.workspace"],
-  create: () => createLanguageServerPlugin({ id: "ragents.lsp-example", adapter }),
+  create: () => createLanguageServerPlugin({ id: "ragents.lsp-example", languageServer: exampleLanguageServer }),
 };
 ```
 
@@ -1389,11 +1390,15 @@ languages ordnet Dateiendungen Sprachkennungen zu. resolveRoot prüft das Projek
 
 solutionExtensions ist optional und nennt die Endungen der Solutions, etwa .sln und .slnx; damit bekommt das Plugin das Werkzeug <id>_solutions, die Solution-Liste und das Umschalten im Reiter. Ein Verzeichnis-Adapter wie dieser lässt es weg.
 
-Die nötigen Serverprogramme werden als Pluginabhängigkeit installiert. Ein fehlendes Programm wird als Fehler gemeldet; es wird kein Ersatzprozess still gestartet.
+executor ist eine Funktion der Maschine und liefert languageServers und modules; modules sind weitere Module mit eigenen Operationen, etwa der Browser von ragents.browser. Die Maschine gibt den Werkzeugordner des Plugins (toolsDirectory), Dateien aus den Paketen des Hosts (hostPackageFile), die geprüfte Wurzelauflösung (resolveRootFile, resolveRootDirectory), fachliche Fehler (operationError) und die Umgebung eigener Prozesse (processEnvironment).
 
-Benötigte Imports: createRequire aus node:module, path aus node:path, pathToFileURL aus node:url und die neutralen Helfer LanguageServerAdapter, resolveRootDirectory, createLanguageServerPlugin sowie PluginModule. Die LSP-Initialisierung übernimmt der Host; open ergänzt danach nur serverspezifische Schritte.
+Das Bauwerkzeug macht aus executor.ts eine in sich geschlossene Datei executor/index.mjs; ein Import eines Host-Moduls oder eines anderen Plugins ist dort ein Baufehler. Server und Arbeitsplätze laden dieselbe Datei, ein Arbeitsplatz aus den Bundles seines eigenen Hosts. Die Server-Hälfte importiert die Beschreibung relativ aus executor.ts.
 
-Vertragsfelder: lsp.id, lsp.label, lsp.languages, lsp.rootDescription, lsp.solutionExtensions, lsp.resolveRoot, lsp.rootDirectory, lsp.launch, lsp.open.
+Die nötigen Serverprogramme kommen über die Provisionierung des Plugins oder aus den Paketen des Hosts. Ein fehlendes Programm wird als Fehler gemeldet; es wird kein Ersatzprozess still gestartet.
+
+Benötigte Imports: path aus node:path, pathToFileURL aus node:url, die Typen LanguageServerDescription und WorkspaceExecutorContribution aus @ragents/workspace-executor, in der Server-Hälfte createLanguageServerPlugin sowie PluginModule. Die LSP-Initialisierung übernimmt der Host; open ergänzt danach nur serverspezifische Schritte.
+
+Vertragsfelder: lsp.id, lsp.label, lsp.languages, lsp.rootDescription, lsp.solutionExtensions, lsp.resolveRoot, lsp.rootDirectory, lsp.launch, lsp.open, executorParts.languageServers, executorParts.modules, executorMachine.toolsDirectory, executorMachine.hostPackageFile, executorMachine.resolveRootFile, executorMachine.resolveRootDirectory, executorMachine.operationError, executorMachine.processEnvironment.
 
 ## Eingebaute Rechte
 
@@ -2029,5 +2034,38 @@ export interface LanguageServerAdapter {
   rootDirectory: (root: string) => string;
   launch: (context: WorkspaceProcessContext, root: string) => Promise<LanguageServerLaunch>;
   open: (session: LanguageServerSession, root: string, timeoutMs: number) => Promise<string>;
+}
+```
+
+### WorkspaceExecutorParts
+
+Quelle im Repository: packages/workspace-executor/src/contributions.ts
+
+```typescript
+export interface WorkspaceExecutorParts {
+  readonly languageServers?: readonly LanguageServerAdapter[];
+  /** Module mit eigenen Operationen; jede Operation gehört genau einem Modul. */
+  readonly modules?: readonly WorkspaceModuleFactory[];
+}
+```
+
+### WorkspaceExecutorMachine
+
+Quelle im Repository: packages/workspace-executor/src/contributions.ts
+
+```typescript
+export interface WorkspaceExecutorMachine {
+  /** Der Werkzeugordner des Plugins auf dieser Maschine, wohin seine Provisionierung lädt. */
+  readonly toolsDirectory: string;
+  /** Eine Datei aus einem Paket in den node_modules des Hosts dieser Maschine; ohne Host oder Paket scheitert der Aufruf mit Ursache. */
+  readonly hostPackageFile: (hostRoot: string | undefined, specifier: string) => string;
+  /** Eine Datei mit einer der Endungen im Arbeitsbereich, aufgelöst und geprüft. */
+  readonly resolveRootFile: (workspaceRoot: string, requested: string, extensions: readonly string[]) => Promise<string>;
+  /** Ein Ordner im Arbeitsbereich, aufgelöst und geprüft. */
+  readonly resolveRootDirectory: (workspaceRoot: string, requested: string) => Promise<string>;
+  /** Ein fachlicher Fehler einer Operation mit Kennung und Status; beim Aufrufer kommt er als derselbe Fehler an wie einer des Executors. */
+  readonly operationError: (code: string, message: string, status: number) => Error;
+  /** Die Umgebung eines Prozesses, den ein Beitrag selbst startet: die sichere Auswahl dieser Maschine, ihr HOME und der Marker des Runs für die Prozessanzeige. */
+  readonly processEnvironment: (runId: string) => NodeJS.ProcessEnv;
 }
 ```

@@ -312,6 +312,7 @@ the built-in plugins live under <code>plugins/&lt;id&gt;/</code>:</p>
   contract.ts        import-free contract shared by both halves, when present
   prompt.hbs         assets at the plugin root, alongside prompts/, skills/,
                      run-scripts/, provision.ts
+  executor.ts        contribution to the workspace executor, when present
 </code></pre>
 <p><code>server/index.ts</code> exports exactly one entry point:</p>
 <pre><code class="language-ts">export const plugin: PluginModule = {
@@ -379,7 +380,8 @@ loads plugin sources; it loads finished bundles, and the author builds them. The
 <code>@schlenkr/ragents</code> carries everything this needs, so an empty folder and the package are enough.</p>
 <p><strong>Source folder.</strong> One folder per plugin, named after its ID, such as <code>acme.tickets</code>. It holds
 <code>ragents-plugin.json</code>, <code>server/index.ts</code> exporting <code>plugin</code>, optionally <code>provision.ts</code> for tools the
-plugin installs, <code>web/index.tsx</code> exporting <code>webPlugin</code> when there is an interface, and assets such
+plugin installs and <code>executor.ts</code> for work that runs on the machine of a workspace, such as a
+language server, <code>web/index.tsx</code> exporting <code>webPlugin</code> when there is an interface, and assets such
 as <code>prompt.hbs</code>, <code>prompts/</code>, <code>skills/</code>, and <code>run-scripts/</code> at the root. <code>ragents-plugin.json</code>
 names the ID, the files other plugins may import (per half, as paths without extension), and
 additional assets that go into the bundle:</p>
@@ -422,7 +424,9 @@ so does a host with the same number that lacks one of the names, as an older hos
 changes only when the host API changes incompatibly, not with every host release.</p>
 <p><strong>Ship.</strong> A bundle is a plain folder without <code>node_modules</code> or native binaries and runs wherever a
 host offers the same host API with the names it uses. Native tools such as language servers come through the plugin&#39;s
-provisioning. To hand a profile together with its bundles to other machines, a server adds
+provisioning. The contribution to the workspace executor becomes one self-contained file that
+imports only Node modules, so every machine can load it, the VS Code extension included; a
+workstation loads it from the bundles of its own host, in exactly the version the server uses. To hand a profile together with its bundles to other machines, a server adds
 <code>ragents.profile-distribution</code>; <code>ragents connect</code> fetches the profile and its bundles and starts
 them with the local host (<a href="guide-distributed.html">Distributed work</a>). The client
 profile names such bundles relative to itself (<code>./</code> or <code>../</code>); the client resolves an absolute or

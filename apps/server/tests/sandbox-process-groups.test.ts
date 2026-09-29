@@ -164,7 +164,8 @@ test("Bash reports failed process inspection instead of reporting success", { sk
 
 test("Bash timeout and shutdown still settle active commands and their groups", { timeout: 10_000 }, async (t) => {
   const { bash, sandbox } = await fixture(t);
-  await assert.rejects(bash.execute("timeout", { command: "sleep 2", timeout: 0.02 }), /Command timed out/);
+  await assert.rejects(bash.execute("timeout", { command: "sleep 2", timeout: 0.02 }), /Command stopped after 0\.02 seconds \(timeout\)\. Narrow the command/);
+  await assert.rejects(bash.execute("above-maximum", { command: "sleep 2", timeout: 601 }), /Invalid timeout 601: the maximum is 600 seconds/);
   let started: () => void = () => {};
   const ready = new Promise<void>((resolve) => { started = resolve; });
   const running = bash.execute("shutdown", { command: "printf 'ready\\n'; sleep 2" }, undefined, (result) => {

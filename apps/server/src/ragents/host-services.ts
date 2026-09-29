@@ -5,6 +5,7 @@ import {
   type PluginHost,
   type ServiceToken,
 } from "@ragents/engine";
+import type { PreparedExecutorContribution } from "@ragents/workspace-executor";
 import type { SessionWorkspace } from "./workspace-runtime.js";
 import type { RunManagement } from "./global-chat.js";
 
@@ -22,6 +23,9 @@ export const runtimeProviderToken: ServiceToken<() => Orchestration> = serviceTo
 
 /** Die Adresse, unter der dieser Server seine API anbietet, etwa http://127.0.0.1:4710; ohne HTTP (nur stdio) keine. */
 export const hostAddressToken: ServiceToken<() => string | undefined> = serviceToken("host.address");
+
+/** Die Beiträge der Bundles dieses Profils zum Executor, gebaut für den Server; jeder Executor des Servers trägt sie, jeder Arbeitsplatz dieselben. */
+export const executorContributionsToken: ServiceToken<readonly PreparedExecutorContribution[]> = serviceToken("host.executor-contributions");
 
 export interface HostBridges {
   ensureSession: (runId: string) => void;

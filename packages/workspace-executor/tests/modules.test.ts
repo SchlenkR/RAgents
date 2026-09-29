@@ -51,15 +51,16 @@ const contextIn = (directory: string, aliases: Readonly<Record<string, string>> 
     additionalRoots: Object.entries(aliases).map(([alias, root]) => ({ directory: root, alias })),
   }));
 
+const demoAdapter = {
+  id: "demo", label: "Demo LSP", languages: { ".demo": "demo" }, rootDescription: "directory",
+  resolveRoot: async (_workspace: string, root: string) => root,
+  rootDirectory: (root: string) => root,
+  launch: async () => { throw new Error("Der Test startet keinen Sprachserver"); },
+  open: async () => "unbenutzt",
+};
+
 test("die Sprachserver-Operationen prüfen ihre Eingabe, bevor sie eine Wurzel anlegen", async () => {
-  const adapter = {
-    id: "demo", label: "Demo LSP", languages: { ".demo": "demo" }, rootDescription: "directory",
-    resolveRoot: async (_workspace: string, root: string) => root,
-    rootDirectory: (root: string) => root,
-    launch: async () => { throw new Error("Der Test startet keinen Sprachserver"); },
-    open: async () => "unbenutzt",
-  };
-  const executor = new WorkspaceOperationExecutor({ contextFor: contextIn(tmpdir()), modules: [languageServerModule([adapter])] });
+  const executor = new WorkspaceOperationExecutor({ contextFor: contextIn(tmpdir()), modules: [languageServerModule([demoAdapter])] });
   await assert.rejects(executor.execute("run-1", "demo_open", {}), coded("language-server-input-invalid", /demo_open: root fehlt/));
   await assert.rejects(executor.execute("run-1", "demo_open", null), coded("language-server-input-invalid", /root fehlt/));
   await assert.rejects(executor.execute("run-1", "demo_open", { root: 3 }), coded("language-server-input-invalid", /root muss ein Text sein/));
@@ -73,7 +74,7 @@ test("die Sprachserver-Operationen prüfen ihre Eingabe, bevor sie eine Wurzel a
   await executor.shutdown();
   const withSolutions = new WorkspaceOperationExecutor({
     contextFor: contextIn(tmpdir()),
-    modules: [languageServerModule([{ ...adapter, solutionExtensions: [".demo"] }])],
+    modules: [languageServerModule([{ ...demoAdapter, solutionExtensions: [".demo"] }])],
   });
   await assert.rejects(withSolutions.execute("run-1", "demo_switch", {}), coded("language-server-input-invalid", /demo_switch: root muss ein Text oder null sein/));
   await assert.rejects(withSolutions.execute("run-1", "demo_switch", { root: 3 }), coded("language-server-input-invalid", /root muss ein Text oder null sein/));
@@ -92,17 +93,33 @@ test("jede Operation gehört genau einem Modul, eine unbekannte ist ein Fehler m
   await assert.rejects(executor.execute("run-1", "grep", null), coded("workspace-operation-unknown", /kennt die Operation grep nicht/));
 });
 
+test("der Executor bringt keinen Sprachserver mit; jeden fügt ein Beitrag hinzu", async () => {
+  const bare = new WorkspaceOperationExecutor({ contextFor: contextIn(tmpdir()), modules: workspaceExecutorModules({ contributions: [] }) });
+  await assert.rejects(bare.execute("run-1", "demo_snapshot", null), coded("workspace-operation-unknown"));
+  await bare.shutdown();
+  const contributed = new WorkspaceOperationExecutor({
+    contextFor: contextIn(tmpdir()),
+    modules: workspaceExecutorModules({ contributions: [{}, { languageServers: [demoAdapter] }] }),
+  });
+  assert.deepEqual(await contributed.execute("run-1", "demo_snapshot", null), { instances: [] });
+  await contributed.shutdown();
+  assert.throws(() => workspaceExecutorModules({ contributions: [{ languageServers: [demoAdapter] }, { languageServers: [demoAdapter] }] }), /Der Sprachserver demo kommt im Executor zweimal vor/);
+});
+
 test("der Fußabdruck einer Eingabe nennt ihre Wurzeln und ihre Laufzeit, erklärt vom Modul der Operation", async () => {
-  const executor = new WorkspaceOperationExecutor({ contextFor: contextIn(tmpdir()), modules: workspaceExecutorModules() });
+  const executor = new WorkspaceOperationExecutor({
+    contextFor: contextIn(tmpdir()),
+    modules: workspaceExecutorModules({ contributions: [{ languageServers: [demoAdapter] }] }),
+  });
   const roots = (operation: string, input: unknown) => executor.footprintOf(operation, input).roots;
   assert.deepEqual(roots("read", { path: "@actors/app/src/index.ts" }), { aliases: ["@actors"], runRoot: false });
   assert.deepEqual(roots("write", { path: "src/index.ts", content: "" }), { aliases: [], runRoot: true });
   assert.deepEqual(roots("edit", { path: "/abs/src/index.ts" }), { aliases: [], runRoot: true });
   assert.deepEqual(roots("bash", { command: "ls" }), { aliases: [], runRoot: false });
   assert.deepEqual(executor.footprintOf("bash", { command: "ls", cwd: "@skills/notes", timeout: 30 }), { roots: { aliases: ["@skills"], runRoot: false }, durationMs: 30_000 });
-  assert.deepEqual(roots("typescript_open", { root: "@actors/app" }), { aliases: ["@actors"], runRoot: false });
-  assert.deepEqual(roots("typescript_diagnostics", { root: "@actors/app", paths: ["src/a.ts", "@actors/app/b.ts"] }), { aliases: ["@actors"], runRoot: true });
-  assert.deepEqual(roots("typescript_diagnostics", {}), { aliases: [], runRoot: false });
+  assert.deepEqual(roots("demo_open", { root: "@actors/app" }), { aliases: ["@actors"], runRoot: false });
+  assert.deepEqual(roots("demo_diagnostics", { root: "@actors/app", paths: ["src/a.demo", "@actors/app/b.demo"] }), { aliases: ["@actors"], runRoot: true });
+  assert.deepEqual(roots("demo_diagnostics", {}), { aliases: [], runRoot: false });
   assert.deepEqual(roots(FILE_OPERATIONS.read, { path: "SKILL.md", alias: "@skills/notes" }), { aliases: ["@skills"], runRoot: false });
   assert.deepEqual(roots(FILE_OPERATIONS.list, { path: "@actors" }), { aliases: [], runRoot: true });
   assert.deepEqual(executor.footprintOf(COMMAND_OPERATIONS.run, { program: "git", timeoutMs: 5_000 }), { roots: { aliases: [], runRoot: true }, durationMs: 5_000 });

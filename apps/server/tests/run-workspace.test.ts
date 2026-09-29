@@ -82,7 +82,8 @@ const fixture = async (overrides: Partial<RunWorkspaceRuntimeOptions> = {}) => {
     skillPaths: async () => [],
     resolver: () => undefined,
     runState: () => runStateWith(undefined, undefined),
-    clients: new WorkspaceClientRegistry(),
+    clients: new WorkspaceClientRegistry([]),
+    contributions: [],
     ...overrides,
   });
   return { root, runtime, remove: () => rm(root, { recursive: true, force: true }) };
@@ -150,9 +151,9 @@ test("work of a bound run that stays on the server gets its own server folder, n
 
 test("the agent tool of a bound run runs in the same folder the prompt names", async () => {
   const calls: WorkstationCall[] = [];
-  const clients = new WorkspaceClientRegistry();
-  await clients.register(CLIENT, { label: "Laptop", hostname: "laptop", platform: "linux", folders: ["/home/beispiel/project"], runsDirectory: RUNS },
-    WORKSPACE_EXECUTOR_VERSION, workstationConnection(calls));
+  const clients = new WorkspaceClientRegistry([]);
+  await clients.register(CLIENT, { label: "Laptop", hostname: "laptop", platform: "linux", folders: ["/home/beispiel/project"], runsDirectory: RUNS, ripgrep: false },
+    WORKSPACE_EXECUTOR_VERSION, [], workstationConnection(calls));
   const { runtime, remove } = await fixture({
     clients,
     runState: () => runStateWith(WORKSPACE_BINDING_OPTION_ID, laptopProject, "beispiel"),
@@ -170,10 +171,10 @@ test("the agent tool of a bound run runs in the same folder the prompt names", a
 test("a workstation of another user with the same id never takes over a bound run", async () => {
   const alices: WorkstationCall[] = [];
   const bobs: WorkstationCall[] = [];
-  const clients = new WorkspaceClientRegistry();
-  const workstation = { label: "Laptop", hostname: "laptop", platform: "linux", folders: ["/home/beispiel/project"], runsDirectory: RUNS };
+  const clients = new WorkspaceClientRegistry([]);
+  const workstation = { label: "Laptop", hostname: "laptop", platform: "linux", folders: ["/home/beispiel/project"], runsDirectory: RUNS, ripgrep: false };
   const alice = workstationConnection(alices, "alice");
-  await clients.register(CLIENT, workstation, WORKSPACE_EXECUTOR_VERSION, alice);
+  await clients.register(CLIENT, workstation, WORKSPACE_EXECUTOR_VERSION, [], alice);
   const binding = laptopProject;
   const states = new Map<string, RunState>([
     ["alices-run", runStateWith(WORKSPACE_BINDING_OPTION_ID, binding, "alice")],
@@ -183,14 +184,14 @@ test("a workstation of another user with the same id never takes over a bound ru
   try {
     assert.equal(await agentTool(runtime, "alices-run", "read", { path: "a.txt" }), "read erledigt");
     alice.end();
-    await clients.register(CLIENT, workstation, WORKSPACE_EXECUTOR_VERSION, workstationConnection(bobs, "bob"));
+    await clients.register(CLIENT, workstation, WORKSPACE_EXECUTOR_VERSION, [], workstationConnection(bobs, "bob"));
     await assert.rejects(runtime.sandbox.execute("alices-run", "bash", { command: "cat ~/.ssh/id_ed25519" }), (error: unknown) =>
       error instanceof DomainError && error.code === "workspace-client-disconnected");
     await assert.rejects(runtime.sandbox.execute("ownerless-run", "read", { path: "a.txt" }), (error: unknown) =>
       error instanceof DomainError && error.code === "workspace-client-disconnected");
     assert.deepEqual(bobs, [], "Bobs Arbeitsplatz mit derselben Kennung bekommt keinen Aufruf aus Alices Run");
 
-    await clients.register(CLIENT, workstation, WORKSPACE_EXECUTOR_VERSION, workstationConnection(alices, "alice"));
+    await clients.register(CLIENT, workstation, WORKSPACE_EXECUTOR_VERSION, [], workstationConnection(alices, "alice"));
     assert.equal(await agentTool(runtime, "alices-run", "read", { path: "b.txt" }), "read erledigt");
     assert.deepEqual(alices.map((call) => call.operation), ["read", "read"], "Alice meldet sich neben Bob mit derselben Kennung wieder an");
     assert.deepEqual(bobs, []);
@@ -423,9 +424,9 @@ test("each combination of machine and folder has its own placement, and an older
 
 test("a new folder per run on a workstation: the prompt names it, the server creates nothing, and the workstation creates it before the first order only", async () => {
   const calls: WorkstationCall[] = [];
-  const clients = new WorkspaceClientRegistry();
-  await clients.register(CLIENT, { label: "Laptop", hostname: "laptop", platform: "linux", folders: ["/home/beispiel/project"], runsDirectory: RUNS },
-    WORKSPACE_EXECUTOR_VERSION, workstationConnection(calls, "beispiel", (call) =>
+  const clients = new WorkspaceClientRegistry([]);
+  await clients.register(CLIENT, { label: "Laptop", hostname: "laptop", platform: "linux", folders: ["/home/beispiel/project"], runsDirectory: RUNS, ripgrep: false },
+    WORKSPACE_EXECUTOR_VERSION, [], workstationConnection(calls, "beispiel", (call) =>
       call.operation === "runFolder.create" ? { created: true } : toolAnswer(call)));
   const folder = `${RUNS}/remote`;
   const { root, runtime, remove } = await fixture({
@@ -458,9 +459,9 @@ test("a new folder per run on a workstation: the prompt names it, the server cre
 test("a contribution fills the new folder on the workstation once, and a failed step takes the folder away so the next order starts over", async () => {
   const calls: WorkstationCall[] = [];
   let failures = 1;
-  const clients = new WorkspaceClientRegistry();
-  await clients.register(CLIENT, { label: "Laptop", hostname: "laptop", platform: "linux", folders: ["/home/beispiel/project"], runsDirectory: RUNS },
-    WORKSPACE_EXECUTOR_VERSION, workstationConnection(calls, "beispiel", (call) => {
+  const clients = new WorkspaceClientRegistry([]);
+  await clients.register(CLIENT, { label: "Laptop", hostname: "laptop", platform: "linux", folders: ["/home/beispiel/project"], runsDirectory: RUNS, ripgrep: false },
+    WORKSPACE_EXECUTOR_VERSION, [], workstationConnection(calls, "beispiel", (call) => {
       if (call.operation === "runFolder.create") return { created: !calls.some((entry) => entry.operation === "read") };
       if (call.operation === "commands.run" && failures-- > 0) throw new DomainError("command-failed", "git scheitert", 409);
       return toolAnswer(call);
@@ -506,9 +507,9 @@ test("a contribution fills the new folder on the workstation once, and a failed 
 
 test("a folder that already exists on the workstation gets no steps again, for instance after a restart of the server", async () => {
   const calls: WorkstationCall[] = [];
-  const clients = new WorkspaceClientRegistry();
-  await clients.register(CLIENT, { label: "Laptop", hostname: "laptop", platform: "linux", folders: ["/home/beispiel/project"], runsDirectory: RUNS },
-    WORKSPACE_EXECUTOR_VERSION, workstationConnection(calls, "beispiel", (call) =>
+  const clients = new WorkspaceClientRegistry([]);
+  await clients.register(CLIENT, { label: "Laptop", hostname: "laptop", platform: "linux", folders: ["/home/beispiel/project"], runsDirectory: RUNS, ripgrep: false },
+    WORKSPACE_EXECUTOR_VERSION, [], workstationConnection(calls, "beispiel", (call) =>
       call.operation === "runFolder.create" ? { created: false } : toolAnswer(call)));
   const resolver: WorkspaceResolver = {
     workstation: { label: "Git-Worktree je Run", prepare: () => [{ operation: "commands.run", input: { program: "git", timeoutMs: 1000 } }] },
@@ -531,11 +532,11 @@ test("a folder that already exists on the workstation gets no steps again, for i
 test("deleting a run takes its new folder on the workstation away after the release steps, and leaves it with a note while the workstation is away", async (t) => {
   const calls: WorkstationCall[] = [];
   const serverSteps: string[] = [];
-  const clients = new WorkspaceClientRegistry();
+  const clients = new WorkspaceClientRegistry([]);
   const connection = workstationConnection(calls, "beispiel", (call) =>
     call.operation === "runFolder.remove" ? { removed: true } : toolAnswer(call));
-  await clients.register(CLIENT, { label: "Laptop", hostname: "laptop", platform: "linux", folders: ["/home/beispiel/project"], runsDirectory: RUNS },
-    WORKSPACE_EXECUTOR_VERSION, connection);
+  await clients.register(CLIENT, { label: "Laptop", hostname: "laptop", platform: "linux", folders: ["/home/beispiel/project"], runsDirectory: RUNS, ripgrep: false },
+    WORKSPACE_EXECUTOR_VERSION, [], connection);
   const resolver: WorkspaceResolver = {
     workstation: {
       label: "Git-Worktree je Run",

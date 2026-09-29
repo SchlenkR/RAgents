@@ -90,7 +90,7 @@ test("das Paket enthält keine Quellen, die niemand braucht, und keine fremden A
     "die Prüfungen der Run-Scripts gehören zum gezeigten Beispiel");
   const dependencies = result.manifest.dependencies as Record<string, string>;
   assert.equal(dependencies.tsx !== undefined, true, "tsx lädt die TypeScript-Quellen zur Laufzeit");
-  assert.equal(dependencies["typescript-language-server"] !== undefined, true, "der Executor löst ihn über require.resolve auf");
+  assert.equal(dependencies["typescript-language-server"] !== undefined, true, "der TypeScript-Beitrag löst ihn aus den Paketen des Hosts auf");
   assert.equal(dependencies.react !== undefined, true, "die Mini-Apps werden zur Laufzeit gebaut");
   assert.equal(dependencies.gsap, undefined, "gsap gehört zur Homepage, die nicht ins Paket geht");
   for (const [name, version] of Object.entries(dependencies)) {

@@ -17,7 +17,7 @@ import { coreContracts } from "../../server/src/api/contracts";
 import { RpcDispatcher } from "../../server/src/rpc/dispatcher";
 import { RpcHttpTransport } from "../../server/src/rpc/http-transport";
 import { workspaceClientContracts, workspaceContracts, type WorkspaceClientDescription } from "../../../plugins/ragents.workspace/contract";
-import { WORKSPACE_EXECUTOR_VERSION } from "@ragents/workspace-executor";
+import { WORKSPACE_EXECUTOR_VERSION, type ExecutorContributionStand } from "@ragents/workspace-executor";
 import type { SessionInfo } from "../../web/src/api";
 import type { PublicPluginProfile } from "../../../packages/ragents/src/plugin-types";
 import type { RunView } from "../../web/src/run-view";
@@ -115,7 +115,14 @@ const readBody = (request: IncomingMessage): Promise<string> => new Promise((res
 });
 
 /** Ein Stub aus den echten Bausteinen: Anmeldung und Artefakte per HTTP, alles Weitere über Dispatcher und Transport. */
-export const startStubServer = async (options: { loginRequired?: boolean; tokenGate?: boolean; logoutFails?: boolean; profile?: PublicPluginProfile } = {}): Promise<StubServer> => {
+export const startStubServer = async (options: {
+  loginRequired?: boolean;
+  tokenGate?: boolean;
+  logoutFails?: boolean;
+  profile?: PublicPluginProfile;
+  /** Was die Plugins des Stubs zum Executor beitragen; ein Arbeitsplatz muss genau das mitbringen. */
+  contributions?: readonly ExecutorContributionStand[];
+} = {}): Promise<StubServer> => {
   const requests: StubServer["requests"] = [];
   const workspaceClients = new Map<string, WorkspaceClientDescription>();
   const workspaceConnections = new Map<string, MethodConnection>();
@@ -141,8 +148,11 @@ export const startStubServer = async (options: { loginRequired?: boolean; tokenG
       }
       return servedView(view);
     }),
-    implement(workspaceContracts.clients.register, ({ id, executor, ...description }, { connection }) => {
-      if (executor !== WORKSPACE_EXECUTOR_VERSION) throw new Error(`Der Arbeitsplatz bringt den Executor ${executor} mit`);
+    implement(workspaceContracts.clients.contributions, () => (options.contributions ?? []).map((entry) => ({ ...entry }))),
+    implement(workspaceContracts.clients.register, (input, { connection }) => {
+      if (!("id" in input) || input.executor !== WORKSPACE_EXECUTOR_VERSION) throw new Error(`Der Arbeitsplatz bringt den Executor ${input.executor} mit`);
+      if (JSON.stringify(input.contributions) !== JSON.stringify(options.contributions ?? [])) throw new Error("Der Arbeitsplatz bringt andere Executor-Beiträge mit");
+      const { id, executor: _executor, contributions: _contributions, ...description } = input;
       workspaceClients.set(id, description);
       workspaceConnections.set(id, connection);
       return { ...description, id };

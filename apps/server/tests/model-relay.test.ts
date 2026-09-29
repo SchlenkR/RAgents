@@ -10,6 +10,7 @@ import { createAccessContext, PluginHost, type AccessContext } from "@ragents/en
 import { readBody } from "../src/plugin-support/http.ts";
 import { modelUpstreamsToken, type ModelUpstream } from "../src/plugin-support/model-upstreams.ts";
 import { parseModelAliases } from "../src/plugin-support/model-aliases.ts";
+import { createRelayCatalog } from "../src/plugin-support/product-relay.ts";
 import { relayAliases } from "../../../plugins/ragents.model-relay/server/config.ts";
 import { catalogEntryOf, createRelayRoutes, resolveAliases } from "../../../plugins/ragents.model-relay/server/relay.ts";
 
@@ -25,6 +26,10 @@ const secretModel: Model<Api> = {
   cost: { input: 3, output: 15, cacheRead: 0.3, cacheWrite: 0 }, contextWindow: 200_000, maxTokens: 32_000,
   compat: { supportsDeveloperRole: false, thinkingFormat: "openrouter" },
 };
+
+const compaction = { threshold: 150_000, keepRecentTokens: 20_000, summaryTokens: 16_000 };
+
+const aliasEntry = (alias: string, model: string) => ({ alias, model, compaction });
 
 const listen = async (t: TestContext, server: Server): Promise<string> => {
   server.listen(0, "127.0.0.1");
@@ -66,7 +71,7 @@ const relayServer = async (t: TestContext, upstreamUrl: string, access: (request
   const host = new PluginHost({ product: { id: "test", title: "Test" }, dataDirectory: directory });
   const upstream: ModelUpstream = { id: "openrouter", baseUrl: `${upstreamUrl}/api/v1`, apiKey: "sk-upstream-secret", models: [secretModel] };
   host.register({ manifest: { id: "test.product" }, register: (registration) => registration.provide(modelUpstreamsToken, () => [upstream]) });
-  process.env.MODEL_ALIASES = JSON.stringify(["werkstatt-coordinator=openrouter/vendor/secret-model-9"]);
+  process.env.MODEL_ALIASES = JSON.stringify([aliasEntry("werkstatt-coordinator", "openrouter/vendor/secret-model-9")]);
   t.after(() => { delete process.env.MODEL_ALIASES; });
   host.register(relayModule.create(host));
   host.seal();
@@ -86,19 +91,21 @@ const withRight = createAccessContext({ enabled: true, user: { id: "dev", label:
 const withoutRight = createAccessContext({ enabled: true, user: { id: "reader", label: "Reader", rights: ["runs.read"] } });
 
 test("MODEL_ALIASES wird geprüft und jeder Alias an Anbieter und Katalog gebunden", () => {
-  assert.deepEqual(parseModelAliases(["a=openrouter/x/y", "b=local/z"]), [
-    { alias: "a", upstream: "openrouter", model: "x/y" }, { alias: "b", upstream: "local", model: "z" },
+  assert.deepEqual(parseModelAliases([aliasEntry("a", "openrouter/x/y"), aliasEntry("b", "local/z")]), [
+    { alias: "a", upstream: "openrouter", model: "x/y", compaction }, { alias: "b", upstream: "local", model: "z", compaction },
   ]);
-  for (const bad of [["a"], ["a=openrouter"], ["a=/x"], ["A=openrouter/x"], ["a=openrouter/x", "a=openrouter/y"]]) {
+  for (const bad of [["a=openrouter/x"], [aliasEntry("a", "openrouter")], [aliasEntry("a", "/x")], [aliasEntry("A", "openrouter/x")],
+    [aliasEntry("a", "openrouter/x"), aliasEntry("a", "openrouter/y")], [{ alias: "a", model: "openrouter/x" }]]) {
     assert.throws(() => parseModelAliases(bad), /MODEL_ALIASES/);
   }
-  assert.throws(() => relayAliases(parseModelAliases([])), /ragents.model-relay braucht MODEL_ALIASES/);
+  assert.throws(() => relayAliases(parseModelAliases([])), /ragents.model-relay needs MODEL_ALIASES/);
   const upstream: ModelUpstream = { id: "openrouter", baseUrl: "https://u.invalid/v1", apiKey: "k", models: [secretModel] };
-  assert.throws(() => resolveAliases(parseModelAliases(["a=ollama/x"]), [upstream]), /Anbieter ollama .* nicht konfiguriert \(verfügbar: openrouter\)/);
-  assert.throws(() => resolveAliases(parseModelAliases(["a=openrouter/x"]), [upstream]), /Modell x hinter a fehlt im Katalog von openrouter/);
-  const entry = catalogEntryOf(resolveAliases(parseModelAliases(["a=openrouter/vendor/secret-model-9"]), [upstream])[0]!);
+  assert.throws(() => resolveAliases(parseModelAliases([aliasEntry("a", "ollama/x")]), [upstream]), /Anbieter ollama .* nicht konfiguriert \(verfügbar: openrouter\)/);
+  assert.throws(() => resolveAliases(parseModelAliases([aliasEntry("a", "openrouter/x")]), [upstream]), /Modell x hinter a fehlt im Katalog von openrouter/);
+  const entry = catalogEntryOf(resolveAliases(parseModelAliases([aliasEntry("a", "openrouter/vendor/secret-model-9")]), [upstream])[0]!);
   assert.equal(entry.id, "a");
   assert.equal(entry.catalog.contextWindow, 200_000);
+  assert.deepEqual(entry.catalog.compaction, compaction);
   assert.deepEqual(entry.catalog.thinkingLevelMap, { minimal: null });
   assert.equal(JSON.stringify(entry).includes("secret"), false);
   assert.equal(JSON.stringify(entry).includes("cost"), false);
@@ -163,7 +170,7 @@ test("Anfragen gehen mit echtem Modell und Serverschlüssel hinaus, die Antwort 
 test("die Routen protokollieren Benutzer, Alias und Tokens und melden einen toten Anbieter als 502", async (t) => {
   const lines: string[] = [];
   const upstream: ModelUpstream = { id: "openrouter", baseUrl: "http://127.0.0.1:9/api/v1", apiKey: "k", models: [secretModel] };
-  const routes = createRelayRoutes({ aliases: () => resolveAliases(parseModelAliases(["a=openrouter/vendor/secret-model-9"]), [upstream]), log: (line) => lines.push(line) });
+  const routes = createRelayRoutes({ aliases: () => resolveAliases(parseModelAliases([aliasEntry("a", "openrouter/vendor/secret-model-9")]), [upstream]), log: (line) => lines.push(line) });
   const server = createServer(async (request, response) => {
     const url = new URL(request.url ?? "/", "http://localhost");
     const route = routes.find((candidate) => candidate.matches(request, url));
@@ -174,4 +181,26 @@ test("die Routen protokollieren Benutzer, Alias und Tokens und melden einen tote
   const response = await fetch(`${url}/relay/v1/chat/completions`, { method: "POST", body: JSON.stringify({ model: "a", messages: [] }) });
   assert.equal(response.status, 502);
   assert.match(lines[0]!, /^dev a -> openrouter\/vendor\/secret-model-9: nicht erreichbar/);
+});
+
+test("a client of the relay compacts with the values of the server's alias", async (t) => {
+  const relay = await relayServer(t, await fakeUpstream(t, []), () => withRight);
+  const catalog = createRelayCatalog({ url: relay.url, token: "personal-token" });
+  const [model] = await catalog.load();
+  assert.equal(model!.id, "werkstatt-coordinator");
+  assert.equal(model!.contextWindow, 200_000);
+  assert.deepEqual(model!.compaction, compaction);
+  const registration = await catalog.registration();
+  assert.deepEqual(registration.config.models?.map((entry) => entry.compaction), [compaction]);
+});
+
+test("a relay catalog without valid compaction values fails the client start", async () => {
+  const served = (entryCompaction: unknown) => async () => new Response(JSON.stringify({ object: "list", data: [{
+    id: "a", object: "model", owned_by: "relay",
+    catalog: { reasoning: false, input: ["text"], contextWindow: 200_000, maxTokens: 32_000, ...(entryCompaction === undefined ? {} : { compaction: entryCompaction }) },
+  }] }), { headers: { "content-type": "application/json" } });
+  await assert.rejects(() => createRelayCatalog({ url: "http://relay.invalid", token: "t" }, served(undefined)).load(),
+    /offers a without valid compaction values: compaction needs threshold, keepRecentTokens and summaryTokens/);
+  await assert.rejects(() => createRelayCatalog({ url: "http://relay.invalid", token: "t" }, served({ ...compaction, threshold: 190_000 })).load(),
+    /offers a without valid compaction values: compaction: threshold plus summaryTokens \(206000\) must stay below the context window \(200000\)/);
 });

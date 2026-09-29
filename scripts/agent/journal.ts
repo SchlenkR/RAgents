@@ -114,7 +114,9 @@ export const journalLines = (events: readonly JournalEvent[], mode: JournalMode,
       const content = payload.subscriptionId ? `[event ${String((payload.sourceEventIds as string[] | undefined)?.[0] ?? "")}]` : text(payload.content);
       lines.push(`[${event.sequence}] INPUT -> ${String(payload.actorId ?? "").slice(0, 14)}: ${content.slice(0, 300)}`);
     } else if (type === "context.compacted" && mode !== "tools") {
-      lines.push(`[${event.sequence}] CONTEXT COMPACTED ${actor}: about ${String(payload.tokensBefore)} tokens summarized`);
+      const threshold = payload.threshold as { tokens?: unknown; source?: unknown } | undefined;
+      const applied = threshold ? ` (threshold ${String(threshold.tokens)} from ${String(threshold.source)})` : "";
+      lines.push(`[${event.sequence}] CONTEXT COMPACTED ${actor}: about ${String(payload.tokensBefore)} tokens summarized${applied}`);
     } else if (type === "turn.input-steered" && mode !== "tools") {
       lines.push(`[${event.sequence}] STEERING -> ${actor}: ${String(payload.inputId ?? "")} in ${String(payload.turnId ?? "")}`);
     } else if (type.startsWith("tool.call.") && mode !== "chat") {

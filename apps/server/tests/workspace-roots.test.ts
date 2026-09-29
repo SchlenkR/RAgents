@@ -56,7 +56,7 @@ test("the existing language server resolves the run's app alias before launch an
   const other = path.join(directory, "other-run");
   await Promise.all([root, app, other].map((entry) => mkdir(entry, { recursive: true })));
   const sandbox = new WorkspaceSandboxHost({
-    contributorName: "test", workspaceFor: async () => ({
+    contributorName: "test", contributions: [], workspaceFor: async () => ({
       cwd: root, currentRoot: async () => root, runOperation: (operation) => operation(),
     }), identFor: async () => undefined, skillPaths: async () => [],
     homeFor: async () => ({ home: directory }),

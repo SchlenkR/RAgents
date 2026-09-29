@@ -1,11 +1,11 @@
 import assert from "node:assert/strict";
-import { existsSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import test from "node:test";
 import { readPackageVersion } from "../../server/src/host-version";
 import { missingEnvironmentNotice, missingEnvironmentOf } from "../../server/src/missing-environment";
-import { bundledBash, ensureHostPackage, findExecutable, HOST_PACKAGE_NAME, hostPackageFolder, hostPackageSpecifier, inheritedEnvironment, installHostPackage, packagedHostVersion, startHost } from "../src/host-process";
+import { bundledBash, bundledRipgrep, ensureHostPackage, findExecutable, HOST_PACKAGE_NAME, hostPackageFolder, hostPackageSpecifier, inheritedEnvironment, installHostPackage, packagedHostVersion, startHost } from "../src/host-process";
 
 const fakeHost = (body: string): { file: string; args: string[]; cwd: string } => {
   const directory = mkdtempSync(path.join(tmpdir(), "ragents-fake-host-"));
@@ -26,7 +26,7 @@ test("der Host wird mit Profil und Datenordner gestartet, die Ansage gelesen und
   const lines: string[] = [];
   const host = await startHost({
     profile: "test", profileFile: "/x/ragents.config.test.ts", dataDirectory: "/tmp/data", environment: { ...process.env },
-    log: (line) => lines.push(line), command: fakeHost(announcing), bash: undefined,
+    log: (line) => lines.push(line), command: fakeHost(announcing), bash: undefined, rg: undefined,
   });
   assert.equal(host.url, "http://127.0.0.1:43210");
   assert.equal(host.token, "t0ken");
@@ -40,6 +40,7 @@ test("der Host wird mit Profil und Datenordner gestartet, die Ansage gelesen und
 const announcingParent = `
 console.log("Elternprozess " + process.env.RAGENTS_PARENT_PID);
 console.log("Bash " + process.env.RAGENTS_BASH);
+console.log("rg " + process.env.RAGENTS_RG);
 console.log(JSON.stringify({ ragents: { url: "http://127.0.0.1:43211", token: null, pid: process.pid } }));
 process.on("SIGTERM", () => process.exit(0));
 setInterval(() => {}, 1000);
@@ -50,9 +51,11 @@ test("der Host kennt die Prozesskennung der Erweiterung und überlebt sie damit 
   const host = await startHost({
     profile: "test", profileFile: "/x/ragents.config.test.ts", dataDirectory: "/tmp/data", environment: { ...process.env },
     log: (line) => lines.push(line), command: fakeHost(announcingParent), bash: "C:/tools/ragents/usr/bin/bash.exe",
+    rg: "C:/tools/ragents/rg/rg.exe",
   });
   assert.ok(lines.includes(`Elternprozess ${process.pid}`), lines.join("\n"));
   assert.ok(lines.includes("Bash C:/tools/ragents/usr/bin/bash.exe"), lines.join("\n"));
+  assert.ok(lines.includes("rg C:/tools/ragents/rg/rg.exe"), lines.join("\n"));
   await host.stop();
   assert.equal(await host.exited, 0);
 });
@@ -60,15 +63,15 @@ test("der Host kennt die Prozesskennung der Erweiterung und überlebt sie damit 
 test("ein Host, der vor der Ansage endet oder schweigt, ist ein benannter Fehler mit seinen letzten Zeilen", async () => {
   await assert.rejects(startHost({
     profile: "test", profileFile: "/x", dataDirectory: "/tmp", environment: { ...process.env }, log: () => undefined,
-    command: fakeHost(`console.error("RAgents startet nicht: Port belegt"); process.exit(1);`), bash: undefined,
+    command: fakeHost(`console.error("RAgents startet nicht: Port belegt"); process.exit(1);`), bash: undefined, rg: undefined,
   }), /endete vor seiner Ansage mit Code 1[\s\S]*Port belegt/);
   await assert.rejects(startHost({
     profile: "test", profileFile: "/x", dataDirectory: "/tmp", environment: { ...process.env }, log: () => undefined,
-    command: fakeHost(`setInterval(() => {}, 1000);`), startTimeoutMs: 300, bash: undefined,
+    command: fakeHost(`setInterval(() => {}, 1000);`), startTimeoutMs: 300, bash: undefined, rg: undefined,
   }), /nicht gemeldet/);
   await assert.rejects(startHost({
     profile: "test", profileFile: "/x", dataDirectory: "/tmp", environment: { ...process.env }, log: () => undefined,
-    command: { file: "/nirgendwo/node", args: [], cwd: tmpdir() }, bash: undefined,
+    command: { file: "/nirgendwo/node", args: [], cwd: tmpdir() }, bash: undefined, rg: undefined,
   }), /konnte nicht gestartet werden/);
 });
 
@@ -82,7 +85,7 @@ console.error(${JSON.stringify(missingEnvironmentNotice(missing))});
 process.exit(1);
 `);
   const cause = await startHost({
-    profile: "test", profileFile: "/x", dataDirectory: "/tmp", environment: { ...process.env }, log: (line) => lines.push(line), command, bash: undefined,
+    profile: "test", profileFile: "/x", dataDirectory: "/tmp", environment: { ...process.env }, log: (line) => lines.push(line), command, bash: undefined, rg: undefined,
   }).then(() => undefined, (error: unknown) => error);
   assert.deepEqual(missingEnvironmentOf(cause), missing, `kein benannter Fehler: ${String(cause)}`);
   assert.match((cause as Error).message, /endete vor seiner Ansage mit Code 1[\s\S]*SERVICE_TOKEN/);
@@ -94,6 +97,18 @@ test("die Windows-Fassung bringt ihre Bash unter dist/bash/<plattform> mit, ande
   assert.equal(bundledBash("/ext", "win32", "arm64"), path.join("/ext", "dist", "bash", "win32-arm64", "usr", "bin", "bash.exe"));
   assert.equal(bundledBash("/ext", "darwin", "arm64"), undefined);
   assert.equal(bundledBash("/ext", "linux", "x64"), undefined);
+});
+
+test("die Fassung einer Plattform bringt ihr rg unter dist/rg/<plattform> mit, die universelle keines", () => {
+  const extension = mkdtempSync(path.join(tmpdir(), "ragents-extension-"));
+  for (const [target, file] of [["darwin-arm64", "rg"], ["win32-x64", "rg.exe"]] as const) {
+    mkdirSync(path.join(extension, "dist", "rg", target), { recursive: true });
+    writeFileSync(path.join(extension, "dist", "rg", target, file), "");
+  }
+  assert.equal(bundledRipgrep(extension, "darwin", "arm64"), path.join(extension, "dist", "rg", "darwin-arm64", "rg"));
+  assert.equal(bundledRipgrep(extension, "win32", "x64"), path.join(extension, "dist", "rg", "win32-x64", "rg.exe"));
+  assert.equal(bundledRipgrep(extension, "linux", "x64"), undefined, "die universelle Fassung trägt kein rg");
+  assert.equal(bundledRipgrep(extension, "win32", "arm64"), undefined);
 });
 
 test("die geerbte Umgebung lässt nur die Variablen des umgebenden VS Code weg", () => {

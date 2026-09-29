@@ -9,18 +9,21 @@ import {
 	createModels,
 	lazyStream,
 	type Model,
+	type ModelCompaction,
 	type MutableModels,
 	type Provider,
 	type SimpleStreamOptions,
 } from "@ragents/ai";
 import { builtinProviders } from "@ragents/ai/providers/all";
+import { compactionProblem } from "./compaction/compaction.ts";
 import { composeModelProvider, type ProviderConfigInput } from "./provider-composer.ts";
 
-/** A name under which a model of another provider is offered; only the alias is visible to callers. */
+/** A name under which a model of another provider is offered, with its own compaction values; only the alias is visible to callers. */
 export interface ModelAlias {
 	readonly alias: string;
 	readonly upstream: string;
 	readonly model: string;
+	readonly compaction: ModelCompaction;
 }
 
 interface AliasRegistration {
@@ -28,9 +31,9 @@ interface AliasRegistration {
 	readonly aliases: ReadonlyMap<string, ModelAlias>;
 }
 
-/** The metadata of the target under the alias as id and name, with the alias provider as provider. */
-export function aliasedModel(providerId: string, alias: string, target: Model<Api>): Model<Api> {
-	return { ...target, id: alias, name: alias, provider: providerId };
+/** The metadata of the target under the alias as id and name, with the alias provider as provider and the alias's compaction values. */
+export function aliasedModel(providerId: string, entry: ModelAlias, target: Model<Api>): Model<Api> {
+	return { ...target, id: entry.alias, name: entry.alias, provider: providerId, compaction: entry.compaction };
 }
 
 /** The built-in providers plus the ones registered at runtime; a key comes from the registration or the environment. */
@@ -102,6 +105,10 @@ export class ModelRuntime {
 		if (duplicate) throw new Error(`Alias ${duplicate.alias} is registered twice.`);
 		const missing = aliases.find((entry) => !this.models.getModel(entry.upstream, entry.model));
 		if (missing) throw new Error(`Alias ${missing.alias}: model ${missing.upstream}/${missing.model} is not configured.`);
+		for (const entry of aliases) {
+			const problem = compactionProblem(entry.compaction, this.models.getModel(entry.upstream, entry.model));
+			if (problem) throw new Error(`Alias ${entry.alias}: ${problem}.`);
+		}
 		this.aliasRegistration = { provider: providerId, aliases: new Map(aliases.map((entry) => [entry.alias, entry])) };
 	}
 
@@ -110,7 +117,7 @@ export class ModelRuntime {
 		if (!registration) return [];
 		return [...registration.aliases.values()].flatMap((entry) => {
 			const target = this.models.getModel(entry.upstream, entry.model);
-			return target ? [aliasedModel(registration.provider, entry.alias, target)] : [];
+			return target ? [aliasedModel(registration.provider, entry, target)] : [];
 		});
 	}
 

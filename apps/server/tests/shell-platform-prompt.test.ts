@@ -17,56 +17,70 @@ const connection = (): MethodConnection => ({
   onClose: () => () => undefined,
 });
 
-const registryWith = async (platform: string) => {
-  const registry = new WorkspaceClientRegistry();
+const registryWith = async (platform: string, ripgrep: boolean) => {
+  const registry = new WorkspaceClientRegistry([]);
   await registry.register(
     CLIENT,
-    { label: "Laptop", hostname: "laptop", platform, folders: ["C:\\projekte\\werkstatt"], runsDirectory: "C:\\ragents\\runs" },
+    { label: "Laptop", hostname: "laptop", platform, folders: ["C:\\projekte\\werkstatt"], runsDirectory: "C:\\ragents\\runs", ripgrep },
     WORKSPACE_EXECUTOR_VERSION,
+    [],
     connection(),
   );
   return registry;
 };
 
+const onServer = { ripgrep: true } as const;
+
 test("the shell platform text is derived from the platform and names the exit code contract", () => {
-  assert.match(shellPlatformText("darwin"), /macOS.*BSD.*`grep` has no `-P`.*sed -i ''/);
-  assert.match(shellPlatformText("linux"), /Linux.*GNU.*`grep -P`/);
-  assert.match(shellPlatformText("win32"), /Windows with the bash RAgents brings along/);
-  for (const platform of ["darwin", "linux", "win32"] as const) assert.match(shellPlatformText(platform), /nonzero exit code.*not as a tool error/);
-  assert.throws(() => shellPlatformText("freebsd"), /keine Shell-Beschreibung/);
+  assert.match(shellPlatformText("darwin", onServer), /macOS.*BSD.*`grep` has no `-P`.*sed -i ''/);
+  assert.match(shellPlatformText("linux", onServer), /Linux.*GNU.*`grep -P`/);
+  assert.match(shellPlatformText("win32", onServer), /Windows with the bash RAgents brings along/);
+  for (const platform of ["darwin", "linux", "win32"] as const) assert.match(shellPlatformText(platform, onServer), /nonzero exit code.*not as a tool error/);
+  assert.throws(() => shellPlatformText("freebsd", onServer), /keine Shell-Beschreibung/);
 });
 
 test("the shell platform prompt is bound to bash and delivered with the initial prompt", async () => {
-  const prompt = shellPlatformPrompt("ragents.workspace.shell.prompt", 102);
+  const prompt = shellPlatformPrompt("ragents.workspace.shell.prompt", 102, onServer);
   assert.deepEqual(prompt.requiresTools, ["bash"]);
   assert.equal(prompt.delivery, "initial");
-  assert.equal(await prompt.render({}), shellPlatformChapter(process.platform));
+  assert.equal(await prompt.render({}), shellPlatformChapter(process.platform, onServer));
   assert.equal(prompt.renderForRun, undefined);
+  assert.match(await prompt.render({}), /Search code with `rg`/);
+  assert.match(await shellPlatformPrompt("ragents.workspace.shell.prompt", 102, { ripgrep: false }).render({}), /`rg` \(ripgrep\) is not available here/);
 });
 
-test("the prompt names the platform of the executor that runs the run", async () => {
-  const registry = await registryWith("win32");
-  const prompt = shellPlatformPrompt("ragents.workspace.shell.prompt", 102, (runId) =>
+test("the prompt names the platform and search tool of the executor that runs the run", async () => {
+  const registry = await registryWith("win32", false);
+  const prompt = shellPlatformPrompt("ragents.workspace.shell.prompt", 102, onServer, (runId) =>
     executorShellChapter(registry, "alice", runId === "auf-windows"
       ? { machine: { client: CLIENT, label: "Laptop" }, folder: { path: "C:\\projekte\\werkstatt" } }
-      : { machine: "server", folder: { path: "/projekte/werkstatt" } }));
-  assert.equal(prompt.renderForRun?.("auf-windows"), shellPlatformChapter("win32"));
-  assert.equal(prompt.renderForRun?.("auf-dem-server"), shellPlatformChapter(process.platform));
-  assert.equal(await prompt.render({}), shellPlatformChapter(process.platform));
+      : { machine: "server", folder: { path: "/projekte/werkstatt" } }, onServer));
+  assert.equal(prompt.renderForRun?.("auf-windows"), shellPlatformChapter("win32", { ripgrep: false }));
+  assert.match(prompt.renderForRun?.("auf-windows") ?? "", /not available here.*--exclude-dir=node_modules/s);
+  assert.equal(prompt.renderForRun?.("auf-dem-server"), shellPlatformChapter(process.platform, onServer));
+  assert.equal(await prompt.render({}), shellPlatformChapter(process.platform, onServer));
+});
+
+test("a workstation that reports rg gets the rg search, whatever the server has", async () => {
+  const registry = await registryWith("win32", true);
+  const binding = { machine: { client: CLIENT, label: "Laptop" }, folder: { path: "C:\\projekte\\werkstatt" } } as const;
+  const chapter = executorShellChapter(registry, "alice", binding, { ripgrep: false });
+  assert.equal(chapter, shellPlatformChapter("win32", { ripgrep: true }));
+  assert.match(chapter, /Search code with `rg` \(ripgrep\)/);
 });
 
 test("the platform comes only from a workstation of the run owner, never from another user with the same id", async () => {
-  const registry = await registryWith("win32");
+  const registry = await registryWith("win32", true);
   const binding = { machine: { client: CLIENT, label: "Laptop" }, folder: { path: "C:\\ragents\\runs\\run-1", fresh: true } } as const;
-  assert.equal(executorShellChapter(registry, "alice", binding), shellPlatformChapter("win32"));
-  assert.match(executorShellChapter(registry, "bob", binding), /Laptop.*not registered right now/s);
-  assert.match(executorShellChapter(registry, null, binding), /Laptop.*not registered right now/s);
+  assert.equal(executorShellChapter(registry, "alice", binding, onServer), shellPlatformChapter("win32", { ripgrep: true }));
+  assert.match(executorShellChapter(registry, "bob", binding, onServer), /Laptop.*not registered right now/s);
+  assert.match(executorShellChapter(registry, null, binding, onServer), /Laptop.*not registered right now/s);
 });
 
 test("an unregistered workstation is named instead of guessing a platform", () => {
-  const chapter = executorShellChapter(new WorkspaceClientRegistry(), "alice", {
+  const chapter = executorShellChapter(new WorkspaceClientRegistry([]), "alice", {
     machine: { client: CLIENT, label: "Laptop" },
     folder: { path: "C:\\projekte\\werkstatt" },
-  });
+  }, onServer);
   assert.match(chapter, /Laptop.*not registered right now/s);
 });

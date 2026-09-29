@@ -1,8 +1,8 @@
 import type { RAgentsPlugin } from "@ragents/engine";
-import { BROWSER_EXECUTABLE_VARIABLE } from "@ragents/workspace-executor";
 import type { PluginModule } from "@ragents/host/plugin-support/plugin-module.js";
 import { sandboxServicesToken } from "@ragents/host/plugin-support/workspace-sandbox-host.js";
 import { documentStoreToken } from "@ragents/host/ragents/document-store.js";
+import { BROWSER_EXECUTABLE_VARIABLE } from "../executor/contract.js";
 import { RunBrowser } from "./browser.js";
 import { browserRuntimeToken } from "./contract.js";
 import { createBrowserFunctions, createBrowserImageContribution } from "./tools.js";

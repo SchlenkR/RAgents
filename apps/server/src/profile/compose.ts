@@ -1,4 +1,5 @@
 import { PluginHost, type PluginWebAddresses } from "@ragents/engine";
+import { pluginToolsDirectory, prepareExecutorContribution, type LoadedExecutorContribution } from "@ragents/workspace-executor";
 import { config, HOST_SECRET_ENV_NAMES } from "../config.js";
 import { SESSION_MODE, SESSIONS_MODE } from "../layout.js";
 import { withFolderAssets } from "../plugin-support/plugin-folder.js";
@@ -6,6 +7,7 @@ import type { PluginModule } from "../plugin-support/plugin-module.js";
 import { runManagementToken } from "../ragents/global-chat.js";
 import { registerTypeScriptFunctions } from "../ragents/typescript-tools.js";
 import {
+  executorContributionsToken,
   hostAddressToken,
   runtimeProviderToken,
   secretEnvNamesToken,
@@ -27,6 +29,8 @@ export interface ProfileComposition {
   readonly modules: ReadonlyMap<string, PluginModule>;
   /** The plugins with a web half and where the browser loads it; the web loads exactly these. */
   readonly web: ReadonlyMap<string, PluginWebAddresses>;
+  /** Die Beiträge der Bundles zum Executor; der Server baut sie mit den Werkzeugordnern seines Datenordners. */
+  readonly executor: readonly LoadedExecutorContribution[];
   /** Die Vorlage aus defaultStartEntry der Profildatei; der Host lehnt eine nicht registrierte beim Versiegeln ab. */
   readonly defaultStartEntry?: string;
 }
@@ -43,6 +47,8 @@ export const composeProfile = (options: ProfileComposition, bridges: HostBridges
   host.provideHost(runWorkspaceProviderToken, bridges.sessionWorkspaceFor);
   host.provideHost(runtimeProviderToken, bridges.runtime);
   host.provideHost(hostAddressToken, () => bridges.apiBaseUrl);
+  host.provideHost(executorContributionsToken, options.executor.map((loaded) =>
+    prepareExecutorContribution(loaded, pluginToolsDirectory(config.dataDir, loaded.plugin))));
   host.provideHost(runManagementToken, () => {
     if (!bridges.sessions) throw new Error("Der Host stellt keine Sitzungsverwaltung bereit");
     return bridges.sessions();

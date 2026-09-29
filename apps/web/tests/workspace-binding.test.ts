@@ -25,6 +25,7 @@ const client = (values: Partial<WorkspaceClientInfo> & { id: string; label: stri
   platform: "darwin",
   folders: ["/Users/example/repos/eins", "/Users/example/repos/zwei"],
   runsDirectory: "/Users/example/.local/share/ragents/workspace/runs",
+  ripgrep: true,
   ...values,
 });
 

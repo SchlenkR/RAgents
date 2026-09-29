@@ -1,10 +1,7 @@
 import { mkdir } from "node:fs/promises";
 import { hostDataDirectory, pluginToolsDirectory } from "@ragents/workspace-executor/src/tools.ts";
 import { isPluginProvision, type PluginProvision } from "../plugin-support/provision.js";
-import { importBundles, resolvePluginEntries, type ResolvedPlugin } from "./plugin-discovery.js";
-
-/** Die Plugins, deren Werkzeuge jeder Arbeitsplatz-Executor auf seiner Maschine braucht: Sprachserver und Browser. */
-export const WORKSPACE_PROVISION_PLUGINS = ["ragents.lsp-roslyn", "ragents.lsp-fsharp", "ragents.browser"] as const;
+import { discoverPluginIds, importBundles, resolvePluginEntries, type ResolvedPlugin } from "./plugin-discovery.js";
 
 /** The provisioning a bundle exports next to its plugin, if it brings one. */
 const provisionOf = (plugin: ResolvedPlugin, exported: Readonly<Record<string, unknown>>): PluginProvision | undefined => {
@@ -81,5 +78,9 @@ const withUsedBundles = (ids: readonly string[]): readonly ResolvedPlugin[] => {
   return [...resolved.values()];
 };
 
+/** Ein Arbeitsplatz hat kein Profil; er provisioniert die eingebauten Plugins seines Hosts, die zum Executor beitragen, denn deren Werkzeuge laufen auf ihm. */
+export const workspaceProvisionPlugins = (): readonly ResolvedPlugin[] => withUsedBundles(
+  resolvePluginEntries(discoverPluginIds()).filter((plugin) => plugin.manifest.executor !== undefined).map((plugin) => plugin.id));
+
 export const provisionWorkspace = (log: (line: string) => void): Promise<readonly PluginProvisionReport[]> =>
-  provisionPlugins(withUsedBundles(WORKSPACE_PROVISION_PLUGINS), hostDataDirectory(), log);
+  provisionPlugins(workspaceProvisionPlugins(), hostDataDirectory(), log);

@@ -19,8 +19,8 @@ const repositoryRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url))
 
 const usage = (): string => `Verwendung: pnpm provision [<profil>|<pfad zu ragents.config.<profil>.ts>|--workspace]
 Provisioniert die Werkzeuge der Plugins eines Profils nach <Datenordner>/tools/<plugin-id>/ und
-berichtet je Plugin bereit, installiert oder fehlt. --workspace provisioniert stattdessen
-Sprachserver und Browser eines Arbeitsplatzes auf dieser Maschine. Ein relativer Pfad gilt ab dem
+berichtet je Plugin bereit, installiert oder fehlt. --workspace provisioniert stattdessen die
+eingebauten Plugins, die zum Executor eines Arbeitsplatzes beitragen. Ein relativer Pfad gilt ab dem
 aufrufenden Ordner; ohne Argument gilt das Profil aus der Umgebung (PRODUCT_PROFILE_FILE oder
 PRODUCT_PROFILE).`;
 

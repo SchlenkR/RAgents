@@ -1,30 +1,16 @@
 import { constants } from "node:fs";
 import { access } from "node:fs/promises";
-import { createRequire } from "node:module";
-import { homedir } from "node:os";
-import path from "node:path";
+import { pathToFileURL } from "node:url";
 import type { Browser } from "playwright-core";
-import { RUN_MARKER_ENV } from "../run-marker.js";
-import { safeProcessEnvironment } from "../safe-environment.js";
+import type { WorkspaceExecutorMachine } from "@ragents/workspace-executor";
 import { BROWSER_EXECUTABLE_VARIABLE } from "./contract.js";
 
 type Playwright = typeof import("playwright-core");
 
-const messageOf = (cause: unknown): string => cause instanceof Error ? cause.message : String(cause);
-
-/** playwright-core liegt in den node_modules des Hosts dieser Maschine und wird erst im Aufruf geladen, nie mit dem Executor. */
-export const hostPlaywright = (hostRoot: string | undefined): Playwright => {
-  if (!hostRoot) {
-    throw new Error("Für die Browserprüfung ist auf diesem Rechner kein Host bekannt, aus dem sich playwright-core auflösen "
-      + "ließe. Ein Arbeitsplatz bekommt ihn mit der ersten Verbindung zu einem verteilenden Server oder über die "
-      + "Einstellung ragents.hostPath");
-  }
-  const load = createRequire(path.join(hostRoot, "package.json"));
-  try {
-    return load("playwright-core") as Playwright;
-  } catch (cause) {
-    throw new Error(`playwright-core liegt nicht im Host ${hostRoot}: ${messageOf(cause)}`);
-  }
+/** playwright-core liegt in den node_modules des Hosts dieser Maschine und wird erst im Aufruf geladen, nie mit dem Beitrag. */
+export const hostPlaywright = async (machine: WorkspaceExecutorMachine, hostRoot: string | undefined): Promise<Playwright> => {
+  const loaded = await import(pathToFileURL(machine.hostPackageFile(hostRoot, "playwright-core")).href) as { default: Playwright };
+  return loaded.default;
 };
 
 /** Der Chrome dieser Maschine: der aus ihrer Umgebung, sonst das Chromium, das die Provisionierung für playwright-core holt. */
@@ -41,12 +27,12 @@ export const browserExecutable = async (playwright: Playwright, environment: Nod
 };
 
 /** Startet Chrome headless mit der Umgebung dieser Maschine und dem Marker des Runs, damit die Prozessanzeige ihn zuordnet. */
-export const launchChromium = async (hostRoot: string | undefined, runId: string, timeoutMs: number): Promise<Browser> => {
-  const playwright = hostPlaywright(hostRoot);
+export const launchChromium = async (machine: WorkspaceExecutorMachine, hostRoot: string | undefined, runId: string, timeoutMs: number): Promise<Browser> => {
+  const playwright = await hostPlaywright(machine, hostRoot);
   return playwright.chromium.launch({
     executablePath: await browserExecutable(playwright),
     headless: true,
     timeout: timeoutMs,
-    env: { ...safeProcessEnvironment(process.env), HOME: homedir(), [RUN_MARKER_ENV]: runId },
+    env: machine.processEnvironment(runId),
   });
 };

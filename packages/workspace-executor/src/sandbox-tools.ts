@@ -40,11 +40,6 @@ export interface SandboxTools {
   shutdown: () => Promise<void>;
 }
 
-export const DEFAULT_BASH_TIMEOUT_SECONDS = (() => {
-  const value = Number(process.env.RAGENTS_BASH_TIMEOUT_SECONDS);
-  return Number.isFinite(value) && value > 0 ? value : 600;
-})();
-
 type ToolResult = { content?: Array<{ type: string; text?: string }>; details?: unknown };
 
 /** Der Stand einer Datei, den das Modell zuletzt gesehen hat; der Host führt ihn je Actor und gibt ihn mit, das Modell nennt ihn nie. */
@@ -269,7 +264,7 @@ export const createSandboxTools = async (
       const context = await contextFor();
       if (shuttingDown) throw new Error("Die Werkzeuge werden killed");
       options.signal?.throwIfAborted();
-      const bash = bashLaunch(context.bash, command, context.env);
+      const bash = bashLaunch({ bash: context.bash, rg: context.rg }, command, context.env);
       const launch = await sandboxedLaunch(context, bash);
       if (shuttingDown) throw new Error("Die Werkzeuge werden killed");
       options.signal?.throwIfAborted();
@@ -303,11 +298,10 @@ export const createSandboxTools = async (
             }
           });
         };
-        const timeoutSeconds = options.timeout ?? DEFAULT_BASH_TIMEOUT_SECONDS;
         const timer = setTimeout(() => {
           timedOut = true;
           kill();
-        }, timeoutSeconds * 1000);
+        }, options.timeout * 1000);
         options.signal?.addEventListener("abort", kill);
         const cleanup = () => {
           if (timer) clearTimeout(timer);
@@ -322,7 +316,7 @@ export const createSandboxTools = async (
           const finish = () => processError
             ? reject(processError)
             : timedOut
-              ? reject(new Error(`timeout:${timeoutSeconds}`))
+              ? reject(new Error(`timeout:${options.timeout}`))
               : resolve({ exitCode: killed ? null : code });
           if (!child.pid) {
             finish();

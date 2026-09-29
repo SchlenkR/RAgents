@@ -11,9 +11,9 @@ export const PLUGIN_TSCONFIG: Readonly<Record<HostApiHalf, string>> = {
   web: "apps/web/tsconfig.plugin.json",
 };
 
-/** The files a half starts from: its entry, the provisioning for the server, and the declared exports. */
+/** The files a half starts from: its entry, the provisioning and the executor contribution for the server, and the declared exports. */
 export const halfEntries = (source: PluginSource, half: HostApiHalf): readonly string[] => {
-  const own = half === "server" ? ["server/index", "provision"] : ["web/index"];
+  const own = half === "server" ? ["server/index", "provision", "executor"] : ["web/index"];
   return [...own, ...source.description.exports[half]]
     .map((name) => sourceFileOf(path.join(source.folder, name)))
     .filter((file): file is string => file !== undefined);

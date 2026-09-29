@@ -1,5 +1,6 @@
 import { mkdir, realpath } from "node:fs/promises";
 import path from "node:path";
+import { Value } from "typebox/value";
 import {
   DomainError,
   serviceToken,
@@ -28,6 +29,7 @@ import {
   type SessionIdent,
   type WorkspaceExecuteOptions,
   type WorkspaceExecutor,
+  type WorkspaceExecutorParts,
   type WorkspaceProcessContext,
 } from "@ragents/workspace-executor";
 import { hostRoot } from "../host-version.js";
@@ -70,6 +72,8 @@ export const sandboxServicesToken = serviceToken<SandboxServices>("ragents.works
 
 export interface WorkspaceSandboxHostOptions {
   contributorName: string;
+  /** Was die Plugins des Profils zum Executor dieses Servers beitragen; jeder Arbeitsplatz der Runs trägt dieselben Beiträge. */
+  contributions: readonly WorkspaceExecutorParts[];
   workspaceFor: (runId: string) => Promise<SessionWorkspace>;
   identFor: (runId: string) => Promise<SessionIdent | undefined>;
   skillPaths: () => Promise<readonly string[]>;
@@ -83,6 +87,10 @@ export interface WorkspaceSandboxHostOptions {
   processSandbox?: RunProcessSandboxes;
   /** Die Bash des Executors dieses Servers; unter Windows Pflicht, sonst ohne Angabe die des Systems. */
   bash?: string;
+  /** Das rg des Executors dieses Servers; ohne Angabe gilt eines im PATH. */
+  rg?: string;
+  /** Die Zeitgrenze von bash in Sekunden für Aufrufe ohne eigene, auf jeder Maschine der Runs; ohne Angabe die des Werkzeugs. */
+  bashTimeoutSeconds?: number;
 }
 
 const sandboxDescriptions: Readonly<Record<string, string>> = {
@@ -98,15 +106,12 @@ const describeSandboxTool = (definition: AgentToolDefinition): AgentToolDefiniti
   return { ...definition, description, longDescription: definition.description, nativeTool: true };
 };
 
-const sandboxDescriptorDefinitions = [
+const sandboxDefinitions = (bashTimeoutSeconds: number | undefined): readonly AgentToolDefinition[] => [
   createReadToolDefinition("."),
   createEditToolDefinition("."),
   createWriteToolDefinition("."),
-  createBashToolDefinition("."),
+  createBashToolDefinition(".", bashTimeoutSeconds === undefined ? {} : { defaultTimeoutSeconds: bashTimeoutSeconds }),
 ] as readonly AgentToolDefinition[];
-
-const sandboxDescriptors = sandboxDescriptorDefinitions.map((definition) =>
-  toolDescriptorFrom(describeSandboxTool(definition), alwaysAvailable));
 
 const fileToolNames = new Set(["read", "edit", "write"]);
 
@@ -142,6 +147,7 @@ const existingRoots = async (roots: readonly ResolvedWorkspaceRoot[]): Promise<R
 /** Der Executor des Servers mit den Wurzeln des Servers; eine Operation mit Alias läuft dort, jede andere beim Executor der Bindung des Runs. */
 export class WorkspaceSandboxHost implements SandboxServices {
   readonly #options: WorkspaceSandboxHostOptions;
+  readonly #definitions: readonly AgentToolDefinition[];
   readonly #workspaceRoots: RegisteredWorkspaceRoot[] = [];
   readonly #local: WorkspaceOperationExecutor;
   readonly #stable = new Map<string, Promise<StableRunParts>>();
@@ -150,9 +156,10 @@ export class WorkspaceSandboxHost implements SandboxServices {
 
   constructor(options: WorkspaceSandboxHostOptions) {
     this.#options = options;
+    this.#definitions = sandboxDefinitions(options.bashTimeoutSeconds);
     this.#local = new WorkspaceOperationExecutor({
       contextFor: (runId) => this.serverProcessContextFor(runId),
-      modules: workspaceExecutorModules(),
+      modules: workspaceExecutorModules({ contributions: options.contributions }),
     });
   }
 
@@ -234,6 +241,7 @@ export class WorkspaceSandboxHost implements SandboxServices {
       runOperation: workspace.runOperation,
       ...(sandbox ? { sandbox } : {}),
       ...(this.#options.bash === undefined ? {} : { bash: this.#options.bash }),
+      ...(this.#options.rg === undefined ? {} : { rg: this.#options.rg }),
     });
   }
 
@@ -288,7 +296,7 @@ export class WorkspaceSandboxHost implements SandboxServices {
   workspaceTools(): ToolContributor {
     return {
       name: this.#options.contributorName,
-      descriptors: sandboxDescriptors,
+      descriptors: this.#definitions.map((definition) => toolDescriptorFrom(describeSandboxTool(definition), alwaysAvailable)),
       tools: (context) => this.#workspaceToolsFor(context),
     };
   }
@@ -330,12 +338,13 @@ export class WorkspaceSandboxHost implements SandboxServices {
   }
 
   #workspaceToolsFor(context: PluginContext): Promise<RunFunction[]> {
-    return Promise.resolve(sandboxDescriptorDefinitions.map((definition) => {
+    return Promise.resolve(this.#definitions.map((definition) => {
       const described = describeSandboxTool(definition);
       const proxy = {
         ...described,
+        // Die Vorgaben des Schemas, etwa die Zeitgrenze von bash, setzt der Server ein; so gilt auf jeder Maschine, was das Modell im Schema sieht.
         execute: (toolCallId: string, params: unknown, signal: AbortSignal | undefined) =>
-          this.execute(context.runId, described.name, params, {
+          this.execute(context.runId, described.name, Value.Default(described.parameters, structuredClone(params)), {
             toolCallId,
             ...(signal ? { signal } : {}),
           }),

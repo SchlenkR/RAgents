@@ -84,11 +84,14 @@ The status bar shows the number of connected servers and opens the start page wh
 the root `README.md` for details.
 
 Install the extension from the Marketplace as `purestate.ragents-vscode` using "Extensions:
-Install Extension" or `code --install-extension purestate.ragents-vscode`. To install a locally
-packaged file, run `pnpm package:vscode`, which builds
-`dist/ragents-vscode-<version>.vsix`, then use "Extensions: Install from VSIX" or
-`code --install-extension dist/ragents-vscode-<version>.vsix --force`. `scripts/vscode/install-local.sh`
-performs both steps, rebuilds the built-in plugins, and
+Install Extension" or `code --install-extension purestate.ragents-vscode`. The Marketplace
+delivers the build for your platform, which carries ripgrep for the `bash` tool (see
+[Work on Windows](guide-distributed.html#work-on-windows) for the Windows bash). To install a locally
+packaged file, run `pnpm package:vscode`, which builds the universal
+`dist/ragents-vscode-<version>.vsix` and one `dist/ragents-vscode-<platform>-<version>.vsix` per
+platform, such as `darwin-arm64`, then use "Extensions: Install from VSIX" or
+`code --install-extension dist/ragents-vscode-darwin-arm64-<version>.vsix --force`. `scripts/vscode/install-local.sh`
+performs both steps with the file for this machine, rebuilds the built-in plugins, and
 rebuilds the web interface if it no longer matches its sources, so that hosts from this checkout
 start again. The script then restarts manually launched
 servers (`scripts/start.sh`, identified by `RAGENTS_LAUNCH=start.sh` in their environment, with logs under
@@ -150,7 +153,12 @@ tooltip names the cause; it does not open, but the selection mode deletes it.
 
 **Server** is the configuration page. You can add, edit, sign in, sign out, connect,
 disconnect, and remove servers with confirmation, then open `settings.json` from the link
-at the bottom.
+at the bottom. If a connected server does not accept this window's folders as a workstation, its
+entry says "Arbeitsplatz nicht angemeldet" (workstation not registered) with the cause. When the
+extension and the server carry different workspace executor versions, the cause names both and
+what to update: the extension if it is older, the server if it is newer. The same applies when the
+host the extension uses lacks a plugin bundle the server's executor carries, such as a language
+server, or carries it in another version: the cause names the plugin and the host to update.
 
 Every status uses a colored icon and a tooltip with the same vocabulary everywhere. A run is
 "läuft" (running), "wartet auf Eingabe" (waiting for input, with the number of open inputs),

@@ -50,7 +50,7 @@ const registry = new PluginRegistry({
 });
 
 const workstation = { id: "laptop-01", label: "Notebook", hostname: "notebook", platform: "darwin",
-  folders: ["/home/user/project"], runsDirectory: "/home/user/.local/share/ragents/workspace/runs" };
+  folders: ["/home/user/project"], runsDirectory: "/home/user/.local/share/ragents/workspace/runs", ripgrep: true };
 const presentations: Record<string, { owner: string; initial: unknown; presentation: unknown }> = {
   "ragents.model": { owner: "demo", initial: { model: "z-ai/glm-5.3-flash", thinking: "high" },
     presentation: { kind: "model", provider: "openrouter", options: ["z-ai/glm-5.3-flash", "qwen/qwen3.8-max"], thinkingOptions: ["off", "low", "high"] } },

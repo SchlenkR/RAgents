@@ -1,3 +1,5 @@
+import type { ModelCompaction } from "@ragents/ai";
+import type { ThinkingLevel } from "@ragents/engine";
 import type { hostConfigDescriptors } from "./config.js";
 
 export interface EnvironmentReference {
@@ -52,7 +54,23 @@ export interface ProfileUser extends ProfileAnonymousUser {
   readonly token?: EnvironmentReference;
 }
 
-export type ConfigValue = string | number | boolean | readonly string[] | EnvironmentReference | ProvisionedReference;
+/** Ein Eintrag von MODEL_ALIASES: ein Modell unter eigenem Namen mit den Kompaktierungswerten, die für dieses Modell gelten. */
+export interface ProfileModelAlias {
+  readonly alias: string;
+  /** Das Ziel als anbieter/modell aus dem eingebauten Katalog des Anbieters. */
+  readonly model: string;
+  readonly thinking?: ThinkingLevel;
+  readonly compaction: Readonly<ModelCompaction>;
+}
+
+export type ConfigValue =
+  | string
+  | number
+  | boolean
+  | readonly string[]
+  | readonly ProfileModelAlias[]
+  | EnvironmentReference
+  | ProvisionedReference;
 
 type Descriptors = readonly { readonly key: string }[];
 
@@ -62,6 +80,10 @@ type SecretKeyOf<T extends Descriptors> = T[number] extends infer Descriptor
 
 type Section<T extends Descriptors> = {
   readonly [Key in T[number]["key"]]?: Key extends SecretKeyOf<T> ? EnvironmentReference : ConfigValue;
+};
+
+type HostSection = Omit<Section<typeof hostConfigDescriptors>, "MODEL_ALIASES"> & {
+  readonly MODEL_ALIASES?: readonly ProfileModelAlias[];
 };
 
 // Der Kern kennt keine Plugin-IDs: welche Sektion und welcher Schlüssel gültig ist, entscheidet die
@@ -76,5 +98,5 @@ export type PluginSection = {
 };
 
 export type RAgentsConfig =
-  & { readonly host?: Section<typeof hostConfigDescriptors> }
+  & { readonly host?: HostSection }
   & { readonly [pluginId: string]: PluginSection | undefined };

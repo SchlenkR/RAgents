@@ -22,8 +22,3 @@ export const resolveRootDirectory = async (workspaceRoot: string, requested: str
   if (!info?.isDirectory()) throw new Error(`${requested} ist kein Verzeichnis im Arbeitsverzeichnis`);
   return absolute;
 };
-
-export const dotnetCommand = (server: string, args: readonly string[]): { command: string; args: string[] } =>
-  server.toLowerCase().endsWith(".dll")
-    ? { command: "dotnet", args: [server, ...args] }
-    : { command: server, args: [...args] };

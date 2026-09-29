@@ -84,7 +84,8 @@ conversation memory.
 
 When the context grows too large, the agent compacts it: older parts are replaced by a summary
 written by the model, and recent parts are kept. A compaction is recorded in the journal as well,
-and the chat shows a short system note.
+and the chat shows a short system note. When it starts, how much recent context stays verbatim,
+and how long the summary may be are values of the model; a profile sets them for each model alias.
 
 ## Interrupting a turn, stopping an actor, stopping a run, and shutting down the server
 

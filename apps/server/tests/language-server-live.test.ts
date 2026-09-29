@@ -7,19 +7,28 @@ import { fileURLToPath } from "node:url";
 
 import {
   LanguageServerHost,
-  fsharpAdapter,
-  roslynAdapter,
+  executorMachine,
+  hostDataDirectory,
+  pluginToolsDirectory,
   runManagedProcess,
-  typescriptAdapter,
   workspaceProcessContext,
+  type LanguageServerAdapter,
+  type WorkspaceExecutorContribution,
   type WorkspaceProcessContext,
 } from "@ragents/workspace-executor";
+import { executor as fsharpExecutor } from "../../../plugins/ragents.lsp-fsharp/executor.ts";
+import { executor as roslynExecutor } from "../../../plugins/ragents.lsp-roslyn/executor.ts";
+import { executor as typescriptExecutor } from "../../../plugins/ragents.lsp-typescript/executor.ts";
 import { hostRoot } from "../src/host-version.ts";
 
 const enabled = process.env.RAGENTS_LSP_TESTS === "1";
 const skip = enabled ? false : "RAGENTS_LSP_TESTS=1 setzen (die Sprachserver holt pnpm provision --workspace)";
 const fixtures = path.join(path.dirname(fileURLToPath(import.meta.url)), "fixtures", "lsp");
 const RUN = "run-lsp";
+
+/** Der Sprachserver eines Plugins, wie ihn der Executor eines Arbeitsplatzes aus dessen Beitrag baut. */
+const languageServerOf = (plugin: string, contribution: WorkspaceExecutorContribution): LanguageServerAdapter =>
+  contribution(executorMachine(pluginToolsDirectory(hostDataDirectory(), plugin))).languageServers![0]!;
 
 interface Workspace {
   root: string;
@@ -67,7 +76,7 @@ const restore = async (context: WorkspaceProcessContext, solution: string): Prom
 
 test("Roslyn reports C# errors of an edited file without a build", { skip, timeout: 600_000 }, async () => {
   const ws = await workspace("dotnet");
-  const host = new LanguageServerHost(roslynAdapter, ws.contextFor);
+  const host = new LanguageServerHost(languageServerOf("ragents.lsp-roslyn", roslynExecutor), ws.contextFor);
   try {
     await restore(ws.context, "Sample.sln");
     const summary = await host.open(RUN, "Sample.sln");
@@ -99,7 +108,7 @@ test("Roslyn reports C# errors of an edited file without a build", { skip, timeo
 
 test("FSAC reports F# errors of an edited project file", { skip, timeout: 600_000 }, async () => {
   const ws = await workspace("dotnet");
-  const host = new LanguageServerHost(fsharpAdapter, ws.contextFor);
+  const host = new LanguageServerHost(languageServerOf("ragents.lsp-fsharp", fsharpExecutor), ws.contextFor);
   try {
     await restore(ws.context, "Sample.sln");
     assert.match(await host.open(RUN, "Sample.sln"), /1 F#-Projekt aus Sample\.sln geladen/);
@@ -123,7 +132,7 @@ test("FSAC reports F# errors of an edited project file", { skip, timeout: 600_00
 
 test("TypeScript reports errors of an edited file and lists changed files via git", { skip, timeout: 300_000 }, async () => {
   const ws = await workspace("typescript");
-  const host = new LanguageServerHost(typescriptAdapter, ws.contextFor);
+  const host = new LanguageServerHost(languageServerOf("ragents.lsp-typescript", typescriptExecutor), ws.contextFor);
   try {
     assert.match(await host.open(RUN, "."), /TypeScript-Server auf workspace bereit/);
     const clean = "Diagnostik (TypeScript) src/index.ts: keine Fehler";

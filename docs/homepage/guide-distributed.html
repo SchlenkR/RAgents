@@ -287,9 +287,14 @@ After transfer, inspect the journal with <code>pnpm driver journal &lt;runId&gt;
 <li><strong>The VS Code extension for Windows</strong> brings its own bash. The Marketplace delivers a
 <code>win32-x64</code> or <code>win32-arm64</code> build that contains a slim bash with the GNU tools (coreutils,
 <code>grep</code>, <code>sed</code>, <code>awk</code>, <code>find</code>, <code>diff</code>, <code>patch</code>, <code>tar</code>, <code>unzip</code>, <code>cygpath</code> and more), taken from
-a fixed Git for Windows release. The <code>bash</code> tool uses only this bash, for the workspace and for
-the local host; an installed Git Bash or a <code>bash.exe</code> on <code>PATH</code> is never used. PowerShell and
-<code>cmd.exe</code> are not used either.</li>
+a fixed Git for Windows release, plus <code>rg.exe</code> (ripgrep) from a fixed ripgrep release. The
+<code>bash</code> tool uses only this bash, for the workspace and for the local host; an installed Git
+Bash or a <code>bash.exe</code> on <code>PATH</code> is never used. PowerShell and <code>cmd.exe</code> are not used either.</li>
+<li><strong>Code search</strong> runs through <code>rg</code>, which skips <code>node_modules</code>, <code>bin</code>, <code>obj</code> and everything else
+<code>.gitignore</code> excludes. The extension builds for macOS and Linux carry <code>rg</code> as well and put it at
+the front of the <code>bash</code> tool&#39;s <code>PATH</code>, on the workstation and for the local host. The system
+prompt tells the model to search with <code>rg</code> only when the machine running <code>bash</code> has one;
+otherwise it tells the model to exclude dependency and build folders from <code>grep -r</code>.</li>
 <li><strong>Git</strong> is your own <code>git.exe</code> on <code>PATH</code>, for example from Git for Windows. The bundled bash
 contains no git, so your login works as usual: Git Credential Manager, <code>~/.gitconfig</code> and
 <code>~/.ssh</code>. On your own machine the bash inherits your whole environment, except the variables of
@@ -297,7 +302,10 @@ VS Code itself and <code>BASH_ENV</code>/<code>ENV</code>.</li>
 <li><strong>Without the extension</strong> (<code>ragents start</code> or <code>ragents workspace-client</code> from the npm package)
 set <code>RAGENTS_BASH</code> to the <code>bash.exe</code> of such a bundle, for example
 <code>&lt;extension folder&gt;\dist\bash\win32-x64\usr\bin\bash.exe</code>. Without it every <code>bash</code> call fails
-and names what is missing.</li>
+and names what is missing. <code>RAGENTS_RG</code> names an <code>rg</code> in the same way, for example
+<code>&lt;extension folder&gt;\dist\rg\win32-x64\rg.exe</code>, on every platform; without it, an <code>rg</code> on
+<code>PATH</code> is used if there is one. A <code>RAGENTS_RG</code> that points to a missing file stops the server
+start or the workstation&#39;s registration.</li>
 <li><strong>Node.js</strong> is enough with <code>@schlenkr/ragents</code>. A checkout additionally needs <strong>pnpm</strong>, and
 <code>pnpm install</code>, <code>pnpm build:agent</code>, and <code>scripts/start.sh</code> need a bash of your own, such as
 Git Bash.</li>

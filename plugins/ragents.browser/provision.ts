@@ -2,13 +2,13 @@ import { spawn } from "node:child_process";
 import { access, constants } from "node:fs/promises";
 import path from "node:path";
 import { chromium } from "playwright-core";
-import { BROWSER_EXECUTABLE_VARIABLE } from "@ragents/workspace-executor";
 import {
   hostPackageFolder,
   provisionGap,
   provisionReady,
   type PluginProvision,
 } from "@ragents/host/plugin-support/provision.js";
+import { BROWSER_EXECUTABLE_VARIABLE } from "./executor/contract.js";
 
 const executable = async (file: string): Promise<boolean> => access(file, constants.X_OK).then(() => true, () => false);
 

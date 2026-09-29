@@ -1,4 +1,5 @@
-import type { Api, Model } from "@ragents/ai";
+import { compactionProblem } from "@ragents/agent";
+import type { Api, Model, ModelCompaction } from "@ragents/ai";
 import type { ModelProviderRegistration } from "@ragents/engine";
 
 export const RELAY_PROVIDER = "relay";
@@ -9,7 +10,7 @@ export interface RelayConnection {
   readonly token: string;
 }
 
-/** Was das Relay je Alias über das dahinterliegende Modell verrät; der echte Name bleibt beim Server. */
+/** Was das Relay je Alias über das dahinterliegende Modell verrät, samt den Kompaktierungswerten des Alias; der echte Name bleibt beim Server. */
 export interface RelayCatalogEntry {
   readonly id: string;
   readonly object: "model";
@@ -19,6 +20,7 @@ export interface RelayCatalogEntry {
     readonly input: Model<Api>["input"];
     readonly contextWindow: number;
     readonly maxTokens: number;
+    readonly compaction: ModelCompaction;
     readonly compat?: Model<Api>["compat"];
   };
 }
@@ -61,6 +63,7 @@ const modelOf = (entry: RelayCatalogEntry, baseUrl: string): Model<"openai-compl
   cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
   contextWindow: entry.catalog.contextWindow,
   maxTokens: entry.catalog.maxTokens,
+  compaction: entry.catalog.compaction,
   ...(entry.catalog.compat ? { compat: entry.catalog.compat as Model<"openai-completions">["compat"] } : {}),
 });
 
@@ -83,6 +86,10 @@ export const createRelayCatalog = (connection: RelayConnection, fetchImpl: typeo
     const body = await response.json() as { data?: unknown };
     if (!Array.isArray(body.data) || !body.data.every(isEntry)) throw new Error(`Das Modell-Relay ${address} liefert keinen gültigen Aliaskatalog`);
     if (body.data.length === 0) throw new Error(`Das Modell-Relay ${address} bietet keine Modelle an`);
+    for (const entry of body.data) {
+      const problem = compactionProblem(entry.catalog.compaction, entry.catalog);
+      if (problem) throw new Error(`The model relay ${address} offers ${entry.id} without valid compaction values: ${problem}`);
+    }
     loaded = body.data.map((entry) => modelOf(entry, baseUrl));
     return loaded;
   };
@@ -110,6 +117,7 @@ export const createRelayCatalog = (connection: RelayConnection, fetchImpl: typeo
           cost: model.cost,
           contextWindow: model.contextWindow,
           maxTokens: model.maxTokens,
+          ...(model.compaction ? { compaction: model.compaction } : {}),
           ...(model.compat ? { compat: model.compat } : {}),
         })),
       },

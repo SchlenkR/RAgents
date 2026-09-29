@@ -11,6 +11,9 @@ export {
 export {
 	calculateContextTokens,
 	compact,
+	compactionOf,
+	compactionProblem,
+	type CompactionSource,
 	estimateContextTokens,
 	prepareCompaction,
 	shouldCompact,

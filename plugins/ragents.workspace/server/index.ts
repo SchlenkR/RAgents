@@ -4,6 +4,7 @@ import { documentStoreToken } from "@ragents/host/ragents/document-store.js";
 import { workspaceResolverToken, workspaceRuntimeToken, type WorkspaceResolver } from "@ragents/host/ragents/workspace-runtime.js";
 import { sandboxServicesToken } from "@ragents/host/plugin-support/workspace-sandbox-host.js";
 import {
+  executorContributionsToken,
   hostAddressToken,
   runtimeProviderToken,
   runGuardToken,
@@ -12,6 +13,7 @@ import {
 } from "@ragents/host/ragents/host-services.js";
 import { pluginAsset } from "@ragents/host/plugin-support/plugin-folder.js";
 import { ServerProcessSandbox } from "@ragents/host/plugin-support/process-sandbox.js";
+import { ripgrepAvailable } from "@ragents/workspace-executor";
 import type { PluginModule } from "@ragents/host/plugin-support/plugin-module.js";
 import { boundToTools, handlebarsPrompt } from "@ragents/host/plugin-support/prompt.js";
 import { shellPlatformPrompt } from "./shell-platform.js";
@@ -21,7 +23,7 @@ import { WORKSPACE_BINDING_OPTION_ID, WORKSPACE_METADATA_ID } from "../contract.
 import { bindingOf, executorShellChapter, sessionMetadataOf, workspaceBindingOption, workspaceLocation, workspaceOwnerOf } from "./binding.js";
 import { createBrowseChannel, createBrowseMethods } from "./browse-route.js";
 import { clientMethods, WorkspaceClientRegistry } from "./clients.js";
-import { bashSetting, processSandboxSetting, workspaceConfigDescriptors } from "./config.js";
+import { bashSetting, bashTimeoutSetting, processSandboxSetting, rgSetting, workspaceConfigDescriptors } from "./config.js";
 import { RunWorkspaceRuntime } from "./runtime.js";
 
 const warnWithoutSandbox = (): void => {
@@ -48,7 +50,8 @@ const ragentsWorkspacePlugin = (skillPaths: () => Promise<readonly string[]>): R
       if (!directory) throw new Error("In diesem Profil gibt es keine Dateiablage; das Plugin ragents.documents fehlt");
       return directory;
     };
-    const clients = new WorkspaceClientRegistry();
+    const contributions = host.service(executorContributionsToken);
+    const clients = new WorkspaceClientRegistry(contributions);
     const contribution = (): WorkspaceResolver | undefined => host.optionalService(workspaceResolverToken);
     host.config(...workspaceConfigDescriptors);
     const sandboxSetting = processSandboxSetting();
@@ -60,10 +63,16 @@ const ragentsWorkspacePlugin = (skillPaths: () => Promise<readonly string[]>): R
       })
       : undefined;
     const bash = bashSetting();
+    const rg = rgSetting();
+    const bashTimeoutSeconds = bashTimeoutSetting();
+    const serverTools = { ripgrep: ripgrepAvailable(rg, process.env) };
     const runtime = new RunWorkspaceRuntime({
       clients,
+      contributions: contributions.map((contribution) => contribution.parts),
       ...(processSandbox ? { processSandbox } : {}),
       ...(bash === undefined ? {} : { bash }),
+      ...(rg === undefined ? {} : { rg }),
+      ...(bashTimeoutSeconds === undefined ? {} : { bashTimeoutSeconds }),
       globalDirectory: host.storage.root(),
       sessionDirectory: (runId, ...segments) => host.storage.session(runId, ...segments),
       storageRootFor: (runId) => path.join(host.storage.sessionsRoot, runId),
@@ -92,9 +101,9 @@ const ragentsWorkspacePlugin = (skillPaths: () => Promise<readonly string[]>): R
         // Die Regeln gelten für die Arbeitsbereiche des Hosts; eine beigesteuerte Art beschreibt ihre eigenen.
         render: (context) => contribution()?.kind ? "" : rules.render(context),
       }, ...agentWorkspaceToolNames),
-      shellPlatformPrompt("ragents.workspace.shell.prompt", 102, (runId) => {
+      shellPlatformPrompt("ragents.workspace.shell.prompt", 102, serverTools, (runId) => {
         const state = runState(runId);
-        return executorShellChapter(clients, workspaceOwnerOf(state), bindingOf(state));
+        return executorShellChapter(clients, workspaceOwnerOf(state), bindingOf(state), serverTools);
       }),
     );
     const browseOptions = {

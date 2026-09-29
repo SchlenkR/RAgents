@@ -1,6 +1,7 @@
 import { createHash } from "node:crypto";
 import { existsSync, readdirSync, readFileSync, realpathSync, statSync } from "node:fs";
 import path from "node:path";
+import { EXECUTOR_CONTRIBUTION_FILE } from "@ragents/workspace-executor";
 import { ragentsDataRoot } from "../data-directory.js";
 import { filesBelow } from "../folder-install.js";
 import { HOST_API_VERSION, type HostApiHalf } from "../host-api.js";
@@ -9,7 +10,7 @@ import { isCheckout } from "../host-web.js";
 import { bundlesRoot, pluginIdOf } from "../plugin-support/plugins-root.js";
 
 export const BUNDLE_MANIFEST_FILE = "ragents-bundle.json";
-export const BUNDLE_FORMAT = 3;
+export const BUNDLE_FORMAT = 4;
 
 /** The value names a half imports from each module of the host API. */
 export type HostNames = Readonly<Record<string, readonly string[]>>;
@@ -27,12 +28,14 @@ export interface BundleManifest {
   readonly sourceStand: string;
   readonly server: string;
   readonly web?: { readonly entry: string; readonly css?: string; readonly classes: string };
+  /** The contribution to every executor, a self-contained file that any Node process loads. */
+  readonly executor?: typeof EXECUTOR_CONTRIBUTION_FILE;
   readonly exports: Readonly<Record<HostApiHalf, Readonly<Record<string, string>>>>;
   readonly uses: readonly string[];
   readonly assets: readonly string[];
 }
 
-const MANIFEST_KEYS = new Set(["format", "id", "api", "hostNames", "stand", "sourceStand", "server", "web", "exports", "uses", "assets"]);
+const MANIFEST_KEYS = new Set(["format", "id", "api", "hostNames", "stand", "sourceStand", "server", "web", "executor", "exports", "uses", "assets"]);
 const SOURCE_MARKERS = ["ragents-plugin.json", "server/index.ts", "server/index.tsx"];
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
@@ -167,6 +170,7 @@ export const readBundleManifest = (folder: string): BundleManifest => {
     ...(typeof raw.sourceStand === "string" ? [] : ["sourceStand"]),
     ...(typeof raw.server === "string" ? [] : ["server"]),
     ...(isWeb(raw.web) ? [] : ["web"]),
+    ...(raw.executor === undefined || raw.executor === EXECUTOR_CONTRIBUTION_FILE ? [] : ["executor"]),
     ...(isRecord(raw.exports) && isPathRecord(raw.exports.server) && isPathRecord(raw.exports.web) ? [] : ["exports"]),
     ...(isStringList(raw.uses) ? [] : ["uses"]),
     ...(isStringList(raw.assets) ? [] : ["assets"]),
@@ -176,7 +180,7 @@ export const readBundleManifest = (folder: string): BundleManifest => {
   const webFiles = web === undefined ? [] : [web.entry, web.classes, ...(web.css === undefined ? [] : [web.css])];
   const misplaced = webFiles.filter((entry) => !entry.startsWith("web/") || entry.split("/").includes(".."));
   if (misplaced.length > 0) throw new Error(`${file}: ${misplaced.join(", ")} liegt nicht unter web/; ${rebuildHint(folder)}`);
-  for (const required of [raw.server as string, ...webFiles]) {
+  for (const required of [raw.server as string, ...webFiles, ...(raw.executor === undefined ? [] : [EXECUTOR_CONTRIBUTION_FILE])]) {
     if (!statSync(path.join(folder, required), { throwIfNoEntry: false })?.isFile()) throw new Error(`Dem Bundle ${id} fehlt ${required}; ${rebuildHint(folder)}`);
   }
   return raw as unknown as BundleManifest;

@@ -190,6 +190,7 @@ plugins/ragents.actor-programs/
   contract.ts        import-free contract shared by both halves, when present
   prompt.hbs         assets at the plugin root, alongside prompts/, skills/,
                      run-scripts/, provision.ts
+  executor.ts        contribution to the workspace executor, when present
 ```
 
 `server/index.ts` exports exactly one entry point:
@@ -489,6 +490,7 @@ aber eine vorhandene Facette bleibt bei ihrem Besitzer:
 | Storage                   | `host.storage`, immer unter `plugins/<plugin-id>`                         |
 | Lebenszyklus              | Start, Run-Vorbereitung, Löschen und Shutdown beim Besitzer               |
 | Provisionierung           | `provision.ts` im Plugin-Ordner, im Bundle ein Export von `server/index.js`; Werkzeuge in `<Datenordner>/tools/<plugin-id>/` |
+| Beitrag zum Executor      | `executor.ts` (oder `executor/index.ts`) im Plugin-Ordner, im Bundle `executor/index.mjs`; läuft im Executor jeder Maschine (Abschnitt Arbeitsbereich, Sandbox-Werkzeuge und Prozesse) |
 
 Der Lebenszyklus (`host.lifecycle`) hat neben `initialize`, `prepareSession`, den Stoppphasen,
 `deleteSession` und `shutdown` den Haken `sessionStarted({ runId, startEntry })`. Der Host ruft
@@ -559,7 +561,8 @@ Startoption und Run-Metadaten), `prepare` und optional `release` und `descriptio
 `release` bekommen `runId`, den Pfad des Ordners auf dem Arbeitsplatz, dessen Label und die Wahl
 aus `optionId` und liefern Schritte: Operationen des Executors dort samt Eingabe, etwa
 `commands.run` mit `git worktree add` in einem angebotenen Repository. Code läuft dafür nicht auf
-dem Arbeitsplatz; ein Beitrag kann nur benutzen, was jeder Executor kann. Die Schritte von
+dem Arbeitsplatz; ein Beitrag kann nur benutzen, was jeder Executor kann, samt den Operationen, die
+die Beiträge zum Executor der Plugins des Profils mitbringen. Die Schritte von
 `prepare` laufen einmal, direkt nachdem der Executor den Ordner angelegt hat; die von `release` vor
 dem Wegräumen beim Löschen des Runs.
 
@@ -652,7 +655,8 @@ loads plugin sources; it loads finished bundles, and the author builds them. The
 
 **Source folder.** One folder per plugin, named after its ID, such as `acme.tickets`. It holds
 `ragents-plugin.json`, `server/index.ts` exporting `plugin`, optionally `provision.ts` for tools the
-plugin installs, `web/index.tsx` exporting `webPlugin` when there is an interface, and assets such
+plugin installs and `executor.ts` for work that runs on the machine of a workspace, such as a
+language server, `web/index.tsx` exporting `webPlugin` when there is an interface, and assets such
 as `prompt.hbs`, `prompts/`, `skills/`, and `run-scripts/` at the root. `ragents-plugin.json`
 names the ID, the files other plugins may import (per half, as paths without extension), and
 additional assets that go into the bundle:
@@ -705,7 +709,9 @@ changes only when the host API changes incompatibly, not with every host release
 
 **Ship.** A bundle is a plain folder without `node_modules` or native binaries and runs wherever a
 host offers the same host API with the names it uses. Native tools such as language servers come through the plugin's
-provisioning. To hand a profile together with its bundles to other machines, a server adds
+provisioning. The contribution to the workspace executor becomes one self-contained file that
+imports only Node modules, so every machine can load it, the VS Code extension included; a
+workstation loads it from the bundles of its own host, in exactly the version the server uses. To hand a profile together with its bundles to other machines, a server adds
 `ragents.profile-distribution`; `ragents connect` fetches the profile and its bundles and starts
 them with the local host ([Distributed work](../homepage/guide-distributed.html)). The client
 profile names such bundles relative to itself (`./` or `../`); the client resolves an absolute or
@@ -724,8 +730,8 @@ Quellen übersetzt, die im Run bearbeitet werden.
 Ordnernamen), `exports` je Hälfte (`server`, `web`) als Pfade im Plugin-Ordner ohne Endung,
 importierbar als `@ragents/plugins/<id>/<pfad>`, und `assets` für Dateien oder Ordner, die neben
 der Vorgabe ins Bundle kommen. Andere Felder sind ein Fehler. Die Einsprungpunkte bleiben Konvention:
-`server/index.ts`, `web/index.tsx`, `provision.ts`. Quelle und Bundle haben verschiedene
-Dateinamen, damit sie nie verwechselt werden.
+`server/index.ts`, `web/index.tsx`, `provision.ts`, `executor.ts` (oder `executor/index.ts`). Quelle
+und Bundle haben verschiedene Dateinamen, damit sie nie verwechselt werden.
 
 **Bundle.** Ein Bundle ist ein Ordner, sein Name ist die Kennung, sein einziger Einsprungpunkt
 `ragents-bundle.json`; es spiegelt den Quellordner, damit `pluginFolder(id)` und die
@@ -742,17 +748,19 @@ Asset-Konvention für Quelle und Bundle gleich gelten:
   web/classes.json       Tailwind-Kandidaten der Web-Hälfte
   web/exports/           deklarierte Exporte für den Browser
   web/assets/            Bilder und Schriften, die der Code importiert
+  executor/index.mjs     Beitrag zum Executor, in sich geschlossen, nur mit executor.ts
   prompt.hbs, prompts/, skills/, run-scripts/, ...   Assets wie im Quellordner
 ```
 
-Das Manifest (`profile/bundle-manifest.ts`, `format` 3) nennt `id`, `api` (die Nummer der
+Das Manifest (`profile/bundle-manifest.ts`, `format` 4) nennt `id`, `api` (die Nummer der
 Host-API, gegen die gebaut wurde), `hostNames` (je Hälfte und Modul die Namen der Host-API, die das
 Bundle tatsächlich benutzt), `stand` (Hash über alle Dateien des Bundles außer dem Manifest und
 `.DS_Store`), `sourceStand` (Hash über den Quellordner ohne `node_modules` und ohne das Ziel des
 Baus, dazu über die Eingaben des Hosts, die jedes Bundle prägen: `host-api.ts`, `host-api.json`,
 Bauwerkzeug und Beschreibungsleser, im Checkout `pnpm-lock.yaml`, im Paket dessen `package.json`),
 `server`, bei einer
-Web-Hälfte `web` mit `entry`, `classes` und optional `css`, `exports` je Hälfte als Zuordnung von
+Web-Hälfte `web` mit `entry`, `classes` und optional `css`, bei einem Beitrag zum Executor `executor`
+(immer `executor/index.mjs`), `exports` je Hälfte als Zuordnung von
 Exportname zu Datei, `uses` und `assets`. Exporte gibt es je Hälfte, weil eine gemeinsame Datei
 (`contract.ts`) für Node und Browser getrennt gebaut wird; der Name ist derselbe, die Hälfte des
 Importeurs wählt die Datei. `uses` nennt die Plugins, deren Exporte das Bundle importiert; das
@@ -760,7 +768,10 @@ Bauwerkzeug schreibt es, weil `requires` im Code steht, und der Host prüft beim
 Kennung daraus in der Pluginliste und in `requires` steht. Ein Bundle enthält keine
 plattformabhängigen Binärdateien und kein `node_modules`, damit es auf jedem Rechner dasselbe
 ist; `provision` ist ein Export von `server/index.js`, damit es keinen dritten Einsprungpunkt gibt, und
-der Import eines Bundles ist deshalb nebenwirkungsfrei. `stand` prüfen alle, die ein Bundle
+der Import eines Bundles ist deshalb nebenwirkungsfrei. Der Beitrag zum Executor ist dagegen eine
+eigene Datei, weil er auch in einem Prozess laden muss, der weder den Auflösungshaken des Hosts noch
+TypeScript-Quellen kennt, dem Extension-Host von VS Code (Abschnitt Arbeitsbereich, Sandbox-Werkzeuge
+und Prozesse); `.mjs`, damit Node ihn ohne `package.json` daneben als ESM liest. `stand` prüfen alle, die ein Bundle
 kopieren oder wiederverwenden: `pnpm build:package` nach dem Kopieren in das Paket, `ragents
 connect` nach dem Entpacken des Archivs und das Bauwerkzeug, bevor es ein Bundle als aktuell
 liegen lässt.
@@ -773,9 +784,11 @@ mit Ursache sind: eine Kennung, die zweimal vorkommt; ein Pfad ohne Ordner; ein 
 (samt `pnpm build:plugins`); ein Manifest mit anderem `format` oder einer anderen `api` als
 `HOST_API_VERSION` (samt Befehl zum Neubauen); ein Name aus `hostNames`, den `host-api.json` dieses
 Hosts nicht nennt (Versionsvertrag); eine Kennung aus `uses`, die nicht in der Pluginliste
-oder nicht in `requires` des Modulvertrags steht. `loadPlugins` in
+oder nicht in `requires` des Modulvertrags steht; ein Beitrag zum Executor, der fehlt, nicht lädt
+oder keine Funktion `executor` exportiert. `loadPlugins` in
 `apps/server/src/profile/plugin-discovery.ts` prüft das, trägt jeden Bundle-Ordner mit
-`registerPluginFolder` ein und importiert `server/index.js`; `pluginFolder(id)` liefert danach den
+`registerPluginFolder` ein, importiert `server/index.js` und lädt den Beitrag zum Executor
+(`loadExecutorContribution`); `pluginFolder(id)` liefert danach den
 Bundle-Ordner für Skills, Prompts, Run-Scripts und Assets. Für eine Kennung ohne Registrierung, also
 Code, der Plugin-Quellen direkt lädt (Unit-Tests, Homepage-Generator), gilt `plugins/<id>`. Hat das
 Bundle eine Web-Hälfte, setzt der Composer `manifest.web` auf ihre Adressen.
@@ -845,7 +858,7 @@ selbst deklariert, wird wie eines mit `requires` im Manifest abgewiesen.
 **Host-API.** `apps/server/src/host-api.ts` nennt je Hälfte jedes Modul, das der Host liefert und
 das nie ins Bundle darf, ausdrücklich und ohne Platzhalter, weil das Web-Register jedes einzeln
 importiert, und bei Code des Hosts dazu jeden Wert, den ein Plugin daraus importieren darf. Stand
-Host-API 6: Server 60 Module mit 184 Namen aus Code des Hosts (die Engine samt ihren
+Host-API 7: Server 60 Module mit 177 Namen aus Code des Hosts (die Engine samt ihren
 Vertragsmodulen, `@ragents/workspace-executor`, `@ragents/workflow`, die Bausteine unter
 `@ragents/host/...`) und die Bibliotheken `typebox`, `typebox/value`, `handlebars`,
 `playwright-core`, `tar` (`node:*` ist immer extern); Web 37 Module mit 114 Namen aus Code des
@@ -938,6 +951,12 @@ Bundle gleich aussieht; `tsconfigRaw: {}` schaltet eine `tsconfig.json` des Plug
   eine Instanz. Bilder und Schriften gehen nach `web/assets/`, eigenes CSS nur über den Einsprungpunkt
   nach `web/index.css`, die Tailwind-Kandidaten mit dem Scanner von Tailwind aus den gebündelten
   Dateien des eigenen Ordners nach `web/classes.json`.
+- Beitrag zum Executor: aus `executor.ts` (oder `executor/index.ts`) wie die Server-Hälfte mit
+  Banner, aber ohne `splitting` in genau eine Datei `executor/index.mjs`; extern ist nur `node:*`.
+  Ein Import eines Host-Moduls oder eines anderen Plugins ist dort ein Baufehler, Typen des Hosts
+  (`import type`) sind frei; was der Beitrag vom Host braucht, bekommt er zur Laufzeit über die
+  Maschine (`WorkspaceExecutorMachine`). Die Server-Hälfte darf die Datei relativ importieren, etwa
+  für Beschreibung und Konstanten; dort wird sie mitgebündelt.
 - Nackte Importe außerhalb der Liste bündelt es; das `node_modules` des Hosts steht zuletzt im
   Suchpfad, ein eigenes des Plugins gewinnt. `react` und jedes andere Host-Modul kommen immer vom
   Host, auch wenn das Plugin eine eigene Kopie mitbringt.
@@ -954,9 +973,11 @@ Bundle gleich aussieht; `tsconfigRaw: {}` schaltet eine `tsconfig.json` des Plug
   `__filename`, `createRequire` oder `require.resolve` im Plugin-Code; eine gebündelte Bibliothek,
   die über ihren eigenen Ort Dateien sucht; `.node`-Dateien und Pakete mit `os`, `cpu` oder
   plattformabhängigen optionalen Abhängigkeiten; ein `pluginAsset("<id>", "<name>")` mit festem
-  Namen, der nicht ins Bundle kommt; CSS außerhalb des Web-Einsprungpunkts; eine Kennung, die nicht dem
+  Namen, der nicht ins Bundle kommt; CSS außerhalb des Web-Einsprungpunkts; ein Host-Modul oder
+  ein anderes Plugin im Beitrag zum Executor; eine Kennung, die nicht dem
   Ordnernamen entspricht, unbekannte Felder und Exporte ohne Quelldatei.
-- Typprüfung in einem TypeScript-Programm je Hälfte über alle genannten Plugins gegen
+- Typprüfung in einem TypeScript-Programm je Hälfte über alle genannten Plugins (der Beitrag zum
+  Executor und `provision.ts` gehören zur Server-Hälfte) gegen
   `apps/server/tsconfig.plugin.json` und `apps/web/tsconfig.plugin.json` (Pfade auf die Host-API,
   gültig für jeden Ordner) samt Pfaden auf die Geschwister; Fehler in Host-Dateien bleiben dem Host.
   Typfehler und übrige Befunde erscheinen zusammen, geschrieben wird dann nichts. `--watch` prüft
@@ -2737,13 +2758,16 @@ optional sein Aufräumen je Run (`stopRun`) und beim Beenden (`shutdown`). `shut
 danach ruft niemand den Executor wieder auf, und ein Modul darf spätere Aufrufe mit Ursache
 ablehnen; wer wieder einen braucht, baut einen neuen. Der Executor selbst
 (`WorkspaceOperationExecutor`) kennt keinen Operationsnamen; ein unbekannter scheitert mit
-`workspace-operation-unknown` (400), ein doppelt registrierter schon beim Bau. Jeder Executor trägt
-dieselben Module (`workspaceExecutorModules()`): die vier Sandbox-Werkzeuge mit Prozessgruppen,
-Umgebung und Pfadprüfung (`read`, `edit`, `write`, `bash`), die Language-Server-Sitzungen mit den
-drei Adaptern Roslyn, FSAC und TypeScript (`<id>_open`, `<id>_diagnostics`, `<id>_close`,
+`workspace-operation-unknown` (400), ein doppelt registrierter schon beim Bau. Ein Executor trägt
+seine eigenen Module und die Beiträge der Plugins (`workspaceExecutorModules({ contributions })`,
+Abschnitt Beiträge zum Executor): die vier Sandbox-Werkzeuge mit Prozessgruppen,
+Umgebung und Pfadprüfung (`read`, `edit`, `write`, `bash`), die Language-Server-Sitzungen für jeden
+Sprachserver, den ein Beitrag mitbringt (`<id>_open`, `<id>_diagnostics`, `<id>_close`,
 `<id>_snapshot`, mit Solutions `<id>_solutions` und `<id>_switch`), die Dateien (`files.list`, `files.read`, `files.watch`, `files.attach`), die
-Prozesse (`processes.snapshot`, `processes.stop`, `processes.stopAll`), die Befehle (`commands.run`)
-und der Browser der Browserprüfung (`browser.*`, Abschnitt Browserprüfungen). Nach `edit` und
+Prozesse (`processes.snapshot`, `processes.stop`, `processes.stopAll`), die Befehle (`commands.run`),
+die Module der Beiträge, etwa den Browser der Browserprüfung (`browser.*`, Abschnitt
+Browserprüfungen), und den Ordner je Run. Keine Sprache, kein Sprachserver und kein Browser ist
+darin eingebaut. Nach `edit` und
 `write` fragt das Werkzeugmodul alle Module nach einer Anmerkung zur geschriebenen Datei; die
 Sprachserver hängen so ihre Diagnostik an. Meldungen der Dateiwerkzeuge nennen den Pfad so, wie
 das Modell ihn übergeben hat, auch mit Alias, nie den aufgelösten unter dem Datenordner. Die Schnittstelle ist
@@ -2752,8 +2776,9 @@ das Modell ihn übergeben hat, auch mit Alias, nie den aufgelösten unter dem Da
 sondern nur Ordner, Umgebung und Aufrufe seiner eigenen Maschine. Ein fachlicher Fehler einer
 Operation trägt Kennung und Status (`WorkspaceOperationError`) und kommt beim Aufrufer als
 `DomainError` an, gleich ob der Executor im Server oder auf dem Arbeitsplatz lief. Eine weitere
-Fähigkeit, die den Rechner des Arbeitsbereichs braucht, wird ein weiteres Modul. Server und
-VS-Code-Erweiterung importieren dasselbe Paket, es wird nie zur Laufzeit nachgeladen.
+Fähigkeit, die den Rechner des Arbeitsbereichs braucht, wird ein weiteres Modul, und gehört sie zu
+einem Plugin, ein Beitrag dieses Plugins. Server und VS-Code-Erweiterung importieren dasselbe Paket,
+es wird nie zur Laufzeit nachgeladen; zur Laufzeit kommen nur die Beiträge der Plugins dazu.
 
 Dieser Vertrag ist die einzige Naht zum Arbeitsbereich: `WorkspaceRuntime` löst je Run den
 Ordner auf, und `SandboxServices.execute(runId, operation, input, options)` ist der einzige Zugang
@@ -2902,7 +2927,8 @@ Abmeldung nach einer Trennung muss trotzdem durchgehen. Die Registry lebt im Spe
 nach einem Neustart meldet sich jeder Client neu an, gebundene Runs bleiben gültig.
 
 Auf dem Arbeitsplatz (`plugins/ragents.workspace/client`) hat jede Anmeldung ihren eigenen
-Executor aus `workspaceExecutorModules()`. Die Abmeldung, ob ausdrücklich oder weil kein Ordner
+Executor, gebaut aus den Beiträgen, die der Server vor der Anmeldung nennt (Abschnitt Beiträge zum
+Executor). Die Abmeldung, ob ausdrücklich oder weil kein Ordner
 mehr angeboten wird, gibt die Handler frei, meldet beim Server ab und beendet zugleich den Executor
 dieser Anmeldung mit `shutdown`; die nächste Anmeldung baut einen neuen. Auf den Server wartet sie
 höchstens drei Sekunden, eine Anmeldung höchstens zehn; ein hängender Server hält so weder das
@@ -2913,7 +2939,8 @@ Verliert der `RpcClient` den Ereignisstrom (Ende, Fehler oder 45 Sekunden ohne D
 Server alle 15 Sekunden pingt), bricht er alle Handler ab, die noch für den Server laufen: ihre
 Antwort erreichte ihn nicht mehr, und eine Beobachtung oder eine lange Bash liefe sonst doppelt.
 Danach meldet sich der Arbeitsplatz über denselben, weiterlaufenden Executor erneut an, sobald der
-Ereignisstrom wieder steht.
+Ereignisstrom wieder steht; nennt der Server dann andere Beiträge, etwa nach einem Neustart mit
+anderem Profil, baut der Arbeitsplatz einen neuen Executor daraus und beendet den alten.
 
 Ein Client gehört dem Benutzer, der ihn angemeldet hat (ohne Anmeldung niemandem, `null`), und
 die Registry führt ihn unter Besitzer und Kennung. Zwei Benutzer mit derselben Kennung haben zwei
@@ -2926,7 +2953,25 @@ Arbeitsplatz, der ohne Benutzer angemeldet ist. Einen Ausweg auf einen anderen A
 derselben Kennung gibt es nicht: fehlt der des Eigentümers, scheitert der Aufruf mit
 `workspace-client-disconnected`. Die Anmeldung nennt zusätzlich den Stand des Executors, den der
 Arbeitsplatz mitbringt; weicht er vom Stand des Servers ab, scheitert sie mit
-`workspace-executor-version` (409).
+`workspace-executor-version` (409), und die Meldung nennt beide Stände und was zu tun ist: bei
+einem älteren Arbeitsplatz dort die RAgents-Erweiterung beziehungsweise `@schlenkr/ragents`
+aktualisieren, bei einem neueren den Server. Der Stand zählt vor der Form, weil ein anderer Stand
+die Felder dieses Stands nicht kennt oder eigene mitbringt, etwa fehlt einem Arbeitsplatz mit Stand
+5 das Feld `ripgrep`. Die Eingabe von `ragents.workspace.clients.register` ist deshalb eine
+Vereinigung: die vollständige Anmeldung (`clientRegistrationSchema` in
+`plugins/ragents.workspace/contract.ts`, ohne weitere Felder) oder eine Anmeldung mit anderem
+Stand, die nur `label` und `executor` verlangt und die der Server immer mit dem Stand ablehnt.
+Nennt ein Arbeitsplatz den Stand des Servers, muss seine Eingabe die vollständige Form haben, sonst
+scheitert sie wie jede ungültige Eingabe (`-32602`, `Ungültige Eingabe für ...`). Ob die Bash des
+Arbeitsplatzes `rg` findet (`ripgrep`, Pflicht), ermittelt der Arbeitsplatz bei jeder Anmeldung
+selbst: das mitgebrachte `rg`, sonst eines im `PATH` seiner Umgebung; ein genanntes, das fehlt,
+lässt die Anmeldung mit dieser Ursache scheitern. Vor der Anmeldung fragt der Arbeitsplatz mit
+`ragents.workspace.clients.contributions` nach den Beiträgen zum Executor, die der Server trägt; die
+Eingabe ist `label` und `executor`, der Stand zählt wie bei der Anmeldung zuerst, weitere Felder
+zählen nicht. Er baut seinen Executor daraus und nennt sie in der Anmeldung unter `contributions`;
+eine andere Liste lehnt der Server mit `workspace-executor-contributions` (409) ab, die Meldung nennt
+beide (Abschnitt Beiträge zum Executor). Kennt ein älterer Server die Frage nicht, sagt die Meldung
+des Arbeitsplatzes genau das und dass der Server zu aktualisieren ist.
 
 Genau eine Operation geht zum Arbeitsplatz: `ragents.workspace.client.execute` mit
 `implementedBy: "client"`, mit `runId`, `operation`, `cwd`, `env`, der Eingabe der Operation und
@@ -2984,7 +3029,19 @@ Run-Ablage, auf dem Arbeitsplatz ein Ordner unter `os.tmpdir()`, nie das Home de
 
 Ein Bash-Ergebnis ist die Ausgabe des Befehls; ein Exit-Code ungleich null steht als letzte
 Zeile im Ergebnis (`Command exited with code N`) und ist kein Werkzeugfehler, etwa `grep` ohne
-Treffer. Werkzeugfehler sind nur Start-, Zeitgrenzen- und Abbruchprobleme. Den Ordner eines
+Treffer. Werkzeugfehler sind nur Start-, Zeitgrenzen- und Abbruchprobleme. Ohne `timeout` hält die
+Bash einen Befehl nach 120 Sekunden an, ein Aufruf darf bis zu 600 Sekunden verlangen, mehr ist ein
+Eingabefehler. Beides steht in Beschreibung und Schema des Werkzeugs (`default` und `maximum`,
+`packages/agent/src/core/tools/bash.ts`), dazu der Satz, dass Builds, Testläufe, Installationen
+und andere lange Befehle einen größeren `timeout` brauchen. Läuft die Zeit ab, endet der Befehl mit
+seiner Prozessgruppe, und der Fehler trägt die bisherige Ausgabe, die Sekunden und was zu tun ist:
+den Befehl eingrenzen, etwa mit `rg` statt `grep -r` suchen, oder einen größeren `timeout` bis 600
+übergeben. Die Vorgabe setzt der Server ein, bevor er einen Aufruf des Modells an einen Executor
+gibt (die Vorgaben des Schemas in `WorkspaceSandboxHost`); so gilt auch auf einem Arbeitsplatz die
+Zeitgrenze, die das Modell im Schema sieht, und der Fußabdruck kennt sie als `durationMs`.
+`RAGENTS_BASH_TIMEOUT_SECONDS` (Sektion `ragents.workspace`) ändert die Vorgabe für alle Runs des
+Servers, auch auf Arbeitsplätzen, nicht die Obergrenze: erlaubt sind mehr als 0 bis 600 Sekunden,
+ein anderer Wert bricht den Start ab; ein Arbeitsplatz liest die Variable nicht. Den Ordner eines
 Aufrufs nennt das optionale `cwd`, auf jeder Maschine gleich: relativ zum Arbeitsverzeichnis oder
 ein Pfad mit Alias wie `@actors/<name>`, nie absolut (`workspace-path-invalid`, 400), immer in
 einer Wurzel des Runs, auch einer nur lesbaren, und es muss ihn geben (`workspace-path-not-found`,
@@ -3000,8 +3057,13 @@ macOS mit BSD-Werkzeugen (`grep` ohne `-P`, `sed -i ''`, `/bin/bash` 3.2 ohne as
 und `mapfile`), Linux mit GNU-Werkzeugen, Windows mit der mitgebrachten Bash (MSYS-Userland mit
 GNU-Werkzeugen; `git`, `dotnet` und `node` sind die Windows-Programme des Rechners und nehmen
 Windows-Pfade; CRLF); eine unbekannte Plattform ist
-ein Fehler, kein Ratetext. Genannt wird die Plattform des Executors, der den Run ausführt: auf dem
-Server die des Servers, auf einem Arbeitsplatz die, die er bei der Anmeldung gemeldet hat. Dafür darf ein Prompt-Beitrag ein `renderForRun(runId)` mitbringen; der Server
+ein Fehler, kein Ratetext. Dazu kommt ein Satz zur Suche: findet die Bash `rg`, soll das Modell mit
+`rg` suchen und mit `rg --files` Dateien auflisten, weil es alles überspringt, was `.gitignore`
+ausschließt (`node_modules`, `bin`, `obj`), und `grep` nur auf einzelne Dateien oder in Pipes
+anwenden; sonst nennt der Satz das Fehlen und verlangt bei `grep -r` den Ausschluss der
+Abhängigkeits- und Build-Ordner (`--exclude-dir`). Genannt werden Plattform und `rg` des Executors,
+der den Run ausführt: auf dem Server die des Servers (`rg` aus `RAGENTS_RG` oder dem `PATH`, beim
+Start ermittelt), auf einem Arbeitsplatz die, die er bei der Anmeldung gemeldet hat. Dafür darf ein Prompt-Beitrag ein `renderForRun(runId)` mitbringen; der Server
 ersetzt damit den einmal gerenderten Text je Run, ein leerer Text lässt den Beitrag dort weg,
 `undefined` behält den gerenderten (`PromptContribution`,
 `PromptContributionRegistry.runOverrides`). Ist der gebundene Arbeitsplatz gerade nicht
@@ -3048,6 +3110,17 @@ daraus den Start `bash --noprofile --norc -c <befehl>`. Unter macOS und Linux gi
 `/bin/bash`, sonst `bash` vom `PATH` (`getShellConfig` in `packages/agent/src/utils/shell.ts`);
 ein Ausweg auf `sh` ist ausgeschlossen.
 
+Ebenso trägt der Kontext das `rg` des Executors (`rg`); `bashLaunch` setzt dessen Ordner auf jeder
+Plattform vorn in den `PATH`, und liegt es nicht am genannten Ort, scheitert der Aufruf mit dieser
+Ursache. Ohne Angabe findet die Bash ein `rg` im `PATH`, wenn es eines gibt; `ripgrepAvailable`
+sagt, ob sie eines findet. Den Pfad setzt, wer den Executor baut: die VS-Code-Erweiterung aus
+`<Erweiterung>/dist/rg/<plattform>-<arch>/rg` (`rg.exe` unter Windows), wenn ihre Fassung eines
+trägt (die Fassungen je Plattform tun das, die universelle nicht), für ihren Arbeitsplatz direkt und
+für ihren lokalen Host als `RAGENTS_RG` (Sektion `ragents.workspace`); `ragents workspace-client`
+liest `RAGENTS_RG` ebenso. Ein gesetztes `RAGENTS_RG`, das fehlt, bricht den Start des Servers ab.
+Gebaut wird es mit `pnpm bundle:rg` (`scripts/vscode/bundle-rg.ts`, Einzelheiten in
+`docs/development.md`).
+
 Unter Windows läuft der Executor mit denselben Node-Standard-APIs und ohne eigene
 Plattformschicht. Die Bash ist dort ausschließlich die, die RAgents mitbringt: ein Ausschnitt aus
 dem festgelegten PortableGit-Archiv von Git for Windows mit `bash.exe`, `sh.exe`, coreutils,
@@ -3064,7 +3137,7 @@ Umgebungsvariable `RAGENTS_BASH` (Sektion `ragents.workspace`, im Executor des S
 von `WorkspaceSandboxHost`); `ragents workspace-client` liest `RAGENTS_BASH` ebenso. Vor den
 `PATH` des Prozesses setzt `bashLaunch` das `usr/bin` der Bash, sonst gewännen `find.exe` und
 `sort.exe` aus `System32`; eine andere Schreibweise von `PATH` (`Path`) geht darin auf, und
-`MSYSTEM` fällt weg, weil es einer Git-Bash-Anmeldung gehört. `HOME` und `USERPROFILE` setzt der
+`MSYSTEM` fällt weg, weil es einer Git-Bash-Anmeldung gehört; das `rg` steht davor. `HOME` und `USERPROFILE` setzt der
 Kontext wie überall. Gebaut wird der Ausschnitt mit `pnpm bundle:bash`
 (`scripts/vscode/bundle-bash.ts`, Einzelheiten in `docs/development.md`). Prozessgruppen gibt es
 unter Windows nicht:
@@ -3162,6 +3235,50 @@ steht, sobald die Beobachtung steht, und endet eine laufende Beobachtung, meldet
 damit die Ansicht neu lädt und die Ursache zeigt, und beginnt alle fünf Sekunden eine neue; steht
 sie wieder, meldet er noch eine Änderung. Das Dateimodul beendet offene Beobachtungen auch selbst,
 beim Stopp des Runs und beim `shutdown` des Executors. Ein 30-Sekunden-Poll bleibt nur als Fallback.
+
+### Beiträge zum Executor
+
+Was ein Plugin auf der Maschine des Arbeitsbereichs tut, etwa einen Sprachserver starten oder einen
+Browser steuern, bringt es als Beitrag zum Executor mit: `executor.ts` (oder `executor/index.ts`)
+exportiert `executor: WorkspaceExecutorContribution`, eine Funktion der Maschine, die
+`WorkspaceExecutorParts` liefert, `languageServers` (Adapter, Abschnitt Language-Server-Plugins)
+und `modules` (Module mit eigenen Operationen, Abschnitt Browserprüfungen). Vertrag und Laden stehen
+in `packages/workspace-executor/src/contributions.ts`. Der Beitrag importiert vom Host nur Typen;
+alles, was er von der Maschine braucht, bekommt er über `WorkspaceExecutorMachine`: den
+Werkzeugordner seines Plugins auf dieser Maschine (`toolsDirectory`, dorthin lädt seine
+Provisionierung), eine Datei aus den Paketen des Hosts dieser Maschine (`hostPackageFile`, ohne Host
+oder Paket ein Fehler mit Ursache), die geprüfte Auflösung einer Wurzel im Arbeitsbereich
+(`resolveRootFile`, `resolveRootDirectory`), fachliche Fehler (`operationError`, beim Aufrufer ein
+`DomainError` wie jeder Fehler des Executors) und die Umgebung eines Prozesses, den er selbst startet
+(`processEnvironment`: die sichere Auswahl dieser Maschine, ihr `HOME` und der Marker des Runs). Die
+Funktion berührt weder Platte noch Netz; aufgelöst und geprüft wird erst im Aufruf.
+
+Das Bauwerkzeug macht daraus eine in sich geschlossene Datei `executor/index.mjs`, die nur `node:*`
+importiert (Abschnitt Bundle, Bauwerkzeug und Host-API). Sie lädt deshalb in jedem Node-Prozess, im
+Server wie im Extension-Host von VS Code, der weder den Auflösungshaken des Hosts noch
+TypeScript-Quellen kennt. `loadExecutorContribution` liest die Datei, nimmt den SHA-256 ihres Inhalts
+als Stand und importiert sie mit dem Stand in der Adresse, damit ein neu gebauter Beitrag nie aus dem
+Modulcache kommt; ohne Funktion `executor` ist sie ein Fehler, der das Plugin nennt.
+`prepareExecutorContribution` ruft sie mit der Maschine auf und prüft, was sie liefert (nur
+`languageServers` und `modules`, jeder Sprachserver mit Kennung aus Kleinbuchstaben und Ziffern und
+allen Funktionen); eine falsche Form ist ein Fehler mit Ursache, zwei Sprachserver mit derselben
+Kennung sind es beim Bau des Executors.
+
+Im Server lädt `loadPlugins` die Beiträge mit den Bundles des Profils, also vor der Komposition;
+der Composer baut sie mit den Werkzeugordnern des Datenordners und stellt sie als Hostdienst
+`executorContributionsToken` bereit. `ragents.workspace` baut damit den Executor des Servers und
+nennt ihre Kennungen und Stände jedem Arbeitsplatz. Weil die Beiträge Daten der Bundles sind und
+keine Registrierung, stehen sie fest, bevor irgendein Plugin registriert; die Reihenfolge der
+Plugins spielt keine Rolle.
+
+Ein Arbeitsplatz lädt genau diese Beiträge aus den eingebauten Bundles seines eigenen Hosts
+(`<Host>/bundles/<id>/executor/index.mjs`, der Host ist in der VS-Code-Erweiterung `ragents.hostPath`
+oder der zuletzt gestartete, beim kopflosen Arbeitsplatz der eigene), verlangt dabei den Stand des
+Servers und baut sie mit den Werkzeugordnern seines Datenordners. Fehlt der Host, fehlt ein Bundle oder
+hat es einen anderen Stand, scheitert die Anmeldung mit Ursache und dem Rat, den Host auf die Fassung
+des Servers zu bringen; ohne verlangte Beiträge braucht er keinen Host. Der Executor jeder Maschine
+trägt so dieselben Operationen, und der Fußabdruck, den der Server beim eigenen Executor erfragt,
+gilt auch für den Arbeitsplatz.
 
 ### Prozess-Sandbox des Servers
 
@@ -3268,16 +3385,19 @@ der Server, importiert die Bundles des Profils, provisioniert jedes, das `provis
 null. `pnpm connect` ruft dasselbe zwischen Holen und Start, die VS-Code-Erweiterung vor dem Start
 des lokalen Hosts.
 
-Ein Arbeitsplatz hat kein Profil. `pnpm provision --workspace` provisioniert dort die Plugins, deren
-Werkzeuge die Module seines Executors auf dieser Maschine brauchen: die Sprachserver
-(`ragents.lsp-roslyn`, `ragents.lsp-fsharp`) in den Werkzeugordner unter
-`~/.local/share/ragents/workspace/` und den Browser (`ragents.browser`), dessen Chromium im
-Browsercache von Playwright landet, sofern `BROWSER_EXECUTABLE_PATH` in der Umgebung keinen
-eigenen Chrome nennt. Mitgeladen werden die Bundles, deren Exporte diese drei importieren (etwa
-`ragents.documents` für den Browser), weil ein Bundle ohne sie nicht lädt; provisioniert wird
-nur, was `provision` exportiert. `pnpm workspace-client` und die VS-Code-Erweiterung rufen das bei ihrem
-eigenen Start; eine Lücke hält den Arbeitsplatz nicht auf, sie scheitert erst beim Aufruf des
-betroffenen Sprachservers oder Browsers.
+Ein Arbeitsplatz hat kein Profil. `pnpm provision --workspace` (`workspaceProvisionPlugins` in
+`apps/server/src/profile/provisioning.ts`) provisioniert dort jedes eingebaute Plugin seines Hosts,
+dessen Bundle einen Beitrag zum Executor trägt, denn dessen Werkzeuge laufen auf dieser Maschine
+(Abschnitt Beiträge zum Executor); sie landen in den Werkzeugordnern unter
+`~/.local/share/ragents/workspace/`, oder wo die Provisionierung eines Plugins sie sonst ablegt, etwa
+Chromium im Browsercache von Playwright. Welche Plugins das sind, steht nirgends als Liste, sondern
+im Manifest ihrer Bundles. Mitgeladen werden die Bundles, deren Exporte diese importieren, weil ein
+Bundle ohne sie nicht lädt; provisioniert wird nur, was `provision` exportiert. Der Arbeitsplatz
+provisioniert beim eigenen Start, bevor er einen Server kennt, deshalb nach seinem Host und nicht
+nach der Liste eines Servers; was ein Server verlangt, muss ohnehin unter diesen Bundles liegen,
+sonst scheitert die Anmeldung.
+`pnpm workspace-client` und die VS-Code-Erweiterung rufen das bei ihrem eigenen Start; eine Lücke
+hält den Arbeitsplatz nicht auf, sie scheitert erst beim Aufruf des betroffenen Beitrags.
 
 Ein Profil nennt eine provisionierte Datei mit `provisioned("<plugin-id>", "<pfad>")` statt eines
 absoluten Pfades; beim Laden der Profildatei wird daraus `<Datenordner>/tools/<plugin-id>/<pfad>`.
@@ -3290,10 +3410,14 @@ installierten Server.
 Diagnostik ohne Build: `ragents.lsp-roslyn` (C#), `ragents.lsp-fsharp` (F#, fsautocomplete) und
 `ragents.lsp-typescript` sind drei produktneutrale Plugins über EINEM gemeinsamen Client im
 Executor (`packages/workspace-executor/src/language-server/`: JSON-RPC über stdio, Dokument-Sync
-mit vollem Text, Diagnostik per Pull oder Push, Prozess über `startManagedService`). Die drei
-Adapter (Start, Wurzeltyp, Laden, Endungen) gehören zum Executor, damit jeder Executor dieselbe
-Menge Sprachserver anbietet; das Plugin ist nur noch Beschreibung, Konfigurationsschlüssel,
-Reiter und Weiterreichung über die gemeinsame Fabrik `createLanguageServerPlugin`. Welcher
+mit vollem Text, Diagnostik per Pull oder Push, Prozess über `startManagedService`). Der Client
+kennt keinen Sprachserver. Jedes Plugin bringt seinen Adapter (`LanguageServerAdapter`: Kennung,
+Name, Endungen, Wurzeltyp, Start und Laden) als Beitrag zum Executor in `executor.ts` mit
+(`languageServers`, Abschnitt Beiträge zum Executor), dort auch seine Konstanten, beim F#-Plugin den
+Leser für `.sln`. Seine Server-Hälfte ist Beschreibung (`LanguageServerDescription`, aus derselben
+Datei), Konfigurationsschlüssel, Reiter und Weiterreichung über die gemeinsame Fabrik
+`createLanguageServerPlugin`, die keinen Sprachserver kennt. Eine weitere Sprache ist deshalb ein
+weiteres Plugin dieser Form, ohne Änderung an Executor, Host oder Erweiterung. Welcher
 Rechner den Sprachserver startet, entscheidet die Wurzel, die der Aufruf nennt (Abschnitt
 Arbeitsbereich, Sandbox-Werkzeuge und Prozesse): `<id>_open` mit `root: "@actors/app"` startet ihn
 auf dem Server, auch in einem Run auf einem Arbeitsplatz, ein Pfad ohne Alias beim Executor der
@@ -3301,23 +3425,23 @@ Bindung; fehlt er dort, scheitert der Aufruf mit Ursache. Nennt ein Aufruf keine
 `<id>_diagnostics` ohne `root` und `paths`, `<id>_close` ohne `root` und der Stand für den
 Diagnosereiter, fragt er die Instanzen beim Executor der Bindung; eine Instanz auf einer Wurzel des
 Servers erreicht ein Run auf einem Arbeitsplatz über `root` oder `paths` mit Alias. Den Pfad zum
-Server nimmt der Adapter aus dem Werkzeugordner dieser Maschine
-(`<Datenordner>/tools/<plugin-id>/`, siehe Provisionierung je Plugin); im Server setzt ihn die
-Profilsektion des Plugins mit `provisioned(...)` auf denselben Ort. Die Umgebungsvariablen
-`ROSLYN_LANGUAGE_SERVER` und `FSHARP_LANGUAGE_SERVER` übersteuern ihn, etwa für einen selbst
-installierten Server; fehlt beides, nennt der Fehler den erwarteten Pfad und den Befehl.
+Server nimmt der Adapter aus dem Werkzeugordner seines Plugins auf dieser Maschine
+(`toolsDirectory` der Maschine, `<Datenordner>/tools/<plugin-id>/`, siehe Provisionierung je
+Plugin); im Server setzt ihn die Profilsektion des Plugins mit `provisioned(...)` auf denselben Ort.
+Die Umgebungsvariablen `ROSLYN_LANGUAGE_SERVER` und `FSHARP_LANGUAGE_SERVER` übersteuern ihn, etwa
+für einen selbst installierten Server; fehlt beides, nennt der Fehler den erwarteten Pfad und den
+Befehl. Eine `.dll` startet über `dotnet`, eine ausführbare Datei direkt. Die Wurzel prüft der
+Adapter mit der Wurzelauflösung der Maschine (`resolveRootFile` mit den Endungen seiner
+Projektdateien, `resolveRootDirectory` für TypeScript).
 TypeScript wird nicht provisioniert, sondern liegt in den `node_modules` des Hosts; der Adapter
-löst `typescript-language-server` und `typescript` deshalb aus dem Ordner auf, den der Kontext des
-Runs als `hostRoot` nennt (`createRequire(<hostRoot>/package.json)`). Den Wert setzt jeder
+löst `typescript-language-server` und `typescript` deshalb über `hostPackageFile` der Maschine aus dem
+Ordner auf, den der Kontext des Runs als `hostRoot` nennt. Den Wert setzt jeder
 Aufrufer des Executors: der Server seine eigene Wurzel (`hostRoot()`), der kopflose Arbeitsplatz
 dieselbe, die VS-Code-Erweiterung `ragents.hostPath` oder den Host, den sie zuletzt gestartet hat
-(`ragents.lastHostPath`, das geholte Paket unter `<globalStorage>/hosts/<fassung>/`). Kennt ein
-Arbeitsplatz noch keinen Host, scheitert `typescript_open` mit genau dieser Ursache; alles andere
-an ihm arbeitet weiter. Kein Adapter und kein Modul des Executors löst beim Import etwas auf,
-lädt etwas herunter oder prüft etwas auf der Platte: jede Auflösung passiert erst im Aufruf und
-scheitert dort mit Ursache. Ein Adapter, der es beim Laden täte, würde jeden Prozess mitreißen,
-der den Executor nur importiert - etwa die gepackte VS-Code-Erweiterung, die keine `node_modules`
-neben sich hat.
+(`ragents.lastHostPath`, das geholte Paket unter `<globalStorage>/hosts/<fassung>/`). Kein Adapter
+und kein Modul löst beim Laden seines Beitrags etwas auf, lädt etwas herunter oder prüft etwas auf
+der Platte: jede Auflösung passiert erst im Aufruf und scheitert dort mit Ursache. Ein Beitrag, der
+es beim Laden täte, würde jeden Executor mitreißen, der ihn trägt, etwa den der VS-Code-Erweiterung.
 Die stdio-Verbindung verwendet `vscode-jsonrpc` für Framing, Request-Zuordnung und Antworten.
 Der Host verbindet `AbortSignal` mit JSON-RPC-Cancellation und beendet die lokale Anfrage sofort;
 späte Antworten ändern ihr Ergebnis nicht. Transportfehler schließen offene Anfragen mit Ursache
@@ -3399,7 +3523,13 @@ Diagnostik bleiben beim gemeinsamen Language-Server-Client.
   wird gefragt. Sonst listet es die Solutions über den Executor, der den Arbeitsbereich schon
   bereitgestellt hat. Keine oder eine schon offene oder öffnende Instanz: nichts. Genau eine: sie
   wird mit `ifNoneOpen` geladen, ein gleichzeitiges Öffnen durch Modell, Script oder Reiter kann
-  also nichts doppelt starten. Mehrere: eine Rückfrage über `ragents.ask` mit jeder Solution und
+  also nichts doppelt starten. Nennt das Profil mit `ROSLYN_SOLUTION_PREFERRED` eine Solution
+  (Pfad mit Schrägstrichen, wie ihn `<id>_solutions` nennt), zählen nur die Solutions, deren Pfad
+  ihr gleicht oder auf `/<Vorgabe>` endet, ohne Rücksicht auf Groß- und Kleinschreibung; so greift
+  sie auch, wenn der Arbeitsbereich ein Ordner über dem Checkout ist. Genau eine passende wird
+  ebenso geladen, auch neben weiteren Solutions und ohne Frage; mehrere passende, etwa mehrere
+  Checkouts unter einem Ordner, führen zur Rückfrage nur mit ihnen; passt keine, gilt das Folgende. Ein absoluter Pfad, einer mit Backslash oder die
+  Vorgabe ohne `ROSLYN_SOLUTION_ON_START: "on"` bricht den Start ab. Mehrere: eine Rückfrage über `ragents.ask` mit jeder Solution und
   "Keine laden", gestellt, bevor der Haken zurückkehrt und damit vor dem ersten Input des Runs.
   Außerhalb eines Turns darf nur der Eigentümer des Runs Befehle geben, deshalb fragt er, und die
   Frage trägt den Koordinator als `recipient`: sie steht im Chat des Koordinators ohne Namen davor
@@ -3545,9 +3675,9 @@ Rolle/Name, Beschriftung, Text, Test-ID oder CSS im Browser des Runs auf. Modell
 Snapshot-IDs noch Ergebnisdateipfade abschreiben. Ein optionales Ziel-Iframe wird per CSS gewählt.
 
 Der Browser läuft dort, wo der Arbeitsbereich des Runs liegt. Browser, Seite und alles, was die
-Seite anfasst, sind das Browsermodul des Executors (`packages/workspace-executor/src/browser/`)
-mit den Operationen `browser.open`, `browser.snapshot`, `browser.viewport`, `browser.click`,
-`browser.fill`, `browser.select`, `browser.press`, `browser.check`, `browser.screenshot`,
+Seite anfasst, sind das Browsermodul, das `ragents.browser` als Beitrag zum Executor mitbringt
+(`plugins/ragents.browser/executor/`, `modules` im Abschnitt Beiträge zum Executor), mit den
+Operationen `browser.open`, `browser.snapshot`, `browser.viewport`, `browser.click`, `browser.fill`, `browser.select`, `browser.press`, `browser.check`, `browser.screenshot`,
 `browser.state` und `browser.close`; `stopRun` und `shutdown` des Moduls schließen den Browser,
 und nach `shutdown` startet das Modul keinen mehr, sondern lehnt jede Operation an der Seite mit
 Ursache ab.
@@ -3556,16 +3686,17 @@ Die Server-Hälfte des Plugins behält Werkzeugbeschreibungen, Schemata, Skill, 
 Aufnahmen, die Evidenz, den gewählten Viewport und den Lebenszyklus und ruft alles andere über
 `SandboxServices.execute`, bei einem Werkzeugaufruf mit dessen Kennung.
 
-Das Modul lädt playwright-core erst im Aufruf aus der Host-Wurzel dieser Maschine (`hostRoot`),
-wie der TypeScript-Adapter seinen Sprachserver; weder das Executor-Paket noch das Bundle der
-VS-Code-Erweiterung enthalten es. Kennt ein Arbeitsplatz noch keinen Host oder fehlt
-playwright-core darin, scheitert `browser_open` mit genau dieser Ursache. Chrome ist der Browser
-aus `BROWSER_EXECUTABLE_PATH` in der Umgebung dieser Maschine, sonst das Chromium, das die
+Das Modul lädt playwright-core erst im Aufruf über `hostPackageFile` der Maschine aus der
+Host-Wurzel dieser Maschine (`hostRoot`), wie der TypeScript-Adapter seinen Sprachserver; weder der
+Beitrag noch das Bundle der VS-Code-Erweiterung enthalten es. Fehlt playwright-core im Host,
+scheitert `browser_open` mit genau dieser Ursache. Eingabefehler meldet es mit `operationError` der
+Maschine als `browser-input-invalid` (400), Chrome startet mit `processEnvironment` der Maschine.
+Chrome ist der Browser aus `BROWSER_EXECUTABLE_PATH` in der Umgebung dieser Maschine, sonst das Chromium, das die
 Provisionierung für die gepinnte playwright-core-Fassung in den Browsercache von Playwright legt;
 fehlt beides, nennt der Fehler den erwarteten Pfad und den Befehl. Auf dem Server setzt die
 Profilsektion `ragents.browser` den Wert in dessen Umgebung. Auf einen Arbeitsplatz wandert er
 nicht: dort gilt dessen eigene Umgebung oder das Chromium aus `pnpm provision --workspace`.
-Chrome startet mit der sicheren Umgebung dieser Maschine, ihrem `HOME` und dem Marker des Runs,
+Chrome startet so mit der sicheren Umgebung dieser Maschine, ihrem `HOME` und dem Marker des Runs,
 die Prozessanzeige ordnet ihn deshalb dem Run zu.
 
 Was im Run dauerhaft sichtbar ist, hält der Server. Jede Operation an der Seite liefert neben
@@ -3660,8 +3791,9 @@ Der Wächter startet keine Arbeit selbst und kennt keine Fachlogik.
 
 `ragents.model-relay` macht die Modelle dieses Servers für andere RAgents-Server nutzbar, ohne
 Anbieter, echten Modellnamen oder Schlüssel preiszugeben. Es bietet die Aliasse des Profils an,
-`MODEL_ALIASES` im Abschnitt `host` (Liste `alias=anbieter/modell`, optional `@denktiefe`; siehe
-[profiles.md](profiles.md)), dieselben, unter denen die eigenen Runs des Servers laufen; ohne
+`MODEL_ALIASES` im Abschnitt `host` (Objekte mit Alias, Ziel, optionaler Denktiefe und
+Kompaktierungswerten; siehe [profiles.md](profiles.md)), dieselben, unter denen die eigenen Runs
+des Servers laufen; ohne
 Aliasse bricht der Start ab. Jeder Alias muss auf einen Anbieter zeigen, den ein Produkt-Plugin über
 den Dienst `modelUpstreamsToken` (`plugin-support/model-upstreams.ts`, Adresse, Schlüssel,
 Katalog) bereitstellt, und auf ein Modell aus dessen Katalog, sonst bricht der Start ab.
@@ -3670,8 +3802,9 @@ wird nicht ein zweites Mal deklariert.
 
 Zwei Auslieferungsrouten unter `/relay/v1`, beide mit dem Recht `models.use`:
 `GET /models` liefert die Aliasse im OpenAI-Listenformat mit einem `catalog`-Block je Eintrag
-(Reasoning, Denkstufen, Eingabearten, Kontextgröße, Ausgabegrenze, `compat` für den Draht),
-ohne Namen, Anbieter oder Kosten. `POST /chat/completions` liest den Anfragekörper, ersetzt
+(Reasoning, Denkstufen, Eingabearten, Kontextgröße, Ausgabegrenze, die Kompaktierungswerte des
+Alias als `compaction` und `compat` für den Draht), ohne Namen, Anbieter oder Kosten; ein Client
+kompaktiert so mit denselben Werten wie der Server. `POST /chat/completions` liest den Anfragekörper, ersetzt
 den Alias durch das echte Modell, setzt den Serverschlüssel und reicht Anfrage samt
 Antwortstrom durch; andere Kopfzeilen des Clients (etwa Session-Affinität) gehen mit,
 `Authorization`, `Cookie` und `Host` nicht. Ein unbekannter Alias ist 404, ein toter Anbieter
@@ -3798,7 +3931,12 @@ Recht) liefert das Archiv; ein anderer Stand ist 404. Die Gegenseite ist `ragent
 - Den neuen Ordner eines gelöschten Runs räumt der Server auf dem Arbeitsplatz nur weg, wenn der
   dabei erreichbar ist; sonst bleibt er unter dem Ordner für Runs des Arbeitsplatzes liegen, ein
   späteres Aufräumen gibt es nicht. Schritte eines Beitrags sind Operationen, die jeder Executor
-  kennt; eigenen Code bringt ein Beitrag nicht auf den Arbeitsplatz.
+  kennt; eigenen Code bringt ein Plugin nur als Beitrag zum Executor auf den Arbeitsplatz.
+- Ein Arbeitsplatz findet Beiträge zum Executor nur unter den eingebauten Bundles seines Hosts. Ein
+  Plugin von außerhalb des Hosts, das zum Executor beiträgt, kann ein Server nur mit Arbeitsplätzen
+  teilen, deren Host dasselbe Bundle unter `bundles/` trägt; sonst scheitert deren Anmeldung mit
+  Ursache. Server und Arbeitsplatz brauchen für jeden Beitrag denselben Stand, also in der Regel
+  dieselbe Fassung von Host und Plugins.
 - Auf einem Mac erkennt die Prozesstabelle den Run-Marker von Programmen aus dem Systemvolume
   nicht: `ps -E` zeigt ihre Umgebung nicht (SIP), gemessen für `/bin/sleep`, `/bin/bash`, `/bin/sh`,
   `/bin/zsh`, `/usr/bin/perl`, `/usr/bin/ruby` und `/usr/bin/tail`; Node, Homebrew-Programme und das
@@ -3841,3 +3979,13 @@ Recht) liefert das Archiv; ein anderer Stand ist 404. Die Gegenseite ist `ragent
   natives ARM64-Userland hat; sie läuft in der Emulation von Windows. Geprüft ist die Plattform nur
   in Unit-Tests, die sie simulieren (Shell-Auflösung, Datenordner, Umgebung, Promptbeitrag,
   Ablehnung der Prozesstabelle); der echte Durchlauf steht in `TODO.md`.
+- `rg` bringt nur die Fassung der Erweiterung je Plattform mit (win32, darwin und linux, je x64 und
+  arm64); die universelle, die der Marketplace etwa Alpine oder linux-armhf liefert, das npm-Paket
+  und ein Server ohne `RAGENTS_RG` finden `rg` nur im `PATH`, sonst lenkt der Prompt auf `grep`
+  mit ausgeschlossenen Ordnern. Die Suche mit `rg` achtet `.gitignore` nur in einem Git-Repository;
+  in einem Ordner ohne Git überspringt sie nur versteckte Dateien und was `.ignore` und
+  `.rgignore` ausschließen.
+- `bash` läuft je Aufruf höchstens 600 Sekunden, und was ein Befehl in seiner Prozessgruppe im
+  Hintergrund startet, endet mit ihr. Ein Befehl, der länger braucht, etwa ein kalter Build einer
+  großen Solution, geht nicht über `bash`, sondern über einen Ablauf eines Plugins mit eigener
+  Zeitgrenze (`commands.run` mit `timeoutMs`).

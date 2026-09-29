@@ -7,7 +7,10 @@ export const config = {
     PRODUCT_PROFILE: "showcase",
     COMPACTION_MODEL: "google/gemma-4-26b-a4b-it",
     // Aliasse für andere RAgents-Server, die ihre Modelle über ragents.model-relay von hier beziehen.
-    MODEL_ALIASES: ["showcase-standard=openrouter/z-ai/glm-5.3-flash", "showcase-coordinator=openrouter/deepseek/deepseek-v4-flash-0731"],
+    MODEL_ALIASES: [
+      { alias: "showcase-standard", model: "openrouter/z-ai/glm-5.3-flash", compaction: { threshold: 160_000, keepRecentTokens: 24_000, summaryTokens: 12_000 } },
+      { alias: "showcase-coordinator", model: "openrouter/deepseek/deepseek-v4-flash-0731", compaction: { threshold: 300_000, keepRecentTokens: 40_000, summaryTokens: 16_000 } },
+    ],
     PRODUCT_ID: "ragents-showcase",
     PRODUCT_TITLE: "RAgents Showcase",
     PLUGINS: [

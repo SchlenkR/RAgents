@@ -14,6 +14,7 @@ import {
     registerFauxProvider,
     type Context,
     type FauxResponseStep,
+    type ModelCompaction,
 } from "@ragents/ai";
 
 import { resolveExecution, StaticModelCatalog, type CatalogModel } from "../src/agents/catalog.ts";
@@ -62,7 +63,7 @@ const harness = (
         tools?: RunFunction[];
         hooks?: AgentContribution[];
         contextWindow?: number;
-        compaction?: { reserveTokens: number; keepRecentTokens: number };
+        compaction?: ModelCompaction;
         tokensPerSecond?: number;
     } = {},
 ): Harness => {
@@ -79,6 +80,7 @@ const harness = (
         models: faux.models.map((entry) => ({
             id: entry.id, name: entry.name, api: entry.api, reasoning: entry.reasoning, input: entry.input,
             cost: entry.cost, contextWindow: entry.contextWindow, maxTokens: entry.maxTokens, baseUrl: entry.baseUrl,
+            ...(options.compaction ? { compaction: options.compaction } : {}),
         })),
     });
     const models: CatalogModel[] = [{ driver: "agent", provider: model.provider, model: model.id, label: model.id, thinking: thinkingLevels }];
@@ -95,7 +97,6 @@ const harness = (
         ...(options.hooks ? {
             resolveHooks: (context) => options.hooks!.map((hook) => agentHookOf(hook, { ...context, audience: "agent" })),
         } : {}),
-        ...(options.compaction ? { settings: { compaction: options.compaction } } : {}),
     });
     const tools = options.tools ?? [];
     const registry = new ToolRegistry().register({ name: "tools", dynamic: true, descriptors: [], tools: () => tools });
@@ -331,8 +332,8 @@ test("model context: attachments as native media, embedded text and a stored fil
     }
 });
 
-test("model context: compaction on the threshold and after a context overflow, with an incremental summary", async () => {
-    const setup = harness("compaction", { contextWindow: 4_000, compaction: { reserveTokens: 1_000, keepRecentTokens: 200 } });
+test("model context: compaction on the model's threshold and after a context overflow, with an incremental summary", async () => {
+    const setup = harness("compaction", { contextWindow: 4_000, compaction: { threshold: 3_000, keepRecentTokens: 200, summaryTokens: 800 } });
     try {
         const worker = setup.spawn("worker", { toolNames: [] });
         const summaries: string[] = [];
@@ -363,6 +364,8 @@ test("model context: compaction on the threshold and after a context overflow, w
         assert.equal(answers.length, 0);
         assert.deepEqual(summaries, ["initial", "update", "initial", "update"]);
         assert.equal(compactions.length, 3);
+        for (const compaction of compactions)
+            assert.deepEqual(compaction.type === "context.compacted" && compaction.payload.threshold, { tokens: 3_000, source: "model" });
         assertGolden(setup, worker);
     } finally {
         await close(setup);

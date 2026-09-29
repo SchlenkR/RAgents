@@ -32,13 +32,13 @@ Ausführlicher stehen die Begriffe in `docs/spec/overview.md`.
 Eine Zeile JSON je Command-Entscheidung, append-only. Die Zeile enthält den Command, seinen
 Zeitpunkt und ein Array seiner Events. `sequence` zählt über alle Events des Runs lückenlos hoch.
 Das folgende Beispiel zeigt eine Zeile, wie sie in `journal.jsonl` auf der Platte steht
-(Dateiformat 8), zum Lesen eingerückt; Kennungen, Hash und Nutzungszahlen sind gekürzt. Es ist ein
+(Dateiformat 9), zum Lesen eingerückt; Kennungen, Hash und Nutzungszahlen sind gekürzt. Es ist ein
 abgeschlossener Modellschritt: der Text als beobachtbares `model.output.completed`, danach der
 Schritt selbst, der den Text nicht wiederholt:
 
 ```json
 {
-  "formatVersion": 8,
+  "formatVersion": 9,
   "runId": "example-run",
   "command": {
     "id": "scheduler:review-turn:context:step:4",
@@ -115,7 +115,7 @@ aus Plugins.
 | `plugins`             | ein Ordner je Plugin, mit `server/`, `web/` und seinen Assets                                        |
 | `packages/ragents`    | die Engine: Journal, Actors, Turns, Events, Scheduler, TypeScript-Plattform                          |
 | `packages/agent`      | die Agentenlaufzeit: Agenten-Schleife, Kompaktierung, Werkzeuge (read, write, edit, bash)            |
-| `packages/workspace-executor` | der Arbeitsplatz-Executor aus Modulen: Sandbox-Werkzeuge, Sprachserver, Dateien, Prozesse, Befehle, Browser; im Server wie im Arbeitsplatz derselbe |
+| `packages/workspace-executor` | der Arbeitsplatz-Executor aus Modulen: Sandbox-Werkzeuge, Language-Server-Client, Dateien, Prozesse, Befehle; Sprachserver und Browser bringen Plugins als Beitrag zum Executor mit; im Server wie im Arbeitsplatz mit denselben Beiträgen |
 | `packages/ai`         | die LLM-Anbindung (openrouter)                                                                       |
 | `apps/server`         | Node-Backend, Plugin-Suche, Profil-Komposition; `plugin-support/` sind Host-Bausteine, keine Plugins |
 | `apps/web`            | React-Frontend mit Plugin-Slots; Chat-Anbindung an quassel in `src/chat`, Run-Panel in `src/run-panel` |
@@ -208,6 +208,7 @@ plugins/<plugin-id>/
   server/index.ts    exportiert plugin: PluginModule = { requires?, create(host) }
   web/index.tsx      exportiert webPlugin: WebPlugin (nur wenn es einen Web-Anteil gibt)
   contract.ts        was beide Hälften teilen, importfrei (nur wenn es das gibt)
+  executor.ts        exportiert executor: sein Beitrag zum Executor jeder Maschine (nur wenn es das gibt)
   prompt.hbs, prompts/, run-scripts/, skills/, provision.ts   nach Bedarf
 ```
 
@@ -226,11 +227,18 @@ Plugins sind KEINE npm-Pakete. Derzeit sind es 19, davon 14 mit Web-Anteil. Die 
 `packages/` sind Bibliotheken, gegen die Plugins gebaut werden - keine Plugins.
 
 Auch scheinbar tief sitzende Dinge sind Plugins: die drei Language Server (`ragents.lsp-roslyn`,
-`ragents.lsp-fsharp`, `ragents.lsp-typescript`) sitzen je in einem eigenen Ordner. `lsp-roslyn`
-und `lsp-fsharp` bringen dazu je einen eigenen Konfigurationsschlüssel und eine eigene
-`provision.ts` mit; `lsp-typescript` braucht beides nicht, weil der typescript-language-server eine
-npm-Abhängigkeit der Repository-Wurzel ist. Nimmt man `ragents.lsp-roslyn` aus dem Profil,
-verschwindet die C#-Diagnostik samt Konfiguration.
+`ragents.lsp-fsharp`, `ragents.lsp-typescript`) sitzen je in einem eigenen Ordner, samt ihrem
+Adapter in `executor.ts`, den das Bauwerkzeug zu einer in sich geschlossenen Datei macht und den der
+Executor jeder Maschine lädt, im Server wie auf einem Arbeitsplatz; ebenso der Browser von
+`ragents.browser`. Der Kern kennt keine Sprache und keinen Sprachserver; eine weitere Sprache ist
+ein weiteres Plugin. `apps/server/tests/core-boundary.test.ts` hält das fest: nennen Engine,
+Server außerhalb von `plugin-support`, Executor, Erweiterung oder Web eine Plugin-Kennung oder einen
+Sprachserver, scheitert `pnpm check`; ältere Stellen stehen dort als eingefrorene Liste und in
+`TODO.md`. `lsp-roslyn` und `lsp-fsharp` bringen dazu je einen eigenen
+Konfigurationsschlüssel und eine eigene `provision.ts` mit; `lsp-typescript` braucht beides nicht,
+weil der typescript-language-server eine npm-Abhängigkeit der Repository-Wurzel ist. Nimmt man
+`ragents.lsp-roslyn` aus dem Profil, verschwindet die C#-Diagnostik samt Konfiguration, auch auf
+den Arbeitsplätzen.
 
 ### Erweiterungspunkte im Server
 
@@ -369,7 +377,8 @@ RAGENTS_TOKEN=... pnpm connect https://<server>   # Profil und Modelle eines and
 
 `pnpm provision <profil>` holt die Werkzeuge, die die Plugins des Profils brauchen, nach
 `<Datenordner>/tools/<plugin-id>/` und berichtet je Plugin `bereit`, `installiert` oder
-`fehlt: <Grund>`; `pnpm provision --workspace` tut dasselbe für einen Arbeitsplatz ohne Profil.
+`fehlt: <Grund>`; `pnpm provision --workspace` tut dasselbe für einen Arbeitsplatz ohne Profil,
+mit den eingebauten Plugins, die zum Executor beitragen.
 Was sich nicht holen lässt (dotnet, ein eigener Chrome), ist eine benannte Lücke mit Anweisung.
 
 `pnpm connect` holt das Client-Profil eines zentralen Servers samt den Bundles, die es per Pfad
@@ -430,8 +439,9 @@ Engine-Tests `cd packages/ragents && pnpm test`; Server-Tests
 `cd apps/server && pnpm test` (baut vorher die Bundles, weil die komponierenden Tests sie laden); Lint `pnpm lint` im Root (`apps/web/src`
 und `plugins/*/web`). Die Language-Server-Live-Tests (echte Server gegen `tests/fixtures/lsp`)
 laufen nur auf Ansage: `pnpm provision --workspace` einmalig, dann
-`RAGENTS_LSP_TESTS=1 PRODUCT_PROFILE=core pnpm test`; die Adapter finden die Server im
-Werkzeugordner, `ROSLYN_LANGUAGE_SERVER` und `FSHARP_LANGUAGE_SERVER` übersteuern ihn.
+`RAGENTS_LSP_TESTS=1 PRODUCT_PROFILE=core pnpm test`; die Adapter aus den Beiträgen der Plugins
+finden die Server im Werkzeugordner, `ROSLYN_LANGUAGE_SERVER` und `FSHARP_LANGUAGE_SERVER`
+übersteuern ihn.
 
 Verhalten live prüfen: eine Nachricht per `POST http://localhost:<port>/rpc` mit
 `{"jsonrpc":"2.0","id":1,"method":"ragents.chat.send","params":{"runId":"<uuid>","text":"..."}}`
@@ -690,13 +700,32 @@ veröffentlicht erst das Paket und danach die Erweiterung und bricht beim ersten
 (ohne Sourcemaps und Testläufer), `media/`, `package.json`, `README.md`, `CHANGELOG.md` und die
 `LICENSE`.
 
-Gepackt werden drei Dateien nach `dist/`: eine universelle `ragents-vscode-<fassung>.vsix` ohne
-Bash und je eine für `win32-x64` und `win32-arm64` (`vsce package --target`), die zusätzlich die
-mitgebrachte Bash unter `dist/bash/<plattform>` trägt; der Marketplace liefert Windows-Rechnern die
-passende, allen anderen die universelle, und `vsce publish` bekommt alle drei in einem Aufruf. Für
-die Windows-Dateien schreibt das Skript je Lauf eine eigene Ignore-Datei in den Temp-Ordner: die
-Positivliste der `.vscodeignore` plus `!dist/bash/<plattform>/**`; die `.vscodeignore` im Repo
-bleibt die universelle. Die Bash selbst baut `pnpm bundle:bash [win32-x64] [win32-arm64]`
+Gepackt werden sieben Dateien nach `dist/`: eine universelle `ragents-vscode-<fassung>.vsix` ohne
+Bash und rg und je eine für `win32-x64`, `win32-arm64`, `darwin-arm64`, `darwin-x64`, `linux-x64`
+und `linux-arm64` (`vsce package --target`), die zusätzlich ripgrep unter `dist/rg/<plattform>`
+trägt, die beiden Windows-Dateien dazu die mitgebrachte Bash unter `dist/bash/<plattform>`. Der
+Marketplace liefert jedem Rechner die Datei seiner Plattform, allen übrigen (etwa Alpine oder
+linux-armhf) die universelle; `vsce publish` bekommt alle sieben in einem Aufruf. Für die
+Plattformdateien schreibt das Skript je Lauf eine eigene Ignore-Datei in den Temp-Ordner: die
+Positivliste der `.vscodeignore` plus `!dist/rg/<plattform>/**` und unter Windows
+`!dist/bash/<plattform>/**`; die `.vscodeignore` im Repo bleibt die universelle. `--dry-run` listet
+den gemeinsamen Inhalt einmal, je Plattform die Zahl der Dateien unter ihren Ordnern, und bricht ab,
+wenn eine Plattformdatei ihren Ordner nicht oder den einer anderen Plattform trägt.
+
+ripgrep baut `pnpm bundle:rg [<plattform> ...]` (`scripts/vscode/bundle-rg.ts`; das Packen ruft es
+selbst auf): es lädt je Plattform das Archiv der festgelegten ripgrep-Fassung von GitHub
+(Fassung, Ziel und SHA-256 als Konstanten im Skript; unter Linux die statisch gelinkte
+musl-Fassung), prüft den Hash, liest ZIP und tar.gz im Speicher und legt nach
+`apps/vscode/dist/rg/<plattform>/` unverändert `rg` beziehungsweise `rg.exe`, die Lizenztexte
+`COPYING`, `LICENSE-MIT` und `UNLICENSE` unter `licenses/` und ein `NOTICE.txt` mit Quellarchiv
+und Hash. Die Archive bleiben unter `<tmp>/ragents-rg-cache`; `scripts/vscode/bundle-rg.test.ts`
+baut aus diesem Cache ohne Netz und wird ohne ihn übersprungen. Eine neue ripgrep-Fassung heißt:
+`RIPGREP_VERSION` und alle sechs Hashes ändern (aus den `.sha256`-Dateien des Release und selbst
+nachgerechnet) und `pnpm bundle:rg` laufen lassen. Aus dem Checkout gestartet findet die
+Erweiterung rg nur, wenn es für ihre Plattform gebaut ist (`pnpm bundle:rg darwin-arm64`), sonst
+nimmt die Bash ein rg aus dem `PATH`, falls es eines gibt.
+
+Die Bash selbst baut `pnpm bundle:bash [win32-x64] [win32-arm64]`
 (`scripts/vscode/bundle-bash.ts`; das Packen ruft es selbst auf): es lädt das festgelegte
 PortableGit-Archiv von Git for Windows (Fassung, Dateinamen und SHA-256 als Konstanten im Skript),
 prüft den Hash, packt mit 7-Zip aus (`7zz` oder `7z` im `PATH`, sonst ein Fehler mit
@@ -709,7 +738,9 @@ oder ein Terminalprogramm in der Auswahl. Dazu kommen `etc/fstab`, ein eigenes
 Paketfassungen und Quellverweisen. Das Archiv bleibt unter `<tmp>/ragents-bash-cache` liegen;
 `apps/vscode/dist/` ist nicht eingecheckt. Eine neue Git-for-Windows-Fassung heißt: Tag, Dateinamen
 und beide Hashes im Skript ändern und `pnpm bundle:bash` laufen lassen. Wer die Erweiterung unter
-Windows aus dem Checkout startet, baut die Bash vorher einmal mit `pnpm bundle:bash win32-x64`. Das Skript kopiert `README.md` und `LICENSE` für den Aufruf von `vsce` aus der Wurzel
+Windows aus dem Checkout startet, baut die Bash vorher einmal mit `pnpm bundle:bash win32-x64`.
+`scripts/vscode/install-local.sh` installiert wie der Marketplace die Datei der eigenen Plattform
+und nur ohne sie die universelle. `scripts/vscode/publish-extension.ts` kopiert `README.md` und `LICENSE` für den Aufruf von `vsce` aus der Wurzel
 daneben und entfernt die Kopien danach wieder. Das Marketplace-README und das GitHub-README haben
 damit dieselbe Quelle.
 
@@ -752,7 +783,8 @@ mit einem Stub-`vscode` auf.
 ### Paket bauen und veröffentlichen
 
 Gebaut wird das Paket aus dem, was der Host wirklich lädt; die Abhängigkeiten bestimmt der Build
-aus den Importen der aufgenommenen Dateien und den Bibliotheken, die die Actor-Programme zur
+aus den Importen der aufgenommenen Dateien, den Paketen, die ein Beitrag zum Executor mit
+`hostPackageFile` aus dem Host auflöst, und den Bibliotheken, die die Actor-Programme zur
 Laufzeit verlinken. Gibt es ein Paket im Checkout in zwei Fassungen, nennt das Paket eine davon
 und der Build sagt, welche.
 

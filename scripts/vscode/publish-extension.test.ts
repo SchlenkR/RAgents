@@ -11,6 +11,7 @@ import {
   expectedHostPackageVersion,
   EXTENSION_ID,
   EXTENSION_NAME,
+  bundledFolders,
   ignoreRules,
   oneLine,
   packageArguments,
@@ -171,15 +172,26 @@ test("jede Fehlermeldung ist eine Zeile", () => {
   assert.throws(() => publishedVersions(EXTENSION_ID, brokenShow.vsce), /Code 1: ERROR network; ERROR ECONNREFUSED$/);
 });
 
-test("die Erweiterung wird universell ohne Bash und je Windows-Plattform mit ihrer Bash gepackt", () => {
+test("die Erweiterung wird universell ohne Bash und rg, je Plattform mit ihrem rg und unter Windows mit ihrer Bash gepackt", () => {
   const base = readFileSync(path.join(import.meta.dirname, "../../apps/vscode/.vscodeignore"), "utf8");
-  assert.deepEqual(VSIX_TARGETS, ["universal", "win32-x64", "win32-arm64"]);
+  assert.deepEqual(VSIX_TARGETS, ["universal", "win32-x64", "win32-arm64", "darwin-arm64", "darwin-x64", "linux-x64", "linux-arm64"]);
   assert.equal(ignoreRules(base, "universal"), base);
-  assert.doesNotMatch(base, /dist\/bash/, "die universelle Positivliste nimmt keine Bash auf");
+  assert.deepEqual(bundledFolders("universal"), []);
+  assert.doesNotMatch(base, /dist\/bash|dist\/rg/, "die universelle Positivliste nimmt weder Bash noch rg auf");
   const x64 = ignoreRules(base, "win32-x64");
   assert.ok(x64.startsWith(base.trimEnd()));
-  assert.match(x64, /\n!dist\/bash\/win32-x64\/\*\*\n$/);
+  assert.match(x64, /\n!dist\/bash\/win32-x64\/\*\*\n!dist\/rg\/win32-x64\/\*\*\n$/);
   assert.doesNotMatch(x64, /win32-arm64/);
+  for (const target of ["darwin-arm64", "darwin-x64", "linux-x64", "linux-arm64"] as const) {
+    assert.deepEqual(bundledFolders(target), [`dist/rg/${target}`]);
+    const rules = ignoreRules(base, target);
+    assert.equal(rules, `${base.trimEnd()}\n!dist/rg/${target}/**\n`);
+    assert.doesNotMatch(rules, /dist\/bash/, `${target} trägt keine Bash`);
+    for (const other of VSIX_TARGETS.filter((candidate) => candidate !== target && candidate !== "universal")) {
+      assert.ok(!rules.includes(other), `${target} trägt nichts von ${other}`);
+    }
+  }
+  assert.equal(vsixName("0.1.4", "darwin-arm64"), "ragents-vscode-darwin-arm64-0.1.4.vsix");
   assert.equal(vsixName("0.1.4", "universal"), "ragents-vscode-0.1.4.vsix");
   assert.equal(vsixName("0.1.4", "win32-arm64"), "ragents-vscode-win32-arm64-0.1.4.vsix");
   assert.deepEqual(packageArguments("/out/a.vsix", "universal", "/tmp/u.ignore"), ["package", "--no-dependencies", "--ignoreFile", "/tmp/u.ignore", "--out", "/out/a.vsix"]);

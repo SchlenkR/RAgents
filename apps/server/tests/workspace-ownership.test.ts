@@ -46,7 +46,7 @@ test("the sandbox refreshes ownership for host-generated app files before subseq
   const apps = path.join(appWorkspace, "apps");
   await Promise.all([root, apps].map((entry) => mkdir(entry, { recursive: true })));
   const sandbox = new WorkspaceSandboxHost({
-    contributorName: "test", storageRootFor: () => storageRoot,
+    contributorName: "test", contributions: [], storageRootFor: () => storageRoot,
     workspaceFor: async () => ({ cwd: root, currentRoot: async () => root, runOperation: (operation) => operation() }),
     identFor: async () => ({ uid: process.getuid!(), gid: process.getgid!(), name: "current-test-user" }),
     skillPaths: async () => [], homeFor: async () => ({ home: root }),

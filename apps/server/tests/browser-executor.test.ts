@@ -5,22 +5,21 @@ import path from "node:path";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
 import type { Browser, Page } from "playwright-core";
+import { WorkspaceOperationError, WorkspaceOperationExecutor, executorMachine, workspaceProcessContext } from "@ragents/workspace-executor";
 import {
   BROWSER_EXECUTABLE_VARIABLE,
   BROWSER_OPERATIONS,
-  WorkspaceOperationError,
-  WorkspaceOperationExecutor,
-  browserModule,
-  workspaceProcessContext,
   type BrowserCheckResult,
-  type BrowserModuleOptions,
   type BrowserPageState,
   type BrowserSnapshot,
   type BrowserStep,
-} from "../src/index.ts";
-import { browserLocator } from "../src/browser/pages.ts";
-import { browserExecutable, hostPlaywright } from "../src/browser/playwright.ts";
+} from "../../../plugins/ragents.browser/executor/contract.ts";
+import { browserModule, type BrowserModuleOptions } from "../../../plugins/ragents.browser/executor/module.ts";
+import { browserLocator } from "../../../plugins/ragents.browser/executor/pages.ts";
+import { browserExecutable, hostPlaywright } from "../../../plugins/ragents.browser/executor/playwright.ts";
 import { stubBrowser, type StubDocument } from "./browser-stub.ts";
+
+const machine = executorMachine("/unbenutzt");
 
 const hostRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../../..");
 
@@ -43,7 +42,7 @@ const executorWith = (options: BrowserModuleOptions) => new WorkspaceOperationEx
   contextFor: async (runId) => workspaceProcessContext({
     runId, cwd: tmpdir(), root: tmpdir(), home: { home: tmpdir() }, logDirectory: tmpdir(), hostRoot: undefined,
   }),
-  modules: [browserModule({ timeoutMs: 500, checkTimeoutMs: 50, ...options })],
+  modules: [browserModule(machine, { timeoutMs: 500, checkTimeoutMs: 50, ...options })],
 });
 
 const coded = (code: string) => (error: unknown): boolean => error instanceof WorkspaceOperationError && error.code === code;
@@ -201,9 +200,9 @@ test("Browserziele sind eindeutig beschrieben und benötigen keine Element-IDs",
 });
 
 test("playwright-core kommt aus dem Host dieser Maschine, Chrome aus ihrer Umgebung oder der Provisionierung", async () => {
-  assert.throws(() => hostPlaywright(undefined), /kein Host bekannt, aus dem sich playwright-core auflösen ließe/);
-  assert.throws(() => hostPlaywright(path.join(tmpdir(), "kein-host-hier")), /playwright-core liegt nicht im Host/);
-  const playwright = hostPlaywright(hostRoot);
+  await assert.rejects(hostPlaywright(machine, undefined), /kein Host bekannt, aus dem sich playwright-core auflösen ließe/);
+  await assert.rejects(hostPlaywright(machine, path.join(tmpdir(), "kein-host-hier")), /playwright-core liegt nicht im Host/);
+  const playwright = await hostPlaywright(machine, hostRoot);
   assert.equal(typeof playwright.chromium.launch, "function");
   assert.equal(await browserExecutable(playwright, { [BROWSER_EXECUTABLE_VARIABLE]: process.execPath }), process.execPath);
   await assert.rejects(browserExecutable(playwright, { [BROWSER_EXECUTABLE_VARIABLE]: "/kein/chrome" }),
@@ -214,8 +213,8 @@ test("playwright-core kommt aus dem Host dieser Maschine, Chrome aus ihrer Umgeb
   await executor.shutdown();
 });
 
-test("das Paket lädt playwright-core nie beim Import, nur als Typ", async () => {
-  const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../src");
+test("der Beitrag des Browsers lädt playwright-core nie beim Import, nur als Typ", async () => {
+  const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../../../plugins/ragents.browser/executor");
   const files = (await readdir(root, { recursive: true })).filter((file) => file.endsWith(".ts"));
   const imports = await Promise.all(files.map(async (file) => {
     const source = await readFile(path.join(root, file), "utf8");

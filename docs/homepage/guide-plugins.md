@@ -174,6 +174,7 @@ plugins/ragents.actor-programs/
   contract.ts        import-free contract shared by both halves, when present
   prompt.hbs         assets at the plugin root, alongside prompts/, skills/,
                      run-scripts/, provision.ts
+  executor.ts        contribution to the workspace executor, when present
 ```
 
 `server/index.ts` exports exactly one entry point:
@@ -257,7 +258,8 @@ loads plugin sources; it loads finished bundles, and the author builds them. The
 
 **Source folder.** One folder per plugin, named after its ID, such as `acme.tickets`. It holds
 `ragents-plugin.json`, `server/index.ts` exporting `plugin`, optionally `provision.ts` for tools the
-plugin installs, `web/index.tsx` exporting `webPlugin` when there is an interface, and assets such
+plugin installs and `executor.ts` for work that runs on the machine of a workspace, such as a
+language server, `web/index.tsx` exporting `webPlugin` when there is an interface, and assets such
 as `prompt.hbs`, `prompts/`, `skills/`, and `run-scripts/` at the root. `ragents-plugin.json`
 names the ID, the files other plugins may import (per half, as paths without extension), and
 additional assets that go into the bundle:
@@ -310,7 +312,9 @@ changes only when the host API changes incompatibly, not with every host release
 
 **Ship.** A bundle is a plain folder without `node_modules` or native binaries and runs wherever a
 host offers the same host API with the names it uses. Native tools such as language servers come through the plugin's
-provisioning. To hand a profile together with its bundles to other machines, a server adds
+provisioning. The contribution to the workspace executor becomes one self-contained file that
+imports only Node modules, so every machine can load it, the VS Code extension included; a
+workstation loads it from the bundles of its own host, in exactly the version the server uses. To hand a profile together with its bundles to other machines, a server adds
 `ragents.profile-distribution`; `ragents connect` fetches the profile and its bundles and starts
 them with the local host ([Distributed work](guide-distributed.html)). The client
 profile names such bundles relative to itself (`./` or `../`); the client resolves an absolute or

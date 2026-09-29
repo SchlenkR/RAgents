@@ -24,7 +24,7 @@ const listing = (paths: readonly string[], opened = false): LanguageServerSoluti
 
 const settled = () => new Promise<void>((resolve) => setImmediate(resolve));
 
-const fixture = (solutions: LanguageServerSolutions) => {
+const fixture = (solutions: LanguageServerSolutions, preferred?: string) => {
   const setup = setupRun({ grants: allGrants() });
   const runId = setup.view.id;
   setup.runtime.selectPrimaryActor({ actorId: setup.view.ownerId, commandId: "primary" }, runId, setup.agent.id);
@@ -45,6 +45,7 @@ const fixture = (solutions: LanguageServerSolutions) => {
   const create = () => createSolutionOnStart({
     pluginId: "ragents.lsp-roslyn",
     adapterId: "roslyn",
+    preferred,
     sandbox: () => sandbox,
     runtime: () => setup.runtime,
     ask: () => ask,
@@ -62,6 +63,25 @@ test("the start step loads a single solution, asks for several and does nothing 
     { kind: "ask", options: ["src/Demo.sln", "tools/Acme.slnx", NO_SOLUTION] });
   assert.deepEqual(solutionStartStep(listing(["src/Demo.sln"], true)), { kind: "none" });
   assert.deepEqual(solutionStartStep(listing(["src/Demo.sln", "tools/Acme.slnx"], true)), { kind: "none" });
+});
+
+test("a preferred solution in the workspace loads without a question, a missing one leaves the question", () => {
+  assert.deepEqual(solutionStartStep(listing(["src/Demo.sln", "tools/Acme.slnx"]), "tools/Acme.slnx"), { kind: "open", path: "tools/Acme.slnx" });
+  assert.deepEqual(solutionStartStep(listing(["src/Demo.sln", "tools/Acme.slnx"]), "src/Other.sln"),
+    { kind: "ask", options: ["src/Demo.sln", "tools/Acme.slnx", NO_SOLUTION] });
+  assert.deepEqual(solutionStartStep(listing(["src/Demo.sln"]), "src/Other.sln"), { kind: "open", path: "src/Demo.sln" });
+  assert.deepEqual(solutionStartStep(listing(["src/Demo.sln", "tools/Acme.slnx"], true), "src/Demo.sln"), { kind: "none" });
+});
+
+test("the preferred solution also matches below the workspace root and narrows the question to the matching ones", () => {
+  assert.deepEqual(solutionStartStep(listing(["demo/src/Demo.sln", "demo/tools/Acme.slnx"]), "src/Demo.sln"),
+    { kind: "open", path: "demo/src/Demo.sln" });
+  assert.deepEqual(solutionStartStep(listing(["demo/SRC/demo.sln", "demo/tools/Acme.slnx"]), "src/Demo.sln"),
+    { kind: "open", path: "demo/SRC/demo.sln" });
+  assert.deepEqual(solutionStartStep(listing(["demo-a/src/Demo.sln", "demo-a/tools/Acme.slnx", "demo-b/src/Demo.sln"]), "src/Demo.sln"),
+    { kind: "ask", options: ["demo-a/src/Demo.sln", "demo-b/src/Demo.sln", NO_SOLUTION] });
+  assert.deepEqual(solutionStartStep(listing(["othersrc/Demo.sln", "tools/Acme.slnx"]), "src/Demo.sln"),
+    { kind: "ask", options: ["othersrc/Demo.sln", "tools/Acme.slnx", NO_SOLUTION] });
 });
 
 test("an answer opens a listed solution, none and a dismissal load nothing, free text goes on", () => {
@@ -102,6 +122,22 @@ test("a single solution is loaded only if nothing is open or opening, once per r
     await f.start(null, f.create());
     await settled();
     assert.equal(f.calls.length, 2, "neither the same contribution nor one after a restart starts again");
+  } finally {
+    f.journal.close();
+  }
+});
+
+test("the preferred solution among several is loaded like a single one, without a question", async () => {
+  const f = fixture(listing(["src/Demo.sln", "tools/Acme.slnx"]), "src/Demo.sln");
+  try {
+    await f.start(null);
+    await settled();
+    assert.deepEqual(f.calls, [
+      { operation: "roslyn_solutions", input: null },
+      { operation: "roslyn_open", input: { root: "src/Demo.sln", ifNoneOpen: true } },
+    ]);
+    assert.deepEqual(f.questions, []);
+    assert.equal(f.pendingQuestion(), undefined);
   } finally {
     f.journal.close();
   }

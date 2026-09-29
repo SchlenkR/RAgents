@@ -48,7 +48,7 @@ const { browserRuntimeToken } = await import("../../../plugins/ragents.browser/s
 const composed = async (profile: CompositionFixture, defaultStartEntry?: string): Promise<PluginHost> => {
   const loaded = await loadPlugins(profile.plugins);
   const host = composeProfile(
-    { product: profile.product, pluginIds: profile.plugins, modules: loaded.modules, web: loaded.web, ...(defaultStartEntry === undefined ? {} : { defaultStartEntry }) },
+    { product: profile.product, pluginIds: profile.plugins, modules: loaded.modules, web: loaded.web, executor: loaded.executor, ...(defaultStartEntry === undefined ? {} : { defaultStartEntry }) },
     {
       ensureSession: () => {},
       ensureWorkspaceAccess: () => {},

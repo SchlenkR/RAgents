@@ -378,8 +378,69 @@ test("A turn whose context overflow the runtime compacts and continues does not 
         assert.ok(compaction?.type === "context.compacted");
         assert.equal(compaction.payload.turnId, request.turnId);
         assert.equal(compaction.payload.model, selection.model);
+        assert.deepEqual(compaction.payload.threshold, { tokens: faux.getModel().contextWindow - 16_384, source: "catalog" });
     } finally {
         await manager.shutdown();
+        faux.unregister();
+    }
+});
+
+test("After a model switch the agent compacts with the values of the new model before its first step", async () => {
+    const faux = registerFauxProvider({ models: [{ id: "switch-wide", reasoning: false }, { id: "switch-narrow", reasoning: false }], tokensPerSecond: 100_000 });
+    const modelRuntime = ModelRuntime.create();
+    const base = faux.getModel();
+    const narrow = { threshold: 3_000, keepRecentTokens: 200, summaryTokens: 800 };
+    modelRuntime.registerProvider(base.provider, {
+        baseUrl: base.baseUrl,
+        apiKey: "faux-key",
+        api: faux.api,
+        models: faux.models.map((entry) => ({
+            id: entry.id, name: entry.name, api: entry.api, reasoning: entry.reasoning, input: entry.input,
+            cost: entry.cost, contextWindow: entry.contextWindow, maxTokens: entry.maxTokens, baseUrl: entry.baseUrl,
+            ...(entry.id === "switch-narrow" ? { compaction: narrow } : {}),
+        })),
+    });
+    const harness = journalHarness({ provider: base.provider, model: "switch-wide" });
+    const manager = new AgentRuntimeManager({ modelRuntime });
+    const requests: string[] = [];
+    faux.setResponses(Array.from({ length: 3 }, () => (context: Context, _options: unknown, _state: unknown, model: { id: string }) => {
+        const summary = context.systemPrompt?.startsWith("You are a context summarization assistant") ?? false;
+        requests.push(`${model.id}${summary ? ":summary" : ""}`);
+        return fauxAssistantMessage(summary ? "## Goal\nZusammenfassung." : "Antwort. ".repeat(200));
+    }));
+    try {
+        assert.equal((await turnOf(harness, manager, "x".repeat(20_000))).result.failure, null);
+        assert.equal(harness.runtime.events(harness.runId).some((event) => event.type === "context.compacted"), false);
+        const { request, result } = await turnOf(harness, manager, "Weiter.", { selection: { provider: base.provider, model: "switch-narrow" } });
+        assert.equal(result.failure, null);
+        assert.deepEqual(requests, ["switch-wide", "switch-narrow:summary", "switch-narrow"]);
+        const compaction = harness.runtime.events(harness.runId).find((event) => event.type === "context.compacted");
+        assert.ok(compaction?.type === "context.compacted");
+        assert.equal(compaction.payload.turnId, request.turnId);
+        assert.equal(compaction.payload.model, "switch-narrow");
+        assert.deepEqual(compaction.payload.threshold, { tokens: 3_000, source: "model" });
+    } finally {
+        await manager.shutdown();
+        faux.unregister();
+    }
+});
+
+test("Compaction values that do not fit their model fail its registration", () => {
+    const faux = registerFauxProvider({ models: [{ id: "unfit", reasoning: false, contextWindow: 10_000, maxTokens: 1_000 }] });
+    const model = faux.getModel();
+    const register = (compaction: unknown) => ModelRuntime.create().registerProvider(model.provider, {
+        baseUrl: model.baseUrl, apiKey: "faux-key", api: faux.api,
+        models: [{ id: model.id, name: model.name, reasoning: false, input: model.input, cost: model.cost, contextWindow: 10_000, maxTokens: 1_000, compaction: compaction as never }],
+    });
+    try {
+        register({ threshold: 8_000, keepRecentTokens: 2_000, summaryTokens: 1_000 });
+        assert.throws(() => register({ threshold: 9_500, keepRecentTokens: 2_000, summaryTokens: 1_000 }), /threshold plus summaryTokens \(10500\) must stay below the context window \(10000\)/);
+        assert.throws(() => register({ threshold: 8_000, keepRecentTokens: 7_500, summaryTokens: 1_000 }), /keepRecentTokens plus summaryTokens \(8500\) must stay below threshold \(8000\)/);
+        assert.throws(() => register({ threshold: 8_000, keepRecentTokens: 2_000, summaryTokens: 1_500 }), /summaryTokens \(1500\) exceeds the output limit \(1000\)/);
+        assert.throws(() => register({ threshold: 8_000, keepRecentTokens: 0, summaryTokens: 1_000 }), /compaction\.keepRecentTokens must be a positive integer/);
+        assert.throws(() => register({ threshold: 8_000, keepRecentTokens: 2_000 }), /compaction\.summaryTokens must be a positive integer/);
+        assert.throws(() => register({ threshold: 8_000, keepRecentTokens: 2_000, summaryTokens: 1_000, reserveTokens: 1 }), /compaction\.reserveTokens is not supported/);
+    } finally {
         faux.unregister();
     }
 });

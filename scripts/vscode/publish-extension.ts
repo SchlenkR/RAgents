@@ -6,7 +6,8 @@ import { fileURLToPath } from "node:url";
 import { readPackageVersion } from "../../apps/server/src/host-version.ts";
 import { latestPublishedVersion, type NpmRunner } from "../package/publish-package.ts";
 import { compareVersions, nextVersion, readVersion, versionLine, writeVersion } from "../publish-version.ts";
-import { bundleBash, type BashTarget } from "./bundle-bash.ts";
+import { BASH_TARGETS, bundleBash, type BashTarget } from "./bundle-bash.ts";
+import { bundleRipgrep, type RipgrepTarget } from "./bundle-rg.ts";
 
 const repositoryRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..");
 
@@ -21,13 +22,22 @@ const manifestFile = path.join(extensionRoot, "package.json");
 const ignoreFile = path.join(extensionRoot, ".vscodeignore");
 const outputFolder = path.join(repositoryRoot, "dist");
 
-/** Eine universelle .vsix ohne Bash und je Windows-Plattform eine mit ihrer mitgebrachten Bash. */
-export type VsixTarget = "universal" | BashTarget;
-export const VSIX_TARGETS: readonly VsixTarget[] = ["universal", "win32-x64", "win32-arm64"];
+/** Je Plattform eine .vsix mit ihrem rg, unter Windows dazu mit ihrer Bash; die universelle ohne beides für alle übrigen. */
+export type VsixTarget = "universal" | RipgrepTarget;
+export const VSIX_TARGETS: readonly VsixTarget[] = ["universal", "win32-x64", "win32-arm64", "darwin-arm64", "darwin-x64", "linux-x64", "linux-arm64"];
 
-/** Die Positivliste der .vscodeignore, für eine Windows-Plattform um deren Bash erweitert. */
-export const ignoreRules = (base: string, target: VsixTarget): string =>
-  target === "universal" ? base : `${base.trimEnd()}\n!dist/bash/${target}/**\n`;
+const isBashTarget = (target: VsixTarget): target is BashTarget => target in BASH_TARGETS;
+
+/** Was eine Plattform zusätzlich zur universellen Positivliste trägt: ihr rg und unter Windows ihre Bash. */
+export const bundledFolders = (target: VsixTarget): readonly string[] => target === "universal"
+  ? []
+  : [...(isBashTarget(target) ? [`dist/bash/${target}`] : []), `dist/rg/${target}`];
+
+/** Die Positivliste der .vscodeignore, für eine Plattform um deren mitgebrachte Ordner erweitert. */
+export const ignoreRules = (base: string, target: VsixTarget): string => {
+  const folders = bundledFolders(target);
+  return folders.length === 0 ? base : `${base.trimEnd()}\n${folders.map((folder) => `!${folder}/**`).join("\n")}\n`;
+};
 
 /** Wie vsce selbst benennt: die Plattform vor der Fassung. */
 export const vsixName = (version: string, target: VsixTarget): string =>
@@ -39,9 +49,10 @@ export const packageArguments = (vsix: string, target: VsixTarget, ignore: strin
 ];
 
 const usage = `Verwendung: pnpm publish:vscode [--dry-run]
-Baut die Erweiterung ${EXTENSION_ID}, packt sie nach dist/ - universell und für win32-x64 und
-win32-arm64 samt mitgebrachter Bash (pnpm bundle:bash, braucht 7-Zip) - und veröffentlicht alle
-drei auf dem Visual Studio Marketplace. Der Token kommt aus der Umgebungsvariable ${TOKEN_KEY}. --dry-run macht alles
+Baut die Erweiterung ${EXTENSION_ID}, packt sie nach dist/ - universell und je Plattform
+(${VSIX_TARGETS.filter((target) => target !== "universal").join(", ")}) mit mitgebrachtem rg
+(pnpm bundle:rg), unter Windows dazu mit der Bash (pnpm bundle:bash, braucht 7-Zip) - und
+veröffentlicht alle auf dem Visual Studio Marketplace. Der Token kommt aus der Umgebungsvariable ${TOKEN_KEY}. --dry-run macht alles
 außer dem Publish und zeigt den Inhalt der .vsix. Die Fassung steht in apps/vscode/package.json;
 das Skript zählt vor dem Packen die letzte Stelle über die zuletzt veröffentlichte hoch, im
 Probelauf nur in der Ausgabe.`;
@@ -205,7 +216,11 @@ const withIgnoreFiles = <T>(action: (ignoreOf: (target: VsixTarget) => string) =
 
 const packageExtension = async (log: (line: string) => void): Promise<readonly string[]> => {
   run("pnpm", ["--filter", EXTENSION_NAME, "build"], repositoryRoot);
-  for (const target of VSIX_TARGETS) if (target !== "universal") await bundleBash(target, { log });
+  for (const target of VSIX_TARGETS) {
+    if (target === "universal") continue;
+    if (isBashTarget(target)) await bundleBash(target, { log });
+    await bundleRipgrep(target, { log });
+  }
   mkdirSync(outputFolder, { recursive: true });
   const version = readVersion(manifestFile);
   return withIgnoreFiles((ignoreOf) => withMarketplaceFiles(() => VSIX_TARGETS.map((target) => {
@@ -221,9 +236,16 @@ const listContents = (log: (line: string) => void): void => withIgnoreFiles((ign
     const listed = runVsce(["ls", "--no-dependencies", "--ignoreFile", ignoreOf(target)], { cwd: extensionRoot });
     if (listed.status !== 0) throw new Error(`vsce ls endete mit Code ${listed.status}: ${oneLine(listed.stderr)}`);
     const lines = listed.stdout.split("\n").map((line) => line.trim()).filter(Boolean);
-    const bash = lines.filter((line) => line.startsWith("dist/bash/"));
-    log(`== Inhalt ${target}: ${lines.length} Dateien${bash.length > 0 ? `, davon ${bash.length} unter dist/bash/${target}` : ""}`);
-    for (const line of lines.filter((entry) => !entry.startsWith("dist/bash/"))) log(line);
+    const folders = bundledFolders(target);
+    const bundled = folders.map((folder) => [folder, lines.filter((line) => line.startsWith(`${folder}/`)).length] as const);
+    const empty = bundled.filter(([, count]) => count === 0).map(([folder]) => folder);
+    if (empty.length > 0) throw new Error(`Die .vsix für ${target} trägt nichts unter ${empty.join(", ")}`);
+    const isBundle = (line: string) => line.startsWith("dist/bash/") || line.startsWith("dist/rg/");
+    const foreign = lines.filter((line) => isBundle(line) && !folders.some((folder) => line.startsWith(`${folder}/`)));
+    if (foreign.length > 0) throw new Error(`Die .vsix für ${target} trägt fremde Plattformdateien: ${foreign.slice(0, 3).join(", ")}`);
+    log(`== Inhalt ${target}: ${lines.length} Dateien${bundled.map(([folder, count]) => `, davon ${count} unter ${folder}`).join("")}`);
+    // Ohne die mitgebrachten Ordner ist der Inhalt aller Plattformen derselbe; er steht einmal da.
+    if (target === "universal") for (const line of lines) log(line);
   }
 }));
 

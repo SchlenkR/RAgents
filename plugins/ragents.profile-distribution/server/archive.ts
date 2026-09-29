@@ -55,7 +55,8 @@ const checkSections = (source: string, raw: Record<string, unknown>, pluginIds: 
       if (isEnvironmentReference(entry) || isProvisionedReference(entry)) continue;
       if (SECRET_KEY_PATTERN.test(key)) throw new Error(`${source}: ${section}.${key} ist ein Secret und muss als env("...") stehen`);
       const valid = typeof entry === "string" || typeof entry === "number" || typeof entry === "boolean"
-        || (Array.isArray(entry) && entry.every((item) => typeof item === "string"));
+        || (Array.isArray(entry) && entry.every((item) => typeof item === "string"))
+        || (Array.isArray(entry) && entry.every((item) => !!item && typeof item === "object" && !Array.isArray(item)));
       if (!valid) throw new Error(`${source}: ${section}.${key} hat keinen gültigen Wert`);
       if (typeof entry === "string" && /^\$\{[A-Za-z_][A-Za-z0-9_]*\}$/.test(entry)) throw new Error(`${source}: ${section}.${key} verweist als Text auf die Umgebung; env("...") verwenden`);
     }

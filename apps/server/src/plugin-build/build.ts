@@ -5,6 +5,7 @@ import path from "node:path";
 import { Scanner } from "@tailwindcss/oxide";
 import { build as esbuild, type Message, type Metafile, type OutputFile, type PartialMessage, type Plugin } from "esbuild";
 import ts from "typescript";
+import { EXECUTOR_CONTRIBUTION_FILE } from "@ragents/workspace-executor";
 import { installFolder, withLock } from "../folder-install.js";
 import { HOST_API_VERSION, HOST_MODULES_GLOBAL, LIBRARY, hostApi, hostOnly, providedByHost, type HostApiHalf } from "../host-api.js";
 import { checkedHostApiRecord, hostRoot, type HostApiRecord } from "../host-version.js";
@@ -172,13 +173,27 @@ interface HalfState {
 }
 
 /** Keeps a half to the host API, its own folder and declared exports of other plugins; everything else is a build error with its cause. */
-const boundaryPlugin = (source: PluginSource, half: HostApiHalf, environment: BuildEnvironment, state: HalfState, assets: readonly string[]): Plugin => ({
+const boundaryPlugin = (
+  source: PluginSource,
+  half: HostApiHalf,
+  environment: BuildEnvironment,
+  state: HalfState,
+  assets: readonly string[],
+  selfContained: boolean,
+): Plugin => ({
   name: "ragents-plugin-boundary",
   setup(build) {
     const id = source.description.id;
     const packageProblems = new Map<string, string | undefined>();
 
+    /** The executor contribution loads in every process without the host's loader, the VS Code extension included. */
+    const outsideContribution = (specifier: string) => ({ errors: [{
+      text: `${specifier}: der Executor-Beitrag lädt in jedem Node-Prozess ohne die Auflösung des Hosts; er importiert nur node:*, eigene Dateien, `
+        + "gebündelte Bibliotheken und vom Host Typen (import type), alles andere bekommt er über die Maschine",
+    }] });
+
     const crossImport = (owner: string, name: string) => {
+      if (selfContained) return outsideContribution(`@ragents/plugins/${owner}/${name}`);
       state.uses.add(owner);
       return half === "server"
         ? { path: `@ragents/plugins/${owner}/${name}`, external: true }
@@ -221,6 +236,7 @@ const boundaryPlugin = (source: PluginSource, half: HostApiHalf, environment: Bu
           }
           return crossImport(owner, name);
         }
+        if (selfContained && (providedByHost(half, specifier) || hostOnly(specifier))) return outsideContribution(specifier);
         if (providedByHost(half, specifier)) {
           if (args.kind === "dynamic-import" && (half === "web" || !isLibrary(half, specifier))) {
             return { errors: [{ text: `import() von ${specifier}: ein Modul des Hosts wird statisch importiert, damit der Bau jeden Namen gegen die Host-API prüft` }] };
@@ -381,23 +397,27 @@ const nodePathsOf = (root: string, half: HostApiHalf): string[] =>
   [path.join(root, "node_modules"), path.join(root, half === "server" ? "apps/server/node_modules" : "apps/web/node_modules")]
     .filter((folder) => existsSync(folder));
 
+/** Builds a half; `selfContained` builds the executor contribution as one file under executor/ that imports nothing but node:*. */
 const buildHalf = async (
   source: PluginSource,
   half: HostApiHalf,
   entries: readonly { readonly in: string; readonly out: string }[],
   environment: BuildEnvironment,
   assets: readonly string[],
+  selfContained = false,
 ): Promise<HalfResult | { readonly problems: readonly string[] }> => {
   const state: HalfState = { uses: new Set() };
   const id = source.description.id;
-  const problemsOf = (messages: readonly Message[]): readonly string[] => messages.map((message) => `${half}: ${messageText(message, source.folder)}`);
+  const part = selfContained ? path.posix.dirname(EXECUTOR_CONTRIBUTION_FILE) : half;
+  const problemsOf = (messages: readonly Message[]): readonly string[] => messages.map((message) => `${part}: ${messageText(message, source.folder)}`);
   try {
     const result = await esbuild({
       absWorkingDir: source.folder,
       entryPoints: [...entries],
-      outdir: path.join(environment.out, id, half),
+      outdir: path.join(environment.out, id, part),
       bundle: true,
-      splitting: true,
+      splitting: !selfContained,
+      ...(selfContained ? { outExtension: { ".js": path.posix.extname(EXECUTOR_CONTRIBUTION_FILE) } } : {}),
       format: "esm",
       write: false,
       metafile: true,
@@ -416,7 +436,7 @@ const buildHalf = async (
         define: { "process.env.NODE_ENV": JSON.stringify("production") },
       } : { banner: { js: SERVER_BANNER } }),
       logLevel: "silent",
-      plugins: [boundaryPlugin(source, half, environment, state, assets)],
+      plugins: [boundaryPlugin(source, half, environment, state, assets, selfContained)],
     });
     const fatal = result.warnings.filter((warning) => FATAL_WARNINGS.has(warning.id));
     if (fatal.length > 0) return { problems: problemsOf(fatal) };
@@ -472,6 +492,7 @@ const buildPlugin = async (folder: string, environment: BuildEnvironment, typeEr
   const serverEntry = sourceFileOf(path.join(source.folder, "server/index"));
   const webEntry = sourceFileOf(path.join(source.folder, "web/index"));
   const provision = sourceFileOf(path.join(source.folder, "provision"));
+  const executorEntry = sourceFileOf(path.join(source.folder, "executor"));
   const exportEntries = (half: HostApiHalf) => source.description.exports[half].map((name) => ({
     in: sourceFileOf(path.join(source.folder, name))!,
     out: `exports/${name}`,
@@ -481,6 +502,7 @@ const buildPlugin = async (folder: string, environment: BuildEnvironment, typeEr
   const results = await Promise.all([
     buildHalf(source, "server", [{ in: provision ? "ragents-entry:server" : serverEntry, out: "index" }, ...exportEntries("server")], environment, assets),
     ...(hasWeb ? [buildHalf(source, "web", [...(webEntry ? [{ in: webEntry, out: "index" }] : []), ...exportEntries("web")], environment, assets)] : []),
+    ...(executorEntry ? [buildHalf(source, "server", [{ in: executorEntry, out: path.posix.parse(EXECUTOR_CONTRIBUTION_FILE).name }], environment, assets, true)] : []),
   ]);
   const problems = results.flatMap((result) => "problems" in result ? result.problems : []);
   if (problems.length > 0) return failed(problems);
@@ -525,6 +547,7 @@ const buildPlugin = async (folder: string, environment: BuildEnvironment, typeEr
           classes: "web/classes.json",
         },
       } : {}),
+      ...(executorEntry ? { executor: EXECUTOR_CONTRIBUTION_FILE } : {}),
       exports: {
         server: Object.fromEntries(source.description.exports.server.map((name) => [name, exportOutput("server", name)])),
         web: Object.fromEntries(source.description.exports.web.map((name) => [name, exportOutput("web", name)])),

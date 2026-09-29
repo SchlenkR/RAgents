@@ -5,6 +5,8 @@ export const workspaceConfigDescriptors = [
   { key: "PROCESS_SANDBOX", source: "environment" },
   { key: "PROCESS_SANDBOX_NETWORK", source: "environment" },
   { key: "RAGENTS_BASH", source: "environment" },
+  { key: "RAGENTS_RG", source: "environment" },
+  { key: "RAGENTS_BASH_TIMEOUT_SECONDS", source: "environment" },
 ] as const;
 
 const env = declaredEnvironment(workspaceConfigDescriptors);
@@ -28,3 +30,10 @@ export const processSandboxSetting = (): ProcessSandboxSetting => {
 
 /** Die Bash, mit der der Executor dieses Servers das Werkzeug bash startet; unter Windows setzt sie die VS-Code-Erweiterung für ihren lokalen Host. */
 export const bashSetting = (): string | undefined => env.optional("RAGENTS_BASH") || undefined;
+
+/** Das rg, das der Executor dieses Servers vorn in den PATH der Bash setzt; die VS-Code-Erweiterung setzt es für ihren lokalen Host. */
+export const rgSetting = (): string | undefined => env.optional("RAGENTS_RG") || undefined;
+
+/** Die Zeitgrenze von bash in Sekunden für Aufrufe ohne eigene; mehr als die größte, die ein Aufruf nennen darf, lehnt das Werkzeug beim Start ab. */
+export const bashTimeoutSetting = (): number | undefined =>
+  env.optional("RAGENTS_BASH_TIMEOUT_SECONDS") ? env.positiveNumber("RAGENTS_BASH_TIMEOUT_SECONDS", "") : undefined;

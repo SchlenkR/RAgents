@@ -23,6 +23,3 @@ export const workspaceDataDirectory = (home = homedir()): string => path.join(ra
 /** Der Datenordner dieses Prozesses: DATA_DIR wie beim Server, sonst der des Arbeitsplatzes ohne Profil. */
 export const hostDataDirectory = (environment: NodeJS.ProcessEnv = process.env): string =>
   path.resolve(environment.DATA_DIR ?? workspaceDataDirectory());
-
-export const hostToolFile = (pluginId: string, relative: string): string =>
-  path.join(pluginToolsDirectory(hostDataDirectory(), pluginId), ...relative.split("/"));

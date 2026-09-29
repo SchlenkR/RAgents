@@ -223,7 +223,7 @@ test("reißt die Verbindung ab, endet run mit Ursache statt zu warten", { timeou
 });
 
 test("run --workstation bindet den Ordner auf dem angemeldeten Arbeitsplatz, ein unbekannter bricht mit Ursache ab", { timeout: 20_000 }, async (t) => {
-  const workstation: WorkspaceClientInfo = { id: "laptop-0001", label: "Laptop", hostname: "laptop", platform: "linux", folders: ["/home/user/project"], runsDirectory: "/home/user/runs" };
+  const workstation: WorkspaceClientInfo = { id: "laptop-0001", label: "Laptop", hostname: "laptop", platform: "linux", folders: ["/home/user/project"], runsDirectory: "/home/user/runs", ripgrep: true };
   const context = await harness(t, "completed", { clients: [workstation] });
   const run = { kind: "run", profile: "developer", folder: "/home/user/project", text: "Baue", entry: undefined, json: false } as const;
   assert.equal(await execute({ ...run, workstation: "laptop-0001" }, collect(context.lines)), 0);

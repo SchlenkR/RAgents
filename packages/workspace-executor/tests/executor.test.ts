@@ -3,17 +3,14 @@ import { mkdir, mkdtemp, readFile, realpath, rm, writeFile } from "node:fs/promi
 import { tmpdir } from "node:os";
 import path from "node:path";
 import test from "node:test";
-import { fileURLToPath } from "node:url";
 import {
   WorkspaceOperationExecutor,
   changedWorkspaceFiles,
   languageServerModule,
   runManagedProcess,
   sandboxToolsModule,
-  typescriptAdapter,
   workspaceProcessContext,
   type LanguageServerAdapter,
-  type LanguageServerSnapshot,
   type WorkspaceProcessContext,
 } from "../src/index.ts";
 
@@ -163,95 +160,6 @@ test("ohne paths findet die Diagnostik die geänderten Dateien auch im Unterordn
     const context = workspaceProcessContext({ runId: "run-3", cwd: area, root: area, home: { home: f.directory }, logDirectory: f.directory, hostRoot: undefined });
     const changed = await changedWorkspaceFiles(context, area, "fake_diagnostics", (file) => file.endsWith(".fake"));
     assert.deepEqual(changed.sort(), [path.join(area, "fresh.fake"), path.join(area, "known.fake")]);
-  } finally {
-    await f.close();
-  }
-});
-
-const tsFixture = async () => {
-  const directory = await realpath(await mkdtemp(path.join(tmpdir(), "ragents-lsp-multi-")));
-  const workspace = path.join(directory, "workspace");
-  await mkdir(workspace, { recursive: true });
-  const project = async (name: string, content: string): Promise<string> => {
-    const root = path.join(workspace, name);
-    await mkdir(root, { recursive: true });
-    await writeFile(path.join(root, "tsconfig.json"), `${JSON.stringify({
-      compilerOptions: { strict: true, noEmit: true, target: "es2022", module: "esnext", moduleResolution: "bundler" },
-      include: ["*.ts"],
-    }, null, 2)}\n`);
-    await writeFile(path.join(root, "broken.ts"), content);
-    return root;
-  };
-  const first = await project("a", "export const count: number = \"eins\";\n");
-  const second = await project("b", "export const label: string = 7;\n");
-  await writeFile(path.join(workspace, "lose.ts"), "export const outside: string = 1;\n");
-  const result = await runManagedProcess({ command: "git", args: ["init", "-q"], cwd: workspace, env: process.env, label: "git", timeoutMs: 30_000 });
-  assert.equal(result.code, 0);
-  const executor = new WorkspaceOperationExecutor({
-    contextFor: (runId) => Promise.resolve(workspaceProcessContext({
-      runId,
-      cwd: workspace,
-      root: workspace,
-      home: { home: path.join(directory, "home") },
-      logDirectory: path.join(directory, "logs"),
-      hostRoot: path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..", "..", ".."),
-    })),
-    modules: [sandboxToolsModule, languageServerModule([typescriptAdapter], { openTimeoutMs: 120_000, diagnosticsTimeoutMs: 60_000 })],
-  });
-  return {
-    workspace,
-    first,
-    second,
-    executor,
-    roots: async (runId: string) =>
-      ((await executor.execute(runId, "typescript_snapshot", null)) as LanguageServerSnapshot)
-        .instances.map((instance) => `${instance.root}:${instance.state}`),
-    close: async () => {
-      await executor.shutdown();
-      await rm(directory, { recursive: true, force: true });
-    },
-  };
-};
-
-test("zwei TypeScript-Wurzeln bleiben im selben Run nebeneinander offen", { timeout: 300_000 }, async () => {
-  const f = await tsFixture();
-  try {
-    assert.match(await f.executor.execute("run-ts", "typescript_open", { root: "a" }) as string, /1 offene Instanz von TypeScript/);
-    assert.match(await f.executor.execute("run-ts", "typescript_open", { root: "a" }) as string, /bereits geöffnet/);
-    assert.match(await f.executor.execute("run-ts", "typescript_open", { root: "b" }) as string, /2 offene Instanzen von TypeScript/);
-    assert.deepEqual(await f.roots("run-ts"), [`${f.first}:ready`, `${f.second}:ready`]);
-
-    const both = await f.executor.execute("run-ts", "typescript_diagnostics", {}) as string;
-    assert.match(both, /a\/broken\.ts:1:14 error 2322/);
-    assert.match(both, /b\/broken\.ts:1:14 error 2322/);
-
-    const onlyFirst = await f.executor.execute("run-ts", "typescript_diagnostics", { paths: ["a/broken.ts"] }) as string;
-    assert.match(onlyFirst, /a\/broken\.ts:1:14 error 2322/);
-    assert.doesNotMatch(onlyFirst, /b\/broken\.ts/);
-    const onlySecond = await f.executor.execute("run-ts", "typescript_diagnostics", { root: "b" }) as string;
-    assert.match(onlySecond, /b\/broken\.ts:1:14 error 2322/);
-    assert.doesNotMatch(onlySecond, /a\/broken\.ts/);
-
-    await assert.rejects(
-      f.executor.execute("run-ts", "typescript_diagnostics", { paths: ["lose.ts"] }),
-      (error: Error) => error.message.includes("liegt in keiner geöffneten TypeScript-Wurzel")
-        && error.message.includes(f.first)
-        && error.message.includes(f.second),
-    );
-
-    const edited = await f.executor.execute("run-ts", "edit", {
-      path: "b/broken.ts",
-      edits: [{ oldText: "7", newText: "false" }],
-    });
-    assert.match(textOf(edited), /Diagnostik \(TypeScript\) b\/broken\.ts: 1 Fehler/);
-    assert.doesNotMatch(textOf(edited), /a\/broken\.ts/);
-
-    assert.match(await f.executor.execute("run-ts", "typescript_close", { root: "a" }) as string, /1 offene Instanz/);
-    assert.deepEqual(await f.roots("run-ts"), [`${f.second}:ready`]);
-    assert.match(await f.executor.execute("run-ts", "typescript_diagnostics", {}) as string, /b\/broken\.ts:1:14 error 2322/);
-
-    await f.executor.stopRun("run-ts");
-    assert.deepEqual(await f.roots("run-ts"), []);
   } finally {
     await f.close();
   }

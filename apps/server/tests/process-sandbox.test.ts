@@ -49,7 +49,7 @@ const coordinatorFixture = async () => {
   };
   const unused = async (): Promise<never> => { throw new Error("Der Koordinator bestimmt seinen Arbeitsbereich selbst"); };
   const host = new WorkspaceSandboxHost({
-    contributorName: "test.workspace",
+    contributorName: "test.workspace", contributions: [],
     workspaceFor: async () => workspace,
     identFor: unused,
     homeFor: unused,
@@ -156,7 +156,7 @@ test("git in a worktree whose common repository lies outside works in the sandbo
   await processSandbox.start();
   const folders: Readonly<Record<string, readonly SandboxFolder[]>> = { undeclared: [], declared: [{ directory: common, access: "write" }] };
   const host = new WorkspaceSandboxHost({
-    contributorName: "test.workspace",
+    contributorName: "test.workspace", contributions: [],
     workspaceFor: async (runId) => ({
       cwd: worktree, currentRoot: async () => worktree, runOperation: (operation) => operation(), sandboxFolders: folders[runId] ?? [],
     }),
@@ -211,7 +211,7 @@ test("a bash of a workstation run with an alias as cwd runs on the server in the
   await processSandbox.start();
   const remote = (): Promise<string> => Promise.reject(new Error("Der Arbeitsbereich liegt auf dem Arbeitsplatz"));
   const host = new WorkspaceSandboxHost({
-    contributorName: "test.workspace",
+    contributorName: "test.workspace", contributions: [],
     workspaceFor: async () => ({ cwd: "/workstation/project", currentRoot: remote, runOperation: (operation) => operation() }),
     identFor: async () => undefined,
     homeFor: async (runId) => ({ home: path.join(storage(runId), "home") }),

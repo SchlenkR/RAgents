@@ -33,6 +33,8 @@
     "src",
     "../../plugins/*/server",
     "../../plugins/*/contract.ts",
+    "../../plugins/*/executor.ts",
+    "../../plugins/*/executor",
     "../../ragents.config.*.ts"
   ]
 }

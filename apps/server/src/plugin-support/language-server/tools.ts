@@ -5,7 +5,7 @@ import {
   languageServerDiagnosticsOperation,
   languageServerOpenOperation,
   languageServerSolutionsOperation,
-  type LanguageServerAdapter,
+  type LanguageServerDescription,
   type LanguageServerSolutions,
   type LanguageServerState,
 } from "@ragents/workspace-executor";
@@ -30,11 +30,12 @@ export const formatSolutions = (label: string, listing: LanguageServerSolutions)
 
 /** Beschreibung und Weiterreichung: der Sprachserver läuft im Executor des Runs, nicht in diesem Plugin. */
 export const createLanguageServerToolContributor = (
-  adapter: LanguageServerAdapter,
+  pluginId: string,
+  languageServer: LanguageServerDescription,
   sandbox: SandboxServices,
   opened: (runId: string) => void,
 ): ToolContributor => {
-  const { id, label, rootDescription, languages } = adapter;
+  const { id, label, rootDescription, languages } = languageServer;
   const extensions = Object.keys(languages).join(", ");
   const openMetadata = {
     name: languageServerOpenOperation(id),
@@ -96,7 +97,7 @@ export const createLanguageServerToolContributor = (
   const solutionsMetadata = {
     name: languageServerSolutionsOperation(id),
     nativeTool: true,
-    description: `List the solution files (${(adapter.solutionExtensions ?? []).join(", ")}) of this run's workspace and mark `
+    description: `List the solution files (${(languageServer.solutionExtensions ?? []).join(", ")}) of this run's workspace and mark `
       + `which ones the ${label} language server has open. ${openMetadata.name} loads another one in addition; `
       + "the open ones stay open.",
   } as const;
@@ -128,9 +129,9 @@ export const createLanguageServerToolContributor = (
         ...(scope.signal ? { signal: scope.signal } : {}),
       }) as string,
   });
-  const withSolutions = adapter.solutionExtensions !== undefined;
+  const withSolutions = languageServer.solutionExtensions !== undefined;
   return {
-    name: `ragents.lsp-${id}`,
+    name: pluginId,
     descriptors: [
       toolDescriptorFrom(openMetadata, alwaysAvailable),
       toolDescriptorFrom(diagnosticsMetadata, alwaysAvailable),

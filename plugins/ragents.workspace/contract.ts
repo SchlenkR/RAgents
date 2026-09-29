@@ -66,6 +66,8 @@ export interface WorkspaceClientDescription {
   folders: string[];
   /** Wo der Arbeitsplatz die neuen Ordner je Run anlegt, je Run ein Unterordner mit dessen Kennung. */
   runsDirectory: string;
+  /** Ob die Bash des Arbeitsplatzes rg findet; der Prompt richtet die Suche danach. */
+  ripgrep: boolean;
 }
 
 export interface WorkspaceClientInfo extends WorkspaceClientDescription {
@@ -95,18 +97,40 @@ const clientId = Type.String({ pattern: "^[A-Za-z0-9_-]{8,64}$", description: "S
 
 const executorVersion = Type.String({ minLength: 1, maxLength: 64, description: "Stand des Executors, den der Arbeitsplatz mitbringt" });
 
+/** Die Kennung eines Plugins; ein Arbeitsplatz sucht dessen Bundle unter genau diesem Namen, ein Pfad kann darin nicht stecken. */
+export const PLUGIN_ID_PATTERN = /^[a-z0-9]+(?:[.-][a-z0-9]+)*$/;
+
+const executorContributions = Type.Array(Type.Object({
+  plugin: Type.String({ pattern: PLUGIN_ID_PATTERN.source, maxLength: 128, description: "Kennung des Plugins" }),
+  stand: Type.String({ pattern: "^[0-9a-f]{64}$", description: "SHA-256 der Datei des Beitrags" }),
+}, { additionalProperties: false }), { maxItems: 64, description: "Die Beiträge der Plugins zum Executor, in der Reihenfolge der Pluginliste des Servers" });
+
 const clientDescription = {
   label: Type.String({ minLength: 1, maxLength: 120 }),
   hostname: Type.String({ minLength: 1 }),
   platform: Type.String({ minLength: 1 }),
   folders: Type.Array(Type.String({ minLength: 1 }), { maxItems: 32 }),
   runsDirectory: Type.String({ minLength: 1, description: "Absoluter Ordner, unter dem der Arbeitsplatz die neuen Ordner je Run anlegt" }),
+  ripgrep: Type.Boolean({ description: "Ob die Bash des Arbeitsplatzes rg findet" }),
 };
 
 export const clientInfoSchema = Type.Object({
   id: Type.String(),
   ...clientDescription,
 }, { additionalProperties: false });
+
+/** Die Anmeldung, wie ein Arbeitsplatz mit dem Executor des Servers sie sendet. */
+export const clientRegistrationSchema = Type.Object({
+  id: clientId,
+  ...clientDescription,
+  executor: executorVersion,
+  contributions: executorContributions,
+}, { additionalProperties: false });
+
+/** Ein Arbeitsplatz mit einem anderen Executor kennt die Form dieses Stands nicht; der Server lehnt ihn an seinem Stand ab, nicht an der Form. */
+const otherExecutorRegistration = Type.Object({ label: clientDescription.label, executor: executorVersion }, {
+  description: "Anmeldung mit einem anderen Executor-Stand in beliebiger Form; der Server lehnt sie mit workspace-executor-version ab",
+});
 
 const absolutePath = Type.String({ minLength: 1, description: "Absoluter Pfad im gebundenen Ordner" });
 
@@ -172,11 +196,18 @@ export const workspaceContracts = {
       input: Type.Object({}, { additionalProperties: false }),
       result: Type.Array(clientInfoSchema),
     }),
+    contributions: defineOperation({
+      id: "ragents.workspace.clients.contributions",
+      description: "Die Beiträge der Plugins zum Executor, die ein Arbeitsplatz vor der Anmeldung lädt und mit ihr zurückmeldet. Ein Arbeitsplatz mit anderem Executor-Stand scheitert an seinem Stand; weitere Felder zählen nicht.",
+      rights: ["runs.write"],
+      input: Type.Object({ label: clientDescription.label, executor: executorVersion }),
+      result: executorContributions,
+    }),
     register: defineOperation({
       id: "ragents.workspace.clients.register",
-      description: "Einen Arbeitsplatz anmelden oder seine Ordner erneuern; die Verbindung dieser Anfrage wird sein Rückweg und braucht einen Ereignisstrom.",
+      description: "Einen Arbeitsplatz anmelden oder seine Ordner erneuern; die Verbindung dieser Anfrage wird sein Rückweg und braucht einen Ereignisstrom. Ein Arbeitsplatz mit anderem Executor-Stand scheitert an seinem Stand, bevor die übrige Form zählt.",
       rights: ["runs.write"],
-      input: Type.Object({ id: clientId, ...clientDescription, executor: executorVersion }, { additionalProperties: false }),
+      input: Type.Union([clientRegistrationSchema, otherExecutorRegistration]),
       result: clientInfoSchema,
     }),
     unregister: defineOperation({

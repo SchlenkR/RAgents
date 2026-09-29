@@ -2,20 +2,30 @@ import { realpath } from "node:fs/promises";
 import { homedir, tmpdir } from "node:os";
 import { basename, dirname, join, resolve } from "node:path";
 import {
+  EXECUTOR_CONTRIBUTION_FILE,
   WORKSPACE_EXECUTOR_VERSION,
   containsWorkspacePath,
+  hostDataDirectory,
+  loadExecutorContribution,
+  pluginToolsDirectory,
+  prepareExecutorContribution,
+  ripgrepAvailable,
   WorkspaceOperationError,
   WorkspaceOperationExecutor,
   workspaceDataDirectory,
   workspaceExecutorModules,
   workspaceProcessContext,
+  type ExecutorContributionStand,
+  type PreparedExecutorContribution,
   type WorkspaceProcessContext,
 } from "@ragents/workspace-executor";
 import type { RpcClient } from "../../../apps/web/src/rpc/client";
 import type { OperationInput } from "../../../packages/ragents/src/rpc/contract";
 import type { RpcHandlerContext } from "../../../packages/ragents/src/rpc/peer";
+import { RPC_ERROR_CODES, RpcError } from "../../../packages/ragents/src/rpc/protocol";
 import { DomainError } from "../../../packages/ragents/src/runtime/domain-error";
 import {
+  PLUGIN_ID_PATTERN,
   WORKSPACE_CLIENT_STOP_OPERATION,
   workspaceClientContracts,
   workspaceContracts,
@@ -28,7 +38,8 @@ export type WorkspaceClientStatus =
   | { kind: "registered" }
   | { kind: "failed"; message: string };
 
-export interface WorkspaceClientIdentity extends WorkspaceClientDescription {
+/** Was der Arbeitsplatz über sich sagt; ob seine Bash rg findet, ermittelt er selbst bei jeder Anmeldung. */
+export interface WorkspaceClientIdentity extends Omit<WorkspaceClientDescription, "ripgrep"> {
   id: string;
 }
 
@@ -41,10 +52,12 @@ export interface WorkspaceClientExecution {
 }
 
 export interface WorkspaceClientOptions {
-  /** Die Host-Wurzel dieses Rechners, aus der die Sprachserver aufgelöst werden; sie kann erst später entstehen. */
+  /** Die Host-Wurzel dieses Rechners mit den Bundles, aus denen der Executor seine Beiträge lädt; sie kann erst später entstehen. */
   hostRoot: () => string | undefined;
   /** Die Bash dieses Rechners für das Werkzeug bash; unter Windows die mitgebrachte und Pflicht, sonst ohne Angabe die des Systems. */
   bash?: string | undefined;
+  /** Das mitgebrachte rg, dessen Ordner die Bash vorn im PATH hat; ohne Angabe gilt eines im PATH dieses Rechners. */
+  rg?: string | undefined;
   onExecuted?: (execution: WorkspaceClientExecution) => void;
 }
 
@@ -93,9 +106,44 @@ const contextOf = (runs: ReadonlyMap<string, WorkspaceProcessContext>, runId: st
   return Promise.resolve(context);
 };
 
+const sameContributions = (left: readonly ExecutorContributionStand[], right: readonly ExecutorContributionStand[]): boolean =>
+  left.length === right.length && left.every((entry) => right.some((other) => other.plugin === entry.plugin && other.stand === entry.stand));
+
+/** Die Bundles eines Arbeitsplatzes sind die eingebauten seines Hosts; ein Plugin, das dort fehlt, kann er nicht ausführen. */
+const contributionFileOf = (hostRoot: string, plugin: string): string => join(hostRoot, "bundles", plugin, EXECUTOR_CONTRIBUTION_FILE);
+
+/** Lädt die Beiträge, die der Server verlangt, aus den Bundles des Hosts dieser Maschine; ein fehlendes Bundle oder ein anderer Stand ist ein Fehler mit Ursache. */
+const loadedContributions = async (
+  hostRoot: string | undefined,
+  wanted: readonly ExecutorContributionStand[],
+): Promise<readonly PreparedExecutorContribution[]> => {
+  if (wanted.length === 0) return [];
+  if (!hostRoot) {
+    throw new Error(`Der Server verlangt die Executor-Beiträge von ${wanted.map(({ plugin }) => plugin).join(", ")}; dieser Arbeitsplatz `
+      + "kennt keinen Host, aus dessen Bundles er sie laden könnte. Er bekommt ihn mit der ersten Verbindung zu einem verteilenden "
+      + "Server oder über die Einstellung ragents.hostPath");
+  }
+  return Promise.all(wanted.map(async ({ plugin, stand }) => {
+    if (!PLUGIN_ID_PATTERN.test(plugin)) throw new Error(`Der Server nennt ${plugin} als Plugin; das ist keine Kennung eines Plugins`);
+    const loaded = await loadExecutorContribution(plugin, contributionFileOf(hostRoot, plugin), stand).catch((cause: unknown) => {
+      throw new Error(`${messageOf(cause)}. Der Host dieses Arbeitsplatzes (${hostRoot}) muss dieselben Bundles tragen wie der Server: `
+        + "die RAgents-Erweiterung beziehungsweise das Paket @schlenkr/ragents in der Fassung des Servers, im Checkout pnpm build:plugins");
+    });
+    return prepareExecutorContribution(loaded, pluginToolsDirectory(hostDataDirectory(), plugin));
+  }));
+};
+
+/** Ein Executor aus den Beiträgen, die der Server bei der Anmeldung verlangt hat. */
+interface BuiltExecutor {
+  readonly executor: WorkspaceOperationExecutor;
+  readonly contributions: readonly ExecutorContributionStand[];
+}
+
 /** Was eine Anmeldung auf diesem Rechner hält: ihren eigenen Executor, die Aufträge ihrer Runs und ihre Handler an der Nachrichtenschicht. */
 interface Attachment {
-  readonly executor: WorkspaceOperationExecutor;
+  /** Entsteht mit der Antwort des Servers, welche Beiträge er verlangt; verlangt er nach einer Neuverbindung andere, ersetzt ein neuer ihn. */
+  built: BuiltExecutor | undefined;
+  readonly runsDirectory: string;
   readonly runs: Map<string, WorkspaceProcessContext>;
   readonly release: () => void;
 }
@@ -172,7 +220,7 @@ export class WorkspaceClient {
     this.#set({ kind: "idle" });
     const signingOff = Promise.allSettled([this.#signingOff, this.#announcing]).then(() => this.#signOff());
     this.#signingOff = signingOff;
-    await Promise.all([signingOff, attachment?.executor.shutdown()]);
+    await Promise.all([signingOff, attachment?.built?.executor.shutdown()]);
   }
 
   /** Der Arbeitsplatz bindet immer sich selbst; wo der Server läuft, ändert daran nichts. */
@@ -183,19 +231,44 @@ export class WorkspaceClient {
   /** Jede Anmeldung baut ihren eigenen Executor; einer, den eine Abmeldung beendet hat, wird nie wieder benutzt. */
   #attach(): Attachment {
     if (this.#attachment) return this.#attachment;
-    const runs = new Map<string, WorkspaceProcessContext>();
-    const runsDirectory = this.#identity.runsDirectory;
-    const executor = new WorkspaceOperationExecutor({
-      contextFor: (runId) => contextOf(runs, runId),
-      modules: workspaceExecutorModules({ runFolder: (runId) => runFolderOf(runsDirectory, runId) }),
-    });
     const rpc = this.transport.rpc;
-    const releases = [
-      rpc.handle(workspaceClientContracts.execute, (input, context) => this.#execute(executor, runs, input, context)),
+    const releases: Array<() => void> = [];
+    const attachment: Attachment = {
+      built: undefined,
+      runsDirectory: this.#identity.runsDirectory,
+      runs: new Map(),
+      release: () => { for (const release of releases) release(); },
+    };
+    releases.push(
+      rpc.handle(workspaceClientContracts.execute, (input, context) => this.#execute(attachment, input, context)),
       rpc.onConnected(() => void this.#announce()),
-    ];
-    this.#attachment = { executor, runs, release: () => { for (const release of releases) release(); } };
-    return this.#attachment;
+    );
+    this.#attachment = attachment;
+    return attachment;
+  }
+
+  /** Behält den Executor, solange der Server dieselben Beiträge verlangt; sonst baut es einen neuen aus den Bundles dieses Rechners und beendet den alten. */
+  async #built(attachment: Attachment, wanted: readonly ExecutorContributionStand[]): Promise<BuiltExecutor> {
+    const current = attachment.built;
+    if (current && sameContributions(current.contributions, wanted)) return current;
+    const contributions = await loadedContributions(this.options.hostRoot(), wanted);
+    const built: BuiltExecutor = {
+      executor: new WorkspaceOperationExecutor({
+        contextFor: (runId) => contextOf(attachment.runs, runId),
+        modules: workspaceExecutorModules({
+          runFolder: (runId) => runFolderOf(attachment.runsDirectory, runId),
+          contributions: contributions.map((contribution) => contribution.parts),
+        }),
+      }),
+      contributions: contributions.map(({ plugin, stand }) => ({ plugin, stand })),
+    };
+    if (attachment !== this.#attachment) {
+      await built.executor.shutdown();
+      throw new Error("Der Arbeitsplatz hat sich inzwischen abgemeldet");
+    }
+    attachment.built = built;
+    await current?.executor.shutdown();
+    return built;
   }
 
   /** Wartet auf den Ereignisstrom; ohne ihn nimmt der Server die Anmeldung nicht an. */
@@ -219,10 +292,20 @@ export class WorkspaceClient {
     return this.#announcing;
   }
 
-  /** Eine Antwort, die erst nach einer Abmeldung ankommt, ändert den Zustand nicht mehr. */
+  /** Erst die Beiträge, die der Server verlangt, dann die Anmeldung mit dem Executor daraus; eine Antwort nach einer Abmeldung ändert den Zustand nicht mehr. */
   async #send(): Promise<void> {
     const attachment = this.#attachment;
+    if (!attachment) return;
     try {
+      const wanted = await this.transport.rpc.call(workspaceContracts.clients.contributions, {
+        label: this.#identity.label,
+        executor: WORKSPACE_EXECUTOR_VERSION,
+      }, { timeoutMs: REGISTER_TIMEOUT_MS }).catch((cause: unknown) => {
+        if (!(cause instanceof RpcError) || cause.code !== RPC_ERROR_CODES.methodNotFound) throw cause;
+        throw new Error(`Der Server kennt ${workspaceContracts.clients.contributions.id} nicht; er ist älter als dieser Arbeitsplatz `
+          + `mit dem Executor ${WORKSPACE_EXECUTOR_VERSION}. Den Server auf die Fassung des Arbeitsplatzes aktualisieren.`);
+      });
+      const { contributions } = await this.#built(attachment, wanted);
       await this.transport.rpc.call(workspaceContracts.clients.register, {
         id: this.#identity.id,
         label: this.#identity.label,
@@ -230,7 +313,9 @@ export class WorkspaceClient {
         platform: this.#identity.platform,
         folders: [...this.#identity.folders],
         runsDirectory: this.#identity.runsDirectory,
+        ripgrep: ripgrepAvailable(this.options.rg, process.env),
         executor: WORKSPACE_EXECUTOR_VERSION,
+        contributions: contributions.map((contribution) => ({ ...contribution })),
       }, { timeoutMs: REGISTER_TIMEOUT_MS });
       if (attachment === this.#attachment) this.#set({ kind: "registered" });
     } catch (cause) {
@@ -247,17 +332,14 @@ export class WorkspaceClient {
   }
 
   /** Der Entwickler arbeitet auf seinem Arbeitsplatz mit seinen eigenen Zugangsdaten und seiner ganzen Umgebung; HOME bleibt sein Home. */
-  async #execute(
-    executor: WorkspaceOperationExecutor,
-    runs: Map<string, WorkspaceProcessContext>,
-    input: ExecuteInput,
-    context: RpcHandlerContext,
-  ): Promise<{ value: unknown }> {
-    if (input.operation === WORKSPACE_CLIENT_STOP_OPERATION) return this.#stop(executor, runs, input.runId);
+  async #execute(attachment: Attachment, input: ExecuteInput, context: RpcHandlerContext): Promise<{ value: unknown }> {
+    if (input.operation === WORKSPACE_CLIENT_STOP_OPERATION) return this.#stop(attachment, input.runId);
     const cwd = await this.#inside(input.cwd, input.runId);
     const root = await realPathOf(cwd);
-    if (executor !== this.#attachment?.executor) throw new Error("Der Arbeitsplatz hat sich inzwischen abgemeldet");
-    runs.set(input.runId, workspaceProcessContext({
+    if (attachment !== this.#attachment) throw new Error("Der Arbeitsplatz hat sich inzwischen abgemeldet");
+    const executor = attachment.built?.executor;
+    if (!executor) throw new Error("Der Arbeitsplatz ist beim Server noch nicht angemeldet");
+    attachment.runs.set(input.runId, workspaceProcessContext({
       runId: input.runId,
       cwd,
       root,
@@ -267,6 +349,7 @@ export class WorkspaceClient {
       additions: input.env,
       baseEnvironment: "inherited",
       ...(this.options.bash === undefined ? {} : { bash: this.options.bash }),
+      ...(this.options.rg === undefined ? {} : { rg: this.options.rg }),
     }));
     const startedAt = Date.now();
     let failure: string | undefined;
@@ -293,11 +376,11 @@ export class WorkspaceClient {
   }
 
   /** Der Stopp braucht keinen Ordner: er gibt frei, was der Run hält, auch wenn sein Ordner nicht mehr angeboten wird. */
-  async #stop(executor: WorkspaceOperationExecutor, runs: Map<string, WorkspaceProcessContext>, runId: string): Promise<{ value: null }> {
+  async #stop(attachment: Attachment, runId: string): Promise<{ value: null }> {
     try {
-      await executor.stopRun(runId);
+      await attachment.built?.executor.stopRun(runId);
     } finally {
-      runs.delete(runId);
+      attachment.runs.delete(runId);
     }
     return { value: null };
   }

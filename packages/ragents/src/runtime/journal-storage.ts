@@ -8,10 +8,10 @@ import { isRunId } from "../domain/portable-id.ts";
 import { syncDirectory } from "./durable-fs.ts";
 import type { CommandRecord, JournalCommand } from "./journal.ts";
 
-/** Rises whenever an older stand would reject newly written lines; format 7 stays readable because it only lacks the input origin. */
-export const journalStorageVersion = 8;
+/** Rises whenever an older stand would reject newly written lines; formats 7 and 8 stay readable because they only lack the input origin and the compaction threshold. */
+export const journalStorageVersion = 9;
 const oldestReadableJournalStorageVersion = 7;
-const readableJournalStorageVersions: readonly unknown[] = [oldestReadableJournalStorageVersion, journalStorageVersion];
+const readableJournalStorageVersions: readonly unknown[] = [oldestReadableJournalStorageVersion, 8, journalStorageVersion];
 export const journalPayloadThresholdBytes = 4096;
 
 type PayloadReference = { sha256: string; bytes: number };

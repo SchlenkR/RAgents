@@ -36,7 +36,7 @@ export type AgentRuntimeManagerOptions = {
         context: AgentRuntimeContext,
         signal: AbortSignal,
     ) => readonly AgentHook[] | Promise<readonly AgentHook[]>;
-    /** Compaction, retry and provider request limits; unset values keep the defaults. */
+    /** Retry and provider request limits; unset values keep the defaults. Compaction comes from the model. */
     settings?: AgentSettingsInput;
     turnAbortTimeoutMs?: number;
     onDiagnostic?: (diagnostic: AgentRuntimeDiagnostic) => void;

@@ -54,7 +54,8 @@ Runs can use its file, shell, and language-server tools, restricted to the folde
 window.
 
 Node.js 22 and npm are required. A source checkout also requires Git, pnpm, and installed
-dependencies. Windows is implemented but has only been tested with unit tests that
+dependencies. The extension builds for Windows, macOS, and Linux bring ripgrep (`rg`) for fast
+code search. Windows is implemented but has only been tested with unit tests that
 simulate the platform; the Windows build of the extension brings its own bash with the GNU tools
 and uses your own Git.
 

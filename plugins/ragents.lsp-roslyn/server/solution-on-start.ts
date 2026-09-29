@@ -8,6 +8,7 @@ import type { SandboxServices } from "@ragents/host/plugin-support/workspace-san
 import { DISMISSED_ANSWER, type AskService } from "@ragents/plugins/ragents.ask/server/contract.js";
 
 export const SOLUTION_ON_START_VARIABLE = "ROSLYN_SOLUTION_ON_START";
+export const SOLUTION_PREFERRED_VARIABLE = "ROSLYN_SOLUTION_PREFERRED";
 export const NO_SOLUTION = "Keine laden";
 export const SOLUTION_QUESTION = "Welche Solution soll Roslyn für die Diagnostik laden?";
 
@@ -21,11 +22,21 @@ export type SolutionAnswer =
   | { kind: "open"; path: string }
   | { kind: "forward" };
 
-/** Was jemand schon geöffnet hat oder gerade öffnet, bleibt ohne Frage und ohne zweites Laden. */
-export const solutionStartStep = (listing: LanguageServerSolutions): SolutionStartStep => {
+/** Die Vorgabe passt auch in einem Unterordner, etwa wenn der Arbeitsbereich der Ordner über dem Checkout ist. */
+const matchesPreferred = (solution: string, preferred: string): boolean => {
+  const path = solution.toLowerCase();
+  const expected = preferred.toLowerCase();
+  return path === expected || path.endsWith(`/${expected}`);
+};
+
+/** Was jemand schon geöffnet hat oder gerade öffnet, bleibt ohne Frage und ohne zweites Laden; passt die Vorgabe, zählen nur die passenden Solutions. */
+export const solutionStartStep = (listing: LanguageServerSolutions, preferred?: string): SolutionStartStep => {
   if (listing.opened || listing.solutions.length === 0) return { kind: "none" };
-  if (listing.solutions.length === 1) return { kind: "open", path: listing.solutions[0].path };
-  return { kind: "ask", options: [...listing.solutions.map((solution) => solution.path), NO_SOLUTION] };
+  const paths = listing.solutions.map((solution) => solution.path);
+  const matching = preferred === undefined ? [] : paths.filter((path) => matchesPreferred(path, preferred));
+  const candidates = matching.length > 0 ? matching : paths;
+  if (candidates.length === 1) return { kind: "open", path: candidates[0] };
+  return { kind: "ask", options: [...candidates, NO_SOLUTION] };
 };
 
 /** Eine frei formulierte Antwort bekommt der Koordinator, damit sie nicht verloren geht. */
@@ -38,6 +49,7 @@ export const solutionAnswer = (options: readonly string[], answer: string): Solu
 export interface SolutionOnStartOptions {
   pluginId: string;
   adapterId: string;
+  preferred?: string;
   sandbox: () => SandboxServices;
   runtime: () => Orchestration;
   ask: () => AskService;
@@ -45,7 +57,7 @@ export interface SolutionOnStartOptions {
 
 const messageOf = (error: unknown): string => error instanceof Error ? error.message : String(error);
 
-/** Lädt beim Start ohne Run-Script die einzige Solution oder fragt bei mehreren; der Merker im Journal lässt das je Run höchstens einmal zu. */
+/** Lädt beim Start ohne Run-Script die Vorgabe oder die einzige Solution oder fragt bei mehreren; der Merker im Journal lässt das je Run höchstens einmal zu. */
 export interface SolutionOnStart {
   lifecycle: SessionLifecycleContribution;
   /** Jemand hat eine Instanz geöffnet; eine noch offene Startfrage erledigt sich damit ohne Laden und ohne Input. */
@@ -78,7 +90,7 @@ export const createSolutionOnStart = (options: SolutionOnStartOptions): Solution
 
   const begin = async (runId: string, ownerId: string, coordinatorId: string, signal: AbortSignal): Promise<{ rest: Promise<void> }> => {
     const listing = await options.sandbox().execute(runId, languageServerSolutionsOperation(options.adapterId), null, { signal }) as LanguageServerSolutions;
-    const step = solutionStartStep(listing);
+    const step = solutionStartStep(listing, options.preferred);
     if (step.kind === "none") return { rest: Promise.resolve() };
     if (step.kind === "open") return { rest: load(runId, step.path, true, signal) };
     const answer = options.ask().ask(

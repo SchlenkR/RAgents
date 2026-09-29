@@ -1,5 +1,263 @@
 # Entscheidungen
 
+## Sprachserver und Browser kommen als Beitrag zum Executor aus ihren Plugins (29.09.2026)
+
+Kapitel: `docs/spec/plugins.md` (Plugin contract, Zuständigkeit je Facette, Build and ship a
+plugin, Bundle, Bauwerkzeug und Host-API, Arbeitsbereich, Sandbox-Werkzeuge und Prozesse mit dem
+neuen Abschnitt Beiträge zum Executor, Provisionierung je Plugin, Language-Server-Plugins,
+Browserprüfungen, Offene Grenzen), `docs/development.md` (Welcher Ordner enthält was, Was über
+Plugins geht), `docs/operations.md` (Arbeitsplatz), `docs/usage.md` (Server-Seite der Erweiterung).
+Hebt Punkt (6) von "Ein Arbeitsplatz-Executor, überall derselbe" (20.09.2026) auf.
+
+**Warum so.** Die drei Language-Server-Plugins waren nur dem Namen nach Plugins: Start, Wurzeltyp,
+Laden und Endungen von Roslyn, FSAC und TypeScript lagen im Executor, fest verdrahtet in
+`workspaceExecutorModules()`, samt dem `.sln`-Leser; ihre Namen und Konstanten standen in der
+Host-API, die Provisionierung des Arbeitsplatzes nannte `ragents.lsp-roslyn`, `ragents.lsp-fsharp`
+und `ragents.browser` in einer festen Liste, und der Browser der Browserprüfung saß ebenso im
+Executor. Eine weitere Sprache hätte Executor, Host-API, Provisionierung und die VS-Code-Erweiterung
+geändert. Vorgabe des Owners: der Kern (Engine, Server, Executor, Erweiterung, Web) kennt nie ein
+Werkzeug, eine Sprache oder einen Sprachserver; eine neue Sprache, etwa Java, ist nur ein Plugin.
+Punkt (6) wollte, dass jeder Executor dieselbe Menge anbietet; das leistet jetzt die Prüfung bei der
+Anmeldung, ohne dass der Kern die Menge kennt.
+
+**Festlegung.** (1) Ein Plugin kann neben `server/`, `web/` und `provision.ts` eine `executor.ts`
+(oder `executor/index.ts`) tragen, die `executor: WorkspaceExecutorContribution` exportiert: eine
+Funktion der Maschine, die `languageServers` und `modules` liefert. Die Maschine
+(`WorkspaceExecutorMachine`) gibt ihr den Werkzeugordner des Plugins, Dateien aus den Paketen des
+Hosts, die geprüfte Wurzelauflösung, fachliche Fehler und die Umgebung eigener Prozesse. Das
+Bauwerkzeug baut daraus `executor/index.mjs` ohne `splitting`; ein Import eines Host-Moduls oder
+eines anderen Plugins ist dort ein Baufehler, Typen sind frei. Das Manifest nennt die Datei unter
+`executor` (Format 4). (2) Im Server lädt `loadPlugins` die Beiträge mit den Bundles, Stand ist der
+SHA-256 der Datei; der Composer baut sie für den Datenordner des Servers und stellt sie als
+`executorContributionsToken` bereit, `ragents.workspace` baut damit den Executor des Servers. Die
+Reihenfolge von Konstruktor und Registrierung ist damit kein Problem mehr: die Beiträge sind Daten
+der Bundles und stehen fest, bevor ein Plugin registriert. (3) Ein Arbeitsplatz fragt vor der
+Anmeldung `ragents.workspace.clients.contributions`, lädt genau diese Beiträge aus den Bundles
+seines eigenen Hosts im verlangten Stand, baut seinen Executor daraus und meldet sich mit der Liste
+an; der Server vergleicht (`workspace-executor-contributions`, 409). Ein fehlender Host, ein
+fehlendes Bundle oder ein anderer Stand lassen die Anmeldung mit Ursache scheitern. Verlangt der
+Server nach einer Neuverbindung andere Beiträge, ersetzt ein neuer Executor den alten. Weil die
+Anmeldung ein neues Pflichtfeld und eine neue Methode hat, ist der Executor-Stand 7. (4)
+`WORKSPACE_PROVISION_PLUGINS` entfällt: ein Arbeitsplatz provisioniert die eingebauten Plugins seines
+Hosts, deren Bundle einen Beitrag trägt, samt den Bundles, die sie zum Laden brauchen. (5) Die
+Adapter mit ihren Konstanten liegen in `plugins/ragents.lsp-*/executor.ts`, der `.sln`-Leser im
+F#-Plugin, der kleine `dotnet`-Aufruf je in den beiden .NET-Plugins; der Browser mit
+`browser.*`, Seiten und Playwright-Start liegt in `plugins/ragents.browser/executor/`.
+`createLanguageServerPlugin` nimmt nur noch die Beschreibung (`LanguageServerDescription`). Die
+Host-API 7 verliert Adapter, Konstanten und Browsernamen und bekommt `executorContributionsToken`.
+(6) `apps/server/tests/core-boundary.test.ts` läuft mit `build/check.sh` und scheitert, sobald
+Engine, Server außerhalb von `plugin-support`, Executor, Erweiterung oder Web eine Plugin-Kennung
+oder einen Sprachserver nennt; sechs ältere Stellen sind als Liste eingefroren und stehen in
+`TODO.md`. Geprüft ist das Laden auch unter der Electron-Laufzeit von VS Code: ein wie die
+Erweiterung gebautes CommonJS-Bundle lädt alle drei Beiträge per `import()`.
+
+**Verworfen.** Deklarative Adapterdaten, die der Server dem Arbeitsplatz schickt: FSAC muss die
+`.sln` lesen, um die Projekte zu finden, Roslyn und FSAC haben eigene Schritte beim Laden
+(Benachrichtigungen, `fsharp/workspaceLoad`); das verlangte eine kleine Sprache für Start und
+Laden. Den Beitrag als Export von `server/index.js`, geladen über den Auflösungshaken des Hosts: der
+Extension-Host von VS Code hat weder tsx noch den Haken, und ein Haken dort gälte für alle
+Erweiterungen im Prozess. Die Beiträge auf dem Arbeitsplatz in einem Kindprozess aus dem
+Host-Paket laufen zu lassen: eine zweite Prozessgrenze mit eigenem Lebenszyklus und eigener
+Anmeldung, unnötig, sobald die Datei in sich geschlossen ist. Die Datei vom Server an den
+Arbeitsplatz zu schicken: Code und Provisionierung eines Plugins kämen dann aus zwei Quellen. Den
+Stand des ganzen Bundles zu vergleichen: jede Änderung der Server-Hälfte machte Arbeitsplätze
+unverträglich, deren Executor gleich bliebe. Die Hilfen des Executors (Wurzelauflösung, Auflösung
+aus dem Host) über die Host-API zu importieren: dann wäre die Datei nicht mehr in sich geschlossen.
+Den Browser im Executor zu lassen: dann hätte die Provisionierung des Arbeitsplatzes ihn weiter
+nennen müssen.
+
+## Vorgabe-Solution des Profils lädt ohne Frage (29.09.2026)
+
+Kapitel: `docs/spec/plugins.md` (Language-Server-Plugins, Solution beim Start).
+
+**Warum so.** Ein Profil, dessen Arbeitsbereiche immer mehrere Solutions tragen und von denen
+immer dieselbe die richtige ist, fragte beim Start jedes Runs nach der Solution. Vorgabe des
+Owners: in solchen Arbeitsbereichen keine Frage, in allen anderen weiter die Frage bei mehreren.
+Welche Solution die richtige ist, weiß nur das Profil; das Roslyn-Plugin bleibt ohne Wissen über
+Projekte.
+
+**Festlegung.** `ROSLYN_SOLUTION_PREFERRED` in der Sektion `ragents.lsp-roslyn` nennt einen Pfad
+innerhalb eines Checkouts. Es passen die Solutions aus `roslyn_solutions`, deren Pfad ihm gleicht
+oder auf `/<Vorgabe>` endet, ohne Rücksicht auf Groß- und Kleinschreibung, weil manche den Ordner
+über dem Checkout oder über mehreren Worktrees öffnen. Genau eine passende lädt der Start mit
+`ifNoneOpen` wie eine einzige Solution; mehrere passende führen zur Frage nur mit ihnen; passt
+keine, bleibt alles wie bisher. Die Vorgabe ohne
+`ROSLYN_SOLUTION_ON_START: "on"`, ein absoluter Pfad oder einer mit Backslash bricht den Start ab,
+weil sie sonst still nie greifen würde. Belegt durch `roslyn-solution-on-start.test.ts`.
+
+**Verworfen.** Die Vorgabe an den Projektkontext eines anderen Plugins zu hängen (das
+Roslyn-Plugin müsste einen fremden Dienst kennen, und der Start hinge an der Reihenfolge zweier
+Start-Haken); die Erkennung über den Git-Remote `origin` (ein Ordner über den Checkouts ist
+selbst kein Repository, und der Pfad der Solution im Checkout ist ohnehin fest); mehrere
+Vorgaben als Liste (bisher braucht niemand mehr als eine).
+
+## Bash hält nach 120 Sekunden an, ein Arbeitsplatz mit anderem Stand erfährt ihn (29.09.2026)
+
+Kapitel: `docs/spec/plugins.md` (Bash-Ergebnis, Anmeldung eines Arbeitsplatzes, Offene Grenzen),
+`docs/operations.md` (Zeitgrenze von `bash`, Isolation je Run), `docs/usage.md` (Run panel and VS
+Code extension).
+
+**Warum so.** Ein `grep -r` über einen Quellbaum samt `node_modules` lief auf einem langsamen
+Windows-Arbeitsplatz minutenlang; der Benutzer sah nicht, ob noch etwas geschah, und musste den
+Turn abbrechen. Der Executor hatte eine Vorgabe von 600 Sekunden (`RAGENTS_BASH_TIMEOUT_SECONDS`),
+die Beschreibung des Werkzeugs sagte dem Modell dagegen "no default timeout", und das Werkzeug ließ
+bis zu 2^31 Millisekunden zu. Claude Code hält einen Befehl nach 120 Sekunden an und erlaubt
+höchstens 600; für Builds und Tests nennt das Modell selbst eine längere Zeit. Dazu kam ein
+zweiter Fehler: Seit Stand 6 (ripgrep) verlangt die Anmeldung eines Arbeitsplatzes das Feld
+`ripgrep`. Ein Arbeitsplatz mit Executor 5 sendet es nicht, und der Dispatcher lehnte ihn mit
+"Ungültige Eingabe für ragents.workspace.clients.register: params is missing required field
+ripgrep" ab, bevor der Handler den Stand vergleichen und die verständliche Meldung geben konnte.
+
+**Festlegung.** `bash` hat eine Vorgabe von 120 und eine Obergrenze von 600 Sekunden, beide im
+Werkzeug (`BASH_DEFAULT_TIMEOUT_SECONDS`, `BASH_MAX_TIMEOUT_SECONDS` in
+`packages/agent/src/core/tools/bash.ts`). Beschreibung und Schema nennen beide (`default`,
+`maximum`), und die Beschreibung sagt, dass Builds, Testläufe, Installationen und andere lange
+Befehle einen größeren `timeout` brauchen. Mehr als 600 ist ein Eingabefehler: die Engine lehnt
+ihn am Schema ab, das Werkzeug prüft dasselbe für Aufrufe ohne Engine. Die Operationen bekommen die
+Zeitgrenze immer (`timeout` ist in `BashOperations.exec` Pflicht); die eigene Vorgabe des Executors
+und die Grenze der lokalen Shell entfallen. Läuft die Zeit ab, trägt der Fehler die bisherige
+Ausgabe und "Command stopped after N seconds (timeout). Narrow the command, for example search
+with rg instead of grep -r, or pass a larger timeout, up to 600 seconds."; an der Obergrenze steht
+statt des größeren `timeout` das Aufteilen in kürzere Schritte. Der Server setzt die Vorgaben des
+Schemas in jeden Aufruf des Modells ein, bevor er ihn an einen Executor gibt (`Value.Default` in
+`WorkspaceSandboxHost`): so gilt die Zeitgrenze, die das Modell sieht, auf jedem Rechner, auch wenn
+ein Arbeitsplatz eine andere Fassung der Agentenlaufzeit trägt, und der Fußabdruck kennt sie als
+`durationMs`. `RAGENTS_BASH_TIMEOUT_SECONDS` bleibt die Vorgabe des Betreibers, jetzt deklariert in
+der Sektion `ragents.workspace` neben `RAGENTS_BASH` und `RAGENTS_RG` und beim Start gelesen. Sie
+darf die Obergrenze nicht überschreiten, sonst bricht der Start ab: eine Vorgabe über der Grenze,
+die ein Aufruf nennen darf, widerspräche ihr. Ein Arbeitsplatz liest die Variable nicht mehr.
+
+Die Eingabe von `ragents.workspace.clients.register` ist eine Vereinigung aus der vollständigen
+Anmeldung (`clientRegistrationSchema`) und einer Anmeldung mit anderem Stand, die nur `label` und
+`executor` verlangt und beliebige weitere Felder trägt. Der Handler prüft zuerst den Stand; ein
+anderer scheitert mit `workspace-executor-version` und sagt, was zu aktualisieren ist: bei einem
+älteren Arbeitsplatz die RAgents-Erweiterung beziehungsweise `@schlenkr/ragents` dort, bei einem
+neueren den Server. Mit dem Stand des Servers prüft der Handler die vollständige Form und lehnt eine
+unvollständige Eingabe ab wie der Dispatcher (`-32602`, dieselbe Meldung); ein Arbeitsplatz, der
+den aktuellen Stand behauptet, aber `ripgrep` nicht sendet, scheitert also weiter hart. Das trägt
+für jeden künftigen Stand, auch mit neuen oder entfallenen Feldern, ohne Änderung am Vertrag. Ein
+eigener Stand 7 ist nicht nötig, solange die neue Zeitgrenze mit Stand 6 zusammen mit ripgrep
+ausgeliefert wird.
+
+**Verworfen.** Nur die Beschreibung zu korrigieren und 600 Sekunden als Vorgabe zu lassen: eine
+hängende Suche hielte den Turn weiter zehn Minuten. Keine Vorgabe, nur eine Obergrenze: ein
+vergessener `timeout` hielte ihn genauso lange. Eine Vorgabe des Betreibers über der Obergrenze, die
+diese mit anhebt: ein Aufruf dürfte dann weniger verlangen als die Vorgabe, und das Modell läse zwei
+Zahlen, die einander widersprechen. Die Vorgabe beim Executor jeder Maschine: ein Arbeitsplatz
+wendete seine eigene an, während das Modell die des Servers im Schema liest. Lange Befehle mit
+`nohup ... &` in den Hintergrund zu legen: der Executor räumt die Prozessgruppe nach jedem Aufruf
+ab. Für die Anmeldung
+`ripgrep` optional zu machen: das behöbe nur dieses Feld, der nächste Stand hätte dasselbe Problem,
+und das Schema sagte für den aktuellen Stand die Unwahrheit. Den Stand des Servers als `const` und
+den anderen als `not` in den Vertrag zu schreiben: `contract.ts` gehört auch zur Web-Hälfte, die den
+Executor nicht importieren darf, und ein Vertrag je Stand hätte Server, Arbeitsplatz und Tests
+umgebaut. Eine Vorprüfung im Dispatcher vor dem Schema: ein neuer Erweiterungspunkt der Engine für
+einen einzigen Nutzer. Nachgewiesen mit `packages/agent/tests/bash.test.ts`,
+`apps/server/tests/bash-timeout.test.ts`, `apps/server/tests/sandbox-process-groups.test.ts`,
+`apps/server/tests/workspace-clients.test.ts` und `apps/vscode/tests/workspace-client.test.ts`.
+
+## Kompaktierungswerte gehören zum Modell (28.09.2026)
+
+Kapitel: `docs/spec/core.md` (Model context across turns, Was ins Journal geht, Wiederholung und
+Kompaktierung, Dateiformat), `docs/spec/profiles.md` (Relay-Anbieter und Aliasse),
+`docs/spec/plugins.md` (Modell-Relay), `docs/operations.md` (Configure model access and start,
+Kompaktierung des Modellkontexts), `docs/usage.md` (Wählbares Modell), `docs/development.md`
+(Journalbeispiel), `packages/agent/README.md`. Vorgabe des Owners: Die Schwelle muss ein
+Modellparameter sein, ausdrücklich keine globale absolute Obergrenze.
+
+**Warum so.** Kompaktiert wurde ab `contextWindow - reserveTokens`, mit dem Kontextfenster aus dem
+Katalog und hostweit einstellbar über `AGENT_COMPACTION_RESERVE_TOKENS` und
+`AGENT_COMPACTION_KEEP_RECENT_TOKENS`. Der Katalog nennt aber das größte Fenster über alle Anbieter
+eines Modells: `qwen/qwen3.8-27b` hat dort 1000000 Token, 14 von 16 Anbietern bei OpenRouter nur
+262144. Ein Run verdichtete deshalb erst bei rund 984000 Token und wechselte oberhalb von 262144
+still zu einem der beiden großen Anbieter, mit anderem Preis und ohne Cache. Eine hostweite Zahl
+hilft nicht, weil ein Profil Modelle mit sehr verschiedenen Fenstern nebeneinander anbietet.
+
+**Festlegung.** Ein Modell trägt optional eigene Werte (`Model.compaction`, Typ `ModelCompaction`
+in `packages/ai/src/types.ts`, ein Eingriff in die gegabelte Laufzeit): `threshold`, die absolute
+Tokenzahl, ab der verdichtet wird, `keepRecentTokens`, der wörtlich behaltene Rest, und
+`summaryTokens`, das Budget der Zusammenfassung anstelle von 80 Prozent der Reserve. Die
+Zusammenfassung vom Anfang eines geteilten Turns bekommt fünf Achtel davon, das Verhältnis der
+beiden bisherigen Budgets (0,5 und 0,8 der Reserve). `AgentTurn` wendet die Werte des Modells an,
+das den Turn ausführt (`compactionOf` in `packages/agent`); ein Modellwechsel gilt ab dem nächsten
+Turn und damit schon für dessen Prüfung vor dem ersten Schritt. Ein Modell ohne eigene Werte hat
+den Katalog-Standard, genau die bisherigen Regeln: Schwelle `contextWindow - 16384`,
+`keepRecentTokens` 20000, Zusammenfassung 13107 und Turn-Anfang 8192 Token. `MODEL_ALIASES` ist eine
+Liste von Objekten `{ alias, model: "anbieter/modell", thinking?, compaction }` mit `compaction` als
+Pflicht (Typ `ProfileModelAlias`); die Zeichenkettenform mit `=` und `@` entfällt. Geprüft wird an
+einer Stelle, `compactionProblem` in `packages/agent`: beim Lesen der Liste, beim Start gegen das
+Katalogziel, in `ModelRuntime.registerAliases` und für jede Modelldefinition mit Werten in
+`registerProvider`. Die Regeln: drei positive ganze Zahlen; `keepRecentTokens + summaryTokens`
+unter `threshold`, damit eine Verdichtung klar unter der Schwelle endet; `threshold +
+summaryTokens` unter dem Kontextfenster, damit die Anfrage für die Zusammenfassung hineinpasst;
+`summaryTokens` höchstens die Ausgabegrenze des Ziels, statt wie bisher still gekappt zu werden.
+Das Relay gibt die Werte im `catalog`-Block jedes Alias weiter, der Client registriert seine
+Relay-Modelle damit und bricht ohne gültige Werte ab. `context.compacted` trägt `threshold` mit
+`tokens` und `source` (`model` oder `catalog`), `pnpm driver journal` zeigt beides.
+`AGENT_COMPACTION_RESERVE_TOKENS`, `AGENT_COMPACTION_KEEP_RECENT_TOKENS` und
+`AgentSettings.compaction` samt dem nie abgeschalteten `enabled` entfallen. Die Profilverteilung
+lässt in einem Client-Profil Listen von Objekten zu. `core` und `showcase` geben ihren
+Relay-Aliassen Werte unter dem Fenster der üblichen Anbieter.
+
+**Journalformat 9.** Das Feld ist optional; Zeilen älterer Formate tragen es nie und bleiben
+lesbar. Ein älterer Stand prüft `context.compacted` aber mit festen Schlüsseln und würde eine neue
+Zeile ablehnen; nach der Regel in `core.md` steigt die Nummer deshalb, damit er an der
+Formatversion scheitert statt an einem unbekannten Feld. Ein optionales Feld allein reicht dafür
+nicht. Das Journal schreibt Format 9 und liest 7 bis 9.
+
+**Verworfen.** Eine globale absolute Obergrenze: sie passt nie zu allen Modellen eines Profils.
+Die hostweiten Variablen als zusätzliche Vorgabe: zwei Quellen für dieselbe Zahl. Die Schwelle als
+Anteil am Katalogfenster: der Katalogwert ist genau die falsche Bezugsgröße. Die Anbieterwahl auf
+große Fenster festzulegen: teurer, und die Schwelle bliebe falsch. Eigene Werte beim Relay-Client:
+Server und Client liefen auseinander. Nachgewiesen mit `packages/ragents/tests/agent-runtime.test.ts`
+(Katalog-Standard nach einem Überlauf, Modellwechsel, abgelehnte Werte bei der Registrierung),
+`model-context.test.ts` (Schwelle des Modells), `journal-storage.test.ts` (Format 9),
+`apps/server/tests/model-aliases.test.ts` (Liste, Katalogziel, Laufzeit) und
+`apps/server/tests/model-relay.test.ts` (Relay und Client mit denselben Werten).
+
+## Die Erweiterung bringt ripgrep mit, der Prompt lenkt die Suche danach (28.09.2026)
+
+Kapitel: `docs/spec/plugins.md` (Anmeldung eines Arbeitsplatzes, Promptbeitrag zur
+Shell-Plattform, Bash des Executors, Offene Grenzen), `docs/development.md` (VS-Code-Erweiterung
+veröffentlichen), `docs/operations.md` (Work on Windows), `docs/usage.md` (Run panel and VS Code
+extension), `README.md`.
+
+**Warum so.** Ein Run auf einem zentralen Server arbeitete im Projektordner eines
+Windows-Arbeitsplatzes mit der mitgebrachten MSYS-Bash. Das Modell suchte mit
+`grep -rn "..." src --include=*.ts --include=*.tsx | head` über einen Quellbaum samt
+`node_modules` (3,2 GB, rund 71.000 `.ts`-Dateien). Auf einem Mac dauert das 17 Sekunden, unter
+MSYS auf einem Windows-Notebook lief es minutenlang, bis der Benutzer es abbrach. Die mitgebrachte
+Bash hatte kein `rg`, und der Plattformtext lenkte das Modell nicht auf eine Suche, die
+`.gitignore` achtet; der Text für macOS empfahl `rg` sogar, ohne zu wissen, ob es da ist. Claude
+Code löst dasselbe, indem es ripgrep je Plattform mitbringt. Eigene Suchwerkzeuge neben `bash` sind
+seit dem 02.09.2026 und 18.09.2026 gestrichen, weil `bash` sie abdeckt; also kommt `rg` in die
+Bash.
+
+**Festlegung.** `pnpm bundle:rg` legt ripgrep 15.2.0 aus den Release-Archiven (Fassung, Ziel und
+SHA-256 fest im Skript, unter Linux die statische musl-Fassung) samt `COPYING`, `LICENSE-MIT` und
+`UNLICENSE` nach `apps/vscode/dist/rg/<plattform>`. Gepackt werden sieben VSIX: je eine für
+`win32-x64`, `win32-arm64`, `darwin-arm64`, `darwin-x64`, `linux-x64`, `linux-arm64` mit ihrem
+`rg` (unter Windows dazu der Bash) und die universelle ohne beides für alle übrigen Plattformen.
+`rg` liegt in einem eigenen Ordner je Plattform, nicht im `usr/bin` der Bash, weil es auf allen
+Plattformen mitkommt, die Bash nur unter Windows, und beide Bündel unabhängig gebaut werden. Die
+Erweiterung nennt ihr `rg`, wenn ihre Fassung eines trägt, dem Arbeitsplatz direkt und dem lokalen
+Host als `RAGENTS_RG`; `bashLaunch` setzt seinen Ordner auf jeder Plattform vorn in den `PATH`, ein
+genanntes, das fehlt, ist ein harter Fehler. Ohne Angabe gilt ein `rg` im `PATH`. Der Prompt
+entsteht auf dem Server, die Bash läuft auf dem Executor der Bindung; deshalb meldet ein
+Arbeitsplatz bei der Anmeldung neben der Plattform `ripgrep` (ob seine Bash `rg` findet), der
+Server ermittelt dasselbe für sich beim Start (`ripgrepAvailable`, Host-API um diesen Namen
+ergänzt). Der Plattformtext sagt dann: mit `rg` suchen, mit `rg --files` auflisten, `grep` nur für
+einzelne Dateien und Pipes; ohne `rg` nennt er das Fehlen und verlangt `--exclude-dir` für
+Abhängigkeits- und Build-Ordner. `WORKSPACE_EXECUTOR_VERSION` ist 6, weil das Feld zur Anmeldung
+gehört und ein älterer Arbeitsplatz es nicht meldet.
+
+Verworfen: nur Ausschlusshinweise im Prompt (das Modell vergisst sie, und `grep` unter MSYS bleibt
+auch mit Ausschlüssen langsam); `git grep` (übersieht nicht verfolgte Dateien und geht nur in
+Git-Repositories); das `@vscode/ripgrep` im Programmordner von VS Code (ein interner Pfad, der sich
+mit jeder VS-Code-Fassung ändern kann, und ohne VS Code nicht da); ein eigenes Suchwerkzeug
+(widerspricht der Entscheidung, dass `bash` Suche und Verzeichnislisten abdeckt); `rg` in das
+`usr/bin` der Windows-Bash zu legen (koppelt zwei Bündel und gälte nur für Windows).
+
 ## Eine Nachricht des Menschen beendet eine blockierende Rückfrage (28.09.2026)
 
 Kapitel: `docs/spec/core.md` (Herkunft eines Inputs; Dateiformat, Schreibgrenzen und Wiedergabe),
@@ -171,8 +429,8 @@ letzten Kompaktierung liegt, entscheidet ihre Stelle im Journal statt eines Zeit
 `TurnRequest` verliert `forkOf` und `runtimeDirectory` (mit `Workspaces.runtimeDirectory`) und
 bekommt `modelContext`, `recordContext` und `hookState`. Ein leerer Systemprompt bleibt leer; der
 alte Ersatzprompt der Laufzeit mit Arbeitsverzeichnis entfällt. Der Vorbereitungschat läuft direkt
-auf `Agent`. Kompaktierung ist von außen einstellbar: `AGENT_COMPACTION_RESERVE_TOKENS` und
-`AGENT_COMPACTION_KEEP_RECENT_TOKENS` in Umgebung oder Profil (`host`).
+auf `Agent`. Die Werte der Kompaktierung waren zunächst hostweit einstellbar; seit dem 28.09.2026
+gehören sie zum Modell (Eintrag "Kompaktierungswerte gehören zum Modell").
 
 **Fork heißt kopieren.** Bisher bekam ein Fork den Kontext der Quelle bis zum Spawn, gekürzt vor den
 ersten Werkzeugaufruf ohne Ergebnis und ohne Reasoning-Blöcke. Weil die Quelle beim Spawn meist
@@ -557,8 +815,8 @@ für Clients des Relays (`RELAY_MODELS`); die eigenen Runs eines Servers nannten
 Modellnamen, und die Modellwahl zeigte `openrouter/<modell>`. Das vorhandene Relay taugte dafür
 nicht: Es ist ein HTTP-Weg für andere Server, der eigene Server müsste sich beim Start selbst
 anfragen und einen Token für sich halten. Festgelegt: `MODEL_ALIASES` im Abschnitt `host`
-(`alias=anbieter/modell`, optional `@denktiefe`, `plugin-support/model-aliases.ts`) ist die eine
-Liste; `RELAY_MODELS` entfällt, das Relay bietet genau diese Aliasse an. Der Server registriert sie
+(`plugin-support/model-aliases.ts`, seit dem 28.09.2026 Objekte mit Kompaktierungswerten, Eintrag
+"Kompaktierungswerte gehören zum Modell") ist die eine Liste; `RELAY_MODELS` entfällt, das Relay bietet genau diese Aliasse an. Der Server registriert sie
 unter dem Anbieter `alias` in der einen Modelllaufzeit (`ModelRuntime.registerAliases`, ein Eingriff
 in `packages/agent`): Katalogdaten und Denkstufen kommen vom Ziel, die Anfrage geht mit dem Ziel
 hinaus, jedes Ereignis kommt mit Alias zurück, und frühere Antworten des Alias zählen beim Ziel als

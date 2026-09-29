@@ -1,5 +1,5 @@
 {
-  "version": 6,
+  "version": 7,
   "server": {
     "@ragents/engine": [
       "DomainError",
@@ -239,6 +239,7 @@
       "runManagementToken"
     ],
     "@ragents/host/ragents/host-services": [
+      "executorContributionsToken",
       "hostAddressToken",
       "runGuardToken",
       "runWorkspaceProviderToken",
@@ -266,31 +267,23 @@
       "workflowInstructions"
     ],
     "@ragents/workspace-executor": [
-      "BROWSER_EXECUTABLE_VARIABLE",
-      "BROWSER_OPERATIONS",
       "COMMAND_OPERATIONS",
       "FILE_OPERATIONS",
-      "FSHARP_SERVER_FILE",
-      "FSHARP_SERVER_VARIABLE",
       "PROCESS_OPERATIONS",
-      "ROSLYN_SERVER_FILE",
-      "ROSLYN_SERVER_VARIABLE",
       "RUN_FOLDER_OPERATIONS",
       "RUN_MARKER_ENV",
       "WORKSPACE_EXECUTOR_VERSION",
-      "fsharpAdapter",
       "languageServerOpenOperation",
       "languageServerSolutionsOperation",
       "listDirectory",
       "readTextFile",
-      "roslynAdapter",
+      "ripgrepAvailable",
       "runManagedProcess",
       "safeProcessEnvironment",
       "sandboxRunEnvironment",
       "sandboxedLaunch",
       "shellPlatformText",
       "startManagedService",
-      "typescriptAdapter",
       "watchDirectory"
     ],
     "@ragents/workspace-executor/src/git-config-environment": [
