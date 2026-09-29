@@ -42,7 +42,7 @@ const expectSwitch = async (chat: Locator, messages: Locator = chat) => {
   await messages.locator("time").first().waitFor();
 };
 
-const openPage = async (url: string, errors: string[], viewport = { width: 1100, height: 1400 }): Promise<Page> => {
+const openPage = async (url: string, errors: string[], viewport = { width: 1100, height: 1700 }): Promise<Page> => {
   const browser = await chromium.launch({ headless: true, executablePath: process.env.BROWSER_EXECUTABLE_PATH });
   const page = await browser.newPage({ viewport, reducedMotion: "reduce" });
   page.on("close", () => void browser.close());

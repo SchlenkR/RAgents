@@ -37,7 +37,6 @@ export function ActorChatControls({ actor, view, composerVisible = true, present
     <ChatInputToolbar
       {...attachments}
       disabled={disabledReason !== undefined}
-      layout={presentation === "surface" ? "inline" : "card"}
       maxRows={4}
       onSend={(text, files) => sendActorMessage(view.id, actor.id, text, files)}
       onStop={writable && actor.lifecycle?.kind === "running" ? () => {
