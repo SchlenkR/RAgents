@@ -2,6 +2,7 @@ import { once } from "node:events";
 import { createServer, type IncomingMessage } from "node:http";
 import type { TestContext } from "node:test";
 import {
+  AccessProjectionRegistry,
   ChannelContributionRegistry,
   MethodContributionRegistry,
   RpcPeer,
@@ -48,7 +49,8 @@ export const coreSources = (
   sessions: Partial<CoreMethodSources["sessions"]>,
   overrides: Partial<Omit<CoreMethodSources, "sessions">> = {},
 ): CoreMethodSources => ({
-  plugins: { publicProfile: missing("plugins.publicProfile"), startOptions: new StartOptionContributionRegistry() } as unknown as CoreMethodSources["plugins"],
+  plugins: { publicProfile: missing("plugins.publicProfile"), startOptions: new StartOptionContributionRegistry(), accessProjections: new AccessProjectionRegistry() } as unknown as CoreMethodSources["plugins"],
+  version: "1.0.0",
   global: undefined,
   runOwner: () => undefined,
   runOwnerOnly: () => false,

@@ -164,10 +164,13 @@ export async function activate(context: vscode.ExtensionContext): Promise<RAgent
     const waiting = pendingActions(current);
     panel.badge(waiting, waiting === 1 ? "1 wartende Eingabe" : `${waiting} wartende Eingaben`);
     const connected = connectedCount(current);
-    statusBar.text = `$(plug) RAgents: ${connected} verbunden`;
+    const notices = current.flatMap((snapshot) => snapshot.versionNotice ? [snapshot.versionNotice] : []);
+    const blocking = notices.some((notice) => notice.level === "error");
+    statusBar.text = `${notices.length > 0 ? "$(warning)" : "$(plug)"} RAgents: ${connected} verbunden`;
+    statusBar.backgroundColor = notices.length === 0 ? undefined : new vscode.ThemeColor(blocking ? "statusBarItem.errorBackground" : "statusBarItem.warningBackground");
     statusBar.tooltip = current.length === 0
       ? "Kein Server eingerichtet. Klick: Start"
-      : `${current.map((snapshot) => `${snapshot.connection.name}: ${stateOf(snapshot)}`).join("\n")}\nKlick: Start`;
+      : `${current.map((snapshot) => `${snapshot.connection.name}: ${stateOf(snapshot)}${snapshot.versionNotice ? `\n${snapshot.versionNotice.text}` : ""}`).join("\n")}\nKlick: Start`;
     statusBar.show();
   };
 
@@ -391,6 +394,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<RAgent
   };
 
   const services: SessionServices = {
+    version: packagedHostVersion(context.extensionPath),
     workspaceClient: (transport) => new WorkspaceClient(transport, identity(), {
       hostRoot: knownHost,
       bash: bundledBash(context.extensionPath),
@@ -411,9 +415,31 @@ export async function activate(context: vscode.ExtensionContext): Promise<RAgent
     },
   };
 
+  /** Eine abweichende Fassung meldet sich einmal je Server und Text als Benachrichtigung; die Seiten und die Statusleiste zeigen sie, solange sie besteht. */
+  const shownNotices = new Map<string, string>();
+  const announceVersionNotices = () => {
+    const current = snapshots();
+    for (const name of [...shownNotices.keys()]) {
+      if (!current.some((snapshot) => snapshot.connection.name === name && snapshot.versionNotice?.text === shownNotices.get(name))) shownNotices.delete(name);
+    }
+    for (const snapshot of current) {
+      const notice = snapshot.versionNotice;
+      if (!notice || shownNotices.get(snapshot.connection.name) === notice.text) continue;
+      shownNotices.set(snapshot.connection.name, notice.text);
+      const text = `RAgents (${snapshot.connection.name}): ${notice.text}`;
+      const actions = notice.update === "extension" ? ["Erweiterung zeigen", "Server zeigen"] : ["Server zeigen"];
+      const shown = notice.level === "error" ? vscode.window.showErrorMessage(text, ...actions) : vscode.window.showWarningMessage(text, ...actions);
+      void shown.then((choice) => {
+        if (choice === "Erweiterung zeigen") void vscode.commands.executeCommand("extension.open", context.extension.id);
+        if (choice === "Server zeigen") showPage("connections");
+      });
+    }
+  };
+
   const sessionChanged = () => {
     syncContext();
     panel.render();
+    announceVersionNotices();
   };
 
   const closeConnection = async (name: string) => {

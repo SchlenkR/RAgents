@@ -31,7 +31,13 @@ export type ManagedRunStart = {
   /** Wer die Startoptionen wählt und den Run besitzt: der Benutzer der Anfrage, null ohne Anmeldung. */
   user: ChatUser | null;
 } & ({ kind: "message"; message: string } | { kind: "script"; entryId: string; input: JsonValue }
-  | { kind: "package"; directory: string; input: JsonValue });
+  | {
+    kind: "package";
+    directory: string;
+    input: JsonValue;
+    /** Das Plugin, das das Paket startet; es steht als Besitzer der Vorlage dieses Starts. */
+    owner: string;
+  });
 
 export interface RunManagement {
   /** Mit einem Zugang bleiben nur dessen eigene Runs übrig; ohne ihn ist es die Liste des Servers. */

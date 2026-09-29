@@ -8,6 +8,7 @@ import type { WorkspaceToolNaming } from "./agents/workspace-tools.ts";
 import type { Orchestration } from "./runtime/orchestration.ts";
 import type { AgentDriver } from "./drivers/types.ts";
 import type { JsonValue } from "./domain/json.ts";
+import type { PluginState } from "./domain/model.ts";
 import type { AccessContext } from "./access.ts";
 import type { ChannelContribution, MethodContribution } from "./rpc/contribution.ts";
 
@@ -370,6 +371,22 @@ export interface RegisteredStartOption {
   option: StartOptionContribution;
 }
 
+/** Ein Chat-Ereignis zu einem Plugin-Zustand, ohne die Kennung, die die Projektion schon nennt. */
+export interface PluginChatEvent {
+  type: string;
+  payload?: unknown;
+}
+
+/** Was ein Zugang ohne runs.inspect von einem Plugin-Zustand und dessen Chat-Ereignissen sieht; ohne Projektion sieht er beides unverändert. */
+export interface AccessProjectionContribution {
+  /** Die Kennung des Zustands, wie sie im Journal (`pluginId`) und im Chat-Ereignis steht. */
+  id: string;
+  /** Der sichtbare Zustand; undefined nimmt ihn aus der Run-Ansicht. */
+  state: (entry: PluginState) => JsonValue | undefined;
+  /** Das sichtbare Chat-Ereignis; undefined unterdrückt es. */
+  chatEvent: (event: PluginChatEvent) => PluginChatEvent | undefined;
+}
+
 export interface SessionMetadataContribution {
   id: string;
   /** Ob `describe` den Arbeitsbereich des Runs erreicht; dann ruft der Host es nur für Aufrufer, die ihn erreichen dürfen. */
@@ -432,6 +449,8 @@ export interface PluginRegistration {
   skills: (...contributions: readonly SkillContribution[]) => void;
   startEntries: (...contributions: readonly StartEntryContribution[]) => void;
   startOptions: (...contributions: readonly StartOptionContribution[]) => void;
+  /** Wie Zugänge ohne runs.inspect die Zustände dieses Plugins und ihre Chat-Ereignisse sehen, je Kennung eines Zustands. */
+  accessProjections: (...contributions: readonly AccessProjectionContribution[]) => void;
   functions: (...functions: readonly (RunFunction | ToolContributor)[]) => void;
   script: (...contributions: readonly ScriptContribution[]) => void;
 }

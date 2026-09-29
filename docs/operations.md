@@ -586,7 +586,11 @@ der Plugins zum Executor, etwa die Sprachserver und den Browser: der Server nenn
 Anmeldung, der Arbeitsplatz lädt sie aus den Bundles seines eigenen Hosts. Kennt er keinen Host,
 fehlt dort ein Bundle oder hat es einen anderen Stand, scheitert die Anmeldung mit dieser Ursache;
 dann den Host des Arbeitsplatzes (`ragents.hostPath` oder das Paket) auf die Fassung des Servers
-bringen. Die VS-Code-Erweiterung zeigt die Meldung am Server als "Arbeitsplatz nicht angemeldet".
+bringen. Die VS-Code-Erweiterung zeigt eine solche Ablehnung als Fehler "RAgents-Fassung passt
+nicht" samt ihrer eigenen Fassung, der des Servers und der Seite, die zu aktualisieren ist, und
+eine abweichende Fassung bei angenommenem Arbeitsplatz als Warnung ([usage.md](usage.md), Run
+panel and VS Code extension); die Fassung nennt der Server im Bootstrap (`version` in
+`ragents.plugins.bootstrap`).
 Der Arbeitsplatz liest die Werkzeuge dieser Beiträge aus seiner eigenen
 Prozessumgebung, nicht aus dem Profil des Servers: der Start ruft `pnpm provision --workspace`,
 legt Roslyn und fsautocomplete unter `~/.local/share/ragents/workspace/tools/<plugin-id>/` ab und

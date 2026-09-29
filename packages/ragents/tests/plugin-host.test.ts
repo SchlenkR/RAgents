@@ -3,6 +3,7 @@ import test from "node:test";
 import { Type } from "typebox";
 
 import {
+    AccessProjectionRegistry,
     AgentContributionRegistry,
     LifecycleContributionRegistry,
     OperationContributionRegistry,
@@ -443,6 +444,47 @@ test("start options validate their contribution, defaults and accepted values ag
         () => registry.defaultValue("example.broken", { runId: "run-1", userId: null }),
         /Ungültiger Standardwert für Startoption example\.broken/,
     );
+});
+
+test("access projections apply per state id to viewers without runs.inspect; start options with rights hide their value first", () => {
+    const options = new StartOptionContributionRegistry();
+    const open = {
+        id: "example.open",
+        schema: Type.String(),
+        selectable: () => true,
+        defaultValue: () => "value",
+        accept: (value: unknown) => String(value),
+        describe: () => ({ kind: "text" }),
+    };
+    options.register("example.product", [open, { ...open, id: "example.technical", rights: ["runs.inspect"] }]);
+    const registry = new AccessProjectionRegistry(options);
+    registry.register("example.board", [{
+        id: "example.board",
+        state: (entry) => ({ title: (entry.state as { title: string }).title, at: entry.updatedAt }),
+        chatEvent: (event) => event.type === "state-replaced" ? { type: event.type, payload: { title: "Board" } } : undefined,
+    }]);
+    assert.throws(() => registry.register("example.other", [{ id: "example.board", state: () => null, chatEvent: () => undefined }]), /Zugriffsprojektion example\.board wird bereits von example\.board bereitgestellt/);
+    assert.throws(() => registry.register("example.other", [{ id: "example.broken", state: () => null } as never]), /Zugriffsprojektion example\.broken hat kein chatEvent/);
+
+    const plain = { can: (right: string) => right === "runs.read" };
+    const inspecting = { can: () => true };
+    const entry = (pluginId: string, state: { title: string; secret?: string }) => ({ pluginId, scope: { kind: "run" as const }, state, updatedAt: "now" });
+    const board = entry("example.board", { title: "Board", secret: "hidden" });
+    assert.deepEqual(registry.state(board, plain), { ...board, state: { title: "Board", at: "now" } });
+    assert.equal(registry.state(board, inspecting), board);
+    assert.equal(registry.state(entry("example.technical", { title: "hidden" }), plain), undefined);
+    const visible = entry("example.open", { title: "open" });
+    assert.equal(registry.state(visible, plain), visible);
+    const unknown = entry("example.unknown", { title: "Unknown", secret: "kept" });
+    assert.equal(registry.state(unknown, plain), unknown, "ohne Projektion bleibt der Zustand");
+
+    const chat = { kind: "plugin" as const, pluginId: "example.board", type: "state-replaced", payload: { state: { secret: "hidden" } }, at: "now" };
+    assert.deepEqual(registry.chatEvent("example.board", chat, plain), { ...chat, payload: { title: "Board" } });
+    assert.equal(registry.chatEvent("example.board", { ...chat, type: "custom" }, plain), undefined);
+    assert.equal(registry.chatEvent("example.board", chat, inspecting), chat);
+    assert.equal(registry.chatEvent("example.technical", { ...chat, pluginId: "example.technical" }, plain), undefined);
+    const other = { ...chat, pluginId: "example.unknown" };
+    assert.equal(registry.chatEvent("example.unknown", other, plain), other);
 });
 
 test("agent hooks reach the driver bound to their agent: they keep data, add notes and replace tool results", async () => {

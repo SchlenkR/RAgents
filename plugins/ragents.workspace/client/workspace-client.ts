@@ -33,10 +33,11 @@ import {
   type WorkspaceClientDescription,
 } from "../contract";
 
+/** mismatch: Arbeitsplatz und Server tragen einen anderen Stand von Executor oder Bundles; nur ein Update einer Seite behebt es. */
 export type WorkspaceClientStatus =
   | { kind: "idle" }
   | { kind: "registered" }
-  | { kind: "failed"; message: string };
+  | { kind: "failed"; message: string; mismatch: boolean };
 
 /** Was der Arbeitsplatz über sich sagt; ob seine Bash rg findet, ermittelt er selbst bei jeder Anmeldung. */
 export interface WorkspaceClientIdentity extends Omit<WorkspaceClientDescription, "ripgrep"> {
@@ -75,6 +76,18 @@ const REGISTER_TIMEOUT_MS = 10_000;
 const SIGN_OFF_TIMEOUT_MS = 3_000;
 
 const messageOf = (cause: unknown): string => cause instanceof Error ? cause.message : String(cause);
+
+/** Ein Stand dieses Arbeitsplatzes, der nicht zu dem des Servers passt. */
+class StandMismatch extends Error {}
+
+const STAND_REFUSALS = ["workspace-executor-version", "workspace-executor-contributions"];
+
+/** Nach dem Fachcode statt nach der Klasse: RpcError kann in einem Prozess zweimal geladen sein. */
+const isStandMismatch = (cause: unknown): boolean => {
+  if (cause instanceof StandMismatch) return true;
+  const code = typeof cause === "object" && cause !== null ? (cause as { domainCode?: unknown }).domainCode : undefined;
+  return typeof code === "string" && STAND_REFUSALS.includes(code);
+};
 
 /** Der echte Pfad des nächsten vorhandenen Elternordners, um die noch fehlenden Namen ergänzt. */
 const realPathOf = async (target: string): Promise<string> => {
@@ -126,7 +139,7 @@ const loadedContributions = async (
   return Promise.all(wanted.map(async ({ plugin, stand }) => {
     if (!PLUGIN_ID_PATTERN.test(plugin)) throw new Error(`Der Server nennt ${plugin} als Plugin; das ist keine Kennung eines Plugins`);
     const loaded = await loadExecutorContribution(plugin, contributionFileOf(hostRoot, plugin), stand).catch((cause: unknown) => {
-      throw new Error(`${messageOf(cause)}. Der Host dieses Arbeitsplatzes (${hostRoot}) muss dieselben Bundles tragen wie der Server: `
+      throw new StandMismatch(`${messageOf(cause)}. Der Host dieses Arbeitsplatzes (${hostRoot}) muss dieselben Bundles tragen wie der Server: `
         + "die RAgents-Erweiterung beziehungsweise das Paket @schlenkr/ragents in der Fassung des Servers, im Checkout pnpm build:plugins");
     });
     return prepareExecutorContribution(loaded, pluginToolsDirectory(hostDataDirectory(), plugin));
@@ -196,7 +209,7 @@ export class WorkspaceClient {
     try {
       await this.#connected();
     } catch (cause) {
-      if (attachment === this.#attachment) this.#set({ kind: "failed", message: messageOf(cause) });
+      if (attachment === this.#attachment) this.#set({ kind: "failed", message: messageOf(cause), mismatch: false });
       return;
     }
     if (attachment === this.#attachment) await this.#announce();
@@ -302,7 +315,7 @@ export class WorkspaceClient {
         executor: WORKSPACE_EXECUTOR_VERSION,
       }, { timeoutMs: REGISTER_TIMEOUT_MS }).catch((cause: unknown) => {
         if (!(cause instanceof RpcError) || cause.code !== RPC_ERROR_CODES.methodNotFound) throw cause;
-        throw new Error(`Der Server kennt ${workspaceContracts.clients.contributions.id} nicht; er ist älter als dieser Arbeitsplatz `
+        throw new StandMismatch(`Der Server kennt ${workspaceContracts.clients.contributions.id} nicht; er ist älter als dieser Arbeitsplatz `
           + `mit dem Executor ${WORKSPACE_EXECUTOR_VERSION}. Den Server auf die Fassung des Arbeitsplatzes aktualisieren.`);
       });
       const { contributions } = await this.#built(attachment, wanted);
@@ -319,7 +332,7 @@ export class WorkspaceClient {
       }, { timeoutMs: REGISTER_TIMEOUT_MS });
       if (attachment === this.#attachment) this.#set({ kind: "registered" });
     } catch (cause) {
-      if (attachment === this.#attachment) this.#set({ kind: "failed", message: messageOf(cause) });
+      if (attachment === this.#attachment) this.#set({ kind: "failed", message: messageOf(cause), mismatch: isStandMismatch(cause) });
     }
   }
 
@@ -327,7 +340,7 @@ export class WorkspaceClient {
     try {
       await this.transport.rpc.call(workspaceContracts.clients.unregister, { id: this.id }, { timeoutMs: SIGN_OFF_TIMEOUT_MS });
     } catch (cause) {
-      this.#set({ kind: "failed", message: messageOf(cause) });
+      this.#set({ kind: "failed", message: messageOf(cause), mismatch: false });
     }
   }
 

@@ -303,6 +303,24 @@ Der serverseitige `PluginHost` hat Registries für:
   (`coordinatorSelection` in `apps/server/src/ragents/coordinator.ts`), die Anhangsprüfung beim
   Senden dasselbe; ein Wechsel, dessen Modell Bilder, Videos oder Dateien im Gespräch des
   Koordinators nicht verarbeiten kann, scheitert mit `model-history-unsupported` (400)
+- Zugriffsprojektionen (`host.accessProjections`): je Kennung eines Plugin-Zustands, was ein
+  Zugang ohne `runs.inspect` davon sieht. `state(entry)` bekommt den Zustand samt `updatedAt` und
+  liefert den sichtbaren Wert oder `undefined`, dann fehlt der Zustand in der Run-Ansicht; Kennung,
+  Scope und Zeitpunkt behält der Host. `chatEvent({ type, payload })` gilt für jedes Chat-Ereignis
+  mit dieser Kennung (ein geänderter Zustand erscheint im Chat als `state-replaced`) und liefert das
+  sichtbare Ereignis oder `undefined`, dann erreicht es den Zugang nicht. Der Server wendet beides
+  blind je Kennung an (`AccessProjectionRegistry` in `packages/ragents/src/plugin-host.ts`,
+  aufgerufen aus `apps/server/src/access-projection.ts`) und kennt dabei weder Plugin noch Form.
+  Vorher gilt eine Regel ohne Beitrag: den gespeicherten Wert einer Startoption, deren `rights` dem
+  Zugang fehlen, sieht er weder in der Run-Ansicht noch im Chat; so bleiben Modell und Systemprompt
+  ohne `runs.inspect` verborgen. Ein Zustand ohne Projektion und ohne solche Startoption bleibt
+  unverändert, auch der eines fremden Plugins, das keine anmeldet; wer Technisches in seinem
+  Zustand hält, meldet deshalb eine Projektion an. Eine Kennung hat höchstens eine Projektion, eine
+  zweite ist ein Registrierungsfehler. Nutzer sind die Actor-Programme
+  (`plugins/ragents.actor-programs/server/access-projections.ts`): von einem Programm bleiben Name,
+  Titel, Actor, Revision und je Ansicht Kennung, Schlüssel, Titel, Sichtbarkeit und Platzierung,
+  vom Zustand der Aufrufe nur `{ version: 1, revision: updatedAt }`, und ihre Chat-Ereignisse fallen
+  ganz weg
 - Initialisierung, Run-Vorbereitung, Stopp, Löschen und Shutdown
 
 Ein Plugin implementiert nur die Facetten, die es braucht:
@@ -442,7 +460,9 @@ Reihenfolge der Pluginliste je Plugin Kennung, öffentliche Konfiguration und be
 deren Adressen (`web.entry`, mit eigenem CSS auch `web.css`, beide unter `/plugins/<id>/web/`),
 dazu die Vorlagen (`startEntries`) und `defaultStartEntry`, wenn die Profildatei eine
 Default-Vorlage nennt und der Benutzer sie starten darf (`profiles.md`); eine Script-Vorlage trägt
-dort nur `action`, `coordinator` und die Anzeigetexte, nie ihre Quelle. Beide Einsprungpunkte des Webs
+dort nur `action`, `coordinator` und die Anzeigetexte, nie ihre Quelle. `version` nennt die
+RAgents-Fassung des Servers (die Paketfassung, `readPackageVersion` in `host-version.ts`); eine
+Oberfläche mit eigener Fassung, die VS-Code-Erweiterung, vergleicht sie mit ihrer. Beide Einsprungpunkte des Webs
 (`main.tsx`, `run-panel.tsx`) legen vor dem ersten Bundle jedes Modul der Web-Liste der Host-API in
 das Register `globalThis.__ragentsHostModules` (`apps/web/src/host-modules.ts`); die Shims der
 Bundles lesen daraus, so teilen Host und Plugins ein React und jeden Kontext. Der Web-Host lädt
@@ -488,6 +508,7 @@ aber eine vorhandene Facette bleibt bei ihrem Besitzer:
 | UI und CSS                | Komponenten und Styles im passenden Web-Plugin                            |
 | Konfiguration             | Deklaration und Auswertung im passenden Server-Plugin                     |
 | Storage                   | `host.storage`, immer unter `plugins/<plugin-id>`                         |
+| Sicht ohne `runs.inspect` | `host.accessProjections` beim Plugin, dem der Zustand gehört              |
 | Lebenszyklus              | Start, Run-Vorbereitung, Löschen und Shutdown beim Besitzer               |
 | Provisionierung           | `provision.ts` im Plugin-Ordner, im Bundle ein Export von `server/index.js`; Werkzeuge in `<Datenordner>/tools/<plugin-id>/` |
 | Beitrag zum Executor      | `executor.ts` (oder `executor/index.ts`) im Plugin-Ordner, im Bundle `executor/index.mjs`; läuft im Executor jeder Maschine (Abschnitt Arbeitsbereich, Sandbox-Werkzeuge und Prozesse) |
@@ -2988,7 +3009,15 @@ Eingabe ist `label` und `executor`, der Stand zählt wie bei der Anmeldung zuers
 zählen nicht. Er baut seinen Executor daraus und nennt sie in der Anmeldung unter `contributions`;
 eine andere Liste lehnt der Server mit `workspace-executor-contributions` (409) ab, die Meldung nennt
 beide (Abschnitt Beiträge zum Executor). Kennt ein älterer Server die Frage nicht, sagt die Meldung
-des Arbeitsplatzes genau das und dass der Server zu aktualisieren ist.
+des Arbeitsplatzes genau das und dass der Server zu aktualisieren ist. Scheitert die Anmeldung an
+einem dieser Stände (`workspace-executor-version`, `workspace-executor-contributions`, eine
+fehlende Frage beim Server oder ein Bundle des eigenen Hosts, das fehlt oder einen anderen Stand
+hat), nennt der Zustand des Clients das mit `mismatch: true` (`WorkspaceClientStatus` in
+`plugins/ragents.workspace/client/workspace-client.ts`), jedes andere Scheitern mit `false`; die
+Fachcodes liest er am Fehler selbst, nicht an dessen Klasse. Die VS-Code-Erweiterung macht daraus
+den Fehler zur Fassung und vergleicht unabhängig davon ihre RAgents-Fassung mit `version` aus
+`ragents.plugins.bootstrap` (`versionNotice` in `apps/vscode/src/sessions.ts`, Bedienung in
+`docs/usage.md`).
 
 Genau eine Operation geht zum Arbeitsplatz: `ragents.workspace.client.execute` mit
 `implementedBy: "client"`, mit `runId`, `operation`, `cwd`, `env`, der Eingabe der Operation und
@@ -3370,7 +3399,10 @@ startet die Erweiterung mit `"off"`, weil er der Arbeitsplatz des Entwicklers is
 Voraussetzungen, startet den Proxy und einmal einen Prozess in der Sandbox; jedes Scheitern ist ein
 Startfehler mit Ursache und Anweisung: Windows (die Ordnerregeln je Run lassen sich dort nicht
 setzen), eine andere Plattform, unter Linux fehlendes bubblewrap, socat oder ripgrep und ein
-Kernel oder Container ohne Benutzer-Namensräume. Die Bibliothek hat einen Zustand je Prozess;
+Kernel oder Container ohne Benutzer-Namensräume. Die Anweisung, wie man die Sandbox abschaltet,
+gibt `ragents.workspace` dem Baustein `ServerProcessSandbox` als `disableSetting` mit
+(`PROCESS_SANDBOX: "off" in der Sektion ragents.workspace`); der Baustein selbst nennt weder
+Schlüssel noch Sektion. Die Bibliothek hat einen Zustand je Prozess;
 mehrere Server in einem Prozess (Tests) teilen ihn, ihre Netzfreigaben werden vereinigt.
 
 ## Provisionierung je Plugin
@@ -3897,6 +3929,10 @@ Recht) liefert das Archiv; ein anderer Stand ist 404. Die Gegenseite ist `ragent
   Plugin kann Typen aus einem Modul außerhalb der Host-API nennen, etwa aus der Agentenlaufzeit,
   und baut trotzdem. Für die eingebauten Plugins prüft `apps/server/tests/host-api.test.ts` auch
   Typimporte. Ändert sich ein solcher Typ, bricht beim fremden Autor nur die Typprüfung.
+- Eine Zugriffsprojektion ist eine Erklärung des Plugins, keine Prüfung: ein Plugin ohne
+  Projektion zeigt einem Zugang ohne `runs.inspect` seine Zustände vollständig, und der Host prüft
+  nicht, ob eine angemeldete Kennung zu den Zuständen des anmeldenden Plugins gehört; eine Kennung
+  hat nur höchstens eine Projektion.
 - `requiresWorkspace` ist eine Erklärung des Beitrags, keine Prüfung: ein Metadaten-Beitrag, der den
   Executor fragt, ohne das zu erklären, erreicht auch fremde `ownerOnly`-Arbeitsbereiche. Bis die
   Run-Liste einen Run gemeldet hat, zeigen Web und VS Code seine Arbeitsbereichs-Reiter; der Server

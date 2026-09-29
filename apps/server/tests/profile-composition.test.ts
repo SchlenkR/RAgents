@@ -4,7 +4,7 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import test, { after } from "node:test";
 
-import { createAccessContext, DomainError, Journal, Orchestration, RpcPeer, type PluginContext, type PluginHost } from "@ragents/engine";
+import { createAccessContext, DomainError, Journal, Orchestration, RpcPeer, type PluginContext, type PluginHost, type PluginState } from "@ragents/engine";
 import { RpcConnection, RpcDispatcher } from "../src/rpc/dispatcher.ts";
 import { testServices } from "../../../packages/ragents/tests/support.ts";
 import { nativeExecutorFixture } from "./native-executor-fixture.ts";
@@ -65,6 +65,12 @@ const composed = async (profile: CompositionFixture, defaultStartEntry?: string)
 };
 
 const names = (values: readonly { id: string }[]): readonly string[] => values.map((entry) => entry.id).sort();
+
+const restricted = { can: (right: string) => right === "runs.read" };
+const programState: PluginState = {
+  pluginId: "ragents.actor-programs", scope: { kind: "actor", actorId: "board" }, updatedAt: "2026-09-29T10:00:00.000Z",
+  state: { version: 1, program: { name: "board", directory: "/private/programs/board" } },
+};
 
 test("actor-program prompt composition keeps the full guide exclusively in the reference query", async () => {
   const host = await composed(showcaseFixture);
@@ -127,6 +133,7 @@ test("die neutrale Showcase-Fixture komponiert echte Plugins und Ordnerbeiträge
   );
   assert.ok(profile.startEntries.every((entry) => !("files" in entry) && !("programs" in entry)), "ein Run-Script verrät seine Quelle nicht");
   assert.deepEqual(host.startOptions.describe(), [{ id: "ragents.workspace.binding", owner: "ragents.workspace" }, { id: "ragents.model", owner: "ragents.product" }]);
+  assert.equal(JSON.stringify(host.accessProjections.state(programState, restricted)), JSON.stringify({ ...programState, state: { version: 1, program: { name: "board", views: [] } } }), "Actor-Programme bringen ihre Projektion mit");
   assert.equal(host.service(workspaceRuntimeToken).describe().mode, "per-run");
   assert.ok(host.optionalService(documentStoreToken), "Dokumentenstore fehlt");
 });
@@ -143,6 +150,7 @@ test("eine reduzierte Fixture entfernt optionale Actor-Programm- und Referenzbei
   assert.deepEqual(host.tools.describe().filter((entry) => entry.nativeTool).map((entry) => entry.name).sort(), ["bash", "document_write", "edit", "read", "show_document", "typescript_api", "typescript_eval", "write"]);
   assert.deepEqual(await host.skills.global(), []);
   assert.equal(profile.startEntries.some((entry) => entry.owner === "ragents.reference"), false);
+  assert.equal(host.accessProjections.state(programState, restricted), programState, "ohne das Plugin kennt der Host keine Projektion");
 });
 
 test("die Default-Vorlage der Profildatei muss eine registrierte Vorlage sein und steht dann im Bootstrap", async () => {

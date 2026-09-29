@@ -106,7 +106,7 @@ export const resolveAnonymousUser = (source: string, raw: unknown): AccessUser |
 export const resolveDefaultStartEntry = (source: string, raw: unknown): string | undefined => {
   if (raw === undefined) return undefined;
   if (typeof raw !== "string" || !START_ENTRY_ID.test(raw)) {
-    throw new Error(`${source}: defaultStartEntry braucht eine Vorlagenkennung als String, etwa "ragents.reference.word-game"`);
+    throw new Error(`${source}: defaultStartEntry braucht eine Vorlagenkennung als String, etwa "acme.tasks.setup"`);
   }
   return raw;
 };

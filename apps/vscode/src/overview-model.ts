@@ -57,6 +57,7 @@ export const connectionView = (snapshot: ConnectionSnapshot): ConnectionView => 
   ...(snapshot.savedLogin ? { savedLogin: true } : {}),
   ...(snapshot.problem !== undefined ? { problem: snapshot.problem } : {}),
   ...(snapshot.missingEnvironment !== undefined ? { missingEnvironment: snapshot.missingEnvironment } : {}),
+  ...(snapshot.versionNotice !== undefined ? { versionNotice: { level: snapshot.versionNotice.level, text: snapshot.versionNotice.text } } : {}),
 });
 
 export interface PanelInput {

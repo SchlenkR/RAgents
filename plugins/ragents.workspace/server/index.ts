@@ -23,11 +23,11 @@ import { WORKSPACE_BINDING_OPTION_ID, WORKSPACE_METADATA_ID } from "../contract.
 import { bindingOf, executorShellChapter, sessionMetadataOf, workspaceBindingOption, workspaceLocation, workspaceOwnerOf } from "./binding.js";
 import { createBrowseChannel, createBrowseMethods } from "./browse-route.js";
 import { clientMethods, WorkspaceClientRegistry } from "./clients.js";
-import { bashSetting, bashTimeoutSetting, processSandboxSetting, rgSetting, workspaceConfigDescriptors } from "./config.js";
+import { bashSetting, bashTimeoutSetting, PROCESS_SANDBOX_OFF, processSandboxSetting, rgSetting, workspaceConfigDescriptors } from "./config.js";
 import { RunWorkspaceRuntime } from "./runtime.js";
 
 const warnWithoutSandbox = (): void => {
-  console.warn("Prozess-Sandbox ausgeschaltet (PROCESS_SANDBOX: \"off\" in der Sektion ragents.workspace): Prozesse der Runs laufen auf dem Server ohne Sandbox.");
+  console.warn(`Prozess-Sandbox ausgeschaltet (${PROCESS_SANDBOX_OFF}): Prozesse der Runs laufen auf dem Server ohne Sandbox.`);
 };
 
 const ragentsWorkspacePlugin = (skillPaths: () => Promise<readonly string[]>): RAgentsPlugin => ({
@@ -60,6 +60,7 @@ const ragentsWorkspacePlugin = (skillPaths: () => Promise<readonly string[]>): R
         network: sandboxSetting.network,
         serverAddress: host.service(hostAddressToken)(),
         dataDirectory: path.dirname(host.storage.sessionsRoot),
+        disableSetting: PROCESS_SANDBOX_OFF,
       })
       : undefined;
     const bash = bashSetting();

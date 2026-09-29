@@ -17,6 +17,7 @@ export {
     type LiveBusOptions,
 } from "./agents/live.ts";
 export {
+    AccessProjectionRegistry,
     ConfigContributionRegistry,
     HttpContributionRegistry,
     MethodContributionRegistry,

@@ -366,7 +366,7 @@ export class RunSessionProvider implements ChatSessionProvider {
     else if (start.kind === "package") {
       if (!local) throw new Error("Das Run-Script-Paket wurde nicht geladen");
       const { script, ...entry } = local;
-      await session.startPackageAndWait({ ...script, entry: { ...entry, coordinator: script.coordinator, owner: "ragents.overseer" } }, start.input, user);
+      await session.startPackageAndWait({ ...script, entry: { ...entry, coordinator: script.coordinator, owner: start.owner } }, start.input, user);
     }
     else await session.sendAndWait(start.message, user);
     return id;
@@ -398,7 +398,7 @@ export class RunSessionProvider implements ChatSessionProvider {
 
   runView(id: string, access: AccessContext = unrestrictedAccess): unknown {
     this.ensureUsable(id);
-    return accessibleRunView(this.requireEngine().runtime.view(id), access);
+    return accessibleRunView(this.requireEngine().runtime.view(id), access, this.plugins.accessProjections);
   }
 
   hasRun(id: string): boolean {

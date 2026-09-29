@@ -23,7 +23,7 @@ import { Protocol, teeConsole } from "./protocol.js";
 import { RunSessionProvider } from "./provider.js";
 import { readHelpResponse } from "./help-files.js";
 import { watchParentProcess } from "./parent-watch.js";
-import { hostRoot } from "./host-version.js";
+import { hostRoot, readPackageVersion } from "./host-version.js";
 import { hostWebProblem, isCheckout } from "./host-web.js";
 import { createStylesheet, STYLESHEET_PATH } from "./web-stylesheet.js";
 import { isBundleSourceMap, isPublicBundleFile, isWebBundlePath, webBundleFile } from "./web-bundles.js";
@@ -214,6 +214,7 @@ provider.plugins.methods.register("host", [
   ...coreMethods({
     sessions: provider,
     plugins: provider.plugins,
+    version: readPackageVersion(),
     global: globalAccess,
     runOwner: (runId) => provider.runOwner(runId),
     runOwnerOnly: (runId) => provider.runOwnerOnly(runId),
@@ -223,6 +224,7 @@ provider.plugins.methods.register("host", [
 ]);
 provider.plugins.channels.register("host", coreChannels({
   sessions: provider,
+  plugins: provider.plugins,
   global: globalAccess,
   runOwner: (runId) => provider.runOwner(runId),
   runOwnerOnly: (runId) => provider.runOwnerOnly(runId),

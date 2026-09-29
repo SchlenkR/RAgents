@@ -3,7 +3,7 @@ import type { Static } from "typebox";
 import { DomainError, implement, type AccessContext, type JsonValue, type MethodContribution, type PluginHost } from "@ragents/engine";
 import { methodReference, openRpcDocument, type ApiAuthentication } from "@ragents/host/api/reference.js";
 import type { RunManagement } from "@ragents/host/ragents/global-chat.js";
-import { overseerContracts } from "../contract.js";
+import { OVERSEER_PLUGIN_ID, overseerContracts } from "../contract.js";
 import { coordinatorRunIdOf } from "./coordinator.js";
 import type { RunDirectory } from "./run-directory.js";
 
@@ -36,7 +36,7 @@ const create = async (context: ManagementContext, body: CreateInput, access: Acc
   const runId = await (async () => {
     if ("packageDirectory" in body) {
       if (!path.isAbsolute(body.packageDirectory)) throw new DomainError("invalid-package-directory", "packageDirectory muss ein absoluter Serverpfad sein", 400);
-      return context.management().create({ ...common, kind: "package", directory: body.packageDirectory, input: (body.input ?? null) as JsonValue });
+      return context.management().create({ ...common, kind: "package", directory: body.packageDirectory, input: (body.input ?? null) as JsonValue, owner: OVERSEER_PLUGIN_ID });
     }
     if ("script" in body) {
       const entries = context.root.startEntries.describe().filter((entry) => entry.action === "script");

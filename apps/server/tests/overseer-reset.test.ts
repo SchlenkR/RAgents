@@ -82,7 +82,7 @@ test("confirmed reset recovers durably and isolates unavailable journals across 
   const sessions = { get: (id: string) => provider.get(id), list: () => provider.list(), delete: (id: string) => provider.delete(id) };
   const overseerCall = (contract: { id: string }, input: unknown) => dispatchMethod(provider.plugins.methods, contract.id, input);
   const chatMethod = (contract: { id: string }) => coreMethods(coreSources(sessions)).find((entry) => entry.contract.id === contract.id)!;
-  const chatChannel = (contract: { id: string }) => coreChannels({ sessions: sessions as never, global: undefined, runOwner: () => undefined, runOwnerOnly: () => false }).find((entry) => entry.contract.id === contract.id)!;
+  const chatChannel = (contract: { id: string }) => coreChannels({ sessions: sessions as never, plugins: provider.plugins, global: undefined, runOwner: () => undefined, runOwnerOnly: () => false }).find((entry) => entry.contract.id === contract.id)!;
   const normalStarted = deferred();
   const releaseNormal = deferred();
   const globalStarted = deferred();

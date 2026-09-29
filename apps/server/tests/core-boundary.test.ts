@@ -16,9 +16,6 @@ const LANGUAGE_SERVERS = [
 
 /** Was schon vor dieser Prüfung im Kern stand; ein Eintrag verschwindet, sobald die Stelle bereinigt ist (TODO.md). */
 const BASELINE = [
-  "apps/server/src/access-projection.ts: ragents.actor-programs",
-  "apps/server/src/config-file.ts: ragents.reference",
-  "apps/server/src/provider.ts: ragents.overseer",
   "apps/vscode/src/extension.ts: ragents.profile-distribution",
   "apps/vscode/src/extension.ts: ragents.workspace",
   "apps/vscode/src/sessions.ts: ragents.workspace",

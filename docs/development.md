@@ -246,30 +246,31 @@ den Arbeitsplätzen.
 Beiträge meldet das Plugin in `register(registration)` über die an das Plugin gebundene
 `PluginRegistration` an (`packages/ragents/src/plugin-types.ts`):
 
-| Punkt             | wofür                                              |
-| ----------------- | -------------------------------------------------- |
-| `functions`       | typisierte Run-Funktionen, optional als Werkzeug   |
-| `prompts`         | Kapitel im Systemprompt                            |
-| `skills`          | feste Abläufe als Skill-Dateien                    |
-| `startEntries`    | Vorlagen der Startseite: Skills, Run-Scripts       |
-| `profiles`        | Rollen (`model_list`)                              |
-| `agentRuntime`    | Hooks vor Modell- und nach Werkzeugaufrufen        |
-| `script`          | Capabilities für TypeScript-Actors                 |
-| `operations`      | benannte Operationen, auch quer zwischen Plugins   |
-| `operation`       | Griff auf eine fremde benannte Operation           |
-| `invokeOperation` | eine benannte Operation aufrufen                   |
-| `provide`         | einen Dienst unter einem Token bereitstellen       |
-| `service`         | einen fremden Dienst über sein Token beziehen      |
-| `optionalService` | einen fremden Dienst beziehen, der fehlen darf     |
-| `startOptions`    | Startoptionen der Startseite, je Run eingefroren   |
-| `methods`         | Methoden der Nachrichtenschicht mit Vertrag        |
-| `channels`        | Kanäle mit Benachrichtigungen je Abonnement        |
-| `http`            | Auslieferung: Dateien, Frames, Uploads             |
-| `config`          | Konfigurationsschlüssel, streng geprüft            |
-| `clientConfig`    | Werte, die das Web-Plugin sehen darf               |
-| `storage`         | Ablage unter `plugins/<id>`, global und je Run     |
-| `lifecycle`       | Haken bei Anlage, Start und Löschung eines Runs    |
-| `sessionMetadata` | zusätzliche Angaben zum Run                        |
+| Punkt               | wofür                                                |
+| ------------------- | ---------------------------------------------------- |
+| `functions`         | typisierte Run-Funktionen, optional als Werkzeug     |
+| `prompts`           | Kapitel im Systemprompt                              |
+| `skills`            | feste Abläufe als Skill-Dateien                      |
+| `startEntries`      | Vorlagen der Startseite: Skills, Run-Scripts         |
+| `profiles`          | Rollen (`model_list`)                                |
+| `agentRuntime`      | Hooks vor Modell- und nach Werkzeugaufrufen          |
+| `script`            | Capabilities für TypeScript-Actors                   |
+| `operations`        | benannte Operationen, auch quer zwischen Plugins     |
+| `operation`         | Griff auf eine fremde benannte Operation             |
+| `invokeOperation`   | eine benannte Operation aufrufen                     |
+| `provide`           | einen Dienst unter einem Token bereitstellen         |
+| `service`           | einen fremden Dienst über sein Token beziehen        |
+| `optionalService`   | einen fremden Dienst beziehen, der fehlen darf       |
+| `startOptions`      | Startoptionen der Startseite, je Run eingefroren     |
+| `accessProjections` | was ein Zugang ohne `runs.inspect` vom Zustand sieht |
+| `methods`           | Methoden der Nachrichtenschicht mit Vertrag          |
+| `channels`          | Kanäle mit Benachrichtigungen je Abonnement          |
+| `http`              | Auslieferung: Dateien, Frames, Uploads               |
+| `config`            | Konfigurationsschlüssel, streng geprüft              |
+| `clientConfig`      | Werte, die das Web-Plugin sehen darf                 |
+| `storage`           | Ablage unter `plugins/<id>`, global und je Run       |
+| `lifecycle`         | Haken bei Anlage, Start und Löschung eines Runs      |
+| `sessionMetadata`   | zusätzliche Angaben zum Run                          |
 
 ### Erweiterungspunkte im Web
 

@@ -57,6 +57,7 @@ export class RunStore {
   #entries: StartEntrySummary[] = [];
   #defaultEntry: string | undefined;
   #product: string | undefined;
+  #serverVersion: string | null | undefined;
   #sessions: SessionInfo[] = [];
   #views = new Map<string, CachedView>();
   #summaries = new Map<string, { session: SessionInfo; view: unknown; summary: RunSummary }>();
@@ -102,6 +103,11 @@ export class RunStore {
 
   get product(): string | undefined {
     return this.#product;
+  }
+
+  /** Die RAgents-Fassung des Servers aus dem Bootstrap; null, wenn er keine nennt, weil er älter ist als diese Angabe, undefined, solange er nicht geantwortet hat. */
+  get serverVersion(): string | null | undefined {
+    return this.#serverVersion;
   }
 
   /** Ein neuer Run ist möglich: entweder frei oder über mindestens eine freigegebene Vorlage. */
@@ -168,6 +174,7 @@ export class RunStore {
         throw new Error(`Der Server nennt die Default-Vorlage ${defaultEntry}, liefert sie aber nicht als Vorlage`);
       }
       this.#product = profile.product.title;
+      this.#serverVersion = typeof profile.version === "string" && profile.version ? profile.version : null;
       this.#entries = profile.startEntries.map((entry: PublicStartEntry) => ({
         id: entry.id,
         title: entry.title,

@@ -130,7 +130,7 @@ test("the management methods validate input, resolve references, page events and
   assert.ok((await call(overseerContracts.createRun.id, { title: "Script", script: "Vorbereitung", input: { topic: "Test" } })).result);
   assert.deepEqual(starts[1], { kind: "script", title: "Script", user: { id: "inspector", label: "Inspector" }, entryId: "test.script", input: { topic: "Test" } });
   assert.ok((await call(overseerContracts.createRun.id, { title: "Paket", packageDirectory: directory, input: { size: 2 } })).result);
-  assert.deepEqual(starts[2], { kind: "package", title: "Paket", user: { id: "inspector", label: "Inspector" }, directory, input: { size: 2 } });
+  assert.deepEqual(starts[2], { kind: "package", title: "Paket", user: { id: "inspector", label: "Inspector" }, directory, input: { size: 2 }, owner: "ragents.overseer" });
   assert.ok((await call(overseerContracts.sendMessage.id, { run: created.runId, message: " Prüfen " })).result);
   assert.deepEqual(sends, [[created.runId, "Prüfen"]]);
   assert.ok((await call(overseerContracts.stopRun.id, { run: created.runId })).result);

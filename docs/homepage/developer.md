@@ -540,6 +540,26 @@ defaultValue, accept und describe bekommen neben runId den handelnden Benutzer a
 
 Vertragsfelder: host.startOptions.
 
+### Zustände für eingeschränkte Zugänge
+
+Ein Zugang ohne runs.inspect sieht die Plugin-Zustände eines Runs und deren Chat-Ereignisse so, wie das Plugin es festlegt, dem sie gehören. Es meldet je Zustand, was davon sichtbar bleibt. Ohne Projektion bleibt ein Zustand unverändert.
+
+Einsatzort: Innerhalb von register(host); ragents.example.board ist ein Zustand dieses Plugins.
+
+```typescript
+host.accessProjections({
+  id: "ragents.example.board",
+  state: (entry) => ({ title: (entry.state as { title?: string }).title ?? null }),
+  chatEvent: () => undefined,
+});
+```
+
+state bekommt den Zustand samt updatedAt und liefert den sichtbaren Wert oder undefined; Kennung, Scope und Zeitpunkt behält der Host. chatEvent bekommt type und payload eines Chat-Ereignisses mit dieser Kennung und liefert das sichtbare oder undefined. Jede Kennung hat höchstens eine Projektion.
+
+Den gespeicherten Wert einer Startoption mit rights sieht nur, wer diese Rechte hat, in der Run-Ansicht wie im Chat; das gilt vor jeder Projektion.
+
+Vertragsfelder: host.accessProjections.
+
 ### Run-Metadaten bereitstellen
 
 Ein Plugin kann kurze Zusatzangaben zu einem Run liefern, etwa einen Bearbeitungsstatus. Solche Metadaten stehen der Oberfläche zur Anzeige zur Verfügung. Die zugrunde liegenden Fachdaten bleiben beim Plugin.
@@ -1691,6 +1711,8 @@ export interface PluginRegistration {
   skills: (...contributions: readonly SkillContribution[]) => void;
   startEntries: (...contributions: readonly StartEntryContribution[]) => void;
   startOptions: (...contributions: readonly StartOptionContribution[]) => void;
+  /** Wie Zugänge ohne runs.inspect die Zustände dieses Plugins und ihre Chat-Ereignisse sehen, je Kennung eines Zustands. */
+  accessProjections: (...contributions: readonly AccessProjectionContribution[]) => void;
   functions: (...functions: readonly (RunFunction | ToolContributor)[]) => void;
   script: (...contributions: readonly ScriptContribution[]) => void;
 }

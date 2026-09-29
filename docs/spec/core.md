@@ -1027,7 +1027,8 @@ Server. Archivierte und gelöschte Runs sind nicht Teil dieses Zugriffs.
 
 Neue Runs starten mit einer Nachricht, einem installierten Run-Script oder einem lokalen
 Run-Script-Paket über dessen absoluten Serverdateipfad. Lokale Pakete verwenden dasselbe
-Format und denselben Loader wie installierte Vorlagen. Startoptionen-Validierung,
+Format und denselben Loader wie installierte Vorlagen; als Besitzer ihrer Vorlage nennt der Host
+das Plugin, das das Paket über `RunManagement.create` startet (`owner`), selbst kennt er keins. Startoptionen-Validierung,
 Workspace-Vorbereitung, Check, Test und Installation bleiben der normale Startpfad.
 Der globale Koordinator kann vorbereitete Pakete starten. Der Run-Koordinator verwendet im
 vorhandenen Run TypeScript-Snippets für einmalige Arbeit und Aufbau, oder Actor-Programme

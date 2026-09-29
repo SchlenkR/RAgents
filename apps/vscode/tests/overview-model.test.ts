@@ -25,6 +25,7 @@ const snapshot = (overrides: Partial<ConnectionSnapshot> = {}): ConnectionSnapsh
   savedLogin: false,
   problem: undefined,
   missingEnvironment: undefined,
+  versionNotice: undefined,
   ...overrides,
 });
 
@@ -148,4 +149,10 @@ test("Neuer Run belegt keine Startoption vor, die die gewählte Vorlage festlegt
   assert.equal(preselectable(worktree, "ragents.model"), true);
   assert.equal(preselectable(entries[1], WORKSPACE_BINDING_OPTION_ID), true);
   assert.equal(preselectable(undefined, WORKSPACE_BINDING_OPTION_ID), true, "ohne Vorlage belegt Neuer Run den Ordner vor");
+});
+
+test("eine abweichende Fassung steht mit Stufe und Text am Server; welche Seite zu aktualisieren ist, braucht nur die Benachrichtigung", () => {
+  const notice = { level: "warning" as const, text: "RAgents-Fassung passt nicht: Erweiterung 0.1.9, Server 0.1.8 - den Server auf 0.1.9 aktualisieren.", update: "server" as const };
+  assert.deepEqual(connectionView(snapshot({ versionNotice: notice })).versionNotice, { level: "warning", text: notice.text });
+  assert.equal("versionNotice" in connectionView(snapshot()), false);
 });

@@ -572,6 +572,12 @@ Tabs und lesende Methoden prüfen dasselbe Recht. Ohne `runs.inspect` fehlen tec
 Inspektoren und Programmquellen, die Fläche zeigt Mini-Apps und LLM-Gespräche, und
 TypeScript-Steueractors bleiben verborgen. Der Server redigiert dann Modelle, Prompts, Grants,
 Werkzeugausgaben und technische Startzustände in den Run- und Chat-Snapshots (`access-projection.ts`).
+Plugin-Zustände und die Chat-Ereignisse zu ihnen zeigt er so, wie das Plugin es mit seiner
+Zugriffsprojektion festlegt ([plugins.md](plugins.md), Registrierungen des PluginHost): die
+Actor-Programme etwa lassen von einem Programm nur Name, Actor und Ansichten stehen und von ihren
+Aufrufen nur den Zeitpunkt der letzten Änderung, ihre Chat-Ereignisse fallen weg. Den gespeicherten
+Wert einer Startoption samt Chat-Ereignis sieht nur, wer ihre `rights` hat, also Modell und
+Systemprompt nur mit `runs.inspect`. Alle übrigen Zustände bleiben unverändert.
 Startoptionen verlangen `runs.create` (die Wahl dazu `runs.write`); jede Option nennt darüber
 hinaus ihre eigenen Rechte (`rights`). Modellwahl und Systemprompt-Wahl verlangen `runs.inspect`,
 weil ihre Darstellung Modelle, Anbieter und Prompttexte zeigt; die Ordnerbindung

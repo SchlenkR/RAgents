@@ -13,7 +13,7 @@ import {
 } from "@ragents/engine";
 import type { JournalEvent } from "../../../packages/ragents/src/domain/events";
 import type { RunView as JournalRunView } from "../../../packages/ragents/src/domain/model";
-import { coreContracts } from "../../server/src/api/contracts";
+import { coreContracts, type HostBootstrap } from "../../server/src/api/contracts";
 import { RpcDispatcher } from "../../server/src/rpc/dispatcher";
 import { RpcHttpTransport } from "../../server/src/rpc/http-transport";
 import { workspaceClientContracts, workspaceContracts, type WorkspaceClientDescription } from "../../../plugins/ragents.workspace/contract";
@@ -23,6 +23,9 @@ import type { PublicPluginProfile } from "../../../packages/ragents/src/plugin-t
 import type { RunView } from "../../web/src/run-view";
 
 export const SESSION_TOKEN = "a".repeat(43);
+
+/** Die RAgents-Fassung, die der Stub ohne eigene Angabe nennt; die Erweiterung der Tests trägt dieselbe. */
+export const STUB_VERSION = "0.1.8";
 
 /** Die Run-Ansicht der Oberfläche trägt dieselben Daten wie die der Engine, nur mit eigenen Typen. */
 const servedView = (value: RunView): JournalRunView => value as unknown as JournalRunView;
@@ -122,6 +125,10 @@ export const startStubServer = async (options: {
   profile?: PublicPluginProfile;
   /** Was die Plugins des Stubs zum Executor beitragen; ein Arbeitsplatz muss genau das mitbringen. */
   contributions?: readonly ExecutorContributionStand[];
+  /** Die RAgents-Fassung im Bootstrap; null lässt sie weg wie ein Server, der älter ist als diese Angabe. */
+  version?: string | null;
+  /** So lehnt der Server jede Anmeldung eines Arbeitsplatzes ab, etwa mit einem anderen Executor-Stand. */
+  refuseRegistration?: { code: string; message: string };
 } = {}): Promise<StubServer> => {
   const requests: StubServer["requests"] = [];
   const workspaceClients = new Map<string, WorkspaceClientDescription>();
@@ -134,7 +141,7 @@ export const startStubServer = async (options: {
   const methods = new MethodContributionRegistry();
   methods.register("stub", [
     implement(coreContracts.runs.list, () => sessions),
-    implement(coreContracts.plugins.bootstrap, () => profile),
+    implement(coreContracts.plugins.bootstrap, () => options.version === null ? profile as HostBootstrap : { ...profile, version: options.version ?? STUB_VERSION }),
     implement(runContracts.view, ({ runId }) => {
       if (sessions.some((entry) => entry.id === runId && entry.locked !== undefined)) throw new DomainError("journal-unavailable", `Journal für Run ${runId} ist nicht verfügbar`, 409);
       return runId === view.id ? servedView(view) : null;
@@ -150,6 +157,7 @@ export const startStubServer = async (options: {
     }),
     implement(workspaceContracts.clients.contributions, () => (options.contributions ?? []).map((entry) => ({ ...entry }))),
     implement(workspaceContracts.clients.register, (input, { connection }) => {
+      if (options.refuseRegistration) throw new DomainError(options.refuseRegistration.code, options.refuseRegistration.message, 409);
       if (!("id" in input) || input.executor !== WORKSPACE_EXECUTOR_VERSION) throw new Error(`Der Arbeitsplatz bringt den Executor ${input.executor} mit`);
       if (JSON.stringify(input.contributions) !== JSON.stringify(options.contributions ?? [])) throw new Error("Der Arbeitsplatz bringt andere Executor-Beiträge mit");
       const { id, executor: _executor, contributions: _contributions, ...description } = input;

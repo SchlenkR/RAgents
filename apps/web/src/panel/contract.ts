@@ -72,6 +72,13 @@ export interface ConnectionView {
   readonly problem?: string;
   /** Start oder Übernahme scheiterten an dieser Umgebungsvariablen; die Zeile führt von hier zum Wert und zum neuen Versuch. */
   readonly missingEnvironment?: MissingEnvironment;
+  /** Erweiterung und Server tragen eine andere RAgents-Fassung; ein Fehler, wenn der Arbeitsplatz deshalb nicht angemeldet ist. */
+  readonly versionNotice?: ConnectionNotice;
+}
+
+export interface ConnectionNotice {
+  readonly level: "error" | "warning";
+  readonly text: string;
 }
 
 /** Die vier Seiten der Erweiterung; "run" zeigt das Run-Panel statt dieser Seite. */

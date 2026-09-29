@@ -675,11 +675,20 @@ tooltip names the cause; it does not open, but the selection mode deletes it.
 **Server** is the configuration page. You can add, edit, sign in, sign out, connect,
 disconnect, and remove servers with confirmation, then open `settings.json` from the link
 at the bottom. If a connected server does not accept this window's folders as a workstation, its
-entry says "Arbeitsplatz nicht angemeldet" (workstation not registered) with the cause. When the
-extension and the server carry different workspace executor versions, the cause names both and
-what to update: the extension if it is older, the server if it is newer. The same applies when the
-host the extension uses lacks a plugin bundle the server's executor carries, such as a language
-server, or carries it in another version: the cause names the plugin and the host to update.
+entry says "Arbeitsplatz nicht angemeldet" (workstation not registered) with the cause.
+
+The extension compares its own RAgents version with the version each server reports. If they
+differ, the server row, the top of Start, the status bar, and a notification show "RAgents-Fassung
+passt nicht: Erweiterung 0.1.9, Server 0.1.8 - ..." (RAgents version does not match), followed by
+what to update: the extension if it is older, the server if it is older, or the host in
+`ragents.hostPath` for a local profile. A server that reports no version counts as older. While the
+workstation stays registered, this is a warning and everything keeps working. When the server
+rejects the workstation for the same reason, because the workspace executor versions differ or the
+host the extension uses lacks a plugin bundle the server's executor carries, or carries it in
+another version, it is an error that also names the server's cause; the same error appears when
+both report the same version but their builds differ. The notification appears once per server
+and message; "Erweiterung zeigen" (show extension) opens the extension page for the update, and
+"Server zeigen" (show server) opens the Server page.
 
 Every status uses a colored icon and a tooltip with the same vocabulary everywhere. A run is
 "läuft" (running), "wartet auf Eingabe" (waiting for input, with the number of open inputs),

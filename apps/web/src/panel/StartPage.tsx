@@ -131,6 +131,9 @@ export function StartPage({ state, send }: PanelPageProps) {
   const loginConnection = connections.find((connection) => connection.name === login);
   return <div className="@container/panel grid grid-cols-1 gap-4">
     {state.problem && <p className="text-[0.8rem] leading-normal text-destructive [overflow-wrap:anywhere]" role="alert">{state.problem}</p>}
+    {connections.flatMap((connection) => connection.versionNotice ? [{ name: connection.name, notice: connection.versionNotice }] : []).map(({ name, notice }) =>
+      <p className={cn("text-[0.8rem] leading-normal [overflow-wrap:anywhere]", notice.level === "error" ? "text-destructive" : "text-warning")} data-notice={notice.level} key={name}
+        role={notice.level === "error" ? "alert" : "status"}>{marked ? `${name}: ${notice.text}` : notice.text}</p>)}
     {connections.length === 0
       ? <div className="grid gap-3">
         <p className="text-[0.85rem] leading-normal text-muted-foreground">Noch kein Server. Lege einen Server per Adresse oder ein lokales Profil an.</p>

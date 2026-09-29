@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { EventEmitter } from "node:events";
 import type { IncomingMessage, ServerResponse } from "node:http";
 import test from "node:test";
-import { createAccessContext, DomainError, Journal, LiveBus, Orchestration } from "@ragents/engine";
+import { AccessProjectionRegistry, createAccessContext, DomainError, Journal, LiveBus, Orchestration } from "@ragents/engine";
 import { project, viewOf } from "../../../packages/ragents/src/domain/projection.ts";
 import { executionFor, manualExecution, allGrants, testServices, textStep, thinkingStep } from "../../../packages/ragents/tests/support.ts";
 import type { ChatSessionLike } from "../src/chat-handler.ts";
@@ -202,7 +202,7 @@ test("background prompts stay out of primary and actor chats while normal messag
     for (const rights of [["runs.read"], ["runs.read", "runs.inspect"]]) {
       const access = createAccessContext({ enabled: true, user: { id: "user", label: "User", rights } });
       assert.deepEqual(accessibleActorConversations(f.history(), access).actors[actor].map((message) => message.text), expected);
-      const inputs = accessibleRunView(replay, access).inputs;
+      const inputs = accessibleRunView(replay, access, new AccessProjectionRegistry()).inputs;
       assert.equal(inputs[0].content, "Wie läuft die Umsetzung?");
       assert.equal(inputs.find((input) => input.id === queued.id)?.content, access.can("runs.inspect") ? "Interner Prüfauftrag" : "");
     }

@@ -2428,7 +2428,7 @@ Eigentümer: ragents.overseer. Rechte: runs.read, runs.write. Ausführung: der S
 
 ## ragents.plugins.bootstrap
 
-Produkt, aktive Plugins mit Web-Konfiguration und freigegebene Vorlagen für die Oberfläche.
+Produkt, aktive Plugins mit Web-Konfiguration, freigegebene Vorlagen und die RAgents-Fassung des Servers für die Oberfläche.
 
 Eigentümer: host. Rechte: keine festen Rechte. Ausführung: der Server.
 
@@ -2448,7 +2448,7 @@ Eigentümer: host. Rechte: keine festen Rechte. Ausführung: der Server.
 {
   "type": "object",
   "additionalProperties": true,
-  "x-typescript-type": "PublicPluginProfile"
+  "x-typescript-type": "HostBootstrap"
 }
 ```
 

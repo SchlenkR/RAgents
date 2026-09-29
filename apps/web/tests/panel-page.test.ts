@@ -274,6 +274,19 @@ test("ein Server, dem eine Umgebungsvariable fehlt, erklärt den Fall und führt
   assert.doesNotMatch(ohne, />Wert setzen</, "ohne Befund bleibt es beim bisherigen Grund");
 });
 
+test("eine abweichende RAgents-Fassung steht auf Start und am Server, als Fehler rot und als Warnung in der Warnfarbe", () => {
+  const warning = { level: "warning" as const, text: "RAgents-Fassung passt nicht: Erweiterung 0.1.9, Server 0.1.8 - den Server auf 0.1.9 aktualisieren." };
+  const error = { level: "error" as const, text: "RAgents-Fassung passt nicht: Erweiterung 0.1.8, Server 0.1.9 - die RAgents-Erweiterung auf 0.1.9 aktualisieren. Der Arbeitsplatz ist deshalb nicht angemeldet: Executor 7 statt 8." };
+  const start = render(page({ connections: [connection({ versionNotice: warning })] }));
+  assert.match(start, /<p class="[^"]*text-warning[^"]*" data-notice="warning" role="status">RAgents-Fassung passt nicht: Erweiterung 0\.1\.9, Server 0\.1\.8 - den Server auf 0\.1\.9 aktualisieren\.<\/p>/);
+  const two = render(page({ connections: [connection({ versionNotice: error }), connection({ name: "zweit", address: "http://localhost:4727" })] }));
+  assert.match(two, /<p class="[^"]*text-destructive[^"]*" data-notice="error" role="alert">werkstatt: RAgents-Fassung passt nicht/, "ab zwei Servern nennt der Hinweis seinen Server");
+  assert.equal(two.match(/data-notice=/g)?.length, 1);
+  const servers = render(page({ page: "connections", connections: [connection({ versionNotice: error })] }));
+  assert.match(servers, /data-notice="error" role="alert">RAgents-Fassung passt nicht: Erweiterung 0\.1\.8, Server 0\.1\.9/);
+  assert.doesNotMatch(render(page()), /data-notice=/);
+});
+
 test("Nachrichten in beide Richtungen werden vor der Verarbeitung geprüft", () => {
   assert.equal(isPanelActionMessage({ type: "ragents.panel", action: "page", page: "start" }), true);
   assert.equal(isPanelActionMessage({ type: "ragents.panel", action: "page", page: "runs" }), true);

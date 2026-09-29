@@ -16,6 +16,9 @@ export interface ProcessSandboxSetting {
   readonly network: readonly string[];
 }
 
+/** So schaltet der Betreiber die Prozess-Sandbox in der Profildatei ab. */
+export const PROCESS_SANDBOX_OFF = 'PROCESS_SANDBOX: "off" in der Sektion ragents.workspace';
+
 /** Ohne Angabe ist die Sandbox an; abschalten geht nur ausdrücklich mit "off". */
 export const processSandboxSetting = (): ProcessSandboxSetting => {
   const mode = env.optional("PROCESS_SANDBOX") ?? "on";

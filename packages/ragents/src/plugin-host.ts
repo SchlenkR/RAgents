@@ -11,7 +11,9 @@ import type { AgentProfile, CatalogModel } from "./agents/catalog.ts";
 import type { ToolContributor } from "./agents/plugins.ts";
 import { describeToolAvailability, type RunFunction } from "./agents/tools.ts";
 import type { ChannelContribution, ChannelDescriptor, MethodContribution, MethodDescriptor } from "./rpc/contribution.ts";
+import type { PluginState } from "./domain/model.ts";
 import type {
+  AccessProjectionContribution,
   AgentAudience,
   HttpRouteContribution,
   OperationContext,
@@ -19,6 +21,7 @@ import type {
   RegisteredOperationDescriptor,
   AgentContribution,
   AgentContributionContext,
+  PluginChatEvent,
   PluginConfigDescriptor,
   PluginManifest,
   PluginRegistration,
@@ -977,6 +980,47 @@ export class StartOptionContributionRegistry {
   }
 }
 
+/** Was ein Zugang ohne runs.inspect von Plugin-Zuständen sieht: eine Startoption nur mit ihren Rechten, sonst die Projektion ihres Plugins, ohne sie alles. */
+export class AccessProjectionRegistry {
+  readonly #projections = new ContributionRegistry<AccessProjectionContribution>("Zugriffsprojektion");
+  readonly #startOptions: StartOptionContributionRegistry;
+
+  constructor(startOptions = new StartOptionContributionRegistry()) {
+    this.#startOptions = startOptions;
+  }
+
+  register(owner: string, contributions: readonly AccessProjectionContribution[]): void {
+    for (const contribution of contributions) {
+      for (const name of ["state", "chatEvent"] as const) {
+        if (typeof contribution[name] !== "function") throw new Error(`Zugriffsprojektion ${contribution.id} hat kein ${name}`);
+      }
+    }
+    this.#projections.register(owner, contributions);
+  }
+
+  state(entry: PluginState, access: Pick<AccessContext, "can">): PluginState | undefined {
+    if (access.can("runs.inspect")) return entry;
+    if (this.#startOptions.missingRight(entry.pluginId, access) !== undefined) return undefined;
+    const projection = this.#find(entry.pluginId);
+    if (!projection) return entry;
+    const state = projection.state(entry);
+    return state === undefined ? undefined : { ...entry, state };
+  }
+
+  chatEvent<T extends PluginChatEvent>(pluginId: string, event: T, access: Pick<AccessContext, "can">): T | undefined {
+    if (access.can("runs.inspect")) return event;
+    if (this.#startOptions.missingRight(pluginId, access) !== undefined) return undefined;
+    const projection = this.#find(pluginId);
+    if (!projection) return event;
+    const projected = projection.chatEvent(event.payload === undefined ? { type: event.type } : { type: event.type, payload: event.payload });
+    return projected === undefined ? undefined : { ...event, type: projected.type, payload: projected.payload };
+  }
+
+  #find(id: string): AccessProjectionContribution | undefined {
+    return this.#projections.entries().find(({ value }) => value.id === id)?.value;
+  }
+}
+
 export class ConfigContributionRegistry {
   readonly #entries: Array<{ owners: string[]; value: PluginConfigDescriptor }> = [];
 
@@ -1125,6 +1169,7 @@ export class PluginHost {
   readonly lifecycle = new LifecycleContributionRegistry();
   readonly sessionMetadata = new SessionMetadataContributionRegistry();
   readonly startOptions = new StartOptionContributionRegistry();
+  readonly accessProjections = new AccessProjectionRegistry(this.startOptions);
   readonly config = new ConfigContributionRegistry();
   readonly storage: StorageRegistry;
   readonly #product: ProductDescriptor;
@@ -1176,6 +1221,7 @@ export class PluginHost {
       skills: (...entries) => this.skills.register(manifest.id, entries),
       startEntries: (...entries) => this.startEntries.register(manifest.id, entries),
       startOptions: (...entries) => this.startOptions.register(manifest.id, entries),
+      accessProjections: (...entries) => this.accessProjections.register(manifest.id, entries),
       functions: (...entries) => this.tools.registerFunctions(manifest.id, entries),
       script: (...entries) => this.script.register(manifest.id, entries),
     };

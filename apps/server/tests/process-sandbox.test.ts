@@ -15,6 +15,15 @@ import type { SandboxFolder, SessionWorkspace } from "../src/ragents/workspace-r
 
 const supported = process.platform === "darwin" || process.platform === "linux";
 
+const SANDBOX_OFF = 'SANDBOX: "off" in der Sektion acme.workspace';
+
+test("eine Plattform ohne Sandbox bricht mit der Einstellung ab, die das besitzende Plugin zum Abschalten nennt", () => {
+  for (const platform of ["win32", "freebsd"] as const) {
+    assert.throws(() => new ServerProcessSandbox({ network: [], serverAddress: undefined, dataDirectory: tmpdir(), disableSetting: SANDBOX_OFF, platform }),
+      (error: unknown) => error instanceof Error && error.message.includes(SANDBOX_OFF) && !error.message.includes("ragents."), platform);
+  }
+});
+
 const listening = async (text: string): Promise<{ server: Server; address: string }> => {
   const server = createServer((_request, response) => response.end(text));
   await new Promise<void>((resolve, reject) => { server.once("error", reject); server.listen(0, "127.0.0.1", resolve); });
@@ -39,7 +48,7 @@ const coordinatorFixture = async () => {
   await mkdir(cwd, { recursive: true });
   const allowed = await listening("own server");
   const forbidden = await listening("foreign service");
-  const processSandbox = new ServerProcessSandbox({ network: [], serverAddress: allowed.address, dataDirectory: data });
+  const processSandbox = new ServerProcessSandbox({ network: [], serverAddress: allowed.address, dataDirectory: data, disableSetting: SANDBOX_OFF });
   await processSandbox.start();
   const workspace: SessionWorkspace = {
     cwd,
@@ -152,7 +161,7 @@ test("git in a worktree whose common repository lies outside works in the sandbo
   const common = path.resolve(worktree, git(worktree, "rev-parse", "--git-common-dir").trim());
   assert.equal(common, path.join(repository, ".git"));
   const storage = (runId: string): string => path.join(data, "sessions", runId);
-  const processSandbox = new ServerProcessSandbox({ network: [], serverAddress: undefined, dataDirectory: data });
+  const processSandbox = new ServerProcessSandbox({ network: [], serverAddress: undefined, dataDirectory: data, disableSetting: SANDBOX_OFF });
   await processSandbox.start();
   const folders: Readonly<Record<string, readonly SandboxFolder[]>> = { undeclared: [], declared: [{ directory: common, access: "write" }] };
   const host = new WorkspaceSandboxHost({
@@ -207,7 +216,7 @@ test("a bash of a workstation run with an alias as cwd runs on the server in the
     stopRun: async () => undefined,
     shutdown: async () => undefined,
   };
-  const processSandbox = new ServerProcessSandbox({ network: [], serverAddress: undefined, dataDirectory: data });
+  const processSandbox = new ServerProcessSandbox({ network: [], serverAddress: undefined, dataDirectory: data, disableSetting: SANDBOX_OFF });
   await processSandbox.start();
   const remote = (): Promise<string> => Promise.reject(new Error("Der Arbeitsbereich liegt auf dem Arbeitsplatz"));
   const host = new WorkspaceSandboxHost({

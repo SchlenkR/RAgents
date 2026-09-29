@@ -25,6 +25,8 @@ export interface CoreMethodSources {
     saveTitleModelSettings: (value: unknown) => Promise<TitleModelSettings>;
   };
   plugins: PluginHost;
+  /** Die RAgents-Fassung dieses Servers; eine Oberfläche mit anderer Fassung zeigt den Unterschied. */
+  version: string;
   global: GlobalRunPolicy | undefined;
   /** Der Benutzer eines Runs: null ohne Eigentümer, undefined für eine Kennung ohne Run. */
   runOwner: (runId: string) => string | null | undefined;
@@ -146,7 +148,7 @@ export const coreMethods = (sources: CoreMethodSources): MethodContribution[] =>
     implement(coreContracts.settings.skill, ({ id }, { local }) => { assertSettingsReachable(local); return sessions.skill(id); }),
     implement(coreContracts.settings.titlesRead, (_input, { local }) => { assertSettingsReachable(local); return sessions.titleModelSettings(); }),
     implement(coreContracts.settings.titlesSave, ({ value }, { local }) => { assertSettingsReachable(local); return sessions.saveTitleModelSettings(value); }),
-    implement(coreContracts.plugins.bootstrap, (_input, { access }) => sources.plugins.publicProfile(access)),
+    implement(coreContracts.plugins.bootstrap, (_input, { access }) => ({ ...sources.plugins.publicProfile(access), version: sources.version })),
     implement(coreContracts.external.set, async ({ state }, { local }) => {
       if (!local) throw new DomainError("local-only", "Nur lokal schaltbar", 403);
       await sources.external.set(state === "on");
@@ -155,7 +157,7 @@ export const coreMethods = (sources: CoreMethodSources): MethodContribution[] =>
   ];
 };
 
-export const coreChannels = (sources: Pick<CoreMethodSources, "sessions" | "global" | "runOwner" | "runOwnerOnly">): ChannelContribution[] => {
+export const coreChannels = (sources: Pick<CoreMethodSources, "sessions" | "plugins" | "global" | "runOwner" | "runOwnerOnly">): ChannelContribution[] => {
   const { sessions, global } = sources;
   const policy: RunAccessPolicy = { global, ownerOf: sources.runOwner, ownerOnly: sources.runOwnerOnly };
   return [
@@ -174,7 +176,7 @@ export const coreChannels = (sources: Pick<CoreMethodSources, "sessions" | "glob
       assertRunRights(access, runId, "read", policy);
       const current = await sessions.get(runId);
       return current.subscribe((event) => {
-        const visible = accessibleChatEvent(event, access);
+        const visible = accessibleChatEvent(event, access, sources.plugins.accessProjections);
         if (visible) emit(visible);
       });
     }),

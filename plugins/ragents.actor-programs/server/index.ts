@@ -13,6 +13,7 @@ import { actorProgramSummary } from "./prompts.js";
 import { sandboxServicesToken } from "@ragents/host/plugin-support/workspace-sandbox-host.js";
 import { actorProgramsToken } from "@ragents/host/plugin-support/actor-programs/service.js";
 import { createProjectDiagnostics } from "./project-diagnostics.js";
+import { actorProgramAccessProjections } from "./access-projections.js";
 const actorProgramsPlugin = (pluginHost: PluginHost): RAgentsPlugin => ({
     manifest: { id: "ragents.actor-programs" },
     register: (host) => {
@@ -45,6 +46,7 @@ const actorProgramsPlugin = (pluginHost: PluginHost): RAgentsPlugin => ({
             deleteSession: async ({ runId }) => { diagnostics.forget(runId); await runtime.deleteSession(runId); }, shutdown: () => runtime.shutdown(),
         });
         host.prompts(actorProgramSummary);
+        host.accessProjections(...actorProgramAccessProjections);
         host.functions(createControlsToolContributor(), ...createActorProgramToolContributors(runtime, diagnostics));
     },
 });

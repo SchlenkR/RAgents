@@ -4,8 +4,8 @@ import { WorkspaceClient } from "../../../plugins/ragents.workspace/client/works
 import { MissingEnvironmentError } from "../../server/src/missing-environment";
 import type { Connection } from "../src/connections";
 import { hostEnvironmentSecretKey, provideMissingSecret } from "../src/settings";
-import { ConnectionSession, type LaunchedConnection, type SecretStore, type SessionServices } from "../src/sessions";
-import { startStubServer, stubProfile, waitFor, type StubServer } from "./fixtures";
+import { ConnectionSession, versionNotice, type LaunchedConnection, type SecretStore, type SessionServices } from "../src/sessions";
+import { startStubServer, STUB_VERSION, stubProfile, waitFor, type StubServer } from "./fixtures";
 
 const secrets = (initial: Record<string, string> = {}): SecretStore & { values: Map<string, string> } => {
   const values = new Map(Object.entries(initial));
@@ -27,6 +27,7 @@ const harness = (urls: Record<string, string>, stored: Record<string, string> = 
   const launches: string[] = [];
   const store = secrets(stored);
   const services: SessionServices = {
+    version: STUB_VERSION,
     workspaceClient: (transport) => new WorkspaceClient(transport, { id: "vscode-test", label: "Notebook", hostname: "notebook.local", platform: process.platform, folders: [process.cwd()], runsDirectory: "/tmp/ragents-runs" }, { hostRoot: () => undefined }),
     secrets: store,
     launch: (connection: Connection): Promise<LaunchedConnection> => {
@@ -285,4 +286,108 @@ test("scheitert die Übernahme eines verteilten Profils an einer Umgebungsvariab
   } finally {
     await closeAll([session], [server]);
   }
+});
+
+test("gleiche Fassung und angenommener Arbeitsplatz: kein Hinweis", async () => {
+  const server = await startStubServer();
+  const { services } = harness({ A: server.url });
+  const session = new ConnectionSession(serverConnection("A", server.url), services);
+  try {
+    await session.connect();
+    await waitFor(() => session.workspaceClient?.status.kind === "registered");
+    assert.equal(session.snapshot().versionNotice, undefined);
+  } finally {
+    await closeAll([session], [server]);
+  }
+});
+
+test("eine andere Fassung des Servers ist eine Warnung mit dem, was zu aktualisieren ist; der Arbeitsplatz bleibt angemeldet", async () => {
+  const server = await startStubServer({ version: "0.1.7" });
+  const { services } = harness({ A: server.url });
+  const session = new ConnectionSession(serverConnection("A", server.url), services);
+  try {
+    await session.connect();
+    await waitFor(() => session.workspaceClient?.status.kind === "registered" && session.snapshot().versionNotice !== undefined);
+    assert.deepEqual(session.snapshot().versionNotice, {
+      level: "warning",
+      text: "RAgents-Fassung passt nicht: Erweiterung 0.1.8, Server 0.1.7 - den Server auf 0.1.8 aktualisieren.",
+      update: "server",
+    });
+    assert.equal(session.snapshot().problem, undefined);
+    assert.equal(server.workspaceClients().size, 1);
+  } finally {
+    await closeAll([session], [server]);
+  }
+});
+
+test("lehnt der Server den Arbeitsplatz wegen seines Stands ab, ist die andere Fassung ein Fehler und kein zweites Problem", async () => {
+  const refusal = "Der Arbeitsplatz Notebook bringt den Executor 7 mit, der Server verlangt 8. Die RAgents-Erweiterung in VS Code beziehungsweise das Paket @schlenkr/ragents auf dem Arbeitsplatz aktualisieren.";
+  const server = await startStubServer({ version: "0.1.9", refuseRegistration: { code: "workspace-executor-version", message: refusal } });
+  const { services } = harness({ A: server.url });
+  const session = new ConnectionSession(serverConnection("A", server.url), services);
+  try {
+    await session.connect();
+    await waitFor(() => session.workspaceClient?.status.kind === "failed" && session.snapshot().versionNotice?.level === "error");
+    assert.deepEqual(session.snapshot().versionNotice, {
+      level: "error",
+      text: `RAgents-Fassung passt nicht: Erweiterung 0.1.8, Server 0.1.9 - die RAgents-Erweiterung auf 0.1.9 aktualisieren. Der Arbeitsplatz ist deshalb nicht angemeldet: ${refusal}`,
+      update: "extension",
+    });
+    assert.equal(session.snapshot().problem, undefined, "die Ablehnung steht nur im Hinweis zur Fassung");
+    assert.equal(server.workspaceClients().size, 0);
+  } finally {
+    await closeAll([session], [server]);
+  }
+});
+
+test("bei gleicher Fassung ist ein abgelehnter Stand ein Fehler; eine andere Ablehnung bleibt ein Problem des Arbeitsplatzes", async () => {
+  const stand = await startStubServer({ refuseRegistration: { code: "workspace-executor-contributions", message: "Der Arbeitsplatz Notebook bringt die Executor-Beiträge keine mit." } });
+  const other = await startStubServer({ refuseRegistration: { code: "workspace-client-busy", message: "Gerade nicht." } });
+  const { services } = harness({ A: stand.url, B: other.url });
+  const a = new ConnectionSession(serverConnection("A", stand.url), services);
+  const b = new ConnectionSession(serverConnection("B", other.url), services);
+  try {
+    await Promise.all([a.connect(), b.connect()]);
+    await waitFor(() => a.workspaceClient?.status.kind === "failed" && b.workspaceClient?.status.kind === "failed");
+    assert.deepEqual(a.snapshot().versionNotice, {
+      level: "error",
+      text: "RAgents-Stand passt nicht zum Server, der Arbeitsplatz ist nicht angemeldet: Der Arbeitsplatz Notebook bringt die Executor-Beiträge keine mit.",
+      update: undefined,
+    });
+    assert.equal(a.snapshot().problem, undefined);
+    assert.equal(b.snapshot().versionNotice, undefined);
+    assert.equal(b.snapshot().problem, "Arbeitsplatz nicht angemeldet: Gerade nicht.");
+  } finally {
+    await closeAll([a, b], [stand, other]);
+  }
+});
+
+test("ein Server ohne Fassungsangabe ist älter als diese Erweiterung", async () => {
+  const server = await startStubServer({ version: null });
+  const { services } = harness({ A: server.url });
+  const session = new ConnectionSession(serverConnection("A", server.url), services);
+  try {
+    await session.connect();
+    await waitFor(() => session.snapshot().versionNotice !== undefined);
+    assert.deepEqual(session.snapshot().versionNotice, {
+      level: "warning",
+      text: "RAgents-Fassung passt nicht: Erweiterung 0.1.8, Server ohne Fassungsangabe - den Server auf 0.1.8 aktualisieren.",
+      update: "server",
+    });
+  } finally {
+    await closeAll([session], [server]);
+  }
+});
+
+test("die Reihenfolge der Fassungen zählt je Stelle; ein lokales Profil bringt den Host unter ragents.hostPath auf die Fassung der Erweiterung", () => {
+  const registered = { kind: "registered" } as const;
+  assert.equal(versionNotice({ extension: "0.1.10", server: "0.1.9", connection: "server", workspace: registered })?.update, "server");
+  assert.equal(versionNotice({ extension: "0.1.9", server: "0.1.10", connection: "server", workspace: registered })?.update, "extension");
+  assert.equal(versionNotice({ extension: "0.1.9", server: "0.1.9", connection: "server", workspace: registered }), undefined);
+  assert.equal(versionNotice({ extension: "0.1.9", server: undefined, connection: "server", workspace: registered }), undefined, "ohne Antwort des Servers gibt es nichts zu vergleichen");
+  assert.equal(versionNotice({ extension: "0.2.0", server: "0.1.9", connection: "profile", workspace: undefined })?.text,
+    "RAgents-Fassung passt nicht: Erweiterung 0.2.0, Server 0.1.9 - den Host unter ragents.hostPath auf 0.2.0 bringen.");
+  assert.deepEqual(versionNotice({ extension: "dev", server: "0.1.9", connection: "server", workspace: registered }), {
+    level: "warning", text: "RAgents-Fassung passt nicht: Erweiterung dev, Server 0.1.9 - Erweiterung und Server auf dieselbe Fassung bringen.", update: undefined,
+  });
 });

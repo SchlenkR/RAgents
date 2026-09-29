@@ -1,37 +1,9 @@
-import { emptyUsage, type AccessContext, type JsonValue, type PluginState, type RunView } from "@ragents/engine";
+import { emptyUsage, type AccessContext, type AccessProjectionRegistry, type RunView } from "@ragents/engine";
 import type { ChatEvent, Message } from "quassel/events";
 import type { ActorConversations } from "./ragents/actor-chat-history.js";
 
-const record = (value: JsonValue | undefined): Record<string, JsonValue | undefined> | undefined =>
-  value !== null && typeof value === "object" && !Array.isArray(value) ? value : undefined;
-
-const hiddenStates = new Set(["ragents.system-prompt", "ragents.model", "ragents.start-options"]);
-
-const visibleState = (entry: PluginState): PluginState | undefined => {
-  if (hiddenStates.has(entry.pluginId)) return undefined;
-  if (entry.pluginId === "ragents.actor-programs.invocations") return { ...entry, state: { version: 1, revision: entry.updatedAt } };
-  if (entry.pluginId !== "ragents.actor-programs") return entry;
-  const state = record(entry.state);
-  const program = state?.program ? record(state.program) : undefined;
-  if (!program) return entry;
-  const views = Array.isArray(program.views) ? program.views.map((value) => {
-    const view = record(value);
-    return view ? { id: view.id, key: view.key, title: view.title, visible: view.visible, placements: view.placements } : value;
-  }) : [];
-  return { ...entry, state: {
-    version: 1,
-    program: {
-      name: program.name,
-      title: program.title,
-      actorId: program.actorId,
-      actorHandle: program.actorHandle,
-      revision: program.revision,
-      views,
-    },
-  } };
-};
-
-export const accessibleRunView = (view: RunView, access: AccessContext): RunView => access.can("runs.inspect") ? view : {
+/** Plugin-Zustände und Plugin-Ereignisse zeigt jedes Plugin selbst über seine Zugriffsprojektion (docs/spec/plugins.md, Registrierungen des PluginHost). */
+export const accessibleRunView = (view: RunView, access: AccessContext, projections: AccessProjectionRegistry): RunView => access.can("runs.inspect") ? view : {
   ...view,
   actors: view.actors.map((actor) => actor.kind === "human" ? { ...actor, grants: [] } : {
     ...actor,
@@ -53,12 +25,12 @@ export const accessibleRunView = (view: RunView, access: AccessContext): RunView
   turns: view.turns.map((turn) => ({ ...turn, usage: emptyUsage(), toolCalls: [], reason: turn.reason ? "Die Verarbeitung wurde beendet." : null })),
   subscriptions: [],
   pluginStates: view.pluginStates.flatMap((entry) => {
-    const state = visibleState(entry);
+    const state = projections.state(entry, access);
     return state ? [state] : [];
   }),
 };
 
-export const accessibleChatEvent = (event: ChatEvent, access: AccessContext): ChatEvent | undefined => {
+export const accessibleChatEvent = (event: ChatEvent, access: AccessContext, projections: AccessProjectionRegistry): ChatEvent | undefined => {
   if (access.can("runs.inspect")) return event;
   if (event.kind === "status" && event.startup?.status === "failed") return {
     ...event,
@@ -70,9 +42,7 @@ export const accessibleChatEvent = (event: ChatEvent, access: AccessContext): Ch
   if (event.kind === "tool-result") return trace ? event : { kind: "tool-result", id: event.id, result: "", isError: event.isError };
   if (event.kind === "system") return { ...event, text: "Hinweis zur Verarbeitung. Bei Fragen wende Dich an den zuständigen Agenten." };
   if (event.kind !== "plugin") return event;
-  if (hiddenStates.has(event.pluginId)) return undefined;
-  if (event.pluginId === "ragents.actor-programs" || event.pluginId === "ragents.actor-programs.invocations") return undefined;
-  return event;
+  return projections.chatEvent(event.pluginId, event, access);
 };
 
 const visibleMessage = (message: Message, actorId: string, trace: boolean): Message[] => {

@@ -335,12 +335,12 @@ test("ohne verlangte Beiträge kennt der Executor des Arbeitsplatzes keinen Spra
 });
 
 test("ein fehlendes Bundle, ein anderer Stand oder ein fehlender Host lassen die Anmeldung mit Ursache scheitern", async () => {
-  const cases: Array<{ contributions: ExecutorContributionStand[]; hostRoot: string | undefined; expected: RegExp }> = [
-    { contributions: [{ plugin: "acme.fehlt", stand: "0".repeat(64) }], hostRoot: HOST_ROOT, expected: /Der Executor-Beitrag von acme\.fehlt fehlt unter .*acme\.fehlt[/\\]executor[/\\]index\.mjs.*muss dieselben Bundles tragen wie der Server/ },
-    { contributions: [{ plugin: "ragents.lsp-typescript", stand: "0".repeat(64) }], hostRoot: HOST_ROOT, expected: /hat den Stand [0-9a-f]{12}, verlangt ist 000000000000\. Der Host dieses Arbeitsplatzes/ },
-    { contributions: [await typescriptContribution()], hostRoot: undefined, expected: /Der Server verlangt die Executor-Beiträge von ragents\.lsp-typescript; dieser Arbeitsplatz kennt keinen Host/ },
+  const cases: Array<{ contributions: ExecutorContributionStand[]; hostRoot: string | undefined; expected: RegExp; mismatch: boolean }> = [
+    { contributions: [{ plugin: "acme.fehlt", stand: "0".repeat(64) }], hostRoot: HOST_ROOT, expected: /Der Executor-Beitrag von acme\.fehlt fehlt unter .*acme\.fehlt[/\\]executor[/\\]index\.mjs.*muss dieselben Bundles tragen wie der Server/, mismatch: true },
+    { contributions: [{ plugin: "ragents.lsp-typescript", stand: "0".repeat(64) }], hostRoot: HOST_ROOT, expected: /hat den Stand [0-9a-f]{12}, verlangt ist 000000000000\. Der Host dieses Arbeitsplatzes/, mismatch: true },
+    { contributions: [await typescriptContribution()], hostRoot: undefined, expected: /Der Server verlangt die Executor-Beiträge von ragents\.lsp-typescript; dieser Arbeitsplatz kennt keinen Host/, mismatch: false },
   ];
-  for (const { contributions, hostRoot, expected } of cases) {
+  for (const { contributions, hostRoot, expected, mismatch } of cases) {
     const server = await startStubServer({ contributions });
     const client = new ServerClient(server.url, undefined);
     const directory = await folder();
@@ -351,6 +351,7 @@ test("ein fehlendes Bundle, ein anderer Stand oder ein fehlender Host lassen die
       await workspace.register();
       assert.equal(workspace.status.kind, "failed");
       assert.match((workspace.status as { message: string }).message, expected);
+      assert.equal((workspace.status as { mismatch: boolean }).mismatch, mismatch, "nur ein anderer Stand ist ein Unterschied der Fassung");
       assert.equal(server.workspaceClients().has(CLIENT_ID), false, "der Server sieht keine Anmeldung");
       await workspace.unregister();
     } finally {

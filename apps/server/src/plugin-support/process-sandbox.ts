@@ -35,6 +35,8 @@ export interface ServerProcessSandboxOptions {
   /** Die Adresse dieses Servers, etwa http://127.0.0.1:4710; ohne HTTP keine. */
   readonly serverAddress: string | undefined;
   readonly dataDirectory: string;
+  /** Wie der Betreiber die Sandbox abschaltet, so wie er es in die Profildatei schreibt; jede Meldung, die den Start verhindert, nennt es. */
+  readonly disableSetting: string;
   readonly hostRoot?: string;
   readonly platform?: NodeJS.Platform;
   readonly environment?: NodeJS.ProcessEnv;
@@ -213,39 +215,38 @@ class SharedSandboxRuntime {
 
 const sharedRuntime = new SharedSandboxRuntime();
 
-const unsupported = (platform: NodeJS.Platform): Error => new Error(platform === "win32"
+const unsupported = (platform: NodeJS.Platform, disableSetting: string): Error => new Error(platform === "win32"
   ? "Die Prozess-Sandbox gibt es auf einem Windows-Server nicht: dort lassen sich die Ordnerregeln je Run nicht setzen. "
-    + "Wer den Server trotzdem unter Windows betreibt, schaltet sie in der Profildatei ausdrücklich ab: "
-    + "PROCESS_SANDBOX: \"off\" in der Sektion ragents.workspace."
+    + `Wer den Server trotzdem unter Windows betreibt, schaltet sie in der Profildatei ausdrücklich ab: ${disableSetting}.`
   : `Die Prozess-Sandbox kennt die Plattform ${platform} nicht; unterstützt sind macOS und Linux. `
-    + "PROCESS_SANDBOX: \"off\" in der Sektion ragents.workspace schaltet sie ausdrücklich ab.");
+    + `${disableSetting} schaltet sie ausdrücklich ab.`);
 
-const missingDependencies = (errors: readonly string[]): Error => new Error(
+const missingDependencies = (errors: readonly string[], disableSetting: string): Error => new Error(
   `Die Prozess-Sandbox kann nicht starten: ${errors.join("; ")}. `
   + "Unter Linux braucht sie bubblewrap, socat und ripgrep (Debian/Ubuntu: apt-get install bubblewrap socat ripgrep). "
-  + "PROCESS_SANDBOX: \"off\" in der Sektion ragents.workspace schaltet sie ausdrücklich ab.");
+  + `${disableSetting} schaltet sie ausdrücklich ab.`);
 
-const failedSelfTest = (detail: string): Error => new Error(
+const failedSelfTest = (detail: string, disableSetting: string): Error => new Error(
   `Die Prozess-Sandbox lässt sich auf diesem Rechner nicht starten: ${detail.trim() || "ohne Ausgabe"}. `
   + "Unter Linux braucht bubblewrap Benutzer-Namensräume; in einem Container muss das Profil des Containers sie erlauben. "
-  + "PROCESS_SANDBOX: \"off\" in der Sektion ragents.workspace schaltet sie ausdrücklich ab.");
+  + `${disableSetting} schaltet sie ausdrücklich ab.`);
 
-const runSelfTest = (launch: ProcessLaunch, environment: NodeJS.ProcessEnv): Promise<void> => new Promise((resolve, reject) => {
+const runSelfTest = (launch: ProcessLaunch, environment: NodeJS.ProcessEnv, disableSetting: string): Promise<void> => new Promise((resolve, reject) => {
   const child = spawn(launch.command, [...launch.args], { stdio: ["ignore", "ignore", "pipe"], env: environment });
   let stderr = "";
   const timer = setTimeout(() => {
     child.kill("SIGKILL");
-    reject(failedSelfTest(`keine Antwort nach ${SELF_TEST_TIMEOUT_MS / 1000} Sekunden`));
+    reject(failedSelfTest(`keine Antwort nach ${SELF_TEST_TIMEOUT_MS / 1000} Sekunden`, disableSetting));
   }, SELF_TEST_TIMEOUT_MS);
   child.stderr.on("data", (chunk: Buffer) => { stderr = (stderr + chunk.toString("utf8")).slice(-2_000); });
   child.once("error", (error) => {
     clearTimeout(timer);
-    reject(failedSelfTest(error.message));
+    reject(failedSelfTest(error.message, disableSetting));
   });
   child.once("close", (code) => {
     clearTimeout(timer);
     if (code === 0) resolve();
-    else reject(failedSelfTest(`Code ${code ?? "Signal"}: ${stderr}`));
+    else reject(failedSelfTest(`Code ${code ?? "Signal"}: ${stderr}`, disableSetting));
   });
 });
 
@@ -260,7 +261,7 @@ export class ServerProcessSandbox implements RunProcessSandboxes {
   constructor(options: ServerProcessSandboxOptions) {
     this.#options = options;
     this.#platform = options.platform ?? process.platform;
-    if (this.#platform !== "darwin" && this.#platform !== "linux") throw unsupported(this.#platform);
+    if (this.#platform !== "darwin" && this.#platform !== "linux") throw unsupported(this.#platform, options.disableSetting);
     this.#protected = protectedRoots(options, this.#platform);
     this.#readable = [options.hostRoot ?? hostRoot(), ...toolchainDirectories(options, this.#protected)];
     this.#searchPath = resolvedSearchPath(options.environment ?? process.env);
@@ -269,14 +270,14 @@ export class ServerProcessSandbox implements RunProcessSandboxes {
   /** Prüft die Voraussetzungen, startet den Netz-Proxy und startet einmal einen Prozess in der Sandbox; jedes Scheitern ist ein Startfehler. */
   async start(): Promise<void> {
     const { errors } = SandboxManager.checkDependencies();
-    if (errors.length > 0) throw missingDependencies(errors);
+    if (errors.length > 0) throw missingDependencies(errors, this.#options.disableSetting);
     await sharedRuntime.acquire(this, {
       network: [...this.#options.network, ...serverTarget(this.#options.serverAddress)],
       unixSockets: socketRoots(this.#options.dataDirectory, this.#platform),
     });
     try {
       const probe = this.forRun({ writable: [], readable: [], temporary: path.join(this.#options.dataDirectory, "sandbox-self-test") });
-      await runSelfTest(await probe.wrap({ command: "true", args: [] }), this.#options.environment ?? process.env);
+      await runSelfTest(await probe.wrap({ command: "true", args: [] }), this.#options.environment ?? process.env, this.#options.disableSetting);
     } catch (error) {
       await sharedRuntime.release(this);
       throw error;

@@ -1,5 +1,6 @@
 import { FolderIcon, KeyIcon, PencilIcon, PlusIcon, ServerIcon, SettingsIcon, Trash2Icon } from "lucide-react";
 import { useState } from "react";
+import { cn } from "cn";
 import { Button, ConnectionStateIcon } from "../ui";
 import { busyState, connectionState, kindLabel, stateDetail } from "./connection-state";
 import type { ConnectionView, PanelAction } from "./contract";
@@ -43,6 +44,7 @@ function ConnectionRow({ connection, send, onEdit, onLogin, onRemove }: {
 }) {
   const busy = busyState(connection);
   const detail = stateDetail(connection) ?? connection.problem;
+  const notice = connection.versionNotice;
   const profile = connection.kind === "profile";
   return <li className="grid grid-cols-[auto_minmax(0,1fr)] items-center gap-x-2.5 gap-y-1.5 border-b border-border-soft px-1 py-2.5 last:border-b-0">
     <span aria-hidden className="grid size-[26px] flex-none place-items-center rounded-md bg-secondary text-muted-foreground">
@@ -57,6 +59,7 @@ function ConnectionRow({ connection, send, onEdit, onLogin, onRemove }: {
       <span className="block truncate font-mono text-[0.68rem] text-muted-foreground" title={connection.address}>{profile ? fileNameOf(connection.address) : connection.address}</span>
     </span>
     {detail && <p className="col-span-2 text-[0.7rem] leading-normal text-destructive [overflow-wrap:anywhere]" role="alert">{detail}</p>}
+    {notice && <p className={cn("col-span-2 text-[0.7rem] leading-normal [overflow-wrap:anywhere]", notice.level === "error" ? "text-destructive" : "text-warning")} data-notice={notice.level} role={notice.level === "error" ? "alert" : "status"}>{notice.text}</p>}
     <span className="col-span-2 flex flex-wrap items-center gap-1.5">
       <RowActions busy={busy} connection={connection} onLogin={onLogin} send={send} />
       {connection.savedLogin && <Button disabled={busy} onClick={() => send({ action: "logout", name: connection.name })} size="xs" variant="ghost">Abmelden</Button>}

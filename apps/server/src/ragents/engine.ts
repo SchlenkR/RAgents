@@ -32,6 +32,7 @@ import {
   type PublicPromptSnapshot,
   type RunStopBoundary,
   type RunStopOperation,
+  type RunView,
   type StartOptionContributionRegistry,
   type Workspaces,
 } from "@ragents/engine";
@@ -397,7 +398,7 @@ export const createEngine = async (options: EngineOptions): Promise<Engine> => {
     assertAvailable: options.assertAvailable,
     assertRunUsable: options.assertRunUsable,
     assertRunRights: (access: AccessContext, runId: string, kind: RunRightsKind) => assertRunRights(access, runId, kind, runAccess),
-    projectView: accessibleRunView,
+    projectView: (view: RunView, access: AccessContext) => accessibleRunView(view, access, options.plugins.accessProjections),
     hasRun: (runId: string) => journal.stateOf(runId) !== null,
   };
   const methods = runtimeMethods({

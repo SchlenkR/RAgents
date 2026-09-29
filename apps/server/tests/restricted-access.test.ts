@@ -1,15 +1,33 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { createAccessContext, emptyUsage, PluginHost, unrestrictedAccess, type RunView } from "@ragents/engine";
+import { createAccessContext, emptyUsage, PluginHost, unrestrictedAccess, type AccessContext, type PluginState, type RunView } from "@ragents/engine";
 import { coreContracts } from "../src/api/contracts.ts";
 import { coreMethods } from "../src/api/core-methods.ts";
-import { accessibleActorConversations, accessibleChatEvent, accessibleRunView } from "../src/access-projection.ts";
+import { accessibleActorConversations, accessibleChatEvent as projectedChatEvent, accessibleRunView as projectedRunView } from "../src/access-projection.ts";
+import { productStartOptions } from "../src/plugin-support/product-start-options.ts";
+import { actorProgramAccessProjections } from "../../../plugins/ragents.actor-programs/server/access-projections.ts";
 import { applyEvent, type ChatEvent, type Message } from "quassel/events";
 import { coreSources, startRpcServer } from "./rpc-fixture.ts";
 
 const operator = createAccessContext({ enabled: false, user: {
   id: "operator", label: "Operator", rights: ["runs.read", "runs.write"], startEntries: ["example.allowed"],
 } });
+
+/** Wie ein Profil mit Produkt und Actor-Programmen: Modell und Systemprompt verlangen runs.inspect, die Programme bringen ihre Projektion mit. */
+const profileHost = (): PluginHost => {
+  const host = new PluginHost({ product: { id: "test", title: "Test" }, dataDirectory: "/private/tmp/ragents-access-tests" });
+  host.register({ manifest: { id: "test.product" }, register: (registration) => registration.startOptions(...productStartOptions({
+    modelChoice: { options: ["hidden-model"], defaultModel: "hidden-model", provider: "hidden-provider", selectable: true, thinkingOptionsFor: () => ["off"] },
+    coordinatorThinking: "off",
+    systemPrompts: () => ({ mode: "selectable", options: [{ id: "general", label: "General", file: "general.md", text: "hidden-prompt" }], defaultIds: ["general"], shareDefault: false }),
+  })) });
+  host.register({ manifest: { id: "test.programs" }, register: (registration) => registration.accessProjections(...actorProgramAccessProjections) });
+  return host;
+};
+
+const projections = profileHost().accessProjections;
+const accessibleRunView = (view: RunView, access: AccessContext): RunView => projectedRunView(view, access, projections);
+const accessibleChatEvent = (event: ChatEvent, access: AccessContext): ChatEvent | undefined => projectedChatEvent(event, access, projections);
 
 test("startup status retains preparation but exposes failure details only with inspection rights", () => {
   const preparing: ChatEvent = { kind: "status", running: false, startup: { status: "preparing", message: "Oberfläche wird vorbereitet." } };
@@ -88,6 +106,13 @@ test("Bootstrap liefert eingeschränkten Benutzern ausschließlich erlaubte Scri
   assert.deepEqual(host.publicProfile(operator).startEntries.map((entry) => entry.id), ["example.allowed"]);
   assert.equal(host.publicProfile(unrestrictedAccess).startEntries.length, 3);
   assert.equal("defaultStartEntry" in host.publicProfile(unrestrictedAccess), false);
+});
+
+test("der Bootstrap nennt neben dem Profil die RAgents-Fassung des Servers, gegen die eine Oberfläche ihre eigene prüft", async (t) => {
+  const host = exampleHost();
+  const server = await startRpcServer(t, { methods: coreMethods(coreSources({}, { plugins: host, version: "0.1.8" })), accessFor: () => operator, local: false });
+  const reply = await server.call(coreContracts.plugins.bootstrap.id, {});
+  assert.deepEqual(reply.result, { ...host.publicProfile(operator), version: "0.1.8" });
 });
 
 test("die Default-Vorlage steht im Bootstrap nur, wenn der Benutzer sie starten darf; eine unbekannte bricht den Start", () => {
@@ -200,4 +225,49 @@ test("runs.trace zeigt Denk- und Werkzeugschritte mit Inhalt, verbirgt aber tech
   ] as Message[] } };
   const visible = accessibleActorConversations(history, tracer);
   assert.deepEqual(visible.actors.helper, history.actors.helper.slice(0, 2));
+});
+
+const stateEntry = (pluginId: string, state: PluginState["state"], scope: PluginState["scope"] = { kind: "run" }): PluginState =>
+  ({ pluginId, scope, state, updatedAt: "2026-09-29T10:00:00.000Z" });
+
+test("ohne runs.inspect projiziert jedes Plugin seine eigenen Zustände; ohne Projektion und ohne Rechte einer Startoption bleibt der Zustand, wie er ist", () => {
+  const program = stateEntry("ragents.actor-programs", { version: 1, program: {
+    name: "board", title: "Board", actorId: "helper", actorHandle: "helper", revision: "r1", directory: "hidden-directory", backendFile: "hidden-source",
+    functions: [{ id: "hidden-function" }], views: [{ id: "board", key: "main", title: "Board", visible: true, placements: [], html: "hidden-html", clientFile: "hidden-client" }],
+  } }, { kind: "actor", actorId: "helper" });
+  assert.deepEqual(projections.state(program, operator), { ...program, state: { version: 1, program: {
+    name: "board", title: "Board", actorId: "helper", actorHandle: "helper", revision: "r1", views: [{ id: "board", key: "main", title: "Board", visible: true, placements: [] }],
+  } } });
+  const empty = stateEntry("ragents.actor-programs", { version: 1, program: null }, { kind: "actor", actorId: "helper" });
+  assert.equal(projections.state(empty, operator)?.state, empty.state);
+  const invocations = stateEntry("ragents.actor-programs.invocations", { version: 1, invocations: [{ input: "hidden-input" }] }, { kind: "actor", actorId: "helper" });
+  assert.deepEqual(projections.state(invocations, operator), { ...invocations, state: { version: 1, revision: invocations.updatedAt } });
+  for (const pluginId of ["ragents.model", "ragents.system-prompt"]) assert.equal(projections.state(stateEntry(pluginId, { value: "hidden" }), operator), undefined, pluginId);
+  for (const kept of [
+    stateEntry("ragents.actor-programs.script", { version: 1, entryId: "example.setup" }),
+    stateEntry("ragents.actor-state", { progress: 2 }, { kind: "actor", actorId: "helper" }),
+    stateEntry("acme.binding", { machine: "server", folder: "fresh" }),
+  ]) assert.equal(projections.state(kept, operator), kept, kept.pluginId);
+  for (const entry of [program, invocations, stateEntry("ragents.model", { model: "visible-model" })]) assert.equal(projections.state(entry, unrestrictedAccess), entry);
+});
+
+test("Chat-Ereignisse zu Plugin-Zuständen folgen derselben Projektion: Programme und Startoptionen mit Rechten fehlen ohne runs.inspect, andere bleiben", () => {
+  const event = (pluginId: string): ChatEvent => ({ kind: "plugin", pluginId, type: "state-replaced", payload: { scope: { kind: "run" }, state: { value: "hidden" } }, at: "now" });
+  for (const pluginId of ["ragents.actor-programs", "ragents.actor-programs.invocations", "ragents.model", "ragents.system-prompt"]) {
+    const hidden = event(pluginId);
+    assert.equal(accessibleChatEvent(hidden, operator), undefined, pluginId);
+    assert.equal(accessibleChatEvent(hidden, unrestrictedAccess), hidden, pluginId);
+  }
+  for (const pluginId of ["ragents.actor-programs.script", "ragents.actor-state", "acme.binding"]) {
+    const kept = event(pluginId);
+    assert.equal(accessibleChatEvent(kept, operator), kept, pluginId);
+  }
+});
+
+test("der Server kennt keine Projektion eines Plugins: ohne dessen Beitrag sieht auch ein eingeschränkter Zugang den ganzen Programmzustand", () => {
+  const bare = new PluginHost({ product: { id: "test", title: "Test" }, dataDirectory: "/private/tmp/ragents-access-tests" }).accessProjections;
+  const program = stateEntry("ragents.actor-programs", { version: 1, program: { name: "board", directory: "visible-directory" } });
+  assert.equal(bare.state(program, operator), program);
+  const event: ChatEvent = { kind: "plugin", pluginId: "ragents.actor-programs", type: "state-replaced", payload: { state: program.state } };
+  assert.equal(projectedChatEvent(event, operator, bare), event);
 });

@@ -389,6 +389,15 @@ host.startOptions({
     "Ein voreingestellter Wert muss ebenfalls gültig sein; eine fehlende Voraussetzung wird nicht still ersetzt.",
     "defaultValue, accept und describe bekommen neben runId den handelnden Benutzer als userId, ohne Anmeldung null. Das optionale ownerOnly(value) behält einen Run mit diesem Wert zum Bedienen seinem Eigentümer vor; lesen und stoppen bleiben allen, die ihn sehen. Das optionale rights nennt Rechte über runs.create hinaus, etwa runs.inspect für eine Option mit technischer Darstellung wie die Modellwahl; ohne sie fehlt die Option in der Liste, und ihre Wahl scheitert mit access-denied. Mit changeable bleibt die Option nach dem Start wählbar: jede neue Wahl landet im Journal, wer die Option liest, folgt dem gespeicherten Wert; so hält es die Modellwahl, die ab dem nächsten Turn gilt.",
   ]),
+  entry("access-projections", "Serverbeiträge", "Zustände für eingeschränkte Zugänge", "Ein Zugang ohne runs.inspect sieht die Plugin-Zustände eines Runs und deren Chat-Ereignisse so, wie das Plugin es festlegt, dem sie gehören. Es meldet je Zustand, was davon sichtbar bleibt. Ohne Projektion bleibt ein Zustand unverändert.", "Innerhalb von register(host); ragents.example.board ist ein Zustand dieses Plugins.", `
+host.accessProjections({
+  id: "ragents.example.board",
+  state: (entry) => ({ title: (entry.state as { title?: string }).title ?? null }),
+  chatEvent: () => undefined,
+});`, ["host.accessProjections"], [
+    "state bekommt den Zustand samt updatedAt und liefert den sichtbaren Wert oder undefined; Kennung, Scope und Zeitpunkt behält der Host. chatEvent bekommt type und payload eines Chat-Ereignisses mit dieser Kennung und liefert das sichtbare oder undefined. Jede Kennung hat höchstens eine Projektion.",
+    "Den gespeicherten Wert einer Startoption mit rights sieht nur, wer diese Rechte hat, in der Run-Ansicht wie im Chat; das gilt vor jeder Projektion.",
+  ]),
   entry("session-metadata", "Serverbeiträge", "Run-Metadaten bereitstellen", "Ein Plugin kann kurze Zusatzangaben zu einem Run liefern, etwa einen Bearbeitungsstatus. Solche Metadaten stehen der Oberfläche zur Anzeige zur Verfügung. Die zugrunde liegenden Fachdaten bleiben beim Plugin.", "Innerhalb von register(host); Beispiel ohne eigene Datenablage.", `
 host.sessionMetadata({
   id: "ragents.example.metadata",

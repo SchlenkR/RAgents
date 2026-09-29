@@ -25,6 +25,9 @@ const attachment = Type.Object({
 const sessionInfo = openJson<SessionInfo>("SessionInfo");
 
 /** Rechte je Run prüft der Host dynamisch; Verträge ohne `rights` nennen ihre Regel in der Beschreibung. */
+/** Was eine Oberfläche beim Start vom Server bekommt: das Profil der Plugins und die RAgents-Fassung des Servers, gegen die sie ihre eigene prüft. */
+export type HostBootstrap = PublicPluginProfile & { readonly version: string };
+
 export const coreContracts = {
   runs: {
     list: defineOperation({
@@ -161,9 +164,9 @@ export const coreContracts = {
   plugins: {
     bootstrap: defineOperation({
       id: "ragents.plugins.bootstrap",
-      description: "Produkt, aktive Plugins mit Web-Konfiguration und freigegebene Vorlagen für die Oberfläche.",
+      description: "Produkt, aktive Plugins mit Web-Konfiguration, freigegebene Vorlagen und die RAgents-Fassung des Servers für die Oberfläche.",
       input: Type.Object({}, { additionalProperties: false }),
-      result: openJson<PublicPluginProfile>("PublicPluginProfile"),
+      result: openJson<HostBootstrap>("HostBootstrap"),
     }),
   },
   external: {

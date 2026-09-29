@@ -1,4 +1,4 @@
-import type { WorkspaceClient } from "../../../plugins/ragents.workspace/client/workspace-client";
+import type { WorkspaceClient, WorkspaceClientStatus } from "../../../plugins/ragents.workspace/client/workspace-client";
 import { missingEnvironmentOf, type MissingEnvironment } from "../../server/src/missing-environment";
 import { connectionSecretKey, credentialsSecretKey, type Connection } from "./connections";
 import type { RunningHost } from "./host-process";
@@ -28,6 +28,8 @@ export interface SecretStore {
 }
 
 export interface SessionServices {
+  /** Die RAgents-Fassung dieser Erweiterung (ragents.packageVersion, gleich ihrer eigenen); jeder Server wird mit ihr verglichen. */
+  version: string;
   /** Der Arbeitsplatz dieses Fensters mit den Ordnern, die er gerade anbietet. */
   workspaceClient: (transport: { rpc: ServerClient["rpc"] }) => WorkspaceClient;
   secrets: SecretStore;
@@ -58,7 +60,59 @@ export interface ConnectionSnapshot {
   problem: string | undefined;
   /** Der letzte Versuch scheiterte an einer Umgebungsvariablen, die die Konfiguration mit env("NAME") nennt. */
   missingEnvironment: MissingEnvironment | undefined;
+  /** Erweiterung und Server tragen eine andere RAgents-Fassung oder einen anderen Stand. */
+  versionNotice: VersionNotice | undefined;
 }
+
+/** Was an der Fassung nicht passt: error, wenn der Arbeitsplatz deshalb nicht angemeldet ist, sonst warning; update nennt die Seite, die zu aktualisieren ist. */
+export interface VersionNotice {
+  level: "error" | "warning";
+  text: string;
+  update: "extension" | "server" | undefined;
+}
+
+const versionParts = (version: string): readonly number[] | undefined => {
+  const match = /^(\d+)\.(\d+)\.(\d+)/.exec(version);
+  return match ? match.slice(1).map(Number) : undefined;
+};
+
+/** Welche Seite älter ist; ohne lesbare Fassung lässt sich das nicht sagen. */
+const olderSide = (extension: string, server: string | null): "extension" | "server" | undefined => {
+  if (server === null) return "server";
+  const left = versionParts(extension);
+  const right = versionParts(server);
+  if (!left || !right) return undefined;
+  const difference = left.map((part, index) => part - right[index]!).find((value) => value !== 0) ?? 0;
+  return difference === 0 ? undefined : difference < 0 ? "extension" : "server";
+};
+
+export interface VersionInput {
+  extension: string;
+  /** undefined, solange der Server nicht geantwortet hat; null, wenn er keine Fassung nennt. */
+  server: string | null | undefined;
+  /** Ein lokales Profil läuft auf dem Host, den ragents.hostPath nennt; ohne die Einstellung holt die Erweiterung ihre eigene Fassung. */
+  connection: Connection["kind"];
+  workspace: WorkspaceClientStatus | undefined;
+}
+
+/** Eine andere Fassung ist eine Warnung, solange der Arbeitsplatz angemeldet ist; lehnt der Server ihn deshalb ab, ist sie ein Fehler. */
+export const versionNotice = ({ extension, server, connection, workspace }: VersionInput): VersionNotice | undefined => {
+  const refusal = workspace?.kind === "failed" && workspace.mismatch ? workspace.message : undefined;
+  if (server === undefined || server === extension) {
+    return refusal === undefined ? undefined
+      : { level: "error", text: `RAgents-Stand passt nicht zum Server, der Arbeitsplatz ist nicht angemeldet: ${refusal}`, update: undefined };
+  }
+  const older = olderSide(extension, server);
+  const target = older === "extension" ? server : extension;
+  const action = older === "extension" ? `die RAgents-Erweiterung auf ${target} aktualisieren`
+    : older === "server" && connection === "profile" ? `den Host unter ragents.hostPath auf ${target} bringen`
+    : older === "server" ? `den Server auf ${target} aktualisieren`
+    : "Erweiterung und Server auf dieselbe Fassung bringen";
+  const text = `RAgents-Fassung passt nicht: Erweiterung ${extension}, Server ${server ?? "ohne Fassungsangabe"} - ${action}`;
+  return refusal === undefined
+    ? { level: "warning", text: `${text}.`, update: older }
+    : { level: "error", text: `${text}. Der Arbeitsplatz ist deshalb nicht angemeldet: ${refusal}`, update: older };
+};
 
 interface SessionParts {
   url: string;
@@ -339,6 +393,12 @@ export class ConnectionSession {
       savedLogin: this.#savedLogin,
       problem: this.#problem ?? this.#workspaceProblem(parts),
       missingEnvironment: this.#missingEnvironment,
+      versionNotice: parts ? versionNotice({
+        extension: this.services.version,
+        server: parts.store.serverVersion,
+        connection: this.connection.kind,
+        workspace: parts.workspaceClient.status,
+      }) : undefined,
     };
   }
 
@@ -348,7 +408,7 @@ export class ConnectionSession {
     const refusal = workspaceRegistrationRefusal(parts.store.access, parts.url);
     if (refusal !== undefined) return refusal;
     const status = parts.workspaceClient.status;
-    return status.kind === "failed" ? `Arbeitsplatz nicht angemeldet: ${status.message}` : undefined;
+    return status.kind === "failed" && !status.mismatch ? `Arbeitsplatz nicht angemeldet: ${status.message}` : undefined;
   }
 
   #storeChanged(parts: SessionParts): void {

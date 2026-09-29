@@ -34,6 +34,73 @@ sich die Frage oft bezieht, und klappt beim Verlassen mit der Maus wieder zu); d
 neben dem Dock zu behalten (dieselbe Frage zweimal); das Dock in quassel an eine andere Bezugsgröße
 zu binden (nur das Sheet misst sich an seiner Eingabe, jeder andere Rahmen hat eine eigene Höhe).
 
+## Plugins projizieren ihre Zustände selbst, der Kern nennt kein Plugin mehr, VS Code zeigt eine andere Fassung (29.09.2026)
+
+Kapitel: `docs/spec/plugins.md` (Registrierungen des PluginHost, Zuständigkeit je Facette, Web-Hälften
+zur Laufzeit, Arbeitsbereich, Sandbox-Werkzeuge und Prozesse mit der Anmeldung eines Arbeitsplatzes
+und der Prozess-Sandbox des Servers, Offene Grenzen), `docs/spec/profiles.md` (Rechte im
+Einzelnen), `docs/spec/core.md` (Globaler Koordinator), `docs/usage.md` (Run panel and VS Code extension), `docs/operations.md` (Arbeitsplatz),
+`docs/development.md` (Erweiterungspunkte im Server). Setzt Punkt (6) von "Sprachserver und Browser
+kommen als Beitrag zum Executor aus ihren Plugins" (29.09.2026) fort.
+
+**Warum so.** Vorgabe des Owners: der Kern kennt kein Plugin, kein Werkzeug und keine Form eines
+Payloads; ein neues Plugin einer vorhandenen Art braucht keine Änderung am Kern. Drei der sechs
+eingefrorenen Stellen des Wächters verletzten das im Server: `access-projection.ts` baute den
+Zustand von `ragents.actor-programs` für Zugänge ohne `runs.inspect` von Hand nach und blendete
+dessen Chat-Ereignisse aus, `provider.ts` setzte `ragents.overseer` als Besitzer eines lokal
+gestarteten Run-Script-Pakets ein, `config-file.ts` nannte eine Vorlage von `ragents.reference`
+als Beispiel. Dazu nannten die Startfehler der Prozess-Sandbox viermal die Sektion
+`ragents.workspace`, obwohl der Baustein unter `plugin-support` liegt und die Einstellung dem
+Workspace-Plugin gehört. Und eine VS-Code-Erweiterung, die nicht zur Fassung des Servers passte,
+zeigte das nur als Zeile "Arbeitsplatz nicht angemeldet" auf der Seite Server; eine abweichende
+Fassung bei noch verträglichem Executor sah niemand.
+
+**Festlegung.** (1) `host.accessProjections(...)` meldet je Kennung eines Plugin-Zustands, was
+ein Zugang ohne `runs.inspect` davon sieht: `state(entry)` liefert den sichtbaren Wert oder
+`undefined`, `chatEvent({ type, payload })` das sichtbare Chat-Ereignis oder `undefined`. Der Host
+wendet beides blind je Kennung an (`AccessProjectionRegistry`), in der Run-Ansicht wie im Chat.
+Vorher gilt ohne Beitrag: den gespeicherten Wert einer Startoption, deren `rights` dem Zugang
+fehlen, sieht er nicht; so bleiben Modell und Systemprompt verborgen, die beide `runs.inspect`
+verlangen, ohne dass der Server ihre Kennungen nennt. Ein Zustand ohne Projektion bleibt
+unverändert, wie bisher für jedes Plugin außer den Actor-Programmen. Die Projektion der
+Actor-Programme liegt in `plugins/ragents.actor-programs/server/access-projections.ts` und
+liefert dasselbe wie vorher: vom Programm Name, Titel, Actor, Revision und die Eckdaten der
+Ansichten, von den Aufrufen nur die Revision, keine Chat-Ereignisse. Die Kennung
+`ragents.start-options` in der alten Liste hatte keinen Schreiber und entfällt. (2)
+`ServerProcessSandbox` bekommt `disableSetting`, die Anweisung zum Abschalten, wie der Betreiber
+sie in die Profildatei schreibt; `ragents.workspace` gibt `PROCESS_SANDBOX: "off" in der Sektion
+ragents.workspace` mit und nutzt dieselbe Konstante für seine Warnung. Weitere Meldungen des Kerns
+mit Plugin-Kennung oder Sektion gab es nicht. (3) `RunManagement.create` mit `kind: "package"`
+verlangt `owner`, das Plugin, das das Paket startet; der globale Koordinator nennt sich selbst. Das
+Beispiel zu `defaultStartEntry` ist `acme.tasks.setup`. Der Wächter führt nur noch die drei Stellen
+der Erweiterung. (4) `ragents.plugins.bootstrap` liefert zusätzlich `version`, die Paketfassung des
+Servers (`HostBootstrap`). Der Client des Arbeitsplatzes nennt ein Scheitern der Anmeldung an
+Executor-Stand oder Beiträgen mit `mismatch: true`, erkannt am Fachcode statt an der Klasse, weil
+`RpcError` in einem Prozess zweimal geladen sein kann. Die Erweiterung vergleicht ihre Fassung mit
+der des Servers (`versionNotice`): eine andere Fassung ist bei angemeldetem Arbeitsplatz eine
+Warnung "RAgents-Fassung passt nicht: Erweiterung X, Server Y - <was zu aktualisieren ist>", bei
+abgelehntem Stand ein Fehler, der die Ursache des Servers anhängt und sie dann nicht noch einmal
+als "Arbeitsplatz nicht angemeldet" zeigt; ein abgelehnter Stand bei gleicher Fassung ist ebenfalls
+ein Fehler. Welche Seite zu aktualisieren ist, folgt der Reihenfolge der Fassungen je Stelle; ein
+Server ohne Fassung gilt als älter, ein lokales Profil nennt den Host unter `ragents.hostPath`.
+Angezeigt wird der Hinweis am Server, oben auf Start, in der Statusleiste (Symbol und Hintergrund)
+und einmal je Server und Text als Benachrichtigung mit "Erweiterung zeigen" und "Server zeigen".
+
+**Verworfen.** Die Projektion der Actor-Programme ins Plugin zu legen, Modell und Systemprompt aber
+in der Liste des Servers zu lassen: ihre Kennungen gehören zwar dem Host, weil Scheduler und
+Promptkomposition sie lesen, doch die Regel über `rights` trifft genau sie und jede künftige
+technische Startoption, auch die des Produkt-Plugins eines anderen Repositorys, das denselben
+Baustein nutzt. Eine einzige Funktion für Zustand und Chat-Ereignis: die Actor-Programme zeigen
+ihren Zustand gekürzt, ihre Chat-Ereignisse aber gar nicht, und das sollte gleich bleiben. Ein
+Fehler, den das Plugin um seine Sektion ergänzt, statt sie mitzugeben: die Meldung stünde dann in
+zwei Teilen, und der Selbsttest der Sandbox wirft aus einem Kindprozess heraus. Die Meldung nur mit
+dem Schlüssel ohne Sektion: `PROCESS_SANDBOX` steht nicht auf oberster Ebene der Profildatei, der
+Betreiber fände die Stelle nicht. Den Besitzer eines Pakets aus dem Dienst abzuleiten: der Dienst
+kennt seinen Aufrufer nicht, und eine Bindung je Plugin wäre ein zweiter Weg zu `RunManagement`.
+Die Fassung in `/api/access`: die Antwort kommt vor der Anmeldung, und eine andere Fassung ist erst
+für einen verbundenen Server von Belang. Den Vergleich an den Stand des Executors zu hängen: der
+bleibt über viele Fassungen gleich, und gerade dann soll die Warnung erscheinen.
+
 ## Sprachserver und Browser kommen als Beitrag zum Executor aus ihren Plugins (29.09.2026)
 
 Kapitel: `docs/spec/plugins.md` (Plugin contract, Zuständigkeit je Facette, Build and ship a

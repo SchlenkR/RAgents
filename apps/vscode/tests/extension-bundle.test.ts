@@ -175,6 +175,7 @@ test("das gebaute Bundle lädt, aktiviert ohne node_modules daneben und führt d
   const directory = mkdtempSync(path.join(tmpdir(), "ragents-bundle-"));
   try {
     copyFileSync(path.join(extensionRoot, "dist/extension.js"), path.join(directory, "extension.js"));
+    copyFileSync(path.join(extensionRoot, "package.json"), path.join(directory, "package.json"));
     writeFileSync(path.join(directory, "vscode.cjs"), VSCODE_STUB);
     writeFileSync(path.join(directory, "activate.cjs"), ACTIVATE);
     mkdirSync(path.join(directory, "host/apps/server/src"), { recursive: true });
