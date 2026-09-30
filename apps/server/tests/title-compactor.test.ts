@@ -130,9 +130,11 @@ test("concurrent title requests share one bounded model call and publish only th
     assert.equal(model.id, selection.model);
     assert.equal(model.compat?.openRouterRouting?.sort, "latency");
     assert.deepEqual(faux.modelRuntime.getModel(selection.provider, selection.model), originalModel);
-    assert.match(context.systemPrompt!, /three to eight words/);
+    assert.equal(context.systemPrompt, undefined);
     assert.equal(context.messages.length, 1);
-    assert.equal(context.messages[0]!.content, prompt.slice(0, 4_000));
+    const content = context.messages[0]!.content as string;
+    assert.match(content, /^Summarize the following task as a list title: three to eight words/);
+    assert.ok(content.endsWith(`<task>\n${prompt.slice(0, 4_000)}\n</task>`));
     assert.equal(requestOptions?.reasoning, undefined);
     assert.equal(requestOptions?.maxTokens, 48);
     assert.equal(requestOptions?.temperature, 0);
