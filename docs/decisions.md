@@ -1,5 +1,28 @@
 # Decisions
 
+## Normalize optional null fields from OpenAI-compatible providers (30.09.2026)
+
+Chapter: `docs/spec/profiles.md` (custom model providers).
+
+**Cause.** An OpenAI-compatible provider sends `delta.role: null` during tool calls, which the
+OpenRouter SDK 3.0.0 schema rejects. `content: null` already passes; null `refusal`, `audio`, and
+`function_call` fields pass through. Null tool-call `type` in a delta and `message.tool_calls` in
+a JSON response also fail validation. A missing type on the initial function delta passes the
+schema but fails the SDK's tool-call processing.
+
+**Decision.** Normalize null `content`, `reasoning`, `reasoning_content`, `reasoning_text`,
+`reasoning_details`, `tool_calls`, `refusal`, `audio`, `function_call`, `images`, and `annotations`
+in messages and deltas, plus delta `role` and tool function `arguments`, in the shared fetch wrapper
+for custom base URLs before SDK validation. Parse SSE incrementally with `eventsource-parser`
+(already an SDK dependency, now declared directly), preserving UTF-8 and multiline events. Infer the type of
+a tool call in either a delta or a JSON message from its function object when `type` is null or
+absent. Preserve streaming `reasoning_content` and the Qwen request mapping; map JSON message
+reasoning to the SDK field. Other required fields and tool argument
+contents stay untouched, malformed data remains an error, and the real OpenRouter endpoint keeps
+its existing response path. Rewritten responses retain status and headers except body length
+and encoding. Recorded responses cover split tools, reasoning, malformed values, and SSE framing;
+a local HTTP fixture exercises the same tool stream, and a host test covers profile aliases.
+
 ## UI declarations also emit from an installed host (30.09.2026)
 
 Chapter: `docs/spec/actor-programs.md` (Reusable UI building blocks).

@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test, { type TestContext } from "node:test";
 import { ModelRuntime } from "@ragents/agent";
 import { getSupportedThinkingLevels } from "@ragents/ai";
+import { Type } from "typebox";
 import { ALIAS_PROVIDER, aliasCatalog, parseModelAliases } from "../src/plugin-support/model-aliases.ts";
 import { aliasCompletionModel } from "../src/plugin-support/model-completion.ts";
 import { configuredModelProviders, modelProviderRegistration, parseModelProviders } from "../src/plugin-support/model-providers.ts";
@@ -110,4 +111,39 @@ test("plugins complete over a profile alias with its offered levels; the relay f
   const [resolved] = resolveAliases(modelRelayConfig.aliases(), modelRelayConfig.upstreams([]));
   assert.equal(resolved!.upstream.baseUrl, "http://localhost:8000/v1");
   assert.deepEqual(catalogEntryOf(resolved!).catalog.compat, { thinkingFormat: "qwen-chat-template" });
+});
+
+test("a profile provider streams null delta fields, reasoning and fragmented tool calls through its alias", async (t) => {
+  withProfile(t);
+  const runtime = runtimeOf();
+  const model = runtime.getModel(ALIAS_PROVIDER, "local-model")!;
+  const payloads: Record<string, any>[] = [];
+  t.mock.method(globalThis, "fetch", async (_input: unknown, init?: RequestInit) => {
+    payloads.push(JSON.parse(String(init?.body)));
+    const deltas = [
+      { reasoning_content: "Check the input." },
+      { tool_calls: [{ index: 0, id: "call-1", function: { name: "echo", arguments: "" } }] },
+      { tool_calls: [{ index: 0, function: { arguments: '{"text":' } }] },
+      { tool_calls: [{ index: 0, function: { arguments: '"Hello"}' } }] },
+      {},
+    ];
+    const body = deltas.map((delta, index) => `data: ${JSON.stringify({ id: "fixture", choices: [{ index: 0,
+      delta: { role: null, content: null, refusal: null, audio: null, function_call: null, ...delta },
+      finish_reason: index === deltas.length - 1 ? "tool_calls" : null,
+    }] })}\n\n`).join("") + "data: [DONE]\n\n";
+    return new Response(body, { headers: { "content-type": "text/event-stream" } });
+  });
+  const result = await runtime.completeSimple(model, {
+    messages: [{ role: "user", content: "Echo", timestamp: 1 }],
+    tools: [{ name: "echo", description: "Echo", parameters: Type.Object({ text: Type.String() }) }],
+  }, { reasoning: "low" });
+  assert.equal(result.errorMessage, undefined);
+  assert.equal(result.stopReason, "toolUse");
+  assert.equal(result.model, "local-model");
+  assert.deepEqual(result.content, [
+    { type: "thinking", thinking: "Check the input." },
+    { type: "toolCall", id: "call-1", name: "echo", arguments: { text: "Hello" } },
+  ]);
+  assert.equal(payloads[0]!.reasoning_effort, "low");
+  assert.deepEqual(payloads[0]!.chat_template_kwargs, { enable_thinking: true, preserve_thinking: true });
 });

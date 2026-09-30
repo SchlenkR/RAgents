@@ -1,6 +1,7 @@
 import { createOpenRouter } from "@openrouter/ai-sdk-provider";
 import type { Model, ProviderHeaders } from "../types.ts";
 import { headersToRecord } from "../utils/headers.ts";
+import { normalizeOpenAiResponse } from "./openai-compatible-response.ts";
 
 interface SdkOptions<TModel> {
 	apiKey?: string;
@@ -43,9 +44,10 @@ export function createSdkProvider<TModel extends Model<string>>(model: TModel, o
 			});
 			try {
 				await options?.onResponse?.({ status: response.status, headers: headersToRecord(response.headers) }, model);
-				return response;
+				return model.baseUrl && new URL(model.baseUrl).hostname !== "openrouter.ai"
+					? await normalizeOpenAiResponse(response) : response;
 			} catch (error) {
-				await response.body?.cancel();
+				if (!response.body?.locked) await response.body?.cancel();
 				throw error;
 			}
 		},

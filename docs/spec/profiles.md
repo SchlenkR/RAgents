@@ -244,6 +244,18 @@ OpenRouter. An unknown key, a missing or invalid value, and a duplicate provider
 errors. The server registers the providers in the one model runtime before the aliases, all with the
 OpenAI-compatible transport and cost 0; the relay offers aliases on them like any other.
 
+Custom endpoints support OpenAI-compatible responses that send `null` for optional message and
+delta fields: `content`, `reasoning`, `reasoning_content`, `reasoning_text`, `reasoning_details`,
+`tool_calls`, `refusal`, `audio`, `function_call`, `images`, and `annotations`, plus `role` in a delta
+and `arguments` in a tool's `function` object.
+The transport treats these nulls as absent in SSE events and JSON responses before SDK validation.
+Tool calls in deltas and JSON messages may omit `type` or send it as null; a present `function`
+object identifies the type. Tool arguments remain intact across chunks. Incoming `reasoning_content`
+remains thinking, including with `qwen-chat-template`; JSON messages map it to reasoning when that
+field is absent. Other required fields, non-null invalid values, and malformed JSON still fail
+validation or parsing.
+Responses from the real OpenRouter endpoint are unchanged.
+
 The preparation chat, product model catalog, and coordinator settings take the thinking levels
 from the capabilities of the respective provider model in the built-in runtime catalog, for an
 alias from the levels it offers, or, for the relay, from its alias catalog. There is no blanket
