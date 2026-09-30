@@ -300,7 +300,11 @@ the last response is an error does it end as `failed` with that error's message.
 a hook's error, once they occur, remain the result of the turn. A retryable provider error
 (overload, rate limit, server error; not the overflow and no rejected request with 4xx except 408,
 409, and 429) is retried up to three times with exponential backoff starting at two seconds; the
-error step stays in the journal, and the model does not see it.
+error step stays in the journal, and the model does not see it. The time limit of a model
+request is an idle timeout of ten minutes (`providerRequest.timeoutMs` in
+`packages/agent/src/core/agent-settings.ts`): every received chunk, reasoning included, restarts
+it, so a response that keeps streaming never expires; a request silent for the whole time ends as
+a retryable `Timeout` error.
 
 Compaction happens on the projection, with the values of the model that runs the turn
 (`Model.compaction`, type `ModelCompaction` in `packages/ai/src/types.ts`, evaluated by

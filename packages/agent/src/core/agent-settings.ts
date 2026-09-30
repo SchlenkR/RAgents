@@ -2,7 +2,7 @@
 export interface AgentSettings {
 	/** Retries after a retryable model error, with exponential backoff. */
 	retry: { enabled: boolean; maxRetries: number; baseDelayMs: number };
-	/** Timeout and retries of a single provider request; unset values leave the SDK defaults. */
+	/** Idle timeout (time without any received chunk) and retries of a single provider request; unset values leave the SDK defaults. */
 	providerRequest: { timeoutMs: number; maxRetries?: number; maxRetryDelayMs: number };
 }
 
@@ -13,5 +13,5 @@ export interface AgentSettingsInput {
 
 export const agentSettings = (input: AgentSettingsInput = {}): AgentSettings => ({
 	retry: { enabled: true, maxRetries: 3, baseDelayMs: 2000, ...input.retry },
-	providerRequest: { timeoutMs: 300_000, maxRetryDelayMs: 60_000, ...input.providerRequest },
+	providerRequest: { timeoutMs: 600_000, maxRetryDelayMs: 60_000, ...input.providerRequest },
 });

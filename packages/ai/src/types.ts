@@ -89,7 +89,8 @@ export interface StreamOptions {
 	 */
 	headers?: ProviderHeaders;
 	/**
-	 * HTTP request timeout in milliseconds for providers/SDKs that support it.
+	 * Timeout in milliseconds for providers/SDKs that support it. The openai-completions
+	 * stream counts it as idle time: any received chunk restarts it, so an active stream never expires.
 	 * For example, OpenAI and Anthropic SDK clients default to 10 minutes.
 	 */
 	timeoutMs?: number;

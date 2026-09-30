@@ -33,6 +33,16 @@ async function runStream(model: Model<"openai-completions">, context: Context, o
 	};
 	const controller = new AbortController();
 	const signal = options?.signal ? AbortSignal.any([options.signal, controller.signal]) : controller.signal;
+	let idleTimer: ReturnType<typeof setTimeout> | undefined;
+	let idleExpired = false;
+	const restartIdleTimer = () => {
+		clearTimeout(idleTimer);
+		if (options?.timeoutMs === undefined) return;
+		idleTimer = setTimeout(() => {
+			idleExpired = true;
+			controller.abort();
+		}, options.timeoutMs);
+	};
 	try {
 		const retention = options?.cacheRetention ?? (getProviderEnvValue("AGENT_CACHE_RETENTION", options?.env) === "long" ? "long" : "short");
 		const cacheControl = retention !== "none" && (model.compat?.cacheControlFormat === "anthropic" || model.id.startsWith("anthropic/"))
@@ -67,7 +77,6 @@ async function runStream(model: Model<"openai-completions">, context: Context, o
 			maxRetries: options?.maxRetries ?? 0,
 			streamRetries: 0,
 			abortSignal: signal,
-			timeout: options?.timeoutMs,
 			stopWhen: stepCountIs(1),
 			includeRawChunks: true,
 			onError: () => {},
@@ -83,7 +92,9 @@ async function runStream(model: Model<"openai-completions">, context: Context, o
 		let rawThinkingIndex: number | undefined;
 		let hasFinishReason = false;
 		let finished = false;
+		restartIdleTimer();
 		for await (const part of result.fullStream) {
+			restartIdleTimer();
 			switch (part.type) {
 				case "raw": {
 					const chunk = part.rawValue as { id?: string; model?: string; choices?: Array<{ finish_reason?: string | null; delta?: {
@@ -216,9 +227,11 @@ async function runStream(model: Model<"openai-completions">, context: Context, o
 	} catch (error) {
 		controller.abort();
 		output.stopReason = options?.signal?.aborted ? "aborted" : "error";
-		output.errorMessage = formatProviderError(normalizeProviderError(error), model.provider === "relay" ? `Relay ${model.baseUrl}` : undefined);
+		const failure = idleExpired ? new Error(`Timeout: no data from the provider for ${options?.timeoutMs} ms`) : error;
+		output.errorMessage = formatProviderError(normalizeProviderError(failure), model.provider === "relay" ? `Relay ${model.baseUrl}` : undefined);
 		events.push({ type: "error", reason: output.stopReason, error: output });
 	} finally {
+		clearTimeout(idleTimer);
 		events.end();
 	}
 }

@@ -374,6 +374,49 @@ test("aborting an active response retains streamed text and terminates once", { 
 	assert.deepEqual(terminals, ["error"]);
 });
 
+const slowStream = (init: RequestInit, gapMs: number, chunks: unknown[]) => {
+	const encoder = new TextEncoder();
+	return new Response(new ReadableStream({
+		async start(body) {
+			init.signal?.addEventListener("abort", () => body.error(init.signal?.reason), { once: true });
+			for (const value of chunks) {
+				await new Promise((resolve) => setTimeout(resolve, gapMs));
+				if (init.signal?.aborted) return;
+				body.enqueue(encoder.encode(`data: ${JSON.stringify(value)}\n\n`));
+			}
+			body.enqueue(encoder.encode("data: [DONE]\n\n"));
+			body.close();
+		},
+	}), { headers: { "content-type": "text/event-stream" } });
+};
+
+test("the timeout counts idle time: a stream that keeps sending outlives it", { timeout: 2000 }, async (t) => {
+	t.mock.method(globalThis, "fetch", async (_input: unknown, init: RequestInit) => slowStream(init, 30, [
+		chunk({ reasoning_content: "a" }),
+		chunk({ reasoning_content: "b" }),
+		chunk({ reasoning_content: "c" }),
+		chunk({ reasoning_content: "d" }),
+		chunk({ content: "Done" }, "stop"),
+	]));
+	const { result } = await collect(streamSimple(model, context, { apiKey: "test-only", timeoutMs: 100 }));
+	assert.equal(result.stopReason, "stop");
+});
+
+test("the timeout expires when a started stream goes silent", { timeout: 2000 }, async (t) => {
+	t.mock.method(globalThis, "fetch", async (_input: unknown, init: RequestInit) => {
+		const encoder = new TextEncoder();
+		return new Response(new ReadableStream({
+			start(body) {
+				body.enqueue(encoder.encode(`data: ${JSON.stringify(chunk({ reasoning_content: "thinking" }))}\n\n`));
+				init.signal?.addEventListener("abort", () => body.error(init.signal?.reason), { once: true });
+			},
+		}), { headers: { "content-type": "text/event-stream" } });
+	});
+	const { result } = await collect(streamSimple(model, context, { apiKey: "test-only", timeoutMs: 50 }));
+	assert.equal(result.stopReason, "error");
+	assert.match(result.errorMessage ?? "", /no data from the provider for 50 ms/);
+});
+
 for (const abort of [false, true]) {
 	test(`${abort ? "caller abort" : "timeout"} cancels an unfinished request without retries`, { timeout: 2000 }, async (t) => {
 		const controller = new AbortController();

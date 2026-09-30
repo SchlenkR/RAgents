@@ -1,5 +1,15 @@
 # Decisions
 
+## The model request timeout counts idle time (30.09.2026)
+
+Chapter: `docs/spec/core.md` (Retries and compaction). The five-minute limit of a model request ran
+from the start of the request, so a reasoning model that streamed its thinking for longer was cut
+off although it was active. The openai-completions stream now restarts a timer on every received
+chunk and aborts only after `timeoutMs` of silence (default raised to ten minutes, for a long
+prefill before the first token). The AI SDK's own `chunkMs` was not used: it resets only on
+text, reasoning, and tool deltas that its provider parses, and `reasoning_content` from
+OpenAI-compatible servers arrives only as a raw chunk.
+
 ## Preserve access-token gates during shared sign-in renewal (30.09.2026)
 
 Chapter: `docs/spec/plugins.md` (workstation sign-in). Require the server's `login-required`
