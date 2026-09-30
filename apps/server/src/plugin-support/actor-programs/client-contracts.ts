@@ -1,16 +1,55 @@
+import { realpathSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import ts from "typescript";
 
-function readContracts(repoRoot: string): { names: string[]; files: Record<string, string> } {
-  const filename = path.join(repoRoot, "apps/web/src/actor-programs/client-ui/contracts.d.ts");
+export function clientUiContractPaths(directory: string, paths: typeof path.posix = path) {
+  const canonical = (name: string) => paths.resolve(name).replaceAll(paths.sep, "/").replace(/^[a-z]:/, (drive) => drive.toUpperCase());
+  const repoRoot = canonical(directory);
+  const root = canonical(paths.join(paths.parse(repoRoot).root, "__ragents_ui_contract__"));
+  const contains = (base: string, name: string) => name === base || name.startsWith(`${base}/`);
+  const physical = (name: string) => {
+    const file = canonical(name);
+    return paths.normalize(contains(root, file) ? repoRoot + file.slice(root.length) : file);
+  };
+  const virtual = (name: string) => {
+    const file = canonical(name);
+    return contains(repoRoot, file) ? root + file.slice(repoRoot.length) : file;
+  };
+  return { root, physical, virtual, isVirtual: (name: string) => contains(root, canonical(name)) };
+}
+
+function readContracts(directory: string): { names: string[]; files: Record<string, string> } {
+  const { root, physical, virtual, isVirtual } = clientUiContractPaths(realpathSync(directory));
+  const filename = `${root}/apps/web/src/actor-programs/client-ui/contracts.d.ts`;
   const options: ts.CompilerOptions = {
     target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.ESNext,
     moduleResolution: ts.ModuleResolutionKind.Bundler, jsx: ts.JsxEmit.ReactJSX,
     strict: true, skipLibCheck: true, esModuleInterop: true,
     declaration: true, emitDeclarationOnly: true,
   };
-  const program = ts.createProgram([filename], options);
+  // TypeScript must see public sources outside node_modules, including during declaration naming.
+  const host = ts.createCompilerHost(options);
+  host.readFile = (name) => ts.sys.readFile(physical(name));
+  host.fileExists = (name) => ts.sys.fileExists(physical(name));
+  host.directoryExists = (name) => ts.sys.directoryExists(physical(name));
+  host.getDirectories = (name) => ts.sys.getDirectories(physical(name));
+  host.realpath = (name) => virtual(ts.sys.realpath!(physical(name)));
+  host.getSourceFile = (name, languageVersion) => {
+    const text = host.readFile(name);
+    return text === undefined ? undefined : ts.createSourceFile(virtual(name), text, languageVersion, true);
+  };
+  const resolveModule = (name: string, containingFile: string) => {
+    const mapped = ts.resolveModuleName(name, containingFile, options, host).resolvedModule;
+    if (mapped) return mapped;
+    const resolved = ts.resolveModuleName(name, physical(containingFile), options, ts.sys).resolvedModule;
+    if (!resolved) return undefined;
+    const resolvedFileName = virtual(resolved.resolvedFileName);
+    return { ...resolved, resolvedFileName, isExternalLibraryImport: isVirtual(resolvedFileName)
+      ? path.posix.relative(root, resolvedFileName).split("/").includes("node_modules") : resolved.isExternalLibraryImport };
+  };
+  host.resolveModuleNames = (names, containingFile) => names.map((name) => resolveModule(name, containingFile));
+  const program = ts.createProgram([filename], options, host);
   const source = program.getSourceFile(filename);
   if (!source) throw new Error("The public UI contract is missing.");
   const checker = program.getTypeChecker();
@@ -27,8 +66,8 @@ function readContracts(repoRoot: string): { names: string[]; files: Record<strin
   const collect = (file: ts.SourceFile) => {
     if (visited.has(file.fileName)) return;
     visited.add(file.fileName);
-    const relative = path.relative(repoRoot, file.fileName).replaceAll(path.sep, "/");
-    if (relative.startsWith("../") || relative.includes("node_modules/")) throw new Error("A local UI type reference leaves the public repository sources.");
+    const relative = path.posix.relative(root, file.fileName);
+    if (!isVirtual(file.fileName) || relative.includes("node_modules/")) throw new Error("A local UI type reference leaves the public repository sources.");
     diagnostics.push(...program.getSyntacticDiagnostics(file), ...program.getSemanticDiagnostics(file));
     let text = file.isDeclarationFile ? file.text : "";
     if (!file.isDeclarationFile) {
@@ -41,13 +80,13 @@ function readContracts(repoRoot: string): { names: string[]; files: Record<strin
     const references = ts.preProcessFile(text, true, true);
     for (const reference of references.importedFiles) {
       if (!reference.fileName.startsWith(".")) continue;
-      const resolved = ts.resolveModuleName(reference.fileName, file.fileName, options, ts.sys).resolvedModule;
+      const resolved = resolveModule(reference.fileName, file.fileName);
       const dependency = resolved && program.getSourceFile(resolved.resolvedFileName);
       if (!dependency) throw new Error(`Unresolvable local UI type reference: ${relative}: ${reference.fileName}`);
       collect(dependency);
     }
     for (const reference of declaration.referencedFiles) {
-      const dependency = program.getSourceFile(path.resolve(path.dirname(file.fileName), reference.fileName));
+      const dependency = program.getSourceFile(path.posix.resolve(path.posix.dirname(file.fileName), reference.fileName));
       if (!dependency) throw new Error(`Unresolvable UI type file reference: ${relative}: ${reference.fileName}`);
       collect(dependency);
     }
@@ -76,7 +115,7 @@ export function readClientUiComponentContracts(component: string, repoRoot?: str
 }
 
 export function readClientUiExportContracts(component: string, repoRoot?: string): Record<string, string> {
-  const root = repoRoot ?? fileURLToPath(new URL("../../../../../", import.meta.url));
+  const root = realpathSync(repoRoot ?? fileURLToPath(new URL("../../../../../", import.meta.url)));
   const catalog = contracts(repoRoot);
   const files = new Map(Object.entries(catalog.files).map(([name, text]) => [path.resolve(root, name), text]));
   const options: ts.CompilerOptions = { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.ESNext, moduleResolution: ts.ModuleResolutionKind.Bundler, strict: true, skipLibCheck: true };

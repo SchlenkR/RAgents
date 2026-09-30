@@ -13,7 +13,7 @@ import { runtimeLibraries, webRuntimeLibraries } from "./runtime-libraries.js";
 const webRequire = createRequire(new URL("../../../../web/package.json", import.meta.url));
 const rootRequire = createRequire(new URL("../../../../../package.json", import.meta.url));
 const serverRequire = createRequire(new URL("../../../package.json", import.meta.url));
-const serverTypeRoot = fileURLToPath(new URL("../../../node_modules/@types", import.meta.url));
+const serverTypeRoot = path.dirname(path.dirname(serverRequire.resolve("@types/node/package.json")));
 const libraryDirectory = (name: string): string => {
   const resolver = (webRuntimeLibraries as readonly string[]).includes(name) ? webRequire
     : name === "@types/node" || name === "tsx" ? serverRequire : rootRequire;

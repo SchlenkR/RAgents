@@ -319,6 +319,17 @@ controls it needs from this package; the regular build bundles them with the app
 type-checked during the TypeScript check of the mini-app. The building blocks work in the tile and
 in the local full view.
 
+The UI contract collector produces the same component names and declaration files in a checkout
+and in an installed npm package. Its TypeScript compiler host presents the package through a
+virtual source root outside `node_modules`, resolving dependencies from the physical package. Local
+references in the resulting declarations must stay inside the host's public sources and may not
+enter its `node_modules`; external package imports remain package imports.
+The mapping uses forward slashes and normalized drive letters on every platform, converting to
+native paths only for filesystem access. Package roots are resolved through symlinks before
+collecting or selecting declarations, including packages linked into a pnpm store.
+Workflow SDK generation resolves its Node type definitions from the installed dependency instead
+of assuming the checkout's server-local `node_modules` layout.
+
 `SvgEdge` provides SVG connections with uniform arrows, lines, and semantic colors. Open arrowheads
 with rounded ends follow the path tangent and end exactly at the connection point. The building
 block manages unique arrow markers and respects reduced motion. Mini-apps import it through

@@ -4,6 +4,8 @@ Inbox for everything; the owner and the AI write here. One line per entry, newes
 
 ## Open
 
+- UI contract paths (30.09.2026): rerun `pnpm check` and `pnpm check:package` outside the restricted sandbox after the Windows path and linked-root corrections; both checks passed on macOS before these corrections.
+
 - Run scripts in a running run (29.09.2026): the run menu starts every script with the start value `null` and shows no guide, so an embeddable script with a guide gets only its defaults there; `ragents script --input` and `run_script_start` pass a value. Offer the script's guide in the run menu.
 - Run scripts in a running run (29.09.2026): an embedded start places only the setup package's first view; a script that activates further views in its turn (like `balcony-wizard`) must call `canvas_layout_place` itself, and the reference scripts still use `canvas_layout_replace` without checking `start.embedded`.
 - Run scripts in a running run (29.09.2026): the run functions start as the run owner; a restricted owner's template releases apply, but the coordinator of the global chat has no run of its own to start scripts in. Decide whether the global coordinator gets a variant that names the target run.

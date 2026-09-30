@@ -42,6 +42,27 @@ const result = await compileVirtualTypeScriptAsync({ sources: [{ fileName: "main
 if (!result.valid) throw new Error(JSON.stringify(result.diagnostics));`], path.join(packageRoot, "apps/server"));
     assert.equal(compiled.code, 0, `the compiler worker starts under node_modules: ${compiled.output}`);
 
+    const clientCompiler = path.join(packageRoot, "apps/server/src/plugin-support/actor-programs/client-compiler.ts");
+    const appProject = path.join(packageRoot, "apps/server/src/plugin-support/actor-programs/app-project.ts");
+    const actor = writeFiles(path.join(directory, "actor"), {
+      "package.json": JSON.stringify({ private: true, type: "module", ragents: { title: "Example", views: [{ id: "main", client: "src/client.tsx" }] } }),
+      "index.html": '<!doctype html><html><body><div id="root"></div></body></html>',
+      "src/client.tsx": 'import { createRoot } from "react-dom/client"; import { Button } from "@ragents/client/ui"; createRoot(document.getElementById("root")!).render(<Button>Installed view</Button>);',
+    });
+    const client = run(process.execPath, ["--import", "tsx", "--input-type=module", "--eval",
+      `const { ensureHostLinks } = await import(${JSON.stringify(pathToFileURL(path.join(packageRoot, "scripts/package/host-links.mjs")).href)});
+ensureHostLinks(${JSON.stringify(packageRoot)});
+const { prepareAppProject } = await import(${JSON.stringify(pathToFileURL(appProject).href)});
+const { installClientSdk, compileClientProject } = await import(${JSON.stringify(pathToFileURL(clientCompiler).href)});
+const directory = ${JSON.stringify(actor)};
+const contracts = { stateSchema: { type: "object", properties: {} }, actions: [] };
+await prepareAppProject(directory);
+await installClientSdk(directory, contracts);
+const result = await compileClientProject({ directory, entryPoint: "src/client.tsx", ...contracts });
+if (!result.valid) throw new Error(JSON.stringify(result.diagnostics));
+if (!result.javaScript.includes("Installed view")) throw new Error("The installed host produced no view bundle.");`], path.join(packageRoot, "apps/server"));
+    assert.equal(client.code, 0, `a client view compiles from the installed package: ${client.output}`);
+
     const work = path.join(directory, "work");
     mkdirSync(work);
     writeFiles(path.join(work, "acme.greeting"), GREETING_PLUGIN);

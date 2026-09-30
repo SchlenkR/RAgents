@@ -1,5 +1,43 @@
 # Decisions
 
+## UI declarations also emit from an installed host (30.09.2026)
+
+Chapter: `docs/spec/actor-programs.md` (Reusable UI building blocks).
+
+**Cause.** A temporary source tree reproduced that TypeScript marks even relative imports under
+`node_modules` as external library sources. Emitting an imported UI source then produces no
+declaration, breaking every view build and control lookup in the installed host. Explicit program
+roots restore emission for simple sources, but nested package dependencies still cause TS2742:
+inferred types name the outer host package instead of the dependency. Both linked and copied
+dependencies reproduced this. The temporary reproductions were removed.
+
+**Decision.** Give the UI contract compiler a virtual source root outside `node_modules`, mapping
+file access and resolved paths to the real package. Resolution through that host also preserves
+virtual paths in TypeScript's symlink metadata; dependencies hoisted outside the package resolve
+from its physical location. Keep the collector's existing checks on emitted local references.
+This fixes both external-library classification and declaration naming while reading the current
+sources, without an additional generated package contract. Client and actor backend bundles use
+esbuild; the workflow SDK and virtual compiler already emit explicit roots and have no inferred
+UI dependency types, so they need no equivalent emission change. The packaged view check also
+exposed that workflow SDK generation assumed Node types under `apps/server/node_modules/@types`,
+which does not exist in the package. Resolve that type root through the installed `@types/node`
+package instead.
+
+**Path portability.** TypeScript passes forward-slash filenames to its compiler host on Windows
+too, so native separator prefix checks miss the virtual root even in a checkout. The mapping now
+normalizes separators and drive-letter case before every comparison and converts to native paths
+only for filesystem access. Resolve the package root through `realpath` before mapping or selecting
+declarations, so a pnpm root symlink and the resolved sources share one identity.
+
+**Regression coverage.** Copy the actual UI sources under `node_modules/@example/host` with both
+nested and hoisted dependencies and compare all component names and declaration contents with the
+checkout, also through a root symlink into a pnpm-style store. Compare selected component contracts
+too. Exercise the mapping with `path.win32` and `path.posix`, including TypeScript's forward-slash
+names, drive-letter case, traversal, and sibling prefixes. Check rejected references outside the
+host sources and into nested dependencies.
+The package installation test also prepares an
+actor view importing `@ragents/client/ui` and checks its client bundle from the installed host.
+
 ## Run scripts also start inside a running run (29.09.2026)
 
 Chapters: `docs/spec/typescript-platform.md` (Run scripts as prepared actor programs, Open limits),
