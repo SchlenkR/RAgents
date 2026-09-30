@@ -33,32 +33,27 @@ test("stopped and absent actors lose their views synchronously", () => {
   assert.deepEqual(actorProgramSurfaceElements(session([{ ...program([]), state: { version: 1, program: null } }])), []);
 });
 
-test("visibility survives as a surface property and another actor cannot own the placement", () => {
-  const view = { id: "counter--board", title: "Board", visible: false, placements: [{ kind: "canvas", anchorActorId: owner.id }] };
+test("visibility survives as a catalog property", () => {
+  const view = { id: "counter--board", title: "Board", visible: false };
   const hidden = actorProgramSurfaceElements(session([program([view])]))[0]!;
   assert.equal(hidden.visible, false);
   view.visible = true;
   assert.deepEqual({ ...hidden, visible: true }, actorProgramSurfaceElements(session([program([view])]))[0]);
-  view.placements[0]!.anchorActorId = "other-actor";
-  assert.throws(() => actorProgramSurfaceElements(session([program([view])])), /belongs to/);
 });
 
-test("the view API requires actor ownership and rejects dialogs, foreign placement, and duplicate placement", () => {
+test("the view API requires actor ownership and valid visibility", () => {
   const app = { id: "counter--board", actorId: owner.id, actorHandle: owner.handle, title: "Board", revision: "revision", actions: [], invocations: [],
-    state: { version: 1, revision: 1, values: { count: 0 } }, placements: [{ kind: "canvas", anchorActorId: owner.id }] };
+    state: { version: 1, revision: 1, values: { count: 0 } } };
   assert.equal(runAppFrom(app).visible, true);
   assert.equal(runAppFrom({ ...app, visible: false }).visible, false);
   assert.throws(() => runAppFrom({ ...app, actorId: undefined }), /actorId/);
   assert.throws(() => runAppFrom({ ...app, visible: "yes" }), /visible/);
-  assert.throws(() => runAppFrom({ ...app, placements: [{ kind: "dialog", size: "wide" }] }), /canvas/);
-  assert.throws(() => runAppFrom({ ...app, placements: [app.placements[0], app.placements[0]] }), /placements/);
-  assert.throws(() => runAppFrom({ ...app, placements: [{ ...app.placements[0], anchorActorId: "someone-else" }] }), /own actor/);
   assert.equal(runAppFrom({ ...app, id: `${"a".repeat(64)}--${"v".repeat(64)}` }).id.length, 130);
 });
 
-test("a tile placement carries only its anchor and leaves the program state untouched", () => {
+test("catalog entries derive ownership and leave program state untouched", () => {
   const views = [0, 1, 2].map((index) => ({ id: `counter--view-${index}`, title: `View ${index}`,
-    placements: [{ kind: "canvas", anchorActorId: owner.id }] }));
+    visible: true }));
   const before = JSON.stringify(views);
   const elements = actorProgramSurfaceElements(session([program(views)]));
   assert.deepEqual(elements.map((entry) => Object.keys(entry).sort()), Array(3).fill(["anchorActorId", "data", "entity", "id", "title", "visible"]));

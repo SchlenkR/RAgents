@@ -137,7 +137,7 @@ test("an LLM actor keeps its behavior while several views and functions share it
   assert.equal(f.setup.runtime.view(f.runId).actors.find((actor) => actor.id === program.actorId)?.kind, "agent");
   const views = f.runtime.apps(f.runId);
   assert.equal(views.length, 2);
-  assert.equal(views.every((view) => view.actorId === f.setup.agent.id && view.placements[0]?.anchorActorId === f.setup.agent.id), true);
+  assert.equal(views.every((view) => view.actorId === f.setup.agent.id), true);
   const first = views[0]!;
   const invocation = f.runtime.startInvocation(f.runId, first.id, first.revision, "add", "view-add", {amount: 4});
   const {invocationResult} = await import("./actor-runtime-fixture.ts");

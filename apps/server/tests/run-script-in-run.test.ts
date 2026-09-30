@@ -24,8 +24,6 @@ import {
   type ToolScope,
 } from "@ragents/engine";
 import { allGrants, catalog, manualExecution, setupRun } from "../../../packages/ragents/tests/support.ts";
-import { ORCHESTRATION_PLUGIN_ID } from "../../../plugins/ragents.orchestration/contract.ts";
-import { placeOnSurface } from "../../../plugins/ragents.orchestration/server/surface-tool.ts";
 import { accessibleChatEvent } from "../src/access-projection.ts";
 import type { ChatSessionProvider } from "../src/chat-handler.ts";
 import { coreContracts } from "../src/api/contracts.ts";
@@ -155,11 +153,10 @@ const fixture = async (t: TestContext, scripts: RunScriptStart[], extra: {
     startScript: (_runId: string, entryId: string, input: unknown, startedBy: string) => session!.startAndWait(entryId, input, undefined, startedBy),
   } as unknown as RunManagement;
   const contributor = createRunScriptToolContributor(() => management);
-  const placement = placeOnSurface(() => setup.runtime);
   const shared = (name: string) => { const files = extra.shared?.get(name); return files ? { pluginId: "demo.shared", files } : undefined; };
   const hostTools = (): readonly RunFunction[] => [...contributor.tools(undefined as never) as readonly RunFunction[], ...managementTools.tools(undefined as never) as readonly RunFunction[]];
   const programs = runtimeFor(setup, directory, extra.operations, undefined, sources,
-    (context, id, entity) => { placement.place(context, id, { entity }); }, hostTools, shared);
+    hostTools, shared);
   const managementTools = createActorProgramToolContributors(programs, { latest: () => "" })[0]!;
   const registry = new ToolRegistry();
   registry.register(contributor);
@@ -503,18 +500,19 @@ test("the coordinator holds script.start without passing it on; the run function
   assert.equal(f.view().primaryActorId, coordinator.id);
 });
 
-test("an embedded start places the script's main view next to the layout once instead of replacing it", async (t) => {
+test("an embedded start exposes its view once and preserves the primary actor", async (t) => {
   const setupScript = script("demo-setup", loggingScript("demo-setup", false), { embeddable: false });
   const board = script("demo-board", boardScript("demo-board"));
   const f = await fixture(t, [setupScript, board]);
   await f.session.startAndWait("demo.demo-setup", null);
-  f.setup.runtime.replacePluginState({ actorId: f.view().ownerId, commandId: "layout" }, f.runId, { pluginId: ORCHESTRATION_PLUGIN_ID, scope: { kind: "run" }, state: { root: { entity: "@demo-setup" } } });
-  const layout = () => f.view().pluginStates.find((entry) => entry.pluginId === ORCHESTRATION_PLUGIN_ID)?.state;
+  const primary = f.view().primaryActorId;
   await f.session.startAndWait("demo.demo-board", null);
-  const placed = { root: { direction: "horizontal", weights: [1, 1], children: [{ entity: "@demo-setup" }, { entity: "app:demo-board--main" }] } };
-  assert.deepEqual(layout(), placed);
+  const apps = () => f.programs.apps(f.runId).map(({ id, actorId, visible }) => ({ id, actorId, visible }));
+  const expected = [{ id: "demo-board--main", actorId: f.actorOf("demo-board")!.id, visible: true }];
+  assert.deepEqual(apps(), expected);
   await f.session.startAndWait("demo.demo-board", null);
-  assert.deepEqual(layout(), placed, "a view the layout shows already stays where it is");
+  assert.deepEqual(apps(), expected);
+  assert.equal(f.view().primaryActorId, primary);
 });
 
 test("the chat shows runtime output of run script actors, not of other TypeScript actors, and masks it without runs.inspect", async (t) => {

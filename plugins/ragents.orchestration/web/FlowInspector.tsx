@@ -42,8 +42,6 @@ interface FlowInspectorProps {
   actorConversations?: Readonly<Record<string, readonly Message[]>>;
   conversationError?: string;
   primaryRunning: boolean;
-  /** Display surface for the remembered detail level; the popout registers separately from the side inspector. */
-  chatDisplay?: string;
 }
 
 const inspectorClass = "flex h-full min-h-0 flex-col bg-card";
@@ -549,7 +547,7 @@ function ActorView({ actor, index, ...props }: FlowInspectorProps & { actor: Run
           actor={actor}
           view={view}
           presentation="inspector"
-          display={props.chatDisplay}
+          display="inspector"
           className="min-h-0 flex-1"
           primaryMessages={props.primaryMessages}
           conversation={props.actorConversations?.[actor.id]}
@@ -557,7 +555,7 @@ function ActorView({ actor, index, ...props }: FlowInspectorProps & { actor: Run
           onNavigate={props.onNavigate}
           running={primary ? props.primaryRunning : lifecycle === "running"}
         />
-        <ActorChatControls actor={actor} view={view} composerVisible={props.composerVisible} display={props.chatDisplay}
+        <ActorChatControls actor={actor} view={view} composerVisible={props.composerVisible} display="inspector"
           running={primary ? props.primaryRunning : lifecycle === "running"} />
       </SectionTabs>
     </div>

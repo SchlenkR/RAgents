@@ -8,7 +8,7 @@ const input = { id: "start", content: JSON.stringify({ input: null, options: {} 
 function setup(options: { missingProfile?: boolean; failActivation?: boolean } = {}) {
   const calls: { name: string; input: unknown }[] = [];
   const functions = Object.fromEntries([
-    "model_list", "agent_spawn", "actor_program_activate", "canvas_layout_replace", "run_configure",
+    "model_list", "agent_spawn", "actor_program_activate", "run_configure",
   ].map((name) => [name, (value: unknown) => {
     calls.push({ name, input: value });
     if (name === "model_list") return { profiles: options.missingProfile ? [] : [{ name: "standard", driver: "agent", description: "Test profile", turnTimeoutMs: null, isolateWorkspace: false, provider: "test", model: "test" }], models: [] };
@@ -27,20 +27,19 @@ function setup(options: { missingProfile?: boolean; failActivation?: boolean } =
   return { calls, context };
 }
 
-test("sets up an advisor without tools and its own mini-app as the only tile", async () => {
+test("sets up an advisor without tools and its own mini-app in the app catalog", async () => {
   const { calls, context } = setup();
   await program.onInput!(input, context);
-  assert.deepEqual(calls.map((call) => call.name), ["model_list", "agent_spawn", "actor_program_activate", "canvas_layout_replace", "run_configure"]);
+  assert.deepEqual(calls.map((call) => call.name), ["model_list", "agent_spawn", "actor_program_activate", "run_configure"]);
   assert.deepEqual(calls.find((call) => call.name === "agent_spawn")?.input, {
     handle: "balcony-advisor", displayName: "Balcony advisor", profile: "standard", tools: [],
     prompt: (calls[1]!.input as { prompt: string }).prompt,
   });
   assert.deepEqual(calls[2]!.input, { name: "balcony-app", actor: "@balcony-advisor" });
-  assert.deepEqual(calls[3]!.input, { root: { entity: "app:@balcony-advisor/main" } });
-  assert.deepEqual(calls[4]!.input, { title: "Your balcony", primaryActor: "@balcony-advisor" });
+  assert.deepEqual(calls[3]!.input, { title: "Your balcony", primaryActor: "@balcony-advisor" });
   assert.deepEqual(context.state.read(), { built: true });
   await program.onInput!(input, context);
-  assert.equal(calls.length, 5);
+  assert.equal(calls.length, 4);
 });
 
 test("a missing role builds no unusable advisor", async () => {
@@ -50,7 +49,7 @@ test("a missing role builds no unusable advisor", async () => {
   assert.deepEqual(context.state.read(), {});
 });
 
-test("a failed view activation sets neither surface nor success state", async () => {
+test("a failed view activation neither configures the run nor marks setup complete", async () => {
   const options = { failActivation: true };
   const { calls, context } = setup(options);
   await assert.rejects(async () => program.onInput!(input, context), /View cannot be activated/);

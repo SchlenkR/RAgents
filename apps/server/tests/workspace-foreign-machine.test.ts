@@ -493,7 +493,6 @@ test("an actor program is created, edited with the file tools and activated in a
     directoryFor: (runId) => path.join(server.root, "server", "programs", runId),
     scriptSources: () => undefined,
     sharedPackage: () => undefined,
-    placeView: () => { throw new Error("The test places no views"); },
   });
   setup.services.actorPrograms = programs;
   t.after(async () => {

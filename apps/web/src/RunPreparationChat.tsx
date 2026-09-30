@@ -99,7 +99,10 @@ export function RunPreparationChat({ initialPrompt, entry, registry, sessionRef 
   return <section aria-label="Discuss task" className={cn(composerPlacement, messages.length === 0 && emptyComposerPlacement)} data-preparation={messages.length === 0 ? "empty" : "active"}>
     <ChatPanel composer={<div>
       <ChatInputToolbar {...attachments} disabled={operation === "starting"} sendDisabled={busy}
-        initialValue={initialPrompt} onDraftChange={setDraft} onAttachmentsChange={setHasAttachments} handleRef={composer}
+        initialValue={initialPrompt} onDraftChange={setDraft} onAttachmentsChange={(active) => {
+          setHasAttachments(active);
+          attachments.onAttachmentsChange(active);
+        }} handleRef={composer}
         rows={3} maxRows={8} running={operation === "preparing"} onStop={() => active.current?.abort()} onSend={discuss}
         texts={{ placeholder: "Additions or questions about the task ...", send: "Discuss task", stop: "Stop discussion" }}
         toolbarLeft={<ChatViewSwitches settings={chatView} />}

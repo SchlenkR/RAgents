@@ -25,13 +25,16 @@ const hostWeb = (): Plugin => ({
     await acquireLock(buildLock);
     process.once("exit", () => rmSync(buildLock, { force: true }));
   },
-  generateBundle() {
+  generateBundle: { order: "post", handler(_options, bundle) {
+    const page = bundle["index.html"];
+    if (!page || page.type !== "asset") throw new Error("The shared web entry page is missing");
+    this.emitFile({ type: "asset", fileName: "run-panel.html", source: page.source });
     const sources = [...this.getModuleIds()]
       .map((id) => id.split("?")[0]!)
       .filter((file) => file.startsWith(repositoryRoot) && !file.split(path.sep).includes("node_modules") && isFile(file));
     const record = hostWebRecordOf(repositoryRoot, [...sources, fileURLToPath(import.meta.url), path.join(repositoryRoot, "pnpm-lock.yaml")]);
     this.emitFile({ type: "asset", fileName: HOST_WEB_RECORD, source: `${JSON.stringify(record, null, 2)}\n` });
-  },
+  } },
   // Vite writes next to the finished web, then each file is moved into place individually; a running host never loses the folder.
   async writeBundle() {
     await installFolder(stagingDirectory, outputDirectory, ["index.html", "run-panel.html", HOST_WEB_RECORD]);
@@ -75,7 +78,6 @@ export default defineConfig({
     rollupOptions: {
       input: {
         main: fileURLToPath(new URL("index.html", import.meta.url)),
-        runPanel: fileURLToPath(new URL("run-panel.html", import.meta.url)),
       },
     },
   },

@@ -3,7 +3,6 @@ import { createRoot } from "react-dom/client";
 import { createAccessContext } from "../../../packages/ragents/src/access";
 import { ActorChat } from "../../../plugins/ragents.orchestration/web/ActorChat";
 import { ActorChatControls } from "../../../plugins/ragents.orchestration/web/ActorChatControls";
-import { ActorChatPreview } from "../../../plugins/ragents.orchestration/web/ActorChatPreview";
 import { OrchestrationRunPanel } from "../../../plugins/ragents.orchestration/web/run-panel/RunPanel";
 import { webPlugin as overseerPlugin } from "../../../plugins/ragents.overseer/web/index";
 import { AccessContext } from "../src/AccessContext";
@@ -44,13 +43,14 @@ const session: SessionContext = {
 };
 const registry = new PluginRegistry({
   brand: { title: "Timestamps" }, product: { id: "switches", title: "Timestamps" },
-  plugins: [{ id: "switches", needsRunView: true, surface: { Center: () => null, RunPanel: OrchestrationRunPanel } }],
+  plugins: [{ id: "switches", needsRunView: true, surface: { RunPanel: OrchestrationRunPanel } }],
   startEntries: [],
 });
 
 const fixture = {
   activation: { status: "ready", registry, failures: [] } as PluginActivationState,
   unexpected: [] as string[],
+  modelInput: ["text"],
   chat(runId: string, event: unknown) { subscriptions.forEach((entry) => { if (entry.id === "ragents.chat" && entry.runId === runId) entry.message(event); }); },
   onActivation() { return () => {}; },
   async call(contract: { id: string }, params: { runId?: string }) {
@@ -59,7 +59,7 @@ const fixture = {
       case "ragents.runs.list": return [{ id: "demo", title: "Timestamps", updatedAt: 0 }];
       case "ragents.startOptions.list": return [];
       case "ragents.chat.actorHistory": return { actors: conversations };
-      case "ragents.chat.capabilities": return { input: ["text"], model: "demo-model" };
+      case "ragents.chat.capabilities": return { input: fixture.modelInput, model: "demo-model" };
       case "ragents.runs.prepare": return { kind: "reply", text: "Good, the task is clear. Shall I create the run?" };
       case "ragents.overseer.coordinator": return { runId: "global" };
       case "ragents.overseer.settings.read": return { provider: "demo", model: "demo-model", thinking: "off", models: [{ id: "demo-model", provider: "demo", label: "Demo", thinking: ["off"] }] };
@@ -76,10 +76,9 @@ const fixture = {
 declare global { interface Window { chatViewFixture: typeof fixture } }
 window.chatViewFixture = fixture;
 
-const centered: ReadonlySet<string> = new Set();
 const host: RunPanelHost = {
-  kind: "vscode", machines: "all", centerElements: () => centered, subscribe: () => () => {},
-  openInCenter() {}, returnToRunPanel() {}, requestLogin() {}, requestLogout() {}, openExternal() {}, openPage() {},
+  kind: "vscode", machines: "all",
+  openApp() {}, requestLogin() {}, requestLogout() {}, openExternal() {}, openPage() {},
   onCommand: () => () => {}, notify() {},
 };
 const rights = ["runs.read", "runs.write", "runs.create", "runs.inspect", "ragents.overseer.read", "ragents.overseer.write"];
@@ -88,7 +87,7 @@ const skill = { id: "switches.skill", owner: "switches", title: "Template", desc
 const Overseer = overseerPlugin.overviewPanels![0]!.Panel;
 const byId = (id: string) => view.actors.find((candidate) => candidate.id === id)!;
 
-function ActorPart({ name, id, presentation, composerVisible = true }: { name: string; id: string; presentation: "surface" | "inspector"; composerVisible?: boolean }) {
+function ActorPart({ name, id, presentation, composerVisible = true }: { name: string; id: string; presentation: "panel" | "inspector"; composerVisible?: boolean }) {
   return <section aria-label={name} className="flex h-72 flex-col border border-border">
     <ActorChat actor={byId(id)} className="min-h-0 flex-1" conversation={conversations[id]} onNavigate={() => {}} presentation={presentation} primaryMessages={conversations[id]} view={view} />
     <ActorChatControls actor={byId(id)} composerVisible={composerVisible} presentation={presentation} view={view} />
@@ -97,10 +96,13 @@ function ActorPart({ name, id, presentation, composerVisible = true }: { name: s
 
 function Parts() {
   const sessionRef = useRef(session);
+  if (new URLSearchParams(location.search).get("mode") === "preparation") {
+    return <main className="flex h-full flex-col"><RunPreparationChat entry={skill} initialPrompt="Build an overview" registry={registry} sessionRef={sessionRef} /></main>;
+  }
   return <ChatStepsProvider policy={{ ...defaultChatDisplayPolicy, selectable: true }}>
     <main className="grid grid-cols-2 gap-3 p-3">
-      <section aria-label="tile" className="flex h-72 flex-col border border-border"><ActorChatPreview actor={byId("reviewer")} conversation={conversations.reviewer} onNavigate={() => {}} view={view} /></section>
-      <section aria-label="tile-readonly" className="flex h-72 flex-col border border-border"><ActorChatPreview actor={byId("reviewer")} chatInput={false} conversation={conversations.reviewer} onNavigate={() => {}} view={view} /></section>
+      <ActorPart id="reviewer" name="actor-chat" presentation="inspector" />
+      <ActorPart id="reviewer" name="actor-readonly" composerVisible={false} presentation="inspector" />
       <ActorPart id="archive" name="stopped" presentation="inspector" />
       <ActorPart id="counter" name="program" presentation="inspector" />
       <ActorPart id="tester" name="human" presentation="inspector" />
@@ -112,7 +114,7 @@ function Parts() {
 }
 
 createRoot(document.getElementById("root")!).render(<QuasselHost><AccessContext.Provider value={{ ...access, logout: async () => {} }}>
-  {new URLSearchParams(location.search).get("mode") === "parts"
+  {new URLSearchParams(location.search).has("mode")
     ? <Parts />
     : <RunPanelHostProvider value={host}>
       <RunPanelApp location={{ layout: "panel", runId: "demo", host: "vscode", connection: "lokal", theme: undefined, access: undefined }} />

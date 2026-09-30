@@ -2,7 +2,7 @@ import { createRoot } from "react-dom/client";
 import { createAccessContext } from "../../../packages/ragents/src/access";
 import { WORKSPACE_BINDING_OPTION_ID } from "../../../plugins/ragents.workspace/contract";
 import { WorkspaceBindingControl } from "../../../plugins/ragents.workspace/web/WorkspaceBinding";
-import { App } from "../src/App";
+import { parseRunPanelLocation } from "../src/run-panel/run-panel-location";
 import { AccessContext } from "../src/AccessContext";
 import type { PluginActivationState } from "../src/PluginActivation";
 import { PluginRegistry, type EntryGuideContext } from "../src/PluginRegistry";
@@ -134,5 +134,5 @@ const page = view === "start"
     ? <RunPanelHostProvider value={query.get("host") === "vscode" ? vsCodeHost : createBrowserHost(window)}>
       <RunPanelApp location={{ layout: "panel", runId: undefined, host: query.get("host") === "vscode" ? "vscode" : "browser", connection: "local", theme: undefined, access: undefined }} />
     </RunPanelHostProvider>
-    : <App />;
+    : <RunPanelHostProvider value={createBrowserHost(window)}><RunPanelApp location={parseRunPanelLocation(location.search)} /></RunPanelHostProvider>;
 createRoot(document.getElementById("root")!).render(<AccessContext.Provider value={{ ...access, logout: async () => {} }}>{page}</AccessContext.Provider>);

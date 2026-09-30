@@ -6,7 +6,7 @@ import { fileURLToPath } from "node:url";
 import { build } from "esbuild";
 import { chromium } from "playwright-core";
 
-test("workspace state and width stay with their run and hidden files stay with their browser", {
+test("sidebar tabs stay with their run and hidden files stay with their browser", {
   skip: process.env.RAGENTS_BROWSER_TESTS !== "1",
   timeout: 120_000,
 }, async context => {
@@ -21,16 +21,19 @@ test("workspace state and width stay with their run and hidden files stay with t
       contents: `
 import React, { useState } from 'react';
 import { createRoot } from 'react-dom/client';
-import { WorkspacePanel, useWorkspacePanelState } from './apps/web/src/WorkspacePanel';
+import { RunPanelWorkspace } from './apps/web/src/run-panel/RunPanelWorkspace';
+import { useRunPanelWorkspaceState, saveRunPanelWorkspaceState } from './apps/web/src/run-panel/workspace-state';
 import { FileBrowserPanel } from './plugins/ragents.workspace/web/FileBrowser';
+const tabs = [{id:"files", label:"Files", keepMounted:true, Panel:()=> <input aria-label="Sidebar draft"/>}];
 function Run({ id }) {
-  const [state, update] = useWorkspacePanelState(id);
+  const state = useRunPanelWorkspaceState(id);
+  const update = (tab) => saveRunPanelWorkspaceState(id, {tab});
   const session = { session: { id }, messages: [] };
-  const navigation = { activeTabId: '', openTab: () => update('expanded'), selectionFor: () => undefined };
+  const navigation = { activeTabId: state.tab ?? '', openTab: () => update('files'), selectionFor: () => undefined };
   return <section aria-label={id}>
-    <button onClick={() => update('collapsed')}>Collapse</button>
+    <button onClick={() => update(null)}>Collapse</button>
     <button onClick={() => navigation.openTab('files')}>Open tab</button>
-    <WorkspacePanel session={session} navigation={navigation} state={state} onToggleState={() => update('expanded')} tabs={[]} pendingTabIds={[]} headerContainer={null}/>
+    <RunPanelWorkspace session={session} navigation={navigation} open={state.tab !== null} onClose={() => update(null)} tabs={tabs}/>
     <FileBrowserPanel session={session} active={true}/>
   </section>;
 }
@@ -92,38 +95,25 @@ createRoot(document.getElementById('root')).render(<App/>);
   const page = await browser.newPage({ viewport: { width: 1500, height: 1000 } });
   const errors: string[] = [];
   page.on("pageerror", error => errors.push(error.message));
-  await page.addInitScript(() => {
-    localStorage.setItem("ragents.workspacePanelState", "collapsed");
-    localStorage.setItem("ragents.workspacePanelWidth", "900");
-  });
   await page.goto(`http://127.0.0.1:${address.port}`);
-  const width = () => page.getByRole("separator", { name: "Sidebar width" });
-  await width().waitFor();
-  assert.equal(await width().getAttribute("aria-valuenow"), "560");
-  await width().press("ArrowLeft");
-  const widthA = await width().getAttribute("aria-valuenow");
-  assert.notEqual(widthA, "560");
+  const sidebar = page.getByRole("region", { name: "Sidebar" });
+  await page.getByRole("button", { name: "Open tab", exact: true }).click();
+  await sidebar.waitFor();
+  await page.getByRole("textbox", { name: "Sidebar draft" }).fill("Keep this draft");
+  await page.getByRole("button", { name: "Close sidebar" }).click();
   await page.getByRole("button", { name: "Show hidden entries", exact: true }).click();
   await page.getByText(".hidden.txt", { exact: true }).waitFor();
-  await page.getByRole("button", { name: "Collapse", exact: true }).click();
+  await page.getByRole("button", { name: "Open tab", exact: true }).click();
+  assert.equal(await page.getByRole("textbox", { name: "Sidebar draft" }).inputValue(), "Keep this draft");
+  await page.getByRole("button", { name: "Close sidebar" }).click();
   await page.getByRole("button", { name: "Run B", exact: true }).click();
-  await width().waitFor();
-  assert.equal(await width().getAttribute("aria-valuenow"), "560");
+  assert.equal(await sidebar.count(), 0);
   await page.getByRole("button", { name: "Show hidden entries", exact: true }).waitFor();
   assert.equal(await page.getByText(".hidden.txt", { exact: true }).count(), 0);
-  await width().press("ArrowRight");
-  const widthB = await width().getAttribute("aria-valuenow");
   await page.getByRole("button", { name: "Open tab", exact: true }).click();
-  await page.getByRole("button", { name: "Run A", exact: true }).click();
-  await width().waitFor({ state: "detached" });
-  assert.equal(await width().count(), 0);
-  await page.getByRole("button", { name: "Open tab", exact: true }).click();
-  assert.equal(await width().getAttribute("aria-valuenow"), widthA);
-  await page.getByRole("button", { name: "Show hidden entries", exact: true }).waitFor();
+  await sidebar.waitFor();
   await page.reload();
-  await width().waitFor();
-  assert.equal(await width().getAttribute("aria-valuenow"), widthA);
   await page.getByRole("button", { name: "Run B", exact: true }).click();
-  assert.equal(await width().getAttribute("aria-valuenow"), widthB);
+  await sidebar.waitFor();
   assert.deepEqual(errors, []);
 });

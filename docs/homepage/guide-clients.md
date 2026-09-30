@@ -5,52 +5,29 @@ Use the same runs in the browser and in the VS Code extension; automate them thr
 ## Run panel and VS Code extension
 
 The run panel is also available in the browser. `http://localhost:4710/run-panel.html?run=<id>`
-shows a run in a narrow layout with mini-app chips, the selected app, actor chips, chat, and the
-tab bar on the right. Without `run`, it shows the run list with "New run" as the first
-card. `run-panel.html?layout=app&run=<id>&element=<app-id>` shows one mini-app without the tab bar.
-Run-panel state, including the selected app and actor, view mode, chat width, collapsed chat
-height, open tab, and tab-area height, is stored per run in the browser.
+shows chat with an addressee selector, mini-app tabs, and the inspection bar on the right.
+Without `run`, it shows the shared Start page.
+`run-panel.html?layout=app&run=<id>&element=<app-id>` shows one mini-app without the tab bar.
+The selected app and addressee are stored per run in the browser.
 
 With write rights, the menu at the top right of an open run offers "Run script": it lists the run
 scripts you may start, each with its description, and greyed out with the reason when it cannot
 join this run, because its `RUN.md` does not set `embeddable: true` or because it fixes a start
 option to a value the run does not have. A click starts it inside the run without a start value;
-the primary actor stays, a repeated start reuses the script, its main view is placed next to the
-tiles, and its output and summary appear in the chat as `@handle: ...`. If the start is refused,
+the primary actor stays, a repeated start reuses the script, its main view becomes available as an app, and its output and summary appear in the chat as `@handle: ...`. If the start is refused,
 the menu shows why. The same menu works in the VS Code run panel.
 
-The narrow tab bar on the right contains the same tabs as the full web view: files, documents,
-functions, executions, and language-server diagnostics, depending on the run and the user's
-permissions. The tab name appears in a tooltip. A small counter sits at the top right of its
-button, while a dot at the bottom right indicates new activity since the last view. Clicking a
-button opens that tab below the chat with its name and an X in the header. Clicking the same
-button or the X closes it; another button switches tabs. Drag the top handle or use the up and
-down arrow keys to change the area's height. At least 160 pixels remain for the chat. The open
-tab and height are stored per run in the browser, per VS Code window, and independently from the
-full web view.
+The inspection rail on the right contains files, documents, functions, executions, and
+language-server diagnostics according to the run and your permissions. Clicking an icon opens
+a panel over the current view. The same icon, Escape, X, or the backdrop closes it. The open
+inspection tab is stored per run. Visited persistent panels keep their state while closed.
 
-Once a mini-app is selected, three header buttons control the run-panel view: "Chat only"
-(speech bubble), "Chat below" (a sheet over the app), and "Chat right" (beside the app).
-"Chat right" is the default. While the panel is narrower than the
-configured width, that option is disabled and the chat stays below. "Chat only" gives the chat the
-entire panel: the mini-app
-recedes, nothing slides in or out, and an open sheet closes cleanly. Switching back rebuilds the
-mini-app, so unsaved input in it is lost. The choice is stored per run and survives a restart.
-The extension can also open a mini-app as an editor tab in the center, which works well with
-"Chat only" in the run panel.
-
-In "Chat below", the handle controls the expanded chat height. Dragging up makes it taller;
-dragging down makes it shorter. The chosen height is stored per run. The collapsed chat shows the
-handle, status, and complete input, including multiple input lines. An open question sits
-completely above the input there as well: the collapsed chat grows by its height, up to half of
-the panel, and the status line reads "Waiting for input". Hovering or
-writing opens the chat to the chosen height (90 percent of the panel by default). Dragging leaves
-the chat open at its new height. Clicking the handle opens or closes it. With
-keyboard focus on the handle, up and down change the height, Home and End select its limits, and
-Escape cancels an active drag.
-
-The collapsed chat keeps its rounded border, background, and shadow. The compact handle row
-shows keyboard focus on the small grip itself.
+In the browser panel, select Chat or a mini-app in the tab row. Only that view is visible;
+visited apps keep their local input when you switch away. A new app appears without taking focus,
+and an unavailable selected app returns you to Chat. In VS Code, click an app entry to open or
+focus its single editor tab; moving that tab between editor groups does not create a second one.
+The panel stays on chat. Questions and news stay in the chat, and unsent drafts stay with their
+addressee when you switch actors.
 
 The chip at the left of the chat input names the addressee, the actor your messages go to.
 Clicking it opens the addressee list as a tree of who created whom, like the agent tree of a
@@ -64,9 +41,9 @@ with their shared handle prefix, their number, and a count per state; click it t
 it. A group that contains the current addressee opens by itself. With more than twelve actors a
 search field appears above the tree; it matches every word against handle, display name, and
 description and keeps the creators of each hit visible. Clicking an entry makes it the addressee
-and closes the list. Hidden actors, as chosen with "Show" in the footer, sit in their own tree
-behind "Hidden actors"; picking one of them also shows it again. In runs recorded before
-actors had descriptions, the description falls back to the first assignment or the display name.
+and closes the list. All actors permitted by your access rights are available, including stopped
+actors. TypeScript actors require inspection rights.
+
 
 The extension lives under `apps/vscode`. It works with all configured **servers at the same
 time**; there is no single active connection. A server in the `ragents.connections` setting is
@@ -200,8 +177,8 @@ been stopped, the input is replaced by `@handle stopped: <reason>` and, with per
 and inspect the run, "Restart". Restarting the former primary actor makes it the
 primary actor again, and the run chat continues.
 
-The arrow on a mini-app in the run-panel stage opens it as a central editor tab; "Back to panel"
-closes the tab. Text artifacts and the journal open as read-only documents, while other artifacts
+Click a mini-app in the run panel to open or focus its editor tab. Move and close that tab with
+VS Code; opening it again reuses its current group or creates one editor after it was closed. Text artifacts and the journal open as read-only documents, while other artifacts
 open in the browser. `RAgents: New run` uses a Quick Pick grouped by server and template.
 The first entry for each server is its default, marked "Default", or the free task without
 a template. The commands `RAgents: Disconnect`, `RAgents: Connect`, and
@@ -210,7 +187,9 @@ a template. The commands `RAgents: Disconnect`, `RAgents: Connect`, and
 When the run chat or a hosted mini-app input has focus, VS Code shortcuts such as Cmd/Ctrl+P
 and Cmd/Ctrl+Shift+P still work using your keybindings, including key chords. This also applies
 to nested hosted mini-app frames. Text entry, selection, undo, and clipboard actions remain in
-the input field. Dictation tools that paste their result, such as HEX, use the same input path.
+the input field. After pasting, focus stays in that input, including in nested mini-apps and
+when the clipboard is empty. You can continue typing or undo without clicking the input again.
+Dictation tools that paste their result, such as HEX, use the same input path.
 Keys already handled by the chat or mini-app are not also executed as VS Code commands.
 In a regular browser, native keyboard and clipboard behavior remains in use.
 

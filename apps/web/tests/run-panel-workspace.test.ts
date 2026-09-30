@@ -156,10 +156,10 @@ test("tabs and header contributions that need the workspace are missing for a ru
 
   assert.deepEqual(ids(registry.availableTabs(contextOf(false))), ["files"]);
   assert.deepEqual(ids(registry.registeredTabs(contextOf(false))), ["files", "diagnostics"], "the tab stays registered, a reference to it does not throw");
-  assert.deepEqual(ids(registry.headersFor(contextOf(false), unrestrictedAccess, "header")), ["test.activity"]);
+  assert.deepEqual(ids(registry.headersFor(contextOf(false), unrestrictedAccess)), ["test.activity"]);
   for (const reachable of [true, undefined]) {
     assert.deepEqual(ids(registry.availableTabs(contextOf(reachable))), ["files", "diagnostics"]);
-    assert.deepEqual(ids(registry.headersFor(contextOf(reachable), unrestrictedAccess, "header")), ["test.processes", "test.activity"]);
+    assert.deepEqual(ids(registry.headersFor(contextOf(reachable), unrestrictedAccess)), ["test.processes", "test.activity"]);
   }
 
   const rail = (workspaceAccessible: boolean) => renderToStaticMarkup(createElement(PluginChat, { layout: "panel", registry, session: run(workspaceAccessible) }))

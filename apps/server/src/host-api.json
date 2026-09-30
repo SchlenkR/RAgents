@@ -1,5 +1,5 @@
 {
-  "version": 7,
+  "version": 10,
   "server": {
     "@ragents/engine": [
       "DomainError",
@@ -786,8 +786,12 @@
       "isRunPanelKeyboardMessage",
       "relayFrameInput"
     ],
+    "@ragents/web/run-apps": [
+      "RunAppView",
+      "runApps",
+      "selectedRunApp"
+    ],
     "@ragents/web/run-panel/host": [
-      "useCenterElements",
       "useRunPanelHost"
     ],
     "@ragents/web/run-view": [

@@ -10,7 +10,7 @@ const entry = (pluginId: string, state: unknown, actorId = "counter") => ({ plug
 const views = [{ id: "counter--board", title: "Board" }, { id: "counter--detail", title: "Detail" }];
 const definition = entry(ACTOR_PROGRAMS_STATE_ID, { version: 1, program: { name: "counter", actorId: actor.id, actorHandle: actor.handle, revision: "build", views } });
 const view = (pluginStates: unknown[], actors: unknown[] = [actor]) => ({ id: "run", ownerId: "owner", primaryActorId: null, actors, inputs: [], turns: [], subscriptions: [], actions: [], artifacts: [], pluginStates });
-const listing: ActorProgramsListing = { apps: views.map((item) => ({ ...item, actorId: actor.id, actorHandle: actor.handle, revision: "build", actions: [], placements: [], invocations: [], state: { version: 1, revision: 1, values: { count: 0 } } })), tools: [] };
+const listing: ActorProgramsListing = { apps: views.map((item) => ({ ...item, actorId: actor.id, actorHandle: actor.handle, revision: "build", actions: [], invocations: [], state: { version: 1, revision: 1, values: { count: 0 } } })), tools: [] };
 
 test("actor state and function invocations invalidate views even without a running chat turn", () => {
   const states = [definition, entry(ACTOR_STATE_ID, { count: 0 }), { ...entry(ACTOR_INVOCATIONS_STATE_ID, { invocations: [] }), scope: { kind: "run" } }];

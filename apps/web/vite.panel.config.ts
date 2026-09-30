@@ -10,7 +10,7 @@ export default defineConfig({
     outDir: fileURLToPath(new URL("../vscode/dist/webview", import.meta.url)),
     emptyOutDir: true,
     rollupOptions: {
-      input: fileURLToPath(new URL("panel.html", import.meta.url)),
+      input: fileURLToPath(new URL("src/panel.tsx", import.meta.url)),
       output: { entryFileNames: "panel.js", chunkFileNames: "[name].js", assetFileNames: "panel.[ext]" },
     },
   },

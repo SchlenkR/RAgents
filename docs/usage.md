@@ -10,8 +10,7 @@ in `docs/spec/`, the why in `docs/decisions.md`.
 <!-- guide:getting-started -->
 ## Create your first run
 
-The top-left corner opens the run overview. Choose "New run" to open the start selection. It
-shows the same tiles as the start page in VS Code: "New chat" or the server's default
+Start shows recent runs and the same templates in the browser and VS Code: "New chat" or the server's default
 template first, then skill templates with a prepared task and script templates with programmed
 setups. "New chat" opens an empty run whose task you write in its chat; a template starts with one
 click. Some templates collect values in a setup dialog first ("Set up"); a skill template then
@@ -20,177 +19,67 @@ continues in the preparation chat. There you can discuss the task, give a clear 
 anything. In the browser a new run always works on the server; only VS Code and `ragents run`
 bind a run to a workstation.
 
+While a template starts, the panel shows its progress in the chat area and reserves the
+bottom status bar, keeping the notice in place when the run connects.
+
 Inside the run, the coordinator processes the task. Additional agents and mini-apps appear on
 the surface when the workflow creates them. The global coordinator in the header has its own
 conversation and can oversee several runs. The journal and "Executions" tab make events and
 TypeScript calls traceable.
 
-## Use the surface
+## Use chat and mini-apps
 
-A run's surface consists of tiles. Each tile shows an actor or mini-app, and together they
-fill the available space. There is no panning or zooming. Tiles use flat surfaces, outlines,
-and rounded corners without depth. Mini-app content appears at its original size both in the
-tile and in full view.
+Activated visible mini-apps become available automatically, including those from an embedded setup.
+Programs cannot arrange the host interface. Runs saved with removed layout functions or placements
+are locked with an explanation; their original files are kept. Start a new run with updated programs.
 
-Drag an actor or mini-app from the header onto one of a tile's docking targets. Left and right
-create a side-by-side split; top and bottom create a vertical split. Targets at the outer edge
-split the entire surface. Before you release, a preview shows the resulting area. Drag an
-existing tile by its title bar; the X removes it from the layout. Its content remains available
-through the header. Without access to the actors view, removal and reordering are disabled: the
-X and drag handle are hidden. Dividers for adjusting size ratios remain available.
+Browser runs have tabs: Chat, then each available mini-app. Only one view is visible. Chat
+and visited apps keep their input when you switch tabs. New apps appear without interrupting
+your current view. If a selected app becomes unavailable, the panel returns to Chat.
 
-Drag a divider to the desired ratio; releasing it saves the value. Escape cancels the active
-resize. With keyboard focus on a divider, arrow keys change its size while Home and End set the
-allowed limits. When space is tight, the "Visible tile" selector displays one item at a time
-without discarding the layout. You can also ask the coordinator: "App on the left, chat on the
-right, 50:50" or "One tile on top, two below at a 2:1 ratio." Until a layout is specified, the
-surface arranges visible participants itself. Your changes remain saved until the program
-changes its layout. A new program layout is applied automatically so added tiles appear at
-once. "Apply program layout" in the status bar can reset your own layout earlier.
+In VS Code, clicking an app opens or focuses its editor tab. VS Code controls where that tab
+appears. Questions and news stay in chat. The selector below the input chooses the addressee;
+the run coordinator is selected by default.
+
 <!-- /guide:getting-started -->
 
 ## Switch runs
 
-The square corner at the top left of the header (or `Cmd+I` on macOS or `Ctrl+I`) opens the run
-overview as a modal dialog below the header, including the bottom status bar. The header stays
-usable. The run cards show
-title, processing status, creation date with time, the user who created the run (only for runs created
-with sign-in), last update, and additional plugin details. The cards are grouped by
-last activity into Today, Yesterday, and further days; blue marks running
-work, a violet hint new activity since you last looked, and this personal
-read state applies per user in this browser. Selecting a card
-opens the run and closes the overview. Clicking the corner again, Escape, or a
-click on the dimmed background closes it and returns focus to the corner.
-"New run" in the run bar switches to the start dialog. Creating as well as single and
-multiple deletion appear depending on your permissions; the multiple selection offers All, None,
-and a deletion confirmation. Deleted runs disappear from the list immediately; the server then
-handles the cleanup (processes, working directory, archive) in the background. Errors stay
-visible. Long lists can be scrolled. A run whose journal the server could not load (for example
-an older file format) appears in the overview in red as "Locked" with the cause. It
-cannot be opened, but it can be deleted individually or in the multiple selection; deleting moves
-its files unchanged into the archive. With sign-in, only someone who may see all runs sees such a run.
+Use Back to Start to see recent runs and permitted templates. Click a run to continue, or open
+All runs for search and selection. Deleting selected runs requires permission and confirmation;
+errors remain visible. Locked runs show the cause and cannot be opened, but can be selected
+for deletion. Browser rows retain owner labels, plugin metadata, and per-user read markers.
+
 As long as no finished automatic title exists, the run list shows the original
 task. After successful generation and storage, the short heading appears without
 waiting for the next regular list refresh. When generation is disabled or has failed, the task
 stays visible. Titles deliberately set in the run or setup take precedence;
 a different model selection does not rename existing titles.
 
-The global coordinator sits directly in the header, independent of this. Opening the
-run overview closes its history, but keeps the conversation, draft, and attachments.
+The global coordinator remains in the header with its own conversation, draft, and attachments.
+The panel menu opens Settings and Help according to your permissions. A guided template uses
+the preparation dialog and chat before starting.
 
-## Run chat and surface
+## Run chat and inspection
 
-The narrow status bar at the bottom edge of the window spans the entire application width. It
-holds `Journal` and, as soon as you have rearranged something yourself, "Apply program layout".
-Conversations live in the tiles and in the
-actor pop-outs. By default, the run coordinator is only reachable in the actor bar above the surface.
-Clicking its entry opens the chat as a pop-out below it. These
-chat views are up to 784 pixels wide and adapt to narrow windows. Other
-LLM entries open their chat, TypeScript entries their actor view.
+The shared panel initially addresses the coordinator. Use the addressee selector at the bottom
+of the input to search actors and choose another conversation. Visited chats keep separate drafts.
+Sending requires write permission and a running actor. A stopped actor shows its reason and
+Restart; TypeScript actors are operated through mini-apps or functions.
 
-Pop-outs keep a small distance from the control that opened them. Dimming pop-outs, dialogs,
-and the chat sheet use the same stronger background. In the addressee pop-out, the
-search by handle or task sits directly next to the title and also searches hidden actors.
+With technical read permission, Inspect actor opens details and installed program sources.
+The right-hand inspection rail also provides Documents, Files, Functions, Executions, and other
+plugin contributions when available. Clicking a rail button opens its panel; the same button,
+Escape, X, or the backdrop closes it. Visited persistent panels keep their state.
 
-Clicking again, Escape, clicking outside, or the X in the pop-out header closes the pop-out; unsent text is kept
-when closing and switching actors. Through the actor list you can additionally give it its
-own tile. In the view bar, the speech bubble selects the history, the other
-icons each select a detail view. For actors with an installed program, the Code tab shows
-the TypeScript sources and other files of that version, with file selection and syntax highlighting.
-This also applies to TypeScript actors without a mini-app or published functions. This
-requires the technical read permissions.
-On the left of the actor bar above the surface, `Show` switches between `All`, `Active`, `Visible`,
-`LLM agents`, and `TypeScript` without changing its width. The default is `Active`;
-`All` additionally shows stopped actors. As long as no actor is stopped, both look the same.
-`Visible` shows only actors that currently have a tile, and always the
-primary actor. The two type filters also show stopped actors
-of the respective type. The actor list and chats open at the same distance directly below the button.
-This only changes the direct actor entries and does not change the layout.
-The selection is stored per run in the browser. Under `Actors` you always find the
-complete list. Buttons of open pop-outs stay visibly pressed.
-The message draft is kept when switching. In the primary actor's chat,
-`Stop run` with confirmation stays reachable.
+Journal in the bottom status bar shows actual events, newest first, with search, expandable JSON,
+and more results on demand. Executions shows recorded TypeScript calls and their results.
 
-`Journal` in the status bar opens the actual events of the run above it.
-The newest come first; the search finds event contents and actor handles. An entry
-can be expanded to the complete JSON. Initially 100 matches are visible, more
-can be loaded. The open view follows changes of the run and offers Refresh.
-Clicking outside or tabbing out of the view closes it; Escape and X return focus to Journal.
-
-`Actors` in the actor bar above the surface lists all participants, including you and stopped
-actors. Click the name of an AI or TypeScript actor to open its chat and
-details on the right; this does not create a tile.
-
-On the right of every entry is the `Surface` checkbox. Without your own choice, the main actor and
-actors with their own mini-app are not on the surface; that way the app needs no additional space
-for its owner. All other actors are on it. The checkbox affects the initial
-layout of a run without a preset and the actor selection of the run panel; it does not change an
-already saved layout. The selection is kept in this browser per server address
-and run; read permissions are enough. It changes neither the run nor its journal.
-
-The tab icons at the top next to Settings and Help select the bar's view.
-The panel button in the same title bar collapses it completely. After that, only the button
-for opening it is visible; it restores the last used width. Selecting
-a name in the actor list opens the bar as well. Visited views keep their state.
-The icon names appear after 50 milliseconds of hover or immediately on keyboard focus directly
-below the header. When moving to the next icon, the hint stays visible and changes
-immediately; small gaps between the buttons do not interrupt it.
-The panel button is as large as Settings and Help; Escape removes a visible
-hint without moving focus.
-
-Input directly in an agent tile is sent to the
-respective actor. As in the actor chat of the bar, attaching files and the display of the
-steps from hidden to complete are available, without model or thinking level selection.
-The "current" mode shows the running step as a quassel chip. For access without technical
-read permissions it says "Thinking" or "Tool running", without tool names, contents, or
-expandable details. When the step ends, the chip disappears; a message you
-send in the meantime leaves it in place. The animated
-work scenes stay visible as long as the agent is working, also during longer thinking pauses.
-In the run chat they run as long as any agent or program of the run is working, that is, also
-while the coordinator is waiting for actors it has tasked; tiles and pop-outs show only the
-respective actor.
-Sending requires write permissions on the run and an actor that is not stopped; failed inputs
-remain available through the shared chat input. Every tile scrolls its own content;
-at the end of the history it automatically follows new messages again. You open the chat with all details
-through the actor list or the direct entries in the actor bar above the surface.
-
-History and input use the same available width. In every chat, also with a different
-addressee, in tiles, in the preparation chat, and with the global coordinator, the clock button
-at the bottom next to the step display switches the timestamps on and off. The choice is stored in the browser per run
-and actor and applies wherever this chat appears. The arrow to the end appears
-only at a distance of more than 120 pixels; scrolling back a little still keeps new responses at the
-chosen reading position.
-
-Details of the chats and tiles: responses appear as Markdown already during output,
-with headings, lists, tables, and code blocks; formatting that is still open is
-rendered provisionally. On your own messages, a copy icon appears at the top right on hover or
-keyboard focus; it copies the original text with its
-line breaks and confirms with a check mark.
-If you send another message while a response is running, it does not wait for the end
-of the turn: an agent feeds it into the running turn before its next model request
-(steering). During this time the send button is labeled "Feed into running turn", and the
-history shows "Fed into running turn" below the message. A TypeScript actor and
-a text over 30000 characters, however, get their own turn. The response stays
-together before your new message. An open question appears in every chat with
-input directly above it, in the run chat as in tiles and in the run panel, and you answer it
-there too; several are stacked, and if they take more than half the chat height, this area scrolls
-on its own. Once answered or discarded, it moves as a record to its place in the history. With read access
-you see the question and options without controls. If the agent is currently waiting for you to answer its
-question, your message counts as skipping: the question closes as not
-answered, and the agent reads your message. If your message is still unread with it
-when it wants to ask, the question does not appear at all. Below the last entry, about two
-lines of free scroll space remain. If the chat's actor currently has a turn and the input is empty,
-"Stop work" interrupts only this turn; the actor then accepts the next message.
-If it is stopped, the reason together with "Restart" appears in place of the input. The display of tool calls
-(icons, compact lines, complete) applies per chat; other chats and runs keep their
-setting, as do the width and collapsed state of the bar per run. With many entries
-in the actor bar above the surface, arrow buttons for scrolling appear on the left and right; the
-mouse wheel and trackpad also move the entries horizontally. Mini-apps get a shared
-inner padding in the tile; their scrollbar sits at the right edge of the tile, and the space for
-status messages below the app content stays reserved, so that the start, completion, and errors of an
-action do not shift the app. Every sub-area can be split again, for example into one upper
-tile and two lower ones at a ratio of two thirds to one third; coordinators can also set such
-layouts on request.
+Chat responses stream as Markdown. Copy preserves original text and line breaks. Attachments,
+timestamps, and the detail-level selector use the same controls in both hosts. Questions appear
+directly above the input and remain as receipts in history after answering. A message sent during
+a model turn steers that turn; Stop work interrupts only the current turn. Stop run ends work
+across the run. Read access shows questions and conversations without answer or send controls.
 
 ## Attachments in the chat
 
@@ -202,7 +91,8 @@ unchanged; the failed task is available separately with a preview. With
 "Insert unsent input" you append it together with its attachments to the current draft.
 
 Images, videos, and files can be dragged into the chat input or selected through the attachment
-button. You paste images and files from the clipboard with Cmd+V or Ctrl+V.
+button. You paste images and files from the clipboard with Cmd+V or Ctrl+V, including in
+the VS Code panel and chats inside mini-apps.
 Before sending, previews with file names and a remove button appear. You can also send without
 additional text. This applies to new runs, the global coordinator,
 the actor view, and chat controls in actor views.
@@ -343,7 +233,7 @@ start option is in [typescript-platform.md](spec/typescript-platform.md) under
 
 ## Settings
 
-The surface in the Schichtwerk style shows matte tiles with rounded edges, without depth.
+The shared panel uses matte surfaces with rounded edges.
 Lavender marks the main actor, clay color other AI actors, mustard yellow
 TypeScript actors, and blue-gray the mini-apps. The fronts stay straight and even.
 Round buttons with an X close dialogs; a round arrow leads back to the previous view.
@@ -353,7 +243,7 @@ input and dialog areas. Escape first closes the open menu.
 
 Under "Appearance", "Schichtwerk" you choose Light, Dark, or System. The default is Dark;
 System follows the operating system's color scheme setting, also on later changes.
-The choice immediately affects the interface, tiles, and shared actor view controls, without reloading chats
+The choice immediately affects the interface, chat, and shared actor view controls, without reloading chats
 or apps. It is stored in the browser for the same server address and synchronized with
 other open tabs. Changing it requires settings write permissions.
 Your own fixed actor view colors stay in place. Colors, fonts, radii, shadows, and
@@ -406,13 +296,6 @@ owner opens the complete plugin page. "Runtime" shows technical facts,
 models, profiles, and the system prompt. Models and Appearance work independently of
 loading these catalogs. Plugin forms are additionally reachable at their plugin.
 
-Under "Run panel" you determine from which panel width the chat sits to the right of the mini-app
-(default 900 pixels) and how sluggishly the sheet reacts to the mouse (default 160
-milliseconds until it slides up, 150 milliseconds until it slides back). Changing it
-requires settings write permissions. The setting stays stored locally in the browser for the same server address
-and is not saved as a profile value on the server. Reset restores
-the defaults.
-
 ## Global coordinator
 
 With `ragents.overseer` in `host.PLUGINS`, the "Global coordinator" input sits to the right
@@ -461,7 +344,7 @@ run switch, conversation and input are kept. The overview corner and `Cmd+I` or
 `Ctrl+I` open only the run overview.
 
 Only the first opening connects the stream. Already during the send request and afterwards while
-work is running, the frame around the input pulses, as with working agents in their tile.
+work is running, the frame around the input pulses, as with working agents in their chat.
 With reduced motion
 the frame stays highlighted. A lost connection blocks sending, but keeps the draft.
 After reconnecting, short answers from the meantime are taken into account, without showing old toasts
@@ -532,52 +415,29 @@ macOS, is named in the same section of the spec.
 ## Run panel and VS Code extension
 
 The run panel is also available in the browser. `http://localhost:4710/run-panel.html?run=<id>`
-shows a run in a narrow layout with mini-app chips, the selected app, actor chips, chat, and the
-tab bar on the right. Without `run`, it shows the run list with "New run" as the first
-card. `run-panel.html?layout=app&run=<id>&element=<app-id>` shows one mini-app without the tab bar.
-Run-panel state, including the selected app and actor, view mode, chat width, collapsed chat
-height, open tab, and tab-area height, is stored per run in the browser.
+shows chat with an addressee selector, mini-app tabs, and the inspection bar on the right.
+Without `run`, it shows the shared Start page.
+`run-panel.html?layout=app&run=<id>&element=<app-id>` shows one mini-app without the tab bar.
+The selected app and addressee are stored per run in the browser.
 
 With write rights, the menu at the top right of an open run offers "Run script": it lists the run
 scripts you may start, each with its description, and greyed out with the reason when it cannot
 join this run, because its `RUN.md` does not set `embeddable: true` or because it fixes a start
 option to a value the run does not have. A click starts it inside the run without a start value;
-the primary actor stays, a repeated start reuses the script, its main view is placed next to the
-tiles, and its output and summary appear in the chat as `@handle: ...`. If the start is refused,
+the primary actor stays, a repeated start reuses the script, its main view becomes available as an app, and its output and summary appear in the chat as `@handle: ...`. If the start is refused,
 the menu shows why. The same menu works in the VS Code run panel.
 
-The narrow tab bar on the right contains the same tabs as the full web view: files, documents,
-functions, executions, and language-server diagnostics, depending on the run and the user's
-permissions. The tab name appears in a tooltip. A small counter sits at the top right of its
-button, while a dot at the bottom right indicates new activity since the last view. Clicking a
-button opens that tab below the chat with its name and an X in the header. Clicking the same
-button or the X closes it; another button switches tabs. Drag the top handle or use the up and
-down arrow keys to change the area's height. At least 160 pixels remain for the chat. The open
-tab and height are stored per run in the browser, per VS Code window, and independently from the
-full web view.
+The inspection rail on the right contains files, documents, functions, executions, and
+language-server diagnostics according to the run and your permissions. Clicking an icon opens
+a panel over the current view. The same icon, Escape, X, or the backdrop closes it. The open
+inspection tab is stored per run. Visited persistent panels keep their state while closed.
 
-Once a mini-app is selected, three header buttons control the run-panel view: "Chat only"
-(speech bubble), "Chat below" (a sheet over the app), and "Chat right" (beside the app).
-"Chat right" is the default. While the panel is narrower than the
-configured width, that option is disabled and the chat stays below. "Chat only" gives the chat the
-entire panel: the mini-app
-recedes, nothing slides in or out, and an open sheet closes cleanly. Switching back rebuilds the
-mini-app, so unsaved input in it is lost. The choice is stored per run and survives a restart.
-The extension can also open a mini-app as an editor tab in the center, which works well with
-"Chat only" in the run panel.
-
-In "Chat below", the handle controls the expanded chat height. Dragging up makes it taller;
-dragging down makes it shorter. The chosen height is stored per run. The collapsed chat shows the
-handle, status, and complete input, including multiple input lines. An open question sits
-completely above the input there as well: the collapsed chat grows by its height, up to half of
-the panel, and the status line reads "Waiting for input". Hovering or
-writing opens the chat to the chosen height (90 percent of the panel by default). Dragging leaves
-the chat open at its new height. Clicking the handle opens or closes it. With
-keyboard focus on the handle, up and down change the height, Home and End select its limits, and
-Escape cancels an active drag.
-
-The collapsed chat keeps its rounded border, background, and shadow. The compact handle row
-shows keyboard focus on the small grip itself.
+In the browser panel, select Chat or a mini-app in the tab row. Only that view is visible;
+visited apps keep their local input when you switch away. A new app appears without taking focus,
+and an unavailable selected app returns you to Chat. In VS Code, click an app entry to open or
+focus its single editor tab; moving that tab between editor groups does not create a second one.
+The panel stays on chat. Questions and news stay in the chat, and unsent drafts stay with their
+addressee when you switch actors.
 
 The chip at the left of the chat input names the addressee, the actor your messages go to.
 Clicking it opens the addressee list as a tree of who created whom, like the agent tree of a
@@ -591,9 +451,9 @@ with their shared handle prefix, their number, and a count per state; click it t
 it. A group that contains the current addressee opens by itself. With more than twelve actors a
 search field appears above the tree; it matches every word against handle, display name, and
 description and keeps the creators of each hit visible. Clicking an entry makes it the addressee
-and closes the list. Hidden actors, as chosen with "Show" in the footer, sit in their own tree
-behind "Hidden actors"; picking one of them also shows it again. In runs recorded before
-actors had descriptions, the description falls back to the first assignment or the display name.
+and closes the list. All actors permitted by your access rights are available, including stopped
+actors. TypeScript actors require inspection rights.
+
 
 The extension lives under `apps/vscode`. It works with all configured **servers at the same
 time**; there is no single active connection. A server in the `ragents.connections` setting is
@@ -727,8 +587,8 @@ been stopped, the input is replaced by `@handle stopped: <reason>` and, with per
 and inspect the run, "Restart". Restarting the former primary actor makes it the
 primary actor again, and the run chat continues.
 
-The arrow on a mini-app in the run-panel stage opens it as a central editor tab; "Back to panel"
-closes the tab. Text artifacts and the journal open as read-only documents, while other artifacts
+Click a mini-app in the run panel to open or focus its editor tab. Move and close that tab with
+VS Code; opening it again reuses its current group or creates one editor after it was closed. Text artifacts and the journal open as read-only documents, while other artifacts
 open in the browser. `RAgents: New run` uses a Quick Pick grouped by server and template.
 The first entry for each server is its default, marked "Default", or the free task without
 a template. The commands `RAgents: Disconnect`, `RAgents: Connect`, and
@@ -737,7 +597,9 @@ a template. The commands `RAgents: Disconnect`, `RAgents: Connect`, and
 When the run chat or a hosted mini-app input has focus, VS Code shortcuts such as Cmd/Ctrl+P
 and Cmd/Ctrl+Shift+P still work using your keybindings, including key chords. This also applies
 to nested hosted mini-app frames. Text entry, selection, undo, and clipboard actions remain in
-the input field. Dictation tools that paste their result, such as HEX, use the same input path.
+the input field. After pasting, focus stays in that input, including in nested mini-apps and
+when the clipboard is empty. You can continue typing or undo without clicking the input again.
+Dictation tools that paste their result, such as HEX, use the same input path.
 Keys already handled by the chat or mini-app are not also executed as VS Code commands.
 In a regular browser, native keyboard and clipboard behavior remains in use.
 

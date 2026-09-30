@@ -19,5 +19,5 @@ export const contract = {
       capabilities: ["actor_input"],
     },
   },
-  input: { capabilities: ["model_list", "agent_spawn", "canvas_layout_replace", "run_configure", "event_subscribe", "event_query", "actor_input"] },
+  input: { capabilities: ["model_list", "agent_spawn", "run_configure", "event_subscribe", "event_query", "actor_input"] },
 } as const;

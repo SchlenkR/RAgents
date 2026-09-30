@@ -1,10 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { runPanelActors, elementNeedsAttention, partitionRunPanelActors, pendingInputCount } from "../../../plugins/ragents.orchestration/web/run-panel/run-panel-actors.ts";
-import { chatLayoutFor, clampChatWidth, DEFAULT_RUN_PANEL_STATE, parseRunPanelState } from "../../../plugins/ragents.orchestration/web/run-panel/run-panel-state.ts";
-import { DEFAULT_RUN_PANEL_SETTINGS, parseRunPanelSettings } from "../../../plugins/ragents.orchestration/web/run-panel/run-panel-settings.ts";
-import { sheetStatus } from "../../../plugins/ragents.orchestration/web/run-panel/sheet-status.ts";
-import type { Message } from "quassel/events";
+import { runPanelActors, pendingInputCount } from "../../../plugins/ragents.orchestration/web/run-panel/run-panel-actors.ts";
+import { DEFAULT_RUN_PANEL_STATE, parseRunPanelState } from "../../../plugins/ragents.orchestration/web/run-panel/run-panel-state.ts";
 import type { RunActor, RunView } from "../src/run-view.ts";
 
 const at = "2026-09-17T10:00:00Z";
@@ -26,83 +23,15 @@ test("the chip row puts the coordinator first and hides scripts without the insp
   assert.deepEqual(runPanelActors(view, false).map((entry) => entry.id), ["coordinator", "mira", "old"]);
 });
 
-test("visibility follows the surface header mode while coordinator and selection stay pinned", () => {
-  const actors = runPanelActors(view, true);
-  const onStage = (entry: RunActor) => entry.id === "coordinator" || entry.id === "mira";
-  const active = partitionRunPanelActors(actors, { mode: "active", onStage, primaryId: "coordinator", selectedId: undefined });
-  assert.deepEqual([active.shown.map((entry) => entry.id), active.hidden.map((entry) => entry.id)], [["coordinator", "circle", "mira"], ["old"]]);
-  const visible = partitionRunPanelActors(actors, { mode: "visible", onStage, primaryId: "coordinator", selectedId: "old" });
-  assert.deepEqual([visible.shown.map((entry) => entry.id), visible.hidden.map((entry) => entry.id)], [["coordinator", "mira", "old"], ["circle"]]);
-  const scripts = partitionRunPanelActors(actors, { mode: "script", onStage, primaryId: "coordinator", selectedId: undefined });
-  assert.deepEqual(scripts.shown.map((entry) => entry.id), ["coordinator", "circle"]);
-});
-
-test("badges count pending inputs and waiting actions of the element owner or a pending host confirmation", () => {
+test("pending inputs stay available to the addressee control", () => {
   assert.equal(pendingInputCount(view, "mira"), 1);
-  const definition = { id: "board", width: 1, height: 1, anchorActorId: "circle" };
-  assert.equal(elementNeedsAttention(view, definition, false), true);
-  assert.equal(elementNeedsAttention(view, { ...definition, anchorActorId: "mira" }, false), false);
-  assert.equal(elementNeedsAttention(view, { ...definition, anchorActorId: "mira" }, true), true);
-  assert.equal(elementNeedsAttention(undefined, definition, false), false);
 });
 
-test("the run panel state is parsed strictly, maps earlier layouts and keeps room for the mini-app", () => {
+test("the run panel stores only app navigation and addressee", () => {
   assert.deepEqual(parseRunPanelState(null), DEFAULT_RUN_PANEL_STATE);
-  assert.deepEqual(parseRunPanelState(JSON.stringify({ element: "board", stageHeight: 300, actor: null })), { element: "board", actor: null, chat: "side", chatWidth: 380, sheetExpandedHeight: null });
-  assert.deepEqual(parseRunPanelState(JSON.stringify({ element: "board", actor: null, chat: "bottom", chatWidth: 420 })), { element: "board", actor: null, chat: "bottom", chatWidth: 420, sheetExpandedHeight: null });
-  assert.equal(parseRunPanelState(JSON.stringify({ element: null, actor: null, chat: "floating" })).chat, "bottom");
-  assert.equal(parseRunPanelState(JSON.stringify({ element: null, actor: null, chat: "docked" })).chat, "bottom");
-  assert.equal(parseRunPanelState(JSON.stringify({ element: null, actor: null, chat: "auto" })).chat, "side");
-  assert.equal(parseRunPanelState(JSON.stringify({ element: "board", actor: null, chat: "chat" })).chat, "chat");
-  assert.throws(() => parseRunPanelState(JSON.stringify({ element: "board", actor: null, chat: "sheet" })), /invalid/);
-  assert.throws(() => parseRunPanelState(JSON.stringify({ element: "board", actor: null, chatWidth: 100 })), /invalid/);
-  assert.throws(() => parseRunPanelState(JSON.stringify({ element: "board", actor: null, extra: 1 })), /invalid/);
-  assert.equal(clampChatWidth(100, 900), 280);
-  assert.equal(clampChatWidth(800, 900), 600);
-  assert.equal(clampChatWidth(300.6, Number.POSITIVE_INFINITY), 301);
-});
-
-test("sheet depth preserves the expanded height and ignores the former resting height", () => {
-  const state = { element: "board", actor: null, chat: "bottom", chatWidth: 380 };
-  assert.equal(parseRunPanelState(JSON.stringify(state)).sheetExpandedHeight, null);
-  assert.equal(parseRunPanelState(JSON.stringify({ ...state, sheetPeekExtra: 140.5 })).sheetExpandedHeight, null);
-  assert.equal(parseRunPanelState(JSON.stringify({ ...state, sheetExpandedHeight: null })).sheetExpandedHeight, null);
-  assert.equal(parseRunPanelState(JSON.stringify({ ...state, sheetExpandedHeight: 340.5 })).sheetExpandedHeight, 340.5);
-  for (const sheetExpandedHeight of [-1, 0, "340", true]) {
-    assert.throws(() => parseRunPanelState(JSON.stringify({ ...state, sheetExpandedHeight })), /invalid/);
+  const state = { element: "board", actor: "worker" };
+  assert.deepEqual(parseRunPanelState(JSON.stringify(state)), state);
+  for (const invalid of [{}, { ...state, extra: 1 }, { ...state, actor: 12 }, { ...state, element: false }]) {
+    assert.throws(() => parseRunPanelState(JSON.stringify(invalid)), /invalid/);
   }
-});
-
-test("the chat fills the run panel without a mini-app and in the pinned chat view, otherwise it takes the side or the sheet", () => {
-  assert.equal(chatLayoutFor({ chat: "side", hasElement: false, narrow: false }), "full");
-  assert.equal(chatLayoutFor({ chat: "bottom", hasElement: false, narrow: true }), "full");
-  assert.equal(chatLayoutFor({ chat: "chat", hasElement: true, narrow: false }), "full");
-  assert.equal(chatLayoutFor({ chat: "chat", hasElement: true, narrow: true }), "full");
-  assert.equal(chatLayoutFor({ chat: "side", hasElement: true, narrow: false }), "side");
-  assert.equal(chatLayoutFor({ chat: "side", hasElement: true, narrow: true }), "floating");
-  assert.equal(chatLayoutFor({ chat: "bottom", hasElement: true, narrow: false }), "floating");
-});
-
-test("the run panel settings are parsed strictly within their limits", () => {
-  assert.deepEqual(parseRunPanelSettings(null), DEFAULT_RUN_PANEL_SETTINGS);
-  assert.deepEqual(parseRunPanelSettings(JSON.stringify({ sideWidth: 1200, openDelay: 0, closeDelay: 800 })), { sideWidth: 1200, openDelay: 0, closeDelay: 800 });
-  assert.throws(() => parseRunPanelSettings(JSON.stringify({ sideWidth: 300, openDelay: 0, closeDelay: 800 })), /invalid/);
-  assert.throws(() => parseRunPanelSettings(JSON.stringify({ sideWidth: 1200, openDelay: 1.5, closeDelay: 800 })), /invalid/);
-  assert.throws(() => parseRunPanelSettings(JSON.stringify({ sideWidth: 1200, openDelay: 0 })), /invalid/);
-});
-
-test("the sheet status line names a waiting action, the current work or the last spoken line", () => {
-  const message = (role: Message["role"], text: string, extra: Partial<Message> = {}): Message => ({ key: `${role}-${text}`, role, text, ...extra });
-  assert.deepEqual(sheetStatus([], false, "coordinator"), { kind: "idle", text: "No messages yet." });
-  assert.deepEqual(sheetStatus([message("user", "Please\nimplement task 1234")], false, "coordinator"), { kind: "idle", text: "You: Please" });
-  assert.deepEqual(sheetStatus([message("user", "Hello"), message("assistant", "I am reading the item.", { closed: true }), message("tool", "", { tool: { id: "t", name: "read", arguments: "", result: "ok" } })], false, "coordinator"), { kind: "idle", text: "@coordinator: I am reading the item." });
-  assert.deepEqual(sheetStatus([message("user", "Hello"), message("thinking", "hm")], true, "coordinator"), { kind: "working", text: "@coordinator is thinking ..." });
-  assert.deepEqual(sheetStatus([message("tool", "", { tool: { id: "t", name: "bash", arguments: "" } })], true, "coordinator"), { kind: "working", text: "@coordinator is using bash ..." });
-  assert.deepEqual(sheetStatus([message("assistant", "I will report back", { sender: "@mira" })], true, "coordinator"), { kind: "working", text: "@mira is answering: I will report back" });
-  assert.deepEqual(sheetStatus([message("assistant", "Done", { closed: true }), message("action", "Which app?", { action: { actionId: "q1", owner: "ragents.ask", payload: null } })], true, "coordinator"), { kind: "waiting", text: "Waiting for input" });
-  const open = (key: string) => message("action", key, { action: { actionId: key, owner: "ragents.ask", payload: null } });
-  const answered = message("action", "Done?", { action: { actionId: "done", owner: "ragents.ask", payload: null, status: "approved", result: "yes" } });
-  assert.deepEqual(sheetStatus([open("q1"), answered, open("q2")], true, "coordinator"), { kind: "waiting", text: "Waiting for 2 inputs" });
-  assert.equal(sheetStatus([answered], false, "coordinator").kind, "idle");
-  assert.equal(sheetStatus([message("assistant", "x".repeat(200), { closed: true })], false, "coordinator").text.length, 160 + "@coordinator: ".length);
 });

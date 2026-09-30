@@ -4,7 +4,7 @@ import { Type } from "typebox";
 const contract = {
   state: Type.Object({ built: Type.Optional(Type.Boolean()) }, { additionalProperties: false }),
   functions: {},
-  input: { capabilities: ["model_list", "agent_spawn", "actor_program_activate", "canvas_layout_replace", "run_configure"] },
+  input: { capabilities: ["model_list", "agent_spawn", "actor_program_activate", "run_configure"] },
 } as const;
 
 const prompt = `You conduct a balcony interview in a standalone app. The user sees your current question or, at the end, your recommendation. You have no tools and answer as normal text.
@@ -25,7 +25,6 @@ export default defineActor(contract, {
       handle: "balcony-advisor", displayName: "Balcony advisor", prompt, profile: profile.name, tools: [],
     });
     await context.functions.actor_program_activate({ name: "balcony-app", actor: `@${advisor.handle}` });
-    await context.functions.canvas_layout_replace({ root: { entity: `app:@${advisor.handle}/main` } });
     await context.functions.run_configure({ title: "Your balcony", primaryActor: `@${advisor.handle}` });
     context.state.replace({ built: true });
   },

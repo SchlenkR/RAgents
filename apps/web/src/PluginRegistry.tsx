@@ -109,7 +109,7 @@ export interface EntityReference {
   id: string;
 }
 
-/** The selection on the surface: tiles, actor entry points and pop-outs report it, the surface shows it, the chat reports it as the location. */
+/** The selected actor or mini-app, reported as the current run location. */
 export interface SurfaceController {
   acceptSelection: (selection: EntityReference | undefined) => void;
   selection: EntityReference | undefined;
@@ -124,7 +124,6 @@ export interface ChatDisplayOptions {
 }
 
 export interface SurfaceCenterContext {
-  runToolbarContainer: HTMLElement | null;
   toolbarContainer: HTMLElement | null;
   statusContainer: HTMLElement | null;
   cardSections: readonly CardSectionContribution[];
@@ -136,9 +135,7 @@ export interface SurfaceCenterContext {
 }
 
 export interface SurfaceContribution {
-  Center: ComponentType<SurfaceCenterContext>;
-  /** The run panel (run-panel.html) with the same context; without a contribution it shows only the chat. */
-  RunPanel?: ComponentType<SurfaceCenterContext>;
+  RunPanel: ComponentType<SurfaceCenterContext>;
 }
 
 export interface SurfaceElementDefinition {
@@ -217,7 +214,6 @@ export interface SessionHeaderContribution {
   readRight?: string;
   /** The contribution needs the run's workspace and is missing where the viewer cannot reach it. */
   requiresWorkspace?: boolean;
-  placement?: "header" | "surface";
   id: string;
   order: number;
   Header: ComponentType<SessionHeaderContext>;
@@ -495,9 +491,8 @@ export class PluginRegistry {
       .filter((tab) => (!tab.requiresWorkspace || workspaceAccessible(session.session)) && (tab.available?.(session) ?? true));
   }
 
-  headersFor(session: SessionContext, access: AccessContext, placement: "header" | "surface"): readonly SessionHeaderContribution[] {
-    return this.sessionHeaders.filter((entry) => (entry.placement ?? "header") === placement
-      && (!entry.readRight || access.can(entry.readRight))
+  headersFor(session: SessionContext, access: AccessContext): readonly SessionHeaderContribution[] {
+    return this.sessionHeaders.filter((entry) => (!entry.readRight || access.can(entry.readRight))
       && (!entry.requiresWorkspace || workspaceAccessible(session.session)));
   }
 

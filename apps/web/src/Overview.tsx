@@ -1,24 +1,7 @@
-import { useCallback, useEffect, useRef, useState, type ComponentType } from "react";
-import { Button, Card, Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "./ui";
+import { useCallback, useEffect, useRef, type ComponentType } from "react";
+import { Card, DialogTitle } from "./ui";
 import { Modal } from "./ui/modal";
-import type { SessionInfo } from "./api";
 import type { OverviewPanelContext, OverviewPanelContribution, PluginRegistry } from "./PluginRegistry";
-import type { RunReadRevisions } from "./run-read-state";
-import { SessionList } from "./SessionList";
-
-/** The run list inside the overview; deletion is the host's job, the section only shows its outcome. */
-export interface RunsSectionProps {
-  sessions: SessionInfo[];
-  seenRevisions?: RunReadRevisions;
-  activeId: string | undefined;
-  registry: PluginRegistry;
-  unreachable: boolean;
-  canCreate: boolean;
-  canDelete: boolean;
-  onOpen: (id: string) => void;
-  onCreate: () => void;
-  onDelete: (ids: readonly string[]) => Promise<void>;
-}
 
 interface OverviewProps {
   open: boolean;
@@ -27,7 +10,6 @@ interface OverviewProps {
   registry: PluginRegistry;
   panels: readonly OverviewPanelContribution[];
   onBusy: (id: string, busy: boolean) => void;
-  runs?: RunsSectionProps;
 }
 
 const FOCUSABLE_SELECTOR =
@@ -35,8 +17,8 @@ const FOCUSABLE_SELECTOR =
 
 const overviewSurfaceClass = "pointer-events-auto shadow-pop";
 
-/** The corner button opens the run list and contributions placed in the overview. */
-export function Overview({ onBusy, onClose, onOpen, open, panels, registry, runs }: OverviewProps) {
+/** The shared shell opens contributions placed in the overview. */
+export function Overview({ onBusy, onClose, onOpen, open, panels, registry }: OverviewProps) {
   const overviewRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -56,7 +38,6 @@ export function Overview({ onBusy, onClose, onOpen, open, panels, registry, runs
       {panels.map(({ id, Panel }) => (
         <OverviewPanelHost id={id} key={id} onBusy={onBusy} onClose={onClose} onOpen={onOpen} open={open} Panel={Panel} registry={registry} />
       ))}
-      {runs && <RunsSection {...runs} />}
       </div>
     </Modal>
   );
@@ -77,125 +58,5 @@ function OverviewPanelHost({ id, onBusy, onClose, onOpen, open, Panel, registry 
     <Card className={`${overviewSurfaceClass} min-h-0 min-w-0 flex-1 gap-0 p-0`}>
       <Panel onBusy={reportBusy} onClose={onClose} onOpen={onOpen} open={open} registry={registry} />
     </Card>
-  );
-}
-
-function RunsSection({ activeId, canCreate, canDelete, onCreate, onDelete, onOpen, registry, sessions, seenRevisions, unreachable }: RunsSectionProps) {
-  const [error, setError] = useState<string>();
-  const [selectMode, setSelectMode] = useState(false);
-  const [selectedIds, setSelectedIds] = useState<ReadonlySet<string>>(() => new Set());
-  const [confirmBulkDelete, setConfirmBulkDelete] = useState(false);
-  const [deleting, setDeleting] = useState(false);
-
-  const exitSelectMode = () => {
-    setSelectMode(false);
-    setSelectedIds(new Set());
-  };
-
-  const toggleSelected = (id: string) => {
-    setSelectedIds((current) => {
-      const next = new Set(current);
-      if (!next.delete(id)) next.add(id);
-      return next;
-    });
-  };
-
-  const remove = async (ids: readonly string[]) => {
-    setDeleting(true);
-    setError(undefined);
-    try {
-      await onDelete(ids);
-    } catch (cause) {
-      setError(cause instanceof Error ? cause.message : String(cause));
-    } finally {
-      setDeleting(false);
-    }
-  };
-
-  const removeSelected = async () => {
-    await remove(sessions.filter((session) => selectedIds.has(session.id)).map((session) => session.id));
-    setConfirmBulkDelete(false);
-    exitSelectMode();
-  };
-
-  return (
-    <section aria-labelledby="overview-runs-title" className="flex min-h-0 min-w-0 flex-1 flex-col max-[900px]:flex-[1_1_50%]">
-      <Card className={`${overviewSurfaceClass} min-h-0 flex-1 gap-workspace-inset overflow-y-auto overscroll-contain pt-workspace-inset pr-6 pb-6 pl-6 max-[900px]:px-3 max-[900px]:pt-3.5 max-[900px]:pb-4`}>
-        <header className="flex flex-wrap items-center gap-x-3.5 gap-y-2.5">
-          <h2 className="text-[0.95rem] font-semibold" id="overview-runs-title">
-            Runs <span className="ml-1 text-[0.8rem] font-medium tabular-nums text-muted-foreground">{sessions.length}</span>
-          </h2>
-          {unreachable && <span className="text-[0.72rem] font-medium text-destructive" role="alert">Server unreachable</span>}
-          {canDelete && sessions.length > 0 && (
-            <div className="ml-auto flex flex-wrap items-center gap-1">
-              {selectMode
-                ? (
-                  <>
-                    <Button onClick={() => setSelectedIds(new Set(sessions.map((session) => session.id)))} size="sm" variant="ghost">
-                      All
-                    </Button>
-                    <Button onClick={() => setSelectedIds(new Set())} size="sm" variant="ghost">
-                      None
-                    </Button>
-                    <Button
-                      className="ml-auto"
-                      disabled={selectedIds.size === 0 || deleting}
-                      onClick={() => setConfirmBulkDelete(true)}
-                      size="sm"
-                      variant="destructive"
-                    >
-                      Delete ({selectedIds.size})
-                    </Button>
-                    <Button onClick={exitSelectMode} size="sm" variant="ghost">
-                      Done
-                    </Button>
-                  </>
-                )
-                : (
-                  <Button onClick={() => setSelectMode(true)} size="sm" variant="ghost">
-                    Select
-                  </Button>
-                )}
-            </div>
-          )}
-        </header>
-        {error && <p className="text-[0.72rem] font-medium text-destructive" role="alert">{error}</p>}
-        <p className="mb-5.5 text-[0.75rem] text-muted-foreground">By last activity in the run. New activity has come in since you last viewed it.</p>
-        <SessionList
-          seenRevisions={seenRevisions}
-          activeId={activeId}
-          onCreate={canCreate ? onCreate : undefined}
-          onDelete={canDelete ? (id) => void remove([id]) : undefined}
-          onSelect={onOpen}
-          onToggleSelected={toggleSelected}
-          registry={registry}
-          selectMode={selectMode}
-          selectedIds={selectedIds}
-          sessions={sessions}
-        />
-        {confirmBulkDelete && (
-          <Dialog open onOpenChange={(open) => { if (!open && !deleting) setConfirmBulkDelete(false); }}>
-            <DialogContent scope="page" showCloseButton={false} size="small">
-              <DialogHeader>
-                <DialogTitle>Delete runs</DialogTitle>
-                <DialogDescription>
-                  {selectedIds.size === 1
-                    ? "One run will be permanently deleted."
-                    : `${selectedIds.size} runs will be permanently deleted.`}
-                </DialogDescription>
-              </DialogHeader>
-              <DialogFooter>
-                <Button disabled={deleting} onClick={() => setConfirmBulkDelete(false)} variant="outline">
-                  Cancel
-                </Button>
-                <Button disabled={deleting} onClick={() => void removeSelected()}>
-                  {deleting ? "Deleting ..." : `Delete (${selectedIds.size})`}
-                </Button>
-              </DialogFooter>
-            </DialogContent>
-          </Dialog>
-        )}
-      </Card>
-    </section>
   );
 }

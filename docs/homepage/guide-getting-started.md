@@ -98,8 +98,7 @@ the same website under `docs/homepage/dist`.
 
 ## Create your first run
 
-The top-left corner opens the run overview. Choose "New run" to open the start selection. It
-shows the same tiles as the start page in VS Code: "New chat" or the server's default
+Start shows recent runs and the same templates in the browser and VS Code: "New chat" or the server's default
 template first, then skill templates with a prepared task and script templates with programmed
 setups. "New chat" opens an empty run whose task you write in its chat; a template starts with one
 click. Some templates collect values in a setup dialog first ("Set up"); a skill template then
@@ -108,30 +107,24 @@ continues in the preparation chat. There you can discuss the task, give a clear 
 anything. In the browser a new run always works on the server; only VS Code and `ragents run`
 bind a run to a workstation.
 
+While a template starts, the panel shows its progress in the chat area and reserves the
+bottom status bar, keeping the notice in place when the run connects.
+
 Inside the run, the coordinator processes the task. Additional agents and mini-apps appear on
 the surface when the workflow creates them. The global coordinator in the header has its own
 conversation and can oversee several runs. The journal and "Executions" tab make events and
 TypeScript calls traceable.
 
-## Use the surface
+## Use chat and mini-apps
 
-A run's surface consists of tiles. Each tile shows an actor or mini-app, and together they
-fill the available space. There is no panning or zooming. Tiles use flat surfaces, outlines,
-and rounded corners without depth. Mini-app content appears at its original size both in the
-tile and in full view.
+Activated visible mini-apps become available automatically, including those from an embedded setup.
+Programs cannot arrange the host interface. Runs saved with removed layout functions or placements
+are locked with an explanation; their original files are kept. Start a new run with updated programs.
 
-Drag an actor or mini-app from the header onto one of a tile's docking targets. Left and right
-create a side-by-side split; top and bottom create a vertical split. Targets at the outer edge
-split the entire surface. Before you release, a preview shows the resulting area. Drag an
-existing tile by its title bar; the X removes it from the layout. Its content remains available
-through the header. Without access to the actors view, removal and reordering are disabled: the
-X and drag handle are hidden. Dividers for adjusting size ratios remain available.
+Browser runs have tabs: Chat, then each available mini-app. Only one view is visible. Chat
+and visited apps keep their input when you switch tabs. New apps appear without interrupting
+your current view. If a selected app becomes unavailable, the panel returns to Chat.
 
-Drag a divider to the desired ratio; releasing it saves the value. Escape cancels the active
-resize. With keyboard focus on a divider, arrow keys change its size while Home and End set the
-allowed limits. When space is tight, the "Visible tile" selector displays one item at a time
-without discarding the layout. You can also ask the coordinator: "App on the left, chat on the
-right, 50:50" or "One tile on top, two below at a 2:1 ratio." Until a layout is specified, the
-surface arranges visible participants itself. Your changes remain saved until the program
-changes its layout. A new program layout is applied automatically so added tiles appear at
-once. "Apply program layout" in the status bar can reset your own layout earlier.
+In VS Code, clicking an app opens or focuses its editor tab. VS Code controls where that tab
+appears. Questions and news stay in chat. The selector below the input chooses the addressee;
+the run coordinator is selected by default.

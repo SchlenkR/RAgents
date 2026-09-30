@@ -69,7 +69,7 @@ const openHostFrame = async (context: TestContext, frameResponse: FrameResponse)
         initializeTheme(window);
         const app = { id: "status-view", actorId: "worker", actorHandle: "worker", title: "Status check",
           revision: "installed-revision", actions: [{ id: "status", label: "Status", confirmation: null }],
-          placements: [], state: { version: 1, revision: 1, values: { phase: "working" } }, invocations: [] };
+          state: { version: 1, revision: 1, values: { phase: "working" } }, invocations: [] };
         const api = { frameUrl: () => "/frame" };
         window.invocationRequests = [];
         const invoke = async (appId, revision, actionId, requestId, input) => {
@@ -80,7 +80,7 @@ const openHostFrame = async (context: TestContext, frameResponse: FrameResponse)
             status: "succeeded", createdAt: "2026-09-14T10:00:00Z", startedAt: "2026-09-14T10:00:00Z", finishedAt: "2026-09-14T10:00:00Z" };
         };
         createRoot(document.getElementById("root")).render(<ActorViewFrame api={api} app={app}
-          invoke={invoke} presentation="embedded" runId="frame-test" session={{ session: { id: "frame-test" } }} />);
+          invoke={invoke} runId="frame-test" session={{ session: { id: "frame-test" } }} />);
       `,
       resolveDir: root,
       sourcefile: "frame-fixture.tsx",

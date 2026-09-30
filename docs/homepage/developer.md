@@ -714,31 +714,30 @@ Dynamic tab IDs must also be unique. In the run panel, the same tabs are in the 
 
 Contract fields: web.workspaceTabs, web.workspaceTabsFor.
 
-### A central surface
+### The shared run panel
 
-The central surface of a run shows the participants as tiles. A plugin can take over the rendering of this surface. For this, it receives the existing functions for chats, navigation, card sections, and additional elements.
+A plugin can provide the run panel shared by browser and VS Code. It receives chat rendering, navigation, card sections, and app contributions.
 
-Place of use: Properties of a WebPlugin; RunPanel is the version for the run panel.
+Place of use: Properties of a WebPlugin.
 
 ```tsx
 const surfaceUi = {
   id: "ragents.example",
   surface: {
-    Center: ({ renderChat }) => <div>{renderChat()}<p>Custom surface</p></div>,
-    RunPanel: ({ renderChat }) => <div>{renderChat()}</div>,
+    RunPanel: ({ renderChat }) => <div>{renderChat()}<p>Custom surface</p></div>,
   },
 } satisfies WebPlugin;
 ```
 
-There is at most one surface contribution. The example replaces the central surface; it does not automatically extend the orchestration's existing surface. Without RunPanel, the run panel shows only the chat.
+There is at most one surface contribution. The example replaces the central surface; it does not automatically extend the orchestration's existing surface. Without a surface contribution, the host shows the standard chat.
 
 toolbarLeft is part of the renderChat contract for the owner of the surface. There is no general composer toolbar registry slot.
 
 Contract fields: web.surface.
 
-### Elements on the existing surface
+### Mini-apps in the shared panel
 
-A plugin can show additional elements as tiles on the existing surface. For this, it provides the description of the element and its rendering. The element is an interface and does not process tasks itself.
+A plugin supplies app definitions and rendering to the shared catalog. The browser shows apps as tabs beside Chat; VS Code opens them in editor tabs.
 
 Place of use: Properties of a WebPlugin.
 
@@ -753,13 +752,13 @@ const elements = {
 } satisfies WebPlugin;
 ```
 
-Definitions name only their id; title is optional. visible: false takes an element off the surface without reporting a missing tile reference. Without visible, it is visible. The tile determines the size, not the contribution. anchorActorId, entity, and custom data are optional. The tile layout decides the placement; the contribution alone creates no actor identity. The run panel recognizes owners by anchorActorId, even with visible: false.
+Definitions require an id; title is optional. visible: false removes an entry from the catalog. The host determines its size. anchorActorId, entity, and custom data are optional. New apps do not steal focus. Visited browser views stay mounted while hidden; unavailable selections return to Chat.
 
 Contract fields: web.surfaceElements, surfaceElement.id, surfaceElement.visible, surfaceElement.title, surfaceElement.anchorActorId, surfaceElement.entity, surfaceElement.data.
 
 ### Sections on actor cards
 
-The participants of a run are called actors and are displayed as cards on the surface. A plugin can extend these cards with its own sections, for example for documents or a status.
+A plugin can add sections above the selected actor chat, for example for documents or a status.
 
 Place of use: Properties of a WebPlugin; a neutral section without access to actor fields.
 
@@ -795,7 +794,7 @@ Contract fields: web.needsRunView, web.SessionProvider.
 
 ### Overview, global toolbar, and run bars
 
-A plugin can show information for the entire application or for the run that is currently open. Contributions for the entire application appear in the overview or in the global header; contributions for the run follow the current selection. For this there are overviewPanels with a placement choice and sessionHeaders for the title bar or the bar at the top of the surface.
+A plugin can show information for the entire application or for the run that is currently open. Contributions for the entire application appear in the overview or in the global header; contributions for the run follow the current selection. For this there are overviewPanels with a placement choice and sessionHeaders for run details in the shared title bar.
 
 Place of use: Properties of a WebPlugin.
 
@@ -817,7 +816,7 @@ const headers = {
 } satisfies WebPlugin;
 ```
 
-The context provides registry, open, onOpen, onClose, and onBusy. Without placement, the contribution appears in the overview and is mounted when first opened. Toolbar contributions are mounted from application startup; they activate their own connections only when used. With placement: idle, the first visible contribution fills the main area while no run is open. The host coordinates closing each other. sessionHeaders uses placement: header by default; placement: surface puts the contribution in the bar at the top of the surface. This bar stays usable even in an app full view. Run header and lower status groups receive SessionContext and navigation and follow the active run.
+The context provides registry, open, onOpen, onClose, and onBusy. Without placement, the contribution appears in the overview and is mounted when first opened. Toolbar contributions are mounted from application startup; they activate their own connections only when used. With placement: idle, the first visible contribution fills the main area while no run is open. The host coordinates open toolbar contributions. sessionHeaders appear in the run details popover. Run header and lower status groups receive SessionContext and navigation and follow the active run.
 
 Contract fields: web.overviewPanels, web.sessionHeaders, web.sessionStatus.
 
@@ -1115,7 +1114,7 @@ context.finish works in onStart, onInput, and onResult; outside onStart it names
 
 The owner reads the summary in the chat, an LLM gets summary and result as a message, a TypeScript actor that started the script gets them in onResult.
 
-An embedded start places the package's first view next to the surface; a script that arranges more tiles uses canvas_layout_place when start.embedded is true.
+An embedded start adds its visible views to the app catalog without changing the selected view.
 
 shared-programs: notebook in RUN.md copies the plugin's shared package actors/notebook/ into the run; actor_program_ensure({ name: "notebook" }) makes it active once, whichever script comes first.
 
@@ -1266,9 +1265,9 @@ A domain test checks the shared function. A real browser check must additionally
 
 Contract fields: .
 
-### Views as tiles
+### Views as app tabs
 
-An activated view can sit as a tile on the surface and belongs to its actor. The user can enlarge it in the host; several views show the same actor state.
+An activated visible view enters the shared app catalog and belongs to its actor. Several views can show the same actor state.
 
 Place of use: An entry in package.json.ragents.views.
 
@@ -1276,9 +1275,9 @@ Place of use: An entry in package.json.ragents.views.
 { "id": "main", "title": "List", "client": "src/client.tsx" }
 ```
 
-actor_view_set_visibility uses package name/view name or a unique title. The view identifier is unique within the package. A view has no size of its own; the tile determines it, and the matching actor is its anchor.
+actor_view_set_visibility uses package name/view name or a unique title. The view identifier is unique within the package. A view has no host size of its own; the browser content area or VS Code editor determines it.
 
-actor_view_set_visibility makes a view visible or invisible. Functions and actor state are preserved; the local full view belongs to the user's operation.
+actor_view_set_visibility makes a view visible or invisible. Functions and actor state are preserved.
 
 Views have no dialog or window control API.
 

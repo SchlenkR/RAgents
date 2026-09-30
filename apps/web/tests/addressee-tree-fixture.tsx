@@ -58,7 +58,7 @@ const conversation = (who: string): Message[] => [
 const conversations = Object.fromEntries(view.actors.map(({ id }) => [id, conversation(id)]));
 const registry = new PluginRegistry({
   brand: { title: "Addressees" }, product: { id: "addressees", title: "Addressees" },
-  plugins: [{ id: "addressees", needsRunView: true, surface: { Center: () => null, RunPanel: OrchestrationRunPanel } }],
+  plugins: [{ id: "addressees", needsRunView: true, surface: { RunPanel: OrchestrationRunPanel } }],
   startEntries: [],
 });
 
@@ -86,10 +86,9 @@ const fixture = {
 declare global { interface Window { addresseeFixture: typeof fixture } }
 window.addresseeFixture = fixture;
 
-const centered: ReadonlySet<string> = new Set();
 const host: RunPanelHost = {
-  kind: "vscode", machines: "all", centerElements: () => centered, subscribe: () => () => {},
-  openInCenter() {}, returnToRunPanel() {}, requestLogin() {}, requestLogout() {}, openExternal() {}, openPage() {},
+  kind: "vscode", machines: "all",
+  openApp() {}, requestLogin() {}, requestLogout() {}, openExternal() {}, openPage() {},
   onCommand: () => () => {}, notify() {},
 };
 const access = createAccessContext({ enabled: true, user: { id: "tester", label: "Tester", rights: ["runs.read", "runs.write", "runs.create", "runs.inspect"], startEntries: [] } });

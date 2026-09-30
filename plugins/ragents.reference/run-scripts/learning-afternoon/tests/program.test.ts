@@ -19,7 +19,7 @@ function setup(options: { missingProfile?: boolean; failDispatch?: string; befor
   const calls: { name: string; input: unknown }[] = [];
   const history: CapabilityContracts["event_query"]["output"] = [];
   const functions = Object.fromEntries([
-    "model_list", "agent_spawn", "canvas_layout_replace", "run_configure", "actor_input", "event_subscribe", "event_unsubscribe", "event_query",
+    "model_list", "agent_spawn", "run_configure", "actor_input", "event_subscribe", "event_unsubscribe", "event_query",
   ].map((name) => [name, async (input: unknown) => {
     calls.push({ name, input });
     if (name === "model_list") return { profiles: options.missingProfile ? [] : [{ name: "standard", driver: "agent", description: "Test profile", turnTimeoutMs: null, isolateWorkspace: false, provider: "test", model: "test" }], models: [] };

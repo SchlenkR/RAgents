@@ -150,8 +150,6 @@ export interface ActorProgramRuntimeOptions {
     scriptSources: (entryId: string, name: string) => readonly ActorProgramSource[] | undefined;
     /** A shared actor package of the profile, by name. */
     sharedPackage: (name: string) => { pluginId: string; files: readonly ActorProgramSource[] } | undefined;
-    /** Places a surface entity next to the run's layout unless the layout already shows it. */
-    placeView: (context: CommandContext, runId: string, entity: string) => void;
 }
 type Recognized = { start: JsonValue } | { result: JsonValue };
 export class ActorProgramRuntime implements ActorProgramsService, ActorProgramExecutor {
@@ -525,9 +523,6 @@ export class ActorProgramRuntime implements ActorProgramsService, ActorProgramEx
         const recorded = this.#script(runId).packages[handle];
         if (!recorded)
             throw new Error(`The package ${handle} was not installed by a run script.`);
-        const view = program.views[0];
-        if (start.embedded && view)
-            this.#options.placeView(this.operatorContext(runId, "place"), runId, `app:${view.id}`);
         const state = this.#script(runId);
         const record = state.packages[handle]!;
         const count = record.count + 1;
@@ -750,7 +745,7 @@ export class ActorProgramRuntime implements ActorProgramsService, ActorProgramEx
             const clientFile = `view-${view.id}.mjs`;
             clients.push({ file: clientFile, javaScript: client.javaScript });
             views.push({ id: `${name}--${view.id}`, key: view.id, title: view.title ?? pkg.title, visible: previous?.views.find((item) => item.key === view.id)?.visible ?? true,
-                placements: [{ kind: "canvas", anchorActorId: actorId }], html: `<!doctype html><html class="${FRAME_DOCUMENT_CLASS}"><head><meta charset="utf-8"></head><body class="${FRAME_BODY_CLASS}"><div id="root" class="${FRAME_ROOT_CLASS}"></div></body></html>`, styles, clientFile });
+                html: `<!doctype html><html class="${FRAME_DOCUMENT_CLASS}"><head><meta charset="utf-8"></head><body class="${FRAME_BODY_CLASS}"><div id="root" class="${FRAME_ROOT_CLASS}"></div></body></html>`, styles, clientFile });
         }
         const viewSources = [...new Set((pkg.views ?? []).map((view) => path.dirname(path.resolve(directory, view.client))))];
         const frameStyles = viewSources.length > 0 ? await buildTailwind(viewSources) : "";
@@ -857,9 +852,6 @@ export class ActorProgramRuntime implements ActorProgramsService, ActorProgramEx
                 const actor = this.resolveActor(runId, context.actorId, `@${name}`);
                 definition.actorId = actor.id;
                 definition.actorHandle = actor.handle;
-                for (const view of definition.views)
-                    for (const placement of view.placements)
-                        placement.anchorActorId = actor.id;
                 for (const fn of definition.functions)
                     if (fn.tool?.targets)
                         fn.tool.targets = fn.tool.targets.map((target) => target === "pending" ? actor.id : target);
@@ -909,7 +901,7 @@ export class ActorProgramRuntime implements ActorProgramsService, ActorProgramEx
     }
     apps(runId: string): ActorViewListing[] {
         return this.programs(runId).flatMap((program) => program.views.map((view) => ({ id: view.id, actorId: program.actorId, actorHandle: program.actorHandle, title: view.title, description: program.description, revision: program.revision,
-            actions: program.functions.map(({ id, label, description, confirmation }) => ({ id, label, description, confirmation })), placements: view.placements, visible: view.visible, state: this.data(runId, program.actorId), invocations: this.#invocations(runId).invocations.filter((invocation) => invocation.actorId === program.actorId && invocation.revision === program.revision) })));
+            actions: program.functions.map(({ id, label, description, confirmation }) => ({ id, label, description, confirmation })), visible: view.visible, state: this.data(runId, program.actorId), invocations: this.#invocations(runId).invocations.filter((invocation) => invocation.actorId === program.actorId && invocation.revision === program.revision) })));
     }
     runLocalTools(runId: string) {
         if (!this.runtime().listRuns().some(run => run.id === runId))

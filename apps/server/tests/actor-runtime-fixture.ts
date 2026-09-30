@@ -10,7 +10,6 @@ export const emptyStateSchema = {type: "object", properties: {}, additionalPrope
 export const runtimeFor = (setup: ReturnType<typeof setupRun>, directory: string, operations = new OperationContributionRegistry(),
   askService: AskService = {ask: async () => { throw new Error("Unexpected operator question"); }, withdraw: () => undefined},
   scriptSources: ActorProgramRuntimeOptions["scriptSources"] = () => undefined,
-  placeView: ActorProgramRuntimeOptions["placeView"] = () => { throw new Error("The test places no views"); },
   hostTools: () => readonly RunFunction[] = () => [],
   sharedPackage: ActorProgramRuntimeOptions["sharedPackage"] = () => undefined) => {
   const serverProcessContextFor = async (runId: string) => ({runId, cwd: directory, root: directory, home: directory,
@@ -29,7 +28,6 @@ export const runtimeFor = (setup: ReturnType<typeof setupRun>, directory: string
     directoryFor: () => directory,
     scriptSources,
     sharedPackage,
-    placeView,
   });
   setup.services.actorPrograms = runtime;
   return runtime;

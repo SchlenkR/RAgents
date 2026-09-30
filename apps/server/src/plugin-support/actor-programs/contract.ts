@@ -7,13 +7,11 @@ export const ACTOR_INVOCATIONS_STATE_ID = "ragents.actor-programs.invocations";
 export const ACTOR_SCRIPT_STATE_ID = "ragents.actor-programs.script";
 export const ACTOR_STATE_ID = "ragents.actor-state";
 
-export interface ActorViewPlacement { kind: "canvas"; anchorActorId: string; }
 export interface ActorViewDefinition {
   id: string;
   key: string;
   title: string;
   visible: boolean;
-  placements: ActorViewPlacement[];
   html: string;
   styles: string;
   clientFile: string;
@@ -107,7 +105,6 @@ export interface ActorViewListing {
   description: string;
   revision: string;
   actions: { id: string; label: string; description: string; confirmation: string | null }[];
-  placements: ActorViewPlacement[];
   visible: boolean;
   state: ActorDataState;
   invocations: ActorFunctionInvocation[];

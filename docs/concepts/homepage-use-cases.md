@@ -8,7 +8,7 @@ section is explicitly labeled as such; there are no images of real runs for them
 
 ## Refactoring
 
-A run script could create analysis, implementation, and review agents together with tools and a tile layout.
+A run script could create analysis, implementation, and review agents together with tools and mini-apps.
 An actor view would show proposals and editing states and let the user choose the scope of the
 change. TypeScript actors would collect results and deliver the next inputs according to defined
 conditions. The models would remain responsible for analysis, code changes, and assessment.

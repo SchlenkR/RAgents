@@ -10,7 +10,7 @@ const visibleProgram = (state: JsonValue): JsonValue => {
   if (!program) return state;
   const views = Array.isArray(program.views) ? program.views.map((value) => {
     const view = record(value);
-    return view ? { id: view.id, key: view.key, title: view.title, visible: view.visible, placements: view.placements } : value;
+    return view ? { id: view.id, key: view.key, title: view.title, visible: view.visible } : value;
   }) : [];
   return {
     version: 1,

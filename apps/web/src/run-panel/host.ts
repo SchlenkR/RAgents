@@ -1,17 +1,13 @@
-import { createContext, createElement, useContext, useSyncExternalStore, type PropsWithChildren } from "react";
+import type { RunAppNavigation } from "../run-apps";
+import { createContext, createElement, useContext, type PropsWithChildren } from "react";
 import { OfferedMachinesProvider, type OfferedMachines } from "../offered-machines";
 import type { RunPanelHostKind } from "./run-panel-location";
 import { isHostRunPanelMessage, type RunPanelHostMessage, type RunPanelTheme, type HostRunPanelMessage } from "./host-contract";
 
-export interface RunPanelHost {
+export interface RunPanelHost extends RunAppNavigation {
   readonly kind: RunPanelHostKind;
   /** VS Code is a workstation itself and also offers workstations for new runs, the browser only the server. */
   readonly machines: OfferedMachines;
-  /** Elements of the run that the host currently shows in the center; always empty in the browser. */
-  centerElements(runId: string): ReadonlySet<string>;
-  subscribe(listener: () => void): () => void;
-  openInCenter(runId: string, elementId: string, title: string): void;
-  returnToRunPanel(runId: string, elementId: string): void;
   requestLogin(): void;
   /** The host holds the session token and ends the session itself. */
   requestLogout(): void;
@@ -23,8 +19,6 @@ export interface RunPanelHost {
   notify(message: Extract<RunPanelHostMessage, { type: "ready" | "runChanged" | "showStart" }>): void;
 }
 
-const emptySet: ReadonlySet<string> = new Set();
-
 const unsupported = (action: string) => (): never => {
   throw new Error(`${action} is only available in VS Code.`);
 };
@@ -33,10 +27,7 @@ export function createBrowserHost(browser: Window): RunPanelHost {
   return {
     kind: "browser",
     machines: "server",
-    centerElements: () => emptySet,
-    subscribe: () => () => undefined,
-    openInCenter: unsupported("Placing a mini-app in the center"),
-    returnToRunPanel: unsupported("Bringing a mini-app back"),
+    openApp: unsupported("Opening a mini-app editor"),
     requestLogin: unsupported("Signing in through the host"),
     requestLogout: unsupported("Signing out through the host"),
     openExternal: (url) => { browser.open(url, "_blank", "noopener"); },
@@ -50,29 +41,17 @@ export function createBrowserHost(browser: Window): RunPanelHost {
 export function createVsCodeHost(browser: Window): RunPanelHost {
   const parent = browser.parent;
   if (parent === browser) throw new Error("The panel runs with host=vscode but is not embedded in a webview.");
-  const placements = new Map<string, ReadonlySet<string>>();
-  const placementListeners = new Set<() => void>();
   const commandListeners = new Set<(message: HostRunPanelMessage) => void>();
   const post = (message: RunPanelHostMessage) => parent.postMessage(message, "*");
   browser.addEventListener("message", (event) => {
     if (event.source !== parent || !isHostRunPanelMessage(event.data)) return;
     const message = event.data;
-    if (message.type === "placements") {
-      placements.set(message.runId, new Set(message.center));
-      for (const listener of placementListeners) listener();
-    }
     for (const listener of commandListeners) listener(message);
   });
   return {
     kind: "vscode",
     machines: "all",
-    centerElements: (runId) => placements.get(runId) ?? emptySet,
-    subscribe: (listener) => {
-      placementListeners.add(listener);
-      return () => { placementListeners.delete(listener); };
-    },
-    openInCenter: (runId, elementId, title) => post({ type: "openInCenter", runId, elementId, title }),
-    returnToRunPanel: (runId, elementId) => post({ type: "returnToRunPanel", runId, elementId }),
+    openApp: (runId, elementId, title) => post({ type: "openInCenter", runId, elementId, title }),
     requestLogin: () => post({ type: "login" }),
     requestLogout: () => post({ type: "logout" }),
     openExternal: (url) => post({ type: "openExternal", url }),
@@ -99,11 +78,6 @@ export function useRunPanelHost(): RunPanelHost {
   const host = useContext(RunPanelHostContext);
   if (!host) throw new Error("The panel runs without a host provider.");
   return host;
-}
-
-export function useCenterElements(runId: string): ReadonlySet<string> {
-  const host = useRunPanelHost();
-  return useSyncExternalStore(host.subscribe, () => host.centerElements(runId), () => emptySet);
 }
 
 export type { RunPanelTheme };

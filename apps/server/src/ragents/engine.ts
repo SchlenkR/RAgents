@@ -42,6 +42,7 @@ import { assertRunRights } from "../api/rights.js";
 import { runOwnerOf, runOwnerOnly } from "./run-owner.js";
 import { layout } from "../layout.js";
 import { renderSystemPromptOption, systemPromptSelectionPromptIds } from "../plugin-support/prompt.js";
+import { assertCurrentLayoutContract } from "../plugin-support/removed-layout.js";
 import { actorProgramsToken } from "../plugin-support/actor-programs/service.js";
 import { checkedThinkingLevel } from "../plugin-support/thinking-level.js";
 import { skillOfDirectory } from "../plugin-support/skills.js";
@@ -190,7 +191,7 @@ export const createEngine = async (options: EngineOptions): Promise<Engine> => {
   });
   const actorPrograms = options.plugins.optionalService(actorProgramsToken);
   const services = { ...runtimeServices, nativeTypeScriptExecutor, ...(actorPrograms ? {actorPrograms} : {}) };
-  const journal = new Journal(layout.runsDir, services);
+  const journal = new Journal(layout.runsDir, services, { validateRecord: assertCurrentLayoutContract });
   const runtime = new Orchestration(journal, services, new DirectoryArtifactContents(layout.artifactsDir));
   const productRuntime = options.plugins.service(productRuntimeToken);
   const globalChat = options.plugins.optionalService(globalChatToken);

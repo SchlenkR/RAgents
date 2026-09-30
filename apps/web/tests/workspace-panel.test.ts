@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import type { WorkspaceTabContribution } from "../src/PluginRegistry.tsx";
-import { mountedTabs } from "../src/WorkspacePanel.tsx";
+import { mountedTabs } from "../src/run-panel/RunPanelWorkspace.tsx";
 
 const Empty = () => null;
 

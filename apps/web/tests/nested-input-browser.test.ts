@@ -4,6 +4,57 @@ import { chromium } from "playwright-core";
 import { frameHtml } from "../../vscode/src/webview-html";
 import { nestedInputFixture } from "./nested-input-fixture";
 
+test("clipboard images reach Quassel through the shell and both nested frame levels", {
+  skip: process.env.RAGENTS_BROWSER_TESTS !== "1", timeout: 60_000,
+}, async () => {
+  const hull = "http://127.0.0.1:47920";
+  const server = "http://127.0.0.1:47921";
+  const fixture = await nestedInputFixture(server, true);
+  const png = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aD1sAAAAASUVORK5CYII=";
+  const browser = await chromium.launch({ headless: true, executablePath: process.env.BROWSER_EXECUTABLE_PATH ?? "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome" });
+  try {
+    const context = await browser.newContext();
+    await context.route("http://127.0.0.1:*/**", (route) => {
+      const url = new URL(route.request().url());
+      return route.fulfill({ contentType: url.pathname.endsWith(".js") ? "text/javascript" : "text/html", body: url.origin === hull
+        ? frameHtml({ serverUrl: server, query: { host: "vscode" }, nonce: "test", title: "Image input" }) : fixture[url.pathname] ?? "" });
+    });
+    await context.addInitScript({ content: `(() => {
+      if (location.origin !== ${JSON.stringify(hull)}) return;
+      window.acquireVsCodeApi = () => ({ postMessage() {} });
+      document.execCommand = (command) => {
+        if (command !== "paste") throw new Error("Unexpected shell command");
+        const clipboardData = new DataTransfer();
+        clipboardData.items.add(new File([Uint8Array.from(atob(${JSON.stringify(png)}), c => c.charCodeAt(0))], "clipboard.png", { type: "image/png" }));
+        document.activeElement.dispatchEvent(new ClipboardEvent("paste", { clipboardData, bubbles: true, cancelable: true }));
+        return true;
+      };
+    })();` });
+    const page = await context.newPage();
+    page.setDefaultTimeout(8000);
+    const errors: string[] = [];
+    page.on("pageerror", (error) => errors.push(error.message));
+    await page.goto(hull);
+    const first = page.frameLocator("#frame").frameLocator("iframe");
+    for (const level of [first, first.frameLocator("#nested")]) {
+      const composer = level.getByRole("region", { name: "Clipboard chat" });
+      const input = composer.getByRole("textbox");
+      await input.press("Meta+v");
+      await composer.getByAltText("clipboard.png").waitFor();
+      await composer.getByRole("button", { name: "Remove clipboard.png" }).click();
+      assert.equal(await composer.getByAltText("clipboard.png").count(), 0);
+      await input.press("Meta+v");
+      await composer.getByAltText("clipboard.png").waitFor();
+      await input.press("Enter");
+      await level.locator("#sent").filter({ hasText: "clipboard.png" }).waitFor();
+      assert.deepEqual(JSON.parse(await level.locator("#sent").innerText()), {
+        text: "", attachments: [{ name: "clipboard.png", mediaType: "image/png", data: png }],
+      });
+    }
+    assert.deepEqual(errors, []);
+  } finally { await browser.close(); }
+});
+
 test("managed mini-app frames relay editing and host shortcuts across both nested levels", {
   skip: process.env.RAGENTS_BROWSER_TESTS !== "1", timeout: 60_000,
 }, async () => {
@@ -20,7 +71,7 @@ test("managed mini-app frames relay editing and host shortcuts across both neste
     });
     await context.addInitScript({ content: `(() => {
       if (location.origin !== ${JSON.stringify(hull)}) return;
-      const state = { keys: [], reads: 0 };
+      const state = { keys: [], reads: 0, clipboard: "Dictated sentence." };
       window.inputHarness = state;
       window.acquireVsCodeApi = () => ({ postMessage() {} });
       for (const type of ["keydown", "keyup"]) window.addEventListener(type, key => {
@@ -30,7 +81,7 @@ test("managed mini-app frames relay editing and host shortcuts across both neste
       document.execCommand = (command, showUI, value) => {
         if (command !== "paste") return original(command, showUI, value);
         state.reads += 1;
-        document.activeElement.value = "Dictated sentence.";
+        document.activeElement.value = state.clipboard;
         return true;
       };
     })();` });
@@ -51,11 +102,26 @@ test("managed mini-app frames relay editing and host shortcuts across both neste
       await level.locator("#value").filter({ hasText: "before Dictated sentence. after" }).waitFor();
       assert.equal(await editor.inputValue(), "before Dictated sentence. after");
       assert.equal((await state()).reads, before.reads + 1);
-      assert.equal(await editor.evaluate((element) => element === document.activeElement), true);
-      await editor.press("Meta+z");
+      assert.equal(await page.locator("#frame").evaluate((element) => element === document.activeElement), true, "Clipboard access restores focus to the run panel frame.");
+      assert.equal(await editor.evaluate((element) => element === document.activeElement && document.hasFocus()), true, "Paste leaves the nested editor focused.");
+      await page.keyboard.press("Meta+z");
       assert.equal(await editor.inputValue(), "before selected after");
-      await editor.press("Meta+Shift+z");
+      await page.keyboard.press("Meta+Shift+z");
       assert.equal(await editor.inputValue(), "before Dictated sentence. after");
+      await editor.evaluate((element: HTMLTextAreaElement) => element.setSelectionRange(element.value.length, element.value.length));
+      await page.evaluate(() => { (window as unknown as { inputHarness: { clipboard: string } }).inputHarness.clipboard = ""; });
+      const readsBeforeEmpty = (await state()).reads;
+      await editor.press("Meta+v");
+      await page.waitForFunction((reads) => (window as unknown as { inputHarness: { reads: number } }).inputHarness.reads > reads, readsBeforeEmpty);
+      const editorHandle = await editor.elementHandle();
+      assert.ok(editorHandle);
+      const editorFrame = await editorHandle.ownerFrame();
+      assert.ok(editorFrame);
+      await editorFrame.waitForFunction((element) => element === document.activeElement && document.hasFocus(), editorHandle);
+      await editorHandle.dispose();
+      await page.keyboard.type("!");
+      assert.equal(await editor.inputValue(), "before Dictated sentence. after!");
+      await page.evaluate(() => { (window as unknown as { inputHarness: { clipboard: string } }).inputHarness.clipboard = "Dictated sentence."; });
       const beforeCommands = (await state()).keys.length;
       await editor.press("Meta+Alt+9");
       await editor.press("Meta+k");

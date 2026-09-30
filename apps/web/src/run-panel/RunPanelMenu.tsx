@@ -1,5 +1,5 @@
 import { useId, useRef, useState } from "react";
-import { ChevronLeftIcon, ExternalLinkIcon, LogOutIcon, MoreVerticalIcon, PlayIcon, SettingsIcon } from "lucide-react";
+import { CircleHelpIcon, ChevronLeftIcon, ExternalLinkIcon, LogOutIcon, MoreVerticalIcon, PlayIcon, SettingsIcon } from "lucide-react";
 import { coreContracts } from "@ragents/host/api/contracts";
 import type { RunScriptListing } from "../../../server/src/chat-handler";
 import { useAccess } from "../AccessContext";
@@ -14,7 +14,7 @@ const messageOf = (cause: unknown): string => cause instanceof Error ? cause.mes
 type Scripts = { readonly kind: "loading" } | { readonly kind: "ready"; readonly scripts: readonly RunScriptListing[] };
 
 /** The menu at the top right of the panel: settings, run scripts for the open run, server in the browser, and sign-out behind one button. */
-export function RunPanelMenu({ onOpenSettings, runId }: { onOpenSettings: () => void; runId?: string }) {
+export function RunPanelMenu({ onOpenSettings, onOpenHelp, runId }: { onOpenSettings: () => void; onOpenHelp?: () => void; runId?: string }) {
   const host = useRunPanelHost();
   const access = useAccess();
   const [open, setOpen] = useState(false);
@@ -61,7 +61,8 @@ export function RunPanelMenu({ onOpenSettings, runId }: { onOpenSettings: () => 
             </button>)}
           </div>
         </> : <>
-          <button className={itemClass} onClick={() => { close(); onOpenSettings(); }} type="button"><SettingsIcon />Settings</button>
+          {access.can("settings.read") && <button className={itemClass} onClick={() => { close(); onOpenSettings(); }} type="button"><SettingsIcon />Settings</button>}
+          {onOpenHelp && access.can("runs.inspect") && <button className={itemClass} onClick={() => { close(); onOpenHelp(); }} type="button"><CircleHelpIcon />Help</button>}
           {scriptRun !== undefined && <button className={itemClass} onClick={() => listScripts(scriptRun)} type="button"><PlayIcon />Run script</button>}
           {host.kind === "vscode" && <button className={itemClass} onClick={() => { close(); host.openExternal(new URL("/", window.location.href).toString()); }} type="button"><ExternalLinkIcon />Open in browser</button>}
           {access.enabled && access.user && <button className={itemClass} disabled={pending} onClick={logout} title={access.user.id} type="button"><LogOutIcon /><span className="grid min-w-0"><span>Sign out</span><span className="truncate text-[0.68rem] text-muted-foreground">{access.user.label}</span></span></button>}

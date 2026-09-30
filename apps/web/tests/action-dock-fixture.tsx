@@ -3,7 +3,7 @@ import { useState } from "react";
 import { ChatInputToolbar, ChatMessages, ChatPanel, type Message } from "quassel";
 import { createAccessContext } from "../../../packages/ragents/src/access";
 import { webPlugin as askWebPlugin } from "../../../plugins/ragents.ask/web/index";
-import { ActorTile } from "../../../plugins/ragents.orchestration/web/ActorTile";
+import { ActorRunPanelChat } from "../../../plugins/ragents.orchestration/web/run-panel/RunPanel";
 import { OrchestrationRunPanel } from "../../../plugins/ragents.orchestration/web/run-panel/RunPanel";
 import { AccessContext } from "../src/AccessContext";
 import { QuasselHost } from "../src/chat/QuasselHost";
@@ -14,7 +14,7 @@ import "../src/ui/tailwind.css";
 
 declare global {
   interface Window {
-    dockFixture: { calls: unknown[]; resolve: () => void };
+    dockFixture: { calls: Array<[string, Record<string, unknown>]>; resolve: () => void };
   }
 }
 
@@ -68,14 +68,14 @@ function Fixture() {
   const view = session.runView as RunView;
   return <AccessContext.Provider value={{ ...access, logout: async () => {} }}><QuasselHost><ChatStepsProvider policy={defaultChatDisplayPolicy}>
     <PluginSessionProviders navigation={navigation} registry={registry} session={session}><RunPanelHostProvider value={host}>
-      {params.get("scene") === "tile"
-        ? <div className="flex min-h-0 flex-1 flex-col" data-fixture="tile">
-          <ActorTile actor={view.actors[2]} cardSections={registry.cardSections} navigation={navigation} onSelect={() => {}} session={session} view={view} />
+      {params.get("scene") === "actor"
+        ? <div className="flex min-h-0 flex-1 flex-col" data-fixture="actor">
+          <ActorRunPanelChat actor={view.actors[2]} cardSections={registry.cardSections} navigation={navigation} onNavigate={() => {}} session={session} view={view} />
         </div>
         : <OrchestrationRunPanel
-          cardSections={registry.cardSections} navigation={navigation} runToolbarContainer={null} session={session} statusContainer={null} tabIds={[]} toolbarContainer={null}
+          cardSections={registry.cardSections} navigation={navigation} session={session} statusContainer={null} tabIds={[]} toolbarContainer={null}
           renderChat={(options = {}) => <Chat options={options} session={session} />}
-          surfaceElements={[{ id: "mini", order: 0, select: () => [{ id: "mini", title: "Stage" }], Element: () => <button className="m-8 self-start" id="stage-button">Operate mini-app</button> }]}
+          surfaceElements={[{ id: "mini", order: 0, select: () => [{ id: "mini", title: "Stage" }], Element: () => <div><button className="m-8 self-start" id="stage-button">Operate mini-app</button><input aria-label="App draft" /></div> }]}
         />}
     </RunPanelHostProvider></PluginSessionProviders>
   </ChatStepsProvider></QuasselHost></AccessContext.Provider>;

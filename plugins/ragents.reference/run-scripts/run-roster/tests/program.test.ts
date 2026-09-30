@@ -14,7 +14,6 @@ const roster = (actors: ReturnType<typeof actor>[], state: { reports?: number } 
     actor_list: record("actor_list", actors),
     actor_program_ensure: record("actor_program_ensure", { actorId: "id-notebook", handle: "notebook", status: "active" as const }),
     actor_input: record("actor_input", []),
-    canvas_layout_place: record("canvas_layout_place", { placed: true }),
   } });
   return { calls, context };
 };
@@ -29,7 +28,6 @@ test("reports the other participants as result and summary and notes them in the
   assert.deepEqual(calls.slice(1).map((call) => [call.name, call.input]), [
     ["actor_program_ensure", { name: "notebook" }],
     ["actor_input", { actor: "@notebook", content: "Roster: 2 participants: @coordinator, @helper." }],
-    ["canvas_layout_place", { entity: "app:notebook/main" }],
   ]);
   assert.deepEqual(context.state.read(), { reports: 1 });
 });

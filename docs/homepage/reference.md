@@ -2529,192 +2529,6 @@ Available in every model turn.
 }
 ```
 
-### canvas_layout_place
-
-Place on Surface
-
-Place one actor or mini-app next to the current surface layout instead of replacing it.
-
-entity is {entity} of a tile: '@helper' or 'app:@workspace/main'. The current arrangement becomes one side of a new split and the entity the other: direction 'horizontal' (default) puts it to the right, 'vertical' below. weight is its share against the existing arrangement's weight 1, default 1. An entity the layout already shows stays where it is; placed is then false. On an empty surface the entity becomes the only tile. Use it when you join a running run, such as a run script started with start.embedded, so that the tiles others arranged stay.
-
-Owner: ragents.orchestration. Scope: per-turn. Native model tool: no. Availability: conditional.
-
-Only for agents and TypeScript actors with the capability plugin.state.write.
-
-#### Input
-
-```json
-{
-  "type": "object",
-  "required": [
-    "entity"
-  ],
-  "properties": {
-    "entity": {
-      "type": "string",
-      "minLength": 1,
-      "description": "Actor @handle or activated mini-app app:@handle/view-key or app:program-name/view-key"
-    },
-    "direction": {
-      "anyOf": [
-        {
-          "type": "string",
-          "const": "horizontal"
-        },
-        {
-          "type": "string",
-          "const": "vertical"
-        }
-      ],
-      "description": "horizontal: to the right of the current layout (default); vertical: below it"
-    },
-    "weight": {
-      "type": "number",
-      "exclusiveMinimum": 0,
-      "description": "Share of the placed tile against the existing arrangement's weight 1; default 1"
-    }
-  },
-  "additionalProperties": false
-}
-```
-
-#### Result
-
-```json
-{
-  "type": "object",
-  "required": [
-    "placed"
-  ],
-  "properties": {
-    "placed": {
-      "type": "boolean"
-    }
-  },
-  "additionalProperties": false
-}
-```
-
-### canvas_layout_replace
-
-Replace Surface Layout
-
-Arrange actors and mini-apps as tiles on the viewport-filling work surface, using a binary tree of weighted splits.
-
-root is the whole arrangement and replaces the stored one. A tile is {entity:'@helper'} or {entity:'app:@workspace/main'}; a split is {direction:'horizontal',weights:[1,1],children:[tile,tile]}. horizontal means left/right, vertical means top/bottom, and weights give the ratio of the two children. App left, chat right at 50:50: {root:{direction:'horizontal',weights:[1,1],children:[{entity:'app:@workspace/main'},{entity:'@helper'}]}}. One tile above two tiles at 2:1: {root:{direction:'vertical',weights:[2,1],children:[{entity:'@lead'},{direction:'horizontal',weights:[1,1],children:[{entity:'@first'},{entity:'@second'}]}]}}. root:null clears the surface. Dividers are draggable, so do not resend a layout to fight a personal arrangement. Participants you do not place stay reachable through the run header.
-
-Owner: ragents.orchestration. Scope: per-turn. Native model tool: no. Availability: conditional.
-
-Only for agents and TypeScript actors with the capability plugin.state.write.
-
-#### Input
-
-```json
-{
-  "type": "object",
-  "required": [
-    "root"
-  ],
-  "properties": {
-    "root": {
-      "anyOf": [
-        {
-          "$defs": {
-            "SurfaceTile": {
-              "anyOf": [
-                {
-                  "type": "object",
-                  "required": [
-                    "entity"
-                  ],
-                  "properties": {
-                    "entity": {
-                      "type": "string",
-                      "minLength": 1,
-                      "description": "Actor @handle or activated mini-app app:@handle/view-key or app:program-name/view-key; the server resolves the view ID"
-                    },
-                    "chatInput": {
-                      "type": "boolean",
-                      "description": "Actor tiles only: false hides the chat composer in the tile; default true. Does not change permissions or the inspector"
-                    }
-                  },
-                  "additionalProperties": false
-                },
-                {
-                  "type": "object",
-                  "required": [
-                    "direction",
-                    "weights",
-                    "children"
-                  ],
-                  "properties": {
-                    "direction": {
-                      "anyOf": [
-                        {
-                          "type": "string",
-                          "const": "horizontal"
-                        },
-                        {
-                          "type": "string",
-                          "const": "vertical"
-                        }
-                      ]
-                    },
-                    "weights": {
-                      "type": "array",
-                      "additionalItems": false,
-                      "items": [
-                        {
-                          "type": "number",
-                          "exclusiveMinimum": 0
-                        },
-                        {
-                          "type": "number",
-                          "exclusiveMinimum": 0
-                        }
-                      ],
-                      "minItems": 2
-                    },
-                    "children": {
-                      "type": "array",
-                      "additionalItems": false,
-                      "items": [
-                        {
-                          "$ref": "SurfaceTile"
-                        },
-                        {
-                          "$ref": "SurfaceTile"
-                        }
-                      ],
-                      "minItems": 2
-                    }
-                  },
-                  "additionalProperties": false
-                }
-              ],
-              "$id": "SurfaceTile"
-            }
-          },
-          "$ref": "SurfaceTile"
-        },
-        {
-          "type": "null"
-        }
-      ],
-      "description": "The whole arrangement: a tile or a binary split. Maximum 64 unique tiles and 16 nested splits. null clears the surface"
-    }
-  }
-}
-```
-
-#### Result
-
-```json
-{
-  "type": "null"
-}
-```
-
 ### document_write
 
 Store document
@@ -6875,11 +6689,11 @@ The bundled examples demonstrate how RAgents concepts work together and provide 
 
 ### Use case
 
-[Count characters, words, and lines](#start-ragents.reference.80-actor-text-analysis), [Pass a list through four AI helpers](#start-ragents.reference.20-circle-of-four), [Clarify a decision](#start-ragents.reference.decision-brief), [Learning goal in stages](#start-ragents.reference.learning-sprint), [Count messages without AI](#start-ragents.reference.70-headless-counter), [Hide notes and find them again](#start-ragents.reference.90-actor-notes), [Maintain a list in the chat and in a window](#start-ragents.reference.100-shared-actor-list), [Set up collection board](#start-ragents.reference.shared-actor-list), [Set up conversation circle](#start-ragents.reference.conversation-circle), [Moderated round without coordinator](#start-ragents.reference.moderated-round), [Set up balcony wizard](#start-ragents.reference.balcony-wizard), [Editorial workbench](#start-ragents.reference.150-editorial-workbench), [Learning afternoon](#start-ragents.reference.learning-afternoon), [Start word game](#start-ragents.reference.word-game), [Learning companion with materials](#start-ragents.reference.160-learning-companion), [Image collection with captions](#start-ragents.reference.170-photo-collection), [Decision workbench](#start-ragents.reference.180-decision-workbench), [Review texts and share results selectively](#start-ragents.reference.190-review-queue), [Find errors in an appointment list](#start-ragents.reference.200-typescript-diagnostics), [Hand a conversation over to a moderator](#start-ragents.reference.210-moderator-handover), [Approve proposals together](#start-ragents.reference.220-actor-approval-list), [One list in two views](#start-ragents.reference.230-shared-state-views), [Collect answers automatically](#start-ragents.reference.240-live-result-list), [Balcony wizard](#start-ragents.reference.250-balcony-wizard), [Open the helper behind a mini-app](#example-mini-app-owner-inspector), [Split a conversation circle differently](#example-personal-tile-arrangement), [Keep an eye on two runs](#example-global-run-overview), [Start a prepared circle globally](#example-global-prepared-run), [Start over after planning](#example-reset-completed-global-chat), [Cancel a reset at first](#example-reset-without-losing-draft), [Set up the coordinator for short answers](#example-coordinator-model-settings), [Choose the model for short titles](#example-title-model-selection), [Turn off automatic titles](#example-disable-generated-titles), [Map a capability to its plugin](#example-extension-capability-settings), [See the language server as a run process](#example-language-server-process), [Open a short-lived local preview](#example-local-preview-process), [Read a draft in the file tree](#example-workspace-draft-preview), [Compare files with the same name in two runs](#example-separate-run-files), [Find a shared list again after a restart](#example-restore-shared-list), [Continue two conversation histories after a restart](#example-restore-conversation-context), [Discuss your own sketch in the chat](#example-image-paste-conversation), [Compare a short clip with its schedule](#example-video-and-document-drop)
+[Count characters, words, and lines](#start-ragents.reference.80-actor-text-analysis), [Pass a list through four AI helpers](#start-ragents.reference.20-circle-of-four), [Clarify a decision](#start-ragents.reference.decision-brief), [Learning goal in stages](#start-ragents.reference.learning-sprint), [Count messages without AI](#start-ragents.reference.70-headless-counter), [Hide notes and find them again](#start-ragents.reference.90-actor-notes), [Maintain a list in the chat and in a window](#start-ragents.reference.100-shared-actor-list), [Set up collection board](#start-ragents.reference.shared-actor-list), [Set up conversation circle](#start-ragents.reference.conversation-circle), [Moderated round without coordinator](#start-ragents.reference.moderated-round), [Set up balcony wizard](#start-ragents.reference.balcony-wizard), [Editorial workbench](#start-ragents.reference.150-editorial-workbench), [Learning afternoon](#start-ragents.reference.learning-afternoon), [Start word game](#start-ragents.reference.word-game), [Learning companion with materials](#start-ragents.reference.160-learning-companion), [Image collection with captions](#start-ragents.reference.170-photo-collection), [Decision workbench](#start-ragents.reference.180-decision-workbench), [Review texts and share results selectively](#start-ragents.reference.190-review-queue), [Find errors in an appointment list](#start-ragents.reference.200-typescript-diagnostics), [Hand a conversation over to a moderator](#start-ragents.reference.210-moderator-handover), [Approve proposals together](#start-ragents.reference.220-actor-approval-list), [One list in two views](#start-ragents.reference.230-shared-state-views), [Collect answers automatically](#start-ragents.reference.240-live-result-list), [Balcony wizard](#start-ragents.reference.250-balcony-wizard), [Open the helper behind a mini-app](#example-mini-app-owner-inspector), [Switch between chat and apps](#example-switch-chat-and-apps), [Keep an eye on two runs](#example-global-run-overview), [Start a prepared circle globally](#example-global-prepared-run), [Start over after planning](#example-reset-completed-global-chat), [Cancel a reset at first](#example-reset-without-losing-draft), [Set up the coordinator for short answers](#example-coordinator-model-settings), [Choose the model for short titles](#example-title-model-selection), [Turn off automatic titles](#example-disable-generated-titles), [Map a capability to its plugin](#example-extension-capability-settings), [See the language server as a run process](#example-language-server-process), [Open a short-lived local preview](#example-local-preview-process), [Read a draft in the file tree](#example-workspace-draft-preview), [Compare files with the same name in two runs](#example-separate-run-files), [Find a shared list again after a restart](#example-restore-shared-list), [Continue two conversation histories after a restart](#example-restore-conversation-context), [Discuss your own sketch in the chat](#example-image-paste-conversation), [Compare a short clip with its schedule](#example-video-and-document-drop)
 
 ### Concept demo
 
-[Hello world on the surface](#start-ragents.reference.95-hello-world), [Count characters, words, and lines](#start-ragents.reference.80-actor-text-analysis), [Pass a list through four AI helpers](#start-ragents.reference.20-circle-of-four), [Clarify a decision](#start-ragents.reference.decision-brief), [Have a message delivered](#start-ragents.reference.30-llm-without-runtime-knowledge), [Learning goal in stages](#start-ragents.reference.learning-sprint), [Complete three tasks in order](#start-ragents.reference.35-actor-input-fifo), [Listen in on other helpers selectively](#start-ragents.reference.40-subscription-matrix), [Turn a forwarding off again](#start-ragents.reference.50-subscription-removal), [Stop a helper in the conversation circle](#start-ragents.reference.60-stop-in-the-circle), [Pass on a note selectively](#start-ragents.reference.65-artifact-least-privilege), [Count messages without AI](#start-ragents.reference.70-headless-counter), [Find errors in C# and TypeScript](#start-ragents.reference.75-lsp-demo), [Hide notes and find them again](#start-ragents.reference.90-actor-notes), [Maintain a list in the chat and in a window](#start-ragents.reference.100-shared-actor-list), [Set up collection board](#start-ragents.reference.shared-actor-list), [See question, tasks, and document together](#start-ragents.reference.110-all-card-slots), [Set up conversation circle](#start-ragents.reference.conversation-circle), [Moderated round without coordinator](#start-ragents.reference.moderated-round), [Set up balcony wizard](#start-ragents.reference.balcony-wizard), [Editorial workbench](#start-ragents.reference.150-editorial-workbench), [Learning afternoon](#start-ragents.reference.learning-afternoon), [Start word game](#start-ragents.reference.word-game), [Learning companion with materials](#start-ragents.reference.160-learning-companion), [Image collection with captions](#start-ragents.reference.170-photo-collection), [Take stock of the run](#start-ragents.reference.run-roster), [Decision workbench](#start-ragents.reference.180-decision-workbench), [Add a quick note](#start-ragents.reference.quick-note), [Review texts and share results selectively](#start-ragents.reference.190-review-queue), [Find errors in an appointment list](#start-ragents.reference.200-typescript-diagnostics), [Hand a conversation over to a moderator](#start-ragents.reference.210-moderator-handover), [Approve proposals together](#start-ragents.reference.220-actor-approval-list), [One list in two views](#start-ragents.reference.230-shared-state-views), [Collect answers automatically](#start-ragents.reference.240-live-result-list), [Balcony wizard](#start-ragents.reference.250-balcony-wizard), [Open the helper behind a mini-app](#example-mini-app-owner-inspector), [Split a conversation circle differently](#example-personal-tile-arrangement), [Keep an eye on two runs](#example-global-run-overview), [Start a prepared circle globally](#example-global-prepared-run), [Start over after planning](#example-reset-completed-global-chat), [Cancel a reset at first](#example-reset-without-losing-draft), [Set up the coordinator for short answers](#example-coordinator-model-settings), [Choose the model for short titles](#example-title-model-selection), [Turn off automatic titles](#example-disable-generated-titles), [Map a capability to its plugin](#example-extension-capability-settings), [See the language server as a run process](#example-language-server-process), [Open a short-lived local preview](#example-local-preview-process), [Read a draft in the file tree](#example-workspace-draft-preview), [Compare files with the same name in two runs](#example-separate-run-files), [Find a shared list again after a restart](#example-restore-shared-list), [Continue two conversation histories after a restart](#example-restore-conversation-context), [Discuss your own sketch in the chat](#example-image-paste-conversation), [Compare a short clip with its schedule](#example-video-and-document-drop)
+[Hello world on the surface](#start-ragents.reference.95-hello-world), [Count characters, words, and lines](#start-ragents.reference.80-actor-text-analysis), [Pass a list through four AI helpers](#start-ragents.reference.20-circle-of-four), [Clarify a decision](#start-ragents.reference.decision-brief), [Have a message delivered](#start-ragents.reference.30-llm-without-runtime-knowledge), [Learning goal in stages](#start-ragents.reference.learning-sprint), [Complete three tasks in order](#start-ragents.reference.35-actor-input-fifo), [Listen in on other helpers selectively](#start-ragents.reference.40-subscription-matrix), [Turn a forwarding off again](#start-ragents.reference.50-subscription-removal), [Stop a helper in the conversation circle](#start-ragents.reference.60-stop-in-the-circle), [Pass on a note selectively](#start-ragents.reference.65-artifact-least-privilege), [Count messages without AI](#start-ragents.reference.70-headless-counter), [Find errors in C# and TypeScript](#start-ragents.reference.75-lsp-demo), [Hide notes and find them again](#start-ragents.reference.90-actor-notes), [Maintain a list in the chat and in a window](#start-ragents.reference.100-shared-actor-list), [Set up collection board](#start-ragents.reference.shared-actor-list), [See question, tasks, and document together](#start-ragents.reference.110-all-card-slots), [Set up conversation circle](#start-ragents.reference.conversation-circle), [Moderated round without coordinator](#start-ragents.reference.moderated-round), [Set up balcony wizard](#start-ragents.reference.balcony-wizard), [Editorial workbench](#start-ragents.reference.150-editorial-workbench), [Learning afternoon](#start-ragents.reference.learning-afternoon), [Start word game](#start-ragents.reference.word-game), [Learning companion with materials](#start-ragents.reference.160-learning-companion), [Image collection with captions](#start-ragents.reference.170-photo-collection), [Take stock of the run](#start-ragents.reference.run-roster), [Decision workbench](#start-ragents.reference.180-decision-workbench), [Add a quick note](#start-ragents.reference.quick-note), [Review texts and share results selectively](#start-ragents.reference.190-review-queue), [Find errors in an appointment list](#start-ragents.reference.200-typescript-diagnostics), [Hand a conversation over to a moderator](#start-ragents.reference.210-moderator-handover), [Approve proposals together](#start-ragents.reference.220-actor-approval-list), [One list in two views](#start-ragents.reference.230-shared-state-views), [Collect answers automatically](#start-ragents.reference.240-live-result-list), [Balcony wizard](#start-ragents.reference.250-balcony-wizard), [Open the helper behind a mini-app](#example-mini-app-owner-inspector), [Switch between chat and apps](#example-switch-chat-and-apps), [Keep an eye on two runs](#example-global-run-overview), [Start a prepared circle globally](#example-global-prepared-run), [Start over after planning](#example-reset-completed-global-chat), [Cancel a reset at first](#example-reset-without-losing-draft), [Set up the coordinator for short answers](#example-coordinator-model-settings), [Choose the model for short titles](#example-title-model-selection), [Turn off automatic titles](#example-disable-generated-titles), [Map a capability to its plugin](#example-extension-capability-settings), [See the language server as a run process](#example-language-server-process), [Open a short-lived local preview](#example-local-preview-process), [Read a draft in the file tree](#example-workspace-draft-preview), [Compare files with the same name in two runs](#example-separate-run-files), [Find a shared list again after a restart](#example-restore-shared-list), [Continue two conversation histories after a restart](#example-restore-conversation-context), [Discuss your own sketch in the chat](#example-image-paste-conversation), [Compare a short clip with its schedule](#example-video-and-document-drop)
 
 | Concept | Examples |
 | --- | --- |
@@ -6889,7 +6703,7 @@ The bundled examples demonstrate how RAgents concepts work together and provide 
 | Input queue | [Complete three tasks in order](#start-ragents.reference.35-actor-input-fifo), [Review texts and share results selectively](#start-ragents.reference.190-review-queue) |
 | Stopping actors | [Have a message delivered](#start-ragents.reference.30-llm-without-runtime-knowledge), [Stop a helper in the conversation circle](#start-ragents.reference.60-stop-in-the-circle), [Review texts and share results selectively](#start-ragents.reference.190-review-queue) |
 | Artifacts and access | [Pass on a note selectively](#start-ragents.reference.65-artifact-least-privilege), [Review texts and share results selectively](#start-ragents.reference.190-review-queue) |
-| Workspace layout | [Open the helper behind a mini-app](#example-mini-app-owner-inspector), [Split a conversation circle differently](#example-personal-tile-arrangement) |
+| App navigation | [Open the helper behind a mini-app](#example-mini-app-owner-inspector), [Switch between chat and apps](#example-switch-chat-and-apps) |
 | Mini-apps | [Hello world on the surface](#start-ragents.reference.95-hello-world), [Count characters, words, and lines](#start-ragents.reference.80-actor-text-analysis), [Hide notes and find them again](#start-ragents.reference.90-actor-notes), [Maintain a list in the chat and in a window](#start-ragents.reference.100-shared-actor-list), [Editorial workbench](#start-ragents.reference.150-editorial-workbench), [Learning companion with materials](#start-ragents.reference.160-learning-companion), [Image collection with captions](#start-ragents.reference.170-photo-collection), [Decision workbench](#start-ragents.reference.180-decision-workbench), [Review texts and share results selectively](#start-ragents.reference.190-review-queue), [Approve proposals together](#start-ragents.reference.220-actor-approval-list), [One list in two views](#start-ragents.reference.230-shared-state-views), [Collect answers automatically](#start-ragents.reference.240-live-result-list), [Balcony wizard](#start-ragents.reference.250-balcony-wizard) |
 | Actor state | [Count characters, words, and lines](#start-ragents.reference.80-actor-text-analysis), [Count messages without AI](#start-ragents.reference.70-headless-counter), [Hide notes and find them again](#start-ragents.reference.90-actor-notes), [Maintain a list in the chat and in a window](#start-ragents.reference.100-shared-actor-list), [Decision workbench](#start-ragents.reference.180-decision-workbench), [Approve proposals together](#start-ragents.reference.220-actor-approval-list), [One list in two views](#start-ragents.reference.230-shared-state-views), [Collect answers automatically](#start-ragents.reference.240-live-result-list), [Balcony wizard](#start-ragents.reference.250-balcony-wizard) |
 | LLM actor with view | [Learning companion with materials](#start-ragents.reference.160-learning-companion), [Image collection with captions](#start-ragents.reference.170-photo-collection), [Approve proposals together](#start-ragents.reference.220-actor-approval-list) |
@@ -6904,7 +6718,6 @@ The bundled examples demonstrate how RAgents concepts work together and provide 
 | Run scripts | [Set up collection board](#start-ragents.reference.shared-actor-list), [Set up conversation circle](#start-ragents.reference.conversation-circle), [Moderated round without coordinator](#start-ragents.reference.moderated-round), [Set up balcony wizard](#start-ragents.reference.balcony-wizard), [Learning afternoon](#start-ragents.reference.learning-afternoon), [Start word game](#start-ragents.reference.word-game), [Take stock of the run](#start-ragents.reference.run-roster), [Add a quick note](#start-ragents.reference.quick-note) |
 | Skills | [Clarify a decision](#start-ragents.reference.decision-brief), [Learning goal in stages](#start-ragents.reference.learning-sprint) |
 | Actor functions | [Count characters, words, and lines](#start-ragents.reference.80-actor-text-analysis), [Count messages without AI](#start-ragents.reference.70-headless-counter), [Hide notes and find them again](#start-ragents.reference.90-actor-notes), [Maintain a list in the chat and in a window](#start-ragents.reference.100-shared-actor-list), [Editorial workbench](#start-ragents.reference.150-editorial-workbench), [Approve proposals together](#start-ragents.reference.220-actor-approval-list), [One list in two views](#start-ragents.reference.230-shared-state-views), [Balcony wizard](#start-ragents.reference.250-balcony-wizard) |
-| Automatic view placement | [Count characters, words, and lines](#start-ragents.reference.80-actor-text-analysis), [Hide notes and find them again](#start-ragents.reference.90-actor-notes) |
 | View visibility | [Count characters, words, and lines](#start-ragents.reference.80-actor-text-analysis), [Hide notes and find them again](#start-ragents.reference.90-actor-notes) |
 | Global coordinator | [Keep an eye on two runs](#example-global-run-overview), [Start a prepared circle globally](#example-global-prepared-run) |
 | Conversation reset | [Start over after planning](#example-reset-completed-global-chat), [Cancel a reset at first](#example-reset-without-losing-draft) |
@@ -6922,27 +6735,26 @@ Walkthroughs explain step by step how to use existing functions in the interface
 
 ### Open the helper behind a mini-app
 
-The mini-app stays visible as a tile; its owner is reachable even without a tile of its own.
+The app and its owner's chat share one run.
 
-User workflow. Tags: Use case, Concept demo, Workspace layout.
+User workflow. Tags: Use case, Concept demo, App navigation.
 
-1. In the showcase profile, open Set up collection board and complete the guide. Expected: The list is a tile on the surface; its owner has no tile of its own.
-2. Open Actors in the header and choose the name of the list owner. Expected: Its chat and details open on the right without changing the tile layout.
-3. Drag the owner from the header onto the list tile and dock it on the right. Expected: Its tile appears next to the list; the mini-app stays usable and keeps its entries.
-4. Remove the new tile again with the cross in its title bar and use the app again. Expected: The actor and its functions keep working; its name stays reachable in the header.
+1. In the showcase profile, open Set up collection board and complete the guide. Expected: The list is available as a mini-app.
+2. Open Chat and use the addressee selector's inspection action for the list owner. Expected: Its chat and details are available in Inspection.
+3. Open the list app again. Expected: The same app and its entries remain available.
 
-<a id="example-personal-tile-arrangement"></a>
+<a id="example-switch-chat-and-apps"></a>
 
-### Split a conversation circle differently
+### Switch between chat and apps
 
-Tiles can be rearranged personally and reset to the program default.
+Browser tabs keep drafts; VS Code opens one editor per app.
 
-User workflow. Tags: Use case, Concept demo, Workspace layout.
+User workflow. Tags: Use case, Concept demo, App navigation.
 
-1. In the showcase profile, run the template Set up conversation circle and wait for the setup. Look at the layout set by the run.
-2. Grab a tile by its title bar and dock it at the top edge of another tile. Expected: The layout changes immediately; all conversation partners keep working.
-3. Move the divider between two tiles and reload the same run in the same browser. Expected: The personal layout is kept; the actors and the program arrangement are unchanged.
-4. Choose Apply program default in the status bar. Expected: The surface shows the run's layout again; the button disappears until there is another change of your own.
+1. Create two mini-apps in one run. Expected: Both become available without changing the selected chat.
+2. In the browser, type an unsent chat draft, open an app and enter local input, then switch to Chat and back. Expected: Exactly one view is visible and both drafts survive.
+3. In VS Code, open an app twice, move its editor to another group and open it again from the panel. Expected: The same editor is focused in its current group.
+4. Hide the selected browser app. Expected: Chat is selected; showing the app again does not change selection. Questions and news remain in chat.
 
 <a id="example-global-run-overview"></a>
 
@@ -7200,7 +7012,7 @@ Start through POST /runs: Edit the task in message as needed and keep the skill 
 
 Shows how the chat and a mini-app use the same TypeScript function and the same call counter. Hiding keeps the actor state.
 
-Tags: Use case, Concept demo, TypeScript actors, Actor functions, Actor state, Mini-apps, Automatic view placement, View visibility.
+Tags: Use case, Concept demo, TypeScript actors, Actor functions, Actor state, Mini-apps, View visibility.
 
 ```json
 {
@@ -7216,7 +7028,6 @@ Tags: Use case, Concept demo, TypeScript actors, Actor functions, Actor state, M
     "Actor functions",
     "Actor state",
     "Mini-apps",
-    "Automatic view placement",
     "View visibility"
   ],
   "action": "skill",
@@ -7243,7 +7054,7 @@ Start through POST /runs: Edit the task in message as needed and keep the skill 
 
 Shows an automatically placed mini-app with note selection. When hiding and showing it again, the actor and notes are kept.
 
-Tags: Use case, Concept demo, TypeScript actors, Actor functions, Actor state, Mini-apps, Automatic view placement, View visibility.
+Tags: Use case, Concept demo, TypeScript actors, Actor functions, Actor state, Mini-apps, View visibility.
 
 ```json
 {
@@ -7259,7 +7070,6 @@ Tags: Use case, Concept demo, TypeScript actors, Actor functions, Actor state, M
     "Actor functions",
     "Actor state",
     "Mini-apps",
-    "Automatic view placement",
     "View visibility"
   ],
   "action": "skill",
@@ -8277,7 +8087,7 @@ Complete package sources are in [run-setup.md](run-setup.md).
 
 ### ragents.reference.conversation-circle: Set up conversation circle
 
-A prepared setup shows parameterization through a start guide and the arrangement of a conversation circle. The coordinator then leads the rounds.
+A prepared setup shows parameterization through a start guide and the participants of a conversation circle. The coordinator then leads the rounds.
 
 Tags: Run scripts, Use case, Concept demo, Start guide, Agent teams.
 
@@ -8286,7 +8096,7 @@ Tags: Run scripts, Use case, Concept demo, Start guide, Agent teams.
   "id": "ragents.reference.conversation-circle",
   "owner": "ragents.reference",
   "title": "Set up conversation circle",
-  "description": "A prepared setup shows parameterization through a start guide and the arrangement of a conversation circle. The coordinator then leads the rounds.",
+  "description": "A prepared setup shows parameterization through a start guide and the participants of a conversation circle. The coordinator then leads the rounds.",
   "order": 120,
   "guide": "ragents.reference.conversation-circle",
   "tags": [

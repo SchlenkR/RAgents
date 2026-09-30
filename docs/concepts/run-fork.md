@@ -5,7 +5,7 @@ Status: Idea
 ## Goal
 
 An operator should be able to use a built-up run as the starting point of further runs: start
-options, actors, functions, state, views, subscriptions, and tile layout. A run fork takes over
+options, actors, functions, state, views, and subscriptions. A run fork takes over
 this setup without having the coordinator carry it out again.
 
 Prepared workflows as TypeScript packages are already available as script templates; their

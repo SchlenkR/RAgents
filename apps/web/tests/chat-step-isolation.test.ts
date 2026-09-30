@@ -36,11 +36,11 @@ function Actor({run,id,name,presentation}) {
 }
 createRoot(document.getElementById('root')).render(<QuasselHost><ChatStepsProvider policy={{...defaultChatDisplayPolicy,selectable:true}}>
   <NormalChat/>
-  <Actor run="run-a" id="coordinator" name="coordinator-surface" presentation="surface"/>
-  <Actor run="run-a" id="implementer" name="implementer" presentation="surface"/>
+  <Actor run="run-a" id="coordinator" name="coordinator-surface" presentation="panel"/>
+  <Actor run="run-a" id="implementer" name="implementer" presentation="panel"/>
   <Actor run="run-a" id="implementer" name="inspector" presentation="inspector"/>
-  <Actor run="run-a" id="idle" name="idle" presentation="surface"/>
-  <Actor run="run-b" id="implementer" name="other-run" presentation="surface"/>
+  <Actor run="run-a" id="idle" name="idle" presentation="panel"/>
+  <Actor run="run-b" id="implementer" name="other-run" presentation="panel"/>
 </ChatStepsProvider></QuasselHost>);
 ` },
     outfile: `${directory}/fixture.js`, bundle: true, platform: "browser", format: "iife", jsx: "automatic",

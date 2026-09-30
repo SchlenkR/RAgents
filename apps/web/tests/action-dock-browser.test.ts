@@ -34,14 +34,14 @@ const launch = async (context: TestContext): Promise<Browser> => {
   return browser;
 };
 
-const open = async (browser: Browser, url: string, viewport: { width: number; height: number }, chat?: { mode: string; actor?: string }): Promise<{ page: Page; errors: string[] }> => {
+const open = async (browser: Browser, url: string, viewport: { width: number; height: number }, chat?: { actor?: string }): Promise<{ page: Page; errors: string[] }> => {
   const page = await browser.newPage({ viewport, reducedMotion: "reduce" });
   page.setDefaultTimeout(8000);
   const errors: string[] = [];
   page.on("pageerror", (error) => errors.push(error.message));
   if (chat) {
-    await page.addInitScript(({ mode, actor }) => localStorage.setItem("ragents.orchestration.run-panel:dock",
-      JSON.stringify({ element: null, actor, chat: mode, chatWidth: 380, sheetExpandedHeight: null })), { mode: chat.mode, actor: chat.actor ?? null });
+    await page.addInitScript(({ actor }) => localStorage.setItem("ragents.orchestration.run-navigation:dock",
+      JSON.stringify({ element: null, actor })), { actor: chat.actor ?? null });
   }
   await page.goto(url);
   return { page, errors };
@@ -64,93 +64,77 @@ const assertDocked = async (chat: Locator, frame: Locator) => {
   }, await frame.elementHandle());
   const layout = JSON.stringify({ dock: geometry.dock, input: geometry.input, frame: geometry.frame, scrollHeight: geometry.scrollHeight, clientHeight: geometry.clientHeight });
   assert.ok(geometry.inComposer, "The dock belongs to the composer of this chat.");
-  assert.deepEqual(geometry.options, ["3 Tage", "14 Tage", "30 Tage"]);
+  assert.deepEqual(geometry.options, ["3 days", "14 days", "30 days"]);
   assert.doesNotMatch(geometry.transcript ?? "", /Which review period applies/, "An open question is not repeated in the transcript.");
   assert.ok(geometry.scrollHeight <= geometry.clientHeight + 1, `The question is not cut off: ${layout}`);
   assert.ok(geometry.dock.bottom <= geometry.input.top, `The dock sits above the input: ${layout}`);
   assert.ok(geometry.dock.top >= geometry.frame.top - 0.5 && geometry.input.bottom <= geometry.frame.bottom + 0.5, `Dock and input stay inside their frame: ${layout}`);
 };
 
-test("an open question in an actor tile is answered in the dock at its input and afterwards stays as a receipt in the transcript", browserOnly, async (context) => {
+test("an open question in an actor chat is answered in the dock at its input and afterwards stays as a receipt in the transcript", browserOnly, async (context) => {
   const url = await buildFixture();
   const browser = await launch(context);
-  const { page, errors } = await open(browser, `${url}?scene=tile`, { width: 520, height: 640 });
-  const tile = page.locator("[data-fixture=tile]");
-  const dock = tile.locator("[data-chat=actions]");
+  const { page, errors } = await open(browser, `${url}?scene=actor`, { width: 520, height: 640 });
+  const panel = page.locator("[data-fixture=actor]");
+  const dock = panel.locator("[data-chat=actions]");
   await dock.getByText("Which review period applies?").waitFor();
-  await assertDocked(tile, tile);
-  assert.equal(await tile.locator("textarea").isDisabled(), false);
+  await assertDocked(panel, panel);
+  assert.equal(await panel.locator("textarea").isDisabled(), false);
   await dock.getByRole("button", { name: "14 days" }).click();
-  assert.deepEqual(await page.evaluate("window.dockFixture.calls"), [["ragents.ask.answer", { runId: "dock", actionId: "review-window", answer: "14 Tage" }]]);
+  assert.deepEqual(await page.evaluate("window.dockFixture.calls"), [["ragents.ask.answer", { runId: "dock", actionId: "review-window", answer: "14 days" }]]);
   await page.evaluate("window.dockFixture.resolve()");
   await settle(page);
   assert.equal(await dock.evaluate((element) => element.childElementCount), 0, "The dock is empty after the answer.");
-  assert.match(await tile.locator("[data-quassel-transcript]").textContent() ?? "", /Which review period applies\?14 days/);
-  assert.equal(await tile.locator("[data-quassel-transcript] [data-question=answered]").count(), 1);
+  assert.match(await panel.locator("[data-quassel-transcript]").textContent() ?? "", /Which review period applies\?14 days/);
+  assert.equal(await panel.locator("[data-quassel-transcript] [data-question=answered]").count(), 1);
   assert.deepEqual(errors, []);
 
-  const reader = await open(browser, `${url}?scene=tile&access=read`, { width: 520, height: 640 });
-  const readerTile = reader.page.locator("[data-fixture=tile]");
-  const readerDock = readerTile.locator("[data-chat=actions]");
+  const reader = await open(browser, `${url}?scene=actor&access=read`, { width: 520, height: 640 });
+  const readerPanel = reader.page.locator("[data-fixture=actor]");
+  const readerDock = readerPanel.locator("[data-chat=actions]");
   await readerDock.getByText("Which review period applies?").waitFor();
-  assert.deepEqual(await readerDock.locator("li").allTextContents(), ["3 Tage", "14 Tage", "30 Tage"]);
+  assert.deepEqual(await readerDock.locator("li").allTextContents(), ["3 days", "14 days", "30 days"]);
   assert.equal(await readerDock.locator("button, input").count(), 0, "Read access shows the question without controls.");
-  assert.equal(await readerTile.locator("textarea").isDisabled(), true);
+  assert.equal(await readerPanel.locator("textarea").isDisabled(), true);
   assert.deepEqual(reader.errors, []);
 });
 
-test("the run panel shows an open question completely above the input in every chat layout", browserOnly, async (context) => {
+test("the run panel keeps questions at the selected addressee input and retains drafts across apps and actors", browserOnly, async (context) => {
   const url = await buildFixture();
   const browser = await launch(context);
-  const sheetSelector = "section[aria-label=Chat]";
-
-  const floating = await open(browser, url, { width: 600, height: 850 }, { mode: "bottom" });
-  const sheet = floating.page.locator(sheetSelector);
-  const collapse = async () => {
-    await floating.page.locator("#outside").focus();
-    await floating.page.mouse.move(1, 1);
-    await floating.page.waitForFunction((selector) => !document.querySelector(selector)?.hasAttribute("data-expanded"), sheetSelector);
-    await settle(floating.page);
-  };
-  await sheet.locator("[data-chat=actions]").getByText("Which review period applies?").waitFor();
-  await collapse();
-  await assertDocked(sheet, sheet);
-  assert.equal(await sheet.locator(":scope > button:not([data-run-panel])").textContent(), "Waiting for input");
-  const sheetBox = await sheet.boundingBox();
-  assert.ok(sheetBox && Math.abs(sheetBox.y + sheetBox.height - 850) <= 1, "The collapsed sheet rests on the bottom edge.");
-  const stagePadding = await floating.page.locator("section[aria-label='Mini-app Stage']").evaluate((element) => Number.parseFloat(getComputedStyle(element).paddingBottom));
-  assert.ok(Math.abs(stagePadding - sheetBox.height) <= 2, "The stage reserves the collapsed sheet including the question.");
-  await floating.page.screenshot({ path: `${fileURLToPath(new URL(".", url))}floating-collapsed.png` });
-
-  await sheet.locator("textarea").hover();
-  await floating.page.waitForFunction((selector) => document.querySelector(selector)?.hasAttribute("data-expanded"), sheetSelector);
-  await settle(floating.page);
-  await assertDocked(sheet, sheet);
-  await collapse();
-
-  await floating.page.evaluate("window.dockFixture.resolve()");
-  await floating.page.waitForFunction(([selector, height]) => document.querySelector(selector)!.getBoundingClientRect().height < height - 100, [sheetSelector, sheetBox.height] as const);
-  assert.equal(await sheet.locator("[data-chat=actions]").evaluate((element) => element.childElementCount), 0);
-  assert.equal(await sheet.locator("[data-quassel-transcript] [data-question=answered]").count(), 1);
-  assert.deepEqual(floating.errors, []);
-
-  const actor = await open(browser, url, { width: 600, height: 850 }, { mode: "bottom", actor: "worker" });
-  const actorSheet = actor.page.locator(sheetSelector);
-  await actorSheet.locator("[data-chat=actions]").getByText("Which review period applies?").waitFor();
-  await actor.page.locator("#outside").focus();
-  await actor.page.mouse.move(1, 1);
-  await actor.page.waitForFunction((selector) => !document.querySelector(selector)?.hasAttribute("data-expanded"), sheetSelector);
-  await settle(actor.page);
-  assert.equal(await actorSheet.getAttribute("data-view"), "actor-chat");
-  await assertDocked(actorSheet, actorSheet);
-  assert.deepEqual(actor.errors, []);
-
-  for (const [mode, width] of [["side", 1200], ["chat", 700]] as const) {
-    const { page, errors } = await open(browser, url, { width, height: 850 }, { mode });
-    const chat = page.locator(sheetSelector);
-    await chat.locator("[data-chat=actions]").getByText("Which review period applies?").waitFor();
-    assert.equal(await page.locator("[data-chat-layout]").getAttribute("data-chat-layout"), mode === "side" ? "side" : "full");
-    await assertDocked(chat, chat);
+  for (const width of [600, 1200]) {
+    const { page, errors } = await open(browser, url, { width, height: 850 });
+    const chat = page.locator("section[aria-label=Chat]");
+    const active = () => chat.locator("[data-chat=panel]:visible");
+    await active().locator("[data-chat=actions]").getByText("Which review period applies?").waitFor();
+    await assertDocked(active(), chat);
+    await active().locator("textarea").fill("Coordinator draft");
+    await page.getByRole("tab", { name: "Stage", exact: true }).click();
+    await page.getByRole("button", { name: "Operate mini-app" }).waitFor();
+    assert.equal(await chat.isVisible(), false);
+    await page.getByRole("textbox", { name: "App draft" }).fill("App input");
+    await page.getByRole("tab", { name: "Chat", exact: true }).click();
+    assert.equal(await active().locator("textarea").inputValue(), "Coordinator draft");
+    await page.locator('button[title^="Addressee: @coordinator"]:visible').click();
+    await page.getByRole("dialog", { name: "Addressee" }).locator('button[data-actor-handle="reviewer"]').click();
+    await active().getByRole("textbox", { name: "Message to @reviewer ...", exact: true }).fill("Reviewer draft");
+    await assertDocked(active(), chat);
+    await page.locator('button[title^="Addressee: @reviewer"]:visible').click();
+    await page.getByRole("dialog", { name: "Addressee" }).locator('button[data-actor-handle="coordinator"]').click();
+    assert.equal(await active().locator("textarea").inputValue(), "Coordinator draft");
+    await page.locator('button[title^="Addressee: @coordinator"]:visible').click();
+    await page.getByRole("dialog", { name: "Addressee" }).locator('button[data-actor-handle="reviewer"]').click();
+    assert.equal(await active().locator("textarea").inputValue(), "Reviewer draft");
+    await active().locator("textarea").press("Enter");
+    assert.ok((await page.evaluate(() => window.dockFixture.calls)).some((entry) => entry[1].actorId === "worker" && entry[1].text === "Reviewer draft"));
+    await active().locator("[data-chat=actions]").getByRole("button", { name: "14 days" }).click();
+    assert.ok((await page.evaluate(() => window.dockFixture.calls)).some((entry) => entry[0] === "ragents.ask.answer" && entry[1].actionId === "review-window"));
+    await page.getByRole("tab", { name: "Stage", exact: true }).click();
+    assert.equal(await page.getByRole("textbox", { name: "App draft" }).inputValue(), "App input");
+    await page.getByRole("tab", { name: "Chat", exact: true }).click();
+    await page.evaluate(() => window.dockFixture.resolve());
+    await settle(page);
+    assert.equal(await active().locator("[data-quassel-transcript] [data-question=answered]").count(), 1);
     assert.deepEqual(errors, []);
   }
 });

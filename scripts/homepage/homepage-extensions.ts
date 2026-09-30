@@ -457,18 +457,17 @@ const tabs = {
     "available(session) filters availability, keepMounted keeps an inactive view. Polling is still controlled based on active.",
     "Dynamic tab IDs must also be unique. In the run panel, the same tabs are in the toolbar on the right edge.",
   ], "tsx"),
-  entry("web-surface", "Web contributions", "A central surface", "The central surface of a run shows the participants as tiles. A plugin can take over the rendering of this surface. For this, it receives the existing functions for chats, navigation, card sections, and additional elements.", "Properties of a WebPlugin; RunPanel is the version for the run panel.", `
+  entry("web-surface", "Web contributions", "The shared run panel", "A plugin can provide the run panel shared by browser and VS Code. It receives chat rendering, navigation, card sections, and app contributions.", "Properties of a WebPlugin.", `
 const surfaceUi = {
   id: "ragents.example",
   surface: {
-    Center: ({ renderChat }) => <div>{renderChat()}<p>Custom surface</p></div>,
-    RunPanel: ({ renderChat }) => <div>{renderChat()}</div>,
+    RunPanel: ({ renderChat }) => <div>{renderChat()}<p>Custom surface</p></div>,
   },
 } satisfies WebPlugin;`, ["web.surface"], [
-    "There is at most one surface contribution. The example replaces the central surface; it does not automatically extend the orchestration's existing surface. Without RunPanel, the run panel shows only the chat.",
+    "There is at most one surface contribution. The example replaces the central surface; it does not automatically extend the orchestration's existing surface. Without a surface contribution, the host shows the standard chat.",
     "toolbarLeft is part of the renderChat contract for the owner of the surface. There is no general composer toolbar registry slot.",
   ], "tsx"),
-  entry("web-surface-elements", "Web contributions", "Elements on the existing surface", "A plugin can show additional elements as tiles on the existing surface. For this, it provides the description of the element and its rendering. The element is an interface and does not process tasks itself.", "Properties of a WebPlugin.", `
+  entry("web-surface-elements", "Web contributions", "Mini-apps in the shared panel", "A plugin supplies app definitions and rendering to the shared catalog. The browser shows apps as tabs beside Chat; VS Code opens them in editor tabs.", "Properties of a WebPlugin.", `
 const elements = {
   id: "ragents.example",
   surfaceElements: [{
@@ -476,8 +475,8 @@ const elements = {
     select: () => [{ id: "example-note", title: "Note", visible: true }],
     Element: ({ definition }) => <p>{definition.title}</p>,
   }],
-} satisfies WebPlugin;`, ["web.surfaceElements", "surfaceElement.id", "surfaceElement.visible", "surfaceElement.title", "surfaceElement.anchorActorId", "surfaceElement.entity", "surfaceElement.data"], ["Definitions name only their id; title is optional. visible: false takes an element off the surface without reporting a missing tile reference. Without visible, it is visible. The tile determines the size, not the contribution. anchorActorId, entity, and custom data are optional. The tile layout decides the placement; the contribution alone creates no actor identity. The run panel recognizes owners by anchorActorId, even with visible: false."], "tsx"),
-  entry("web-card-sections", "Web contributions", "Sections on actor cards", "The participants of a run are called actors and are displayed as cards on the surface. A plugin can extend these cards with its own sections, for example for documents or a status.", "Properties of a WebPlugin; a neutral section without access to actor fields.", `
+} satisfies WebPlugin;`, ["web.surfaceElements", "surfaceElement.id", "surfaceElement.visible", "surfaceElement.title", "surfaceElement.anchorActorId", "surfaceElement.entity", "surfaceElement.data"], ["Definitions require an id; title is optional. visible: false removes an entry from the catalog. The host determines its size. anchorActorId, entity, and custom data are optional. New apps do not steal focus. Visited browser views stay mounted while hidden; unavailable selections return to Chat."], "tsx"),
+  entry("web-card-sections", "Web contributions", "Sections on actor cards", "A plugin can add sections above the selected actor chat, for example for documents or a status.", "Properties of a WebPlugin; a neutral section without access to actor fields.", `
 const cards = {
   id: "ragents.example",
   cardSections: [{ id: "ragents.example.note", order: 100,
@@ -489,7 +488,7 @@ const sessionUi = {
   needsRunView: true,
   SessionProvider: ({ children, session }) => <section aria-label={session.session.title}>{children}</section>,
 } satisfies WebPlugin;`, ["web.needsRunView", "web.SessionProvider"], ["session.runView is unknown and must be validated before domain access. A provider owns session and navigation and is only included for active plugins."], "tsx"),
-  entry("web-headers", "Web contributions", "Overview, global toolbar, and run bars", "A plugin can show information for the entire application or for the run that is currently open. Contributions for the entire application appear in the overview or in the global header; contributions for the run follow the current selection. For this there are overviewPanels with a placement choice and sessionHeaders for the title bar or the bar at the top of the surface.", "Properties of a WebPlugin.", `
+  entry("web-headers", "Web contributions", "Overview, global toolbar, and run bars", "A plugin can show information for the entire application or for the run that is currently open. Contributions for the entire application appear in the overview or in the global header; contributions for the run follow the current selection. For this there are overviewPanels with a placement choice and sessionHeaders for run details in the shared title bar.", "Properties of a WebPlugin.", `
 const headers = {
   id: "ragents.example",
   overviewPanels: [
@@ -504,7 +503,7 @@ const headers = {
     Header: ({ session }) => <span>{session.running ? "Working" : "Ready"}</span> }],
   sessionStatus: [{ id: "ragents.example.run-status", order: 100,
     Status: ({ session }) => <span>{session.connected ? "Connected" : "Disconnected"}</span> }],
-} satisfies WebPlugin;`, ["web.overviewPanels", "web.sessionHeaders", "web.sessionStatus"], ["The context provides registry, open, onOpen, onClose, and onBusy. Without placement, the contribution appears in the overview and is mounted when first opened. Toolbar contributions are mounted from application startup; they activate their own connections only when used. With placement: idle, the first visible contribution fills the main area while no run is open. The host coordinates closing each other. sessionHeaders uses placement: header by default; placement: surface puts the contribution in the bar at the top of the surface. This bar stays usable even in an app full view. Run header and lower status groups receive SessionContext and navigation and follow the active run."], "tsx"),
+} satisfies WebPlugin;`, ["web.overviewPanels", "web.sessionHeaders", "web.sessionStatus"], ["The context provides registry, open, onOpen, onClose, and onBusy. Without placement, the contribution appears in the overview and is mounted when first opened. Toolbar contributions are mounted from application startup; they activate their own connections only when used. With placement: idle, the first visible contribution fills the main area while no run is open. The host coordinates open toolbar contributions. sessionHeaders appear in the run details popover. Run header and lower status groups receive SessionContext and navigation and follow the active run."], "tsx"),
   entry("web-settings", "Web contributions", "Editable plugin settings", "A plugin can offer its own interface for editing its settings. With category, it appears under Models or Appearance, and additionally on the plugin's settings page. The application assigns it to the active plugin.", "Properties of a WebPlugin; ExampleSettings is the plugin's own React component.", `
 import { useState } from "react";
 function ExampleSettings() {
@@ -656,7 +655,7 @@ export default defineActor({
     "start carries input, options, embedded, startedBy, and count, the number of this start of the package in the run. Without onStart, the start arrives in onInput as the JSON { input, options }.",
     "context.finish works in onStart, onInput, and onResult; outside onStart it names the start with { start: count }. A second finish of the same start fails the turn.",
     "The owner reads the summary in the chat, an LLM gets summary and result as a message, a TypeScript actor that started the script gets them in onResult.",
-    "An embedded start places the package's first view next to the surface; a script that arranges more tiles uses canvas_layout_place when start.embedded is true.",
+    "An embedded start adds its visible views to the app catalog without changing the selected view.",
     "shared-programs: notebook in RUN.md copies the plugin's shared package actors/notebook/ into the run; actor_program_ensure({ name: \"notebook\" }) makes it active once, whichever script comes first.",
   ]),
   entry("program-tests", "Actor programs", "Check input processing in a domain test", "Regular TypeScript tests check the input handler and its explicit state changes. The host runs the same tests before activation.", "tests/program.test.ts for the previous counter program.", `
@@ -746,10 +745,10 @@ test("keeps existing entries", async () => {
     "createTestContext provides state, abort signal, and explicitly specified typed functions under functions. The mocks are TypeScript functions in the test and not a tool argument of the model.",
     "A domain test checks the shared function. A real browser check must additionally prove the visible operation.",
   ]),
-  entry("app-placements", "Actor programs", "Views as tiles", "An activated view can sit as a tile on the surface and belongs to its actor. The user can enlarge it in the host; several views show the same actor state.", "An entry in package.json.ragents.views.", `
+  entry("app-tabs", "Actor programs", "Views as app tabs", "An activated visible view enters the shared app catalog and belongs to its actor. Several views can show the same actor state.", "An entry in package.json.ragents.views.", `
 { "id": "main", "title": "List", "client": "src/client.tsx" }`, [], [
-    "actor_view_set_visibility uses package name/view name or a unique title. The view identifier is unique within the package. A view has no size of its own; the tile determines it, and the matching actor is its anchor.",
-    "actor_view_set_visibility makes a view visible or invisible. Functions and actor state are preserved; the local full view belongs to the user's operation.",
+    "actor_view_set_visibility uses package name/view name or a unique title. The view identifier is unique within the package. A view has no host size of its own; the browser content area or VS Code editor determines it.",
+    "actor_view_set_visibility makes a view visible or invisible. Functions and actor state are preserved.",
     "Views have no dialog or window control API.",
   ], "json"),
   entry("app-client", "Actor programs", "React view with actor state", "The view reads the intrinsic state of its actor. New successful changes appear even while the chat is idle; local React input is preserved.", "src/client.tsx for the shared list.", `

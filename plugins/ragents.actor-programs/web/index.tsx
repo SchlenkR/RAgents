@@ -7,12 +7,10 @@ import {
 import { createActorProgramsApi } from "./api";
 import {
   RUN_TOOLS_TAB_ID,
-  ActorProgramsHeader,
   ActorProgramsProvider,
   ToolsBadge,
   ToolsPanel,
 } from "./AppsPanel";
-import { FullscreenHost } from "./FullscreenHost";
 import {
   ActorProgramSurfaceElement,
   ActorProgramToolCardSection,
@@ -38,7 +36,6 @@ const configuredPlugin = (descriptor: WebPluginDescriptor, routePrefix: string):
     return (
       <ActorProgramsProvider api={api} session={session}>
         {children}
-        <FullscreenHost session={session} />
       </ActorProgramsProvider>
     );
   }
@@ -47,12 +44,6 @@ const configuredPlugin = (descriptor: WebPluginDescriptor, routePrefix: string):
     ...descriptor,
     needsRunView: true,
     SessionProvider: Provider,
-    sessionHeaders: [{
-      id: "ragents.actor-programs.quick-list",
-      placement: "surface",
-      order: 250,
-      Header: ActorProgramsHeader,
-    }],
     cardSections: [{
       id: "ragents.actor-programs.tools",
       order: 400,

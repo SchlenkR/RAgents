@@ -48,7 +48,7 @@ const view = {
 const props = { view, selection: { type: "actor" as const, id: actor.id }, canGoBack: false, composerVisible: false,
   onNavigate: () => {}, onBack: () => {}, primaryMessages: [], primaryRunning: false };
 const api = { source: () => assert.fail("Source is loaded only after opening its tab") } as unknown as ActorProgramsApi;
-const slot: ProgramSlot = { runId: view.id, needsAnswer: () => false, openFullscreen: () => {}, source: (current, actorId) => actorProgramSourceView(api, current, actorId) };
+const slot: ProgramSlot = { runId: view.id, source: (current, actorId) => actorProgramSourceView(api, current, actorId) };
 const withProgram = (children: ReactNode) => createElement(ProgramSlotContext.Provider, { value: slot }, children);
 
 test("headless TypeScript actors expose their installed source without views, tools or actor.source", () => {
@@ -99,7 +99,7 @@ const api = { source: async (runId, moduleId, signal) => new Promise(resolve => 
   ]) };
   fixture.calls.push(call);
 }) };
-const value = { runId: initialView.id, needsAnswer: () => false, openFullscreen: () => {}, source: (view, actorId) => actorProgramSourceView(api, view, actorId) };
+const value = { runId: initialView.id, source: (view, actorId) => actorProgramSourceView(api, view, actorId) };
 function Harness() {
   const [, update] = useState(0);
   fixture.update = changes => { Object.assign(fixture, changes); update(value => value + 1); };

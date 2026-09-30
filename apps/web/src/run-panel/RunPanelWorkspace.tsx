@@ -3,10 +3,9 @@ import { XIcon } from "lucide-react";
 import { cn } from "cn";
 import type { SessionContext, SessionNavigation, WorkspaceTabContribution } from "../PluginRegistry";
 import { Button } from "../ui";
-import { mountedTabs } from "../WorkspacePanel";
 import { RUN_PANEL_WORKSPACE_ID } from "./workspace-state";
 
-/** The sidebar as a pop-out over the run panel's chat and stage, with two areas only over the right one; the rest is dimmed, a click outside, Escape, and X close it, visited keepMounted tabs stay mounted. */
+/** Inspection overlays the selected content; visited keepMounted tabs retain their state. */
 export function RunPanelWorkspace({ navigation, onClose, open, session, tabs }: {
   navigation: SessionNavigation;
   onClose: () => void;
@@ -53,3 +52,10 @@ export function RunPanelWorkspace({ navigation, onClose, open, session, tabs }: 
     </section>
   </>;
 }
+
+export const mountedTabs = (
+  tabs: readonly WorkspaceTabContribution[],
+  activeTabId: string | undefined,
+  visited: readonly string[],
+): readonly WorkspaceTabContribution[] =>
+  tabs.filter((tab) => tab.id === activeTabId || tab.keepMounted === true && visited.includes(tab.id));

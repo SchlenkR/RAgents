@@ -112,7 +112,7 @@ test("the neutral showcase fixture composes real plugins and folder contribution
   assert.ok(host.optionalService(browserRuntimeToken), "browser service is missing");
   assert.deepEqual(names(host.operations.describe()), ["actor_input"]);
   assert.deepEqual(host.tools.describe().map((tool) => tool.name).sort(), [
-    "ask_user", "bash", "canvas_layout_place", "canvas_layout_replace", "document_write", "edit",
+    "ask_user", "bash", "document_write", "edit",
     "fsharp_close", "fsharp_diagnostics", "fsharp_open",
     "actor_program_activate", "actor_program_controls", "actor_program_create", "actor_program_diagnostics", "actor_program_ensure", "actor_program_list", "actor_program_remove", "actor_transcript", "actor_view_set_visibility",
     "browser_open", "browser_snapshot", "browser_click", "browser_fill", "browser_select", "browser_press", "browser_check", "browser_viewport", "browser_screenshot", "browser_view_screenshot", "browser_close",
@@ -234,7 +234,7 @@ test("function catalogs keep compact descriptions while runtime functions retain
     assert.equal(descriptors.find((entry) => entry.name === original.name)?.description, fn.description);
   }
 
-  for (const name of ["actor_program_controls", "actor_program_activate", "canvas_layout_replace", "ask_user", "show_document", "todo_replace", "quick_answer"]) {
+  for (const name of ["actor_program_controls", "actor_program_activate", "ask_user", "show_document", "todo_replace", "quick_answer"]) {
     const fn = functions.find((entry) => entry.name === name);
     assert.ok(fn?.longDescription, name);
     assert.ok(fn.description.length < 180, name);

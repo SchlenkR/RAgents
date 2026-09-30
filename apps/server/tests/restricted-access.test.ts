@@ -141,7 +141,7 @@ test("surface projection keeps views and domain state without models, prompts or
       { pluginId: "ragents.actor-state", scope: { kind: "actor", actorId: "helper" }, state: { progress: 2 }, updatedAt: "now" },
       { pluginId: "ragents.actor-programs", scope: { kind: "actor", actorId: "helper" }, updatedAt: "now", state: { version: 1, program: {
         name: "helper", title: "Helper", actorId: "helper", actorHandle: "helper", revision: "revision", backendFile: "hidden-source", directory: "hidden-directory",
-        functions: [{ id: "hidden-function" }], views: [{ id: "board", key: "board", title: "Board", visible: true, placements: [], html: "hidden-html" }],
+        functions: [{ id: "hidden-function" }], views: [{ id: "board", key: "board", title: "Board", visible: true, html: "hidden-html" }],
       } } },
     ],
   } as RunView;
@@ -233,10 +233,10 @@ const stateEntry = (pluginId: string, state: PluginState["state"], scope: Plugin
 test("without runs.inspect every plugin projects its own states; without a projection and without rights of a start option the state stays as it is", () => {
   const program = stateEntry("ragents.actor-programs", { version: 1, program: {
     name: "board", title: "Board", actorId: "helper", actorHandle: "helper", revision: "r1", directory: "hidden-directory", backendFile: "hidden-source",
-    functions: [{ id: "hidden-function" }], views: [{ id: "board", key: "main", title: "Board", visible: true, placements: [], html: "hidden-html", clientFile: "hidden-client" }],
+    functions: [{ id: "hidden-function" }], views: [{ id: "board", key: "main", title: "Board", visible: true, html: "hidden-html", clientFile: "hidden-client" }],
   } }, { kind: "actor", actorId: "helper" });
   assert.deepEqual(projections.state(program, operator), { ...program, state: { version: 1, program: {
-    name: "board", title: "Board", actorId: "helper", actorHandle: "helper", revision: "r1", views: [{ id: "board", key: "main", title: "Board", visible: true, placements: [] }],
+    name: "board", title: "Board", actorId: "helper", actorHandle: "helper", revision: "r1", views: [{ id: "board", key: "main", title: "Board", visible: true }],
   } } });
   const empty = stateEntry("ragents.actor-programs", { version: 1, program: null }, { kind: "actor", actorId: "helper" });
   assert.equal(projections.state(empty, operator)?.state, empty.state);

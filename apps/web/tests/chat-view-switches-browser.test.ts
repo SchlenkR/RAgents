@@ -2,6 +2,8 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { build } from "esbuild";
 import { chromium, type Locator, type Page } from "playwright-core";
 import { tailwindPlugin } from "./tailwind-plugin";
@@ -71,10 +73,10 @@ test("every chat shows the timestamp switch and it toggles only its own message 
   await chat({ kind: "text", delta: "The status is checked.", at: "2026-09-25T09:06:00.000Z", cursor: { conversationId: "demo-conversation", sequence: 1, offset: 0 } });
   await chat({ kind: "turn-done" });
   await chat({ kind: "replay-end", conversationId: null });
-  const main = panel.locator("body");
+  const main = panel.locator("section[aria-label=Chat] [data-chat=panel]:visible");
   await expectSwitch(main);
   if (screenshots) await panel.screenshot({ path: `${screenshots}/main-chat.png` });
-  await panel.locator("button[title^=\"Addressee: @coordinator\"]").click();
+  await panel.locator("button[title^=\"Addressee: @coordinator\"]:visible").click();
   await panel.getByRole("dialog", { name: "Addressee" }).getByText("@reviewer").click();
   await panel.getByPlaceholder("Message to @reviewer ...").waitFor();
   await expectSwitch(main);
@@ -83,12 +85,12 @@ test("every chat shows the timestamp switch and it toggles only its own message 
   const parts = await openPage(`${url}?mode=parts`, errors);
   context.after(() => parts.close());
   const region = (name: string) => parts.getByRole("region", { name, exact: true });
-  for (const name of ["tile", "stopped", "program", "human", "hidden-composer"]) await expectSwitch(region(name));
-  await region("tile").getByRole("button", { name: hideLabel, exact: true }).click();
-  await region("tile-readonly").getByRole("button", { name: showLabel, exact: true }).waitFor();
+  for (const name of ["actor-chat", "stopped", "program", "human", "hidden-composer"]) await expectSwitch(region(name));
+  await region("actor-chat").getByRole("button", { name: hideLabel, exact: true }).click();
+  await region("actor-readonly").getByRole("button", { name: showLabel, exact: true }).waitFor();
   assert.equal(await region("stopped").locator("time").count(), 2, "another actor keeps its own choice");
-  await region("tile-readonly").getByRole("button", { name: showLabel, exact: true }).click();
-  await region("tile").locator("time").first().waitFor();
+  await region("actor-readonly").getByRole("button", { name: showLabel, exact: true }).click();
+  await region("actor-chat").locator("time").first().waitFor();
 
   const preparation = region("preparation");
   await preparation.getByRole("button", { name: "Discuss task", exact: true }).click();
@@ -103,5 +105,28 @@ test("every chat shows the timestamp switch and it toggles only its own message 
   });
   await expectSwitch(overseer);
   if (screenshots) await parts.screenshot({ path: `${screenshots}/other-chats.png`, fullPage: true });
+  assert.deepEqual(errors, []);
+});
+
+test("preparation attachments check the selected model before sending", {
+  skip: process.env.RAGENTS_BROWSER_TESTS !== "1", timeout: 60_000,
+}, async (context) => {
+  const directory = await mkdtemp(join(tmpdir(), "ragents-preparation-images-"));
+  context.after(() => rm(directory, { recursive: true, force: true }));
+  const url = await buildFixture(directory);
+  const errors: string[] = [];
+  const imagePage = await openPage(`${url}?mode=preparation`, errors, { width: 800, height: 1000 });
+  context.after(() => imagePage.close());
+  const imageChat = imagePage.getByRole("region", { name: "Discuss task", exact: true });
+  const image = { name: "example.png", mimeType: "image/png", buffer: Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aD1sAAAAASUVORK5CYII=", "base64") };
+  await imageChat.locator('input[type="file"]').setInputFiles(image);
+  await imageChat.getByRole("alert").filter({ hasText: "does not support example.png" }).waitFor();
+  assert.equal(await imageChat.getByRole("button", { name: "Discuss task", exact: true }).isDisabled(), true);
+  await imageChat.getByRole("button", { name: "Remove example.png" }).click();
+  await imagePage.evaluate(() => { window.chatViewFixture.modelInput = ["text", "image"]; });
+  await imageChat.locator('input[type="file"]').setInputFiles(image);
+  await imageChat.getByAltText("example.png").waitFor();
+  await imageChat.getByRole("button", { name: "Discuss task", exact: true }).click();
+  await imageChat.getByText("Good, the task is clear.").waitFor();
   assert.deepEqual(errors, []);
 });

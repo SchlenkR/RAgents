@@ -12,13 +12,9 @@ Snippets act as the caller. onInput acts as its actor. A called actor function o
 
 Domain user tasks and skill templates describe the desired result. Technical contracts are in the environment; the LLM chooses the approach itself. A run script is an additional option for prepared templates.
 
-## Divide the surface
+## Mini-app navigation
 
-The surface of a run consists of tiles; context.functions.canvas_layout_replace sets their layout. Load the exact contract through typescript_api first. root is the entire layout and replaces the stored one. A tile names an actor with @handle or an activated mini-app with app:@handle/view-key and may carry chatInput: false for actors; a split has direction horizontal (left/right) or vertical (top/bottom), two positive weights, and exactly two children. Children may be further splits.
-
-For a mini-app on the left and a chat on the right at a ratio of 50:50: await context.functions.canvas_layout_replace({ root: { direction: "horizontal", weights: [1, 1], children: [{ entity: "app:@workspace/main" }, { entity: "@helper" }] } });. Replace the example names with the participants actually created. [2, 1] splits into two thirds and one third. For one tile at the top and two at the bottom, use the horizontal split as the lower child of a vertical split.
-
-root: null clears the surface. Your own user arrangements take precedence until the user selects "Apply program default". New participants do not change existing tiles automatically and remain reachable through the header. The setup declares canvas_layout_replace in its required capabilities.
+Activated visible views enter the app catalog automatically. The browser shows tabs beside Chat; VS Code opens each app in its own editor tab. Programs do not arrange the host interface.
 
 ## Package and execution
 
@@ -40,7 +36,9 @@ With onStart(start, context), the program receives every start there instead of 
 
 With embeddable: true, the script also starts inside a running run, through ragents.chat.start or ragents.runs.startScript, which waits and returns the actor or the error. The primary actor stays, the template's fixed start options must match the run's, bundled programs are copied only when missing, and a repeated start reuses the setup actor and delivers a new start.
 
-context.finish(result, { summary }) ends a start in onStart, onInput, or onResult; outside onStart it names the start with { start: count }. The owner reads the summary in the chat, an LLM starter gets summary and result as a message, a TypeScript starter gets them in onResult. The coordinator starts scripts with run_script_list and run_script_start; an embedded script places its tiles with canvas_layout_place instead of replacing the layout.
+Browser runs share the VS Code panel: Chat and mini-app tabs, one visible view, with visited app input retained. In VS Code apps open in editor tabs. New apps never steal focus and unavailable selected apps return to Chat.
+
+context.finish(result, { summary }) ends a start in onStart, onInput, or onResult; outside onStart it names the start with { start: count }. The owner reads the summary in the chat, an LLM starter gets summary and result as a message, a TypeScript starter gets them in onResult. The coordinator starts scripts with run_script_list and run_script_start; an embedded script adds its visible mini-apps to the shared catalog without changing the selected view.
 
 With coordinator: true, the host creates the coordinator. With coordinator: false, the setup must choose a primary actor through run_configure and give it a concrete task as ActorInput. The setup records the completed setup in its state and processes later inputs without setting up twice.
 
@@ -278,7 +276,7 @@ export default defineActor(contract, {
     await context.functions.actor_input({
       actor: "@coordinator",
       content: `The shared collection is called ${JSON.stringify(title)}. The run script has bound the program shared-list to @${helper.handle}. Its view is visible on the surface; the helper is currently adding the first entry with append_to_list. `
-        + "Below under Actors, its name opens the inspector with chat and details. Its tile is hidden by default and can be turned on in the Actors list when needed. "
+        + "Use the addressee selector to inspect its owner with chat and details. Open the mini-app from the app catalog. "
         + "Explain to the user in three sentences how to use the visible list, how to open the helper, and that the view and the function share the same list state.",
     });
 
@@ -294,7 +292,7 @@ import { createTestContext } from "@ragents/server/testing";
 
 export const setupContext = (profiles = [{ name: "coordinator", driver: "agent" }, { name: "standard", driver: "agent" }], suffix = "") => {
   const calls: { name: string; input: unknown }[] = [];
-  const functions = Object.fromEntries(["model_list", "agent_spawn", "run_configure", "actor_input", "canvas_layout_replace", "actor_program_activate"].map((name) => [name, (input: unknown) => {
+  const functions = Object.fromEntries(["model_list", "agent_spawn", "run_configure", "actor_input", "actor_program_activate"].map((name) => [name, (input: unknown) => {
     calls.push({ name, input });
     if (name === "agent_spawn") {
       const handle = (input as { handle: string }).handle + suffix;
@@ -386,14 +384,14 @@ test("uses the actually created handle for binding and task", async () => {
 ```markdown
 ---
 title: Set up conversation circle
-description: "A prepared setup shows parameterization through a start guide and the arrangement of a conversation circle. The coordinator then leads the rounds."
+description: "A prepared setup shows parameterization through a start guide and the participants of a conversation circle. The coordinator then leads the rounds."
 order: 120
 guide: ragents.reference.conversation-circle
 tags: Run scripts, Use case, Concept demo, Start guide, Agent teams
 ---
 
-A deterministic setup: the script sets up mira, jon, and ada as ordinary LLMs, splits
-the surface among them, and hands the briefing to the coordinator.
+A deterministic setup: the script sets up mira, jon, and ada as ordinary LLMs and hands
+the briefing to the coordinator.
 The card tests the model, this script tests the platform.
 
 The guide passes `{ "topic": "...", "rounds": 2 }`. `topic` contains 1 to 160 characters, `rounds` is an integer from 1 to 5. The start value `null` explicitly chooses the topic "Should city centers become car-free?" and two rounds. Other incomplete or invalid values are rejected before the setup. Topic and number of rounds control the display and the task, and the topic also controls the run title.
@@ -408,7 +406,7 @@ import { Type } from "typebox";
 const contract = {
   state: Type.Object({ built: Type.Optional(Type.Boolean()) }, { additionalProperties: false }),
   functions: {},
-  input: { capabilities: ["model_list", "agent_spawn", "canvas_layout_replace", "actor_input", "run_configure"] },
+  input: { capabilities: ["model_list", "agent_spawn", "actor_input", "run_configure"] },
 } as const;
 
 type Start = { input: unknown };
@@ -461,22 +459,12 @@ export default defineActor(contract, {
       participants.push(`@${participant.handle}`);
     }
 
-    await context.functions.canvas_layout_replace({
-      root: {
-        direction: "vertical",
-        weights: [1, 1],
-        children: [
-          { entity: participants[0]! },
-          { direction: "horizontal", weights: [1, 1], children: [{ entity: participants[1]! }, { entity: participants[2]! }] },
-        ],
-      },
-    });
 
     await context.functions.actor_input({
       actor: "@coordinator",
-      content: `The circle is ready: ${participants.join(", ")} are set up, the surface is split. Topic: "${topic}". `
+      content: `The circle is ready: ${participants.join(", ")} are set up. Topic: "${topic}". `
         + `Run exactly ${rounds} conversation rounds: in each round ${participants.join(", ")} in this order. `
-        + "Each one receives the previous contributions. Do not change the surface. "
+        + "Each one receives the previous contributions. "
         + "At the end, summarize the conversation in three sentences.",
     });
 
@@ -492,7 +480,7 @@ import { createTestContext } from "@ragents/server/testing";
 
 export const setupContext = (profiles = [{ name: "coordinator", driver: "agent" }, { name: "standard", driver: "agent" }]) => {
   const calls: { name: string; input: unknown }[] = [];
-  const functions = Object.fromEntries(["model_list", "agent_spawn", "run_configure", "actor_input", "canvas_layout_replace", "actor_program_activate"].map((name) => [name, (input: unknown) => {
+  const functions = Object.fromEntries(["model_list", "agent_spawn", "run_configure", "actor_input", "actor_program_activate"].map((name) => [name, (input: unknown) => {
     calls.push({ name, input });
     if (name === "agent_spawn") {
       const handle = (input as { handle: string }).handle;
@@ -524,16 +512,11 @@ import test from "node:test";
 import program from "../src/server.ts";
 import { setupContext, startInput } from "./helpers.ts";
 
-test("topic and number of rounds control participants, surface, and task", async () => {
+test("topic and number of rounds control participants and task", async () => {
   const { calls, context } = setupContext();
   await program.onInput!(startInput({ topic: "Team breakfast", rounds: 3 }), context);
   assert.deepEqual(calls.filter((call) => call.name === "agent_spawn").map((call) => (call.input as { handle: string }).handle), ["mira", "jon", "ada"]);
   assert.deepEqual(calls.find((call) => call.name === "run_configure")?.input, { title: "Conversation circle: Team breakfast" });
-  const layout = calls.find((call) => call.name === "canvas_layout_replace")?.input as { root: unknown };
-  assert.deepEqual(layout.root, { direction: "vertical", weights: [1, 1], children: [
-    { entity: "@mira" },
-    { direction: "horizontal", weights: [1, 1], children: [{ entity: "@jon" }, { entity: "@ada" }] },
-  ] });
   assert.match(JSON.stringify(calls.at(-1)), /exactly 3 conversation rounds/);
   assert.deepEqual(context.state.read(), { built: true });
   const completedCalls = calls.length;
@@ -660,7 +643,7 @@ import { createTestContext } from "@ragents/server/testing";
 
 export const setupContext = (profiles = [{ name: "coordinator", driver: "agent" }, { name: "standard", driver: "agent" }]) => {
   const calls: { name: string; input: unknown }[] = [];
-  const functions = Object.fromEntries(["model_list", "agent_spawn", "run_configure", "actor_input", "canvas_layout_replace", "actor_program_activate"].map((name) => [name, (input: unknown) => {
+  const functions = Object.fromEntries(["model_list", "agent_spawn", "run_configure", "actor_input", "actor_program_activate"].map((name) => [name, (input: unknown) => {
     calls.push({ name, input });
     if (name === "agent_spawn") {
       const handle = (input as { handle: string }).handle;
@@ -1088,7 +1071,7 @@ tags: Run scripts, Use case, Concept demo, Mini-apps, LLM actor with view, Contr
 
 The TypeScript setup creates a balcony advisor with the role `standard` and explicitly
 without tools. The bundled program `actors/balcony-app/` binds a standalone mini-app to
-this actor. The surface shows only its tile instead of a chat tile; no coordinator
+this actor. The app is available beside Chat; no coordinator
 is created for this run. The advisor becomes the primary actor and keeps its own
 interview prompt.
 
@@ -1116,7 +1099,7 @@ import { Type } from "typebox";
 const contract = {
   state: Type.Object({ built: Type.Optional(Type.Boolean()) }, { additionalProperties: false }),
   functions: {},
-  input: { capabilities: ["model_list", "agent_spawn", "actor_program_activate", "canvas_layout_replace", "run_configure"] },
+  input: { capabilities: ["model_list", "agent_spawn", "actor_program_activate", "run_configure"] },
 } as const;
 
 const prompt = `You conduct a balcony interview in a standalone app. The user sees your current question or, at the end, your recommendation. You have no tools and answer as normal text.
@@ -1137,7 +1120,6 @@ export default defineActor(contract, {
       handle: "balcony-advisor", displayName: "Balcony advisor", prompt, profile: profile.name, tools: [],
     });
     await context.functions.actor_program_activate({ name: "balcony-app", actor: `@${advisor.handle}` });
-    await context.functions.canvas_layout_replace({ root: { entity: `app:@${advisor.handle}/main` } });
     await context.functions.run_configure({ title: "Your balcony", primaryActor: `@${advisor.handle}` });
     context.state.replace({ built: true });
   },
@@ -1157,7 +1139,7 @@ const input = { id: "start", content: JSON.stringify({ input: null, options: {} 
 function setup(options: { missingProfile?: boolean; failActivation?: boolean } = {}) {
   const calls: { name: string; input: unknown }[] = [];
   const functions = Object.fromEntries([
-    "model_list", "agent_spawn", "actor_program_activate", "canvas_layout_replace", "run_configure",
+    "model_list", "agent_spawn", "actor_program_activate", "run_configure",
   ].map((name) => [name, (value: unknown) => {
     calls.push({ name, input: value });
     if (name === "model_list") return { profiles: options.missingProfile ? [] : [{ name: "standard", driver: "agent", description: "Test profile", turnTimeoutMs: null, isolateWorkspace: false, provider: "test", model: "test" }], models: [] };
@@ -1176,20 +1158,19 @@ function setup(options: { missingProfile?: boolean; failActivation?: boolean } =
   return { calls, context };
 }
 
-test("sets up an advisor without tools and its own mini-app as the only tile", async () => {
+test("sets up an advisor without tools and its own mini-app in the app catalog", async () => {
   const { calls, context } = setup();
   await program.onInput!(input, context);
-  assert.deepEqual(calls.map((call) => call.name), ["model_list", "agent_spawn", "actor_program_activate", "canvas_layout_replace", "run_configure"]);
+  assert.deepEqual(calls.map((call) => call.name), ["model_list", "agent_spawn", "actor_program_activate", "run_configure"]);
   assert.deepEqual(calls.find((call) => call.name === "agent_spawn")?.input, {
     handle: "balcony-advisor", displayName: "Balcony advisor", profile: "standard", tools: [],
     prompt: (calls[1]!.input as { prompt: string }).prompt,
   });
   assert.deepEqual(calls[2]!.input, { name: "balcony-app", actor: "@balcony-advisor" });
-  assert.deepEqual(calls[3]!.input, { root: { entity: "app:@balcony-advisor/main" } });
-  assert.deepEqual(calls[4]!.input, { title: "Your balcony", primaryActor: "@balcony-advisor" });
+  assert.deepEqual(calls[3]!.input, { title: "Your balcony", primaryActor: "@balcony-advisor" });
   assert.deepEqual(context.state.read(), { built: true });
   await program.onInput!(input, context);
-  assert.equal(calls.length, 5);
+  assert.equal(calls.length, 4);
 });
 
 test("a missing role builds no unusable advisor", async () => {
@@ -1199,7 +1180,7 @@ test("a missing role builds no unusable advisor", async () => {
   assert.deepEqual(context.state.read(), {});
 });
 
-test("a failed view activation sets neither surface nor success state", async () => {
+test("a failed view activation neither configures the run nor marks setup complete", async () => {
   const options = { failActivation: true };
   const { calls, context } = setup(options);
   await assert.rejects(async () => program.onInput!(input, context), /View cannot be activated/);
@@ -1345,18 +1326,11 @@ const contract = {
       capabilities: ["actor_input"],
     },
   },
-  input: { capabilities: ["model_list", "agent_spawn", "canvas_layout_replace", "run_configure", "actor_input", "event_subscribe", "event_unsubscribe", "event_query"] },
+  input: { capabilities: ["model_list", "agent_spawn", "run_configure", "actor_input", "event_subscribe", "event_unsubscribe", "event_query"] },
 } as const;
 
 const startMarker = "START_LEARNING_AFTERNOON";
 
-
-type Tile = { entity: string } | { direction: "vertical"; weights: [number, number]; children: [Tile, Tile] };
-
-function stackedTiles(entities: string[]): Tile {
-  const [first, ...rest] = entities;
-  return rest.length === 0 ? { entity: first! } : { direction: "vertical", weights: [1, rest.length], children: [{ entity: first! }, stackedTiles(rest)] };
-}
 
 function boardWith(helpers: HelperState[]): LearningState {
   const working = helpers.some((helper) => helper.status === "working");
@@ -1385,13 +1359,6 @@ export default defineActor(contract, {
         const actor = await context.functions.agent_spawn({ handle: `learning-${helper.id}`, displayName: helper.label, profile: profile.name, prompt, tools: [] });
         return { ...helper, actorId: actor.id };
       }));
-      await context.functions.canvas_layout_replace({
-        root: {
-          direction: "horizontal",
-          weights: [1, 1],
-          children: [{ entity: `app:@${context.actor.handle}/main` }, stackedTiles(helpers.map((helper) => `@learning-${helper.id}`))],
-        },
-      });
       await context.functions.run_configure({ title: learningWorkflow.title, primaryActor: `@${context.actor.handle}` });
       context.state.replace({ board: { phase: "ready", helpers } });
       return;
@@ -1607,7 +1574,7 @@ function setup(options: { missingProfile?: boolean; failDispatch?: string; befor
   const calls: { name: string; input: unknown }[] = [];
   const history: CapabilityContracts["event_query"]["output"] = [];
   const functions = Object.fromEntries([
-    "model_list", "agent_spawn", "canvas_layout_replace", "run_configure", "actor_input", "event_subscribe", "event_unsubscribe", "event_query",
+    "model_list", "agent_spawn", "run_configure", "actor_input", "event_subscribe", "event_unsubscribe", "event_query",
   ].map((name) => [name, async (input: unknown) => {
     calls.push({ name, input });
     if (name === "model_list") return { profiles: options.missingProfile ? [] : [{ name: "standard", driver: "agent", description: "Test profile", turnTimeoutMs: null, isolateWorkspace: false, provider: "test", model: "test" }], models: [] };
@@ -1910,7 +1877,7 @@ export const contract = {
       capabilities: ["actor_input"],
     },
   },
-  input: { capabilities: ["model_list", "agent_spawn", "canvas_layout_replace", "run_configure", "event_subscribe", "event_query", "actor_input"] },
+  input: { capabilities: ["model_list", "agent_spawn", "run_configure", "event_subscribe", "event_query", "actor_input"] },
 } as const;
 ```
 
@@ -1956,7 +1923,6 @@ export default defineActor(contract, {
     try {
       if (!state.status) {
         await context.functions.run_configure({ title: "Word game", primaryActor: context.actor.id });
-        await context.functions.canvas_layout_replace({ root: { entity: `app:@${context.actor.handle}/main` } });
         const start = payloadOf(JSON.parse(input.content));
         if (start.input !== null || !start.options || typeof start.options !== "object" || Array.isArray(start.options)
           || Object.keys(start).some((key) => key !== "input" && key !== "options")) {
@@ -2141,7 +2107,6 @@ function fixture(initialState: WordGameState = {}) {
         return { id: `actor-${input.handle}`, handle: input.handle };
       },
       run_configure: async (input) => { calls.push({ name: "run_configure", input }); return null; },
-      canvas_layout_replace: async (input) => { calls.push({ name: "canvas_layout_replace", input }); return null; },
       event_subscribe: async (input) => {
         calls.push({ name: "event_subscribe", input });
         return { subscriptionId: "subscription", sources: input.sourceActorIds ?? null };
@@ -2305,7 +2270,7 @@ test("a missing standard profile shows an error without creating participants", 
   await program.onInput(firstInput, context);
   assert.equal(context.state.read().status, "error");
   assert.match(context.state.read().error!, /role standard is missing/);
-  assert.deepEqual(calls.map((call) => call.name), ["run_configure", "canvas_layout_replace", "model_list"]);
+  assert.deepEqual(calls.map((call) => call.name), ["run_configure", "model_list"]);
 });
 
 test("a restored state keeps counting the pending task and rebuilds nothing", async () => {
@@ -2399,12 +2364,12 @@ tags: Run scripts, Concept demo, TypeScript actors
 The TypeScript program reads the participants with `actor_list` and ends each start with
 `context.finish`. The owner reads the summary in the chat; a coordinator that starts it through
 `run_script_start` receives summary and list as a message. Started inside a running run through the
-run menu, `ragents script`, or the coordinator, it changes neither the primary actor nor the tiles,
+run menu, `ragents script`, or the coordinator, it preserves the primary actor,
 and a repeated start reuses the same actor. Started as a new run, it is the run's only participant.
 
 It shares the notebook with the quick note script: `shared-programs: notebook` copies the plugin's
 shared package into the run, `actor_program_ensure` makes it active once, and
-`canvas_layout_place` puts its view next to what is arranged.
+Its visible view enters the app catalog automatically.
 ```
 
 #### src/server.ts
@@ -2416,7 +2381,7 @@ import { Type } from "typebox";
 const contract = {
   state: Type.Object({ reports: Type.Optional(Type.Number()) }, { additionalProperties: false }),
   functions: {},
-  input: { capabilities: ["actor_list", "actor_program_ensure", "actor_input", "canvas_layout_place"] },
+  input: { capabilities: ["actor_list", "actor_program_ensure", "actor_input", ] },
 } as const;
 
 export default defineActor(contract, {
@@ -2431,7 +2396,6 @@ export default defineActor(contract, {
     const summary = handles.length === 0 ? "No other participants yet." : `${handles.length} participant${handles.length === 1 ? "" : "s"}: ${handles.join(", ")}.`;
     const notebook = await context.functions.actor_program_ensure({ name: "notebook" });
     await context.functions.actor_input({ actor: `@${notebook.handle}`, content: `Roster: ${summary}` });
-    await context.functions.canvas_layout_place({ entity: "app:notebook/main" });
     context.state.replace({ reports: (context.state.read().reports ?? 0) + 1 });
     context.finish({ actors: others.map(({ handle, kind, lifecycle }) => ({ handle, kind, lifecycle })) }, { summary });
   },
@@ -2457,7 +2421,6 @@ const roster = (actors: ReturnType<typeof actor>[], state: { reports?: number } 
     actor_list: record("actor_list", actors),
     actor_program_ensure: record("actor_program_ensure", { actorId: "id-notebook", handle: "notebook", status: "active" as const }),
     actor_input: record("actor_input", []),
-    canvas_layout_place: record("canvas_layout_place", { placed: true }),
   } });
   return { calls, context };
 };
@@ -2472,7 +2435,6 @@ test("reports the other participants as result and summary and notes them in the
   assert.deepEqual(calls.slice(1).map((call) => [call.name, call.input]), [
     ["actor_program_ensure", { name: "notebook" }],
     ["actor_input", { actor: "@notebook", content: "Roster: 2 participants: @coordinator, @helper." }],
-    ["canvas_layout_place", { entity: "app:notebook/main" }],
   ]);
   assert.deepEqual(context.state.read(), { reports: 1 });
 });
@@ -2521,7 +2483,7 @@ tags: Run scripts, Concept demo, TypeScript actors
 
 The start value `{ "text": "..." }` is the note; without one, the script notes when it was
 started. The script makes the shared notebook active with `actor_program_ensure`, sends it the
-note, places the notebook's view with `canvas_layout_place`, and ends the start with
+note and ends the start with
 `context.finish`. Whether the roster check or this script comes first, the run has one notebook.
 ```
 
@@ -2534,7 +2496,7 @@ import { Type } from "typebox";
 const contract = {
   state: Type.Object({}, { additionalProperties: false }),
   functions: {},
-  input: { capabilities: ["actor_program_ensure", "actor_input", "canvas_layout_place"] },
+  input: { capabilities: ["actor_program_ensure", "actor_input", ] },
 } as const;
 
 const noteOf = (input: unknown, now: string): string => {
@@ -2553,7 +2515,6 @@ export default defineActor(contract, {
     const note = noteOf(start.input, context.std.now());
     const notebook = await context.functions.actor_program_ensure({ name: "notebook" });
     await context.functions.actor_input({ actor: `@${notebook.handle}`, content: note });
-    await context.functions.canvas_layout_place({ entity: "app:notebook/main" });
     context.finish({ note, notebook: notebook.status }, { summary: `Noted: ${note}` });
   },
 });
@@ -2575,7 +2536,6 @@ const note = (status: "active" | "installed" = "installed") => {
   const context = createTestContext<Record<string, never>>({ state: {}, functions: {
     actor_program_ensure: record("actor_program_ensure", { actorId: "id-notebook", handle: "notebook", status }),
     actor_input: record("actor_input", []),
-    canvas_layout_place: record("canvas_layout_place", { placed: status === "installed" }),
   } });
   return { calls, context };
 };
@@ -2586,7 +2546,6 @@ test("sends the note to the shared notebook and reports it", async () => {
   assert.deepEqual(calls.map((call) => [call.name, call.input]), [
     ["actor_program_ensure", { name: "notebook" }],
     ["actor_input", { actor: "@notebook", content: "Ask about the budget" }],
-    ["canvas_layout_place", { entity: "app:notebook/main" }],
   ]);
   assert.deepEqual(context.finished, [{ result: { note: "Ask about the budget", notebook: "installed" }, summary: "Noted: Ask about the budget" }]);
 });
@@ -2613,7 +2572,6 @@ These are the real @ragents/server declarations with the static capability inven
 
 ```typescript
 import type { Static, TSchema } from 'typebox';
-type RAgentsCapability31InputReference0 = ({ "children": [RAgentsCapability31InputReference0, RAgentsCapability31InputReference0, ...Array<unknown>]; "direction": ("horizontal") | ("vertical"); "weights": [number, number, ...Array<unknown>]; }) | ({ /** Actor tiles only: false hides the chat composer in the tile; default true. Does not change permissions or the inspector */ "chatInput"?: boolean; /** Actor @handle or activated mini-app app:@handle/view-key or app:program-name/view-key; the server resolves the view ID */ "entity": string; });
 export interface CapabilityContracts { "action_propose": { input: { "description"?: string; "input"?: { "label": string; "placeholder"?: string; "required": boolean; }; "parameters"?: Array<({ "name": string; "value": string; }) & ({ [key: string]: unknown })>; "title": string; }; output: Array<{ "payload": { /** ID of the proposed action */ "actionId": string; }; "type": "action.proposed"; }> };
 "actor_input": { input: { /** Actor ID or handle */ "actor": string; "artifactIds"?: Array<string>; "content": string; }; output: Array<{ "payload": { /** ID of the receiving actor */ "actorId": string; /** ID of the enqueued input */ "inputId": string; }; "type": "actor.input.enqueued"; }> };
 "actor_list": { input: { /** Also list the tool names of each actor with a fixed selection. */ "toolNames"?: boolean; }; output: Array<{ "createdBy": (null) | (string); "description": (null) | (string); "displayName": string; "handle": string; "id": string; "kind": ("agent") | ("human") | ("script"); "lifecycle": string; /** Number of selected tools; 0 is a plain LLM, null an open, dynamically resolved toolset. */ "toolCount": (null) | (number); /** Only with toolNames: true, for a fixed selection. */ "toolNames"?: Array<string>; }> };
@@ -2644,8 +2602,6 @@ export interface CapabilityContracts { "action_propose": { input: { "description
 "browser_snapshot": { input: { [key: string]: never }; output: { "errors": Array<string>; "snapshot": string; "title": string; "truncated": boolean; "url": string; } };
 "browser_view_screenshot": { input: { [key: string]: never }; output: string };
 "browser_viewport": { input: { "height": number; "width": number; }; output: { "errors": Array<string>; "snapshot": string; "title": string; "truncated": boolean; "url": string; } };
-"canvas_layout_place": { input: { /** horizontal: to the right of the current layout (default); vertical: below it */ "direction"?: ("horizontal") | ("vertical"); /** Actor @handle or activated mini-app app:@handle/view-key or app:program-name/view-key */ "entity": string; /** Share of the placed tile against the existing arrangement's weight 1; default 1 */ "weight"?: number; }; output: { "placed": boolean; } };
-"canvas_layout_replace": { input: ({ /** The whole arrangement: a tile or a binary split. Maximum 64 unique tiles and 16 nested splits. null clears the surface */ "root": (RAgentsCapability31InputReference0) | (null); }) & ({ [key: string]: unknown }); output: null };
 "document_write": { input: { /** The complete content of the file */ "content": string; /** Path in the file store, e.g. topic/report.md */ "path": string; }; output: string };
 "edit": { input: ({ /** One or more targeted replacements. Each edit is matched against the original file, not incrementally. Do not include overlapping or nested edits. If two changes touch the same block or nearby lines, merge them into one edit instead. */ "edits": Array<({ /** 1-based line number near the intended occurrence. The occurrence closest to it wins; a tie is an error. */ "nearLine"?: number; /** Replacement text for this targeted edit. */ "newText": string; /** 1-based index of the occurrence to replace when oldText is not unique. A failed edit lists all occurrences with their line numbers, so pick the index from that list. */ "occurrence"?: number; /** Exact text for one targeted replacement. It must be unique in the original file unless occurrence, nearLine or replaceAll is set, and must not overlap with any other edits[].oldText in the same call. */ "oldText": string; /** Replace every occurrence of oldText. Cannot be combined with occurrence or nearLine, and must not be used to change only some of them. */ "replaceAll"?: boolean; }) & ({ [key: string]: unknown })>; /** Path to the file to edit (relative or absolute) */ "path": string; }) & ({ [key: string]: unknown }); output: string };
 "event_query": { input: { "actorIds"?: Array<string>; "eventIds"?: Array<string>; /** Every journal event type can be queried. Only the observable types can be subscribed to; event_subscribe shows them. */ "eventTypes"?: Array<string>; "limit"?: number; }; output: Array<{ "actorId": string; "causationId": (null) | (string); "commandId": string; "correlationId": (null) | (string); "eventId": string; "occurredAt": string; "payload": unknown; "runId": string; "schemaVersion": 3; "sequence": number; "type": string; }> };

@@ -4,12 +4,15 @@ Inbox for everything; the owner and the AI write here. One line per entry, newes
 
 ## Open
 
+- Homepage: screenshots of the new shared browser surface and VS Code app tabs are still missing; capture them from neutral runs when requested.
+- Clipboard fixture: remove the obsolete app `placements` field in `apps/web/tests/nested-input-fixture.ts` in the session that owns the clipboard changes.
+- Shared UI verification: rerun browser and VS Code host checks outside the sandbox, including nested clipboard, locked-run actions, startup geometry, draft retention, and moved/reopened app editors; rerun restricted server socket, process, sandbox, and file-watch checks there.
+
 - Workstation parity (30.09.2026): verify terminal/SSH closure, killed launcher, child cleanup, and explicit `--detached` on Windows, macOS, and Linux; bundling, full checks, package installation, and the 0.1.18 publish dry run passed outside the sandbox.
 
 - UI contract paths (30.09.2026): rerun `pnpm check` and `pnpm check:package` outside the restricted sandbox after the Windows path and linked-root corrections; both checks passed on macOS before these corrections.
 
 - Run scripts in a running run (29.09.2026): the run menu starts every script with the start value `null` and shows no guide, so an embeddable script with a guide gets only its defaults there; `ragents script --input` and `run_script_start` pass a value. Offer the script's guide in the run menu.
-- Run scripts in a running run (29.09.2026): an embedded start places only the setup package's first view; a script that activates further views in its turn (like `balcony-wizard`) must call `canvas_layout_place` itself, and the reference scripts still use `canvas_layout_replace` without checking `start.embedded`.
 - Run scripts in a running run (29.09.2026): the run functions start as the run owner; a restricted owner's template releases apply, but the coordinator of the global chat has no run of its own to start scripts in. Decide whether the global coordinator gets a variant that names the target run.
 - Run scripts in a running run (29.09.2026): the web shows no running state of an embedded start (the menu closes when the start is accepted); the script's output appears only once its turn writes runtime output.
 - Shared actor packages (29.09.2026): the reference scripts `balcony-wizard` and `shared-actor-list` still bundle their programs privately; move a program into `actors/` once a second script needs it, and check whether the homepage's `run-setup.md` should list the shared packages next to the scripts.
@@ -42,7 +45,6 @@ Inbox for everything; the owner and the AI write here. One line per entry, newes
 - Process sandbox (24.09.2026): the library is a research preview (0.0.x); before every version change run `apps/server/tests/process-sandbox.test.ts`, `pnpm check:remote-workspace`, and a `dotnet build` in the server workspace. Denied accesses are only known to the operating system's log; a message to the model (`annotateStderrWithSandboxFailures`) is missing.
 - `docs/homepage/reference.html` and `developer.html` are deleted (29.09.2026), the text versions are `reference.md` and `developer.md`; but the previews of the examples (`homepage-samples.ts`) and `homepage-guide.test.ts` still link to `reference.html`. Switch these links to the Markdown versions.
 - Terms (24.09.2026): The plugin contract still calls a run `Session` in type and field names (`SessionContext`, `SessionProviderProps`, `SessionNavigation`, `SessionInfo`, `sessionMetadata`, `sessionHeaders`, `sessionStatus`, `storage.session`, `lifecycle` with `afterStopSession`, `SessionWorkspace`), plus host-internal `RunChatSession` and `RunSessionProvider`; switch to `Run` in one go together with the external plugins (around 3800 places, some mean sign-in sessions and stay).
-- Terms (24.09.2026): The tool `canvas_layout_replace` and the placement kind `canvas` of an actor view appear in journals (tool selection of actors, capabilities of activated programs, program state) and are therefore still called canvas; rename them with the next break of the journal format.
 - New folder per run on a workstation (24.09.2026): if the workstation is unreachable when the run is deleted, the folder stays behind under its folder for runs; a later cleanup (for example at the next sign-in, as with the pending stop) is missing. The start surface in VS Code always preselects an offered folder; you only choose the new folder on the workstation in the preparation chat of a skill template with a guide.
 - Steering (24.09.2026): The location of a global message only applies to the input that begins the turn (`plugins/ragents.overseer/server/user-location.ts` reads `turn.inputId`); a steered-in input does not bring its location into the system prompt. Decide whether it goes along as a header line of the steered-in message.
 - Steering (24.09.2026): The run scripts `word-game` and `learning-afternoon` assign the end of a turn to their task only via `turn.started`; a task to a busy participant would arrive as `turn.input-steered` and go unnoticed. Today every participant is idle when given the task; on a change, read both events.
@@ -58,7 +60,6 @@ Inbox for everything; the owner and the AI write here. One line per entry, newes
 - `scripts/vscode/install-local.sh` has no test; the restart with the previous `PORT` and `DATA_DIR` (24.09.2026) is only checked via `bash -n`, because the script ends running servers.
 - Run panel in VS Code: if you cancel the guide of a template (tile start, 24.09.2026), you land on the tiles of the start selection in the run panel instead of on the extension's Start page; only closing it leads back. Decide whether a cancelled guide in the host `vscode` triggers `showStart` directly; that needs a way back from `openStartEntry`.
 - Web: `run-panel/workspace-state.ts` and `chat-timestamps.ts` throw on an invalid localStorage value during rendering, `run-read-state.ts` and `storedModes` in `PluginRegistry.tsx` tolerate it; there is no error boundary, a broken value makes the panel white until the storage is cleared (review 24.09.2026). Define one rule for local settings (throw with a boundary and a way to reset, or discard with a message), not different per file.
-- Web: the trash can of a single run row (`Overview.tsx`, `SessionList.tsx`) deletes without confirmation, the multi-selection and VS Code ask (review 24.09.2026); decide when merging the web layout into the run panel instead of patching `Overview.tsx` beforehand.
 - `README.md` shows `apps/vscode/media/screenshots/run-with-explorer.png` with the dropped explorer tree (review 24.09.2026); the image needs a new capture from a core run.
 - Include the declared exports of built-in plugins (for example `ragents.watch/contract`, `ragents.browser/server/contract`) in `host-api.json` and thus in the version contract (24.09.2026): so far a foreign bundle that imports them breaks only when loading despite the same host API, and a fetched profile takes the built-in plugins from the client's host, which only needs the same host API, not the same commit; nobody notices a changed meaning.
 
@@ -72,17 +73,9 @@ Inbox for everything; the owner and the AI write here. One line per entry, newes
 - Run transfer does not know the kinds of a contributed workspace: `WorkspaceTransfer.assertDirectory` still binds a replacement folder as an existing folder on the server, even if the contribution reports `serverFolders: false` (22.09.2026).
 - After a crash or force quit of VS Code, a local host only ends at the next tick of its watchdog, i.e. up to five seconds later (22.09.2026); if VS Code restarts during this time, the new host still aborts at the writer lock of the old one. Check whether the tick should be shorter or the journal may take over such an owner.
 - `RunStore` (VS Code extension): a failed bootstrap (`ragents.plugins.bootstrap`, also the rejected default template from 22.09.2026) sets the server to "unreachable", the next successful `refresh` five seconds later sets it back to "connected", without templates and without a message; the error would have to stay until the bootstrap succeeds again.
-- The web app (`StartSelection.tsx`, host `browser`) does not know `defaultStartEntry` from the bootstrap yet; only the extension takes the default (22.09.2026).
-- The journal of a run has no access in the panel anymore since the explorer tree was dropped (22.09.2026); the command `ragents.openJournal` remains registered but is no longer called by anything. Provide access in the run panel, for example as a tab of the bar.
 - Switch local profiles to stdio: since 22.09.2026 the extension starts them silently on activation, but still as a host with a port; afterwards `startProfile` and `stopProfile` are dropped from `PanelAction` and the host test does without them.
 - A run state so far only knows `running`, `waiting`, `idle`, and `ended`; since 22.09.2026 the vocabulary of the pages (`apps/web/src/ui/state-vocabulary.ts`) also carries `failed` and `cancelled`, for which there is no source in `TargetRun.state` yet.
-- The web app does not show the four pages of the extension yet: according to the draft of 22.09.2026, `App.tsx`, `StartSelection.tsx`, and `ui/ListDetail.tsx` are to be switched to Start, Runs, and Server or deleted; the extension is switched, the browser not yet.
-- One app instead of two: merge `index.html` (web app) and `run-panel.html` (run panel) as well as the page/frame distinction in the VS Code extension into ONE app whose only variable is the host (`browser` or `vscode`); the host determines what the frame provides (pages, editor tabs) and what the app shows itself (22.09.2026).
-- Make the inspection pages from `FlowInspector` (routing, subscriptions, artifact diff) reachable from the chat; they have had no access since the network tab was dropped; until then, references to them only set the selection on the surface.
 - The global coordinator does not resolve a selected mini-app (`run-app` in the reported location, since app access via the surface controller) and names it as an unresolvable element; the resolution would need the app list from the state of the program plugin.
-- Create a tile skill as the successor of the deleted surface skills in the reference plugin (for example `120-tiles-app-beside-chat`), so that a skill template again demonstrates `canvas_layout_replace` with a nested split.
-- The "Surface" checkbox per actor in the actors list only affects the derived start split and the actor chips of the run panel since the free canvas was dismantled; check its usefulness.
-- Check live in the VS Code extension: the "Chat only" toggle in the header of the run panel and switching from an open sheet to "Chat only"; typecheck, tests, and lint are checked.
 - Check the VS Code extension for real against an `@schlenkr/ragents` installed from npm: the package has been on npm since 21.09.2026, so far only the installation from the built `.tgz` is checked.
 - Check run transfer across two machines for real: checked on 20.09.2026 with two servers on one machine (binding `fresh`, binding `path` with a replacement folder, id collision); transfer between two physical machines and an archive close to the 16 MiB limit are still missing.
 - Real run under Windows with `connect`, `read`, `edit`, `bash`, and diagnostics (package 7 of 20.09.2026); there is no Windows machine here. Since the bundled bash (25.09.2026) additionally: install the Windows VSIX and start `bash` in the workstation and in the local host; `git fetch`/`git push` from the bundled bash over HTTPS with the Git Credential Manager and over SSH; `core.hooksPath=/dev/null` with the native `git.exe`; whether the Credential Manager dialog appears with `CI=true`; `find`/`sort` from `usr/bin` instead of `System32`; `HOME` via `db_home: env windows`; process substitution `<(...)` and `/tmp`; win32-arm64 in x64 emulation; `rg` from `dist/rg/<platform>` before the `usr/bin` of the bash including MSYS path conversion, and its runtime against `grep -r` in a project with `node_modules`. Also check `actor_program_create` there: renaming from staging may fail there because of open file handles (virus scanner, indexer) (24.09.2026).
@@ -96,11 +89,9 @@ Inbox for everything; the owner and the AI write here. One line per entry, newes
 - Thinking replay depending on the model: `packages/ai` sends the reasoning of all earlier turns into every follow-up call for every OpenRouter model (`ai-sdk-messages.ts`); in run 82d041c3 that was 70 percent of the coordinator context. Introduce a model feature in the catalog and check with GLM 5.3 flash whether it runs without; no blanket omission.
 - Make the provider binding configurable per model (`compat.openRouterRouting` with `only`/`order`, for example `MODEL_ROUTING` in the host section): GLM 5.3 flash runs at OpenRouter via 28 providers, the provider cache did not hit in a third of the calls in run 82d041c3.
 
-- Homepage: capture a run panel screenshot anew from a core run after the sheet rebuild and add it to `docs/homepage/index.html`; the old screenshots folder is deleted. Needs a running server.
 
 - VS Code extension: artifacts without a text format open in the browser and need the sign-in there.
 
-- The run list of the web app (`App.tsx`) and the run panel (`run-panel/use-session-list.ts`) load the list with the same logic; switch App.tsx to the hook as soon as the UI switch is through.
 
 - ragents.watch: second user (for example the global coordinator) still open; optional narrator (progress as a chat message without a coordinator) not built.
 
@@ -122,7 +113,7 @@ Inbox for everything; the owner and the AI write here. One line per entry, newes
 
 - Run scripts: `RUN_SCRIPTS_DIR` for packages outside the repo only with the second user.
 
-- Homepage: capture real screenshots of the surface as well as of text analysis and the shared actor list from a showcase run and replace the image placeholders in `docs/homepage/index.html`; needs a running server. Show refactoring only after the concept `docs/concepts/homepage-use-cases.md` is implemented.
+- Homepage: capture real screenshots of text analysis and the shared actor list from a showcase run and replace the image placeholders in `docs/homepage/index.html`; needs a running server. Show refactoring only after the concept `docs/concepts/homepage-use-cases.md` is implemented.
 
 - Check process cleanup as root in the Linux container with and without CAP_SYS_PTRACE live; the Linux path without root with a real /proc has been checked since 23.09.2026 by `pnpm check:remote-workspace`, parser and flow regressions as well as real macOS processes by the server tests.
 
@@ -149,7 +140,6 @@ Inbox for everything; the owner and the AI write here. One line per entry, newes
 
 - Fork and ad hoc question tool. We now already have our global chat here, this global coordinator. And we could do that as well. We could make some kind of quick ask thing. Also up in the bar, like a button. There I could just ask a question. And when the answer comes, it could just be shown as a toast or something somewhere. We have to see exactly how, but that's how I imagine it.
 
-- Move further fixed tabs onto the surface: actor views already get a tile automatically; which other work areas follow and how they stay reachable is open.
 
 - Context compression: here we have to look at what already exists. For example, in terms of ideas. We can of course implement it ourselves, or we use an open source tool for it. There is Headroom maybe, that is pretty cool. But we have to see; in general we need it, of course. And of course we don't want to compress the context completely, but also, let's say, still make it accessible in case it is needed again. That is actually the modern idea. With this feature we also have to look at what the modern idea is for how we compress context.
 

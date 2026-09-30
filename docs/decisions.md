@@ -1,5 +1,124 @@
 # Decisions
 
+## 2026-09-30: Align the balcony setup test with automatic app discovery
+
+The balcony reference test now expects activation followed directly by run configuration,
+and four calls after repeated setup. Its obsolete placement assertion prevented native package
+activation even though the program already followed the shared app catalog model. All reference
+packages were checked for equivalent stale expectations. Runtime behavior and the app catalog
+contract in `spec/actor-programs.md` remain unchanged.
+
+## 2026-09-30: Finish the shared web entry and removal audit
+
+Browser and VS Code runs now use one HTML source and one bootstrap. The host build emits an
+identical `run-panel.html` alias for the iframe contract, and rejects divergent entry pages.
+The extension packages only the thin navigation adapter and its assets; it supplies its HTML shell.
+This keeps offline server navigation available without maintaining a second run interface.
+
+The removal audit also updates mini-app prompts, reference walkthroughs, terminology, and generated
+help. Outdated homepage screenshots are removed; new screenshots remain in TODO. Live layout
+registrations and callers are gone. The explicit journal rejection boundary and its regression
+tests retain historical names to lock affected old runs without blocking other runs or server startup.
+Start-page cards and layout inside mini-apps remain independent features.
+
+Updated chapters: `spec/plugins.md`, `spec/actor-programs.md`, `spec/overview.md`, `spec/core.md`,
+and `spec/typescript-platform.md`; usage follows the same interface, and
+entry-point and verification instructions are in `development.md`.
+
+## 2026-09-30: Remove program-controlled host layouts
+
+The shared app catalog makes layout functions and canvas placement metadata redundant. Both
+layout functions, the placement service, their prompts and template callers are removed together.
+Embedded starts retain their delivery semantics and expose visible apps through actor ownership.
+The journal preflight rejects old layouts, placements and function references per run before
+restoring state or repairing files; other runs and server startup remain available. No migration
+or callable compatibility tool is provided.
+
+Updated chapters: `spec/plugins.md`, `spec/actor-programs.md`, `spec/typescript-platform.md`, and
+`spec/core.md`; usage, sample instructions, and generated references follow the same behavior.
+
+## Keep startup geometry stable in the shared panel (30.09.2026)
+
+Chapter: `docs/spec/plugins.md`. The pending panel reserves the same status bar as the
+opened run, so the loading notice does not jump when the chat connects. Browser regression
+fixtures now use stable sidebar component identities, select New chat within Templates,
+and explicitly exercise the click guard of an aria-disabled locked run.
+
+## Use one run panel in the browser and VS Code (30.09.2026)
+
+Chapters: `docs/spec/plugins.md`, `docs/spec/actor-programs.md`, `docs/spec/overview.md`.
+The browser now enters the shared panel and uses the extension's Start and Runs pages.
+Chat and app tabs keep visited views mounted; unavailable apps return to Chat without
+new apps taking focus. Global coordination, journal, permissions, preparation, settings,
+help, and actor inspection remain reachable. Tile layouts, docking, surface shortcuts,
+fullscreen clients, and workspace width/visibility persistence are deleted. Host API 10
+requires one `surface.RunPanel` contribution. Server layout contracts and callers remain
+for the next compatibility-boundary step; entry packaging follows afterwards.
+
+## Preserve clipboard images through the VS Code shell (30.09.2026)
+
+Chapter: `docs/spec/plugins.md` (VS Code input). The clipboard bridge intercepted paste but
+returned only text, discarding images before the chat could process them. The shell now captures
+files from the paste event and carries them through each frame to the composer's normal attachment
+handling. Text editing keeps its undo behavior. The preparation chat also forwards attachment
+changes to its model-capability query; its draft tracking had overwritten that callback.
+
+## Keep nested focus polling independent of transpiler helpers (30.09.2026)
+
+Chapter: `docs/spec/plugins.md` (VS Code input). The nested clipboard browser test now
+uses Playwright's frame-local polling with its timeout. A named callback inside the previous
+serialized function acquired a `tsx` helper unavailable in the browser. The assertion still
+requires both the active editor and document focus before typing without refocusing.
+
+## Restore each nested frame before delivering clipboard text (30.09.2026)
+
+Chapter: `docs/spec/plugins.md` (VS Code input). Restoring the shell iframe and asking
+the editor window to focus does not restore the complete nested focus chain. Each clipboard
+relay now refocuses its captured child iframe before delivering the reply, including empty
+text. Removed frames and disposed transports do not receive focus. The browser regression
+continues to require document focus and undo without refocusing the editor.
+
+## Restore the requesting document's focus after nested paste (30.09.2026)
+
+Chapter: `docs/spec/plugins.md` (VS Code input). Focusing the outer iframe alone leaves
+a nested document unfocused even when its input is still the active element. The clipboard
+bridge now focuses the requesting window before the input, including empty clipboard replies.
+The browser regression sends undo and redo without refocusing the input. The zoom regression
+waits for the nested button's response after its coordinate click, retaining the hit-test check.
+
+## Restore frame focus after clipboard reads and stabilize browser assertions (30.09.2026)
+
+Chapter: `docs/spec/plugins.md` (VS Code input). The clipboard reader temporarily focuses
+a field in the webview shell; it now restores the run panel frame before replying so nested
+inputs can retain focus. Browser checks address a running actor's input by its accessible
+name instead of its changing placeholder, and wait for visible chat layout and queued scroll
+events before testing keyboard scrolling after a tab switch.
+
+## Keep the run panel on chat and open apps through navigation (30.09.2026)
+
+Chapter: `docs/spec/plugins.md` (run panel and VS Code). Chat placement modes, the floating
+chat sheet, its settings, and host placement messages are removed. VS Code app entries open
+or focus one editor tab per server, run, and app; browser panel tabs retain visited views.
+The addressee tree no longer depends on tile visibility, and visited chats retain separate drafts.
+Host API 9 removes the placement hook; bundles must be rebuilt.
+The navigation state uses a new key without migrating layout preferences. The browser workspace
+and layout APIs remain for subsequent refactoring steps.
+
+## Share the mini-app catalog and renderer before changing layouts (30.09.2026)
+
+Chapter: `docs/spec/plugins.md` (mini-app hosting). Browser tiles, the run panel, and
+standalone app views now resolve contributions and render apps through one host module.
+A host navigation contract separates opening an app from the existing VS Code message.
+Host API 8 marks the renamed navigation method so older bundles must be rebuilt.
+This removes duplicated selection logic while preserving current layouts and app behavior.
+
+## The title request is one user message with the task inside tags (30.09.2026)
+
+Chapter: `docs/spec/plugins.md` (title compaction). With the instruction in the system prompt and
+the bare task as the user message, a model without reasoning answered questions instead of
+titling them and invented file names. The instruction now precedes the task in a single user
+message, the task is wrapped in `<task>` tags, and there is no system prompt.
+
 ## The model request timeout counts idle time (30.09.2026)
 
 Chapter: `docs/spec/core.md` (Retries and compaction). The five-minute limit of a model request ran

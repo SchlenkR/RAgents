@@ -47,12 +47,12 @@ const withPage = async (query: string, width: number, run: (page: Page) => Promi
 };
 
 const openStartSelection = async (page: Page) => {
-  await page.getByRole("button", { name: "Open overview" }).click();
-  await page.getByRole("button", { name: "New run" }).first().click();
-  const dialog = page.getByRole("dialog", { name: "New run" });
-  await dialog.getByRole("list", { name: "Templates" }).waitFor();
-  await page.waitForFunction(() => !document.querySelector('[role=dialog] ul[aria-label="Templates"] button:disabled'));
-  return dialog;
+  const back = page.getByRole("button", { name: "Back to Start", exact: true });
+  if (await back.isVisible()) await back.click();
+  const templates = page.getByRole("list", { name: "Templates", exact: true });
+  await templates.waitFor();
+  return page;
+
 };
 
 /** Goes through the guide of the skill template and reads the offered machines in the preparation chat. */
@@ -74,7 +74,6 @@ test("the browser offers only the server for new runs, the run panel in VS Code 
     assert.deepEqual(await offeredMachines(page), ["Server"]);
   });
   await withPage("view=panel&host=browser", 520, async (page) => {
-    await page.getByRole("button", { name: "New run" }).first().click();
     await page.getByRole("button", { name: /Clarify decision/ }).click();
     assert.deepEqual(await offeredMachines(page), ["Server"], "the run panel in the browser also starts only on the server");
   });
@@ -90,21 +89,21 @@ test("the start selection in the browser shows the tiles of Start in VS Code and
     let dialog = await openStartSelection(page);
     const tiles = await dialog.getByRole("list", { name: "Templates" }).getByRole("button").evaluateAll((buttons) => buttons.map((button) => button.getAttribute("title")));
     assert.deepEqual(tiles, ["New chat", "Collection board", "Clarify decision", "Discussion circle", "Word game"]);
-    await dialog.getByRole("button", { name: /New chat/ }).click();
-    await dialog.waitFor({ state: "detached" });
+    await dialog.getByRole("list", { name: "Templates", exact: true }).getByRole("button", { name: /New chat/ }).click();
+    await page.getByRole("list", { name: "Templates", exact: true }).waitFor({ state: "detached" });
     await page.locator("textarea").waitFor();
     assert.deepEqual(await calls(page, "ragents.chat.send"), [], "New chat opens the empty run, its task takes shape in the chat");
     assert.deepEqual(await calls(page, "ragents.startOptions.select"), [], "nothing is preset, the run starts on the server");
 
     dialog = await openStartSelection(page);
     await dialog.getByRole("button", { name: /Discussion circle/ }).click();
-    await dialog.waitFor({ state: "detached" });
+    await page.getByRole("list", { name: "Templates", exact: true }).waitFor({ state: "detached" });
     const [script] = await calls(page, "ragents.chat.start");
     assert.deepEqual({ entry: script?.entry, input: script?.input }, { entry: "demo.circle", input: null });
 
     dialog = await openStartSelection(page);
     await dialog.getByRole("button", { name: /Collection board/ }).click();
-    await dialog.waitFor({ state: "detached" });
+    await page.getByRole("list", { name: "Templates", exact: true }).waitFor({ state: "detached" });
     const [skill] = await calls(page, "ragents.chat.send");
     assert.equal(skill?.entry, "demo.board");
     assert.match(String(skill?.text), /Use the skill board[\s\S]*Build a board for groceries\./, "a skill starts as in VS Code with its task");
@@ -115,8 +114,8 @@ test("the start selection in the browser shows the tiles of Start in VS Code and
 const openNewChat = async (page: Page, view: "web" | "panel") => {
   if (view === "web") {
     const dialog = await openStartSelection(page);
-    await dialog.getByRole("button", { name: /New chat/ }).click();
-    await dialog.waitFor({ state: "detached" });
+    await dialog.getByRole("list", { name: "Templates", exact: true }).getByRole("button", { name: /New chat/ }).click();
+    await page.getByRole("list", { name: "Templates", exact: true }).waitFor({ state: "detached" });
   } else {
     await page.waitForTimeout(200);
     await page.evaluate(() => window.startPageFixture.command({ type: "newRun" }));

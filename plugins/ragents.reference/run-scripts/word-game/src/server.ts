@@ -37,7 +37,6 @@ export default defineActor(contract, {
     try {
       if (!state.status) {
         await context.functions.run_configure({ title: "Word game", primaryActor: context.actor.id });
-        await context.functions.canvas_layout_replace({ root: { entity: `app:@${context.actor.handle}/main` } });
         const start = payloadOf(JSON.parse(input.content));
         if (start.input !== null || !start.options || typeof start.options !== "object" || Array.isArray(start.options)
           || Object.keys(start).some((key) => key !== "input" && key !== "options")) {

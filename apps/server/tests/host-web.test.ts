@@ -34,7 +34,10 @@ test("the built web is missing, has no source record or no longer matches its so
   mkdirSync(web, { recursive: true });
   writeFileSync(path.join(web, "index.html"), "<!doctype html>\n");
   writeFileSync(path.join(web, "run-panel.html"), "<!doctype html>\n");
-  assert.equal(hostWebProblem(web, host, false), undefined, "without sources, only the existence of the web counts");
+  assert.equal(hostWebProblem(web, host, false), undefined, "both routes serve the same application");
+  writeFileSync(path.join(web, "run-panel.html"), "different entry");
+  assert.match(hostWebProblem(web, host, false) ?? "", /entry pages differ/);
+  writeFileSync(path.join(web, "run-panel.html"), "<!doctype html>\n");
   assert.match(hostWebProblem(web, host, true) ?? "", /has no source record \(host-web\.json\)/);
   writeFileSync(path.join(web, HOST_WEB_RECORD), JSON.stringify(hostWebRecordOf(host, [source])));
   assert.equal(hostWebProblem(web, host, true), undefined);

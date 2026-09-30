@@ -1,3 +1,4 @@
+import { ActorRunPanelChat } from "../../../plugins/ragents.orchestration/web/run-panel/RunPanel";
 import assert from "node:assert/strict";
 import test from "node:test";
 import { createElement } from "react";
@@ -5,8 +6,6 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { ChatStepsProvider, defaultChatDisplayPolicy, PluginRegistry, PluginSessionProviders, useActionRenderer, type SessionContext, type SessionNavigation } from "../src/PluginRegistry";
 import { ActorChat } from "../../../plugins/ragents.orchestration/web/ActorChat";
 import { DocumentToolCall, documentMessagesFrom, documentsFrom } from "../../../plugins/ragents.documents/web/DocumentViewer";
-import { ActorChatPreview } from "../../../plugins/ragents.orchestration/web/ActorChatPreview";
-import { ActorTile } from "../../../plugins/ragents.orchestration/web/ActorTile";
 import { ActorChatControls } from "../../../plugins/ragents.orchestration/web/ActorChatControls";
 import { webPlugin as askWebPlugin } from "../../../plugins/ragents.ask/web/index";
 import { AccessContext } from "../src/AccessContext";
@@ -17,7 +16,6 @@ import { ChatMessages, type Message } from "quassel";
 import { chatSnapshotOf, resolveChatActor } from "../../../plugins/ragents.actor-programs/web/chat-state";
 import { RUN_APP_CHAT_SEND, RUN_APP_CHAT_WATCH, validateRunAppBridgeRequest } from "../../../plugins/ragents.actor-programs/web/bridge";
 import { actorChatMessages, actorConversation } from "../src/actor-conversation";
-import { surfaceTileChatInput, type SurfaceTileNode } from "../../../plugins/ragents.orchestration/tiled-layout";
 import type { RunAction, RunActor, RunView } from "../src/run-view";
 
 const actor = (id: string, handle: string, kind: RunActor["kind"]): RunActor => ({
@@ -187,8 +185,8 @@ test("actor history retains attachment-only inputs and run-scoped download metad
 });
 
 
-test("LLM surface chats retain the conversation and expose the shared permanent composer", () => {
-  const html = renderToStaticMarkup(createElement(ActorChatPreview, { actor: worker, view, onNavigate: () => {} }));
+test("LLM panel chats retain the conversation and expose the shared permanent composer", () => {
+  const html = renderToStaticMarkup(createElement(ActorRunPanelChat, { actor: worker, view, session: session(), navigation: {} as SessionNavigation, cardSections: [], onNavigate: () => {} }));
   assert.match(html, /Check the text/);
   assert.match(html, /Checked/);
   assert.match(html, /data-chat="composer"/);
@@ -202,8 +200,8 @@ const questionAction: RunAction = { id: "review-window", askedBy: worker.id, own
   description: "Both variants are possible in terms of content.", payload: { question: "Which review period applies?", options: ["3 days", "14 days"], multi: false },
   parameters: {}, input: null, status: "pending", proposedAt: "now", resolvedAt: null, resolvedBy: null, result: null };
 const askRegistry = new PluginRegistry({ brand: { title: "Test" }, product: { id: "test", title: "Test" }, startEntries: [], plugins: [askWebPlugin] }, new Map());
-const tileNavigation: SessionNavigation = { activeTabId: "", openTab: () => {}, revealEntity: () => false, selectionFor: () => undefined };
-const questionTileSession = (status: RunAction["status"]) => {
+const panelNavigation: SessionNavigation = { activeTabId: "", openTab: () => {}, revealEntity: () => false, selectionFor: () => undefined };
+const questionPanelSession = (status: RunAction["status"]) => {
   const currentView = { ...view, actions: [{ ...questionAction, status }, { ...questionAction, id: "other-question", askedBy: primary.id, title: "Foreign question" }] };
   return session({ runView: currentView, actorConversations: { [worker.id]: [
     { key: "message", role: "assistant", sender: worker.id, text: "I need a decision." },
@@ -213,28 +211,28 @@ const questionTileSession = (status: RunAction["status"]) => {
     } },
   ] } });
 };
-const withAskPlugin = (writable: boolean, tileSession: SessionContext, content: ReturnType<typeof createElement>) => {
+const withAskPlugin = (writable: boolean, panelSession: SessionContext, content: ReturnType<typeof createElement>) => {
   const access = createAccessContext({ enabled: true, user: { id: "operator", label: "Operator", rights: writable ? ["runs.read", "runs.write"] : ["runs.read"] } });
   return renderToStaticMarkup(createElement(AccessContext.Provider, { value: { ...access, logout: async () => {} } },
     createElement(ChatStepsProvider, { policy: defaultChatDisplayPolicy },
-      createElement(PluginSessionProviders, { navigation: tileNavigation, registry: askRegistry, session: tileSession }, content))));
+      createElement(PluginSessionProviders, { navigation: panelNavigation, registry: askRegistry, session: panelSession }, content))));
 };
-const renderQuestionTile = (writable: boolean, status: RunAction["status"] = "pending") => {
-  const tileSession = questionTileSession(status);
-  return withAskPlugin(writable, tileSession, createElement(ActorTile, {
-    actor: worker, view: tileSession.runView as RunView, session: tileSession, navigation: tileNavigation, onSelect: () => {}, cardSections: askRegistry.cardSections,
+const renderQuestionPanel = (writable: boolean, status: RunAction["status"] = "pending") => {
+  const panelSession = questionPanelSession(status);
+  return withAskPlugin(writable, panelSession, createElement(ActorRunPanelChat, {
+    actor: worker, view: panelSession.runView as RunView, session: panelSession, navigation: panelNavigation, onNavigate: () => {}, cardSections: askRegistry.cardSections,
   }));
 };
 const renderOpenQuestionAction = (writable: boolean) => {
   function OpenQuestion() {
     return useActionRenderer()({ actionId: questionAction.id, owner: "ragents.ask", payload: questionAction.payload }, questionAction.title);
   }
-  return withAskPlugin(writable, questionTileSession("pending"), createElement(OpenQuestion));
+  return withAskPlugin(writable, questionPanelSession("pending"), createElement(OpenQuestion));
 };
 
-test("an open question leaves the tile transcript for the dock at the input and no longer needs a card section", () => {
+test("an open question leaves the chat transcript for the dock at the input and no longer needs a card section", () => {
   assert.deepEqual(askRegistry.cardSections, []);
-  const html = renderQuestionTile(true);
+  const html = renderQuestionPanel(true);
   assert.match(html, /I need a decision/);
   assert.match(html, /data-chat="composer"/);
   assert.match(html, /<textarea[^>]*aria-label="Message to @reviewer/);
@@ -243,7 +241,7 @@ test("an open question leaves the tile transcript for the dock at the input and 
   assert.doesNotMatch(html, /data-slot="card-sections"[^>]*>[^<]/);
 });
 
-test("the tile renders an open question through the ask view, answerable only with write access", () => {
+test("the chat renders an open question through the ask view, answerable only with write access", () => {
   const writable = renderOpenQuestionAction(true);
   assert.match(writable, /Which review period applies\?/);
   assert.match(writable, /<button[^>]*data-question="option"[^>]*>3 days<\/button>/);
@@ -253,11 +251,11 @@ test("the tile renders an open question through the ask view, answerable only wi
   assert.match(readonly, /Which review period applies\?/);
   assert.match(readonly, /<li>3 days<\/li><li>14 days<\/li>/);
   assert.doesNotMatch(readonly, /data-question="option"|or answer freely|<button/);
-  assert.match(renderQuestionTile(false), /<textarea[^>]*disabled=""/);
+  assert.match(renderQuestionPanel(false), /<textarea[^>]*disabled=""/);
 });
 
-test("an answered question stays in the tile transcript as a receipt without controls", () => {
-  const answered = renderQuestionTile(true, "approved");
+test("an answered question stays in the chat transcript as a receipt without controls", () => {
+  const answered = renderQuestionPanel(true, "approved");
   assert.match(answered, /data-quassel-transcript[\s\S]*Which review period applies\?[\s\S]*data-question="answered"[^>]*>.*14 days[\s\S]*data-chat="composer"/);
   assert.match(answered, /data-chat="actions"><\/div>/);
   assert.doesNotMatch(answered, /data-question="option"|or answer freely|waiting for input/);
@@ -265,13 +263,13 @@ test("an answered question stays in the tile transcript as a receipt without con
 
 test("a stopped actor's chat shows the reason and the restart instead of a composer, and humans do not receive the actor composer", () => {
   const stopped: RunActor = { ...worker, lifecycle: { kind: "stopped", stoppedAt: "now", reason: "Stopped by mistake" } };
-  const html = renderToStaticMarkup(createElement(ActorChatControls, { actor: stopped, view, presentation: "surface" }));
+  const html = renderToStaticMarkup(createElement(ActorChatControls, { actor: stopped, view, presentation: "panel" }));
   assert.doesNotMatch(html, /textarea|Attach files/);
   assert.match(html, new RegExp(`@${worker.handle} stopped:</span> Stopped by mistake`));
   assert.match(html, />Restart</);
   const reader = createAccessContext({ enabled: true, user: { id: "reader", label: "Reader", rights: ["runs.read", "runs.inspect"] } });
   const readOnly = renderToStaticMarkup(createElement(AccessContext.Provider, { value: { ...reader, logout: async () => {} } },
-    createElement(ActorChatControls, { actor: stopped, view, presentation: "surface" })));
+    createElement(ActorChatControls, { actor: stopped, view, presentation: "panel" })));
   assert.match(readOnly, /Stopped by mistake/);
   assert.doesNotMatch(readOnly, /Restart</);
   const human = renderToStaticMarkup(createElement(ActorChatControls, { actor: view.actors[0], view }));
@@ -391,30 +389,6 @@ test("document navigation includes worker histories without duplicating the prim
   assert.equal(JSON.parse(messages[2].tool!.arguments).path, "result.md");
 });
 
-
-test("a tile can hide the chat composer of its actor without changing the inspector", () => {
-  const props = { actor: worker, view, onNavigate: () => {} };
-  const html = renderToStaticMarkup(createElement(ActorTile, {
-    actor: worker, view, cardSections: [], chatInput: false, session: session(), navigation: {} as SessionNavigation, onSelect: () => {},
-  }));
-  assert.match(html, /Check the text/);
-  assert.match(html, /Checked/);
-  assert.doesNotMatch(html, /<textarea|Attach files/);
-  assert.match(html, /aria-label="Hide timestamps"/);
-  assert.match(renderToStaticMarkup(createElement(ActorChatPreview, props)), /<textarea/);
-  const inspector = renderToStaticMarkup(createElement(ActorChatControls, { actor: worker, view, presentation: "inspector" }));
-  assert.match(inspector, /<textarea/);
-});
-
-test("the tile tree decides per actor whether its composer is shown", () => {
-  const root = { direction: "horizontal" as const, weights: [1, 1] as [number, number], children: [
-    { entity: `@${worker.handle}`, chatInput: false },
-    { entity: `@${primary.handle}` },
-  ] as [SurfaceTileNode, SurfaceTileNode] };
-  assert.equal(surfaceTileChatInput(root, `@${worker.handle}`), false);
-  assert.equal(surfaceTileChatInput(root, `@${primary.handle}`), true);
-  assert.equal(surfaceTileChatInput(null, `@${worker.handle}`), true);
-});
 
 test("chat targets resolve handles like the engine: any case and composition", () => {
   assert.equal(resolveChatActor(session(), "@Reviewer").actor.id, worker.id);

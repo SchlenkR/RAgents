@@ -42,7 +42,7 @@ include local modules, while fixed local dependencies come from the host install
 `package.json` contains `name`, `private: true`, `type: "module"`, and `ragents` metadata with a
 title, optional description, optional backend, and optional named views. Each view has an ID and
 client entry point; its title and stylesheet are optional. A view declares no size; the host sizes
-its tile. At least one backend or view must exist. The host supplies HTML with a `root` element
+its tab. At least one backend or view must exist. The host supplies HTML with a `root` element
 for each view. The authoritative schemas are in
 `apps/server/src/plugin-support/actor-programs/app-project.ts`; a violation names each path and
 its reason, for example `views.0 has unknown field width`.
@@ -210,48 +210,24 @@ tests, for each failed test its name, message, for assertions expected and actua
 location in the test file relative to the program; a test file that does not load names the error
 line of its output. Durations, Node-internal stack lines, and absolute paths are left out.
 
-## Tool cards and tiles
+## Tool cards and mini-app tabs
 
-Simple inputs to an agent belong to the tool. `card: true` generates a compact form from the typed
-parameters directly in the agent's tile. It has no window frame of its own. Field labels, required
-markers, and the send action stay visible; parameter descriptions serve as placeholders. Checkbox
-and field name share one line. Multi-line inputs start with two lines and can be enlarged. The
-card calls the associated actor function directly. `targets` uses `self` or `@handle`; the host
-resolves the binding at activation. No model turn is needed.
+`card: true` generates a compact form above the selected actor's chat from its typed function
+parameters. Required fields and invalid inputs are checked before calling the function. No model
+turn is needed. Technical function inspection still requires `runs.inspect`.
 
-Every mini-app is visible after activation. The associated actor is its anchor; size and place are
-determined by the tile it sits in. The user can additionally open it in the local full view.
+Every activated, visible mini-app enters the shared catalog. The browser shows Chat and app tabs
+with one visible view. Apps mount lazily and visited views stay mounted while hidden, retaining
+local inputs. New apps never steal focus; an unavailable selection returns to Chat. VS Code
+opens or focuses one editor per server, run, and app. Each app has one mounted client in its host.
 
-The associated actor is not on the surface in the personal default view, even for an LLM actor.
-The mini-app stays visible and usable. `Actors` in the bar above the surface lists the owner
-without creating a tile; the `Surface` checkbox per actor gives it its own tile on request. A
-hidden installed view also still counts as a mini-app of its own.
+The frame uses its actual dimensions at 100 percent. Host confirmations remain above the frame;
+status and errors occupy a reserved row below it. The existing frame bridge and event hub carry
+state and function results. Questions and news remain in chat, without app-tab notifications.
 
-In the tile and in the full view, the host shows the whole app content at 100 percent. The frame
-uses its actual width and height; type, controls, and spacing receive no additional reduction. The
-tile has a matte blue-gray surface with an outline and a 17-pixel corner radius, without depth and
-without a second inner decorative outline. Its title is carried by the tile header; the app brings
-no title bar of its own.
-
-The enlarge button opens a local full view in the host area `surface`. It lies exclusively over
-the surface, with a 16 to 24 pixel margin; the tab bar, the title bar, the bar for apps and actors,
-and the status bar stay visible and usable. The background is dimmed as for a dialog and softened
-with a 4-pixel blur. Frame, corners, and shadow follow the shared dialog design. Only the surface
-underneath is inactive meanwhile. The app title in the bar above the surface keeps font weight 700
-when toggling; the active background and bottom edge show the state without shifting the
-neighboring entries. The provider holds exactly one full view; selecting another app replaces it.
-The full view has its own title bar with the app name and a round close button with an X. The
-content appears at original size. Close, Escape, and a background click return to the surface. An
-Escape handled internally, for example in a select list, does not close the full view.
-
-The tile client stays mounted when enlarging. The full view loads a second client with the same
-journaled state; unsent inputs stay local per view. The full view is not journaled and is operated
-solely by the user in the host; mini-apps have no dialog capability or window control API.
-
-The visibility of the view is journaled. Hiding preserves installation, tools, actions, and state.
-Showing again, restart, and reactivation preserve this choice. The personal visibility of its actor
-is stored separately in the browser per server address and run; it changes no journal. There is no
-additional mini-app tab in the tab bar.
+Visibility is journaled. Hiding preserves installation, functions, actions, and state. Showing
+again, restart, and reactivation preserve this choice. Actor inspection stays independently
+reachable through the addressee's inspection action.
 
 ## Capabilities and identity
 
@@ -274,14 +250,15 @@ and cancellation at the actual call boundary. Native Node execution is not an ad
 against arbitrary backend code; file permissions and execution environment belong to the run
 workspace.
 
-## Tile host and functions tab
+## App host and functions tab
 
-The bar above the surface shows apps switched to visible next to direct access to all non-human
-actors that are not stopped. The actors list button stays on the left; app and actor buttons
-scroll horizontally together when space is short. The bar lies outside the dialog area `surface`
-and allows switching apps during the full view. A fine bottom divider separates it from the
-surface; it has no shadow of its own. The app name selects its tile; the enlarge button toggles
-the local full view. The active full view is highlighted. The functions tab shows programs, owner
+Views belong to their program actor through `actorId`; their persisted definitions and API listings
+carry no host placement metadata. Journals with the removed placement field or layout capabilities
+lock only the affected run before replay, without changing its files.
+
+The shared app host renders the selected mini-app through `RunAppView`.
+
+The functions tab shows programs, owner
 actors, functions, and installed sources. The detail view of a function contains a generic
 parameter form derived from its contract. It uses the same form building block as the tool cards:
 texts, numbers, integers, checkboxes, and lists, plus JSON for structured values. Required fields
@@ -296,7 +273,7 @@ highlighting come from the shared source code viewer. A new program revision loa
 sources; cancelled earlier responses do not overwrite them. The source code stays read-only and
 requires `runs.inspect`. Running tool calls appear in the general activity display.
 
-Tile and full view use the same frame endpoint and build. Each view has an iframe with
+Browser tabs and VS Code editors use the same frame endpoint and build. Each app has an iframe with
 `sandbox="allow-scripts allow-forms allow-downloads"` and a content security policy;
 `form-action 'none'` prevents any real form submission. The browser client is bundled including
 its imports; React and UI building blocks come from the prepared local dependencies. The host
@@ -316,8 +293,8 @@ programs only with another activation. Chat, Markdown, code highlighting, select
 `ListDetail` use existing interface building blocks; further controls belong directly in this
 building block collection with implementation, styling, and type contracts. The client imports the
 controls it needs from this package; the regular build bundles them with the app. The props are
-type-checked during the TypeScript check of the mini-app. The building blocks work in the tile and
-in the local full view.
+type-checked during the TypeScript check of the mini-app. The building blocks work in the browser and
+in the VS Code editor.
 
 The UI contract collector produces the same component names and declaration files in a checkout
 and in an installed npm package. Its TypeScript compiler host presents the package through a

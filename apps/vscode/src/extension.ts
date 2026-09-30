@@ -127,9 +127,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<RAgent
     },
   };
   const panel = new PanelView(bridge, context.extensionUri);
-  const panels = new AppPanels(bridge, (connection, runId) => {
-    if (selection?.connection === connection) panel.post({ type: "placements", runId, center: [...panels.centerElements(connection, runId)] });
-  });
+  const panels = new AppPanels(bridge);
   const documents = new RunDocuments((connection) => requireClient(connection));
   const statusBar = vscode.window.createStatusBarItem("ragents.connections", vscode.StatusBarAlignment.Left, 50);
   statusBar.command = "ragents.showStart";
@@ -198,7 +196,6 @@ export async function activate(context: vscode.ExtensionContext): Promise<RAgent
     const rendering = panel.render();
     if (rendering === "frame-kept") {
       panel.post({ type: "selectRun", runId: runId ?? null });
-      if (runId !== undefined) panel.post({ type: "placements", runId, center: [...panels.centerElements(connection, runId)] });
     }
     syncContext();
     if (focusPanel) panel.reveal();
@@ -672,7 +669,6 @@ export async function activate(context: vscode.ExtensionContext): Promise<RAgent
       case "ready": {
         const runId = selection?.connection === connection ? selection.runId : undefined;
         panel.post({ type: "selectRun", runId: runId ?? null });
-        if (runId !== undefined) panel.post({ type: "placements", runId, center: [...panels.centerElements(connection, runId)] });
         const request = pendingNewRun.get(connection);
         if (request) {
           pendingNewRun.delete(connection);
@@ -685,9 +681,6 @@ export async function activate(context: vscode.ExtensionContext): Promise<RAgent
         return;
       case "openInCenter":
         panels.open(connection, incoming.runId, incoming.elementId, incoming.title, session?.store?.run(incoming.runId)?.title);
-        return;
-      case "returnToRunPanel":
-        panels.close(connection, incoming.runId, incoming.elementId);
         return;
       case "showStart":
         showPage("start");

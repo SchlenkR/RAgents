@@ -49,9 +49,11 @@ test("the package brings the built web and builds nothing: no Vite, no entry pag
   for (const file of ["apps/web/dist/index.html", "apps/web/dist/run-panel.html", "apps/web/dist/host-web.json"]) {
     assert.equal(existsSync(path.join(target, file)), true, `the host serves ${file}`);
   }
-  for (const file of ["apps/web/vite.config.ts", "apps/web/index.html", "apps/web/run-panel.html", "apps/server/src/web-build.ts"]) {
+  for (const file of ["apps/web/vite.config.ts", "apps/web/index.html", "apps/server/src/web-build.ts"]) {
     assert.equal(existsSync(path.join(target, file)), false, `${file} belonged to the web build per profile`);
   }
+  assert.equal(await readFile(path.join(target, "apps/web/dist/run-panel.html"), "utf8"),
+    await readFile(path.join(target, "apps/web/dist/index.html"), "utf8"));
   const dependencies = result.manifest.dependencies as Record<string, string>;
   for (const name of ["vite", "@vitejs/plugin-react", "@tailwindcss/vite"]) {
     assert.equal(dependencies[name], undefined, `the package no longer needs ${name}`);

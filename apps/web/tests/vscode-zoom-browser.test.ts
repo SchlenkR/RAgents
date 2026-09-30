@@ -67,6 +67,7 @@ test("VS Code hull zoom fills the viewport once across nested frames and changes
       }, screenshot.toString("base64"));
       assert.ok(Math.abs(markerWidth - zoom) <= 1, `Nested frame scales once at ${zoom}: ${markerWidth}px`);
       await page.mouse.click(600 - zoom / 2, 800 - zoom / 5);
+      await leaf.locator("#target").filter({ hasText: /^clicked$/ }).waitFor();
       assert.equal(await leaf.locator("#target").textContent(), "clicked");
       await leaf.locator("#target").evaluate((element) => { element.textContent = "Click"; });
       await page.mouse.click(30, 8);

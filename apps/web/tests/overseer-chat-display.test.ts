@@ -62,7 +62,7 @@ test("the global chat starts independently of the run with the current, manually
   assert.equal(global().mode("coordinator"), "grouped");
 });
 
-test("surface, inspector and popout of the same chat remember their detail level separately", (context) => {
+test("run panel and inspector of the same chat remember their detail level separately", (context) => {
   const values = new Map<string, string>();
   const previous = Object.getOwnPropertyDescriptor(globalThis, "window");
   Object.defineProperty(globalThis, "window", { configurable: true, value: { localStorage: {
@@ -83,15 +83,12 @@ test("surface, inspector and popout of the same chat remember their detail level
     assert.ok(result);
     return result;
   };
-  control("surface").setMode("agents", "full");
-  assert.equal(control("surface").mode("agents"), "full");
+  control("run-panel").setMode("agents", "full");
+  assert.equal(control("run-panel").mode("agents"), "full");
   assert.equal(control("inspector").mode("agents"), "grouped");
-  assert.equal(control("popout").mode("agents"), "grouped");
   assert.equal(control().mode("agents"), "grouped", "without a surface the previous key stays untouched");
-  control("popout").setMode("agents", "compact");
-  assert.equal(control("surface").mode("agents"), "full");
+  assert.equal(control("run-panel").mode("agents"), "full");
   assert.equal(control("inspector").mode("agents"), "grouped");
-  assert.equal(control("popout").mode("agents"), "compact");
 });
 
 test("the global default merges thinking text and tool calls into one group without result, full details show everything", () => {

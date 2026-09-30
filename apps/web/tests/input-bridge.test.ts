@@ -38,10 +38,10 @@ test("each nested clipboard request returns through its own transport and dispos
   const answers: unknown[] = [];
   for (const id of ["a", "b"]) relayFrameInput(browser, { type: "ragents.app.input", version: 1, message: { type: "clipboardRead", id } }, (message) => answers.push(message));
   const requests = messages as { id: string }[];
-  reply({ type: "clipboardText", id: requests[1].id, text: "Second" });
+  reply({ type: "clipboardContent", id: requests[1].id, text: "Second", files: [] });
   dispose();
   await new Promise((resolve) => setImmediate(resolve));
-  assert.deepEqual(answers, [{ type: "clipboardText", id: "b", text: "Second" }, { type: "clipboardText", id: "a", text: "" }]);
+  assert.deepEqual(answers, [{ type: "clipboardContent", id: "b", text: "Second", files: [] }, { type: "clipboardContent", id: "a", text: "", files: [] }]);
   const nested = fakeBrowser();
   const port = new EventTarget() as EventTarget & { postMessage: () => void };
   port.postMessage = () => {};
@@ -50,5 +50,28 @@ test("each nested clipboard request returns through its own transport and dispos
   relayFrameInput(nested.browser, { type: "ragents.app.input", version: 1, message: { type: "clipboardRead", id: "pending" } }, (message) => pending.push(message));
   close();
   await new Promise((resolve) => setImmediate(resolve));
-  assert.deepEqual(pending, [{ type: "clipboardText", id: "pending", text: "" }]);
+  assert.deepEqual(pending, [{ type: "clipboardContent", id: "pending", text: "", files: [] }]);
+});
+
+test("clipboard replies restore the child frame before delivery, including empty text", async () => {
+  for (const text of ["Pasted text", ""]) {
+    for (const state of ["connected", "removed", "disposed"]) {
+      const { browser, messages, reply } = fakeBrowser();
+      const events: string[] = [];
+      const frame = { tagName: "IFRAME", isConnected: true, focus: () => events.push("focus") };
+      Object.defineProperty(browser.document, "activeElement", { configurable: true, value: frame });
+      const dispose = installRunPanelInputBridge(browser);
+      relayFrameInput(browser, { type: "ragents.app.input", version: 1, message: { type: "clipboardRead", id: "child" } }, (message) => {
+        events.push("reply");
+        assert.deepEqual(message, { type: "clipboardContent", id: "child", text, files: [] });
+      });
+      Object.defineProperty(browser.document, "activeElement", { value: null });
+      if (state === "removed") frame.isConnected = false;
+      reply({ type: "clipboardContent", id: (messages[0] as { id: string }).id, text, files: [] });
+      if (state === "disposed") dispose();
+      await new Promise((resolve) => setImmediate(resolve));
+      assert.deepEqual(events, state === "connected" ? ["focus", "reply"] : ["reply"]);
+      if (state !== "disposed") dispose();
+    }
+  }
 });

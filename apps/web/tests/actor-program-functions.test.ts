@@ -59,7 +59,7 @@ const request = { actorHandle: "counter", functionId: "increment", revision: "bu
 const invocation: RunAppInvocation = { id: "call", actorId: "actor", actorHandle: "counter", appId: "counter", actionId: "increment", revision: "build", requestId: "request", output: [], createdAt: "now", status: "queued" };
 
 test("views of one actor poll a shared function invocation only once through its actor", () => {
-  const first: RunApp = { id: "counter--board", title: "Board", actorId: "actor", actorHandle: "counter", revision: "build", actions: [], placements: [], state: { version: 1, revision: 0, values: {} }, invocations: [invocation] };
+  const first: RunApp = { id: "counter--board", title: "Board", actorId: "actor", actorHandle: "counter", revision: "build", actions: [], state: { version: 1, revision: 0, values: {} }, invocations: [invocation] };
   const second = { ...first, id: "counter--detail" };
   assert.deepEqual(activeActorInvocations([first, second]), [{ kind: "function", actorHandle: "counter", invocationId: "call" }]);
   assert.deepEqual(activeActorInvocations([first, second], false), []);
@@ -69,7 +69,7 @@ test("views of one actor poll a shared function invocation only once through its
 
 test("shared mini-app invocations poll their originating view without calling the restricted actor method", async () => {
   const running: RunAppInvocation = { ...invocation, appId: "counter--board", status: "running", startedAt: "now" };
-  const first: RunApp = { id: "counter--board", title: "Board", actorId: "actor", actorHandle: "counter", revision: "build", actions: [], placements: [], state: { version: 1, revision: 0, values: {} }, invocations: [running, { ...invocation, id: "function-call" }] };
+  const first: RunApp = { id: "counter--board", title: "Board", actorId: "actor", actorHandle: "counter", revision: "build", actions: [], state: { version: 1, revision: 0, values: {} }, invocations: [running, { ...invocation, id: "function-call" }] };
   const second = { ...first, id: "counter--detail" };
   const calls: RpcCall[] = [];
   const signal = new AbortController().signal;

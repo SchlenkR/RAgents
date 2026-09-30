@@ -38,7 +38,7 @@ export const errorHtml = ({ nonce, title, message }: { nonce: string; title: str
 
 export const serverOrigin = (serverUrl: string): string => new URL(serverUrl).origin;
 
-/** The webview is only a shell: an iframe on run-panel.html, a script for the messages to the extension, and the clipboard access the iframe does not have. */
+/** The webview frames the shared web entry alias and bridges host messages and clipboard access. */
 export const frameHtml = ({ serverUrl, query, nonce, title, zoom = 100 }: FrameOptions): string => {
   const origin = serverOrigin(serverUrl);
   const url = runPanelPageUrl(serverUrl, query);
@@ -65,12 +65,17 @@ ${zoomHtml(nonce, zoom)}
     field.style.position = "fixed";
     field.style.top = "-1000px";
     field.style.opacity = "0";
+    let files = [];
+    field.addEventListener("paste", (event) => {
+      files = Array.from(event.clipboardData?.files ?? []);
+    }, { once: true });
     document.body.appendChild(field);
     field.focus();
     document.execCommand("paste");
     const text = field.value;
     field.remove();
-    frame.contentWindow.postMessage({ type: "clipboardText", id, text }, origin);
+    frame.focus({ preventScroll: true });
+    frame.contentWindow.postMessage({ type: "clipboardContent", id, text, files }, origin);
   };
   window.addEventListener("message", (event) => {
     if (event.source === frame.contentWindow) {

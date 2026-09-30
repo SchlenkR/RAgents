@@ -8,7 +8,7 @@ tags: Run scripts, Use case, Concept demo, Mini-apps, LLM actor with view, Contr
 
 The TypeScript setup creates a balcony advisor with the role `standard` and explicitly
 without tools. The bundled program `actors/balcony-app/` binds a standalone mini-app to
-this actor. The surface shows only its tile instead of a chat tile; no coordinator
+this actor. The app is available beside Chat; no coordinator
 is created for this run. The advisor becomes the primary actor and keeps its own
 interview prompt.
 

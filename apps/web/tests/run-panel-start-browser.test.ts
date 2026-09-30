@@ -84,12 +84,15 @@ test("the run panel shows one loading state from the click to the first content 
     assert.equal(await detailOf(), "Starting the template.");
     assert.equal(await page.locator("header strong").textContent(), "Setup template");
     const launching = await center(notice);
+    const statusBar = await page.getByRole("contentinfo", { name: "Run status bar" }).boundingBox();
+    assert.ok(statusBar, "The pending panel reserves the run status bar.");
     assert.ok(Math.abs(launching.x - waiting.x) < 1 && Math.abs(launching.y - waiting.y) < 1, "Waiting for the host and launching share one place.");
 
     await page.evaluate(() => window.runStartFixture.releaseStart());
     await page.waitForFunction(() => window.runStartFixture.activeRun() !== undefined);
     await waitForTitle("Loading run");
     const loading = await center(notice);
+    assert.deepEqual(await page.getByRole("contentinfo", { name: "Run status bar" }).boundingBox(), statusBar, "The status bar keeps its space when the run opens.");
     assert.ok(Math.abs(loading.x - launching.x) < 1 && Math.abs(loading.y - launching.y) < 1, "The run view continues the loading state at the same place.");
     assert.equal(await page.locator("textarea").count(), 1, "The chat input stays below the loading state.");
 
@@ -114,7 +117,7 @@ test("the run panel shows one loading state from the click to the first content 
 
     await page.evaluate(() => { window.runStartFixture.elements = [{ id: "start.app--main", title: "Setup" }]; });
     await chat({ kind: "plugin", pluginId: "start", type: "app-ready" });
-    await page.getByText("Mini-app ready").waitFor();
+    await page.getByRole("navigation", { name: "Mini-apps of the run" }).getByRole("button", { name: "Setup", exact: true }).waitFor();
     assert.equal(await notice.count(), 0, "The first mini-app ends the loading state.");
     await page.evaluate(() => { window.runStartFixture.elements = []; });
     await chat({ kind: "status", running: true });

@@ -322,3 +322,22 @@ test("messages in both directions are checked before processing", () => {
   assert.equal(isPanelStateMessage({ type: "ragents.panel.state", state: { theme: "dark", page: "start", connections: [], profileSuggestions: [] } }), true);
   assert.equal(isPanelStateMessage({ type: "ready" }), false);
 });
+
+test("template-only access keeps its templates without exposing free creation or deletion", () => {
+  const restricted = connection({ canCreateFree: false, canDelete: false });
+  const start = render(page({ connections: [restricted] }));
+  assert.match(start, /title="Collection board"/);
+  assert.doesNotMatch(start, /title="New chat"|aria-label="New chat on/);
+  const runs = render(page({ page: "runs", connections: [restricted] }));
+  assert.match(runs, /Night bus round/);
+  assert.doesNotMatch(runs, />Select<|>Delete</);
+});
+
+test("shared run rows preserve contributed details and existing read markers", () => {
+  const state = page({ connections: [connection({ runs: [{ id: "run", title: "Review", state: "idle", pendingActions: 0, updatedAt: 0, notice: "updated" }] })] });
+  const html = renderToStaticMarkup(createElement(PanelPage, {
+    state, send() {}, runDetails: (runId, connection) => createElement("span", null, `${connection}/${runId}: main`),
+  }));
+  assert.match(html, /aria-label="New activity"/);
+  assert.match(html, /workshop\/run: main/);
+});

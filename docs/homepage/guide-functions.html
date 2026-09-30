@@ -163,7 +163,7 @@ permissions; plain LLMs with <code>tools: []</code> do not receive it.</p>
 <code>label</code> for people. <code>description</code> briefly explains its purpose and appears in the automatic
 overview. An optional <code>longDescription</code> adds detailed rules, prerequisites, and examples. Input
 and result types come from schemas; descriptions do not replace those contracts. Local recursive
-schema references create named TypeScript aliases, keeping nested contracts such as the tile tree
+schema references create named TypeScript aliases, keeping nested recursive contracts
 fully typed in snippets, actor programs, and the public run API. Resolution includes local
 <code>$defs</code> references; external references are not loaded.</p>
 <p>Without selected names, <code>typescript_api</code> returns the compact catalog. <code>query</code> searches names and

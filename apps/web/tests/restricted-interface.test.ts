@@ -96,7 +96,7 @@ test("restricted actor chat shows empty redacted phase chips and working scenes 
   ];
   for (const { message, label } of cases) {
     const html = renderRestricted(createElement(ChatStepsProvider, { policy }, createElement(ActorChat, {
-      actor, view, presentation: "surface", primaryMessages: [message], running: true, onNavigate: () => {},
+      actor, view, presentation: "panel", primaryMessages: [message], running: true, onNavigate: () => {},
     })));
     assert.match(html, /data-step="row"/);
     assert.match(html, /data-step="chip"/);

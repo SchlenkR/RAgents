@@ -1,6 +1,5 @@
 import { hostInputEnabled, isRunPanelKeyboardMessage, relayFrameInput } from "@ragents/web/run-panel/input-bridge";
 import { useAccess } from "@ragents/web/AccessContext";
-import { cn } from "@ragents/web/ui";
 import { useResolvedTheme } from "@ragents/web/theme";
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import type { RunApp, RunAppInvocation, ActorProgramsApi } from "./api";
@@ -41,7 +40,6 @@ interface ActorViewFrameProps {
     input: JsonValue,
   ) => Promise<RunAppInvocation>;
   pendingConfirmationInvocationId?: string;
-  presentation: "embedded" | "fullscreen" | "tiled";
   runId: string;
   session: SessionContext;
 }
@@ -51,19 +49,11 @@ const REQUEST_ID_HISTORY_LIMIT = 512;
 
 const invocationSignature = (invocation: RunAppInvocation): string => JSON.stringify(invocation);
 
-const markTones: Record<string, string> = {
-  success: "bg-success",
-  running: "bg-primary shadow-[0_0_0_4px_color-mix(in_srgb,var(--primary)_12%,transparent)] animate-fade-pulse [animation-duration:1.2s] motion-reduce:animate-none",
-  confirm: "bg-warning",
-  error: "bg-destructive",
-};
-
 export function ActorViewFrame({
   api,
   app,
   invoke,
   pendingConfirmationInvocationId,
-  presentation,
   runId,
   session,
 }: ActorViewFrameProps) {
@@ -435,27 +425,22 @@ export function ActorViewFrame({
                     ? undefined
                     : { tone: "muted", title: "Loading app", detail: "Bridge not connected yet" };
 
-  const visibleStatus = status && (presentation === "fullscreen" ? status.tone === "error" : status.tone !== "success") ? status : undefined;
+  const visibleStatus = status && status.tone !== "success" ? status : undefined;
 
-  const compact = presentation !== "fullscreen";
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
       <div aria-live="polite" role="status"
-        className={cn("grid min-w-0 items-center overflow-hidden text-xs text-muted-foreground",
-          compact
-            ? "order-1 h-7 flex-[0_0_28px] grid-cols-[auto_minmax(0,1fr)] gap-1.5 px-workspace-inset py-1"
-            : "h-[31px] flex-[0_0_31px] grid-cols-[8px_auto_minmax(0,1fr)] gap-[7px] border-b border-border-soft px-workspace-inset py-[5px]")}>
+        className="order-1 grid h-7 min-w-0 flex-[0_0_28px] grid-cols-[auto_minmax(0,1fr)] items-center gap-1.5 overflow-hidden px-workspace-inset py-1 text-xs text-muted-foreground">
         {visibleStatus && <>
-          {!compact && <span className={cn("size-[7px] rounded-full bg-muted-foreground/55", markTones[visibleStatus.tone])} />}
-          <strong className={cn("font-semibold whitespace-nowrap text-foreground", compact ? "text-[0.63rem]" : "text-[0.7rem]")}>{visibleStatus.title}</strong>
+          <strong className="text-[0.63rem] font-semibold whitespace-nowrap text-foreground">{visibleStatus.title}</strong>
           <span className="truncate" title={visibleStatus.detail}>{visibleStatus.detail}</span>
         </>}
       </div>
-      <div className={cn("relative flex min-h-0 flex-1 overflow-hidden", compact ? "bg-transparent" : "bg-background")}>
+      <div className="relative flex min-h-0 flex-1 overflow-hidden bg-transparent">
         <iframe
           allow="camera 'none'; geolocation 'none'; microphone 'none'"
-          className={cn("absolute inset-0 h-full w-full min-h-0 min-w-0 border-0", compact ? "bg-transparent" : "bg-background")}
+          className="absolute inset-0 h-full w-full min-h-0 min-w-0 border-0 bg-transparent"
           ref={iframeRef}
           referrerPolicy="no-referrer"
           sandbox="allow-scripts allow-forms allow-downloads"

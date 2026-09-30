@@ -22,9 +22,8 @@ test("the browser host opens links itself and refuses host-only actions loudly",
   const host = createBrowserHost(browser);
   host.openExternal("http://localhost:4710/");
   assert.deepEqual(opened, ["http://localhost:4710/"]);
-  assert.equal(host.centerElements("run-a").size, 0);
   assert.equal(host.machines, "server", "the browser starts new runs only on the server");
-  assert.throws(() => host.openInCenter("run-a", "board", "Board"), /only available in VS Code/);
+  assert.throws(() => host.openApp("run-a", "board", "Board"), /only available in VS Code/);
   assert.throws(() => host.requestLogin(), /only available in VS Code/);
 });
 
@@ -34,9 +33,7 @@ test("the vscode host relays messages to the parent and only accepts valid comma
   assert.equal(host.machines, "all", "VS Code offers workstations for new runs too");
   const commands: HostRunPanelMessage[] = [];
   host.onCommand((message) => commands.push(message));
-  let placementsChanged = 0;
-  host.subscribe(() => { placementsChanged += 1; });
-  host.openInCenter("run-a", "board--main", "Collection board");
+  host.openApp("run-a", "board--main", "Collection board");
   host.notify({ type: "runChanged", runId: "run-a" });
   host.notify({ type: "showStart" });
   assert.deepEqual(posted.map((entry) => entry.message), [
@@ -46,18 +43,13 @@ test("the vscode host relays messages to the parent and only accepts valid comma
   ]);
   receive({}, { type: "selectRun", runId: "run-b" });
   receive(parent, { type: "selectRun", runId: 42 });
-  receive(parent, { type: "placements", runId: "run-a", center: ["board--main"] });
   receive(parent, { type: "theme", theme: "dark" });
   receive(parent, { type: "newRun", startOptions: { "ragents.workspace.binding": { machine: "server", folder: "fresh" } } });
   receive(parent, { type: "newRun", startOptions: [] });
   assert.deepEqual(commands, [
-    { type: "placements", runId: "run-a", center: ["board--main"] },
     { type: "theme", theme: "dark" },
     { type: "newRun", startOptions: { "ragents.workspace.binding": { machine: "server", folder: "fresh" } } },
   ]);
-  assert.deepEqual([...host.centerElements("run-a")], ["board--main"]);
-  assert.equal(host.centerElements("run-b").size, 0);
-  assert.equal(placementsChanged, 1);
 });
 
 test("a vscode host without an embedding page is an error", () => {

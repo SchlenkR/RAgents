@@ -40,7 +40,7 @@ include local modules, while fixed local dependencies come from the host install
 `package.json` contains `name`, `private: true`, `type: "module"`, and `ragents` metadata with a
 title, optional description, optional backend, and optional named views. Each view has an ID and
 client entry point; its title and stylesheet are optional. A view declares no size; the host sizes
-its tile. At least one backend or view must exist. The host supplies HTML with a `root` element
+its tab. At least one backend or view must exist. The host supplies HTML with a `root` element
 for each view. The authoritative schemas are in
 `apps/server/src/plugin-support/actor-programs/app-project.ts`; a violation names each path and
 its reason, for example `views.0 has unknown field width`.

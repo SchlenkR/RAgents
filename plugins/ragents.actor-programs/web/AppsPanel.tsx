@@ -1,7 +1,6 @@
 import { useAccess } from "@ragents/web/AccessContext";
-import { ArrowLeftIcon, LayoutGridIcon } from "lucide-react";
+import { ArrowLeftIcon } from "lucide-react";
 import { Alert, Badge, Button, cn, Empty, EmptyContent, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle, Spinner } from "@ragents/web/ui";
-import { ToolbarCopy, ToolbarItem, ToolbarLabel, ToolbarText } from "@ragents/web/Toolbar";
 import {
   useCallback,
   useEffect,
@@ -15,14 +14,10 @@ import { answerQuestion } from "@ragents/plugins/ragents.ask/web/api";
 import { QuestionCard } from "@ragents/plugins/ragents.ask/web/QuestionCard";
 import { ACTOR_PROGRAMS_STATE_ID } from "@ragents/host/plugin-support/actor-programs/contract";
 import {
-  useSurfaceController,
   type SessionContext,
-  type SessionHeaderContext,
   type WorkspaceTabContext,
 } from "@ragents/web/PluginRegistry";
 import { runViewFrom, type RunAction } from "@ragents/web/run-view";
-import { useSurfaceEntities } from "@ragents/plugins/ragents.orchestration/web/surface-entities";
-import { SURFACE_TILE_DRAG_TYPE } from "@ragents/plugins/ragents.orchestration/web/tile-docking";
 import { ProgramSlotContext, type ProgramSlot } from "@ragents/plugins/ragents.orchestration/web/program-slot";
 import {
   type RunApp,
@@ -34,7 +29,6 @@ import {
 import type { JsonValue } from "./bridge";
 import { actorProgramSourceView, ProgramSource } from "./ProgramSource";
 import { FunctionForm } from "./FunctionForm";
-import { ExpandIcon } from "./ExpandIcon";
 import { actorProgramsRevision } from "./state-revision";
 import { actorProgramViews, currentActorListing } from "./program-state";
 import { activeActorInvocations, readActorInvocation } from "./invocations";
@@ -47,7 +41,6 @@ export const RUN_TOOLS_TAB_ID = "ragents.actor-programs.tools";
 const entryIconClass = "flex size-[34px] items-center justify-center rounded-[10px] bg-[color-mix(in_srgb,var(--primary)_12%,var(--background))] text-primary";
 const headClass = "grid flex-none grid-cols-[auto_minmax(0,1fr)] items-center gap-2.5 border-b border-border-soft px-workspace-inset py-[9px]";
 const sectionLabelClass = "mb-2 text-[0.66rem] tracking-[0.075em] text-muted-foreground uppercase";
-const quickIconClass = "grid size-[30px] flex-none place-items-center rounded-lg border border-info/25 bg-glass-app text-info";
 
 const ACTIVE_STATUSES = new Set(["queued", "running"]);
 const POLL_INTERVAL = 700;
@@ -79,18 +72,6 @@ export function ActorProgramsProvider({
   const [storedListing, setListing] = useState<ActorProgramsListing>();
   const listing = useMemo(() => currentActorListing(storedListing, session.runView), [storedListing, session.runView]);
   const [error, setError] = useState<string>();
-  const [fullscreen, setFullscreen] = useState<{ runId: string; appId: string }>();
-  const visibleApps = actorProgramApps(session).filter((app) => app.app.visible !== false);
-  const fullscreenAppId = fullscreen?.runId === runId && visibleApps.some((app) => app.id === fullscreen.appId)
-    ? fullscreen.appId : undefined;
-  const closeFullscreen = useCallback(() => setFullscreen(undefined), []);
-  const openFullscreen = useCallback((appId: string) => {
-    if (!actorProgramApps(session).some((app) => app.id === appId && app.app.visible !== false)) {
-      throw new Error("The actor view is not available on the surface.");
-    }
-    setFullscreen({ runId, appId });
-  }, [runId, session]);
-  useEffect(() => { if (fullscreen && !fullscreenAppId) setFullscreen(undefined); }, [fullscreen, fullscreenAppId]);
   const loadRevision = useRef(0);
 
   const refresh = useCallback(async () => {
@@ -172,23 +153,15 @@ export function ActorProgramsProvider({
   const value = useMemo<ActorProgramsContextValue>(() => ({
     api,
     error,
-    fullscreenAppId,
     invoke,
     listing,
-    openFullscreen,
-    closeFullscreen,
     refresh,
     runId,
-  }), [api, error, fullscreenAppId, invoke, listing, openFullscreen, closeFullscreen, refresh, runId]);
+  }), [api, error, invoke, listing, refresh, runId]);
   const slot = useMemo<ProgramSlot>(() => ({
     runId,
-    needsAnswer: (session, appId) => {
-      const app = listing?.apps.find((candidate) => candidate.id === appId);
-      return app !== undefined && pendingConfirmationFor(session, app) !== undefined;
-    },
-    openFullscreen,
     source: (view, actorId) => actorProgramSourceView(api, view, actorId),
-  }), [api, listing, openFullscreen, runId]);
+  }), [api, runId]);
   return <ActorProgramsContext.Provider value={value}>
     <ProgramSlotContext.Provider value={slot}>{children}</ProgramSlotContext.Provider>
   </ActorProgramsContext.Provider>;
@@ -373,55 +346,6 @@ export function ToolsPanel({ active, navigation, selection, session }: Workspace
         </button>
       ))}
     </div>
-  );
-}
-
-/** A click on a mini-app selects its tile on the surface; the surface is the surface controller of the orchestration plugin. */
-export function ActorProgramsHeader({ session }: SessionHeaderContext) {
-  const canArrange = useAccess().can("runs.inspect");
-  const surface = useSurfaceController();
-  const stage = useSurfaceEntities(session.session.id);
-  const { closeFullscreen, fullscreenAppId, openFullscreen } = useActorPrograms();
-  const apps = actorProgramApps(session).filter((app) => app.app.visible !== false);
-  if (apps.length === 0) return null;
-
-  return (
-    <nav aria-label="Actor views" className="flex min-w-0 flex-none items-stretch">
-      {apps.map((app) => (
-        <div role="group" aria-label={app.title} key={`app:${app.id}`}
-          className={cn("relative flex flex-none items-stretch border-r border-border hover:bg-accent focus-within:bg-accent",
-            fullscreenAppId === app.id && "bg-primary/12 after:pointer-events-none after:absolute after:inset-x-0 after:bottom-0 after:h-[3px] after:bg-primary after:content-['']")}>
-        <ToolbarItem
-          as="button"
-          className="max-w-[214px] border-r-0 font-bold hover:not-disabled:bg-transparent"
-          draggable={canArrange}
-          onDragStart={(event) => {
-            if (!canArrange) { event.preventDefault(); return; }
-            event.dataTransfer.setData(SURFACE_TILE_DRAG_TYPE, `app:${app.id}`);
-            event.dataTransfer.effectAllowed = "move";
-            closeFullscreen();
-          }}
-          onClick={() => {
-            if (!surface) throw new Error("The app entries need the surface controller of the orchestration plugin.");
-            closeFullscreen();
-            surface.acceptSelection({ type: "run-app", id: app.id });
-          }}
-          aria-label={`Mini-app: ${app.title} of @${app.actorHandle}`}
-          title={`Mini-app: ${app.title} of @${app.actorHandle}${canArrange ? ". Drag onto a tile to dock." : ""}`}
-          type="button"
-        >
-          <span className={cn(quickIconClass, !stage.has(`app:${app.id}`) && "bg-transparent")}><LayoutGridIcon size={20} /></span>
-          <ToolbarCopy><ToolbarLabel>@{app.actorHandle}</ToolbarLabel><ToolbarText>{app.title}</ToolbarText></ToolbarCopy>
-        </ToolbarItem>
-        <ToolbarItem as="button" aria-expanded={fullscreenAppId === app.id} aria-label={`${app.title} ${fullscreenAppId === app.id ? "close full view" : "open in full view"}`}
-          title={`${app.title} ${fullscreenAppId === app.id ? "close full view" : "open in full view"}`}
-          className="relative w-[38px] justify-center border-r-0 p-0 hover:not-disabled:bg-transparent before:pointer-events-none before:absolute before:top-1/4 before:bottom-1/4 before:left-0 before:border-l before:border-dashed before:border-border-strong before:content-['']"
-          onClick={() => fullscreenAppId === app.id ? closeFullscreen() : openFullscreen(app.id)} type="button">
-          <ExpandIcon />
-        </ToolbarItem>
-        </div>
-      ))}
-    </nav>
   );
 }
 

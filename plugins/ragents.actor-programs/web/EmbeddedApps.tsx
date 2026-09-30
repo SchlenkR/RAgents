@@ -1,6 +1,5 @@
 import { useAccess } from "@ragents/web/AccessContext";
 import { Spinner } from "@ragents/web/ui";
-import { isRecord } from "@ragents/web/lib/guards";
 import { runActorFrom } from "@ragents/web/run-view";
 import type {
   SurfaceElementContext,
@@ -33,13 +32,6 @@ export function ActorProgramToolCardSection({ actor, session }: CardSectionConte
 
 export const actorProgramSurfaceElements = (session: SessionContext): readonly SurfaceElementDefinition[] =>
   actorProgramApps(session).flatMap((module): SurfaceElementDefinition[] => {
-    const rawPlacements = module.app.placements;
-    const placement = Array.isArray(rawPlacements) ? rawPlacements.find((entry) => isRecord(entry) && entry.kind === "canvas") : undefined;
-    const surface = isRecord(placement) ? placement : undefined;
-    if (surface && typeof surface.anchorActorId !== "string") {
-      throw new Error(`The surface placement of the actor view ${module.title} is invalid`);
-    }
-    if (surface && surface.anchorActorId !== module.actorId) throw new Error(`The view ${module.title} belongs to @${module.actorHandle}.`);
     return [{
       id: module.id,
       title: module.title,
@@ -61,7 +53,6 @@ export function ActorProgramSurfaceElement({ definition, session }: SurfaceEleme
       app={app}
       invoke={invoke}
       pendingConfirmationInvocationId={confirmation?.parameters.invocationId}
-      presentation="tiled"
       runId={runId}
       session={session}
     />

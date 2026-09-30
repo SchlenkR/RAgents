@@ -62,6 +62,7 @@ export type JournalLoadFailure = Readonly<{
 }>;
 
 type JournalOptions = {
+    validateRecord?: (record: CommandRecord) => void;
     onLoadError?: (failure: JournalLoadFailure) => void;
     onListenerError?: (error: unknown) => void;
     onStaleLock?: (message: string) => void;
@@ -260,6 +261,7 @@ export class Journal {
     readonly #listeners = new Set<(events: JournalEvent[]) => void>();
     readonly #pendingPublications: JournalEvent[][] = [];
     readonly #runs = new Map<RunId, RunLog>();
+    readonly #validateRecord: ((record: CommandRecord) => void) | undefined;
     readonly #loadFailures = new Map<string, JournalLoadFailure>();
     readonly #onLoadError: (failure: JournalLoadFailure) => void;
     readonly #creationCommands = new Map<string, CommandRecord>();
@@ -279,6 +281,7 @@ export class Journal {
     constructor(path: string, services: RuntimeServices, options: JournalOptions = {}) {
         this.#path = path === ":memory:" ? null : path;
         this.#services = services;
+        this.#validateRecord = options.validateRecord;
         this.#onListenerError = options.onListenerError ?? ((error) => console.error("Journal listener failed:", error));
         this.#onLoadError = options.onLoadError ?? ((failure) => console.error(`Journal ${failure.runId} (${failure.path}) is not available: ${failure.message}`));
         this.#onStaleLock = options.onStaleLock ?? ((message) => console.warn(message));
@@ -561,6 +564,7 @@ export class Journal {
         for (const record of records) {
             this.assertRunAvailable(record.runId);
             assertRunId(record.runId);
+            this.#validateRecord?.(record);
             const ids = commandIds.get(record.runId) ?? new Set<string>();
 
             if (ids.has(record.command.id) || this.#runs.get(record.runId)?.commands.has(record.command.id))

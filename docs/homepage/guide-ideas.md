@@ -51,7 +51,7 @@ the journal does not execute the recorded work again. The
 
 ## Mini-apps make the work interactive
 
-An actor can have a small interface: a mini-app on the surface. It displays the actor's data
+An actor can have a small interface: a mini-app in the shared panel. It displays the actor's data
 and calls its functions. In the word game, this interface contains the start button, progress,
 and word list. On the collection board, both an AI assistant and a person can add entries to
 the same list.

@@ -24,7 +24,10 @@ window.update=()=>flushSync(()=>root.render(<ChatPanel composer={<div style={{he
   try {
     const page = await browser.newPage({viewport:{width:1300,height:900}});
     await page.goto(`file://${directory}/index.html`);
-    const bottom = () => page.waitForFunction(() => {const e=document.querySelector<HTMLElement>("[aria-label='Chat history']")!;return e.scrollHeight-e.clientHeight-e.scrollTop<2;});
+    const bottom = async () => {
+      await page.waitForFunction(() => {const e=document.querySelector<HTMLElement>("[aria-label='Chat history']")!;return e.clientHeight>0&&e.scrollHeight-e.clientHeight-e.scrollTop<2;});
+      await page.evaluate(() => new Promise<void>(resolve => requestAnimationFrame(() => requestAnimationFrame(() => resolve()))));
+    };
     const stream = () => page.evaluate(() => {const w=window as any;w.fixture.messages.push({key:String(w.fixture.messages.length),role:"assistant",text:"Another paragraph. ".repeat(20)});w.update();});
     await bottom();
     const clamped = await page.evaluate(() => {
@@ -52,7 +55,7 @@ window.update=()=>flushSync(()=>root.render(<ChatPanel composer={<div style={{he
     await page.evaluate(()=>{const app=document.querySelector<HTMLElement>("#app")!;app.style.display="none";(window as any).update();});
     await stream();
     await page.evaluate(()=>{document.querySelector<HTMLElement>("#app")!.style.display="flex";});await bottom();
-    await page.locator("[aria-label='Chat history']").focus();await page.keyboard.press("PageUp");
+    await page.locator("[aria-label='Chat history']").press("PageUp");
     await page.waitForFunction(()=>!!document.querySelector("[aria-label='Jump to end']"));
     await stream();assert.equal(await page.locator("[aria-label='Jump to end']").count(),1);
     await page.evaluate(()=>{document.querySelector<HTMLElement>("#app")!.style.display="none";(window as any).update();});

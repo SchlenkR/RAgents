@@ -4,7 +4,7 @@ import { Type } from "typebox";
 const contract = {
   state: Type.Object({ built: Type.Optional(Type.Boolean()) }, { additionalProperties: false }),
   functions: {},
-  input: { capabilities: ["model_list", "agent_spawn", "canvas_layout_replace", "actor_input", "run_configure"] },
+  input: { capabilities: ["model_list", "agent_spawn", "actor_input", "run_configure"] },
 } as const;
 
 type Start = { input: unknown };
@@ -57,22 +57,12 @@ export default defineActor(contract, {
       participants.push(`@${participant.handle}`);
     }
 
-    await context.functions.canvas_layout_replace({
-      root: {
-        direction: "vertical",
-        weights: [1, 1],
-        children: [
-          { entity: participants[0]! },
-          { direction: "horizontal", weights: [1, 1], children: [{ entity: participants[1]! }, { entity: participants[2]! }] },
-        ],
-      },
-    });
 
     await context.functions.actor_input({
       actor: "@coordinator",
-      content: `The circle is ready: ${participants.join(", ")} are set up, the surface is split. Topic: "${topic}". `
+      content: `The circle is ready: ${participants.join(", ")} are set up. Topic: "${topic}". `
         + `Run exactly ${rounds} conversation rounds: in each round ${participants.join(", ")} in this order. `
-        + "Each one receives the previous contributions. Do not change the surface. "
+        + "Each one receives the previous contributions. "
         + "At the end, summarize the conversation in three sentences.",
     });
 

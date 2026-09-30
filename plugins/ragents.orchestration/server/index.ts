@@ -1,6 +1,5 @@
 import {
   actorInputSchema,
-  agentTools,
   enqueueActorInput,
   eventResultSchemaOf,
   ScriptDriver,
@@ -10,17 +9,13 @@ import {
 import { runtimeProviderToken } from "@ragents/host/ragents/host-services.js";
 import { pluginAsset } from "@ragents/host/plugin-support/plugin-folder.js";
 import type { PluginModule } from "@ragents/host/plugin-support/plugin-module.js";
-import { boundToTools, handlebarsPrompt } from "@ragents/host/plugin-support/prompt.js";
-import { createSurfaceToolContributor, placeOnSurface } from "./surface-tool.js";
-import { surfacePlacementToken } from "./contract.js";
+import { handlebarsPrompt } from "@ragents/host/plugin-support/prompt.js";
 import { createRunStopContributor } from "./run-stop-tool.js";
 import { runManagementToken } from "@ragents/host/ragents/global-chat.js";
 
 const orchestrationPlugin: RAgentsPlugin = {
   manifest: { id: "ragents.orchestration" },
   register: (host) => {
-    host.functions(createSurfaceToolContributor());
-    host.provide(surfacePlacementToken, placeOnSurface(host.service(runtimeProviderToken)));
     host.functions(createRunStopContributor(
       (runId) => host.service(runManagementToken)().stop(runId),
       (error) => console.error("Run stop by the coordinator failed", error),
@@ -52,11 +47,6 @@ const orchestrationPlugin: RAgentsPlugin = {
     });
     host.prompts(
       handlebarsPrompt("ragents.orchestration.prompt", 600, pluginAsset("ragents.orchestration", "orchestration.hbs")),
-      boundToTools(
-        handlebarsPrompt("ragents.orchestration.surface", 650, pluginAsset("ragents.orchestration", "surface.hbs")),
-        "canvas_layout_replace",
-        "canvas_layout_place",
-      ),
     );
   },
 };

@@ -1,9 +1,8 @@
+import { SearchIcon } from "lucide-react";
+import { INSPECTION_TAB_ID, InspectionPanel } from "./InspectionPanel";
 import { useEffect, useState } from "react";
-import { OrchestrationCenter } from "./Center";
 import { OrchestrationRunPanel } from "./run-panel/RunPanel";
 import { DocumentsSection } from "./DocumentsSection";
-import { RunPanelSettings } from "./run-panel/RunPanelSettings";
-import { ActorShortcuts } from "./ActorSurfaceControls";
 import { JournalStatus } from "./JournalStatus";
 import { StopRunHeader } from "./StopRunButton";
 import { EXECUTIONS_TAB_ID, ExecutionsPanel, IconExecutions } from "./ExecutionsPanel";
@@ -18,7 +17,7 @@ import {
 
 export { ORCHESTRATION_PLUGIN_ID } from "./constants";
 
-/** The selection on the surface: an artifact opens the documents, every other entity becomes the selected tile and the reported location. */
+/** The selection on the surface: an artifact opens the documents; actors and mini-apps report the current location. */
 function OrchestrationSessionProvider({ children, navigation, session }: SessionProviderProps) {
   const runView = runViewFrom(session.runView);
   const [selection, setSelection] = useState<EntityReference>();
@@ -46,12 +45,8 @@ export const webPlugin: WebPlugin = {
   sessionStatus: [{ id: "ragents.orchestration.journal", readRight: "runs.inspect", order: 20, Status: JournalStatus }],
   sessionHeaders: [
     { id: "ragents.orchestration.stop", readRight: "runs.write", order: 100, Header: StopRunHeader },
-    { id: "ragents.orchestration.actors", order: 300, placement: "surface", Header: ActorShortcuts },
   ],
-  settings: [
-    { id: "ragents.orchestration.runPanel", category: "appearance", label: "Run panel", Settings: RunPanelSettings },
-  ],
-  surface: { Center: OrchestrationCenter, RunPanel: OrchestrationRunPanel },
+  surface: { RunPanel: OrchestrationRunPanel },
   cardSections: [{
     id: "ragents.orchestration.documents",
     order: 300,
@@ -59,6 +54,15 @@ export const webPlugin: WebPlugin = {
   }],
   SessionProvider: OrchestrationSessionProvider,
   workspaceTabs: [{
+    id: INSPECTION_TAB_ID,
+    readRight: "runs.inspect",
+    label: "Inspection",
+    order: 100,
+    Icon: SearchIcon,
+    Panel: InspectionPanel,
+    keepMounted: true,
+    available: (session) => runViewFrom(session.runView) !== undefined,
+  }, {
     id: EXECUTIONS_TAB_ID,
     readRight: "runs.inspect",
     label: "Executions",

@@ -26,6 +26,7 @@ export interface ConnectionRun {
   readonly title: string;
   readonly state: "running" | "waiting" | "idle" | "ended";
   readonly pendingActions: number;
+  readonly notice?: "unseen" | "updated";
   readonly updatedAt: number;
   /** The extension could not read the run view; the row names the reason. */
   readonly problem?: string;
@@ -62,6 +63,8 @@ export interface ConnectionView {
   readonly defaultEntry?: string;
   /** New runs are allowed; without the right only the list remains. */
   readonly canCreate: boolean;
+  readonly canDelete?: boolean;
+  readonly canCreateFree?: boolean;
   /** The signed-in user, if the server manages users. */
   readonly user?: string;
   /** The most recently tried user name; the sign-in form takes it over. */

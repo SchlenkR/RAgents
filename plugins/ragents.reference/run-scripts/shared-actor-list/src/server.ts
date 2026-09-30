@@ -56,7 +56,7 @@ export default defineActor(contract, {
     await context.functions.actor_input({
       actor: "@coordinator",
       content: `The shared collection is called ${JSON.stringify(title)}. The run script has bound the program shared-list to @${helper.handle}. Its view is visible on the surface; the helper is currently adding the first entry with append_to_list. `
-        + "Below under Actors, its name opens the inspector with chat and details. Its tile is hidden by default and can be turned on in the Actors list when needed. "
+        + "Use the addressee selector to inspect its owner with chat and details. Open the mini-app from the app catalog. "
         + "Explain to the user in three sentences how to use the visible list, how to open the helper, and that the view and the function share the same list state.",
     });
 

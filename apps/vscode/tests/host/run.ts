@@ -602,7 +602,48 @@ export async function run(): Promise<void> {
     if (app) {
       await vscode.commands.executeCommand("ragents.openAppInCenter", primary, run.id, app.id, app.title);
       await waitFor(() => seen.filter((entry) => entry.message.type === "ready").length >= 2, 30_000, "mini-app in the center reports ready");
-      report.centerApp = app.id;
+      const appTabs = () => vscode.window.tabGroups.all.flatMap((group) => group.tabs)
+        .filter((tab) => tab.input instanceof vscode.TabInputWebview && tab.input.viewType.includes("ragents.app"));
+      const open = () => vscode.commands.executeCommand("ragents.openAppInCenter", primary, run.id, app.id, app.title);
+      const count = appTabs().length;
+      if (count === 0) throw new Error("The app has no editor tab");
+      await open();
+      if (appTabs().length !== count) throw new Error("Opening an app twice duplicated its editor");
+      const originalGroup = vscode.window.tabGroups.activeTabGroup.viewColumn;
+      await vscode.commands.executeCommand("workbench.action.newGroupRight");
+      await open();
+      await vscode.commands.executeCommand("workbench.action.moveEditorToNextGroup");
+      await waitFor(() => vscode.window.tabGroups.activeTabGroup.viewColumn !== originalGroup, 10_000, "app moved to another group");
+      const movedGroup = vscode.window.tabGroups.activeTabGroup.viewColumn;
+      await open();
+      if (appTabs().length !== count || vscode.window.tabGroups.activeTabGroup.viewColumn !== movedGroup) {
+        throw new Error("Opening a moved app must focus its existing group");
+      }
+      const current = vscode.window.tabGroups.activeTabGroup.activeTab;
+      if (!current || !appTabs().includes(current)) throw new Error("The app editor is not active");
+      if (!await vscode.window.tabGroups.close(current)) throw new Error("The app editor could not be closed");
+      await waitFor(() => appTabs().length === count - 1, 10_000, "app editor closed");
+      await open();
+      await waitFor(() => appTabs().length === count, 10_000, "one app editor reopened");
+      report.centerApp = { id: app.id, reused: true, movedGroup, reopened: true };
+      const other = api.snapshots().find((snapshot) => snapshot.connection.name !== primary && snapshot.status.kind === "connected");
+      if (other) {
+        const otherParts = parts(api, other.connection.name);
+        const candidates = await Promise.all(otherParts.store.runs.map(async (candidate) => ({
+          run: candidate,
+          apps: actorProgramViews(await otherParts.client.rpc.call(runContracts.view, { runId: candidate.id }))
+            .filter((entry) => entry.app.visible !== false),
+        })));
+        const candidate = candidates.find((entry) => entry.apps.length > 0);
+        if (candidate) {
+          const otherApp = candidate.apps[0]!;
+          await vscode.commands.executeCommand("ragents.openAppInCenter", other.connection.name, candidate.run.id, otherApp.id, otherApp.title);
+          await waitFor(() => appTabs().length === count + 1, 10_000, "other server app has its own editor");
+          await open();
+          if (appTabs().length !== count + 1) throw new Error("Switching servers duplicated an app editor");
+          report.appServerIsolation = true;
+        } else report.appServerIsolation = { skipped: "The second server has no visible app" };
+      } else report.appServerIsolation = { skipped: "No second connected server" };
     }
     report.messages = seen;
     report.ok = true;

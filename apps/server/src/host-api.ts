@@ -1,5 +1,5 @@
 /** The number of the host API a plugin is built against; it changes with every incompatible change of a list, a listed name or a library. */
-export const HOST_API_VERSION = 7;
+export const HOST_API_VERSION = 10;
 
 /** A library the host shares whole, as its installed version exports it; host code instead names each value it offers. */
 export const LIBRARY = "library";
@@ -152,7 +152,8 @@ export const hostApi: { readonly server: HostApiModules; readonly web: HostApiMo
     "@ragents/web/product/start-options": ["productStartOptions"],
     "@ragents/web/rpc": ["rpc"],
     "@ragents/web/run-panel/input-bridge": ["hostInputEnabled", "isRunPanelKeyboardMessage", "relayFrameInput"],
-    "@ragents/web/run-panel/host": ["useCenterElements", "useRunPanelHost"],
+    "@ragents/web/run-apps": ["runApps", "selectedRunApp", "RunAppView"],
+    "@ragents/web/run-panel/host": ["useRunPanelHost"],
     "@ragents/web/run-view": [
       "actorPluginState", "actorTone", "chatPrimaryId", "isPendingRunActorInput", "runActorFrom",
       "runArtifactContentUrl", "runViewFrom",

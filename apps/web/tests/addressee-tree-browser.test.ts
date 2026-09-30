@@ -101,12 +101,12 @@ test("the addressee pop-out shows who created whom, groups the reviewers and pic
   await page.getByPlaceholder("Message to @review-comments ...").waitFor();
   assert.equal(await dialog.count(), 0, "picking closes the pop-out");
 
-  await page.locator("button[title^=\"Addressee: @review-comments\"]").click();
+  await page.locator("button[title^=\"Addressee: @review-comments\"]:visible").click();
   await entry("review-comments").waitFor();
   assert.equal(await entry("review-comments").getAttribute("aria-current"), "true");
   assert.equal(await group.getAttribute("aria-expanded"), "true", "the group holding the addressee opens by itself");
   await shoot("addressee-tree-selection");
   await entry("implementer").click();
-  await page.locator("button[title^=\"Addressee: @implementer\"]").waitFor();
+  await page.locator("button[title^=\"Addressee: @implementer\"]:visible").waitFor();
   assert.deepEqual(errors, []);
 });

@@ -68,11 +68,10 @@ The actor enforces completion and extensions; see learning-afternoon.
 Use `FlowDiagram` for other graphs (star layout, fit, actions). Keep local IDs stable.
 See `controls`. For custom SVG use `SvgEdge`, Tailwind utilities, responsive `viewBox` and
 accessible descriptions.
-Address view visibility with `package-name/view-key`, `@handle/view-key` or a unique title;
-a tile uses the same names with the `app:` prefix.
-The host sizes the tile and offers the full view. Views appear as tiles; owner cards are not
-placed by themselves but stay in the Actors list. Personal actor visibility is separate from
-`actor_view_set_visibility` and cannot be changed by layouts.
+Address view visibility with `package-name/view-key`, `@handle/view-key` or a unique title.
+Visible apps enter the catalog automatically: browser tabs beside Chat, editor tabs in VS Code.
+The host sizes each view. Use the addressee selector to inspect an app's owner.
+`actor_view_set_visibility` controls whether a view is available.
 
 Tests call `program.functions.<name>(input, context)` or `program.onInput(input, context)`.
 `createTestContext` from `@ragents/server/testing` supplies state and explicit typed `functions` mocks.

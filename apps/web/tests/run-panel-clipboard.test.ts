@@ -12,6 +12,7 @@ const fakeWindow = (active: ReturnType<typeof field> | null) => {
   const parent = { postMessage: (message: unknown) => posted.push(message) };
   const browser = {
     parent,
+    focus() {},
     document: {
       activeElement: active,
       execCommand: (name: string, _show?: boolean, text?: string) => { commands.push({ name, text }); return true; },
@@ -43,11 +44,32 @@ test("pasting in the run panel asks the hull for the text and inserts it into th
   assert.equal(press("v"), true);
   const request = posted[0] as { type: string; id: string };
   assert.equal(request.type, "clipboardRead");
-  reply({ type: "clipboardText", id: "foreign", text: "discarded" });
-  reply({ type: "clipboardText", id: request.id, text: "Dictated sentence." });
+  reply({ type: "clipboardContent", id: "foreign", text: "discarded", files: [] });
+  reply({ type: "clipboardContent", id: request.id, text: "Dictated sentence.", files: [] });
   await new Promise((resolve) => setImmediate(resolve));
   assert.deepEqual(commands, [{ name: "insertText", text: "Dictated sentence." }]);
   assert.equal(input.focused, 1);
+});
+
+test("paste restores the requesting document before its active input, even with an empty clipboard", async () => {
+  for (const text of ["Pasted text", ""]) {
+    const input = field("TEXTAREA");
+    const { browser, commands, press } = fakeWindow(input);
+    const focus: string[] = [];
+    browser.focus = () => { focus.push("document"); };
+    input.focus = () => { focus.push("input"); };
+    browser.document.execCommand = (command) => {
+      assert.deepEqual(focus, ["document", "input"]);
+      assert.equal(command, "insertText");
+      commands.push({ name: command, text });
+      return true;
+    };
+    installClipboardBridge(browser, async () => ({ text, files: [] }));
+    press("v");
+    await new Promise((resolve) => setImmediate(resolve));
+    assert.deepEqual(focus, ["document", "input"]);
+    assert.equal(commands.length, text ? 1 : 0);
+  }
 });
 
 test("copying works without an editable field, cutting and pasting need one", () => {
@@ -86,7 +108,7 @@ test("paste ignores composing shortcuts and a reply after disposal", async () =>
   assert.equal(press("V"), true);
   const request = posted[0] as { id: string };
   dispose();
-  reply({ type: "clipboardText", id: request.id, text: "Too late" });
+  reply({ type: "clipboardContent", id: request.id, text: "Too late", files: [] });
   await new Promise((resolve) => setImmediate(resolve));
   assert.deepEqual(commands, []);
 });

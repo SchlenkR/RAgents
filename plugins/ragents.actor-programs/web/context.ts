@@ -5,10 +5,7 @@ import type { JsonValue } from "./bridge";
 export interface ActorProgramsContextValue {
   api: ActorProgramsApi;
   error: string | undefined;
-  fullscreenAppId: string | undefined;
   listing: ActorProgramsListing | undefined;
-  openFullscreen: (appId: string) => void;
-  closeFullscreen: () => void;
   refresh: () => Promise<void>;
   invoke: (
     appId: string,

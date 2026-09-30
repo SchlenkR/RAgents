@@ -32,18 +32,11 @@ const contract = {
       capabilities: ["actor_input"],
     },
   },
-  input: { capabilities: ["model_list", "agent_spawn", "canvas_layout_replace", "run_configure", "actor_input", "event_subscribe", "event_unsubscribe", "event_query"] },
+  input: { capabilities: ["model_list", "agent_spawn", "run_configure", "actor_input", "event_subscribe", "event_unsubscribe", "event_query"] },
 } as const;
 
 const startMarker = "START_LEARNING_AFTERNOON";
 
-
-type Tile = { entity: string } | { direction: "vertical"; weights: [number, number]; children: [Tile, Tile] };
-
-function stackedTiles(entities: string[]): Tile {
-  const [first, ...rest] = entities;
-  return rest.length === 0 ? { entity: first! } : { direction: "vertical", weights: [1, rest.length], children: [{ entity: first! }, stackedTiles(rest)] };
-}
 
 function boardWith(helpers: HelperState[]): LearningState {
   const working = helpers.some((helper) => helper.status === "working");
@@ -72,13 +65,6 @@ export default defineActor(contract, {
         const actor = await context.functions.agent_spawn({ handle: `learning-${helper.id}`, displayName: helper.label, profile: profile.name, prompt, tools: [] });
         return { ...helper, actorId: actor.id };
       }));
-      await context.functions.canvas_layout_replace({
-        root: {
-          direction: "horizontal",
-          weights: [1, 1],
-          children: [{ entity: `app:@${context.actor.handle}/main` }, stackedTiles(helpers.map((helper) => `@learning-${helper.id}`))],
-        },
-      });
       await context.functions.run_configure({ title: learningWorkflow.title, primaryActor: `@${context.actor.handle}` });
       context.state.replace({ board: { phase: "ready", helpers } });
       return;

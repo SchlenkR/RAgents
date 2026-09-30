@@ -60,7 +60,7 @@ adapter, or sandbox would be hard errors.
 
 An ACP actor could appear in the actor dialog as an agent runtime rather than a mere model
 choice. The interface could show only the models, modes, and configuration fields the adapter
-offers. The chat and its tile would show structured plans, running tool steps, file changes,
+offers. The chat would show structured plans, running tool steps, file changes,
 terminal processes, and permission questions without showing the raw protocol communication.
 
 Prepared runs could then use different coding agents together: for example one agent for the

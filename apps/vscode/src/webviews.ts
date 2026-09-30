@@ -143,14 +143,10 @@ interface OpenPanel {
 export class AppPanels {
   readonly #panels = new Map<string, OpenPanel>();
 
-  constructor(private readonly bridge: WebviewBridge, private readonly onPlacementsChanged: (connection: string, runId: string) => void) {}
-
-  centerElements(connection: string, runId: string): ReadonlySet<string> {
-    return new Set([...this.#panels.values()].filter((entry) => entry.connection === connection && entry.runId === runId).map((entry) => entry.elementId));
-  }
+  constructor(private readonly bridge: WebviewBridge) {}
 
   open(connection: string, runId: string, elementId: string, title: string, runTitle: string | undefined): void {
-    const key = `${connection}:${runId}:${elementId}`;
+    const key = JSON.stringify([connection, runId, elementId]);
     const existing = this.#panels.get(key);
     if (existing) {
       existing.panel.reveal(undefined, false);
@@ -167,14 +163,8 @@ export class AppPanels {
     panel.onDidDispose(() => {
       subscription.dispose();
       this.#panels.delete(key);
-      this.onPlacementsChanged(connection, runId);
     });
     this.#render(entry);
-    this.onPlacementsChanged(connection, runId);
-  }
-
-  close(connection: string, runId: string, elementId: string): void {
-    this.#panels.get(`${connection}:${runId}:${elementId}`)?.panel.dispose();
   }
 
   /** Closes all tabs of a server; an ended session leaves no mini-app open. */

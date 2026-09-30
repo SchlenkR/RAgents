@@ -10,5 +10,5 @@ tags: Run scripts, Concept demo, TypeScript actors
 
 The start value `{ "text": "..." }` is the note; without one, the script notes when it was
 started. The script makes the shared notebook active with `actor_program_ensure`, sends it the
-note, places the notebook's view with `canvas_layout_place`, and ends the start with
+note and ends the start with
 `context.finish`. Whether the roster check or this script comes first, the run has one notebook.

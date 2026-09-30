@@ -528,7 +528,7 @@ external scheduler, agent, and plugin cleanup completes, a second command of thi
 also covers children that a turn already running at the stop still created late. The identifier of
 such a command is composed of the identifier of the stop, the step, and a hash of the stopped
 actors: a repeated stop with the same identifier thus also reaches actors that have appeared in the
-meantime and writes nothing twice. Chat and surface use the same stop operation.
+meantime and writes nothing twice. Chat and the shared panel use the same stop operation.
 
 If a chat or run is stopped, the already visible text of the primary actor's open model message
 stays. The agent runtime collects the live deltas and writes them once as
@@ -634,7 +634,7 @@ the way to the model, it takes over only the fields of its result schema, that i
 hashes, and no input echoes (`reason`, `title`, `prompt`, `content`, `state`). A function that
 delivers events names exactly the types it produces with `eventResultSchemaOf(...)` (`actor_input`:
 `actor.input.enqueued`), so that its TypeScript result type also knows only these. A call that only
-confirms (`event_unsubscribe`, `run_configure`, `canvas_layout_replace`, `todo_replace`) returns
+confirms (`event_unsubscribe`, `run_configure`, `todo_replace`) returns
 `null`; `event_subscribe` returns only `subscriptionId` and the resolved `sources`. Journal,
 `event_query`, and the RunView for the web stay complete.
 
@@ -1002,7 +1002,7 @@ prepared and provided again after a conversation reset. The system prompt contai
 generated overview of these methods including their user permissions. In addition, there are names
 and short descriptions of regular run building blocks from the engine descriptors and the public
 tool descriptors of the plugins and hooks actually registered. This makes, for example, the
-installed tile and actor program capabilities known before the first access to the reference. The
+installed plugin and actor program capabilities known before the first access to the reference. The
 prompt is assembled only when read, from the complete registration state; generation triggers no
 tool factories and reads neither configuration values nor internal service operations. This
 catalog does not extend the fixed tool selection of the global chat and grants no permissions: run
@@ -1105,7 +1105,9 @@ cause under `locked`, without title generation, plugin metadata, and workspace
 (`workspaceAccessible: false`); web and VS Code do not open them but offer deletion. A journal that
 could not be loaded names no owner; the permission check treats the run like one without an owner,
 so it is visible and deletable with `runs.read.all` or without sign-in. Deletion archives the files
-unchanged and releases the lock. Isolated runs receive no working directories or scheduler
+unchanged and releases the lock. The host also checks persisted plugin contracts before replay; removed host layouts, view
+placements, and layout-function references isolate only the affected run without rewriting files.
+Isolated runs receive no working directories or scheduler
 execution and cannot accidentally be created anew under the same ID. `Journal.unavailableRuns`
 names all locked runs, including those after a write error. This also applies to the global
 coordinator. Its explicit conversation reset can release the locked ID after removing the old files.

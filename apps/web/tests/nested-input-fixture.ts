@@ -2,7 +2,7 @@ import { fileURLToPath } from "node:url";
 import { build } from "esbuild";
 import { frameHtml } from "../../../plugins/ragents.actor-programs/server/routes";
 
-export async function nestedInputFixture(serverUrl: string): Promise<Record<string, string>> {
+export async function nestedInputFixture(serverUrl: string, chat = false): Promise<Record<string, string>> {
   const root = fileURLToPath(new URL("../../../", import.meta.url));
   const bundle = async (contents: string) => (await build({
     stdin: { contents, resolveDir: root, loader: "tsx" }, bundle: true, platform: "browser", format: "iife",
@@ -17,15 +17,16 @@ export async function nestedInputFixture(serverUrl: string): Promise<Record<stri
     if (new URLSearchParams(location.search).get("host") === "vscode") installRunPanelInputBridge(window);
     const app = {id:"first",actorId:"worker",actorHandle:"worker",title:"Mini-App",revision:"1",actions:[],placements:[],invocations:[],state:null};
     const api = {frameUrl: () => ${JSON.stringify(`${serverUrl}/first`)}};
-    createRoot(document.getElementById("root")).render(<ActorViewFrame api={api} app={app} invoke={async()=>{throw new Error("unused")}} presentation="embedded" runId="test" session={{session:{id:"test"}}}/>);
+    createRoot(document.getElementById("root")).render(<ActorViewFrame api={api} app={app} invoke={async()=>{throw new Error("unused")}} runId="test" session={{session:{id:"test"}}}/>);
   `);
   const client = await bundle(`
     import { createRoot } from "react-dom/client";
     import { useState } from "react";
+    import { ChatInputToolbar } from "quassel";
     import { hostInputEnabled, relayFrameInput } from "./apps/web/src/run-panel/input-bridge";
     window.inputEvents=[];
     document.addEventListener("input",event=>window.inputEvents.push({value:event.target.value,inputType:event.inputType}));
-    function Editor(){const [value,setValue]=useState("");return <><textarea id="editor" aria-label="Editor" value={value} onChange={e=>setValue(e.target.value)}/><output id="value">{value}</output><input id="input"/><div contentEditable id="editable">Editable text</div></>}
+    function Editor(){const [value,setValue]=useState("");const [sent,setSent]=useState("");return <><textarea id="editor" aria-label="Editor" value={value} onChange={e=>setValue(e.target.value)}/><output id="value">{value}</output><input id="input"/><div contentEditable id="editable">Editable text</div>{${chat} && <section aria-label="Clipboard chat"><ChatInputToolbar attachmentCapabilities={{model:"vision",input:["text","image"]}} onSend={async(text,attachments)=>setSent(JSON.stringify({text,attachments}))}/><output id="sent">{sent}</output></section>}</>}
     createRoot(document.getElementById("root")).render(<Editor/>);
     if (location.pathname === "/first") {
       const frame=document.createElement("iframe");

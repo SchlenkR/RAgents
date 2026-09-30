@@ -1,3 +1,4 @@
+import * as webRunApps from "@ragents/web/run-apps";
 import * as engineSrcDomainEvents from "@ragents/engine/src/domain/events";
 import * as engineSrcHttpContracts from "@ragents/engine/src/http/contracts";
 import * as engineSrcRpcContract from "@ragents/engine/src/rpc/contract";
@@ -70,6 +71,7 @@ export const hostModules: Readonly<Record<string, object>> = {
   "@ragents/web/product/ProductModelSettings": webProductProductModelSettings,
   "@ragents/web/product/start-options": webProductStartOptions,
   "@ragents/web/rpc": webRpc,
+  "@ragents/web/run-apps": webRunApps,
   "@ragents/web/run-panel/host": webRunPanelHost,
   "@ragents/web/run-panel/input-bridge": webRunPanelInputBridge,
   "@ragents/web/run-view": webRunView,

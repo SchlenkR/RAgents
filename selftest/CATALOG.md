@@ -229,7 +229,7 @@ delivery into running turns) under realistic user behavior.
 ## T13 Hello world on the surface
 
 Idea: A tiny wish for an app in the workshop ends up as a small static
-actor view as a tile on the surface with a short create-activate flow.
+actor view as a tab in the shared panel with a short create-activate flow.
 
 Prompt A: "I would like a small app on the surface that only shows the text
 Hello world. Please build it so that I see it directly on the surface."
@@ -238,36 +238,30 @@ Prompt B: "I would like a small app on the surface that simply says
 Hello world. It should do nothing else."
 
 Expectation: actor_program_create with the template blank and actor_program_activate;
-afterwards the app is a tile on the surface and actor_program_list confirms the installation.
+afterwards the app is available as a tab beside Chat and actor_program_list confirms the installation.
 The view belongs to the calling actor and creates no additional actor.
 The package contains no functions, input handlers, or tools of its own and therefore needs no
 invented backend test. No copying of hashes, no subagent just for testing.
-The view declares no size; the tile and the local full view belong to the host.
+The browser retains visited app input when switching tabs; VS Code opens the app in one editor.
 Completion in under 5 minutes.
 
 Why good: Tests the smallest actor view path end to end. Static content should
 not produce additional server actions or artificial tests. Operation belongs
 to the host and is not rebuilt in the app code.
 
-## T14 Splitting the surface before the conversation
+## T14 Switch between chat and mini-apps
 
-Idea: The coordinator should split the tile surface itself before the work runs, instead of
-leaving the default split in place.
+Idea: Use two mini-apps while a conversation continues in the same run.
 
-Prompt A: "Please set up three conversation partners with their own names who talk in turn for two rounds
-about a topic of your choice, each with a short sentence. Before it
-starts, I would like to see the surface split like this: the spokesperson at the top across the full
-width, the other two below it side by side. A short summary at the end."
+Prompt A: "Create a notes app and a counter, then discuss a short task with me."
 
-Prompt B: "Three AIs talk in turn about a topic. Split the surface beforehand:
-one at the top, two at the bottom. Then let them talk."
+Prompt B: "Give me two small apps in this run and keep the coordinator available in chat."
 
-Expectation: agent_spawn for three agents with tools: [], then exactly one
-canvas_layout_replace with a root made of a vertical split whose lower child is a
-horizontal split with the two remaining @handles. No layout error in the journal, no
-second call during the conversation, no attempt to place the human. The conversation
-then runs as in T01.
+Expectation: Both apps appear without changing the selected chat. In the browser, Chat and each
+app are tabs with exactly one visible view. Unsent chat and app input survive switching. Hiding
+the selected app returns to Chat; showing it again does not select it. In VS Code repeated clicks
+focus the same editor, including after moving it to another editor group. Closing and reopening
+creates one editor; the same app on another server stays independent. Both browser entry routes
+show the same run panel. Questions remain in chat.
 
-Why good: End-to-end case for the layout tool: tests whether the model writes entities as
-@handle, nests splits correctly, sets weights, and sets up the surface before the work
-instead of afterwards.
+Why good: Exercises catalog lifecycle, stable frame identity, draft retention, and host navigation.

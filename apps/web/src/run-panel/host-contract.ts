@@ -28,15 +28,18 @@ export type RunPanelHostMessage =
   | { type: "runChanged"; runId: string | null }
   | { type: "showStart" }
   | { type: "openInCenter"; runId: string; elementId: string; title: string }
-  | { type: "returnToRunPanel"; runId: string; elementId: string }
   | { type: "login" }
   | { type: "logout" }
   | { type: "openExternal"; url: string }
   | { type: "openPage"; url: string; title: string };
 
-/** The clipboard text: a cross-origin iframe may not read it in the webview, the shell above it may. */
+/** The shell reads clipboard contents on behalf of its cross-origin frames. */
+export interface ClipboardContent {
+  text: string;
+  files: File[];
+}
 export type RunPanelClipboardMessage = { type: "clipboardRead"; id: string };
-export type ClipboardRunPanelMessage = { type: "clipboardText"; id: string; text: string };
+export type ClipboardRunPanelMessage = ClipboardContent & { type: "clipboardContent"; id: string };
 
 export interface RunPanelKeyboardMessage {
   type: "keyboardEvent";
@@ -68,7 +71,6 @@ export function isRunPanelKeyboardMessage(value: unknown): value is RunPanelKeyb
 export type HostRunPanelMessage =
   | { type: "selectRun"; runId: string | null }
   | { type: "newRun"; startOptions?: Record<string, unknown>; entryId?: string }
-  | { type: "placements"; runId: string; center: string[] }
   | { type: "theme"; theme: RunPanelTheme };
 
 const isObject = (value: unknown): value is Record<string, unknown> => typeof value === "object" && value !== null;
@@ -88,8 +90,6 @@ export const isRunPanelHostMessage = (value: unknown): value is RunPanelHostMess
       return value.runId === null || isText(value.runId);
     case "openInCenter":
       return isText(value.runId) && isText(value.elementId) && typeof value.title === "string";
-    case "returnToRunPanel":
-      return isText(value.runId) && isText(value.elementId);
     case "openExternal":
       return isText(value.url);
     case "openPage":
@@ -103,7 +103,8 @@ export const isRunPanelClipboardMessage = (value: unknown): value is RunPanelCli
   isObject(value) && value.type === "clipboardRead" && isText(value.id);
 
 export const isClipboardRunPanelMessage = (value: unknown): value is ClipboardRunPanelMessage =>
-  isObject(value) && value.type === "clipboardText" && isText(value.id) && typeof value.text === "string";
+  isObject(value) && value.type === "clipboardContent" && isText(value.id) && typeof value.text === "string"
+    && Array.isArray(value.files) && value.files.every((file) => file instanceof File);
 
 export const isHostRunPanelMessage = (value: unknown): value is HostRunPanelMessage => {
   if (!isObject(value)) return false;
@@ -113,8 +114,6 @@ export const isHostRunPanelMessage = (value: unknown): value is HostRunPanelMess
     case "newRun":
       return (value.startOptions === undefined || (isObject(value.startOptions) && !Array.isArray(value.startOptions)))
         && (value.entryId === undefined || isText(value.entryId));
-    case "placements":
-      return isText(value.runId) && Array.isArray(value.center) && value.center.every(isText);
     case "theme":
       return isRunPanelTheme(value.theme);
     default:

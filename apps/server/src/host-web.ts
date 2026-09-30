@@ -49,6 +49,9 @@ const readRecord = (file: string): HostWebRecord | undefined => {
 export const hostWebProblem = (directory: string, root: string, sources: boolean): string | undefined => {
   const missing = HOST_WEB_PAGES.filter((page) => !isFile(path.join(directory, page)));
   if (missing.length > 0) return `The host's web is missing under ${directory} (${missing.join(", ")})`;
+  if (readFileSync(path.join(directory, "index.html"), "utf8") !== readFileSync(path.join(directory, "run-panel.html"), "utf8")) {
+    return "The host web entry pages differ; rebuild the shared web with pnpm build:web";
+  }
   if (!sources) return undefined;
   const record = readRecord(path.join(directory, HOST_WEB_RECORD));
   if (!record) return `The host's web under ${directory} has no source record (${HOST_WEB_RECORD})`;

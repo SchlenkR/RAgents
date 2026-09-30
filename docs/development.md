@@ -119,7 +119,7 @@ from plugins.
 | `packages/workspace-executor` | the workstation executor made of modules: sandbox tools, language server client, files, processes, commands; plugins bring language servers and the browser as a contribution to the executor; with the same contributions in the server as on the workstation |
 | `packages/ai`         | the LLM integration (openrouter)                                                                     |
 | `apps/server`         | Node backend, plugin discovery, profile composition; `plugin-support/` are host building blocks, not plugins |
-| `apps/web`            | React frontend with plugin slots; chat binding to quassel in `src/chat`, run panel in `src/run-panel` |
+| `apps/web`            | Shared browser and VS Code panel; chat binding to quassel in `src/chat`, navigation in `src/panel`, run UI in `src/run-panel` |
 | `apps/vscode`         | VS Code extension: Start, Runs, and Server pages, run panel and mini-apps as webviews, workstation for runs |
 | `scripts`             | entry points `start.sh`, `start-vscode.sh`; tools in subfolders, `remote/` for `pnpm connect`, `provision/` for `pnpm provision`, `workspace-client/` for `pnpm workspace-client`, `remote-workspace/` for `pnpm check:remote-workspace`, `run-transfer/` for `pnpm run-transfer` |
 | `selftest`            | catalog and log of the autonomous test rounds                                                        |
@@ -136,7 +136,7 @@ clone.
 The engine provides typed functions for actors, messages, events, artifacts, and
 model selection. The binding inventory is in the code under
 `packages/ragents/src/agents/tools.ts`. Plugins add further functions, for example for files,
-programs, and the surface.
+programs, and mini-apps.
 
 A model discovers the current inventory and exact types through `typescript_api`. With
 `typescript_eval` it runs small TypeScript snippets and calls
@@ -277,13 +277,13 @@ to the plugin (`packages/ragents/src/plugin-types.ts`):
 ### Extension points in the web
 
 A web plugin fills slots in the frontend (`WebPlugin` in `apps/web/src/PluginRegistry.tsx`):
-`brand`, `surface`, `surfaceElements`, `cardSections`, `chatDisplayPolicy`, `startOptions`,
+`brand`, `surface` (one `RunPanel`), `surfaceElements`, `cardSections`, `chatDisplayPolicy`, `startOptions`,
 `needsRunView`, `SessionProvider`, `sessionHeaders`, `sessionStatus`, `overviewPanels`,
 `settings`, `workspaceTabs`, `workspaceTabsFor`, `toolPresenters`, `entityPresenters`, `guides`,
 `sessionMetadata`, `actionViews`, `attention`; plus `activate` and `enabled`. `actionViews`
 render pending actions whose payload only the owning plugin knows. `workspaceTabs` are fixed tabs, `workspaceTabsFor` is a factory that derives
-tabs per run from the running state. Mini-apps get their own tile by default;
-their visibility can be toggled in the run, and the user can open a local full view.
+tabs per run from the running state. Visible mini-apps enter the shared catalog automatically. Browser runs show Chat and app tabs;
+VS Code opens apps in editor tabs. Visited browser apps retain their mounted frames while hidden.
 `startOptions` provides, per server-side start option, its own control component and a badge
 for the header of the running run; without a component, the host draws a selection menu from the
 option's presentation.
@@ -524,6 +524,20 @@ dependencies and one run of `pnpm build:agent`. `pnpm check:remote-workspace` ch
 with a Linux container (below, "Testing a workspace on another
 machine"); it
 is not part of `pnpm check`, because it needs Docker.
+
+### Shared web entry points
+
+`apps/web/index.html` loads `src/main.tsx` for browser runs and VS Code run/app frames.
+The host build emits the same HTML as `run-panel.html` for the iframe host contract; the server
+verifies that both pages match. Both routes share access, theme, host modules, and `RunPanelApp`.
+`src/panel.tsx` only binds VS Code messages to the shared `panel/PanelPage` navigation.
+`pnpm --filter @ragents/web build:panel` builds its JavaScript and CSS, without a separate HTML
+page, into the extension. `pnpm --filter ragents-vscode build` includes this navigation build.
+
+After changes run `pnpm build:web`, the package typechecks, `pnpm lint`, and `pnpm check`.
+The web suite skips browser cases without `RAGENTS_BROWSER_TESTS=1`; the VS Code stub suite runs through
+`pnpm --filter ragents-vscode test`. Browser and VS Code host checks need an environment that
+permits browser launches and local listening sockets; report restricted checks explicitly.
 
 ### Homepage and generated references
 

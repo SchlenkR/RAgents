@@ -43,7 +43,7 @@ A function registered with `defineRunFunction` has a technical `name` for calls 
 `label` for people. `description` briefly explains its purpose and appears in the automatic
 overview. An optional `longDescription` adds detailed rules, prerequisites, and examples. Input
 and result types come from schemas; descriptions do not replace those contracts. Local recursive
-schema references create named TypeScript aliases, keeping nested contracts such as the tile tree
+schema references create named TypeScript aliases, keeping nested recursive contracts
 fully typed in snippets, actor programs, and the public run API. Resolution includes local
 `$defs` references; external references are not loaded.
 

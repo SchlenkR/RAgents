@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import { runInNewContext } from "node:vm";
 import { runPanelPageUrl, isClipboardRunPanelMessage, isRunPanelClipboardMessage, isRunPanelHostMessage, isHostRunPanelMessage } from "../../web/src/run-panel/host-contract";
 import { errorHtml, frameHtml, panelHtml } from "../src/webview-html";
 import { parseServerUrl, parseThemeSetting, resolveTheme } from "../src/settings";
@@ -17,7 +18,7 @@ test("the webview hull frames run-panel.html of the server with a strict CSP and
 test("the hull reads the clipboard for the framed run panel and keeps that message away from the extension", () => {
   const html = frameHtml({ serverUrl: "http://localhost:4710", query: { host: "vscode" }, nonce: "n0nce", title: "RAgents" });
   assert.match(html, /document\.execCommand\("paste"\)/);
-  assert.match(html, /postMessage\(\{ type: "clipboardText", id, text \}, origin\)/);
+  assert.match(html, /postMessage\(\{ type: "clipboardContent", id, text, files \}, origin\)/);
   assert.match(html, /if \(event\.data && event\.data\.type === "clipboardRead"\) readClipboard\(event\.data\.id\);/);
   assert.match(html, /else vscode\.postMessage\(event\.data\);/);
 });
@@ -25,9 +26,42 @@ test("the hull reads the clipboard for the framed run panel and keeps that messa
 test("clipboard messages are validated on both sides of the hull", () => {
   assert.equal(isRunPanelClipboardMessage({ type: "clipboardRead", id: "1" }), true);
   assert.equal(isRunPanelClipboardMessage({ type: "clipboardRead" }), false);
-  assert.equal(isClipboardRunPanelMessage({ type: "clipboardText", id: "1", text: "" }), true);
-  assert.equal(isClipboardRunPanelMessage({ type: "clipboardText", id: "1" }), false);
+  assert.equal(isClipboardRunPanelMessage({ type: "clipboardContent", id: "1", text: "", files: [] }), true);
+  assert.equal(isClipboardRunPanelMessage({ type: "clipboardContent", id: "1" }), false);
+  assert.equal(isClipboardRunPanelMessage({ type: "clipboardContent", id: "1", text: "", files: [new File(["image"], "image.png", { type: "image/png" })] }), true);
+  assert.equal(isClipboardRunPanelMessage({ type: "clipboardContent", id: "1", text: "", files: [{}] }), false);
   assert.equal(isRunPanelHostMessage({ type: "clipboardRead", id: "1" }), false);
+});
+
+test("clipboard replies restore frame focus before returning text, including an empty clipboard", () => {
+  const origin = "http://localhost:4710";
+  const html = frameHtml({ serverUrl: origin, query: { host: "vscode" }, nonce: "test", title: "Clipboard" });
+  for (const text of ["Pasted text", ""]) {
+    const listeners: Array<(event: unknown) => void> = [];
+    let focused: unknown;
+    const replies: unknown[] = [];
+    const field = { value: "", style: {}, addEventListener() {}, setAttribute() {}, focus() { focused = field; }, remove() { focused = undefined; } };
+    const frame = {
+      focus() { focused = frame; },
+      contentWindow: { postMessage(message: unknown, target: string) {
+        assert.equal(focused, frame);
+        assert.equal(target, origin);
+        replies.push(message);
+      } },
+    };
+    const browser = { origin: "vscode-webview://test", addEventListener(_type: string, listener: (event: unknown) => void) { listeners.push(listener); } };
+    const document = {
+      getElementById: () => frame,
+      createElement: () => field,
+      body: { appendChild() {} },
+      execCommand(command: string) { assert.equal(command, "paste"); assert.equal(focused, field); field.value = text; },
+    };
+    for (const script of html.matchAll(/<script[^>]*>([\s\S]*?)<\/script>/g)) {
+      runInNewContext(script[1], { window: browser, document, acquireVsCodeApi: () => ({ postMessage() { assert.fail("Clipboard requests must stay in the shell."); } }) });
+    }
+    for (const listener of listeners) listener({ source: frame.contentWindow, origin, data: { type: "clipboardRead", id: "paste" } });
+    assert.equal(JSON.stringify(replies), JSON.stringify([{ type: "clipboardContent", id: "paste", text, files: [] }]));
+  }
 });
 
 test("run panel urls skip undefined parameters and support the app layout", () => {
@@ -44,8 +78,6 @@ test("host messages are validated before they cross the bridge", () => {
   assert.equal(isRunPanelHostMessage({ type: "openPage", url: "http://localhost:5173/", title: "Test bench" }), true);
   assert.equal(isRunPanelHostMessage({ type: "openPage", title: "Test bench" }), false);
   assert.equal(isRunPanelHostMessage({ type: "evil" }), false);
-  assert.equal(isHostRunPanelMessage({ type: "placements", runId: "r", center: ["a"] }), true);
-  assert.equal(isHostRunPanelMessage({ type: "placements", runId: "r", center: [1] }), false);
   assert.equal(isHostRunPanelMessage({ type: "theme", theme: "blue" }), false);
 });
 

@@ -116,7 +116,7 @@ guessing technical information from the text.
 
 The actor completes its task and ends the turn. Further inputs or subscriptions start later turns;
 a turn does not wait for future model responses. Functions and input processing access the same
-journaled actor state. On the surface, the TypeScript actor remains a participant with its
+journaled actor state. In Inspection, the TypeScript actor remains a participant with its
 identifier and its state. An LLM actor keeps using its model for ActorInputs; an additional
 program with `onInput` is rejected on it.
 
@@ -162,7 +162,7 @@ A function registered with `defineRunFunction` has a technical `name` for calls 
 `label` for people. `description` briefly explains its purpose and appears in the automatic
 overview. An optional `longDescription` adds detailed rules, prerequisites, and examples. Input
 and result types come from schemas; descriptions do not replace those contracts. Local recursive
-schema references create named TypeScript aliases, keeping nested contracts such as the tile tree
+schema references create named TypeScript aliases, keeping nested recursive contracts
 fully typed in snippets, actor programs, and the public run API. Resolution includes local
 `$defs` references; external references are not loaded.
 
@@ -359,10 +359,9 @@ role back. Starts inside a running run wait for each other and for a new run's s
 progress, so an actor's start never fails only because another one runs; a second start while a new
 run is still being set up is refused with `run-starting` (409).
 
-An embedded start places the setup package's first view next to the run's surface layout with the
-same mechanism as `canvas_layout_place`, unless the layout shows it already; it never replaces the
-layout. A script that arranges tiles itself checks `start.embedded` and uses `canvas_layout_place`
-then instead of `canvas_layout_replace`. The chat shows the runtime output (`context.log`) of every
+An embedded start makes all activated visible views available in the shared app catalog without
+changing the current selection. App discovery uses actor ownership. The chat
+shows the runtime output (`context.log`) of every
 TypeScript actor whose package a run script installed, attributed as `@handle: ...`; without
 `runs.inspect` it becomes the general processing notice like every system entry.
 

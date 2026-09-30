@@ -85,7 +85,8 @@ function ConnectionChip({ connection, send, onLogin }: {
   const busy = busyState(connection);
   const detail = stateDetail(connection);
   useEffect(() => { if (!busy && detail === undefined) setFailure(undefined); }, [busy, detail]);
-  const canCreate = connection.state.kind === "connected" && connection.canCreate;
+  const canCreate = connection.state.kind === "connected" && connection.canCreate
+    && (connection.canCreateFree !== false || defaultEntryOf(connection) !== undefined);
   const route = routeLabel(connection);
   const starter = defaultEntryOf(connection);
   const plusLabel = starter ? `New run from ${starter.title} on ${connection.name}` : `New chat on ${connection.name}`;
@@ -115,19 +116,19 @@ function ConnectionOffers({ connection, marked, send }: { connection: Connection
   return <div className="grid grid-cols-1 gap-1.5">
     {marked && <h3 className="flex items-center gap-1.5 pt-1 text-[0.78rem] font-semibold"><ConnectionStateIcon state={connectionState(connection)} />{connection.name}</h3>}
     <StartTiles defaultEntry={connection.defaultEntry} entries={connection.entries} label={marked ? `Templates on ${connection.name}` : "Templates"}
-      onNewChat={() => send({ action: "newRun", name: connection.name })} onStart={(entryId) => send({ action: "newRun", name: connection.name, entryId })} />
+      onNewChat={connection.canCreateFree === false ? undefined : () => send({ action: "newRun", name: connection.name })} onStart={(entryId) => send({ action: "newRun", name: connection.name, entryId })} />
   </div>;
 }
 
 /** The start page: the servers as a block, below them the latest runs and, per reachable server, its templates, the default template or New chat first. */
-export function StartPage({ state, send }: PanelPageProps) {
+export function StartPage({ state, send, runDetails }: PanelPageProps) {
   const [login, setLogin] = useState<string>();
   const connections = state.connections;
   const marked = connections.length > 1;
   const runs = connections.flatMap((connection) => connection.runs.map((run) => ({ connection, run })))
     .sort((left, right) => right.run.updatedAt - left.run.updatedAt);
   const reachable = connections.filter((connection) => connection.state.kind === "connected" && connection.canCreate);
-  const tiles = reachable.reduce((count, connection) => count + startTileCount(connection.entries, connection.defaultEntry, true), 0);
+  const tiles = reachable.reduce((count, connection) => count + startTileCount(connection.entries, connection.defaultEntry, connection.canCreateFree !== false), 0);
   const loginConnection = connections.find((connection) => connection.name === login);
   return <div className="@container/panel grid grid-cols-1 gap-4">
     {state.problem && <p className="text-[0.8rem] leading-normal text-destructive [overflow-wrap:anywhere]" role="alert">{state.problem}</p>}
@@ -153,7 +154,7 @@ export function StartPage({ state, send }: PanelPageProps) {
           {runs.length === 0
             ? <p className="text-[0.75rem] text-muted-foreground">No runs yet.</p>
             : <RunList label="Recent" showConnection={marked}>
-              {runs.slice(0, RECENT_RUNS).map(({ connection, run }) => <RunLine connection={connection} key={`${connection.name}:${run.id}`} onOpen={() => send({ action: "openRun", name: connection.name, runId: run.id })} run={run} showConnection={marked} />)}
+              {runs.slice(0, RECENT_RUNS).map(({ connection, run }) => <RunLine details={runDetails?.(run.id, connection.name)} connection={connection} key={`${connection.name}:${run.id}`} onOpen={() => send({ action: "openRun", name: connection.name, runId: run.id })} run={run} showConnection={marked} />)}
             </RunList>}
         </section>
         {reachable.length > 0 && <section className="grid grid-cols-1 gap-1.5">

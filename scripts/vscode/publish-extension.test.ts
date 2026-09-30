@@ -176,6 +176,8 @@ test("the extension is packaged universally without Bash and rg, per platform wi
   const base = readFileSync(path.join(import.meta.dirname, "../../apps/vscode/.vscodeignore"), "utf8");
   assert.deepEqual(VSIX_TARGETS, ["universal", "win32-x64", "win32-arm64", "darwin-arm64", "darwin-x64", "linux-x64", "linux-arm64"]);
   assert.equal(ignoreRules(base, "universal"), base);
+  assert.ok(base.includes("!dist/webview/*.js\n!dist/webview/panel.css"));
+  assert.ok(!base.includes("!dist/webview/**"), "the extension carries navigation assets without a second HTML shell");
   assert.deepEqual(bundledFolders("universal"), []);
   assert.doesNotMatch(base, /dist\/bash|dist\/rg/, "the universal allowlist includes neither Bash nor rg");
   const x64 = ignoreRules(base, "win32-x64");

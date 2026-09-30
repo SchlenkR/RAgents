@@ -16,14 +16,10 @@ const commands = new Set<(message: HostRunPanelMessage) => void>();
 const activationListeners = new Set<(state: PluginActivationState) => void>();
 const query = new URLSearchParams(location.search);
 const rights = (query.get("rights") ?? "runs.read,runs.write,runs.create,runs.inspect").split(",");
-const centered: ReadonlySet<string> = new Set();
 const host: RunPanelHost = {
   kind: query.get("host") === "browser" ? "browser" : "vscode",
   machines: query.get("host") === "browser" ? "server" : "all",
-  centerElements: () => centered,
-  subscribe: () => () => {},
-  openInCenter() {},
-  returnToRunPanel() {},
+  openApp() {},
   requestLogin() {},
   requestLogout() {},
   openExternal() {},
@@ -38,7 +34,7 @@ const registry = new PluginRegistry({
   brand: { title: "Start check" }, product: { id: "start", title: "Start check" },
   plugins: [{
     id: "start", needsRunView: true,
-    surface: { Center: () => null, RunPanel: OrchestrationRunPanel },
+    surface: { RunPanel: OrchestrationRunPanel },
     surfaceElements: [{ id: "start.app", order: 0, select: () => fixture.elements, Element: () => <p>Mini-app ready</p> }],
     guides: [{ id: "start.topic", Guide: TopicGuide }],
   }],

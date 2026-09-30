@@ -161,7 +161,7 @@ include local modules, while fixed local dependencies come from the host install
 <p><code>package.json</code> contains <code>name</code>, <code>private: true</code>, <code>type: &quot;module&quot;</code>, and <code>ragents</code> metadata with a
 title, optional description, optional backend, and optional named views. Each view has an ID and
 client entry point; its title and stylesheet are optional. A view declares no size; the host sizes
-its tile. At least one backend or view must exist. The host supplies HTML with a <code>root</code> element
+its tab. At least one backend or view must exist. The host supplies HTML with a <code>root</code> element
 for each view. The authoritative schemas are in
 <code>apps/server/src/plugin-support/actor-programs/app-project.ts</code>; a violation names each path and
 its reason, for example <code>views.0 has unknown field width</code>.</p>

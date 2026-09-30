@@ -16,7 +16,7 @@ export function ActorChatControls({ actor, view, composerVisible = true, present
   actor: RunActor;
   view: RunView;
   composerVisible?: boolean;
-  presentation?: "surface" | "inspector" | "panel";
+  presentation?: "inspector" | "panel";
   display?: string;
   running?: boolean;
   toolbarLeft?: ReactNode;

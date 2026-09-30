@@ -13,7 +13,7 @@ const emptyMessages: readonly Message[] = [];
 export function ActorChat({ actor, view, presentation, display = presentation, primaryMessages = emptyMessages, conversation, historyError, running = false, className, onNavigate, scrollerRef }: {
   actor: RunActor;
   view: RunView;
-  presentation: "surface" | "inspector";
+  presentation: "panel" | "inspector";
   /** Key of the display surface for the remembered detail level; defaults to the presentation. */
   display?: string;
   primaryMessages?: readonly Message[];

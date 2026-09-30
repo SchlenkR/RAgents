@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import { ArrowLeftIcon, LayoutGridIcon } from "lucide-react";
 import { canStartEntry, type AccessContext } from "../../../../packages/ragents/src/access";
-import { getStartOptions, setStartOption, stopRun } from "../api";
+import { deleteSession, getStartOptions, setStartOption, stopRun } from "../api";
 import { startEntryDirectly } from "../chat/requests";
 import { initialStartOptionUpdates, withoutFixedStartOptions } from "../StartOptions";
 import { AccessScreen, useAccess } from "../AccessContext";
@@ -10,10 +10,16 @@ import { PluginChat } from "../PluginChat";
 import type { PluginRegistry } from "../PluginRegistry";
 import { usePluginActivation } from "../PluginActivation";
 import { PluginFailureNotice } from "../PluginFailureNotice";
+import { runActivityNotice } from "../run-overview";
 import { useRunReadState } from "../run-read-state";
-import { SessionList } from "../SessionList";
+import { PanelPage } from "../panel/PanelPage";
+import type { PanelAction, PanelState } from "../panel/contract";
+import { HelpDialog } from "../HelpDialog";
+import { chatUserLocation, type ChatRunLocation } from "../chat/user-location";
+import { PanelContributions } from "./PanelContributions";
+import { WorkspaceModalContext } from "../ui/dialog";
 import { SettingsModal } from "../SettingsModal";
-import { Alert, Button, RunStateIcon, StartupNotice, StopButton, type StartupNoticeState } from "../ui";
+import { Alert, Button, longTime, RunStateIcon, StartupNotice, StopButton, type StartupNoticeState } from "../ui";
 import type { RunPanelLocation } from "./run-panel-location";
 import { RunPanelMenu } from "./RunPanelMenu";
 import { useRunPanelHost } from "./host";
@@ -23,12 +29,12 @@ const headerClass = "relative z-[80] flex h-header flex-none items-stretch borde
 const connectionClass = "max-w-[120px] self-center truncate rounded-full bg-secondary px-2 py-0.5 text-[0.66rem] font-semibold text-muted-foreground";
 const pendingTitleClass = "min-w-0 flex-1 self-center truncate px-1.5 text-[0.82rem] font-semibold";
 const STOP_REASON = "Stopped in the run panel";
+const statusBarClass = "relative flex min-h-statusbar flex-none items-stretch border-t border-border bg-shell";
 /** How long the panel in VS Code without a run waits for its host's start request. */
 const HOST_COMMAND_TIMEOUT_MS = 5000;
 const NEW_RUN_TITLE = "New run";
 const listHeaderClass = "relative z-[80] flex h-header flex-none items-center gap-2 border-b border-border bg-shell px-3 shadow-bar";
 const noticeClass = "m-auto max-w-[420px] p-6 text-center text-muted-foreground";
-const noSelection: ReadonlySet<string> = new Set();
 const newDraft = (): SessionInfo => ({ id: crypto.randomUUID(), title: NEW_RUN_TITLE, updatedAt: Date.now() });
 const placeholderSession = (id: string, title = "Run"): SessionInfo => ({ id, title, updatedAt: Date.now() });
 const profileLoading: StartupNoticeState = { kind: "working", title: "Loading profile", detail: "Loading the server's interface." };
@@ -37,7 +43,7 @@ const launchStarting: StartupNoticeState = { kind: "working", title: "Starting r
 const noRunSelected: StartupNoticeState = { kind: "waiting", title: "No run selected", detail: "On the Start page you start a new run or open an existing one." };
 const noRunsReadable: StartupNoticeState = { kind: "error", title: "No runs enabled", detail: "No runs are enabled for this user account." };
 
-/** The run panel: a run with chat and mini-apps, without a run in the browser the run list; layout=app shows exactly one surface element. */
+/** The run panel: a run with chat and mini-apps, without a run the shared Start page; layout=app shows one mini-app. */
 export function RunPanelApp({ location }: { location: RunPanelLocation }) {
   const activation = usePluginActivation();
   const headless = location.layout === "app";
@@ -68,6 +74,12 @@ function RunPanelPage({ connection, initialRunId, registry }: { connection: stri
   const canCreate = canCreateFree || (writeRuns && registry.scriptEntries.some((entry) => canStartEntry(access, entry.id)));
   const runReadState = useRunReadState(access.user?.id);
   const [runId, setRunId] = useState(initialRunId);
+  const [page, setPage] = useState<"start" | "runs">("start");
+  const [runLocation, setRunLocation] = useState<ChatRunLocation>();
+  const [helpOpen, setHelpOpen] = useState(false);
+  const [navigationError, setNavigationError] = useState<string>();
+  const [workspaceContainer, setWorkspaceContainer] = useState<HTMLDivElement | null>(null);
+  const [statusContainer, setStatusContainer] = useState<HTMLElement | null>(null);
   const [runTitle, setRunTitle] = useState<string>();
   const [focusRunId, setFocusRunId] = useState<string>();
   const settleAutoFocus = useCallback(() => setFocusRunId((pending) => pending === runId ? undefined : pending), [runId]);
@@ -86,12 +98,10 @@ function RunPanelPage({ connection, initialRunId, registry }: { connection: stri
   const openSettings = useCallback(() => setSettingsOpen(true), []);
   const { sessions, unreachable, refresh } = useSessionList(readRuns && !draft && !launch);
   const [headerContainer, setHeaderContainer] = useState<HTMLDivElement | null>(null);
-  const [toolsContainer, setToolsContainer] = useState<HTMLDivElement | null>(null);
   const startDraft = useCallback((startOptions?: Readonly<Record<string, unknown>>, entryId?: string) => {
     const fixed = registry.startEntries.find((entry) => entry.id === entryId)?.fixedStartOptions;
     setDraft({ session: newDraft(), startOptions: startOptions && withoutFixedStartOptions(startOptions, fixed), entryId });
   }, [registry]);
-  const createRun = useCallback(() => startDraft(), [startDraft]);
   const openRun = useCallback((id: string, startOptions?: Readonly<Record<string, unknown>>) => {
     setDraft(undefined);
     replaceLaunch(undefined);
@@ -108,19 +118,14 @@ function RunPanelPage({ connection, initialRunId, registry }: { connection: stri
       (cause: unknown) => { if (launching.current === next.runId) setLaunch({ ...next, error: cause instanceof Error ? cause.message : String(cause) }); },
     );
   }, [access, openRun, registry, replaceLaunch]);
-  const selectRun = useCallback((id: string) => {
-    setFocusRunId(undefined);
-    setRunTitle(undefined);
-    setRunId(id);
-  }, []);
-  /** The back arrow always leads to the Start page; in the browser that is the run list of this server. */
+  /** The back arrow always leads to the Start page; in the browser it lists this server's templates and recent runs. */
   const showStart = useCallback(() => {
     setFocusRunId(undefined);
     setDraft(undefined);
     replaceLaunch(undefined);
     setRefusal(undefined);
     if (host.kind === "vscode") host.notify({ type: "showStart" });
-    else setRunId(undefined);
+    else { setRunId(undefined); setPage("start"); }
   }, [host, replaceLaunch]);
 
   useLayoutEffect(() => {
@@ -175,12 +180,21 @@ function RunPanelPage({ connection, initialRunId, registry }: { connection: stri
   useEffect(() => { host.notify({ type: "ready" }); }, [host]);
   useEffect(() => { host.notify({ type: "runChanged", runId: runId ?? null }); }, [host, runId]);
 
-  const settings = settingsOpen && <SettingsModal onClose={() => setSettingsOpen(false)} registry={registry} />;
+  const settings = <>
+    {settingsOpen && <SettingsModal onClose={() => setSettingsOpen(false)} registry={registry} />}
+    {helpOpen && <HelpDialog onClose={() => setHelpOpen(false)}
+      sampleEntries={registry.scriptEntries.filter((entry) => canStartEntry(access, entry.id)).map((entry) => entry.id)}
+      onStartSample={(entryId) => {
+        if (!canStartEntry(access, entryId)) return;
+        setHelpOpen(false);
+        startDraft(undefined, entryId);
+      }} />}
+  </>;
   const pendingHeader = (title: string) => <>
     <Button aria-label="Back to Start" className="self-center" onClick={showStart} size="icon-lg" title="Back to Start" variant="ghost"><ArrowLeftIcon /></Button>
     <strong className={pendingTitleClass}>{title}</strong>
     {connection && <span className={connectionClass} title={`Server ${connection}`}>{connection}</span>}
-    <RunPanelMenu onOpenSettings={openSettings} />
+    <RunPanelMenu onOpenSettings={openSettings} onOpenHelp={() => setHelpOpen(true)} />
   </>;
   const toStart = <Button onClick={showStart} size="sm" variant="outline">Back to Start</Button>;
   const draftChat = draft && <PluginChat
@@ -191,83 +205,149 @@ function RunPanelPage({ connection, initialRunId, registry }: { connection: stri
     session={draft.session}
     startDialog={{ onClose: host.kind === "vscode" ? showStart : () => setDraft(undefined), initialEntryId: draft.entryId }}
   />;
-  if (launch) return <>
-    {launch.error === undefined
-      ? <PendingPanel header={pendingHeader(runTitle ?? NEW_RUN_TITLE)} state={launchStarting} />
-      : <PendingPanel header={pendingHeader(runTitle ?? NEW_RUN_TITLE)} state={{ kind: "error", title: "The run could not be started", detail: launch.error }}>{toStart}</PendingPanel>}
-    {settings}
-  </>;
-  if (host.kind === "vscode" && draft) return <>
-    <PendingPanel header={pendingHeader(runTitle ?? NEW_RUN_TITLE)} state={launchStarting} />
-    {draftChat}
-    {settings}
-  </>;
-  // In VS Code the extension's Start page chooses the run; without one the panel waits for its request instead of showing a list.
-  if (host.kind === "vscode" && !(readRuns && runId)) return <>
-    {!readRuns ? <PendingPanel header={pendingHeader(NEW_RUN_TITLE)} state={noRunsReadable}>{toStart}</PendingPanel>
-      : refusal !== undefined ? <PendingPanel header={pendingHeader(NEW_RUN_TITLE)} state={{ kind: "error", title: "No new run possible", detail: refusal }}>{toStart}</PendingPanel>
-        : <HostWaiting header={pendingHeader(NEW_RUN_TITLE)}>{toStart}</HostWaiting>}
-    {settings}
-  </>;
-
-  const session = sessions.find((entry) => entry.id === runId);
-  const stop = () => {
-    if (runId === undefined) return;
-    setStopError(undefined);
-    void stopRun(runId, STOP_REASON).catch((cause: unknown) => setStopError(`Stop failed: ${cause instanceof Error ? cause.message : String(cause)}`));
-  };
-  const list = readRuns
-    ? <SessionList activeId={runId} onCreate={canCreate ? createRun : undefined} onSelect={selectRun} onToggleSelected={() => undefined} registry={registry} seenRevisions={runReadState.revisions} selectMode={false} selectedIds={noSelection} sessions={sessions} />
-    : <p className={noticeClass}>No runs are enabled for this user account.</p>;
-  return (
-    <div className="flex h-full flex-col bg-[image:var(--surface-backdrop)]">
-      {readRuns && runId
-        ? (
-          <>
-            <header className={headerClass}>
-              <Button aria-label="Back to Start" className="self-center" onClick={showStart} size="icon-lg" title="Back to Start" variant="ghost"><ArrowLeftIcon /></Button>
-              <div aria-label="Run title bar" className="flex min-w-0 flex-1 items-stretch overflow-x-auto no-scrollbar" ref={setHeaderContainer} role="region" />
-              {connection && <span className={connectionClass} title={`Server ${connection}`}>{connection}</span>}
-              <RunStateIcon className="self-center px-1.5" state={session?.running ? "running" : "idle"} />
-              <StopButton className="self-center" disabled={!writeRuns} label="Stop run" onClick={stop} size="icon-lg" title="Stop the run with all agents and flows" />
-              <div aria-label="Panel tools" className="flex flex-none items-center empty:hidden" ref={setToolsContainer} role="toolbar" />
-              <RunPanelMenu onOpenSettings={openSettings} runId={runId} />
-            </header>
-            {stopError && <Alert variant="destructive">{stopError}</Alert>}
-            <main className="relative z-1 flex min-h-0 min-w-0 flex-1 @container/chat-content">
-              <PluginChat
-                autoFocusChat={focusRunId === runId && !settingsOpen && !draft}
-                onAutoFocusChatSettled={settleAutoFocus}
-                toolbarContainer={toolsContainer}
-                headerContainer={headerContainer}
-                initialStartOptions={runStartOptions}
-                key={runId}
-                layout="panel"
-                onViewed={runReadState.markViewed}
-                registry={registry}
-                session={session ?? placeholderSession(runId, runTitle)}
-                viewing={!draft && !settingsOpen}
-              />
-            </main>
-          </>
-        )
-        : (
-          <>
-            <header className={listHeaderClass}>
-              <LayoutGridIcon aria-hidden className="size-4 flex-none text-muted-foreground" />
-              <strong className="min-w-0 flex-1 truncate text-[0.82rem] font-semibold">{registry.brand.title}</strong>
-              <RunPanelMenu onOpenSettings={openSettings} />
-            </header>
-            <div className="min-h-0 flex-1 overflow-auto p-3">
-              {unreachable && <Alert className="mb-3" variant="destructive">The server is unreachable.</Alert>}
-              {list}
-            </div>
-          </>
-        )}
+  const content = () => {
+    if (launch) return <>
+      {launch.error === undefined
+        ? <PendingPanel header={pendingHeader(runTitle ?? NEW_RUN_TITLE)} state={launchStarting} />
+        : <PendingPanel header={pendingHeader(runTitle ?? NEW_RUN_TITLE)} state={{ kind: "error", title: "The run could not be started", detail: launch.error }}>{toStart}</PendingPanel>}
       {settings}
+    </>;
+    if (host.kind === "vscode" && draft) return <>
+      <PendingPanel header={pendingHeader(runTitle ?? NEW_RUN_TITLE)} state={launchStarting} />
       {draftChat}
-    </div>
-  );
+      {settings}
+    </>;
+    // In VS Code the extension's Start page chooses the run; without one the panel waits for its request instead of showing a list.
+    if (host.kind === "vscode" && !(readRuns && runId)) return <>
+      {!readRuns ? <PendingPanel header={pendingHeader(NEW_RUN_TITLE)} state={noRunsReadable}>{toStart}</PendingPanel>
+        : refusal !== undefined ? <PendingPanel header={pendingHeader(NEW_RUN_TITLE)} state={{ kind: "error", title: "No new run possible", detail: refusal }}>{toStart}</PendingPanel>
+          : <HostWaiting header={pendingHeader(NEW_RUN_TITLE)}>{toStart}</HostWaiting>}
+      {settings}
+    </>;
+
+    const session = sessions.find((entry) => entry.id === runId);
+    const stop = () => {
+      if (runId === undefined) return;
+      setStopError(undefined);
+      void stopRun(runId, STOP_REASON).catch((cause: unknown) => setStopError(`Stop failed: ${cause instanceof Error ? cause.message : String(cause)}`));
+    };
+    const connectionName = registry.brand.title;
+    const navigationState: PanelState = {
+      theme: "light",
+      page,
+      profileSuggestions: [],
+      problem: navigationError,
+      connections: [{
+        name: connectionName,
+        kind: "server",
+        address: window.location.origin,
+        route: { kind: "server", host: window.location.host, localHost: false },
+        state: unreachable ? { kind: "unreachable", message: "The server is unreachable." } : { kind: "connected" },
+        canCreate,
+        canCreateFree,
+        canDelete: access.can("runs.delete"),
+        defaultEntry: registry.startEntries.some((entry) => entry.id === registry.defaultStartEntry && canStartEntry(access, entry.id)) ? registry.defaultStartEntry : undefined,
+        entries: registry.startEntries.filter((entry) => canStartEntry(access, entry.id)).map((entry) => ({
+          id: entry.id, title: entry.title, description: entry.description, kind: entry.action,
+          category: entry.category ?? (access.can("runs.inspect") ? "Run scripts" : "Workflows"), guided: registry.guideFor(entry) !== undefined,
+        })),
+        runs: readRuns ? sessions.map((entry) => ({ ...entry, state: entry.running ? "running" : "idle", pendingActions: 0, notice: runActivityNotice(entry, runReadState.revisions[entry.id]) })) : [],
+      }],
+    };
+    const navigate = (action: PanelAction) => {
+      setNavigationError(undefined);
+      switch (action.action) {
+        case "page":
+          if (action.page === "connections") throw new Error("The browser is connected to its current server.");
+          setPage(action.page);
+          return;
+        case "openRun": setRunTitle(undefined); openRun(action.runId); return;
+        case "newRun": {
+          if (!canCreate || action.entryId === undefined && !canCreateFree) throw new Error("New runs are not enabled.");
+          if (action.entryId && !canStartEntry(access, action.entryId)) throw new Error("This template is not enabled.");
+          const entry = registry.startEntries.find((entry) => entry.id === action.entryId);
+          setRunTitle(entry?.title ?? NEW_RUN_TITLE);
+          if (entry && registry.guideFor(entry)) startDraft(undefined, entry.id);
+          else if (action.entryId) startLaunch({ runId: crypto.randomUUID(), entryId: action.entryId });
+          else openRun(crypto.randomUUID());
+          return;
+        }
+        case "deleteRuns":
+          if (!access.can("runs.delete")) throw new Error("Deleting runs is not enabled.");
+          void Promise.allSettled(action.runIds.map((id) => deleteSession(id))).then(async (results) => {
+            await refresh();
+            const failure = results.find((result) => result.status === "rejected");
+            if (failure?.status === "rejected") setNavigationError(String(failure.reason));
+          });
+          return;
+        case "retry": void refresh(); return;
+        default: throw new Error(`Unsupported browser action: ${action.action}`);
+      }
+    };
+    return (
+      <div className="flex h-full flex-col bg-[image:var(--surface-backdrop)]">
+        {readRuns && runId
+          ? (
+            <>
+              <header className={headerClass}>
+                <Button aria-label="Back to Start" className="self-center" onClick={showStart} size="icon-lg" title="Back to Start" variant="ghost"><ArrowLeftIcon /></Button>
+                <div aria-label="Run title bar" className="flex min-w-0 flex-1 items-stretch overflow-x-auto no-scrollbar" ref={setHeaderContainer} role="region" />
+                {connection && <span className={connectionClass} title={`Server ${connection}`}>{connection}</span>}
+                <RunStateIcon className="self-center px-1.5" state={session?.running ? "running" : "idle"} />
+                <StopButton className="self-center" disabled={!writeRuns} label="Stop run" onClick={stop} size="icon-lg" title="Stop the run with all agents and flows" />
+                <RunPanelMenu onOpenSettings={openSettings} onOpenHelp={() => setHelpOpen(true)} runId={runId} />
+              </header>
+              {stopError && <Alert variant="destructive">{stopError}</Alert>}
+              <main className="relative z-1 flex min-h-0 min-w-0 flex-1 @container/chat-content">
+                <PluginChat
+                  autoFocusChat={focusRunId === runId && !settingsOpen && !draft}
+                  onAutoFocusChatSettled={settleAutoFocus}
+                  headerContainer={headerContainer}
+                  initialStartOptions={runStartOptions}
+                  key={runId}
+                  onLocationChange={setRunLocation}
+                  statusContainer={statusContainer}
+                  onViewed={runReadState.markViewed}
+                  registry={registry}
+                  session={session ?? placeholderSession(runId, runTitle)}
+                  viewing={!draft && !settingsOpen && !helpOpen}
+                />
+              </main>
+            </>
+          )
+          : (
+            <>
+              <header className={listHeaderClass}>
+                <LayoutGridIcon aria-hidden className="size-4 flex-none text-muted-foreground" />
+                <strong className="min-w-0 flex-1 truncate text-[0.82rem] font-semibold">{registry.brand.title}</strong>
+                <RunPanelMenu onOpenSettings={openSettings} onOpenHelp={() => setHelpOpen(true)} />
+              </header>
+              <div className="min-h-0 flex-1 overflow-auto p-3">
+                {unreachable && <Alert className="mb-3" variant="destructive">The server is unreachable.</Alert>}
+                <PanelPage send={navigate} state={navigationState} runDetails={(id) => {
+                  const entry = sessions.find((candidate) => candidate.id === id);
+                  return entry && <>
+                    {entry.createdAt !== undefined && <span>Created {longTime(entry.createdAt)}</span>}
+                    {entry.ownerLabel && <span>{entry.ownerLabel}</span>}
+                    {registry.sessionMetadata.map(({ id, Metadata }) => <Metadata key={id} placement="list" session={entry} />)}
+                  </>;
+                }} />
+                {readRuns && registry.overviewPanels.some((panel) => panel.placement === "idle" && (!panel.readRight || access.can(panel.readRight))) && <div className="flex min-h-[320px] flex-col"><PanelContributions placement="idle" registry={registry} userLocation={chatUserLocation(undefined, false, undefined)} /></div>}
+              </div>
+            </>
+          )}
+        <footer aria-label="Run status bar" className={statusBarClass} ref={setStatusContainer} />
+        {settings}
+        {draftChat}
+      </div>
+    );
+  };
+  return <WorkspaceModalContext.Provider value={workspaceContainer}><div className="flex h-full flex-col">
+    <header className="relative z-[80] flex flex-none items-stretch border-b border-border bg-shell empty:hidden">
+      <PanelContributions registry={registry} userLocation={chatUserLocation(runId, false, runLocation)} />
+    </header>
+    <div className="relative flex min-h-0 flex-1 flex-col" ref={setWorkspaceContainer}>{content()}</div>
+  </div></WorkspaceModalContext.Provider>;
 }
 
 interface Launch {
@@ -307,6 +387,7 @@ function PendingPanel({ children, header, headless = false, state }: { children?
   return <div className="flex h-full flex-col bg-[image:var(--surface-backdrop)]">
     {!headless && <header className={headerClass}>{header}</header>}
     <main className="grid min-h-0 flex-1 place-items-center overflow-hidden p-6"><StartupNotice state={state}>{children}</StartupNotice></main>
+    {!headless && <footer aria-label="Run status bar" className={statusBarClass} />}
   </div>;
 }
 

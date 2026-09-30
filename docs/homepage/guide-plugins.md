@@ -120,7 +120,7 @@ function and the owning web-plugin contribution opens it in the correct area. Ke
 state separate from unsent input. Unchanged polling responses must not overwrite drafts, and old
 responses must not replace newer state. Keep loading and errors visible during actions, and retain
 the last valid result after a failed request. Polling must neither overlap nor continue forever
-in hidden areas. Test Enter, buttons, focus, narrow tiles, and dialogs inside the real host
+in hidden areas. Test Enter, buttons, focus, narrow views, and dialogs inside the real host
 iframe; a render test alone does not prove native interactions work there.
 
 ### 8. Choose evidence for what it proves

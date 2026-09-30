@@ -1,12 +1,12 @@
 import { createClipboardReader, installClipboardBridge } from "./clipboard";
 import { installKeyboardBridge } from "./keyboard";
-import { isClipboardRunPanelMessage, isRunPanelClipboardMessage, isRunPanelKeyboardMessage, type ClipboardRunPanelMessage, type RunPanelKeyboardMessage } from "./host-contract";
+import { isClipboardRunPanelMessage, isRunPanelClipboardMessage, isRunPanelKeyboardMessage, type ClipboardContent, type ClipboardRunPanelMessage, type RunPanelKeyboardMessage } from "./host-contract";
 
 export { keyboardMessage } from "./keyboard";
 export { isRunPanelKeyboardMessage } from "./host-contract";
 
 interface InputTransport {
-  readClipboard: () => Promise<string>;
+  readClipboard: () => Promise<ClipboardContent>;
   keyboard: (message: RunPanelKeyboardMessage) => void;
 }
 
@@ -44,22 +44,30 @@ export function relayFrameInput(browser: Window, value: unknown, reply: (message
   if (!transport) return true;
   const message = value.message;
   if (isRunPanelKeyboardMessage(message)) transport.keyboard(message);
-  else if (isRunPanelClipboardMessage(message)) void transport.readClipboard().then((text) => reply({ type: "clipboardText", id: message.id, text }));
+  else if (isRunPanelClipboardMessage(message)) {
+    const frame = browser.document.activeElement;
+    void transport.readClipboard().then((content) => {
+      if (transportOf(browser) === transport && frame?.tagName === "IFRAME" && frame.isConnected) {
+        (frame as HTMLIFrameElement).focus({ preventScroll: true });
+      }
+      reply({ type: "clipboardContent", id: message.id, ...content });
+    });
+  }
   return true;
 }
 
 export function installFrameInputBridge(browser: Window, port: MessagePort): () => void {
-  const pending = new Map<string, (text: string) => void>();
+  const pending = new Map<string, (content: ClipboardContent) => void>();
   const onMessage = ({ data }: MessageEvent) => {
     if (!isClipboardRunPanelMessage(data)) return;
     const settle = pending.get(data.id);
     pending.delete(data.id);
-    settle?.(data.text);
+    settle?.({ text: data.text, files: data.files });
   };
   port.addEventListener("message", onMessage);
   const send = (message: unknown) => port.postMessage({ type: inputType, version: 1, message });
   const dispose = installInputTransport(browser, {
-    readClipboard: () => new Promise<string>((resolve) => {
+    readClipboard: () => new Promise<ClipboardContent>((resolve) => {
       const id = crypto.randomUUID();
       pending.set(id, resolve);
       send({ type: "clipboardRead", id });
@@ -69,7 +77,7 @@ export function installFrameInputBridge(browser: Window, port: MessagePort): () 
   return () => {
     dispose();
     port.removeEventListener("message", onMessage);
-    pending.forEach((settle) => settle(""));
+    pending.forEach((settle) => settle({ text: "", files: [] }));
     pending.clear();
   };
 }

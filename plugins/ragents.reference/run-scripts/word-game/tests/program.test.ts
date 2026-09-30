@@ -26,7 +26,6 @@ function fixture(initialState: WordGameState = {}) {
         return { id: `actor-${input.handle}`, handle: input.handle };
       },
       run_configure: async (input) => { calls.push({ name: "run_configure", input }); return null; },
-      canvas_layout_replace: async (input) => { calls.push({ name: "canvas_layout_replace", input }); return null; },
       event_subscribe: async (input) => {
         calls.push({ name: "event_subscribe", input });
         return { subscriptionId: "subscription", sources: input.sourceActorIds ?? null };
@@ -190,7 +189,7 @@ test("a missing standard profile shows an error without creating participants", 
   await program.onInput(firstInput, context);
   assert.equal(context.state.read().status, "error");
   assert.match(context.state.read().error!, /role standard is missing/);
-  assert.deepEqual(calls.map((call) => call.name), ["run_configure", "canvas_layout_replace", "model_list"]);
+  assert.deepEqual(calls.map((call) => call.name), ["run_configure", "model_list"]);
 });
 
 test("a restored state keeps counting the pending task and rebuilds nothing", async () => {

@@ -4,7 +4,7 @@ import { Type } from "typebox";
 const contract = {
   state: Type.Object({}, { additionalProperties: false }),
   functions: {},
-  input: { capabilities: ["actor_program_ensure", "actor_input", "canvas_layout_place"] },
+  input: { capabilities: ["actor_program_ensure", "actor_input", ] },
 } as const;
 
 const noteOf = (input: unknown, now: string): string => {
@@ -23,7 +23,6 @@ export default defineActor(contract, {
     const note = noteOf(start.input, context.std.now());
     const notebook = await context.functions.actor_program_ensure({ name: "notebook" });
     await context.functions.actor_input({ actor: `@${notebook.handle}`, content: note });
-    await context.functions.canvas_layout_place({ entity: "app:notebook/main" });
     context.finish({ note, notebook: notebook.status }, { summary: `Noted: ${note}` });
   },
 });

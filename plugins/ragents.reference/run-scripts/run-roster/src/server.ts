@@ -4,7 +4,7 @@ import { Type } from "typebox";
 const contract = {
   state: Type.Object({ reports: Type.Optional(Type.Number()) }, { additionalProperties: false }),
   functions: {},
-  input: { capabilities: ["actor_list", "actor_program_ensure", "actor_input", "canvas_layout_place"] },
+  input: { capabilities: ["actor_list", "actor_program_ensure", "actor_input", ] },
 } as const;
 
 export default defineActor(contract, {
@@ -19,7 +19,6 @@ export default defineActor(contract, {
     const summary = handles.length === 0 ? "No other participants yet." : `${handles.length} participant${handles.length === 1 ? "" : "s"}: ${handles.join(", ")}.`;
     const notebook = await context.functions.actor_program_ensure({ name: "notebook" });
     await context.functions.actor_input({ actor: `@${notebook.handle}`, content: `Roster: ${summary}` });
-    await context.functions.canvas_layout_place({ entity: "app:notebook/main" });
     context.state.replace({ reports: (context.state.read().reports ?? 0) + 1 });
     context.finish({ actors: others.map(({ handle, kind, lifecycle }) => ({ handle, kind, lifecycle })) }, { summary });
   },

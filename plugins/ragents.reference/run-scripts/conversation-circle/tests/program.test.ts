@@ -3,16 +3,11 @@ import test from "node:test";
 import program from "../src/server.ts";
 import { setupContext, startInput } from "./helpers.ts";
 
-test("topic and number of rounds control participants, surface, and task", async () => {
+test("topic and number of rounds control participants and task", async () => {
   const { calls, context } = setupContext();
   await program.onInput!(startInput({ topic: "Team breakfast", rounds: 3 }), context);
   assert.deepEqual(calls.filter((call) => call.name === "agent_spawn").map((call) => (call.input as { handle: string }).handle), ["mira", "jon", "ada"]);
   assert.deepEqual(calls.find((call) => call.name === "run_configure")?.input, { title: "Conversation circle: Team breakfast" });
-  const layout = calls.find((call) => call.name === "canvas_layout_replace")?.input as { root: unknown };
-  assert.deepEqual(layout.root, { direction: "vertical", weights: [1, 1], children: [
-    { entity: "@mira" },
-    { direction: "horizontal", weights: [1, 1], children: [{ entity: "@jon" }, { entity: "@ada" }] },
-  ] });
   assert.match(JSON.stringify(calls.at(-1)), /exactly 3 conversation rounds/);
   assert.deepEqual(context.state.read(), { built: true });
   const completedCalls = calls.length;

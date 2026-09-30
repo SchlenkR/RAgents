@@ -17,8 +17,6 @@ export interface RunAppAction {
   confirmation: string | null;
 }
 
-export type RunAppPlacement = { kind: "canvas"; anchorActorId: string };
-
 export type RunAppInvocation = {
   id: string;
   actorId: string;
@@ -45,7 +43,6 @@ export interface RunApp {
   description?: string;
   revision: string;
   actions: RunAppAction[];
-  placements: RunAppPlacement[];
   state: { version: 1; revision: number; values: JsonValue };
   invocations: RunAppInvocation[];
 }
@@ -198,23 +195,10 @@ export const runAppInvocationFrom = (value: unknown): RunAppInvocation => {
   }
 };
 
-const runAppPlacementFrom = (value: unknown): RunAppPlacement => {
-  if (!isRecord(value)) throw new Error("An app placement is not an object");
-  if (value.kind === "canvas") {
-    return {
-      kind: "canvas",
-      anchorActorId: requiredString(value.anchorActorId, "placement.anchorActorId"),
-    };
-  }
-  throw new Error("kind of an app placement must be canvas");
-};
-
 export const runAppFrom = (value: unknown): RunApp => {
   if (!isRecord(value)) throw new Error("An app is not an object");
   if (!Array.isArray(value.actions)) throw new Error("actions of an app is not a list");
   if (!Array.isArray(value.invocations)) throw new Error("invocations of an app is not a list");
-  const rawPlacements = value.placements ?? [];
-  if (!Array.isArray(rawPlacements)) throw new Error("placements of an app is not a list");
   if (!isRecord(value.state) || value.state.version !== 1 || !Number.isSafeInteger(value.state.revision) || !isJsonValue(value.state.values)) throw new Error("state of a view does not match the state contract");
   const actions = unique(value.actions.map(runAppActionFrom), (action) => action.id, "actions");
   const invocations = unique(
@@ -227,12 +211,9 @@ export const runAppFrom = (value: unknown): RunApp => {
     throw new Error("An app execution refers to an unknown action");
   }
   if (value.visible !== undefined && typeof value.visible !== "boolean") throw new Error("visible of an app is not a boolean");
-  if (rawPlacements.length > 1) throw new Error("placements of an app contains more than one placement");
-  const placements = rawPlacements.map(runAppPlacementFrom);
   const id = requiredString(value.id, "view.id");
   if (!VIEW_ID_PATTERN.test(id)) throw new Error("view.id is not a valid identifier");
   const actorId = requiredString(value.actorId, "view.actorId");
-  if (placements.some((placement) => placement.anchorActorId !== actorId)) throw new Error("The view must be placed at its own actor");
   return {
     id,
     actorId,
@@ -244,7 +225,6 @@ export const runAppFrom = (value: unknown): RunApp => {
       : {}),
     revision: requiredString(value.revision, "app.revision"),
     actions,
-    placements,
     state: { version: 1, revision: value.state.revision as number, values: value.state.values },
     invocations,
   };

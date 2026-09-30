@@ -1,4 +1,4 @@
-import { isClipboardRunPanelMessage } from "./host-contract";
+import { isClipboardRunPanelMessage, type ClipboardContent } from "./host-contract";
 
 type EditingAction = "paste" | "copy" | "cut";
 
@@ -15,24 +15,20 @@ const actionOf = (event: KeyboardEvent): EditingAction | undefined => {
 const isEditable = (element: Element | null): element is HTMLElement =>
   element !== null && (element.tagName === "INPUT" || element.tagName === "TEXTAREA" || (element as HTMLElement).isContentEditable === true);
 
-/**
- * macOS delivers paste, copy, and cut through the application menu, and VS Code passes the
- * command only to the document of its webview, not into a cross-origin iframe. The run panel
- * therefore executes it itself; it fetches the clipboard text through the shell.
- */
+/** VS Code's shell reads the clipboard for the cross-origin run panel. */
 export function createClipboardReader(browser: Window) {
   const parent = browser.parent;
-  const pending = new Map<string, (text: string) => void>();
+  const pending = new Map<string, (content: ClipboardContent) => void>();
 
   const onMessage = (event: MessageEvent) => {
     if (event.source !== parent || !isClipboardRunPanelMessage(event.data)) return;
     const settle = pending.get(event.data.id);
     if (!settle) return;
     pending.delete(event.data.id);
-    settle(event.data.text);
+    settle({ text: event.data.text, files: event.data.files });
   };
 
-  const read = () => new Promise<string>((resolve) => {
+  const read = () => new Promise<ClipboardContent>((resolve) => {
     const id = crypto.randomUUID();
     pending.set(id, resolve);
     parent.postMessage({ type: "clipboardRead", id }, "*");
@@ -41,11 +37,11 @@ export function createClipboardReader(browser: Window) {
   browser.addEventListener("message", onMessage);
   return {
     read,
-    dispose: () => { browser.removeEventListener("message", onMessage); pending.forEach((settle) => settle("")); pending.clear(); },
+    dispose: () => { browser.removeEventListener("message", onMessage); pending.forEach((settle) => settle({ text: "", files: [] })); pending.clear(); },
   };
 }
 
-export function installClipboardBridge(browser: Window, readClipboard?: () => Promise<string>): () => void {
+export function installClipboardBridge(browser: Window, readClipboard?: () => Promise<ClipboardContent>): () => void {
   let active = true;
   const reader = readClipboard ? undefined : createClipboardReader(browser);
   const read = readClipboard ?? reader!.read;
@@ -59,10 +55,17 @@ export function installClipboardBridge(browser: Window, readClipboard?: () => Pr
       browser.document.execCommand(action);
       return;
     }
-    void read().then((text) => {
-      if (!active || !text || !isEditable(target) || !target.isConnected) return;
+    void read().then(({ text, files }) => {
+      if (!active || !isEditable(target) || !target.isConnected) return;
+      browser.focus();
       target.focus();
-      browser.document.execCommand("insertText", false, text);
+      if (files.length > 0) {
+        const clipboardData = new DataTransfer();
+        for (const file of files) clipboardData.items.add(file);
+        clipboardData.setData("text/plain", text);
+        if (!target.dispatchEvent(new ClipboardEvent("paste", { clipboardData, bubbles: true, cancelable: true }))) return;
+      }
+      if (text) browser.document.execCommand("insertText", false, text);
     });
   };
 

@@ -13,7 +13,7 @@ const matches = (connection: ConnectionView, run: ConnectionRun, query: string):
   `${run.title} ${connection.name}`.toLocaleLowerCase("en-US").includes(query);
 
 /** All runs of all servers as one list: search, hide ended, the server filter from the chip on Start, and a multi-selection for deleting. */
-export function RunsPage({ state, send }: PanelPageProps) {
+export function RunsPage({ state, send, runDetails }: PanelPageProps) {
   const [query, setQuery] = useState("");
   const [onlyConnection, setOnlyConnection] = useState(state.runsConnection);
   const [hideEnded, setHideEnded] = useState(false);
@@ -38,7 +38,7 @@ export function RunsPage({ state, send }: PanelPageProps) {
     return next;
   });
   const remove = () => {
-    for (const connection of state.connections) {
+    for (const connection of state.connections.filter((connection) => connection.canDelete !== false)) {
       const runIds = connection.runs.filter((run) => selected.has(keyOf(connection.name, run.id))).map((run) => run.id);
       if (runIds.length > 0) send({ action: "deleteRuns", name: connection.name, runIds });
     }
@@ -57,16 +57,16 @@ export function RunsPage({ state, send }: PanelPageProps) {
         {onlyConnection}<XIcon data-icon="inline-end" />
       </Toggle>}
       <Toggle onPressedChange={setHideEnded} pressed={hideEnded} size="sm" variant="outline">Hide ended</Toggle>
-      <Toggle onPressedChange={(next) => (next ? setSelecting(true) : leaveSelection())} pressed={selecting} size="sm" variant="outline">
+      {state.connections.some((connection) => connection.canDelete !== false) && <Toggle onPressedChange={(next) => (next ? setSelecting(true) : leaveSelection())} pressed={selecting} size="sm" variant="outline">
         <CheckSquareIcon data-icon="inline-start" />Select
-      </Toggle>
+      </Toggle>}
     </div>
     {shown.length === 0
       ? <p className="text-[0.75rem] text-muted-foreground" role="status">{all.length === 0 ? "No runs yet." : "No matching run."}</p>
       : <RunList label="Runs" selecting={selecting} showConnection={marked}>
-        {shown.map(({ connection, run }) => <RunLine connection={connection} key={keyOf(connection.name, run.id)}
+        {shown.map(({ connection, run }) => <RunLine details={runDetails?.(run.id, connection.name)} connection={connection} key={keyOf(connection.name, run.id)}
           onOpen={() => send({ action: "openRun", name: connection.name, runId: run.id })}
-          onToggle={() => toggle(keyOf(connection.name, run.id))} run={run} selected={selected.has(keyOf(connection.name, run.id))} selecting={selecting} showConnection={marked} />)}
+          onToggle={() => toggle(keyOf(connection.name, run.id))} run={run} selected={selected.has(keyOf(connection.name, run.id))} selecting={selecting && connection.canDelete !== false} showConnection={marked} />)}
       </RunList>}
     {selecting && <div className="sticky bottom-0 flex flex-wrap items-center gap-2 border-t border-border-soft bg-background py-2">
       <span className="flex-1 text-[0.72rem] text-muted-foreground" role="status">{selected.size} selected</span>

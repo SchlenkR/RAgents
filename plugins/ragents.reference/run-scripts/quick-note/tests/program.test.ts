@@ -11,7 +11,6 @@ const note = (status: "active" | "installed" = "installed") => {
   const context = createTestContext<Record<string, never>>({ state: {}, functions: {
     actor_program_ensure: record("actor_program_ensure", { actorId: "id-notebook", handle: "notebook", status }),
     actor_input: record("actor_input", []),
-    canvas_layout_place: record("canvas_layout_place", { placed: status === "installed" }),
   } });
   return { calls, context };
 };
@@ -22,7 +21,6 @@ test("sends the note to the shared notebook and reports it", async () => {
   assert.deepEqual(calls.map((call) => [call.name, call.input]), [
     ["actor_program_ensure", { name: "notebook" }],
     ["actor_input", { actor: "@notebook", content: "Ask about the budget" }],
-    ["canvas_layout_place", { entity: "app:notebook/main" }],
   ]);
   assert.deepEqual(context.finished, [{ result: { note: "Ask about the budget", notebook: "installed" }, summary: "Noted: Ask about the budget" }]);
 });
