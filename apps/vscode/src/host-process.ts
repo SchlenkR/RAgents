@@ -1,8 +1,9 @@
 import { spawn, type ChildProcess } from "node:child_process";
-import { accessSync, constants, existsSync, readFileSync, statSync } from "node:fs";
+import { accessSync, constants, readFileSync, statSync } from "node:fs";
 import { mkdir } from "node:fs/promises";
 import path from "node:path";
 import { createInterface, type Interface } from "node:readline";
+import { resolveBundledTools } from "@ragents/workspace-executor/src/bundled-tools";
 import { editorFreeEnvironment } from "@ragents/workspace-executor/src/safe-environment";
 import { MissingEnvironmentError, parseMissingEnvironmentNotice, type MissingEnvironment } from "../../server/src/missing-environment";
 import { isHostRoot } from "./connections";
@@ -46,15 +47,11 @@ const DRAIN_TIMEOUT_MS = 1_000;
 /** The environment of the extension without the variables of the surrounding VS Code, so child processes do not attach to it. */
 export const inheritedEnvironment = (): Record<string, string> => editorFreeEnvironment(process.env);
 
-/** The bash the Windows build of the extension brings; on other platforms, the system one applies. */
 export const bundledBash = (extensionPath: string, platform: NodeJS.Platform = process.platform, arch: string = process.arch): string | undefined =>
-  platform === "win32" ? path.join(extensionPath, "dist", "bash", `${platform}-${arch}`, "usr", "bin", "bash.exe") : undefined;
+  resolveBundledTools({ root: extensionPath, distribution: "extension", platform, arch }).bash;
 
-/** The rg the extension build for this platform brings; the universal one carries none, then one in the PATH applies. */
-export const bundledRipgrep = (extensionPath: string, platform: NodeJS.Platform = process.platform, arch: string = process.arch): string | undefined => {
-  const file = path.join(extensionPath, "dist", "rg", `${platform}-${arch}`, platform === "win32" ? "rg.exe" : "rg");
-  return existsSync(file) ? file : undefined;
-};
+export const bundledRipgrep = (extensionPath: string, platform: NodeJS.Platform = process.platform, arch: string = process.arch): string | undefined =>
+  resolveBundledTools({ root: extensionPath, distribution: "extension", platform, arch }).rg;
 
 /** Looks for a program in the PATH; on Windows with the extensions from PATHEXT. */
 export const findExecutable = (name: string, environment: NodeJS.ProcessEnv = process.env): string | undefined => {

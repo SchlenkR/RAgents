@@ -4,6 +4,8 @@ Inbox for everything; the owner and the AI write here. One line per entry, newes
 
 ## Open
 
+- Workstation parity (30.09.2026): verify terminal/SSH closure, killed launcher, child cleanup, and explicit `--detached` on Windows, macOS, and Linux; bundling, full checks, package installation, and the 0.1.18 publish dry run passed outside the sandbox.
+
 - UI contract paths (30.09.2026): rerun `pnpm check` and `pnpm check:package` outside the restricted sandbox after the Windows path and linked-root corrections; both checks passed on macOS before these corrections.
 
 - Run scripts in a running run (29.09.2026): the run menu starts every script with the start value `null` and shows no guide, so an embeddable script with a guide gets only its defaults there; `ragents script --input` and `run_script_start` pass a value. Offer the script's guide in the run menu.

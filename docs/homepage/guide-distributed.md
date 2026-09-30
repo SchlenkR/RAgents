@@ -143,6 +143,29 @@ expose only the alias.
   starts with the new web interface as long as the host API stays the same. Otherwise the start
   refuses the fetched bundles, and `connect` names the version to install.
 
+## Run a CLI workstation
+
+`ragents workspace-client <server-url> [folders ...]` registers this machine with the same tools
+and executor as the VS Code extension. No folder means the current directory; `--id` and `--label`
+set its stable identity and display name. The npm installation includes ripgrep on every supported
+platform and the curated Bash on Windows. Plugin tools are provisioned before registration.
+
+Set `RAGENTS_TOKEN` for a personal or existing session token. For automatic sign-in and renewal,
+configure `RAGENTS_USER` and `RAGENTS_PASSWORD` in the process environment. Neither is a command-line
+option. Invalid or absent credentials when sign-in is required produce a visible failure and a
+nonzero exit. A temporary connection loss reconnects and registers the workstation again.
+
+Closing the terminal or SSH session, closing stdin, or ending the owning process unregisters the
+workstation and stops its children. SIGINT, SIGTERM, and SIGHUP also stop it. For an intentional
+background service, pass `--detached` and let a service manager own it, or run:
+
+```sh
+nohup ragents workspace-client https://ragents.example.com /home/user/project --detached >workspace.log 2>&1 </dev/null &
+```
+
+The flag ignores terminal closure, parent loss, and SIGHUP; it does not daemonize. SIGINT and
+SIGTERM still unregister and shut down. Use the service manager's stop command to end a service.
+
 ## Transfer a run
 
 A run can move from one server to another and continue there, for example from a notebook to an
@@ -203,13 +226,11 @@ The local host and workspace also run on Windows. Requirements are:
   contains no git, so your login works as usual: Git Credential Manager, `~/.gitconfig` and
   `~/.ssh`. On your own machine the bash inherits your whole environment, except the variables of
   VS Code itself and `BASH_ENV`/`ENV`.
-- **Without the extension** (`ragents start` or `ragents workspace-client` from the npm package)
-  set `RAGENTS_BASH` to the `bash.exe` of such a bundle, for example
-  `<extension folder>\dist\bash\win32-x64\usr\bin\bash.exe`. Without it every `bash` call fails
-  and names what is missing. `RAGENTS_RG` names an `rg` in the same way, for example
-  `<extension folder>\dist\rg\win32-x64\rg.exe`, on every platform; without it, an `rg` on
-  `PATH` is used if there is one. A `RAGENTS_RG` that points to a missing file stops the server
-  start or the workstation's registration.
+- **CLI workstation** (`ragents workspace-client`) carries the same Bash and ripgrep as the
+  extension. npm installs only the optional tools package for this machine; keep optional
+  dependencies enabled. A checkout uses the extension build from `pnpm bundle:rg` and
+  `pnpm bundle:bash`. A standalone server (`ragents start`) still takes `RAGENTS_BASH` and
+  `RAGENTS_RG` from its environment; these variables do not override workstation bundles.
 - **Node.js** is enough with `@schlenkr/ragents`. A checkout additionally needs **pnpm**, and
   `pnpm install`, `pnpm build:agent`, and `scripts/start.sh` need a bash of your own, such as
   Git Bash.

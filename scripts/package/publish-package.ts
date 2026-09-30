@@ -3,6 +3,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { compareVersions, readVersion, releaseVersion, versionLine, writeHostPackageVersion, writeVersion } from "../publish-version.ts";
 import { buildPackage, PACKAGE_FOLDER, PACKAGE_NAME } from "./build-package.ts";
+import { buildToolsPackages, type BuiltToolsPackage } from "./tools-package.ts";
 
 const repositoryRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..");
 
@@ -10,7 +11,8 @@ const usage = `Usage: pnpm publish:package [--dry-run]
 Builds the package ${PACKAGE_NAME} and publishes it on npm. The token comes from the
 environment variable npm_key. --dry-run passes the dry run through to npm and publishes nothing.
 The version is in the root package.json; before building, the script raises the last place
-above the last published version, in a dry run only in the output.`;
+above the last published version. A dry run leaves the source manifests unchanged.
+Platform tools are published first, skipping versions that already exist.`;
 
 const REGISTRY_TOKEN_KEY = "npm_config_//registry.npmjs.org/:_authToken";
 
@@ -74,6 +76,7 @@ export const publishPlan = (manifest: Record<string, unknown>, published: readon
   if (!/^\d+\.\d+\.\d+(?:-[0-9a-z.-]+)?$/.test(version)) {
     throw new Error(`The version ${JSON.stringify(version)} is not a version; it is the version in the root package.json`);
   }
+  if (manifest.version !== version) throw new Error(`The built package version ${String(manifest.version)} does not match the release ${version}`);
   if (typeof hostVersion !== "string" || !/^[0-9a-f]{40}$/.test(hostVersion)) {
     throw new Error("The package lacks ragents.hostVersion as a full Git commit; it is built only from a checkout");
   }
@@ -85,6 +88,7 @@ export const publishPlan = (manifest: Record<string, unknown>, published: readon
 };
 
 export interface PublishOptions {
+  readonly name?: string;
   readonly directory: string;
   readonly version: string;
   readonly token: string;
@@ -110,7 +114,18 @@ export const publishDirectory = (options: PublishOptions): void => {
     options.log("== Dry run: nothing published");
     return;
   }
-  options.log(`== Published: ${PACKAGE_NAME}@${options.version}`);
+  options.log(`== Published: ${options.name ?? PACKAGE_NAME}@${options.version}`);
+};
+
+export const publishToolsPackages = (packages: readonly BuiltToolsPackage[], options: Omit<PublishOptions, "directory" | "name">): void => {
+  for (const built of packages) {
+    if (built.version !== options.version) throw new Error(`${built.name}@${built.version} does not match the release ${options.version}`);
+    if (publishedVersions(built.name, options.npm).includes(built.version)) {
+      options.log(`== Already published: ${built.name}@${built.version}`);
+      continue;
+    }
+    publishDirectory({ ...options, name: built.name, directory: built.directory });
+  }
 };
 
 const main = async (): Promise<void> => {
@@ -129,9 +144,11 @@ const main = async (): Promise<void> => {
     writeVersion(extensionManifestFile, next.version);
     writeHostPackageVersion(extensionManifestFile, next.version);
   }
-  const built = await buildPackage(path.join(repositoryRoot, "dist", PACKAGE_FOLDER));
+  const built = await buildPackage(path.join(repositoryRoot, "dist", PACKAGE_FOLDER), repositoryRoot, next.version);
   const plan = publishPlan(built.manifest, published, next.version);
   console.log(`== ${plan.name}@${plan.version} from host ${plan.hostVersion.slice(0, 12)}, ${built.fileCount} files, ${(built.byteSize / 1024 / 1024).toFixed(1)} MB`);
+  const tools = await buildToolsPackages(plan.version, undefined, undefined, (line) => console.log(line));
+  publishToolsPackages(tools, { version: plan.version, token, dryRun, npm: runNpm, log: (line) => console.log(line) });
   publishDirectory({ directory: built.directory, version: plan.version, token, dryRun, npm: runNpm, log: (line) => console.log(line) });
 };
 

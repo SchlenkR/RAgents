@@ -1,6 +1,7 @@
 import { copyFile, mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { buildPackage } from "../package/build-package.ts";
+import { buildToolsPackages } from "../package/tools-package.ts";
 import { alive, childEnvironment, mustRun, runCommand, type CommandResult } from "./processes.ts";
 
 const IMAGE = "ragents-remote-workspace-check";
@@ -32,9 +33,11 @@ export interface BuiltImage {
 export const buildImage = async (root: string, context: string, variant: ImageVariant, logFile: string): Promise<BuiltImage> => {
   const built = await buildPackage(path.join(context, "package"), root);
   const dependencies = built.manifest.dependencies as Record<string, string>;
+  const tools = await buildToolsPackages(built.manifest.version as string, path.join(context, "workspace-tools"), ["linux-x64", "linux-arm64"]);
+  const optionalDependencies = Object.fromEntries(tools.map((entry) => [entry.name, `file:./workspace-tools/${path.basename(entry.directory)}`]));
   await mkdir(path.join(context, "dependencies"), { recursive: true });
   await writeFile(path.join(context, "dependencies", "package.json"),
-    `${JSON.stringify({ name: "ragents-remote-check-dependencies", private: true, type: "module", dependencies }, null, 2)}\n`);
+    `${JSON.stringify({ name: "ragents-remote-check-dependencies", private: true, type: "module", dependencies, optionalDependencies }, null, 2)}\n`);
   await copyFile(path.join(root, "scripts/remote-workspace/Dockerfile"), path.join(context, "Dockerfile"));
   const result = await docker(["build", "--build-arg", `VARIANT=${variant}`, "--label", `${IMAGE_LABEL}=1`, "--tag", imageTag(variant), context]);
   await writeFile(logFile, `${result.stdout}\n${result.stderr}`);
@@ -73,13 +76,13 @@ export const startContainer = async (spec: ContainerSpec): Promise<void> => {
     "--env", "RAGENTS_TOKEN",
     ...Object.entries(spec.env).flatMap(([key, value]) => ["--env", `${key}=${value}`]),
     imageTag(spec.variant),
-    "sh", "-c", "mkdir -p \"$1\" && exec ragents workspace-client \"$2\" \"$1\" --id \"$3\" --label \"$4\"",
+    "sh", "-c", "mkdir -p \"$1\" && exec ragents workspace-client --detached \"$2\" \"$1\" --id \"$3\" --label \"$4\"",
     "sh", spec.folder, spec.serverUrl, spec.clientId, spec.label,
   ];
   await mustRun("docker", args, { env: childEnvironment({ RAGENTS_TOKEN: spec.token }) });
 };
 
-export const stopContainer = (name: string): Promise<string> => mustDocker(["stop", "--time", "10", name]);
+export const stopContainer = (name: string): Promise<string> => mustDocker(["stop", "--time", "25", name]);
 
 export const restartContainer = (name: string): Promise<string> => mustDocker(["start", name]);
 

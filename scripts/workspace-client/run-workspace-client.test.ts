@@ -44,10 +44,10 @@ const until = async (condition: () => boolean, timeoutMs = 5000) => {
 
 test("the command line names server, folders, id and label", () => {
   assert.deepEqual(parseArguments(["http://127.0.0.1:3000", "/work/project"]), {
-    serverUrl: "http://127.0.0.1:3000", folders: ["/work/project"], id: undefined, label: undefined,
+    serverUrl: "http://127.0.0.1:3000", folders: ["/work/project"], id: undefined, label: undefined, detached: false,
   });
   assert.deepEqual(parseArguments(["http://x", "--id", "cli-12345678", "--label", "Notebook"]), {
-    serverUrl: "http://x", folders: [], id: "cli-12345678", label: "Notebook",
+    serverUrl: "http://x", folders: [], id: "cli-12345678", label: "Notebook", detached: false,
   });
   assert.throws(() => parseArguments([]), /server address is missing/);
   assert.throws(() => parseArguments(["http://x", "--unknown"]), /Unknown argument/);

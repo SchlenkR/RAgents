@@ -793,7 +793,8 @@ and the build says which.
 The package version is the `version` field in the `package.json` of the repository root.
 `pnpm publish:package` is one step: it queries the published versions with
 `npm view @schlenkr/ragents versions --json`, increments the last place of the highest of them, writes the
-new version into the root `package.json`, builds the package, and publishes it on npm:
+new version into the root `package.json`, builds the package and its six platform tool packages,
+and publishes missing tool versions before the main package on npm:
 
 ```sh
 pnpm publish:package --dry-run   # trial run: names the version, builds, checks, and shows the tarball
@@ -804,7 +805,11 @@ The first line of the output names the version: `== Version 0.1.2, last publishe
 If nothing is on npm yet, the version from `package.json` applies; if a higher one than the
 published one is already there - someone set it to `0.2.0` by hand -, `package.json` wins.
 Only the line with `version` is written; the rest of the file stays character for character.
-The trial run shows the version it would use and does not change the file.
+The trial run uses the intended version in every built manifest and does not change source
+version files. Platform packages reuse `bundle-rg.ts` and `bundle-bash.ts`; their `os`/`cpu`
+constraints keep npm installs local to the current platform. To assemble their folders without
+publishing, run `pnpm --filter @ragents/host exec node --import tsx ../../scripts/package/tools-package.ts`
+(optionally followed by target names). An interrupted publish skips tool versions already present.
 
 The token comes from the environment variable `npm_key` and goes as the registry key into the
 environment of the `npm` child process; it is in no file and in no output. If it is missing,

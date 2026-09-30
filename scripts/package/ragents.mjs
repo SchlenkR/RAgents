@@ -3,6 +3,7 @@ import { spawn } from "node:child_process";
 import { realpathSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { terminateProcessTree, watchOwnerLifetime } from "../../packages/workspace-executor/src/owner-lifetime.mjs";
 import { ensureHostLinks } from "./host-links.mjs";
 
 const AGENT_CLI = "scripts/agent/agent-cli.ts";
@@ -55,14 +56,39 @@ const main = () => {
   }
   ensureHostLinks(root);
   const passed = script === AGENT_CLI ? [command, ...rest] : rest;
+  const workspace = command === "workspace-client";
+  const detached = rest.includes("--detached");
   const child = spawn(process.execPath, ["--import", "tsx", path.join(root, script), ...passed], {
     cwd: path.join(root, "apps/server"),
-    env: { ...process.env, RAGENTS_CWD: process.cwd() },
-    stdio: "inherit",
+    env: { ...process.env, RAGENTS_CWD: process.cwd(), ...(workspace ? { RAGENTS_WORKSPACE_OWNER_PID: String(process.ppid) } : {}) },
+    stdio: workspace ? ["ignore", "inherit", "inherit", "ipc"] : "inherit",
+    detached: workspace && process.platform !== "win32",
   });
+  if (workspace) {
+    let stopReason;
+    let deadline;
+    const requestStop = () => {
+      if (child.connected && stopReason) child.send({ type: "workspace-stop", reason: stopReason }, () => undefined);
+    };
+    const release = watchOwnerLifetime({ detached, onStop: (reason) => {
+      stopReason = reason;
+      requestStop();
+      deadline = setTimeout(() => { if (child.pid) terminateProcessTree(child.pid); }, 20_000);
+    } });
+    child.on("message", (message) => { if (message?.type === "workspace-ready") requestStop(); });
+    child.once("exit", () => {
+      release();
+      clearTimeout(deadline);
+      if (process.platform !== "win32" && child.pid) {
+        try { process.kill(-child.pid, "SIGKILL"); } catch {}
+      }
+    });
+  }
   const forward = (signal) => () => child.kill(signal);
-  process.on("SIGINT", forward("SIGINT"));
-  process.on("SIGTERM", forward("SIGTERM"));
+  if (!workspace) {
+    process.on("SIGINT", forward("SIGINT"));
+    process.on("SIGTERM", forward("SIGTERM"));
+  }
   child.once("error", (error) => {
     console.error(`ragents ${command} could not be started: ${error.message}`);
     process.exit(1);

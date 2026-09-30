@@ -156,15 +156,17 @@ test("a server that rejects the sign-out still does not keep the stored credenti
   }
 });
 
-test("stored credentials sign in to the server without a form", async () => {
+test("stored credentials sign in to the server without a form", async (t) => {
   const guarded = await startStubServer({ loginRequired: true });
   const { services } = harness({ B: guarded.url }, { [`ragents.login:${guarded.url}`]: JSON.stringify({ user: "alice", password: "secret" }) });
+  const log = t.mock.method(services, "log", () => undefined);
   const session = new ConnectionSession(serverConnection("B", guarded.url), services);
   try {
     await session.connect();
     await waitFor(() => session.snapshot().status.kind === "connected");
     assert.equal(session.snapshot().user, "Alice");
     assert.equal(session.snapshot().savedLogin, true);
+    assert.deepEqual(log.mock.calls.map((call) => call.arguments), [[`== Signing in to ${guarded.url} with configured credentials`]]);
   } finally {
     await closeAll([session], [guarded]);
   }
@@ -390,4 +392,21 @@ test("the order of versions counts per position; a local profile brings the host
   assert.deepEqual(versionNotice({ extension: "dev", server: "0.1.9", connection: "server", workspace: registered }), {
     level: "warning", text: "RAgents version does not match: extension dev, server 0.1.9 - bring extension and server to the same version.", update: undefined,
   });
+});
+
+test("stored credentials do not attempt silent login through an access-token gate", async (t) => {
+  const url = "http://example.test";
+  const requested: string[] = [];
+  t.mock.method(globalThis, "fetch", async (input: Parameters<typeof fetch>[0]) => {
+    requested.push(String(input));
+    return Response.json({ error: "Access token missing" }, { status: 401 });
+  });
+  const { services } = harness({ B: url }, { [`ragents.login:${url}`]: JSON.stringify({ user: "alice", password: "secret" }) });
+  const log = t.mock.method(services, "log", () => undefined);
+  const session = new ConnectionSession(serverConnection("B", url), services);
+  t.after(() => session.disconnect());
+  await session.connect();
+  assert.deepEqual(session.snapshot().status, { kind: "login-required", tokenGate: true });
+  assert.deepEqual(requested, [`${url}/api/access`]);
+  assert.equal(log.mock.callCount(), 0);
 });

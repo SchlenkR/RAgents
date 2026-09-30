@@ -3001,6 +3001,32 @@ Afterwards the workstation signs in again through the same, still running execut
 event stream is back; if the server then names different contributions, for example after a restart with
 a different profile, the workstation builds a new executor from them and ends the old one.
 
+The extension and `ragents workspace-client` use the same `WorkspaceClient`, executor,
+bundled-tool resolver, and HTTP sign-in client. The latter renews rejected sessions with configured
+credentials, shares one in-flight login across concurrent requests, and retries each rejected
+request once. Only the server's `login-required` refusal permits credential renewal; a token gate
+requires an access token and never receives a password login. Each silent sign-in attempt logs
+the server origin, without credentials, to the extension output or CLI stderr. VS Code obtains credentials from its secret store, the CLI from `RAGENTS_USER` and
+`RAGENTS_PASSWORD`; `RAGENTS_TOKEN` supplies an initial or personal token. Credentials are never
+arguments or log output. Missing or rejected credentials produce a visible sign-in failure; the
+CLI unregisters and exits nonzero. A reconnect re-registers through the existing shared path.
+
+A CLI workstation belongs to its launching process and terminal by default. SIGINT, SIGTERM,
+SIGHUP, stdin EOF/close, IPC disconnect, or a dead owner initiate unregister and executor shutdown,
+also during provisioning. The npm launcher forwards shutdown over IPC so Windows can shut down
+cooperatively. Its worker watches both the launcher and the launcher's parent, checking every
+second. After at most 15 seconds shutdown forces process cleanup. Remaining child processes,
+including build helpers, are removed before exit (POSIX process enumeration, Windows CIM plus
+`taskkill /T /F`); the npm launcher also clears the worker's POSIX process group. The extension
+unregisters on deactivate and its local host already watches its parent.
+`--detached` explicitly removes stdin, SIGHUP, and parent ownership for nohup or service managers;
+SIGINT/SIGTERM still stop it. It does not fork a daemon or redirect standard streams.
+
+Launcher-only differences preserve the same workspace effect: VS Code's loopback pre-check
+anticipates the server's identical registration rule; folder changes rebind through `update`,
+while CLI folders remain those supplied at startup; IDs are stable per VS Code window or per CLI
+machine and folder set. None changes tool availability or execution.
+
 A client belongs to the user who signed it in (without sign-in to nobody, `null`), and
 the registry keeps it under owner and ID. Two users with the same ID have two
 separate entries; signing in, signing out, and disconnecting one never affect the other.
@@ -3180,13 +3206,17 @@ a fallback to `sh` is excluded.
 Likewise the context carries the executor's `rg` (`rg`); `bashLaunch` puts its folder at the front of the `PATH`
 on every platform, and if it is not at the named location, the call fails with that
 cause. Without a value the bash finds an `rg` in the `PATH` if there is one; `ripgrepAvailable`
-says whether it finds one. The path is set by whoever builds the executor: the VS Code extension from
-`<extension>/dist/rg/<platform>-<arch>/rg` (`rg.exe` on Windows) if its version
-carries one (the per-platform versions do, the universal one does not), directly for its workstation and
-for its local host as `RAGENTS_RG` (section `ragents.workspace`); `ragents workspace-client`
-reads `RAGENTS_RG` as well. A set `RAGENTS_RG` that is missing aborts the server's start.
-It is built with `pnpm bundle:rg` (`scripts/vscode/bundle-rg.ts`, details in
-`docs/development.md`).
+says whether it finds one. Both workstation launchers use `resolveBundledTools` in `packages/workspace-executor`.
+The per-platform VSIX resolves `<extension>/dist/rg/<platform>-<arch>/rg` (`rg.exe` on Windows).
+The npm package resolves the same layout inside its matching optional package,
+`@schlenkr/ragents-tools-<platform>-<arch>`, pinned to the host package version. Its `os` and `cpu`
+fields restrict installation to win32, darwin, or linux, each x64 or arm64. Missing optional tools
+are a startup error with reinstall instructions. Both distributions use the same pinned archives,
+checksums, extraction code, and license files in `scripts/vscode/bundle-rg.ts` and `bundle-bash.ts`.
+VSIX contents stay unchanged. The universal extension and both launchers in a checkout without
+built tools retain system-PATH discovery; `pnpm bundle:rg` supplies the checkout's shared binaries.
+The extension passes its selection to its local host as `RAGENTS_RG`. A standalone server still
+reads `RAGENTS_RG`; a configured missing file aborts startup.
 
 On Windows the executor runs with the same Node standard APIs and without its own
 platform layer. The bash there is exclusively the one RAgents brings along: an extract from
@@ -3201,7 +3231,8 @@ the bash is missing from the context or is not at the named location, the call f
 cause. The path is set by whoever builds the executor: the extension for its workstation from
 `<extension>/dist/bash/<platform>-<arch>/usr/bin/bash.exe` and for its local host as the
 environment variable `RAGENTS_BASH` (section `ragents.workspace`, in the server's executor as `bash`
-of `WorkspaceSandboxHost`); `ragents workspace-client` reads `RAGENTS_BASH` as well. `bashLaunch`
+of `WorkspaceSandboxHost`); the CLI workstation resolves the identical layout in its platform
+package (or the extension build in a checkout), without requiring `RAGENTS_BASH`. `bashLaunch`
 puts the bash's `usr/bin` before the process's `PATH`, otherwise `find.exe` and
 `sort.exe` from `System32` would win; another spelling of `PATH` (`Path`) is merged into it, and
 `MSYSTEM` is dropped because it belongs to a Git Bash sign-in; the `rg` comes before it. The
@@ -4051,16 +4082,16 @@ right) returns the archive; a different version is 404. The counterpart is `rage
   relaxed container profiles (`docs/operations.md`).
 - On Windows, `scripts/start.sh` and the repository's other shell scripts need the developer's
   own bash (such as Git Bash); the bundled bash applies only to the runs' tool
-  `bash`. Without the extension (`ragents start`, `ragents workspace-client` from the npm package)
-  there is no bundled bash on Windows; there `RAGENTS_BASH` must point to such a
-  `bash.exe`, for example from an installed Windows version of the extension. The bundled
+  `bash`. A standalone server (`ragents start`) still needs `RAGENTS_BASH` pointing to
+  such a `bash.exe`; both workstation launchers select their bundled Bash automatically. The bundled
   bash for win32-arm64 consists of the same x64 programs as for win32-x64, because MSYS2 has no
   native ARM64 userland; it runs in Windows emulation. The platform is checked only
   in unit tests that simulate it (shell resolution, data folder, environment, prompt contribution,
   rejection of the process table); the real run-through is in `TODO.md`.
 - Only the per-platform version of the extension brings `rg` (win32, darwin, and linux, each x64 and
-  arm64); the universal one, which the Marketplace delivers for example to Alpine or linux-armhf, the npm package,
-  and a server without `RAGENTS_RG` find `rg` only in the `PATH`; otherwise the prompt steers toward `grep`
+  arm64), as do the npm platform tool packages. The universal extension, which the Marketplace
+  delivers for example to Alpine or linux-armhf, and a server without `RAGENTS_RG` find `rg` only
+  in the `PATH`; otherwise the prompt steers toward `grep`
   with excluded folders. The search with `rg` respects `.gitignore` only in a Git repository;
   in a folder without Git it skips only hidden files and what `.ignore` and
   `.rgignore` exclude.

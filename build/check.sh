@@ -15,4 +15,4 @@ pnpm lint
 bash build/homepage.sh --check
 pnpm build:web
 # The package and a fetched build carry the host's finished web app, so their checks run after the web build.
-exec pnpm --filter @ragents/host exec node --import tsx --test ../../scripts/package/build-package.test.ts ../../scripts/package/publish-package.test.ts ../../scripts/vscode/publish-extension.test.ts ../../scripts/vscode/bundle-bash.test.ts ../../scripts/vscode/bundle-rg.test.ts ../../scripts/remote/connect-start.test.ts
+exec pnpm --filter @ragents/host exec node --import tsx --test ../../scripts/package/build-package.test.ts ../../scripts/package/publish-package.test.ts ../../scripts/package/tools-package.test.ts ../../scripts/vscode/publish-extension.test.ts ../../scripts/vscode/bundle-bash.test.ts ../../scripts/vscode/bundle-rg.test.ts ../../scripts/remote/connect-start.test.ts ../../scripts/workspace-client/*.test.ts

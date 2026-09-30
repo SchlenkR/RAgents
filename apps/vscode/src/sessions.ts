@@ -135,7 +135,7 @@ export class ConnectionSession {
   #generation = 0;
   #registering = false;
   #probed: boolean;
-  #autoLoginTried = false;
+  #automaticSignInDisabled = false;
   #loginUser: string | undefined;
   #savedLogin = false;
   #problem: string | undefined;
@@ -206,7 +206,22 @@ export class ConnectionSession {
   /** Sets up the session against an address; also the path after applying a server-delivered profile. */
   async attach(launched: LaunchedConnection): Promise<void> {
     await this.#detach();
-    const client = new ServerClient(launched.url, launched.token);
+    const client = new ServerClient(launched.url, launched.token, fetch, {
+      log: (line) => this.services.log(line),
+      credentials: async () => {
+        if (launched.host || this.#automaticSignInDisabled) return undefined;
+        const key = credentialsSecretKey(this.connection);
+        const raw = key ? await this.services.secrets.get(key) : undefined;
+        if (!raw) return undefined;
+        const parsed = JSON.parse(raw) as { user?: unknown; password?: unknown };
+        return typeof parsed.user === "string" && typeof parsed.password === "string"
+          ? { id: parsed.user, password: parsed.password } : undefined;
+      },
+      onToken: async (token) => {
+        const key = connectionSecretKey(this.connection);
+        if (key) await this.services.secrets.store(key, token);
+      },
+    });
     const store = new RunStore(client);
     const workspaceClient = this.services.workspaceClient(client);
     const parts: SessionParts = { url: launched.url, client, store, workspaceClient, host: launched.host };
@@ -252,7 +267,7 @@ export class ConnectionSession {
   async disconnect(): Promise<void> {
     this.#generation += 1;
     await this.#detach();
-    this.#autoLoginTried = false;
+    this.#automaticSignInDisabled = false;
     this.#probed = this.connection.kind !== "server";
     this.#missingEnvironment = undefined;
     this.#set({ kind: "stopped" });
@@ -299,6 +314,7 @@ export class ConnectionSession {
     this.#loginUser = user.trim();
     try {
       const { token } = await parts.client.login(user.trim(), password);
+      this.#automaticSignInDisabled = false;
       const key = credentialsSecretKey(this.connection);
       if (key && !parts.host) {
         await this.services.secrets.store(key, JSON.stringify({ user: user.trim(), password }));
@@ -348,7 +364,7 @@ export class ConnectionSession {
     const parts = this.#parts;
     if (!parts) return;
     await this.forgetCredentials();
-    this.#autoLoginTried = true;
+    this.#automaticSignInDisabled = true;
     try {
       await parts.client.logout();
     } catch (cause) {
@@ -415,7 +431,6 @@ export class ConnectionSession {
     if (this.#parts !== parts) return;
     const status = parts.store.status;
     if (parts.workspaceClient.status.kind === "idle") void this.registerWorkspaceClient();
-    if (status.kind === "login-required" && !status.tokenGate && !this.#autoLoginTried) void this.#loginWithSavedCredentials();
     if (status.kind === "connected" && !this.#probed) {
       this.#probed = true;
       this.services.probe(this);
@@ -428,17 +443,6 @@ export class ConnectionSession {
     if (!key) return;
     this.#savedLogin = (await this.services.secrets.get(key)) !== undefined;
     this.#notify();
-  }
-
-  async #loginWithSavedCredentials(): Promise<void> {
-    this.#autoLoginTried = true;
-    const key = credentialsSecretKey(this.connection);
-    const raw = key ? await this.services.secrets.get(key) : undefined;
-    if (!raw || !this.#parts) return;
-    const parsed = JSON.parse(raw) as { user?: unknown; password?: unknown };
-    if (typeof parsed.user !== "string" || typeof parsed.password !== "string") return;
-    this.services.log(`== Signing in to ${this.name} as ${parsed.user} with stored credentials`);
-    await this.loginWith(parsed.user, parsed.password);
   }
 
   #set(status: SessionStatus): void {

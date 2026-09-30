@@ -5,6 +5,7 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import test, { type TestContext } from "node:test";
 import { readPackageVersion } from "../../apps/server/src/host-version.ts";
+import { WORKSPACE_TOOL_TARGETS, workspaceToolsPackageName } from "../../packages/workspace-executor/src/bundled-tools.ts";
 import { buildPackage, PACKAGE_AUTHOR, PACKAGE_FOLDER, PACKAGE_KEYWORDS, PACKAGE_LICENSE, PACKAGE_NAME, PACKAGE_ROOT_FILES, PACKAGED_PROFILES } from "./build-package.ts";
 import { commands } from "./ragents.mjs";
 
@@ -24,6 +25,8 @@ test("the package carries entry point, host version and the files the host loads
   assert.deepEqual(manifest.publishConfig, { access: "public" }, "a scoped package is private otherwise");
   assert.match((manifest.ragents as { hostVersion: string }).hostVersion, /^[0-9a-f]{40}$/);
   assert.equal(result.manifest.version, manifest.version);
+  assert.deepEqual(manifest.optionalDependencies,
+    Object.fromEntries(WORKSPACE_TOOL_TARGETS.map((target) => [workspaceToolsPackageName(target), manifest.version])));
   for (const command of Object.values(commands)) assert.equal(existsSync(path.join(target, command)), true, command);
   for (const file of ["apps/server/src/main.ts", "plugins/ragents.workspace/client/workspace-client.ts", "packages/workspace-executor/src/index.ts", "apps/web/src/rpc/client.ts"]) {
     assert.equal(existsSync(path.join(target, file)), true, file);
@@ -83,7 +86,8 @@ test("the package contains no sources nobody needs and no foreign dependencies",
   for (const entry of ["apps/vscode", "docs", "selftest", "build", "node_modules", "packages/agent/tests", "ragents.config.example.ts", "pnpm-workspace.yaml"]) {
     assert.equal(existsSync(path.join(target, entry)), false, entry);
   }
-  for (const entry of ["scripts/remote/connect.test.ts", "scripts/agent/journal.test.ts", "scripts/package/build-package.test.ts", "scripts/workspace-client/run-workspace-client.test.ts"]) {
+  for (const entry of ["scripts/remote/connect.test.ts", "scripts/agent/journal.test.ts", "scripts/package/build-package.test.ts", "scripts/workspace-client/run-workspace-client.test.ts",
+    "scripts/package/build-package.ts", "scripts/package/publish-package.ts", "scripts/package/tools-package.ts"]) {
     assert.equal(existsSync(path.join(target, entry)), false, `${entry} tests the checkout, not the package`);
   }
   assert.equal(existsSync(path.join(target, "plugins/ragents.reference/run-scripts/word-game/tests/program.test.ts")), true,
@@ -98,4 +102,17 @@ test("the package contains no sources nobody needs and no foreign dependencies",
     assert.equal(name.startsWith("@ragents/"), false, `${name} is in the package itself`);
   }
   assert.equal(result.fileCount > 100, true, `${result.fileCount} files`);
+});
+
+test("a trial release uses the proposed version in the built manifest and every optional tools dependency", async (t) => {
+  const target = path.join(await mkdtemp(path.join(tmpdir(), "ragents-package-release-")), PACKAGE_FOLDER);
+  t.after(() => rm(path.dirname(target), { recursive: true, force: true }));
+  const originalVersion = readPackageVersion();
+  const result = await buildPackage(target, undefined, "9.8.7");
+  const manifest = JSON.parse(await readFile(path.join(target, "package.json"), "utf8")) as Record<string, unknown>;
+  assert.equal(result.manifest.version, "9.8.7");
+  assert.equal(manifest.version, "9.8.7");
+  assert.deepEqual(manifest.optionalDependencies,
+    Object.fromEntries(WORKSPACE_TOOL_TARGETS.map((target) => [workspaceToolsPackageName(target), "9.8.7"])));
+  assert.equal(readPackageVersion(), originalVersion);
 });

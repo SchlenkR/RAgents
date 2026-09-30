@@ -65,6 +65,7 @@ export interface WorkspaceClientOptions {
 /** What the workstation needs for the server: the message layer. */
 export interface WorkspaceClientTransport {
   readonly rpc: RpcClient;
+  readonly signInFailure?: () => string | undefined;
 }
 
 type ExecuteInput = OperationInput<typeof workspaceClientContracts.execute>;
@@ -255,6 +256,11 @@ export class WorkspaceClient {
     releases.push(
       rpc.handle(workspaceClientContracts.execute, (input, context) => this.#execute(attachment, input, context)),
       rpc.onConnected(() => void this.#announce()),
+      rpc.onStatus((status) => {
+        if (status.kind === "unauthorized" && attachment === this.#attachment) {
+          this.#set({ kind: "failed", message: this.transport.signInFailure?.() ?? "The server requires a sign-in.", mismatch: false });
+        }
+      }),
     );
     this.#attachment = attachment;
     return attachment;
@@ -288,13 +294,14 @@ export class WorkspaceClient {
   #connected(): Promise<void> {
     const rpc = this.transport.rpc;
     if (rpc.status.kind === "connected") return Promise.resolve();
+    if (rpc.status.kind === "unauthorized") return Promise.reject(new Error(this.transport.signInFailure?.() ?? "The server requires a sign-in."));
     return new Promise((settle, fail) => {
       const release = rpc.onStatus((status) => {
         if (status.kind === "connecting") return;
         release();
         if (status.kind === "connected") settle();
         else if (status.kind === "retrying") fail(new Error(status.message));
-        else if (status.kind === "unauthorized") fail(new Error("The server requires a sign-in."));
+        else if (status.kind === "unauthorized") fail(new Error(this.transport.signInFailure?.() ?? "The server requires a sign-in."));
         else fail(new Error("The server's event stream is closed."));
       });
     });

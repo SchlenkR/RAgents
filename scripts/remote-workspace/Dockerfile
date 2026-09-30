@@ -21,7 +21,8 @@ WORKDIR /opt/ragents
 
 # First the dependencies from the package manifest, so this layer comes from the cache when versions are unchanged.
 COPY --chown=node:node dependencies/package.json ./package.json
-RUN npm install --omit=dev --no-package-lock
+COPY --chown=node:node workspace-tools/ ./workspace-tools/
+RUN npm install --install-links --omit=dev --no-package-lock
 
 COPY --chown=node:node package/ ./
 RUN chmod +x scripts/package/ragents.mjs \

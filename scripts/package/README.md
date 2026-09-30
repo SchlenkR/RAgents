@@ -41,7 +41,11 @@ npm install -g @schlenkr/ragents
   ```
 
 - `workspace-client <server-url> [folder ...]` - register this machine and its folders as a
-  workspace for a server, so a run on that server works in these folders.
+  workspace for a server, so a run on that server works in these folders. Includes the same
+  ripgrep and Windows Bash as the VS Code extension. `RAGENTS_USER` and `RAGENTS_PASSWORD` in
+  the environment enable session renewal; `RAGENTS_TOKEN` supplies an existing or personal token.
+  Terminal or parent closure stops it and its children. Use `--detached` explicitly for nohup
+  or a service manager; SIGINT/SIGTERM still stop it.
 
   ```sh
   ragents workspace-client https://ragents.example.com ~/projects/demo

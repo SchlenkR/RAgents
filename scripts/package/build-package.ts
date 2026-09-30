@@ -9,6 +9,7 @@ import { hostWebDirectory, hostWebProblem, isCheckout } from "../../apps/server/
 import { runtimeLibraries } from "../../apps/server/src/plugin-support/actor-programs/runtime-libraries.ts";
 import { assertBundleRevision, readBundleManifest, sourceRevisionOf } from "../../apps/server/src/profile/bundle-manifest.ts";
 import { builtInPluginFolders } from "../plugin/build-builtin-plugins.ts";
+import { WORKSPACE_TOOL_TARGETS, workspaceToolsPackageName } from "../../packages/workspace-executor/src/bundled-tools.ts";
 
 export const PACKAGE_NAME = "@schlenkr/ragents";
 /** The folder under dist/; the package name has a scope, the folder name stays plain. */
@@ -39,8 +40,9 @@ export const PACKAGE_ROOT_FILES: readonly (readonly [string, string])[] = [
 ];
 
 const ROOT_FILE_SOURCES = new Set(PACKAGE_ROOT_FILES.map(([source]) => source));
+const BUILD_ONLY_FILES = new Set(["scripts/package/build-package.ts", "scripts/package/publish-package.ts", "scripts/package/tools-package.ts"]);
 
-const skippedInPackage = (relative: string): boolean => SKIPPED_IN_PACKAGE.test(relative) || ROOT_FILE_SOURCES.has(relative);
+const skippedInPackage = (relative: string): boolean => SKIPPED_IN_PACKAGE.test(relative) || ROOT_FILE_SOURCES.has(relative) || BUILD_ONLY_FILES.has(relative);
 
 /** What the host loads at runtime: server, engine, the built web, the built-in bundles, plugin sources for contracts and the build tool, profiles and the scripts behind the subcommands; plus the types from declarationFolders. */
 export const packageContents = (root = repositoryRoot): readonly string[] => [
@@ -234,7 +236,7 @@ const copyDeclarations = async (root: string, target: string): Promise<readonly 
   return copied;
 };
 
-export const buildPackage = async (target: string, root = repositoryRoot): Promise<BuiltPackage> => {
+export const buildPackage = async (target: string, root = repositoryRoot, version = readPackageVersion(root)): Promise<BuiltPackage> => {
   assertBuiltInBundles(root);
   assertHostWeb(root);
   await rm(target, { recursive: true, force: true });
@@ -271,7 +273,7 @@ export const buildPackage = async (target: string, root = repositoryRoot): Promi
   }
   const manifest = {
     name: PACKAGE_NAME,
-    version: readPackageVersion(root),
+    version,
     description: "RAgents host: server, engine, plugins and tools without a source checkout",
     keywords: [...PACKAGE_KEYWORDS],
     homepage: "https://schlenkr.github.io/RAgents/",
@@ -284,6 +286,7 @@ export const buildPackage = async (target: string, root = repositoryRoot): Promi
     engines: { node: ">=22.19.0" },
     publishConfig: { access: "public" },
     dependencies,
+    optionalDependencies: Object.fromEntries(WORKSPACE_TOOL_TARGETS.map((target) => [workspaceToolsPackageName(target), version])),
     ragents: { hostVersion: readHostVersion(root) },
   };
   const manifestFile = path.join(target, "package.json");

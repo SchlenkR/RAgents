@@ -5,7 +5,7 @@ import path from "node:path";
 import test from "node:test";
 import { nextVersion, readVersion, releaseVersion, versionLine, writeHostPackageVersion, writeVersion } from "../publish-version.ts";
 import { PACKAGE_NAME } from "./build-package.ts";
-import { latestPublishedVersion, oneLine, publishDirectory, publishedVersions, publishEnvironment, publishPlan, redacting, type NpmResult, type NpmRunner } from "./publish-package.ts";
+import { latestPublishedVersion, oneLine, publishDirectory, publishedVersions, publishEnvironment, publishPlan, publishToolsPackages, redacting, type NpmResult, type NpmRunner } from "./publish-package.ts";
 
 const manifest = (over: Record<string, unknown> = {}): Record<string, unknown> => ({
   name: PACKAGE_NAME,
@@ -64,7 +64,46 @@ test("the plan rejects what must not be published", () => {
   assert.throws(() => publishPlan(manifest({ name: "ragents" }), [], "0.1.0"), /is named ragents, but @schlenkr\/ragents is published/);
   assert.throws(() => publishPlan(manifest({ publishConfig: undefined }), [], "0.1.0"), /publishConfig\.access/);
   assert.throws(() => publishPlan(manifest(), [], "new"), /is not a version/);
+  assert.throws(() => publishPlan(manifest(), [], "0.1.1"), /does not match the release/);
   assert.throws(() => publishPlan(manifest({ ragents: {} }), [], "0.1.0"), /ragents\.hostVersion/);
+});
+
+test("platform packages use the release version, skip already published versions, and keep dry runs unpublished", () => {
+  const first = "@schlenkr/ragents-tools-darwin-arm64";
+  const second = "@schlenkr/ragents-tools-win32-x64";
+  const packages = [
+    { name: first, version: "0.1.1", directory: "/dist/tools/darwin-arm64" },
+    { name: second, version: "0.1.1", directory: "/dist/tools/win32-x64" },
+  ];
+  for (const dryRun of [true, false]) {
+    const { npm, calls } = fakeNpm({
+      [`view ${first}`]: { status: 0, stdout: '["0.1.1"]', stderr: "" },
+      [`view ${second}`]: { status: 1, stdout: "", stderr: "npm error code E404" },
+      "publish --access": { status: 0, stdout: "", stderr: "" },
+    });
+    const lines: string[] = [];
+    publishToolsPackages(packages, { version: "0.1.1", token: "npm_secret", dryRun, npm, log: (line) => lines.push(line) });
+    assert.deepEqual(calls.map((call) => call.args[0]), ["view", "view", "publish"]);
+    assert.equal(calls[2]!.cwd, packages[1]!.directory);
+    assert.equal(calls[2]!.args.includes("--dry-run"), dryRun);
+    assert.equal(lines[0], `== Already published: ${first}@0.1.1`);
+    assert.equal(lines[1], dryRun ? "== Dry run: nothing published" : `== Published: ${second}@0.1.1`);
+  }
+});
+
+test("a tools publication error aborts the remaining release packages", () => {
+  const first = "@schlenkr/ragents-tools-linux-x64";
+  const { npm, calls } = fakeNpm({
+    [`view ${first}`]: { status: 0, stdout: "[]", stderr: "" },
+    "publish --access": { status: 1, stdout: "", stderr: "npm error 403 Forbidden" },
+  });
+  const options = { version: "0.1.1", token: "npm_secret", dryRun: false, npm, log: () => undefined };
+  assert.throws(() => publishToolsPackages([
+    { name: first, version: "0.1.1", directory: "/dist/tools/linux-x64" },
+    { name: "@schlenkr/ragents-tools-linux-arm64", version: "0.1.1", directory: "/dist/tools/linux-arm64" },
+  ], options), /npm publish ended with code 1/);
+  assert.deepEqual(calls.map((call) => call.args[0]), ["view", "publish"]);
+  assert.throws(() => publishToolsPackages([{ name: first, version: "0.1.0", directory: "/dist/tools/linux-x64" }], options), /does not match the release/);
 });
 
 test("the next version comes from the published list, a higher one in package.json wins", () => {

@@ -1,5 +1,36 @@
 # Decisions
 
+## Preserve access-token gates during shared sign-in renewal (30.09.2026)
+
+Chapter: `docs/spec/plugins.md` (workstation sign-in). Require the server's `login-required`
+refusal before automatic password login, restoring the token-only guard for both launchers.
+Log silent sign-in attempts without credentials in extension output and CLI stderr. Give the
+remote check container 25 seconds to stop, beyond the worker's 15-second shutdown deadline
+and launcher's 20-second enforcement, so Docker does not preempt cleanup.
+
+## One workstation implementation for VS Code and CLI (30.09.2026)
+
+Chapter: `docs/spec/plugins.md` (workstations, bundled tools, lifecycle).
+
+Both launchers must offer the same tools and execution behavior. Resolve the existing VSIX tool
+layout through one executor helper and reuse its pinned binary builders for six optional npm
+packages. Exact versions and npm `os`/`cpu` constraints keep installation small; Bash ships only
+on Windows. Publish every missing platform package before the main host, so interrupted releases
+can resume without republishing immutable versions. Dry runs use the intended version in every
+built manifest while leaving source versions unchanged.
+
+Move HTTP sign-in into a shared client: both secret-store and environment credentials use one
+renewal path, concurrent failures share a login, and a rejected renewed session stops retrying.
+The workspace's existing reconnect registration remains authoritative. The CLI reports an
+unrecoverable sign-in failure and exits instead of staying registered in a failed session.
+
+Make terminal ownership explicit: monitor stdin, SIGHUP, IPC, and parent liveness before
+provisioning; request cooperative shutdown on Windows over IPC, then remove remaining helpers.
+`--detached` opts into service lifetime without terminal ownership. Folder rebinding, stable ID
+selection, and the extension's loopback pre-check retain identical effects at the shared server.
+Unit tests cover all resolver targets, ownership triggers, repeated credential renewal, publish
+ordering/resume, and installed package tools; real Windows SSH closure remains a platform check.
+
 ## Normalize optional null fields from OpenAI-compatible providers (30.09.2026)
 
 Chapter: `docs/spec/profiles.md` (custom model providers).

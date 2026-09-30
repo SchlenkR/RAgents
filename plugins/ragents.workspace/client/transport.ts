@@ -1,13 +1,11 @@
-import { RpcClient } from "../../../apps/web/src/rpc/client";
-import type { WorkspaceClientTransport } from "./workspace-client";
+import { ServerClient } from "../../../apps/web/src/server-client";
 
-/** A workstation access without a user interface: the message layer with a bearer token. */
-export const workspaceClientTransport = (baseUrl: string, token: string | undefined): WorkspaceClientTransport => ({
-  rpc: new RpcClient({
-    baseUrl: new URL(baseUrl).origin,
-    fetch: (input, init) => {
-      const headers = init?.headers as Record<string, string> | undefined ?? {};
-      return fetch(input, { ...init, headers: token === undefined ? headers : { ...headers, authorization: `Bearer ${token}` } });
+export const workspaceClientTransport = (baseUrl: string, token: string | undefined, environment: NodeJS.ProcessEnv = process.env): ServerClient =>
+  new ServerClient(baseUrl, token, fetch, {
+    log: (line) => console.error(line),
+    credentials: async () => {
+      const id = environment.RAGENTS_USER;
+      const password = environment.RAGENTS_PASSWORD;
+      return id && password ? { id, password } : undefined;
     },
-  }),
-});
+  });

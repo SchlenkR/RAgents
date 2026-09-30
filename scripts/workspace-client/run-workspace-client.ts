@@ -3,25 +3,28 @@ import { statSync } from "node:fs";
 import { hostname } from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { resolveBundledTools } from "../../packages/workspace-executor/src/bundled-tools.ts";
+import { exitWorkspaceProcess, watchOwnerLifetime } from "../../packages/workspace-executor/src/owner-lifetime.mjs";
+import { isCheckout } from "../../apps/server/src/host-web.ts";
 import { hostRoot } from "../../apps/server/src/host-version.ts";
 import { callerDirectory } from "../../apps/server/src/profile-target.ts";
 import { provisionWorkspace } from "../../apps/server/src/profile/provisioning.ts";
 import { workspaceClientTransport } from "../../plugins/ragents.workspace/client/transport.ts";
 import { WorkspaceClient, workstationRunsDirectory } from "../../plugins/ragents.workspace/client/workspace-client.ts";
 
-const usage = (): string => `Usage: [RAGENTS_TOKEN=<token>] pnpm workspace-client <server-url> [folder ...] [--id <id>] [--label <name>]
-Registers the folders as a workspace with the server and executes its tasks with the executor
-of this machine - the same as the VS Code extension does, just without VS Code. Without folders
-the current directory applies. Every tool call appears as one line on stdout.
-What the server's plugins contribute to the executor, such as language servers, the workspace loads
-at registration from this host's bundles; startup fetches their tools onto this machine
-(the same as pnpm provision --workspace). On Windows
-RAGENTS_BASH names the bash.exe that RAgents brings along (from the Windows build of the VS Code
-extension); without it the bash tool fails. RAGENTS_RG names an rg whose folder the bash has at the
-front of its PATH, such as the one from the extension; if not given, one in the PATH applies. The
-script runs until it is ended with Ctrl-C.`;
+const usage = (): string => `Usage: ragents workspace-client <server-url> [folder ...] [--id <id>] [--label <name>] [--detached]
+Registers the folders as a workspace and executes tasks with the same tools as VS Code.
+Without folders the current directory applies. Tools are provisioned before registration.
+The npm package includes ripgrep and, on Windows, Bash. In a checkout run pnpm bundle:rg
+(and pnpm bundle:bash on Windows) first.
+Set RAGENTS_TOKEN for an existing session or RAGENTS_USER and RAGENTS_PASSWORD for automatic
+sign-in and renewal. Credentials belong only in the environment.
+By default closing stdin, the terminal, or the owning process ends the client and its children.
+--detached explicitly opts out of terminal and parent ownership for nohup or a service manager;
+SIGINT and SIGTERM still stop it. It does not daemonize the process.`;
 
 export interface WorkspaceClientArguments {
+  readonly detached: boolean;
   readonly serverUrl: string;
   readonly folders: readonly string[];
   readonly id: string | undefined;
@@ -30,11 +33,13 @@ export interface WorkspaceClientArguments {
 
 export const parseArguments = (argv: readonly string[]): WorkspaceClientArguments => {
   const folders: string[] = [];
+  let detached = false;
   let serverUrl: string | undefined;
   let id: string | undefined;
   let label: string | undefined;
   for (let index = 0; index < argv.length; index += 1) {
     const argument = argv[index]!;
+    if (argument === "--detached") { detached = true; continue; }
     if (argument === "--id" || argument === "--label") {
       const value = argv[index + 1];
       if (!value || value.startsWith("-")) throw new Error(`${argument} needs a value.\n${usage()}`);
@@ -49,7 +54,7 @@ export const parseArguments = (argv: readonly string[]): WorkspaceClientArgument
   }
   if (!serverUrl) throw new Error(`The server address is missing.\n${usage()}`);
   if (id !== undefined && !/^[A-Za-z0-9_-]{8,64}$/.test(id)) throw new Error("--id needs 8 to 64 characters from A-Z, a-z, 0-9, _ and -.");
-  return { serverUrl, folders, id, label };
+  return { serverUrl, folders, id, label, detached };
 };
 
 /** A stable id per machine and folder set, so the server recognizes the same workspace again. */
@@ -67,6 +72,27 @@ export const resolvedFolders = (folders: readonly string[], caller = callerDirec
 
 const main = async (): Promise<void> => {
   const parsed = parseArguments(process.argv.slice(2));
+  let stopping: Promise<void> | undefined;
+  const stop = (code: number, reason: string): Promise<void> => stopping ??= (async () => {
+    console.log(`== Stopping workspace: ${reason}`);
+    const force = setTimeout(() => exitWorkspaceProcess(code || 1), 15_000);
+    try {
+      await client.unregister();
+      transport.rpc.close();
+    } finally {
+      clearTimeout(force);
+      exitWorkspaceProcess(code);
+    }
+  })();
+  const releaseOwner = watchOwnerLifetime({
+    detached: parsed.detached,
+    parents: [process.ppid, ...process.env.RAGENTS_WORKSPACE_OWNER_PID ? [Number(process.env.RAGENTS_WORKSPACE_OWNER_PID)] : []],
+    stdin: process.send ? null : process.stdin,
+    onStop: (reason) => { void stop(0, reason); },
+  });
+  process.on("message", (message: unknown) => {
+    if (typeof message === "object" && message !== null && (message as { type?: string }).type === "workspace-stop") void stop(0, "owner stopped");
+  });
   const folders = resolvedFolders(parsed.folders);
   const host = hostname();
   const identity = {
@@ -78,46 +104,37 @@ const main = async (): Promise<void> => {
     runsDirectory: workstationRunsDirectory(),
   };
   const transport = workspaceClientTransport(parsed.serverUrl, process.env.RAGENTS_TOKEN);
+  const root = hostRoot();
+  const tools = resolveBundledTools({ root: isCheckout(root) ? path.join(root, "apps/vscode") : root, distribution: isCheckout(root) ? "extension" : "package" });
   const client = new WorkspaceClient(transport, identity, {
     hostRoot,
-    bash: process.env.RAGENTS_BASH || undefined,
-    rg: process.env.RAGENTS_RG || undefined,
+    ...tools,
     onExecuted: ({ runId, operation, durationMs, error }) =>
       console.log(`== ${runId.slice(0, 8)} ${operation} ${durationMs} ms ${error ?? "ok"}`),
   });
   console.log(`== Workspace ${identity.label} (${identity.id})`);
   for (const folder of folders) console.log(`== Folder ${folder}`);
+  process.send?.({ type: "workspace-ready" });
   console.log("== Provisioning tools");
   await provisionWorkspace((line) => console.log(line));
   console.log(`== Server ${parsed.serverUrl}`);
-  client.onChange(() => {
-    const status = client.status;
+  const workspace = client;
+  workspace.onChange(() => {
+    const status = workspace.status;
     console.log(status.kind === "failed" ? `== Registration failed: ${status.message}` : `== State ${status.kind}`);
+    if (status.kind === "failed" && !stopping && (status.mismatch || transport.rpc.status.kind === "unauthorized")) void stop(1, "registration or sign-in failed");
   });
-  await client.register();
-  if (client.status.kind !== "registered") {
-    process.exitCode = 1;
-    transport.rpc.close();
-    return;
-  }
+  await workspace.register();
+  if (stopping) return;
+  if (workspace.status.kind !== "registered") return stop(1, "registration failed");
   console.log("== Registered; Ctrl-C ends the workspace");
-  await new Promise<void>((finish) => {
-    const stop = () => {
-      process.off("SIGINT", stop);
-      process.off("SIGTERM", stop);
-      finish();
-    };
-    process.on("SIGINT", stop);
-    process.on("SIGTERM", stop);
-  });
-  await client.unregister();
-  transport.rpc.close();
+  process.once("exit", releaseOwner);
 };
 
 const moduleUrl: string | undefined = import.meta.url;
 if (moduleUrl && process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(moduleUrl)) {
   main().catch((error: unknown) => {
     console.error(error instanceof Error ? error.message : String(error));
-    process.exit(1);
+    exitWorkspaceProcess(1);
   });
 }

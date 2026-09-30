@@ -5,11 +5,23 @@ import path from "node:path";
 import { pathToFileURL } from "node:url";
 import test from "node:test";
 import { announcement, assertGreetingServed, GREETING_PLUGIN, isolatedDirectory, profileSource, stopChild, writeFiles } from "../../apps/server/tests/foreign-plugin-fixture.ts";
+import { WORKSPACE_TOOL_TARGETS } from "../../packages/workspace-executor/src/bundled-tools.ts";
 import { buildPackage, PACKAGE_FOLDER, PACKAGE_NAME } from "./build-package.ts";
+import { buildToolsPackage } from "./tools-package.ts";
 
 const run = (command: string, args: readonly string[], cwd: string, env: NodeJS.ProcessEnv = process.env) => {
-  const result = spawnSync(command, [...args], { cwd, env, encoding: "utf8" });
+  const npmCli = command === "npm" && process.platform === "win32" ? windowsNpmCli(env) : undefined;
+  const result = spawnSync(npmCli ? process.execPath : command, npmCli ? [npmCli, ...args] : [...args], { cwd, env, encoding: "utf8" });
   return { code: result.status, output: `${result.stdout}\n${result.stderr}` };
+};
+
+const windowsNpmCli = (env: NodeJS.ProcessEnv): string => {
+  const located = spawnSync("where.exe", ["npm.cmd"], { env, encoding: "utf8" });
+  const cli = (located.stdout ?? "").trim().split(/\r?\n/)
+    .map((shim) => path.join(path.dirname(shim), "node_modules", "npm", "bin", "npm-cli.js"))
+    .find((file) => existsSync(file));
+  if (!cli) throw new Error("The package test needs Node's npm installation on PATH.");
+  return cli;
 };
 
 const BROKEN_PLUGIN: Readonly<Record<string, string>> = {
@@ -29,11 +41,35 @@ test("from the installed package a third-party author builds their plugin in an 
     assert.equal(packed.code, 0, packed.output);
     const tarball = readdirSync(path.join(directory, "build")).find((name) => name.endsWith(".tgz"));
     assert.ok(tarball, packed.output);
+    const target = WORKSPACE_TOOL_TARGETS.find((entry) => entry === `${process.platform}-${process.arch}`);
+    assert.ok(target, "the installed package needs a supported workstation platform");
+    const tools = await buildToolsPackage(target, built.manifest.version as string, path.join(directory, "tools"));
+    const packedTools = run("npm", ["pack", "--pack-destination", directory], tools.directory);
+    assert.equal(packedTools.code, 0, packedTools.output);
+    const toolsTarball = readdirSync(directory).find((name) => name.endsWith(".tgz"));
+    assert.ok(toolsTarball, packedTools.output);
     const prefix = path.join(directory, "prefix");
-    const installed = run("npm", ["install", "--global", "--prefix", prefix, "--no-audit", "--no-fund", path.join(directory, "build", tarball)], directory);
+    const installed = run("npm", ["install", "--global", "--prefix", prefix, "--no-audit", "--no-fund", path.join(directory, "build", tarball), path.join(directory, toolsTarball)], directory);
     assert.equal(installed.code, 0, installed.output);
-    const packageRoot = path.join(prefix, "lib", "node_modules", ...PACKAGE_NAME.split("/"));
-    const ragents = path.join(prefix, "bin", "ragents");
+    const packageRoot = path.join(prefix, ...process.platform === "win32" ? [] : ["lib"], "node_modules", ...PACKAGE_NAME.split("/"));
+    const ragents = path.join(packageRoot, "scripts/package/ragents.mjs");
+    const toolsResolver = path.join(packageRoot, "packages/workspace-executor/src/bundled-tools.ts");
+    const resolvedTools = run(process.execPath, ["--import", "tsx", "--input-type=module", "--eval",
+      `import assert from "node:assert/strict";
+import { spawnSync } from "node:child_process";
+const { resolveBundledTools } = await import(${JSON.stringify(pathToFileURL(toolsResolver).href)});
+const tools = resolveBundledTools({ root: ${JSON.stringify(packageRoot)}, distribution: "package" });
+assert.ok(tools.rg);
+const rg = spawnSync(tools.rg, ["--version"], { encoding: "utf8" });
+assert.equal(rg.status, 0, rg.stderr);
+assert.match(rg.stdout, /^ripgrep /);
+if (process.platform === "win32") {
+  assert.ok(tools.bash);
+  const bash = spawnSync(tools.bash, ["--noprofile", "--norc", "-c", "printf bundled-bash"], { encoding: "utf8" });
+  assert.equal(bash.status, 0, bash.stderr);
+  assert.equal(bash.stdout, "bundled-bash");
+}`], path.join(packageRoot, "apps/server"));
+    assert.equal(resolvedTools.code, 0, `the installed package executes its platform tools: ${resolvedTools.output}`);
 
     const compiler = path.join(packageRoot, "packages/ragents/src/typescript/async-compiler.ts");
     const compiled = run(process.execPath, ["--import", "tsx", "--input-type=module", "--eval",
@@ -67,16 +103,16 @@ if (!result.javaScript.includes("Installed view")) throw new Error("The installe
     mkdirSync(work);
     writeFiles(path.join(work, "acme.greeting"), GREETING_PLUGIN);
     writeFiles(path.join(work, "acme.broken"), BROKEN_PLUGIN);
-    const greeting = run(ragents, ["plugin", "build", "./acme.greeting"], work);
+    const greeting = run(process.execPath, [ragents, "plugin", "build", "./acme.greeting"], work);
     assert.equal(greeting.code, 0, greeting.output);
     assert.equal(existsSync(path.join(work, "dist/plugins/acme.greeting/ragents-bundle.json")), true, greeting.output);
-    const broken = run(ragents, ["plugin", "build", "./acme.broken"], work);
+    const broken = run(process.execPath, [ragents, "plugin", "build", "./acme.broken"], work);
     assert.equal(broken.code, 1, "type checking also runs in the package");
     assert.match(broken.output, /server\/index\.ts:2:7: Type 'string' is not assignable to type 'number'/);
 
     writeFileSync(path.join(work, "ragents.config.greeting.ts"),
       profileSource("greeting", ["ragents.orchestration", "ragents.workspace", "ragents.product", "./dist/plugins/acme.greeting"]));
-    const host = spawn(ragents, ["start", "./ragents.config.greeting.ts", "--port", "0"], {
+    const host = spawn(process.execPath, [ragents, "start", "./ragents.config.greeting.ts", "--port", "0"], {
       cwd: work,
       env: { ...process.env, ACME_MODEL_KEY: "not-a-real-key", DATA_DIR: path.join(directory, "data"), RAGENTS_DEV: "" },
       stdio: ["ignore", "pipe", "pipe"],
