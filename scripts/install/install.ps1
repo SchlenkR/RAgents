@@ -86,7 +86,7 @@ try {
     $command = Join-Path $bin 'ragents.cmd'
     [IO.File]::WriteAllText($shim, "@echo off`r`nsetlocal DisableDelayedExpansion`r`n`"%~dp0..\versions\$directory\bin\ragents.cmd`" %*`r`n", [Text.Encoding]::ASCII)
     if (Test-Path -LiteralPath $command) {
-        [IO.File]::Replace($shim, $command, $null)
+        [IO.File]::Replace($shim, $command, (Join-Path $stage 'previous-ragents.cmd'))
     } else {
         [IO.File]::Move($shim, $command)
     }
