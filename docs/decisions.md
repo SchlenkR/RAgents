@@ -1,5 +1,12 @@
 # Decisions
 
+## Directory synchronization on Windows (01.10.2026)
+
+Chapter: `spec/core.md`. Journal locks and host recovery synchronize directory entries only on
+Linux and macOS. Windows rejects directory `fsync`, which prevented even a fresh host from
+starting. File contents still use `fsync` on every platform, and file errors remain hard errors.
+The spec states the Windows power-loss durability limit for directory entries explicitly.
+
 ## Native Windows plugin paths (01.10.2026)
 
 Chapter: `spec/plugins.md`. Plugin discovery recognizes native absolute paths, including Windows

@@ -30,8 +30,8 @@ remain installed. Stop your running hosts before switching versions and restart 
 Settings and runs remain in the existing user data directory.
 
 For a fixed release or another installation folder, download the script and pass
-`--version 0.1.20 --prefix /absolute/install/path` on Unix, or
-`-Version 0.1.20 -Prefix C:\Apps\RAgents` on Windows. Windows also accepts `-NoPathUpdate`.
+`--version 0.1.21 --prefix /absolute/install/path` on Unix, or
+`-Version 0.1.21 -Prefix C:\Apps\RAgents` on Windows. Windows also accepts `-NoPathUpdate`.
 Use the same prefix and an older `--version` / `-Version` to switch back. Alternatively, unpack
 the matching archive yourself and run `bin/ragents` or `bin/ragents.cmd` from it.
 

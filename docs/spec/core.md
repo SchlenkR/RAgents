@@ -1216,3 +1216,6 @@ at the next tool call.
    until its result; whoever wants to redirect immediately interrupts the turn. A fed-in input
    changes neither the model choice nor the system prompt of the turn; both apply, as determined at
    turn start, until its end.
+6. Windows flushes journal and marker file contents, but skips directory `fsync`, which its file
+   API does not support. Directory entries after renames or deletions therefore have no explicit
+   power-loss durability guarantee; Linux and macOS retain their directory synchronization.

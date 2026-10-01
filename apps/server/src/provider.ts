@@ -869,6 +869,7 @@ export class RunSessionProvider implements ChatSessionProvider {
   }
 
   private async syncDirectory(pathname: string): Promise<void> {
+    if (process.platform === "win32") return;
     const directory = await open(pathname, "r");
     try {
       await directory.sync();
