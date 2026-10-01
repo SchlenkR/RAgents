@@ -49,6 +49,6 @@ test("the launcher uses its bundled Node and preserves arguments and the caller'
   assert.equal(actual.node, node);
   assert.deepEqual(actual.args, ["run", "project folder", "task with spaces"]);
   assert.equal(actual.cwd, temporary);
-  assert.equal(actual.path.split(path.delimiter)[0], runtime);
+  assert.equal(path.resolve(actual.path.split(path.delimiter)[0]), runtime);
   assert.equal(await readFile(command, "utf8"), launcher(windows));
 });

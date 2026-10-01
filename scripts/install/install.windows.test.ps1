@@ -2,8 +2,8 @@ $ErrorActionPreference = 'Stop'
 $root = Join-Path ([IO.Path]::GetTempPath()) ('ragents-install-test-' + [Guid]::NewGuid().ToString('N'))
 $prefix = Join-Path $root "install with spaces and 'quotes'"
 $installer = Join-Path $PSScriptRoot 'install.ps1'
-$script:downloads = @()
-$script:latestVersion = '1.0.0'
+$downloads = [System.Collections.Generic.List[string]]::new()
+$latestVersion = '1.0.0'
 $env:PROCESSOR_ARCHITEW6432 = ''
 $env:PROCESSOR_ARCHITECTURE = 'AMD64'
 
@@ -28,9 +28,9 @@ function New-Release($Version, [switch] $Corrupt, [switch] $Broken, $Architectur
 
 function Invoke-WebRequest {
     param($Uri, $Method, $OutFile, [switch] $UseBasicParsing)
-    $script:downloads += $Uri
+    $downloads.Add([string]$Uri)
     if ($Uri.EndsWith('/latest')) {
-        return @{ BaseResponse = @{ RequestMessage = @{ RequestUri = [Uri]"https://github.com/SchlenkR/RAgents/releases/tag/v$script:latestVersion" } } }
+        return @{ BaseResponse = @{ RequestMessage = @{ RequestUri = [Uri]"https://github.com/SchlenkR/RAgents/releases/tag/v$latestVersion" } } }
     }
     if ($Uri -notmatch '/download/v([^/]+)/(.+)$') { throw "Unexpected download: $Uri" }
     Copy-Item -LiteralPath (Join-Path $root "releases/$($Matches[1])/$($Matches[2])") -Destination $OutFile
@@ -39,15 +39,15 @@ function Invoke-WebRequest {
 try {
     New-Release '1.0.0'
     & $installer -Prefix $prefix -NoPathUpdate
-    Assert-True (($script:downloads | Where-Object { $_.EndsWith('/latest') }).Count -eq 1) 'Latest must resolve once.'
+    Assert-True (($downloads | Where-Object { $_.EndsWith('/latest') }).Count -eq 1) 'Latest must resolve once.'
     Assert-True ((& (Join-Path $prefix 'bin/ragents.cmd')) -eq '1.0.0') 'Installed command must work with spaces in its path.'
     New-Release '1.1.0'
     & $installer -Prefix $prefix -Version 'v1.1.0' -NoPathUpdate
     Assert-True ((& (Join-Path $prefix 'bin/ragents.cmd')) -eq '1.1.0') 'Update did not activate the new version.'
     Assert-True (Test-Path -LiteralPath (Join-Path $prefix 'versions/ragents-1.0.0-win32-x64')) 'Update removed the previous version.'
-    $before = $script:downloads.Count
+    $before = $downloads.Count
     & $installer -Prefix $prefix -Version '1.1.0' -NoPathUpdate
-    Assert-True ($script:downloads.Count -eq $before) 'Existing versions must not be downloaded again.'
+    Assert-True ($downloads.Count -eq $before) 'Existing versions must not be downloaded again.'
     New-Release '1.2.0' -Corrupt
     try { & $installer -Prefix $prefix -Version '1.2.0' -NoPathUpdate; throw 'Accepted corrupt archive.' }
     catch { if ($_ -notmatch 'Checksum mismatch') { throw } }
