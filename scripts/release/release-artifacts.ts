@@ -52,7 +52,7 @@ const optionalGh = <T>(args: readonly string[]): T | undefined => {
   const result = spawnSync("gh", [...args], { encoding: "utf8" });
   if (result.error) throw result.error;
   if (result.status === 0) return JSON.parse(result.stdout) as T;
-  if (/HTTP 404|release not found/i.test(result.stderr)) return undefined;
+  if (/HTTP 404|release not found|No commit found for SHA: .+ \(HTTP 422\)/i.test(result.stderr)) return undefined;
   throw new Error(`gh ${args[0]} failed: ${result.stderr.trim()}`);
 };
 
