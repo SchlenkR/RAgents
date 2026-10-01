@@ -4,8 +4,6 @@ Inbox for everything; the owner and the AI write here. One line per entry, newes
 
 ## Open
 
-- Unified release (01.10.2026): run the first local all-channel release with the build-only native workflow, verify the public install URLs, and remove the homepage's pending notice; macOS ARM64 and Linux ARM64 (Docker) are checked locally, the other four native builds and Windows installation are checked by the new release matrix before publication.
-
 - Homepage: screenshots of the new shared browser surface and VS Code app tabs are still missing; capture them from neutral runs when requested.
 - Clipboard fixture: remove the obsolete app `placements` field in `apps/web/tests/nested-input-fixture.ts` in the session that owns the clipboard changes.
 - Shared UI verification: rerun browser and VS Code host checks outside the sandbox, including nested clipboard, locked-run actions, startup geometry, draft retention, and moved/reopened app editors; rerun restricted server socket, process, sandbox, and file-watch checks there.
