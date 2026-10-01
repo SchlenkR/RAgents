@@ -10,12 +10,12 @@ export const pluginsRoot = path.resolve(
 export const bundlesRoot = path.resolve(
   path.dirname(fileURLToPath(import.meta.url)), "../../../../bundles");
 
-export const isPluginPath = (entry: string): boolean => /^(\.{1,2}\/|\/|~\/)/.test(entry);
+export const isPluginPath = (entry: string): boolean => path.isAbsolute(entry) || /^(\.{1,2}|~)[\\/]/.test(entry);
 
 /** A profile names a plugin by id (a folder under bundles/) or by a path, relative to the profile file. */
 export const pluginFolderFor = (entry: string, base: string, root = bundlesRoot): string => {
   if (!isPluginPath(entry)) return path.join(root, entry);
-  const expanded = entry.startsWith("~/") ? path.join(homedir(), entry.slice(2)) : entry;
+  const expanded = /^~[\\/]/.test(entry) ? path.join(homedir(), entry.slice(2)) : entry;
   return path.resolve(base, expanded);
 };
 

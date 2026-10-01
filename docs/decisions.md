@@ -1,5 +1,13 @@
 # Decisions
 
+## Native Windows plugin paths (01.10.2026)
+
+Chapter: `spec/plugins.md`. Plugin discovery recognizes native absolute paths, including Windows
+drive and UNC paths, and backslashes in relative and home paths. A profile resolves external
+bundles to absolute paths before provisioning; treating a Windows path as a built-in plugin ID
+prevented the standalone host from starting with an external plugin. The extracted-bundle
+startup check covers this on both Windows architectures.
+
 ## One installation section and one release for every channel (01.10.2026)
 
 Chapter: `spec/overview.md`; setup: `operations.md`; publishing: `development.md`.

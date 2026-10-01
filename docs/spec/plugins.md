@@ -810,7 +810,8 @@ connect` after unpacking the archive, and the build tool before it leaves a bund
 current.
 
 **In the profile.** The profile names a plugin by ID (a bundle under `bundles/`) or by a path
-to a bundle folder: absolute, with `./` relative to the profile file, or with `~/`. Hard startup errors
+to a bundle folder: absolute, with `./` relative to the profile file, or with `~/`. Windows drive
+and UNC paths are absolute paths; relative and home paths also accept backslashes. Hard startup errors
 with a cause are: an ID that occurs twice; a path without a folder; a folder without
 `ragents-bundle.json` (if it has `server/index.ts` or `ragents-plugin.json`, the message reads
 "source folder, not a bundle" together with `ragents plugin build`); a built-in plugin whose bundle is missing
