@@ -159,7 +159,10 @@ overview, table of contents, and next/previous links connect the guide and techn
 The page navigation groups Understand, Try, Build your own, and Look up. On small views, it can be
 expanded; compact titles let the content start immediately. The shared main navigation marks the
 guide on every chapter page. The product page leads into this in-depth material for installation,
-runtime, and development.
+runtime, and development. Its Get RAgents links scroll to an installation section with
+keyboard-accessible VS Code, npm, npx, and Standalone tabs. It offers the Marketplace link,
+copyable commands, OS selection for Unix/PowerShell installers, and GitHub release downloads;
+model access and profile prerequisites lead into the setup guide.
 
 Only marked public sections are exported. Missing, empty, nested, or unclosed markers are build
 errors, as are private content and invalid local page or anchor targets in the export. Internal
@@ -188,6 +191,22 @@ static set of showcase; a concrete run build still uses only the capabilities al
 for its identity.
 
 ## Development tools
+
+The host has two distribution forms built from the same package assembly: the npm package and
+standalone GitHub release archives for Windows, macOS, and Linux (x64 and ARM64). Standalone
+archives add a pinned Node.js distribution and installed dependencies for their target. Each
+native build checks the extracted archive with its bundled runtime, including plugin compilation
+and an isolated HTTP host. Release install scripts verify checksums and activate versioned
+user-local installations; application data stays outside the installation. Commands, profiles,
+plugin provisioning, and model configuration use the existing host implementations.
+A release always covers npm (host and six tool packages), all seven VSIX variants, and all six
+standalone archives with one version and source commit. Every public publish command uses the
+same local release orchestrator and the existing local npm, Marketplace, and GitHub credentials.
+GitHub Actions builds and checks the artifacts on all native platforms; it never publishes.
+The local command waits for its build, downloads the artifacts, and saves them in a draft
+GitHub Release for repeatable retries. It publishes npm and Marketplace first, then makes the
+GitHub Release public. A failed provider can leave a partial publication until the same
+version is resumed. Installation is in `docs/operations.md`, release builds in `docs/development.md`.
 
 `scripts/maintenance/concept-audit.fsx` compares the public guide with neutral code and tests. The
 external F# developer tool uses Microsoft Agent Framework through OpenRouter. With `--duplicates`,

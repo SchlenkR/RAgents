@@ -12,6 +12,7 @@ pnpm --filter @ragents/web test
 pnpm --filter ragents-vscode test
 pnpm -r typecheck
 pnpm lint
+pnpm check:release
 bash build/homepage.sh --check
 pnpm build:web
 # The package and a fetched build carry the host's finished web app, so their checks run after the web build.

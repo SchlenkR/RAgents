@@ -1,5 +1,31 @@
 # Decisions
 
+## One installation section and one release for every channel (01.10.2026)
+
+Chapter: `spec/overview.md`; setup: `operations.md`; publishing: `development.md`.
+The homepage's Get RAgents links lead to four installation tabs: VS Code, npm, npx, and Standalone.
+Commands can be copied; standalone users choose their OS or download an archive. This keeps the
+hero concise while showing every supported installation path in one place.
+
+A release always includes the host and platform npm packages, every VSIX, and all six native
+archives with one version. All publish aliases run locally with the existing npm and Marketplace
+tokens and GitHub CLI login. GitHub Actions only builds and checks all native platforms; it has
+no publishing credentials. The local command waits for that build and downloads its artifacts,
+then reserves them in a draft GitHub Release. It publishes npm and Marketplace before making
+that release public. Retrying uses the saved version and files without rebuilding. Providers
+cannot share a transaction, so failures can temporarily leave some channels ahead. Source
+manifests stay unchanged locally; release metadata is set only in the build checkout.
+
+## Standalone archives and shell installation through GitHub Releases (01.10.2026)
+
+Chapter: `spec/overview.md`; installation: `operations.md`; release workflow: `development.md`.
+Distribute the existing host package with a pinned Node.js runtime and installed dependencies so
+users need no Node.js or npm setup. Build one dependency lock and the existing platform tool
+packages, then assemble and check archives on all six native OS/architecture combinations.
+GitHub Releases holds the archives and checksum-checked Unix/PowerShell installers. Versioned
+user-local installations preserve the previous command on failed updates and leave run data in
+its existing location. Desktop installers and a separate desktop runtime are unnecessary.
+
 ## 2026-09-30: Align the balcony setup test with automatic app discovery
 
 The balcony reference test now expects activation followed directly by run configuration,

@@ -18,7 +18,9 @@ npm install -g @schlenkr/ragents
 RAGENTS_TOKEN=<token> ragents connect https://ragents.example.com
 ```
 
-Only Node 22 is required: no Git, pnpm, `pnpm install`, or build. The subcommands are:
+For an npx invocation without a global install, see [Install from npm](guide-getting-started.html#install-from-npm).
+
+Node.js 22.19 or newer is required, without Git, pnpm, or a source build. The subcommands are:
 
 - `ragents run <folder> "<task>"`, `send`, `journal`, and `stop` let an agent work on a project.
 - `ragents connect <server-url>` fetches a client profile with its plugin bundles, provisions

@@ -256,6 +256,8 @@ a { color: inherit; text-underline-offset: 4px; }
   .footer-grid { grid-template-columns: 1fr 1fr; gap: 32px 24px; }
 }
 </style>
+<link rel="stylesheet" href="homepage-install.css">
+<script src="homepage-install.js" defer></script>
 </head>
 <body>
 <a class="skip" href="#main">Skip to content</a>
@@ -283,7 +285,7 @@ a { color: inherit; text-underline-offset: 4px; }
         <div class="title" aria-hidden="true"><span class="a" data-line-a></span><span class="b" data-line-b></span></div>
         <ul class="points" data-points aria-hidden="true"></ul>
         <p class="how" data-how aria-hidden="true"></p>
-        <div class="actions"><a class="button" href="https://marketplace.visualstudio.com/items?itemName=purestate.ragents-vscode">Install for VS Code<svg class="link-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14m-5-5 5 5-5 5"/></svg></a><a class="button secondary" href="https://github.com/SchlenkR/RAgents"><svg class="gh-icon" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M12 2a10 10 0 0 0-3.2 19.5c.5.1.7-.2.7-.5v-1.7c-2.8.6-3.4-1.3-3.4-1.3-.5-1.2-1.1-1.5-1.1-1.5-.9-.6.1-.6.1-.6 1 .1 1.5 1 1.5 1 .9 1.6 2.4 1.1 3 .9.1-.7.4-1.1.6-1.4-2.2-.3-4.6-1.1-4.6-5 0-1.1.4-2 1-2.7-.1-.3-.4-1.3.1-2.7 0 0 .8-.3 2.8 1a9.6 9.6 0 0 1 5 0c1.9-1.3 2.8-1 2.8-1 .5 1.4.2 2.4.1 2.7.6.7 1 1.6 1 2.7 0 3.9-2.4 4.7-4.6 5 .4.3.7.9.7 1.9V21c0 .3.2.6.7.5A10 10 0 0 0 12 2Z"/></svg>View on GitHub</a></div>
+        <div class="actions"><a class="button" href="#install">Get RAgents<svg class="link-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14m-5-5 5 5-5 5"/></svg></a><a class="button secondary" href="https://github.com/SchlenkR/RAgents"><svg class="gh-icon" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M12 2a10 10 0 0 0-3.2 19.5c.5.1.7-.2.7-.5v-1.7c-2.8.6-3.4-1.3-3.4-1.3-.5-1.2-1.1-1.5-1.1-1.5-.9-.6.1-.6.1-.6 1 .1 1.5 1 1.5 1 .9 1.6 2.4 1.1 3 .9.1-.7.4-1.1.6-1.4-2.2-.3-4.6-1.1-4.6-5 0-1.1.4-2 1-2.7-.1-.3-.4-1.3.1-2.7 0 0 .8-.3 2.8 1a9.6 9.6 0 0 1 5 0c1.9-1.3 2.8-1 2.8-1 .5 1.4.2 2.4.1 2.7.6.7 1 1.6 1 2.7 0 3.9-2.4 4.7-4.6 5 .4.3.7.9.7 1.9V21c0 .3.2.6.7.5A10 10 0 0 0 12 2Z"/></svg>View on GitHub</a></div>
       </div>
     </div>
     <div class="note out" data-note aria-hidden="true"></div>
@@ -316,7 +318,7 @@ a { color: inherit; text-underline-offset: 4px; }
             <tr><th scope="row">Models and keys</th><td data-label="On your laptop"><span class="where-chip laptop">laptop</span><small>your own key</small></td><td data-label="On the server"><span class="where-chip server">server</span></td><td data-label="Server plus laptop"><span class="where-chip server">server</span></td><td data-label="Connected laptop"><span class="where-chip server">server</span><small>via relay, keys stay hidden</small></td></tr>
             <tr><th scope="row">Profile and plugins</th><td data-label="On your laptop"><span class="where-chip laptop">laptop</span></td><td data-label="On the server"><span class="where-chip server">server</span></td><td data-label="Server plus laptop"><span class="where-chip server">server</span></td><td data-label="Connected laptop"><span class="where-chip server">server</span><small>fetched once, cached</small></td></tr>
             <tr><th scope="row">Interface</th><td data-label="On your laptop"><span class="where-chip plain">VS Code or browser</span></td><td data-label="On the server"><span class="where-chip plain">any browser</span></td><td data-label="Server plus laptop"><span class="where-chip plain">VS Code or browser</span></td><td data-label="Connected laptop"><span class="where-chip plain">VS Code or browser</span></td></tr>
-            <tr><th scope="row">Install</th><td data-label="On your laptop"><span class="where-chip plain">Node or VS Code</span></td><td data-label="On the server"><span class="where-chip plain">nothing</span></td><td data-label="Server plus laptop"><span class="where-chip plain">Node or VS Code</span></td><td data-label="Connected laptop"><span class="where-chip plain">Node or VS Code</span></td></tr>
+            <tr><th scope="row">Install</th><td data-label="On your laptop"><span class="where-chip plain">Standalone, npm or VS Code</span></td><td data-label="On the server"><span class="where-chip plain">nothing</span></td><td data-label="Server plus laptop"><span class="where-chip plain">Standalone, npm or VS Code</span></td><td data-label="Connected laptop"><span class="where-chip plain">Standalone, npm or VS Code</span></td></tr>
           </tbody>
         </table>
       </div>
@@ -344,8 +346,49 @@ a { color: inherit; text-underline-offset: 4px; }
       </ul>
     </div>
   </section>
+  <section class="shell install-section" id="install" aria-labelledby="install-title" data-install>
+    <div class="install-heading">
+      <p class="install-eyebrow">INSTALLATION</p>
+      <h2 id="install-title">Get RAgents</h2>
+      <p>In your editor or from your terminal. Choose how you want to start.</p>
+    </div>
+    <div class="install-card">
+      <div class="install-tabs" role="tablist" aria-label="Installation method">
+      <button class="install-tab" type="button" role="tab" id="install-tab-vscode" aria-controls="install-panel-vscode" aria-selected="true" tabindex="0"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m16 3 5 2v14l-5 2-9-7-4 3V7l4 3Z"/><path d="m16 3-9 7 9 7V7L7 14"/></svg>VS Code</button>
+      <button class="install-tab" type="button" role="tab" id="install-tab-npm" aria-controls="install-panel-npm" aria-selected="false" tabindex="-1"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="m7 9 3 3-3 3m6 0h4"/></svg>npm</button>
+      <button class="install-tab" type="button" role="tab" id="install-tab-npx" aria-controls="install-panel-npx" aria-selected="false" tabindex="-1"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9 4 12 8-12 8Z"/><path d="M3 5v14"/></svg>npx</button>
+      <button class="install-tab" type="button" role="tab" id="install-tab-standalone" aria-controls="install-panel-standalone" aria-selected="false" tabindex="-1"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v12m-5-5 5 5 5-5M4 15v5h16v-5"/></svg>Standalone</button>
+      </div>
+      <div class="install-panel" role="tabpanel" id="install-panel-vscode" aria-labelledby="install-tab-vscode" tabindex="0">
+        <div class="install-summary"><span class="install-tag">VS CODE EXTENSION</span><h3>Inside your editor</h3><p>Chat with agents and open their mini-apps alongside your code.</p></div>
+        <div class="install-detail install-marketplace"><a class="button" href="https://marketplace.visualstudio.com/items?itemName=purestate.ragents-vscode">Open in Marketplace<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><path d="M5 12h14m-5-5 5 5-5 5"/></svg></a><p class="install-caption">Windows, macOS and Linux. Local workspaces need Node.js 22.19+.</p></div>
+      </div>
+      <div class="install-panel" role="tabpanel" id="install-panel-npm" aria-labelledby="install-tab-npm" tabindex="0" hidden>
+        <div class="install-summary"><span class="install-tag">NODE.JS 22.19+</span><h3>Install the command line</h3><p>Keep the <code>ragents</code> command available in your terminal. Run a local host or connect to a server.</p></div>
+        <div class="install-detail"><div class="install-command"><div class="install-command-head"><span>Terminal</span><button class="install-copy" type="button" data-install-copy aria-label="Copy command"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="8" y="8" width="12" height="12" rx="2"/><path d="M15 8V4H4v11h4"/></svg>Copy</button></div><pre><code>npm install -g @schlenkr/ragents</code></pre></div><p class="install-caption">Then configure your model access and run <code>ragents start core</code>.</p></div>
+      </div>
+      <div class="install-panel" role="tabpanel" id="install-panel-npx" aria-labelledby="install-tab-npx" tabindex="0" hidden>
+        <div class="install-summary"><span class="install-tag">NODE.JS 22.19+</span><h3>Run it with npx</h3><p>Start a local host from npm's cache. No global package installation needed.</p></div>
+        <div class="install-detail"><div class="install-command"><div class="install-command-head"><span>Terminal</span><button class="install-copy" type="button" data-install-copy aria-label="Copy command"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="8" y="8" width="12" height="12" rx="2"/><path d="M15 8V4H4v11h4"/></svg>Copy</button></div><pre><code>npx --yes @schlenkr/ragents start core</code></pre></div><p class="install-caption">Configure model access and profile tools first. The interface is available at <code>localhost:4710</code>.</p></div>
+      </div>
+      <div class="install-panel" role="tabpanel" id="install-panel-standalone" aria-labelledby="install-tab-standalone" tabindex="0" hidden>
+        <div class="install-summary"><span class="install-tag">NODE.JS INCLUDED</span><h3>Install a standalone build</h3><p>The shell script installs the matching GitHub release. Run it again to update.</p><p class="install-caption">First standalone release pending.</p></div>
+        <div class="install-detail">
+          <div class="install-os" role="group" aria-label="Operating system"><button type="button" data-install-platform="macos" aria-pressed="true">macOS</button><button type="button" data-install-platform="linux" aria-pressed="false">Linux</button><button type="button" data-install-platform="windows" aria-pressed="false">Windows</button></div>
+          <div class="install-os-panel" data-install-os="macos"><div class="install-command"><div class="install-command-head"><span>Terminal</span><button class="install-copy" type="button" data-install-copy aria-label="Copy command"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="8" y="8" width="12" height="12" rx="2"/><path d="M15 8V4H4v11h4"/></svg>Copy</button></div><pre><code>curl -fsSL https://github.com/SchlenkR/RAgents/releases/latest/download/install.sh | sh</code></pre></div></div>
+          <div class="install-os-panel" data-install-os="linux" hidden><div class="install-command"><div class="install-command-head"><span>Terminal</span><button class="install-copy" type="button" data-install-copy aria-label="Copy command"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="8" y="8" width="12" height="12" rx="2"/><path d="M15 8V4H4v11h4"/></svg>Copy</button></div><pre><code>curl -fsSL https://github.com/SchlenkR/RAgents/releases/latest/download/install.sh | sh</code></pre></div></div>
+          <div class="install-os-panel" data-install-os="windows" hidden><div class="install-command"><div class="install-command-head"><span>PowerShell</span><button class="install-copy" type="button" data-install-copy aria-label="Copy command"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="8" y="8" width="12" height="12" rx="2"/><path d="M15 8V4H4v11h4"/></svg>Copy</button></div><pre><code>irm https://github.com/SchlenkR/RAgents/releases/latest/download/install.ps1 | iex</code></pre></div></div>
+          <a class="install-download" href="https://github.com/SchlenkR/RAgents/releases">Or download an archive from GitHub Releases</a>
+          <p class="install-caption">x64 and ARM64. Model access and profile tools are configured separately.</p>
+        </div>
+      </div>
+      <div class="install-footer"><p>Starting a local host? Configure model access and your profile's tools.</p><a href="guide-getting-started.html">Setup guide</a></div>
+    </div>
+    <p class="install-status" role="status" aria-live="polite" data-install-status></p>
+    <noscript><p>Find every installation method in the <a href="guide-getting-started.html">setup guide</a>.</p></noscript>
+  </section>
   <div class="shell closing">
-    <section class="start-cta" id="start" data-chapter="start" aria-labelledby="start-title"><h2 id="start-title">Start a run</h2><p>Open RAgents in VS Code or in the browser. Start with a plain chat, a skill, or a prepared setup.</p><div class="actions"><a class="button" href="https://marketplace.visualstudio.com/items?itemName=purestate.ragents-vscode">Install for VS Code<svg class="link-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14m-5-5 5 5-5 5"/></svg></a><a class="button secondary" href="guide-getting-started.html">Read the getting started guide<svg class="link-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14m-5-5 5 5-5 5"/></svg></a></div></section>
+    <section class="start-cta" id="start" data-chapter="start" aria-labelledby="start-title"><h2 id="start-title">Start a run</h2><p>Open RAgents in VS Code or in the browser. Start with a plain chat, a skill, or a prepared setup.</p><div class="actions"><a class="button" href="#install">Get RAgents<svg class="link-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14m-5-5 5 5-5 5"/></svg></a><a class="button secondary" href="guide-getting-started.html">Read the getting started guide<svg class="link-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14m-5-5 5 5-5 5"/></svg></a></div></section>
     <section class="alpha-note" id="built-with" aria-labelledby="built-title"><h2 id="built-title">Built something with RAgents?</h2><p>RAgents is still in an alpha state. If you have built anything cool with it, let us know.</p><a class="button secondary" href="https://github.com/SchlenkR/RAgents/issues"><svg class="gh-icon" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M12 2a10 10 0 0 0-3.2 19.5c.5.1.7-.2.7-.5v-1.7c-2.8.6-3.4-1.3-3.4-1.3-.5-1.2-1.1-1.5-1.1-1.5-.9-.6.1-.6.1-.6 1 .1 1.5 1 1.5 1 .9 1.6 2.4 1.1 3 .9.1-.7.4-1.1.6-1.4-2.2-.3-4.6-1.1-4.6-5 0-1.1.4-2 1-2.7-.1-.3-.4-1.3.1-2.7 0 0 .8-.3 2.8 1a9.6 9.6 0 0 1 5 0c1.9-1.3 2.8-1 2.8-1 .5 1.4.2 2.4.1 2.7.6.7 1 1.6 1 2.7 0 3.9-2.4 4.7-4.6 5 .4.3.7.9.7 1.9V21c0 .3.2.6.7.5A10 10 0 0 0 12 2Z"/></svg>Tell us on GitHub</a></section>
   </div>
   <section class="shell limits" id="applications" aria-labelledby="limits-title"><h2 id="limits-title">Current status and limits</h2><p>RAgents is under active development. Actor programs, their functions, state, and mini-apps belong to one run. Events and time-based triggers need an agent or TypeScript actor. Schedules, a user-management interface, and several people in the same run are not available yet. Profiles may require sign-in or run without it. General user permissions can limit new runs to approved setups and hide settings, models, and technical views while keeping chats and mini-apps usable.</p></section>
@@ -2957,7 +3000,7 @@ a { color: inherit; text-underline-offset: 4px; }
           k.write('Message to @coordinator', -170, 85, 13, 500);
         });
         k.element('vscode', { born: 1.1, gone, rect: [-212, -120, 424, 264], label: 'VS Code app', seed: 132 }, () => {
-          k.serverFrame(width, height, [['App A', 'editor tab'], ['Chat', '@coordinator']], 'VS CODE');
+          k.serverFrame(width, height, [['ui', 'App A: editor tab'], ['prompts', 'Chat: @coordinator']], 'VS CODE');
         });
       },
     }),

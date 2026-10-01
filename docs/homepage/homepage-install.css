@@ -1,0 +1,49 @@
+.install-section { padding: 80px 0; }
+.install-heading { display: grid; gap: 14px; margin-bottom: 32px; }
+.install-heading .install-eyebrow { color: var(--accent); font: 600 12px/1.4 var(--mono); letter-spacing: .12em; }
+.install-heading > p:last-child { color: var(--muted); font-size: 18px; }
+.install-card { overflow: hidden; border: 1px solid var(--track); border-radius: 16px; background: var(--deep); }
+.install-tabs { display: flex; gap: 8px; padding: 12px; border-bottom: 1px solid var(--track); }
+.install-tab { display: inline-flex; justify-content: center; align-items: center; gap: 9px; flex: 1; min-height: 48px; padding: 10px 16px; border: 1px solid transparent; border-radius: 9px; color: var(--muted); background: transparent; font: 600 15px/1.3 var(--font); cursor: pointer; }
+.install-tab svg { width: 19px; height: 19px; flex: none; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
+.install-tab:hover { color: var(--text); background: var(--hover); }
+.install-tab[aria-selected="true"] { color: var(--text); border-color: var(--track); background: var(--bg); }
+.install-panel { display: grid; grid-template-columns: minmax(0, .85fr) minmax(0, 1.35fr); align-items: center; gap: 48px; min-height: 256px; padding: 36px; }
+.install-panel[hidden], .install-os-panel[hidden] { display: none; }
+.install-summary { display: grid; justify-items: start; gap: 12px; }
+.install-summary h3 { margin: 0; font-size: 25px; line-height: 1.2; font-weight: 650; letter-spacing: -.03em; }
+.install-summary p { color: var(--muted); font-size: 15px; line-height: 1.6; }
+.install-tag { display: inline-flex; padding: 4px 9px; border: 1px solid var(--track); border-radius: 5px; color: var(--accent); font: 500 11px/1.4 var(--mono); }
+.install-detail { display: grid; gap: 14px; min-width: 0; }
+.install-marketplace { display: grid; gap: 14px; justify-items: start; }
+.install-detail .install-caption { color: var(--muted); font-size: 13px; }
+.install-command { min-width: 0; overflow: hidden; border: 1px solid var(--track); border-radius: 10px; background: var(--bg); }
+.install-command-head { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 9px 12px 9px 18px; border-bottom: 1px solid var(--track); color: var(--muted); font: 12px/1.4 var(--mono); }
+.install-copy { display: inline-flex; align-items: center; gap: 7px; min-height: 30px; padding: 5px 8px; border: 0; border-radius: 5px; background: transparent; color: var(--text); font: 500 12px/1.4 var(--font); cursor: pointer; }
+.install-copy:hover { background: var(--hover); }
+.install-copy svg { width: 14px; height: 14px; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
+.install-command pre { margin: 0; padding: 20px 18px; white-space: pre-wrap; overflow-wrap: anywhere; font: 13px/1.8 var(--mono); color: var(--text); }
+.install-command code { font: inherit; }
+.install-os { display: flex; flex-wrap: wrap; gap: 6px; }
+.install-os button { min-height: 34px; padding: 6px 12px; border: 1px solid transparent; border-radius: 6px; color: var(--muted); background: transparent; font: 500 13px/1.3 var(--font); cursor: pointer; }
+.install-os button[aria-pressed="true"] { color: var(--text); background: var(--bg); border-color: var(--track); }
+.install-os button:hover { color: var(--text); }
+.install-download { font-size: 13px; color: var(--accent); }
+.install-footer { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 12px 32px; padding: 18px 36px; border-top: 1px solid var(--track); color: var(--muted); font-size: 13px; }
+.install-footer a { color: var(--text); }
+.install-status { min-height: 22px; margin-top: 10px; color: var(--muted); font-size: 13px; }
+@media (max-width: 720px) {
+  .install-section { padding: 56px 0; }
+  .install-heading { margin-bottom: 24px; }
+  .install-heading > p:last-child { font-size: 16px; }
+  .install-tabs { gap: 4px; padding: 8px; }
+  .install-tab { gap: 6px; padding: 9px 7px; font-size: 13px; }
+  .install-tab svg { width: 16px; height: 16px; }
+  .install-panel { grid-template-columns: minmax(0, 1fr); gap: 24px; min-height: 340px; padding: 24px; }
+  .install-summary h3 { font-size: 23px; }
+  .install-footer { display: grid; gap: 8px; padding: 18px 24px; }
+}
+@media (max-width: 380px) {
+  .install-tab { flex-direction: column; }
+  .install-panel { padding: 20px; }
+}

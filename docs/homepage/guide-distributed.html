@@ -142,7 +142,8 @@ bundle, so nothing is built on the user&#39;s machine. Its <code>package.json</c
 <pre><code class="language-sh">npm install -g @schlenkr/ragents
 RAGENTS_TOKEN=&lt;token&gt; ragents connect https://ragents.example.com
 </code></pre>
-<p>Only Node 22 is required: no Git, pnpm, <code>pnpm install</code>, or build. The subcommands are:</p>
+<p>For an npx invocation without a global install, see <a href="guide-getting-started.html#install-from-npm">Install from npm</a>.</p>
+<p>Node.js 22.19 or newer is required, without Git, pnpm, or a source build. The subcommands are:</p>
 <ul>
 <li><code>ragents run &lt;folder&gt; &quot;&lt;task&gt;&quot;</code>, <code>send</code>, <code>journal</code>, and <code>stop</code> let an agent work on a project.</li>
 <li><code>ragents connect &lt;server-url&gt;</code> fetches a client profile with its plugin bundles, provisions

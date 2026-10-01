@@ -5,7 +5,8 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { readPackageVersion } from "../../apps/server/src/host-version.ts";
 import { latestPublishedVersion, type NpmRunner } from "../package/publish-package.ts";
-import { compareVersions, nextVersion, readVersion, versionLine, writeVersion } from "../publish-version.ts";
+import { compareVersions, readVersion } from "../publish-version.ts";
+import { packageManagerInvocation } from "../release/package-manager.ts";
 import { BASH_TARGETS, bundleBash, type BashTarget } from "./bundle-bash.ts";
 import { bundleRipgrep, type RipgrepTarget } from "./bundle-rg.ts";
 
@@ -48,15 +49,6 @@ export const packageArguments = (vsix: string, target: VsixTarget, ignore: strin
   "package", "--no-dependencies", "--ignoreFile", ignore, "--out", vsix, ...(target === "universal" ? [] : ["--target", target]),
 ];
 
-const usage = `Usage: pnpm publish:vscode [--dry-run]
-Builds the extension ${EXTENSION_ID}, packages it into dist/ - universal and per platform
-(${VSIX_TARGETS.filter((target) => target !== "universal").join(", ")}) with bundled rg
-(pnpm bundle:rg), on Windows also with Bash (pnpm bundle:bash, needs 7-Zip) - and
-publishes all of them on the Visual Studio Marketplace. The token comes from the environment variable ${TOKEN_KEY}. --dry-run does everything
-except the publish and shows the content of the .vsix. The version is in apps/vscode/package.json;
-before packaging, the script raises the last place above the last published version, in a
-dry run only in the output.`;
-
 export interface VsceResult {
   readonly status: number;
   readonly stdout: string;
@@ -75,8 +67,9 @@ export const redacting = (token: string) => (text: string): string => token ? te
 /** An error message is one line; vsce's output is therefore moved onto one. */
 export const oneLine = (text: string): string => text.split("\n").map((line) => line.trim()).filter(Boolean).join("; ");
 
-const runVsce: VsceRunner = (args, options) => {
-  const result = spawnSync("pnpm", ["dlx", `@vscode/vsce@${VSCE_VERSION}`, ...args], {
+export const runVsce: VsceRunner = (args, options) => {
+  const invocation = packageManagerInvocation("pnpm", ["dlx", `@vscode/vsce@${VSCE_VERSION}`, ...args]);
+  const result = spawnSync(invocation.command, [...invocation.args], {
     cwd: options.cwd,
     encoding: "utf8",
     env: options.token ? publishEnvironment(options.token) : process.env,
@@ -166,20 +159,22 @@ export interface PublishOptions {
   readonly token: string;
   readonly vsce: VsceRunner;
   readonly log: (line: string) => void;
+  readonly skipDuplicate?: boolean;
 }
 
 /** Publishes the packaged files in one call; exit 0 of vsce publish is the confirmation. */
 export const publishVsix = (options: PublishOptions): void => {
   const hide = redacting(options.token);
-  const published = options.vsce(["publish", "--packagePath", ...options.vsix], { cwd: extensionRoot, token: options.token });
+  const published = options.vsce(["publish", ...(options.skipDuplicate ? ["--skip-duplicate"] : []), "--packagePath", ...options.vsix], { cwd: extensionRoot, token: options.token });
   const output = `${published.stdout}${published.stderr}`;
   for (const line of output.split("\n")) if (line.trim()) options.log(hide(line));
   if (published.status !== 0) throw new Error(`vsce publish ended with code ${published.status}.`);
   options.log(`== Published: ${EXTENSION_ID}@${options.version}`);
 };
 
-const run = (command: string, args: readonly string[], cwd: string): void => {
-  const result = spawnSync(command, [...args], { cwd, encoding: "utf8", stdio: "inherit" });
+const run = (command: "pnpm", args: readonly string[], cwd: string): void => {
+  const invocation = packageManagerInvocation(command, args);
+  const result = spawnSync(invocation.command, [...invocation.args], { cwd, encoding: "utf8", stdio: "inherit" });
   if (result.error) throw new Error(`${command} ${args[0]} could not be started: ${result.error.message}`);
   if (result.status !== 0) throw new Error(`${command} ${args.join(" ")} ended with code ${result.status ?? 1}`);
 };
@@ -250,33 +245,18 @@ const listContents = (log: (line: string) => void): void => withIgnoreFiles((ign
 }));
 
 const main = async (): Promise<void> => {
-  const packageOnly = process.argv.includes("--package-only");
-  const dryRun = process.argv.includes("--dry-run");
-  const unknown = process.argv.slice(2).filter((argument) => argument !== "--dry-run" && argument !== "--package-only");
-  if (unknown.length) throw new Error(`Unknown argument: ${unknown.join(" ")}\n${usage}`);
-  const manifest = JSON.parse(readFileSync(manifestFile, "utf8")) as Record<string, unknown>;
-  assertHostPackageVersion(manifest, expectedHostPackageVersion());
-  const token = packageOnly ? "" : process.env[TOKEN_KEY] ?? "";
-  if (!packageOnly && !token) throw new Error(`${TOKEN_KEY} is missing: the Marketplace token with write access for ${PUBLISHER}.\n${usage}`);
-  if (token) verifyToken(PUBLISHER, token, runVsce);
-  const published = packageOnly ? [] : publishedVersions(EXTENSION_ID, runVsce);
-  const next = nextVersion(readVersion(manifestFile), published);
-  if (!packageOnly) console.log(versionLine(next));
-  const packageVersion = readVersion(path.join(repositoryRoot, "package.json"));
-  if (!packageOnly && next.version !== packageVersion) {
-    throw new Error(`npm package and VS Code extension share one version: the extension would be ${next.version}, the npm package is ${packageVersion}; publish both together (pnpm publish:all)`);
-  }
-  if (!packageOnly && !dryRun) writeVersion(manifestFile, next.version);
-  const plan = publishPlan(manifest, published, next.version);
-  console.log(`== ${plan.extensionId}@${plan.version}, VS Code ${(manifest.engines as { vscode: string }).vscode}`);
-  const vsix = await packageExtension((line) => console.log(line));
-  if (packageOnly) return;
-  if (dryRun) {
-    listContents((line) => console.log(line));
-    console.log("== Dry run: nothing published");
+  if (!process.argv.includes("--package-only")) {
+    const { main } = await import("../release/publish-release.ts");
+    await main();
     return;
   }
-  publishVsix({ vsix, version: plan.version, token, vsce: runVsce, log: (line) => console.log(line) });
+  const unknown = process.argv.slice(2).filter((argument) => argument !== "--package-only");
+  if (unknown.length) throw new Error(`Unknown argument: ${unknown.join(" ")}`);
+  const manifest = JSON.parse(readFileSync(manifestFile, "utf8")) as Record<string, unknown>;
+  assertHostPackageVersion(manifest, readPackageVersion(repositoryRoot));
+  publishPlan(manifest, [], readVersion(manifestFile));
+  await packageExtension(console.log);
+  listContents(console.log);
 };
 
 const moduleUrl: string | undefined = import.meta.url;

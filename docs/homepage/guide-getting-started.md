@@ -2,7 +2,73 @@
 
 Install RAgents, start a profile, and create your first run.
 
-## Install locally
+## Install a standalone release
+
+[GitHub Releases](https://github.com/SchlenkR/RAgents/releases) provides standalone archives for
+Windows, macOS, and Linux, each for x64 and ARM64. They include Node.js, npm, the host's installed
+dependencies, the finished web interface, plugins, and platform tools. No existing Node.js, npm,
+pnpm, or source checkout is needed. Linux builds target glibc systems, not Alpine/musl.
+
+On macOS or Linux:
+
+```sh
+curl -fsSL https://github.com/SchlenkR/RAgents/releases/latest/download/install.sh | sh
+```
+
+The command is installed at `~/.local/bin/ragents`. Add `~/.local/bin` to your `PATH` if needed,
+or use that full path. On Windows, run this in PowerShell:
+
+```powershell
+& ([scriptblock]::Create((Invoke-RestMethod https://github.com/SchlenkR/RAgents/releases/latest/download/install.ps1)))
+```
+
+The Windows installer uses `%LOCALAPPDATA%/Programs/RAgents` and adds its `bin` folder to the
+user PATH. Open a new terminal afterwards. Neither installer needs administrator access. Both
+select the current machine's archive, verify it against the release's `SHA256SUMS`, and check
+the command before switching the active version. Repeat the command to update; older versions
+remain installed. Stop your running hosts before switching versions and restart them afterwards.
+Settings and runs remain in the existing user data directory.
+
+For a fixed release or another installation folder, download the script and pass
+`--version 0.1.20 --prefix /absolute/install/path` on Unix, or
+`-Version 0.1.20 -Prefix C:\Apps\RAgents` on Windows. Windows also accepts `-NoPathUpdate`.
+Use the same prefix and an older `--version` / `-Version` to switch back. Alternatively, unpack
+the matching archive yourself and run `bin/ragents` or `bin/ragents.cmd` from it.
+
+Run `ragents --help` for commands. After configuring model access as described below,
+`ragents start core` provisions that profile's tools and starts its web interface at
+`http://localhost:4710`. The bundle does not include model credentials, Chromium, language servers,
+or development SDKs. Provisioning downloads the profile's supported tools; the included profiles
+use C# and F# diagnostics and require an installed .NET 10 SDK. These requirements are the same
+as for the npm package. An own profile can omit those plugins.
+
+The process sandbox has platform prerequisites too: Linux needs `bubblewrap`, `socat`, and
+working user namespaces; the standalone starter exposes its bundled ripgrep automatically.
+On Windows, explicitly set `PROCESS_SANDBOX: "off"` in the profile's `ragents.workspace` section.
+See [Server process sandbox](https://github.com/SchlenkR/RAgents/blob/main/docs/operations.md#server-process-sandbox)
+for setup and configuration.
+
+## Install from npm
+
+With Node.js 22.19 or newer, install the command globally:
+
+```sh
+npm install -g @schlenkr/ragents
+ragents start core
+```
+
+Or run it through npx without a global installation:
+
+```sh
+npx --yes @schlenkr/ragents start core
+```
+
+Configure model access as described below before starting. Startup provisions the profile's
+tools; external prerequisites such as .NET must already be available. Then open
+`http://localhost:4710`. Other subcommands work the same way, for example
+`npx --yes @schlenkr/ragents connect <server-url>`.
+
+## Install from the repository
 
 The application is built from the repository with Node.js and pnpm. Run these commands from
 the repository root:
@@ -92,7 +158,7 @@ changes. `pnpm build:web` builds it directly. Started any other way from a check
 bundles or an outdated interface and names `pnpm build:plugins` or `pnpm build:web`.
 `pnpm check` runs the project checks, including tests, type checking, and the web build.
 `pnpm build:package` creates the host as an npm package for machines without a checkout, and
-`pnpm publish:package` publishes it (see Work without a checkout). The question mark next to
+`pnpm release` publishes it together with the extension and standalone archives (see `development.md`). The question mark next to
 Settings opens the included help. For separate static hosting, `pnpm generate:homepage` creates
 the same website under `docs/homepage/dist`.
 

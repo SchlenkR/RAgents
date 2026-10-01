@@ -374,7 +374,7 @@ pnpm check                # build, typecheck, tests, web build
 pnpm provision core       # fetch the tools of the profile's plugins (language servers, browser)
 pnpm build:package        # build the host as the npm package @schlenkr/ragents (dist/ragents), including bundles and finished web
 pnpm check:package        # install the built package, build a foreign plugin from it, and start it (needs npm)
-pnpm publish:package      # publish the same package on npm (token from npm_key)
+pnpm release              # publish npm, Marketplace, and standalone archives together from this machine
 RAGENTS_TOKEN=... pnpm connect https://<server>   # profile and models of another RAgents server
 ```
 
@@ -400,10 +400,9 @@ any location; their author builds their bundles with `ragents plugin build` from
 type checking against the host API. The package brings everything needed for this, plus the finished web and all
 built-in plugins as bundles; nothing is built on the user's machine, and Vite is not included. The package version is the
 `version` of this root `package.json`. The npm package and the VS Code extension always carry the same
-version: `pnpm publish:package` takes one place above the higher of the two local versions and
-the one last published on npm and writes it into both `package.json` files; `pnpm publish:vscode`
-aborts if its version is not the package's. That is why both are always published
-together, the package first (`pnpm publish:all`, below "Building and publishing the package"). Operations in `docs/operations.md` under "Work without a checkout", the guide
+version, as do the standalone archives. `pnpm release` selects one version above all published
+channels, waits for the shared native build, and publishes every channel locally. `publish:all`, `publish:package`, and
+`publish:vscode` are aliases for that same release (see "Releasing all channels" below). Operations in `docs/operations.md` under "Work without a checkout", the guide
 for plugin authors in the section "Build and ship a plugin" in `docs/spec/plugins.md`.
 
 The address is fixed: `http://localhost:4710` for `core`. The port is in `host.PORT` of the
@@ -460,6 +459,8 @@ other tools are grouped by topic in `scripts/homepage/` (generator, type checkin
 homepage), `scripts/driver/` (`pnpm driver`), `scripts/remote/` (`pnpm connect`),
 `scripts/provision/` (`pnpm provision`), `scripts/package/` (`pnpm build:package`, `pnpm publish:package`, and the
 package's `ragents` command),
+`scripts/release/` (shared release workflow, standalone archives, and their checks), `scripts/install/` (release
+installation scripts and update checks),
 `scripts/run-transfer/` (`pnpm run-transfer`: move a run to another server),
 `scripts/workspace-client/` (`pnpm workspace-client`: a workstation without VS Code),
 `scripts/remote-workspace/` (`pnpm check:remote-workspace`: the workspace on another
@@ -692,29 +693,17 @@ a local test endpoint. No API keys or external model calls are needed for this.
 
 ### Publishing, developing, and testing the VS Code extension
 
-Publishing: `pnpm publish:vscode` (task `vscode: publish`) is one step. It checks the token
-with `vsce verify-pat purestate`, queries the
-published versions with `vsce show purestate.ragents-vscode --json`, increments the last place of the highest of them, writes the new
-version into `apps/vscode/package.json`, builds, packages, and publishes the packaged files. The first
-line of the output names it: `== Version 0.1.2, last published 0.1.1`. If nothing is in the
-Marketplace yet, the version from `package.json` applies; if a higher one than the
-published one is already there - someone set it to `0.2.0` by hand -, `package.json` wins. Only
-the line with `version` is written; the rest of the file stays character for character. `--dry-run`
-does all of that except the publish, shows the version it would use without changing
-`package.json`, and lists the contents of the `.vsix`. The token comes from the
-environment variable `AZURE_DEVOPS_VSCE_RAGENTS_PAT` (an Azure DevOps PAT with Marketplace publish for
-the publisher `purestate`) and goes only as `VSCE_PAT` into the environment of `vsce`, never into any
-output. The publisher itself has to be created once at
-https://marketplace.visualstudio.com/manage, with the same account that owns the token;
-as long as it is missing, `vsce verify-pat` ends with `Access Denied` on `/purestate`, and the script states
-the reason. `vsce` itself comes through `pnpm dlx @vscode/vsce@4.0.0`, the version is in
-`scripts/vscode/publish-extension.ts`. The extension's version is in
-`apps/vscode/package.json` and does not depend on the root `version`, which belongs to the npm package;
-it only needs to be changed by hand for a new minor or major version. `pnpm package:vscode` packages
-without a token and does not touch the version. `pnpm publish:all`
-publishes the package first and then the extension, and aborts at the first error. What goes into the `.vsix` is in `apps/vscode/.vscodeignore`: `dist/`
-(without source maps and test runners), `media/`, `package.json`, `README.md`, `CHANGELOG.md`, and the
-`LICENSE`.
+`pnpm publish:vscode` starts the same all-channel release as `pnpm release`; it never publishes
+the extension alone. The local publisher uses `AZURE_DEVOPS_VSCE_RAGENTS_PAT`, an Azure DevOps PAT
+with Marketplace publish access for `purestate`, passed only to vsce as `VSCE_PAT`.
+The publisher must exist at
+https://marketplace.visualstudio.com/manage under the account that owns the token.
+`vsce verify-pat purestate` checks it before publication. The pinned `vsce` version is in
+`scripts/vscode/publish-extension.ts` and runs through `pnpm dlx`.
+
+`pnpm package:vscode` builds and packages locally without a token or version edits. What goes
+into the `.vsix` is in `apps/vscode/.vscodeignore`: `dist/` (without source maps and test runners),
+`media/`, `package.json`, `README.md`, `CHANGELOG.md`, and `LICENSE`.
 
 Seven files are packaged into `dist/`: a universal `ragents-vscode-<version>.vsix` without
 Bash and rg, and one each for `win32-x64`, `win32-arm64`, `darwin-arm64`, `darwin-x64`, `linux-x64`,
@@ -724,7 +713,7 @@ Marketplace delivers each machine the file for its platform, all others (such as
 linux-armhf) the universal one; `vsce publish` gets all seven in one call. For the
 platform files, the script writes its own ignore file per run into the temp folder: the
 allowlist of `.vscodeignore` plus `!dist/rg/<platform>/**` and on Windows
-`!dist/bash/<platform>/**`; the `.vscodeignore` in the repo stays the universal one. `--dry-run` lists
+`!dist/bash/<platform>/**`; the `.vscodeignore` in the repo stays the universal one. Packaging lists
 the shared contents once, per platform the number of files under its folders, and aborts
 if a platform file does not carry its folder or carries another platform's.
 
@@ -804,34 +793,81 @@ the host with `hostPackageFile`, and the libraries that the actor programs link 
 runtime. If a package exists in the checkout in two versions, the package names one of them
 and the build says which.
 
-The package version is the `version` field in the `package.json` of the repository root.
-`pnpm publish:package` is one step: it queries the published versions with
-`npm view @schlenkr/ragents versions --json`, increments the last place of the highest of them, writes the
-new version into the root `package.json`, builds the package and its six platform tool packages,
-and publishes missing tool versions before the main package on npm:
+A local build uses the root `package.json` version; CI supplies the shared release version.
+`pnpm build:package --pack` also writes the npm tarball. Platform packages reuse `bundle-rg.ts`
+and `bundle-bash.ts`; their `os`/`cpu` constraints select the user's platform. To assemble their
+folders locally, run `pnpm --filter @ragents/host exec node --import tsx ../../scripts/package/tools-package.ts`
+(optionally followed by target names). Publishing goes through the shared release below.
+
+### Releasing all channels
+
+`pnpm release`, `pnpm publish:all`, `pnpm publish:package`, and `pnpm publish:vscode` all run the
+same local release command. Every release contains the host and six tool packages on npm, the
+universal extension and six platform VSIX files in the Marketplace, and six standalone archives
+with checksums and installers in GitHub Releases.
 
 ```sh
-pnpm publish:package --dry-run   # trial run: names the version, builds, checks, and shows the tarball
-pnpm publish:package             # increments the version and publishes
+pnpm release --dry-run          # inspect the version and source without edits, builds, or publishing
+pnpm release                    # build every target, then publish every channel locally
+pnpm release --version 0.1.21   # resume saved artifacts, or build this exact version
 ```
 
-The first line of the output names the version: `== Version 0.1.2, last published 0.1.1`.
-If nothing is on npm yet, the version from `package.json` applies; if a higher one than the
-published one is already there - someone set it to `0.2.0` by hand -, `package.json` wins.
-Only the line with `version` is written; the rest of the file stays character for character.
-The trial run uses the intended version in every built manifest and does not change source
-version files. Platform packages reuse `bundle-rg.ts` and `bundle-bash.ts`; their `os`/`cpu`
-constraints keep npm installs local to the current platform. To assemble their folders without
-publishing, run `pnpm --filter @ragents/host exec node --import tsx ../../scripts/package/tools-package.ts`
-(optionally followed by target names). An interrupted publish skips tool versions already present.
+Publishing uses the existing local credentials: `npm_key` for npm,
+`AZURE_DEVOPS_VSCE_RAGENTS_PAT` for the Marketplace, and the GitHub CLI login for releases.
+No repository secrets are needed. Credentials go only to their publishing child processes;
+they are not sent to the native build workflow.
 
-The token comes from the environment variable `npm_key` and goes as the registry key into the
-environment of the `npm` child process; it is in no file and in no output. If it is missing,
-the call aborts. A version that is already on npm is still rejected - after
-incrementing this can no longer happen, but the check stays anyway. After the publish,
-the script names the published version; the registry then needs a few more
-seconds until it serves and shows it. `pnpm publish:all` publishes the package and the
-extension one after the other and aborts at the first error.
+A new release requires a clean checkout whose source commit is already on GitHub, so all native
+builders use the same source. The command never commits or pushes. It selects one stable X.Y.Z
+version above the versions published on npm, in the Marketplace, and in GitHub tags or reserved
+releases, or uses a higher local version. `--version` keeps an explicit version. The build sets
+the root version, extension version, and extension host-package version in its own checkout.
+
+`.github/workflows/release.yml` only builds and checks. The local command starts it with the
+fixed version, source commit, and a unique request identifier, waits for exactly that run, and
+downloads its complete artifact set. The workflow prepares npm packages and VSIX files, then
+assembles and tests archives on Windows, macOS, and Linux, each x64 and ARM64. A manually started
+workflow also only builds; it cannot publish. Local `--dry-run` prints the plan without starting
+GitHub Actions or modifying files.
+
+After all builders succeed, the local publisher verifies the artifacts and reserves them with
+a checksum manifest in a draft GitHub Release. It publishes the tool packages before the npm
+host, then every Marketplace variant, then makes the GitHub Release public. A failure can leave
+npm or Marketplace temporarily ahead: the services do not share a transaction. Run the same
+version with `--version` to resume from the draft's original source and artifacts without
+rebuilding; the current working tree is not part of that retry. Existing npm packages must match their saved integrity; already published VSIX
+targets are skipped. Do not start a new version to repair a partially published release.
+
+### Standalone archive builds
+
+For a local build on the current platform:
+
+```sh
+pnpm build:agent
+pnpm build:plugins
+pnpm build:web
+pnpm prepare:release
+pnpm build:standalone
+```
+
+`scripts/release/prepare-release.ts` writes `dist/release-input`: the host, six tool tarballs, and
+one dependency lock shared by all native jobs. It also writes the seven registry-ready npm
+tarballs with their integrity metadata to `dist/release-publish`. It requires npm, network access, and 7-Zip for the
+Windows Bash packages. `build-standalone.mjs` downloads the Node.js distribution pinned by version
+and SHA-256 in `node-runtime.json`, uses its npm to install from that lock on the current platform,
+and writes `dist/releases/ragents-<version>-<platform>-<arch>.tar.gz` (Windows: `.zip`). All native
+dependencies are installed on their target OS and architecture. Archives include Node's license
+and dependency licenses. Linux builds target glibc; external development SDKs stay outside them.
+
+The builder extracts its finished archive into a fresh folder before checking it. The check uses
+the bundled runtime to execute the launcher, platform tools, TypeScript/esbuild plugin build,
+and a temporary host on port 0 with isolated data and no model calls; it checks RPC, web assets,
+and Tailwind CSS, then stops its own processes. The temporary test profile disables the process
+sandbox; it executes no model work and does not test sandbox isolation.
+`pnpm check:release` exercises launchers and
+installers with local release fixtures, including upgrades and failures that preserve the active
+installation. It also runs in `pnpm check`; native Windows installer tests run on Windows runners.
+Installation instructions are generated into the public guide from `docs/operations.md`.
 
 ### Real browser test
 

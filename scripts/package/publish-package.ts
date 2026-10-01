@@ -1,18 +1,12 @@
 import { spawnSync } from "node:child_process";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { compareVersions, readVersion, releaseVersion, versionLine, writeHostPackageVersion, writeVersion } from "../publish-version.ts";
-import { buildPackage, PACKAGE_FOLDER, PACKAGE_NAME } from "./build-package.ts";
-import { buildToolsPackages, type BuiltToolsPackage } from "./tools-package.ts";
+import { compareVersions } from "../publish-version.ts";
+import { packageManagerInvocation } from "../release/package-manager.ts";
+import { PACKAGE_NAME } from "./build-package.ts";
+import { type BuiltToolsPackage } from "./tools-package.ts";
 
 const repositoryRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..");
-
-const usage = `Usage: pnpm publish:package [--dry-run]
-Builds the package ${PACKAGE_NAME} and publishes it on npm. The token comes from the
-environment variable npm_key. --dry-run passes the dry run through to npm and publishes nothing.
-The version is in the root package.json; before building, the script raises the last place
-above the last published version. A dry run leaves the source manifests unchanged.
-Platform tools are published first, skipping versions that already exist.`;
 
 const REGISTRY_TOKEN_KEY = "npm_config_//registry.npmjs.org/:_authToken";
 
@@ -34,8 +28,9 @@ export const redacting = (token: string) => (text: string): string => token ? te
 /** An error message is one line; npm's output is therefore moved onto one. */
 export const oneLine = (text: string): string => text.split("\n").map((line) => line.trim()).filter(Boolean).join("; ");
 
-const runNpm: NpmRunner = (args, options) => {
-  const result = spawnSync("npm", [...args], {
+export const runNpm: NpmRunner = (args, options) => {
+  const invocation = packageManagerInvocation("npm", args);
+  const result = spawnSync(invocation.command, [...invocation.args], {
     cwd: options.cwd,
     encoding: "utf8",
     env: options.token ? publishEnvironment(options.token) : process.env,
@@ -129,27 +124,8 @@ export const publishToolsPackages = (packages: readonly BuiltToolsPackage[], opt
 };
 
 const main = async (): Promise<void> => {
-  const dryRun = process.argv.includes("--dry-run");
-  const unknown = process.argv.slice(2).filter((argument) => argument !== "--dry-run");
-  if (unknown.length) throw new Error(`Unknown argument: ${unknown.join(" ")}\n${usage}`);
-  const token = process.env.npm_key;
-  if (!token) throw new Error(`npm_key is missing: the npm token with write access to ${PACKAGE_NAME}.\n${usage}`);
-  const manifestFile = path.join(repositoryRoot, "package.json");
-  const published = publishedVersions(PACKAGE_NAME, runNpm);
-  const extensionManifestFile = path.join(repositoryRoot, "apps", "vscode", "package.json");
-  const next = releaseVersion([readVersion(manifestFile), readVersion(extensionManifestFile)], published);
-  console.log(versionLine(next));
-  if (!dryRun) {
-    writeVersion(manifestFile, next.version);
-    writeVersion(extensionManifestFile, next.version);
-    writeHostPackageVersion(extensionManifestFile, next.version);
-  }
-  const built = await buildPackage(path.join(repositoryRoot, "dist", PACKAGE_FOLDER), repositoryRoot, next.version);
-  const plan = publishPlan(built.manifest, published, next.version);
-  console.log(`== ${plan.name}@${plan.version} from host ${plan.hostVersion.slice(0, 12)}, ${built.fileCount} files, ${(built.byteSize / 1024 / 1024).toFixed(1)} MB`);
-  const tools = await buildToolsPackages(plan.version, undefined, undefined, (line) => console.log(line));
-  publishToolsPackages(tools, { version: plan.version, token, dryRun, npm: runNpm, log: (line) => console.log(line) });
-  publishDirectory({ directory: built.directory, version: plan.version, token, dryRun, npm: runNpm, log: (line) => console.log(line) });
+  const { main } = await import("../release/publish-release.ts");
+  await main();
 };
 
 const moduleUrl: string | undefined = import.meta.url;

@@ -62,4 +62,23 @@ and uses your own Git.
 Source, documentation, and issue tracking are in this repository. The host is also published as
 [`@schlenkr/ragents`](https://www.npmjs.com/package/@schlenkr/ragents).
 
+## Standalone host
+
+[GitHub Releases](https://github.com/SchlenkR/RAgents/releases) offers Windows, macOS, and Linux
+archives with Node.js included, for x64 and ARM64. Install on macOS or Linux with:
+
+```sh
+curl -fsSL https://github.com/SchlenkR/RAgents/releases/latest/download/install.sh | sh
+```
+
+Windows PowerShell:
+
+```powershell
+& ([scriptblock]::Create((Invoke-RestMethod https://github.com/SchlenkR/RAgents/releases/latest/download/install.ps1)))
+```
+
+Repeat to update. Model access and profile tools are configured separately; see the
+[installation guide](https://schlenkr.github.io/RAgents/guide-getting-started.html#install-a-standalone-release)
+for PATH setup, pinned versions, requirements, and manual downloads.
+
 License: [PolyForm Shield 1.0.0](https://github.com/SchlenkR/RAgents/blob/main/LICENSE).

@@ -1,0 +1,147 @@
+name: Build release artifacts
+run-name: Build release ${{ inputs.version }} (${{ inputs.request || github.run_id }})
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Shared X.Y.Z version (reuse the same version to resume)'
+        required: true
+        type: string
+      source:
+        description: 'Exact source commit (empty uses the selected ref)'
+        type: string
+      request:
+        description: 'Unique request identifier from the local release command'
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: build-release-${{ inputs.version }}-${{ inputs.source || github.sha }}
+  cancel-in-progress: false
+
+jobs:
+  prepare:
+    runs-on: ubuntu-24.04
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+      source: ${{ steps.version.outputs.source }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.source || github.sha }}
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: sudo apt-get update && sudo apt-get install -y p7zip-full
+      - run: pnpm install --frozen-lockfile
+      - name: Select one version for every channel
+        id: version
+        env:
+          RELEASE_VERSION: ${{ inputs.version }}
+        run: pnpm --filter @ragents/host exec node --import tsx ../../scripts/release/publish-release.ts --ci-version
+      - run: pnpm build:agent
+      - run: pnpm build:plugins
+      - run: pnpm build:web
+      - run: pnpm check:release
+      - run: pnpm --filter @ragents/host exec node --import tsx --test ../../scripts/package/publish-package.test.ts ../../scripts/vscode/publish-extension.test.ts
+      - run: pnpm prepare:release
+      - run: pnpm package:vscode
+      - run: cp dist/*.vsix dist/release-publish/
+      - uses: actions/upload-artifact@v4
+        with:
+          name: release-publish
+          path: dist/release-publish/*
+          retention-days: 7
+      - run: tar -czf dist/release-input.tar.gz -C dist release-input
+      - uses: actions/upload-artifact@v4
+        with:
+          name: release-input
+          path: dist/release-input.tar.gz
+          retention-days: 7
+
+  bundle:
+    needs: prepare
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - target: linux-x64
+            runner: ubuntu-22.04
+          - target: linux-arm64
+            runner: ubuntu-22.04-arm
+          - target: darwin-x64
+            runner: macos-15-intel
+          - target: darwin-arm64
+            runner: macos-14
+          - target: win32-x64
+            runner: windows-2022
+          - target: win32-arm64
+            runner: windows-11-arm
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.prepare.outputs.source }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - uses: actions/download-artifact@v4
+        with:
+          name: release-input
+          path: dist
+      - run: tar -xzf dist/release-input.tar.gz -C dist
+      - name: Verify native platform
+        shell: bash
+        env:
+          RELEASE_TARGET: ${{ matrix.target }}
+        run: node -e 'if (`${process.platform}-${process.arch}` !== process.env.RELEASE_TARGET) throw new Error("Wrong runner architecture")'
+      - run: node --test scripts/release/*.test.mjs scripts/install/*.test.mjs
+      - run: node scripts/release/build-standalone.mjs
+      - uses: actions/upload-artifact@v4
+        with:
+          name: standalone-${{ matrix.target }}
+          path: dist/releases/*
+          retention-days: 7
+
+  assemble:
+    needs: [prepare, bundle]
+    runs-on: ubuntu-24.04
+    env:
+      RELEASE_VERSION: ${{ needs.prepare.outputs.version }}
+      RELEASE_SOURCE: ${{ needs.prepare.outputs.source }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.prepare.outputs.source }}
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: standalone-*
+          merge-multiple: true
+          path: dist/releases
+      - uses: actions/download-artifact@v4
+        with:
+          name: release-publish
+          path: dist/releases
+      - run: cp scripts/install/install.sh scripts/install/install.ps1 dist/releases/
+      - name: Verify the complete release
+        run: pnpm --filter @ragents/host exec node --import tsx ../../scripts/release/release-artifacts.ts assemble
+      - uses: actions/upload-artifact@v4
+        with:
+          name: release-assets
+          path: dist/releases/*
+          retention-days: 7
