@@ -113,8 +113,12 @@ test("browser docking preserves frames and drafts through split, merge, close, m
   assert.equal(await page.getByRole("tabpanel", { name: "Board", exact: true }).isVisible(), true);
   await page.setViewportSize({ width: 400, height: 800 });
   await page.evaluate(() => window.dockingFixture.setApps(["notes", ...Array.from({ length: 30 }, (_, index) => `app${index}`)]));
-  await page.getByRole("button", { name: "Reset layout", exact: true }).click();
-  await page.getByRole("button", { name: "All windows", exact: true }).click();
+  const allWindows = actions.getByRole("button", { name: /^All windows/ });
+  await allWindows.waitFor();
+  assert.equal(await view("Reset layout").count(), 0, "more than five windows move every entry into one menu");
+  await allWindows.click();
+  await page.getByRole("menuitem", { name: "Reset layout", exact: true }).click();
+  await allWindows.click();
   assert.equal(await page.getByRole("menuitemcheckbox", { name: "Chat", exact: true }).getAttribute("aria-checked"), "true");
   await page.getByRole("menuitemcheckbox", { name: "App29", exact: true }).click();
   assert.equal(await page.getByRole("tabpanel", { name: "App29", exact: true }).isVisible(), true);

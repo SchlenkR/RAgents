@@ -146,6 +146,7 @@ Inbox for everything; the owner and the AI write here. One line per entry, newes
 
 ## Ideas
 
+- Plugin client modules for mini-apps (02.10.2026): a view can only import its own package files, the fixed `runtime-libraries.ts` list, and `@ragents/client(/ui)`, so a plugin cannot ship a reusable React component; today it must be copied into every package (not under `dist/`, passing the strict client typecheck, assets inline because of the CSP). A registration point such as `clientModules` would install a named module in `installClientSdk`, add its sources to the Tailwind scan, expose its props through the controls tool, and bind its prompt with `requiresTools`.
 - Background commands for `bash` (02.10.2026): `run_in_background: true` is rejected because a call ends with its process group; the standard starts the command detached, returns an id and an output file, and reports completion. That needs a run-owned process that survives the call (also with a per-run UID and on a workstation), output the model can read, and an input to the actor when it ends.
 - Compaction plugin (27.09.2026): mask older tool results in the model context and fetch them back from the journal when needed. Starting points are `context.compacted` and the place in `AgentTurn` where the hooks' notes are attached to the projection today (`drivers/agent-turn.ts`); the projection itself stays pure.
 - Show an actor's model context in the UI (27.09.2026): the projection is now readable from the journal; a tab could show what the model actually sees, including compactions.

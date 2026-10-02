@@ -1,5 +1,42 @@
 # Decisions
 
+## 2026-10-02: A run header too narrow for the window buttons shows one "All windows" menu
+
+Chapters: `spec/plugins.md` (Web as plugin host: docking workspace);
+usage: `usage.md` (Use chat and mini-apps, Run panel and VS Code extension).
+
+**Why.** In a very narrow run header "Empty space" simply disappeared, the remaining buttons
+shrank to identical app icons, and with more than five windows only the windows moved into a
+menu while "Empty space" and "Reset layout" stayed outside. The owner asked for one place for the
+whole group when it does not fit.
+
+**Decision.** `DockWindowActions` shows either all direct entries (views, `extra`, "Reset layout")
+or one "All windows" `DropdownMenu` with all of them: the views in header order as checkbox items
+checked while visible, then "Empty space" and "Reset layout" after a separator, with the same
+actions as the buttons. The switch is a container query on `@container/run-header`, as for the
+labels of "Run script", "Share", and "Agents", with one named size per number of direct entries
+(`@md` for one up to `@4xl` for six): below it the buttons would lose even the first letter of
+their labels beside the other header actions, measured in the docking fixture with the real
+`RunPanelHeader`. Both variants are rendered and CSS hides one, so nothing is measured at runtime,
+nothing flickers, and dragging and reordering stay on the visible buttons. The rule of more than
+five windows stays, now for the whole group: a longer row no longer reads at a glance, and seven
+entries would need a run header wider than 56rem before every label fits. The menu button shows
+the icon and name of the focused area's active tab (`focusedDockWindow` in `dock-state.ts`, which
+`useDockActiveApp` now shares) and is named "All windows, <title>". VS Code has no run header
+container, so only the five-window rule applies there; the host API keeps its names and
+`HOST_API_VERSION`, `active` is a new optional prop.
+
+Rejected: measuring the free width with a `ResizeObserver`, because the actions slot takes its
+width from its content and would oscillate between the two variants; one fixed breakpoint,
+because the room the group needs grows with every window; keeping "Reset layout" beside the menu,
+because the narrow header then still carries two controls for one group; showing the first
+visible window in the menu button when a tool or an empty pane is in front, because the button
+should name what the focused area shows. Verified with `apps/web/tests/dock-state.test.ts`
+(focused window) and `apps/web/tests/dock-windows-browser.test.ts` (real run header: buttons when
+wide, reorder by drag, menu when narrow with order, checks, Empty space, Reset layout, keyboard,
+no overlap with the other header actions, more than five windows), plus the updated overflow
+check in `apps/web/tests/docking-browser.test.ts`.
+
 ## Web halves load under their bundle revision (2026-10-02)
 
 Chapter: `docs/spec/plugins.md` (Web as plugin host). After a deploy, a browser behind a proxy that

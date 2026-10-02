@@ -1407,10 +1407,20 @@ actions" group, whether shown or not; a visible view's button is pressed (`aria-
 `revealDockPanel` decides the click: a closed view opens beside the focused area in wide browser
 workspaces or as a tab in narrow ones; a background tab or the active tab of an area hidden by
 another maximized area is selected and its area focused; an already visible view changes nothing.
-Labels truncate down to the icon when space is short. More than five views are listed in one
-"All windows" menu with checked entries for visible views instead; nothing is measured.
-VS Code uses the same app buttons and menu to open editor tabs, without a pressed state, grips, or
-dragging. In the browser, each direct view button carries a small `GripVerticalIcon` inside its
+Labels truncate when space is short. The group shows either its direct entries or one "All
+windows" `DropdownMenu`, never both; nothing is measured. More than five views always use the
+menu. Otherwise container queries on `@container/run-header` decide by the number of direct
+entries (views plus `extra`): for one to six entries, a run header narrower than `@md`, `@lg`,
+`@xl`, `@2xl`, `@3xl`, or `@4xl` (28 to 56rem) would leave the buttons without labels beside the
+other header actions, so the buttons, "Empty space", and "Reset layout" are hidden and the menu
+button is shown. Outside a run header the width rule never applies. The menu button shows the
+icon and title of `focusedDockWindow` (`dock-state.ts`: the active tab of the focused area, an
+empty pane or a docked tool included) and is named "All windows, <title>", without one just "All
+windows". The menu lists the views in header order as checkbox items, checked while visible
+(plain items where the caller passes no visible state), then after a separator "Empty space" and
+"Reset layout"; an entry runs the same action as its button and closes the menu.
+VS Code uses the same app buttons and menu to open editor tabs, without a pressed state, grips,
+dragging, or the width rule. In the browser, each direct view button carries a small `GripVerticalIcon` inside its
 existing left padding (`data-dock-window-grip`), so buttons keep their width; it is transparent
 until the button is hovered, focused, or dragged and always visible under `pointer: coarse`. The whole button is the drag source through the dock's
 pointer capture: a press that moves less than 6 px stays a click and calls `revealDockPanel`; a
@@ -1422,10 +1432,9 @@ cancels. Alt+ArrowLeft and Alt+ArrowRight move a focused button by one place and
 The header slot compares client coordinates with the buttons' client rectangles, so the page zoom
 cancels out there. Menu entries are not draggable and follow the same order.
 
-After the views, the browser always shows a direct "Empty space" entry (`extra` of
-`DockWindowActions`, `SquareDashedIcon`, no pressed state, not part of `order` or the menu count);
-only a run header narrower than `@2xs` (18rem) hides it, where its actions would otherwise
-overflow.
+After the views, the browser always offers "Empty space" (`extra` of `DockWindowActions`,
+`SquareDashedIcon`, no pressed state, not part of `order` or the five-view count), as a direct
+entry or in the menu.
 Its click adds an empty pane through `addDockEmptyPane` the same way `revealDockPanel` opens a
 closed view; its drag drops a new pane on a docking guide, and a drop inside the header changes
 nothing. Empty panes are panels with the ID `empty:<uuid>`, titled "Empty space": they live only
@@ -1434,9 +1443,9 @@ and closing one removes it. Their content is the hint "Drag an app or actor here
 (header button, tab, area grip, or rail tool) on an area whose active tab is an empty pane replaces
 that pane in place; for such an area the whole content is a center target and the compass center
 reads "Replace empty pane". A background empty pane is merged beside like any tab.
-"Reset layout" uses the standard header icon button directly after the views and restores the
-automatic layout, the button order, and the inspection rail, and removes empty panes. Arrow keys,
-Home, and End select tabs; focused dividers resize with arrow keys.
+"Reset layout" uses the standard header icon button directly after the views, or the last menu
+entry, and restores the automatic layout, the button order, and the inspection rail, and removes
+empty panes. Arrow keys, Home, and End select tabs; focused dividers resize with arrow keys.
 
 `dock-state.ts` holds the tree operations and catalog reconciliation; `dock-geometry.ts` calculates
 rectangles and drag targets. The layout including empty panes, split ratios, active tabs, closed

@@ -42,7 +42,8 @@ through switches and moves. New apps appear without taking focus; unavailable ap
 Close windows with X. The run header keeps a button for every window; a pressed button is
 visible, and clicking another one shows that window. Drag a header button by its grip to
 reorder the buttons, or onto the docking guides to place that window. "Empty space" in the
-header adds an empty pane that holds a place until you drop a window onto it.
+header adds an empty pane that holds a place until you drop a window onto it. When the header is
+too narrow for the buttons, they all move into one "All windows" menu.
 
 In VS Code, clicking an app opens or focuses its editor tab. VS Code controls where that tab
 appears. Questions and news stay in chat. The selector below the input chooses the addressee;
@@ -491,30 +492,32 @@ remains. Chat can be closed too. The run header always lists Chat and every app 
 their existing icons, whether shown or not; the button of a visible window appears pressed.
 Clicking a closed window opens it beside the current area in a wide browser workspace, or as a
 tab when narrow. Clicking a window that waits as a background tab brings that tab to the front.
-Clicking a visible window changes nothing. Labels shorten to the icon when the header is narrow;
-with more than five windows, the "All windows" menu lists them all and checks the visible ones.
+Clicking a visible window changes nothing. Labels shorten when the header gets narrower. Where
+the buttons would lose their labels, and always with more than five windows, the header shows one
+"All windows" menu instead of the buttons, "Empty space", and "Reset layout". Its button shows the
+icon and name of the window in front in the focused area. The menu lists every window in the
+button order and checks the visible ones; clicking an entry acts like clicking its button. "Empty
+space" and "Reset layout" follow below a separator.
 Each window button has a grip at its left edge, shown on hover or focus and always on touch
 screens. Drag a button sideways within the header to reorder the buttons; a thin line marks
 where it lands. Drag it into the workspace to get the same compass and edge guides as for a tab:
 the drop opens or moves that window there. A press without movement still counts as a click,
 and Escape cancels the drag. Alt+Left Arrow and Alt+Right Arrow move a focused button. New
-windows join at the end. The "All windows" menu follows the same order, but its entries cannot
-be dragged.
+windows join at the end. The entries of the "All windows" menu cannot be dragged.
 
-After the window buttons, "Empty space" is always available, except in a very narrow run header,
-which leaves it out for lack of room. Clicking it adds an empty pane beside the
-current area in a wide workspace, or as a tab when narrow; dragging it places the pane on a
-docking guide. You can add several. An empty pane is a window like any other: move it,
-split beside it, merge it as a tab, maximize it, or close it with X, which removes it. It shows
-"Drag an app or actor here". Dropping a header button or a tab anywhere on a shown empty pane, or
-on the compass center labeled "Replace empty pane", puts that window in its place. Empty panes
-survive reload.
+After the window buttons, or in the "All windows" menu, "Empty space" is always available.
+Clicking it adds an empty pane beside the current area in a wide workspace, or as a tab when
+narrow; dragging the button places the pane on a docking guide. You can add several. An empty
+pane is a window like any other: move it, split beside it, merge it as a tab, maximize it, or
+close it with X, which removes it. It shows "Drag an app or actor here". Dropping a header
+button or a tab anywhere on a shown empty pane, or on the compass center labeled "Replace empty
+pane", puts that window in its place. Empty panes survive reload.
 
-The "Reset layout" icon after the window buttons restores the automatic layout, the button
-order, and the inspection rail, and removes empty panes. Maximize appears only with multiple
-areas, at the right end of the area header just before the last tab's X; Restore or Escape
-returns to the split layout. Tabs support arrow keys, Home, and End, and focused dividers support
-arrow keys.
+The "Reset layout" icon after the window buttons, or its entry in the "All windows" menu,
+restores the automatic layout, the button order, and the inspection rail, and removes empty
+panes. Maximize appears only with multiple areas, at the right end of the area header just
+before the last tab's X; Restore or Escape returns to the split layout. Tabs support arrow
+keys, Home, and End, and focused dividers support arrow keys.
 
 Inspection puts its actor selector in the window title row. A second, horizontally scrollable
 row holds the actor name, Stop or Restart, chat display switches, and detail-view icons with

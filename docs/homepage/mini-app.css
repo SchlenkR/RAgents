@@ -1227,9 +1227,6 @@
   .justify-end {
     justify-content: flex-end;
   }
-  .justify-start {
-    justify-content: flex-start;
-  }
   .justify-items-start {
     justify-items: start;
   }
@@ -3243,12 +3240,6 @@
       background-color: color-mix(in oklab, var(--accent) 40%, transparent);
     }
   }
-  .aria-checked\:bg-accent[aria-checked="true"] {
-    background-color: var(--accent);
-  }
-  .aria-checked\:text-foreground[aria-checked="true"] {
-    color: var(--foreground);
-  }
   .aria-disabled\:pointer-events-none[aria-disabled="true"] {
     pointer-events: none;
   }
@@ -3855,9 +3846,52 @@
       display: none;
     }
   }
-  @container run-header (width < 18rem) {
-    .\@max-2xs\/run-header\:hidden {
+  @container run-header (width < 56rem) {
+    .\@max-4xl\/run-header\:hidden {
       display: none;
+    }
+    .\@max-4xl\/run-header\:inline-flex {
+      display: inline-flex;
+    }
+  }
+  @container run-header (width < 48rem) {
+    .\@max-3xl\/run-header\:hidden {
+      display: none;
+    }
+    .\@max-3xl\/run-header\:inline-flex {
+      display: inline-flex;
+    }
+  }
+  @container run-header (width < 42rem) {
+    .\@max-2xl\/run-header\:hidden {
+      display: none;
+    }
+    .\@max-2xl\/run-header\:inline-flex {
+      display: inline-flex;
+    }
+  }
+  @container run-header (width < 36rem) {
+    .\@max-xl\/run-header\:hidden {
+      display: none;
+    }
+    .\@max-xl\/run-header\:inline-flex {
+      display: inline-flex;
+    }
+  }
+  @container run-header (width < 32rem) {
+    .\@max-lg\/run-header\:hidden {
+      display: none;
+    }
+    .\@max-lg\/run-header\:inline-flex {
+      display: inline-flex;
+    }
+  }
+  @container run-header (width < 28rem) {
+    .\@max-md\/run-header\:hidden {
+      display: none;
+    }
+    .\@max-md\/run-header\:inline-flex {
+      display: inline-flex;
     }
   }
   @container templates (width >= 240px) {

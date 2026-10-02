@@ -191,6 +191,9 @@ export function dockWindowOrder(state: DockState, panels: readonly string[]): re
   return [...arranged, ...panels.filter((id) => !arranged.includes(id))];
 }
 
+/** The active window of the focused area, as the run header names it and the user location reports it. */
+export const focusedDockWindow = (state: DockState): string | undefined => dockGroups(state.root).find((group) => group.id === state.focused)?.active ?? undefined;
+
 export function moveDockWindow(state: DockState, id: string, before: string | null): DockState {
   const order = dockWindowOrder(state, state.known.filter((entry) => !isToolPanel(entry) && !isEmptyPanel(entry)));
   if (!order.includes(id) || id === before || (before !== null && !order.includes(before))) return state;

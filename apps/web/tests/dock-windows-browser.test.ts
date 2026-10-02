@@ -13,7 +13,7 @@ const shots = join(tmpdir(), "ragents-browser-shots");
 const options = { skip: process.env.RAGENTS_BROWSER_TESTS !== "1", timeout: 120_000 };
 
 /** Builds the docking fixture and opens it with Chat, Notes and Board; the returned helpers act on the header and the dock. */
-async function prepare(context: TestContext) {
+async function prepare(context: TestContext, search = "") {
   const directory = await mkdtemp(join(tmpdir(), "ragents-dock-windows-"));
   context.after(() => rm(directory, { recursive: true, force: true }));
   const root = fileURLToPath(new URL("../../../", import.meta.url));
@@ -28,7 +28,7 @@ async function prepare(context: TestContext) {
   const errors: string[] = [];
   const open = async (page: Page) => {
     page.on("pageerror", (error) => errors.push(error.message));
-    await page.goto(fixture);
+    await page.goto(fixture + search);
     await page.getByRole("tab", { name: "Chat", exact: true }).waitFor();
     await page.evaluate(() => window.dockingFixture.setApps(["notes", "board"]));
     await page.getByRole("tab", { name: "Board", exact: true }).waitFor();
@@ -276,5 +276,77 @@ test("browser empty panes come from the header, behave like windows, take a drop
   await empties.first().waitFor();
   await view("Reset layout").click();
   assert.equal(await empties.count(), 0, "Reset layout removes empty panes");
+  assert.deepEqual(errors, []);
+});
+
+test("a run header too narrow for the window buttons lists every window, Empty space and Reset layout in one menu", options, async (context) => {
+  const { errors, page, actions, view, drop, box, press, moveTo, tab, panel } = await prepare(context, "?header");
+  const menuButton = actions.getByRole("button", { name: /^All windows/ });
+  const menu = page.getByRole("menu", { name: "All windows" });
+  const entries = () => menu.locator('[role^="menuitem"]').evaluateAll((items) => items.map((item) => [item.textContent, item.getAttribute("aria-checked")]));
+  const shown = () => actions.getByRole("button").evaluateAll((buttons) => buttons.map((button) => button.getAttribute("aria-label")));
+  const fitsBeforeAgents = async () => {
+    const group = await box(actions);
+    return group.x + group.width <= (await box(page.getByRole("button", { name: "Agents", exact: true }))).x + 0.5;
+  };
+
+  await page.waitForFunction(() => document.querySelectorAll("[data-dock-group]").length === 2);
+  assert.deepEqual(await shown(), ["Chat", "Notes", "Board", "Empty space", "Reset layout"], "a wide run header shows every button and no menu");
+  await press(view("Board"));
+  await moveTo(view("Chat"), 0.25);
+  await drop.waitFor();
+  await page.mouse.up();
+  assert.deepEqual(await shown(), ["Board", "Chat", "Notes", "Empty space", "Reset layout"], "the buttons in the run header still reorder by drag");
+  await page.screenshot({ path: join(shots, "dock-windows-header-wide.png") });
+
+  await page.setViewportSize({ width: 560, height: 800 });
+  await menuButton.waitFor();
+  assert.deepEqual(await shown(), ["All windows, Chat"], "a narrow run header keeps only the menu, named after the focused window");
+  assert.equal(await menuButton.textContent(), "Chat");
+  assert.ok(await fitsBeforeAgents(), "the menu stays clear of the other header actions");
+  await menuButton.click();
+  await menu.waitFor();
+  assert.deepEqual(await entries(), [["Board", "false"], ["Chat", "true"], ["Notes", "false"], ["Empty space", null], ["Reset layout", null]],
+    "the menu lists every window in the saved order with the visible ones checked, then Empty space and Reset layout");
+  await menu.evaluate((element) => Promise.all(element.getAnimations({ subtree: true }).map((animation) => animation.finished)));
+  await page.screenshot({ path: join(shots, "dock-windows-narrow-menu.png") });
+  await menu.getByRole("menuitemcheckbox", { name: "Board", exact: true }).click();
+  await menu.waitFor({ state: "hidden" });
+  assert.equal(await panel("Board").isVisible(), true, "a menu entry shows its window");
+  assert.equal(await menuButton.getAttribute("aria-label"), "All windows, Board");
+
+  await menuButton.click();
+  await menu.getByRole("menuitem", { name: "Empty space", exact: true }).click();
+  await tab("Empty space").waitFor();
+  assert.equal(await menuButton.getAttribute("aria-label"), "All windows, Empty space", "Empty space in the menu adds an empty pane and focuses it");
+  await menuButton.click();
+  await menu.getByRole("menuitem", { name: "Reset layout", exact: true }).click();
+  await tab("Empty space").waitFor({ state: "detached" });
+  await menuButton.focus();
+  await page.keyboard.press("Enter");
+  await menu.waitFor();
+  assert.deepEqual((await entries()).map(([name]) => name), ["Chat", "Notes", "Board", "Empty space", "Reset layout"], "Reset layout in the menu restores the order");
+  await page.waitForFunction(() => document.activeElement?.getAttribute("role") === "menuitemcheckbox" && document.activeElement.textContent === "Chat");
+  await page.keyboard.press("ArrowDown");
+  await page.keyboard.press("ArrowDown");
+  await page.keyboard.press("Enter");
+  await menu.waitFor({ state: "hidden" });
+  assert.equal(await panel("Board").isVisible(), true, "the menu works from the keyboard");
+
+  await page.setViewportSize({ width: 320, height: 800 });
+  assert.ok(await fitsBeforeAgents(), "the menu also fits the narrowest run header");
+  await page.setViewportSize({ width: 1200, height: 800 });
+  await view("Chat").waitFor();
+  assert.deepEqual(await shown(), ["Chat", "Notes", "Board", "Empty space", "Reset layout"], "widening the header brings the buttons back");
+  assert.ok(await fitsBeforeAgents());
+
+  await page.evaluate(() => window.dockingFixture.setApps(["notes", "board", "plan", "map", "log"]));
+  await menuButton.waitFor();
+  assert.equal(await view("Chat").count(), 0, "more than five windows use the menu at any width");
+  await menuButton.click();
+  await menu.waitFor();
+  assert.deepEqual((await entries()).map(([name]) => name), ["Chat", "Notes", "Board", "Plan", "Map", "Log", "Empty space", "Reset layout"]);
+  await page.keyboard.press("Escape");
+  await menu.waitFor({ state: "hidden" });
   assert.deepEqual(errors, []);
 });

@@ -1,8 +1,17 @@
-import { useState, type KeyboardEvent, type PointerEvent, type ReactNode, type Ref } from "react";
-import { GripVerticalIcon, MenuIcon, RotateCcwIcon } from "lucide-react";
-import { Button, cn, Popover, PopoverContent, PopoverTrigger } from "../ui";
+import type { KeyboardEvent, PointerEvent, ReactNode, Ref } from "react";
+import { ChevronDownIcon, GripVerticalIcon, MenuIcon, RotateCcwIcon } from "lucide-react";
+import { Button, cn, DropdownMenu, DropdownMenuCheckboxItem, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "../ui";
 
 const MAX_DIRECT_WINDOWS = 5;
+// Run header widths below which the buttons would lose their labels beside the other header actions, by number of direct entries.
+const NARROW_HEADER = [
+  ["@max-md/run-header:hidden", "@max-md/run-header:inline-flex"],
+  ["@max-lg/run-header:hidden", "@max-lg/run-header:inline-flex"],
+  ["@max-xl/run-header:hidden", "@max-xl/run-header:inline-flex"],
+  ["@max-2xl/run-header:hidden", "@max-2xl/run-header:inline-flex"],
+  ["@max-3xl/run-header:hidden", "@max-3xl/run-header:inline-flex"],
+  ["@max-4xl/run-header:hidden", "@max-4xl/run-header:inline-flex"],
+] as const;
 const gripClass = "absolute inset-y-0 left-0 flex cursor-grab items-center text-muted-foreground opacity-0 transition-opacity active:cursor-grabbing group-hover/button:opacity-100 group-focus-visible/button:opacity-100 group-data-[dragging=true]/button:opacity-100 pointer-coarse:opacity-100";
 const dropClass = "pointer-events-none absolute inset-y-1 w-0.5 rounded-full bg-primary";
 
@@ -14,8 +23,9 @@ export interface DockWindowItem {
   readonly hint?: string;
 }
 
-/** The window buttons of a run; `extra` is a direct entry after them, outside the order, hidden only in a narrow run header. */
-export function DockWindowActions({ dragging, dropIndex, extra, groupRef, items, onDragStart, onMove, onOpen, onReset }: {
+/** The window buttons of a run with `extra`, a direct entry after them outside the order; where they do not fit, one "All windows" menu named after `active` holds them all. */
+export function DockWindowActions({ active, dragging, dropIndex, extra, groupRef, items, onDragStart, onMove, onOpen, onReset }: {
+  active?: DockWindowItem;
   dragging?: string;
   dropIndex?: number;
   extra?: DockWindowItem;
@@ -26,7 +36,9 @@ export function DockWindowActions({ dragging, dropIndex, extra, groupRef, items,
   onOpen: (id: string) => void;
   onReset?: () => void;
 }) {
-  const [open, setOpen] = useState(false);
+  const direct = items.length <= MAX_DIRECT_WINDOWS;
+  const entries = Math.min(items.length + (extra ? 1 : 0), NARROW_HEADER.length);
+  const [hideButtons, showMenu] = NARROW_HEADER[Math.max(entries, 1) - 1];
   const content = (item: DockWindowItem) => <>{item.icon}<span className="min-w-0 truncate">{item.title}</span></>;
   const moveFromKeyboard = (event: KeyboardEvent<HTMLElement>, id: string) => {
     if (!onMove || !event.altKey || (event.key !== "ArrowLeft" && event.key !== "ArrowRight")) return;
@@ -36,8 +48,8 @@ export function DockWindowActions({ dragging, dropIndex, extra, groupRef, items,
     // Reordering moves the focused button in the DOM, which drops its focus.
     requestAnimationFrame(() => button.focus());
   };
-  const direct = (item: DockWindowItem, index?: number) => <Button aria-keyshortcuts={onMove && index !== undefined ? "Alt+ArrowLeft Alt+ArrowRight" : undefined} aria-label={item.title} aria-pressed={item.visible}
-    className={cn("min-w-11 shrink aria-pressed:bg-accent aria-pressed:text-foreground", onDragStart && "relative touch-none data-[dragging=true]:opacity-60", index === undefined && "@max-2xs/run-header:hidden")}
+  const windowButton = (item: DockWindowItem, index?: number) => <Button aria-keyshortcuts={onMove && index !== undefined ? "Alt+ArrowLeft Alt+ArrowRight" : undefined} aria-label={item.title} aria-pressed={item.visible}
+    className={cn("min-w-11 shrink aria-pressed:bg-accent aria-pressed:text-foreground", onDragStart && "relative touch-none data-[dragging=true]:opacity-60")}
     data-dock-window={onDragStart && index !== undefined ? item.id : undefined} data-dragging={onDragStart ? dragging === item.id : undefined} key={item.id}
     onClick={(event) => { if (!onDragStart || event.detail === 0) onOpen(item.id); }} onKeyDown={index === undefined ? undefined : (event) => moveFromKeyboard(event, item.id)}
     onPointerDown={onDragStart && ((event) => onDragStart(event, item.id))} title={item.hint ?? (item.visible ? item.title : `Show ${item.title}`)} variant="ghost">
@@ -47,14 +59,23 @@ export function DockWindowActions({ dragging, dropIndex, extra, groupRef, items,
     {index !== undefined && dropIndex === items.length && index === items.length - 1 && <span aria-hidden className={cn(dropClass, "-right-1")} data-dock-window-drop />}
   </Button>;
   return <div aria-label="Layout actions" className="flex min-w-0 items-center gap-1" ref={groupRef} role="group">
-    {items.length > MAX_DIRECT_WINDOWS ? <Popover onOpenChange={setOpen} open={open}>
-      <PopoverTrigger render={<Button aria-label="All windows" size="icon-lg" title="All windows" variant="ghost" />}><MenuIcon /></PopoverTrigger>
-      <PopoverContent align="end" aria-label="All windows" className="max-h-[70vh] w-64 gap-1 overflow-auto p-1" role="menu">
-        {items.map((item) => <Button aria-checked={item.visible} className="w-full justify-start aria-checked:bg-accent aria-checked:text-foreground" key={item.id} onClick={() => { onOpen(item.id); setOpen(false); }}
-          role={item.visible === undefined ? "menuitem" : "menuitemcheckbox"} variant="ghost">{content(item)}</Button>)}
-      </PopoverContent>
-    </Popover> : items.map((item, index) => direct(item, index))}
-    {extra && direct(extra)}
-    {onReset && <Button aria-label="Reset layout" onClick={onReset} size="icon-lg" title="Reset layout" variant="ghost"><RotateCcwIcon /></Button>}
+    {direct && <div className={cn("contents", hideButtons)}>
+      {items.map((item, index) => windowButton(item, index))}
+      {extra && windowButton(extra)}
+      {onReset && <Button aria-label="Reset layout" onClick={onReset} size="icon-lg" title="Reset layout" variant="ghost"><RotateCcwIcon /></Button>}
+    </div>}
+    <DropdownMenu>
+      <DropdownMenuTrigger render={<Button aria-label={active ? `All windows, ${active.title}` : "All windows"} className={cn("min-w-11 shrink", direct && "hidden", direct && showMenu)} title="All windows" variant="ghost" />}>
+        {active?.icon ?? <MenuIcon />}<span className="min-w-0 truncate">{active?.title ?? "All windows"}</span><ChevronDownIcon className="size-3.5 text-muted-foreground" />
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end" aria-label="All windows" className="w-64">
+        {items.map((item) => item.visible === undefined
+          ? <DropdownMenuItem key={item.id} onClick={() => onOpen(item.id)}>{content(item)}</DropdownMenuItem>
+          : <DropdownMenuCheckboxItem checked={item.visible} closeOnClick key={item.id} onClick={() => onOpen(item.id)}>{content(item)}</DropdownMenuCheckboxItem>)}
+        {(extra || onReset) && <DropdownMenuSeparator />}
+        {extra && <DropdownMenuItem onClick={() => onOpen(extra.id)} title={extra.hint}>{content(extra)}</DropdownMenuItem>}
+        {onReset && <DropdownMenuItem onClick={onReset}><RotateCcwIcon />Reset layout</DropdownMenuItem>}
+      </DropdownMenuContent>
+    </DropdownMenu>
   </div>;
 }

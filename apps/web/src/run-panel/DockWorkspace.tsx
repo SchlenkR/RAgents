@@ -4,7 +4,7 @@ import { ArrowDownIcon, ArrowLeftIcon, ArrowRightIcon, ArrowUpIcon, LayoutGridIc
 import type { SessionContext, SessionNavigation, WorkspaceTabContribution } from "../PluginRegistry";
 import { RunAppView, type RunApp } from "../run-apps";
 import { Badge, BadgeDisplayProvider, Button, cn } from "../ui";
-import { activeDockTool, addDockEmptyPane, appPanelId, closeDockPanels, dockGroups, dockWindowOrder, emptyPanelId, initialDockState, isEmptyPanel, isToolPanel, moveDockPanels, moveDockWindow, reconcileDockState, resizeDockSplit, returnDockTool, revealDockPanel, transitionDockSide, selectDockPanel, toolPanelId, type DockGroup } from "./dock-state";
+import { activeDockTool, addDockEmptyPane, appPanelId, closeDockPanels, dockGroups, dockWindowOrder, emptyPanelId, focusedDockWindow, initialDockState, isEmptyPanel, isToolPanel, moveDockPanels, moveDockWindow, reconcileDockState, resizeDockSplit, returnDockTool, revealDockPanel, transitionDockSide, selectDockPanel, toolPanelId, type DockGroup } from "./dock-state";
 import { DOCK_DIVIDER_SIZE, DOCK_HEADER_HEIGHT, containsPoint, dockGeometry, dockHitTest, type DockPoint, type DockRect } from "./dock-geometry";
 import { useDockPointer } from "./dock-pointer";
 import { useDockStorage } from "./dock-storage";
@@ -33,7 +33,7 @@ const EMPTY_PANE_TITLE = "Empty space";
 
 export function useDockActiveApp(runId: string): string | undefined {
   const { state } = useDockStorage(runId);
-  const active = dockGroups(state.root).find((group) => group.id === state.focused)?.active;
+  const active = focusedDockWindow(state);
   return active?.startsWith("app:") ? active.slice(4) : undefined;
 }
 
@@ -242,8 +242,10 @@ export function DockWorkspace({ apps, chat, chatIcon = <UsersIcon />, navigation
     (strip?.querySelectorAll<HTMLElement>('[role="tab"]')[next])?.focus();
   };
 
+  const focused = focusedDockWindow(state);
   const reveal = (id: string) => update((current) => id === EMPTY_PANE_ENTRY ? addDockEmptyPane(current, emptyPanelId(newId()), undefined, splitApps, newId) : revealDockPanel(current, id, splitApps, newId));
   const actions = <DockWindowActions
+    active={focused ? { id: focused, title: title(focused), icon: icon(focused) } : undefined}
     dragging={drag?.header ? drag.ids[0] : undefined}
     dropIndex={drag?.slot ?? undefined}
     extra={{ id: EMPTY_PANE_ENTRY, title: EMPTY_PANE_TITLE, icon: icon(EMPTY_PANE_ENTRY), hint: "Add an empty pane" }}

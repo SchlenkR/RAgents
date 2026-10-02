@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { activeDockTool, addDockEmptyPane, closeDockPanels, dockGroups, dockWindowOrder, emptyPanelId, initialDockState, moveDockPanels, moveDockWindow, parseDockState, persistentDockState, reconcileDockState, resizeDockSplit, revealDockPanel, transitionDockSide, returnDockTool, selectDockPanel, type DockState, type DockTarget } from "../src/run-panel/dock-state";
+import { activeDockTool, addDockEmptyPane, closeDockPanels, dockGroups, dockWindowOrder, emptyPanelId, focusedDockWindow, initialDockState, moveDockPanels, moveDockWindow, parseDockState, persistentDockState, reconcileDockState, resizeDockSplit, revealDockPanel, transitionDockSide, returnDockTool, selectDockPanel, type DockState, type DockTarget } from "../src/run-panel/dock-state";
 import { dockGeometry, dockHitTest, dockPreview, dockingGuides } from "../src/run-panel/dock-geometry";
 import { dockStorageKey } from "../src/run-panel/dock-storage";
 
@@ -365,6 +365,18 @@ test("header window order appends new windows, forgets vanished ones and survive
   roundtrip(vanished);
   roundtrip(moved);
   assert.equal(reconcileDockState(initialDockState(panels, tools), panels, tools).order, undefined, "Reset layout restores the catalog order");
+});
+
+test("the focused window is the active tab of the focused area, an empty pane included, and none for an empty area", () => {
+  const panels = ["chat", "app:notes", "app:board"];
+  const start = reconcileDockState(initial(), panels, ["tool:files", "tool:journal"], true);
+  assert.equal(focusedDockWindow(start), "chat");
+  const board = selectDockPanel(start, "app:board");
+  assert.equal(focusedDockWindow(board), "app:board", "selecting a background tab focuses its area");
+  assert.equal(focusedDockWindow(moveDockWindow(board, "app:board", "chat")), "app:board", "the header order does not change it");
+  const pane = addDockEmptyPane(board, emptyPanelId("one"), undefined, false, () => `node-${++serial}`);
+  assert.equal(focusedDockWindow(pane), "empty:one");
+  assert.equal(focusedDockWindow(closeDockPanels(initialDockState(), ["chat"])), undefined);
 });
 
 test("layout storage rejects an invalid header window order", () => {
