@@ -26,7 +26,7 @@ export interface AskService {
   pose: (call: AskCall, request: AskRequest) => string | undefined;
   /** Waits for the answer; only outside a turn, for questions on behalf of the system. */
   ask: (call: AskCall & { turnId: null }, request: AskRequest, signal: AbortSignal | undefined) => Promise<string>;
-  /** Dismisses an open question: a waiting call gets DISMISSED_ANSWER, nobody gets an input. */
+  /** Withdraws an open question: its record says so, a waiting call gets DISMISSED_ANSWER, nobody gets an input. */
   withdraw: (runId: string, actionId: string) => void;
 }
 

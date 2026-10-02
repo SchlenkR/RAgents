@@ -325,3 +325,57 @@ test("event tools expose subscriptions and journal queries", async () => {
         setup.journal.close();
     }
 });
+
+type Published = Array<{ type: string; payload: { artifact: { id: string } } }>;
+type ReadArtifact = { artifact: { id: string; title: string; mediaType: string; size: number; previousVersionId: string | null; createdBy: string }; encoding: string; content: string };
+
+test("artifact_publish returns the new ID, and artifact_read returns content and metadata including versions", async () => {
+    const setup = setupRun({ grants: allGrants(), toolNames: ["artifact_publish", "artifact_read"] });
+
+    try {
+        const { toolset } = await turnToolset(setup, "publish");
+        const first = await toolset.invokeFunction("publish-plan", "artifact_publish", { title: "Plan", mediaType: "text/markdown", content: "# Plan\nStep one." }) as Published;
+        const id = first[0]!.payload.artifact.id;
+        assert.deepEqual(first, [{ type: "artifact.published", payload: { artifact: { id } } }]);
+
+        const second = await toolset.invokeFunction("publish-plan-2", "artifact_publish", { title: "Plan", mediaType: "text/markdown", content: "# Plan\nStep two.", previousVersionId: id }) as Published;
+        const read = await toolset.invokeFunction("read-plan-2", "artifact_read", { artifactId: second[0]!.payload.artifact.id }) as ReadArtifact;
+        const earlier = await toolset.invokeFunction("read-plan", "artifact_read", { artifactId: id }) as ReadArtifact;
+        const raw = await toolset.invokeFunction("publish-raw", "artifact_publish", { title: "Raw", mediaType: "application/octet-stream", content: "abc" }) as Published;
+        const binary = await toolset.invokeFunction("read-raw", "artifact_read", { artifactId: raw[0]!.payload.artifact.id }) as ReadArtifact;
+
+        assert.deepEqual({ ...read.artifact, createdAt: undefined }, {
+            id: second[0]!.payload.artifact.id, title: "Plan", mediaType: "text/markdown", size: 16, previousVersionId: id, createdBy: setup.agent.id, createdAt: undefined,
+        });
+        assert.deepEqual([read.encoding, read.content], ["utf8", "# Plan\nStep two."]);
+        assert.deepEqual([earlier.content, earlier.artifact.previousVersionId], ["# Plan\nStep one.", null]);
+        assert.deepEqual([binary.encoding, binary.content], ["base64", Buffer.from("abc").toString("base64")]);
+        const recorded = setup.runtime.events(setup.view.id).find((event) => event.type === "tool.call.completed" && event.payload.toolCallId === "read-plan-2");
+        assert.doesNotMatch(JSON.stringify(recorded?.payload), /Step two/);
+    } finally {
+        setup.journal.close();
+    }
+});
+
+test("artifact_read is refused to another actor until the artifact is attached to one of its inputs", async () => {
+    const setup = setupRun({ grants: allGrants(), toolNames: ["artifact_publish", "artifact_read", "actor_input"] });
+
+    try {
+        const { toolset } = await turnToolset(setup, "author");
+        const published = await toolset.invokeFunction("publish-note", "artifact_publish", { title: "Note", mediaType: "text/plain", content: "For the reader." }) as Published;
+        const artifactId = published[0]!.payload.artifact.id;
+        const view = setup.runtime.spawnAgent({ actorId: setup.view.ownerId, commandId: "spawn-reader" }, setup.view.id, {
+            handle: "reader", displayName: "Reader", prompt: "Read.", execution: setup.agent.execution, grants: allGrants(), toolNames: ["artifact_read"],
+        });
+        const reader = view.actors.find((entry) => entry.handle === "reader");
+        assert.ok(reader?.kind === "agent");
+        const readerTurn = await turnToolset({ ...setup, view, agent: reader }, "reader");
+
+        await assert.rejects(readerTurn.toolset.invokeFunction("read-early", "artifact_read", { artifactId }), /may not read artifact/);
+        await toolset.invokeFunction("attach-note", "actor_input", { actor: "@reader", content: "See the note.", artifactIds: [artifactId] });
+        const read = await readerTurn.toolset.invokeFunction("read-attached", "artifact_read", { artifactId }) as ReadArtifact;
+        assert.equal(read.content, "For the reader.");
+    } finally {
+        setup.journal.close();
+    }
+});

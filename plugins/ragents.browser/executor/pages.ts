@@ -113,6 +113,9 @@ export class BrowserPages {
       if (input.count !== undefined && (!input.target || input.target.nth !== undefined || input.target.first)) {
         throw new Error("count in browser_check needs a target without nth or first and counts its visible matches.");
       }
+      if (input.count !== undefined && input.text !== undefined) {
+        throw new Error("browser_check cannot combine count with text; narrow the target to the text instead, or check the text in a second call.");
+      }
       const timeout = this.#options.checkTimeoutMs;
       const assertions: string[] = [];
       if (input.target && input.count !== undefined) {

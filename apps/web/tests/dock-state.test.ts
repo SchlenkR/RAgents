@@ -259,6 +259,9 @@ test("hit testing distinguishes compass, outer guides, strip merging, bar return
   assert.deepEqual(dockHitTest({ x: 910, y: 200 }, rect, groups, bar, true).target, { kind: "bar" });
   assert.equal(dockHitTest({ x: 910, y: 200 }, rect, groups, bar, false).target, undefined);
   assert.equal(dockHitTest({ x: 100, y: 100 }, rect, groups, bar, false).target, undefined);
+  const flyout = { left: 300, top: 0, width: 636, height: 600 };
+  for (const guide of guides) assert.deepEqual(dockHitTest({ x: guide.rect.left + 15, y: guide.rect.top + 15 }, rect, groups, flyout, true).target, guide.target);
+  assert.deepEqual(dockHitTest({ x: 700, y: 100 }, rect, groups, flyout, true).target, { kind: "bar" });
   for (const side of ["left", "right", "top", "bottom"] as const) {
     const split = move(initial(), ["app:notes"], { kind: "edge", side });
     const actual = dockGeometry(split.root, rect, null).groups.find(({ group }) => group.tabs.includes("app:notes"))!.rect;

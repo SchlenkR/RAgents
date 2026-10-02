@@ -68,7 +68,7 @@ export class RuntimeAskService implements AskService {
   }
 
   withdraw(runId: string, actionId: string): void {
-    this.#dismiss(runId, actionId, "ask-withdraw", null);
+    this.#dismiss(runId, actionId, "ask-withdraw", { withdrawn: true });
   }
 
   /** Withdraws every open question an agent of the run asked for itself, on stop and deletion. */
@@ -148,7 +148,7 @@ export class RuntimeAskService implements AskService {
       const abort = () => {
         this.#waiters.delete(actionId);
         try {
-          this.#dismiss(runId, actionId, "ask-abort", null);
+          this.#dismiss(runId, actionId, "ask-abort", { withdrawn: true });
           reject(new Error("Waiting for the answer was cancelled."));
         } catch (error) {
           reject(error);

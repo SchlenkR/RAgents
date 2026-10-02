@@ -10,12 +10,13 @@ import { hostRecordFile, readHostRecord, removeHostRecord, writeHostRecord } fro
 import { hostRoot } from "../../apps/server/src/host-version.ts";
 import { callerDirectory, selectProfileTarget, type ProfileTarget } from "../../apps/server/src/profile-target.ts";
 import { RpcClient } from "../../apps/web/src/rpc/client.ts";
-import type { RunView, Turn, TurnToolCall } from "../../packages/ragents/src/domain/model.ts";
+import type { Action, RunView, Turn, TurnToolCall } from "../../packages/ragents/src/domain/model.ts";
 import { runContracts } from "../../packages/ragents/src/http/contracts.ts";
 import { RpcError } from "../../packages/ragents/src/rpc/protocol.ts";
+import { askPayloadOf, ASK_PLUGIN_ID } from "../../plugins/ragents.ask/ask-payload.ts";
 import { WORKSPACE_BINDING_OPTION_ID, WORKSPACE_CLIENT_ID_PATTERN, type WorkspaceBindingPresentation } from "../../plugins/ragents.workspace/contract.ts";
 import { interruptPrimaryTurn, stopWholeRun } from "./turn-control.ts";
-import { journalLines, readJournal, RUN_ID_PATTERN, type JournalEvent } from "./journal.ts";
+import { journalLines, questionLine, readJournal, RUN_ID_PATTERN, type JournalEvent } from "./journal.ts";
 
 const DEFAULT_PROFILE = "developer";
 const HOST_START_TIMEOUT_MS = 120_000;
@@ -60,7 +61,8 @@ without --profile, RAGENTS_PROFILE applies, otherwise ${DEFAULT_PROFILE}. Exit c
 0 done, 2 cancelled, 1 failed or connection problem. The last line on stdout
 is "run: <id>". run and send follow the turn through the server (channel ragents.run and
 ragents.runs.view), also on another machine; the server shows tool lines only with
-runs.inspect, --json returns the same steps as JSON. If the connection breaks, the
+runs.inspect, --json returns the same steps as JSON. A question of the agent is a line
+"? <question> Options: ..."; the turn ends with it, and send answers it. If the connection breaks, the
 command ends with 1 and the cause. The address comes from <data folder>/host.json, otherwise from RAGENTS_URL, otherwise from
 host.PORT of the profile; RAGENTS_TOKEN is sent as a bearer token if the profile requires
 sign-in. A host started this way does not build the UI - an agent does not need it; ragents
@@ -344,6 +346,23 @@ const toolEntries = (call: TurnToolCall): ProgressEntry[] => [
   }],
 ];
 
+/** A question the turn's actor posed; a message through send closes it and reaches the actor as its next input. */
+const questionEntries = (runId: string, action: Action): ProgressEntry[] => {
+  const question = askPayloadOf(action.payload);
+  return question ? [{
+    key: `question:${action.id}`,
+    at: action.proposedAt,
+    line: `? ${questionLine(question)} - answer with: ragents send ${runId} "<answer>"`,
+    data: { kind: "question", id: action.id, question: question.question, options: question.options, multi: question.multi },
+  }] : [];
+};
+
+const askedIn = (turn: Turn, since: string) => (action: Action): boolean => {
+  const at = Date.parse(action.proposedAt);
+  return action.owner === ASK_PLUGIN_ID && action.askedBy === turn.actorId && at >= Date.parse(since) && at >= Date.parse(turn.startedAt)
+    && (turn.finishedAt === null || at <= Date.parse(turn.finishedAt));
+};
+
 const endEntry = (turn: Turn): ProgressEntry => ({
   key: `turn:${turn.id}`,
   at: turn.finishedAt ?? turn.startedAt,
@@ -354,16 +373,18 @@ const endEntry = (turn: Turn): ProgressEntry => ({
 
 /** The owner's new input with this text, the turn that started with it or had it fed in, and its steps from it on. */
 export const progressOf = (view: RunView | null, known: ReadonlySet<string>, text: string): TurnProgress => {
-  const input = view?.inputs.find((entry) => !known.has(entry.id) && entry.enqueuedBy === view.ownerId && entry.subscriptionId === null
+  if (!view) return PENDING;
+  const input = view.inputs.find((entry) => !known.has(entry.id) && entry.enqueuedBy === view.ownerId && entry.subscriptionId === null
     && entry.content.trim() === text.trim());
   if (!input) return PENDING;
   if (input.lifecycle.kind === "discarded") return { entries: [], outcome: "interrupted", reason: input.lifecycle.reason };
   if (input.lifecycle.kind === "pending") return PENDING;
   const turnId = input.lifecycle.turnId;
-  const turn = view?.turns.find((entry) => entry.id === turnId);
+  const turn = view.turns.find((entry) => entry.id === turnId);
   if (!turn) return PENDING;
   const entries = [
     ...turn.toolCalls.filter((call) => Date.parse(call.startedAt) >= Date.parse(input.enqueuedAt)).flatMap(toolEntries),
+    ...view.actions.filter(askedIn(turn, input.enqueuedAt)).flatMap((action) => questionEntries(view.id, action)),
     ...turn.outputs.filter((output) => output.sequence > input.sequence && output.text.trim()).map((output): ProgressEntry =>
       ({ key: `output:${output.sequence}`, at: output.occurredAt, line: output.text.trim(), data: { kind: "output", output } })),
   ].sort((left, right) => Date.parse(left.at) - Date.parse(right.at));

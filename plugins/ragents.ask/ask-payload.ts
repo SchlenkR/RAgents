@@ -3,6 +3,9 @@ export const ASK_PLUGIN_ID = "ragents.ask";
 /** The record of a question that a person's message to the asker closed; ask_user returns it when such a message already waits. */
 export const SUPERSEDED_ANSWER = "Not answered: the user sent a new message instead.";
 
+/** The record of a question closed without the user: its asker or run stopped, the run was deleted, or its wait was cancelled. */
+export const WITHDRAWN_ANSWER = "The question was withdrawn.";
+
 export interface AskPayload {
   question: string;
   options: string[];
@@ -32,3 +35,6 @@ export const supersedingInputOf = (result: unknown): string | undefined => {
   const { supersededBy } = result as { supersededBy?: unknown };
   return typeof supersededBy === "string" ? supersededBy : undefined;
 };
+
+export const isWithdrawn = (result: unknown): boolean =>
+  typeof result === "object" && result !== null && (result as { withdrawn?: unknown }).withdrawn === true;

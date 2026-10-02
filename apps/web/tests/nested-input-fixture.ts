@@ -38,7 +38,7 @@ export async function nestedInputFixture(serverUrl: string, chat = false): Promi
         if(event.data.type==="ragents.app.escape") {window.dispatchEvent(new KeyboardEvent("keydown",{...event.data.keyboard.event,bubbles:true,cancelable:true}));return;}
         if(event.data.type!=="ragents.app.frame-ready"||event.ports.length!==1)return;
         const port=event.ports[0];activePort=port;
-        port.onmessage=({data})=>relayFrameInput(window,data,message=>{if(activePort===port)port.postMessage(message)});
+        port.onmessage=({data})=>relayFrameInput(window,data,message=>{if(activePort===port)frame.contentWindow?.postMessage(message,"*")});
         port.start();port.postMessage({type:"ragents.app.ready",version:1,theme:"dark",hostInput:hostInputEnabled(window),app:{id:"second",actions:[]},state:null,invocations:[]});
       });
       frame.src=${JSON.stringify(`${serverUrl}/second`)}+"#ragentsBridge="+token;

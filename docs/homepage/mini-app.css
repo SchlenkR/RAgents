@@ -963,6 +963,9 @@
   .min-w-9 {
     min-width: calc(var(--spacing) * 9);
   }
+  .min-w-10 {
+    min-width: calc(var(--spacing) * 10);
+  }
   .min-w-11 {
     min-width: calc(var(--spacing) * 11);
   }
@@ -977,9 +980,6 @@
   }
   .min-w-\[96px\] {
     min-width: 96px;
-  }
-  .min-w-\[120px\] {
-    min-width: 120px;
   }
   .min-w-max {
     min-width: max-content;

@@ -1,5 +1,6 @@
 import { closeSync, existsSync, openSync, readSync, statSync } from "node:fs";
 import path from "node:path";
+import { askPayloadOf, ASK_PLUGIN_ID, type AskPayload } from "../../plugins/ragents.ask/ask-payload.ts";
 
 export interface JournalEvent {
   readonly sequence: number;
@@ -98,6 +99,13 @@ export const usageByActor = (events: readonly JournalEvent[]): Map<string, Actor
 
 const text = (value: unknown): string => (typeof value === "string" ? value : "").replace(/\n/g, " ");
 
+/** A question of ragents.ask in one line: its text and its options. */
+export const questionLine = (question: AskPayload): string =>
+  `${text(question.question)} Options: ${question.options.map((option) => JSON.stringify(option)).join(", ")}${question.multi ? " (several allowed)" : ""}`;
+
+const askedQuestion = (type: string, payload: Record<string, unknown>): AskPayload | undefined =>
+  type === "action.proposed" && payload.owner === ASK_PLUGIN_ID ? askPayloadOf(payload.payload) : undefined;
+
 export type JournalMode = "chat" | "tools" | "all";
 
 export const journalLines = (events: readonly JournalEvent[], mode: JournalMode, since: number): string[] => {
@@ -107,6 +115,7 @@ export const journalLines = (events: readonly JournalEvent[], mode: JournalMode,
     const actor = event.actorId.slice(0, 14);
     const payload = event.payload;
     const type = event.type;
+    const question = askedQuestion(type, payload);
     if (type === "model.output.completed" && mode !== "tools") {
       const output = text(payload.text);
       if (output.trim()) lines.push(`[${event.sequence}] ${actor}: ${output.slice(0, 800)}`);
@@ -119,6 +128,8 @@ export const journalLines = (events: readonly JournalEvent[], mode: JournalMode,
       lines.push(`[${event.sequence}] CONTEXT COMPACTED ${actor}: about ${String(payload.tokensBefore)} tokens summarized${applied}`);
     } else if (type === "turn.input-steered" && mode !== "tools") {
       lines.push(`[${event.sequence}] STEERING -> ${actor}: ${String(payload.inputId ?? "")} in ${String(payload.turnId ?? "")}`);
+    } else if (question && mode !== "tools") {
+      lines.push(`[${event.sequence}] QUESTION ${actor}: ${questionLine(question)}`);
     } else if (type.startsWith("tool.call.") && mode !== "chat") {
       const body = type.endsWith("started") ? payload.input : type.endsWith("failed") ? payload.error : undefined;
       if (body !== undefined) lines.push(`[${event.sequence}] ${type.split(".").pop()} ${actor} ${String(payload.name ?? "")}: ${JSON.stringify(body).slice(0, 300)}`);

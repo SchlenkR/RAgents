@@ -103,7 +103,7 @@ test("managed mini-app frames relay editing and host shortcuts across both neste
       assert.equal(await editor.inputValue(), "before Dictated sentence. after");
       assert.equal((await state()).reads, before.reads + 1);
       assert.equal(await page.locator("#frame").evaluate((element) => element === document.activeElement), true, "Clipboard access restores focus to the run panel frame.");
-      assert.equal(await editor.evaluate((element) => element === document.activeElement), true, "Paste leaves the nested editor focused.");
+      assert.equal(await editor.evaluate((element) => element === document.activeElement && document.hasFocus()), true, "Paste leaves the nested editor focused.");
       await page.keyboard.press("Meta+z");
       assert.equal(await editor.inputValue(), "before selected after");
       await page.keyboard.press("Meta+Shift+z");
@@ -117,7 +117,7 @@ test("managed mini-app frames relay editing and host shortcuts across both neste
       assert.ok(editorHandle);
       const editorFrame = await editorHandle.ownerFrame();
       assert.ok(editorFrame);
-      await editorFrame.waitForFunction((element) => element === document.activeElement, editorHandle);
+      await editorFrame.waitForFunction((element) => element === document.activeElement && document.hasFocus(), editorHandle);
       await editorHandle.dispose();
       await page.keyboard.type("!");
       assert.equal(await editor.inputValue(), "before Dictated sentence. after!");

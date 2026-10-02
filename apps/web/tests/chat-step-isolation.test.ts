@@ -7,7 +7,7 @@ import { fileURLToPath } from "node:url";
 import { build } from "esbuild";
 import { chromium } from "playwright-core";
 
-test("chat detail switches isolate actors and runs while sharing a chat between surface and inspector", {
+test("chat detail levels start grouped and stay separate per run, actor, and display location", {
   skip: process.env.RAGENTS_BROWSER_TESTS !== "1", timeout: 120_000,
 }, async context => {
   await mkdir("/private/tmp/ragents-chat-tool-mode", { recursive: true });
@@ -79,26 +79,28 @@ createRoot(document.getElementById('root')).render(<QuasselHost><ChatStepsProvid
   const mode = async (name: string, label: string) => {
     await chat(name).getByRole("button", { name: `Step detail level: ${label}`, exact: true }).waitFor();
   };
-  for (const name of ["normal", "coordinator-surface", "implementer", "inspector", "other-run"]) await mode(name, "current");
-  await chat("implementer").getByRole("button", { name: "Step detail level: current", exact: true }).click();
-  await mode("implementer", "icons");
-  await mode("inspector", "icons");
-  await mode("normal", "current");
-  await mode("coordinator-surface", "current");
-  await mode("other-run", "current");
-  assert.equal(await chat("implementer").locator("[data-step=chip] > span").count(), 0);
-  await chat("implementer").getByRole("button", { name: "Step detail level: icons", exact: true }).click();
-  await mode("implementer", "compact");
-  assert.ok(await chat("implementer").locator("[data-step=chip] > span").count() > 0);
-  await chat("normal").getByRole("button", { name: "Step detail level: current", exact: true }).click();
-  await mode("coordinator-surface", "icons");
-  await mode("implementer", "compact");
-  await mode("other-run", "current");
+  const advance = (name: string, label: string) => chat(name).getByRole("button", { name: `Step detail level: ${label}`, exact: true }).click();
+  const steps = (name: string) => chat(name).locator("[data-step]").evaluateAll(elements => elements.map(element => element.getAttribute("data-step")));
+  const chats = ["normal", "coordinator-surface", "implementer", "inspector", "idle", "other-run"];
+  for (const name of chats) await mode(name, "grouped");
+  for (const name of chats) assert.deepEqual(await steps(name), ["group"], `${name} starts grouped; scope-wide entries are no choice of this chat`);
+  await advance("implementer", "grouped");
+  await mode("implementer", "single line");
+  assert.deepEqual(await steps("implementer"), ["line"]);
+  for (const name of ["normal", "coordinator-surface", "inspector", "idle", "other-run"]) await mode(name, "grouped");
+  assert.deepEqual(await steps("inspector"), ["group"], "The inspector of the same chat keeps its own level.");
+  await advance("inspector", "grouped");
+  await advance("inspector", "single line");
+  await mode("inspector", "everything");
+  assert.deepEqual(await steps("inspector"), ["detail"]);
+  await mode("implementer", "single line");
+  await advance("normal", "grouped");
+  await mode("normal", "single line");
+  for (const name of ["coordinator-surface", "idle", "other-run"]) await mode(name, "grouped");
   await page.reload();
-  await mode("normal", "icons");
-  await mode("coordinator-surface", "icons");
-  await mode("implementer", "compact");
-  await mode("inspector", "compact");
-  await mode("other-run", "current");
+  await mode("normal", "single line");
+  await mode("implementer", "single line");
+  await mode("inspector", "everything");
+  for (const name of ["coordinator-surface", "idle", "other-run"]) await mode(name, "grouped");
   assert.deepEqual(errors, []);
 });

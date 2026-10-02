@@ -34,7 +34,7 @@ const setupAsk = () => {
   };
   const inputCount = () => setup.runtime.view(setup.view.id).inputs.length;
   const inputsSince = (count: number) => setup.runtime.view(setup.view.id).inputs.slice(count);
-  return { ...setup, service, ask, turn, finishTurn, question, inputCount, inputsSince };
+  return { ...setup, service, tool, ask, turn, finishTurn, question, inputCount, inputsSince };
 };
 
 const enqueueUnderOwner = (setup: ReturnType<typeof setupAsk>, commandId: string, input: { actorId?: string; origin?: "human" } = {}) =>
@@ -44,10 +44,11 @@ const enqueueUnderOwner = (setup: ReturnType<typeof setupAsk>, commandId: string
     ...(input.origin ? { origin: input.origin } : {}),
   });
 
-test("ask_user shows a generic action with its own payload and returns at once", () => {
+test("ask_user shows a generic action with its own payload, returns at once and ends the turn", () => {
   const setup = setupAsk();
   try {
     assert.equal(setup.ask("question"), QUESTION_POSED);
+    assert.equal(setup.tool.endsTurn?.(QUESTION_POSED), true);
     const action = setup.question();
     assert.equal(action.owner, ASK_PLUGIN_ID);
     assert.equal(action.askedBy, setup.agent.id);
@@ -94,6 +95,7 @@ test("a dismissal reaches the asker as an input, the service does not know a for
     setup.service.answer(setup.view.id, setup.question().id, { dismiss: true });
     await settled();
     assert.equal(setup.question().status, "dismissed");
+    assert.equal(setup.question().result, null, "a dismissal by the user carries no result");
     assert.deepEqual(setup.inputsSince(before).map((input) => input.content),
       ["Answer to your question: Which next step?\nAnswer: The user dismissed the question."]);
   } finally {
@@ -163,11 +165,12 @@ test("answering one of several questions leaves the others open", async () => {
   }
 });
 
-test("a person's message that waits before the question means the question is not asked", () => {
+test("a person's message that waits before the question means the question is not asked and the turn goes on", () => {
   const setup = setupAsk();
   try {
     enqueueUnderOwner(setup, "message", { origin: "human" });
     assert.equal(setup.ask("question"), SUPERSEDED_ANSWER);
+    assert.equal(setup.tool.endsTurn?.(SUPERSEDED_ANSWER), false);
     assert.deepEqual(setup.runtime.view(setup.view.id).actions, []);
   } finally {
     setup.journal.close();

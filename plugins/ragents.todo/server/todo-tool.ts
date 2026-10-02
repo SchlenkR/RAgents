@@ -46,13 +46,14 @@ export const createTodoTool = (): RunFunction =>
     schema: Type.Object({
       todos: Type.Array(
         Type.Object({
-          id: Type.String({ minLength: 1 }),
-          text: Type.String({ minLength: 1 }),
+          id: Type.String({ minLength: 1, description: "ID of the item, unique within the list" }),
+          text: Type.String({ minLength: 1, description: "Short text of the item as the user sees it" }),
           status: Type.Union(TODO_STATUS_INPUTS.map((value) => Type.Literal(value)), {
             description: "open = not started, active = in progress, completed = done; "
               + "pending, in_progress and done are accepted as well",
           }),
         }),
+        { description: "The complete list in order; it replaces the previous snapshot, so unchanged items are sent again" },
       ),
     }),
     resultSchema: Type.Null(),

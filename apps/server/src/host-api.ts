@@ -1,5 +1,5 @@
 /** The number of the host API a plugin is built against; it changes with every incompatible change of a list, a listed name or a library. */
-export const HOST_API_VERSION = 10;
+export const HOST_API_VERSION = 11;
 
 /** A library the host shares whole, as its installed version exports it; host code instead names each value it offers. */
 export const LIBRARY = "library";

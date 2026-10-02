@@ -69,8 +69,11 @@ run: 7f3c1e64-9a2b-4d11-8c30-1f5e9a77c001
 ```
 
 The last line is always `run: <id>` - `send`, `journal`, and `stop` continue with it.
+If the agent needs a decision, the turn ends with a question line
+`? <question> Options: "<option>", ... - answer with: ragents send <id> "<answer>"`; answer it
+with that `send`, as text that names your choice.
 `--json` returns the same steps as JSON instead of the lines, one per line (`tool`, `tool-end`,
-`output`, finally `turn`).
+`question`, `output`, finally `turn`).
 Exit code: `0` the turn is finished, `2` it was cancelled, `1` it failed or the
 connection to the host is gone; then the command names the cause instead of waiting, and the turn may
 keep running on the server; `journal` shows its state. An exit code `0` means that the turn ended cleanly, not that the

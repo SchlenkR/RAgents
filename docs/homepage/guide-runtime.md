@@ -34,8 +34,9 @@ The scheduler processes at most one turn per actor:
 Inputs that arrive while an agent's turn runs join that turn as steering. Before each model
 request, the turn takes all waiting inputs of its actor in journal order and hands them to the
 model after the results of the tool calls that were running; a running tool call is neither
-aborted nor cut short. If the model has just given its final answer, a joined input starts
-another model request in the same turn. The journal records each joined input with
+aborted nor cut short. If the model has just given its final answer, or a function result has
+ended the turn (such as a question to the user), a joined input starts another model request in
+the same turn. The journal records each joined input with
 `turn.input-steered`, and the chat marks the message as fed into the running turn. An input that
 arrives after the last model request of the turn, or after the turn was interrupted, starts the
 actor's next turn instead. TypeScript actors have no model and take no steering; their inputs
@@ -113,6 +114,11 @@ in effect.
   never stopped halfway. The journal names the actor that called `actor_stop` as the one who
   stopped them. `ragents.ask` withdraws the open `ask_user` questions of the stopped actors. Run
   data and the run's plugin data remain.
+- `actor_restart`: Makes a stopped actor of the caller's branch idle again under the same
+  capability `execution.stopOwned`; history, state, and model context stay as they were, and it
+  accepts inputs again. Subscriptions removed by the stop stay removed. The button "Restart"
+  (`ragents.runs.restartActor`, in the owner's name) and the actor-program plugin, when it starts a
+  run script again or activates or ensures a package whose actor is stopped, use the same restart.
 - Run stop: The scheduler temporarily accepts no new work for this run; concurrent stop calls
   are handled together. The primary actor remains, but its running work is interrupted. All
   other agents and TypeScript actors in the user's ownership tree are stopped. Agent runtimes

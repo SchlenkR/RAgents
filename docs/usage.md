@@ -802,9 +802,13 @@ personal token.
 
 stdout contains function calls (`> <name>`, then `< <name> <duration>s ok`, `error`, or
 `cancelled`) as far as the server shows them to the user (`runs.inspect`), the model response,
-and finally the fixed line `run: <id>`. Messages from the command itself go to stderr. With
-`--json`, the same steps are emitted as newline-delimited JSON instead (`tool`, `tool-end`,
-`output`, and finally `turn`, carrying the objects of the run view). Exit code 0 means the turn
+and finally the fixed line `run: <id>`. A question the agent asks in the turn appears as
+`? <question> Options: "<option>", ... - answer with: ragents send <runId> "<answer>"`; the turn
+ends with the question, and the message from `send` closes it and reaches the agent as its next
+input. `journal` shows such a question as a `QUESTION` line. Messages from the command itself go
+to stderr. With `--json`, the same steps are emitted as newline-delimited JSON instead (`tool`,
+`tool-end`, `question` with `id`, `question`, `options`, and `multi`, `output`, and finally `turn`,
+the others carrying the objects of the run view). Exit code 0 means the turn
 completed; 2 means it was interrupted; 1 means a failed turn or connection problem. If the event
 stream or a request breaks while the command waits, it fails with the cause instead of hanging;
 the turn may continue on the server.

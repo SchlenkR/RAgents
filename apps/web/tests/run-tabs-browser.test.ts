@@ -21,7 +21,7 @@ test("browser tabs preserve drafts and mounted app identity through selection an
   await writeFile(join(directory, "index.html"), '<!doctype html><html><head><link rel="stylesheet" href="fixture.css"></head><body><div id="root" style="height:700px;display:flex"></div><script src="fixture.js"></script></body></html>');
   const browser = await chromium.launch({ headless: true, executablePath: process.env.BROWSER_EXECUTABLE_PATH ?? "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome" });
   context.after(() => browser.close());
-  const page = await browser.newPage();
+  const page = await browser.newPage({ viewport: { width: 900, height: 800 } });
   const errors: string[] = [];
   page.on("pageerror", (error) => errors.push(error.message));
   await page.goto(pathToFileURL(join(directory, "index.html")).href);

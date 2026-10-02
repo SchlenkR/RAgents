@@ -7,8 +7,11 @@ import type { Orchestration } from "../runtime/orchestration.ts";
 
 export const actorInputSchema = Type.Object({
     actor: Type.String({ minLength: 1, description: "Actor ID or handle" }),
-    content: Type.String({ minLength: 1 }),
-    artifactIds: Type.Optional(Type.Array(Type.String({ minLength: 1 }), { uniqueItems: true })),
+    content: Type.String({ minLength: 1, description: "Message text the actor receives as it is, without the sender's context" }),
+    artifactIds: Type.Optional(Type.Array(Type.String({ minLength: 1 }), {
+        uniqueItems: true,
+        description: "Artifacts to attach; the sender must be able to read them, and the recipient may read them afterwards",
+    })),
 }, { additionalProperties: false });
 
 type KeysOf<Value> = Value extends unknown ? keyof Value : never;

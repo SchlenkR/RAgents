@@ -193,7 +193,7 @@ export function ActorViewFrame({
   ) => {
     if (generation !== bridgeGenerationRef.current || port !== portRef.current) return;
     if (relayFrameInput(window, value, (message) => {
-      if (generation === bridgeGenerationRef.current && port === portRef.current) port.postMessage(message);
+      if (generation === bridgeGenerationRef.current && port === portRef.current) iframeRef.current?.contentWindow?.postMessage(message, "*");
     })) return;
     const message = value as { type?: unknown; version?: unknown } | null;
     if (message?.type === RUN_APP_CONNECTED && message.version === RUN_APP_BRIDGE_VERSION) {

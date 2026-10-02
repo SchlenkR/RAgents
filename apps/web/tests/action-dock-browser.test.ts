@@ -111,7 +111,7 @@ test("the run panel keeps questions at the selected addressee input and retains 
     await active().locator("textarea").fill("Coordinator draft");
     await page.getByRole("tab", { name: "Stage", exact: true }).click();
     await page.getByRole("button", { name: "Operate mini-app" }).waitFor();
-    assert.equal(await chat.isVisible(), false);
+    assert.equal(await chat.isVisible(), width >= 1000, "A narrow workspace shows the app as a tab instead of chat, a wide one keeps chat beside it.");
     await page.getByRole("textbox", { name: "App draft" }).fill("App input");
     await page.getByRole("tab", { name: "Chat", exact: true }).click();
     assert.equal(await active().locator("textarea").inputValue(), "Coordinator draft");

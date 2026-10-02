@@ -1,4 +1,4 @@
-import { isClipboardRunPanelMessage, type ClipboardContent } from "./host-contract";
+import { isClipboardRunPanelMessage, type ClipboardContent, type RunPanelClipboardMessage } from "./host-contract";
 
 type EditingAction = "paste" | "copy" | "cut";
 
@@ -15,8 +15,8 @@ const actionOf = (event: KeyboardEvent): EditingAction | undefined => {
 const isEditable = (element: Element | null): element is HTMLElement =>
   element !== null && (element.tagName === "INPUT" || element.tagName === "TEXTAREA" || (element as HTMLElement).isContentEditable === true);
 
-/** VS Code's shell reads the clipboard for the cross-origin run panel. */
-export function createClipboardReader(browser: Window) {
+/** The parent reads the clipboard on request; its answer always arrives as a message from the parent window. */
+export function createClipboardReader(browser: Window, request: (message: RunPanelClipboardMessage) => void = (message) => browser.parent.postMessage(message, "*")) {
   const parent = browser.parent;
   const pending = new Map<string, (content: ClipboardContent) => void>();
 
@@ -31,7 +31,7 @@ export function createClipboardReader(browser: Window) {
   const read = () => new Promise<ClipboardContent>((resolve) => {
     const id = crypto.randomUUID();
     pending.set(id, resolve);
-    parent.postMessage({ type: "clipboardRead", id }, "*");
+    request({ type: "clipboardRead", id });
   });
 
   browser.addEventListener("message", onMessage);

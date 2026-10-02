@@ -95,7 +95,7 @@ test("an explicit native tool uses the same function implementation and journal 
     try {
         const toolset = await toolsetFor(setup, hostWith(sum(true)));
         assert.deepEqual(toolset.tools.map((entry) => entry.name), ["sum"]);
-        assert.deepEqual(await toolset.invoke("shared-call", "sum", { left: 4, right: 5 }), { output: 9, ignoredFields: [] });
+        assert.deepEqual(await toolset.invoke("shared-call", "sum", { left: 4, right: 5 }), { output: 9, ignoredFields: [], endsTurn: false });
         assert.equal(await toolset.invokeFunction("shared-call", "sum", { left: 4, right: 5 }), 9);
         const completed = setup.runtime.events(setup.view.id).filter((entry) => entry.type === "tool.call.completed");
         assert.equal(completed.length, 1);
@@ -128,11 +128,11 @@ test("a native call drops unknown root fields, a function call and nested unknow
     const setup = setupRun({ grants: allGrants(), toolNames: ["sum", "context", "nested"] });
     try {
         const toolset = await toolsetFor(setup, hostWith(sum(true), context, nested));
-        assert.deepEqual(await toolset.invoke("tolerated", "context", { previous: "[]", __unused: "{}" }), { output: "Context.", ignoredFields: ["previous", "__unused"] });
-        assert.deepEqual(await toolset.invoke("tolerated", "context", { previous: "[]", __unused: "{}" }), { output: "Context.", ignoredFields: ["previous", "__unused"] });
+        assert.deepEqual(await toolset.invoke("tolerated", "context", { previous: "[]", __unused: "{}" }), { output: "Context.", ignoredFields: ["previous", "__unused"], endsTurn: false });
+        assert.deepEqual(await toolset.invoke("tolerated", "context", { previous: "[]", __unused: "{}" }), { output: "Context.", ignoredFields: ["previous", "__unused"], endsTurn: false });
         const started = setup.runtime.events(setup.view.id).find((entry) => entry.type === "tool.call.started");
         assert.deepEqual(started?.type === "tool.call.started" ? { input: started.payload.input, ignoredFields: started.payload.ignoredFields } : null, { input: {}, ignoredFields: ["previous", "__unused"] });
-        assert.deepEqual(await toolset.invoke("kept", "sum", { left: 1, right: 2 }), { output: 3, ignoredFields: [] });
+        assert.deepEqual(await toolset.invoke("kept", "sum", { left: 1, right: 2 }), { output: 3, ignoredFields: [], endsTurn: false });
         await assert.rejects(toolset.invokeFunction("function-strict", "context", { previous: "[]" }), /Tool context takes no input: input has unknown field previous\. Fix the named fields/);
         await assert.rejects(toolset.invoke("missing", "sum", { left: 1, extra: true }), /Tool sum received input that does not match its schema: input has unknown field extra; input is missing required field right\./);
         await assert.rejects(toolset.invoke("nested", "nested", { options: { depth: 1, colour: "red" } }), /options has unknown field colour/);

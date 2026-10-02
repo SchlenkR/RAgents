@@ -4,9 +4,8 @@ Inbox for everything; the owner and the AI write here. One line per entry, newes
 
 ## Open
 
-- Non-blocking `ask_user` follow-ups (01.10.2026): the receipt of a withdrawn question still reads "The user dismissed the question."; `ragents run` prints `ask_user` without the question text although the turn now ends at once; the chat detail view shows it as a finished step; the turn ends only because the prompt says so, `packages/agent` has a `terminate` mechanism that is not passed on to run functions.
-- `ragents.watch` and open questions (01.10.2026): a watch does not wake a target that has an open question, so a coordinator waiting for an answer is not woken by watchers; decide whether that is intended.
-- Browser tests on the current tree (01.10.2026): `docking-browser` fails after "Reset layout" when a pinned Journal sidebar is narrowed with ArrowLeft (440 instead of 300 at the old default), and `run-panel-start-browser` fails on "The pop-out uses the available width up to 800 pixels"; both predate the 01.10.2026 tile and flyout changes.
+- `isolateWorkspace` (02.10.2026): the agent workspace field has no effect, both `Workspaces` implementations ignore `workspacePath`, yet the settings offer "Own agent workspace"; remove the field and the setting, or implement it.
+- CLI typecheck (02.10.2026): `scripts/agent` is in no typecheck; an ad hoc `tsc` run reports errors in `agent-cli.ts` (around line 539) and `agent-cli.test.ts` (around lines 114-119). Add the folder to a checked project and fix them.
 - Text roles everywhere (01.10.2026): Start, Runs, Server, their dialogs, the tiles, and the run header use `type-title` ... `type-caption`; the chat, settings, overview, inspection, and plugin web parts still carry about 200 ad-hoc `text-[...rem]` sizes. Move them over view by view and decide whether `SectionHeading` joins the plugin API.
 - .NET in `core` (01.10.2026): without `dotnet`, `ragents start core` stops with "Provisioning ended with code 1" because `ragents.lsp-roslyn` and `ragents.lsp-fsharp` report `missing` and `startProfile` (`scripts/remote/connect.ts`) treats every gap as fatal; on Linux the same happens for `ragents.browser` when Chromium's system libraries cannot be installed without sudo. Decide whether the two .NET language servers move from `core` to `developer`, or whether provisioning gets an explicit optional-tool status that warns and continues.
 - Standalone installer scopes (01.10.2026): `install.ps1` with `-Global`, `-Uninstall`, the registry `PATH` update with `WM_SETTINGCHANGE`, and the link preparation ran only through the parser and the macOS harness; `install.windows.test.ps1` covers them on the Windows runners of the next release build. Run both scopes once natively on Windows 11 (normal and elevated PowerShell) and check a new terminal's `PATH`.
@@ -15,7 +14,7 @@ Inbox for everything; the owner and the AI write here. One line per entry, newes
 - `actor_view_snapshot` (01.10.2026): works only on servers without sign-in; give the browser a scoped credential for the view's frame, and run the live check against a real Chrome (`RAGENTS_BROWSER_TESTS=1`) and a remote workstation. Then rerun the text-analysis showcase task with the small model and compare the number of tool calls (106 before).
 
 
-- Browser docking (01.10.2026): rerun `RAGENTS_BROWSER_TESTS=1 pnpm --filter @ragents/web test` outside the sandbox after the dock-label and nested-focus assertion fixes, including `action-dock-browser.test.ts`, `nested-input-browser.test.ts`, and `docking-browser.test.ts`; rerun the socket-dependent VS Code/homepage checks (`listen EPERM`) and three plugin watch checks (`EMFILE`) there.
+- Browser tests (02.10.2026): `vscode-zoom-browser` misses a click into the nested frame only under full-suite parallel load (green alone); check the browser header with an open run at 220 px (run title `min-w-40`); rerun the socket-dependent VS Code/homepage checks (`listen EPERM`) and three plugin watch checks (`EMFILE`) outside the sandbox.
 
 - Homepage: screenshots of the new shared browser surface and VS Code app tabs are still missing; capture them from neutral runs when requested.
 - Clipboard fixture: remove the obsolete app `placements` field in `apps/web/tests/nested-input-fixture.ts` in the session that owns the clipboard changes.
@@ -137,7 +136,6 @@ Inbox for everything; the owner and the AI write here. One line per entry, newes
 
 ## Ideas
 
-- Subscription with condition (01.10.2026): `event_subscribe` and `ragents.watch` overlap in purpose but not in mechanism (lossless events versus a derived state with a clock and a free condition). One family would add optional `condition`, `quietSeconds`, and `instruction` to the subscription and absorb `watch_*`; the baseline would be rebuilt by replay and the `observe` operation dropped. Medium effort in the engine; an external run script depends on the watch today.
 - Compaction plugin (27.09.2026): mask older tool results in the model context and fetch them back from the journal when needed. Starting points are `context.compacted` and the place in `AgentTurn` where the hooks' notes are attached to the projection today (`drivers/agent-turn.ts`); the projection itself stays pure.
 - Show an actor's model context in the UI (27.09.2026): the projection is now readable from the journal; a tab could show what the model actually sees, including compactions.
 

@@ -272,8 +272,10 @@ test("the run script button lists the run scripts of the open run as start items
   await script("Review").waitFor();
   assert.deepEqual(await list.getByRole("button").evaluateAll((tiles) => tiles.map((tile) => tile.getAttribute("data-tile"))), ["Review", "Strict review", "Setup template"],
     "Available scripts come first, unavailable ones after them, each in their listed order.");
+  const dialog = page.getByRole("dialog", { name: "Run script", exact: true });
+  await dialog.evaluate((element) => Promise.all(element.getAnimations().map((animation) => animation.finished)));
   const frame = await page.locator("header").filter({ has: button }).boundingBox();
-  const panel = await page.getByRole("dialog", { name: "Run script", exact: true }).boundingBox();
+  const panel = await dialog.boundingBox();
   assert.ok(frame && panel);
   assert.ok(Math.abs(panel.x + panel.width - (frame.x + frame.width - 8)) < 1, "The pop-out ends at the frame's right edge minus the gutter.");
   assert.ok(Math.abs(panel.width - Math.min(800, frame.width - 16)) < 1, "The pop-out uses the available width up to 800 pixels.");

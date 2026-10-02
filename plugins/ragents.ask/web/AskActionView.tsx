@@ -1,12 +1,17 @@
 import { useAccess } from "@ragents/web/AccessContext";
 import { useState } from "react";
 import type { ActionViewContext } from "@ragents/web/PluginRegistry";
-import { askPayloadOf, SUPERSEDED_ANSWER, supersedingInputOf } from "../ask-payload";
+import { askPayloadOf, isWithdrawn, SUPERSEDED_ANSWER, supersedingInputOf, WITHDRAWN_ANSWER } from "../ask-payload";
 import { answerQuestion } from "./api";
 import { QuestionCard } from "./QuestionCard";
 
 const answerTextOf = (result: unknown): string =>
   typeof result === "string" ? result : result === null || result === undefined ? "" : JSON.stringify(result);
+
+const closedTextOf = (result: unknown): string =>
+  supersedingInputOf(result) !== undefined ? SUPERSEDED_ANSWER
+  : isWithdrawn(result) ? WITHDRAWN_ANSWER
+  : "The user dismissed the question.";
 
 export function AskActionView({ action, session, text }: ActionViewContext) {
   const access = useAccess();
@@ -25,8 +30,7 @@ export function AskActionView({ action, session, text }: ActionViewContext) {
       <QuestionCard
         answer={action.status === undefined
           ? undefined
-          : action.status === "approved" ? answerTextOf(action.result)
-          : supersedingInputOf(action.result) !== undefined ? SUPERSEDED_ANSWER : "The user dismissed the question."}
+          : action.status === "approved" ? answerTextOf(action.result) : closedTextOf(action.result)}
         onAnswer={access.can("runs.write") ? answer : undefined}
         question={question}
         text={text}

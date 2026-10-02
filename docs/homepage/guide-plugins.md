@@ -226,6 +226,12 @@ functions, list results, and values passed from earlier responses without transc
 tools remain callable from snippets. The building-block reference marks them in the catalog and
 the system overview calls them direct tools.
 
+`endsTurn(output)` lets a native tool end the caller's turn with its result, as `ask_user` does
+after posing a question: when every call of a model step ends the turn this way, the model gets
+no further request in that turn unless an input already waits for it (`docs/spec/core.md`, Turns
+of an agent). An error result never ends the turn, and a call through `typescript_eval` does not
+either.
+
 The server registers `typescript_api` and `typescript_eval` as native foundation independent of
 plugins. Models use them to discover functions and execute TypeScript snippets. The optional
 actor-program plugin adds persistent programs and views; removing it does not remove snippets or

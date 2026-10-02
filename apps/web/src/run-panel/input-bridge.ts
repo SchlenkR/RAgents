@@ -1,6 +1,6 @@
 import { createClipboardReader, installClipboardBridge } from "./clipboard";
 import { installKeyboardBridge } from "./keyboard";
-import { isClipboardRunPanelMessage, isRunPanelClipboardMessage, isRunPanelKeyboardMessage, type ClipboardContent, type ClipboardRunPanelMessage, type RunPanelKeyboardMessage } from "./host-contract";
+import { isRunPanelClipboardMessage, isRunPanelKeyboardMessage, type ClipboardContent, type ClipboardRunPanelMessage, type RunPanelKeyboardMessage } from "./host-contract";
 
 export { keyboardMessage } from "./keyboard";
 export { isRunPanelKeyboardMessage } from "./host-contract";
@@ -37,6 +37,7 @@ export function installRunPanelInputBridge(browser: Window): () => void {
   return () => { dispose(); reader.dispose(); };
 }
 
+/** `reply` posts into the child frame's window, never through its port, so the reply arrives after the focus changes made before it. */
 export function relayFrameInput(browser: Window, value: unknown, reply: (message: ClipboardRunPanelMessage) => void): boolean {
   if (!value || typeof value !== "object" || !("type" in value) || value.type !== inputType) return false;
   if (!("version" in value) || value.version !== 1 || !("message" in value)) return true;
@@ -57,27 +58,11 @@ export function relayFrameInput(browser: Window, value: unknown, reply: (message
 }
 
 export function installFrameInputBridge(browser: Window, port: MessagePort): () => void {
-  const pending = new Map<string, (content: ClipboardContent) => void>();
-  const onMessage = ({ data }: MessageEvent) => {
-    if (!isClipboardRunPanelMessage(data)) return;
-    const settle = pending.get(data.id);
-    pending.delete(data.id);
-    settle?.({ text: data.text, files: data.files });
-  };
-  port.addEventListener("message", onMessage);
   const send = (message: unknown) => port.postMessage({ type: inputType, version: 1, message });
+  const reader = createClipboardReader(browser, send);
   const dispose = installInputTransport(browser, {
-    readClipboard: () => new Promise<ClipboardContent>((resolve) => {
-      const id = crypto.randomUUID();
-      pending.set(id, resolve);
-      send({ type: "clipboardRead", id });
-    }),
+    readClipboard: reader.read,
     keyboard: (message) => { if (message.event.key !== "Escape" || message.event.type === "keyup") send(message); },
   });
-  return () => {
-    dispose();
-    port.removeEventListener("message", onMessage);
-    pending.forEach((settle) => settle({ text: "", files: [] }));
-    pending.clear();
-  };
+  return () => { dispose(); reader.dispose(); };
 }

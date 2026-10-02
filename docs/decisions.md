@@ -1,5 +1,90 @@
 # Decisions
 
+## 2026-10-02: Clipboard replies reach nested frames through their window; host API 11
+
+Chapters: `spec/plugins.md` (VS Code host: hosted mini-app frames, clipboard relay);
+`apps/server/src/host-api.ts`.
+
+**Why.** The nested-input browser test lost editor focus after a paste in about two of three runs.
+The shell and the run panel move focus while reading the clipboard; Chromium forwards these
+changes to the mini-app process through the browser process, while the reply travelled over the
+frame's MessagePort, which can overtake them. The requesting frame restored its input, and the late
+focus update then cleared it (active element `BODY`, document without focus).
+
+**Decision.** Each relay posts the `clipboardContent` reply into the requesting frame's window;
+requests and keyboard events still use the token-checked port. Window messages arrive after the
+sender's earlier focus changes, so the restored focus stays. `createClipboardReader` takes the
+request transport, and the frame bridge reuses it. The regression test also requires
+`document.hasFocus()`. Because `relayFrameInput` keeps its name but its `reply` must now post into
+the child's window, `HOST_API_VERSION` rises to 11; plugin bundles are rebuilt against it.
+
+## 2026-10-02: Docking guides win over a hover flyout; narrow headers; browser tests follow the spec
+
+Chapters: `spec/plugins.md` (sidebar rail drop targets; run list notice).
+
+**Why.** While a hover flyout is visible during a drag it covers part of the workspace: always the
+right edge guide, and with the 630-pixel default also the compass of the area. `dockHitTest`
+checked the rail and sidebar zone first, so dropping on a visible guide returned the tool to the
+rail. Several browser tests had not followed earlier spec changes and failed on every run.
+
+**Decision.** Guides now take precedence; the rest of the flyout and the rail remain the return
+target. The shared header's coordinator field may shrink to 40 instead of 120 pixels, so a
+220-pixel header no longer scrolls horizontally; from about 288 pixels on it is unchanged. The run
+list notice sentence describes the dot inside the state ring and its tooltip. Stale browser tests
+now derive sidebar widths from the default, measure the run script pop-out after its entrance
+animation, expect the automatic split from 1000 pixels, find the notice in the state title, use
+`data-tile` for Start tiles, expect chat detail levels that start `grouped` and stay separate per
+display, and use a fit-width frame narrower than the graph's 80-percent width.
+
+## 2026-10-02: The host ends the asker's turn after `ask_user`
+
+Chapters: `spec/core.md` (Scheduler and turns, Turns of an agent), `spec/plugins.md` (Provide
+functions, `ragents.ask`, Open limits), usage: `usage.md` (Control RAgents as an agent);
+`skills-for-agents/ragents/SKILL.md`.
+
+**Why.** Since `ask_user` stopped blocking, the turn ended only because the prompt told the model
+to stop: every question cost one more model request, and weak models wrote redundant text in it.
+
+**Decision.** A run function can end the caller's turn with its result (`RunFunction.endsTurn(output)`);
+the toolset reports it as `ToolInvocation.endsTurn`, and `AgentTurn` passes it to the agent loop
+as `terminate`. The turn ends only when every call of the model step sets it, and an error result
+never does, also not when a hook turns the result into an error. An input waiting at that point
+still joins as steering, as after a final answer; a later one starts the next turn. `ask_user`
+ends the turn only when it posed a question, not with `SUPERSEDED_ANSWER`; a call through
+`typescript_eval` does not end it. The host API is unchanged, because an optional field adds no
+value name. Withdrawn questions (asker or run stopped, run deleted, wait cancelled) now carry
+`{ withdrawn: true }` and read "The question was withdrawn." `ragents run` and `ragents send`
+print a posed question with its options and how to answer it, `ragents journal` prints a
+`QUESTION` line.
+
+## 2026-10-02: Every input field described; `actor_restart` specified; subscription versus watch
+
+Chapters: `spec/core.md` (Interrupting a turn, stopping an actor, stopping a run), `spec/plugins.md`
+(Watchers with a wake condition).
+
+**Why.** Many functions that models read through `typescript_api` had input fields without a
+description; misleading or bare parameters made models misuse tools. `actor_restart` described
+itself with an implementation remark, `event_subscribe` and `watch_create` gave no hint when to use
+which, and since `ask_user` no longer holds the turn it was open whether a watch loses wakes for a
+target with an open question.
+
+**Decision.** Every input field of the engine and plugin functions now has a description, checked
+by composing the engine and the showcase profile; result fields stay as they are. `actor_restart`
+stays (operator button, actor program plugin, and run scripts use the same restart) and is
+specified next to `actor_stop`: it makes a stopped actor of the caller's branch idle with history
+and state unchanged. Subscription and watch stay separate: a subscription delivers every matching
+event as its own input, a watch wakes once a derived state meets a condition; both descriptions
+say so. A watch holds back wakes while its target has a pending question it asked, like during a
+running turn; the held-back check is no evaluation, so the target is woken with the accumulated
+changes once it is free. New tests cover the tool and the watch service. `browser_check` rejects
+`count` together with `text` instead of ignoring `text`.
+
+## Open installation layout (02.10.2026)
+
+Chapter: `spec/overview.md`. The installation area uses underlined tabs and open command rows.
+Removing the outer card and terminal frames reduces visual nesting; spacing and fine separators
+keep the method, command, and copy action distinct. Installation choices and commands are unchanged.
+
 ## 2026-10-01: `ask_user` no longer holds the asker's turn
 
 Chapters: `spec/plugins.md` (Web as plugin host: questions of `ragents.ask`; Open limits),

@@ -1,6 +1,6 @@
 import { Type, type Static, type TSchema } from "typebox";
 
-import { thinkingLevels } from "../domain/driver.ts";
+import { agentDriverKinds, thinkingLevels } from "../domain/driver.ts";
 import type { JsonValue } from "../domain/json.ts";
 import {
     actorDescriptionMaxLength,
@@ -17,7 +17,6 @@ import { actorInputSchema, enqueueActorInput, eventResultSchemaOf } from "./acto
 import { resolveExecution, type ModelCatalog } from "./catalog.ts";
 import {
     capabilitySchema,
-    driverKindSchema,
     grantSchema,
     literalUnion,
 } from "./schemas.ts";
@@ -86,6 +85,8 @@ export type RunFunction = {
     available: ToolAvailability;
     run: (scope: ToolScope, toolCallId: string, input: never) => JsonValue | Promise<JsonValue>;
     recordOutput?: (output: JsonValue) => JsonValue;
+    /** Whether this output ends the caller's turn when the model called the function as a native tool. */
+    endsTurn?: (output: JsonValue) => boolean;
     executionMode?: ToolExecutionMode;
     nativeTool?: boolean;
 };
@@ -104,6 +105,7 @@ export const defineRunFunction = <Schema extends TSchema, ResultSchema extends T
         input: Static<Schema>,
     ) => (Static<ResultSchema> & JsonValue) | Promise<Static<ResultSchema> & JsonValue>;
     recordOutput?: (output: Static<ResultSchema> & JsonValue) => JsonValue;
+    endsTurn?: (output: Static<ResultSchema> & JsonValue) => boolean;
     executionMode?: ToolExecutionMode;
     nativeTool?: boolean;
 }): RunFunction => definition as unknown as RunFunction;
@@ -252,12 +254,14 @@ const modelListResultSchema = Type.Object({
     }, { additionalProperties: false })),
 }, { additionalProperties: false });
 
+const driverKindOf = (description: string) => Type.Union(agentDriverKinds.map((kind) => Type.Literal(kind)), { description });
+
 const executionSchema = {
     profile: Type.Optional(Type.String({
         minLength: 1,
         description: "Execution profile from model_list. Normally supply this field: an LLM agent needs a model-bearing profile or an explicit model. The caller's model is not inherited.",
     })),
-    driver: Type.Optional(driverKindSchema),
+    driver: Type.Optional(driverKindOf("Normally omitted: the profile's driver, otherwise agent, which runs a model; manual and script need no model.")),
     provider: Type.Optional(Type.String({
         minLength: 1,
         description: "Provider from model_list for an explicit model selection; may be omitted when the profile or an unambiguous catalog entry supplies it.",
@@ -266,9 +270,16 @@ const executionSchema = {
         minLength: 1,
         description: "Model from model_list. Required for an LLM agent unless profile supplies a model; also overrides the profile's model.",
     })),
-    thinking: Type.Optional(Type.Union(thinkingLevels.map((level) => Type.Literal(level)))),
-    turnTimeoutMs: Type.Optional(Type.Integer({ minimum: 1_000 })),
-    isolateWorkspace: Type.Optional(Type.Boolean()),
+    thinking: Type.Optional(Type.Union(thinkingLevels.map((level) => Type.Literal(level)), {
+        description: "Reasoning level; must be one model_list names for the model, defaults to the profile's level.",
+    })),
+    turnTimeoutMs: Type.Optional(Type.Integer({
+        minimum: 1_000,
+        description: "Milliseconds after which a turn of the agent is aborted; defaults to the profile's limit, otherwise none.",
+    })),
+    isolateWorkspace: Type.Optional(Type.Boolean({
+        description: "Currently without effect: every actor of a run works in the run's shared workspace.",
+    })),
 };
 
 const handleLabelOf = (view: RunView, actorId: string) => {
@@ -360,12 +371,16 @@ export const agentTools: RunFunction[] = [
         name: "event_subscribe",
         label: "Subscribe to Events",
         description: "Subscribe this actor to run events delivered as later ActorInputs.",
-        longDescription: "Source actors may be named by id or handle. Matching observable events arrive as new ActorInputs for this actor.",
+        longDescription: "Source actors may be named by id or handle. Every matching observable event arrives without loss as its own new ActorInput for this actor. "
+            + "Use it when each event matters; to be woken only once a derived state meets a condition, use a watch where one is offered.",
         schema: Type.Object({
-            sourceActorIds: Type.Optional(Type.Array(Type.String({ minLength: 1 }), { uniqueItems: true })),
-            sourceActorKinds: Type.Optional(Type.Array(actorKindSchema, { uniqueItems: true })),
-            eventTypes: Type.Array(observableEventTypeSchema, { minItems: 1, uniqueItems: true }),
-            includeSelf: Type.Optional(Type.Boolean()),
+            sourceActorIds: Type.Optional(Type.Array(Type.String({ minLength: 1 }), {
+                uniqueItems: true,
+                description: "Only events of these actors, as @handle or ID: a turn end counts for the turn's actor, a stop or restart for the stopped actor, any other event for its author; omitted, every actor",
+            })),
+            sourceActorKinds: Type.Optional(Type.Array(actorKindSchema, { uniqueItems: true, description: "Only events of actors of these kinds; omitted, every kind" })),
+            eventTypes: Type.Array(observableEventTypeSchema, { minItems: 1, uniqueItems: true, description: "Event types to deliver; only these observable types can be subscribed to" }),
+            includeSelf: Type.Optional(Type.Boolean({ description: "Also deliver events of this actor itself; defaults to false" })),
         }, { additionalProperties: false }),
         resultSchema: subscriptionCreatedSchema,
         available: needs("event.subscribe"),
@@ -392,7 +407,7 @@ export const agentTools: RunFunction[] = [
         description: "Remove one event subscription owned by this actor.",
         schema: Type.Object({
             subscriptionId: Type.String({ minLength: 1, description: "subscriptionId from event_subscribe or event_subscription_list" }),
-            reason: Type.String({ minLength: 1 }),
+            reason: Type.String({ minLength: 1, description: "Why the subscription ends; recorded in the journal, and its deliveries that still wait are discarded" }),
         }, { additionalProperties: false }),
         resultSchema: acknowledgementSchema,
         available: needs("event.subscribe"),
@@ -422,15 +437,18 @@ export const agentTools: RunFunction[] = [
         label: "Query Events",
         description: "Read journal events in this run, optionally filtered by event ID, actor or event type.",
         schema: Type.Object({
-            eventIds: Type.Optional(Type.Array(Type.String({ minLength: 1 }), { uniqueItems: true })),
-            actorIds: Type.Optional(Type.Array(Type.String({ minLength: 1 }), { uniqueItems: true })),
+            eventIds: Type.Optional(Type.Array(Type.String({ minLength: 1 }), { uniqueItems: true, description: "Only events with these event IDs" })),
+            actorIds: Type.Optional(Type.Array(Type.String({ minLength: 1 }), {
+                uniqueItems: true,
+                description: "Only events written in the name of these actors, as @handle or ID",
+            })),
             eventTypes: Type.Optional(Type.Array(Type.String({ minLength: 1 }), {
                 uniqueItems: true,
                 description:
                     "Every journal event type can be queried. Only the observable types can be subscribed to; "
                     + "event_subscribe shows them.",
             })),
-            limit: Type.Optional(Type.Integer({ minimum: 1, maximum: 500 })),
+            limit: Type.Optional(Type.Integer({ minimum: 1, maximum: 500, description: "Return only the latest matching events, at most this many; defaults to 100" })),
         }, { additionalProperties: false }),
         resultSchema: Type.Array(eventSchema),
         available: needs("event.subscribe"),
@@ -452,8 +470,11 @@ export const agentTools: RunFunction[] = [
     tool({
         name: "artifact_read",
         label: "Read Artifact",
-        description: "Read an artifact created by this actor or attached to one of its inputs. The run owner may read every artifact.",
-        schema: Type.Object({ artifactId: Type.String({ minLength: 1 }) }, { additionalProperties: false }),
+        description: "Read the content and metadata of an artifact that this actor published or received attached to one of its inputs.",
+        longDescription: "The run owner may read every artifact. Text, JSON and XML media types come back as UTF-8 text, all others as base64.",
+        schema: Type.Object({
+            artifactId: Type.String({ minLength: 1, description: "ID of the artifact, as artifact_publish returns it" }),
+        }, { additionalProperties: false }),
         resultSchema: artifactReadResultSchema,
         available: always,
         run: ({ runtime, caller }, _toolCallId, input) => {
@@ -486,7 +507,9 @@ export const agentTools: RunFunction[] = [
         name: "model_list",
         label: "List Models and Profiles",
         description: "List the execution profiles and provider models available for agent_spawn.",
-        schema: Type.Object({ driver: Type.Optional(driverKindSchema) }, { additionalProperties: false }),
+        schema: Type.Object({
+            driver: Type.Optional(driverKindOf("Lists only the models of this driver; it does not filter the profiles, which are always listed in full")),
+        }, { additionalProperties: false }),
         resultSchema: modelListResultSchema,
         available: needs("agent.spawn"),
         run: async ({ catalog }, _toolCallId, input) => {
@@ -511,13 +534,13 @@ export const agentTools: RunFunction[] = [
             + "drivers without plain-LLM isolation are rejected. "
             + "forkOf gives the new agent an unchanged copy of the model context of an existing LLM agent of this run, up to the end of that agent's last finished turn; nothing of its running turn is copied, and a source without a finished turn is rejected. The new agent still gets its own prompt, tools and model, and its first input follows the copy.",
         schema: Type.Object({
-            handle: Type.String({ minLength: 1 }),
+            handle: Type.String({ minLength: 1, description: "Name for @handle addressing: letters, digits, dot, dash and underscore; a taken handle gets a numeric suffix" }),
             displayName: Type.Optional(Type.String({ minLength: 1, description: "Display name; defaults to the handle" })),
             description: Type.Optional(Type.String({ minLength: 1, maxLength: actorDescriptionMaxLength, description: "Very short description of the task for the participants overview, a few words like \"checks the rule on comments\"" })),
-            prompt: Type.String(),
+            prompt: Type.String({ description: "The agent's own instructions in its system prompt, such as role and working rules; send the task afterwards with actor_input" }),
             forkOf: Type.Optional(Type.String({ minLength: 1, description: "Handle or ID of an LLM agent of this run whose model context up to the end of its last finished turn is copied into the new agent" })),
             tools: Type.Union([Type.Array(Type.String({ minLength: 1 }), { uniqueItems: true }), Type.Null()], { description: "Required explicit selection: [] for plain text-only work including app-mediated conversations; an array for exact existing tool names; null only when the task needs an open, dynamically resolved toolset. Never inherits the caller's tools. Names of future, not yet activated actor functions are invalid; choose null when those must become available later." }),
-            withoutCapabilities: Type.Optional(Type.Array(capabilitySchema, { uniqueItems: true })),
+            withoutCapabilities: Type.Optional(Type.Array(capabilitySchema, { uniqueItems: true, description: "Capabilities the new agent does not inherit; otherwise it gets every delegable capability of this actor" })),
             ...executionSchema,
         }, { additionalProperties: false }),
         resultSchema: actorReferenceSchema,
@@ -600,10 +623,11 @@ export const agentTools: RunFunction[] = [
     tool({
         name: "actor_restart",
         label: "Restart Actor",
-        description: "Restart a stopped actor in this actor's branch. It resumes with its full history; the LLM is stateless.",
+        description: "Restart a stopped actor in this actor's branch. It becomes idle with its history and state unchanged and accepts inputs again.",
+        longDescription: "An actor that is not stopped is refused. A stopped former primary actor becomes the primary actor again if no other was chosen in the meantime and this actor holds run.configure. Event subscriptions removed by the stop stay removed.",
         schema: Type.Object({
-            actorId: Type.String({ minLength: 1, description: "Handle or ID" }),
-            reason: Type.String({ minLength: 1 }),
+            actorId: Type.String({ minLength: 1, description: "Handle or ID of the stopped actor" }),
+            reason: Type.String({ minLength: 1, description: "Why it restarts; recorded in the journal" }),
         }, { additionalProperties: false }),
         resultSchema: eventResultSchemaOf("actor.restarted", "run.primary-actor-selected"),
         available: needs("execution.stopOwned"),
@@ -624,7 +648,7 @@ export const agentTools: RunFunction[] = [
         description: "Stop an actor in this actor's branch together with its active descendants.",
         schema: Type.Object({
             actorId: Type.String({ minLength: 1, description: "Handle or ID" }),
-            reason: Type.String({ minLength: 1 }),
+            reason: Type.String({ minLength: 1, description: "Why it stops; recorded in the journal and shown with the stopped actors" }),
         }, { additionalProperties: false }),
         resultSchema: eventResultSchemaOf("turn.interrupted", "actor.stopped", "subscription.removed"),
         available: needs("execution.stopOwned"),
@@ -644,12 +668,13 @@ export const agentTools: RunFunction[] = [
     tool({
         name: "artifact_publish",
         label: "Publish Artifact",
-        description: "Publish immutable text content to the run artifact store.",
+        description: "Publish text as a new immutable artifact of this run and return its ID.",
+        longDescription: "Another actor may read it once it is attached to an actor_input for that actor; the run owner may read every artifact. A change is a new artifact that names its predecessor.",
         schema: Type.Object({
-            title: Type.String({ minLength: 1 }),
-            mediaType: Type.String({ minLength: 1 }),
-            content: Type.String(),
-            previousVersionId: Type.Optional(Type.String({ minLength: 1 })),
+            title: Type.String({ minLength: 1, description: "Short name of the artifact, also its name as an attachment" }),
+            mediaType: Type.String({ minLength: 1, description: "Media type such as text/markdown or application/json; text, JSON and XML types are read back as text" }),
+            content: Type.String({ description: "Text content, stored as UTF-8" }),
+            previousVersionId: Type.Optional(Type.String({ minLength: 1, description: "ID of the earlier artifact this one succeeds as a new version; it stays unchanged and must be readable by this actor" })),
         }, { additionalProperties: false }),
         resultSchema: eventResultSchemaOf("artifact.published"),
         available: needs("artifact.publish"),

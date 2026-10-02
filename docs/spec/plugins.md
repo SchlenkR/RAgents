@@ -401,6 +401,12 @@ functions, list results, and values passed from earlier responses without transc
 tools remain callable from snippets. The building-block reference marks them in the catalog and
 the system overview calls them direct tools.
 
+`endsTurn(output)` lets a native tool end the caller's turn with its result, as `ask_user` does
+after posing a question: when every call of a model step ends the turn this way, the model gets
+no further request in that turn unless an input already waits for it (`docs/spec/core.md`, Turns
+of an agent). An error result never ends the turn, and a call through `typescript_eval` does not
+either.
+
 The server registers `typescript_api` and `typescript_eval` as native foundation independent of
 plugins. Models use them to discover functions and execute TypeScript snippets. The optional
 actor-program plugin adds persistent programs and views; removing it does not remove snippets or
@@ -1785,9 +1791,11 @@ waits for the send action and keeps the draft on errors. Questions without an an
 are shown as text with options.
 
 `ask_user` does not wait. Through `AskService.pose` it shows the question as an action and
-returns at once "Question shown to the user. End your turn now; the answer arrives as a new
-message." (`QUESTION_POSED`); the prompt chapter of the plugin tells the model to end its turn
-then. The question stays open after the turn; an actor can have several open questions, and a
+returns at once "Question shown to the user; the answer arrives as a new message."
+(`QUESTION_POSED`). This result ends the asker's turn (`endsTurn` of the function, `docs/spec/core.md`,
+Turns of an agent): no further model request follows unless an input already waits for the
+asker. Tool description and prompt chapter tell the model to call `ask_user` as the only tool of
+its response. The question stays open after the turn; an actor can have several open questions, and a
 new one leaves the earlier ones open. An answer or a dismissal by the user reaches the asker as a
 new ActorInput without `origin` ("Answer to your question: <question>" and the answer or "The user
 dismissed the question."); if the asker's turn is still running, the input enters it as steering.
@@ -1799,10 +1807,11 @@ start question of `ragents.lsp-roslyn` and the confirmations of the actor progra
 an answer nobody waits for anymore as ActorInput, and appears in the "asks" note; the question
 itself appears, like every action of the owner, in the run chat, not in another
 actor's chat. An action posed by the owner carries no name in front of it in the main chat.
-A technical cancellation of the waiting call closes the question in the journal as `dismissed`;
-the plugin derives neither a user answer nor a new ActorInput from it.
-`AskService.withdraw(runId, actionId)` discards an open question of the plugin: a waiting call
-receives the dismissal answer; an actor receives no input.
+A technical cancellation of the waiting call withdraws the question; the plugin derives neither a
+user answer nor a new ActorInput from it.
+`AskService.withdraw(runId, actionId)` withdraws an open question of the plugin: the journal closes
+it as `dismissed` with the result `{ withdrawn: true }`, a waiting call receives the dismissal
+answer, an actor receives no input, and the record in the chat shows "The question was withdrawn."
 
 A human's message closes the open questions its addressee asked for itself: as soon as an input
 with `origin: "human"` (`docs/spec/core.md`, Origin of an input) is enqueued for an actor, the
@@ -1815,8 +1824,8 @@ new message instead." (`SUPERSEDED_ANSWER`). Questions of the owner, inputs with
 messages to another actor leave a question open. In the chat, the record of a question closed
 this way shows this text instead of "The user dismissed the question." Stopping the asker
 (`actor.stopped`) and stopping or deleting the run (lifecycle `stopSession` and
-`afterStopSession`) withdraw the open questions agents asked for themselves as `dismissed`
-without an input; questions of the owner stay with their callers.
+`afterStopSession`) withdraw the open questions agents asked for themselves; questions of the
+owner stay with their callers.
 
 Every chat history reserves two normal text lines of free scroll space below the last contribution,
 at least the 40 pixels of the bottom fade zone. A visible input box
@@ -2010,8 +2019,9 @@ Today, Yesterday, and after that individual date headings. Older runs with new a
 therefore appear at the top again. The cards get a subtle colored header area.
 Blue with a running icon means running work of any actor of the run, including
 assigned workers; without active work the status reads Idle or Open, not Done.
-An additional violet marker says New activity when the journal revision is newer
-than the last viewed state. Without a personal read state it reads Not viewed.
+A dot inside the run's state ring replaces the state glyph when the journal revision is newer
+than the last viewed state, or when there is no personal read state; the state's tooltip and
+accessible name then add "new activity" or "not viewed yet", for example "Running, new activity".
 The browser keeps the read state per user and run; other users and devices receive no
 read receipt. Only a loaded run in the visible browser tab and without an overlying
 overview, Settings, Help, start dialog, or toolbar history updates it.
@@ -2241,7 +2251,8 @@ at the header and status bar edges. A pinned sidebar has `shadow-none`.
 Dragging a rail button or the sidebar header grip into the workspace docks a tool as a normal
 window and removes its rail button. Closing that window or dropping it on the highlighted
 rail/sidebar returns it to the rail, hidden. Its return-to-sidebar button instead opens it
-as a docked sidebar. Mixed document/tool groups
+as a docked sidebar. Compass and edge guides drawn over a hover flyout take precedence over it
+as drop targets. Mixed document/tool groups
 cannot be dropped on the rail. Visited tools keep their mounted instances across these moves.
 `SessionNavigation.openTab` selects an already docked tool in its area or opens it in the sidebar.
 
@@ -2400,12 +2411,16 @@ local editing keys therefore take precedence.
 
 Hosted mini-app frames use the same input handlers. The existing MessagePort connection,
 checked by frame token, transports keyboard events and clipboard requests
-up to the run panel; responses go back to the requesting frame. The VS Code root
+up to the run panel. Each relay posts the clipboard response into the requesting frame's
+window, not through the port: Chromium delivers window messages after the focus changes made
+before them, while a port message can overtake them, and such a late focus change from the shell
+or the run panel would clear the input the requesting frame has just restored. The VS Code root
 enables this capability, and further hosted frames pass it on. Without this enabling,
 native input is kept in the normal browser. The function does not depend on a
 particular chat building block but also applies to normal text fields in mini-apps.
-The nested clipboard browser regression waits for both editor and document focus with
-frame-local polling before typing, without refocusing the editor through a locator action.
+The nested clipboard browser regression checks editor and document focus right after the pasted
+text appears and, after an empty paste, waits for both with frame-local polling before typing,
+without refocusing the editor through a locator action.
 
 There is no longer an Explorer tree next to it: Start and
 Runs show the same servers, runs, and templates more flatly, and a second navigation tree would be
@@ -3678,6 +3693,13 @@ a turn is running. An empty change list, or one unchanged since the last evaluat
 is not evaluated again. On creation, the first state is stored silently as the
 baseline; `before` in the condition is always the state at the last wake-up.
 
+A pending action that the target asked itself, such as an open `ask_user` question, holds back
+its wakes like a running turn, although the question does not occupy a turn. A held-back check
+does not count as an evaluation, so no change is lost: the next journal event after the target is
+free again evaluates the accumulated changes without a further change of the source. Usually that
+is the end of the turn that processes the answer, or the resolution itself if it brings the
+target no input.
+
 If the condition returns a reason, the target receives an ActorInput with
 `presentation: "background"` in the owner's name: reason, changes since the last wake-up
 as flat lines (`path: old -> new`, `(new)`, `removed`), and the text from `instruction`. The
@@ -3824,9 +3846,9 @@ right) returns the archive; a different version is 404. The counterpart is `rage
   a workstation, the message size of 32 MiB limits how long a whole page may
   become.
 - Two runs on the same folder collide; that is the user's decision.
-- `ask_user` ends the asker's turn only through its result text and the prompt chapter: a model
-  that keeps calling tools after the question continues its turn. The record of a question
-  withdrawn because its asker or run was stopped reads like a dismissal by the user.
+- `ask_user` ends the asker's turn only when every call of its model step ends the turn: a model
+  that calls another tool in the same response, or calls `ask_user` through `typescript_eval`,
+  keeps its turn and may go on working before the answer arrives.
 - A registered stop for a workstation lives in the server's memory: if the server restarts
   before the workstation signs in again, whatever the run started there stays on the workstation
   until it is stopped again or the workstation signs out. On signing out

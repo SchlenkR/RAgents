@@ -358,6 +358,11 @@ form for calls that combine, filter, or pass results onward, including data quer
 functions, list results, and values passed from earlier responses without transcription. Native
 tools remain callable from snippets. The building-block reference marks them in the catalog and
 the system overview calls them direct tools.</p>
+<p><code>endsTurn(output)</code> lets a native tool end the caller&#39;s turn with its result, as <code>ask_user</code> does
+after posing a question: when every call of a model step ends the turn this way, the model gets
+no further request in that turn unless an input already waits for it (<code>docs/spec/core.md</code>, Turns
+of an agent). An error result never ends the turn, and a call through <code>typescript_eval</code> does not
+either.</p>
 <p>The server registers <code>typescript_api</code> and <code>typescript_eval</code> as native foundation independent of
 plugins. Models use them to discover functions and execute TypeScript snippets. The optional
 actor-program plugin adds persistent programs and views; removing it does not remove snippets or

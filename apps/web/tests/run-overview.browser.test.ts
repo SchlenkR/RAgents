@@ -13,7 +13,7 @@ function App(){const[user,setUser]=useState('alice');const[selectMode,setSelectM
   await writeFile(`${directory}/index.html`,'<!doctype html><html><head><meta charset="utf-8"><link rel="stylesheet" href="app.css"></head><body><div id="root"></div><script src="app.js"></script></body></html>');
   const browser=await chromium.launch({headless:true,executablePath:process.env.BROWSER_EXECUTABLE_PATH??"/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"});
   try{
-    const browserContext=await browser.newContext({viewport:{width:1200,height:900}});const page=await browserContext.newPage();const url=`file://${directory}/index.html`;const unread=()=>page.getByLabel(/^(New activity|Not viewed yet)$/);await page.goto(url);
+    const browserContext=await browser.newContext({viewport:{width:1200,height:900}});const page=await browserContext.newPage();const url=`file://${directory}/index.html`;const unread=()=>page.getByTitle(/, (new activity|not viewed yet)$/);await page.goto(url);
     await page.getByRole('heading',{name:'Runs',exact:true}).waitFor();assert.equal(await unread().count(),4);
     await page.getByRole('button',{name:'New draft'}).first().click();assert.deepEqual(await page.evaluate(()=>(window as any).fixture.calls),[{action:'openRun',name:'demo',runId:'new'}]);assert.equal(await unread().count(),4,'Selecting a list row alone is not proof of viewing loaded content.');
     await page.evaluate(()=>{const f=(window as any).fixture;f.markViewed('running',8);f.markViewed('new',3);f.markViewed('new',1)});

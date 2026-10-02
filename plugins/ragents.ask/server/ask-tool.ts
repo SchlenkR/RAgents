@@ -4,17 +4,17 @@ import { facesOperator } from "@ragents/host/plugin-support/tool-availability.js
 import { SUPERSEDED_ANSWER } from "../ask-payload.js";
 import type { AskService } from "./contract.js";
 
-/** What ask_user returns at once; the answer follows as a new input. */
-export const QUESTION_POSED = "Question shown to the user. End your turn now; the answer arrives as a new message.";
+/** What ask_user returns at once; the turn ends with it, and the answer follows as a new input. */
+export const QUESTION_POSED = "Question shown to the user; the answer arrives as a new message.";
 
 export const askToolMetadata = {
   name: "ask_user",
   label: "Question",
   nativeTool: true,
-  description: "Shows the user a question with answer options and returns at once; the answer arrives later as a new message.",
+  description: "Shows the user a question with answer options and ends your turn; the answer arrives later as a new message.",
   longDescription: "Always use this tool when you need a decision from the user "
     + "(e.g. choosing a branch or a time range), instead of only asking the question as text. "
-    + "After the call, end your turn and do not work on what the question decides; the answer arrives as a new message. "
+    + "Call it as the only tool of your response: your turn ends with the question, and the answer arrives as a new message. "
     + "With multi=true the user may choose several options; the answer is then joined with '; '. "
     + "Instead of choosing an option, the user can always answer freely - so expect "
     + "the answer to be arbitrary text. If the user writes a message instead, the question is closed and that message arrives.",
@@ -31,6 +31,7 @@ export const createAskTool = (service: AskService): RunFunction =>
     resultSchema: Type.String(),
     available: facesOperator,
     executionMode: "sequential",
+    endsTurn: (output) => output === QUESTION_POSED,
     run: (scope, toolCallId, input) => {
       const posed = service.pose(
         {

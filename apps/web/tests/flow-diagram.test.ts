@@ -178,7 +178,8 @@ createRoot(document.getElementById('root')).render(<App />);` },
   const fitMetrics = () => fitted.evaluate(element => ({width: element.clientWidth, height: element.clientHeight, cardWidth: element.querySelector(".react-flow__node")!.getBoundingClientRect().width, transform: element.querySelector('.react-flow__viewport')?.getAttribute('style')}));
   const wide = await fitMetrics();
   assert.ok(wide.height > 300, 'Graph supplies natural content height beyond outer scrolling area');
-  await page.evaluate(() => (window as any).diagramFixture.setFitWidth(320));
+  assert.equal(Math.round(wide.cardWidth), 192, 'A frame wider than the graph keeps 80 percent of design size');
+  await page.evaluate(() => (window as any).diagramFixture.setFitWidth(240));
   await page.waitForFunction(previous => document.querySelector('[aria-label="Automatic flow"]')!.clientHeight < previous, wide.height);
   const narrow = await fitMetrics();
   assert.ok(Math.abs(narrow.height / wide.height - narrow.cardWidth / wide.cardWidth) < 0.02, 'Natural graph height tracks available width');

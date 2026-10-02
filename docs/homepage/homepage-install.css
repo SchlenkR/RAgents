@@ -1,26 +1,25 @@
 .install-section { padding: 80px 0; }
 .install-heading { margin-bottom: 24px; }
-.install-card { overflow: hidden; border: 1px solid var(--track); border-radius: 16px; background: var(--deep); }
-.install-tabs { display: flex; gap: 8px; padding: 12px; border-bottom: 1px solid var(--track); }
-.install-tab { display: inline-flex; justify-content: center; align-items: center; gap: 9px; flex: 1; min-height: 48px; padding: 10px 16px; border: 1px solid transparent; border-radius: 9px; color: var(--muted); background: transparent; font: 600 15px/1.3 var(--font); cursor: pointer; }
+.install-tabs { display: flex; gap: 32px; border-bottom: 1px solid var(--track); }
+.install-tab { display: inline-flex; justify-content: center; align-items: center; gap: 9px; min-height: 48px; padding: 12px 0; margin-bottom: -1px; border: 0; border-bottom: 2px solid transparent; color: var(--muted); background: transparent; font: 600 15px/1.3 var(--font); cursor: pointer; }
 .install-tab svg { width: 19px; height: 19px; flex: none; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
-.install-tab:hover { color: var(--text); background: var(--hover); }
-.install-tab[aria-selected="true"] { color: var(--text); border-color: var(--track); background: var(--bg); }
-.install-panel { display: grid; grid-template-columns: minmax(0, 1fr); padding: 28px 36px; }
+.install-tab:hover { color: var(--text); }
+.install-tab[aria-selected="true"] { color: var(--accent); border-bottom-color: currentColor; }
+.install-panel { display: grid; grid-template-columns: minmax(0, 1fr); padding: 28px 0 0; }
 .install-panel[hidden], .install-os-panel[hidden] { display: none; }
 .install-detail { display: grid; gap: 14px; min-width: 0; }
 .install-marketplace { display: grid; gap: 14px; justify-items: start; }
 .install-detail .install-caption { color: var(--muted); font-size: 13px; }
-.install-command { min-width: 0; overflow: hidden; border: 1px solid var(--track); border-radius: 10px; background: var(--bg); }
-.install-command-head { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 9px 12px 9px 18px; border-bottom: 1px solid var(--track); color: var(--muted); font: 12px/1.4 var(--mono); }
-.install-copy { display: inline-flex; align-items: center; gap: 7px; min-height: 30px; padding: 5px 8px; border: 0; border-radius: 5px; background: transparent; color: var(--text); font: 500 12px/1.4 var(--font); cursor: pointer; }
-.install-copy:hover { background: var(--hover); }
+.install-command { min-width: 0; border-bottom: 1px solid var(--track); }
+.install-command-head { display: flex; align-items: center; justify-content: space-between; gap: 16px; min-height: 36px; color: var(--muted); font: 12px/1.4 var(--mono); }
+.install-copy { display: inline-flex; align-items: center; gap: 7px; min-height: 44px; padding: 6px 0 6px 12px; border: 0; background: transparent; color: var(--text); font: 500 12px/1.4 var(--font); cursor: pointer; }
+.install-copy:hover { color: var(--accent); }
 .install-copy svg { width: 14px; height: 14px; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
-.install-command pre { margin: 0; padding: 20px 18px; white-space: pre-wrap; overflow-wrap: anywhere; font: 13px/1.8 var(--mono); color: var(--text); }
+.install-command pre { margin: 0; padding: 8px 0 22px; white-space: pre-wrap; overflow-wrap: anywhere; font: 15px/1.8 var(--mono); color: var(--text); }
 .install-command code { font: inherit; }
-.install-os { display: flex; flex-wrap: wrap; gap: 6px; }
-.install-os button { min-height: 34px; padding: 6px 12px; border: 1px solid transparent; border-radius: 6px; color: var(--muted); background: transparent; font: 500 13px/1.3 var(--font); cursor: pointer; }
-.install-os button[aria-pressed="true"] { color: var(--text); background: var(--bg); border-color: var(--track); }
+.install-os { display: flex; flex-wrap: wrap; gap: 24px; }
+.install-os button { min-height: 44px; padding: 6px 0; border: 0; border-bottom: 1px solid transparent; color: var(--muted); background: transparent; font: 500 13px/1.3 var(--font); cursor: pointer; }
+.install-os button[aria-pressed="true"] { color: var(--text); border-bottom-color: currentColor; }
 .install-os button:hover { color: var(--text); }
 .install-os-panel { display: grid; gap: 12px; min-width: 0; }
 .install-download { font-size: 13px; color: var(--accent); }
@@ -28,12 +27,12 @@
 @media (max-width: 720px) {
   .install-section { padding: 56px 0; }
   .install-heading { margin-bottom: 24px; }
-  .install-tabs { gap: 4px; padding: 8px; }
-  .install-tab { gap: 6px; padding: 9px 7px; font-size: 13px; }
+  .install-tabs { gap: 18px; }
+  .install-tab { gap: 6px; flex: 1; font-size: 13px; white-space: nowrap; }
   .install-tab svg { width: 16px; height: 16px; }
-  .install-panel { padding: 24px; }
+  .install-command pre { font-size: 13px; }
 }
 @media (max-width: 380px) {
   .install-tab { flex-direction: column; }
-  .install-panel { padding: 20px; }
+  .install-tabs { gap: 12px; }
 }

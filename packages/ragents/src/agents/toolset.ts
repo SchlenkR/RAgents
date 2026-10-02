@@ -39,7 +39,7 @@ type ToolCallEvent = Extract<
     { type: "tool.call.started" | "tool.call.completed" | "tool.call.failed" }
 >;
 
-export type ToolInvocation = { output: JsonValue; ignoredFields: readonly string[] };
+export type ToolInvocation = { output: JsonValue; ignoredFields: readonly string[]; endsTurn: boolean };
 
 type ToleratedInput = { input: JsonValue; ignoredFields: readonly string[] };
 
@@ -183,7 +183,7 @@ export class TurnToolset {
         });
         const output = await this.#execute(toolCallId, prepared.tool, prepared.tolerated.input, prepared.tolerated.ignoredFields, modelContext);
 
-        return { output, ignoredFields: prepared.tolerated.ignoredFields };
+        return { output, ignoredFields: prepared.tolerated.ignoredFields, endsTurn: prepared.tool.endsTurn?.(output) === true };
     }
 
     async #beforeStart<T>(toolCallId: string, name: string, input: JsonValue, prepare: () => Promise<T>): Promise<T> {

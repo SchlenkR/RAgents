@@ -45,6 +45,26 @@ test("journalLines filters by mode and sequence", () => {
   assert.equal(journalLines(events, "all", 0).length, 8);
 });
 
+test("journalLines prints a question of ragents.ask with its options, other actions stay raw", () => {
+  const at = "2026-09-21T10:00:00.000Z";
+  const asked: readonly JournalEvent[] = [
+    { sequence: 1, type: "action.proposed", actorId: "agent_coordinator", occurredAt: at,
+      payload: { actionId: "action-1", owner: "ragents.ask", title: "Which branch?", payload: { question: "Which branch?\nPick one.", options: ["main", "release"], multi: false } } },
+    { sequence: 2, type: "action.proposed", actorId: "agent_coordinator", occurredAt: at,
+      payload: { actionId: "action-2", owner: "ragents.ask", title: "Which checks?", payload: { question: "Which checks?", options: ["lint", "tests"], multi: true } } },
+    { sequence: 3, type: "action.proposed", actorId: "agent_coordinator", occurredAt: at, payload: { actionId: "action-3", owner: "demo.review", title: "Approve?", payload: null } },
+    { sequence: 4, type: "action.resolved", actorId: "human_alice", occurredAt: at, payload: { actionId: "action-1", decision: "approved", result: "main" } },
+  ];
+  assert.deepEqual(journalLines(asked, "chat", 0), [
+    "[1] QUESTION agent_coordina: Which branch? Pick one. Options: \"main\", \"release\"",
+    "[2] QUESTION agent_coordina: Which checks? Options: \"lint\", \"tests\" (several allowed)",
+    "[3] action.proposed agent_coordina: {\"actionId\":\"action-3\",\"owner\":\"demo.review\",\"title\":\"Approve?\",\"payload\":null}",
+    "[4] action.resolved human_alice: {\"actionId\":\"action-1\",\"decision\":\"approved\",\"result\":\"main\"}",
+    "-- last sequence: 4",
+  ]);
+  assert.deepEqual(journalLines(asked, "tools", 0), ["-- last sequence: 4"]);
+});
+
 test("the reader returns only what was added since the last call", async (t) => {
   const directory = await mkdtemp(path.join(tmpdir(), "ragents-journal-"));
   t.after(() => rm(directory, { recursive: true, force: true }));

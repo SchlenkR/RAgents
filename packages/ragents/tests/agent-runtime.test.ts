@@ -127,7 +127,7 @@ const harnessOver = (
                 try {
                     const output = await invoke(toolCallId, name, input);
                     runtime.completeToolCall(command("tool"), run.id, agentId, { turnId: turn.turnId, toolCallId, name, output });
-                    return { output, ignoredFields: [] };
+                    return { output, ignoredFields: [], endsTurn: false };
                 } catch (error) {
                     runtime.failToolCall(command("tool"), run.id, agentId, { turnId: turn.turnId, toolCallId, name, error: error instanceof Error ? error.message : String(error) });
                     throw error;

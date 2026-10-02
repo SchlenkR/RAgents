@@ -59,9 +59,9 @@ export function dockPreview(rect: DockRect, side: DockSide | "center", fraction:
 export function dockHitTest(point: DockPoint, workspace: DockRect, groups: readonly GroupRect[], bar: DockRect, toolsOnly: boolean) {
   const area = groups.find(({ rect }) => containsPoint(rect, point));
   const guides = dockingGuides(workspace, area);
-  const target: DockTarget | undefined = toolsOnly && containsPoint(bar, point) ? { kind: "bar" }
-    : guides.find(({ rect }) => containsPoint(rect, point))?.target
-      ?? (area && point.y <= area.rect.top + DOCK_HEADER_HEIGHT ? { kind: "group", group: area.group.id, side: "center" } : undefined);
+  const target: DockTarget | undefined = guides.find(({ rect }) => containsPoint(rect, point))?.target
+    ?? (toolsOnly && containsPoint(bar, point) ? { kind: "bar" }
+      : area && point.y <= area.rect.top + DOCK_HEADER_HEIGHT ? { kind: "group", group: area.group.id, side: "center" } : undefined);
   const preview = target?.kind === "bar" ? bar
     : target?.kind === "edge" ? dockPreview(workspace, target.side, 0.35)
       : target?.kind === "group" && area ? dockPreview(area.rect, target.side, 0.5) : undefined;

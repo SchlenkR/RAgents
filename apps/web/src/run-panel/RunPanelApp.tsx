@@ -326,7 +326,7 @@ function RunPanelPage({ connection, initialRunId, registry }: { connection: stri
       <Button aria-label="Back to Start" className="self-center" onClick={showStart} size="icon" title="Back to Start" variant="ghost">
         <BrandLogo className="size-6 text-foreground" title={registry.brand.title} />
       </Button>
-      <div className="flex w-[360px] min-w-[120px] shrink items-center">
+      <div className="flex w-[360px] min-w-10 shrink items-center">
         <PanelContributions registry={registry} userLocation={chatUserLocation(runId, false, runLocation)} />
       </div>
       {hasRunTitle ? <div className="flex min-w-40 flex-1 items-stretch">

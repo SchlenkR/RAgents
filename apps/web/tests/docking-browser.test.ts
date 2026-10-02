@@ -9,6 +9,8 @@ import { chromium, type Locator } from "playwright-core";
 import { tailwindPlugin } from "./tailwind-plugin";
 import type {} from "./docking-fixture";
 
+const defaultSideWidth = 630;
+
 test("browser docking preserves frames and drafts through split, merge, close, maximize, rail and catalog changes", {
   skip: process.env.RAGENTS_BROWSER_TESTS !== "1", timeout: 120_000,
 }, async (context) => {
@@ -191,7 +193,7 @@ test("browser docking preserves frames and drafts through split, merge, close, m
 
   await rail.getByRole("button", { name: "Files", exact: true }).hover();
   await sidebar.waitFor();
-  assert.equal(Math.round((await box(page.locator("[data-dock-frame]"))).width), 630);
+  assert.equal(Math.round((await box(page.locator("[data-dock-frame]"))).width), defaultSideWidth);
   for (const theme of ["light", "dark"]) {
     await page.evaluate((value) => document.documentElement.setAttribute("data-theme", value), theme);
     for (const card of [page.locator("[data-dock-card]").first(), rail, page.locator("[data-dock-frame]")]) {
@@ -238,7 +240,7 @@ test("browser docking preserves frames and drafts through split, merge, close, m
   await page.waitForTimeout(400);
   assert.equal(await sidebar.isVisible(), true);
   const resizedWidth = (await box(page.locator("[data-dock-frame]"))).width;
-  assert.ok(resizedWidth > 340);
+  assert.ok(resizedWidth > defaultSideWidth + 60);
   assert.equal(await sidebar.getAttribute("data-dock-sidebar"), "flyout");
   const savedWidth = await page.evaluate(() => JSON.parse(Object.entries(localStorage).find(([key]) => key.startsWith("ragents.docking:"))![1]).side.width);
   assert.equal(savedWidth, resizedWidth);
@@ -258,9 +260,10 @@ test("browser docking preserves frames and drafts through split, merge, close, m
   await rail.getByRole("button", { name: "Journal", exact: true }).click();
   await page.getByText("Journal active", { exact: true }).waitFor();
   assert.equal(await groups.count(), 1);
+  assert.equal(Math.round((await box(page.locator("[data-dock-frame]"))).width), defaultSideWidth, "Reset layout restores the default sidebar width");
   await page.getByRole("separator", { name: "Resize sidebar" }).focus();
   await page.keyboard.press("ArrowLeft");
-  assert.equal(Math.round((await box(page.locator("[data-dock-frame]"))).width), 300);
+  assert.equal(Math.round((await box(page.locator("[data-dock-frame]"))).width), defaultSideWidth + 20, "ArrowLeft widens the pinned sidebar by one step");
   await page.getByRole("button", { name: "Unpin sidebar", exact: true }).click();
   assert.equal((await box(page.locator('[data-dock-panel="app:notes"]'))).width, beforePin);
   await sidebar.waitFor({ state: "hidden" });

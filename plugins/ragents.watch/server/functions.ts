@@ -38,6 +38,7 @@ export const watchFunctions = (service: WatchServiceApi): ToolContributor => {
     defineRunFunction({
       name: "watch_create", label: "Create watch",
       description: "Observes an actor of this run and wakes another with a background message as soon as the condition, written as a TypeScript function body, returns a reason for the changed state. No model: the condition is type-checked on creation and afterwards run deterministically on every change of the observed state, once the observed actor has come to rest; stalledForSeconds appears after stallAfterSeconds without activity and again after each further period. An identical watch is not created twice.",
+      longDescription: "Use a watch to be woken once a derived state meets a condition; to receive every matching event without loss as its own input, use event_subscribe instead.",
       schema: createSchema, resultSchema: summarySchema, available,
       run: (scope, _toolCallId, input) => service.create(scope.caller.runId, scope.caller.actorId, input),
     }),

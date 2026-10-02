@@ -335,6 +335,7 @@ export class AgentTurn {
                         text: call.ignoredFields.length === 0 ? text : `${ignoredFieldsNotice(entry, call.ignoredFields)}\n\n${text}`,
                     }],
                     details: {},
+                    terminate: call.endsTurn,
                 };
             },
         };
@@ -399,7 +400,8 @@ export class AgentTurn {
             }
         }
 
-        return replaced ? { content, isError: error } : undefined;
+        // A replacement keeps the call's end of the turn, but the model always gets to react to an error.
+        return replaced ? { content, isError: error, ...(error ? { terminate: false } : {}) } : undefined;
     }
 
     #hookFailed(id: string, phase: string, error: unknown) {

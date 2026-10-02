@@ -19,7 +19,8 @@ That is all you need to understand the system:
 - **Actor** - who acts in the run. Three kinds: you (the human owner), model actors (agents),
   TypeScript actors (TypeScript).
 - **ActorInput** - a message to an actor. Lands in its queue.
-- **Turn** - the processing of an ActorInput. Ends as soon as the actor no longer calls a tool.
+- **Turn** - the processing of an ActorInput. Ends as soon as the actor no longer calls a tool
+  or a tool result ends it (such as a question to the user).
   There are no waiting tools. Whatever reaches an agent during its turn is fed into that turn
   before the next model request (steering).
 - **Event** - every state change in the journal. Actors can subscribe to them; every matching

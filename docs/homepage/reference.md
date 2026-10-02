@@ -37,7 +37,8 @@ Only with the capability actor.input.
     },
     "content": {
       "type": "string",
-      "minLength": 1
+      "minLength": 1,
+      "description": "Message text the actor receives as it is, without the sender's context"
     },
     "artifactIds": {
       "type": "array",
@@ -45,7 +46,8 @@ Only with the capability actor.input.
         "type": "string",
         "minLength": 1
       },
-      "uniqueItems": true
+      "uniqueItems": true,
+      "description": "Artifacts to attach; the sender must be able to read them, and the recipient may read them afterwards"
     }
   },
   "additionalProperties": false
@@ -234,10 +236,12 @@ For executable actors with agent.spawn and plugin.state.write.
   "properties": {
     "name": {
       "type": "string",
-      "pattern": "^[a-z][a-z0-9-]{0,63}$"
+      "pattern": "^[a-z][a-z0-9-]{0,63}$",
+      "description": "Package under @actors/ to check, build, test and activate"
     },
     "actor": {
-      "type": "string"
+      "type": "string",
+      "description": "self or @handle of an existing actor that takes the package; an activated package keeps its actor"
     }
   },
   "additionalProperties": false
@@ -260,10 +264,12 @@ For executable actors with agent.spawn and plugin.state.write.
       "type": "string"
     },
     "actor": {
-      "type": "string"
+      "type": "string",
+      "description": "@handle of the actor that holds the package"
     },
     "views": {
-      "type": "number"
+      "type": "number",
+      "description": "Number of activated views"
     },
     "active": {
       "type": "boolean",
@@ -392,7 +398,8 @@ For executable actors with agent.spawn and plugin.state.write.
   "properties": {
     "name": {
       "type": "string",
-      "pattern": "^[a-z][a-z0-9-]{0,63}$"
+      "pattern": "^[a-z][a-z0-9-]{0,63}$",
+      "description": "Name of the new package: lowercase letters, digits and hyphens; its files go to @actors/name"
     },
     "template": {
       "anyOf": [
@@ -426,7 +433,8 @@ For executable actors with agent.spawn and plugin.state.write.
           "const": "shared-list",
           "description": "An actor owns a function and a React view for the same list state."
         }
-      ]
+      ],
+      "description": "Template for the first files"
     }
   },
   "additionalProperties": false
@@ -448,13 +456,15 @@ For executable actors with agent.spawn and plugin.state.write.
       "type": "string"
     },
     "directory": {
-      "type": "string"
+      "type": "string",
+      "description": "Package folder for the file tools and as bash cwd"
     },
     "files": {
       "type": "array",
       "items": {
         "type": "string"
-      }
+      },
+      "description": "Created files relative to the package folder"
     }
   },
   "additionalProperties": false
@@ -481,7 +491,8 @@ For executable actors with agent.spawn and plugin.state.write.
   "properties": {
     "name": {
       "type": "string",
-      "pattern": "^[a-z][a-z0-9-]{0,63}$"
+      "pattern": "^[a-z][a-z0-9-]{0,63}$",
+      "description": "Only this package; omitted, every package checked for this actor"
     }
   },
   "additionalProperties": false
@@ -519,7 +530,8 @@ For executable actors with agent.spawn and plugin.state.write.
   "properties": {
     "name": {
       "type": "string",
-      "pattern": "^[a-z][a-z0-9-]{0,63}$"
+      "pattern": "^[a-z][a-z0-9-]{0,63}$",
+      "description": "Package of this run or a shared actor package of the profile"
     }
   },
   "additionalProperties": false
@@ -561,7 +573,8 @@ For executable actors with agent.spawn and plugin.state.write.
           "type": "string",
           "const": "installed"
         }
-      ]
+      ],
+      "description": "active: already active, unchanged; restarted: its stopped actor was restarted; activated: built and activated from this run's package folder; installed: the shared package was installed"
     }
   },
   "additionalProperties": false
@@ -670,7 +683,8 @@ For executable actors with agent.spawn and plugin.state.write.
   "properties": {
     "name": {
       "type": "string",
-      "pattern": "^[a-z][a-z0-9-]{0,63}$"
+      "pattern": "^[a-z][a-z0-9-]{0,63}$",
+      "description": "Name of the active package"
     }
   },
   "additionalProperties": false
@@ -698,7 +712,9 @@ For executable actors with agent.spawn and plugin.state.write.
 
 Restart Actor
 
-Restart a stopped actor in this actor's branch. It resumes with its full history; the LLM is stateless.
+Restart a stopped actor in this actor's branch. It becomes idle with its history and state unchanged and accepts inputs again.
+
+An actor that is not stopped is refused. A stopped former primary actor becomes the primary actor again if no other was chosen in the meantime and this actor holds run.configure. Event subscriptions removed by the stop stay removed.
 
 Owner: engine. Scope: per-turn. Native model tool: no. Availability: conditional.
 
@@ -717,11 +733,12 @@ Only with the capability execution.stopOwned.
     "actorId": {
       "type": "string",
       "minLength": 1,
-      "description": "Handle or ID"
+      "description": "Handle or ID of the stopped actor"
     },
     "reason": {
       "type": "string",
-      "minLength": 1
+      "minLength": 1,
+      "description": "Why it restarts; recorded in the journal"
     }
   },
   "additionalProperties": false
@@ -822,7 +839,8 @@ Only with the capability execution.stopOwned.
     },
     "reason": {
       "type": "string",
-      "minLength": 1
+      "minLength": 1,
+      "description": "Why it stops; recorded in the journal and shown with the stopped actors"
     }
   },
   "additionalProperties": false
@@ -951,7 +969,8 @@ For executable actors with agent.spawn and plugin.state.write.
       "description": "package-name/view-key or @handle/view-key of an activated view, without the surface entity prefix app:. No generated IDs needed."
     },
     "visible": {
-      "type": "boolean"
+      "type": "boolean",
+      "description": "true shows the view as a tab for the user, false hides it"
     }
   },
   "additionalProperties": false
@@ -1002,7 +1021,8 @@ Only in a profile with the plugin ragents.actor-programs.
   "properties": {
     "view": {
       "type": "string",
-      "minLength": 1
+      "minLength": 1,
+      "description": "Visible view as package-name/view-key, @handle/view-key or unique title."
     }
   },
   "additionalProperties": false
@@ -1066,7 +1086,8 @@ Only with the capability agent.spawn.
   "properties": {
     "handle": {
       "type": "string",
-      "minLength": 1
+      "minLength": 1,
+      "description": "Name for @handle addressing: letters, digits, dot, dash and underscore; a taken handle gets a numeric suffix"
     },
     "displayName": {
       "type": "string",
@@ -1080,7 +1101,8 @@ Only with the capability agent.spawn.
       "description": "Very short description of the task for the participants overview, a few words like \"checks the rule on comments\""
     },
     "prompt": {
-      "type": "string"
+      "type": "string",
+      "description": "The agent's own instructions in its system prompt, such as role and working rules; send the task afterwards with actor_input"
     },
     "forkOf": {
       "type": "string",
@@ -1149,7 +1171,8 @@ Only with the capability agent.spawn.
           }
         ]
       },
-      "uniqueItems": true
+      "uniqueItems": true,
+      "description": "Capabilities the new agent does not inherit; otherwise it gets every delegable capability of this actor"
     },
     "profile": {
       "type": "string",
@@ -1170,7 +1193,8 @@ Only with the capability agent.spawn.
           "type": "string",
           "const": "agent"
         }
-      ]
+      ],
+      "description": "Normally omitted: the profile's driver, otherwise agent, which runs a model; manual and script need no model."
     },
     "provider": {
       "type": "string",
@@ -1212,14 +1236,17 @@ Only with the capability agent.spawn.
           "type": "string",
           "const": "max"
         }
-      ]
+      ],
+      "description": "Reasoning level; must be one model_list names for the model, defaults to the profile's level."
     },
     "turnTimeoutMs": {
       "type": "integer",
-      "minimum": 1000
+      "minimum": 1000,
+      "description": "Milliseconds after which a turn of the agent is aborted; defaults to the profile's limit, otherwise none."
     },
     "isolateWorkspace": {
-      "type": "boolean"
+      "type": "boolean",
+      "description": "Currently without effect: every actor of a run works in the run's shared workspace."
     }
   },
   "additionalProperties": false
@@ -1253,7 +1280,9 @@ Only with the capability agent.spawn.
 
 Publish Artifact
 
-Publish immutable text content to the run artifact store.
+Publish text as a new immutable artifact of this run and return its ID.
+
+Another actor may read it once it is attached to an actor_input for that actor; the run owner may read every artifact. A change is a new artifact that names its predecessor.
 
 Owner: engine. Scope: per-turn. Native model tool: no. Availability: conditional.
 
@@ -1272,18 +1301,22 @@ Only with the capability artifact.publish.
   "properties": {
     "title": {
       "type": "string",
-      "minLength": 1
+      "minLength": 1,
+      "description": "Short name of the artifact, also its name as an attachment"
     },
     "mediaType": {
       "type": "string",
-      "minLength": 1
+      "minLength": 1,
+      "description": "Media type such as text/markdown or application/json; text, JSON and XML types are read back as text"
     },
     "content": {
-      "type": "string"
+      "type": "string",
+      "description": "Text content, stored as UTF-8"
     },
     "previousVersionId": {
       "type": "string",
-      "minLength": 1
+      "minLength": 1,
+      "description": "ID of the earlier artifact this one succeeds as a new version; it stays unchanged and must be readable by this actor"
     }
   },
   "additionalProperties": false
@@ -1339,7 +1372,9 @@ Only with the capability artifact.publish.
 
 Read Artifact
 
-Read an artifact created by this actor or attached to one of its inputs. The run owner may read every artifact.
+Read the content and metadata of an artifact that this actor published or received attached to one of its inputs.
+
+The run owner may read every artifact. Text, JSON and XML media types come back as UTF-8 text, all others as base64.
 
 Owner: engine. Scope: per-turn. Native model tool: no. Availability: always.
 
@@ -1356,7 +1391,8 @@ Available in every turn.
   "properties": {
     "artifactId": {
       "type": "string",
-      "minLength": 1
+      "minLength": 1,
+      "description": "ID of the artifact, as artifact_publish returns it"
     }
   },
   "additionalProperties": false
@@ -1442,9 +1478,9 @@ Available in every turn.
 
 Question
 
-Shows the user a question with answer options and returns at once; the answer arrives later as a new message.
+Shows the user a question with answer options and ends your turn; the answer arrives later as a new message.
 
-Always use this tool when you need a decision from the user (e.g. choosing a branch or a time range), instead of only asking the question as text. After the call, end your turn and do not work on what the question decides; the answer arrives as a new message. With multi=true the user may choose several options; the answer is then joined with '; '. Instead of choosing an option, the user can always answer freely - so expect the answer to be arbitrary text. If the user writes a message instead, the question is closed and that message arrives.
+Always use this tool when you need a decision from the user (e.g. choosing a branch or a time range), instead of only asking the question as text. Call it as the only tool of your response: your turn ends with the question, and the answer arrives as a new message. With multi=true the user may choose several options; the answer is then joined with '; '. Instead of choosing an option, the user can always answer freely - so expect the answer to be arbitrary text. If the user writes a message instead, the question is closed and that message arrives.
 
 Owner: ragents.ask. Scope: per-turn. Native model tool: yes. Availability: always.
 
@@ -1603,11 +1639,13 @@ Available in every model turn.
     },
     "text": {
       "type": "string",
-      "minLength": 1
+      "minLength": 1,
+      "description": "Text expected to be visible, case-insensitive and as a part, inside target if given, otherwise anywhere on the page; cannot be combined with count."
     },
     "url": {
       "type": "string",
-      "minLength": 1
+      "minLength": 1,
+      "description": "Expected page address, exact or as a glob pattern such as **/done."
     },
     "count": {
       "type": "integer",
@@ -1869,7 +1907,8 @@ Available in every model turn.
       "description": "Use exactly one of role (with optional name), label, text, testId, css. Resolve semantic targets server-side; never copy snapshot element IDs. Ambiguous targets are errors naming the candidates unless nth or first selects one."
     },
     "value": {
-      "type": "string"
+      "type": "string",
+      "description": "Text that replaces the content of the field."
     }
   },
   "additionalProperties": false
@@ -1933,7 +1972,8 @@ Available in every model turn.
   "properties": {
     "url": {
       "type": "string",
-      "minLength": 1
+      "minLength": 1,
+      "description": "HTTP or HTTPS address; an error status of the response fails the call."
     }
   },
   "additionalProperties": false
@@ -2048,7 +2088,8 @@ Available in every model turn.
     },
     "key": {
       "type": "string",
-      "minLength": 1
+      "minLength": 1,
+      "description": "Playwright key or chord, such as Enter or ControlOrMeta+A."
     }
   },
   "additionalProperties": false
@@ -2109,10 +2150,12 @@ Available in every model turn.
   "properties": {
     "label": {
       "type": "string",
-      "maxLength": 200
+      "maxLength": 200,
+      "description": "Name of the capture in the document library; defaults to Browser screenshot."
     },
     "fullPage": {
-      "type": "boolean"
+      "type": "boolean",
+      "description": "Capture the whole scrollable page instead of the viewport; defaults to false."
     }
   },
   "additionalProperties": false
@@ -2224,7 +2267,8 @@ Available in every model turn.
     },
     "label": {
       "type": "string",
-      "minLength": 1
+      "minLength": 1,
+      "description": "Visible label of the option to choose."
     }
   },
   "additionalProperties": false
@@ -2374,12 +2418,14 @@ Available in every model turn.
     "width": {
       "type": "integer",
       "minimum": 320,
-      "maximum": 3840
+      "maximum": 3840,
+      "description": "Viewport width in CSS pixels."
     },
     "height": {
       "type": "integer",
       "minimum": 240,
-      "maximum": 2160
+      "maximum": 2160,
+      "description": "Viewport height in CSS pixels."
     }
   },
   "additionalProperties": false
@@ -2559,7 +2605,8 @@ Only with the capability event.subscribe.
         "type": "string",
         "minLength": 1
       },
-      "uniqueItems": true
+      "uniqueItems": true,
+      "description": "Only events with these event IDs"
     },
     "actorIds": {
       "type": "array",
@@ -2567,7 +2614,8 @@ Only with the capability event.subscribe.
         "type": "string",
         "minLength": 1
       },
-      "uniqueItems": true
+      "uniqueItems": true,
+      "description": "Only events written in the name of these actors, as @handle or ID"
     },
     "eventTypes": {
       "type": "array",
@@ -2581,7 +2629,8 @@ Only with the capability event.subscribe.
     "limit": {
       "type": "integer",
       "minimum": 1,
-      "maximum": 500
+      "maximum": 500,
+      "description": "Return only the latest matching events, at most this many; defaults to 100"
     }
   },
   "additionalProperties": false
@@ -2667,7 +2716,7 @@ Subscribe to Events
 
 Subscribe this actor to run events delivered as later ActorInputs.
 
-Source actors may be named by id or handle. Matching observable events arrive as new ActorInputs for this actor.
+Source actors may be named by id or handle. Every matching observable event arrives without loss as its own new ActorInput for this actor. Use it when each event matters; to be woken only once a derived state meets a condition, use a watch where one is offered.
 
 Owner: engine. Scope: per-turn. Native model tool: no. Availability: conditional.
 
@@ -2688,7 +2737,8 @@ Only with the capability event.subscribe.
         "type": "string",
         "minLength": 1
       },
-      "uniqueItems": true
+      "uniqueItems": true,
+      "description": "Only events of these actors, as @handle or ID: a turn end counts for the turn's actor, a stop or restart for the stopped actor, any other event for its author; omitted, every actor"
     },
     "sourceActorKinds": {
       "type": "array",
@@ -2708,7 +2758,8 @@ Only with the capability event.subscribe.
           }
         ]
       },
-      "uniqueItems": true
+      "uniqueItems": true,
+      "description": "Only events of actors of these kinds; omitted, every kind"
     },
     "eventTypes": {
       "type": "array",
@@ -2769,10 +2820,12 @@ Only with the capability event.subscribe.
         ]
       },
       "minItems": 1,
-      "uniqueItems": true
+      "uniqueItems": true,
+      "description": "Event types to deliver; only these observable types can be subscribed to"
     },
     "includeSelf": {
-      "type": "boolean"
+      "type": "boolean",
+      "description": "Also deliver events of this actor itself; defaults to false"
     }
   },
   "additionalProperties": false
@@ -3197,7 +3250,8 @@ Only with the capability event.subscribe.
     },
     "reason": {
       "type": "string",
-      "minLength": 1
+      "minLength": 1,
+      "description": "Why the subscription ends; recorded in the journal, and its deliveries that still wait are discarded"
     }
   },
   "additionalProperties": false
@@ -3353,7 +3407,8 @@ Only with the capability agent.spawn.
           "type": "string",
           "const": "agent"
         }
-      ]
+      ],
+      "description": "Lists only the models of this driver; it does not filter the profiles, which are always listed in full"
     }
   },
   "additionalProperties": false
@@ -3976,11 +4031,13 @@ Only for agents with the capability plugin.state.write.
         "properties": {
           "id": {
             "type": "string",
-            "minLength": 1
+            "minLength": 1,
+            "description": "ID of the item, unique within the list"
           },
           "text": {
             "type": "string",
-            "minLength": 1
+            "minLength": 1,
+            "description": "Short text of the item as the user sees it"
           },
           "status": {
             "anyOf": [
@@ -4012,7 +4069,8 @@ Only for agents with the capability plugin.state.write.
             "description": "open = not started, active = in progress, completed = done; pending, in_progress and done are accepted as well"
           }
         }
-      }
+      },
+      "description": "The complete list in order; it replaces the previous snapshot, so unchanged items are sent again"
     }
   }
 }
@@ -4286,6 +4344,8 @@ Available in every model turn.
 Create watch
 
 Observes an actor of this run and wakes another with a background message as soon as the condition, written as a TypeScript function body, returns a reason for the changed state. No model: the condition is type-checked on creation and afterwards run deterministically on every change of the observed state, once the observed actor has come to rest; stalledForSeconds appears after stallAfterSeconds without activity and again after each further period. An identical watch is not created twice.
+
+Use a watch to be woken once a derived state meets a condition; to receive every matching event without loss as its own input, use event_subscribe instead.
 
 Owner: ragents.watch. Scope: per-turn. Native model tool: no. Availability: always.
 
@@ -4649,7 +4709,8 @@ Owner: ragents.orchestration.
     },
     "content": {
       "type": "string",
-      "minLength": 1
+      "minLength": 1,
+      "description": "Message text the actor receives as it is, without the sender's context"
     },
     "artifactIds": {
       "type": "array",
@@ -4657,7 +4718,8 @@ Owner: ragents.orchestration.
         "type": "string",
         "minLength": 1
       },
-      "uniqueItems": true
+      "uniqueItems": true,
+      "description": "Artifacts to attach; the sender must be able to read them, and the recipient may read them afterwards"
     }
   },
   "additionalProperties": false

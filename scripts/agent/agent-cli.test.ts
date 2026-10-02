@@ -79,7 +79,7 @@ const harness = async (t: TestContext, outcome: TurnOutcome, options: HarnessOpt
   const running = new Promise<void>((resolve) => { reachRunning = resolve; });
   let refused = 0;
   const update = (runId: string, change: (view: RunView) => RunView): void => {
-    const current = views.get(runId) ?? { id: runId, ownerId: OWNER, primaryActorId: PRIMARY, inputs: [], turns: [] } as unknown as RunView;
+    const current = views.get(runId) ?? { id: runId, ownerId: OWNER, primaryActorId: PRIMARY, inputs: [], turns: [], actions: [] } as unknown as RunView;
     views.set(runId, change(current));
     for (const notify of watchers.get(runId) ?? []) notify();
   };
@@ -468,7 +468,7 @@ test("send follows a message that came into a running turn as steering until its
   const input = (id: string, sequence: number, content: string, turnId: string, steered: boolean) => ({ id, actorId: PRIMARY, content, artifactIds: [],
     enqueuedBy: OWNER, enqueuedAt: `2026-09-24T10:00:0${sequence}.000Z`, sequence, lifecycle: { kind: "claimed", turnId, steered }, subscriptionId: null, sourceEventIds: [] });
   const view = (status: string, reason: string | null) => ({
-    id: "run-1", ownerId: OWNER, primaryActorId: PRIMARY,
+    id: "run-1", ownerId: OWNER, primaryActorId: PRIMARY, actions: [],
     inputs: [input("input-1", 1, "Build the page.", "turn-1", false), input("input-2", 3, "Use blue.", "turn-1", true)],
     turns: [{ id: "turn-1", actorId: PRIMARY, inputId: "input-1", status, startedAt: "2026-09-24T10:00:02.000Z", finishedAt: status === "running" ? null : "2026-09-24T10:00:09.000Z",
       reason, usage: {}, toolCalls: [],
@@ -484,4 +484,36 @@ test("send follows a message that came into a running turn as steering until its
   const interrupted = progressOf(view("interrupted", "Stopped by the operator"), known, "Use blue.");
   assert.deepEqual([interrupted.outcome, interrupted.entries.at(-1)!.line], ["interrupted", "! Turn cancelled: Stopped by the operator"]);
   assert.equal(progressOf(view("completed", null), new Set(["input-1", "input-2"]), "Use blue.").outcome, undefined, "an old input with the same text does not count");
+});
+
+test("run shows a question the turn posed with its options and how to answer it, not one of another turn", () => {
+  const action = (id: string, proposedAt: string, askedBy = PRIMARY, owner = "ragents.ask") => ({ id, askedBy, owner, title: "Which branch?",
+    description: null, parameters: {}, input: null, payload: { question: "Which branch?", options: ["main", "release"], multi: id === "multi" },
+    status: "pending", proposedAt, resolvedAt: null, resolvedBy: null, result: null });
+  const view = {
+    id: "run-1", ownerId: OWNER, primaryActorId: PRIMARY,
+    inputs: [{ id: "input-1", actorId: PRIMARY, content: "Merge it.", artifactIds: [], enqueuedBy: OWNER, enqueuedAt: "2026-09-24T10:00:01.000Z",
+      sequence: 1, lifecycle: { kind: "claimed", turnId: "turn-1", steered: false }, subscriptionId: null, sourceEventIds: [] }],
+    turns: [{ id: "turn-1", actorId: PRIMARY, inputId: "input-1", status: "completed", startedAt: "2026-09-24T10:00:02.000Z", finishedAt: "2026-09-24T10:00:05.000Z",
+      reason: null, usage: {}, outputs: [],
+      toolCalls: [{ id: "call-1", name: "ask_user", status: "completed", startedAt: "2026-09-24T10:00:03.000Z", finishedAt: "2026-09-24T10:00:04.000Z" }] }],
+    actions: [
+      action("earlier", "2026-09-24T10:00:00.500Z"),
+      action("question", "2026-09-24T10:00:03.500Z"),
+      action("multi", "2026-09-24T10:00:03.600Z"),
+      action("foreign", "2026-09-24T10:00:03.700Z", PRIMARY, "demo.review"),
+      action("other-asker", "2026-09-24T10:00:03.800Z", "agent_reviewer"),
+      action("later", "2026-09-24T10:00:06.000Z"),
+    ],
+  } as unknown as RunView;
+  const progress = progressOf(view, new Set(), "Merge it.");
+  assert.equal(progress.outcome, "completed", "the asking turn is finished");
+  assert.deepEqual(progress.entries.map((entry) => entry.line), [
+    "> ask_user",
+    "? Which branch? Options: \"main\", \"release\" - answer with: ragents send run-1 \"<answer>\"",
+    "? Which branch? Options: \"main\", \"release\" (several allowed) - answer with: ragents send run-1 \"<answer>\"",
+    "< ask_user 1.0s ok",
+    undefined,
+  ]);
+  assert.deepEqual(progress.entries[1]!.data, { kind: "question", id: "question", question: "Which branch?", options: ["main", "release"], multi: false });
 });

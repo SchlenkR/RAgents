@@ -1,6 +1,5 @@
 import { Type, type TLiteral } from "typebox";
 
-import { agentDriverKinds } from "../domain/driver.ts";
 import { capabilityNames } from "../domain/vocabulary.ts";
 
 type Literals<Values extends readonly string[]> = { -readonly [Key in keyof Values]: TLiteral<Values[Key] & string> };
@@ -9,7 +8,6 @@ export const literalUnion = <const Values extends readonly string[]>(values: Val
     Type.Union(values.map((value) => Type.Literal(value)) as Literals<Values>);
 
 export const capabilitySchema = literalUnion(capabilityNames);
-export const driverKindSchema = literalUnion(agentDriverKinds);
 
 export const scopeSchema = Type.Union([
     Type.Object({ kind: Type.Literal("run") }),

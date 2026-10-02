@@ -114,7 +114,8 @@ with the product heading, animated previews, and links to installation and GitHu
 shows the current section and jumps to another chapter. Installation offers VS Code, npm/npx,
 shell and PowerShell scripts with one command each for the current user and for all users, and
 GitHub release downloads. Each tab shows its action or commands and essential prerequisites;
-setup details live in the getting-started guide. The closing section links to that guide and
+setup details live in the getting-started guide. Underlined text tabs and open command rows
+use spacing and separators instead of nested cards. The closing section links to that guide and
 project feedback without repeating the installation call to action.
 
 The main page renders its diagrams on local canvases. Desktop scenes share a fixed stage; narrow

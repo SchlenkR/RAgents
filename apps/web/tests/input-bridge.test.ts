@@ -75,3 +75,27 @@ test("clipboard replies restore the child frame before delivery, including empty
     }
   }
 });
+
+test("a nested frame accepts its clipboard reply through its window from the parent, not through its port", async () => {
+  const { browser, reply } = fakeBrowser();
+  const sent: { message: { id: string } }[] = [];
+  const port = Object.assign(new EventTarget(), {
+    onmessage: null as ((event: MessageEvent) => void) | null,
+    postMessage: (message: { message: { id: string } }) => { sent.push(message); },
+  });
+  const close = installFrameInputBridge(browser, port as unknown as MessagePort);
+  const answers: unknown[] = [];
+  relayFrameInput(browser, { type: "ragents.app.input", version: 1, message: { type: "clipboardRead", id: "child" } }, (message) => answers.push(message));
+  const id = sent[0].message.id;
+  assert.deepEqual(sent, [{ type: "ragents.app.input", version: 1, message: { type: "clipboardRead", id } }]);
+  const overPort = new Event("message");
+  Object.assign(overPort, { data: { type: "clipboardContent", id, text: "Port", files: [] } });
+  port.dispatchEvent(overPort);
+  port.onmessage?.(overPort as MessageEvent);
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.deepEqual(answers, []);
+  reply({ type: "clipboardContent", id, text: "Window", files: [] });
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.deepEqual(answers, [{ type: "clipboardContent", id: "child", text: "Window", files: [] }]);
+  close();
+});

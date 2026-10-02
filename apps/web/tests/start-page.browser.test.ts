@@ -89,7 +89,7 @@ test("the browser offers only the server for new runs, the run panel in VS Code 
 test("the start selection in the browser shows the tiles of Start in VS Code and starts like there", browserOnly, async () => {
   await withPage("view=web", 1280, async (page) => {
     let dialog = await openStartSelection(page);
-    const tiles = await dialog.getByRole("list", { name: "Templates" }).getByRole("button").evaluateAll((buttons) => buttons.map((button) => button.getAttribute("title")));
+    const tiles = await dialog.getByRole("list", { name: "Templates" }).getByRole("button").evaluateAll((buttons) => buttons.map((button) => button.getAttribute("data-tile")));
     assert.deepEqual(tiles, ["New chat", "Collection board", "Clarify decision", "Discussion circle", "Word game"]);
     await dialog.getByRole("list", { name: "Templates", exact: true }).getByRole("button", { name: /New chat/ }).click();
     await page.getByRole("list", { name: "Templates", exact: true }).waitFor({ state: "detached" });
