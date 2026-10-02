@@ -83,6 +83,11 @@ export type EventPayloads = {
         trigger: "input" | "resume";
         userId?: string;
     };
+    /** A room besides the main room; origin is the room it was opened from, null for the main room. */
+    "room.opened": {
+        name: string;
+        origin: string | null;
+    };
     "agent.spawned": {
         agentId: ActorId;
         handle: string;
@@ -93,6 +98,8 @@ export type EventPayloads = {
         toolNames: string[] | null;
         forkOf?: ActorId;
         description?: string;
+        /** Absent for the main room. */
+        room?: string;
     };
     "script.created": {
         scriptId: ActorId;
@@ -102,6 +109,8 @@ export type EventPayloads = {
         grants: CapabilityGrant[];
         toolNames: string[] | null;
         description?: string;
+        /** Absent for the main room. */
+        room?: string;
     };
     "actor.input.enqueued": {
         inputId: InputId;
@@ -280,6 +289,7 @@ export const eventTypeMap: Record<EventType, true> = {
     "run.sharing-changed": true,
     "run.paused": true,
     "run.resumed": true,
+    "room.opened": true,
     "agent.spawned": true,
     "script.created": true,
     "actor.input.enqueued": true,

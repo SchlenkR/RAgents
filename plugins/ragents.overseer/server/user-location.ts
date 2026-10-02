@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { DomainError, isRunId, pluginStateAt, type RunView } from "@ragents/engine";
+import { addressOf, DomainError, isRunId, pluginStateAt, type RunView } from "@ragents/engine";
 import type { ChatUserLocation } from "@ragents/host/chat-context.js";
 import type { GlobalChatPolicy, RunManagement } from "@ragents/host/ragents/global-chat.js";
 import { OVERSEER_PLUGIN_ID } from "../contract.js";
@@ -30,7 +30,7 @@ export function parseUserLocation(value: unknown): ChatUserLocation | undefined 
 function selectedElement(view: RunView, selection: NonNullable<ChatUserLocation["selection"]>): string {
   const actorName = (id: string) => {
     const actor = view.actors.find((entry) => entry.id === id);
-    return actor ? `@${actor.handle} (${quoted(actor.displayName)})` : "actor that no longer exists";
+    return actor ? `@${addressOf(actor)} (${quoted(actor.displayName)})` : "actor that no longer exists";
   };
   const { type, id } = selection;
   if (type === "actor" && view.actors.some((entry) => entry.id === id)) return `Actor ${actorName(id)}`;

@@ -136,7 +136,7 @@ test("backend logs are bounded and a failed new state contract leaves the old ap
 test("package metadata rejects removed dialogs and paths outside the app", async (t) => {
   const f = await fixture(t);
   f.context = {...f.context,actorId:f.setup.agent.id};
-  const directory = await f.runtime.scaffold(f.runId, "blank", "blank");
+  const directory = await f.runtime.scaffold(f.runId, f.setup.view.ownerId, "blank", "blank");
   const file = path.join(await f.runtime.workspaceDirectory(f.runId), "blank", "package.json");
   const pkg = JSON.parse(await readFile(file, "utf8"));
   pkg.ragents.dialog = true;
@@ -149,7 +149,7 @@ test("package metadata rejects removed dialogs and paths outside the app", async
 
 test("an unknown view property in package.json is named with its path and field", async (t) => {
   const f = await fixture(t);
-  await f.runtime.scaffold(f.runId, "sized", "blank");
+  await f.runtime.scaffold(f.runId, f.setup.view.ownerId, "sized", "blank");
   const file = path.join(await f.runtime.workspaceDirectory(f.runId), "sized", "package.json");
   const pkg = JSON.parse(await readFile(file, "utf8"));
   await writeFile(file, JSON.stringify({ ...pkg, ragents: { ...pkg.ragents, views: [{ ...pkg.ragents.views[0], width: 640 }] } }));

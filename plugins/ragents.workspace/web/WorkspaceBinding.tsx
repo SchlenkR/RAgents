@@ -12,6 +12,7 @@ import {
   isFreshFolder,
   isWorkspaceBinding,
   storedWorkspaceBinding,
+  withCurrentLabel,
   workspaceBindingSummary,
   WORKSPACE_METADATA_ID,
   type FreshWorkspaceLabels,
@@ -232,6 +233,11 @@ const freshLabelsOf = (presentation: unknown): FreshWorkspaceLabels => {
   return typeof raw === "object" && raw !== null && isFreshLabels(raw.fresh) ? raw.fresh : { server: FRESH_WORKSPACE_LABEL, client: FRESH_WORKSPACE_LABEL };
 };
 
+const clientsOf = (presentation: unknown): readonly WorkspaceClientInfo[] => {
+  const raw = presentation as Record<string, unknown> | null;
+  return typeof raw === "object" && raw !== null && Array.isArray(raw.clients) ? raw.clients as WorkspaceClientInfo[] : [];
+};
+
 export function WorkspaceBindingBadge({ option }: StartOptionBadgeContext) {
   if (!option.locked) return null;
   let binding: WorkspaceBinding;
@@ -240,7 +246,10 @@ export function WorkspaceBindingBadge({ option }: StartOptionBadgeContext) {
   } catch (cause) {
     return <ToolbarItem title={messageOf(cause)}><ToolbarText>Workspace unreadable</ToolbarText></ToolbarItem>;
   }
-  const summary = workspaceBindingSummary(binding, freshLabelsOf(option.presentation));
+  const { machine } = binding;
+  const current = machine === "server" ? binding
+    : withCurrentLabel(binding, clientsOf(option.presentation).find((client) => client.id === machine.client)?.label);
+  const summary = workspaceBindingSummary(current, freshLabelsOf(option.presentation));
   return (
     <ToolbarItem title={`Workspace: ${summary}`}>
       <ToolbarCopy><ToolbarLabel>Workspace</ToolbarLabel><ToolbarText>{summary}</ToolbarText></ToolbarCopy>

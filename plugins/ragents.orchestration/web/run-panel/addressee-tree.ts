@@ -1,4 +1,4 @@
-import { chatPrimaryId, type RunActor, type RunView } from "@ragents/web/run-view";
+import { actorAddress, chatPrimaryId, type RunActor, type RunView } from "@ragents/web/run-view";
 
 export interface AddresseeActorNode {
   kind: "actor";
@@ -117,7 +117,7 @@ export const addresseeTree = (view: RunView, actors: readonly RunActor[]): Addre
   const level = (parentId: string | null): AddresseeNode[] => {
     const entries = siblings.get(parentId) ?? [];
     const ordered = parentId === null ? [...entries.filter((actor) => actor.id === primaryId), ...entries.filter((actor) => actor.id !== primaryId)] : entries;
-    const keyOf = (actor: RunActor) => actor.id === primaryId ? null : `${parentId ?? ""}/${actor.kind}/${handleStem(actor.handle)}`;
+    const keyOf = (actor: RunActor) => actor.id === primaryId ? null : `${parentId ?? ""}/${actor.kind}/${actor.room ? `${actor.room}.` : ""}${handleStem(actor.handle)}`;
     const members = new Map<string, RunActor[]>();
     for (const actor of ordered) {
       const key = keyOf(actor);
@@ -130,7 +130,7 @@ export const addresseeTree = (view: RunView, actors: readonly RunActor[]): Addre
       if (key === null || !group || group.length < ADDRESSEE_GROUP_MIN) return [branch(actor)];
       if (emitted.has(key)) return [];
       emitted.add(key);
-      return [{ kind: "group", key, label: groupLabel(group.map((member) => member.handle)), members: group.map(branch) }];
+      return [{ kind: "group", key, label: groupLabel(group.map(actorAddress)), members: group.map(branch) }];
     });
   };
   return level(null);

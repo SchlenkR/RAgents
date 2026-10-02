@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { DomainError, type ExecutableActor, type JournalEvent, type JsonValue, type Orchestration, type RunView } from "@ragents/engine";
+import { addressOf, DomainError, type ExecutableActor, type JournalEvent, type JsonValue, type Orchestration, type RunView } from "@ragents/engine";
 import { WATCH_PLUGIN_ID, type WatchDefinition, type WatchRequest, type WatchServiceApi, type WatchSummary, type WatchVerdict } from "../contract.js";
 import { changesBetween, lastActivityOf, observeActor, watchableActorOf } from "./observation.js";
 import type { WatchPredicate } from "./condition.js";
@@ -88,9 +88,10 @@ export class WatchService implements WatchServiceApi {
   async create(runId: string, callerActorId: string, request: WatchRequest): Promise<WatchSummary> {
     const runtime = this.#options.runtime();
     const view = runtime.view(runId);
-    const source = watchableActorOf(view, request.source);
+    const room = view.actors.find((actor) => actor.id === callerActorId)?.room ?? null;
+    const source = watchableActorOf(view, request.source, room);
     if (!source) throw invalid(`The observed actor ${request.source} does not exist in this run.`);
-    const target = request.target ? watchableActorOf(view, request.target) : watchableActorOf(view, callerActorId);
+    const target = request.target ? watchableActorOf(view, request.target, room) : watchableActorOf(view, callerActorId, room);
     if (!target) throw invalid(`The actor to wake ${request.target ?? callerActorId} does not exist in this run or is not an agent.`);
     const condition = cleanText(request.condition, "condition", CONDITION_CHARS)!;
     const instruction = cleanText(request.instruction, "instruction", INSTRUCTION_CHARS);
@@ -104,9 +105,9 @@ export class WatchService implements WatchServiceApi {
     const definition: WatchDefinition = {
       id: `watch_${randomUUID()}`,
       sourceActorId: source.id,
-      sourceHandle: source.handle,
+      sourceHandle: addressOf(source),
       targetActorId: target.id,
-      targetHandle: target.handle,
+      targetHandle: addressOf(target),
       condition,
       ...(request.observe !== undefined ? { observe: request.observe } : {}),
       ...(instruction !== undefined ? { instruction } : {}),

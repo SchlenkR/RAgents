@@ -21,7 +21,9 @@ join this run, because its `RUN.md` does not set `embeddable: true` or because i
 option to a value the run does not have. A click starts it inside the run without a start value;
 its card shows a spinner and "Starting ..." and the other cards are locked until the server
 accepts the start, then the list closes;
-the primary actor stays, a repeated start reuses the script, its main view becomes available as an app, and its output and summary appear in the chat as `@handle: ...`. If the start is refused,
+the primary actor stays, every start gets a room of its own with its own participants (`name`,
+`name-2`, ...), its main view becomes available as an app, and its output and summary appear in
+the chat as `@room.handle: ...`. If the start is refused,
 the list stays open and shows why. The same button works in the VS Code run panel; in a narrow
 run header it shows only its icon.
 
@@ -42,8 +44,9 @@ dragging. The tab-strip drag grips and sidebar resize grip use the same dots.
 Dragging the only window to a side of its own area leaves an empty half. Drop another window
 there or use "Close area". Moving all windows into another area removes their empty source.
 Each tab's X closes that window. Only empty areas have an additional X, when another area
-remains. Chat can be closed too. The run header always lists Chat and every app as buttons with
-their existing icons, whether shown or not; the button of a visible window appears pressed.
+remains. Chat can be closed too. The run header always lists Chat, every plugin view shown as a
+window, and every app as buttons with their existing icons, whether shown or not; the button of a
+visible window appears pressed.
 Clicking a closed window opens it beside the current area in a wide browser workspace, or as a
 tab when narrow. Clicking a window that waits as a background tab brings that tab to the front.
 Clicking a visible window changes nothing. Labels shorten when the header gets narrower. Where
@@ -96,6 +99,12 @@ Its rail button disappears until you close the window, use its return-to-sidebar
 drag it back onto the rail or sidebar. A docked tool uses the same tabs, docking guides,
 maximize, and close controls as Chat and apps.
 
+A plugin can also show its view as a window instead of in the rail. Its button then sits with the
+window buttons in the run header, and the view appears, moves, splits, and closes like an app; it
+never appears in the rail and has no return-to-sidebar button. A small blue dot on its button, on
+its entry in the "All windows" menu, or on the "All windows" button itself means the view has
+content or new activity.
+
 The browser remembers areas, sizes, active tabs, closed windows, empty panes, the header button
 order, and sidebar settings for each server and run. New apps appear without taking focus;
 unavailable apps disappear. Chat drafts, app input, and visited tool state survive tab switches,
@@ -105,10 +114,12 @@ unsent input.
 In VS Code, click an app entry to open or focus its single editor tab; moving that tab between
 editor groups does not create a second one. The run panel stays on chat. Its inspection rail
 retains the popout: the same icon, Escape, X, or backdrop closes it, and its selected tab is
-remembered per run. Questions and news stay in the chat, and unsent drafts stay with their
-addressee when you switch actors.
+remembered per run. Plugin views that the browser shows as windows stay in this rail. Questions
+and news stay in the chat, and unsent drafts stay with their addressee when you switch actors.
 
 The chip at the left of the chat input names the addressee, the actor your messages go to.
+An actor in a room, such as one a run script started, appears with its address `room.handle`;
+the actors of the main room appear with their handle alone.
 While it names another actor than the run's first chat partner, usually the coordinator, an x
 next to the name ("Back to @coordinator") returns to that actor at once without opening anything.
 Clicking the chip opens a graph of who created whom drawn from top to bottom, like the
@@ -514,9 +525,9 @@ curl -s http://localhost:4710/rpc -H 'content-type: application/json' \
 The response contains either `result` or `error`; `error.data` provides `code` and `status`.
 
 A run script whose `RUN.md` sets `embeddable: true` also starts inside a running run:
-`ragents.runs.startScript` with `runId`, `entry`, and `input` waits and returns the script actor and
-which start of its package in the run this was, or the reason in `error`. The primary actor stays;
-a repeated start reuses the script's actor.
+`ragents.runs.startScript` with `runId`, `entry`, and `input` waits and returns the script actor,
+its address `room.handle`, and which start of its package this was, or the reason in `error`. The
+primary actor stays; every start opens a room of its own, so a repeated start gets its own actors.
 
 `ragents.runs.share` with `runId` and `sharing` (`everyone` and `users` with `userId` and
 `access`, each `read` or `write`) replaces whom a run is shared with, also on an identifier without

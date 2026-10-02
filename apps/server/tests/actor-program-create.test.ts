@@ -33,7 +33,7 @@ const regularFiles = async (directory: string): Promise<string[]> => (await read
 test("every template is created as a complete package without its own location and activates with typecheck, build and its tests", async (t) => {
   for (const template of runModuleTemplates) await t.test(template.id, async (t) => {
     const f = await fixture(t);
-    const created = await f.runtime.scaffold(f.runId, template.id, template.id);
+    const created = await f.runtime.scaffold(f.runId, f.setup.view.ownerId, template.id, template.id);
     const directory = path.join(f.actors, template.id);
     assert.deepEqual(created.files, [...Object.keys(templateFiles(template, template.id)), "tsconfig.client.json", "tsconfig.json", "tsconfig.server.json"]
       .sort((left, right) => left.localeCompare(right)));
@@ -51,7 +51,7 @@ test("every template is created as a complete package without its own location a
 
 test("a created package reads its prompts from its final folder", async (t) => {
   const f = await fixture(t);
-  await f.runtime.scaffold(f.runId, "prompted", "blank");
+  await f.runtime.scaffold(f.runId, f.setup.view.ownerId, "prompted", "blank");
   const directory = path.join(f.actors, "prompted");
   await mkdir(path.join(directory, "prompts"));
   await writeFile(path.join(directory, "prompts/role.md"), "Role prompt");
@@ -66,20 +66,20 @@ test("a failed creation leaves nothing below actors, the name stays free and the
     await assert.rejects(lstat(path.join(f.actors, "counter")), { code: "ENOENT" });
     throw new Error("Contract not readable");
   });
-  await assert.rejects(f.runtime.scaffold(f.runId, "counter", "headless-counter"), /Contract not readable/);
+  await assert.rejects(f.runtime.scaffold(f.runId, f.setup.view.ownerId, "counter", "headless-counter"), /Contract not readable/);
   assert.deepEqual(await readdir(f.actors), []);
   assert.deepEqual(await readdir(f.staging), []);
   f.setup.services.nativeTypeScriptExecutor = f.executor;
-  await f.runtime.scaffold(f.runId, "counter", "headless-counter");
+  await f.runtime.scaffold(f.runId, f.setup.view.ownerId, "counter", "headless-counter");
   assert.deepEqual(await f.runtime.activate(f.context, f.runId, "counter"), { name: "counter", actor: "@counter", views: 0, active: true });
 });
 
 test("an existing folder of the same name blocks the creation, even an empty one that appears during the build", async (t) => {
   const f = await fixture(t);
   await mkdir(path.join(f.actors, "taken"), { recursive: true });
-  await assert.rejects(f.runtime.scaffold(f.runId, "taken", "blank"), /The package taken already exists/);
+  await assert.rejects(f.runtime.scaffold(f.runId, f.setup.view.ownerId, "taken", "blank"), /The package taken already exists/);
   f.setup.services.nativeTypeScriptExecutor = around(f.executor, () => mkdir(path.join(f.actors, "late")).then(() => undefined));
-  await assert.rejects(f.runtime.scaffold(f.runId, "late", "headless-counter"), /The package late already exists/);
+  await assert.rejects(f.runtime.scaffold(f.runId, f.setup.view.ownerId, "late", "headless-counter"), /The package late already exists/);
   assert.deepEqual((await readdir(f.actors)).sort(), ["late", "taken"]);
   assert.deepEqual(await readdir(path.join(f.actors, "late")), []);
   assert.deepEqual(await readdir(f.staging), []);
@@ -88,7 +88,7 @@ test("an existing folder of the same name blocks the creation, even an empty one
 test("two simultaneous creations of one name leave exactly one complete package", async (t) => {
   const f = await fixture(t);
   const candidates = [runModuleTemplates.find((template) => template.id === "text-analysis")!, runModuleTemplates.find((template) => template.id === "headless-counter")!];
-  const results = await Promise.allSettled(candidates.map((template) => f.runtime.scaffold(f.runId, "twin", template.id)));
+  const results = await Promise.allSettled(candidates.map((template) => f.runtime.scaffold(f.runId, f.setup.view.ownerId, "twin", template.id)));
   const winners = candidates.filter((_template, index) => results[index]!.status === "fulfilled");
   assert.equal(winners.length, 1);
   const rejected = results.find((result): result is PromiseRejectedResult => result.status === "rejected")!;
@@ -110,11 +110,11 @@ test("leftovers of a crashed server run leave the staging area without touching 
     reached();
     await gate;
   });
-  const slow = f.runtime.scaffold(f.runId, "slow", "headless-counter");
+  const slow = f.runtime.scaffold(f.runId, f.setup.view.ownerId, "slow", "headless-counter");
   await paused;
   await mkdir(path.join(f.staging, "crashed-0000/src"), { recursive: true });
   await writeFile(path.join(f.staging, "crashed-0000/package.json"), "{}");
-  await f.runtime.scaffold(f.runId, "quick", "blank");
+  await f.runtime.scaffold(f.runId, f.setup.view.ownerId, "quick", "blank");
   const staged = await readdir(f.staging);
   assert.equal(staged.length, 1);
   assert.match(staged[0]!, /^slow-/);

@@ -45,7 +45,7 @@ export const createViewSnapshotFunction = (options: ViewSnapshotOptions): RunFun
     if (!programs) throw new Error("This profile has no actor programs.");
     const address = options.address();
     if (!address) throw new Error("The server has no address yet.");
-    const view = programs.resolveView(caller.runId, input.view);
+    const view = programs.resolveView(caller.runId, input.view, caller.actorId);
     if (!view.visible) throw new Error(`${view.reference} is hidden. Show it with actor_view_set_visibility first.`);
     const call = { signal, toolCallId };
     try {

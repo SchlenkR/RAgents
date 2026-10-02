@@ -12,6 +12,7 @@ import { assertJsonValue, type JsonValue } from "../../domain/json.ts";
 import { jsonChanges } from "../../domain/json-patch.ts";
 import type { UncommittedEvent } from "../../domain/events.ts";
 import { isPendingActorInput, actorDescriptionMaxLength, actorStatePluginId, pluginStateKey } from "../../domain/model.ts";
+import { addressFrom, sharesNames } from "../../domain/actor-reference.ts";
 import { scriptExecution } from "../../domain/driver.ts";
 import { isActiveActor } from "../../domain/projection.ts";
 import { event, type CommandContext, type Decision } from "../command.ts";
@@ -27,8 +28,10 @@ import {
     uniqueHandleOf,
     clean,
     executableActorOf,
-    handleOf,
+    actorHandleOf,
     hasCapability,
+    newRoomNameOf,
+    openedRoomOf,
 } from "../guards.ts";
 
 const selectedToolNames = (value: readonly string[] | null): string[] | null => {
@@ -118,10 +121,11 @@ export const spawnAgent =
         if (input.task !== undefined && caller.id !== state.ownerId)
             assertCapability(caller, "actor.input", { kind: "run" });
 
-        const requested = handleOf(input.handle);
-        const handle = uniqueHandleOf(state, requested);
+        const room = caller.room;
+        const requested = actorHandleOf(input.handle);
+        const handle = uniqueHandleOf(state, requested, room);
         const suffix = handle === requested ? "" : ` ${handle.slice(requested.length + 1)}`;
-        const forkOf = input.forkOf === undefined ? undefined : forkSourceOf(state, input.forkOf);
+        const forkOf = input.forkOf === undefined ? undefined : forkSourceOf(state, input.forkOf, room);
         const agentId = services.newId("agent");
 
         return [
@@ -137,6 +141,7 @@ export const spawnAgent =
                     toolNames: selectedToolNames(input.toolNames),
                     ...(forkOf ? { forkOf } : {}),
                     ...descriptionOf(input.description),
+                    ...(room === null ? {} : { room }),
                 },
             }),
             ...(input.task === undefined ? [] : [event(context, {
@@ -153,8 +158,8 @@ export const spawnAgent =
         ];
     };
 
-const forkSourceOf = (state: RunState, reference: string): string => {
-    const source = addressedActorOf(state.actors.values(), reference);
+const forkSourceOf = (state: RunState, reference: string, room: string | null): string => {
+    const source = addressedActorOf(state.actors.values(), reference, room);
 
     if (source.kind !== "agent")
         throw new DomainError("invalid-value", `Fork source ${reference} is not an LLM agent.`, 400);
@@ -175,6 +180,12 @@ const forkSourceOf = (state: RunState, reference: string): string => {
     return source.id;
 };
 
+/** Where a new TypeScript actor stands: its creator's room unless `room` names one; `open` opens that room in the same command. */
+export type ScriptActorRoom =
+    | { kind: "creator" }
+    | { kind: "existing"; name: string | null }
+    | { kind: "open"; name: string; origin: string | null };
+
 export const createScriptActor =
     (input: {
         handle: string;
@@ -183,16 +194,25 @@ export const createScriptActor =
         toolNames: readonly string[] | null;
         turnTimeoutMs?: number | null;
         description?: string;
+        room?: ScriptActorRoom;
     }): Decision =>
     (state, context, services) => {
         const caller = commandActorOf(state, context);
         assertCapability(caller, "agent.spawn", { kind: "run" });
         assertDelegation(caller, input.grants);
-        const handle = handleOf(input.handle);
-        if ([...state.actors.values()].some((actor) => actor.handle === handle))
-            throw new DomainError("handle-exists", `Handle @${handle} already belongs to an actor.`);
+        const placement = input.room ?? { kind: "creator" };
+        const room = placement.kind === "creator" ? caller.room
+            : placement.kind === "existing" ? openedRoomOf(state, placement.name)
+            : newRoomNameOf(state, placement.name);
+        const opened = placement.kind === "open"
+            ? [event(context, { type: "room.opened", payload: { name: room!, origin: openedRoomOf(state, placement.origin) } })]
+            : [];
+        const handle = actorHandleOf(input.handle);
+        const holder = [...state.actors.values()].find((actor) => actor.handle === handle && sharesNames(actor.room, room));
+        if (holder)
+            throw new DomainError("handle-exists", `Handle @${handle} already belongs to the actor @${addressFrom(holder, room)}; a name means one actor in its room and the main room.`);
 
-        return [event(context, {
+        return [...opened, event(context, {
             type: "script.created",
             payload: {
                 scriptId: services.newId("script"),
@@ -202,6 +222,7 @@ export const createScriptActor =
                 grants: [...input.grants],
                 toolNames: selectedToolNames(input.toolNames),
                 ...descriptionOf(input.description),
+                ...(room === null ? {} : { room }),
             },
         })];
     };

@@ -35,12 +35,12 @@ run: async (_input, context) => {${body}}
 }});`,
 });
 const sourcesOf = (files: Record<string, string>) => Object.entries(files).map(([file, content]) => ({path: file, content}));
-const call = async (f: Awaited<ReturnType<typeof fixture>>, requestId: string) => {
-  const app = f.runtime.apps(f.runId).find((entry) => entry.id === "rpc--main")!;
+const call = async (f: Awaited<ReturnType<typeof fixture>>, requestId: string, name = "rpc") => {
+  const app = f.runtime.apps(f.runId).find((entry) => entry.id === `${name}--main`)!;
   const invocation = f.runtime.startInvocation(f.runId, app.id, app.revision, "run", requestId, {}, f.runtime.invocationPermit(f.runId));
-  return invocationResult(f.runtime, f.runId, "rpc--main", invocation.id);
+  return invocationResult(f.runtime, f.runId, `${name}--main`, invocation.id);
 };
-const program = (f: Awaited<ReturnType<typeof fixture>>) => f.runtime.programs(f.runId).find((entry) => entry.name === "rpc")!;
+const program = (f: Awaited<ReturnType<typeof fixture>>, name = "rpc") => f.runtime.programs(f.runId).find((entry) => entry.name === name)!;
 
 test("a compatible contract change re-activates the package before the call and keeps its build", async (t) => {
   const ping = pingOperations();
@@ -81,20 +81,20 @@ test("a run script package is rebuilt from the plugin's current sources when its
   const v2 = appFiles('return "v2:" + await context.functions.native_ping({value: "ping"});');
   let current = v1;
   const f = await fixture(t, ping.operations, (entryId, name) => entryId === "test.rpc" && name === "rpc" ? sourcesOf(current) : undefined);
-  await f.runtime.installScript(f.context, f.runId, {entryId: "test.rpc", handle: "rpc", files: sourcesOf(v1), programs: [], sharedPrograms: []});
-  const before = program(f);
+  await f.runtime.installScript(f.context, f.runId, {entryId: "test.rpc", handle: "rpc", files: sourcesOf(v1), programs: [], sharedPrograms: []}, null);
+  const before = program(f, "rpc.rpc");
   current = v2;
-  const unchanged = await call(f, "unchanged");
+  const unchanged = await call(f, "unchanged", "rpc.rpc");
   assert.equal(unchanged.status, "succeeded", JSON.stringify(unchanged));
   assert.equal(unchanged.result, "v1:pong");
-  assert.equal(program(f).revision, before.revision);
+  assert.equal(program(f, "rpc.rpc").revision, before.revision);
   ping.widenInput();
-  const rebuilt = await call(f, "rebuilt");
+  const rebuilt = await call(f, "rebuilt", "rpc.rpc");
   assert.equal(rebuilt.status, "succeeded", JSON.stringify(rebuilt));
   assert.equal(rebuilt.result, "v2:pong");
-  assert.notEqual(program(f).revision, before.revision);
-  assert.equal(program(f).actorId, before.actorId);
-  assert.equal(f.runtime.apps(f.runId).find((entry) => entry.id === "rpc--main")?.revision, program(f).revision);
+  assert.notEqual(program(f, "rpc.rpc").revision, before.revision);
+  assert.equal(program(f, "rpc.rpc").actorId, before.actorId);
+  assert.equal(f.runtime.apps(f.runId).find((entry) => entry.id === "rpc.rpc--main")?.revision, program(f, "rpc.rpc").revision);
 });
 
 test("a package without a run script origin is rebuilt from its own workspace files", async (t) => {

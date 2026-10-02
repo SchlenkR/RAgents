@@ -20,7 +20,7 @@ import { shellPlatformPrompt } from "./shell-platform.js";
 import { agentWorkspaceToolNames } from "./workspace-tool-naming.js";
 import { startOptionScope } from "@ragents/host/ragents/start-option-state.js";
 import { WORKSPACE_BINDING_OPTION_ID, WORKSPACE_METADATA_ID, type WorkspaceSessionMetadata } from "../contract.js";
-import { bindingOf, executorShellChapter, sessionMetadataOf, workspaceBindingOption, workspaceListDetail, workspaceLocation, workspaceOwnerOf } from "./binding.js";
+import { bindingOf, currentBindingOf, executorShellChapter, sessionMetadataOf, workspaceBindingOption, workspaceListDetail, workspaceLocation, workspaceOwnerOf } from "./binding.js";
 import { createBrowseChannel, createBrowseMethods } from "./browse-route.js";
 import { clientMethods, WorkspaceClientRegistry } from "./clients.js";
 import { bashSetting, bashTimeoutSetting, PROCESS_SANDBOX_OFF, processSandboxSetting, rgSetting, workspaceConfigDescriptors } from "./config.js";
@@ -112,14 +112,14 @@ const ragentsWorkspacePlugin = (skillPaths: () => Promise<readonly string[]>): R
       ensureWorkspaceAccess: host.service(workspaceGuardToken),
       execute: runtime.sandbox.execute.bind(runtime.sandbox),
       documentsFor: documentsRoot,
-      locationOf: (runId: string, location: string) => workspaceLocation(bindingOf(runState(runId)), location),
+      locationOf: (runId: string, location: string) => workspaceLocation(currentBindingOf(clients, runState(runId)), location),
     };
     host.methods(...createBrowseMethods(browseOptions), ...clientMethods(clients));
     host.channels(createBrowseChannel(browseOptions));
     host.startOptions(workspaceBindingOption(clients, contribution));
     host.sessionMetadata({
       id: WORKSPACE_METADATA_ID,
-      describe: ({ runId }) => sessionMetadataOf(runState(runId), contribution()),
+      describe: ({ runId }) => sessionMetadataOf(currentBindingOf(clients, runState(runId)), contribution()),
       // The value is the one describe returned in this process.
       listDetail: (value) => workspaceListDetail(value as WorkspaceSessionMetadata),
     });

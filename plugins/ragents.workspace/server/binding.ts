@@ -14,6 +14,7 @@ import {
   storedWorkspaceBinding,
   WORKSPACE_BINDING_OPTION_ID,
   workspaceBindingSummary,
+  withCurrentLabel,
   type ExistingWorkspaceFolder,
   type FreshWorkspaceLabels,
   type FreshWorkstationFolder,
@@ -114,10 +115,14 @@ export const freshLabels = (contribution: WorkspaceResolver | undefined): FreshW
   client: contribution ? contribution.workstation?.label ?? null : FRESH_WORKSPACE_LABEL,
 });
 
-export const sessionMetadataOf = (state: RunState | null, contribution: WorkspaceResolver | undefined): WorkspaceSessionMetadata => {
+/** The run's binding with the current label of its workstation. */
+export const currentBindingOf = (registry: WorkspaceClientRegistry, state: RunState | null): WorkspaceBinding => {
   const binding = bindingOf(state);
-  return { binding, summary: workspaceBindingSummary(binding, freshLabels(contribution)) };
+  return binding.machine === "server" ? binding : withCurrentLabel(binding, registry.info(workspaceOwnerOf(state), binding.machine.client)?.label);
 };
+
+export const sessionMetadataOf = (binding: WorkspaceBinding, contribution: WorkspaceResolver | undefined): WorkspaceSessionMetadata =>
+  ({ binding, summary: workspaceBindingSummary(binding, freshLabels(contribution)) });
 
 /** The run list names the workspace unless the run works in the new folder on the server. */
 export const workspaceListDetail = ({ binding, summary }: WorkspaceSessionMetadata): RunListDetail | undefined =>

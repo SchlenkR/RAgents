@@ -28,7 +28,7 @@ import { StartSelection } from "./StartSelection";
 import { StatusGroup } from "./StatusGroup";
 import { RunPanelHeader } from "./run-panel/RunPanelHeader";
 import { DockToolsContext, DockWorkspace } from "./run-panel/DockWorkspace";
-import { activeDockTool, selectDockPanel, toolPanelId } from "./run-panel/dock-state";
+import { activeDockTool, selectDockPanel, workspaceTabPanelId } from "./run-panel/dock-state";
 import { useDockStorage } from "./run-panel/dock-storage";
 import { useRunPanelHost } from "./run-panel/host";
 import { RunPanelRail } from "./run-panel/RunPanelRail";
@@ -262,9 +262,10 @@ function useWorkspaceTabs(runId: string, availableTabs: readonly WorkspaceTabCon
   const panelState = activeTabId === "" ? "collapsed" : "expanded";
   const firstTabId = availableTabs[0]?.id ?? null;
   const showTab = useCallback((tabId: string) => {
-    if (host.kind === "browser") updateDock((state) => selectDockPanel(state, toolPanelId(tabId)));
+    const tab = availableTabs.find((entry) => entry.id === tabId);
+    if (host.kind === "browser") updateDock((state) => tab ? selectDockPanel(state, workspaceTabPanelId(tab)) : state);
     else saveRunPanelWorkspaceState(runId, { ...stored, tab: tabId });
-  }, [updateDock, host.kind, runId, stored]);
+  }, [availableTabs, updateDock, host.kind, runId, stored]);
   const togglePanel = useCallback(() => {
     if (host.kind === "browser") updateDock((state) => ({ ...state, side: { ...state.side, tab: null, sticky: false } }));
     else saveRunPanelWorkspaceState(runId, { ...stored, tab: panelState === "expanded" ? null : stored.tab ?? firstTabId });

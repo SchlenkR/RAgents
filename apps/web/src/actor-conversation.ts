@@ -1,13 +1,17 @@
 import type { Message } from "quassel/events";
 import { withToolSummaries } from "./toolLine";
-import { runTurnOutputs, type RunActor, type RunActorInput, type RunView } from "./run-view";
+import { actorAddress, runTurnOutputs, type RunActor, type RunActorInput, type RunView } from "./run-view";
 
 const ACTOR_HUES = [212, 158, 28, 283, 350, 190, 95, 320, 55, 245];
 const shortId = (id: string) => id.length > 12 ? `${id.slice(0, 12)}...` : id;
+const addressById = (view: RunView, actorId: string) => {
+  const actor = view.actors.find((entry) => entry.id === actorId);
+  return actor && actorAddress(actor);
+};
 
 export const actorInputLabel = (view: RunView, input: RunActorInput): string => input.subscriptionId
   ? "Delivered via subscription"
-  : `Delivered by @${view.actors.find((actor) => actor.id === input.enqueuedBy)?.handle ?? shortId(input.enqueuedBy)}`;
+  : `Delivered by @${addressById(view, input.enqueuedBy) ?? shortId(input.enqueuedBy)}`;
 
 export const actorConversation = (view: RunView, actor: RunActor): Message[] => {
   const colorOf = (actorId: string) => {
@@ -50,7 +54,7 @@ export const actorConversation = (view: RunView, actor: RunActor): Message[] => 
         text: output.text,
         closed: true,
         at: output.occurredAt,
-        bubble: { color: colorOf(actor.id), label: `@${actor.handle}`, side: "end" },
+        bubble: { color: colorOf(actor.id), label: `@${actorAddress(actor)}`, side: "end" },
       },
     })));
   return [...delivered, ...answers].sort((left, right) => left.sequence - right.sequence).map((entry) => entry.message);

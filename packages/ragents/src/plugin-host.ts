@@ -647,7 +647,7 @@ export class StartEntryContributionRegistry {
     return this.describe().find((candidate) => candidate.id === entryId);
   }
 
-  /** Names share one namespace per run: a shared package is neither a script's handle nor its bundled program, and every name a script needs exists. */
+  /** Shared packages live in the main room, whose names every room sees: a shared package is neither a script's handle nor its bundled program, and every name a script needs exists. */
   assertSharedPrograms(packages: ActorPackageContributionRegistry): void {
     for (const { value } of this.#entries.entries()) {
       if (value.action !== "script") continue;
@@ -655,7 +655,7 @@ export class StartEntryContributionRegistry {
       const clash = [script.handle, ...script.programs.map((program) => program.name)].find((name) => packages.get(name));
       if (clash !== undefined) {
         throw new Error(`Run script ${value.id} uses the name ${clash}, which is also the shared actor package of ${packages.get(clash)!.pluginId}; `
-          + "run script handles, their bundled programs and shared packages share one namespace per run");
+          + "shared packages live in the main room, whose names every script's room sees");
       }
       const missing = (script.sharedPrograms ?? []).filter((name) => !packages.get(name));
       if (missing.length > 0) {

@@ -245,9 +245,10 @@ The server-side `PluginHost` has registries for:
   created without code and without a frontend build
 - shared actor packages (`host.actorPackages`): packages with `name` and `files` that the run
   scripts of the profile name in `sharedPrograms` (in `RUN.md` the line `shared-programs: a, b`); a
-  folder `actors/<name>/` in the plugin folder registers one. Names are one namespace per run: at
-  startup the host rejects a name two plugins share, a shared name that equals a run script's handle
-  or one of its bundled programs, and a script that needs a shared package no plugin provides
+  folder `actors/<name>/` in the plugin folder registers one. A shared package lives in the main
+  room of a run, whose names every room sees: at startup the host rejects a name two plugins share,
+  a shared name that equals a run script's handle or one of its bundled programs, and a script that
+  needs a shared package no plugin provides
 - typed run functions (`host.functions`), native model tools unless they opt out
 - named domain operations with an input schema, operator policy, and shared execution for
   several surfaces
@@ -1290,7 +1291,9 @@ Instead, plugins fill typed slots for:
   coordinates overview and toolbar history. Toolbar contributions are mounted from application start,
   but activate their own connections only on use and keep them afterwards across run switches.
 - workspace tabs and badges (`workspaceTabs`, `workspaceTabsFor`): the toolbar at the right edge
-  with the tab area as a popout over the selected content view; the same contribution, the same visibility (`readRight`, `requiresWorkspace`, `available`)
+  with the tab area as a popout over the selected content view; the same contribution, the same visibility (`readRight`, `requiresWorkspace`, `available`);
+  `placement: "window"` (default `"sidebar"`) lists a tab in the browser among the run's windows in the
+  header instead, like a mini-app (section on the docking workspace below)
 - tool and entity presenters; the run providers bind tool presentations together to
   run and navigation. The standard chat and the actor chat consume the same renderer.
 - run metadata (`sessionMetadata`): a component for the run details in the header; the run list
@@ -1402,7 +1405,7 @@ preview shows the result. Escape cancels the drag; outside a target nothing chan
 last window within its own area leaves an empty half with "Drop a window here" and "Close area".
 Moving it to another area removes the emptied source. Closing the last tab removes its area
 when others exist; closing the sole area leaves it empty. Escape also restores a maximized area.
-The run header lists every view (Chat and each app) as an icon-and-label button in a "Layout
+The run header lists every view (Chat, each window tab, and each app) as an icon-and-label button in a "Layout
 actions" group, whether shown or not; a visible view's button is pressed (`aria-pressed`).
 `revealDockPanel` decides the click: a closed view opens beside the focused area in wide browser
 workspaces or as a tab in narrow ones; a background tab or the active tab of an area hidden by
@@ -1446,6 +1449,23 @@ reads "Replace empty pane". A background empty pane is merged beside like any ta
 "Reset layout" uses the standard header icon button directly after the views, or the last menu
 entry, and restores the automatic layout, the button order, and the inspection rail, and removes
 empty panes. Arrow keys, Home, and End select tabs; focused dividers resize with arrow keys.
+
+A workspace tab with `placement: "window"` is the same contribution in another place: in the browser
+it is a view like an app, never a rail tool. Its panel has the ID `tab:<tab id>`
+(`workspaceTabPanelId` in `dock-state.ts`; a sidebar tab is `tool:<tab id>`) and lives in the tree,
+`known`, `closed`, and `order`, never in `bar`. The catalog order is Chat, window tabs in tab order,
+then apps, so apps that arrive later still join at the end. Such a tab joins the layout like a new
+app (the automatic wide layout puts it into the app area; Reset layout opens it again), and its
+header button shows its `Icon` and `label` with grip, reordering, and menu entry like any view.
+Its `Badge` or pending activity is drawn as the same `bg-info` dot inside `BadgeDisplayProvider
+value="dot"` at the top right of its header button, at the end of its menu entry, and on the "All
+windows" button, which collects the dots of all views it holds. Its `Header` renders in the area
+header while it is the area's active tab, and its `Panel` receives `active` while it is visible. It
+has no return-to-sidebar button, and the rail is no drop target for it. `SessionNavigation.openTab`
+selects it in its area or opens a closed one as the active tab of the focused area
+(`selectDockPanel`, which ignores IDs outside `known`), and `activeTabId` names it while it is the
+active tab of the focused area. A tab whose placement changes leaves the rail or the windows through
+catalog reconciliation and joins the other place.
 
 `dock-state.ts` holds the tree operations and catalog reconciliation; `dock-geometry.ts` calculates
 rectangles and drag targets. The layout including empty panes, split ratios, active tabs, closed
@@ -2366,7 +2386,9 @@ owns Start, Runs, and Servers and sends the selected run to the panel.
 receives `SurfaceCenterContext`. Without it the host renders the standard chat.
 
 The sidebar tabs (`workspaceTabs`, `workspaceTabsFor`) appear as a vertical rail at the far
-right, with each contribution's icon and accessible name. A rail button has exactly one marker:
+right, with each contribution's icon and accessible name; in the browser a tab with
+`placement: "window"` is listed with the run's windows in the header instead, and the rail is
+left out when no sidebar tab remains. A rail button has exactly one marker:
 a small `bg-info` dot at its top right when the contribution's `Badge` renders or the tab has
 pending activity. The rail renders the badge inside `BadgeDisplayProvider value="dot"`, so the
 ui `Badge` draws the dot and keeps its text for screen readers only; numeric badges elsewhere
@@ -2414,6 +2436,8 @@ composer keep their input controls. Inspector transcripts use compact margins an
 In VS Code, `RunPanelRail` and `RunPanelWorkspace` retain the inspection popout over the chat.
 A click opens it with its title and X, and the same icon, X, Escape, or backdrop closes it.
 On opening it receives focus. Visited `keepMounted` contributions stay mounted with `active: false`.
+VS Code keeps every tab there, also one with `placement: "window"`: an editor tab exists only for
+mini-apps, and a workspace tab has no editor layout of its own.
 Its tab remains stored under `ragents.run-panel.workspace-tab:<runId>`; unavailable tabs stay
 closed until available. The browser instead uses the docking state described above. The
 `app` layout never has an inspection rail in either host. The chat reports the active inspection
@@ -2946,7 +2970,10 @@ the server is an absolute folder of the server machine that exists at the time o
 directly in it, and neither stopping nor deleting the run touches it. A workstation is one of the
 acting user: `accept` requires that this user has signed it in, for an
 existing folder that the workstation offers it, and writes its label into the value so that the
-run can name it even without the registry. For the new folder on a workstation, `accept` records
+run can name it even without the registry. While the workstation is registered, the location line,
+the run list, and the run header name its current label instead (`withCurrentLabel`), so a
+renamed workstation shows its new name in older runs too; the stored label only stands in while
+it is not registered. Prompt texts already sent stay as they were. For the new folder on a workstation, `accept` records
 its path there, `{ path, fresh: true }`: the folder with the run's ID under the folder
 for runs that the workstation names on sign-in (`runsDirectory`, with its separator;
 the VS Code extension and the headless workstation take `runs` in their data folder, on macOS and
@@ -3827,8 +3854,9 @@ for the run title and the agent tasks. With an explicitly passed `null`, the def
 package apply. The further flow stays controlled by the model.
 `Moderated round without coordinator` additionally demonstrates `coordinator: false` and a
 different primary actor. `Take stock of the run` (`run-roster`) is the embeddable one: started from
-the run menu, `ragents script`, or the coordinator's `run_script_start`, it joins a running run,
-lists the other participants with `actor_list`, and ends each start with `context.finish`. Two neutral skill templates guide a decision or a
+the run menu, `ragents script`, or the coordinator's `run_script_start`, it joins a running run in
+a room of its own, lists the other participants with `actor_list`, and ends each start with
+`context.finish`. Two neutral skill templates guide a decision or a
 learning unit as reusable work instructions in the chat, without a programmed setup.
 
 ## Browser checks
@@ -3854,8 +3882,8 @@ option's value or visible label. `browser_press_key` presses on the focused elem
 `target` after focusing it.
 
 `actor_view_snapshot` checks a mini-app without the model driving a browser: given `package-name/view-key`
-(or `@handle/view-key` or a unique title), it resolves the view through the actor programs service
-(`resolveView`), rejects a hidden view, opens the app layout of the host in the run's browser at the address of
+(or `@handle/view-key` or a unique title), it resolves the view from the caller's room through the
+actor programs service (`resolveView`), rejects a hidden view, opens the app layout of the host in the run's browser at the address of
 `hostAddressToken`, waits for the view's frame, and returns its accessible structure (cut at 8000 characters)
 and the browser errors. It is only available where `ragents.actor-programs` exists, and it needs a server
 without sign-in that the machine of the run's workspace can reach; otherwise it fails with the page it found.
@@ -4103,7 +4131,8 @@ right) returns the archive; a different version is 404. The counterpart is `rage
   without it the first task is shown there, which without `runs.inspect` only the owner's inputs carry.
 - The run panel knows exactly one surface contribution with `RunPanel`; its state is stored per
   browser storage, in VS Code therefore per window. The rail sidebar opens one tool at a time;
-  browser tools docked in separate areas can be visible together.
+  browser tools docked in separate areas can be visible together. A workspace tab with
+  `placement: "window"` is a window only in the browser; VS Code keeps it in its rail.
   Run and app frames load from their server; only the server navigation shell is packaged locally.
   A local profile of the extension names its templates only once its host is running; before the
   start nobody knows the templates, because they come into being only with the registered plugins.

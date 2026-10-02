@@ -117,3 +117,12 @@ test("states read as working, waiting for input, waiting or stopped and add up p
   assert.equal(addresseeStatusCounts(view, reviewers), "3 working, 33 waiting, 1 stopped");
   assert.equal(addresseeStatusCounts(view, [byId("implementer"), byId("test-a")]), "1 working, 1 waiting for input");
 });
+
+test("siblings of different rooms never share a group and a room's group names its room", () => {
+  const roomed = (id: string, handle: string, room: string) => actor(id, "agent", "coordinator", { handle, room });
+  const members = ["one", "two", "three", "four"];
+  const tree = addresseeTree(view, [view.actors[2]!, ...members.map((name) => roomed(`a-${name}`, `review-${name}`, "audit")), ...members.slice(0, 3).map((name) => roomed(`b-${name}`, `review-${name}`, "audit-2"))]);
+  const coordinator = tree[0];
+  assert.ok(coordinator?.kind === "actor");
+  assert.deepEqual(outline(coordinator.children), [{ group: "@audit.review-*", members: 4 }, "b-one", "b-two", "b-three"]);
+});

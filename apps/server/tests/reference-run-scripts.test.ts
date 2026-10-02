@@ -151,6 +151,7 @@ test("the balcony setup builds its advisor and view through native core tools be
     assert.equal(view.actors.some((actor) => actor.handle === "coordinator"), false);
     const advisor = view.actors.find((actor) => actor.handle === "balcony-advisor");
     assert.ok(advisor && advisor.kind === "agent");
+    assert.equal(advisor.room, "balcony-wizard", "the advisor joins the room of the script that created it");
     assert.deepEqual(advisor.toolNames, []);
     assert.equal(view.primaryActorId, advisor.id);
     const standard = catalog.profiles().find((profile) => profile.name === "standard");
@@ -160,10 +161,11 @@ test("the balcony setup builds its advisor and view through native core tools be
     assert.equal(view.inputs.some((input) => input.actorId === advisor.id), false);
     const programs = view.pluginStates.flatMap((entry) => entry.pluginId === ACTOR_PROGRAMS_STATE_ID
       ? [(entry.state as unknown as ActorProgramState).program].filter((program) => program !== null) : []);
-    const app = resolveActorView(programs, "balcony-app/main");
+    const app = resolveActorView(programs, "balcony-app/main", "balcony-wizard");
     assert.equal(app.program.actorId, advisor.id);
     assert.equal(app.view.visible, true);
-    assert.equal(resolveActorView(programs, "@balcony-advisor/main").view.id, app.view.id);
+    assert.equal(resolveActorView(programs, "@balcony-advisor/main", "balcony-wizard").view.id, app.view.id);
+    assert.equal(resolveActorView(programs, "balcony-wizard.balcony-app/main").view.id, app.view.id, "from the main room the room is part of the name");
     assert.equal("placements" in app.view, false);
   } finally {
     session.dispose();
@@ -217,7 +219,7 @@ for (const sample of ["word-game", "learning-afternoon"]) {
       assert.equal(setup.turns[0]?.status, "completed", setup.turns[0]?.reason ?? "");
       assert.equal(calls.length, 0, "Building a sample must not call a model");
       assert.equal(setup.actors.some((actor) => actor.handle === "coordinator"), false);
-      const app = programs.apps(session.id).find((app) => app.actorHandle === sample)!;
+      const app = programs.apps(session.id).find((app) => app.actorHandle === `${sample}.${sample}`)!;
       assert.ok(app && app.visible, "The prepared UI must be visible");
       assert.equal(setup.primaryActorId, app.actorId);
       const invocation = programs.startInvocation(session.id, app.id, app.revision, "start", `${sample}-start`, {});
@@ -283,12 +285,15 @@ test("run-roster starts a run, joins it again as an embedded start, shares the n
     const second = await session.startAndWait(entry.id, null);
     await scheduler.waitForIdle();
     const view = runtime.view(session.id);
-    assert.deepEqual([first.count, second.count, second.actorId], [1, 2, first.actorId]);
+    assert.deepEqual([first.handle, first.count, second.handle, second.count], ["run-roster.run-roster", 1, "run-roster-2.run-roster", 1]);
+    assert.notEqual(second.actorId, first.actorId, "the embedded start gets a roster of its own in its own room");
     assert.equal(view.primaryActorId, first.actorId);
     assert.deepEqual(view.turns.filter((turn) => turn.status !== "completed"), []);
-    assert.deepEqual(texts.filter((text) => /participant/.test(text)), ["No other participants yet.", "1 participant: @notebook."], "the primary's own summaries need no handle");
+    assert.deepEqual(texts.filter((text) => /participant/.test(text)), ["No other participants yet.", "@run-roster-2.run-roster: 2 participants: @run-roster.run-roster, @notebook."],
+      "the primary's own summary needs no handle; the second roster sees the first one in its room and the notebook in the main room");
     const programs = host.service(actorProgramsToken);
     const notebook = view.actors.find((actor) => actor.handle === "notebook")!;
+    assert.equal(notebook.room, null, "the shared notebook lives in the main room");
     assert.deepEqual(programs.programOf(session.id, notebook.id)?.origin, { kind: "shared", pluginId: "ragents.reference" });
     assert.deepEqual(programs.programOf(session.id, first.actorId)?.origin, { kind: "script", entryId: entry.id });
   } finally {

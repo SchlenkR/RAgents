@@ -47,6 +47,7 @@ export const forkProjection = (state: RunDraft): RunDraft => ({
         toolCalls: value.toolCalls.map((call) => ({ ...call })),
     })),
     actions: new ProjectionMap(state.actions, (value) => ({ ...value })),
+    rooms: new Map(state.rooms),
     subscriptions: new Map(state.subscriptions),
     pluginStates: new Map(state.pluginStates),
     artifacts: new Map(state.artifacts),
@@ -124,6 +125,7 @@ const created = (event: Extract<JournalEvent, { type: "run.created" }>): RunDraf
     pause: null,
     createdAt: event.occurredAt,
     forkedFrom: null,
+    rooms: new Map(),
     actors: new Map([
         [
             event.payload.owner.id,
@@ -131,6 +133,7 @@ const created = (event: Extract<JournalEvent, { type: "run.created" }>): RunDraf
                 kind: "human" as const,
                 id: event.payload.owner.id,
                 handle: event.payload.owner.handle,
+                room: null,
                 displayName: event.payload.owner.displayName,
                 grants: event.payload.owner.grants,
                 createdAt: event.occurredAt,
@@ -204,11 +207,21 @@ export function applyEvent(
             break;
         }
 
+        case "room.opened":
+            state.rooms.set(event.payload.name, {
+                name: event.payload.name,
+                origin: event.payload.origin,
+                openedBy: event.actorId,
+                openedAt: event.occurredAt,
+            });
+            break;
+
         case "agent.spawned":
             state.actors.set(event.payload.agentId, {
                 kind: "agent",
                 id: event.payload.agentId,
                 handle: event.payload.handle,
+                room: event.payload.room ?? null,
                 displayName: event.payload.displayName,
                 createdBy: event.actorId,
                 description: event.payload.description ?? null,
@@ -230,6 +243,7 @@ export function applyEvent(
                 kind: "script",
                 id: event.payload.scriptId,
                 handle: event.payload.handle,
+                room: event.payload.room ?? null,
                 displayName: event.payload.displayName,
                 createdBy: event.actorId,
                 description: event.payload.description ?? null,
@@ -571,6 +585,7 @@ export function viewOf(state: RunState): RunView {
         pause: state.pause,
         createdAt: state.createdAt,
         forkedFrom: state.forkedFrom,
+        rooms: [...state.rooms.values()],
         actors: [...state.actors.values()],
         inputs: [...state.inputs.values()],
         turns: [...state.turns.values()],

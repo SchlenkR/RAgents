@@ -3,15 +3,17 @@ import {
   type WebPlugin,
   type WebPluginDescriptor,
 } from "@ragents/web/PluginRegistry";
-import { runViewFrom, type RunAction, type RunView } from "@ragents/web/run-view";
+import { actorAddress, runViewFrom, type RunAction, type RunView } from "@ragents/web/run-view";
 import { askPayloadComplaints, ASK_PLUGIN_ID, type AskPayload } from "../ask-payload";
 import { AskActionView } from "./AskActionView";
 
 const pendingQuestions = (view: RunView) =>
   view.actions.filter((action) => action.owner === ASK_PLUGIN_ID && action.status === "pending");
 
-const askerHandle = (view: RunView, askedBy: string): string =>
-  view.actors.find((actor) => actor.id === askedBy)?.handle ?? askedBy;
+const askerHandle = (view: RunView, askedBy: string): string => {
+  const asker = view.actors.find((actor) => actor.id === askedBy);
+  return asker ? actorAddress(asker) : askedBy;
+};
 
 /** The card itself reports a payload it cannot read; the note then counts the call as one question of its asker. */
 const readable = (action: RunAction): AskPayload | undefined =>

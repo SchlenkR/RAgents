@@ -196,6 +196,8 @@ export interface WorkspaceTabContext {
 
 export interface WorkspaceTabContribution {
   hosts?: readonly ("browser" | "vscode")[];
+  /** In the sidebar rail (default) or, in the browser, among the run's windows in the header like a mini-app. */
+  placement?: "sidebar" | "window";
   readRight?: string;
   id: string;
   label: string;

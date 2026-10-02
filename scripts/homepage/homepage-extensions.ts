@@ -460,6 +460,7 @@ const tabs = {
 } satisfies WebPlugin;`, ["web.workspaceTabs", "web.workspaceTabsFor"], [
     "available(session) filters availability, keepMounted keeps an inactive view. Polling is still controlled based on active.",
     "Dynamic tab IDs must also be unique. In the run panel, the same tabs are in the toolbar on the right edge.",
+    "With placement: window, the browser lists the tab among the run's windows in the header instead of the toolbar, like a mini-app; VS Code keeps it in the toolbar.",
   ], "tsx"),
   entry("web-surface", "Web contributions", "The shared run panel", "A plugin can provide the run panel shared by browser and VS Code. It receives chat rendering, navigation, card sections, and app contributions.", "Properties of a WebPlugin.", `
 const surfaceUi = {
@@ -639,7 +640,7 @@ The setup uses the actor program from this chapter.`, ["runScript.handle", "runS
     "The package folder determines the handle. package.json.ragents.backend names the entry point with defineActor and onInput. The capabilities appear only in the TypeScript contract.",
     "Further prepared programs live under actors/<name>/. The host copies them into @actors; the setup activates them with actor_program_activate and an optional actor handle.",
     "coordinator: false omits the usual coordinator. The setup must then designate another actor as the primary chat partner.",
-    "embeddable: true also lets the script start inside a running run without changing its primary actor; a repeated start reuses the setup actor. onStart receives each start with embedded, startedBy, and count.",
+    "embeddable: true also lets the script start inside a running run without changing its primary actor; every start opens a room of its own with its own setup actor. onStart receives each start with embedded, startedBy, and count.",
   ], "markdown"),
   entry("run-script-results", "Actor programs", "End a start with a result", "A run script can be started again and inside a running run. It receives each start in onStart and ends it with a result that the host delivers once to whoever started it.", "src/server.ts of a run script whose RUN.md sets embeddable: true.", `
 import { defineActor } from "@ragents/server";

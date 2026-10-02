@@ -6,7 +6,7 @@ import { SourceCode } from "@ragents/web/SourceCode";
 import { Button, Input, Popover, PopoverContent } from "@ragents/web/ui";
 import { runContracts } from "@ragents/engine/src/http/contracts";
 import { rpc } from "@ragents/web/rpc";
-import { runViewFrom } from "@ragents/web/run-view";
+import { actorAddress, runViewFrom } from "@ragents/web/run-view";
 import { statusControlClass } from "./constants";
 
 export function JournalPanel({ active, ...context }: WorkspaceTabContext) {
@@ -46,10 +46,10 @@ export function JournalStatus({ session, dockActive }: SessionHeaderContext & { 
 
   const filtered = useMemo(() => {
     const search = query.trim().toLocaleLowerCase("en-US");
-    const handles = new Map(view?.actors.map((actor) => [actor.id, actor.handle]));
+    const handles = new Map(view?.actors.map((actor) => [actor.id, actorAddress(actor)]));
     return [...events].reverse().filter((event) => !search || `${handles.get(event.actorId) ?? ""} ${JSON.stringify(event)}`.toLocaleLowerCase("en-US").includes(search));
   }, [events, query, view?.actors]);
-  const actors = new Map(view?.actors.map((actor) => [actor.id, actor.handle]));
+  const actors = new Map(view?.actors.map((actor) => [actor.id, actorAddress(actor)]));
 
   const content = <>
       <header className="flex flex-none items-center gap-2 border-b border-border-soft px-2.5 py-2">

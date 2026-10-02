@@ -12,7 +12,7 @@ import {
 } from "./DocumentViewer";
 import { fetchRunFiles, runFileContentUrl, runWorkspaceContentUrl } from "./api";
 import type { RunFileEntry, RunFilesListing } from "../contract";
-import { runArtifactContentUrl, runViewFrom, type RunView } from "@ragents/web/run-view";
+import { actorAddress, runArtifactContentUrl, runViewFrom, type RunView } from "@ragents/web/run-view";
 import { Alert, Badge } from "@ragents/web/ui";
 import {
   pluginRoutePrefixFrom,
@@ -125,7 +125,7 @@ function DocumentsSessionProvider({ children, session }: SessionProviderProps) {
 }
 
 const resultSection = (runId: string, view: RunView): DocumentSection => {
-  const handles = new Map(view.actors.map((actor) => [actor.id, actor.handle]));
+  const handles = new Map(view.actors.map((actor) => [actor.id, actorAddress(actor)]));
   return {
     id: "results",
     label: "Results",

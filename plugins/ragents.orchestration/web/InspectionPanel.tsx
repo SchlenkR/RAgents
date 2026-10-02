@@ -1,5 +1,5 @@
 import type { WorkspaceTabContext } from "@ragents/web/PluginRegistry";
-import { chatPrimaryId, runViewFrom } from "@ragents/web/run-view";
+import { actorAddress, chatPrimaryId, runViewFrom } from "@ragents/web/run-view";
 import { FlowInspector, type FlowSelection } from "./FlowInspector";
 
 export const INSPECTION_TAB_ID = "ragents.orchestration.inspection";
@@ -10,7 +10,7 @@ export function InspectionHeader({ navigation, selection, session }: WorkspaceTa
   const actorId = selected?.type === "actor" ? selected.id : view && chatPrimaryId(view);
   return <select aria-label="Inspect participants" className="h-6 min-w-0 max-w-40 flex-1 rounded border border-border bg-popover px-1 py-0 text-xs text-popover-foreground" value={actorId ?? ""}
     onChange={(event) => navigation.openTab(INSPECTION_TAB_ID, { type: "actor", id: event.target.value })}>
-    {view?.actors.map((actor) => <option key={actor.id} value={actor.id}>@{actor.handle}</option>)}
+    {view?.actors.map((actor) => <option key={actor.id} value={actor.id}>@{actorAddress(actor)}</option>)}
   </select>;
 }
 

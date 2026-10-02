@@ -292,6 +292,7 @@ and their tabs.
 | Event                | Immutable fact in journal v4, for example model text, reasoning, tool call, turn completion, action, or artifact.                                                                           |
 | Subscription         | Structured filter of an actor on new observable events. Every match creates a new ActorInput for the subscriber.                                                                           |
 | Primary actor        | The explicitly chosen actor whose model text the product treats as the visible chat. This role is independent of the creator lineage.                                                      |
+| Room                 | A delimited part of a run with its own actors, beside the main room; an actor's address is `room.name`, without prefix in the main room. Every run script start opens one.                |
 | TypeScript actor     | An actor whose turn runs deterministic TypeScript instead of a model. It has no model context but uses the same registered services and tools.                                              |
 | Actor program        | A private TypeScript package that provides an actor with functions, input processing, and optional React views; a type-checked TypeScript build with native Node execution on the shared RAgents execution platform. |
 | Actor state          | Intrinsic journaled data of an actor, shared by its functions, input processing, and views.                                                                                                |
@@ -313,6 +314,7 @@ used for it. Code terms appear in names, methods, and contracts.
 | Thing | Docs, interface, and guide | Code | no longer used |
 | --- | --- | --- | --- |
 | a piece of work with exactly one journal | run | `runId`, `ragents.runs.*` | conversation, session (for the run) |
+| delimited part of a run with its own actors | room | `room`, `room.opened` | sub-run, scope |
 | shared chat and mini-app interface of a run | run panel | `RunPanelApp` | |
 | a visible mini-app contributed by a plugin | app | `SurfaceElement` | |
 | entry of the start page, of kind skill or script | template | `StartEntry` | entry, start template, skill entry, start card, tile |

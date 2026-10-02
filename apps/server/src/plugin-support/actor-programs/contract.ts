@@ -27,6 +27,7 @@ export interface ActorFunctionDefinition {
   confirmation: string | null;
   tool?: { name: string; targets: string[] | null; card: boolean };
 }
+/** name is the package key and actorHandle the actor's address, both as the main room writes them: room.name in a room. */
 export interface ActorProgramDefinition {
   name: string;
   title: string;
@@ -64,13 +65,23 @@ export interface ActorScriptState {
   readonly deliveries: readonly ActorScriptDelivery[];
 }
 
-export const resolveActorView = (programs: readonly ActorProgramDefinition[], reference: string) => {
+/** A package key or an actor address as an actor in `room` writes it: its own room's without the room. */
+export const relativeName = (name: string, room: string | null): string =>
+  room !== null && name.startsWith(`${room}.`) ? name.slice(room.length + 1) : name;
+
+/** Resolves a view as an actor in `room` names it: package/view or @actor/view relative to its room or absolute, the view ID, or a unique title. */
+export const resolveActorView = (programs: readonly ActorProgramDefinition[], reference: string, room: string | null = null) => {
   const normalized = reference.trim().toLowerCase();
   const views = programs.flatMap((program) => program.views.map((view) => ({ program, view })));
-  const named = views.filter(({ program, view }) => [view.id, `${program.name}/${view.key}`, `@${program.actorHandle}/${view.key}`]
-    .some((name) => name.toLowerCase() === normalized));
-  const matches = named.length > 0 ? named : views.filter(({ view }) => view.title.toLowerCase() === normalized);
-  const names = (entries: typeof views) => entries.map(({ program, view }) => `${program.name}/${view.key} (@${program.actorHandle}/${view.key})`).join(", ") || "none";
+  const local = views.filter(({ program }) => room !== null && program.name.startsWith(`${room}.`));
+  const nameOf = (program: ActorProgramDefinition) => relativeName(program.name, room);
+  const actorOf = (program: ActorProgramDefinition) => relativeName(program.actorHandle, room);
+  const named = (entries: typeof views, forms: (program: ActorProgramDefinition, key: string) => string[]) =>
+    entries.filter(({ program, view }) => [view.id, ...forms(program, view.key)].some((name) => name.toLowerCase() === normalized));
+  const relative = named(local, (program, key) => [`${nameOf(program)}/${key}`, `@${actorOf(program)}/${key}`]);
+  const matched = relative.length > 0 ? relative : named(views, (program, key) => [`${program.name}/${key}`, `@${program.actorHandle}/${key}`]);
+  const matches = matched.length > 0 ? matched : views.filter(({ view }) => view.title.toLowerCase() === normalized);
+  const names = (entries: typeof views) => entries.map(({ program, view }) => `${nameOf(program)}/${view.key} (@${actorOf(program)}/${view.key})`).join(", ") || "none";
   if (matches.length === 0) {
     throw new Error(`${reference} is not an active actor view of this run. Activate the program first. Available: ${names(views)}`);
   }
@@ -133,8 +144,8 @@ export interface ActorLocalTool {
 }
 
 const runId = Type.String({ pattern: "^[A-Za-z0-9_-]{1,64}$", description: "Identifier of the run" });
-const viewId = Type.String({ pattern: "^[a-z][a-z0-9_-]{0,129}$", description: "Identifier of the actor view or the program" });
-const actorHandle = Type.String({ pattern: "^[a-z][a-z0-9-]{0,63}$", description: "Handle of the actor without @" });
+const viewId = Type.String({ pattern: "^[a-z][a-z0-9_.-]{0,193}$", description: "Identifier of the actor view or the program" });
+const actorHandle = Type.String({ pattern: "^(?:[a-z][a-z0-9-]{0,63}\\.)?[a-z][a-z0-9-]{0,63}$", description: "Address of the actor without @: room.handle in a room, the handle in the main room" });
 const functionId = Type.String({ pattern: "^[a-zA-Z][a-zA-Z0-9_-]{0,63}$", description: "Identifier of the function" });
 const invocationId = Type.String({ pattern: "^[A-Za-z0-9_-]{1,100}$", description: "Identifier of the function call" });
 const revision = Type.String({ pattern: "^[a-f0-9]{64}$", description: "Revision of the active actor package" });

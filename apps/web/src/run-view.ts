@@ -1,4 +1,4 @@
-import { artifactContentPath } from "@ragents/engine/src/http/contracts";
+import { addressOf, artifactContentPath } from "@ragents/engine/src/http/contracts";
 
 export interface RunCapabilityGrant {
   capability: string;
@@ -32,6 +32,8 @@ export interface RunActor {
   id: string;
   kind: "human" | "agent" | "script";
   handle: string;
+  /** The actor's room; null or absent is the main room. */
+  room?: string | null;
   displayName: string;
   grants: RunCapabilityGrant[];
   createdAt: string;
@@ -176,6 +178,7 @@ export interface RunView {
   pause?: RunPause | null;
   createdAt: string;
   forkedFrom: { runId: string; sequence: number } | null;
+  rooms?: { name: string; origin: string | null; openedBy: string; openedAt: string }[];
   actors: RunActor[];
   inputs: RunActorInput[];
   turns: RunTurn[];
@@ -211,6 +214,9 @@ export const runViewFrom = (value: unknown): RunView | undefined => {
 };
 
 export const runArtifactContentUrl = (runId: string, artifactId: string) => artifactContentPath(runId, artifactId);
+
+/** The address that names the actor from the main room: room.handle in a room, the bare handle in the main room. */
+export const actorAddress = (actor: Pick<RunActor, "id" | "handle" | "room">): string => addressOf(actor);
 
 export const runActorFrom = (value: unknown): RunActor => {
   const actor = value as RunActor | undefined;

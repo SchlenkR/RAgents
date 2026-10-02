@@ -1,4 +1,5 @@
 import { isPendingActorInput, type ExecutableActor, type TurnUsage } from "../domain/model.ts";
+import { addressOf } from "../domain/actor-reference.ts";
 import {
     isAutomated,
     type AgentDriver,
@@ -741,7 +742,7 @@ export class TurnScheduler {
                     return;
 
                 const reason = `No host function resolves the tools ${unknown.join(", ")}; `
-                    + `@${current.handle} was therefore stopped. Check the names in toolNames or load the plugin that provides them.`;
+                    + `@${addressOf(current)} was therefore stopped. Check the names in toolNames or load the plugin that provides them.`;
                 const state = this.#runtime.state(runId);
                 this.#runtime.stopActor(
                     { actorId: state.ownerId, commandId: `scheduler:unknown-tools:${actorId}:${state.revision}` },

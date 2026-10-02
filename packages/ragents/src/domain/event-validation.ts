@@ -2,6 +2,7 @@ import { isAgentDriverKind, isThinkingLevel } from "./driver.ts";
 import { isEventType, type EventPayloads, type EventType, type JournalEvent, type UncommittedEvent } from "./events.ts";
 import { assertJsonValue } from "./json.ts";
 import { assertJsonChanges } from "./json-patch.ts";
+import { roomNamePattern } from "./actor-reference.ts";
 import { isPortableId, isRunId } from "./portable-id.ts";
 import { isCapabilityName, isObservableEventType } from "./vocabulary.ts";
 
@@ -58,6 +59,11 @@ const actorIdOf = (value: unknown, path: string) => {
 const runIdOf = (value: unknown, path: string) => {
     if (!isRunId(value))
         fail(path, "must be a lowercase portable run ID");
+};
+
+const roomNameOf = (value: unknown, path: string) => {
+    if (typeof value !== "string" || !roomNamePattern.test(value))
+        fail(path, "must be a room name: a lowercase letter, then lowercase letters, digits or hyphens");
 };
 
 const nullableStringOf = (value: unknown, path: string) => {
@@ -370,8 +376,9 @@ const eventTypeArrayOf = (value: unknown, path: string) => arrayOf(value, path, 
 });
 
 const scriptDefinitionOf = (payload: ObjectValue, path: string) => {
-    const definition = exactObject(payload, path, ["scriptId", "handle", "displayName", "execution", "grants", "toolNames"], ["description"]);
+    const definition = exactObject(payload, path, ["scriptId", "handle", "displayName", "execution", "grants", "toolNames"], ["description", "room"]);
     actorIdOf(definition.scriptId, `${path}.scriptId`);
+    if (definition.room !== undefined) roomNameOf(definition.room, `${path}.room`);
     if (definition.description !== undefined) nonEmptyStringOf(definition.description, `${path}.description`);
     stringOf(definition.handle, `${path}.handle`);
     stringOf(definition.displayName, `${path}.displayName`);
@@ -435,6 +442,13 @@ const payloadOf = (type: EventType, value: unknown, path: string) => {
             return;
         }
 
+        case "room.opened": {
+            const payload = exactObject(value, path, ["name", "origin"]);
+            roomNameOf(payload.name, `${path}.name`);
+            if (payload.origin !== null) roomNameOf(payload.origin, `${path}.origin`);
+            return;
+        }
+
         case "agent.spawned": {
             const payload = exactObject(value, path, [
                 "agentId",
@@ -444,8 +458,9 @@ const payloadOf = (type: EventType, value: unknown, path: string) => {
                 "execution",
                 "grants",
                 "toolNames",
-            ], ["forkOf", "description"]);
+            ], ["forkOf", "description", "room"]);
             actorIdOf(payload.agentId, `${path}.agentId`);
+            if (payload.room !== undefined) roomNameOf(payload.room, `${path}.room`);
             if (payload.forkOf !== undefined) actorIdOf(payload.forkOf, `${path}.forkOf`);
             if (payload.description !== undefined) nonEmptyStringOf(payload.description, `${path}.description`);
             stringOf(payload.handle, `${path}.handle`);

@@ -11,7 +11,7 @@ import type {
     RunState,
     Turn,
 } from "../domain/model.ts";
-import { actorByReference, handleKey } from "../domain/actor-reference.ts";
+import { actorByReference, addressFrom, handleKey, roomNameFree, sharesNames } from "../domain/actor-reference.ts";
 import { firstHandCapabilities } from "../domain/vocabulary.ts";
 import { DomainError } from "./domain-error.ts";
 
@@ -50,6 +50,7 @@ export const optionalClean = (value: string | null | undefined, name: string) =>
     return result ? clean(result, name) : null;
 };
 
+/** The owner's handle comes from the user and may contain a dot; it stands in the main room and is never written room.handle. */
 export const handleOf = (value: string) => {
     const result = handleKey(value);
 
@@ -59,8 +60,38 @@ export const handleOf = (value: string) => {
     return result;
 };
 
-export const uniqueHandleOf = (state: RunState, handle: string): string => {
-    const taken = new Set([...state.actors.values()].map((entry) => entry.handle));
+/** The handle of a new agent or TypeScript actor: no dot, because the dot separates room and handle in an address. */
+export const actorHandleOf = (value: string) => {
+    const result = handleKey(value);
+
+    if (!/^[\p{L}\p{N}][\p{L}\p{N}_-]*$/u.test(result))
+        throw new DomainError("invalid-handle", `A handle may contain letters, digits, dash, and underscore; ${value} does not fit. The dot separates the room from the handle in an address.`, 400);
+
+    return result;
+};
+
+/** The room of an actor; null is the main room. */
+export const roomOf = (state: RunState, actorId: string): string | null => state.actors.get(actorId)?.room ?? null;
+
+/** A room that exists: null is the main room, any other name must have been opened. */
+export const openedRoomOf = (state: RunState, room: string | null): string | null => {
+    if (room !== null && !state.rooms.has(room))
+        throw new DomainError("room-not-found", `Room ${room} does not exist; open rooms: ${[...state.rooms.keys()].join(", ") || "none"}.`, 404);
+
+    return room;
+};
+
+/** A name for a new room: free and in the grammar of package names. */
+export const newRoomNameOf = (state: RunState, name: string): string => {
+    if (!roomNameFree({ rooms: state.rooms.values(), actors: state.actors.values() }, name))
+        throw new DomainError("room-exists", `${name} cannot name a new room: room names begin with a lowercase letter, contain at most 64 lowercase letters, digits, or hyphens, and are never reused.`, 409);
+
+    return name;
+};
+
+/** Bare handles are unique within a room and between the main room and every room, so that a name means one actor from any room. */
+export const uniqueHandleOf = (state: RunState, handle: string, room: string | null): string => {
+    const taken = new Set([...state.actors.values()].filter((entry) => sharesNames(entry.room, room)).map((entry) => entry.handle));
 
     if (!taken.has(handle))
         return handle;
@@ -109,11 +140,18 @@ export const artifactOf = (state: RunState, artifactId: string): Artifact => {
     return found;
 };
 
-export const addressedActorOf = (actors: Iterable<Actor>, reference: string): Actor => {
-    const found = actorByReference(actors, reference);
+const shownNames = 20;
 
-    if (!found)
-        throw new DomainError("actor-not-found", `Actor ${reference} does not exist.`, 404);
+/** Resolves an ID or an address as seen from `room`; the rejection names the addresses that exist from there. */
+export const addressedActorOf = (actors: Iterable<Actor>, reference: string, room: string | null = null): Actor => {
+    const listed = [...actors];
+    const found = actorByReference(listed, reference, room);
+
+    if (!found) {
+        const names = listed.map((actor) => addressFrom(actor, room));
+        const shown = names.slice(0, shownNames).join(", ");
+        throw new DomainError("actor-not-found", `Actor ${reference} does not exist. Actors${room === null ? "" : ` as seen from room ${room}`}: ${shown}${names.length > shownNames ? ", ..." : ""}.`, 404);
+    }
 
     return found;
 };

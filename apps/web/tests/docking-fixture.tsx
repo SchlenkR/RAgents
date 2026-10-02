@@ -2,16 +2,18 @@ import { useEffect, useState } from "react";
 import { createRoot } from "react-dom/client";
 import { NetworkIcon } from "lucide-react";
 import { DockToolsContext, DockWorkspace } from "../src/run-panel/DockWorkspace";
-import { activeDockTool, selectDockPanel, toolPanelId } from "../src/run-panel/dock-state";
+import { activeDockTool, selectDockPanel, workspaceTabPanelId } from "../src/run-panel/dock-state";
 import { useDockStorage } from "../src/run-panel/dock-storage";
 import { RunPanelHeader } from "../src/run-panel/RunPanelHeader";
 import { PluginRegistry, type SessionHeaderContribution, type WorkspaceTabContribution } from "../src/PluginRegistry";
 import type { RunApp } from "../src/run-apps";
-import { Button } from "../src/ui";
+import { Badge, Button } from "../src/ui";
 import "../src/ui/tailwind.css";
 
 // With "?header" the window buttons sit in the real run header, as in a browser run.
 const withHeader = new URLSearchParams(location.search).has("header");
+// With "?window" a workspace tab placed as a window joins the header windows.
+const withWindowTab = new URLSearchParams(location.search).has("window");
 const registry = new PluginRegistry({ brand: { title: "Example" }, product: { id: "example", title: "Example" }, plugins: [{ id: "example" }], startEntries: [] });
 const headers: readonly SessionHeaderContribution[] = [{ id: "example.agents", placement: "bar", order: 0, Header: () => <Button aria-label="Agents" className="flex-none self-center" size="lg" variant="ghost">
   <NetworkIcon /><span className="hidden @xs/run-header:inline">Agents</span>
@@ -21,18 +23,25 @@ function App() {
   useEffect(() => { mounts.notes = (mounts.notes ?? 0) + 1; }, []);
   return <><input aria-label="App draft" /><iframe className="min-h-0 flex-1" title="App frame" srcDoc={'<!doctype html><input aria-label="Frame draft"><script>window.identity = Math.random()</script>'} /></>;
 }
-const tools: readonly WorkspaceTabContribution[] = ["Files", "Journal"].map((label) => ({
+const preview: WorkspaceTabContribution = {
+  id: "preview", label: "Preview", order: 0, placement: "window", Icon: () => <svg aria-hidden />,
+  Panel: ({ active }) => <><input aria-label="Preview draft" /><p>{active ? "Preview active" : "Preview inactive"}</p></>,
+  Header: () => <Button aria-label="Refresh preview" size="icon-xs" variant="ghost"><svg aria-hidden /></Button>,
+  Badge: () => <Badge>2 checks</Badge>,
+};
+const tools: readonly WorkspaceTabContribution[] = [...["Files", "Journal"].map((label): WorkspaceTabContribution => ({
   id: label.toLowerCase(), label, order: 0, Icon: () => <svg aria-hidden />,
   Panel: function Tool({ active, navigation }) {
     return <><input aria-label={`${label} draft`} /><p>{active ? `${label} active` : `${label} inactive`}</p><button onClick={() => navigation.openTab("files")}>Open Files</button></>;
   },
-}));
+})), ...(withWindowTab ? [preview] : [])];
 function Run({ run, appIds }: { run: string; appIds: readonly string[] }) {
   const { state, update } = useDockStorage(run);
   const [actions, setActions] = useState<HTMLDivElement | null>(null);
   const session = { session: { id: run, title: run, updatedAt: 0, canShare: true as const }, connected: true, runView: {}, messages: [], pluginEvents: [], running: false, send: async () => {}, start: async () => {} };
   const apps: readonly RunApp[] = appIds.map((id) => ({ runId: run, definition: { id, title: id[0].toUpperCase() + id.slice(1) }, Element: App }));
-  const navigation = { activeTabId: activeDockTool(state), openTab: (id: string) => update((current) => selectDockPanel(current, toolPanelId(id))), revealEntity: () => false, selectionFor: () => undefined };
+  const navigation = { activeTabId: activeDockTool(state), openTab: (id: string) => update((current) => selectDockPanel(current, workspaceTabPanelId(tools.find((tool) => tool.id === id)!))), revealEntity: () => false, selectionFor: () => undefined };
+  useEffect(() => { window.dockingFixture.openTab = navigation.openTab; });
   const workspace = <DockToolsContext.Provider value={{ tabs: tools, pendingTabIds: [], actionsContainer: withHeader ? actions : undefined }}><DockWorkspace apps={apps} chat={<textarea aria-label="Chat draft" className="h-full" />} navigation={navigation} session={session} /></DockToolsContext.Provider>;
   return withHeader ? <div className="flex min-w-0 flex-1 flex-col">
     <header className="flex h-header flex-none items-stretch border-b border-border bg-shell px-2">
@@ -44,12 +53,12 @@ function Run({ run, appIds }: { run: string; appIds: readonly string[] }) {
 function Fixture() {
   const [run, setRun] = useState("first");
   const [appIds, setApps] = useState<readonly string[]>(["notes"]);
-  window.dockingFixture = { mounts, setApps, setRun };
+  window.dockingFixture = { ...window.dockingFixture, mounts, setApps, setRun };
   return <Run appIds={appIds} key={run} run={run} />;
 }
 declare global {
   interface Window {
-    dockingFixture: { mounts: Record<string, number>; setApps: (ids: readonly string[]) => void; setRun: (id: string) => void };
+    dockingFixture: { mounts: Record<string, number>; setApps: (ids: readonly string[]) => void; setRun: (id: string) => void; openTab?: (id: string) => void };
   }
 }
 createRoot(document.getElementById("root")!).render(<Fixture />);

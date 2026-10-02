@@ -2,7 +2,7 @@ import { useCallback, useId, useMemo, useRef, useState } from "react";
 import { ChevronDownIcon, XIcon } from "lucide-react";
 import { Badge, cn, Spinner } from "@ragents/web/ui";
 import { ActorPopout } from "../ActorPopout";
-import type { RunActor, RunView } from "@ragents/web/run-view";
+import { actorAddress, type RunActor, type RunView } from "@ragents/web/run-view";
 import { pendingInputCount, selectedRunPanelActor } from "./run-panel-actors";
 import { ActorGraph, ActorIcon } from "./ActorGraph";
 
@@ -33,21 +33,21 @@ export function AddresseeControl({ actors, onSelect, selected, technical, view }
     onSelect(actor);
     close(true);
   };
-  const busyTitle = working.map((actor) => `@${actor.handle} is working`).join(", ");
+  const busyTitle = working.map((actor) => `@${actorAddress(actor)} is working`).join(", ");
   const busyPending = working.length > 0 ? pendingInputCount(view, working[0].id) : 0;
 
   return <>
     <span className={chipClass}>
-      <button aria-controls={open ? panelId : undefined} aria-expanded={open} aria-haspopup="dialog" className={cn(pickClass, back && "pr-1")} onClick={() => setOpen(!open)} ref={buttonRef} title={`Addressee: @${selected.handle}. Click to choose another actor`} type="button">
+      <button aria-controls={open ? panelId : undefined} aria-expanded={open} aria-haspopup="dialog" className={cn(pickClass, back && "pr-1")} onClick={() => setOpen(!open)} ref={buttonRef} title={`Addressee: @${actorAddress(selected)}. Click to choose another actor`} type="button">
         <ActorIcon actor={selected} className="size-5" view={view} />
-        <span className="truncate">@{selected.handle}</span>
+        <span className="truncate">@{actorAddress(selected)}</span>
         <ChevronDownIcon aria-hidden className="size-3 flex-none text-muted-foreground" />
       </button>
-      {back && <button aria-label={`Back to @${back.handle}`} className={backClass} onClick={() => onSelect(back)} title={`Back to @${back.handle}`} type="button"><XIcon aria-hidden /></button>}
+      {back && <button aria-label={`Back to @${actorAddress(back)}`} className={backClass} onClick={() => onSelect(back)} title={`Back to @${actorAddress(back)}`} type="button"><XIcon aria-hidden /></button>}
     </span>
     {working.length > 0 && <button className={busyClass} onClick={() => setOpen(!open)} title={busyTitle} type="button">
       <Spinner aria-hidden className="size-3 flex-none" />
-      <span className="truncate in-data-[compact=true]:hidden">@{working[0].handle}</span>
+      <span className="truncate in-data-[compact=true]:hidden">@{actorAddress(working[0])}</span>
       {busyPending > 0 && <Badge className="h-4 min-w-4 px-1 text-[0.6rem]" variant="secondary">{busyPending}</Badge>}
       {working.length > 1 && <span className="flex-none">+{working.length - 1}</span>}
     </button>}

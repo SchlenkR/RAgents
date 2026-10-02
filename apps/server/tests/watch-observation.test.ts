@@ -13,7 +13,7 @@ test("a watch finds its actors by ID or handle like the engine, never the human"
   });
   const reviewer = view.actors.find((entry) => entry.handle === "prüfer")!;
   assert.equal(watchableActorOf(view, "@Prüfer")?.id, reviewer.id);
-  assert.equal(watchableActorOf(view, "WORKER")?.id, setup.agent.id);
-  assert.equal(watchableActorOf(view, setup.agent.id)?.id, setup.agent.id);
-  assert.equal(watchableActorOf(view, "@owner"), undefined);
+  assert.equal(watchableActorOf(view, "WORKER", null)?.id, setup.agent.id);
+  assert.equal(watchableActorOf(view, setup.agent.id, null)?.id, setup.agent.id);
+  assert.equal(watchableActorOf(view, "@owner", null), undefined);
 });

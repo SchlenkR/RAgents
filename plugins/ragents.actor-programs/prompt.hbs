@@ -35,7 +35,8 @@ is required. The host supplies the HTML root and fixed local dependencies.
 Import `defineActor` from `@ragents/server` and `Type` from `typebox`. Its contract contains
 `state`, `functions` and optional `input: { capabilities }`. Each function declares `label`,
 `input`, `output` and optional `capabilities`; `tool: { name, targets?, card? }` exposes the same
-function in the shared API. Omitted targets mean all active executable actors; `self` means the owner.
+function in the shared API. Omitted targets mean all active actors of its room, in the main room of
+the run; `self` means the owner.
 Export `defineActor(contract, { functions: { ... }, onInput? })` as default. Callbacks receive
 `(input, context)`; returned values are results. Only `context.state.replace` changes actor state.
 The state schema must accept the initial `{}`. `context.actor` identifies the owning actor.

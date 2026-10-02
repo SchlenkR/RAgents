@@ -106,7 +106,7 @@ export const coreContracts = {
     }),
     startScript: defineOperation({
       id: "ragents.runs.startScript",
-      description: "Start a run script and wait until its actor has the start input; errors come back to the caller instead of the chat. A new run starts as with ragents.chat.start. In a running run only a script whose RUN.md sets embeddable: true starts, its fixed start options must match the run's, and the primary actor stays; a repeated start reuses the script's actor. Result: the script actor and which start of its package in the run this was. Rights: runs.read, runs.write and the template's release.",
+      description: "Start a run script and wait until its actor has the start input; errors come back to the caller instead of the chat. A new run starts as with ragents.chat.start. In a running run only a script whose RUN.md sets embeddable: true starts, its fixed start options must match the run's, and the primary actor stays. Every start opens a new room named after the script with its own actors. Result: the script actor, its address (room.handle), and which start of its package this was. Rights: runs.read, runs.write and the template's release.",
       input: Type.Object({ runId, entry: Type.String({ minLength: 1 }), input: Type.Optional(Type.Any()) }, { additionalProperties: false }),
       result: Type.Object({ actorId: Type.String(), handle: Type.String(), count: Type.Integer({ minimum: 1 }) }, { additionalProperties: false }),
     }),

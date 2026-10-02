@@ -1,4 +1,4 @@
-import { DomainError, type JournalEvent, type RunView } from "@ragents/engine";
+import { addressOf, DomainError, type JournalEvent, type RunView } from "@ragents/engine";
 import { applyEvent, type ChatEvent, type Message } from "quassel/events";
 import { ChatTextPositions } from "./chat-text-positions.js";
 import { attachmentContentPath } from "../api/contracts.js";
@@ -42,7 +42,7 @@ export function actorChatHistoryOf(view: RunView, events: readonly JournalEvent[
     if (next.length > previous.length) {
       const message = next[next.length - 1];
       next[next.length - 1] = { ...message, key: source.eventId, sender: id,
-        ...(message.role === "assistant" ? { bubble: { color: colorOf(id), label: `@${actor.handle}`, side: "end" as const } } : {}),
+        ...(message.role === "assistant" ? { bubble: { color: colorOf(id), label: `@${addressOf(actor)}`, side: "end" as const } } : {}),
       };
     }
     actors[id] = next;
@@ -70,7 +70,7 @@ export function actorChatHistoryOf(view: RunView, events: readonly JournalEvent[
         actors[input.actorId].push({ key: event.eventId, role: fromOwner ? "user" : "assistant", sender: input.enqueuedBy,
           text: input.content, closed: true, at, inputId: input.id, ...(attachments.length ? { attachments } : {}),
           ...(fromOwner ? {} : { bubble: { color: colorOf(input.enqueuedBy),
-            label: input.subscriptionId ? "Delivered via subscription" : `Delivered by @${sender.handle}`, side: "start" } }),
+            label: input.subscriptionId ? "Delivered via subscription" : `Delivered by @${addressOf(sender)}`, side: "start" } }),
         });
         break;
       }

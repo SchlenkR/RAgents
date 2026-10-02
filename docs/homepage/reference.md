@@ -33,7 +33,7 @@ Only with the capability actor.input.
     "to": {
       "type": "string",
       "minLength": 1,
-      "description": "Recipient: the @handle or ID of an actor of this run, as actor_list or agent_spawn name it"
+      "description": "Recipient: the @handle or ID of an actor of this run, as actor_list or agent_spawn name it; an address is room.name, a bare name means your room, otherwise the main room"
     },
     "message": {
       "type": "string",
@@ -101,7 +101,7 @@ List Actors
 
 List existing actors with their identity, lifecycle and the size of their function selection.
 
-Check before spawning: reuse suitable participants, including actors created by a setup or another actor. Only kind agent is a conversational partner. A script executes its programmed input protocol; it does not interpret arbitrary natural-language requests. Inspect its documented functions or program before using it. toolNames: true also lists the names of each fixed selection.
+Check before spawning: reuse suitable participants, including actors created by a setup or another actor. Only kind agent is a conversational partner. A script executes its programmed input protocol; it does not interpret arbitrary natural-language requests. Inspect its documented functions or program before using it. toolNames: true also lists the names of each fixed selection. An actor's address is room.name, the main room has no prefix; handle is written from your room, so it is exactly what actor_input and the other functions take.
 
 Owner: engine. Scope: per-turn. Native model tool: yes. Availability: conditional.
 
@@ -144,7 +144,8 @@ Only with the capability actor.input.
         "type": "string"
       },
       "handle": {
-        "type": "string"
+        "type": "string",
+        "description": "The actor's address from your room: its handle, prefixed with room. when it stands in another room than yours and not in the main room"
       },
       "displayName": {
         "type": "string"
@@ -236,8 +237,8 @@ For executable actors with agent.spawn and plugin.state.write.
   "properties": {
     "name": {
       "type": "string",
-      "pattern": "^[a-z][a-z0-9-]{0,63}$",
-      "description": "Package under @actors/ to check, build, test and activate"
+      "pattern": "^(?:[a-z][a-z0-9-]{0,63}\\.)?[a-z][a-z0-9-]{0,63}$",
+      "description": "Package under @actors/ to check, build, test and activate; a bare name means your room's package, otherwise the main room's, room.name another room's"
     },
     "actor": {
       "type": "string",
@@ -380,7 +381,7 @@ Create Actor Program
 
 Create a private TypeScript package with fixed libraries.
 
-Edit files under @actors/name using workspace tools.
+Edit files in the returned directory using workspace tools: @actors/name, in a room @actors/room.name. The package belongs to your room.
 
 Owner: ragents.actor-programs. Scope: per-turn. Native model tool: yes. Availability: conditional.
 
@@ -491,8 +492,8 @@ For executable actors with agent.spawn and plugin.state.write.
   "properties": {
     "name": {
       "type": "string",
-      "pattern": "^[a-z][a-z0-9-]{0,63}$",
-      "description": "Only this package; omitted, every package checked for this actor"
+      "pattern": "^(?:[a-z][a-z0-9-]{0,63}\\.)?[a-z][a-z0-9-]{0,63}$",
+      "description": "Only this package; omitted, every package checked for this actor; a bare name means your room's package, otherwise the main room's, room.name another room's"
     }
   },
   "additionalProperties": false
@@ -530,8 +531,8 @@ For executable actors with agent.spawn and plugin.state.write.
   "properties": {
     "name": {
       "type": "string",
-      "pattern": "^[a-z][a-z0-9-]{0,63}$",
-      "description": "Package of this run or a shared actor package of the profile"
+      "pattern": "^(?:[a-z][a-z0-9-]{0,63}\\.)?[a-z][a-z0-9-]{0,63}$",
+      "description": "Package of this run or a shared actor package of the profile, which lives in the main room; a bare name means your room's package, otherwise the main room's, room.name another room's"
     }
   },
   "additionalProperties": false
@@ -683,8 +684,8 @@ For executable actors with agent.spawn and plugin.state.write.
   "properties": {
     "name": {
       "type": "string",
-      "pattern": "^[a-z][a-z0-9-]{0,63}$",
-      "description": "Name of the active package"
+      "pattern": "^(?:[a-z][a-z0-9-]{0,63}\\.)?[a-z][a-z0-9-]{0,63}$",
+      "description": "Name of the active package; a bare name means your room's package, otherwise the main room's, room.name another room's"
     }
   },
   "additionalProperties": false
@@ -1098,7 +1099,7 @@ Only with the capability agent.spawn.
     "name": {
       "type": "string",
       "minLength": 1,
-      "description": "Name to address the agent by as @name, for example in actor_input: letters, digits, dot, dash and underscore; a taken name gets a numeric suffix, and the result names the actual handle"
+      "description": "Name to address the agent by as @name, for example in actor_input: letters, digits, dash and underscore; a taken name gets a numeric suffix, and the result names the actual handle. The agent joins your room"
     },
     "instructions": {
       "type": "string",
@@ -1275,7 +1276,7 @@ Only with the capability agent.spawn.
     },
     "handle": {
       "type": "string",
-      "description": "Actual unique handle, including any suffix assigned during creation."
+      "description": "Actual handle, including any suffix assigned during creation; the address from your room."
     }
   },
   "additionalProperties": false
@@ -3896,9 +3897,9 @@ Only with the capability script.start, which the coordinator holds and passes to
 
 Start run script
 
-Start a run script from run_script_list inside this run; returns its actor handle and which start of it this is.
+Start a run script from run_script_list inside this run, in a room of its own; returns its actor's address and which start of it this is.
 
-A run script is a prepared setup of this profile: a TypeScript actor that arranges its own participants and views in this run; for a single new LLM agent use agent_spawn instead. entry is the entry from run_script_list; input is the script's start value, if it takes one. The script joins the run without changing the primary actor; a repeated start reuses its actor. When it finishes a start, you receive its summary and result as a message; do not wait or poll for it in the same turn.
+A run script is a prepared setup of this profile: a TypeScript actor that arranges its own participants and views in this run; for a single new LLM agent use agent_spawn instead. entry is the entry from run_script_list; input is the script's start value, if it takes one. The script joins the run without changing the primary actor. Every start opens a new room named after the script (name, name-2, ...) with its own actors, so a repeated start never reuses the actors of an earlier one; handle is the setup actor's address from your room, such as name-2.name. When it finishes a start, you receive its summary and result as a message; do not wait or poll for it in the same turn.
 
 Owner: ragents.runtime. Scope: per-turn. Native model tool: yes. Availability: conditional.
 
@@ -4753,7 +4754,7 @@ Owner: ragents.orchestration.
     "to": {
       "type": "string",
       "minLength": 1,
-      "description": "Recipient: the @handle or ID of an actor of this run, as actor_list or agent_spawn name it"
+      "description": "Recipient: the @handle or ID of an actor of this run, as actor_list or agent_spawn name it; an address is room.name, a bare name means your room, otherwise the main room"
     },
     "message": {
       "type": "string",

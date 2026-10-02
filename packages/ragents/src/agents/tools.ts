@@ -10,6 +10,7 @@ import {
     type RunView,
 } from "../domain/model.ts";
 import { observableEventTypes } from "../domain/vocabulary.ts";
+import { addressFrom } from "../domain/actor-reference.ts";
 import type { CommandContext } from "../runtime/command.ts";
 import { addressedActorOf, inheritedGrants } from "../runtime/guards.ts";
 import type { Orchestration } from "../runtime/orchestration.ts";
@@ -141,7 +142,7 @@ const observableEventTypeSchema = literalUnion(observableEventTypes);
 
 const actorListResultSchema = Type.Array(Type.Object({
     id: Type.String(),
-    handle: Type.String(),
+    handle: Type.String({ description: "The actor's address from your room: its handle, prefixed with room. when it stands in another room than yours and not in the main room" }),
     displayName: Type.String(),
     kind: actorKindSchema,
     lifecycle: Type.String(),
@@ -155,7 +156,7 @@ const actorListResultSchema = Type.Array(Type.Object({
 
 const actorReferenceSchema = Type.Object({
     id: Type.String({ description: "Stable actor reference for actor_input and other functions." }),
-    handle: Type.String({ description: "Actual unique handle, including any suffix assigned during creation." }),
+    handle: Type.String({ description: "Actual handle, including any suffix assigned during creation; the address from your room." }),
 }, { additionalProperties: false });
 
 const subscriptionBaseSchema = {
@@ -285,13 +286,16 @@ const executionSchema = {
     })),
 };
 
-const handleLabelOf = (view: RunView, actorId: string) => {
+/** The room of the calling actor; null is the main room. */
+const callerRoomOf = (view: RunView, actorId: string) => view.actors.find((entry) => entry.id === actorId)?.room ?? null;
+
+const handleLabelOf = (view: RunView, actorId: string, room: string | null) => {
     const found = view.actors.find((entry) => entry.id === actorId);
 
-    return found ? `@${found.handle}` : actorId;
+    return found ? `@${addressFrom(found, room)}` : actorId;
 };
 
-const subscriptionView = (view: RunView, subscription: EventSubscription) => {
+const subscriptionView = (view: RunView, subscription: EventSubscription, room: string | null) => {
     const { id, ...rest } = subscription;
 
     return {
@@ -299,7 +303,7 @@ const subscriptionView = (view: RunView, subscription: EventSubscription) => {
         subscriptionId: id,
         sourceActorIds: subscription.sourceActorIds ? [...subscription.sourceActorIds] : null,
         sources: subscription.sourceActorIds
-            ? subscription.sourceActorIds.map((actorId) => handleLabelOf(view, actorId))
+            ? subscription.sourceActorIds.map((actorId) => handleLabelOf(view, actorId, room))
             : null,
         sourceActorKinds: subscription.sourceActorKinds ? [...subscription.sourceActorKinds] : null,
         eventTypes: [...subscription.eventTypes],
@@ -315,7 +319,7 @@ const subscriptionCreatedSchema = Type.Object({
 
 const acknowledgementSchema = Type.Null({ description: "Done; an error throws." });
 
-const subscriptionResult = (runtime: Orchestration, runId: string, commandId: string) => {
+const subscriptionResult = (runtime: Orchestration, runId: string, commandId: string, room: string | null) => {
     const created = runtime.events(runId).findLast(
         (event) => event.commandId === commandId && event.type === "subscription.created",
     );
@@ -328,7 +332,7 @@ const subscriptionResult = (runtime: Orchestration, runId: string, commandId: st
     if (!subscription)
         throw new Error(`Subscription ${created.payload.subscriptionId} does not exist after creation.`);
 
-    const { subscriptionId, sources } = subscriptionView(runtime.view(runId), subscription);
+    const { subscriptionId, sources } = subscriptionView(runtime.view(runId), subscription, room);
 
     return { subscriptionId, sources };
 };
@@ -338,26 +342,31 @@ export const agentTools: RunFunction[] = [
         name: "actor_list",
         label: "List Actors",
         description: "List existing actors with their identity, lifecycle and the size of their function selection.",
-        longDescription: "Check before spawning: reuse suitable participants, including actors created by a setup or another actor. Only kind agent is a conversational partner. A script executes its programmed input protocol; it does not interpret arbitrary natural-language requests. Inspect its documented functions or program before using it. toolNames: true also lists the names of each fixed selection.",
+        longDescription: "Check before spawning: reuse suitable participants, including actors created by a setup or another actor. Only kind agent is a conversational partner. A script executes its programmed input protocol; it does not interpret arbitrary natural-language requests. Inspect its documented functions or program before using it. toolNames: true also lists the names of each fixed selection. "
+            + "An actor's address is room.name, the main room has no prefix; handle is written from your room, so it is exactly what actor_input and the other functions take.",
         schema: Type.Object({
             toolNames: Type.Optional(Type.Boolean({ description: "Also list the tool names of each actor with a fixed selection." })),
         }, { additionalProperties: false }),
         resultSchema: actorListResultSchema,
         available: needs("actor.input"),
-        run: ({ runtime, caller }, _toolCallId, input) => runtime.view(caller.runId).actors.map((actor) => {
-            const selected = actor.kind === "human" ? null : actor.toolNames;
-            return {
-                id: actor.id,
-                handle: actor.handle,
-                displayName: actor.displayName,
-                kind: actor.kind,
-                lifecycle: actor.kind === "human" ? "human" : actor.lifecycle.kind,
-                createdBy: actor.kind === "human" ? null : actor.createdBy,
-                description: actor.kind === "human" ? null : actor.description,
-                toolCount: selected === null ? null : selected.length,
-                ...(input.toolNames && selected !== null ? { toolNames: [...selected] } : {}),
-            };
-        }),
+        run: ({ runtime, caller }, _toolCallId, input) => {
+            const view = runtime.view(caller.runId);
+            const room = callerRoomOf(view, caller.actorId);
+            return view.actors.map((actor) => {
+                const selected = actor.kind === "human" ? null : actor.toolNames;
+                return {
+                    id: actor.id,
+                    handle: addressFrom(actor, room),
+                    displayName: actor.displayName,
+                    kind: actor.kind,
+                    lifecycle: actor.kind === "human" ? "human" : actor.lifecycle.kind,
+                    createdBy: actor.kind === "human" ? null : actor.createdBy,
+                    description: actor.kind === "human" ? null : actor.description,
+                    toolCount: selected === null ? null : selected.length,
+                    ...(input.toolNames && selected !== null ? { toolNames: [...selected] } : {}),
+                };
+            });
+        },
     }),
     tool({
         name: "actor_input",
@@ -391,8 +400,9 @@ export const agentTools: RunFunction[] = [
         run: ({ runtime, caller, context }, toolCallId, input) => {
             const command = context(toolCallId);
             const view = runtime.view(caller.runId);
+            const room = callerRoomOf(view, caller.actorId);
             const sourceActorIds = input.sourceActorIds
-                ? [...new Set(input.sourceActorIds.map((reference) => addressedActorOf(view.actors, reference).id))]
+                ? [...new Set(input.sourceActorIds.map((reference) => addressedActorOf(view.actors, reference, room).id))]
                 : null;
             runtime.createSubscription(command, caller.runId, {
                 subscriberId: caller.actorId,
@@ -402,7 +412,7 @@ export const agentTools: RunFunction[] = [
                 includeSelf: input.includeSelf ?? false,
             });
 
-            return subscriptionResult(runtime, caller.runId, command.commandId);
+            return subscriptionResult(runtime, caller.runId, command.commandId, room);
         },
     }),
     tool({
@@ -432,10 +442,11 @@ export const agentTools: RunFunction[] = [
         nativeTool: false,
         run: ({ runtime, caller }) => {
             const view = runtime.view(caller.runId);
+            const room = callerRoomOf(view, caller.actorId);
 
             return runtime
                 .listSubscriptions(caller.runId, caller.actorId)
-                .map((subscription) => subscriptionView(view, subscription));
+                .map((subscription) => subscriptionView(view, subscription, room));
         },
     }),
     tool({
@@ -462,8 +473,9 @@ export const agentTools: RunFunction[] = [
         run: ({ runtime, caller }, _toolCallId, input) => {
             const view = runtime.view(caller.runId);
             const eventIds = input.eventIds ? new Set(input.eventIds) : null;
+            const room = callerRoomOf(view, caller.actorId);
             const actorIds = input.actorIds
-                ? new Set(input.actorIds.map((reference) => addressedActorOf(view.actors, reference).id))
+                ? new Set(input.actorIds.map((reference) => addressedActorOf(view.actors, reference, room).id))
                 : null;
             const eventTypes = input.eventTypes ? new Set(input.eventTypes) : null;
 
@@ -544,7 +556,7 @@ export const agentTools: RunFunction[] = [
         schema: Type.Object({
             description: Type.String({ minLength: 1, maxLength: actorDescriptionMaxLength, description: "A short (3-5 word) label of the agent's task for the participants overview, such as \"checks the comment rule\"" }),
             prompt: Type.Optional(Type.String({ minLength: 1, description: "The task for the agent to perform, enqueued as its first input in the same command so that it starts at once; it gets none of your context, so state everything it needs and what it should report. Omit it for an idle agent that gets its first input later through actor_input" })),
-            name: Type.String({ minLength: 1, description: "Name to address the agent by as @name, for example in actor_input: letters, digits, dot, dash and underscore; a taken name gets a numeric suffix, and the result names the actual handle" }),
+            name: Type.String({ minLength: 1, description: "Name to address the agent by as @name, for example in actor_input: letters, digits, dash and underscore; a taken name gets a numeric suffix, and the result names the actual handle. The agent joins your room" }),
             instructions: Type.Optional(Type.String({ minLength: 1, description: "Lasting role and working rules for the agent's system prompt in all its turns, such as output format and limits; omitted, it has none of its own, and a profile from model_list supplies none" })),
             displayName: Type.Optional(Type.String({ minLength: 1, description: "Display name; defaults to the name" })),
             forkOf: Type.Optional(Type.String({ minLength: 1, description: "Handle or ID of an LLM agent of this run whose model context up to the end of its last finished turn is copied into the new agent" })),
@@ -593,7 +605,7 @@ export const agentTools: RunFunction[] = [
                 ? created.payload.agentId : null;
             const spawned = runtime.view(caller.runId).actors.find((entry) => entry.id === id);
             if (!spawned) throw new Error("The spawned actor is missing after creation.");
-            return { id: spawned.id, handle: spawned.handle };
+            return { id: spawned.id, handle: addressFrom(spawned, actor.room) };
         },
     }),
     tool({
@@ -619,7 +631,8 @@ export const agentTools: RunFunction[] = [
                 runtime.retitleRun(context(toolCallId, "title"), caller.runId, input.title);
 
             if (input.primaryActor !== undefined) {
-                const target = addressedActorOf(runtime.view(caller.runId).actors, input.primaryActor);
+                const view = runtime.view(caller.runId);
+                const target = addressedActorOf(view.actors, input.primaryActor, callerRoomOf(view, caller.actorId));
 
                 if (target.kind === "human")
                     throw new Error(`${input.primaryActor} is not an executable actor.`);
@@ -642,7 +655,8 @@ export const agentTools: RunFunction[] = [
         resultSchema: eventResultSchemaOf("actor.restarted", "run.primary-actor-selected"),
         available: needs("execution.stopOwned"),
         run: ({ runtime, caller, context, eventsFor }, toolCallId, input) => {
-            const target = addressedActorOf(runtime.view(caller.runId).actors, input.actorId);
+            const view = runtime.view(caller.runId);
+            const target = addressedActorOf(view.actors, input.actorId, callerRoomOf(view, caller.actorId));
 
             if (target.kind === "human")
                 throw new Error(`${input.actorId} is not an executable actor.`);
@@ -663,7 +677,8 @@ export const agentTools: RunFunction[] = [
         resultSchema: eventResultSchemaOf("turn.interrupted", "actor.stopped", "subscription.removed"),
         available: needs("execution.stopOwned"),
         run: ({ runtime, caller, context, eventsFor }, toolCallId, input) => {
-            const target = addressedActorOf(runtime.view(caller.runId).actors, input.actorId);
+            const view = runtime.view(caller.runId);
+            const target = addressedActorOf(view.actors, input.actorId, callerRoomOf(view, caller.actorId));
 
             if (target.kind === "human")
                 throw new Error(`${input.actorId} is not an executable actor.`);

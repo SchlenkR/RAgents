@@ -4,7 +4,7 @@ import { ArrowDownIcon, ArrowLeftIcon, ArrowRightIcon, ArrowUpIcon, LayoutGridIc
 import type { SessionContext, SessionNavigation, WorkspaceTabContribution } from "../PluginRegistry";
 import { RunAppView, type RunApp } from "../run-apps";
 import { Badge, BadgeDisplayProvider, Button, cn } from "../ui";
-import { activeDockTool, addDockEmptyPane, appPanelId, closeDockPanels, dockGroups, dockWindowOrder, emptyPanelId, focusedDockWindow, initialDockState, isEmptyPanel, isToolPanel, moveDockPanels, moveDockWindow, reconcileDockState, resizeDockSplit, returnDockTool, revealDockPanel, transitionDockSide, selectDockPanel, toolPanelId, type DockGroup } from "./dock-state";
+import { activeDockTool, addDockEmptyPane, appPanelId, closeDockPanels, dockGroups, dockWindowOrder, emptyPanelId, focusedDockWindow, initialDockState, isEmptyPanel, isToolPanel, moveDockPanels, moveDockWindow, reconcileDockState, resizeDockSplit, returnDockTool, revealDockPanel, transitionDockSide, selectDockPanel, tabWindowId, toolPanelId, workspaceTabPanelId, type DockGroup } from "./dock-state";
 import { DOCK_DIVIDER_SIZE, DOCK_HEADER_HEIGHT, containsPoint, dockGeometry, dockHitTest, type DockPoint, type DockRect } from "./dock-geometry";
 import { useDockPointer } from "./dock-pointer";
 import { useDockStorage } from "./dock-storage";
@@ -48,8 +48,9 @@ export function DockWorkspace({ apps, chat, chatIcon = <UsersIcon />, navigation
   const { state: stored, error, update } = useDockStorage(session.session.id);
   const [size, setSize] = useState({ width: 0, height: 0 });
   const splitApps = size.width >= 1000;
-  const panelIds = ["chat", ...apps.map((app) => appPanelId(app.definition.id))];
-  const toolIds = tabs.map((tab) => toolPanelId(tab.id));
+  const sideTabs = tabs.filter((tab) => tab.placement !== "window");
+  const panelIds = ["chat", ...tabs.filter((tab) => tab.placement === "window").map((tab) => tabWindowId(tab.id)), ...apps.map((app) => appPanelId(app.definition.id))];
+  const toolIds = sideTabs.map((tab) => toolPanelId(tab.id));
   // The initial run snapshot has not arrived yet; keep saved app positions until it does.
   const ready = session.runView !== undefined || apps.length > 0;
   const state = error ? stored : reconcileDockState(stored, ready ? panelIds : [...new Set([...stored.known.filter((id) => !isToolPanel(id)), ...panelIds])],
@@ -81,7 +82,7 @@ export function DockWorkspace({ apps, chat, chatIcon = <UsersIcon />, navigation
   const sideTab = state.side.tab;
   const sideVisible = sideTab !== null && state.bar.includes(sideTab) && toolIds.includes(sideTab);
   const gap = DOCK_DIVIDER_SIZE;
-  const railWidth = tabs.length > 0 ? 36 : 0;
+  const railWidth = sideTabs.length > 0 ? 36 : 0;
   const railSpace = railWidth ? railWidth + gap : 0;
   const height = Math.max(0, size.height - gap * 2);
   const maxSideWidth = Math.max(180, size.width - railSpace - gap * 3 - 80);
@@ -110,13 +111,16 @@ export function DockWorkspace({ apps, chat, chatIcon = <UsersIcon />, navigation
     return () => window.removeEventListener("keydown", escape);
   }, [stored.maximized, stored.side.mode, stored.side.tab, update]);
   const emptyPanes = state.known.filter(isEmptyPanel);
-  const labels = new Map<string, string>([["chat", "Chat"], ...apps.map((app) => [appPanelId(app.definition.id), app.definition.title ?? app.definition.id] as const), ...tabs.map((tab) => [toolPanelId(tab.id), tab.label] as const),
+  const labels = new Map<string, string>([["chat", "Chat"], ...apps.map((app) => [appPanelId(app.definition.id), app.definition.title ?? app.definition.id] as const), ...tabs.map((tab) => [workspaceTabPanelId(tab), tab.label] as const),
     [EMPTY_PANE_ENTRY, EMPTY_PANE_TITLE], ...emptyPanes.map((id) => [id, EMPTY_PANE_TITLE] as const)]);
   const title = (id: string) => labels.get(id) ?? id;
+  const tabFor = (id: string | null) => tabs.find((tab) => workspaceTabPanelId(tab) === id);
   const icon = (id: string) => {
-    const ToolIcon = tabs.find((tab) => toolPanelId(tab.id) === id)?.Icon;
+    const ToolIcon = tabFor(id)?.Icon;
     return id === "chat" ? chatIcon : ToolIcon ? <ToolIcon /> : id === EMPTY_PANE_ENTRY || isEmptyPanel(id) ? <SquareDashedIcon /> : <LayoutGridIcon />;
   };
+  const marker = (tab: WorkspaceTabContribution, active: boolean) => pendingTabIds.includes(tab.id) && activeDockTool(state) !== tab.id ? <Badge>New activity</Badge>
+    : tab.Badge && <tab.Badge active={active} navigation={navigation} selection={navigation.selectionFor(tab.id)} session={session} />;
   // A CSS zoom on the page scales client coordinates, not the dock geometry.
   const pointerZoom = () => container.current!.getBoundingClientRect().width / container.current!.offsetWidth || 1;
   const localPoint = (point: DockPoint, rect: DOMRect, zoom: number): DockPoint => ({ x: (point.x - rect.left) / zoom, y: (point.y - rect.top) / zoom });
@@ -209,7 +213,7 @@ export function DockWorkspace({ apps, chat, chatIcon = <UsersIcon />, navigation
     pointer(event, (point) => update((current) => ({ ...current, side: { ...current.side, width: Math.max(180, width + (start - point.x) / zoom) } })), () => setResizing(undefined));
   };
   const toolHeader = (id: string | null) => {
-    const tab = tabs.find((tab) => toolPanelId(tab.id) === id);
+    const tab = tabFor(id);
     return tab?.Header ? <tab.Header active navigation={navigation} selection={navigation.selectionFor(tab.id)} session={session} /> : null;
   };
   const panelPosition = (id: string) => {
@@ -250,7 +254,10 @@ export function DockWorkspace({ apps, chat, chatIcon = <UsersIcon />, navigation
     dropIndex={drag?.slot ?? undefined}
     extra={{ id: EMPTY_PANE_ENTRY, title: EMPTY_PANE_TITLE, icon: icon(EMPTY_PANE_ENTRY), hint: "Add an empty pane" }}
     groupRef={windowsRef}
-    items={windows.map((id) => ({ id, title: title(id), icon: icon(id), visible: visible.includes(id) }))}
+    items={windows.map((id) => {
+      const tab = tabFor(id);
+      return { id, title: title(id), icon: icon(id), visible: visible.includes(id), badge: tab && marker(tab, visible.includes(id)) };
+    })}
     onDragStart={(event, id) => startDrag(event, [id], () => reveal(id), true)}
     onMove={moveWindow}
     onOpen={reveal}
@@ -299,7 +306,7 @@ export function DockWorkspace({ apps, chat, chatIcon = <UsersIcon />, navigation
       {panel("chat", chat)}
       {emptyPanes.map((id) => panel(id, <p className="m-1.5 flex flex-1 items-center justify-center rounded-md border border-dashed border-border p-2 text-center text-xs text-muted-foreground">Drag an app or actor here</p>))}
       {apps.filter((app) => visited.includes(appPanelId(app.definition.id)) || visible.includes(appPanelId(app.definition.id))).map((app) => panel(appPanelId(app.definition.id), <RunAppView app={app} navigation={navigation} session={session} />))}
-      {tabs.filter((tab) => visited.includes(toolPanelId(tab.id)) || visible.includes(toolPanelId(tab.id))).map((tab) => panel(toolPanelId(tab.id), <tab.Panel active={visible.includes(toolPanelId(tab.id))} navigation={navigation} selection={navigation.selectionFor(tab.id)} session={session} />))}
+      {tabs.map((tab) => [tab, workspaceTabPanelId(tab)] as const).filter(([, id]) => visited.includes(id) || visible.includes(id)).map(([tab, id]) => panel(id, <tab.Panel active={visible.includes(id)} navigation={navigation} selection={navigation.selectionFor(tab.id)} session={session} />))}
       {sideVisible && <>
         <div aria-hidden data-dock-frame className={cn(cardClass, "z-30", state.side.focused ? "border-primary/70" : "border-border",
           state.side.mode === "docked" ? "shadow-none" : "shadow-pop ring-1 ring-foreground/10")} style={sideRect} />
@@ -313,18 +320,15 @@ export function DockWorkspace({ apps, chat, chatIcon = <UsersIcon />, navigation
         <div data-dock-side-resize aria-label="Resize sidebar" aria-orientation="vertical" aria-valuemin={180} aria-valuemax={maxSideWidth} aria-valuenow={state.side.width} data-dragging={resizing === "side"} className={cn(resizeClass, "z-50 cursor-col-resize")} onPointerEnter={holdSide} onPointerLeave={leaveSide} onPointerDown={resizeSide} role="separator" style={{ left: sideRect.left - gap - 1, top: sideRect.top, width: 8, height: sideRect.height }} tabIndex={0}
           onKeyDown={(event) => { if (event.key !== "ArrowLeft" && event.key !== "ArrowRight") return; event.preventDefault(); update((current) => ({ ...current, side: { ...current.side, width: Math.max(180, Math.min(maxSideWidth, current.side.width + (event.key === "ArrowLeft" ? 20 : -20))) } })); }} ><DockGrip /></div>
       </>}
-      {tabs.length > 0 && <nav data-dock-rail aria-label="Sidebar tabs" className={cn("absolute z-40 flex flex-col items-center gap-1 rounded-lg border border-border bg-card py-1", hit?.target?.kind === "bar" && "bg-primary/20 ring-2 ring-inset ring-primary")} style={railRect} onPointerEnter={holdSide} onPointerLeave={leaveSide}>
-        {tabs.filter((tab) => state.bar.includes(toolPanelId(tab.id))).map((tab) => {
+      {sideTabs.length > 0 && <nav data-dock-rail aria-label="Sidebar tabs" className={cn("absolute z-40 flex flex-col items-center gap-1 rounded-lg border border-border bg-card py-1", hit?.target?.kind === "bar" && "bg-primary/20 ring-2 ring-inset ring-primary")} style={railRect} onPointerEnter={holdSide} onPointerLeave={leaveSide}>
+        {sideTabs.filter((tab) => state.bar.includes(toolPanelId(tab.id))).map((tab) => {
           const id = toolPanelId(tab.id);
           const active = sideVisible && sideTab === id;
-          const pending = pendingTabIds.includes(tab.id) && activeDockTool(state) !== tab.id;
           return <Button id={`dock-tab-${encodeURIComponent(id)}`} aria-controls={`dock-panel-${encodeURIComponent(id)}`} aria-label={tab.label} aria-pressed={active} className="relative touch-none aria-pressed:bg-accent" key={id}
             onClick={(event) => { if (event.detail === 0) sideClick(id); }} onPointerDown={(event) => { event.currentTarget.focus(); startDrag(event, [id], () => sideClick(id)); }}
             onPointerEnter={() => { holdSide(); if (!drag && !sidePressed.current) update((current) => transitionDockSide(current, { type: "hover", id })); }} size="icon" title={tab.label} variant="ghost">
             <tab.Icon />
-            <span className="absolute top-1 right-1"><BadgeDisplayProvider value="dot">
-              {pending ? <Badge>New activity</Badge> : tab.Badge && <tab.Badge active={active} navigation={navigation} selection={navigation.selectionFor(tab.id)} session={session} />}
-            </BadgeDisplayProvider></span>
+            <span className="absolute top-1 right-1"><BadgeDisplayProvider value="dot">{marker(tab, active)}</BadgeDisplayProvider></span>
           </Button>;
         })}
       </nav>}

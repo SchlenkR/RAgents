@@ -11,9 +11,9 @@ export const hostApi: { readonly server: HostApiModules; readonly web: HostApiMo
   server: {
     "@ragents/engine": [
       "DomainError", "RPC_ERROR_CODES", "RpcError", "ScriptDriver", "ToolRegistry", "actorByHandle",
-      "actorByReference", "actorDescriptionMaxLength", "actorInputSchema", "agentTools", "assertJsonValue", "builtinProfiles", "canonicalHash",
+      "actorByReference", "actorDescriptionMaxLength", "actorInputSchema", "addressFrom", "addressOf", "agentTools", "assertJsonValue", "builtinProfiles", "canonicalHash",
       "compileVirtualTypeScriptAsync", "defineRunFunction", "defineToolAvailability", "emptyUsage",
-      "enqueueActorInput", "eventResultSchemaOf", "handleKey", "holdsUsable", "implement", "implementChannel", "inheritedGrants",
+      "enqueueActorInput", "eventResultSchemaOf", "freeRoomName", "handleKey", "holdsUsable", "implement", "implementChannel", "inheritedGrants",
       "isRunId", "isThinkingLevel", "modelToolDescriptors", "pluginStateAt", "runCapabilityBindingHash",
       "runCapabilityContractHash", "schemaComplaints", "scriptInputOf", "serviceToken",
     ],
@@ -43,7 +43,7 @@ export const hostApi: { readonly server: HostApiModules; readonly web: HostApiMo
     ],
     "@ragents/host/plugin-support/actor-programs/contract": [
       "ACTOR_INVOCATIONS_STATE_ID", "ACTOR_PROGRAMS_STATE_ID", "ACTOR_SCRIPT_STATE_ID", "ACTOR_STATE_ID",
-      "actorProgramContracts", "resolveActorView",
+      "actorProgramContracts", "relativeName", "resolveActorView",
     ],
     "@ragents/host/plugin-support/actor-programs/service": ["actorProgramsToken"],
     "@ragents/host/plugin-support/actor-programs/tailwind": ["buildTailwind"],
@@ -118,7 +118,7 @@ export const hostApi: { readonly server: HostApiModules; readonly web: HostApiMo
   web: {
     "@ragents/engine/src/domain/events": ["eventTypeMap"],
     "@ragents/engine/src/domain/json": [],
-    "@ragents/engine/src/http/contracts": ["actorByHandle", "handleKey", "openJson", "runContracts"],
+    "@ragents/engine/src/http/contracts": ["actorByHandle", "addressOf", "handleKey", "openJson", "runContracts"],
     "@ragents/engine/src/rpc/contract": ["defineChannel", "defineOperation"],
     "@ragents/host/plugin-support/actor-programs/contract": [
       "ACTOR_INVOCATIONS_STATE_ID", "ACTOR_PROGRAMS_STATE_ID", "ACTOR_STATE_ID", "actorProgramContracts",
@@ -157,7 +157,7 @@ export const hostApi: { readonly server: HostApiModules; readonly web: HostApiMo
     "@ragents/web/run-panel/DockWorkspace": ["DockWindowActions", "DockWorkspace", "useDockActiveApp"],
     "@ragents/web/run-panel/host": ["useRunPanelHost"],
     "@ragents/web/run-view": [
-      "actorPluginState", "actorTone", "chatPrimaryId", "isPendingRunActorInput", "runActorFrom",
+      "actorAddress", "actorPluginState", "actorTone", "chatPrimaryId", "isPendingRunActorInput", "runActorFrom",
       "runArtifactContentUrl", "runViewFrom",
     ],
     "@ragents/web/theme": ["useResolvedTheme"],

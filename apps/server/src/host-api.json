@@ -11,6 +11,8 @@
       "actorByReference",
       "actorDescriptionMaxLength",
       "actorInputSchema",
+      "addressFrom",
+      "addressOf",
       "agentTools",
       "assertJsonValue",
       "builtinProfiles",
@@ -21,6 +23,7 @@
       "emptyUsage",
       "enqueueActorInput",
       "eventResultSchemaOf",
+      "freeRoomName",
       "handleKey",
       "holdsUsable",
       "implement",
@@ -106,6 +109,7 @@
       "ACTOR_SCRIPT_STATE_ID",
       "ACTOR_STATE_ID",
       "actorProgramContracts",
+      "relativeName",
       "resolveActorView"
     ],
     "@ragents/host/plugin-support/actor-programs/service": [
@@ -677,6 +681,7 @@
     "@ragents/engine/src/domain/json": [],
     "@ragents/engine/src/http/contracts": [
       "actorByHandle",
+      "addressOf",
       "handleKey",
       "openJson",
       "runContracts"
@@ -805,6 +810,7 @@
       "useRunPanelHost"
     ],
     "@ragents/web/run-view": [
+      "actorAddress",
       "actorPluginState",
       "actorTone",
       "chatPrimaryId",

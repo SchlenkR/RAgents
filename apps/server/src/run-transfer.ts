@@ -3,7 +3,7 @@ import { existsSync, readlinkSync, Stats } from "node:fs";
 import { chmod, mkdir, readFile, readdir, rename, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { create as createTar, extract as extractTar, type ReadEntry } from "tar";
-import { DomainError, isPendingActorInput, isRunId, type CommandRecord, type JournalEvent, type RunState } from "@ragents/engine";
+import { addressOf, DomainError, isPendingActorInput, isRunId, type CommandRecord, type JournalEvent, type RunState } from "@ragents/engine";
 import { parseJournalRecord } from "@ragents/engine/src/runtime/journal-storage";
 
 export const RUN_TRANSFER_FORMAT_VERSION = 1;
@@ -74,10 +74,11 @@ export const assertRunStopped = (options: {
   const { runId, state } = options;
   const working = [...state.actors.values()].find((actor) => actor.kind !== "human"
     && (actor.lifecycle.kind === "running" || options.isRunning(actor.id)));
-  if (working) throw new DomainError("run-transfer-running", `The run ${runId} is working right now (@${working.handle}); stop it before the move.`, 409);
+  if (working) throw new DomainError("run-transfer-running", `The run ${runId} is working right now (@${addressOf(working)}); stop it before the move.`, 409);
   const pending = [...state.inputs.values()].find(isPendingActorInput);
   if (pending) {
-    const target = state.actors.get(pending.actorId)?.handle ?? pending.actorId;
+    const holder = state.actors.get(pending.actorId);
+    const target = holder ? addressOf(holder) : pending.actorId;
     throw new DomainError("run-transfer-running", `The run ${runId} has a pending input for @${target}; wait for it or stop the run.`, 409);
   }
   if (options.sessionRunning) throw new DomainError("run-transfer-running", `The run ${runId} is working right now; stop it before the move.`, 409);

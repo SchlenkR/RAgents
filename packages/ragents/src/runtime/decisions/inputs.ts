@@ -10,6 +10,7 @@ import {
     assertCapability,
     clean,
     executableActorOf,
+    roomOf,
 } from "../guards.ts";
 import { resumeRun } from "./pause.ts";
 
@@ -36,7 +37,7 @@ export const enqueueInput =
 const enqueuedInput =
     (input: EnqueueInput): Decision =>
     (state, context, services) => {
-        const target = executableActorOf(state, addressedActorOf(state.actors.values(), input.actorId).id);
+        const target = executableActorOf(state, addressedActorOf(state.actors.values(), input.actorId, roomOf(state, context.actorId)).id);
         const subscriptionId = input.subscriptionId ?? null;
         const caller = subscriptionId ? actorById(state, context.actorId) : commandActorOf(state, context);
 

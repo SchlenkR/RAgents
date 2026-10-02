@@ -3,6 +3,7 @@ export const WATCH_PLUGIN_ID = "ragents.watch";
 export type WatchDefinition = {
   id: string;
   sourceActorId: string;
+  /** The observed actor's address as the main room writes it: room.handle in a room. */
   sourceHandle: string;
   targetActorId: string;
   targetHandle: string;

@@ -350,3 +350,99 @@ test("a run header too narrow for the window buttons lists every window, Empty s
   await menu.waitFor({ state: "hidden" });
   assert.deepEqual(errors, []);
 });
+
+test("a workspace tab placed as a window is a header window that opens, docks and closes like an app and never enters the rail", options, async (context) => {
+  const { errors, page, actions, view, drop, box, press, moveTo, dockOnto, tab, panel, groups, savedLayout } = await prepare(context, "?window");
+  const order = () => actions.locator("[data-dock-window]").evaluateAll((buttons) => buttons.map((button) => button.getAttribute("aria-label")));
+  const rail = page.getByRole("navigation", { name: "Sidebar tabs" });
+  const railTools = () => rail.getByRole("button").evaluateAll((buttons) => buttons.map((button) => button.getAttribute("aria-label")));
+  const draft = page.getByRole("textbox", { name: "Preview draft" });
+
+  await page.waitForFunction(() => document.querySelectorAll("[data-dock-group]").length === 2);
+  assert.deepEqual(await order(), ["Chat", "Preview", "Notes", "Board"], "the window tab follows Chat and the apps join after it");
+  assert.deepEqual(await railTools(), ["Files", "Journal"], "the rail keeps only the sidebar tools");
+  assert.equal(await view("Preview").getAttribute("aria-pressed"), "true", "like a first app it opens beside Chat");
+  assert.equal(await panel("Preview").getByText("Preview active", { exact: true }).isVisible(), true);
+  assert.equal(await view("Preview").locator('[data-slot="badge"]').textContent(), "2 checks", "its badge marks its header button");
+  assert.equal(await view("Notes").locator('[data-slot="badge"]').count(), 0);
+  assert.equal(await groups.filter({ has: tab("Preview") }).getByRole("button", { name: "Refresh preview", exact: true }).count(), 1, "its header contribution sits in its area header");
+  assert.equal(await page.getByRole("button", { name: "Return Preview to sidebar", exact: true }).count(), 0, "a window has no way into the sidebar");
+  await page.screenshot({ path: join(shots, "dock-windows-window-tab.png") });
+  await draft.fill("Kept");
+
+  await page.getByRole("button", { name: "Close Preview", exact: true }).click();
+  await tab("Preview").waitFor({ state: "detached" });
+  assert.equal(await view("Preview").getAttribute("aria-pressed"), "false");
+  assert.deepEqual(await railTools(), ["Files", "Journal"], "closing it does not move it into the rail");
+  assert.deepEqual((await savedLayout()).closed, ["tab:preview"]);
+  await view("Preview").click();
+  await tab("Preview").waitFor();
+  assert.equal(await groups.count(), 3, "reopening it splits beside the focused area like a closed app");
+  assert.equal(await draft.inputValue(), "Kept", "its panel keeps its state like a visited app");
+
+  await press(view("Preview"));
+  await moveTo(view("Chat"), 0.25);
+  await drop.waitFor();
+  await page.mouse.up();
+  await drop.waitFor({ state: "hidden" });
+  assert.deepEqual(await order(), ["Preview", "Chat", "Notes", "Board"], "it reorders among the windows");
+  assert.deepEqual((await savedLayout()).order, ["tab:preview", "chat", "app:notes", "app:board"]);
+
+  await press(tab("Preview"));
+  const railBox = await box(rail);
+  await page.mouse.move(railBox.x + railBox.width / 2, railBox.y + 200, { steps: 8 });
+  assert.equal(await page.locator("[data-dock-preview]").count(), 0, "the rail is no drop target for a window");
+  await page.mouse.up();
+  await page.getByLabel("Docking guides", { exact: true }).waitFor({ state: "hidden" });
+  assert.deepEqual(await railTools(), ["Files", "Journal"]);
+  assert.equal(await groups.count(), 3);
+  const chatArea = groups.filter({ has: tab("Chat") });
+  await dockOnto(tab("Preview"), chatArea, "group-center");
+  assert.equal(await chatArea.getByRole("tab", { name: "Preview", exact: true }).count(), 1, "it merges into another area as a tab");
+  assert.equal(await groups.count(), 2, "its emptied area closes");
+
+  await page.getByRole("button", { name: "Close Preview", exact: true }).click();
+  await tab("Preview").waitFor({ state: "detached" });
+  await page.evaluate(() => window.dockingFixture.openTab!("preview"));
+  await tab("Preview").waitFor();
+  assert.equal(await panel("Preview").getByText("Preview active", { exact: true }).isVisible(), true, "navigation.openTab opens the window");
+  assert.equal(await tab("Preview").getAttribute("aria-selected"), "true");
+
+  await rail.getByRole("button", { name: "Files", exact: true }).click();
+  await page.locator('[data-dock-sidebar="docked"]').waitFor();
+  assert.equal(await page.getByText("Files active", { exact: true }).isVisible(), true, "a sidebar tool still opens in the sidebar");
+  await page.getByRole("button", { name: "Close sidebar", exact: true }).click();
+
+  await view("Reset layout").click();
+  await page.waitForFunction(() => document.querySelectorAll("[data-dock-group]").length === 2);
+  assert.deepEqual(await order(), ["Chat", "Preview", "Notes", "Board"], "Reset layout restores the catalog order");
+  assert.equal(await view("Preview").getAttribute("aria-pressed"), "true", "and opens the window tab again like an app");
+  assert.deepEqual(errors, []);
+});
+
+test("a narrow run header lists a window tab with its badge in the All windows menu and marks the menu button", options, async (context) => {
+  const { errors, page, actions, view, tab, panel } = await prepare(context, "?header&window");
+  const menuButton = actions.getByRole("button", { name: /^All windows/ });
+  const menu = page.getByRole("menu", { name: "All windows" });
+
+  await page.waitForFunction(() => document.querySelectorAll("[data-dock-group]").length === 2);
+  assert.equal(await view("Preview").isVisible(), true, "a wide run header shows the window tab as a button");
+  await page.getByRole("button", { name: "Close Preview", exact: true }).click();
+  await tab("Preview").waitFor({ state: "detached" });
+  await page.setViewportSize({ width: 560, height: 800 });
+  await menuButton.waitFor();
+  assert.equal(await menuButton.locator('[data-slot="badge"]').textContent(), "2 checks", "the menu button carries the badge of a window it holds");
+  await menuButton.click();
+  await menu.waitFor();
+  assert.deepEqual(await menu.locator('[role^="menuitem"]').evaluateAll((items) => items.map((item) => item.textContent)),
+    ["Chat", "Preview2 checks", "Notes", "Board", "Empty space", "Reset layout"], "the menu lists the window tab in the header order with its badge");
+  await menu.evaluate((element) => Promise.all(element.getAnimations({ subtree: true }).map((animation) => animation.finished)));
+  await page.screenshot({ path: join(shots, "dock-windows-window-tab-menu.png") });
+  const entry = menu.getByRole("menuitemcheckbox", { name: /^Preview/ });
+  assert.equal(await entry.getAttribute("aria-checked"), "false");
+  await entry.click();
+  await menu.waitFor({ state: "hidden" });
+  await tab("Preview").waitFor();
+  assert.equal(await panel("Preview").isVisible(), true, "the menu entry opens the window");
+  assert.deepEqual(errors, []);
+});

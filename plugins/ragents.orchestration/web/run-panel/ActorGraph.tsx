@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
 import { ChevronDownIcon, CodeIcon, SparklesIcon, UsersIcon } from "lucide-react";
 import { Badge, cn, Spinner, SvgEdge, type SvgEdgeProps } from "@ragents/web/ui";
-import { actorTone, type RunActor, type RunView } from "@ragents/web/run-view";
+import { actorAddress, actorTone, type RunActor, type RunView } from "@ragents/web/run-view";
 import { pendingInputCount } from "./run-panel-actors";
 import { addresseeNodeContains, addresseeStatus, addresseeStatusCounts, addresseeStatusWord, addresseeSummaries, addresseeTree, type AddresseeGroupNode, type AddresseeStatus } from "./addressee-tree";
 import { actorGraphLayout, actorTimings, clampGraphPan, formatDuration, GRAPH_CARD_HEIGHT, GRAPH_CARD_WIDTH, graphColumns, graphNodeStatus, graphPannable, graphPanTo, graphViewport, type ActorTiming, type GraphSize } from "./actor-graph";
@@ -199,11 +199,11 @@ function ActorCard({ actor, current, onPick, summary, technical, timing, view }:
   const status = addresseeStatus(view, actor);
   const name = actor.displayName.trim();
   const named = name !== "" && lower(name) !== lower(actor.handle) && name !== summary ? `, ${name}` : "";
-  return <button aria-current={current || undefined} className={cardClass} data-actor-handle={actor.handle} onClick={() => onPick(actor)}
-    title={`@${actor.handle}${named}, ${actorType(actor, technical)}, ${addresseeStatusWord(status)}. Address messages to @${actor.handle}`} type="button">
+  return <button aria-current={current || undefined} className={cardClass} data-actor-handle={actorAddress(actor)} onClick={() => onPick(actor)}
+    title={`@${actorAddress(actor)}${named}, ${actorType(actor, technical)}, ${addresseeStatusWord(status)}. Address messages to @${actorAddress(actor)}`} type="button">
     <span className="flex min-w-0 items-center gap-1.5">
       <ActorIcon actor={actor} className="size-5" view={view} />
-      <span className="min-w-0 flex-1 truncate font-semibold">@{actor.handle}</span>
+      <span className="min-w-0 flex-1 truncate font-semibold">@{actorAddress(actor)}</span>
       {pending > 0 && <Badge className="h-4 min-w-4 px-1 text-[0.6rem]" title={waitingInputs(pending)} variant="secondary">{pending}</Badge>}
     </span>
     <span className={lineClass}>

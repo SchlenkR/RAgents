@@ -1,6 +1,6 @@
 import type { JournalEvent } from "@ragents/engine/src/domain/events";
 import type { JsonValue } from "@ragents/engine/src/domain/json";
-import type { RunView } from "@ragents/web/run-view";
+import { actorAddress, type RunView } from "@ragents/web/run-view";
 
 export type ExecutionStatus = "running" | "completed" | "failed" | "interrupted";
 
@@ -60,7 +60,7 @@ export const projectExecutions = (events: readonly JournalEvent[], view?: Pick<R
       const actor = actors.get(event.actorId);
       const input = record(event.payload.input) ? event.payload.input : {};
       executions.set(key, {
-        key, actorId: event.actorId, actorHandle: actor?.handle ?? event.actorId, actorName: actor?.displayName ?? event.actorId,
+        key, actorId: event.actorId, actorHandle: actor ? actorAddress(actor) : event.actorId, actorName: actor?.displayName ?? event.actorId,
         turnId: event.payload.turnId, toolCallId: event.payload.toolCallId, sequence: event.sequence,
         startedAt: event.occurredAt, finishedAt: null, status: "running",
         code: typeof input.code === "string" ? input.code : null, path: typeof input.path === "string" ? input.path : null,

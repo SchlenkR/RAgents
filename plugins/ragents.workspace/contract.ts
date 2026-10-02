@@ -268,6 +268,10 @@ export const FRESH_WORKSPACE_LABEL = "Empty folder per run";
 const freshLabelOf = (binding: WorkspaceBinding, labels: FreshWorkspaceLabels): string =>
   (binding.machine === "server" ? labels.server : labels.client) ?? FRESH_WORKSPACE_LABEL;
 
+/** A workstation is named by its current label; the stored one only stands in while it is not registered. */
+export const withCurrentLabel = (binding: WorkspaceBinding, label: string | undefined): WorkspaceBinding =>
+  binding.machine === "server" || label === undefined || label === binding.machine.label ? binding : { ...binding, machine: { ...binding.machine, label } };
+
 export const workspaceBindingSummary = (binding: WorkspaceBinding, labels: FreshWorkspaceLabels): string => {
   const { machine, folder } = binding;
   const fresh = freshLabelOf(binding, labels);

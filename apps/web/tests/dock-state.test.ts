@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { activeDockTool, addDockEmptyPane, closeDockPanels, dockGroups, dockWindowOrder, emptyPanelId, focusedDockWindow, initialDockState, moveDockPanels, moveDockWindow, parseDockState, persistentDockState, reconcileDockState, resizeDockSplit, revealDockPanel, transitionDockSide, returnDockTool, selectDockPanel, type DockState, type DockTarget } from "../src/run-panel/dock-state";
+import { activeDockTool, addDockEmptyPane, closeDockPanels, dockGroups, dockWindowOrder, emptyPanelId, focusedDockWindow, initialDockState, moveDockPanels, moveDockWindow, parseDockState, persistentDockState, reconcileDockState, resizeDockSplit, revealDockPanel, transitionDockSide, returnDockTool, selectDockPanel, workspaceTabPanelId, type DockState, type DockTarget } from "../src/run-panel/dock-state";
 import { dockGeometry, dockHitTest, dockPreview, dockingGuides } from "../src/run-panel/dock-geometry";
 import { dockStorageKey } from "../src/run-panel/dock-storage";
 
@@ -465,4 +465,37 @@ test("layout storage rejects closed or ordered empty panes", () => {
     assert.throws(() => parseDockState(JSON.stringify({ ...pane, ...patch })), /invalid/);
   }
   assert.throws(() => parseDockState(JSON.stringify({ ...initial(), known: [...initial().known, "empty:two"], closed: ["empty:two"] })), /invalid/);
+});
+
+test("a workspace tab placed as a window is a header window like an app and never a rail tool", () => {
+  assert.equal(workspaceTabPanelId({ id: "preview", placement: "window" }), "tab:preview");
+  assert.equal(workspaceTabPanelId({ id: "files" }), "tool:files");
+  assert.equal(workspaceTabPanelId({ id: "files", placement: "sidebar" }), "tool:files");
+  const panels = ["chat", "tab:preview", "app:notes"];
+  const tools = ["tool:files"];
+  const start = reconcileDockState(initialDockState(), panels, tools, true);
+  assert.deepEqual(dockGroups(start.root).map((g) => g.tabs), [["chat"], ["tab:preview", "app:notes"]], "it opens in the app area like the first app");
+  assert.deepEqual(start.bar, ["tool:files"], "it never joins the rail");
+  assert.deepEqual(dockWindowOrder(start, panels), panels);
+  roundtrip(start);
+  const closed = closeDockPanels(start, ["tab:preview"]);
+  assert.deepEqual(closed.closed, ["tab:preview"]);
+  assert.deepEqual(closed.bar, ["tool:files"], "closing it does not move it into the rail");
+  assert.equal(move(closed, ["tab:preview"], { kind: "bar" }), closed, "the rail takes no window");
+  assert.throws(() => parseDockState(JSON.stringify({ ...closed, closed: [], bar: [...closed.bar, "tab:preview"] })), /invalid/);
+  roundtrip(closed);
+  const reopened = selectDockPanel(closed, "tab:preview");
+  assert.equal(focusedDockWindow(reopened), "tab:preview");
+  assert.equal(activeDockTool(reopened), "preview", "navigation reports it as the active tab");
+  assert.deepEqual(reopened.closed, []);
+  assert.equal(activeDockTool(selectDockPanel(reopened, "app:notes")), "", "an app is no workspace tab");
+  assert.equal(selectDockPanel(closed, "tab:missing"), closed, "an unknown window is not added");
+  roundtrip(reopened);
+  const arranged = moveDockWindow(reopened, "tab:preview", "chat");
+  assert.deepEqual(dockWindowOrder(arranged, panels), ["tab:preview", "chat", "app:notes"]);
+  roundtrip(arranged);
+  const placed = reconcileDockState(start, [...panels, "tab:files"], [], true);
+  assert.deepEqual(placed.bar, [], "a tab that changes its placement leaves the rail");
+  assert.ok(dockGroups(placed.root).some((g) => g.tabs.includes("tab:files")), "and joins the windows");
+  roundtrip(placed);
 });

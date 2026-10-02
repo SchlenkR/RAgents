@@ -715,6 +715,8 @@ available(session) filters availability, keepMounted keeps an inactive view. Pol
 
 Dynamic tab IDs must also be unique. In the run panel, the same tabs are in the toolbar on the right edge.
 
+With placement: window, the browser lists the tab among the run's windows in the header instead of the toolbar, like a mini-app; VS Code keeps it in the toolbar.
+
 Contract fields: web.workspaceTabs, web.workspaceTabsFor.
 
 ### The shared run panel
@@ -1084,7 +1086,7 @@ Further prepared programs live under actors/<name>/. The host copies them into @
 
 coordinator: false omits the usual coordinator. The setup must then designate another actor as the primary chat partner.
 
-embeddable: true also lets the script start inside a running run without changing its primary actor; a repeated start reuses the setup actor. onStart receives each start with embedded, startedBy, and count.
+embeddable: true also lets the script start inside a running run without changing its primary actor; every start opens a room of its own with its own setup actor. onStart receives each start with embedded, startedBy, and count.
 
 Contract fields: runScript.handle, runScript.coordinator, runScript.embeddable, runScript.sharedPrograms, runScript.files, runScript.programs.
 

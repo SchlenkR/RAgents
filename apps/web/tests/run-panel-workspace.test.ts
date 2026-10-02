@@ -201,3 +201,25 @@ test("the Files tab offers only the file storage without a reachable workspace",
   assert.doesNotMatch(foreign, /Working directory/);
   assert.match(render(true), /Working directory[\s\S]*File storage/);
 });
+
+test("a tab placed as a window joins the browser's header windows instead of the rail and stays in the VS Code rail", async (context) => {
+  fakeWindow(context);
+  const { PluginChat } = await import("../src/PluginChat.tsx");
+  const { PluginRegistry } = await import("../src/PluginRegistry.tsx");
+  const profile = (plugin: { workspaceTabs: WorkspaceTabContribution[]; workspaceTabsFor?: () => WorkspaceTabContribution[] }) => ({
+    brand: { title: "Test" }, product: { id: "test", title: "Test" }, startEntries: [], plugins: [{ id: "test", ...plugin }],
+  });
+  const registry = new PluginRegistry(profile({
+    workspaceTabs: [tab("files", "Files", 1), tab("preview", "Preview", 2, { placement: "window", Badge: () => createElement(Badge, null, "2 checks") })],
+    workspaceTabsFor: () => [tab("report", "Report", 3, { placement: "window" })],
+  }));
+  assert.deepEqual(registry.availableTabs(session).map((entry) => [entry.id, entry.placement ?? "sidebar"]), [["files", "sidebar"], ["preview", "window"], ["report", "window"]]);
+  assert.throws(() => new PluginRegistry(profile({ workspaceTabs: [tab("files", "Files", 1), tab("files", "Files", 2, { placement: "window" })] })), /registered twice: files/);
+  const content = createElement(PluginChat, { registry, session: { id: "run-a", title: "Run", updatedAt: 0 } });
+  const rail = (html: string) => html.match(/<nav[^>]*aria-label="Sidebar tabs"[\s\S]*?<\/nav>/)?.[0] ?? "";
+  const browser = renderToStaticMarkup(createElement(RunPanelHostProvider, { value: createBrowserHost({} as Window) }, content));
+  assert.deepEqual(attribute(rail(browser), "aria-label"), ["Sidebar tabs", "Files"], "the browser rail keeps only the sidebar tab");
+  assert.deepEqual(attribute(browser, "data-dock-window"), ["chat", "tab:preview", "tab:report"], "the window tabs follow Chat among the header windows");
+  assert.match(browser.match(/data-dock-window="tab:preview"[\s\S]*?<\/button>/)?.[0] ?? "", /<span class="sr-only">2 checks<\/span>/, "the header button carries the badge as a dot");
+  assert.deepEqual(attribute(rail(renderToStaticMarkup(inVsCode(content))), "aria-label"), ["Sidebar tabs", "Files", "Preview", "Report"], "VS Code keeps every tab in its rail");
+});

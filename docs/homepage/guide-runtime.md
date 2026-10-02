@@ -120,8 +120,8 @@ in effect.
 - `actor_restart`: Makes a stopped actor of the caller's branch idle again under the same
   capability `execution.stopOwned`; history, state, and model context stay as they were, and it
   accepts inputs again. Subscriptions removed by the stop stay removed. The button "Restart"
-  (`ragents.runs.restartActor`, in the owner's name) and the actor-program plugin, when it starts a
-  run script again or activates or ensures a package whose actor is stopped, use the same restart.
+  (`ragents.runs.restartActor`, in the owner's name) and the actor-program plugin, when it activates
+  or ensures a package whose actor is stopped, use the same restart.
 - Run stop: The scheduler temporarily accepts no new work for this run; concurrent stop calls
   are handled together. The primary actor remains, but its running work is interrupted. All
   other agents and TypeScript actors in the user's ownership tree are stopped. Agent runtimes
@@ -189,8 +189,9 @@ functions return their result, and the caller continues in the same turn.
 
 An actor has a technical ID and a readable handle such as `@worker`. Wherever a function, method,
 or plugin accepts an actor by ID or handle, the same rule resolves it: the leading `@` is
-optional, and case and Unicode composition do not matter. Once assigned, a handle
-remains reserved within the run even after the actor stops, so a handle always names exactly one
+optional, and case and Unicode composition do not matter. A handle consists of letters, digits,
+dashes, and underscores; the dot separates a room from the handle (section Rooms). Once assigned,
+a handle remains reserved even after the actor stops, so an address always names exactly one
 actor, and restarting by handle reaches the stopped actor. If another LLM agent is created with
 the same requested name, it receives an available suffix such as `worker-1`. `agent_spawn`
 returns the `{ id, handle }` of the actor it actually created; later calls use that reference.
@@ -200,6 +201,23 @@ Restarting continues the same stopped actor. If the owner restarts the actor tha
 actor when it was stopped, and no other primary actor has been chosen since, it becomes the
 primary actor again, so its chat continues. For TypeScript actors, creation rejects a handle
 that is already assigned. The creation itself remains recorded as an event in the journal.
+
+## Rooms
+
+A room is a delimited part of a run: its own participants with their state, apps, and
+conversations, in the same run, journal, workspace, and folder. Every run has a main room; further
+rooms stand beside it, never inside one another. Every start of a run script opens a room of its
+own, named after the script (`review-changeset`, then `review-changeset-2`, and so on), and
+everything the script creates lands there. A repeated start therefore gets its own participants
+instead of reusing those of an earlier start. A new agent always joins the room of whoever created
+it.
+
+An actor's address is `room.name`; the main room has no prefix, so a run without rooms looks as
+it always did. Names are relative to the room of whoever writes them, like paths relative to a
+working directory: inside room `review-2`, `rule-review` means `review-2.rule-review`; from
+another room it is written `review-2.rule-review`; and the actors of the main room are written
+without prefix from anywhere. Functions show every address from the caller's room, so a model
+takes names from their results instead of building them.
 
 ## Equipping subagents
 

@@ -43,6 +43,11 @@ Prefer its published functions for actions. A primary actor can be a TypeScript 
 primary does not mean conversational. Enqueueing confirms delivery to the queue, not processing
 or task completion. Unknown program commands must fail explicitly instead of returning silently.
 
+An actor's address is `room.name`; the main room has no prefix. Names are relative to your
+room: a bare name means an actor of your room, otherwise of the main room, and `room.name`
+reaches another room. Tool results show every address from your room; use them as they are.
+A new agent joins its creator's room, and every run script start opens a room of its own.
+
 Use `actor_list` before creating participants. A prepared run or another actor may already
 have created the required roles. Reuse suitable active actors even when they are not your
 children. Reusing a name in `agent_spawn` creates another actor with a suffix; it does not

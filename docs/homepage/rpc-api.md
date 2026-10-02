@@ -134,7 +134,7 @@ Owner: ragents.actor-programs. Rights: runs.read, runs.write. Execution: the ser
     },
     "appId": {
       "type": "string",
-      "pattern": "^[a-z][a-z0-9_-]{0,129}$",
+      "pattern": "^[a-z][a-z0-9_.-]{0,193}$",
       "description": "Identifier of the actor view or the program"
     },
     "revision": {
@@ -254,8 +254,8 @@ Owner: ragents.actor-programs. Rights: runs.read, runs.write, runs.inspect. Exec
     },
     "actorHandle": {
       "type": "string",
-      "pattern": "^[a-z][a-z0-9-]{0,63}$",
-      "description": "Handle of the actor without @"
+      "pattern": "^(?:[a-z][a-z0-9-]{0,63}\\.)?[a-z][a-z0-9-]{0,63}$",
+      "description": "Address of the actor without @: room.handle in a room, the handle in the main room"
     },
     "revision": {
       "type": "string",
@@ -315,8 +315,8 @@ Owner: ragents.actor-programs. Rights: runs.read, runs.inspect. Execution: the s
     },
     "actorHandle": {
       "type": "string",
-      "pattern": "^[a-z][a-z0-9-]{0,63}$",
-      "description": "Handle of the actor without @"
+      "pattern": "^(?:[a-z][a-z0-9-]{0,63}\\.)?[a-z][a-z0-9-]{0,63}$",
+      "description": "Address of the actor without @: room.handle in a room, the handle in the main room"
     },
     "invocationId": {
       "type": "string",
@@ -362,7 +362,7 @@ Owner: ragents.actor-programs. Rights: runs.read. Execution: the server.
     },
     "appId": {
       "type": "string",
-      "pattern": "^[a-z][a-z0-9_-]{0,129}$",
+      "pattern": "^[a-z][a-z0-9_.-]{0,193}$",
       "description": "Identifier of the actor view or the program"
     },
     "invocationId": {
@@ -408,7 +408,7 @@ Owner: ragents.actor-programs. Rights: runs.read, runs.inspect. Execution: the s
     },
     "moduleId": {
       "type": "string",
-      "pattern": "^[a-z][a-z0-9_-]{0,129}$",
+      "pattern": "^[a-z][a-z0-9_.-]{0,193}$",
       "description": "Identifier of the actor view or the program"
     }
   },
@@ -1749,6 +1749,10 @@ Owner: ragents.overseer. Rights: runs.read, runs.inspect. Execution: the server.
         },
         {
           "type": "string",
+          "const": "room.opened"
+        },
+        {
+          "type": "string",
           "const": "agent.spawned"
         },
         {
@@ -1987,6 +1991,10 @@ Owner: ragents.overseer. Rights: runs.read, runs.inspect. Execution: the server.
               {
                 "type": "string",
                 "const": "run.resumed"
+              },
+              {
+                "type": "string",
+                "const": "room.opened"
               },
               {
                 "type": "string",
@@ -3835,7 +3843,7 @@ Owner: host. Rights: no fixed rights. Execution: the server.
 
 ## ragents.runs.startScript
 
-Start a run script and wait until its actor has the start input; errors come back to the caller instead of the chat. A new run starts as with ragents.chat.start. In a running run only a script whose RUN.md sets embeddable: true starts, its fixed start options must match the run's, and the primary actor stays; a repeated start reuses the script's actor. Result: the script actor and which start of its package in the run this was. Rights: runs.read, runs.write and the template's release.
+Start a run script and wait until its actor has the start input; errors come back to the caller instead of the chat. A new run starts as with ragents.chat.start. In a running run only a script whose RUN.md sets embeddable: true starts, its fixed start options must match the run's, and the primary actor stays. Every start opens a new room named after the script with its own actors. Result: the script actor, its address (room.handle), and which start of its package this was. Rights: runs.read, runs.write and the template's release.
 
 Owner: host. Rights: no fixed rights. Execution: the server.
 

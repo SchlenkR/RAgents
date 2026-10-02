@@ -1,5 +1,83 @@
 # Decisions
 
+## 2026-10-02: Rooms delimit parts of a run; every run script start opens one
+
+Chapters: `spec/core.md` (Rooms; IDs, handles, and creating actors again; Actor roster and
+workspace in the system prompt; File format, write boundaries, and replay; Open limits),
+`spec/typescript-platform.md` (Execution and context; Run scripts as prepared actor programs),
+`spec/actor-programs.md` (Packages and actor binding; functions as tools), `spec/plugins.md`
+(shared actor packages; reference templates; browser checks), `spec/overview.md` (terms);
+usage: `usage.md`; concept: `concepts/rooms.md` (stage 3, the interface).
+
+**Why.** A repeated start of the same run script reused the script's actor, so two reviews of two
+changesets in one run shared one setup actor, its state, and its participants. The owner wanted a
+delimited part of a run with its own actors, state, apps, and conversation, but the same run,
+journal, workspace, and folder, flat beside the main room, with addresses that a model takes from
+tool results instead of building them.
+
+**Decision.** The journal gets `room.opened` (`name`, `origin`) and `room` on `agent.spawned` and
+`script.created`; file format 12, readable 7 to 12, because an older version would reject the new
+event. Without the field an actor stands in the main room, so older journals load unchanged.
+`RunState.rooms`, `Actor.room`, and `RunView.rooms` are projections. An address is `room.name`,
+the bare handle in the main room; one resolver (`actorByReference`) reads a reference from the
+caller's room: ID, then an exact dotted handle of an older journal, then `room.handle`, then a bare
+name in the caller's room and in the main room. Bare handles are unique within a room and between
+the main room and every room, so a name never means two actors from one room; new handles of
+agents and TypeScript actors contain no dot. Tool results, the roster, delivered event headers,
+and creator notices show addresses from the reader's room (`addressFrom`); surfaces for people
+show `addressOf`. Agents join their creator's room. A run script start, new run or embedded,
+chooses a free room named after the script and opens it in the command that creates the setup
+actor, so a failed start leaves no empty room; bundled programs become the room's packages
+(`@actors/<room>.<name>`), shared packages stay in the main room, and the reuse of an earlier
+start's setup actor is removed. Package names in the program functions are relative to the
+caller's room like addresses, a published tool without targets reaches its package's room, and
+a program's `context.actor.handle` is the address as its acting principal's room writes it.
+
+Rejected: nested rooms, because a flat set with an origin keeps addresses to at most one dot;
+a room ID beside the name, because the name is unique, never reused, and already the address;
+opening the room in its own command before the start, because a failed start would leave an
+empty room and consume its name; allowing a room to shadow a main room name, because a bare name
+would then mean different actors in different rooms with no way to write the hidden one; a model
+function that opens a room, because no current case needs it. Verified with
+`packages/ragents/tests/rooms.test.ts` (resolution, free names, dot rule, opening with the first
+actor, spawning into the creator's room, caller-relative tool output and roster, namespace rule,
+replay and isolation, an older journal with a dotted handle),
+`apps/server/tests/run-script-in-run.test.ts` (a room per start with its own actors, bundled
+programs per room, origin of a room opened from a room, results and program functions relative to
+the caller's room, shared packages in the main room), `reference-run-scripts.test.ts`, and
+`apps/web/tests/addressee-tree.test.ts` (groups per room).
+
+## 2026-10-02: A workspace tab can be a header window instead of a rail tool
+
+Chapters: `spec/plugins.md` (Web extension points; docking workspace; sidebar tabs; Open limits);
+usage: `usage.md` (Run panel and VS Code extension).
+
+**Why.** A plugin view that is used like a mini-app, large and beside the chat, was reachable only
+through the narrow rail and the sidebar flyout; dragging it into the dock every time was the only
+way to give it room. The owner asked for a way to show such a tab like a mini-app.
+
+**Decision.** `WorkspaceTabContribution` gets `placement?: "sidebar" | "window"`, default
+`"sidebar"`, which keeps the rail unchanged. With `"window"` the browser treats the same
+contribution as a view: its panel ID is `tab:<id>` instead of `tool:<id>`, so it lives in the
+tree, `known`, `closed`, and the header `order` and never in `bar`, without a second set of tree
+operations. It joins the layout like a new app (also after Reset layout), and the catalog lists
+window tabs after Chat and before apps so that later apps still join at the end. Its `Badge` and
+pending activity become a dot on its header button, menu entry, and the "All windows" button; its
+`Header` renders in the area header. `selectDockPanel` now ignores IDs outside `known`, so
+`openTab` cannot write an invalid layout. VS Code keeps such tabs in its rail: its editor tabs
+exist only for mini-apps, and an editor layout for workspace tabs would need a new contract
+between panel, frame, and extension.
+
+## 2026-10-02: A workstation is shown with its current label
+
+Chapter: `spec/plugins.md` (Workspace binding).
+
+**Why.** The binding freezes the workstation's label in the run's start option, so a workstation
+renamed after the run started kept its old name in the location line, the run list, and the run
+header for good. The client ID is the identity; the label is presentation. The views now take the
+label from the registry while the workstation is signed in and fall back to the stored one only
+while it is not.
+
 ## 2026-10-02: The agent graph grows with its content and pans; the addressee chip gets a way back
 
 Chapters: `spec/plugins.md` (Web as plugin host: run panel, addressee graph);

@@ -2,6 +2,7 @@ import { isObservableEventType, type ObservableEventType } from "../domain/vocab
 import { validatedEventPayloadOf } from "../domain/event-validation.ts";
 import type { EventPayloads } from "../domain/events.ts";
 import type { ActorInput, RunView } from "../domain/model.ts";
+import { addressFrom } from "../domain/actor-reference.ts";
 import { canonicalJson } from "../runtime/canonical-json.ts";
 
 export type DeliveredEvent = {
@@ -94,7 +95,8 @@ const sourceEventOf = (inputId: string, content: string): Readonly<Record<string
     }
 };
 
-export const deliveredEventFromJson = (view: RunView, inputId: string, content: string): DeliveredEvent => {
+/** The event as its subscriber sees it: the author's address from the subscriber's room. */
+export const deliveredEventFromJson = (view: RunView, inputId: string, content: string, room: string | null): DeliveredEvent => {
     const what = `The delivered event of input ${inputId}`;
     const source = sourceEventOf(inputId, content);
     const actorId = stringOf(source, "actorId", what);
@@ -110,14 +112,14 @@ export const deliveredEventFromJson = (view: RunView, inputId: string, content: 
         actorId,
         type: stringOf(source, "type", what),
         payload: source.payload,
-    }, author.handle);
+    }, addressFrom(author, room));
 };
 
 export const deliveredInputOf = (view: RunView, input: ActorInput): DeliveredInput => {
     if (input.subscriptionId === null)
         return { ...input, event: null };
 
-    const event = deliveredEventFromJson(view, input.id, input.content);
+    const event = deliveredEventFromJson(view, input.id, input.content, view.actors.find((entry) => entry.id === input.actorId)?.room ?? null);
 
     return { ...input, content: deliveredContentOf(event), event };
 };
@@ -141,10 +143,11 @@ export const scriptInputOf = (input: DeliveredInput): ScriptInput => ({
 });
 
 export const subscriptionSummaryFor = (view: RunView, actorId: string): readonly string[] => {
+    const room = view.actors.find((entry) => entry.id === actorId)?.room ?? null;
     const handleOf = (id: string) => {
         const found = view.actors.find((entry) => entry.id === id);
 
-        return found ? `@${found.handle}` : id;
+        return found ? `@${addressFrom(found, room)}` : id;
     };
 
     return view.subscriptions
@@ -160,19 +163,29 @@ export const subscriptionSummaryFor = (view: RunView, actorId: string): readonly
         });
 };
 
-export const actorRosterText = (view: RunView, actorId: string): string => [
-    "[Actors in the run, as of turn start]",
-    "These actors already exist. Keep using suitable participants; actor_list refreshes the roster.",
-    "agent: conversation with a model. script: program with a fixed input protocol, not a chat partner; use documented functions or program inputs. primary denotes the default target, not a dialog capability.",
-    ...view.actors.map((actor) => {
-        const status = actor.kind === "human" ? "human" : actor.lifecycle.kind;
-        const markers = [actor.id === actorId ? "you" : "", actor.id === view.primaryActorId ? "primary" : ""]
-            .filter(Boolean);
+/** The rule of addresses, stated only in a run that has rooms; there every name would otherwise look like a plain handle. */
+export const roomRuleText = (room: string | null): string =>
+    "Rooms: an actor's address is room.name, the main room has no prefix; names are relative to your room, "
+    + `so a bare name means an actor of your room, otherwise of the main room. You are in ${room === null ? "the main room" : `room ${room}`}.`;
 
-        return `- @${actor.handle}: ${JSON.stringify(actor.displayName)}, ${actor.kind}, ${status}`
-            + (markers.length > 0 ? ` (${markers.join(", ")})` : "");
-    }),
-].join("\n");
+export const actorRosterText = (view: RunView, actorId: string): string => {
+    const room = view.actors.find((entry) => entry.id === actorId)?.room ?? null;
+
+    return [
+        "[Actors in the run, as of turn start]",
+        "These actors already exist. Keep using suitable participants; actor_list refreshes the roster.",
+        "agent: conversation with a model. script: program with a fixed input protocol, not a chat partner; use documented functions or program inputs. primary denotes the default target, not a dialog capability.",
+        ...(view.rooms.length > 0 ? [roomRuleText(room)] : []),
+        ...view.actors.map((actor) => {
+            const status = actor.kind === "human" ? "human" : actor.lifecycle.kind;
+            const markers = [actor.id === actorId ? "you" : "", actor.id === view.primaryActorId ? "primary" : ""]
+                .filter(Boolean);
+
+            return `- @${addressFrom(actor, room)}: ${JSON.stringify(actor.displayName)}, ${actor.kind}, ${status}`
+                + (markers.length > 0 ? ` (${markers.join(", ")})` : "");
+        }),
+    ].join("\n");
+};
 
 export const renderedPromptFor = (view: RunView, actorId: string, input: DeliveredInput): string => {
     const subscriptions = subscriptionSummaryFor(view, actorId);

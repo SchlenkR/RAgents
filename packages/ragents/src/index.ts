@@ -47,7 +47,7 @@ export * from "./rpc/contribution.ts";
 export { RpcPeer, rpcErrorOf, rpcFailureOf, type RpcCallOptions, type RpcHandlerContext, type RpcPeerOptions } from "./rpc/peer.ts";
 export { assertJsonValue, type JsonObject, type JsonValue } from "./domain/json.ts";
 export { PluginStateProjection, pluginStateAt } from "./domain/plugin-state.ts";
-export { actorByHandle, actorByReference, handleKey, type ReferencedActor } from "./domain/actor-reference.ts";
+export { actorByHandle, actorByReference, addressFrom, addressOf, freeRoomName, handleKey, type ReferencedActor } from "./domain/actor-reference.ts";
 export { runtimeMethods, artifactContentRoute, artifactContentPath, ARTIFACT_CONTENT_PATH, type RuntimeMethodOptions, type RunRightsKind } from "./http/methods.ts";
 export { runContracts, openJson, runViewSchema, journalEventSchema } from "./http/contracts.ts";
 export {

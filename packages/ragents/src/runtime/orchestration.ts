@@ -17,6 +17,7 @@ import type {
     TurnUsage,
 } from "../domain/model.ts";
 import { isShared, sameSharing } from "../domain/model.ts";
+import { addressFrom } from "../domain/actor-reference.ts";
 import { project, viewOf } from "../domain/projection.ts";
 import { capabilityNames } from "../domain/vocabulary.ts";
 import { MemoryArtifactContents, type ArtifactContents } from "./artifacts.ts";
@@ -444,6 +445,7 @@ export class Orchestration {
             toolNames: readonly string[] | null;
             turnTimeoutMs?: number | null;
             description?: string;
+            room?: actors.ScriptActorRoom;
         },
     ) {
         return this.#run(context, runId, "script.create", input, actors.createScriptActor(input));
@@ -802,9 +804,9 @@ export class Orchestration {
                 continue;
 
             const content = alert.kind === "failed"
-                ? `[Automatic notice] The turn of your actor @${child.handle} FAILED: ${alert.reason} `
+                ? `[Automatic notice] The turn of your actor @${addressFrom(child, creator.room)} FAILED: ${alert.reason} `
                     + "Check the state with event_query and decide: delegate again, repair or stop."
-                : `[Automatic notice] The turn of your actor @${child.handle} was interrupted: ${alert.reason}`;
+                : `[Automatic notice] The turn of your actor @${addressFrom(child, creator.room)} was interrupted: ${alert.reason}`;
 
             try {
                 this.enqueueInput(

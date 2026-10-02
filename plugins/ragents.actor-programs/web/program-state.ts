@@ -1,6 +1,6 @@
 import { ACTOR_PROGRAMS_STATE_ID, ACTOR_STATE_ID } from "@ragents/host/plugin-support/actor-programs/contract";
 import { isRecord } from "@ragents/web/lib/guards";
-import { runViewFrom } from "@ragents/web/run-view";
+import { actorAddress, runViewFrom } from "@ragents/web/run-view";
 import type { ActorProgramsListing } from "./api";
 import { isJsonValue } from "./bridge";
 
@@ -35,12 +35,13 @@ export const actorProgramViews = (runView: unknown): ActorProgramView[] => {
     if (!actor || actor.kind === "human" || actor.lifecycle?.kind === "stopped") return [];
     if (!isRecord(entry.state) || !isRecord(entry.state.program)) return [];
     const program = entry.state.program;
-    if (program.actorId !== actor.id || program.actorHandle !== actor.handle || typeof program.revision !== "string" || !Array.isArray(program.views)) {
-      throw new Error(`The view program of @${actor.handle} is invalid.`);
+    const address = actorAddress(actor);
+    if (program.actorId !== actor.id || program.actorHandle !== address || typeof program.revision !== "string" || !Array.isArray(program.views)) {
+      throw new Error(`The view program of @${address} is invalid.`);
     }
     return program.views.map((app) => {
-      if (!isRecord(app) || typeof app.id !== "string" || typeof app.title !== "string") throw new Error(`A view of @${actor.handle} is invalid.`);
-      return { id: app.id, title: app.title, actorId: actor.id, actorHandle: actor.handle, revision: program.revision as string, app };
+      if (!isRecord(app) || typeof app.id !== "string" || typeof app.title !== "string") throw new Error(`A view of @${address} is invalid.`);
+      return { id: app.id, title: app.title, actorId: actor.id, actorHandle: address, revision: program.revision as string, app };
     });
   });
 };

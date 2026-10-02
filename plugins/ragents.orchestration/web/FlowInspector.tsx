@@ -7,6 +7,7 @@ import { ChatViewSwitches, useChatViewSettings } from "@ragents/web/chat-view-se
 import { ActorChatControls } from "./ActorChatControls";
 import type { Message } from "quassel/events";
 import {
+  actorAddress,
   isPendingRunActorInput,
   runArtifactContentUrl,
   type RunAction,
@@ -149,8 +150,10 @@ const indexOf = (view: RunView): RunIndex => ({
   artifactById: new Map(view.artifacts.map((entry) => [entry.id, entry])),
 });
 
-const actorLabel = (index: RunIndex, actorId: string) =>
-  `@${index.actorById.get(actorId)?.handle ?? shortId(actorId)}`;
+const actorLabel = (index: RunIndex, actorId: string) => {
+  const actor = index.actorById.get(actorId);
+  return `@${actor ? actorAddress(actor) : shortId(actorId)}`;
+};
 
 const inputDeliveryLabel = (index: RunIndex, input: RunActorInput) =>
   actorInputLabel(index.view, input);
@@ -403,7 +406,7 @@ function ActorView({ actor, index, ...props }: FlowInspectorProps & { actor: Run
       label: "Source code",
       icon: <SectionIcon kind="source" />,
       count: actor.source.replace(/\n$/, "").split("\n").length,
-      content: <SourceListing handle={actor.handle} source={actor.source} />,
+      content: <SourceListing handle={actorAddress(actor)} source={actor.source} />,
     }] : []),
     ...(inputsConfig.length > 0 ? [{
       id: "settings",
@@ -520,13 +523,13 @@ function ActorView({ actor, index, ...props }: FlowInspectorProps & { actor: Run
       {error && <p className={errorClass}>{error}</p>}
       <SectionTabs sections={inspect ? sections : []} toolbar={<>
         <BackButton canGoBack={props.canGoBack} onBack={props.onBack} />
-        <span className="max-w-28 flex-none truncate text-xs font-semibold" title={`${actor.displayName} @${actor.handle}${inspect && actor.createdBy ? ` - created by ${actorLabel(index, actor.createdBy)}` : ""}`}>{actor.displayName}</span>
+        <span className="max-w-28 flex-none truncate text-xs font-semibold" title={`${actor.displayName} @${actorAddress(actor)}${inspect && actor.createdBy ? ` - created by ${actorLabel(index, actor.createdBy)}` : ""}`}>{actor.displayName}</span>
         {active && writable && (
           <Button
             className="flex-shrink-0"
             onClick={() => void stopActor(view.id, actor.id, STOP_REASON).catch((caught: Error) => setError(caught.message))}
             size="sm"
-            title={`Stop @${actor.handle} and its assigned children permanently; the chat input, in contrast, only interrupts the running turn`}
+            title={`Stop @${actorAddress(actor)} and its assigned children permanently; the chat input, in contrast, only interrupts the running turn`}
             variant="destructive"
           >
             Stop

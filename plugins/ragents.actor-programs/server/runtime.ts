@@ -5,8 +5,8 @@ import path from "node:path";
 import { isDeepStrictEqual } from "node:util";
 import { Type, type TSchema } from "typebox";
 import { Value } from "typebox/value";
-import { actorByHandle, actorDescriptionMaxLength, agentTools, assertJsonValue, canonicalHash, defineRunFunction, defineToolAvailability, emptyUsage, handleKey, inheritedGrants, runCapabilityContractHash, scriptInputOf, schemaComplaints, type Actor, type ActorProgramExecutor, type RunFunction, type CommandContext, type ExecutableActor, type JsonValue, type Orchestration, type PluginContext, type RunCapabilityDescriptor, type RunView, type TurnRequest, type TurnResult, } from "@ragents/engine";
-import { ACTOR_PROGRAMS_STATE_ID, ACTOR_INVOCATIONS_STATE_ID, ACTOR_SCRIPT_STATE_ID, ACTOR_STATE_ID, resolveActorView, type ActorDataState, type ActorFunctionDefinition, type ActorFunctionInvocation, type ActorPackageOrigin, type ActorProgramDefinition, type ActorProgramIdentity, type ActorProgramState, type ActorScriptDelivery, type ActorScriptPackage, type ActorScriptState, type ActorViewListing, } from "@ragents/host/plugin-support/actor-programs/contract.js";
+import { actorByHandle, actorDescriptionMaxLength, addressFrom, addressOf, agentTools, assertJsonValue, canonicalHash, defineRunFunction, defineToolAvailability, emptyUsage, freeRoomName, handleKey, inheritedGrants, runCapabilityContractHash, scriptInputOf, schemaComplaints, type Actor, type ActorProgramExecutor, type RunFunction, type CommandContext, type ExecutableActor, type JsonValue, type Orchestration, type PluginContext, type RunCapabilityDescriptor, type RunView, type TurnRequest, type TurnResult, } from "@ragents/engine";
+import { ACTOR_PROGRAMS_STATE_ID, ACTOR_INVOCATIONS_STATE_ID, ACTOR_SCRIPT_STATE_ID, ACTOR_STATE_ID, relativeName, resolveActorView, type ActorDataState, type ActorFunctionDefinition, type ActorFunctionInvocation, type ActorPackageOrigin, type ActorProgramDefinition, type ActorProgramIdentity, type ActorProgramState, type ActorScriptDelivery, type ActorScriptPackage, type ActorScriptState, type ActorViewListing, } from "@ragents/host/plugin-support/actor-programs/contract.js";
 import type { ActivatedActorProgram, ActorProgramSource, ActorProgramsService, ActorViewReference, RunScriptSources, RunScriptStartInput } from "@ragents/host/plugin-support/actor-programs/service.js";
 import { jsonValue, jsonBytes, MAX_INVOCATIONS_STATE_BYTES } from "./limits.js";
 import { agentResultText, finishesOf, MAX_OPEN_STARTS, scriptResultContent, scriptStateOf, type ScriptFinish } from "./script-state.js";
@@ -22,6 +22,13 @@ import { FRAME_BODY_CLASS, FRAME_DOCUMENT_CLASS, FRAME_ROOT_CLASS } from "@ragen
 import { buildTailwind } from "@ragents/host/plugin-support/actor-programs/tailwind.js";
 import type { AskService } from "@ragents/plugins/ragents.ask/server/contract.js";
 const NAME = /^[a-z][a-z0-9-]{0,63}$/;
+/** A package key names its room like an address does: room.name in a room, the bare name in the main room. */
+const KEY = /^(?:[a-z][a-z0-9-]{0,63}\.)?[a-z][a-z0-9-]{0,63}$/;
+const keyOf = (room: string | null, name: string): string => room === null ? name : `${room}.${name}`;
+const roomOfKey = (key: string): string | null => key.includes(".") ? key.slice(0, key.indexOf(".")) : null;
+const nameOfKey = (key: string): string => key.slice(key.indexOf(".") + 1);
+/** A room shares names with itself and with the main room, whose names every room sees. */
+const sharesNames = (room: string | null, other: string | null): boolean => room === null || other === null || room === other;
 const errorText = (error: unknown): string => error instanceof Error ? error.message : String(error);
 const maxShownComplaints = 10;
 const maxComplaintLength = 240;
@@ -90,20 +97,25 @@ const commitPackage = (staged: string, directory: string, name: string): void =>
         throw error;
     }
 };
-const sameSources = async (directory: string, files: readonly ActorProgramSource[]): Promise<boolean> =>
-    packageIdentity(await projectSourceFiles(directory)) === packageIdentity(files);
 const sameOrigin = (left: ActorPackageOrigin, right: ActorPackageOrigin): boolean =>
     left.kind === "script" ? right.kind === "script" && left.entryId === right.entryId : right.kind === "shared" && left.pluginId === right.pluginId;
 const originText = (origin: ActorPackageOrigin | undefined): string =>
     !origin ? "that no run script installed" : origin.kind === "script" ? `from the run script ${origin.entryId}` : `shared by ${origin.pluginId}`;
 /** A package the host installs for a run script, with the origin it records. */
 interface OriginPackage { name: string; files: readonly ActorProgramSource[]; origin: ActorPackageOrigin }
+/** The room a run script's setup actor opens with its creation. */
+interface ActorPlacement { kind: "open"; name: string; origin: string | null }
 /** What a claim wrote for a name and what it replaced; a release restores only a record nobody changed since. */
 interface Claim { name: string; claimed: ActorScriptPackage; previous: ActorScriptPackage | undefined }
 /** A name reserved by a shared package that the run holds for something else. */
 const foreignShared = (name: string, pluginId: string, record: ActorScriptPackage | undefined): Error => {
     const holder = !record ? "that the host did not install" : sameOrigin(record.origin, { kind: "shared", pluginId }) ? "that was changed in the run" : originText(record.origin);
     return new Error(`${name} is the shared actor package of ${pluginId}, but this run has a package ${name} ${holder}; the host neither uses nor replaces it. Remove or rename that package.`);
+};
+/** A function published as a tool for every actor reaches the actors of its package's room, a main room package's every actor. */
+const reachesTools = (program: ActorProgramDefinition, room: string | null): boolean => {
+    const own = roomOfKey(program.name);
+    return own === null || own === room;
 };
 const descriptor = (tool: RunFunction): RunCapabilityDescriptor => ({ id: tool.name, label: tool.label, description: tool.description, schema: tool.schema, resultSchema: tool.resultSchema });
 interface BackendBinding {
@@ -198,10 +210,31 @@ export class ActorProgramRuntime implements ActorProgramsService, ActorProgramEx
     }
     resolveActor(runId: string, callerId: string, reference: string): ExecutableActor {
         const actors = this.view(runId).actors;
-        const found = reference === "self" ? actors.find((candidate) => candidate.id === callerId) : actorByHandle(actors, reference);
+        const found = reference === "self" ? actors.find((candidate) => candidate.id === callerId) : actorByHandle(actors, reference, this.#roomOf(runId, callerId));
         if (!found)
             throw new Error(`Actor ${reference} is unknown.`);
         return this.actor(runId, found.id);
+    }
+    /** The room of an actor; null is the main room. */
+    #roomOf(runId: string, actorId: string): string | null { return this.view(runId).actors.find((candidate) => candidate.id === actorId)?.room ?? null; }
+    /** The address of a program's actor as an actor in `room` writes it. */
+    #actorAddress(runId: string, program: ActorProgramDefinition, room: string | null): string {
+        const actor = this.view(runId).actors.find((candidate) => candidate.id === program.actorId);
+        return actor ? addressFrom(actor, room) : relativeName(program.actorHandle, room);
+    }
+    /** The package a caller means: room.name names that room's, a bare name its own room's when that exists, otherwise the main room's. */
+    packageKey(runId: string, callerId: string, reference: string): Promise<string> { return this.#packageKey(runId, callerId, reference); }
+    async #packageKey(runId: string, callerId: string, reference: string): Promise<string> {
+        const wanted = reference.trim().toLowerCase();
+        if (!KEY.test(wanted))
+            throw new Error(`${reference} is no package name: a lowercase letter, then at most 63 lowercase letters, digits or hyphens, optionally after room. for another room.`);
+        const room = this.#roomOf(runId, callerId);
+        if (wanted.includes(".") || room === null)
+            return wanted;
+        const root = await this.workspaceDirectory(runId);
+        const exists = (key: string) => this.programs(runId).some((program) => program.name === key) || occupied(path.join(root, key));
+        const local = keyOf(room, wanted);
+        return exists(local) || !(exists(wanted) || this.#options.sharedPackage(wanted)) ? local : wanted;
     }
     data(runId: string, actorId: string): ActorDataState {
         const view = this.view(runId);
@@ -260,8 +293,8 @@ export class ActorProgramRuntime implements ActorProgramsService, ActorProgramEx
     }
     #originSources(name: string, origin: ActorPackageOrigin): readonly ActorProgramSource[] | undefined {
         if (origin.kind === "script")
-            return this.#options.scriptSources(origin.entryId, name);
-        const shared = this.#options.sharedPackage(name);
+            return this.#options.scriptSources(origin.entryId, nameOfKey(name));
+        const shared = roomOfKey(name) === null ? this.#options.sharedPackage(name) : undefined;
         return shared?.pluginId === origin.pluginId ? shared.files : undefined;
     }
     /** The identity of the sources the program was built from; a build never changes, so it is read once. */
@@ -348,7 +381,7 @@ export class ActorProgramRuntime implements ActorProgramsService, ActorProgramEx
     async workspaceDirectory(runId: string): Promise<string> { this.#knownRuns.add(runId); return prepareAppWorkspace(path.join(this.#options.directoryFor(runId), "actor-workspace")); }
     templates() { return runModuleTemplates.map(({ id, title, description }) => ({ id, title, description })); }
     async #create<T>(runId: string, name: string, build: (directory: string) => Promise<T>): Promise<{ directory: string; built: T }> {
-        this.#assertName(name);
+        this.#assertKey(name);
         const actors = await this.workspaceDirectory(runId);
         const directory = path.join(actors, name);
         const key = `${runId}\0${name}`;
@@ -376,12 +409,15 @@ export class ActorProgramRuntime implements ActorProgramsService, ActorProgramEx
             await rm(staged, { recursive: true, force: true });
         }
     }
-    scaffold(runId: string, name: string, templateId: string) {
-        return this.#withPackages(runId, [name], () => this.#scaffold(runId, name, templateId));
+    /** A new package always lands in the caller's room. */
+    scaffold(runId: string, callerId: string, name: string, templateId: string) {
+        this.#assertName(name);
+        const key = keyOf(this.#roomOf(runId, callerId), name);
+        return this.#withPackages(runId, [key], () => this.#scaffold(runId, key, name, templateId));
     }
-    async #scaffold(runId: string, name: string, templateId: string) {
+    async #scaffold(runId: string, key: string, name: string, templateId: string) {
         const sources = Object.entries(templateFiles(templateById(templateId), name)).map(([file, content]) => ({ path: file, content }));
-        const { built: files } = await this.#create(runId, name, async (directory) => {
+        const { built: files } = await this.#create(runId, key, async (directory) => {
             await this.#writeSources(directory, sources);
             await prepareAppProject(directory);
             const pkg = await readAppPackage(directory);
@@ -389,15 +425,15 @@ export class ActorProgramRuntime implements ActorProgramsService, ActorProgramEx
             await installClientSdk(directory, { stateSchema: backend?.contract.state ?? objectSchema, actions: Object.entries(backend?.contract.functions ?? {}).map(([id, fn]) => ({ id, inputSchema: fn.input, resultSchema: fn.output })) });
             return (await projectSourceFiles(directory)).map((file) => file.path);
         });
-        return { name, directory: `@actors/${name}`, files };
+        return { name, directory: `@actors/${key}`, files };
     }
     importPackage(context: CommandContext, runId: string, name: string, files: readonly ActorProgramSource[], signal?: AbortSignal): Promise<ActivatedActorProgram> {
         return this.#withPackages(runId, [name], () => this.#import(context, runId, name, files, signal));
     }
-    async #import(context: CommandContext, runId: string, name: string, files: readonly ActorProgramSource[], signal?: AbortSignal): Promise<ActivatedActorProgram> {
+    async #import(context: CommandContext, runId: string, name: string, files: readonly ActorProgramSource[], signal?: AbortSignal, placement?: ActorPlacement): Promise<ActivatedActorProgram> {
         const { directory } = await this.#create(runId, name, (staged) => this.#writeSources(staged, files));
         try {
-            await this.#activate(context, runId, name, true, signal);
+            await this.#activate(context, runId, name, true, signal, undefined, placement);
             return this.#activated(runId, name);
         }
         catch (error) {
@@ -409,15 +445,20 @@ export class ActorProgramRuntime implements ActorProgramsService, ActorProgramEx
         const program = this.#program(runId, name);
         return { name, actorId: program.actorId, actorHandle: program.actorHandle, views: program.views.length };
     }
-    installScript(context: CommandContext, runId: string, script: RunScriptSources, signal?: AbortSignal): Promise<ActivatedActorProgram> {
-        return this.#withPackages(runId, [script.handle, ...script.programs.map((program) => program.name), ...script.sharedPrograms], () => this.#install(context, runId, script, signal));
+    /** Every start opens a room named after the script; its setup and bundled programs live there, shared packages in the main room. */
+    async installScript(context: CommandContext, runId: string, script: RunScriptSources, origin: string | null, signal?: AbortSignal): Promise<ActivatedActorProgram> {
+        const root = await this.workspaceDirectory(runId);
+        const bundled = [script.handle, ...script.programs.map((program) => program.name)];
+        const room = freeRoomName(this.view(runId), script.handle, (candidate) => bundled.some((name) => occupied(path.join(root, keyOf(candidate, name)))));
+        const keys = [keyOf(room, script.handle), ...script.programs.map((program) => keyOf(room, program.name)), ...script.sharedPrograms];
+        return this.#withPackages(runId, keys, () => this.#install(context, runId, script, { kind: "open", name: room, origin }, signal));
     }
-    async #install(context: CommandContext, runId: string, script: RunScriptSources, signal?: AbortSignal): Promise<ActivatedActorProgram> {
+    async #install(context: CommandContext, runId: string, script: RunScriptSources, room: ActorPlacement, signal?: AbortSignal): Promise<ActivatedActorProgram> {
         const root = await this.workspaceDirectory(runId);
         const before = this.#script(runId).packages;
         const own: ActorPackageOrigin = { kind: "script", entryId: script.entryId };
         const programs: OriginPackage[] = [
-            ...script.programs.map((program) => ({ ...program, origin: own })),
+            ...script.programs.map((program) => ({ name: keyOf(room.name, program.name), files: program.files, origin: own })),
             ...script.sharedPrograms.map((name) => {
                 const shared = this.#options.sharedPackage(name);
                 if (!shared)
@@ -425,10 +466,10 @@ export class ActorProgramRuntime implements ActorProgramsService, ActorProgramEx
                 return { name, files: shared.files, origin: { kind: "shared", pluginId: shared.pluginId } as const };
             }),
         ];
-        const present = await this.#presentPrograms(root, script.entryId, programs, before);
-        const reuse = this.#reusesScript(runId, root, script, before);
+        const present = await this.#presentShared(root, programs, before);
         const missing = programs.filter((program) => !present.has(program.name));
-        const claims = this.#claim(runId, [...missing, ...(reuse ? [] : [{ name: script.handle, files: script.files, origin: own }])]);
+        const setup = keyOf(room.name, script.handle);
+        const claims = this.#claim(runId, [...missing, { name: setup, files: script.files, origin: own }]);
         const copied: string[] = [];
         try {
             for (const program of missing) {
@@ -436,7 +477,7 @@ export class ActorProgramRuntime implements ActorProgramsService, ActorProgramEx
                 await this.#create(runId, program.name, (staged) => this.#writeSources(staged, program.files));
                 copied.push(program.name);
             }
-            return reuse ? await this.#restartScript(context, runId, script.handle, signal) : await this.#import(context, runId, script.handle, script.files, signal);
+            return await this.#import(context, runId, setup, script.files, signal, room);
         }
         catch (error) {
             for (const name of copied)
@@ -476,64 +517,34 @@ export class ActorProgramRuntime implements ActorProgramsService, ActorProgramEx
     #hostShared(record: ActorScriptPackage | undefined, pluginId: string, identity: string): boolean {
         return record !== undefined && sameOrigin(record.origin, { kind: "shared", pluginId }) && record.identity === identity;
     }
-    /** The names already in the run that the start keeps; a different package, or one under a shared name the host did not install, is an error before anything is copied. */
-    async #presentPrograms(root: string, entryId: string, programs: readonly OriginPackage[], packages: Readonly<Record<string, ActorScriptPackage>>): Promise<ReadonlySet<string>> {
+    /** The shared packages already in the main room that the start keeps; one under a shared name the host did not install is an error before anything is copied. Bundled programs always land in a fresh room. */
+    async #presentShared(root: string, programs: readonly OriginPackage[], packages: Readonly<Record<string, ActorScriptPackage>>): Promise<ReadonlySet<string>> {
         const present = await Promise.all(programs.map(async (program) => {
             const directory = path.join(root, program.name);
-            if (!occupied(directory))
+            if (program.origin.kind !== "shared" || !occupied(directory))
                 return false;
-            if (program.origin.kind === "shared") {
-                if (this.#hostShared(packages[program.name], program.origin.pluginId, packageIdentity(await projectSourceFiles(directory))))
-                    return true;
-                throw foreignShared(program.name, program.origin.pluginId, packages[program.name]);
-            }
-            if (await sameSources(directory, program.files))
+            if (this.#hostShared(packages[program.name], program.origin.pluginId, packageIdentity(await projectSourceFiles(directory))))
                 return true;
-            throw new Error(`The run script ${entryId} bundles the program ${program.name}, but this run already has a different package ${program.name} ${originText(packages[program.name]?.origin)}.`);
+            throw foreignShared(program.name, program.origin.pluginId, packages[program.name]);
         }));
         return new Set(programs.filter((_, index) => present[index]).map((program) => program.name));
     }
-    /** A recorded origin without actor and folder is left over from a failed start, whichever template it names, and counts as not installed. */
-    #reusesScript(runId: string, root: string, script: RunScriptSources, packages: Readonly<Record<string, ActorScriptPackage>>): boolean {
-        const holder = this.view(runId).actors.find((actor) => actor.handle === script.handle);
-        const exists = occupied(path.join(root, script.handle));
-        if (!holder && !exists)
-            return false;
-        const origin = packages[script.handle]?.origin;
-        if (origin !== undefined && !sameOrigin(origin, { kind: "script", entryId: script.entryId }))
-            throw new Error(`The package ${script.handle} in this run ${origin.kind === "script" ? `comes from the run script ${origin.entryId}` : `is the shared package of ${origin.pluginId}`}, not from the run script ${script.entryId}.`);
-        if (origin !== undefined && exists && (!holder || holder.kind === "script"))
-            return true;
-        throw new Error(holder
-            ? `Handle @${script.handle} already belongs to ${holder.displayName} in this run, not to the run script ${script.entryId}.`
-            : `The package ${script.handle} already exists in this run and was not installed by the run script ${script.entryId}.`);
-    }
-    async #restartScript(context: CommandContext, runId: string, handle: string, signal?: AbortSignal): Promise<ActivatedActorProgram> {
-        const view = this.view(runId);
-        const holder = view.actors.find((actor) => actor.handle === handle);
-        const state = holder && view.pluginStates.find((entry) => entry.pluginId === ACTOR_PROGRAMS_STATE_ID && entry.scope.kind === "actor" && entry.scope.actorId === holder.id)?.state as unknown as ActorProgramState | undefined;
-        if (!holder || !state?.program)
-            await this.#activate(context, runId, handle, true, signal);
-        else if (holder.kind !== "human" && holder.lifecycle.kind === "stopped")
-            this.runtime().restartActor(context, runId, holder.id, "Run script started again");
-        return this.#activated(runId, handle);
-    }
-    enqueueStart(context: CommandContext, runId: string, handle: string, start: RunScriptStartInput): { count: number } {
-        const program = this.#program(runId, handle);
-        const recorded = this.#script(runId).packages[handle];
+    enqueueStart(context: CommandContext, runId: string, name: string, start: RunScriptStartInput): { count: number } {
+        const program = this.#program(runId, name);
+        const recorded = this.#script(runId).packages[name];
         if (!recorded)
-            throw new Error(`The package ${handle} was not installed by a run script.`);
+            throw new Error(`The package ${name} was not installed by a run script.`);
         const state = this.#script(runId);
-        const record = state.packages[handle]!;
+        const record = state.packages[name]!;
         const count = record.count + 1;
-        const delivery: ActorScriptDelivery = { commandId: context.commandId, actorId: program.actorId, kind: "start", name: handle, count, embedded: start.embedded, startedBy: start.startedBy };
-        this.#writeScript(runId, { ...state, packages: { ...state.packages, [handle]: { ...record, count } }, deliveries: [...state.deliveries, delivery] }, context.commandId);
+        const delivery: ActorScriptDelivery = { commandId: context.commandId, actorId: program.actorId, kind: "start", name, count, embedded: start.embedded, startedBy: start.startedBy };
+        this.#writeScript(runId, { ...state, packages: { ...state.packages, [name]: { ...record, count } }, deliveries: [...state.deliveries, delivery] }, context.commandId);
         try {
             this.runtime().enqueueInput(context, runId, { actorId: program.actorId, content: start.content });
         }
         catch (error) {
             const current = this.#script(runId);
-            this.#writeScript(runId, { ...current, packages: { ...current.packages, [handle]: { ...current.packages[handle]!, count: record.count } },
+            this.#writeScript(runId, { ...current, packages: { ...current.packages, [name]: { ...current.packages[name]!, count: record.count } },
                 deliveries: current.deliveries.filter((entry) => entry.commandId !== context.commandId) });
             throw error;
         }
@@ -565,7 +576,7 @@ export class ActorProgramRuntime implements ActorProgramsService, ActorProgramEx
         const open = new Set(this.#script(runId).packages[program.name]?.open.map((entry) => entry.count) ?? []);
         for (const [index, finish] of finishes.entries()) {
             if (!open.has(finish.start) || finishes.findIndex((other) => other.start === finish.start) !== index)
-                throw new Error(`finish: start ${finish.start} of @${program.actorHandle} is not open; it was finished already, never reached the program, or is older than the last ${MAX_OPEN_STARTS} open starts.`);
+                throw new Error(`finish: start ${finish.start} of @${this.#actorAddress(runId, program, roomOfKey(program.actorHandle))} is not open; it was finished already, never reached the program, or is older than the last ${MAX_OPEN_STARTS} open starts.`);
         }
         return finishes;
     }
@@ -595,7 +606,7 @@ export class ActorProgramRuntime implements ActorProgramsService, ActorProgramEx
             }
             this.runtime().enqueueInput({ actorId: this.ownerId(request.runId), commandId }, request.runId, {
                 actorId: starter.id, presentation: "background",
-                content: starter.kind === "agent" ? agentResultText(program.actorHandle, finish) : scriptResultContent(program.actorHandle, finish),
+                content: starter.kind === "agent" ? agentResultText(this.#actorAddress(request.runId, program, starter.room), finish) : scriptResultContent(this.#actorAddress(request.runId, program, starter.room), finish),
             });
         }
         catch (error) {
@@ -608,7 +619,7 @@ export class ActorProgramRuntime implements ActorProgramsService, ActorProgramEx
             if (!actor || actor.kind !== "script")
                 return false;
             const script = [...state.pluginStates.values()].find((entry) => entry.pluginId === ACTOR_SCRIPT_STATE_ID && entry.scope.kind === "run");
-            return Object.hasOwn(scriptStateOf(script?.state).packages, actor.handle);
+            return Object.hasOwn(scriptStateOf(script?.state).packages, addressOf(actor));
         });
     }
     programOf(runId: string, actorId: string): ActorProgramIdentity | undefined {
@@ -619,21 +630,23 @@ export class ActorProgramRuntime implements ActorProgramsService, ActorProgramEx
         const origin = record && this.#identityOf(program) === record.identity ? record.origin : { kind: "run" as const, installedBy: program.installedBy };
         return { name: program.name, actorId, revision: program.revision, origin };
     }
-    resolveView(runId: string, reference: string): ActorViewReference {
-        const { program, view } = resolveActorView(this.programs(runId), reference);
-        return { reference: `${program.name}/${view.key}`, elementId: view.id, visible: view.visible };
+    resolveView(runId: string, reference: string, callerId?: string): ActorViewReference {
+        const room = callerId === undefined ? null : this.#roomOf(runId, callerId);
+        const { program, view } = resolveActorView(this.programs(runId), reference, room);
+        return { reference: `${relativeName(program.name, room)}/${view.key}`, elementId: view.id, visible: view.visible };
     }
     /** Makes a package active once, whatever state it is in; under a shared name only the package the host installed from that plugin, unchanged. */
-    ensure(context: CommandContext, runId: string, name: string, signal?: AbortSignal): Promise<{ actorId: string; handle: string; status: "active" | "restarted" | "activated" | "installed" }> {
-        this.#assertName(name);
-        return this.#withPackages(runId, [name], () => this.#ensure(context, runId, name, signal));
+    /** A shared package lives in the main room, whichever room ensures it; handle is the address from the caller's room. */
+    async ensure(context: CommandContext, runId: string, name: string, signal?: AbortSignal): Promise<{ actorId: string; handle: string; status: "active" | "restarted" | "activated" | "installed" }> {
+        const key = await this.#packageKey(runId, context.actorId, name);
+        return this.#withPackages(runId, [key], () => this.#ensure(context, runId, key, signal));
     }
     async #ensure(context: CommandContext, runId: string, name: string, signal?: AbortSignal) {
         const outcome = (status: "active" | "restarted" | "activated" | "installed") => {
             const program = this.#program(runId, name);
-            return { actorId: program.actorId, handle: program.actorHandle, status };
+            return { actorId: program.actorId, handle: this.#actorAddress(runId, program, this.#roomOf(runId, context.actorId)), status };
         };
-        const shared = this.#options.sharedPackage(name);
+        const shared = roomOfKey(name) === null ? this.#options.sharedPackage(name) : undefined;
         const record = this.#script(runId).packages[name];
         const assertShared = (identity: () => string): void => {
             if (shared && !this.#hostShared(record, shared.pluginId, identity()))
@@ -675,7 +688,7 @@ export class ActorProgramRuntime implements ActorProgramsService, ActorProgramEx
         return outcome("installed");
     }
     async check(runId: string, name: string, callerId: string, signal?: AbortSignal, reference?: string): Promise<CompiledProgram> {
-        this.#assertName(name);
+        this.#assertKey(name);
         const directory = path.join(await this.workspaceDirectory(runId), name);
         if ((await lstat(directory)).isSymbolicLink())
             throw new Error("Actor packages must not be symlinks.");
@@ -689,7 +702,7 @@ export class ActorProgramRuntime implements ActorProgramsService, ActorProgramEx
         if (!caller)
             throw new Error("Calling actor is missing.");
         const provisional: ExecutableActor = owner ?? {
-            id: "pending", handle: name, displayName: pkg.title, kind: "script", grants: inheritedGrants(caller),
+            id: "pending", handle: nameOfKey(name), room: roomOfKey(name), displayName: pkg.title, kind: "script", grants: inheritedGrants(caller),
             createdAt: new Date().toISOString(), createdBy: callerId, description: actorDescriptionOf(pkg.description) ?? null, execution: { driver: { kind: "script", config: {} }, workspacePath: null, turnTimeoutMs: null }, lifecycle: { kind: "idle", since: new Date().toISOString() }, usage: emptyUsage(), toolNames: null, openedToolNames: [],
         };
         const available = (await this.#options.agentToolsFor(runId, provisional.id, owner ? undefined : provisional)).map(descriptor);
@@ -706,7 +719,7 @@ export class ActorProgramRuntime implements ActorProgramsService, ActorProgramEx
         const state = owner ? this.data(runId, owner.id).values : {};
         checked(contract.state, state, "Actor state");
         const actorId = owner?.id ?? "pending";
-        const actorHandle = owner?.handle ?? name;
+        const actorHandle = owner ? addressOf(owner) : name;
         const functions: ActorFunctionDefinition[] = Object.entries(contract.functions).map(([id, fn]) => {
             if (!/^[a-zA-Z][a-zA-Z0-9_-]{0,63}$/.test(id))
                 throw new Error(`Invalid function name ${id}.`);
@@ -761,10 +774,14 @@ export class ActorProgramRuntime implements ActorProgramsService, ActorProgramEx
             ...(contract.input ? { input: { capabilityIds: inputCapabilities, capabilityContractHash: runCapabilityContractHash(inputDescriptors) } } : {}) };
         return { directory, files, definition, clients, frameStyles, createActor: !owner, ...(backend ? { backendJavaScript: backend.javaScript } : {}) };
     }
-    activate(context: CommandContext, runId: string, name: string, signal?: AbortSignal, reference?: string) {
-        return this.#withPackages(runId, [name], () => this.#activate(context, runId, name, true, signal, reference));
+    /** Names in input and result are relative to the caller's room. */
+    async activate(context: CommandContext, runId: string, name: string, signal?: AbortSignal, reference?: string) {
+        const key = await this.#packageKey(runId, context.actorId, name);
+        const activated = await this.#withPackages(runId, [key], () => this.#activate(context, runId, key, true, signal, reference));
+        const room = this.#roomOf(runId, context.actorId);
+        return { name: relativeName(key, room), actor: `@${this.#actorAddress(runId, this.#program(runId, key), room)}`, views: activated.views, active: true as const };
     }
-    async #activate(context: CommandContext, runId: string, name: string, idle: boolean, signal?: AbortSignal, reference?: string) {
+    async #activate(context: CommandContext, runId: string, name: string, idle: boolean, signal?: AbortSignal, reference?: string, placement?: ActorPlacement) {
         const key = `${runId}\0${name}`;
         if (this.#installing.has(key))
             throw new Error(`Package ${name} is already being activated.`);
@@ -796,7 +813,7 @@ export class ActorProgramRuntime implements ActorProgramsService, ActorProgramEx
                 throw new Error("The package was changed in the meantime.");
             if (idle)
                 this.#assertIdle(runId, definition.actorId);
-            const names = new Set([...agentTools.map((tool) => tool.name), ...this.#options.reservedToolNames(), ...this.programs(runId).filter((program) => program.name !== name).flatMap((program) => program.functions.flatMap((fn) => fn.tool ? [fn.tool.name] : []))]);
+            const names = new Set([...agentTools.map((tool) => tool.name), ...this.#options.reservedToolNames(), ...this.programs(runId).filter((program) => program.name !== name && sharesNames(roomOfKey(program.name), roomOfKey(name))).flatMap((program) => program.functions.flatMap((fn) => fn.tool ? [fn.tool.name] : []))]);
             for (const fn of definition.functions)
                 if (fn.tool) {
                     if (names.has(fn.tool.name))
@@ -833,7 +850,7 @@ export class ActorProgramRuntime implements ActorProgramsService, ActorProgramEx
                 if (this.programs(runId).some((item) => item.actorId === definition.actorId && item.name !== name))
                     throw new Error("The actor now owns another package.");
             }
-            const currentNames = new Set([...agentTools.map((tool) => tool.name), ...this.#options.reservedToolNames(), ...this.programs(runId).filter((program) => program.name !== name).flatMap((program) => program.functions.flatMap((fn) => fn.tool ? [fn.tool.name] : []))]);
+            const currentNames = new Set([...agentTools.map((tool) => tool.name), ...this.#options.reservedToolNames(), ...this.programs(runId).filter((program) => program.name !== name && sharesNames(roomOfKey(program.name), roomOfKey(name))).flatMap((program) => program.functions.flatMap((fn) => fn.tool ? [fn.tool.name] : []))]);
             for (const fn of definition.functions)
                 if (fn.tool) {
                     if (currentNames.has(fn.tool.name))
@@ -844,7 +861,7 @@ export class ActorProgramRuntime implements ActorProgramsService, ActorProgramEx
             if (compiled.createActor) {
                 const actors = this.view(runId).actors;
                 const caller = actors.find((actor) => actor.id === context.actorId)!;
-                const holder = actors.find((actor) => actor.handle === name);
+                const holder = actors.find((actor) => addressOf(actor) === name);
                 if (holder?.kind === "script" && holder.lifecycle.kind === "stopped") {
                     checked(definition.stateSchema, this.data(runId, holder.id).values, "Actor state");
                     this.runtime().restartActor(context, runId, holder.id, "Actor package activated again");
@@ -852,10 +869,14 @@ export class ActorProgramRuntime implements ActorProgramsService, ActorProgramEx
                 else if (holder)
                     throw new Error(`Handle @${name} already belongs to the ${holder.kind !== "human" && holder.lifecycle.kind === "stopped" ? "stopped" : "active"} actor ${holder.displayName}; only a stopped TypeScript actor is restarted on activation. Choose another package name.`);
                 else
-                    this.runtime().createScriptActor(context, runId, { handle: name, displayName: definition.title, description: actorDescriptionOf(definition.description), grants: inheritedGrants(caller), toolNames: null });
-                const actor = this.resolveActor(runId, context.actorId, `@${name}`);
+                    this.runtime().createScriptActor(context, runId, { handle: nameOfKey(name), displayName: definition.title, description: actorDescriptionOf(definition.description), grants: inheritedGrants(caller), toolNames: null,
+                        room: placement ?? { kind: "existing", name: roomOfKey(name) } });
+                const created = actorByHandle(this.view(runId).actors, name);
+                if (!created)
+                    throw new Error(`The actor of the package ${name} is missing after its creation.`);
+                const actor = this.actor(runId, created.id);
                 definition.actorId = actor.id;
-                definition.actorHandle = actor.handle;
+                definition.actorHandle = addressOf(actor);
                 for (const fn of definition.functions)
                     if (fn.tool?.targets)
                         fn.tool.targets = fn.tool.targets.map((target) => target === "pending" ? actor.id : target);
@@ -873,9 +894,16 @@ export class ActorProgramRuntime implements ActorProgramsService, ActorProgramEx
                 await rm(compiled.definition.directory, { recursive: true, force: true });
         }
     }
-    list(runId: string) { return this.programs(runId).map((program) => ({ name: program.name, actor: `@${program.actorHandle}`, functions: program.functions.map((fn) => fn.id), views: program.views.map((view) => ({ name: view.key, ref: `${program.name}/${view.key}`, title: view.title, visible: view.visible })) })); }
+    /** Names, actors and view references as the caller's room writes them. */
+    list(runId: string, callerId: string) {
+        const room = this.#roomOf(runId, callerId);
+        return this.programs(runId).map((program) => {
+            const name = relativeName(program.name, room);
+            return { name, actor: `@${this.#actorAddress(runId, program, room)}`, functions: program.functions.map((fn) => fn.id), views: program.views.map((view) => ({ name: view.key, ref: `${name}/${view.key}`, title: view.title, visible: view.visible })) };
+        });
+    }
     async remove(context: CommandContext, runId: string, name: string) {
-        const packageName = this.#program(runId, name).name;
+        const packageName = this.#program(runId, await this.#packageKey(runId, context.actorId, name)).name;
         return this.#withPackages(runId, [packageName], () => this.#remove(context, runId, packageName, name));
     }
     async #remove(context: CommandContext, runId: string, packageName: string, name: string) {
@@ -899,9 +927,10 @@ export class ActorProgramRuntime implements ActorProgramsService, ActorProgramEx
         return { removed: name };
     }
     setVisibility(context: CommandContext, runId: string, reference: string, visible: boolean) {
-        const { program, view } = resolveActorView(this.programs(runId), reference);
+        const room = this.#roomOf(runId, context.actorId);
+        const { program, view } = resolveActorView(this.programs(runId), reference, room);
         this.#writeProgram(context, runId, program.actorId, { ...program, views: program.views.map((item) => item.id === view.id ? { ...item, visible } : item) });
-        return { view: `${program.name}/${view.key}`, visible };
+        return { view: `${relativeName(program.name, room)}/${view.key}`, visible };
     }
     apps(runId: string): ActorViewListing[] {
         return this.programs(runId).flatMap((program) => program.views.map((view) => ({ id: view.id, actorId: program.actorId, actorHandle: program.actorHandle, title: view.title, description: program.description, revision: program.revision,
@@ -920,7 +949,10 @@ export class ActorProgramRuntime implements ActorProgramsService, ActorProgramEx
                 }).properties ?? {}).map(([name, schema]) => ({ name, type: ["string", "number", "integer", "boolean"].includes(schema.type ?? "") ? schema.type ?? "json" : "json", description: schema.description ?? name, required: ((fn.inputSchema as {
                         required?: string[];
                     }).required ?? []).includes(name) })),
-                targets: (fn.tool.targets ?? view.actors.filter((actor) => actor.kind !== "human" && actor.lifecycle.kind !== "stopped").map((actor) => actor.id)).map((actorId) => ({ actorId, handle: view.actors.find((actor) => actor.id === actorId)?.handle ?? null })) }] : []));
+                targets: (fn.tool.targets ?? view.actors.filter((actor) => actor.kind !== "human" && actor.lifecycle.kind !== "stopped" && reachesTools(program, actor.room)).map((actor) => actor.id)).map((actorId) => {
+                    const target = view.actors.find((actor) => actor.id === actorId);
+                    return { actorId, handle: target ? addressOf(target) : null };
+                }) }] : []));
     }
     async moduleSource(runId: string, reference: string) { const program = this.#program(runId, reference); return { files: JSON.parse(await readFile(path.join(program.directory, "sources.json"), "utf8")) as ActorProgramSource[] }; }
     frame(runId: string, viewId: string, revision: string) {
@@ -934,7 +966,7 @@ export class ActorProgramRuntime implements ActorProgramsService, ActorProgramEx
         return { ...view, styles: `${frameStyles}\n${view.styles}`, platformVersion: 2 as const, clientJavaScript: readFileSync(path.join(program.directory, view.clientFile), "utf8") };
     }
     installedTools(context: PluginContext): RunFunction[] {
-        return this.programsOf(context.view).flatMap((program) => program.functions.flatMap((fn) => !fn.tool || (fn.tool.targets && !fn.tool.targets.includes(context.actorId)) ? [] : [defineRunFunction({
+        return this.programsOf(context.view).flatMap((program) => program.functions.flatMap((fn) => !fn.tool || (fn.tool.targets ? !fn.tool.targets.includes(context.actorId) : !reachesTools(program, context.actor.room)) ? [] : [defineRunFunction({
                 name: fn.tool.name, label: fn.label, description: fn.description, schema: fn.inputSchema as TSchema, resultSchema: fn.resultSchema as TSchema, available: exposed, executionMode: "sequential",
                 run: async (scope, id, input) => {
                     const descriptorsFor = (capabilityIds: readonly string[]) => agentCapabilityBinding(context.actor, scope.availableFunctions(), capabilityIds, new Set()).descriptors;
@@ -975,7 +1007,7 @@ export class ActorProgramRuntime implements ActorProgramsService, ActorProgramEx
         const result = await this.runtime().nativeTypeScriptExecutor.execute({
             program: { entry: program.backendFile, files: [{ fileName: program.backendFile, text: await readFile(path.join(program.directory, program.backendFile), "utf8") }], exportName: "handle" },
             instanceId: this.#instance(program), cwd: program.directory, input, state: initial.values,
-            std: { now: new Date().toISOString(), idPrefix: binding.id }, context: { runId, actor: { id: program.actorId, handle: program.actorHandle }, invocationId: binding.id, invocationKind: binding.kind, principal: binding.principal, capabilities: descriptors },
+            std: { now: new Date().toISOString(), idPrefix: binding.id }, context: { runId, actor: { id: program.actorId, handle: addressFrom(this.actor(runId, program.actorId), this.#roomOf(runId, binding.principal.id)) }, invocationId: binding.id, invocationKind: binding.kind, principal: binding.principal, capabilities: descriptors },
         }, { signal, log: (value) => { if (logs.length < 100)
                 logs.push((typeof value === "string" ? value : JSON.stringify(value)).slice(0, 2000)); }, call: async (name, value) => {
                 const capability = descriptors.find((entry) => entry.id === name);
@@ -1143,6 +1175,8 @@ export class ActorProgramRuntime implements ActorProgramsService, ActorProgramEx
     #instance(program: ActorProgramDefinition): string { return `actor:${program.actorId}:${program.revision}`; }
     #assertName(name: string): void { if (!NAME.test(name))
         throw new Error("Package names begin with a lowercase letter and contain at most 64 lowercase letters, digits, or hyphens."); }
+    #assertKey(key: string): void { if (!KEY.test(key))
+        throw new Error("Package names begin with a lowercase letter and contain at most 64 lowercase letters, digits, or hyphens, after room. for a room's package."); }
     #assertIdle(runId: string, actorId: string): void { if (this.#queues.has(`${runId}\0${actorId}`) || [...this.#active.values()].some((entry) => entry.runId === runId && entry.actorId === actorId))
         throw new Error("The actor still has running functions or inputs."); }
     async stopActor(runId: string, actorId: string): Promise<void> {

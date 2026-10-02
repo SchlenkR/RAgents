@@ -115,7 +115,7 @@ const createFixture = (runId: string, packages: readonly RunScriptStart[], contr
     scriptEntryFor: (entryId) => packages.find((candidate) => candidate.entry.id === entryId),
     startEntryFor: () => undefined,
     actorPrograms: {
-      async installScript(context, id, script, signal) {
+      async installScript(context, id, script, _origin, signal) {
         await controls.importPackage?.(signal);
         signal?.throwIfAborted();
         imports.push({name: script.handle, files: script.files, programs: script.programs.map((program) => program.name)});

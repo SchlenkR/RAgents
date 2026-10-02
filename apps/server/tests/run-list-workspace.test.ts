@@ -10,6 +10,7 @@ import { coreMethods } from "../src/api/core-methods.ts";
 import type { Engine } from "../src/ragents/engine.ts";
 import { coreSources, methodContext } from "./rpc-fixture.ts";
 import { workspaceListDetail } from "../../../plugins/ragents.workspace/server/binding.ts";
+import { withCurrentLabel } from "../../../plugins/ragents.workspace/contract.ts";
 
 // The run list shows foreign runs that only their owner operates, without any contribution reaching their workspace.
 
@@ -163,4 +164,12 @@ test("the workspace plugin lists a differing workspace and keeps the new folder 
     { label: "Workspace", text: "/home/user/project", icon: "folder" });
   assert.deepEqual(workspaceListDetail({ binding: { machine: { client: "laptop-01", label: "Notebook" }, folder: { path: "/home/user/runs/run-1", fresh: true } }, summary: "Notebook: /home/user/runs/run-1 (Empty folder per run)" }),
     { label: "Workspace", text: "Notebook: /home/user/runs/run-1 (Empty folder per run)", icon: "folder" }, "a new folder on a workstation differs");
+});
+
+test("a workstation shows its current label, the stored one only while it is not registered", () => {
+  const binding = { machine: { client: "laptop-01", label: "Old name" }, folder: { path: "/home/user/project" } };
+  assert.deepEqual(withCurrentLabel(binding, "Notebook").machine, { client: "laptop-01", label: "Notebook" });
+  assert.equal(withCurrentLabel(binding, undefined), binding);
+  const server = { machine: "server" as const, folder: "fresh" as const };
+  assert.equal(withCurrentLabel(server, "Notebook"), server);
 });

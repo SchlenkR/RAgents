@@ -21,7 +21,9 @@ model.
 
 Programs are private packages in a prepared pnpm workspace for the run. File functions and
 language servers access them through `@actors/<name>/`, and `bash` runs in a package with
-`cwd: "@actors/<name>"`. The packages stay on the server, and every call that names the alias runs
+`cwd: "@actors/<name>"`. A package belongs to a room like an actor: its folder is
+`@actors/<room>.<name>/` in a room, and package names in the functions are relative to the
+caller's room. The packages stay on the server, and every call that names the alias runs
 there, also when the run works in a folder on a workstation. The
 workspace interface exposes the actor-program collection directly. Normal relative imports
 include local modules, while fixed local dependencies come from the host installation.
@@ -49,8 +51,8 @@ its reason, for example `views.0 has unknown field width`.
 
 `actor_program_activate` binds a package to an existing actor with `actor: "self"` or
 `actor: "@handle"`. Without an explicit actor, an existing program binding remains. A new
-backend creates a TypeScript actor using the program name as its handle, while a new view-only
-package binds to the calling actor. A static view needs neither a dummy actor nor an artificial
+backend creates a TypeScript actor using the program name as its handle in the package's room,
+while a new view-only package binds to the calling actor. A static view needs neither a dummy actor nor an artificial
 backend function.
 
 Activation rejects a program with an input handler on an LLM actor because that actor's normal
@@ -95,7 +97,9 @@ actor, whose `onInput` sends it under the actor's identity. Snippets use the sam
 functions, including mediators.
 
 An optional `tool` declaration publishes the same function in the typed run API. Without
-`targets`, it is available to active executable actors; `self` refers to the program owner.
+`targets`, it is available to the active executable actors of the package's room, for a main room
+package to every actor; `self` refers to the program owner. A tool name is unique among the
+packages of a room together with the main room's.
 Another caller does not receive a private copy of the function or state. Bindings use names and
 handles, not IDs copied from output.
 

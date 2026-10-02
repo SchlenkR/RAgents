@@ -2,7 +2,7 @@ import { actorByHandle } from "@ragents/engine/src/http/contracts";
 import type { SessionContext } from "@ragents/web/PluginRegistry";
 import type { ChatSnapshot } from "@ragents/web/actor-programs/client-ui/contracts";
 import { actorChatMessages } from "@ragents/web/actor-conversation";
-import { runViewFrom } from "@ragents/web/run-view";
+import { actorAddress, runViewFrom } from "@ragents/web/run-view";
 import { programChatNotice } from "@ragents/web/chat/chat-target";
 
 export const resolveChatActor = (session: SessionContext, target: string) => {
@@ -12,7 +12,7 @@ export const resolveChatActor = (session: SessionContext, target: string) => {
     ? view.actors.find((entry) => entry.id === view.primaryActorId)
     : actorByHandle(view.actors, target);
   if (!actor || actor.kind === "human") {
-    const names = view.actors.filter((entry) => entry.kind !== "human").map((entry) => `@${entry.handle}`).join(", ");
+    const names = view.actors.filter((entry) => entry.kind !== "human").map((entry) => `@${actorAddress(entry)}`).join(", ");
     throw new Error(`The chat target is not available. Allowed are primary and: ${names || "no actors yet"}`);
   }
   return { view, actor };
@@ -24,7 +24,7 @@ export const chatSnapshotOf = (session: SessionContext, target: string): ChatSna
     const primary = actor.id === view.primaryActorId;
     const error = actor.kind === "script" ? programChatNotice : session.conversationError ?? (!session.connected
       ? "The connection to the run is interrupted"
-      : actor.lifecycle?.kind === "stopped" ? `@${actor.handle} stopped: ${actor.lifecycle.reason}. It accepts no input until it is restarted` : undefined);
+      : actor.lifecycle?.kind === "stopped" ? `@${actorAddress(actor)} stopped: ${actor.lifecycle.reason}. It accepts no input until it is restarted` : undefined);
     return {
       owner: actor.id,
       messages: actorChatMessages(view, actor, session.messages, session.actorConversations?.[actor.id]),

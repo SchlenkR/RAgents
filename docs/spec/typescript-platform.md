@@ -17,7 +17,10 @@ subset or interpreter rules.
 
 The context of a call provides run, actor, call identity, state, declared capabilities, logging,
 and an abort signal. `context.actor` is always present: for programs it identifies the owner, for
-snippets the acting caller. `context.state.read()` reads the context state,
+snippets the acting caller. Its `handle` is the address as the acting principal's room writes it
+(`core.md`, Rooms): in `onInput` the program's own handle, in a function called from a view the
+address from the main room, in a function called as a tool the address from the caller's room, so
+that the program can pass it to the functions it calls as that principal. `context.state.read()` reads the context state,
 `context.state.replace(value)` stages the next value. Programs use their actor state; snippets
 start with `{}` and discard that state at the end. The function returns its domain result; the
 host does not interpret this return value as state. The native child process checks results and
@@ -286,7 +289,8 @@ plugins/<id>/run-scripts/<name>/
 plugins/<id>/actors/<name>/  shared actor packages that run scripts of the profile name
 ```
 
-The folder name is the handle of the setup actor, the template identifier is `<plugin>.<name>`.
+The folder name is the handle of the setup actor and the base of its room's name, the template
+identifier is `<plugin>.<name>`.
 `RUN.md` contains metadata and a description of the domain case. The capabilities actually needed
 are in the TypeScript contract under `input.capabilities` or on a function. There is no second
 capability list in the Markdown file.
@@ -297,9 +301,12 @@ they do not require already generated build IDs. Further TypeScript files are in
 normal relative imports.
 
 `ragents.chat.start { runId, entry, input }` creates the run with the title and the start options.
-The host prepares the workspace, takes the bundled programs from `actors/` into the private
-collection, and imports the setup package through the same activation path as a program written
-during the run. Type check, build, and domain tests run before activation. The start needs no
+The host prepares the workspace, chooses the script's room (`core.md`, Rooms: the script's handle,
+then `-2`, `-3`, and so on, skipping a name whose package folders an aborted start left behind),
+copies the bundled programs from `actors/` into that room's packages (`@actors/<room>.<name>/`),
+and imports the setup package as `<room>.<handle>` through the same activation path as a program
+written during the run; the setup actor's creation opens the room, with the room of the starting
+actor as its origin. Type check, build, and domain tests run before activation. The start needs no
 model call and no separate test evidence for this. The run remembers per package where the host
 took it from (`ragents.actor-programs.script`): a template (`{ kind: "script", entryId }`) or a
 plugin's shared packages (`{ kind: "shared", pluginId }`), together with the identity of the
@@ -313,12 +320,14 @@ as not installed.
 
 A run script names shared actor packages of the profile in `shared-programs: a, b`. A plugin
 provides one as a folder `actors/<name>/` next to `run-scripts/`, a complete package like a bundled
-program; the bundle carries the folder. The start copies a missing one into the run and keeps one
+program; the bundle carries the folder. A shared package lives in the main room, whose names every
+room reaches, so all rooms share its one actor. The start copies a missing one into the run and keeps one
 only if the host installed it from that plugin and nobody changed it since; any other package under
 the name, even one with the same content but no host record, makes the start fail before anything
-changes, and the host never takes such a package over or deletes it. Bundled programs under a script's own `actors/` stay private to that script. Script
-handles, bundled programs, and shared packages share one namespace per run; the profile's startup
-refuses a clash and a shared package no plugin provides.
+changes, and the host never takes such a package over or deletes it. Bundled programs under a script's own `actors/` stay private to that script
+and its room. Because the main room's names are seen from every room, the profile's startup refuses
+a shared package whose name equals a script's handle or bundled program, and a shared package no
+plugin provides.
 
 `actor_program_ensure({ name })` makes a package active once, from a script or an agent with the
 program functions: an active package comes back unchanged and is not rebuilt, a stopped actor is
@@ -326,12 +335,14 @@ restarted (under the engine's restart rule), an installed package is activated, 
 package that is not yet in the run is installed and activated. For a shared name it accepts only
 the package the host installed from that plugin and nobody changed since, and otherwise fails
 naming the package that occupies the name; for other names it works on whatever package is
-installed. The result is `{ actorId, handle, status }` with `active`, `restarted`, `activated`, or
-`installed`. Creating, activating, removing, installing a run script, ensuring, and reloading after
+installed. The name is relative to the caller's room: its own room's package if there is one,
+otherwise the main room's, which is where a shared package always goes. The result is
+`{ actorId, handle, status }` with the actor's address from the caller's room and `active`,
+`restarted`, `activated`, or `installed`. Creating, activating, removing, installing a run script, ensuring, and reloading after
 a drift take one exclusion per run and package name, so concurrent calls wait for each other instead of
 failing; a failed start removes its ownership records only where nobody changed them since. `actor_program_activate` keeps rebuilding and
 reactivating. Two scripts that share a package therefore both call ensure, and the run has one
-actor for it.
+actor for it in the main room.
 
 The actor programs service answers `programOf(runId, actorId)`: the active package of the actor,
 its revision, and its origin, shared (plugin), script (template), or `run` with the actor that
@@ -341,30 +352,29 @@ Plugins authorize by this identity, never by handle.
 A script whose `RUN.md` sets `embeddable: true` also starts inside a run that is already running.
 Four ways start one there, all through the same session path: `ragents.chat.start` returns once the
 start is accepted and reports errors in the chat; `ragents.runs.startScript` waits and returns the
-script actor and which start of its package in the run this was, or the error;
+script actor with its address and which start of its package this was, or the error;
 `ragents.runs.scripts` lists the templates the caller may start with `available` and otherwise a
 `reason`. The run header's "Run script" button lists them as Start page items, `ragents script <run> [<entry>]` on the
 command line, and the run functions `run_script_list` and `run_script_start` offer them to an actor
 of the run (below). Without the line, such a start is refused with `run-started` (409). Everything that can
 refuse the start is checked before the run changes: every start option the template fixes must
-equal the run's stored value (`start-option-fixed`, 409, naming the option and both values); a
-bundled program whose folder exists with other sources, and a setup handle held by an actor or
-package the template did not install, are errors naming both. Bundled programs are copied only
-when missing; an existing folder with the same sources, apart from the generated `tsconfig*.json`,
-stays. If the setup package is already installed from the same template, the host neither copies
-nor imports it again: it restarts a stopped setup actor, activates a removed package again, and
-queues a new start input. A failed start removes the program folders it copied and leaves no actor
-behind. Only the start of a new run selects the primary actor and calls the plugins'
+equal the run's stored value (`start-option-fixed`, 409, naming the option and both values), and
+a shared package the host did not install from its plugin is refused naming the package that
+occupies the name. Every start installs its setup package and bundled programs anew in its own
+room, so a repeated start never reuses the actors, state, or packages of an earlier one; a setup
+handle that an actor of the main room already holds is refused with `handle-exists`. A failed start
+removes the program folders it copied and leaves neither an actor nor a room behind. Only the
+start of a new run selects the primary actor and calls the plugins'
 `sessionStarted`; a start inside a running run changes neither, nor the transient start status of
-the chat. A restart follows the engine's rule, so a former primary actor that is restarted gets its
-role back. Starts inside a running run wait for each other and for a new run's start still in
+the chat. Starts inside a running run wait for each other and for a new run's start still in
 progress, so an actor's start never fails only because another one runs; a second start while a new
 run is still being set up is refused with `run-starting` (409).
 
 An embedded start makes all activated visible views available in the shared app catalog without
 changing the current selection. App discovery uses actor ownership. The chat
 shows the runtime output (`context.log`) of every
-TypeScript actor whose package a run script installed, attributed as `@handle: ...`; without
+TypeScript actor whose package a run script installed, attributed with its address as
+`@room.handle: ...`; without
 `runs.inspect` it becomes the general processing notice like every system entry.
 
 `run_script_list` and `run_script_start({ entry, input? })` act on the caller's own run and need the
@@ -373,7 +383,9 @@ holds it without passing it on (`firstHandCapabilities` in the engine vocabulary
 and the TypeScript actors that the owner installs, such as a run script, can start scripts, while
 an agent the coordinator or a script spawns cannot. The functions start as the run's owner: only
 templates the owner may start count, and the fixed start options are checked against the run.
-`run_script_start` returns `{ handle, count }`; the calling actor is `startedBy`.
+`run_script_start` returns `{ handle, count }` with the setup actor's address from the caller's
+room, such as `review-changeset-2.review-changeset`; the calling actor is `startedBy`, and its room
+is the origin of the script's room.
 
 During preparation, the run's chat reports a transient start status in the existing status
 stream: preparing the run, the working directory, and the interface. New stream connections
@@ -390,7 +402,8 @@ The setup actor then receives the start value as JSON in `input.content`:
 guide result belongs to the package; the handler checks it before setting up. A program that also
 implements `onStart(start, context)` gets every start there instead of in `onInput`: `start` carries
 `input`, `options`, `embedded` (started inside a running run), `startedBy` (the actor ID of the
-starter), and `count` (which start of this package in the run it is). The host recognizes a start
+starter), and `count` (which start of this package it is; since every start has its own room and
+package, a script's setup package receives one start). The host recognizes a start
 by the command that queued its input: it records the start under that command before it queues the
 input and consumes the record when the program receives the input. A record whose input is no
 longer queued or being processed is dropped at the next write, so the state stays bounded; every
@@ -411,11 +424,12 @@ none, and the setup must choose a primary actor through `run_configure`. Its tas
 an ActorInput. If the primary actor is an LLM, the user talks to it directly. A TypeScript primary
 is operated through its mini-app or documented program functions; its history is not a free chat.
 
-Subprograms are activated with `actor_program_activate` by their own name. The optional actor
-reference binds, for example, a list together with its view to an LLM helper that was just
-created. A prepared package needs no further create call. The setup actor records completed setup
-in its state so that later inputs and repeated starts do not create anything twice. Afterwards it
-remains a normal actor of the run.
+Subprograms are activated with `actor_program_activate` by their own name, which the setup actor's
+room resolves to the room's package. The optional actor reference binds, for example, a list
+together with its view to an LLM helper that was just created. A prepared package needs no further
+create call. The setup actor records completed setup in its state so that later inputs do not create
+anything twice; a repeated start has its own room and setup actor. Afterwards it remains a normal
+actor of the run.
 
 The neutral references show a discussion round, a moderator as direct chat partner, a collection
 board on the real LLM list helper, and a balcony advisor. `word-game` controls twelve

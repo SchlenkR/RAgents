@@ -1,5 +1,5 @@
 import { Type } from "typebox";
-import { defineRunFunction, defineToolAvailability, holdsUsable, type JsonValue, type PluginHost, type ToolContributor } from "@ragents/engine";
+import { addressFrom, defineRunFunction, defineToolAvailability, holdsUsable, type JsonValue, type PluginHost, type ToolContributor } from "@ragents/engine";
 import { toolDescriptorFrom } from "../plugin-support/agent-tool.js";
 import { runManagementToken, type RunManagement } from "./global-chat.js";
 
@@ -18,12 +18,13 @@ const listMetadata = {
 const startMetadata = {
   name: "run_script_start",
   label: "Start run script",
-  description: "Start a run script from run_script_list inside this run; returns its actor handle and which start of it this is.",
+  description: "Start a run script from run_script_list inside this run, in a room of its own; returns its actor's address and which start of it this is.",
   longDescription: "A run script is a prepared setup of this profile: a TypeScript actor that arranges its own participants and views in this run; "
     + "for a single new LLM agent use agent_spawn instead. "
     + "entry is the entry from run_script_list; input is the script's start value, if it takes one. The script joins the run "
-    + "without changing the primary actor; a repeated start reuses its actor. When it finishes a start, you receive its summary and result "
-    + "as a message; do not wait or poll for it in the same turn.",
+    + "without changing the primary actor. Every start opens a new room named after the script (name, name-2, ...) with its own actors, "
+    + "so a repeated start never reuses the actors of an earlier one; handle is the setup actor's address from your room, such as name-2.name. "
+    + "When it finishes a start, you receive its summary and result as a message; do not wait or poll for it in the same turn.",
 } as const;
 
 const listing = Type.Array(Type.Object({
@@ -50,9 +51,12 @@ export const createRunScriptToolContributor = (management: () => RunManagement):
     }, { additionalProperties: false }),
     resultSchema: Type.Object({ handle: Type.String(), count: Type.Integer({ minimum: 1 }) }, { additionalProperties: false }),
     available,
-    run: async ({ caller }, _toolCallId, input) => {
+    run: async ({ caller, runtime }, _toolCallId, input) => {
       const started = await management().startScript(caller.runId, input.entry, (input.input ?? null) as JsonValue | null, caller.actorId);
-      return { handle: started.handle, count: started.count };
+      const view = runtime.view(caller.runId);
+      const actor = view.actors.find((candidate) => candidate.id === started.actorId);
+      const room = view.actors.find((candidate) => candidate.id === caller.actorId)?.room ?? null;
+      return { handle: actor ? addressFrom(actor, room) : started.handle, count: started.count };
     },
   });
   return {

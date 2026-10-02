@@ -30,6 +30,8 @@ export type ActorKind = "human" | "agent" | "script";
 type ActorBase = {
     id: ActorId;
     handle: string;
+    /** The room the actor belongs to; null is the main room, where the owner and every actor of an older journal stand. */
+    room: string | null;
     displayName: string;
     grants: readonly CapabilityGrant[];
     createdAt: string;
@@ -226,6 +228,14 @@ export const sameSharing = (left: RunSharing, right: RunSharing): boolean =>
     && left.users.length === right.users.length
     && left.users.every((user) => right.users.some((other) => other.userId === user.userId && other.access === user.access));
 
+/** A delimited part of the run with its own actors; origin is the room it was opened from, null for the main room. */
+export type Room = {
+    name: string;
+    origin: string | null;
+    openedBy: ActorId;
+    openedAt: string;
+};
+
 /** Who paused the run, when and why; userId is the signed-in user, null without sign-in. */
 export type RunPause = {
     pausedAt: string;
@@ -249,6 +259,8 @@ export type RunState = {
     pause: RunPause | null;
     createdAt: string;
     forkedFrom: { runId: RunId; sequence: number } | null;
+    /** The rooms opened besides the main room, by name. */
+    rooms: ReadonlyMap<string, Room>;
     actors: ReadonlyMap<ActorId, Actor>;
     inputs: ReadonlyMap<InputId, ActorInput>;
     turns: ReadonlyMap<TurnId, Turn>;
@@ -282,10 +294,11 @@ export const eventSubjectOf = (state: RunState, event: JournalEvent): ActorId =>
     }
 };
 
-type Collections = "actors" | "inputs" | "turns" | "subscriptions" | "pluginStates" | "actions" | "artifacts";
+type Collections = "rooms" | "actors" | "inputs" | "turns" | "subscriptions" | "pluginStates" | "actions" | "artifacts";
 
 /** The run view for clients; owner, sharing and context turns stay on the server and are not part of it. */
 export type RunView = Omit<RunState, Collections | "ownerUserId" | "sharing" | "contextTurns"> & {
+    rooms: Room[];
     actors: Actor[];
     inputs: ActorInput[];
     turns: Turn[];

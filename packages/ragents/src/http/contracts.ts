@@ -5,7 +5,7 @@ import type { RunView } from "../domain/model.ts";
 import { defineOperation } from "../rpc/contract.ts";
 
 /** Wherever a contract takes an actor field with ID or handle, this one rule resolves it. */
-export { actorByHandle, actorByReference, handleKey, type ReferencedActor } from "../domain/actor-reference.ts";
+export { actorByHandle, actorByReference, addressFrom, addressOf, handleKey, type ReferencedActor } from "../domain/actor-reference.ts";
 
 /** A domain value with its own TypeScript type; the schema deliberately stays open. */
 export const openJson = <T>(name: string): TUnsafe<T> =>

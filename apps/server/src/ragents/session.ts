@@ -4,6 +4,7 @@ import { parseChatAttachments, type ChatAttachment, type ChatAttachmentInput, ty
 import { attachmentContentPath } from "../api/contracts.js";
 import type { ChatSessionLike, ChatUser, RunScriptListing, StartedScript } from "../chat-handler.js";
 import {
+  addressOf,
   assertJsonValue,
   attachmentInputKind,
   capabilityNames,
@@ -535,12 +536,12 @@ export class RunChatSession implements ChatSessionLike {
   #assertChatTarget(reference: string): void {
     const actor = this.#targetActor(reference);
     if (actor.kind !== "agent") {
-      throw new DomainError("actor-chat-unsupported", `@${actor.handle} is a TypeScript actor, not a chat partner. Use its mini-app or its documented functions. The message was not queued.`, 400);
+      throw new DomainError("actor-chat-unsupported", `@${addressOf(actor)} is a TypeScript actor, not a chat partner. Use its mini-app or its documented functions. The message was not queued.`, 400);
     }
   }
 
   #targetActor(reference: string) {
-    const actor = this.#engine.runtime.view(this.id).actors.find((entry) => entry.id === reference || `@${entry.handle}` === reference);
+    const actor = this.#engine.runtime.view(this.id).actors.find((entry) => entry.id === reference || `@${addressOf(entry)}` === reference);
     if (!actor || actor.kind === "human" || actor.lifecycle.kind === "stopped") {
       throw new DomainError("actor-unavailable", `The actor ${reference} is not available`, 404);
     }
@@ -697,10 +698,10 @@ export class RunChatSession implements ChatSessionLike {
       await this.#prepareWorkspace(this.id, this.#emitSystem());
       signal.throwIfAborted();
       this.#assertUsable(this.id);
-      const installed = await this.#installScript(found, signal);
+      const installed = await this.#installScript(found, signal, startedBy);
       signal.throwIfAborted();
       this.#assertUsable(this.id);
-      return this.#enqueueStart(found, installed, startValue, choice, true, startedBy);
+      return this.#enqueueStart(installed, startValue, choice, true, startedBy);
     });
     this.#scriptQueue = operation.catch(() => undefined);
     try {
@@ -743,26 +744,29 @@ export class RunChatSession implements ChatSessionLike {
     await this.#started(this.id, choice.entry);
     this.#assertUsable(this.id);
     signal.throwIfAborted();
-    const started = this.#enqueueStart(found, installed, input, choice, false);
+    const started = this.#enqueueStart(installed, input, choice, false);
     if (found.coordinator) this.#emit({ kind: "system", text: `The run script "${entry.title}" runs as @${installed.actorHandle} and sets up the run.` });
     return started;
   }
 
-  #installScript(found: RunScriptStart, signal: AbortSignal): Promise<ActivatedActorProgram> {
+  /** Every start opens a room of its own, from the room of whoever started it. */
+  #installScript(found: RunScriptStart, signal: AbortSignal, startedBy?: string): Promise<ActivatedActorProgram> {
     const { entry, handle, files, programs, sharedPrograms = [] } = found;
+    const state = this.#engine.runtime.state(this.id);
+    const origin = startedBy === undefined ? null : state.actors.get(startedBy)?.room ?? null;
     return this.#actorPrograms.installScript(
-      {actorId: this.#engine.runtime.state(this.id).ownerId, commandId: `run-script:${this.id}:${handle}:${randomUUID()}`},
-      this.id, {entryId: entry.id, handle, files, programs, sharedPrograms}, signal,
+      {actorId: state.ownerId, commandId: `run-script:${this.id}:${handle}:${randomUUID()}`},
+      this.id, {entryId: entry.id, handle, files, programs, sharedPrograms}, origin, signal,
     );
   }
 
-  #enqueueStart(found: RunScriptStart, installed: ActivatedActorProgram, input: JsonValue | null, choice: StartChoice, embedded: boolean, startedBy?: string): StartedScript {
+  #enqueueStart(installed: ActivatedActorProgram, input: JsonValue | null, choice: StartChoice, embedded: boolean, startedBy?: string): StartedScript {
     const ownerId = this.#engine.runtime.state(this.id).ownerId;
     const options = Object.fromEntries(this.#engine.startOptions.entries()
       .map((option) => [option.option.id, this.#startValueOf(option, choice)]));
     const { count } = this.#actorPrograms.enqueueStart(
-      {actorId: ownerId, commandId: `run-script-input:${this.id}:${found.handle}:${randomUUID()}`},
-      this.id, found.handle, {content: JSON.stringify({ input, options }), embedded, startedBy: startedBy ?? ownerId},
+      {actorId: ownerId, commandId: `run-script-input:${this.id}:${installed.name}:${randomUUID()}`},
+      this.id, installed.name, {content: JSON.stringify({ input, options }), embedded, startedBy: startedBy ?? ownerId},
     );
     return { actorId: installed.actorId, handle: installed.actorHandle, count };
   }
@@ -986,7 +990,7 @@ export class RunChatSession implements ChatSessionLike {
       ownerId: this.#engine.runtime.state(this.id).ownerId,
       labelOf: (actorId) => this.#engine.runtime.state(this.id).actors.get(actorId)?.displayName,
       scriptActorHandle: (actorId) => this.#actorPrograms.isScriptActor(this.id, actorId)
-        ? this.#engine.runtime.select(this.id, (state) => state.actors.get(actorId)?.handle) : undefined,
+        ? this.#engine.runtime.select(this.id, (state) => { const actor = state.actors.get(actorId); return actor && addressOf(actor); }) : undefined,
       turnOf: (turnId) => {
         const turn = this.#engine.runtime.state(this.id).turns.get(turnId);
         if (!turn) throw new Error(`The turn ${turnId} is missing from run ${this.id}`);
@@ -1005,7 +1009,7 @@ export class RunChatSession implements ChatSessionLike {
         return { type: source.type, subjectId: this.#engine.runtime.select(this.id, (state) => eventSubjectOf(state, source)) };
       },
       handleOf: (actorId) => {
-        const handle = this.#engine.runtime.select(this.id, (state) => state.actors.get(actorId)?.handle);
+        const handle = this.#engine.runtime.select(this.id, (state) => { const actor = state.actors.get(actorId); return actor && addressOf(actor); });
         if (handle === undefined) throw new Error(`The actor ${actorId} is missing from run ${this.id}`);
         return handle;
       },

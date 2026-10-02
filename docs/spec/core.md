@@ -486,8 +486,8 @@ in effect.
 - `actor_restart`: Makes a stopped actor of the caller's branch idle again under the same
   capability `execution.stopOwned`; history, state, and model context stay as they were, and it
   accepts inputs again. Subscriptions removed by the stop stay removed. The button "Restart"
-  (`ragents.runs.restartActor`, in the owner's name) and the actor-program plugin, when it starts a
-  run script again or activates or ensures a package whose actor is stopped, use the same restart.
+  (`ragents.runs.restartActor`, in the owner's name) and the actor-program plugin, when it activates
+  or ensures a package whose actor is stopped, use the same restart.
 - Run stop: The scheduler temporarily accepts no new work for this run; concurrent stop calls
   are handled together. The primary actor remains, but its running work is interrupted. All
   other agents and TypeScript actors in the user's ownership tree are stopped. Agent runtimes
@@ -746,8 +746,9 @@ line of its active subscriptions. An input from `actor_input` stays unchanged: i
 ### Actor roster and workspace in the system prompt
 
 If an LLM actor actually has access to `actor_list`, the scheduler adds the current actor roster to
-its system prompt for every turn: handles, display names, kind, and lifecycle, plus the markers for
-the actor itself and the primary actor. This includes participants from run setups and from other
+its system prompt for every turn: addresses from the actor's room, display names, kind, and
+lifecycle, plus the markers for the actor itself and the primary actor; in a run with rooms one
+line states the rule of addresses and the actor's room. This includes participants from run setups and from other
 creators; other actors' system prompts are not shown. During a turn, `actor_list` updates the
 roster. Without this tool, in particular with `tools: []`, the overview is omitted.
 
@@ -835,8 +836,9 @@ coupling that is removed here.
 
 An actor has a technical ID and a readable handle such as `@worker`. Wherever a function, method,
 or plugin accepts an actor by ID or handle, the same rule resolves it: the leading `@` is
-optional, and case and Unicode composition do not matter. Once assigned, a handle
-remains reserved within the run even after the actor stops, so a handle always names exactly one
+optional, and case and Unicode composition do not matter. A handle consists of letters, digits,
+dashes, and underscores; the dot separates a room from the handle (section Rooms). Once assigned,
+a handle remains reserved even after the actor stops, so an address always names exactly one
 actor, and restarting by handle reaches the stopped actor. If another LLM agent is created with
 the same requested name, it receives an available suffix such as `worker-1`. `agent_spawn`
 returns the `{ id, handle }` of the actor it actually created; later calls use that reference.
@@ -847,6 +849,60 @@ actor when it was stopped, and no other primary actor has been chosen since, it 
 primary actor again, so its chat continues. For TypeScript actors, creation rejects a handle
 that is already assigned. The creation itself remains recorded as an event in the journal.
 <!-- /guide:runtime -->
+
+<!-- guide:runtime -->
+## Rooms
+
+A room is a delimited part of a run: its own participants with their state, apps, and
+conversations, in the same run, journal, workspace, and folder. Every run has a main room; further
+rooms stand beside it, never inside one another. Every start of a run script opens a room of its
+own, named after the script (`review-changeset`, then `review-changeset-2`, and so on), and
+everything the script creates lands there. A repeated start therefore gets its own participants
+instead of reusing those of an earlier start. A new agent always joins the room of whoever created
+it.
+
+An actor's address is `room.name`; the main room has no prefix, so a run without rooms looks as
+it always did. Names are relative to the room of whoever writes them, like paths relative to a
+working directory: inside room `review-2`, `rule-review` means `review-2.rule-review`; from
+another room it is written `review-2.rule-review`; and the actors of the main room are written
+without prefix from anywhere. Functions show every address from the caller's room, so a model
+takes names from their results instead of building them.
+<!-- /guide:runtime -->
+
+### Rooms in the journal and the resolution of addresses
+
+`room.opened` (`name`, `origin`) opens a room; `origin` is the room of the actor that started the
+run script, `null` for the main room. `agent.spawned` and `script.created` carry `room` for an
+actor outside the main room; without the field the actor stands in the main room, so older
+journals load unchanged with every actor there. The projection holds `RunState.rooms` and
+`Actor.room` (`null` is the main room); the run view carries `rooms`. A room name has the grammar of
+a package name (a lowercase letter, then at most 63 lowercase letters, digits, or hyphens), so that
+`room.name` stays a valid package folder. It is never reused and must not equal the part before the
+dot of a handle of an older journal; `freeRoomName` counts up with `-2`, `-3`, and so on.
+`createScriptActor` opens a room in the same command as the room's first actor (`room: { kind:
+"open", name, origin }`), so a failed start leaves no empty room behind; `{ kind: "existing", name }`
+places the actor in an open room, and without `room` it joins its creator's room. `agent_spawn`
+places the agent in its creator's room; no function opens a room by itself.
+
+New handles of agents and TypeScript actors contain no dot (`actorHandleOf` in
+`runtime/guards.ts`); the owner's handle comes from the user identifier and keeps the older grammar.
+A bare handle is unique within its room and between the main room and every room, because the main
+room's names are written without prefix from anywhere: an agent gets a free suffix, a TypeScript
+actor is refused with `handle-exists`, naming the holder's address. Two rooms may share a handle.
+The journal check enforces the same when loading (`domain/event-semantics.ts`): a room actor needs
+its opened room and a handle without a dot.
+
+Every function, method, and plugin resolves a reference with one rule (`actorByReference` in
+`domain/actor-reference.ts`), seen from the caller's room: the actor ID first; a reference with a
+dot means the main room actor with exactly this handle if there is one (handles of older journals),
+otherwise `room.handle`, with at most one dot; a bare name means the caller's room, then the main
+room. A rejection names the addresses that exist from the caller's room. `addressFrom(actor, room)`
+writes an address as an actor in `room` reads it: the own room's and the main room's actors without
+prefix, any other with its room. The results of `actor_list`, `agent_spawn`, and the event
+subscriptions, the actor roster in the system prompt, the header of a delivered event, and the
+automatic notices to creators show addresses this way; the roster also states the rule and the
+actor's room once the run has a room. Surfaces for people and stored texts use `addressOf`, the
+address as the main room writes it, which is valid from every room.
 
 <!-- guide:runtime -->
 ## Equipping subagents
@@ -1118,7 +1174,7 @@ every LLM agent is part of the journal as well; working files are stored separat
 
 ### File format, write boundaries, and replay
 
-Every run has a readable `journal.jsonl` in file format 10 and, for large contents, a neighboring
+Every run has a readable `journal.jsonl` in file format 12 and, for large contents, a neighboring
 folder `payloads/`. A line contains one command with all the events that resulted from it. Format
 version, run ID, command, and timestamp are stored once in the shared envelope; actor and command
 ID as well as the internal event schema version are added when reading. The command holds
@@ -1161,15 +1217,16 @@ already have been written. The restart reads complete lines and discards an inco
 Other runs stay writable. Errors when preparing a content file before the journal append, in
 contrast, allow an immediate retry.
 
-The journal writes file format 11 and reads formats 7 to 11, all with internal event schema 3. Format
+The journal writes file format 12 and reads formats 7 to 12, all with internal event schema 3. Format
 7 brings the model context (`model.input.presented`, `model.step.completed`,
 `model.tool-result.presented`, `context.compacted`); older journals carry none and are rejected with
 this cause, without migration, for the affected run. Format 8 brings `origin` on
 `actor.input.enqueued` (section Origin of an input), format 9 `threshold` on `context.compacted`
 (section Retries and compaction), format 10 the event `run.sharing-changed` (`profiles.md`, Sharing
-in detail), format 11 the events `run.paused` and `run.resumed` (section Pausing a run); a line of
-an older format never carries the respective field or event and therefore stays readable, and a
-format after 11 is rejected. The encoding has been unchanged since
+in detail), format 11 the events `run.paused` and `run.resumed` (section Pausing a run), format 12
+the event `room.opened` and `room` on `agent.spawned` and `script.created` (section Rooms); a line
+of an older format never carries the respective field or event and therefore stays readable, and a
+format after 12 is rejected. The encoding has been unchanged since
 4; the number increases as soon as an older version would reject newly written lines, so that it
 fails at the first such line with the format version instead of at a semantic contradiction. Every
 run is first completely checked and projected before its events, identifiers, and states are taken
@@ -1302,3 +1359,6 @@ at the next tool call.
 7. Windows flushes journal and marker file contents, but skips directory `fsync`, which its file
    API does not support. Directory entries after renames or deletions therefore have no explicit
    power-loss durability guarantee; Linux and macOS retain their directory synchronization.
+8. A bare name of the main room is never shadowed in a room. In a run from before rooms whose main
+   room already holds an actor with a run script's handle, an embedded start of that script is
+   refused with `handle-exists`, because its setup actor would take the same bare name in its room.

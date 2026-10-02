@@ -12,8 +12,9 @@ export interface ActorObservation {
   lastOutput?: string;
 }
 
-export const watchableActorOf = (view: RunView, reference: string): ExecutableActor | undefined => {
-  const actor = actorByReference(view.actors, reference);
+/** Resolves an ID or an address as an actor in `room` writes it. */
+export const watchableActorOf = (view: RunView, reference: string, room: string | null): ExecutableActor | undefined => {
+  const actor = actorByReference(view.actors, reference, room);
   return actor?.kind === "human" ? undefined : actor;
 };
 

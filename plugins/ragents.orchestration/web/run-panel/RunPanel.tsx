@@ -13,7 +13,7 @@ import { ActorChatControls } from "../ActorChatControls";
 import { surfaceStartupState, type SurfaceStartupState } from "../surface-startup";
 import { cardSectionsClass } from "../constants";
 import type { FlowSelection } from "../FlowInspector";
-import { chatPrimaryId, runViewFrom, type RunActor, type RunView } from "@ragents/web/run-view";
+import { actorAddress, chatPrimaryId, runViewFrom, type RunActor, type RunView } from "@ragents/web/run-view";
 import { AddresseeControl } from "./AddresseeControl";
 import { ActorIcon } from "./ActorGraph";
 import { runPanelActors, selectedRunPanelActor } from "./run-panel-actors";
@@ -71,7 +71,7 @@ function RunPanel({ autoFocusChat, onAutoFocusChatSettled, surfaceElements, card
     selected={selectedActor}
     technical={inspect}
     view={view}
-  />{inspect && <Button aria-label={`Inspect @${selectedActor.handle}`} onClick={() => navigation.openTab(INSPECTION_TAB_ID, { type: "actor", id: selectedActor.id })} size="icon-sm" title="Inspect actor" variant="ghost"><SearchIcon /></Button>}</>;
+  />{inspect && <Button aria-label={`Inspect @${actorAddress(selectedActor)}`} onClick={() => navigation.openTab(INSPECTION_TAB_ID, { type: "actor", id: selectedActor.id })} size="icon-sm" title="Inspect actor" variant="ghost"><SearchIcon /></Button>}</>;
 
   const chat = (
     <section aria-label="Chat" className={viewClass} data-view={primarySelected ? "chat" : "actor-chat"}>

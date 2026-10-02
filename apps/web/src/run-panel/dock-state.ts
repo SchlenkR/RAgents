@@ -39,6 +39,10 @@ export const toolPanelId = (id: string) => `tool:${id}`;
 export const isToolPanel = (id: string) => id.startsWith("tool:");
 export const emptyPanelId = (id: string) => `empty:${id}`;
 export const isEmptyPanel = (id: string) => id.startsWith("empty:");
+export const tabWindowId = (id: string) => `tab:${id}`;
+export const isTabWindow = (id: string) => id.startsWith("tab:");
+/** A workspace tab is a rail tool unless it is placed among the header windows. */
+export const workspaceTabPanelId = (tab: { readonly id: string; readonly placement?: "sidebar" | "window" }) => tab.placement === "window" ? tabWindowId(tab.id) : toolPanelId(tab.id);
 const group = (id: string, tabs: readonly string[]): DockGroup => ({ kind: "group", id, tabs, active: tabs[0] ?? null });
 export const dockGroups = (node: DockNode): readonly DockGroup[] => node.kind === "group" ? [node] : [...dockGroups(node.first), ...dockGroups(node.second)];
 export const mapDockNode = (node: DockNode, id: string, update: (node: DockNode) => DockNode): DockNode =>
@@ -96,7 +100,7 @@ export function reconcileDockState(state: DockState, panels: readonly string[], 
 function defaultDockLayout(state: DockState, splitApps: boolean): DockState {
   const groups = dockGroups(state.root);
   const panels = state.known.filter((id) => groups.some((entry) => entry.tabs.includes(id)));
-  const apps = panels.filter((id) => id.startsWith("app:") || isEmptyPanel(id));
+  const apps = panels.filter((id) => id.startsWith("app:") || isTabWindow(id) || isEmptyPanel(id));
   const active = groups.find((entry) => entry.id === state.focused)?.active;
   if (!splitApps || !panels.includes("chat") || apps.length === 0) {
     return { ...state, root: { ...group("main", panels), active: active ?? panels[0] ?? null }, focused: "main" };
@@ -113,7 +117,7 @@ export function selectDockPanel(state: DockState, id: string): DockState {
   const target = dockGroups(state.root).find((g) => g.tabs.includes(id));
   if (target) return { ...state, root: mapDockNode(state.root, target.id, () => ({ ...target, active: id })), focused: target.id, side: { ...state.side, focused: false },
     maximized: state.maximized === null ? null : target.id };
-  if (isToolPanel(id) && !state.bar.includes(id)) return state;
+  if (!state.known.includes(id) || (isToolPanel(id) && !state.bar.includes(id))) return state;
   if (isToolPanel(id)) return transitionDockSide(state, { type: "open", id });
   const first = dockGroups(state.root).find((g) => g.id === state.focused) ?? dockGroups(state.root)[0];
   return { ...state, automatic: false, closed: state.closed.filter((p) => p !== id), side: { ...state.side, focused: false },
@@ -205,8 +209,8 @@ export function moveDockWindow(state: DockState, id: string, before: string | nu
 
 export function activeDockTool(state: DockState): string {
   if (state.side.tab && state.side.focused) return state.side.tab.slice(5);
-  const active = dockGroups(state.root).find((g) => g.id === state.focused)?.active;
-  return active && isToolPanel(active) ? active.slice(5) : "";
+  const active = focusedDockWindow(state);
+  return active && isToolPanel(active) ? active.slice(5) : active && isTabWindow(active) ? active.slice(4) : "";
 }
 
 export function persistentDockState(state: DockState): DockState {
@@ -222,7 +226,7 @@ export function parseDockState(raw: string | null): DockState {
   const uniquePanels = (ids: readonly string[]) => ids.every((id) => {
     if (panels.has(id)) return false;
     panels.add(id);
-    return id === "chat" || id.startsWith("app:") || isToolPanel(id) || isEmptyPanel(id);
+    return id === "chat" || id.startsWith("app:") || isToolPanel(id) || isTabWindow(id) || isEmptyPanel(id);
   });
   const validNode = (node: DockNode, depth = 0): boolean => {
     if (!node || depth > 64 || typeof node.id !== "string" || nodes.has(node.id)) return false;

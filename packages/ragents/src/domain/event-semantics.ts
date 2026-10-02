@@ -13,6 +13,7 @@ import type {
     RunState,
     Turn,
 } from "./model.ts";
+import { addressOf, sharesNames } from "./actor-reference.ts";
 import { eventSubjectOf, isPendingActorInput, actorStatePluginId } from "./model.ts";
 import { isObservableEventType } from "./vocabulary.ts";
 
@@ -181,12 +182,27 @@ const assertDelegation = (actor: Actor, grants: readonly CapabilityGrant[]) => {
     }
 };
 
-const assertActiveHandleFree = (state: RunState, handle: string) => {
-    const existing = [...state.actors.values()].find((actor) =>
-        actor.handle === handle && (actor.kind === "human" || actor.lifecycle.kind !== "stopped"));
+/** The actors whose bare handle a new actor in this room must not repeat. */
+const namesakesOf = (state: RunState, handle: string, room: string | null) =>
+    [...state.actors.values()].filter((actor) => actor.handle === handle && sharesNames(actor.room, room));
+
+const assertActiveHandleFree = (state: RunState, handle: string, room: string | null) => {
+    const existing = namesakesOf(state, handle, room).find((actor) => actor.kind === "human" || actor.lifecycle.kind !== "stopped");
 
     if (existing)
-        throw new Error(`Handle ${handle} already belongs to active actor ${existing.id}.`);
+        throw new Error(`Handle ${handle} already belongs to active actor ${existing.id} at ${addressOf(existing)}.`);
+};
+
+/** A room actor stands in an opened room and has a handle without a dot, so that room.handle stays one address. */
+const assertRoomOf = (state: RunState, handle: string, room: string | undefined) => {
+    if (room === undefined)
+        return;
+
+    if (!state.rooms.has(room))
+        throw new Error(`Room ${room} was not opened.`);
+
+    if (handle.includes("."))
+        throw new Error(`Handle ${handle} of an actor in room ${room} must not contain a dot.`);
 };
 
 const assertForkSource = (state: RunState, sourceId: string, execution: AgentExecution) => {
@@ -199,11 +215,11 @@ const assertForkSource = (state: RunState, sourceId: string, execution: AgentExe
         throw new Error(`Fork source ${sourceId} and the new agent must both use the agent driver.`);
 };
 
-const assertHandleUnused = (state: RunState, handle: string) => {
-    const existing = [...state.actors.values()].find((actor) => actor.handle === handle);
+const assertHandleUnused = (state: RunState, handle: string, room: string | null) => {
+    const existing = namesakesOf(state, handle, room)[0];
 
     if (existing)
-        throw new Error(`Handle ${handle} already belongs to actor ${existing.id}.`);
+        throw new Error(`Handle ${handle} already belongs to actor ${existing.id} at ${addressOf(existing)}.`);
 };
 
 const belongsToBranch = (state: RunState, target: ExecutableActor, creatorId: string) => {
@@ -354,10 +370,27 @@ export const assertEventSemantics = (
                 throw new Error(`Run ${state.id} is not paused.`);
             break;
 
+        case "room.opened": {
+            assertRunCapability(state, event.actorId, "agent.spawn");
+
+            if (state.rooms.has(event.payload.name))
+                throw new Error(`Room ${event.payload.name} is already open.`);
+
+            if (event.payload.origin !== null && !state.rooms.has(event.payload.origin))
+                throw new Error(`Origin room ${event.payload.origin} of room ${event.payload.name} was not opened.`);
+
+            const dotted = [...state.actors.values()].find((actor) => actor.handle.startsWith(`${event.payload.name}.`));
+
+            if (dotted)
+                throw new Error(`Room ${event.payload.name} would collide with the handle ${dotted.handle} of actor ${dotted.id}.`);
+            break;
+        }
+
         case "agent.spawned": {
             const author = assertRunCapability(state, event.actorId, "agent.spawn");
             assertDelegation(author, event.payload.grants);
-            assertActiveHandleFree(state, event.payload.handle);
+            assertRoomOf(state, event.payload.handle, event.payload.room);
+            assertActiveHandleFree(state, event.payload.handle, event.payload.room ?? null);
             assertNewId(state.actors, event.payload.agentId, "Actor");
             assertUnique(event.payload.toolNames ?? [], "toolNames");
             if (event.payload.forkOf !== undefined) assertForkSource(state, event.payload.forkOf, event.payload.execution);
@@ -367,7 +400,8 @@ export const assertEventSemantics = (
         case "script.created": {
             const author = assertRunCapability(state, event.actorId, "agent.spawn");
             assertDelegation(author, event.payload.grants);
-            assertHandleUnused(state, event.payload.handle);
+            assertRoomOf(state, event.payload.handle, event.payload.room);
+            assertHandleUnused(state, event.payload.handle, event.payload.room ?? null);
             assertNewId(state.actors, event.payload.scriptId, "Actor");
             assertUnique(event.payload.toolNames ?? [], "toolNames");
             break;

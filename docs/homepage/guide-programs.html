@@ -144,7 +144,9 @@ model.</p>
 <h2 id="packages-and-actor-binding">Packages and actor binding</h2>
 <p>Programs are private packages in a prepared pnpm workspace for the run. File functions and
 language servers access them through <code>@actors/&lt;name&gt;/</code>, and <code>bash</code> runs in a package with
-<code>cwd: &quot;@actors/&lt;name&gt;&quot;</code>. The packages stay on the server, and every call that names the alias runs
+<code>cwd: &quot;@actors/&lt;name&gt;&quot;</code>. A package belongs to a room like an actor: its folder is
+<code>@actors/&lt;room&gt;.&lt;name&gt;/</code> in a room, and package names in the functions are relative to the
+caller&#39;s room. The packages stay on the server, and every call that names the alias runs
 there, also when the run works in a folder on a workstation. The
 workspace interface exposes the actor-program collection directly. Normal relative imports
 include local modules, while fixed local dependencies come from the host installation.</p>
@@ -168,8 +170,8 @@ for each view. The authoritative schemas are in
 its reason, for example <code>views.0 has unknown field width</code>.</p>
 <p><code>actor_program_activate</code> binds a package to an existing actor with <code>actor: &quot;self&quot;</code> or
 <code>actor: &quot;@handle&quot;</code>. Without an explicit actor, an existing program binding remains. A new
-backend creates a TypeScript actor using the program name as its handle, while a new view-only
-package binds to the calling actor. A static view needs neither a dummy actor nor an artificial
+backend creates a TypeScript actor using the program name as its handle in the package&#39;s room,
+while a new view-only package binds to the calling actor. A static view needs neither a dummy actor nor an artificial
 backend function.</p>
 <p>Activation rejects a program with an input handler on an LLM actor because that actor&#39;s normal
 messages remain with the model driver. A package without an input handler can still add functions
@@ -197,7 +199,9 @@ to another actor in the app actor&#39;s name, the function passes it as an Actor
 actor, whose <code>onInput</code> sends it under the actor&#39;s identity. Snippets use the same API. <code>context.std</code> supplies available standard
 functions, including mediators.</p>
 <p>An optional <code>tool</code> declaration publishes the same function in the typed run API. Without
-<code>targets</code>, it is available to active executable actors; <code>self</code> refers to the program owner.
+<code>targets</code>, it is available to the active executable actors of the package&#39;s room, for a main room
+package to every actor; <code>self</code> refers to the program owner. A tool name is unique among the
+packages of a room together with the main room&#39;s.
 Another caller does not receive a private copy of the function or state. Bindings use names and
 handles, not IDs copied from output.</p>
 <p>React, <code>createRoot</code>, and local modules use normal imports. <code>context</code> and <code>useAppState</code> come from
