@@ -790,7 +790,7 @@ Ownership follows exclusively `createdBy` and is used only for stop permissions 
 stops. `createdBy` is the actor of the command that wrote `agent.spawned` or `script.created`; the
 journal semantics check, when writing and loading, that it exists and holds `agent.spawn`.
 `primaryActorId` is a separate explicit selection. The core derives neither routing nor visibility
-from ownership; the interface uses it only for display, for example in the addressee tree of the
+from ownership; the interface uses it only for display, for example in the actor graph of the
 run panel (`plugins.md`).
 
 An executable actor optionally carries a short description `description` for overviews: at most

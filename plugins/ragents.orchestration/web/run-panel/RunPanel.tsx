@@ -15,8 +15,8 @@ import { cardSectionsClass } from "../constants";
 import type { FlowSelection } from "../FlowInspector";
 import { chatPrimaryId, runViewFrom, type RunActor, type RunView } from "@ragents/web/run-view";
 import { AddresseeControl } from "./AddresseeControl";
-import { ActorIcon } from "./AddresseeTree";
-import { runPanelActors } from "./run-panel-actors";
+import { ActorIcon } from "./ActorGraph";
+import { runPanelActors, selectedRunPanelActor } from "./run-panel-actors";
 import { chatShowsContent, useRunPanelStartup } from "./run-panel-startup";
 import { saveRunPanelState, useRunPanelState, type RunPanelState } from "./run-panel-state";
 
@@ -46,12 +46,14 @@ function RunPanel({ autoFocusChat, onAutoFocusChatSettled, surfaceElements, card
   const notice = startup ? <RunPanelStartup state={startup} /> : undefined;
   const actors = useMemo(() => view ? runPanelActors(view, inspect) : [], [inspect, view]);
   const primaryId = view ? chatPrimaryId(view) : undefined;
-  const selectedActor = actors.find((actor) => actor.id === stored.actor) ?? actors.find((actor) => actor.id === primaryId) ?? actors[0];
+  const selectedActor = view ? selectedRunPanelActor(view, actors, stored.actor) : undefined;
+  const selectedId = selectedActor?.id;
   const [visitedActors, setVisitedActors] = useState<ReadonlySet<string>>(() => new Set(stored.actor ? [stored.actor] : []));
-  const selectActor = useCallback((actor: RunActor) => {
-    setVisitedActors((current) => new Set([...current, actor.id]));
-    save({ actor: actor.id });
-  }, [save]);
+  // The header's agents view chooses the addressee through the stored state; its chat then stays mounted too.
+  useEffect(() => {
+    if (selectedId !== undefined) setVisitedActors((current) => current.has(selectedId) ? current : new Set([...current, selectedId]));
+  }, [selectedId]);
+  const selectActor = useCallback((actor: RunActor) => save({ actor: actor.id }), [save]);
   const navigate = useCallback((selection: FlowSelection) => {
     const actor = selection.type === "actor" ? actors.find((entry) => entry.id === selection.id) : undefined;
     if (actor) selectActor(actor);

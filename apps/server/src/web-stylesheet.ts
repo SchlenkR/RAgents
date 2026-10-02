@@ -4,7 +4,7 @@ import { compile, optimize } from "@tailwindcss/node";
 import { Scanner } from "@tailwindcss/oxide";
 import { rebuildHint } from "./profile/bundle-manifest.js";
 import type { ResolvedPlugin } from "./profile/plugin-discovery.js";
-import { etagOf } from "./web-bundles.js";
+import { contentHash, etagOf } from "./web-bundles.js";
 
 /** The one stylesheet the web links as /ragents.css: theme, base and every utility the host and the web bundles use. */
 export const STYLESHEET_PATH = "/ragents.css";
@@ -12,7 +12,32 @@ export const STYLESHEET_PATH = "/ragents.css";
 export interface Stylesheet {
   readonly css: string;
   readonly etag: string;
+  /** The content hash in the address the pages link, /ragents.css?v=<version>. */
+  readonly version: string;
 }
+
+/** A new stylesheet gets a new address, so caches in between may keep each version for good. */
+export const versionedStylesheetPath = (stylesheet: Stylesheet): string => `${STYLESHEET_PATH}?v=${stylesheet.version}`;
+
+/** Points the stylesheet link of a host page to the versioned address. */
+export const linkVersionedStylesheet = (html: string, stylesheet: Stylesheet): string =>
+  html.replaceAll(`href="${STYLESHEET_PATH}"`, `href="${versionedStylesheetPath(stylesheet)}"`);
+
+export interface StylesheetResponse {
+  readonly status: 200 | 304;
+  readonly headers: Readonly<Record<string, string>>;
+  readonly body?: string;
+}
+
+/** Only the current version may be cached for good; the plain address and an outdated version are revalidated on every load. */
+export const stylesheetResponse = (stylesheet: Stylesheet, version: string | null, ifNoneMatch: string | undefined): StylesheetResponse => {
+  const caching = {
+    "Cache-Control": version === stylesheet.version ? "public, max-age=31536000, immutable" : "no-cache",
+    ETag: stylesheet.etag,
+  };
+  if (ifNoneMatch === stylesheet.etag) return { status: 304, headers: caching };
+  return { status: 200, headers: { ...caching, "Content-Type": "text/css; charset=utf-8" }, body: stylesheet.css };
+};
 
 const stylesheetEntry = (root: string): string => path.join(root, "apps/web/src/ui/tailwind.css");
 
@@ -42,7 +67,7 @@ export const compileStylesheet = async (root: string, candidates: readonly strin
   const compiler = await compile(await readFile(entry, "utf8"), { base: path.dirname(entry), onDependency: () => {} });
   const built = compiler.build([...new Set(candidates)]);
   const css = minify ? optimize(built, { minify: true }).code : built;
-  return { css, etag: etagOf(css) };
+  return { css, etag: etagOf(css), version: contentHash(css) };
 };
 
 export interface StylesheetSource {

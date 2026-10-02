@@ -9,7 +9,7 @@ import { RunShareButton } from "./RunShareButton";
 
 const titleClass = "flex h-[30px] min-w-0 flex-1 cursor-pointer items-center gap-2 self-center rounded-md px-1.5 text-left hover:bg-accent aria-expanded:bg-accent focus-visible:outline-2 focus-visible:outline-ring/60 focus-visible:-outline-offset-2";
 
-/** The panel header: one line with title and state, the plugins' header contributions behind the title as a popover. */
+/** The panel header: one line with title and state, the plugins' header contributions behind the title as a popover or, placed there, in the bar. */
 export function RunPanelHeader({ actionsRef, attention, contributions, navigation, registry, runError, session, working }: {
   actionsRef?: Ref<HTMLDivElement>;
   attention: AttentionState | undefined;
@@ -37,6 +37,7 @@ export function RunPanelHeader({ actionsRef, attention, contributions, navigatio
       <ChevronDownIcon aria-hidden className="size-3.5 flex-none text-muted-foreground" />
     </button>
     <div className="flex min-w-20 max-w-1/2 shrink items-center justify-end empty:hidden" ref={actionsRef} />
+    {contributions.filter((entry) => entry.placement === "bar").map(({ id, Header }) => <Header key={id} navigation={navigation} session={session} />)}
     {session.session.canShare && <RunShareButton runId={session.session.id} shared={session.session.shared === true} title={title} />}
     <RunScriptMenu runId={session.session.id} />
     <Popover onOpenChange={(next, details) => { if (!next && pressedAnchor(details)) return; setOpen(next); }} open={open}>
@@ -44,7 +45,7 @@ export function RunPanelHeader({ actionsRef, attention, contributions, navigatio
         <div className="flex flex-wrap items-stretch [&>*]:border-b [&>*]:border-border-soft">
           {registry.sessionMetadata.map(({ id, Metadata }) => <Metadata key={id} session={session.session} />)}
           <StartOptionBadges registry={registry} session={session} />
-          {contributions.map(({ id, Header }) => <Header key={id} navigation={navigation} session={session} />)}
+          {contributions.filter((entry) => entry.placement !== "bar").map(({ id, Header }) => <Header key={id} navigation={navigation} session={session} />)}
         </div>
       </PopoverContent>
     </Popover>

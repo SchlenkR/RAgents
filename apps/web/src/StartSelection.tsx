@@ -30,13 +30,13 @@ export function StartSelection({ registry, session, initialEntryId, onOpen }: {
   const access = useAccess();
   const modal = useModalController();
   const [error, setError] = useState<string>();
-  const [pending, setPending] = useState(false);
+  const [starting, setStarting] = useState<{ readonly entryId: string }>();
   const launching = useRef(false);
   const openedInitialEntry = useRef(false);
   const sessionRef = useRef(session);
   sessionRef.current = session;
   const startOptions = useStartOptions();
-  const disabled = pending || startOptions.pending;
+  const disabled = starting !== undefined || startOptions.pending;
   const technical = access.can("runs.inspect");
   const free = access.can("runs.create");
   const entries = registry.startEntries.filter((entry) => canStartEntry(access, entry.id) && (entry.action === "script" || free));
@@ -46,7 +46,7 @@ export function StartSelection({ registry, session, initialEntryId, onOpen }: {
   const launch = useCallback(async (entry: StartEntry, value: JsonValue | null) => {
     if (launching.current || !canStartEntry(access, entry.id)) return;
     launching.current = true;
-    setPending(true);
+    setStarting({ entryId: entry.id });
     setError(undefined);
     try {
       await startEntryDirectly(sessionRef.current.session.id, entry, value);
@@ -55,7 +55,7 @@ export function StartSelection({ registry, session, initialEntryId, onOpen }: {
       setError(`${entry.title}: ${cause instanceof Error ? cause.message : String(cause)}`);
     } finally {
       launching.current = false;
-      setPending(false);
+      setStarting(undefined);
     }
   }, [access, onOpen]);
 
@@ -80,7 +80,7 @@ export function StartSelection({ registry, session, initialEntryId, onOpen }: {
       {error && <p className="type-body text-destructive" role="alert">{error}</p>}
       {tiles.length === 0 && !free
         ? <p className="type-body text-muted-foreground" role="status">No template is shared with this user account.</p>
-        : <StartTiles defaultEntry={defaultEntry} disabled={disabled} entries={tiles} label="Templates" onNewChat={free ? onOpen : undefined} onStart={open} />}
+        : <StartTiles defaultEntry={defaultEntry} disabled={disabled} entries={tiles} label="Templates" onNewChat={free ? onOpen : undefined} onStart={open} starting={starting} />}
     </section>
   </div>;
 }

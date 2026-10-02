@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import type { PanelSharing } from "../src/panel/contract";
 import {
-  addableUsers, openSharing, readOnlyReason, saveSharing, sharedUserLabel, sharedWithYouLabel, sharingChanged, sharingOf, withEveryone, withoutUser, withUser,
+  listedUsers, openSharing, readOnlyReason, saveSharing, sharedWithYouLabel, sharingChanged, sharingOf, withEveryone, withoutUser, withUser,
   type RunSharing, type RunSharingResult, type SharingClient, type SharingStore,
 } from "../src/run-sharing";
 
@@ -34,13 +34,9 @@ test("Save counts only a real change, in any order of the users", () => {
   assert.equal(sharingChanged(loaded, withoutUser(withUser(sharingOf(loaded), "dave", "read"), "dave")), false, "adding and removing again is no change");
 });
 
-test("the picker offers only users not named yet; labels come from the server, then from the candidates, else the id", () => {
-  const loaded = result();
-  const draft: RunSharing = withUser(sharingOf(loaded), "carol", "read");
-  assert.deepEqual(addableUsers(loaded, draft).map((user) => user.id), ["dave"]);
-  assert.equal(sharedUserLabel(loaded, "bob"), "Bob");
-  assert.equal(sharedUserLabel(loaded, "carol"), "Carol");
-  assert.equal(sharedUserLabel(result({ everyone: null, users: [{ userId: "erin", label: "erin", access: "read" }] }), "frank"), "frank");
+test("the list names every candidate, then shared users the profile no longer offers", () => {
+  const listed = listedUsers(result({ everyone: null, users: [{ userId: "bob", label: "Bob", access: "read" }, { userId: "erin", label: "Erin", access: "write" }] }));
+  assert.deepEqual(listed, [{ id: "bob", label: "Bob" }, { id: "carol", label: "Carol" }, { id: "dave", label: "Dave" }, { id: "erin", label: "Erin" }]);
 });
 
 test("sharees read what the share permits, and the composer names why it is disabled", () => {

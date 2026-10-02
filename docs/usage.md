@@ -19,8 +19,11 @@ continues in the preparation chat. There you can discuss the task, give a clear 
 anything. In the browser a new run always works on the server; only VS Code and `ragents run`
 bind a run to a workstation.
 
-While a template starts, the panel shows its progress in the chat area and reserves the
-bottom status bar, keeping the notice in place when the run connects.
+A click shows its effect at once: either the run's progress appears, or the chosen entry shows
+a spinner and "Starting ..." while the other entries stay locked until the run opens or the start
+fails; a run script in the run header's "Run script" list does the same. While a template starts,
+the panel shows its progress in the chat area and reserves the bottom status bar, keeping the
+notice in place when the run connects.
 
 Inside the run, the coordinator processes the task. Additional agents and mini-apps appear on
 the surface when the workflow creates them. The global coordinator in the header has its own
@@ -79,7 +82,7 @@ in main, actor, preparation, and global coordinator chats. Narrow panels use the
 with side padding. The dock panel stays wide, and the message scrollbar stays at its edge.
 
 The shared panel initially addresses the coordinator. Use the addressee selector at the bottom
-of the input to search actors and choose another conversation. Visited chats keep separate drafts.
+of the input to choose another conversation from the graph of all actors. Visited chats keep separate drafts.
 Sending requires write permission and a running actor. A stopped actor shows its reason and
 Restart; TypeScript actors are operated through mini-apps or functions.
 
@@ -283,6 +286,13 @@ animations are maintained centrally for development in `apps/web/src/ui/theme.cs
 Actor views use the same shadcn/ui controls as the host, with the colors from the tokens.
 They follow the same light/dark choice; there is no separate selection for them.
 
+In the browser, "Zoom" under "Appearance" makes the whole interface smaller or larger: 80, 90,
+100, 110, 120, 130, or 150 percent, with 100 as the default. Text, controls, spacing, menus, and
+mini-apps scale together, immediately and without reloading. The choice is stored in this browser
+for the same server address, synchronized with other open tabs, and needs no settings permission.
+In VS Code the setting `ragents.zoom` takes its place (see "Settings and behavior of the VS Code
+extension").
+
 The gear first opens "Models". "Global coordinator" changes its own selection
 from the next work step. The first global selection is stored independently and
 stays separate from the product defaults even after a restart. "New runs and agents" offers model and thinking level for every role of the
@@ -451,8 +461,9 @@ the window allows up to 800 pixels and ending at its right edge, in two columns 
 The scripts appear as the same cards as on the Start page with title and description; those you
 can start come first, the others follow greyed out with the reason when a script cannot
 join this run, because its `RUN.md` does not set `embeddable: true` or because it fixes a start
-option to a value the run does not have. A click starts it inside the run without a start value
-and closes the list;
+option to a value the run does not have. A click starts it inside the run without a start value;
+its card shows a spinner and "Starting ..." and the other cards are locked until the server
+accepts the start, then the list closes;
 the primary actor stays, a repeated start reuses the script, its main view becomes available as an app, and its output and summary appear in the chat as `@handle: ...`. If the start is refused,
 the list stays open and shows why. The same button works in the VS Code run panel; in a narrow
 run header it shows only its icon.
@@ -520,19 +531,28 @@ remembered per run. Questions and news stay in the chat, and unsent drafts stay 
 addressee when you switch actors.
 
 The chip at the left of the chat input names the addressee, the actor your messages go to.
-Clicking it opens the addressee list as a tree of who created whom, like the agent tree of a
-coding assistant: the coordinator at the top, below it the agents and TypeScript actors it
-started, below those their own subagents. Each entry shows the handle, a very short description
-of its job, and its state: "working", "waiting for input" (waiting for your answer),
-"idle", or "stopped". The description is the one given when the actor was
-created, otherwise the first line of its first assignment, otherwise its display name. Four or
-more similar siblings, such as 37 rule reviewers named `review-...`, collapse into one group row
-with their shared handle prefix, their number, and a count per state; click it to open or close
-it. A group that contains the current addressee opens by itself. With more than twelve actors a
-search field appears above the tree; it matches every word against handle, display name, and
-description and keeps the creators of each hit visible. Clicking an entry makes it the addressee
-and closes the list. All actors permitted by your access rights are available, including stopped
-actors. TypeScript actors require inspection rights.
+Clicking it opens "Addressee", a graph of who created whom drawn from top to bottom, like the
+agent view of a coding assistant: the coordinator at the top, one level below and connected by
+lines the agents and TypeScript actors it started, below those their own subagents. Each card
+shows the handle, the state ("working" with a spinner, "waiting for input" when the actor waits
+for your answer, "waiting", or "stopped"), a time, and the task. A working actor shows how long
+its current turn has been running and counts up every second; the others show "last turn" with
+the duration of their last finished turn, or no time if they never finished one. The task is the
+description given when the actor was created, otherwise the first line of its first assignment,
+otherwise its display name. A badge counts the inputs waiting for the actor, and lines into
+working actors are highlighted. Four or more similar siblings, such as 37 rule reviewers named
+`review-...`, appear as one stacked group card with their shared handle prefix, their number,
+and a count per state; click it to show the members in a frame below it, click again to hide
+them. A group that contains the current addressee opens by itself. More children than fit side
+by side wrap into further rows, a wide graph scrolls in both directions, and the graph opens
+scrolled to the current addressee, whose card is highlighted. Clicking an actor makes it the
+addressee and closes the graph; Tab moves through the cards and Escape closes. All actors
+permitted by your access rights are available, including stopped actors. TypeScript actors
+require inspection rights.
+
+"Agents" in the run header opens the same graph in a larger view as soon as the run has an actor
+besides you. Clicking an actor there also makes it the chat's addressee. In a narrow run header
+the button shows only its icon.
 
 
 The extension lives under `apps/vscode`. It works with all configured **servers at the same
@@ -625,7 +645,9 @@ new runs. Entries are grouped by server when needed. The first entry is its defa
 marked "Default", or "New chat" in the "No template"
 category. Remaining templates follow,
 without duplicating the default. Clicking an entry creates and starts the run on its server
-and opens the run panel.
+and opens the run panel. Until the run panel takes over, the entry shows "Starting ..." with a
+spinner, a server's plus that starts the same run shows the spinner too, and all other entries
+and pluses stay locked; a cancelled folder choice or a failed start unlocks them again.
 
 The new run uses your open folder as its workspace, asking you to choose when several are open.
 If the template defines its own workspace, such as one server folder per run, VS Code does not
@@ -724,9 +746,8 @@ After expiry or a server restart, that server asks for sign-in again without aff
 With sign-in, the owner of a run and users with `runs.read.all` can share it with other users of
 the same profile. Click "Share ..." at the end of its row on Start or Runs, or "Share" in the run
 header. A new empty run offers "Share" before its first message; the choice applies as soon as the
-run is created. The "Share run" dialog names the run and has an "Everyone" row with "Off", "Can
-view", or "Can operate", one row per user with "Can view" or "Can operate" and a remove button,
-and "Add user" for the other users of the profile; a newly added user starts with "Can view". A
+run is created. The "Share run" dialog names the run and shows a list: "Everyone" first, then
+every other user of the profile, each row with the switch "Off", "Can view", or "Can operate". A
 user gets the higher of "Everyone" and their own row. "Save" stays disabled until something changes
 and while saving; when the server refuses, the reason appears in the dialog, which keeps your
 changes. "Cancel" or Escape closes it without saving. The dialog is the same in the browser and in

@@ -25,7 +25,7 @@ import { readHelpResponse } from "./help-files.js";
 import { watchParentProcess } from "./parent-watch.js";
 import { hostRoot, readPackageVersion } from "./host-version.js";
 import { hostWebProblem, isCheckout } from "./host-web.js";
-import { createStylesheet, STYLESHEET_PATH } from "./web-stylesheet.js";
+import { createStylesheet, linkVersionedStylesheet, STYLESHEET_PATH, stylesheetResponse, type Stylesheet } from "./web-stylesheet.js";
 import { isBundleSourceMap, isPublicBundleFile, isWebBundlePath, webBundleFile } from "./web-bundles.js";
 
 const stdioMode = process.env.RAGENTS_STDIO === "1";
@@ -245,6 +245,15 @@ const jsonResponse = (res: ServerResponse, status: number, body: unknown): void 
   res.end(JSON.stringify(body));
 };
 
+// A bundle may be being rebuilt right now; that costs this request, not the server.
+const currentStylesheet = (): Promise<Stylesheet | Error> =>
+  stylesheet().catch((error: unknown) => error instanceof Error ? error : new Error(String(error)));
+
+const stylesheetFailed = (res: ServerResponse, error: Error): void => {
+  res.writeHead(500, { "Content-Type": "text/plain; charset=utf-8" });
+  res.end(error.message);
+};
+
 const isLoopbackRequest = (req: IncomingMessage): boolean => {
   const address = req.socket.remoteAddress;
   return address === "127.0.0.1" || address === "::1" || address === "::ffff:127.0.0.1";
@@ -293,22 +302,14 @@ async function handleRequest(req: IncomingMessage, res: ServerResponse): Promise
   }
 
   if (url.pathname === STYLESHEET_PATH) {
-    // A bundle may be being rebuilt right now; that costs this request, not the server.
-    const built = await stylesheet().catch((error: unknown) => error instanceof Error ? error : new Error(String(error)));
+    const built = await currentStylesheet();
     if (built instanceof Error) {
-      res.writeHead(500, { "Content-Type": "text/plain; charset=utf-8" });
-      res.end(built.message);
+      stylesheetFailed(res, built);
       return;
     }
-    const { css, etag } = built;
-    const caching = { "Cache-Control": "no-cache", ETag: etag };
-    if (req.headers["if-none-match"] === etag) {
-      res.writeHead(304, caching);
-      res.end();
-      return;
-    }
-    res.writeHead(200, { ...caching, "Content-Type": "text/css; charset=utf-8" });
-    res.end(req.method === "HEAD" ? undefined : css);
+    const response = stylesheetResponse(built, url.searchParams.get("v"), req.headers["if-none-match"]);
+    res.writeHead(response.status, response.headers);
+    res.end(req.method === "HEAD" ? undefined : response.body);
     return;
   }
 
@@ -324,15 +325,23 @@ async function handleRequest(req: IncomingMessage, res: ServerResponse): Promise
     ? [path.join(config.webDistDir, requested), path.join(config.webDistDir, "index.html")]
     : [path.join(config.webDistDir, "index.html")];
   for (const file of candidates) {
-    try {
-      const content = await readFile(file);
-      const type = contentTypes[path.extname(file)] ?? "application/octet-stream";
+    const content = await readFile(file).catch(() => undefined);
+    if (content === undefined) continue;
+    const type = contentTypes[path.extname(file)] ?? "application/octet-stream";
+    if (path.extname(file) !== ".html") {
       res.writeHead(200, { "Content-Type": type });
       res.end(content);
       return;
-    } catch {
-      continue;
     }
+    // Pages are revalidated on every load, so that they always link the current stylesheet.
+    const built = await currentStylesheet();
+    if (built instanceof Error) {
+      stylesheetFailed(res, built);
+      return;
+    }
+    res.writeHead(200, { "Cache-Control": "no-cache", "Content-Type": type });
+    res.end(linkVersionedStylesheet(content.toString("utf8"), built));
+    return;
   }
   res.writeHead(404, { "Content-Type": "text/plain; charset=utf-8" });
   res.end("Not found");

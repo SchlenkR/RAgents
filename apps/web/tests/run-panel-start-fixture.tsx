@@ -92,7 +92,8 @@ const fixture = {
       case "ragents.runs.startScript": {
         fixture.scriptStarts.push({ runId: params.runId!, entry: params.entry!, input: params.input });
         if (params.entry === "start.strict") throw new Error("The template fixes the start option demo.mode to strict, but this run has plain.");
-        return { actorId: "script-review", handle: "review", count: 1 };
+        const started = { actorId: "script-review", handle: "review", count: 1 };
+        return fixture.holdStart ? new Promise<typeof started>((resolve) => { heldStarts.set(params.entry!, () => resolve(started)); }) : started;
       }
       default: throw new Error(`Unexpected fixture RPC: ${contract.id}`);
     }

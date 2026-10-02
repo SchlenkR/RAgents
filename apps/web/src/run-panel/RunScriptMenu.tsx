@@ -16,7 +16,7 @@ type Scripts = { readonly kind: "loading" } | { readonly kind: "ready"; readonly
 export function RunScriptMenu({ runId }: { runId: string }) {
   const access = useAccess();
   const [open, setOpen] = useState(false);
-  const [pending, setPending] = useState(false);
+  const [starting, setStarting] = useState<string>();
   const [error, setError] = useState<string>();
   const [scripts, setScripts] = useState<Scripts>();
   const trigger = useRef<HTMLButtonElement>(null);
@@ -30,10 +30,10 @@ export function RunScriptMenu({ runId }: { runId: string }) {
       .catch((cause: unknown) => { setScripts({ kind: "ready", scripts: [] }); setError(messageOf(cause)); });
   };
   const startScript = (entry: string) => {
-    setPending(true);
+    setStarting(entry);
     setError(undefined);
     void rpc.call(coreContracts.runs.startScript, { runId, entry, input: null }).then(close)
-      .catch((cause: unknown) => setError(messageOf(cause))).finally(() => setPending(false));
+      .catch((cause: unknown) => setError(messageOf(cause))).finally(() => setStarting(undefined));
   };
   return <div className="ml-1 flex flex-none items-center gap-2">
     <Separator className="my-2.5" orientation="vertical" />
@@ -47,8 +47,8 @@ export function RunScriptMenu({ runId }: { runId: string }) {
         {scripts?.kind === "ready" && scripts.scripts.length === 0 && !error && <p className={noticeClass}>This profile has no run scripts for you.</p>}
         {scripts?.kind === "ready" && scripts.scripts.length > 0 && <ul aria-label="Run scripts" className="grid grid-cols-1 gap-2 @[480px]/scripts:grid-cols-2">
           {[...scripts.scripts.filter((script) => script.available), ...scripts.scripts.filter((script) => !script.available)].map((script) => <StartTile category="Run script"
-            description={(script.available ? script.description : script.reason) ?? ""} disabled={pending || !script.available} fill
-            icon={<CodeIcon aria-hidden className="size-3.5" />} key={script.id} onClick={() => startScript(script.id)} title={script.title} />)}
+            description={(script.available ? script.description : script.reason) ?? ""} disabled={starting !== undefined || !script.available} fill
+            icon={<CodeIcon aria-hidden className="size-3.5" />} key={script.id} onClick={() => startScript(script.id)} starting={starting === script.id} title={script.title} />)}
         </ul>}
         {error && <p className="px-1 type-body text-destructive" role="alert">{error}</p>}
       </PopoverContent>

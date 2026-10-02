@@ -2,6 +2,7 @@ import { ListIcon, SearchIcon } from "lucide-react";
 import { INSPECTION_TAB_ID, InspectionHeader, InspectionPanel } from "./InspectionPanel";
 import { useEffect, useState } from "react";
 import { OrchestrationRunPanel } from "./run-panel/RunPanel";
+import { AgentsHeader } from "./run-panel/AgentsHeader";
 import { DocumentsSection } from "./DocumentsSection";
 import { JournalPanel, JournalStatus } from "./JournalStatus";
 import { StopRunHeader } from "./StopRunButton";
@@ -44,6 +45,7 @@ export const webPlugin: WebPlugin = {
   needsRunView: true,
   sessionStatus: [{ id: "ragents.orchestration.journal", readRight: "runs.inspect", order: 20, Status: JournalStatus }],
   sessionHeaders: [
+    { id: "ragents.orchestration.agents", placement: "bar", order: 10, Header: AgentsHeader },
     { id: "ragents.orchestration.stop", readRight: "runs.write", order: 100, Header: StopRunHeader },
   ],
   surface: { RunPanel: OrchestrationRunPanel },

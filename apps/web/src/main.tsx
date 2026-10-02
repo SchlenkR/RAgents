@@ -13,6 +13,7 @@ import { parseRunPanelLocation } from "./run-panel/run-panel-location";
 import { RunPanelHostProvider, createRunPanelHost } from "./run-panel/host";
 import { PageOpenerProvider } from "./page-opener";
 import { initializeTheme } from "./theme";
+import { initializeZoom } from "./zoom";
 import { installHostModules } from "./host-modules";
 
 installHostModules();
@@ -32,6 +33,10 @@ try {
   if (location.theme !== undefined) theme.setPreference(location.theme);
   host.onCommand((message) => { if (message.type === "theme") theme.setPreference(message.theme); });
   import.meta.hot?.dispose(() => theme.dispose());
+  if (location.host === "browser") {
+    const zoom = initializeZoom(window);
+    import.meta.hot?.dispose(() => zoom.dispose());
+  }
   reactRoot.render(
     <StrictMode>
       <QuasselHost>

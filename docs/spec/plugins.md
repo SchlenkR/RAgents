@@ -1233,6 +1233,18 @@ and storage errors are shown explicitly. The appearance is a fixed host area
 and stays reachable independently of contribution filters and the loading of the plugin settings.
 Mini-app frames receive the resolved appearance through their existing bridge (see actor-programs.md).
 
+In the browser host, Settings, Appearance, Zoom scales the whole page in the steps 80, 90, 100, 110,
+120, 130, and 150 percent, default 100 (`apps/web/src/zoom.ts`). Like the appearance, the choice is
+stored in this browser per server address (`ragents.zoom`), synchronized with open tabs, and an
+invalid stored value or a storage error is shown explicitly; it needs no settings right, because it
+changes only the own display. The interface applies it before the first React render as CSS `zoom`
+on the root element, and mini-app frames scale along. `body` is `position: relative`, so it is the
+offset parent of the popups and Base UI measures the zoom there; menus, popovers, and selections stay at
+their anchor. Pointer events report zoomed client coordinates, the dock geometry is unzoomed: the dock
+divides pointer movements by the ratio of rendered to layout width of its container. The host
+`vscode` has no such setting, the shell's `ragents.zoom` applies there (`apps/web/tests/zoom.test.ts`,
+`apps/web/tests/zoom-browser.test.ts`).
+
 Menus, header hints, actor popouts, chat step details, journal, and global
 coordinator are `Popover`, `Tooltip`, and `Select` from the UI library; Base UI positions
 them at the anchor (also at a virtual position or below the header edge), limits them to
@@ -1281,7 +1293,9 @@ Instead, plugins fill typed slots for:
   run and navigation. The standard chat and the actor chat consume the same renderer.
 - run metadata (`sessionMetadata`): a component for the run details in the header; the run list
   takes its lines from the server-side `listDetail` instead
-- run header contributions (`sessionHeaders`): contributions appear in the shared run details.
+- run header contributions (`sessionHeaders`): contributions appear in the shared run details;
+  with `placement: "bar"` instead in the run's title bar between the window buttons and "Share"
+  (`RunPanelHeader`), where a contribution that has nothing to show renders `null`.
 - run providers and surface (`surface.RunPanel`): one component for browser and VS Code
   receives `SurfaceCenterContext`, including chat, catalog, navigation, and card contributions.
 
@@ -1623,8 +1637,15 @@ therefore needs `!` (such as `min-h-16!` in the global coordinator).
 The web receives a single stylesheet from the server (`/ragents.css`,
 `apps/server/src/web-stylesheet.ts`): `@tailwindcss/node` compiles `tailwind.css` for the
 candidates from the sources under `apps/web/src` and from `web/classes.json` of every web bundle of the
-profile, once at startup and minified, in dev mode anew per request. Separate stylesheets per
-plugin do not work, because Tailwind fixes the order of utility and variant, and a
+profile, once at startup and minified, in dev mode anew per request. The pages `index.html` and
+`run-panel.html` link it under its content hash as `/ragents.css?v=<hash>`: the server writes the
+hash into the link on every delivery of a page and delivers the pages with `Cache-Control: no-cache`.
+Every new compilation (start, changed class list, in dev mode every request) gives a new hash and
+with it a new address. The current address is answered with `Cache-Control: public, max-age=31536000,
+immutable`, the plain `/ragents.css` and an outdated version with the current stylesheet, ETag, and
+`no-cache`. So no cache in between keeps an old stylesheet next to new scripts, not even a CDN that
+extends `no-cache` to hours. In dev mode Vite delivers the pages with the plain address.
+Separate stylesheets per plugin do not work, because Tailwind fixes the order of utility and variant, and a
 stylesheet loaded later would put base utilities after the host's variants. A plugin's own
 CSS (`web/index.css`) is linked by the web after the stylesheet. Vite builds the pages of the
 VS Code extension without a server with `@tailwindcss/vite`; the mini-app compiler and the
@@ -1984,7 +2005,9 @@ through `ragents.chat.start` with the start value `null`, a skill through `ragen
 prepared task and the template as `entry`. The browser uses the same Start page with one
 server. Guided starts use the preparation dialog. New browser runs use the server workspace.
 While start options are loading or being saved, such as the preset from VS Code, and
-as long as a start is running, the tiles are locked.
+as long as a start is running, the tiles are locked. The tile of the running start (`StartTiles`
+prop `starting`, an `entryId` or none for New chat) keeps full opacity, carries `aria-busy`, and
+shows a `Spinner` with "Starting ..." instead of its start hint (`StartTile` prop `starting`).
 During the start dialog, the live stream and periodic query of the hidden run list pause.
 After closing, they resume with an immediate refresh.
 The draft subscribes only to the run stream to detect the start. Only the started run
@@ -2366,8 +2389,9 @@ thin divider: an outline button in the primary color whose pop-out lists the run
 ones first and unavailable ones after them disabled with their reason, each group in listed order.
 The pop-out is anchored to the shared header: it opens below it, ends 8 pixels before its right
 edge, and is `min(800px, header width - 16px)` wide, with two columns from a content width of 480
-pixels. A click starts the script through `ragents.runs.startScript` and closes the pop-out, a
-refusal stays visible in it. In a run header narrower than 20rem the button shows only its icon.
+pixels. A click starts the script through `ragents.runs.startScript`; until the answer its item
+is `starting` ("Starting ..." with a spinner) and every other item is locked, success closes the
+pop-out, a refusal stays visible in it. In a run header narrower than 20rem the button shows only its icon.
 With `canShare`, "Share" (`RunShareButton`) stands right before it, its icon in the primary color
 while the run is shared, and opens `ShareDialog` (`panel/ShareDialog.tsx`) against
 `ragents.runs.sharing` and `ragents.runs.share`, in the browser and in the VS Code iframe alike;
@@ -2381,7 +2405,7 @@ buttons of the chat inputs for a read share and keeps them for a run only its ow
 owner operates this run", otherwise "Read access to this run"). When the open run, seen as shared
 with the viewer, leaves the run list, the panel returns to Start with "This run is no longer available
 to you."; in the host `vscode` it sends `showStart` with this `notice`.
-The run panel's popouts (run details, run scripts, recipient) dim the rest
+The run panel's popouts (run details, run scripts, recipient, agents) dim the rest
 (`dim` on the popover building block), so that they stand out. At the far right of the shared
 header, `RunPanelActions` shows icon buttons for Settings (`settings.read`, the same dialog as in
 the web app), Help (`runs.inspect`), in the host `vscode` "Open in browser", and with a signed-in
@@ -2412,7 +2436,7 @@ The coordinator shows the main chat (`renderChat`), another actor its history wi
 card sections and its own composer. Visited chats stay mounted when switching recipients so that
 unsent drafts remain separate. The addressee selector is at the bottom of the input and defaults
 to `chatPrimaryId`; runs without a coordinator retain their existing primary actor handling.
-The popout lists all permitted actors as a "who created whom" tree, independently of surface visibility.
+The popout shows all permitted actors as a top-down "who created whom" graph, independently of surface visibility.
 `addresseeTree` (`web/run-panel/addressee-tree.ts`) builds the tree solely from
 `createdBy` of the run view: an actor hangs under its nearest creator that is itself in the tree;
 a human or a creator missing from the view makes it a root, and the
@@ -2421,14 +2445,30 @@ are missing, an agent created by a program hangs under that program's creator. S
 creation order; from four of the same kind (the same kind and the same handle stem, the first word
 of the handle without a counter suffix, such as `review-*`) the tree combines them into a group with the shared
 prefix, count, and state count. A group is collapsed unless it contains the chosen
-actor or a search is running; a click reverses that. Per entry there are the handle, a differing
-display name, the short description (the actor's `description`, otherwise the first line of its first
-own input, shortened to 90 characters, otherwise a differing display name), and the state:
-`working`, `waiting for input` (an open action of the actor), `waiting`, or `stopped`. The
-search appears only with more than twelve actors, finds every word in handle, display name, and
-short description, shows matches together with their creators, and clears on closing. A click
-chooses the recipient. Next to it the bar names the first working other actor with a spinner
-and waiting inputs. The chosen actor is stored per run in browser storage
+actor; a click reverses that until the graph closes. `actorGraphLayout` (`web/run-panel/actor-graph.ts`)
+lays the tree out deterministically, without a layout library: cards of fixed size, every creator
+centered above the first row of its children, at most as many children per row as cards fit into
+the canvas width (`graphColumns`); further rows hang on a line in a gutter left of them, so no
+edge crosses a card. Edges run orthogonally with rounded corners from the bottom of the creator
+to the top of the child as `SvgEdge` from the UI library; an edge into a working actor (or a group
+with a working member) is `accent` and `active`, one into an actor waiting for input `warning`.
+An open group stands above a frame holding its members in rows, with a single edge into the frame.
+The graph is a list of buttons in creator-before-child order, so Tab follows the tree; it measures
+its width with a `ResizeObserver`, on opening scrolls once to the chosen actor, and after a click on a
+group scrolls so that the group card stays where it was clicked. `ActorGraph`
+(`ActorGraph.tsx`) is the only renderer, used by the recipient popout and by the header view. Per
+card there are the handle, the state (`working` with a spinner, `waiting for input` for an open
+action of the actor, `waiting`, or `stopped`), a time, the short description (the actor's
+`description`, otherwise the first line of its first own input, shortened to 90 characters,
+otherwise a differing display name), and the number of pending inputs. The time of a running
+actor counts every second from `startedAt` of its running lifecycle, that is, the start of its
+current turn; otherwise it is "last turn" with `finishedAt - startedAt` of its last finished turn
+in `RunView.turns`, and without one there is none (`actorTimings`). A click chooses the recipient.
+Next to it the bar names the first working other actor with a spinner and waiting inputs. The
+header contribution `ragents.orchestration.agents` (`placement: "bar"`, `AgentsHeader.tsx`) shows
+"Agents" while the run lists at least one actor besides humans and opens the same graph in a larger
+popout aligned to its right edge; a click there stores the chosen actor the same way, and the run
+panel takes it over through the stored state. The chosen actor is stored per run in browser storage
 (`ragents.orchestration.run-navigation:<runId>`); browser app selection belongs to the docking
 state. These domains have separate storage keys; layout preferences are not migrated. Invalid
 navigation values are a hard error.
@@ -2462,7 +2502,8 @@ The VS Code shell scales its whole interface with `ragents.zoom` (50 to 200 perc
 default 100), independently of the window zoom and the font size settings of VS Code.
 The scaling applies once at the outermost shell, also for nested mini-apps. Start,
 Runs, Servers, run panel, and mini-app editor tabs take over changes through a host message
-without reloading and keep their state. Normal browser pages stay unchanged. A value
+without reloading and keep their state. Normal browser pages stay unchanged; they have their own zoom
+under Settings, Appearance. A value
 outside the limits is an error: every view shows the message instead of its content and rebuilds
 itself as soon as the setting is valid again. The shell sets `zoom: var(--ragents-zoom)` on its
 `body` and no font size; text roles and spacing are `rem` against the webview's unchanged 16-pixel
@@ -2640,7 +2681,12 @@ in the host `vscode` sets the start options the template does not fix
 (`withoutFixedStartOptions`), calls `ragents.chat.start` with the start value `null` for a run script
 and `ragents.chat.send` with the skill's prepared task and the
 template as `entry` for a skill, and then opens itself on the
-running run (`startLaunch` in `run-panel/RunPanelApp.tsx`). If the template names a guide
+running run (`startLaunch` in `run-panel/RunPanelApp.tsx`). From the click on, Start marks the
+template, and a server's plus with the same `newRun`, as `starting` and locks all other entries
+and pluses; the page keeps this marker only while the `PanelState` it was sent from is current.
+The extension renders the page again after every `newRun`, so a cancelled folder choice or a
+failed start ends the marker, while a started run replaces the page with the run panel; the
+contract stays unchanged. If the template names a guide
 (`registry.guideFor`), the run panel does not start it itself but takes the web app's path:
 the start selection with this template (`initialEntryId`), in it `openStartEntry` with the guide,
 whose result is the start value; after the start the run panel opens on the new run, and
@@ -3973,6 +4019,9 @@ right) returns the archive; a different version is 404. The counterpart is `rage
   Libraries bundled by several plugins exist several times in the browser. If someone rebuilds a bundle
   while a server is running from it, the server delivers the new web half and new assets with its
   old server code until it restarts; the host keeps no version per running server.
+- The browser zoom is CSS `zoom` on the root element, not the browser's page zoom: media queries keep
+  the window width, so breakpoints such as `max-md` switch by window width, container queries by the
+  zoomed width.
 - The build tool does not see pure type imports, because they disappear in the bundle: a third-party
   plugin can name types from a module outside the host API, such as from the agent runtime,
   and still builds. For the built-in plugins, `apps/server/tests/host-api.test.ts` also checks
@@ -3991,7 +4040,10 @@ right) returns the archive; a different version is 404. The counterpart is `rage
   `ragents.runs` channel, at most once per second.
 
 
-- The recipient tree groups siblings of the same kind only by kind and first handle word;
+- The running time of a turn compares the server's `startedAt` with the browser's clock; an offset
+  between the two shifts it. Rows wrap by the number of cards, not by width: children with wide
+  subtrees or an open group make a row wider than the popout, and the canvas then scrolls sideways.
+- The recipient graph groups siblings of the same kind only by kind and first handle word;
   actors with a similar task but a different handle start stay individual, and coincidentally
   equal starts fall into a group from four actors on. The creator sets the short description;
   without it the first task is shown there, which without `runs.inspect` only the owner's inputs carry.

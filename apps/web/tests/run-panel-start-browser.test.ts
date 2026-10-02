@@ -230,6 +230,46 @@ test("a template with a guide asks first in VS Code, like in the web app, and st
   assert.ok(notifications.some((message) => message.type === "runChanged" && message.runId === guided!.runId), "The extension learns the new run.");
 }));
 
+test("after its guide a template shows in the start selection that it is starting until the run opens", browserOnly, () => withPanel(async (page) => {
+  await page.evaluate(() => {
+    window.runStartFixture.holdStart = true;
+    window.runStartFixture.command({ type: "newRun", entryId: "start.guided" });
+  });
+  await page.getByRole("button", { name: "Apply topic" }).click();
+  await page.waitForFunction(() => window.runStartFixture.starts.length === 1);
+  const templates = page.getByRole("list", { name: "Templates", exact: true });
+  const tile = templates.locator('button[data-tile="Round with a guide"]');
+  await tile.waitFor();
+  assert.equal(await tile.getAttribute("aria-busy"), "true", "The answered template shows that it is starting.");
+  assert.match(await tile.textContent() ?? "", /Starting \.\.\.$/);
+  assert.equal(await templates.getByRole("button", { disabled: false }).count(), 0, "No other template starts meanwhile.");
+  const [guided] = await starts(page);
+  await page.evaluate((runId) => window.runStartFixture.releaseStart(runId), guided!.runId);
+  await page.waitForFunction((runId) => window.runStartFixture.activeRun() === runId, guided!.runId);
+}));
+
+test("in the browser a template on Start shows the start progress at once", browserOnly, async () => {
+  const url = await (fixtureUrl ??= buildFixture());
+  const browser = await launchBrowser();
+  try {
+    const page = await browser.newPage({ viewport: { width: 1024, height: 820 }, reducedMotion: "reduce" });
+    page.setDefaultTimeout(8000);
+    const errors: string[] = [];
+    page.on("pageerror", (error) => errors.push(error.message));
+    await page.goto(`${url}?host=browser`);
+    await page.evaluate(() => { window.runStartFixture.holdStart = true; });
+    await page.getByRole("list", { name: "Templates", exact: true }).locator('button[data-tile="Setup template"]').click();
+    await page.waitForFunction(() => window.runStartFixture.starts.length === 1);
+    const notice = page.locator("[data-startup]");
+    assert.equal(await notice.locator("strong").textContent(), "Starting run");
+    assert.equal(await notice.locator("p").textContent(), "Starting the template.");
+    assert.equal(await notice.locator("[role=progressbar]").count(), 1, "The start shows progress while the server accepts it.");
+    await page.evaluate(() => window.runStartFixture.releaseStart());
+    await page.waitForFunction(() => window.runStartFixture.activeRun() !== undefined);
+    assert.deepEqual(errors, []);
+  } finally { await browser.close(); }
+});
+
 test("a second template chosen while the first still starts is started and shown, the first one no longer counts", browserOnly, () => withPanel(async (page) => {
   await page.evaluate(() => {
     window.runStartFixture.holdStart = true;
@@ -283,9 +323,14 @@ test("the run script button lists the run scripts of the open run as start items
   assert.ok(first && second && Math.abs(first.y - second.y) < 1 && second.x > first.x, "A pop-out wider than 480 pixels shows two columns.");
   assert.equal(await script("Setup template").isDisabled(), true, "A script that only starts a new run cannot be chosen.");
   assert.match(await script("Setup template").textContent() ?? "", /embeddable: true/);
+  await page.evaluate(() => { window.runStartFixture.holdStart = true; });
   await script("Review").click();
   await page.waitForFunction(() => window.runStartFixture.scriptStarts.length === 1);
   assert.deepEqual(await page.evaluate(() => window.runStartFixture.scriptStarts), [{ runId: "existing", entry: "start.review", input: null }]);
+  assert.equal(await script("Review").getAttribute("aria-busy"), "true", "The clicked script shows that it is starting.");
+  assert.match(await script("Review").textContent() ?? "", /Starting \.\.\.$/);
+  assert.equal(await script("Strict review").isDisabled(), true, "No second script starts meanwhile.");
+  await page.evaluate(() => { window.runStartFixture.holdStart = false; window.runStartFixture.releaseStart("start.review"); });
   await list.waitFor({ state: "detached" });
 
   await button.click();

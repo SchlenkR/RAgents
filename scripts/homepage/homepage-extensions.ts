@@ -503,11 +503,15 @@ const headers = {
         {open ? "Close contribution" : "Open contribution"}
       </button> },
   ],
-  sessionHeaders: [{ id: "ragents.example.run-header", order: 100,
-    Header: ({ session }) => <span>{session.running ? "Working" : "Ready"}</span> }],
+  sessionHeaders: [
+    { id: "ragents.example.run-header", order: 100,
+      Header: ({ session }) => <span>{session.running ? "Working" : "Ready"}</span> },
+    { id: "ragents.example.run-bar", order: 110, placement: "bar",
+      Header: ({ session }) => session.connected ? <button>Overview</button> : null },
+  ],
   sessionStatus: [{ id: "ragents.example.run-status", order: 100,
     Status: ({ session }) => <span>{session.connected ? "Connected" : "Disconnected"}</span> }],
-} satisfies WebPlugin;`, ["web.overviewPanels", "web.sessionHeaders", "web.sessionStatus"], ["The context provides registry, open, onOpen, onClose, and onBusy. Without placement, the contribution appears in the overview and is mounted when first opened. Toolbar contributions are mounted from application startup; they activate their own connections only when used. The host coordinates open toolbar contributions. sessionHeaders appear in the run details popover. Run header and lower status groups receive SessionContext and navigation and follow the active run."], "tsx"),
+} satisfies WebPlugin;`, ["web.overviewPanels", "web.sessionHeaders", "web.sessionStatus"], ["The context provides registry, open, onOpen, onClose, and onBusy. Without placement, the contribution appears in the overview and is mounted when first opened. Toolbar contributions are mounted from application startup; they activate their own connections only when used. The host coordinates open toolbar contributions. sessionHeaders appear in the run details popover, with the placement bar in the run's title bar next to Share; a bar contribution without content returns null. Run header and lower status groups receive SessionContext and navigation and follow the active run."], "tsx"),
   entry("web-settings", "Web contributions", "Editable plugin settings", "A plugin can offer its own interface for editing its settings. With category, it appears under Models or Appearance, and additionally on the plugin's settings page. The application assigns it to the active plugin.", "Properties of a WebPlugin; ExampleSettings is the plugin's own React component.", `
 import { useState } from "react";
 function ExampleSettings() {

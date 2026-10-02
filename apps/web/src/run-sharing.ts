@@ -30,13 +30,13 @@ export const withoutUser = (sharing: RunSharing, userId: string): RunSharing => 
   users: sharing.users.filter((user) => user.userId !== userId),
 });
 
-/** The users the picker still offers: the profile's users the run can be shared with, without those already named. */
-export const addableUsers = (result: RunSharingResult, sharing: RunSharing): RunSharingResult["users"] =>
-  result.users.filter((user) => !sharing.users.some((entry) => entry.userId === user.id));
-
-/** The server's display name of a shared user, for a newly added one that of the candidate, otherwise the id. */
-export const sharedUserLabel = (result: RunSharingResult, userId: string): string =>
-  result.sharing.users.find((user) => user.userId === userId)?.label ?? result.users.find((user) => user.id === userId)?.label ?? userId;
+/** The rows of the dialog's user list: every user the run can be shared with, then shared users the profile no longer offers. */
+export const listedUsers = (result: RunSharingResult): RunSharingResult["users"] => [
+  ...result.users,
+  ...result.sharing.users
+    .filter((shared) => !result.users.some((user) => user.id === shared.userId))
+    .map((shared) => ({ id: shared.userId, label: shared.label })),
+];
 
 export const sharingChanged = (result: RunSharingResult, sharing: RunSharing): boolean => !sameSharing(sharingOf(result), sharing);
 

@@ -40,3 +40,17 @@ test("while a start is running, all tiles are locked", () => {
   assert.equal(buttons.length, 4);
   assert.ok(buttons.every((button) => button.includes('disabled=""')));
 });
+
+test("the tile whose start is under way says Starting with a spinner, all tiles stay locked", () => {
+  const html = render({ starting: { entryId: "word" } });
+  const buttons = html.match(/<button\b[^>]*>/g) ?? [];
+  assert.equal(buttons.length, 4);
+  assert.ok(buttons.every((button) => button.includes('disabled=""')), "no second start while one is running");
+  assert.deepEqual(buttons.filter((button) => button.includes('aria-busy="true"')).map((button) => button.match(/data-tile="([^"]+)"/)?.[1]), ["word"]);
+  assert.equal((html.match(/Starting \.\.\./g) ?? []).length, 1);
+  assert.equal((html.match(/data-slot="spinner"/g) ?? []).length, 1);
+  assert.equal((html.match(/>Start</g) ?? []).length, 2, "the other tiles keep their start hint");
+  const chat = render({ starting: {} });
+  assert.match(chat, /<button aria-busy="true"[^>]*data-tile="New chat"/, "a start without template is the New chat tile");
+  assert.equal((chat.match(/Starting \.\.\./g) ?? []).length, 1);
+});

@@ -9,7 +9,9 @@
         height: 100%;
     }
 
+    /* As offset parent of the popups, body lets Base UI measure a CSS zoom on the page. */
     body {
+        position: relative;
         overflow: hidden;
         scrollbar-width: none;
     }

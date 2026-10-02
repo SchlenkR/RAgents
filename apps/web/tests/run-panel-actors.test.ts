@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { runPanelActors, pendingInputCount } from "../../../plugins/ragents.orchestration/web/run-panel/run-panel-actors.ts";
+import { runPanelActors, pendingInputCount, selectedRunPanelActor } from "../../../plugins/ragents.orchestration/web/run-panel/run-panel-actors.ts";
 import { DEFAULT_RUN_PANEL_STATE, parseRunPanelState } from "../../../plugins/ragents.orchestration/web/run-panel/run-panel-state.ts";
 import type { RunActor, RunView } from "../src/run-view.ts";
 
@@ -25,6 +25,15 @@ test("the chip row puts the coordinator first and hides scripts without the insp
 
 test("pending inputs stay available to the addressee control", () => {
   assert.equal(pendingInputCount(view, "mira"), 1);
+});
+
+test("the addressee is the stored actor while it is listed, otherwise the coordinator, otherwise the first actor", () => {
+  const actors = runPanelActors(view, false);
+  assert.equal(selectedRunPanelActor(view, actors, "mira")?.id, "mira");
+  assert.equal(selectedRunPanelActor(view, actors, "circle")?.id, "coordinator", "a TypeScript actor hidden without the inspect right falls back");
+  assert.equal(selectedRunPanelActor(view, actors, null)?.id, "coordinator");
+  assert.equal(selectedRunPanelActor({ ...view, primaryActorId: null }, actors.slice(1), null)?.id, "mira");
+  assert.equal(selectedRunPanelActor(view, [], "mira"), undefined);
 });
 
 test("the run panel stores only app navigation and addressee", () => {

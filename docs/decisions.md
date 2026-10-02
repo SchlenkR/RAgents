@@ -1,5 +1,110 @@
 # Decisions
 
+## 2026-10-02: The agents of a run as a top-down graph, in the addressee pop-out and in the run header
+
+Chapters: `spec/plugins.md` (Web as plugin host, Run panel, Open limits), `spec/core.md` (Ownership);
+usage: `usage.md` (Run chat and inspection, Run panel and VS Code extension).
+
+**Why.** The addressee pop-out was an indented list: in a run with a coordinator, an implementer,
+and 37 rule reviewers you could read who belongs to whom, but not what is going on, and it showed
+neither how long an agent has been working nor where the working ones sit. The owner asked for a
+top-down graph like the agent view of a coding assistant, without the search, and for a button in
+the run header that opens the same view.
+
+**Decision.** `ActorGraph` (`plugins/ragents.orchestration/web/run-panel/ActorGraph.tsx`) replaces
+`AddresseeTree` and is the only renderer for the pop-out and for "Agents" in the header. The model
+stays `addresseeTree`; `actorGraphLayout` (`actor-graph.ts`) places it as a deterministic tidy tree
+with fixed card sizes and HTML cards over `SvgEdge` lines, without a layout library: the mini-app
+renderer `FlowDiagram` (@xyflow/react with elkjs) is not in the host API and would add a large
+library and an asynchronous layout to a pop-out that changes with every run event. Rows hold at
+most as many children as fit the canvas width; further rows hang on a gutter line so no edge
+crosses a card, and an open group frames its members with one edge into the frame instead of 37.
+A card shows handle, state, task, waiting inputs, and a time: the running turn counts from
+`startedAt` of the actor's lifecycle, otherwise the last finished turn from `RunView.turns`, both
+already in the view. The search and `addresseeMatches` are gone: the graph shows every actor, groups
+keep it short, and the addressee opens scrolled into view. The header button is a regular
+`sessionHeaders` contribution with the new optional `placement: "bar"`, rendered by
+`RunPanelHeader` next to "Share" instead of in the run details, so the host names no plugin;
+`SvgEdge` is new in the web host API without a new `HOST_API_VERSION`, because nothing is removed.
+The header view stores the addressee through the same run panel state as the chip; the run panel
+now keeps every chosen actor's chat mounted, whichever way it was chosen.
+
+Rejected: wrapping rows by width, because a big open group would then push its siblings into rows
+far below; individual edges into every group member, because 37 lines with a bus per row read as a
+grid; a separate header slot type, because `sessionHeaders` with a placement follows
+`overviewPanels` and `startOptions`. Verified with `apps/web/tests/actor-graph.test.ts` (levels,
+wrapping and gutter, group frame, columns, paths, durations, timings, group state),
+`apps/web/tests/actor-graph-browser.test.ts` (pop-out and header view with 42 actors: hierarchy,
+edges, ticking time, group open and closed, selection, scrolling into view, Escape),
+`apps/web/tests/restricted-interface.test.ts` (bar placement), and
+`apps/web/tests/run-panel-actors.test.ts` (shared addressee choice).
+
+## 2026-10-02: A clicked template or run script shows that it is starting
+
+Chapters: `spec/plugins.md` (Web as plugin host); usage: `usage.md` (Create your first run, Run
+panel and VS Code extension).
+
+**Why.** A click on a template in the start selection, on Start in VS Code, or on a run script in
+the run header only dimmed all tiles until the run or the script appeared, so it was unclear
+whether anything was happening. The browser's Start page already switched to "Starting run" at
+once; the start selection after a guide or a Help sample, the run script list, and Start in VS
+Code until the run panel took over did not.
+
+**Decision.** `StartTile` gets `starting`: the tile stays at full opacity with `aria-busy`, and a
+`Spinner` with "Starting ..." replaces "Start" or "Set up"; `StartTiles` takes the running start as
+`starting` (an `entryId`, none for New chat) and locks every tile meanwhile. `StartSelection` and
+`RunScriptMenu` keep the started entry instead of a flag. Start in VS Code keeps the sent `newRun`
+together with the `PanelState` it was sent from and shows it as starting only while that state is
+current, so the next state ends it without a protocol change; the extension therefore renders the
+page after every `newRun`, also after a cancelled folder choice or a failed start.
+
+## 2026-10-02: Zoom setting in the browser
+
+Chapters: `spec/plugins.md` (Web as plugin host, Open limits); usage: `usage.md` (Settings).
+
+**Why.** VS Code scales the interface with `ragents.zoom`, the browser had only its own page zoom.
+Settings, Appearance, Zoom now offers 80 to 150 percent per browser and server address, stored like
+the appearance under `ragents.zoom` and only in the host `browser`.
+
+- CSS `zoom` on the root element instead of a second iframe shell as in VS Code: the browser page
+  has no shell, and CSS `zoom` scales text, controls, spacing, and mini-app frames together.
+- With CSS `zoom`, client coordinates and element rectangles are already zoomed, and a pixel
+  position a script writes from them is zoomed once more. Base UI (Floating UI) corrects this only
+  when the offset parent of a popup is an element whose rendered and layout widths differ; `body`
+  is therefore `position: relative`.
+  Without it, popovers and menus landed far off their anchor at 130 percent, in Chrome and WebKit.
+- The dock computed hit tests and divider ratios from client coordinates against its unzoomed
+  geometry, so areas resized faster than the pointer and drops missed their guide. It now divides
+  pointer movements by its container's ratio of rendered to layout width, which needs no newer
+  browser interface such as `currentCSSZoom`.
+- No settings right: the zoom changes only the own display, like the browser's page zoom that no
+  right can prevent either.
+
+## 2026-10-02: Pages link the stylesheet under its content hash
+
+Chapters: `spec/plugins.md` (Web as plugin host).
+
+**Why.** The server delivered `/ragents.css` with `Cache-Control: no-cache` and ETag, but behind a
+CDN it arrived with `max-age=14400`. After a release Safari kept the old stylesheet for hours while
+the scripts with hashed names were new, and the layout broke because new classes were missing.
+
+**Decision.** The server writes the content hash of the compiled stylesheet into the link of
+`index.html` and `run-panel.html` on every delivery (`/ragents.css?v=<hash>`) and delivers the pages
+with `Cache-Control: no-cache`. Every compilation gives a new hash. Only the current versioned
+address is answered with `public, max-age=31536000, immutable`; the plain address keeps working
+with `no-cache` for callers that name it, and an outdated version gets the current stylesheet with
+`no-cache`, so a page open during a recompile does not lose its styles. The VS Code shell and the
+mini-app frames need nothing of their own: the shell loads `run-panel.html` from the server, and
+the frames inline their styles.
+
+## 2026-10-02: The share dialog is a list of users instead of dropdowns
+
+Chapters: usage: `usage.md` (Share runs).
+
+**Why.** The dialog hid the profile's users behind an "Add user" dropdown and chose each access
+in a dropdown, so whom a run is shared with was not visible at a glance. Now every user is a row
+with the switch "Off", "Can view", or "Can operate"; "Off" replaces the remove button.
+
 ## 2026-10-02: Stop in the chat pauses the whole run until a human continues it
 
 Chapters: `spec/core.md` (Interrupting a turn, stopping an actor, stopping a run; Pausing a run;

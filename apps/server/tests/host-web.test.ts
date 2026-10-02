@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import test from "node:test";
@@ -7,7 +7,7 @@ import { fileURLToPath } from "node:url";
 import { HOST_WEB_RECORD, hostWebProblem, hostWebRecordOf } from "../src/host-web.ts";
 import { resolvePluginEntries } from "../src/profile/plugin-discovery.ts";
 import { isBundleSourceMap, isPublicBundleFile, isWebBundlePath, webBundleFile } from "../src/web-bundles.ts";
-import { compileStylesheet, createStylesheet, hostWebClasses } from "../src/web-stylesheet.ts";
+import { compileStylesheet, createStylesheet, hostWebClasses, linkVersionedStylesheet, stylesheetResponse } from "../src/web-stylesheet.ts";
 import { writeBundle } from "./bundle-fixture.ts";
 
 const root = fileURLToPath(new URL("../../../", import.meta.url));
@@ -111,4 +111,38 @@ test("one stylesheet from the candidates of the host and the bundles, in Tailwin
   const broken = webBundle(path.join(bundles, "acme.broken"), { classes: [] });
   await assert.rejects(createStylesheet({ root, bundles: resolvePluginEntries([broken]), dev: false }),
     /The class list .*classes\.json of the bundle acme\.broken is not a list of strings; rebuild with ragents plugin build <source-folder>/);
+});
+
+test("pages link the stylesheet under its content version, and only the current version may be cached for good", async () => {
+  const bundles = scratch();
+  const folder = webBundle(path.join(bundles, "acme.probe"), ["bg-[#123456]"]);
+  const stylesheet = await createStylesheet({ root, bundles: resolvePluginEntries([folder]), dev: false });
+  const first = await stylesheet();
+  assert.match(first.version, /^[A-Za-z0-9_-]{22}$/, "the version is safe in an address");
+  const page = readFileSync(path.join(root, "apps/web/index.html"), "utf8");
+  const linked = linkVersionedStylesheet(page, first);
+  assert.ok(linked.includes(`href="/ragents.css?v=${first.version}"`), "the entry page links the versioned stylesheet");
+  assert.ok(!linked.includes('href="/ragents.css"'));
+
+  writeFileSync(path.join(folder, "web/classes.json"), JSON.stringify(["bg-[#654321]"]));
+  const second = await stylesheet();
+  assert.notEqual(second.version, first.version, "a recompiled stylesheet gets a new version");
+  assert.ok(linkVersionedStylesheet(page, second).includes(`href="/ragents.css?v=${second.version}"`));
+
+  const current = stylesheetResponse(second, second.version, undefined);
+  assert.equal(current.status, 200);
+  assert.equal(current.headers["Cache-Control"], "public, max-age=31536000, immutable");
+  assert.equal(current.headers["Content-Type"], "text/css; charset=utf-8");
+  assert.equal(current.headers.ETag, second.etag);
+  assert.equal(current.body, second.css);
+  const plain = stylesheetResponse(second, null, undefined);
+  assert.equal(plain.headers["Cache-Control"], "no-cache", "the unversioned address keeps working and is revalidated");
+  assert.equal(plain.body, second.css);
+  const outdated = stylesheetResponse(second, first.version, undefined);
+  assert.equal(outdated.headers["Cache-Control"], "no-cache", "an outdated version gets the current stylesheet without long caching");
+  assert.equal(outdated.body, second.css);
+  const unchanged = stylesheetResponse(second, second.version, second.etag);
+  assert.equal(unchanged.status, 304);
+  assert.equal(unchanged.body, undefined);
+  assert.equal(unchanged.headers["Cache-Control"], "public, max-age=31536000, immutable");
 });

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { createRoot } from "react-dom/client";
 import { createAccessContext } from "../../../packages/ragents/src/access";
 import { WORKSPACE_BINDING_OPTION_ID } from "../../../plugins/ragents.workspace/contract";
@@ -19,6 +19,7 @@ import "../src/ui/tailwind.css";
 type Subscription = { id: string; runId?: string; message: (event: unknown) => void };
 const subscriptions = new Set<Subscription>();
 const commands = new Set<(message: HostRunPanelMessage) => void>();
+const panelRenewals = new Set<() => void>();
 const query = new URLSearchParams(location.search);
 
 function TopicGuide({ onCancel, onComplete }: EntryGuideContext) {
@@ -84,6 +85,8 @@ const fixture = {
   calls: [] as Array<{ id: string; params: Record<string, unknown> }>,
   views: new Set<string>(),
   command(message: HostRunPanelMessage) { commands.forEach((listener) => listener(message)); },
+  /** The extension's next state message: the same content as a new object. */
+  renewPanel() { panelRenewals.forEach((renew) => renew()); },
   async call(contract: { id: string }, params: Record<string, unknown>) {
     fixture.calls.push({ id: contract.id, params });
     const runId = typeof params.runId === "string" ? params.runId : "";
@@ -135,6 +138,11 @@ const access = createAccessContext({ enabled: true, user: { id: "tester", label:
 const view = query.get("view") ?? "web";
 function PanelFixture() {
   const [state, setState] = useState<PanelState>({ theme: "dark", page: "start", profileSuggestions: [], connections: [connection] });
+  useEffect(() => {
+    const renew = () => setState((current) => ({ ...current }));
+    panelRenewals.add(renew);
+    return () => { panelRenewals.delete(renew); };
+  }, []);
   return <PanelPage state={state} send={(action) => {
     if (action.action === "page") setState((current) => ({ ...current, page: action.page }));
     if (action.action === "newRun") fixture.calls.push({ id: "panel.newRun", params: { ...action } });

@@ -269,8 +269,11 @@ continues in the preparation chat. There you can discuss the task, give a clear 
 anything. In the browser a new run always works on the server; only VS Code and `ragents run`
 bind a run to a workstation.
 
-While a template starts, the panel shows its progress in the chat area and reserves the
-bottom status bar, keeping the notice in place when the run connects.
+A click shows its effect at once: either the run's progress appears, or the chosen entry shows
+a spinner and "Starting ..." while the other entries stay locked until the run opens or the start
+fails; a run script in the run header's "Run script" list does the same. While a template starts,
+the panel shows its progress in the chat area and reserves the bottom status bar, keeping the
+notice in place when the run connects.
 
 Inside the run, the coordinator processes the task. Additional agents and mini-apps appear on
 the surface when the workflow creates them. The global coordinator in the header has its own

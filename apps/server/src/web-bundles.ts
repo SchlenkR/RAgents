@@ -42,8 +42,11 @@ export interface WebFileResponse {
   readonly body?: Buffer;
 }
 
+/** A short, URL-safe hash of the content. */
+export const contentHash = (content: Buffer | string): string => createHash("sha256").update(content).digest("base64url").slice(0, 22);
+
 /** A content hash as ETag; the browser revalidates every file, because entry and exports keep their names across builds. */
-export const etagOf = (content: Buffer | string): string => `"${createHash("sha256").update(content).digest("base64url").slice(0, 22)}"`;
+export const etagOf = (content: Buffer | string): string => `"${contentHash(content)}"`;
 
 const notFound: WebFileResponse = { status: 404, headers: { "Content-Type": "text/plain; charset=utf-8" }, body: Buffer.from("Not found") };
 

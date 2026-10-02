@@ -122,8 +122,12 @@ test("Start shows the servers as split chips with a route line, the recent runs 
     // One click is one click: the template creates the run, the plus the empty chat, the line opens the run.
     await page.locator('ul[aria-label="Templates on core"] button[data-tile="Discussion circle"]').click();
     assert.deepEqual(await sent(page),{action:'newRun',name:'core',entryId:'ragents.reference.circle'});
+    assert.equal(await page.locator('ul[aria-label="Templates on core"] button[data-tile="Discussion circle"]').getAttribute('aria-busy'),'true','the template shows that it is starting');
+    assert.equal(await page.getByRole('button',{name:'New chat on workshop'}).isDisabled(),true,'every other start waits for the next state');
+    await page.evaluate(()=>(window as any).fixture.setState((current:any)=>({...current})));
     await page.getByRole('button',{name:'New chat on workshop'}).click();
     assert.deepEqual(await sent(page),{action:'newRun',name:'workshop'});
+    await page.evaluate(()=>(window as any).fixture.setState((current:any)=>({...current})));
     await page.locator('button[title="Balcony plan south side (workshop)"]').click();
     assert.deepEqual(await sent(page),{action:'openRun',name:'workshop',runId:'run-b'});
 
@@ -150,6 +154,8 @@ test("Start shows the servers as split chips with a route line, the recent runs 
     assert.equal(await standardTile.getByText('Default').count(),1);
     await standardTile.click();
     assert.deepEqual(await sent(page),{action:'newRun',name:'workshop',entryId:'ragents.reference.circle'});
+    assert.equal(await page.getByRole('button',{name:'New run from Discussion circle on workshop'}).getAttribute('aria-busy'),'true','the plus with the same start shows it too');
+    await page.evaluate(()=>(window as any).fixture.setState((current:any)=>({...current})));
     await page.getByRole('button',{name:'New run from Discussion circle on workshop'}).click();
     assert.deepEqual(await sent(page),{action:'newRun',name:'workshop',entryId:'ragents.reference.circle'});
     await shoot(page,`${shots}start-default-420.png`);
@@ -348,13 +354,12 @@ test("Runs offers Share ... per shareable row, the dialog edits and sends the sh
     await save.waitFor();
     assert.equal(await save.isDisabled(),true,'nothing changed yet');
     assert.match(await dialog.innerText(),/Own review/,'the dialog names the run');
-    await dialog.getByRole('combobox',{name:'Everyone'}).click();
-    await page.getByRole('option',{name:'Can view'}).click();
-    await dialog.getByRole('combobox',{name:'Access for Bob'}).click();
-    await page.getByRole('option',{name:'Can operate'}).click();
-    await dialog.getByRole('combobox',{name:'Add user'}).click();
-    await page.getByRole('option',{name:'Carol'}).click();
-    assert.equal(await dialog.getByRole('combobox',{name:'Add user'}).count(),0,'every candidate is named now');
+    assert.equal(await dialog.getByRole('combobox').count(),0,'the dialog is a list, without dropdowns');
+    assert.deepEqual((await dialog.getByRole('list',{name:'Shared with'}).getByRole('listitem').allInnerTexts()).map((row)=>row.split('\n')[0]),['Everyone','Bob','Carol'],'every user is a row');
+    const choose=(name:string,access:string)=>dialog.getByRole('group',{name:`Access for ${name}`}).getByRole('button',{name:access}).click();
+    await choose('Everyone','Can view');
+    await choose('Bob','Can operate');
+    await choose('Carol','Can view');
     await page.screenshot({path:`${shots}share-dialog-420.png`});
     await save.click();
     assert.deepEqual(await sent(page),{action:'share',name:'workshop',runId:'own',sharing:{everyone:'read',users:[{userId:'bob',access:'write'},{userId:'carol',access:'read'}]}});
@@ -363,9 +368,10 @@ test("Runs offers Share ... per shareable row, the dialog edits and sends the sh
     await dialog.getByRole('button',{name:'Saving ...'}).waitFor();
     await setSharing(page,{connection:'workshop',runId:'own',result:loaded,error:'carol is not a user of this profile'});
     await dialog.getByRole('alert').filter({hasText:'carol is not a user of this profile'}).waitFor();
-    assert.equal(await dialog.getByRole('combobox',{name:'Access for Carol'}).count(),1,'the draft survives the refusal');
-    await dialog.getByRole('button',{name:'Remove Carol'}).click();
-    await dialog.getByRole('combobox',{name:'Add user'}).waitFor();
+    const pressed=(name:string,access:string)=>dialog.getByRole('group',{name:`Access for ${name}`}).getByRole('button',{name:access}).getAttribute('aria-pressed');
+    assert.equal(await pressed('Carol','Can view'),'true','the draft survives the refusal');
+    await choose('Carol','Off');
+    assert.equal(await pressed('Carol','Off'),'true');
     await page.keyboard.press('Escape');
     assert.deepEqual(await sent(page),{action:'closeSharing'});
     await setSharing(page,undefined);

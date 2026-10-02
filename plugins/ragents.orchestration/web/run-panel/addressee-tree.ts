@@ -19,8 +19,6 @@ export type AddresseeStatus = "running" | "input" | "waiting" | "stopped";
 
 /** From this many similar siblings on, the tree combines them into a group. */
 export const ADDRESSEE_GROUP_MIN = 4;
-/** The search appears only with more entries than this. */
-export const ADDRESSEE_SEARCH_ABOVE = 12;
 const SUMMARY_LENGTH = 90;
 
 const STATUS_WORDS: Readonly<Record<AddresseeStatus, readonly [one: string, many: string]>> = {
@@ -77,7 +75,7 @@ export const addresseeSummaries = (view: RunView): ((actor: RunActor) => string 
 };
 
 /** The nearest creator along `createdBy` that is itself in the tree; a human or an unknown creator makes the actor a root. */
-export const addresseeParentId = (byId: ReadonlyMap<string, RunActor>, included: ReadonlySet<string>, actor: RunActor): string | null => {
+const addresseeParentId = (byId: ReadonlyMap<string, RunActor>, included: ReadonlySet<string>, actor: RunActor): string | null => {
   const visited = new Set([actor.id]);
   let current = actor.createdBy;
   while (current !== undefined && !visited.has(current)) {
@@ -136,26 +134,6 @@ export const addresseeTree = (view: RunView, actors: readonly RunActor[]): Addre
     });
   };
   return level(null);
-};
-
-/** The actors matching the search, together with their creators in the tree, so every match stands in its place. */
-export const addresseeMatches = (view: RunView, actors: readonly RunActor[], query: string, summary: (actor: RunActor) => string | undefined): RunActor[] => {
-  const words = lower(query).trim().split(/\s+/).filter(Boolean);
-  if (words.length === 0) return [...actors];
-  const byId = new Map(view.actors.map((actor) => [actor.id, actor]));
-  const included = new Set(actors.map((actor) => actor.id));
-  const kept = new Set<string>();
-  for (const actor of actors) {
-    const text = lower(`@${actor.handle} ${actor.displayName} ${summary(actor) ?? ""}`);
-    if (!words.every((word) => text.includes(word))) continue;
-    let current: RunActor | undefined = actor;
-    while (current && !kept.has(current.id)) {
-      kept.add(current.id);
-      const parentId = addresseeParentId(byId, included, current);
-      current = parentId === null ? undefined : byId.get(parentId);
-    }
-  }
-  return actors.filter((actor) => kept.has(actor.id));
 };
 
 /** Whether an actor is in a branch, e.g. so a group containing the selected actor starts open. */

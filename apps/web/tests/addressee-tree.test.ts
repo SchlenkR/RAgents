@@ -2,7 +2,6 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import {
   ADDRESSEE_GROUP_MIN,
-  addresseeMatches,
   addresseeNodeContains,
   addresseeStatus,
   addresseeStatusCounts,
@@ -117,13 +116,4 @@ test("states read as working, waiting for input, waiting or stopped and add up p
   assert.deepEqual(["implementer", "test-a", "test-b", "reviewer-37"].map((id) => addresseeStatus(view, byId(id))), ["running", "input", "waiting", "stopped"]);
   assert.equal(addresseeStatusCounts(view, reviewers), "3 working, 33 waiting, 1 stopped");
   assert.equal(addresseeStatusCounts(view, [byId("implementer"), byId("test-a")]), "1 working, 1 waiting for input");
-});
-
-test("search keeps matches with their creators so each hit stays in place", () => {
-  const actors = runPanelActors(view, true);
-  const summary = addresseeSummaries(view);
-  assert.deepEqual(addresseeMatches(view, actors, "rule 12", summary).map((entry) => entry.id), ["coordinator", "reviewer-12"]);
-  assert.deepEqual(addresseeMatches(view, actors, "@formatter-helper", summary).map((entry) => entry.id), ["coordinator", "implementer", "formatter", "formatter-helper"]);
-  assert.deepEqual(addresseeMatches(view, actors, "  ", summary).length, actors.length);
-  assert.deepEqual(outline(addresseeTree(view, addresseeMatches(view, actors, "Rule 3", summary))), [{ coordinator: [{ group: "@reviewer-*", members: 11 }] }], "every word matches on its own: 3, 13, 23 and 30 to 37");
 });

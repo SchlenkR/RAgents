@@ -2,15 +2,23 @@ import { ChevronRightIcon, PlusIcon, ServerIcon } from "lucide-react";
 import { useEffect, useState } from "react";
 import { cn } from "cn";
 import { StartTiles, startTileCount } from "../StartTiles";
-import { Button, ConnectionStateIcon, connectionStateWord, Popover, PopoverContent, PopoverHeader, PopoverTitle, PopoverTrigger } from "../ui";
+import { Button, ConnectionStateIcon, connectionStateWord, Popover, PopoverContent, PopoverHeader, PopoverTitle, PopoverTrigger, Spinner } from "../ui";
 import { SectionHeading } from "../ui/SectionLabel";
 import { busyState, connectionState, routeLabel, stateDetail } from "./connection-state";
-import type { ConnectionEntry, ConnectionView } from "./contract";
+import type { ConnectionEntry, ConnectionView, PanelAction, PanelState } from "./contract";
 import type { PanelPageProps } from "./page-props";
 import { LoginDialog } from "./PanelDialogs";
 import { RunLine, RunList } from "./RunLine";
 
 const RECENT_RUNS = 5;
+
+type NewRun = Extract<PanelAction, { action: "newRun" }>;
+
+/** A start the page sent; it counts as under way while the state it was sent from is current. */
+interface PendingStart {
+  readonly action: NewRun;
+  readonly state: PanelState;
+}
 
 /** The template behind defaultEntry; the extension names only an id from entries. */
 const defaultEntryOf = (connection: ConnectionView): ConnectionEntry | undefined => connection.entries.find((entry) => entry.id === connection.defaultEntry);
@@ -75,10 +83,12 @@ function StateButton({ connection, action, failure, onFailure, send, onLogin }: 
 }
 
 /** A server as a split button: state, name, action word, and route line on the left, the plus for the default or a new chat on the right. */
-function ConnectionChip({ connection, send, onLogin }: {
+function ConnectionChip({ connection, send, onLogin, starting, onStart }: {
   connection: ConnectionView;
   send: PanelPageProps["send"];
   onLogin: (name: string) => void;
+  starting: NewRun | undefined;
+  onStart: (action: NewRun) => void;
 }) {
   const [failure, setFailure] = useState<Failure>();
   const action = chipAction(connection, send, onLogin);
@@ -91,6 +101,7 @@ function ConnectionChip({ connection, send, onLogin }: {
   const route = routeLabel(connection);
   const starter = defaultEntryOf(connection);
   const plusLabel = starter ? `New run from ${starter.title} on ${connection.name}` : `New chat on ${connection.name}`;
+  const plusStarting = starting?.name === connection.name && starting.entryId === starter?.id;
   const ownIcon = state === "login-required" || detail !== undefined || failure !== undefined;
   return <li className="flex min-w-0 items-stretch overflow-hidden rounded-md bg-secondary">
     {ownIcon && <StateButton action={action} connection={connection} failure={failure} onFailure={setFailure} onLogin={onLogin} send={send} />}
@@ -106,24 +117,39 @@ function ConnectionChip({ connection, send, onLogin }: {
       </span>
     </button>
     {canCreate
-      ? <button aria-label={plusLabel} className={cn("flex w-7 flex-none items-center justify-center border-l border-border-soft text-muted-foreground hover:text-foreground", chipPartClass)}
-        onClick={() => send({ action: "newRun", name: connection.name, ...(starter ? { entryId: starter.id } : {}) })} title={plusLabel} type="button"><PlusIcon aria-hidden className="size-3.5" /></button>
+      ? <button aria-busy={plusStarting || undefined} aria-label={plusLabel}
+        className={cn("flex w-7 flex-none items-center justify-center border-l border-border-soft text-muted-foreground enabled:hover:text-foreground disabled:not-aria-busy:opacity-60", chipPartClass)}
+        disabled={starting !== undefined} onClick={() => onStart({ action: "newRun", name: connection.name, ...(starter ? { entryId: starter.id } : {}) })} title={plusLabel} type="button">
+        {plusStarting ? <Spinner aria-hidden className="size-3.5" /> : <PlusIcon aria-hidden className="size-3.5" />}
+      </button>
       : <span aria-hidden className="w-7 flex-none" />}
   </li>;
 }
 
 /** The templates of a server: the default template or New chat first, then the rest; with a heading when there are two or more servers. */
-function ConnectionOffers({ connection, marked, send }: { connection: ConnectionView; marked: boolean; send: PanelPageProps["send"] }) {
+function ConnectionOffers({ connection, marked, starting, onStart }: {
+  connection: ConnectionView;
+  marked: boolean;
+  starting: NewRun | undefined;
+  onStart: (action: NewRun) => void;
+}) {
   return <div className="grid grid-cols-1 gap-2">
     {marked && <h3 className="flex items-center gap-1.5 type-item"><ConnectionStateIcon state={connectionState(connection)} />{connection.name}</h3>}
-    <StartTiles defaultEntry={connection.defaultEntry} entries={connection.entries} label={marked ? `Templates on ${connection.name}` : "Templates"}
-      onNewChat={connection.canCreateFree === false ? undefined : () => send({ action: "newRun", name: connection.name })} onStart={(entryId) => send({ action: "newRun", name: connection.name, entryId })} />
+    <StartTiles defaultEntry={connection.defaultEntry} disabled={starting !== undefined} entries={connection.entries} label={marked ? `Templates on ${connection.name}` : "Templates"}
+      onNewChat={connection.canCreateFree === false ? undefined : () => onStart({ action: "newRun", name: connection.name })} onStart={(entryId) => onStart({ action: "newRun", name: connection.name, entryId })}
+      starting={starting?.name === connection.name ? starting : undefined} />
   </div>;
 }
 
 /** The start page: the servers as a block, below them the latest runs and, per reachable server, its templates, the default template or New chat first. */
 export function StartPage({ state, send }: PanelPageProps) {
   const [login, setLogin] = useState<string>();
+  const [start, setStart] = useState<PendingStart>();
+  const starting = start?.state === state ? start.action : undefined;
+  const startRun = (action: NewRun) => {
+    send(action);
+    setStart({ action, state });
+  };
   const connections = state.connections;
   const marked = connections.length > 1;
   const runs = connections.flatMap((connection) => connection.runs.map((run) => ({ connection, run })))
@@ -148,7 +174,7 @@ export function StartPage({ state, send }: PanelPageProps) {
         <section className="grid grid-cols-1 gap-3">
           <SectionHeading count={connections.length} title="Server" />
           <ul aria-label="Server" className="grid w-full max-w-[720px] grid-cols-1 gap-1.5 @[560px]/panel:grid-cols-2">
-            {connections.map((connection) => <ConnectionChip connection={connection} key={connection.name} onLogin={setLogin} send={send} />)}
+            {connections.map((connection) => <ConnectionChip connection={connection} key={connection.name} onLogin={setLogin} onStart={startRun} send={send} starting={starting} />)}
           </ul>
         </section>
         <section className="grid grid-cols-1 gap-3">
@@ -164,7 +190,7 @@ export function StartPage({ state, send }: PanelPageProps) {
         </section>
         {reachable.length > 0 && <section className="grid grid-cols-1 gap-3">
           <SectionHeading count={tiles} title="New" />
-          {reachable.map((connection) => <ConnectionOffers connection={connection} key={connection.name} marked={marked} send={send} />)}
+          {reachable.map((connection) => <ConnectionOffers connection={connection} key={connection.name} marked={marked} onStart={startRun} starting={starting} />)}
         </section>}
       </>}
     {loginConnection && <LoginDialog connection={loginConnection} onClose={() => setLogin(undefined)} send={send} />}

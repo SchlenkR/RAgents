@@ -10,3 +10,9 @@ export const runPanelActors = (view: RunView, inspect: boolean): RunActor[] => {
 
 export const pendingInputCount = (view: RunView, actorId: string): number =>
   view.inputs.filter((input) => input.actorId === actorId && input.lifecycle.kind === "pending").length;
+
+/** The chat's addressee: the stored actor while it is listed, otherwise the coordinator, otherwise the first actor. */
+export const selectedRunPanelActor = (view: RunView, actors: readonly RunActor[], stored: string | null): RunActor | undefined => {
+  const primaryId = chatPrimaryId(view);
+  return actors.find((actor) => actor.id === stored) ?? actors.find((actor) => actor.id === primaryId) ?? actors[0];
+};

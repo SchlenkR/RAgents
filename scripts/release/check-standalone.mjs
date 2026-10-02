@@ -185,10 +185,13 @@ export const config = {
   assert.deepEqual(await rpc(host, "acme.greeting.hello"), { text: "Hello from the bundle" });
   assert.match(await (await get(`${host.url}${entry}`)).text(), /webPlugin/);
   const html = await (await get(`${host.url}/?access=${host.token}`)).text();
-  assert.equal(html, readFileSync(path.join(app, "apps/web/dist/index.html"), "utf8"));
+  const stylesheet = /href="(\/ragents\.css\?v=[A-Za-z0-9_-]+)"/.exec(html)?.[1];
+  assert.ok(stylesheet, "The page links the stylesheet under its content version");
+  assert.equal(html, readFileSync(path.join(app, "apps/web/dist/index.html"), "utf8").replace('href="/ragents.css"', `href="${stylesheet}"`));
   const assets = [...html.matchAll(/(?:src|href)="([^"?]+\.(?:js|css))"/g)].map((match) => match[1]);
   assert.ok(assets.length > 0, "The prebuilt web names its assets");
   for (const asset of assets) await get(new URL(asset, host.url));
+  assert.match(await (await get(new URL(stylesheet, host.url))).text(), /bg-\\\[\\#0b5f4a\\\]/);
   assert.match(await (await get(`${host.url}/ragents.css`)).text(), /bg-\\\[\\#0b5f4a\\\]/);
   console.log("ok: isolated host serves bootstrap, plugin RPC, prebuilt web assets and native Tailwind CSS");
 } finally {

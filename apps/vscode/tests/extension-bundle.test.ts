@@ -10,7 +10,8 @@ const extensionRoot = fileURLToPath(new URL("..", import.meta.url));
 
 /** The .vsix brings no node_modules; the stub is everything the bundle finds when loading and activating. */
 const VSCODE_STUB = `const noop = () => undefined;
-const settings = { "ragents.connections": [], "ragents.hostPath": "", "ragents.theme": "auto" };
+const settings = { "ragents.connections": [], "ragents.hostPath": "", "ragents.theme": "auto", "ragents.zoom": 100 };
+const providers = new Map();
 const configurationListeners = new Set();
 const disposable = { dispose: noop };
 const event = () => disposable;
@@ -24,6 +25,7 @@ class EventEmitter {
 
 module.exports = {
   EventEmitter,
+  providers,
   ThemeIcon: class { constructor(id) { this.id = id; } },
   ThemeColor: class { constructor(id) { this.id = id; } },
   Disposable: class { constructor(dispose) { this.dispose = dispose ?? noop; } },
@@ -42,7 +44,7 @@ module.exports = {
     createOutputChannel: () => ({ appendLine: noop, append: noop, show: noop, dispose: noop }),
     createStatusBarItem: () => ({ text: "", tooltip: "", command: "", show: noop, hide: noop, dispose: noop }),
     createWebviewPanel: () => { throw new Error("No webview panel is expected on activation"); },
-    registerWebviewViewProvider: () => disposable,
+    registerWebviewViewProvider: (id, provider) => { providers.set(id, provider); return disposable; },
     registerUriHandler: () => disposable,
     onDidChangeActiveColorTheme: event,
     showErrorMessage: () => Promise.resolve(undefined),
@@ -166,11 +168,26 @@ const checkPanelActions = async (api) => {
   assert.equal(development.address, path.join(host, "ragents.config.developer.ts"));
 };
 
+/** Start shows a clicked template as starting until the next state; a start that opens no run must still send one. */
+const checkNewRunAnswers = async (api) => {
+  const posted = [];
+  const ignore = () => ({ dispose: () => undefined });
+  vscode.providers.get("ragents.runPanel").resolveWebviewView({
+    webview: { options: {}, html: "", cspSource: "vscode-webview:", asWebviewUri: (uri) => uri, onDidReceiveMessage: ignore,
+      postMessage: (message) => { posted.push(message); return Promise.resolve(true); } },
+    onDidDispose: ignore,
+    show: () => undefined,
+  });
+  await assert.rejects(api.panelAction({ action: "newRun", name: "missing", entryId: "demo.circle" }), /not in ragents.connections/);
+  assert.ok(posted.some((message) => message.type === "ragents.panel.state"), "a failed start answers with the next state");
+};
+
 process.on("unhandledRejection", (cause) => { console.error("unhandledRejection:", cause); process.exit(4); });
 extension.activate(context).then(
   async (api) => {
     if (typeof api.connections !== "function") throw new Error("activate returns no API");
     await checkPanelActions(api);
+    await checkNewRunAnswers(api);
     await extension.deactivate();
     process.exit(0);
   },

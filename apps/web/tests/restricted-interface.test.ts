@@ -158,3 +158,16 @@ test("the run header offers Share to whoever may share and tells a sharee what t
   assert.match(member, /title="Shared with you - can operate"[^>]*>Shared</);
   assert.doesNotMatch(headerOf({ id: "run", title: "Review", updatedAt: 0, operable: true }), /aria-label="Share"|View only/);
 });
+
+test("header contributions placed in the bar stand next to Share, the others stay in the run details", () => {
+  const registry = new PluginRegistry({ brand: { title: "Example" }, product: { id: "example", title: "Example" }, plugins: [{ id: "example" }], startEntries: [] });
+  const session = { session: { id: "run", title: "Review", updatedAt: 0, canShare: true }, connected: true, pluginEvents: [], messages: [], runView: undefined, running: false, send: async () => {}, start: async () => {} } as SessionContext;
+  const navigation = { activeTabId: "", openTab: () => {}, revealEntity: () => false, selectionFor: () => undefined };
+  const contributions = [
+    { id: "example.bar", placement: "bar" as const, order: 1, Header: () => createElement("button", { type: "button" }, "Bar contribution") },
+    { id: "example.details", order: 2, Header: () => createElement("span", null, "Details contribution") },
+  ];
+  const html = renderRestricted(createElement(RunPanelHeader, { attention: undefined, contributions, navigation, registry, runError: undefined, session, working: false }));
+  assert.match(html, /Bar contribution<\/button><button[^>]*aria-label="Share"/);
+  assert.doesNotMatch(html, /Details contribution/, "the closed run details render nothing");
+});

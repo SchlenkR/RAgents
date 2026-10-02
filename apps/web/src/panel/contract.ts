@@ -157,6 +157,7 @@ export type PanelAction =
   | { readonly action: "login"; readonly name: string; readonly token: string }
   | { readonly action: "openRun"; readonly name: string; readonly runId: string }
   | { readonly action: "deleteRuns"; readonly name: string; readonly runIds: readonly string[] }
+  /** Start shows it as starting until the next state; the host also sends one when the start opens no run. */
   | { readonly action: "newRun"; readonly name: string; readonly entryId?: string }
   /** Opens the share dialog of a run; the host loads its sharing into PanelState.sharing. */
   | { readonly action: "openSharing"; readonly name: string; readonly runId: string }

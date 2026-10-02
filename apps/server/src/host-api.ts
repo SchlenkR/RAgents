@@ -167,7 +167,7 @@ export const hostApi: { readonly server: HostApiModules; readonly web: HostApiMo
       "DialogDescription", "DialogFooter", "DialogHeader", "DialogTitle", "Empty", "EmptyContent", "EmptyDescription",
       "EmptyHeader", "EmptyMedia", "EmptyTitle", "Field", "FieldDescription", "FieldTitle", "Input", "Label",
       "Popover", "PopoverContent", "PopoverTrigger", "SectionLabel", "Select", "SelectContent", "SelectItem", "SelectTrigger",
-      "SelectValue", "Spinner", "StartupNotice", "StopButton", "StopGlyph", "Switch", "Tabs", "TabsContent",
+      "SelectValue", "Spinner", "StartupNotice", "StopButton", "StopGlyph", "SvgEdge", "Switch", "Tabs", "TabsContent",
       "TabsList", "TabsTrigger", "Textarea", "Toggle", "ToggleGroup", "ToggleGroupItem", "buttonVariants", "cn",
     ],
     "@ragents/web/ui/dialog": ["RunModalContext"],

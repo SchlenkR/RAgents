@@ -111,23 +111,26 @@ export function DockWorkspace({ apps, chat, chatIcon = <UsersIcon />, navigation
     const ToolIcon = tabs.find((tab) => toolPanelId(tab.id) === id)?.Icon;
     return id === "chat" ? chatIcon : ToolIcon ? <ToolIcon /> : <LayoutGridIcon />;
   };
-  const localPoint = (point: DockPoint, rect: DOMRect): DockPoint => ({ x: point.x - rect.left, y: point.y - rect.top });
+  // A CSS zoom on the page scales client coordinates, not the dock geometry.
+  const pointerZoom = () => container.current!.getBoundingClientRect().width / container.current!.offsetWidth || 1;
+  const localPoint = (point: DockPoint, rect: DOMRect, zoom: number): DockPoint => ({ x: (point.x - rect.left) / zoom, y: (point.y - rect.top) / zoom });
   const startDrag = (event: PointerEvent<HTMLElement>, ids: readonly string[], click?: () => void) => {
     if (ids.length === 0 || event.button !== 0) return;
     holdSide();
     sidePressed.current = true;
     const bounds = container.current!.getBoundingClientRect();
+    const zoom = pointerZoom();
     const start = { x: event.clientX, y: event.clientY };
     let started = false;
     pointer(event, (point) => {
       if (!started && Math.hypot(point.x - start.x, point.y - start.y) < 6) return;
       started = true;
-      setDrag({ ids, point: localPoint(point, bounds) });
+      setDrag({ ids, point: localPoint(point, bounds, zoom) });
     }, (point) => {
       setDrag(undefined);
       if (!point) return;
       if (!started) { click?.(); return; }
-      const hit = dockHitTest(localPoint(point, bounds), workspace, geometry.groups, barRect, ids.every(isToolPanel));
+      const hit = dockHitTest(localPoint(point, bounds, zoom), workspace, geometry.groups, barRect, ids.every(isToolPanel));
       if (hit.target) update((current) => moveDockPanels(current, ids, hit.target!, newId));
     });
   };
@@ -174,9 +177,10 @@ export function DockWorkspace({ apps, chat, chatIcon = <UsersIcon />, navigation
     if (event.button !== 0) return;
     pressSide();
     const start = event.clientX;
+    const zoom = pointerZoom();
     const width = sideWidth;
     setResizing("side");
-    pointer(event, (point) => update((current) => ({ ...current, side: { ...current.side, width: Math.max(180, width + start - point.x) } })), () => setResizing(undefined));
+    pointer(event, (point) => update((current) => ({ ...current, side: { ...current.side, width: Math.max(180, width + (start - point.x) / zoom) } })), () => setResizing(undefined));
   };
   const toolHeader = (id: string | null) => {
     const tab = tabs.find((tab) => toolPanelId(tab.id) === id);
@@ -250,8 +254,9 @@ export function DockWorkspace({ apps, chat, chatIcon = <UsersIcon />, navigation
           if (event.button !== 0) return;
           setResizing(split.id);
           const start = split.axis === "horizontal" ? event.clientX : event.clientY;
+          const zoom = pointerZoom();
           pointer(event, (point) => {
-            const delta = (split.axis === "horizontal" ? point.x : point.y) - start;
+            const delta = ((split.axis === "horizontal" ? point.x : point.y) - start) / zoom;
             const ratio = split.ratio + delta / ((split.axis === "horizontal" ? parent.width : parent.height) - DOCK_DIVIDER_SIZE);
             update((current) => resizeDockSplit(current, split.id, ratio));
           }, () => setResizing(undefined));

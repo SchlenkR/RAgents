@@ -112,6 +112,35 @@ test("the start selection in the browser shows the tiles of Start in VS Code and
   });
 });
 
+test("Start in VS Code marks the clicked template as starting until the extension sends its next state", browserOnly, async () => {
+  await withPage("view=start", 1280, async (page) => {
+    const templates = page.getByRole("list", { name: "Templates", exact: true });
+    const tile = (title: string) => templates.locator(`button[data-tile="${title}"]`);
+    const plus = page.getByRole("button", { name: "New chat on local", exact: true });
+    const busy = () => page.locator('[aria-busy="true"]').evaluateAll((elements) => elements.map((element) => element.getAttribute("data-tile") ?? element.getAttribute("aria-label")));
+    await tile("Discussion circle").click();
+    assert.deepEqual(await calls(page, "panel.newRun"), [{ action: "newRun", name: "local", entryId: "demo.circle" }]);
+    assert.deepEqual(await busy(), ["Discussion circle"]);
+    assert.match(await tile("Discussion circle").textContent() ?? "", /Starting \.\.\.$/);
+    assert.equal(await templates.getByRole("button", { disabled: false }).count(), 0, "no second start while one is under way");
+    assert.equal(await plus.isDisabled(), true);
+    await tile("Word game").click({ force: true });
+    assert.equal((await calls(page, "panel.newRun")).length, 1, "a locked tile sends nothing");
+
+    await page.evaluate(() => window.startPageFixture.renewPanel());
+    await page.waitForFunction(() => document.querySelector('[aria-busy="true"]') === null);
+    assert.doesNotMatch(await tile("Discussion circle").textContent() ?? "", /Starting/, "the next state ends the marker, also when no run opened");
+    assert.equal(await templates.getByRole("button", { disabled: true }).count(), 0);
+
+    await plus.click();
+    assert.deepEqual((await calls(page, "panel.newRun")).at(-1), { action: "newRun", name: "local" });
+    assert.deepEqual(await busy(), ["New chat on local", "New chat"], "the plus and New chat are the same start");
+    await page.evaluate(() => window.startPageFixture.renewPanel());
+    await page.waitForFunction(() => document.querySelector('[aria-busy="true"]') === null);
+    assert.equal(await plus.isEnabled(), true);
+  });
+});
+
 /** In the empty run after New chat: the chat input that shows model and thinking level when the right allows it. */
 const openNewChat = async (page: Page, view: "web" | "panel") => {
   if (view === "web") {

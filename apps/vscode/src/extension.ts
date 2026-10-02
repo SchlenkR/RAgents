@@ -518,7 +518,14 @@ export async function activate(context: vscode.ExtensionContext): Promise<RAgent
       }
       case "openRun": selectRun(incoming.name, incoming.runId, { focusPanel: true }); return;
       case "deleteRuns": await deleteRuns(incoming.name, incoming.runIds); return;
-      case "newRun": await newRun(incoming.name, incoming.entryId); return;
+      // Start marks the tile as starting until the next state; a cancelled or failed start still sends one.
+      case "newRun":
+        try {
+          await newRun(incoming.name, incoming.entryId);
+        } finally {
+          panel.render();
+        }
+        return;
       case "openSharing": await openSharing(incoming.name, incoming.runId, sharingClient(incoming.name), sharingStore); return;
       case "share":
         await saveSharing(incoming.name, incoming.runId, incoming.sharing, sharingClient(incoming.name), sharingStore);

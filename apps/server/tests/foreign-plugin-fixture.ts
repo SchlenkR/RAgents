@@ -106,7 +106,18 @@ export const assertGreetingServed = async (host: Announced, webDirectory: string
   assert.equal((await fetch(`${host.url}${entryAddress}.map`)).status, 401, "the source map carries the source code and stays behind the token");
   assert.equal((await fetch(`${host.url}${entryAddress}.map`, { headers: { authorization: `Bearer ${host.token}` } })).status, 200);
   assert.equal((await fetch(`${host.url}/plugins/acme.greeting/api/anything`)).status, 401, "only the web half is open, not everything under /plugins/");
-  assert.match(await (await fetch(`${host.url}/ragents.css`)).text(), GREETING_CLASS, "the bundle's classes go into the host stylesheet");
-  assert.equal(await (await fetch(`${host.url}/?access=${host.token}`)).text(), readFileSync(path.join(webDirectory, "index.html"), "utf8"),
+  const plain = await fetch(`${host.url}/ragents.css`);
+  assert.match(await plain.text(), GREETING_CLASS, "the bundle's classes go into the host stylesheet");
+  assert.equal(plain.headers.get("cache-control"), "no-cache", "the unversioned address keeps working");
+  const page = await fetch(`${host.url}/?access=${host.token}`);
+  const html = await page.text();
+  const versioned = /href="(\/ragents\.css\?v=[A-Za-z0-9_-]+)"/.exec(html)?.[1];
+  assert.ok(versioned, "the page links the stylesheet under its content version");
+  assert.equal(html, readFileSync(path.join(webDirectory, "index.html"), "utf8").replace('href="/ragents.css"', `href="${versioned}"`),
     "the web comes ready-made from the host");
+  assert.equal(page.headers.get("cache-control"), "no-cache", "the page is revalidated, so it always links the current stylesheet");
+  assert.ok((await (await fetch(`${host.url}/run-panel.html?access=${host.token}`)).text()).includes(`href="${versioned}"`));
+  const stylesheet = await fetch(`${host.url}${versioned}`);
+  assert.match(await stylesheet.text(), GREETING_CLASS);
+  assert.equal(stylesheet.headers.get("cache-control"), "public, max-age=31536000, immutable", "the versioned address may be cached for good");
 };
