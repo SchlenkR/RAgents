@@ -1,15 +1,17 @@
 import { useCallback, useId, useMemo, useRef, useState } from "react";
-import { ChevronDownIcon } from "lucide-react";
-import { Badge, Spinner } from "@ragents/web/ui";
+import { ChevronDownIcon, XIcon } from "lucide-react";
+import { Badge, cn, Spinner } from "@ragents/web/ui";
 import { ActorPopout } from "../ActorPopout";
 import type { RunActor, RunView } from "@ragents/web/run-view";
-import { pendingInputCount } from "./run-panel-actors";
+import { pendingInputCount, selectedRunPanelActor } from "./run-panel-actors";
 import { ActorGraph, ActorIcon } from "./ActorGraph";
 
-const chipClass = "flex h-7 min-w-[70px] max-w-[220px] flex-[0_1_auto] cursor-pointer items-center gap-1.5 rounded-full border border-border bg-background pr-2 pl-1 text-[0.72rem] font-semibold text-foreground hover:bg-accent aria-expanded:border-primary focus-visible:outline-2 focus-visible:outline-ring/60 focus-visible:outline-offset-1";
+const chipClass = "flex h-7 min-w-[70px] max-w-[220px] flex-[0_1_auto] items-center rounded-full border border-border bg-background text-[0.72rem] font-semibold text-foreground hover:bg-accent has-aria-expanded:border-primary";
+const pickClass = "flex h-full min-w-0 flex-1 cursor-pointer items-center gap-1.5 rounded-full pr-2 pl-1 focus-visible:outline-2 focus-visible:outline-ring/60 focus-visible:outline-offset-1";
+const backClass = "mr-1 grid size-5 flex-none cursor-pointer place-items-center rounded-full text-muted-foreground hover:bg-background hover:text-foreground focus-visible:outline-2 focus-visible:outline-ring/60 [&>svg]:size-3";
 const busyClass = "flex h-7 min-w-0 flex-[0_1_auto] cursor-pointer items-center gap-1.5 rounded-md px-1.5 text-[0.7rem] text-muted-foreground hover:bg-accent hover:text-foreground focus-visible:outline-2 focus-visible:outline-ring/60 focus-visible:outline-offset-1";
 
-/** The chat's addressee as a chip in the input bar; the pop-out shows the actors as a graph by creator, including stopped actors. */
+/** The chat's addressee as a chip in the input bar; the pop-out shows the actors as a graph by creator, including stopped actors, and the x returns to the primary actor. */
 export function AddresseeControl({ actors, onSelect, selected, technical, view }: {
   actors: readonly RunActor[];
   onSelect: (actor: RunActor) => void;
@@ -24,6 +26,8 @@ export function AddresseeControl({ actors, onSelect, selected, technical, view }
     setOpen(false);
     if (restoreFocus) buttonRef.current?.focus({ preventScroll: true });
   }, []);
+  const primary = selectedRunPanelActor(view, actors, null);
+  const back = primary && primary.id !== selected.id ? primary : undefined;
   const working = useMemo(() => actors.filter((actor) => actor.lifecycle?.kind === "running" && actor.id !== selected.id), [actors, selected.id]);
   const pick = (actor: RunActor) => {
     onSelect(actor);
@@ -33,18 +37,21 @@ export function AddresseeControl({ actors, onSelect, selected, technical, view }
   const busyPending = working.length > 0 ? pendingInputCount(view, working[0].id) : 0;
 
   return <>
-    <button aria-controls={open ? panelId : undefined} aria-expanded={open} aria-haspopup="dialog" className={chipClass} onClick={() => setOpen(!open)} ref={buttonRef} title={`Addressee: @${selected.handle}. Click to choose another actor`} type="button">
-      <ActorIcon actor={selected} className="size-5" view={view} />
-      <span className="truncate">@{selected.handle}</span>
-      <ChevronDownIcon aria-hidden className="size-3 flex-none text-muted-foreground" />
-    </button>
+    <span className={chipClass}>
+      <button aria-controls={open ? panelId : undefined} aria-expanded={open} aria-haspopup="dialog" className={cn(pickClass, back && "pr-1")} onClick={() => setOpen(!open)} ref={buttonRef} title={`Addressee: @${selected.handle}. Click to choose another actor`} type="button">
+        <ActorIcon actor={selected} className="size-5" view={view} />
+        <span className="truncate">@{selected.handle}</span>
+        <ChevronDownIcon aria-hidden className="size-3 flex-none text-muted-foreground" />
+      </button>
+      {back && <button aria-label={`Back to @${back.handle}`} className={backClass} onClick={() => onSelect(back)} title={`Back to @${back.handle}`} type="button"><XIcon aria-hidden /></button>}
+    </span>
     {working.length > 0 && <button className={busyClass} onClick={() => setOpen(!open)} title={busyTitle} type="button">
       <Spinner aria-hidden className="size-3 flex-none" />
       <span className="truncate in-data-[compact=true]:hidden">@{working[0].handle}</span>
       {busyPending > 0 && <Badge className="h-4 min-w-4 px-1 text-[0.6rem]" variant="secondary">{busyPending}</Badge>}
       {working.length > 1 && <span className="flex-none">+{working.length - 1}</span>}
     </button>}
-    {open && <ActorPopout buttonRef={buttonRef} closeLabel="Close addressee" height={560} id={panelId} label="Addressee" onClose={close} open placement="top" role="dialog" width="available">
+    {open && <ActorPopout buttonRef={buttonRef} closeLabel="Close addressee" id={panelId} label="Addressee" onClose={close} open placement="top" role="dialog" showLabel={false}>
       <ActorGraph actors={actors} onPick={pick} selectedId={selected.id} technical={technical} view={view} />
     </ActorPopout>}
   </>;

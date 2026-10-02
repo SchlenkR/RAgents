@@ -12,8 +12,9 @@ const GUTTER = 20;
 const FRAME_PADDING = GUTTER / 2;
 const FRAME_ROW_GAP = 12;
 const PADDING = 16;
-const SCROLLBAR = 16;
 const CORNER = 6;
+/** How far the view pans beyond the cards and frames of a graph larger than its room. */
+export const GRAPH_PAN_MARGIN = 40;
 
 type Point = readonly [x: number, y: number];
 
@@ -67,6 +68,27 @@ interface Slot {
   tree: Subtree;
 }
 
+export interface GraphSize {
+  width: number;
+  height: number;
+}
+
+/** The visible part of a graph and the area it pans over, both in CSS pixels. */
+export interface GraphViewport {
+  width: number;
+  height: number;
+  scrollWidth: number;
+  scrollHeight: number;
+  /** Where the layout starts in the pannable area. */
+  left: number;
+  top: number;
+}
+
+export interface GraphPan {
+  left: number;
+  top: number;
+}
+
 export type ActorTiming =
   | { kind: "running"; since: number }
   | { kind: "finished"; milliseconds: number };
@@ -75,7 +97,32 @@ export const graphNodeKey = (node: AddresseeNode): string => node.kind === "acto
 
 /** How many cards fit side by side in a canvas of this width, including the gutter of wrapped rows. */
 export const graphColumns = (width: number): number =>
-  Math.max(1, Math.floor((width - 2 * PADDING - SCROLLBAR - GUTTER + GAP_X) / (GRAPH_CARD_WIDTH + GAP_X)));
+  Math.max(1, Math.floor((width - 2 * PADDING - GUTTER + GAP_X) / (GRAPH_CARD_WIDTH + GAP_X)));
+
+const clamp = (value: number, max: number) => Math.min(Math.max(value, 0), Math.max(0, max));
+const viewAxis = (size: number, room: number) => size <= room
+  ? { view: size, scroll: size, offset: 0 }
+  : { view: Math.max(0, room), scroll: size + 2 * (GRAPH_PAN_MARGIN - PADDING), offset: GRAPH_PAN_MARGIN - PADDING };
+
+/** The view grows with the layout up to the room; an axis that does not fit pans over the cards plus the pan margin. */
+export const graphViewport = (layout: GraphSize, room: GraphSize): GraphViewport => {
+  const x = viewAxis(layout.width, room.width);
+  const y = viewAxis(layout.height, room.height);
+  return { width: x.view, height: y.view, scrollWidth: x.scroll, scrollHeight: y.scroll, left: x.offset, top: y.offset };
+};
+
+export const graphPannable = (viewport: GraphViewport): boolean =>
+  viewport.scrollWidth > viewport.width || viewport.scrollHeight > viewport.height;
+
+/** A pan position within the limits, so the cards never leave the view by more than the pan margin. */
+export const clampGraphPan = (viewport: GraphViewport, pan: GraphPan): GraphPan => ({
+  left: clamp(pan.left, viewport.scrollWidth - viewport.width),
+  top: clamp(pan.top, viewport.scrollHeight - viewport.height),
+});
+
+/** The pan position that shows a point of the layout at a point of the view, as far as the limits allow. */
+export const graphPanTo = (viewport: GraphViewport, layoutX: number, layoutY: number, viewX: number, viewY: number): GraphPan =>
+  clampGraphPan(viewport, { left: viewport.left + layoutX - viewX, top: viewport.top + layoutY - viewY });
 
 /** The state an edge and a card show: a group works as soon as one member works and is stopped only when all are. */
 export const graphNodeStatus = (view: RunView, node: AddresseeNode): AddresseeStatus => {

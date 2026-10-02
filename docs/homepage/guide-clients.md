@@ -109,7 +109,9 @@ remembered per run. Questions and news stay in the chat, and unsent drafts stay 
 addressee when you switch actors.
 
 The chip at the left of the chat input names the addressee, the actor your messages go to.
-Clicking it opens "Addressee", a graph of who created whom drawn from top to bottom, like the
+While it names another actor than the run's first chat partner, usually the coordinator, an x
+next to the name ("Back to @coordinator") returns to that actor at once without opening anything.
+Clicking the chip opens a graph of who created whom drawn from top to bottom, like the
 agent view of a coding assistant: the coordinator at the top, one level below and connected by
 lines the agents and TypeScript actors it started, below those their own subagents. Each card
 shows the handle, the state ("working" with a spinner, "waiting for input" when the actor waits
@@ -122,15 +124,20 @@ working actors are highlighted. Four or more similar siblings, such as 37 rule r
 `review-...`, appear as one stacked group card with their shared handle prefix, their number,
 and a count per state; click it to show the members in a frame below it, click again to hide
 them. A group that contains the current addressee opens by itself. More children than fit side
-by side wrap into further rows, a wide graph scrolls in both directions, and the graph opens
-scrolled to the current addressee, whose card is highlighted. Clicking an actor makes it the
-addressee and closes the graph; Tab moves through the cards and Escape closes. All actors
-permitted by your access rights are available, including stopped actors. TypeScript actors
-require inspection rights.
+by side wrap into further rows. The pop-out has no title and grows with the graph, upward to the
+top of the window and across its width; a small graph keeps it compact. A larger graph pans:
+drag with the left mouse button anywhere, also on a card, or scroll with the mouse wheel, the
+trackpad, or a finger. Panning stops 40 pixels beyond the outermost cards, and a short press on
+a card still picks it. The graph opens with the current addressee centered and highlighted.
+Clicking an actor makes it the addressee and closes the graph; Tab moves through the cards and
+brings a hidden card into view, and Escape, a click outside, or the x in the top right corner
+closes. All actors permitted by your access rights are available, including stopped actors.
+TypeScript actors require inspection rights.
 
-"Agents" in the run header opens the same graph in a larger view as soon as the run has an actor
-besides you. Clicking an actor there also makes it the chat's addressee. In a narrow run header
-the button shows only its icon.
+"Agents" in the run header opens the same graph with the title "Agents" as soon as the run has an
+actor besides you; it grows down to the bottom of the window and pans the same way. Clicking an
+actor there also makes it the chat's addressee. In a narrow run header the button shows only its
+icon.
 
 
 The extension lives under `apps/vscode`. It works with all configured **servers at the same

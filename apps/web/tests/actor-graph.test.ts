@@ -3,11 +3,16 @@ import test from "node:test";
 import {
   actorGraphLayout,
   actorTimings,
+  clampGraphPan,
   formatDuration,
   GRAPH_CARD_HEIGHT,
   GRAPH_CARD_WIDTH,
+  GRAPH_PAN_MARGIN,
   graphColumns,
   graphNodeStatus,
+  graphPannable,
+  graphPanTo,
+  graphViewport,
   roundedPath,
   type GraphCard,
   type GraphLayout,
@@ -117,10 +122,53 @@ test("a closed group is one card; opened, a frame below it holds its members in 
 });
 
 test("the column count follows the canvas width and never drops below one", () => {
-  assert.equal(graphColumns(1200), 4);
-  assert.equal(graphColumns(560), 2);
-  assert.equal(graphColumns(500), 1);
+  assert.equal(graphColumns(1200), 5);
+  assert.equal(graphColumns(732), 3);
+  assert.equal(graphColumns(731), 2);
   assert.equal(graphColumns(0), 1);
+  const siblings = viewOf(["alpha", "bravo", "charlie", "delta", "echo", "foxtrot", "golf", "hotel"].map((name) => actor(name, "coordinator")));
+  const group = viewOf(Array.from({ length: 12 }, (_, index) => actor(`worker-${index + 1}`, "coordinator")));
+  for (const width of [731, 732, 1200]) {
+    assert.ok(layoutOf(siblings, graphColumns(width)).width <= width, `wrapped rows fit into ${width} pixels`);
+    assert.ok(layoutOf(group, graphColumns(width), () => true).width <= width, `an open group fits into ${width} pixels`);
+  }
+});
+
+test("the view grows with the layout up to its room and stays compact for a small graph", () => {
+  const room = { width: 1200, height: 800 };
+  const small = graphViewport({ width: 500, height: 300 }, room);
+  assert.deepEqual(small, { width: 500, height: 300, scrollWidth: 500, scrollHeight: 300, left: 0, top: 0 });
+  assert.equal(graphPannable(small), false);
+  assert.equal(graphPannable(graphViewport(room, room)), false, "a layout exactly as large as the room fits");
+  const wide = graphViewport({ width: 1900, height: 300 }, room);
+  assert.deepEqual(wide, { width: 1200, height: 300, scrollWidth: 1900 + 48, scrollHeight: 300, left: 24, top: 0 }, "only the axis that does not fit pans");
+  assert.equal(graphPannable(wide), true);
+  const large = graphViewport({ width: 1900, height: 1300 }, room);
+  assert.deepEqual([large.width, large.height, large.scrollHeight, large.top], [1200, 800, 1348, 24]);
+});
+
+test("panning stops where the cards are the pan margin away from the edge of the view", () => {
+  const layout = { width: 1900, height: 1300 };
+  const viewport = graphViewport(layout, { width: 1200, height: 800 });
+  const first = clampGraphPan(viewport, { left: -500, top: -500 });
+  assert.deepEqual(first, { left: 0, top: 0 });
+  assert.equal(viewport.left + 16 - first.left, GRAPH_PAN_MARGIN, "the left edge of the cards stays 40 pixels inside the view");
+  assert.equal(viewport.top + 16 - first.top, GRAPH_PAN_MARGIN);
+  const last = clampGraphPan(viewport, { left: 5000, top: 5000 });
+  assert.deepEqual(last, { left: 748, top: 548 });
+  assert.equal(viewport.width - (viewport.left + layout.width - 16 - last.left), GRAPH_PAN_MARGIN, "the right edge of the cards stays 40 pixels inside the view");
+  assert.equal(viewport.height - (viewport.top + layout.height - 16 - last.top), GRAPH_PAN_MARGIN);
+  assert.deepEqual(clampGraphPan(viewport, { left: 300.5, top: 12 }), { left: 300.5, top: 12 }, "inside the limits a pan stays as it is");
+  assert.deepEqual(clampGraphPan(graphViewport({ width: 500, height: 300 }, { width: 1200, height: 800 }), { left: 80, top: -20 }), { left: 0, top: 0 }, "a graph that fits does not pan");
+});
+
+test("a point of the layout moves to a point of the view as far as the pan limits allow", () => {
+  const viewport = graphViewport({ width: 1900, height: 1300 }, { width: 1200, height: 800 });
+  assert.deepEqual(graphPanTo(viewport, 950, 650, 600, 400), { left: 374, top: 274 }, "the middle of the layout in the middle of the view");
+  assert.deepEqual(graphPanTo(viewport, 100, 50, 600, 400), { left: 0, top: 0 }, "a card near the top left corner cannot be centered");
+  assert.deepEqual(graphPanTo(viewport, 1800, 1250, 600, 400), { left: 748, top: 548 });
+  const fits = graphViewport({ width: 500, height: 300 }, { width: 1200, height: 800 });
+  assert.deepEqual(graphPanTo(fits, 250, 150, 600, 400), { left: 0, top: 0 });
 });
 
 test("routes become paths with rounded corners; straight and repeated points drop out", () => {

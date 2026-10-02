@@ -9,7 +9,7 @@ import { ActorGraph } from "./ActorGraph";
 import { runPanelActors, selectedRunPanelActor } from "./run-panel-actors";
 import { saveRunPanelState, useRunPanelState } from "./run-panel-state";
 
-/** "Agents" in the run's title bar: the addressee pop-out's graph, larger; a click on an actor addresses the chat to it. */
+/** "Agents" in the run's title bar: the addressee pop-out's graph with a title, growing down to the bottom of the window; a click on an actor addresses the chat to it. */
 export function AgentsHeader({ session }: SessionHeaderContext) {
   const runId = session.session.id;
   const inspect = useAccess().can("runs.inspect");
@@ -34,7 +34,7 @@ export function AgentsHeader({ session }: SessionHeaderContext) {
     <Button aria-controls={open ? panelId : undefined} aria-expanded={open} aria-haspopup="dialog" aria-label="Agents" className="flex-none self-center" onClick={() => setOpen(!open)} ref={buttonRef} size="lg" title="Show the agents of this run" variant="ghost">
       <NetworkIcon /><span className="hidden @xs/run-header:inline">Agents</span>
     </Button>
-    {open && <ActorPopout align="end" buttonRef={buttonRef} closeLabel="Close agents" height={680} id={panelId} label="Agents" onClose={close} open role="dialog" width={1200}>
+    {open && <ActorPopout align="end" buttonRef={buttonRef} closeLabel="Close agents" id={panelId} label="Agents" onClose={close} open role="dialog">
       <ActorGraph actors={actors} onPick={pick} selectedId={selected.id} technical={inspect} view={view} />
     </ActorPopout>}
   </>;

@@ -1,7 +1,7 @@
 import { createRequire } from "node:module";
 import { fileURLToPath } from "node:url";
 import { existsSync, readFileSync } from "node:fs";
-import { mkdir, readFile, readdir, realpath, symlink, writeFile } from "node:fs/promises";
+import { lstat, mkdir, readFile, readdir, realpath, symlink, unlink, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { build } from "esbuild";
 import ts from "typescript";
@@ -34,7 +34,11 @@ const link = async (source: string, target: string): Promise<void> => {
   await mkdir(path.dirname(target), { recursive: true });
   await symlink(source, target).catch(async (error: NodeJS.ErrnoException) => {
     if (error.code !== "EEXIST") throw error;
-    if (await realpath(target) !== await realpath(source)) throw new Error(`The prepared library ${target} has a different origin.`);
+    if (await realpath(target).catch(() => undefined) === await realpath(source)) return;
+    if (!(await lstat(target)).isSymbolicLink()) throw new Error(`The prepared library ${target} has a different origin.`);
+    // A link of an earlier host version points to that version's library; the current host relinks it.
+    await unlink(target);
+    await symlink(source, target);
   });
 };
 export const prepareAppDependencies = async (directory: string): Promise<void> => {

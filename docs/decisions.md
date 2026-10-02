@@ -1,5 +1,53 @@
 # Decisions
 
+## 2026-10-02: The agent graph grows with its content and pans; the addressee chip gets a way back
+
+Chapters: `spec/plugins.md` (Web as plugin host: run panel, addressee graph);
+usage: `usage.md` (Run panel and VS Code extension).
+
+**Why.** The addressee pop-out and the "Agents" view had fixed sizes (560 and 680 pixels high), so
+a small graph sat in a mostly empty panel and a large one scrolled with scrollbars in a box much
+smaller than the window. The owner asked for the panel to use the available space, for panning by
+dragging when even that is not enough, for the pop-out without its "Addressee" title, and for a
+one-click way from another actor back to the coordinator.
+
+**Decision.** `ActorPopout` is sized by its content up to Base UI's `--available-width` and
+`--available-height` and passes that room, less its fixed-height header, to its body as
+`--popout-body-width` and `--popout-body-height`. `ActorGraph` measures the room on a hidden probe
+and takes the column count from it, so the layout no longer depends on the size it produces.
+`graphViewport` makes the view as large as the layout up to the room per axis; an axis that does
+not fit pans over the cards plus 40 pixels. Panning reuses native scrolling with hidden scrollbars,
+so wheel, trackpad, touch, and focus scrolling keep working and the browser keeps the limits; a
+left-button drag of 5 pixels or more scrolls by the pointer delta divided by the page zoom, as
+`DockWorkspace` corrects its deltas, and swallows the click that ends it. The chosen actor stays
+centered until the first press, wheel, or key, because the room settles only after Base UI has
+positioned the pop-out. After a group click the group card keeps its screen position as far as the
+limits allow; a one-time `ResizeObserver` applies it again once the pop-out has moved, because
+Base UI repositions in its own resize notification. The pop-out drops its header: the label only
+names the dialog, the close button sits in the top right corner, and Escape and a click outside
+still close it. The chip shows an x "Back to @<handle>" while the addressee is not the actor
+`selectedRunPanelActor` picks without a stored choice. `graphColumns` no longer reserves 16 pixels
+for a scrollbar.
+
+Rejected: panning with a CSS transform and own wheel, touch, and focus handling, because native
+scrolling already provides all of them; measuring the pop-out's header in JavaScript instead of a
+fixed header height in a CSS variable; keeping the group card's place relative to the view instead
+of the screen, because the two pop-outs grow towards different sides. In the pop-out above the
+input a group card cannot keep its screen position when the pop-out grows upward past it; it then
+stays in view. Verified with `apps/web/tests/actor-graph.test.ts` (columns, viewport, pan limits,
+pan target), `apps/web/tests/addressee-control.test.ts` (the x only for another actor), and
+`apps/web/tests/actor-graph-browser.test.ts` (compact small graph, pop-out grown to the window,
+drags from the background and from cards clamped 40 pixels beyond the cards, a short press picks,
+wheel, Tab into view, group card kept on screen in the Agents view, the x returns to the
+coordinator, drag under a 125 percent page zoom).
+
+## Actor workspaces relink libraries of an earlier host version (2026-10-02)
+
+Chapter: `docs/spec/actor-programs.md`. After a host update, a run created under the earlier version
+failed to start run scripts with "The prepared library ... has a different origin", because the links
+in its actor workspace still pointed to the previous host's libraries. `prepareAppDependencies` now
+replaces such a link with one to the current host's library; a real folder in its place stays an error.
+
 ## 2026-10-02: A run header too narrow for the window buttons shows one "All windows" menu
 
 Chapters: `spec/plugins.md` (Web as plugin host: docking workspace);

@@ -2486,15 +2486,28 @@ prefix, count, and state count. A group is collapsed unless it contains the chos
 actor; a click reverses that until the graph closes. `actorGraphLayout` (`web/run-panel/actor-graph.ts`)
 lays the tree out deterministically, without a layout library: cards of fixed size, every creator
 centered above the first row of its children, at most as many children per row as cards fit into
-the canvas width (`graphColumns`); further rows hang on a line in a gutter left of them, so no
+the largest canvas width the popout allows (`graphColumns`); further rows hang on a line in a gutter left of them, so no
 edge crosses a card. Edges run orthogonally with rounded corners from the bottom of the creator
 to the top of the child as `SvgEdge` from the UI library; an edge into a working actor (or a group
 with a working member) is `accent` and `active`, one into an actor waiting for input `warning`.
 An open group stands above a frame holding its members in rows, with a single edge into the frame.
-The graph is a list of buttons in creator-before-child order, so Tab follows the tree; it measures
-its width with a `ResizeObserver`, on opening scrolls once to the chosen actor, and after a click on a
-group scrolls so that the group card stays where it was clicked. `ActorGraph`
-(`ActorGraph.tsx`) is the only renderer, used by the recipient popout and by the header view. Per
+The graph is a list of buttons in creator-before-child order, so Tab follows the tree.
+`ActorPopout` sizes itself by its content up to the room Base UI computes beside the anchor
+(`--available-width`, `--available-height`) and hands that room, less its header, to its body as
+`--popout-body-width` and `--popout-body-height`; the graph measures both with a `ResizeObserver` on a
+hidden probe, so window resizes and new actors recompute columns, layout, and size. `graphViewport`
+makes the view as large as the layout up to that room; an axis that does not fit pans over the
+cards plus `GRAPH_PAN_MARGIN` (40 pixels) on each side, beyond the 16-pixel layout padding. The
+canvas stays a native scroll container with hidden scrollbars, so wheel, touch, and focus scrolling
+keep working within these limits. A left mouse or pen drag of at least 5 pixels pans from anywhere,
+cards included, with `clampGraphPan` and pointer deltas divided by the page's CSS zoom; the click
+that ends a drag is swallowed, a shorter press stays a click. On opening, the chosen actor is
+centered (`graphPanTo`) and stays centered while the room settles, until the first press, wheel, or
+key in the canvas. After a click on a group, the group card stays at its screen position as far as
+the pan limits allow; the position is applied again on the first resize notification after the
+popout has moved to fit its new size. `ActorGraph` (`ActorGraph.tsx`) is the only renderer, used by
+the recipient popout without a header (its label only names the dialog, the close button sits in
+the top right corner) and by the header view with the title "Agents". Per
 card there are the handle, the state (`working` with a spinner, `waiting for input` for an open
 action of the actor, `waiting`, or `stopped`), a time, the short description (the actor's
 `description`, otherwise the first line of its first own input, shortened to 90 characters,
@@ -2502,10 +2515,13 @@ otherwise a differing display name), and the number of pending inputs. The time 
 actor counts every second from `startedAt` of its running lifecycle, that is, the start of its
 current turn; otherwise it is "last turn" with `finishedAt - startedAt` of its last finished turn
 in `RunView.turns`, and without one there is none (`actorTimings`). A click chooses the recipient.
+While the recipient is not the actor chosen without a stored choice (`selectedRunPanelActor` with
+`null`, the primary chat actor), the chip carries a separate button "Back to @<handle>" that
+chooses that actor directly without opening the popout.
 Next to it the bar names the first working other actor with a spinner and waiting inputs. The
 header contribution `ragents.orchestration.agents` (`placement: "bar"`, `AgentsHeader.tsx`) shows
-"Agents" while the run lists at least one actor besides humans and opens the same graph in a larger
-popout aligned to its right edge; a click there stores the chosen actor the same way, and the run
+"Agents" while the run lists at least one actor besides humans and opens the same graph in a
+popout with a header, aligned to its right edge and growing down to the bottom of the window; a click there stores the chosen actor the same way, and the run
 panel takes it over through the stored state. The chosen actor is stored per run in browser storage
 (`ragents.orchestration.run-navigation:<runId>`); browser app selection belongs to the docking
 state. These domains have separate storage keys; layout preferences are not migrated. Invalid
