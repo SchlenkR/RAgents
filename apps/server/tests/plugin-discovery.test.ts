@@ -32,7 +32,8 @@ test("every folder under bundles is a built plugin; the host loads only bundles"
   assert.deepEqual(loaded.known, ids);
   assert.deepEqual(loaded.ids, ["ragents.orchestration", "ragents.ask", "ragents.todo"]);
   assert.deepEqual([...loaded.web.keys()].sort(), ["ragents.ask", "ragents.orchestration", "ragents.todo"]);
-  assert.deepEqual(loaded.web.get("ragents.todo"), { entry: "/plugins/ragents.todo/web/index.js" }, "the address follows the manifest, a CSS only if the bundle has one");
+  assert.match(loaded.web.get("ragents.todo")?.entry ?? "", /^\/plugins\/ragents\.todo\/web\/index\.js\?v=[A-Za-z0-9%_-]+$/, "the address follows the manifest under the bundle revision");
+  assert.equal(loaded.web.get("ragents.todo")?.css, undefined, "a CSS only if the bundle has one");
   assert.deepEqual(loaded.bundles.map((plugin) => plugin.folder), loaded.ids.map((id) => path.join(bundlesRoot, id)));
   assert.equal(typeof loaded.modules.get("ragents.orchestration")?.create, "function");
   assert.equal(pluginFolder("ragents.ask"), path.join(bundlesRoot, "ragents.ask"));

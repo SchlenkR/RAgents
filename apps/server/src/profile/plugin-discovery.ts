@@ -65,11 +65,11 @@ export const resolvePluginEntries = (
   return resolved;
 };
 
-/** The addresses of a web half: the host serves each bundle's web folder under /plugins/<id>/web/. */
+/** The addresses of a web half: the host serves each bundle's web folder under /plugins/<id>/web/, versioned by the bundle revision so no cache keeps an old half. */
 export const webAddressesOf = (plugin: ResolvedPlugin): PluginWebAddresses | undefined => {
   const web = plugin.manifest.web;
   if (web === undefined) return undefined;
-  const address = (file: string): string => `/plugins/${plugin.id}/${file}`;
+  const address = (file: string): string => `/plugins/${plugin.id}/${file}?v=${encodeURIComponent(plugin.manifest.revision)}`;
   return { entry: address(web.entry), ...(web.css === undefined ? {} : { css: address(web.css) }) };
 };
 

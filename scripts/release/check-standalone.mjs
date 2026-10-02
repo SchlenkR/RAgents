@@ -181,7 +181,7 @@ export const config = {
   assert.ok(host.token);
   const bootstrap = await rpc(host, "ragents.plugins.bootstrap");
   const entry = bootstrap.plugins.find((plugin) => plugin.id === "acme.greeting")?.web?.entry;
-  assert.equal(entry, "/plugins/acme.greeting/web/index.js");
+  assert.match(entry, /^\/plugins\/acme\.greeting\/web\/index\.js\?v=[A-Za-z0-9%_-]+$/);
   assert.deepEqual(await rpc(host, "acme.greeting.hello"), { text: "Hello from the bundle" });
   assert.match(await (await get(`${host.url}${entry}`)).text(), /webPlugin/);
   const html = await (await get(`${host.url}/?access=${host.token}`)).text();

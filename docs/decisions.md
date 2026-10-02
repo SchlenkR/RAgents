@@ -1,5 +1,14 @@
 # Decisions
 
+## Web halves load under their bundle revision (2026-10-02)
+
+Chapter: `docs/spec/plugins.md` (Web as plugin host). After a deploy, a browser behind a proxy that
+overrode the cache headers kept an old web half under the unchanged address `/plugins/<id>/web/index.js`
+and the profile failed to load ("requires the guide ..., which no active plugin provides").
+`ragents.plugins.bootstrap` now names `web.entry` and `web.css` with `?v=<bundle revision>`, like the
+versioned stylesheet; the file route ignores the query. Cross-plugin exports under
+`/plugins/<id>/web/exports/` keep their fixed addresses.
+
 ## 2026-10-02: "Empty space" adds empty panes that hold a place in the browser dock
 
 Chapters: `spec/plugins.md` (Web as plugin host: docking workspace);

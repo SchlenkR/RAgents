@@ -481,7 +481,8 @@ explicitly named, alongside routing, as a use case for TypeScript actors.
 The host's web is the same for every profile; the web halves come from the server at runtime as bundles,
 exactly those of the profile. The method `ragents.plugins.bootstrap` returns, in the
 order of the plugin list, per plugin the ID, public configuration, and for a web half
-its addresses (`web.entry`, with its own CSS also `web.css`, both under `/plugins/<id>/web/`),
+its addresses (`web.entry`, with its own CSS also `web.css`, both under `/plugins/<id>/web/` with
+the bundle revision as `?v=`, so that no browser or proxy cache keeps an old web half after a deploy),
 plus the templates (`startEntries`) and `defaultStartEntry` when the profile file names a
 default template and the user may start it (`profiles.md`); a script template carries
 only `action`, `coordinator`, and the display texts there, never its source. `version` names the

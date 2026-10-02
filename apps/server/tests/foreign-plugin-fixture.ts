@@ -98,13 +98,13 @@ export const rpc = async (host: Announced, method: string): Promise<unknown> => 
 export const assertGreetingServed = async (host: Announced, webDirectory: string): Promise<void> => {
   const bootstrap = await rpc(host, "ragents.plugins.bootstrap") as { plugins: { id: string; web?: { entry: string } }[] };
   const entryAddress = bootstrap.plugins.find((plugin) => plugin.id === "acme.greeting")?.web?.entry;
-  assert.equal(entryAddress, "/plugins/acme.greeting/web/index.js");
+  assert.match(entryAddress ?? "", /^\/plugins\/acme\.greeting\/web\/index\.js\?v=[A-Za-z0-9%_-]+$/);
   assert.deepEqual(await rpc(host, "acme.greeting.hello"), { text: "Hello from the bundle" }, "the server half runs");
   const entry = await fetch(`${host.url}${entryAddress}`);
   assert.equal(entry.status, 200, "the web half loads without a token, as in an iframe without a cookie");
   assert.match(await entry.text(), /webPlugin/);
-  assert.equal((await fetch(`${host.url}${entryAddress}.map`)).status, 401, "the source map carries the source code and stays behind the token");
-  assert.equal((await fetch(`${host.url}${entryAddress}.map`, { headers: { authorization: `Bearer ${host.token}` } })).status, 200);
+  assert.equal((await fetch(`${host.url}${entryAddress?.split("?")[0]}.map`)).status, 401, "the source map carries the source code and stays behind the token");
+  assert.equal((await fetch(`${host.url}${entryAddress?.split("?")[0]}.map`, { headers: { authorization: `Bearer ${host.token}` } })).status, 200);
   assert.equal((await fetch(`${host.url}/plugins/acme.greeting/api/anything`)).status, 401, "only the web half is open, not everything under /plugins/");
   const plain = await fetch(`${host.url}/ragents.css`);
   assert.match(await plain.text(), GREETING_CLASS, "the bundle's classes go into the host stylesheet");
