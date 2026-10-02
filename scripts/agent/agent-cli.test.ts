@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { spawn, spawnSync } from "node:child_process";
-import { existsSync, mkdirSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
@@ -412,6 +412,16 @@ test("the facade shows the usage with --help and help, without an argument it st
   const unknown = spawnSync(process.execPath, [facade, "dance"], { encoding: "utf8" });
   assert.equal(unknown.status, 1);
   assert.match(unknown.stderr, /Unknown command: dance/);
+});
+
+test("the facade prints the version of its package with --version and -v", () => {
+  const facade = fileURLToPath(new URL("../package/ragents.mjs", import.meta.url));
+  const expected = (JSON.parse(readFileSync(new URL("../../package.json", import.meta.url), "utf8")) as { version: string }).version;
+  for (const argument of ["--version", "-v"]) {
+    const shown = spawnSync(process.execPath, [facade, argument], { encoding: "utf8" });
+    assert.equal(shown.status, 0, shown.stderr);
+    assert.equal(shown.stdout, `${expected}\n`);
+  }
 });
 
 test("the command line names command, folder, task and switches", () => {

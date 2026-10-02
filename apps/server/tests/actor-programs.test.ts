@@ -154,6 +154,9 @@ test("an LLM actor keeps its behavior while several views and functions share it
   assert.throws(() => f.runtime.setVisibility({...f.context, commandId: "unknown-view"}, f.runId, "@worker/missing", false),
     /not an active actor view.*counter\/main \(@worker\/main\).*counter\/compact \(@worker\/compact\)/);
   assert.deepEqual(f.runtime.apps(f.runId).map((view) => view.visible), [true, false]);
+  assert.deepEqual(f.runtime.list(f.runId)[0]!.views.map((view) => view.ref), ["counter/main", "counter/compact"]);
+  assert.deepEqual(f.runtime.resolveView(f.runId, "@worker/compact"), {reference: "counter/compact", elementId: "counter--compact", visible: false});
+  assert.throws(() => f.runtime.resolveView(f.runId, "app:counter/main"), /not an active actor view/);
   const pid = result.status === "succeeded" ? (result.result as {pid: number}).pid : 0;
   await f.runtime.remove({...f.context, commandId: "remove"}, f.runId, "counter");
   assert.ok(pid);

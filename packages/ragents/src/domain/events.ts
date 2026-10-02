@@ -238,7 +238,7 @@ export type EventPayloads = {
     };
     "action.proposed": {
         actionId: ActionId;
-        owner: string | null;
+        owner: string;
         title: string;
         description: string | null;
         parameters: Record<string, string>;

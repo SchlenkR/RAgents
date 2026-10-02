@@ -13,6 +13,8 @@ export const unavailableActorPrograms: ActorProgramsService = {
   async installScript() { throw new Error("Actor programs are not configured in this fixture."); },
   enqueueStart() { throw new Error("Actor programs are not configured in this fixture."); },
   isScriptActor: () => false,
+  programOf: () => undefined,
+  resolveView() { throw new Error("Actor programs are not configured in this fixture."); },
 };
 
 export const actorProgramFixture = async (t: TestContext) => {

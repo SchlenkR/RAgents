@@ -1,7 +1,7 @@
 import { Type } from "typebox";
 import { defineRunFunction, type RunFunction } from "@ragents/engine";
 import { runFileExists } from "./files-route.js";
-import { facesOperator } from "@ragents/host/plugin-support/tool-availability.js";
+import { alwaysAvailable } from "@ragents/host/plugin-support/tool-availability.js";
 
 export const showDocumentToolMetadata = {
   name: "show_document",
@@ -52,7 +52,7 @@ export const createShowDocumentTool = (filesFor: (runId: string) => Promise<stri
       format: formatSchema,
     }, { additionalProperties: false }),
     resultSchema: Type.String(),
-    available: facesOperator,
+    available: alwaysAvailable,
     run: async ({ caller }, _toolCallId, input) => {
       const source = documentSource(input);
 

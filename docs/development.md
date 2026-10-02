@@ -224,7 +224,7 @@ class list. There is no
 compiled catalog and no loading from a foreign source: what exists as a bundle and is listed in
 the profile can be composed, nothing more.
 
-Plugins are NOT npm packages. Currently there are 19, 14 of them with a web part. The five packages under
+Plugins are NOT npm packages. Currently there are 18, 14 of them with a web part. The five packages under
 `packages/` are libraries that plugins are built against - not plugins.
 
 Even things that seem deeply embedded are plugins: the three language servers (`ragents.lsp-roslyn`,
@@ -282,8 +282,18 @@ A web plugin fills slots in the frontend (`WebPlugin` in `apps/web/src/PluginReg
 `settings`, `workspaceTabs`, `workspaceTabsFor`, `toolPresenters`, `entityPresenters`, `guides`,
 `sessionMetadata`, `actionViews`, `attention`; plus `activate` and `enabled`. `actionViews`
 render pending actions whose payload only the owning plugin knows. `workspaceTabs` are fixed tabs, `workspaceTabsFor` is a factory that derives
-tabs per run from the running state. Visible mini-apps enter the shared catalog automatically. Browser runs show Chat and app tabs;
-VS Code opens apps in editor tabs. Visited browser apps retain their mounted frames while hidden.
+tabs per run from the running state. Visible mini-apps enter `apps/web/src/run-apps.ts` automatically.
+Browser runs arrange Chat, apps, and inspection tools through `run-panel/DockWorkspace.tsx`;
+`PluginChat` supplies `DockToolsContext`, and the surface contribution supplies its chat and apps.
+`dock-state.ts` owns immutable tree operations, `dock-geometry.ts` rectangles and docking targets,
+`dock-pointer.ts` pointer capture/cancellation, and `dock-storage.ts` per-origin/run persistence.
+All panel containers stay at stable DOM positions during moves. The additive web host API module
+`@ragents/web/run-panel/DockWorkspace` exposes `DockWorkspace` and `useDockActiveApp`; the latter
+reports the focused app for the existing user-location contract. Workspace tabs optionally declare
+`hosts` to expose the Journal and Processes tools only in the browser. Server layout contracts
+stay unchanged. VS Code retains its app editor tabs and inspection popout.
+Unit coverage is in `apps/web/tests/dock-state.test.ts`; `docking-browser.test.ts` checks gestures,
+sidebar behavior, persistence, and iframe/draft identity with `RAGENTS_BROWSER_TESTS=1`.
 `startOptions` provides, per server-side start option, its own control component and a badge
 for the header of the running run; without a component, the host draws a selection menu from the
 option's presentation.
@@ -957,7 +967,8 @@ Nothing is both; a concept does not survive its implementation.
   at the same time the extension's README in the Marketplace, with installation, getting started, and links, without
   domain details. `docs/development.md`: handbook for development and AI assistants, this file.
 - `docs/homepage/index.html`: the product homepage for users, a handwritten static
-  page (styles in `homepage.css`, scripts in `homepage-*.js`). Texts are short, direct sentences
+  page (canvas scenes and styles inline, installation in `homepage-install.css` and
+  `homepage-install.js`, shared navigation in `site.css` and `site.js`). Texts are short, direct sentences
   that say what you can do; no slogans, no mirrored sentence pairs, no invented
   features, planned things are marked as "Planned". Diagrams explain principles with general
   roles (agent, script, mini-app, server, laptop) instead of concrete example workflows; every scene has

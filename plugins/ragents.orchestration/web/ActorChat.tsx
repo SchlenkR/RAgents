@@ -41,8 +41,10 @@ export function ActorChat({ actor, view, presentation, display = presentation, p
   return <>
     {historyError && <p className="my-1.5 text-[0.72rem] text-destructive" role="alert">{historyError}</p>}
     <ChatMessages
-    className={className}
+    className={presentation === "inspector" ? `${className ?? ""} [&_time]:w-7 [&_time]:text-[10px]` : className}
+    horizontalPadding={presentation === "inspector" && display !== "panel" ? 8 : undefined}
     detailMode={detailMode}
+    transcriptMode={chatView.transcriptMode}
     emptyState={<Empty><EmptyHeader><EmptyTitle>{actor.kind === "script" ? "No history yet" : "No conversation yet"}</EmptyTitle><EmptyDescription>{actor.kind === "script" ? "Program inputs and their processing appear here." : "Write a message to start the conversation."}</EmptyDescription></EmptyHeader></Empty>}
     messages={messages}
     renderAction={renderAction}

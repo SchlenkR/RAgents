@@ -51,8 +51,10 @@ adapter's own file or terminal tools must not bypass the RAgents sandbox. Concei
 ACP file and terminal functions provided by RAgents or an adapter process confined accordingly;
 which form works would have to be checked with real adapters.
 
-The agent's permission questions could appear as waiting, journaled questions via
-`ragents.ask`. The offered answers and internal identifiers would stay bound on the server side.
+The agent's permission questions could appear as journaled questions via `ragents.ask`. ACP
+holds its prompt turn open until the answer arrives, while an `ask_user` question no longer holds a
+turn; how both fit together would have to be decided. The offered answers and internal identifiers
+would stay bound on the server side.
 Credentials would be stored neither in the profile nor in the journal; a missing sign-in,
 adapter, or sandbox would be hard errors.
 

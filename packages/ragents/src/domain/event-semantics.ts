@@ -654,11 +654,8 @@ export const assertEventSemantics = (
         }
 
         case "action.proposed": {
-            const author = commandActorOf(state, event.actorId);
+            commandActorOf(state, event.actorId);
             assertNewId(state.actions, event.payload.actionId, "Action");
-
-            if (event.payload.owner === null && !hasRunCapability(author, "action.propose"))
-                throw new Error(`Actor ${author.id} lacks action.propose.`);
             break;
         }
 

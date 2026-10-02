@@ -28,7 +28,7 @@ test("browser tabs preserve drafts and mounted app identity through selection an
   const tab = (name: string) => page.getByRole("tab", { name, exact: true });
   const selected = async (name: string) => {
     await page.waitForFunction((name) => [...document.querySelectorAll('[role="tab"][aria-selected="true"]')].some((el) => el.textContent === name), name);
-    assert.equal(await page.locator('[data-run-panel="run"] > section:visible').count(), 1);
+    assert.equal(await page.locator('[data-dock-panel]:visible').count(), 1);
   };
   await selected("Chat");
   assert.deepEqual(await page.evaluate(() => window.tabsFixture.mounts), {});

@@ -25,6 +25,10 @@ import { useAttachmentCapabilities } from "./chat/useAttachmentCapabilities";
 import { StartSelection } from "./StartSelection";
 import { StatusGroup } from "./StatusGroup";
 import { RunPanelHeader } from "./run-panel/RunPanelHeader";
+import { DockToolsContext, DockWorkspace } from "./run-panel/DockWorkspace";
+import { activeDockTool, selectDockPanel, toolPanelId } from "./run-panel/dock-state";
+import { useDockStorage } from "./run-panel/dock-storage";
+import { useRunPanelHost } from "./run-panel/host";
 import { RunPanelRail } from "./run-panel/RunPanelRail";
 import { RunPanelWorkspace } from "./run-panel/RunPanelWorkspace";
 import { activeWorkspaceTab, saveRunPanelWorkspaceState, useRunPanelWorkspaceState } from "./run-panel/workspace-state";
@@ -92,6 +96,7 @@ interface ChatWorkspaceProps {
 
 export function PluginChat({ autoFocusChat, onAutoFocusChatSettled, layout = "panel", headerContainer, toolbarContainer, statusContainer, initialStartOptions, onStarted, onLocationChange, onViewed, viewing = false, registry, session, startDialog }: PluginChatProps) {
   const access = useAccess();
+  const host = useRunPanelHost();
   const startOnly = startDialog !== undefined;
   const [modalContainer, setModalContainer] = useState<HTMLDivElement | null>(null);
   const [surfaceModalContainer, setSurfaceModalContainer] = useState<HTMLDivElement | null>(null);
@@ -150,8 +155,8 @@ export function PluginChat({ autoFocusChat, onAutoFocusChatSettled, layout = "pa
     start,
   }), [connected, pluginEvents, messages, runStore.view, runStore.conversations, runStore.error, running, startup, send, session, start]);
 
-  const registeredTabs = useMemo(() => registry.registeredTabs(sessionContext, access), [access, registry, sessionContext]);
-  const availableTabs = useMemo(() => registry.availableTabs(sessionContext, access), [access, registry, sessionContext]);
+  const registeredTabs = useMemo(() => registry.registeredTabs(sessionContext, access).filter((tab) => !tab.hosts || tab.hosts.includes(host.kind)), [access, host.kind, registry, sessionContext]);
+  const availableTabs = useMemo(() => registry.availableTabs(sessionContext, access).filter((tab) => !tab.hosts || tab.hosts.includes(host.kind)), [access, host.kind, registry, sessionContext]);
   const { activeTabId, panelState, showTab, togglePanel } = useWorkspaceTabs(session.id, availableTabs);
 
   const openTab = useCallback((tabId: string, selection?: unknown) => {
@@ -245,16 +250,21 @@ export function PluginChat({ autoFocusChat, onAutoFocusChatSettled, layout = "pa
 }
 
 function useWorkspaceTabs(runId: string, availableTabs: readonly WorkspaceTabContribution[]) {
+  const host = useRunPanelHost();
+  const { state: dock, update: updateDock } = useDockStorage(runId);
   const stored = useRunPanelWorkspaceState(runId);
-  const activeTabId = activeWorkspaceTab(stored, availableTabs);
+  const dockTab = activeDockTool(dock);
+  const activeTabId = host.kind === "browser" ? availableTabs.find((tab) => tab.id === dockTab)?.id ?? "" : activeWorkspaceTab(stored, availableTabs);
   const panelState = activeTabId === "" ? "collapsed" : "expanded";
   const firstTabId = availableTabs[0]?.id ?? null;
   const showTab = useCallback((tabId: string) => {
-    saveRunPanelWorkspaceState(runId, { ...stored, tab: tabId });
-  }, [runId, stored]);
+    if (host.kind === "browser") updateDock((state) => selectDockPanel(state, toolPanelId(tabId)));
+    else saveRunPanelWorkspaceState(runId, { ...stored, tab: tabId });
+  }, [updateDock, host.kind, runId, stored]);
   const togglePanel = useCallback(() => {
-    saveRunPanelWorkspaceState(runId, { ...stored, tab: panelState === "expanded" ? null : stored.tab ?? firstTabId });
-  }, [firstTabId, panelState, runId, stored]);
+    if (host.kind === "browser") updateDock((state) => ({ ...state, side: { ...state.side, tab: null, sticky: false } }));
+    else saveRunPanelWorkspaceState(runId, { ...stored, tab: panelState === "expanded" ? null : stored.tab ?? firstTabId });
+  }, [updateDock, host.kind, firstTabId, panelState, runId, stored]);
   return { activeTabId, panelState, showTab, togglePanel } as const;
 }
 
@@ -297,6 +307,7 @@ function ChatWorkspace({
   tabs,
 }: ChatWorkspaceProps) {
   const access = useAccess();
+  const [dockActionsContainer, setDockActionsContainer] = useState<HTMLDivElement | null>(null);
   const headerContributions = registry.headersFor(session, access);
   const startSession = useMemo<SessionContext>(() => {
     const attempt = async (work: () => Promise<void>) => {
@@ -321,7 +332,8 @@ function ChatWorkspace({
       document.title = previous;
     };
   }, [attentionActive]);
-  const hasWorkspace = !startDialog && tabs.length > 0;
+  const host = useRunPanelHost();
+  const hasWorkspace = host.kind === "vscode" && !startDialog && tabs.length > 0;
   const SurfaceRunPanel = registry.surface?.RunPanel;
   const bindCompactContainers = useCallback((element: HTMLDivElement | null) => {
     onModalContainer(element);
@@ -332,7 +344,7 @@ function ChatWorkspace({
 
   const renderChat = (options: ChatDisplayOptions = {}) => (
     <ChatSurface
-      autoFocus={autoFocusChat}
+      autoFocus={autoFocusChat && options.autoFocus !== false}
       onAutoFocusSettled={onAutoFocusChatSettled}
       options={options}
       registry={registry}
@@ -352,7 +364,7 @@ function ChatWorkspace({
     <Status navigation={navigation} session={session} />
   </StatusGroup>);
   const header = headerContainer && createPortal(
-    <RunPanelHeader attention={attention} contributions={headerContributions} navigation={navigation} registry={registry} runError={runError} session={session} working={session.running} />, headerContainer);
+    <RunPanelHeader actionsRef={setDockActionsContainer} attention={attention} contributions={headerContributions} navigation={navigation} registry={registry} runError={runError} session={session} working={session.running} />, headerContainer);
 
   return (
     <div className="flex min-h-0 min-w-0 flex-1 flex-col">
@@ -361,10 +373,12 @@ function ChatWorkspace({
       <div className="relative isolate flex min-h-0 min-w-0 flex-1" ref={bindCompactContainers}>
         {typeof layout === "object"
           ? <SurfaceElementView elementId={layout.element} navigation={navigation} registry={registry} session={session} />
-          : <>
+          : <DockToolsContext.Provider value={{ tabs, pendingTabIds, actionsContainer: dockActionsContainer }}>
             <div className="relative flex min-h-0 min-w-0 flex-1 flex-col">
               {SurfaceRunPanel
                 ? <SurfaceRunPanel
+                  autoFocusChat={autoFocusChat}
+                  onAutoFocusChatSettled={onAutoFocusChatSettled}
                   toolbarContainer={toolbarContainer}
                   statusContainer={statusContainer}
                   cardSections={registry.cardSections}
@@ -374,11 +388,13 @@ function ChatWorkspace({
                   session={session}
                   tabIds={tabs.map((tab) => tab.id)}
                 />
-                : <DefaultCenter renderChat={renderChat} />}
+                : host.kind === "browser"
+                  ? <DockWorkspace apps={runApps(session, registry.surfaceElements)} chat={renderChat()} navigation={navigation} session={session} />
+                  : <DefaultCenter renderChat={renderChat} />}
               {hasWorkspace && <RunPanelWorkspace navigation={navigation} onClose={onTogglePanel} open={panelState === "expanded"} session={session} tabs={tabs} />}
             </div>
             {hasWorkspace && <RunPanelRail navigation={navigation} onClose={onTogglePanel} open={panelState === "expanded"} pendingTabIds={pendingTabIds} session={session} tabs={tabs} />}
-          </>}
+          </DockToolsContext.Provider>}
       </div>
     </div>
   );
@@ -405,7 +421,7 @@ function SurfaceElementView({ elementId, navigation, registry, session }: {
 }) {
   const match = selectedRunApp(runApps(session, registry.surfaceElements), elementId);
   if (!match) return <div className="m-auto max-w-[420px] p-6 text-center text-muted-foreground" role="status">
-    {session.runView === undefined ? "Loading run ..." : "This mini-app no longer exists in the run."}
+    {session.runView === undefined ? "Loading run ..." : "This mini-app is not available in the run: it was removed or is hidden, or the address is wrong."}
   </div>;
   return <div className="flex min-h-0 min-w-0 flex-1 flex-col" data-view="element">
     <RunAppView app={match} navigation={navigation} session={session} />
@@ -478,6 +494,7 @@ function ChatSurface({
     >
       {options.notice ?? <ChatMessages
         detailMode={chatView.detailMode}
+        transcriptMode={chatView.transcriptMode}
         messages={messages}
         onDismissAction={writable ? (actionId) => void dismissAction(session.session.id, actionId) : undefined}
         renderAction={renderAction}

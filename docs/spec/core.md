@@ -464,13 +464,15 @@ in effect.
 - `actor_stop`: Stops the actor, interrupts its running turn, and disposes its model runtime
   after the turn. Its active descendants are stopped in the same journal command, so a branch is
   never stopped halfway. The journal names the actor that called `actor_stop` as the one who
-  stopped them. Run data and the run's plugin data remain.
+  stopped them. `ragents.ask` withdraws the open `ask_user` questions of the stopped actors. Run
+  data and the run's plugin data remain.
 - Run stop: The scheduler temporarily accepts no new work for this run; concurrent stop calls
   are handled together. The primary actor remains, but its running work is interrupted. All
   other agents and TypeScript actors in the user's ownership tree are stopped. Agent runtimes
   and plugins receive their abort signals in parallel. The actor-program plugin also cancels
   pending app actions. An open confirmation question is discarded through `ragents.ask` in the
-  journal and the domain operation is no longer invoked. The run can be reused afterward.
+  journal and the domain operation is no longer invoked; the open `ask_user` questions of all
+  agents, including the primary actor, are withdrawn. The run can be reused afterward.
 - Run deletion: The scheduler stops the run. Its agent runtimes are then disposed and plugin
   deletion hooks run. The chat, recovery data, and journal are archived; run-bound plugin
   data, including its logs, is removed afterward.
@@ -605,9 +607,10 @@ worker's turn end (`event_subscribe` for `turn.finished` and `turn.interrupted`,
 observation) and decides at every end whether the worker is finished, waiting for someone else,
 or needs another prompt. An LLM coordinator that "waits passively" is not a wake-up. A watcher
 from `ragents.watch` (`plugins.md`) is such a host service: it wakes the controlling actor with
-the reason and changes as soon as its wake condition is met. Instructions may say "end the
-turn" only where such an observer exists. Synchronous functions return their result, and the
-caller continues in the same turn.
+the reason and changes as soon as its wake condition is met. `ragents.ask` is another: after
+`ask_user` the asker ends its turn, and the answer or the user's next message arrives as a new
+input. Instructions may say "end the turn" only where such an observer exists. Synchronous
+functions return their result, and the caller continues in the same turn.
 <!-- /guide:runtime -->
 
 ### Automatic notices and rejected calls
@@ -652,7 +655,7 @@ Whoever writes through these methods with a user's access, such as the global co
 mini-app, counts as that human. Decision and journal check allow the field only for a human acting
 actor (the decision otherwise rejects with `input-origin-invalid`, status 403) and never on a
 subscription input. The core does not evaluate it; plugins read it, for example `ragents.ask` uses
-it to settle a question that blocks the asker's turn (`plugins.md`).
+it to close the open questions of the message's addressee (`plugins.md`).
 
 ### Delivery of subscriptions
 
@@ -735,7 +738,7 @@ determines chat projection and output contract.
 ## Pending actions
 
 The core knows exactly one kind of pending input: the action. It holds `title`, an owner `owner`
-(the identifier of the plugin that created it, or `null`), the descriptive fields `description`,
+(the identifier of the plugin that created it), the descriptive fields `description`,
 `parameters`, and `input`, and a `payload` that is opaque to the core. The core checks only that
 the payload is a JSON object or `null`; it never reads it. Its lifecycle is `action.proposed` and
 exactly one `action.resolved` with `approved` or `dismissed` and an equally opaque `result`. If
@@ -743,10 +746,9 @@ exactly one `action.resolved` with `approved` or `dismissed` and an equally opaq
 
 The core thus knows no tool shape. Whether an action is a question with options, a multiple
 choice, a form, or a confirmation is determined solely by its owner's payload; only the owner's web
-contribution displays it (`docs/spec/plugins.md`, Web as plugin host). An action without an owner
-is the core's generic approval case (`action_propose`) and requires the capability
-`action.propose`; an action with an owner belongs to the plugin that creates it and does not
-require it.
+contribution displays it (`docs/spec/plugins.md`, Web as plugin host). Every action belongs to
+the plugin that creates it; the core offers no tool that proposes one. The capability name
+`action.propose` remains in the vocabulary only because journals grant it to the run owner.
 
 Open inputs are counted generically: per actor, per mini-app, and per run, the number of actions
 with status `pending` counts. Labels say "waiting for input".
@@ -950,26 +952,14 @@ a product working directory. Its native interface contains `typescript_api`, `ty
 the allowed file tools `read`, `write`, and `edit`; without sign-in, the host shell `bash` is
 added. With users, it has none, because as a server process it could read the files of all users;
 it then sends its JSON-RPC calls from snippets with `fetch`. Individual work actions run directly;
-`quick_answer` for a supplementary short answer and compound calls use the same
-`context.functions` API as normal runs. The two TypeScript tools are part of the server's basic
-equipment and need no actor program plugin. Without sign-in, only its workspace additionally
-receives read file access to the profile's journal folder; `write` and `edit` must not write there.
-With users, this read root is omitted, because the folder contains the journals of all users; the
-coordinator then reads journals through `ragents.overseer.readEvents`, which knows only the runs of
+compound calls use the same `context.functions` API as normal runs. The two TypeScript tools are
+part of the server's basic equipment and need no actor program plugin. Without sign-in, only its
+workspace additionally receives read file access to the profile's journal folder; `write` and
+`edit` must not write there. With users, this read root is omitted, because the folder contains the
+journals of all users; the coordinator then reads journals through `ragents.overseer.readEvents`, which knows only the runs of
 its user. The host shell is not an additional file system sandbox; its working instruction requires
 changing runtime data exclusively through the message layer. Normal runs receive neither these
 additional read roots nor the API access.
-
-`quick_answer` is available exclusively to the global coordinator with `plugin.state.write`. It
-takes the short repetition of the current user question as `question` and the short answer as
-`text`. Both fields are trimmed at the outer edges and must each be non-empty, without line breaks,
-and at most 240 UTF-16 characters long. The prompt instruction requires the complete normal chat
-answer first and then question and result summary; after a successful call, no further content
-answer or confirmation is appended. The tool replaces the run state of the plugin
-`ragents.overseer` with a short answer with both fields. The journaled change appears in the
-existing plugin stream as `state-replaced` with conversation identity, event ID, and journal
-sequence. The state and the event contract are in the code; no separate delivery channel exists for
-the short answer.
 
 The global coordinator shares its base prompt with the separate preparation role for new skill
 tasks. It runs directly on the agent loop with its own conversation in memory and exclusively the

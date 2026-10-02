@@ -40,7 +40,7 @@ test("VS Code keeps chat visible and exposes even a single app as a launch entry
 test("the browser panel starts on Chat with app tabs and no eagerly mounted app", () => {
   const html = render("browser", true);
   assert.match(html, /role="tablist"/);
-  assert.match(html, /aria-selected="true"[^>]*role="tab"[^>]*>Chat</);
+  assert.match(html, /aria-label="Chat" aria-selected="true"/);
   assert.match(html, />Notes</);
   assert.doesNotMatch(html, /Hidden/);
 });

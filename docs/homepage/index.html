@@ -72,10 +72,10 @@ a { color: inherit; text-underline-offset: 4px; }
 .layers { position: absolute; inset: 0; }
 .layers canvas.panel { inset: 0; width: 100%; height: 100%; }
 .layers canvas { position: absolute; inset: -40px; width: calc(100% + 80px); height: calc(100% + 80px); display: block; will-change: transform, filter; }
-.hero { --hole-at: .71; transition: --hole-at 1.1s ease; }
+.hero { --hole-at: .71; }
 .hero[data-side="right"] { --hole-at: .29; }
 .hero[data-centered] { --hole-at: .5; }
-.veil { position: absolute; inset: 0; pointer-events: none; transition: opacity 1.1s ease; }
+.veil { position: absolute; inset: 0; pointer-events: none; }
 .veil.left { background: linear-gradient(to right, rgba(var(--veil), .96) 0, rgba(var(--veil), .82) calc(var(--edge) + var(--stage) * .36), rgba(var(--veil), 0) calc(var(--edge) + var(--stage) * .46)); }
 .veil.right { opacity: 0; background: linear-gradient(to left, rgba(var(--veil), .96) 0, rgba(var(--veil), .82) calc(var(--edge) + var(--stage) * .36), rgba(var(--veil), 0) calc(var(--edge) + var(--stage) * .46)); }
 .hero[data-side="right"] .veil.left { opacity: 0; }
@@ -86,13 +86,12 @@ a { color: inherit; text-underline-offset: 4px; }
 .layers canvas.bubble { inset: 0 auto auto 0; visibility: hidden; background: radial-gradient(circle closest-side, rgba(167, 232, 212, .06) 0, rgba(167, 232, 212, 0) 100%), radial-gradient(circle closest-side, rgba(var(--veil), .62) 0, rgba(var(--veil), .5) 60%, rgba(var(--veil), 0) 100%); -webkit-mask-image: radial-gradient(circle closest-side, #000 62%, transparent 100%); mask-image: radial-gradient(circle closest-side, #000 62%, transparent 100%); }
 .lane { position: absolute; inset: 0; z-index: 2; pointer-events: none; -webkit-mask-image: linear-gradient(transparent, #000 8%, #000 92%, transparent); mask-image: linear-gradient(transparent, #000 8%, #000 92%, transparent); }
 .lane > .copy { pointer-events: auto; }
-.copy { --width: min(540px, 38vw); position: absolute; z-index: 2; top: 50%; left: calc(var(--edge) + var(--stage) * .05); width: var(--width); transform: translateY(-50%); text-align: left; transition: opacity .36s ease; }
+.copy { --width: min(540px, 38vw); position: absolute; z-index: 2; top: 50%; left: calc(var(--edge) + var(--stage) * .05); width: var(--width); transform: translateY(-50%); text-align: left; }
 .copy.out { opacity: 0; }
 .copy.ruler, .note.ruler { visibility: hidden; transition: none; pointer-events: none; }
-.hero.still .copy { transition: none; }
 .copy[data-side="right"] { left: calc(var(--edge) + var(--stage) * .95 - var(--width)); }
 .copy[data-centered] { top: var(--intro-top, 50%); left: 50%; width: min(1040px, calc(100% - 48px)); transform: translateX(-50%); text-align: center; }
-.copy::before { content: ''; display: block; width: 44px; height: 4px; margin-bottom: 22px; border-radius: 2px; background: var(--kick); transition: background .6s; }
+.copy::before { content: ''; display: block; width: 44px; height: 4px; margin-bottom: 22px; border-radius: 2px; background: var(--kick); }
 .copy[data-centered]::before, .copy[data-centered] .points, .copy[data-centered] .how, .points:empty, .how:empty { display: none; }
 .copy .title { margin: 0; font-size: clamp(32px, 3.5vw, 54px); font-weight: 650; line-height: 1.06; letter-spacing: -.045em; }
 .copy .title > span { display: block; text-wrap: balance; }
@@ -101,12 +100,12 @@ a { color: inherit; text-underline-offset: 4px; }
 .copy[data-centered] .title { font-size: clamp(36px, 4.4vw, 64px); }
 .points { display: grid; gap: .6em; margin: 1.55em 0 0; padding: 0; list-style: none; font-size: clamp(15px, 1.18vw, 18px); font-weight: 600; line-height: 1.4; letter-spacing: -.01em; }
 .points li { position: relative; padding-left: 1.6em; color: rgba(238, 243, 248, .8); text-wrap: pretty; }
-.points li::before { --tick: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cmask id='m'%3E%3Ccircle cx='12' cy='12' r='12' fill='%23fff'/%3E%3Cpath d='M7 12.4l3.4 3.4L17 9.2' fill='none' stroke='%23000' stroke-width='2.8' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/mask%3E%3Ccircle cx='12' cy='12' r='12' mask='url(%23m)'/%3E%3C/svg%3E"); content: ''; position: absolute; left: 0; top: .24em; width: .92em; height: .92em; background: var(--kick); opacity: .7; -webkit-mask: var(--tick) center / 100% no-repeat; mask: var(--tick) center / 100% no-repeat; transition: background .6s; }
+.points li::before { --tick: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cmask id='m'%3E%3Ccircle cx='12' cy='12' r='12' fill='%23fff'/%3E%3Cpath d='M7 12.4l3.4 3.4L17 9.2' fill='none' stroke='%23000' stroke-width='2.8' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/mask%3E%3Ccircle cx='12' cy='12' r='12' mask='url(%23m)'/%3E%3C/svg%3E"); content: ''; position: absolute; left: 0; top: .24em; width: .92em; height: .92em; background: var(--kick); opacity: .7; -webkit-mask: var(--tick) center / 100% no-repeat; mask: var(--tick) center / 100% no-repeat; }
 .points li.wink { padding-left: 0; font-weight: 500; font-style: italic; }
 .points li.wink::before { display: none; }
 .tag { display: inline-block; margin-left: .45em; padding: .2em .6em; border: 1px solid var(--kick, var(--accent)); border-radius: 999px; color: var(--kick, var(--accent)); font: 700 .62em/1.2 var(--mono); letter-spacing: .08em; text-transform: uppercase; vertical-align: .18em; }
 .how { max-width: 36em; margin: 1.7em 0 0; padding-top: 1.05em; border-top: 1px solid var(--track); color: var(--muted); font-size: clamp(13px, .98vw, 14.5px); font-weight: 450; line-height: 1.62; text-wrap: pretty; }
-.how-label { display: block; margin-bottom: .45em; color: var(--kick, var(--accent)); font: 700 10.5px/1.4 var(--mono); letter-spacing: .12em; text-transform: uppercase; transition: color .6s; }
+.how-label { display: block; margin-bottom: .45em; color: var(--kick, var(--accent)); font: 700 10.5px/1.4 var(--mono); letter-spacing: .12em; text-transform: uppercase; }
 .how code { color: var(--text); font: .92em var(--mono); }
 .actions { display: flex; flex-wrap: wrap; justify-content: center; gap: 12px; margin-top: 34px; }
 .copy:not([data-centered]) .actions { display: none; }
@@ -116,22 +115,19 @@ a { color: inherit; text-underline-offset: 4px; }
 .button.secondary:hover { background: var(--hover); border-color: var(--done); }
 .button svg { flex: none; width: 18px; height: 18px; }
 .layers canvas.wire { z-index: 1; pointer-events: none; }
-.note { position: absolute; left: 0; top: 0; z-index: 3; width: max-content; max-width: 17em; padding: 2px 0 2px 12px; border-left: 2px solid var(--signal); color: var(--signal); font: 600 clamp(15px, 1.2vw, 17px)/1.35 var(--font); letter-spacing: -.005em; text-align: left; text-wrap: balance; text-shadow: 0 0 12px rgba(var(--veil), .95), 0 0 3px rgba(var(--veil), .95); pointer-events: none; transition: opacity .36s ease; }
+.note { position: absolute; left: 0; top: 0; z-index: 3; width: max-content; max-width: 17em; padding: 2px 0 2px 12px; border-left: 2px solid var(--signal); color: var(--signal); font: 600 clamp(15px, 1.2vw, 17px)/1.35 var(--font); letter-spacing: -.005em; text-align: left; text-wrap: balance; text-shadow: 0 0 12px rgba(var(--veil), .95), 0 0 3px rgba(var(--veil), .95); pointer-events: none; opacity: var(--note-opacity, 1); }
 .note.out, .note.wait { opacity: 0; }
 .stage { display: none; }
 .hold { position: fixed; left: 50%; top: 50%; z-index: 6; display: grid; place-items: center; width: 60px; height: 60px; margin: -30px 0 0 -30px; border: 1.5px solid rgba(238, 243, 248, .34); border-radius: 50%; background: rgba(var(--veil), .82); color: var(--text); box-shadow: 0 10px 30px -12px #000; opacity: 0; transform: scale(.5); pointer-events: none; transition: opacity .14s ease, transform .14s ease; }
 .hold[data-on] { opacity: 1; transform: scale(1); transition: opacity .1s ease, transform .28s cubic-bezier(.34, 1.56, .64, 1); }
 .hold svg { width: 20px; height: 20px; fill: currentColor; }
 .end { position: absolute; left: 50%; bottom: clamp(24px, 6svh, 56px); z-index: 4; display: flex; gap: 12px; transform: translateX(-50%); pointer-events: none; }
-.end-button { display: inline-flex; align-items: center; gap: 9px; min-height: 44px; padding: 0 20px 0 16px; border: 1.5px solid rgba(238, 243, 248, .34); border-radius: 999px; background: rgba(var(--veil), .82); color: var(--text); font: 600 15px/1 var(--font); letter-spacing: -.01em; white-space: nowrap; box-shadow: 0 10px 30px -12px #000; cursor: pointer; opacity: 0; visibility: hidden; transform: scale(.86); transition: opacity .2s ease, transform .2s ease, visibility 0s .2s, background .2s, border-color .2s; }
-.end[data-on] .end-button { opacity: 1; visibility: visible; transform: scale(1); pointer-events: auto; transition: opacity .45s ease, transform .55s cubic-bezier(.34, 1.56, .64, 1), visibility 0s, background .2s, border-color .2s; }
+.end-button { display: inline-flex; align-items: center; gap: 9px; min-height: 44px; padding: 0 20px 0 16px; border: 1.5px solid rgba(238, 243, 248, .34); border-radius: 999px; background: rgba(var(--veil), .82); color: var(--text); font: 600 15px/1 var(--font); letter-spacing: -.01em; white-space: nowrap; box-shadow: 0 10px 30px -12px #000; cursor: pointer; opacity: 0; visibility: hidden; transform: scale(.86); transition: background .2s, border-color .2s; }
+.end[data-on] .end-button { opacity: 1; visibility: visible; transform: scale(1); pointer-events: auto; transition: background .2s, border-color .2s; }
 .end-button:hover { border-color: var(--done); background: linear-gradient(var(--hover), var(--hover)) rgba(var(--veil), .82); }
 .end-button svg { width: 18px; height: 18px; flex: none; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
-.end-arrow { animation: nudge 1.8s ease-in-out infinite; }
-@keyframes nudge { 0%, 100% { transform: translateY(-1.5px); } 50% { transform: translateY(2.5px); } }
 @media (prefers-reduced-motion: reduce) {
   .end-button, .end[data-on] .end-button { transform: none; transition: none; }
-  .end-arrow { animation: none; }
 }
 .note[data-side="left"], .note[data-side="right"] { max-width: 13em; }
 .after { position: relative; z-index: 1; background: var(--bg); }
@@ -171,7 +167,7 @@ a { color: inherit; text-underline-offset: 4px; }
 .ext-card strong { display: block; font-size: 15px; font-weight: 700; letter-spacing: -.02em; line-height: 1.3; }
 .ext-card p { margin-top: 3px; color: var(--muted); font-size: 13.5px; line-height: 1.45; }
 .ext-card small { display: block; margin-top: 7px; color: rgba(169, 183, 198, .72); font: 11px/1.3 var(--mono); overflow-wrap: anywhere; }
-.closing { display: grid; grid-template-columns: 1fr 1fr; gap: 64px; align-items: start; padding: 80px 0 56px; border-top: 1px solid var(--track); }
+.closing { display: grid; grid-template-columns: 1fr 1fr; gap: 64px; align-items: start; padding: 40px 0; border-top: 1px solid var(--track); }
 .closing section { display: grid; justify-items: start; gap: 16px; }
 .closing p { color: var(--muted); font-size: 17px; }
 .closing .actions { justify-content: flex-start; margin-top: 8px; }
@@ -250,7 +246,7 @@ a { color: inherit; text-underline-offset: 4px; }
   .ext-section { padding: 72px 0 56px; }
   .ext-grid { grid-template-columns: 1fr; gap: 10px; margin-top: 28px; }
   .section-head p { font-size: 16px; }
-  .closing { padding: 56px 0 44px; }
+  .closing { padding: 32px 0; }
   .closing p { font-size: 16px; }
   .limits { margin-bottom: 56px; padding: 22px 20px; }
   .footer-grid { grid-template-columns: 1fr 1fr; gap: 32px 24px; }
@@ -292,11 +288,11 @@ a { color: inherit; text-underline-offset: 4px; }
     <div class="end" data-end><button type="button" class="end-button" data-replay><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>Replay</button><button type="button" class="end-button" data-onward><svg class="end-arrow" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14"/><path d="m19 12-7 7-7-7"/></svg>Scroll down</button></div>
   </div>
   <div class="sr-only story" data-story>
-    <article data-chapter="workspace" id="setups" data-anchor="setups"><h2><span>Tailor a workspace</span> <span>for a task</span></h2><p>The script builds the workspace, so the agents start with everything in place.</p><ul class="bullets"><li>A setup script creates agents, scripts and mini-apps</li><li>Start it again with one click</li><li>Add a setup to a run that is already running</li><li>Ask for inputs before the run starts</li></ul><p class="how"><span class="how-label">How it works</span> A setup is a tested TypeScript package that appears as a start card. Its script starts agents, TypeScript programs and mini-apps through the same functions the AI uses. A setup dialog can ask for values, such as a repository or a topic, before the run starts. A setup marked as embeddable also joins a running run, from the run menu, the command line or the coordinator, and reports its result back.</p></article>
+    <article data-chapter="workspace" id="setups" data-anchor="setups"><h2><span>Tailor a workspace</span> <span>for a task</span></h2><p>The script builds the workspace, so the agents start with everything in place.</p><ul class="bullets"><li>A setup script creates agents, scripts and mini-apps</li><li>Start it again with one click</li><li>Add a setup to a run that is already running</li><li>Ask for inputs before the run starts</li></ul><p class="how"><span class="how-label">How it works</span> A setup is a tested TypeScript package that appears as a start card. Its script starts agents, TypeScript programs and mini-apps through the same functions the AI uses. A setup dialog can ask for values, such as a repository or a topic, before the run starts. A setup marked as embeddable also joins a running run, from the run's Run script button, the command line or the coordinator, and reports its result back.</p></article>
     <article data-chapter="agents" id="agents" data-anchor="agents"><h2><span>Everyone talks</span> <span>to everyone</span></h2><p>Agents write plain text to each other, addressed by handle, such as @agent1.</p><ul class="bullets"><li>Agents hand work to each other</li><li>Agents talk to scripts, scripts answer</li><li>People talk to agents and mini-apps</li><li>Mini-apps talk to people and agents</li><li class="wink">... you get the idea :)</li></ul><p class="how"><span class="how-label">How it works</span> Each agent has its own model, prompt, history and handle. A coordinator takes the task and hands out work. A helper starts with no tools, a picked list, or all tools. When an agent asks you something, the choices appear in the chat and your answer goes back to that agent. You can attach images in the browser and VS Code for models that support them.</p></article>
-    <article data-chapter="ui" id="ui" data-anchor="ui"><h2><span>Agents with</span> <span>their own UI</span></h2><p>People are used to working with interfaces. A UI shows what the agent is doing, and you step in with a click.</p><ul class="bullets"><li>The AI builds a UI while it works</li><li>Extensions ship UIs ready to use</li><li>You and the agent use the same UI and state</li><li>Your click goes straight to the agent</li><li>A new UI goes live after its tests pass</li></ul><p class="how"><span class="how-label">How it works</span> A mini-app is a React view on the state of an agent or a TypeScript program. Its buttons call the program's typed functions directly. The AI type-checks and tests a new view before it goes live; if a rebuild fails, the old version stays active. Activated mini-apps become available automatically: browser apps are tabs beside Chat; in VS Code, each app opens in its own editor tab.</p></article>
+    <article data-chapter="ui" id="ui" data-anchor="ui"><h2><span>Agents with</span> <span>their own UI</span></h2><p>People are used to working with interfaces. A UI shows what the agent is doing, and you step in with a click.</p><ul class="bullets"><li>The AI builds a UI while it works</li><li>Extensions ship UIs ready to use</li><li>You and the agent use the same UI and state</li><li>Your click goes straight to the agent</li><li>A new UI goes live after its tests pass</li></ul><p class="how"><span class="how-label">How it works</span> A mini-app is a React view on the state of an agent or a TypeScript program. Its buttons call the program's typed functions directly. The AI type-checks and tests a new view before it goes live; if a rebuild fails, the old version stays active. Activated mini-apps appear beside Chat in wide browser windows and as tabs in narrow ones; arrange Chat, apps, and inspection windows in browser docking areas; in VS Code, each app opens in its own editor tab.</p></article>
     <article data-chapter="typescript" id="typescript" data-anchor="typescript"><h2><span>Tools are</span> <span>TypeScript functions</span></h2><ul class="bullets"><li>Register a typed function once, from your own plugin</li><li>Agents get it as a tool</li><li>AI-written code calls it, type-checked first</li><li>A button calls it without a model</li><li>Programs call it when events arrive</li></ul><p class="how"><span class="how-label">How it works</span> A snippet runs once and returns its result to the model. A program keeps its state and reacts to later messages. A setup starts agents, programs and UIs. All of them call the same typed functions, with the same permission checks.</p></article>
-    <article data-chapter="events" id="events" data-anchor="events"><h2><span>Event-driven</span> <span>journal</span></h2><p>Every step of a run is an event in the journal. Agents and programs subscribe to the events they care about.</p><ul class="bullets"><li>An agent starts when another one finishes</li><li>Replies arrive later as new input, nobody waits</li><li>A watcher without a model wakes an agent that hangs</li><li>Agents read the run's journal</li><li>Fork an agent with its memory</li></ul><p class="how"><span class="how-label">How it works</span> A subscription turns matching events, such as another agent's finished turn, into new input. A watcher is a TypeScript condition without a model, for example no progress for 120 seconds. Agents query the journal themselves and read other agents' transcripts for handoffs.</p></article>
+    <article data-chapter="events" id="events" data-anchor="events"><h2><span>Event-driven</span> <span>journal</span></h2><p>Every step of a run is an event in the journal. Agents and programs subscribe to the events they care about.</p><ul class="bullets"><li>An agent starts when another one finishes</li><li>Replies arrive later as new input, nobody waits</li><li>A watcher without a model wakes an agent that hangs</li><li>Agents read the run's journal</li><li>Fork an agent with its memory</li></ul><p class="how"><span class="how-label">How it works</span> A subscription turns matching events, such as another agent's finished turn, into new input. A watcher is a TypeScript condition without a model, for example no progress for 120 seconds. Agents query the journal themselves.</p></article>
     <article data-chapter="workflows" id="workflows" data-anchor="workflows"><h2><span>AI or deterministic</span> <span>workflows</span></h2><p>Some work needs judgment, some needs the same steps every time. One run holds both.</p><ul class="bullets"><li>Let an agent choose the next step</li><li>Or write the steps in TypeScript, the same every time</li><li>Mix both in one run: code keeps the order, models do the thinking</li><li>Code steps cost no tokens</li><li>Wait for a person when a decision is due</li></ul><p class="how"><span class="how-label">How it works</span> A setup or an actor program in TypeScript creates the participants and controls the handoffs. Agents fill in the parts that need a model. In the word game, code runs the rounds while four models supply the words.</p></article>
     <article data-chapter="distributed" id="distributed" data-anchor="distributed distributed-modes dm-local dm-server-mode dm-hybrid dm-connected"><h2><span>Distributed across</span> <span>server and laptop</span></h2><p>Coordinate centrally, and let the tools run where the files are.</p><ul class="bullets"><li>Runs, agents and models live on the server</li><li>Laptops and browsers connect to a run</li><li>Messages flow both ways, live</li><li>Tools run on the machine that has the files</li><li>One server, many clients</li></ul><p class="how">Runs, models and tools do not have to live on the same machine. Coordinate centrally, let the tools run where the files are, and choose the split per team and per run.</p></article>
     <article data-chapter="app" id="use-in-app" data-anchor="use-in-app"><h2><span>Use RAgents</span> <span>in your application</span></h2><p>RAgents is a server with one JSON-RPC API. The web interface and VS Code use it, and your product can too.</p><ul class="bullets"><li>Start the host beside your app, on a private port or over stdio</li><li>Call the same JSON-RPC 2.0 API as the UI</li><li>Follow runs live over Server-Sent Events</li><li>Typed contracts as OpenRPC and TypeScript declarations</li><li>Use mini-apps to build user-facing UIs</li><li>Tailor agents, tools and setups with your own profile and plugins</li><li>Hide the technical views, keep chat and UI</li></ul></article>
@@ -339,7 +335,6 @@ a { color: inherit; text-underline-offset: 4px; }
         <li class="ext-card"><span class="glyph square"><svg viewBox="0 0 24 24"><path d="M4 5h16v11H9l-5 4z"/><path d="M10 9a2 2 0 1 1 2.5 1.9c-.4.2-.5.5-.5.9M12 13.5h.01"/></svg></span><div><strong>Ask the user</strong><p>The agent stops and asks you a question</p><small>ragents.ask</small></div></li>
         <li class="ext-card"><span class="glyph square"><svg viewBox="0 0 24 24"><path d="M2 12s3.5-6 10-6 10 6 10 6-3.5 6-10 6S2 12 2 12z"/><circle cx="12" cy="12" r="2.5"/></svg></span><div><strong>Watchers</strong><p>Wake an agent when a check turns true, no model needed</p><small>ragents.watch</small></div></li>
         <li class="ext-card"><span class="glyph square"><svg viewBox="0 0 24 24"><path d="M3 12h4l2-5 4 10 2-5h6"/></svg></span><div><strong>Processes</strong><p>See and stop what a run has started</p><small>ragents.processes</small></div></li>
-        <li class="ext-card"><span class="glyph square"><svg viewBox="0 0 24 24"><path d="M5 6h14M5 10h10M5 14h14M5 18h8"/></svg></span><div><strong>Transcripts</strong><p>Read another actor's history in short form</p><small>ragents.transcript</small></div></li>
         <li class="ext-card"><span class="glyph square"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><circle cx="4.5" cy="5" r="1.8"/><circle cx="19.5" cy="5" r="1.8"/><circle cx="4.5" cy="19" r="1.8"/><circle cx="19.5" cy="19" r="1.8"/><path d="m6 6.5 3.8 3.6M18 6.5l-3.8 3.6M6 17.5l3.8-3.6M18 17.5l-3.8-3.6"/></svg></span><div><strong>Global coordinator</strong><p>One chat across all your runs</p><small>ragents.overseer</small></div></li>
         <li class="ext-card"><span class="glyph square"><svg viewBox="0 0 24 24"><circle cx="5" cy="12" r="2.5"/><circle cx="19" cy="12" r="2.5"/><path d="M7.5 12h9M13 9l3 3-3 3"/></svg></span><div><strong>Model relay</strong><p>Use another server's models without their keys</p><small>ragents.model-relay</small></div></li>
         <li class="ext-card"><span class="glyph square"><svg viewBox="0 0 24 24"><path d="M4 7h10m4 0h2M4 17h4m4 0h8"/><circle cx="16" cy="7" r="2"/><circle cx="10" cy="17" r="2"/></svg></span><div><strong>Profile distribution</strong><p>A server hands its profile and plugins to clients</p><small>ragents.profile-distribution</small></div></li>
@@ -348,9 +343,7 @@ a { color: inherit; text-underline-offset: 4px; }
   </section>
   <section class="shell install-section" id="install" aria-labelledby="install-title" data-install>
     <div class="install-heading">
-      <p class="install-eyebrow">INSTALLATION</p>
       <h2 id="install-title">Get RAgents</h2>
-      <p>In your editor or from your terminal. Choose how you want to start.</p>
     </div>
     <div class="install-card">
       <div class="install-tabs" role="tablist" aria-label="Installation method">
@@ -360,36 +353,31 @@ a { color: inherit; text-underline-offset: 4px; }
       <button class="install-tab" type="button" role="tab" id="install-tab-standalone" aria-controls="install-panel-standalone" aria-selected="false" tabindex="-1"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v12m-5-5 5 5 5-5M4 15v5h16v-5"/></svg>Standalone</button>
       </div>
       <div class="install-panel" role="tabpanel" id="install-panel-vscode" aria-labelledby="install-tab-vscode" tabindex="0">
-        <div class="install-summary"><span class="install-tag">VS CODE EXTENSION</span><h3>Inside your editor</h3><p>Chat with agents and open their mini-apps alongside your code.</p></div>
-        <div class="install-detail install-marketplace"><a class="button" href="https://marketplace.visualstudio.com/items?itemName=purestate.ragents-vscode">Open in Marketplace<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><path d="M5 12h14m-5-5 5 5-5 5"/></svg></a><p class="install-caption">Windows, macOS and Linux. Local workspaces need Node.js 22.19+.</p></div>
+        <div class="install-detail install-marketplace"><a class="button" href="https://marketplace.visualstudio.com/items?itemName=purestate.ragents-vscode">Open in Marketplace<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><path d="M5 12h14m-5-5 5 5-5 5"/></svg></a><p class="install-caption">Local workspaces need Node.js 22.19+.</p></div>
       </div>
       <div class="install-panel" role="tabpanel" id="install-panel-npm" aria-labelledby="install-tab-npm" tabindex="0" hidden>
-        <div class="install-summary"><span class="install-tag">NODE.JS 22.19+</span><h3>Install the command line</h3><p>Keep the <code>ragents</code> command available in your terminal. Run a local host or connect to a server.</p></div>
-        <div class="install-detail"><div class="install-command"><div class="install-command-head"><span>Terminal</span><button class="install-copy" type="button" data-install-copy aria-label="Copy command"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="8" y="8" width="12" height="12" rx="2"/><path d="M15 8V4H4v11h4"/></svg>Copy</button></div><pre><code>npm install -g @schlenkr/ragents</code></pre></div><p class="install-caption">Then configure your model access and run <code>ragents start core</code>.</p></div>
+        <div class="install-detail"><div class="install-command"><div class="install-command-head"><span>Terminal</span><button class="install-copy" type="button" data-install-copy aria-label="Copy command"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="8" y="8" width="12" height="12" rx="2"/><path d="M15 8V4H4v11h4"/></svg>Copy</button></div><pre><code>npm install -g @schlenkr/ragents</code></pre></div><p class="install-caption">Node.js 22.19+. Start with <code>ragents start core</code>.</p></div>
       </div>
       <div class="install-panel" role="tabpanel" id="install-panel-npx" aria-labelledby="install-tab-npx" tabindex="0" hidden>
-        <div class="install-summary"><span class="install-tag">NODE.JS 22.19+</span><h3>Run it with npx</h3><p>Start a local host from npm's cache. No global package installation needed.</p></div>
-        <div class="install-detail"><div class="install-command"><div class="install-command-head"><span>Terminal</span><button class="install-copy" type="button" data-install-copy aria-label="Copy command"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="8" y="8" width="12" height="12" rx="2"/><path d="M15 8V4H4v11h4"/></svg>Copy</button></div><pre><code>npx --yes @schlenkr/ragents start core</code></pre></div><p class="install-caption">Configure model access and profile tools first. The interface is available at <code>localhost:4710</code>.</p></div>
+        <div class="install-detail"><div class="install-command"><div class="install-command-head"><span>Terminal</span><button class="install-copy" type="button" data-install-copy aria-label="Copy command"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="8" y="8" width="12" height="12" rx="2"/><path d="M15 8V4H4v11h4"/></svg>Copy</button></div><pre><code>npx --yes @schlenkr/ragents start core</code></pre></div><p class="install-caption">Node.js 22.19+. No global installation.</p></div>
       </div>
       <div class="install-panel" role="tabpanel" id="install-panel-standalone" aria-labelledby="install-tab-standalone" tabindex="0" hidden>
-        <div class="install-summary"><span class="install-tag">NODE.JS INCLUDED</span><h3>Install a standalone build</h3><p>The shell script installs the matching GitHub release. Run it again to update.</p></div>
         <div class="install-detail">
           <div class="install-os" role="group" aria-label="Operating system"><button type="button" data-install-platform="macos" aria-pressed="true">macOS</button><button type="button" data-install-platform="linux" aria-pressed="false">Linux</button><button type="button" data-install-platform="windows" aria-pressed="false">Windows</button></div>
-          <div class="install-os-panel" data-install-os="macos"><div class="install-command"><div class="install-command-head"><span>Terminal</span><button class="install-copy" type="button" data-install-copy aria-label="Copy command"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="8" y="8" width="12" height="12" rx="2"/><path d="M15 8V4H4v11h4"/></svg>Copy</button></div><pre><code>curl -fsSL https://github.com/SchlenkR/RAgents/releases/latest/download/install.sh | sh</code></pre></div></div>
-          <div class="install-os-panel" data-install-os="linux" hidden><div class="install-command"><div class="install-command-head"><span>Terminal</span><button class="install-copy" type="button" data-install-copy aria-label="Copy command"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="8" y="8" width="12" height="12" rx="2"/><path d="M15 8V4H4v11h4"/></svg>Copy</button></div><pre><code>curl -fsSL https://github.com/SchlenkR/RAgents/releases/latest/download/install.sh | sh</code></pre></div></div>
-          <div class="install-os-panel" data-install-os="windows" hidden><div class="install-command"><div class="install-command-head"><span>PowerShell</span><button class="install-copy" type="button" data-install-copy aria-label="Copy command"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="8" y="8" width="12" height="12" rx="2"/><path d="M15 8V4H4v11h4"/></svg>Copy</button></div><pre><code>irm https://github.com/SchlenkR/RAgents/releases/latest/download/install.ps1 | iex</code></pre></div></div>
-          <a class="install-download" href="https://github.com/SchlenkR/RAgents/releases">Or download an archive from GitHub Releases</a>
-          <p class="install-caption">x64 and ARM64. Model access and profile tools are configured separately.</p>
+          <div class="install-os-panel" data-install-os="macos"><div class="install-command"><div class="install-command-head"><span>Terminal, for you</span><button class="install-copy" type="button" data-install-copy aria-label="Copy command for you"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="8" y="8" width="12" height="12" rx="2"/><path d="M15 8V4H4v11h4"/></svg>Copy</button></div><pre><code>curl -fsSL https://github.com/SchlenkR/RAgents/releases/latest/download/install.sh | sh</code></pre></div><div class="install-command"><div class="install-command-head"><span>Terminal, for all users</span><button class="install-copy" type="button" data-install-copy aria-label="Copy command for all users"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="8" y="8" width="12" height="12" rx="2"/><path d="M15 8V4H4v11h4"/></svg>Copy</button></div><pre><code>curl -fsSL https://github.com/SchlenkR/RAgents/releases/latest/download/install.sh | sh -s -- --global</code></pre></div><p class="install-caption">On macOS, <code>~/.local/bin</code> is often not on your PATH. The installer then prints the line to add.</p></div>
+          <div class="install-os-panel" data-install-os="linux" hidden><div class="install-command"><div class="install-command-head"><span>Terminal, for you</span><button class="install-copy" type="button" data-install-copy aria-label="Copy command for you"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="8" y="8" width="12" height="12" rx="2"/><path d="M15 8V4H4v11h4"/></svg>Copy</button></div><pre><code>curl -fsSL https://github.com/SchlenkR/RAgents/releases/latest/download/install.sh | sh</code></pre></div><div class="install-command"><div class="install-command-head"><span>Terminal, for all users</span><button class="install-copy" type="button" data-install-copy aria-label="Copy command for all users"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="8" y="8" width="12" height="12" rx="2"/><path d="M15 8V4H4v11h4"/></svg>Copy</button></div><pre><code>curl -fsSL https://github.com/SchlenkR/RAgents/releases/latest/download/install.sh | sh -s -- --global</code></pre></div><p class="install-caption">If <code>~/.local/bin</code> is not on your PATH, the installer prints the line to add.</p></div>
+          <div class="install-os-panel" data-install-os="windows" hidden><div class="install-command"><div class="install-command-head"><span>PowerShell, for you</span><button class="install-copy" type="button" data-install-copy aria-label="Copy command for you"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="8" y="8" width="12" height="12" rx="2"/><path d="M15 8V4H4v11h4"/></svg>Copy</button></div><pre><code>&amp; ([scriptblock]::Create((irm https://github.com/SchlenkR/RAgents/releases/latest/download/install.ps1)))</code></pre></div><div class="install-command"><div class="install-command-head"><span>PowerShell as administrator, for all users</span><button class="install-copy" type="button" data-install-copy aria-label="Copy command for all users"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="8" y="8" width="12" height="12" rx="2"/><path d="M15 8V4H4v11h4"/></svg>Copy</button></div><pre><code>&amp; ([scriptblock]::Create((irm https://github.com/SchlenkR/RAgents/releases/latest/download/install.ps1))) -Global</code></pre></div><p class="install-caption">The installer adds RAgents to your PATH. Open a new terminal afterwards.</p></div>
+          <a class="install-download" href="https://github.com/SchlenkR/RAgents/releases">GitHub Releases</a>
+          <p class="install-caption">Node.js included. x64 and ARM64. <a href="guide-getting-started.html#install-a-standalone-release">Installation options</a>.</p>
         </div>
       </div>
-      <div class="install-footer"><p>Starting a local host? Configure model access and your profile's tools.</p><a href="guide-getting-started.html">Setup guide</a></div>
     </div>
     <p class="install-status" role="status" aria-live="polite" data-install-status></p>
     <noscript><p>Find every installation method in the <a href="guide-getting-started.html">setup guide</a>.</p></noscript>
   </section>
   <div class="shell closing">
-    <section class="start-cta" id="start" data-chapter="start" aria-labelledby="start-title"><h2 id="start-title">Start a run</h2><p>Open RAgents in VS Code or in the browser. Start with a plain chat, a skill, or a prepared setup.</p><div class="actions"><a class="button" href="#install">Get RAgents<svg class="link-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14m-5-5 5 5-5 5"/></svg></a><a class="button secondary" href="guide-getting-started.html">Read the getting started guide<svg class="link-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14m-5-5 5 5-5 5"/></svg></a></div></section>
-    <section class="alpha-note" id="built-with" aria-labelledby="built-title"><h2 id="built-title">Built something with RAgents?</h2><p>RAgents is still in an alpha state. If you have built anything cool with it, let us know.</p><a class="button secondary" href="https://github.com/SchlenkR/RAgents/issues"><svg class="gh-icon" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M12 2a10 10 0 0 0-3.2 19.5c.5.1.7-.2.7-.5v-1.7c-2.8.6-3.4-1.3-3.4-1.3-.5-1.2-1.1-1.5-1.1-1.5-.9-.6.1-.6.1-.6 1 .1 1.5 1 1.5 1 .9 1.6 2.4 1.1 3 .9.1-.7.4-1.1.6-1.4-2.2-.3-4.6-1.1-4.6-5 0-1.1.4-2 1-2.7-.1-.3-.4-1.3.1-2.7 0 0 .8-.3 2.8 1a9.6 9.6 0 0 1 5 0c1.9-1.3 2.8-1 2.8-1 .5 1.4.2 2.4.1 2.7.6.7 1 1.6 1 2.7 0 3.9-2.4 4.7-4.6 5 .4.3.7.9.7 1.9V21c0 .3.2.6.7.5A10 10 0 0 0 12 2Z"/></svg>Tell us on GitHub</a></section>
+    <section class="start-cta" id="start" data-chapter="start" aria-labelledby="start-title"><h2 id="start-title">Start a run</h2><div class="actions"><a class="button secondary" href="guide-getting-started.html">Getting started guide<svg class="link-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14m-5-5 5 5-5 5"/></svg></a></div></section>
+    <section class="alpha-note" id="built-with" aria-labelledby="built-title"><h2 id="built-title">Built with RAgents?</h2><a class="button secondary" href="https://github.com/SchlenkR/RAgents/issues"><svg class="gh-icon" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M12 2a10 10 0 0 0-3.2 19.5c.5.1.7-.2.7-.5v-1.7c-2.8.6-3.4-1.3-3.4-1.3-.5-1.2-1.1-1.5-1.1-1.5-.9-.6.1-.6.1-.6 1 .1 1.5 1 1.5 1 .9 1.6 2.4 1.1 3 .9.1-.7.4-1.1.6-1.4-2.2-.3-4.6-1.1-4.6-5 0-1.1.4-2 1-2.7-.1-.3-.4-1.3.1-2.7 0 0 .8-.3 2.8 1a9.6 9.6 0 0 1 5 0c1.9-1.3 2.8-1 2.8-1 .5 1.4.2 2.4.1 2.7.6.7 1 1.6 1 2.7 0 3.9-2.4 4.7-4.6 5 .4.3.7.9.7 1.9V21c0 .3.2.6.7.5A10 10 0 0 0 12 2Z"/></svg>Tell us on GitHub</a></section>
   </div>
   <section class="shell limits" id="applications" aria-labelledby="limits-title"><h2 id="limits-title">Current status and limits</h2><p>RAgents is under active development. Actor programs, their functions, state, and mini-apps belong to one run. Events and time-based triggers need an agent or TypeScript actor. Schedules, a user-management interface, and several people in the same run are not available yet. Profiles may require sign-in or run without it. General user permissions can limit new runs to approved setups and hide settings, models, and technical views while keeping chats and mini-apps usable.</p></section>
 </div>
@@ -667,7 +655,7 @@ a { color: inherit; text-underline-offset: 4px; }
     const canvas = document.createElement('canvas');
     canvas.className = 'panel';
     host.append(canvas);
-    return { canvas, context: canvas.getContext('2d'), sharp: dpr, most: 2e6, ratio: 0, w: 0, h: 0, story: null, t: 0, emitted: 0, spot: null, depth: .4, target: .4, mirror: false, debris: new Map(), sprites: new Map() };
+    return { canvas, context: canvas.getContext('2d'), sharp: dpr, most: 2e6, ratio: 0, w: 0, h: 0, story: null, t: 0, emitted: 0, spot: null, depth: .4, mirror: false, debris: new Map(), sprites: new Map() };
   });
   const near = debrisLayer(1.8, .92, 1);
   const forget = () => players.forEach(player => {
@@ -3225,6 +3213,14 @@ a { color: inherit; text-underline-offset: 4px; }
     return { key: `${width}x${height}`, base, spots: bubbles.map(bubble => placed.find(spot => spot.bubble === bubble)) };
   };
   let arrangement = { key: '' };
+  const focusAt = (player, k) => {
+    const start = player.story.focus.filter(([at]) => player.t >= at).pop()?.[0] ?? 0;
+    const blend = ease(span(player.t, start, start + .7));
+    const [bx, by] = k.focusTarget(start - .01);
+    const [ax, ay] = k.focusTarget(player.t);
+    player.spot = [lerp(bx, ax, blend), lerp(by, ay, blend)];
+    player.wide = lerp(k.focusName(start - .01) === '*' ? 1 : 0, k.focusName(player.t) === '*' ? 1 : 0, blend);
+  };
   const paint = (slot, story, time, size, limit, ratio) => {
     const { canvas, context: c } = slot;
     const pixels = Math.round(size * ratio);
@@ -3238,12 +3234,8 @@ a { color: inherit; text-underline-offset: 4px; }
     const zoom = Math.min(pixels / 2 / extent, limit * ratio);
     const player = { ...virtualStage, context: c, story, t: time, spot: null, wide: 1, second: [], debris: new Map() };
     const k = kit(player);
-    const start = story.focus.filter(([at]) => time >= at).pop()?.[0] ?? 0;
-    const blend = ease(span(time, start, start + .7));
-    const [bx, by] = k.focusTarget(start - .01);
-    const [ax, ay] = k.focusTarget(time);
-    player.spot = [lerp(bx, ax, blend), lerp(by, ay, blend)];
-    player.wide = Math.max(.5, lerp(k.focusName(start - .01) === '*' ? 1 : 0, k.focusName(time) === '*' ? 1 : 0, blend));
+    focusAt(player, k);
+    player.wide = Math.max(.5, player.wide);
     c.setTransform(1, 0, 0, 1, 0, 0);
     c.clearRect(0, 0, pixels, pixels);
     c.setTransform(zoom, 0, 0, zoom, pixels / 2 - cx * zoom, pixels / 2 - cy * zoom);
@@ -3313,7 +3305,6 @@ a { color: inherit; text-underline-offset: 4px; }
     player.spot = null;
     player.wide = 1;
     player.depth = depth;
-    player.target = depth;
   };
   const restart = (index = 0) => {
     upcoming = index;
@@ -3367,7 +3358,7 @@ a { color: inherit; text-underline-offset: 4px; }
     c.restore();
   };
 
-  const renderPlayer = (player, delta) => {
+  const renderPlayer = player => {
     const { context: c, w, h, canvas } = player;
     if (!player.story) {
       if (player.shown) c.clearRect(0, 0, w, h);
@@ -3378,16 +3369,13 @@ a { color: inherit; text-underline-offset: 4px; }
     c.clearRect(0, 0, w, h);
     player.shown = true;
     canvas.style.visibility = 'visible';
-    player.depth += (player.target - player.depth) * (1 - Math.exp(-delta * 2.4));
+    const elapsed = Math.max(0, player.t - (player.old ? player.story.end : preroll));
+    player.depth = player.old ? .4 + .6 * Math.exp(-elapsed / (player.rush ? rush : 1) * 2.4)
+      : player.index === 0 ? 1 : 1 - .6 * Math.exp(-elapsed * 2.4);
     const k = kit(player);
-    const target = k.focusTarget(player.t);
-    player.wide += ((k.focusName(player.t) === '*' ? 1 : 0) - player.wide) * (1 - Math.exp(-delta * 3));
-    player.second = player === front ? [...(active?.target ?? []), ...(active?.light ?? []).map(name => [name])].filter(([name]) => player.story.stations[name]).map(([name]) => k.pos(name)) : [];
-    if (!player.spot) player.spot = target;
-    else {
-      const follow = 1 - Math.exp(-delta * 7);
-      player.spot = [lerp(player.spot[0], target[0], follow), lerp(player.spot[1], target[1], follow)];
-    }
+    focusAt(player, k);
+    const step = stepAt(player.story, player.t);
+    player.second = [...step.target, ...step.light.map(name => [name])].filter(([name]) => player.story.stations[name]).map(([name]) => k.pos(name));
     const { events } = player.story;
     while (player.emitted < events.length && events[player.emitted][0] <= player.t) {
       emit(events[player.emitted][3]);
@@ -3412,8 +3400,6 @@ a { color: inherit; text-underline-offset: 4px; }
     if (back.story && !back.old && front.t >= handoff) {
       [front, back] = [back, front];
       host.insertBefore(front.canvas, near.canvas);
-      front.target = 1;
-      back.target = .4;
       back.old = true;
       back.rush = turned(front.story, back.story);
     }
@@ -3428,10 +3414,6 @@ a { color: inherit; text-underline-offset: 4px; }
     for (let passed = 0; passed < time - 1e-9; passed += 1 / 30) {
       const step = Math.min(1 / 30, time - passed);
       advance(step);
-      players.forEach(player => {
-        if (!player.story) return;
-        player.depth += (player.target - player.depth) * (1 - Math.exp(-step * 2.4));
-      });
     }
     settle();
   };
@@ -3447,21 +3429,29 @@ a { color: inherit; text-underline-offset: 4px; }
   window.__pause = value => { paused = value; };
 
   const where = () => front.index + clamp((front.t - preroll) / lengths[front.index]);
+  const positionPlayer = (player, index, time, old = false) => {
+    const story = scenes[playlist[index]];
+    if (player.story !== story || time < player.t) discard(player.debris);
+    player.index = index;
+    player.story = story;
+    player.mirror = Boolean(story.mirror);
+    player.t = time;
+    player.old = old;
+    player.rush = old && turned(front.story, story);
+    player.emitted = story.events.filter(([at]) => at <= time).length;
+  };
   const rewind = value => {
     const index = Math.min(playlist.length - 1, Math.floor(value));
-    restart(index);
-    simulate(preroll + (value - index) * lengths[index]);
-  };
-  const forward = value => {
-    let moved = 0;
-    for (let guard = 0; guard < 4000 && where() < value - 1e-4; guard += 1) {
-      const room = front.index === playlist.length - 1 ? front.story.end - front.t - .01 : Infinity;
-      const step = Math.min(room, clamp((value - where()) * lengths[front.index], .002, 1 / 30));
-      if (step <= 0) break;
-      advance(step);
-      moved += step;
-    }
-    return moved;
+    const time = preroll + (value - index) * lengths[index];
+    positionPlayer(front, index, time);
+    const previous = scenes[playlist[index - 1]];
+    const elapsed = time - preroll;
+    const past = previous ? previous.end + elapsed * (turned(front.story, previous) ? rush : 1) : Infinity;
+    if (previous && past < previous.duration + .6) positionPlayer(back, index - 1, past, true);
+    else if (index < playlist.length - 1 && time >= front.story.end - crossfade) {
+      positionPlayer(back, index + 1, Math.min(preroll, time - front.story.end + crossfade));
+    } else back.story = null;
+    upcoming = index + (back.story && !back.old ? 2 : 1);
   };
   const reel = document.querySelector('[data-reel]');
   let unit = 1;
@@ -3477,24 +3467,20 @@ a { color: inherit; text-underline-offset: 4px; }
   const inside = () => scrollY <= unit * reelTotal + 2;
   let expected = 0;
   let steering = false;
-  let touched = -1e9;
   const sync = () => {
     expected = Math.min(Math.round(scrollOf(where())), root.scrollHeight - innerHeight);
     if (Math.abs(scrollY - expected) >= 1) scrollTo(0, expected);
   };
   const scrub = () => {
     const goal = clamp(valueOf(scrollY), 0, playlist.length - .002);
-    const now = where();
     expected = scrollY;
-    if (goal > now - .004 && goal < now + 1.5) return forward(goal);
-    rewind(goal);
-    return .4;
+    if (Math.abs(goal - where()) > 1e-9) rewind(goal);
   };
   const steer = () => {
     steering = true;
-    touched = performance.now();
+    if (mode !== 'pause') setMode('pause');
   };
-  addEventListener('scroll', () => { if (Math.abs(scrollY - expected) > 1.5) steer(); }, { passive: true });
+  addEventListener('scroll', () => { if (Math.abs(scrollY - expected) >= 1) steer(); }, { passive: true });
   ['wheel', 'touchmove'].forEach(type => addEventListener(type, steer, { passive: true }));
   addEventListener('keydown', event => {
     if (event.key === ' ' && event.target.closest?.('button')) return;
@@ -3512,8 +3498,6 @@ a { color: inherit; text-underline-offset: 4px; }
     front = back;
     back = old;
     host.insertBefore(front.canvas, near.canvas);
-    front.target = 1;
-    back.target = .4;
     back.old = true;
     back.rush = turned(front.story, back.story);
     sync();
@@ -3526,15 +3510,13 @@ a { color: inherit; text-underline-offset: 4px; }
     last = now;
     if (mobile) {
       glance(delta);
+      markScroll();
       return;
     }
-    let moved = 0;
     if (steering) {
-      moved = scrub();
-      if (now - touched > 900) steering = false;
+      scrub();
     } else if (!paused && mode !== 'pause' && !held && inside()) {
-      moved = delta * speed * rates[mode];
-      advance(moved);
+      advance(delta * speed * rates[mode]);
     }
     if (!steering && inside()) sync();
     drawRain(paused || reduce ? 0 : delta);
@@ -3546,19 +3528,23 @@ a { color: inherit; text-underline-offset: 4px; }
       layer.context.restore();
       layer.used = false;
     });
-    renderPlayer(front, moved);
-    renderPlayer(back, moved);
+    follow();
+    placeCopy();
+    renderPlayer(front);
+    renderPlayer(back);
+    drawNote();
+    mark();
+    showFinale();
     drawBubbles([front, back].filter(player => player.story === intro));
     [far, near].forEach(layer => { layer.canvas.style.visibility = layer.used ? 'visible' : 'hidden'; });
     if (feed.length > 40) feed.splice(0, feed.length - 40);
   };
 
-  const note = (text, target, light, place) => ({ text, target, light, place });
   const heads = Object.fromEntries(Object.entries(scenes).map(([name, story]) => {
     const { lines: [a, b = ''], points, how } = chapters[name];
     return [name, [[0, { a, b, centered: Boolean(story.centered), points, how, side: story.mirror ? 'right' : 'left' }]]];
   }));
-  const notes = Object.fromEntries(Object.entries(scenes).map(([name, story]) => [name, story.steps.map(step => [step.at, note(step.label || step.text, step.target, step.light, step.place)])]));
+  const notes = Object.fromEntries(Object.entries(scenes).map(([name, story]) => [name, story.steps.map(step => [step.at, step])]));
   const slots = { a: document.querySelector('[data-line-a]'), b: document.querySelector('[data-line-b]') };
   const noteBox = document.querySelector('[data-note]');
   const pointList = document.querySelector('[data-points]');
@@ -3576,7 +3562,6 @@ a { color: inherit; text-underline-offset: 4px; }
   const blocks = new Map();
   let stageHeight = 0;
   let copyShift = 0;
-  let copyFade = 1;
   let titleShift = 0;
   let copyStyle = '';
   const leaveAt = (index, height) => Math.max(0, reels[index] * unit - introTop - height);
@@ -3605,7 +3590,6 @@ a { color: inherit; text-underline-offset: 4px; }
     const [y, fade, titleY, titleFade, bodyFade] = driftAt(front.story, front.index, front.t);
     copyShift = y;
     titleShift = titleY;
-    copyFade = fade;
     const style = `${y.toFixed(1)}|${titleY.toFixed(1)}|${fade.toFixed(2)}|${titleFade.toFixed(2)}|${bodyFade.toFixed(2)}`;
     if (style === copyStyle) return;
     copyStyle = style;
@@ -3617,50 +3601,31 @@ a { color: inherit; text-underline-offset: 4px; }
     });
     copyLane.style.opacity = fade.toFixed(2);
   };
-  let headVersion = 0;
-  let hiddenAt = -1e9;
-  const hide = () => {
-    if (!copy.classList.contains('out')) hiddenAt = performance.now();
-    copy.classList.add('out');
-  };
-  const showHead = (next, instant) => {
+  const hide = () => copy.classList.add('out');
+  const showHead = next => {
     if (next === chapter) return;
     chapter = next;
-    const token = ++headVersion;
-    const fill = () => {
-      if (token !== headVersion) return;
-      render(copy, next);
-      hero.toggleAttribute('data-centered', next.centered);
-      copy.classList.remove('out');
-    };
-    if (instant || reduce || copyFade < .98 || !slots.a.textContent || (copy.classList.contains('out') && performance.now() - hiddenAt > 360)) {
-      fill();
-      return;
-    }
-    hide();
-    setTimeout(fill, 360);
+    render(copy, next);
+    hero.toggleAttribute('data-centered', next.centered);
+    copy.classList.remove('out');
   };
   let active = null;
-  let shownAt = 0;
-  let noteVersion = 0;
-  const showNote = (next, instant) => {
+  const showNote = next => {
     if (next === active) return;
-    const first = !active;
     active = next;
-    shownAt = instant ? -1e9 : performance.now() + 380;
-    const token = ++noteVersion;
-    const fill = () => {
-      if (token !== noteVersion) return;
-      noteBox.textContent = next.text;
-      noteBox.dataset.side = next.place.side;
-      noteBox.classList.toggle('out', !next.text);
+    noteBox.textContent = next.label || next.text;
+    noteBox.dataset.side = next.place.side;
+    noteBox.classList.toggle('out', !noteBox.textContent);
+  };
+  const annotationAt = (story, time, step) => {
+    if (reduce) return { opacity: 1, grow: 1 };
+    const start = Math.max(preroll, step.at);
+    const end = story.steps[story.steps.indexOf(step) + 1]?.at ?? story.end;
+    const fade = Math.min(.24, (end - start) / 3);
+    return {
+      opacity: ease(span(time, start, start + fade)) * (1 - ease(span(time, end - fade, end))),
+      grow: ease(span(time, start, start + Math.min(.8, (end - start) / 2))),
     };
-    if (instant || reduce || first) {
-      fill();
-      return;
-    }
-    noteBox.classList.add('out');
-    setTimeout(fill, 360);
   };
   let concealed = false;
   const conceal = state => {
@@ -3671,8 +3636,6 @@ a { color: inherit; text-underline-offset: 4px; }
       active = null;
       return;
     }
-    headVersion += 1;
-    noteVersion += 1;
     hide();
     noteBox.classList.add('out');
   };
@@ -3683,8 +3646,7 @@ a { color: inherit; text-underline-offset: 4px; }
   };
   const storyName = player => Object.keys(scenes).find(key => scenes[key] === player.story);
   const latest = list => (list ?? []).filter(([at]) => front.t >= at).pop()?.[1];
-  const follow = instant => {
-    hero.classList.toggle('still', instant);
+  const follow = () => {
     hero.dataset.side = front.mirror ? 'right' : 'left';
     root.style.setProperty('--kick', front.story.color);
     conceal(turning());
@@ -3692,8 +3654,8 @@ a { color: inherit; text-underline-offset: 4px; }
     const name = storyName(front);
     const nextHead = latest(heads[name]) ?? heads[name]?.[0]?.[1];
     const nextNote = latest(notes[name]) ?? notes[name]?.[0]?.[1];
-    if (nextHead) showHead(nextHead, instant);
-    if (nextNote) showNote(nextNote, instant);
+    if (nextHead) showHead(nextHead);
+    if (nextNote) showNote(nextNote);
   };
   const wire = document.createElement('canvas');
   wire.className = 'panel wire';
@@ -3744,24 +3706,24 @@ a { color: inherit; text-underline-offset: 4px; }
     const at = q => [0, 1].map(axis => (1 - q) ** 2 * from[axis] + 2 * (1 - q) * q * control[axis] + q * q * end[axis]);
     g.beginPath();
     g.moveTo(...from);
-    for (let step = 1; step <= 40 * grow; step += 1) g.lineTo(...at(step / 40));
+    const shaft = clamp(grow / .8);
+    for (let step = 1; step < 40 * shaft; step += 1) g.lineTo(...at(step / 40));
+    g.lineTo(...at(shaft));
     g.stroke();
-    if (grow < 1) return;
+    const tip = span(grow, .8, 1);
+    if (tip <= 0) return;
     const angle = Math.atan2(end[1] - control[1], end[0] - control[0]);
     g.beginPath();
     [-.45, .45].forEach(turn => {
       g.moveTo(...end);
-      g.lineTo(end[0] - Math.cos(angle + turn) * 12, end[1] - Math.sin(angle + turn) * 12);
+      g.lineTo(end[0] - Math.cos(angle + turn) * 12 * tip, end[1] - Math.sin(angle + turn) * 12 * tip);
     });
     g.stroke();
   };
-  let waited = false;
   const drawNote = () => {
     const box = wire.getBoundingClientRect();
     const waiting = copy.classList.contains('out');
     noteBox.classList.toggle('wait', waiting);
-    if (waited && !waiting) shownAt = Math.max(shownAt, performance.now() + 200);
-    waited = waiting;
     if (waiting || !active || !front.story || !noteBox.textContent || noteBox.classList.contains('out')) {
       if (wireKey) wireContext.clearRect(0, 0, box.width, box.height);
       wireKey = '';
@@ -3834,13 +3796,15 @@ a { color: inherit; text-underline-offset: 4px; }
     const { l: left, t: top } = settle(origin(side, size), size);
     noteBox.style.transform = `translate(${left.toFixed(1)}px, ${top.toFixed(1)}px)`;
     const color = theme.signal;
-    const grow = ease(clamp((performance.now() - shownAt) / 600));
-    const shape = JSON.stringify([box.width, box.height, left, top, width, height, grow, color, active.target.map(item => front.story.stations[item[0]] ? boxOf(item) : null)]);
+    const { opacity, grow } = annotationAt(front.story, front.t, active);
+    noteBox.style.setProperty('--note-opacity', String(opacity));
+    const shape = JSON.stringify([box.width, box.height, left, top, width, height, grow, opacity, color, active.target.map(item => front.story.stations[item[0]] ? boxOf(item) : null)]);
     if (shape === wireKey) return;
     wireKey = shape;
     wireContext.clearRect(0, 0, box.width, box.height);
     if (grow <= 0) return;
     wireContext.save();
+    wireContext.globalAlpha = opacity;
     wireContext.strokeStyle = color;
     wireContext.lineWidth = 2;
     wireContext.lineCap = 'round';
@@ -3866,12 +3830,13 @@ a { color: inherit; text-underline-offset: 4px; }
     if (!reduce && mode !== 'pause') return transit(index);
     steering = false;
     rewind(reduce ? index + .9 : index + clamp((scenes[playlist[index]].land - preroll) / lengths[index]));
-    follow(true);
+    follow();
     sync();
   };
   const transport = document.querySelector('[data-play]');
   const setMode = next => {
     mode = next;
+    if (next !== 'pause') steering = false;
     transport.querySelectorAll('[data-mode]').forEach(button => button.setAttribute('aria-pressed', String(button.dataset.mode === mode)));
   };
   setMode(mode);
@@ -3984,7 +3949,7 @@ a { color: inherit; text-underline-offset: 4px; }
       name, node, pin, run, story, stage, label,
       rest: story.end - .85,
       player: { canvas, context: canvas.getContext('2d'), story, w: 0, h: 0, ratio: 0, t: 0, depth: 1, mirror: false, spot: null, wide: 1, second: [], region: null, debris: new Map(), sprites: null },
-      bands: [], edges: [0, 0], step: null, showing: null, text: '', size: [0, 0], shownAt: 0, shift: '', painted: false, growing: false, progress: -1, start: 0, span: 0, top: 0, bottom: 0,
+      bands: [], edges: [0, 0], step: null, text: '', size: [0, 0], shift: '', painted: false, progress: -1, start: 0, span: 0, top: 0, bottom: 0,
     };
   });
   const heightOf = (story, name) => {
@@ -4038,29 +4003,16 @@ a { color: inherit; text-underline-offset: 4px; }
     discard(section.player.debris);
     section.painted = false;
   };
-  const showStep = (section, step, instant) => {
+  const showStep = (section, step) => {
     if (section.step === step) return;
     section.step = step;
-    const { label } = section;
-    const fill = () => {
-      if (section.step !== step) return;
-      section.text = step.label || step.text;
-      section.showing = step;
-      label.textContent = section.text;
-      section.size = [label.offsetWidth, label.offsetHeight];
-      label.classList.toggle('out', !section.text);
-      section.shownAt = instant || reduce ? -1e9 : performance.now();
-    };
-    if (instant || reduce) {
-      fill();
-      return;
-    }
-    label.classList.add('out');
-    section.shownAt = Infinity;
-    setTimeout(fill, 360);
+    section.text = step.label || step.text;
+    section.label.textContent = section.text;
+    section.size = [section.label.offsetWidth, section.label.offsetHeight];
+    section.label.classList.toggle('out', !section.text);
   };
-  const pointers = (section, k, grow) => {
-    const { player, story, label, showing: step } = section;
+  const pointers = (section, k, grow, opacity) => {
+    const { player, story, label, step } = section;
     if (!step || !section.text) return;
     const [width, height] = section.size;
     const aims = step.target.filter(([name]) => story.stations[name]).map(item => frameOf(k, story, item));
@@ -4079,6 +4031,7 @@ a { color: inherit; text-underline-offset: 4px; }
     const middle = upper + height / 2;
     const hidden = target => aims.some(other => other !== target && Math.abs(other.x - target.x) < other.w + target.w && Math.abs(other.y - middle) < Math.abs(target.y - middle));
     c.save();
+    c.globalAlpha = opacity;
     c.strokeStyle = theme.signal;
     c.lineWidth = 2;
     c.lineCap = 'round';
@@ -4101,23 +4054,19 @@ a { color: inherit; text-underline-offset: 4px; }
     }
     player.t = time;
     const step = stepAt(story, time);
-    showStep(section, step, fresh);
+    showStep(section, step);
     const probe = kit(player);
-    const target = probe.focusTarget(time);
-    const wide = probe.focusName(time) === '*' ? 1 : 0;
-    const ahead = Math.max(0, moved);
-    player.wide = player.spot ? player.wide + (wide - player.wide) * (1 - Math.exp(-ahead * 3)) : wide;
-    player.spot = player.spot ? [lerp(player.spot[0], target[0], 1 - Math.exp(-ahead * 7)), lerp(player.spot[1], target[1], 1 - Math.exp(-ahead * 7))] : target;
+    focusAt(player, probe);
     player.second = [...step.target, ...step.light.map(name => [name])].filter(([name]) => story.stations[name]).map(([name]) => probe.pos(name));
     const look = { ...player, wide: lerp(player.wide, 1, calm) };
     const k = kit(look);
-    const grow = ease(clamp((performance.now() - section.shownAt) / 600));
+    const { opacity, grow } = annotationAt(story, time, step);
+    section.label.style.setProperty('--note-opacity', String(opacity));
     mount(section);
     player.context.clearRect(0, 0, player.w, player.h);
     drawScene(look, k);
-    pointers(section, k, grow);
+    pointers(section, k, grow, opacity);
     section.painted = true;
-    section.growing = grow < 1;
     section.progress = progress;
   };
   const progressOf = section => reduce ? 1 : clamp((scrollY - section.start) / Math.max(1, section.span));
@@ -4149,8 +4098,8 @@ a { color: inherit; text-underline-offset: 4px; }
         layer.context.restore();
         layer.used = false;
       });
-      renderPlayer(front, moved);
-      renderPlayer(back, moved);
+      renderPlayer(front);
+      renderPlayer(back);
       drawBubbles([-1, 0, 1].map(round => Math.floor(introClock / cycle) + round).filter(round => round >= 0).map(round => ({ t: introClock - round * cycle, old: false, depth: 1 })));
       [far, near].forEach(layer => { layer.canvas.style.visibility = layer.used ? 'visible' : 'hidden'; });
     }
@@ -4161,7 +4110,7 @@ a { color: inherit; text-underline-offset: 4px; }
         return;
       }
       const progress = progressOf(section);
-      if (!section.painted || section.growing || progress !== section.progress) scrubSection(section, progress);
+      if (!section.painted || progress !== section.progress) scrubSection(section, progress);
     });
   };
   const offsetOf = node => node.getBoundingClientRect().top + scrollY - parseFloat(getComputedStyle(node).scrollMarginTop || 0);
@@ -4204,7 +4153,7 @@ a { color: inherit; text-underline-offset: 4px; }
     if (mode === 'pause') setMode('play');
     steering = false;
     restart();
-    follow(true);
+    follow();
     sync();
     if (!event.detail) transport.querySelector('[aria-pressed="true"]').focus({ preventScroll: true });
   });
@@ -4249,7 +4198,6 @@ a { color: inherit; text-underline-offset: 4px; }
       copyStyle = '';
       copyShift = 0;
       titleShift = 0;
-      copyFade = 1;
       steering = false;
       reel.style.height = '';
       measure();
@@ -4261,7 +4209,7 @@ a { color: inherit; text-underline-offset: 4px; }
         players.forEach(player => discard(player.sprites));
         restart();
         introClock = reduce ? 6 : 0;
-        follow(true);
+        follow();
         wireKey = '';
       }
       sizePlayers();
@@ -4290,7 +4238,7 @@ a { color: inherit; text-underline-offset: 4px; }
       if (was) {
         steering = false;
         rewind(Math.min(from, playlist.length - 1));
-        follow(true);
+        follow();
       }
       sync();
     }
@@ -4339,31 +4287,19 @@ a { color: inherit; text-underline-offset: 4px; }
   history.scrollRestoration = 'manual';
   addEventListener('resize', layout);
   dispatchEvent(new Event('resize'));
-  follow(false);
-  const tick = () => {
-    requestAnimationFrame(tick);
-    if (mobile) markScroll();
-    else {
-      placeCopy();
-      follow(false);
-      mark();
-      drawNote();
-      showFinale();
-    }
-  };
+  follow();
   requestAnimationFrame(frame);
-  requestAnimationFrame(tick);
   const seek = window.__seek;
   const jump = window.__jump;
   if (reduce) seek(intro.end - 1);
   window.__seek = time => {
     seek(time);
-    follow(true);
+    follow();
   };
   window.__jump = (index, time) => {
     steering = false;
     jump(index, time);
-    follow(true);
+    follow();
   };
   window.__state = () => ({ index: front.index, t: front.t, where: where(), steering, scroll: scrollY, unit, head: slots.a.textContent, mirror: front.mirror, concealed, mobile, sections: sections.map(section => ({ nav: section.story.nav, progress: section.progress, t: section.player.t, painted: section.painted, pixels: section.player.canvas.width * section.player.canvas.height })), held });
   window.__plan = () => playlist.map(name => {

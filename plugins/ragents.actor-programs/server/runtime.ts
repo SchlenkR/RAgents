@@ -7,7 +7,7 @@ import { Type, type TSchema } from "typebox";
 import { Value } from "typebox/value";
 import { actorByHandle, actorDescriptionMaxLength, agentTools, assertJsonValue, canonicalHash, defineRunFunction, defineToolAvailability, emptyUsage, handleKey, inheritedGrants, runCapabilityContractHash, scriptInputOf, schemaComplaints, type Actor, type ActorProgramExecutor, type RunFunction, type CommandContext, type ExecutableActor, type JsonValue, type Orchestration, type PluginContext, type RunCapabilityDescriptor, type RunView, type TurnRequest, type TurnResult, } from "@ragents/engine";
 import { ACTOR_PROGRAMS_STATE_ID, ACTOR_INVOCATIONS_STATE_ID, ACTOR_SCRIPT_STATE_ID, ACTOR_STATE_ID, resolveActorView, type ActorDataState, type ActorFunctionDefinition, type ActorFunctionInvocation, type ActorPackageOrigin, type ActorProgramDefinition, type ActorProgramIdentity, type ActorProgramState, type ActorScriptDelivery, type ActorScriptPackage, type ActorScriptState, type ActorViewListing, } from "@ragents/host/plugin-support/actor-programs/contract.js";
-import type { ActivatedActorProgram, ActorProgramSource, ActorProgramsService, RunScriptSources, RunScriptStartInput } from "@ragents/host/plugin-support/actor-programs/service.js";
+import type { ActivatedActorProgram, ActorProgramSource, ActorProgramsService, ActorViewReference, RunScriptSources, RunScriptStartInput } from "@ragents/host/plugin-support/actor-programs/service.js";
 import { jsonValue, jsonBytes, MAX_INVOCATIONS_STATE_BYTES } from "./limits.js";
 import { agentResultText, finishesOf, MAX_OPEN_STARTS, scriptResultContent, scriptStateOf, type ScriptFinish } from "./script-state.js";
 import { agentCapabilityBinding, operatorCapabilityBinding } from "./capability-resolver.js";
@@ -619,6 +619,10 @@ export class ActorProgramRuntime implements ActorProgramsService, ActorProgramEx
         const origin = record && this.#identityOf(program) === record.identity ? record.origin : { kind: "run" as const, installedBy: program.installedBy };
         return { name: program.name, actorId, revision: program.revision, origin };
     }
+    resolveView(runId: string, reference: string): ActorViewReference {
+        const { program, view } = resolveActorView(this.programs(runId), reference);
+        return { reference: `${program.name}/${view.key}`, elementId: view.id, visible: view.visible };
+    }
     /** Makes a package active once, whatever state it is in; under a shared name only the package the host installed from that plugin, unchanged. */
     ensure(context: CommandContext, runId: string, name: string, signal?: AbortSignal): Promise<{ actorId: string; handle: string; status: "active" | "restarted" | "activated" | "installed" }> {
         this.#assertName(name);
@@ -869,7 +873,7 @@ export class ActorProgramRuntime implements ActorProgramsService, ActorProgramEx
                 await rm(compiled.definition.directory, { recursive: true, force: true });
         }
     }
-    list(runId: string) { return this.programs(runId).map((program) => ({ name: program.name, actor: `@${program.actorHandle}`, functions: program.functions.map((fn) => fn.id), views: program.views.map((view) => ({ name: view.key, title: view.title, visible: view.visible })) })); }
+    list(runId: string) { return this.programs(runId).map((program) => ({ name: program.name, actor: `@${program.actorHandle}`, functions: program.functions.map((fn) => fn.id), views: program.views.map((view) => ({ name: view.key, ref: `${program.name}/${view.key}`, title: view.title, visible: view.visible })) })); }
     async remove(context: CommandContext, runId: string, name: string) {
         const packageName = this.#program(runId, name).name;
         return this.#withPackages(runId, [packageName], () => this.#remove(context, runId, packageName, name));

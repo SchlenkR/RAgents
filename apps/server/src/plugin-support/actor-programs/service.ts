@@ -22,6 +22,12 @@ export interface RunScriptStartInput {
     embedded: boolean;
     startedBy: string;
 }
+/** An activated view as a caller addresses it: its canonical package-name/view-key reference, the surface element ID of its tab, and whether it is shown. */
+export interface ActorViewReference {
+    reference: string;
+    elementId: string;
+    visible: boolean;
+}
 export interface ActorProgramsService extends ActorProgramExecutor {
     workspaceDirectory(runId: string): Promise<string>;
     importPackage(context: CommandContext, runId: string, name: string, files: readonly ActorProgramSource[], signal?: AbortSignal): Promise<ActivatedActorProgram>;
@@ -33,5 +39,7 @@ export interface ActorProgramsService extends ActorProgramExecutor {
     isScriptActor(runId: string, actorId: string): boolean;
     /** Which package the actor runs and where it came from; a package changed in the run counts as created in the run. Authorize by this, never by handle. */
     programOf(runId: string, actorId: string): ActorProgramIdentity | undefined;
+    /** Resolves package-name/view-key, @handle/view-key or a unique title; an unknown or ambiguous reference is an error that names the candidates. */
+    resolveView(runId: string, reference: string): ActorViewReference;
 }
 export const actorProgramsToken = serviceToken<ActorProgramsService>("ragents.actor-programs.runtime");

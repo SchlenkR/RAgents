@@ -21,7 +21,7 @@ function Fixture() {
   window.tabsFixture = { mounts, setApps, setRun };
   return <AccessContext.Provider value={{ ...unrestrictedAccess, logout: async () => {} }}><RunPanelHostProvider value={host}>
     <OrchestrationRunPanel cardSections={[]} navigation={navigation} statusContainer={null} tabIds={[]} toolbarContainer={null}
-      session={{ session: { id: run, title: run, updatedAt: 0 }, connected: true, messages: [], pluginEvents: [], running: false, send: async () => {}, start: async () => {} }}
+      session={{ session: { id: run, title: run, updatedAt: 0 }, connected: true, runView: {}, messages: [], pluginEvents: [], running: false, send: async () => {}, start: async () => {} }}
       renderChat={() => <textarea aria-label="Chat draft" />}
       surfaceElements={[{ id: "apps", order: 0, select: () => apps, Element: MiniApp }]} />
   </RunPanelHostProvider></AccessContext.Provider>;

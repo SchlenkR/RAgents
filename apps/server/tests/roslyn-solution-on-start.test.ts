@@ -39,6 +39,7 @@ const fixture = (solutions: LanguageServerSolutions, preferred?: string) => {
   service.bind(setup.runtime);
   const questions: Array<Parameters<AskService["ask"]>> = [];
   const ask: AskService = {
+    pose: () => { throw new Error("The start question waits for its answer"); },
     ask: (...args) => { questions.push(args); return service.ask(...args); },
     withdraw: (...args) => service.withdraw(...args),
   };

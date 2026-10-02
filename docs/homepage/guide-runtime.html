@@ -4,6 +4,7 @@
   --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
 }
 :root {
+  --chat-max-width: 900px;
   color-scheme: light;
   --radius: 0.5rem;
   --background: #f3f2f7;
@@ -223,13 +224,15 @@ nothing else; the actor, its model runtime, its children, and the run stay as th
 <li><code>actor_stop</code>: Stops the actor, interrupts its running turn, and disposes its model runtime
 after the turn. Its active descendants are stopped in the same journal command, so a branch is
 never stopped halfway. The journal names the actor that called <code>actor_stop</code> as the one who
-stopped them. Run data and the run&#39;s plugin data remain.</li>
+stopped them. <code>ragents.ask</code> withdraws the open <code>ask_user</code> questions of the stopped actors. Run
+data and the run&#39;s plugin data remain.</li>
 <li>Run stop: The scheduler temporarily accepts no new work for this run; concurrent stop calls
 are handled together. The primary actor remains, but its running work is interrupted. All
 other agents and TypeScript actors in the user&#39;s ownership tree are stopped. Agent runtimes
 and plugins receive their abort signals in parallel. The actor-program plugin also cancels
 pending app actions. An open confirmation question is discarded through <code>ragents.ask</code> in the
-journal and the domain operation is no longer invoked. The run can be reused afterward.</li>
+journal and the domain operation is no longer invoked; the open <code>ask_user</code> questions of all
+agents, including the primary actor, are withdrawn. The run can be reused afterward.</li>
 <li>Run deletion: The scheduler stops the run. Its agent runtimes are then disposed and plugin
 deletion hooks run. The chat, recovery data, and journal are archived; run-bound plugin
 data, including its logs, is removed afterward.</li>
@@ -274,9 +277,10 @@ worker&#39;s turn end (<code>event_subscribe</code> for <code>turn.finished</cod
 observation) and decides at every end whether the worker is finished, waiting for someone else,
 or needs another prompt. An LLM coordinator that &quot;waits passively&quot; is not a wake-up. A watcher
 from <code>ragents.watch</code> (<code>plugins.md</code>) is such a host service: it wakes the controlling actor with
-the reason and changes as soon as its wake condition is met. Instructions may say &quot;end the
-turn&quot; only where such an observer exists. Synchronous functions return their result, and the
-caller continues in the same turn.</p>
+the reason and changes as soon as its wake condition is met. <code>ragents.ask</code> is another: after
+<code>ask_user</code> the asker ends its turn, and the answer or the user&#39;s next message arrives as a new
+input. Instructions may say &quot;end the turn&quot; only where such an observer exists. Synchronous
+functions return their result, and the caller continues in the same turn.</p>
 <h2 id="ids-handles-and-creating-actors-again">IDs, handles, and creating actors again</h2>
 <p>An actor has a technical ID and a readable handle such as <code>@worker</code>. Wherever a function, method,
 or plugin accepts an actor by ID or handle, the same rule resolves it: the leading <code>@</code> is

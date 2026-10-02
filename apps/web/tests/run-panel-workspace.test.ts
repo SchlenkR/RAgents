@@ -1,9 +1,10 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { createElement } from "react";
+import { createElement, type ReactNode } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { Badge } from "../src/ui/badge.tsx";
 import type { SessionContext, SessionNavigation, WorkspaceTabContribution } from "../src/PluginRegistry.tsx";
+import { RunPanelHostProvider, createBrowserHost } from "../src/run-panel/host.ts";
 import { RunPanelRail } from "../src/run-panel/RunPanelRail.tsx";
 import { RunPanelWorkspace } from "../src/run-panel/RunPanelWorkspace.tsx";
 import {
@@ -14,6 +15,7 @@ import {
   saveRunPanelWorkspaceState,
 } from "../src/run-panel/workspace-state.ts";
 
+const inVsCode = (child: ReactNode) => createElement(RunPanelHostProvider, { value: { ...createBrowserHost({} as Window), kind: "vscode" } }, child);
 const Icon = ({ text }: { text: string }) => createElement("svg", { "data-icon": text });
 const tab = (id: string, label: string, order: number, extra: Partial<WorkspaceTabContribution> = {}): WorkspaceTabContribution => ({
   id, label, order, Icon: () => createElement(Icon, { text: id }), Panel: () => createElement("p", null, `Panel ${label}`), ...extra,
@@ -73,18 +75,21 @@ test("opening, selecting again and closing write the tab per run to browser stor
   assert.equal(values.has(runPanelWorkspaceStorageKey("run-b")), false);
 });
 
-test("the sidebar shows the available tabs in their order, the open one pressed, badge and dot for new items, tooltip instead of title", () => {
+test("the sidebar shows the available tabs in their order, the open one pressed, one dot for a badge or new items, tooltip instead of title", () => {
   const ordered = [...tabs].sort((left, right) => left.order - right.order);
   const html = renderToStaticMarkup(createElement(RunPanelRail, { navigation: navigationFor("documents"), onClose: () => {}, open: true, pendingTabIds: ["files"], session, tabs: ordered }));
   assert.deepEqual(attribute(html, "aria-label"), ["Sidebar tabs", "Executions", "Documents", "Files"]);
   assert.deepEqual(attribute(html, "aria-pressed"), ["false", "true", "false"]);
   assert.deepEqual(attribute(html, "title"), []);
   assert.deepEqual(attribute(html, "data-slot").filter((slot) => slot === "tooltip-trigger").length, 3);
-  assert.match(html, /data-slot="badge"[^>]*>3</);
-  assert.equal((html.match(/rounded-full bg-primary/g) ?? []).length, 1);
+  assert.match(html, /data-slot="badge"[^>]*><span class="sr-only">3<\/span>/);
+  assert.match(html, /<span class="sr-only">New activity<\/span>/);
+  assert.equal((html.match(/rounded-full bg-info/g) ?? []).length, 2, "Documents with its count and Files with new activity each show one dot");
   assert.match(html, /aria-controls="run-panel-workspace"/);
   const closed = renderToStaticMarkup(createElement(RunPanelRail, { navigation: navigationFor("documents"), onClose: () => {}, open: false, pendingTabIds: [], session, tabs: ordered }));
   assert.deepEqual(attribute(closed, "aria-pressed"), ["false", "false", "false"]);
+  const both = renderToStaticMarkup(createElement(RunPanelRail, { navigation: navigationFor("documents"), onClose: () => {}, open: false, pendingTabIds: ["documents"], session, tabs: ordered }));
+  assert.equal((both.match(/rounded-full bg-info/g) ?? []).length, 1, "a badge and new activity share one dot");
 });
 
 test("the sidebar shows the open tab as a pop-out with name, close button and backdrop and stays hidden when closed", () => {
@@ -117,13 +122,13 @@ test("the run panel shows the sidebar only in the panel layout, a mini-app in an
     plugins: [{ id: "test", workspaceTabs: tabs, surfaceElements: [{ id: "test.apps", order: 1, select: () => [{ id: "board", title: "Board" }], Element: () => createElement("p", null, "Board-App") }] }],
   });
   const run = { id: "run-a", title: "Run", updatedAt: 0 };
-  const panel = renderToStaticMarkup(createElement(PluginChat, { layout: "panel", registry, session: run }));
+  const panel = renderToStaticMarkup(inVsCode(createElement(PluginChat, { layout: "panel", registry, session: run })));
   const rail = panel.match(/<nav aria-label="Sidebar tabs"[\s\S]*?<\/nav>/)?.[0] ?? "";
   assert.notEqual(rail, "");
   assert.deepEqual(attribute(rail, "aria-pressed"), ["false", "false", "false"]);
   assert.match(panel, /<section[^>]*aria-label="Sidebar"[^>]*hidden=""/);
   assert.equal(values.size, 0, "nothing is stored without a click");
-  const element = renderToStaticMarkup(createElement(PluginChat, { layout: { element: "board" }, registry, session: run }));
+  const element = renderToStaticMarkup(inVsCode(createElement(PluginChat, { layout: { element: "board" }, registry, session: run })));
   assert.match(element, /Board-App/);
   assert.doesNotMatch(element, /Sidebar tabs|aria-label="Sidebar"/);
 });
@@ -162,10 +167,27 @@ test("tabs and header contributions that need the workspace are missing for a ru
     assert.deepEqual(ids(registry.headersFor(contextOf(reachable), unrestrictedAccess)), ["test.processes", "test.activity"]);
   }
 
-  const rail = (workspaceAccessible: boolean) => renderToStaticMarkup(createElement(PluginChat, { layout: "panel", registry, session: run(workspaceAccessible) }))
+  const rail = (workspaceAccessible: boolean) => renderToStaticMarkup(inVsCode(createElement(PluginChat, { layout: "panel", registry, session: run(workspaceAccessible) })))
     .match(/<nav aria-label="Sidebar tabs"[\s\S]*?<\/nav>/)?.[0] ?? "";
   assert.deepEqual(attribute(rail(false), "data-icon"), ["files"]);
   assert.deepEqual(attribute(rail(true), "data-icon"), ["files", "diagnostics"]);
+});
+
+test("browser-only tool contributions stay out of the VS Code rail", async (context) => {
+  fakeWindow(context);
+  const { PluginChat } = await import("../src/PluginChat.tsx");
+  const { PluginRegistry } = await import("../src/PluginRegistry.tsx");
+  const registry = new PluginRegistry({
+    brand: { title: "Test" }, product: { id: "test", title: "Test" }, startEntries: [],
+    plugins: [{ id: "test", workspaceTabs: [tab("files", "Files", 1), tab("journal", "Journal", 2, { hosts: ["browser"] })] }],
+  });
+  const content = createElement(PluginChat, { registry, session: { id: "run-a", title: "Run", updatedAt: 0 } });
+  const browser = renderToStaticMarkup(createElement(RunPanelHostProvider, { value: createBrowserHost({} as Window) }, content));
+  const vscode = renderToStaticMarkup(inVsCode(content));
+  assert.match(browser, /aria-label="Journal"/);
+  assert.match(browser, /aria-label="Files"/);
+  assert.doesNotMatch(vscode, /aria-label="Journal"/);
+  assert.match(vscode, /aria-label="Files"/);
 });
 
 test("the Files tab offers only the file storage without a reachable workspace", async () => {

@@ -624,7 +624,7 @@ export class Orchestration {
         context: CommandContext,
         runId: string,
         input: {
-            owner?: string | null;
+            owner: string;
             title: string;
             description?: string | null;
             parameters?: Record<string, string>;

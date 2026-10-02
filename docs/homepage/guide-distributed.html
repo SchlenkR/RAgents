@@ -4,6 +4,7 @@
   --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
 }
 :root {
+  --chat-max-width: 900px;
   color-scheme: light;
   --radius: 0.5rem;
   --background: #f3f2f7;
@@ -130,7 +131,7 @@
       <a class="nav-github" href="https://github.com/SchlenkR/RAgents" aria-label="GitHub"><svg class="gh-icon" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M12 2a10 10 0 0 0-3.2 19.5c.5.1.7-.2.7-.5v-1.7c-2.8.6-3.4-1.3-3.4-1.3-.5-1.2-1.1-1.5-1.1-1.5-.9-.6.1-.6.1-.6 1 .1 1.5 1 1.5 1 .9 1.6 2.4 1.1 3 .9.1-.7.4-1.1.6-1.4-2.2-.3-4.6-1.1-4.6-5 0-1.1.4-2 1-2.7-.1-.3-.4-1.3.1-2.7 0 0 .8-.3 2.8 1a9.6 9.6 0 0 1 5 0c1.9-1.3 2.8-1 2.8-1 .5 1.4.2 2.4.1 2.7.6.7 1 1.6 1 2.7 0 3.9-2.4 4.7-4.6 5 .4.3.7.9.7 1.9V21c0 .3.2.6.7.5A10 10 0 0 0 12 2Z"/></svg><span class="gh-label">GitHub</span></a>
     </nav>
     <button class="nav-menu" type="button" aria-expanded="false" aria-controls="main-navigation"><span data-menu-label>Menu</span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></button>
-  </header><main class="shell" id="main"><div class="guide-layout"><aside class="guide-sidebar"><nav class="guide-chapters" aria-label="Guide navigation"><a href="guide.html">Overview</a><div class="guide-nav-group"><p>Understand</p><a href="guide-ideas.html">Core ideas</a><a href="guide-runtime.html">Actors and messages</a></div><div class="guide-nav-group"><p>Use</p><a href="guide-getting-started.html">Get started</a><a href="guide-clients.html">Web and VS Code</a><a href="guide-distributed.html" aria-current="page">Distributed work</a></div><div class="guide-nav-group"><p>Build</p><a href="guide-functions.html">Work with TypeScript</a><a href="guide-programs.html">Build mini-apps</a><a href="guide-plugins.html">Plugins and skills</a></div><div class="guide-nav-group"><p>Access</p><a href="guide-access.html">Assign permissions</a></div></nav></aside><details class="guide-mobile-nav"><summary>Guide: Distributed work</summary><nav class="guide-chapters" aria-label="Guide navigation"><a href="guide.html">Overview</a><div class="guide-nav-group"><p>Understand</p><a href="guide-ideas.html">Core ideas</a><a href="guide-runtime.html">Actors and messages</a></div><div class="guide-nav-group"><p>Use</p><a href="guide-getting-started.html">Get started</a><a href="guide-clients.html">Web and VS Code</a><a href="guide-distributed.html" aria-current="page">Distributed work</a></div><div class="guide-nav-group"><p>Build</p><a href="guide-functions.html">Work with TypeScript</a><a href="guide-programs.html">Build mini-apps</a><a href="guide-plugins.html">Plugins and skills</a></div><div class="guide-nav-group"><p>Access</p><a href="guide-access.html">Assign permissions</a></div></nav></details><article class="guide-body"><header class="guide-title"><p class="eyebrow"><a href="guide.html">Guide</a></p><h1>Distributed work</h1><p>Run the host locally or remotely, keep tools beside the project, and move runs between servers.</p></header><details class="guide-page-nav"><summary>On this page</summary><nav aria-label="On this page"><a href="#work-without-a-checkout">Work without a checkout</a><a href="#connect-to-a-server">Connect to a server</a><a href="#run-a-cli-workstation">Run a CLI workstation</a><a href="#transfer-a-run">Transfer a run</a><a href="#work-on-windows">Work on Windows</a></nav></details><h2 id="work-without-a-checkout">Work without a checkout</h2>
+  </header><main class="shell" id="main"><div class="guide-layout"><aside class="guide-sidebar"><nav class="guide-chapters" aria-label="Guide navigation"><a href="guide.html">Overview</a><div class="guide-nav-group"><p>Understand</p><a href="guide-ideas.html">Core ideas</a><a href="guide-runtime.html">Actors and messages</a></div><div class="guide-nav-group"><p>Use</p><a href="guide-getting-started.html">Get started</a><a href="guide-clients.html">Web and VS Code</a><a href="guide-distributed.html" aria-current="page">Distributed work</a></div><div class="guide-nav-group"><p>Build</p><a href="guide-functions.html">Work with TypeScript</a><a href="guide-programs.html">Build mini-apps</a><a href="guide-plugins.html">Plugins and skills</a></div><div class="guide-nav-group"><p>Access</p><a href="guide-access.html">Assign permissions</a></div></nav></aside><details class="guide-mobile-nav"><summary>Guide: Distributed work</summary><nav class="guide-chapters" aria-label="Guide navigation"><a href="guide.html">Overview</a><div class="guide-nav-group"><p>Understand</p><a href="guide-ideas.html">Core ideas</a><a href="guide-runtime.html">Actors and messages</a></div><div class="guide-nav-group"><p>Use</p><a href="guide-getting-started.html">Get started</a><a href="guide-clients.html">Web and VS Code</a><a href="guide-distributed.html" aria-current="page">Distributed work</a></div><div class="guide-nav-group"><p>Build</p><a href="guide-functions.html">Work with TypeScript</a><a href="guide-programs.html">Build mini-apps</a><a href="guide-plugins.html">Plugins and skills</a></div><div class="guide-nav-group"><p>Access</p><a href="guide-access.html">Assign permissions</a></div></nav></details><article class="guide-body"><header class="guide-title"><p class="eyebrow"><a href="guide.html">Guide</a></p><h1>Distributed work</h1><p>Run the host locally or remotely, keep tools beside the project, and move runs between servers.</p></header><details class="guide-page-nav"><summary>On this page</summary><nav aria-label="On this page"><a href="#work-without-a-checkout">Work without a checkout</a><a href="#connect-to-a-server">Connect to a server</a><a href="#run-a-cli-workstation">Run a CLI workstation</a><a href="#transfer-a-run">Transfer a run</a><a href="#work-on-windows">Work on Windows</a><a href="#server-process-sandbox">Server process sandbox</a></nav></details><h2 id="work-without-a-checkout">Work without a checkout</h2>
 <p>Using RAgents does not require a repository. <code>pnpm build:package</code> creates the npm package
 <code>@schlenkr/ragents</code> from this checkout in <code>dist/ragents</code>; with <code>--pack</code>, it also creates
 <code>dist/schlenkr-ragents-&lt;version&gt;.tgz</code>. The package contains the server, engine, executor, all
@@ -155,6 +156,7 @@ a custom <code>ragents.config.&lt;profile&gt;.ts</code> anywhere on disk, or a p
 <li><code>ragents workspace-client &lt;server-url&gt; [folders ...]</code> registers this machine as a workspace.</li>
 <li><code>ragents plugin build &lt;folder...&gt;</code> builds plugin sources into bundles, with type checks; see
 <a href="guide-plugins.html">Build and ship a plugin</a>.</li>
+<li><code>ragents --version</code> (or <code>-v</code>) prints the version of the package or standalone installation.</li>
 </ul>
 <p>The package runs like the checkout, with the same files in the same places and TypeScript loaded
 at runtime through <code>tsx</code>. On first use, the command creates the <code>node_modules/@ragents/*</code>
@@ -350,4 +352,39 @@ unit tests that simulate the platform. A first real run should verify <code>pnpm
 <code>read</code>, <code>edit</code>, <code>bash</code> output and cancellation, diagnostics, and a workspace through
 <code>pnpm workspace-client</code>, and with the bundled bash <code>git fetch</code> and <code>git push</code> over HTTPS with Git
 Credential Manager and over SSH.</p>
+<h2 id="server-process-sandbox">Server process sandbox</h2>
+<p>What a run starts on the server (Bash, commands, language servers, TypeScript snippets, actor
+programs) runs in a process sandbox: it reads and writes only the folders of its run, sees
+neither other runs nor the home of the server account, and can reach public web domains by
+default. Rules and limits are in <a href="../spec/plugins.md">plugins.md</a> under &quot;Server process sandbox&quot;. It
+does not apply on a workstation; there the run works with the developer&#39;s Bash and credentials.
+Only what such a run starts on the server, such as a Bash in <code>@actors</code>, runs inside it.</p>
+<p>Prerequisites that startup checks:</p>
+<ul>
+<li><strong>macOS</strong>: nothing extra, <code>sandbox-exec</code> is part of the system.</li>
+<li><strong>Linux</strong>: <code>bubblewrap</code>, <code>socat</code>, and <code>ripgrep</code> (Debian and Ubuntu:
+<code>apt-get install bubblewrap socat ripgrep</code>), plus user namespaces. On Ubuntu 24.04 and later
+this requires <code>sysctl -w kernel.apparmor_restrict_unprivileged_userns=0</code> or an AppArmor profile.
+If the server runs as root, it needs <code>CAP_SETFCAP</code>; it is better to run it under its own account.</li>
+<li><strong>Linux in a container</strong>: Docker&#39;s default profile forbids the namespaces. Startup has been
+verified with <code>--security-opt seccomp=unconfined --security-opt apparmor=unconfined --security-opt systempaths=unconfined</code> (in Compose <code>security_opt</code>) and a non-root user in the container;
+<code>--privileged</code> works too, but grants more than necessary.</li>
+<li><strong>Windows</strong>: no sandbox. Startup aborts as long as the profile file does not explicitly switch
+it off.</li>
+</ul>
+<p>The profile file controls it in the <code>ragents.workspace</code> section:</p>
+<pre><code class="language-ts">&quot;ragents.workspace&quot;: {
+  PROCESS_SANDBOX: &quot;on&quot;,
+  PROCESS_SANDBOX_NETWORK: [&quot;*&quot;], // public web domains on ports 80 and 443 (the default)
+},
+</code></pre>
+<p><code>curl</code>, package downloads and API requests no longer need a domain entry for each public
+website. IP literals, localhost and internal services need explicit entries, for example
+<code>[&quot;*&quot;, &quot;127.0.0.1:8080&quot;]</code>; for an internal hostname in public mode, allow its IP and port too.
+The server&#39;s own address is always allowed. A list such as <code>[&quot;registry.npmjs.org&quot;, &quot;*.example.com&quot;]</code>
+restricts access to those targets; <code>[]</code> leaves only the own server reachable. Network permission
+does not distinguish downloads from uploads or destructive API calls. File isolation remains
+active. <code>PROCESS_SANDBOX: &quot;off&quot;</code> explicitly disables the whole sandbox, for example on Windows.
+On macOS, pnpm through corepack needs a <code>packageManager</code> in the workspace&#39;s
+<code>package.json</code>, because corepack otherwise aborts at a blocked folder above it.</p>
 <p class="guide-source">Source: <a href="../../docs/operations.md">docs/operations.md</a>. <a href="guide-distributed.md">This chapter as Markdown</a>.</p><p><a href="guide-access.html">Assign tokens and permissions</a></p><nav class="guide-next" aria-label="Continue reading"><a href="guide-clients.html">Previous: Web and VS Code</a><a href="guide-functions.html">Next: Work with TypeScript</a></nav></article></div></main><footer class="shell"><p>Generated from public documentation. Rebuild with <code>pnpm generate:homepage</code>. Verify with <code>pnpm check:homepage</code>.</p><nav aria-label="More pages"><a href="index.html">Homepage</a><a href="guide.html">Guide</a></nav></footer></body></html>

@@ -119,6 +119,17 @@ test("zoom is applied only by the outer hull and validates the initial setting",
   assert.throws(() => frameHtml({ ...options, zoom: 0 }), /ragents\.zoom/);
 });
 
+test("both hulls scale only by zoom and leave the font size to the theme's rem scale", () => {
+  const state = { theme: "dark" as const, page: "start" as const, connections: [], profileSuggestions: [] };
+  const panel = panelHtml({ nonce: "zoom", title: "RAgents", state, zoom: 90, scriptUri: "https://file+.vscode-resource/panel.js", styleUri: "https://file+.vscode-resource/panel.css", cspSource: "https://file+.vscode-resource" });
+  const frame = frameHtml({ serverUrl: "http://localhost:4710", query: { host: "vscode" }, nonce: "zoom", title: "RAgents", zoom: 90 });
+  for (const html of [panel, frame]) {
+    assert.match(html, /html\{--ragents-zoom:0\.9;/);
+    assert.match(html, /body\{zoom:var\(--ragents-zoom\);/);
+    assert.doesNotMatch(html, /font-size|--vscode-font/, "a root or body font size would rescale every rem of the pages a second time");
+  }
+});
+
 test("an invalid setting shows its error instead of an empty view", () => {
   const html = errorHtml({ nonce: "n0nce", title: "RAgents", message: "ragents.zoom must be between 50 and 200 percent, not 300 <b>" });
   assert.match(html, /RAgents: ragents\.zoom must be between 50 and 200 percent, not 300 &lt;b&gt;/);

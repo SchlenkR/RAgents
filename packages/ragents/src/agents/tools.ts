@@ -20,8 +20,6 @@ import {
     driverKindSchema,
     grantSchema,
     literalUnion,
-    namedValuesSchema,
-    recordOf,
 } from "./schemas.ts";
 
 export type ToolCaller = {
@@ -499,39 +497,6 @@ export const agentTools: RunFunction[] = [
                 profiles: [...catalog.profiles()],
                 models: listed.map((entry) => ({ ...entry, thinking: [...entry.thinking] })),
             };
-        },
-    }),
-    tool({
-        name: "action_propose",
-        label: "Propose Action",
-        description: "Propose an action for explicit human approval. This never executes the action directly.",
-        schema: Type.Object({
-            title: Type.String({ minLength: 1 }),
-            description: Type.Optional(Type.String()),
-            parameters: Type.Optional(namedValuesSchema),
-            input: Type.Optional(Type.Object({
-                label: Type.String({ minLength: 1 }),
-                placeholder: Type.Optional(Type.String()),
-                required: Type.Boolean(),
-            }, { additionalProperties: false })),
-        }, { additionalProperties: false }),
-        resultSchema: eventResultSchemaOf("action.proposed"),
-        available: needs("action.propose"),
-        run: ({ runtime, caller, context, eventsFor }, toolCallId, input) => {
-            runtime.proposeAction(context(toolCallId), caller.runId, {
-                title: input.title,
-                description: input.description ?? null,
-                parameters: recordOf(input.parameters),
-                input: input.input
-                    ? {
-                        label: input.input.label,
-                        placeholder: input.input.placeholder ?? null,
-                        required: input.input.required,
-                    }
-                    : null,
-            });
-
-            return eventsFor(toolCallId);
         },
     }),
     tool({

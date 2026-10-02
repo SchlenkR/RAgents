@@ -1,9 +1,9 @@
-import { SearchIcon } from "lucide-react";
-import { INSPECTION_TAB_ID, InspectionPanel } from "./InspectionPanel";
+import { ListIcon, SearchIcon } from "lucide-react";
+import { INSPECTION_TAB_ID, InspectionHeader, InspectionPanel } from "./InspectionPanel";
 import { useEffect, useState } from "react";
 import { OrchestrationRunPanel } from "./run-panel/RunPanel";
 import { DocumentsSection } from "./DocumentsSection";
-import { JournalStatus } from "./JournalStatus";
+import { JournalPanel, JournalStatus } from "./JournalStatus";
 import { StopRunHeader } from "./StopRunButton";
 import { EXECUTIONS_TAB_ID, ExecutionsPanel, IconExecutions } from "./ExecutionsPanel";
 import { ORCHESTRATION_PLUGIN_ID } from "./constants";
@@ -54,12 +54,21 @@ export const webPlugin: WebPlugin = {
   }],
   SessionProvider: OrchestrationSessionProvider,
   workspaceTabs: [{
+    id: "ragents.orchestration.journal",
+    hosts: ["browser"],
+    readRight: "runs.inspect",
+    label: "Journal",
+    order: 90,
+    Icon: ListIcon,
+    Panel: JournalPanel,
+  }, {
     id: INSPECTION_TAB_ID,
     readRight: "runs.inspect",
     label: "Inspection",
     order: 100,
     Icon: SearchIcon,
     Panel: InspectionPanel,
+    Header: InspectionHeader,
     keepMounted: true,
     available: (session) => runViewFrom(session.runView) !== undefined,
   }, {

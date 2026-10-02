@@ -4,6 +4,7 @@
   --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
 }
 :root {
+  --chat-max-width: 900px;
   color-scheme: light;
   --radius: 0.5rem;
   --background: #f3f2f7;
@@ -233,11 +234,14 @@ catalog. No additional call contract is needed.</p>
 <p><code>actor_program_ensure</code> makes a package active only when it is not: it returns an active package
 unchanged, restarts its stopped actor, activates an installed package, or installs a shared
 package of the profile (<a href="../spec/typescript-platform.md">TypeScript platform</a>, Run scripts).</p>
-<p><code>actor_program_list</code> shows installed programs. <code>actor_program_remove</code> removes the binding and its
+<p><code>actor_program_list</code> shows installed programs; each of their views carries a <code>ref</code>
+(<code>package-name/view-key</code>), the reference that view functions accept. <code>actor_program_remove</code> removes the binding and its
 views. It also stops a TypeScript actor, while an existing LLM actor remains. Activating a package
 of the same name again restarts that stopped actor with its state instead of creating another. Sources stay
 editable in the private workspace. <code>actor_view_set_visibility</code> addresses a view by
 <code>package-name/view-name</code> or unique title. Visibility changes neither functions nor actor state.
+A visible view is already open as a tab for the user. A model that has to see what it renders calls
+<code>actor_view_snapshot</code> from <code>ragents.browser</code>, which resolves the address itself (<a href="../spec/plugins.md#browser-checks">Browser checks</a>).
 The host manages hashes and technical bindings.</p>
 <h2 id="connect-workflow-definition-instructions-and-presentation">Connect workflow definition, instructions, and presentation</h2>
 <p><code>@ragents/workflow</code> provides a shared TypeScript contract for descriptive workflows. A

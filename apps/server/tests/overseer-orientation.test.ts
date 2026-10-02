@@ -4,7 +4,6 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import test from "node:test";
 import { Type } from "typebox";
-import { Value } from "typebox/value";
 import { PluginHost } from "@ragents/engine";
 import { plugin } from "../../../plugins/ragents.overseer/server/index.ts";
 import { overseerContracts } from "../../../plugins/ragents.overseer/contract.ts";
@@ -41,29 +40,18 @@ test("global orientation reflects installed descriptors without resolving tools 
   } finally { await rm(directory, { recursive: true, force: true }); }
 });
 
-test("global system prompt includes later plugin registrations and its own quick-answer tool", async () => {
+test("global system prompt includes later plugin registrations", async () => {
   const directory = await mkdtemp(path.join(tmpdir(), "ragents-overseer-policy-"));
   try {
     const host = new PluginHost({ product: { id: "test", title: "Test" }, dataDirectory: directory });
     host.provideHost(runManagementToken, () => { throw new Error("Orientation must not start or read a run"); });
     host.register(plugin.create(host));
     const policy = host.service(globalChatToken);
-    assert.deepEqual(policy.toolNames, ["read", "write", "edit", "bash", "quick_answer"]);
-    assert.match(policy.prompt, /First write your normal complete answer.*Afterwards run a snippet with context\.functions\.quick_answer/s);
+    assert.deepEqual(policy.toolNames, ["read", "write", "edit", "bash"]);
     assert.match(policy.prompt, /native interface contains typescript_api, typescript_eval as well as read, write, edit and bash/);
     assert.match(policy.prompt, /A multi-part setup does not require its own setup package/);
     assert.match(policy.prompt, /The task describes the desired outcome/);
     assert.doesNotMatch(policy.prompt, /setup handler must|run builder can use the direct setup tools/i);
-    assert.match(policy.prompt, /repeat the current user question briefly in your own words in question/);
-    assert.match(policy.prompt, /summarize the result as a short sentence in text/);
-    assert.match(policy.prompt, /Both fields are required.*each be at most 240 characters/);
-    assert.match(policy.prompt, /After the successful quick_answer call no further substantive chat answer is needed/);
-    const contributor = host.tools.entries().find((entry) => entry.name === "ragents.overseer");
-    assert.ok(contributor);
-    const tools = await contributor.tools({} as never);
-    assert.deepEqual(tools.map((tool) => tool.name), ["quick_answer"]);
-    assert.equal(Value.Check(tools[0].schema, { question: "Is the review complete?", text: "The review is complete." }), true);
-    assert.equal(Value.Check(tools[0].schema, { text: "The review is complete." }), false);
     assert.doesNotMatch(policy.prompt, /late_public_tool/);
     host.register({ manifest: { id: "test.later" }, register: (registration) => {
       registration.functions({ name: "test.later.tools", descriptors: [{ name: "late_public_tool", description: "A later registered capability. " + "Detailed contract text. ".repeat(100), scope: "per-agent", availability: "conditional", availabilityDetail: "Only in applicable runs" }], tools: () => { throw new Error("Must not execute a tool factory"); } });

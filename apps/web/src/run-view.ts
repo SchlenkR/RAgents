@@ -134,7 +134,7 @@ export interface RunPluginState {
 export interface RunAction {
   id: string;
   askedBy: string;
-  owner: string | null;
+  owner: string;
   title: string;
   description: string | null;
   parameters: Record<string, string>;

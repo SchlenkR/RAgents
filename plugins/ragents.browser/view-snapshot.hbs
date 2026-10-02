@@ -1,0 +1,4 @@
+## Checking actor views
+
+`actor_view_snapshot` renders an activated, visible actor view in your run browser and returns what the user sees as accessible text. Use it to check a mini-app's interface; the server resolves the address, so never open a view with `browser_open`.
+Call the actor's functions first, then take the snapshot to see whether the interface shows the same state. The browser stays on the view: `browser_screenshot` captures it, and `browser_click`, `browser_fill` and `browser_check` operate it with `target.frame: "iframe"`.

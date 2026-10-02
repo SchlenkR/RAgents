@@ -128,7 +128,9 @@ process.once("SIGTERM", interrupted);
 try {
   const help = await run(...command(["--help"]));
   assert.match(help, /Usage: ragents/);
-  console.log("ok: launcher works from an unrelated directory with spaces");
+  const version = JSON.parse(readFileSync(path.join(app, "package.json"), "utf8")).version;
+  assert.equal((await run(...command(["--version"]))).trim(), version);
+  console.log("ok: launcher works from an unrelated directory with spaces and reports its version");
 
   const resolver = pathToFileURL(path.join(app, "packages/workspace-executor/src/bundled-tools.ts")).href;
   const toolCheck = `import assert from "node:assert/strict";

@@ -47,6 +47,7 @@ const scenario = () => {
     const subscription = view.subscriptions[0];
     assert.ok(subscription);
     view = runtime.proposeAction({ actorId: view.ownerId, commandId: "propose" }, view.id, {
+        owner: "test",
         title: "Approve",
     });
     const action = view.actions[0];
@@ -378,24 +379,6 @@ test("append rejects structurally valid events with impossible causal references
                 payload: { pluginId: "test", scope: { kind: "actor", actorId: setup.intruder.id }, state: {} },
             }),
             message: /lacks plugin.state.write/,
-        },
-        {
-            value: event({
-                type: "action.proposed",
-                actorId: setup.intruder.id,
-                correlationId: null,
-                causationId: null,
-                payload: {
-                    actionId: "action-unauthorized",
-                    owner: null,
-                    title: "Impossible",
-                    description: null,
-                    parameters: {},
-                    input: null,
-                    payload: null,
-                },
-            }),
-            message: /lacks action.propose/,
         },
         {
             value: event({

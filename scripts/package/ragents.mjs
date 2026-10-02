@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 import { spawn } from "node:child_process";
-import { realpathSync } from "node:fs";
+import { readFileSync, realpathSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { terminateProcessTree, watchOwnerLifetime } from "../../packages/workspace-executor/src/owner-lifetime.mjs";
@@ -34,6 +34,7 @@ const usage = `Usage: ragents <command> [arguments]
   provision [<profile>|--workspace] fetch the plugins' tools
   workspace-client <server-url>    register this machine as a workspace
   plugin build <folder...>         build plugin source folders into bundles (--out, --watch)
+  --version, -v                    the installed version
   --help, help                     this usage
 
 run, send, journal, stop and script take another profile with --profile <profile|path>: a name
@@ -42,11 +43,23 @@ the same for all commands of a shell; if the profile requires sign-in, the user'
 personal token goes into RAGENTS_TOKEN.
 `;
 
+/** In the package and the standalone archive its own manifest, in a checkout the root one. */
+const packageVersion = (root) => {
+  const file = path.join(root, "package.json");
+  const version = JSON.parse(readFileSync(file, "utf8")).version;
+  if (typeof version !== "string" || !/^\d+\.\d+\.\d+/.test(version)) throw new Error(`${file} names no version`);
+  return version;
+};
+
 const main = () => {
   const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..");
   const [command, ...rest] = process.argv.slice(2);
   if (command === "--help" || command === "help") {
     console.log(usage);
+    process.exit(0);
+  }
+  if (command === "--version" || command === "-v") {
+    console.log(packageVersion(root));
     process.exit(0);
   }
   const script = command ? commands[command] : undefined;

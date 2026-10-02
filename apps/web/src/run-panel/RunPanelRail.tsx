@@ -1,9 +1,8 @@
 import type { SessionContext, SessionNavigation, WorkspaceTabContribution } from "../PluginRegistry";
-import { Button, Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "../ui";
+import { Badge, BadgeDisplayProvider, Button, Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "../ui";
 import { RUN_PANEL_WORKSPACE_ID } from "./workspace-state";
 
-/** A contribution's counter badge sits small at the top right of the button, the dot for news at the bottom right. */
-const railButtonClass = "relative aria-pressed:bg-accent aria-pressed:text-primary [&_[data-slot=badge]]:absolute [&_[data-slot=badge]]:-top-0.5 [&_[data-slot=badge]]:-right-0.5 [&_[data-slot=badge]]:h-3.5 [&_[data-slot=badge]]:min-w-3.5 [&_[data-slot=badge]]:px-1 [&_[data-slot=badge]]:py-0 [&_[data-slot=badge]]:text-[0.58rem] [&_[data-slot=badge]]:leading-none";
+const railButtonClass = "relative aria-pressed:bg-accent aria-pressed:text-primary";
 
 /** The toolbar at the right edge of the run panel: one button per sidebar tab that opens the sidebar with this tab or closes it again. */
 export function RunPanelRail({ navigation, onClose, open, pendingTabIds, session, tabs }: {
@@ -28,8 +27,9 @@ export function RunPanelRail({ navigation, onClose, open, pendingTabIds, session
           render={<Button size="icon" variant="ghost" />}
         >
           <tab.Icon />
-          {tab.Badge && <tab.Badge active={active} navigation={navigation} selection={navigation.selectionFor(tab.id)} session={session} />}
-          {pending && <span aria-hidden className="absolute right-1 bottom-1 size-1.5 rounded-full bg-primary" />}
+          <span className="absolute top-1 right-1"><BadgeDisplayProvider value="dot">
+            {pending ? <Badge>New activity</Badge> : tab.Badge && <tab.Badge active={active} navigation={navigation} selection={navigation.selectionFor(tab.id)} session={session} />}
+          </BadgeDisplayProvider></span>
         </TooltipTrigger>
         <TooltipContent side="left" sideOffset={8}>{pending ? `${tab.label} - new activity` : tab.label}</TooltipContent>
       </Tooltip>;

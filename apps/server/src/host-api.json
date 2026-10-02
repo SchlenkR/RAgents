@@ -791,6 +791,11 @@
       "runApps",
       "selectedRunApp"
     ],
+    "@ragents/web/run-panel/DockWorkspace": [
+      "DockWindowActions",
+      "DockWorkspace",
+      "useDockActiveApp"
+    ],
     "@ragents/web/run-panel/host": [
       "useRunPanelHost"
     ],
@@ -836,6 +841,7 @@
       "Label",
       "Popover",
       "PopoverContent",
+      "PopoverTrigger",
       "SectionLabel",
       "Select",
       "SelectContent",
@@ -878,6 +884,7 @@
       "QuasselProvider",
       "StepPopover",
       "TimestampSwitch",
+      "TranscriptModeSwitch",
       "WorkingScenes",
       "announce",
       "appearanceStyle",

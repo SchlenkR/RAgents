@@ -12,8 +12,10 @@ const controlsClass = "flex flex-shrink-0 items-center gap-2 border-t border-bor
 
 const noteClass = "mt-1.5 text-[0.7rem] text-muted-foreground";
 
-export function ActorChatControls({ actor, view, composerVisible = true, presentation = "inspector", display = presentation, running = false, toolbarLeft, toolbarRight }: {
+export function ActorChatControls({ actor, autoFocus, onAutoFocusSettled, view, composerVisible = true, presentation = "inspector", display = presentation, running = false, toolbarLeft, toolbarRight }: {
   actor: RunActor;
+  autoFocus?: boolean;
+  onAutoFocusSettled?: () => void;
   view: RunView;
   composerVisible?: boolean;
   presentation?: "inspector" | "panel";
@@ -30,12 +32,14 @@ export function ActorChatControls({ actor, view, composerVisible = true, present
   const switches = <ChatViewSwitches settings={chatView} />;
   if (!composerVisible || actor.kind === "human") return <div className={controlsClass}>{toolbarLeft}{switches}</div>;
   if (actor.kind === "script") return <div className={controlsClass}><p className={noteClass}>{programChatNotice}</p>{toolbarLeft}{switches}</div>;
-  if (actor.lifecycle?.kind === "stopped") return <div className={presentation === "inspector" ? "flex-shrink-0 px-5 pt-2.5 pb-3.5" : undefined}>
+  if (actor.lifecycle?.kind === "stopped") return <div className={presentation === "inspector" ? "mx-auto w-[calc(100%_-_16px)] max-w-[var(--chat-max-width)] flex-shrink-0 pt-2.5 pb-3.5" : undefined}>
     <StoppedActorNotice actor={actor} runId={view.id} toolbar={<>{toolbarLeft}{switches}</>} />
   </div>;
-  return <div className={presentation === "inspector" ? "flex-shrink-0 px-5 pt-2.5 pb-3.5" : undefined}>
+  return <div className={presentation === "inspector" ? "mx-auto w-[calc(100%_-_16px)] max-w-[var(--chat-max-width)] flex-shrink-0 pt-2.5 pb-3.5" : undefined}>
     <ChatInputToolbar
       {...attachments}
+      autoFocus={autoFocus}
+      onAutoFocusSettled={onAutoFocusSettled}
       disabled={disabledReason !== undefined}
       maxRows={4}
       onSend={(text, files) => sendActorMessage(view.id, actor.id, text, files)}

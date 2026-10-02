@@ -1,5 +1,5 @@
 import { cn } from "cn";
-import { CircleAlertIcon, CircleIcon } from "lucide-react";
+import { CircleAlertIcon } from "lucide-react";
 import type { ReactNode } from "react";
 import { Checkbox, longTime, RunStateIcon, shortTime } from "../ui";
 import type { ConnectionRun, ConnectionView } from "./contract";
@@ -19,7 +19,7 @@ export function RunList({ label, showConnection, selecting = false, children }: 
   selecting?: boolean;
   children: ReactNode;
 }) {
-  return <ul aria-label={label} className={cn("-mx-2 grid gap-x-2 gap-y-0.5", columnsOf(showConnection, selecting))}>{children}</ul>;
+  return <ul aria-label={label} className={cn("grid min-w-0 gap-x-2 gap-y-0.5", columnsOf(showConnection, selecting))}>{children}</ul>;
 }
 
 /** One line per run, the same on Start and on Runs: state and title on the left, time and server on the right in the list columns. */
@@ -39,15 +39,14 @@ export function RunLine({ connection, run, showConnection, selecting, selected, 
     {selecting && <Checkbox aria-label={`Select ${run.title}`} checked={selected === true} className="ml-1" onCheckedChange={() => onToggle?.()} />}
     <button aria-disabled={run.locked !== undefined && !selecting} className={cn(lineClass, selecting ? "col-[2/-1]" : "col-span-full", "aria-disabled:cursor-default aria-disabled:hover:bg-transparent")}
       onClick={() => (selecting ? onToggle?.() : run.locked === undefined && onOpen())} title={showConnection ? `${run.title} (${connection.name})` : run.title} type="button">
-      <RunStateIcon open={run.pendingActions} state={run.state} />
+      <RunStateIcon notice={run.locked ? undefined : run.notice} open={run.pendingActions} state={run.state} />
       <span className="flex min-w-0 items-center gap-1.5">
-        <span className="min-w-0 truncate text-[0.8rem] font-medium">{run.title}</span>
-        {run.notice && !run.locked && <span className="text-primary" title={run.notice === "unseen" ? "Not viewed yet" : "New activity"}><CircleIcon aria-label={run.notice === "unseen" ? "Not viewed yet" : "New activity"} className="size-2 fill-current" /></span>}
+        <span className="min-w-0 truncate type-item">{run.title}</span>
         {problem !== undefined && <span className="flex flex-none text-destructive" title={problem}><CircleAlertIcon aria-hidden className="size-3.5" /><span className="sr-only">{problem}</span></span>}
       </span>
-      <span className="w-[42px] text-right font-mono text-[0.62rem] text-muted-foreground" data-cell="time" title={longTime(run.updatedAt)}>{time}</span>
-      {showConnection && <span className="max-w-[92px] truncate text-[0.64rem] font-semibold text-muted-foreground" data-cell="connection" title={connection.name}>{connection.name}</span>}
+      <span className="w-[42px] text-right font-mono type-meta text-muted-foreground" data-cell="time" title={longTime(run.updatedAt)}>{time}</span>
+      {showConnection && <span className="max-w-[92px] truncate type-meta text-muted-foreground" data-cell="connection" title={connection.name}>{connection.name}</span>}
     </button>
-    {details && <div className="col-span-full flex flex-wrap gap-x-3 px-2 pb-1 text-[0.65rem] text-muted-foreground">{details}</div>}
+    {details && <div className="col-span-full flex flex-wrap gap-x-3 px-2 pb-1 type-meta text-muted-foreground empty:hidden">{details}</div>}
   </li>;
 }

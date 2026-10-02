@@ -19,7 +19,7 @@ function App(){const[user,setUser]=useState('alice');const[selectMode,setSelectM
     await page.evaluate(()=>{const f=(window as any).fixture;f.markViewed('running',8);f.markViewed('new',3);f.markViewed('new',1)});
     await page.waitForFunction(()=>(window as any).fixture.revisions.new===3);assert.equal(await unread().count(),2);
     await page.evaluate(()=>(window as any).fixture.setSessions((runs:any[])=>runs.map(run=>run.id==='new'?{...run,revision:4}:run)));
-    await page.getByLabel('New activity',{exact:true}).waitFor();assert.equal(await page.evaluate(()=>(window as any).fixture.revisions.new),3,'List polling does not mark new revisions as read.');
+    await page.getByTitle(/new activity/i).waitFor();assert.equal(await page.evaluate(()=>(window as any).fixture.revisions.new),3,'List polling does not mark new revisions as read.');
     await page.screenshot({path:`${directory}/desktop.png`,fullPage:true});
     await page.evaluate(()=>(window as any).fixture.setUser('bob'));await page.waitForFunction(()=>Object.keys((window as any).fixture.revisions).length===0);assert.equal(await unread().count(),4);
     await page.evaluate(()=>(window as any).fixture.markViewed('old',2));await page.evaluate(()=>(window as any).fixture.setUser('alice'));await page.waitForFunction(()=>(window as any).fixture.revisions.new===3);assert.equal(await page.evaluate(()=>(window as any).fixture.revisions.old),undefined);

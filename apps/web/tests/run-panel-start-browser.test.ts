@@ -82,7 +82,7 @@ test("the run panel shows one loading state from the click to the first content 
     await page.waitForFunction(() => window.runStartFixture.calls.includes("ragents.chat.start"));
     assert.equal(await titleOf(), "Starting run");
     assert.equal(await detailOf(), "Starting the template.");
-    assert.equal(await page.locator("header strong").textContent(), "Setup template");
+    assert.equal(await page.getByRole("region", { name: "Run title bar" }).getByRole("heading").textContent(), "Setup template");
     const launching = await center(notice);
     const statusBar = await page.getByRole("contentinfo", { name: "Run status bar" }).boundingBox();
     assert.ok(statusBar, "The pending panel reserves the run status bar.");
@@ -130,7 +130,7 @@ test("the run panel shows one loading state from the click to the first content 
     await page.evaluate(() => window.runStartFixture.command({ type: "newRun" }));
     await page.waitForFunction(() => window.runStartFixture.activeRun() !== undefined);
     await waitForTitle("Loading run");
-    assert.equal(await page.locator("header strong").first().textContent(), "New run");
+    assert.equal(await page.getByRole("region", { name: "Run title bar" }).getByRole("button", { name: "New run", exact: true }).textContent(), "New run");
     await chat({ kind: "status", running: false });
     await chat({ kind: "replay-end", conversationId: null });
     await settle();
@@ -240,7 +240,7 @@ test("a second template chosen while the first still starts is started and shown
   await page.waitForFunction(() => window.runStartFixture.starts.length === 2);
   const [first, second] = await starts(page);
   assert.equal(second!.entry, "start.other");
-  assert.equal(await page.locator("header strong").textContent(), "Second template");
+  assert.equal(await page.getByRole("region", { name: "Run title bar" }).getByRole("heading").textContent(), "Second template");
   await page.evaluate((runId) => window.runStartFixture.releaseStart(runId), first!.runId);
   await pause(page);
   assert.equal(await activeRun(page), undefined, "The superseded launch does not open its run.");
@@ -262,24 +262,32 @@ test("a free run chosen while a template still starts stays in the panel", brows
   assert.equal(await activeRun(page), free, "A launch that finishes later does not pull the panel away.");
 }));
 
-test("the panel menu lists the run scripts of the open run and starts one inside it", browserOnly, () => withPanel(async (page) => {
+test("the run script button lists the run scripts of the open run as start items and starts one inside it", browserOnly, () => withPanel(async (page) => {
   await page.evaluate(() => { window.runStartFixture.views.add("existing"); window.runStartFixture.command({ type: "selectRun", runId: "existing" }); });
   await page.waitForFunction(() => window.runStartFixture.activeRun() === "existing");
-  const menu = page.getByRole("button", { name: "Panel menu" });
-  await menu.click();
-  await page.getByRole("button", { name: "Run script" }).click();
+  const button = page.getByRole("button", { name: "Run script", exact: true });
   const list = page.getByRole("list", { name: "Run scripts" });
-  await list.getByText("Review", { exact: true }).waitFor();
-  assert.equal(await list.getByRole("listitem").filter({ hasText: "Setup template" }).isDisabled(), true, "A script that only starts a new run cannot be chosen.");
-  assert.match(await list.getByRole("listitem").filter({ hasText: "Setup template" }).textContent() ?? "", /embeddable: true/);
-  await list.getByRole("listitem").filter({ hasText: /^Review/ }).click();
+  const script = (title: string) => list.getByRole("button").filter({ has: page.getByText(title, { exact: true }) });
+  await button.click();
+  await script("Review").waitFor();
+  assert.deepEqual(await list.getByRole("button").evaluateAll((tiles) => tiles.map((tile) => tile.getAttribute("data-tile"))), ["Review", "Strict review", "Setup template"],
+    "Available scripts come first, unavailable ones after them, each in their listed order.");
+  const frame = await page.locator("header").filter({ has: button }).boundingBox();
+  const panel = await page.getByRole("dialog", { name: "Run script", exact: true }).boundingBox();
+  assert.ok(frame && panel);
+  assert.ok(Math.abs(panel.x + panel.width - (frame.x + frame.width - 8)) < 1, "The pop-out ends at the frame's right edge minus the gutter.");
+  assert.ok(Math.abs(panel.width - Math.min(800, frame.width - 16)) < 1, "The pop-out uses the available width up to 800 pixels.");
+  const [first, second] = await Promise.all([script("Review").boundingBox(), script("Strict review").boundingBox()]);
+  assert.ok(first && second && Math.abs(first.y - second.y) < 1 && second.x > first.x, "A pop-out wider than 480 pixels shows two columns.");
+  assert.equal(await script("Setup template").isDisabled(), true, "A script that only starts a new run cannot be chosen.");
+  assert.match(await script("Setup template").textContent() ?? "", /embeddable: true/);
+  await script("Review").click();
   await page.waitForFunction(() => window.runStartFixture.scriptStarts.length === 1);
   assert.deepEqual(await page.evaluate(() => window.runStartFixture.scriptStarts), [{ runId: "existing", entry: "start.review", input: null }]);
   await list.waitFor({ state: "detached" });
 
-  await menu.click();
-  await page.getByRole("button", { name: "Run script" }).click();
-  await list.getByRole("listitem").filter({ hasText: "Strict review" }).click();
+  await button.click();
+  await script("Strict review").click();
   await page.getByRole("alert").filter({ hasText: "fixes the start option demo.mode" }).waitFor();
   assert.equal(await list.isVisible(), true, "A refused start keeps the list open with its reason.");
 }));

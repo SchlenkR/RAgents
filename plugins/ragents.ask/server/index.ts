@@ -18,6 +18,8 @@ const askPlugin: RAgentsPlugin = {
     host.prompts(handlebarsPrompt("ragents.ask.prompt", 480, pluginAsset("ragents.ask", "ask.hbs")));
     host.functions(createAskToolContributor(service));
     host.methods(createAnswerMethod(service, host.service(runGuardToken)));
+    const withdrawQuestions = ({ runId }: { runId: string }) => service.stopRun(runId);
+    host.lifecycle({ id: "ragents.ask.questions", stopSession: withdrawQuestions, afterStopSession: withdrawQuestions });
   },
 };
 

@@ -83,6 +83,14 @@ const sourceOf = async (options: TypeScriptToolOptions, runId: string, toolCallI
     return text.content;
 };
 
+const relatedNames = (functions: readonly { name: string; label: string; description: string }[], query: string): string[] => {
+    const words = query.split(/\s+/).filter((word) => word.length > 2);
+    return functions.filter((entry) => words.some((word) => `${entry.name} ${entry.label} ${entry.description}`.toLocaleLowerCase().includes(word))).slice(0, 5).map((entry) => entry.name);
+};
+
+const noMatchHint = (related: readonly string[]): string =>
+    `No function contains the query as one phrase in its name, label or description; use a single word.${related.length > 0 ? ` Functions matching one of its words: ${related.join(", ")}.` : ""} Omit query to list all names.`;
+
 export const createTypeScriptToolContributor = (options: TypeScriptToolOptions): ToolContributor => {
     const tools: readonly RunFunction[] = [
         defineRunFunction({
@@ -100,6 +108,7 @@ export const createTypeScriptToolContributor = (options: TypeScriptToolOptions):
                 functions: Type.Optional(Type.Array(apiEntrySchema)),
                 declarations: Type.Optional(Type.String()),
                 guidance: Type.Optional(Type.String()),
+                hint: Type.Optional(Type.String()),
             }, { additionalProperties: false }),
             run: async (scope, _id, input) => {
                 if (input.context && (input.names || input.query !== undefined || input.schemas)) throw new Error("typescript_api expects context alone, without names, query or schemas.");
@@ -115,6 +124,7 @@ export const createTypeScriptToolContributor = (options: TypeScriptToolOptions):
                 const selected = input.names ? functions.filter((entry) => input.names!.includes(entry.name))
                     : query ? functions.filter((entry) => `${entry.name} ${entry.label} ${entry.description}`.toLocaleLowerCase().includes(query)) : functions;
                 const guidance = input.names ? await scope.functionGuidance(input.names) : "";
+                const related = query && selected.length === 0 ? relatedNames(functions, query) : [];
                 return {
                     functions: selected.map(({ name, label, description, longDescription, schema, resultSchema }) => ({
                         name, label, description,
@@ -123,6 +133,7 @@ export const createTypeScriptToolContributor = (options: TypeScriptToolOptions):
                     })),
                     ...(input.names ? { declarations: runCapabilityDeclarations(selected.map(descriptorOf)) } : {}),
                     ...(guidance ? { guidance } : {}),
+                    ...(query && selected.length === 0 ? { hint: noMatchHint(related) } : {}),
                 };
             },
         }),

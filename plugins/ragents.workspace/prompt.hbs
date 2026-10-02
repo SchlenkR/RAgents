@@ -4,4 +4,4 @@ Rules:
 
 - Reads and writes are allowed only inside the working directory, the roots named with it and the run's file store.
 - Remote git operations (push, fetch, pull) and global git configuration are not allowed.
-- No network access from `bash`; use only the tools explicitly provided.
+- Network access from `bash`, including `curl`, is allowed within the host's network policy.

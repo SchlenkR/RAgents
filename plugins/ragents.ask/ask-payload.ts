@@ -1,6 +1,6 @@
 export const ASK_PLUGIN_ID = "ragents.ask";
 
-/** What the asking tool call gets when a person's message to the asker closes its question. */
+/** The record of a question that a person's message to the asker closed; ask_user returns it when such a message already waits. */
 export const SUPERSEDED_ANSWER = "Not answered: the user sent a new message instead.";
 
 export interface AskPayload {

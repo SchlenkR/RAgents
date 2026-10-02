@@ -67,10 +67,10 @@ test("Start shows the servers as split chips with a route line, the recent runs 
     assert.equal(await page.getByRole('button',{name:'Runs',exact:true}).count(),0,'the actions are only in the VS Code title bar');
     assert.equal(await page.getByRole('button',{name:'Set up server'}).count(),0);
 
-    // Two servers per row at 420 pixels, all in one from 560 on.
+    // One server per row in a narrow panel, two in a wide panel.
     const connectionRows=()=>page.evaluate(()=>
       new Set([...document.querySelectorAll('ul[aria-label="Server"] > li')].map((item)=>Math.round(item.getBoundingClientRect().top))).size);
-    assert.equal(await connectionRows(),3,'five servers take three rows at 420 pixels');
+    assert.equal(await connectionRows(),5,'five servers take five rows at 420 pixels');
     assert.equal(await page.getByRole('button',{name:'New chat on workshop'}).count(),1);
     assert.equal(await page.getByRole('button',{name:'New chat on review'}).count(),0,'no plus without the start right');
     const chip=(name:string)=>page.locator('ul[aria-label="Server"] > li').filter({hasText:name}).first();
@@ -114,13 +114,13 @@ test("Start shows the servers as split chips with a route line, the recent runs 
     assert.equal(await page.locator('button[title="Editorial workshop: landing page (workshop)"]').count(),1);
     assert.equal(await columnEdges(page,'Recent','time'),1,'the time column is at the same edge in all lines');
     assert.equal(await columnEdges(page,'Recent','connection'),1,'the server column is at the same edge in all lines');
-    assert.equal(await page.locator('ul[aria-label="Templates on core"] button[title="Word game"]').count(),1,'every template of every server is in its server group');
+    assert.equal(await page.locator('ul[aria-label="Templates on core"] button[data-tile="Word game"]').count(),1,'every template of every server is in its server group');
     assert.equal(await page.getByLabel('Search templates').count(),0,'Start has no search');
     await shoot(page,`${shots}start-420.png`);
     assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true);
 
     // One click is one click: the template creates the run, the plus the empty chat, the line opens the run.
-    await page.locator('ul[aria-label="Templates on core"] button[title="Discussion circle"]').click();
+    await page.locator('ul[aria-label="Templates on core"] button[data-tile="Discussion circle"]').click();
     assert.deepEqual(await sent(page),{action:'newRun',name:'core',entryId:'ragents.reference.circle'});
     await page.getByRole('button',{name:'New chat on workshop'}).click();
     assert.deepEqual(await sent(page),{action:'newRun',name:'workshop'});
@@ -130,8 +130,8 @@ test("Start shows the servers as split chips with a route line, the recent runs 
     // New groups per reachable server and starts each group with New chat; with a default, its template comes first and marked, and the plus takes it.
     const groups=()=>page.evaluate(()=>[...document.querySelectorAll('ul[aria-label^="Templates on "]')].map((list)=>({
       connection:list.getAttribute('aria-label')!.replace('Templates on ',''),
-      heading:list.previousElementSibling?.textContent?.trim(),
-      titles:[...list.querySelectorAll(':scope > li > button')].map((item)=>item.getAttribute('title')),
+      heading:list.parentElement?.previousElementSibling?.textContent?.trim(),
+      titles:[...list.querySelectorAll(':scope > li > button')].map((item)=>item.getAttribute('data-tile')),
     })));
     const tilesOf=async(connection:string)=>(await groups()).find((group)=>group.connection===connection)!;
     assert.deepEqual((await groups()).map((group)=>group.connection),['workshop','core'],'one group per reachable server, in the order of the chips');
@@ -139,14 +139,14 @@ test("Start shows the servers as split chips with a route line, the recent runs 
     assert.equal((await tilesOf('workshop')).titles[0],'New chat');
     assert.equal((await tilesOf('core')).titles[0],'New chat');
     assert.equal((await groups()).flatMap((group)=>group.titles).length,10,'New chat twice before the eight templates');
-    await page.locator('ul[aria-label="Templates on core"] button[title="New chat"]').click();
+    await page.locator('ul[aria-label="Templates on core"] button[data-tile="New chat"]').click();
     assert.deepEqual(await sent(page),{action:'newRun',name:'core'});
-    const firstTile=(connection:string,title:string)=>page.waitForFunction(([list,expected])=>document.querySelector(`ul[aria-label="Templates on ${list}"] > li > button`)?.getAttribute('title')===expected,[connection,title]);
+    const firstTile=(connection:string,title:string)=>page.waitForFunction(([list,expected])=>document.querySelector(`ul[aria-label="Templates on ${list}"] > li > button`)?.getAttribute('data-tile')===expected,[connection,title]);
     await setConnections(page,[{...workshop,defaultEntry:'ragents.reference.circle'},core,developer,review,nightrun]);
     await firstTile('workshop','Discussion circle');
     assert.deepEqual((await tilesOf('workshop')).titles.slice(0,1),['Discussion circle']);
     assert.equal((await groups()).flatMap((group)=>group.titles).length,9,'the default does not appear a second time');
-    const standardTile=page.locator('ul[aria-label="Templates on workshop"] button[title="Discussion circle"]');
+    const standardTile=page.locator('ul[aria-label="Templates on workshop"] button[data-tile="Discussion circle"]');
     assert.equal(await standardTile.getByText('Default').count(),1);
     await standardTile.click();
     assert.deepEqual(await sent(page),{action:'newRun',name:'workshop',entryId:'ragents.reference.circle'});
@@ -175,7 +175,7 @@ test("Start shows the servers as split chips with a route line, the recent runs 
 
     await page.setViewportSize({width:900,height:1100});
     await page.waitForFunction(()=>innerWidth===900);
-    assert.equal(await connectionRows(),1,'from 560 pixels on all servers are in one row');
+    assert.equal(await connectionRows(),3,'wide panels use two server columns');
     await shoot(page,`${shots}start-900.png`);
     assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true);
     context.diagnostic(`Screenshots: ${shots}`);
@@ -269,7 +269,7 @@ test("a long run title stays within the panel width and the page scrolls vertica
   try{
     const browserContext=await browser.newContext({viewport:{width:420,height:380}});const page=await browserContext.newPage();await page.goto(url);
     await page.getByRole('heading',{name:'Server'}).waitFor();
-    await page.locator('button[title="Word game"]').waitFor();
+    await page.locator('button[data-tile="Word game"]').waitFor();
 
     const metrics=await page.evaluate((title)=>{
       const main=document.querySelector('main')!;
@@ -291,3 +291,26 @@ test("a long run title stays within the panel width and the page scrolls vertica
     assert.ok(metrics.scrollTop>0,'the page can be scrolled down');
   }finally{await browser.close()}
 });
+
+for (const width of [380, 900, 1600, 2600]) {
+  test(`Server uses the shared centered panel column at ${width}px`, {skip, timeout:120_000}, async () => {
+    const url = await preparePage({theme:"dark", page:"connections", profileSuggestions:[], connections:all});
+    const browser = await launch();
+    try {
+      const page = await browser.newPage({viewport:{width, height:1100}});
+      await page.goto(url);
+      await page.getByRole("button", {name:"New server", exact:true}).waitFor();
+      const metrics = await page.locator("main ul").first().evaluate((list) => {
+        const rect = list.getBoundingClientRect();
+        const main = document.querySelector("main")!;
+        return {width:rect.width, left:rect.left, hostWidth:main.clientWidth,
+          overflow:main.scrollWidth > main.clientWidth || document.documentElement.scrollWidth > innerWidth};
+      });
+      await mkdir(shots, {recursive:true});
+      await page.screenshot({path:`${shots}panel-servers-${width}.png`});
+      assert.ok(metrics.width > 0 && metrics.width <= 1280);
+      assert.ok(Math.abs(metrics.left - (metrics.hostWidth - metrics.width) / 2) < 2);
+      assert.equal(metrics.overflow, false);
+    } finally { await browser.close(); }
+  });
+}

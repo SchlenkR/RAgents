@@ -1,8 +1,9 @@
 import { ChevronRightIcon, PlusIcon, ServerIcon } from "lucide-react";
 import { useEffect, useState } from "react";
 import { cn } from "cn";
-import { StartSection, StartTiles, startTileCount } from "../StartTiles";
+import { StartTiles, startTileCount } from "../StartTiles";
 import { Button, ConnectionStateIcon, connectionStateWord, Popover, PopoverContent, PopoverHeader, PopoverTitle, PopoverTrigger } from "../ui";
+import { SectionHeading } from "../ui/SectionLabel";
 import { busyState, connectionState, routeLabel, stateDetail } from "./connection-state";
 import type { ConnectionEntry, ConnectionView } from "./contract";
 import type { PanelPageProps } from "./page-props";
@@ -61,8 +62,8 @@ function StateButton({ connection, action, failure, onFailure, send, onLogin }: 
       <ConnectionStateIcon state={state} />
     </PopoverTrigger>
     {shown && <PopoverContent align="start" className="w-[min(360px,calc(100vw-16px))] gap-2 p-3" collisionPadding={8} dim side="bottom">
-      <PopoverHeader><PopoverTitle className="text-[0.8rem] font-semibold text-destructive">{shown.title}</PopoverTitle></PopoverHeader>
-      <p className={cn("max-h-[50vh] overflow-auto select-text whitespace-pre-wrap text-[0.72rem] leading-normal [overflow-wrap:anywhere]", shown.message.includes("\n") && "font-mono")}>{shown.message}</p>
+      <PopoverHeader><PopoverTitle className="type-item text-destructive">{shown.title}</PopoverTitle></PopoverHeader>
+      <p className={cn("max-h-[50vh] overflow-auto select-text whitespace-pre-wrap type-body [overflow-wrap:anywhere]", shown.message.includes("\n") && "font-mono")}>{shown.message}</p>
       <div className="flex flex-wrap justify-end gap-2">
         <Button onClick={() => send({ action: "showOutput" })} size="xs" variant="ghost">Open output</Button>
         {missing && <Button aria-label={`Set value for ${missing.variable} and restart ${connection.name}`}
@@ -98,10 +99,10 @@ function ConnectionChip({ connection, send, onLogin }: {
       {!ownIcon && <ConnectionStateIcon state={state} />}
       <span className="grid min-w-0 flex-1 gap-0.5">
         <span className="flex min-w-0 items-baseline gap-1.5">
-          <span className="max-w-[calc(100%-3rem)] flex-none truncate text-[0.76rem] font-semibold">{connection.name}</span>
-          {action.word && <span className="ml-auto min-w-0 truncate text-[0.62rem] text-muted-foreground group-enabled/action:group-hover/action:text-foreground">{action.word}</span>}
+          <span className="max-w-[calc(100%-3rem)] flex-none truncate type-item">{connection.name}</span>
+          {action.word && <span className="ml-auto min-w-0 truncate type-meta text-muted-foreground group-enabled/action:group-hover/action:text-foreground">{action.word}</span>}
         </span>
-        <span className="truncate font-mono text-[0.62rem] text-muted-foreground" data-cell="route" title={route}>{route}</span>
+        <span className="truncate font-mono type-meta text-muted-foreground" data-cell="route" title={route}>{route}</span>
       </span>
     </button>
     {canCreate
@@ -113,8 +114,8 @@ function ConnectionChip({ connection, send, onLogin }: {
 
 /** The templates of a server: the default template or New chat first, then the rest; with a heading when there are two or more servers. */
 function ConnectionOffers({ connection, marked, send }: { connection: ConnectionView; marked: boolean; send: PanelPageProps["send"] }) {
-  return <div className="grid grid-cols-1 gap-1.5">
-    {marked && <h3 className="flex items-center gap-1.5 pt-1 text-[0.78rem] font-semibold"><ConnectionStateIcon state={connectionState(connection)} />{connection.name}</h3>}
+  return <div className="grid grid-cols-1 gap-2">
+    {marked && <h3 className="flex items-center gap-1.5 type-item"><ConnectionStateIcon state={connectionState(connection)} />{connection.name}</h3>}
     <StartTiles defaultEntry={connection.defaultEntry} entries={connection.entries} label={marked ? `Templates on ${connection.name}` : "Templates"}
       onNewChat={connection.canCreateFree === false ? undefined : () => send({ action: "newRun", name: connection.name })} onStart={(entryId) => send({ action: "newRun", name: connection.name, entryId })} />
   </div>;
@@ -130,35 +131,35 @@ export function StartPage({ state, send, runDetails }: PanelPageProps) {
   const reachable = connections.filter((connection) => connection.state.kind === "connected" && connection.canCreate);
   const tiles = reachable.reduce((count, connection) => count + startTileCount(connection.entries, connection.defaultEntry, connection.canCreateFree !== false), 0);
   const loginConnection = connections.find((connection) => connection.name === login);
-  return <div className="@container/panel grid grid-cols-1 gap-4">
-    {state.problem && <p className="text-[0.8rem] leading-normal text-destructive [overflow-wrap:anywhere]" role="alert">{state.problem}</p>}
+  return <div className="grid min-w-0 grid-cols-1 gap-8">
+    {state.problem && <p className="type-body text-destructive [overflow-wrap:anywhere]" role="alert">{state.problem}</p>}
     {connections.flatMap((connection) => connection.versionNotice ? [{ name: connection.name, notice: connection.versionNotice }] : []).map(({ name, notice }) =>
-      <p className={cn("text-[0.8rem] leading-normal [overflow-wrap:anywhere]", notice.level === "error" ? "text-destructive" : "text-warning")} data-notice={notice.level} key={name}
+      <p className={cn("type-body [overflow-wrap:anywhere]", notice.level === "error" ? "text-destructive" : "text-warning")} data-notice={notice.level} key={name}
         role={notice.level === "error" ? "alert" : "status"}>{marked ? `${name}: ${notice.text}` : notice.text}</p>)}
     {connections.length === 0
       ? <div className="grid gap-3">
-        <p className="text-[0.85rem] leading-normal text-muted-foreground">No server yet. Add a server by address or a local profile.</p>
+        <p className="type-body text-muted-foreground">No server yet. Add a server by address or a local profile.</p>
         <Button onClick={() => send({ action: "page", page: "connections" })}><ServerIcon data-icon="inline-start" />Add server</Button>
       </div>
       : <>
-        <section className="grid grid-cols-1 gap-1.5">
-          <StartSection count={connections.length} title="Server" />
-          <ul aria-label="Server" className="grid grid-cols-2 gap-1.5 @[560px]/panel:auto-cols-fr @[560px]/panel:grid-flow-col @[560px]/panel:grid-cols-none">
+        <section className="grid grid-cols-1 gap-3">
+          <SectionHeading count={connections.length} title="Server" />
+          <ul aria-label="Server" className="grid w-full max-w-[720px] grid-cols-1 gap-1.5 @[560px]/panel:grid-cols-2">
             {connections.map((connection) => <ConnectionChip connection={connection} key={connection.name} onLogin={setLogin} send={send} />)}
           </ul>
         </section>
-        <section className="grid grid-cols-1 gap-1.5">
-          <StartSection title="Continue">
-            {runs.length > 0 && <Button className="text-[0.66rem]" onClick={() => send({ action: "page", page: "runs" })} size="xs" variant="ghost">All {runs.length} runs<ChevronRightIcon data-icon="inline-end" /></Button>}
-          </StartSection>
+        <section className="grid grid-cols-1 gap-3">
+          <SectionHeading title="Continue">
+            {runs.length > 0 && <Button onClick={() => send({ action: "page", page: "runs" })} size="xs" variant="ghost">All {runs.length} runs<ChevronRightIcon data-icon="inline-end" /></Button>}
+          </SectionHeading>
           {runs.length === 0
-            ? <p className="text-[0.75rem] text-muted-foreground">No runs yet.</p>
+            ? <p className="type-body text-muted-foreground">No runs yet.</p>
             : <RunList label="Recent" showConnection={marked}>
               {runs.slice(0, RECENT_RUNS).map(({ connection, run }) => <RunLine details={runDetails?.(run.id, connection.name)} connection={connection} key={`${connection.name}:${run.id}`} onOpen={() => send({ action: "openRun", name: connection.name, runId: run.id })} run={run} showConnection={marked} />)}
             </RunList>}
         </section>
-        {reachable.length > 0 && <section className="grid grid-cols-1 gap-1.5">
-          <StartSection count={tiles} title="New" />
+        {reachable.length > 0 && <section className="grid grid-cols-1 gap-3">
+          <SectionHeading count={tiles} title="New" />
           {reachable.map((connection) => <ConnectionOffers connection={connection} key={connection.name} marked={marked} send={send} />)}
         </section>}
       </>}

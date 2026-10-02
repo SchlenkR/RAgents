@@ -109,30 +109,28 @@ implementation from the environment. A prepared setup can be built by a run scri
 working instructions for agents with optional editable start tasks and supplementary files;
 TypeScript can define the setup and later handoffs while model responses stay variable. The product
 homepage under `docs/homepage/index.html` is a handwritten static page; the generator does not check
-its content and only takes over its header for the guide pages. The entry fills the first screen:
-logo, the heading "Tailored AI Workspaces for your teams or your clients", two calls to action (VS
-Code Marketplace and GitHub), and stickers that a script distributes evenly around the text; each
-sticker jumps to its section. A submenu bar below the header always stays visible, names all
-sections, marks the current one, and jumps without scroll animation.
+its content and only takes over its header for the guide pages. The entry fills the first screen
+with the product heading, animated previews, and links to installation and GitHub. A chapter menu
+shows the current section and jumps to another chapter. Installation offers VS Code, npm/npx,
+shell and PowerShell scripts with one command each for the current user and for all users, and
+GitHub release downloads. Each tab shows its action or commands and essential prerequisites;
+setup details live in the getting-started guide. The closing section links to that guide and
+project feedback without repeating the installation call to action.
 
-A scroll sequence with six scenes follows: setups, messages between all participants, mini-apps,
-tools as TypeScript functions, event-driven workflows, and the distribution across server and
-laptop. From a width of 960 pixels, a fixed stage sits on the right; its scene is bound directly to
-the scroll progress through GSAP ScrollTrigger (without smoothing and without overshoot) and runs
-backwards when scrolling back. The bullet points of the scenes also fade in bound to scrolling. On
-narrow views, each scene stays centered in the viewport during its animation. With reduced motion,
-all scenes show their end state. The diagrams explain principles with general roles (agent,
-script, mini-app, server, laptop) and no concrete example workflows; each scene has its own visual
-language.
+The main page renders its diagrams on local canvases. Desktop scenes share a fixed stage; narrow
+views have a stage per chapter. Scene geometry, focus, annotation text and opacity, arrow shafts,
+and arrowheads derive from the scene position. Scrolling backwards restores the same image without
+time-based fades or delayed annotation updates. Desktop playback advances the sequence and its
+scroll position; manual scrolling pauses playback until Play or Fast is selected again. Scene and
+annotation rendering share one animation frame. Reduced motion disables automatic playback and
+shows completed mobile scenes. The diagrams explain principles with general roles (agent, script,
+mini-app, server, laptop) and no concrete example workflows.
 
-Static sections without animation follow: teams and clients (self-hosted, shared setups, models
-without passing on keys; several people in one run marked as planned), plugins and profiles,
-control from outside through CLI and JSON-RPC, web and VS Code with a shared-panel diagram, a list
-of the bundled plugins, a call to get started, an alpha notice, the limits, and a footer with a
-license notice. The texts are short and direct; usage details are in the guide. Styles and scripts
-of the page are in `homepage.css` and `homepage-*.js`; in addition, there are `site.css`,
-`site.js`, and the locally bundled `scroll-vendor.js` (GSAP and ScrollTrigger), which
-`scripts/homepage/homepage-motion.ts` generates. There are no external runtime resources.
+Static sections, installation, the alpha notice, limits, and the footer follow the animated
+chapters. Texts are short and direct; usage details are in the guide. The main page keeps its canvas
+renderer and styles in `index.html`, with installation controls in `homepage-install.css` and
+`homepage-install.js`. Shared navigation uses `site.css` and `site.js`. There are no external runtime
+resources.
 
 The header with logo, main navigation, and GitHub link stays visible when scrolling. The generator
 takes over its markup for the guide pages; `site.css` contains its styles. The internally generated
@@ -196,8 +194,16 @@ The host has two distribution forms built from the same package assembly: the np
 standalone GitHub release archives for Windows, macOS, and Linux (x64 and ARM64). Standalone
 archives add a pinned Node.js distribution and installed dependencies for their target. Each
 native build checks the extracted archive with its bundled runtime, including plugin compilation
-and an isolated HTTP host. Release install scripts verify checksums and activate versioned
-user-local installations; application data stays outside the installation. Commands, profiles,
+and an isolated HTTP host. Release install scripts install for the current user (default, never
+elevated) or for all users (`--global` with sudo only when the folder is not writable, `-Global`
+only in an elevated PowerShell with the machine `PATH`); `--prefix` changes only the folder. They
+verify checksums, prepare a versioned installation completely, including the package links the
+host otherwise creates on first use, before they activate it, so a host never writes into its
+installation. They refuse to replace a `ragents` command they did not create, warn about a
+shadowing command or an installation in the other scope without removing it, and uninstall with
+`--uninstall`. The shell installer prints the `PATH` line for the user's shell and never edits
+startup files; the PowerShell installer changes the registry `PATH` of its scope unless
+`-NoPathUpdate`. Application data stays per user outside the installation. Commands, profiles,
 plugin provisioning, and model configuration use the existing host implementations.
 A release always covers npm (host and six tool packages), all seven VSIX variants, and all six
 standalone archives with one version and source commit. Every public publish command uses the
@@ -359,9 +365,8 @@ Profile, for example core
         +-- global coordinator    +-- browser
         +-- activity              +-- processes
         +-- questions             +-- to-do
-        +-- watch                 +-- transcript
-        +-- model relay           +-- actor programs and views
-        +-- profile distribution
+        +-- watch                 +-- actor programs and views
+        +-- model relay           +-- profile distribution
         +-- language servers: Roslyn, FSAC, TypeScript
 ```
 

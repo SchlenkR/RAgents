@@ -27,6 +27,7 @@ import * as webPageOpener from "@ragents/web/page-opener";
 import * as webProductProductModelSettings from "@ragents/web/product/ProductModelSettings";
 import * as webProductStartOptions from "@ragents/web/product/start-options";
 import * as webRpc from "@ragents/web/rpc";
+import * as webDockWorkspace from "@ragents/web/run-panel/DockWorkspace";
 import * as webRunPanelHost from "@ragents/web/run-panel/host";
 import * as webRunPanelInputBridge from "@ragents/web/run-panel/input-bridge";
 import * as webRunView from "@ragents/web/run-view";
@@ -72,6 +73,7 @@ export const hostModules: Readonly<Record<string, object>> = {
   "@ragents/web/product/start-options": webProductStartOptions,
   "@ragents/web/rpc": webRpc,
   "@ragents/web/run-apps": webRunApps,
+  "@ragents/web/run-panel/DockWorkspace": webDockWorkspace,
   "@ragents/web/run-panel/host": webRunPanelHost,
   "@ragents/web/run-panel/input-bridge": webRunPanelInputBridge,
   "@ragents/web/run-view": webRunView,

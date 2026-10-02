@@ -494,18 +494,6 @@ plugin that is installed but disabled for the current configuration stays in the
 but provides neither providers nor tabs or presenters, and its templates are dropped. That way
 a domain plugin in an installation without its prerequisites disappears together with its server-side contributions.
 
-### Transcript of an actor
-
-`ragents.transcript` is a pure function plugin without a web half: `actor_transcript` returns
-the history of an actor of this run as a compact transcript from the journal, for agents and
-TypeScript actors with `event.subscribe`. Inputs, response texts, and tool calls each take
-one line, tool inputs and results are shortened to 200 and 300 characters, reasoning
-is dropped; when the character limit (default 20000) is exceeded, the oldest lines are dropped
-first with a visible omission mark. Intended for handoffs, the coordinator's status reports,
-and summaries; it replaces neither a fork nor compaction and is
-not included in the review state of the rule review, so that reviewers check the code and not
-the implementer's narrative.
-
 ## Ownership per facet
 
 Every plugin folder owns the assets and contributions belonging to its capability; a purely
@@ -1172,6 +1160,12 @@ under Node; the VS Code extension and `pnpm driver` use it with their own `fetch
 
 ## Web as plugin host
 
+Chat content uses the host's `--chat-max-width` token (900 pixels). quassel's inherited
+`--qsl-chat-content-max-width` constrains transcript content, composers, and action docks,
+while transcript scrollers fill their panels. Standalone actor composers use the same token.
+Hover sidebar state exists only in the current page; persisted layouts store it as hidden.
+Pending run starts retain a visible title in the accessible Run title bar region.
+
 Every page holds exactly ONE live connection to the server: the client `rpc` (`apps/web/src/rpc.ts`)
 opens `GET /rpc/stream` with the first subscription or the first callback handler and closes
 it when nothing is open anymore. Requests go as `POST /rpc`. Subscriptions are channel contracts:
@@ -1238,8 +1232,7 @@ Instead, plugins fill typed slots for:
   then shows workstations or only the server; an already chosen workstation stays readable as a
   value. The server does not check this; VS Code and `ragents run` still bind to workstations.
 - overview contributions (`overviewPanels`): independent areas with `placement` in the overview
-  (default `overview`), the header (`toolbar`), or the main area while no run is open (`idle`,
-  the first visible one wins; only with `runs.read`); `readRight` limits visibility.
+  (default `overview`) or the header (`toolbar`); `readRight` limits visibility.
   Their context contains the registry, open state, `onOpen`, `onClose`, and `onBusy`. The host
   coordinates overview and toolbar history. Toolbar contributions are mounted from application start,
   but activate their own connections only on use and keep them afterwards across run switches.
@@ -1281,9 +1274,9 @@ Start offers recent runs and permitted templates; Runs adds search and deletion 
 Free creation, template access, reading, and deletion retain their independent rights.
 The browser preserves per-user read markers, owner labels, and contributed run metadata.
 Global coordinator and other toolbar contributions stay mounted across run switches and starts;
-overview and idle contributions retain their slots. Settings and Help are in the panel menu.
+overview contributions retain their slot. Settings and Help are header buttons.
 Guided templates still use the existing preparation dialog and chat. Browser runs use the server.
-The journal remains in the shared bottom status bar.
+The journal remains in the shared bottom status bar and is also a dockable browser tool.
 
 The shared panel defaults to the primary chat actor. The addressee selector below the input
 selects another actor and retains visited chat drafts. `Inspect actor` opens that actor in
@@ -1299,10 +1292,11 @@ open inputs, turn count, and, where applicable, cost. Chat and input stay mounte
 so that the draft is preserved. Arrow keys, Home, and End also choose the
 view; when space is short, the toolbar scrolls horizontally.
 
-The shared inspection rail opens one panel over the content. Its active tab is stored per run.
-Visited contributions with `keepMounted` retain their component state while hidden and receive
-`active: false`. Unavailable tabs stay closed. File-browser state belongs to its component instance
-and disappears on unmount; there is no stored sidebar width or expanded workspace layout.
+The browser inspection rail opens a flyout or a pinned sidebar, and its tools can also become
+windows in the docking workspace. Visited browser panels stay mounted and receive `active: false`
+while hidden. In VS Code, inspection stays in the existing popout; only contributions with
+`keepMounted` retain their state there. File-browser state belongs to its component instance
+and disappears on unmount.
 
 The actor view's chat sets the selected actor as the presentation owner: its own
 messages appear without a speech bubble, contributions of other participants keep their previous
@@ -1318,13 +1312,68 @@ Open actions are not a card contribution; they are in the chat's dock (section o
 `actionViews`). The sections stay scrollable above the actor chat and never change
 an actor's identity, capabilities, or tool selection.
 
-Browser runs show a tab strip `Chat | App A | App B` with exactly one visible content view.
-Mini-apps mount on their first visit and remain mounted and inert while hidden. Chat also stays
-mounted, preserving drafts, app input, and frame identity across tab switches. Visible apps enter
-the catalog without changing selection. If the selected app disappears, becomes hidden, or its
-actor stops, the browser returns to Chat. Reactivation makes the app available without selecting it.
-VS Code keeps the chat in the panel and opens or focuses one editor per server, run, and app.
-Questions and news remain in the chat; background app tabs have no additional notifications.
+Browser runs automatically place Chat on the left and mini-app tabs on the right in equal
+areas when the workspace container is at least 1000 pixels wide. Narrower containers use one
+tab area. The first mini-app can arrive after the chat has opened. Automatic layouts adapt to
+width changes until the user moves, closes, resizes, maximizes, or explicitly opens a window.
+Previously saved layouts without automatic placement retain their arrangement. Chat, mini-apps,
+and inspection tools are equal windows in a user-controlled docking workspace (`DockWorkspace`
+in `apps/web/src/run-panel/`). Areas form a binary split tree with draggable dividers. Tabs share
+the strip width equally, truncate long titles, and each have a close button. Every area header
+has a grip for moving all its tabs. A populated area offers maximize/restore only when another
+area exists. The area controls (a tool's header contribution, return to sidebar, maximize/restore)
+sit in the last tab cell before its close button, so the header ends with
+`[return to sidebar] [maximize/restore] [X]`. Only an empty area with a neighbour has a close-area
+button; populated areas use the individual tab close buttons. Tabs use the existing actor,
+mini-app, and inspection icons.
+
+Dock areas (including empty ones), the inspection rail, and the side view have a 1 px token
+border, `rounded-lg` corners, and `bg-card` surfaces over the `bg-app` workspace. The focused
+area uses `border-primary/70`. Headers sit inside the border with a subtle bottom rule. Cards
+have 6 px gaps, also at workspace edges; pinned and docked cards have no shadow. Dividers
+are transparent gaps with centered three-dot grips aligned along the divider. Their hit areas
+are at least 8 px wide or high. The same dots appear on header drag and side resize grips,
+muted by default, stronger on hover/focus, and primary while dragging. Resize cursors persist
+during capture. Split previews exclude the new gap; merge previews cover the target card.
+Frames remain stable siblings, inset within the cards rather than reparented into them.
+
+Dragging a tab or grip shows a five-field compass centered on the area under the pointer and
+four guides on the outer workspace edges. The compass sides split the area in half, the center
+and tab strips merge tabs, and outer guides allocate 35 percent of the workspace. A translucent
+preview shows the result. Escape cancels the drag; outside a target nothing changes. Moving the
+last window within its own area leaves an empty half with "Drop a window here" and "Close area".
+Moving it to another area removes the emptied source. Closing the last tab removes its area
+when others exist; closing the sole area leaves it empty. Escape also restores a maximized area.
+The run header lists every view (Chat and each app) as an icon-and-label button in a "Layout
+actions" group, whether shown or not; a visible view's button is pressed (`aria-pressed`).
+`revealDockPanel` decides the click: a closed view opens beside the focused area in wide browser
+workspaces or as a tab in narrow ones; a background tab or the active tab of an area hidden by
+another maximized area is selected and its area focused; an already visible view changes nothing.
+Labels truncate down to the icon when space is short. More than five views are listed in one
+"All windows" menu with checked entries for visible views instead; nothing is measured.
+VS Code uses the same app buttons and menu to open editor tabs, without a pressed state.
+"Reset layout" uses the standard header icon button directly after the views and restores the
+automatic layout and inspection rail. Arrow keys, Home, and End select tabs; focused dividers
+resize with arrow keys.
+
+`dock-state.ts` holds the tree operations and catalog reconciliation; `dock-geometry.ts` calculates
+rectangles and drag targets. The layout, split ratios, active tabs, closed windows, rail membership,
+sidebar mode and width, and maximized area are stored locally per server origin and run
+(`ragents.docking:<encoded-origin>:<encoded-run>`). Invalid storage or a failed write is reported;
+"Reset layout" explicitly replaces invalid state. No server function controls this layout.
+The first run snapshot reconciles saved IDs with the shared catalog from `run-apps.ts`; loading
+alone does not discard positions. Unavailable apps are removed, including stopped or hidden views.
+In automatic wide layouts, new apps join the right-hand app area. In user-arranged layouts,
+they enter the original group if it still exists, otherwise the first area, without changing
+focus or another selected tab. Reactivated apps appear again without taking focus.
+
+Chat and visited app/tool containers are stable siblings positioned by rectangles, independent of
+the split tree. They stay mounted and inert while hidden or closed; moves, splits, merges, pinning,
+and maximization never reparent a frame. Removed or unavailable contributions, leaving a run,
+reloading the page, and an app's own rebuild can still unmount or reload its content. Persistence
+stores layout, not unsent input across a page reload. VS Code keeps chat in the panel and opens
+or focuses one editor per server, run, and app. Questions and news remain in the chat; background
+app tabs have no additional notifications.
 
 `ragents.orchestration` provides "Stop run" in the run title bar for users with
 write rights. Its tool `run_stop` allows the
@@ -1495,7 +1544,9 @@ taste:
   stay what they are; lighter inner surfaces in a card stay local classes.
 - `SectionLabel` is the small uppercase group label above a section;
   a count next to it moves to the other end. Labels that are a heading or
-  a `dt` stay that element.
+  a `dt` stay that element. The host's page sections use its heading form
+  `SectionHeading` from the same file (an `h2` with the count beside the title and an
+  action at the other end); it is not part of the plugin API.
 - There are no longer native `<select>`, custom buttons, or class contracts; the built-in
   plugins bring no CSS of their own.
 
@@ -1510,6 +1561,14 @@ plus font, the compact spacing scale with `header`, `statusbar`, and `workspace-
 the card radius `rounded-panel`, the shadows `shadow-bar`, `shadow-status`, `shadow-pop`,
 `shadow-card`, `shadow-workspace`, `shadow-glass-icon`, and the animations `animate-fade-pulse`,
 `animate-working-pulse`, `animate-ring-pulse`, `animate-edge-flow`, `animate-progress-sweep`.
+The text roles are utilities there too: `type-title` (page title), `type-label` (uppercase
+section label), `type-item` (item title), `type-body` (descriptions, notices, empty states),
+`type-meta` (time, address, route, counts), and `type-caption` (uppercase category and kind).
+Each sets size in `rem`, line height, weight, and letter spacing; `leading-*`, `font-*`, and
+`tracking-*` still override them. They are called `type-*` because `cn` takes every unknown
+`text-<name>` for a text color and drops it next to `text-muted-foreground` or `text-destructive`.
+Text on Start, Runs, Server, in their dialogs, on the template tiles, and in the run header uses
+these roles; controls such as buttons, inputs, and dialog titles keep the library's size scale.
 `tailwind.css` is the host entry point with preflight; `frame.css` the entry point of the mini-app frames.
 Both include `quassel.css` after the host's utilities: the precompiled stylesheet
 of the chat building blocks `quassel/chat.css` (classes with prefix `qsl:`, variables `--qsl-*`) and the
@@ -1567,10 +1626,13 @@ The journal surface and the global coordinator history are `PopoverContent` surf
 opening direction and corner shape. `PopoverContent` keeps 8 pixels of distance to the
 calling control by default. Dialogs and dimming popouts share
 `--backdrop` from the theme (black at 40 percent opacity in the light and 60 percent in the dark
-theme); individual surfaces define no dimming color of their own.
+theme); individual surfaces define no dimming color of their own. `PopoverContent` with `dim`
+dims everything in the stacking context of its portal; `container` moves the portal into a given
+element, which the global coordinator uses to keep its header button above its own dimming.
 
-Settings and Help are actions in the shared panel menu. The run title opens metadata, start
-options, and contributed run controls. The header also provides Back to Start and Stop run.
+Settings and Help are icon buttons in the shared header. The run title opens metadata, start
+options, and contributed run controls. The logo at the left of the header is the button
+"Back to Start"; the header also provides Stop run.
 
 `DialogContent` distinguishes four regular app areas with `scope` (`ModalScope`); the
 host's page `Modal` passes it through:
@@ -1722,28 +1784,39 @@ inspector's history projection and uses the existing run connection. The input b
 waits for the send action and keeps the draft on errors. Questions without an answer callback
 are shown as text with options.
 
-A technical cancellation ends the wait on `ask_user` and closes the open question in the
-journal as `dismissed`. The ask plugin derives neither a user answer nor a
-new ActorInput from it. An explicit dismissal by the user, on the other hand, reaches the
-waiting call; answers to restored questions without an active call are still
-delivered as ActorInput. Outside a turn, the run's owner asks (`AskCall.agentId`,
-`turnId: null`); `AskRequest.recipient` then names the actor the question is for. It is in the
-payload, receives such an answer as ActorInput, and appears in the "asks" note; the question
+`ask_user` does not wait. Through `AskService.pose` it shows the question as an action and
+returns at once "Question shown to the user. End your turn now; the answer arrives as a new
+message." (`QUESTION_POSED`); the prompt chapter of the plugin tells the model to end its turn
+then. The question stays open after the turn; an actor can have several open questions, and a
+new one leaves the earlier ones open. An answer or a dismissal by the user reaches the asker as a
+new ActorInput without `origin` ("Answer to your question: <question>" and the answer or "The user
+dismissed the question."); if the asker's turn is still running, the input enters it as steering.
+
+`AskService.ask` waits for the answer and is only for questions outside a turn that the run's
+owner asks on behalf of the system (`AskCall.agentId` is the owner, `turnId: null`), such as the
+start question of `ragents.lsp-roslyn` and the confirmations of the actor programs.
+`AskRequest.recipient` then names the actor the question is for. It is in the payload, receives
+an answer nobody waits for anymore as ActorInput, and appears in the "asks" note; the question
 itself appears, like every action of the owner, in the run chat, not in another
 actor's chat. An action posed by the owner carries no name in front of it in the main chat.
+A technical cancellation of the waiting call closes the question in the journal as `dismissed`;
+the plugin derives neither a user answer nor a new ActorInput from it.
 `AskService.withdraw(runId, actionId)` discards an open question of the plugin: a waiting call
 receives the dismissal answer; an actor receives no input.
 
-A human's message to the asker settles a question that blocks the asker's running turn,
-that is, one posed with `AskCall.turnId`: as soon as a not yet claimed
-input with `origin: "human"` is waiting for the asker (`docs/spec/core.md`, Origin of an input), the
-plugin closes the question as `dismissed` with the result `{ supersededBy: <inputId> }`. The waiting
-call receives "Not answered: the user sent a new message instead." (`SUPERSEDED_ANSWER`), no
-answer input is created, and the message enters the turn as steering after the tool result.
-If such a message is already waiting when the tool asks, the plugin creates no question
-and returns the same text immediately. Questions without a turn, such as the start question of `ragents.lsp-roslyn`,
-inputs without `origin`, and messages to another actor leave a question open. In the chat,
-the record of a question settled this way shows this text instead of "The user dismissed the question."
+A human's message closes the open questions its addressee asked for itself: as soon as an input
+with `origin: "human"` (`docs/spec/core.md`, Origin of an input) is enqueued for an actor, the
+plugin closes every open question this actor asked without `recipient` as `dismissed` with the
+result `{ supersededBy: <inputId> }`. No answer input is created; the message itself is the
+asker's next input. The plugin reads the open questions from the journal state, so the rule also
+covers questions from before a restart of the host. If such a message is already waiting when
+the tool asks, the plugin creates no question and the tool returns "Not answered: the user sent a
+new message instead." (`SUPERSEDED_ANSWER`). Questions of the owner, inputs without `origin`, and
+messages to another actor leave a question open. In the chat, the record of a question closed
+this way shows this text instead of "The user dismissed the question." Stopping the asker
+(`actor.stopped`) and stopping or deleting the run (lifecycle `stopSession` and
+`afterStopSession`) withdraw the open questions agents asked for themselves as `dismissed`
+without an input; questions of the owner stay with their callers.
 
 Every chat history reserves two normal text lines of free scroll space below the last contribution,
 at least the 40 pixels of the bottom fade zone. A visible input box
@@ -1892,10 +1965,10 @@ taken over, and further updates are combined into a subsequent query.
 As a result, the start dialog does not hang even with slow responses. Already closed
 start dialogs ignore late send responses, so that these cannot close a newly opened draft.
 
-The shared header contains on the left the overview corner and the global coordinator, then
-title and metadata of the active run, its start options, run status, errors, and attention notices. The plugin contributions
-add visible apps, activity, and processes. Every main entry uses the shared
-full bar height and separation. Installed tool shortcuts do not appear here.
+The shared header contains the brand on Start, or Back and the active run title. The global
+coordinator stays mounted beside it across navigation. Run layout actions share the title row;
+run details and plugin header contributions open from the title. Status, Stop, and the menu
+remain on the right. Installed tool shortcuts do not appear here.
 The activity display reads running tool calls of all actors from the `toolCalls` of the
 projected turns. Subagent tools carry the name of their actor; the identity of a
 call consists of turn and call ID. It mixes in no additional entries from the primary
@@ -1963,15 +2036,15 @@ still take precedence; stored automatic titles are kept when the model changes.
 runs the only one), as in the run panel, and it switches to the start dialog. Single and multiple deletion with All/None, confirmation, and
 visible errors are kept; the profile rights determine whether opening, creating, or
 deleting is offered. Without a run read right and without a visible contribution there is no corner.
-The global header stays in one bar. When space is short, its middle run area scrolls horizontally; it can be
-focused by keyboard. Long names stay limited to two lines. The overview corner as well as
-Settings and Help stay reachable outside this scroll area.
+The global header stays in one bar: the brand logo on the left, the global coordinator button beside
+it, and the menu on the right. The logo is a ghost button with the accessible name "Back to Start"
+(`showStart`), with hover background and focus ring and the same footprint as the bare logo. Run layout actions share the run title row. `PanelPage` gives Start,
+Runs, and Server the same top offset (`pt-6`), so their content begins at one height below the
+header; sections on a page are `gap-8` apart, a section heading is `gap-3` above its content,
+and all lists stay inside the centered 1280-pixel column.
+Long titles truncate within the available space; the menu remains reachable.
 
-On the left are the overview corner and the independent
-toolbar contributions. The flexible area
-next to them shows the details of the current run; on the right are the sidebar tabs and its
-expand/collapse button as well as the gear icon for Settings and next to it a question mark
-for Help. Both dialog buttons have accessible labels. Help opens the bundled
+Settings and Help are available through the header menu. Help opens the bundled
 homepage under `/help/index.html` in a large page-wide modal dialog through an iframe.
 The page fills the dialog without an additional title row or padding. An overlaid
 Close button stays visible at the top right; the dialog name is provided for screen readers.
@@ -2001,34 +2074,33 @@ of the overview buttons. On display and after every user change, the contributio
 the run ID of the user's own coordinator with `ragents.overseer.coordinator` and only then binds chat,
 level of detail, and attachments to it; until then the space stays empty, and an error appears as an exclamation mark.
 The VS Code extension shows no global coordinator; it does not see coordinators in the
-run list either. The input shows "Global coordinator" as placeholder; a
-separate heading and its own dropdown arrow are dropped. Input and status are on
-one row; the input stays single-line and scrolls with more text, and the header keeps
-its fixed height of 45 pixels. The contribution is up to 570 pixels wide. Focus in the text field
-opens the history as a non-modal dropdown below the header. The input stays at the top; in the
-history there is no second composer. Attachment, level of detail, model, reasoning, and reset
-are in one shared control row. In a narrow view, level of detail and reasoning are
-shown compactly; the model name is shortened if needed. The contribution has one conversation, one draft
-with attachments, and one stream, independent of the active run. The shared composer logic
-serves this arrangement as well as the other chat inputs.
+run list either. In the header the contribution is a plain button (`PopoverTrigger`) with the
+accessible name "Global coordinator", styled like an input field with that text in muted color;
+it fills its header slot, and the header keeps its fixed height of 45 pixels. Button and status
+are on one row. The button opens the history as a non-modal dropdown below the header with
+`dim`; `aria-expanded` and, while open, `aria-controls` point to the dropdown. The dropdown is
+portaled into the contribution's own element inside the header, so its backdrop shares the
+header's stacking context and the button stays visible and clickable above the dimming. At
+the bottom of the dropdown is the normal card composer of the run chat (`ChatPanel` with
+`ChatInputToolbar`); level of detail, attachment, model, reasoning, reset, send, and stop are in
+its toolbar. The contribution has one conversation, one draft with attachments, and one
+stream, independent of the active run.
 
-Focus or explicit opening activates the stream for the first time. After that it stays connected for responses
+Opening activates the stream for the first time. After that it stays connected for responses
 even with the dropdown closed, until the application ends or the read right is lost.
-Before first use, no new responses are reported. Run switches, closing, and
-reopening keep draft, attachments, history, and running work. With an interrupted connection,
-writing stays possible and sending is locked. A valid send action clears the draft immediately;
-the shared composer logic restores it on errors or keeps it retrievable separately
-if new text has been entered in the meantime. Enter sends, Shift+Enter adds a line. IME confirmation and
-a held Enter send nothing. The text box shows at most two lines and scrolls longer
-text; attachment previews are compact below it and do not enlarge the header.
+Before first use, no new responses are reported. The dropdown stays mounted while closed, so
+run switches, closing, and reopening keep draft, attachments, history, and running work. With
+an interrupted connection, writing stays possible and sending is locked. A valid send action
+clears the draft immediately; the shared composer logic restores it on errors or keeps it
+retrievable separately if new text has been entered in the meantime. Enter sends, Shift+Enter
+adds a line. IME confirmation and a held Enter send nothing.
 
-Running work draws the same pulsing frame around the input as for working
-agents in their chat. The state begins already during the send request and then follows the
-running server state. The shared animation visibly strengthens outline and outer glow
-and lasts 1.9 seconds; with reduced motion,
+While the global coordinator works, the button draws the same pulsing frame as working
+agents in their chat; it follows the running server state. The shared animation visibly
+strengthens outline and outer glow; with reduced motion,
 the highlighted frame stays without pulsing. An accessible status reports "Working";
-the stop stays at the input. An additional spinner or "New response" notice is dropped.
-Errors stay visibly attributed and are made recognizable at the top when the history is closed.
+the stop sits in the composer. An additional spinner or "New response" notice is dropped.
+Errors stay visibly attributed and are made recognizable next to the button when the history is closed.
 Responses do not open the dropdown and do not move focus.
 
 When sending to the global coordinator, the interface captures its current location:
@@ -2048,36 +2120,19 @@ send nothing to a model. The snapshot includes no screenshots, DOM or
 form content, and no complete run state. The coordinator reads domain details
 through its existing tools when needed; the orientation grants no rights.
 
-With `quick_answer`, the global coordinator can briefly restate the current user question and its answer,
-each a non-empty sentence of at most 240 characters without line breaks.
-A new quick answer shows both texts automatically as a toast directly
-below the toolbar input, only as long as the history is closed; with the history open,
-no toast appears. The toast is twice as wide as the input, at least 480 pixels,
-and begins six pixels below the shared header edge; question and answer are
-one below the other, with a round X to the right.
-Clicking the text area opens the conversation and focuses its input,
-or the history for read-only access. Only the X removes the toast without opening the conversation.
-Appearing by itself changes neither focus nor open state.
-Opening the history and resetting the conversation remove an existing notice. The normal
-chat response stays independent of this. The first replay shows no old quick answers.
-After reconnecting, the newest quick answer from the meantime is taken into account exactly once based on its
-conversation identity and journal sequence; a renewed replay does not show
-dismissed toasts again. No separate read cursor and no visibility-dependent
-read receipts are kept.
-
-The dropdown has an accessible name, no combobox semantics, and no focus trap.
-Tab, focus change, and clicking outside close it when leaving the whole area.
-Input and history count together for this. Escape first closes an open
-selection menu and then the dropdown; on closing from the history, focus returns to the upper
-input without opening it again. Another click or starting to type
-opens it again. The overview and page-wide dialogs also close the history but keep
-the conversation. The dropdown height takes the visible viewport into account; when narrow, it uses
-the available width. The input stays reachable at the top, as do overview, Settings,
-and Help.
+The dropdown keeps the role `region` with the name "Global coordinator", has no combobox
+semantics, and no focus trap. A click, Enter, or Space on the button opens it, and its
+composer input gets the focus at once; with read access only, the history gets it. Escape
+first closes an open selection menu and then the dropdown; a click on the button or on the
+dimmed area and tabbing out of button and dropdown close it as well. On closing, focus returns
+to the button unless it already moved elsewhere. Typing on the closed button does not open the
+dropdown. The overview and page-wide dialogs also close the history but keep the
+conversation. The dropdown height takes the visible viewport into account; when narrow, it uses
+the available width.
 
 The global chat uses the coordinator's level of detail, `grouped` without a product default. Its
 level of detail stays switchable and is stored in the browser separately from the run chats.
-Model choice, reasoning, details, and reset are in the dropdown. The model selection is limited to the
+Model choice, reasoning, details, and reset are in the composer toolbar. The model selection is limited to the
 available space. Created runs appear in the shared run list.
 
 `Reset conversation` opens a highlighted dialog over the whole dropdown surface.
@@ -2086,16 +2141,16 @@ its remaining content is inert in the meantime. Focus starts on Cancel. During a
 running reset, the confirmation cannot be closed. After confirmation, the
 plugin route clears the global history and model context; running global work is
 stopped beforehand. Input and model choice are locked during the reset. A successful reset discards
-draft, attachments, and the displayed toast, also in other already connected views. An ordinary
+draft and attachments, also in other already connected views. An ordinary
 stream rebuild discards no draft. Model/reasoning choice and normal runs are kept.
 Errors stay visible and allow a retry; the reset issues no task.
 
 Without the plugin or read right, the whole contribution is dropped. With read access without write rights,
-the text input stays read-only and focusable, so that the history can still be opened through
-focus. Send functions and other write actions are locked.
+the button still opens the history, and the composer shows "Read access to the global
+coordinator". Send functions and other write actions are locked.
 Server behavior and tool limits are in `core.md`.
 
-Model and reasoning level of the global coordinator can be set in the dropdown above the
+Model and reasoning level of the global coordinator can be set in the composer toolbar below the
 history. The same component is in Settings under Models and in the
 plugin `ragents.overseer`. Both views share one state; only a confirmed
 server response takes over the new selection. While saving, selection and sending are
@@ -2146,50 +2201,82 @@ narrow windows the navigation items are on one row that can be scrolled sideways
 Vite emits an identical `run-panel.html` alias for the iframe host contract; both routes load the
 same assets and initialize host modules, access, theme, and host navigation once. The server
 rejects a build whose entry pages differ. `?run=<id>` chooses a run;
-without a run the browser shows Start. The back arrow returns there. In VS Code the extension
+without a run the browser shows Start. The logo returns there. In VS Code the extension
 owns Start, Runs, and Servers and sends the selected run to the panel.
 `?layout=app&run=<id>&element=<id>` renders one app through the same catalog and renderer.
 `PluginChat` has only `panel` and `{ element }`; the single `surface.RunPanel` contribution
 receives `SurfaceCenterContext`. Without it the host renders the standard chat.
 
-In the run panel, the sidebar tabs (`workspaceTabs`, `workspaceTabsFor`) are a
-toolbar at the right edge (`RunPanelRail`, `apps/web/src/run-panel/`), below the
-header across the full height next to the selected content view: per available tab a button with
-the contribution's `Icon`, the name as tooltip and accessible label, the contribution's
-badge small at the top right, and a dot at the bottom right when something
-new has arrived since the last visit. Order and visibility are the same as in the web
-(`registry.availableTabs`, that is, `readRight`, `requiresWorkspace`, and `available`). A click opens the tab area
-(`RunPanelWorkspace`) as a popout over the selected content view, to the left of the toolbar: 8 pixels of
-space all around, the surface below dimmed with `--backdrop`; if the run panel's content is
-at least 960 pixels wide (container `chat-content`, two areas side by side), it covers only
-the right 60 percent. At the top a header with the tab's name and an X,
-below it the contribution's `Panel` with the same `WorkspaceTabContext` as in the web. The button of the
-open tab is pressed (`aria-pressed`); another click, the X, Escape, or a click
-on the dimmed surface closes the area; the chat below keeps size and state.
-On opening, the popout receives focus.
-Visited tabs with `keepMounted` stay mounted but hidden and receive `active: false`,
-through `mountedTabs`. The open tab is stored per run
-in browser storage (`ragents.run-panel.workspace-tab:<runId>` with `{ tab }`; `tab: null`
-means closed); any other value is a hard error. `PluginChat` uses this same tab state in
-both hosts. `SessionNavigation.openTab` opens the requested panel and `activeTabId` names it
-while it is available.
+The sidebar tabs (`workspaceTabs`, `workspaceTabsFor`) appear as a vertical rail at the far
+right, with each contribution's icon and accessible name. A rail button has exactly one marker:
+a small `bg-info` dot at its top right when the contribution's `Badge` renders or the tab has
+pending activity. The rail renders the badge inside `BadgeDisplayProvider value="dot"`, so the
+ui `Badge` draws the dot and keeps its text for screen readers only; numeric badges elsewhere
+are unchanged.
+Order and visibility come from `registry.availableTabs` (`readRight`, `requiresWorkspace`, and
+`available`), with optional `hosts` restricting a contribution to browser or VS Code. Journal and
+Processes additionally expose their existing content as browser-only tools; their original status
+and header access remains. `PluginChat` supplies these tools through `DockToolsContext` to the browser's
+`DockWorkspace`; the orchestration plugin supplies its chat and the shared app catalog.
+Without a surface contribution, the host supplies the standard chat to the same docking workspace.
+Visible dock panels are named through `aria-labelledby` referencing their tab or sidebar button;
+the inner chat keeps its own Chat region label.
 
-A remembered tab that is currently not available (such as `Executions` before the first
-run view) keeps the area closed until it is available again. Without an available tab
-there is neither toolbar nor tab area; the layout `app` (a mini-app in the editor tab) never has
-either. The chat reports the tab of the open tab area to the global coordinator as the opened
-area in both hosts.
+In the browser, the sidebar has exactly three modes: `hidden`, `hover-preview`, and `docked`.
+Hovering a rail button previews the tool over the workspace; leaving both rail and flyout
+closes it after a short delay. Clicking a rail button or the preview's pin docks it beside
+the workspace, reserving space. While docked, another button switches content in place;
+clicking the active button, unpinning, or X hides it. The pin is filled and pressed only
+in docked mode. No click or pointer press creates a persistent overlay.
+`transitionDockSide` handles these transitions. Moving the active tool into a group clears
+sidebar visibility and focus. The default width is 630 pixels, adjustable from 180
+and limited by available space. Width and docked state survive reload; hover previews close
+when the workspace mounts. Pointer presses cancel pending hover-close timers. Capture keeps
+both grips active through release or cancellation, even beyond the flyout; after release,
+hover closing resumes based on the pointer position. Pressing without motion never docks it.
+The floating frame uses the same card tokens as docked areas, with `shadow-pop` and
+ring-1 ring-foreground/10 in both themes, only theme tokens and no per-element shadow values.
+The frame sits above the areas (z-30), so the shadow falls over them; the workspace clips it only
+at the header and status bar edges. A pinned sidebar has `shadow-none`.
+Dragging a rail button or the sidebar header grip into the workspace docks a tool as a normal
+window and removes its rail button. Closing that window or dropping it on the highlighted
+rail/sidebar returns it to the rail, hidden. Its return-to-sidebar button instead opens it
+as a docked sidebar. Mixed document/tool groups
+cannot be dropped on the rail. Visited tools keep their mounted instances across these moves.
+`SessionNavigation.openTab` selects an already docked tool in its area or opens it in the sidebar.
+
+Workspace tabs can contribute a `Header` with the same context as `Panel`. Docked group headers,
+the sidebar title row and the VS Code popout render it. Inspection contributes the actor selector
+there. Its second row contains the actor name (handle and creator in the tooltip), Stop or Restart,
+chat detail/timestamp switches, and icon tabs with tooltips. It scrolls horizontally when narrow,
+without adding rows. There is no bottom toolbar in read-only inspection; actor popouts with a
+composer keep their input controls. Inspector transcripts use compact margins and timestamps.
+
+In VS Code, `RunPanelRail` and `RunPanelWorkspace` retain the inspection popout over the chat.
+A click opens it with its title and X, and the same icon, X, Escape, or backdrop closes it.
+On opening it receives focus. Visited `keepMounted` contributions stay mounted with `active: false`.
+Its tab remains stored under `ragents.run-panel.workspace-tab:<runId>`; unavailable tabs stay
+closed until available. The browser instead uses the docking state described above. The
+`app` layout never has an inspection rail in either host. The chat reports the active inspection
+tab through the existing navigation and user-location contract.
 The run panel's header is one row (`RunPanelHeader`): title, a pulsing dot
 during processing, the attention badge, and a chevron; a click on the title
 opens the plugins' header contributions, the run metadata, and the start options as a
-popover. The run panel's popouts (run details, menu, recipient) dim the rest
-(`dim` on the popover building block), so that they stand out. At the far right is a menu (`RunPanelMenu`) with Settings (the same dialog as in
-the web app), in the host `vscode` "Open in browser", and with a signed-in user "Sign out"; the
-run list without a run and the header of the loading state before a run also carry it. `ragents.orchestration` provides the run panel (`web/run-panel/`): mini-apps come from the shared app catalog with `visible !== false`. In VS Code the panel stays on
-chat and every app entry opens or focuses its editor tab. In the browser panel, Chat and the apps
-are tabs with exactly one visible content view. Apps mount on their first visit and stay mounted
-while hidden, preserving local input. New apps do not change the selection; an unavailable selected
-app shows Chat. Questions and news remain in the chat.
+popover. With `runs.write`, "Run script" (`RunScriptMenu`) follows the layout actions behind a
+thin divider: an outline button in the primary color whose pop-out lists the run scripts from
+`ragents.runs.scripts` as the Start page's `StartTile` items filling their grid cells, available
+ones first and unavailable ones after them disabled with their reason, each group in listed order.
+The pop-out is anchored to the shared header: it opens below it, ends 8 pixels before its right
+edge, and is `min(800px, header width - 16px)` wide, with two columns from a content width of 480
+pixels. A click starts the script through `ragents.runs.startScript` and closes the pop-out, a
+refusal stays visible in it. In a run header narrower than 20rem the button shows only its icon.
+The run panel's popouts (run details, run scripts, recipient) dim the rest
+(`dim` on the popover building block), so that they stand out. At the far right of the shared
+header, `RunPanelActions` shows icon buttons for Settings (`settings.read`, the same dialog as in
+the web app), Help (`runs.inspect`), in the host `vscode` "Open in browser", and with a signed-in
+user a sign-out button whose tooltip names the account; there is no menu. `ragents.orchestration` provides the run panel (`web/run-panel/`): mini-apps come from the shared app catalog with `visible !== false`. In VS Code the panel stays on
+chat and every app entry opens or focuses its editor tab. In the browser, it renders its chat and
+the shared app catalog through `DockWorkspace`. Questions and news remain in the chat.
 
 Until the run has content, a loading state stands in the chat instead of the history (`useRunPanelStartup` in
 `web/run-panel/run-panel-startup.ts`). Content is a mini-app or a conversation contribution: a
@@ -2230,9 +2317,10 @@ own input, shortened to 90 characters, otherwise a differing display name), and 
 search appears only with more than twelve actors, finds every word in handle, display name, and
 short description, shows matches together with their creators, and clears on closing. A click
 chooses the recipient. Next to it the bar names the first working other actor with a spinner
-and waiting inputs. Chosen app and actor are stored per run in browser storage
-(`ragents.orchestration.run-navigation:<runId>`). This navigation state has its own storage key;
-layout preferences are not migrated. Invalid navigation values are a hard error.
+and waiting inputs. The chosen actor is stored per run in browser storage
+(`ragents.orchestration.run-navigation:<runId>`); browser app selection belongs to the docking
+state. These domains have separate storage keys; layout preferences are not migrated. Invalid
+navigation values are a hard error.
 
 The run panel talks to its host through `apps/web/src/run-panel/host.ts`. The host `browser`
 (default) opens links itself, navigates apps locally, and offers only the server for new runs; the host `vscode` (`?host=vscode`, only
@@ -2240,10 +2328,11 @@ embedded) sends `ready`, `runChanged`, `showStart`, `openInCenter`, `login`, `lo
 `openExternal`, and `openPage` through `postMessage` to the surrounding window and receives from there `selectRun`, `newRun`
 (with preset start options and optionally the ID of a template, which the start selection then
 opens right away), and `theme`; the
-import-free contract is in `run-panel/host-contract.ts`. After `newRun` in the host `vscode`,
-the panel focuses the visible chat input that is ready for writing once, for templates after a successful
-start. It waits for the chat connection. Existing runs, browser views, and pure mini-apps
-receive no such start focus; reconnections or messages do not bring it back.
+import-free contract is in `run-panel/host-contract.ts`. Starting or opening a run in either host
+requests focus once for its visible writable chat input, including a remembered nonprimary
+addressee. This includes direct run URLs and `selectRun`. The request waits for the chat
+connection and remembered addressee; explicit user interaction or another dialog cancels it.
+Pure mini-apps receive no chat focus; reconnections or messages do not bring it back.
 If the panel cannot execute a `newRun` because the right to new runs is missing or a free run is requested
 without `runs.create`, it shows the reason and "Back to Start" (`showStart`) instead of the loading state.
 `?theme=light|dark` sets the appearance
@@ -2264,7 +2353,12 @@ The scaling applies once at the outermost shell, also for nested mini-apps. Star
 Runs, Servers, run panel, and mini-app editor tabs take over changes through a host message
 without reloading and keep their state. Normal browser pages stay unchanged. A value
 outside the limits is an error: every view shows the message instead of its content and rebuilds
-itself as soon as the setting is valid again.
+itself as soon as the setting is valid again. The shell sets `zoom: var(--ragents-zoom)` on its
+`body` and no font size; text roles and spacing are `rem` against the webview's unchanged 16-pixel
+root, and the theme's body rule in the layer `base` outranks the rules VS Code injects in the layer
+`vscode-default`, so `--vscode-font-size` and the editor fonts change nothing. Text, controls, and
+spacing therefore scale together and only with the window zoom and `ragents.zoom`
+(`apps/vscode/tests/webview-html.test.ts`, `apps/web/tests/vscode-zoom-browser.test.ts`).
 
 The VS Code extension under `apps/vscode` is such a host, and for several servers
 at once: every configured **server** (a RAgents server by address or a local profile) has
@@ -2280,7 +2374,7 @@ with `layout=app` is added. `PanelState.page` therefore carries four values (`st
 as `PanelState.runsConnection`. The paths between the pages and the commands (Start, Runs,
 Servers, New run, Refresh) are exclusively in the view's `view/title` menu; the
 pages themselves carry no icons for them (`panel/PanelHeader.tsx` has only back arrow and title,
-Start no header), and the commands `ragents.showStart`, `ragents.showRuns`, and
+Start no header; Runs and Server keep the back arrow in the browser too, where the logo also leads to Start), and the commands `ragents.showStart`, `ragents.showRuns`, and
 `ragents.showConnections` also work while the run panel's iframe is shown. In the host `vscode`, the run panel itself executes paste, copy, and cut
 (`installClipboardBridge`, `apps/web/src/run-panel/clipboard.ts`): macOS delivers these commands through
 the application menu, and VS Code passes them only to the document of its webview, never into
@@ -2341,9 +2435,15 @@ and `RunPanelApp`, `ChatInputToolbar`, `ragents.processes`, and the menu entry "
 the whole run is called "Stop run" everywhere, interrupting the running turn in the chat "Stop
 work".
 
+**Shared page width.** `PanelPage` owns one centered content column of at most 1280 pixels,
+with side padding, for Start, Runs, and Server in both the browser and VS Code. The browser
+page host adds no second padding; the outer header remains full width. The Runs search field
+and run rows use the same bounded column.
+
 **Start** is the Start page and has no header. The **servers** are a block of their own
-at the very top, with a count in the heading, and do not filter: equally wide chips in a grid -
-two per row at 420 pixels, all in one row from 560 (container query `@[560px]/panel`). Every chip
+at the very top, with a count in the heading, and do not filter. The left-aligned server
+grid is at most 720 pixels wide: one column, two from 560 pixels of panel width
+(container query `@[560px]/panel`, independent of viewport width). Every chip
 is a split button: the left part is a `button` with `aria-label`, state icon, name, and
 an action word in muted small type that depends on the state ("Sign in" for
 `login-required` and `forbidden`, "Retry" for `unreachable` and `failed`, "Start" for
@@ -2381,7 +2481,9 @@ count in the heading counts all entries. An entry shows category,
 title, two lines of description, at the bottom "Start", for a template with a guide, as in the
 web app, "Set up" (`ConnectionEntry.guided` from the template's `guide`), and on the right the server; skill round and
 `--primary`, run script angular and `--success`, the grid
-`repeat(auto-fill, minmax(182px, 1fr))`. There is no search here, and `ListDetail` does not fit,
+`repeat(auto-fill, minmax(240px, 1fr))`, with cards capped at 320 pixels.
+`StartTiles` measures its own container: below 240 pixels it uses one shrinking column,
+without horizontal overflow. At the maximum content width the grid has five columns. There is no search here, and `ListDetail` does not fit,
 because it measures itself by its own width and would become a list with a detail page at 420 pixels
 (decisions of 09/19 and 09/21/2026). The tiles including the heading are the building block
 `StartTiles`, the same as in the browser's start selection.
@@ -2417,7 +2519,7 @@ it through; the page guesses nothing. `newRunChoices` in `overview-model.ts` mak
 row of its server in the QuickPick of `ragents.newRun`.
 For this the extension first shows the run panel without a run and sends `newRun` afterwards, for a
 newly built iframe only on its `ready`. Without a chosen run, the run panel in the host
-`vscode` therefore never shows the run list, but, under the same header as a run (back arrow,
+`vscode` therefore never shows the run list, but, under the same header as a run (logo,
 title, server pill, menu), the loading state "Starting run"; even loading the
 profile before that shows it in the same presentation. The start of a template keeps header,
 presentation, and place and names the template's title; the run panel then continues the loading state
@@ -2425,7 +2527,7 @@ in the chat until the run has content, and the new run carries, until its entry 
 run list, the title of its template or "New run". If the start fails, the
 reason and "Back to Start" are shown there; if no start request arrives within five seconds,
 "No run selected" is shown there with the same way back instead of an endless loading state.
-The run panel's header carries on the left a back arrow that always leads to the Start page
+The run panel's header carries on the left the logo as the button "Back to Start", which always leads to the Start page
 (`showStart`, the intent instead of its consequence `runChanged`), then the run title, on the right the
 server pill from `?connection=`, the state icon, and the stop as an icon.
 `StartSelection` is the browser's path and, in the host `vscode`, the path of a template with a guide.
@@ -3104,13 +3206,21 @@ because seccomp does not distinguish them by path. So that no build process surv
 accepts builds of other runs in its sandbox, MSBuild runs without node reuse
 (`MSBUILDDISABLENODEREUSE`), without build servers, and without a shared compiler (`UseSharedCompilation`).
 
-Every process goes onto the network only through the library's proxy, which lets through exclusively the targets of the
-allowlist; it answers everything else with 403 ("Connection blocked by network
-allowlist"). The allowlist is `PROCESS_SANDBOX_NETWORK` in the section `ragents.workspace`, a
-list of domains such as `*.example.com` or `host:port`; without a value
-`PROCESS_SANDBOX_DEFAULT_NETWORK` applies: `registry.npmjs.org` for npm and pnpm, `api.nuget.org` and
-`globalcdn.nuget.org` for NuGet, `github.com`, `*.github.com`, and `*.githubusercontent.com` for Git
-over HTTPS and releases. The server's own address (`127.0.0.1:<port>`) is always added, because
+Every process goes onto the network through the library's proxy. `PROCESS_SANDBOX_NETWORK`
+in the section `ragents.workspace` replaces the default policy with a list of domains such as
+`*.example.com` or `host:port`. Without a value, `PROCESS_SANDBOX_DEFAULT_NETWORK` is `["*"]`:
+the host automatically allows public web domains on ports 80 and 443, including redirects to
+other public domains. The workspace prompt allows network access from Bash within this policy.
+The host consumes `"*"` through the library's network callback, not as an unrestricted domain rule.
+IP literals and localhost names need explicit entries; the library checks resolved addresses at
+connection time, blocking loopback, link-local, host-interface and metadata addresses. In public
+mode it additionally blocks private IPv4, IPv6 ULA and CGNAT ranges. An explicit IP and port
+can allow a local or internal service. The public mode grants destinations, not HTTP methods or
+data classifications: uploads and destructive API calls are not separately approved. A configured
+list without `"*"` keeps the explicit allowlist behavior; `[]` permits only the own server.
+If the host uses an upstream proxy, that proxy resolves names and must enforce the address limits.
+Rejected destinations get the proxy's 403 response.
+The server's own address (`127.0.0.1:<port>`) is always added, because
 the global coordinator reaches its server through `RAGENTS_API_BASE_URL`. In the sandbox,
 `NO_PROXY` is empty so that this call also goes through the proxy, `NODE_USE_ENV_PROXY=1` makes `fetch`
 in snippets take the proxy, and `DOTNET_SYSTEM_NET_DISABLEIPV6=1` keeps .NET on IPv4, because the
@@ -3457,6 +3567,14 @@ The ARIA snapshot contains accessible roles, names, and element references; acti
 role/name, label, text, test ID, or CSS in the run's browser. Models need to copy neither
 snapshot IDs nor result file paths. An optional target iframe is chosen by CSS.
 
+`actor_view_snapshot` checks a mini-app without the model driving a browser: given `package-name/view-key`
+(or `@handle/view-key` or a unique title), it resolves the view through the actor programs service
+(`resolveView`), rejects a hidden view, opens the app layout of the host in the run's browser at the address of
+`hostAddressToken`, waits for the view's frame, and returns its accessible structure (cut at 8000 characters)
+and the browser errors. It is only available where `ragents.actor-programs` exists, and it needs a server
+without sign-in that the machine of the run's workspace can reach; otherwise it fails with the page it found.
+The run's browser stays on the view for `browser_screenshot` and frame-targeted actions.
+
 The browser runs where the run's workspace lies. Browser, page, and everything the
 page touches are the browser module that `ragents.browser` brings along as a contribution to the executor
 (`plugins/ragents.browser/executor/`, `modules` in the section Contributions to the executor), with the
@@ -3681,7 +3799,8 @@ right) returns the archive; a different version is 404. The counterpart is `rage
   equal starts fall into a group from four actors on. The creator sets the short description;
   without it the first task is shown there, which without `runs.inspect` only the owner's inputs carry.
 - The run panel knows exactly one surface contribution with `RunPanel`; its state is stored per
-  browser storage, in VS Code therefore per window. The inspection area opens one tab at a time.
+  browser storage, in VS Code therefore per window. The rail sidebar opens one tool at a time;
+  browser tools docked in separate areas can be visible together.
   Run and app frames load from their server; only the server navigation shell is packaged locally.
   A local profile of the extension names its templates only once its host is running; before the
   start nobody knows the templates, because they come into being only with the registered plugins.
@@ -3705,6 +3824,9 @@ right) returns the archive; a different version is 404. The counterpart is `rage
   a workstation, the message size of 32 MiB limits how long a whole page may
   become.
 - Two runs on the same folder collide; that is the user's decision.
+- `ask_user` ends the asker's turn only through its result text and the prompt chapter: a model
+  that keeps calling tools after the question continues its turn. The record of a question
+  withdrawn because its asker or run was stopped reads like a dismissal by the user.
 - A registered stop for a workstation lives in the server's memory: if the server restarts
   before the workstation signs in again, whatever the run started there stays on the workstation
   until it is stopped again or the workstation signs out. On signing out

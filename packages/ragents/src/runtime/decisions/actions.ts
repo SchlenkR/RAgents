@@ -3,14 +3,14 @@ import { assertJsonValue } from "../../domain/json.ts";
 import type { ActionInput, ActionStatus } from "../../domain/model.ts";
 import { event, type Decision } from "../command.ts";
 import { DomainError } from "../domain-error.ts";
-import { commandActorOf, assertCapability, clean, optionalClean } from "../guards.ts";
+import { commandActorOf, clean, optionalClean } from "../guards.ts";
 
 const isBlank = (result: JsonValue | null) =>
     result === null || (typeof result === "string" && result.trim() === "");
 
 export const proposeAction =
     (input: {
-        owner?: string | null;
+        owner: string;
         title: string;
         description?: string | null;
         parameters?: Record<string, string>;
@@ -18,11 +18,7 @@ export const proposeAction =
         payload?: JsonObject | null;
     }): Decision =>
     (state, context, services) => {
-        const caller = commandActorOf(state, context);
-        const owner = input.owner ? clean(input.owner, "owner") : null;
-
-        if (owner === null)
-            assertCapability(caller, "action.propose", { kind: "run" });
+        commandActorOf(state, context);
 
         if (input.payload !== undefined && input.payload !== null)
             assertJsonValue(input.payload, "payload");
@@ -31,7 +27,7 @@ export const proposeAction =
             type: "action.proposed",
             payload: {
                 actionId: services.newId("action"),
-                owner,
+                owner: clean(input.owner, "owner"),
                 title: clean(input.title, "title"),
                 description: optionalClean(input.description, "description"),
                 parameters: Object.fromEntries(

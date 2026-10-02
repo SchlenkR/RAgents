@@ -8,7 +8,7 @@ import { NodeTypeScriptExecutor } from "../src/plugin-support/native-typescript-
 
 export const emptyStateSchema = {type: "object", properties: {}, additionalProperties: false} as const;
 export const runtimeFor = (setup: ReturnType<typeof setupRun>, directory: string, operations = new OperationContributionRegistry(),
-  askService: AskService = {ask: async () => { throw new Error("Unexpected operator question"); }, withdraw: () => undefined},
+  askService: AskService = {pose: () => { throw new Error("Unexpected question"); }, ask: async () => { throw new Error("Unexpected operator question"); }, withdraw: () => undefined},
   scriptSources: ActorProgramRuntimeOptions["scriptSources"] = () => undefined,
   hostTools: () => readonly RunFunction[] = () => [],
   sharedPackage: ActorProgramRuntimeOptions["sharedPackage"] = () => undefined) => {

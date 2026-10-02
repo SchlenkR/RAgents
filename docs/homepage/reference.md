@@ -8,112 +8,6 @@
 
 Domain functions are called in snippets and actor programs through context.functions. Equipped LLM actors automatically receive the function names available to them with short descriptions. typescript_api returns their types and optional long descriptions on request by name, typescript_eval executes snippets. This is the static inventory. Availability and selection depend on actor, grants, and run. Custom actor functions extend this inventory during a run.
 
-### action_propose
-
-Propose Action
-
-Propose an action for explicit human approval. This never executes the action directly.
-
-Owner: engine. Scope: per-turn. Native model tool: no. Availability: conditional.
-
-Only with the capability action.propose.
-
-#### Input
-
-```json
-{
-  "type": "object",
-  "required": [
-    "title"
-  ],
-  "properties": {
-    "title": {
-      "type": "string",
-      "minLength": 1
-    },
-    "description": {
-      "type": "string"
-    },
-    "parameters": {
-      "type": "array",
-      "items": {
-        "type": "object",
-        "required": [
-          "name",
-          "value"
-        ],
-        "properties": {
-          "name": {
-            "type": "string",
-            "minLength": 1
-          },
-          "value": {
-            "type": "string"
-          }
-        }
-      }
-    },
-    "input": {
-      "type": "object",
-      "required": [
-        "label",
-        "required"
-      ],
-      "properties": {
-        "label": {
-          "type": "string",
-          "minLength": 1
-        },
-        "placeholder": {
-          "type": "string"
-        },
-        "required": {
-          "type": "boolean"
-        }
-      },
-      "additionalProperties": false
-    }
-  },
-  "additionalProperties": false
-}
-```
-
-#### Result
-
-```json
-{
-  "type": "array",
-  "items": {
-    "type": "object",
-    "required": [
-      "type",
-      "payload"
-    ],
-    "properties": {
-      "type": {
-        "type": "string",
-        "const": "action.proposed"
-      },
-      "payload": {
-        "type": "object",
-        "required": [
-          "actionId"
-        ],
-        "properties": {
-          "actionId": {
-            "type": "string",
-            "description": "ID of the proposed action"
-          }
-        },
-        "additionalProperties": false
-      }
-    },
-    "additionalProperties": false
-  },
-  "description": "The journal events of this call. The payload names the ids of the result; it does not repeat inputs and hashes."
-}
-```
-
 ### actor_input
 
 Enqueue Actor Input
@@ -680,6 +574,8 @@ List Actor Programs
 
 List active actor packages, functions and views.
 
+A visible view is already open as a tab for the user. A view's ref is the package-name/view-key reference that view functions accept.
+
 Owner: ragents.actor-programs. Scope: per-turn. Native model tool: no. Availability: conditional.
 
 For executable actors with agent.spawn and plugin.state.write.
@@ -726,11 +622,15 @@ For executable actors with agent.spawn and plugin.state.write.
           "type": "object",
           "required": [
             "name",
+            "ref",
             "title",
             "visible"
           ],
           "properties": {
             "name": {
+              "type": "string"
+            },
+            "ref": {
               "type": "string"
             },
             "title": {
@@ -1023,75 +923,6 @@ Only with the capability execution.stopOwned.
 }
 ```
 
-### actor_transcript
-
-Compact history
-
-Returns the history of an actor of this run as a compact transcript: inputs, answer texts and tool calls one line each, results shortened, without reasoning. For handovers, status reports and summaries.
-
-Owner: ragents.transcript. Scope: per-turn. Native model tool: no. Availability: conditional.
-
-For agents and script actors with the capability event.subscribe.
-
-#### Input
-
-```json
-{
-  "type": "object",
-  "required": [
-    "actor"
-  ],
-  "properties": {
-    "actor": {
-      "type": "string",
-      "minLength": 1,
-      "description": "Handle with or without @, or ID of an actor of this run"
-    },
-    "maxChars": {
-      "type": "integer",
-      "minimum": 200,
-      "maximum": 200000,
-      "description": "Upper limit in characters, default 20000; the oldest lines are dropped first"
-    }
-  },
-  "additionalProperties": false
-}
-```
-
-#### Result
-
-```json
-{
-  "type": "object",
-  "required": [
-    "actorId",
-    "handle",
-    "text",
-    "lines",
-    "truncated"
-  ],
-  "properties": {
-    "actorId": {
-      "type": "string"
-    },
-    "handle": {
-      "type": "string"
-    },
-    "text": {
-      "type": "string"
-    },
-    "lines": {
-      "type": "integer",
-      "minimum": 0
-    },
-    "truncated": {
-      "type": "boolean"
-    }
-  },
-  "additionalProperties": false
-}
-```
-
 ### actor_view_set_visibility
 
 Show or hide Actor View
@@ -1142,6 +973,68 @@ For executable actors with agent.spawn and plugin.state.write.
     },
     "visible": {
       "type": "boolean"
+    }
+  },
+  "additionalProperties": false
+}
+```
+
+### actor_view_snapshot
+
+Read actor view
+
+Render a visible actor view in this run's browser and return what it shows as accessible structure, plus browser errors.
+
+view is package-name/view-key (the ref in actor_program_list), @handle/view-key or a unique title. The server resolves the address; never open a view with browser_open. The run browser stays on the view, so browser_screenshot captures it, and browser_click, browser_fill and browser_check with target.frame "iframe" operate it. A hidden view is an error. It needs a server that requires no sign-in and that the machine of the run's workspace can reach.
+
+Owner: ragents.browser. Scope: per-turn. Native model tool: yes. Availability: conditional.
+
+Only in a profile with the plugin ragents.actor-programs.
+
+#### Input
+
+```json
+{
+  "type": "object",
+  "required": [
+    "view"
+  ],
+  "properties": {
+    "view": {
+      "type": "string",
+      "minLength": 1
+    }
+  },
+  "additionalProperties": false
+}
+```
+
+#### Result
+
+```json
+{
+  "type": "object",
+  "required": [
+    "view",
+    "snapshot",
+    "truncated",
+    "errors"
+  ],
+  "properties": {
+    "view": {
+      "type": "string"
+    },
+    "snapshot": {
+      "type": "string"
+    },
+    "truncated": {
+      "type": "boolean"
+    },
+    "errors": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
     }
   },
   "additionalProperties": false
@@ -1549,9 +1442,9 @@ Available in every turn.
 
 Question
 
-Asks the user for a required decision with answer options and waits for the answer.
+Shows the user a question with answer options and returns at once; the answer arrives later as a new message.
 
-Always use this tool when you need a decision from the user (e.g. choosing a branch or a time range), instead of only asking the question as text. With multi=true the user may choose several options; the answer is then joined with '; '. Instead of choosing an option, the user can always answer freely - so expect the answer to be arbitrary text.
+Always use this tool when you need a decision from the user (e.g. choosing a branch or a time range), instead of only asking the question as text. After the call, end your turn and do not work on what the question decides; the answer arrives as a new message. With multi=true the user may choose several options; the answer is then joined with '; '. Instead of choosing an option, the user can always answer freely - so expect the answer to be arbitrary text. If the user writes a message instead, the question is closed and that message arrives.
 
 Owner: ragents.ask. Scope: per-turn. Native model tool: yes. Availability: always.
 
@@ -1600,7 +1493,7 @@ bash
 
 Execute shell commands in the run's workspace, or with cwd in one of its roots, with sandbox restrictions.
 
-Execute a bash command in the working directory, or in the folder given as cwd. Returns stdout and stderr; a nonzero exit code is reported at the end of the result (for example grep without a match), not as a tool error. Output is truncated to last 2000 lines or 20KB (whichever is hit first), and lines longer than 1000 characters are shortened. If anything was cut, the full output is saved to a temp file. A command is stopped after 120 seconds unless you pass a larger timeout (at most 3600 seconds); builds, test runs, installs and other long commands need one.
+Execute a bash command in the working directory, or in the folder given as cwd. Returns stdout and stderr; a nonzero exit code is reported at the end of the result (for example grep without a match), not as a tool error. Output is truncated to last 2000 lines or 20KB (whichever is hit first), and lines longer than 1000 characters are shortened. If anything was cut, the full output is saved to a temp file. rg searches recursively by default; its -r flag means replace and rewrites every match, it does not mean recursive. A command is stopped after 120 seconds unless you pass a larger timeout (at most 3600 seconds); builds, test runs, installs and other long commands need one.
 
 Owner: ragents.workspace. Scope: per-turn. Native model tool: yes. Availability: always.
 
@@ -3615,61 +3508,6 @@ Only with the capability agent.spawn.
 }
 ```
 
-### quick_answer
-
-Quick answer
-
-Adds a short summary of user question and result after the normal chat answer.
-
-After your normal chat answer: repeat the current user question briefly in question and summarize your result in text as a short sentence. Both texts may each be at most 240 characters long and do not replace the chat answer.
-
-Owner: ragents.overseer. Scope: per-turn. Native model tool: no. Availability: conditional.
-
-Only for the global primary coordinator with plugin.state.write.
-
-#### Input
-
-```json
-{
-  "type": "object",
-  "required": [
-    "question",
-    "text"
-  ],
-  "properties": {
-    "question": {
-      "type": "string",
-      "minLength": 1,
-      "maxLength": 240,
-      "description": "Repeat the current user question briefly in your own words."
-    },
-    "text": {
-      "type": "string",
-      "minLength": 1,
-      "maxLength": 240,
-      "description": "A short sentence with the result of your normal chat answer."
-    }
-  }
-}
-```
-
-#### Result
-
-```json
-{
-  "type": "object",
-  "required": [
-    "ok"
-  ],
-  "properties": {
-    "ok": {
-      "type": "boolean",
-      "const": true
-    }
-  }
-}
-```
-
 ### read
 
 read
@@ -4052,7 +3890,7 @@ ALWAYS use this tool when the user wants to see the content of a file or a longe
 
 Owner: ragents.documents. Scope: per-turn. Native model tool: yes. Availability: always.
 
-Available in every turn; the question always goes to the user of the run.
+Available in every model turn.
 
 #### Input
 
@@ -4270,6 +4108,9 @@ For active executable actors with a function selection.
       "type": "string"
     },
     "guidance": {
+      "type": "string"
+    },
+    "hint": {
       "type": "string"
     }
   },
@@ -6145,13 +5986,20 @@ export { Alert, AlertTitle, AlertDescription, AlertAction };
 #### apps/web/src/ui/badge.d.ts
 
 ```typescript
+import { type ReactNode } from "react";
 import { useRender } from "@base-ui/react/use-render";
 import { type VariantProps } from "class-variance-authority";
+type BadgeDisplay = "badge" | "dot";
+/** In "dot" mode every Badge below shows a small info dot and keeps its text for screen readers only. */
+declare function BadgeDisplayProvider({ children, value }: {
+    children: ReactNode;
+    value: BadgeDisplay;
+}): import("react").JSX.Element;
 declare const badgeVariants: (props?: ({
     variant?: "default" | "destructive" | "link" | "secondary" | "outline" | "ghost" | null | undefined;
 } & import("class-variance-authority/types").ClassProp) | undefined) => string;
 declare function Badge({ className, variant, render, ...props }: useRender.ComponentProps<"span"> & VariantProps<typeof badgeVariants>): import("react").ReactElement<unknown, string | import("react").JSXElementConstructor<any>>;
-export { Badge, badgeVariants };
+export { Badge, BadgeDisplayProvider, badgeVariants };
 ```
 
 #### apps/web/src/ui/button.d.ts
@@ -6312,7 +6160,7 @@ export { Field, FieldLabel, FieldDescription, FieldError, FieldGroup, FieldLegen
 ```typescript
 export { cn } from "cn";
 export { Alert, AlertAction, AlertDescription, AlertTitle } from "./alert";
-export { Badge, badgeVariants } from "./badge";
+export { Badge, BadgeDisplayProvider, badgeVariants } from "./badge";
 export { Button, buttonVariants } from "./button";
 export { Card, CardAction, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "./card";
 export { Checkbox } from "./checkbox";
@@ -6401,7 +6249,7 @@ import * as React from "react";
 import { Popover as PopoverPrimitive } from "@base-ui/react/popover";
 declare function Popover({ ...props }: PopoverPrimitive.Root.Props): React.JSX.Element;
 declare function PopoverTrigger({ ...props }: PopoverPrimitive.Trigger.Props): React.JSX.Element;
-declare function PopoverContent({ className, align, alignOffset, side, sideOffset, anchor, collisionPadding, keepMounted, dim, ...props }: PopoverPrimitive.Popup.Props & Pick<PopoverPrimitive.Positioner.Props, "align" | "alignOffset" | "side" | "sideOffset" | "anchor" | "collisionPadding"> & Pick<PopoverPrimitive.Portal.Props, "keepMounted"> & {
+declare function PopoverContent({ className, align, alignOffset, side, sideOffset, anchor, collisionPadding, container, keepMounted, dim, ...props }: PopoverPrimitive.Popup.Props & Pick<PopoverPrimitive.Positioner.Props, "align" | "alignOffset" | "side" | "sideOffset" | "anchor" | "collisionPadding"> & Pick<PopoverPrimitive.Portal.Props, "container" | "keepMounted"> & {
     /** Dims the rest of the page so the pop-out stands out; a click outside closes it. */
     dim?: boolean;
 }): React.JSX.Element;
@@ -6445,9 +6293,15 @@ export declare const longTime: (at: number, now?: number) => string;
 #### apps/web/src/ui/SectionLabel.d.ts
 
 ```typescript
-import type { ComponentProps } from "react";
+import type { ComponentProps, ReactNode } from "react";
 /** The small uppercase group label above a section; extra content is pushed to the opposite end. */
 export declare function SectionLabel({ className, ...props }: ComponentProps<"div">): import("react").JSX.Element;
+/** A page section's heading in the same label style: the count next to the title, an action at the opposite end. */
+export declare function SectionHeading({ title, count, children }: {
+    title: string;
+    count?: number;
+    children?: ReactNode;
+}): import("react").JSX.Element;
 ```
 
 #### apps/web/src/ui/select.d.ts
@@ -6516,9 +6370,11 @@ export declare function StartupNotice({ children, className, state }: {
 import { type ConnectionStateName, type RunStateName } from "./state-vocabulary";
 export declare const runStateTone: (state: RunStateName) => string;
 export declare const connectionStateTone: (state: ConnectionStateName) => string;
-export declare function RunStateIcon({ state, open, className }: {
+/** The whole run state in one glyph: the tone carries the state, a dot inside the ring says something is new. */
+export declare function RunStateIcon({ state, open, notice, className }: {
     state: RunStateName;
     open?: number;
+    notice?: "unseen" | "updated";
     className?: string;
 }): import("react").JSX.Element;
 export declare function ConnectionStateIcon({ state, className }: {
@@ -6778,7 +6634,7 @@ The global coordinator picks a run script from the existing catalog and creates 
 User workflow. Tags: Use case, Concept demo, Global coordinator.
 
 1. Click the Global coordinator input in the header and ask: Show the available prepared run scripts and start Set up conversation circle on the topic of learning together with two rounds.
-2. After sending, wait for the short answer directly below the header. Click the notice and read the full answer in the history. If the start value is unclear, answer the question based on the catalog shown; do not copy a model id or run id.
+2. After sending, wait for the answer in the history. If the start value is unclear, answer the question based on the catalog shown; do not copy a model id or run id.
 3. Open the new run from the run list. Expected: A separate run with the requested topic and the prepared setup is created. Acceptance of the start alone does not prove a completed conversation contribution.
 4. After the first actual contribution, open Actors at the bottom and select a conversation partner in the inspector. At the top of the global chat, ask: What does this actor do? Expected: The question receives the run and the selected actor as separate orientation; the visible question text stays unchanged.
 5. After sending, open another run. Expected: The question already sent stays bound to its original selection, even if it is processed only later. The global history and both runs stay reachable separately.
@@ -8343,12 +8199,6 @@ Complete package sources are in [run-setup.md](run-setup.md).
   },
   {
     "id": "ragents.watch",
-    "requires": [
-      "ragents.orchestration"
-    ]
-  },
-  {
-    "id": "ragents.transcript",
     "requires": [
       "ragents.orchestration"
     ]

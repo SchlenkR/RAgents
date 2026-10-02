@@ -116,6 +116,7 @@
 }
 
 :root {
+    --chat-max-width: 900px;
     color-scheme: light;
     --radius: 0.5rem;
     --background: #f3f2f7;
@@ -301,4 +302,49 @@
     &::-webkit-scrollbar {
         display: none;
     }
+}
+
+/* Text roles of the pages; type-* instead of text-*, because cn would merge text-<name> away as a text color. */
+@utility type-title {
+    font-size: 1.1rem;
+    line-height: var(--tw-leading, 1.35);
+    font-weight: var(--tw-font-weight, 600);
+    letter-spacing: var(--tw-tracking, normal);
+}
+
+@utility type-label {
+    font-size: 0.66rem;
+    line-height: var(--tw-leading, 1.5);
+    font-weight: var(--tw-font-weight, 700);
+    letter-spacing: var(--tw-tracking, 0.06em);
+    text-transform: uppercase;
+}
+
+@utility type-item {
+    font-size: 0.8rem;
+    line-height: var(--tw-leading, 1.4);
+    font-weight: var(--tw-font-weight, 500);
+    letter-spacing: var(--tw-tracking, normal);
+}
+
+@utility type-body {
+    font-size: 0.72rem;
+    line-height: var(--tw-leading, 1.5);
+    font-weight: var(--tw-font-weight, 400);
+    letter-spacing: var(--tw-tracking, normal);
+}
+
+@utility type-meta {
+    font-size: 0.66rem;
+    line-height: var(--tw-leading, 1.5);
+    font-weight: var(--tw-font-weight, 400);
+    letter-spacing: var(--tw-tracking, normal);
+}
+
+@utility type-caption {
+    font-size: 0.6rem;
+    line-height: var(--tw-leading, 1.5);
+    font-weight: var(--tw-font-weight, 600);
+    letter-spacing: var(--tw-tracking, 0.06em);
+    text-transform: uppercase;
 }

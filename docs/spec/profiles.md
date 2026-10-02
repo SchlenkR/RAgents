@@ -105,7 +105,7 @@ workspace does not replace `ragents.workspace` but contributes it through `works
 
 Plugin list of `core` in order: `ragents.orchestration`, `ragents.workspace`, `ragents.product`,
 `ragents.overseer`, `ragents.activity`, `ragents.processes`, `ragents.documents`,
-`ragents.browser`, `ragents.ask`, `ragents.todo`, `ragents.watch`, `ragents.transcript`,
+`ragents.browser`, `ragents.ask`, `ragents.todo`, `ragents.watch`,
 `ragents.actor-programs`, `ragents.lsp-roslyn`, `ragents.lsp-fsharp`, `ragents.lsp-typescript`,
 `ragents.model-relay`, `ragents.profile-distribution`.
 

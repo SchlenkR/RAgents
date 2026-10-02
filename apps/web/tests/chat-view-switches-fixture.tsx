@@ -1,4 +1,4 @@
-import { useRef } from "react";
+import { useRef, useState } from "react";
 import { createRoot } from "react-dom/client";
 import { createAccessContext } from "../../../packages/ragents/src/access";
 import { ActorChat } from "../../../plugins/ragents.orchestration/web/ActorChat";
@@ -94,9 +94,19 @@ function ActorPart({ name, id, presentation, composerVisible = true }: { name: s
   </section>;
 }
 
+function OverseerPart() {
+  const [open, setOpen] = useState(false);
+  return <section aria-label="overseer" className="h-24"><header><Overseer onBusy={() => {}} onClose={() => setOpen(false)} onOpen={() => setOpen(true)} open={open} registry={registry} /></header></section>;
+}
+
 function Parts() {
   const sessionRef = useRef(session);
-  if (new URLSearchParams(location.search).get("mode") === "preparation") {
+  const mode = new URLSearchParams(location.search).get("mode");
+  if (mode === "actor") return <main className="flex h-full flex-col">
+    <ActorChat actor={byId("reviewer")} className="min-h-0 flex-1" conversation={conversations.reviewer} onNavigate={() => {}} presentation="inspector" view={view} />
+    <ActorChatControls actor={byId("reviewer")} presentation="inspector" view={view} />
+  </main>;
+  if (mode === "preparation") {
     return <main className="flex h-full flex-col"><RunPreparationChat entry={skill} initialPrompt="Build an overview" registry={registry} sessionRef={sessionRef} /></main>;
   }
   return <ChatStepsProvider policy={{ ...defaultChatDisplayPolicy, selectable: true }}>
@@ -108,7 +118,7 @@ function Parts() {
       <ActorPart id="tester" name="human" presentation="inspector" />
       <ActorPart composerVisible={false} id="coordinator" name="hidden-composer" presentation="inspector" />
       <section aria-label="preparation" className="flex h-96 flex-col border border-border"><RunPreparationChat entry={skill} initialPrompt="Build an overview" registry={registry} sessionRef={sessionRef} /></section>
-      <section aria-label="overseer" className="h-24"><header><Overseer onBusy={() => {}} onClose={() => {}} onOpen={() => {}} open registry={registry} /></header></section>
+      <OverseerPart />
     </main>
   </ChatStepsProvider>;
 }

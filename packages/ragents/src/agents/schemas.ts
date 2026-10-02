@@ -23,7 +23,3 @@ export const grantSchema = Type.Object({
     usable: Type.Optional(Type.Boolean({ description: "false = may only be passed on, not used directly" })),
 });
 
-export const namedValuesSchema = Type.Array(Type.Object({ name: Type.String({ minLength: 1 }), value: Type.String() }));
-
-export const recordOf = (entries: readonly { name: string; value: string }[] | undefined) =>
-    Object.fromEntries((entries ?? []).map((entry) => [entry.name, entry.value]));

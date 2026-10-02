@@ -15,7 +15,7 @@ const runningWorker = () => {
     return { ...setup, turn };
 };
 
-test("an owned action carries an opaque payload and needs no action.propose", () => {
+test("an action carries an opaque payload", () => {
     const setup = runningWorker();
 
     try {
@@ -90,23 +90,6 @@ test("an action can only be resolved once", () => {
                 { decision: "approved" },
             ),
             /already dismissed/,
-        );
-    } finally {
-        setup.journal.close();
-    }
-});
-
-test("an action without owner still needs action.propose", () => {
-    const setup = runningWorker();
-
-    try {
-        assert.throws(
-            () => setup.runtime.proposeAction(
-                { actorId: setup.agent.id, commandId: "propose", turnId: setup.turn.turnId },
-                setup.view.id,
-                { title: "Deploy?" },
-            ),
-            /action\.propose/,
         );
     } finally {
         setup.journal.close();

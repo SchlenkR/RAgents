@@ -332,7 +332,7 @@ const checkTwoConnections = async (api: RAgentsApi, first: string, second: strin
     120_000, "the plus of the server opens an empty run", 500);
     checks.newChat = { connection: tileConnection, runId: (plus.message as Extract<RunPanelHostMessage, { type: "runChanged" }>).runId };
 
-    // The back arrow of the run panel always leads to the Start page; the shell switches the page for it.
+    // The logo of the run panel always leads to the Start page; the shell switches the page for it.
     api.selectRun(tileConnection, tileRunId);
     checks.pageWithRun = api.panel().page;
     if (api.panel().page !== "run") throw new Error(`With an open run, the page is ${api.panel().page} instead of run`);

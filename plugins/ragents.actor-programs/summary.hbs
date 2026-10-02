@@ -8,10 +8,10 @@ the current contracts. Published actor functions join that same API during the c
 Bind existing actors with `self` or `@handle`. A backend without a binding creates a TypeScript
 actor; a pure view binds to the calling actor. UI functions never require a model turn.
 Changed project errors arrive automatically; `actor_program_diagnostics` gives full diagnostics.
+A visible view is already open as a tab beside Chat; it needs no address or browser.
+`actor_view_set_visibility` hides or shows it by its `ref`; hiding keeps state.
 Query `actor_program_controls` when specific props are unclear, or `topic: "guide"` for the workflow.
 Controls are shadcn/ui components with their usual props, icons from `lucide-react`, Tailwind for layout.
 Build views with `AppLayout`, `Stack` and responsive `Grid`; the host supplies base typography.
-Use `Form` for labeled inputs and interview steps, including `type: "textarea"` for long answers.
-Do not rebuild field wrappers, labels or submit handling with custom layout CSS.
-For diagrams, adapt the `controls` SVG example: `SvgEdge` draws styled connections;
-compact labeled nodes and responsive SVG layout remain app code using Tailwind utilities.
+Use `Form` for labeled inputs, including `type: "textarea"`; do not rebuild field wrappers with custom CSS.
+For diagrams, adapt the `controls` SVG example (`SvgEdge`); nodes stay Tailwind app code.

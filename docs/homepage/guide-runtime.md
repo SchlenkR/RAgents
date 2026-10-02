@@ -111,13 +111,15 @@ in effect.
 - `actor_stop`: Stops the actor, interrupts its running turn, and disposes its model runtime
   after the turn. Its active descendants are stopped in the same journal command, so a branch is
   never stopped halfway. The journal names the actor that called `actor_stop` as the one who
-  stopped them. Run data and the run's plugin data remain.
+  stopped them. `ragents.ask` withdraws the open `ask_user` questions of the stopped actors. Run
+  data and the run's plugin data remain.
 - Run stop: The scheduler temporarily accepts no new work for this run; concurrent stop calls
   are handled together. The primary actor remains, but its running work is interrupted. All
   other agents and TypeScript actors in the user's ownership tree are stopped. Agent runtimes
   and plugins receive their abort signals in parallel. The actor-program plugin also cancels
   pending app actions. An open confirmation question is discarded through `ragents.ask` in the
-  journal and the domain operation is no longer invoked. The run can be reused afterward.
+  journal and the domain operation is no longer invoked; the open `ask_user` questions of all
+  agents, including the primary actor, are withdrawn. The run can be reused afterward.
 - Run deletion: The scheduler stops the run. Its agent runtimes are then disposed and plugin
   deletion hooks run. The chat, recovery data, and journal are archived; run-bound plugin
   data, including its logs, is removed afterward.
@@ -168,9 +170,10 @@ worker's turn end (`event_subscribe` for `turn.finished` and `turn.interrupted`,
 observation) and decides at every end whether the worker is finished, waiting for someone else,
 or needs another prompt. An LLM coordinator that "waits passively" is not a wake-up. A watcher
 from `ragents.watch` (`plugins.md`) is such a host service: it wakes the controlling actor with
-the reason and changes as soon as its wake condition is met. Instructions may say "end the
-turn" only where such an observer exists. Synchronous functions return their result, and the
-caller continues in the same turn.
+the reason and changes as soon as its wake condition is met. `ragents.ask` is another: after
+`ask_user` the asker ends its turn, and the answer or the user's next message arrives as a new
+input. Instructions may say "end the turn" only where such an observer exists. Synchronous
+functions return their result, and the caller continues in the same turn.
 
 ## IDs, handles, and creating actors again
 

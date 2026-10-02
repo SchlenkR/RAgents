@@ -5,7 +5,7 @@ import type { OverviewPanelContext, PluginRegistry } from "../PluginRegistry";
 import type { ChatUserLocation } from "../../../server/src/chat-context";
 import { Button } from "../ui";
 
-export function PanelContributions({ registry, userLocation, placement = "toolbar" }: { registry: PluginRegistry; userLocation: ChatUserLocation; placement?: "toolbar" | "idle" }) {
+export function PanelContributions({ registry, userLocation }: { registry: PluginRegistry; userLocation: ChatUserLocation }) {
   const access = useAccess();
   const [open, setOpen] = useState<string>();
   const [overviewActivated, setOverviewActivated] = useState(false);
@@ -18,13 +18,13 @@ export function PanelContributions({ registry, userLocation, placement = "toolba
     return next;
   }), []);
   const panels = registry.overviewPanels.filter((panel) => panel.readRight === undefined || access.can(panel.readRight));
-  const overview = placement === "idle" ? [] : panels.filter((panel) => (panel.placement ?? "overview") === "overview");
+  const overview = panels.filter((panel) => (panel.placement ?? "overview") === "overview");
   const openOverview = () => { setOverviewActivated(true); setOpen("overview"); };
   return <>
     {overview.length > 0 && <Button onClick={() => open === "overview" ? setOpen(undefined) : openOverview()} variant="ghost">{busy.size ? "Overview (working)" : "Overview"}</Button>}
-    {panels.filter((panel) => panel.placement === placement).slice(0, placement === "idle" ? 1 : undefined).map(({ id, Panel, placement }) =>
+    {panels.filter((panel) => panel.placement === "toolbar").map(({ id, Panel }) =>
       <Contribution id={id} key={id} onBusy={reportBusy} onClose={() => setOpen(undefined)} onOpen={() => setOpen(id)}
-        open={placement === "idle" || open === id} Panel={Panel} registry={registry} userLocation={userLocation} />)}
+        open={open === id} Panel={Panel} registry={registry} userLocation={userLocation} />)}
     {overviewActivated && overview.length > 0 && <Overview onBusy={reportBusy} onClose={() => setOpen(undefined)} onOpen={openOverview}
       open={open === "overview"} panels={overview} registry={registry} />}
   </>;

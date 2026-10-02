@@ -32,6 +32,7 @@ Node.js 22.19 or newer is required, without Git, pnpm, or a source build. The su
 - `ragents workspace-client <server-url> [folders ...]` registers this machine as a workspace.
 - `ragents plugin build <folder...>` builds plugin sources into bundles, with type checks; see
   [Build and ship a plugin](guide-plugins.html).
+- `ragents --version` (or `-v`) prints the version of the package or standalone installation.
 
 The package runs like the checkout, with the same files in the same places and TypeScript loaded
 at runtime through `tsx`. On first use, the command creates the `node_modules/@ragents/*`
@@ -264,3 +265,44 @@ unit tests that simulate the platform. A first real run should verify `pnpm conn
 `read`, `edit`, `bash` output and cancellation, diagnostics, and a workspace through
 `pnpm workspace-client`, and with the bundled bash `git fetch` and `git push` over HTTPS with Git
 Credential Manager and over SSH.
+## Server process sandbox
+
+What a run starts on the server (Bash, commands, language servers, TypeScript snippets, actor
+programs) runs in a process sandbox: it reads and writes only the folders of its run, sees
+neither other runs nor the home of the server account, and can reach public web domains by
+default. Rules and limits are in [plugins.md](../spec/plugins.md) under "Server process sandbox". It
+does not apply on a workstation; there the run works with the developer's Bash and credentials.
+Only what such a run starts on the server, such as a Bash in `@actors`, runs inside it.
+
+Prerequisites that startup checks:
+
+- **macOS**: nothing extra, `sandbox-exec` is part of the system.
+- **Linux**: `bubblewrap`, `socat`, and `ripgrep` (Debian and Ubuntu:
+  `apt-get install bubblewrap socat ripgrep`), plus user namespaces. On Ubuntu 24.04 and later
+  this requires `sysctl -w kernel.apparmor_restrict_unprivileged_userns=0` or an AppArmor profile.
+  If the server runs as root, it needs `CAP_SETFCAP`; it is better to run it under its own account.
+- **Linux in a container**: Docker's default profile forbids the namespaces. Startup has been
+  verified with `--security-opt seccomp=unconfined --security-opt apparmor=unconfined --security-opt
+  systempaths=unconfined` (in Compose `security_opt`) and a non-root user in the container;
+  `--privileged` works too, but grants more than necessary.
+- **Windows**: no sandbox. Startup aborts as long as the profile file does not explicitly switch
+  it off.
+
+The profile file controls it in the `ragents.workspace` section:
+
+```ts
+"ragents.workspace": {
+  PROCESS_SANDBOX: "on",
+  PROCESS_SANDBOX_NETWORK: ["*"], // public web domains on ports 80 and 443 (the default)
+},
+```
+
+`curl`, package downloads and API requests no longer need a domain entry for each public
+website. IP literals, localhost and internal services need explicit entries, for example
+`["*", "127.0.0.1:8080"]`; for an internal hostname in public mode, allow its IP and port too.
+The server's own address is always allowed. A list such as `["registry.npmjs.org", "*.example.com"]`
+restricts access to those targets; `[]` leaves only the own server reachable. Network permission
+does not distinguish downloads from uploads or destructive API calls. File isolation remains
+active. `PROCESS_SANDBOX: "off"` explicitly disables the whole sandbox, for example on Windows.
+On macOS, pnpm through corepack needs a `packageManager` in the workspace's
+`package.json`, because corepack otherwise aborts at a blocked folder above it.

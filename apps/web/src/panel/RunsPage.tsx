@@ -49,7 +49,7 @@ export function RunsPage({ state, send, runDetails }: PanelPageProps) {
     <PanelHeader send={send} title="Runs" />
     <div className="relative">
       <SearchIcon aria-hidden className="pointer-events-none absolute top-1/2 left-2.5 size-3.5 -translate-y-1/2 text-muted-foreground" />
-      <Input aria-label="Search runs" className="h-8 pl-8 text-[0.76rem]" onChange={(event) => setQuery(event.target.value)}
+      <Input aria-label="Search runs" className="h-8 pl-8 text-sm" onChange={(event) => setQuery(event.target.value)}
         placeholder="Search runs ..." type="search" value={query} />
     </div>
     <div className="flex flex-wrap items-center gap-1.5">
@@ -62,14 +62,14 @@ export function RunsPage({ state, send, runDetails }: PanelPageProps) {
       </Toggle>}
     </div>
     {shown.length === 0
-      ? <p className="text-[0.75rem] text-muted-foreground" role="status">{all.length === 0 ? "No runs yet." : "No matching run."}</p>
+      ? <p className="type-body text-muted-foreground" role="status">{all.length === 0 ? "No runs yet." : "No matching run."}</p>
       : <RunList label="Runs" selecting={selecting} showConnection={marked}>
         {shown.map(({ connection, run }) => <RunLine details={runDetails?.(run.id, connection.name)} connection={connection} key={keyOf(connection.name, run.id)}
           onOpen={() => send({ action: "openRun", name: connection.name, runId: run.id })}
           onToggle={() => toggle(keyOf(connection.name, run.id))} run={run} selected={selected.has(keyOf(connection.name, run.id))} selecting={selecting && connection.canDelete !== false} showConnection={marked} />)}
       </RunList>}
     {selecting && <div className="sticky bottom-0 flex flex-wrap items-center gap-2 border-t border-border-soft bg-background py-2">
-      <span className="flex-1 text-[0.72rem] text-muted-foreground" role="status">{selected.size} selected</span>
+      <span className="flex-1 type-body text-muted-foreground" role="status">{selected.size} selected</span>
       <Button disabled={selected.size === 0} onClick={() => setConfirming(true)} size="xs" variant="destructive"><Trash2Icon data-icon="inline-start" />Delete</Button>
       <Button onClick={leaveSelection} size="xs" variant="ghost">Cancel</Button>
     </div>}

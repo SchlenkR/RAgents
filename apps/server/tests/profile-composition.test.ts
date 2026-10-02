@@ -114,9 +114,9 @@ test("the neutral showcase fixture composes real plugins and folder contribution
   assert.deepEqual(host.tools.describe().map((tool) => tool.name).sort(), [
     "ask_user", "bash", "document_write", "edit",
     "fsharp_close", "fsharp_diagnostics", "fsharp_open",
-    "actor_program_activate", "actor_program_controls", "actor_program_create", "actor_program_diagnostics", "actor_program_ensure", "actor_program_list", "actor_program_remove", "actor_transcript", "actor_view_set_visibility",
+    "actor_program_activate", "actor_program_controls", "actor_program_create", "actor_program_diagnostics", "actor_program_ensure", "actor_program_list", "actor_program_remove", "actor_view_set_visibility", "actor_view_snapshot",
     "browser_open", "browser_snapshot", "browser_click", "browser_fill", "browser_select", "browser_press", "browser_check", "browser_viewport", "browser_screenshot", "browser_view_screenshot", "browser_close",
-    "quick_answer", "read", "roslyn_close", "roslyn_diagnostics", "roslyn_open", "roslyn_solutions", "run_script_list", "run_script_start", "run_stop",
+    "read", "roslyn_close", "roslyn_diagnostics", "roslyn_open", "roslyn_solutions", "run_script_list", "run_script_start", "run_stop",
     "show_document", "todo_replace",
     "typescript_api", "typescript_close", "typescript_eval", "typescript_diagnostics", "typescript_open", "watch_create", "watch_list", "watch_remove", "write",
   ].sort());
@@ -234,7 +234,7 @@ test("function catalogs keep compact descriptions while runtime functions retain
     assert.equal(descriptors.find((entry) => entry.name === original.name)?.description, fn.description);
   }
 
-  for (const name of ["actor_program_controls", "actor_program_activate", "ask_user", "show_document", "todo_replace", "quick_answer"]) {
+  for (const name of ["actor_program_controls", "actor_program_activate", "ask_user", "show_document", "todo_replace"]) {
     const fn = functions.find((entry) => entry.name === name);
     assert.ok(fn?.longDescription, name);
     assert.ok(fn.description.length < 180, name);

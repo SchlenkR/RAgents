@@ -61,7 +61,7 @@ test("Start shows the servers as a block, the recent runs and all templates; the
 test("New starts for each reachable server with the default template as the marked template, otherwise with New chat; the plus takes the same one", () => {
   const chat = render(page());
   assert.match(chat, />New<span[^>]*>3</, "the New chat template is counted");
-  assert.match(chat, /<ul aria-label="Templates"[^>]*><li[^>]*><button[^>]*title="New chat"/, "New chat is the first template");
+  assert.match(chat, /<ul aria-label="Templates"[^>]*><li[^>]*><button[^>]*data-tile="New chat"/, "New chat is the first template");
   assert.match(chat, />No template</);
   assert.match(chat, />New chat</);
   assert.match(chat, />Empty run; the task takes shape in the chat\.</);
@@ -70,14 +70,14 @@ test("New starts for each reachable server with the default template as the mark
   assert.doesNotMatch(chat, />Default</);
   const standard = render(page({ connections: [connection({ defaultEntry: "ragents.reference.circle" })] }));
   assert.match(standard, />New<span[^>]*>2</, "the default does not appear a second time");
-  assert.match(standard, /<ul aria-label="Templates"[^>]*><li[^>]*><button[^>]*title="Discussion circle"/, "the default template comes first");
+  assert.match(standard, /<ul aria-label="Templates"[^>]*><li[^>]*><button[^>]*data-tile="Discussion circle"/, "the default template comes first");
   assert.match(standard, />Default</);
   assert.equal(standard.match(/>Discussion circle</g)?.length, 1);
   assert.doesNotMatch(standard, />New chat</);
   assert.match(standard, /aria-label="New run from Discussion circle on workshop"/);
   const two = render(page({ connections: [connection(), connection({ name: "second", address: "http://localhost:4727", runs: [] })] }));
-  assert.match(two, /aria-label="Templates on workshop"[^>]*><li[^>]*><button[^>]*title="New chat"/, "each server starts its group with New chat or the default template");
-  assert.match(two, /aria-label="Templates on second"[^>]*><li[^>]*><button[^>]*title="New chat"/);
+  assert.match(two, /aria-label="Templates on workshop"[^>]*><li[^>]*><button[^>]*data-tile="New chat"/, "each server starts its group with New chat or the default template");
+  assert.match(two, /aria-label="Templates on second"[^>]*><li[^>]*><button[^>]*data-tile="New chat"/);
   const none = render(page({ connections: [connection({ state: { kind: "stopped" }, runs: [] })] }));
   assert.doesNotMatch(none, />New</, "without a reachable server there is no New section");
 });
@@ -102,9 +102,9 @@ test("on an error the state icon is a button of its own for the message, on the 
 test("with two or more servers every run line names its server and New groups the templates per server, with one neither", () => {
   const two = render(page({ connections: [connection(), connection({ name: "second", address: "http://localhost:4727", runs: [] })] }));
   assert.match(two, /Night bus round \(workshop\)/);
-  assert.match(two, /<h3[^>]*>[\s\S]*?workshop<\/h3><ul aria-label="Templates on workshop"/, "group heading per server");
-  assert.match(two, /<h3[^>]*>[\s\S]*?second<\/h3><ul aria-label="Templates on second"/);
-  assert.equal(two.match(/title="Collection board"/g)?.length, 2, "the template does not name the server itself");
+  assert.match(two, /<h3[^>]*>[\s\S]*?workshop<\/h3><div[^>]*><ul aria-label="Templates on workshop"/, "group heading per server");
+  assert.match(two, /<h3[^>]*>[\s\S]*?second<\/h3><div[^>]*><ul aria-label="Templates on second"/);
+  assert.equal(two.match(/data-tile="Collection board"/g)?.length, 2, "the template does not name the server itself");
   const one = render(page());
   assert.doesNotMatch(one, /Night bus round \(workshop\)|<h3/);
   assert.match(one, /<ul aria-label="Templates"/);
@@ -134,9 +134,9 @@ test("a template with a guide is called Set up as in the web app, otherwise Star
     { id: "ragents.reference.board", title: "Collection board", description: "A board for ideas", kind: "skill", category: "Mini-apps" },
     { id: "ragents.reference.circle", title: "Discussion circle", description: "Four agents in a circle", kind: "script", category: "Run scripts", guided: true },
   ] })] }));
-  assert.match(html, /title="Discussion circle"(?:(?!<\/button>).)*>Set up</s);
-  assert.match(html, /title="Collection board"(?:(?!<\/button>).)*>Start</s);
-  assert.doesNotMatch(html, /title="Discussion circle"(?:(?!<\/button>).)*>Start</s);
+  assert.match(html, /data-tile="Discussion circle"(?:(?!<\/button>).)*>Set up</s);
+  assert.match(html, /data-tile="Collection board"(?:(?!<\/button>).)*>Start</s);
+  assert.doesNotMatch(html, /data-tile="Discussion circle"(?:(?!<\/button>).)*>Start</s);
 });
 
 test("the left part of the chip carries its action word per state", () => {
@@ -188,6 +188,15 @@ test("the Runs page brings all runs together and offers search, hiding and selec
   assert.doesNotMatch(html, /selected</, "the selection bar appears only with the selection mode");
   assert.match(html, /<ul aria-label="Runs" class="[^"]*grid-cols-\[auto_minmax\(0,1fr\)_auto_auto\]/, "with two or more servers the list has a column for the server");
   assert.match(html, /data-cell="connection"[^>]*title="core"[^>]*>core</);
+});
+
+test("Runs and Server always lead back to Start with the arrow before their title, Start has no arrow", () => {
+  for (const [name, title] of [["runs", "Runs"], ["connections", "Server"]] as const) {
+    const html = render(page({ page: name }));
+    assert.match(html, new RegExp(`aria-label="Back to Start"[\\s\\S]*?<h1[^>]*>${title}</h1>`), `${name}: the arrow comes first`);
+    assert.equal(html.match(/aria-label="Back to Start"/g)?.length, 1);
+  }
+  assert.doesNotMatch(render(page()), /Back to Start/);
 });
 
 test("the chip on Start passes its server to the Runs page; the filter shows as a pressed toggle", () => {
@@ -326,8 +335,8 @@ test("messages in both directions are checked before processing", () => {
 test("template-only access keeps its templates without exposing free creation or deletion", () => {
   const restricted = connection({ canCreateFree: false, canDelete: false });
   const start = render(page({ connections: [restricted] }));
-  assert.match(start, /title="Collection board"/);
-  assert.doesNotMatch(start, /title="New chat"|aria-label="New chat on/);
+  assert.match(start, /data-tile="Collection board"/);
+  assert.doesNotMatch(start, /data-tile="New chat"|aria-label="New chat on/);
   const runs = render(page({ page: "runs", connections: [restricted] }));
   assert.match(runs, /Night bus round/);
   assert.doesNotMatch(runs, />Select<|>Delete</);
@@ -338,6 +347,7 @@ test("shared run rows preserve contributed details and existing read markers", (
   const html = renderToStaticMarkup(createElement(PanelPage, {
     state, send() {}, runDetails: (runId, connection) => createElement("span", null, `${connection}/${runId}: main`),
   }));
-  assert.match(html, /aria-label="New activity"/);
+  assert.match(html, /title="[^"]*, new activity"/);
+  assert.doesNotMatch(html, /aria-label="New activity"/);
   assert.match(html, /workshop\/run: main/);
 });

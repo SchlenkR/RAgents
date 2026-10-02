@@ -70,7 +70,7 @@ export function HelpDialog({ onClose, sampleEntries, onStartSample }: {
     <Dialog open onOpenChange={(open) => { if (!open) onClose(); }}>
     <DialogContent className="gap-0 p-0" initialFocus={closeRef} scope="page" showCloseButton={false} size="full">
       <DialogTitle className="sr-only">Help</DialogTitle>
-      <Button aria-label="Close help" className="absolute top-3 right-4.5 z-1 rounded-full" onClick={onClose} ref={closeRef} size="icon" variant="outline">
+      <Button aria-label="Close help" className="absolute top-3 right-8 z-1 rounded-full" onClick={onClose} ref={closeRef} size="icon" variant="outline">
         <XIcon />
       </Button>
       <iframe

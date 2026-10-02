@@ -25,7 +25,6 @@ export const config = {
       "ragents.ask",
       "ragents.todo",
       "ragents.watch",
-      "ragents.transcript",
       "ragents.actor-programs",
       "ragents.reference",
       "ragents.lsp-roslyn",

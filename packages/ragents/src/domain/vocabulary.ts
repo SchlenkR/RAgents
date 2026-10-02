@@ -4,6 +4,7 @@ export const capabilityNames = [
     "agent.spawn",
     "artifact.publish",
     "plugin.state.write",
+    // Legacy grant, kept because every existing journal grants it to the run owner.
     "action.propose",
     "workspace.use",
     "execution.stopOwned",

@@ -16,7 +16,7 @@ const fileNameOf = (profileFile: string): string => profileFile.split(/[/\\]/).p
 function PanelDialog({ title, onClose, children }: { title: string; onClose: () => void; children: ReactNode }) {
   return <Dialog onOpenChange={(next) => { if (!next) onClose(); }} open>
     <DialogContent className="gap-3" scope="page" size="small">
-      <DialogHeader><DialogTitle className="text-[0.95rem] font-semibold">{title}</DialogTitle></DialogHeader>
+      <DialogHeader><DialogTitle>{title}</DialogTitle></DialogHeader>
       {children}
     </DialogContent>
   </Dialog>;
@@ -31,7 +31,7 @@ export function ConfirmDialog({ title, confirmLabel, onConfirm, onClose, childre
   children: ReactNode;
 }) {
   return <PanelDialog onClose={onClose} title={title}>
-    <p className="text-[0.78rem] leading-normal text-muted-foreground [overflow-wrap:anywhere]">{children}</p>
+    <p className="type-body text-muted-foreground [overflow-wrap:anywhere]">{children}</p>
     <div className="mt-1 flex flex-wrap justify-end gap-2">
       <Button onClick={onClose} size="sm" type="button" variant="ghost">Cancel</Button>
       <Button onClick={onConfirm} size="sm" type="button" variant="destructive">{confirmLabel}</Button>
@@ -102,16 +102,16 @@ export function ConnectionDialog({ state, connection, onClose, send }: {
         : <div className="grid gap-1.5">
           <Label htmlFor="connection-profile-file">Profile file</Label>
           <div className="flex items-center gap-2">
-            <Input aria-label="Profile file" className="min-w-0 flex-1 font-mono text-[0.72rem]" id="connection-profile-file" onChange={(event) => setProfileFile(event.target.value)} placeholder="~/repos/RAgents/ragents.config.core.ts" title={profileFile} value={profileFile} />
+            <Input aria-label="Profile file" className="min-w-0 flex-1 font-mono text-xs" id="connection-profile-file" onChange={(event) => setProfileFile(event.target.value)} placeholder="~/repos/RAgents/ragents.config.core.ts" title={profileFile} value={profileFile} />
             <Button className="flex-none" onClick={() => send({ action: "pickProfile" })} size="sm" type="button" variant="secondary"><FolderOpenIcon data-icon="inline-start" />Choose file ...</Button>
           </div>
           {state.profileSuggestions.length > 0 && <>
-            <p className="text-[0.7rem] leading-normal text-muted-foreground">Found in the host folder, click one to use it:</p>
+            <p className="type-body text-muted-foreground">Found in the host folder, click one to use it:</p>
             <ul className="grid grid-cols-[repeat(auto-fill,minmax(160px,1fr))] gap-1.5">
               {state.profileSuggestions.map((file) => <li key={file}>
                 <button aria-pressed={profileFile === file} className="flex w-full min-w-0 flex-col gap-0.5 rounded-md border border-border-soft px-2.5 py-1.5 text-left hover:border-border aria-pressed:border-primary aria-pressed:bg-accent" onClick={() => takeProfile(file)} type="button">
-                  <strong className="truncate text-[0.75rem] font-semibold">{profileNameOf(file)}</strong>
-                  <span className="truncate font-mono text-[0.65rem] text-muted-foreground" title={file}>{fileNameOf(file)}</span>
+                  <strong className="truncate type-item">{profileNameOf(file)}</strong>
+                  <span className="truncate font-mono type-meta text-muted-foreground" title={file}>{fileNameOf(file)}</span>
                 </button>
               </li>)}
             </ul>
@@ -120,9 +120,9 @@ export function ConnectionDialog({ state, connection, onClose, send }: {
       <div className="grid gap-1.5">
         <Label htmlFor="connection-name">Name</Label>
         <Input id="connection-name" onChange={(event) => setName(event.target.value)} placeholder={kind === "server" ? "Workshop" : "core"} value={name} />
-        {kind === "profile" && <span className="text-[0.68rem] text-muted-foreground">taken from the file name, can be changed</span>}
+        {kind === "profile" && <span className="type-meta text-muted-foreground">taken from the file name, can be changed</span>}
       </div>
-      {state.problem && <p className="text-[0.75rem] leading-normal text-destructive [overflow-wrap:anywhere]" role="alert">{state.problem}</p>}
+      {state.problem && <p className="type-body text-destructive [overflow-wrap:anywhere]" role="alert">{state.problem}</p>}
       <div className="mt-1 flex flex-wrap justify-end gap-2">
         <Button onClick={onClose} size="sm" type="button" variant="ghost">Cancel</Button>
         <Button disabled={!name.trim() || !value.trim()} size="sm" type="submit">{connection ? "Save" : "Create"}</Button>

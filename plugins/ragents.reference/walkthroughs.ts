@@ -41,7 +41,7 @@ export const referenceWalkthroughs = [
     tags: ["Use case", "Concept demo", "Global coordinator"],
     steps: [
       "Click the Global coordinator input in the header and ask: Show the available prepared run scripts and start Set up conversation circle on the topic of learning together with two rounds.",
-      "After sending, wait for the short answer directly below the header. Click the notice and read the full answer in the history. If the start value is unclear, answer the question based on the catalog shown; do not copy a model id or run id.",
+      "After sending, wait for the answer in the history. If the start value is unclear, answer the question based on the catalog shown; do not copy a model id or run id.",
       "Open the new run from the run list. Expected: A separate run with the requested topic and the prepared setup is created. Acceptance of the start alone does not prove a completed conversation contribution.",
       "After the first actual contribution, open Actors at the bottom and select a conversation partner in the inspector. At the top of the global chat, ask: What does this actor do? Expected: The question receives the run and the selected actor as separate orientation; the visible question text stays unchanged.",
       "After sending, open another run. Expected: The question already sent stays bound to its original selection, even if it is processed only later. The global history and both runs stay reachable separately.",

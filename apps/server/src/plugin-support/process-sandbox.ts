@@ -1,20 +1,23 @@
 import { spawn } from "node:child_process";
 import { existsSync, readdirSync, realpathSync } from "node:fs";
+import { isIP } from "node:net";
 import os from "node:os";
 import path from "node:path";
 import { SandboxManager, type SandboxRuntimeConfig } from "@anthropic-ai/sandbox-runtime";
 import { containsWorkspacePath, type ProcessLaunch, type ProcessSandbox } from "@ragents/workspace-executor";
 import { hostRoot } from "../host-version.js";
 
-/** Package sources and git hosting that builds in the workspace need; the own server is always added. */
-export const PROCESS_SANDBOX_DEFAULT_NETWORK: readonly string[] = [
-  "registry.npmjs.org",
-  "api.nuget.org",
-  "globalcdn.nuget.org",
-  "github.com",
-  "*.github.com",
-  "*.githubusercontent.com",
-];
+/** Public web access; explicit targets and the own server are allowed separately. */
+export const PROCESS_SANDBOX_DEFAULT_NETWORK: readonly string[] = ["*"];
+
+const PRIVATE_NETWORK_RANGES = ["10.0.0.0/8", "172.16.0.0/12", "192.168.0.0/16", "100.64.0.0/10", "fc00::/7"];
+
+const publicWebTarget = (host: string, port: number | undefined): boolean => {
+  if (port !== 80 && port !== 443) return false;
+  const hostname = new URL(`http://${host}`).hostname.toLowerCase().replace(/\.$/, "");
+  return isIP(hostname) === 0 && !hostname.startsWith("[")
+    && hostname !== "localhost" && !hostname.endsWith(".localhost");
+};
 
 /** The folders of a run from which its rules are made; everything else under the protected roots stays hidden from it. */
 export interface RunSandboxFolders {
@@ -30,7 +33,7 @@ export interface RunProcessSandboxes {
 }
 
 export interface ServerProcessSandboxOptions {
-  /** Allowed network targets, domains as in the profile file; everything else fails at the proxy. */
+  /** Explicit network targets; "*" additionally allows public web domains on ports 80 and 443. */
   readonly network: readonly string[];
   /** The address of this server, such as http://127.0.0.1:4710; none without HTTP. */
   readonly serverAddress: string | undefined;
@@ -173,10 +176,12 @@ class SharedSandboxRuntime {
 
   #config(): SandboxRuntimeConfig {
     const grants = [...this.#holders.values()];
+    const network = [...new Set(grants.flatMap((grant) => grant.network))];
     return {
       network: {
-        allowedDomains: [...new Set(grants.flatMap((grant) => grant.network))],
+        allowedDomains: network.filter((target) => target !== "*"),
         deniedDomains: [],
+        ...(network.includes("*") ? { deniedResolvedAddresses: PRIVATE_NETWORK_RANGES } : {}),
         allowUnixSockets: [...new Set(grants.flatMap((grant) => grant.unixSockets))],
         // Linux can block Unix sockets only all or nothing; the build tools (MSBuild nodes) need them.
         ...process.platform === "linux" ? { allowAllUnixSockets: true } : {},
@@ -190,7 +195,8 @@ class SharedSandboxRuntime {
   async acquire(holder: object, grant: SandboxGrant): Promise<void> {
     this.#holders.set(holder, grant);
     if (!this.#started) {
-      this.#started = SandboxManager.initialize(this.#config());
+      this.#started = SandboxManager.initialize(this.#config(), async ({ host, port }) =>
+        [...this.#holders.values()].some((grant) => grant.network.includes("*")) && publicWebTarget(host, port));
       await this.#started.catch((error: unknown) => {
         this.#holders.delete(holder);
         this.#started = undefined;

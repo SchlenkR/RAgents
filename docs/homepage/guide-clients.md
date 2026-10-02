@@ -8,25 +8,82 @@ The run panel is also available in the browser. `http://localhost:4710/run-panel
 shows chat with an addressee selector, mini-app tabs, and the inspection bar on the right.
 Without `run`, it shows the shared Start page.
 `run-panel.html?layout=app&run=<id>&element=<app-id>` shows one mini-app without the tab bar.
-The selected app and addressee are stored per run in the browser.
+The browser docking layout and addressee are stored per run in the browser. Starting or opening
+a run focuses its visible chat input once it is ready, including a remembered chat partner.
+Clicking or typing elsewhere while it loads cancels that focus request.
 
-With write rights, the menu at the top right of an open run offers "Run script": it lists the run
-scripts you may start, each with its description, and greyed out with the reason when it cannot
+With write rights, the run header offers "Run script" right of the window buttons, behind a thin
+divider. It opens a scrollable list of the run scripts you may start below the header, as wide as
+the window allows up to 800 pixels and ending at its right edge, in two columns when there is room.
+The scripts appear as the same cards as on the Start page with title and description; those you
+can start come first, the others follow greyed out with the reason when a script cannot
 join this run, because its `RUN.md` does not set `embeddable: true` or because it fixes a start
-option to a value the run does not have. A click starts it inside the run without a start value;
+option to a value the run does not have. A click starts it inside the run without a start value
+and closes the list;
 the primary actor stays, a repeated start reuses the script, its main view becomes available as an app, and its output and summary appear in the chat as `@handle: ...`. If the start is refused,
-the menu shows why. The same menu works in the VS Code run panel.
+the list stays open and shows why. The same button works in the VS Code run panel; in a narrow
+run header it shows only its icon.
+
+At a workspace width of at least 1000 pixels, the browser places Chat on the left and mini-apps
+on the right, each taking half the space. This also happens when the first app appears later.
+Narrower workspaces use tabs in one area. The default adapts to width until you arrange windows
+yourself; saved custom layouts stay as you left them. Drag a tab to arrange windows, or drag the
+grip at the left of an area's tab strip to move all its windows together.
+A compass appears over the area under the pointer: its four sides split that area in half,
+and its center merges windows as tabs. Dropping on a tab strip also merges. The four outer
+workspace guides dock along the whole edge. A translucent rectangle previews the result.
+Escape cancels a drag. Each area, including an empty one, is a rounded, thin-bordered card.
+Small gaps separate the cards and the workspace edge; the focused card has an accent border.
+Drag the three-dot grips in the gaps to resize areas. Vertical gaps have vertical dots,
+horizontal gaps horizontal dots. The grips brighten on hover and use the accent color while
+dragging. The tab-strip drag grips and sidebar resize grip use the same dots.
+
+Dragging the only window to a side of its own area leaves an empty half. Drop another window
+there or use "Close area". Moving all windows into another area removes their empty source.
+Each tab's X closes that window. Only empty areas have an additional X, when another area
+remains. Chat can be closed too. The run header always lists Chat and every app as buttons with
+their existing icons, whether shown or not; the button of a visible window appears pressed.
+Clicking a closed window opens it beside the current area in a wide browser workspace, or as a
+tab when narrow. Clicking a window that waits as a background tab brings that tab to the front.
+Clicking a visible window changes nothing. Labels shorten to the icon when the header is narrow;
+with more than five windows, the "All windows" menu lists them all and checks the visible ones.
+The adjacent "Reset layout" icon restores the automatic layout and inspection rail. Maximize
+appears only with multiple areas, at the right end of the area header just before the last tab's
+X; Restore or Escape returns to the split layout. Tabs support arrow keys, Home, and End, and
+focused dividers support arrow keys.
+
+Inspection puts its actor selector in the window title row. A second, horizontally scrollable
+row holds the actor name, Stop or Restart, chat display switches, and detail-view icons with
+tooltips. The conversation has no separate bottom toolbar.
 
 The inspection rail on the right contains files, documents, functions, executions, and
-language-server diagnostics according to the run and your permissions. Clicking an icon opens
-a panel over the current view. The same icon, Escape, X, or the backdrop closes it. The open
-inspection tab is stored per run. Visited persistent panels keep their state while closed.
+language-server diagnostics according to the run and your permissions. A small blue dot at the
+top right of a rail button means the view has content or new activity. Hover a button to
+preview its view in a flyout; move away from both flyout and rail to hide it.
+Click a rail button or the flyout's pin to dock the view beside the workspace, reserving space.
+While docked, another rail button switches content in place; clicking the active button hides
+it. Unpinning or X also hides it and returns to hover-only behavior. The pin is filled only
+while docked, and its tooltip names the next action. Reload restores docked views and their
+width, but never a hover preview. The return-to-sidebar button docks the tool beside the layout.
+Pressing a flyout grip keeps the preview open through the gesture, without making it sticky;
+after release it stays only while the pointer is over the flyout or rail. Resize either mode
+using its left edge. The rail and side views share the card frame. Only the hover flyout has
+a drop shadow; docked cards stay flat.
 
-In the browser panel, select Chat or a mini-app in the tab row. Only that view is visible;
-visited apps keep their local input when you switch away. A new app appears without taking focus,
-and an unavailable selected app returns you to Chat. In VS Code, click an app entry to open or
-focus its single editor tab; moving that tab between editor groups does not create a second one.
-The panel stays on chat. Questions and news stay in the chat, and unsent drafts stay with their
+Drag a rail button or the view's header grip into the workspace to make it a regular window.
+Its rail button disappears until you close the window, use its return-to-sidebar button, or
+drag it back onto the rail or sidebar. A docked tool uses the same tabs, docking guides,
+maximize, and close controls as Chat and apps.
+
+The browser remembers areas, sizes, active tabs, closed windows, and sidebar settings for each
+server and run. New apps appear without taking focus; unavailable apps disappear. Chat drafts,
+app input, and visited tool state survive tab switches, moves, and close/reopen while the run
+stays open. Reloading the page restores the layout but not unsent input.
+
+In VS Code, click an app entry to open or focus its single editor tab; moving that tab between
+editor groups does not create a second one. The run panel stays on chat. Its inspection rail
+retains the popout: the same icon, Escape, X, or backdrop closes it, and its selected tab is
+remembered per run. Questions and news stay in the chat, and unsent drafts stay with their
 addressee when you switch actors.
 
 The chip at the left of the chat input names the addressee, the actor your messages go to.
@@ -93,12 +150,24 @@ The extension is an app with four pages: Start, Runs, the run panel, and "Server
 the RAgents panel of VS Code's secondary sidebar. Navigation and commands live in the view title
 bar, following VS Code conventions: Start (home), Runs (list), Server (gear), "New run", and "Refresh". They remain available
 while the panel shows a run. Start has no separate page header; Runs and Server show their
-title next to a back arrow to Start, and the run panel's back
-arrow also returns there. There is no Explorer tree in the activity bar. The view badge counts
+title next to a back arrow to Start, and the logo at the top left of the run panel ("Back to
+Start") also returns there. There is no Explorer tree in the activity bar. The view badge counts
 pending inputs across all servers.
 
-**Start** begins with **Server**. Equal-width chips appear two per row at 420 pixels and in
-a single row from 560 pixels. Each chip is a split button. Its left side shows a status icon,
+Start, Runs, and Server share a centered content area up to 1280 pixels wide, with side
+padding, in both the browser and VS Code. The Runs search field and rows stay within this area,
+including on ultrawide displays. The outer header remains full width. All three pages begin their
+content at the same distance below the header, and on Start each section label stands well apart
+from the section above it. In the browser, logo, global coordinator button, Settings, and Help share
+one header row. The logo leads back to Start there, so the run header has no back arrow of its
+own; Runs keeps its back arrow ("Back to Start") next to its title in the browser as in VS Code. An open run places its layout actions in the run header, without a separate
+toolbar row. VS Code keeps its single run header and editor tabs.
+
+**Start** arranges template cards in several columns when space allows, up to five at the
+maximum content width, and one in narrow panels. Cards stay between 240 and 320 pixels wide,
+shrinking only when the panel is narrower.
+**Server** begins the page, left aligned with the cards and limited to 720 pixels. Chips
+use one column in narrow panels and two from a panel width of 560 pixels. Each chip is a split button. Its left side shows a status icon,
 name, and when needed an action label: none for a connected or ready server (clicking opens
 Runs filtered to it), "Sign in" when authentication is required or access was denied,
 "Retry" when unreachable or failed, "Start" for a stopped local profile,
@@ -130,7 +199,7 @@ chat input remains usable. The loading state disappears with the first mini-app 
 empty chat without a template does not show it. VS Code never displays the run panel's run-list
 view. If a run cannot be started, for example because the user may not create runs, the panel
 explains why and offers "Go to Start". For a new run, the visible chat input receives focus as
-soon as it becomes writable. Opening an existing run does not move focus there automatically.
+soon as it becomes writable. Opening an existing run does the same for its selected chat partner.
 
 **Runs** shows the complete list in the same grid, with search, "Hide ended", a server
 filter carried over from Start, and a selection mode that deletes several runs after a dialog
@@ -226,6 +295,7 @@ ragents stop --host                                          # stop the remember
 ragents script <runId>                                       # list the run scripts and whether each can join the run
 ragents script <runId> <entry> --input '{"topic":"Launch"}'  # start one inside the running run
 ragents --help                                               # same as ragents help
+ragents --version                                            # the installed version, same as ragents -v
 ```
 
 `run` checks `GET <address>/health` to see whether the profile host is already running. If not,
@@ -266,7 +336,8 @@ process pattern, and only if the host at the recorded address reports that same 
 and the reason if one cannot join; `script <runId> <entry> [--input <json>]` starts it inside the
 run through `ragents.runs.startScript` as the run's user and prints `script: @<handle>, start <n>`;
 a refusal is an error with exit code 1. `--json` prints the RPC results instead. `ragents --help` and `ragents help` show usage and exit with 0; invoking the
-command without arguments is an error with exit code 1.
+command without arguments is an error with exit code 1. `ragents --version` and `ragents -v` print
+the version of the installed package and exit with 0.
 
 `--profile <profile|path>` selects something other than `developer`: a profile name beside the
 host or the path to a custom `ragents.config.<profile>.ts` anywhere on disk. Resolution matches

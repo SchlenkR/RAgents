@@ -1,11 +1,11 @@
 import { randomUUID } from "node:crypto";
 import {
   DomainError,
-  type Action,
   type CommandContext,
   type JournalEvent,
   type JsonValue,
   type Orchestration,
+  type RunState,
 } from "@ragents/engine";
 import { askPayloadOf, ASK_PLUGIN_ID, SUPERSEDED_ANSWER, supersedingInputOf } from "../ask-payload.js";
 import { DISMISSED_ANSWER, type AskCall, type AskRequest, type AskService } from "./contract.js";
@@ -15,23 +15,24 @@ const answerOf = (decision: "approved" | "dismissed", result: unknown): string =
     ? supersedingInputOf(result) === undefined ? DISMISSED_ANSWER : SUPERSEDED_ANSWER
     : typeof result === "string" ? result : result === null || result === undefined ? "" : JSON.stringify(result);
 
-const resolvedAnswerOf = (action: Action): string | null =>
-  action.status === "pending" ? null : answerOf(action.status, action.result);
-
-const humanInputPendingFor = (runtime: Orchestration, runId: string, actorId: string): boolean =>
-  [...runtime.state(runId).inputs.values()].some((input) =>
+const humanInputPendingFor = (state: RunState, actorId: string): boolean =>
+  [...state.inputs.values()].some((input) =>
     input.actorId === actorId && input.origin === "human" && input.lifecycle.kind === "pending");
 
-interface Waiter {
-  runId: string;
-  /** The actor whose running turn waits for the answer; null for a question asked outside a turn. */
-  blockedActorId: string | null;
-  settle: (answer: string) => void;
-}
+/** Open questions an actor asked for itself; a question with a recipient stands for another actor. */
+const ownQuestionsOf = (state: RunState, askedBy: (actorId: string) => boolean): string[] =>
+  [...state.actions.values()]
+    .filter((action) => action.owner === ASK_PLUGIN_ID && action.status === "pending" && askedBy(action.askedBy)
+      && askPayloadOf(action.payload)?.recipient === undefined)
+    .map((action) => action.id);
+
+/** A locked or already removed journal holds no question that could still be withdrawn, so its deletion goes on. */
+const unreadableRun = (error: unknown): boolean =>
+  error instanceof DomainError && (error.code === "journal-unavailable" || error.code === "run-not-found");
 
 export class RuntimeAskService implements AskService {
   #runtime: Orchestration | undefined;
-  readonly #waiters = new Map<string, Waiter>();
+  readonly #waiters = new Map<string, (answer: string) => void>();
   readonly #aborting = new Set<string>();
 
   bind(runtime: Orchestration): void {
@@ -40,9 +41,52 @@ export class RuntimeAskService implements AskService {
     runtime.subscribe((events) => this.#onJournal(events));
   }
 
-  ask(call: AskCall, request: AskRequest, signal: AbortSignal | undefined): Promise<string> {
+  pose(call: AskCall, request: AskRequest): string | undefined {
+    if (this.#requireRuntime().select(call.runId, (state) => humanInputPendingFor(state, call.agentId))) return undefined;
+    return this.#propose(call, request);
+  }
+
+  ask(call: AskCall & { turnId: null }, request: AskRequest, signal: AbortSignal | undefined): Promise<string> {
+    return this.#awaitAnswer(call.runId, this.#propose(call, request), signal);
+  }
+
+  answer(runId: string, actionId: string, input: { answer?: string; dismiss?: boolean }): void {
     const runtime = this.#requireRuntime();
-    if (call.turnId && humanInputPendingFor(runtime, call.runId, call.agentId)) return Promise.resolve(SUPERSEDED_ANSWER);
+    const state = runtime.state(runId);
+    const action = state.actions.get(actionId);
+    if (!action || action.owner !== ASK_PLUGIN_ID) {
+      throw new DomainError("question-not-found", `Question ${actionId} does not exist in run ${runId}.`, 404);
+    }
+    runtime.resolveAction(
+      { actorId: state.ownerId, commandId: `ask-answer:${actionId}:${randomUUID()}` },
+      runId,
+      actionId,
+      input.dismiss === true
+        ? { decision: "dismissed", result: null }
+        : { decision: "approved", result: input.answer ?? null },
+    );
+  }
+
+  withdraw(runId: string, actionId: string): void {
+    this.#dismiss(runId, actionId, "ask-withdraw", null);
+  }
+
+  /** Withdraws every open question an agent of the run asked for itself, on stop and deletion. */
+  stopRun(runId: string): void {
+    for (const actionId of this.#agentQuestions(runId)) this.withdraw(runId, actionId);
+  }
+
+  #agentQuestions(runId: string): string[] {
+    try {
+      return this.#requireRuntime().select(runId, (state) => ownQuestionsOf(state, (askedBy) => askedBy !== state.ownerId));
+    } catch (error) {
+      if (unreadableRun(error)) return [];
+      throw error;
+    }
+  }
+
+  #propose(call: AskCall, request: AskRequest): string {
+    const runtime = this.#requireRuntime();
     const context: CommandContext = {
       actorId: call.agentId,
       commandId: call.commandId,
@@ -66,39 +110,19 @@ export class RuntimeAskService implements AskService {
     if (proposed?.type !== "action.proposed") {
       throw new Error(`The question from ${call.agentId} was not created in the journal of ${call.runId}`);
     }
-    return this.#awaitAnswer(call.runId, proposed.payload.actionId, call.turnId ? call.agentId : null, signal);
+    return proposed.payload.actionId;
   }
 
-  answer(runId: string, actionId: string, input: { answer?: string; dismiss?: boolean }): void {
-    const runtime = this.#requireRuntime();
-    const state = runtime.state(runId);
-    const action = state.actions.get(actionId);
-    if (!action || action.owner !== ASK_PLUGIN_ID) {
-      throw new DomainError("question-not-found", `Question ${actionId} does not exist in run ${runId}.`, 404);
-    }
-    runtime.resolveAction(
-      { actorId: state.ownerId, commandId: `ask-answer:${actionId}:${randomUUID()}` },
-      runId,
-      actionId,
-      input.dismiss === true
-        ? { decision: "dismissed", result: null }
-        : { decision: "approved", result: input.answer ?? null },
-    );
-  }
-
-  withdraw(runId: string, actionId: string): void {
-    this.#dismiss(runId, actionId, "ask-withdraw", null, DISMISSED_ANSWER);
-  }
-
-  #supersede(runId: string, actionId: string, inputId: string): void {
+  #closeOwnQuestions(runId: string, actorId: string, close: (actionId: string) => void): void {
     try {
-      this.#dismiss(runId, actionId, "ask-supersede", { supersededBy: inputId }, SUPERSEDED_ANSWER);
+      const questions = this.#requireRuntime().select(runId, (state) => ownQuestionsOf(state, (askedBy) => askedBy === actorId));
+      for (const actionId of questions) close(actionId);
     } catch (error) {
-      console.error(`Question ${actionId} could not be closed for message ${inputId}: ${error instanceof Error ? error.message : String(error)}`);
+      console.error(`Open questions of ${actorId} in run ${runId} could not be closed: ${error instanceof Error ? error.message : String(error)}`);
     }
   }
 
-  #dismiss(runId: string, actionId: string, commandPrefix: string, result: JsonValue, answer: string): void {
+  #dismiss(runId: string, actionId: string, commandPrefix: string, result: JsonValue): void {
     const runtime = this.#requireRuntime();
     const state = runtime.state(runId);
     const action = state.actions.get(actionId);
@@ -114,35 +138,20 @@ export class RuntimeAskService implements AskService {
     } finally {
       this.#aborting.delete(actionId);
     }
-    this.#waiters.get(actionId)?.settle(answer);
   }
 
-  #awaitAnswer(runId: string, actionId: string, blockedActorId: string | null, signal: AbortSignal | undefined): Promise<string> {
-    const runtime = this.#requireRuntime();
-    const action = runtime.state(runId).actions.get(actionId);
+  #awaitAnswer(runId: string, actionId: string, signal: AbortSignal | undefined): Promise<string> {
+    const action = this.#requireRuntime().state(runId).actions.get(actionId);
     if (!action) throw new Error(`Question ${actionId} does not exist in run ${runId}`);
-    const settled = resolvedAnswerOf(action);
-    if (settled !== null) return Promise.resolve(settled);
+    if (action.status !== "pending") return Promise.resolve(answerOf(action.status, action.result));
     return new Promise<string>((resolve, reject) => {
       const abort = () => {
         this.#waiters.delete(actionId);
-        this.#aborting.add(actionId);
         try {
-          const state = runtime.state(runId);
-          const pending = state.actions.get(actionId);
-          if (pending?.status === "pending") {
-            runtime.resolveAction(
-              { actorId: state.ownerId, commandId: `ask-abort:${actionId}:${randomUUID()}` },
-              runId,
-              actionId,
-              { decision: "dismissed", result: null },
-            );
-          }
+          this.#dismiss(runId, actionId, "ask-abort", null);
           reject(new Error("Waiting for the answer was cancelled."));
         } catch (error) {
           reject(error);
-        } finally {
-          this.#aborting.delete(actionId);
         }
       };
       if (signal?.aborted) {
@@ -150,14 +159,10 @@ export class RuntimeAskService implements AskService {
         return;
       }
       signal?.addEventListener("abort", abort, { once: true });
-      this.#waiters.set(actionId, {
-        runId,
-        blockedActorId,
-        settle: (answer) => {
-          signal?.removeEventListener("abort", abort);
-          this.#waiters.delete(actionId);
-          resolve(answer);
-        },
+      this.#waiters.set(actionId, (answer) => {
+        signal?.removeEventListener("abort", abort);
+        this.#waiters.delete(actionId);
+        resolve(answer);
       });
     });
   }
@@ -167,23 +172,26 @@ export class RuntimeAskService implements AskService {
       if (event.type === "actor.input.enqueued") {
         if (event.payload.origin !== "human") continue;
         const { actorId, inputId } = event.payload;
-        for (const [actionId, waiter] of this.#waiters) {
-          if (waiter.runId !== event.runId || waiter.blockedActorId !== actorId) continue;
-          queueMicrotask(() => this.#supersede(event.runId, actionId, inputId));
-        }
+        queueMicrotask(() => this.#closeOwnQuestions(event.runId, actorId, (actionId) =>
+          this.#dismiss(event.runId, actionId, "ask-supersede", { supersededBy: inputId })));
+        continue;
+      }
+      if (event.type === "actor.stopped") {
+        const { actorId } = event.payload;
+        queueMicrotask(() => this.#closeOwnQuestions(event.runId, actorId, (actionId) => this.withdraw(event.runId, actionId)));
         continue;
       }
       if (event.type !== "action.resolved") continue;
-      if (this.#aborting.has(event.payload.actionId)) continue;
-      const resolved = this.#requireRuntime().state(event.runId).actions.get(event.payload.actionId);
-      if (resolved?.owner !== ASK_PLUGIN_ID) continue;
-      const answer = answerOf(event.payload.decision, event.payload.result);
-      const waiter = this.#waiters.get(event.payload.actionId);
+      const { actionId, decision, result } = event.payload;
+      const waiter = this.#waiters.get(actionId);
       if (waiter) {
-        waiter.settle(answer);
+        waiter(answerOf(decision, result));
         continue;
       }
-      queueMicrotask(() => this.#enqueueAnswer(event.runId, event.payload.actionId, answer));
+      if (this.#aborting.has(actionId)) continue;
+      const resolved = this.#requireRuntime().state(event.runId).actions.get(actionId);
+      if (resolved?.owner !== ASK_PLUGIN_ID) continue;
+      queueMicrotask(() => this.#enqueueAnswer(event.runId, actionId, answerOf(decision, result)));
     }
   }
 

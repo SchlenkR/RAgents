@@ -5,7 +5,8 @@ import { useAccess } from "./AccessContext";
 import { canStartEntry } from "../../../packages/ragents/src/access";
 import { startEntryDirectly } from "./chat/requests";
 import { RunPreparationChat } from "./RunPreparationChat";
-import { StartSection, StartTiles, startTileCount } from "./StartTiles";
+import { StartTiles, startTileCount } from "./StartTiles";
+import { SectionHeading } from "./ui/SectionLabel";
 import type { ConnectionEntry } from "./panel/contract";
 import type { JsonValue, PluginRegistry, SessionContext, StartEntry } from "./PluginRegistry";
 
@@ -74,11 +75,11 @@ export function StartSelection({ registry, session, initialEntryId, onOpen }: {
   }, [disabled, initialEntryId, open]);
 
   return <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-auto px-10 pt-6 pb-5 max-md:px-3 max-md:pt-11 max-md:pb-4">
-    <section aria-label="Start selection" className="mx-auto grid w-full max-w-composer grid-cols-1 gap-1.5">
-      <StartSection count={startTileCount(tiles, defaultEntry, free)} title="New" />
-      {error && <p className="text-[0.8rem] text-destructive" role="alert">{error}</p>}
+    <section aria-label="Start selection" className="mx-auto grid w-full max-w-composer grid-cols-1 gap-3">
+      <SectionHeading count={startTileCount(tiles, defaultEntry, free)} title="New" />
+      {error && <p className="type-body text-destructive" role="alert">{error}</p>}
       {tiles.length === 0 && !free
-        ? <p className="text-[0.75rem] text-muted-foreground" role="status">No template is shared with this user account.</p>
+        ? <p className="type-body text-muted-foreground" role="status">No template is shared with this user account.</p>
         : <StartTiles defaultEntry={defaultEntry} disabled={disabled} entries={tiles} label="Templates" onNewChat={free ? onOpen : undefined} onStart={open} />}
     </section>
   </div>;

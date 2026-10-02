@@ -1,6 +1,6 @@
 import { useEffect, useLayoutEffect, useRef, useState, type ComponentType, type FocusEvent } from "react";
 import { useAccess } from "@ragents/web/AccessContext";
-import type { SessionHeaderContext } from "@ragents/web/PluginRegistry";
+import type { SessionHeaderContext, WorkspaceTabContext } from "@ragents/web/PluginRegistry";
 import { Dialog, DialogBody, DialogContent, DialogHeader, DialogTitle, StopButton, cn } from "@ragents/web/ui";
 import { ToolbarCopy, ToolbarItem, ToolbarLabel, ToolbarText } from "@ragents/web/Toolbar";
 import { rpc } from "@ragents/web/rpc";
@@ -18,9 +18,10 @@ const pillClass = "inline-flex h-6 min-w-0 items-center gap-1.5 whitespace-nowra
 const portClass = "flex-none rounded-full bg-primary/14 px-1.5 py-px text-foreground tabular-nums underline underline-offset-2 hover:bg-primary/28 focus-visible:bg-primary/28";
 const stopClass = "size-5 min-w-5 rounded-full p-0.75 [&_svg]:size-2.5";
 
-const useRunProcesses = (runId: string): ProcessWatchState => {
+const useRunProcesses = (runId: string, active: boolean): ProcessWatchState => {
   const [state, setState] = useState<ProcessWatchState>(idle);
   useEffect(() => {
+    if (!active) return;
     setState(idle);
     return rpc.subscribe(processesContracts.live, { runId }, (data) => {
       try {
@@ -33,11 +34,11 @@ const useRunProcesses = (runId: string): ProcessWatchState => {
         setState((current) => ({ ...current, error: caught instanceof Error ? caught.message : String(caught) }));
       }
     }, (message) => setState((current) => ({ ...current, error: message })));
-  }, [runId]);
+  }, [active, runId]);
   return state;
 };
 
-function IconProcess() {
+export function IconProcess() {
   return <svg aria-hidden fill="none" height="12" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.8" viewBox="0 0 24 24" width="12">
     <rect height="16" rx="2" width="18" x="3" y="4" />
     <path d="m7 9 3 3-3 3M13 15h4" />
@@ -78,10 +79,10 @@ function ProcessPill({ process, state, writable, onStop, toolbar = false }: { pr
   </div>;
 }
 
-function ProcessHeaderContent({ runId }: { runId: string }) {
+function ProcessHeaderContent({ runId, panel = false, active = true }: { runId: string; panel?: boolean; active?: boolean }) {
   const access = useAccess();
   const writable = access.can("runs.write") && access.can("runs.inspect");
-  const state = useRunProcesses(runId);
+  const state = useRunProcesses(runId, active);
   const [stops, setStops] = useState<Record<string, StopState>>({});
   const [allOpen, setAllOpen] = useState(false);
   const requests = useRef(new Map<string, AbortController>());
@@ -121,6 +122,10 @@ function ProcessHeaderContent({ runId }: { runId: string }) {
     } finally { requests.current.delete(process.id); }
   };
   const renderProcess = (process: RunProcess, toolbar = false) => <ProcessPill key={process.id} process={process} state={stops[process.id]} writable={writable} toolbar={toolbar} onStop={() => { void stop(process); }} />;
+  if (panel) return <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-auto p-2" ref={rootRef} onFocusCapture={rememberFocus}>
+    {processes.length > 0 ? processes.map((process) => renderProcess(process)) : <p role="status">No active processes.</p>}
+    {state.error !== undefined && <p className="text-destructive" role="alert">{state.error}</p>}
+  </div>;
   if (shown.length === 0 && state.error === undefined && !allOpen) return null;
   return <>
     <div aria-label="Processes and ports of the run" className="flex min-w-0 flex-none items-stretch self-stretch" ref={rootRef} onFocusCapture={rememberFocus}>
@@ -152,3 +157,7 @@ export const processHeader = (): ComponentType<SessionHeaderContext> =>
     return access.can("runs.read") && access.can("ragents.processes.read")
       ? <ProcessHeaderContent key={session.session.id} runId={session.session.id} /> : null;
   };
+
+export function ProcessesPanel({ active, session }: WorkspaceTabContext) {
+  return <ProcessHeaderContent active={active} panel runId={session.session.id} />;
+}

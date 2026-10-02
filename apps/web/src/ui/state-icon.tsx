@@ -38,12 +38,18 @@ export const connectionStateTone = (state: ConnectionStateName): string => CONNE
 
 const markClass = "inline-flex flex-none items-center gap-1";
 
-export function RunStateIcon({ state, open = 0, className }: { state: RunStateName; open?: number; className?: string }) {
+const NOTICE_WORDS = { unseen: "not viewed yet", updated: "new activity" } as const;
+
+/** The whole run state in one glyph: the tone carries the state, a dot inside the ring says something is new. */
+export function RunStateIcon({ state, open = 0, notice, className }: { state: RunStateName; open?: number; notice?: "unseen" | "updated"; className?: string }) {
   const mark = RUN_MARKS[state];
-  const word = runStateWord(state, open);
-  const Icon = mark.Icon;
+  const word = notice ? `${runStateWord(state, open)}, ${NOTICE_WORDS[notice]}` : runStateWord(state, open);
+  const Icon = notice ? CircleIcon : mark.Icon;
   return <span className={cn(markClass, mark.tone, className)} title={word}>
-    <Icon className="size-3.5" />
+    <span className="relative inline-flex">
+      <Icon className="size-3.5" />
+      {notice && <span aria-hidden className="absolute inset-0 m-auto size-1.5 rounded-full bg-info" />}
+    </span>
     {state === "waiting" && open > 0 && <span aria-hidden className="font-mono text-[0.62rem] font-semibold leading-none">{open}</span>}
     <span className="sr-only">{word}</span>
   </span>;

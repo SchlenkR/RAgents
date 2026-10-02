@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
 import { XIcon } from "lucide-react";
 import type { JournalEvent } from "@ragents/engine/src/domain/events";
-import type { SessionHeaderContext } from "@ragents/web/PluginRegistry";
+import type { SessionHeaderContext, WorkspaceTabContext } from "@ragents/web/PluginRegistry";
 import { SourceCode } from "@ragents/web/SourceCode";
 import { Button, Input, Popover, PopoverContent } from "@ragents/web/ui";
 import { runContracts } from "@ragents/engine/src/http/contracts";
@@ -9,8 +9,13 @@ import { rpc } from "@ragents/web/rpc";
 import { runViewFrom } from "@ragents/web/run-view";
 import { statusControlClass } from "./constants";
 
-export function JournalStatus({ session }: SessionHeaderContext) {
-  const [open, setOpen] = useState(false);
+export function JournalPanel({ active, ...context }: WorkspaceTabContext) {
+  return <JournalStatus {...context} dockActive={active} />;
+}
+
+export function JournalStatus({ session, dockActive }: SessionHeaderContext & { dockActive?: boolean }) {
+  const [popoverOpen, setOpen] = useState(false);
+  const open = dockActive ?? popoverOpen;
   const [events, setEvents] = useState<readonly JournalEvent[]>([]);
   const [error, setError] = useState<string>();
   const [loading, setLoading] = useState(false);
@@ -46,17 +51,11 @@ export function JournalStatus({ session }: SessionHeaderContext) {
   }, [events, query, view?.actors]);
   const actors = new Map(view?.actors.map((actor) => [actor.id, actor.handle]));
 
-  return <div className="flex h-full min-w-0 items-stretch">
-    <button aria-controls={panelId} aria-expanded={open} className={statusControlClass} onClick={() => setOpen((value) => !value)} ref={buttonRef} type="button">
-      Journal
-    </button>
-    <Popover open={open} onOpenChange={(next) => { if (!next) close(); }}>
-    <PopoverContent align="start" anchor={buttonRef} aria-label="Journal of the run" className="flex min-h-0 min-w-0 flex-col gap-0 overflow-hidden rounded-t-sm rounded-b-none p-0 text-[0.76rem]" collisionPadding={8} id={panelId}
-      initialFocus={searchRef} role="region" side="top" style={{ width: "min(900px, var(--available-width))", height: "min(480px, var(--available-height))" }}>
+  const content = <>
       <header className="flex flex-none items-center gap-2 border-b border-border-soft px-2.5 py-2">
         <div className="flex min-w-0 flex-1 items-baseline gap-2.5 [&>span]:truncate"><strong>Journal</strong><span className="text-muted-foreground">{session.session.title || "Run"}</span></div>
         <Button onClick={() => setReload((value) => value + 1)} size="sm" variant="ghost">Refresh</Button>
-        <Button aria-label="Close journal" onClick={() => close(true)} size="icon-sm" title="Close journal" variant="ghost"><XIcon /></Button>
+        {dockActive === undefined && <Button aria-label="Close journal" onClick={() => close(true)} size="icon-sm" title="Close journal" variant="ghost"><XIcon /></Button>}
       </header>
       <div className="flex flex-none items-center gap-3 px-2.5 py-2">
         <Input className="flex-1" aria-label="Search journal" onChange={(event) => { setQuery(event.target.value); setLimit(100); }} placeholder="Search event type, actor or content ..." ref={searchRef} type="search" value={query} />
@@ -68,7 +67,17 @@ export function JournalStatus({ session }: SessionHeaderContext) {
         {filtered.slice(0, limit).map((event) => <JournalEntry actor={actors.get(event.actorId)} event={event} key={event.eventId} />)}
         {filtered.length > limit && <Button onClick={() => setLimit((value) => value + 100)} size="sm" variant="outline">Show more events</Button>}
       </div>
-    </PopoverContent>
+  </>;
+  if (dockActive !== undefined) return <div className="flex min-h-0 flex-1 flex-col text-[0.76rem]">{content}</div>;
+  return <div className="flex h-full min-w-0 items-stretch">
+    <button aria-controls={panelId} aria-expanded={open} className={statusControlClass} onClick={() => setOpen((value) => !value)} ref={buttonRef} type="button">
+      Journal
+    </button>
+    <Popover open={open} onOpenChange={(next) => { if (!next) close(); }}>
+      <PopoverContent align="start" anchor={buttonRef} aria-label="Journal of the run" className="flex min-h-0 min-w-0 flex-col gap-0 overflow-hidden rounded-t-sm rounded-b-none p-0 text-[0.76rem]" collisionPadding={8} id={panelId}
+        initialFocus={searchRef} role="region" side="top" style={{ width: "min(900px, var(--available-width))", height: "min(480px, var(--available-height))" }}>
+        {content}
+      </PopoverContent>
     </Popover>
   </div>;
 }

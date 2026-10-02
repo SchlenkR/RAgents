@@ -86,6 +86,8 @@ npm install -g @schlenkr/ragents
   ragents stop 7f3c1e64-9a2b-4d11-8c30-1f5e9a77c001
   ```
 
+- `--version` or `-v` - print the installed version.
+
 ## Requirements
 
 - Node 22 (>= 22.19.0). No git, no pnpm, no source checkout; the package carries its finished web

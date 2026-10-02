@@ -3,13 +3,6 @@ import { defineOperation } from "@ragents/engine/src/rpc/contract";
 import { eventTypeMap, type EventType } from "@ragents/engine/src/domain/events";
 
 export const OVERSEER_PLUGIN_ID = "ragents.overseer";
-export const QUICK_ANSWER_MAX_LENGTH = 240;
-
-export interface QuickAnswerState {
-  kind: "quick-answer";
-  question: string;
-  text: string;
-}
 
 export const overseerPermissions = [
   { id: "ragents.overseer.read", description: "View the global coordinator and its model selection." },

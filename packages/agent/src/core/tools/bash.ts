@@ -168,7 +168,7 @@ export function createBashToolDefinition(
 	return {
 		name: "bash",
 		label: "bash",
-		description: `Execute a bash command in the working directory, or in the folder given as cwd. Returns stdout and stderr; a nonzero exit code is reported at the end of the result (for example grep without a match), not as a tool error. Output is truncated to last ${DEFAULT_MAX_LINES} lines or ${BASH_MAX_BYTES / 1024}KB (whichever is hit first), and lines longer than ${BASH_MAX_LINE_CHARS} characters are shortened. If anything was cut, the full output is saved to a temp file. A command is stopped after ${defaultTimeoutSeconds} seconds unless you pass a larger timeout (at most ${BASH_MAX_TIMEOUT_SECONDS} seconds); builds, test runs, installs and other long commands need one.`,
+		description: `Execute a bash command in the working directory, or in the folder given as cwd. Returns stdout and stderr; a nonzero exit code is reported at the end of the result (for example grep without a match), not as a tool error. Output is truncated to last ${DEFAULT_MAX_LINES} lines or ${BASH_MAX_BYTES / 1024}KB (whichever is hit first), and lines longer than ${BASH_MAX_LINE_CHARS} characters are shortened. If anything was cut, the full output is saved to a temp file. rg searches recursively by default; its -r flag means replace and rewrites every match, it does not mean recursive. A command is stopped after ${defaultTimeoutSeconds} seconds unless you pass a larger timeout (at most ${BASH_MAX_TIMEOUT_SECONDS} seconds); builds, test runs, installs and other long commands need one.`,
 		parameters: bashSchemaFor(defaultTimeoutSeconds),
 		async execute(
 			_toolCallId,

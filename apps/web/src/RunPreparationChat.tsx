@@ -9,7 +9,7 @@ import { ChatViewSwitches, useChatViewSettings } from "./chat-view-settings";
 import { StartOptionControls, conflictingStartOptions, useStartOptions } from "./StartOptions";
 import { discussRun, preparedRunInput } from "./run-preparation";
 
-const composerPlacement = "flex min-h-0 min-w-0 flex-1 *:flex-1 max-md:[&_[data-chat=composer]]:px-2 max-md:[&_[data-chat=composer]]:pb-2";
+const composerPlacement = "flex min-h-0 min-w-0 flex-1 *:flex-1 max-md:[--qsl-chat-horizontal-padding:8px] max-md:[&_[data-chat=composer]]:pb-2";
 /** Without a conversation the composer sits in the middle; a flat window puts it back at the bottom. */
 const emptyComposerPlacement = "[&_[data-chat=composer]]:top-1/2 [&_[data-chat=composer]]:bottom-auto [&_[data-chat=composer]]:-translate-y-1/2 [@media(max-height:600px)]:[&_[data-chat=composer]]:top-auto [@media(max-height:600px)]:[&_[data-chat=composer]]:bottom-0 [@media(max-height:600px)]:[&_[data-chat=composer]]:translate-y-0";
 
@@ -120,7 +120,7 @@ export function RunPreparationChat({ initialPrompt, entry, registry, sessionRef 
       </div>
       <div aria-label="Start options" className="flex flex-wrap items-center gap-x-3 gap-y-2 empty:hidden"><StartOptionControls disabled={busy} fixed={fixed} registry={registry} /></div>
     </div>}>
-      {messages.length > 0 && <ChatMessages detailMode={chatView.detailMode} messages={messages} running={operation === "preparing"} showTimestamps={chatView.showTimestamps} stepsExpandable={chatView.stepsExpandable} />}
+      {messages.length > 0 && <ChatMessages detailMode={chatView.detailMode} transcriptMode={chatView.transcriptMode} messages={messages} running={operation === "preparing"} showTimestamps={chatView.showTimestamps} stepsExpandable={chatView.stepsExpandable} />}
     </ChatPanel>
   </section>;
 }

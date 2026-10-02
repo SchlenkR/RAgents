@@ -341,7 +341,7 @@ Four ways start one there, all through the same session path: `ragents.chat.star
 start is accepted and reports errors in the chat; `ragents.runs.startScript` waits and returns the
 script actor and which start of its package in the run this was, or the error;
 `ragents.runs.scripts` lists the templates the caller may start with `available` and otherwise a
-`reason`. The run panel's menu offers them as "Run script", `ragents script <run> [<entry>]` on the
+`reason`. The run header's "Run script" button lists them as Start page items, `ragents script <run> [<entry>]` on the
 command line, and the run functions `run_script_list` and `run_script_start` offer them to an actor
 of the run (below). Without the line, such a start is refused with `run-started` (409). Everything that can
 refuse the start is checked before the run changes: every start option the template fixes must

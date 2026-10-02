@@ -96,7 +96,7 @@ const writeSources = (name: string, files: Readonly<Record<string, string>>) => 
 test("new, revised and removed actor functions are discovered and called within one coordinator turn", async (t) => {
     const run = await workflow(t);
     const before = await run.call("before", "typescript_api", { query: "dynamic_transform" });
-    assert.deepEqual(before, { functions: [] });
+    assert.deepEqual(before, { functions: [], hint: "No function contains the query as one phrase in its name, label or description; use a single word. Omit query to list all names." });
     assert.deepEqual(run.toolset.tools.map((entry) => entry.name), ["read", "edit", "write", "bash", "typescript_api", "typescript_eval"]);
     await run.call("build", "typescript_eval", { code: `
 await context.functions.actor_program_create({ name: "formatter", template: "blank" });
@@ -115,7 +115,7 @@ return context.functions.actor_program_activate({ name: "formatter" });` });
     assert.deepEqual(await run.call("revised-call", "typescript_eval", { code: 'return context.functions.dynamic_transform({ value: 4 });' }), { result: 8, logs: [] });
 
     await run.call("remove", "typescript_eval", { code: 'return context.functions.actor_program_remove({ name: "formatter" });' });
-    assert.deepEqual(await run.call("removed-api", "typescript_api", { query: "dynamic_transform" }), { functions: [] });
+    assert.deepEqual(await run.call("removed-api", "typescript_api", { query: "dynamic_transform" }), { functions: [], hint: "No function contains the query as one phrase in its name, label or description; use a single word. Omit query to list all names." });
     await assert.rejects(run.call("removed-detail", "typescript_api", { names: ["dynamic_transform"] }), /Unavailable TypeScript functions/);
     await assert.rejects(run.call("removed-call", "typescript_eval", { code: 'return context.functions.dynamic_transform({ value: 4 });' }), /does not exist/);
     assert.deepEqual(run.toolset.tools.map((entry) => entry.name), ["read", "edit", "write", "bash", "typescript_api", "typescript_eval"]);

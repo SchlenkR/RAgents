@@ -2,6 +2,8 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { mkdir, mkdtemp, writeFile } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { build } from "esbuild";
 import { chromium, type Page } from "playwright-core";
 import { tailwindPlugin } from "./tailwind-plugin";
@@ -22,7 +24,7 @@ const buildFixture = async (): Promise<string> => {
         builder.onLoad({ filter: /\/src\/PluginActivation\.ts$/ }, () => ({ contents: "export const usePluginActivation = () => window.startPageActivation;", loader: "js", resolveDir: source }));
         builder.onLoad({ filter: /\/src\/rpc\.ts$/ }, () => ({ contents: "export const rpc = { call: (...args) => window.startPageFixture.call(...args), subscribe: (...args) => window.startPageFixture.subscribe(...args) };", loader: "js" }));
       } },
-      tailwindPlugin([source, `${root}plugins/ragents.workspace/web`]),
+      tailwindPlugin([source, `${root}plugins/ragents.workspace/web`, `${root}plugins/ragents.overseer/web`]),
     ], logLevel: "silent",
   });
   await writeFile(`${directory}/index.html`, '<!doctype html><html><head><meta charset="utf-8"><link rel="stylesheet" href="fixture.css"><style>html,body{height:100%;margin:0}#root{height:100%}</style></head><body><div id="root"></div><script src="fixture.js"></script></body></html>');
@@ -160,3 +162,167 @@ test("without runs.inspect the chat shows no model choice, neither in the browse
     });
   }
 });
+
+
+for (const view of ["web", "start"] as const) {
+  for (const width of [220, 380, 900, 1600, 2600, 6000]) {
+    test(`panel content stays bounded at ${width}px (${view})`, browserOnly, async (context) => {
+      await withPage(`view=${view}`, width, async (page) => {
+        await openStartSelection(page);
+        const shots = join(tmpdir(), "ragents-browser-shots");
+        await mkdir(shots, { recursive: true });
+        const measure = () => page.evaluate(() => {
+          const main = document.querySelector("main")!;
+          const grid = main.querySelector<HTMLElement>('ul[aria-label="Templates"]');
+          const list = main.querySelector<HTMLElement>('ul[aria-label="Recent"], ul[aria-label="Runs"]')!;
+          const servers = main.querySelector<HTMLElement>('ul[aria-label="Server"]');
+          const search = main.querySelector<HTMLInputElement>('input[aria-label="Search runs"]');
+          const rect = list.getBoundingClientRect();
+          const sections = [...main.querySelectorAll(":scope > div > div > section")].map((section) => ({
+            box: section.getBoundingClientRect(), heading: section.children[0]!.getBoundingClientRect(), content: section.children[1]!.getBoundingClientRect(),
+          }));
+          return {
+            top: main.querySelector(":scope > div > div > :first-child")!.getBoundingClientRect().top - main.getBoundingClientRect().top,
+            headingGap: sections.length > 1 ? sections[0]!.content.top - sections[0]!.heading.bottom : undefined,
+            sectionGap: sections.length > 1 ? sections[1]!.box.top - sections[0]!.box.bottom : undefined,
+            back: main.querySelector('button[aria-label="Back to Start"]') !== null,
+            left: rect.left, width: rect.width, hostWidth: main.clientWidth, hostLeft: main.getBoundingClientRect().left,
+            gridWidth: grid?.getBoundingClientRect().width,
+            columns: grid ? getComputedStyle(grid).gridTemplateColumns.split(" ").length : undefined,
+            serverWidth: servers?.getBoundingClientRect().width,
+            searchWidth: search?.getBoundingClientRect().width,
+            rows: [...list.children].map((row) => row.getBoundingClientRect().width),
+            cards: grid ? [...grid.children].map((card) => ({ width: card.getBoundingClientRect().width, top: card.getBoundingClientRect().top })) : [],
+            overflow: main.scrollWidth > main.clientWidth || document.documentElement.scrollWidth > innerWidth,
+          };
+        });
+        const checkColumn = (metrics: Awaited<ReturnType<typeof measure>>) => {
+          assert.ok(metrics.width > 0 && metrics.width <= 1280, JSON.stringify(metrics));
+          assert.ok(Math.abs(metrics.left - metrics.hostLeft - (metrics.hostWidth - metrics.width) / 2) < 2, "content is centered in its host");
+          assert.ok(metrics.rows.every((row) => row <= metrics.width + 1));
+          assert.equal(metrics.overflow, false, JSON.stringify(metrics));
+        };
+        const start = await measure();
+        await page.screenshot({ path: join(shots, `panel-${view}-start-${width}.png`) });
+        checkColumn(start);
+        assert.ok(start.serverWidth! <= 720);
+        assert.ok(Math.abs(start.gridWidth! - start.width) < 1);
+        assert.equal(start.columns, width < 900 ? 1 : width === 900 ? 3 : 5);
+        assert.equal(start.cards.filter((card) => card.top === start.cards[0]!.top).length, start.columns, "cards occupy each column");
+        assert.ok(start.cards.every((card) => card.width <= 320 && card.width >= Math.min(240, start.gridWidth!)));
+        assert.equal(start.back, false, "Start has no back arrow");
+        assert.ok(start.headingGap! >= 8 && start.sectionGap! >= 2 * start.headingGap!, `sections are set apart more than a heading from its content: ${JSON.stringify(start)}`);
+        if (width === 2600) {
+          await page.evaluate(() => { document.getElementById("root")!.style.width = "220px"; });
+          const narrow = await measure();
+          assert.equal(narrow.columns, 1, "container width controls the grid, even in a wide window");
+          assert.equal(narrow.overflow, false);
+          await page.evaluate(() => { document.getElementById("root")!.style.width = ""; });
+        }
+        await page.getByRole("button", { name: /All .* runs/ }).click();
+        await page.getByRole("searchbox", { name: "Search runs" }).waitFor();
+        const runs = await measure();
+        await page.screenshot({ path: join(shots, `panel-${view}-runs-${width}.png`) });
+        checkColumn(runs);
+        assert.ok(Math.abs(runs.searchWidth! - runs.width) < 1, "search and rows use the same bounded column");
+        assert.equal(runs.width, start.width);
+        assert.ok(Math.abs(runs.top - start.top) < 1, `Runs begins at the height of Start: ${runs.top} and ${start.top}`);
+        assert.equal(runs.back, true, "Runs leads back to Start next to its title, also below the browser's logo");
+        await page.locator("main").getByRole("button", { name: "Back to Start", exact: true }).click();
+        await page.getByRole("list", { name: "Recent", exact: true }).waitFor();
+        context.diagnostic(`Screenshots: ${shots}`);
+      });
+    });
+  }
+}
+
+for (const host of ["browser", "vscode"] as const) {
+  test(`one shared header retains the coordinator and run actions (${host})`, browserOnly, async () => {
+    await withPage(`view=${host === "browser" ? "web" : "panel"}&host=${host}&coordinator=1`, 1280, async (page) => {
+      const header = page.locator("header").filter({ has: page.locator('[data-slot="overseer-toolbar"]') });
+      const coordinator = header.getByRole("button", { name: "Global coordinator", exact: true });
+      await coordinator.click();
+      const history = page.getByRole("region", { name: "Global coordinator", exact: true });
+      await history.waitFor();
+      const draft = history.getByRole("textbox", { name: "Ask the global coordinator", exact: true });
+      await page.waitForFunction(() => document.activeElement?.closest("#overseer-dropdown") !== null && document.activeElement instanceof HTMLTextAreaElement);
+      const input = await draft.elementHandle();
+      await page.keyboard.type("Unsent coordinator draft");
+      await page.keyboard.press("Escape");
+      await history.waitFor({ state: "hidden" });
+      await page.waitForFunction(() => document.activeElement?.textContent === "Global coordinator", undefined, { timeout: 2000 });
+      assert.equal(await header.count(), 1);
+      const rect = await header.boundingBox();
+      assert.ok(rect && rect.height < 50, "the global header occupies a single row");
+      const shots = join(tmpdir(), "ragents-browser-shots");
+      await mkdir(shots, { recursive: true });
+      await page.screenshot({ path: join(shots, `header-${host}-start.png`) });
+      const logo = header.getByRole("button", { name: "Back to Start", exact: true });
+      assert.equal(await logo.count(), 1, "the logo is the way back to Start");
+      assert.equal(await page.getByPlaceholder("Ask the global coordinator").count(), 1, "Start has no second coordinator chat");
+      if (host === "browser") {
+        await page.getByRole("list", { name: "Recent", exact: true }).getByRole("button").first().click();
+      } else {
+        await page.evaluate(() => window.startPageFixture.command({ type: "selectRun", runId: "existing" }));
+      }
+      await header.getByRole("button", { name: "Stop run", exact: true }).waitFor();
+      assert.equal(await logo.count(), 1, "the run header has no separate back arrow");
+      await coordinator.click();
+      await history.waitFor();
+      assert.equal(await draft.evaluate((element, original) => element === original, input), true);
+      assert.equal(await draft.inputValue(), "Unsent coordinator draft");
+      await page.keyboard.press("Escape");
+      await history.waitFor({ state: "hidden" });
+      if (host === "browser") {
+        const reset = header.getByRole("button", { name: "Reset layout", exact: true });
+        await reset.waitFor();
+        assert.equal(await page.locator('[data-docking="workspace"]').getByRole("button", { name: "Reset layout", exact: true }).count(), 0, "Layout actions are mounted in the shared header.");
+        await page.getByRole("button", { name: "Close Chat", exact: true }).click();
+        await page.evaluate(() => new Promise<void>((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve()))));
+        const openChat = header.getByRole("group", { name: "Layout actions" }).getByRole("button", { name: "Chat", exact: true });
+        await openChat.waitFor();
+        assert.equal(await openChat.getAttribute("aria-pressed"), "false", "A closed view keeps its button.");
+        const visibleAction = async (button: typeof openChat) => {
+          const bounds = await button.boundingBox();
+          const headerBounds = await header.boundingBox();
+          assert.ok(bounds && headerBounds);
+          assert.ok(bounds.x >= headerBounds.x && bounds.x + bounds.width <= headerBounds.x + headerBounds.width, JSON.stringify({ bounds, headerBounds }));
+          assert.ok(bounds.y >= headerBounds.y && bounds.y + bounds.height <= headerBounds.y + headerBounds.height, "Layout controls fit the shared header height.");
+          assert.equal(await button.evaluate((element) => {
+            const rect = element.getBoundingClientRect();
+            return [[rect.left + 2, rect.top + rect.height / 2], [rect.right - 2, rect.top + rect.height / 2], [rect.left + rect.width / 2, rect.top + 2], [rect.left + rect.width / 2, rect.bottom - 2]].every(([x, y]) => element.contains(document.elementFromPoint(x!, y!)));
+          }), true, "The action container does not clip the buttons.");
+        };
+        await page.screenshot({ path: join(shots, "header-browser-direct-actions.png") });
+        await visibleAction(openChat);
+        await visibleAction(reset);
+        await openChat.click();
+        await page.getByRole("tab", { name: "Chat", exact: true }).waitFor();
+        assert.equal(await openChat.getAttribute("aria-pressed"), "true", "A shown view stays listed as pressed.");
+        await page.getByRole("button", { name: "Close Chat", exact: true }).click();
+        await page.setViewportSize({ width: 520, height: 820 });
+        await openChat.waitFor();
+        await page.screenshot({ path: join(shots, "header-browser-narrow-actions.png") });
+        await visibleAction(openChat);
+        await visibleAction(reset);
+        await openChat.click();
+        await page.getByRole("tab", { name: "Chat", exact: true }).waitFor();
+        assert.equal(await reset.isVisible(), true, "Reset remains visible in the narrow header.");
+        await page.setViewportSize({ width: 1280, height: 820 });
+      } else {
+        assert.equal(await header.getByRole("button", { name: "Reset layout", exact: true }).count(), 0);
+      }
+      await coordinator.click();
+      await history.waitFor();
+      await page.screenshot({ path: join(shots, `header-${host}-run-coordinator.png`) });
+      if (host === "browser") {
+        await page.keyboard.press("Escape");
+        await history.waitFor({ state: "hidden" });
+        await logo.focus();
+        await page.keyboard.press("Enter");
+        await page.getByRole("list", { name: "Templates", exact: true }).waitFor();
+        assert.equal(await header.getByRole("button", { name: "Stop run", exact: true }).count(), 0, "the logo leads back to Start");
+      }
+    });
+  });
+}

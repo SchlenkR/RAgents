@@ -706,7 +706,7 @@ const payloadOf = (type: EventType, value: unknown, path: string) => {
                 "payload",
             ]);
             stringOf(payload.actionId, `${path}.actionId`);
-            nullableStringOf(payload.owner, `${path}.owner`);
+            stringOf(payload.owner, `${path}.owner`);
             stringOf(payload.title, `${path}.title`);
             nullableStringOf(payload.description, `${path}.description`);
             stringRecordOf(payload.parameters, `${path}.parameters`);

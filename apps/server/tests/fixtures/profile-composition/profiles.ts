@@ -8,7 +8,7 @@ export const showcaseFixture: CompositionFixture = {
   plugins: [
     "ragents.orchestration", "ragents.workspace", "ragents.product", "ragents.overseer",
     "ragents.activity", "ragents.processes", "ragents.documents", "ragents.browser", "ragents.ask", "ragents.todo",
-    "ragents.watch", "ragents.transcript", "ragents.actor-programs", "ragents.reference",
+    "ragents.watch", "ragents.actor-programs", "ragents.reference",
     "ragents.lsp-roslyn", "ragents.lsp-fsharp", "ragents.lsp-typescript",
   ],
 };

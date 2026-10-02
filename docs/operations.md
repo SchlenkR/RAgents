@@ -13,38 +13,134 @@ Windows, macOS, and Linux, each for x64 and ARM64. They include Node.js, npm, th
 dependencies, the finished web interface, plugins, and platform tools. No existing Node.js, npm,
 pnpm, or source checkout is needed. Linux builds target glibc systems, not Alpine/musl.
 
-On macOS or Linux:
+### Install for you or for all users
+
+An installer script installs the archive for this machine. You choose the scope: the current user
+(the default) or all users of the machine.
+
+| Scope        | macOS and Linux                                | Windows                                                   |
+| ------------ | ---------------------------------------------- | --------------------------------------------------------- |
+| Current user | `~/.local`, no administrator access            | `%LOCALAPPDATA%\Programs\RAgents`, user `PATH`            |
+| All users    | `/usr/local`, sudo only if it is not writable  | `%ProgramFiles%\RAgents`, machine `PATH`, administrator   |
+
+The versions go to `lib/ragents` (Windows: `versions`) below that folder, the command to `bin`.
+On macOS or Linux, for the current user:
 
 ```sh
 curl -fsSL https://github.com/SchlenkR/RAgents/releases/latest/download/install.sh | sh
 ```
 
-The command is installed at `~/.local/bin/ragents`. Add `~/.local/bin` to your `PATH` if needed,
-or use that full path. On Windows, run this in PowerShell:
+For all users:
 
-```powershell
-& ([scriptblock]::Create((Invoke-RestMethod https://github.com/SchlenkR/RAgents/releases/latest/download/install.ps1)))
+```sh
+curl -fsSL https://github.com/SchlenkR/RAgents/releases/latest/download/install.sh | sh -s -- --global
 ```
 
-The Windows installer uses `%LOCALAPPDATA%/Programs/RAgents` and adds its `bin` folder to the
-user PATH. Open a new terminal afterwards. Neither installer needs administrator access. Both
-select the current machine's archive, verify it against the release's `SHA256SUMS`, and check
-the command before switching the active version. Repeat the command to update; older versions
-remain installed. Stop your running hosts before switching versions and restart them afterwards.
-Settings and runs remain in the existing user data directory.
+The shell installer does not edit your startup files. `~/.local/bin` is often not on the `PATH`,
+on macOS by default; the installer then prints the line to add for your shell, for zsh this line
+in `~/.zshrc`:
 
-For a fixed release or another installation folder, download the script and pass
-`--version 0.1.21 --prefix /absolute/install/path` on Unix, or
-`-Version 0.1.21 -Prefix C:\Apps\RAgents` on Windows. Windows also accepts `-NoPathUpdate`.
-Use the same prefix and an older `--version` / `-Version` to switch back. Alternatively, unpack
-the matching archive yourself and run `bin/ragents` or `bin/ragents.cmd` from it.
+```sh
+export PATH="$HOME/.local/bin:$PATH"
+```
 
-Run `ragents --help` for commands. After configuring model access as described below,
-`ragents start core` provisions that profile's tools and starts its web interface at
-`http://localhost:4710`. The bundle does not include model credentials, Chromium, language servers,
-or development SDKs. Provisioning downloads the profile's supported tools; the included profiles
-use C# and F# diagnostics and require an installed .NET 10 SDK. These requirements are the same
-as for the npm package. An own profile can omit those plugins.
+Open a new terminal afterwards, or run the command by its full path. `/usr/local/bin` is on the
+default `PATH` of macOS and common Linux distributions.
+
+On Windows, in PowerShell, for the current user:
+
+```powershell
+& ([scriptblock]::Create((irm https://github.com/SchlenkR/RAgents/releases/latest/download/install.ps1)))
+```
+
+For all users, in a PowerShell started with "Run as administrator":
+
+```powershell
+& ([scriptblock]::Create((irm https://github.com/SchlenkR/RAgents/releases/latest/download/install.ps1))) -Global
+```
+
+The Windows installer adds its `bin` folder to the user or machine `PATH`; open a new terminal
+afterwards. Without an elevated PowerShell, `-Global` stops with a message instead of installing
+for the current user. Use this script block form rather than `irm ... | iex`: only it passes
+parameters to the script.
+
+Further options follow `sh -s --` in the shell and the closing parenthesis in PowerShell:
+
+- `--version 0.1.21` or `-Version 0.1.21` installs that release instead of the latest.
+- `--prefix /absolute/folder` or `-Prefix C:\Apps\RAgents` installs into another folder. The scope
+  still decides about administrator access and, on Windows, which `PATH` changes.
+- `-NoPathUpdate` leaves the Windows `PATH` unchanged.
+- `--help` or `-Help` lists all options.
+
+Both installers verify the archive against the release's `SHA256SUMS`, check that the command
+starts, and prepare the installation completely before they switch the active version, so a
+running host never writes into the installation folder. They refuse to replace a `ragents` command
+they did not create, for example one from npm. If another `ragents` command comes first on your
+`PATH`, or the other scope still holds an installation, the installer warns and prints the command
+that removes it; it never removes another installation itself. `ragents --version` shows the
+active version.
+
+Alternatively, unpack the matching archive yourself and run `bin/ragents` or `bin/ragents.cmd`
+from it. Its first command then writes links into that folder, so the folder must be writable.
+
+### Update and uninstall
+
+Run the install command of your scope again to update. The new release is installed next to the
+previous ones, which remain installed; the command switches only after the new version has
+passed its checks. To switch back, pass the older version with `--version` or `-Version`. Stop
+running hosts before switching versions and restart them afterwards.
+
+To uninstall, add `--uninstall` or `-Uninstall` to the command of your scope, for example:
+
+```sh
+curl -fsSL https://github.com/SchlenkR/RAgents/releases/latest/download/install.sh | sh -s -- --uninstall
+```
+
+```powershell
+& ([scriptblock]::Create((irm https://github.com/SchlenkR/RAgents/releases/latest/download/install.ps1))) -Uninstall
+```
+
+This removes the command and every installed version, on Windows also the `PATH` entry. A `PATH`
+line you added to a startup file stays. Settings and runs stay in each user's data directory,
+`~/.local/share/ragents` or `%LOCALAPPDATA%\ragents`; delete it to remove them as well.
+
+### First start
+
+The included profiles read the OpenRouter key from the environment variable `OPENROUTER_API_KEY`;
+no `.env` file is loaded. Set it in the shell that starts RAgents or in its startup file, then
+start the `core` profile:
+
+```sh
+export OPENROUTER_API_KEY=<your-key>
+ragents start core
+```
+
+In PowerShell, set it with `$env:OPENROUTER_API_KEY = "<your-key>"`. The start provisions the
+profile's tools into the user's data directory, for example `~/.local/share/ragents/core`, and
+then serves the interface at `http://localhost:4710`. Without the variable, it stops before the
+server starts:
+
+```text
+.../ragents.config.core.ts: ragents.product.OPENROUTER_API_KEY refers with env("OPENROUTER_API_KEY") to an environment variable that is not set in this shell. ...
+Provisioning ended with code 1
+```
+
+The C# and F# diagnostics of `core` (`ragents.lsp-roslyn` and `ragents.lsp-fsharp`) need the
+.NET 10 SDK with `dotnet` on the `PATH`. Without it, the start stops after provisioning:
+
+```text
+ragents.lsp-fsharp: missing: dotnet is missing on this machine; install the .NET SDK from https://dotnet.microsoft.com/download and make sure dotnet is on the PATH
+ragents.lsp-roslyn: missing: dotnet is missing on this machine; install the .NET SDK from https://dotnet.microsoft.com/download and make sure dotnet is on the PATH
+Provisioning ended with code 1
+```
+
+Install the SDK and start again, or start an own profile without these two plugins, see
+[Custom profiles and plugins](homepage/guide-distributed.html#custom-profiles-and-plugins). The
+archive includes no model credentials, Chromium, language servers, or development SDKs.
+Provisioning fetches Chromium and the language servers; on Linux it installs Chromium's system
+libraries with sudo. These requirements are the same for the npm package. `ragents --help` lists
+the other commands, and [Configure model access and start](#configure-model-access-and-start)
+describes the model settings.
 
 The process sandbox has platform prerequisites too: Linux needs `bubblewrap`, `socat`, and
 working user namespaces; the standalone starter exposes its bundled ripgrep automatically.
@@ -67,9 +163,9 @@ Or run it through npx without a global installation:
 npx --yes @schlenkr/ragents start core
 ```
 
-Configure model access as described below before starting. Startup provisions the profile's
-tools; external prerequisites such as .NET must already be available. Then open
-`http://localhost:4710`. Other subcommands work the same way, for example
+The first start is the same as for a standalone release, see [First start](#first-start):
+`OPENROUTER_API_KEY` must be set, and the C# and F# diagnostics of `core` need the .NET 10 SDK.
+Then open `http://localhost:4710`. Other subcommands work the same way, for example
 `npx --yes @schlenkr/ragents connect <server-url>`.
 
 ## Install from the repository
@@ -244,6 +340,7 @@ Node.js 22.19 or newer is required, without Git, pnpm, or a source build. The su
 - `ragents workspace-client <server-url> [folders ...]` registers this machine as a workspace.
 - `ragents plugin build <folder...>` builds plugin sources into bundles, with type checks; see
   [Build and ship a plugin](homepage/guide-plugins.html).
+- `ragents --version` (or `-v`) prints the version of the package or standalone installation.
 
 The package runs like the checkout, with the same files in the same places and TypeScript loaded
 at runtime through `tsx`. On first use, the command creates the `node_modules/@ragents/*`
@@ -476,14 +573,12 @@ unit tests that simulate the platform. A first real run should verify `pnpm conn
 `read`, `edit`, `bash` output and cancellation, diagnostics, and a workspace through
 `pnpm workspace-client`, and with the bundled bash `git fetch` and `git push` over HTTPS with Git
 Credential Manager and over SSH.
-<!-- /guide:distributed -->
-
 ## Server process sandbox
 
 What a run starts on the server (Bash, commands, language servers, TypeScript snippets, actor
 programs) runs in a process sandbox: it reads and writes only the folders of its run, sees
-neither other runs nor the home of the server account, and reaches only the allowlist on the
-network. Rules and limits are in [plugins.md](spec/plugins.md) under "Server process sandbox". It
+neither other runs nor the home of the server account, and can reach public web domains by
+default. Rules and limits are in [plugins.md](spec/plugins.md) under "Server process sandbox". It
 does not apply on a workstation; there the run works with the developer's Bash and credentials.
 Only what such a run starts on the server, such as a Bash in `@actors`, runs inside it.
 
@@ -505,15 +600,22 @@ The profile file controls it in the `ragents.workspace` section:
 
 ```ts
 "ragents.workspace": {
-  PROCESS_SANDBOX: "off",                                   // deliberately without a sandbox, e.g. on Windows
-  PROCESS_SANDBOX_NETWORK: ["registry.npmjs.org", "*.example.com"], // replaces the default
+  PROCESS_SANDBOX: "on",
+  PROCESS_SANDBOX_NETWORK: ["*"], // public web domains on ports 80 and 443 (the default)
 },
 ```
 
-Without `PROCESS_SANDBOX_NETWORK`, npm, NuGet, and GitHub apply; the server's own address is
-always allowed. A tool that wants to reach the network outside the list gets the proxy's 403
-response. On macOS, pnpm through corepack needs a `packageManager` in the workspace's
+`curl`, package downloads and API requests no longer need a domain entry for each public
+website. IP literals, localhost and internal services need explicit entries, for example
+`["*", "127.0.0.1:8080"]`; for an internal hostname in public mode, allow its IP and port too.
+The server's own address is always allowed. A list such as `["registry.npmjs.org", "*.example.com"]`
+restricts access to those targets; `[]` leaves only the own server reachable. Network permission
+does not distinguish downloads from uploads or destructive API calls. File isolation remains
+active. `PROCESS_SANDBOX: "off"` explicitly disables the whole sandbox, for example on Windows.
+On macOS, pnpm through corepack needs a `packageManager` in the workspace's
 `package.json`, because corepack otherwise aborts at a blocked folder above it.
+
+<!-- /guide:distributed -->
 
 ## Time limit of `bash`
 

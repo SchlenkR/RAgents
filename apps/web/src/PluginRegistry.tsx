@@ -116,6 +116,7 @@ export interface SurfaceController {
 }
 
 export interface ChatDisplayOptions {
+  autoFocus?: boolean;
   chatElementClassName?: string;
   chatScrollerRef?: (element: HTMLDivElement | null) => void;
   toolbarLeft?: ReactNode;
@@ -124,6 +125,8 @@ export interface ChatDisplayOptions {
 }
 
 export interface SurfaceCenterContext {
+  autoFocusChat?: boolean;
+  onAutoFocusChatSettled?: () => void;
   toolbarContainer: HTMLElement | null;
   statusContainer: HTMLElement | null;
   cardSections: readonly CardSectionContribution[];
@@ -192,12 +195,14 @@ export interface WorkspaceTabContext {
 }
 
 export interface WorkspaceTabContribution {
+  hosts?: readonly ("browser" | "vscode")[];
   readRight?: string;
   id: string;
   label: string;
   order: number;
   Icon: ComponentType;
   Panel: ComponentType<WorkspaceTabContext>;
+  Header?: ComponentType<WorkspaceTabContext>;
   Badge?: ComponentType<WorkspaceTabContext>;
   available?: (session: SessionContext) => boolean;
   /** The tab needs the run's workspace and is missing where the viewer cannot reach it. */
@@ -239,7 +244,7 @@ export interface OverviewPanelContext {
 }
 
 export interface OverviewPanelContribution {
-  placement?: "overview" | "toolbar" | "idle";
+  placement?: "overview" | "toolbar";
   id: string;
   order: number;
   /** Right a user needs to see the panel; without it the panel is shown to everyone. */

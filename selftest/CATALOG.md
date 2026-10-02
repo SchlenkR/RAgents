@@ -78,8 +78,8 @@ this time with the new numbers. You know which ones I mean."
 
 Prompt B: "Do the evaluation like last time, just with the new numbers."
 
-Expectation: ask_user is called (action.proposed in the journal), the run waits for the
-answer instead of inventing content. No made-up numbers or buildings.
+Expectation: ask_user is called (action.proposed in the journal), the coordinator ends its turn
+and waits for the answer instead of inventing content. No made-up numbers or buildings.
 
 Why good: No silent fallbacks as a rule of behavior; tests whether the question tool is
 pulled at the right moment - one of the most expensive error classes in everyday use.

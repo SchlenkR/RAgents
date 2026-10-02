@@ -9,7 +9,7 @@ import type { NativeTypeScriptRequest, PluginContext, ToolScope } from "@ragents
 import { COMMAND_OPERATIONS, WORKSPACE_EXECUTOR_VERSION, type CommandResult, type WorkspaceExecutor } from "@ragents/workspace-executor";
 import { scriptProgram } from "../../../packages/ragents/tests/native-executor.ts";
 import { NodeTypeScriptExecutor } from "../src/plugin-support/native-typescript-executor.ts";
-import { ServerProcessSandbox } from "../src/plugin-support/process-sandbox.ts";
+import { PROCESS_SANDBOX_DEFAULT_NETWORK, ServerProcessSandbox } from "../src/plugin-support/process-sandbox.ts";
 import { WorkspaceSandboxHost } from "../src/plugin-support/workspace-sandbox-host.ts";
 import type { SandboxFolder, SessionWorkspace } from "../src/ragents/workspace-runtime.ts";
 
@@ -38,7 +38,7 @@ const closed = (server: Server): Promise<void> => new Promise((resolve) => {
 });
 
 /** A data folder like that of a server with users: a user's global coordinator and the journal of a foreign run. */
-const coordinatorFixture = async () => {
+const coordinatorFixture = async (network: readonly string[] = PROCESS_SANDBOX_DEFAULT_NETWORK) => {
   const data = await realpath(await mkdtemp(path.join(tmpdir(), "ragents-process-sandbox-")));
   const foreignJournal = path.join(data, "runs", "foreign-run", "journal.jsonl");
   await mkdir(path.dirname(foreignJournal), { recursive: true });
@@ -48,7 +48,7 @@ const coordinatorFixture = async () => {
   await mkdir(cwd, { recursive: true });
   const allowed = await listening("own server");
   const forbidden = await listening("foreign service");
-  const processSandbox = new ServerProcessSandbox({ network: [], serverAddress: allowed.address, dataDirectory: data, disableSetting: SANDBOX_OFF });
+  const processSandbox = new ServerProcessSandbox({ network, serverAddress: allowed.address, dataDirectory: data, disableSetting: SANDBOX_OFF });
   await processSandbox.start();
   const workspace: SessionWorkspace = {
     cwd,
@@ -130,12 +130,30 @@ export const handle = async () => { await writeFile("snippet.txt", "from snippet
 });
 
 test("network calls outside the allowlist fail, the own server stays reachable", { skip: !supported, timeout: 60_000 }, async () => {
-  const f = await coordinatorFixture();
+  const f = await coordinatorFixture([]);
   try {
     assert.match(await f.bash(`curl --silent --show-error --max-time 10 ${f.allowed.address}`), /own server/);
     const blocked = await f.bash(`curl --silent --show-error --max-time 10 ${f.forbidden.address}`);
     assert.doesNotMatch(blocked, /foreign service/);
     assert.match(blocked, /blocked by network allowlist/);
+    const fetched = await f.snippet(`export const handle = async () => {
+  const allowed = await fetch(${JSON.stringify(f.allowed.address)}).then((response) => response.text());
+  const blocked = await fetch(${JSON.stringify(f.forbidden.address)}).then((response) => response.status === 200 ? "reached" : "rejected " + response.status, () => "rejected");
+  return allowed + " / " + blocked;
+};`);
+    assert.match(String(fetched), /^own server \/ rejected/);
+  } finally { await f.close(); }
+});
+
+test("public web access keeps private services blocked and the own server reachable", { skip: !supported, timeout: 60_000 }, async () => {
+  const f = await coordinatorFixture();
+  try {
+    assert.match(await f.bash(`curl --silent --show-error --max-time 10 ${f.allowed.address}`), /own server/);
+    for (const address of [f.forbidden.address, f.forbidden.address.replace("127.0.0.1", "localhost")]) {
+      const blocked = await f.bash(`curl --silent --show-error --max-time 10 ${address}`);
+      assert.doesNotMatch(blocked, /foreign service/);
+      assert.match(blocked, /blocked by network allowlist/);
+    }
     const fetched = await f.snippet(`export const handle = async () => {
   const allowed = await fetch(${JSON.stringify(f.allowed.address)}).then((response) => response.text());
   const blocked = await fetch(${JSON.stringify(f.forbidden.address)}).then((response) => response.status === 200 ? "reached" : "rejected " + response.status, () => "rejected");

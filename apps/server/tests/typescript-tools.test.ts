@@ -83,6 +83,9 @@ test("TypeScript discovery exposes the same registered function with exact schem
     await assert.rejects(run.call("api-schemas-all", "typescript_api", { schemas: true }), /only for selected names/);
     const search = await run.call("api-search", "typescript_api", { query: "counter" });
     assert.deepEqual(search, listing);
+    const phrase = await run.call("api-phrase", "typescript_api", { query: "update the counter" });
+    assert.deepEqual(phrase, { functions: [], hint: "No function contains the query as one phrase in its name, label or description; use a single word. Functions matching one of its words: counter_update. Omit query to list all names." });
+    assert.deepEqual(await run.call("api-nothing", "typescript_api", { query: "zzz" }), { functions: [], hint: "No function contains the query as one phrase in its name, label or description; use a single word. Omit query to list all names." });
     await assert.rejects(run.call("api-missing", "typescript_api", { names: ["actor_stop"] }), /Unavailable TypeScript functions/);
 });
 

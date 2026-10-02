@@ -9,6 +9,10 @@ Use the TypeScript functions `browser_open`, `browser_snapshot`, `browser_click`
 `browser_fill`, `browser_select`, `browser_press`, `browser_check`, `browser_viewport`,
 `browser_screenshot` and `browser_close`. Load their exact contracts with `typescript_api`.
 
+A mini-app of an actor program is not an application you start: it is already open for the user as a
+tab. Check it with `actor_view_snapshot`, which resolves the address itself; use the steps below for
+applications you started.
+
 1. Start the application with its actual services and wait until they are ready.
 2. Open its HTTP address with `browser_open`. Every run has its own browser without an
    inherited sign-in. It runs on the machine of your workspace; you reach an application

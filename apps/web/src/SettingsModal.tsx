@@ -186,7 +186,7 @@ export function SettingsModal({ onClose, registry }: SettingsModalProps) {
 
   return (
     <Dialog open onOpenChange={(open) => { if (!open) onClose(); }}>
-    <DialogContent className="mx-auto flex h-[calc(100vh-2*clamp(14px,4vh,42px))] max-h-none w-[min(1220px,calc(100vw-2*clamp(14px,4vw,58px)))] max-w-none min-h-0 min-w-0 flex-col gap-0 overflow-hidden rounded-xl bg-card p-0 shadow-[0_34px_90px_color-mix(in_srgb,var(--foreground)_45%,transparent)] max-md:h-[calc(100vh-16px)] max-md:w-[calc(100vw-16px)]" initialFocus={closeRef} scope="page" showCloseButton={false} size="full">
+    <DialogContent className="mx-auto flex h-[calc(100vh-2*clamp(14px,4vh,42px))] max-h-none w-[min(1220px,calc(100vw-2*clamp(14px,4vw,58px)))] max-w-none min-h-0 min-w-0 flex-col gap-0 overflow-hidden rounded-xl bg-card p-0 shadow-pop max-md:h-[calc(100vh-16px)] max-md:w-[calc(100vw-16px)]" initialFocus={closeRef} scope="page" showCloseButton={false} size="full">
       <header className="grid flex-none grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-3 border-b border-border px-3.5 py-2.5">
         <span className="flex size-[34px] items-center justify-center rounded-[10px] bg-[color-mix(in_srgb,var(--primary)_12%,var(--background))] text-primary"><SettingsIcon size={18} /></span>
         <span className="grid min-w-0 gap-px">

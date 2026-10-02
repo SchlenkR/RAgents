@@ -1,13 +1,15 @@
+import { useState } from "react";
 import { createRoot } from "react-dom/client";
 import { createAccessContext } from "../../../packages/ragents/src/access";
 import { WORKSPACE_BINDING_OPTION_ID } from "../../../plugins/ragents.workspace/contract";
+import { webPlugin as overseerPlugin } from "../../../plugins/ragents.overseer/web/index";
 import { WorkspaceBindingControl } from "../../../plugins/ragents.workspace/web/WorkspaceBinding";
 import { parseRunPanelLocation } from "../src/run-panel/run-panel-location";
 import { AccessContext } from "../src/AccessContext";
 import type { PluginActivationState } from "../src/PluginActivation";
 import { PluginRegistry, type EntryGuideContext } from "../src/PluginRegistry";
 import { PanelPage } from "../src/panel/PanelPage";
-import type { ConnectionView } from "../src/panel/contract";
+import type { ConnectionView, PanelState } from "../src/panel/contract";
 import { productStartOptions } from "../src/product/start-options";
 import { RunPanelApp } from "../src/run-panel/RunPanelApp";
 import { createBrowserHost, RunPanelHostProvider, type RunPanelHost } from "../src/run-panel/host";
@@ -43,6 +45,7 @@ const startEntries = [
 const registry = new PluginRegistry({
   brand: { title: "Start check" }, product: { id: "demo", title: "Start check" },
   plugins: [
+    ...(query.has("coordinator") ? [overseerPlugin] : []),
     { id: "demo", startOptions: productStartOptions, guides: [{ id: "demo.topic", Guide: TopicGuide }] },
     { id: "ragents.workspace", startOptions: [{ id: WORKSPACE_BINDING_OPTION_ID, Control: WorkspaceBindingControl }] },
   ],
@@ -85,6 +88,8 @@ const fixture = {
     fixture.calls.push({ id: contract.id, params });
     const runId = typeof params.runId === "string" ? params.runId : "";
     switch (contract.id) {
+      case "ragents.overseer.coordinator": return { runId: "global" };
+      case "ragents.overseer.settings.read": return { provider: "demo", model: "demo-model", thinking: "off", models: [{ id: "demo-model", provider: "demo", label: "Demo", thinking: ["off"] }] };
       case "ragents.runs.list": return [{ id: "existing", title: "Existing run", updatedAt: Date.now() - 180_000 }];
       case "ragents.startOptions.list": return optionsOf(runId);
       case "ragents.startOptions.select": {
@@ -125,11 +130,17 @@ const vsCodeHost: RunPanelHost = {
 window.startPageActivation = { status: "ready", registry, bootstrap: { product: registry.profile.product, plugins: [], startEntries }, failures: [] } as unknown as PluginActivationState;
 
 const access = createAccessContext({ enabled: true, user: { id: "tester", label: "Tester",
-  rights: ["runs.read", "runs.write", "runs.create", ...(inspecting ? ["runs.inspect"] : []), "runs.delete", "settings.read"], startEntries: startEntries.map((entry) => entry.id) } });
+  rights: ["runs.read", "runs.write", "runs.create", ...(inspecting ? ["runs.inspect"] : []), "runs.delete", "settings.read", "ragents.overseer.read", "ragents.overseer.write"], startEntries: startEntries.map((entry) => entry.id) } });
 const view = query.get("view") ?? "web";
+function PanelFixture() {
+  const [state, setState] = useState<PanelState>({ theme: "dark", page: "start", profileSuggestions: [], connections: [connection] });
+  return <PanelPage state={state} send={(action) => {
+    if (action.action === "page") setState((current) => ({ ...current, page: action.page }));
+    if (action.action === "newRun") fixture.calls.push({ id: "panel.newRun", params: { ...action } });
+  }} />;
+}
 const page = view === "start"
-  ? <div className="p-3"><PanelPage send={(action) => { if (action.action === "newRun") fixture.calls.push({ id: "panel.newRun", params: { ...action } }); }}
-    state={{ theme: "dark", page: "start", profileSuggestions: [], connections: [connection] }} /></div>
+  ? <PanelFixture />
   : view === "panel"
     ? <RunPanelHostProvider value={query.get("host") === "vscode" ? vsCodeHost : createBrowserHost(window)}>
       <RunPanelApp location={{ layout: "panel", runId: undefined, host: query.get("host") === "vscode" ? "vscode" : "browser", connection: "local", theme: undefined, access: undefined }} />

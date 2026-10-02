@@ -1,7 +1,6 @@
 import { useAccess } from "@ragents/web/AccessContext";
-import { Button, Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, Popover, PopoverContent } from "@ragents/web/ui";
+import { Button, Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, Popover, PopoverContent, PopoverTrigger } from "@ragents/web/ui";
 import { RunModalContext } from "@ragents/web/ui/dialog";
-import { XIcon } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ChatMessages, ChatInputToolbar, ChatPanel, type ChatInputHandle, type ChatEvent } from "quassel";
 import { useChat } from "@ragents/web/chat/useChat";
@@ -16,10 +15,10 @@ import { runViewFrom } from "@ragents/web/run-view";
 import { OVERSEER_PLUGIN_ID, overseerContracts } from "../contract";
 import { ModelSettings, useModelSettings } from "./ModelSettings";
 import { overseerChatDisplayPolicy, overseerChatStorageKeyPrefix } from "./chat-display";
-import { createQuickAnswers, type QuickAnswerNotice } from "./quick-answers";
 
-const toolbarClass = "flex h-header max-w-[720px] min-w-[190px] flex-[0_1_570px] items-center gap-1 border-r border-border bg-[color-mix(in_srgb,var(--primary)_4%,var(--card))] px-2 py-1 data-open:bg-accent max-md:min-w-[130px] max-md:flex-[0_1_210px] max-md:px-1 max-md:data-open:grow";
-const noteClass = "mx-4 my-2 flex-none text-[0.8rem] text-muted-foreground";
+const toolbarClass = "flex h-header w-full min-w-0 flex-1 items-center px-2 py-1 max-md:px-1";
+const triggerClass = "h-full min-w-0 flex-1 justify-start border-border-strong bg-background px-2 font-normal text-muted-foreground aria-expanded:border-primary data-[working=true]:animate-working-pulse data-[working=true]:border-primary motion-reduce:data-[working=true]:animate-none";
+const noteClass = "text-[0.8rem] text-muted-foreground";
 
 /** Interrupts only the coordinator's running turn; the run and its other actors keep running. */
 const interruptCoordinator = async (runId: string) => {
@@ -27,7 +26,7 @@ const interruptCoordinator = async (runId: string) => {
   if (!coordinator) throw new Error("The global coordinator is not available");
   await interruptActorTurn(runId, coordinator);
 };
-const errorClass = "mx-4 my-2 flex-none text-[0.8rem] text-destructive";
+const errorClass = "text-[0.8rem] text-destructive";
 
 /** Every user has their own coordinator; only the server knows its id. */
 function useCoordinator() {
@@ -65,29 +64,22 @@ function OverseerConversation({ open, onOpen, onClose, onBusy, userLocation, run
   const resetPending = useRef(false);
   const resetObserved = useRef(false);
   const composer = useRef<ChatInputHandle>(null);
-  const anchor = useRef<HTMLDivElement>(null);
+  const [toolbar, setToolbar] = useState<HTMLDivElement | null>(null);
+  const [trigger, setTrigger] = useState<HTMLElement | null>(null);
   const dropdown = useRef<HTMLElement>(null);
-  const suppressFocus = useRef(false);
-  const [detailsContainer, setDetailsContainer] = useState<HTMLDivElement | null>(null);
   const [scroller, setScroller] = useState<HTMLDivElement | null>(null);
   const conversationId = useRef<string | null | undefined>(undefined);
   const [dialogContainer, setDialogContainer] = useState<HTMLElement | null>(null);
   const cancelReset = useRef<HTMLButtonElement>(null);
   const setDropdown = useCallback((element: HTMLElement | null) => { dropdown.current = element; setDialogContainer(element); }, []);
-  const [quickAnswers] = useState(createQuickAnswers);
-  const [quickAnswer, setQuickAnswer] = useState<QuickAnswerNotice>();
-  const panelOpen = useRef(open);
-  panelOpen.current = open;
   const [error, setError] = useState<string>();
   const [composerError, setComposerError] = useState<string>();
   const clearConversation = useCallback(() => {
     composer.current?.reset();
     setConfirmReset(false);
     setError(undefined);
-    setQuickAnswer(undefined);
   }, []);
   const onEvent = useCallback((event: ChatEvent) => {
-    const notice = quickAnswers.event(event);
     if (event.kind === "reset") {
       if (event.reason === "conversation-reset" || (conversationId.current != null && conversationId.current !== event.conversationId)) {
         if (resetPending.current) resetObserved.current = true;
@@ -96,36 +88,25 @@ function OverseerConversation({ open, onOpen, onClose, onBusy, userLocation, run
       conversationId.current = event.conversationId;
     }
     if (event.kind === "replay-end") conversationId.current = event.conversationId;
-    if (notice && !panelOpen.current) setQuickAnswer(notice);
-  }, [clearConversation, quickAnswers]);
+  }, [clearConversation]);
   const chat = useChat(runId, onEvent, activated);
-  const chatView = useChatViewSettings(runId, "primary", "coordinator");
+  const chatView = useChatViewSettings(runId, "primary", "coordinator", undefined, "latest");
   const modelState = useModelSettings(open);
   const attachments = useAttachmentCapabilities(runId, "primary", JSON.stringify(modelState.settings && [modelState.settings.provider, modelState.settings.model]));
   const messages = useMemo(() => withToolSummaries(chat.messages), [chat.messages]);
-  const requestOpen = () => { suppressFocus.current = false; setQuickAnswer(undefined); onOpen(); };
-  useEffect(() => { if (open) { setActivated(true); setQuickAnswer(undefined); } }, [open]);
+  useEffect(() => { if (open) setActivated(true); }, [open]);
   useEffect(() => onBusy(chat.running), [chat.running, onBusy]);
   const belowHeader = useCallback(() => {
-    const element = anchor.current;
-    if (!element) return null;
-    const boundary = element.closest("header") ?? element;
-    return { contextElement: element, getBoundingClientRect: () => {
-      const bounds = element.getBoundingClientRect();
-      return new DOMRect(bounds.left, boundary.getBoundingClientRect().bottom, bounds.width, 0);
+    if (!toolbar) return null;
+    const boundary = toolbar.closest("header") ?? toolbar;
+    return { contextElement: toolbar, getBoundingClientRect: () => {
+      const bounds = toolbar.getBoundingClientRect();
+      return new DOMRect(trigger?.getBoundingClientRect().left ?? bounds.left, boundary.getBoundingClientRect().bottom, bounds.width, 0);
     } };
-  }, []);
-  const dismiss = (reason: string, event: Event) => {
-    if (confirmReset) return;
-    if (reason === "outside-press") {
-      if (event.target instanceof Node && anchor.current?.contains(event.target)) return;
-      onClose();
-      return;
-    }
-    if (reason !== "escape-key") return;
-    suppressFocus.current = !(document.activeElement instanceof HTMLTextAreaElement && anchor.current?.contains(document.activeElement));
-    onClose();
-    composer.current?.focus();
+  }, [toolbar, trigger]);
+  const composerInput = () => {
+    const input = dropdown.current?.querySelector("textarea");
+    return input && !input.disabled ? input : scroller ?? true;
   };
 
   const perform = (work: () => Promise<void>) => {
@@ -150,125 +131,64 @@ function OverseerConversation({ open, onOpen, onClose, onBusy, userLocation, run
   };
   const connectionNote = activated && !chat.connected ? "No connection. Your draft is kept; sending is disabled." : undefined;
   const problem = error ?? composerError ?? modelState.error ?? connectionNote;
-  return <div className={toolbarClass} data-open={open} data-slot="overseer-toolbar" ref={anchor}
-    onFocus={(event) => {
-      if (!(event.target instanceof HTMLTextAreaElement)) return;
-      if (suppressFocus.current) suppressFocus.current = false;
-      else onOpen();
-    }}
-    onKeyDown={(event) => {
-      if (event.defaultPrevented) return;
-      if (!open && event.target instanceof HTMLTextAreaElement && (event.key.length === 1 || event.key === "Enter")) requestOpen();
-    }}>
-    <div className="min-w-0 flex-1" onClick={(event) => { if (event.target instanceof HTMLTextAreaElement) requestOpen(); }}>
-      <ChatInputToolbar {...attachments} detailsContainer={detailsContainer} layout="toolbar" handleRef={composer}
-        inputAriaControls="overseer-dropdown"
-        disabled={!writable || resetting || confirmReset} sendDisabled={!chat.connected || modelState.status === "saving" || resetting}
-        maxRows={2} rows={1} onErrorChange={setComposerError} onSend={(text, attachments) => chat.send(text, attachments, userLocation)}
-        onStop={writable && chat.running ? () => { if (!resetPending.current) perform(() => interruptCoordinator(runId)); } : undefined}
-        running={chat.running}
-        texts={{ placeholder: "Global coordinator", steeringPlaceholder: "Global coordinator" }}
-        toolbarRight={<ModelSettings active={open} compact disabled={resetting} actions={
-          <Button aria-label="Reset conversation" aria-busy={resetting} disabled={!writable || resetting || !chat.connected} onClick={() => setConfirmReset(true)} size="sm" variant="outline">
-            {resetting ? "Resetting ..." : "Reset"}
-          </Button>
-        } />}
-        toolbarLeft={<ChatViewSwitches className="max-md:[&>span]:hidden" settings={chatView} />}
-      />
-    </div>
-      <span className="flex min-w-0 flex-none items-center justify-end gap-1.5 empty:hidden" role="status" aria-live="polite">
-        {chat.running && <span className="sr-only">Working</span>}
-        {problem && <span className="text-[0.7rem] font-bold text-destructive" title={problem} aria-label={problem}>!</span>}
-      </span>
-    <Popover modal={false} open={quickAnswer !== undefined}>
-      <PopoverContent align="start" anchor={belowHeader} aria-atomic="true" aria-live="polite" className="flex max-w-[calc(100vw-16px)] flex-row items-start gap-1 p-1.5 text-[0.76rem]" collisionPadding={8}
-        finalFocus={false} initialFocus={false} role="status" side="bottom"
-        style={{ width: "min(max(calc(var(--anchor-width) * 2), 480px), var(--available-width))" }}>
-        {quickAnswer && <>
-          <Button className="h-auto min-w-0 flex-1 justify-start rounded-lg px-2.5 py-2 text-left text-[0.76rem] leading-[1.45] font-normal whitespace-normal [overflow-wrap:anywhere]" variant="ghost" aria-label={`Open history: ${quickAnswer.question} ${quickAnswer.text}`}
-            onClick={() => {
-              requestOpen();
-              if (writable) composer.current?.focus();
-              else requestAnimationFrame(() => scroller?.focus());
-            }}><span className="grid min-w-0 gap-1"><span className="text-muted-foreground">{quickAnswer.question}</span><strong className="font-semibold">{quickAnswer.text}</strong></span></Button>
-          <Button aria-label="Close quick answer" className="mt-1 flex-none rounded-full" onClick={() => setQuickAnswer(undefined)} size="icon-sm" title="Close quick answer" variant="ghost"><XIcon /></Button>
-        </>}
+  return <div className={toolbarClass} data-slot="overseer-toolbar" ref={setToolbar}>
+    <Popover modal={false} open={open} onOpenChange={(next) => { if (next) onOpen(); else if (!confirmReset) onClose(); }}>
+      <div className="relative z-[110] flex h-full min-w-0 flex-1 items-center gap-1">
+        <PopoverTrigger className={triggerClass} data-working={chat.running} render={<Button ref={setTrigger} variant="ghost" />}>
+          <span className="truncate">Global coordinator</span>
+        </PopoverTrigger>
+        <span className="flex min-w-0 flex-none items-center justify-end gap-1.5 empty:hidden" role="status" aria-live="polite">
+          {chat.running && <span className="sr-only">Working</span>}
+          {problem && <span className="text-[0.7rem] font-bold text-destructive" title={problem} aria-label={problem}>!</span>}
+        </span>
+      </div>
+      <PopoverContent align="start" anchor={belowHeader} aria-label="Global coordinator" className="flex min-h-0 flex-col gap-0 overflow-hidden rounded-t-none rounded-b-panel border-t-2 border-t-primary p-0" collisionPadding={8}
+        container={toolbar} dim id="overseer-dropdown" initialFocus={composerInput} keepMounted ref={setDropdown} role="region" side="bottom"
+        style={{ width: "min(760px, var(--available-width))", height: "min(650px, var(--available-height))" }}>
+        {confirmReset && dialogContainer && <RunModalContext.Provider value={dialogContainer}>
+          <Dialog open onOpenChange={(next) => { if (!next && !resetting) setConfirmReset(false); }} modal="trap-focus" disablePointerDismissal>
+            <DialogContent initialFocus={cancelReset} onBackdropClick={() => { if (!resetting) setConfirmReset(false); }} scope="run" showCloseButton={false} size="small">
+              <DialogHeader>
+                <DialogTitle>Reset conversation?</DialogTitle>
+                <DialogDescription>History and model context are deleted. Running answers are stopped.</DialogDescription>
+              </DialogHeader>
+              <p>Your runs and the model choice are kept.</p>
+              {error && <p className="text-[0.8rem] text-destructive" role="alert">{error}</p>}
+              <DialogFooter>
+                <Button ref={cancelReset} disabled={resetting} onClick={() => setConfirmReset(false)} variant="outline">Cancel</Button>
+                <Button disabled={resetting} onClick={() => { void reset(); }} variant="destructive">
+                  {resetting ? "Resetting ..." : "Reset conversation"}
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
+        </RunModalContext.Provider>}
+        <ChatPanel className="flex-1" composer={<div className="[--qsl-input-card-radius:var(--radius-lg)]">
+          {connectionNote && <p className={noteClass} role="status">{connectionNote}</p>}
+          {error && <p className={errorClass} role="alert">{error}</p>}
+          <ChatInputToolbar {...attachments} handleRef={composer}
+            disabled={!writable || resetting || confirmReset} sendDisabled={!chat.connected || modelState.status === "saving" || resetting}
+            maxRows={4} rows={1} onErrorChange={setComposerError} onSend={(text, attachments) => chat.send(text, attachments, userLocation)}
+            onStop={writable && chat.running ? () => { if (!resetPending.current) perform(() => interruptCoordinator(runId)); } : undefined}
+            running={chat.running}
+            texts={{ placeholder: writable ? "Ask the global coordinator" : "Read access to the global coordinator" }}
+            toolbarLeft={<ChatViewSwitches className="max-md:[&>span]:hidden" settings={chatView} />}
+            toolbarRight={<ModelSettings active={open} compact disabled={resetting} actions={
+              <Button aria-label="Reset conversation" aria-busy={resetting} disabled={!writable || resetting || !chat.connected} onClick={() => setConfirmReset(true)} size="sm" variant="outline">
+                {resetting ? "Resetting ..." : "Reset"}
+              </Button>
+            } />}
+          />
+        </div>}>
+          <ChatMessages announce={false} className="min-h-16!" scrollerRef={setScroller}
+            detailMode={chatView.detailMode} transcriptMode={chatView.transcriptMode}
+            emptyState={<div className="m-auto max-w-[480px] p-8 text-[0.9rem] leading-[1.6] text-muted-foreground max-md:p-5"><strong className="text-foreground">One chat for the whole workshop</strong><p>Ask about your runs or give a task below. Answers about your runs and ongoing work appear here.</p></div>}
+            messages={messages} running={chat.running} showTimestamps={chatView.showTimestamps} stepsExpandable={chatView.stepsExpandable}
+          />
+        </ChatPanel>
       </PopoverContent>
     </Popover>
-    <Popover modal={false} open={open} onOpenChange={(next, details) => { if (!next) dismiss(details.reason, details.event); }}>
-    <PopoverContent align="start" anchor={belowHeader} aria-label="Global coordinator" className="flex min-h-0 flex-col gap-0 overflow-hidden rounded-t-none rounded-b-panel border-t-2 border-t-primary p-0" collisionPadding={8}
-      finalFocus={false} id="overseer-dropdown" initialFocus={false} keepMounted ref={setDropdown} role="region" side="bottom"
-      style={{ width: "min(760px, var(--available-width))", height: "min(650px, var(--available-height))" }}>
-      <div className="flex-none border-b border-border-soft" data-tone="overseer-details" ref={setDetailsContainer} />
-      {confirmReset && dialogContainer && <RunModalContext.Provider value={dialogContainer}>
-        <Dialog open onOpenChange={(next) => { if (!next && !resetting) setConfirmReset(false); }} modal="trap-focus" disablePointerDismissal>
-          <DialogContent initialFocus={cancelReset} onBackdropClick={() => { if (!resetting) setConfirmReset(false); }} scope="run" showCloseButton={false} size="small">
-            <DialogHeader>
-              <DialogTitle>Reset conversation?</DialogTitle>
-              <DialogDescription>History and model context are deleted. Running answers are stopped.</DialogDescription>
-            </DialogHeader>
-            <p>Your runs and the model choice are kept.</p>
-            {error && <p className="text-[0.8rem] text-destructive" role="alert">{error}</p>}
-            <DialogFooter>
-              <Button ref={cancelReset} disabled={resetting} onClick={() => setConfirmReset(false)} variant="outline">Cancel</Button>
-              <Button disabled={resetting} onClick={() => { void reset(); }} variant="destructive">
-                {resetting ? "Resetting ..." : "Reset conversation"}
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
-      </RunModalContext.Provider>}
-      {!writable && <p className={noteClass}>You have read access to this conversation.</p>}
-      {connectionNote && <p className={noteClass} role="status">{connectionNote}</p>}
-      {error && <p className={errorClass} role="alert">{error}</p>}
-      <ChatMessages announce={false} className="min-h-16! flex-1" scrollerRef={setScroller}
-        detailMode={chatView.detailMode}
-        emptyState={<div className="m-auto max-w-[480px] p-8 text-[0.9rem] leading-[1.6] text-muted-foreground max-md:p-5"><strong className="text-foreground">One chat for the whole workshop</strong><p>Write your task in the title bar above. Answers about your runs and ongoing work appear here.</p></div>}
-        messages={messages} running={chat.running} showTimestamps={chatView.showTimestamps} stepsExpandable={chatView.stepsExpandable}
-      />
-    </PopoverContent>
-    </Popover>
   </div>;
-}
-
-/** The coordinator's chat fills the main area while no run is open. */
-function OverseerIdleView({ userLocation }: OverviewPanelContext) {
-  const coordinator = useCoordinator();
-  if (!coordinator.runId) {
-    return <p className={coordinator.error ? "m-auto p-6 text-center text-destructive" : "m-auto p-6 text-center text-muted-foreground"} role="status">
-      {coordinator.error ?? "Connecting to the global coordinator ..."}
-    </p>;
-  }
-  return <ChatStepsProvider policy={overseerChatDisplayPolicy} storageKeyPrefix={overseerChatStorageKeyPrefix}>
-    <OverseerIdleChat key={coordinator.runId} runId={coordinator.runId} userLocation={userLocation} />
-  </ChatStepsProvider>;
-}
-
-function OverseerIdleChat({ runId, userLocation }: { runId: string; userLocation: OverviewPanelContext["userLocation"] }) {
-  const writable = useAccess().can("ragents.overseer.write");
-  const chat = useChat(runId);
-  const chatView = useChatViewSettings(runId, "primary", "coordinator");
-  const modelState = useModelSettings();
-  const attachments = useAttachmentCapabilities(runId, "primary", JSON.stringify(modelState.settings && [modelState.settings.provider, modelState.settings.model]));
-  const messages = useMemo(() => withToolSummaries(chat.messages), [chat.messages]);
-  const [error, setError] = useState<string>();
-  const problem = error ?? (chat.connected ? undefined : "No connection. Your draft is kept; sending is disabled.");
-  return <ChatPanel className="flex h-full min-h-0 w-full min-w-0 flex-1 flex-col overflow-hidden" maxWidth="880px"
-    composer={<div className="[--qsl-input-card-radius:var(--radius-lg)]">
-      {problem && <p className="text-[0.8rem] text-destructive" role="alert">{problem}</p>}
-      <ChatInputToolbar {...attachments} disabled={!writable} sendDisabled={!chat.connected || modelState.status === "saving"} maxRows={6} rows={1}
-        onErrorChange={setError} onSend={(text, attachments) => chat.send(text, attachments, userLocation)}
-        onStop={writable && chat.running ? () => { setError(undefined); void interruptCoordinator(runId).catch((cause: unknown) => setError(cause instanceof Error ? cause.message : String(cause))); } : undefined}
-        running={chat.running}
-        texts={{ placeholder: writable ? "Ask the global coordinator" : "Read access to the global coordinator", steeringPlaceholder: "Ask the global coordinator" }}
-        toolbarLeft={<ChatViewSwitches settings={chatView} />}
-      />
-    </div>}>
-    <ChatMessages detailMode={chatView.detailMode}
-      emptyState={<div className="m-auto max-w-[480px] p-8 text-center text-[0.9rem] leading-[1.6] text-muted-foreground max-md:p-5"><strong className="text-foreground">Global coordinator</strong><p>No run is open. Ask about your runs or give a task; open or start a run through the overview at the top left.</p></div>}
-      messages={messages} running={chat.running} showTimestamps={chatView.showTimestamps} stepsExpandable={chatView.stepsExpandable}
-    />
-  </ChatPanel>;
 }
 
 export const webPlugin: WebPlugin = {
@@ -276,6 +196,5 @@ export const webPlugin: WebPlugin = {
   settings: [{ category: "models", order: 10, readRight: "ragents.overseer.read", id: `${OVERSEER_PLUGIN_ID}.model`, label: "Global coordinator", Settings: ModelSettings }],
   overviewPanels: [
     { id: `${OVERSEER_PLUGIN_ID}.chat`, placement: "toolbar", order: 100, readRight: "ragents.overseer.read", Panel: OverseerToolbar },
-    { id: `${OVERSEER_PLUGIN_ID}.idle`, placement: "idle", order: 100, readRight: "ragents.overseer.read", Panel: OverseerIdleView },
   ],
 };

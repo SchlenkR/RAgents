@@ -7,7 +7,7 @@ import { build } from "esbuild";
 import { chromium } from "playwright-core";
 import { tailwindPlugin } from "./tailwind-plugin";
 
-test("the run panel toolbar opens and closes the sidebar as a pop-out, remembers the tab per run and is missing in the app layout", {
+test("the VS Code run panel toolbar opens and closes the sidebar as a pop-out, remembers the tab per run and is missing in the app layout", {
   skip: process.env.RAGENTS_BROWSER_TESTS !== "1",
   timeout: 120_000,
 }, async (context) => {
@@ -23,6 +23,7 @@ test("the run panel toolbar opens and closes the sidebar as a pop-out, remembers
 import React, { useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import { PluginChat } from './apps/web/src/PluginChat';
+import { RunPanelHostProvider, createBrowserHost } from './apps/web/src/run-panel/host';
 import { PluginRegistry } from './apps/web/src/PluginRegistry';
 import { Badge } from './apps/web/src/ui';
 import './apps/web/src/ui/tailwind.css';
@@ -41,7 +42,7 @@ const registry = new PluginRegistry({ brand: { title: 'Test' }, product: { id: '
 const query = new URLSearchParams(location.search);
 const layout = query.get('layout') === 'app' ? { element: 'board' } : 'panel';
 const runId = query.get('run') ?? 'run-a';
-createRoot(document.getElementById('root')).render(<div style={{ width: 600, height: 800, display: 'flex' }}><PluginChat key={runId} layout={layout} registry={registry} session={{ id: runId, title: 'Run', updatedAt: 0 }}/></div>);
+createRoot(document.getElementById('root')).render(<div style={{ width: 600, height: 800, display: 'flex' }}><RunPanelHostProvider value={{ ...createBrowserHost(window), kind: "vscode" }}><PluginChat key={runId} layout={layout} registry={registry} session={{ id: runId, title: 'Run', updatedAt: 0 }}/></RunPanelHostProvider></div>);
 `,
     },
     outfile: `${directory}/fixture.js`,

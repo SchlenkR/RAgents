@@ -2,6 +2,7 @@
 @import "quassel/chat.css";
 
 :root {
+    --qsl-chat-content-max-width: var(--chat-max-width);
     --qsl-color-scheme: light;
     --qsl-font: --theme(--font-sans);
     --qsl-mono: --theme(--font-mono);

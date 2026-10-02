@@ -153,6 +153,7 @@ export const hostApi: { readonly server: HostApiModules; readonly web: HostApiMo
     "@ragents/web/rpc": ["rpc"],
     "@ragents/web/run-panel/input-bridge": ["hostInputEnabled", "isRunPanelKeyboardMessage", "relayFrameInput"],
     "@ragents/web/run-apps": ["runApps", "selectedRunApp", "RunAppView"],
+    "@ragents/web/run-panel/DockWorkspace": ["DockWindowActions", "DockWorkspace", "useDockActiveApp"],
     "@ragents/web/run-panel/host": ["useRunPanelHost"],
     "@ragents/web/run-view": [
       "actorPluginState", "actorTone", "chatPrimaryId", "isPendingRunActorInput", "runActorFrom",
@@ -164,7 +165,7 @@ export const hostApi: { readonly server: HostApiModules; readonly web: HostApiMo
       "Alert", "AlertDescription", "AlertTitle", "Badge", "Button", "Card", "Dialog", "DialogBody", "DialogContent",
       "DialogDescription", "DialogFooter", "DialogHeader", "DialogTitle", "Empty", "EmptyContent", "EmptyDescription",
       "EmptyHeader", "EmptyMedia", "EmptyTitle", "Field", "FieldDescription", "FieldTitle", "Input", "Label",
-      "Popover", "PopoverContent", "SectionLabel", "Select", "SelectContent", "SelectItem", "SelectTrigger",
+      "Popover", "PopoverContent", "PopoverTrigger", "SectionLabel", "Select", "SelectContent", "SelectItem", "SelectTrigger",
       "SelectValue", "Spinner", "StartupNotice", "StopButton", "StopGlyph", "Switch", "Tabs", "TabsContent",
       "TabsList", "TabsTrigger", "Textarea", "Toggle", "ToggleGroup", "ToggleGroupItem", "buttonVariants", "cn",
     ],

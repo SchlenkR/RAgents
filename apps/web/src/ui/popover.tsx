@@ -18,6 +18,7 @@ function PopoverContent({
   sideOffset = 8,
   anchor,
   collisionPadding,
+  container,
   keepMounted,
   dim = false,
   ...props
@@ -25,12 +26,12 @@ function PopoverContent({
   Pick<
     PopoverPrimitive.Positioner.Props,
     "align" | "alignOffset" | "side" | "sideOffset" | "anchor" | "collisionPadding"
-  > & Pick<PopoverPrimitive.Portal.Props, "keepMounted"> & {
+  > & Pick<PopoverPrimitive.Portal.Props, "container" | "keepMounted"> & {
     /** Dims the rest of the page so the pop-out stands out; a click outside closes it. */
     dim?: boolean
   }) {
   return (
-    <PopoverPrimitive.Portal keepMounted={keepMounted}>
+    <PopoverPrimitive.Portal container={container} keepMounted={keepMounted}>
       {dim && (
         <PopoverPrimitive.Backdrop
           className="fixed inset-0 z-[105] bg-backdrop transition-opacity duration-200 data-open:animate-in data-open:fade-in-0 data-closed:animate-out data-closed:fade-out-0"

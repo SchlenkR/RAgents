@@ -3,6 +3,7 @@ import { useAccess } from "@ragents/web/AccessContext";
 import { Badge, Button, Empty, EmptyDescription, EmptyHeader, EmptyTitle, Input, Tabs, TabsContent, TabsList, TabsTrigger } from "@ragents/web/ui";
 import { useEffect, useId, useMemo, useRef, useState, type ReactNode } from "react";
 import { ActorChat } from "./ActorChat";
+import { ChatViewSwitches, useChatViewSettings } from "@ragents/web/chat-view-settings";
 import { ActorChatControls } from "./ActorChatControls";
 import type { Message } from "quassel/events";
 import {
@@ -44,7 +45,7 @@ interface FlowInspectorProps {
   primaryRunning: boolean;
 }
 
-const inspectorClass = "flex h-full min-h-0 flex-col bg-card";
+const inspectorClass = "flex h-full min-h-0 flex-col bg-inherit";
 
 const headClass = "flex flex-shrink-0 items-start gap-2.5 border-b border-border-soft px-workspace-inset pt-3 pb-2 [&_h2]:text-[0.95rem] [&_h2]:leading-[1.3]";
 
@@ -87,7 +88,7 @@ const pillToneClass: Readonly<Record<string, string>> = {
   interrupted: "bg-destructive-soft text-destructive",
 };
 
-const tabClass = "grid size-[30px] flex-[0_0_30px] place-items-center p-0";
+const tabClass = "grid size-6 flex-none place-items-center p-0";
 
 const STATUS_LABELS: Record<string, string> = {
   active: "Active",
@@ -230,31 +231,34 @@ function SectionIcon({ kind }: { kind: keyof typeof sectionIconPaths }) {
   return <svg aria-hidden="true" fill="none" height="15" width="15" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"><path d={sectionIconPaths[kind]} /></svg>;
 }
 
-function SectionTabs({ sections, children }: { sections: SectionTab[]; children: ReactNode }) {
+function SectionTabs({ sections, children, toolbar }: { sections: SectionTab[]; children: ReactNode; toolbar?: ReactNode }) {
   const id = useId();
   const [openId, setOpenId] = useState<string | null>(null);
   const open = sections.find((section) => section.id === openId);
-  if (sections.length === 0) return <div className="flex min-h-0 flex-1 flex-col">{children}</div>;
+  if (sections.length === 0) return <><div className="flex h-8 flex-none items-center gap-1 overflow-x-auto border-b border-border-soft px-1">{toolbar}</div>{children}</>;
 
   return (
     <Tabs className="contents" onValueChange={(value) => setOpenId(value === "chat" ? null : String(value))} value={open?.id ?? "chat"}>
-      <TabsList aria-label="Actor views" className="flex h-auto w-auto max-w-full flex-shrink-0 flex-nowrap justify-start gap-1 overflow-x-auto rounded-none border-b border-border-soft px-workspace-inset py-1.5" variant="line">
-        <TabsTrigger aria-label="Show chat" className={tabClass} id={`${id}-chat-tab`} title="Show chat" value="chat">
-          <SectionIcon kind="chat" />
-        </TabsTrigger>
-        {sections.map((section) => (
-          <TabsTrigger
-            aria-label={section.count === undefined ? section.label : `${section.label} (${section.count})`}
-            className={tabClass}
-            id={`${id}-${section.id}-tab`}
-            key={section.id}
-            title={section.count === undefined ? section.label : `${section.label} (${section.count})`}
-            value={section.id}
-          >
-            {section.icon}
+      <div aria-label="Actor toolbar" className="flex h-8 flex-none items-center gap-1 overflow-x-auto border-b border-border-soft px-1">
+        {toolbar}
+        <TabsList aria-label="Actor views" className="flex h-7 w-auto flex-none flex-nowrap justify-start gap-0 rounded-none p-0" variant="line">
+          <TabsTrigger aria-label="Show chat" className={tabClass} id={`${id}-chat-tab`} title="Show chat" value="chat">
+            <SectionIcon kind="chat" />
           </TabsTrigger>
-        ))}
-      </TabsList>
+          {sections.map((section) => (
+            <TabsTrigger
+              aria-label={section.count === undefined ? section.label : `${section.label} (${section.count})`}
+              className={tabClass}
+              id={`${id}-${section.id}-tab`}
+              key={section.id}
+              title={section.count === undefined ? section.label : `${section.label} (${section.count})`}
+              value={section.id}
+            >
+              {section.icon}
+            </TabsTrigger>
+          ))}
+        </TabsList>
+      </div>
       {open && <TabsContent className="min-h-0 flex-1 overflow-y-auto border-b border-border-soft px-workspace-inset py-1.5 text-[0.76rem]" id={`${id}-details`} tabIndex={0} value={open.id}>{open.content}</TabsContent>}
       <TabsContent className="flex min-h-0 flex-1 flex-col" id={`${id}-chat`} keepMounted value="chat">{children}</TabsContent>
     </Tabs>
@@ -344,6 +348,7 @@ function ActorView({ actor, index, ...props }: FlowInspectorProps & { actor: Run
   const access = useAccess();
   const programs = useProgramSlot();
   const writable = access.can("runs.write");
+  const chatView = useChatViewSettings(index.view.id, actor.id, "agents", "inspector");
   const inspect = access.can("runs.inspect");
   const view = index.view;
   const programSource = inspect && programs?.runId === view.id ? programs.source(view, actor.id) : undefined;
@@ -512,14 +517,10 @@ function ActorView({ actor, index, ...props }: FlowInspectorProps & { actor: Run
 
   return (
     <div className={inspectorClass}>
-      <header className={headClass}>
+      {error && <p className={errorClass}>{error}</p>}
+      <SectionTabs sections={inspect ? sections : []} toolbar={<>
         <BackButton canGoBack={props.canGoBack} onBack={props.onBack} />
-        <div className="flex min-w-0 flex-1 items-baseline gap-2 [&>span]:flex-1">
-          <h2>{actor.displayName}</h2>
-          <span className={subtitleClass}>
-            @{actor.handle}{inspect && actor.createdBy ? ` - created by ${actorLabel(index, actor.createdBy)}` : ""}
-          </span>
-        </div>
+        <span className="max-w-28 flex-none truncate text-xs font-semibold" title={`${actor.displayName} @${actor.handle}${inspect && actor.createdBy ? ` - created by ${actorLabel(index, actor.createdBy)}` : ""}`}>{actor.displayName}</span>
         {active && writable && (
           <Button
             className="flex-shrink-0"
@@ -540,23 +541,22 @@ function ActorView({ actor, index, ...props }: FlowInspectorProps & { actor: Run
             Restart
           </Button>
         )}
-      </header>
-      {error && <p className={errorClass}>{error}</p>}
-      <SectionTabs sections={inspect ? sections : []}>
+        {!props.composerVisible && <ChatViewSwitches className="size-6 flex-none" settings={chatView} />}
+      </>}>
         <ActorChat
           actor={actor}
           view={view}
           presentation="inspector"
           display="inspector"
-          className="min-h-0 flex-1"
+          className="min-h-0 flex-1 [--qsl-chat-message-gap:10px]"
           primaryMessages={props.primaryMessages}
           conversation={props.actorConversations?.[actor.id]}
           historyError={props.conversationError}
           onNavigate={props.onNavigate}
           running={primary ? props.primaryRunning : lifecycle === "running"}
         />
-        <ActorChatControls actor={actor} view={view} composerVisible={props.composerVisible} display="inspector"
-          running={primary ? props.primaryRunning : lifecycle === "running"} />
+        {props.composerVisible && <ActorChatControls actor={actor} view={view} composerVisible={props.composerVisible} display="inspector"
+          running={primary ? props.primaryRunning : lifecycle === "running"} />}
       </SectionTabs>
     </div>
   );

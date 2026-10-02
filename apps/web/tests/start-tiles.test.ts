@@ -11,7 +11,7 @@ const entries = [entry("board", "skill", "Mini-apps"), entry("decision", "skill"
 const render = (props: Partial<Parameters<typeof StartTiles>[0]> = {}) => renderToStaticMarkup(createElement(StartTiles, {
   entries, label: "Templates", onNewChat: () => {}, onStart: () => { throw new Error("Rendering starts nothing"); }, ...props,
 }));
-const titles = (html: string) => [...html.matchAll(/title="([^"]+)"/g)].map((match) => match[1]);
+const titles = (html: string) => [...html.matchAll(/data-tile="([^"]+)"/g)].map((match) => match[1]);
 
 test("without a default template New chat comes first, then the templates in their order", () => {
   const html = render();

@@ -7,7 +7,7 @@ import { chromium } from "playwright-core";
 import { tailwindPlugin } from "./tailwind-plugin";
 import type {} from "./run-panel-focus-fixture";
 
-test("new VS Code runs focus their enabled chat once without stealing focus on replay or navigation", {
+test("opening runs focuses the visible chat once in browser and VS Code without stealing later focus", {
   skip: process.env.RAGENTS_BROWSER_TESTS !== "1", timeout: 60_000,
 }, async () => {
   await mkdir("/private/tmp/ragents-new-run-focus", { recursive: true });
@@ -15,13 +15,13 @@ test("new VS Code runs focus their enabled chat once without stealing focus on r
   const root = fileURLToPath(new URL("../../../", import.meta.url));
   await build({
     entryPoints: [fileURLToPath(new URL("run-panel-focus-fixture.tsx", import.meta.url))],
-    bundle: true, platform: "browser", format: "iife", outfile: `${directory}/fixture.js`,
+    bundle: true, platform: "browser", format: "iife", jsx: "automatic", outfile: `${directory}/fixture.js`,
     plugins: [
       { name: "focus-fixture-services", setup(builder) {
         builder.onLoad({ filter: /\/src\/PluginActivation\.ts$/ }, () => ({ contents: 'export const usePluginActivation = () => ({ status: "ready", registry: window.runFocusFixture.registry, failures: [] });' }));
         builder.onLoad({ filter: /\/src\/rpc\.ts$/ }, () => ({ contents: 'export const rpc = { call: (...args) => window.runFocusFixture.call(...args), subscribe: (...args) => window.runFocusFixture.subscribe(...args) };' }));
       } },
-      tailwindPlugin([`${root}apps/web/src`]),
+      tailwindPlugin([`${root}apps/web/src`, `${root}plugins/ragents.orchestration/web`]),
     ], logLevel: "silent",
   });
   await writeFile(`${directory}/index.html`, '<!doctype html><html><head><link rel="stylesheet" href="fixture.css"><style>html,body{height:100%;margin:0}#root{height:calc(100% - 40px)}#outside{height:40px}</style></head><body><button id="outside">Outside</button><div id="root"></div><script src="fixture.js"></script></body></html>');
@@ -30,18 +30,17 @@ test("new VS Code runs focus their enabled chat once without stealing focus on r
     const page = await browser.newPage({ viewport: { width: 900, height: 800 } });
     const errors: string[] = [];
     page.on("pageerror", (error) => errors.push(error.message));
-    const input = page.locator("textarea");
+    const input = page.locator("textarea:visible");
     const settle = () => page.evaluate(() => new Promise<void>((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve()))));
-    const focused = () => input.evaluate((element) => element === document.activeElement);
+    const focused = () => page.evaluate(() => document.activeElement?.tagName === "TEXTAREA");
     const ready = async () => { await page.evaluate(() => window.runFocusFixture.ready()); await settle(); };
     const load = async (query = "") => {
       await page.goto(`file://${directory}/index.html${query}`);
       await input.waitFor({ state: "attached" });
-      if (!query.includes("mode=composer")) await page.locator("#outside").focus();
     };
     await load();
     await ready();
-    assert.equal(await focused(), false, "Opening an existing run must keep focus outside the composer.");
+    assert.equal(await focused(), true, "Opening an existing run from its URL focuses the composer.");
 
     await page.evaluate(() => window.runFocusFixture.command({ type: "newRun" }));
     await page.waitForFunction(() => window.runFocusFixture.activeRun() !== undefined && window.runFocusFixture.activeRun() !== "existing");
@@ -60,7 +59,7 @@ test("new VS Code runs focus their enabled chat once without stealing focus on r
     await page.evaluate(() => window.runFocusFixture.command({ type: "selectRun", runId: "existing" }));
     await page.waitForFunction(() => window.runFocusFixture.activeRun() === "existing");
     await ready();
-    assert.equal(await focused(), false, "Selecting an existing run does not request focus.");
+    assert.equal(await focused(), true, "Selecting an existing run focuses its composer.");
 
     await page.evaluate(() => window.runFocusFixture.command({ type: "newRun", entryId: "focus.template" }));
     await page.waitForFunction(() => window.runFocusFixture.calls.includes("ragents.chat.start") && window.runFocusFixture.activeRun() !== undefined && window.runFocusFixture.activeRun() !== "existing");
@@ -77,7 +76,41 @@ test("new VS Code runs focus their enabled chat once without stealing focus on r
 
     await load("?host=browser");
     await ready();
-    assert.equal(await focused(), false, "Browser run initialization retains its existing focus behavior.");
+    assert.equal(await focused(), true, "Browser run URLs focus the composer too.");
+    await page.evaluate(() => window.runFocusFixture.command({ type: "newRun" }));
+    await page.getByRole("button", { name: /New chat/ }).click();
+    await page.waitForFunction(() => window.runFocusFixture.activeRun() !== undefined && window.runFocusFixture.activeRun() !== "existing");
+    await ready();
+    assert.equal(await focused(), true, "A new browser run focuses its composer after the start dialog closes.");
+    await page.locator("#outside").click();
+    await page.evaluate(() => window.runFocusFixture.command({ type: "selectRun", runId: "existing" }));
+    await page.waitForFunction(() => window.runFocusFixture.activeRun() === "existing");
+    await ready();
+    assert.equal(await focused(), true, "Selecting an existing browser run focuses its composer.");
+
+    for (const host of ["browser", "vscode"]) {
+      await load(`?host=${host}&actor=reviewer`);
+      await page.getByPlaceholder("Message to @reviewer ...").waitFor();
+      assert.equal(await focused(), false, "The selected actor waits for the run to connect.");
+      await ready();
+      assert.equal(await focused(), true, "The remembered nonprimary actor receives the initial focus.");
+      await page.keyboard.type("Review this");
+      assert.equal(await input.inputValue(), "Review this");
+      assert.equal(await page.locator('textarea:not(:visible)').inputValue(), "", "The hidden coordinator composer stays untouched.");
+      await page.locator("#outside").click();
+      await page.evaluate(() => { window.runFocusFixture.stream(); window.runFocusFixture.disconnect(); });
+      await ready();
+      assert.equal(await focused(), false, "The actor chat does not steal focus on replay or reconnect.");
+
+      await load(`?host=${host}&actor=reviewer&delayedView=true`);
+      await ready();
+      assert.equal(await focused(), false, "Focus waits until the remembered addressee is known.");
+      await page.evaluate(() => window.runFocusFixture.resolveView());
+      await page.getByPlaceholder("Message to @reviewer ...").waitFor();
+      await settle();
+      assert.equal(await focused(), true, "The selected actor still receives focus when its run view loads after chat replay.");
+    }
+
     await load("?readonly=true");
     await ready();
     assert.equal(await input.isDisabled(), true);

@@ -4,6 +4,7 @@
   --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
 }
 :root {
+  --chat-max-width: 900px;
   color-scheme: light;
   --radius: 0.5rem;
   --background: #f3f2f7;
@@ -135,30 +136,109 @@
 Windows, macOS, and Linux, each for x64 and ARM64. They include Node.js, npm, the host&#39;s installed
 dependencies, the finished web interface, plugins, and platform tools. No existing Node.js, npm,
 pnpm, or source checkout is needed. Linux builds target glibc systems, not Alpine/musl.</p>
-<p>On macOS or Linux:</p>
+<h3 id="install-for-you-or-for-all-users">Install for you or for all users</h3>
+<p>An installer script installs the archive for this machine. You choose the scope: the current user
+(the default) or all users of the machine.</p>
+<table>
+<thead>
+<tr>
+<th>Scope</th>
+<th>macOS and Linux</th>
+<th>Windows</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Current user</td>
+<td><code>~/.local</code>, no administrator access</td>
+<td><code>%LOCALAPPDATA%\Programs\RAgents</code>, user <code>PATH</code></td>
+</tr>
+<tr>
+<td>All users</td>
+<td><code>/usr/local</code>, sudo only if it is not writable</td>
+<td><code>%ProgramFiles%\RAgents</code>, machine <code>PATH</code>, administrator</td>
+</tr>
+</tbody></table>
+<p>The versions go to <code>lib/ragents</code> (Windows: <code>versions</code>) below that folder, the command to <code>bin</code>.
+On macOS or Linux, for the current user:</p>
 <pre><code class="language-sh">curl -fsSL https://github.com/SchlenkR/RAgents/releases/latest/download/install.sh | sh
 </code></pre>
-<p>The command is installed at <code>~/.local/bin/ragents</code>. Add <code>~/.local/bin</code> to your <code>PATH</code> if needed,
-or use that full path. On Windows, run this in PowerShell:</p>
-<pre><code class="language-powershell">&amp; ([scriptblock]::Create((Invoke-RestMethod https://github.com/SchlenkR/RAgents/releases/latest/download/install.ps1)))
+<p>For all users:</p>
+<pre><code class="language-sh">curl -fsSL https://github.com/SchlenkR/RAgents/releases/latest/download/install.sh | sh -s -- --global
 </code></pre>
-<p>The Windows installer uses <code>%LOCALAPPDATA%/Programs/RAgents</code> and adds its <code>bin</code> folder to the
-user PATH. Open a new terminal afterwards. Neither installer needs administrator access. Both
-select the current machine&#39;s archive, verify it against the release&#39;s <code>SHA256SUMS</code>, and check
-the command before switching the active version. Repeat the command to update; older versions
-remain installed. Stop your running hosts before switching versions and restart them afterwards.
-Settings and runs remain in the existing user data directory.</p>
-<p>For a fixed release or another installation folder, download the script and pass
-<code>--version 0.1.21 --prefix /absolute/install/path</code> on Unix, or
-<code>-Version 0.1.21 -Prefix C:\Apps\RAgents</code> on Windows. Windows also accepts <code>-NoPathUpdate</code>.
-Use the same prefix and an older <code>--version</code> / <code>-Version</code> to switch back. Alternatively, unpack
-the matching archive yourself and run <code>bin/ragents</code> or <code>bin/ragents.cmd</code> from it.</p>
-<p>Run <code>ragents --help</code> for commands. After configuring model access as described below,
-<code>ragents start core</code> provisions that profile&#39;s tools and starts its web interface at
-<code>http://localhost:4710</code>. The bundle does not include model credentials, Chromium, language servers,
-or development SDKs. Provisioning downloads the profile&#39;s supported tools; the included profiles
-use C# and F# diagnostics and require an installed .NET 10 SDK. These requirements are the same
-as for the npm package. An own profile can omit those plugins.</p>
+<p>The shell installer does not edit your startup files. <code>~/.local/bin</code> is often not on the <code>PATH</code>,
+on macOS by default; the installer then prints the line to add for your shell, for zsh this line
+in <code>~/.zshrc</code>:</p>
+<pre><code class="language-sh">export PATH=&quot;$HOME/.local/bin:$PATH&quot;
+</code></pre>
+<p>Open a new terminal afterwards, or run the command by its full path. <code>/usr/local/bin</code> is on the
+default <code>PATH</code> of macOS and common Linux distributions.</p>
+<p>On Windows, in PowerShell, for the current user:</p>
+<pre><code class="language-powershell">&amp; ([scriptblock]::Create((irm https://github.com/SchlenkR/RAgents/releases/latest/download/install.ps1)))
+</code></pre>
+<p>For all users, in a PowerShell started with &quot;Run as administrator&quot;:</p>
+<pre><code class="language-powershell">&amp; ([scriptblock]::Create((irm https://github.com/SchlenkR/RAgents/releases/latest/download/install.ps1))) -Global
+</code></pre>
+<p>The Windows installer adds its <code>bin</code> folder to the user or machine <code>PATH</code>; open a new terminal
+afterwards. Without an elevated PowerShell, <code>-Global</code> stops with a message instead of installing
+for the current user. Use this script block form rather than <code>irm ... | iex</code>: only it passes
+parameters to the script.</p>
+<p>Further options follow <code>sh -s --</code> in the shell and the closing parenthesis in PowerShell:</p>
+<ul>
+<li><code>--version 0.1.21</code> or <code>-Version 0.1.21</code> installs that release instead of the latest.</li>
+<li><code>--prefix /absolute/folder</code> or <code>-Prefix C:\Apps\RAgents</code> installs into another folder. The scope
+still decides about administrator access and, on Windows, which <code>PATH</code> changes.</li>
+<li><code>-NoPathUpdate</code> leaves the Windows <code>PATH</code> unchanged.</li>
+<li><code>--help</code> or <code>-Help</code> lists all options.</li>
+</ul>
+<p>Both installers verify the archive against the release&#39;s <code>SHA256SUMS</code>, check that the command
+starts, and prepare the installation completely before they switch the active version, so a
+running host never writes into the installation folder. They refuse to replace a <code>ragents</code> command
+they did not create, for example one from npm. If another <code>ragents</code> command comes first on your
+<code>PATH</code>, or the other scope still holds an installation, the installer warns and prints the command
+that removes it; it never removes another installation itself. <code>ragents --version</code> shows the
+active version.</p>
+<p>Alternatively, unpack the matching archive yourself and run <code>bin/ragents</code> or <code>bin/ragents.cmd</code>
+from it. Its first command then writes links into that folder, so the folder must be writable.</p>
+<h3 id="update-and-uninstall">Update and uninstall</h3>
+<p>Run the install command of your scope again to update. The new release is installed next to the
+previous ones, which remain installed; the command switches only after the new version has
+passed its checks. To switch back, pass the older version with <code>--version</code> or <code>-Version</code>. Stop
+running hosts before switching versions and restart them afterwards.</p>
+<p>To uninstall, add <code>--uninstall</code> or <code>-Uninstall</code> to the command of your scope, for example:</p>
+<pre><code class="language-sh">curl -fsSL https://github.com/SchlenkR/RAgents/releases/latest/download/install.sh | sh -s -- --uninstall
+</code></pre>
+<pre><code class="language-powershell">&amp; ([scriptblock]::Create((irm https://github.com/SchlenkR/RAgents/releases/latest/download/install.ps1))) -Uninstall
+</code></pre>
+<p>This removes the command and every installed version, on Windows also the <code>PATH</code> entry. A <code>PATH</code>
+line you added to a startup file stays. Settings and runs stay in each user&#39;s data directory,
+<code>~/.local/share/ragents</code> or <code>%LOCALAPPDATA%\ragents</code>; delete it to remove them as well.</p>
+<h3 id="first-start">First start</h3>
+<p>The included profiles read the OpenRouter key from the environment variable <code>OPENROUTER_API_KEY</code>;
+no <code>.env</code> file is loaded. Set it in the shell that starts RAgents or in its startup file, then
+start the <code>core</code> profile:</p>
+<pre><code class="language-sh">export OPENROUTER_API_KEY=&lt;your-key&gt;
+ragents start core
+</code></pre>
+<p>In PowerShell, set it with <code>$env:OPENROUTER_API_KEY = &quot;&lt;your-key&gt;&quot;</code>. The start provisions the
+profile&#39;s tools into the user&#39;s data directory, for example <code>~/.local/share/ragents/core</code>, and
+then serves the interface at <code>http://localhost:4710</code>. Without the variable, it stops before the
+server starts:</p>
+<pre><code class="language-text">.../ragents.config.core.ts: ragents.product.OPENROUTER_API_KEY refers with env(&quot;OPENROUTER_API_KEY&quot;) to an environment variable that is not set in this shell. ...
+Provisioning ended with code 1
+</code></pre>
+<p>The C# and F# diagnostics of <code>core</code> (<code>ragents.lsp-roslyn</code> and <code>ragents.lsp-fsharp</code>) need the
+.NET 10 SDK with <code>dotnet</code> on the <code>PATH</code>. Without it, the start stops after provisioning:</p>
+<pre><code class="language-text">ragents.lsp-fsharp: missing: dotnet is missing on this machine; install the .NET SDK from https://dotnet.microsoft.com/download and make sure dotnet is on the PATH
+ragents.lsp-roslyn: missing: dotnet is missing on this machine; install the .NET SDK from https://dotnet.microsoft.com/download and make sure dotnet is on the PATH
+Provisioning ended with code 1
+</code></pre>
+<p>Install the SDK and start again, or start an own profile without these two plugins, see
+<a href="guide-distributed.html#custom-profiles-and-plugins">Custom profiles and plugins</a>. The
+archive includes no model credentials, Chromium, language servers, or development SDKs.
+Provisioning fetches Chromium and the language servers; on Linux it installs Chromium&#39;s system
+libraries with sudo. These requirements are the same for the npm package. <code>ragents --help</code> lists
+the other commands, and <a href="#configure-model-access-and-start">Configure model access and start</a>
+describes the model settings.</p>
 <p>The process sandbox has platform prerequisites too: Linux needs <code>bubblewrap</code>, <code>socat</code>, and
 working user namespaces; the standalone starter exposes its bundled ripgrep automatically.
 On Windows, explicitly set <code>PROCESS_SANDBOX: &quot;off&quot;</code> in the profile&#39;s <code>ragents.workspace</code> section.
@@ -172,9 +252,9 @@ ragents start core
 <p>Or run it through npx without a global installation:</p>
 <pre><code class="language-sh">npx --yes @schlenkr/ragents start core
 </code></pre>
-<p>Configure model access as described below before starting. Startup provisions the profile&#39;s
-tools; external prerequisites such as .NET must already be available. Then open
-<code>http://localhost:4710</code>. Other subcommands work the same way, for example
+<p>The first start is the same as for a standalone release, see <a href="#first-start">First start</a>:
+<code>OPENROUTER_API_KEY</code> must be set, and the C# and F# diagnostics of <code>core</code> need the .NET 10 SDK.
+Then open <code>http://localhost:4710</code>. Other subcommands work the same way, for example
 <code>npx --yes @schlenkr/ragents connect &lt;server-url&gt;</code>.</p>
 <h2 id="install-from-the-repository">Install from the repository</h2>
 <p>The application is built from the repository with Node.js and pnpm. Run these commands from
@@ -272,9 +352,11 @@ TypeScript calls traceable.</p>
 <p>Activated visible mini-apps become available automatically, including those from an embedded setup.
 Programs cannot arrange the host interface. Runs saved with removed layout functions or placements
 are locked with an explanation; their original files are kept. Start a new run with updated programs.</p>
-<p>Browser runs have tabs: Chat, then each available mini-app. Only one view is visible. Chat
-and visited apps keep their input when you switch tabs. New apps appear without interrupting
-your current view. If a selected app becomes unavailable, the panel returns to Chat.</p>
+<p>Wide browser runs start with Chat beside the mini-apps; narrow ones use one tab group. Drag tabs
+onto the docking guides to arrange areas or merge them. Chat and visited apps keep their input
+through switches and moves. New apps appear without taking focus; unavailable apps disappear.
+Close windows with X. The run header keeps a button for every window; a pressed button is
+visible, and clicking another one shows that window.</p>
 <p>In VS Code, clicking an app opens or focuses its editor tab. VS Code controls where that tab
 appears. Questions and news stay in chat. The selector below the input chooses the addressee;
 the run coordinator is selected by default.</p>

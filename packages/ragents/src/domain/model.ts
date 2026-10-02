@@ -174,7 +174,7 @@ export type ActionStatus = "pending" | "approved" | "dismissed";
 export type Action = {
     id: ActionId;
     askedBy: ActorId;
-    owner: string | null;
+    owner: string;
     title: string;
     description: string | null;
     parameters: Readonly<Record<string, string>>;

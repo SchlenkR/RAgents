@@ -1,11 +1,212 @@
 # Decisions
 
+## 2026-10-01: `ask_user` no longer holds the asker's turn
+
+Chapters: `spec/plugins.md` (Web as plugin host: questions of `ragents.ask`; Open limits),
+`spec/core.md` (Interrupting a turn, stopping an actor, stopping a run; Actors, inputs, events, and
+subscriptions: wake-up guarantee; Origin of an input); usage: `usage.md` (Run chat and inspection);
+`selftest/CATALOG.md` (T04), `concepts/acp-agent-drivers.md`. For questions of agents this
+supersedes the entry "A message from the human ends a blocking question" (28.09.2026).
+
+**Why.** A turn ends as soon as the actor calls no more tools; there are no waiting tools.
+`ask_user` was the exception: its call stayed open until someone answered, so the asker's turn kept
+running, steering waited behind the call, and a run with an unanswered question looked busy.
+
+**Decision.** `ask_user` calls the new `AskService.pose`, which only proposes the action, and
+returns at once `QUESTION_POSED`; tool description and prompt chapter tell the model to end its
+turn. The question stays open after the turn, and an actor can have several open questions. The
+answer or a dismissal by the user reaches the asker through the existing path as a new ActorInput,
+as steering while its turn still runs. A human's message (`origin: "human"`) to an actor closes
+every open question it asked without `recipient` as `dismissed` with `{ supersededBy }` and without
+an answer input; the plugin reads these questions from the journal state, so the rule also holds
+after a restart of the host. A message that already waits when the tool asks still means that no
+question is created (`SUPERSEDED_ANSWER`). Stopping the asker (`actor.stopped`) and stopping or
+deleting the run (lifecycle `stopSession` and `afterStopSession`) withdraw these questions without
+an input. `AskService.ask` keeps its waiting form only for questions the owner asks outside a turn
+(start question of `ragents.lsp-roslyn`, confirmations of the actor programs); its type admits only
+`turnId: null`, and the turn-bound waiter (`blockedActorId`) is removed. Questions of the owner
+stay open on a human message, as decided on 28.09.2026.
+
+## 2026-10-01: Remove `action_propose` and the transcript plugin; actions always have an owner
+
+Chapters: `spec/core.md` (pending actions), `spec/plugins.md` (transcript section removed),
+`spec/profiles.md`, `spec/overview.md`. `action_propose` was the core's generic approval case for
+an action without an owner; no plugin used it, no journal on any machine contains such an action,
+and the web has no view for an action without an owner. The tool, the ownerless branch of the
+decision and of the event semantics, and the helpers only it used are gone; `owner` is a required
+string in `action.proposed`. The capability name `action.propose` stays in the vocabulary,
+because every run grants all capability names to its owner and removing one would lock all
+existing journals. `ragents.transcript` with `actor_transcript` is removed from the repository and
+from the `core` and `showcase` profiles: it had no caller and no test of its own. Profiles that
+still list it must drop the line. `actor_restart` stays: the operator button, the actor program
+plugin, and external run scripts call the restart path. `show_document` no longer carries the
+availability text of `ask_user` ("the question always goes to the user").
+
+## Compact homepage installation (01.10.2026)
+
+Chapter: `spec/overview.md`. Installation tabs already identify each method, so repeated badges,
+headings, and marketing descriptions are removed. Each panel keeps the action or commands and
+prerequisites. The closing section offers the getting-started guide and project feedback without
+a second installation button or repeated explanatory paragraphs.
+
+## 2026-10-01: Wider hover flyout, notice dot inside the run ring, no tooltip on Start tiles
+
+Chapters: `spec/plugins.md` (sidebar width), usage: `usage.md` (inspection rail). The sidebar
+default width is 630 instead of 420 pixels, 50 percent wider; layouts already saved keep their
+stored width until the layout is reset or resized, no migration. A run's "new activity" or "not
+viewed" dot now sits inside its state ring and replaces the inner glyph while it shows, because the
+corner dot overlapped the ring and read as a rendering error; the tone still carries the state, the
+tooltip names both. Start tiles lose their native `title` tooltip, which repeated the visible
+heading; tests find tiles through `data-tile`.
+
+## 2026-10-01: Remove `quick_answer` and its toast from the global coordinator
+
+Chapters: `spec/core.md` (global coordinator), `spec/plugins.md` (global coordinator in the
+header); usage: `usage.md`. Added on 09.09.2026 as a short answer shown below the header while
+the history is closed; removed completely: the run function, the prompt instruction, the
+`QUICK_ANSWER_MAX_LENGTH` and `QuickAnswerState` contract entries, the web state machine, the toast,
+and their tests. The path depended on a second model step after every answer that adds nothing to
+the result, and weak models misused it: a message without a question got an invented question, a
+summary of the model's own behavior, and a repeated summary in the chat despite the prohibition.
+The toast showed what the chat shows next. Old `plugin.state-replaced` events of kind
+`quick-answer` stay in existing journals and are ignored. The stored tool selection of an existing
+coordinator still names `quick_answer`, so its conversation answers `global-tools-changed` until
+it is reset once; no migration.
+
+## 2026-10-01: One type scale and one page rhythm for Start, Runs, and Server; Runs keeps its back arrow
+
+Chapter: `spec/plugins.md` (UI library and theme tokens, run panel header, VS Code zoom and pages);
+usage: `usage.md`. Owner's findings: the section headings on Start were cramped, Runs had no way
+back in the browser, Runs began higher than Start, and headings, labels, body, and meta text used
+different sizes, weights, and letter spacing from page to page. The commit "One UI for web and VS
+Code" changed none of this: it wrapped the shared pages in the browser in an extra `p-3`, so Start
+and Runs both began 22 pixels below the header there. The regressions came from the uncommitted
+work of the same day, which dropped that wrapper, gave only Start `pt-[22px]` (Runs began at 11
+pixels in both hosts), and hid the Runs and Server back arrow in the browser
+(`PanelPageProps.hideBack`). The cramped headings were never different: `gap-1.5` below the label
+and `gap-4` between sections since 24.09.2026. Now `PanelPage` gives every page `pt-6`, sections
+are `gap-8` apart with `gap-3` under their heading, and `hideBack` is gone: the logo stays the way
+back from a run, while Runs and Server show the arrow in both hosts. Six text roles replace about
+forty ad-hoc combinations (`text-[0.52rem]` to `text-[1.1rem]`, three letter spacings, four
+weights): `type-title`, `type-label`, `type-item`, `type-body`, `type-meta`, and `type-caption` in
+`theme.css`, in `rem` so `ragents.zoom` scales them with everything else. Named `text-*` tokens
+were tried first and rejected: `cn` (tailwind-merge rules) takes `text-item` for a color and drops
+it next to `text-destructive`. `SectionHeading` replaces `StartSection` and shares the label style
+with `SectionLabel`, whose letter spacing and size move from 0.07em/0.62rem to the common
+0.06em/0.66rem. A browser test now proves that panel text follows only `ragents.zoom`, not VS
+Code's injected font settings, and that Runs starts at the height of Start.
+
+## 2026-10-01: Standalone installers take an explicit scope; `ragents --version`
+
+Chapter: `spec/overview.md` (Development tools, homepage); operations: `operations.md` (Install a
+standalone release, Install from npm, Work without a checkout); usage: `usage.md` (Control
+RAgents as an agent); `README.md`, the npm README, and the homepage install section. Owner's
+requirement: say whether RAgents is installed for the current user or globally instead of always
+landing in `~/.local/bin`. `install.sh` and `install.ps1` now take `--local`/`-Local` (default,
+never elevated) or `--global`/`-Global` (all users: `/usr/local` with sudo only when that folder is
+not writable; `%ProgramFiles%\RAgents` and the machine `PATH`, refused outside an elevated
+PowerShell instead of falling back to the user). Scope and `--prefix` are orthogonal: the scope
+decides about elevation and the Windows `PATH`, the prefix only about the folder, so a server can
+use `--global --prefix /opt/ragents` and tests can exercise the global path in a temporary folder;
+mutually exclusive flags would have needed a hidden test override. A per-project folder was not
+chosen because the archive is a machine-wide tool with per-user data, and `--prefix` already covers
+a folder of one's own. `--uninstall`/`-Uninstall` removes the command, every version, and on Windows
+the `PATH` entry; data stays. The installers refuse to replace a `ragents` command they did not
+create (an npm link in `/usr/local/bin` was the realistic collision) and only warn about a
+shadowing command or an installation in the other scope, with the exact command to remove it.
+A root-owned installation failed for other users on the first command, because the launcher
+creates `app/node_modules/@ragents/*` links on first use (`EACCES` in an Ubuntu container); both
+installers therefore run `ensureHostLinks` with the bundled Node after moving the version into
+place and before switching the command, for both scopes, so a host never writes into its
+installation. A run of `check-standalone.mjs` as an unprivileged user against a root-owned
+0.1.20 installation passed without any file in it changing. The shell installer prints the `PATH`
+line for zsh, bash (macOS `~/.bash_profile`, Linux `~/.bashrc`), fish, or other shells and never
+edits startup files; `~/.local/bin` is not on the default macOS `PATH`. The PowerShell installer
+now edits `PATH` through the registry with `REG_EXPAND_SZ`, because `[Environment]::SetEnvironmentVariable`
+expands and flattens entries such as `%SystemRoot%`, which matters for the machine `PATH`. All
+documents use the script block form for PowerShell, because `irm ... | iex` cannot pass `-Global`
+or `-Version`. The launcher answers `--version` and `-v` with its package version, which
+`check-standalone.mjs` now compares with the archive's manifest. Open: whether `core` should keep
+the .NET language servers (`TODO.md`); the new flags reach users only with the next release.
+
+## 2026-10-01: The global coordinator opens from a header button into a dimmed dropdown
+
+Chapter: `spec/plugins.md` (header, global coordinator, `PopoverContent`); usage: `usage.md`.
+Owner's requirements: the header no longer holds a text box, and the open conversation dims the
+rest of the application like the other dimming pop-outs. The header contribution is now a
+`PopoverTrigger` button that looks like the former field and keeps the status marker and the
+working pulse; the dropdown uses `dim` and ends in the same card composer as the run chat, which
+took over attachments, send and stop, model, reasoning, reset, and the error line. The focus
+juggling between header input and history is gone: the composer gets the focus on opening,
+the button gets it back on closing, and leaving button and dropdown by Tab now closes it as well.
+The header sits in its own stacking context below the global backdrop, so the dropdown is
+portaled into the contribution's own element (new `container` on `PopoverContent`) and the button
+is lifted above the backdrop there instead of adding overlay code. Typing on the closed button
+does not open the dropdown, because the composer only offers to replace its draft.
+
+## 2026-10-01: Every view keeps its header button; header actions without a menu
+
+Chapters: `spec/plugins.md` (docking workspace, sidebar rail, run panel header),
+`spec/typescript-platform.md` (Run scripts); usage: `usage.md`. Owner's requirements: the view
+buttons at the top right list Chat and every app at all times. `revealDockPanel` opens a closed
+view as before, brings a background tab to the front, and leaves a visible view untouched; the
+button is pressed while its view is visible. The old strip measured its content with a hidden
+copy and a `ResizeObserver` and kept a stale width, which opened a large gap before "Reset
+layout"; it now only shrinks its labels, and more than five views move into one "All windows"
+menu. Maximize/restore and the close button of an area header swapped places, so X is outermost.
+The burger menu is gone: Settings, Help, sign-out, and in VS Code "Open in browser" are icon
+buttons, and "Run script" is a labeled button next to the views whose pop-out reuses the Start
+page items (`StartTile`). Rail badges were unreadable circles over the icons; the rail now shows
+one blue dot for a badge or pending activity. The hover flyout uses the `shadow-pop` token instead
+of `shadow-md`, the pinned sidebar `shadow-none`; whether `--pop-shadow` is strong enough in the
+dark theme is a theme-wide question, not a per-element value. The run script pop-out spans the
+header width up to 800 pixels, right-aligned, in two columns when wide, available scripts first.
+
+## The logo leads back to Start; no coordinator chat on Start (01.10.2026)
+
+Chapter: `spec/plugins.md`; usage: `usage.md`. Owner's requirement: the logo replaces the back
+arrow, and the bottom coordinator chat on Start is redundant. The logo at the top left of the
+shared header is now the button "Back to Start" in browser and VS Code run panel; the run header
+and the browser's Runs page drop their back arrows (`PanelPageProps.hideBack`). The VS Code
+pages Runs and Server have no logo and keep theirs. The header dropdown already shows the full
+coordinator conversation and takes follow-ups, so the overseer's full-size chat and the `idle`
+overview placement, which only it used, are removed. This reverses the entry of 29.09.2026.
+
+## Homepage annotations follow scroll position (01.10.2026)
+
+Chapter: `spec/overview.md`. Annotation delays, CSS fades, focus smoothing, and separate rendering
+loops made identical scroll positions show different text and arrows. Scene geometry, lighting,
+annotation fades, and arrowhead growth now use the same scene position and render frame on desktop
+and mobile. Manual scrolling pauses playback until it is explicitly resumed, removing the timed
+restart that moved the page while the reader was inspecting a scene.
+
+## Run focus and responsive window defaults (01.10.2026)
+
+Chapter: `spec/plugins.md`; usage: `usage.md`. Opening or starting a run requests the selected
+chat input once in both browser and VS Code, after connection and addressee resolution.
+Wide browser workspaces start with Chat beside mini-apps; narrow ones use tabs. Manual
+arrangements remain authoritative. Hidden windows have direct buttons with existing icons
+and an overflow menu instead of a generic add-window button. Tab close controls replace the
+duplicate area close control, and maximize appears only when another area exists. Reset uses
+the standard header button size and restores the responsive default.
+
 ## Directory synchronization on Windows (01.10.2026)
 
 Chapter: `spec/core.md`. Journal locks and host recovery synchronize directory entries only on
 Linux and macOS. Windows rejects directory `fsync`, which prevented even a fresh host from
 starting. File contents still use `fsync` on every platform, and file errors remain hard errors.
 The spec states the Windows power-loss durability limit for directory entries explicitly.
+
+## Public web access by default in the process sandbox (01.10.2026)
+
+Chapter: `spec/plugins.md`; operation: `operations.md`; usage: `usage.md`.
+Public documentation, APIs and package downloads should work without maintaining a domain list.
+The default network setting is now `["*"]`, translated into automatic proxy permission for public
+web domains on ports 80 and 443. Explicit lists still restrict access; local and internal services
+need explicit targets. The runtime checks DNS results and retains file isolation. The workspace
+prompt no longer prohibits network access from Bash. This does not classify HTTP actions or
+prevent uploads of readable files. User questions already exist through `ragents.ask`, but an
+enforced host approval before file deletion remains open in `TODO.md`.
 
 ## Native Windows plugin paths (01.10.2026)
 
@@ -14,6 +215,22 @@ drive and UNC paths, and backslashes in relative and home paths. A profile resol
 bundles to absolute paths before provisioning; treating a Windows path as a built-in plugin ID
 prevented the standalone host from starting with an external plugin. The extracted-bundle
 startup check covers this on both Windows architectures.
+
+## 2026-10-01: A model checks a mini-app through a view function, not through the browser
+
+Chapters: `spec/actor-programs.md`, `spec/plugins.md` (Browser checks).
+A small model finished a text-analysis mini-app in 30 seconds and then needed 106 tool calls to look at it: it
+wanted to verify the interface, so it guessed the host port, signed in to a different server, guessed the
+element ID of the app layout, and read the repository for the address. The app had been open as a tab all
+along. Giving the model the host address and sign-in would have meant letting it talk to its own host over
+HTTP, which is questionable on its own; the requirement to check interfaces in the browser is dropped.
+
+`actor_view_snapshot` (plugin `ragents.browser`, soft dependency on the actor programs service) resolves the
+view, address and frame in code and returns the accessible structure. `ActorProgramsService.resolveView` is
+the new host-side lookup; `actor_program_list` shows each view's `ref`. The actor programs summary now says that a
+visible view is already open and that hiding keeps state, which is proven by comparing a function result.
+`typescript_api` answers a query without match with a hint (a query is one phrase, not words) and the bash
+tool says that `rg -r` means replace. Not solved: a server with sign-in; the snapshot reports the page it finds.
 
 ## One installation section and one release for every channel (01.10.2026)
 
@@ -31,6 +248,33 @@ that release public. Retrying uses the saved version and files without rebuildin
 cannot share a transaction, so failures can temporarily leave some channels ahead. Source
 manifests stay unchanged locally; release metadata is set only in the build checkout.
 
+## 2026-10-01: Bound chat content and keep hover previews transient
+
+Use one 900-pixel host token with quassel 0.4.3's existing centered content and composer
+layout. This keeps the scrollbar at the panel edge and aligns pending actions with the input.
+Standalone actor controls use the same limit; preparation keeps matching side padding.
+
+Hover previews were written to storage and cleared only on mount. Keep live snapshots in
+memory and persist previews as hidden; the reload regression also moves the pointer off the
+rail to avoid opening a fresh preview. The header had hidden launching titles while no run ID
+was selected. Restore them in the Run title bar region and use accessible test locators.
+
+Updated chapter: `spec/plugins.md`; usage and generated guides describe the chat column.
+
+## One hover color for all neutral buttons (01.10.2026)
+
+Chapters: none (visual). The ghost and outline variants of `Button`, `Badge` and `Toggle` hovered with
+the weak `muted` token (half strength in the dark theme) while the run title button used `accent`.
+All of them now use `hover:bg-accent`, as the run title already did, so that the back arrow, icon
+buttons and text buttons look the same on hover. No special cases per place.
+
+## The header shows the logo instead of a grid icon and the product name (01.10.2026)
+
+Chapters: `docs/usage.md` (header). The one-row header of the browser app shows the product logo
+(`docs/logo/skull-line-bold.svg`, inline in `apps/web/src/ui/brand-logo.tsx`, takes the text color,
+the product title as its accessible name and tooltip) where the grid icon and the title text were.
+The global coordinator's input row has no background of its own anymore.
+
 ## Standalone archives and shell installation through GitHub Releases (01.10.2026)
 
 Chapter: `spec/overview.md`; installation: `operations.md`; release workflow: `development.md`.
@@ -40,6 +284,89 @@ packages, then assemble and check archives on all six native OS/architecture com
 GitHub Releases holds the archives and checksum-checked Unix/PowerShell installers. Versioned
 user-local installations preserve the previous command on failed updates and leave run data in
 its existing location. Desktop installers and a separate desktop runtime are unnecessary.
+
+## 2026-10-01: One header row and hover previews without sticky overlays
+
+Brand, coordinator input, and menu share the browser header; run layout actions move into
+the title row. Start gains 10 pixels above Server. Removing negative run-list margins keeps
+rows inside the established 1280-pixel column and aligned with the template grid.
+
+The sidebar now has only hidden, hover-preview, and docked states. Rail clicks dock or toggle
+the active view off, and unpin hides it. Pointer capture protects flyout grips only during
+the gesture; interacting no longer creates sticky overlays. Returning a tool docks the sidebar
+beside the layout, so it cannot cover another tool tab and intercept the next drag. Hover
+previews do not survive reload. Browser regressions cover compass drops, width bounds,
+sidebar transitions, grip presses, and screenshots for visual review.
+
+Updated chapter: `spec/plugins.md`; usage and generated guides follow the same behavior.
+
+## quassel 0.4.3: transcript mode switch in every chat, latest reply for the global coordinator (01.10.2026)
+
+Chapters: `docs/usage.md` (chat controls). quassel 0.4.3 adds `transcriptMode` ("all" or "latest") and
+the `TranscriptModeSwitch` button. Every chat input now shows the switch next to the detail and
+timestamp switches (`chat-view-settings.tsx`); the mode is kept per run and actor in local storage
+and invalid stored values are a hard error. Ordinary chats start with all replies, the global
+coordinator with the latest reply between inputs. `TranscriptModeSwitch` is a new name in the host
+API (`pnpm update:host-api`, additive, version unchanged).
+
+## 2026-10-01: Constrain every panel page in the shared host
+
+Start-only width limits left Runs and Server unconstrained. `PanelPage` now owns the centered
+1280-pixel column and side padding for both hosts. Template tracks use a fixed 240-pixel
+minimum with a container query for narrower panels, avoiding percentage-dependent auto-fill
+tracks. Cards remain capped at 320 pixels, and Start server chips at 720 pixels. Browser
+regressions measure the rendered browser shell and extension panel, including column counts,
+search and row widths, centering, and horizontal overflow at narrow and ultrawide sizes.
+
+Updated chapter: `spec/plugins.md`; usage and generated guides describe the shared column.
+
+## 2026-10-01: Frame docking areas as cards with dotted resize grips
+
+Dock areas, empty areas, the view rail, and side views now share thin rounded card frames,
+separated by uniform gaps on the app background. Three-dot grips expose the draggable gaps
+without divider lines; wider transparent hit areas preserve reachability. Focus and drag use
+existing theme accents. Only floating views retain a shadow. Card interiors and previews use
+the same inset geometry, preserving mounted frame identity and the existing side-view modes.
+
+Updated chapter: `spec/plugins.md`; usage and browser geometry checks follow the new frames.
+
+## 2026-10-01: Bound Start and make inspection state explicit
+
+The shared Start page now measures its panel, caps content and card widths, and keeps server
+chips beside their actions on wide displays. Inspection uses two toolbar rows; its actor selector
+is a window-header contribution, leaving more space for the conversation.
+
+Independent pin and sticky flags allowed contradictory sidebar behavior. Four explicit modes
+now determine visibility, pin appearance, layout space and persistence. Interacting with a hover
+preview makes it sticky; pointer capture and guarded leave timers keep both grips usable. Floating
+views regain the shared popover frame while pinned views stay flat. Browser regressions cover
+wide/narrow Start, grip presses and resizing, pin transitions, closing and reload.
+
+Updated chapter: `spec/plugins.md`; usage follows the same behavior.
+
+## 2026-10-01: Name dock panels through their controls and test local editing focus
+
+Dock panels use `aria-labelledby` to reference their tab or sidebar button, keeping the inner
+Chat region's label unique. The nested clipboard test checks `document.activeElement` rather
+than `document.hasFocus()`, which additionally requires system focus on the browser window.
+Clipboard focus restoration is unchanged; undo, redo, and subsequent typing remain covered.
+
+Updated chapter: `spec/plugins.md`.
+
+## 2026-10-01: User-controlled browser docking with stable mounted windows
+
+The browser restores classic area docking for Chat, apps, and inspection tools, including a
+resizable flyout or pinned sidebar. The initial layout remains one tab group. Layout belongs
+to the user and is stored per server origin and run; coordinator layout functions, placements,
+chat placement modes, and fullscreen overlays remain removed. VS Code keeps its editor tabs.
+
+A small in-house split tree and geometry layer is sufficient, so no docking library is added.
+Panels are positioned as stable siblings instead of being reparented into tree nodes; this
+preserves iframe identity and drafts across moves, splits, close/reopen, and maximize/restore.
+The existing app catalog and plugin run panel remain the sources of content.
+
+Updated chapter: `spec/plugins.md`; usage, development, and generated homepage guides describe
+the browser interactions and the content-lifetime boundary.
 
 ## 2026-09-30: Align the balcony setup test with automatic app discovery
 

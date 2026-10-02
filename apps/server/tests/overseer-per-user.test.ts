@@ -51,7 +51,7 @@ const writeSharedCoordinator = () => {
       runId: SHARED_OVERSEER_RUN_ID, title: "Top-level coordinator", ownerHandle: "alice", ownerDisplayName: "alice", ownerUserId: "alice",
     });
     const spawned = runtime.spawnAgent({ actorId: created.ownerId, commandId: "shared-spawn" }, SHARED_OVERSEER_RUN_ID, {
-      handle: "coordinator", displayName: "Coordinator", prompt: "", execution: manualExecution(), grants: [], toolNames: ["read", "write", "edit", "bash", "quick_answer"],
+      handle: "coordinator", displayName: "Coordinator", prompt: "", execution: manualExecution(), grants: [], toolNames: ["read", "write", "edit", "bash"],
     });
     const coordinator = spawned.actors.find((actor) => actor.kind === "agent")!;
     runtime.enqueueInput({ actorId: created.ownerId, commandId: "shared-input" }, SHARED_OVERSEER_RUN_ID, { actorId: coordinator.id, content: "Message from bob in the shared conversation" });
@@ -139,7 +139,7 @@ test("every user has their own coordinator whose tools act only with that user's
     return createAccessContext(sessions.coordinatorSnapshot(user.userId));
   };
   const policy = provider.plugins.service(globalChatToken);
-  assert.deepEqual(policy.toolNames, ["read", "write", "edit", "quick_answer"], "with users the coordinator has no host shell");
+  assert.deepEqual(policy.toolNames, ["read", "write", "edit"], "with users the coordinator has no host shell");
   assert.match(policy.prompt, /you have no shell/);
   assert.match(policy.prompt, /JSON-RPC calls via fetch in a snippet/);
   assert.doesNotMatch(policy.prompt, /read, write, edit and bash|bash function|bash and curl/);

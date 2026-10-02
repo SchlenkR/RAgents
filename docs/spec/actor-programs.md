@@ -147,11 +147,14 @@ catalog. No additional call contract is needed.
 unchanged, restarts its stopped actor, activates an installed package, or installs a shared
 package of the profile ([TypeScript platform](typescript-platform.md), Run scripts).
 
-`actor_program_list` shows installed programs. `actor_program_remove` removes the binding and its
+`actor_program_list` shows installed programs; each of their views carries a `ref`
+(`package-name/view-key`), the reference that view functions accept. `actor_program_remove` removes the binding and its
 views. It also stops a TypeScript actor, while an existing LLM actor remains. Activating a package
 of the same name again restarts that stopped actor with its state instead of creating another. Sources stay
 editable in the private workspace. `actor_view_set_visibility` addresses a view by
 `package-name/view-name` or unique title. Visibility changes neither functions nor actor state.
+A visible view is already open as a tab for the user. A model that has to see what it renders calls
+`actor_view_snapshot` from `ragents.browser`, which resolves the address itself ([Browser checks](plugins.md#browser-checks)).
 The host manages hashes and technical bindings.
 <!-- /guide:programs -->
 
@@ -672,8 +675,9 @@ execution paths. Deleting the run also removes its private app workspace.
 
 ## Open limits
 
-- A successful type check and domain test is no proof of actual operation in the browser.
-  Interfaces must additionally be checked in the browser.
+- A successful type check and domain test is no proof that an interface renders.
+  `actor_view_snapshot` shows what a visible view renders, but only on a server without sign-in that the
+  browser's machine can reach; it does not prove that the interface behaves correctly.
 - Progress within a backend function that is still running is not automatically published as
   shared state; the state is committed at successful completion.
 - A view has no scheduler of its own; subscription events deliver normal ActorInputs to the actor.

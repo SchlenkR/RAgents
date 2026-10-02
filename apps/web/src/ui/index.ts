@@ -2,7 +2,7 @@
 // Icons come from lucide-react; ListDetail, SectionLabel and SvgEdge are the host's own composites, modal.tsx stays host-only.
 export { cn } from "cn";
 export { Alert, AlertAction, AlertDescription, AlertTitle } from "./alert";
-export { Badge, badgeVariants } from "./badge";
+export { Badge, BadgeDisplayProvider, badgeVariants } from "./badge";
 export { Button, buttonVariants } from "./button";
 export { Card, CardAction, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "./card";
 export { Checkbox } from "./checkbox";
