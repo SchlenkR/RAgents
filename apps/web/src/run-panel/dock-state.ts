@@ -30,11 +30,15 @@ export interface DockState {
   readonly focused: string;
   readonly maximized: string | null;
   readonly side: { readonly tab: string | null; readonly mode: "hidden" | "hover-preview" | "docked"; readonly focused: boolean; readonly width: number };
+  /** The arranged order of the window buttons in the run header; windows missing from it follow in catalog order. */
+  readonly order?: readonly string[];
 }
 
 export const appPanelId = (id: string) => `app:${id}`;
 export const toolPanelId = (id: string) => `tool:${id}`;
 export const isToolPanel = (id: string) => id.startsWith("tool:");
+export const emptyPanelId = (id: string) => `empty:${id}`;
+export const isEmptyPanel = (id: string) => id.startsWith("empty:");
 const group = (id: string, tabs: readonly string[]): DockGroup => ({ kind: "group", id, tabs, active: tabs[0] ?? null });
 export const dockGroups = (node: DockNode): readonly DockGroup[] => node.kind === "group" ? [node] : [...dockGroups(node.first), ...dockGroups(node.second)];
 export const mapDockNode = (node: DockNode, id: string, update: (node: DockNode) => DockNode): DockNode =>
@@ -73,14 +77,15 @@ function pruneEmptied(root: DockNode, before: DockNode, preserve?: string): Dock
 
 export function reconcileDockState(state: DockState, panels: readonly string[], tools: readonly string[], splitApps = false): DockState {
   const available = [...panels, ...tools];
-  const keep = (id: string) => available.includes(id);
+  const keep = (id: string) => available.includes(id) || isEmptyPanel(id);
   const root = pruneEmptied(filterPanels(state.root, keep), state.root);
   const added = panels.filter((id) => !state.known.includes(id));
   const first = dockGroups(root).find((g) => g.id === "main") ?? dockGroups(root)[0];
   const reconciled = normalize({ ...state,
     root: mapDockNode(root, first.id, () => ({ ...first, tabs: [...first.tabs, ...added], active: first.active ?? added[0] ?? null })),
-    known: available,
+    known: [...new Set([...available, ...state.known.filter(isEmptyPanel)])],
     closed: state.closed.filter(keep),
+    ...(state.order ? { order: state.order.filter(keep) } : {}),
     bar: [...state.bar.filter(keep), ...tools.filter((id) => !state.known.includes(id))],
     side: { ...state.side, tab: state.side.tab !== null && keep(state.side.tab) ? state.side.tab : null },
   });
@@ -91,7 +96,7 @@ export function reconcileDockState(state: DockState, panels: readonly string[], 
 function defaultDockLayout(state: DockState, splitApps: boolean): DockState {
   const groups = dockGroups(state.root);
   const panels = state.known.filter((id) => groups.some((entry) => entry.tabs.includes(id)));
-  const apps = panels.filter((id) => id.startsWith("app:"));
+  const apps = panels.filter((id) => id.startsWith("app:") || isEmptyPanel(id));
   const active = groups.find((entry) => entry.id === state.focused)?.active;
   if (!splitApps || !panels.includes("chat") || apps.length === 0) {
     return { ...state, root: { ...group("main", panels), active: active ?? panels[0] ?? null }, focused: "main" };
@@ -126,12 +131,20 @@ export function revealDockPanel(state: DockState, id: string, split: boolean, ne
     : moveDockPanels(restored, [id], { kind: "group", group: target.id, side: "right" }, newId);
 }
 
+export function addDockEmptyPane(state: DockState, id: string, target: DockTarget | undefined, split: boolean, newId: () => string): DockState {
+  if (!isEmptyPanel(id) || state.known.includes(id)) return state;
+  const known = { ...state, known: [...state.known, id] };
+  const next = target ? moveDockPanels(known, [id], target, newId) : revealDockPanel(known, id, split, newId);
+  return dockGroups(next.root).some((g) => g.tabs.includes(id)) ? next : state;
+}
+
 export function closeDockPanels(state: DockState, ids: readonly string[], area?: string): DockState {
   const root = filterPanels(state.root, (id) => !ids.includes(id));
   return normalize({ ...state,
     automatic: false,
     root: area ? removeGroup(root, area) : pruneEmptied(root, state.root),
-    closed: [...new Set([...state.closed, ...ids.filter((id) => !isToolPanel(id))])],
+    known: state.known.filter((id) => !isEmptyPanel(id) || !ids.includes(id)),
+    closed: [...new Set([...state.closed, ...ids.filter((id) => !isToolPanel(id) && !isEmptyPanel(id))])],
     bar: [...new Set([...state.bar, ...ids.filter(isToolPanel)])],
     side: { ...state.side, tab: state.side.tab !== null && ids.includes(state.side.tab) ? null : state.side.tab },
   });
@@ -152,13 +165,16 @@ export function moveDockPanels(state: DockState, ids: readonly string[], target:
       ratio: before ? ratio : 1 - ratio, first: before ? added : node, second: before ? node : added };
   };
   const merged = target.kind === "group" && target.side === "center";
+  const shown = merged ? dockGroups(detached).find((g) => g.id === target.group)?.active : undefined;
+  const replaced = shown && isEmptyPanel(shown) ? shown : undefined;
   const root = target.kind === "edge" ? split(detached, target.side, 0.35)
     : mapDockNode(detached, target.group, (node) => {
       if (node.kind !== "group") return node;
-      return target.side === "center" ? { ...node, tabs: [...node.tabs, ...moving], active } : split(node, target.side, 0.5);
+      if (target.side !== "center") return split(node, target.side, 0.5);
+      return { ...node, tabs: replaced ? node.tabs.flatMap((id) => id === replaced ? moving : [id]) : [...node.tabs, ...moving], active };
     });
   const preserve = target.kind === "group" ? target.group : dockGroups(state.root).length === 1 ? dockGroups(state.root)[0].id : undefined;
-  return normalize({ ...state, automatic: false, root: pruneEmptied(root, state.root, preserve),
+  return normalize({ ...state, automatic: false, root: pruneEmptied(root, state.root, preserve), known: state.known.filter((id) => id !== replaced),
     closed: state.closed.filter((id) => !moving.includes(id)), bar: state.bar.filter((id) => !moving.includes(id)),
     focused: merged ? target.group : added.id, maximized: null,
     side: { ...state.side, focused: false, tab: state.side.tab !== null && moving.includes(state.side.tab) ? null : state.side.tab },
@@ -168,6 +184,20 @@ export function moveDockPanels(state: DockState, ids: readonly string[], target:
 export function resizeDockSplit(state: DockState, id: string, ratio: number): DockState {
   if (!Number.isFinite(ratio)) return state;
   return { ...state, automatic: false, root: mapDockNode(state.root, id, (node) => node.kind === "split" ? { ...node, ratio: Math.max(0.1, Math.min(0.9, ratio)) } : node) };
+}
+
+export function dockWindowOrder(state: DockState, panels: readonly string[]): readonly string[] {
+  const arranged = (state.order ?? []).filter((id) => panels.includes(id));
+  return [...arranged, ...panels.filter((id) => !arranged.includes(id))];
+}
+
+export function moveDockWindow(state: DockState, id: string, before: string | null): DockState {
+  const order = dockWindowOrder(state, state.known.filter((entry) => !isToolPanel(entry) && !isEmptyPanel(entry)));
+  if (!order.includes(id) || id === before || (before !== null && !order.includes(before))) return state;
+  const rest = order.filter((entry) => entry !== id);
+  const index = before === null ? rest.length : rest.indexOf(before);
+  const next = [...rest.slice(0, index), id, ...rest.slice(index)];
+  return next.every((entry, position) => entry === order[position]) ? state : { ...state, order: next };
 }
 
 export function activeDockTool(state: DockState): string {
@@ -189,7 +219,7 @@ export function parseDockState(raw: string | null): DockState {
   const uniquePanels = (ids: readonly string[]) => ids.every((id) => {
     if (panels.has(id)) return false;
     panels.add(id);
-    return id === "chat" || id.startsWith("app:") || isToolPanel(id);
+    return id === "chat" || id.startsWith("app:") || isToolPanel(id) || isEmptyPanel(id);
   });
   const validNode = (node: DockNode, depth = 0): boolean => {
     if (!node || depth > 64 || typeof node.id !== "string" || nodes.has(node.id)) return false;
@@ -200,8 +230,9 @@ export function parseDockState(raw: string | null): DockState {
       && Number.isFinite(node.ratio) && node.ratio >= 0.1 && node.ratio <= 0.9 && validNode(node.first, depth + 1) && validNode(node.second, depth + 1);
   };
   if (!state || state.version !== 1 || (state.automatic !== undefined && typeof state.automatic !== "boolean") || !validNode(state.root) || !strings(state.closed) || !uniquePanels(state.closed)
-    || state.closed.some(isToolPanel) || !strings(state.bar) || !uniquePanels(state.bar) || !state.bar.every(isToolPanel)
+    || state.closed.some(isToolPanel) || state.closed.some(isEmptyPanel) || !strings(state.bar) || !uniquePanels(state.bar) || !state.bar.every(isToolPanel)
     || !strings(state.known) || new Set(state.known).size !== state.known.length || state.known.length !== panels.size || !state.known.every((id) => panels.has(id))
+    || (state.order !== undefined && (!strings(state.order) || new Set(state.order).size !== state.order.length || !state.order.every((id) => state.known.includes(id) && !isToolPanel(id) && !isEmptyPanel(id))))
     || !dockGroups(state.root).some((g) => g.id === state.focused)
     || !(state.maximized === null || dockGroups(state.root).some((g) => g.id === state.maximized))
     || !state.side || !(state.side.tab === null || state.bar.includes(state.side.tab))

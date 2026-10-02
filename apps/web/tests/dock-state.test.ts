@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { activeDockTool, closeDockPanels, dockGroups, initialDockState, moveDockPanels, parseDockState, persistentDockState, reconcileDockState, resizeDockSplit, revealDockPanel, transitionDockSide, returnDockTool, selectDockPanel, type DockState, type DockTarget } from "../src/run-panel/dock-state";
+import { activeDockTool, addDockEmptyPane, closeDockPanels, dockGroups, dockWindowOrder, emptyPanelId, initialDockState, moveDockPanels, moveDockWindow, parseDockState, persistentDockState, reconcileDockState, resizeDockSplit, revealDockPanel, transitionDockSide, returnDockTool, selectDockPanel, type DockState, type DockTarget } from "../src/run-panel/dock-state";
 import { dockGeometry, dockHitTest, dockPreview, dockingGuides } from "../src/run-panel/dock-geometry";
 import { dockStorageKey } from "../src/run-panel/dock-storage";
 
@@ -325,4 +325,132 @@ test("persistent layouts exclude hover previews and retain docked sidebars", () 
   assert.deepEqual(saved.root, hovered.root);
   const docked = transitionDockSide(hovered, { type: "pin" });
   assert.deepEqual(parseDockState(JSON.stringify(persistentDockState(docked))), docked);
+});
+
+test("header window order moves a button before another one or to the end without touching the layout", () => {
+  const panels = ["chat", "app:notes", "app:board"];
+  const start = reconcileDockState(initial(), panels, ["tool:files", "tool:journal"], true);
+  assert.deepEqual(dockWindowOrder(start, panels), panels);
+  const first = moveDockWindow(start, "app:board", "chat");
+  assert.deepEqual(dockWindowOrder(first, panels), ["app:board", "chat", "app:notes"]);
+  assert.equal(first.root, start.root);
+  assert.equal(first.automatic, true, "arranging the header keeps the automatic layout");
+  const last = moveDockWindow(first, "app:board", null);
+  assert.deepEqual(dockWindowOrder(last, panels), panels);
+  assert.equal(moveDockWindow(first, "app:board", "chat"), first, "a move to the current slot changes nothing");
+  assert.equal(moveDockWindow(first, "chat", "app:notes"), first, "before the next button is the current slot");
+  assert.equal(moveDockWindow(first, "chat", "chat"), first);
+  assert.equal(moveDockWindow(first, "tool:files", "chat"), first, "tools are not header windows");
+  assert.equal(moveDockWindow(first, "app:missing", null), first);
+  assert.equal(moveDockWindow(first, "chat", "app:missing"), first);
+  roundtrip(first);
+  roundtrip(last);
+});
+
+test("header window order appends new windows, forgets vanished ones and survives layout changes and reset", () => {
+  const panels = ["chat", "app:notes", "app:board"];
+  const tools = ["tool:files", "tool:journal"];
+  const arranged = moveDockWindow(initial(), "app:board", "chat");
+  assert.deepEqual(dockWindowOrder(arranged, [...panels, "app:new"]), ["app:board", "chat", "app:notes", "app:new"]);
+  assert.deepEqual(dockWindowOrder(arranged, ["chat", "app:notes"]), ["chat", "app:notes"], "only the current windows are listed");
+  const added = reconcileDockState(arranged, [...panels, "app:new"], tools);
+  assert.deepEqual(added.order, ["app:board", "chat", "app:notes"]);
+  assert.deepEqual(dockWindowOrder(moveDockWindow(added, "app:new", "chat"), [...panels, "app:new"]), ["app:board", "app:new", "chat", "app:notes"]);
+  const vanished = reconcileDockState(added, ["chat", "app:notes", "app:new"], tools);
+  assert.deepEqual(vanished.order, ["chat", "app:notes"]);
+  assert.deepEqual(dockWindowOrder(vanished, ["chat", "app:notes", "app:new"]), ["chat", "app:notes", "app:new"]);
+  const moved = move(closeDockPanels(arranged, ["app:notes"]), ["app:board"], { kind: "edge", side: "left" });
+  assert.deepEqual(moved.order, arranged.order);
+  assert.deepEqual(selectDockPanel(moved, "app:notes").order, arranged.order);
+  roundtrip(vanished);
+  roundtrip(moved);
+  assert.equal(reconcileDockState(initialDockState(panels, tools), panels, tools).order, undefined, "Reset layout restores the catalog order");
+});
+
+test("layout storage rejects an invalid header window order", () => {
+  for (const order of [["chat", "chat"], ["tool:files"], ["app:missing"], "chat", [1]]) {
+    assert.throws(() => parseDockState(JSON.stringify({ ...initial(), order })), /invalid/);
+  }
+  roundtrip({ ...initial(), order: [] });
+});
+
+test("empty panes open beside the focused area or as a tab, several at once, and leave for good when closed", () => {
+  const panels = ["chat", "app:notes", "app:board"];
+  const tools = ["tool:files", "tool:journal"];
+  const add = (state: DockState, id: string, target?: DockTarget, wide = true) => addDockEmptyPane(state, emptyPanelId(id), target, wide, () => `node-${++serial}`);
+  const start = reconcileDockState(initial(), panels, tools, true);
+  const first = add(start, "one");
+  assert.equal(dockGroups(first.root).length, 3, "a wide workspace splits beside the focused area");
+  assert.equal(dockGroups(first.root).find((g) => g.tabs.includes("empty:one"))?.active, "empty:one");
+  assert.equal(first.automatic, false);
+  const second = add(first, "two", undefined, false);
+  assert.deepEqual(dockGroups(second.root).find((g) => g.id === second.focused)?.tabs, ["empty:one", "empty:two"], "a narrow workspace adds a tab");
+  assert.equal(add(second, "two"), second, "an existing pane is not added twice");
+  assert.equal(addDockEmptyPane(second, "app:other", undefined, true, () => "node"), second, "only empty pane IDs are added");
+  const edge = add(second, "three", { kind: "edge", side: "bottom" });
+  assert.equal(dockGroups(edge.root).length, 4);
+  assert.equal(add(second, "lost", { kind: "bar" }), second, "a pane that does not land is not added");
+  roundtrip(edge);
+  const closed = closeDockPanels(edge, ["empty:one", "empty:three"]);
+  assert.ok(!closed.known.includes("empty:one") && !closed.known.includes("empty:three"));
+  assert.deepEqual(closed.closed, [], "closed panes are not reopened from the header");
+  roundtrip(closed);
+  const reconciled = reconcileDockState(closed, panels, tools, true);
+  assert.ok(reconciled.known.includes("empty:two"), "catalog reconciliation keeps empty panes");
+  assert.equal(reconcileDockState(reconciled, panels, tools, true), reconciled);
+  assert.deepEqual(dockWindowOrder(moveDockWindow(reconciled, "app:board", "chat"), panels), ["app:board", "chat", "app:notes"], "empty panes are no header windows");
+  roundtrip(moveDockWindow(reconciled, "app:board", "chat"));
+  assert.ok(!reconcileDockState(initialDockState(panels, tools), panels, tools, true).known.some((id) => id.startsWith("empty:")), "Reset layout removes empty panes");
+});
+
+test("a window dropped on the center of a shown empty pane replaces it, a hidden one is merged beside", () => {
+  const panels = ["chat", "app:notes", "app:board"];
+  const tools = ["tool:files", "tool:journal"];
+  const start = reconcileDockState(initial(), panels, tools, true);
+  const pane = addDockEmptyPane(start, emptyPanelId("one"), { kind: "edge", side: "bottom" }, true, () => `node-${++serial}`);
+  const area = dockGroups(pane.root).find((g) => g.tabs.includes("empty:one"))!;
+  const replaced = move(pane, ["app:board"], { kind: "group", group: area.id, side: "center" });
+  assert.deepEqual(dockGroups(replaced.root).find((g) => g.id === area.id)?.tabs, ["app:board"]);
+  assert.ok(!replaced.known.includes("empty:one"));
+  roundtrip(replaced);
+  const tool = move(pane, ["tool:files"], { kind: "group", group: area.id, side: "center" });
+  assert.deepEqual(dockGroups(tool.root).find((g) => g.id === area.id)?.tabs, ["tool:files"]);
+  roundtrip(tool);
+  const split = move(pane, ["app:board"], { kind: "group", group: area.id, side: "left" });
+  assert.ok(split.known.includes("empty:one"), "a compass side splits beside the pane");
+  const behind = selectDockPanel(move(pane, ["chat"], { kind: "group", group: area.id, side: "center" }), "chat");
+  assert.deepEqual(dockGroups(behind.root).find((g) => g.id === area.id)?.tabs, ["chat"], "Chat replaced the shown pane");
+  const tabbed = addDockEmptyPane(behind, emptyPanelId("two"), { kind: "group", group: area.id, side: "center" }, true, () => `node-${++serial}`);
+  assert.deepEqual(dockGroups(tabbed.root).find((g) => g.id === area.id)?.tabs, ["chat", "empty:two"]);
+  const background = selectDockPanel(tabbed, "chat");
+  const merged = move(background, ["app:board"], { kind: "group", group: area.id, side: "center" });
+  assert.deepEqual(dockGroups(merged.root).find((g) => g.id === area.id)?.tabs, ["chat", "empty:two", "app:board"], "a background pane stays");
+  const own = move(tabbed, ["empty:two"], { kind: "group", group: area.id, side: "center" });
+  assert.ok(own.known.includes("empty:two"), "a pane dropped on its own area stays");
+  roundtrip(merged);
+  roundtrip(own);
+});
+
+test("hit testing turns the whole content of a shown empty pane into its replace target", () => {
+  const rect = { left: 0, top: 0, width: 900, height: 600 };
+  const bar = { left: 900, top: 0, width: 36, height: 600 };
+  const pane = addDockEmptyPane(initialDockState(["chat"]), emptyPanelId("one"), { kind: "edge", side: "right" }, true, () => `node-${++serial}`);
+  const groups = dockGeometry(pane.root, rect, null).groups;
+  const area = groups.find(({ group }) => group.active === "empty:one")!;
+  const chat = groups.find(({ group }) => group.active === "chat")!;
+  const hit = dockHitTest({ x: area.rect.left + 20, y: area.rect.top + area.rect.height - 20 }, rect, groups, bar, false);
+  assert.deepEqual(hit.target, { kind: "group", group: area.group.id, side: "center" });
+  assert.deepEqual(hit.preview, area.rect);
+  assert.equal(dockHitTest({ x: chat.rect.left + 20, y: chat.rect.top + chat.rect.height - 20 }, rect, groups, bar, false).target, undefined);
+  assert.equal(dockingGuides(rect, area).find((guide) => guide.target.kind === "group" && guide.target.side === "center")?.label, "Replace empty pane");
+  assert.equal(dockingGuides(rect, chat).find((guide) => guide.target.kind === "group" && guide.target.side === "center")?.label, "Merge as tabs");
+});
+
+test("layout storage rejects closed or ordered empty panes", () => {
+  const pane = addDockEmptyPane(initial(), emptyPanelId("one"), { kind: "edge", side: "left" }, true, () => `node-${++serial}`);
+  roundtrip(pane);
+  for (const patch of [{ order: ["empty:one"] }, { known: pane.known.filter((id) => id !== "empty:one") }]) {
+    assert.throws(() => parseDockState(JSON.stringify({ ...pane, ...patch })), /invalid/);
+  }
+  assert.throws(() => parseDockState(JSON.stringify({ ...initial(), known: [...initial().known, "empty:two"], closed: ["empty:two"] })), /invalid/);
 });

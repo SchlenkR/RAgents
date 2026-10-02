@@ -1241,7 +1241,8 @@ changes only the own display. The interface applies it before the first React re
 on the root element, and mini-app frames scale along. `body` is `position: relative`, so it is the
 offset parent of the popups and Base UI measures the zoom there; menus, popovers, and selections stay at
 their anchor. Pointer events report zoomed client coordinates, the dock geometry is unzoomed: the dock
-divides pointer movements by the ratio of rendered to layout width of its container. The host
+divides pointer movements by the ratio of rendered to layout width of its container, while reordering
+the header's window buttons compares client coordinates with client rectangles. The host
 `vscode` has no such setting, the shell's `ragents.zoom` applies there (`apps/web/tests/zoom.test.ts`,
 `apps/web/tests/zoom-browser.test.ts`).
 
@@ -1407,16 +1408,43 @@ workspaces or as a tab in narrow ones; a background tab or the active tab of an 
 another maximized area is selected and its area focused; an already visible view changes nothing.
 Labels truncate down to the icon when space is short. More than five views are listed in one
 "All windows" menu with checked entries for visible views instead; nothing is measured.
-VS Code uses the same app buttons and menu to open editor tabs, without a pressed state.
+VS Code uses the same app buttons and menu to open editor tabs, without a pressed state, grips, or
+dragging. In the browser, each direct view button carries a small `GripVerticalIcon` inside its
+existing left padding (`data-dock-window-grip`), so buttons keep their width; it is transparent
+until the button is hovered, focused, or dragged and always visible under `pointer: coarse`. The whole button is the drag source through the dock's
+pointer capture: a press that moves less than 6 px stays a click and calls `revealDockPanel`; a
+longer drag inside the "Layout actions" group inserts the view before the button whose center lies
+right of the pointer (a 2 px primary line marks the slot; no line and no change where the order
+would stay), and anywhere else it uses the same compass, edge guides, previews, and
+`moveDockPanels` as a tab drag, so the drop opens a closed view or moves an open one. Escape
+cancels. Alt+ArrowLeft and Alt+ArrowRight move a focused button by one place and keep its focus.
+The header slot compares client coordinates with the buttons' client rectangles, so the page zoom
+cancels out there. Menu entries are not draggable and follow the same order.
+
+After the views, the browser always shows a direct "Empty space" entry (`extra` of
+`DockWindowActions`, `SquareDashedIcon`, no pressed state, not part of `order` or the menu count);
+only a run header narrower than `@2xs` (18rem) hides it, where its actions would otherwise
+overflow.
+Its click adds an empty pane through `addDockEmptyPane` the same way `revealDockPanel` opens a
+closed view; its drag drops a new pane on a docking guide, and a drop inside the header changes
+nothing. Empty panes are panels with the ID `empty:<uuid>`, titled "Empty space": they live only
+in the tree and in `known`, never in `closed`, `bar`, or `order`; catalog reconciliation keeps them,
+and closing one removes it. Their content is the hint "Drag an app or actor here". A center drop
+(header button, tab, area grip, or rail tool) on an area whose active tab is an empty pane replaces
+that pane in place; for such an area the whole content is a center target and the compass center
+reads "Replace empty pane". A background empty pane is merged beside like any tab.
 "Reset layout" uses the standard header icon button directly after the views and restores the
-automatic layout and inspection rail. Arrow keys, Home, and End select tabs; focused dividers
-resize with arrow keys.
+automatic layout, the button order, and the inspection rail, and removes empty panes. Arrow keys,
+Home, and End select tabs; focused dividers resize with arrow keys.
 
 `dock-state.ts` holds the tree operations and catalog reconciliation; `dock-geometry.ts` calculates
-rectangles and drag targets. The layout, split ratios, active tabs, closed windows, rail membership,
-sidebar mode and width, and maximized area are stored locally per server origin and run
-(`ragents.docking:<encoded-origin>:<encoded-run>`). Invalid storage or a failed write is reported;
-"Reset layout" explicitly replaces invalid state. No server function controls this layout.
+rectangles and drag targets. The layout including empty panes, split ratios, active tabs, closed
+windows, rail membership, sidebar mode and width, maximized area, and the optional header button order (`order`, applied by
+`dockWindowOrder` and changed by `moveDockWindow`, which never touches the tree or the automatic
+layout) are stored locally per server origin and run
+(`ragents.docking:<encoded-origin>:<encoded-run>`). Views missing from `order` follow in catalog
+order, and catalog reconciliation drops unavailable views from it. Invalid storage or a failed
+write is reported; "Reset layout" explicitly replaces invalid state. No server function controls this layout.
 The first run snapshot reconciles saved IDs with the shared catalog from `run-apps.ts`; loading
 alone does not discard positions. Unavailable apps are removed, including stopped or hidden views.
 In automatic wide layouts, new apps join the right-hand app area. In user-arranged layouts,

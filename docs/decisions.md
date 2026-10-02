@@ -1,5 +1,70 @@
 # Decisions
 
+## 2026-10-02: "Empty space" adds empty panes that hold a place in the browser dock
+
+Chapters: `spec/plugins.md` (Web as plugin host: docking workspace);
+usage: `usage.md` (Use chat and mini-apps, Run panel and VS Code extension).
+
+**Why.** The owner wanted to reserve room in the layout before deciding what goes there: an
+always-present header entry that adds an empty pane, several if needed, which behaves like any
+window and takes the window that is dropped onto it.
+
+**Decision.** An empty pane is a regular dock panel with the ID `empty:<uuid>`, so moving,
+splitting, merging, maximizing, closing, grips, and persistence come from the existing tree
+operations unchanged. It exists only in the tree and in `known`: closing removes it instead of
+listing it in `closed`, reconciliation keeps it although no catalog names it, and "Reset layout"
+drops it. `addDockEmptyPane` adds one through `revealDockPanel` (click) or `moveDockPanels` (drop on
+a guide) and changes nothing when the pane would not land. A center drop on an area whose active
+tab is an empty pane replaces that pane in place; the whole content of such an area is a center
+target, and the compass center reads "Replace empty pane". The header entry is the new optional
+`extra` of `DockWindowActions`: always direct after the views, also beside the "All windows" menu,
+outside the header order and the menu count, so five windows still fit before the menu appears.
+A run header narrower than 18rem hides it, as it hides the Share and Agents labels, because the
+actions there have room for Chat and "Reset layout" only.
+Dividing the space is meant, like splitting beside any pane; nothing about permissions or sharing
+a run changes.
+
+Rejected: reusing the existing empty area (a group without tabs), because it cannot be a tab, be
+dragged as a window, or exist several times in one area; making "Empty space" part of the header
+order, because it is an action that creates panes, not a window with a state; replacing an empty
+pane that waits as a background tab, because the user cannot see what the drop would replace.
+Verified with `apps/web/tests/dock-state.test.ts` (adding, several panes, closing, reconciliation,
+reset, replacement, hit testing, validation) and `apps/web/tests/dock-windows-browser.test.ts`
+(click and drag from the header, hint, drops from the header and from a tab, moving, closing,
+reload, reset).
+
+## 2026-10-02: Header window buttons get grips, reorder by drag, and dock onto the workspace guides
+
+Chapters: `spec/plugins.md` (Web as plugin host: zoom, docking workspace);
+usage: `usage.md` (Use chat and mini-apps, Run panel and VS Code extension).
+
+**Why.** The run header lists Chat and every mini-app as buttons, but they could only be clicked.
+The owner asked for a visible drag affordance, for reordering the buttons, and for dropping a
+button onto the docking guides exactly like a tab, while a plain click keeps opening the window.
+
+**Decision.** In the browser, `DockWindowActions` receives optional drag props from `DockWorkspace`:
+each direct button shows a small `GripVerticalIcon` inside its existing left padding, so the
+header needs no extra width, transparent until hover,
+focus, or drag and always shown under `pointer: coarse`, and the whole button starts the dock's
+existing pointer gesture. Below 6 px of movement it stays a click (`revealDockPanel`); inside the
+"Layout actions" group the drop inserts the view before the button whose center lies right of the
+pointer, elsewhere the drag reuses `dockHitTest`, the guides, previews, and `moveDockPanels`.
+Alt+ArrowLeft and Alt+ArrowRight reorder from the keyboard. The order is the optional `order` field
+of the stored dock state (`dockWindowOrder`, `moveDockWindow` in `dock-state.ts`), so it shares
+the per-origin and per-run storage, its validation, catalog reconciliation, and "Reset layout";
+moving a button changes neither the tree nor the automatic layout. The header slot compares client
+coordinates with client rectangles, so the page zoom needs no correction there. VS Code passes no
+drag props and keeps its editor tabs; the host API keeps its names and `HOST_API_VERSION`.
+
+Rejected: a separate storage key for the order, because reset, validation, and reconciliation would
+need a second copy; dragging only from the grip, because the requested threshold already separates
+click and drag on the whole button; dragging entries of the "All windows" menu, because a popover
+list makes a poor drag source and the menu follows the same order anyway. Verified with
+`apps/web/tests/dock-state.test.ts` (order, moves, reconciliation, reset, validation) and
+`apps/web/tests/dock-windows-browser.test.ts` (grips on hover, focus, and touch, header reorder with
+marker, no-op and Escape, click below the threshold, tap, compass split and merge from the header,
+keyboard reorder, reload, page zoom, narrow buttons).
+
 ## 2026-10-02: The agents of a run as a top-down graph, in the addressee pop-out and in the run header
 
 Chapters: `spec/plugins.md` (Web as plugin host, Run panel, Open limits), `spec/core.md` (Ownership);

@@ -290,7 +290,9 @@ Wide browser runs start with Chat beside the mini-apps; narrow ones use one tab 
 onto the docking guides to arrange areas or merge them. Chat and visited apps keep their input
 through switches and moves. New apps appear without taking focus; unavailable apps disappear.
 Close windows with X. The run header keeps a button for every window; a pressed button is
-visible, and clicking another one shows that window.
+visible, and clicking another one shows that window. Drag a header button by its grip to
+reorder the buttons, or onto the docking guides to place that window. "Empty space" in the
+header adds an empty pane that holds a place until you drop a window onto it.
 
 In VS Code, clicking an app opens or focuses its editor tab. VS Code controls where that tab
 appears. Questions and news stay in chat. The selector below the input chooses the addressee;

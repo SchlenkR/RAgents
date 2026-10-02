@@ -1,4 +1,4 @@
-import { dockGroups, type DockGroup, type DockNode, type DockSide, type DockSplit, type DockTarget } from "./dock-state";
+import { dockGroups, isEmptyPanel, type DockGroup, type DockNode, type DockSide, type DockSplit, type DockTarget } from "./dock-state";
 
 export interface DockRect { readonly left: number; readonly top: number; readonly width: number; readonly height: number }
 export interface DockPoint { readonly x: number; readonly y: number }
@@ -8,6 +8,7 @@ export interface DockGuide { readonly target: DockTarget; readonly rect: DockRec
 export const DOCK_HEADER_HEIGHT = 30;
 export const DOCK_DIVIDER_SIZE = 6;
 export const containsPoint = (rect: DockRect, point: DockPoint) => point.x >= rect.left && point.x <= rect.left + rect.width && point.y >= rect.top && point.y <= rect.top + rect.height;
+const showsEmptyPane = (area: GroupRect) => area.group.active !== null && isEmptyPanel(area.group.active);
 
 export function dockGeometry(root: DockNode, rect: DockRect, maximized: string | null) {
   const groups: GroupRect[] = [];
@@ -47,7 +48,8 @@ export function dockingGuides(workspace: DockRect, area?: GroupRect): readonly D
   const cx = area.rect.left + area.rect.width / 2 - size / 2;
   const cy = area.rect.top + area.rect.height / 2 - size / 2;
   return [...edges, ...([ ["left", -1, 0], ["right", 1, 0], ["top", 0, -1], ["bottom", 0, 1], ["center", 0, 0] ] as const)
-    .map(([side, dx, dy]) => guide({ kind: "group", group: area.group.id, side }, cx + dx * (size + gap), cy + dy * (size + gap), side === "center" ? "Merge as tabs" : `Split area ${side}`))];
+    .map(([side, dx, dy]) => guide({ kind: "group", group: area.group.id, side }, cx + dx * (size + gap), cy + dy * (size + gap),
+      side !== "center" ? `Split area ${side}` : showsEmptyPane(area) ? "Replace empty pane" : "Merge as tabs"))];
 }
 
 export function dockPreview(rect: DockRect, side: DockSide | "center", fraction: number): DockRect {
@@ -61,7 +63,7 @@ export function dockHitTest(point: DockPoint, workspace: DockRect, groups: reado
   const guides = dockingGuides(workspace, area);
   const target: DockTarget | undefined = guides.find(({ rect }) => containsPoint(rect, point))?.target
     ?? (toolsOnly && containsPoint(bar, point) ? { kind: "bar" }
-      : area && point.y <= area.rect.top + DOCK_HEADER_HEIGHT ? { kind: "group", group: area.group.id, side: "center" } : undefined);
+      : area && (point.y <= area.rect.top + DOCK_HEADER_HEIGHT || showsEmptyPane(area)) ? { kind: "group", group: area.group.id, side: "center" } : undefined);
   const preview = target?.kind === "bar" ? bar
     : target?.kind === "edge" ? dockPreview(workspace, target.side, 0.35)
       : target?.kind === "group" && area ? dockPreview(area.rect, target.side, 0.5) : undefined;

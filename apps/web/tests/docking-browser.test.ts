@@ -94,7 +94,7 @@ test("browser docking preserves frames and drafts through split, merge, close, m
   await page.setViewportSize({ width: 1200, height: 800 });
   await page.waitForFunction(() => document.querySelectorAll("[data-dock-group]").length === 2);
   assert.deepEqual(await actions.getByRole("button").evaluateAll((buttons) => buttons.map((button) => [button.getAttribute("aria-label"), button.getAttribute("aria-pressed")])),
-    [["Chat", "true"], ["Notes", "true"], ["Board", "false"], ["Reset layout", null]], "every view keeps its button, pressed while visible");
+    [["Chat", "true"], ["Notes", "true"], ["Board", "false"], ["Empty space", null], ["Reset layout", null]], "every view keeps its button, pressed while visible");
   await view("Board").click();
   assert.equal(await groups.count(), 2, "a background tab is activated in its area");
   assert.equal(await page.getByRole("tabpanel", { name: "Board", exact: true }).isVisible(), true);

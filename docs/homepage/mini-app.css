@@ -280,6 +280,12 @@
   .inset-2 {
     inset: calc(var(--spacing) * 2);
   }
+  .inset-y-0 {
+    inset-block: 0px;
+  }
+  .inset-y-1 {
+    inset-block: var(--spacing);
+  }
   .top-0 {
     top: 0px;
   }
@@ -298,6 +304,9 @@
   .top-\[calc\(100\%\+6px\)\] {
     top: calc(100% + 6px);
   }
+  .-right-1 {
+    right: calc(var(--spacing) * -1);
+  }
   .right-1 {
     right: var(--spacing);
   }
@@ -312,6 +321,12 @@
   }
   .bottom-0 {
     bottom: 0px;
+  }
+  .-left-1 {
+    left: calc(var(--spacing) * -1);
+  }
+  .left-0 {
+    left: 0px;
   }
   .left-1\/2 {
     left: calc(1 / 2 * 100%);
@@ -438,6 +453,9 @@
   }
   .m-0 {
     margin: 0px;
+  }
+  .m-1\.5 {
+    margin: calc(var(--spacing) * 1.5);
   }
   .m-3 {
     margin: calc(var(--spacing) * 3);
@@ -800,6 +818,9 @@
   }
   .w-\(--anchor-width\) {
     width: var(--anchor-width);
+  }
+  .w-0\.5 {
+    width: calc(var(--spacing) * 0.5);
   }
   .w-7 {
     width: calc(var(--spacing) * 7);
@@ -2271,6 +2292,9 @@
   .underline-offset-4 {
     text-underline-offset: 4px;
   }
+  .opacity-0 {
+    opacity: 0%;
+  }
   .opacity-42 {
     opacity: 42%;
   }
@@ -2541,12 +2565,18 @@
     .group-hover\:text-primary:is(:where(.group):hover *) {
       color: var(--primary);
     }
+    .group-hover\/button\:opacity-100:is(:where(.group\/button):hover *) {
+      opacity: 100%;
+    }
   }
   .group-focus\/dropdown-menu-item\:text-accent-foreground:is(:where(.group\/dropdown-menu-item):focus *) {
     color: var(--foreground);
   }
   .group-focus-visible\:text-primary:is(:where(.group):focus-visible *) {
     color: var(--primary);
+  }
+  .group-focus-visible\/button\:opacity-100:is(:where(.group\/button):focus-visible *) {
+    opacity: 100%;
   }
   .group-active\/grip\:text-primary:is(:where(.group\/grip):active *) {
     color: var(--primary);
@@ -2596,6 +2626,9 @@
   }
   .group-data-\[disabled\=true\]\/field\:opacity-50:is(:where(.group\/field)[data-disabled="true"] *) {
     opacity: 50%;
+  }
+  .group-data-\[dragging\=true\]\/button\:opacity-100:is(:where(.group\/button)[data-dragging="true"] *) {
+    opacity: 100%;
   }
   .group-data-\[size\=default\]\/switch\:size-4:is(:where(.group\/switch)[data-size="default"] *) {
     width: calc(var(--spacing) * 4);
@@ -3332,6 +3365,9 @@
   .data-\[dragging\=true\]\:text-primary[data-dragging="true"] {
     color: var(--primary);
   }
+  .data-\[dragging\=true\]\:opacity-60[data-dragging="true"] {
+    opacity: 60%;
+  }
   .data-\[invalid\=true\]\:text-destructive[data-invalid="true"] {
     color: var(--destructive);
   }
@@ -3819,6 +3855,11 @@
       display: none;
     }
   }
+  @container run-header (width < 18rem) {
+    .\@max-2xs\/run-header\:hidden {
+      display: none;
+    }
+  }
   @container templates (width >= 240px) {
     .\@\[240px\]\/templates\:grid-cols-\[repeat\(auto-fill\,minmax\(240px\,1fr\)\)\] {
       grid-template-columns: repeat(auto-fill,minmax(240px,1fr));
@@ -3964,6 +4005,11 @@
     background-color: var(--destructive);
     @supports (color: color-mix(in lab, red, red)) {
       background-color: color-mix(in oklab, var(--destructive) 20%, transparent);
+    }
+  }
+  @media (pointer: coarse) {
+    .pointer-coarse\:opacity-100 {
+      opacity: 100%;
     }
   }
   .data-open\:animate-in:where([data-state="open"]), .data-open\:animate-in:where([data-open]:not([data-open="false"])) {

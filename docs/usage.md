@@ -40,7 +40,9 @@ Wide browser runs start with Chat beside the mini-apps; narrow ones use one tab 
 onto the docking guides to arrange areas or merge them. Chat and visited apps keep their input
 through switches and moves. New apps appear without taking focus; unavailable apps disappear.
 Close windows with X. The run header keeps a button for every window; a pressed button is
-visible, and clicking another one shows that window.
+visible, and clicking another one shows that window. Drag a header button by its grip to
+reorder the buttons, or onto the docking guides to place that window. "Empty space" in the
+header adds an empty pane that holds a place until you drop a window onto it.
 
 In VS Code, clicking an app opens or focuses its editor tab. VS Code controls where that tab
 appears. Questions and news stay in chat. The selector below the input chooses the addressee;
@@ -491,10 +493,28 @@ Clicking a closed window opens it beside the current area in a wide browser work
 tab when narrow. Clicking a window that waits as a background tab brings that tab to the front.
 Clicking a visible window changes nothing. Labels shorten to the icon when the header is narrow;
 with more than five windows, the "All windows" menu lists them all and checks the visible ones.
-The adjacent "Reset layout" icon restores the automatic layout and inspection rail. Maximize
-appears only with multiple areas, at the right end of the area header just before the last tab's
-X; Restore or Escape returns to the split layout. Tabs support arrow keys, Home, and End, and
-focused dividers support arrow keys.
+Each window button has a grip at its left edge, shown on hover or focus and always on touch
+screens. Drag a button sideways within the header to reorder the buttons; a thin line marks
+where it lands. Drag it into the workspace to get the same compass and edge guides as for a tab:
+the drop opens or moves that window there. A press without movement still counts as a click,
+and Escape cancels the drag. Alt+Left Arrow and Alt+Right Arrow move a focused button. New
+windows join at the end. The "All windows" menu follows the same order, but its entries cannot
+be dragged.
+
+After the window buttons, "Empty space" is always available, except in a very narrow run header,
+which leaves it out for lack of room. Clicking it adds an empty pane beside the
+current area in a wide workspace, or as a tab when narrow; dragging it places the pane on a
+docking guide. You can add several. An empty pane is a window like any other: move it,
+split beside it, merge it as a tab, maximize it, or close it with X, which removes it. It shows
+"Drag an app or actor here". Dropping a header button or a tab anywhere on a shown empty pane, or
+on the compass center labeled "Replace empty pane", puts that window in its place. Empty panes
+survive reload.
+
+The "Reset layout" icon after the window buttons restores the automatic layout, the button
+order, and the inspection rail, and removes empty panes. Maximize appears only with multiple
+areas, at the right end of the area header just before the last tab's X; Restore or Escape
+returns to the split layout. Tabs support arrow keys, Home, and End, and focused dividers support
+arrow keys.
 
 Inspection puts its actor selector in the window title row. A second, horizontally scrollable
 row holds the actor name, Stop or Restart, chat display switches, and detail-view icons with
@@ -519,10 +539,11 @@ Its rail button disappears until you close the window, use its return-to-sidebar
 drag it back onto the rail or sidebar. A docked tool uses the same tabs, docking guides,
 maximize, and close controls as Chat and apps.
 
-The browser remembers areas, sizes, active tabs, closed windows, and sidebar settings for each
-server and run. New apps appear without taking focus; unavailable apps disappear. Chat drafts,
-app input, and visited tool state survive tab switches, moves, and close/reopen while the run
-stays open. Reloading the page restores the layout but not unsent input.
+The browser remembers areas, sizes, active tabs, closed windows, empty panes, the header button
+order, and sidebar settings for each server and run. New apps appear without taking focus;
+unavailable apps disappear. Chat drafts, app input, and visited tool state survive tab switches,
+moves, and close/reopen while the run stays open. Reloading the page restores the layout but not
+unsent input.
 
 In VS Code, click an app entry to open or focus its single editor tab; moving that tab between
 editor groups does not create a second one. The run panel stays on chat. Its inspection rail

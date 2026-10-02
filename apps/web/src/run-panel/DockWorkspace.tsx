@@ -1,10 +1,10 @@
 import { createContext, useContext, useEffect, useLayoutEffect, useRef, useState, type PointerEvent, type ReactNode } from "react";
 import { createPortal } from "react-dom";
-import { ArrowDownIcon, ArrowLeftIcon, ArrowRightIcon, ArrowUpIcon, LayoutGridIcon, MaximizeIcon, MinimizeIcon, PinIcon, PinOffIcon, SquareIcon, UsersIcon, XIcon } from "lucide-react";
+import { ArrowDownIcon, ArrowLeftIcon, ArrowRightIcon, ArrowUpIcon, LayoutGridIcon, MaximizeIcon, MinimizeIcon, PinIcon, PinOffIcon, SquareDashedIcon, SquareIcon, UsersIcon, XIcon } from "lucide-react";
 import type { SessionContext, SessionNavigation, WorkspaceTabContribution } from "../PluginRegistry";
 import { RunAppView, type RunApp } from "../run-apps";
 import { Badge, BadgeDisplayProvider, Button, cn } from "../ui";
-import { activeDockTool, appPanelId, closeDockPanels, dockGroups, initialDockState, isToolPanel, moveDockPanels, reconcileDockState, resizeDockSplit, returnDockTool, revealDockPanel, transitionDockSide, selectDockPanel, toolPanelId, type DockGroup } from "./dock-state";
+import { activeDockTool, addDockEmptyPane, appPanelId, closeDockPanels, dockGroups, dockWindowOrder, emptyPanelId, initialDockState, isEmptyPanel, isToolPanel, moveDockPanels, moveDockWindow, reconcileDockState, resizeDockSplit, returnDockTool, revealDockPanel, transitionDockSide, selectDockPanel, toolPanelId, type DockGroup } from "./dock-state";
 import { DOCK_DIVIDER_SIZE, DOCK_HEADER_HEIGHT, containsPoint, dockGeometry, dockHitTest, type DockPoint, type DockRect } from "./dock-geometry";
 import { useDockPointer } from "./dock-pointer";
 import { useDockStorage } from "./dock-storage";
@@ -28,6 +28,8 @@ const headerRect = (rect: DockRect): DockRect => ({ left: rect.left + 1, top: re
 const contentRect = (rect: DockRect): DockRect => ({ left: rect.left + 1, top: rect.top + 1 + DOCK_HEADER_HEIGHT, width: Math.max(0, rect.width - 2), height: Math.max(0, rect.height - DOCK_HEADER_HEIGHT - 2) });
 const resizeRect = (rect: DockRect, horizontal: boolean): DockRect => ({ ...rect, ...(horizontal ? { left: rect.left - 1, width: 8 } : { top: rect.top - 1, height: 8 }) });
 const newId = () => crypto.randomUUID();
+const EMPTY_PANE_ENTRY = "empty";
+const EMPTY_PANE_TITLE = "Empty space";
 
 export function useDockActiveApp(runId: string): string | undefined {
   const { state } = useDockStorage(runId);
@@ -59,8 +61,10 @@ export function DockWorkspace({ apps, chat, chatIcon = <UsersIcon />, navigation
     update((current) => current.side.mode === "hover-preview" ? transitionDockSide(current, { type: "close" }) : current);
   }, [session.session.id, update]);
   const container = useRef<HTMLDivElement>(null);
+  const windowsRef = useRef<HTMLDivElement>(null);
+  const windows = dockWindowOrder(state, panelIds);
   const [visited, setVisited] = useState<readonly string[]>(["chat"]);
-  const [drag, setDrag] = useState<{ ids: readonly string[]; point: DockPoint }>();
+  const [drag, setDrag] = useState<{ ids: readonly string[]; point: DockPoint; header?: boolean; slot?: number | null }>();
   const [resizing, setResizing] = useState<string>();
   const pointer = useDockPointer();
   const leaveTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
@@ -105,16 +109,29 @@ export function DockWorkspace({ apps, chat, chatIcon = <UsersIcon />, navigation
     window.addEventListener("keydown", escape);
     return () => window.removeEventListener("keydown", escape);
   }, [stored.maximized, stored.side.mode, stored.side.tab, update]);
-  const labels = new Map<string, string>([["chat", "Chat"], ...apps.map((app) => [appPanelId(app.definition.id), app.definition.title ?? app.definition.id] as const), ...tabs.map((tab) => [toolPanelId(tab.id), tab.label] as const)]);
+  const emptyPanes = state.known.filter(isEmptyPanel);
+  const labels = new Map<string, string>([["chat", "Chat"], ...apps.map((app) => [appPanelId(app.definition.id), app.definition.title ?? app.definition.id] as const), ...tabs.map((tab) => [toolPanelId(tab.id), tab.label] as const),
+    [EMPTY_PANE_ENTRY, EMPTY_PANE_TITLE], ...emptyPanes.map((id) => [id, EMPTY_PANE_TITLE] as const)]);
   const title = (id: string) => labels.get(id) ?? id;
   const icon = (id: string) => {
     const ToolIcon = tabs.find((tab) => toolPanelId(tab.id) === id)?.Icon;
-    return id === "chat" ? chatIcon : ToolIcon ? <ToolIcon /> : <LayoutGridIcon />;
+    return id === "chat" ? chatIcon : ToolIcon ? <ToolIcon /> : id === EMPTY_PANE_ENTRY || isEmptyPanel(id) ? <SquareDashedIcon /> : <LayoutGridIcon />;
   };
   // A CSS zoom on the page scales client coordinates, not the dock geometry.
   const pointerZoom = () => container.current!.getBoundingClientRect().width / container.current!.offsetWidth || 1;
   const localPoint = (point: DockPoint, rect: DOMRect, zoom: number): DockPoint => ({ x: (point.x - rect.left) / zoom, y: (point.y - rect.top) / zoom });
-  const startDrag = (event: PointerEvent<HTMLElement>, ids: readonly string[], click?: () => void) => {
+  // The slot of a dragged header window button, all in client coordinates: undefined outside the buttons, null where the order stays.
+  const headerSlot = (point: DockPoint, id: string): number | null | undefined => {
+    const group = windowsRef.current;
+    if (!group || !containsPoint(group.getBoundingClientRect(), point)) return undefined;
+    const slot = [...group.querySelectorAll<HTMLElement>("[data-dock-window]")].filter((button) => {
+      const rect = button.getBoundingClientRect();
+      return rect.left + rect.width / 2 < point.x;
+    }).length;
+    const from = windows.indexOf(id);
+    return from < 0 || slot === from || slot === from + 1 ? null : slot;
+  };
+  const startDrag = (event: PointerEvent<HTMLElement>, ids: readonly string[], click?: () => void, header = false) => {
     if (ids.length === 0 || event.button !== 0) return;
     holdSide();
     sidePressed.current = true;
@@ -125,14 +142,23 @@ export function DockWorkspace({ apps, chat, chatIcon = <UsersIcon />, navigation
     pointer(event, (point) => {
       if (!started && Math.hypot(point.x - start.x, point.y - start.y) < 6) return;
       started = true;
-      setDrag({ ids, point: localPoint(point, bounds, zoom) });
+      setDrag({ ids, point: localPoint(point, bounds, zoom), header, slot: header ? headerSlot(point, ids[0]) : undefined });
     }, (point) => {
       setDrag(undefined);
       if (!point) return;
       if (!started) { click?.(); return; }
+      const slot = header ? headerSlot(point, ids[0]) : undefined;
+      if (slot !== undefined) {
+        if (slot !== null) update((current) => moveDockWindow(current, ids[0], windows[slot] ?? null));
+        return;
+      }
       const hit = dockHitTest(localPoint(point, bounds, zoom), workspace, geometry.groups, barRect, ids.every(isToolPanel));
-      if (hit.target) update((current) => moveDockPanels(current, ids, hit.target!, newId));
+      if (hit.target) update((current) => ids[0] === EMPTY_PANE_ENTRY ? addDockEmptyPane(current, emptyPanelId(newId()), hit.target, splitApps, newId) : moveDockPanels(current, ids, hit.target!, newId));
     });
+  };
+  const moveWindow = (id: string, offset: -1 | 1) => {
+    const target = windows.indexOf(id) + offset;
+    if (target >= 0 && target < windows.length) update((current) => moveDockWindow(current, id, windows[offset < 0 ? target : target + 1] ?? null));
   };
   const hit = drag && dockHitTest(drag.point, workspace, geometry.groups, barRect, drag.ids.every(isToolPanel));
   const close = (ids: readonly string[], area?: string) => update((current) => closeDockPanels(current, ids, area));
@@ -216,9 +242,16 @@ export function DockWorkspace({ apps, chat, chatIcon = <UsersIcon />, navigation
     (strip?.querySelectorAll<HTMLElement>('[role="tab"]')[next])?.focus();
   };
 
+  const reveal = (id: string) => update((current) => id === EMPTY_PANE_ENTRY ? addDockEmptyPane(current, emptyPanelId(newId()), undefined, splitApps, newId) : revealDockPanel(current, id, splitApps, newId));
   const actions = <DockWindowActions
-    items={panelIds.map((id) => ({ id, title: title(id), icon: icon(id), visible: visible.includes(id) }))}
-    onOpen={(id) => update((current) => revealDockPanel(current, id, splitApps, newId))}
+    dragging={drag?.header ? drag.ids[0] : undefined}
+    dropIndex={drag?.slot ?? undefined}
+    extra={{ id: EMPTY_PANE_ENTRY, title: EMPTY_PANE_TITLE, icon: icon(EMPTY_PANE_ENTRY), hint: "Add an empty pane" }}
+    groupRef={windowsRef}
+    items={windows.map((id) => ({ id, title: title(id), icon: icon(id), visible: visible.includes(id) }))}
+    onDragStart={(event, id) => startDrag(event, [id], () => reveal(id), true)}
+    onMove={moveWindow}
+    onOpen={reveal}
     onReset={() => update(() => reconcileDockState(initialDockState(panelIds, toolIds), panelIds, toolIds, splitApps), true)}
   />;
   return <div className="flex min-h-0 min-w-0 flex-1 flex-col bg-app" data-docking="workspace">
@@ -262,6 +295,7 @@ export function DockWorkspace({ apps, chat, chatIcon = <UsersIcon />, navigation
           }, () => setResizing(undefined));
         }} ><DockGrip horizontal={split.axis === "vertical"} /></div>)}
       {panel("chat", chat)}
+      {emptyPanes.map((id) => panel(id, <p className="m-1.5 flex flex-1 items-center justify-center rounded-md border border-dashed border-border p-2 text-center text-xs text-muted-foreground">Drag an app or actor here</p>))}
       {apps.filter((app) => visited.includes(appPanelId(app.definition.id)) || visible.includes(appPanelId(app.definition.id))).map((app) => panel(appPanelId(app.definition.id), <RunAppView app={app} navigation={navigation} session={session} />))}
       {tabs.filter((tab) => visited.includes(toolPanelId(tab.id)) || visible.includes(toolPanelId(tab.id))).map((tab) => panel(toolPanelId(tab.id), <tab.Panel active={visible.includes(toolPanelId(tab.id))} navigation={navigation} selection={navigation.selectionFor(tab.id)} session={session} />))}
       {sideVisible && <>
@@ -300,7 +334,7 @@ export function DockWorkspace({ apps, chat, chatIcon = <UsersIcon />, navigation
           const selected = JSON.stringify(guide.target) === JSON.stringify(hit.target);
           return <div aria-label={guide.label} className={cn("absolute grid place-items-center rounded border border-border-strong bg-popover text-foreground shadow-pop", selected && "border-primary bg-primary text-primary-foreground")} data-dock-guide={guide.target.kind === "bar" ? "bar" : `${guide.target.kind}-${guide.target.side}`} key={index} style={guide.rect}><Icon className="size-4" /></div>;
         })}
-        <span className="absolute max-w-60 truncate rounded bg-primary px-2 py-1 text-xs text-primary-foreground" style={{ left: drag.point.x + 14, top: drag.point.y + 14 }}>{drag.ids.map(title).join(", ")}</span>
+        {drag.slot === undefined && <span className="absolute max-w-60 truncate rounded bg-primary px-2 py-1 text-xs text-primary-foreground" style={{ left: drag.point.x + 14, top: drag.point.y + 14 }}>{drag.ids.map(title).join(", ")}</span>}
       </div>}
     </div>
   </div>;
