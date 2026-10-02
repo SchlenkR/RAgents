@@ -115,9 +115,9 @@ test("the neutral showcase fixture composes real plugins and folder contribution
     "ask_user", "bash", "document_write", "edit",
     "fsharp_close", "fsharp_diagnostics", "fsharp_open",
     "actor_program_activate", "actor_program_controls", "actor_program_create", "actor_program_diagnostics", "actor_program_ensure", "actor_program_list", "actor_program_remove", "actor_view_set_visibility", "actor_view_snapshot",
-    "browser_open", "browser_snapshot", "browser_click", "browser_fill", "browser_select", "browser_press", "browser_check", "browser_viewport", "browser_screenshot", "browser_view_screenshot", "browser_close",
+    "browser_navigate", "browser_snapshot", "browser_click", "browser_type", "browser_select_option", "browser_press_key", "browser_check", "browser_resize", "browser_take_screenshot", "browser_view_screenshot", "browser_close",
     "read", "roslyn_close", "roslyn_diagnostics", "roslyn_open", "roslyn_solutions", "run_script_list", "run_script_start", "run_stop",
-    "show_document", "todo_replace",
+    "show_document", "todo_write",
     "typescript_api", "typescript_close", "typescript_eval", "typescript_diagnostics", "typescript_open", "watch_create", "watch_list", "watch_remove", "write",
   ].sort());
 
@@ -147,7 +147,7 @@ test("a reduced fixture removes optional actor program and reference contributio
   assert.ok(host.optionalService(workspaceRuntimeToken), "WorkspaceRuntime is missing");
   assert.deepEqual(names(host.operations.describe()), ["actor_input"]);
   assert.equal(host.tools.describe().some((tool) => tool.name.startsWith("actor_program_") || tool.name.startsWith("actor_view_")), false);
-  assert.deepEqual(host.tools.describe().filter((entry) => entry.nativeTool).map((entry) => entry.name).sort(), ["ask_user", "bash", "document_write", "edit", "read", "show_document", "typescript_api", "typescript_eval", "write"]);
+  assert.deepEqual(host.tools.describe().filter((entry) => !entry.nativeTool).map((entry) => entry.name), []);
   assert.deepEqual(await host.skills.global(), []);
   assert.equal(profile.startEntries.some((entry) => entry.owner === "ragents.reference"), false);
   assert.equal(host.accessProjections.state(programState, restricted), programState, "without the plugin the host knows no projection");
@@ -234,7 +234,7 @@ test("function catalogs keep compact descriptions while runtime functions retain
     assert.equal(descriptors.find((entry) => entry.name === original.name)?.description, fn.description);
   }
 
-  for (const name of ["actor_program_controls", "actor_program_activate", "ask_user", "show_document", "todo_replace"]) {
+  for (const name of ["actor_program_controls", "actor_program_activate", "ask_user", "show_document", "todo_write"]) {
     const fn = functions.find((entry) => entry.name === name);
     assert.ok(fn?.longDescription, name);
     assert.ok(fn.description.length < 180, name);

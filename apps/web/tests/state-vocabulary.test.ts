@@ -1,5 +1,8 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import { createElement } from "react";
+import { renderToStaticMarkup } from "react-dom/server";
+import { RunStateIcon } from "../src/ui/state-icon";
 import { connectionStateWord, runStateWord, type ConnectionStateName, type RunStateName } from "../src/ui/state-vocabulary";
 import { longTime, shortTime } from "../src/ui/relative-time";
 import { connectionState, routeLabel } from "../src/panel/connection-state";
@@ -14,6 +17,7 @@ test("every run state has exactly one word, a waiting one names the number of op
   const words: Record<RunStateName, string> = {
     running: "running",
     waiting: "waiting for input",
+    paused: "paused",
     idle: "idle",
     ended: "ended",
     failed: "failed",
@@ -23,7 +27,15 @@ test("every run state has exactly one word, a waiting one names the number of op
   assert.equal(runStateWord("waiting", 2), "waiting for input (2)");
   assert.equal(runStateWord("waiting", 0), "waiting for input");
   assert.equal(runStateWord("running", 3), "running", "the number belongs only to waiting");
+  assert.equal(runStateWord("paused", 2), "paused", "the number belongs only to waiting");
   for (const word of Object.values(words)) assert.doesNotMatch(word, /question|tool/i, "no tool term in the state");
+});
+
+test("a paused run carries its own glyph and word, never the stop square and never the number of open inputs", () => {
+  const paused = renderToStaticMarkup(createElement(RunStateIcon, { state: "paused", open: 2 }));
+  assert.match(paused, /title="paused"/);
+  assert.match(paused, /lucide-circle-pause/);
+  assert.doesNotMatch(paused, /lucide-square|>2</);
 });
 
 test("every server state has exactly one word", () => {
@@ -68,15 +80,15 @@ test("the time is compact, without ago and without a special case for yesterday"
   const now = new Date(2026, 8, 22, 12, 0, 0).getTime();
   assert.equal(shortTime(now, now), "now");
   assert.equal(shortTime(now - 59_000, now), "now");
-  assert.equal(shortTime(now - MINUTE, now), "1 min");
-  assert.equal(shortTime(now - 5 * MINUTE, now), "5 min");
-  assert.equal(shortTime(now - 59 * MINUTE, now), "59 min");
-  assert.equal(shortTime(now - HOUR, now), "1 h");
-  assert.equal(shortTime(now - 3 * HOUR, now), "3 h");
-  assert.equal(shortTime(now - 23 * HOUR, now), "23 h");
-  assert.equal(shortTime(now - DAY, now), "1 d", "yesterday is 1 d");
-  assert.equal(shortTime(now - 2 * DAY, now), "2 d");
-  assert.equal(shortTime(now - 6 * DAY, now), "6 d");
+  assert.equal(shortTime(now - MINUTE, now), "1min");
+  assert.equal(shortTime(now - 5 * MINUTE, now), "5min");
+  assert.equal(shortTime(now - 59 * MINUTE, now), "59min");
+  assert.equal(shortTime(now - HOUR, now), "1h");
+  assert.equal(shortTime(now - 3 * HOUR, now), "3h");
+  assert.equal(shortTime(now - 23 * HOUR, now), "23h");
+  assert.equal(shortTime(now - DAY, now), "1d", "yesterday is 1d");
+  assert.equal(shortTime(now - 2 * DAY, now), "2d");
+  assert.equal(shortTime(now - 6 * DAY, now), "6d");
   assert.equal(shortTime(now - 9 * DAY, now), "09/13");
   assert.equal(shortTime(now + MINUTE, now), "now", "a time in the future stays now");
 });

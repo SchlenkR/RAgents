@@ -397,17 +397,31 @@ export interface AccessProjectionContribution {
   chatEvent: (event: PluginChatEvent) => PluginChatEvent | undefined;
 }
 
+/** The icons a line of the run list may carry. */
+export type RunListDetailIcon = "folder" | "branch";
+
+/** A line of the run list that a run metadata contribution derives from its value. */
+export interface RunListDetail {
+  readonly label: string;
+  readonly text: string;
+  readonly icon?: RunListDetailIcon;
+}
+
 export interface SessionMetadataContribution {
   id: string;
   /** Whether `describe` reaches the workspace of the run; then the host calls it only for callers that may reach it. */
   requiresWorkspace?: boolean;
   describe: (context: SessionMetadataContext) => unknown | Promise<unknown>;
+  /** The line the run list shows for this value; undefined shows none. */
+  listDetail?: (value: unknown) => RunListDetail | undefined;
 }
 
 /** The details of a run per contribution; a contribution without a value appears with its reason in `unavailable`. */
 export interface SessionMetadata {
   readonly values: Readonly<Record<string, unknown>>;
   readonly unavailable: Readonly<Record<string, string>>;
+  /** The list lines of the contributions in registration order. */
+  readonly listDetails: readonly RunListDetail[];
 }
 
 export interface PluginConfigDescriptor {

@@ -9,7 +9,7 @@ import { canonicalHash } from "./runtime/canonical-hash.ts";
 import { schemaComplaints } from "./domain/schema-errors.ts";
 import type { AgentProfile, CatalogModel } from "./agents/catalog.ts";
 import type { ToolContributor } from "./agents/plugins.ts";
-import { describeToolAvailability, type RunFunction } from "./agents/tools.ts";
+import { describeToolAvailability, isNativeTool, type RunFunction } from "./agents/tools.ts";
 import type { ChannelContribution, ChannelDescriptor, MethodContribution, MethodDescriptor } from "./rpc/contribution.ts";
 import type { PluginState } from "./domain/model.ts";
 import type {
@@ -45,6 +45,8 @@ import type {
   ServiceToken,
   RegisteredStartOption,
   RunCondition,
+  RunListDetail,
+  RunListDetailIcon,
   SessionLifecycleContribution,
   SessionMetadata,
   SessionStartedContext,
@@ -305,7 +307,7 @@ export class ToolContributionRegistry {
           name: fn.name,
           description: fn.description,
           scope: "per-turn",
-          nativeTool: fn.nativeTool === true,
+          nativeTool: isNativeTool(fn),
           ...describeToolAvailability(fn.available),
         }],
         tools: () => [fn],
@@ -326,7 +328,7 @@ export class ToolContributionRegistry {
       source: value.name,
       kind: "plugin" as const,
       ...tool,
-      nativeTool: tool.nativeTool === true,
+      nativeTool: isNativeTool(tool),
     })));
   }
 }
@@ -917,6 +919,18 @@ export class LifecycleContributionRegistry {
 
 const WORKSPACE_NOT_ACCESSIBLE = "The workspace of this run is not reachable for this access.";
 
+const RUN_LIST_DETAIL_ICONS: readonly unknown[] = ["folder", "branch"];
+
+/** A list line from plugin code is checked like every other contribution value. */
+const checkedListDetail = (detail: unknown): RunListDetail => {
+  const raw = detail as Record<string, unknown> | null;
+  if (typeof raw !== "object" || raw === null || typeof raw.label !== "string" || typeof raw.text !== "string"
+    || (raw.icon !== undefined && !RUN_LIST_DETAIL_ICONS.includes(raw.icon))) {
+    throw new Error("listDetail returned no list line with label, text, and an optional icon folder or branch");
+  }
+  return { label: raw.label, text: raw.text, ...(raw.icon === undefined ? {} : { icon: raw.icon as RunListDetailIcon }) };
+};
+
 export class SessionMetadataContributionRegistry {
   readonly #metadata = new ContributionRegistry<SessionMetadataContribution>("Run metadata contribution");
 
@@ -924,9 +938,9 @@ export class SessionMetadataContributionRegistry {
     this.#metadata.register(owner, contributions);
   }
 
-  /** All contributions at once; whoever does not answer within `timeoutMs` or fails loses only its value and states the reason. */
+  /** All contributions at once; whoever does not answer within `timeoutMs` or fails, also in `listDetail`, loses only its value and states the reason. */
   async describe(runId: string, workspaceAccessible: boolean, timeoutMs: number): Promise<SessionMetadata> {
-    type Outcome = { readonly id: string; readonly value: unknown } | { readonly id: string; readonly reason: string };
+    type Outcome = { readonly id: string; readonly value: unknown; readonly detail: RunListDetail | undefined } | { readonly id: string; readonly reason: string };
     const outcomes = await Promise.all(this.#metadata.entries().map(async ({ value }): Promise<Outcome> => {
       if (value.requiresWorkspace === true && !workspaceAccessible) return { id: value.id, reason: WORKSPACE_NOT_ACCESSIBLE };
       let timer: ReturnType<typeof setTimeout> | undefined;
@@ -934,7 +948,9 @@ export class SessionMetadataContributionRegistry {
         timer = setTimeout(() => reject(new Error(`no answer after ${timeoutMs} ms`)), timeoutMs);
       });
       try {
-        return { id: value.id, value: await Promise.race([Promise.resolve().then(() => value.describe({ runId })), silent]) };
+        const described = await Promise.race([Promise.resolve().then(() => value.describe({ runId })), silent]);
+        const detail = described === undefined ? undefined : value.listDetail?.(described);
+        return { id: value.id, value: described, detail: detail === undefined ? undefined : checkedListDetail(detail) };
       } catch (error) {
         return { id: value.id, reason: error instanceof Error ? error.message : String(error) };
       } finally {
@@ -944,6 +960,7 @@ export class SessionMetadataContributionRegistry {
     return {
       values: Object.fromEntries(outcomes.flatMap((outcome) => "value" in outcome ? [[outcome.id, outcome.value] as const] : [])),
       unavailable: Object.fromEntries(outcomes.flatMap((outcome) => "reason" in outcome ? [[outcome.id, outcome.reason] as const] : [])),
+      listDetails: outcomes.flatMap((outcome) => "detail" in outcome && outcome.detail !== undefined ? [outcome.detail] : []),
     };
   }
 }

@@ -128,7 +128,10 @@ const useDocumentContent = (document: RunDocument | undefined): LoadState => {
     let alive = true;
     void fetch(url, { cache: "no-store" })
       .then(async (response) => {
-        if (!response.ok) throw new Error(`Status ${response.status}`);
+        if (!response.ok) {
+          const body = await response.json().catch(() => undefined) as { error?: unknown } | undefined;
+          throw new Error(typeof body?.error === "string" ? body.error : `Status ${response.status}`);
+        }
         return response.text();
       })
       .then((text) => alive && setCache((current) => ({ ...current, [url]: { text } })))
@@ -182,7 +185,9 @@ export function DocumentToolCall({ active, document, onOpen, status }: DocumentT
         <span className="text-[0.62rem] font-semibold tracking-[0.05em] text-primary uppercase">Document</span>
         <strong className="truncate text-[0.84rem] leading-[1.35]" title={document.title}>{document.title}</strong>
         <span className="text-[0.7rem] leading-[1.35] text-muted-foreground">
-          {formatLabels[document.format]}, {lineCount.toLocaleString()} {lineCount === 1 ? "line" : "lines"}
+          {document.content === undefined
+            ? formatLabels[document.format]
+            : `${formatLabels[document.format]}, ${lineCount.toLocaleString()} ${lineCount === 1 ? "line" : "lines"}`}
         </span>
       </span>
       <span className="flex items-center gap-1 text-[0.7rem] font-semibold text-primary group-data-[status=error]/call:text-destructive">

@@ -1,6 +1,6 @@
-import { useCallback, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { canStartEntry, type AccessContext } from "../../../../packages/ragents/src/access";
-import { deleteSession, getStartOptions, setStartOption, stopRun } from "../api";
+import { deleteSession, getStartOptions, markRunViewed, setStartOption, stopRun } from "../api";
 import { startEntryDirectly } from "../chat/requests";
 import { initialStartOptionUpdates, withoutFixedStartOptions } from "../StartOptions";
 import { AccessScreen, useAccess } from "../AccessContext";
@@ -9,10 +9,11 @@ import { PluginChat } from "../PluginChat";
 import type { PluginRegistry } from "../PluginRegistry";
 import { usePluginActivation } from "../PluginActivation";
 import { PluginFailureNotice } from "../PluginFailureNotice";
-import { runActivityNotice } from "../run-overview";
-import { useRunReadState } from "../run-read-state";
+import { connectionRunOf } from "../run-overview";
+import { openSharing, REVOKED_SHARE_NOTICE, saveSharing } from "../run-sharing";
 import { PanelPage } from "../panel/PanelPage";
 import type { PanelAction, PanelState } from "../panel/contract";
+import { useSharingStore } from "../panel/ShareDialog";
 import { HelpDialog } from "../HelpDialog";
 import { chatUserLocation, type ChatRunLocation } from "../chat/user-location";
 import { PanelContributions } from "./PanelContributions";
@@ -21,8 +22,10 @@ import { SettingsModal } from "../SettingsModal";
 import { Alert, Button, RunStateIcon, StartupNotice, StopButton, type StartupNoticeState } from "../ui";
 import type { RunPanelLocation } from "./run-panel-location";
 import { RunPanelActions } from "./RunPanelActions";
+import { SERVER_SHARING } from "./RunShareButton";
 import { useRunPanelHost } from "./host";
 import { useSessionList } from "./use-session-list";
+import { viewedReporter } from "./viewed-runs";
 import { BrandLogo } from "../ui/brand-logo";
 
 const headerClass = "relative z-[80] flex h-header flex-none items-stretch border-b border-border bg-shell shadow-bar";
@@ -71,12 +74,19 @@ function RunPanelPage({ connection, initialRunId, registry }: { connection: stri
   const writeRuns = readRuns && access.can("runs.write");
   const canCreateFree = writeRuns && access.can("runs.create");
   const canCreate = canCreateFree || (writeRuns && registry.scriptEntries.some((entry) => canStartEntry(access, entry.id)));
-  const runReadState = useRunReadState(access.user?.id);
   const [runId, setRunId] = useState(initialRunId);
   const [page, setPage] = useState<"start" | "runs">("start");
   const [runLocation, setRunLocation] = useState<ChatRunLocation>();
   const [helpOpen, setHelpOpen] = useState(false);
   const [navigationError, setNavigationError] = useState<string>();
+  const [navigationNotice, setNavigationNotice] = useState<string>();
+  const [sharing, sharingStore] = useSharingStore();
+  /** A run this panel opened under a fresh id; before its first message the user may already choose whom it is shared with. */
+  const [freshRunId, setFreshRunId] = useState<string>();
+  /** The open run while it is shared with the viewer; if it then leaves the list, the share was taken back. */
+  const [watchedShare, setWatchedShare] = useState<string>();
+  const reportViewed = useMemo(() => viewedReporter(markRunViewed,
+    (cause) => setNavigationError(`The run could not be marked as viewed: ${cause instanceof Error ? cause.message : String(cause)}`)), []);
   const [workspaceContainer, setWorkspaceContainer] = useState<HTMLDivElement | null>(null);
   const [statusContainer, setStatusContainer] = useState<HTMLElement | null>(null);
   const [runTitle, setRunTitle] = useState<string>();
@@ -108,6 +118,11 @@ function RunPanelPage({ connection, initialRunId, registry }: { connection: stri
     setRunId(id);
     setFocusRunId(id);
   }, [replaceLaunch]);
+  const openFreshRun = useCallback((startOptions?: Readonly<Record<string, unknown>>) => {
+    const id = crypto.randomUUID();
+    openRun(id, startOptions);
+    setFreshRunId(id);
+  }, [openRun]);
   /** A template without a guide starts right away; its result counts only as long as it is the current start. */
   const startLaunch = useCallback((next: Launch) => {
     setDraft(undefined);
@@ -117,15 +132,17 @@ function RunPanelPage({ connection, initialRunId, registry }: { connection: stri
       (cause: unknown) => { if (launching.current === next.runId) setLaunch({ ...next, error: cause instanceof Error ? cause.message : String(cause) }); },
     );
   }, [access, openRun, registry, replaceLaunch]);
-  /** The logo always leads to the Start page; in the browser it lists this server's templates and recent runs. */
-  const showStart = useCallback(() => {
+  /** Back to the Start page, optionally with a short notice there; in VS Code the extension shows it. */
+  const leaveToStart = useCallback((notice: string | undefined) => {
     setFocusRunId(undefined);
     setDraft(undefined);
     replaceLaunch(undefined);
     setRefusal(undefined);
-    if (host.kind === "vscode") host.notify({ type: "showStart" });
-    else { setRunId(undefined); setPage("start"); }
+    if (host.kind === "vscode") host.notify({ type: "showStart", ...(notice === undefined ? {} : { notice }) });
+    else { setRunId(undefined); setPage("start"); setNavigationNotice(notice); }
   }, [host, replaceLaunch]);
+  /** The logo always leads to the Start page; in the browser it lists this server's templates and recent runs. */
+  const showStart = useCallback(() => leaveToStart(undefined), [leaveToStart]);
 
   useLayoutEffect(() => {
     if (!focusRunId) return;
@@ -166,7 +183,7 @@ function RunPanelPage({ connection, initialRunId, registry }: { connection: stri
     const entry = registry.startEntries.find((candidate) => candidate.id === message.entryId);
     setRunTitle(entry?.title ?? NEW_RUN_TITLE);
     if (message.entryId === undefined) {
-      openRun(crypto.randomUUID(), message.startOptions);
+      openFreshRun(message.startOptions);
       return;
     }
     if (entry !== undefined && registry.guideFor(entry) !== undefined) {
@@ -175,7 +192,7 @@ function RunPanelPage({ connection, initialRunId, registry }: { connection: stri
       return;
     }
     startLaunch({ runId: crypto.randomUUID(), entryId: message.entryId, startOptions: message.startOptions });
-  }), [canCreate, canCreateFree, host, openRun, registry, replaceLaunch, startDraft, startLaunch]);
+  }), [canCreate, canCreateFree, host, openFreshRun, registry, replaceLaunch, startDraft, startLaunch]);
   useEffect(() => { host.notify({ type: "ready" }); }, [host]);
   useEffect(() => { host.notify({ type: "runChanged", runId: runId ?? null }); }, [host, runId]);
 
@@ -200,6 +217,15 @@ function RunPanelPage({ connection, initialRunId, registry }: { connection: stri
   />;
   const hasRunTitle = readRuns && Boolean(runId || launch || draft);
   const session = sessions.find((entry) => entry.id === runId);
+  const shareableBeforeStart = access.enabled && access.user !== null && writeRuns && runId !== undefined && runId === freshRunId;
+  useEffect(() => {
+    if (runId === undefined) return;
+    if (session?.sharedAccess !== undefined) setWatchedShare(runId);
+    else if (session === undefined && watchedShare === runId) {
+      setWatchedShare(undefined);
+      leaveToStart(REVOKED_SHARE_NOTICE);
+    }
+  }, [leaveToStart, runId, session, watchedShare]);
   const stop = () => {
     if (runId === undefined) return;
     setStopError(undefined);
@@ -231,6 +257,8 @@ function RunPanelPage({ connection, initialRunId, registry }: { connection: stri
       page,
       profileSuggestions: [],
       problem: navigationError,
+      notice: navigationNotice,
+      sharing,
       connections: [{
         name: connectionName,
         kind: "server",
@@ -245,11 +273,12 @@ function RunPanelPage({ connection, initialRunId, registry }: { connection: stri
           id: entry.id, title: entry.title, description: entry.description, kind: entry.action,
           category: entry.category ?? (access.can("runs.inspect") ? "Run scripts" : "Workflows"), guided: registry.guideFor(entry) !== undefined,
         })),
-        runs: readRuns ? sessions.map((entry) => ({ ...entry, state: entry.running ? "running" : "idle", pendingActions: 0, notice: runActivityNotice(entry, runReadState.revisions[entry.id]) })) : [],
+        runs: readRuns ? sessions.map(connectionRunOf) : [],
       }],
     };
     const navigate = (action: PanelAction) => {
       setNavigationError(undefined);
+      setNavigationNotice(undefined);
       switch (action.action) {
         case "page":
           if (action.page === "connections") throw new Error("The browser is connected to its current server.");
@@ -263,7 +292,7 @@ function RunPanelPage({ connection, initialRunId, registry }: { connection: stri
           setRunTitle(entry?.title ?? NEW_RUN_TITLE);
           if (entry && registry.guideFor(entry)) startDraft(undefined, entry.id);
           else if (action.entryId) startLaunch({ runId: crypto.randomUUID(), entryId: action.entryId });
-          else openRun(crypto.randomUUID());
+          else openFreshRun();
           return;
         }
         case "deleteRuns":
@@ -275,6 +304,12 @@ function RunPanelPage({ connection, initialRunId, registry }: { connection: stri
           });
           return;
         case "retry": void refresh(); return;
+        case "openSharing": void openSharing(action.name, action.runId, SERVER_SHARING, sharingStore); return;
+        case "share":
+          void saveSharing(action.name, action.runId, action.sharing, SERVER_SHARING, sharingStore).then(refresh,
+            (cause: unknown) => setNavigationError(cause instanceof Error ? cause.message : String(cause)));
+          return;
+        case "closeSharing": sharingStore.set(undefined); return;
         default: throw new Error(`Unsupported browser action: ${action.action}`);
       }
     };
@@ -293,9 +328,9 @@ function RunPanelPage({ connection, initialRunId, registry }: { connection: stri
                   key={runId}
                   onLocationChange={setRunLocation}
                   statusContainer={statusContainer}
-                  onViewed={runReadState.markViewed}
+                  onViewed={reportViewed}
                   registry={registry}
-                  session={session ?? placeholderSession(runId, runTitle)}
+                  session={session ?? { ...placeholderSession(runId, runTitle), ...(shareableBeforeStart ? { canShare: true } : {}) }}
                   viewing={!draft && !settingsOpen && !helpOpen}
                 />
               </main>
@@ -305,13 +340,7 @@ function RunPanelPage({ connection, initialRunId, registry }: { connection: stri
             <>
               <div className="min-h-0 min-w-0 flex-1 overflow-auto">
                 {unreachable && <Alert className="mb-3" variant="destructive">The server is unreachable.</Alert>}
-                <PanelPage send={navigate} state={navigationState} runDetails={(id) => {
-                  const entry = sessions.find((candidate) => candidate.id === id);
-                  return entry && <>
-                    {entry.ownerLabel && <span>{entry.ownerLabel}</span>}
-                    {registry.sessionMetadata.map(({ id, Metadata }) => <Metadata key={id} placement="list" session={entry} />)}
-                  </>;
-                }} />
+                <PanelPage send={navigate} state={navigationState} />
               </div>
             </>
           )}
@@ -335,8 +364,8 @@ function RunPanelPage({ connection, initialRunId, registry }: { connection: stri
       </div> : <div className="flex-1" />}
       {readRuns && runId && <>
         {connection && <span className={connectionClass} title={`Server ${connection}`}>{connection}</span>}
-        <RunStateIcon className="self-center px-1.5" state={session?.running ? "running" : "idle"} />
-        <StopButton className="self-center" disabled={!writeRuns} label="Stop run" onClick={stop} size="icon-lg" title="Stop the run with all agents and flows" />
+        <RunStateIcon className="self-center px-1.5" state={session?.state === "paused" ? "paused" : session?.running ? "running" : "idle"} />
+        {session?.sharedAccess !== "read" && <StopButton className="self-center" disabled={!writeRuns} label="Stop run" onClick={stop} size="icon-lg" title="Stop the run with all agents and flows" />}
       </>}
       <RunPanelActions onOpenSettings={openSettings} onOpenHelp={() => setHelpOpen(true)} />
     </header>

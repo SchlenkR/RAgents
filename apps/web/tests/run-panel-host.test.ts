@@ -61,6 +61,8 @@ test("a vscode host without an embedding page is an error", () => {
 test("the back arrow reports the intent, not only its consequence", () => {
   assert.equal(isRunPanelHostMessage({ type: "showStart" }), true);
   assert.equal(isRunPanelHostMessage({ type: "showStart", runId: "run-a" }), true, "additional fields do not disturb the intent");
+  assert.equal(isRunPanelHostMessage({ type: "showStart", notice: "This run is no longer available to you." }), true, "a notice for Start travels along");
+  assert.equal(isRunPanelHostMessage({ type: "showStart", notice: 3 }), false);
   assert.equal(isRunPanelHostMessage({ type: "showstart" }), false);
   assert.equal(isRunPanelHostMessage({ type: "runChanged", runId: null }), true);
 });

@@ -7,6 +7,7 @@ import { ModelRuntime } from "@ragents/agent";
 import { fauxAssistantMessage, fauxToolCall, registerFauxProvider, type Context } from "@ragents/ai";
 import {
   AgentLoopDriver,
+  eventSubjectOf,
   FixedWorkspaces,
   resolveExecution,
   StaticModelCatalog,
@@ -27,7 +28,17 @@ import { allGrants, postTo, setupRun } from "../../../packages/ragents/tests/sup
 const settled = () => new Promise<void>((resolve) => setImmediate(resolve));
 
 const askStep = fauxAssistantMessage(
-  [fauxToolCall("ask_user", { question: "Which branch?", options: ["main", "release"] }, { id: "call-ask" })],
+  [fauxToolCall("ask_user", { questions: [{
+    question: "Which branch?",
+    header: "Branch",
+    options: [{ label: "main", description: "The stable line" }, { label: "release", description: "The current release line" }],
+    multiSelect: false,
+  }] }, { id: "call-ask" })],
+  { stopReason: "toolUse" },
+);
+
+const formerStep = fauxAssistantMessage(
+  [fauxToolCall("ask_user", { question: "Which branch?", options: ["main", "release"] }, { id: "call-former" })],
   { stopReason: "toolUse" },
 );
 
@@ -85,6 +96,12 @@ const scripted = (t: TestContext, wrap: (service: RuntimeAskService) => AskServi
       ownerId: setup.view.ownerId,
       labelOf: () => undefined,
       turnOf: (turnId) => view().turns.find((turn) => turn.id === turnId)!,
+      inputOf: (inputId) => view().inputs.find((input) => input.id === inputId)!,
+      sourceOf: (eventId) => {
+        const source = events.find((event) => event.eventId === eventId)!;
+        return { type: source.type, subjectId: eventSubjectOf(setup.runtime.state(setup.view.id), source) };
+      },
+      handleOf: (actorId) => view().actors.find((actor) => actor.id === actorId)!.handle,
       interruptedByCommand: () => false,
     });
   };
@@ -94,7 +111,7 @@ const scripted = (t: TestContext, wrap: (service: RuntimeAskService) => AskServi
 test("the asking turn ends without a second model request, and the answer starts the next turn", async (t) => {
   const run = scripted(t);
   run.faux.setResponses([askStep, run.answer("Merging into main.")]);
-  postTo(run.runtime, run.view(), run.agent.id, "start", "Merge the change.");
+  run.message("start", "Merge the change.");
   run.scheduler.start();
   await run.scheduler.waitForIdle();
 
@@ -110,7 +127,7 @@ test("the asking turn ends without a second model request, and the answer starts
     [["user", "Merge the change."], ["tool", QUESTION_POSED], ["action", "Which branch?"]]);
   assert.equal(messages[1]!.tool?.isError, false);
 
-  run.service.answer(run.view().id, asked.actions[0]!.id, { answer: "main" });
+  run.service.answer(run.view().id, asked.actions[0]!.id, { answers: [{ selected: ["main"] }] });
   await settled();
   await run.scheduler.waitForIdle();
 
@@ -119,7 +136,7 @@ test("the asking turn ends without a second model request, and the answer starts
   const context = run.contexts[0]!;
   assert.deepEqual(context.messages.map((entry) => entry.role), ["user", "assistant", "toolResult", "user"]);
   assert.equal(textOf(context.messages[2]), QUESTION_POSED);
-  assert.equal(textOf(context.messages[3]), "Answer to your question: Which branch?\nAnswer: main");
+  assert.equal(textOf(context.messages[3]), "The user answered your question:\n\"Which branch?\" = \"main\"");
 });
 
 test("a person's message during the ask_user call closes the question and still reaches the asker in the same turn", async (t) => {
@@ -164,4 +181,19 @@ test("a question not asked because a message already waits hands the turn on to 
   assert.equal(run.view().turns.length, 1);
   assert.deepEqual(run.view().actions, []);
   assert.deepEqual(run.contexts[0]!.messages.slice(-2).map(textOf), [SUPERSEDED_ANSWER, "Use the release branch."]);
+});
+
+test("a call in the former single-question shape fails validation with the path, and the model asks again in the new shape", async (t) => {
+  const run = scripted(t);
+  run.faux.setResponses([formerStep, askStep]);
+  postTo(run.runtime, run.view(), run.agent.id, "start", "Merge the change.");
+  run.scheduler.start();
+  await run.scheduler.waitForIdle();
+
+  const view = run.view();
+  assert.deepEqual(view.turns[0]!.toolCalls.map((call) => [call.name, call.status]), [["ask_user", "failed"], ["ask_user", "completed"]]);
+  const failed = run.runtime.events(view.id).find((event) => event.type === "tool.call.failed");
+  assert.match(failed?.type === "tool.call.failed" ? failed.payload.error : "", /questions/);
+  assert.equal(view.actions.length, 1);
+  assert.equal(view.actions[0]?.title, "Which branch?");
 });

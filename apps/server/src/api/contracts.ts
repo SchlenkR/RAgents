@@ -1,10 +1,10 @@
-import { Type } from "typebox";
+import { Type, type Static } from "typebox";
 import type { PublicPluginProfile } from "@ragents/engine/src/plugin-types";
 import { defineChannel, defineOperation } from "@ragents/engine/src/rpc/contract";
 import { openJson, runContracts } from "@ragents/engine/src/http/contracts";
 import type { ChatAttachmentCapabilities, ChatEvent } from "quassel/events";
 import type { ChatUserLocation } from "../chat-context.js";
-import type { SessionInfo } from "../chat-handler.js";
+import type { ListedSession } from "../chat-handler.js";
 import type { ActorConversations } from "../ragents/actor-chat-history.js";
 import type { StartOptionState } from "../plugin-support/start-options-contract.js";
 import type { RunPreparationRequest, RunPreparationResponse } from "../run-preparation-contract.js";
@@ -22,7 +22,36 @@ const attachment = Type.Object({
   data: Type.String({ description: "Content as Base64" }),
 }, { additionalProperties: false });
 
-const sessionInfo = openJson<SessionInfo>("SessionInfo");
+const listedSession = openJson<ListedSession>("ListedSession");
+
+const shareAccess = Type.Union([Type.Literal("read"), Type.Literal("write")], {
+  description: "read sees the run and operates nothing; write also operates it as far as the user's own rights go",
+});
+
+const runSharing = Type.Object({
+  everyone: Type.Union([shareAccess, Type.Null()], { description: "Access of every user of the profile; null for none" }),
+  users: Type.Array(Type.Object({
+    userId: Type.String({ minLength: 1, description: "Id of a user of the profile, never the run's owner" }),
+    access: shareAccess,
+  }, { additionalProperties: false }), { description: "Individual users with their own access; a user gets the higher of everyone's and their own" }),
+}, { additionalProperties: false });
+
+const runSharingResult = Type.Object({
+  sharing: Type.Object({
+    everyone: Type.Union([shareAccess, Type.Null()]),
+    users: Type.Array(Type.Object({
+      userId: Type.String(),
+      label: Type.String({ description: "Display name; the id for a user the profile no longer has" }),
+      access: shareAccess,
+    }, { additionalProperties: false })),
+  }, { additionalProperties: false }),
+  users: Type.Array(Type.Object({ id: Type.String(), label: Type.String() }, { additionalProperties: false }), {
+    description: "The users of the profile the run can be shared with, without its owner",
+  }),
+}, { additionalProperties: false });
+
+/** Whom a run is shared with, as ragents.runs.sharing and ragents.runs.share return it. */
+export type RunSharingResult = Static<typeof runSharingResult>;
 
 /** The host checks per-run rights dynamically; contracts without `rights` state their rule in the description. */
 /** What a UI gets from the server at startup: the plugins' profile and the server's RAgents version, against which it checks its own. */
@@ -32,17 +61,36 @@ export const coreContracts = {
   runs: {
     list: defineOperation({
       id: "ragents.runs.list",
-      description: "All runs of the profile with title, times and metadata. Right: runs.read.",
+      description: "All runs of the profile the caller sees, its own and those shared with it, with title, times, state (paused, running, waiting, idle, ended), pending actions, the caller's own seenRevision, whether the caller operates it (operable), its sharing for the caller (canShare and shared for whoever may change it, sharedAccess for whoever sees it only through a share), metadata and its list lines. Right: runs.read.",
       rights: ["runs.read"],
       input: Type.Object({}, { additionalProperties: false }),
-      result: Type.Array(sessionInfo),
+      result: Type.Array(listedSession),
+    }),
+    markViewed: defineOperation({
+      id: "ragents.runs.markViewed",
+      description: "Record that the caller has viewed a run up to this revision; ragents.runs.list reports it back to the same user as seenRevision, on every device and host, and to nobody else. Only a higher revision counts. Right: runs.read.",
+      rights: ["runs.read"],
+      input: Type.Object({ runId, revision: Type.Integer({ minimum: 0, description: "The viewed journal revision of the run" }) }, { additionalProperties: false }),
+      result: Type.Null(),
     }),
     delete: defineOperation({
       id: "ragents.runs.delete",
-      description: "Delete a run with its data. Rights: runs.read and runs.delete.",
+      description: "Delete a run with its data; a user who sees the run only through a share never deletes it (run-delete-denied). Rights: runs.read and runs.delete.",
       rights: ["runs.read", "runs.delete"],
       input: Type.Object({ runId }, { additionalProperties: false }),
       result: Type.Null(),
+    }),
+    sharing: defineOperation({
+      id: "ragents.runs.sharing",
+      description: "Whom a run is shared with, each with its access, and the users of the profile it can be shared with. Before the start, the caller's own choice for the run it is about to create. Only with sign-in (sharing-unavailable), not for a global coordinator or a run without an owner (run-not-shareable). Rights: runs.read and runs.write, and the caller must own the run or have runs.read.all (run-sharing-denied).",
+      input: Type.Object({ runId }, { additionalProperties: false }),
+      result: runSharingResult,
+    }),
+    share: defineOperation({
+      id: "ragents.runs.share",
+      description: "Replace whom a run is shared with: every user of the profile (everyone) and individual users, each with read (sees the run, operates nothing) or write (operates it as far as the user's own rights go); a user gets the higher of both. Before the start the choice waits for the run's creation by the caller, afterwards it is written to the journal; an unchanged sharing writes nothing. A user unknown to the profile (share-user-unknown), the owner (share-owner) and a user named twice (share-user-duplicate) are refused. Result as ragents.runs.sharing. Rights as for ragents.runs.sharing.",
+      input: Type.Object({ runId, sharing: runSharing }, { additionalProperties: false }),
+      result: runSharingResult,
     }),
     scripts: defineOperation({
       id: "ragents.runs.scripts",
@@ -199,20 +247,20 @@ export const coreContracts = {
   channels: {
     runs: defineChannel({
       id: "ragents.runs",
-      description: "Reports every change of the run list. Right: runs.read.",
+      description: "Reports every change of the run list, also when a run is shared with the caller or no longer, a changed read marker only to its user. Right: runs.read.",
       rights: ["runs.read"],
       params: Type.Object({}, { additionalProperties: false }),
       message: Type.Object({ type: Type.Literal("changed") }),
     }),
     run: defineChannel({
       id: "ragents.run",
-      description: "Reports every new journal event of a run; first ready, then run. Rights as for reading the run.",
+      description: "Reports every new journal event of a run; first ready, then run. Rights as for reading the run; it ends as soon as the caller no longer sees the run because a share was taken back.",
       params: Type.Object({ runId }, { additionalProperties: false }),
       message: Type.Object({ kind: Type.Union([Type.Literal("ready"), Type.Literal("run")]) }),
     }),
     chat: defineChannel({
       id: "ragents.chat",
-      description: "The coordinator's chat history: first the stored history, then live. Rights as for reading the run.",
+      description: "The coordinator's chat history: first the stored history, then live. Rights as for reading the run; it ends as soon as the caller no longer sees the run because a share was taken back.",
       params: Type.Object({ runId }, { additionalProperties: false }),
       message: openJson<ChatEvent>("ChatEvent"),
     }),

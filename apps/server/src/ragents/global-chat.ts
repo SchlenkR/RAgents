@@ -1,4 +1,4 @@
-import { serviceToken, type AccessContext, type CatalogModel, type ExecutableActor, type JournalEvent, type JsonValue, type ModelSelection, type Orchestration, type RunView } from "@ragents/engine";
+import { serviceToken, type AccessContext, type CatalogModel, type ExecutableActor, type JournalEvent, type JsonValue, type ModelSelection, type Orchestration, type RunSharing, type RunView } from "@ragents/engine";
 import type { GlobalRunPolicy } from "../api/rights.js";
 import type { ChatUser, RunScriptListing, SessionInfo, StartedScript } from "../chat-handler.js";
 
@@ -28,6 +28,8 @@ export interface GlobalChatPolicy {
 export type ManagedRunStart = {
   title: string;
   options?: Readonly<Record<string, JsonValue>>;
+  /** Whom the run is shared with from its creation on; only for a signed-in user, checked like ragents.runs.share. */
+  sharing?: RunSharing;
   /** Who chooses the start options and owns the run: the user of the request, null without sign-in. */
   user: ChatUser | null;
 } & ({ kind: "message"; message: string } | { kind: "script"; entryId: string; input: JsonValue }
@@ -47,7 +49,8 @@ export interface RunManagement {
   create: (start: ManagedRunStart) => Promise<string>;
   /** A message operates the run; the host checks the same access for it as for the chat. */
   send: (runId: string, message: string, access: AccessContext) => Promise<void>;
-  stop: (runId: string) => Promise<void>;
+  /** With an access, the host checks the same access as for the chat's stop; without one it is the run's own stop. */
+  stop: (runId: string, access?: AccessContext) => Promise<void>;
   resetGlobal: (runId: string) => Promise<void>;
   /** The run scripts the run's owner may start, and whether each can start in the run now. */
   scripts: (runId: string) => readonly RunScriptListing[];

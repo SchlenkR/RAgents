@@ -5,12 +5,23 @@ import {
   type LanguageServerSolutions,
 } from "@ragents/workspace-executor";
 import type { SandboxServices } from "@ragents/host/plugin-support/workspace-sandbox-host.js";
-import { DISMISSED_ANSWER, type AskService } from "@ragents/plugins/ragents.ask/server/contract.js";
+import { answerMessageOf, type AskOutcome, type AskQuestion, type AskService } from "@ragents/plugins/ragents.ask/server/contract.js";
 
 export const SOLUTION_ON_START_VARIABLE = "ROSLYN_SOLUTION_ON_START";
 export const SOLUTION_PREFERRED_VARIABLE = "ROSLYN_SOLUTION_PREFERRED";
 export const NO_SOLUTION = "Load none";
 export const SOLUTION_QUESTION = "Which solution should Roslyn load for diagnostics?";
+
+/** The start question: every candidate solution and "Load none"; the service allows more than the four options of ask_user. */
+export const solutionQuestion = (options: readonly string[]): AskQuestion => ({
+  question: SOLUTION_QUESTION,
+  header: "Solution",
+  options: options.map((option) => ({
+    label: option,
+    description: option === NO_SOLUTION ? "Start without C# diagnostics; the coordinator can load one later." : "Load this solution for C# diagnostics.",
+  })),
+  multiSelect: false,
+});
 
 export type SolutionStartStep =
   | { kind: "none" }
@@ -39,10 +50,12 @@ export const solutionStartStep = (listing: LanguageServerSolutions, preferred?: 
   return { kind: "ask", options: [...candidates, NO_SOLUTION] };
 };
 
-/** A freely worded answer goes to the coordinator so it does not get lost. */
-export const solutionAnswer = (options: readonly string[], answer: string): SolutionAnswer => {
-  const chosen = answer.trim().replaceAll("\\", "/");
-  if (chosen === NO_SOLUTION || answer === DISMISSED_ANSWER) return { kind: "none" };
+/** A freely worded answer that names no option goes to the coordinator so it does not get lost. */
+export const solutionAnswer = (options: readonly string[], outcome: AskOutcome): SolutionAnswer => {
+  if (outcome.kind === "dismissed") return { kind: "none" };
+  const answer = outcome.answers[0]!;
+  const chosen = "text" in answer ? answer.text.trim().replaceAll("\\", "/") : answer.selected[0]!;
+  if (chosen === NO_SOLUTION) return { kind: "none" };
   return options.includes(chosen) ? { kind: "open", path: chosen } : { kind: "forward" };
 };
 
@@ -76,15 +89,15 @@ export const createSolutionOnStart = (options: SolutionOnStartOptions): Solution
     await options.sandbox().execute(runId, openTool, { root: path, ifNoneOpen }, { signal });
   };
 
-  const answered = async (runId: string, coordinatorId: string, choices: readonly string[], answer: string, signal: AbortSignal) => {
-    const outcome = solutionAnswer(choices, answer);
-    if (outcome.kind === "open") return load(runId, outcome.path, false, signal);
-    if (outcome.kind === "none") return;
+  const answered = async (runId: string, coordinatorId: string, choices: readonly string[], outcome: AskOutcome, signal: AbortSignal) => {
+    const answer = solutionAnswer(choices, outcome);
+    if (answer.kind === "open") return load(runId, answer.path, false, signal);
+    if (answer.kind === "none") return;
     const runtime = options.runtime();
     runtime.enqueueInput(
       { actorId: runtime.state(runId).ownerId, commandId: `${options.pluginId}.solution-answer:${runId}` },
       runId,
-      { actorId: coordinatorId, content: `Answer to the question: ${SOLUTION_QUESTION}\nAnswer: ${answer}\n${openTool} loads a solution.` },
+      { actorId: coordinatorId, content: `${answerMessageOf([solutionQuestion(choices)], outcome, "the")}\n${openTool} loads a solution.` },
     );
   };
 
@@ -93,17 +106,16 @@ export const createSolutionOnStart = (options: SolutionOnStartOptions): Solution
     const step = solutionStartStep(listing, options.preferred);
     if (step.kind === "none") return { rest: Promise.resolve() };
     if (step.kind === "open") return { rest: load(runId, step.path, true, signal) };
-    const answer = options.ask().ask(
+    const outcome = options.ask().ask(
       { runId, agentId: ownerId, turnId: null, commandId: questionCommand(runId) },
       {
-        question: SOLUTION_QUESTION,
+        questions: [solutionQuestion(step.options)],
         description: "The workspace contains several solutions; Roslyn loads the chosen one for diagnostics without a build.",
-        options: [...step.options],
         recipient: coordinatorId,
       },
       signal,
     );
-    return { rest: answer.then((text) => answered(runId, coordinatorId, step.options, text, signal)) };
+    return { rest: outcome.then((answer) => answered(runId, coordinatorId, step.options, answer, signal)) };
   };
 
   const finish = (runId: string, controller: AbortController, error?: unknown): void => {

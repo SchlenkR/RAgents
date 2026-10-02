@@ -295,7 +295,7 @@ const mediatorHandler = (binding: MediatorBinding, value: unknown) => {
 
         for (const target of await targets()) {
             await hook("onRoute", config.onRoute, [latest, target]);
-            await binding.capabilities.call("actor_input", { actor: target, content: rendered(entries) });
+            await binding.capabilities.call("actor_input", { to: target, message: rendered(entries) });
         }
     };
 

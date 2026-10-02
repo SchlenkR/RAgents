@@ -18,7 +18,7 @@ export interface BrowserCallOptions {
 }
 
 export interface BrowserRuntime {
-  open: (runId: string, url: string, options?: BrowserCallOptions) => Promise<BrowserSnapshot>;
+  navigate: (runId: string, url: string, options?: BrowserCallOptions) => Promise<BrowserSnapshot>;
   evidence: (runId: string) => BrowserEvidence;
 }
 

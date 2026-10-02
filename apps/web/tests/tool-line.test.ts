@@ -17,6 +17,13 @@ test("of several fields the first preferred one wins", () => {
   assert.equal(toolSummary(tool(JSON.stringify({ url: "https://example.org", query: "search" }))), "search");
 });
 
+test("a command with a description shows the description, the old shape keeps its path", () => {
+  assert.equal(toolSummary(tool(JSON.stringify({ command: "pnpm test", description: "Run the unit tests" }), "bash")), "Run the unit tests");
+  assert.equal(toolSummary(tool(JSON.stringify({ command: "pnpm test", description: " " }), "bash")), "pnpm test");
+  assert.equal(toolSummary(tool(JSON.stringify({ file_path: "src/a.ts", old_string: "a", new_string: "b" }), "edit")), "src/a.ts");
+  assert.equal(toolSummary(tool(JSON.stringify({ path: "src/a.ts", edits: [{ oldText: "a", newText: "b" }] }), "edit")), "src/a.ts");
+});
+
 test("an empty preferred field is skipped", () => {
   assert.equal(toolSummary(tool(JSON.stringify({ path: "  ", command: "ls -la" }))), "ls -la");
 });

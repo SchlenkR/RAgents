@@ -17,6 +17,7 @@ import {
   defineOperation,
   implement,
   implementChannel,
+  notShared,
   runtimeMethods,
   unrestrictedAccess,
   type AccessContext,
@@ -35,8 +36,8 @@ import { runContracts } from "@ragents/engine/src/http/contracts";
 import { coreContracts } from "../src/api/contracts.ts";
 import { coreChannels, coreMethods } from "../src/api/core-methods.ts";
 import { attachmentContentRoute } from "../src/api/delivery.ts";
-import { assertRunAccess, assertRunRights, runIdInPath, runOwned, runReachable, type RunAccessPolicy } from "../src/api/rights.ts";
-import { runOwnerOf, runOwnerOnly } from "../src/ragents/run-owner.ts";
+import { assertRunAccess, assertRunRights, runIdInPath, runOwned, runReachable, runVisible, type RunAccessPolicy } from "../src/api/rights.ts";
+import { runOwnerOf, runOwnerOnly, runSharingOf } from "../src/ragents/run-owner.ts";
 import { WORKSPACE_BINDING_OPTION_ID } from "../../../plugins/ragents.workspace/contract.ts";
 import { workspaceBindingOption } from "../../../plugins/ragents.workspace/server/binding.ts";
 import { WorkspaceClientRegistry } from "../../../plugins/ragents.workspace/server/clients.ts";
@@ -59,6 +60,7 @@ const policy: RunAccessPolicy = {
   global: { isCoordinator: isCoordinatorRunId, runIdFor: coordinatorRunId, read: "ragents.overseer.read", write: "ragents.overseer.write" },
   ownerOf: (runId) => owners[runId],
   ownerOnly: (runId) => runId === BOUND,
+  sharing: () => notShared(),
 };
 
 const operatorRights = ["runs.read", "runs.write", "runs.create", "runs.inspect", "runs.delete", "ragents.overseer.read", "ragents.overseer.write"];
@@ -74,6 +76,7 @@ const runAccessOf = (journal: Journal, startOptions = new StartOptionContributio
   global: undefined,
   ownerOf: (runId) => runOwnerOf(journal, runId),
   ownerOnly: (runId) => runOwnerOnly(journal, startOptions, runId),
+  sharing: (runId) => runSharingOf(journal, runId),
 });
 
 /** A call through the real dispatcher: rights, contract and run ownership as in the server. */
@@ -287,6 +290,7 @@ test("the runtime methods of the engine reject foreign runs and keep working for
       projectView: (view) => view,
       hasRun: (runId) => journal.stateOf(runId) !== null,
       interruptTurn: async () => undefined,
+      pauseRun: async () => undefined,
     });
     const call = async (id: string, input: unknown, context: AccessContext) => {
       const found = methods.find((entry) => entry.contract.id === id)!;
@@ -390,7 +394,7 @@ test("the global coordinator resolves runs only among the caller's runs", async 
   const runs = [{ id: OWN, title: "Own", updatedAt: 2 }, { id: FOREIGN, title: "Foreign", updatedAt: 1 }];
   const read: string[] = [];
   const management: RunManagement = {
-    list: async (access) => access ? runs.filter((entry) => runOwned(access, entry.id, policy)) : runs,
+    list: async (access) => access ? runs.filter((entry) => runVisible(access, entry.id, policy)) : runs,
     view: (runId) => {
       read.push(runId);
       return { id: runId, revision: 1, title: runId, ownerId: "owner", primaryActorId: null, createdAt: "2026-09-22T00:00:00Z", forkedFrom: null,
@@ -471,6 +475,7 @@ test("a run bound to a workstation is only readable and stoppable for someone el
       projectView: (view) => view,
       hasRun: (runId) => journal.stateOf(runId) !== null,
       interruptTurn: async () => undefined,
+      pauseRun: async () => undefined,
     });
     const outcome = async (id: string, input: unknown, context: AccessContext): Promise<string> => {
       const found = methods.find((entry) => entry.contract.id === id)!;

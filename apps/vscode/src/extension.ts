@@ -15,7 +15,8 @@ import { ConnectionSession, type ConnectionSnapshot, type LaunchedConnection, ty
 import { hostEnvironmentSecretKey, isEnvironmentName, missingHostEnvironmentSecrets, parseHostEnvironment, parseThemeSetting, parseZoomSetting, provideMissingSecret, resolveTheme, withHostEnvironmentSecrets, withRelaySession } from "./settings";
 import { connectionState, kindLabel } from "../../web/src/panel/connection-state";
 import { connectionStateWord } from "../../web/src/ui/state-vocabulary";
-import type { PanelAction, PanelActionMessage, PanelPage, PanelState } from "../../web/src/panel/contract";
+import type { PanelAction, PanelActionMessage, PanelPage, PanelSharing, PanelState } from "../../web/src/panel/contract";
+import { openSharing, saveSharing, type SharingClient, type SharingStore } from "../../web/src/run-sharing";
 import { profileDistributionContracts, type ClientProfileDescription } from "../../../plugins/ragents.profile-distribution/contract";
 import { AppPanels, PanelView, type FrameSettings, type PanelRendering } from "./webviews";
 import { windowClientId } from "./workspace-identity";
@@ -85,6 +86,8 @@ export async function activate(context: vscode.ExtensionContext): Promise<RAgent
   let configProblem: string | undefined;
   let pickedProfileFile: string | undefined;
   let missingSecrets: readonly string[] = [];
+  let sharing: PanelSharing | undefined;
+  let startNotice: string | undefined;
   const pendingNewRun = new Map<string, Extract<HostRunPanelMessage, { type: "newRun" }>>();
   const identity = () => ({
     id: windowClientId(context.workspaceState),
@@ -117,6 +120,8 @@ export async function activate(context: vscode.ExtensionContext): Promise<RAgent
       problem: configProblem,
       pickedProfileFile,
       runsConnection,
+      sharing,
+      notice: startNotice,
     }),
     handle: (connection: string, incoming: RunPanelHostMessage) => {
       handleRunPanelMessage(connection, incoming);
@@ -202,10 +207,12 @@ export async function activate(context: vscode.ExtensionContext): Promise<RAgent
     return rendering;
   };
 
-  /** Back from the run: no run selected, the panel shows one of its three pages; only the chip on Start passes a server to Runs. */
-  const showPage = (next: Exclude<PanelPage, "run">, { focusPanel = true, connection }: { focusPanel?: boolean; connection?: string } = {}) => {
+  /** Back from the run: no run selected, the panel shows one of its three pages; only the chip on Start passes a server to Runs, a notice stays until the next page. */
+  const showPage = (next: Exclude<PanelPage, "run">, { focusPanel = true, connection, notice }: { focusPanel?: boolean; connection?: string; notice?: string } = {}) => {
     page = next;
     runsConnection = next === "runs" ? connection : undefined;
+    startNotice = next === "start" ? notice : undefined;
+    sharing = undefined;
     clearSelection();
     panel.render();
     syncContext();
@@ -512,6 +519,12 @@ export async function activate(context: vscode.ExtensionContext): Promise<RAgent
       case "openRun": selectRun(incoming.name, incoming.runId, { focusPanel: true }); return;
       case "deleteRuns": await deleteRuns(incoming.name, incoming.runIds); return;
       case "newRun": await newRun(incoming.name, incoming.entryId); return;
+      case "openSharing": await openSharing(incoming.name, incoming.runId, sharingClient(incoming.name), sharingStore); return;
+      case "share":
+        await saveSharing(incoming.name, incoming.runId, incoming.sharing, sharingClient(incoming.name), sharingStore);
+        await sessions.get(incoming.name)?.store?.refresh();
+        return;
+      case "closeSharing": sharingStore.set(undefined); return;
     }
   };
 
@@ -611,6 +624,21 @@ export async function activate(context: vscode.ExtensionContext): Promise<RAgent
     sessionChanged();
   };
 
+  /** The share dialog lives in the panel state; every change redraws the page. */
+  const sharingStore: SharingStore = {
+    get: () => sharing,
+    set: (next) => {
+      sharing = next;
+      panel.render();
+    },
+  };
+
+  /** Sharing goes straight to the run's server, like deleting. */
+  const sharingClient = (connection: string): SharingClient => ({
+    load: (runId) => requireClient(connection).rpc.call(coreContracts.runs.sharing, { runId }),
+    save: (runId, next) => requireClient(connection).rpc.call(coreContracts.runs.share, { runId, sharing: next }),
+  });
+
   /** "New run" presets the workspace with an offered folder unless the template fixes it; with several folders, a picker asks. */
   const newRun = async (connection: string, entryId?: string) => {
     const session = requireSession(connection);
@@ -683,7 +711,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<RAgent
         panels.open(connection, incoming.runId, incoming.elementId, incoming.title, session?.store?.run(incoming.runId)?.title);
         return;
       case "showStart":
-        showPage("start");
+        showPage("start", { notice: incoming.notice });
         return;
       case "login":
         showPage("connections");

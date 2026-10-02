@@ -314,3 +314,66 @@ for (const width of [380, 900, 1600, 2600]) {
     } finally { await browser.close(); }
   });
 }
+
+test("Runs offers Share ... per shareable row, the dialog edits and sends the sharing, and the host's refusal stays in it",{skip,timeout:120_000},async()=>{
+  const sharedRuns=[
+    {...run("own","Own review","idle",1),canShare:true,shared:true},
+    {...run("plain","Plain run","idle",2),canShare:true},
+    {...run("viewed","Viewed run","idle",3),owner:"Alice",sharedAccess:"read"},
+    {...run("joined","Joined run","idle",4),owner:"Alice",sharedAccess:"write"},
+  ];
+  const url=await preparePage({theme:"dark",page:"runs",profileSuggestions:[],connections:[{...workshop,runs:sharedRuns,canDelete:true}]});
+  const loaded={sharing:{everyone:null,users:[{userId:"bob",label:"Bob",access:"read"}]},users:[{id:"bob",label:"Bob"},{id:"carol",label:"Carol"}]};
+  const setSharing=(page:Page,value:unknown)=>page.evaluate((next)=>(window as any).fixture.setState((current:any)=>({...current,sharing:next})),value);
+  const browser=await launch();
+  try{
+    const page=await browser.newPage({viewport:{width:420,height:900}});await page.goto(url);
+    await page.getByRole('heading',{name:'Runs'}).waitFor();
+    assert.equal(await columnEdges(page,'Runs','time'),1,'the action column keeps the time column aligned');
+    assert.equal(await columnEdges(page,'Runs','share'),1,'every row has its action cell at the same edge');
+    assert.equal(await page.getByRole('button',{name:'Share Viewed run'}).count(),0,'a sharee never changes the sharing');
+    assert.equal(await page.locator('button[title="Viewed run"] [title="Shared with you - view only"]').count(),1);
+    assert.equal(await page.locator('button[title="Own review"] [title="Shared"]').count(),1);
+    await mkdir(shots,{recursive:true});
+    await shoot(page,`${shots}runs-shared-420.png`);
+    await page.getByRole('button',{name:'Share Own review'}).focus();
+    await page.keyboard.press('Enter');
+    assert.deepEqual(await sent(page),{action:'openSharing',name:'workshop',runId:'own'});
+
+    await setSharing(page,{connection:'workshop',runId:'own',pending:true});
+    const dialog=page.getByRole('dialog',{name:'Share run'});
+    await dialog.getByText('Loading ...').waitFor();
+    await setSharing(page,{connection:'workshop',runId:'own',result:loaded});
+    const save=dialog.getByRole('button',{name:'Save'});
+    await save.waitFor();
+    assert.equal(await save.isDisabled(),true,'nothing changed yet');
+    assert.match(await dialog.innerText(),/Own review/,'the dialog names the run');
+    await dialog.getByRole('combobox',{name:'Everyone'}).click();
+    await page.getByRole('option',{name:'Can view'}).click();
+    await dialog.getByRole('combobox',{name:'Access for Bob'}).click();
+    await page.getByRole('option',{name:'Can operate'}).click();
+    await dialog.getByRole('combobox',{name:'Add user'}).click();
+    await page.getByRole('option',{name:'Carol'}).click();
+    assert.equal(await dialog.getByRole('combobox',{name:'Add user'}).count(),0,'every candidate is named now');
+    await page.screenshot({path:`${shots}share-dialog-420.png`});
+    await save.click();
+    assert.deepEqual(await sent(page),{action:'share',name:'workshop',runId:'own',sharing:{everyone:'read',users:[{userId:'bob',access:'write'},{userId:'carol',access:'read'}]}});
+
+    await setSharing(page,{connection:'workshop',runId:'own',result:loaded,pending:true});
+    await dialog.getByRole('button',{name:'Saving ...'}).waitFor();
+    await setSharing(page,{connection:'workshop',runId:'own',result:loaded,error:'carol is not a user of this profile'});
+    await dialog.getByRole('alert').filter({hasText:'carol is not a user of this profile'}).waitFor();
+    assert.equal(await dialog.getByRole('combobox',{name:'Access for Carol'}).count(),1,'the draft survives the refusal');
+    await dialog.getByRole('button',{name:'Remove Carol'}).click();
+    await dialog.getByRole('combobox',{name:'Add user'}).waitFor();
+    await page.keyboard.press('Escape');
+    assert.deepEqual(await sent(page),{action:'closeSharing'});
+    await setSharing(page,undefined);
+    await page.waitForSelector('[role=dialog]',{state:'detached'});
+
+    await page.getByRole('button',{name:'Select'}).click();
+    assert.equal(await page.getByRole('checkbox',{name:'Select Own review'}).count(),1);
+    assert.equal(await page.getByRole('checkbox',{name:'Select Viewed run'}).count(),0,'a run shared with the user is never deleted');
+    assert.equal(await columnEdges(page,'Runs','time'),1,'rows without a checkbox stay in their columns');
+  }finally{await browser.close()}
+});

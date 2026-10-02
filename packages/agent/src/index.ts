@@ -22,11 +22,13 @@ export { convertToLlm } from "./core/messages.ts";
 export { formatSkillsForPrompt, type Skill } from "./core/skills.ts";
 export { defineTool, type ToolDefinition } from "./core/tool-definition.ts";
 export {
+	BASH_MAX_TIMEOUT_MS,
 	type BashOperations,
 	createBashToolDefinition,
 	createEditToolDefinition,
 	createReadToolDefinition,
 	createWriteToolDefinition,
+	editApplies,
 } from "./core/tools/index.ts";
 export {
 	Agent,

@@ -2,22 +2,25 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { ServerClient } from "../src/server-client";
 import { RunStore } from "../src/store";
-import { runView, SESSION_TOKEN, session, startStubServer, stubProfile, waitFor } from "./fixtures";
+import { SESSION_TOKEN, session, startStubServer, stubProfile, waitFor } from "./fixtures";
 
-test("without login the store loads runs and views and follows the run channel while a run is watched", async () => {
+test("without login the store takes state and pending actions from the run list and refreshes it on run events while a run is watched", async () => {
   const server = await startStubServer();
   const store = new RunStore(new ServerClient(server.url, undefined));
   try {
     await store.start();
     assert.deepEqual(store.status, { kind: "connected" });
     await waitFor(() => store.pendingActions === 1);
+    assert.equal(store.run("run-a")?.state, "running");
     const release = store.watch("run-a");
     await waitFor(() => server.subscribed().has("run:run-a"));
-    server.setView(runView({ revision: 13, actions: [] }));
+    server.setSessions([session({ revision: 13, running: false, state: "idle", pendingActions: 0 })]);
     server.emit("run:run-a");
-    await waitFor(() => store.pendingActions === 0);
+    await waitFor(() => store.pendingActions === 0, 2000);
+    assert.equal(store.run("run-a")?.state, "idle");
     release();
     await waitFor(() => !server.subscribed().has("run:run-a"));
+    assert.equal(server.viewRequests(), 0, "the list carries everything; the store loads no run view");
   } finally {
     store.dispose();
     await server.close();
@@ -67,35 +70,16 @@ test("a token gate is recognised by its 401 without login code and an unreachabl
   offline.dispose();
 });
 
-test("a session list that loses a run drops its cached view", async () => {
+test("the store follows the server's list: a run that disappears is gone, the badge counts the remaining pending actions", async () => {
   const server = await startStubServer();
   const store = new RunStore(new ServerClient(server.url, undefined));
   try {
     await store.start();
     await waitFor(() => store.pendingActions === 1);
-    server.setSessions([session({ id: "run-b", title: "Other" })]);
+    server.setSessions([session({ id: "run-b", title: "Other", state: "waiting", pendingActions: 2, seenRevision: 12 })]);
     await store.refresh();
-    assert.deepEqual(store.runs.map((run) => [run.id, run.pendingActions]), [["run-b", 0]]);
-  } finally {
-    store.dispose();
-    await server.close();
-  }
-});
-
-test("an unreadable run view is isolated: the other runs, the counts and the problem stay readable", async () => {
-  const server = await startStubServer();
-  const store = new RunStore(new ServerClient(server.url, undefined));
-  try {
-    server.setSessions([session(), session({ id: "run-b", title: "Other", updatedAt: 1 })]);
-    server.setView(runView({ inputs: [{ actorId: "coordinator" }] as never }));
-    await store.start();
-    await waitFor(() => store.runs.some((run) => run.problem !== undefined));
-    assert.deepEqual(store.runs.map((run) => [run.id, run.problem === undefined]), [["run-a", false], ["run-b", true]]);
-    assert.equal(store.pendingActions, 0);
-    server.setView(runView({ revision: 13 }));
-    server.setSessions([session({ revision: 13 }), session({ id: "run-b", title: "Other", updatedAt: 1 })]);
-    await store.refresh();
-    await waitFor(() => store.run("run-a")?.problem === undefined && store.pendingActions === 1);
+    assert.deepEqual(store.runs.map((run) => [run.id, run.state, run.pendingActions, run.seenRevision]), [["run-b", "waiting", 2, 12]]);
+    assert.equal(store.pendingActions, 2);
   } finally {
     store.dispose();
     await server.close();
@@ -106,13 +90,13 @@ test("a locked run stays in the list with its cause, and the store never asks fo
   const server = await startStubServer();
   const store = new RunStore(new ServerClient(server.url, undefined));
   try {
-    server.setSessions([session(), session({ id: "run-locked", title: "run-locked", updatedAt: 1, running: false, locked: "unsupported journal format 6" })]);
+    const locked = session({ id: "run-locked", title: "run-locked", updatedAt: 1, running: false, state: "idle", pendingActions: 0, workspaceAccessible: false, locked: "unsupported journal format 6" });
+    server.setSessions([session(), locked]);
     await store.start();
     await waitFor(() => store.pendingActions === 1);
     assert.deepEqual(store.status, { kind: "connected" });
-    assert.deepEqual(store.run("run-locked"), {
-      id: "run-locked", title: "run-locked", updatedAt: 1, state: "idle", pendingActions: 0, locked: "unsupported journal format 6",
-    });
+    assert.deepEqual(store.run("run-locked"), locked);
+    assert.equal(server.viewRequests(), 0);
   } finally {
     store.dispose();
     await server.close();

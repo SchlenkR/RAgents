@@ -58,7 +58,8 @@ const stubLocator = (description: string, match: () => StubElement[], parts: Stu
       await Promise.race([Promise.resolve(element.onClick?.(control)), closed]);
     },
     fill: async (value: string) => { log.actions.push(`fill ${single().name}=${value}`); },
-    selectOption: async ({ label }: { label: string }) => { log.actions.push(`select ${single().name}=${label}`); },
+    pressSequentially: async (text: string) => { log.actions.push(`type ${single().name}=${text}`); },
+    selectOption: async (values: string[]) => { log.actions.push(`select ${single().name}=${values.join(",")}`); },
     press: async (key: string) => { log.actions.push(`press ${single().name} ${key}`); },
     waitFor: async () => { single(); },
     count: async () => match().length,
@@ -114,6 +115,7 @@ const stubPage = (
     title: async () => document.title,
     mainFrame: () => mainFrame,
     setViewportSize: async (size: Viewport) => { viewport = size; },
+    keyboard: { press: async (key: string) => { log.actions.push(`press ${key}`); } },
     screenshot: async ({ fullPage }: { fullPage: boolean }) => Buffer.from(`PNG ${viewport.width}x${viewport.height}${fullPage ? " full page" : ""}`),
     waitForURL: async (expected: string) => {
       if (expected !== url) throw new Error(`Timeout exceeded waiting for URL ${expected}`);

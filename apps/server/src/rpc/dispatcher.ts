@@ -89,6 +89,8 @@ export interface RpcDispatcherOptions {
   channels: ChannelContributionRegistry;
   /** Every method and every channel with runId is additionally checked against the run's ownership; a method with runs.write operates it. */
   assertRunReachable?: (access: AccessContext, runId: string, operates: boolean) => void;
+  /** Calls the listener whenever who may see the run can have changed; a channel of the run whose caller no longer reaches it ends then. */
+  watchRunAccess?: (runId: string, listener: () => void) => () => void;
 }
 
 const runIdOf = (input: unknown): string | undefined => {
@@ -165,7 +167,18 @@ export class RpcDispatcher {
       stop();
       throw new DomainError("connection-closed", "The event connection was closed.", 410);
     }
-    connection.subscriptions.set(subscription, stop);
+    const unwatch = target === undefined ? undefined : this.#options.watchRunAccess?.(target, () => {
+      try {
+        this.#options.assertRunReachable?.(connection.access, target, false);
+      } catch (error) {
+        if (!(error instanceof DomainError)) throw error;
+        this.#end(connection, subscription);
+      }
+    });
+    connection.subscriptions.set(subscription, () => {
+      unwatch?.();
+      stop();
+    });
     // First the response to the subscription, then the messages created while opening.
     setTimeout(() => { if (connection.subscriptions.has(subscription)) for (const message of buffered) send(message); }, 0);
     return { subscription };
@@ -174,10 +187,14 @@ export class RpcDispatcher {
   #unsubscribe(connection: RpcConnection, params: unknown): null {
     const { subscription } = (params ?? {}) as Partial<RpcUnsubscribeParams>;
     if (typeof subscription !== "string") throw new RpcError(RPC_ERROR_CODES.invalidParams, "subscription is missing");
+    this.#end(connection, subscription);
+    return null;
+  }
+
+  #end(connection: RpcConnection, subscription: string): void {
     const stop = connection.subscriptions.get(subscription);
     connection.subscriptions.delete(subscription);
     stop?.();
-    return null;
   }
 }
 

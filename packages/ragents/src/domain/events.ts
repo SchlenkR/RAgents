@@ -11,6 +11,7 @@ import type {
     ObservableEventType,
     PluginStateScope,
     RunId,
+    RunSharing,
     SubscriptionId,
     TurnId,
     TurnUsage,
@@ -67,6 +68,20 @@ export type EventPayloads = {
     };
     "run.title-changed": {
         title: string;
+    };
+    /** Replaces the whole sharing; changedBy is the signed-in user who changed it. */
+    "run.sharing-changed": RunSharing & {
+        changedBy: string;
+    };
+    /** From now on no turn starts; userId is the signed-in user who paused. */
+    "run.paused": {
+        reason: string;
+        userId?: string;
+    };
+    /** Lifts the pause: a human input written in the same command, or the explicit resume. */
+    "run.resumed": {
+        trigger: "input" | "resume";
+        userId?: string;
     };
     "agent.spawned": {
         agentId: ActorId;
@@ -262,6 +277,9 @@ export const eventTypeMap: Record<EventType, true> = {
     "run.forked": true,
     "run.primary-actor-selected": true,
     "run.title-changed": true,
+    "run.sharing-changed": true,
+    "run.paused": true,
+    "run.resumed": true,
     "agent.spawned": true,
     "script.created": true,
     "actor.input.enqueued": true,

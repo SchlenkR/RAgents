@@ -534,10 +534,20 @@ cookie can load its scripts; every data route, every source map, and everything 
 <!-- guide:access -->
 ## Run ownership
 
-A run belongs to the user who created it. Users normally see and operate only their own runs;
-`runs.read.all` adds visibility across owners. Ownership is recorded once in the journal and is
-never rewritten. Runs created without authentication have no owner and are visible only with
-`runs.read.all` when authentication is later enabled.
+A run belongs to the user who created it. Users normally see and operate only their own runs and
+the runs shared with them; `runs.read.all` adds visibility across owners. Ownership is recorded
+once in the journal and is never rewritten. Runs created without authentication have no owner and
+are visible only with `runs.read.all` when authentication is later enabled.
+
+With sign-in, the owner can share a run with every user of the profile, with individual users, or
+both, each share with its own access. `read` shows the run with its chat, apps, and journal as far
+as the user's own permissions allow, and its workspace unless only its owner may reach it, but
+operates nothing: no messages, app actions, answers, run scripts, restarts, or stops
+(`run-read-only`, status 403). `write` lets the user see and operate the run as `runs.read.all`
+would, still only within their own permissions. A user gets the higher of the share for everyone
+and their own. Only the owner and users with `runs.read.all` change whom a run is shared with, and
+a share never permits deleting the run. The browser and VS Code offer this as the "Share run"
+dialog from the run list and the run header ([Share runs](../homepage/guide-clients.html#share-runs)).
 
 The server enforces ownership on lists, methods, event channels, and file routes before opening a
 run. An inaccessible run responds like a missing one. Each signed-in user has a global coordinator
@@ -545,7 +555,8 @@ of their own, reachable by nobody else, not even with `runs.read.all`; its tools
 user's access and rights, and runs it creates belong to that user. Without sign-in there is exactly
 one coordinator. A start option can additionally mark a run
 as `ownerOnly`, as the workspace binding does for tools running on the owner's machine. Other
-users with visibility may still read its journal and stop it, but only its owner can send messages,
+users with visibility may still read its journal and, unless it is shared with them for reading,
+stop it, but only its owner can send messages,
 answer actions, restart actors, or invoke operations requiring `runs.write`. Its workspace is the
 owner's alone even for reading: the workspace files in the Files tab, the process rail, and
 language-server state are refused to everyone else, including `runs.read.all`
@@ -592,7 +603,8 @@ server without sign-in, it is a run without an owner after the import.
 
 A plugin declares `ownerOnly` with a start option; in core, the binding to a workstation does so,
 because the tools of such a run run on the owner's machine and with the owner's credentials.
-Everyone who sees such a run may read and stop it, including with `runs.read.all`. Operating it
+Everyone who sees such a run may read and stop it, including with `runs.read.all`, except with a
+share for reading. Operating it
 includes messages, templates, inputs to individual actors, restarting an actor, answers to pending
 actions, and every contribution of a plugin whose contract requires `runs.write`. Any other access
 gets `run-owner-only` (status 403) for these; it sees the run, and disguising it as nonexistent
@@ -600,6 +612,56 @@ would be wrong here. Such a run without an owner can be operated only without si
 there is exactly one access there, to which the restriction does not apply. The core knows only
 this state, no tool and no workstation. The tools of a global coordinator act as its user; they
 therefore see and operate a foreign run of this kind just as little as that user does.
+
+### Sharing in detail
+
+`ragents.runs.share` replaces the whole sharing of a run: `everyone` (`read`, `write`, or `null`)
+and `users`, each with `userId` and `access`. `ragents.runs.sharing` reads it. Both return
+`{ sharing: { everyone, users: [{ userId, label, access }] }, users: [{ id, label }] }`, where
+`users` lists the users of the profile the run can be shared with, without its owner. Both need
+`runs.read` and `runs.write`, and the caller must own the run or have `runs.read.all`
+(`run-sharing-denied`, status 403, for a user who sees the run through a share). A profile without
+sign-in (no `users`, also with `anonymousUser`) has no sharing (`sharing-unavailable`, status
+409), and neither a global coordinator nor a run without an owner can be shared
+(`run-not-shareable`, status 409). A user the profile does not have (`share-user-unknown`, which
+names the users to share with), the owner (`share-owner`), and a user named twice
+(`share-user-duplicate`) are refused with status 400. A user the profile no longer has keeps their
+entry until the next change and may stay in a replacement; their label is then their identifier.
+Sharing a run that only its owner operates is allowed; it gives sharees no operating and no
+workspace.
+
+Before the start, an identifier without a run belongs to whoever creates the run, so every
+signed-in caller may choose a sharing for it. The server keeps the choice per user in memory, like
+the start options, and the run takes over only the choice of the user who creates it: it is
+written as `run.sharing-changed` in the same record as `run.created`, and only if it shares with
+anyone. After the start, a change is a `run.sharing-changed` of the run's human owner actor with
+`changedBy` naming the signed-in user who made it, also an administrator; an unchanged sharing
+writes nothing. The journal check requires a signed-in owner and refuses the owner as a user and a
+user named twice; the users stand sorted by identifier. The server state of the run carries the
+sharing as `sharing`, starting with nobody; the run view for clients does not name it, like the
+owner. `ragents.overseer.createRun` takes `sharing` in the same shape and applies it before the
+start; `ragents run --share` and `ragents share` use the same methods (`docs/usage.md`). An
+imported run keeps its sharing from the journal.
+
+A shared run is visible in lists, methods, channels, and file routes like an own one; an unshared
+foreign run stays as unknown as before. Operating paths refuse a read share with `run-read-only`
+before the run is touched: every message-layer contribution whose contract requires `runs.write`,
+the run rights `write`, `write-inspect`, and `stop` (messages, inputs to actors, restarts, answers,
+run scripts, emergency stop, interrupting a turn, stopping an actor or a process), stopping through
+`ragents.overseer.stopRun`, and every request on a delivery route of the run with a method other
+than GET, HEAD, or OPTIONS. A write share operates as far as the user's own permissions go; a run
+that only its owner operates stays the owner's (`run-owner-only`, `run-workspace-owner-only`), but
+a write share may still stop it like `runs.read.all`. `runs.read.all` is never lowered by a share.
+Deleting refuses a user who sees the run only through a share with `run-delete-denied` (status
+403), even with `runs.delete`.
+
+`ragents.runs.list` tells each caller `operable` (false in a run shared with it for reading and in
+someone else's run that only its owner operates), `canShare` and `shared` for whoever may change
+the sharing, and `sharedAccess` for whoever sees the run only through a share. Every change of a
+sharing reaches the listeners of `ragents.runs`, so a new sharee sees the run without reloading and
+a former one loses it. The dispatcher also ends every channel of a run, of the host and of
+plugins, as soon as its caller no longer sees the run after a sharing change; the client learns it
+from the run list and from `run-not-found` on its next request.
 
 ### Permissions in detail
 
@@ -678,7 +740,11 @@ use the set allowed for this actor.
 
 - Users are maintained in the profile file; there is neither OAuth nor user management or password
   change in the interface. Sign-in sessions do not survive a server restart.
-- User permissions apply to the entire profile, not per run or agent tool.
+- User permissions apply to the entire profile, not per run or agent tool. A share widens only
+  which runs a user sees and operates, never their permissions.
+- A share names user identifiers. A user removed from the profile keeps their entries in the
+  journal until the next change, and a new user with the same identifier would get them. A channel
+  ended by a taken-back share sends no message of its own.
 - With users, the global coordinator has no host shell. Its TypeScript snippets run, like all
   processes of the server, in the process sandbox and read neither the data directory nor the
   journals of other users. If the profile file turns the sandbox off (`PROCESS_SANDBOX: "off"`),

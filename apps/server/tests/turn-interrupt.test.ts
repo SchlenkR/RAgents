@@ -59,6 +59,7 @@ test("the chat's stop interrupts only the primary's turn: its text stays, the ch
     projectView: (runView) => runView,
     hasRun: () => true,
     interruptTurn: (runId, actorId, interruption) => scheduler.interruptTurn(runId, actorId, interruption),
+    pauseRun: (runId, pause) => scheduler.pauseRun(runId, pause),
   }).find((entry) => entry.contract.id === runContracts.interruptTurn.id)!;
   const { session, answers } = chatSession({ journal, runtime, live, scheduler } as unknown as Engine, view.id);
   try {

@@ -3,9 +3,9 @@ import test from "node:test";
 import { Value } from "typebox/value";
 import type { ToolScope } from "@ragents/engine";
 
-import { createTodoTool } from "../../../plugins/ragents.todo/server/todo-tool.ts";
+import { createTodoTool, todoToolMetadata } from "../../../plugins/ragents.todo/server/todo-tool.ts";
 
-const stateAfterReplace = (input: unknown): unknown => {
+const stateAfterWrite = (input: unknown): unknown => {
   let stored: unknown;
   const scope = {
     runtime: { replacePluginState: (_context: unknown, _runId: string, request: { state: unknown }) => { stored = request.state; } },
@@ -19,45 +19,43 @@ const stateAfterReplace = (input: unknown): unknown => {
   return stored;
 };
 
-test("todo_replace exposes one canonical typed status contract", () => {
-  const schema = createTodoTool().schema;
+test("todo_write takes the TodoWrite schema of the leading harness and is a native tool", () => {
+  const tool = createTodoTool();
 
-  assert.equal(Value.Check(schema, {
+  assert.equal(todoToolMetadata.name, "todo_write");
+  assert.notEqual(tool.nativeTool, false);
+  assert.equal(Value.Check(tool.schema, {
     todos: [
-      { id: "done", text: "Done", status: "completed" },
-      { id: "active", text: "Running", status: "active" },
-      { id: "open", text: "Open", status: "open" },
+      { content: "Run tests", status: "completed", activeForm: "Running tests" },
+      { content: "Fix the build", status: "in_progress", activeForm: "Fixing the build" },
+      { content: "Write the summary", status: "pending", activeForm: "Writing the summary" },
     ],
   }), true);
-  assert.equal(Value.Check(schema, {
-    todos: [{ id: "unknown", text: "Unknown", status: "waiting" }],
-  }), false);
+  assert.equal(Value.Check(tool.schema, { todos: [] }), true);
 });
 
-test("todo_replace accepts the trained status idioms", () => {
+test("todo_write rejects the former contract and invented statuses", () => {
   const schema = createTodoTool().schema;
 
-  assert.equal(Value.Check(schema, {
-    todos: [
-      { id: "done", text: "Done", status: "done" },
-      { id: "active", text: "Running", status: "in_progress" },
-      { id: "open", text: "Open", status: "pending" },
-    ],
-  }), true);
+  assert.equal(Value.Check(schema, { todos: [{ id: "1", text: "Old", status: "open" }] }), false);
+  assert.equal(Value.Check(schema, { todos: [{ content: "Run tests", status: "active", activeForm: "Running tests" }] }), false);
+  assert.equal(Value.Check(schema, { todos: [{ content: "Run tests", status: "done", activeForm: "Running tests" }] }), false);
+  assert.equal(Value.Check(schema, { todos: [{ content: "Run tests", status: "pending" }] }), false);
+  assert.equal(Value.Check(schema, { todos: [{ content: "", status: "pending", activeForm: "Running tests" }] }), false);
+  assert.equal(Value.Check(schema, { todos: [{ id: "1", content: "Run tests", status: "pending", activeForm: "Running tests" }] }), false);
 });
 
-test("the trained status idioms are stored as the canonical values", () => {
-  assert.deepEqual(stateAfterReplace({
+test("todo_write stores the complete list in order with trimmed texts and confirms with null", () => {
+  assert.deepEqual(stateAfterWrite({
     todos: [
-      { id: "done", text: "Done", status: "done" },
-      { id: "active", text: "Running", status: "in_progress" },
-      { id: "open", text: "Open", status: "pending" },
+      { content: " Run tests ", status: "in_progress", activeForm: "Running tests\n" },
+      { content: "Fix the build", status: "pending", activeForm: "Fixing the build" },
     ],
   }), {
     todos: [
-      { id: "done", text: "Done", status: "completed" },
-      { id: "active", text: "Running", status: "active" },
-      { id: "open", text: "Open", status: "open" },
+      { content: "Run tests", status: "in_progress", activeForm: "Running tests" },
+      { content: "Fix the build", status: "pending", activeForm: "Fixing the build" },
     ],
   });
+  assert.throws(() => stateAfterWrite({ todos: [{ content: "   ", status: "pending", activeForm: "Waiting" }] }), /todos\[0\]\.content is empty/);
 });

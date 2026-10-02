@@ -53,7 +53,8 @@ const fixture = {
   async call(contract: { id: string }, params?: { runId?: string }) {
     fixture.calls.push(contract.id);
     switch (contract.id) {
-      case "ragents.runs.list": return [{ id: "existing", title: "Existing run", updatedAt: 0 }];
+      case "ragents.runs.list": return [{ id: "existing", title: "Existing run", updatedAt: 0, running: false, state: "idle", pendingActions: 0, workspaceAccessible: true }];
+      case "ragents.runs.markViewed": return null;
       case "ragents.startOptions.list": return [];
       case "ragents.runs.view": {
         if (query.get("delayedView") === "true") await new Promise<void>((resolve) => { fixture.resolveView = resolve; });

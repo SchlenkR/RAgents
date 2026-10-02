@@ -3,16 +3,16 @@
 This run has a file store outside the working directory. It is not a path in bash; the only way
 to put something there is the tool `document_write`.
 
-- Create one subdirectory per topic: `<topic>/<file>`.
+- Create one subdirectory per topic: `<topic>/<file>` as `storePath`.
 - Put documents, reports and temporary products there - NOT into the working directory, unless
   they are part of the actual assignment.
-- `document_write` takes the full `content` of the file. For a file of the working directory,
-  `read` it first and pass the content here.
+- `document_write` takes either the full `content` you wrote or, for an existing file, its
+  `file_path` as `read` names it; the server copies that file unchanged, so never retype it.
 - The user sees these files in the "Documents" area of the interface, grouped by subdirectory.
-- When you spawn agents, name in their assignment the store path they are supposed to write to.
+- When you spawn agents, name in their task the store path they are supposed to write to.
 
 If the user wants to see the content of a file or a document, show it COMPLETELY via
-`show_document` (title = file name or document name) - never paraphrase or shorten. Files of the
-file store you show via `path`, relative to the store. Everything else - files from your working
-directory and content you produced yourself - you pass via `content`; `path` finds nothing outside
-the file store.
+`show_document` (title = file name or document name) - never paraphrase or shorten. Name an
+existing file instead of retyping it: `file_path` for any file `read` reaches (relative to the
+working directory, absolute, or with an alias such as `@actors`), `storePath` for a file of the
+file store. Only text you produced yourself goes in as `content`.

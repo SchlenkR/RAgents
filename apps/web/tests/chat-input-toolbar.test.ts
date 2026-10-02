@@ -43,7 +43,7 @@ test("disconnected toolbar chats permit drafting while preserving the stop actio
   assert.doesNotMatch(readOnly.match(/<textarea[^>]*>/)?.[0] ?? "", /disabled/);
 });
 
-test("the run chat offers its stop only for its own actor's turn and shows a stopped primary with its reason", async () => {
+test("the run chat talks to its active primary and shows a stopped primary with its reason", async () => {
   const { primaryChatState } = await import("../src/chat/chat-target");
   const running = { kind: "running", turnId: "t", inputId: "i", startedAt: "now" };
   const idle = { kind: "idle", since: "now" };
@@ -55,15 +55,14 @@ test("the run chat offers its stop only for its own actor's turn and shows a sto
       { id: "worker", kind: "agent", handle: "worker", lifecycle: worker },
     ],
   });
-  assert.deepEqual(primaryChatState(view(running, idle), "run", false), { kind: "active", actorId: "coordinator", turnRunning: true });
-  assert.deepEqual(primaryChatState(view(idle, running), "run", false), { kind: "active", actorId: "coordinator", turnRunning: false });
-  assert.deepEqual(primaryChatState(view(idle, running), "run", true), { kind: "active", actorId: "coordinator", turnRunning: true });
+  assert.deepEqual(primaryChatState(view(running, idle), "run"), { kind: "active" });
+  assert.deepEqual(primaryChatState(view(idle, running), "run"), { kind: "active" });
   const stopped = { kind: "stopped", stoppedAt: "now", reason: "Stopped by mistake" };
-  const state = primaryChatState(view(stopped, running, { primaryActorId: null, stoppedPrimaryActorId: "coordinator" }), "run", false);
+  const state = primaryChatState(view(stopped, running, { primaryActorId: null, stoppedPrimaryActorId: "coordinator" }), "run");
   assert.equal(state.kind === "stopped" ? state.actor.lifecycle : undefined, stopped);
-  assert.deepEqual(primaryChatState(view(idle, idle, { primaryActorId: null }), "run", false), { kind: "none" });
-  assert.deepEqual(primaryChatState(view(running, idle), "other", false), { kind: "none" });
-  assert.deepEqual(primaryChatState(undefined, "run", true), { kind: "none" });
+  assert.deepEqual(primaryChatState(view(idle, idle, { primaryActorId: null }), "run"), { kind: "none" });
+  assert.deepEqual(primaryChatState(view(running, idle), "other"), { kind: "none" });
+  assert.deepEqual(primaryChatState(undefined, "run"), { kind: "none" });
 });
 
 test("the run counts as working while any agent or program turn runs", async () => {

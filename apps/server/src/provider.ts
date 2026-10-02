@@ -3,10 +3,11 @@ import { randomUUID } from "node:crypto";
 import { existsSync, statSync } from "node:fs";
 import { chmod, mkdir, open, readFile, readdir, realpath, rename, rm } from "node:fs/promises";
 import path from "node:path";
-import type { ChatSessionLike, ChatSessionProvider, RunListScope, SessionInfo } from "./chat-handler.js";
-import { canStartEntry, createAccessContext, DomainError, isRunId, unrestrictedAccess, type AccessContext, type HttpRouteContribution, type Journal, type JournalLoadFailure, type MethodContribution, type PluginHost, type ServiceToken, type SessionStartedContext } from "@ragents/engine";
+import type { ChatSessionLike, ChatSessionProvider, ListedSession, RunListScope } from "./chat-handler.js";
+import { canStartEntry, createAccessContext, DomainError, isRunId, notShared, unrestrictedAccess, type AccessContext, type HttpRouteContribution, type Journal, type JournalLoadFailure, type MethodContribution, type PluginHost, type RunSharing, type ServiceToken, type SessionStartedContext } from "@ragents/engine";
 import { WORKSPACE_EXECUTOR_VERSION } from "@ragents/workspace-executor";
-import { assertRunRights, assertRunWorkspaceAccess, runIdInPath, runListScope, runReachable, type GlobalRunPolicy, type RunAccessPolicy } from "./api/rights.js";
+import { assertRunOperable, assertRunRights, assertRunWorkspaceAccess, runIdInPath, runListScope, runReachable, sharingUnavailable, type GlobalRunPolicy, type RunAccessPolicy } from "./api/rights.js";
+import type { RunSharingResult } from "./api/contracts.js";
 import { configuredAnonymousUser, configuredUsers } from "./config-file.js";
 import { accessibleRunView } from "./access-projection.js";
 import { coordinatorAccessToken } from "./access-service.js";
@@ -37,7 +38,7 @@ import { createEngine, SessionWorkspaces, type Engine } from "./ragents/engine.j
 import type { ProductProfileFactory } from "./ragents/host-services.js";
 import { actorProgramsToken } from "./plugin-support/actor-programs/service.js";
 import { productRuntimeToken } from "./ragents/product-runtime.js";
-import { runOwnerOf, runOwnerOnly } from "./ragents/run-owner.js";
+import { runOwnerOf, runOwnerOnly, runSharingOf } from "./ragents/run-owner.js";
 import { RunChatSession } from "./ragents/session.js";
 import { globalChatToken, globalRunPolicyOf, type GlobalChatPolicy, type ManagedRunStart, type RunManagement } from "./ragents/global-chat.js";
 import { workspaceRuntimeToken, type SessionWorkspace, type WorkspaceTransfer } from "./ragents/workspace-runtime.js";
@@ -48,6 +49,9 @@ import { TitleSettingsStore } from "./title-settings.js";
 import { sandboxServicesToken } from "./plugin-support/workspace-sandbox-host.js";
 import { parseRunPreparationRequest, prepareRunMessage } from "./run-preparation.js";
 import type { RunPreparationResponse } from "./run-preparation-contract.js";
+import { runListStateOf } from "./run-list-state.js";
+import { RunReadMarkers } from "./run-read-markers.js";
+import { checkedProfileSharing, sharingResultOf, type ShareableUser } from "./run-sharing.js";
 
 /** The commit of the running host: from the built package, otherwise from the checkout. */
 const hostVersionOf = (): string => readHostPackage()?.hostVersion ?? readHostVersion();
@@ -55,18 +59,11 @@ const hostVersionOf = (): string => readHostPackage()?.hostVersion ?? readHostVe
 /** accepted: the delete intent is durable and the run is hidden; done: the cleanup job has finished. */
 interface DeleteJob { accepted: Promise<void>; done: Promise<void> }
 
-type ListedSession = SessionInfo & {
-  running: boolean;
-  /** Whether the caller reaches the run's workspace; otherwise UIs hide what needs it. */
-  workspaceAccessible: boolean;
-  /** Display name of the user who created the run; missing for a run created without sign-in. */
-  ownerLabel?: string;
-  metadata?: Readonly<Record<string, unknown>>;
-  metadataUnavailable?: Readonly<Record<string, string>>;
-};
-
 /** The run list is queried often; this is the longest it waits for a metadata contribution. */
 export const SESSION_METADATA_TIMEOUT_MS = 1_500;
+
+/** A viewed run reaches the user's other list listeners at most this often, because a viewed running run reports every revision. */
+export const READ_MARKER_NOTICE_INTERVAL_MS = 1_000;
 
 export class RunSessionProvider implements ChatSessionProvider {
   private readonly sessions = new Map<string, RunChatSession>();
@@ -78,7 +75,10 @@ export class RunSessionProvider implements ChatSessionProvider {
   private modelRuntime: Promise<ModelRuntime> | undefined;
   private readonly runPreparations = new Map<string, { controller: AbortController; done: Promise<RunPreparationResponse> }>();
   private titleSettings: TitleSettingsStore | undefined;
-  private readonly listListeners = new Set<() => void>();
+  private readMarkers: RunReadMarkers | undefined;
+  private readonly listListeners = new Set<{ readonly listener: () => void; readonly userId: string | null }>();
+  /** Users whose listeners heard of a read marker within the last interval; true if another change waits for its end. */
+  private readonly readMarkerNotices = new Map<string | null, boolean>();
   private readonly titleCompactor = createTitleCompactor({
     selection: () => this.requireTitleSettings().selection(),
     sessionsDir: layout.sessionsDir,
@@ -122,6 +122,7 @@ export class RunSessionProvider implements ChatSessionProvider {
   async init(): Promise<void> {
     this.titleSettings = await TitleSettingsStore.create(path.join(config.dataDir, "title-settings.json"), await this.getModelRuntime(),
       config.compactionModel ? { provider: config.compactionProvider, model: config.compactionModel } : null, config.compactionProvider);
+    this.readMarkers = await RunReadMarkers.load(layout.readMarkersFile);
     await mkdir(layout.sessionsDir, { recursive: true, mode: SESSIONS_MODE });
     await chmod(layout.sessionsDir, SESSIONS_MODE);
     await mkdir(layout.archiveDir, { recursive: true, mode: ROOT_ONLY_MODE });
@@ -163,6 +164,10 @@ export class RunSessionProvider implements ChatSessionProvider {
       assertAvailable: () => this.ensureAvailable(),
       assertRunUsable: (runId) => this.ensureUsable(runId),
     });
+    // A changed sharing changes whose list shows the run.
+    this.engine.journal.subscribe((events) => {
+      if (events.some((event) => event.type === "run.sharing-changed")) this.notifyList();
+    });
     for (const id of this.deleted) {
       if (this.deleteRequested.has(id)) continue;
       if (this.engine.journal.stateOf(id) || existsSync(layout.sessionDir(id))) {
@@ -170,6 +175,7 @@ export class RunSessionProvider implements ChatSessionProvider {
       }
     }
     for (const id of pendingDeletes) await this.beginDelete(id).done;
+    this.requireReadMarkers().forgetRuns(this.deleted);
     // A coordinator without a current access (the former shared one, a removed user) stays untouched.
     const runIds = this.engine.journal.runIds().filter((runId) => !globalChat?.isCoordinator(runId) || this.coordinatorUser(runId) !== undefined);
     await Promise.all(runIds.map((runId) => this.sessionWorkspace(runId, () => {})));
@@ -201,13 +207,31 @@ export class RunSessionProvider implements ChatSessionProvider {
     return this.titleSettings;
   }
 
+  private requireReadMarkers(): RunReadMarkers {
+    if (!this.readMarkers) throw new Error("The read markers are not loaded yet.");
+    return this.readMarkers;
+  }
+
   titleModelSettings() { return this.requireTitleSettings().get(); }
 
   saveTitleModelSettings(value: unknown) { return this.requireTitleSettings().save(value); }
 
-  subscribeList(listener: () => void): () => void {
-    this.listListeners.add(listener);
-    return () => this.listListeners.delete(listener);
+  subscribeList(listener: () => void, userId: string | null): () => void {
+    const entry = { listener, userId };
+    this.listListeners.add(entry);
+    return () => { this.listListeners.delete(entry); };
+  }
+
+  /** The caller has seen the run up to this revision; only a higher revision counts, and only its user hears of it. */
+  markViewed(id: string, revision: number, userId: string | null): void {
+    this.ensureUsable(id);
+    if (this.plugins.optionalService(globalChatToken)?.isCoordinator(id)) {
+      throw new DomainError("run-not-listed", "The top-level coordinator is not part of the run list and keeps no read marker.", 409);
+    }
+    const state = this.requireEngine().journal.stateOf(id);
+    if (!state) throw new DomainError("run-not-found", `The run ${id} does not exist`, 404);
+    if (revision > state.revision) throw new DomainError("revision-ahead", `The run ${id} is at revision ${state.revision}, not ${revision}.`, 400);
+    if (this.requireReadMarkers().markViewed(userId, id, revision)) this.noticeReadMarker(userId);
   }
 
   async get(id: string): Promise<ChatSessionLike> {
@@ -288,10 +312,11 @@ export class RunSessionProvider implements ChatSessionProvider {
     return done;
   }
 
-  /** Only visible runs get titles and metadata; without a scope all of them, without a workspace that only its owner operates. */
-  async list(scope?: RunListScope): Promise<SessionInfo[]> {
+  /** Only visible runs get titles and metadata; without a scope all of them, without a workspace that only its owner operates, and without sharing details and read markers. */
+  async list(scope?: RunListScope): Promise<ListedSession[]> {
     const visible = scope?.visible ?? (() => true);
     const workspaceAccessible = scope?.workspaceAccessible ?? ((runId: string) => !this.runOwnerOnly(runId));
+    const operable = scope?.operable ?? ((runId: string) => !this.runOwnerOnly(runId));
     const engine = this.requireEngine();
     const productRuntime = this.plugins.service(productRuntimeToken);
     const isCoordinator = (runId: string) => this.plugins.optionalService(globalChatToken)?.isCoordinator(runId) ?? false;
@@ -312,18 +337,25 @@ export class RunSessionProvider implements ChatSessionProvider {
         chosenTitle ?? this.titleCompactor.titleFor(runId, firstInput?.content),
         this.plugins.sessionMetadata.describe(runId, workspace, SESSION_METADATA_TIMEOUT_MS),
       ]);
+      const running = [...state.actors.values()].some((actor) => actor.kind !== "human" && engine.scheduler.isRunning(runId, actor.id))
+        || (this.sessions.get(runId)?.running ?? false);
+      const seenRevision = scope ? this.requireReadMarkers().seenRevision(scope.userId, runId) : undefined;
       return {
         id: runId,
         title: compactTitle ?? sessionTitle(firstInput?.content) ?? productRuntime.coordinator.runTitle,
         createdAt: Date.parse(state.createdAt),
         updatedAt: Date.parse(engine.journal.updatedAt(runId) ?? state.createdAt),
         revision: state.revision,
-        running: [...state.actors.values()].some((actor) => actor.kind !== "human" && engine.scheduler.isRunning(runId, actor.id))
-          || (this.sessions.get(runId)?.running ?? false),
+        running,
+        ...runListStateOf(state, running),
         workspaceAccessible: workspace,
+        operable: operable(runId),
+        ...scope?.sharing(runId),
         ...(state.ownerUserId !== null ? { ownerLabel: userLabels.get(state.ownerUserId) ?? state.ownerUserId } : {}),
+        ...(seenRevision !== undefined ? { seenRevision } : {}),
         metadata: metadata.values,
         ...(Object.keys(metadata.unavailable).length > 0 ? { metadataUnavailable: metadata.unavailable } : {}),
+        ...(metadata.listDetails.length > 0 ? { listDetails: metadata.listDetails } : {}),
       };
     }));
     const locked = engine.journal.unavailableRuns()
@@ -339,7 +371,10 @@ export class RunSessionProvider implements ChatSessionProvider {
         title: productRuntime.coordinator.runTitle,
         updatedAt: Date.now(),
         running: session.running,
+        state: session.running ? "running" : "idle",
+        pendingActions: 0,
         workspaceAccessible: workspaceAccessible(id),
+        operable: operable(id),
       });
     }
     return infos.sort((a, b) => b.updatedAt - a.updatedAt);
@@ -361,7 +396,10 @@ export class RunSessionProvider implements ChatSessionProvider {
         assertRunRights(access, runId, "write", this.runAccess());
         return this.openSession(runId).sendAndWait(message, access.user ? { id: access.user.id, label: access.user.label } : undefined);
       },
-      stop: (runId) => this.openSession(runId).stop(),
+      stop: (runId, access) => {
+        if (access) assertRunRights(access, runId, "stop", this.runAccess());
+        return this.openSession(runId).stop();
+      },
       resetGlobal: (runId) => this.resetGlobalConversation(runId),
       scripts: (runId) => {
         const access = this.ownerAccess(runId);
@@ -391,6 +429,10 @@ export class RunSessionProvider implements ChatSessionProvider {
     const session = this.openSession(id, start.title);
     const user = start.user ?? undefined;
     for (const [optionId, value] of Object.entries(start.options ?? {})) await session.selectStartOption(optionId, value, start.user?.id ?? null);
+    if (start.sharing) {
+      if (!user || configuredUsers() === undefined) throw sharingUnavailable();
+      session.shareBeforeStart(user.id, checkedProfileSharing(start.sharing, user.id, notShared(), this.shareableUsers()));
+    }
     if (start.kind === "script") await session.startAndWait(start.entryId, start.input, user);
     else if (start.kind === "package") {
       if (!local) throw new Error("The run script package was not loaded");
@@ -421,8 +463,53 @@ export class RunSessionProvider implements ChatSessionProvider {
     return runOwnerOnly(this.requireEngine().journal, this.plugins.startOptions, id);
   }
 
+  runSharing(id: string): RunSharing {
+    return runSharingOf(this.requireEngine().journal, id);
+  }
+
   runAccess(): RunAccessPolicy {
-    return { global: this.globalPolicy(), ownerOf: (runId) => this.runOwner(runId), ownerOnly: (runId) => this.runOwnerOnly(runId) };
+    return {
+      global: this.globalPolicy(),
+      ownerOf: (runId) => this.runOwner(runId),
+      ownerOnly: (runId) => this.runOwnerOnly(runId),
+      sharing: (runId) => this.runSharing(runId),
+    };
+  }
+
+  /** The users of the profile by id and display name; without sign-in none. */
+  private shareableUsers(): readonly ShareableUser[] {
+    return (configuredUsers() ?? []).map((user) => ({ id: user.id, label: user.label }));
+  }
+
+  /** The sharing for a user who may change it; before the start the choice of this user, who will own the run. */
+  sharing(id: string, userId: string): RunSharingResult {
+    this.ensureUsable(id);
+    const state = this.requireEngine().journal.stateOf(id);
+    return state
+      ? sharingResultOf(state.sharing, state.ownerUserId, this.shareableUsers())
+      : sharingResultOf(this.openSession(id).sharingBeforeStart(userId), userId, this.shareableUsers());
+  }
+
+  /** Replaces the sharing for a user who may change it: before the start it waits in the run for its creation, afterwards it is a journal event of the owner. */
+  share(id: string, sharing: RunSharing, userId: string): RunSharingResult {
+    this.ensureUsable(id);
+    const engine = this.requireEngine();
+    const state = engine.journal.stateOf(id);
+    if (!state) {
+      const session = this.openSession(id);
+      session.shareBeforeStart(userId, checkedProfileSharing(sharing, userId, session.sharingBeforeStart(userId), this.shareableUsers()));
+      return this.sharing(id, userId);
+    }
+    const checked = checkedProfileSharing(sharing, state.ownerUserId, state.sharing, this.shareableUsers());
+    engine.runtime.shareRun({ actorId: state.ownerId, commandId: `share:${id}:${randomUUID()}` }, id, { sharing: checked, changedBy: userId });
+    return this.sharing(id, userId);
+  }
+
+  /** Whenever whom the run is shared with changes, and with it who may reach it. */
+  watchRunAccess(id: string, listener: () => void): () => void {
+    return this.requireEngine().journal.subscribe((events) => {
+      if (events.some((event) => event.runId === id && event.type === "run.sharing-changed")) listener();
+    });
   }
 
   runView(id: string, access: AccessContext = unrestrictedAccess): unknown {
@@ -452,13 +539,23 @@ export class RunSessionProvider implements ChatSessionProvider {
     return pathname === "/rpc" || pathname === "/rpc/stream" || pathname.startsWith("/files/") || this.plugins.isApiPath(pathname);
   }
 
-  /** Delivery routes name their run in the path; another user's run is as unreachable there as in a method. */
+  /** Delivery routes name their run in the path; another user's run is as unreachable there as in a method, and a writing request operates it. */
   async pluginRoutes(req: IncomingMessage, res: ServerResponse, url: URL, access?: AccessContext): Promise<boolean> {
     const named = runIdInPath(url.pathname);
     if (named !== undefined && access && !runReachable(access, named, this.runAccess())) {
       res.writeHead(404, { "Cache-Control": "no-store", "Content-Type": "application/json" });
       res.end(JSON.stringify({ error: `Run ${named} does not exist.`, code: "run-not-found" }));
       return true;
+    }
+    if (named !== undefined && access && !["GET", "HEAD", "OPTIONS"].includes(req.method ?? "")) {
+      try {
+        assertRunOperable(access, named, this.runAccess());
+      } catch (error) {
+        if (!(error instanceof DomainError)) throw error;
+        res.writeHead(error.status, { "Cache-Control": "no-store", "Content-Type": "application/json" });
+        res.end(JSON.stringify({ error: error.message, code: error.code }));
+        return true;
+      }
     }
     return this.plugins.dispatchHttp(req, res, url, access);
   }
@@ -734,7 +831,22 @@ export class RunSessionProvider implements ChatSessionProvider {
   }
 
   private notifyList(): void {
-    for (const listener of this.listListeners) listener();
+    for (const { listener } of this.listListeners) listener();
+  }
+
+  /** The first change reaches the user's listeners at once, further ones at most once per interval. */
+  private noticeReadMarker(userId: string | null): void {
+    if (this.readMarkerNotices.has(userId)) {
+      this.readMarkerNotices.set(userId, true);
+      return;
+    }
+    for (const entry of this.listListeners) if (entry.userId === userId) entry.listener();
+    this.readMarkerNotices.set(userId, false);
+    setTimeout(() => {
+      const again = this.readMarkerNotices.get(userId) === true;
+      this.readMarkerNotices.delete(userId);
+      if (again) this.noticeReadMarker(userId);
+    }, READ_MARKER_NOTICE_INTERVAL_MS).unref();
   }
 
   shutdown(): Promise<void> {
@@ -766,6 +878,7 @@ export class RunSessionProvider implements ChatSessionProvider {
     results.push(...await Promise.allSettled([...this.deleteRequested].map((id) => this.beginDelete(id).done)));
     results.push(...await Promise.allSettled([
       this.engine ? this.engine.shutdown() : this.plugins.lifecycle.shutdown(),
+      this.readMarkers?.flush(),
     ]));
     const failed = results
       .find((result): result is PromiseRejectedResult => result.status === "rejected");
@@ -800,6 +913,7 @@ export class RunSessionProvider implements ChatSessionProvider {
     await this.syncDirectory(layout.deleteIntentsDir);
     this.deleteRequested.delete(id);
     this.deleted.add(id);
+    this.requireReadMarkers().forgetRuns(new Set([id]));
   }
 
   private async loadDeleteIntents(): Promise<string[]> {
@@ -941,7 +1055,10 @@ const lockedSession = (failure: JournalLoadFailure, journal: Journal): ListedSes
     ...(state ? { createdAt: Date.parse(state.createdAt), revision: state.revision } : {}),
     updatedAt,
     running: false,
+    state: "idle",
+    pendingActions: 0,
     workspaceAccessible: false,
+    operable: false,
     locked: failure.message,
   };
 };

@@ -169,7 +169,7 @@ const capabilitiesOf = async (profile: CompositionFixture): Promise<RunCapabilit
 test("the extractor finds fenced and inline context.functions examples and neutralizes handlebars", () => {
   const source = [
     "{{#if linked}}Intro {{name}}{{/if}}",
-    "Example: const s = await context.functions.status({}); if (!s.ok) throw new Error('no'); return await context.functions.read({path:s.path}); Then continue.",
+    "Example: const s = await context.functions.status({}); if (!s.ok) throw new Error('no'); return await context.functions.read({file_path:s.path}); Then continue.",
     "```typescript",
     "return await context.functions.status({ name: \"{{name}}\" });",
     "```",
@@ -180,7 +180,7 @@ test("the extractor finds fenced and inline context.functions examples and neutr
   ].join("\n");
   const snippets = promptSnippetsOf("fixture.md", source);
   assert.deepEqual(snippets, [
-    { file: "fixture.md", line: 2, kind: "inline", code: "const s = await context.functions.status({});\nif (!s.ok) throw new Error('no');\nreturn await context.functions.read({path:s.path});" },
+    { file: "fixture.md", line: 2, kind: "inline", code: "const s = await context.functions.status({});\nif (!s.ok) throw new Error('no');\nreturn await context.functions.read({file_path:s.path});" },
     { file: "fixture.md", line: 3, kind: "fence", code: "return await context.functions.status({ name: \"x\" });" },
     { file: "fixture.md", line: 9, kind: "inline", code: "await context.functions.status({});" },
   ]);

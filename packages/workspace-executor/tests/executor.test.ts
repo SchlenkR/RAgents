@@ -60,10 +60,10 @@ const fixture = async () => {
 test("the executor runs read, write, edit and bash in the folder of its machine", async () => {
   const f = await fixture();
   try {
-    await f.executor.execute("run-1", "write", { path: "note.md", content: "Greetings\n" });
+    await f.executor.execute("run-1", "write", { file_path: "note.md", content: "Greetings\n" });
     assert.equal(await readFile(path.join(f.workspace, "note.md"), "utf8"), "Greetings\n");
-    await f.executor.execute("run-1", "edit", { path: "note.md", edits: [{ oldText: "Greetings", newText: "Hello" }] });
-    assert.match(textOf(await f.executor.execute("run-1", "read", { path: "note.md" })), /Hello/);
+    await f.executor.execute("run-1", "edit", { file_path: "note.md", old_string: "Greetings", new_string: "Hello" });
+    assert.match(textOf(await f.executor.execute("run-1", "read", { file_path: "note.md" })), /Hello/);
     assert.match(textOf(await f.executor.execute("run-1", "bash", { command: "printf hello-$RAGENTS_RUN_ID" })), /hello-run-1/);
   } finally {
     await f.close();
@@ -73,9 +73,9 @@ test("the executor runs read, write, edit and bash in the folder of its machine"
 test("read-only roots stay readable, everything outside fails with a cause", async () => {
   const f = await fixture();
   try {
-    assert.match(textOf(await f.executor.execute("run-1", "read", { path: path.join(f.skills, "guide.md") })), /Guide/);
-    await assert.rejects(f.executor.execute("run-1", "write", { path: path.join(f.skills, "new.md"), content: "x" }), /outside/);
-    await assert.rejects(f.executor.execute("run-1", "read", { path: "/etc/hosts" }), /outside/);
+    assert.match(textOf(await f.executor.execute("run-1", "read", { file_path: path.join(f.skills, "guide.md") })), /Guide/);
+    await assert.rejects(f.executor.execute("run-1", "write", { file_path: path.join(f.skills, "new.md"), content: "x" }), /outside/);
+    await assert.rejects(f.executor.execute("run-1", "read", { file_path: "/etc/hosts" }), /outside/);
     await assert.rejects(f.executor.execute("run-1", "grep", { path: "note.md" }), /does not know the operation grep/);
   } finally {
     await f.close();
@@ -131,9 +131,9 @@ test("stop ends the tools of a run and the language servers with the same id", a
   try {
     await assert.rejects(executor.execute("run-2", "fake_diagnostics", { paths: ["a.fake"] }), /fake_open/);
     assert.deepEqual(await executor.execute("run-2", "fake_snapshot", null), { instances: [] });
-    await executor.execute("run-2", "write", { path: "file.txt", content: "x" });
+    await executor.execute("run-2", "write", { file_path: "file.txt", content: "x" });
     await executor.stopRun("run-2");
-    await executor.execute("run-2", "write", { path: "file.txt", content: "y" });
+    await executor.execute("run-2", "write", { file_path: "file.txt", content: "y" });
     assert.equal(await readFile(path.join(f.workspace, "file.txt"), "utf8"), "y");
     assert.ok(stopped.length > 0);
   } finally {

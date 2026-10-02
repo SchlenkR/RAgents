@@ -48,12 +48,12 @@ export default defineActor({state: Type.Object({}), functions: {}, input: {capab
 }
 
 test("published server API accepts a correctly typed capability call", async () => {
-  assert.deepEqual(await probe('await context.functions.actor_input({ actor: "@coordinator", content: input.content });'), []);
+  assert.deepEqual(await probe('await context.functions.actor_input({ to: "@coordinator", message: input.content });'), []);
 });
 
 for (const example of [
   { name: "unknown capability", source: 'await context.functions.not_a_real_capability({});', message: /not_a_real_capability/ },
-  { name: "wrong parameter type", source: 'await context.functions.actor_input({ actor: "@coordinator", content: 42 });', message: /number.*string|string.*number/s },
+  { name: "wrong parameter type", source: 'await context.functions.actor_input({ to: "@coordinator", message: 42 });', message: /number.*string|string.*number/s },
   { name: "wrong result type", source: 'const result = await context.functions.model_list({}); const profiles: number = result.profiles;', message: /number/ },
 ]) {
   test(`published server API rejects ${example.name} instead of accepting any`, async () => {

@@ -3,43 +3,52 @@ import path from "node:path";
 import { Type } from "typebox";
 import { defineRunFunction, type RunFunction } from "@ragents/engine";
 import { alwaysAvailable } from "@ragents/host/plugin-support/tool-availability.js";
+import { relativeStorePath, type DocumentSources } from "./sources.js";
 
 export const documentWriteToolMetadata = {
   name: "document_write",
   label: "Store document",
-  nativeTool: true,
-  description: "Stores a file with the given content in this run's file store.",
+  description: "Stores a file in this run's file store, from text you wrote or as an unchanged copy of a file read reaches.",
   longDescription: "Documents, reports and intermediate products belong in the file store, not in the "
     + "working directory - that only holds what belongs to the task itself. The user sees the "
-    + "store in the \"Documents\" area, grouped by subdirectory. To put a file from the "
-    + "workspace into the store, read it first with read and pass the content here as content. "
-    + "The store is not a bash path: it does not live in the workspace and can only be written "
-    + "through this tool.",
+    + "store in the \"Documents\" area, grouped by subdirectory. To put an existing file into the store, name it "
+    + "by its path and never retype its content; the copy is read where the workspace lies, also on a workstation. "
+    + "The store is not a bash path: it does not live in the workspace and can only be written through this tool.",
 } as const;
 
-const relativeStorePath = (value: string): string => {
-  const normalized = value.replace(/^\.\//, "");
-  if (path.isAbsolute(normalized) || normalized.split("/").includes("..") || normalized.trim() === "") {
-    throw new Error("path must be relative to the file store, without a leading / and without ..");
-  }
-  return normalized;
+const sourceRule = "content and file_path exclude each other: valid are { storePath, content } for text you wrote and "
+  + "{ storePath, file_path } for a copy of an existing file; exactly one of the two must be set.";
+
+const sourceOf = (input: { content?: string; file_path?: string }): { kind: "content"; content: string } | { kind: "file"; filePath: string } => {
+  if (input.content !== undefined && input.file_path === undefined) return { kind: "content", content: input.content };
+  if (input.file_path !== undefined && input.content === undefined) return { kind: "file", filePath: input.file_path };
+  throw new Error(sourceRule);
 };
 
-export const createDocumentWriteTool = (filesFor: (runId: string) => Promise<string>): RunFunction =>
+export const createDocumentWriteTool = (sources: DocumentSources): RunFunction =>
   defineRunFunction({
     ...documentWriteToolMetadata,
     schema: Type.Object({
-      path: Type.String({ minLength: 1, description: "Path in the file store, e.g. topic/report.md" }),
-      content: Type.String({ description: "The complete content of the file" }),
+      storePath: Type.String({ minLength: 1, description: "Where the file goes in this run's file store, one subdirectory per topic, e.g. topic/report.md" }),
+      content: Type.Optional(Type.String({ description: "The complete content of the file, as text you wrote yourself. " + sourceRule })),
+      file_path: Type.Optional(Type.String({
+        minLength: 1,
+        description: "An existing file to copy unchanged, named as read names it: relative to the working directory, absolute, or starting "
+          + "with a workspace alias such as @actors. " + sourceRule,
+      })),
     }, { additionalProperties: false }),
     resultSchema: Type.String(),
     available: alwaysAvailable,
     executionMode: "sequential",
-    run: async (scope, _toolCallId, input) => {
-      const relative = relativeStorePath(input.path);
-      const target = path.join(await filesFor(scope.caller.runId), relative);
+    run: async ({ caller, signal }, toolCallId, input) => {
+      const source = sourceOf(input);
+      const relative = relativeStorePath(input.storePath);
+      const content = source.kind === "content"
+        ? source.content
+        : await sources.workspaceText(caller.runId, source.filePath, { toolCallId, ...(signal ? { signal } : {}) });
+      const target = path.join(await sources.storeFor(caller.runId), relative);
       await mkdir(path.dirname(target), { recursive: true });
-      await writeFile(target, input.content, "utf8");
-      return `Stored in the file store: ${relative} (${Buffer.byteLength(input.content, "utf8")} bytes)`;
+      await writeFile(target, content, "utf8");
+      return `Stored in the file store (${Buffer.byteLength(content, "utf8")} bytes).`;
     },
   });

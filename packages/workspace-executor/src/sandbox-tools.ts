@@ -7,6 +7,7 @@ import {
   createEditToolDefinition,
   createReadToolDefinition,
   createWriteToolDefinition,
+  editApplies,
   type BashOperations,
 } from "@ragents/agent";
 import { bashLaunch } from "./bash-launch.js";
@@ -52,16 +53,28 @@ export interface SeenFile {
 
 /** The input of the file tools: what the model passes, and only on its direct call the state it has seen (`null`: none). */
 type FileToolInput = {
-  readonly path?: unknown;
+  readonly file_path?: unknown;
   readonly offset?: number;
   readonly limit?: number;
   readonly content?: string;
+  readonly old_string?: unknown;
+  readonly new_string?: unknown;
+  readonly replace_all?: unknown;
   readonly seen?: SeenFile | null;
 };
 
 type FileToolName = "read" | "edit" | "write";
 
-const unchangedNotice = "Unchanged since the last read in this conversation; the earlier content still applies.";
+const unchangedNotice = "File unchanged since last read. The content from the earlier read result in this conversation is still current - refer to that instead of re-reading.";
+
+const unreadMessage = "File has not been read yet. Read it first before writing to it.";
+
+const changedMessage = "File has been modified since read, either by the user or by a linter. Read it again before attempting to write it.";
+
+const staleEditNote = "(note: the file had been modified on disk since you last read it - the edit applied cleanly, but the file contains other changes not in your context. Read it before edits that depend on surrounding content.)";
+
+/** What the seen state decides before a direct call of the model: an answer without execution, or for an edit on a changed file the state that stays seen. */
+type SeenCheck = { readonly answer?: ToolResult; readonly stale?: SeenFile };
 
 const sha256 = (content: Buffer | string): string => createHash("sha256").update(content).digest("hex");
 
@@ -192,20 +205,21 @@ export const createSandboxTools = async (
     };
   };
 
-  /** On a direct call of the model a write checks the seen state, and a repeated read of an unchanged section answers briefly. */
-  const checkedAgainstSeen = async (name: FileToolName, file: string, shown: string, input: FileToolInput, seen: SeenFile | null): Promise<ToolResult | undefined> => {
+  /** On a direct call of the model a write checks the seen state, an edit on a changed file applies only if old_string still selects its target, and a repeated read of an unchanged section answers briefly. */
+  const checkedAgainstSeen = async (name: FileToolName, file: string, input: FileToolInput, seen: SeenFile | null): Promise<SeenCheck> => {
     if (name === "read") {
       const sameView = seen?.read !== undefined && seen.file === file && seen.read.offset === input.offset && seen.read.limit === input.limit;
-      return sameView && await currentHash(file) === seen.hash ? { content: [{ type: "text", text: unchangedNotice }], details: { seen } } : undefined;
+      return sameView && await currentHash(file) === seen.hash ? { answer: { content: [{ type: "text", text: unchangedNotice }], details: { seen } } } : {};
     }
+    if (name === "edit" && (input.old_string === "" || input.old_string === input.new_string)) return {};
     const current = await currentHash(file);
-    if (current === undefined) return undefined;
-    if (seen === null || seen.file !== file) throw new WorkspaceOperationError("workspace-file-unread", `${shown}: read the file with read first.`, 409);
-    if (seen.hash !== current) {
-      throw new WorkspaceOperationError("workspace-file-changed",
-        `${shown}: the file was changed since it was read (by the user, a formatter or another actor); read it again.`, 409);
-    }
-    return undefined;
+    if (current === undefined) return {};
+    if (seen === null || seen.file !== file) throw new WorkspaceOperationError("workspace-file-unread", unreadMessage, 409);
+    if (seen.hash === current) return {};
+    const applies = name === "edit" && typeof input.old_string === "string"
+      && editApplies(await readFile(file, "utf8"), input.old_string, input.replace_all === true);
+    if (!applies) throw new WorkspaceOperationError("workspace-file-changed", changedMessage, 409);
+    return { stale: seen };
   };
 
   const seenAfter = (name: FileToolName, file: string, input: FileToolInput, result: unknown): SeenFile => {
@@ -223,20 +237,21 @@ export const createSandboxTools = async (
     const checked: ToolExecute = async (toolCallId, input, signal, onUpdate) => {
       const { seen, ...params } = (input ?? {}) as FileToolInput;
       const context = await contextFor();
-      const shown = typeof params.path === "string" ? params.path : undefined;
+      const shown = typeof params.file_path === "string" ? params.file_path : undefined;
       const requested = shown === undefined
         ? undefined
         : expandPathVariables(expandWorkspaceAlias(shown, context.workspaceAliases ?? {}), context.pathVariables ?? {});
       try {
         const writable = [context.root, ...context.additionalRoots ?? []];
-        await assertInsideRoots(requested ?? params.path, writing ? writable : [...writable, ...context.readOnlyRoots ?? []]);
+        await assertInsideRoots(requested ?? params.file_path, writing ? writable : [...writable, ...context.readOnlyRoots ?? []]);
         const file = requested === undefined ? undefined : path.resolve(cwd, requested);
-        const tracked = seen !== undefined && file !== undefined && shown !== undefined;
-        const early = tracked ? await checkedAgainstSeen(name, file, shown, params, seen) : undefined;
-        if (early) return early;
-        const result = await execute(toolCallId, requested === undefined ? params : { ...params, path: requested }, signal, onUpdate);
-        const recorded = tracked ? { ...result as ToolResult, details: { ...(result as ToolResult).details as object, seen: seenAfter(name, file, params, result) } } : result;
-        const annotated = writing && annotate && file !== undefined ? withAnnotation(recorded, await annotate(file)) : recorded;
+        const tracked = seen !== undefined && file !== undefined;
+        const { answer, stale } = tracked ? await checkedAgainstSeen(name, file, params, seen) : {};
+        if (answer) return answer;
+        const result = await execute(toolCallId, requested === undefined ? params : { ...params, file_path: requested }, signal, onUpdate);
+        const recorded = tracked ? { ...result as ToolResult, details: { ...(result as ToolResult).details as object, seen: stale ?? seenAfter(name, file, params, result) } } : result;
+        const noted = withAnnotation(recorded, stale && staleEditNote);
+        const annotated = writing && annotate && file !== undefined ? withAnnotation(noted, await annotate(file)) : noted;
         return requested === undefined || shown === undefined ? annotated : withShownPath(annotated, requested, shown);
       } catch (error) {
         throw requested === undefined || shown === undefined ? error : errorWithShownPath(error, requested, shown);
@@ -307,7 +322,7 @@ export const createSandboxTools = async (
         const timer = setTimeout(() => {
           timedOut = true;
           kill();
-        }, options.timeout * 1000);
+        }, options.timeoutMs);
         options.signal?.addEventListener("abort", kill);
         const cleanup = () => {
           if (timer) clearTimeout(timer);
@@ -322,7 +337,7 @@ export const createSandboxTools = async (
           const finish = () => processError
             ? reject(processError)
             : timedOut
-              ? reject(new Error(`timeout:${options.timeout}`))
+              ? reject(new Error(`timeout:${options.timeoutMs}`))
               : resolve({ exitCode: killed ? null : code });
           if (!child.pid) {
             finish();
@@ -362,17 +377,17 @@ export const createSandboxTools = async (
 /** The operations of the module are named like the tools the model sees. */
 export const SANDBOX_TOOL_NAMES = ["read", "edit", "write", "bash"] as const;
 
-/** An explicitly requested timeout in seconds extends how long a remote executor may wait for the bash. */
+/** An explicitly requested timeout in milliseconds extends how long a remote executor may wait for the bash. */
 const bashDuration = (input: unknown): { durationMs?: number } => {
-  const seconds = typeof input === "object" && input !== null ? (input as { timeout?: unknown }).timeout : undefined;
-  return typeof seconds === "number" && seconds > 0 ? { durationMs: seconds * 1000 } : {};
+  const timeout = typeof input === "object" && input !== null ? (input as { timeout?: unknown }).timeout : undefined;
+  return typeof timeout === "number" && timeout > 0 ? { durationMs: timeout } : {};
 };
 
 /** The file tools address the root of their path, bash the root of its folder and without a folder no specific one. */
 const sandboxToolFootprints: Readonly<Record<(typeof SANDBOX_TOOL_NAMES)[number], (input: unknown) => OperationFootprint>> = {
-  read: (input) => ({ roots: rootsOfFields(input, "path") }),
-  edit: (input) => ({ roots: rootsOfFields(input, "path") }),
-  write: (input) => ({ roots: rootsOfFields(input, "path") }),
+  read: (input) => ({ roots: rootsOfFields(input, "file_path") }),
+  edit: (input) => ({ roots: rootsOfFields(input, "file_path") }),
+  write: (input) => ({ roots: rootsOfFields(input, "file_path") }),
   bash: (input) => ({ roots: rootsOfFields(input, "cwd"), ...bashDuration(input) }),
 };
 

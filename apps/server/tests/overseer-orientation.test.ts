@@ -48,7 +48,7 @@ test("global system prompt includes later plugin registrations", async () => {
     host.register(plugin.create(host));
     const policy = host.service(globalChatToken);
     assert.deepEqual(policy.toolNames, ["read", "write", "edit", "bash"]);
-    assert.match(policy.prompt, /native interface contains typescript_api, typescript_eval as well as read, write, edit and bash/);
+    assert.match(policy.prompt, /Your tools include read, write, edit and bash\. Call your tools directly/);
     assert.match(policy.prompt, /A multi-part setup does not require its own setup package/);
     assert.match(policy.prompt, /The task describes the desired outcome/);
     assert.doesNotMatch(policy.prompt, /setup handler must|run builder can use the direct setup tools/i);

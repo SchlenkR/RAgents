@@ -19,7 +19,9 @@ const startMetadata = {
   name: "run_script_start",
   label: "Start run script",
   description: "Start a run script from run_script_list inside this run; returns its actor handle and which start of it this is.",
-  longDescription: "entry is the entry from run_script_list; input is the script's start value, if it takes one. The script joins the run "
+  longDescription: "A run script is a prepared setup of this profile: a TypeScript actor that arranges its own participants and views in this run; "
+    + "for a single new LLM agent use agent_spawn instead. "
+    + "entry is the entry from run_script_list; input is the script's start value, if it takes one. The script joins the run "
     + "without changing the primary actor; a repeated start reuses its actor. When it finishes a start, you receive its summary and result "
     + "as a message; do not wait or poll for it in the same turn.",
 } as const;

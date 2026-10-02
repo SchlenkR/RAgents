@@ -29,6 +29,7 @@ const fixture = (overrides: Partial<Pick<RuntimeMethodOptions, "abortTurns" | "a
     runtime,
     assertRunRights: (_access, runId, kind) => { rights.push(`${runId}:${kind}`); },
     interruptTurn: async (runId, actorId, interruption) => { interruptions.push({ runId, actorId, interruption }); },
+    pauseRun: async (runId, pause) => { runtime.pauseRun(pause.context, runId, { reason: pause.reason }); },
     projectView: (view) => view,
     hasRun: (runId) => journal.stateOf(runId) !== null,
     ...overrides,

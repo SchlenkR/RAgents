@@ -145,20 +145,22 @@ returns to the model, which can then decide what to do next. When a program need
 or react to later messages, it becomes an <a href="guide-programs.html">actor program</a>. Both
 forms use the same functions.</p>
 <h2 id="one-off-snippets">One-off snippets</h2>
-<p>The standard native interface provides <code>typescript_api</code> for available functions and
-<code>typescript_eval</code> for TypeScript code. Workspace plugins can also expose <code>read</code>, <code>write</code>, <code>edit</code>,
-and <code>bash</code> directly when the actor is allowed to use them. Individual file and shell actions do
-not need a TypeScript wrapper. They use the same implementation, working-directory resolution,
-permission checks, and journal recording as function calls. Both mechanisms are part of the
-server foundation, even without the optional actor-program plugin. Agent creation and other
-workflow functions are called from TypeScript through <code>context.functions</code>. File functions remain
-available there for compound calls. Plugins register each implementation once; snippets and
-persistent actor programs use the same API.</p>
-<p>Every equipped LLM actor automatically receives the names and short descriptions of all
-functions available to it. This applies to coordinators and subagents. Changes update the
-overview even during a turn. Direct native tools are marked, and their native descriptions also
-include detailed usage guidance. The overview grants neither additional functions nor
-permissions; plain LLMs with <code>tools: []</code> do not receive it.</p>
+<p>Every function available to an actor is also a native model tool: <code>read</code>, <code>write</code>, <code>edit</code>,
+<code>bash</code>, agent creation, and workflow functions are called directly, without a TypeScript wrapper.
+<code>typescript_api</code> returns exact types and detailed guidance, and <code>typescript_eval</code> runs TypeScript
+code in which every function is available as <code>context.functions.&lt;name&gt;(input)</code>. A snippet combines
+calls, filters results, and passes values onward without transcription. Both belong to the server
+foundation, even without the optional actor-program plugin. A function can stay snippet-only with
+<code>nativeTool: false</code>; the engine does so for the low-level journal event functions <code>event_query</code>,
+<code>event_subscribe</code>, <code>event_unsubscribe</code>, and <code>event_subscription_list</code>. Native and snippet calls use
+the same implementation, working-directory resolution, permission checks, and journal recording.
+Plugins register each implementation once; snippets and persistent actor programs use the same API.</p>
+<p>Every equipped LLM actor receives its native tools as tool definitions with their short and
+detailed descriptions. Its system prompt additionally explains the snippet path and lists the
+snippet-only functions available to it with names and short descriptions. This applies to
+coordinators and subagents. Both update even during a turn, including functions that an actor
+program activates. Neither grants additional functions or permissions; plain LLMs with
+<code>tools: []</code> receive neither.</p>
 <h3 id="short-descriptions-and-details">Short descriptions and details</h3>
 <p>A function registered with <code>defineRunFunction</code> has a technical <code>name</code> for calls and a readable
 <code>label</code> for people. <code>description</code> briefly explains its purpose and appears in the automatic

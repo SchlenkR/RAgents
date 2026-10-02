@@ -10,12 +10,12 @@ import { hostRecordFile, readHostRecord, removeHostRecord, writeHostRecord } fro
 import { hostRoot } from "../../apps/server/src/host-version.ts";
 import { callerDirectory, selectProfileTarget, type ProfileTarget } from "../../apps/server/src/profile-target.ts";
 import { RpcClient } from "../../apps/web/src/rpc/client.ts";
-import type { Action, RunView, Turn, TurnToolCall } from "../../packages/ragents/src/domain/model.ts";
+import type { Action, RunShareAccess, RunSharing, RunView, Turn, TurnToolCall } from "../../packages/ragents/src/domain/model.ts";
 import { runContracts } from "../../packages/ragents/src/http/contracts.ts";
 import { RpcError } from "../../packages/ragents/src/rpc/protocol.ts";
 import { askPayloadOf, ASK_PLUGIN_ID } from "../../plugins/ragents.ask/ask-payload.ts";
 import { WORKSPACE_BINDING_OPTION_ID, WORKSPACE_CLIENT_ID_PATTERN, type WorkspaceBindingPresentation } from "../../plugins/ragents.workspace/contract.ts";
-import { interruptPrimaryTurn, stopWholeRun } from "./turn-control.ts";
+import { interruptPrimaryTurn, pauseRun, resumeRun, stopWholeRun } from "./turn-control.ts";
 import { journalLines, questionLine, readJournal, RUN_ID_PATTERN, type JournalEvent } from "./journal.ts";
 
 const DEFAULT_PROFILE = "developer";
@@ -31,28 +31,42 @@ export const defaultProfile = (): string => process.env.RAGENTS_PROFILE ?? DEFAU
 export const usage = (): string => `Usage: ragents <command> [arguments]
 
   run [<folder>] "<task>" [--profile <p>] [--entry <template>] [--workstation <id>] [--json]
+      [--share <user>[:read|:write]]... [--share-all <read|write>]
       Starts the profile's host if none is running, creates a run with a path binding to the
       folder, sends the task and waits until the turn ends. A single value is always the task:
       without <folder>, run chooses no binding; the default of the profile or of the template
       applies. If the template fixes the binding, a <folder> is an error. With --workstation the
       folder is on the workstation with this id that is registered with the host
       (pnpm workspace-client <server-url> <folder> --id <id>) instead of on the server; without
-      it, run aborts, and without <folder> there is no --workstation.
+      it, run aborts, and without <folder> there is no --workstation. --share shares the new run
+      with a user of the profile (repeatable, read without a level), --share-all with every
+      user; a refusal aborts before the task is sent.
   send <run> "<text>" [--profile <p>] [--json]
-      Follow-up task in the same run, same waiting.
+      Follow-up task in the same run, same waiting. In a paused run it continues the run: the
+      primary actor gets what waited together with the text in one turn.
   journal <run> [--profile <p>] [--json] [--tools]
       Read the run's history compactly: from the profile's data folder, with RAGENTS_URL from the
       server (there with the permission runs.inspect).
-  stop <run> [--profile <p>]      interrupt the running turn of the primary actor; the run
-                                  stays active and accepts the next task
+  stop <run> [--profile <p>]      pause the whole run like the chat's Stop button: the running
+                                  turns end, no actor starts a turn until send or resume
+  stop <run> --turn [--profile <p>]
+      Interrupt only the running turn of the primary actor; the run stays active and accepts the
+      next task
   stop <run> --run [--profile <p>]
       Emergency stop: cancel all turns and stop all actors of the run
   stop --host [--profile <p>]     stop the remembered host
+  resume <run> [--profile <p>]    continue a paused run without a message; the primary actor
+                                  gets what waited in one turn
   script <run> [--profile <p>] [--json]
       List the run scripts of the profile and whether each can start in the running run.
   script <run> <entry> [--input <json>] [--profile <p>] [--json]
       Start the run script inside the run, as its owner; prints its actor and which start of it
       this is. Only a script whose RUN.md sets embeddable: true joins a running run.
+  share <run> [--profile <p>] [--json]
+      Print whom the run is shared with, one line per target; for its owner or runs.read.all.
+  share <run> [<user>[:read|:write]...] [--all <read|write>] [--none] [--profile <p>] [--json]
+      Replace the run's sharing: the named users (read without a level) and, with --all, every
+      user of the profile; --none shares it with nobody. Only with sign-in.
   plugin build <folder...> [--out <o>] [--watch] [--no-typecheck]
       Build plugin source folders into bundles; details with plugin --help.
 
@@ -61,39 +75,48 @@ without --profile, RAGENTS_PROFILE applies, otherwise ${DEFAULT_PROFILE}. Exit c
 0 done, 2 cancelled, 1 failed or connection problem. The last line on stdout
 is "run: <id>". run and send follow the turn through the server (channel ragents.run and
 ragents.runs.view), also on another machine; the server shows tool lines only with
-runs.inspect, --json returns the same steps as JSON. A question of the agent is a line
-"? <question> Options: ..."; the turn ends with it, and send answers it. If the connection breaks, the
+runs.inspect, --json returns the same steps as JSON. Every question of the agent is a line
+"? [<header>] <question> Options: ..."; the turn ends with them, and one send answers them. If the connection breaks, the
 command ends with 1 and the cause. The address comes from <data folder>/host.json, otherwise from RAGENTS_URL, otherwise from
 host.PORT of the profile; RAGENTS_TOKEN is sent as a bearer token if the profile requires
 sign-in. A host started this way does not build the UI - an agent does not need it; ragents
 start <profile> starts it with the UI.`;
 
 export type AgentCommand =
-  | { readonly kind: "run"; readonly profile: string; readonly folder: string | undefined; readonly text: string; readonly entry: string | undefined; readonly json: boolean; readonly workstation?: string }
+  | { readonly kind: "run"; readonly profile: string; readonly folder: string | undefined; readonly text: string; readonly entry: string | undefined; readonly json: boolean; readonly workstation?: string; readonly sharing?: RunSharing }
   | { readonly kind: "send"; readonly profile: string; readonly runId: string; readonly text: string; readonly json: boolean }
   | { readonly kind: "journal"; readonly profile: string; readonly runId: string; readonly json: boolean; readonly tools: boolean }
-  | { readonly kind: "stop"; readonly profile: string; readonly runId: string }
+  | { readonly kind: "pause"; readonly profile: string; readonly runId: string }
+  | { readonly kind: "stop-turn"; readonly profile: string; readonly runId: string }
   | { readonly kind: "stop-run"; readonly profile: string; readonly runId: string }
   | { readonly kind: "stop-host"; readonly profile: string }
-  | { readonly kind: "script"; readonly profile: string; readonly runId: string; readonly entry: string | undefined; readonly input: unknown; readonly json: boolean };
+  | { readonly kind: "resume"; readonly profile: string; readonly runId: string }
+  | { readonly kind: "script"; readonly profile: string; readonly runId: string; readonly entry: string | undefined; readonly input: unknown; readonly json: boolean }
+  | { readonly kind: "share"; readonly profile: string; readonly runId: string; readonly sharing: RunSharing | undefined; readonly json: boolean };
 
 interface Flags {
   readonly profile: string;
   readonly entry: string | undefined;
   readonly workstation: string | undefined;
   readonly input: string | undefined;
+  readonly shares: readonly string[];
+  readonly shareAll: string | undefined;
+  readonly all: string | undefined;
   readonly json: boolean;
   readonly tools: boolean;
   readonly host: boolean;
   readonly run: boolean;
+  readonly turn: boolean;
+  readonly none: boolean;
   readonly positional: readonly string[];
 }
 
-const VALUE_FLAGS = new Set(["--profile", "--entry", "--workstation", "--input"]);
+const VALUE_FLAGS = new Set(["--profile", "--entry", "--workstation", "--input", "--share", "--share-all", "--all"]);
 
 const scan = (argv: readonly string[], allowed: readonly string[]): Flags => {
   const positional: string[] = [];
   const values = new Map<string, string>();
+  const shares: string[] = [];
   const switches = new Set<string>();
   for (let index = 0; index < argv.length; index += 1) {
     const argument = argv[index]!;
@@ -108,7 +131,8 @@ const scan = (argv: readonly string[], allowed: readonly string[]): Flags => {
     }
     const value = argv[index + 1];
     if (value === undefined || value.startsWith("--")) throw new Error(`${argument} needs a value.`);
-    values.set(argument, value);
+    if (argument === "--share") shares.push(value);
+    else values.set(argument, value);
     index += 1;
   }
   return {
@@ -116,18 +140,39 @@ const scan = (argv: readonly string[], allowed: readonly string[]): Flags => {
     entry: values.get("--entry"),
     workstation: values.get("--workstation"),
     input: values.get("--input"),
+    shares,
+    shareAll: values.get("--share-all"),
+    all: values.get("--all"),
     json: switches.has("--json"),
     tools: switches.has("--tools"),
     host: switches.has("--host"),
     run: switches.has("--run"),
+    turn: switches.has("--turn"),
+    none: switches.has("--none"),
     positional,
   };
 };
 
+const shareAccessOf = (value: string, flag: string): RunShareAccess => {
+  if (value !== "read" && value !== "write") throw new Error(`${flag} takes read or write, not ${value}.`);
+  return value;
+};
+
+/** <user>[:read|:write]; without a level the user reads. */
+export const parseShareSpec = (spec: string): RunSharing["users"][number] => {
+  const leveled = /^(.*):(read|write)$/.exec(spec);
+  const userId = leveled ? leveled[1]! : spec;
+  if (!userId.trim()) throw new Error(`Invalid share: ${spec} (expected <user>[:read|:write]).`);
+  return { userId, access: leveled ? shareAccessOf(leveled[2]!, spec) : "read" };
+};
+
+const sharingOf = (specs: readonly string[], everyone: string | undefined, flag: string): RunSharing =>
+  ({ everyone: everyone === undefined ? null : shareAccessOf(everyone, flag), users: specs.map(parseShareSpec) });
+
 export const parseArguments = (argv: readonly string[]): AgentCommand => {
   const [command, ...rest] = argv;
   if (command === "run") {
-    const flags = scan(rest, ["--profile", "--entry", "--workstation", "--json"]);
+    const flags = scan(rest, ["--profile", "--entry", "--workstation", "--json", "--share", "--share-all"]);
     if (flags.positional.length > 2) throw new Error(`run takes at most two values, not ${flags.positional.length}.`);
     const [folder, text] = flags.positional.length === 2 ? flags.positional : [undefined, flags.positional[0]];
     if (!text) throw new Error(`run needs "<task>", optionally preceded by <folder>.\n\n${usage()}`);
@@ -136,8 +181,10 @@ export const parseArguments = (argv: readonly string[]): AgentCommand => {
     if (flags.workstation !== undefined && !WORKSPACE_CLIENT_ID_PATTERN.test(flags.workstation)) {
       throw new Error(`Invalid workstation id: ${flags.workstation} (8 to 64 characters from letters, digits, _ and -).`);
     }
+    const shared = flags.shares.length > 0 || flags.shareAll !== undefined;
     return { kind: "run", profile: flags.profile, folder, text, entry: flags.entry, json: flags.json,
-      ...(flags.workstation ? { workstation: flags.workstation } : {}) };
+      ...(flags.workstation ? { workstation: flags.workstation } : {}),
+      ...(shared ? { sharing: sharingOf(flags.shares, flags.shareAll, "--share-all") } : {}) };
   }
   if (command === "send") {
     const flags = scan(rest, ["--profile", "--json"]);
@@ -156,8 +203,8 @@ export const parseArguments = (argv: readonly string[]): AgentCommand => {
     return { kind: "journal", profile: flags.profile, runId, json: flags.json, tools: flags.tools };
   }
   if (command === "stop") {
-    const flags = scan(rest, ["--profile", "--host", "--run"]);
-    if (flags.host && flags.run) throw new Error("stop takes either --host or --run.");
+    const flags = scan(rest, ["--profile", "--host", "--run", "--turn"]);
+    if ([flags.host, flags.run, flags.turn].filter(Boolean).length > 1) throw new Error("stop takes only one of --turn, --run and --host.");
     if (flags.host) {
       if (flags.positional.length > 0) throw new Error("stop --host takes no run id.");
       return { kind: "stop-host", profile: flags.profile };
@@ -166,7 +213,15 @@ export const parseArguments = (argv: readonly string[]): AgentCommand => {
     if (!runId) throw new Error(`stop needs <run> or --host.\n\n${usage()}`);
     if (extra.length > 0) throw new Error(`stop takes exactly one value, not ${flags.positional.length}.`);
     if (!RUN_ID_PATTERN.test(runId)) throw new Error(`Invalid run id: ${runId}`);
-    return { kind: flags.run ? "stop-run" : "stop", profile: flags.profile, runId };
+    return { kind: flags.run ? "stop-run" : flags.turn ? "stop-turn" : "pause", profile: flags.profile, runId };
+  }
+  if (command === "resume") {
+    const flags = scan(rest, ["--profile"]);
+    const [runId, ...extra] = flags.positional;
+    if (!runId) throw new Error(`resume needs <run>.\n\n${usage()}`);
+    if (extra.length > 0) throw new Error(`resume takes exactly one value, not ${flags.positional.length}.`);
+    if (!RUN_ID_PATTERN.test(runId)) throw new Error(`Invalid run id: ${runId}`);
+    return { kind: "resume", profile: flags.profile, runId };
   }
   if (command === "script") {
     const flags = scan(rest, ["--profile", "--input", "--json"]);
@@ -176,6 +231,15 @@ export const parseArguments = (argv: readonly string[]): AgentCommand => {
     if (!RUN_ID_PATTERN.test(runId)) throw new Error(`Invalid run id: ${runId}`);
     if (flags.input !== undefined && entry === undefined) throw new Error("--input needs <entry>, the run script it starts.");
     return { kind: "script", profile: flags.profile, runId, entry, input: flags.input === undefined ? null : parsedInput(flags.input), json: flags.json };
+  }
+  if (command === "share") {
+    const flags = scan(rest, ["--profile", "--all", "--none", "--json"]);
+    const [runId, ...specs] = flags.positional;
+    if (!runId) throw new Error(`share needs <run>, optionally followed by users.\n\n${usage()}`);
+    if (!RUN_ID_PATTERN.test(runId)) throw new Error(`Invalid run id: ${runId}`);
+    if (flags.none && (specs.length > 0 || flags.all !== undefined)) throw new Error("share --none takes neither users nor --all.");
+    const changes = flags.none || specs.length > 0 || flags.all !== undefined;
+    return { kind: "share", profile: flags.profile, runId, sharing: changes ? sharingOf(specs, flags.all, "--all") : undefined, json: flags.json };
   }
   throw new Error(command ? `Unknown command: ${command}\n\n${usage()}` : usage());
 };
@@ -346,15 +410,16 @@ const toolEntries = (call: TurnToolCall): ProgressEntry[] => [
   }],
 ];
 
-/** A question the turn's actor posed; a message through send closes it and reaches the actor as its next input. */
+/** The questions the turn's actor posed, one line each; a message through send closes them and reaches the actor as its next input. */
 const questionEntries = (runId: string, action: Action): ProgressEntry[] => {
-  const question = askPayloadOf(action.payload);
-  return question ? [{
+  const { questions } = askPayloadOf(action.payload);
+  const hint = ` - answer with: ragents send ${runId} "<${questions.length === 1 ? "answer" : "answers"}>"`;
+  return [{
     key: `question:${action.id}`,
     at: action.proposedAt,
-    line: `? ${questionLine(question)} - answer with: ragents send ${runId} "<answer>"`,
-    data: { kind: "question", id: action.id, question: question.question, options: question.options, multi: question.multi },
-  }] : [];
+    line: questions.map((question, index) => `? ${questionLine(question)}${index === questions.length - 1 ? hint : ""}`).join("\n"),
+    data: { kind: "question", id: action.id, questions },
+  }];
 };
 
 const askedIn = (turn: Turn, since: string) => (action: Action): boolean => {
@@ -536,6 +601,11 @@ const runCommand = async (command: Extract<AgentCommand, { kind: "run" }>, write
   const runId = randomUUID();
   if (folder !== undefined) await bindFolder(rpc, runId, folder, command, target.profile, baseUrl);
   else note(`== Run ${runId} (${baseUrl}) without a folder; the binding comes from ${command.entry ? `the template ${command.entry} or ` : ""}the default of the profile ${target.profile}.`);
+  const sharing = command.sharing;
+  if (sharing) {
+    const shared = await withLoginHint(() => rpc.call(coreContracts.runs.share, { runId, sharing }));
+    note(`== Shared with ${sharingLines(shared.sharing).join(", ")}`);
+  }
   if (command.entry) await withLoginHint(() => rpc.call(coreContracts.chat.start, { runId, entry: command.entry }));
   const outcome = await withLoginHint(() => follow({ rpc, baseUrl, runId, text: command.text, json: command.json, write,
     send: () => command.entry
@@ -577,7 +647,7 @@ const journalCommand = async (command: Extract<AgentCommand, { kind: "journal" }
   return 0;
 };
 
-const stopCommand = async (command: Extract<AgentCommand, { kind: "stop" | "stop-run" }>): Promise<number> => {
+const stopCommand = async (command: Extract<AgentCommand, { kind: "pause" | "stop-turn" | "stop-run" }>): Promise<number> => {
   const target = await loadProfile(command.profile);
   const rpc = client(await addressOf(target));
   if (command.kind === "stop-run") {
@@ -585,8 +655,21 @@ const stopCommand = async (command: Extract<AgentCommand, { kind: "stop" | "stop
     note(`== Run ${command.runId} stopped (emergency stop)`);
     return 0;
   }
+  if (command.kind === "pause") {
+    await withLoginHint(() => pauseRun(rpc, command.runId, "Paused with ragents stop"));
+    note(`== Run ${command.runId} paused; nothing runs until ragents send or ragents resume`);
+    return 0;
+  }
   const actorId = await withLoginHint(() => interruptPrimaryTurn(rpc, command.runId));
   note(`== Running turn of ${actorId} in ${command.runId} interrupted; the run stays active`);
+  return 0;
+};
+
+const resumeCommand = async (command: Extract<AgentCommand, { kind: "resume" }>): Promise<number> => {
+  const target = await loadProfile(command.profile);
+  const rpc = client(await addressOf(target));
+  const resumed = await withLoginHint(() => resumeRun(rpc, command.runId));
+  note(resumed ? `== Run ${command.runId} resumed` : `== Run ${command.runId} is not paused; nothing to resume`);
   return 0;
 };
 
@@ -605,6 +688,28 @@ const scriptCommand = async (command: Extract<AgentCommand, { kind: "script" }>,
   const started = await withLoginHint(() => rpc.call(coreContracts.runs.startScript, { runId: command.runId, entry: command.entry!, input: command.input }));
   write(command.json ? JSON.stringify(started) : `script: @${started.handle}, start ${started.count}`);
   write(`run: ${command.runId}`);
+  return 0;
+};
+
+/** One line per target of the sharing; nobody if the run is shared with no one. */
+export const sharingLines = (sharing: { everyone: RunShareAccess | null; users: readonly { userId: string; label: string; access: RunShareAccess }[] }): string[] => {
+  const lines = [
+    ...sharing.everyone ? [`everyone: ${sharing.everyone}`] : [],
+    ...sharing.users.map((user) => `${user.userId} (${user.label}): ${user.access}`),
+  ];
+  return lines.length > 0 ? lines : ["nobody"];
+};
+
+const shareCommand = async (command: Extract<AgentCommand, { kind: "share" }>, write: LineWriter): Promise<number> => {
+  const target = await loadProfile(command.profile);
+  const baseUrl = await addressOf(target);
+  if (!await healthy(baseUrl)) throw new Error(`No RAgents server responds at ${baseUrl}; start it with ragents run.`);
+  const rpc = client(baseUrl);
+  const result = await withLoginHint(() => command.sharing
+    ? rpc.call(coreContracts.runs.share, { runId: command.runId, sharing: command.sharing })
+    : rpc.call(coreContracts.runs.sharing, { runId: command.runId }));
+  if (command.json) write(JSON.stringify(result));
+  else for (const line of sharingLines(result.sharing)) write(line);
   return 0;
 };
 
@@ -659,8 +764,10 @@ export const execute = async (command: AgentCommand, write: LineWriter = toStdou
   if (command.kind === "run") return runCommand(command, write);
   if (command.kind === "send") return sendCommand(command, write);
   if (command.kind === "journal") return journalCommand(command, write);
-  if (command.kind === "stop" || command.kind === "stop-run") return stopCommand(command);
+  if (command.kind === "pause" || command.kind === "stop-turn" || command.kind === "stop-run") return stopCommand(command);
+  if (command.kind === "resume") return resumeCommand(command);
   if (command.kind === "script") return scriptCommand(command, write);
+  if (command.kind === "share") return shareCommand(command, write);
   return stopHostCommand(command);
 };
 

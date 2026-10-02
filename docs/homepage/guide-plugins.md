@@ -216,15 +216,19 @@ short `description`, optional `longDescription`, input and result schemas, and i
 from this data. Snippets and actor programs use the same catalog and execution. Availability and
 bound identity apply equally, while a program's `capabilities` limit its installed build.
 
-Every domain function is available through `context.functions` in `typescript_eval`.
-`nativeTool: true` additionally exposes it as a native model tool when the model normally must
-read its result before taking the next step: browser interactions, domain reports and status,
-language diagnostics, `read`, `edit`, `write`, `bash`, `document_write`, `show_document`,
-`ask_user`, and `browser_view_screenshot`, which can return image pixels only natively. Snippets remain the right
-form for calls that combine, filter, or pass results onward, including data queries, management
-functions, list results, and values passed from earlier responses without transcription. Native
-tools remain callable from snippets. The building-block reference marks them in the catalog and
-the system overview calls them direct tools.
+Every function is a native model tool and is also available through `context.functions` in
+`typescript_eval`. The model calls a single action directly; a snippet combines calls, filters
+results, and passes values onward without transcription. `nativeTool: false` keeps a function
+snippet-only. That is the exception for low-level interfaces whose raw results belong in code,
+such as the engine's journal event functions (`event_query`, `event_subscribe`,
+`event_unsubscribe`, `event_subscription_list`); for models, `watch_*` covers waiting for state.
+A function whose purpose only works natively, such as `browser_view_screenshot` returning image
+pixels, must not opt out. Functions that only programs may call are limited by their
+availability, not by the native flag. The building-block reference marks snippet-only functions
+in the catalog, and the system prompt lists them as the functions only available through
+`context.functions`.
+The native calls of one model step run concurrently only when every called function declares
+`executionMode: "parallel"`; otherwise the step runs them one after another in their order.
 
 `endsTurn(output)` lets a native tool end the caller's turn with its result, as `ask_user` does
 after posing a question: when every call of a model step ends the turn this way, the model gets

@@ -125,7 +125,9 @@ for (const selection of [null, ["counter_read"], []]) {
                 }
             };
             assertOverview(request.systemPrompt, false);
-            assert.deepEqual(request.tools.map((fn) => fn.name), selection?.length === 0 ? [] : ["typescript_api", "typescript_eval"]);
+            assert.deepEqual(request.tools.map((fn) => fn.name), selection === null
+                ? ["artifact_read", "typescript_api", "typescript_eval"]
+                : selection.length === 0 ? [] : ["typescript_api", "typescript_eval"]);
             functions = [...functions.filter((fn) => fn.name !== "counter_write"), makeFunction("counter_new")];
             assert.ok(request.refreshTools);
             const refreshed = await request.refreshTools();

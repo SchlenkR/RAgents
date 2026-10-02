@@ -7,6 +7,7 @@ import type {
     CapabilityName,
     CapabilityScope,
     ExecutableActor,
+    RunSharing,
     RunState,
     Turn,
 } from "../domain/model.ts";
@@ -21,6 +22,23 @@ export const clean = (value: string, name: string) => {
         throw new DomainError("invalid-value", `${name} must not be empty.`, 400);
 
     return result;
+};
+
+/** Only a run with a signed-in owner is shared, never with the owner and never with a user twice; the users stand sorted by id. */
+export const checkedSharing = (sharing: RunSharing, ownerUserId: string | null | undefined): RunSharing => {
+    if (ownerUserId === null || ownerUserId === undefined)
+        throw new DomainError("run-not-shareable", "A run without a signed-in owner cannot be shared.", 409);
+
+    const users = sharing.users.map((user) => ({ userId: clean(user.userId, "userId"), access: user.access }));
+    const twice = users.find((user, index) => users.findIndex((other) => other.userId === user.userId) !== index);
+
+    if (twice)
+        throw new DomainError("share-user-duplicate", `The user ${twice.userId} is named twice; name every user once.`, 400);
+
+    if (users.some((user) => user.userId === ownerUserId))
+        throw new DomainError("share-owner", `${ownerUserId} owns the run and always has access; leave them out of the users.`, 400);
+
+    return { everyone: sharing.everyone, users: users.sort((left, right) => left.userId < right.userId ? -1 : left.userId > right.userId ? 1 : 0) };
 };
 
 export const optionalClean = (value: string | null | undefined, name: string) => {

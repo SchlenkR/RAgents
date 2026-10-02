@@ -32,6 +32,7 @@ const create = async (context: ManagementContext, body: CreateInput, access: Acc
     title: body.title.trim(),
     user: access.user ? { id: access.user.id, label: access.user.label } : null,
     ...(body.options ? { options: body.options as Record<string, JsonValue> } : {}),
+    ...(body.sharing ? { sharing: body.sharing } : {}),
   };
   const runId = await (async () => {
     if ("packageDirectory" in body) {
@@ -75,7 +76,7 @@ export function managementMethods(context: ManagementContext): MethodContributio
     }),
     implement(overseerContracts.stopRun, async ({ run }, { access }) => {
       const found = await resolve(context, access, run);
-      await context.management().stop(found.id);
+      await context.management().stop(found.id, access);
       return { ...identity(found), stopped: true as const };
     }),
     implement(overseerContracts.readCatalog, (_input, { access }) => ({

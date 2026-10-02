@@ -39,10 +39,11 @@ import {
 import { config } from "../config.js";
 import { accessibleRunView } from "../access-projection.js";
 import { assertRunRights } from "../api/rights.js";
-import { runOwnerOf, runOwnerOnly } from "./run-owner.js";
+import { runOwnerOf, runOwnerOnly, runSharingOf } from "./run-owner.js";
 import { layout } from "../layout.js";
 import { renderSystemPromptOption, systemPromptSelectionPromptIds } from "../plugin-support/prompt.js";
 import { assertCurrentLayoutContract } from "../plugin-support/removed-layout.js";
+import { assertCurrentQuestionShape } from "../plugin-support/removed-question-shape.js";
 import { actorProgramsToken } from "../plugin-support/actor-programs/service.js";
 import { checkedThinkingLevel } from "../plugin-support/thinking-level.js";
 import { skillOfDirectory } from "../plugin-support/skills.js";
@@ -164,10 +165,10 @@ const coreContractFor = (actor: ExecutableActor): string => {
     "Your turn ends as soon as you no longer call a tool. After that you are idle until the next ActorInput.",
   ];
   if (hasTool(actor, "actor_input", "actor.input")) {
-    lines.push("With context.functions.actor_input you give another actor a task or a question.");
+    lines.push("With actor_input you give another actor a task or a question.");
   }
   if (hasTool(actor, "event_subscribe", "event.subscribe")) {
-    lines.push("With context.functions.event_subscribe you subscribe to the events of the actors whose work you want to follow.");
+    lines.push("With context.functions.event_subscribe in a snippet you subscribe to the events of the actors whose work you want to follow.");
   }
   if (hasTool(actor, "event_subscription_list", "event.subscribe")) {
     lines.push("context.functions.event_subscription_list shows your active event subscriptions.");
@@ -176,7 +177,7 @@ const coreContractFor = (actor: ExecutableActor): string => {
     lines.push("You end subscriptions you no longer need with context.functions.event_unsubscribe.");
   }
   if (hasTool(actor, "agent_spawn", "agent.spawn") && hasTool(actor, "actor_input", "actor.input")) {
-    lines.push("context.functions.agent_spawn only creates the actor. Give it its first task afterwards with context.functions.actor_input.");
+    lines.push("agent_spawn creates the actor and, given a task, enqueues it as its first input at once; further tasks go to the actor with actor_input.");
   }
   return lines.join("\n");
 };
@@ -191,7 +192,12 @@ export const createEngine = async (options: EngineOptions): Promise<Engine> => {
   });
   const actorPrograms = options.plugins.optionalService(actorProgramsToken);
   const services = { ...runtimeServices, nativeTypeScriptExecutor, ...(actorPrograms ? {actorPrograms} : {}) };
-  const journal = new Journal(layout.runsDir, services, { validateRecord: assertCurrentLayoutContract });
+  const journal = new Journal(layout.runsDir, services, {
+    validateRecord: (record) => {
+      assertCurrentLayoutContract(record);
+      assertCurrentQuestionShape(record);
+    },
+  });
   const runtime = new Orchestration(journal, services, new DirectoryArtifactContents(layout.artifactsDir));
   const productRuntime = options.plugins.service(productRuntimeToken);
   const globalChat = options.plugins.optionalService(globalChatToken);
@@ -393,6 +399,7 @@ export const createEngine = async (options: EngineOptions): Promise<Engine> => {
     global: globalRunPolicyOf(globalChat),
     ownerOf: (runId: string) => runOwnerOf(journal, runId),
     ownerOnly: (runId: string) => runOwnerOnly(journal, options.plugins.startOptions, runId),
+    sharing: (runId: string) => runSharingOf(journal, runId),
   };
   const runtimeOptions = {
     runtime,
@@ -406,6 +413,7 @@ export const createEngine = async (options: EngineOptions): Promise<Engine> => {
     ...runtimeOptions,
     stopRun: runStopper.stop,
     interruptTurn: (runId, actorId, interruption) => scheduler.interruptTurn(runId, actorId, interruption),
+    pauseRun: (runId, pause) => scheduler.pauseRun(runId, pause),
   });
   const artifactRoute = artifactContentRoute(runtimeOptions);
   options.plugins.optionalService(runtimeBridgeToken)?.bind(runtime);

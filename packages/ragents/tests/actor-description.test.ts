@@ -50,14 +50,18 @@ const reload = (records: CommandRecord[], runId: string, root: string, edit = (l
     return new Journal(root, testServices());
 };
 
-test("agent_spawn records a short description and actor_list reports it next to the creator", async () => {
+test("agent_spawn requires a short description and actor_list reports it next to the creator", async () => {
     const setup = setupRun({ grants: allGrants(), toolNames: ["agent_spawn", "actor_list"] });
     try {
         const toolset = await spawningToolset(setup);
-        await toolset.invokeFunction("spawn-described", "agent_spawn", { handle: "rule-review", description: "checks the rule on comments", prompt: "Review one rule.", profile: "agent", tools: [] });
-        await toolset.invokeFunction("spawn-plain", "agent_spawn", { handle: "helper", prompt: "Help.", profile: "agent", tools: [] });
+        await toolset.invokeFunction("spawn-described", "agent_spawn", { name: "rule-review", description: "checks the rule on comments", instructions: "Review one rule.", profile: "agent", tools: [] });
+        await toolset.invokeFunction("spawn-plain", "agent_spawn", { name: "helper", description: "helps", profile: "agent", tools: [] });
         await assert.rejects(
-            toolset.invokeFunction("spawn-long", "agent_spawn", { handle: "long", description: "x".repeat(actorDescriptionMaxLength + 1), prompt: "Long.", profile: "agent", tools: [] }),
+            toolset.invokeFunction("spawn-long", "agent_spawn", { name: "long", description: "x".repeat(actorDescriptionMaxLength + 1), instructions: "Long.", profile: "agent", tools: [] }),
+            /description/,
+        );
+        await assert.rejects(
+            toolset.invokeFunction("spawn-unlabeled", "agent_spawn", { name: "unlabeled", profile: "agent", tools: [] }),
             /description/,
         );
         const listed = await toolset.invokeFunction("list", "actor_list", {}) as { handle: string; createdBy: string | null; description: string | null }[];
@@ -65,7 +69,7 @@ test("agent_spawn records a short description and actor_list reports it next to 
             { handle: "owner", createdBy: null, description: null },
             { handle: "worker", createdBy: setup.view.ownerId, description: null },
             { handle: "rule-review", createdBy: setup.agent.id, description: "checks the rule on comments" },
-            { handle: "helper", createdBy: setup.agent.id, description: null },
+            { handle: "helper", createdBy: setup.agent.id, description: "helps" },
         ]);
     } finally {
         setup.journal.close();

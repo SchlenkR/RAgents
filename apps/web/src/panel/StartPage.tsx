@@ -122,17 +122,20 @@ function ConnectionOffers({ connection, marked, send }: { connection: Connection
 }
 
 /** The start page: the servers as a block, below them the latest runs and, per reachable server, its templates, the default template or New chat first. */
-export function StartPage({ state, send, runDetails }: PanelPageProps) {
+export function StartPage({ state, send }: PanelPageProps) {
   const [login, setLogin] = useState<string>();
   const connections = state.connections;
   const marked = connections.length > 1;
   const runs = connections.flatMap((connection) => connection.runs.map((run) => ({ connection, run })))
     .sort((left, right) => right.run.updatedAt - left.run.updatedAt);
+  const recent = runs.slice(0, RECENT_RUNS);
+  const sharing = recent.some(({ run }) => run.canShare === true);
   const reachable = connections.filter((connection) => connection.state.kind === "connected" && connection.canCreate);
   const tiles = reachable.reduce((count, connection) => count + startTileCount(connection.entries, connection.defaultEntry, connection.canCreateFree !== false), 0);
   const loginConnection = connections.find((connection) => connection.name === login);
   return <div className="grid min-w-0 grid-cols-1 gap-8">
     {state.problem && <p className="type-body text-destructive [overflow-wrap:anywhere]" role="alert">{state.problem}</p>}
+    {state.notice && <p className="type-body text-muted-foreground [overflow-wrap:anywhere]" role="status">{state.notice}</p>}
     {connections.flatMap((connection) => connection.versionNotice ? [{ name: connection.name, notice: connection.versionNotice }] : []).map(({ name, notice }) =>
       <p className={cn("type-body [overflow-wrap:anywhere]", notice.level === "error" ? "text-destructive" : "text-warning")} data-notice={notice.level} key={name}
         role={notice.level === "error" ? "alert" : "status"}>{marked ? `${name}: ${notice.text}` : notice.text}</p>)}
@@ -154,8 +157,9 @@ export function StartPage({ state, send, runDetails }: PanelPageProps) {
           </SectionHeading>
           {runs.length === 0
             ? <p className="type-body text-muted-foreground">No runs yet.</p>
-            : <RunList label="Recent" showConnection={marked}>
-              {runs.slice(0, RECENT_RUNS).map(({ connection, run }) => <RunLine details={runDetails?.(run.id, connection.name)} connection={connection} key={`${connection.name}:${run.id}`} onOpen={() => send({ action: "openRun", name: connection.name, runId: run.id })} run={run} showConnection={marked} />)}
+            : <RunList actions={sharing} label="Recent" showConnection={marked}>
+              {recent.map(({ connection, run }) => <RunLine actions={sharing} connection={connection} key={`${connection.name}:${run.id}`} onOpen={() => send({ action: "openRun", name: connection.name, runId: run.id })}
+                onShare={run.canShare ? () => send({ action: "openSharing", name: connection.name, runId: run.id }) : undefined} run={run} showConnection={marked} />)}
             </RunList>}
         </section>
         {reachable.length > 0 && <section className="grid grid-cols-1 gap-3">

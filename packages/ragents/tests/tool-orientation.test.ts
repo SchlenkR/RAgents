@@ -5,7 +5,7 @@ import { toolOrientationText } from "../src/agents/tool-orientation.ts";
 import { defineRunFunction } from "../src/agents/tools.ts";
 
 const evaluator = defineRunFunction({
-    name: "typescript_eval", label: "TypeScript", description: "Execute TypeScript.", nativeTool: true,
+    name: "typescript_eval", label: "TypeScript", description: "Execute TypeScript.",
     schema: Type.Object({ code: Type.String() }), resultSchema: Type.Null(), available: () => true, run: () => null,
 });
 
@@ -21,17 +21,23 @@ test("plain LLMs receive no TypeScript orientation", () => {
 });
 
 
-test("native workspace tools are identified as direct calls alongside TypeScript functions", () => {
+test("only functions that opt out of native calls are listed, as snippet-only", () => {
     const native = defineRunFunction({
-        name: "read", label: "Read", description: "Read a file.", nativeTool: true,
+        name: "read", label: "Read", description: "Read a file.",
         schema: Type.Object({ path: Type.String() }), resultSchema: Type.String(), available: () => true, run: () => "",
     });
-    const workflow = defineRunFunction({
-        name: "implementation_status", label: "Status", description: "Read workflow state.",
+    const snippetOnly = defineRunFunction({
+        name: "journal_query", label: "Query", description: "Read raw journal events.", nativeTool: false,
         schema: Type.Object({}), resultSchema: Type.Null(), available: () => true, run: () => null,
     });
-    const orientation = toolOrientationText([evaluator, native, workflow]);
-    assert.match(orientation, /read \(direct tool\)/);
-    assert.match(orientation, /without an extra TypeScript wrapper/);
-    assert.match(orientation, /- implementation_status: Read workflow state/);
+    const orientation = toolOrientationText([evaluator, native, snippetOnly]);
+    assert.match(orientation, /Call your tools directly/);
+    assert.doesNotMatch(orientation, /- read:/);
+    assert.match(orientation, /Only available through context.functions:\n- journal_query: Read raw journal events/);
+});
+
+test("without opt-outs the orientation lists no functions", () => {
+    const orientation = toolOrientationText([evaluator]);
+    assert.doesNotMatch(orientation, /Only available through/);
+    assert.doesNotMatch(orientation, /^- /m);
 });

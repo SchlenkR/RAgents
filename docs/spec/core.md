@@ -415,10 +415,11 @@ superfluous field is a diagnostic, and `invokeFunction` removes nothing. The thr
 files load the TS sources at runtime; the type check sees the generated `dist/*.d.ts` that
 `pnpm build:agent` produces.
 
-For ambiguous matches, file editing names their line numbers and supports targeted occurrences, a
-nearby line, or all occurrences. Contradictory anchors and equally near matches are rejected. The
-check of the last read file state happens within the same mutation lock as the writing, also for
-symbolic file aliases. A cancellation releases this lock only when a file operation already running
+File editing takes one exact replacement per call in the shape of the common agent harnesses
+(`file_path`, `old_string`, `new_string`, `replace_all`); for an ambiguous match the error names the
+lines of all matches, and only `replace_all` changes several (`plugins.md`, Workspace, sandbox tools,
+and processes). The check of the last read file state happens within the same mutation lock as the
+writing, also for symbolic file aliases. A cancellation releases this lock only when a file operation already running
 has finished.
 
 Skill preloading (`ragents-skill-preload`, `drivers/skill-preload.ts`) attaches selected skill
@@ -458,12 +459,12 @@ boundary is the sandbox per run. Bash is allowed within it.
 All stop paths follow the same principle: block new work first, then cancel, wait for running
 work, and only then release resources. The exact boundary differs:
 
-Interrupting a turn is not a stop. The stop button in a chat input ("Stop work") ends only the
-running turn of that chat's actor as `interrupted`: its running function calls are aborted, the
-visible text of its unfinished answer stays, and the actor remains active and takes the next
-message as a new turn. Its children and all other actors keep working, and without a running
-turn of this actor the input offers no stop. Stopping an actor for good and stopping the whole
-run are separate, explicitly labeled actions.
+The stop button in a chat input ("Stop work") pauses the whole run: from that moment no turn of
+any actor starts, the running turns of all actors, the coordinator's sub-agents included, end as
+`interrupted`, and the run stays paused until a human continues it. Nothing is lost: what arrives
+in the meantime waits in the journal. The visible text of an unfinished answer stays, and every
+actor stays active. Interrupting the turn of a single actor only, stopping an actor for good, and
+stopping the whole run are separate, explicitly labeled actions.
 
 In the run title bar, a user with write permission can request a complete stop through "Stop
 run" and a confirmation. The primary actor can also trigger it with `run_stop`. Both use the
@@ -472,6 +473,9 @@ the stop but does not wait for cleanup of its own turn. Acceptance is not proof 
 Cleanup errors are reported in the server log while the stop path's normal quarantine remains
 in effect.
 
+- Run pause (`ragents.runs.pause`, the chat's stop button, `ragents stop <run>`): No turn starts
+  any more and the running turns of all actors end; inputs keep arriving and wait. A human input
+  or `ragents.runs.resume` continues the run (section Pausing a run).
 - Turn interruption (`ragents.runs.interruptTurn`): Ends the running turn of one actor and
   nothing else; the actor, its model runtime, its children, and the run stay as they are.
 - `actor_stop`: Stops the actor, interrupts its running turn, and disposes its model runtime
@@ -536,6 +540,53 @@ owner or an actor with `run.configure` restarts it, `restartActor` writes `actor
 `run.primary-actor-selected` in the same command; the chat is bound to it again. Any other restart
 leaves it a plain actor.
 
+### Pausing a run
+
+`ragents.runs.pause` (`runId`, optional `reason`, default "Paused by the operator") requires the
+rights of a stop (kind `stop`, as for the turn interruption). `TurnScheduler.pauseRun` first writes
+`run.paused` (`reason`, `userId` of the signed-in user, missing without sign-in) in the name of the
+owner and only then interrupts the running turns of all actors in parallel, each with its own
+command (`<command>:interrupt:<actor>`) and the pause reason, exactly like a turn interruption:
+the abort signal reaches running function calls and the model request, which the agent runtime
+cancels down to the provider's HTTP request. Because the pause comes first, no turn can start
+between two interruptions, also not when an interrupted sub-agent triggers a subscription of the
+coordinator, and a crash during the interruptions leaves the run paused. A run that is already
+paused is paused again without an error and without an event.
+
+While `RunState.pause` is set, the scheduler starts no turn and feeds no input into a turn that
+is still ending; `turn.started` is rejected in the decision (`run-paused`, 409) and in the journal
+check. Every input is still written as `actor.input.enqueued`: subscription deliveries, automatic
+notices to creators (the interrupted sub-agent reports "was interrupted" to its creator), wake-ups
+of `ragents.watch`, run-script results, and messages. Nothing is discarded.
+
+The pause holds the actors: `run.paused` marks every active executable actor with `held`, and an
+actor created during the pause is held too. `run.resumed` lifts the pause and releases the
+primary actor. Every other actor stays held until it is addressed directly after the pause: by a
+human input (`origin: "human"`) or by an input that another executable actor enqueues
+(`actor_input`). Automatic inputs under the owner and subscription deliveries leave it held and
+wait; `actor.restarted` releases it too. A held actor starts no turn (`actor-held`). Sub-agents
+and TypeScript actors therefore do not continue by themselves after a resume; the coordinator
+learns from the waiting notices what was interrupted and addresses them again.
+
+A human input into a paused run first resumes it: the decision of `enqueueInput` writes
+`run.resumed` with `trigger: "input"` and the signed-in user before the `actor.input.enqueued`, in
+the same command. This applies to `ragents.chat.send`, `ragents.chat.sendToActor`, and
+`ragents.runs.enqueueInput`. `ragents.runs.resume` (rights of `write`) writes `run.resumed` with
+`trigger: "resume"` without an input; a run that is not paused stays as it is. Only the owner
+writes `run.paused` and `run.resumed` (`run-pause-denied`, 403).
+
+After the resume, the primary actor's next turn claims its oldest waiting input, and all further
+waiting inputs join the same turn as steering before the first model request, in journal order.
+The human input was enqueued last and is therefore the last message, the current instruction.
+An input over the steering limit of 30,000 characters waits for the next turn, as always.
+
+TypeScript actors and run scripts pause like agents: a running turn of their program ends as
+interrupted, its claimed input is consumed, and after the resume the actor stays held like a
+sub-agent unless it is the primary actor. Actor-program processes are not stopped. Functions and
+app actions that a person calls from a view are no turns and keep working during the pause;
+inputs they enqueue wait. Background processes of the Processes tab keep running; they end with
+their own stop or with the run stop.
+
 ### Stop procedure, cleanup, and deletion
 
 A stop is always a decision about the whole branch: `stopActor` produces `turn.interrupted` (if a
@@ -592,8 +643,9 @@ boundaries for it.
 <!-- guide:runtime -->
 ## Actors, inputs, events, and subscriptions
 
-`actor_input` delivers text and optional artifacts directly to exactly one executable actor.
-The driver receives the content without a routing envelope. There are no channels, message
+`actor_input` delivers text and optional artifacts directly to exactly one executable actor:
+`to` names the recipient by handle or ID, `message` is the text, as in the messaging tools of
+common agent harnesses. The driver receives the content without a routing envelope. There are no channels, message
 domain, read receipts, mention syntax, or special result or delivery message. Communication is
 plain text. The sender can be a human owner, another actor, or a subscription delivery. Normal
 model responses need no sending function: every completed output is already a
@@ -626,7 +678,7 @@ observation) and decides at every end whether the worker is finished, waiting fo
 or needs another prompt. An LLM coordinator that "waits passively" is not a wake-up. A watcher
 from `ragents.watch` (`plugins.md`) is such a host service: it wakes the controlling actor with
 the reason and changes as soon as its wake condition is met. `ragents.ask` is another: after
-`ask_user` the asker ends its turn, and the answer or the user's next message arrives as a new
+`ask_user` the asker ends its turn, and the answers or the user's next message arrive as a new
 input. Instructions may say "end the turn" only where such an observer exists. Synchronous
 functions return their result, and the caller continues in the same turn.
 <!-- /guide:runtime -->
@@ -655,7 +707,7 @@ the way to the model, it takes over only the fields of its result schema, that i
 hashes, and no input echoes (`reason`, `title`, `prompt`, `content`, `state`). A function that
 delivers events names exactly the types it produces with `eventResultSchemaOf(...)` (`actor_input`:
 `actor.input.enqueued`), so that its TypeScript result type also knows only these. A call that only
-confirms (`event_unsubscribe`, `run_configure`, `todo_replace`) returns
+confirms (`event_unsubscribe`, `run_configure`, `todo_write`) returns
 `null`; `event_subscribe` returns only `subscriptionId` and the resolved `sources`. Journal,
 `event_query`, and the RunView for the web stay complete.
 
@@ -664,16 +716,17 @@ confirms (`event_unsubscribe`, `run_configure`, `todo_replace`) returns
 `enqueuedBy` names who queued an input, not who wrote it. Besides the messages of a human, the
 automatic notices to creators, inputs from plugins (the answer to a question from `ragents.ask`,
 the solution answer from `ragents.lsp-roslyn`, the wake-up of a watcher from `ragents.watch`), the
-start input of a run script, and every input through `ragents.runs.enqueueInput` also run under the
-owner. The chat message of a human therefore additionally carries `origin: "human"`, in the payload
-of `actor.input.enqueued` and in the ActorInput of the projection. The field is set only by the
-host's chat path: `ragents.chat.send` and `ragents.chat.sendToActor`, through which
-`ragents.overseer.sendMessage` and the first message of `ragents.overseer.createRun` also queue.
-Whoever writes through these methods with a user's access, such as the global coordinator or a
-mini-app, counts as that human. Decision and journal check allow the field only for a human acting
-actor (the decision otherwise rejects with `input-origin-invalid`, status 403) and never on a
-subscription input. The core does not evaluate it; plugins read it, for example `ragents.ask` uses
-it to close the open questions of the message's addressee (`plugins.md`).
+and the start input of a run script also run under the owner. The message of a human therefore
+additionally carries `origin: "human"`, in the payload of `actor.input.enqueued` and in the
+ActorInput of the projection. The field is set by the host's chat path, `ragents.chat.send` and
+`ragents.chat.sendToActor`, through which `ragents.overseer.sendMessage` and the first message of
+`ragents.overseer.createRun` also queue, and by `ragents.runs.enqueueInput`, which a user calls
+with their access. Whoever writes through these methods with a user's access, such as the global
+coordinator or a mini-app, counts as that human. Decision and journal check allow the field only
+for a human acting actor (the decision otherwise rejects with `input-origin-invalid`, status 403)
+and never on a subscription input. The core evaluates it for the pause: a human input resumes a
+paused run and releases a held actor (section Pausing a run). Plugins read it too, for example
+`ragents.ask` uses it to close the open questions of the message's addressee (`plugins.md`).
 
 ### Delivery of subscriptions
 
@@ -687,8 +740,8 @@ run; the input content is derived from them anew. DELIVERY to the actor is typed
 carries the plain text of the text events (`model.output.completed`, `model.reasoning.completed`,
 `runtime.output.recorded`) and otherwise the canonical JSON of the payload. An LLM actor gets the
 same facts as a readable header line with event type, sender handle, and sequence, plus a compact
-line of its active subscriptions. A direct `actor_input` stays unchanged: text in `content`,
-`event` is `null`.
+line of its active subscriptions. An input from `actor_input` stays unchanged: its `message` is
+`input.content`, `event` is `null`.
 
 ### Actor roster and workspace in the system prompt
 
@@ -743,8 +796,8 @@ run panel (`plugins.md`).
 An executable actor optionally carries a short description `description` for overviews: at most
 160 characters (`actorDescriptionMaxLength`), whitespace collapsed to one space, an empty one is an
 error. `agent.spawned` and `script.created` record it in the payload, otherwise the projection sets
-`null`; journals without the field therefore load unchanged. `agent_spawn` takes it as the field
-`description`; an actor program passes the description of its package when creating its TypeScript
+`null`; journals without the field therefore load unchanged. `agent_spawn` requires it as the field
+`description`, a label of a few words; an actor program passes the description of its package when creating its TypeScript
 actor, truncated to the limit. `actor_list` returns it next to `createdBy`, plus the size of each
 actor's tool selection (`toolCount`, `null` for an open one), and the names only with
 `toolNames: true`. The core never reads it; it is not a role contract and changes no permissions.
@@ -798,6 +851,20 @@ that is already assigned. The creation itself remains recorded as an event in th
 <!-- guide:runtime -->
 ## Equipping subagents
 
+`agent_spawn` creates exactly one LLM agent in the run, with the fields of the subagent tools of
+common agent harnesses: `description` is a required label of a few words, `prompt` is the first
+task, and `name` is the requested handle. `instructions` holds the lasting role and rules for the
+agent's system prompt; a role from `model_list` supplies none. With `prompt`, the command that
+writes `agent.spawned` also enqueues the task as the agent's first input, so the agent starts at
+once; this needs `actor.input` besides `agent.spawn`. Without `prompt` the agent stays idle until
+an `actor_input` reaches it. Nothing waits for the agent: the call returns `{ id, handle }`, and
+its answers reach the caller only as later inputs of a subscription to its events, while failed
+and interrupted turns arrive as automatic notices. Because a task given at the spawn starts at
+once, a subscription made afterwards can miss the first answer; whoever needs it creates the
+agent without `prompt`, subscribes, and then sends the task with `actor_input`. A prepared setup
+joins a run through `run_script_start` and a TypeScript actor comes from an actor program;
+`agent_spawn` creates neither, and no function of a run creates another run.
+
 `agent_spawn` requires an explicit function selection in `tools`:
 
 | Selection                            | Equipment                                                          |
@@ -823,10 +890,10 @@ reach the fork. Both source and fork require the agent driver; a source without 
 reached the model, and not itself a fork, is rejected with `fork-without-turn`. A plain LLM receives no function overview. Its driver must explicitly support this
 isolation or the turn is rejected.
 
-Equipped LLMs receive `typescript_api` and `typescript_eval`, plus an automatically generated
-overview of their available TypeScript functions with names and short descriptions. The
-overview stays current during the turn. Domain functions are called through
-`context.functions` in snippets. Additional native tools require explicit registration. Roles
+Equipped LLMs receive their available functions as native tools, plus `typescript_api` and
+`typescript_eval`; snippets call the same functions through `context.functions`. A generated
+overview in the system prompt lists only the snippet-only functions (`nativeTool: false`) with
+names and short descriptions. Tools and overview stay current during the turn. Roles
 and work boundaries remain prompt instructions. Alongside a role (field `profile`), `agent_spawn` accepts
 `model` and `thinking` from the model list. A role supplies only the driver, provider,
 reasoning level, timeout, and workspace default; the product model list defines which models are
@@ -1051,7 +1118,7 @@ every LLM agent is part of the journal as well; working files are stored separat
 
 ### File format, write boundaries, and replay
 
-Every run has a readable `journal.jsonl` in file format v8 and, for large contents, a neighboring
+Every run has a readable `journal.jsonl` in file format 10 and, for large contents, a neighboring
 folder `payloads/`. A line contains one command with all the events that resulted from it. Format
 version, run ID, command, and timestamp are stored once in the shared envelope; actor and command
 ID as well as the internal event schema version are added when reading. The command holds
@@ -1094,13 +1161,15 @@ already have been written. The restart reads complete lines and discards an inco
 Other runs stay writable. Errors when preparing a content file before the journal append, in
 contrast, allow an immediate retry.
 
-The journal writes file format 9 and reads formats 7 to 9, all with internal event schema 3. Format
+The journal writes file format 11 and reads formats 7 to 11, all with internal event schema 3. Format
 7 brings the model context (`model.input.presented`, `model.step.completed`,
 `model.tool-result.presented`, `context.compacted`); older journals carry none and are rejected with
 this cause, without migration, for the affected run. Format 8 brings `origin` on
 `actor.input.enqueued` (section Origin of an input), format 9 `threshold` on `context.compacted`
-(section Retries and compaction); a line of an older format never carries the respective field and
-therefore stays readable, and a format after 9 is rejected. The encoding has been unchanged since
+(section Retries and compaction), format 10 the event `run.sharing-changed` (`profiles.md`, Sharing
+in detail), format 11 the events `run.paused` and `run.resumed` (section Pausing a run); a line of
+an older format never carries the respective field or event and therefore stays readable, and a
+format after 11 is rejected. The encoding has been unchanged since
 4; the number increases as soon as an older version would reject newly written lines, so that it
 fails at the first such line with the format version instead of at a semantic contradiction. Every
 run is first completely checked and projected before its events, identifiers, and states are taken
@@ -1114,7 +1183,9 @@ cause under `locked`, without title generation, plugin metadata, and workspace
 could not be loaded names no owner; the permission check treats the run like one without an owner,
 so it is visible and deletable with `runs.read.all` or without sign-in. Deletion archives the files
 unchanged and releases the lock. The host also checks persisted plugin contracts before replay; removed host layouts, view
-placements, and layout-function references isolate only the affected run without rewriting files.
+placements, layout-function references, and questions of `ragents.ask` in the removed single-question shape (an action with a
+`question` text instead of a `questions` list, open or answered) isolate only the affected run without rewriting files. The same checks refuse such
+records when they are appended or adopted.
 Isolated runs receive no working directories or scheduler
 execution and cannot accidentally be created anew under the same ID. `Journal.unavailableRuns`
 names all locked runs, including those after a write error. This also applies to the global
@@ -1224,6 +1295,10 @@ at the next tool call.
    until its result; whoever wants to redirect immediately interrupts the turn. A fed-in input
    changes neither the model choice nor the system prompt of the turn; both apply, as determined at
    turn start, until its end.
-6. Windows flushes journal and marker file contents, but skips directory `fsync`, which its file
+6. A held actor that only reacts to subscriptions stays held after a resume until someone
+   addresses it directly or restarts it; its automatic inputs wait. The answer to a question that
+   a person gives in a paused run is an input under the owner without human origin: it waits like
+   any other input and neither resumes the run nor releases the asker.
+7. Windows flushes journal and marker file contents, but skips directory `fsync`, which its file
    API does not support. Directory entries after renames or deletions therefore have no explicit
    power-loss durability guarantee; Linux and macOS retain their directory synchronization.

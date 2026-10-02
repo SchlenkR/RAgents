@@ -51,7 +51,15 @@ Click the logo at the top left ("Back to Start") to see recent runs and permitte
 also works with the keyboard. Click a run to continue, or open
 All runs for search and selection; the arrow next to the Runs title leads back to Start. Deleting selected runs requires permission and confirmation;
 errors remain visible. Locked runs show the cause and cannot be opened, but can be selected
-for deletion. Browser rows retain owner labels, plugin metadata, and per-user read markers.
+for deletion. Each row shows the run's state with the number of open inputs and, below the
+title, who created it and short details such as a workspace other than the empty folder per run.
+Click anywhere on the row to open the run. A dot in the state icon marks activity you have not
+viewed yet. The read state belongs to your user on the server: a run you viewed in the browser
+also counts as read in VS Code and on your other devices, and other users learn nothing of it.
+With sign-in, a run you shared shows a people icon ("Shared") next to its title, and a run
+someone shared with you shows "Shared with you - view only" or "Shared with you - can operate";
+such a run cannot be selected for deletion. "Share ..." at the end of a row opens the Share
+dialog for runs you may share, as described under [Share runs](#share-runs).
 
 As long as no finished automatic title exists, the run list shows the original
 task. After successful generation and storage, the short heading appears without
@@ -80,6 +88,12 @@ The right-hand inspection rail also provides Documents, Files, Functions, Execut
 plugin contributions when available. Clicking a rail button opens its panel; the same button,
 Escape, X, or the backdrop closes it. Visited persistent panels keep their state.
 
+A document an agent shows appears as a card in the chat and opens in Documents: text it wrote,
+a file of the run's file storage, or a file of the workspace, also one on a workstation. A
+workspace file is read when you open it, so it shows the current content and needs the
+permission to inspect the workspace. An agent's to-do list appears on its actor card with the
+completed items checked and the item in progress in its running form, such as "Running tests".
+
 Journal in the bottom status bar shows actual events, newest first, with search, expandable JSON,
 and more results on demand. Executions shows recorded TypeScript calls and their results.
 
@@ -89,10 +103,14 @@ input toolbar of every chat switches between all replies and only the latest rep
 of your inputs (hiding the intermediate replies of a long turn; your inputs and the final answers
 stay); the choice is kept per chat in the browser, ordinary chats start with all replies and the
 global coordinator starts with the latest reply only. Questions appear
-directly above the input and remain as receipts in history after answering. An agent that asks
-ends its turn; your answer reaches it as a new message, and a message you write to it instead
+directly above the input and remain as receipts in history after answering. An agent can ask up
+to four questions at once; they share one card, each with a short label, options with a
+description, and a field for a free answer instead. Choose an option per question (several where
+the question allows it) or write your own answer, then send all answers with Submit; a single
+question with one choice is answered by clicking its option. An agent that asks
+ends its turn; your answers reach it together as a new message, and a message you write to it instead
 closes its open questions. A message sent during
-a model turn steers that turn; Stop work interrupts only the current turn. Stop run ends work
+a model turn steers that turn; Stop work pauses the whole run until you continue it. Stop run ends work
 across the run. Read access shows questions and conversations without answer or send controls.
 
 ## Attachments in the chat
@@ -364,9 +382,9 @@ Every signed-in user has their own global coordinator; without sign-in there is 
 one. It oversees the runs its user sees, reads their journals, and can start new runs
 with a task or an installed run script; it acts with the access and
 permissions of its user, and new runs belong to that user. Created runs can be opened
-through the run list. The stop button at its input appears only while the global
-coordinator itself has a turn, and interrupts only that turn; it stops another run on
-request through the management methods. Without write permission,
+through the run list. The stop button at its input appears while the global coordinator
+has a turn and pauses its own run until your next message; it stops another
+run on request through the management methods. Without write permission,
 the button opens the readable history with the focus in it; the input shows "Read access to
 the global coordinator", and sending is blocked.
 
@@ -598,8 +616,11 @@ popover with the status, full selectable message, "Open output", and either
 "Retry" or "Sign in". A lock opens the same sign-in dialog.
 
 Below that, **Continue** shows the five most recent runs from all servers in a fixed-column
-grid with status, title, right-aligned time, and, when more than one exists, server. "All N
-runs" opens the Runs page. **New** appears when at least one server is reachable and permits
+grid with status, title, right-aligned time, and, when more than one exists, server. Rows are
+the same as in the browser: below the title the owner and short details such as the workspace,
+the whole row is clickable, and a dot in the status icon marks activity you have not viewed in
+any host yet. Shared runs carry their sharing icon next to the title, and runs you may share
+end with "Share ..." (see [Share runs](#share-runs)). "All N runs" opens the Runs page. **New** appears when at least one server is reachable and permits
 new runs. Entries are grouped by server when needed. The first entry is its default template,
 marked "Default", or "New chat" in the "No template"
 category. Remaining templates follow,
@@ -641,21 +662,26 @@ and message; "Show extension" opens the extension page for the update, and
 "Show servers" opens the Server page.
 
 Every status uses a colored icon and a tooltip with the same vocabulary everywhere. A run is
-"running", "waiting for input" (with the number of open inputs),
+"running", "paused", "waiting for input" (with the number of open inputs),
 "idle", "ended", "failed", or "cancelled". A
 server is "connected", "ready", "starting", "sign-in required",
-"unreachable", "stopped", "failed", or "no access". Time is compact and omits "ago": `now`, `5 min`,
-`3 h`, `2 d`, then a date after seven days. A function or mini-app name never appears as a status.
-Status icons never resemble a stop button: cancelled is a slashed circle, ended a check mark, and
-idle or stopped an empty circle. Actual stop buttons consistently use a filled red square: "Stop
+"unreachable", "stopped", "failed", or "no access". Time is compact and omits "ago": `now`, `5min`,
+`3h`, `2d`, then a date after seven days. A function or mini-app name never appears as a status.
+Status icons never resemble a stop button: paused is a circle with a pause sign, cancelled a
+slashed circle, ended a check mark, and idle or stopped an empty circle. Actual stop buttons consistently use a filled red square: "Stop
 run" in the run-panel header and run menu, "Stop work" beside the
 chat input, and the stop controls for run processes.
 
-Stopping work in a chat and stopping the run are different things. "Stop work" appears in a
-chat input only while that chat's own actor has a turn running, and it interrupts just that turn:
-the text already written stays, running function calls are cancelled, and the actor stays active
-and answers the next message. Actors it has started keep working, and when only another actor is
-busy, the input pulses but offers no stop. To end everything, use "Stop run" with its
+"Stop work" pauses the whole run and is not the end of it. It appears in every chat input
+while any actor of the run is working: no turn of any actor starts any more, the running turns
+of all actors end, also those of the agents the coordinator started, and the text already written
+stays. Nothing is lost: what arrives in the meantime, such as a sub-agent's report, waits. Above
+the input one line says "Paused - 3 inputs waiting" with "Resume". "Resume" continues without a
+message; a message you send continues as well and reaches the coordinator together with
+everything that waited, your message last, so it is the current instruction. Agents the
+coordinator started continue only once it addresses them again. Every turn that no message of
+yours started carries a line about its trigger in the chat, such as "New turn, triggered by
+turn.finished of @implementer". To end everything, use "Stop run" with its
 confirmation; to stop a single actor for good, use "Stop" on its actor card. If a chat's actor has
 been stopped, the input is replaced by `@handle stopped: <reason>` and, with permission to operate
 and inspect the run, "Restart". Restarting the former primary actor makes it the
@@ -692,6 +718,28 @@ session. The session token is stored there as well and sent as a bearer token; i
 in their URL (the server accepts a bearer token or the `access` query parameter for GET requests).
 After expiry or a server restart, that server asks for sign-in again without affecting others.
 `RAgents: Sign out` revokes the session.
+
+## Share runs
+
+With sign-in, the owner of a run and users with `runs.read.all` can share it with other users of
+the same profile. Click "Share ..." at the end of its row on Start or Runs, or "Share" in the run
+header. A new empty run offers "Share" before its first message; the choice applies as soon as the
+run is created. The "Share run" dialog names the run and has an "Everyone" row with "Off", "Can
+view", or "Can operate", one row per user with "Can view" or "Can operate" and a remove button,
+and "Add user" for the other users of the profile; a newly added user starts with "Can view". A
+user gets the higher of "Everyone" and their own row. "Save" stays disabled until something changes
+and while saving; when the server refuses, the reason appears in the dialog, which keeps your
+changes. "Cancel" or Escape closes it without saving. The dialog is the same in the browser and in
+VS Code; in a narrow run header the button shows only its icon.
+
+"Can view" shows the run, its chat, apps, and journal as far as your own permissions go, but
+operates nothing: the run header shows "View only", the chat input is disabled with "Shared with
+you for viewing only", and "Stop run", "Run script", answers to questions, and app actions are
+missing. "Can operate" works in the run within your own permissions, and the header shows "Shared".
+In someone else's run that only its owner operates, the chat input says "Only its owner operates
+this run"; "Stop run" and the stop button in the chat input stay. A run shared with you is never deleted by you. If a share is taken
+back while you have the run open, the panel returns to Start and shows "This run is no longer
+available to you."
 <!-- /guide:clients -->
 
 ## Settings and behavior of the VS Code extension
@@ -720,7 +768,7 @@ profile shows its templates only after startup.
 <!-- guide:clients -->
 ## Control RAgents as an agent
 
-An AI agent working on the same machine controls RAgents through five `ragents` subcommands. In
+An AI agent working on the same machine controls RAgents through seven `ragents` subcommands. In
 a checkout, use `pnpm ragents <command>`. These commands are the agent-facing contract: `run` and
 `send` wait for the turn to end, and every command returns an exit code.
 
@@ -729,11 +777,16 @@ ragents provision developer                                  # once per machine
 ragents run selftest/workspace-project "Fix the type error in src/broken.ts"
 ragents send <runId> "Read README.md and report the passphrase"
 ragents journal <runId> --tools
-ragents stop <runId>                                         # interrupt the primary actor's active turn
+ragents stop <runId>                                         # pause the whole run until send or resume
+ragents resume <runId>                                       # continue a paused run without a message
+ragents stop <runId> --turn                                  # interrupt only the primary actor's active turn
 ragents stop <runId> --run                                   # emergency stop: halt the whole run
 ragents stop --host                                          # stop the remembered host
 ragents script <runId>                                       # list the run scripts and whether each can join the run
 ragents script <runId> <entry> --input '{"topic":"Launch"}'  # start one inside the running run
+ragents run "Review the change" --share bob --share carol:write   # share the new run before the task goes out
+ragents share <runId>                                        # whom the run is shared with
+ragents share <runId> bob:write --all read                   # replace the sharing; --none shares with nobody
 ragents --help                                               # same as ragents help
 ragents --version                                            # the installed version, same as ragents -v
 ```
@@ -766,16 +819,30 @@ chooses its chat partner during setup, the task waits instead of failing. `send`
 same operation in an existing run. `journal` reads the history from the profile's data directory
 without a server, using the same code as `pnpm driver journal`; with `RAGENTS_URL` set, it reads it
 from the server through `ragents.runs.events`, which requires `runs.inspect`. `stop <runId>`
-interrupts only the active turn of the run's primary actor through `ragents.runs.interruptTurn`,
-exactly like the stop button in the chat input: the run and all actors stay active and accept the
-next task, and without an active turn nothing happens. `stop <runId> --run` is the emergency stop (`ragents.chat.stop`): it aborts every turn
-and stops all actors of the run. `stop --host` terminates exactly the PID in `host.json`, never a
+pauses the whole run through `ragents.runs.pause`, exactly like the stop button in the chat: no
+turn of any actor starts any more, the running turns of all actors end, and what arrives in the
+meantime waits. `resume <runId>` continues it through `ragents.runs.resume`; `send` continues it
+too, and its message reaches the primary actor last, after everything that waited. A sub-agent
+continues only once it is addressed again. `stop <runId> --turn` interrupts only the active turn
+of the run's primary actor through `ragents.runs.interruptTurn`: the run and all actors stay
+active, and without an active turn nothing happens. `stop <runId> --run` is the emergency stop
+(`ragents.chat.stop`): it aborts every turn and stops all actors of the run. `stop --host` terminates exactly the PID in `host.json`, never a
 process pattern, and only if the host at the recorded address reports that same PID from
 `/health`; otherwise it fails, leaves the process alone and removes the stale record.
 `script <runId>` lists the run scripts through `ragents.runs.scripts`, one per line with id, title,
 and the reason if one cannot join; `script <runId> <entry> [--input <json>]` starts it inside the
 run through `ragents.runs.startScript` as the run's user and prints `script: @<handle>, start <n>`;
-a refusal is an error with exit code 1. `--json` prints the RPC results instead. `ragents --help` and `ragents help` show usage and exit with 0; invoking the
+a refusal is an error with exit code 1. `--json` prints the RPC results instead.
+
+`run --share <user>[:read|:write]` (repeatable, `read` without a level) and `--share-all
+<read|write>` share the new run with users of the profile or with all of them, through
+`ragents.runs.share` on the fresh run identifier after the start options and before the task; a
+refusal, for example a user the profile does not have or a profile without sign-in, ends the
+command before anything is sent. `share <runId>` prints whom a run is shared with, one line per
+target (`everyone: read`, `bob (Bob): write`, or `nobody`), through `ragents.runs.sharing`;
+`share <runId> <user>[:read|:write]... [--all <read|write>]` replaces the whole sharing and prints
+the result the same way, `--none` shares the run with nobody. Both need sign-in and only work for
+the run's owner or a user with `runs.read.all`; `--json` prints the RPC result. `ragents --help` and `ragents help` show usage and exit with 0; invoking the
 command without arguments is an error with exit code 1. `ragents --version` and `ragents -v` print
 the version of the installed package and exit with 0.
 
@@ -802,12 +869,14 @@ personal token.
 
 stdout contains function calls (`> <name>`, then `< <name> <duration>s ok`, `error`, or
 `cancelled`) as far as the server shows them to the user (`runs.inspect`), the model response,
-and finally the fixed line `run: <id>`. A question the agent asks in the turn appears as
-`? <question> Options: "<option>", ... - answer with: ragents send <runId> "<answer>"`; the turn
-ends with the question, and the message from `send` closes it and reaches the agent as its next
-input. `journal` shows such a question as a `QUESTION` line. Messages from the command itself go
+and finally the fixed line `run: <id>`. Every question the agent asks in the turn appears as one
+line `? [<header>] <question> Options: "<label>" (<description>), ...`, with `(several allowed)`
+when it takes several options; the last line of a call ends with
+`- answer with: ragents send <runId> "<answer>"`. The turn ends with the questions, and one
+message from `send` closes all of them and reaches the agent as its next input, so answer every
+question in that text. `journal` shows each question as a `QUESTION` line. Messages from the command itself go
 to stderr. With `--json`, the same steps are emitted as newline-delimited JSON instead (`tool`,
-`tool-end`, `question` with `id`, `question`, `options`, and `multi`, `output`, and finally `turn`,
+`tool-end`, `question` with `id` and `questions` as the agent asked them, `output`, and finally `turn`,
 the others carrying the objects of the run view). Exit code 0 means the turn
 completed; 2 means it was interrupted; 1 means a failed turn or connection problem. If the event
 stream or a request breaks while the command waits, it fails with the cause instead of hanging;
@@ -867,6 +936,12 @@ A run script whose `RUN.md` sets `embeddable: true` also starts inside a running
 `ragents.runs.startScript` with `runId`, `entry`, and `input` waits and returns the script actor and
 which start of its package in the run this was, or the reason in `error`. The primary actor stays;
 a repeated start reuses the script's actor.
+
+`ragents.runs.share` with `runId` and `sharing` (`everyone` and `users` with `userId` and
+`access`, each `read` or `write`) replaces whom a run is shared with, also on an identifier without
+a run before its first message; `ragents.runs.sharing` reads it together with the users it can be
+shared with. Rules, errors, and what each access permits are in `docs/spec/profiles.md`, Sharing in
+detail.
 
 Without HTTP, use stdio: `pnpm start -- --stdio` exchanges one JSON message per line through
 stdin and stdout and opens no port. The startup modes are:

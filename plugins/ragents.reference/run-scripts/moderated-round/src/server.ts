@@ -26,17 +26,19 @@ export default defineActor(contract, {
     if (!first) throw new Error("No role other than coordinator; agent_spawn needs one.");
 
     const moderator = await context.functions.agent_spawn({
-      handle: "moderator",
+      name: "moderator",
       displayName: "Moderator",
-      prompt: "You moderate a conversation circle between the user and two guests.",
+      description: "moderates the round",
+      instructions: "You moderate a conversation circle between the user and two guests.",
       profile: first.name,
       tools: ["actor_input", "event_subscribe", "event_unsubscribe", "event_subscription_list"],
     });
     const guests: string[] = [];
     for (const name of ["kai", "lena"]) {
       const guest = await context.functions.agent_spawn({
-        handle: name,
-        prompt: `${guestOf(name)} Reply with at most two sentences.`,
+        name,
+        description: "joins the round as a guest",
+        instructions: `${guestOf(name)} Reply with at most two sentences.`,
         profile: first.name,
         tools: [],
       });
@@ -49,8 +51,8 @@ export default defineActor(contract, {
     });
 
     await context.functions.actor_input({
-      actor: `@${moderator.handle}`,
-      content: "You are the moderator of this run and talk directly with the user in the chat; there is no coordinator. "
+      to: `@${moderator.handle}`,
+      message: "You are the moderator of this run and talk directly with the user in the chat; there is no coordinator. "
         + `Your guests are ${guests.join(" and ")}. Gather their contributions and include them in the conversation circle. `
         + `Topic: "${topic}". Greet the user with two sentences, name the topic, and ask whether they want to ask the first question or whether you should begin.`,
     });

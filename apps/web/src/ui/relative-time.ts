@@ -6,13 +6,13 @@ const WEEK = 7 * DAY;
 const date = (at: number, year: boolean): string =>
   new Date(at).toLocaleDateString(undefined, year ? { day: "2-digit", month: "2-digit", year: "numeric" } : { day: "2-digit", month: "2-digit" });
 
-/** The time in the list: now, 5 min, 3 h, 2 d, from seven days on the date. Without "ago", without a special case for yesterday. */
+/** The time in the list: now, 5min, 3h, 2d, from seven days on the date. Without "ago", without a special case for yesterday. */
 export const shortTime = (at: number, now: number = Date.now()): string => {
   const passed = now - at;
   if (passed < MINUTE) return "now";
-  if (passed < HOUR) return `${Math.floor(passed / MINUTE)} min`;
-  if (passed < DAY) return `${Math.floor(passed / HOUR)} h`;
-  if (passed < WEEK) return `${Math.floor(passed / DAY)} d`;
+  if (passed < HOUR) return `${Math.floor(passed / MINUTE)}min`;
+  if (passed < DAY) return `${Math.floor(passed / HOUR)}h`;
+  if (passed < WEEK) return `${Math.floor(passed / DAY)}d`;
   return date(at, false);
 };
 

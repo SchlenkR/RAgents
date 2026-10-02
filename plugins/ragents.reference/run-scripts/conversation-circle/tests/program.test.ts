@@ -6,7 +6,8 @@ import { setupContext, startInput } from "./helpers.ts";
 test("topic and number of rounds control participants and task", async () => {
   const { calls, context } = setupContext();
   await program.onInput!(startInput({ topic: "Team breakfast", rounds: 3 }), context);
-  assert.deepEqual(calls.filter((call) => call.name === "agent_spawn").map((call) => (call.input as { handle: string }).handle), ["mira", "jon", "ada"]);
+  assert.deepEqual(calls.filter((call) => call.name === "agent_spawn").map((call) => (call.input as { name: string }).name), ["mira", "jon", "ada"]);
+  assert.deepEqual(calls.filter((call) => call.name === "agent_spawn").map((call) => (call.input as { description: string }).description), ["asks curious questions", "voices polite disagreement", "looks for common ground"]);
   assert.deepEqual(calls.find((call) => call.name === "run_configure")?.input, { title: "Conversation circle: Team breakfast" });
   assert.match(JSON.stringify(calls.at(-1)), /exactly 3 conversation rounds/);
   assert.deepEqual(context.state.read(), { built: true });

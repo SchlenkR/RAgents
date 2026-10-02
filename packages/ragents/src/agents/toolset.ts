@@ -10,7 +10,7 @@ import type { Orchestration } from "../runtime/orchestration.ts";
 import type { ModelCatalog } from "./catalog.ts";
 import { ToolRegistry, type ToolProvider } from "./plugins.ts";
 import type { ToolChapters } from "./tool-orientation.ts";
-import { type RunFunction, type ToolScope } from "./tools.ts";
+import { isNativeTool, type RunFunction, type ToolScope } from "./tools.ts";
 import { workingActorFrom, type ClaimedTurn } from "./turn.ts";
 
 export type TurnToolsetOptions = {
@@ -161,7 +161,7 @@ export class TurnToolset {
         const infrastructure = actor.toolNames?.length === 0 ? [] : resolved.filter((tool) =>
             nativeInfrastructure.has(tool.name) && !selected.some((entry) => entry.name === tool.name));
         this.functions.splice(0, this.functions.length, ...selected, ...infrastructure);
-        this.tools.splice(0, this.tools.length, ...this.functions.filter((tool) => tool.nativeTool === true));
+        this.tools.splice(0, this.tools.length, ...this.functions.filter(isNativeTool));
     }
 
     /** A model's tool call always lands in the journal: a failure before the start is recorded as start and failure. */

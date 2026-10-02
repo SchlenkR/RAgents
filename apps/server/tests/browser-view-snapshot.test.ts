@@ -1,15 +1,16 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import { isNativeTool } from "@ragents/engine";
 import type { ActorProgramsService, ActorViewReference } from "../src/plugin-support/actor-programs/service.ts";
 import type { RunBrowser } from "../../../plugins/ragents.browser/server/browser.ts";
 import { createViewSnapshotFunction, viewAddress } from "../../../plugins/ragents.browser/server/view-snapshot.ts";
 
 const view: ActorViewReference = { reference: "counter/main", elementId: "counter--main", visible: true };
 
-const fixture = (options: { view?: ActorViewReference; open?: () => Promise<unknown>; check?: () => Promise<unknown>; snapshot?: string } = {}) => {
+const fixture = (options: { view?: ActorViewReference; navigate?: () => Promise<unknown>; check?: () => Promise<unknown>; snapshot?: string } = {}) => {
   const calls: string[] = [];
   const browser = {
-    open: async (runId: string, url: string) => { calls.push(`open ${runId} ${url}`); await options.open?.(); },
+    navigate: async (runId: string, url: string) => { calls.push(`navigate ${runId} ${url}`); await options.navigate?.(); },
     check: async (runId: string, input: { target: { css: string; frame: string; first: boolean }; noErrors: boolean }) => {
       calls.push(`check ${runId} ${input.target.frame} ${input.target.css} first=${input.target.first} noErrors=${input.noErrors}`);
       await options.check?.();
@@ -40,7 +41,7 @@ test("a snapshot opens the resolved view, waits for its frame and reports what i
   });
   assert.deepEqual(f.calls, [
     "resolve run-1 counter/main",
-    "open run-1 http://127.0.0.1:4713/?layout=app&run=run-1&element=counter--main",
+    "navigate run-1 http://127.0.0.1:4713/?layout=app&run=run-1&element=counter--main",
     "check run-1 iframe #root > * first=true noErrors=false",
     "snapshot run-1",
   ]);
@@ -60,7 +61,7 @@ test("a hidden view is an error that names the fix and never reaches the browser
 });
 
 test("a page that cannot be opened names the reachability and sign-in conditions", async () => {
-  const f = fixture({ open: async () => { throw new Error("Browser navigation failed: HTTP 401 (http://127.0.0.1:4713/)."); } });
+  const f = fixture({ navigate: async () => { throw new Error("Browser navigation failed: HTTP 401 (http://127.0.0.1:4713/)."); } });
   await assert.rejects(f.run({ view: "counter/main" }), /could not be opened: Browser navigation failed: HTTP 401[\s\S]*must not require sign-in/);
 });
 
@@ -76,6 +77,6 @@ test("the function is available only while the actor programs service exists", (
   const absent = createViewSnapshotFunction({ browser, actorPrograms: () => undefined, address: () => "http://127.0.0.1:1" });
   assert.equal(present.available({} as never, {} as never), true);
   assert.equal(absent.available({} as never, {} as never), false);
-  assert.equal(present.nativeTool, true);
+  assert.equal(isNativeTool(present), true);
   assert.equal(present.executionMode, "sequential");
 });

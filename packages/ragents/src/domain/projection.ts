@@ -7,7 +7,7 @@ import {
 } from "./event-semantics.ts";
 import type { JournalEvent } from "./events.ts";
 import { applyJsonChanges } from "./json-patch.ts";
-import { addUsage, emptyUsage, pluginStateKey } from "./model.ts";
+import { addUsage, emptyUsage, notShared, pluginStateKey } from "./model.ts";
 import type { Action, Actor, ActorInput, EventSubscription, ExecutableActor, RunState, RunView, Turn } from "./model.ts";
 
 export type RunDraft = Draft<RunState>;
@@ -89,6 +89,17 @@ const interruptOpenToolCalls = (current: Draft<Turn>, at: string) => {
     }
 };
 
+/** A held actor goes on once a person or another actor addresses it directly after the pause; automatic inputs leave it held. */
+const releaseAddressed = (state: RunDraft, event: Extract<JournalEvent, { type: "actor.input.enqueued" }>) => {
+    const target = state.actors.get(event.payload.actorId);
+
+    if (state.pause || !target || target.kind === "human" || !target.held || event.payload.subscriptionId !== null || event.actorId === target.id)
+        return;
+
+    if (event.payload.origin === "human" || state.actors.get(event.actorId)?.kind !== "human")
+        delete target.held;
+};
+
 const subscriptionBaseOf = (subscription: Draft<EventSubscription>) => ({
     id: subscription.id,
     subscriberId: subscription.subscriberId,
@@ -107,8 +118,10 @@ const created = (event: Extract<JournalEvent, { type: "run.created" }>): RunDraf
     title: event.payload.title,
     ownerId: event.payload.owner.id,
     ownerUserId: event.payload.owner.userId ?? null,
+    sharing: notShared(),
     primaryActorId: null,
     stoppedPrimaryActorId: null,
+    pause: null,
     createdAt: event.occurredAt,
     forkedFrom: null,
     actors: new Map([
@@ -171,6 +184,26 @@ export function applyEvent(
             state.title = event.payload.title;
             break;
 
+        case "run.sharing-changed":
+            state.sharing = { everyone: event.payload.everyone, users: event.payload.users };
+            break;
+
+        case "run.paused":
+            state.pause = { pausedAt: event.occurredAt, reason: event.payload.reason, userId: event.payload.userId ?? null };
+
+            for (const id of [...state.actors.keys()]) {
+                const entry = state.actors.get(id)!;
+                if (entry.kind !== "human" && entry.lifecycle.kind !== "stopped") entry.held = true;
+            }
+            break;
+
+        case "run.resumed": {
+            state.pause = null;
+            const primary = state.primaryActorId === null ? undefined : state.actors.get(state.primaryActorId);
+            if (primary && primary.kind !== "human") delete primary.held;
+            break;
+        }
+
         case "agent.spawned":
             state.actors.set(event.payload.agentId, {
                 kind: "agent",
@@ -188,6 +221,7 @@ export function applyEvent(
                 lifecycle: { kind: "idle", since: event.occurredAt },
                 usage: emptyUsage(),
                 openedToolNames: [],
+                ...state.pause ? { held: true as const } : {},
             });
             break;
 
@@ -206,6 +240,7 @@ export function applyEvent(
                 lifecycle: { kind: "idle", since: event.occurredAt },
                 usage: emptyUsage(),
                 openedToolNames: [],
+                ...state.pause ? { held: true as const } : {},
             });
             break;
 
@@ -233,6 +268,7 @@ export function applyEvent(
                 ? { ...base, subscriptionId: null, sourceEventIds: event.payload.sourceEventIds }
                 : { ...base, subscriptionId: event.payload.subscriptionId, sourceEventIds: [...event.payload.sourceEventIds] };
             state.inputs.set(input.id, input);
+            releaseAddressed(state, event);
             break;
         }
 
@@ -380,9 +416,12 @@ export function applyEvent(
             }
             break;
 
-        case "actor.restarted":
-            executable(state, event.payload.actorId).lifecycle = { kind: "idle", since: event.occurredAt };
+        case "actor.restarted": {
+            const target = executable(state, event.payload.actorId);
+            target.lifecycle = { kind: "idle", since: event.occurredAt };
+            delete target.held;
             break;
+        }
 
         case "subscription.created":
             state.subscriptions.set(event.payload.subscriptionId, {
@@ -529,6 +568,7 @@ export function viewOf(state: RunState): RunView {
         ownerId: state.ownerId,
         primaryActorId: state.primaryActorId,
         stoppedPrimaryActorId: state.stoppedPrimaryActorId,
+        pause: state.pause,
         createdAt: state.createdAt,
         forkedFrom: state.forkedFrom,
         actors: [...state.actors.values()],

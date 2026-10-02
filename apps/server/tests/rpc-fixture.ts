@@ -7,6 +7,7 @@ import {
   MethodContributionRegistry,
   RpcPeer,
   StartOptionContributionRegistry,
+  notShared,
   unrestrictedAccess,
   type AccessContext,
   type ChannelContribution,
@@ -42,7 +43,7 @@ export const methodContext = (access: AccessContext = unrestrictedAccess): Metho
 const missing = (name: string) => () => { throw new Error(`The test does not provide ${name}`); };
 
 /** A server without owner knowledge: every run id is reachable, as without sign-in. */
-export const openRunAccess: RunAccessPolicy = { global: undefined, ownerOf: () => undefined, ownerOnly: () => false };
+export const openRunAccess: RunAccessPolicy = { global: undefined, ownerOf: () => undefined, ownerOnly: () => false, sharing: () => notShared() };
 
 /** The sources of the core methods; the test provides only what its method really uses. */
 export const coreSources = (
@@ -54,6 +55,7 @@ export const coreSources = (
   global: undefined,
   runOwner: () => undefined,
   runOwnerOnly: () => false,
+  runSharing: () => notShared(),
   settingsGuarded: () => false,
   external: { open: () => false, set: async () => undefined },
   ...overrides,
@@ -62,6 +64,9 @@ export const coreSources = (
     list: missing("sessions.list"),
     delete: missing("sessions.delete"),
     subscribeList: missing("sessions.subscribeList"),
+    markViewed: missing("sessions.markViewed"),
+    sharing: missing("sessions.sharing"),
+    share: missing("sessions.share"),
     subscribeRun: missing("sessions.subscribeRun"),
     startOptions: missing("sessions.startOptions"),
     selectStartOption: missing("sessions.selectStartOption"),

@@ -63,6 +63,8 @@ type ExecutableActorBase = ActorBase & {
     usage: TurnUsage;
     toolNames: readonly string[] | null;
     openedToolNames: readonly string[];
+    /** Held since a pause: no turn starts until the run resumes as its primary actor or someone addresses it directly. */
+    held?: true;
 };
 
 export type AgentActor = ExecutableActorBase & {
@@ -198,6 +200,39 @@ export type Artifact = {
     createdAt: string;
 };
 
+/** What a share permits: reading sees the run, writing also operates it as far as the user's own rights go. */
+export type RunShareAccess = "read" | "write";
+
+/** Whom a run is shared with besides its owner: every user of the profile and individual users, each with its own access. */
+export type RunSharing = {
+    everyone: RunShareAccess | null;
+    users: { userId: string; access: RunShareAccess }[];
+};
+
+export const notShared = (): RunSharing => ({ everyone: null, users: [] });
+
+export const isShared = (sharing: RunSharing): boolean => sharing.everyone !== null || sharing.users.length > 0;
+
+/** The access a user gets through the run's sharing: the higher of everyone's and their own. */
+export const sharedAccessOf = (sharing: RunSharing, userId: string): RunShareAccess | undefined => {
+    const levels = [sharing.everyone, sharing.users.find((user) => user.userId === userId)?.access];
+
+    return levels.includes("write") ? "write" : levels.includes("read") ? "read" : undefined;
+};
+
+/** Order of the users does not matter; both sides must not name a user twice. */
+export const sameSharing = (left: RunSharing, right: RunSharing): boolean =>
+    left.everyone === right.everyone
+    && left.users.length === right.users.length
+    && left.users.every((user) => right.users.some((other) => other.userId === user.userId && other.access === user.access));
+
+/** Who paused the run, when and why; userId is the signed-in user, null without sign-in. */
+export type RunPause = {
+    pausedAt: string;
+    reason: string;
+    userId: string | null;
+};
+
 export type RunState = {
     id: RunId;
     revision: number;
@@ -205,9 +240,13 @@ export type RunState = {
     ownerId: ActorId;
     /** The signed-in user who owns the run; null for runs created without sign-in. */
     ownerUserId: string | null;
+    /** Whom the run is shared with besides its owner; nobody until a run.sharing-changed. */
+    sharing: RunSharing;
     primaryActorId: ActorId | null;
     /** The primary actor that was stopped as such, until a primary actor is chosen; its restart by the owner makes it primary again. */
     stoppedPrimaryActorId: ActorId | null;
+    /** Set from run.paused to run.resumed; while it is set, no turn starts. */
+    pause: RunPause | null;
     createdAt: string;
     forkedFrom: { runId: RunId; sequence: number } | null;
     actors: ReadonlyMap<ActorId, Actor>;
@@ -245,8 +284,8 @@ export const eventSubjectOf = (state: RunState, event: JournalEvent): ActorId =>
 
 type Collections = "actors" | "inputs" | "turns" | "subscriptions" | "pluginStates" | "actions" | "artifacts";
 
-/** The run view for clients; owner and context turns stay on the server and are not part of it. */
-export type RunView = Omit<RunState, Collections | "ownerUserId" | "contextTurns"> & {
+/** The run view for clients; owner, sharing and context turns stay on the server and are not part of it. */
+export type RunView = Omit<RunState, Collections | "ownerUserId" | "sharing" | "contextTurns"> & {
     actors: Actor[];
     inputs: ActorInput[];
     turns: Turn[];

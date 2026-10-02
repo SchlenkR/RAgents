@@ -248,7 +248,7 @@ The server-side `PluginHost` has registries for:
   folder `actors/<name>/` in the plugin folder registers one. Names are one namespace per run: at
   startup the host rejects a name two plugins share, a shared name that equals a run script's handle
   or one of its bundled programs, and a script that needs a shared package no plugin provides
-- typed run functions (`host.functions`) with optional native tool presentation
+- typed run functions (`host.functions`), native model tools unless they opt out
 - named domain operations with an input schema, operator policy, and shared execution for
   several surfaces
 - roles and prompt parts
@@ -391,15 +391,19 @@ short `description`, optional `longDescription`, input and result schemas, and i
 from this data. Snippets and actor programs use the same catalog and execution. Availability and
 bound identity apply equally, while a program's `capabilities` limit its installed build.
 
-Every domain function is available through `context.functions` in `typescript_eval`.
-`nativeTool: true` additionally exposes it as a native model tool when the model normally must
-read its result before taking the next step: browser interactions, domain reports and status,
-language diagnostics, `read`, `edit`, `write`, `bash`, `document_write`, `show_document`,
-`ask_user`, and `browser_view_screenshot`, which can return image pixels only natively. Snippets remain the right
-form for calls that combine, filter, or pass results onward, including data queries, management
-functions, list results, and values passed from earlier responses without transcription. Native
-tools remain callable from snippets. The building-block reference marks them in the catalog and
-the system overview calls them direct tools.
+Every function is a native model tool and is also available through `context.functions` in
+`typescript_eval`. The model calls a single action directly; a snippet combines calls, filters
+results, and passes values onward without transcription. `nativeTool: false` keeps a function
+snippet-only. That is the exception for low-level interfaces whose raw results belong in code,
+such as the engine's journal event functions (`event_query`, `event_subscribe`,
+`event_unsubscribe`, `event_subscription_list`); for models, `watch_*` covers waiting for state.
+A function whose purpose only works natively, such as `browser_view_screenshot` returning image
+pixels, must not opt out. Functions that only programs may call are limited by their
+availability, not by the native flag. The building-block reference marks snippet-only functions
+in the catalog, and the system prompt lists them as the functions only available through
+`context.functions`.
+The native calls of one model step run concurrently only when every called function declares
+`executionMode: "parallel"`; otherwise the step runs them one after another in their order.
 
 `endsTurn(output)` lets a native tool end the caller's turn with its result, as `ask_user` does
 after posing a question: when every call of a model step ends the turn this way, the model gets
@@ -619,9 +623,13 @@ chat system note on resolution remains the notice for the user alongside it.
 The file storage is a separate service: `ragents.documents` provides `documentStoreToken`
 (`directoryFor(runId)`), by default under `host.storage.session(runId, "documents")`,
 with `DOCUMENTS_DIR` as a subfolder per run under an external path. The storage is not in the workspace and is
-not a bash path: `document_write` (`path` in the storage plus `content`) is the only way in.
-A workspace file gets in through `read` and then `content`; a copy through the
-model output of the `read` tool would be truncated for large files. Per topic a subdirectory is created there, and `ragents.documents` shows it in the
+not a bash path: `document_write` (`storePath` in the storage plus either `content` or
+`file_path`) is the only way in. `content` is text the model wrote; `file_path` names an existing
+file exactly as `read` names it (relative to the working directory, absolute in a root of the run,
+or with an alias such as `@actors`), and the server copies it unchanged, so the model never
+retypes a file. The copy is read through the executor operation `files.text` of the machine that
+holds the addressed root, a workstation included, with the roots `read` may read; a file over
+256 KB or a binary file is an error with that reason. Per topic a subdirectory is created there, and `ragents.documents` shows it in the
 Documents tab.
 Actor programs use their own private pnpm workspace under their run storage.
 Its `actors/` collection is a server root with the alias `@actors`
@@ -633,8 +641,13 @@ resolution of these plugin workspaces happen through the shared workspace contra
 the model does not need to carry private storage paths over from responses.
 Other plugins consume the workspace services through typed tokens.
 
-`show_document` opens a document display from the logged tool arguments or
-a file of the storage. Like `document_write`, it is a native model tool, so that a
+`show_document` opens a document display from exactly one source: `file_path` for any file `read`
+reaches, named the same way, `storePath` for a file of the storage, or `content` for text the
+model wrote; a correlation error names the three forms. The call checks a `file_path` through
+`files.text` and returns only "Shown to the user."; the display reads the current content again
+through `GET /api/plugins/ragents.documents/runs/<runId>/workspace/content?path=`, which needs
+`runs.read`, `runs.inspect`, and access to the run's workspace, and a stored file through the
+storage route. Like `document_write`, it is a native model tool, so that a
 display costs one round and not three. It publishes no core artifact: `RunView.artifacts` stays
 unchanged. Immutable, versionable run results are created through `artifact_publish`;
 the Documents view lists these results in addition to files and displays.
@@ -650,9 +663,17 @@ is optional: without `ragents.orchestration` the server starts, and a TypeScript
 no driver at runtime.
 
 Run metadata are contributions as well. The server collects them per run under the plugin ID, and the
-web renders the matching presentation from its registry. A workspace plugin thus provides,
+web renders the matching presentation in the run header from its registry. A workspace plugin thus provides,
 for example, the branch for the run list and chat without the core
-knowing Git domain logic. The run list queries contributions only for the runs the caller may see,
+knowing Git domain logic. For the run list a contribution declares `listDetail(value)`: it turns
+its value into one line `{ label, text, icon? }` (`RunListDetail`, `plugin-types.ts`), the icon
+`folder`, `branch`, or none. `ragents.runs.list` delivers these lines per run as `listDetails` in
+registration order; a contribution without a value or without `listDetail`, or whose
+`listDetail` returns undefined, adds none, and one that throws or returns another shape counts as
+failed like a failing `describe`. The browser and VS Code draw the lines the same way below the
+run title, so the run list needs no web component of the plugin. `ragents.workspace` lists the
+workspace summary with the folder icon unless the run works in the new folder on the server.
+The run list queries contributions only for the runs the caller may see,
 for all runs and contributions at once, and waits at most `SESSION_METADATA_TIMEOUT_MS`
 (1.5 s, `apps/server/src/provider.ts`) per contribution. Whoever does not answer by then or fails loses only
 its value: it is missing under `metadata` and appears with the reason under the run's `metadataUnavailable`;
@@ -1076,13 +1097,16 @@ The current contracts and the host route mapping are generated from the code in 
 the owning plugin names further rights itself.
 
 If the input of a method or the parameters of a channel name a `runId`, the
-dispatcher additionally checks membership of the run ([profiles.md](profiles.md)). If the
-contract requires `runs.write`, the method operates the run: if a start option has reserved the run for its
-owner with `ownerOnly`, the dispatcher rejects every other access with `run-owner-only`
-(403) before the method runs, even one with `runs.read.all`. This applies without own code
-to every contribution, such as answering a question, a mini-app action, or ending
-a single process; `ragents.chat.stop` and `ragents.runs.stopAll` stop the whole run,
-and `ragents.runs.interruptTurn` interrupts an actor's running turn.
+dispatcher additionally checks membership of the run ([profiles.md](profiles.md)); a run shared
+with the caller counts. If the contract requires `runs.write`, the method operates the run: a
+caller who sees the run through a share for reading gets `run-read-only` (403), and if a start
+option has reserved the run for its owner with `ownerOnly`, the dispatcher rejects every other
+access with `run-owner-only` (403) before the method runs, even one with `runs.read.all`. This
+applies without own code to every contribution, such as answering a question, a mini-app action,
+or ending a single process; `ragents.chat.stop` and `ragents.runs.stopAll` stop the whole run,
+`ragents.runs.pause` pauses it, and `ragents.runs.interruptTurn` interrupts an actor's running
+turn. `ragents.runs.resume` operates the run and therefore needs `runs.write`. A channel with `runId` ends as
+soon as its caller no longer sees the run because a share was taken back.
 
 In the browser, `useAccess` provides the same access context and `logout`.
 `accessMode` distinguishes hidden, read-only, and editable. Workspace tabs, run header, and status contributions can require their own
@@ -1094,6 +1118,15 @@ content queries the same itself, such as the Files tab, which then shows only th
 also require their own read right; without one, the settings read right applies.
 The component checks its write actions as well. Hiding does not replace a server-side
 check: own routes declare their required rights independently of the UI.
+`SessionInfo` carries the caller's sharing from the run list: `operable` (false in a run shared
+for viewing only and in someone else's run only its owner operates; missing until the run is
+listed), `canShare` and `shared` for whoever may change the sharing, and `sharedAccess` for
+whoever sees the run only through a share ([profiles.md](profiles.md), Sharing in detail). For a
+run with `operable: false`, `PluginChat` wraps everything below it, header and status
+contributions, tabs, mini-apps, and the frame of a single app included, in `RunAccessScope`
+(`AccessContext.tsx`): there `useAccess().can("runs.write")` is false and every other right stays,
+so a contribution that checks `runs.write` turns read-only without code of its own. Rights read
+directly from the snapshot (`hasRight`, `canStartEntry`) are not narrowed.
 
 The global coordinator has its own rights in the contract of `ragents.overseer`.
 Reading allows history and model display; tasks and reset additionally need writing.
@@ -1149,7 +1182,7 @@ JSON message per line on stdin and stdout; the caller counts as trusted and has 
 Sign-in is a transport matter: HTTP with cookie, bearer, or `?access=` as before
 (`/api/access`, `/api/access/login`, `/api/access/logout` stay HTTP), stdio without.
 
-Core contracts: `ragents.chat.*`, `ragents.runs.*` (run list, run view, journal,
+Core contracts: `ragents.chat.*`, `ragents.runs.*` (run list and read markers, run view, journal,
 queues, stop, and questions from the engine), `ragents.startOptions.*`,
 `ragents.runs.prepare`, `ragents.settings.*`, `ragents.plugins.bootstrap`, `ragents.external.set`,
 and the channels `ragents.runs`, `ragents.run`, and `ragents.chat`
@@ -1178,7 +1211,7 @@ it when nothing is open anymore. Requests go as `POST /rpc`. Subscriptions are c
 `rpc.subscribe(contract, params, onMessage, onError)`; on connection loss the client reconnects,
 resubscribes all channels, and calls `onConnected` listeners, which is why providers repeat
 their initial state on subscribing. Core channels: `ragents.runs` (list changes, one
-message immediately), `ragents.run` (`ready` on subscribing, then `run` per journal change), and
+message immediately; a changed read marker reaches only the subscriptions of its user), `ragents.run` (`ready` on subscribing, then `run` per journal change), and
 `ragents.chat` (the chat events with replay). Plugins register their own channels through
 `host.channels`: `ragents.processes` per run, `ragents.workspace.browse` per run and root.
 Background: browsers allow only six simultaneous HTTP/1.1 connections per host;
@@ -1246,7 +1279,8 @@ Instead, plugins fill typed slots for:
   with the tab area as a popout over the selected content view; the same contribution, the same visibility (`readRight`, `requiresWorkspace`, `available`)
 - tool and entity presenters; the run providers bind tool presentations together to
   run and navigation. The standard chat and the actor chat consume the same renderer.
-- run metadata
+- run metadata (`sessionMetadata`): a component for the run details in the header; the run list
+  takes its lines from the server-side `listDetail` instead
 - run header contributions (`sessionHeaders`): contributions appear in the shared run details.
 - run providers and surface (`surface.RunPanel`): one component for browser and VS Code
   receives `SurfaceCenterContext`, including chat, catalog, navigation, and card contributions.
@@ -1266,8 +1300,9 @@ Instead, plugins fill typed slots for:
   `ChatPanel` with input, in the actor inspector, and for the global
   coordinator, open actions stay in the history. For this the web knows only open actions,
   no question shape.
-  `ragents.ask` creates its actions with the payload `{ question, options, multi }` and
-  answers them through its own contract `ragents.ask.answer`; the core does not know this shape
+  `ragents.ask` creates one action per call with the payload `{ questions, recipient? }`, each
+  question `{ question, header, options: [{ label, description }], multiSelect }`, and answers it
+  through its own contract `ragents.ask.answer`; the core does not know this shape
   (`docs/spec/core.md`, Pending actions).
 - guides (`guides`): per ID a React component that the host shows in a dialog when a
   template with `guide` is clicked; `onComplete` returns for a skill the text of the
@@ -1278,7 +1313,8 @@ The shared `main.tsx` bootstrap renders `RunPanelApp` for either host. Browser n
 `PanelPage`, `StartPage`, and `RunsPage` as the extension with one current-server adapter.
 Start offers recent runs and permitted templates; Runs adds search and deletion with confirmation.
 Free creation, template access, reading, and deletion retain their independent rights.
-The browser preserves per-user read markers, owner labels, and contributed run metadata.
+Both hosts draw run rows from the same mapping of `ragents.runs.list` (`connectionRunOf` in
+`run-overview.ts`): state, pending actions, read notice, owner, metadata lines, and lock.
 Global coordinator and other toolbar contributions stay mounted across run switches and starts;
 overview contributions retain their slot. Settings and Help are header buttons.
 Guided templates still use the existing preparation dialog and chat. Browser runs use the server.
@@ -1700,7 +1736,7 @@ github.com/SchlenkR/quassel, MIT): `ChatPanel`, `ChatMessages`, `ChatInputToolba
 `DetailModeSwitch`, `TimestampSwitch`, `Markdown`, and their helpers from `quassel`, the wire contract
 of the ChatEvents including `applyEvent` and the attachment check from `quassel/events`, which server and
 web import alike. They know no product. What knows the run stays in RAgents:
-`useChat`, `requests`, `useAttachmentCapabilities`, `StoppedActorNotice`, `chat-target`, and
+`useChat`, `requests`, `useAttachmentCapabilities`, `StoppedActorNotice`, `PausedRunNotice`, `chat-target`, and
 `user-location` under `apps/web/src/chat/`, on the server `chat-handler.ts`. `QuasselHost`
 (`apps/web/src/chat/QuasselHost.tsx`) gives quassel the host's basic building blocks as slots
 (`Button`, `Toggle`, `Card`, `StopButton`, `Popover`, `PopoverContent` from `apps/web/src/ui`) and
@@ -1790,28 +1826,60 @@ inspector's history projection and uses the existing run connection. The input b
 waits for the send action and keeps the draft on errors. Questions without an answer callback
 are shown as text with options.
 
-`ask_user` does not wait. Through `AskService.pose` it shows the question as an action and
-returns at once "Question shown to the user; the answer arrives as a new message."
+`ask_user` takes the shape of the question tools of common agent harnesses: `questions` with 1 to
+4 entries, each with `question` (the complete question), `header` (a chip of at most 12
+characters), `options` (2 to 4 entries of `label` and `description`), and `multiSelect`. There is no
+"Other" option; the user can always answer any question freely instead. One call is one action
+whose title is the questions, one per line. The service checks the same rules for every caller
+before it shows anything: non-empty texts, distinct questions, distinct labels per question, at
+least two options; a violation names every path and reason. The limits of four questions and four
+options are the tool's; internal callers may list more options, as the start question of
+`ragents.lsp-roslyn` does with every solution. The former single question with `options` as a list
+of texts and `multi` is not accepted; journals that still hold one lock their run
+(`docs/spec/core.md`, journal).
+
+`ask_user` does not wait. Through `AskService.pose` it shows the questions as an action and
+returns at once "Questions shown to the user; the answers arrive together as a new message."
 (`QUESTION_POSED`). This result ends the asker's turn (`endsTurn` of the function, `docs/spec/core.md`,
 Turns of an agent): no further model request follows unless an input already waits for the
 asker. Tool description and prompt chapter tell the model to call `ask_user` as the only tool of
-its response. The question stays open after the turn; an actor can have several open questions, and a
-new one leaves the earlier ones open. An answer or a dismissal by the user reaches the asker as a
-new ActorInput without `origin` ("Answer to your question: <question>" and the answer or "The user
-dismissed the question."); if the asker's turn is still running, the input enters it as steering.
+its response. The questions stay open after the turn; an actor can have several open calls, and a
+new one leaves the earlier ones open. The user answers all questions of a call at once, each with
+the labels of the chosen options (exactly one without `multiSelect`) or a free answer;
+`ragents.ask.answer` takes `answers` with one `{ selected }` or `{ text }` per question in their
+order, or `dismiss: true`, and rejects answers that do not fit with the allowed labels. The journal
+keeps `{ answers }` as the result. The answers reach the asker as ONE new ActorInput without
+`origin`, with one line per question:
 
-`AskService.ask` waits for the answer and is only for questions outside a turn that the run's
+```text
+The user answered your questions:
+"Which branch?" = "release"
+"Which checks?" = "lint", "tests"
+"When?" = free answer "After the review."
+```
+
+A dismissal reads "The user dismissed your questions without an answer:" followed by the quoted
+questions; with a single question the text says "question". If the asker's turn is still running,
+the input enters it as steering. In the web, the card of a call shows every question with its chip,
+its options with label and description, a free answer field per question, and one submit for all;
+a single question with one choice is answered by clicking its option.
+
+`AskService.ask` waits for the answers and is only for questions outside a turn that the run's
 owner asks on behalf of the system (`AskCall.agentId` is the owner, `turnId: null`), such as the
-start question of `ragents.lsp-roslyn` and the confirmations of the actor programs.
+start question of `ragents.lsp-roslyn` and the confirmations of the actor programs. It takes the
+same questions and resolves to `{ kind: "answered", answers }` or `{ kind: "dismissed" }`; a result
+that does not match the questions rejects the call. `answerMessageOf` builds the input text above
+for callers that pass an answer on themselves.
 `AskRequest.recipient` then names the actor the question is for. It is in the payload, receives
-an answer nobody waits for anymore as ActorInput, and appears in the "asks" note; the question
+an answer nobody waits for anymore as ActorInput ("the question" instead of "your question"), and
+appears in the "asks" note; the question
 itself appears, like every action of the owner, in the run chat, not in another
 actor's chat. An action posed by the owner carries no name in front of it in the main chat.
 A technical cancellation of the waiting call withdraws the question; the plugin derives neither a
 user answer nor a new ActorInput from it.
 `AskService.withdraw(runId, actionId)` withdraws an open question of the plugin: the journal closes
-it as `dismissed` with the result `{ withdrawn: true }`, a waiting call receives the dismissal
-answer, an actor receives no input, and the record in the chat shows "The question was withdrawn."
+it as `dismissed` with the result `{ withdrawn: true }`, a waiting call receives the dismissed
+outcome, an actor receives no input, and the record in the chat shows "Withdrawn without an answer."
 
 A human's message closes the open questions its addressee asked for itself: as soon as an input
 with `origin: "human"` (`docs/spec/core.md`, Origin of an input) is enqueued for an actor, the
@@ -1822,7 +1890,7 @@ covers questions from before a restart of the host. If such a message is already
 the tool asks, the plugin creates no question and the tool returns "Not answered: the user sent a
 new message instead." (`SUPERSEDED_ANSWER`). Questions of the owner, inputs without `origin`, and
 messages to another actor leave a question open. In the chat, the record of a question closed
-this way shows this text instead of "The user dismissed the question." Stopping the asker
+this way shows this text instead of "Dismissed by the user without an answer." Stopping the asker
 (`actor.stopped`) and stopping or deleting the run (lifecycle `stopSession` and
 `afterStopSession`) withdraw the open questions agents asked for themselves; questions of the
 owner stay with their callers.
@@ -1845,16 +1913,27 @@ adjusts this visibility from outside, independently of pausing and resuming
 following. Small upward movements may therefore pause following without showing the button
 immediately.
 
-If a chat's actor currently has a turn and the input is empty, the chat composer shows
-"Stop work". The button interrupts only this turn through `ragents.runs.interruptTurn`
-(`interruptActorTurn` from `@ragents/web/api`): the actor stays active and accepts the next
-message; its children, other actors, and the run keep running. If only another
-actor is working, the input pulses but offers no stop. This applies to the run chat (the partner is
-the primary actor), the actor chats in the run panel, and the global
-coordinator. With text or attachments, the send action stays available. Errors while interrupting
-appear in the chat concerned and allow a retry. Stopping an actor permanently
-is offered only by the actor card ("Stop"), stopping the whole run only by "Stop run" in the
-title bar; no chat input calls `ragents.chat.stop`.
+While any actor of the run works and the run is not paused, and the input is empty, the run chat
+(the partner is the primary actor) and the actor chats in the run panel show "Stop work"; the
+global coordinator shows it while its own turn runs. The button pauses the whole run through
+`ragents.runs.pause` (`pauseRun` from `@ragents/web/api`; offered by `runPausable` from
+`chat-target`): no turn of any actor starts any more and the running ones end (`core.md`, Pausing
+a run). While `RunView.pause` is set, `PausedRunNotice` shows one line above the input, "Paused",
+"Paused - 1 input waiting", or "Paused - 3 inputs waiting" (the waiting inputs of all actors that
+are not stopped), with "Resume" (`ragents.runs.resume`, disabled without `runs.write`); a message
+from the input resumes the run as well. The global coordinator loads no RunView and shows no such
+line; its next message continues it. With text or attachments, the send action stays available.
+Errors while pausing appear in the chat concerned and allow a retry. Interrupting the turn of a
+single actor stays an API (`ragents.runs.interruptTurn`, `interruptActorTurn`); stopping an actor
+permanently is offered only by the actor card ("Stop"), stopping the whole run only by "Stop run"
+in the title bar; no chat input calls `ragents.chat.stop`.
+
+The run chat marks every turn of the primary actor that no human input started with a line
+before its output: "New turn, triggered by turn.finished of @implementer" for a subscription
+delivery or an automatic notice with a source event, "New turn, triggered by a message from
+@implementer" for an input another actor enqueued, and "New turn, triggered by an automatic
+input" for other inputs under the owner. `run.paused` and `run.resumed` appear as "Run paused by
+alice" and "Run resumed by alice" (without sign-in without the name).
 
 If a chat's actor is stopped, `StoppedActorNotice` takes the place of the input
 (`@ragents/web/chat/StoppedActorNotice`): `@handle stopped: <reason>` and, for accesses with
@@ -2022,9 +2101,17 @@ assigned workers; without active work the status reads Idle or Open, not Done.
 A dot inside the run's state ring replaces the state glyph when the journal revision is newer
 than the last viewed state, or when there is no personal read state; the state's tooltip and
 accessible name then add "new activity" or "not viewed yet", for example "Running, new activity".
-The browser keeps the read state per user and run; other users and devices receive no
-read receipt. Only a loaded run in the visible browser tab and without an overlying
-overview, Settings, Help, start dialog, or toolbar history updates it.
+The server keeps the read state per user and run (without sign-in for the one access): the run panel
+reports the viewed revision with `ragents.runs.markViewed`, and `ragents.runs.list` returns it to the
+same user as `seenRevision`, so it holds on every device and in both hosts; other users receive no
+read receipt. Only a higher revision counts, a revision beyond the journal's is rejected, and the
+global coordinators keep none. The markers lie in `run-read-markers.json` in the profile's data
+directory, written atomically and at most once per second; deleting a run removes its markers.
+Only a loaded run in the visible tab of the run panel and without an overlying
+overview, Settings, Help, start dialog, or toolbar history updates it; the run panel sends one
+request per run at a time and then only the newest revision (`run-panel/viewed-runs.ts`).
+A changed marker reaches the `ragents.runs` subscriptions of the same user, the first at once and
+further ones at most once per second, because a viewed running run reports every revision.
 List queries and background updates mark no run as viewed. The
 revision comes from the journal; mere title compaction creates no new activity.
 Without an explicitly set title, the list initially shows the original task.
@@ -2281,6 +2368,19 @@ The pop-out is anchored to the shared header: it opens below it, ends 8 pixels b
 edge, and is `min(800px, header width - 16px)` wide, with two columns from a content width of 480
 pixels. A click starts the script through `ragents.runs.startScript` and closes the pop-out, a
 refusal stays visible in it. In a run header narrower than 20rem the button shows only its icon.
+With `canShare`, "Share" (`RunShareButton`) stands right before it, its icon in the primary color
+while the run is shared, and opens `ShareDialog` (`panel/ShareDialog.tsx`) against
+`ragents.runs.sharing` and `ragents.runs.share`, in the browser and in the VS Code iframe alike;
+narrower than 20rem it shows only its icon. A run the panel opened under a fresh identifier (a new
+empty run) counts as shareable before its first message when the profile has sign-in and the user
+`runs.write`; the server keeps that choice until the run is created. For a sharee the title carries
+a badge, "View only" for `sharedAccess: "read"` and "Shared" for `"write"`, with the tooltip "Shared
+with you - view only" or "Shared with you - can operate". The panel hides "Stop run" and the stop
+buttons of the chat inputs for a read share and keeps them for a run only its owner operates
+(`canStopRun` on the access context below the run), and the chat input names why it is disabled ("Shared with you for viewing only", "Only its
+owner operates this run", otherwise "Read access to this run"). When the open run, seen as shared
+with the viewer, leaves the run list, the panel returns to Start with "This run is no longer available
+to you."; in the host `vscode` it sends `showStart` with this `notice`.
 The run panel's popouts (run details, run scripts, recipient) dim the rest
 (`dim` on the popover building block), so that they stand out. At the far right of the shared
 header, `RunPanelActions` shows icon buttons for Settings (`settings.read`, the same dialog as in
@@ -2439,7 +2539,7 @@ ready, starting, sign-in required, unreachable, or stopped, plus failed and
 no access as the two error cases. `panel/connection-state.ts` maps `ConnectionView` onto this: a
 connected local profile is **ready**, a connected server **connected**. No plugin,
 tool, or mini-app name ever appears as a state. The time is compact and without "ago"
-(`ui/relative-time.ts`): `now` under one minute, then `5 min`, `3 h`, `1 d`, `2 d`, from seven
+(`ui/relative-time.ts`): `now` under one minute, then `5min`, `3h`, `1d`, `2d`, from seven
 days on the date `09/13`; the written-out form is only in the `title`. No state icon ever carries
 the stop glyph (a square, alone or in a circle): cancelled and unreachable are a
 circle with a slash, ended a check mark in a circle, idle and stopped an empty circle. Every
@@ -2484,10 +2584,29 @@ and centers the icon; the following content begins with 8 pixels of padding. Bel
 servers in `RunList` (`panel/RunLine.tsx`): a CSS grid with the columns state, title, time,
 and, from two servers on, server, in selection mode the checkbox in front; every row and its
 button are `grid-cols-subgrid`, so that the columns stand at the same edge in all rows, and
-"All N runs" leads to the Runs page. If the extension cannot read a run's run view,
-for example because of an invalid program state, it stays as a row with the reason
-(`ConnectionRun.problem`, a red notice icon with a tooltip); the other runs, the badge, and the
-status bar stay unaffected. Below that, **New**, as soon as a server is connected and
+"All N runs" leads to the Runs page. Below the title, inside the same button, a second line
+names the owner (`ConnectionRun.owner`) and then the metadata lines (`ConnectionRun.details`), each
+with its icon (`FolderIcon`, `GitBranchIcon`) and the tooltip "label: text"; hover, focus, and click
+cover the whole item, in selection mode the click toggles it. The gap to the second line is
+smaller than the gap between items. State and pending actions come from `ragents.runs.list`, which
+derives them from the journal: running while an actor has a running turn or the session works,
+otherwise waiting with pending actions, ended when every non-human actor has stopped, otherwise
+idle (`run-list-state.ts`). The extension loads no run view for the list; the
+badge sums `pendingActions`. A locked run shows its cause as a red notice icon with a tooltip.
+The sharing comes from the same list (`connectionRunOf` in `run-overview.ts`): next to the title a
+run with `ConnectionRun.shared` shows `UsersIcon` with the tooltip "Shared", one with
+`sharedAccess` `EyeIcon` ("Shared with you - view only") or `UsersIcon` ("Shared with you - can
+operate"). As soon as a listed row has `canShare`, the list gets one more column at the end: such
+a row has the icon button "Share ..." (`aria-label` "Share <title>") outside the row's button,
+every other row an empty cell, so the columns stay aligned. The button sends `openSharing` with
+server and run; the host loads `ragents.runs.sharing` into `PanelState.sharing` (connection, run,
+`result`, `pending`, `error`), and `PanelPage` shows `ShareDialog` as long as it is set. Its Save
+sends `share` with the whole sharing, Cancel and Escape `closeSharing`; the host closes the dialog
+on success and leaves a refusal in it, with the user's draft. `openSharing` and `saveSharing` in
+`run-sharing.ts` are this flow for every host: the browser keeps the dialog in React state, the
+extension in its panel state, and an answer for a dialog closed meanwhile is dropped.
+`PanelState.notice` is a short message on Start, such as the one for a share taken back.
+Below that, **New**, as soon as a server is connected and
 allows new runs: per such server first its default template - the template from
 `ConnectionView.defaultEntry` with the marker "Default", without a default the entry "New chat"
 (category "No template", dashed edge, plus icon, `newRun` without `entryId`) -, then
@@ -2509,7 +2628,9 @@ with the name (a click removes it; the page is rebuilt per server), and a
 selection mode with checkboxes, which names the count in a bar at the bottom
 and deletes several runs after a confirmation question in a dialog. The deletion itself is the
 host's business: the page sends `deleteRuns` per server with the IDs, the extension calls
-`ragents.runs.delete` and refreshes the list.
+`ragents.runs.delete` and refreshes the list. A row the user cannot delete, on a server without
+`canDelete` or with `sharedAccess`, keeps an empty checkbox cell and opens its run on a click; the
+selection mode hides the "Share ..." column.
 
 **The host `vscode` needs the run panel's start selection only for guides.** A click on a template sends
 `newRun` with `name` and `entryId`; the extension creates the run on this server (bound to
@@ -2574,11 +2695,29 @@ sign-in data - it is tied to the address, not to the name.
 ## Workspace, sandbox tools, and processes
 
 The workspace plugins give agents exactly four
-sandbox tools from `@ragents/workspace-executor`: `read` (line numbers, truncation at 2000
-lines or 50 KB), `edit` (unique match; for an ambiguous `oldText` it names the locations with
-line numbers, optional anchors `occurrence`, `nearLine`, and `replaceAll`), `write`, and `bash`
-(the last 2000 lines or 20 KB, lines over 1000 characters shortened and marked, the full
-output then in a log file whose path the result names). `ls`, `grep`, `find`, or a separate type check are not tools, because
+sandbox tools from `@ragents/workspace-executor`. Names and input fields follow the file and shell
+tools of the common agent harnesses, Claude Code first, because models are trained on these shapes
+and fail on look-alikes; the schemas are closed, and an unknown field is removed with a notice
+(`core.md`). `read` takes `file_path`, `offset` (1-based; 0 counts as 1), and `limit` and returns
+the lines in cat -n style, line number, tab, line, at most 2000 lines and 50 KB; a line over 2000
+characters ends in `... (line truncated to 2000 chars)`, and a note names the `offset` to continue
+with. An empty file and an `offset` behind the end answer with a warning instead of content; an
+image comes as an attachment. A call from TypeScript gets the same numbered text. `write` takes `file_path` and `content` and says whether it created
+or updated the file. `edit` takes `file_path`, `old_string`, `new_string`, and `replace_all` and
+makes one replacement per call: `old_string` occurs exactly once, with `replace_all` at least
+once. An exact match wins; otherwise the match ignores trailing whitespace, typographic quotes and
+dashes, and special spaces, and only the touched lines are rewritten. Deleting a text that ends a
+line also removes its line break; an empty `old_string` creates a missing file, with its folders,
+or fills an empty one. The errors use the standard's wording: "No changes to make: old_string and
+new_string are exactly the same.", "String to replace not found in file.", "Found N matches of
+the string to replace, but replace_all is false. ..." followed by the lines of the matches, "File
+does not exist.", and "Cannot create new file - file already exists.". `bash` takes `command`,
+`timeout` in milliseconds, `description`, `run_in_background`, and `cwd` (below) and returns the
+last 2000 lines or 20 KB, lines over 1000 characters shortened and marked, the full output then in
+a log file whose path the result names. A file path is relative to the working directory,
+absolute, or starts with an alias such as `@actors`; unlike in the standard it need not be
+absolute, because an alias and not an absolute path decides the machine (below).
+`ls`, `grep`, `find`, or a separate type check are not tools, because
 `bash` can do them and the sandbox knows no permission level below bash. `git` runs
 without restriction in the run's working directory; a plugin provides credentials through the
 sandbox's Git environment (`SessionWorkspace.gitConfig`) to the server's executor.
@@ -2591,22 +2730,29 @@ this actor last saw of the file: after a `read` including the excerpt (`offset`,
 model writes it, and passes it to the executor of the machine that has the file as the field `seen`
 of the operation (`null`: nothing seen); the executor compares the resolved file and the SHA-256 of the
 content and reports the new state back in `details.seen` (`packages/workspace-executor/src/sandbox-tools.ts`).
-The executor thus stays without state, also on a workstation. `edit` on a file without a
-seen state fails with `workspace-file-unread` ("read the file with read first"), on one
-changed since then with `workspace-file-changed` ("... changed since reading ...; read again");
-`write` checks the same for an existing file; a new one is created without `read`. After its own
-`edit` or `write`, the new state counts as seen. Another `read` of the same excerpt
-of an unchanged file answers with "Unchanged since the last read in this conversation;
-the earlier content still applies."; a state from `edit` or `write` does not trigger that, because the
-model has not seen the whole content then. The model context (`ToolScope.modelContext`,
+The executor thus stays without state, also on a workstation. The checks follow the standard.
+`edit` or `write` of an existing file without a seen state fails with `workspace-file-unread`
+("File has not been read yet. Read it first before writing to it."); a new file needs no `read`,
+nor does an `edit` with an empty `old_string`. On a file changed since then, `write` fails with
+`workspace-file-changed` ("File has been modified since read, either by the user or by a linter.
+Read it again before attempting to write it."). An `edit` on a changed file still applies if
+`old_string` selects its target as above, exactly once or with `replace_all` at least once; its
+result then ends with the note that the file was modified on disk since the last read and contains
+changes not in the model's context, and the seen state stays the old one, so a `write` fails until
+the next `read`. Otherwise the `edit` fails with `workspace-file-changed` as well. After its own
+successful `edit` or `write`, the new state counts as seen. Another `read` of the same excerpt
+of an unchanged file answers with "File unchanged since last read. The content from the earlier
+read result in this conversation is still current - refer to that instead of re-reading."; a state
+from `edit` or `write` does not trigger that, because the model has not seen the whole content then. The model context (`ToolScope.modelContext`,
 set by the agent runtime on every direct call) names the run's conversation and the
 actor's last compaction (`core.md`); after a compaction or a conversation reset
 the marker starts empty.
 Calls from TypeScript (snippets, actor programs) and `files.read` run without a marker, because their
 result does not end up in the model context: they check nothing and remember nothing. A server restart,
 fork (a new actor), run move, and run stop clear the marker; that requires at most a
-new `read`, never a wrong notice. An input with the former field `expectedHash` is
-ignored, old journals stay readable, and a replay executes no tool again.
+new `read`, never a wrong notice. Old journals keep the former arguments (`path`, `edits` with
+`oldText`, a `timeout` in seconds); a replay executes no tool again, and the chat line of such a
+call still names its `path`.
 
 The **executor** is the package `packages/workspace-executor`, built from modules: every module
 registers named operations whose handlers receive the process context of this machine, and
@@ -2619,7 +2765,7 @@ its own modules and the plugins' contributions (`workspaceExecutorModules({ cont
 section Contributions to the executor): the four sandbox tools with process groups,
 environment, and path checks (`read`, `edit`, `write`, `bash`), the language server sessions for every
 language server a contribution brings along (`<id>_open`, `<id>_diagnostics`, `<id>_close`,
-`<id>_snapshot`, with solutions `<id>_solutions` and `<id>_switch`), the files (`files.list`, `files.read`, `files.watch`, `files.attach`), the
+`<id>_snapshot`, with solutions `<id>_solutions` and `<id>_switch`), the files (`files.list`, `files.read`, `files.text`, `files.watch`, `files.attach`), the
 processes (`processes.snapshot`, `processes.stop`, `processes.stopAll`), the commands (`commands.run`),
 the contributions' modules, such as the browser of the browser check (`browser.*`, section
 Browser checks), and the folder per run. No language, no language server, and no browser is
@@ -2646,8 +2792,8 @@ and thus where an operation without an alias runs: on the server in the server's
 a workstation in its executor, regardless of whether in the new or in an existing folder. Which roots
 an input addresses is declared by the module that owns the operation, with its footprint
 (`WorkspaceExecutorModule.footprints`, per operation a function of the input that never throws): the
-file tools with `path`, `bash` with `cwd`, the language servers with `root` and `paths`, `files.list`
-and `files.read` with `alias`. A path with an alias addresses its root, every other one, even an
+file tools with `file_path`, `bash` with `cwd`, the language servers with `root` and `paths`, `files.list`
+and `files.read` with `alias`, `files.text` with `path`. A path with an alias addresses its root, every other one, even an
 absolute one, the run's root; an operation without a footprint addresses no particular one. In addition the
 footprint names the running time an input itself requires, for `bash` its time limit; it counts
 as `durationMs` if the caller names none. `SandboxServices.execute` asks for the footprint
@@ -2757,7 +2903,8 @@ the individual tool call reports `workspace-client-disconnected` (409) or
 `workspace-path-missing`. The plugin's prompt tells the agent that a project folder is the user's real
 project; which binding applies is stated as a system note at the start of the run. The plugin provides the same
 binding as the run metadatum `ragents.workspace` (`binding`, `summary`) for
-the run list and header.
+the run header, and through `listDetail` the list line "Workspace" with the summary, which stays
+away for the new folder on the server.
 
 A workstation is a client that offers its file system to the server. It signs in with
 a stable ID through `ragents.workspace.clients.register` (label, hostname,
@@ -2919,20 +3066,33 @@ run storage, on the workstation a folder under `os.tmpdir()`, never the develope
 
 A bash result is the command's output; a non-zero exit code is the last
 line of the result (`Command exited with code N`) and is not a tool error, such as `grep` without
-matches. Tool errors are only start, time limit, and cancellation problems. Without `timeout` the
-bash stops a command after 120 seconds; a call may request up to 3600 seconds; more is an
-input error. Both are in the tool's description and schema (`default` and `maximum`,
-`packages/agent/src/core/tools/bash.ts`), together with the sentence that builds, test runs, installations,
-and other long commands need a larger `timeout`. When the time runs out, the command ends together with
-its process group, and the error carries the output so far, the seconds, and what to do:
-narrow the command, for example search with `rg` instead of `grep -r`, or pass a larger `timeout` up to 3600.
-The server fills in the default before it passes a model call to an executor
+matches. Tool errors are only start, time limit, and cancellation problems. `timeout` is in
+milliseconds as in the standard: without it the bash stops a command after 120000 ms; a call may
+request up to 3600000 ms (60 minutes); more is an input error. The upper limit deliberately exceeds
+Claude Code's 600000 ms, because cold builds of real projects take longer and there is no background
+mode to fall back on; models trained on the standard stay below it anyway. Both are in the tool's description and
+schema (`default` and `maximum`, `packages/agent/src/core/tools/bash.ts`), together with the sentence
+that builds, test runs, installations, and other long commands need a larger `timeout`. When the
+time runs out, the command ends together with its process group, and the error carries the output
+so far, the milliseconds, and what to do: narrow the command, for example search with `rg` instead
+of `grep -r`, or pass a larger `timeout` up to 3600000. `description` is a short label of the
+command for the user; the chat line of the call shows it instead of the command, and the execution
+ignores it. `run_in_background: true` is rejected before anything starts, with the alternative: run
+the command in the foreground with a timeout of up to 3600000 ms or split it into shorter steps. A
+call always ends with its command and its process group, and there is no started process whose
+output a later call could read, so the standard's background mode has nothing to build on; the
+field stays in the schema so that a model trained on it gets this answer instead of a command that
+silently runs in the foreground. The server fills in the default before it passes a model call to an executor
 (the schema defaults in `WorkspaceSandboxHost`); that way the time limit the model sees in the schema
 also applies on a workstation, and the footprint knows it as `durationMs`.
 `RAGENTS_BASH_TIMEOUT_SECONDS` (section `ragents.workspace`) changes the default for all runs of the
-server, also on workstations, not the upper limit: allowed are more than 0 up to 3600 seconds;
-another value aborts the start; a workstation does not read the variable. The folder of a
-call is named by the optional `cwd`, the same on every machine: relative to the working directory or
+server, also on workstations, not the upper limit; the operator names seconds, the server passes the
+tool milliseconds. Allowed are more than 0 up to 3600 seconds;
+another value aborts the start; a workstation does not read the variable. The standard has no
+field for the folder, because its shell keeps the folder of the last `cd`; here every call starts
+anew, and an alias root lies on the server, so the folder decides the machine before the command
+starts and a `cd` in the command could not. The folder of a
+call is therefore named by the optional `cwd`, the same on every machine: relative to the working directory or
 a path with an alias such as `@actors/<name>`, never absolute (`workspace-path-invalid`, 400), always in
 a root of the run, also a read-only one, and it must exist (`workspace-path-not-found`,
 404); without `cwd` the bash runs in the working directory. With an alias it runs at the server's
@@ -3435,12 +3595,12 @@ diagnostics stay with the shared language server client.
   it also takes effect when the workspace is a folder above the checkout. Exactly one matching one is
   loaded the same way, also next to further solutions and without a question; several matching ones, such as several
   checkouts under one folder, lead to a question with only them; if none matches, the following applies. An absolute path, one with a backslash, or the
-  preference without `ROSLYN_SOLUTION_ON_START: "on"` aborts the start. Several: a question through `ragents.ask` with every solution and
-  "Load none", asked before the hook returns and thus before the run's first input.
+  preference without `ROSLYN_SOLUTION_ON_START: "on"` aborts the start. Several: a question through `ragents.ask` (header "Solution")
+  with every solution and "Load none" as options, also more than four, asked before the hook returns and thus before the run's first input.
   Outside a turn only the run's owner may give commands, which is why the owner asks, and the
   question carries the coordinator as `recipient`: it appears in the coordinator's chat without a name in front
-  and in its card. The answer loads the chosen solution; "Load none" and dismissing load
-  nothing; a free-form answer goes to the coordinator as input. After a restart nobody waits
+  and in its card. The answer loads the chosen solution, also a free answer that names one; "Load none" and dismissing load
+  nothing; any other free answer goes to the coordinator as input. After a restart nobody waits
   for the question anymore; `ragents.ask` then passes the answer to the `recipient`, and the coordinator
   loads by itself with `<id>_open`. Stopping and deleting the run discard an open question. If
   someone opens an instance while the question is open (model or actor program with `<id>_open`,
@@ -3578,9 +3738,20 @@ learning unit as reusable work instructions in the chat, without a programmed se
 cookies, and no inherited sign-in. Opening, semantic reading, clicking, filling,
 selecting, keyboard input, checks, and screenshots are typed run functions.
 The binding schemas are in `plugins/ragents.browser/server/tools.ts`.
+Their names and input fields follow Microsoft's Playwright MCP server, the de-facto standard of
+agent harnesses: `browser_navigate`, `browser_snapshot`, `browser_click`, `browser_type`
+(`text`, optional `submit` and `slowly`), `browser_select_option` (`values`),
+`browser_press_key`, `browser_resize`, `browser_take_screenshot` (`fullPage`), and
+`browser_close`. `browser_check`, `browser_view_screenshot`, and `actor_view_snapshot` have no
+counterpart there and keep their own names.
 The ARIA snapshot contains accessible roles, names, and element references; actions resolve
-role/name, label, text, test ID, or CSS in the run's browser. Models need to copy neither
+role/name, label, text, test ID, or CSS in the run's browser. Unlike upstream, `target` is
+therefore an object with these fields instead of a snapshot reference. Models need to copy neither
 snapshot IDs nor result file paths. An optional target iframe is chosen by CSS.
+`browser_type` replaces the field content, or with `slowly` types key by key without clearing it,
+and with `submit` presses Enter afterwards. `browser_select_option` matches each value against an
+option's value or visible label. `browser_press_key` presses on the focused element, or on
+`target` after focusing it.
 
 `actor_view_snapshot` checks a mini-app without the model driving a browser: given `package-name/view-key`
 (or `@handle/view-key` or a unique title), it resolves the view through the actor programs service
@@ -3588,12 +3759,12 @@ snapshot IDs nor result file paths. An optional target iframe is chosen by CSS.
 `hostAddressToken`, waits for the view's frame, and returns its accessible structure (cut at 8000 characters)
 and the browser errors. It is only available where `ragents.actor-programs` exists, and it needs a server
 without sign-in that the machine of the run's workspace can reach; otherwise it fails with the page it found.
-The run's browser stays on the view for `browser_screenshot` and frame-targeted actions.
+The run's browser stays on the view for `browser_take_screenshot` and frame-targeted actions.
 
 The browser runs where the run's workspace lies. Browser, page, and everything the
 page touches are the browser module that `ragents.browser` brings along as a contribution to the executor
 (`plugins/ragents.browser/executor/`, `modules` in the section Contributions to the executor), with the
-operations `browser.open`, `browser.snapshot`, `browser.viewport`, `browser.click`, `browser.fill`, `browser.select`, `browser.press`, `browser.check`, `browser.screenshot`,
+operations `browser.navigate`, `browser.snapshot`, `browser.resize`, `browser.click`, `browser.type`, `browser.selectOption`, `browser.pressKey`, `browser.check`, `browser.takeScreenshot`,
 `browser.state`, and `browser.close`; the module's `stopRun` and `shutdown` close the browser,
 and after `shutdown` the module starts no more browsers but rejects every operation on the page with
 a cause.
@@ -3605,7 +3776,7 @@ captures, the evidence, the chosen viewport, and the lifecycle, and calls everyt
 The module loads playwright-core only in the call, through the machine's `hostPackageFile` from the
 host root of this machine (`hostRoot`), as the TypeScript adapter does for its language server; neither the
 contribution nor the VS Code extension's bundle contains it. If playwright-core is missing in the host,
-`browser_open` fails with exactly this cause. It reports input errors with the machine's `operationError`
+`browser_navigate` fails with exactly this cause. It reports input errors with the machine's `operationError`
 as `browser-input-invalid` (400); Chrome starts with the machine's `processEnvironment`.
 Chrome is the browser from `BROWSER_EXECUTABLE_PATH` in the environment of this machine, otherwise the Chromium that
 provisioning puts into Playwright's browser cache for the pinned playwright-core version;
@@ -3640,7 +3811,7 @@ discarding the check. A screenshot alone is not a successful test.
 
 By default the page runs in a viewport of 1920 x 1080 pixels (16:9, scale 1),
 so that screenshots are Full HD images without enlargement and wide interfaces such as
-a ribbon are fully visible. `browser_viewport` changes the size per run, for example for
+a ribbon are fully visible. `browser_resize` changes the size per run, for example for
 narrow layouts; the chosen value applies until the next change, also after a restart
 of the browser in the same run, because the server holds it and passes it to every new browser; a
 server restart forgets it. Screenshots are stored as PNG under `browser/` in the
@@ -3814,6 +3985,10 @@ right) returns the archive; a different version is 404. The counterpart is `rage
   asks the executor without declaring that also reaches other users' `ownerOnly` workspaces. Until the
   run list has reported a run, web and VS Code show its workspace tabs; the server
   then rejects their accesses with `run-workspace-owner-only`.
+- Read markers belong to a user, not to a person: without sign-in every access shares one read
+  state, that of the configured anonymous user or otherwise of the null user, and an access token
+  without users does too. Another host of the same user learns of a changed marker through the
+  `ragents.runs` channel, at most once per second.
 
 
 - The recipient tree groups siblings of the same kind only by kind and first handle word;
@@ -3911,7 +4086,7 @@ right) returns the archive; a different version is 404. The counterpart is `rage
   with excluded folders. The search with `rg` respects `.gitignore` only in a Git repository;
   in a folder without Git it skips only hidden files and what `.ignore` and
   `.rgignore` exclude.
-- `bash` runs at most 3600 seconds per call, and whatever a command starts in its process group in
+- `bash` runs at most 3600 seconds (3600000 ms) per call, and whatever a command starts in its process group in
   the background ends with it. A command that takes longer, such as a cold build of a
   large solution, does not go through `bash` but through a plugin's workflow with its own
   time limit (`commands.run` with `timeoutMs`).

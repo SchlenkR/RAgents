@@ -450,7 +450,7 @@ test("model context: a fork spawned in the running turn of its source takes the 
         const finished = setup.contextOf(source).messages;
 
         const second = setup.turn(source, "Create a worker.");
-        second.step([{ type: "text", text: "I hand over." }, { type: "toolCall", id: "spawn", name: "agent_spawn", arguments: { handle: "fork" } }], "toolUse");
+        second.step([{ type: "text", text: "I hand over." }, { type: "toolCall", id: "spawn", name: "agent_spawn", arguments: { name: "fork" } }], "toolUse");
         const fork = setup.spawn("fork", source);
         second.call("spawn", { id: fork });
         second.step([{ type: "text", text: "Later, only for the source." }]);

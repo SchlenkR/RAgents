@@ -10,14 +10,15 @@ import { implement, implementChannel, type HttpRouteContribution, type JournalEv
 import { DomainError } from "../../packages/ragents/src/runtime/domain-error.ts";
 import { coreContracts } from "../../apps/server/src/api/contracts.ts";
 import { runContracts } from "../../packages/ragents/src/http/contracts.ts";
-import type { RunView } from "../../packages/ragents/src/domain/model.ts";
+import type { RunSharing, RunView } from "../../packages/ragents/src/domain/model.ts";
 import type { PublicStartEntry } from "../../packages/ragents/src/plugin-types.ts";
 import { hostRecordFile, readHostRecord, writeHostRecord } from "../../apps/server/src/host-record.ts";
 import { callerDirectory } from "../../apps/server/src/profile-target.ts";
 import { startRpcServer } from "../../apps/server/tests/rpc-fixture.ts";
 import { WORKSPACE_BINDING_OPTION_ID, type WorkspaceBindingPresentation, type WorkspaceClientInfo } from "../../plugins/ragents.workspace/contract.ts";
 import { noteHost } from "../remote/connect.ts";
-import { execute, parseArguments, progressOf, type TurnOutcome } from "./agent-cli.ts";
+import { commands as facadeCommands } from "../package/ragents.mjs";
+import { execute, parseArguments, parseShareSpec, progressOf, usage, type TurnOutcome } from "./agent-cli.ts";
 import { journalFile } from "./journal.ts";
 
 const health: HttpRouteContribution = {
@@ -71,8 +72,12 @@ const harness = async (t: TestContext, outcome: TurnOutcome, options: HarnessOpt
   const selections: Selection[] = [];
   const stopped: string[] = [];
   const interrupted: { runId: string; actorId: string }[] = [];
+  const paused: { runId: string; reason: string | undefined }[] = [];
+  const resumed: string[] = [];
   const entries: string[] = [];
   const messages: { runId: string; text: string }[] = [];
+  const shares: { runId: string; sharing: RunSharing; before: number }[] = [];
+  const sharings = new Map<string, RunSharing>();
   const views = new Map<string, RunView>();
   const watchers = new Map<string, Set<() => void>>();
   let reachRunning = (): void => undefined;
@@ -145,6 +150,14 @@ const harness = async (t: TestContext, outcome: TurnOutcome, options: HarnessOpt
         stopped.push(runId);
         return null;
       }),
+      implement(coreContracts.runs.share, ({ runId, sharing }) => {
+        const unknown = sharing.users.find((user) => user.userId === "zoe");
+        if (unknown) throw new DomainError("share-user-unknown", "zoe is not a user of this profile; users to share with: bob, carol.", 400);
+        shares.push({ runId, sharing, before: messages.length });
+        sharings.set(runId, sharing);
+        return sharingResult(sharings.get(runId)!);
+      }),
+      implement(coreContracts.runs.sharing, ({ runId }) => sharingResult(sharings.get(runId) ?? { everyone: null, users: [] })),
       implement(runContracts.view, ({ runId }) => views.get(runId) ?? null),
       implement(runContracts.events, ({ runId }) => journalRecords(runId, messages[0]?.text ?? "").flatMap((record) => {
         const { occurredAt, events } = record as { occurredAt: string; events: { sequence: number; type: string; payload: unknown }[] };
@@ -152,6 +165,16 @@ const harness = async (t: TestContext, outcome: TurnOutcome, options: HarnessOpt
       }) as JournalEvent[]),
       implement(runContracts.interruptTurn, ({ runId, actorId }) => {
         interrupted.push({ runId, actorId });
+        return views.get(runId)!;
+      }),
+      implement(runContracts.pause, ({ runId, reason }) => {
+        paused.push({ runId, reason });
+        update(runId, (view) => ({ ...view, pause: { pausedAt: "2026-09-21T10:00:04.000Z", reason: reason ?? "Paused by the operator", userId: null } }));
+        return views.get(runId)!;
+      }),
+      implement(runContracts.resume, ({ runId }) => {
+        resumed.push(runId);
+        update(runId, (view) => ({ ...view, pause: null }));
         return views.get(runId)!;
       }),
     ],
@@ -183,10 +206,17 @@ const harness = async (t: TestContext, outcome: TurnOutcome, options: HarnessOpt
   writeHostRecord(directory, { profile: "developer", url: server.url, pid: process.pid, log: path.join(directory, "host.log"), startedAt: new Date().toISOString() });
   const profileFile = path.join(directory, "ragents.config.check.ts");
   writeFileSync(profileFile, `export const config = { host: { PORT: ${port}, PRODUCT_PROFILE: "check" } };\n`);
-  return { directory, profileFile, server, running, selections, stopped, interrupted, entries, messages, lines: [] as string[] };
+  return { directory, profileFile, server, running, selections, stopped, interrupted, paused, resumed, entries, messages, shares, lines: [] as string[] };
 };
 
 const collect = (lines: string[]) => (line: string): void => { lines.push(line); };
+
+const LABELS: Readonly<Record<string, string>> = { bob: "Bob", carol: "Carol" };
+
+const sharingResult = (sharing: RunSharing) => ({
+  sharing: { everyone: sharing.everyone, users: sharing.users.map((user) => ({ ...user, label: LABELS[user.userId] ?? user.userId })) },
+  users: [{ id: "bob", label: "Bob" }, { id: "carol", label: "Carol" }],
+});
 
 test("run binds the folder via path, waits for the end of the turn and names the run", { timeout: 20_000 }, async (t) => {
   const context = await harness(t, "completed");
@@ -272,16 +302,23 @@ test("send continues in the same run and reads only the new turn", { timeout: 20
   assert.equal(followUp.at(-1), `run: ${runId}`);
 });
 
-test("stop interrupts only the turn of the primary actor, --run stops the whole run, journal reads the history", { timeout: 20_000 }, async (t) => {
+test("stop pauses the run, resume continues it, --turn interrupts only the turn of the primary actor, --run stops the whole run, journal reads the history", { timeout: 20_000 }, async (t) => {
   const context = await harness(t, "completed");
   assert.equal(await execute({ kind: "run", profile: "developer", folder: context.directory, text: "Task", entry: undefined, json: false }, collect(context.lines)), 0);
   const runId = context.messages[0]!.runId;
-  assert.equal(await execute({ kind: "stop", profile: "developer", runId }), 0);
+  assert.equal(await execute({ kind: "resume", profile: "developer", runId }), 0);
+  assert.deepEqual(context.resumed, [], "a run that is not paused needs no resume");
+  assert.equal(await execute({ kind: "pause", profile: "developer", runId }), 0);
+  assert.deepEqual(context.paused, [{ runId, reason: "Paused with ragents stop" }]);
+  assert.deepEqual([context.interrupted, context.stopped], [[], []], "stop neither interrupts a single turn nor stops the run");
+  assert.equal(await execute({ kind: "resume", profile: "developer", runId }), 0);
+  assert.deepEqual(context.resumed, [runId]);
+  assert.equal(await execute({ kind: "stop-turn", profile: "developer", runId }), 0);
   assert.deepEqual(context.interrupted, [{ runId, actorId: "agent_coordinator" }]);
-  assert.deepEqual(context.stopped, [], "stop without --run must not stop the run");
+  assert.deepEqual(context.stopped, [], "stop --turn must not stop the run");
   assert.equal(await execute({ kind: "stop-run", profile: "developer", runId }), 0);
   assert.deepEqual(context.stopped, [runId]);
-  assert.equal(context.interrupted.length, 1);
+  assert.deepEqual([context.interrupted.length, context.paused.length], [1, 1]);
   const file = journalFile(context.directory, runId);
   mkdirSync(path.dirname(file), { recursive: true });
   writeFileSync(file, journalRecords(runId, "Task").map((record) => `${JSON.stringify(record)}\n`).join(""));
@@ -414,6 +451,16 @@ test("the facade shows the usage with --help and help, without an argument it st
   assert.match(unknown.stderr, /Unknown command: dance/);
 });
 
+test("the facade hands every agent command to the agent command line and lists resume", () => {
+  for (const command of ["run", "send", "journal", "stop", "resume", "script", "share"]) {
+    assert.equal((facadeCommands as Readonly<Record<string, string>>)[command], "scripts/agent/agent-cli.ts", command);
+  }
+  const facade = fileURLToPath(new URL("../package/ragents.mjs", import.meta.url));
+  assert.match(spawnSync(process.execPath, [facade, "--help"], { encoding: "utf8" }).stdout, /\n {2}resume <run> /);
+  assert.match(usage(), /\n {2}resume <run> \[--profile <p>\]/);
+  assert.match(usage(), /\n {2}stop <run> --turn \[--profile <p>\]/);
+});
+
 test("the facade prints the version of its package with --version and -v", () => {
   const facade = fileURLToPath(new URL("../package/ragents.mjs", import.meta.url));
   const expected = (JSON.parse(readFileSync(new URL("../../package.json", import.meta.url), "utf8")) as { version: string }).version;
@@ -443,10 +490,20 @@ test("the command line names command, folder, task and switches", () => {
   assert.deepEqual(parseArguments(["journal", "abc", "--tools"]), { kind: "journal", profile: "developer", runId: "abc", json: false, tools: true });
   assert.deepEqual(parseArguments(["stop", "--host"]), { kind: "stop-host", profile: "developer" });
   assert.deepEqual(parseArguments(["stop", "--host", "--profile", "/own/ragents.config.workshop.ts"]), { kind: "stop-host", profile: "/own/ragents.config.workshop.ts" });
-  assert.deepEqual(parseArguments(["stop", "abc"]), { kind: "stop", profile: "developer", runId: "abc" });
+  assert.deepEqual(parseArguments(["stop", "abc"]), { kind: "pause", profile: "developer", runId: "abc" });
+  assert.deepEqual(parseArguments(["stop", "abc", "--turn"]), { kind: "stop-turn", profile: "developer", runId: "abc" });
   assert.deepEqual(parseArguments(["stop", "abc", "--run"]), { kind: "stop-run", profile: "developer", runId: "abc" });
-  assert.throws(() => parseArguments(["stop", "--host", "--run"]), /either --host or --run/);
+  for (const flags of [["--host", "--run"], ["--host", "--turn"], ["--turn", "--run"]]) {
+    assert.throws(() => parseArguments(["stop", "abc", ...flags]), /only one of --turn, --run and --host/);
+  }
   assert.throws(() => parseArguments(["stop", "--run"]), /stop needs/);
+  assert.throws(() => parseArguments(["stop", "--turn"]), /stop needs/);
+  assert.deepEqual(parseArguments(["resume", "abc"]), { kind: "resume", profile: "developer", runId: "abc" });
+  assert.deepEqual(parseArguments(["resume", "abc", "--profile", "core"]), { kind: "resume", profile: "core", runId: "abc" });
+  assert.throws(() => parseArguments(["resume"]), /resume needs <run>/);
+  assert.throws(() => parseArguments(["resume", "abc", "def"]), /resume takes exactly one value/);
+  assert.throws(() => parseArguments(["resume", "../escape"]), /Invalid run id/);
+  assert.throws(() => parseArguments(["resume", "abc", "--run"]), /Unknown argument/);
   assert.deepEqual(parseArguments(["script", "abc"]), { kind: "script", profile: "developer", runId: "abc", entry: undefined, input: null, json: false });
   assert.deepEqual(parseArguments(["script", "abc", "demo.review", "--input", '{"topic":"Launch"}', "--json"]),
     { kind: "script", profile: "developer", runId: "abc", entry: "demo.review", input: { topic: "Launch" }, json: true });
@@ -486,9 +543,11 @@ test("send follows a message that came into a running turn as steering until its
   assert.equal(progressOf(view("completed", null), new Set(["input-1", "input-2"]), "Use blue.").outcome, undefined, "an old input with the same text does not count");
 });
 
-test("run shows a question the turn posed with its options and how to answer it, not one of another turn", () => {
+test("run shows every question the turn posed with header and options and how to answer them, not one of another turn", () => {
+  const branch = { question: "Which branch?", header: "Branch", options: [{ label: "main", description: "Stable line" }, { label: "release", description: "" }], multiSelect: false };
+  const checks = { question: "Which checks?", header: "Checks", options: [{ label: "lint", description: "" }, { label: "tests", description: "Unit tests" }], multiSelect: true };
   const action = (id: string, proposedAt: string, askedBy = PRIMARY, owner = "ragents.ask") => ({ id, askedBy, owner, title: "Which branch?",
-    description: null, parameters: {}, input: null, payload: { question: "Which branch?", options: ["main", "release"], multi: id === "multi" },
+    description: null, parameters: {}, input: null, payload: { questions: id === "multi" ? [branch, checks] : [branch] },
     status: "pending", proposedAt, resolvedAt: null, resolvedBy: null, result: null });
   const view = {
     id: "run-1", ownerId: OWNER, primaryActorId: PRIMARY,
@@ -510,10 +569,66 @@ test("run shows a question the turn posed with its options and how to answer it,
   assert.equal(progress.outcome, "completed", "the asking turn is finished");
   assert.deepEqual(progress.entries.map((entry) => entry.line), [
     "> ask_user",
-    "? Which branch? Options: \"main\", \"release\" - answer with: ragents send run-1 \"<answer>\"",
-    "? Which branch? Options: \"main\", \"release\" (several allowed) - answer with: ragents send run-1 \"<answer>\"",
+    "? [Branch] Which branch? Options: \"main\" (Stable line), \"release\" - answer with: ragents send run-1 \"<answer>\"",
+    "? [Branch] Which branch? Options: \"main\" (Stable line), \"release\"\n"
+      + "? [Checks] Which checks? Options: \"lint\", \"tests\" (Unit tests) (several allowed) - answer with: ragents send run-1 \"<answers>\"",
     "< ask_user 1.0s ok",
     undefined,
   ]);
-  assert.deepEqual(progress.entries[1]!.data, { kind: "question", id: "question", question: "Which branch?", options: ["main", "release"], multi: false });
+  assert.deepEqual(progress.entries[1]!.data, { kind: "question", id: "question", questions: [branch] });
+  assert.deepEqual(progress.entries[2]!.data, { kind: "question", id: "multi", questions: [branch, checks] });
+});
+
+test("run shares the new run with --share and --share-all, share prints or replaces the sharing", () => {
+  assert.deepEqual(parseShareSpec("bob"), { userId: "bob", access: "read" });
+  assert.deepEqual(parseShareSpec("bob:write"), { userId: "bob", access: "write" });
+  assert.deepEqual(parseShareSpec("team:lead:read"), { userId: "team:lead", access: "read" });
+  assert.deepEqual(parseShareSpec("a:b"), { userId: "a:b", access: "read" }, "only read and write are levels");
+  assert.throws(() => parseShareSpec(":write"), /Invalid share/);
+  assert.deepEqual(parseArguments(["run", "/work", "Build", "--share", "bob", "--share", "carol:write", "--share-all", "read"]), {
+    kind: "run", profile: "developer", folder: "/work", text: "Build", entry: undefined, json: false,
+    sharing: { everyone: "read", users: [{ userId: "bob", access: "read" }, { userId: "carol", access: "write" }] },
+  });
+  assert.deepEqual((parseArguments(["run", "Build", "--share-all", "write"]) as { sharing: unknown }).sharing, { everyone: "write", users: [] });
+  assert.throws(() => parseArguments(["run", "Build", "--share-all", "admin"]), /--share-all takes read or write, not admin/);
+  assert.throws(() => parseArguments(["run", "Build", "--share"]), /--share needs a value/);
+  assert.deepEqual(parseArguments(["share", "abc"]), { kind: "share", profile: "developer", runId: "abc", sharing: undefined, json: false });
+  assert.deepEqual(parseArguments(["share", "abc", "bob:write", "carol", "--all", "read", "--json"]), {
+    kind: "share", profile: "developer", runId: "abc", json: true,
+    sharing: { everyone: "read", users: [{ userId: "bob", access: "write" }, { userId: "carol", access: "read" }] },
+  });
+  assert.deepEqual(parseArguments(["share", "abc", "--none"]), { kind: "share", profile: "developer", runId: "abc", sharing: { everyone: null, users: [] }, json: false });
+  assert.throws(() => parseArguments(["share", "abc", "bob", "--none"]), /--none takes neither users nor --all/);
+  assert.throws(() => parseArguments(["share", "abc", "--all", "everything"]), /--all takes read or write/);
+  assert.throws(() => parseArguments(["share"]), /share needs <run>/);
+  assert.throws(() => parseArguments(["share", "../escape"]), /Invalid run id/);
+});
+
+test("run shares before it sends the task, and a refused share sends nothing", { timeout: 20_000 }, async (t) => {
+  const context = await harness(t, "completed");
+  const run = { kind: "run", profile: "developer", folder: context.directory, text: "Build", entry: undefined, json: false } as const;
+  const sharing: RunSharing = { everyone: "read", users: [{ userId: "bob", access: "write" }] };
+  assert.equal(await execute({ ...run, sharing }, collect(context.lines)), 0);
+  assert.deepEqual(context.shares.map((entry) => ({ runId: entry.runId, sharing: entry.sharing, before: entry.before })),
+    [{ runId: context.messages[0]!.runId, sharing, before: 0 }], "the share reaches the fresh run id before the task");
+  assert.equal(context.selections[0]!.runId, context.messages[0]!.runId);
+  await assert.rejects(execute({ ...run, sharing: { everyone: null, users: [{ userId: "zoe", access: "read" }] } }), /zoe is not a user of this profile/);
+  assert.equal(context.messages.length, 1, "no task went out after the refusal");
+});
+
+test("share prints one line per target or the RPC result, and replaces the sharing", { timeout: 20_000 }, async (t) => {
+  await harness(t, "completed");
+  const printed: string[] = [];
+  assert.equal(await execute({ kind: "share", profile: "developer", runId: "run-1", sharing: undefined, json: false }, collect(printed)), 0);
+  assert.deepEqual(printed, ["nobody"]);
+  const replaced: string[] = [];
+  assert.equal(await execute({ kind: "share", profile: "developer", runId: "run-1", json: false,
+    sharing: { everyone: "read", users: [{ userId: "bob", access: "write" }] } }, collect(replaced)), 0);
+  assert.deepEqual(replaced, ["everyone: read", "bob (Bob): write"]);
+  const json: string[] = [];
+  assert.equal(await execute({ kind: "share", profile: "developer", runId: "run-1", sharing: undefined, json: true }, collect(json)), 0);
+  assert.deepEqual(JSON.parse(json[0]!), {
+    sharing: { everyone: "read", users: [{ userId: "bob", access: "write", label: "Bob" }] },
+    users: [{ id: "bob", label: "Bob" }, { id: "carol", label: "Carol" }],
+  });
 });

@@ -24,13 +24,13 @@ function setup(options: { missingProfile?: boolean; failDispatch?: string; befor
     calls.push({ name, input });
     if (name === "model_list") return { profiles: options.missingProfile ? [] : [{ name: "standard", driver: "agent", description: "Test profile", turnTimeoutMs: null, isolateWorkspace: false, provider: "test", model: "test" }], models: [] };
     if (name === "agent_spawn") {
-      const handle = (input as { handle: string }).handle;
+      const handle = (input as { name: string }).name;
       return { id: `actor-${handle}`, handle };
     }
     if (name === "event_subscribe") return { subscriptionId: "ideas", sources: ["@learning-experiment", "@learning-quiz"] };
     if (name === "event_query") return history.filter((event) => (input as { actorIds: string[] }).actorIds.includes(event.actorId));
     if (name === "actor_input") {
-      const actor = (input as { actor: string }).actor;
+      const actor = (input as { to: string }).to;
       await options.beforeDispatch?.(actor);
       if (actor === options.failDispatch) throw new Error("Task could not be sent.");
       return [{ type: "actor.input.enqueued", payload: { actorId: `actor-${actor.slice(1)}`, inputId: `input-${actor.slice(1)}` } }];
@@ -65,6 +65,7 @@ test("start sets up only two plain helpers and its own app; only the button send
     assert.deepEqual((call.input as { tools: string[] }).tools, []);
     assert.equal((call.input as { profile: string }).profile, "standard");
   }
+  assert.deepEqual(calls.filter((call) => call.name === "agent_spawn").map((call) => (call.input as { description: string }).description), ["suggests a simple experiment", "suggests a short learning quiz"]);
   assert.equal(calls.some((call) => call.name === "actor_input" || call.name === "event_subscribe"), false);
   const before = structuredClone(context.state.read());
   const callCount = calls.length;
@@ -72,7 +73,7 @@ test("start sets up only two plain helpers and its own app; only the button send
   assert.deepEqual(context.state.read(), before);
   assert.equal(calls.length, callCount);
   await program.functions.start({}, context);
-  assert.deepEqual(calls.at(-1), { name: "actor_input", input: { actor: "@test", content: "START_LEARNING_AFTERNOON" } });
+  assert.deepEqual(calls.at(-1), { name: "actor_input", input: { to: "@test", message: "START_LEARNING_AFTERNOON" } });
   assert.equal(context.state.read().board?.phase, "ready");
 });
 
@@ -199,12 +200,12 @@ test("the shared flow provides helper tasks, prompt, and parallel graph branches
   const spawns = calls.filter((call) => call.name === "agent_spawn");
   assert.equal(spawns.length, helperSteps.length);
   for (const spawn of spawns) {
-    const prompt = (spawn.input as { prompt: string }).prompt;
-    assert.match(prompt, /Work only on this task/);
-    assert.match(prompt, /sample question/);
-    assert.match(prompt, /dangerous substances/);
+    const instructions = (spawn.input as { instructions: string }).instructions;
+    assert.match(instructions, /Work only on this task/);
+    assert.match(instructions, /sample question/);
+    assert.match(instructions, /dangerous substances/);
   }
-  assert.deepEqual(calls.filter((call) => call.name === "actor_input").map((call) => (call.input as { content: string }).content), helperSteps.map((step) => step.goal));
+  assert.deepEqual(calls.filter((call) => call.name === "actor_input").map((call) => (call.input as { message: string }).message), helperSteps.map((step) => step.goal));
   const initial = workflowGraph(learningWorkflow, learningWorkflowState(initialState));
   assert.ok(initial.nodes.every((node) => node.status === "pending"));
   assert.deepEqual(initial.edges.map((edge) => [edge.source, edge.target]), [["experiment", "collect"], ["quiz", "collect"]]);

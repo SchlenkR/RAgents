@@ -18,7 +18,7 @@ export default defineActor(contract, {
     const handles = others.map((actor) => `@${actor.handle}`);
     const summary = handles.length === 0 ? "No other participants yet." : `${handles.length} participant${handles.length === 1 ? "" : "s"}: ${handles.join(", ")}.`;
     const notebook = await context.functions.actor_program_ensure({ name: "notebook" });
-    await context.functions.actor_input({ actor: `@${notebook.handle}`, content: `Roster: ${summary}` });
+    await context.functions.actor_input({ to: `@${notebook.handle}`, message: `Roster: ${summary}` });
     context.state.replace({ reports: (context.state.read().reports ?? 0) + 1 });
     context.finish({ actors: others.map(({ handle, kind, lifecycle }) => ({ handle, kind, lifecycle })) }, { summary });
   },

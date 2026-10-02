@@ -40,11 +40,14 @@ test("tool selection is the intersection of capabilities and toolNames", async (
     try {
         const { toolset } = await turnToolset(setup, "selected");
         assert.deepEqual(toolset.functions.map((entry) => entry.name), ["actor_list"]);
-        assert.deepEqual(toolset.tools, []);
-        await assert.rejects(toolset.invoke("native-call", "actor_list", {}), /is not available/);
+        assert.deepEqual(toolset.tools.map((entry) => entry.name), ["actor_list"]);
+        await assert.rejects(toolset.invoke("native-call", "actor_input", {
+            to: setup.agent.id,
+            message: "Not available.",
+        }), /is not available/);
         await assert.rejects(toolset.invokeFunction("unavailable", "actor_input", {
-            actor: setup.agent.id,
-            content: "Not available.",
+            to: setup.agent.id,
+            message: "Not available.",
         }), /is not available/);
     } finally {
         setup.journal.close();
@@ -146,9 +149,10 @@ test("agent_spawn inherits delegable capabilities with an explicit tool selectio
     try {
         const { toolset } = await turnToolset(setup, "spawn inherited");
         const spawned = await toolset.invokeFunction("spawn-child", "agent_spawn", {
-            handle: "child",
+            description: "handles the child task",
+            name: "child",
             displayName: "Child",
-            prompt: "Handle the child task.",
+            instructions: "Handle the child task.",
             profile: "agent",
             tools: ["model_list"],
         });
@@ -178,7 +182,7 @@ test("agent_spawn rejects missing and unknown tool selections before creating an
     try {
         const { toolset } = await turnToolset(setup, "invalid tools");
         const before = setup.runtime.view(setup.view.id).actors;
-        const input = { handle: "child", prompt: "Talk normally.", profile: "agent" };
+        const input = { description: "talks normally", name: "child", instructions: "Talk normally.", profile: "agent" };
         await assert.rejects(toolset.invokeFunction("missing-tools", "agent_spawn", input), /does not match its schema/);
         await assert.rejects(toolset.invokeFunction("unknown-tools", "agent_spawn", { ...input, tools: ["not_a_real_tool"] }), /Unknown agent tools: not_a_real_tool.*Existing names:.*actor_list/);
         await assert.rejects(toolset.invokeFunction("future-tools", "agent_spawn", { ...input, tools: ["future_actor_function"] }), /future actor functions/);
@@ -192,12 +196,12 @@ test("agent_spawn returns the created actor reference when an existing handle re
     const setup = setupRun({ grants: allGrants(), toolNames: ["agent_spawn", "actor_input"] });
     try {
         const { toolset } = await turnToolset(setup, "spawn duplicate handle");
-        const input = { handle: "child", prompt: "Answer the assigned question.", profile: "agent", tools: [] };
+        const input = { description: "answers a question", name: "child", instructions: "Answer the assigned question.", profile: "agent", tools: [] };
         const first = await toolset.invokeFunction("first-child", "agent_spawn", input) as { id: string; handle: string };
         const second = await toolset.invokeFunction("second-child", "agent_spawn", input) as { id: string; handle: string };
         assert.notEqual(first.id, second.id);
         assert.notEqual(first.handle, second.handle);
-        await toolset.invokeFunction("address-child", "actor_input", { actor: second.id, content: "Your task." });
+        await toolset.invokeFunction("address-child", "actor_input", { to: second.id, message: "Your task." });
         const view = setup.runtime.view(setup.view.id);
         assert.equal(view.actors.find((entry) => entry.id === second.id)?.handle, second.handle);
         assert.equal(view.inputs.filter((entry) => entry.actorId === second.id).length, 1);
@@ -217,7 +221,7 @@ test("agent_spawn with explicit null resolves a dynamic toolset without copying 
     const setup = setupRun({ grants: allGrants(), toolNames: ["agent_spawn"] });
     try {
         const { toolset } = await turnToolset(setup, "dynamic parent", registry);
-        await toolset.invokeFunction("spawn-dynamic", "agent_spawn", { handle: "dynamic", prompt: "Use the activated function.", profile: "agent", tools: null });
+        await toolset.invokeFunction("spawn-dynamic", "agent_spawn", { description: "uses a later function", name: "dynamic", instructions: "Use the activated function.", profile: "agent", tools: null });
         const view = setup.runtime.view(setup.view.id);
         const child = view.actors.find((entry) => entry.handle === "dynamic");
         assert.ok(child?.kind === "agent");
@@ -244,7 +248,7 @@ test("agent_spawn validates existing dynamic names even when they belong to anot
             execution: setup.agent.execution, grants: allGrants(), toolNames: ["bound_function"],
         });
         const { toolset } = await turnToolset(setup, "known function", registry);
-        await toolset.invokeFunction("spawn-known", "agent_spawn", { handle: "child", prompt: "Use an existing function when targeted.", profile: "agent", tools: ["bound_function"] });
+        await toolset.invokeFunction("spawn-known", "agent_spawn", { description: "uses a bound function", name: "child", instructions: "Use an existing function when targeted.", profile: "agent", tools: ["bound_function"] });
         const child = setup.runtime.view(setup.view.id).actors.find((entry) => entry.handle === "child");
         assert.ok(child?.kind === "agent");
         assert.deepEqual(child.toolNames, ["bound_function"]);
@@ -259,9 +263,10 @@ test("agent_spawn supports capability opt-out and a plain tools selection", asyn
     try {
         const { toolset } = await turnToolset(setup, "spawn plain");
         await toolset.invokeFunction("spawn-plain", "agent_spawn", {
-            handle: "plain",
+            description: "talks normally",
+            name: "plain",
             displayName: "Plain",
-            prompt: "Talk normally.",
+            instructions: "Talk normally.",
             profile: "agent",
             tools: [],
             withoutCapabilities: ["plugin.state.write"],
@@ -275,20 +280,63 @@ test("agent_spawn supports capability opt-out and a plain tools selection", asyn
     }
 });
 
-test("agent_spawn rejects the removed explicit grant list", async () => {
-    const setup = setupRun({ grants: allGrants(), toolNames: ["agent_spawn"] });
+test("agent_spawn rejects the removed explicit grant list and the former field names", async () => {
+    const setup = setupRun({ grants: allGrants(), toolNames: ["agent_spawn", "actor_input"] });
 
     try {
         const { toolset } = await turnToolset(setup, "old grants");
         await assert.rejects(toolset.invokeFunction("spawn-old", "agent_spawn", {
-            handle: "old",
+            description: "keeps the old contract",
+            name: "old",
             displayName: "Old",
-            prompt: "Old contract.",
+            instructions: "Old contract.",
             profile: "agent",
             tools: [],
             grants: [],
         }), /does not match its schema/);
+        await assert.rejects(toolset.invokeFunction("spawn-handle", "agent_spawn", {
+            handle: "old", prompt: "Old contract.", profile: "agent", tools: [],
+        }), /does not match its schema/);
+        await assert.rejects(toolset.invokeFunction("old-input", "actor_input", { actor: setup.agent.id, content: "Old contract." }), /does not match its schema/);
         assert.equal(setup.runtime.view(setup.view.id).actors.some((entry) => entry.handle === "old"), false);
+    } finally {
+        setup.journal.close();
+    }
+});
+
+test("agent_spawn enqueues its prompt as the first input in the same command and keeps the instructions as system prompt", async () => {
+    const setup = setupRun({ grants: allGrants(), toolNames: ["agent_spawn", "actor_input"] });
+
+    try {
+        const { toolset } = await turnToolset(setup, "spawn with task");
+        const spawned = await toolset.invokeFunction("spawn-task", "agent_spawn", {
+            description: "checks the comment rule",
+            prompt: "Check the comment rule in src/app.ts and report every violation.",
+            name: "checker",
+            instructions: "Report findings as a list.",
+            profile: "agent",
+            tools: [],
+        }) as { id: string; handle: string };
+        assert.deepEqual(Object.keys(spawned).sort(), ["handle", "id"]);
+        const events = setup.runtime.events(setup.view.id);
+        const spawnedEvent = events.find((event) => event.type === "agent.spawned" && event.payload.agentId === spawned.id)!;
+        const enqueued = events.filter((event) => event.type === "actor.input.enqueued" && event.payload.actorId === spawned.id);
+        assert.equal(enqueued.length, 1);
+        assert.equal(enqueued[0]!.commandId, spawnedEvent.commandId);
+        assert.equal(enqueued[0]!.sequence, spawnedEvent.sequence + 1);
+        const view = setup.runtime.view(setup.view.id);
+        const child = view.actors.find((entry) => entry.id === spawned.id);
+        assert.ok(child?.kind === "agent");
+        assert.equal(child.prompt, "Report findings as a list.");
+        assert.equal(child.description, "checks the comment rule");
+        assert.deepEqual(view.inputs.filter((entry) => entry.actorId === spawned.id).map((entry) => entry.content), ["Check the comment rule in src/app.ts and report every violation."]);
+
+        const idle = await toolset.invokeFunction("spawn-idle", "agent_spawn", { description: "waits for a task", name: "idle", profile: "agent", tools: [] }) as { id: string };
+        const idleView = setup.runtime.view(setup.view.id);
+        assert.equal(idleView.inputs.some((entry) => entry.actorId === idle.id), false);
+        const idleActor = idleView.actors.find((entry) => entry.id === idle.id);
+        assert.ok(idleActor?.kind === "agent");
+        assert.equal(idleActor.prompt, "");
     } finally {
         setup.journal.close();
     }
@@ -372,7 +420,7 @@ test("artifact_read is refused to another actor until the artifact is attached t
         const readerTurn = await turnToolset({ ...setup, view, agent: reader }, "reader");
 
         await assert.rejects(readerTurn.toolset.invokeFunction("read-early", "artifact_read", { artifactId }), /may not read artifact/);
-        await toolset.invokeFunction("attach-note", "actor_input", { actor: "@reader", content: "See the note.", artifactIds: [artifactId] });
+        await toolset.invokeFunction("attach-note", "actor_input", { to: "@reader", message: "See the note.", artifactIds: [artifactId] });
         const read = await readerTurn.toolset.invokeFunction("read-attached", "artifact_read", { artifactId }) as ReadArtifact;
         assert.equal(read.content, "For the reader.");
     } finally {

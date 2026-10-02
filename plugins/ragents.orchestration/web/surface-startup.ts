@@ -21,9 +21,10 @@ export function surfaceStartupState({ view, startup, connected, running, error }
     kind: "waiting", title: "Your input is needed", detail: "An action in the chat is waiting for your input.",
   };
   const activeIds = new Set(activeActors.map((actor) => actor.id));
-  const working = running || activeActors.some((actor) => actor.lifecycle?.kind === "running")
-    || view?.turns.some((turn) => activeIds.has(turn.actorId) && turn.status === "running")
-    || view?.inputs.some((input) => activeIds.has(input.actorId) && isPendingRunActorInput(input));
+  const turnRunning = running || activeActors.some((actor) => actor.lifecycle?.kind === "running")
+    || view?.turns.some((turn) => activeIds.has(turn.actorId) && turn.status === "running");
+  if (view?.pause && !turnRunning) return { kind: "waiting", title: "The run is paused", detail: "Resume it or send a message to continue." };
+  const working = turnRunning || view?.inputs.some((input) => activeIds.has(input.actorId) && isPendingRunActorInput(input));
   if (working) return { kind: "working", title: "Setting up the run", detail: "The interface is being built. The elements appear automatically." };
   const failed = activeActors.map((actor) => view?.turns.filter((turn) => turn.actorId === actor.id).at(-1))
     .find((turn) => turn?.status === "failed" || turn?.status === "interrupted");

@@ -47,7 +47,7 @@ export function publicPackageFiles(directory: string): Record<string, string> {
 async function collect(repoRoot: string) {
   globalThis.fetch = async () => { throw new Error("Reference generation must not make network calls."); };
   const { composeProfile } = await import("../../apps/server/src/profile/compose.js");
-  const { agentTools, implement, implementChannel, modelToolDescriptors } = await import("@ragents/engine");
+  const { agentTools, implement, implementChannel, isNativeTool, modelToolDescriptors } = await import("@ragents/engine");
   const { coreContracts, runContracts } = await import("../../apps/server/src/api/contracts.js");
   const { methodReference, openRpcDocument } = await import("../../apps/server/src/api/reference.js");
   const { actorProgramAuthoringContracts } = await import("../../apps/server/src/plugin-support/actor-programs/authoring-contracts.js");
@@ -77,7 +77,7 @@ async function collect(repoRoot: string) {
     longDescription: tool.longDescription,
     scope: descriptor.scope,
     availability: descriptor.availability, availabilityDetail: descriptor.availabilityDetail,
-    schema: tool.schema, resultSchema: tool.resultSchema, nativeTool: tool.nativeTool === true,
+    schema: tool.schema, resultSchema: tool.resultSchema, nativeTool: isNativeTool(tool),
   });
   const tools = agentTools.map((tool) => {
     const descriptor = modelToolDescriptors.find((item) => item.name === tool.name);

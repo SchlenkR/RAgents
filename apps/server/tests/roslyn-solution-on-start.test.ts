@@ -1,15 +1,16 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import type { SessionStartedContext } from "@ragents/engine";
+import { eventSubjectOf, type SessionStartedContext } from "@ragents/engine";
 import type { LanguageServerSolutions } from "@ragents/workspace-executor";
 import { askPayloadOf } from "../../../plugins/ragents.ask/ask-payload.ts";
 import { RuntimeAskService } from "../../../plugins/ragents.ask/server/ask-service.ts";
-import { DISMISSED_ANSWER, type AskService } from "../../../plugins/ragents.ask/server/contract.ts";
+import type { AskService } from "../../../plugins/ragents.ask/server/contract.ts";
 import {
   createSolutionOnStart,
   NO_SOLUTION,
   SOLUTION_QUESTION,
   solutionAnswer,
+  solutionQuestion,
   solutionStartStep,
 } from "../../../plugins/ragents.lsp-roslyn/server/solution-on-start.ts";
 import { chatHistoryOf } from "../src/ragents/chat-projection.ts";
@@ -87,10 +88,22 @@ test("the preferred solution also matches below the workspace root and narrows t
 
 test("an answer opens a listed solution, none and a dismissal load nothing, free text goes on", () => {
   const options = ["src/Demo.sln", "tools/Acme.slnx", NO_SOLUTION];
-  assert.deepEqual(solutionAnswer(options, " tools\\Acme.slnx "), { kind: "open", path: "tools/Acme.slnx" });
-  assert.deepEqual(solutionAnswer(options, NO_SOLUTION), { kind: "none" });
-  assert.deepEqual(solutionAnswer(options, DISMISSED_ANSWER), { kind: "none" });
-  assert.deepEqual(solutionAnswer(options, "both please"), { kind: "forward" });
+  const answered = (answer: { selected: string[] } | { text: string }) => ({ kind: "answered" as const, answers: [answer] });
+  assert.deepEqual(solutionAnswer(options, answered({ selected: ["tools/Acme.slnx"] })), { kind: "open", path: "tools/Acme.slnx" });
+  assert.deepEqual(solutionAnswer(options, answered({ text: " tools\\Acme.slnx " })), { kind: "open", path: "tools/Acme.slnx" });
+  assert.deepEqual(solutionAnswer(options, answered({ selected: [NO_SOLUTION] })), { kind: "none" });
+  assert.deepEqual(solutionAnswer(options, { kind: "dismissed" }), { kind: "none" });
+  assert.deepEqual(solutionAnswer(options, answered({ text: "both please" })), { kind: "forward" });
+});
+
+test("the start question lists every solution and Load none, also beyond the four options of ask_user", () => {
+  const options = ["a/One.sln", "b/Two.sln", "c/Three.sln", "d/Four.sln", NO_SOLUTION];
+  const question = solutionQuestion(options);
+  assert.equal(question.question, SOLUTION_QUESTION);
+  assert.equal(question.header, "Solution");
+  assert.equal(question.multiSelect, false);
+  assert.deepEqual(question.options.map((option) => option.label), options);
+  assert.ok(question.options.every((option) => option.description.length > 0));
 });
 
 test("a run script start never lists, opens or asks and still marks the run", async () => {
@@ -165,20 +178,26 @@ test("several solutions ask the coordinator's chat before the start returns and 
     assert.ok(question, "the question exists when the start hook returns");
     const state = f.runtime.state(f.runId);
     assert.equal(question.askedBy, state.ownerId, "only the owner may ask outside a turn");
-    assert.equal(askPayloadOf(question.payload)?.recipient, f.agent.id);
+    assert.equal(askPayloadOf(question.payload).recipient, f.agent.id);
     assert.equal(question.title, SOLUTION_QUESTION);
     assert.deepEqual(f.questions[0]?.[0], { runId: f.runId, agentId: state.ownerId, turnId: null, commandId: `ragents.lsp-roslyn.solution-question:${f.runId}` });
-    assert.deepEqual(f.questions[0]?.[1].options, ["src/Demo.sln", "tools/Acme.slnx", NO_SOLUTION]);
+    assert.deepEqual(f.questions[0]?.[1].questions.map((entry) => entry.options.map((option) => option.label)), [["src/Demo.sln", "tools/Acme.slnx", NO_SOLUTION]]);
     const chat = chatHistoryOf(f.runtime.events(f.runId), {
       conversationId: "run",
       primaryActorId: f.agent.id,
       ownerId: state.ownerId,
       labelOf: () => "foreign",
       turnOf: (turnId) => state.turns.get(turnId)!,
+      inputOf: (inputId) => state.inputs.get(inputId)!,
+      sourceOf: (eventId) => {
+        const source = f.runtime.events(f.runId).find((event) => event.eventId === eventId)!;
+        return { type: source.type, subjectId: eventSubjectOf(state, source) };
+      },
+      handleOf: (actorId) => state.actors.get(actorId)!.handle,
       interruptedByCommand: () => false,
     });
     assert.deepEqual(chat.filter((event) => event.kind === "action").map((event) => event.kind === "action" && event.text), [SOLUTION_QUESTION]);
-    f.service.answer(f.runId, question.id, { answer: "tools/Acme.slnx" });
+    f.service.answer(f.runId, question.id, { answers: [{ selected: ["tools/Acme.slnx"] }] });
     await settled();
     assert.deepEqual(f.calls.at(-1), { operation: "roslyn_open", input: { root: "tools/Acme.slnx", ifNoneOpen: false } });
     assert.equal(f.runtime.view(f.runId).inputs.length, 0);
@@ -192,7 +211,7 @@ test("no load for none, a free answer reaches the coordinator, stopping the run 
     const f = fixture(listing(["src/Demo.sln", "tools/Acme.slnx"]));
     try {
       await f.start(null);
-      f.service.answer(f.runId, f.pendingQuestion()!.id, { answer: NO_SOLUTION });
+      f.service.answer(f.runId, f.pendingQuestion()!.id, { answers: [{ selected: [NO_SOLUTION] }] });
       await settled();
       assert.deepEqual(f.calls.map((call) => call.operation), ["roslyn_solutions"]);
     } finally {
@@ -203,13 +222,12 @@ test("no load for none, a free answer reaches the coordinator, stopping the run 
     const f = fixture(listing(["src/Demo.sln", "tools/Acme.slnx"]));
     try {
       await f.start(null);
-      f.service.answer(f.runId, f.pendingQuestion()!.id, { answer: "both please" });
+      f.service.answer(f.runId, f.pendingQuestion()!.id, { answers: [{ text: "both please" }] });
       await settled();
       assert.deepEqual(f.calls.map((call) => call.operation), ["roslyn_solutions"]);
       const [input] = f.runtime.view(f.runId).inputs;
       assert.equal(input?.actorId, f.agent.id);
-      assert.match(input?.content ?? "", /both please/);
-      assert.match(input?.content ?? "", /roslyn_open/);
+      assert.equal(input?.content, `The user answered the question:\n"${SOLUTION_QUESTION}" = free answer "both please"\nroslyn_open loads a solution.`);
     } finally {
       f.journal.close();
     }
@@ -221,12 +239,12 @@ test("no load for none, a free answer reaches the coordinator, stopping the run 
       const restarted = new RuntimeAskService();
       restarted.bind(f.runtime);
       const question = f.pendingQuestion()!;
-      f.service.answer(f.runId, question.id, { answer: "src/Demo.sln" });
+      f.service.answer(f.runId, question.id, { answers: [{ selected: ["src/Demo.sln"] }] });
       await settled();
       const inputs = f.runtime.view(f.runId).inputs;
       assert.equal(inputs.length, 1, "the service without a waiter hands the answer to the coordinator");
       assert.equal(inputs[0]?.actorId, f.agent.id);
-      assert.match(inputs[0]?.content ?? "", /Answer to the question: .*\nAnswer: src\/Demo\.sln/);
+      assert.equal(inputs[0]?.content, `The user answered the question:\n"${SOLUTION_QUESTION}" = "src/Demo.sln"`);
     } finally {
       f.journal.close();
     }
@@ -292,7 +310,7 @@ test("an instance opened elsewhere withdraws the pending start question without 
     const startup = f.create();
     try {
       await f.start(null, startup);
-      f.service.answer(f.runId, f.pendingQuestion()!.id, { answer: "src/Demo.sln" });
+      f.service.answer(f.runId, f.pendingQuestion()!.id, { answers: [{ selected: ["src/Demo.sln"] }] });
       startup.opened(f.runId);
       await settled();
       assert.equal(f.runtime.view(f.runId).actions[0]?.status, "approved");

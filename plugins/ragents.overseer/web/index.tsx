@@ -9,9 +9,7 @@ import { ChatStepsProvider, type OverviewPanelContext, type WebPlugin } from "@r
 import { ChatViewSwitches, useChatViewSettings } from "@ragents/web/chat-view-settings";
 import { withToolSummaries } from "@ragents/web/toolLine";
 import { rpc } from "@ragents/web/rpc";
-import { interruptActorTurn } from "@ragents/web/api";
-import { runContracts } from "@ragents/engine/src/http/contracts";
-import { runViewFrom } from "@ragents/web/run-view";
+import { pauseRun } from "@ragents/web/api";
 import { OVERSEER_PLUGIN_ID, overseerContracts } from "../contract";
 import { ModelSettings, useModelSettings } from "./ModelSettings";
 import { overseerChatDisplayPolicy, overseerChatStorageKeyPrefix } from "./chat-display";
@@ -19,13 +17,6 @@ import { overseerChatDisplayPolicy, overseerChatStorageKeyPrefix } from "./chat-
 const toolbarClass = "flex h-header w-full min-w-0 flex-1 items-center px-2 py-1 max-md:px-1";
 const triggerClass = "h-full min-w-0 flex-1 justify-start border-border-strong bg-background px-2 font-normal text-muted-foreground aria-expanded:border-primary data-[working=true]:animate-working-pulse data-[working=true]:border-primary motion-reduce:data-[working=true]:animate-none";
 const noteClass = "text-[0.8rem] text-muted-foreground";
-
-/** Interrupts only the coordinator's running turn; the run and its other actors keep running. */
-const interruptCoordinator = async (runId: string) => {
-  const coordinator = runViewFrom(await rpc.call(runContracts.view, { runId }))?.primaryActorId;
-  if (!coordinator) throw new Error("The global coordinator is not available");
-  await interruptActorTurn(runId, coordinator);
-};
 const errorClass = "text-[0.8rem] text-destructive";
 
 /** Every user has their own coordinator; only the server knows its id. */
@@ -169,7 +160,7 @@ function OverseerConversation({ open, onOpen, onClose, onBusy, userLocation, run
           <ChatInputToolbar {...attachments} handleRef={composer}
             disabled={!writable || resetting || confirmReset} sendDisabled={!chat.connected || modelState.status === "saving" || resetting}
             maxRows={4} rows={1} onErrorChange={setComposerError} onSend={(text, attachments) => chat.send(text, attachments, userLocation)}
-            onStop={writable && chat.running ? () => { if (!resetPending.current) perform(() => interruptCoordinator(runId)); } : undefined}
+            onStop={writable && chat.running ? () => { if (!resetPending.current) perform(() => pauseRun(runId)); } : undefined}
             running={chat.running}
             texts={{ placeholder: writable ? "Ask the global coordinator" : "Read access to the global coordinator" }}
             toolbarLeft={<ChatViewSwitches className="max-md:[&>span]:hidden" settings={chatView} />}

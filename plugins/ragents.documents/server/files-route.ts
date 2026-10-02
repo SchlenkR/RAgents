@@ -1,11 +1,13 @@
 import { lstat, readdir, readFile, realpath } from "node:fs/promises";
 import path from "node:path";
-import { implement, type HttpRouteContribution, type MethodContribution } from "@ragents/engine";
+import { implement, type AccessContext, type HttpRouteContribution, type MethodContribution } from "@ragents/engine";
 import { guardedJsonRoute } from "@ragents/host/plugin-support/http.js";
 import { documentsContracts, type RunFileEntry, type RunFilesListing } from "../contract.js";
 
 
 const contentPattern = /^\/api\/plugins\/ragents\.documents\/runs\/([A-Za-z0-9_-]{1,64})\/files\/content$/;
+
+const workspaceContentPattern = /^\/api\/plugins\/ragents\.documents\/runs\/([A-Za-z0-9_-]{1,64})\/workspace\/content$/;
 
 const MAX_ENTRIES = 1000;
 
@@ -127,6 +129,39 @@ export const createFileContentRoute = (options: FilesRouteOptions): HttpRouteCon
         response.writeHead(200, {
           "Cache-Control": "no-store",
           "Content-Type": mediaTypes[path.extname(relative).toLowerCase()] ?? "application/octet-stream",
+          "Content-Length": content.byteLength,
+        });
+        response.end(content);
+      },
+    });
+  },
+});
+
+export interface WorkspaceContentRouteOptions {
+  ensureWorkspaceAccess: (access: AccessContext, runId: string) => void;
+  workspaceText: (runId: string, filePath: string) => Promise<string>;
+}
+
+/** A shown workspace file as text, read now where the workspace lies; only whoever may inspect the workspace gets it. */
+export const createWorkspaceContentRoute = (options: WorkspaceContentRouteOptions): HttpRouteContribution => ({
+  id: "ragents.documents.workspace-content",
+  isApiPath: (pathname) => workspaceContentPattern.test(pathname),
+  matches: (request, url) => request.method === "GET" && workspaceContentPattern.test(url.pathname),
+  requiredRights: ["runs.read", "runs.inspect"],
+  handle: async ({ response, request, url, access }) => {
+    const match = url.pathname.match(workspaceContentPattern);
+    if (!match) throw new Error("Invalid documents route");
+    const [, runId] = match;
+    await guardedJsonRoute({
+      response,
+      request,
+      ensureSession: () => options.ensureWorkspaceAccess(access, runId),
+      handle: async () => {
+        const filePath = url.searchParams.get("path") ?? "";
+        const content = Buffer.from(await options.workspaceText(runId, filePath), "utf8");
+        response.writeHead(200, {
+          "Cache-Control": "no-store",
+          "Content-Type": mediaTypes[path.extname(filePath).toLowerCase()] ?? "text/plain; charset=utf-8",
           "Content-Length": content.byteLength,
         });
         response.end(content);

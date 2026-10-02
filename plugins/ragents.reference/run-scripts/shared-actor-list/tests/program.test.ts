@@ -10,10 +10,10 @@ test("binds the list to the real list helper and assigns its first call", async 
   assert.equal((calls.find((call) => call.name === "agent_spawn")?.input as { tools: null }).tools, null);
   assert.deepEqual(calls.find((call) => call.name === "actor_program_activate")?.input, { name: "shared-list", actor: "@list-helper" });
   assert.deepEqual(calls.find((call) => call.name === "run_configure")?.input, { title: "Collection board: Team breakfast" });
-  const assignment = calls.filter((call) => call.name === "actor_input")[0].input as { actor: string; content: string };
-  assert.equal(assignment.actor, "@list-helper");
-  assert.match(assignment.content, /append_to_list/);
-  assert.match(assignment.content, /Coffee/);
+  const assignment = calls.filter((call) => call.name === "actor_input")[0].input as { to: string; message: string };
+  assert.equal(assignment.to, "@list-helper");
+  assert.match(assignment.message, /append_to_list/);
+  assert.match(assignment.message, /Coffee/);
   assert.deepEqual(context.state.read(), { built: true });
   const completedCalls = calls.length;
   await program.onInput!(startInput(null), context);
@@ -37,6 +37,6 @@ test("uses the actually created handle for binding and task", async () => {
   await program.onInput!(startInput(null), context);
   assert.deepEqual(calls.find((call) => call.name === "actor_program_activate")?.input,
     { name: "shared-list", actor: "@list-helper-2" });
-  const assignment = calls.find((call) => call.name === "actor_input")?.input as { actor: string };
-  assert.equal(assignment.actor, "@list-helper-2");
+  const assignment = calls.find((call) => call.name === "actor_input")?.input as { to: string };
+  assert.equal(assignment.to, "@list-helper-2");
 });

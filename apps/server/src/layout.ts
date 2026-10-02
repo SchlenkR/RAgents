@@ -9,6 +9,7 @@ export const layout = {
   archiveDir: path.join(config.dataDir, "archive"),
   recoveryDir: path.join(config.dataDir, "recovery"),
   serverLog: path.join(config.dataDir, "logs/server.log"),
+  readMarkersFile: path.join(config.dataDir, "run-read-markers.json"),
 
   sessionDir: (id: string) => path.join(config.dataDir, "sessions", id),
   deleteIntentFile: (id: string) => path.join(config.dataDir, "delete-intents", `${id}.json`),

@@ -1,16 +1,28 @@
 import { runContracts } from "@ragents/engine/src/http/contracts";
-import { coreContracts } from "@ragents/host/api/contracts";
+import type { RunShareAccess, RunSharing } from "@ragents/engine/src/domain/model";
+import { coreContracts, type RunSharingResult } from "@ragents/host/api/contracts";
 import { hasExactKeys, isRecord } from "./lib/guards";
 import { rpc } from "./rpc";
 import type { RpcClient } from "./rpc/client";
 import type { ChatAttachmentInput, Message } from "quassel/events";
 import { startOptionStateFrom, type StartOptionState } from "../../server/src/plugin-support/start-options-contract";
+import type { ListedSession } from "@ragents/host/chat-handler";
 
-export type { StartOptionState };
+export type { ListedSession, StartOptionState };
 
 /** Interrupts only the running turn of this actor; the actor stays active, without a running turn nothing happens. */
 export const interruptActorTurn = async (runId: string, actorId: string, client: RpcClient = rpc): Promise<void> => {
   await client.call(runContracts.interruptTurn, { runId, commandId: crypto.randomUUID(), actorId });
+};
+
+/** Pauses the whole run with the server's reason: no turn starts any more, the running ones end; a message or resumeRun continues it. */
+export const pauseRun = async (runId: string, client: RpcClient = rpc): Promise<void> => {
+  await client.call(runContracts.pause, { runId, commandId: crypto.randomUUID() });
+};
+
+/** Continues a paused run without a message; its primary actor gets everything that waited. */
+export const resumeRun = async (runId: string, client: RpcClient = rpc): Promise<void> => {
+  await client.call(runContracts.resume, { runId, commandId: crypto.randomUUID() });
 };
 
 export const restartChatActor = async (runId: string, actorId: string, client: RpcClient = rpc): Promise<void> => {
@@ -43,17 +55,34 @@ export interface SessionInfo {
   running?: boolean;
   /** Whether the viewer can reach the run's workspace; missing as long as the server has not listed the run yet. */
   workspaceAccessible?: boolean;
-  /** Display name of the user who created the run; missing for a run created without sign-in. */
-  ownerLabel?: string;
   metadata?: Readonly<Record<string, unknown>>;
-  /** Why a metadata contribution has no value: failed or did not answer in time. */
-  metadataUnavailable?: Readonly<Record<string, string>>;
   /** Why the server locked the run; a locked run can only be deleted. */
   locked?: string;
+  /** False in a run shared with the viewer for viewing only and in someone else's run only its owner operates; missing until the server has listed the run. */
+  operable?: boolean;
+  /** The viewer may change whom the run is shared with. */
+  canShare?: true;
+  /** For a viewer who may change it: the run is shared with anyone. */
+  shared?: true;
+  /** For a viewer who sees the run only through a share: what the share permits. */
+  sharedAccess?: RunShareAccess;
 }
 
-export const listSessions = (client: RpcClient = rpc): Promise<SessionInfo[]> =>
+export const listSessions = (client: RpcClient = rpc): Promise<ListedSession[]> =>
   client.call(coreContracts.runs.list, {});
+
+/** Whom a run is shared with and whom it can be shared with; before the first message the caller's own choice for the run it creates. */
+export const getRunSharing = (runId: string, client: RpcClient = rpc): Promise<RunSharingResult> =>
+  client.call(coreContracts.runs.sharing, { runId });
+
+/** Replaces the whole sharing of a run; before the first message it waits for the run's creation. */
+export const shareRun = (runId: string, sharing: RunSharing, client: RpcClient = rpc): Promise<RunSharingResult> =>
+  client.call(coreContracts.runs.share, { runId, sharing });
+
+/** Only a higher revision counts; the server keeps it per user, so every device and host of that user sees the run as read. */
+export const markRunViewed = async (runId: string, revision: number, client: RpcClient = rpc): Promise<void> => {
+  await client.call(coreContracts.runs.markViewed, { runId, revision });
+};
 
 export const deleteSession = async (id: string, client: RpcClient = rpc): Promise<void> => {
   await client.call(coreContracts.runs.delete, { runId: id });

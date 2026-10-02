@@ -45,24 +45,48 @@ test("journalLines filters by mode and sequence", () => {
   assert.equal(journalLines(events, "all", 0).length, 8);
 });
 
-test("journalLines prints a question of ragents.ask with its options, other actions stay raw", () => {
+test("journalLines prints every question of ragents.ask with header and options, other actions and the former shape stay raw", () => {
   const at = "2026-09-21T10:00:00.000Z";
+  const branch = { question: "Which branch?\nPick one.", header: "Branch", options: [{ label: "main", description: "Stable\nline" }, { label: "release", description: "" }], multiSelect: false };
+  const checks = { question: "Which checks?", header: "Checks", options: [{ label: "lint", description: "" }, { label: "tests", description: "" }], multiSelect: true };
+  const former = { question: "Which branch?", options: ["main", "release"], multi: false };
   const asked: readonly JournalEvent[] = [
     { sequence: 1, type: "action.proposed", actorId: "agent_coordinator", occurredAt: at,
-      payload: { actionId: "action-1", owner: "ragents.ask", title: "Which branch?", payload: { question: "Which branch?\nPick one.", options: ["main", "release"], multi: false } } },
-    { sequence: 2, type: "action.proposed", actorId: "agent_coordinator", occurredAt: at,
-      payload: { actionId: "action-2", owner: "ragents.ask", title: "Which checks?", payload: { question: "Which checks?", options: ["lint", "tests"], multi: true } } },
+      payload: { actionId: "action-1", owner: "ragents.ask", title: "Which branch?\nWhich checks?", payload: { questions: [branch, checks] } } },
+    { sequence: 2, type: "action.proposed", actorId: "agent_coordinator", occurredAt: at, payload: { actionId: "action-2", owner: "ragents.ask", title: "Which branch?", payload: former } },
     { sequence: 3, type: "action.proposed", actorId: "agent_coordinator", occurredAt: at, payload: { actionId: "action-3", owner: "demo.review", title: "Approve?", payload: null } },
-    { sequence: 4, type: "action.resolved", actorId: "human_alice", occurredAt: at, payload: { actionId: "action-1", decision: "approved", result: "main" } },
+    { sequence: 4, type: "action.resolved", actorId: "human_alice", occurredAt: at,
+      payload: { actionId: "action-1", decision: "approved", result: { answers: [{ selected: ["main"] }, { text: "none" }] } } },
   ];
   assert.deepEqual(journalLines(asked, "chat", 0), [
-    "[1] QUESTION agent_coordina: Which branch? Pick one. Options: \"main\", \"release\"",
-    "[2] QUESTION agent_coordina: Which checks? Options: \"lint\", \"tests\" (several allowed)",
+    "[1] QUESTION agent_coordina: [Branch] Which branch? Pick one. Options: \"main\" (Stable line), \"release\"",
+    "[1] QUESTION agent_coordina: [Checks] Which checks? Options: \"lint\", \"tests\" (several allowed)",
+    `[2] action.proposed agent_coordina: ${JSON.stringify(asked[1]!.payload)}`,
     "[3] action.proposed agent_coordina: {\"actionId\":\"action-3\",\"owner\":\"demo.review\",\"title\":\"Approve?\",\"payload\":null}",
-    "[4] action.resolved human_alice: {\"actionId\":\"action-1\",\"decision\":\"approved\",\"result\":\"main\"}",
+    "[4] action.resolved human_alice: {\"actionId\":\"action-1\",\"decision\":\"approved\",\"result\":{\"answers\":[{\"selected\":[\"main\"]},{\"text\":\"none\"}]}}",
     "-- last sequence: 4",
   ]);
   assert.deepEqual(journalLines(asked, "tools", 0), ["-- last sequence: 4"]);
+});
+
+test("journalLines names who paused and resumed the run, without a user only the reason and the trigger", () => {
+  const at = "2026-09-21T10:00:00.000Z";
+  const paused: readonly JournalEvent[] = [
+    { sequence: 1, type: "run.paused", actorId: "human_alice", occurredAt: at, payload: { reason: "Paused in the chat", userId: "alice" } },
+    { sequence: 2, type: "run.resumed", actorId: "human_alice", occurredAt: at, payload: { trigger: "input", userId: "alice" } },
+    { sequence: 3, type: "run.paused", actorId: "human_alice", occurredAt: at, payload: { reason: "Paused with ragents stop" } },
+    { sequence: 4, type: "run.resumed", actorId: "human_alice", occurredAt: at, payload: { trigger: "resume" } },
+  ];
+  const lines = [
+    "[1] PAUSED by alice: Paused in the chat",
+    "[2] RESUMED (input) by alice",
+    "[3] PAUSED: Paused with ragents stop",
+    "[4] RESUMED (resume)",
+    "-- last sequence: 4",
+  ];
+  assert.deepEqual(journalLines(paused, "chat", 0), lines);
+  assert.deepEqual(journalLines(paused, "all", 0), lines);
+  assert.deepEqual(journalLines(paused, "tools", 0), ["-- last sequence: 4"]);
 });
 
 test("the reader returns only what was added since the last call", async (t) => {

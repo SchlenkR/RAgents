@@ -3,8 +3,8 @@ import {
   type WebPlugin,
   type WebPluginDescriptor,
 } from "@ragents/web/PluginRegistry";
-import { runViewFrom, type RunView } from "@ragents/web/run-view";
-import { askPayloadOf, ASK_PLUGIN_ID } from "../ask-payload";
+import { runViewFrom, type RunAction, type RunView } from "@ragents/web/run-view";
+import { askPayloadComplaints, ASK_PLUGIN_ID, type AskPayload } from "../ask-payload";
 import { AskActionView } from "./AskActionView";
 
 const pendingQuestions = (view: RunView) =>
@@ -13,16 +13,21 @@ const pendingQuestions = (view: RunView) =>
 const askerHandle = (view: RunView, askedBy: string): string =>
   view.actors.find((actor) => actor.id === askedBy)?.handle ?? askedBy;
 
+/** The card itself reports a payload it cannot read; the note then counts the call as one question of its asker. */
+const readable = (action: RunAction): AskPayload | undefined =>
+  askPayloadComplaints(action.payload).length === 0 ? action.payload as unknown as AskPayload : undefined;
+
 const attentionFor = (session: SessionContext) => {
   const view = runViewFrom(session.runView);
   if (!view) return undefined;
   const [first, ...rest] = pendingQuestions(view);
   if (!first) return undefined;
+  const count = [first, ...rest].reduce((sum, action) => sum + (readable(action)?.questions.length ?? 1), 0);
   return {
     active: true as const,
     label: rest.length === 0
-      ? `@${askerHandle(view, askPayloadOf(first.payload)?.recipient ?? first.askedBy)} asks`
-      : `${rest.length + 1} open questions`,
+      ? `@${askerHandle(view, readable(first)?.recipient ?? first.askedBy)} asks`
+      : `${count} open questions`,
   };
 };
 

@@ -93,10 +93,10 @@ test("confirmed reset recovers durably and isolates unavailable journals across 
     (context) => {
       assert.deepEqual(context.tools?.map((tool) => tool.name).sort(), ["bash", "edit", "read", "typescript_api", "typescript_eval", "write"]);
       assert.doesNotMatch(context.systemPrompt ?? "", /reset-test-only-token/);
-      return fauxAssistantMessage([fauxToolCall("typescript_eval", { code: `return await context.functions.write(${JSON.stringify({ path: "request.json", content: '{"title":"Test"}' })});` }, { id: "global-write" })]);
+      return fauxAssistantMessage([fauxToolCall("typescript_eval", { code: `return await context.functions.write(${JSON.stringify({ file_path: "request.json", content: '{"title":"Test"}' })});` }, { id: "global-write" })]);
     },
-    () => fauxAssistantMessage([fauxToolCall("typescript_eval", { code: `return await context.functions.read(${JSON.stringify({ path: `$RAGENTS_JOURNAL_DIR/${G}/journal.jsonl` })});` }, { id: "global-read" })]),
-    () => fauxAssistantMessage([fauxToolCall("typescript_eval", { code: `return await context.functions.bash(${JSON.stringify({ command: 'test -n "$RAGENTS_API_TOKEN" && test "$RAGENTS_API_BASE_URL" = http://127.0.0.1:51234 && rg -l "Old conversation" "$RAGENTS_JOURNAL_DIR"', timeout: 5 })});` }, { id: "global-bash" })]),
+    () => fauxAssistantMessage([fauxToolCall("typescript_eval", { code: `return await context.functions.read(${JSON.stringify({ file_path: `$RAGENTS_JOURNAL_DIR/${G}/journal.jsonl` })});` }, { id: "global-read" })]),
+    () => fauxAssistantMessage([fauxToolCall("typescript_eval", { code: `return await context.functions.bash(${JSON.stringify({ command: 'test -n "$RAGENTS_API_TOKEN" && test "$RAGENTS_API_BASE_URL" = http://127.0.0.1:51234 && rg -l "Old conversation" "$RAGENTS_JOURNAL_DIR"', timeout: 5_000 })});` }, { id: "global-bash" })]),
     (context) => {
       const results = context.messages.filter((message) => message.role === "toolResult");
       assert.equal(results.length, 3);

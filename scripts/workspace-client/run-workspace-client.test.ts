@@ -118,10 +118,10 @@ test("the headless workspace registers and executes the server's tools", async (
   assert.equal(executor.version, WORKSPACE_EXECUTOR_VERSION);
   await mkdir(path.join(directory, "src"), { recursive: true });
   await writeFile(path.join(directory, "src", "app.ts"), "const a = 1;\n", "utf8");
-  assert.match(textOf(await executor.execute("run-1", "read", { path: "src/app.ts" })), /const a = 1/);
-  await executor.execute("run-1", "edit", { path: "src/app.ts", edits: [{ oldText: "1", newText: "2" }] });
+  assert.match(textOf(await executor.execute("run-1", "read", { file_path: "src/app.ts" })), /const a = 1/);
+  await executor.execute("run-1", "edit", { file_path: "src/app.ts", old_string: "1", new_string: "2" });
   assert.equal(await readFile(path.join(directory, "src", "app.ts"), "utf8"), "const a = 2;\n");
-  await executor.execute("run-1", "write", { path: "src/new.ts", content: "export {};\n" });
+  await executor.execute("run-1", "write", { file_path: "src/new.ts", content: "export {};\n" });
   assert.equal(await readFile(path.join(directory, "src", "new.ts"), "utf8"), "export {};\n");
 
   const progress: string[] = [];
@@ -131,7 +131,7 @@ test("the headless workspace registers and executes the server's tools", async (
   assert.match(textOf(bash), /marker-run-1/);
   await until(() => progress.some((text) => text.includes("marker-run-1")));
 
-  await assert.rejects(executor.execute("run-1", "read", { path: "/etc/hosts" }), /outside/);
+  await assert.rejects(executor.execute("run-1", "read", { file_path: "/etc/hosts" }), /outside/);
   await executor.stopRun("run-1");
 
   await client.unregister();
@@ -199,7 +199,7 @@ test("a run with a new folder per run works in the runs folder of the headless w
   });
   assert.equal((await runtime.resolve(runId, () => undefined)).cwd, folder);
   await assert.rejects(readFile(path.join(folder, "note.md"), "utf8"), /ENOENT/, "resolving creates nothing");
-  await runtime.sandbox.execute(runId, "write", { path: "note.md", content: "on the workspace" });
+  await runtime.sandbox.execute(runId, "write", { file_path: "note.md", content: "on the workspace" });
   assert.equal(await readFile(path.join(folder, "note.md"), "utf8"), "on the workspace");
   assert.match(textOf(await runtime.sandbox.execute(runId, "bash", { command: "pwd" })), new RegExp(runId));
   await runtime.deleteSession(runId);

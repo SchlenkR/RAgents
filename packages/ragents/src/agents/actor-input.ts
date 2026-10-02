@@ -6,8 +6,8 @@ import type { CommandContext } from "../runtime/command.ts";
 import type { Orchestration } from "../runtime/orchestration.ts";
 
 export const actorInputSchema = Type.Object({
-    actor: Type.String({ minLength: 1, description: "Actor ID or handle" }),
-    content: Type.String({ minLength: 1, description: "Message text the actor receives as it is, without the sender's context" }),
+    to: Type.String({ minLength: 1, description: "Recipient: the @handle or ID of an actor of this run, as actor_list or agent_spawn name it" }),
+    message: Type.String({ minLength: 1, description: "Plain text the recipient receives as it is, without your context" }),
     artifactIds: Type.Optional(Type.Array(Type.String({ minLength: 1 }), {
         uniqueItems: true,
         description: "Artifacts to attach; the sender must be able to read them, and the recipient may read them afterwards",
@@ -33,6 +33,17 @@ const eventPayloads = {
     }),
     "run.title-changed": payloadOf<"run.title-changed">({
         title: Type.String({ description: "New title of the run" }),
+    }),
+    "run.sharing-changed": payloadOf<"run.sharing-changed">({
+        everyone: Type.Union([Type.Literal("read"), Type.Literal("write"), Type.Null()], { description: "Access of every user of the profile" }),
+        users: Type.Array(Type.Object({ userId: Type.String(), access: Type.String() }, { additionalProperties: false }), { description: "Users with their own access" }),
+    }),
+    "run.paused": payloadOf<"run.paused">({
+        userId: Type.Optional(Type.String({ description: "Signed-in user who paused the run" })),
+    }),
+    "run.resumed": payloadOf<"run.resumed">({
+        trigger: Type.String({ description: "input: a human input resumed the run; resume: the explicit resume" }),
+        userId: Type.Optional(Type.String({ description: "Signed-in user who resumed the run" })),
     }),
     "agent.spawned": payloadOf<"agent.spawned">({
         agentId: Type.String({ description: "ID of the new agent; actor_input and actor_stop take it or @handle" }),
@@ -189,8 +200,8 @@ export const enqueueActorInput = (
     input: ActorInputRequest,
 ): Array<{ type: string; payload: JsonValue }> => {
     runtime.enqueueInput(context, runId, {
-        actorId: input.actor,
-        content: input.content,
+        actorId: input.to,
+        content: input.message,
         artifactIds: input.artifactIds ?? [],
         sourceEventIds: [],
         subscriptionId: null,

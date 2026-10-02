@@ -33,18 +33,18 @@ test("registered private roots provide file aliases and Bash variables without e
       sandbox.tools.get(name)!(input, { toolCallId }) as Promise<{ content: Array<{ text?: string }> }>,
   });
   try {
-    await assert.rejects(byName("write").execute("before", { path: "@apps/counter/src/client.tsx", content: "first" }), /alias/);
+    await assert.rejects(byName("write").execute("before", { file_path: "@apps/counter/src/client.tsx", content: "first" }), /alias/);
     roots.push({ directory: apps, alias: "@apps", environmentVariable: "RAGENTS_APPS_DIR" });
-    await byName("write").execute("write", { path: "@apps/counter/src/client.tsx", content: "first" });
-    await byName("edit").execute("edit", { path: "@apps/counter/src/client.tsx", edits: [{ oldText: "first", newText: "second" }] });
+    await byName("write").execute("write", { file_path: "@apps/counter/src/client.tsx", content: "first" });
+    await byName("edit").execute("edit", { file_path: "@apps/counter/src/client.tsx", old_string: "first", new_string: "second" });
     assert.equal(await readFile(path.join(apps, "counter/src/client.tsx"), "utf8"), "second");
-    assert.match((await byName("read").execute("read", { path: "@apps/counter/src/client.tsx" })).content[0]!.text!, /second/);
+    assert.match((await byName("read").execute("read", { file_path: "@apps/counter/src/client.tsx" })).content[0]!.text!, /second/);
     assert.match((await byName("bash").execute("bash", { command: 'cat "$RAGENTS_APPS_DIR/counter/src/client.tsx"' })).content[0]!.text!, /second/);
-    await assert.rejects(byName("write").execute("outside", { path: path.join(other, "private.ts"), content: "denied" }), /outside/);
+    await assert.rejects(byName("write").execute("outside", { file_path: path.join(other, "private.ts"), content: "denied" }), /outside/);
     await symlink(other, path.join(apps, "escape"));
-    await assert.rejects(byName("write").execute("link", { path: "@apps/escape/private.ts", content: "denied" }), /outside/);
+    await assert.rejects(byName("write").execute("link", { file_path: "@apps/escape/private.ts", content: "denied" }), /outside/);
     await symlink(path.join(other, "missing"), path.join(apps, "dangling"));
-    await assert.rejects(byName("write").execute("dangling", { path: "@apps/dangling/private.ts", content: "denied" }), /outside/);
+    await assert.rejects(byName("write").execute("dangling", { file_path: "@apps/dangling/private.ts", content: "denied" }), /outside/);
   } finally { await sandbox.shutdown(); await rm(directory, { recursive: true, force: true }); }
 });
 

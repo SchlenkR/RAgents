@@ -385,8 +385,14 @@
   .z-\[110\] {
     z-index: 110;
   }
+  .col-\[1\/-2\] {
+    grid-column: 1/-2;
+  }
   .col-\[2\/-1\] {
     grid-column: 2/-1;
+  }
+  .col-\[2\/-2\] {
+    grid-column: 2/-2;
   }
   .col-span-2 {
     grid-column: span 2 / span 2;
@@ -480,6 +486,9 @@
   }
   .mt-1\.5 {
     margin-top: calc(var(--spacing) * 1.5);
+  }
+  .mt-1\.75 {
+    margin-top: calc(var(--spacing) * 1.75);
   }
   .mt-2 {
     margin-top: calc(var(--spacing) * 2);
@@ -798,6 +807,9 @@
   .w-9 {
     width: calc(var(--spacing) * 9);
   }
+  .w-32 {
+    width: calc(var(--spacing) * 32);
+  }
   .w-64 {
     width: calc(var(--spacing) * 64);
   }
@@ -1113,6 +1125,9 @@
   .grid-cols-\[auto_auto_minmax\(0\,1fr\)_auto_auto\] {
     grid-template-columns: auto auto minmax(0,1fr) auto auto;
   }
+  .grid-cols-\[auto_auto_minmax\(0\,1fr\)_auto_auto_auto\] {
+    grid-template-columns: auto auto minmax(0,1fr) auto auto auto;
+  }
   .grid-cols-\[auto_minmax\(0\,1fr\)\] {
     grid-template-columns: auto minmax(0,1fr);
   }
@@ -1122,6 +1137,9 @@
   .grid-cols-\[auto_minmax\(0\,1fr\)_auto_auto\] {
     grid-template-columns: auto minmax(0,1fr) auto auto;
   }
+  .grid-cols-\[auto_minmax\(0\,1fr\)_auto_auto_auto\] {
+    grid-template-columns: auto minmax(0,1fr) auto auto auto;
+  }
   .grid-cols-\[minmax\(0\,0\.9fr\)_minmax\(0\,1\.1fr\)\] {
     grid-template-columns: minmax(0,0.9fr) minmax(0,1.1fr);
   }
@@ -1130,6 +1148,9 @@
   }
   .grid-cols-\[minmax\(0\,1fr\)_auto\] {
     grid-template-columns: minmax(0,1fr) auto;
+  }
+  .grid-cols-\[minmax\(0\,1fr\)_auto_auto\] {
+    grid-template-columns: minmax(0,1fr) auto auto;
   }
   .grid-cols-\[minmax\(0\,1fr\)_minmax\(125px\,180px\)\] {
     grid-template-columns: minmax(0,1fr) minmax(125px,180px);
@@ -1840,6 +1861,9 @@
   .pb-1 {
     padding-bottom: var(--spacing);
   }
+  .pb-1\.5 {
+    padding-bottom: calc(var(--spacing) * 1.5);
+  }
   .pb-2\.5 {
     padding-bottom: calc(var(--spacing) * 2.5);
   }
@@ -2488,6 +2512,9 @@
   }
   .\[stroke-linejoin\:round\] {
     stroke-linejoin: round;
+  }
+  .paused {
+    animation-play-state: paused;
   }
   .ring-inset {
     --tw-ring-inset: inset;

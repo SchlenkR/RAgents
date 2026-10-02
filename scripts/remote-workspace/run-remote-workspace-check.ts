@@ -57,7 +57,7 @@ of a language model drives the tools. At the end everything is cleaned up.
   --shared-path  the folder in the container has the same path as a copy with different content on
                  this machine, instead of ${CONTAINER_FOLDER}, which does not exist here
   --vscode       additionally the VS Code host test against the same server (opens its own window)
-  --browser      additionally browser_open on a page in the container (image with Chromium)`;
+  --browser      additionally browser_navigate on a page in the container (image with Chromium)`;
 
 const FLAGS = ["--shared-path", "--vscode", "--browser"] as const;
 

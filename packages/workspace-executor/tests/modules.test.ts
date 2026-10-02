@@ -112,11 +112,11 @@ test("the footprint of an input names its roots and its running time, declared b
     modules: workspaceExecutorModules({ contributions: [{ languageServers: [demoAdapter] }] }),
   });
   const roots = (operation: string, input: unknown) => executor.footprintOf(operation, input).roots;
-  assert.deepEqual(roots("read", { path: "@actors/app/src/index.ts" }), { aliases: ["@actors"], runRoot: false });
-  assert.deepEqual(roots("write", { path: "src/index.ts", content: "" }), { aliases: [], runRoot: true });
-  assert.deepEqual(roots("edit", { path: "/abs/src/index.ts" }), { aliases: [], runRoot: true });
+  assert.deepEqual(roots("read", { file_path: "@actors/app/src/index.ts" }), { aliases: ["@actors"], runRoot: false });
+  assert.deepEqual(roots("write", { file_path: "src/index.ts", content: "" }), { aliases: [], runRoot: true });
+  assert.deepEqual(roots("edit", { file_path: "/abs/src/index.ts" }), { aliases: [], runRoot: true });
   assert.deepEqual(roots("bash", { command: "ls" }), { aliases: [], runRoot: false });
-  assert.deepEqual(executor.footprintOf("bash", { command: "ls", cwd: "@skills/notes", timeout: 30 }), { roots: { aliases: ["@skills"], runRoot: false }, durationMs: 30_000 });
+  assert.deepEqual(executor.footprintOf("bash", { command: "ls", cwd: "@skills/notes", timeout: 30_000 }), { roots: { aliases: ["@skills"], runRoot: false }, durationMs: 30_000 });
   assert.deepEqual(roots("demo_open", { root: "@actors/app" }), { aliases: ["@actors"], runRoot: false });
   assert.deepEqual(roots("demo_diagnostics", { root: "@actors/app", paths: ["src/a.demo", "@actors/app/b.demo"] }), { aliases: ["@actors"], runRoot: true });
   assert.deepEqual(roots("demo_diagnostics", {}), { aliases: [], runRoot: false });

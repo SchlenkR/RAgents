@@ -81,7 +81,8 @@ test("an open question in an actor chat is answered in the dock at its input and
   await assertDocked(panel, panel);
   assert.equal(await panel.locator("textarea").isDisabled(), false);
   await dock.getByRole("button", { name: "14 days" }).click();
-  assert.deepEqual(await page.evaluate("window.dockFixture.calls"), [["ragents.ask.answer", { runId: "dock", actionId: "review-window", answer: "14 days" }]]);
+  assert.deepEqual(await page.evaluate("window.dockFixture.calls"), [["ragents.ask.answer", { runId: "dock", actionId: "review-window", answers: [{ selected: ["14 days"] }] }]],
+    "A single question with one choice is answered by its option.");
   await page.evaluate("window.dockFixture.resolve()");
   await settle(page);
   assert.equal(await dock.evaluate((element) => element.childElementCount), 0, "The dock is empty after the answer.");
@@ -97,6 +98,40 @@ test("an open question in an actor chat is answered in the dock at its input and
   assert.equal(await readerDock.locator("button, input").count(), 0, "Read access shows the question without controls.");
   assert.equal(await readerPanel.locator("textarea").isDisabled(), true);
   assert.deepEqual(reader.errors, []);
+});
+
+test("several questions of one call share one card with chips, descriptions, multiple choice, free answers and one submit", browserOnly, async (context) => {
+  const url = await buildFixture();
+  const browser = await launch(context);
+  const { page, errors } = await open(browser, `${url}?scene=actor&questions=several`, { width: 520, height: 1400 });
+  const panel = page.locator("[data-fixture=actor]");
+  const dock = panel.locator("[data-chat=actions]");
+  await dock.getByText("Who reviews the change?").waitFor();
+  const group = (header: string) => dock.getByRole("group", { name: header, exact: true });
+  assert.deepEqual(await dock.getByRole("group").evaluateAll((groups) => groups.map((entry) => entry.getAttribute("aria-label"))), ["Period", "Checks", "Reviewer"]);
+  assert.equal(await group("Checks").getByText("Unit tests").isVisible(), true, "Options show their description.");
+  const submit = dock.getByRole("button", { name: "Submit answers" });
+  assert.equal(await submit.isDisabled(), true, "Submit waits for an answer to every question.");
+  await group("Period").getByRole("button", { name: "14 days" }).click();
+  await group("Period").getByRole("button", { name: "3 days" }).click();
+  await group("Period").getByRole("button", { name: "14 days" }).click();
+  assert.deepEqual(await group("Period").locator("[data-question=option][aria-pressed=true]").count(), 1, "A single choice keeps one option.");
+  await group("Checks").getByRole("button", { name: "lint" }).click();
+  await group("Checks").getByRole("button", { name: "build" }).click();
+  await group("Checks").getByRole("button", { name: "tests" }).click();
+  await group("Checks").getByRole("button", { name: "build" }).click();
+  await group("Reviewer").getByRole("button", { name: "Domain lead" }).click();
+  await group("Reviewer").getByRole("textbox", { name: "Free answer: Reviewer" }).fill("Someone from QA");
+  assert.equal(await group("Reviewer").locator("[data-question=option][aria-pressed=true]").count(), 0, "A free answer replaces the chosen option.");
+  assert.deepEqual(await page.evaluate("window.dockFixture.calls"), [], "Choosing does not answer yet.");
+  await submit.click();
+  assert.deepEqual(await page.evaluate("window.dockFixture.calls"), [["ragents.ask.answer", { runId: "dock", actionId: "review-window",
+    answers: [{ selected: ["14 days"] }, { selected: ["lint", "tests"] }, { text: "Someone from QA" }] }]]);
+  await page.evaluate("window.dockFixture.resolve()");
+  await settle(page);
+  const transcript = panel.locator("[data-quassel-transcript]");
+  assert.deepEqual(await transcript.locator("[data-question=answered]").allTextContents(), ["14 days", "lint, tests", "Someone from QA"]);
+  assert.deepEqual(errors, []);
 });
 
 test("the run panel keeps questions at the selected addressee input and retains drafts across apps and actors", browserOnly, async (context) => {

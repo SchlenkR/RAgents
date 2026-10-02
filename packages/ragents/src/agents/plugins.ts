@@ -2,6 +2,7 @@ import type { Actor, RunView } from "../domain/model.ts";
 import {
     agentTools,
     describeToolAvailability,
+    isNativeTool,
     type RunFunction,
     type ToolDescriptor,
 } from "./tools.ts";
@@ -123,7 +124,7 @@ export class ToolRegistry implements ToolProvider {
             if (tool.description !== descriptor.description
                 || availability.availability !== descriptor.availability
                 || availability.availabilityDetail !== descriptor.availabilityDetail
-                || Boolean(tool.nativeTool) !== Boolean(descriptor.nativeTool)) {
+                || isNativeTool(tool) !== isNativeTool(descriptor)) {
                 throw new Error(`Tool plugin ${plugin.name} resolved ${descriptor.name} differently from its descriptor.`);
             }
         }

@@ -620,14 +620,17 @@ On macOS, pnpm through corepack needs a `packageManager` in the workspace's
 ## Time limit of `bash`
 
 A command of the `bash` tool ends after 120 seconds if the call names no `timeout`; a call may
-request up to 3600 seconds. Both are in the tool's description, together with the sentence that
-builds, test runs, and installations need a larger `timeout`. When the time runs out, the model
-gets the output so far, the seconds, and the hint to narrow the command, for example with `rg`
-instead of `grep -r`, or to pass a larger `timeout`. The server inserts the time limit into every
-call; it therefore also applies on a workstation.
+request up to 60 minutes. Like the common agent harnesses, the tool takes `timeout` in
+milliseconds (default 120000, at most 3600000; Claude Code stops at 600000, long builds need more
+here). Both are in the tool's description, together with
+the sentence that builds, test runs, and installations need a larger `timeout`. When the time runs
+out, the model gets the output so far, the milliseconds, and the hint to narrow the command, for
+example with `rg` instead of `grep -r`, or to pass a larger `timeout`. The server inserts the time
+limit into every call; it therefore also applies on a workstation. Background commands
+(`run_in_background`) are not available.
 
 `RAGENTS_BASH_TIMEOUT_SECONDS` in the `ragents.workspace` section or in the server's environment
-changes the default:
+changes the default, in seconds:
 
 ```ts
 "ragents.workspace": {
@@ -635,9 +638,9 @@ changes the default:
 },
 ```
 
-The upper limit stays 3600 seconds: a larger, a non-positive, or a non-numeric value aborts
+The upper limit is 3600 seconds: a larger, a non-positive, or a non-numeric value aborts
 startup. A workstation (VS Code extension, `ragents workspace-client`) does not read the
-variable; the server's default applies to its runs. Anything that takes longer than ten minutes
+variable; the server's default applies to its runs. Anything that takes longer than an hour
 does not go through `bash`, but through a plugin workflow with its own time limit
 ([plugins.md](spec/plugins.md), Open limits).
 

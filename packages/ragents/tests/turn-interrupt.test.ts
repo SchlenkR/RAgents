@@ -32,6 +32,7 @@ const interruptMethod = (setup: ReturnType<typeof setupRun>, scheduler: TurnSche
         projectView: (view) => view,
         hasRun: () => true,
         interruptTurn: (runId, actorId, interruption) => scheduler.interruptTurn(runId, actorId, interruption),
+        pauseRun: (runId, pause) => scheduler.pauseRun(runId, pause),
     }).find((entry) => entry.contract.id === runContracts.interruptTurn.id)!;
 
     return (actorId: string, commandId: string) => found.execute({ runId: setup.view.id, commandId, actorId } as never, context);

@@ -316,7 +316,7 @@ export class AgentTurn {
             label: entry.label,
             description: [entry.description, entry.longDescription].filter(Boolean).join("\n\n"),
             parameters: entry.schema,
-            executionMode: entry.executionMode ?? (entry.name.startsWith("agent_") ? "sequential" : "parallel"),
+            executionMode: entry.executionMode ?? "sequential",
             execute: async (toolCallId: string, params: unknown, toolSignal: AbortSignal | undefined) => {
                 if (!this.#active)
                     throw new Error(`agent tool ${entry.name} was called outside an RAgents turn.`);

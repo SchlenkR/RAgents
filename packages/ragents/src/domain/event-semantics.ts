@@ -330,6 +330,30 @@ export const assertEventSemantics = (
             assertRunConfigurator(state, event);
             break;
 
+        case "run.sharing-changed":
+            assertOwnerEvent(state, event);
+
+            if (state.ownerUserId === null)
+                throw new Error(`Run ${state.id} has no signed-in owner and cannot be shared.`);
+
+            if (event.payload.users.some((user) => user.userId === state.ownerUserId))
+                throw new Error(`Run ${state.id} cannot be shared with its owner ${state.ownerUserId}.`);
+            break;
+
+        case "run.paused":
+            assertOwnerEvent(state, event);
+
+            if (state.pause)
+                throw new Error(`Run ${state.id} is already paused.`);
+            break;
+
+        case "run.resumed":
+            assertOwnerEvent(state, event);
+
+            if (!state.pause)
+                throw new Error(`Run ${state.id} is not paused.`);
+            break;
+
         case "agent.spawned": {
             const author = assertRunCapability(state, event.actorId, "agent.spawn");
             assertDelegation(author, event.payload.grants);
@@ -400,6 +424,12 @@ export const assertEventSemantics = (
 
             if (target.lifecycle.kind !== "idle")
                 throw new Error(`Actor ${target.id} is not idle.`);
+
+            if (state.pause)
+                throw new Error(`Run ${state.id} is paused; actor ${target.id} cannot start a turn.`);
+
+            if (target.held)
+                throw new Error(`Actor ${target.id} is held since the pause and cannot start a turn.`);
             break;
         }
 

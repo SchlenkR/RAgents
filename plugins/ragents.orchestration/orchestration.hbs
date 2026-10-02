@@ -6,10 +6,11 @@ or skill start prompt need not prescribe actors, subscriptions, packages or a te
 
 ## The shared API
 
-Use `typescript_api` to discover the available functions and obtain their exact input and
-result types. Use `typescript_eval` to run a small TypeScript snippet: `code` is the body of an
-async function with `context` and an optional `return`; `path` executes an existing source file
-through the same path. Call registered functions as `context.functions.<name>(input)`.
+Call your tools directly for single actions. Use `typescript_api` to obtain exact input and
+result types. Use `typescript_eval` to run a small TypeScript snippet when calls depend on each
+other or results need filtering: `code` is the body of an async function with `context` and an
+optional `return`; `path` executes an existing source file through the same path. Every tool is
+also available there as `context.functions.<name>(input)`, as are the few snippet-only functions.
 Keep dependent calls and returned references together in code. Do not retype IDs or infer
 result shapes from event names. Type errors identify a disagreement with the contract; fix
 the assumption instead of hiding it with `any` or a double assertion.
@@ -61,11 +62,15 @@ a critic who must inspect files needs the corresponding access; a plain advisor 
 Agents inherit the engine capabilities you may pass on. Use `withoutCapabilities` only when
 an ability must deliberately be absent from a whole subtree.
 
-`agent_spawn` creates an idle actor. Its prompt describes the lasting role and output rules;
-its concrete assignment is an `actor_input`. Give it a `description` of a few words, such as
-"checks the comment rule"; people pick addressees by it in a tree of who created whom. Prepare participants, required programs, views
-and subscriptions before sending the first assignments. Subscribe to a needed reply before
-requesting it. Never assume a failed creation produced an actor.
+`agent_spawn` creates one LLM agent in this run. Its `instructions` describe the lasting role
+and output rules; its `prompt` is the first task and starts it at once; later tasks go to it
+through `actor_input`. Give it a `description` of a few words, such as "checks the comment
+rule"; people pick addressees by it in a tree of who created whom. A prepared setup joins the
+run through `run_script_start` instead, and a TypeScript actor comes from an actor program.
+Prepare participants, required programs, views and subscriptions before sending the first
+assignments. Subscribe to a needed reply before requesting it: when the first answer must reach
+you, create the agent without `prompt`, subscribe, then send the task with `actor_input`. Never
+assume a failed creation produced an actor.
 
 ## Events and turn boundaries
 

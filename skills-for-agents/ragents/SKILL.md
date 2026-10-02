@@ -24,16 +24,19 @@ side, for example two solutions, and `<language>_close` shuts one of them down a
 The `developer` profile runs without sign-in on port 4715, with data under
 `~/.local/share/ragents/developer`. `PORT` and `DATA_DIR` override both.
 
-## The five commands
+## The seven commands
 
 ```sh
 ragents run /path/to/project "Fix the type error in src/broken.ts and run typescript_diagnostics"
 ragents send 7f3c1e64-... "Read README.md and name the password"
 ragents journal 7f3c1e64-... --tools
-ragents stop 7f3c1e64-...        # interrupt the running turn of the primary actor, the run stays active
+ragents stop 7f3c1e64-...        # pause the whole run: running turns end, nothing starts until send or resume
+ragents resume 7f3c1e64-...      # continue a paused run without a message (send continues it with one)
+ragents stop 7f3c1e64-... --turn # interrupt only the running turn of the primary actor, the run stays active
 ragents stop 7f3c1e64-... --run  # emergency stop: cancel all turns, stop all actors
 ragents stop --host              # shut down the remembered host
 ragents script 7f3c1e64-... demo.review  # start a run script inside the running run (ragents script <run> lists them)
+ragents share 7f3c1e64-... bob:write     # replace whom the run is shared with (ragents share <run> prints it)
 ragents --help                   # the usage, like ragents help
 ```
 
@@ -68,10 +71,11 @@ The type error came from greet(42); now it says greet("42").
 run: 7f3c1e64-9a2b-4d11-8c30-1f5e9a77c001
 ```
 
-The last line is always `run: <id>` - `send`, `journal`, and `stop` continue with it.
-If the agent needs a decision, the turn ends with a question line
-`? <question> Options: "<option>", ... - answer with: ragents send <id> "<answer>"`; answer it
-with that `send`, as text that names your choice.
+The last line is always `run: <id>` - `send`, `journal`, `stop`, and `resume` continue with it.
+If the agent needs a decision, the turn ends with one line per question
+`? [<header>] <question> Options: "<label>" (<description>), ...`, the last one followed by
+`- answer with: ragents send <id> "<answer>"`; answer all of them with that one `send`, as text
+that names your choice for every question.
 `--json` returns the same steps as JSON instead of the lines, one per line (`tool`, `tool-end`,
 `question`, `output`, finally `turn`).
 Exit code: `0` the turn is finished, `2` it was cancelled, `1` it failed or the
@@ -94,6 +98,12 @@ ragents stop --host --profile <path>/ragents.config.custom.ts
 
 If the profile creates its workspace itself (no `ragents.workspace`), `<folder>` stays
 unbound; the command says so on stderr and the run runs anyway.
+
+With sign-in, a run can be shared with other users of the profile: `run --share <user>[:read|:write]`
+(repeatable, `read` by default) and `--share-all <read|write>` share the new run before the task
+goes out, `ragents share <run> [<user>[:read|:write]...] [--all <read|write>] [--none]` prints or
+replaces the sharing later. `read` lets the user watch, `write` lets them work in the run as far as
+their own rights go; a refused share aborts `run` before anything is sent.
 
 An ad hoc profile is a copy: put `ragents.config.developer.ts` next to the template, rename it to
 `ragents.config.<name>.ts`, and change `PORT`, `PRODUCT_PROFILE`, `PRODUCT_ID`,

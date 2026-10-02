@@ -1,5 +1,5 @@
 import type { AccessContext } from "../access.ts";
-import type { TurnInterruption } from "../agents/scheduler.ts";
+import type { RunPauseRequest, TurnInterruption } from "../agents/scheduler.ts";
 import type { RunView } from "../domain/model.ts";
 import { DomainError } from "../runtime/domain-error.ts";
 import type { CommandContext, Orchestration } from "../runtime/orchestration.ts";
@@ -23,13 +23,17 @@ export type RuntimeMethodOptions = {
   stopRun?: RunStopOperation;
   /** Ends the running turn of one actor and keeps the actor active; without a running turn it does nothing. */
   interruptTurn: (runId: string, actorId: string, interruption: TurnInterruption) => Promise<void>;
+  /** Pauses the whole run: run.paused first, then the running turns of all actors end. */
+  pauseRun: (runId: string, pause: RunPauseRequest) => Promise<void>;
   /** Checks the rights of the access for a run or throws; the host knows special cases such as the global chat. */
   assertRunRights: (access: AccessContext, runId: string, kind: RunRightsKind) => void;
   projectView: (view: RunView, access: AccessContext) => RunView;
   hasRun: (runId: string) => boolean;
 };
 
-/** The runtime methods of the engine: run view, journal, queues, interrupt, stop and questions. */
+const userOf = (access: AccessContext): { userId?: string } => access.user ? { userId: access.user.id } : {};
+
+/** The runtime methods of the engine: run view, journal, queues, interrupt, pause, stop and questions. */
 export function runtimeMethods(options: RuntimeMethodOptions): MethodContribution[] {
   const { runtime, assertRunRights, projectView } = options;
   const assertAvailable = options.assertAvailable ?? (() => undefined);
@@ -73,7 +77,9 @@ export function runtimeMethods(options: RuntimeMethodOptions): MethodContributio
     implement(runContracts.enqueueInput, (input, { access }) => {
       prepared(access, input.runId, "write-inspect");
       return mutate(input.runId, () => {
-        runtime.enqueueInput(contextOf(input.runId, input), input.runId, { actorId: input.actorId, content: input.content, artifactIds: input.artifactIds ?? [] });
+        runtime.enqueueInput(contextOf(input.runId, input), input.runId, {
+          actorId: input.actorId, content: input.content, artifactIds: input.artifactIds ?? [], origin: "human", ...userOf(access),
+        });
         return projectView(runtime.view(input.runId), access);
       });
     }),
@@ -100,6 +106,19 @@ export function runtimeMethods(options: RuntimeMethodOptions): MethodContributio
         reason: input.reason ?? "Turn interrupted by the operator",
       });
       return projectView(runtime.view(input.runId), access);
+    }),
+    implement(runContracts.pause, async (input, { access }) => {
+      prepared(access, input.runId, "stop");
+      await options.pauseRun(input.runId, {
+        context: contextOf(input.runId, input),
+        reason: input.reason ?? "Paused by the operator",
+        ...userOf(access),
+      });
+      return projectView(runtime.view(input.runId), access);
+    }),
+    implement(runContracts.resume, (input, { access }) => {
+      prepared(access, input.runId, "write");
+      return mutate(input.runId, () => projectView(runtime.resumeRun(contextOf(input.runId, input), input.runId, userOf(access)), access));
     }),
     implement(runContracts.resolveAction, (input, { access }) => {
       prepared(access, input.runId, "write");

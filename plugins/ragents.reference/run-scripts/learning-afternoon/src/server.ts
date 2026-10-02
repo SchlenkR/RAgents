@@ -47,7 +47,7 @@ export default defineActor(contract, {
   functions: {
     start: async (_input, context) => {
       if (context.state.read().board?.phase !== "ready") return {};
-      await context.functions.actor_input({ actor: `@${context.actor.handle}`, content: startMarker });
+      await context.functions.actor_input({ to: `@${context.actor.handle}`, message: startMarker });
       return {};
     },
   },
@@ -60,9 +60,9 @@ export default defineActor(contract, {
       const catalog = await context.functions.model_list({});
       const profile = catalog.profiles.find((entry) => entry.driver === "agent" && entry.name === "standard");
       if (!profile) throw new Error("The role standard is missing.");
-      const prompt = await workflowInstructions(learningWorkflow, "helper", readPrompt);
+      const instructions = await workflowInstructions(learningWorkflow, "helper", readPrompt);
       const helpers = await Promise.all(initialState.helpers.map(async (helper) => {
-        const actor = await context.functions.agent_spawn({ handle: `learning-${helper.id}`, displayName: helper.label, profile: profile.name, prompt, tools: [] });
+        const actor = await context.functions.agent_spawn({ name: `learning-${helper.id}`, displayName: helper.label, description: `suggests ${helper.task.toLowerCase()}`, profile: profile.name, instructions, tools: [] });
         return { ...helper, actorId: actor.id };
       }));
       await context.functions.run_configure({ title: learningWorkflow.title, primaryActor: `@${context.actor.handle}` });
@@ -79,8 +79,8 @@ export default defineActor(contract, {
       const results = await Promise.allSettled(state.board.helpers.map(async (helper): Promise<HelperState> => {
         const step = helperSteps.find((entry) => entry.id === helper.id);
         if (!step) throw new Error(`Unknown helper: ${helper.id}`);
-        const content = step.goal;
-        const events = await context.functions.actor_input({ actor: `@learning-${helper.id}`, content });
+        const message = step.goal;
+        const events = await context.functions.actor_input({ to: `@learning-${helper.id}`, message });
         const queued = events.find((event) => event.type === "actor.input.enqueued");
         if (!queued || queued.type !== "actor.input.enqueued") throw new Error("The task was not confirmed.");
         return { ...helper, inputId: queued.payload.inputId, status: "working" };

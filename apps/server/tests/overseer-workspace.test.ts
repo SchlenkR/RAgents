@@ -4,7 +4,7 @@ import { createServer } from "node:http";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import test from "node:test";
-import type { PluginContext, ToolScope } from "@ragents/engine";
+import { isNativeTool, type PluginContext, type ToolScope } from "@ragents/engine";
 import { sandboxEnvironment, sandboxRunEnvironment } from "@ragents/workspace-executor";
 import { WorkspaceSandboxHost } from "../src/plugin-support/workspace-sandbox-host.ts";
 import type { SessionWorkspace } from "../src/ragents/workspace-runtime.ts";
@@ -38,23 +38,23 @@ test("global coordinator uses common tools with actual journal reads and private
   const f = await isolated();
   try {
     assert.deepEqual(f.tools.map((tool) => tool.name), ["read", "edit", "write", "bash"]);
-    assert.ok(f.tools.every((tool) => tool.nativeTool === true));
-    assert.ok(f.host.workspaceTools().descriptors.every((tool) => tool.nativeTool === true));
+    assert.ok(f.tools.every(isNativeTool));
+    assert.ok(f.host.workspaceTools().descriptors.every(isNativeTool));
     const context = await f.host.serverProcessContextFor("overseer");
     assert.equal(context.cwd, f.cwd);
     assert.equal(context.uid, undefined);
     assert.equal(context.home, f.cwd);
     for (const file of ["$RAGENTS_JOURNAL_DIR/journal.jsonl", "${RAGENTS_JOURNAL_DIR}/journal.jsonl"]) {
-      assert.match(String(await f.invoke("read", { path: file })), /shared history/);
+      assert.match(String(await f.invoke("read", { file_path: file })), /shared history/);
     }
-    await f.invoke("write", { path: "setup.ts", content: "const message = 'ready';" });
-    await f.invoke("edit", { path: "setup.ts", edits: [{ oldText: "ready", newText: "configured" }] });
+    await f.invoke("write", { file_path: "setup.ts", content: "const message = 'ready';" });
+    await f.invoke("edit", { file_path: "setup.ts", old_string: "ready", new_string: "configured" });
     assert.match(await readFile(path.join(f.cwd, "setup.ts"), "utf8"), /configured/);
-    await assert.rejects(f.invoke("write", { path: "$RAGENTS_JOURNAL_DIR/journal.jsonl", content: "tampered" }), /outside/);
-    await assert.rejects(f.invoke("edit", { path: path.join(f.journals, "journal.jsonl"), edits: [{ oldText: "shared history", newText: "tampered" }] }), /outside/);
+    await assert.rejects(f.invoke("write", { file_path: "$RAGENTS_JOURNAL_DIR/journal.jsonl", content: "tampered" }), /outside/);
+    await assert.rejects(f.invoke("edit", { file_path: path.join(f.journals, "journal.jsonl"), old_string: "shared history", new_string: "tampered" }), /outside/);
     await symlink(f.journals, path.join(f.cwd, "journal-link"));
-    await assert.rejects(f.invoke("write", { path: "journal-link/journal.jsonl", content: "tampered" }), /outside/);
-    assert.match(String(await f.invoke("bash", { command: 'rg "shared history" "$RAGENTS_JOURNAL_DIR"', timeout: 5 })), /shared history/);
+    await assert.rejects(f.invoke("write", { file_path: "journal-link/journal.jsonl", content: "tampered" }), /outside/);
+    assert.match(String(await f.invoke("bash", { command: 'rg "shared history" "$RAGENTS_JOURNAL_DIR"', timeout: 5_000 })), /shared history/);
     assert.equal(await readFile(path.join(f.journals, "journal.jsonl"), "utf8"), '{"test":"shared history"}\n');
     await f.host.shutdown("overseer");
     assert.equal((await f.host.workspaceTools().tools({ runId: "overseer" } as PluginContext)).length, 4);
@@ -75,7 +75,7 @@ test("global shell reaches authenticated HTTP without credentials in ordinary ru
     const address = server.address();
     assert.ok(address && typeof address !== "string");
     f.workspace.extraEnv = { ...f.workspace.extraEnv, RAGENTS_API_BASE_URL: `http://127.0.0.1:${address.port}`, RAGENTS_API_TOKEN: token };
-    const response = String(await f.invoke("bash", { command: 'curl --fail --silent --show-error --header "Authorization: Bearer $RAGENTS_API_TOKEN" "$RAGENTS_API_BASE_URL"', timeout: 5 }));
+    const response = String(await f.invoke("bash", { command: 'curl --fail --silent --show-error --header "Authorization: Bearer $RAGENTS_API_TOKEN" "$RAGENTS_API_BASE_URL"', timeout: 5_000 }));
     assert.equal(authorized, true);
     assert.match(response, /accepted/);
     assert.ok(!response.includes(token));

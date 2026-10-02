@@ -26,7 +26,8 @@ export const runPanelPageUrl = (serverUrl: string, query: RunPanelPageQuery): st
 export type RunPanelHostMessage =
   | { type: "ready" }
   | { type: "runChanged"; runId: string | null }
-  | { type: "showStart" }
+  /** With notice, Start shows it, such as for a run that is no longer shared with the user. */
+  | { type: "showStart"; notice?: string }
   | { type: "openInCenter"; runId: string; elementId: string; title: string }
   | { type: "login" }
   | { type: "logout" }
@@ -82,10 +83,11 @@ export const isRunPanelHostMessage = (value: unknown): value is RunPanelHostMess
   if (!isObject(value)) return false;
   switch (value.type) {
     case "ready":
-    case "showStart":
     case "login":
     case "logout":
       return true;
+    case "showStart":
+      return value.notice === undefined || isText(value.notice);
     case "runChanged":
       return value.runId === null || isText(value.runId);
     case "openInCenter":

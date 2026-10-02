@@ -1,11 +1,12 @@
 import { useAccess } from "@ragents/web/AccessContext";
 import { useState, type ReactNode } from "react";
-import { interruptActorTurn, sendActorMessage } from "@ragents/web/api";
+import { pauseRun, sendActorMessage } from "@ragents/web/api";
 import { ChatViewSwitches, useChatViewSettings } from "@ragents/web/chat-view-settings";
 import { ChatInputToolbar } from "quassel";
+import { PausedRunNotice } from "@ragents/web/chat/PausedRunNotice";
 import { StoppedActorNotice } from "@ragents/web/chat/StoppedActorNotice";
 import { useAttachmentCapabilities } from "@ragents/web/chat/useAttachmentCapabilities";
-import { programChatNotice } from "@ragents/web/chat/chat-target";
+import { programChatNotice, runPausable } from "@ragents/web/chat/chat-target";
 import type { RunActor, RunView } from "@ragents/web/run-view";
 
 const controlsClass = "flex flex-shrink-0 items-center gap-2 border-t border-border-soft px-workspace-inset pt-2 pb-2.5";
@@ -24,11 +25,14 @@ export function ActorChatControls({ actor, autoFocus, onAutoFocusSettled, view, 
   toolbarLeft?: ReactNode;
   toolbarRight?: ReactNode;
 }) {
-  const writable = useAccess().can("runs.write");
+  const access = useAccess();
+  const writable = access.can("runs.write");
   const [stopError, setStopError] = useState<string>();
   const chatView = useChatViewSettings(view.id, actor.id, "agents", display);
   const attachments = useAttachmentCapabilities(view.id, actor.id, JSON.stringify(actor.execution?.driver.config));
   const disabledReason = !writable ? "You have read access to this run." : undefined;
+  const placeholder = disabledReason ?? `Message to @${actor.handle} ...`;
+  const stoppable = (access.canStopRun ?? writable) && runPausable(view, view.id, running);
   const switches = <ChatViewSwitches settings={chatView} />;
   if (!composerVisible || actor.kind === "human") return <div className={controlsClass}>{toolbarLeft}{switches}</div>;
   if (actor.kind === "script") return <div className={controlsClass}><p className={noteClass}>{programChatNotice}</p>{toolbarLeft}{switches}</div>;
@@ -36,6 +40,7 @@ export function ActorChatControls({ actor, autoFocus, onAutoFocusSettled, view, 
     <StoppedActorNotice actor={actor} runId={view.id} toolbar={<>{toolbarLeft}{switches}</>} />
   </div>;
   return <div className={presentation === "inspector" ? "mx-auto w-[calc(100%_-_16px)] max-w-[var(--chat-max-width)] flex-shrink-0 pt-2.5 pb-3.5" : undefined}>
+    <PausedRunNotice runId={view.id} view={view} />
     <ChatInputToolbar
       {...attachments}
       autoFocus={autoFocus}
@@ -43,14 +48,14 @@ export function ActorChatControls({ actor, autoFocus, onAutoFocusSettled, view, 
       disabled={disabledReason !== undefined}
       maxRows={4}
       onSend={(text, files) => sendActorMessage(view.id, actor.id, text, files)}
-      onStop={writable && actor.lifecycle?.kind === "running" ? () => {
+      onStop={stoppable ? () => {
         setStopError(undefined);
-        void interruptActorTurn(view.id, actor.id).catch((error: unknown) =>
+        void pauseRun(view.id).catch((error: unknown) =>
           setStopError(error instanceof Error ? error.message : String(error)));
       } : undefined}
       rows={1}
-      running={running}
-      texts={{ placeholder: disabledReason ?? `Message to @${actor.handle} ...` }}
+      running={running || stoppable}
+      texts={running ? { placeholder } : { placeholder, steeringPlaceholder: placeholder, sendIntoRun: "Send" }}
       toolbarLeft={<>
         {toolbarLeft}
         {switches}

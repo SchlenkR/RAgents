@@ -277,8 +277,8 @@ const prompt = await workflowInstructions(definition, &quot;writer&quot;, readPr
 package; missing, empty, or escaping references are errors. <code>workflowInstructions</code> combines the
 role prompt, instructions for relevant steps, and definition metadata. A <code>.hbs</code> file can also be
 referenced, but the standard reader loads it as plain text. A plugin resolves required template
-values explicitly in its own reader. The assembled text is passed as a normal
-<code>agent_spawn.prompt</code> and therefore appears in the started actor&#39;s journal.</p>
+values explicitly in its own reader. The assembled text is passed as the normal
+<code>agent_spawn.instructions</code> and therefore appears in the started actor&#39;s journal.</p>
 <p>The current <code>WorkflowState</code> remains separate. The program derives it from actual data and
 service results. <code>WorkflowDiagram</code> from <code>@ragents/client/ui</code> receives <code>definition</code>, <code>state</code>, and
 <code>label</code>; <code>workflowGraph</code> returns the same projection as nodes and edges for custom displays. By

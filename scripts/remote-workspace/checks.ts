@@ -196,8 +196,8 @@ const toolProgram = (nonce: string): ScriptProgram => ({
   id: "tools",
   steps: [
     { tool: "bash", input: { command: "uname -s; hostname; pwd" } },
-    { tool: "read", input: { path: "README.md" } },
-    { tool: "write", input: { path: WRITTEN_FILE, content: `Written by the script model: ${nonce}\n` } },
+    { tool: "read", input: { file_path: "README.md" } },
+    { tool: "write", input: { file_path: WRITTEN_FILE, content: `Written by the script model: ${nonce}\n` } },
     { tool: "typescript_eval", input: { code: TYPESCRIPT_CWD } },
   ],
 });
@@ -345,8 +345,8 @@ const programSteps = (nonce: string): ScriptProgram => ({
   id: "actor-program",
   steps: [
     { tool: "typescript_eval", input: { code: `return context.functions.actor_program_create({ name: ${JSON.stringify(PROGRAM)}, template: "blank" });` } },
-    ...Object.entries(programFiles(nonce)).map(([file, content]) => ({ tool: "write", input: { path: `@actors/${PROGRAM}/${file}`, content } })),
-    { tool: "edit", input: { path: `@actors/${PROGRAM}/src/server.ts`, edits: [{ oldText: '() => "before"', newText: `() => ${JSON.stringify(nonce)}` }] } },
+    ...Object.entries(programFiles(nonce)).map(([file, content]) => ({ tool: "write", input: { file_path: `@actors/${PROGRAM}/${file}`, content } })),
+    { tool: "edit", input: { file_path: `@actors/${PROGRAM}/src/server.ts`, old_string: '() => "before"', new_string: `() => ${JSON.stringify(nonce)}` } },
     { tool: "bash", input: { command: PROBE, cwd: `@actors/${PROGRAM}` } },
     { tool: "bash", input: { command: PROBE } },
     { tool: "typescript_eval", input: { code: `return context.functions.actor_program_activate({ name: ${JSON.stringify(PROGRAM)} });` } },
@@ -357,8 +357,8 @@ const programSteps = (nonce: string): ScriptProgram => ({
 const skillSteps: ScriptProgram = {
   id: "skill",
   steps: [
-    { tool: "read", input: { path: `@skills/${CHECK_SKILL}/SKILL.md` } },
-    { tool: "read", input: { path: `@skills/${CHECK_SKILL}/template.md` } },
+    { tool: "read", input: { file_path: `@skills/${CHECK_SKILL}/SKILL.md` } },
+    { tool: "read", input: { file_path: `@skills/${CHECK_SKILL}/template.md` } },
     { tool: "bash", input: { command: "cat template.md; uname -s", cwd: `@skills/${CHECK_SKILL}` } },
   ],
 };
@@ -471,7 +471,7 @@ const checkFreshFolder = async (env: CheckEnvironment): Promise<void> => {
   await report.check("New folder", titles[0]!, async () => {
     const turn = await runScript(run, "Write into the new folder.", {
       id: "new-folder",
-      steps: [{ tool: "write", input: { path: FRESH_FILE, content: `New ${env.nonce}\n` } }, { tool: "bash", input: { command: "pwd" } }],
+      steps: [{ tool: "write", input: { file_path: FRESH_FILE, content: `New ${env.nonce}\n` } }, { tool: "bash", input: { command: "pwd" } }],
     });
     completedText(stepOf(turn, 0, "write"));
     const pwd = completedText(stepOf(turn, 1, "bash")).trim().split("\n")[0];
@@ -520,14 +520,14 @@ const PAGE_PROBE = "const [port, nonce] = process.argv.slice(1);"
 
 /** Prepared for the browser check in the executor: the page exists only on localhost in the container. */
 const checkBrowser = async (env: CheckEnvironment, port: number): Promise<void> => {
-  await env.report.check("Browser", "browser_open loads a page from localhost in the container", async () => {
+  await env.report.check("Browser", "browser_navigate loads a page from localhost in the container", async () => {
     const started = await containerExec(env.container.name, ["node", "-e", PAGE_SERVER, String(port), env.nonce], { detach: true });
     expect(started.code === 0, `The check page does not start in the container: ${started.stderr.trim()}`);
     await waitFor(async () => (await containerExec(env.container.name, ["node", "-e", PAGE_PROBE, String(port), env.nonce])).code === 0 ? true : undefined,
       20_000, "The check page in the container");
     const url = `http://127.0.0.1:${port}/`;
-    const turn = await runScript(env, "Open the check page.", { id: "browser", steps: [{ tool: "browser_open", input: { url } }] });
-    const text = completedText(stepOf(turn, 0, "browser_open"));
+    const turn = await runScript(env, "Open the check page.", { id: "browser", steps: [{ tool: "browser_navigate", input: { url } }] });
+    const text = completedText(stepOf(turn, 0, "browser_navigate"));
     expect(text.includes(`Only in the container ${env.nonce}`), `The browser does not show the page from the container: ${text.slice(0, 300)}`);
     return passed(`${url} opened in the container`);
   });

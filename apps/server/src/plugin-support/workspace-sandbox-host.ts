@@ -10,6 +10,7 @@ import {
   type ToolScope,
 } from "@ragents/engine";
 import {
+  BASH_MAX_TIMEOUT_MS,
   createBashToolDefinition,
   createEditToolDefinition,
   createReadToolDefinition,
@@ -94,23 +95,31 @@ export interface WorkspaceSandboxHostOptions {
 }
 
 const sandboxDescriptions: Readonly<Record<string, string>> = {
-  read: "Read file contents or images within the run's allowed workspace roots.",
-  edit: "Apply exact text replacements to existing files within the run's writable workspace roots.",
-  write: "Create or overwrite files within the run's writable workspace roots.",
-  bash: "Execute shell commands in the run's workspace, or with cwd in one of its roots, with sandbox restrictions.",
+  read: "Read a file with line numbers, or an image, within the run's allowed workspace roots.",
+  edit: "Replace an exact string in a file within the run's writable workspace roots.",
+  write: "Create or overwrite a file within the run's writable workspace roots.",
+  bash: "Execute a shell command in the run's workspace, or with cwd in one of its roots, with sandbox restrictions.",
 };
 
 const describeSandboxTool = (definition: AgentToolDefinition): AgentToolDefinition => {
   const description = sandboxDescriptions[definition.name];
   if (!description) throw new Error(`The sandbox tool ${definition.name} has no short description`);
-  return { ...definition, description, longDescription: definition.description, nativeTool: true };
+  return { ...definition, description, longDescription: definition.description };
+};
+
+/** The operator names the bash default in seconds, the tool takes milliseconds. */
+const bashDefaultTimeoutMs = (seconds: number): number => {
+  if (!(seconds > 0) || seconds * 1000 > BASH_MAX_TIMEOUT_MS) {
+    throw new Error(`The bash default timeout of ${seconds} seconds is invalid: allowed are more than 0 up to ${BASH_MAX_TIMEOUT_MS / 1000} seconds`);
+  }
+  return seconds * 1000;
 };
 
 const sandboxDefinitions = (bashTimeoutSeconds: number | undefined): readonly AgentToolDefinition[] => [
   createReadToolDefinition("."),
   createEditToolDefinition("."),
   createWriteToolDefinition("."),
-  createBashToolDefinition(".", bashTimeoutSeconds === undefined ? {} : { defaultTimeoutSeconds: bashTimeoutSeconds }),
+  createBashToolDefinition(".", bashTimeoutSeconds === undefined ? {} : { defaultTimeoutMs: bashDefaultTimeoutMs(bashTimeoutSeconds) }),
 ] as readonly AgentToolDefinition[];
 
 const fileToolNames = new Set(["read", "edit", "write"]);
@@ -357,11 +366,11 @@ export class WorkspaceSandboxHost implements SandboxServices {
   }
 
   /** A direct call of the model passes the state it has seen of the file and remembers the new one; a call from TypeScript works without it. */
-  async #fileToolCall(runId: string, name: string, scope: ToolScope, toolCallId: string, input: { path: string }): Promise<string> {
+  async #fileToolCall(runId: string, name: string, scope: ToolScope, toolCallId: string, input: { file_path: string }): Promise<string> {
     const options = { toolCallId, ...(scope.signal ? { signal: scope.signal } : {}) };
     if (scope.modelContext === undefined) return textOf(await this.execute(runId, name, input, options) as ToolOutput);
     const known = this.#seen.get(runId) ?? new Map<string, SeenFile>();
-    const key = [scope.caller.actorId, scope.modelContext, path.posix.normalize(input.path)].join("\0");
+    const key = [scope.caller.actorId, scope.modelContext, path.posix.normalize(input.file_path)].join("\0");
     const result = await this.execute(runId, name, { ...input, seen: known.get(key) ?? null }, options) as ToolOutput & { details?: { seen?: SeenFile } };
     const seen = result.details?.seen;
     if (!seen) throw new Error(`The executor reports no file state after ${name}; server and workstation need the same executor version`);

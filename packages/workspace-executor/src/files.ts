@@ -2,8 +2,18 @@ import { watch } from "node:fs";
 import { lstat, mkdir, readdir, readFile, realpath, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { WorkspaceOperationError } from "./errors.js";
+import type { WorkspaceProcessContext } from "./context.js";
 import type { WorkspaceModuleFactory, WorkspaceOperation } from "./module.js";
-import { aliasOf, aliasedRoot, containsWorkspacePath, unknownAliasError, type OperationFootprint } from "./paths.js";
+import {
+  aliasOf,
+  aliasedRoot,
+  allowedWorkspacePath,
+  containsWorkspacePath,
+  expandWorkspaceAlias,
+  rootsOfFields,
+  unknownAliasError,
+  type OperationFootprint,
+} from "./paths.js";
 
 export const FILE_LIST_LIMIT = 500;
 
@@ -14,6 +24,7 @@ const WATCH_DEBOUNCE_MS = 150;
 export const FILE_OPERATIONS = {
   list: "files.list",
   read: "files.read",
+  text: "files.text",
   watch: "files.watch",
   attach: "files.attach",
 } as const;
@@ -130,19 +141,42 @@ export const listDirectory = async (root: string, relative: string): Promise<Fil
   };
 };
 
-/** Reads a text file below the root; a file that is too large or binary names the reason instead of the content. */
-export const readTextFile = async (root: string, relative: string): Promise<FileText> => {
-  const checked = relativeWorkspacePath(relative);
-  const file = await inside(await realRoot(root), checked);
+/** The text of a resolved file under the name shown to the caller; a file that is too large or binary names the reason instead of the content. */
+const textAt = async (file: string, shown: string): Promise<FileText> => {
   const info = await lstat(file);
-  if (!info.isFile()) throw invalid(`Not a file: ${checked || "."}`);
-  const described = { path: checked, size: info.size };
+  if (!info.isFile()) throw invalid(`Not a file: ${shown || "."}`);
+  const described = { path: shown, size: info.size };
   if (info.size > FILE_READ_LIMIT) {
     return { ...described, previewable: false, reason: `The file is larger than ${FILE_READ_LIMIT / 1024} KB and is not read` };
   }
   const content = await readFile(file);
   if (content.includes(0)) return { ...described, previewable: false, reason: "The file is binary" };
   return { ...described, previewable: true, content: content.toString("utf8") };
+};
+
+/** Reads a text file below the root; a file that is too large or binary names the reason instead of the content. */
+export const readTextFile = async (root: string, relative: string): Promise<FileText> => {
+  const checked = relativeWorkspacePath(relative);
+  return textAt(await inside(await realRoot(root), checked), checked);
+};
+
+/** The whole text of a file named like the file tools name it: relative to the working directory, absolute in a root of the run, or with an alias. */
+export const readToolTextFile = async (context: WorkspaceProcessContext, requested: string): Promise<FileText> => {
+  if (requested.trim() === "" || requested.includes("\0")) throw invalid(`Invalid path: ${requested}`);
+  const roots = [context.root, ...context.additionalRoots ?? [], ...context.readOnlyRoots ?? []];
+  let file: string;
+  try {
+    file = await allowedWorkspacePath(path.resolve(context.cwd, expandWorkspaceAlias(requested, context.workspaceAliases ?? {})), roots);
+  } catch (error) {
+    if (error instanceof Error && error.message.startsWith("Path outside the working directory")) throw invalid(`Path outside the working directory: ${requested}`);
+    throw error;
+  }
+  try {
+    return await textAt(file, requested);
+  } catch (error) {
+    if (missing(error)) throw notFound(`Not found: ${requested}`);
+    throw error;
+  }
 };
 
 /** Stores an attached file under a free name in `attachments` below the root, never over an existing one. */
@@ -253,6 +287,7 @@ export const fileModule: WorkspaceModuleFactory = (host) => {
     const { root, path: requested } = await locate(runId, input);
     return readTextFile(root, requested);
   };
+  const text: WorkspaceOperation = async ({ runId, input }) => readToolTextFile(await host.contextFor(runId), pathOf(input));
   const watchFiles: WorkspaceOperation = async ({ runId, signal, progress }) => {
     if (!signal || !progress) throw new Error(`${FILE_OPERATIONS.watch} runs until aborted and needs an abort signal and progress`);
     if (closed) throw new Error("The file module has ended and watches nothing anymore");
@@ -271,12 +306,14 @@ export const fileModule: WorkspaceModuleFactory = (host) => {
     operations: {
       [FILE_OPERATIONS.list]: list,
       [FILE_OPERATIONS.read]: read,
+      [FILE_OPERATIONS.text]: text,
       [FILE_OPERATIONS.watch]: watchFiles,
       [FILE_OPERATIONS.attach]: attach,
     },
     footprints: {
       [FILE_OPERATIONS.list]: aliasFootprint,
       [FILE_OPERATIONS.read]: aliasFootprint,
+      [FILE_OPERATIONS.text]: (input) => ({ roots: rootsOfFields(input, "path") }),
     },
     stopRun: async (runId) => endWatches(runId),
     shutdown: async () => {

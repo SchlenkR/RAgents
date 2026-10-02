@@ -11,17 +11,29 @@ import {
     clean,
     executableActorOf,
 } from "../guards.ts";
+import { resumeRun } from "./pause.ts";
 
 export type EnqueueInput = {
     actorId: string;
     artifactIds?: readonly string[];
     presentation?: "background";
 } & (
-    | { content: string; sourceEventIds?: readonly string[]; subscriptionId?: null; origin?: "human" }
-    | { content?: never; sourceEventIds: readonly [string]; subscriptionId: string; origin?: never }
+    | { content: string; sourceEventIds?: readonly string[]; subscriptionId?: null; origin?: "human"; userId?: string }
+    | { content?: never; sourceEventIds: readonly [string]; subscriptionId: string; origin?: never; userId?: never }
 );
 
+/** A human input into a paused run first resumes it, in the same command; userId names the signed-in user. */
 export const enqueueInput =
+    (input: EnqueueInput): Decision =>
+    (state, context, services) => {
+        const enqueued = enqueuedInput(input)(state, context, services);
+
+        return state.pause && input.origin === "human"
+            ? [...resumeRun({ trigger: "input", ...input.userId === undefined ? {} : { userId: input.userId } })(state, context, services), ...enqueued]
+            : enqueued;
+    };
+
+const enqueuedInput =
     (input: EnqueueInput): Decision =>
     (state, context, services) => {
         const target = executableActorOf(state, addressedActorOf(state.actors.values(), input.actorId).id);

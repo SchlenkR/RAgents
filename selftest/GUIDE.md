@@ -27,8 +27,9 @@ roughly 1 million subagent tokens plus a few cents of DeepSeek via OpenRouter.
    `${DATA_DIR}/runs/<id>/journal.jsonl` and `ragents.runs.view`. Limits: 10 minutes per
    variant; after 4 minutes of event silence, `ragents.chat.stop` and count it as aborted. An
    open question (`action.proposed` with status pending in the RunView) is NOT silence:
-   the agent answers it via `ragents.ask.answer` with `{"runId", "actionId", "answer"}`
-   and assesses the question in the report. Each agent works in its
+   the agent answers it via `ragents.ask.answer` with `{"runId", "actionId", "answers"}`,
+   one `{"selected": [<label>]}` or `{"text": <free answer>}` per question in their order,
+   and assesses the questions in the report. Each agent works in its
    own subfolder of the scratchpad. Repeat missed or aborted variants once with a
    stronger model (start option `ragents.model` before the start via
    `ragents.startOptions.select`) to separate model errors from platform errors.

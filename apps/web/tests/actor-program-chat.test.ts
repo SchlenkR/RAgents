@@ -12,7 +12,7 @@ import { AccessContext } from "../src/AccessContext";
 import { createAccessContext } from "../../../packages/ragents/src/access";
 import { Chat as AppChat } from "../../../apps/web/src/actor-programs/client-ui/index";
 import type { ChatConnection } from "../../../apps/web/src/actor-programs/client-ui/contracts";
-import { ChatMessages, type Message } from "quassel";
+import { ChatMessages, type Message, type PendingAction } from "quassel";
 import { chatSnapshotOf, resolveChatActor } from "../../../plugins/ragents.actor-programs/web/chat-state";
 import { RUN_APP_CHAT_SEND, RUN_APP_CHAT_WATCH, validateRunAppBridgeRequest } from "../../../plugins/ragents.actor-programs/web/bridge";
 import { actorChatMessages, actorConversation } from "../src/actor-conversation";
@@ -197,7 +197,8 @@ test("LLM panel chats retain the conversation and expose the shared permanent co
 });
 
 const questionAction: RunAction = { id: "review-window", askedBy: worker.id, owner: "ragents.ask", title: "Which review period applies?",
-  description: "Both variants are possible in terms of content.", payload: { question: "Which review period applies?", options: ["3 days", "14 days"], multi: false },
+  description: "Both variants are possible in terms of content.", payload: { questions: [{ question: "Which review period applies?", header: "Period",
+    options: [{ label: "3 days", description: "Short review" }, { label: "14 days", description: "" }], multiSelect: false }] },
   parameters: {}, input: null, status: "pending", proposedAt: "now", resolvedAt: null, resolvedBy: null, result: null };
 const askRegistry = new PluginRegistry({ brand: { title: "Test" }, product: { id: "test", title: "Test" }, startEntries: [], plugins: [askWebPlugin] }, new Map());
 const panelNavigation: SessionNavigation = { activeTabId: "", openTab: () => {}, revealEntity: () => false, selectionFor: () => undefined };
@@ -207,7 +208,7 @@ const questionPanelSession = (status: RunAction["status"]) => {
     { key: "message", role: "assistant", sender: worker.id, text: "I need a decision." },
     { key: questionAction.id, role: "action", text: questionAction.title, action: {
       actionId: questionAction.id, owner: "ragents.ask", payload: questionAction.payload,
-      ...(status === "approved" ? { status: "approved" as const, result: "14 days" } : {}),
+      ...(status === "approved" ? { status: "approved" as const, result: { answers: [{ selected: ["14 days"] }] } } : {}),
     } },
   ] } });
 };
@@ -223,9 +224,9 @@ const renderQuestionPanel = (writable: boolean, status: RunAction["status"] = "p
     actor: worker, view: panelSession.runView as RunView, session: panelSession, navigation: panelNavigation, onNavigate: () => {}, cardSections: askRegistry.cardSections,
   }));
 };
-const renderOpenQuestionAction = (writable: boolean) => {
+const renderOpenQuestionAction = (writable: boolean, action: PendingAction = { actionId: questionAction.id, owner: "ragents.ask", payload: questionAction.payload }, text = questionAction.title) => {
   function OpenQuestion() {
-    return useActionRenderer()({ actionId: questionAction.id, owner: "ragents.ask", payload: questionAction.payload }, questionAction.title);
+    return useActionRenderer()(action, text);
   }
   return withAskPlugin(writable, questionPanelSession("pending"), createElement(OpenQuestion));
 };
@@ -243,15 +244,42 @@ test("an open question leaves the chat transcript for the dock at the input and 
 
 test("the chat renders an open question through the ask view, answerable only with write access", () => {
   const writable = renderOpenQuestionAction(true);
-  assert.match(writable, /Which review period applies\?/);
-  assert.match(writable, /<button[^>]*data-question="option"[^>]*>3 days<\/button>/);
-  assert.match(writable, /<button[^>]*data-question="option"[^>]*>14 days<\/button>/);
-  assert.match(writable, /placeholder="\.\.\. or answer freely"/);
+  assert.match(writable, /<div aria-label="Period" [^>]*role="group"><div[^>]*><span[^>]*>Period<\/span><div[^>]*>Which review period applies\?<\/div>/);
+  assert.match(writable, /<button[^>]*data-question="option"[^>]*>.*?3 days<\/span><span[^>]*>Short review<\/span><\/button>/);
+  assert.match(writable, /<button[^>]*data-question="option"[^>]*><span[^>]*>14 days<\/span><\/button>/);
+  assert.match(writable, /<input[^>]*aria-label="Free answer: Period"[^>]*placeholder="\.\.\. or answer freely"/);
+  assert.match(writable, /<button[^>]*disabled=""[^>]*>Submit answer<\/button>/);
   const readonly = renderOpenQuestionAction(false);
   assert.match(readonly, /Which review period applies\?/);
-  assert.match(readonly, /<li>3 days<\/li><li>14 days<\/li>/);
-  assert.doesNotMatch(readonly, /data-question="option"|or answer freely|<button/);
+  assert.match(readonly, /<li>3 days<span[^>]*> - Short review<\/span><\/li><li>14 days<\/li>/);
+  assert.doesNotMatch(readonly, /data-question="option"|or answer freely|<button|<input/);
   assert.match(renderQuestionPanel(false), /<textarea[^>]*disabled=""/);
+});
+
+test("the ask view shows several questions in one card, the asker the chat names, and a payload it cannot read as an error", () => {
+  const several = { questions: [
+    { question: "Which review period applies?", header: "Period", options: [{ label: "3 days", description: "" }, { label: "14 days", description: "" }], multiSelect: false },
+    { question: "Which checks run first?", header: "Checks", options: [{ label: "lint", description: "" }, { label: "tests", description: "" }], multiSelect: true },
+  ] };
+  const html = renderOpenQuestionAction(true, { actionId: "several", owner: "ragents.ask", payload: several }, "reviewer: Which review period applies?\nWhich checks run first?");
+  assert.equal((html.match(/role="group"/g) ?? []).length, 2);
+  assert.equal((html.match(/data-slot="card"/g) ?? []).length, 1, "one card for all questions of the call");
+  assert.match(html, /<div class="[^"]*">reviewer<\/div>/);
+  assert.equal((html.match(/placeholder="\.\.\. or answer freely"/g) ?? []).length, 2);
+  assert.match(html, />Submit answers<\/button>/);
+  const answered = renderOpenQuestionAction(true, { actionId: "several", owner: "ragents.ask", payload: several, status: "approved",
+    result: { answers: [{ selected: ["14 days"] }, { text: "only lint" }] } }, "Which review period applies?\nWhich checks run first?");
+  assert.deepEqual([...answered.matchAll(/data-question="answered"[^>]*>(?:<svg[\s\S]*?<\/svg>)?([^<]*)</g)].map((match) => match[1]), ["14 days", "only lint"]);
+  assert.doesNotMatch(answered, /<button|<input/);
+  const withdrawn = renderOpenQuestionAction(true, { actionId: "several", owner: "ragents.ask", payload: several, status: "dismissed", result: { withdrawn: true } }, "x");
+  assert.match(withdrawn, /data-question="closed"[^>]*>Withdrawn without an answer\.</);
+  const superseded = renderOpenQuestionAction(true, { actionId: "several", owner: "ragents.ask", payload: several, status: "dismissed", result: { supersededBy: "input-1" } }, "x");
+  assert.match(superseded, /data-question="closed"[^>]*>Not answered: the user sent a new message instead\.</);
+  const dismissed = renderOpenQuestionAction(true, { actionId: "several", owner: "ragents.ask", payload: several, status: "dismissed", result: null }, "x");
+  assert.match(dismissed, /data-question="closed"[^>]*>Dismissed by the user without an answer\.</);
+  const former = renderOpenQuestionAction(true, { actionId: "former", owner: "ragents.ask", payload: { question: "Which?", options: ["A", "B"], multi: false } }, "Which?");
+  assert.match(former, /role="alert"[\s\S]*The questions of ragents\.ask are invalid: payload has unknown field question/);
+  assert.doesNotMatch(former, /<button|<input/);
 });
 
 test("an answered question stays in the chat transcript as a receipt without controls", () => {
@@ -348,7 +376,7 @@ test("bound mini-app chats retain script history without a composer and keep LLM
 test("actor chats render show_document through the registered document presenter", () => {
   const message: Message = {
     key: "document-call", role: "tool", text: "show_document", closed: true,
-    tool: { id: "document-call", name: "show_document", arguments: JSON.stringify({ title: "Review report", content: "Line one\nLine two", format: "markdown" }), result: "Shown to the user: Review report" },
+    tool: { id: "document-call", name: "show_document", arguments: JSON.stringify({ title: "Review report", content: "Line one\nLine two", format: "markdown" }), result: "Shown to the user." },
   };
   const current = session({ messages: [message] });
   const navigation: SessionNavigation = { activeTabId: "documents", openTab: () => {}, revealEntity: () => false, selectionFor: () => "document-call" };
@@ -379,14 +407,14 @@ test("document navigation includes worker histories without duplicating the prim
     key: id, role: "tool", text: "show_document", tool: { id, name: "show_document", arguments: JSON.stringify({ title, ...source }) },
   });
   const main = documentMessage("main-document", "Main report", { content: "Report" });
-  const completed = { ...main, tool: { ...main.tool!, result: "Shown to the user" } };
+  const completed = { ...main, tool: { ...main.tool!, result: "Shown to the user." } };
   const worker = documentMessage("worker-document", "Review", { content: "Checked" });
-  const file = documentMessage("worker-file", "File", { path: "result.md" });
+  const file = documentMessage("worker-file", "File", { storePath: "result.md" });
   const messages = documentMessagesFrom([completed], { primary: [main], worker: [worker, file, { key: "answer", role: "assistant", text: "Done" }] });
   assert.deepEqual(messages.map((message) => message.tool?.id), ["main-document", "worker-document", "worker-file"]);
   assert.equal(messages[0], completed);
   assert.deepEqual(documentsFrom(messages).map((document) => document.title), ["Main report", "Review"]);
-  assert.equal(JSON.parse(messages[2].tool!.arguments).path, "result.md");
+  assert.equal(JSON.parse(messages[2].tool!.arguments).storePath, "result.md");
 });
 
 

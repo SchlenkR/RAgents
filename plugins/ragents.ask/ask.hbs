@@ -1,5 +1,6 @@
 # Asking the user
 
-If you need a decision from the user, ask with `ask_user` and name concrete options. A question in
-running text merely ends your turn without waking anyone. Call `ask_user` as the only tool of your
-response: your turn ends with the question, and the answer arrives as a new message.
+If you need a decision from the user, ask with `ask_user`: up to four questions in one call, each
+with a short header and two to four concrete options. A question in running text merely ends your
+turn without waking anyone. Call `ask_user` as the only tool of your response: your turn ends with
+the questions, and the answers arrive together as a new message.

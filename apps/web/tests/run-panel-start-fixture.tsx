@@ -74,7 +74,8 @@ const fixture = {
   async call(contract: { id: string }, params: { runId?: string; entry?: string; input?: unknown }) {
     fixture.calls.push(contract.id);
     switch (contract.id) {
-      case "ragents.runs.list": return [{ id: "existing", title: "Existing run", updatedAt: 0 }];
+      case "ragents.runs.list": return [{ id: "existing", title: "Existing run", updatedAt: 0, running: false, state: "idle", pendingActions: 0, workspaceAccessible: true }];
+      case "ragents.runs.markViewed": return null;
       case "ragents.startOptions.list": return [];
       case "ragents.runs.view": return params.runId !== undefined && fixture.views.has(params.runId) ? emptyView(params.runId) : null;
       case "ragents.chat.actorHistory": return { actors: {} };

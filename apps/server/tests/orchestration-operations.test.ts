@@ -37,7 +37,7 @@ test("an app action under owner identity delivers raw text to an agent via actor
     invocationId: "invocation-1",
     principal: { kind: "operator", actorId: setup.view.ownerId },
     signal: new AbortController().signal,
-  }, { actor: "@worker", content: "Hello agent, completely raw." });
+  }, { to: "@worker", message: "Hello agent, completely raw." });
 
   const enqueued = (events as Array<{ type: string; payload: { actorId?: string; content?: string } }>)
     .find((event) => event.type === "actor.input.enqueued");
@@ -70,7 +70,7 @@ test("the agent identity path of actor_input still carries the agent as source",
     invocationId: "invocation-2",
     principal: { kind: "agent", actorId: setup.agent.id, turnId: turn.turnId },
     signal: new AbortController().signal,
-  }, { actor: "@receiver", content: "Report" });
+  }, { to: "@receiver", message: "Report" });
 
   const input = setup.runtime.view(setup.view.id).inputs.find((entry) => entry.actorId === receiver.id);
   assert.ok(input);

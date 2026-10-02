@@ -32,7 +32,7 @@ test("guide starts with core ideas and keeps navigation and content within short
 
 test("guide excerpts take over only the marked public sections unchanged", () => {
   const first = "## Functions\n\nA **public** description.\n\n- Entry with `code`";
-  const second = "## Execution\n\n```typescript\nreturn await context.functions.read({ path: input.path });\n```";
+  const second = "## Execution\n\n```typescript\nreturn await context.functions.read({ file_path: input.path });\n```";
   const source = [
     "# Internal operations", "Private: plugins/private.product under /Users/example/workspace.",
     "<!-- guide:functions -->", first, "<!-- /guide:functions -->",

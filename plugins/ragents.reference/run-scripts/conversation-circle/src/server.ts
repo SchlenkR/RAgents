@@ -29,6 +29,12 @@ const roleOf = (name: string): string => {
   return "You are Ada and you look for common ground.";
 };
 
+const descriptionOf = (name: string): string => {
+  if (name === "mira") return "asks curious questions";
+  if (name === "jon") return "voices polite disagreement";
+  return "looks for common ground";
+};
+
 export default defineActor(contract, {
   functions: {},
   onInput: async (input, context) => {
@@ -49,8 +55,9 @@ export default defineActor(contract, {
     const participants: string[] = [];
     for (const name of ["mira", "jon", "ada"]) {
       const participant = await context.functions.agent_spawn({
-        handle: name,
-        prompt: `${roleOf(name)} Reply only with one short sentence as the next contribution to the conversation.`,
+        name,
+        description: descriptionOf(name),
+        instructions: `${roleOf(name)} Reply only with one short sentence as the next contribution to the conversation.`,
         profile: first.name,
         tools: [],
       });
@@ -59,8 +66,8 @@ export default defineActor(contract, {
 
 
     await context.functions.actor_input({
-      actor: "@coordinator",
-      content: `The circle is ready: ${participants.join(", ")} are set up. Topic: "${topic}". `
+      to: "@coordinator",
+      message: `The circle is ready: ${participants.join(", ")} are set up. Topic: "${topic}". `
         + `Run exactly ${rounds} conversation rounds: in each round ${participants.join(", ")} in this order. `
         + "Each one receives the previous contributions. "
         + "At the end, summarize the conversation in three sentences.",

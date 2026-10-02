@@ -61,7 +61,7 @@ const fixture = async (t: TestContext, toolNames: string[] | null = null) => {
 
 test("TypeScript discovery exposes the same registered function with exact schemas, types and guidance", async (t) => {
     const run = await fixture(t, ["counter_update"]);
-    assert.deepEqual(run.toolset.tools.map((entry) => entry.name), ["typescript_api", "typescript_eval"]);
+    assert.deepEqual(run.toolset.tools.map((entry) => entry.name), ["counter_update", "typescript_api", "typescript_eval"]);
     const listing = await run.call("api-list", "typescript_api", {});
     assert.deepEqual(listing, { functions: [{ name: "counter_update", label: "Update Counter", description: "Update the test extension counter." }] });
     const detail = await run.call("api-detail", "typescript_api", { names: ["counter_update"] });

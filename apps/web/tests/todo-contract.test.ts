@@ -3,44 +3,29 @@ import test from "node:test";
 
 import { TODO_STATUSES, todoStateOf } from "../../../plugins/ragents.todo/contract.ts";
 
-const stateWith = (status: unknown) => todoStateOf({ todos: [{ id: "1", text: "Task", status }] });
+const stateWith = (status: unknown) => todoStateOf({ todos: [{ content: "Run tests", status, activeForm: "Running tests" }] });
 
-test("the status values of the contract are open, active and completed", () => {
-  assert.deepEqual([...TODO_STATUSES], ["open", "active", "completed"]);
+test("the status values of the contract are pending, in_progress and completed", () => {
+  assert.deepEqual([...TODO_STATUSES], ["pending", "in_progress", "completed"]);
 });
 
-test("synonyms and spellings map to the three status values", () => {
-  const expected: Readonly<Record<string, string>> = {
-    open: "open",
-    pending: "open",
-    " PENDING ": "open",
-    active: "active",
-    doing: "active",
-    in_progress: "active",
-    running: "active",
-    completed: "completed",
-    done: "completed",
-    finished: "completed",
-    "Done ": "completed",
-  };
+test("exactly the three status values are a to-do item", () => {
+  for (const status of TODO_STATUSES)
+    assert.deepEqual(stateWith(status), { todos: [{ content: "Run tests", status, activeForm: "Running tests" }] }, status);
 
-  for (const [input, status] of Object.entries(expected)) {
-    assert.deepEqual(stateWith(input), { todos: [{ id: "1", text: "Task", status }] }, input);
-  }
+  for (const status of ["open", "active", "done", "PENDING", "waiting", "", 3, undefined])
+    assert.equal(stateWith(status), undefined, String(status));
 });
 
-test("an unknown status discards the whole state", () => {
-  assert.equal(stateWith("waiting"), undefined);
-  assert.equal(stateWith(""), undefined);
-  assert.equal(stateWith(3), undefined);
-  assert.equal(stateWith(undefined), undefined);
+test("a state of the former contract is no to-do list", () => {
+  assert.equal(todoStateOf({ todos: [{ id: "1", text: "Task", status: "open" }] }), undefined);
 });
 
 test("a single faulty entry discards the whole state", () => {
   const state = todoStateOf({
     todos: [
-      { id: "1", text: "good", status: "open" },
-      { id: 2, text: "ID is not a string", status: "open" },
+      { content: "good", status: "pending", activeForm: "Doing good" },
+      { content: "no present continuous", status: "pending" },
     ],
   });
 
@@ -56,7 +41,7 @@ test("no state without a todo list", () => {
 });
 
 test("only the contract fields survive the check", () => {
-  const state = todoStateOf({ todos: [{ id: "1", text: "Task", status: "done", extra: "gone" }] });
+  const state = todoStateOf({ todos: [{ content: "Run tests", status: "completed", activeForm: "Running tests", extra: "gone" }] });
 
-  assert.deepEqual(state, { todos: [{ id: "1", text: "Task", status: "completed" }] });
+  assert.deepEqual(state, { todos: [{ content: "Run tests", status: "completed", activeForm: "Running tests" }] });
 });

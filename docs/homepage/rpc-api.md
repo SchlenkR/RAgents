@@ -71,10 +71,15 @@ Ids from results are reused programmatically, not copied by hand.
 | ragents.runs.import | host | runs.read, runs.write, runs.create |
 | ragents.runs.interruptTurn | host | no fixed rights |
 | ragents.runs.list | host | runs.read |
+| ragents.runs.markViewed | host | runs.read |
+| ragents.runs.pause | host | no fixed rights |
 | ragents.runs.prepare | host | runs.read, runs.write, runs.create |
 | ragents.runs.resolveAction | host | no fixed rights |
 | ragents.runs.restartActor | host | no fixed rights |
+| ragents.runs.resume | host | no fixed rights |
 | ragents.runs.scripts | host | no fixed rights |
+| ragents.runs.share | host | no fixed rights |
+| ragents.runs.sharing | host | no fixed rights |
 | ragents.runs.startScript | host | no fixed rights |
 | ragents.runs.stopActor | host | no fixed rights |
 | ragents.runs.stopAll | host | no fixed rights |
@@ -447,7 +452,7 @@ Owner: ragents.actor-programs. Rights: runs.read, runs.inspect. Execution: the s
 
 ## ragents.ask.answer
 
-Answer or dismiss a question of the run. Rights: runs.read and runs.write.
+Answer or dismiss the questions of one ask_user call. Rights: runs.read and runs.write.
 
 Owner: ragents.ask. Rights: runs.read, runs.write. Execution: the server.
 
@@ -471,15 +476,51 @@ Owner: ragents.ask. Rights: runs.read, runs.write. Execution: the server.
       "type": "string",
       "minLength": 1,
       "maxLength": 80,
-      "description": "Question id"
+      "description": "Id of the question action"
     },
-    "answer": {
-      "type": "string",
-      "description": "The user's answer"
+    "answers": {
+      "type": "array",
+      "items": {
+        "anyOf": [
+          {
+            "type": "object",
+            "required": [
+              "selected"
+            ],
+            "properties": {
+              "selected": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                },
+                "minItems": 1,
+                "description": "Labels of the chosen options; exactly one unless the question has multiSelect"
+              }
+            },
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "required": [
+              "text"
+            ],
+            "properties": {
+              "text": {
+                "type": "string",
+                "minLength": 1,
+                "description": "A free answer instead of an option"
+              }
+            },
+            "additionalProperties": false
+          }
+        ],
+        "description": "The answer to one question: the chosen options or a free answer"
+      },
+      "description": "One answer per question, in the order of the questions; required unless dismiss is true"
     },
     "dismiss": {
       "type": "boolean",
-      "description": "true dismisses the question without an answer"
+      "description": "true dismisses all questions of the call without answers; not together with answers"
     }
   },
   "additionalProperties": false
@@ -1177,7 +1218,7 @@ Owner: ragents.overseer. Rights: ragents.overseer.read. Execution: the server.
 
 ## ragents.overseer.createRun
 
-Create a run with a server-side ID and title. Exactly one start form: message, installed script (id or unique title), or packageDirectory (existing local run script package). input is only allowed with script/packageDirectory. options selects start options such as ragents.startOptions.select, each only with its own rights. The result waits for preparation, check, test and installation; accepted does not yet confirm a finished model result.
+Create a run with a server-side ID and title. Exactly one start form: message, installed script (id or unique title), or packageDirectory (existing local run script package). input is only allowed with script/packageDirectory. options selects start options such as ragents.startOptions.select, each only with its own rights. sharing shares the run before its start like ragents.runs.share: everyone and individual users, each with read or write. The result waits for preparation, check, test and installation; accepted does not yet confirm a finished model result.
 
 Owner: ragents.overseer. Rights: runs.read, runs.write, runs.create. Execution: the server.
 
@@ -1203,6 +1244,68 @@ Owner: ragents.overseer. Rights: runs.read, runs.write, runs.create. Execution: 
           "patternProperties": {
             "^.*$": {}
           }
+        },
+        "sharing": {
+          "type": "object",
+          "required": [
+            "everyone",
+            "users"
+          ],
+          "properties": {
+            "everyone": {
+              "anyOf": [
+                {
+                  "anyOf": [
+                    {
+                      "type": "string",
+                      "const": "read"
+                    },
+                    {
+                      "type": "string",
+                      "const": "write"
+                    }
+                  ]
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Access of every user of the profile; null shares with nobody as a whole"
+            },
+            "users": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "required": [
+                  "userId",
+                  "access"
+                ],
+                "properties": {
+                  "userId": {
+                    "type": "string",
+                    "minLength": 1,
+                    "pattern": "\\S"
+                  },
+                  "access": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "const": "read"
+                      },
+                      {
+                        "type": "string",
+                        "const": "write"
+                      }
+                    ]
+                  }
+                },
+                "additionalProperties": false
+              },
+              "description": "Individual users of the profile with their own access; never the caller, who owns the new run"
+            }
+          },
+          "additionalProperties": false,
+          "description": "Whom the new run is shared with from its creation on, as ragents.runs.share sets it; only with sign-in"
         },
         "message": {
           "type": "string",
@@ -1230,6 +1333,68 @@ Owner: ragents.overseer. Rights: runs.read, runs.write, runs.create. Execution: 
             "^.*$": {}
           }
         },
+        "sharing": {
+          "type": "object",
+          "required": [
+            "everyone",
+            "users"
+          ],
+          "properties": {
+            "everyone": {
+              "anyOf": [
+                {
+                  "anyOf": [
+                    {
+                      "type": "string",
+                      "const": "read"
+                    },
+                    {
+                      "type": "string",
+                      "const": "write"
+                    }
+                  ]
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Access of every user of the profile; null shares with nobody as a whole"
+            },
+            "users": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "required": [
+                  "userId",
+                  "access"
+                ],
+                "properties": {
+                  "userId": {
+                    "type": "string",
+                    "minLength": 1,
+                    "pattern": "\\S"
+                  },
+                  "access": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "const": "read"
+                      },
+                      {
+                        "type": "string",
+                        "const": "write"
+                      }
+                    ]
+                  }
+                },
+                "additionalProperties": false
+              },
+              "description": "Individual users of the profile with their own access; never the caller, who owns the new run"
+            }
+          },
+          "additionalProperties": false,
+          "description": "Whom the new run is shared with from its creation on, as ragents.runs.share sets it; only with sign-in"
+        },
         "script": {
           "type": "string",
           "minLength": 1,
@@ -1256,6 +1421,68 @@ Owner: ragents.overseer. Rights: runs.read, runs.write, runs.create. Execution: 
           "patternProperties": {
             "^.*$": {}
           }
+        },
+        "sharing": {
+          "type": "object",
+          "required": [
+            "everyone",
+            "users"
+          ],
+          "properties": {
+            "everyone": {
+              "anyOf": [
+                {
+                  "anyOf": [
+                    {
+                      "type": "string",
+                      "const": "read"
+                    },
+                    {
+                      "type": "string",
+                      "const": "write"
+                    }
+                  ]
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Access of every user of the profile; null shares with nobody as a whole"
+            },
+            "users": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "required": [
+                  "userId",
+                  "access"
+                ],
+                "properties": {
+                  "userId": {
+                    "type": "string",
+                    "minLength": 1,
+                    "pattern": "\\S"
+                  },
+                  "access": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "const": "read"
+                      },
+                      {
+                        "type": "string",
+                        "const": "write"
+                      }
+                    ]
+                  }
+                },
+                "additionalProperties": false
+              },
+              "description": "Individual users of the profile with their own access; never the caller, who owns the new run"
+            }
+          },
+          "additionalProperties": false,
+          "description": "Whom the new run is shared with from its creation on, as ragents.runs.share sets it; only with sign-in"
         },
         "packageDirectory": {
           "type": "string",
@@ -1510,6 +1737,18 @@ Owner: ragents.overseer. Rights: runs.read, runs.inspect. Execution: the server.
         },
         {
           "type": "string",
+          "const": "run.sharing-changed"
+        },
+        {
+          "type": "string",
+          "const": "run.paused"
+        },
+        {
+          "type": "string",
+          "const": "run.resumed"
+        },
+        {
+          "type": "string",
           "const": "agent.spawned"
         },
         {
@@ -1736,6 +1975,18 @@ Owner: ragents.overseer. Rights: runs.read, runs.inspect. Execution: the server.
               {
                 "type": "string",
                 "const": "run.title-changed"
+              },
+              {
+                "type": "string",
+                "const": "run.sharing-changed"
+              },
+              {
+                "type": "string",
+                "const": "run.paused"
+              },
+              {
+                "type": "string",
+                "const": "run.resumed"
               },
               {
                 "type": "string",
@@ -2593,7 +2844,7 @@ Owner: ragents.product. Rights: settings.read, settings.write. Execution: the se
 
 ## ragents.runs.delete
 
-Delete a run with its data. Rights: runs.read and runs.delete.
+Delete a run with its data; a user who sees the run only through a share never deletes it (run-delete-denied). Rights: runs.read and runs.delete.
 
 Owner: host. Rights: runs.read, runs.delete. Execution: the server.
 
@@ -2866,7 +3117,7 @@ Owner: host. Rights: no fixed rights. Execution: the server.
 
 ## ragents.runs.list
 
-All runs of the profile with title, times and metadata. Right: runs.read.
+All runs of the profile the caller sees, its own and those shared with it, with title, times, state (paused, running, waiting, idle, ended), pending actions, the caller's own seenRevision, whether the caller operates it (operable), its sharing for the caller (canShare and shared for whoever may change it, sharedAccess for whoever sees it only through a share), metadata and its list lines. Right: runs.read.
 
 Owner: host. Rights: runs.read. Execution: the server.
 
@@ -2888,8 +3139,101 @@ Owner: host. Rights: runs.read. Execution: the server.
   "items": {
     "type": "object",
     "additionalProperties": true,
-    "x-typescript-type": "SessionInfo"
+    "x-typescript-type": "ListedSession"
   }
+}
+```
+
+## ragents.runs.markViewed
+
+Record that the caller has viewed a run up to this revision; ragents.runs.list reports it back to the same user as seenRevision, on every device and host, and to nobody else. Only a higher revision counts. Right: runs.read.
+
+Owner: host. Rights: runs.read. Execution: the server.
+
+### Input
+
+```json
+{
+  "type": "object",
+  "required": [
+    "runId",
+    "revision"
+  ],
+  "properties": {
+    "runId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 64,
+      "description": "Id of the run"
+    },
+    "revision": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "The viewed journal revision of the run"
+    }
+  },
+  "additionalProperties": false
+}
+```
+
+### Result
+
+```json
+{
+  "type": "null"
+}
+```
+
+## ragents.runs.pause
+
+Pause the whole run: no turn of any actor starts any more, the running turns of all actors are interrupted, and later inputs wait in the journal. A human input or ragents.runs.resume continues it; a paused run stays paused without an error.
+
+Owner: host. Rights: no fixed rights. Execution: the server.
+
+### Input
+
+```json
+{
+  "type": "object",
+  "required": [
+    "runId",
+    "commandId"
+  ],
+  "properties": {
+    "runId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 64,
+      "description": "ID of the run"
+    },
+    "commandId": {
+      "type": "string",
+      "minLength": 1
+    },
+    "correlationId": {
+      "type": "string",
+      "minLength": 1
+    },
+    "causationId": {
+      "type": "string",
+      "minLength": 1
+    },
+    "reason": {
+      "type": "string",
+      "minLength": 1
+    }
+  },
+  "additionalProperties": false
+}
+```
+
+### Result
+
+```json
+{
+  "type": "object",
+  "additionalProperties": true,
+  "x-typescript-type": "RunView"
 }
 ```
 
@@ -3065,6 +3409,55 @@ Owner: host. Rights: no fixed rights. Execution: the server.
 }
 ```
 
+## ragents.runs.resume
+
+Continue a paused run without a message: the primary actor gets everything that waited in one turn, every other actor only once it is addressed directly. A run that is not paused stays as it is.
+
+Owner: host. Rights: no fixed rights. Execution: the server.
+
+### Input
+
+```json
+{
+  "type": "object",
+  "required": [
+    "runId",
+    "commandId"
+  ],
+  "properties": {
+    "runId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 64,
+      "description": "ID of the run"
+    },
+    "commandId": {
+      "type": "string",
+      "minLength": 1
+    },
+    "correlationId": {
+      "type": "string",
+      "minLength": 1
+    },
+    "causationId": {
+      "type": "string",
+      "minLength": 1
+    }
+  },
+  "additionalProperties": false
+}
+```
+
+### Result
+
+```json
+{
+  "type": "object",
+  "additionalProperties": true,
+  "x-typescript-type": "RunView"
+}
+```
+
 ## ragents.runs.scripts
 
 The run scripts the caller may start, and for a running run whether each can start there now: available, otherwise reason (not embeddable, a fixed start option differs from the run's). Rights: runs.read, runs.write.
@@ -3123,6 +3516,320 @@ Owner: host. Rights: no fixed rights. Execution: the server.
     },
     "additionalProperties": false
   }
+}
+```
+
+## ragents.runs.share
+
+Replace whom a run is shared with: every user of the profile (everyone) and individual users, each with read (sees the run, operates nothing) or write (operates it as far as the user's own rights go); a user gets the higher of both. Before the start the choice waits for the run's creation by the caller, afterwards it is written to the journal; an unchanged sharing writes nothing. A user unknown to the profile (share-user-unknown), the owner (share-owner) and a user named twice (share-user-duplicate) are refused. Result as ragents.runs.sharing. Rights as for ragents.runs.sharing.
+
+Owner: host. Rights: no fixed rights. Execution: the server.
+
+### Input
+
+```json
+{
+  "type": "object",
+  "required": [
+    "runId",
+    "sharing"
+  ],
+  "properties": {
+    "runId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 64,
+      "description": "Id of the run"
+    },
+    "sharing": {
+      "type": "object",
+      "required": [
+        "everyone",
+        "users"
+      ],
+      "properties": {
+        "everyone": {
+          "anyOf": [
+            {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "const": "read"
+                },
+                {
+                  "type": "string",
+                  "const": "write"
+                }
+              ],
+              "description": "read sees the run and operates nothing; write also operates it as far as the user's own rights go"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Access of every user of the profile; null for none"
+        },
+        "users": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": [
+              "userId",
+              "access"
+            ],
+            "properties": {
+              "userId": {
+                "type": "string",
+                "minLength": 1,
+                "description": "Id of a user of the profile, never the run's owner"
+              },
+              "access": {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "const": "read"
+                  },
+                  {
+                    "type": "string",
+                    "const": "write"
+                  }
+                ],
+                "description": "read sees the run and operates nothing; write also operates it as far as the user's own rights go"
+              }
+            },
+            "additionalProperties": false
+          },
+          "description": "Individual users with their own access; a user gets the higher of everyone's and their own"
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  "additionalProperties": false
+}
+```
+
+### Result
+
+```json
+{
+  "type": "object",
+  "required": [
+    "sharing",
+    "users"
+  ],
+  "properties": {
+    "sharing": {
+      "type": "object",
+      "required": [
+        "everyone",
+        "users"
+      ],
+      "properties": {
+        "everyone": {
+          "anyOf": [
+            {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "const": "read"
+                },
+                {
+                  "type": "string",
+                  "const": "write"
+                }
+              ],
+              "description": "read sees the run and operates nothing; write also operates it as far as the user's own rights go"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "users": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": [
+              "userId",
+              "label",
+              "access"
+            ],
+            "properties": {
+              "userId": {
+                "type": "string"
+              },
+              "label": {
+                "type": "string",
+                "description": "Display name; the id for a user the profile no longer has"
+              },
+              "access": {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "const": "read"
+                  },
+                  {
+                    "type": "string",
+                    "const": "write"
+                  }
+                ],
+                "description": "read sees the run and operates nothing; write also operates it as far as the user's own rights go"
+              }
+            },
+            "additionalProperties": false
+          }
+        }
+      },
+      "additionalProperties": false
+    },
+    "users": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "id",
+          "label"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "label": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
+      },
+      "description": "The users of the profile the run can be shared with, without its owner"
+    }
+  },
+  "additionalProperties": false
+}
+```
+
+## ragents.runs.sharing
+
+Whom a run is shared with, each with its access, and the users of the profile it can be shared with. Before the start, the caller's own choice for the run it is about to create. Only with sign-in (sharing-unavailable), not for a global coordinator or a run without an owner (run-not-shareable). Rights: runs.read and runs.write, and the caller must own the run or have runs.read.all (run-sharing-denied).
+
+Owner: host. Rights: no fixed rights. Execution: the server.
+
+### Input
+
+```json
+{
+  "type": "object",
+  "required": [
+    "runId"
+  ],
+  "properties": {
+    "runId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 64,
+      "description": "Id of the run"
+    }
+  },
+  "additionalProperties": false
+}
+```
+
+### Result
+
+```json
+{
+  "type": "object",
+  "required": [
+    "sharing",
+    "users"
+  ],
+  "properties": {
+    "sharing": {
+      "type": "object",
+      "required": [
+        "everyone",
+        "users"
+      ],
+      "properties": {
+        "everyone": {
+          "anyOf": [
+            {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "const": "read"
+                },
+                {
+                  "type": "string",
+                  "const": "write"
+                }
+              ],
+              "description": "read sees the run and operates nothing; write also operates it as far as the user's own rights go"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "users": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": [
+              "userId",
+              "label",
+              "access"
+            ],
+            "properties": {
+              "userId": {
+                "type": "string"
+              },
+              "label": {
+                "type": "string",
+                "description": "Display name; the id for a user the profile no longer has"
+              },
+              "access": {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "const": "read"
+                  },
+                  {
+                    "type": "string",
+                    "const": "write"
+                  }
+                ],
+                "description": "read sees the run and operates nothing; write also operates it as far as the user's own rights go"
+              }
+            },
+            "additionalProperties": false
+          }
+        }
+      },
+      "additionalProperties": false
+    },
+    "users": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "id",
+          "label"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "label": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
+      },
+      "description": "The users of the profile the run can be shared with, without its owner"
+    }
+  },
+  "additionalProperties": false
 }
 ```
 
@@ -4001,7 +4708,7 @@ Owner: ragents.workspace. Rights: runs.write. Execution: the server.
 
 ## Channel ragents.chat
 
-The coordinator's chat history: first the stored history, then live. Rights as for reading the run.
+The coordinator's chat history: first the stored history, then live. Rights as for reading the run; it ends as soon as the caller no longer sees the run because a share was taken back.
 
 Owner: host. Rights: no fixed rights.
 
@@ -4073,7 +4780,7 @@ Owner: ragents.processes. Rights: runs.read, ragents.processes.read.
 
 ## Channel ragents.run
 
-Reports every new journal event of a run; first ready, then run. Rights as for reading the run.
+Reports every new journal event of a run; first ready, then run. Rights as for reading the run; it ends as soon as the caller no longer sees the run because a share was taken back.
 
 Owner: host. Rights: no fixed rights.
 
@@ -4124,7 +4831,7 @@ Owner: host. Rights: no fixed rights.
 
 ## Channel ragents.runs
 
-Reports every change of the run list. Right: runs.read.
+Reports every change of the run list, also when a run is shared with the caller or no longer, a changed read marker only to its user. Right: runs.read.
 
 Owner: host. Rights: runs.read.
 

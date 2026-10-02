@@ -5,7 +5,7 @@ export const setupContext = (profiles = [{ name: "coordinator", driver: "agent" 
   const functions = Object.fromEntries(["model_list", "agent_spawn", "run_configure", "actor_input", "actor_program_activate"].map((name) => [name, (input: unknown) => {
     calls.push({ name, input });
     if (name === "agent_spawn") {
-      const handle = (input as { handle: string }).handle + suffix;
+      const handle = (input as { name: string }).name + suffix;
       return { id: `actor-${handle}`, handle };
     }
     if (name === "actor_program_activate") {

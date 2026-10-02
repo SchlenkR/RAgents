@@ -3,36 +3,63 @@ import {
   DomainError,
   type CommandContext,
   type JournalEvent,
+  type JsonObject,
   type JsonValue,
   type Orchestration,
   type RunState,
 } from "@ragents/engine";
-import { askPayloadOf, ASK_PLUGIN_ID, SUPERSEDED_ANSWER, supersedingInputOf } from "../ask-payload.js";
-import { DISMISSED_ANSWER, type AskCall, type AskRequest, type AskService } from "./contract.js";
+import {
+  answerComplaints,
+  askPayloadComplaints,
+  askPayloadOf,
+  askTitleOf,
+  ASK_PLUGIN_ID,
+  storedAnswersOf,
+  type AskPayload,
+  type QuestionAnswer,
+} from "../ask-payload.js";
+import { answerMessageOf, type AskCall, type AskOutcome, type AskRequest, type AskService } from "./contract.js";
 
-const answerOf = (decision: "approved" | "dismissed", result: unknown): string =>
-  decision !== "approved"
-    ? supersedingInputOf(result) === undefined ? DISMISSED_ANSWER : SUPERSEDED_ANSWER
-    : typeof result === "string" ? result : result === null || result === undefined ? "" : JSON.stringify(result);
+/** What the user does with open questions: answer every one of them, or dismiss them together. */
+export type AskReply = { readonly answers: readonly QuestionAnswer[] } | { readonly dismiss: true };
+
+const outcomeOf = (payload: AskPayload, decision: "approved" | "dismissed", result: unknown): AskOutcome =>
+  decision === "approved" ? { kind: "answered", answers: storedAnswersOf(payload.questions, result) } : { kind: "dismissed" };
 
 const humanInputPendingFor = (state: RunState, actorId: string): boolean =>
   [...state.inputs.values()].some((input) =>
     input.actorId === actorId && input.origin === "human" && input.lifecycle.kind === "pending");
 
-/** Open questions an actor asked for itself; a question with a recipient stands for another actor. */
+/** Open questions an actor asked for itself; questions with a recipient stand for another actor. */
 const ownQuestionsOf = (state: RunState, askedBy: (actorId: string) => boolean): string[] =>
   [...state.actions.values()]
     .filter((action) => action.owner === ASK_PLUGIN_ID && action.status === "pending" && askedBy(action.askedBy)
-      && askPayloadOf(action.payload)?.recipient === undefined)
+      && askPayloadOf(action.payload).recipient === undefined)
     .map((action) => action.id);
 
 /** A locked or already removed journal holds no question that could still be withdrawn, so its deletion goes on. */
 const unreadableRun = (error: unknown): boolean =>
   error instanceof DomainError && (error.code === "journal-unavailable" || error.code === "run-not-found");
 
+/** The payload exactly as stored: only the known fields, checked once against the shared rules. */
+const payloadOf = (request: AskRequest): AskPayload => {
+  const payload: AskPayload = {
+    questions: request.questions.map((question) => ({
+      question: question.question,
+      header: question.header,
+      options: question.options.map((option) => ({ label: option.label, description: option.description })),
+      multiSelect: question.multiSelect,
+    })),
+    ...(request.recipient ? { recipient: request.recipient } : {}),
+  };
+  const complaints = askPayloadComplaints(payload);
+  if (complaints.length > 0) throw new DomainError("questions-invalid", `The questions are invalid: ${complaints.join("; ")}`, 400);
+  return payload;
+};
+
 export class RuntimeAskService implements AskService {
   #runtime: Orchestration | undefined;
-  readonly #waiters = new Map<string, (answer: string) => void>();
+  readonly #waiters = new Map<string, (outcome: () => AskOutcome) => void>();
   readonly #aborting = new Set<string>();
 
   bind(runtime: Orchestration): void {
@@ -42,28 +69,33 @@ export class RuntimeAskService implements AskService {
   }
 
   pose(call: AskCall, request: AskRequest): string | undefined {
+    const payload = payloadOf(request);
     if (this.#requireRuntime().select(call.runId, (state) => humanInputPendingFor(state, call.agentId))) return undefined;
-    return this.#propose(call, request);
+    return this.#propose(call, request, payload);
   }
 
-  ask(call: AskCall & { turnId: null }, request: AskRequest, signal: AbortSignal | undefined): Promise<string> {
-    return this.#awaitAnswer(call.runId, this.#propose(call, request), signal);
+  ask(call: AskCall & { turnId: null }, request: AskRequest, signal: AbortSignal | undefined): Promise<AskOutcome> {
+    return this.#awaitAnswer(call.runId, this.#propose(call, request, payloadOf(request)), signal);
   }
 
-  answer(runId: string, actionId: string, input: { answer?: string; dismiss?: boolean }): void {
+  answer(runId: string, actionId: string, reply: AskReply): void {
     const runtime = this.#requireRuntime();
     const state = runtime.state(runId);
     const action = state.actions.get(actionId);
     if (!action || action.owner !== ASK_PLUGIN_ID) {
       throw new DomainError("question-not-found", `Question ${actionId} does not exist in run ${runId}.`, 404);
     }
+    if ("answers" in reply) {
+      const complaints = answerComplaints(askPayloadOf(action.payload).questions, reply.answers);
+      if (complaints.length > 0) throw new DomainError("answers-invalid", `The answers are invalid: ${complaints.join("; ")}`, 400);
+    }
     runtime.resolveAction(
       { actorId: state.ownerId, commandId: `ask-answer:${actionId}:${randomUUID()}` },
       runId,
       actionId,
-      input.dismiss === true
-        ? { decision: "dismissed", result: null }
-        : { decision: "approved", result: input.answer ?? null },
+      "answers" in reply
+        ? { decision: "approved", result: { answers: reply.answers } as unknown as JsonObject }
+        : { decision: "dismissed", result: null },
     );
   }
 
@@ -85,7 +117,7 @@ export class RuntimeAskService implements AskService {
     }
   }
 
-  #propose(call: AskCall, request: AskRequest): string {
+  #propose(call: AskCall, request: AskRequest, payload: AskPayload): string {
     const runtime = this.#requireRuntime();
     const context: CommandContext = {
       actorId: call.agentId,
@@ -94,16 +126,11 @@ export class RuntimeAskService implements AskService {
     };
     runtime.proposeAction(context, call.runId, {
       owner: ASK_PLUGIN_ID,
-      title: request.question,
+      title: askTitleOf(payload.questions),
       description: request.description,
       parameters: request.parameters,
       input: { label: "Answer", placeholder: null, required: true },
-      payload: {
-        question: request.question,
-        options: [...request.options],
-        multi: request.multi === true,
-        ...(request.recipient ? { recipient: request.recipient } : {}),
-      },
+      payload: payload as unknown as JsonObject,
     });
     const proposed = runtime.events(call.runId).find((event) =>
       event.type === "action.proposed" && event.commandId === call.commandId);
@@ -140,11 +167,12 @@ export class RuntimeAskService implements AskService {
     }
   }
 
-  #awaitAnswer(runId: string, actionId: string, signal: AbortSignal | undefined): Promise<string> {
+  #awaitAnswer(runId: string, actionId: string, signal: AbortSignal | undefined): Promise<AskOutcome> {
     const action = this.#requireRuntime().state(runId).actions.get(actionId);
     if (!action) throw new Error(`Question ${actionId} does not exist in run ${runId}`);
-    if (action.status !== "pending") return Promise.resolve(answerOf(action.status, action.result));
-    return new Promise<string>((resolve, reject) => {
+    const { status } = action;
+    if (status !== "pending") return new Promise((resolve) => resolve(outcomeOf(askPayloadOf(action.payload), status, action.result)));
+    return new Promise<AskOutcome>((resolve, reject) => {
       const abort = () => {
         this.#waiters.delete(actionId);
         try {
@@ -159,10 +187,14 @@ export class RuntimeAskService implements AskService {
         return;
       }
       signal?.addEventListener("abort", abort, { once: true });
-      this.#waiters.set(actionId, (answer) => {
+      this.#waiters.set(actionId, (outcome) => {
         signal?.removeEventListener("abort", abort);
         this.#waiters.delete(actionId);
-        resolve(answer);
+        try {
+          resolve(outcome());
+        } catch (error) {
+          reject(error);
+        }
       });
     });
   }
@@ -184,24 +216,24 @@ export class RuntimeAskService implements AskService {
       if (event.type !== "action.resolved") continue;
       const { actionId, decision, result } = event.payload;
       const waiter = this.#waiters.get(actionId);
+      const resolved = waiter || !this.#aborting.has(actionId) ? this.#requireRuntime().state(event.runId).actions.get(actionId) : undefined;
+      if (resolved?.owner !== ASK_PLUGIN_ID) continue;
       if (waiter) {
-        waiter(answerOf(decision, result));
+        waiter(() => outcomeOf(askPayloadOf(resolved.payload), decision, result));
         continue;
       }
-      if (this.#aborting.has(actionId)) continue;
-      const resolved = this.#requireRuntime().state(event.runId).actions.get(actionId);
-      if (resolved?.owner !== ASK_PLUGIN_ID) continue;
-      queueMicrotask(() => this.#enqueueAnswer(event.runId, actionId, answerOf(decision, result)));
+      queueMicrotask(() => this.#enqueueAnswer(event.runId, actionId));
     }
   }
 
-  #enqueueAnswer(runId: string, actionId: string, answer: string): void {
+  #enqueueAnswer(runId: string, actionId: string): void {
     try {
       const runtime = this.#requireRuntime();
       const state = runtime.state(runId);
       const action = state.actions.get(actionId);
-      if (!action) return;
-      const recipientId = askPayloadOf(action.payload)?.recipient ?? action.askedBy;
+      if (!action || action.status === "pending") return;
+      const payload = askPayloadOf(action.payload);
+      const recipientId = payload.recipient ?? action.askedBy;
       const recipient = state.actors.get(recipientId);
       if (!recipient || recipient.kind === "human" || recipient.lifecycle.kind === "stopped") return;
       runtime.enqueueInput(
@@ -209,7 +241,7 @@ export class RuntimeAskService implements AskService {
         runId,
         {
           actorId: recipientId,
-          content: `Answer to ${recipientId === action.askedBy ? "your question" : "the question"}: ${action.title}\nAnswer: ${answer}`,
+          content: answerMessageOf(payload.questions, outcomeOf(payload, action.status, action.result), recipientId === action.askedBy ? "your" : "the"),
         },
       );
     } catch (error) {

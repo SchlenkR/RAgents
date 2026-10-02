@@ -2,9 +2,8 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { WORKSPACE_BINDING_OPTION_ID } from "../../../plugins/ragents.workspace/contract";
 import { connectedCount, connectionView, newRunChoices, panelState, pendingActions, preselectable, resolveConnection } from "../src/overview-model";
-import { runSummaryFrom } from "../src/run-model";
 import type { ConnectionSnapshot, SessionStatus } from "../src/sessions";
-import { runView, session } from "./fixtures";
+import { session } from "./fixtures";
 
 const entries = [
   { id: "ragents.reference.board", title: "Collection board", description: "A board for ideas", action: "skill" as const, category: "Mini-apps" },
@@ -16,7 +15,7 @@ const snapshot = (overrides: Partial<ConnectionSnapshot> = {}): ConnectionSnapsh
   status: { kind: "connected" } satisfies SessionStatus,
   url: "http://localhost:4710",
   localHost: false,
-  runs: [runSummaryFrom(session(), runView())],
+  runs: [session({ seenRevision: 12 })],
   entries,
   defaultEntry: undefined,
   user: undefined,
@@ -57,6 +56,21 @@ test("the overview combines servers and local profiles in one list", () => {
   assert.equal(state.problem, undefined);
   assert.equal(state.runsConnection, undefined);
   assert.equal(panelState({ theme: "dark", page: "runs", connections: [], profileSuggestions: [], missingSecrets: [], problem: undefined, pickedProfileFile: undefined, runsConnection: "workshop" }).runsConnection, "workshop");
+});
+
+test("the panel carries the share dialog and the Start notice the extension keeps, and every row its sharing for the user", () => {
+  const base = { theme: "dark" as const, page: "start" as const, profileSuggestions: [], missingSecrets: [], problem: undefined, pickedProfileFile: undefined, runsConnection: undefined };
+  const runs = [session({ id: "own", canShare: true, shared: true }), session({ id: "viewed", operable: false, ownerLabel: "Alice", sharedAccess: "read" })];
+  const sharing = { connection: "workshop", runId: "own", result: { sharing: { everyone: "read" as const, users: [] }, users: [{ id: "bob", label: "Bob" }] } };
+  const state = panelState({ ...base, connections: [snapshot({ runs })], sharing, notice: "This run is no longer available to you." });
+  assert.deepEqual(state.sharing, sharing);
+  assert.equal(state.notice, "This run is no longer available to you.");
+  assert.deepEqual(state.connections[0]?.runs.map((run) => [run.id, run.canShare, run.shared, run.sharedAccess, run.owner]), [
+    ["own", true, true, undefined, undefined],
+    ["viewed", undefined, undefined, "read", "Alice"],
+  ]);
+  const plain = panelState({ ...base, connections: [] });
+  assert.equal("sharing" in plain || "notice" in plain, false, "without a dialog or notice the state names neither");
 });
 
 test("the target line knows the local profile, the host of the server, and the server whose profile runs locally", () => {
@@ -100,11 +114,24 @@ test("a template with a guide is marked as guided in the card, without it the fi
   assert.equal(Object.hasOwn(guided[1]!, "guided"), false);
 });
 
-test("a run whose run view is not readable carries its problem into the card, otherwise the field is absent", () => {
-  const broken = { ...runSummaryFrom(session({ id: "run-b" }), undefined), problem: "The run view is not readable: broken" };
-  const runs = connectionView(snapshot({ runs: [runSummaryFrom(session(), runView()), broken] })).runs;
-  assert.deepEqual(runs.map((run) => [run.id, run.problem]), [["run-a", undefined], ["run-b", "The run view is not readable: broken"]]);
-  assert.equal(Object.hasOwn(runs[0]!, "problem"), false);
+test("a run row carries owner, list lines, read notice, and lock as the browser shows them", () => {
+  const runs = connectionView(snapshot({ runs: [
+    session({ id: "run-a", ownerLabel: "Alice", seenRevision: 11, listDetails: [{ label: "Workspace", text: "/home/user/project", icon: "folder" }] }),
+    session({ id: "run-b", state: "ended", pendingActions: 0, listDetails: [] }),
+    session({ id: "run-c", revision: undefined, state: "idle", pendingActions: 0, locked: "unsupported journal format 6" }),
+  ] })).runs;
+  assert.deepEqual(runs[0], {
+    id: "run-a", title: "Night bus round", state: "running", pendingActions: 1, updatedAt: 2, notice: "updated", owner: "Alice",
+    details: [{ label: "Workspace", text: "/home/user/project", icon: "folder" }],
+  });
+  assert.deepEqual(runs[1], { id: "run-b", title: "Night bus round", state: "ended", pendingActions: 0, updatedAt: 2, notice: "unseen" }, "an empty list of lines adds no field");
+  assert.deepEqual(runs[2], { id: "run-c", title: "Night bus round", state: "idle", pendingActions: 0, updatedAt: 2, locked: "unsupported journal format 6" });
+});
+
+test("a paused run keeps its state in the row, the badge still counts only its open actions", () => {
+  const paused = snapshot({ runs: [session({ id: "run-p", running: false, state: "paused", pendingActions: 0, seenRevision: 12 })] });
+  assert.deepEqual(connectionView(paused).runs, [{ id: "run-p", title: "Night bus round", state: "paused", pendingActions: 0, updatedAt: 2 }]);
+  assert.equal(pendingActions([paused]), 0);
 });
 
 test("numbers of the status bar and the badge count across all servers", () => {

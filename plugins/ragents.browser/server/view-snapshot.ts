@@ -27,7 +27,7 @@ export const createViewSnapshotFunction = (options: ViewSnapshotOptions): RunFun
   name: "actor_view_snapshot",
   label: "Read actor view",
   description: "Render a visible actor view in this run's browser and return what it shows as accessible structure, plus browser errors.",
-  longDescription: "view is package-name/view-key (the ref in actor_program_list), @handle/view-key or a unique title. The server resolves the address; never open a view with browser_open. The run browser stays on the view, so browser_screenshot captures it, and browser_click, browser_fill and browser_check with target.frame \"iframe\" operate it. A hidden view is an error. It needs a server that requires no sign-in and that the machine of the run's workspace can reach.",
+  longDescription: "view is package-name/view-key (the ref in actor_program_list), @handle/view-key or a unique title. The server resolves the address; never open a view with browser_navigate. The run browser stays on the view, so browser_take_screenshot captures it, and browser_click, browser_type and browser_check with target.frame \"iframe\" operate it. A hidden view is an error. It needs a server that requires no sign-in and that the machine of the run's workspace can reach.",
   schema: Type.Object({ view: Type.String({ minLength: 1, description: "Visible view as package-name/view-key, @handle/view-key or unique title." }) }, { additionalProperties: false }),
   resultSchema: Type.Object({
     view: Type.String(),
@@ -35,7 +35,6 @@ export const createViewSnapshotFunction = (options: ViewSnapshotOptions): RunFun
     truncated: Type.Boolean(),
     errors: Type.Array(Type.String()),
   }, { additionalProperties: false }),
-  nativeTool: true,
   available: defineToolAvailability(
     { availability: "conditional", availabilityDetail: "Only in a profile with the plugin ragents.actor-programs." },
     () => options.actorPrograms() !== undefined,
@@ -50,7 +49,7 @@ export const createViewSnapshotFunction = (options: ViewSnapshotOptions): RunFun
     if (!view.visible) throw new Error(`${view.reference} is hidden. Show it with actor_view_set_visibility first.`);
     const call = { signal, toolCallId };
     try {
-      await options.browser.open(caller.runId, viewAddress(address, caller.runId, view.elementId), call);
+      await options.browser.navigate(caller.runId, viewAddress(address, caller.runId, view.elementId), call);
     } catch (error) {
       throw new Error(`The view could not be opened: ${errorText(error)}\nThe server must be reachable from the machine of the run's workspace and must not require sign-in.`, { cause: error });
     }

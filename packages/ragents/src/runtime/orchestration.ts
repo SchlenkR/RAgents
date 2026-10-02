@@ -12,9 +12,11 @@ import type {
     CapabilityGrant,
     ObservableEventType,
     PluginStateScope,
+    RunSharing,
     RunState,
     TurnUsage,
 } from "../domain/model.ts";
+import { isShared, sameSharing } from "../domain/model.ts";
 import { project, viewOf } from "../domain/projection.ts";
 import { capabilityNames } from "../domain/vocabulary.ts";
 import { MemoryArtifactContents, type ArtifactContents } from "./artifacts.ts";
@@ -23,11 +25,13 @@ import * as actions from "./decisions/actions.ts";
 import * as actors from "./decisions/actors.ts";
 import * as artifacts from "./decisions/artifacts.ts";
 import * as inputs from "./decisions/inputs.ts";
+import * as pause from "./decisions/pause.ts";
 import * as subscriptions from "./decisions/subscriptions.ts";
 import * as turns from "./decisions/turns.ts";
 import { DomainError } from "./domain-error.ts";
 import {
     actorById,
+    checkedSharing,
     commandActorOf,
     addressedActorOf,
     assertArtifactRead,
@@ -173,6 +177,8 @@ export class Orchestration {
             ownerUserId?: string;
             runId?: string;
             initialPluginStates?: readonly { pluginId: string; state: JsonValue }[];
+            /** Whom the run is shared with from its creation on, as its owner chose it; needs ownerUserId. */
+            sharing?: RunSharing;
         },
     ) {
         const existing = this.#journal.creationCommand(context.commandId);
@@ -199,6 +205,8 @@ export class Orchestration {
                 state: entry.state,
             };
         });
+        const ownerUserId = input.ownerUserId === undefined ? undefined : clean(input.ownerUserId, "ownerUserId");
+        const sharing = input.sharing === undefined ? undefined : checkedSharing(input.sharing, ownerUserId);
 
         this.#journal.append(runId, command, [
             event(commandContext, {
@@ -214,7 +222,7 @@ export class Orchestration {
                             scope: { kind: "run" },
                             delegable: true,
                         })),
-                        ...input.ownerUserId === undefined ? {} : { userId: clean(input.ownerUserId, "ownerUserId") },
+                        ...ownerUserId === undefined ? {} : { userId: ownerUserId },
                     },
                 },
             }),
@@ -226,6 +234,10 @@ export class Orchestration {
                     state: entry.state,
                 },
             })),
+            ...sharing && ownerUserId !== undefined && isShared(sharing) ? [event(commandContext, {
+                type: "run.sharing-changed" as const,
+                payload: { ...sharing, changedBy: ownerUserId },
+            })] : [],
         ]);
 
         return this.view(runId);
@@ -379,6 +391,30 @@ export class Orchestration {
         return this.#run(context, runId, "run.retitle", { title }, actors.retitleRun(title));
     }
 
+    /** Replaces whom the run is shared with; an unchanged sharing writes nothing. */
+    shareRun(context: CommandContext, runId: string, input: { sharing: RunSharing; changedBy: string }) {
+        if (this.select(runId, (state) => sameSharing(state.sharing, checkedSharing(input.sharing, state.ownerUserId))))
+            return this.view(runId);
+
+        return this.#run(context, runId, "run.share", input, actors.shareRun(input));
+    }
+
+    /** From now on no turn starts; the running ones end through the scheduler. An already paused run writes nothing. */
+    pauseRun(context: CommandContext, runId: string, input: { reason: string; userId?: string }) {
+        if (this.select(runId, (state) => state.pause !== null))
+            return this.view(runId);
+
+        return this.#run(context, runId, "run.pause", input, pause.pauseRun(input));
+    }
+
+    /** Lifts the pause without an input; a run that is not paused writes nothing. */
+    resumeRun(context: CommandContext, runId: string, input: { userId?: string }) {
+        if (this.select(runId, (state) => state.pause === null))
+            return this.view(runId);
+
+        return this.#run(context, runId, "run.resume", input, pause.resumeRun({ trigger: "resume", ...input }));
+    }
+
     spawnAgent(
         context: CommandContext,
         runId: string,
@@ -391,6 +427,8 @@ export class Orchestration {
             toolNames: readonly string[] | null;
             forkOf?: string;
             description?: string;
+            /** The agent's first input, enqueued in the same command. */
+            task?: string;
         },
     ) {
         return this.#run(context, runId, "agent.spawn", input, actors.spawnAgent(input));

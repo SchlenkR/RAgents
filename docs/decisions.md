@@ -1,5 +1,374 @@
 # Decisions
 
+## 2026-10-02: Stop in the chat pauses the whole run until a human continues it
+
+Chapters: `spec/core.md` (Interrupting a turn, stopping an actor, stopping a run; Pausing a run;
+Origin of an input; File format, write boundaries, and replay; Open limits), `spec/plugins.md`
+(rights of run methods, chat composer); usage: `usage.md` (Run chat, Run panel and VS Code
+extension, Control RAgents as an agent); homepage (Drive RAgents from outside).
+
+**Why.** The chat's stop button called `ragents.runs.interruptTurn` and ended only the
+coordinator's turn. A sub-agent the coordinator had started kept changing files, its next output
+reached the coordinator through its subscription, and the coordinator started a new turn on its
+own 42 seconds after the stop. To the operator, Stop had not worked. Between ending one turn and
+stopping the run for good (`ragents.chat.stop`) there was no way to halt and continue later.
+
+**Decision.** Stop in the chat (web, VS Code, actor chats, global coordinator) and `ragents stop
+<run>` call the new `ragents.runs.pause`; `ragents.runs.resume` and `ragents resume <run>`
+continue without a message, and every human input continues as well. The state comes only from
+the journal: `run.paused` (`reason`, `userId`) and `run.resumed` (`trigger` input or resume,
+`userId`), written by the owner, projected as `RunState.pause`, so it survives replay and restart.
+The journal writes format 11 and reads 7 to 11. `ragents.runs.interruptTurn` stays for ending a
+single turn (`ragents stop <run> --turn`), `ragents.chat.stop` stays the emergency stop (`--run`).
+
+- Order: `run.paused` is written before the running turns of all actors are interrupted, not after.
+  Written afterwards, a turn could start in the gap between two interruptions, for example from
+  the subscription delivery of an interrupted sub-agent, which is exactly the observed failure,
+  and a crash during the interruptions would leave the run unpaused. The decision of
+  `turn.started` and the journal check reject a turn in a paused run.
+- Nothing is lost: inputs are written as before and only not delivered. The interruption of a
+  sub-agent produces the usual automatic notice to its creator, so the coordinator learns on
+  resume what was interrupted.
+- Order on resume: a human input writes `run.resumed` and its `actor.input.enqueued` in one
+  command. The input model already bundles: the primary actor's turn claims its oldest waiting
+  input, and steering feeds all further waiting inputs into the same turn before the first model
+  request, in journal order. The human input is the newest and therefore the last message, the
+  current instruction. No new delivery path was needed.
+- Sub-agents do not continue by themselves: the pause marks every active executable actor as
+  `held`; `run.resumed` releases only the primary actor, every other actor is released when a
+  human or another actor addresses it directly after the pause, or by a restart. Automatic inputs
+  (subscriptions, notices, plugin inputs under the owner) leave it held and wait.
+- Actor programs and run scripts: a running turn of a TypeScript actor ends like an agent turn and
+  its claimed input is consumed; afterwards it is held like a sub-agent unless it is the primary
+  actor. Program processes keep running, and functions and app actions a person calls from a view
+  are no turns and keep working; inputs they enqueue wait. A run script that was interrupted
+  during setup does not repeat its start input. Background processes keep running.
+- `ragents.runs.enqueueInput` now sets `origin: "human"`: a user calls it with their access, and
+  as a human input it must resume a paused run. As a consequence it also closes the open questions
+  of its addressee in `ragents.ask`, as a chat message does.
+- The run chat marks every turn of the primary actor that no human input started with its trigger
+  ("New turn, triggered by turn.finished of @implementer"), so an automatic turn is never mistaken
+  for a failed stop. Run list, status icons, and VS Code know the state "paused".
+- The abort of a running model request reaches the provider's HTTP connection; a test with a local
+  streaming endpoint checks this for OpenRouter and OpenAI-compatible providers.
+
+## 2026-10-02: Runs are shared from the run list and the run header, in the browser and in VS Code
+
+Chapters: `spec/plugins.md` (Web as plugin host: rights in the browser, run panel header, Start
+and Runs), `spec/profiles.md` (Run ownership); usage: `usage.md` (Switch runs, Run panel and VS
+Code extension, Share runs); homepage (Current status and limits).
+
+**Why.** Runs could be shared only through the API and the command line. The owner wants sharing
+where runs are chosen and worked on: in the run overview and inside the run, in both hosts.
+
+**Decision.** One `ShareDialog` (`panel/ShareDialog.tsx`) serves every place. It takes the loaded
+sharing, a save function, and the close from its host and edits the whole sharing as a local draft
+(`run-sharing.ts`; `sameSharing` decides whether Save is enabled). The run list shows "Shared" or
+what a share permits next to the title and, only when a listed row may be shared, "Share ..." in an
+extra last column; `ConnectionRun` takes `canShare`, `shared`, and `sharedAccess` from the run
+list, not `operable`, which no row needs. Start and Runs send `openSharing`, `share`, and
+`closeSharing`, and the host keeps the dialog in `PanelState.sharing`: the browser's run panel
+against its own server, the extension through the connection's client, both with the same
+`openSharing` and `saveSharing`, so the panel pages stay identical. The run header offers "Share"
+with `canShare`, also for a fresh run identifier before its first message, and a badge for
+sharees. Read-only reuses the restricted interface: `RunAccessScope` drops `runs.write` from the
+access context below a run with `operable: false`, so host and plugin controls that check
+`runs.write` turn read-only without code of their own; the composer names the reason, and "Stop
+run" disappears only for a read share, because others may still stop an `ownerOnly` run. A run
+that leaves the list after it was seen as shared leads back to Start with a notice; VS Code gets it
+as `showStart` with `notice` and shows it as `PanelState.notice`.
+
+**Rejected.** A dialog per host: the VS Code panel page has no server connection, so the page stays
+state-driven and only the transport differs. An action column on every list: it would take room in
+profiles without sign-in. Hiding controls per plugin for read shares: the access scope covers every
+`runs.write` check at once.
+
+Verified with `apps/web/tests/run-sharing.test.ts`, `panel-page.test.ts`,
+`restricted-interface.test.ts`, `run-overview.test.ts`, `run-panel-host.test.ts`, the browser test
+in `panel-pages.browser.test.ts`, and `apps/vscode/tests/overview-model.test.ts` and
+`extension-bundle.test.ts`.
+
+## 2026-10-02: `agent_spawn`, `actor_input`, `todo_write`, and the document tools take the shapes of the common agent harnesses
+
+Chapters: `spec/core.md` (Actors, inputs, events, and subscriptions; Automatic notices and rejected
+calls; Delivery of subscriptions; Artifacts, attachments, and ownership; Equipping subagents),
+`spec/plugins.md` (Ownership per facet; Workspace, sandbox tools, and processes),
+`spec/actor-programs.md` (Connect workflow definition, instructions, and presentation); usage:
+`usage.md` (Run chat and inspection).
+
+**Why.** Models call these functions in the shape Claude Code and OpenCode taught them. There the
+subagent tool takes `prompt` as the task and `description` as a short label; our `agent_spawn` took
+`prompt` as the system prompt and the task only with a second call, so a model that put its task
+into `prompt` got an idle agent with the task as its role. `actor_input {actor, content}` differed
+from `SendMessage {to, message}`. `todo_replace` with `id`, `text`, and `open`/`active` needed a
+synonym table and differed from `TodoWrite`. `show_document` named a file of the file store in
+`path`, while `read` names workspace files, so models retyped workspace files into `content`, and
+`document_write` even told them to.
+
+**Decision.** A breaking change; old fields are rejected as unknown. Verified against the Claude
+Code tools reference, `sdk-tools.d.ts` of `@anthropic-ai/claude-agent-sdk` 0.3.287, the schema of
+`SendMessage`, and OpenCode's `task.ts` and `todo.ts`.
+
+- `agent_spawn`: `description` (required, the standard's label of a few words, also the participants
+  overview), `prompt` (the first task, enqueued as `actor.input.enqueued` in the same command as
+  `agent.spawned`, which therefore also needs `actor.input`), `name` (the standard's addressable
+  name, formerly `handle`), `instructions` (the system prompt, formerly `prompt`; the journal keeps
+  it as `agent.spawned.prompt`), everything else unchanged; `model` already had the standard name.
+  `subagent_type` is not taken: a role from `model_list` supplies only driver, model, reasoning, and
+  limits, neither prompt nor tools, so it is no agent type and stays `profile`. `prompt` stays
+  optional, unlike the standard, because setups create idle participants and subscribe before the
+  first task: a task given at the spawn starts at once, and a later subscription can miss its first
+  answer. The descriptions say how answers come back (a subscription; automatic notices for
+  failures) and which function creates what: `agent_spawn` one agent in this run, `actor_input` a
+  message to an existing actor, `run_script_start` a prepared setup. No function of a run creates
+  another run; there are no sub-runs.
+- `actor_input {to, message, artifactIds?}`; the name stays the core term. The operation
+  `actor_input` of `ragents.orchestration` takes the same schema; `ragents.runs.enqueueInput` is no
+  model contract and keeps `actorId` and `content`.
+- `todo_write {todos: [{content, status: pending | in_progress | completed, activeForm}]}` replaces
+  `todo_replace`: closed items, every call replaces the whole list, native by default, sequential.
+  The plugin state has the same shape, and the actor card shows `activeForm` for the item in
+  progress. A to-do state of the old shape is neither migrated nor read: the card shows no list
+  until the next `todo_write` replaces it. The run stays usable, because the core never reads plugin
+  state; locking a run for an old to-do list would be out of proportion.
+- `show_document {title, file_path | storePath | content, format?}`: `file_path` names a file
+  exactly as `read` does (same field, same roots including the read-only `@skills`, the same alias
+  routing, workstations included). The call checks it through the new executor operation
+  `files.text` (the whole text up to 256 KB, not binary; `WORKSPACE_EXECUTOR_VERSION` 9 covers it),
+  and the display reads the current content through a route that needs `runs.inspect` and workspace
+  access, like the Files view. The storage case stays as `storePath`, because the file store is no
+  root `read` reaches and a report written with `document_write` must be shown without retyping.
+  The result is only "Shown to the user.". `document_write {storePath, content | file_path}` had
+  the same mismatch: `file_path` now copies an existing file unchanged.
+- Old journals load unchanged: the events keep their payloads, and a replay executes no tool. Old
+  `agent_spawn` and `actor_input` calls show their old arguments in the chat; an old `show_document`
+  call with `path` opens no document card anymore, while displays of `content` still do.
+
+## 2026-10-02: `read`, `write`, `edit`, and `bash` take the shapes of the common agent harnesses
+
+Chapters: `spec/plugins.md` (Workspace, sandbox tools, and processes; Open limits), `spec/core.md`
+(Model context and agent runtime: file editing); operations: `operations.md` (Time limit of
+`bash`).
+
+**Why.** Models are trained on the file and shell tools of Claude Code and OpenCode and call
+look-alikes in that shape. Our tools came from a forked coding agent: `read` and `write` took
+`path`, `edit` took a list `edits` of `oldText` and `newText` with the anchors `occurrence` and
+`nearLine`, and `bash` took `timeout` in seconds up to 3600 with an open schema that silently
+dropped fields such as `run_in_background` and `description`. `read` returned the bare text without
+line numbers. Every look-alike call cost a failed validation or, worse, ran differently than the
+model expected.
+
+**Decision.** A breaking change without accepting the old schemas; names stay lower case, fields
+follow Claude Code exactly, and all four schemas are closed. `read {file_path, offset?, limit?}`
+numbers the lines in cat -n style (`N<tab>line`), reads up to 2000 lines and 50 KB, cuts lines
+over 2000 characters, and warns about an empty file or an offset behind the end. `write
+{file_path, content}` says whether it created or updated. `edit {file_path, old_string,
+new_string, replace_all?}` makes one replacement per call with the standard's errors; an ambiguous
+match names its lines, an empty `old_string` creates a file, and deleting a text that ends a line
+takes its line break along. The stale-file protection follows Claude Code too: editing or writing
+an existing file needs a read; a changed file makes `write` fail ("File has been modified since
+read ..."), while an `edit` still applies when `old_string` selects its target and then says that
+the file contains changes the model has not seen, keeping the old seen state, so a later `write`
+needs a new read. `bash {command, timeout?, description?, run_in_background?, cwd?}` takes
+milliseconds, default 120000, at most 3600000. The upper limit deliberately exceeds Claude Code's
+600000: cold builds of real projects take longer, there is no background mode to fall back on, and
+models trained on the standard simply stay below it. `description` labels the call in the chat line.
+`run_in_background: true` is rejected with the alternative, because a call ends with its process
+group and nothing could read a background command's output later; the Processes view only
+observes and stops what a run leaves behind. `cwd` stays although the standard has none: every call
+starts anew, and an alias such as `@actors/<name>` names a root on the server, so the folder must
+pick the machine before the command runs. `RAGENTS_BASH_TIMEOUT_SECONDS` keeps its unit for the
+operator and stays at most 3600. `WORKSPACE_EXECUTOR_VERSION` is 9, because a workstation with the
+old executor would read the old fields. Old journals keep their arguments; a replay executes no
+tool, the chat still shows their `path`, and a continued old conversation sees the old calls only as
+history.
+
+## 2026-10-02: Browser tools take the names and fields of the Playwright MCP server
+
+Chapters: `spec/plugins.md` (Browser checks); `docs/development.md` (Testing a workspace on another
+machine); the skill `browser-testing` and the prompt chapter of `ragents.browser`.
+
+**Why.** Models call tools in the shape the leading agent harnesses taught them. For browser
+control the de-facto standard is Microsoft's Playwright MCP server. Our names (`browser_open`,
+`browser_fill`, `browser_select` ...) and fields (`value`, a single `label`) differed from it, so a
+model had to learn a second vocabulary for the same actions.
+
+**Decision.** The browser tools carry the upstream names and input fields, verified on 2026-10-02
+against the README of `microsoft/playwright-mcp` and the tool sources in `microsoft/playwright`
+(`packages/playwright-core/src/tools/backend`): `browser_open` is now `browser_navigate`,
+`browser_fill` `browser_type` (`value` became `text`, plus upstream's optional `submit` and
+`slowly`), `browser_select` `browser_select_option` (`label` became `values`, each matched against
+an option's value or visible label), `browser_press` `browser_press_key` (`target` optional; without
+it the key goes to the focused element, as upstream), `browser_viewport` `browser_resize`, and
+`browser_screenshot` `browser_take_screenshot`. `browser_snapshot`, `browser_click`, and
+`browser_close` already matched. The old names are not kept as aliases. Executor operations and
+server methods follow the same names (`browser.navigate`, `browser.type`, `browser.selectOption`,
+`browser.pressKey`, `browser.resize`, `browser.takeScreenshot`; `BrowserRuntime.navigate`).
+`target` keeps its name, because upstream's locator field is also `target`, but stays an object of
+role/name, label, text, test ID, or CSS instead of a snapshot reference: models do not copy IDs.
+`browser_check`, `browser_view_screenshot`, and `actor_view_snapshot` have no counterpart in the
+MCP server and keep their names; results, evidence, and time limits are unchanged. Under the new
+native default the plugin drops its explicit `nativeTool: true`, so every browser tool is native,
+now including `browser_resize`; every browser tool keeps `executionMode: "sequential"` explicitly.
+
+Old journals keep the old names. Replay and the chat display take tool names as recorded and need
+no tool of that name. An agent whose fixed tool selection names an old browser tool runs on without
+it; a newly created or restarted one is stopped with the unresolved names, as for any missing tool.
+Nothing is migrated.
+
+**Rejected.** Splitting `browser_check` into upstream's `browser_verify_*` tools, which the MCP
+server offers only with `--caps=testing`: one call proves target, text, address, count, and errors
+together and records the evidence. Upstream's `element` permission field, the click options
+`doubleClick`, `button`, and `modifiers`, the screenshot `filename`, and the snapshot options: no
+caller needs them yet. Playwright's CLI skills also define a `browser_check` that ticks a checkbox;
+the MCP server does not expose it, so the name stays with the assertion.
+
+Verified with `apps/server/tests/browser-tools.test.ts`, `browser-executor.test.ts`,
+`browser-view-snapshot.test.ts`, `workspace-foreign-machine.test.ts`, `profile-composition.test.ts`,
+and the real-browser test `browser-live.test.ts`.
+
+## 2026-10-02: Every function is a native tool unless it opts out
+
+Chapters: `spec/plugins.md` (Provide functions, plugin contract list), `spec/typescript-platform.md`
+(One-off snippets), `spec/core.md` (equipped LLMs); `docs/development.md` (What is built in).
+
+**Why.** In a real run with a small local model, four of ten failed calls were functions such as
+`actor_list`, `model_list`, `run_script_list`, and `agent_spawn` called directly although they
+were snippet-only; every such detour costs a model step and a compiler run, and the previous rule
+("native only for what the model reads by itself") had to be decided anew for every function.
+The requirement was to turn it around: native by default, snippet-only by explicit opt-out.
+
+**Decision.** `isNativeTool` treats a function as native unless it sets `nativeTool: false`; the
+toolset, the plugin host, the descriptor check, the engine descriptors, and the generated catalog
+use it. This includes actor-program functions that are activated during a run: the system prompt
+already changed with them before. The engine's four journal event functions opt out, because
+their raw results belong in code and `watch_*` covers waiting for models. The orientation in the
+system prompt no longer repeats native tools, whose descriptions already arrive with the tool
+definitions; it explains the snippet path and lists only snippet-only functions. Prompts that
+routed single calls through `typescript_eval` (orchestration, actor programs, global coordinator,
+core contract) now name the direct call. Explicit `nativeTool: true` is redundant and is removed.
+Functions only programs may call stay limited by availability. A native function without
+`executionMode` now runs sequentially instead of in parallel (before, only names starting with
+`agent_`), because most newly native functions have side effects that were ordered by snippet code
+before; every previously native function already declared its mode. Open: how small local models
+handle the larger tool list (`TODO.md`).
+
+## 2026-10-02: Runs can be shared with all users or with individual users, each for reading or writing
+
+Chapters: `spec/profiles.md` (Run ownership, Sharing in detail, Ownership in detail, Open limits),
+`spec/core.md` (File format, write boundaries, and replay: format 10), `spec/plugins.md` (method
+rights of the message layer); usage: `usage.md` (Control RAgents as an agent, Drive runs from
+external clients); `docs/development.md` (journal example), `skills-for-agents/ragents/SKILL.md`.
+
+**Why.** A run belonged to its creator alone; colleagues could only watch it with `runs.read.all`,
+which opens every run of the profile. The owner wants to let selected people or the whole profile
+watch or join a single run.
+
+**Decision.** A run is shared with `everyone` (all users of the profile) and with individual users,
+each with `read` or `write`; a user gets the higher of both. `read` sees the run (list, chat, apps,
+journal as far as the user's own rights go, the workspace unless only its owner reaches it) and
+operates nothing: every operating path answers `run-read-only` (403) instead of disguising the run.
+`write` sees and operates like `runs.read.all` for this run, within the user's own rights; a run
+that only its owner operates stays the owner's. Only the owner and `runs.read.all` change the
+sharing (`ragents.runs.sharing`, `ragents.runs.share`, full replacement), only with sign-in; a
+coordinator and a run without an owner are not shareable. Deleting stays with the owner and
+`runs.read.all`; a sharee never deletes (`run-delete-denied`). Ownership is never rewritten.
+
+The journal event `run.sharing-changed` (`everyone`, `users`, `changedBy`) replaces the whole
+sharing, authored by the run's human owner actor, and projects into `RunState.sharing`, which the
+run view for clients leaves out like the owner. Before the start, the server keeps a choice per
+user under the free identifier, like the start options, and only the creating user's choice joins
+the creation record; an unchanged sharing writes nothing. Because an older version would reject
+the new event, the journal writes file format 10 and still reads 7 to 9, as for format 6 with
+`turn.input-steered`; nothing is migrated. `RunAccessPolicy` carries the sharing; `rights.ts`
+separates visibility (`runVisible`: own or shared), workspace access (the `ownerOnly` rule alone),
+and operating (`ownerOnly` and read shares), and the run rights `stop`, the message layer for
+`runs.write`, `ragents.overseer.stopRun`, and writing requests on delivery routes refuse read
+shares. `ragents.runs.list` adds `operable`, `canShare`, `shared`, and `sharedAccess` per caller.
+A sharing change notifies the run list listeners, and the dispatcher ends every channel with
+`runId` whose caller no longer sees the run (`watchRunAccess`), so revocation does not wait for a
+reload. `ragents.overseer.createRun` takes `sharing`, `ragents run` takes `--share` and
+`--share-all`, and `ragents share` prints or replaces a sharing.
+
+**Rejected.** Changing the owner or a list of owners: ownership stays the one fact the journal
+records at creation. Hiding a read-only run's operating paths only in the interface: the server
+must refuse them itself. A pending sharing per free identifier instead of per user: whoever creates
+the run under a guessed identifier would inherit someone else's choice. Ending channels by checking
+access on every message: the check reads the run state and would run for every streamed chat event.
+Verified with `packages/ragents/tests/run-sharing.test.ts` (validation, projection, replay,
+creation record), `apps/server/tests/run-sharing.test.ts` (rights, message layer, provider with
+users, list fields, channels, overseer), and `scripts/agent/agent-cli.test.ts` (flags and `share`).
+
+## 2026-10-02: `ask_user` takes the question shape of the common agent harnesses
+
+Chapters: `spec/plugins.md` (Web as plugin host: questions of `ragents.ask`; language server
+plugins: start question of `ragents.lsp-roslyn`), `spec/core.md` (journal: persisted plugin
+contracts; wake-up guarantee); usage: `usage.md` (Run chat; Control RAgents as an agent);
+`skills-for-agents/ragents/SKILL.md`, `selftest/GUIDE.md`.
+
+**Why.** Models know the question tools of common agent harnesses and called `ask_user` in that
+shape: a list `questions` with header chips and options that carry a description. Our tool took a
+single `question` with `options` as texts and failed validation, so the model had to retry. One
+question per call also forced related decisions into several turns.
+
+**Decision.** A breaking change without accepting the old schema. `ask_user` takes `questions`
+(1 to 4), each with `question`, `header` (at most 12 characters), `options` (2 to 4 entries of
+`label` and `description`), and a required `multiSelect`; free text stays possible for every
+question, so there is no "Other" option. One call is one action with the payload
+`{ questions, recipient? }`; the shared rules in `ask-payload.ts` (non-empty texts, distinct
+questions and labels, at least two options) are checked for every caller and name every path. The
+user answers all questions of a call at once; `ragents.ask.answer` takes `answers` with one
+`{ selected }` or `{ text }` per question, or `dismiss: true`, and the journal keeps `{ answers }`.
+The answers reach the asker as one input with one line per question (`"<question>" = "<label>"`,
+several labels comma-separated, a free answer marked `free answer`), quoted as JSON strings so
+that no text can break a line. `AskService.ask` takes the same questions and resolves to
+`{ kind: "answered", answers }` or `{ kind: "dismissed" }`; the start question of
+`ragents.lsp-roslyn` and the confirmations of `ragents.actor-programs` use it, and
+`answerMessageOf` gives a caller that forwards an answer the same text. The four-option limit is
+the tool's, so the start question still lists every solution. Record texts read "Dismissed by the
+user without an answer." and "Withdrawn without an answer." for one or several questions. The web
+card shows all questions with chip, option descriptions, and a free answer field each, and one
+submit; a single question with one choice still answers on click. The CLI prints one `? [<header>]`
+line per question and keeps answering through `send`. Journals are not migrated: the host's
+persisted-contract check next to the removed host layout rejects an action of `ragents.ask`
+with the former `question` text instead of a `questions` list, answered or open, so such a run is locked with the cause and its files
+stay as they are; the plugin, web, and CLI then never meet the old shape, and an answered record
+could not be shown without keeping it. The declared exports of `ragents.ask` change (`AskRequest`,
+`AskService.ask`, `answerQuestions`, `QuestionCard` props); they are not part of the host API,
+whose names do not change, so `HOST_API_VERSION` stays 11.
+
+## 2026-10-02: One run row for browser and VS Code; read markers per user on the server
+
+Chapters: `spec/plugins.md` (run metadata, web slots, message layer, Start and run list, run
+overview read state, state vocabulary time, open limits); `usage.md` (Switch runs, VS Code
+extension, states).
+
+**Why.** Browser and VS Code render the same `RunLine`, but fed it different data. The browser
+knew only running or idle, no pending actions, and kept read markers per browser in
+localStorage, which the VS Code Start page cannot see; it added owner and plugin metadata through
+a render prop. The extension loaded the full run view of every run to compute waiting, ended, and
+pending actions, and showed neither owner, metadata, nor read notices. Only the top line of a row
+highlighted and opened the run.
+
+**Decision.** `ragents.runs.list` now delivers per run `state` (running, waiting, idle, ended) and
+`pendingActions`, computed on the server from the journal state with the former semantics of the
+extension (`run-list-state.ts`), the caller's `seenRevision`, and `listDetails`. A server metadata
+contribution declares `listDetail(value)` for its list line (label, text, icon folder or branch);
+`ragents.workspace` reproduces its former list rendering there. The new method
+`ragents.runs.markViewed` stores the highest viewed revision per user and run in
+`run-read-markers.json` under the profile's data directory, written atomically and coalesced, and
+removed with the run; a change reaches only the same user's `ragents.runs` subscriptions, the first
+at once and further ones at most once per second, because the run panel reports every revision of
+a viewed running run. The browser's localStorage read state is gone. One mapping
+(`connectionRunOf`) turns a listed run into `ConnectionRun` for both hosts; `RunLine` renders owner
+and lines itself inside the clickable item, and the `runDetails` render prop, the list placement of
+the web `sessionMetadata` slot, `ConnectionRun.problem`, and the extension's run views for the list
+(`run-model.ts`) are removed. The extension keeps its five-second poll and the run channel of the
+selected run, which now only refreshes the list. Compact times drop the space (`5min`, `3h`, `1d`).
+The host API names do not change, so `HOST_API_VERSION` stays 11; a plugin with a list component in
+its web `sessionMetadata` must move that line to `listDetail` on the server, because the run list no
+longer renders web components.
+
 ## 2026-10-02: Clipboard replies reach nested frames through their window; host API 11
 
 Chapters: `spec/plugins.md` (VS Code host: hosted mini-app frames, clipboard relay);

@@ -218,6 +218,7 @@ provider.plugins.methods.register("host", [
     global: globalAccess,
     runOwner: (runId) => provider.runOwner(runId),
     runOwnerOnly: (runId) => provider.runOwnerOnly(runId),
+    runSharing: (runId) => provider.runSharing(runId),
     settingsGuarded: () => !process.env.ACCESS_TOKEN && !accessSessions.enabled,
     external: { open: externalAccessOpen, set: setExternalAccess },
   }),
@@ -228,12 +229,14 @@ provider.plugins.channels.register("host", coreChannels({
   global: globalAccess,
   runOwner: (runId) => provider.runOwner(runId),
   runOwnerOnly: (runId) => provider.runOwnerOnly(runId),
+  runSharing: (runId) => provider.runSharing(runId),
 }));
 provider.plugins.http.register("host", [provider.engineArtifactRoute(), attachmentContentRoute(provider, provider.runAccess())]);
 const dispatcher = new RpcDispatcher({
   methods: provider.plugins.methods,
   channels: provider.plugins.channels,
   assertRunReachable: (access, runId, operates) => assertRunAccess(access, runId, operates, provider.runAccess()),
+  watchRunAccess: (runId, listener) => provider.watchRunAccess(runId, listener),
 });
 const rpc = new RpcHttpTransport({ dispatcher });
 

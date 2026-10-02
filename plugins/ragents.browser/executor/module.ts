@@ -1,6 +1,6 @@
 import type { Browser } from "playwright-core";
 import type { WorkspaceExecutorMachine, WorkspaceModuleFactory } from "@ragents/workspace-executor";
-import { BROWSER_OPERATIONS, type BrowserCheck, type BrowserTarget, type BrowserViewport } from "./contract.js";
+import { BROWSER_OPERATIONS, type BrowserCheck, type BrowserTarget, type BrowserTyping, type BrowserViewport } from "./contract.js";
 import { BrowserPages } from "./pages.js";
 import { launchChromium } from "./playwright.js";
 
@@ -25,10 +25,22 @@ export const browserModule = (machine: WorkspaceExecutorMachine, options: Browse
     if (typeof value !== "string") throw invalid(`The browser operation needs ${key} as text`);
     return value;
   };
+  const flagOf = (input: unknown, key: string): boolean => {
+    const value = fieldsOf(input)[key];
+    if (value !== undefined && typeof value !== "boolean") throw invalid(`The browser operation needs ${key} as true or false`);
+    return value === true;
+  };
   const targetOf = (input: unknown): BrowserTarget => {
     const value = fieldsOf(input).target;
     if (typeof value !== "object" || value === null || Array.isArray(value)) throw invalid("The browser operation needs a target");
     return value as BrowserTarget;
+  };
+  const optionalTargetOf = (input: unknown): BrowserTarget | undefined => fieldsOf(input).target === undefined ? undefined : targetOf(input);
+  const typingOf = (input: unknown): BrowserTyping => ({ text: textOf(input, "text"), submit: flagOf(input, "submit"), slowly: flagOf(input, "slowly") });
+  const valuesOf = (input: unknown): string[] => {
+    const value = fieldsOf(input).values;
+    if (!Array.isArray(value) || value.length === 0 || value.some((entry) => typeof entry !== "string")) throw invalid("The browser operation needs values as a non-empty list of texts");
+    return value as string[];
   };
   const viewportOf = (input: unknown): BrowserViewport => {
     const { width, height } = fieldsOf(input);
@@ -45,17 +57,17 @@ export const browserModule = (machine: WorkspaceExecutorMachine, options: Browse
   });
   return {
     operations: {
-      [BROWSER_OPERATIONS.open]: ({ runId, input, signal }) =>
-        pages.open(runId, textOf(input, "url"), viewportOf(fieldsOf(input).viewport), signal),
+      [BROWSER_OPERATIONS.navigate]: ({ runId, input, signal }) =>
+        pages.navigate(runId, textOf(input, "url"), viewportOf(fieldsOf(input).viewport), signal),
       [BROWSER_OPERATIONS.snapshot]: ({ runId, signal }) => pages.snapshot(runId, signal),
-      [BROWSER_OPERATIONS.viewport]: ({ runId, input, signal }) => pages.viewport(runId, viewportOf(input), signal),
+      [BROWSER_OPERATIONS.resize]: ({ runId, input, signal }) => pages.resize(runId, viewportOf(input), signal),
       [BROWSER_OPERATIONS.click]: ({ runId, input, signal }) => pages.click(runId, targetOf(input), signal),
-      [BROWSER_OPERATIONS.fill]: ({ runId, input, signal }) => pages.fill(runId, targetOf(input), textOf(input, "value"), signal),
-      [BROWSER_OPERATIONS.select]: ({ runId, input, signal }) => pages.select(runId, targetOf(input), textOf(input, "label"), signal),
-      [BROWSER_OPERATIONS.press]: ({ runId, input, signal }) => pages.press(runId, targetOf(input), textOf(input, "key"), signal),
+      [BROWSER_OPERATIONS.type]: ({ runId, input, signal }) => pages.type(runId, targetOf(input), typingOf(input), signal),
+      [BROWSER_OPERATIONS.selectOption]: ({ runId, input, signal }) => pages.selectOption(runId, targetOf(input), valuesOf(input), signal),
+      [BROWSER_OPERATIONS.pressKey]: ({ runId, input, signal }) => pages.pressKey(runId, optionalTargetOf(input), textOf(input, "key"), signal),
       [BROWSER_OPERATIONS.check]: ({ runId, input, signal }) => pages.check(runId, fieldsOf(input) as BrowserCheck, signal),
-      [BROWSER_OPERATIONS.screenshot]: ({ runId, input, signal }) =>
-        pages.screenshot(runId, textOf(input, "id"), fieldsOf(input).fullPage === true, signal),
+      [BROWSER_OPERATIONS.takeScreenshot]: ({ runId, input, signal }) =>
+        pages.takeScreenshot(runId, textOf(input, "id"), flagOf(input, "fullPage"), signal),
       [BROWSER_OPERATIONS.state]: async ({ runId }) => pages.state(runId),
       [BROWSER_OPERATIONS.close]: async ({ runId }) => {
         await pages.close(runId);

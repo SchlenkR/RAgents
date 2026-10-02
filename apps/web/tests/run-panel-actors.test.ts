@@ -14,7 +14,7 @@ const view: RunView = {
     { id: "i2", actorId: "mira", content: "y", artifactIds: [], sourceEventIds: [], subscriptionId: null, enqueuedBy: "owner", enqueuedAt: at, sequence: 2, lifecycle: { kind: "claimed", turnId: "t", steered: false } },
   ],
   turns: [], subscriptions: [], pluginStates: [],
-  actions: [{ id: "q1", askedBy: "circle", owner: "ragents.ask", payload: { question: "?", options: [], multi: false }, title: "?", description: null, parameters: {}, input: null, status: "pending", proposedAt: at, resolvedAt: null, resolvedBy: null, result: null }],
+  actions: [{ id: "q1", askedBy: "circle", owner: "ragents.ask", payload: { questions: [{ question: "Ready?", header: "Choice", options: [{ label: "Yes", description: "" }, { label: "No", description: "" }], multiSelect: false }] }, title: "?", description: null, parameters: {}, input: null, status: "pending", proposedAt: at, resolvedAt: null, resolvedBy: null, result: null }],
   artifacts: [],
 };
 

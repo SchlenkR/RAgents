@@ -1,8 +1,8 @@
 import type { WorkspaceClient, WorkspaceClientStatus } from "../../../plugins/ragents.workspace/client/workspace-client";
 import { missingEnvironmentOf, type MissingEnvironment } from "../../server/src/missing-environment";
+import type { ListedSession } from "../../web/src/api";
 import { connectionSecretKey, credentialsSecretKey, type Connection } from "./connections";
 import type { RunningHost } from "./host-process";
-import type { RunSummary } from "./run-model";
 import { ServerClient } from "./server-client";
 import { RunStore, type ConnectionStatus, type StartEntrySummary } from "./store";
 import { workspaceRegistrationRefusal } from "./workspace-identity";
@@ -49,7 +49,7 @@ export interface ConnectionSnapshot {
   url: string | undefined;
   /** The session talks to a host the extension started itself; for a server, that is its distributed profile. */
   localHost: boolean;
-  runs: readonly RunSummary[];
+  runs: readonly ListedSession[];
   entries: readonly StartEntrySummary[];
   /** The template the server's plus uses and that comes first on Start; without it, a new run is an empty chat. */
   defaultEntry: string | undefined;

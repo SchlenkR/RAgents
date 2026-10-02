@@ -37,6 +37,6 @@ export const bashSetting = (): string | undefined => env.optional("RAGENTS_BASH"
 /** The rg that the executor of this server puts at the front of the bash PATH; the VS Code extension sets it for its local host. */
 export const rgSetting = (): string | undefined => env.optional("RAGENTS_RG") || undefined;
 
-/** The bash timeout in seconds for calls without their own; the tool rejects more than the largest a call may name at startup. */
+/** The bash timeout in seconds for calls without their own; the server rejects more than the largest a call may name at startup. */
 export const bashTimeoutSetting = (): number | undefined =>
   env.optional("RAGENTS_BASH_TIMEOUT_SECONDS") ? env.positiveNumber("RAGENTS_BASH_TIMEOUT_SECONDS", "") : undefined;

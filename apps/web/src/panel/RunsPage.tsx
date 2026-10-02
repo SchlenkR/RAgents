@@ -12,8 +12,11 @@ const keyOf = (connection: string, runId: string): string => `${connection}\u000
 const matches = (connection: ConnectionView, run: ConnectionRun, query: string): boolean =>
   `${run.title} ${connection.name}`.toLocaleLowerCase("en-US").includes(query);
 
+/** A run shared with the user stays with its owner; the selection never deletes it. */
+const deletable = (connection: ConnectionView, run: ConnectionRun): boolean => connection.canDelete !== false && run.sharedAccess === undefined;
+
 /** All runs of all servers as one list: search, hide ended, the server filter from the chip on Start, and a multi-selection for deleting. */
-export function RunsPage({ state, send, runDetails }: PanelPageProps) {
+export function RunsPage({ state, send }: PanelPageProps) {
   const [query, setQuery] = useState("");
   const [onlyConnection, setOnlyConnection] = useState(state.runsConnection);
   const [hideEnded, setHideEnded] = useState(false);
@@ -28,6 +31,7 @@ export function RunsPage({ state, send, runDetails }: PanelPageProps) {
     .filter(({ connection }) => onlyConnection === undefined || connection.name === onlyConnection)
     .filter(({ run }) => !hideEnded || run.state !== "ended")
     .filter(({ connection, run }) => needle === "" || matches(connection, run, needle));
+  const sharing = !selecting && shown.some(({ run }) => run.canShare === true);
   const leaveSelection = () => {
     setSelecting(false);
     setSelected(new Set());
@@ -39,7 +43,7 @@ export function RunsPage({ state, send, runDetails }: PanelPageProps) {
   });
   const remove = () => {
     for (const connection of state.connections.filter((connection) => connection.canDelete !== false)) {
-      const runIds = connection.runs.filter((run) => selected.has(keyOf(connection.name, run.id))).map((run) => run.id);
+      const runIds = connection.runs.filter((run) => deletable(connection, run) && selected.has(keyOf(connection.name, run.id))).map((run) => run.id);
       if (runIds.length > 0) send({ action: "deleteRuns", name: connection.name, runIds });
     }
     setConfirming(false);
@@ -63,10 +67,11 @@ export function RunsPage({ state, send, runDetails }: PanelPageProps) {
     </div>
     {shown.length === 0
       ? <p className="type-body text-muted-foreground" role="status">{all.length === 0 ? "No runs yet." : "No matching run."}</p>
-      : <RunList label="Runs" selecting={selecting} showConnection={marked}>
-        {shown.map(({ connection, run }) => <RunLine details={runDetails?.(run.id, connection.name)} connection={connection} key={keyOf(connection.name, run.id)}
+      : <RunList actions={sharing} label="Runs" selecting={selecting} showConnection={marked}>
+        {shown.map(({ connection, run }) => <RunLine actions={sharing} connection={connection} key={keyOf(connection.name, run.id)}
           onOpen={() => send({ action: "openRun", name: connection.name, runId: run.id })}
-          onToggle={() => toggle(keyOf(connection.name, run.id))} run={run} selected={selected.has(keyOf(connection.name, run.id))} selecting={selecting && connection.canDelete !== false} showConnection={marked} />)}
+          onShare={run.canShare ? () => send({ action: "openSharing", name: connection.name, runId: run.id }) : undefined}
+          onToggle={() => toggle(keyOf(connection.name, run.id))} run={run} selectable={deletable(connection, run)} selected={selected.has(keyOf(connection.name, run.id))} selecting={selecting} showConnection={marked} />)}
       </RunList>}
     {selecting && <div className="sticky bottom-0 flex flex-wrap items-center gap-2 border-t border-border-soft bg-background py-2">
       <span className="flex-1 type-body text-muted-foreground" role="status">{selected.size} selected</span>

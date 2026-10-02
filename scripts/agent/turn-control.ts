@@ -3,7 +3,21 @@ import { coreContracts } from "../../apps/server/src/api/contracts.ts";
 import type { RpcClient } from "../../apps/web/src/rpc/client.ts";
 import { runContracts } from "../../packages/ragents/src/http/contracts.ts";
 
-/** Like the chat input: only the running turn of the primary actor ends, run and actors stay active. */
+/** Like the chat's Stop button: no actor starts a turn until a message or a resume continues the run; nothing is lost. */
+export const pauseRun = async (rpc: RpcClient, runId: string, reason: string): Promise<void> => {
+  await rpc.call(runContracts.pause, { runId, commandId: randomUUID(), reason });
+};
+
+/** Continues a paused run without a message; false if the run was not paused. */
+export const resumeRun = async (rpc: RpcClient, runId: string): Promise<boolean> => {
+  const view = await rpc.call(runContracts.view, { runId });
+  if (!view) throw new Error(`The run ${runId} is not started.`);
+  if (!view.pause) return false;
+  await rpc.call(runContracts.resume, { runId, commandId: randomUUID() });
+  return true;
+};
+
+/** Only the running turn of the primary actor ends, run and actors stay active. */
 export const interruptPrimaryTurn = async (rpc: RpcClient, runId: string): Promise<string> => {
   const view = await rpc.call(runContracts.view, { runId });
   if (!view) throw new Error(`The run ${runId} is not started.`);

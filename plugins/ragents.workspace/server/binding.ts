@@ -1,7 +1,7 @@
 import { statSync } from "node:fs";
 import path from "node:path";
 import { Type } from "typebox";
-import { DomainError, type JsonValue, type RunState, type StartOptionContribution } from "@ragents/engine";
+import { DomainError, type JsonValue, type RunListDetail, type RunState, type StartOptionContribution } from "@ragents/engine";
 import type { ShellTools } from "@ragents/workspace-executor";
 import { shellPlatformChapter } from "./shell-platform.js";
 import { storedStartOption } from "@ragents/host/ragents/start-option-state.js";
@@ -118,6 +118,10 @@ export const sessionMetadataOf = (state: RunState | null, contribution: Workspac
   const binding = bindingOf(state);
   return { binding, summary: workspaceBindingSummary(binding, freshLabels(contribution)) };
 };
+
+/** The run list names the workspace unless the run works in the new folder on the server. */
+export const workspaceListDetail = ({ binding, summary }: WorkspaceSessionMetadata): RunListDetail | undefined =>
+  binding.machine === "server" && binding.folder === "fresh" ? undefined : { label: "Workspace", text: summary, icon: "folder" };
 
 const unsupported = (message: string): DomainError => new DomainError("workspace-binding-unsupported", message, 400);
 

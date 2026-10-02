@@ -1,11 +1,14 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import type { AskQuestion } from "../../../plugins/ragents.ask/ask-payload.ts";
 import { RuntimeAskService } from "../../../plugins/ragents.ask/server/ask-service.ts";
-import { DISMISSED_ANSWER } from "../../../plugins/ragents.ask/server/contract.ts";
 import { enqueueAndClaim } from "./runtime-fixture.ts";
 import { allGrants, setupRun } from "../../../packages/ragents/tests/support.ts";
 
 const settled = () => new Promise<void>((resolve) => setImmediate(resolve));
+
+const question = (text: string, labels: readonly string[]): AskQuestion =>
+  ({ question: text, header: "Decision", options: labels.map((label) => ({ label, description: "" })), multiSelect: false });
 
 const setupAsk = () => {
   const setup = setupRun({ grants: allGrants() });
@@ -13,13 +16,13 @@ const setupAsk = () => {
   const initialInputs = setup.runtime.view(setup.view.id).inputs;
   const service = new RuntimeAskService();
   service.bind(setup.runtime);
-  const pose = (commandId: string, question = "Which next step?") => service.pose(
+  const pose = (commandId: string, text = "Which next step?") => service.pose(
     { runId: setup.view.id, agentId: setup.agent.id, turnId: turn.turnId, commandId },
-    { question, options: ["Continue", "Pause"] },
+    { questions: [question(text, ["Continue", "Pause"])] },
   );
   const askAsOwner = (commandId: string, signal?: AbortSignal, recipient?: string) => service.ask(
     { runId: setup.view.id, agentId: setup.view.ownerId, turnId: null, commandId },
-    { question: "Run the function?", options: ["Run", "Cancel"], ...(recipient ? { recipient } : {}) },
+    { questions: [question("Run the function?", ["Run", "Cancel"])], ...(recipient ? { recipient } : {}) },
     signal,
   );
   const action = (actionId: string | undefined) => setup.runtime.view(setup.view.id).actions.find((entry) => entry.id === actionId);
@@ -63,10 +66,10 @@ test("a user dismissal and a withdrawal reach the waiting call exactly once, and
   try {
     const dismissed = setup.askAsOwner("dismissed");
     setup.service.answer(setup.view.id, setup.runtime.view(setup.view.id).actions[0].id, { dismiss: true });
-    assert.equal(await dismissed, DISMISSED_ANSWER);
+    assert.deepEqual(await dismissed, { kind: "dismissed" });
     const withdrawn = setup.askAsOwner("withdrawn");
     setup.service.withdraw(setup.view.id, setup.runtime.view(setup.view.id).actions[1].id);
-    assert.equal(await withdrawn, DISMISSED_ANSWER);
+    assert.deepEqual(await withdrawn, { kind: "dismissed" });
     assert.deepEqual(setup.runtime.view(setup.view.id).actions.map((action) => action.result), [null, { withdrawn: true }]);
     await settled();
     assert.deepEqual(setup.runtime.view(setup.view.id).inputs, setup.initialInputs);
@@ -89,8 +92,8 @@ test("stopping the asker withdraws its own questions without an input and keeps 
     assert.ok(ownerQuestion);
     assert.equal(ownerQuestion.status, "pending");
     assert.equal(setup.runtime.view(setup.view.id).inputs.length, before);
-    setup.service.answer(setup.view.id, ownerQuestion.id, { answer: "Run" });
-    assert.equal(await forAgent, "Run");
+    setup.service.answer(setup.view.id, ownerQuestion.id, { answers: [{ selected: ["Run"] }] });
+    assert.deepEqual(await forAgent, { kind: "answered", answers: [{ selected: ["Run"] }] });
   } finally {
     setup.journal.close();
   }
@@ -114,9 +117,21 @@ test("a run stop withdraws the agents' questions and keeps the questions asked f
     assert.equal(resolvedCount(), 2, "a second stop changes nothing");
     const pending = setup.runtime.view(setup.view.id).actions.filter((action) => action.status === "pending");
     assert.equal(pending.length, 1);
-    setup.service.answer(setup.view.id, pending[0].id, { answer: "Cancel" });
-    assert.equal(await confirmation, "Cancel");
+    setup.service.answer(setup.view.id, pending[0].id, { answers: [{ selected: ["Cancel"] }] });
+    assert.deepEqual(await confirmation, { kind: "answered", answers: [{ selected: ["Cancel"] }] });
     assert.doesNotThrow(() => setup.service.stopRun("run-already-deleted"), "a removed journal does not block a deletion");
+  } finally {
+    setup.journal.close();
+  }
+});
+
+test("an approval past the answer method with a result outside the contract rejects the waiting call instead of hanging", async () => {
+  const setup = setupAsk();
+  try {
+    const waiting = setup.askAsOwner("confirm");
+    const actionId = setup.runtime.view(setup.view.id).actions[0]!.id;
+    setup.runtime.resolveAction({ actorId: setup.view.ownerId, commandId: "generic-approval" }, setup.view.id, actionId, { decision: "approved", result: "Run" });
+    await assert.rejects(waiting, /The stored answers of ragents\.ask are invalid: answers must be a list with one answer per question/);
   } finally {
     setup.journal.close();
   }

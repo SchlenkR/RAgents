@@ -11,6 +11,7 @@ import {
   type BrowserSnapshot,
   type BrowserStep,
   type BrowserTarget,
+  type BrowserTyping,
   type BrowserViewport,
 } from "../executor/contract.js";
 import type { BrowserCallOptions, BrowserEvidence, BrowserRuntime } from "./contract.js";
@@ -60,7 +61,7 @@ export class RunBrowser implements BrowserRuntime {
     return pending;
   }
 
-  async open(runId: string, url: string, options: BrowserCallOptions = {}): Promise<BrowserSnapshot> {
+  async navigate(runId: string, url: string, options: BrowserCallOptions = {}): Promise<BrowserSnapshot> {
     options.signal?.throwIfAborted();
     this.#assertRunning();
     const generation = this.#generation(runId);
@@ -68,7 +69,7 @@ export class RunBrowser implements BrowserRuntime {
     options.signal?.throwIfAborted();
     this.#assertRunning();
     if (generation !== this.#generation(runId)) throw new Error("The browser was closed.");
-    return this.#run(runId, BROWSER_OPERATIONS.open, { url, viewport: this.#viewports.get(runId) ?? DEFAULT_VIEWPORT }, options);
+    return this.#run(runId, BROWSER_OPERATIONS.navigate, { url, viewport: this.#viewports.get(runId) ?? DEFAULT_VIEWPORT }, options);
   }
 
   snapshot(runId: string, options: BrowserCallOptions = {}): Promise<BrowserSnapshot> {
@@ -76,8 +77,8 @@ export class RunBrowser implements BrowserRuntime {
   }
 
   /** The chosen viewport applies to the run, including a browser restarted later. */
-  async viewport(runId: string, viewport: BrowserViewport, options: BrowserCallOptions = {}): Promise<BrowserSnapshot> {
-    const snapshot = await this.#run<BrowserSnapshot>(runId, BROWSER_OPERATIONS.viewport, viewport, options);
+  async resize(runId: string, viewport: BrowserViewport, options: BrowserCallOptions = {}): Promise<BrowserSnapshot> {
+    const snapshot = await this.#run<BrowserSnapshot>(runId, BROWSER_OPERATIONS.resize, viewport, options);
     this.#viewports.set(runId, viewport);
     return snapshot;
   }
@@ -86,16 +87,16 @@ export class RunBrowser implements BrowserRuntime {
     return this.#run(runId, BROWSER_OPERATIONS.click, { target }, options);
   }
 
-  fill(runId: string, target: BrowserTarget, value: string, options: BrowserCallOptions = {}): Promise<BrowserSnapshot> {
-    return this.#run(runId, BROWSER_OPERATIONS.fill, { target, value }, options);
+  type(runId: string, target: BrowserTarget, typing: BrowserTyping, options: BrowserCallOptions = {}): Promise<BrowserSnapshot> {
+    return this.#run(runId, BROWSER_OPERATIONS.type, { target, ...typing }, options);
   }
 
-  select(runId: string, target: BrowserTarget, label: string, options: BrowserCallOptions = {}): Promise<BrowserSnapshot> {
-    return this.#run(runId, BROWSER_OPERATIONS.select, { target, label }, options);
+  selectOption(runId: string, target: BrowserTarget, values: readonly string[], options: BrowserCallOptions = {}): Promise<BrowserSnapshot> {
+    return this.#run(runId, BROWSER_OPERATIONS.selectOption, { target, values }, options);
   }
 
-  press(runId: string, target: BrowserTarget, key: string, options: BrowserCallOptions = {}): Promise<BrowserSnapshot> {
-    return this.#run(runId, BROWSER_OPERATIONS.press, { target, key }, options);
+  pressKey(runId: string, target: BrowserTarget | undefined, key: string, options: BrowserCallOptions = {}): Promise<BrowserSnapshot> {
+    return this.#run(runId, BROWSER_OPERATIONS.pressKey, { ...(target ? { target } : {}), key }, options);
   }
 
   /** The time of a passed check is the server's, so it compares with its other times. */
@@ -107,7 +108,7 @@ export class RunBrowser implements BrowserRuntime {
     return { checkedAt, url: result.url, assertions: result.assertions };
   }
 
-  async screenshot(runId: string, input: { label?: string; fullPage?: boolean }, options: BrowserCallOptions = {}): Promise<{
+  async takeScreenshot(runId: string, input: { label?: string; fullPage?: boolean }, options: BrowserCallOptions = {}): Promise<{
     name: string;
     path: string;
     url: string;
@@ -116,7 +117,7 @@ export class RunBrowser implements BrowserRuntime {
   }> {
     await this.restore(runId);
     const id = randomUUID();
-    const image = await this.#run<string>(runId, BROWSER_OPERATIONS.screenshot, { id, fullPage: input.fullPage ?? false }, options);
+    const image = await this.#run<string>(runId, BROWSER_OPERATIONS.takeScreenshot, { id, fullPage: input.fullPage ?? false }, options);
     const capture = { name: input.label?.trim() || "Browser screenshot", path: capturePath(id) };
     await this.#store(runId, capture, Buffer.from(image, "base64"));
     const url = this.#captureUrl(runId, capture.path);
@@ -130,7 +131,7 @@ export class RunBrowser implements BrowserRuntime {
 
   async image(runId: string): Promise<Buffer> {
     const latest = this.#captures.get(runId)?.at(-1);
-    if (!latest) throw new Error("There is no browser screenshot for this run yet. Call browser_screenshot first.");
+    if (!latest) throw new Error("There is no browser screenshot for this run yet. Call browser_take_screenshot first.");
     return readFile(path.join(await this.#options.filesFor(runId), latest.path));
   }
 

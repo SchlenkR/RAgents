@@ -78,13 +78,13 @@ test("the workspace registers and runs the tools in its folder", async () => {
       ripgrep: ripgrepAvailable(undefined, process.env),
     });
     await writeFile(join(directory, "note.md"), "Café\n", "utf8");
-    assert.match(textOf((await execute("read", { path: "note.md" })).value), /Café/);
-    await execute("write", { path: "new/file.txt", content: "content" });
+    assert.match(textOf((await execute("read", { file_path: "note.md" })).value), /Café/);
+    await execute("write", { file_path: "new/file.txt", content: "content" });
     assert.equal(await readFile(join(directory, "new/file.txt"), "utf8"), "content");
-    await execute("edit", { path: "new/file.txt", edits: [{ oldText: "content", newText: "changed café" }] });
+    await execute("edit", { file_path: "new/file.txt", old_string: "content", new_string: "changed café" });
     assert.equal(await readFile(join(directory, "new/file.txt"), "utf8"), "changed café");
-    await assert.rejects(execute("read", { path: "/etc/hosts" }), /outside the working directory/);
-    await assert.rejects(call("read", { path: "hosts" }, "/etc"), /Path outside the offered folder: \/etc/);
+    await assert.rejects(execute("read", { file_path: "/etc/hosts" }), /outside the working directory/);
+    await assert.rejects(call("read", { file_path: "hosts" }, "/etc"), /Path outside the offered folder: \/etc/);
     const listing = (await execute("files.list", { path: "new" })).value as { entries: Array<{ name: string }> };
     assert.deepEqual(listing.entries.map((entry) => entry.name), ["file.txt"]);
     assert.deepEqual((await execute("files.read", { path: "new/file.txt" })).value, { path: "new/file.txt", size: Buffer.byteLength("changed café"), previewable: true, content: "changed café" });
@@ -178,11 +178,11 @@ test("the new folder of a run is created in the runs folder of the workspace, an
   try {
     assert.deepEqual((await call("runFolder.create", null, own)).value, { created: true });
     assert.deepEqual((await call("runFolder.create", null, own)).value, { created: false }, "an existing folder stays as it is");
-    await call("write", { path: "note.md", content: "in the run's folder" }, own);
+    await call("write", { file_path: "note.md", content: "in the run's folder" }, own);
     assert.equal(await readFile(join(own, "note.md"), "utf8"), "in the run's folder");
-    await assert.rejects(call("read", { path: "note.md" }, join(runs, "other-run")), /Path outside the offered folder/,
+    await assert.rejects(call("read", { file_path: "note.md" }, join(runs, "other-run")), /Path outside the offered folder/,
       "the folder of another run is not a folder of this task");
-    await assert.rejects(call("read", { path: "x" }, runs), /Path outside the offered folder/, "the runs folder itself is not one");
+    await assert.rejects(call("read", { file_path: "x" }, runs), /Path outside the offered folder/, "the runs folder itself is not one");
     assert.deepEqual((await call("runFolder.remove", null, own)).value, { removed: true });
     await assert.rejects(readFile(join(own, "note.md"), "utf8"), /ENOENT/);
   } finally {
@@ -215,7 +215,7 @@ test("bash delivers output as progress, exit code, partial result on cancel and 
     controller.abort();
     assert.match(textOf((await pending).value), /started/);
 
-    await assert.rejects(execute("bash", { command: "sleep 30", timeout: 1 }), /Command stopped after 1 seconds \(timeout\)/);
+    await assert.rejects(execute("bash", { command: "sleep 30", timeout: 1_000 }), /Command stopped after 1000 ms \(timeout\)/);
   } finally {
     client.rpc.close();
     await rm(directory, { recursive: true, force: true });

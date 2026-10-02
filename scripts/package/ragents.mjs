@@ -18,16 +18,24 @@ export const commands = {
   send: AGENT_CLI,
   journal: AGENT_CLI,
   stop: AGENT_CLI,
+  resume: AGENT_CLI,
   script: AGENT_CLI,
+  share: AGENT_CLI,
 };
 
 const usage = `Usage: ragents <command> [arguments]
 
   run <folder> "<task>"            start the host without UI, create a run and wait for the end
-  send <run> "<text>"              follow-up task in the same run
+                                   (--share <user>[:read|:write], --share-all <read|write>)
+  send <run> "<text>"              follow-up task in the same run; continues a paused run
   journal <run> [--tools]          read the history of a run
-  stop <run> | stop --host         cancel the running turn or stop the remembered host
+  stop <run> [--turn|--run]        pause the whole run; --turn ends only the running turn of the
+                                   primary actor, --run is the emergency stop
+  stop --host                      stop the remembered host
+  resume <run>                     continue a paused run without a message
   script <run> [<entry>]           list the run scripts or start one inside the run (--input <json>)
+  share <run> [<user>[:read|:write]...] [--all <read|write>] [--none]
+                                   print or replace whom a run is shared with
   connect <server-url>             fetch the client profile with its bundles and start the local server with it
   start <profile|path>             start a profile of the package, an own profile file or a
                                    fetched revision; the UI comes prebuilt
@@ -37,7 +45,7 @@ const usage = `Usage: ragents <command> [arguments]
   --version, -v                    the installed version
   --help, help                     this usage
 
-run, send, journal, stop and script take another profile with --profile <profile|path>: a name
+run, send, journal, stop, resume, script and share take another profile with --profile <profile|path>: a name
 next to the host or the path to an own ragents.config.<profile>.ts. RAGENTS_PROFILE sets
 the same for all commands of a shell; if the profile requires sign-in, the user's
 personal token goes into RAGENTS_TOKEN.

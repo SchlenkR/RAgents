@@ -13,6 +13,7 @@ import * as webAccessToken from "@ragents/web/access-token";
 import * as webActorConversation from "@ragents/web/actor-conversation";
 import * as webApi from "@ragents/web/api";
 import * as webChatViewSettings from "@ragents/web/chat-view-settings";
+import * as webChatPausedRunNotice from "@ragents/web/chat/PausedRunNotice";
 import * as webChatStoppedActorNotice from "@ragents/web/chat/StoppedActorNotice";
 import * as webChatChatTarget from "@ragents/web/chat/chat-target";
 import * as webChatUseAttachmentCapabilities from "@ragents/web/chat/useAttachmentCapabilities";
@@ -58,6 +59,7 @@ export const hostModules: Readonly<Record<string, object>> = {
   "@ragents/web/actor-conversation": webActorConversation,
   "@ragents/web/api": webApi,
   "@ragents/web/chat-view-settings": webChatViewSettings,
+  "@ragents/web/chat/PausedRunNotice": webChatPausedRunNotice,
   "@ragents/web/chat/StoppedActorNotice": webChatStoppedActorNotice,
   "@ragents/web/chat/chat-target": webChatChatTarget,
   "@ragents/web/chat/useAttachmentCapabilities": webChatUseAttachmentCapabilities,

@@ -349,18 +349,18 @@ test("file tools with @actors run on the server in a workstation run, without an
   server.bindings.set("actors-run", { machine: { client: "notebook-0006", label: "Notebook" }, folder: { path: offered } });
   const execute = (operation: string, input: unknown) => server.runtime.sandbox.execute("actors-run", operation, input);
 
-  await execute("write", { path: "@actors/app/src/index.ts", content: "export const value = 1;\n" });
-  await execute("edit", { path: "@actors/app/src/index.ts", edits: [{ oldText: "value = 1", newText: "value = 2" }] });
+  await execute("write", { file_path: "@actors/app/src/index.ts", content: "export const value = 1;\n" });
+  await execute("edit", { file_path: "@actors/app/src/index.ts", old_string: "value = 1", new_string: "value = 2" });
   assert.equal(await readFile(path.join(actors, "app", "src", "index.ts"), "utf8"), "export const value = 2;\n");
-  assert.match(textOf(await execute("read", { path: "@actors/app/src/index.ts" })), /value = 2/);
+  assert.match(textOf(await execute("read", { file_path: "@actors/app/src/index.ts" })), /value = 2/);
   assert.deepEqual((await execute(FILE_OPERATIONS.list, { path: "app", alias: "@actors" }) as FileListing).entries.map((entry) => entry.name), ["src"]);
   const source = await execute(FILE_OPERATIONS.read, { path: "app/src/index.ts", alias: "@actors" }) as FileText;
   assert.equal(source.previewable ? source.content : undefined, "export const value = 2;\n");
   assert.deepEqual(workstation.operations, [], "no call with @actors reaches the workstation");
 
-  assert.match(textOf(await execute("read", { path: "README.md" })), /From the workstation/);
+  assert.match(textOf(await execute("read", { file_path: "README.md" })), /From the workstation/);
   assert.deepEqual(workstation.operations, ["read"]);
-  await assert.rejects(execute("read", { path: "@apps/list.ts" }), (error: unknown) =>
+  await assert.rejects(execute("read", { file_path: "@apps/list.ts" }), (error: unknown) =>
     error instanceof DomainError && error.code === "workspace-alias-unknown" && /@apps \(known: @actors\)/.test(error.message));
 });
 
@@ -398,7 +398,7 @@ test("the language servers open @actors on the server in a workstation run, a ca
   assert.match(String(await execute("typescript_open", { root: "@actors/app" })), /TypeScript server ready on app/);
   const diagnostics = String(await execute("typescript_diagnostics", { paths: ["@actors/app/src/index.ts"] }));
   assert.match(diagnostics, /Diagnostics \(TypeScript\) @actors\/app\/src\/index\.ts: 1 error/);
-  assert.match(textOf(await execute("write", { path: "@actors/app/src/index.ts", content: "export const value: number = 1;\n" })), /no errors/);
+  assert.match(textOf(await execute("write", { file_path: "@actors/app/src/index.ts", content: "export const value: number = 1;\n" })), /no errors/);
   await assert.rejects(execute("typescript_diagnostics", { root: "@actors/app", paths: ["src/index.ts"] }), (error: unknown) =>
     error instanceof DomainError && error.code === "workspace-roots-mixed" && error.status === 400 && /@actors/.test(error.message));
   assert.deepEqual(workstation.operations, []);
@@ -418,13 +418,13 @@ test("skills are readable under @skills in a workstation run, including the file
   server.bindings.set("skill", { machine: { client: "notebook-0009", label: "Notebook" }, folder: { path: offered } });
   const execute = (operation: string, input: unknown) => server.runtime.sandbox.execute("skill", operation, input);
 
-  assert.match(textOf(await execute("read", { path: "@skills/notes/SKILL.md" })), /Read template\.md/);
-  assert.match(textOf(await execute("read", { path: "@skills/notes/template.md" })), /# Template/);
+  assert.match(textOf(await execute("read", { file_path: "@skills/notes/SKILL.md" })), /Read template\.md/);
+  assert.match(textOf(await execute("read", { file_path: "@skills/notes/template.md" })), /# Template/);
   assert.match(textOf(await execute("bash", { command: "cat template.md", cwd: "@skills/notes" })), /# Template/);
   const listed = await execute(FILE_OPERATIONS.list, { path: "notes", alias: "@skills" }) as FileListing;
   assert.deepEqual(listed.entries.map((entry) => entry.name), ["SKILL.md", "template.md"]);
-  await assert.rejects(execute("write", { path: "@skills/notes/new.md", content: "no" }), /outside/);
-  await assert.rejects(execute("read", { path: "@skills/missing/SKILL.md" }), (error: unknown) =>
+  await assert.rejects(execute("write", { file_path: "@skills/notes/new.md", content: "no" }), /outside/);
+  await assert.rejects(execute("read", { file_path: "@skills/missing/SKILL.md" }), (error: unknown) =>
     error instanceof DomainError && error.code === "workspace-alias-unknown" && /@skills\/missing/.test(error.message));
   assert.deepEqual(workstation.operations, []);
 });
@@ -512,8 +512,8 @@ test("an actor program is created, edited with the file tools and activated in a
   const call = async (id: string, name: string, value: Record<string, unknown>): Promise<unknown> => (await toolset.invoke(id, name, value as never)).output;
 
   await call("create", "typescript_eval", { code: 'return context.functions.actor_program_create({ name: "formatter", template: "blank" });' });
-  for (const [file, content] of Object.entries(formatterFiles)) await call(`write-${file}`, "write", { path: `@actors/formatter/${file}`, content });
-  await call("edit", "edit", { path: "@actors/formatter/src/server.ts", edits: [{ oldText: "input.value.toUpperCase()", newText: "input.value.trim().toUpperCase()" }] });
+  for (const [file, content] of Object.entries(formatterFiles)) await call(`write-${file}`, "write", { file_path: `@actors/formatter/${file}`, content });
+  await call("edit", "edit", { file_path: "@actors/formatter/src/server.ts", old_string: "input.value.toUpperCase()", new_string: "input.value.trim().toUpperCase()" });
   assert.match(textOf(await call("bash", "bash", { command: "ls src tests", cwd: "@actors/formatter" })), /server\.ts[\s\S]*transform\.test\.ts/);
   assert.deepEqual(await call("activate", "typescript_eval", { code: 'return context.functions.actor_program_activate({ name: "formatter" });' }),
     { result: { name: "formatter", actor: "@formatter", views: 0, active: true }, logs: [] });
@@ -539,11 +539,11 @@ test("the browser check runs on the workstation, its screenshots are in the serv
   const browser = new RunBrowser({ sandbox: server.runtime.sandbox, filesFor: async () => documents });
   t.after(() => browser.shutdown());
 
-  const opened = await browser.open(runId, "http://localhost:4173/");
+  const opened = await browser.navigate(runId, "http://localhost:4173/");
   assert.equal(opened.title, "App on the workstation");
   await browser.click(runId, { role: "button", name: "Save" });
   const checked = await browser.check(runId, { target: { role: "status" }, text: "Saved" });
-  const shot = await browser.screenshot(runId, { label: "From the workstation" });
+  const shot = await browser.takeScreenshot(runId, { label: "From the workstation" });
   assert.equal(await readFile(path.join(documents, shot.path), "utf8"), "PNG 1920x1080");
   assert.equal((await browser.image(runId)).toString(), "PNG 1920x1080");
   assert.deepEqual(await readdir(project), [], "the workstation stores no screenshot");
@@ -554,13 +554,13 @@ test("the browser check runs on the workstation, its screenshots are in the serv
     currentScreenshots: [{ name: "From the workstation", url: shot.url }],
     errors: [],
   });
-  assert.deepEqual(workstation.operations, ["browser.open", "browser.click", "browser.check", "browser.screenshot"]);
+  assert.deepEqual(workstation.operations, ["browser.navigate", "browser.click", "browser.check", "browser.takeScreenshot"]);
   assert.equal(stub.log.launches, 1);
 
   await browser.close(runId);
   assert.equal(stub.log.closes, 1);
   assert.equal(workstation.operations.at(-1), "browser.close");
-  await browser.open(runId, "http://localhost:4173/");
+  await browser.navigate(runId, "http://localhost:4173/");
   workstation.disconnect();
   await until(() => server.registry.list(null).length === 0);
   await assert.rejects(browser.snapshot(runId), (error: unknown) => error instanceof DomainError && error.code === "workspace-client-disconnected");
@@ -599,11 +599,11 @@ test("a new folder per run is created on the workstation as the contribution's G
   const workspace = await server.runtime.resolve(runId, () => undefined);
   assert.equal(workspace.cwd, folder);
   await missingOnServer(folder);
-  const read = await server.runtime.sandbox.execute(runId, "read", { path: "README.md" }) as { content: Array<{ text: string }> };
+  const read = await server.runtime.sandbox.execute(runId, "read", { file_path: "README.md" }) as { content: Array<{ text: string }> };
   assert.match(read.content[0]!.text, /Hello from the workstation/);
   assert.deepEqual(workstation.operations, ["runFolder.create", "commands.run", "read"]);
   assert.match(git(repository, "worktree", "list"), new RegExp(`${runId}.*\\[ragents/${runId}\\]`));
-  await server.runtime.sandbox.execute(runId, "read", { path: "README.md" });
+  await server.runtime.sandbox.execute(runId, "read", { file_path: "README.md" });
   assert.deepEqual(workstation.operations.slice(3), ["read"], "the worktree is created only once");
   assert.equal(await stat(path.join(server.root, "server", "sessions", runId, "plugins", "ragents.workspace", "workspace")).catch(() => undefined), undefined);
 

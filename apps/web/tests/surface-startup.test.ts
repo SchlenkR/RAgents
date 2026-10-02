@@ -89,7 +89,7 @@ test("claimed, discarded and orphaned inputs do not create phantom setup work", 
 
 test("pending actions ask for an input without a spinner even while a turn is active", () => {
   const question: RunAction = {
-    id: "question-1", askedBy: "setup", owner: "ragents.ask", payload: { question: "Continue working?", options: ["Continue"], multi: false },
+    id: "question-1", askedBy: "setup", owner: "ragents.ask", payload: { questions: [{ question: "Continue working?", header: "Choice", options: [{ label: "Continue", description: "" }, { label: "Stop", description: "" }], multiSelect: false }] },
     title: "Continue working?", description: null, parameters: {}, input: null, status: "pending",
     proposedAt: at, resolvedAt: null, resolvedBy: null, result: null,
   };
@@ -97,6 +97,15 @@ test("pending actions ask for an input without a spinner even while a turn is ac
   assert.equal(result?.kind, "waiting");
   assert.match(result!.detail, /action in the chat is waiting/);
   assert.equal(state({ view: view({ actions: [{ ...question, status: "approved", resolvedAt: at }] }) }), undefined);
+});
+
+test("a paused setup with waiting inputs or an interrupted turn says paused instead of a spinner or an error, while a turn still ends it keeps working", () => {
+  const pause = { pausedAt: at, reason: "Paused by the operator", userId: null };
+  const paused = { kind: "waiting", title: "The run is paused", detail: "Resume it or send a message to continue." };
+  assert.deepEqual(state({ view: view({ actors: [actor()], inputs: [input()], pause }) }), paused);
+  assert.deepEqual(state({ view: view({ actors: [actor()], turns: [turn({ status: "interrupted", reason: "Paused by the operator" })], pause }) }), paused);
+  assert.equal(state({ view: view({ actors: [actor({ lifecycle: { kind: "running", turnId: "turn-1", inputId: "input-1", startedAt: at } })], pause }) })?.kind, "working");
+  assert.equal(state({ view: view({ actors: [actor()], inputs: [input()], pause }), running: true })?.kind, "working");
 });
 
 test("connection establishment loads an otherwise empty run and stops when connected", () => {

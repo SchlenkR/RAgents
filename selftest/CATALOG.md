@@ -62,8 +62,8 @@ for this and work through it visibly."
 Prompt B: "Do in order: name 5 data quality problems, one check tip each,
 a starting recommendation. Keep a task list while doing so."
 
-Expectation: todo_replace is used, the list has 3 entries, check marks move during
-the work (several plugin.state-replaced for ragents.todo), all three contents arrive.
+Expectation: todo_write is used, the list has 3 entries, check marks move during
+the work (several plugin.state-replaced or plugin.state-patched for ragents.todo), all three contents arrive.
 
 Why good: Tests whether the model really uses tools for self-organization instead of
 just answering; directly relevant for the planned feature workflow.

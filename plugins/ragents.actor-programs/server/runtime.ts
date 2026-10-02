@@ -1130,8 +1130,9 @@ export class ActorProgramRuntime implements ActorProgramsService, ActorProgramEx
         this.runtime().replacePluginState(this.operatorContext(runId), runId, { pluginId: ACTOR_INVOCATIONS_STATE_ID, scope: { kind: "run" }, state });
     }
     async #confirm(runId: string, invocation: ActorFunctionInvocation, question: string, signal: AbortSignal, input = invocation.input): Promise<boolean> {
-        const answer = await this.#options.askService().ask({ runId, agentId: this.ownerId(runId), turnId: null, commandId: `actor-confirm:${randomUUID()}` }, { question: `${question}\nInput: ${JSON.stringify(input).slice(0, 500)}`, options: ["Run", "Cancel"], multi: false, description: `Function ${invocation.actionId} of @${invocation.actorHandle}`, parameters: { source: ACTOR_PROGRAMS_STATE_ID, invocationId: invocation.id } }, signal);
-        return answer === "Run";
+        const outcome = await this.#options.askService().ask({ runId, agentId: this.ownerId(runId), turnId: null, commandId: `actor-confirm:${randomUUID()}` }, { questions: [{ question: `${question}\nInput: ${JSON.stringify(input).slice(0, 500)}`, header: "Confirm", options: [{ label: "Run", description: "Run the function with this input." }, { label: "Cancel", description: "Do not run it." }], multiSelect: false }], description: `Function ${invocation.actionId} of @${invocation.actorHandle}`, parameters: { source: ACTOR_PROGRAMS_STATE_ID, invocationId: invocation.id } }, signal);
+        const answer = outcome.kind === "answered" ? outcome.answers[0] : undefined;
+        return answer !== undefined && "selected" in answer && answer.selected[0] === "Run";
     }
     #program(runId: string, reference: string): ActorProgramDefinition {
         const program = this.programs(runId).find((entry) => entry.name === reference || entry.views.some((view) => view.id === reference));

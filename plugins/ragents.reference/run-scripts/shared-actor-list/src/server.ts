@@ -41,8 +41,9 @@ export default defineActor(contract, {
     await context.functions.run_configure({ title: `Collection board: ${title}` });
 
     const helper = await context.functions.agent_spawn({
-      handle: "list-helper",
-      prompt: `You keep the shared collection "${title}". You append every entry you are given with your function append_to_list and report the new state.`,
+      name: "list-helper",
+      description: "keeps the shared collection",
+      instructions: `You keep the shared collection "${title}". You append every entry you are given with your function append_to_list and report the new state.`,
       profile: first.name,
       tools: null,
     });
@@ -50,12 +51,12 @@ export default defineActor(contract, {
     await context.functions.actor_program_activate({ name: "shared-list", actor: `@${helper.handle}` });
 
     await context.functions.actor_input({
-      actor: `@${helper.handle}`,
-      content: `Use your function append_to_list to add the entry ${JSON.stringify(firstEntry)} to the shared collection ${JSON.stringify(title)} and report the state of the list.`,
+      to: `@${helper.handle}`,
+      message: `Use your function append_to_list to add the entry ${JSON.stringify(firstEntry)} to the shared collection ${JSON.stringify(title)} and report the state of the list.`,
     });
     await context.functions.actor_input({
-      actor: "@coordinator",
-      content: `The shared collection is called ${JSON.stringify(title)}. The run script has bound the program shared-list to @${helper.handle}. Its view is visible on the surface; the helper is currently adding the first entry with append_to_list. `
+      to: "@coordinator",
+      message: `The shared collection is called ${JSON.stringify(title)}. The run script has bound the program shared-list to @${helper.handle}. Its view is visible on the surface; the helper is currently adding the first entry with append_to_list. `
         + "Use the addressee selector to inspect its owner with chat and details. Open the mini-app from the app catalog. "
         + "Explain to the user in three sentences how to use the visible list, how to open the helper, and that the view and the function share the same list state.",
     });

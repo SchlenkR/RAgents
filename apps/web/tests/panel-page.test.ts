@@ -3,6 +3,7 @@ import test from "node:test";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { PanelPage } from "../src/panel/PanelPage";
+import { RunLine, RunList } from "../src/panel/RunLine";
 import { isPanelActionMessage, isPanelStateMessage, type PanelState, type ConnectionView } from "../src/panel/contract";
 
 const render = (state: PanelState) => renderToStaticMarkup(createElement(PanelPage, { state, send: () => {} }));
@@ -110,13 +111,14 @@ test("with two or more servers every run line names its server and New groups th
   assert.match(one, /<ul aria-label="Templates"/);
 });
 
-test("a run line names the problem of a run whose run view is not readable", () => {
+test("a run line names the cause of a locked run with a warning icon and opens nothing", () => {
   const html = render(page({ connections: [connection({ runs: [
-    { id: "run-a", title: "Night bus round", state: "idle", pendingActions: 0, updatedAt: Date.now(), problem: "The run view is not readable: broken" },
+    { id: "run-a", title: "Night bus round", state: "idle", pendingActions: 0, updatedAt: Date.now(), locked: "unsupported journal format 6" },
     { id: "run-b", title: "Balcony", state: "idle", pendingActions: 0, updatedAt: Date.now() },
   ] })] }));
-  assert.match(html, /Night bus round<\/span><span class="[^"]*text-destructive[^"]*" title="The run view is not readable: broken">/);
-  assert.equal(html.match(/text-destructive[^"]*" title="The run view/g)?.length, 1, "only the affected run carries the message");
+  assert.match(html, /Night bus round<\/span><span class="[^"]*text-destructive[^"]*" title="Locked: unsupported journal format 6">/);
+  assert.equal(html.match(/text-destructive[^"]*" title="Locked:/g)?.length, 1, "only the affected run carries the cause");
+  assert.match(html, /<button aria-disabled="true"[^>]*title="Night bus round"/);
 });
 
 test("Start shows at most five runs and leads to the full list", () => {
@@ -182,7 +184,7 @@ test("the Runs page brings all runs together and offers search, hiding and selec
   assert.match(html, />Night bus round</);
   assert.match(html, />Word game</);
   assert.match(html, /title="waiting for input \(2\)"/);
-  assert.match(html, />3 d</);
+  assert.match(html, />3d</);
   assert.doesNotMatch(html, /All servers/, "filter chips are off");
   assert.doesNotMatch(html, /aria-label="Only /, "without a chip click there is no server filter");
   assert.doesNotMatch(html, /selected</, "the selection bar appears only with the selection mode");
@@ -342,12 +344,73 @@ test("template-only access keeps its templates without exposing free creation or
   assert.doesNotMatch(runs, />Select<|>Delete</);
 });
 
-test("shared run rows preserve contributed details and existing read markers", () => {
-  const state = page({ connections: [connection({ runs: [{ id: "run", title: "Review", state: "idle", pendingActions: 0, updatedAt: 0, notice: "updated" }] })] });
-  const html = renderToStaticMarkup(createElement(PanelPage, {
-    state, send() {}, runDetails: (runId, connection) => createElement("span", null, `${connection}/${runId}: main`),
-  }));
+test("owner and list lines stand below the title inside the clickable item, the owner first", () => {
+  const html = render(page({ connections: [connection({ runs: [{
+    id: "run", title: "Review", state: "idle", pendingActions: 0, updatedAt: 0, notice: "updated", owner: "Alice",
+    details: [{ label: "Workspace", text: "/home/user/project", icon: "folder" }, { label: "Branch", text: "main", icon: "branch" }, { label: "Ticket", text: "ACME-7" }],
+  }, { id: "plain", title: "Plain", state: "idle", pendingActions: 0, updatedAt: 0 }] })] }));
   assert.match(html, /title="[^"]*, new activity"/);
   assert.doesNotMatch(html, /aria-label="New activity"/);
-  assert.match(html, /workshop\/run: main/);
+  const item = /<button[^>]*title="Review"[^>]*>(.*?)<\/button>/s.exec(html)?.[1] ?? "";
+  assert.match(item, /class="col-\[2\/-1\][^"]*"><span[^>]*title="Owner: Alice">Alice<\/span><span[^>]*title="Workspace: \/home\/user\/project">.*?lucide-folder.*?\/home\/user\/project<\/span><\/span><span[^>]*title="Branch: main">.*?lucide-git-branch.*?main<\/span><\/span><span[^>]*title="Ticket: ACME-7"><span[^>]*>ACME-7<\/span><\/span><\/span>/s,
+    "owner, then the lines in their order; a line without an icon shows only its text");
+  const plain = /<button[^>]*title="Plain"[^>]*>(.*?)<\/button>/s.exec(html)?.[1] ?? "";
+  assert.doesNotMatch(plain, /col-\[2\/-1\]/, "without owner and lines there is no second line");
+});
+
+const sharedRuns: ConnectionView["runs"] = [
+  { id: "own", title: "Own review", state: "idle", pendingActions: 0, updatedAt: 3, canShare: true, shared: true },
+  { id: "plain", title: "Plain run", state: "idle", pendingActions: 0, updatedAt: 2, canShare: true },
+  { id: "viewed", title: "Viewed run", state: "idle", pendingActions: 0, updatedAt: 1, owner: "Alice", sharedAccess: "read" },
+  { id: "joined", title: "Joined run", state: "idle", pendingActions: 0, updatedAt: 0, owner: "Alice", sharedAccess: "write" },
+];
+
+test("shared runs carry an indicator, a sharee row says what the share permits, and only runs the user may share offer Share ...", () => {
+  const html = render(page({ page: "runs", connections: [connection({ runs: sharedRuns })] }));
+  const item = (title: string) => new RegExp(`<button[^>]*title="${title}"[^>]*>(.*?)</button>`, "s").exec(html)?.[1] ?? "";
+  assert.match(html, /<ul aria-label="Runs" class="[^"]*grid-cols-\[auto_minmax\(0,1fr\)_auto_auto\]/, "one more column for the row action");
+  assert.match(item("Own review"), /title="Shared"><svg[^>]*lucide-users[^>]*>.*?<span class="sr-only">Shared<\/span>/s);
+  assert.doesNotMatch(item("Plain run"), /title="Shared/);
+  assert.match(item("Viewed run"), /title="Shared with you - view only"><svg[^>]*lucide-eye/);
+  assert.match(item("Joined run"), /title="Shared with you - can operate"><svg[^>]*lucide-users/);
+  assert.match(html, /<button(?=[^>]*aria-label="Share Own review")(?=[^>]*title="Share \.\.\.")[^>]*>/);
+  assert.match(html, /aria-label="Share Plain run"/);
+  assert.doesNotMatch(html, /aria-label="Share Viewed run"|aria-label="Share Joined run"/, "a sharee never changes the sharing");
+  assert.equal(html.match(/data-cell="share"/g)?.length, 4, "every row keeps its action cell, so the columns stay aligned");
+  const without = render(page({ page: "runs" }));
+  assert.match(without, /<ul aria-label="Runs" class="[^"]*grid-cols-\[auto_minmax\(0,1fr\)_auto\]/);
+  assert.doesNotMatch(without, /data-cell="share"/, "without a shareable run there is no action column");
+});
+
+test("Start offers Share ... in its recent runs too and shows a short notice, such as for a share taken back", () => {
+  const html = render(page({ notice: "This run is no longer available to you.", connections: [connection({ runs: sharedRuns })] }));
+  assert.match(html, /role="status">This run is no longer available to you\.<\/p>/);
+  assert.match(html, /<ul aria-label="Recent" class="[^"]*grid-cols-\[auto_minmax\(0,1fr\)_auto_auto\]/);
+  assert.match(html, /aria-label="Share Own review"/);
+  assert.doesNotMatch(render(page()), /no longer available/);
+});
+
+test("in selection mode a row that cannot be deleted keeps an empty checkbox cell and no checkbox", () => {
+  const rows = sharedRuns.slice(0, 3).map((run) => createElement(RunLine, {
+    key: run.id, connection: connection(), run, showConnection: false, selecting: true, selectable: run.sharedAccess === undefined, onOpen: () => {},
+  }));
+  const html = renderToStaticMarkup(createElement(RunList, { label: "Runs", showConnection: false, selecting: true, children: rows }));
+  assert.match(html, /grid-cols-\[auto_auto_minmax\(0,1fr\)_auto\]/);
+  assert.match(html, /aria-label="Select Own review"/);
+  assert.doesNotMatch(html, /aria-label="Select Viewed run"/);
+  assert.match(html, /<li[^>]*><span aria-hidden="true"><\/span><button[^>]*title="Viewed run"/);
+});
+
+test("share actions are checked before the host acts on them", () => {
+  const share = (sharing: unknown) => isPanelActionMessage({ type: "ragents.panel", action: "share", name: "workshop", runId: "run-a", sharing });
+  assert.equal(isPanelActionMessage({ type: "ragents.panel", action: "openSharing", name: "workshop", runId: "run-a" }), true);
+  assert.equal(isPanelActionMessage({ type: "ragents.panel", action: "openSharing", name: "workshop" }), false);
+  assert.equal(isPanelActionMessage({ type: "ragents.panel", action: "closeSharing" }), true);
+  assert.equal(share({ everyone: null, users: [] }), true);
+  assert.equal(share({ everyone: "read", users: [{ userId: "bob", access: "write" }] }), true);
+  assert.equal(share({ everyone: "all", users: [] }), false);
+  assert.equal(share({ everyone: null, users: [{ userId: "bob", access: "admin" }] }), false);
+  assert.equal(share({ everyone: null, users: [{ access: "read" }] }), false);
+  assert.equal(share({ everyone: null }), false);
+  assert.equal(share(undefined), false);
 });

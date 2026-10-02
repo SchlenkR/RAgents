@@ -113,6 +113,15 @@ const checkPanelActions = async (api) => {
     { name: "second", url: "http://127.0.0.1:59992" },
   ]);
 
+  // Sharing goes to the run's server: a refusal stays in the dialog, closing removes it, without a dialog the caller gets it.
+  await api.panelAction({ action: "openSharing", name: "first", runId: "run-a" });
+  assert.equal(api.panel().sharing.runId, "run-a");
+  assert.equal(api.panel().sharing.result, undefined);
+  assert.equal(typeof api.panel().sharing.error, "string", "the unreachable server's refusal appears in the dialog");
+  await api.panelAction({ action: "closeSharing" });
+  assert.equal(api.panel().sharing, undefined);
+  await assert.rejects(api.panelAction({ action: "share", name: "first", runId: "run-a", sharing: { everyone: null, users: [] } }));
+
   await api.panelAction({ action: "addServer", name: "no-scheme", url: "localhost:59993" });
   assert.equal(settings["ragents.connections"].length, 2, "an address without a scheme does not get through");
   assert.notEqual(api.panel().problem, undefined, "the reason appears in the page");

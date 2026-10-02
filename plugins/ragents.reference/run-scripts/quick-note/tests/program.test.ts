@@ -20,7 +20,7 @@ test("sends the note to the shared notebook and reports it", async () => {
   await program.onStart!(start({ text: "  Ask about the budget  " }), context);
   assert.deepEqual(calls.map((call) => [call.name, call.input]), [
     ["actor_program_ensure", { name: "notebook" }],
-    ["actor_input", { actor: "@notebook", content: "Ask about the budget" }],
+    ["actor_input", { to: "@notebook", message: "Ask about the budget" }],
   ]);
   assert.deepEqual(context.finished, [{ result: { note: "Ask about the budget", notebook: "installed" }, summary: "Noted: Ask about the budget" }]);
 });
@@ -28,7 +28,7 @@ test("sends the note to the shared notebook and reports it", async () => {
 test("without a start value it notes when it started; an invalid value changes nothing", async () => {
   const { calls, context } = note("active");
   await program.onStart!(start(null), context);
-  assert.match(String((calls[1]!.input as { content: string }).content), /^Started at /);
+  assert.match(String((calls[1]!.input as { message: string }).message), /^Started at /);
   const invalid = note();
   await assert.rejects(async () => program.onStart!(start({ text: "" }), invalid.context), /start value/);
   assert.deepEqual(invalid.calls, []);

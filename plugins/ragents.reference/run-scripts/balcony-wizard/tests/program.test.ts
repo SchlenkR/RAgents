@@ -13,7 +13,7 @@ function setup(options: { missingProfile?: boolean; failActivation?: boolean } =
     calls.push({ name, input: value });
     if (name === "model_list") return { profiles: options.missingProfile ? [] : [{ name: "standard", driver: "agent", description: "Test profile", turnTimeoutMs: null, isolateWorkspace: false, provider: "test", model: "test" }], models: [] };
     if (name === "agent_spawn") {
-      const handle = (value as { handle: string }).handle;
+      const handle = (value as { name: string }).name;
       return { id: `actor-${handle}`, handle };
     }
     if (name === "actor_program_activate" && options.failActivation) throw new Error("View cannot be activated.");
@@ -32,8 +32,8 @@ test("sets up an advisor without tools and its own mini-app in the app catalog",
   await program.onInput!(input, context);
   assert.deepEqual(calls.map((call) => call.name), ["model_list", "agent_spawn", "actor_program_activate", "run_configure"]);
   assert.deepEqual(calls.find((call) => call.name === "agent_spawn")?.input, {
-    handle: "balcony-advisor", displayName: "Balcony advisor", profile: "standard", tools: [],
-    prompt: (calls[1]!.input as { prompt: string }).prompt,
+    name: "balcony-advisor", displayName: "Balcony advisor", description: "advises on the balcony", profile: "standard", tools: [],
+    instructions: (calls[1]!.input as { instructions: string }).instructions,
   });
   assert.deepEqual(calls[2]!.input, { name: "balcony-app", actor: "@balcony-advisor" });
   assert.deepEqual(calls[3]!.input, { title: "Your balcony", primaryActor: "@balcony-advisor" });

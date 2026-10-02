@@ -21,21 +21,23 @@ forms use the same functions.
 
 ## One-off snippets
 
-The standard native interface provides `typescript_api` for available functions and
-`typescript_eval` for TypeScript code. Workspace plugins can also expose `read`, `write`, `edit`,
-and `bash` directly when the actor is allowed to use them. Individual file and shell actions do
-not need a TypeScript wrapper. They use the same implementation, working-directory resolution,
-permission checks, and journal recording as function calls. Both mechanisms are part of the
-server foundation, even without the optional actor-program plugin. Agent creation and other
-workflow functions are called from TypeScript through `context.functions`. File functions remain
-available there for compound calls. Plugins register each implementation once; snippets and
-persistent actor programs use the same API.
+Every function available to an actor is also a native model tool: `read`, `write`, `edit`,
+`bash`, agent creation, and workflow functions are called directly, without a TypeScript wrapper.
+`typescript_api` returns exact types and detailed guidance, and `typescript_eval` runs TypeScript
+code in which every function is available as `context.functions.<name>(input)`. A snippet combines
+calls, filters results, and passes values onward without transcription. Both belong to the server
+foundation, even without the optional actor-program plugin. A function can stay snippet-only with
+`nativeTool: false`; the engine does so for the low-level journal event functions `event_query`,
+`event_subscribe`, `event_unsubscribe`, and `event_subscription_list`. Native and snippet calls use
+the same implementation, working-directory resolution, permission checks, and journal recording.
+Plugins register each implementation once; snippets and persistent actor programs use the same API.
 
-Every equipped LLM actor automatically receives the names and short descriptions of all
-functions available to it. This applies to coordinators and subagents. Changes update the
-overview even during a turn. Direct native tools are marked, and their native descriptions also
-include detailed usage guidance. The overview grants neither additional functions nor
-permissions; plain LLMs with `tools: []` do not receive it.
+Every equipped LLM actor receives its native tools as tool definitions with their short and
+detailed descriptions. Its system prompt additionally explains the snippet path and lists the
+snippet-only functions available to it with names and short descriptions. This applies to
+coordinators and subagents. Both update even during a turn, including functions that an actor
+program activates. Neither grants additional functions or permissions; plain LLMs with
+`tools: []` receive neither.
 
 ### Short descriptions and details
 

@@ -163,14 +163,10 @@ test("the badge appears only once the binding is frozen with the start, also for
   assert.ok(badge({ kind: "other" }, true).includes("Workspace unreadable"));
 });
 
-test("the run list shows only a differing workspace, the header always", () => {
-  const metadata = (placement: "header" | "list", info: SessionInfo) =>
-    renderToStaticMarkup(createElement(WorkspaceMetadata, { placement, session: info }));
-  assert.equal(metadata("list", session(serverFresh, "Empty folder per run")), "");
-  assert.ok(metadata("header", session(serverFresh, "Empty folder per run")).includes("Empty folder per run"));
-  const bound = session(serverProject, "/Users/example/repos/one");
-  assert.ok(metadata("list", bound).includes("/Users/example/repos/one"));
-  assert.ok(metadata("list", bound).includes("Workspace: /Users/example/repos/one"));
-  assert.ok(metadata("list", session(notebookFresh, "Notebook: new folder")).includes("Notebook: new folder"), "a new folder on a workstation differs");
-  assert.equal(metadata("list", { id: "run-2", title: "Without", updatedAt: 0 }), "");
+test("the run header always names the workspace; the run list takes its line from the server", () => {
+  const metadata = (info: SessionInfo) => renderToStaticMarkup(createElement(WorkspaceMetadata, { session: info }));
+  assert.ok(metadata(session(serverFresh, "Empty folder per run")).includes("Empty folder per run"));
+  assert.ok(metadata(session(serverProject, "/Users/example/repos/one")).includes("Workspace: /Users/example/repos/one"));
+  assert.ok(metadata(session(notebookFresh, "Notebook: new folder")).includes("Notebook: new folder"));
+  assert.equal(metadata({ id: "run-2", title: "Without", updatedAt: 0 }), "");
 });

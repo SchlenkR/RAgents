@@ -12,11 +12,11 @@ Domain functions are called in snippets and actor programs through context.funct
 
 Enqueue Actor Input
 
-Enqueue plain text and optional artifacts for one actor. The actor receives no routing envelope.
+Send plain text and optional artifacts to one existing actor of this run, such as a task, an answer or a question; it receives no routing envelope.
 
-This only confirms enqueueing, not processing, an answer or completion. An agent in the middle of a turn receives the text in that turn before its next model request; otherwise it starts the agent's next turn. Agents interpret natural language. TypeScript actors only process their programmed input protocol: use their documented functions, or send an exact supported program input after inspecting the program. Never address an unknown script with a natural-language task or assume an idle or completed turn means the requested work happened.
+It reaches an actor that already exists; agent_spawn creates a new one. This only confirms enqueueing, not processing, an answer or completion; an answer reaches you only as a later input, for example through a subscription to the recipient's events. An agent in the middle of a turn receives the text in that turn before its next model request; otherwise it starts the agent's next turn. Agents interpret natural language. TypeScript actors only process their programmed input protocol: use their documented functions, or send an exact supported program input after inspecting the program. Never address an unknown script with a natural-language task or assume an idle or completed turn means the requested work happened.
 
-Owner: engine. Scope: per-turn. Native model tool: no. Availability: conditional.
+Owner: engine. Scope: per-turn. Native model tool: yes. Availability: conditional.
 
 Only with the capability actor.input.
 
@@ -26,19 +26,19 @@ Only with the capability actor.input.
 {
   "type": "object",
   "required": [
-    "actor",
-    "content"
+    "to",
+    "message"
   ],
   "properties": {
-    "actor": {
+    "to": {
       "type": "string",
       "minLength": 1,
-      "description": "Actor ID or handle"
+      "description": "Recipient: the @handle or ID of an actor of this run, as actor_list or agent_spawn name it"
     },
-    "content": {
+    "message": {
       "type": "string",
       "minLength": 1,
-      "description": "Message text the actor receives as it is, without the sender's context"
+      "description": "Plain text the recipient receives as it is, without your context"
     },
     "artifactIds": {
       "type": "array",
@@ -103,7 +103,7 @@ List existing actors with their identity, lifecycle and the size of their functi
 
 Check before spawning: reuse suitable participants, including actors created by a setup or another actor. Only kind agent is a conversational partner. A script executes its programmed input protocol; it does not interpret arbitrary natural-language requests. Inspect its documented functions or program before using it. toolNames: true also lists the names of each fixed selection.
 
-Owner: engine. Scope: per-turn. Native model tool: no. Availability: conditional.
+Owner: engine. Scope: per-turn. Native model tool: yes. Availability: conditional.
 
 Only with the capability actor.input.
 
@@ -221,7 +221,7 @@ Typecheck, build and test a package, then activate its functions and optional vi
 
 actor self or @handle attaches to an existing actor; omitted creates a TypeScript actor for a backend, or attaches static views to self.
 
-Owner: ragents.actor-programs. Scope: per-turn. Native model tool: no. Availability: conditional.
+Owner: ragents.actor-programs. Scope: per-turn. Native model tool: yes. Availability: conditional.
 
 For executable actors with agent.spawn and plugin.state.write.
 
@@ -288,7 +288,7 @@ Read Mini-App control contracts or the actor-program authoring guide.
 
 With topic: guide, explain the TypeScript package workflow through actor_program_activate. Otherwise list control names, or select one component (for example Form) for only its TypeScript props and supporting types. Import controls from @ragents/client/ui and use these exact props.
 
-Owner: ragents.actor-programs. Scope: per-turn. Native model tool: no. Availability: always.
+Owner: ragents.actor-programs. Scope: per-turn. Native model tool: yes. Availability: always.
 
 Typed UI reference of the installed actor program plugin.
 
@@ -382,7 +382,7 @@ Create a private TypeScript package with fixed libraries.
 
 Edit files under @actors/name using workspace tools.
 
-Owner: ragents.actor-programs. Scope: per-turn. Native model tool: no. Availability: conditional.
+Owner: ragents.actor-programs. Scope: per-turn. Native model tool: yes. Availability: conditional.
 
 For executable actors with agent.spawn and plugin.state.write.
 
@@ -479,7 +479,7 @@ Read the last project diagnostics.
 
 Changed errors are automatically supplied before the next model request.
 
-Owner: ragents.actor-programs. Scope: per-turn. Native model tool: no. Availability: conditional.
+Owner: ragents.actor-programs. Scope: per-turn. Native model tool: yes. Availability: conditional.
 
 For executable actors with agent.spawn and plugin.state.write.
 
@@ -515,7 +515,7 @@ Make a package active once: return it when active, restart its stopped actor, ac
 
 Safe to call on every start: an active package is returned unchanged and not rebuilt. status names what happened. actor_program_activate instead rebuilds and reactivates.
 
-Owner: ragents.actor-programs. Scope: per-turn. Native model tool: no. Availability: conditional.
+Owner: ragents.actor-programs. Scope: per-turn. Native model tool: yes. Availability: conditional.
 
 For executable actors with agent.spawn and plugin.state.write.
 
@@ -589,7 +589,7 @@ List active actor packages, functions and views.
 
 A visible view is already open as a tab for the user. A view's ref is the package-name/view-key reference that view functions accept.
 
-Owner: ragents.actor-programs. Scope: per-turn. Native model tool: no. Availability: conditional.
+Owner: ragents.actor-programs. Scope: per-turn. Native model tool: yes. Availability: conditional.
 
 For executable actors with agent.spawn and plugin.state.write.
 
@@ -668,7 +668,7 @@ Detach functions and views and stop the backend.
 
 A TypeScript actor is stopped; an LLM actor retains its agent behavior.
 
-Owner: ragents.actor-programs. Scope: per-turn. Native model tool: no. Availability: conditional.
+Owner: ragents.actor-programs. Scope: per-turn. Native model tool: yes. Availability: conditional.
 
 For executable actors with agent.spawn and plugin.state.write.
 
@@ -716,7 +716,7 @@ Restart a stopped actor in this actor's branch. It becomes idle with its history
 
 An actor that is not stopped is refused. A stopped former primary actor becomes the primary actor again if no other was chosen in the meantime and this actor holds run.configure. Event subscriptions removed by the stop stay removed.
 
-Owner: engine. Scope: per-turn. Native model tool: no. Availability: conditional.
+Owner: engine. Scope: per-turn. Native model tool: yes. Availability: conditional.
 
 Only with the capability execution.stopOwned.
 
@@ -818,7 +818,7 @@ Stop Actor
 
 Stop an actor in this actor's branch together with its active descendants.
 
-Owner: engine. Scope: per-turn. Native model tool: no. Availability: conditional.
+Owner: engine. Scope: per-turn. Native model tool: yes. Availability: conditional.
 
 Only with the capability execution.stopOwned.
 
@@ -949,7 +949,7 @@ Set surface visibility by package-name/view-key or @handle/view-key.
 
 Use names you chose; the server resolves the view ID. A unique view title also works.
 
-Owner: ragents.actor-programs. Scope: per-turn. Native model tool: no. Availability: conditional.
+Owner: ragents.actor-programs. Scope: per-turn. Native model tool: yes. Availability: conditional.
 
 For executable actors with agent.spawn and plugin.state.write.
 
@@ -1004,7 +1004,7 @@ Read actor view
 
 Render a visible actor view in this run's browser and return what it shows as accessible structure, plus browser errors.
 
-view is package-name/view-key (the ref in actor_program_list), @handle/view-key or a unique title. The server resolves the address; never open a view with browser_open. The run browser stays on the view, so browser_screenshot captures it, and browser_click, browser_fill and browser_check with target.frame "iframe" operate it. A hidden view is an error. It needs a server that requires no sign-in and that the machine of the run's workspace can reach.
+view is package-name/view-key (the ref in actor_program_list), @handle/view-key or a unique title. The server resolves the address; never open a view with browser_navigate. The run browser stays on the view, so browser_take_screenshot captures it, and browser_click, browser_type and browser_check with target.frame "iframe" operate it. A hidden view is an error. It needs a server that requires no sign-in and that the machine of the run's workspace can reach.
 
 Owner: ragents.browser. Scope: per-turn. Native model tool: yes. Availability: conditional.
 
@@ -1065,11 +1065,11 @@ Only in a profile with the plugin ragents.actor-programs.
 
 Spawn Agent
 
-Create an idle LLM agent with an explicit model or profile and function selection.
+Create an LLM agent actor in this run and optionally give it its first task; it works in its own turns while you continue.
 
-Create a new idle agent only when no existing actor fits the required role. Check actor_list first when available; actor_input reuses an existing actor. Read model_list before the first spawn and pass a model-bearing profile, or an explicit model selection from that catalog. handle and prompt alone cannot create an LLM agent; the caller's model is not inherited. It inherits delegable capabilities, but tools is required and never inherited: select exact names, [] for text-only work, or explicit null for an open, dynamically resolved toolset. An empty tools array creates a plain LLM with no runtime, workspace or host tools; drivers without plain-LLM isolation are rejected. forkOf gives the new agent an unchanged copy of the model context of an existing LLM agent of this run, up to the end of that agent's last finished turn; nothing of its running turn is copied, and a source without a finished turn is rejected. The new agent still gets its own prompt, tools and model, and its first input follows the copy.
+It creates exactly one agent in this run: never a new run, never a TypeScript actor, and never a prepared setup, which run_script_start starts where it is offered. Check actor_list first when available: actor_input gives a further task to an existing actor, while the same name here creates another actor with a suffix. Read model_list before the first spawn and pass a model-bearing profile or an explicit model; the caller's model is not inherited. The agent inherits your delegable capabilities, but its function selection is required and never inherited: exact names, [] for a plain LLM without runtime, workspace or host functions, or null for the open, dynamically resolved set; drivers without plain-LLM isolation are rejected. Nothing waits for the agent: the call returns its reference at once. Its answers are model.output.completed events of its turns and reach you only as later inputs of a subscription made with event_subscribe; failed or interrupted turns reach you as automatic notices. A task given here starts at once, so a subscription made afterwards can miss its first answer: when you need that answer, create the agent without a task, subscribe to its events, then send the task with actor_input. A fork starts with an unchanged copy of the model context of an LLM agent of this run up to the end of that agent's last finished turn; nothing of its running turn is copied, a source without a finished turn is rejected, and the fork still gets its own instructions, functions and model, with its first task after the copy.
 
-Owner: engine. Scope: per-turn. Native model tool: no. Availability: conditional.
+Owner: engine. Scope: per-turn. Native model tool: yes. Availability: conditional.
 
 Only with the capability agent.spawn.
 
@@ -1079,30 +1079,36 @@ Only with the capability agent.spawn.
 {
   "type": "object",
   "required": [
-    "handle",
-    "prompt",
+    "description",
+    "name",
     "tools"
   ],
   "properties": {
-    "handle": {
-      "type": "string",
-      "minLength": 1,
-      "description": "Name for @handle addressing: letters, digits, dot, dash and underscore; a taken handle gets a numeric suffix"
-    },
-    "displayName": {
-      "type": "string",
-      "minLength": 1,
-      "description": "Display name; defaults to the handle"
-    },
     "description": {
       "type": "string",
       "minLength": 1,
       "maxLength": 160,
-      "description": "Very short description of the task for the participants overview, a few words like \"checks the rule on comments\""
+      "description": "A short (3-5 word) label of the agent's task for the participants overview, such as \"checks the comment rule\""
     },
     "prompt": {
       "type": "string",
-      "description": "The agent's own instructions in its system prompt, such as role and working rules; send the task afterwards with actor_input"
+      "minLength": 1,
+      "description": "The task for the agent to perform, enqueued as its first input in the same command so that it starts at once; it gets none of your context, so state everything it needs and what it should report. Omit it for an idle agent that gets its first input later through actor_input"
+    },
+    "name": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Name to address the agent by as @name, for example in actor_input: letters, digits, dot, dash and underscore; a taken name gets a numeric suffix, and the result names the actual handle"
+    },
+    "instructions": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Lasting role and working rules for the agent's system prompt in all its turns, such as output format and limits; omitted, it has none of its own, and a profile from model_list supplies none"
+    },
+    "displayName": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Display name; defaults to the name"
     },
     "forkOf": {
       "type": "string",
@@ -1284,7 +1290,7 @@ Publish text as a new immutable artifact of this run and return its ID.
 
 Another actor may read it once it is attached to an actor_input for that actor; the run owner may read every artifact. A change is a new artifact that names its predecessor.
 
-Owner: engine. Scope: per-turn. Native model tool: no. Availability: conditional.
+Owner: engine. Scope: per-turn. Native model tool: yes. Availability: conditional.
 
 Only with the capability artifact.publish.
 
@@ -1376,7 +1382,7 @@ Read the content and metadata of an artifact that this actor published or receiv
 
 The run owner may read every artifact. Text, JSON and XML media types come back as UTF-8 text, all others as base64.
 
-Owner: engine. Scope: per-turn. Native model tool: no. Availability: always.
+Owner: engine. Scope: per-turn. Native model tool: yes. Availability: always.
 
 Available in every turn.
 
@@ -1478,9 +1484,9 @@ Available in every turn.
 
 Question
 
-Shows the user a question with answer options and ends your turn; the answer arrives later as a new message.
+Asks the user 1 to 4 multiple-choice questions and ends your turn; the answers arrive later together as a new message.
 
-Always use this tool when you need a decision from the user (e.g. choosing a branch or a time range), instead of only asking the question as text. Call it as the only tool of your response: your turn ends with the question, and the answer arrives as a new message. With multi=true the user may choose several options; the answer is then joined with '; '. Instead of choosing an option, the user can always answer freely - so expect the answer to be arbitrary text. If the user writes a message instead, the question is closed and that message arrives.
+Always use this tool when you need a decision or missing information from the user (e.g. choosing a branch or a time range), instead of only asking in your text. Call it as the only tool of your response: your turn ends with the questions, and the answers arrive as one new message with one line per question. Ask related questions together in one call. The user can always answer any question freely instead of choosing an option, so do not add an "Other" option and expect arbitrary text. With multiSelect the user may choose several options of that question. If the user writes a message instead, the questions are closed and that message arrives.
 
 Owner: ragents.ask. Scope: per-turn. Native model tool: yes. Availability: always.
 
@@ -1492,24 +1498,61 @@ Available in every turn; the question always goes to the user of the run.
 {
   "type": "object",
   "required": [
-    "question",
-    "options"
+    "questions"
   ],
   "properties": {
-    "question": {
-      "type": "string",
-      "description": "The question to the user, short and concrete"
-    },
-    "options": {
+    "questions": {
       "type": "array",
       "items": {
-        "type": "string"
+        "type": "object",
+        "required": [
+          "question",
+          "header",
+          "options",
+          "multiSelect"
+        ],
+        "properties": {
+          "question": {
+            "type": "string",
+            "description": "The complete question, clear and specific, ending with a question mark, e.g. \"Which library should we use for date formatting?\""
+          },
+          "header": {
+            "type": "string",
+            "maxLength": 12,
+            "description": "Very short label shown as a chip, at most 12 characters, e.g. \"Library\" or \"Approach\""
+          },
+          "options": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": [
+                "label",
+                "description"
+              ],
+              "properties": {
+                "label": {
+                  "type": "string",
+                  "description": "The text of the choice the user sees and selects; concise, 1 to 5 words"
+                },
+                "description": {
+                  "type": "string",
+                  "description": "What this option means or what happens if it is chosen, e.g. its trade-offs"
+                }
+              }
+            },
+            "minItems": 2,
+            "maxItems": 4,
+            "description": "2 to 4 distinct choices with different labels, mutually exclusive unless multiSelect is true; no \"Other\" option, free text is always possible"
+          },
+          "multiSelect": {
+            "type": "boolean",
+            "description": "true lets the user choose several options of this question; false for exactly one"
+          }
+        }
       },
-      "description": "Answer options (2 to 6)"
-    },
-    "multi": {
-      "type": "boolean",
-      "description": "true = multiple choice allowed"
+      "minItems": 1,
+      "maxItems": 4,
+      "description": "1 to 4 different questions, shown together; the user answers all of them at once"
     }
   }
 }
@@ -1527,9 +1570,9 @@ Available in every turn; the question always goes to the user of the run.
 
 bash
 
-Execute shell commands in the run's workspace, or with cwd in one of its roots, with sandbox restrictions.
+Execute a shell command in the run's workspace, or with cwd in one of its roots, with sandbox restrictions.
 
-Execute a bash command in the working directory, or in the folder given as cwd. Returns stdout and stderr; a nonzero exit code is reported at the end of the result (for example grep without a match), not as a tool error. Output is truncated to last 2000 lines or 20KB (whichever is hit first), and lines longer than 1000 characters are shortened. If anything was cut, the full output is saved to a temp file. rg searches recursively by default; its -r flag means replace and rewrites every match, it does not mean recursive. A command is stopped after 120 seconds unless you pass a larger timeout (at most 3600 seconds); builds, test runs, installs and other long commands need one.
+Execute a bash command in the working directory, or in the folder given as cwd. Every call starts there; a cd does not carry over to the next call. Returns stdout and stderr; a nonzero exit code is reported at the end of the result (for example grep without a match), not as a tool error. Output is truncated to the last 2000 lines or 20KB (whichever is hit first), and lines longer than 1000 characters are shortened. If anything was cut, the full output is saved to a temp file. rg searches recursively by default; its -r flag means replace and rewrites every match, it does not mean recursive. A command is stopped after 120000 ms unless you pass a larger timeout in milliseconds (at most 3600000); builds, test runs, installs and other long commands need one. Commands cannot run in the background: a call returns when its command has finished.
 
 Owner: ragents.workspace. Scope: per-turn. Native model tool: yes. Availability: always.
 
@@ -1546,20 +1589,29 @@ Available in every model turn.
   "properties": {
     "command": {
       "type": "string",
-      "description": "Bash command to execute"
+      "description": "The command to execute"
     },
     "timeout": {
       "type": "number",
       "exclusiveMinimum": 0,
-      "maximum": 3600,
-      "default": 120,
-      "description": "Timeout in seconds (default 120, maximum 3600)"
+      "maximum": 3600000,
+      "default": 120000,
+      "description": "Optional timeout in milliseconds (default 120000, max 3600000)"
+    },
+    "description": {
+      "type": "string",
+      "description": "Clear, concise description of what this command does in active voice, 5-10 words, for example \"List files in current directory\"; the user reads it, often without seeing the command"
+    },
+    "run_in_background": {
+      "type": "boolean",
+      "description": "Not available here: true is rejected, because a call ends with its command. Run long commands in the foreground with a larger timeout"
     },
     "cwd": {
       "type": "string",
-      "description": "Folder to run the command in: relative to the working directory or starting with a workspace alias such as @name; defaults to the working directory"
+      "description": "Folder to run the command in: relative to the working directory or starting with a workspace alias such as @actors/<name>; defaults to the working directory"
     }
-  }
+  },
+  "additionalProperties": false
 }
 ```
 
@@ -1836,126 +1888,11 @@ Available in every model turn.
 }
 ```
 
-### browser_fill
+### browser_navigate
 
-Fill browser field
+Navigate browser
 
-Fill an input or textarea by accessible label or another semantic target, firing the normal input events. Returns the resulting page.
-
-Owner: ragents.browser. Scope: per-turn. Native model tool: yes. Availability: always.
-
-Available in every model turn.
-
-#### Input
-
-```json
-{
-  "type": "object",
-  "required": [
-    "target",
-    "value"
-  ],
-  "properties": {
-    "target": {
-      "type": "object",
-      "properties": {
-        "role": {
-          "type": "string",
-          "minLength": 1,
-          "description": "Accessible role, e.g. button, textbox, link, combobox."
-        },
-        "name": {
-          "type": "string",
-          "description": "Exact accessible name for role."
-        },
-        "label": {
-          "type": "string",
-          "minLength": 1,
-          "description": "Exact form label."
-        },
-        "text": {
-          "type": "string",
-          "minLength": 1,
-          "description": "Exact visible text."
-        },
-        "testId": {
-          "type": "string",
-          "minLength": 1,
-          "description": "data-testid value."
-        },
-        "css": {
-          "type": "string",
-          "minLength": 1,
-          "description": "CSS selector for elements without useful accessible names."
-        },
-        "frame": {
-          "type": "string",
-          "minLength": 1,
-          "description": "CSS selector of an iframe containing the target."
-        },
-        "nth": {
-          "type": "integer",
-          "minimum": 0,
-          "description": "0-based index among all matches when the target matches several elements; not together with first."
-        },
-        "first": {
-          "type": "boolean",
-          "description": "Use the first match when the target matches several elements; not together with nth."
-        }
-      },
-      "additionalProperties": false,
-      "description": "Use exactly one of role (with optional name), label, text, testId, css. Resolve semantic targets server-side; never copy snapshot element IDs. Ambiguous targets are errors naming the candidates unless nth or first selects one."
-    },
-    "value": {
-      "type": "string",
-      "description": "Text that replaces the content of the field."
-    }
-  },
-  "additionalProperties": false
-}
-```
-
-#### Result
-
-```json
-{
-  "type": "object",
-  "required": [
-    "url",
-    "title",
-    "snapshot",
-    "truncated",
-    "errors"
-  ],
-  "properties": {
-    "url": {
-      "type": "string"
-    },
-    "title": {
-      "type": "string"
-    },
-    "snapshot": {
-      "type": "string"
-    },
-    "truncated": {
-      "type": "boolean"
-    },
-    "errors": {
-      "type": "array",
-      "items": {
-        "type": "string"
-      }
-    }
-  },
-  "additionalProperties": false
-}
-```
-
-### browser_open
-
-Open browser
-
-Open an HTTP(S) page in this run's isolated headless browser. Returns its accessible structure and browser errors. Reuses the current run browser; other runs have separate cookies and processes.
+Navigate this run's isolated headless browser to an HTTP(S) page. Returns its accessible structure and browser errors. Reuses the current run browser; other runs have separate cookies and processes.
 
 Owner: ragents.browser. Scope: per-turn. Native model tool: yes. Availability: always.
 
@@ -2016,11 +1953,11 @@ Available in every model turn.
 }
 ```
 
-### browser_press
+### browser_press_key
 
 Press browser key
 
-Focus a target and press a Playwright key or chord such as Enter, Escape, Tab or ControlOrMeta+A. Returns the resulting page.
+Press a key or chord such as Enter, Escape, Tab or ControlOrMeta+A on the focused element, or on target after focusing it. Returns the resulting page.
 
 Owner: ragents.browser. Scope: per-turn. Native model tool: yes. Availability: always.
 
@@ -2032,10 +1969,14 @@ Available in every model turn.
 {
   "type": "object",
   "required": [
-    "target",
     "key"
   ],
   "properties": {
+    "key": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Playwright key name, character or chord, such as Enter, ArrowLeft, a or ControlOrMeta+A."
+    },
     "target": {
       "type": "object",
       "properties": {
@@ -2085,11 +2026,6 @@ Available in every model turn.
       },
       "additionalProperties": false,
       "description": "Use exactly one of role (with optional name), label, text, testId, css. Resolve semantic targets server-side; never copy snapshot element IDs. Ambiguous targets are errors naming the candidates unless nth or first selects one."
-    },
-    "key": {
-      "type": "string",
-      "minLength": 1,
-      "description": "Playwright key or chord, such as Enter or ControlOrMeta+A."
     }
   },
   "additionalProperties": false
@@ -2132,11 +2068,11 @@ Available in every model turn.
 }
 ```
 
-### browser_screenshot
+### browser_resize
 
-Capture browser
+Resize browser
 
-Capture the real browser page into this run's document library. The returned URL and Markdown display it to the user. Call browser_view_screenshot to inspect the latest capture as an image without copying a path.
+Resize the page viewport in CSS pixels, for example to check a narrow layout. The default is 1920 x 1080 (16:9) and screenshots use the viewport size at scale 1; the chosen size stays for the run until changed again. Returns the resulting page.
 
 Owner: ragents.browser. Scope: per-turn. Native model tool: yes. Availability: always.
 
@@ -2147,15 +2083,22 @@ Available in every model turn.
 ```json
 {
   "type": "object",
+  "required": [
+    "width",
+    "height"
+  ],
   "properties": {
-    "label": {
-      "type": "string",
-      "maxLength": 200,
-      "description": "Name of the capture in the document library; defaults to Browser screenshot."
+    "width": {
+      "type": "integer",
+      "minimum": 320,
+      "maximum": 3840,
+      "description": "Viewport width in CSS pixels."
     },
-    "fullPage": {
-      "type": "boolean",
-      "description": "Capture the whole scrollable page instead of the viewport; defaults to false."
+    "height": {
+      "type": "integer",
+      "minimum": 240,
+      "maximum": 2160,
+      "description": "Viewport height in CSS pixels."
     }
   },
   "additionalProperties": false
@@ -2168,38 +2111,41 @@ Available in every model turn.
 {
   "type": "object",
   "required": [
-    "name",
-    "path",
     "url",
-    "markdown",
-    "capturedAt"
+    "title",
+    "snapshot",
+    "truncated",
+    "errors"
   ],
   "properties": {
-    "name": {
-      "type": "string"
-    },
-    "path": {
-      "type": "string"
-    },
     "url": {
       "type": "string"
     },
-    "markdown": {
+    "title": {
       "type": "string"
     },
-    "capturedAt": {
+    "snapshot": {
       "type": "string"
+    },
+    "truncated": {
+      "type": "boolean"
+    },
+    "errors": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
     }
   },
   "additionalProperties": false
 }
 ```
 
-### browser_select
+### browser_select_option
 
 Select in browser
 
-Choose an option by its visible label in a native select element. For custom dropdowns use browser_click on the trigger and the visible option.
+Select options in a native select element; several values select several options of a multiple select. For custom dropdowns use browser_click on the trigger and the visible option.
 
 Owner: ragents.browser. Scope: per-turn. Native model tool: yes. Availability: always.
 
@@ -2212,7 +2158,7 @@ Available in every model turn.
   "type": "object",
   "required": [
     "target",
-    "label"
+    "values"
   ],
   "properties": {
     "target": {
@@ -2265,10 +2211,14 @@ Available in every model turn.
       "additionalProperties": false,
       "description": "Use exactly one of role (with optional name), label, text, testId, css. Resolve semantic targets server-side; never copy snapshot element IDs. Ambiguous targets are errors naming the candidates unless nth or first selects one."
     },
-    "label": {
-      "type": "string",
-      "minLength": 1,
-      "description": "Visible label of the option to choose."
+    "values": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      },
+      "minItems": 1,
+      "description": "Value or visible label of each option to select."
     }
   },
   "additionalProperties": false
@@ -2367,11 +2317,11 @@ Available in every model turn.
 }
 ```
 
-### browser_view_screenshot
+### browser_take_screenshot
 
-View browser screenshot
+Capture browser
 
-View this run's latest screenshot as native image input without a path. Invoke this native tool directly to receive pixels; calling it through TypeScript only verifies image availability. Requires an image-capable model for native image input.
+Capture the real browser page into this run's document library. The returned URL and Markdown display it to the user. Call browser_view_screenshot to inspect the latest capture as an image without copying a path.
 
 Owner: ragents.browser. Scope: per-turn. Native model tool: yes. Availability: always.
 
@@ -2382,7 +2332,17 @@ Available in every model turn.
 ```json
 {
   "type": "object",
-  "properties": {},
+  "properties": {
+    "label": {
+      "type": "string",
+      "maxLength": 200,
+      "description": "Name of the capture in the document library; defaults to Browser screenshot."
+    },
+    "fullPage": {
+      "type": "boolean",
+      "description": "Capture the whole scrollable page instead of the viewport; defaults to false."
+    }
+  },
   "additionalProperties": false
 }
 ```
@@ -2391,17 +2351,42 @@ Available in every model turn.
 
 ```json
 {
-  "type": "string"
+  "type": "object",
+  "required": [
+    "name",
+    "path",
+    "url",
+    "markdown",
+    "capturedAt"
+  ],
+  "properties": {
+    "name": {
+      "type": "string"
+    },
+    "path": {
+      "type": "string"
+    },
+    "url": {
+      "type": "string"
+    },
+    "markdown": {
+      "type": "string"
+    },
+    "capturedAt": {
+      "type": "string"
+    }
+  },
+  "additionalProperties": false
 }
 ```
 
-### browser_viewport
+### browser_type
 
-Set browser size
+Type in browser
 
-Resize the page viewport in CSS pixels, for example to check a narrow layout. The default is 1920 x 1080 (16:9) and screenshots use the viewport size at scale 1; the chosen size stays for the run until changed again. Returns the resulting page.
+Type text into an input or textarea chosen by accessible label or another semantic target, firing the normal input events. Returns the resulting page.
 
-Owner: ragents.browser. Scope: per-turn. Native model tool: no. Availability: always.
+Owner: ragents.browser. Scope: per-turn. Native model tool: yes. Availability: always.
 
 Available in every model turn.
 
@@ -2411,21 +2396,71 @@ Available in every model turn.
 {
   "type": "object",
   "required": [
-    "width",
-    "height"
+    "target",
+    "text"
   ],
   "properties": {
-    "width": {
-      "type": "integer",
-      "minimum": 320,
-      "maximum": 3840,
-      "description": "Viewport width in CSS pixels."
+    "target": {
+      "type": "object",
+      "properties": {
+        "role": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Accessible role, e.g. button, textbox, link, combobox."
+        },
+        "name": {
+          "type": "string",
+          "description": "Exact accessible name for role."
+        },
+        "label": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Exact form label."
+        },
+        "text": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Exact visible text."
+        },
+        "testId": {
+          "type": "string",
+          "minLength": 1,
+          "description": "data-testid value."
+        },
+        "css": {
+          "type": "string",
+          "minLength": 1,
+          "description": "CSS selector for elements without useful accessible names."
+        },
+        "frame": {
+          "type": "string",
+          "minLength": 1,
+          "description": "CSS selector of an iframe containing the target."
+        },
+        "nth": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "0-based index among all matches when the target matches several elements; not together with first."
+        },
+        "first": {
+          "type": "boolean",
+          "description": "Use the first match when the target matches several elements; not together with nth."
+        }
+      },
+      "additionalProperties": false,
+      "description": "Use exactly one of role (with optional name), label, text, testId, css. Resolve semantic targets server-side; never copy snapshot element IDs. Ambiguous targets are errors naming the candidates unless nth or first selects one."
     },
-    "height": {
-      "type": "integer",
-      "minimum": 240,
-      "maximum": 2160,
-      "description": "Viewport height in CSS pixels."
+    "text": {
+      "type": "string",
+      "description": "Text that replaces the content of the field, unless slowly is set."
+    },
+    "submit": {
+      "type": "boolean",
+      "description": "Press Enter afterwards, for example to submit a form."
+    },
+    "slowly": {
+      "type": "boolean",
+      "description": "Type one character at a time without clearing the field first, to trigger key handlers."
     }
   },
   "additionalProperties": false
@@ -2468,13 +2503,41 @@ Available in every model turn.
 }
 ```
 
+### browser_view_screenshot
+
+View browser screenshot
+
+View this run's latest screenshot as native image input without a path. Invoke this native tool directly to receive pixels; calling it through TypeScript only verifies image availability. Requires an image-capable model for native image input.
+
+Owner: ragents.browser. Scope: per-turn. Native model tool: yes. Availability: always.
+
+Available in every model turn.
+
+#### Input
+
+```json
+{
+  "type": "object",
+  "properties": {},
+  "additionalProperties": false
+}
+```
+
+#### Result
+
+```json
+{
+  "type": "string"
+}
+```
+
 ### document_write
 
 Store document
 
-Stores a file with the given content in this run's file store.
+Stores a file in this run's file store, from text you wrote or as an unchanged copy of a file read reaches.
 
-Documents, reports and intermediate products belong in the file store, not in the working directory - that only holds what belongs to the task itself. The user sees the store in the "Documents" area, grouped by subdirectory. To put a file from the workspace into the store, read it first with read and pass the content here as content. The store is not a bash path: it does not live in the workspace and can only be written through this tool.
+Documents, reports and intermediate products belong in the file store, not in the working directory - that only holds what belongs to the task itself. The user sees the store in the "Documents" area, grouped by subdirectory. To put an existing file into the store, name it by its path and never retype its content; the copy is read where the workspace lies, also on a workstation. The store is not a bash path: it does not live in the workspace and can only be written through this tool.
 
 Owner: ragents.documents. Scope: per-turn. Native model tool: yes. Availability: always.
 
@@ -2486,18 +2549,22 @@ Available in every model turn.
 {
   "type": "object",
   "required": [
-    "path",
-    "content"
+    "storePath"
   ],
   "properties": {
-    "path": {
+    "storePath": {
       "type": "string",
       "minLength": 1,
-      "description": "Path in the file store, e.g. topic/report.md"
+      "description": "Where the file goes in this run's file store, one subdirectory per topic, e.g. topic/report.md"
     },
     "content": {
       "type": "string",
-      "description": "The complete content of the file"
+      "description": "The complete content of the file, as text you wrote yourself. content and file_path exclude each other: valid are { storePath, content } for text you wrote and { storePath, file_path } for a copy of an existing file; exactly one of the two must be set."
+    },
+    "file_path": {
+      "type": "string",
+      "minLength": 1,
+      "description": "An existing file to copy unchanged, named as read names it: relative to the working directory, absolute, or starting with a workspace alias such as @actors. content and file_path exclude each other: valid are { storePath, content } for text you wrote and { storePath, file_path } for a copy of an existing file; exactly one of the two must be set."
     }
   },
   "additionalProperties": false
@@ -2516,9 +2583,9 @@ Available in every model turn.
 
 edit
 
-Apply exact text replacements to existing files within the run's writable workspace roots.
+Replace an exact string in a file within the run's writable workspace roots.
 
-Edit a single file using exact text replacement. Read the file first; the edit is rejected if the file changed since that read. Every edits[].oldText must match a unique, non-overlapping region of the original file, or be anchored with occurrence, nearLine or replaceAll. If two changes affect the same block or nearby lines, merge them into one edit instead of emitting overlapping edits. Do not include large unchanged regions just to connect distant changes.
+Perform an exact string replacement in a file. Read the file with read in this conversation first; editing a file you have not read fails. old_string must match the file exactly, including whitespace and indentation; copy it from the read output without the line number and tab before each line. The edit fails if old_string is not unique in the file: add surrounding lines to make it unique, or set replace_all to change every occurrence. One call makes one replacement; for several changes call edit several times. An empty old_string creates a new file with new_string as its content.
 
 Owner: ragents.workspace. Scope: per-turn. Native model tool: yes. Availability: always.
 
@@ -2530,48 +2597,29 @@ Available in every model turn.
 {
   "type": "object",
   "required": [
-    "path",
-    "edits"
+    "file_path",
+    "old_string",
+    "new_string"
   ],
   "properties": {
-    "path": {
+    "file_path": {
       "type": "string",
-      "description": "Path to the file to edit (relative or absolute)"
+      "description": "The path of the file to modify: relative to the working directory, absolute, or starting with a workspace alias such as @actors"
     },
-    "edits": {
-      "type": "array",
-      "items": {
-        "type": "object",
-        "required": [
-          "oldText",
-          "newText"
-        ],
-        "properties": {
-          "oldText": {
-            "type": "string",
-            "description": "Exact text for one targeted replacement. It must be unique in the original file unless occurrence, nearLine or replaceAll is set, and must not overlap with any other edits[].oldText in the same call."
-          },
-          "newText": {
-            "type": "string",
-            "description": "Replacement text for this targeted edit."
-          },
-          "occurrence": {
-            "type": "number",
-            "description": "1-based index of the occurrence to replace when oldText is not unique. A failed edit lists all occurrences with their line numbers, so pick the index from that list."
-          },
-          "nearLine": {
-            "type": "number",
-            "description": "1-based line number near the intended occurrence. The occurrence closest to it wins; a tie is an error."
-          },
-          "replaceAll": {
-            "type": "boolean",
-            "description": "Replace every occurrence of oldText. Cannot be combined with occurrence or nearLine, and must not be used to change only some of them."
-          }
-        }
-      },
-      "description": "One or more targeted replacements. Each edit is matched against the original file, not incrementally. Do not include overlapping or nested edits. If two changes touch the same block or nearby lines, merge them into one edit instead."
+    "old_string": {
+      "type": "string",
+      "description": "The text to replace"
+    },
+    "new_string": {
+      "type": "string",
+      "description": "The text to replace it with (must be different from old_string)"
+    },
+    "replace_all": {
+      "type": "boolean",
+      "description": "Replace all occurrences of old_string (default false)"
     }
-  }
+  },
+  "additionalProperties": false
 }
 ```
 
@@ -3383,7 +3431,7 @@ List Models and Profiles
 
 List the execution profiles and provider models available for agent_spawn.
 
-Owner: engine. Scope: per-turn. Native model tool: no. Availability: conditional.
+Owner: engine. Scope: per-turn. Native model tool: yes. Availability: conditional.
 
 Only with the capability agent.spawn.
 
@@ -3567,9 +3615,9 @@ Only with the capability agent.spawn.
 
 read
 
-Read file contents or images within the run's allowed workspace roots.
+Read a file with line numbers, or an image, within the run's allowed workspace roots.
 
-Read the contents of a file. Supports text files and images (jpg, png, gif, webp, bmp). Images are sent as attachments. For text files, output is truncated to 2000 lines or 50KB (whichever is hit first). Use offset/limit for large files. When you need the full file, continue with offset until complete.
+Read a file. Results are returned in cat -n format: each line is its line number starting at 1, a tab, then the line as it is in the file. By default it reads up to 2000 lines from the start of the file; offset and limit read a specific part, and a note names the offset to continue with. Lines longer than 2000 characters are truncated, and the output stops at 50KB. Images (jpg, png, gif, webp, bmp) are returned as attachments. Do not re-read a file you just edited or wrote to check it: edit and write fail if their change did not apply.
 
 Owner: ragents.workspace. Scope: per-turn. Native model tool: yes. Availability: always.
 
@@ -3581,22 +3629,25 @@ Available in every model turn.
 {
   "type": "object",
   "required": [
-    "path"
+    "file_path"
   ],
   "properties": {
-    "path": {
+    "file_path": {
       "type": "string",
-      "description": "Path to the file to read (relative or absolute)"
+      "description": "The path of the file to read: relative to the working directory, absolute, or starting with a workspace alias such as @actors"
     },
     "offset": {
-      "type": "number",
-      "description": "Line number to start reading from (1-indexed)"
+      "type": "integer",
+      "minimum": 0,
+      "description": "The line number to start reading from (1-based). Only provide if the file is too large to read at once"
     },
     "limit": {
-      "type": "number",
-      "description": "Maximum number of lines to read"
+      "type": "integer",
+      "minimum": 1,
+      "description": "The number of lines to read. Only provide if the file is too large to read at once"
     }
-  }
+  },
+  "additionalProperties": false
 }
 ```
 
@@ -3751,7 +3802,7 @@ Configure Run
 
 Set the run title and/or choose the primary actor the chat talks to. Give title, primaryActor or both; the primary actor must be an active agent or TypeScript actor of this run.
 
-Owner: engine. Scope: per-turn. Native model tool: no. Availability: conditional.
+Owner: engine. Scope: per-turn. Native model tool: yes. Availability: conditional.
 
 Only with the capability run.configure.
 
@@ -3792,7 +3843,7 @@ List run scripts
 
 The run scripts of this profile that can join this run: entry, title, description, and whether each can start now or why not.
 
-Owner: ragents.runtime. Scope: per-turn. Native model tool: no. Availability: conditional.
+Owner: ragents.runtime. Scope: per-turn. Native model tool: yes. Availability: conditional.
 
 Only with the capability script.start, which the coordinator holds and passes to no agent it spawns.
 
@@ -3847,9 +3898,9 @@ Start run script
 
 Start a run script from run_script_list inside this run; returns its actor handle and which start of it this is.
 
-entry is the entry from run_script_list; input is the script's start value, if it takes one. The script joins the run without changing the primary actor; a repeated start reuses its actor. When it finishes a start, you receive its summary and result as a message; do not wait or poll for it in the same turn.
+A run script is a prepared setup of this profile: a TypeScript actor that arranges its own participants and views in this run; for a single new LLM agent use agent_spawn instead. entry is the entry from run_script_list; input is the script's start value, if it takes one. The script joins the run without changing the primary actor; a repeated start reuses its actor. When it finishes a start, you receive its summary and result as a message; do not wait or poll for it in the same turn.
 
-Owner: ragents.runtime. Scope: per-turn. Native model tool: no. Availability: conditional.
+Owner: ragents.runtime. Scope: per-turn. Native model tool: yes. Availability: conditional.
 
 Only with the capability script.start, which the coordinator holds and passes to no agent it spawns.
 
@@ -3903,7 +3954,7 @@ Stop run
 
 Initiates the complete stop of your own run: running turns, tools, subagents and plugin services. Conversation and files are kept. Also cancels your own turn; acceptance is not a confirmation of completed cleanup. Use immediately when the user wants a complete cancellation; do not send a cancel message to busy agents.
 
-Owner: ragents.orchestration. Scope: per-turn. Native model tool: no. Availability: conditional.
+Owner: ragents.orchestration. Scope: per-turn. Native model tool: yes. Availability: conditional.
 
 For the primary actor with execution.stopOwned in its own run.
 
@@ -3939,9 +3990,9 @@ For the primary actor with execution.stopOwned in its own run.
 
 Show document
 
-Shows documents completely in the interface; file paths only apply to this run's file store.
+Shows a file or a document completely in the interface, for any file read reaches, a file of this run's file store, or text you wrote.
 
-ALWAYS use this tool when the user wants to see the content of a file or a longer document - instead of copying or paraphrasing the content in the chat answer. path only shows a file from this run's file store, NOT from your working directory. Everything else - files of the working directory and content you produced yourself - goes through content; if the content comes from a file, take it VERBATIM from the last read or write result, never retyped from memory.
+ALWAYS use this tool when the user wants to see the content of a file or a longer document, instead of copying or paraphrasing it in the chat answer. Name an existing file by its path and never retype its content: the display reads the file itself, where the workspace lies, also on a workstation. Text goes in as content only when you produced it yourself.
 
 Owner: ragents.documents. Scope: per-turn. Native model tool: yes. Availability: always.
 
@@ -3960,13 +4011,19 @@ Available in every model turn.
       "type": "string",
       "description": "Title of the display, e.g. the file name"
     },
+    "file_path": {
+      "type": "string",
+      "minLength": 1,
+      "description": "The file to show, named as read names it: relative to the working directory, absolute, or starting with a workspace alias such as @actors; the display reads it, so its content is never retyped. file_path, storePath and content exclude each other: valid are { title, file_path } for a file read reaches, { title, storePath } for a file of the file store and { title, content } for text you wrote, each with an optional format; exactly one of the three must be set."
+    },
+    "storePath": {
+      "type": "string",
+      "minLength": 1,
+      "description": "A file of this run's file store, relative to the store as document_write stored it, e.g. topic/report.md. file_path, storePath and content exclude each other: valid are { title, file_path } for a file read reaches, { title, storePath } for a file of the file store and { title, content } for text you wrote, each with an optional format; exactly one of the three must be set."
+    },
     "content": {
       "type": "string",
-      "description": "The complete content - for files from the working directory and for self-produced content, i.e. everything that is not in the file store. content and path exclude each other: valid are { title, content, format } for self-produced content and files of the working directory, and { title, path, format } for files of the file store - exactly one of the two must be set."
-    },
-    "path": {
-      "type": "string",
-      "description": "File from this run's file store, relative to the store (e.g. topic/file.md). Only files stored there can be shown this way - for paths of the working directory use content. The content is shown directly from the file and never has to be retyped. content and path exclude each other: valid are { title, content, format } for self-produced content and files of the working directory, and { title, path, format } for files of the file store - exactly one of the two must be set."
+      "description": "The complete text you produced yourself; never the content of an existing file, which file_path or storePath names instead. file_path, storePath and content exclude each other: valid are { title, file_path } for a file read reaches, { title, storePath } for a file of the file store and { title, content } for text you wrote, each with an optional format; exactly one of the three must be set."
     },
     "format": {
       "anyOf": [
@@ -3983,7 +4040,7 @@ Available in every model turn.
           "const": "html"
         }
       ],
-      "description": "Rendering, default markdown"
+      "description": "Rendering; defaults to the file extension for a file and to markdown for content"
     }
   },
   "additionalProperties": false
@@ -3998,15 +4055,15 @@ Available in every model turn.
 }
 ```
 
-### todo_replace
+### todo_write
 
-Replace To-do List
+Write To-do List
 
-Replace this agent's complete to-do snapshot with its current progress.
+Create and update this agent's to-do list, which the user sees as its working plan; every call replaces the whole list.
 
-Mark an item completed only AFTER the work actually happened, never in advance; update the list as you go so at most one item is active.
+Use it for work of three or more distinct steps, for several tasks from the user, or when the user asks for a list; skip it for a single straightforward step or a pure question. Send the complete list every time. Keep exactly one item in progress while work remains and mark it completed right after the work actually happened, never in advance; when blocked, keep it in progress and add an item for the blocker. Give every item both forms: the imperative such as "Run tests" and the present continuous shown while it runs, such as "Running tests".
 
-Owner: ragents.todo. Scope: per-turn. Native model tool: no. Availability: conditional.
+Owner: ragents.todo. Scope: per-turn. Native model tool: yes. Availability: conditional.
 
 Only for agents with the capability plugin.state.write.
 
@@ -4024,35 +4081,18 @@ Only for agents with the capability plugin.state.write.
       "items": {
         "type": "object",
         "required": [
-          "id",
-          "text",
-          "status"
+          "content",
+          "status",
+          "activeForm"
         ],
         "properties": {
-          "id": {
+          "content": {
             "type": "string",
             "minLength": 1,
-            "description": "ID of the item, unique within the list"
-          },
-          "text": {
-            "type": "string",
-            "minLength": 1,
-            "description": "Short text of the item as the user sees it"
+            "description": "What needs to be done, in the imperative, such as \"Run tests\""
           },
           "status": {
             "anyOf": [
-              {
-                "type": "string",
-                "const": "open"
-              },
-              {
-                "type": "string",
-                "const": "active"
-              },
-              {
-                "type": "string",
-                "const": "completed"
-              },
               {
                 "type": "string",
                 "const": "pending"
@@ -4063,16 +4103,23 @@ Only for agents with the capability plugin.state.write.
               },
               {
                 "type": "string",
-                "const": "done"
+                "const": "completed"
               }
             ],
-            "description": "open = not started, active = in progress, completed = done; pending, in_progress and done are accepted as well"
+            "description": "pending = not started, in_progress = being worked on, one item at a time, completed = actually done"
+          },
+          "activeForm": {
+            "type": "string",
+            "minLength": 1,
+            "description": "The same step in the present continuous, shown while it is in progress, such as \"Running tests\""
           }
-        }
+        },
+        "additionalProperties": false
       },
-      "description": "The complete list in order; it replaces the previous snapshot, so unchanged items are sent again"
+      "description": "The updated todo list, complete and in order; it replaces the previous one"
     }
-  }
+  },
+  "additionalProperties": false
 }
 ```
 
@@ -4347,7 +4394,7 @@ Observes an actor of this run and wakes another with a background message as soo
 
 Use a watch to be woken once a derived state meets a condition; to receive every matching event without loss as its own input, use event_subscribe instead.
 
-Owner: ragents.watch. Scope: per-turn. Native model tool: no. Availability: always.
+Owner: ragents.watch. Scope: per-turn. Native model tool: yes. Availability: always.
 
 Available in every run.
 
@@ -4485,7 +4532,7 @@ List watches
 
 Lists the watches of this run with condition, number of wakes and last verdict.
 
-Owner: ragents.watch. Scope: per-turn. Native model tool: no. Availability: always.
+Owner: ragents.watch. Scope: per-turn. Native model tool: yes. Availability: always.
 
 Available in every run.
 
@@ -4589,7 +4636,7 @@ Remove watch
 
 Removes a watch of this run; afterwards it no longer wakes.
 
-Owner: ragents.watch. Scope: per-turn. Native model tool: no. Availability: always.
+Owner: ragents.watch. Scope: per-turn. Native model tool: yes. Availability: always.
 
 Available in every run.
 
@@ -4640,9 +4687,9 @@ Available in every run.
 
 write
 
-Create or overwrite files within the run's writable workspace roots.
+Create or overwrite a file within the run's writable workspace roots.
 
-Write content to a file. Creates the file if it doesn't exist, overwrites if it does. Automatically creates parent directories.
+Write a file, overwriting it if one exists, and create its parent folders. Overwriting an existing file you have not read with read in this conversation fails. Prefer edit for changes to an existing file; use write for new files or complete rewrites.
 
 Owner: ragents.workspace. Scope: per-turn. Native model tool: yes. Availability: always.
 
@@ -4654,19 +4701,20 @@ Available in every model turn.
 {
   "type": "object",
   "required": [
-    "path",
+    "file_path",
     "content"
   ],
   "properties": {
-    "path": {
+    "file_path": {
       "type": "string",
-      "description": "Path to the file to write (relative or absolute)"
+      "description": "The path of the file to write: relative to the working directory, absolute, or starting with a workspace alias such as @actors"
     },
     "content": {
       "type": "string",
-      "description": "Content to write to the file"
+      "description": "The content to write to the file"
     }
-  }
+  },
+  "additionalProperties": false
 }
 ```
 
@@ -4698,19 +4746,19 @@ Owner: ragents.orchestration.
 {
   "type": "object",
   "required": [
-    "actor",
-    "content"
+    "to",
+    "message"
   ],
   "properties": {
-    "actor": {
+    "to": {
       "type": "string",
       "minLength": 1,
-      "description": "Actor ID or handle"
+      "description": "Recipient: the @handle or ID of an actor of this run, as actor_list or agent_spawn name it"
     },
-    "content": {
+    "message": {
       "type": "string",
       "minLength": 1,
-      "description": "Message text the actor receives as it is, without the sender's context"
+      "description": "Plain text the recipient receives as it is, without your context"
     },
     "artifactIds": {
       "type": "array",
@@ -6346,7 +6394,7 @@ export { RadioGroup, RadioGroupItem };
 #### apps/web/src/ui/relative-time.d.ts
 
 ```typescript
-/** The time in the list: now, 5 min, 3 h, 2 d, from seven days on the date. Without "ago", without a special case for yesterday. */
+/** The time in the list: now, 5min, 3h, 2d, from seven days on the date. Without "ago", without a special case for yesterday. */
 export declare const shortTime: (at: number, now?: number) => string;
 /** The same time written out; it appears only in the title of the compact time. */
 export declare const longTime: (at: number, now?: number) => string;
@@ -6449,7 +6497,7 @@ export declare function ConnectionStateIcon({ state, className }: {
 
 ```typescript
 /** The vocabulary of all pages: exactly one word per state, which appears in the panel only as a title. */
-export type RunStateName = "running" | "waiting" | "idle" | "ended" | "failed" | "cancelled";
+export type RunStateName = "running" | "waiting" | "paused" | "idle" | "ended" | "failed" | "cancelled";
 export type ConnectionStateName = "connected" | "ready" | "starting" | "login-required" | "unreachable" | "stopped" | "failed" | "forbidden";
 /** When a run is waiting, the word names the number of open inputs; a tool name never appears in the state. */
 export declare const runStateWord: (state: RunStateName, open?: number) => string;
@@ -8242,7 +8290,8 @@ Complete package sources are in [run-setup.md](run-setup.md).
   {
     "id": "ragents.documents",
     "requires": [
-      "ragents.orchestration"
+      "ragents.orchestration",
+      "ragents.workspace"
     ]
   },
   {

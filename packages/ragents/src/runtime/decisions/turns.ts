@@ -27,6 +27,12 @@ export const startTurn =
         if (target.lifecycle.kind !== "idle")
             throw new DomainError("actor-not-idle", `Actor ${actorId} cannot start a turn while ${target.lifecycle.kind}.`, 409);
 
+        if (state.pause)
+            throw new DomainError("run-paused", `The run is paused; ${target.displayName} starts no turn until it resumes.`, 409);
+
+        if (target.held)
+            throw new DomainError("actor-held", `${target.displayName} is held since the pause and starts no turn until it is addressed directly.`, 409);
+
         const input = state.inputs.get(inputId);
 
         if (!input)

@@ -100,7 +100,7 @@ const plainRing = ringSource([
 
 const routedContents = (calls: readonly Call[]) => calls
     .filter((entry) => entry.name === "actor_input")
-    .map((entry) => entry.input as { actor: string; content: string });
+    .map((entry) => entry.input as { to: string; message: string });
 
 test("std.mediators.route subscribes to the senders of the table and delivers the start line", async () => {
     const session = mediatorSession(plainRing);
@@ -115,7 +115,7 @@ test("std.mediators.route subscribes to the senders of the table and delivers th
                 eventTypes: ["model.output.completed"],
             },
         },
-        { name: "actor_input", input: { actor: "actor-red", content: "Begin" } },
+        { name: "actor_input", input: { to: "actor-red", message: "Begin" } },
     ]);
     assert.deepEqual(session.state(), { entries: [{ from: null, text: "Begin" }], done: false });
 });
@@ -129,10 +129,10 @@ test("a ring topology falls out of a table where every sender points at the next
     await session.deliver(memberInput("actor-blue", "blue", "Sky"));
 
     assert.deepEqual(routedContents(session.calls), [
-        { actor: "actor-red", content: "Begin" },
-        { actor: "actor-yellow", content: "Begin\nred: Flower" },
-        { actor: "actor-blue", content: "Begin\nred: Flower\nyellow: Meadow" },
-        { actor: "actor-red", content: "Begin\nred: Flower\nyellow: Meadow\nblue: Sky" },
+        { to: "actor-red", message: "Begin" },
+        { to: "actor-yellow", message: "Begin\nred: Flower" },
+        { to: "actor-blue", message: "Begin\nred: Flower\nyellow: Meadow" },
+        { to: "actor-red", message: "Begin\nred: Flower\nyellow: Meadow\nblue: Sky" },
     ]);
 });
 
@@ -152,9 +152,9 @@ test("a star topology falls out of a table where every sender points at all othe
     await session.deliver(memberInput("actor-ben", "ben", "I am Ben."));
 
     assert.deepEqual(routedContents(session.calls), [
-        { actor: "actor-anna", content: "Introduce yourselves." },
-        { actor: "actor-anna", content: "Introduce yourselves.\nI am Ben." },
-        { actor: "actor-cara", content: "Introduce yourselves.\nI am Ben." },
+        { to: "actor-anna", message: "Introduce yourselves." },
+        { to: "actor-anna", message: "Introduce yourselves.\nI am Ben." },
+        { to: "actor-cara", message: "Introduce yourselves.\nI am Ben." },
     ]);
 });
 
@@ -179,9 +179,9 @@ test("a row with null is a silent listener and never gets subscribed", async () 
         input: { sourceActorIds: ["actor-red", "actor-yellow"], eventTypes: ["model.output.completed"] },
     });
     assert.deepEqual(routedContents(session.calls), [
-        { actor: "actor-red", content: "Begin" },
-        { actor: "actor-yellow", content: "Begin\nred: Flower" },
-        { actor: "actor-listener", content: "Begin\nred: Flower\nyellow: Meadow" },
+        { to: "actor-red", message: "Begin" },
+        { to: "actor-yellow", message: "Begin\nred: Flower" },
+        { to: "actor-listener", message: "Begin\nred: Flower\nyellow: Meadow" },
     ]);
 });
 
@@ -200,7 +200,7 @@ test("a target function that returns an empty list accepts the entry without rou
     await session.deliver(directInput("Get going."));
     await session.deliver(memberInput("actor-red", "red", "please stop"));
 
-    assert.deepEqual(routedContents(session.calls), [{ actor: "actor-red", content: "Begin" }]);
+    assert.deepEqual(routedContents(session.calls), [{ to: "actor-red", message: "Begin" }]);
     assert.deepEqual(session.logs, ["entry please stop"]);
     assert.deepEqual(session.state(), {
         entries: [{ from: null, text: "Begin" }, { from: "red", text: "please stop" }],
@@ -224,8 +224,8 @@ test("a target function routes by content", async () => {
     await session.deliver(memberInput("actor-red", "red", "a question"));
 
     assert.deepEqual(routedContents(session.calls).at(-1), {
-        actor: "actor-blue",
-        content: "Begin\nred: a question",
+        to: "actor-blue",
+        message: "Begin\nred: a question",
     });
 });
 
@@ -276,8 +276,8 @@ test("std.mediators.route takes only the last non-empty line of a multi-line ans
     await session.deliver(memberInput("actor-red", "red", "Sure thing!\n\n   Flower   \n\n"));
 
     assert.deepEqual(routedContents(session.calls).at(-1), {
-        actor: "actor-yellow",
-        content: "Begin\nFlower",
+        to: "actor-yellow",
+        message: "Begin\nFlower",
     });
     assert.deepEqual(session.state(), {
         entries: [{ from: null, text: "Begin" }, { from: "red", text: "Flower" }],
@@ -312,8 +312,8 @@ test("std.mediators.route stops at maxEntries and runs onDone exactly once", asy
         content: "Begin\nred: Flower\nyellow: Meadow",
     });
     assert.deepEqual(routedContents(session.calls), [
-        { actor: "actor-red", content: "Begin" },
-        { actor: "actor-yellow", content: "Begin\nred: Flower" },
+        { to: "actor-red", message: "Begin" },
+        { to: "actor-yellow", message: "Begin\nred: Flower" },
     ]);
     assert.equal((session.state() as { done: boolean }).done, true);
 });
@@ -383,9 +383,9 @@ test("a table keyed by handles routes the events of the matching actors", async 
         input: { sourceActorIds: ["red", "yellow"], eventTypes: ["model.output.completed"] },
     });
     assert.deepEqual(routedContents(session.calls), [
-        { actor: "red", content: "Begin" },
-        { actor: "yellow", content: "Begin\nred: Flower" },
-        { actor: "red", content: "Begin\nred: Flower\nyellow: Meadow" },
+        { to: "red", message: "Begin" },
+        { to: "yellow", message: "Begin\nred: Flower" },
+        { to: "red", message: "Begin\nred: Flower\nyellow: Meadow" },
     ]);
 });
 
@@ -408,8 +408,8 @@ test("a table keyed by @handle matches the sender without regard to case", async
         input: { sourceActorIds: ["Mira", "jon"], eventTypes: ["model.output.completed"] },
     });
     assert.deepEqual(routedContents(session.calls), [
-        { actor: "Mira", content: "Topic" },
-        { actor: "jon", content: "Topic\nmira: Hello" },
+        { to: "Mira", message: "Topic" },
+        { to: "jon", message: "Topic\nmira: Hello" },
     ]);
 });
 
@@ -429,9 +429,9 @@ test("a table mixes actor ids and handles as keys", async () => {
     await session.deliver(memberInput("actor-ada", "ada", "Meadow"));
 
     assert.deepEqual(routedContents(session.calls), [
-        { actor: "actor-red", content: "Begin" },
-        { actor: "ada", content: "Begin\nred: Flower" },
-        { actor: "actor-red", content: "Begin\nred: Flower\nada: Meadow" },
+        { to: "actor-red", message: "Begin" },
+        { to: "ada", message: "Begin\nred: Flower" },
+        { to: "actor-red", message: "Begin\nred: Flower\nada: Meadow" },
     ]);
 });
 
@@ -451,9 +451,9 @@ test("a target function of a handle table may name an actor id and the other way
     await session.deliver(memberInput("actor-yellow", "yellow", "Meadow"));
 
     assert.deepEqual(routedContents(session.calls), [
-        { actor: "red", content: "Begin" },
-        { actor: "actor-yellow", content: "Begin\nred: Flower" },
-        { actor: "red", content: "Begin\nred: Flower\nyellow: Meadow" },
+        { to: "red", message: "Begin" },
+        { to: "actor-yellow", message: "Begin\nred: Flower" },
+        { to: "red", message: "Begin\nred: Flower\nyellow: Meadow" },
     ]);
 });
 
@@ -566,8 +566,8 @@ test("a route table takes its keys from constants", async () => {
         input: { sourceActorIds: ["actor-red", "actor-yellow"], eventTypes: ["model.output.completed"] },
     });
     assert.deepEqual(routedContents(session.calls), [
-        { actor: "actor-red", content: "Begin" },
-        { actor: "actor-yellow", content: "Begin\nred: Flower" },
+        { to: "actor-red", message: "Begin" },
+        { to: "actor-yellow", message: "Begin\nred: Flower" },
     ]);
 });
 

@@ -93,12 +93,12 @@ and how long the summary may be are values of the model; a profile sets them for
 All stop paths follow the same principle: block new work first, then cancel, wait for running
 work, and only then release resources. The exact boundary differs:
 
-Interrupting a turn is not a stop. The stop button in a chat input ("Stop work") ends only the
-running turn of that chat's actor as `interrupted`: its running function calls are aborted, the
-visible text of its unfinished answer stays, and the actor remains active and takes the next
-message as a new turn. Its children and all other actors keep working, and without a running
-turn of this actor the input offers no stop. Stopping an actor for good and stopping the whole
-run are separate, explicitly labeled actions.
+The stop button in a chat input ("Stop work") pauses the whole run: from that moment no turn of
+any actor starts, the running turns of all actors, the coordinator's sub-agents included, end as
+`interrupted`, and the run stays paused until a human continues it. Nothing is lost: what arrives
+in the meantime waits in the journal. The visible text of an unfinished answer stays, and every
+actor stays active. Interrupting the turn of a single actor only, stopping an actor for good, and
+stopping the whole run are separate, explicitly labeled actions.
 
 In the run title bar, a user with write permission can request a complete stop through "Stop
 run" and a confirmation. The primary actor can also trigger it with `run_stop`. Both use the
@@ -107,6 +107,9 @@ the stop but does not wait for cleanup of its own turn. Acceptance is not proof 
 Cleanup errors are reported in the server log while the stop path's normal quarantine remains
 in effect.
 
+- Run pause (`ragents.runs.pause`, the chat's stop button, `ragents stop <run>`): No turn starts
+  any more and the running turns of all actors end; inputs keep arriving and wait. A human input
+  or `ragents.runs.resume` continues the run (section Pausing a run).
 - Turn interruption (`ragents.runs.interruptTurn`): Ends the running turn of one actor and
   nothing else; the actor, its model runtime, its children, and the run stay as they are.
 - `actor_stop`: Stops the actor, interrupts its running turn, and disposes its model runtime
@@ -143,8 +146,9 @@ were already claimed or discarded are not repeated.
 
 ## Actors, inputs, events, and subscriptions
 
-`actor_input` delivers text and optional artifacts directly to exactly one executable actor.
-The driver receives the content without a routing envelope. There are no channels, message
+`actor_input` delivers text and optional artifacts directly to exactly one executable actor:
+`to` names the recipient by handle or ID, `message` is the text, as in the messaging tools of
+common agent harnesses. The driver receives the content without a routing envelope. There are no channels, message
 domain, read receipts, mention syntax, or special result or delivery message. Communication is
 plain text. The sender can be a human owner, another actor, or a subscription delivery. Normal
 model responses need no sending function: every completed output is already a
@@ -177,7 +181,7 @@ observation) and decides at every end whether the worker is finished, waiting fo
 or needs another prompt. An LLM coordinator that "waits passively" is not a wake-up. A watcher
 from `ragents.watch` (`plugins.md`) is such a host service: it wakes the controlling actor with
 the reason and changes as soon as its wake condition is met. `ragents.ask` is another: after
-`ask_user` the asker ends its turn, and the answer or the user's next message arrives as a new
+`ask_user` the asker ends its turn, and the answers or the user's next message arrive as a new
 input. Instructions may say "end the turn" only where such an observer exists. Synchronous
 functions return their result, and the caller continues in the same turn.
 
@@ -198,6 +202,20 @@ primary actor again, so its chat continues. For TypeScript actors, creation reje
 that is already assigned. The creation itself remains recorded as an event in the journal.
 
 ## Equipping subagents
+
+`agent_spawn` creates exactly one LLM agent in the run, with the fields of the subagent tools of
+common agent harnesses: `description` is a required label of a few words, `prompt` is the first
+task, and `name` is the requested handle. `instructions` holds the lasting role and rules for the
+agent's system prompt; a role from `model_list` supplies none. With `prompt`, the command that
+writes `agent.spawned` also enqueues the task as the agent's first input, so the agent starts at
+once; this needs `actor.input` besides `agent.spawn`. Without `prompt` the agent stays idle until
+an `actor_input` reaches it. Nothing waits for the agent: the call returns `{ id, handle }`, and
+its answers reach the caller only as later inputs of a subscription to its events, while failed
+and interrupted turns arrive as automatic notices. Because a task given at the spawn starts at
+once, a subscription made afterwards can miss the first answer; whoever needs it creates the
+agent without `prompt`, subscribes, and then sends the task with `actor_input`. A prepared setup
+joins a run through `run_script_start` and a TypeScript actor comes from an actor program;
+`agent_spawn` creates neither, and no function of a run creates another run.
 
 `agent_spawn` requires an explicit function selection in `tools`:
 
@@ -224,10 +242,10 @@ reach the fork. Both source and fork require the agent driver; a source without 
 reached the model, and not itself a fork, is rejected with `fork-without-turn`. A plain LLM receives no function overview. Its driver must explicitly support this
 isolation or the turn is rejected.
 
-Equipped LLMs receive `typescript_api` and `typescript_eval`, plus an automatically generated
-overview of their available TypeScript functions with names and short descriptions. The
-overview stays current during the turn. Domain functions are called through
-`context.functions` in snippets. Additional native tools require explicit registration. Roles
+Equipped LLMs receive their available functions as native tools, plus `typescript_api` and
+`typescript_eval`; snippets call the same functions through `context.functions`. A generated
+overview in the system prompt lists only the snippet-only functions (`nativeTool: false`) with
+names and short descriptions. Tools and overview stay current during the turn. Roles
 and work boundaries remain prompt instructions. Alongside a role (field `profile`), `agent_spawn` accepts
 `model` and `thinking` from the model list. A role supplies only the driver, provider,
 reasoning level, timeout, and workspace default; the product model list defines which models are

@@ -28,7 +28,12 @@ const run = Type.String({ minLength: 1, maxLength: 512, description: "Run ID, un
 const identityFields = { runId: Type.String(), title: Type.String(), reference: Type.String() };
 const runSummary = object({ ...identityFields, createdAt: Type.Optional(Type.Number()), updatedAt: Type.Number(), running: Type.Optional(Type.Boolean()), metadata: Type.Optional(jsonObject) });
 const accepted = object({ ...identityFields, accepted: Type.Literal(true) });
-const commonStart = { title: text(), options: Type.Optional(jsonObject) };
+const shareAccess = Type.Union([Type.Literal("read"), Type.Literal("write")]);
+const sharing = Type.Object({
+  everyone: Type.Union([shareAccess, Type.Null()], { description: "Access of every user of the profile; null shares with nobody as a whole" }),
+  users: Type.Array(object({ userId: text(), access: shareAccess }), { description: "Individual users of the profile with their own access; never the caller, who owns the new run" }),
+}, { additionalProperties: false, description: "Whom the new run is shared with from its creation on, as ragents.runs.share sets it; only with sign-in" });
+const commonStart = { title: text(), options: Type.Optional(jsonObject), sharing: Type.Optional(sharing) };
 const createInput = Type.Union([
   object({ ...commonStart, message: text() }),
   object({ ...commonStart, script: text(), input: Type.Optional(Type.Any()) }),
@@ -69,7 +74,7 @@ export const overseerContracts = {
   }),
   createRun: defineOperation({
     id: "ragents.overseer.createRun",
-    description: "Create a run with a server-side ID and title. Exactly one start form: message, installed script (id or unique title), or packageDirectory (existing local run script package). input is only allowed with script/packageDirectory. options selects start options such as ragents.startOptions.select, each only with its own rights. The result waits for preparation, check, test and installation; accepted does not yet confirm a finished model result.",
+    description: "Create a run with a server-side ID and title. Exactly one start form: message, installed script (id or unique title), or packageDirectory (existing local run script package). input is only allowed with script/packageDirectory. options selects start options such as ragents.startOptions.select, each only with its own rights. sharing shares the run before its start like ragents.runs.share: everyone and individual users, each with read or write. The result waits for preparation, check, test and installation; accepted does not yet confirm a finished model result.",
     rights: ["runs.read", "runs.write", "runs.create"],
     input: createInput,
     result: accepted,

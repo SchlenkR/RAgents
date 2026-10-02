@@ -8,8 +8,10 @@ import {
   attachmentInputKind,
   capabilityNames,
   DomainError,
+  eventSubjectOf,
   firstHandCapabilities,
   isThinkingLevel,
+  notShared,
   PluginStateProjection,
   resolveExecution,
   type CapabilityGrant,
@@ -18,6 +20,7 @@ import {
   type PublicStartEntry,
   type RegisteredStartOption,
   type RunScriptPackage,
+  type RunSharing,
   type RunView,
   type SessionStartedContext,
   type StartOptionContext,
@@ -128,6 +131,8 @@ export class RunChatSession implements ChatSessionLike {
   readonly #journalFinishedTurns = new Set<string>();
   readonly #pendingSends = new Set<Promise<void>>();
   readonly #startValues = new Map<string, JsonValue>();
+  /** Before the start, per signed-in user, whom the run is to be shared with; whoever creates the run brings their own. */
+  readonly #pendingSharing = new Map<string, RunSharing>();
   #primaryActorId: string | undefined;
   #activeLiveTurnId: string | undefined;
   #starting: Promise<void> | undefined;
@@ -201,6 +206,18 @@ export class RunChatSession implements ChatSessionLike {
       );
     }
     return this.#startOptionState(entry, userId);
+  }
+
+  /** The sharing this user chose before the start; nobody until they choose. */
+  sharingBeforeStart(userId: string): RunSharing {
+    if (this.startLocked) throw new DomainError("run-started", "The run is already created; its sharing is in the journal.", 409);
+    return this.#pendingSharing.get(userId) ?? notShared();
+  }
+
+  /** Kept until the start; the run takes over only the sharing of the user who creates it. */
+  shareBeforeStart(userId: string, sharing: RunSharing): void {
+    if (this.startLocked) throw new DomainError("run-started", "The run is already created; its sharing is in the journal.", 409);
+    this.#pendingSharing.set(userId, sharing);
   }
 
   /** Another model must be able to read the attachments the coordinator's conversation already contains. */
@@ -427,6 +444,7 @@ export class RunChatSession implements ChatSessionLike {
     this.#journalFinishedTurns.clear();
     this.#activeLiveTurnId = undefined;
     this.#startValues.clear();
+    this.#pendingSharing.clear();
     this.#events.length = 0;
     this.#textPositions = new ChatTextPositions();
     this.#pluginStates = new PluginStateProjection();
@@ -496,7 +514,7 @@ export class RunChatSession implements ChatSessionLike {
     this.#engine.runtime.enqueueInput(
       { actorId: state.ownerId, commandId: `chat:${randomUUID()}` },
       this.id,
-      { actorId: primaryActorId, content: text, artifactIds, sourceEventIds, origin: "human" },
+      { actorId: primaryActorId, content: text, artifactIds, sourceEventIds, origin: "human", ...user ? { userId: user.id } : {} },
     );
   }
 
@@ -753,6 +771,7 @@ export class RunChatSession implements ChatSessionLike {
     this.#assertUsable(this.id);
     const isNewRun = !this.#engine.journal.stateOf(this.id);
     if (isNewRun) {
+      const sharing = user ? this.#pendingSharing.get(user.id) : undefined;
       this.#engine.runtime.createRun(
         { commandId: `run:${this.id}` },
         {
@@ -762,8 +781,10 @@ export class RunChatSession implements ChatSessionLike {
           ownerDisplayName: user?.label ?? this.#coordinator.ownerDisplayName,
           ...user ? { ownerUserId: user.id } : {},
           initialPluginStates: this.#startupPluginStates(choice),
+          ...sharing ? { sharing } : {},
         },
       );
+      this.#pendingSharing.clear();
     }
 
     if (!isNewRun && !this.#engine.runtime.view(this.id).actors.some((actor) => actor.kind !== "human"))
@@ -971,6 +992,23 @@ export class RunChatSession implements ChatSessionLike {
         if (!turn) throw new Error(`The turn ${turnId} is missing from run ${this.id}`);
         return turn;
       },
+      inputOf: (inputId) => {
+        const input = this.#engine.runtime.select(this.id, (state) => {
+          const found = state.inputs.get(inputId);
+          return found && { enqueuedBy: found.enqueuedBy, sourceEventIds: found.sourceEventIds, ...found.origin ? { origin: found.origin } : {} };
+        });
+        if (!input) throw new Error(`The input ${inputId} is missing from run ${this.id}`);
+        return input;
+      },
+      sourceOf: (eventId) => {
+        const source = this.#eventOf(eventId);
+        return { type: source.type, subjectId: this.#engine.runtime.select(this.id, (state) => eventSubjectOf(state, source)) };
+      },
+      handleOf: (actorId) => {
+        const handle = this.#engine.runtime.select(this.id, (state) => state.actors.get(actorId)?.handle);
+        if (handle === undefined) throw new Error(`The actor ${actorId} is missing from run ${this.id}`);
+        return handle;
+      },
       interruptedByCommand: (commandId, actorId) => {
         const turns = this.#engine.runtime.state(this.id).turns;
         return this.#engine.runtime.events(this.id).some((event) => event.commandId === commandId
@@ -982,6 +1020,12 @@ export class RunChatSession implements ChatSessionLike {
         return this.#attachmentInfo(artifact);
       },
     };
+  }
+
+  /** Searches from the newest event back, without copying the journal. */
+  #eventOf(eventId: string): JournalEvent {
+    for (const event of this.#engine.runtime.recentEvents(this.id)) if (event.eventId === eventId) return event;
+    throw new Error(`The event ${eventId} is missing from run ${this.id}`);
   }
 
   #isLive(event: JournalEvent): boolean {

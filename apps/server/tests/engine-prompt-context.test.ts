@@ -156,9 +156,9 @@ test("coordinator prompts survive primary handover while dynamic guides remain e
     const builder = await send("primary", "next");
     assert.match(builder.systemPrompt, /Coordinator setup preamble/);
     assert.doesNotMatch(builder.systemPrompt, /Your model text is shown in the chat with the user/);
-    assert.equal(specialist.tools.some((tool) => tool.name === "agent_spawn"), false);
-    assert.deepEqual(specialist.tools.map(tool=>tool.name).sort(), ["typescript_api", "typescript_eval"]);
-    assert.equal(builder.tools.some((tool) => tool.name === "agent_spawn"), false);
+    const selected = ["agent_spawn", "allowed_probe", "build_demo", "typescript_api", "typescript_eval"];
+    assert.deepEqual(specialist.tools.map((tool) => tool.name).sort(), selected);
+    assert.deepEqual(builder.tools.map((tool) => tool.name).sort(), selected);
     await send("primary", "blocked");
     assert.ok(JSON.stringify(results.at(-1)).includes("agent_spawn"));
 

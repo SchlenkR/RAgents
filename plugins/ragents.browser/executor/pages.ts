@@ -6,6 +6,7 @@ import type {
   BrowserSnapshot,
   BrowserStep,
   BrowserTarget,
+  BrowserTyping,
   BrowserViewport,
 } from "./contract.js";
 
@@ -63,10 +64,10 @@ export class BrowserPages {
     this.#options = options;
   }
 
-  async open(runId: string, url: string, viewport: BrowserViewport, signal?: AbortSignal): Promise<BrowserStep<BrowserSnapshot>> {
+  async navigate(runId: string, url: string, viewport: BrowserViewport, signal?: AbortSignal): Promise<BrowserStep<BrowserSnapshot>> {
     if (this.#shutDown) throw endedError();
     const parsed = new URL(url);
-    if (!["http:", "https:"].includes(parsed.protocol)) throw new Error("browser_open needs an HTTP or HTTPS address.");
+    if (!["http:", "https:"].includes(parsed.protocol)) throw new Error("browser_navigate needs an HTTP or HTTPS address.");
     signal?.throwIfAborted();
     if (!this.#sessions.has(runId)) this.#start(runId, viewport);
     return this.#perform(runId, signal, async (session, page) => {
@@ -81,7 +82,7 @@ export class BrowserPages {
     return this.#perform(runId, signal, (session, page) => this.#snapshot(session, page));
   }
 
-  viewport(runId: string, viewport: BrowserViewport, signal?: AbortSignal): Promise<BrowserStep<BrowserSnapshot>> {
+  resize(runId: string, viewport: BrowserViewport, signal?: AbortSignal): Promise<BrowserStep<BrowserSnapshot>> {
     return this.#perform(runId, signal, async (session, page) => {
       await page.setViewportSize(viewport);
       return this.#snapshot(session, page);
@@ -92,16 +93,22 @@ export class BrowserPages {
     return this.#action(runId, target, signal, (locator) => locator.click());
   }
 
-  fill(runId: string, target: BrowserTarget, value: string, signal?: AbortSignal): Promise<BrowserStep<BrowserSnapshot>> {
-    return this.#action(runId, target, signal, (locator) => locator.fill(value));
+  type(runId: string, target: BrowserTarget, typing: BrowserTyping, signal?: AbortSignal): Promise<BrowserStep<BrowserSnapshot>> {
+    return this.#action(runId, target, signal, async (locator) => {
+      await (typing.slowly ? locator.pressSequentially(typing.text) : locator.fill(typing.text));
+      if (typing.submit) await locator.press("Enter");
+    });
   }
 
-  select(runId: string, target: BrowserTarget, label: string, signal?: AbortSignal): Promise<BrowserStep<BrowserSnapshot>> {
-    return this.#action(runId, target, signal, (locator) => locator.selectOption({ label }));
+  selectOption(runId: string, target: BrowserTarget, values: readonly string[], signal?: AbortSignal): Promise<BrowserStep<BrowserSnapshot>> {
+    return this.#action(runId, target, signal, (locator) => locator.selectOption([...values]));
   }
 
-  press(runId: string, target: BrowserTarget, key: string, signal?: AbortSignal): Promise<BrowserStep<BrowserSnapshot>> {
-    return this.#action(runId, target, signal, (locator) => locator.press(key));
+  /** Without a target the key goes to the focused element. */
+  pressKey(runId: string, target: BrowserTarget | undefined, key: string, signal?: AbortSignal): Promise<BrowserStep<BrowserSnapshot>> {
+    return target
+      ? this.#action(runId, target, signal, (locator) => locator.press(key))
+      : this.#pageAction(runId, signal, (page) => page.keyboard.press(key));
   }
 
   check(runId: string, input: BrowserCheck, signal?: AbortSignal): Promise<BrowserStep<BrowserCheckResult>> {
@@ -150,7 +157,7 @@ export class BrowserPages {
   }
 
   /** Captures the page as PNG and returns it Base64-encoded; the page remembers `id` as the current screenshot. */
-  screenshot(runId: string, id: string, fullPage: boolean, signal?: AbortSignal): Promise<BrowserStep<string>> {
+  takeScreenshot(runId: string, id: string, fullPage: boolean, signal?: AbortSignal): Promise<BrowserStep<string>> {
     return this.#perform(runId, signal, async (session, page) => {
       const image = await page.screenshot({ fullPage, type: "png", timeout: this.#options.timeoutMs });
       session.screenshots.push(id);
@@ -260,7 +267,7 @@ export class BrowserPages {
   #perform<T>(runId: string, signal: AbortSignal | undefined, action: (session: BrowserSession, page: Page) => Promise<T>): Promise<BrowserStep<T>> {
     if (this.#shutDown) return Promise.reject(endedError());
     const session = this.#sessions.get(runId);
-    if (!session || session.closed) return Promise.reject(new Error("No browser is open for this run. Call browser_open first."));
+    if (!session || session.closed) return Promise.reject(new Error("No browser is open for this run. Call browser_navigate first."));
     const pending = session.queue.then(async () => {
       signal?.throwIfAborted();
       const abort = () => { void this.close(runId).catch((error) => console.error("Browser stop failed:", errorText(error))); };
@@ -281,10 +288,14 @@ export class BrowserPages {
   }
 
   #action(runId: string, target: BrowserTarget, signal: AbortSignal | undefined, action: (locator: Locator) => Promise<unknown>): Promise<BrowserStep<BrowserSnapshot>> {
+    return this.#pageAction(runId, signal, (page) => action(browserLocator(page, target)).catch(withAmbiguityHint));
+  }
+
+  #pageAction(runId: string, signal: AbortSignal | undefined, action: (page: Page) => Promise<unknown>): Promise<BrowserStep<BrowserSnapshot>> {
     return this.#perform(runId, signal, async (session, page) => {
       session.checked = false;
       session.screenshots = [];
-      await action(browserLocator(page, target)).catch(withAmbiguityHint);
+      await action(page);
       return this.#snapshot(session, page);
     });
   }

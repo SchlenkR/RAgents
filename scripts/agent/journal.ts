@@ -1,6 +1,6 @@
 import { closeSync, existsSync, openSync, readSync, statSync } from "node:fs";
 import path from "node:path";
-import { askPayloadOf, ASK_PLUGIN_ID, type AskPayload } from "../../plugins/ragents.ask/ask-payload.ts";
+import { askPayloadComplaints, ASK_PLUGIN_ID, type AskOption, type AskPayload, type AskQuestion } from "../../plugins/ragents.ask/ask-payload.ts";
 
 export interface JournalEvent {
   readonly sequence: number;
@@ -99,12 +99,19 @@ export const usageByActor = (events: readonly JournalEvent[]): Map<string, Actor
 
 const text = (value: unknown): string => (typeof value === "string" ? value : "").replace(/\n/g, " ");
 
-/** A question of ragents.ask in one line: its text and its options. */
-export const questionLine = (question: AskPayload): string =>
-  `${text(question.question)} Options: ${question.options.map((option) => JSON.stringify(option)).join(", ")}${question.multi ? " (several allowed)" : ""}`;
+const byUser = (payload: Record<string, unknown>): string => typeof payload.userId === "string" ? ` by ${payload.userId}` : "";
 
-const askedQuestion = (type: string, payload: Record<string, unknown>): AskPayload | undefined =>
-  type === "action.proposed" && payload.owner === ASK_PLUGIN_ID ? askPayloadOf(payload.payload) : undefined;
+const optionText = (option: AskOption): string =>
+  option.description.trim() ? `${JSON.stringify(option.label)} (${text(option.description)})` : JSON.stringify(option.label);
+
+/** A question of ragents.ask in one line: its header, its text, and its options with their descriptions. */
+export const questionLine = (question: AskQuestion): string =>
+  `[${text(question.header)}] ${text(question.question)} Options: ${question.options.map(optionText).join(", ")}${question.multiSelect ? " (several allowed)" : ""}`;
+
+/** The questions of a ragents.ask action; a payload in another shape stays a raw action line. */
+const askedQuestions = (type: string, payload: Record<string, unknown>): readonly AskQuestion[] =>
+  type === "action.proposed" && payload.owner === ASK_PLUGIN_ID && askPayloadComplaints(payload.payload).length === 0
+    ? (payload.payload as AskPayload).questions : [];
 
 export type JournalMode = "chat" | "tools" | "all";
 
@@ -115,7 +122,7 @@ export const journalLines = (events: readonly JournalEvent[], mode: JournalMode,
     const actor = event.actorId.slice(0, 14);
     const payload = event.payload;
     const type = event.type;
-    const question = askedQuestion(type, payload);
+    const questions = askedQuestions(type, payload);
     if (type === "model.output.completed" && mode !== "tools") {
       const output = text(payload.text);
       if (output.trim()) lines.push(`[${event.sequence}] ${actor}: ${output.slice(0, 800)}`);
@@ -128,8 +135,12 @@ export const journalLines = (events: readonly JournalEvent[], mode: JournalMode,
       lines.push(`[${event.sequence}] CONTEXT COMPACTED ${actor}: about ${String(payload.tokensBefore)} tokens summarized${applied}`);
     } else if (type === "turn.input-steered" && mode !== "tools") {
       lines.push(`[${event.sequence}] STEERING -> ${actor}: ${String(payload.inputId ?? "")} in ${String(payload.turnId ?? "")}`);
-    } else if (question && mode !== "tools") {
-      lines.push(`[${event.sequence}] QUESTION ${actor}: ${questionLine(question)}`);
+    } else if (type === "run.paused" && mode !== "tools") {
+      lines.push(`[${event.sequence}] PAUSED${byUser(payload)}: ${text(payload.reason)}`);
+    } else if (type === "run.resumed" && mode !== "tools") {
+      lines.push(`[${event.sequence}] RESUMED (${String(payload.trigger ?? "")})${byUser(payload)}`);
+    } else if (questions.length > 0 && mode !== "tools") {
+      lines.push(...questions.map((question) => `[${event.sequence}] QUESTION ${actor}: ${questionLine(question)}`));
     } else if (type.startsWith("tool.call.") && mode !== "chat") {
       const body = type.endsWith("started") ? payload.input : type.endsWith("failed") ? payload.error : undefined;
       if (body !== undefined) lines.push(`[${event.sequence}] ${type.split(".").pop()} ${actor} ${String(payload.name ?? "")}: ${JSON.stringify(body).slice(0, 300)}`);

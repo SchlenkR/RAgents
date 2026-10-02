@@ -1,5 +1,5 @@
 import {
-  CircleAlertIcon, CircleCheckIcon, CircleEllipsisIcon, CircleIcon, CirclePlayIcon, CircleSlashIcon, CircleXIcon, HourglassIcon, LockIcon,
+  CircleAlertIcon, CircleCheckIcon, CircleEllipsisIcon, CircleIcon, CirclePauseIcon, CirclePlayIcon, CircleSlashIcon, CircleXIcon, HourglassIcon, LockIcon,
 } from "lucide-react";
 import type { ComponentType } from "react";
 import { cn } from "cn";
@@ -11,10 +11,11 @@ interface Mark {
   readonly filled?: boolean;
 }
 
-/** Green is running, blue is moving, yellow is waiting for you, red is broken, gray is idle, muted is over; no state ever carries the stop glyph (square). */
+/** Green is running, blue is moving, yellow is waiting for you (also a paused run), red is broken, gray is idle, muted is over; no state ever carries the stop glyph (square). */
 const RUN_MARKS: Record<RunStateName, Mark> = {
   running: { Icon: CirclePlayIcon, tone: "text-success" },
   waiting: { Icon: CircleEllipsisIcon, tone: "text-warning" },
+  paused: { Icon: CirclePauseIcon, tone: "text-warning" },
   idle: { Icon: CircleIcon, tone: "text-muted-foreground" },
   ended: { Icon: CircleCheckIcon, tone: "text-muted-foreground opacity-70" },
   failed: { Icon: CircleXIcon, tone: "text-destructive" },

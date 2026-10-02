@@ -12,10 +12,23 @@ const fieldClasses = "mb-5 grid gap-2 text-[0.85rem] font-semibold";
 
 interface AccessValue extends UserAccess {
   logout: () => Promise<void>;
+  /** Stopping or pausing the run needs runs.write but not operating it; set only below a run its viewer may not operate. */
+  canStopRun?: boolean;
 }
 
 export const AccessContext = createContext<AccessValue>({ ...unrestrictedAccess, logout: async () => {} });
+
+/** Whether the viewer may stop or pause the run: with runs.write, unless a share for viewing excludes it. */
+export const canStopRun = (access: AccessValue): boolean => access.canStopRun ?? access.can("runs.write");
 export const useAccess = () => useContext(AccessContext);
+
+/** Below a run the viewer only watches, the interface behaves as without runs.write; the server refuses operating anyway. */
+export function RunAccessScope({ operable, stoppable, children }: PropsWithChildren<{ operable: boolean; stoppable: boolean }>) {
+  const access = useAccess();
+  const scoped = useMemo<AccessValue>(() => operable ? access
+    : { ...access, can: (right) => right !== "runs.write" && access.can(right), canStopRun: stoppable && canStopRun(access) }, [access, operable, stoppable]);
+  return <AccessContext.Provider value={scoped}>{children}</AccessContext.Provider>;
+}
 
 /** The full-page card for sign-in and startup errors, also used by the entry point in main.tsx. */
 export function AccessScreen({ children }: PropsWithChildren) {

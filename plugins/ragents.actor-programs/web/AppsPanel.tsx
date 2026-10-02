@@ -9,8 +9,8 @@ import {
   useState,
   type PropsWithChildren,
 } from "react";
-import { askPayloadOf, ASK_PLUGIN_ID } from "@ragents/plugins/ragents.ask/ask-payload";
-import { answerQuestion } from "@ragents/plugins/ragents.ask/web/api";
+import { askPayloadOf, ASK_PLUGIN_ID, type QuestionAnswer } from "@ragents/plugins/ragents.ask/ask-payload";
+import { answerQuestions } from "@ragents/plugins/ragents.ask/web/api";
 import { QuestionCard } from "@ragents/plugins/ragents.ask/web/QuestionCard";
 import { ACTOR_PROGRAMS_STATE_ID } from "@ragents/host/plugin-support/actor-programs/contract";
 import {
@@ -190,12 +190,12 @@ export function HostConfirmation({ action, session }: { action: RunAction; sessi
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string>();
 
-  const answer = async (text: string) => {
+  const answer = async (answers: readonly QuestionAnswer[]) => {
     if (busy) return;
     setBusy(true);
     setError(undefined);
     try {
-      await answerQuestion(session.session.id, action.id, text);
+      await answerQuestions(session.session.id, action.id, answers);
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : String(caught));
       setBusy(false);
@@ -212,9 +212,8 @@ export function HostConfirmation({ action, session }: { action: RunAction; sessi
         ? <p className="text-xs text-muted-foreground">Processing answer</p>
         : (
           <QuestionCard
-            onAnswer={access.can("runs.write") ? (text: string) => void answer(text) : undefined}
-            question={askPayloadOf(action.payload) ?? { question: action.title, options: [], multi: false }}
-            text={action.title}
+            onAnswer={access.can("runs.write") ? (answers) => void answer(answers) : undefined}
+            questions={askPayloadOf(action.payload).questions}
           />
         )}
       {error && <p className="text-xs text-destructive" role="alert">{error}</p>}

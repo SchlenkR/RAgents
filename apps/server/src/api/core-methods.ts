@@ -1,4 +1,4 @@
-import { canStartEntry, DomainError, implement, implementChannel, type AccessContext, type ChannelContribution, type MethodContribution, type PluginHost } from "@ragents/engine";
+import { canStartEntry, DomainError, implement, implementChannel, type AccessContext, type ChannelContribution, type MethodContribution, type PluginHost, type RunSharing } from "@ragents/engine";
 import { parseChatAttachments } from "quassel/events";
 import type { ChatSessionLike, ChatSessionProvider, ChatUser } from "../chat-handler.js";
 import { accessibleActorConversations, accessibleChatEvent } from "../access-projection.js";
@@ -7,12 +7,17 @@ import type { RunPreparationResponse } from "../run-preparation-contract.js";
 import type { RunTransferExport, RunTransferImport } from "../run-transfer.js";
 import type { SettingsResponse, SettingsSkillDetail } from "../settings.js";
 import type { TitleModelSettings } from "../title-settings-contract.js";
-import { coreContracts } from "./contracts.js";
-import { assertRunReachable, assertRunRights, runListScope, type GlobalRunPolicy, type RunAccessPolicy } from "./rights.js";
+import { coreContracts, type RunSharingResult } from "./contracts.js";
+import { assertRunDeletable, assertRunReachable, assertRunRights, runListScope, runSharer, type GlobalRunPolicy, type RunAccessPolicy } from "./rights.js";
 
 export interface CoreMethodSources {
   sessions: ChatSessionProvider & {
-    subscribeList: (listener: () => void) => () => void;
+    subscribeList: (listener: () => void, userId: string | null) => () => void;
+    markViewed: (runId: string, revision: number, userId: string | null) => void;
+    /** Whom the run is shared with for this user, who may change it; before the start their own choice. */
+    sharing: (runId: string, userId: string) => RunSharingResult;
+    /** Replaces the sharing for this user, who may change it; before the start it waits for the run's creation. */
+    share: (runId: string, sharing: RunSharing, userId: string) => RunSharingResult;
     subscribeRun: (runId: string, listener: () => void) => () => void;
     startOptions: (runId: string, userId: string | null) => readonly StartOptionState[];
     selectStartOption: (runId: string, optionId: string, value: unknown, userId: string | null) => Promise<StartOptionState>;
@@ -32,10 +37,15 @@ export interface CoreMethodSources {
   runOwner: (runId: string) => string | null | undefined;
   /** Whether only the owner operates the run. */
   runOwnerOnly: (runId: string) => boolean;
+  /** Whom the run is shared with besides its owner. */
+  runSharing: (runId: string) => RunSharing;
   /** Without sign-in and access token, settings are readable only from the local machine. */
   settingsGuarded: () => boolean;
   external: { open: () => boolean; set: (value: boolean) => Promise<void> };
 }
+
+const policyOf = (sources: Pick<CoreMethodSources, "global" | "runOwner" | "runOwnerOnly" | "runSharing">): RunAccessPolicy =>
+  ({ global: sources.global, ownerOf: sources.runOwner, ownerOnly: sources.runOwnerOnly, sharing: sources.runSharing });
 
 const userOf = (access: AccessContext): ChatUser | undefined => access.user ? { id: access.user.id, label: access.user.label } : undefined;
 
@@ -76,7 +86,7 @@ const guardedForUser = async <T>(access: AccessContext, work: () => Promise<T>):
 
 export const coreMethods = (sources: CoreMethodSources): MethodContribution[] => {
   const { sessions, global } = sources;
-  const policy: RunAccessPolicy = { global, ownerOf: sources.runOwner, ownerOnly: sources.runOwnerOnly };
+  const policy = policyOf(sources);
   const session = async (access: AccessContext, runId: string, kind: "read" | "write" | "stop"): Promise<ChatSessionLike> => {
     assertRunRights(access, runId, kind, policy);
     return sessions.get(runId);
@@ -89,7 +99,18 @@ export const coreMethods = (sources: CoreMethodSources): MethodContribution[] =>
   };
   return [
     implement(coreContracts.runs.list, (_input, { access }) => sessions.list(runListScope(access, policy))),
-    implement(coreContracts.runs.delete, async ({ runId }) => { await sessions.delete(runId); return null; }),
+    implement(coreContracts.runs.delete, async ({ runId }, { access }) => {
+      assertRunDeletable(access, runId, policy);
+      await sessions.delete(runId);
+      return null;
+    }),
+    implement(coreContracts.runs.sharing, ({ runId }, { access }) => sessions.sharing(runId, runSharer(access, runId, policy))),
+    implement(coreContracts.runs.share, ({ runId, sharing }, { access }) => sessions.share(runId, sharing, runSharer(access, runId, policy))),
+    implement(coreContracts.runs.markViewed, ({ runId, revision }, { access }) => {
+      assertRunRights(access, runId, "read", policy);
+      sessions.markViewed(runId, revision, userIdOf(access));
+      return null;
+    }),
     implement(coreContracts.chat.send, async ({ runId, text, attachments, userLocation, entry }, { access }) => {
       assertMaySend(access, runId);
       const located = locatedRun(userLocation);
@@ -169,13 +190,13 @@ export const coreMethods = (sources: CoreMethodSources): MethodContribution[] =>
   ];
 };
 
-export const coreChannels = (sources: Pick<CoreMethodSources, "sessions" | "plugins" | "global" | "runOwner" | "runOwnerOnly">): ChannelContribution[] => {
-  const { sessions, global } = sources;
-  const policy: RunAccessPolicy = { global, ownerOf: sources.runOwner, ownerOnly: sources.runOwnerOnly };
+export const coreChannels = (sources: Pick<CoreMethodSources, "sessions" | "plugins" | "global" | "runOwner" | "runOwnerOnly" | "runSharing">): ChannelContribution[] => {
+  const { sessions } = sources;
+  const policy = policyOf(sources);
   return [
-    implementChannel(coreContracts.channels.runs, (_params, emit) => {
+    implementChannel(coreContracts.channels.runs, (_params, emit, { access }) => {
       const notify = () => emit({ type: "changed" });
-      const unsubscribe = sessions.subscribeList(notify);
+      const unsubscribe = sessions.subscribeList(notify, userIdOf(access));
       notify();
       return unsubscribe;
     }),

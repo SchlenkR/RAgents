@@ -1,11 +1,9 @@
 import { canStartEntry, hasRight, type AccessSnapshot, type AccessUser } from "../../../packages/ragents/src/access";
-import { runContracts } from "../../../packages/ragents/src/http/contracts";
 import type { PublicStartEntry } from "../../../packages/ragents/src/plugin-types";
 import { RpcError } from "../../../packages/ragents/src/rpc/protocol";
 import { coreContracts } from "../../server/src/api/contracts";
-import type { SessionInfo } from "../../web/src/api";
+import type { ListedSession } from "../../web/src/api";
 import type { RpcStreamStatus } from "../../web/src/rpc/client";
-import { runSummaryFrom, sortRuns, type RunSummary } from "./run-model";
 import { ServerClient, ServerError, UnreachableError } from "./server-client";
 
 export type ConnectionStatus =
@@ -16,11 +14,8 @@ export type ConnectionStatus =
   | { kind: "forbidden"; message: string };
 
 const POLL_INTERVAL_MS = 5000;
-const VIEW_DEBOUNCE_MS = 250;
+const RUN_DEBOUNCE_MS = 250;
 export const RECONNECT_DELAY_MS = 5000;
-
-const revisionOf = (view: unknown): number | undefined =>
-  typeof view === "object" && view !== null && "revision" in view && typeof view.revision === "number" ? view.revision : undefined;
 
 /** Depending on the path, a rejected call arrives as an HTTP error of the sign-in or as a domain error of the messaging layer. */
 const rejectionOf = (cause: unknown): { status: number | undefined; code: string | undefined } => {
@@ -28,11 +23,6 @@ const rejectionOf = (cause: unknown): { status: number | undefined; code: string
   if (cause instanceof RpcError) return { status: cause.status, code: cause.domainCode };
   return { status: undefined, code: undefined };
 };
-
-interface CachedView {
-  revision: number | undefined;
-  view: unknown;
-}
 
 /** A template of the server as the Start page shows it. */
 export interface StartEntrySummary {
@@ -48,7 +38,7 @@ export interface StartEntrySummary {
   guide?: string;
 }
 
-/** Runs, run views, and connection state of the extension; pages, badge, and panel read only here. */
+/** Runs and connection state of the extension; pages, badge, and panel read only here. */
 export class RunStore {
   #status: ConnectionStatus = { kind: "connecting" };
   #access: AccessSnapshot = { enabled: false, user: null };
@@ -58,9 +48,7 @@ export class RunStore {
   #defaultEntry: string | undefined;
   #product: string | undefined;
   #serverVersion: string | null | undefined;
-  #sessions: SessionInfo[] = [];
-  #views = new Map<string, CachedView>();
-  #summaries = new Map<string, { session: SessionInfo; view: unknown; summary: RunSummary }>();
+  #sessions: readonly ListedSession[] = [];
   #listeners = new Set<() => void>();
   #watches = new Map<string, { count: number; unsubscribe: () => void; timer: ReturnType<typeof setTimeout> | undefined }>();
   #sessionsSubscription: (() => void) | undefined;
@@ -116,19 +104,13 @@ export class RunStore {
       && (hasRight(this.#access, "runs.create") || this.#entries.some((entry) => canStartEntry(this.#access, entry.id)));
   }
 
-  get runs(): RunSummary[] {
-    return sortRuns(this.#sessions.map((session) => this.run(session.id)!));
+  /** The server's run list for this user, with state, pending actions, and read marker per run. */
+  get runs(): readonly ListedSession[] {
+    return this.#sessions;
   }
 
-  run(runId: string): RunSummary | undefined {
-    const session = this.#sessions.find((entry) => entry.id === runId);
-    if (!session) return undefined;
-    const view = this.#views.get(runId)?.view;
-    const cached = this.#summaries.get(runId);
-    if (cached && cached.session === session && cached.view === view) return cached.summary;
-    const summary = runSummaryFrom(session, view);
-    this.#summaries.set(runId, { session, view, summary });
-    return summary;
+  run(runId: string): ListedSession | undefined {
+    return this.#sessions.find((entry) => entry.id === runId);
   }
 
   get pendingActions(): number {
@@ -216,7 +198,7 @@ export class RunStore {
   }
 
 
-  /** As long as a run is watched, its run view follows the run channel instead of only the list. */
+  /** As long as a run is watched, its row follows the run channel instead of only the five-second poll. */
   watch(runId: string): () => void {
     const existing = this.#watches.get(runId);
     if (existing) {
@@ -252,24 +234,12 @@ export class RunStore {
       const sessions = await this.client.rpc.call(coreContracts.runs.list, {});
       if (generation !== this.#generation) return;
       this.#sessions = sessions;
-      for (const runId of this.#views.keys()) if (!sessions.some((session) => session.id === runId)) this.#views.delete(runId);
       if (this.#status.kind !== "connected") this.#set({ kind: "connected" });
       else this.#notify();
-      await Promise.all(sessions
-        .filter((session) => session.locked === undefined && this.#views.get(session.id)?.revision !== session.revision)
-        .map((session) => this.#loadView(session.id, session.revision)));
     } catch (cause) {
       if (generation !== this.#generation) return;
       this.#fail(cause);
     }
-  }
-
-  async #loadView(runId: string, revision: number | undefined): Promise<void> {
-    const generation = this.#generation;
-    const view = await this.client.rpc.call(runContracts.view, { runId }) ?? undefined;
-    if (generation !== this.#generation) return;
-    this.#views.set(runId, { revision: revision ?? revisionOf(view), view });
-    this.#notify();
   }
 
   #subscribeRun(runId: string): void {
@@ -280,8 +250,8 @@ export class RunStore {
       if (watch.timer !== undefined) return;
       watch.timer = setTimeout(() => {
         watch.timer = undefined;
-        void this.#loadView(runId, undefined).then(() => this.refresh()).catch((cause: unknown) => this.#fail(cause));
-      }, VIEW_DEBOUNCE_MS);
+        void this.refresh();
+      }, RUN_DEBOUNCE_MS);
     });
   }
 

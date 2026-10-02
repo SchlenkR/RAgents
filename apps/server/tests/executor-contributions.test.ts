@@ -169,8 +169,9 @@ test("two TypeScript roots stay open side by side in the same run", { timeout: 3
     );
 
     const edited = await f.executor.execute("run-ts", "edit", {
-      path: "b/broken.ts",
-      edits: [{ oldText: "7", newText: "false" }],
+      file_path: "b/broken.ts",
+      old_string: "7",
+      new_string: "false",
     });
     assert.match(textOf(edited), /Diagnostics \(TypeScript\) b\/broken\.ts: 1 error/);
     assert.doesNotMatch(textOf(edited), /a\/broken\.ts/);

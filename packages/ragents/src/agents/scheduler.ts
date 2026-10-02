@@ -49,6 +49,11 @@ export type TurnInterruption = {
     reason: string;
 };
 
+/** Who pauses a run and why; userId is the signed-in user, missing without sign-in. */
+export type RunPauseRequest = TurnInterruption & {
+    userId?: string;
+};
+
 const DEFAULT_INTERRUPT_WAIT_MS = 15_000;
 
 /** Longer inputs do not join a running turn; they wait for their own turn. */
@@ -249,6 +254,17 @@ export class TurnScheduler {
 
         if (active)
             this.#live?.publish(runId, actorId, { kind: "turn-finished", turnId, outcome: "abandoned" });
+    }
+
+    /** Writes run.paused first, so no turn can start any more, then interrupts the running turns of all actors; a paused run is paused again without an error. */
+    async pauseRun(runId: string, pause: RunPauseRequest) {
+        this.#runtime.pauseRun(pause.context, runId, { reason: pause.reason, ...pause.userId === undefined ? {} : { userId: pause.userId } });
+        const running = this.#runtime.view(runId).actors.filter((actor) => actor.kind !== "human" && actor.lifecycle.kind === "running");
+
+        await Promise.all(running.map((actor) => this.interruptTurn(runId, actor.id, {
+            context: { ...pause.context, commandId: `${pause.context.commandId}:interrupt:${actor.id}` },
+            reason: pause.reason,
+        })));
     }
 
     #runningTurnId(runId: string, actorId: string) {
@@ -689,6 +705,9 @@ export class TurnScheduler {
 
         const view = this.#runtime.view(runId);
 
+        if (view.pause)
+            return;
+
         for (const actor of view.actors) {
             const input = view.inputs
                 .filter((entry) => entry.actorId === actor.id && isPendingActorInput(entry))
@@ -698,6 +717,7 @@ export class TurnScheduler {
                 actor.kind !== "human" &&
                 isAutomated(actor.execution.driver.kind) &&
                 actor.lifecycle.kind === "idle" &&
+                !actor.held &&
                 !this.#toolChecks.has(keyOf(runId, actor.id)) &&
                 input
             )
@@ -805,11 +825,12 @@ export class TurnScheduler {
             return;
 
         const idle = this.#actor(runId, actorId);
-        const pending = this.#runtime.view(runId).inputs.find(
+        const current = this.#runtime.view(runId);
+        const pending = current.inputs.find(
             (entry) => entry.id === inputId && entry.actorId === actorId && isPendingActorInput(entry),
         );
 
-        if (!idle || !isAutomated(idle.execution.driver.kind) || idle.lifecycle.kind !== "idle" || !pending)
+        if (!idle || !isAutomated(idle.execution.driver.kind) || idle.lifecycle.kind !== "idle" || idle.held || current.pause || !pending)
             return;
 
         const turn = claimTurn(
@@ -993,6 +1014,10 @@ export class TurnScheduler {
             return [];
 
         const view = this.#runtime.view(turn.runId);
+
+        if (view.pause)
+            return [];
+
         const pending = view.inputs
             .filter((entry) => entry.actorId === turn.actorId && isPendingActorInput(entry))
             .sort((left, right) => left.sequence - right.sequence)

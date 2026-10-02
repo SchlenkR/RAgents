@@ -90,14 +90,14 @@ test("transform preserves its public result", async () => {
 });
 
 const writeSources = (name: string, files: Readonly<Record<string, string>>) => Object.entries(files).map(([filename, content]) =>
-    `await context.functions.write({ path: ${JSON.stringify(`@actors/${name}/${filename}`)}, content: ${JSON.stringify(content)} });`,
+    `await context.functions.write({ file_path: ${JSON.stringify(`@actors/${name}/${filename}`)}, content: ${JSON.stringify(content)} });`,
 ).join("\n");
 
 test("new, revised and removed actor functions are discovered and called within one coordinator turn", async (t) => {
     const run = await workflow(t);
     const before = await run.call("before", "typescript_api", { query: "dynamic_transform" });
     assert.deepEqual(before, { functions: [], hint: "No function contains the query as one phrase in its name, label or description; use a single word. Omit query to list all names." });
-    assert.deepEqual(run.toolset.tools.map((entry) => entry.name), ["read", "edit", "write", "bash", "typescript_api", "typescript_eval"]);
+    assert.equal(run.toolset.tools.some((entry) => entry.name === "dynamic_transform"), false);
     await run.call("build", "typescript_eval", { code: `
 await context.functions.actor_program_create({ name: "formatter", template: "blank" });
 ${writeSources("formatter", functionFiles(false))}
@@ -106,6 +106,7 @@ return context.functions.actor_program_activate({ name: "formatter" });
     const first = await run.call("first-api", "typescript_api", { names: ["dynamic_transform"] });
     assert.match(JSON.stringify(first), /value.*string/s);
     assert.deepEqual(await run.call("first-call", "typescript_eval", { code: 'return context.functions.dynamic_transform({ value: "hello" });' }), { result: "HELLO", logs: [] });
+    assert.equal(await run.call("native-call", "dynamic_transform", { value: "hello" }), "HELLO");
 
     await run.call("rebuild", "typescript_eval", { code: `${writeSources("formatter", functionFiles(true))}
 return context.functions.actor_program_activate({ name: "formatter" });` });
@@ -118,7 +119,7 @@ return context.functions.actor_program_activate({ name: "formatter" });` });
     assert.deepEqual(await run.call("removed-api", "typescript_api", { query: "dynamic_transform" }), { functions: [], hint: "No function contains the query as one phrase in its name, label or description; use a single word. Omit query to list all names." });
     await assert.rejects(run.call("removed-detail", "typescript_api", { names: ["dynamic_transform"] }), /Unavailable TypeScript functions/);
     await assert.rejects(run.call("removed-call", "typescript_eval", { code: 'return context.functions.dynamic_transform({ value: 4 });' }), /does not exist/);
-    assert.deepEqual(run.toolset.tools.map((entry) => entry.name), ["read", "edit", "write", "bash", "typescript_api", "typescript_eval"]);
+    assert.equal(run.toolset.tools.some((entry) => entry.name === "dynamic_transform"), false);
     assert.equal(run.setup.runtime.view(run.setup.view.id).turns.length, 1);
 });
 
@@ -142,7 +143,7 @@ ${writeSources("collector", {
         "src/server.ts": server,
     })}
 const program = await context.functions.actor_program_activate({ name: "collector" });
-return context.functions.actor_input({ actor: program.actor, content: "from input" });
+return context.functions.actor_input({ to: program.actor, message: "from input" });
 ` });
     const program = run.runtime.programs(run.setup.view.id).find((entry) => entry.name === "collector");
     assert.ok(program);
@@ -194,11 +195,11 @@ return context.functions.actor_program_activate({ name: "excluded" });
 test("workspace tools are directly callable with the same scoped file operations and journal", async (t) => {
     const f = await workflow(t);
     assert.deepEqual(f.toolset.tools.filter((tool) => ["read", "write", "edit", "bash"].includes(tool.name)).map((tool) => tool.name).sort(), ["bash", "edit", "read", "write"]);
-    await f.call("direct-write", "write", { path: "direct.txt", content: "before" });
-    await f.call("direct-edit", "edit", { path: "direct.txt", edits: [{ oldText: "before", newText: "after" }] });
-    assert.match(String(await f.call("direct-read", "read", { path: "direct.txt" })), /after/);
+    await f.call("direct-write", "write", { file_path: "direct.txt", content: "before" });
+    await f.call("direct-edit", "edit", { file_path: "direct.txt", old_string: "before", new_string: "after" });
+    assert.match(String(await f.call("direct-read", "read", { file_path: "direct.txt" })), /after/);
     assert.match(String(await f.call("direct-bash", "bash", { command: "cat direct.txt" })), /after/);
-    await assert.rejects(f.call("direct-outside", "write", { path: "../forbidden.txt", content: "denied" }), /outside/);
+    await assert.rejects(f.call("direct-outside", "write", { file_path: "../forbidden.txt", content: "denied" }), /outside/);
     const calls = f.setup.runtime.events(f.setup.view.id).filter((event) => event.type === "tool.call.started");
     assert.deepEqual(calls.map((event) => event.payload.name), ["write", "edit", "read", "bash", "write"]);
     assert.ok(calls.every((event) => event.actorId === f.setup.agent.id));

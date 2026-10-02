@@ -1,7 +1,7 @@
-import type { ConnectionEntry, ConnectionRoute, ConnectionRun, ConnectionState, ConnectionView, PanelPage, PanelState } from "../../web/src/panel/contract";
+import type { ConnectionEntry, ConnectionRoute, ConnectionState, ConnectionView, PanelPage, PanelSharing, PanelState } from "../../web/src/panel/contract";
 import type { RunPanelTheme } from "../../web/src/run-panel/host-contract";
+import { connectionRunOf } from "../../web/src/run-overview";
 import { connectionAddress, profileNameOf, serverHost } from "./connections";
-import type { RunSummary } from "./run-model";
 import type { ConnectionSnapshot, SessionStatus } from "./sessions";
 import type { StartEntrySummary } from "./store";
 
@@ -17,16 +17,6 @@ const stateOf = (status: SessionStatus): ConnectionState => {
     case "login-required": return { kind: "login-required", mode: status.tokenGate ? "token" : "password" };
   }
 };
-
-const runOf = (run: RunSummary): ConnectionRun => ({
-  id: run.id,
-  title: run.title,
-  state: run.state,
-  pendingActions: run.pendingActions,
-  updatedAt: run.updatedAt,
-  ...(run.problem !== undefined ? { problem: run.problem } : {}),
-  ...(run.locked !== undefined ? { locked: run.locked } : {}),
-});
 
 const entryOf = (entry: StartEntrySummary): ConnectionEntry => ({
   id: entry.id,
@@ -48,7 +38,7 @@ export const connectionView = (snapshot: ConnectionSnapshot): ConnectionView => 
   address: connectionAddress(snapshot.connection),
   route: routeOf(snapshot),
   state: stateOf(snapshot.status),
-  runs: snapshot.runs.map(runOf),
+  runs: snapshot.runs.map(connectionRunOf),
   entries: snapshot.entries.map(entryOf),
   ...(snapshot.defaultEntry !== undefined ? { defaultEntry: snapshot.defaultEntry } : {}),
   canCreate: snapshot.canCreate,
@@ -70,6 +60,10 @@ export interface PanelInput {
   problem: string | undefined;
   pickedProfileFile: string | undefined;
   runsConnection: string | undefined;
+  /** The open share dialog of a run, with what the server returned or refused. */
+  sharing?: PanelSharing;
+  /** A short message on Start, such as for a run that is no longer shared with the user. */
+  notice?: string;
 }
 
 /** The whole state of the panel page; it draws Start, Runs, or Server from it. */
@@ -82,6 +76,8 @@ export const panelState = (input: PanelInput): PanelState => ({
   ...(input.problem !== undefined ? { problem: input.problem } : {}),
   ...(input.pickedProfileFile !== undefined ? { pickedProfileFile: input.pickedProfileFile } : {}),
   ...(input.runsConnection !== undefined ? { runsConnection: input.runsConnection } : {}),
+  ...(input.sharing !== undefined ? { sharing: input.sharing } : {}),
+  ...(input.notice !== undefined ? { notice: input.notice } : {}),
 });
 
 /** How many servers are currently connected; the status bar shows this number. */

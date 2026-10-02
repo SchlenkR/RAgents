@@ -1,13 +1,13 @@
 export const BROWSER_OPERATIONS = {
-  open: "browser.open",
+  navigate: "browser.navigate",
   snapshot: "browser.snapshot",
-  viewport: "browser.viewport",
+  resize: "browser.resize",
   click: "browser.click",
-  fill: "browser.fill",
-  select: "browser.select",
-  press: "browser.press",
+  type: "browser.type",
+  selectOption: "browser.selectOption",
+  pressKey: "browser.pressKey",
   check: "browser.check",
-  screenshot: "browser.screenshot",
+  takeScreenshot: "browser.takeScreenshot",
   state: "browser.state",
   close: "browser.close",
 } as const;
@@ -30,6 +30,13 @@ export interface BrowserTarget {
 export interface BrowserViewport {
   width: number;
   height: number;
+}
+
+/** What browser_type enters: `text` replaces the field content unless `slowly` types it key by key; `submit` presses Enter afterwards. */
+export interface BrowserTyping {
+  text: string;
+  submit?: boolean;
+  slowly?: boolean;
 }
 
 export interface BrowserSnapshot {

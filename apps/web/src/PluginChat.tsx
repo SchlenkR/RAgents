@@ -1,6 +1,7 @@
 import { runApps, selectedRunApp, RunAppView } from "./run-apps";
 import { isRecord } from "./lib/guards";
-import { useAccess } from "./AccessContext";
+import { canStopRun, RunAccessScope, useAccess } from "./AccessContext";
+import { readOnlyReason } from "./run-sharing";
 import {
   useCallback,
   useEffect,
@@ -12,12 +13,13 @@ import {
 } from "react";
 import { createPortal } from "react-dom";
 import { ChatInputToolbar, ChatMessages, ChatPanel, type ChatAttachmentInput, type ChatEvent, type ToolInfo } from "quassel";
-import { primaryChatState, primaryIsProgram, programChatNotice, runIsWorking } from "./chat/chat-target";
+import { primaryChatState, primaryIsProgram, programChatNotice, runIsWorking, runPausable } from "./chat/chat-target";
+import { PausedRunNotice } from "./chat/PausedRunNotice";
 import { StoppedActorNotice } from "./chat/StoppedActorNotice";
 import { ChatViewSwitches, useChatViewSettings } from "./chat-view-settings";
 import { useChat } from "./chat/useChat";
 import { runUserLocation, type ChatRunLocation } from "./chat/user-location";
-import { dismissAction, interruptActorTurn, type SessionInfo } from "./api";
+import { dismissAction, pauseRun, type SessionInfo } from "./api";
 import { useRunStore } from "./RunStore";
 import { withToolSummaries } from "./toolLine";
 import { StartOptionControls, StartOptionsProvider, useStartOptions } from "./StartOptions";
@@ -209,6 +211,7 @@ export function PluginChat({ autoFocusChat, onAutoFocusChatSettled, layout = "pa
   }, [activeTabId]);
 
   return (
+    <RunAccessScope operable={session.operable !== false} stoppable={session.sharedAccess !== "read"}>
     <RunModalContext.Provider value={startOnly ? null : modalContainer}>
     <SurfaceModalContext.Provider value={startOnly ? null : surfaceModalContainer}>
     <ChatStepsProvider policy={registry.chatDisplayPolicy}>
@@ -246,6 +249,7 @@ export function PluginChat({ autoFocusChat, onAutoFocusChatSettled, layout = "pa
     </ChatStepsProvider>
     </SurfaceModalContext.Provider>
     </RunModalContext.Provider>
+    </RunAccessScope>
   );
 }
 
@@ -452,17 +456,20 @@ function ChatSurface({
   const attachments = useAttachmentCapabilities(session.session.id, "primary", JSON.stringify(startOptions.options.map(({ id, value }) => [id, value])));
   const messages = useMemo(() => withToolSummaries(session.messages), [session.messages]);
   const working = session.connected && (session.running || runIsWorking(session.runView, session.session.id));
-  const partner = primaryChatState(session.runView, session.session.id, session.running);
+  const partner = primaryChatState(session.runView, session.session.id);
+  const stoppable = canStopRun(access) && session.connected && runPausable(session.runView, session.session.id, session.running);
   return (
     <ChatPanel
       className={cn(chatElementClass, options.chatElementClassName)}
       composer={
         primaryIsProgram(session.runView, session.session.id) ? <div className="flex min-w-0 flex-col gap-1.5">
+          <PausedRunNotice runId={session.session.id} view={session.runView} />
           <p className="text-muted-foreground">{programChatNotice}</p>
           <div className="flex min-w-0 flex-wrap items-center gap-2">{options.toolbarLeft}<ChatViewSwitches settings={chatView} /></div>
         </div>
         : partner.kind === "stopped" ? <div className="[--qsl-input-card-radius:var(--radius-lg)]"><StoppedActorNotice actor={partner.actor} runId={session.session.id} toolbar={<>{options.toolbarLeft}<ChatViewSwitches settings={chatView} /></>} /></div>
         : <div className="[--qsl-input-card-radius:var(--radius-lg)]">
+          <PausedRunNotice runId={session.session.id} view={session.runView} />
           {sendError && <p className="text-[0.8rem] text-destructive" role="alert">{sendError}</p>}
           <ChatInputToolbar
             {...attachments}
@@ -470,14 +477,14 @@ function ChatSurface({
             onAutoFocusSettled={onAutoFocusSettled}
             disabled={!session.connected || !writable}
             maxRows={4}
-            texts={writable ? undefined : { placeholder: "Read access to this run" }}
+            texts={writable ? undefined : { placeholder: readOnlyReason(session.session) }}
             onSend={(text, attachments) => {
               setSendError(undefined);
               return session.send(text, attachments);
             }}
-            onStop={writable && partner.kind === "active" && partner.turnRunning ? () => {
+            onStop={stoppable ? () => {
               setSendError(undefined);
-              void interruptActorTurn(session.session.id, partner.actorId).catch((error: unknown) => setSendError(error instanceof Error ? error.message : String(error)));
+              void pauseRun(session.session.id).catch((error: unknown) => setSendError(error instanceof Error ? error.message : String(error)));
             } : undefined}
             rows={1}
             running={working}

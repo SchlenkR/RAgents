@@ -7,7 +7,7 @@ import { PluginRegistry, type SessionContext, type WebPlugin } from "../src/Plug
 
 const waiting = (owner: string | null): Message[] => applyEvent([], {
   kind: "action", actionId: "action-1", owner, text: "Which color?",
-  payload: { question: "Which color?", options: ["Blue", "Red"], multi: false },
+  payload: { questions: [{ question: "Which color?", header: "Choice", options: [{ label: "Blue", description: "" }, { label: "Red", description: "" }], multiSelect: false }] },
 });
 
 const registryWith = (views: WebPlugin["actionViews"]) => new PluginRegistry({
@@ -39,7 +39,7 @@ test("an answered action stays as a receipt without controls", () => {
 });
 
 test("the owner's view replaces the generic card, a foreign action stays generic", () => {
-  const registry = registryWith([{ owner: "ragents.ask", View: ({ action }) => createElement("p", null, `Options: ${JSON.stringify((action.payload as { options: string[] }).options)}`) }]);
+  const registry = registryWith([{ owner: "ragents.ask", View: ({ action }) => createElement("p", null, `Options: ${JSON.stringify((action.payload as { questions: { options: { label: string }[] }[] }).questions[0]!.options.map((option) => option.label))}`) }]);
   const renderAction = (action: PendingAction, text: string) => {
     const View = registry.actionViewFor(action.owner)?.View;
     return View ? createElement(View, { action, text, session: {} as SessionContext }) : undefined;

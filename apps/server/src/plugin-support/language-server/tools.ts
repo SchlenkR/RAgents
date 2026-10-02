@@ -39,21 +39,18 @@ export const createLanguageServerToolContributor = (
   const extensions = Object.keys(languages).join(", ");
   const openMetadata = {
     name: languageServerOpenOperation(id),
-    nativeTool: true,
     description: `Start a ${label} language server instance for this run's workspace and load ${rootDescription}. `
       + `Afterwards every edit or write of a ${extensions} file gets its diagnostics appended automatically, `
       + `and ${languageServerDiagnosticsOperation(id)} is available. Idempotent for the same root; other roots stay open.`,
   } as const;
   const diagnosticsMetadata = {
     name: languageServerDiagnosticsOperation(id),
-    nativeTool: true,
     description: `Current ${label} diagnostics (errors, warnings on request) for ${extensions} files from the running `
       + `language server, without building. Without paths: all changed files of every open root according to git. `
       + `With paths every file is answered by the instance whose root contains it; root asks one instance.`,
   } as const;
   const closeMetadata = {
     name: languageServerCloseOperation(id),
-    nativeTool: true,
     description: `Stop the ${label} language server instance of one root; without root every ${label} instance of `
       + "this conversation. Other languages and other conversations stay untouched.",
   } as const;
@@ -96,7 +93,6 @@ export const createLanguageServerToolContributor = (
   });
   const solutionsMetadata = {
     name: languageServerSolutionsOperation(id),
-    nativeTool: true,
     description: `List the solution files (${(languageServer.solutionExtensions ?? []).join(", ")}) of this run's workspace and mark `
       + `which ones the ${label} language server has open. ${openMetadata.name} loads another one in addition; `
       + "the open ones stay open.",

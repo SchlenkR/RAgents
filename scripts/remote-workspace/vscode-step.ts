@@ -14,12 +14,12 @@ export const hostTestTasks: readonly KnownTask[] = [
     program: {
       id: "vscode-task",
       steps: [
-        { tool: "read", input: { path: "README.md" } },
-        { tool: "edit", input: { path: "src/greeter.ts", edits: [{ oldText: GREETING_BEFORE, newText: "Hello from VS Code" }] } },
+        { tool: "read", input: { file_path: "README.md" } },
+        { tool: "edit", input: { file_path: "src/greeter.ts", old_string: GREETING_BEFORE, new_string: "Hello from VS Code" } },
         { tool: "bash", input: { command: "ls -1 src" } },
         { tool: "typescript_open", input: { root: "." } },
         { tool: "typescript_diagnostics", input: {} },
-        { tool: "document_write", input: { path: "report.md", content: "Greeting line changed, diagnostics ran.\n" } },
+        { tool: "document_write", input: { storePath: "report.md", content: "Greeting line changed, diagnostics ran.\n" } },
       ],
     },
   },

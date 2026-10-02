@@ -1,7 +1,7 @@
 import { constants } from "node:fs";
 import { access as fsAccess } from "node:fs/promises";
 import { spawn } from "child_process";
-import { Type } from "typebox";
+import { type Static, Type } from "typebox";
 import { waitForChildProcess } from "../../utils/child-process.ts";
 import { resolvePath } from "../../utils/paths.ts";
 import { getShellConfig, killProcessTree } from "../../utils/shell.ts";
@@ -11,35 +11,45 @@ import { DEFAULT_MAX_LINES, formatSize, type TruncationResult } from "./truncate
 
 export const BASH_MAX_BYTES = 20 * 1024;
 export const BASH_MAX_LINE_CHARS = 1000;
-export const BASH_DEFAULT_TIMEOUT_SECONDS = 120;
-export const BASH_MAX_TIMEOUT_SECONDS = 3600;
+export const BASH_DEFAULT_TIMEOUT_MS = 120_000;
+export const BASH_MAX_TIMEOUT_MS = 3_600_000;
 
-function checkedTimeoutSeconds(timeout: number, label: string): number {
+function checkedTimeoutMs(timeout: number, label: string): number {
 	if (!Number.isFinite(timeout) || timeout <= 0) {
-		throw new Error(`Invalid ${label} ${timeout}: must be a positive number of seconds`);
+		throw new Error(`Invalid ${label} ${timeout}: must be a positive number of milliseconds`);
 	}
-	if (timeout > BASH_MAX_TIMEOUT_SECONDS) {
-		throw new Error(`Invalid ${label} ${timeout}: the maximum is ${BASH_MAX_TIMEOUT_SECONDS} seconds`);
+	if (timeout > BASH_MAX_TIMEOUT_MS) {
+		throw new Error(`Invalid ${label} ${timeout}: the maximum is ${BASH_MAX_TIMEOUT_MS} milliseconds`);
 	}
 	return timeout;
 }
 
-const bashSchemaFor = (defaultTimeoutSeconds: number) => Type.Object({
-	command: Type.String({ description: "Bash command to execute" }),
+const bashSchemaFor = (defaultTimeoutMs: number) => Type.Object({
+	command: Type.String({ description: "The command to execute" }),
 	timeout: Type.Optional(Type.Number({
 		exclusiveMinimum: 0,
-		maximum: BASH_MAX_TIMEOUT_SECONDS,
-		default: defaultTimeoutSeconds,
-		description: `Timeout in seconds (default ${defaultTimeoutSeconds}, maximum ${BASH_MAX_TIMEOUT_SECONDS})`,
+		maximum: BASH_MAX_TIMEOUT_MS,
+		default: defaultTimeoutMs,
+		description: `Optional timeout in milliseconds (default ${defaultTimeoutMs}, max ${BASH_MAX_TIMEOUT_MS})`,
 	})),
-	cwd: Type.Optional(Type.String({ description: "Folder to run the command in: relative to the working directory or starting with a workspace alias such as @name; defaults to the working directory" })),
-});
+	description: Type.Optional(Type.String({
+		description: "Clear, concise description of what this command does in active voice, 5-10 words, for example \"List files in current directory\"; the user reads it, often without seeing the command",
+	})),
+	run_in_background: Type.Optional(Type.Boolean({
+		description: "Not available here: true is rejected, because a call ends with its command. Run long commands in the foreground with a larger timeout",
+	})),
+	cwd: Type.Optional(Type.String({ description: "Folder to run the command in: relative to the working directory or starting with a workspace alias such as @actors/<name>; defaults to the working directory" })),
+}, { additionalProperties: false });
 
 type BashSchema = ReturnType<typeof bashSchemaFor>;
 
-const timeoutNotice = (seconds: number): string => seconds < BASH_MAX_TIMEOUT_SECONDS
-	? `Command stopped after ${seconds} seconds (timeout). Narrow the command, for example search with rg instead of grep -r, or pass a larger timeout, up to ${BASH_MAX_TIMEOUT_SECONDS} seconds.`
-	: `Command stopped after ${seconds} seconds, the maximum timeout. Narrow the command, for example search with rg instead of grep -r, or split it into shorter steps.`;
+export type BashToolInput = Static<BashSchema>;
+
+const backgroundUnavailable = `run_in_background is not available: a bash call ends with its command, and the processes left in its process group end with it. Run the command in the foreground with a timeout of up to ${BASH_MAX_TIMEOUT_MS} ms, or split it into shorter steps.`;
+
+const timeoutNotice = (milliseconds: number): string => milliseconds < BASH_MAX_TIMEOUT_MS
+	? `Command stopped after ${milliseconds} ms (timeout). Narrow the command, for example search with rg instead of grep -r, or pass a larger timeout, up to ${BASH_MAX_TIMEOUT_MS} ms.`
+	: `Command stopped after ${milliseconds} ms, the maximum timeout. Narrow the command, for example search with rg instead of grep -r, or split it into shorter steps.`;
 
 
 export interface BashToolDetails {
@@ -65,8 +75,8 @@ export interface BashOperations {
 		options: {
 			onData: (data: Buffer) => void;
 			signal?: AbortSignal;
-			/** Seconds until the command is stopped. */
-			timeout: number;
+			/** Milliseconds until the command is stopped. */
+			timeoutMs: number;
 			env?: NodeJS.ProcessEnv;
 		},
 	) => Promise<{ exitCode: number | null }>;
@@ -75,7 +85,7 @@ export interface BashOperations {
 /** Bash operations on the built-in local shell. */
 export function createLocalBashOperations(options?: { shellPath?: string }): BashOperations {
 	return {
-		exec: async (command, cwd, { onData, signal, timeout, env }) => {
+		exec: async (command, cwd, { onData, signal, timeoutMs, env }) => {
 			if (signal?.aborted) {
 				throw new Error("aborted");
 			}
@@ -100,7 +110,7 @@ export function createLocalBashOperations(options?: { shellPath?: string }): Bas
 			const timeoutHandle = setTimeout(() => {
 				timedOut = true;
 				if (child.pid) killProcessTree(child.pid);
-			}, timeout * 1000);
+			}, timeoutMs);
 
 			try {
 				// Stream stdout and stderr.
@@ -118,7 +128,7 @@ export function createLocalBashOperations(options?: { shellPath?: string }): Bas
 					throw new Error("aborted");
 				}
 				if (timedOut) {
-					throw new Error(`timeout:${timeout}`);
+					throw new Error(`timeout:${timeoutMs}`);
 				}
 				return { exitCode };
 			} finally {
@@ -151,8 +161,8 @@ export interface BashToolOptions {
 	shellPath?: string;
 	/** Hook to adjust command, cwd, or env before execution */
 	spawnHook?: BashSpawnHook;
-	/** Timeout in seconds for a call without one, at most BASH_MAX_TIMEOUT_SECONDS. Default: BASH_DEFAULT_TIMEOUT_SECONDS */
-	defaultTimeoutSeconds?: number;
+	/** Timeout in milliseconds for a call without one, at most BASH_MAX_TIMEOUT_MS. Default: BASH_DEFAULT_TIMEOUT_MS */
+	defaultTimeoutMs?: number;
 }
 
 const BASH_UPDATE_THROTTLE_MS = 100;
@@ -164,19 +174,25 @@ export function createBashToolDefinition(
 	const ops = options?.operations ?? createLocalBashOperations({ shellPath: options?.shellPath });
 	const commandPrefix = options?.commandPrefix;
 	const spawnHook = options?.spawnHook;
-	const defaultTimeoutSeconds = checkedTimeoutSeconds(options?.defaultTimeoutSeconds ?? BASH_DEFAULT_TIMEOUT_SECONDS, "default timeout");
+	const defaultTimeoutMs = checkedTimeoutMs(options?.defaultTimeoutMs ?? BASH_DEFAULT_TIMEOUT_MS, "default timeout");
 	return {
 		name: "bash",
 		label: "bash",
-		description: `Execute a bash command in the working directory, or in the folder given as cwd. Returns stdout and stderr; a nonzero exit code is reported at the end of the result (for example grep without a match), not as a tool error. Output is truncated to last ${DEFAULT_MAX_LINES} lines or ${BASH_MAX_BYTES / 1024}KB (whichever is hit first), and lines longer than ${BASH_MAX_LINE_CHARS} characters are shortened. If anything was cut, the full output is saved to a temp file. rg searches recursively by default; its -r flag means replace and rewrites every match, it does not mean recursive. A command is stopped after ${defaultTimeoutSeconds} seconds unless you pass a larger timeout (at most ${BASH_MAX_TIMEOUT_SECONDS} seconds); builds, test runs, installs and other long commands need one.`,
-		parameters: bashSchemaFor(defaultTimeoutSeconds),
+		description: "Execute a bash command in the working directory, or in the folder given as cwd. Every call starts there; a cd does not carry over to the next call. "
+			+ "Returns stdout and stderr; a nonzero exit code is reported at the end of the result (for example grep without a match), not as a tool error. "
+			+ `Output is truncated to the last ${DEFAULT_MAX_LINES} lines or ${BASH_MAX_BYTES / 1024}KB (whichever is hit first), and lines longer than ${BASH_MAX_LINE_CHARS} characters are shortened. If anything was cut, the full output is saved to a temp file. `
+			+ "rg searches recursively by default; its -r flag means replace and rewrites every match, it does not mean recursive. "
+			+ `A command is stopped after ${defaultTimeoutMs} ms unless you pass a larger timeout in milliseconds (at most ${BASH_MAX_TIMEOUT_MS}); builds, test runs, installs and other long commands need one. `
+			+ "Commands cannot run in the background: a call returns when its command has finished.",
+		parameters: bashSchemaFor(defaultTimeoutMs),
 		async execute(
 			_toolCallId,
-			{ command, timeout, cwd: folder }: { command: string; timeout?: number; cwd?: string },
+			{ command, timeout, run_in_background, cwd: folder }: BashToolInput,
 			signal?: AbortSignal,
 			onUpdate?,
 		) {
-			const timeoutSeconds = timeout === undefined ? defaultTimeoutSeconds : checkedTimeoutSeconds(timeout, "timeout");
+			if (run_in_background === true) throw new Error(backgroundUnavailable);
+			const timeoutMs = timeout === undefined ? defaultTimeoutMs : checkedTimeoutMs(timeout, "timeout");
 			const resolvedCommand = commandPrefix ? `${commandPrefix}\n${command}` : command;
 			const spawnContext = resolveSpawnContext(resolvedCommand, folder === undefined ? cwd : resolvePath(folder, cwd), spawnHook);
 			const output = new OutputAccumulator({ maxBytes: BASH_MAX_BYTES, maxLineChars: BASH_MAX_LINE_CHARS, tempFilePrefix: "agent-bash" });
@@ -272,7 +288,7 @@ export function createBashToolDefinition(
 					const result = await ops.exec(spawnContext.command, spawnContext.cwd, {
 						onData: handleData,
 						signal,
-						timeout: timeoutSeconds,
+						timeoutMs,
 						env: spawnContext.env,
 					});
 					exitCode = result.exitCode;
@@ -283,7 +299,7 @@ export function createBashToolDefinition(
 						throw new Error(appendStatus(text, "Command aborted"));
 					}
 					if (err instanceof Error && err.message.startsWith("timeout:")) {
-						throw new Error(appendStatus(text, timeoutNotice(timeoutSeconds)));
+						throw new Error(appendStatus(text, timeoutNotice(timeoutMs)));
 					}
 					throw err;
 				}

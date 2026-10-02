@@ -36,10 +36,20 @@ enabled and no valid session, all permissions are denied.
 
 ## Run ownership
 
-A run belongs to the user who created it. Users normally see and operate only their own runs;
-`runs.read.all` adds visibility across owners. Ownership is recorded once in the journal and is
-never rewritten. Runs created without authentication have no owner and are visible only with
-`runs.read.all` when authentication is later enabled.
+A run belongs to the user who created it. Users normally see and operate only their own runs and
+the runs shared with them; `runs.read.all` adds visibility across owners. Ownership is recorded
+once in the journal and is never rewritten. Runs created without authentication have no owner and
+are visible only with `runs.read.all` when authentication is later enabled.
+
+With sign-in, the owner can share a run with every user of the profile, with individual users, or
+both, each share with its own access. `read` shows the run with its chat, apps, and journal as far
+as the user's own permissions allow, and its workspace unless only its owner may reach it, but
+operates nothing: no messages, app actions, answers, run scripts, restarts, or stops
+(`run-read-only`, status 403). `write` lets the user see and operate the run as `runs.read.all`
+would, still only within their own permissions. A user gets the higher of the share for everyone
+and their own. Only the owner and users with `runs.read.all` change whom a run is shared with, and
+a share never permits deleting the run. The browser and VS Code offer this as the "Share run"
+dialog from the run list and the run header ([Share runs](guide-clients.html#share-runs)).
 
 The server enforces ownership on lists, methods, event channels, and file routes before opening a
 run. An inaccessible run responds like a missing one. Each signed-in user has a global coordinator
@@ -47,7 +57,8 @@ of their own, reachable by nobody else, not even with `runs.read.all`; its tools
 user's access and rights, and runs it creates belong to that user. Without sign-in there is exactly
 one coordinator. A start option can additionally mark a run
 as `ownerOnly`, as the workspace binding does for tools running on the owner's machine. Other
-users with visibility may still read its journal and stop it, but only its owner can send messages,
+users with visibility may still read its journal and, unless it is shared with them for reading,
+stop it, but only its owner can send messages,
 answer actions, restart actors, or invoke operations requiring `runs.write`. Its workspace is the
 owner's alone even for reading: the workspace files in the Files tab, the process rail, and
 language-server state are refused to everyone else, including `runs.read.all`

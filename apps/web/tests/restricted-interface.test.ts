@@ -3,7 +3,9 @@ import test from "node:test";
 import { createElement, type ReactNode } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { createAccessContext } from "../../../packages/ragents/src/access";
-import { AccessContext } from "../src/AccessContext";
+import { AccessContext, RunAccessScope, useAccess } from "../src/AccessContext";
+import type { SessionInfo } from "../src/api";
+import { RunPanelHeader } from "../src/run-panel/RunPanelHeader";
 import { ChatStepsProvider, PluginRegistry, useChatSteps, type SessionContext } from "../src/PluginRegistry";
 import { ChatMessages, type Message, attachmentCapabilityError } from "quassel";
 import { StartSelection } from "../src/StartSelection";
@@ -51,7 +53,7 @@ test("restricted chat keeps messages and waiting actions while suppressing techn
       toolArgumentsText: () => assert.fail("Restricted chat must not format technical tool arguments"), messages: [
       { key: "user", role: "user", text: "Please start" },
       { key: "answer", role: "assistant", text: "I am syncing the projects." },
-      { key: "question", role: "action", text: "Which change to keep?", action: { actionId: "ask", owner: "ragents.ask", payload: { question: "Which change to keep?", options: ["Ours"], multi: false } } },
+      { key: "question", role: "action", text: "Which change to keep?", action: { actionId: "ask", owner: "ragents.ask", payload: { questions: [{ question: "Which change to keep?", header: "Choice", options: [{ label: "Ours", description: "" }, { label: "Theirs", description: "" }], multiSelect: false }] } } },
       { key: "thinking", role: "thinking", text: "Private thought" },
       { key: "tool", role: "tool", text: "internal_tool", tool: { id: "tool", name: "internal_tool", arguments: "private_argument" } },
     ] });
@@ -123,4 +125,36 @@ test("attachment rejection with a hidden model gives an actionable message witho
   const error = attachmentCapabilityError([{ name: "photo.png", mediaType: "image/png" }], { input: ["text"], model: "" });
   assert.match(error ?? "", /photo.png.*Remove the attachment/);
   assert.doesNotMatch(error ?? "", /model/i);
+});
+
+const headerOf = (session: SessionInfo, operable = session.operable !== false) => {
+  const registry = new PluginRegistry({ brand: { title: "Example" }, product: { id: "example", title: "Example" }, plugins: [{ id: "example" }], startEntries: [] });
+  const context = { session, connected: true, pluginEvents: [], messages: [], runView: undefined, running: false, send: async () => {}, start: async () => {} } as SessionContext;
+  const navigation = { activeTabId: "", openTab: () => {}, revealEntity: () => false, selectionFor: () => undefined };
+  return renderRestricted(createElement(RunAccessScope, { operable }, createElement(RunPanelHeader, {
+    attention: undefined, contributions: [], navigation, registry, runError: undefined, session: context, working: false,
+  })));
+};
+
+test("a run the viewer only watches behaves below it as without runs.write, while every other right stays", () => {
+  const Probe = () => createElement("span", null, ["runs.read", "runs.write"].map((right) => `${right}=${useAccess().can(right)}`).join(" "));
+  const probe = (operable: boolean) => renderRestricted(createElement(RunAccessScope, { operable }, createElement(Probe)));
+  assert.match(probe(false), /runs\.read=true runs\.write=false/);
+  assert.match(probe(true), /runs\.read=true runs\.write=true/);
+  const own = headerOf({ id: "run", title: "Review", updatedAt: 0, operable: true });
+  assert.match(own, /aria-label="Run script"/);
+  const viewed = headerOf({ id: "run", title: "Review", updatedAt: 0, operable: false, sharedAccess: "read" });
+  assert.doesNotMatch(viewed, /aria-label="Run script"/, "no run scripts in a run the viewer only watches");
+});
+
+test("the run header offers Share to whoever may share and tells a sharee what the share permits", () => {
+  const owner = headerOf({ id: "run", title: "Review", updatedAt: 0, operable: true, canShare: true });
+  assert.match(owner, /<button(?=[^>]*aria-label="Share")(?=[^>]*title="Share run")[^>]*>/);
+  assert.match(headerOf({ id: "run", title: "Review", updatedAt: 0, operable: true, canShare: true, shared: true }), /title="Shared - change whom the run is shared with"/);
+  const viewer = headerOf({ id: "run", title: "Review", updatedAt: 0, operable: false, sharedAccess: "read" });
+  assert.match(viewer, /title="Shared with you - view only"[^>]*>View only</);
+  assert.doesNotMatch(viewer, /aria-label="Share"/);
+  const member = headerOf({ id: "run", title: "Review", updatedAt: 0, operable: true, sharedAccess: "write" });
+  assert.match(member, /title="Shared with you - can operate"[^>]*>Shared</);
+  assert.doesNotMatch(headerOf({ id: "run", title: "Review", updatedAt: 0, operable: true }), /aria-label="Share"|View only/);
 });

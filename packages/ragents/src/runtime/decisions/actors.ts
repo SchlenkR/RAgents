@@ -5,6 +5,7 @@ import type {
     CapabilityGrant,
     ExecutableActor,
     PluginStateScope,
+    RunSharing,
     RunState,
 } from "../../domain/model.ts";
 import { assertJsonValue, type JsonValue } from "../../domain/json.ts";
@@ -18,6 +19,7 @@ import { DomainError } from "../domain-error.ts";
 import { descendantsOf } from "../stop.ts";
 import {
     actorById,
+    checkedSharing,
     commandActorOf,
     addressedActorOf,
     assertCapability,
@@ -84,6 +86,18 @@ export const retitleRun = (title: string): Decision => (state, context) => {
     return [event(context, { type: "run.title-changed", payload: { title: clean(title, "title") } })];
 };
 
+/** The owner replaces whom the run is shared with; changedBy names the signed-in user who asked for it. */
+export const shareRun = (input: { sharing: RunSharing; changedBy: string }): Decision => (state, context) => {
+    const caller = commandActorOf(state, context);
+
+    if (caller.id !== state.ownerId)
+        throw new DomainError("run-sharing-denied", `${caller.displayName} may not change whom the run is shared with; only its owner does.`, 403);
+
+    const sharing = checkedSharing(input.sharing, state.ownerUserId);
+
+    return [event(context, { type: "run.sharing-changed", payload: { ...sharing, changedBy: clean(input.changedBy, "changedBy") } })];
+};
+
 export const spawnAgent =
     (input: {
         handle: string;
@@ -94,22 +108,27 @@ export const spawnAgent =
         toolNames: readonly string[] | null;
         forkOf?: string;
         description?: string;
+        task?: string;
     }): Decision =>
     (state, context, services) => {
         const caller = commandActorOf(state, context);
         assertCapability(caller, "agent.spawn", { kind: "run" });
         assertDelegation(caller, input.grants);
 
+        if (input.task !== undefined && caller.id !== state.ownerId)
+            assertCapability(caller, "actor.input", { kind: "run" });
+
         const requested = handleOf(input.handle);
         const handle = uniqueHandleOf(state, requested);
         const suffix = handle === requested ? "" : ` ${handle.slice(requested.length + 1)}`;
         const forkOf = input.forkOf === undefined ? undefined : forkSourceOf(state, input.forkOf);
+        const agentId = services.newId("agent");
 
         return [
             event(context, {
                 type: "agent.spawned",
                 payload: {
-                    agentId: services.newId("agent"),
+                    agentId,
                     handle,
                     displayName: `${clean(input.displayName, "displayName")}${suffix}`,
                     prompt: input.prompt.trim(),
@@ -120,6 +139,17 @@ export const spawnAgent =
                     ...descriptionOf(input.description),
                 },
             }),
+            ...(input.task === undefined ? [] : [event(context, {
+                type: "actor.input.enqueued" as const,
+                payload: {
+                    inputId: services.newId("input"),
+                    actorId: agentId,
+                    artifactIds: [],
+                    content: clean(input.task, "task"),
+                    subscriptionId: null,
+                    sourceEventIds: [],
+                },
+            })]),
         ];
     };
 

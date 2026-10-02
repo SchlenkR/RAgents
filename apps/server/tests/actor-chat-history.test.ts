@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { EventEmitter } from "node:events";
 import type { IncomingMessage, ServerResponse } from "node:http";
 import test from "node:test";
-import { AccessProjectionRegistry, createAccessContext, DomainError, Journal, LiveBus, Orchestration } from "@ragents/engine";
+import { AccessProjectionRegistry, createAccessContext, DomainError, eventSubjectOf, Journal, LiveBus, Orchestration } from "@ragents/engine";
 import { project, viewOf } from "../../../packages/ragents/src/domain/projection.ts";
 import { executionFor, manualExecution, allGrants, testServices, textStep, thinkingStep } from "../../../packages/ragents/tests/support.ts";
 import type { ChatSessionLike } from "../src/chat-handler.ts";
@@ -31,7 +31,8 @@ function fixture() {
   const reviewer = spawn("reviewer");
   const script = runtime.createScriptActor(context(), id, { handle: "notelist", displayName: "Note list", grants: [], toolNames: [] }).actors.find((actor) => actor.kind === "script")!;
   runtime.selectPrimaryActor(context(), id, coordinator.id);
-  const input = (actorId: string, text: string, from = ownerId, turnId?: string, artifactIds: string[] = []) => runtime.enqueueInput(context(from, turnId), id, { actorId, content: text, artifactIds }).inputs.at(-1)!;
+  const input = (actorId: string, text: string, from = ownerId, turnId?: string, artifactIds: string[] = []) => runtime.enqueueInput(context(from, turnId), id,
+    { actorId, content: text, artifactIds, ...from === ownerId ? { origin: "human" as const } : {} }).inputs.at(-1)!;
   const start = (actorId: string, text: string) => {
     const queued = input(actorId, text);
     return runtime.startTurn(context(actorId), id, actorId, queued.id).turns.at(-1)!.id;
@@ -49,6 +50,12 @@ function fixture() {
       ownerId,
       labelOf: (actorId) => view.actors.find((actor) => actor.id === actorId)?.displayName,
       turnOf: (turnId) => view.turns.find((turn) => turn.id === turnId)!,
+      inputOf: (inputId) => view.inputs.find((input) => input.id === inputId)!,
+      sourceOf: (eventId) => {
+        const source = events.find((event) => event.eventId === eventId)!;
+        return { type: source.type, subjectId: eventSubjectOf(runtime.state(id), source) };
+      },
+      handleOf: (actorId) => view.actors.find((actor) => actor.id === actorId)!.handle,
       interruptedByCommand: (commandId, actorId) => events.some((event) => event.commandId === commandId
         && event.type === "turn.interrupted" && view.turns.find((turn) => turn.id === event.payload.turnId)?.actorId === actorId),
     }).reduce(applyEvent, [] as Message[]);
@@ -192,7 +199,8 @@ test("background prompts stay out of primary and actor chats while normal messag
     f.runtime.completeModelStep(f.context(actor, turn), f.id, actor, { turnId: turn, step: textStep("The implementation continues.") });
     f.finish(actor, turn);
     const expected = ["How is the implementation going?", "I am checking the progress.", "The implementation continues."];
-    assert.deepEqual(f.primaryHistory(actor).map((message) => message.text), expected);
+    assert.deepEqual(f.primaryHistory(actor).map((message) => message.text), [...expected.slice(0, 2), "New turn, triggered by an automatic input", expected[2]],
+      "the primary chat only says that an automatic input started the turn");
     assert.deepEqual(f.history().actors[actor].map((message) => message.text), expected);
     assert.deepEqual(f.history().actors[actor].map((message) => message.role), ["user", "assistant", "assistant"]);
     const events = f.runtime.events(f.id);
@@ -251,7 +259,7 @@ test("shared action payloads preserve actor routing, primary asker labels and di
     const actor = f.reviewer.id;
     const turn = f.start(actor, "Review");
     const question = f.runtime.proposeAction(f.context(actor, turn), f.id, {
-      owner: "ragents.ask", title: "Which color?", payload: { question: "Which color?", options: ["Blue", "Red"], multi: true },
+      owner: "ragents.ask", title: "Which color?", payload: { questions: [{ question: "Which color?", header: "Color", options: [{ label: "Blue", description: "" }, { label: "Red", description: "" }], multiSelect: true }] },
     }).actions.at(-1)!;
     f.runtime.resolveAction(f.context(), f.id, question.id, { decision: "dismissed" });
     const primary = f.primaryHistory(f.coordinator.id).find((message) => message.role === "action")!;
@@ -260,7 +268,7 @@ test("shared action payloads preserve actor routing, primary asker labels and di
     assert.equal(primary.text, "reviewer: Which color?");
     assert.equal(own.text, "Which color?");
     assert.equal(own.action?.owner, "ragents.ask");
-    assert.deepEqual(own.action?.payload, { question: "Which color?", options: ["Blue", "Red"], multi: true });
+    assert.deepEqual(own.action?.payload, { questions: [{ question: "Which color?", header: "Color", options: [{ label: "Blue", description: "" }, { label: "Red", description: "" }], multiSelect: true }] });
     assert.deepEqual(primary.action?.payload, own.action?.payload);
     assert.equal(own.action?.status, "dismissed");
     assert.equal(actors[f.coordinator.id].length, 0);
@@ -277,8 +285,8 @@ test("delivered inputs retain senders and attachments while actions and stops st
     const deliveredInput = f.input(b, "Review the attachment", a, turn, [artifact.id]);
     const reviewerTurn = f.runtime.startTurn(f.context(b), f.id, b, deliveredInput.id).turns.at(-1)!.id;
     f.tool(b, reviewerTurn, "notes.txt");
-    const question = f.runtime.proposeAction(f.context(a, turn), f.id, { owner: "ragents.ask", title: "Which color?", payload: { question: "Which color?", options: ["Blue", "Red"] } }).actions[0];
-    f.runtime.resolveAction(f.context(), f.id, question.id, { decision: "approved", result: "Blue" });
+    const question = f.runtime.proposeAction(f.context(a, turn), f.id, { owner: "ragents.ask", title: "Which color?", payload: { questions: [{ question: "Which color?", header: "Color", options: [{ label: "Blue", description: "" }, { label: "Red", description: "" }], multiSelect: true }] } }).actions[0];
+    f.runtime.resolveAction(f.context(), f.id, question.id, { decision: "approved", result: { answers: [{ selected: ["Blue"] }] } });
     f.runtime.stopActor(f.context(), f.id, b, "Review stopped");
     const history = f.history();
     const delivered = history.actors[b].find((message) => message.text === "Review the attachment")!;
@@ -286,7 +294,7 @@ test("delivered inputs retain senders and attachments while actions and stops st
     assert.equal(delivered.role, "assistant");
     assert.equal(delivered.bubble?.label, "Delivered by @coordinator");
     assert.deepEqual(delivered.attachments, [{ name: "notes.txt", mediaType: "text/plain", size: artifact.size, url: attachmentContentPath(f.id, artifact.id) }]);
-    assert.equal(history.actors[a].find((message) => message.role === "action")?.action?.result, "Blue");
+    assert.deepEqual(history.actors[a].find((message) => message.role === "action")?.action?.result, { answers: [{ selected: ["Blue"] }] });
     assert.ok(history.actors[b].every((message) => message.role !== "action"));
     assert.equal(history.actors[b].at(-1)?.text, "Review stopped");
     assert.equal(history.actors[b].at(-1)?.sender, b);

@@ -74,6 +74,18 @@ export const runContracts = {
     input: command({ actorId: Type.String({ minLength: 1 }), reason: Type.Optional(Type.String({ minLength: 1 })) }),
     result: runViewSchema,
   }),
+  pause: defineOperation({
+    id: "ragents.runs.pause",
+    description: "Pause the whole run: no turn of any actor starts any more, the running turns of all actors are interrupted, and later inputs wait in the journal. A human input or ragents.runs.resume continues it; a paused run stays paused without an error.",
+    input: command({ reason: Type.Optional(Type.String({ minLength: 1 })) }),
+    result: runViewSchema,
+  }),
+  resume: defineOperation({
+    id: "ragents.runs.resume",
+    description: "Continue a paused run without a message: the primary actor gets everything that waited in one turn, every other actor only once it is addressed directly. A run that is not paused stays as it is.",
+    input: command({}),
+    result: runViewSchema,
+  }),
   resolveAction: defineOperation({
     id: "ragents.runs.resolveAction",
     description: "Answer or dismiss a pending action.",

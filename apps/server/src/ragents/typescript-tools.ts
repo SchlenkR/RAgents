@@ -95,7 +95,6 @@ export const createTypeScriptToolContributor = (options: TypeScriptToolOptions):
     const tools: readonly RunFunction[] = [
         defineRunFunction({
             ...metadata[0],
-            nativeTool: true,
             available,
             executionMode: "parallel",
             schema: Type.Object({
@@ -139,7 +138,6 @@ export const createTypeScriptToolContributor = (options: TypeScriptToolOptions):
         }),
         defineRunFunction({
             ...metadata[1],
-            nativeTool: true,
             available,
             executionMode: "sequential",
             schema: Type.Object({
@@ -183,7 +181,6 @@ export const createTypeScriptToolContributor = (options: TypeScriptToolOptions):
         descriptors: tools.map((entry) => ({
             name: entry.name,
             description: entry.description,
-            nativeTool: true,
             scope: "per-turn",
             availability: "conditional",
             availabilityDetail: "For active executable actors with a function selection.",

@@ -23,7 +23,7 @@ function fixture(initialState: WordGameState = {}) {
       },
       agent_spawn: async (input) => {
         calls.push({ name: "agent_spawn", input });
-        return { id: `actor-${input.handle}`, handle: input.handle };
+        return { id: `actor-${input.name}`, handle: input.name };
       },
       run_configure: async (input) => { calls.push({ name: "run_configure", input }); return null; },
       event_subscribe: async (input) => {
@@ -33,7 +33,7 @@ function fixture(initialState: WordGameState = {}) {
       actor_input: async (input) => {
         calls.push({ name: "actor_input", input });
         if (settings.failDispatch) throw new Error("Handover failed");
-        return [{ type: "actor.input.enqueued", payload: { actorId: input.actor, inputId: `request-${calls.length}` } }];
+        return [{ type: "actor.input.enqueued", payload: { actorId: input.to, inputId: `request-${calls.length}` } }];
       },
       event_query: async (input) => { calls.push({ name: "event_query", input }); return history.filter((event) => input.actorIds?.includes(event.actorId)); },
     },
@@ -64,9 +64,9 @@ test("sets up four plain LLMs and its own view without a model task", async () =
   await program.onInput(firstInput, context);
   assert.equal(context.state.read().status, "ready");
   assert.deepEqual(calls.filter((call) => call.name === "agent_spawn").map((call) => {
-    const input = call.input as { handle: string; displayName: string; tools: unknown; profile: string };
-    return { handle: input.handle, name: input.displayName, tools: input.tools, profile: input.profile };
-  }), participants.map((participant) => ({ ...participant, tools: [], profile: "standard" })));
+    const input = call.input as { name: string; displayName: string; description: string; tools: unknown; profile: string };
+    return { handle: input.name, name: input.displayName, description: input.description, tools: input.tools, profile: input.profile };
+  }), participants.map((participant) => ({ ...participant, description: "plays the word game", tools: [], profile: "standard" })));
   assert.equal(calls.some((call) => call.name === "actor_input"), false);
   assert.deepEqual(calls.find((call) => call.name === "run_configure")!.input, { title: "Word game", primaryActor: "test-actor" });
   const before = structuredClone(context.state.read());
@@ -80,7 +80,7 @@ test("the app call sends only one task to its own control actor", async () => {
   const { context, calls } = fixture();
   await program.onInput(firstInput, context);
   assert.deepEqual(await program.functions.start({}, context), { accepted: true });
-  assert.deepEqual(calls.at(-1), { name: "actor_input", input: { actor: "test-actor", content: "START_WORD_GAME" } });
+  assert.deepEqual(calls.at(-1), { name: "actor_input", input: { to: "test-actor", message: "START_WORD_GAME" } });
   assert.equal(calls.some((call) => call.name === "event_subscribe"), false);
   assert.equal(context.state.read().status, "ready");
 });
@@ -90,9 +90,9 @@ test("waits for later events, counts twelve contributions, and ends the handover
   await start();
   assert.deepEqual(calls.slice(-2).map((call) => call.name), ["event_subscribe", "actor_input"]);
   for (const word of words) await program.onInput(response(word), context);
-  const inputs = calls.filter((call) => call.name === "actor_input" && (call.input as { actor: string }).actor !== "test-actor");
+  const inputs = calls.filter((call) => call.name === "actor_input" && (call.input as { to: string }).to !== "test-actor");
   assert.equal(inputs.length, 12);
-  assert.deepEqual(inputs.map((call) => (call.input as { actor: string }).actor), words.map((_word, index) => `actor-${participants[index % 4]!.handle}`));
+  assert.deepEqual(inputs.map((call) => (call.input as { to: string }).to), words.map((_word, index) => `actor-${participants[index % 4]!.handle}`));
   assert.equal(context.state.read().status, "completed");
   assert.equal(context.state.read().entries?.length, 12);
   assert.match(context.state.read().document!, /12\. Green: Flower/);

@@ -88,8 +88,11 @@ export type RunFunction = {
     /** Whether this output ends the caller's turn when the model called the function as a native tool. */
     endsTurn?: (output: JsonValue) => boolean;
     executionMode?: ToolExecutionMode;
+    /** Every function is a native model tool unless it opts out with false; context.functions offers it either way. */
     nativeTool?: boolean;
 };
+
+export const isNativeTool = (tool: { readonly nativeTool?: boolean | undefined }): boolean => tool.nativeTool !== false;
 
 export const defineRunFunction = <Schema extends TSchema, ResultSchema extends TSchema>(definition: {
     name: string;
@@ -359,8 +362,8 @@ export const agentTools: RunFunction[] = [
     tool({
         name: "actor_input",
         label: "Enqueue Actor Input",
-        description: "Enqueue plain text and optional artifacts for one actor. The actor receives no routing envelope.",
-        longDescription: "This only confirms enqueueing, not processing, an answer or completion. An agent in the middle of a turn receives the text in that turn before its next model request; otherwise it starts the agent's next turn. Agents interpret natural language. TypeScript actors only process their programmed input protocol: use their documented functions, or send an exact supported program input after inspecting the program. Never address an unknown script with a natural-language task or assume an idle or completed turn means the requested work happened.",
+        description: "Send plain text and optional artifacts to one existing actor of this run, such as a task, an answer or a question; it receives no routing envelope.",
+        longDescription: "It reaches an actor that already exists; agent_spawn creates a new one. This only confirms enqueueing, not processing, an answer or completion; an answer reaches you only as a later input, for example through a subscription to the recipient's events. An agent in the middle of a turn receives the text in that turn before its next model request; otherwise it starts the agent's next turn. Agents interpret natural language. TypeScript actors only process their programmed input protocol: use their documented functions, or send an exact supported program input after inspecting the program. Never address an unknown script with a natural-language task or assume an idle or completed turn means the requested work happened.",
         schema: actorInputSchema,
         resultSchema: eventResultSchemaOf("actor.input.enqueued"),
         available: needs("actor.input"),
@@ -384,6 +387,7 @@ export const agentTools: RunFunction[] = [
         }, { additionalProperties: false }),
         resultSchema: subscriptionCreatedSchema,
         available: needs("event.subscribe"),
+        nativeTool: false,
         run: ({ runtime, caller, context }, toolCallId, input) => {
             const command = context(toolCallId);
             const view = runtime.view(caller.runId);
@@ -411,6 +415,7 @@ export const agentTools: RunFunction[] = [
         }, { additionalProperties: false }),
         resultSchema: acknowledgementSchema,
         available: needs("event.subscribe"),
+        nativeTool: false,
         run: ({ runtime, caller, context }, toolCallId, input) => {
             runtime.removeSubscription(context(toolCallId), caller.runId, input.subscriptionId, input.reason);
 
@@ -424,6 +429,7 @@ export const agentTools: RunFunction[] = [
         schema: Type.Object({}, { additionalProperties: false }),
         resultSchema: Type.Array(subscriptionSchema),
         available: needs("event.subscribe"),
+        nativeTool: false,
         run: ({ runtime, caller }) => {
             const view = runtime.view(caller.runId);
 
@@ -452,6 +458,7 @@ export const agentTools: RunFunction[] = [
         }, { additionalProperties: false }),
         resultSchema: Type.Array(eventSchema),
         available: needs("event.subscribe"),
+        nativeTool: false,
         run: ({ runtime, caller }, _toolCallId, input) => {
             const view = runtime.view(caller.runId);
             const eventIds = input.eventIds ? new Set(input.eventIds) : null;
@@ -525,19 +532,21 @@ export const agentTools: RunFunction[] = [
     tool({
         name: "agent_spawn",
         label: "Spawn Agent",
-        description: "Create an idle LLM agent with an explicit model or profile and function selection.",
+        description: "Create an LLM agent actor in this run and optionally give it its first task; it works in its own turns while you continue.",
         longDescription:
-            "Create a new idle agent only when no existing actor fits the required role. Check actor_list first when available; actor_input reuses an existing actor. "
-            + "Read model_list before the first spawn and pass a model-bearing profile, or an explicit model selection from that catalog. handle and prompt alone cannot create an LLM agent; the caller's model is not inherited. "
-            + "It inherits delegable capabilities, but tools is required and never inherited: select exact names, [] for text-only work, or explicit null for an open, dynamically resolved toolset. "
-            + "An empty tools array creates a plain LLM with no runtime, workspace or host tools; "
-            + "drivers without plain-LLM isolation are rejected. "
-            + "forkOf gives the new agent an unchanged copy of the model context of an existing LLM agent of this run, up to the end of that agent's last finished turn; nothing of its running turn is copied, and a source without a finished turn is rejected. The new agent still gets its own prompt, tools and model, and its first input follows the copy.",
+            "It creates exactly one agent in this run: never a new run, never a TypeScript actor, and never a prepared setup, which run_script_start starts where it is offered. "
+            + "Check actor_list first when available: actor_input gives a further task to an existing actor, while the same name here creates another actor with a suffix. "
+            + "Read model_list before the first spawn and pass a model-bearing profile or an explicit model; the caller's model is not inherited. "
+            + "The agent inherits your delegable capabilities, but its function selection is required and never inherited: exact names, [] for a plain LLM without runtime, workspace or host functions, or null for the open, dynamically resolved set; drivers without plain-LLM isolation are rejected. "
+            + "Nothing waits for the agent: the call returns its reference at once. Its answers are model.output.completed events of its turns and reach you only as later inputs of a subscription made with event_subscribe; failed or interrupted turns reach you as automatic notices. "
+            + "A task given here starts at once, so a subscription made afterwards can miss its first answer: when you need that answer, create the agent without a task, subscribe to its events, then send the task with actor_input. "
+            + "A fork starts with an unchanged copy of the model context of an LLM agent of this run up to the end of that agent's last finished turn; nothing of its running turn is copied, a source without a finished turn is rejected, and the fork still gets its own instructions, functions and model, with its first task after the copy.",
         schema: Type.Object({
-            handle: Type.String({ minLength: 1, description: "Name for @handle addressing: letters, digits, dot, dash and underscore; a taken handle gets a numeric suffix" }),
-            displayName: Type.Optional(Type.String({ minLength: 1, description: "Display name; defaults to the handle" })),
-            description: Type.Optional(Type.String({ minLength: 1, maxLength: actorDescriptionMaxLength, description: "Very short description of the task for the participants overview, a few words like \"checks the rule on comments\"" })),
-            prompt: Type.String({ description: "The agent's own instructions in its system prompt, such as role and working rules; send the task afterwards with actor_input" }),
+            description: Type.String({ minLength: 1, maxLength: actorDescriptionMaxLength, description: "A short (3-5 word) label of the agent's task for the participants overview, such as \"checks the comment rule\"" }),
+            prompt: Type.Optional(Type.String({ minLength: 1, description: "The task for the agent to perform, enqueued as its first input in the same command so that it starts at once; it gets none of your context, so state everything it needs and what it should report. Omit it for an idle agent that gets its first input later through actor_input" })),
+            name: Type.String({ minLength: 1, description: "Name to address the agent by as @name, for example in actor_input: letters, digits, dot, dash and underscore; a taken name gets a numeric suffix, and the result names the actual handle" }),
+            instructions: Type.Optional(Type.String({ minLength: 1, description: "Lasting role and working rules for the agent's system prompt in all its turns, such as output format and limits; omitted, it has none of its own, and a profile from model_list supplies none" })),
+            displayName: Type.Optional(Type.String({ minLength: 1, description: "Display name; defaults to the name" })),
             forkOf: Type.Optional(Type.String({ minLength: 1, description: "Handle or ID of an LLM agent of this run whose model context up to the end of its last finished turn is copied into the new agent" })),
             tools: Type.Union([Type.Array(Type.String({ minLength: 1 }), { uniqueItems: true }), Type.Null()], { description: "Required explicit selection: [] for plain text-only work including app-mediated conversations; an array for exact existing tool names; null only when the task needs an open, dynamically resolved toolset. Never inherits the caller's tools. Names of future, not yet activated actor functions are invalid; choose null when those must become available later." }),
             withoutCapabilities: Type.Optional(Type.Array(capabilitySchema, { uniqueItems: true, description: "Capabilities the new agent does not inherit; otherwise it gets every delegable capability of this actor" })),
@@ -568,14 +577,15 @@ export const agentTools: RunFunction[] = [
             }
 
             runtime.spawnAgent(context(toolCallId), caller.runId, {
-                handle: input.handle,
-                displayName: input.displayName ?? input.handle,
-                ...(input.description === undefined ? {} : { description: input.description }),
-                prompt: input.prompt,
+                handle: input.name,
+                displayName: input.displayName ?? input.name,
+                description: input.description,
+                prompt: input.instructions ?? "",
                 execution,
                 grants: inheritedGrants(actor, input.withoutCapabilities),
                 toolNames: input.tools,
                 ...(input.forkOf === undefined ? {} : { forkOf: input.forkOf }),
+                ...(input.prompt === undefined ? {} : { task: input.prompt }),
             });
 
             const created = eventsFor(toolCallId).find((event) => event.type === "agent.spawned");
@@ -693,6 +703,6 @@ export const modelToolDescriptors: readonly ToolDescriptor[] = agentTools.map((e
     name: entry.name,
     description: entry.description,
     scope: "per-turn",
-    nativeTool: entry.nativeTool === true,
+    nativeTool: isNativeTool(entry),
     ...describeToolAvailability(entry.available),
 }));

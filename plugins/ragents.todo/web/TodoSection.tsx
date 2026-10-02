@@ -4,7 +4,8 @@ import type { CardSectionContext } from "@ragents/web/PluginRegistry";
 import { SectionLabel } from "@ragents/web/ui";
 
 const MAX_ITEMS = 12;
-const markerOf = (todo: TodoItem) => todo.status;
+const markerOf = (todo: TodoItem) => todo.status === "in_progress" ? "active" : todo.status;
+const textOf = (todo: TodoItem) => todo.status === "in_progress" ? todo.activeForm : todo.content;
 
 const markerClass = "grid size-[15px] mt-px place-items-center rounded-full border-[1.5px] border-foreground/55 text-[0px] not-italic"
   + " in-data-[status=active]:border-primary in-data-[status=active]:bg-[color-mix(in_srgb,var(--primary)_14%,var(--card))]"
@@ -16,7 +17,7 @@ export function TodoSection({ actor, session }: CardSectionContext) {
   const state = todoStateOf(actorPluginState(view, TODO_PLUGIN_ID, runActorFrom(actor).id));
   const todos = state?.todos ?? [];
   if (todos.length === 0) return null;
-  const done = todos.filter((todo) => markerOf(todo) === "completed").length;
+  const done = todos.filter((todo) => todo.status === "completed").length;
 
   return (
     <section className="grid gap-1.5">
@@ -25,11 +26,11 @@ export function TodoSection({ actor, session }: CardSectionContext) {
         <small>{done}/{todos.length}</small>
       </SectionLabel>
       <ul className="grid list-none">
-        {todos.slice(0, MAX_ITEMS).map((todo) => (
+        {todos.slice(0, MAX_ITEMS).map((todo, index) => (
           <li className="grid grid-cols-[15px_minmax(0,1fr)] items-start gap-2 border-t border-border-soft py-1.5 text-[0.74rem] leading-[1.35] first:border-t-0 first:pt-0 last:pb-0"
-            data-status={markerOf(todo)} key={todo.id}>
-            <i aria-hidden className={markerClass}>{markerOf(todo) === "completed" && <IconCheck />}</i>
-            <span className="overflow-hidden text-ellipsis in-data-[status=completed]:opacity-75" title={todo.text}>{todo.text}</span>
+            data-status={markerOf(todo)} key={`${index}:${todo.content}`}>
+            <i aria-hidden className={markerClass}>{todo.status === "completed" && <IconCheck />}</i>
+            <span className="overflow-hidden text-ellipsis in-data-[status=completed]:opacity-75" title={todo.content}>{textOf(todo)}</span>
           </li>
         ))}
       </ul>

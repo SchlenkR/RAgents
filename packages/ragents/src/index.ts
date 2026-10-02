@@ -56,13 +56,14 @@ export {
     type ToolContributor,
     type ToolProvider,
 } from "./agents/plugins.ts";
-export { TurnScheduler, type TurnInterruption, type TurnSchedulerOptions } from "./agents/scheduler.ts";
+export { TurnScheduler, type RunPauseRequest, type TurnInterruption, type TurnSchedulerOptions } from "./agents/scheduler.ts";
 export {
     agentTools,
     defineToolAvailability,
     describeToolAvailability,
     defineRunFunction,
     holdsUsable,
+    isNativeTool,
     modelToolDescriptors,
     type RunFunction,
     type ToolAvailability,
@@ -128,7 +129,7 @@ export { capabilityNames, firstHandCapabilities, isCapabilityName, type Capabili
 export { DirectoryArtifactContents, MemoryArtifactContents, type ArtifactContents } from "./runtime/artifacts.ts";
 export type { CommandContext } from "./runtime/command.ts";
 export { DomainError } from "./runtime/domain-error.ts";
-export { inheritedGrants } from "./runtime/guards.ts";
+export { checkedSharing, inheritedGrants } from "./runtime/guards.ts";
 export { throwFailures, throwRejected } from "./runtime/failures.ts";
 export type { JournalEvent } from "./domain/events.ts";
 export { Journal, journalFormatVersion, type CommandRecord, type JournalLoadFailure } from "./runtime/journal.ts";

@@ -53,31 +53,35 @@ test("a run's page lives in the module: every operation reports its result and t
   t.after(() => executor.shutdown());
   const run = <T>(operation: string, input: unknown = null) => executor.execute("run-1", operation, input) as Promise<BrowserStep<T>>;
 
-  const opened = await run<BrowserSnapshot>(BROWSER_OPERATIONS.open, { url: "http://localhost:4173/", viewport });
+  const opened = await run<BrowserSnapshot>(BROWSER_OPERATIONS.navigate, { url: "http://localhost:4173/", viewport });
   assert.equal(opened.result.title, "Draft");
   assert.match(opened.result.snapshot, /button "Save" \[ref=e1\]/);
   assert.deepEqual(opened.page, { url: "http://localhost:4173/", checked: false, errors: [], screenshots: [] });
 
-  await run(BROWSER_OPERATIONS.fill, { target: { label: "Title" }, value: "New" });
+  await run(BROWSER_OPERATIONS.type, { target: { label: "Title" }, text: "New" });
   const clicked = await run<BrowserSnapshot>(BROWSER_OPERATIONS.click, { target: { role: "button", name: "Save" } });
   assert.match(clicked.result.snapshot, /status "Saved"/);
   const checked = await run<BrowserCheckResult>(BROWSER_OPERATIONS.check, { target: { role: "status" }, text: "Saved" });
   assert.deepEqual(checked.result, { url: "http://localhost:4173/", assertions: ["Target is visible", "Text in target: Saved", "No captured browser or network errors since the navigation"] });
   assert.equal(checked.page.checked, true);
 
-  const shot = await run<string>(BROWSER_OPERATIONS.screenshot, { id: "capture-1", fullPage: false });
+  const shot = await run<string>(BROWSER_OPERATIONS.takeScreenshot, { id: "capture-1", fullPage: false });
   assert.equal(Buffer.from(shot.result, "base64").toString(), "PNG 1280x720");
   assert.deepEqual(shot.page, { url: "http://localhost:4173/", checked: true, errors: [], screenshots: ["capture-1"] });
-  await run(BROWSER_OPERATIONS.viewport, { width: 390, height: 844 });
-  const narrow = await run<string>(BROWSER_OPERATIONS.screenshot, { id: "capture-2", fullPage: true });
+  await run(BROWSER_OPERATIONS.resize, { width: 390, height: 844 });
+  const narrow = await run<string>(BROWSER_OPERATIONS.takeScreenshot, { id: "capture-2", fullPage: true });
   assert.equal(Buffer.from(narrow.result, "base64").toString(), "PNG 390x844 full page");
   assert.deepEqual(narrow.page.screenshots, ["capture-1", "capture-2"]);
   assert.equal((await run<BrowserSnapshot>(BROWSER_OPERATIONS.snapshot)).page.checked, true);
 
-  const pressed = await run(BROWSER_OPERATIONS.press, { target: { label: "Title" }, key: "Enter" });
+  const pressed = await run(BROWSER_OPERATIONS.pressKey, { target: { label: "Title" }, key: "Enter" });
   assert.deepEqual(pressed.page, { url: "http://localhost:4173/", checked: false, errors: [], screenshots: [] });
-  await run(BROWSER_OPERATIONS.select, { target: { label: "Title" }, label: "Feature" });
-  assert.deepEqual(stub.log.actions, ["fill Title=New", "click Save", "press Title Enter", "select Title=Feature"]);
+  await run(BROWSER_OPERATIONS.check, { text: "Saved" });
+  const focused = await run(BROWSER_OPERATIONS.pressKey, { key: "Escape" });
+  assert.equal(focused.page.checked, false, "a key on the focused element is an action as well");
+  await run(BROWSER_OPERATIONS.selectOption, { target: { label: "Title" }, values: ["Bug", "Feature"] });
+  await run(BROWSER_OPERATIONS.type, { target: { label: "Title" }, text: "Slow", slowly: true, submit: true });
+  assert.deepEqual(stub.log.actions, ["fill Title=New", "click Save", "press Title Enter", "press Escape", "select Title=Bug,Feature", "type Title=Slow", "press Title Enter"]);
 
   stub.page().consoleError("Reported later");
   assert.deepEqual((await executor.execute("run-1", BROWSER_OPERATIONS.state, null) as BrowserPageState).errors, ["Console: Reported later"]);
@@ -96,15 +100,15 @@ test("ambiguous, missing and invalid inputs are errors with a cause", async (t) 
   const stub = stubBrowser(site);
   const executor = executorWith({ launch: stub.launch });
   t.after(() => executor.shutdown());
-  await assert.rejects(executor.execute("run-1", BROWSER_OPERATIONS.snapshot, null), /No browser is open for this run. Call browser_open first/);
+  await assert.rejects(executor.execute("run-1", BROWSER_OPERATIONS.snapshot, null), /No browser is open for this run. Call browser_navigate first/);
   assert.equal(await executor.execute("run-1", BROWSER_OPERATIONS.state, null), null);
-  await assert.rejects(executor.execute("run-1", BROWSER_OPERATIONS.open, { url: "file:///etc/hosts", viewport }), /HTTP or HTTPS/);
-  await assert.rejects(executor.execute("run-1", BROWSER_OPERATIONS.open, { url: "http://localhost/" }), coded("browser-input-invalid"));
-  await assert.rejects(executor.execute("run-1", BROWSER_OPERATIONS.open, { url: "http://localhost/", viewport: { width: 0, height: 10 } }), coded("browser-input-invalid"));
-  await assert.rejects(executor.execute("run-1", BROWSER_OPERATIONS.open, "http://localhost/"), coded("browser-input-invalid"));
+  await assert.rejects(executor.execute("run-1", BROWSER_OPERATIONS.navigate, { url: "file:///etc/hosts", viewport }), /HTTP or HTTPS/);
+  await assert.rejects(executor.execute("run-1", BROWSER_OPERATIONS.navigate, { url: "http://localhost/" }), coded("browser-input-invalid"));
+  await assert.rejects(executor.execute("run-1", BROWSER_OPERATIONS.navigate, { url: "http://localhost/", viewport: { width: 0, height: 10 } }), coded("browser-input-invalid"));
+  await assert.rejects(executor.execute("run-1", BROWSER_OPERATIONS.navigate, "http://localhost/"), coded("browser-input-invalid"));
   assert.equal(stub.log.launches, 0);
 
-  await executor.execute("run-1", BROWSER_OPERATIONS.open, { url: "http://localhost/two", viewport });
+  await executor.execute("run-1", BROWSER_OPERATIONS.navigate, { url: "http://localhost/two", viewport });
   await assert.rejects(executor.execute("run-1", BROWSER_OPERATIONS.click, {}), coded("browser-input-invalid"));
   await assert.rejects(executor.execute("run-1", BROWSER_OPERATIONS.click, { target: { role: "link" } }),
     /strict mode violation[\s\S]*nth \(0-based\) or first: true/);
@@ -112,30 +116,33 @@ test("ambiguous, missing and invalid inputs are errors with a cause", async (t) 
   await executor.execute("run-1", BROWSER_OPERATIONS.check, { target: { role: "link" }, count: 2 });
   await assert.rejects(executor.execute("run-1", BROWSER_OPERATIONS.check, { target: { role: "link" }, count: 3 }), /Expected 3 visible matches, found 2/);
   await assert.rejects(executor.execute("run-1", BROWSER_OPERATIONS.check, {}), /at least target, text, url or noErrors/);
-  await assert.rejects(executor.execute("run-1", BROWSER_OPERATIONS.screenshot, { fullPage: true }), coded("browser-input-invalid"));
-  await assert.rejects(executor.execute("run-1", BROWSER_OPERATIONS.open, { url: "http://localhost/missing", viewport }), /Browser navigation failed: HTTP 404/);
+  await assert.rejects(executor.execute("run-1", BROWSER_OPERATIONS.takeScreenshot, { fullPage: true }), coded("browser-input-invalid"));
+  await assert.rejects(executor.execute("run-1", BROWSER_OPERATIONS.selectOption, { target: { role: "link", first: true }, values: [] }), coded("browser-input-invalid"));
+  await assert.rejects(executor.execute("run-1", BROWSER_OPERATIONS.type, { target: { role: "link", first: true }, text: "x", submit: "yes" }), coded("browser-input-invalid"));
+  await assert.rejects(executor.execute("run-1", BROWSER_OPERATIONS.pressKey, { target: "link", key: "Enter" }), coded("browser-input-invalid"));
+  await assert.rejects(executor.execute("run-1", BROWSER_OPERATIONS.navigate, { url: "http://localhost/missing", viewport }), /Browser navigation failed: HTTP 404/);
   assert.deepEqual((await executor.execute("run-1", BROWSER_OPERATIONS.state, null) as BrowserPageState).errors, ["HTTP 404: http://localhost/missing"]);
 });
 
 test("close, run stop and shutdown end the browser; after the shutdown none starts anymore", async () => {
   const stub = stubBrowser(site);
   const executor = executorWith({ launch: stub.launch });
-  await executor.execute("one", BROWSER_OPERATIONS.open, { url: "http://localhost/", viewport });
+  await executor.execute("one", BROWSER_OPERATIONS.navigate, { url: "http://localhost/", viewport });
   assert.equal(await executor.execute("one", BROWSER_OPERATIONS.close, null), null);
   assert.equal(stub.log.closes, 1);
   assert.equal(await executor.execute("one", BROWSER_OPERATIONS.state, null), null);
   assert.equal(await executor.execute("one", BROWSER_OPERATIONS.close, null), null);
   assert.equal(stub.log.closes, 1);
 
-  await executor.execute("one", BROWSER_OPERATIONS.open, { url: "http://localhost/", viewport });
-  await executor.execute("two", BROWSER_OPERATIONS.open, { url: "http://localhost/", viewport });
+  await executor.execute("one", BROWSER_OPERATIONS.navigate, { url: "http://localhost/", viewport });
+  await executor.execute("two", BROWSER_OPERATIONS.navigate, { url: "http://localhost/", viewport });
   await executor.stopRun("one");
   assert.equal(stub.log.closes, 2);
   assert.notEqual(await executor.execute("two", BROWSER_OPERATIONS.state, null), null);
   await executor.shutdown();
   assert.equal(stub.log.closes, 3);
   assert.equal(await executor.execute("two", BROWSER_OPERATIONS.state, null), null);
-  await assert.rejects(executor.execute("two", BROWSER_OPERATIONS.open, { url: "http://localhost/", viewport }), /The browser service of this executor has ended/);
+  await assert.rejects(executor.execute("two", BROWSER_OPERATIONS.navigate, { url: "http://localhost/", viewport }), /The browser service of this executor has ended/);
   await assert.rejects(executor.execute("two", BROWSER_OPERATIONS.snapshot, null), /The browser service of this executor has ended/);
   assert.equal(await executor.execute("two", BROWSER_OPERATIONS.close, null), null);
   assert.equal(stub.log.launches, 3);
@@ -151,10 +158,10 @@ test("abort and stop during the launch close the browser without opening a page"
   } });
   const aborted = new AbortController();
   aborted.abort();
-  await assert.rejects(executor.execute("one", BROWSER_OPERATIONS.open, { url: "http://localhost/", viewport }, { signal: aborted.signal }), /abort/i);
+  await assert.rejects(executor.execute("one", BROWSER_OPERATIONS.navigate, { url: "http://localhost/", viewport }, { signal: aborted.signal }), /abort/i);
   assert.equal(launches, 0);
 
-  const opened = executor.execute("one", BROWSER_OPERATIONS.open, { url: "http://localhost/", viewport });
+  const opened = executor.execute("one", BROWSER_OPERATIONS.navigate, { url: "http://localhost/", viewport });
   const rejected = assert.rejects(opened, /browser was closed/);
   assert.equal(launches, 1);
   let closed = 0;
@@ -170,7 +177,7 @@ test("abort and stop during the launch close the browser without opening a page"
 
   const stub = stubBrowser({ "/": { title: "Slow", elements: [{ role: "button", name: "Hangs", onClick: () => new Promise(() => undefined) }] } });
   const slow = executorWith({ launch: stub.launch });
-  await slow.execute("one", BROWSER_OPERATIONS.open, { url: "http://localhost/", viewport });
+  await slow.execute("one", BROWSER_OPERATIONS.navigate, { url: "http://localhost/", viewport });
   const queued = new AbortController();
   queued.abort();
   await assert.rejects(slow.execute("one", BROWSER_OPERATIONS.snapshot, null, { signal: queued.signal }), /abort/i);
@@ -209,7 +216,7 @@ test("playwright-core comes from this machine's host, Chrome from its environmen
     /BROWSER_EXECUTABLE_PATH names \/no\/chrome; there is no executable browser there on this machine\. A workspace fetches Chromium with pnpm provision --workspace/);
 
   const executor = executorWith({});
-  await assert.rejects(executor.execute("one", BROWSER_OPERATIONS.open, { url: "http://localhost/", viewport }), /no host is known/i);
+  await assert.rejects(executor.execute("one", BROWSER_OPERATIONS.navigate, { url: "http://localhost/", viewport }), /no host is known/i);
   await executor.shutdown();
 });
 

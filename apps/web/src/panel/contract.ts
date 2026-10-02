@@ -1,3 +1,6 @@
+import type { RunShareAccess, RunSharing } from "@ragents/engine/src/domain/model";
+import type { RunListDetail } from "@ragents/engine/src/plugin-types";
+import type { RunSharingResult } from "@ragents/host/api/contracts";
 import type { RunPanelTheme } from "../run-panel/host-contract";
 
 /** A server of the extension: a RAgents server by address or a local profile that the extension starts itself. */
@@ -24,14 +27,34 @@ export interface MissingEnvironment {
 export interface ConnectionRun {
   readonly id: string;
   readonly title: string;
-  readonly state: "running" | "waiting" | "idle" | "ended";
+  readonly state: "running" | "waiting" | "paused" | "idle" | "ended";
   readonly pendingActions: number;
   readonly notice?: "unseen" | "updated";
   readonly updatedAt: number;
-  /** The extension could not read the run view; the row names the reason. */
-  readonly problem?: string;
+  /** Who created the run; missing for a run created without sign-in. */
+  readonly owner?: string;
+  /** The list lines of the run metadata, below the title after the owner. */
+  readonly details?: readonly RunListDetail[];
   /** Why the server locked the run; the row does not open it, deleting stays possible. */
   readonly locked?: string;
+  /** The user may change whom the run is shared with; the row offers "Share ...". */
+  readonly canShare?: true;
+  /** For a user who may change it: the run is shared with anyone. */
+  readonly shared?: true;
+  /** For a user who sees the run only through a share: what it permits; such a row is never deleted. */
+  readonly sharedAccess?: RunShareAccess;
+}
+
+/** The share dialog of a run on Start or Runs; the host loads and saves, the page draws what it gets. */
+export interface PanelSharing {
+  readonly connection: string;
+  readonly runId: string;
+  /** What the server returned last; missing while loading and after a failed load. */
+  readonly result?: RunSharingResult;
+  /** Loading or saving is under way. */
+  readonly pending?: true;
+  /** Why the server refused the last load or save. */
+  readonly error?: string;
 }
 
 export interface ConnectionEntry {
@@ -104,6 +127,10 @@ export interface PanelState {
   readonly runsConnection?: string;
   /** Names from ragents.hostEnvironment without a value in the SecretStorage; the setting applies to all servers, so the list appears once. */
   readonly missingSecrets?: readonly string[];
+  /** The open share dialog; without it, none is open. */
+  readonly sharing?: PanelSharing;
+  /** A short message on Start, such as for a run that left the list because it is no longer shared with the user. */
+  readonly notice?: string;
 }
 
 /** The state comes from the extension, first embedded in the page, then as a message. */
@@ -130,11 +157,25 @@ export type PanelAction =
   | { readonly action: "login"; readonly name: string; readonly token: string }
   | { readonly action: "openRun"; readonly name: string; readonly runId: string }
   | { readonly action: "deleteRuns"; readonly name: string; readonly runIds: readonly string[] }
-  | { readonly action: "newRun"; readonly name: string; readonly entryId?: string };
+  | { readonly action: "newRun"; readonly name: string; readonly entryId?: string }
+  /** Opens the share dialog of a run; the host loads its sharing into PanelState.sharing. */
+  | { readonly action: "openSharing"; readonly name: string; readonly runId: string }
+  /** Replaces the whole sharing of a run; on success the host closes the dialog, otherwise it shows the refusal in it. */
+  | { readonly action: "share"; readonly name: string; readonly runId: string; readonly sharing: RunSharing }
+  | { readonly action: "closeSharing" };
 
 export type PanelActionMessage = PanelAction & { readonly type: "ragents.panel" };
 
 const text = (value: unknown, key: string): boolean => typeof (value as Record<string, unknown>)[key] === "string";
+
+const isShareAccess = (value: unknown): boolean => value === "read" || value === "write";
+
+const isSharing = (value: unknown): boolean => {
+  if (typeof value !== "object" || value === null) return false;
+  const { everyone, users } = value as { everyone?: unknown; users?: unknown };
+  return (everyone === null || isShareAccess(everyone)) && Array.isArray(users) && users.every((user: unknown) =>
+    typeof user === "object" && user !== null && text(user, "userId") && isShareAccess((user as { access?: unknown }).access));
+};
 
 export const isPanelActionMessage = (value: unknown): value is PanelActionMessage => {
   if (typeof value !== "object" || value === null || (value as { type?: unknown }).type !== "ragents.panel") return false;
@@ -155,6 +196,9 @@ export const isPanelActionMessage = (value: unknown): value is PanelActionMessag
       return text(value, "name") && Array.isArray(runIds) && runIds.every((runId) => typeof runId === "string");
     }
     case "newRun": return text(value, "name") && ((value as { entryId?: unknown }).entryId === undefined || text(value, "entryId"));
+    case "openSharing": return text(value, "name") && text(value, "runId");
+    case "share": return text(value, "name") && text(value, "runId") && isSharing((value as { sharing?: unknown }).sharing);
+    case "closeSharing": return true;
     default: return false;
   }
 };

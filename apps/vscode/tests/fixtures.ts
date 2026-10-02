@@ -18,7 +18,7 @@ import { RpcDispatcher } from "../../server/src/rpc/dispatcher";
 import { RpcHttpTransport } from "../../server/src/rpc/http-transport";
 import { workspaceClientContracts, workspaceContracts, type WorkspaceClientDescription } from "../../../plugins/ragents.workspace/contract";
 import { WORKSPACE_EXECUTOR_VERSION, type ExecutorContributionRevision } from "@ragents/workspace-executor";
-import type { SessionInfo } from "../../web/src/api";
+import type { ListedSession } from "../../web/src/api";
 import type { PublicPluginProfile } from "../../../packages/ragents/src/plugin-types";
 import type { RunView } from "../../web/src/run-view";
 
@@ -79,8 +79,8 @@ export const runView = (overrides: Partial<RunView> = {}): RunView => ({
   ...overrides,
 });
 
-export const session = (overrides: Partial<SessionInfo> = {}): SessionInfo => ({
-  id: "run-a", title: "Night bus round", createdAt: 1, updatedAt: 2, revision: 12, running: true, ...overrides,
+export const session = (overrides: Partial<ListedSession> = {}): ListedSession => ({
+  id: "run-a", title: "Night bus round", createdAt: 1, updatedAt: 2, revision: 12, running: true, state: "running", pendingActions: 1, workspaceAccessible: true, operable: true, ...overrides,
 });
 
 /** The client profile the stub delivers: product and two permitted start templates. */
@@ -101,8 +101,9 @@ export interface StubServer {
   workspaceConnection: (id: string) => MethodConnection | undefined;
   emit: (key: string) => void;
   subscribed: () => ReadonlySet<string>;
-  setSessions: (sessions: SessionInfo[]) => void;
-  setView: (view: RunView) => void;
+  setSessions: (sessions: ListedSession[]) => void;
+  /** How often a client asked for a run view. */
+  viewRequests: () => number;
   close: () => Promise<void>;
 }
 
@@ -134,8 +135,9 @@ export const startStubServer = async (options: {
   const workspaceClients = new Map<string, WorkspaceClientDescription>();
   const workspaceConnections = new Map<string, MethodConnection>();
   const emitters = new Set<Emitter>();
-  let sessions: SessionInfo[] = [session()];
-  let view: RunView = runView();
+  let sessions: ListedSession[] = [session()];
+  let viewRequests = 0;
+  const view: RunView = runView();
   const profile = options.profile ?? stubProfile();
 
   const methods = new MethodContributionRegistry();
@@ -143,6 +145,7 @@ export const startStubServer = async (options: {
     implement(coreContracts.runs.list, () => sessions),
     implement(coreContracts.plugins.bootstrap, () => options.version === null ? profile as HostBootstrap : { ...profile, version: options.version ?? STUB_VERSION }),
     implement(runContracts.view, ({ runId }) => {
+      viewRequests += 1;
       if (sessions.some((entry) => entry.id === runId && entry.locked !== undefined)) throw new DomainError("journal-unavailable", `Journal for run ${runId} is not available`, 409);
       return runId === view.id ? servedView(view) : null;
     }),
@@ -232,7 +235,7 @@ export const startStubServer = async (options: {
     },
     subscribed: () => new Set([...emitters].map((emitter) => emitter.key)),
     setSessions: (next) => { sessions = next; },
-    setView: (next) => { view = next; },
+    viewRequests: () => viewRequests,
     close: async () => {
       transport.close();
       server.closeAllConnections();

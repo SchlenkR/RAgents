@@ -8,7 +8,7 @@ and a different platform; any access by the server to its own machine thus stand
 pnpm check:remote-workspace                 # folder /work/project, which exists only in the container
 pnpm check:remote-workspace --shared-path   # the same path also on this machine, with different content
 pnpm check:remote-workspace --vscode        # additionally the VS Code host test against the same server
-pnpm check:remote-workspace --browser       # additionally browser_open on a page in the container
+pnpm check:remote-workspace --browser       # additionally browser_navigate on a page in the container
 ```
 
 Prerequisites: macOS with OrbStack or Docker Desktop (`host.docker.internal` reaches a server on

@@ -248,19 +248,9 @@ export function WorkspaceBindingBadge({ option }: StartOptionBadgeContext) {
   );
 }
 
-export function WorkspaceMetadata({ placement, session }: SessionMetadataContext) {
+export function WorkspaceMetadata({ session }: SessionMetadataContext) {
   const metadata = workspaceMetadataFrom(session.metadata?.[WORKSPACE_METADATA_ID]);
   if (!metadata) return null;
-  if (placement === "list") {
-    const { machine, folder } = metadata.binding;
-    if (machine === "server" && folder === "fresh") return null;
-    return (
-      <span className="flex max-w-full items-center gap-1.5 overflow-hidden pl-px text-xs text-muted-foreground" title={`Workspace: ${metadata.summary}`}>
-        <FolderIcon aria-hidden className="size-3 flex-none" />
-        <span className="truncate">{metadata.summary}</span>
-      </span>
-    );
-  }
   return (
     <ToolbarItem title={`Workspace: ${metadata.summary}`}>
       <FolderIcon aria-hidden className="size-3.5" />

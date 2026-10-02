@@ -6,7 +6,8 @@ import { setupContext, startInput } from "./helpers.ts";
 test("sets up the moderator and guests and hands the chat to the moderator", async () => {
   const { calls, context } = setupContext();
   await program.onInput!(startInput({ topic: "Good collaboration" }), context);
-  assert.deepEqual(calls.filter((call) => call.name === "agent_spawn").map((call) => (call.input as { handle: string }).handle), ["moderator", "kai", "lena"]);
+  assert.deepEqual(calls.filter((call) => call.name === "agent_spawn").map((call) => (call.input as { name: string }).name), ["moderator", "kai", "lena"]);
+  assert.deepEqual(calls.filter((call) => call.name === "agent_spawn").map((call) => (call.input as { description: string }).description), ["moderates the round", "joins the round as a guest", "joins the round as a guest"]);
   assert.deepEqual(calls.filter((call) => call.name === "agent_spawn").map((call) => (call.input as { tools: string[] }).tools), [["actor_input", "event_subscribe", "event_unsubscribe", "event_subscription_list"], [], []]);
   assert.deepEqual(calls.find((call) => call.name === "run_configure")?.input, { title: "Moderated round: Good collaboration", primaryActor: "@moderator" });
   assert.match(JSON.stringify(calls.at(-1)), /Good collaboration/);

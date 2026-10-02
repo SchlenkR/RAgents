@@ -154,10 +154,10 @@ test("the server runs the executor of the registered workstation over its connec
 
   const executor = registry.executorFor(null, CLIENT, "Laptop", "/home/example/project");
   assert.equal(executor.version, WORKSPACE_EXECUTOR_VERSION);
-  const read = await executor.execute("run-1", "read", { path: "a.txt" }, { toolCallId: "call-1" });
+  const read = await executor.execute("run-1", "read", { file_path: "a.txt" }, { toolCallId: "call-1" });
   assert.deepEqual(read, { content: [{ type: "text", text: "read done" }] });
   assert.deepEqual(calls[0], {
-    operation: "read", toolCallId: "call-1", cwd: "/home/example/project", env: calls[0]!.env, input: { path: "a.txt" },
+    operation: "read", toolCallId: "call-1", cwd: "/home/example/project", env: calls[0]!.env, input: { file_path: "a.txt" },
   });
   assert.equal(calls[0]!.env[RUN_MARKER_ENV], "run-1");
   assert.equal(calls[0]!.env.CI, "true");
@@ -185,7 +185,7 @@ test("the server runs the executor of the registered workstation over its connec
     error instanceof DomainError && error.code === "workspace-client-disconnected"
     && error.message.includes("Laptop") && error.message.includes("lost the connection"));
   await until(() => registry.info(null, CLIENT) === undefined);
-  await assert.rejects(executor.execute("run-1", "read", { path: "a.txt" }), (error: unknown) =>
+  await assert.rejects(executor.execute("run-1", "read", { file_path: "a.txt" }), (error: unknown) =>
     error instanceof DomainError && error.code === "workspace-client-disconnected" && error.status === 409);
   assert.equal(await executor.execute("run-1", "processes.stopAll", {}, { whenReachable: true }), null);
   await executor.stopRun("run-1");
@@ -469,7 +469,7 @@ test("a stop while the workstation is away is held and delivered when it registe
   assert.equal(await executor.execute("run-1", "processes.stopAll", {}, { whenReachable: true }), null);
 
   const second = await workstation(t, url);
-  await executor.execute("run-1", "read", { path: "a.txt" });
+  await executor.execute("run-1", "read", { file_path: "a.txt" });
   assert.deepEqual(second.operations, ["stop:run-1", "read:run-1"]);
   assert.deepEqual(registry.pendingStops(null, CLIENT), []);
   assert.deepEqual(first.operations, []);

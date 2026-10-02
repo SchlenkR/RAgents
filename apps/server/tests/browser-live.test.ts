@@ -54,16 +54,16 @@ test("a real browser operates form and iframe, isolates cookies and checks scree
     await rm(directory, { recursive: true, force: true });
   });
 
-  const opened = await browser.open("one", url);
+  const opened = await browser.navigate("one", url);
   assert.match(opened.snapshot, /Review draft/);
   assert.match(opened.snapshot, /\[ref=/);
   assert.equal(opened.title, "Browser-Test");
-  await browser.fill("one", { label: "Title" }, "New entry");
-  await browser.select("one", { label: "Kind" }, "Feature");
+  await browser.type("one", { label: "Title" }, { text: "New entry", slowly: true });
+  await browser.selectOption("one", { label: "Kind" }, ["Feature"]);
   await browser.click("one", { role: "button", name: "Save" });
   await browser.check("one", { target: { role: "status" }, text: "New entry: Feature" });
   assert.ok(browser.evidence("one").checkedAt);
-  const screenshot = await browser.screenshot("one", { label: "Saved feature" });
+  const screenshot = await browser.takeScreenshot("one", { label: "Saved feature" });
   const bytes = await readFile(path.join(directory, "one", screenshot.path));
   assert.equal(bytes.subarray(1, 4).toString(), "PNG");
   assert.deepEqual([bytes.readUInt32BE(16), bytes.readUInt32BE(20)], [1920, 1080]);
@@ -72,12 +72,17 @@ test("a real browser operates form and iframe, isolates cookies and checks scree
   assert.equal(browser.evidence("one").screenshots.length, 1);
   await assert.rejects(browser.image("other"), /no browser screenshot/);
 
-  await browser.fill("one", { label: "Title" }, "Keyboard");
+  await browser.type("one", { label: "Title" }, { text: "Keyboard" });
   assert.equal(browser.evidence("one").checkedAt, undefined);
   assert.equal(browser.evidence("one").screenshots.length, 1);
   assert.equal(browser.evidence("one").currentScreenshots.length, 0);
-  await browser.press("one", { label: "Title" }, "Enter");
+  await browser.pressKey("one", undefined, "Enter");
   await browser.check("one", { text: "Keyboard: Feature" });
+  await browser.type("one", { label: "Title" }, { text: "Submitted", submit: true });
+  await browser.check("one", { target: { role: "status" }, text: "Submitted: Feature" });
+  await browser.type("one", { label: "Title" }, { text: "Targeted" });
+  await browser.pressKey("one", { label: "Title" }, "Enter");
+  await browser.check("one", { target: { role: "status" }, text: "Targeted: Feature" });
   await assert.rejects(browser.check("one", { target: { role: "status" }, text: "Wrong result" }), /Expected text is missing/);
   assert.equal(browser.evidence("one").checkedAt, undefined);
   await browser.click("one", { frame: "iframe", role: "button", name: "Save in frame" });
@@ -93,21 +98,21 @@ test("a real browser operates form and iframe, isolates cookies and checks scree
   assert.ok(Date.now() - missingSince < 2000, "visibility checks wait shorter than actions");
 
   await browser.click("one", { role: "button", nth: 1 });
-  await browser.open("one", `${url}/cookie`);
+  await browser.navigate("one", `${url}/cookie`);
   await browser.check("one", { text: "session=one" });
-  await browser.open("two", `${url}/cookie`);
+  await browser.navigate("two", `${url}/cookie`);
   await browser.check("two", { text: "No sign-in" });
-  await browser.viewport("two", { width: 390, height: 844 });
-  const narrow = await browser.screenshot("two", { label: "Narrow" });
+  await browser.resize("two", { width: 390, height: 844 });
+  const narrow = await browser.takeScreenshot("two", { label: "Narrow" });
   const narrowBytes = await readFile(path.join(directory, "two", narrow.path));
   assert.deepEqual([narrowBytes.readUInt32BE(16), narrowBytes.readUInt32BE(20)], [390, 844]);
-  await browser.open("one", url);
+  await browser.navigate("one", url);
   await browser.click("one", { role: "button", name: "Raise error" });
   await assert.rejects(browser.check("one", { noErrors: true }), /Intentional browser error/);
   assert.ok(browser.evidence("one").errors.some((error) => error.includes("Intentional browser error")));
-  await assert.rejects(browser.open("one", `${url}/missing`), /HTTP 503/);
+  await assert.rejects(browser.navigate("one", `${url}/missing`), /HTTP 503/);
 
-  await browser.open("one", url);
+  await browser.navigate("one", url);
   const abort = new AbortController();
   const pending = browser.click("one", { role: "button", name: "Never shown" }, { signal: abort.signal });
   const rejected = assert.rejects(pending, /closed|ended|abort/i);

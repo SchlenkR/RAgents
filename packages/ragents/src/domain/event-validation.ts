@@ -347,6 +347,23 @@ const actorKindArrayOf = (value: unknown, path: string) => {
     });
 };
 
+const shareAccessOf = (value: unknown, path: string) => {
+    if (value !== "read" && value !== "write")
+        fail(path, "must be read or write");
+};
+
+const sharedUsersOf = (value: unknown, path: string) => {
+    arrayOf(value, path, (entry, entryPath) => {
+        const user = exactObject(entry, entryPath, ["userId", "access"]);
+        nonEmptyStringOf(user.userId, `${entryPath}.userId`);
+        shareAccessOf(user.access, `${entryPath}.access`);
+    });
+    const userIds = (value as { userId: string }[]).map((user) => user.userId);
+
+    if (new Set(userIds).size !== userIds.length)
+        fail(path, "must not name a user twice");
+};
+
 const eventTypeArrayOf = (value: unknown, path: string) => arrayOf(value, path, (entry, entryPath) => {
     if (!isObservableEventType(entry))
         fail(entryPath, "must be an observable event type");
@@ -393,6 +410,28 @@ const payloadOf = (type: EventType, value: unknown, path: string) => {
         case "run.title-changed": {
             const payload = exactObject(value, path, ["title"]);
             stringOf(payload.title, `${path}.title`);
+            return;
+        }
+
+        case "run.sharing-changed": {
+            const payload = exactObject(value, path, ["everyone", "users", "changedBy"]);
+            if (payload.everyone !== null) shareAccessOf(payload.everyone, `${path}.everyone`);
+            sharedUsersOf(payload.users, `${path}.users`);
+            nonEmptyStringOf(payload.changedBy, `${path}.changedBy`);
+            return;
+        }
+
+        case "run.paused": {
+            const payload = exactObject(value, path, ["reason"], ["userId"]);
+            nonEmptyStringOf(payload.reason, `${path}.reason`);
+            if (Object.hasOwn(payload, "userId")) nonEmptyStringOf(payload.userId, `${path}.userId`);
+            return;
+        }
+
+        case "run.resumed": {
+            const payload = exactObject(value, path, ["trigger"], ["userId"]);
+            if (payload.trigger !== "input" && payload.trigger !== "resume") fail(`${path}.trigger`, "must be input or resume");
+            if (Object.hasOwn(payload, "userId")) nonEmptyStringOf(payload.userId, `${path}.userId`);
             return;
         }
 

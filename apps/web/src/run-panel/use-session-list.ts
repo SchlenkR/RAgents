@@ -1,13 +1,13 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { listSessions, type SessionInfo } from "../api";
+import { listSessions, type ListedSession } from "../api";
 import { coreContracts } from "@ragents/host/api/contracts";
 import { rpc } from "../rpc";
 
 const POLL_INTERVAL_MS = 5000;
 
 /** The server's run list, live over the ragents.runs channel and reloaded every five seconds as a safety net. */
-export function useSessionList(enabled: boolean): { sessions: SessionInfo[]; unreachable: boolean; refresh: () => Promise<void> } {
-  const [sessions, setSessions] = useState<SessionInfo[]>([]);
+export function useSessionList(enabled: boolean): { sessions: ListedSession[]; unreachable: boolean; refresh: () => Promise<void> } {
+  const [sessions, setSessions] = useState<ListedSession[]>([]);
   const [unreachable, setUnreachable] = useState(false);
   const refreshing = useRef<Promise<void> | undefined>(undefined);
   const requested = useRef(false);

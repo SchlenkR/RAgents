@@ -10,7 +10,7 @@ import {
   type RunDocument as Document,
   type DocumentSection,
 } from "./DocumentViewer";
-import { fetchRunFiles, runFileContentUrl } from "./api";
+import { fetchRunFiles, runFileContentUrl, runWorkspaceContentUrl } from "./api";
 import type { RunFileEntry, RunFilesListing } from "../contract";
 import { runArtifactContentUrl, runViewFrom, type RunView } from "@ragents/web/run-view";
 import { Alert, Badge } from "@ragents/web/ui";
@@ -27,24 +27,33 @@ import {
 export const DOCUMENTS_PLUGIN_ID = "ragents.documents";
 export const DOCUMENTS_TAB_ID = "ragents.documents.library";
 
-const pathArgumentsFrom = (tool: ToolInfo): { title: string; path: string; format?: string } | undefined => {
+/** A shown file: one of the workspace, named like read names it, or one of the file store. */
+type ShownFile = { title: string; source: "workspace" | "store"; path: string; format?: string };
+
+const shownFileFrom = (tool: ToolInfo): ShownFile | undefined => {
   if (tool.name !== "show_document") return undefined;
   try {
-    const args = JSON.parse(tool.arguments) as { title?: unknown; path?: unknown; content?: unknown; format?: unknown };
-    if (typeof args.title !== "string" || typeof args.path !== "string" || typeof args.content === "string") return undefined;
-    return { title: args.title, path: args.path, ...(typeof args.format === "string" ? { format: args.format } : {}) };
+    const args = JSON.parse(tool.arguments) as { title?: unknown; file_path?: unknown; storePath?: unknown; content?: unknown; format?: unknown };
+    if (typeof args.title !== "string" || typeof args.content === "string") return undefined;
+    const format = typeof args.format === "string" ? { format: args.format } : {};
+    if (typeof args.file_path === "string" && args.storePath === undefined) return { title: args.title, source: "workspace", path: args.file_path, ...format };
+    if (typeof args.storePath === "string" && args.file_path === undefined) return { title: args.title, source: "store", path: args.storePath, ...format };
+    return undefined;
   } catch {
     return undefined;
   }
 };
 
 const pathDocumentFrom = (tool: ToolInfo, routePrefix: string, runId: string): Document | undefined => {
-  const args = pathArgumentsFrom(tool);
-  if (!args) return undefined;
-  const format = args.format === "markdown" || args.format === "text" || args.format === "html"
-    ? args.format
-    : formatFromName(args.path);
-  return { id: tool.id, title: args.title, format, contentUrl: runFileContentUrl(routePrefix, runId, args.path) };
+  const shown = shownFileFrom(tool);
+  if (!shown) return undefined;
+  const format = shown.format === "markdown" || shown.format === "text" || shown.format === "html"
+    ? shown.format
+    : formatFromName(shown.path);
+  const contentUrl = shown.source === "workspace"
+    ? runWorkspaceContentUrl(routePrefix, runId, shown.path)
+    : runFileContentUrl(routePrefix, runId, shown.path);
+  return { id: tool.id, title: shown.title, format, contentUrl };
 };
 
 const chatDocumentFrom = (tool: ToolInfo, routePrefix: string, runId: string): Document | undefined =>

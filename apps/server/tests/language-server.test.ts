@@ -424,11 +424,11 @@ test("edit and write results carry the annotation of the written file", async ()
       execute: (toolCallId: string, input: unknown) =>
         sandbox.tools.get(name)!(input, { toolCallId }) as Promise<{ content: Array<{ text?: string }> }>,
     });
-    const written = await byName("write").execute("1", { path: "Foo.cs", content: "class Foo {}" });
+    const written = await byName("write").execute("1", { file_path: "Foo.cs", content: "class Foo {}" });
     assert.equal(written.content.at(-1)?.text, "Diagnostics (Roslyn) Foo.cs: no errors");
-    const edited = await byName("edit").execute("2", { path: "Foo.cs", edits: [{ oldText: "Foo", newText: "Bar" }] });
+    const edited = await byName("edit").execute("2", { file_path: "Foo.cs", old_string: "Foo", new_string: "Bar" });
     assert.equal(edited.content.at(-1)?.text, "Diagnostics (Roslyn) Foo.cs: no errors");
-    const plain = await byName("write").execute("3", { path: "notes.md", content: "x" });
+    const plain = await byName("write").execute("3", { file_path: "notes.md", content: "x" });
     assert.equal(plain.content.length, 1);
     assert.deepEqual(annotated, [
       path.join(directory, "Foo.cs"),

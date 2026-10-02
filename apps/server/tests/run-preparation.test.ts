@@ -32,6 +32,7 @@ process.env.PRODUCT_PROFILE = "core";
 process.env.PRODUCT_ID = "test";
 process.env.PRODUCT_TITLE = "Test";
 const { RunSessionProvider, SESSION_METADATA_TIMEOUT_MS } = await import("../src/provider.ts");
+const { RunReadMarkers } = await import("../src/run-read-markers.ts");
 after(() => rm(directory, { recursive: true, force: true }));
 
 const request = () => parseRunPreparationRequest({ messages: [{ role: "user", text: "Create a small text analysis." }] });
@@ -353,10 +354,11 @@ test("provider describes only visible runs, in parallel, and a silent or failing
     sessions: new Map(),
     deleteRequested: new Set(), deleted: new Set(),
     plugins: { optionalService: () => undefined, service: () => ({ coordinator: { runTitle: "New" } }), sessionMetadata: metadata },
+    readMarkers: await RunReadMarkers.load(path.join(directory, "run-read-markers.json")),
   });
 
   const started = performance.now();
-  const listed = await provider.list({ visible: (runId) => runId !== "hidden", workspaceAccessible: () => true });
+  const listed = await provider.list({ visible: (runId) => runId !== "hidden", workspaceAccessible: () => true, operable: () => true, sharing: () => ({}), userId: null });
   const elapsed = performance.now() - started;
 
   assert.deepEqual(listed.map((entry) => entry.id).sort(), ["visible-a", "visible-b"]);
@@ -384,7 +386,7 @@ test("provider lists the current journal revision and leaves preparing runs with
     plugins: {
       optionalService: () => undefined,
       service: () => ({ coordinator: { runTitle: "New" } }),
-      sessionMetadata: { describe: async () => ({ values: {}, unavailable: {} }) },
+      sessionMetadata: { describe: async () => ({ values: {}, unavailable: {}, listDetails: [] }) },
       startOptions: new StartOptionContributionRegistry(),
     },
   });
@@ -397,6 +399,7 @@ test("provider lists the current journal revision and leaves preparing runs with
   assert.ok(next.find((entry) => entry.id === run.id)!.revision! > listed.revision!);
   assert.equal(next.find((entry) => entry.id === "preparing")!.revision, undefined);
   assert.equal(next.find((entry) => entry.id === "preparing")!.running, true);
+  assert.equal(next.find((entry) => entry.id === "preparing")!.state, "running", "a preparing run is running work as well");
 
   for (const handle of ["primary", "worker"]) {
     engine.runtime.spawnAgent({ commandId: `spawn-${handle}`, actorId: run.ownerId }, run.id, {
@@ -415,9 +418,11 @@ test("provider lists the current journal revision and leaves preparing runs with
     return actorId === worker.id && workerRunning;
   });
   assert.equal((await provider.list()).find((entry) => entry.id === run.id)!.running, true);
+  assert.equal((await provider.list()).find((entry) => entry.id === run.id)!.state, "running");
   assert.ok(queried.includes(primary.id));
   assert.ok(queried.includes(worker.id));
   assert.ok(!queried.includes(run.ownerId));
   workerRunning = false;
   assert.equal((await provider.list()).find((entry) => entry.id === run.id)!.running, false);
+  assert.equal((await provider.list()).find((entry) => entry.id === run.id)!.state, "idle");
 });

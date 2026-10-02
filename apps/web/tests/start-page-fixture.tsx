@@ -90,7 +90,8 @@ const fixture = {
     switch (contract.id) {
       case "ragents.overseer.coordinator": return { runId: "global" };
       case "ragents.overseer.settings.read": return { provider: "demo", model: "demo-model", thinking: "off", models: [{ id: "demo-model", provider: "demo", label: "Demo", thinking: ["off"] }] };
-      case "ragents.runs.list": return [{ id: "existing", title: "Existing run", updatedAt: Date.now() - 180_000 }];
+      case "ragents.runs.list": return [{ id: "existing", title: "Existing run", updatedAt: Date.now() - 180_000, running: false, state: "idle", pendingActions: 0, workspaceAccessible: true }];
+      case "ragents.runs.markViewed": return null;
       case "ragents.startOptions.list": return optionsOf(runId);
       case "ragents.startOptions.select": {
         if (!inspecting && technical.has(String(params.optionId))) throw new Error(`The right runs.inspect is missing for the start option ${String(params.optionId)}.`);

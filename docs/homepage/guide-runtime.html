@@ -207,12 +207,12 @@ and how long the summary may be are values of the model; a profile sets them for
 <h2 id="interrupting-a-turn-stopping-an-actor-stopping-a-run-and-shutting-down-the-server">Interrupting a turn, stopping an actor, stopping a run, and shutting down the server</h2>
 <p>All stop paths follow the same principle: block new work first, then cancel, wait for running
 work, and only then release resources. The exact boundary differs:</p>
-<p>Interrupting a turn is not a stop. The stop button in a chat input (&quot;Stop work&quot;) ends only the
-running turn of that chat&#39;s actor as <code>interrupted</code>: its running function calls are aborted, the
-visible text of its unfinished answer stays, and the actor remains active and takes the next
-message as a new turn. Its children and all other actors keep working, and without a running
-turn of this actor the input offers no stop. Stopping an actor for good and stopping the whole
-run are separate, explicitly labeled actions.</p>
+<p>The stop button in a chat input (&quot;Stop work&quot;) pauses the whole run: from that moment no turn of
+any actor starts, the running turns of all actors, the coordinator&#39;s sub-agents included, end as
+<code>interrupted</code>, and the run stays paused until a human continues it. Nothing is lost: what arrives
+in the meantime waits in the journal. The visible text of an unfinished answer stays, and every
+actor stays active. Interrupting the turn of a single actor only, stopping an actor for good, and
+stopping the whole run are separate, explicitly labeled actions.</p>
 <p>In the run title bar, a user with write permission can request a complete stop through &quot;Stop
 run&quot; and a confirmation. The primary actor can also trigger it with <code>run_stop</code>. Both use the
 same host stop boundary; the chat and files remain intact. The function call initiates
@@ -220,6 +220,9 @@ the stop but does not wait for cleanup of its own turn. Acceptance is not proof 
 Cleanup errors are reported in the server log while the stop path&#39;s normal quarantine remains
 in effect.</p>
 <ul>
+<li>Run pause (<code>ragents.runs.pause</code>, the chat&#39;s stop button, <code>ragents stop &lt;run&gt;</code>): No turn starts
+any more and the running turns of all actors end; inputs keep arriving and wait. A human input
+or <code>ragents.runs.resume</code> continues the run (section Pausing a run).</li>
 <li>Turn interruption (<code>ragents.runs.interruptTurn</code>): Ends the running turn of one actor and
 nothing else; the actor, its model runtime, its children, and the run stay as they are.</li>
 <li><code>actor_stop</code>: Stops the actor, interrupts its running turn, and disposes its model runtime
@@ -253,8 +256,9 @@ then accepts work again instead of remaining permanently stuck, and another stop
 after a successful release. The scheduler checks the remaining open inputs again; inputs that
 were already claimed or discarded are not repeated.</p>
 <h2 id="actors-inputs-events-and-subscriptions">Actors, inputs, events, and subscriptions</h2>
-<p><code>actor_input</code> delivers text and optional artifacts directly to exactly one executable actor.
-The driver receives the content without a routing envelope. There are no channels, message
+<p><code>actor_input</code> delivers text and optional artifacts directly to exactly one executable actor:
+<code>to</code> names the recipient by handle or ID, <code>message</code> is the text, as in the messaging tools of
+common agent harnesses. The driver receives the content without a routing envelope. There are no channels, message
 domain, read receipts, mention syntax, or special result or delivery message. Communication is
 plain text. The sender can be a human owner, another actor, or a subscription delivery. Normal
 model responses need no sending function: every completed output is already a
@@ -284,7 +288,7 @@ observation) and decides at every end whether the worker is finished, waiting fo
 or needs another prompt. An LLM coordinator that &quot;waits passively&quot; is not a wake-up. A watcher
 from <code>ragents.watch</code> (<code>plugins.md</code>) is such a host service: it wakes the controlling actor with
 the reason and changes as soon as its wake condition is met. <code>ragents.ask</code> is another: after
-<code>ask_user</code> the asker ends its turn, and the answer or the user&#39;s next message arrives as a new
+<code>ask_user</code> the asker ends its turn, and the answers or the user&#39;s next message arrive as a new
 input. Instructions may say &quot;end the turn&quot; only where such an observer exists. Synchronous
 functions return their result, and the caller continues in the same turn.</p>
 <h2 id="ids-handles-and-creating-actors-again">IDs, handles, and creating actors again</h2>
@@ -301,6 +305,19 @@ actor when it was stopped, and no other primary actor has been chosen since, it 
 primary actor again, so its chat continues. For TypeScript actors, creation rejects a handle
 that is already assigned. The creation itself remains recorded as an event in the journal.</p>
 <h2 id="equipping-subagents">Equipping subagents</h2>
+<p><code>agent_spawn</code> creates exactly one LLM agent in the run, with the fields of the subagent tools of
+common agent harnesses: <code>description</code> is a required label of a few words, <code>prompt</code> is the first
+task, and <code>name</code> is the requested handle. <code>instructions</code> holds the lasting role and rules for the
+agent&#39;s system prompt; a role from <code>model_list</code> supplies none. With <code>prompt</code>, the command that
+writes <code>agent.spawned</code> also enqueues the task as the agent&#39;s first input, so the agent starts at
+once; this needs <code>actor.input</code> besides <code>agent.spawn</code>. Without <code>prompt</code> the agent stays idle until
+an <code>actor_input</code> reaches it. Nothing waits for the agent: the call returns <code>{ id, handle }</code>, and
+its answers reach the caller only as later inputs of a subscription to its events, while failed
+and interrupted turns arrive as automatic notices. Because a task given at the spawn starts at
+once, a subscription made afterwards can miss the first answer; whoever needs it creates the
+agent without <code>prompt</code>, subscribes, and then sends the task with <code>actor_input</code>. A prepared setup
+joins a run through <code>run_script_start</code> and a TypeScript actor comes from an actor program;
+<code>agent_spawn</code> creates neither, and no function of a run creates another run.</p>
 <p><code>agent_spawn</code> requires an explicit function selection in <code>tools</code>:</p>
 <table>
 <thead>
@@ -338,10 +355,10 @@ new agent supplies its own system prompt, functions, and model. Later turns from
 reach the fork. Both source and fork require the agent driver; a source without a finished turn that
 reached the model, and not itself a fork, is rejected with <code>fork-without-turn</code>. A plain LLM receives no function overview. Its driver must explicitly support this
 isolation or the turn is rejected.</p>
-<p>Equipped LLMs receive <code>typescript_api</code> and <code>typescript_eval</code>, plus an automatically generated
-overview of their available TypeScript functions with names and short descriptions. The
-overview stays current during the turn. Domain functions are called through
-<code>context.functions</code> in snippets. Additional native tools require explicit registration. Roles
+<p>Equipped LLMs receive their available functions as native tools, plus <code>typescript_api</code> and
+<code>typescript_eval</code>; snippets call the same functions through <code>context.functions</code>. A generated
+overview in the system prompt lists only the snippet-only functions (<code>nativeTool: false</code>) with
+names and short descriptions. Tools and overview stay current during the turn. Roles
 and work boundaries remain prompt instructions. Alongside a role (field <code>profile</code>), <code>agent_spawn</code> accepts
 <code>model</code> and <code>thinking</code> from the model list. A role supplies only the driver, provider,
 reasoning level, timeout, and workspace default; the product model list defines which models are

@@ -57,7 +57,7 @@ test("running and finished thoughts and waiting actions leave no current step", 
   assert.doesNotMatch(render(applyEvent(thinking, { kind: "turn-done" })), /Thinking|data-step="chip"/);
   const tool = applyEvent(thinking, { kind: "tool", id: "ask", name: "ask_user", arguments: "{}" });
   assert.ok(!render(tool, false).includes("ask_user"));
-  const question = applyEvent(tool, { kind: "action", actionId: "ask", owner: "ragents.ask", text: "Which color?", payload: { question: "Which color?", options: ["Red", "Blue"], multi: false } });
+  const question = applyEvent(tool, { kind: "action", actionId: "ask", owner: "ragents.ask", text: "Which color?", payload: { questions: [{ question: "Which color?", header: "Choice", options: [{ label: "Red", description: "" }, { label: "Blue", description: "" }], multiSelect: false }] } });
   assert.ok(render(question).includes("Which color?"));
   assert.ok(!render(question).includes("ask_user"));
   assert.doesNotMatch(render(question), /data-step="chip"/);

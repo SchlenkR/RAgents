@@ -74,7 +74,7 @@ const coordinatorFixture = async (network: readonly string[] = PROCESS_SANDBOX_D
   const bash = async (command: string): Promise<string> => {
     const tool = tools.find((entry) => entry.name === "bash");
     assert.ok(tool);
-    return String(await tool.run({ signal: new AbortController().signal } as ToolScope, "test-bash", { command, timeout: 30 } as never));
+    return String(await tool.run({ signal: new AbortController().signal } as ToolScope, "test-bash", { command, timeout: 30_000 } as never));
   };
   const snippet = async (source: string): Promise<unknown> => {
     const request: NativeTypeScriptRequest = {
@@ -197,7 +197,7 @@ test("git in a worktree whose common repository lies outside works in the sandbo
     processSandbox,
   });
   const bash = async (runId: string, command: string): Promise<string> => {
-    const result = await host.execute(runId, "bash", { command: `${command} 2>&1; echo "exit=$?"`, timeout: 60 }) as { content: Array<{ text?: string }> };
+    const result = await host.execute(runId, "bash", { command: `${command} 2>&1; echo "exit=$?"`, timeout: 60_000 }) as { content: Array<{ text?: string }> };
     return result.content.map((part) => part.text ?? "").join("\n");
   };
   const commit = 'echo new > new.txt && git add new.txt && git -c user.name=Example -c user.email=example@example.invalid commit -q -m "From the sandbox"';
@@ -250,7 +250,7 @@ test("a bash of a workstation run with an alias as cwd runs on the server in the
   });
   host.registerWorkspaceRoot({ id: "actors", alias: "@actors", environmentVariable: "RAGENTS_ACTORS_DIR", directoryFor: () => actors });
   const bash = async (input: Record<string, unknown>): Promise<string> => {
-    const result = await host.execute("remote", "bash", { timeout: 30, ...input }) as { content: Array<{ text?: string }> };
+    const result = await host.execute("remote", "bash", { timeout: 30_000, ...input }) as { content: Array<{ text?: string }> };
     return result.content.map((part) => part.text ?? "").join("\n");
   };
   try {

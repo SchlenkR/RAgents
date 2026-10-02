@@ -25,10 +25,14 @@ const oneLine = (value: string) => {
   return line.length > SUMMARY_LIMIT ? `${line.slice(0, SUMMARY_LIMIT)} ...` : line;
 };
 
+const nonEmpty = (value: unknown): value is string => typeof value === "string" && value.trim() !== "";
+
+/** A shell command's own description is the label the user reads instead of the command. */
 const preferredValue = (values: Record<string, unknown>) => {
+  if (nonEmpty(values.command) && nonEmpty(values.description)) return values.description;
   for (const key of SUMMARY_KEYS) {
     const value = values[key];
-    if (typeof value === "string" && value.trim() !== "") return value;
+    if (nonEmpty(value)) return value;
   }
   return undefined;
 };

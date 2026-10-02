@@ -27,7 +27,7 @@ test("reports the other participants as result and summary and notes them in the
   }]);
   assert.deepEqual(calls.slice(1).map((call) => [call.name, call.input]), [
     ["actor_program_ensure", { name: "notebook" }],
-    ["actor_input", { actor: "@notebook", content: "Roster: 2 participants: @coordinator, @helper." }],
+    ["actor_input", { to: "@notebook", message: "Roster: 2 participants: @coordinator, @helper." }],
   ]);
   assert.deepEqual(context.state.read(), { reports: 1 });
 });

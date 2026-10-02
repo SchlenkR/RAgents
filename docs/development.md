@@ -32,14 +32,14 @@ The terms are described in more detail in `docs/spec/overview.md`.
 
 One line of JSON per command decision, append-only. The line contains the command, its time,
 and an array of its events. `sequence` counts up over all events of the run without gaps.
-The following example shows a line as it is stored in `journal.jsonl` on disk (file format 9),
+The following example shows a line as it is stored in `journal.jsonl` on disk (file format 10),
 indented for reading; IDs, hash, and usage numbers are shortened. It is a completed model step:
 the text as an observable `model.output.completed`, followed by the step itself, which does not
 repeat the text:
 
 ```json
 {
-  "formatVersion": 9,
+  "formatVersion": 10,
   "runId": "example-run",
   "command": {
     "id": "scheduler:review-turn:context:step:4",
@@ -139,13 +139,12 @@ model selection. The binding inventory is in the code under
 `packages/ragents/src/agents/tools.ts`. Plugins add further functions, for example for files,
 programs, and mini-apps.
 
-A model discovers the current inventory and exact types through `typescript_api`. With
-`typescript_eval` it runs small TypeScript snippets and calls
-`context.functions.<name>(input)` in them. The same access is available to permanent actor
-programs. The default interface needs only these two native tools for this. They belong to the
-server and remain available even without the optional actor program plugin.
-A plugin registers a shared implementation with `defineRunFunction` and `host.functions`.
-`nativeTool: true` also offers it directly as a model tool when needed.
+Every function is a native model tool. `typescript_api` returns exact types and detailed
+guidance; with `typescript_eval` a model runs small TypeScript snippets that combine calls through
+`context.functions.<name>(input)`. The same access is available to permanent actor programs. Both
+belong to the server and remain available even without the optional actor program plugin.
+A plugin registers a shared implementation with `defineRunFunction` and `host.functions`;
+`nativeTool: false` keeps it snippet-only.
 
 In addition there are the shared TypeScript compiler, native Node execution, verified
 program builds, the journal including replay, and the turn scheduler. The actor's function
@@ -904,7 +903,7 @@ of the workstation, an actor program and a skill through the server's roots (`@a
 emergency stop including cleanup on both machines, disconnecting and re-registering, and a stop while the
 container has no network that takes effect after it returns. Switches:
 `--shared-path` also creates the same path with different contents on this machine (instead of
-`/work/project`, which must not exist here), `--browser` opens a page with `browser_open`
+`/work/project`, which must not exist here), `--browser` opens a page with `browser_navigate`
 that runs only on `localhost` in the container, `--vscode` additionally runs the extension's host test
 in its own VS Code window against the same server. The runner ends only what it
 started itself: server and VS Code launcher by their own PID, containers and images only

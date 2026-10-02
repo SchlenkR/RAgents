@@ -1,50 +1,30 @@
 export const TODO_PLUGIN_ID = "ragents.todo";
 
-export const TODO_STATUSES = ["open", "active", "completed"] as const;
-export const TODO_STATUS_INPUTS = ["open", "active", "completed", "pending", "in_progress", "done"] as const;
+export const TODO_STATUSES = ["pending", "in_progress", "completed"] as const;
 export type TodoStatus = typeof TODO_STATUSES[number];
 
-export interface TodoItem {
-  id: string;
-  text: string;
+export type TodoItem = {
+  content: string;
   status: TodoStatus;
-}
-
-export interface TodoState {
-  todos: TodoItem[];
-}
-
-export const todoStatusOf = (value: unknown): TodoStatus | undefined => {
-  if (typeof value !== "string") return undefined;
-
-  switch (value.trim().toLowerCase()) {
-    case "open":
-    case "pending":
-      return "open";
-    case "active":
-    case "doing":
-    case "in_progress":
-    case "running":
-      return "active";
-    case "completed":
-    case "done":
-    case "finished":
-      return "completed";
-    default:
-      return undefined;
-  }
+  activeForm: string;
 };
+
+export type TodoState = {
+  todos: TodoItem[];
+};
+
+const isTodoStatus = (value: unknown): value is TodoStatus => (TODO_STATUSES as readonly unknown[]).includes(value);
 
 const itemOf = (value: unknown): TodoItem | undefined => {
   if (!value || typeof value !== "object") return undefined;
   const candidate = value as Partial<TodoItem>;
-  const status = todoStatusOf(candidate.status);
 
-  return typeof candidate.id === "string" && typeof candidate.text === "string" && status
-    ? { id: candidate.id, text: candidate.text, status }
+  return typeof candidate.content === "string" && typeof candidate.activeForm === "string" && isTodoStatus(candidate.status)
+    ? { content: candidate.content, status: candidate.status, activeForm: candidate.activeForm }
     : undefined;
 };
 
+/** Only the current shape is a to-do list; a state of another shape, such as one of the former contract, is none. */
 export const todoStateOf = (state: unknown): TodoState | undefined => {
   const candidate = state as Partial<TodoState> | undefined;
   if (!Array.isArray(candidate?.todos)) return undefined;

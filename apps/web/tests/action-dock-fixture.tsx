@@ -2,6 +2,7 @@ import { createRoot } from "react-dom/client";
 import { useState } from "react";
 import { ChatInputToolbar, ChatMessages, ChatPanel, type Message } from "quassel";
 import { createAccessContext } from "../../../packages/ragents/src/access";
+import { askTitleOf, type AskPayload, type QuestionAnswer } from "../../../plugins/ragents.ask/ask-payload";
 import { webPlugin as askWebPlugin } from "../../../plugins/ragents.ask/web/index";
 import { ActorRunPanelChat } from "../../../plugins/ragents.orchestration/web/run-panel/RunPanel";
 import { OrchestrationRunPanel } from "../../../plugins/ragents.orchestration/web/run-panel/RunPanel";
@@ -22,9 +23,24 @@ const params = new URLSearchParams(location.search);
 const runId = params.get("run") ?? "dock";
 const at = "2026-09-29T10:00:00Z";
 const running = { kind: "running", turnId: "turn", inputId: "input", startedAt: at } as const;
+const period = {
+  question: "Which review period applies?", header: "Period", multiSelect: false,
+  options: [{ label: "3 days", description: "" }, { label: "14 days", description: "" }, { label: "30 days", description: "" }],
+};
+const several = params.get("questions") === "several";
+const payload: AskPayload = { questions: several ? [
+  { ...period, options: period.options.map((option) => ({ ...option, description: `Review within ${option.label}` })) },
+  { question: "Which checks run first?", header: "Checks", multiSelect: true,
+    options: [{ label: "lint", description: "Style rules" }, { label: "tests", description: "Unit tests" }, { label: "build", description: "Full build" }] },
+  { question: "Who reviews the change?", header: "Reviewer", multiSelect: false,
+    options: [{ label: "Domain lead", description: "Knows the rules" }, { label: "Second developer", description: "Knows the code" }] },
+] : [period] };
+const answers: readonly QuestionAnswer[] = several
+  ? [{ selected: ["14 days"] }, { selected: ["lint", "tests"] }, { text: "Someone from QA" }]
+  : [{ selected: ["14 days"] }];
 const question: RunAction = {
-  id: "review-window", askedBy: "worker", owner: "ragents.ask", title: "Which review period applies?", description: null,
-  payload: { question: "Which review period applies?", options: ["3 days", "14 days", "30 days"], multi: false },
+  id: "review-window", askedBy: "worker", owner: "ragents.ask", title: askTitleOf(payload.questions), description: null,
+  payload,
   parameters: {}, input: null, status: "pending", proposedAt: at, resolvedAt: null, resolvedBy: null, result: null,
 };
 const history: Message[] = Array.from({ length: 12 }, (_, index) => ({ key: `answer-${index}`, role: "assistant", text: `Answer ${index}: ${"Text in the history. ".repeat(15)}`, closed: true }));
@@ -42,10 +58,10 @@ const sessionFor = (answered: boolean): SessionContext => {
       { id: "worker", kind: "agent", handle: "reviewer", displayName: "Reviewer", grants: [], createdAt: at, createdBy: "primary", lifecycle: running },
     ],
     inputs: [], turns: [], subscriptions: [], pluginStates: [], artifacts: [],
-    actions: [answered ? { ...question, status: "approved", resolvedAt: at, resolvedBy: "operator", result: "14 days" } : question],
+    actions: [answered ? { ...question, status: "approved", resolvedAt: at, resolvedBy: "operator", result: { answers } } : question],
   };
   const action: Message = { key: question.id, role: "action", text: question.title, closed: true, action: {
-    actionId: question.id, owner: question.owner, payload: question.payload, ...answered ? { status: "approved", result: "14 days" } : {},
+    actionId: question.id, owner: question.owner, payload: question.payload, ...answered ? { status: "approved", result: { answers } } : {},
   } };
   const conversation = [...history, action];
   return {

@@ -331,7 +331,7 @@ description is the short description in the automatic function overview, label t
 
 Snippets and actor programs call context.functions.example_trim({ text }); input and result types come from the same registration.
 
-nativeTool: true additionally offers the same function as a native model tool. That remains the exception: by default the shared TypeScript API is enough, and the option is only justified for calls the model reads and acts on by itself, without combining, filtering, or passing the result onward (file tools, browser interactions, domain reports and status, language diagnostics, native image input).
+Every registered function is also a native model tool; snippets combine calls, filter results, and pass values onward. nativeTool: false keeps a function snippet-only, for low-level interfaces whose raw results belong in code, such as journal event queries and subscriptions.
 
 host.functions also accepts contributions with functions and descriptors resolved at runtime. Static descriptors match the inventory; dynamic: true marks a variable function list with empty static descriptors.
 
@@ -587,18 +587,21 @@ Contract fields: host.accessProjections.
 
 ### Provide run metadata
 
-A plugin can provide short additional details about a run, such as a processing status. Such metadata is available to the interface for display. The underlying domain data stays with the plugin.
+A plugin can provide short additional details about a run, such as a processing status. Such metadata is available to the interface for display, and a short line of it appears in the run list of every host. The underlying domain data stays with the plugin.
 
 Place of use: Inside register(host); example without its own data storage.
 
 ```typescript
 host.sessionMetadata({
   id: "ragents.example.metadata",
-  describe: ({ runId }) => ({ run: runId, label: "Example" }),
+  describe: ({ runId }) => ({ run: runId, branch: "main" }),
+  listDetail: (value) => ({ label: "Branch", text: (value as { branch: string }).branch, icon: "branch" }),
 });
 ```
 
-The matching display is registered separately as a sessionMetadata or header contribution in the web half.
+listDetail turns the value into the line below the run title in the run list of the browser and of VS Code; undefined shows none. The lines follow the registration order, and the icon is folder, branch, or none.
+
+The run header shows the value through a sessionMetadata contribution in the web half.
 
 Contract fields: host.sessionMetadata.
 
@@ -913,21 +916,22 @@ navigation.openTab opens a registered tab; revealEntity uses the presenters. sel
 
 Contract fields: web.toolPresenters, web.entityPresenters.
 
-### Metadata in list and header
+### Metadata in the run header
 
-Additional details about a run can appear in the run list and in its header. The plugin receives the run's data and the display location. That way, it can show the same status briefly or in more detail depending on the space.
+Additional details about a run appear in the details of its header. The plugin receives the run's data, including the values of its server-side metadata contribution, and shows them as it likes.
 
 Place of use: Properties of a WebPlugin.
 
 ```tsx
+const branchOf = (value: unknown) => (value as { branch?: string } | undefined)?.branch ?? "";
 const metadata = {
   id: "ragents.example",
   sessionMetadata: [{ id: "ragents.example.metadata", order: 100,
-    Metadata: ({ placement }) => <span>{placement === "list" ? "E" : "Example"}</span> }],
+    Metadata: ({ session }) => <span>{branchOf(session.metadata?.["ragents.example.metadata"])}</span> }],
 } satisfies WebPlugin;
 ```
 
-Domain values are provided through the server-side sessionMetadata contribution. The web half displays the values.
+Domain values are provided through the server-side sessionMetadata contribution. The run list does not use this component; its line comes from listDetail on the server, so it looks the same in the browser and in VS Code.
 
 Contract fields: web.sessionMetadata.
 
@@ -1016,7 +1020,7 @@ Place of use: Excerpt in an asynchronous actor handler; actor_input must be decl
 context.log({ run: context.run.id, actor: context.actor.handle, invocation: context.invocation.id,
   kind: context.invocation.kind, principal: context.principal.kind });
 await context.functions.actor_input({
-  actor: "@reviewer", content: "Review the new result.",
+  to: "@reviewer", message: "Review the new result.",
 });
 ```
 
@@ -1560,13 +1564,23 @@ Generated automatically from the registered contracts; the host checks methods w
 
 | ragents.runs.list | runs.read |
 
+| ragents.runs.markViewed | runs.read |
+
+| ragents.runs.pause | per run |
+
 | ragents.runs.prepare | runs.read, runs.write, runs.create |
 
 | ragents.runs.resolveAction | per run |
 
 | ragents.runs.restartActor | per run |
 
+| ragents.runs.resume | per run |
+
 | ragents.runs.scripts | per run |
+
+| ragents.runs.share | per run |
+
+| ragents.runs.sharing | per run |
 
 | ragents.runs.startScript | per run |
 

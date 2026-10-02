@@ -462,7 +462,7 @@ test("a turn the owner interrupts ends the chat once, although the owner writes 
   });
   const primary = view.actors.find((actor) => actor.kind === "agent")!;
   view = runtime.selectPrimaryActor({ actorId: view.ownerId, commandId: "select-primary" }, view.id, primary.id);
-  view = runtime.enqueueInput({ actorId: view.ownerId, commandId: "input" }, view.id, { actorId: primary.id, content: "Start" });
+  view = runtime.enqueueInput({ actorId: view.ownerId, commandId: "input" }, view.id, { actorId: primary.id, content: "Start", origin: "human" });
   const input = view.inputs.find((entry) => entry.actorId === primary.id)!;
   view = runtime.startTurn({ actorId: primary.id, commandId: "turn" }, view.id, primary.id, input.id);
   const running = view.actors.find((actor) => actor.id === primary.id)!;

@@ -277,8 +277,8 @@ export interface EntityPresenterContribution {
   reveal: (entity: EntityReference, session: SessionContext) => NavigationTarget | undefined;
 }
 
+/** Run metadata in the run header; the run list draws its lines from the server's listDetail. */
 export interface SessionMetadataContext {
-  placement: "header" | "list";
   session: SessionInfo;
 }
 

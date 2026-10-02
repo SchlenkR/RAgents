@@ -22,7 +22,7 @@ export default defineActor(contract, {
   onStart: async (start, context) => {
     const note = noteOf(start.input, context.std.now());
     const notebook = await context.functions.actor_program_ensure({ name: "notebook" });
-    await context.functions.actor_input({ actor: `@${notebook.handle}`, content: note });
+    await context.functions.actor_input({ to: `@${notebook.handle}`, message: note });
     context.finish({ note, notebook: notebook.status }, { summary: `Noted: ${note}` });
   },
 });

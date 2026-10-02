@@ -3,7 +3,7 @@ import { mkdirSync, mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import test, { after } from "node:test";
-import { createAccessContext, DomainError, Journal, Orchestration, RpcPeer, type AccessContext, type PluginHost } from "@ragents/engine";
+import { createAccessContext, DomainError, Journal, notShared, Orchestration, RpcPeer, type AccessContext, type PluginHost } from "@ragents/engine";
 import { testServices } from "../../../packages/ragents/tests/support.ts";
 import type { RunAccessPolicy } from "../src/api/rights.ts";
 import { RpcConnection, RpcDispatcher } from "../src/rpc/dispatcher.ts";
@@ -18,6 +18,7 @@ const policy: RunAccessPolicy = {
   global: undefined,
   ownerOf: (runId) => (runId === BOUND || runId === OPEN ? "alice" : undefined),
   ownerOnly: (runId) => runId === BOUND,
+  sharing: () => notShared(),
 };
 
 const user = (id: string, rights: readonly string[]): AccessContext =>
