@@ -2,7 +2,7 @@
   "name": "ragents-vscode",
   "displayName": "RAgents",
   "description": "Programmable AI workspaces in VS Code with agents, TypeScript workflows, mini-apps, and local workspace tools.",
-  "version": "0.1.25",
+  "version": "0.1.26",
   "license": "PolyForm-Shield-1.0.0",
   "author": "Ronald Schlenker",
   "repository": {
@@ -31,7 +31,7 @@
     "ragents"
   ],
   "ragents": {
-    "packageVersion": "0.1.25"
+    "packageVersion": "0.1.26"
   },
   "main": "./dist/extension.js",
   "activationEvents": [
