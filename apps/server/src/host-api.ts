@@ -102,9 +102,9 @@ export const hostApi: { readonly server: HostApiModules; readonly web: HostApiMo
     ],
     "@ragents/workflow": ["defineWorkflow", "workflowInstructions"],
     "@ragents/workspace-executor": [
-      "BYTE_OPERATIONS", "COMMAND_OPERATIONS", "FILE_BYTES_LIMIT", "FILE_COUNT_LIMIT", "FILE_OPERATIONS", "PROCESS_OPERATIONS", "RUN_FOLDER_OPERATIONS", "RUN_MARKER_ENV", "WORKSPACE_EXECUTOR_VERSION",
-      "languageServerOpenOperation", "languageServerSolutionsOperation", "listDirectory", "readTextFile", "ripgrepAvailable", "runManagedProcess", "safeProcessEnvironment", "sandboxRunEnvironment", "sandboxedLaunch",
-      "shellPlatformText", "startManagedService", "watchDirectory",
+      "BYTE_OPERATIONS", "COMMAND_OPERATIONS", "FILE_BYTES_LIMIT", "FILE_COUNT_LIMIT", "FILE_OPERATIONS", "PROCESS_OPERATIONS", "RUN_FOLDER_OPERATIONS", "RUN_MARKER_ENV", "TUNNEL_PING_INTERVAL_MS", "WORKSPACE_EXECUTOR_VERSION",
+      "bytesOf", "languageServerOpenOperation", "languageServerSolutionsOperation", "listDirectory", "readTextFile", "ripgrepAvailable", "runManagedProcess", "safeProcessEnvironment", "sandboxRunEnvironment", "sandboxedLaunch",
+      "shellPlatformText", "startManagedService", "tunnelCloseReason", "watchDirectory",
     ],
     "@ragents/workspace-executor/src/git-config-environment": ["withGitConfigPairs"],
     "@ragents/workspace-executor/src/managed-process": ["ProcessGroupJoinError"],

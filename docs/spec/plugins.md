@@ -266,7 +266,8 @@ The server-side `PluginHost` has registries for:
   A plugin without a condition applies in every run; a second registration is a registration error
   (`RunConditionRegistry` in `packages/ragents/src/plugin-host.ts`)
 - methods and channels of the message layer (`host.methods`, `host.channels`, section
-  Message layer) as well as delivery routes (`host.http`) for files and frames
+  Message layer) as well as delivery routes (`host.http`) for files, frames, and connection
+  upgrades (section Rights in server and web contributions)
 - public client configuration; through it the product plugins also publish
   the global chat display policy (`chatSteps` from `CHAT_STEPS_MODE_COORDINATOR/_AGENTS`,
   `_VISIBLE`, `_EXPANDABLE`, `_SELECTABLE`), which the web passes as the at-most-one contribution
@@ -1159,6 +1160,17 @@ first, before the access token and the sign-in, and then checks the run named in
 route's rights against that access exactly as for a signed-in request; an error answers the request
 with its status. `ragents.documents` is the only user (grants of its content route, section
 Ownership per facet).
+
+A route can additionally take HTTP upgrade requests, such as a WebSocket: `upgrade` on the same
+contribution receives `HttpUpgradeContext` (`request`, the raw `socket`, `head` with the bytes
+already read, and `url`) for every upgrade request that `matches` accepts, and answers or takes over
+the connection itself (`HttpContributionRegistry.dispatchUpgrade`). Of the host's gates only the
+switch for external access applies to an upgrade: the host knows no sign-in, no access token, and
+no `requiredRights` there, so an upgrade route authenticates its requests itself, as the service
+tunnel does with one-time secrets (section Workspace, sandbox tools, and processes). An upgrade that
+no route takes is answered with 404 on the raw connection, a disabled external access with 503.
+The host passes the connection on unchanged; a route that speaks WebSocket bundles its own
+library, as `ragents.processes` bundles `ws`.
 The current contracts and the host route mapping are generated from the code in the developer reference;
 the owning plugin names further rights itself.
 
@@ -1255,8 +1267,8 @@ and the channels `ragents.runs`, `ragents.run`, and `ragents.chat`
 (`apps/server/src/api/contracts.ts`, `packages/ragents/src/http/contracts.ts`). Whatever is not a
 JSON message remains delivery through `host.http`: static interface, mini-app frames,
 artifact and attachment content under `/files/runs/<run>/artifacts/<id>` and
-`/files/runs/<run>/attachments/<id>`, document content, help, and `/health`. The registry
-`http` exists only for that; every JSON response is a method.
+`/files/runs/<run>/attachments/<id>`, document content, help, `/health`, and the WebSocket legs
+of the service tunnel. The registry `http` exists only for that; every JSON response is a method.
 
 The reference is generated from the registrations: `host.methods.describe()` and
 `host.channels.describe()` provide owner, ID, description, rights, and schemas for the readable
@@ -2889,7 +2901,8 @@ sign-in data - it is tied to the address, not to the name.
 ## Workspace, sandbox tools, and processes
 
 The workspace plugins give agents exactly four
-sandbox tools from `@ragents/workspace-executor` plus `copy`. Names and input fields follow the file and shell
+sandbox tools from `@ragents/workspace-executor`, the two tools of background commands
+`task_output` and `task_stop` (below), plus `copy`. Names and input fields follow the file and shell
 tools of the common agent harnesses, Claude Code first, because models are trained on these shapes
 and fail on look-alikes; the schemas are closed, and an unknown field is removed with a notice
 (`core.md`). `read` takes `file_path`, `offset` (1-based; 0 counts as 1), and `limit` and returns
@@ -2908,7 +2921,8 @@ the string to replace, but replace_all is false. ..." followed by the lines of t
 does not exist.", and "Cannot create new file - file already exists.". `bash` takes `command`,
 `timeout` in milliseconds, `description`, `run_in_background`, and `cwd` (below) and returns the
 last 2000 lines or 20 KB, lines over 1000 characters shortened and marked, the full output then in
-a log file whose path the result names. A file path is relative to the working directory,
+a log file whose path the result names; with `run_in_background` it returns at once with the ID of
+a background command (below). A file path is relative to the working directory,
 absolute, or starts with an alias such as `@actors`; unlike in the standard it need not be
 absolute, because an alias and not an absolute path decides the machine (below).
 `copy` takes `source` and `destination`, both named exactly as `read` names a file, and copies a
@@ -2972,13 +2986,14 @@ whoever needs one again builds a new one. The executor itself
 `workspace-operation-unknown` (400), a doubly registered one already at construction. An executor carries
 its own modules and the plugins' contributions (`workspaceExecutorModules({ contributions })`,
 section Contributions to the executor): the four sandbox tools with process groups,
-environment, and path checks (`read`, `edit`, `write`, `bash`) and in the same module the byte
+environment, and path checks (`read`, `edit`, `write`, `bash`), in the same module the background
+commands of `bash` (`task_output`, `task_stop`, and the observation `tasks.wait`) and the byte
 operations `bytes.read` and `bytes.write`, which read and write a file, or with `recursive` a folder,
 in a root of this machine as Base64, at most 16 MiB and 1000 files per call, writing within the
 lock of the tools; the language server sessions for every
 language server a contribution brings along (`<id>_open`, `<id>_diagnostics`, `<id>_close`,
 `<id>_snapshot`, with solutions `<id>_solutions` and `<id>_switch`), the files (`files.list`, `files.read`, `files.text`, `files.watch`, `files.attach`), the
-processes (`processes.snapshot`, `processes.stop`, `processes.stopAll`, `processes.forward`), the commands (`commands.run`),
+processes (`processes.snapshot`, `processes.stop`, `processes.stopAll`, `processes.dial`), the commands (`commands.run`),
 the contributions' modules, such as the browser of the browser check (`browser.*`, section
 Browser checks), and the folder per run. No language, no language server, and no browser is
 built into it. After `edit` and
@@ -3291,20 +3306,16 @@ line of the result (`Command exited with code N`) and is not a tool error, such 
 matches. Tool errors are only start, time limit, and cancellation problems. `timeout` is in
 milliseconds as in the standard: without it the bash stops a command after 120000 ms; a call may
 request up to 3600000 ms (60 minutes); more is an input error. The upper limit deliberately exceeds
-Claude Code's 600000 ms, because cold builds of real projects take longer and there is no background
-mode to fall back on; models trained on the standard stay below it anyway. Both are in the tool's description and
+Claude Code's 600000 ms, because cold builds of real projects take longer and their result belongs
+in the call; models trained on the standard stay below it anyway. Both are in the tool's description and
 schema (`default` and `maximum`, `packages/agent/src/core/tools/bash.ts`), together with the sentence
 that builds, test runs, installations, and other long commands need a larger `timeout`. When the
 time runs out, the command ends together with its process group, and the error carries the output
 so far, the milliseconds, and what to do: narrow the command, for example search with `rg` instead
 of `grep -r`, or pass a larger `timeout` up to 3600000. `description` is a short label of the
 command for the user; the chat line of the call shows it instead of the command, and the execution
-ignores it. `run_in_background: true` is rejected before anything starts, with the alternative: run
-the command in the foreground with a timeout of up to 3600000 ms or split it into shorter steps. A
-call always ends with its command and its process group, and there is no started process whose
-output a later call could read, so the standard's background mode has nothing to build on; the
-field stays in the schema so that a model trained on it gets this answer instead of a command that
-silently runs in the foreground. The server fills in the default before it passes a model call to an executor
+ignores it. With `run_in_background: true` the call starts a background command (below), and
+`timeout` does not apply to it. The server fills in the default before it passes a model call to an executor
 (the schema defaults in `WorkspaceSandboxHost`); that way the time limit the model sees in the schema
 also applies on a workstation, and the footprint knows it as `durationMs`.
 `RAGENTS_BASH_TIMEOUT_SECONDS` (section `ragents.workspace`) changes the default for all runs of the
@@ -3376,6 +3387,70 @@ only a provably empty or completely ended group counts as cleaned up. Living
 processes, a failed status query, and unreadable results remain errors. Such an
 ended remainder therefore discards neither the output nor the exit status of the actual command.
 
+**Background commands.** `bash` with `run_in_background: true` starts its command like every other
+call, in the same lock, folder (`cwd`), environment, account, and process sandbox, but detached in a
+process group of its own, and returns at once with one line: "Command running in background with
+ID: b3f9a1. task_output reads its new output, task_stop ends it." The ID is `b` and six hexadecimal
+digits, random per run and machine; nothing else, not the path of the output, reaches the model. The
+command carries the run marker like every process of the run, so the process rail shows it, and it
+survives the call: it ends when it exits, with `task_stop`, with the end button of the rail, with the
+stop and the deletion of the run, and with the `shutdown` of the executor that started it, on the
+server as on a workstation. `timeout` does not apply to it: the standard stops a background command
+after 30 minutes by default and after two hours at most, while here it is a service that runs until
+one of the above ends it. When the command itself exits, what is left in its process group ends with
+it, as after every call, so `npm run dev &` as a background command ends at once; the description of
+`bash` says to pass `run_in_background` instead of `&`, `nohup`, `setsid`, `disown`, a detached spawn,
+or a service manager. The executor (`packages/workspace-executor/src/background-tasks.ts`, in the
+module of the sandbox tools) writes stdout and stderr through pipes into one file per command below
+the run's log folder on its machine (`logDirectory`: on the server the run's home in its storage, on
+a workstation a folder below the system temp folder), `background/<id>.log`, and removes the files
+when the run stops there. `task_output` takes `task_id` and returns what the command wrote since the
+last `task_output`, then its status: "Status: running", "exited with code N", "ended by signal S", or
+"stopped with task_stop"; without new output "(no new output)". One call reads at most 20 KB from
+the end of the new output, starting at a line, and keeps its last 2000 lines with lines over 1000
+characters shortened, the limits of `bash`; what it leaves out is named in the first line ("[1.2MB of
+earlier output left out]") and not returned later. It does not wait for output, because no tool
+waits. `task_stop` takes `task_id`, sends SIGTERM to the process group, waits two seconds, and then
+ends the group with SIGKILL; on Windows it ends the tree with `taskkill /T /F` and the MSYS
+processes of the command, as at the end of every call. It answers "Stopped background command
+b3f9a1." or, for a command that had already ended, how it ended. An ID the executor does not know
+fails with `background-task-unknown` (404). With an account per run (`uid`), the cleanup after a call
+ends every process of that account except the background commands still running and everything
+below them (`stopUidProcesses` with `keep`).
+
+Names and fields follow the standard, checked against `sdk-tools.d.ts` of
+`@anthropic-ai/claude-agent-sdk` 0.3.288: `run_in_background` of `Bash`, `task_stop` with `task_id` of
+`TaskStop` (formerly `KillShell` with `shell_id`, which `TaskStop` still accepts as deprecated and
+which is not taken here), and `task_output` with `task_id` of `TaskOutput`, which replaced `BashOutput`
+with `bash_id` and has since been removed from Claude Code in favor of reading the output file with
+`Read`. Here a model names no path: the output lies on the machine of the command, possibly a
+workstation, outside every root `read` reaches, so the output tool stays and takes the ID; the `block`
+and `timeout` of `TaskOutput` are not taken, because no tool waits.
+
+The server keeps per run which executor started which ID (`WorkspaceSandboxHost`) and sends
+`task_output` and `task_stop` there, for a command with an alias as `cwd` therefore to the server; an
+ID it does not know goes to the executor of the binding, the only one that can still hold a command
+after a server restart. Right after the start it opens the observation `tasks.wait` (`task_id`) at
+that executor, with `untilAborted` like `files.watch`; its result is the status at the end. The actor
+that called `bash` then gets an ActorInput in the owner's name with `presentation: "background"`:
+"Background command b3f9a1 exited with code 1. task_output reads what it wrote last." (or "ended by
+signal SIGTERM"). An end that `task_stop` caused brings no input, because the caller already knows
+it; an end through the rail does. The stop of a run first aborts the observations of the run and only
+then stops its executors, so the ends it causes reach nobody; an abort ends only the observation,
+never the command. If the connection to the workstation is lost, the server opens the observation
+again every 15 seconds until the workstation answers or the run stops; the executor keeps the status
+of an ended command until the run stops there, so an end in the meantime arrives with the next
+answer. If the observation fails for another reason, for example because a rebuilt executor no longer
+knows the ID, the actor gets that cause as its input instead. `bash` starts a background command only
+for an actor that has `task_output` and `task_stop`; otherwise the call fails with
+`background-tools-missing` (400) and names what is missing, so nothing starts that its actor can
+neither read nor end (the global coordinator has neither). The process display counts the process
+group of a background command as background although the executor is its parent: the module names its
+groups (`WorkspaceExecutorModule.backgroundGroups`), and the snapshot leaves them out of the groups of
+running tool calls. In the server's process sandbox a background command runs in a sandbox of its own
+that lives as long as the command; a service started there cannot be reached on Linux and cannot
+listen on macOS (Open limits, `docs/concepts/sandbox-services.md`).
+
 Which bash the tool `bash` starts is carried by the executor's context (`bash` in
 `WorkspaceProcessContext`); `bashLaunch` (`packages/workspace-executor/src/bash-launch.ts`) turns
 it into the start `bash --noprofile --norc -c <command>`. On macOS and Linux, without a value,
@@ -3444,7 +3519,8 @@ a process that survives a tool call cannot be attributed to any run by the table
 (Open limits). `ragents.processes` asks for it through the run's executor, for a workstation
 therefore there, and shows in the header a full bar surface per process
 with kind, label, and port links: background processes always, children of a running tool call
-(direct children of the executor process) only with an open port. Background is recognizable by the dashed
+(the process groups of direct children of the executor process) only with an open port; the group of a
+background command of `bash` counts as background (above). Background is recognizable by the dashed
 right divider and in the tooltip, never by a color. This is a runtime resource,
 not journal state: every two seconds the plugin queries the state of every run whose channel
 `processes:<runId>` a browser has subscribed to, each at its executor, and reports only
@@ -3460,7 +3536,7 @@ and block neither observation nor cleanup. Access, tool, and format errors trigg
 
 Every visible process has a compact end button with icon and tooltip.
 Process monitoring, its methods, and its channel require `runs.read` and `ragents.processes.read`.
-With pure read access, port links stay usable; forwarding a port additionally requires `runs.inspect`,
+With pure read access, port links stay usable; a tunnel to a port additionally requires `runs.inspect`,
 ending `runs.write` and `runs.inspect`, and is otherwise disabled. A running
 end request locks only the affected process in all open views; errors appear
 at the entry and allow a new attempt. Only the next observed process state removes
@@ -3491,38 +3567,58 @@ server the port is a link to `http://<host name of the page>:<port>/`; for a run
 pill shows only the port, and its tooltip names the workstation and that the VS Code extension can
 forward it ("Port 5173 on workstation Notebook. The RAgents extension in VS Code can forward it.").
 In VS Code the port is a button; the run panel hands the service to its host (`openService` with run,
-port, the workstation's ID or `null`, and the forwarding method) and the extension acts like VS Code
+port, the workstation's ID or `null`, and the tunnel method) and the extension acts like VS Code
 Remote port forwarding. A service on its own machine opens directly as `http://localhost:<port>/`: on
 the window's own workstation (the binding names its ID) and on the server when that is the
 extension's own local host. Every other service gets a tunnel: the extension first asks the server
-whether a process of the run listens on the port, then listens on `127.0.0.1` with the same port
-number if it is free there, otherwise a free one, and opens `http://localhost:<local port>/` with
-`vscode.env.openExternal`; a second click reuses the tunnel. Each request goes through the forwarding
-method of the server connection the run belongs to and appears as one line in the `RAgents` output;
-a refusal reaches the browser as a plain-text response with its status and cause, an oversized body
-as 413 without asking the server, a WebSocket upgrade as 501. A tunnel ends when the server answers
-that the port, the run, or the access is gone (403, 404, or an unknown method), which a check every
-five seconds also asks, when its server connection ends or is renewed, and when the extension
-deactivates (`apps/vscode/src/service-tunnels.ts`). The extension names no plugin: the method comes
-with the message, and the request and response shape is the host contract's (`ServiceForwardInput`,
-`ServiceForwardResult` in `run-panel/host-contract.ts`).
+whether a process of the run listens on the port, then listens with TCP on `127.0.0.1` with the same
+port number if it is free there, otherwise a free one, and opens `http://localhost:<local port>/` with
+`vscode.env.openExternal`; a second click reuses the tunnel. Every accepted connection becomes one
+byte stream through the server the run belongs to, and the extension pipes its bytes unchanged in
+both directions, so HTTP with bodies of any size, server-sent events, WebSockets, and every other
+TCP protocol pass. The `RAgents` output gets one line when a stream opens and one when it closes, with
+the bytes of both directions and the cause of an abnormal end. A stream the server refuses closes its
+connection without an answer. A tunnel ends with its open streams when the server answers that the
+port, the run, or the access is gone (403, 404, or an unknown method), which a check every five seconds
+also asks, when its server connection ends or is renewed, and when the extension deactivates
+(`apps/vscode/src/service-tunnels.ts`). The extension names no plugin: the method comes with the
+message, and its input and result are the host contract's (`ServiceTunnelInput`,
+`ServiceTunnelResult` in `run-panel/host-contract.ts`).
 
-`ragents.processes.forward` takes `runId`, `port`, and `request` (`method`, `path` with query,
-header pairs in order, and the body in Base64) or `null`, and returns status, header pairs, and the
-body in Base64, or `null`. It requires `runs.read`, `runs.inspect`, and `ragents.processes.read`
-plus workspace access, because it reaches into the machine like the Files tab, and goes to the run's
-executor as `processes.forward`. The process module accepts only a port that a process of this run
-listens on, from the same scan as the rail; one scan answers for two seconds, so the files of a page
-share it. Any other port fails with `forward-port-unknown` (404) before anything is sent; without a
-request the call ends there with `null`. The request goes to the listening address on this machine:
-a wildcard to `127.0.0.1`, then `::1`, an IPv4 or IPv6 listener to its own address, the next address
-only if the previous one refused the connection. Redirects are not followed and the connection is
-not kept; hop-by-hop headers, including those that `Connection` names, are dropped in both
-directions, and `Host` is `localhost:<port>`, as the service expects it locally. Bodies are buffered,
-at most 16 MiB each (`FORWARD_BODY_LIMIT`; in Base64 below the 32 MiB message size of a
-workstation), and an exchange takes at most 60 seconds. Errors name their cause:
-`forward-invalid` (400), `forward-request-too-large` (413), `forward-response-too-large`,
-`forward-unreachable`, and `forward-failed` (502), and `forward-timeout` (504).
+`ragents.processes.tunnel` takes `runId`, `port`, and `connect`, and requires `runs.read`,
+`runs.inspect`, and `ragents.processes.read` plus workspace access, because it reaches into the
+machine like the Files tab. With `connect: false` it only asks the run's executor whether a process
+of the run listens on the port and returns `null`. With `connect: true` the plugin's broker
+(`server/tunnel-streams.ts`) opens a stream with two one-time secrets of 32 random bytes, one per
+leg, and calls the executor operation `processes.dial` with the port and the path of the machine's
+leg. The executor checks the port again against the run's processes, from the same scan as the
+rail, which answers for two seconds; any other port fails with `tunnel-port-unknown` (404) before
+anything connects. It connects with TCP to the listening address on its machine (a wildcard to
+`127.0.0.1`, then `::1`, an IPv4 or IPv6 listener to its own address, the next address only if the
+previous one refused the connection), opens its leg as a WebSocket to the server, and pipes; each of
+the two may take ten seconds. For a run on the server that is the server's executor, which dials the
+server's own address (`hostAddressToken`); for a workstation its executor, which dials the address
+of its own connection to the server, in the VS Code extension as in `ragents workspace-client`; a
+path that leads to another host is refused. The method returns the path with query of the caller's
+leg once the machine's leg has arrived; the caller connects it within 15 seconds, otherwise the
+stream closes. Both legs connect to `/api/plugins/ragents.processes/tunnel?secret=<secret>`,
+authenticated only by their secret, which opens one leg once; a used, unknown, or expired secret
+gets 404, a plain request to the path 426. A leg sends no header of its own, so any WebSocket client
+can be one. The broker pairs the two legs and relays every frame unchanged; it holds what the
+machine's leg sends until the caller's leg is there and stops reading a leg while the other one has
+more than 1 MiB to send. Both ends of a stream speak one small protocol (`pipeTunnel` in
+`packages/workspace-executor/src/processes/tunnel.ts`): the bytes travel as binary frames, the end
+of one direction as the text frame `end`, so a half-closed connection keeps its other direction,
+and the stream closes with code 1000 once both directions have ended; an error closes it with 1011
+and the cause, which the other end turns into a reset of its connection. A closing leg closes the
+other one with the same code. Every leg pings the server every 30 seconds, also while it does not
+read; the server cuts a leg it has heard nothing from for 75 seconds while it reads it, and the
+frames keep proxies from closing idle streams. Run stop and deletion close the run's streams on
+the server, and the executor closes its own legs of the run in `stopRun` and all of them in
+`shutdown`, so a workstation that signs out ends its legs. Errors name their cause:
+`tunnel-invalid` (400), `tunnel-port-unknown` (404), `tunnel-unreachable` and `tunnel-failed`
+(502), `tunnel-server-unknown` (503, an executor without the server's address, such as a server
+without HTTP), and `tunnel-timeout` (504).
 
 On run stop, the process module ends, in the `stopRun` of its executor, all marked processes of the
 run, also without a port and independently of their display in the header. For a run with a
@@ -4313,16 +4409,19 @@ right) returns the archive; a different version is 404. The counterpart is `rage
   run at the second executor and stay there until the run stops, also after the root is back.
 - With an account switch, a registered root of the server must lie inside the run storage;
   `DOCUMENTS_DIR` and an account switch exclude each other.
-- Forwarding a service of a run carries HTTP requests and responses only: no WebSocket upgrade
-  (the tunnel answers 501), no streaming. Both bodies are buffered whole and at most 16 MiB, so
-  server-sent events and long polling end at the 60-second time limit, and every request takes a
-  round trip over the server, for a workstation also over its connection. A viewer with only a
-  browser gets no tunnel: a port on a workstation stays without a link, and only the VS Code
-  extension forwards. The tunnel listens on `127.0.0.1` only, while the browser opens `localhost`; a
-  local process listening on `[::1]` with the same port number can answer instead. Absolute
-  addresses that the service builds from its port fit only while the local port keeps the service's
-  number. One scan of the process table answers for two seconds, so a port that a foreign process
-  takes over right after the run's process ended can still be reached within that time.
+- A tunnel to a service of a run is one TCP stream per connection, always through the server:
+  every byte crosses the server, and a new connection waits until its stream is open, one call over
+  the message layer plus two WebSocket handshakes. A viewer with only a browser gets no tunnel: a
+  port on a workstation stays without a link, and only the VS Code extension forwards
+  (`docs/concepts/browser-service-tunnel.md`). The tunnel listens on `127.0.0.1` only, while the
+  browser opens `localhost`; a local process listening on `[::1]` with the same port number can
+  answer instead. Absolute addresses that the service builds from its port fit only while the local
+  port keeps the service's number. One scan of the process table answers for two seconds, so a port
+  that a foreign process takes over right after the run's process ended can still be reached within
+  that time. Only the server notices a silent leg: an extension or workstation whose server vanished
+  without closing the connection keeps its local connection until TCP gives up. A reverse proxy in
+  front of the server must pass WebSocket upgrades on the tunnel's path, and the legs use no proxy
+  setting of VS Code or the environment.
 - Two runs on the same folder collide; that is the user's decision.
 - `ask_user` ends the asker's turn only when every call of its model step ends the turn: a model
   that calls another tool in the same response, or calls `ask_user` through `typescript_eval`,
@@ -4330,8 +4429,8 @@ right) returns the archive; a different version is 404. The counterpart is `rage
 - A registered stop for a workstation lives in the server's memory: if the server restarts
   before the workstation signs in again, whatever the run started there stays on the workstation
   until it is stopped again or the workstation signs out. On signing out
-  the executor ends, but detached background processes of a run do not; only a
-  stop of this run ends them.
+  the executor ends and with it the background commands of `bash`, but processes a run detached
+  itself do not; only a stop of this run ends them.
 - The server cleans up the new folder of a deleted run on the workstation only if the workstation
   is reachable at that time; otherwise it stays under the workstation's folder for runs, and there is no
   later cleanup. A contribution's steps are operations every executor
@@ -4348,7 +4447,9 @@ right) returns the archive; a different version is 404. The counterpart is `rage
   tool call (such as a shell script started with `detached`) appears neither in
   the process bar nor is it cleaned up by the stop. There is no second detection without the environment:
   on detaching, process group and session change, and the parent process becomes launchd. Whatever stays in the
-  process group of a bash call is ended by the call itself together with it.
+  process group of a bash call is ended by the call itself together with it. The bash of a background
+  command is such a program: the rail shows the processes it starts, not the bash itself, and the
+  stop of the run ends it through its process group.
 - Provisioning knows no uninstalling and no second version side by side: a
   tools folder carries exactly the pinned version, and a version change replaces it. Two
   profiles on one machine have two tools folders and download the same files twice.
@@ -4373,9 +4474,10 @@ right) returns the archive; a different version is 404. The counterpart is `rage
   such as corepack without `packageManager` in the `package.json`. Node 22 reports
   `EnvHttpProxyAgent is experimental` on stderr at every start. The library is a research preview
   (version 0.0.x). On Linux in a container, bubblewrap needs user namespaces, that is,
-  relaxed container profiles (`docs/operations.md`). A service a run starts in the sandbox cannot
-  be opened: on Linux every process start has its own network and PID namespace, so the service
-  ends with its command even when detached, listens only on that command's loopback, shows no port
+  relaxed container profiles (`docs/operations.md`). A service a run starts in the sandbox, also
+  as a background command, cannot be opened: on Linux every process start has its own network and
+  PID namespace, so the service ends with its command even when detached (a background command keeps
+  its namespace as long as it runs), listens only on that command's loopback, shows no port
   in the rail, and is reached by neither a later command, the browser, nor the forwarding; on macOS
   the profile allows no local binding, and `listen` fails with `EPERM`
   (`docs/concepts/sandbox-services.md`).
@@ -4394,7 +4496,13 @@ right) returns the archive; a different version is 404. The counterpart is `rage
   with excluded folders. The search with `rg` respects `.gitignore` only in a Git repository;
   in a folder without Git it skips only hidden files and what `.ignore` and
   `.rgignore` exclude.
-- `bash` runs at most 3600 seconds (3600000 ms) per call, and whatever a command starts in its process group in
-  the background ends with it. A command that takes longer, such as a cold build of a
-  large solution, does not go through `bash` but through a plugin's workflow with its own
-  time limit (`commands.run` with `timeoutMs`).
+- `bash` in the foreground runs at most 3600 seconds (3600000 ms) per call, and whatever a command
+  starts in its process group ends with it. A command that takes longer, such as a cold build of a
+  large solution, runs as a background command, whose output arrives through `task_output` only,
+  or through a plugin's workflow with its own time limit (`commands.run` with `timeoutMs`).
+- A background command has no time limit, unlike in the standard: one that nobody stops runs until
+  the stop of its run, also while the run stays idle for days. `task_output` returns at most 20 KB of
+  new output per call; what it leaves out of a command that writes faster cannot be read later, and
+  no tool names the path of the output file. The ID is random per run and machine
+  (24 bits); the server finds the machine of an ID in its memory, so two commands of one run with the
+  same ID on two machines would be confused.

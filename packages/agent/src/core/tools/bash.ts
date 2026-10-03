@@ -36,7 +36,7 @@ const bashSchemaFor = (defaultTimeoutMs: number) => Type.Object({
 		description: "Clear, concise description of what this command does in active voice, 5-10 words, for example \"List files in current directory\"; the user reads it, often without seeing the command",
 	})),
 	run_in_background: Type.Optional(Type.Boolean({
-		description: "Not available here: true is rejected, because a call ends with its command. Run long commands in the foreground with a larger timeout",
+		description: "Set to true to run this command in the background, such as a dev server or a watcher. The call returns at once with an ID; task_output reads its new output, task_stop ends it, and you get a notice when it exits. timeout applies only to a command in the foreground",
 	})),
 	cwd: Type.Optional(Type.String({ description: "Folder to run the command in: relative to the working directory or starting with a workspace alias such as @actors/<name>; defaults to the working directory" })),
 }, { additionalProperties: false });
@@ -45,7 +45,10 @@ type BashSchema = ReturnType<typeof bashSchemaFor>;
 
 export type BashToolInput = Static<BashSchema>;
 
-const backgroundUnavailable = `run_in_background is not available: a bash call ends with its command, and the processes left in its process group end with it. Run the command in the foreground with a timeout of up to ${BASH_MAX_TIMEOUT_MS} ms, or split it into shorter steps.`;
+const backgroundUnavailable = `run_in_background is not available: these bash operations cannot keep a command running after the call. Run the command in the foreground with a timeout of up to ${BASH_MAX_TIMEOUT_MS} ms, or split it into shorter steps.`;
+
+const backgroundStarted = (id: string): string =>
+	`Command running in background with ID: ${id}. task_output reads its new output, task_stop ends it.`;
 
 const timeoutNotice = (milliseconds: number): string => milliseconds < BASH_MAX_TIMEOUT_MS
 	? `Command stopped after ${milliseconds} ms (timeout). Narrow the command, for example search with rg instead of grep -r, or pass a larger timeout, up to ${BASH_MAX_TIMEOUT_MS} ms.`
@@ -55,6 +58,8 @@ const timeoutNotice = (milliseconds: number): string => milliseconds < BASH_MAX_
 export interface BashToolDetails {
 	truncation?: TruncationResult;
 	fullOutputPath?: string;
+	/** The ID of a command started with run_in_background. */
+	backgroundTaskId?: string;
 }
 
 /**
@@ -80,6 +85,12 @@ export interface BashOperations {
 			env?: NodeJS.ProcessEnv;
 		},
 	) => Promise<{ exitCode: number | null }>;
+	/** Starts a command that keeps running after the call and returns its ID at once; without it run_in_background is not available. */
+	background?: (
+		command: string,
+		cwd: string,
+		options: { signal?: AbortSignal; env?: NodeJS.ProcessEnv },
+	) => Promise<{ id: string }>;
 }
 
 /** Bash operations on the built-in local shell. */
@@ -183,7 +194,9 @@ export function createBashToolDefinition(
 			+ `Output is truncated to the last ${DEFAULT_MAX_LINES} lines or ${BASH_MAX_BYTES / 1024}KB (whichever is hit first), and lines longer than ${BASH_MAX_LINE_CHARS} characters are shortened. If anything was cut, the full output is saved to a temp file. `
 			+ "rg searches recursively by default; its -r flag means replace and rewrites every match, it does not mean recursive. "
 			+ `A command is stopped after ${defaultTimeoutMs} ms unless you pass a larger timeout in milliseconds (at most ${BASH_MAX_TIMEOUT_MS}); builds, test runs, installs and other long commands need one. `
-			+ "Commands cannot run in the background: a call returns when its command has finished.",
+			+ "A call ends with its command, and whatever the command left running ends with it. "
+			+ "For a dev server, a watcher or another service that must keep running, pass run_in_background: true instead of nohup, &, setsid, disown, a detached spawn or a service manager: "
+			+ "the command keeps running until it exits, task_stop ends it, or the run stops; stop it with task_stop when you no longer need it.",
 		parameters: bashSchemaFor(defaultTimeoutMs),
 		async execute(
 			_toolCallId,
@@ -191,9 +204,14 @@ export function createBashToolDefinition(
 			signal?: AbortSignal,
 			onUpdate?,
 		) {
-			if (run_in_background === true) throw new Error(backgroundUnavailable);
-			const timeoutMs = timeout === undefined ? defaultTimeoutMs : checkedTimeoutMs(timeout, "timeout");
 			const resolvedCommand = commandPrefix ? `${commandPrefix}\n${command}` : command;
+			if (run_in_background === true) {
+				if (!ops.background) throw new Error(backgroundUnavailable);
+				const backgroundContext = resolveSpawnContext(resolvedCommand, folder === undefined ? cwd : resolvePath(folder, cwd), spawnHook);
+				const { id } = await ops.background(backgroundContext.command, backgroundContext.cwd, { signal, env: backgroundContext.env });
+				return { content: [{ type: "text", text: backgroundStarted(id) }], details: { backgroundTaskId: id } };
+			}
+			const timeoutMs = timeout === undefined ? defaultTimeoutMs : checkedTimeoutMs(timeout, "timeout");
 			const spawnContext = resolveSpawnContext(resolvedCommand, folder === undefined ? cwd : resolvePath(folder, cwd), spawnHook);
 			const output = new OutputAccumulator({ maxBytes: BASH_MAX_BYTES, maxLineChars: BASH_MAX_LINE_CHARS, tempFilePrefix: "agent-bash" });
 			let acceptingOutput = true;

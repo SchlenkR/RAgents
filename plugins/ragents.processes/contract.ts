@@ -37,7 +37,8 @@ export type RunProcessMessage =
 
 const runId = Type.String({ minLength: 1, maxLength: 64, description: "Run id" });
 
-const headerPairs = Type.Array(Type.Tuple([Type.String({ minLength: 1 }), Type.String()]), { description: "Header names and values in order; a name may repeat" });
+/** Where both legs of a tunnel stream open their WebSocket; the query names the one-time secret of the leg. */
+export const PROCESS_TUNNEL_PATH = "/api/plugins/ragents.processes/tunnel";
 
 export const processesContracts = {
   snapshot: defineOperation({
@@ -57,26 +58,19 @@ export const processesContracts = {
     }, { additionalProperties: false }),
     result: Type.Null(),
   }),
-  forward: defineOperation({
-    id: "ragents.processes.forward",
-    description: "Forward one HTTP request to a port of the run's own processes on the machine the run works on, and return the response as it is; "
-      + "redirects are not followed, bodies are Base64 and at most 16 MiB. Without a request it only checks that a process of the run listens on the port. "
-      + "Rights: runs.read, runs.inspect and ragents.processes.read.",
+  tunnel: defineOperation({
+    id: "ragents.processes.tunnel",
+    description: "Open a byte stream to a port of the run's own processes on the machine the run works on: that machine connects to the port and dials back, "
+      + "and the result names the path with query on this server where the caller opens its WebSocket leg, once and within 15 seconds. "
+      + "With connect false it only checks that a process of the run listens on the port. Rights: runs.read, runs.inspect and ragents.processes.read.",
     rights: ["runs.read", "runs.inspect", "ragents.processes.read"],
     input: Type.Object({
       runId,
       port: Type.Integer({ minimum: 1, maximum: 65535, description: "Port from the process snapshot" }),
-      request: Type.Union([Type.Object({
-        method: Type.String({ minLength: 1, maxLength: 32 }),
-        path: Type.String({ pattern: "^/", maxLength: 16384, description: "Path with query, as the service sees it" }),
-        headers: headerPairs,
-        body: Type.String({ description: "Body in Base64" }),
-      }, { additionalProperties: false }), Type.Null()]),
+      connect: Type.Boolean({ description: "false only checks the port" }),
     }, { additionalProperties: false }),
     result: Type.Union([Type.Object({
-      status: Type.Integer({ minimum: 100, maximum: 999 }),
-      headers: headerPairs,
-      body: Type.String({ description: "Body in Base64" }),
+      path: Type.String({ pattern: "^/", description: "Path with query on this server where the caller opens its WebSocket leg" }),
     }, { additionalProperties: false }), Type.Null()]),
   }),
   live: defineChannel({

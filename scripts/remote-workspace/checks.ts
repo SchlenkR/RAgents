@@ -6,6 +6,7 @@ import { coreContracts, runContracts } from "../../apps/server/src/api/contracts
 import type { RpcClient } from "../../apps/web/src/rpc/client.ts";
 import type { JournalEvent } from "../../packages/ragents/src/domain/events.ts";
 import { processesContracts, type RunProcess } from "../../plugins/ragents.processes/contract.ts";
+import { TUNNEL_END, bytesOf, openTunnelLeg, tunnelAddress } from "../../packages/workspace-executor/src/processes/tunnel.ts";
 import { WORKSPACE_BINDING_OPTION_ID, workspaceContracts, type WorkspaceBinding } from "../../plugins/ragents.workspace/contract.ts";
 import {
   connectNetwork,
@@ -37,6 +38,8 @@ export interface ContainerTarget {
 export interface CheckEnvironment {
   readonly report: Report;
   readonly users: Users;
+  /** The server's address on this machine; the container reaches it under another one. */
+  readonly serverUrl: string;
   readonly model: ScriptModel;
   readonly dataDirectory: string;
   /** The server's SKILLS_DIR with the skill CHECK_SKILL and a file next to it. */
@@ -602,6 +605,54 @@ const checkProcesses = async (env: CheckEnvironment): Promise<void> => {
   });
 };
 
+const ECHO_SERVICE = "require(\"node:net\").createServer({ allowHalfOpen: true }, (socket) => socket.pipe(socket)).listen(0, \"127.0.0.1\");"
+  + " setTimeout(() => {}, 3144 * 1000);";
+
+/** A service in the container streams through the server: the container's workstation dials back, this machine is the caller. */
+const checkServices = async (env: CheckEnvironment): Promise<void> => {
+  const { report, users, runId } = env;
+  const titles = ["a stream carries bytes both ways through the server and ends normally", "bob and admin open no stream to it"];
+  const service = await report.check("Services", "an echo service in the container appears with its port", async () => {
+    const started = await containerExec(env.container.name, ["node", "-e", ECHO_SERVICE, "echo-service-3144"], { detach: true, env: { RAGENTS_RUN_ID: runId } });
+    expect(started.code === 0, `The echo service does not start in the container: ${started.stderr.trim()}`);
+    const entry = await waitFor(async () => (await snapshotOf(env)).find((process) => process.command.includes("echo-service-3144") && process.ports.length > 0),
+      20_000, "The echo service with its port in the display");
+    return { value: entry, detail: `PID ${entry.pid}, port ${entry.ports[0]!.port} in the container` };
+  });
+  if (!service) {
+    report.skip("Services", titles, "the service does not appear");
+    return;
+  }
+  const port = service.ports[0]!.port;
+  await report.check("Services", titles[0]!, async () => {
+    const opened = await users.alice.call(processesContracts.tunnel, { runId, port, connect: true });
+    expect(opened !== null, "The tunnel method opened no stream");
+    const leg = await openTunnelLeg(tunnelAddress(env.serverUrl, opened.path));
+    const echoed: Buffer[] = [];
+    const ended: string[] = [];
+    const closed = new Promise<number>((resolve) => leg.on("close", (code) => resolve(code)));
+    leg.on("message", (data, binary) => {
+      if (binary) echoed.push(bytesOf(data));
+      else ended.push(bytesOf(data).toString("utf8"));
+    });
+    leg.resume();
+    const sent = Buffer.from(`Through the server ${env.nonce} \u0000\u00ff`, "latin1");
+    leg.send(sent, { binary: true });
+    await waitFor(async () => Buffer.concat(echoed).length >= sent.length ? true : undefined, 15_000, "The echo through the stream", 50);
+    expect(Buffer.concat(echoed).equals(sent), `The echo differs: ${Buffer.concat(echoed).toString("latin1")}`);
+    leg.send(TUNNEL_END);
+    const code = await Promise.race([closed, sleep(15_000).then(() => 0)]);
+    expect(ended.join() === TUNNEL_END && code === 1000, `The stream ended with ${JSON.stringify(ended)} and code ${code}`);
+    return passed(`${sent.length} bytes from port ${port} in the container echoed through the server, closed with 1000`);
+  });
+  await report.check("Services", titles[1]!, async () => {
+    await failsWith(users.bob.call(processesContracts.tunnel, { runId, port, connect: true }), "run-not-found");
+    await failsWith(users.admin.call(processesContracts.tunnel, { runId, port, connect: true }), "run-workspace-owner-only");
+    return passed("run-not-found for bob, run-workspace-owner-only for admin");
+  });
+  await users.alice.call(processesContracts.stop, { runId, processId: service.id });
+};
+
 const checkRights = async (env: CheckEnvironment): Promise<void> => {
   const { report, users, runId } = env;
   await report.check("Rights", "bob does not see the run of alice in the list", async () => {
@@ -728,7 +779,7 @@ const checkStopAll = (env: CheckEnvironment): Promise<true | undefined> =>
 
 /** The domain checks in fixed order; if a prerequisite is missing, the dependent checks are skipped. */
 export const runChecks = async (env: CheckEnvironment): Promise<void> => {
-  const areas = ["Run", "Tools", "Roots", "New folder", "Files", "Processes", "Rights", "Stop", "Disconnect", "Stream loss"];
+  const areas = ["Run", "Tools", "Roots", "New folder", "Files", "Processes", "Services", "Rights", "Stop", "Disconnect", "Stream loss"];
   if (!await checkRegistry(env)) {
     for (const area of areas) env.report.skip(area, ["all checks"], "the workspace is not registered");
     return;
@@ -744,6 +795,7 @@ export const runChecks = async (env: CheckEnvironment): Promise<void> => {
   if (env.browserPort !== undefined) await checkBrowser(env, env.browserPort);
   await checkFiles(env);
   await checkProcesses(env);
+  await checkServices(env);
   await checkRights(env);
   await checkRunStop(env);
   await checkDisconnect(env);

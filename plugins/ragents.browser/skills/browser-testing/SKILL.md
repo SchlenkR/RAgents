@@ -13,7 +13,11 @@ A mini-app of an actor program is not an application you start: it is already op
 tab. Check it with `actor_view_snapshot`, which resolves the address itself; use the steps below for
 applications you started.
 
-1. Start the application with its actual services and wait until they are ready.
+1. Start the application with its actual services. Start a dev server or another service that
+   must keep running with `bash` and `run_in_background: true`; the call returns an ID at once.
+   Never detach it yourself with `nohup`, `&`, `setsid`, a detached spawn, or a service manager.
+   Read its address and errors with `task_output`, and wait until it answers, for example with a
+   short foreground `bash` that retries `curl` against its address.
 2. Open its HTTP address with `browser_navigate`. Every run has its own browser without an
    inherited sign-in. It runs on the machine of your workspace; you reach an application
    started there via `localhost`. Report missing services and browser prerequisites
@@ -32,8 +36,9 @@ applications you started.
    that your model needs image support. The viewport defaults to 1920 x 1080 (16:9); for
    narrow layouts or small screens you change it with `browser_resize` and check again
    afterwards.
-6. Name the checked steps and remaining limits. Close the browser when you are done;
-   screenshots are kept. Stopping the run and shutting down the server close it as well.
+6. Name the checked steps and remaining limits. Close the browser and stop the services you
+   started with `task_stop` when you are done; screenshots are kept. Stopping the run and shutting
+   down the server end both as well.
 
 The browser actions use Playwright locators with automatic waiting. Ambiguous targets
 are errors that name the candidates; then pick one match with `nth` (0-based) or `first: true` in

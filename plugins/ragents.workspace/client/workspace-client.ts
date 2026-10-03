@@ -62,8 +62,9 @@ export interface WorkspaceClientOptions {
   onExecuted?: (execution: WorkspaceClientExecution) => void;
 }
 
-/** What the workstation needs for the server: the message layer. */
+/** What the workstation needs for the server: its address, where a dial-back opens its leg, and the message layer. */
 export interface WorkspaceClientTransport {
+  readonly origin: string;
   readonly rpc: RpcClient;
   readonly signInFailure?: () => string | undefined;
 }
@@ -277,6 +278,7 @@ export class WorkspaceClient {
         modules: workspaceExecutorModules({
           runFolder: (runId) => runFolderOf(attachment.runsDirectory, runId),
           contributions: contributions.map((contribution) => contribution.parts),
+          serverAddress: () => this.transport.origin,
         }),
       }),
       contributions: contributions.map(({ plugin, revision }) => ({ plugin, revision })),

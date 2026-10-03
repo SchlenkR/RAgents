@@ -22,11 +22,17 @@ export { convertToLlm } from "./core/messages.ts";
 export { formatSkillsForPrompt, type Skill } from "./core/skills.ts";
 export { defineTool, type ToolDefinition } from "./core/tool-definition.ts";
 export {
+	type BackgroundTaskOperations,
+	type BackgroundTaskOutput,
+	type BackgroundTaskStatus,
+	backgroundStatusText,
 	BASH_MAX_TIMEOUT_MS,
 	type BashOperations,
 	createBashToolDefinition,
 	createEditToolDefinition,
 	createReadToolDefinition,
+	createTaskOutputToolDefinition,
+	createTaskStopToolDefinition,
 	createWriteToolDefinition,
 	editApplies,
 } from "./core/tools/index.ts";

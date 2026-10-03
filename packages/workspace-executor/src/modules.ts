@@ -12,6 +12,8 @@ export interface WorkspaceExecutorModuleOptions {
   runFolder?: (runId: string) => string;
   /** The contributions of the plugins, built for this machine; server and workspace get the same ones. */
   contributions: readonly WorkspaceExecutorParts[];
+  /** The address under which this machine reaches the server; the dial-back of a service opens its leg there. */
+  serverAddress?: () => string | undefined;
 }
 
 /** The modules of an executor: its own and what the contributions of the plugins add. */
@@ -19,7 +21,7 @@ export const workspaceExecutorModules = (options: WorkspaceExecutorModuleOptions
   sandboxToolsModule,
   languageServerModule(options.contributions.flatMap((parts) => parts.languageServers ?? [])),
   fileModule,
-  processModule(),
+  processModule(options.serverAddress ? { serverAddress: options.serverAddress } : {}),
   commandModule(),
   ...options.contributions.flatMap((parts) => parts.modules ?? []),
   runFolderModule(options.runFolder),

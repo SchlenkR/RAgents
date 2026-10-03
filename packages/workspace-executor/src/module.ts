@@ -20,16 +20,19 @@ export interface WorkspaceExecutorModule {
   readonly footprints?: Readonly<Record<string, (input: unknown) => OperationFootprint>>;
   /** An annotation for a file just written, such as the diagnostics of a language server. */
   readonly annotate?: (runId: string, absolutePath: string) => Promise<string | undefined>;
+  /** The process groups the module keeps running beyond a call, such as background commands of bash; the process display counts them as background. */
+  readonly backgroundGroups?: () => readonly number[];
   /** Releases what the module holds for a run. */
   readonly stopRun?: (runId: string) => Promise<void>;
   /** Releases everything; afterwards nobody calls the module anymore, it may reject later calls with a cause. */
   readonly shutdown?: () => Promise<void>;
 }
 
-/** What a module gets from the executor: the context of a run on this machine and the annotations of all modules. */
+/** What a module gets from the executor: the context of a run on this machine, the annotations and the background process groups of all modules. */
 export interface WorkspaceModuleHost {
   readonly contextFor: (runId: string) => Promise<WorkspaceProcessContext>;
   readonly annotate: (runId: string, absolutePath: string) => Promise<string | undefined>;
+  readonly backgroundGroups: () => ReadonlySet<number>;
 }
 
 export type WorkspaceModuleFactory = (host: WorkspaceModuleHost) => WorkspaceExecutorModule;

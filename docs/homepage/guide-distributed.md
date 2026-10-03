@@ -169,6 +169,15 @@ nohup ragents workspace-client https://ragents.example.com /home/user/project --
 The flag ignores terminal closure, parent loss, and SIGHUP; it does not daemonize. SIGINT and
 SIGTERM still unregister and shut down. Use the service manager's stop command to end a service.
 
+When someone opens a service of a run on this workstation through the VS Code extension, the
+workstation dials back to the server for every connection: it opens a WebSocket to
+`/api/plugins/ragents.processes/tunnel` under the address it was started with, and the server joins
+it with the extension's. The VS Code extension as a workstation does the same. A reverse proxy or
+tunnel in front of the server must pass WebSocket upgrades on that path, with the request's query;
+a Cloudflare tunnel does by default, nginx needs `proxy_http_version 1.1` and the `Upgrade` and
+`Connection` headers. Both ends ping every 30 seconds, so idle streams survive proxies that close
+quiet connections after a minute or more.
+
 ## Transfer a run
 
 A run can move from one server to another and continue there, for example from a notebook to an

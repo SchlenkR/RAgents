@@ -94,7 +94,7 @@ test("the workspace rules hang on its tools and stay in the system prompt", asyn
   const rules = (await host.prompts.snapshot({})).contributions.find((entry) => entry.id === "ragents.workspace.prompt");
   assert.ok(rules);
   assert.equal(rules.delivery, "initial");
-  assert.deepEqual([...rules.requiresTools].sort(), ["bash", "copy", "edit", "read", "write"]);
+  assert.deepEqual([...rules.requiresTools].sort(), ["bash", "copy", "edit", "read", "task_output", "task_stop", "write"]);
   const native = host.tools.describe().filter((entry) => entry.nativeTool).map((entry) => entry.name);
   assert.ok(rules.requiresTools.every((tool) => native.includes(tool)));
   const chapters = await host.prompts.describe({}, { delivery: "on-demand", toolNames: rules.requiresTools });
@@ -117,7 +117,7 @@ test("the neutral showcase fixture composes real plugins and folder contribution
     "actor_program_activate", "actor_program_controls", "actor_program_create", "actor_program_diagnostics", "actor_program_ensure", "actor_program_list", "actor_program_remove", "actor_view_set_visibility", "actor_view_snapshot",
     "browser_navigate", "browser_snapshot", "browser_click", "browser_type", "browser_select_option", "browser_press_key", "browser_check", "browser_resize", "browser_take_screenshot", "browser_view_screenshot", "browser_close",
     "read", "roslyn_close", "roslyn_diagnostics", "roslyn_open", "roslyn_solutions", "run_script_list", "run_script_start", "run_stop",
-    "show_document", "todo_write",
+    "show_document", "task_output", "task_stop", "todo_write",
     "typescript_api", "typescript_close", "typescript_eval", "typescript_diagnostics", "typescript_open", "watch_create", "watch_list", "watch_remove", "write",
   ].sort());
 
@@ -241,8 +241,13 @@ test("the document store is @documents: no tool, prompt or skill names document_
 });
 
 test("function catalogs keep compact descriptions while runtime functions retain detailed instructions", async () => {
-  const { createReadToolDefinition, createEditToolDefinition, createWriteToolDefinition, createBashToolDefinition } = await import("@ragents/agent");
-  const originals = [createReadToolDefinition("."), createEditToolDefinition("."), createWriteToolDefinition("."), createBashToolDefinition(".")];
+  const {
+    createReadToolDefinition, createEditToolDefinition, createWriteToolDefinition, createBashToolDefinition, createTaskOutputToolDefinition, createTaskStopToolDefinition,
+  } = await import("@ragents/agent");
+  const originals = [
+    createReadToolDefinition("."), createEditToolDefinition("."), createWriteToolDefinition("."), createBashToolDefinition("."),
+    createTaskOutputToolDefinition(), createTaskStopToolDefinition(),
+  ];
   const host = await composed(showcaseFixture);
   const descriptors = host.tools.describe();
   const functions = (await Promise.all(host.tools.entries().map((contributor) => contributor.tools(toolResolutionContext)))).flat();

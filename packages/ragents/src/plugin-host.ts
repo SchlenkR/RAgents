@@ -1,5 +1,6 @@
 import path from "node:path";
 import type { IncomingMessage, ServerResponse } from "node:http";
+import type { Duplex } from "node:stream";
 import { agentHookOf, type AgentHook } from "./drivers/agent-hooks.ts";
 import { Value } from "typebox/value";
 import { canStartEntry, defaultHttpRights, isAccessRight, unrestrictedAccess, type AccessContext } from "./access.ts";
@@ -180,6 +181,14 @@ export class HttpContributionRegistry {
       return true;
     }
     await route.value.handle({ request, response, url, access });
+    return true;
+  }
+
+  /** Only a route with `upgrade` takes an upgrade request; without one the caller refuses it. */
+  async dispatchUpgrade(request: IncomingMessage, socket: Duplex, head: Buffer, url: URL): Promise<boolean> {
+    const upgrade = this.#routes.entries().find(({ value }) => value.upgrade !== undefined && value.matches(request, url))?.value.upgrade;
+    if (!upgrade) return false;
+    await upgrade({ request, socket, head, url });
     return true;
   }
 }
@@ -1387,6 +1396,10 @@ export class PluginHost {
       return true;
     }
     return this.http.dispatch(request, response, url, access);
+  }
+
+  dispatchUpgrade(request: IncomingMessage, socket: Duplex, head: Buffer, url: URL): Promise<boolean> {
+    return this.http.dispatchUpgrade(request, socket, head, url);
   }
 
   scriptRuntime(context: ScriptFactoryContext): ScriptRuntime | undefined {

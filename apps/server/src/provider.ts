@@ -3,6 +3,7 @@ import { randomUUID } from "node:crypto";
 import { existsSync, statSync } from "node:fs";
 import { chmod, mkdir, open, readFile, readdir, realpath, rename, rm } from "node:fs/promises";
 import path from "node:path";
+import type { Duplex } from "node:stream";
 import type { ChatSessionLike, ChatSessionProvider, ListedSession, RunListScope } from "./chat-handler.js";
 import { canStartEntry, createAccessContext, DomainError, isRunId, notShared, unrestrictedAccess, type AccessContext, type HttpRouteContribution, type Journal, type JournalLoadFailure, type MethodContribution, type PluginHost, type RunSharing, type ServiceToken, type SessionStartedContext } from "@ragents/engine";
 import { WORKSPACE_EXECUTOR_VERSION } from "@ragents/workspace-executor";
@@ -563,6 +564,11 @@ export class RunSessionProvider implements ChatSessionProvider {
       }
     }
     return this.plugins.dispatchHttp(req, res, url, access);
+  }
+
+  /** Upgrade routes authenticate themselves; the run in the path is not checked here. */
+  pluginUpgrade(req: IncomingMessage, socket: Duplex, head: Buffer, url: URL): Promise<boolean> {
+    return this.plugins.dispatchUpgrade(req, socket, head, url);
   }
 
   private ensureUsable(id: string): void {

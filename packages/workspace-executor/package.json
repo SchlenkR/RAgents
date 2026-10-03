@@ -15,10 +15,12 @@
   "dependencies": {
     "@ragents/agent": "workspace:*",
     "typescript": "^5.9.0",
-    "vscode-jsonrpc": "^9.0.2"
+    "vscode-jsonrpc": "^9.0.2",
+    "ws": "^8.22.0"
   },
   "devDependencies": {
     "@types/node": "^24.10.0",
+    "@types/ws": "^8.18.2",
     "tsx": "^4.20.0"
   }
 }

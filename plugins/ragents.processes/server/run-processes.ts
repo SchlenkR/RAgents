@@ -2,14 +2,14 @@ import { PROCESS_OPERATIONS } from "@ragents/workspace-executor";
 import type { SandboxServices } from "@ragents/host/plugin-support/workspace-sandbox-host.js";
 import type { WorkspacePlacement } from "@ragents/host/ragents/workspace-runtime.js";
 import type { RunProcessMachine, RunProcessSnapshot } from "../contract.js";
-import type { ForwardInput, ForwardResult } from "./methods.js";
 
 export interface RunProcesses {
   snapshot: (runId: string, signal?: AbortSignal) => Promise<RunProcessSnapshot>;
   terminate: (runId: string, processId: string, signal: AbortSignal) => Promise<void>;
   /** If the workspace is unreachable, the run's stop (`stopRun` of its executor) catches up on ending once it is back. */
   stopAll: (runId: string, signal?: AbortSignal) => Promise<void>;
-  forward: (input: ForwardInput, signal: AbortSignal) => Promise<ForwardResult>;
+  /** The run's executor checks the port against the run's processes; with a stream it connects to the port and opens its leg at that path on the server. */
+  dial: (runId: string, port: number, stream: string | null, signal: AbortSignal) => Promise<void>;
 }
 
 export const machineOf = (placement: WorkspacePlacement): RunProcessMachine =>
@@ -27,6 +27,7 @@ export const runProcessesOf = (sandbox: Pick<SandboxServices, "execute">, placem
   stopAll: async (runId, signal) => {
     await sandbox.execute(runId, PROCESS_OPERATIONS.stopAll, {}, { whenReachable: true, ...(signal ? { signal } : {}) });
   },
-  forward: async ({ runId, port, request }, signal) =>
-    await sandbox.execute(runId, PROCESS_OPERATIONS.forward, { port, request }, { signal }) as ForwardResult,
+  dial: async (runId, port, stream, signal) => {
+    await sandbox.execute(runId, PROCESS_OPERATIONS.dial, { port, stream }, { signal });
+  },
 });

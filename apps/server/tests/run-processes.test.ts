@@ -462,7 +462,8 @@ test("the methods deliver the state and the event channel the stream", async () 
     ensureWorkspaceAccess: (_access: unknown, runId: string) => {
       if (runId === "run-gone") throw new Error("The run was deleted");
     },
-    forward: async () => null,
+    checkPort: async () => undefined,
+    openStream: async () => ({ path: "/unused" }),
   };
   const [snapshotMethod, stopMethod] = createProcessMethods(options);
   const channel = createProcessChannel(options);
@@ -493,36 +494,38 @@ test("the methods deliver the state and the event channel the stream", async () 
   );
 });
 
-test("forwarding needs read, inspection and process rights and the workspace, and hands input and signal to the run's executor", async () => {
-  const forwarded: Array<{ input: unknown; signal: AbortSignal }> = [];
-  const response = { status: 200, headers: [["Content-Type", "text/plain"]] as Array<[string, string]>, body: Buffer.from("ok").toString("base64") };
+test("a tunnel needs read, inspection and process rights and the workspace; it checks the port or opens a stream with the request's signal", async () => {
+  const calls: Array<{ kind: string; runId: string; port: number; signal: AbortSignal }> = [];
   const methods = createProcessMethods({
     terminate: async () => {},
     observer: { observe: () => Promise.reject(new Error("unused")), watch: () => () => undefined },
     ensureWorkspaceAccess: (_access, runId) => {
       if (runId === "run-owner-only") throw new DomainError("run-workspace-owner-only", "Only the owner reaches the workspace", 403);
     },
-    forward: async (input, signal) => {
-      forwarded.push({ input, signal });
-      return response;
+    checkPort: async (runId, port, signal) => { calls.push({ kind: "check", runId, port, signal }); },
+    openStream: async (runId, port, signal) => {
+      calls.push({ kind: "open", runId, port, signal });
+      return { path: "/api/plugins/ragents.processes/tunnel?secret=client" };
     },
   });
-  const method = methods.find((entry) => entry.contract.id === "ragents.processes.forward");
+  const method = methods.find((entry) => entry.contract.id === "ragents.processes.tunnel");
   assert.ok(method);
   assert.deepEqual(method.contract.rights, ["runs.read", "runs.inspect", "ragents.processes.read"]);
-  const request = { method: "GET", path: "/?a=1", headers: [["Accept", "*/*"]], body: "" };
   const all = context(["runs.read", "runs.inspect", "ragents.processes.read"]);
   for (const missing of ["runs.read", "runs.inspect", "ragents.processes.read"]) {
     const rights = ["runs.read", "runs.inspect", "ragents.processes.read"].filter((right) => right !== missing);
-    await assert.rejects(Promise.resolve().then(() => method.execute({ runId: "run-1", port: 5173, request }, context(rights))),
-      (error: unknown) => error instanceof DomainError && error.status === 403, missing);
+    for (const connect of [false, true]) {
+      await assert.rejects(Promise.resolve().then(() => method.execute({ runId: "run-1", port: 5173, connect }, context(rights))),
+        (error: unknown) => error instanceof DomainError && error.status === 403, missing);
+    }
   }
-  await assert.rejects(Promise.resolve().then(() => method.execute({ runId: "run-owner-only", port: 5173, request }, all)),
+  await assert.rejects(Promise.resolve().then(() => method.execute({ runId: "run-owner-only", port: 5173, connect: true }, all)),
     (error: unknown) => error instanceof DomainError && error.code === "run-workspace-owner-only");
-  assert.deepEqual(forwarded, [], "nothing reaches the executor without the rights and the workspace");
-  assert.deepEqual(await method.execute({ runId: "run-1", port: 5173, request }, all), response);
-  assert.deepEqual(forwarded.map((entry) => entry.input), [{ runId: "run-1", port: 5173, request }]);
-  assert.equal(forwarded[0]!.signal, all.signal);
+  assert.deepEqual(calls, [], "nothing reaches the executor without the rights and the workspace");
+  assert.equal(await method.execute({ runId: "run-1", port: 5173, connect: false }, all), null);
+  assert.deepEqual(await method.execute({ runId: "run-1", port: 5173, connect: true }, all), { path: "/api/plugins/ragents.processes/tunnel?secret=client" });
+  assert.deepEqual(calls.map(({ kind, runId, port }) => ({ kind, runId, port })), [{ kind: "check", runId: "run-1", port: 5173 }, { kind: "open", runId: "run-1", port: 5173 }]);
+  assert.ok(calls.every((call) => call.signal === all.signal));
 });
 
 const startListener = (runId: string): Promise<{ child: ChildProcess; port: number }> =>

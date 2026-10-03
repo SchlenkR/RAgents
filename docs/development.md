@@ -267,7 +267,7 @@ to the plugin (`packages/ragents/src/plugin-types.ts`):
 | `accessProjections` | what an access without `runs.inspect` sees of state  |
 | `methods`           | messaging layer methods with a contract              |
 | `channels`          | channels with notifications per subscription         |
-| `http`              | serving: files, frames, uploads                      |
+| `http`              | serving: files, frames, uploads, upgrades            |
 | `config`            | configuration keys, strictly checked                 |
 | `clientConfig`      | values the web plugin may see                        |
 | `storage`           | storage under `plugins/<id>`, global and per run     |

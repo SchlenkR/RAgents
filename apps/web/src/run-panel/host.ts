@@ -34,7 +34,7 @@ export function createBrowserHost(browser: Window): RunPanelHost {
     requestLogout: unsupported("Signing out through the host"),
     openExternal: (url) => { browser.open(url, "_blank", "noopener"); },
     openPage: unsupported("Showing a web page in the host"),
-    openService: unsupported("Forwarding a service of a run"),
+    openService: unsupported("Opening a service of a run through a tunnel"),
     onCommand: () => () => undefined,
     notify: () => undefined,
   };

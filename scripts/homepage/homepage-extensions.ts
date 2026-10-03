@@ -48,6 +48,7 @@ const contracts: Contract[] = [
   { id: "accessContext", file: "packages/ragents/src/access.ts", name: "AccessContext" },
   { id: "httpRoute", file: "packages/ragents/src/plugin-types.ts", name: "HttpRouteContribution" },
   { id: "httpContext", file: "packages/ragents/src/plugin-types.ts", name: "HttpRouteContext" },
+  { id: "httpUpgrade", file: "packages/ragents/src/plugin-types.ts", name: "HttpUpgradeContext" },
   { id: "module", file: "apps/server/src/plugin-support/plugin-module.ts", name: "PluginModule" },
   { id: "manifest", file: "packages/ragents/src/plugin-types.ts", name: "PluginManifest" },
   { id: "plugin", file: "packages/ragents/src/plugin-types.ts", name: "RAgentsPlugin" },
@@ -239,6 +240,26 @@ host.http({
 });`, ["host.http", "httpRoute.id", "httpRoute.isApiPath", "httpRoute.matches", "httpRoute.handle", "httpContext.request", "httpContext.response", "httpContext.url"], [
     "Run-related routes check the run through the existing host services. Write operations remain bound to their domain checks and the journal.",
     "isApiPath and matches are different checks: recognizing an API also includes a path with an HTTP method that is currently not allowed.",
+  ]),
+  entry("upgrade", "Server contributions", "Take over a connection with an upgrade", "A route can also take HTTP upgrade requests, such as a WebSocket. The server hands over the raw connection, and the route answers it or keeps it. Because no sign-in reaches such a connection, the route checks it itself, for example with a one-time secret in the address.", "Inside register(host); WebSocketServer comes from the ws package, which the plugin bundles, and secrets is the plugin's own set of one-time secrets.", `
+const pathname = "/api/plugins/ragents.example/live";
+const sockets = new WebSocketServer({ noServer: true });
+host.http({
+  id: "ragents.example.live",
+  isApiPath: (value) => value === pathname,
+  matches: (_request, url) => url.pathname === pathname,
+  requiredRights: [],
+  handle: ({ response }) => { response.writeHead(426).end(); },
+  upgrade: ({ request, socket, head, url }) => {
+    if (!secrets.delete(url.searchParams.get("secret") ?? "")) {
+      socket.end("HTTP/1.1 404 Not Found\\r\\nConnection: close\\r\\n\\r\\n");
+      return;
+    }
+    sockets.handleUpgrade(request, socket, head, (live) => live.send("ready"));
+  },
+});`, ["httpRoute.upgrade", "httpUpgrade.request", "httpUpgrade.socket", "httpUpgrade.head", "httpUpgrade.url"], [
+    "Only a route with upgrade receives upgrade requests that its matches accepts; an upgrade nobody takes is answered with 404. Of the host's checks only the switch for external access applies: no sign-in, no access token, and no requiredRights.",
+    "head holds bytes that already arrived after the request headers; a WebSocket library takes them along. The process plugin's tunnel uses the same contribution for its WebSocket legs.",
   ]),
   entry("methods", "Server contributions", "API methods and channels", "A plugin adds its own methods and event channels to the JSON-RPC API. The contract describes identifier, description, permissions, input, and result; server and interface use the same contract.", "Contracts in the plugin's contract.ts, implementation inside register(host).", `
 const status = defineOperation({

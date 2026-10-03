@@ -1,9 +1,5 @@
 import { DomainError, implement, implementChannel, type AccessContext, type ChannelContribution, type MethodContribution } from "@ragents/engine";
-import type { OperationInput, OperationResult } from "@ragents/engine/src/rpc/contract";
 import { processesContracts, type RunProcessMessage, type RunProcessSnapshot } from "../contract.js";
-
-export type ForwardInput = OperationInput<typeof processesContracts.forward>;
-export type ForwardResult = OperationResult<typeof processesContracts.forward>;
 
 export interface ProcessObservation {
   observe: (runId: string, signal?: AbortSignal) => Promise<RunProcessSnapshot>;
@@ -16,8 +12,10 @@ export interface ProcessMethodOptions {
   ensureWorkspaceAccess: (access: AccessContext, runId: string) => void;
   /** Ends in the run's executor; cancelling the request reaches it via `signal`. */
   terminate: (runId: string, processId: string, signal: AbortSignal) => Promise<void>;
-  /** Forwards in the run's executor, which checks the port against the run's processes. */
-  forward: (input: ForwardInput, signal: AbortSignal) => Promise<ForwardResult>;
+  /** Asks the run's executor whether a process of the run listens on the port. */
+  checkPort: (runId: string, port: number, signal: AbortSignal) => Promise<void>;
+  /** Opens a stream to the port; the run's executor dials back before the path of the caller's leg comes back. */
+  openStream: (runId: string, port: number, signal: AbortSignal) => Promise<{ path: string }>;
 }
 
 const assertRights = (access: AccessContext, rights: readonly string[], action: string): void => {
@@ -38,10 +36,12 @@ export const createProcessMethods = (options: ProcessMethodOptions): MethodContr
     await options.terminate(runId, processId, signal);
     return null;
   }),
-  implement(processesContracts.forward, (input, { access, signal }) => {
-    assertRights(access, processesContracts.forward.rights, "Forwarding to a service of the run");
-    options.ensureWorkspaceAccess(access, input.runId);
-    return options.forward(input, signal);
+  implement(processesContracts.tunnel, async ({ runId, port, connect }, { access, signal }) => {
+    assertRights(access, processesContracts.tunnel.rights, "Opening a service of the run");
+    options.ensureWorkspaceAccess(access, runId);
+    if (connect) return options.openStream(runId, port, signal);
+    await options.checkPort(runId, port, signal);
+    return null;
   }),
 ];
 

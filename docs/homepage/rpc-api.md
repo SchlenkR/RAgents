@@ -61,9 +61,9 @@ Ids from results are reused programmatically, not copied by hand.
 | ragents.overseer.settings.save | ragents.overseer | ragents.overseer.read, ragents.overseer.write, settings.write |
 | ragents.overseer.stopRun | ragents.overseer | runs.read, runs.write |
 | ragents.plugins.bootstrap | host | no fixed rights |
-| ragents.processes.forward | ragents.processes | runs.read, runs.inspect, ragents.processes.read |
 | ragents.processes.snapshot | ragents.processes | runs.read, ragents.processes.read |
 | ragents.processes.stop | ragents.processes | runs.read, runs.write, runs.inspect |
+| ragents.processes.tunnel | ragents.processes | runs.read, runs.inspect, ragents.processes.read |
 | ragents.product.modelSettings.read | ragents.product | settings.read |
 | ragents.product.modelSettings.save | ragents.product | settings.read, settings.write |
 | ragents.runs.delete | host | runs.read, runs.delete |
@@ -2765,142 +2765,6 @@ Owner: host. Rights: no fixed rights. Execution: the server.
 }
 ```
 
-## ragents.processes.forward
-
-Forward one HTTP request to a port of the run's own processes on the machine the run works on, and return the response as it is; redirects are not followed, bodies are Base64 and at most 16 MiB. Without a request it only checks that a process of the run listens on the port. Rights: runs.read, runs.inspect and ragents.processes.read.
-
-Owner: ragents.processes. Rights: runs.read, runs.inspect, ragents.processes.read. Execution: the server.
-
-### Input
-
-```json
-{
-  "type": "object",
-  "required": [
-    "runId",
-    "port",
-    "request"
-  ],
-  "properties": {
-    "runId": {
-      "type": "string",
-      "minLength": 1,
-      "maxLength": 64,
-      "description": "Run id"
-    },
-    "port": {
-      "type": "integer",
-      "minimum": 1,
-      "maximum": 65535,
-      "description": "Port from the process snapshot"
-    },
-    "request": {
-      "anyOf": [
-        {
-          "type": "object",
-          "required": [
-            "method",
-            "path",
-            "headers",
-            "body"
-          ],
-          "properties": {
-            "method": {
-              "type": "string",
-              "minLength": 1,
-              "maxLength": 32
-            },
-            "path": {
-              "type": "string",
-              "pattern": "^/",
-              "maxLength": 16384,
-              "description": "Path with query, as the service sees it"
-            },
-            "headers": {
-              "type": "array",
-              "items": {
-                "type": "array",
-                "additionalItems": false,
-                "items": [
-                  {
-                    "type": "string",
-                    "minLength": 1
-                  },
-                  {
-                    "type": "string"
-                  }
-                ],
-                "minItems": 2
-              },
-              "description": "Header names and values in order; a name may repeat"
-            },
-            "body": {
-              "type": "string",
-              "description": "Body in Base64"
-            }
-          },
-          "additionalProperties": false
-        },
-        {
-          "type": "null"
-        }
-      ]
-    }
-  },
-  "additionalProperties": false
-}
-```
-
-### Result
-
-```json
-{
-  "anyOf": [
-    {
-      "type": "object",
-      "required": [
-        "status",
-        "headers",
-        "body"
-      ],
-      "properties": {
-        "status": {
-          "type": "integer",
-          "minimum": 100,
-          "maximum": 999
-        },
-        "headers": {
-          "type": "array",
-          "items": {
-            "type": "array",
-            "additionalItems": false,
-            "items": [
-              {
-                "type": "string",
-                "minLength": 1
-              },
-              {
-                "type": "string"
-              }
-            ],
-            "minItems": 2
-          },
-          "description": "Header names and values in order; a name may repeat"
-        },
-        "body": {
-          "type": "string",
-          "description": "Body in Base64"
-        }
-      },
-      "additionalProperties": false
-    },
-    {
-      "type": "null"
-    }
-  ]
-}
-```
-
 ## ragents.processes.snapshot
 
 The observed processes of a run with their open ports. Rights: runs.read and ragents.processes.read.
@@ -2974,6 +2838,70 @@ Owner: ragents.processes. Rights: runs.read, runs.write, runs.inspect. Execution
 ```json
 {
   "type": "null"
+}
+```
+
+## ragents.processes.tunnel
+
+Open a byte stream to a port of the run's own processes on the machine the run works on: that machine connects to the port and dials back, and the result names the path with query on this server where the caller opens its WebSocket leg, once and within 15 seconds. With connect false it only checks that a process of the run listens on the port. Rights: runs.read, runs.inspect and ragents.processes.read.
+
+Owner: ragents.processes. Rights: runs.read, runs.inspect, ragents.processes.read. Execution: the server.
+
+### Input
+
+```json
+{
+  "type": "object",
+  "required": [
+    "runId",
+    "port",
+    "connect"
+  ],
+  "properties": {
+    "runId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 64,
+      "description": "Run id"
+    },
+    "port": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 65535,
+      "description": "Port from the process snapshot"
+    },
+    "connect": {
+      "type": "boolean",
+      "description": "false only checks the port"
+    }
+  },
+  "additionalProperties": false
+}
+```
+
+### Result
+
+```json
+{
+  "anyOf": [
+    {
+      "type": "object",
+      "required": [
+        "path"
+      ],
+      "properties": {
+        "path": {
+          "type": "string",
+          "pattern": "^/",
+          "description": "Path with query on this server where the caller opens its WebSocket leg"
+        }
+      },
+      "additionalProperties": false
+    },
+    {
+      "type": "null"
+    }
+  ]
 }
 ```
 

@@ -3,13 +3,16 @@ import { mkdir, mkdtemp, readFile, realpath, rm, writeFile } from "node:fs/promi
 import { tmpdir } from "node:os";
 import path from "node:path";
 import test, { type TestContext } from "node:test";
-import { DomainError, implement, pluginStateKey, type RunState } from "@ragents/engine";
+import { DomainError, implement, pluginStateKey, type HttpRouteContribution, type RunState } from "@ragents/engine";
 import {
   EXECUTOR_CONTRIBUTION_FILE,
   FILE_OPERATIONS,
   PROCESS_OPERATIONS,
   WORKSPACE_EXECUTOR_VERSION,
+  bytesOf,
   loadExecutorContribution,
+  openTunnelLeg,
+  tunnelAddress,
   type ExecutorContributionRevision,
   type FileListing,
   type FileWatchProgress,
@@ -21,6 +24,7 @@ import { workspaceBindingOption } from "../../plugins/ragents.workspace/server/b
 import { clientMethods, WorkspaceClientRegistry } from "../../plugins/ragents.workspace/server/clients.ts";
 import { RunWorkspaceRuntime } from "../../plugins/ragents.workspace/server/runtime.ts";
 import { workspaceClientTransport } from "../../plugins/ragents.workspace/client/transport.ts";
+import { TunnelStreams } from "../../plugins/ragents.processes/server/tunnel-streams.ts";
 import { WorkspaceClient } from "../../plugins/ragents.workspace/client/workspace-client.ts";
 import { hostRoot } from "../../apps/server/src/host-version.ts";
 import { startRpcServer } from "../../apps/server/tests/rpc-fixture.ts";
@@ -85,11 +89,11 @@ test("without an explicit folder the caller from RAGENTS_CWD applies, not the sc
 });
 
 /** The headless workspace against real server methods: registration, executor and unregistration without VS Code. */
-const started = async (t: TestContext, contributions: readonly ExecutorContributionRevision[] = []) => {
+const started = async (t: TestContext, contributions: readonly ExecutorContributionRevision[] = [], routes: readonly HttpRouteContribution[] = []) => {
   const directory = await realpath(await mkdtemp(path.join(tmpdir(), "ragents-cli-client-")));
   const runs = await realpath(await mkdtemp(path.join(tmpdir(), "ragents-cli-runs-")));
   const registry = new WorkspaceClientRegistry(contributions);
-  const { url } = await startRpcServer(t, { methods: clientMethods(registry) });
+  const { url } = await startRpcServer(t, { methods: clientMethods(registry), routes });
   const transport = workspaceClientTransport(url, undefined);
   const client = new WorkspaceClient(transport, {
     id: CLIENT,
@@ -292,6 +296,50 @@ test("the headless workspace provides files, watching and processes of its machi
   await executor.stopRun(runId);
   await until(() => !alive(second));
   await client.unregister();
+});
+
+const echoServer = [
+  "const { spawn } = require(\"node:child_process\");",
+  "const child = spawn(process.execPath, [\"-e\", \"require('node:net').createServer((socket) => socket.pipe(socket)).listen(0, '127.0.0.1'); setTimeout(() => {}, 30000)\"], { detached: true, stdio: \"ignore\", env: process.env });",
+  "child.unref();",
+  "process.stdout.write(String(child.pid));",
+].join("\n");
+
+test("the headless workspace dials back to its server for a service of a run, and its legs close when it unregisters", { timeout: 60_000 }, async (t) => {
+  const dialing = { executor: undefined as ReturnType<WorkspaceClientRegistry["executorFor"]> | undefined };
+  const streams = new TunnelStreams({
+    dial: async (runId, port, stream, signal) => { await dialing.executor!.execute(runId, PROCESS_OPERATIONS.dial, { port, stream }, { signal }); },
+  });
+  t.after(() => streams.shutdown());
+  const { directory, registry, client, transport } = await started(t, [], [streams.route()]);
+  await client.register();
+  const executor = registry.executorFor(null, CLIENT, "Headless", directory);
+  dialing.executor = executor;
+  const runId = `cli-tunnel-${process.pid}`;
+  await writeFile(path.join(directory, "echo.cjs"), echoServer, "utf8");
+  const output = await executor.execute(runId, "bash", { command: "node echo.cjs" }, { toolCallId: "echo" });
+  const pid = Number(textOf(output).trim().split("\n")[0]);
+  t.after(() => { if (alive(pid)) process.kill(pid, "SIGKILL"); });
+  let port: number | undefined;
+  for (let attempt = 0; attempt < 50 && port === undefined; attempt++) {
+    const snapshot = await executor.execute(runId, PROCESS_OPERATIONS.snapshot, {}) as WorkspaceProcessSnapshot;
+    port = snapshot.processes.find((entry) => entry.pid === pid)?.ports[0]?.port;
+    if (port === undefined) await new Promise((resolve) => setTimeout(resolve, 100));
+  }
+  assert.ok(port, "the echo service of the run listens");
+
+  const { path: stream } = await streams.open(runId, port, new AbortController().signal);
+  const leg = await openTunnelLeg(tunnelAddress(transport.origin, stream));
+  const echoed: Buffer[] = [];
+  const closed = new Promise<{ code: number; reason: string }>((resolve) => leg.on("close", (code, reason) => resolve({ code, reason: reason.toString("utf8") })));
+  leg.on("message", (data, binary) => { if (binary) echoed.push(bytesOf(data)); });
+  leg.resume();
+  leg.send(Buffer.from([0, 1, 254, 255]), { binary: true });
+  await until(() => Buffer.concat(echoed).length === 4);
+  assert.deepEqual([...Buffer.concat(echoed)], [0, 1, 254, 255], "the workstation's executor reached the server under the address of its own connection");
+
+  await client.unregister();
+  assert.deepEqual(await closed, { code: 1001, reason: "The executor ends" }, "unregistering ends the workstation's legs, and the server closes the other one");
 });
 
 /** A watch on the workspace that ends only when its executor ends it. */

@@ -319,6 +319,7 @@ const runPhases = async (options: Options, report: Report, owned: Owned, session
   await runChecks({
     report,
     users,
+    serverUrl: server.url,
     model,
     dataDirectory,
     skillsDirectory,

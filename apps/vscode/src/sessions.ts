@@ -31,7 +31,7 @@ export interface SessionServices {
   /** The RAgents version of this extension (ragents.packageVersion, equal to its own); every server is compared with it. */
   version: string;
   /** The workspace of this window with the folders it currently offers. */
-  workspaceClient: (transport: { rpc: ServerClient["rpc"] }) => WorkspaceClient;
+  workspaceClient: (transport: Pick<ServerClient, "origin" | "rpc">) => WorkspaceClient;
   secrets: SecretStore;
   /** Address and token of the server: for an address the stored session, for a profile the freshly started host. */
   launch: (connection: Connection, report: (detail: string) => void) => Promise<LaunchedConnection>;

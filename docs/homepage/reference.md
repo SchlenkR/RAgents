@@ -1571,9 +1571,9 @@ Available in every turn; the question always goes to the user of the run.
 
 bash
 
-Execute a shell command in the run's workspace, or with cwd in one of its roots, with sandbox restrictions.
+Execute a shell command in the run's workspace, or with cwd in one of its roots, with sandbox restrictions; run_in_background keeps a service running.
 
-Execute a bash command in the working directory, or in the folder given as cwd. Every call starts there; a cd does not carry over to the next call. Returns stdout and stderr; a nonzero exit code is reported at the end of the result (for example grep without a match), not as a tool error. Output is truncated to the last 2000 lines or 20KB (whichever is hit first), and lines longer than 1000 characters are shortened. If anything was cut, the full output is saved to a temp file. rg searches recursively by default; its -r flag means replace and rewrites every match, it does not mean recursive. A command is stopped after 120000 ms unless you pass a larger timeout in milliseconds (at most 3600000); builds, test runs, installs and other long commands need one. Commands cannot run in the background: a call returns when its command has finished.
+Execute a bash command in the working directory, or in the folder given as cwd. Every call starts there; a cd does not carry over to the next call. Returns stdout and stderr; a nonzero exit code is reported at the end of the result (for example grep without a match), not as a tool error. Output is truncated to the last 2000 lines or 20KB (whichever is hit first), and lines longer than 1000 characters are shortened. If anything was cut, the full output is saved to a temp file. rg searches recursively by default; its -r flag means replace and rewrites every match, it does not mean recursive. A command is stopped after 120000 ms unless you pass a larger timeout in milliseconds (at most 3600000); builds, test runs, installs and other long commands need one. A call ends with its command, and whatever the command left running ends with it. For a dev server, a watcher or another service that must keep running, pass run_in_background: true instead of nohup, &, setsid, disown, a detached spawn or a service manager: the command keeps running until it exits, task_stop ends it, or the run stops; stop it with task_stop when you no longer need it.
 
 Owner: ragents.workspace. Scope: per-turn. Native model tool: yes. Availability: always.
 
@@ -1605,7 +1605,7 @@ Available in every model turn.
     },
     "run_in_background": {
       "type": "boolean",
-      "description": "Not available here: true is rejected, because a call ends with its command. Run long commands in the foreground with a larger timeout"
+      "description": "Set to true to run this command in the background, such as a dev server or a watcher. The call returns at once with an ID; task_output reads its new output, task_stop ends it, and you get a notice when it exits. timeout applies only to a command in the foreground"
     },
     "cwd": {
       "type": "string",
@@ -4014,6 +4014,84 @@ Available in every model turn.
         }
       ],
       "description": "Rendering; defaults to the file extension for a file and to markdown for content"
+    }
+  },
+  "additionalProperties": false
+}
+```
+
+#### Result
+
+```json
+{
+  "type": "string"
+}
+```
+
+### task_output
+
+task_output
+
+Read the new output and the status of a background command of bash.
+
+Read what a background command of bash wrote since the last task_output call, followed by its status: running, or how it ended. Every call returns only new output; if there is more than 20KB or 2000 lines, only its end is shown and the result says how much was left out. Lines longer than 1000 characters are shortened. The call does not wait for new output.
+
+Owner: ragents.workspace. Scope: per-turn. Native model tool: yes. Availability: always.
+
+Available in every model turn.
+
+#### Input
+
+```json
+{
+  "type": "object",
+  "required": [
+    "task_id"
+  ],
+  "properties": {
+    "task_id": {
+      "type": "string",
+      "minLength": 1,
+      "description": "The ID of the background command, as bash returned it"
+    }
+  },
+  "additionalProperties": false
+}
+```
+
+#### Result
+
+```json
+{
+  "type": "string"
+}
+```
+
+### task_stop
+
+task_stop
+
+Stop a background command of bash.
+
+Stop a background command of bash together with everything it started. Stop the dev servers and watchers you started once you no longer need them.
+
+Owner: ragents.workspace. Scope: per-turn. Native model tool: yes. Availability: always.
+
+Available in every model turn.
+
+#### Input
+
+```json
+{
+  "type": "object",
+  "required": [
+    "task_id"
+  ],
+  "properties": {
+    "task_id": {
+      "type": "string",
+      "minLength": 1,
+      "description": "The ID of the background command, as bash returned it"
     }
   },
   "additionalProperties": false

@@ -58,6 +58,8 @@ export interface RunWorkspaceRuntimeOptions {
   rg?: string;
   /** The bash timeout from RAGENTS_BASH_TIMEOUT_SECONDS; without a value, that of the tool. */
   bashTimeoutSeconds?: number;
+  /** The server's own address, where the server's executor dials back for a service of a run on the server. */
+  serverAddress?: () => string | undefined;
 }
 
 const runNotStarted = (): DomainError => new DomainError(
@@ -161,6 +163,7 @@ export class RunWorkspaceRuntime implements WorkspaceRuntime {
       ...(options.bash === undefined ? {} : { bash: options.bash }),
       ...(options.rg === undefined ? {} : { rg: options.rg }),
       ...(options.bashTimeoutSeconds === undefined ? {} : { bashTimeoutSeconds: options.bashTimeoutSeconds }),
+      ...(options.serverAddress ? { serverAddress: options.serverAddress } : {}),
     });
   }
 

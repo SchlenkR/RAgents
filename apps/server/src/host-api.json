@@ -286,7 +286,9 @@
       "PROCESS_OPERATIONS",
       "RUN_FOLDER_OPERATIONS",
       "RUN_MARKER_ENV",
+      "TUNNEL_PING_INTERVAL_MS",
       "WORKSPACE_EXECUTOR_VERSION",
+      "bytesOf",
       "languageServerOpenOperation",
       "languageServerSolutionsOperation",
       "listDirectory",
@@ -298,6 +300,7 @@
       "sandboxedLaunch",
       "shellPlatformText",
       "startManagedService",
+      "tunnelCloseReason",
       "watchDirectory"
     ],
     "@ragents/workspace-executor/src/git-config-environment": [

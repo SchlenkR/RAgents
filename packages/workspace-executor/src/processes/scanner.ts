@@ -10,6 +10,8 @@ export interface ProcessScannerOptions {
   table: () => ProcessTable;
   executorPid: number;
   executorUid: number | undefined;
+  /** Process groups the executor started on purpose beyond a call, such as background commands of bash. */
+  backgroundGroups?: () => ReadonlySet<number>;
   now?: () => Date;
 }
 
@@ -47,6 +49,7 @@ export class ProcessScanner {
       processes: runProcessesFrom({
         runId,
         executorPid: this.#options.executorPid,
+        ...(this.#options.backgroundGroups ? { backgroundGroups: this.#options.backgroundGroups() } : {}),
         records: scan.records,
         markerOf,
         ports,

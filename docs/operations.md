@@ -477,6 +477,15 @@ nohup ragents workspace-client https://ragents.example.com /home/user/project --
 The flag ignores terminal closure, parent loss, and SIGHUP; it does not daemonize. SIGINT and
 SIGTERM still unregister and shut down. Use the service manager's stop command to end a service.
 
+When someone opens a service of a run on this workstation through the VS Code extension, the
+workstation dials back to the server for every connection: it opens a WebSocket to
+`/api/plugins/ragents.processes/tunnel` under the address it was started with, and the server joins
+it with the extension's. The VS Code extension as a workstation does the same. A reverse proxy or
+tunnel in front of the server must pass WebSocket upgrades on that path, with the request's query;
+a Cloudflare tunnel does by default, nginx needs `proxy_http_version 1.1` and the `Upgrade` and
+`Connection` headers. Both ends ping every 30 seconds, so idle streams survive proxies that close
+quiet connections after a minute or more.
+
 ## Transfer a run
 
 A run can move from one server to another and continue there, for example from a notebook to an
@@ -626,8 +635,9 @@ here). Both are in the tool's description, together with
 the sentence that builds, test runs, and installations need a larger `timeout`. When the time runs
 out, the model gets the output so far, the milliseconds, and the hint to narrow the command, for
 example with `rg` instead of `grep -r`, or to pass a larger `timeout`. The server inserts the time
-limit into every call; it therefore also applies on a workstation. Background commands
-(`run_in_background`) are not available.
+limit into every call; it therefore also applies on a workstation. A background command
+(`run_in_background`) has no time limit: it runs until it exits, the agent stops it with `task_stop`,
+someone ends it in the process rail, or the run stops.
 
 `RAGENTS_BASH_TIMEOUT_SECONDS` in the `ragents.workspace` section or in the server's environment
 changes the default, in seconds:

@@ -22,9 +22,10 @@ bubblewrap 0.8.0, macOS with Seatbelt. A Node service listens on `127.0.0.1:<por
   and the server get "connection refused", and so does a later command in its new namespace.
 - macOS: the profile allows binding only on the proxy ports, because the host does not set the
   library's `allowLocalBinding`; `listen` fails with `EPERM`.
-- Both: `nohup cmd &` ends with the process group of its call anyway; only a detached start can
-  outlive a call. With the sandbox off, such a service survives on Linux and all four paths work:
-  the rail shows `127.0.0.1:<port>`, a later `bash` reaches it, forwarding answers 200,
+- Both: `nohup cmd &` ends with the process group of its call anyway; only a detached start, and
+  since 03.10.2026 `bash` with `run_in_background`, can outlive a call. With the sandbox off, such a
+  service survives on Linux and all four paths work: the rail shows `127.0.0.1:<port>`, a later
+  `bash` reaches it, forwarding answers 200,
   `browser_navigate` loads it. On macOS the same holds with `allowLocalBinding: true` set by hand,
   except that a later `bash` needs `curl --noproxy '*'`.
 
@@ -97,23 +98,22 @@ their own folder rules) and local ports as a per-call option.
 
 ## Alternative: a bridge per service
 
-`bash` with `run_in_background`, rejected today, starts a service in its own bwrap that lives as
-long as the service; a relay there exposes its ports as Unix sockets in the run storage for
-forwarding, browser, and rail, and the host starts relays from `127.0.0.1:<port>` to these sockets
-in every later command it wraps. No library change, but every service is an island: a frontend
-reaches its API only through relays that exist before its command starts, ports that appear during
-a command are not relayed into it, and the usual `npm run dev &` does not work.
+`bash` with `run_in_background` starts a service in its own bwrap that lives as long as the
+service (since 03.10.2026, without a bridge); a relay there would expose its ports as Unix sockets
+in the run storage for forwarding, browser, and rail, and the host would start relays from
+`127.0.0.1:<port>` to these sockets in every later command it wraps. No library change, but every
+service is an island: a frontend reaches its API only through relays that exist before its command
+starts, and ports that appear during a command are not relayed into it.
 
 ## Open decisions
 
 - One sandbox per run or a bridge per service; a library change upstream or a host-built sandbox.
 - macOS: `allowLocalBinding` with its loopback exposure, or a port block per run.
 - Whether the browser moves into the run's network namespace.
-- Whether `run_in_background` returns as the way to start a service.
 
 ## Acceptance
 
-On Linux and macOS with the sandbox on: a service started detached in one `bash` call keeps
+On Linux and macOS with the sandbox on: a service started with `run_in_background` keeps
 running, its port appears in the rail, a second `bash` call reaches it with a plain `curl`,
 `processes.forward` answers 200, and `browser_navigate` loads it; another run does not reach it,
 the server's other loopback ports stay blocked, and the run's stop ends it.

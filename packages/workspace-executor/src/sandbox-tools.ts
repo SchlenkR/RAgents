@@ -6,10 +6,14 @@ import {
   createBashToolDefinition,
   createEditToolDefinition,
   createReadToolDefinition,
+  createTaskOutputToolDefinition,
+  createTaskStopToolDefinition,
   createWriteToolDefinition,
   editApplies,
+  type BackgroundTaskOperations,
   type BashOperations,
 } from "@ragents/agent";
+import { BACKGROUND_TASK_OPERATIONS, backgroundTasks } from "./background-tasks.js";
 import { bashLaunch } from "./bash-launch.js";
 import { BYTE_OPERATIONS, fileBytesOf, pathInRoots, readFileBytes, writeFileBytes } from "./bytes.js";
 import type { WorkspaceProcessContext } from "./context.js";
@@ -39,6 +43,8 @@ export interface SandboxToolCall {
 
 export interface SandboxTools {
   readonly tools: ReadonlyMap<string, (input: unknown, call: SandboxToolCall) => Promise<unknown>>;
+  /** The process groups of the background commands still running; the process display counts them as background. */
+  readonly backgroundGroups: () => ReadonlySet<number>;
   shutdown: () => Promise<void>;
 }
 
@@ -173,6 +179,27 @@ export const createSandboxTools = async (
     processGroups.delete(pid);
   };
 
+  /** A group of this run gets the signal as a whole; Windows has no groups and ends the tree. */
+  const signalProcessGroup = async (pid: number, signal: NodeJS.Signals): Promise<void> => {
+    if (onWindows) return killProcessGroup(pid);
+    try {
+      process.kill(-pid, signal);
+    } catch (error) {
+      const code = (error as NodeJS.ErrnoException).code;
+      if (code === "ESRCH" || (process.platform === "darwin" && code === "EPERM" && !await processGroupExists(pid))) return;
+      throw error;
+    }
+  };
+
+  const background = backgroundTasks(contextFor, {
+    track: (pid, windows) => {
+      processGroups.add(pid);
+      if (windows) msysCalls.set(pid, windows);
+    },
+    stop: stopProcessGroup,
+    signal: signalProcessGroup,
+  });
+
   const shutdown = async (): Promise<void> => {
     shuttingDown = true;
     await Promise.all([...processGroups].map(killProcessGroup));
@@ -182,6 +209,7 @@ export const createSandboxTools = async (
       if (operation === toolOperation) break;
     }
     await Promise.all([...processGroups].map(stopProcessGroup));
+    await background.dispose();
   };
 
   const assertInsideRoots = async (raw: unknown, roots: readonly string[]): Promise<void> => {
@@ -371,7 +399,7 @@ export const createSandboxTools = async (
           }
           void (stopping ?? Promise.resolve())
             .then(() => stopProcessGroup(child.pid!))
-            .then(() => context.uid === undefined ? undefined : stopUidProcesses(context.uid))
+            .then(() => context.uid === undefined ? undefined : stopUidProcesses(context.uid, background.running()))
             .then(finish)
             .catch(reject);
         });
@@ -384,7 +412,20 @@ export const createSandboxTools = async (
       if (options.signal?.aborted) throw new Error("Cancelled");
       return startBash(command, commandCwd, options);
     },
+    background: (command, commandCwd, options) => {
+      if (shuttingDown) throw new Error("The tools are being killed");
+      return background.start(command, commandCwd, options.signal);
+    },
   };
+
+  const taskOperations: BackgroundTaskOperations = {
+    output: (id, { maxBytes }) => background.output(id, maxBytes),
+    stop: (id) => background.stop(id),
+  };
+
+  /** The observation runs outside the frame of the workspace, which it does not touch, for as long as the command runs. */
+  const waitForTask: ToolExecute = async (_toolCallId, input, signal) =>
+    background.wait((input as { task_id?: unknown } | null)?.task_id, signal);
 
   const executeOf = (definition: { execute: unknown }): ToolExecute => definition.execute as ToolExecute;
   const wrapped: ReadonlyArray<readonly [string, ToolExecute]> = [
@@ -392,21 +433,25 @@ export const createSandboxTools = async (
     ["edit", guarded("edit", executeOf(createEditToolDefinition(cwd)))],
     ["write", guarded("write", executeOf(createWriteToolDefinition(cwd)))],
     ["bash", serial(inFolder(executeOf(createBashToolDefinition(cwd, { operations: bashOperations }))))],
+    [BACKGROUND_TASK_OPERATIONS.output, concurrent(executeOf(createTaskOutputToolDefinition(taskOperations)))],
+    [BACKGROUND_TASK_OPERATIONS.stop, concurrent(executeOf(createTaskStopToolDefinition(taskOperations)))],
+    [BACKGROUND_TASK_OPERATIONS.wait, waitForTask],
     [BYTE_OPERATIONS.read, concurrent(readBytes)],
     [BYTE_OPERATIONS.write, serial(writeBytes)],
   ];
   return {
     tools: new Map(wrapped.map(([name, execute]) =>
       [name, (input: unknown, call: SandboxToolCall) => execute(call.toolCallId, input, call.signal, call.onUpdate)])),
+    backgroundGroups: background.running,
     shutdown,
   };
 };
 
 /** The operations of the module are named like the tools the model sees. */
-export const SANDBOX_TOOL_NAMES = ["read", "edit", "write", "bash"] as const;
+export const SANDBOX_TOOL_NAMES = ["read", "edit", "write", "bash", BACKGROUND_TASK_OPERATIONS.output, BACKGROUND_TASK_OPERATIONS.stop] as const;
 
-/** The byte operations belong to this module because writing shares the lock of the file tools. */
-const SANDBOX_OPERATIONS = [...SANDBOX_TOOL_NAMES, BYTE_OPERATIONS.read, BYTE_OPERATIONS.write] as const;
+/** The byte operations belong to this module because writing shares the lock of the file tools, the observation of a background command because the module holds it. */
+const SANDBOX_OPERATIONS = [...SANDBOX_TOOL_NAMES, BACKGROUND_TASK_OPERATIONS.wait, BYTE_OPERATIONS.read, BYTE_OPERATIONS.write] as const;
 
 /** An explicitly requested timeout in milliseconds extends how long a remote executor may wait for the bash. */
 const bashDuration = (input: unknown): { durationMs?: number } => {
@@ -414,8 +459,8 @@ const bashDuration = (input: unknown): { durationMs?: number } => {
   return typeof timeout === "number" && timeout > 0 ? { durationMs: timeout } : {};
 };
 
-/** The file tools and the byte operations address the root of their path, bash the root of its folder and without a folder no specific one. */
-const sandboxToolFootprints: Readonly<Record<(typeof SANDBOX_OPERATIONS)[number], (input: unknown) => OperationFootprint>> = {
+/** The file tools and the byte operations address the root of their path, bash the root of its folder and without a folder no specific one; a background command is found by its ID. */
+const sandboxToolFootprints: Readonly<Partial<Record<(typeof SANDBOX_OPERATIONS)[number], (input: unknown) => OperationFootprint>>> = {
   read: (input) => ({ roots: rootsOfFields(input, "file_path") }),
   edit: (input) => ({ roots: rootsOfFields(input, "file_path") }),
   write: (input) => ({ roots: rootsOfFields(input, "file_path") }),
@@ -430,27 +475,38 @@ const textOf = (update: ToolUpdate): string =>
     .map((part) => part.text)
     .join("\n");
 
-/** The four sandbox tools and the byte operations; the sandbox of a run is created on the first call, bash reports its output as `{ text }`. */
+/** The four sandbox tools, the background commands of bash and the byte operations; the sandbox of a run is created on the first call, bash reports its output as `{ text }`. */
 export const sandboxToolsModule: WorkspaceModuleFactory = (host) => {
   const sandboxes = new Map<string, Promise<SandboxTools>>();
+  /** The sandboxes already created, for the process display, which asks synchronously. */
+  const created = new Map<string, SandboxTools>();
   const sandboxOf = (runId: string): Promise<SandboxTools> => {
     const running = sandboxes.get(runId);
     if (running) return running;
-    const created = createSandboxTools(
+    const creating = createSandboxTools(
       runId,
       () => host.contextFor(runId),
       (absolutePath) => host.annotate(runId, absolutePath),
-    ).catch((error: unknown) => {
+    ).then((tools) => {
+      if (sandboxes.get(runId) === creating) created.set(runId, tools);
+      return tools;
+    }, (error: unknown) => {
       sandboxes.delete(runId);
       throw error;
     });
-    sandboxes.set(runId, created);
-    return created;
+    sandboxes.set(runId, creating);
+    return creating;
   };
   const stopRun = async (runId: string): Promise<void> => {
     const sandbox = sandboxes.get(runId);
     sandboxes.delete(runId);
-    await sandbox?.then((tools) => tools.shutdown());
+    if (!sandbox) return;
+    const tools = await sandbox;
+    try {
+      await tools.shutdown();
+    } finally {
+      if (created.get(runId) === tools) created.delete(runId);
+    }
   };
   const operation = (name: string): WorkspaceOperation => async ({ runId, input, toolCallId, signal, progress }) => {
     const { tools } = await sandboxOf(runId);
@@ -465,6 +521,7 @@ export const sandboxToolsModule: WorkspaceModuleFactory = (host) => {
   return {
     operations: Object.fromEntries(SANDBOX_OPERATIONS.map((name) => [name, operation(name)])),
     footprints: sandboxToolFootprints,
+    backgroundGroups: () => [...created.values()].flatMap((tools) => [...tools.backgroundGroups()]),
     stopRun,
     shutdown: async () => {
       const results = await Promise.allSettled([...sandboxes.keys()].map(stopRun));

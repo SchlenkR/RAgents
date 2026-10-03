@@ -12,7 +12,8 @@ The agent runtime: loop, compaction, tools.
   itself.
 - `core/model-runtime.ts` knows the models of the providers, `core/skills.ts` the skill catalog in
   the system prompt.
-- Tools under `core/tools/`: read, write, edit, bash (`core/tool-definition.ts`). The workspace
+- Tools under `core/tools/`: read, write, edit, bash, and task_output and task_stop for the
+  background commands of bash (`core/tool-definition.ts`). The workspace
   executor calls them with its own operations; they return text and structured details.
 
 This package does not read files, packages, settings or credentials. Forked third-party code;

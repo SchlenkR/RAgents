@@ -60,7 +60,7 @@ function ProcessPill({ runId, machine, process, state, writable, onStop, toolbar
 }) {
   const host = useRunPanelHost();
   const open = (port: RunProcessPort) => host.openService({
-    runId, port: port.port, workstation: machine === "server" ? null : machine.client, forward: processesContracts.forward.id,
+    runId, port: port.port, workstation: machine === "server" ? null : machine.client, tunnel: processesContracts.tunnel.id,
   });
   const stop = <StopButton busy={state?.busy === true} className={stopClass} disabled={!writable || state?.busy}
     label={state?.busy ? `Stopping ${process.label}` : `Stop ${process.label}`}

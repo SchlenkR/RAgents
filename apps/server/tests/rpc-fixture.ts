@@ -1,5 +1,6 @@
 import { once } from "node:events";
 import { createServer, type IncomingMessage } from "node:http";
+import type { Duplex } from "node:stream";
 import type { TestContext } from "node:test";
 import {
   AccessProjectionRegistry,
@@ -96,7 +97,7 @@ export interface RpcTestServer {
   call: (method: string, params?: unknown, headers?: Record<string, string>) => Promise<Partial<RpcSuccess & RpcFailure>>;
 }
 
-/** A real HTTP server with the given methods, channels and extra routes; it ends with the test. */
+/** A real HTTP server with the given methods, channels and extra routes, upgrades included; it ends with the test. */
 export const startRpcServer = async (t: TestContext, options: RpcServerOptions): Promise<RpcTestServer> => {
   const methods = new MethodContributionRegistry();
   methods.register("test", [...options.methods ?? []]);
@@ -112,6 +113,12 @@ export const startRpcServer = async (t: TestContext, options: RpcServerOptions):
       if (route) { await route.handle({ request, response, url, access }); return; }
       response.writeHead(404).end();
     })();
+  });
+  server.on("upgrade", (request: IncomingMessage, socket: Duplex, head: Buffer) => {
+    const url = new URL(request.url ?? "/", "http://test");
+    const route = options.routes?.find((entry) => entry.upgrade !== undefined && entry.matches(request, url));
+    if (route?.upgrade) void route.upgrade({ request, socket, head, url });
+    else socket.destroy();
   });
   t.after(() => { transport.close(); server.closeAllConnections(); server.close(); });
   server.listen(0, "127.0.0.1");

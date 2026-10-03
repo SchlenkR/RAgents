@@ -1,5 +1,80 @@
 # Decisions
 
+## 2026-10-03: `bash` runs commands in the background; `task_output` and `task_stop` read and end them by ID
+
+Chapters: `spec/plugins.md` (Workspace, sandbox tools, and processes: the tools, the executor's
+modules, background commands, the process display; Open limits), `spec/core.md` (Pausing a run;
+Origin of an input); usage: `usage.md` (Open and stop services and background processes);
+operations: `operations.md` (Time limit of `bash`); concept: `concepts/sandbox-services.md`.
+
+**Why.** A `bash` call ended with its process group, and `run_in_background: true` was rejected.
+Agents that had to keep a dev server running for browser checks improvised in two live runs: one
+spawned `node -e "child_process.spawn(..., {detached: true})"`, another submitted a launchd job with
+`launchctl submit` on the developer's workstation, which is invasive and easily left behind. The
+process rail shows services and VS Code opens them through a tunnel, so starting one is ordinary
+work and needs the standard's tool, not a workaround.
+
+**Decision.** In the shape of the standard, checked against `sdk-tools.d.ts` of
+`@anthropic-ai/claude-agent-sdk` 0.3.288 and the background result of Claude Code itself:
+
+- `bash` with `run_in_background: true` starts the command detached in its own process group, with
+  the run marker, in the same lock, folder, environment, account, and process sandbox as every call,
+  and returns at once with one line: "Command running in background with ID: b3f9a1. task_output
+  reads its new output, task_stop ends it." The ID is `b` and six hexadecimal digits. stdout and
+  stderr go through pipes into `background/<id>.log` below the run's log folder on the executing
+  machine (`logDirectory`); the path never reaches the model. When the command exits, the rest of its
+  process group ends with it, as after every call.
+- `task_stop {task_id}` follows `TaskStop` (formerly `KillShell {shell_id}`): SIGTERM to the group,
+  two seconds, then SIGKILL; on Windows `taskkill /T /F` and the MSYS processes of the command.
+- `task_output {task_id}` follows `TaskOutput`, which replaced `BashOutput {bash_id}`. Claude Code
+  has since removed it and points the model at the output file with `Read`; here the file lies on
+  the command's machine, possibly a workstation, outside every root, and models copy no paths, so the
+  tool stays and takes the ID. It returns only output new since the last read, at most 20 KB from its
+  end starting at a line, the last 2000 lines, lines over 1000 characters shortened, and names what
+  it left out; then "Status: running", "exited with code N", "ended by signal S", or "stopped with
+  task_stop". `block` and `timeout` of `TaskOutput` are not taken: no tool waits.
+- The end reaches the actor that started the command: the server opens the observation `tasks.wait`
+  at the executor that started it (`untilAborted`, like `files.watch`), and its result becomes an
+  ActorInput in the owner's name with `presentation: "background"`: "Background command b3f9a1
+  exited with code 1. task_output reads what it wrote last." No input for an end through
+  `task_stop`; an end through the rail brings one. The run stop aborts the observations before it
+  stops the executors. After a lost connection to a workstation the server opens the observation
+  again every 15 seconds; the executor keeps the status of an ended command until the run stops.
+- The server remembers per run which executor started which ID and sends `task_output` and
+  `task_stop` there; an unknown ID goes to the binding's executor.
+- Ending: `task_stop`, the end button of the rail, the stop and deletion of the run, and the
+  `shutdown` of the executor, which also removes the output files. `bash` starts a background
+  command only for an actor that has `task_output` and `task_stop` (`background-tools-missing`,
+  400), so the global coordinator, whose fixed selection has `bash` without them, cannot start one
+  it could neither read nor end; its selection stays unchanged, because changing it would force every
+  existing global conversation to reset.
+- The process display counts the group of a background command as background although the executor
+  is its parent (`WorkspaceExecutorModule.backgroundGroups`). With an account per run, the cleanup
+  after a call keeps the background commands and everything below them (`stopUidProcesses` with
+  `keep`).
+- The workspace rules and the skill `browser-testing` tell agents to start services this way and to
+  stop them; `usage.md` no longer describes a detached `child_process.spawn` as the way.
+- `WORKSPACE_EXECUTOR_VERSION` is 11, because an older workstation knows neither the operations nor
+  the start.
+
+One deviation from the standard: `timeout` does not apply to a background command. Claude Code stops
+one after 30 minutes by default and two hours at most; here a dev server for a long browser check
+must not die halfway, and the run stop ends what nobody stops. The server's process sandbox keeps
+its rules: a service of a server run still cannot be opened there (`concepts/sandbox-services.md`).
+
+Rejected: reading the output with `read` by path (the file is on another machine and models copy no
+paths); starting the command through a wrapper process so that it is no direct child of the
+executor (the end and the output would need a second channel); polling the status from the server;
+a sequential ID per run (two executors of one run would collide).
+
+Verified with `packages/workspace-executor/tests/background.test.ts` (survives the call,
+incremental output, limits, exit code, stop, run stop, files, process display),
+`packages/agent/tests/bash.test.ts` and `background-tasks.test.ts` (schemas, results),
+`apps/server/tests/bash-background.test.ts` (notice to the actor, no notice for `task_stop` and the
+run stop, missing tools), `workspace-foreign-machine.test.ts` (on a workstation through its
+connection, with `@actors` on the server, run stop there), `profile-composition.test.ts`, and
+`overseer-workspace.test.ts`.
+
 ## 2026-10-03: Document addresses through quassel's `resolveUrl`, in the run chat too; grants for HTML documents; the store without the run's root
 
 Chapters: `spec/plugins.md` (Ownership per facet: resolution, account switch, content route, grants;
@@ -73,6 +148,86 @@ references; the store without the run's root), `document-grant-host.test.ts` (th
 grant pass its access token gate only on the content route and only for `GET`),
 `run-workspace.test.ts` (server roots without the bound folder, the account switch refused at the
 start), `workspace-ownership.test.ts` (refusal before the sync), and the homepage extension examples.
+
+## 2026-10-03: A service of a run streams as raw TCP through WebSocket legs that the run's machine dials back
+
+Chapters: `spec/plugins.md` (PluginHost registrations; Rights in server and web contributions:
+upgrade routes; Message layer; Workspace, sandbox tools, and processes: process module, opening a
+service; Open limits); usage: `usage.md` (Open and stop services and background processes);
+operations: `operations.md` (Run a CLI workstation); handbook: `development.md` (extension points);
+concept: `concepts/browser-service-tunnel.md`.
+
+**Why.** The forwarding of the entry below carried one buffered HTTP exchange per call: a WebSocket
+upgrade got 501, so the live reload of a dev server and many real apps did not connect, server-sent
+events ended at the 60-second limit, and bodies stopped at 16 MiB. The owner needs WebSockets. The
+transport sets the frame: viewers and workstations talk only to the server, a workstation opened its
+own connection (requests from the server over SSE, answers by POST, 32 MiB per message), the server
+cannot connect to a workstation, and it often sits behind a reverse proxy or Cloudflare tunnel that
+passes HTTP and WebSocket upgrades on one HTTPS host.
+
+**Decision.** The extension's local listener is a TCP listener, and every accepted connection is one
+byte stream piped unchanged in both directions, so no header handling remains. `ragents.processes.tunnel`
+(`runId`, `port`, `connect`; same rights as before plus workspace access) checks the port or opens a
+stream: the plugin's broker creates two one-time secrets and asks the run's executor with the new
+operation `processes.dial` to dial back; the executor checks the port against the run's processes,
+connects on loopback as before, and opens its leg as a WebSocket to
+`/api/plugins/ragents.processes/tunnel?secret=...`; the method then returns the path of the caller's
+leg, which connects to the same endpoint within 15 seconds. The broker pairs the legs and relays
+their frames with backpressure. For a run on the server the server's executor dials the server's own
+address, for a workstation its executor dials the address of its own connection, which
+`workspaceExecutorModules` now receives as `serverAddress`. Both ends share `pipeTunnel`: binary
+frames for bytes, the text frame `end` for the end of one direction, so half-closed connections keep
+working, close code 1000 when both directions ended, 1011 with the cause on an error. Legs ping every
+30 seconds; the server cuts a leg it has not heard from for 75 seconds while it reads it. Run stop and
+deletion close the streams on the server, the executor closes its legs in `stopRun` and `shutdown`, so
+a workstation that signs out ends them; the extension's port check and end conditions stay, and its
+output gets one line per stream open and close instead of one per request.
+
+The host gets upgrades as an additive part of the HTTP registration: `HttpRouteContribution.upgrade`
+with `HttpUpgradeContext` (`request`, `socket`, `head`, `url`), dispatched by
+`HttpContributionRegistry.dispatchUpgrade`. Of the host's gates only the external-access switch
+applies, because an upgrade route authenticates itself; the legs carry only their secret in the
+address, so every WebSocket client, a browser later too, can be one. New names only, so
+`HOST_API_VERSION` stays 11; the plugin reads `TUNNEL_PING_INTERVAL_MS` from the executor as a new
+listed name. `ws` is the WebSocket implementation on all three ends: the server needs one anyway
+(Node has no WebSocket server), and on the clients it gives pause and resume plus send callbacks,
+while the global WebSocket of Node 22 has no flow control on receiving and only a polled
+`bufferedAmount` for sending, and the extension host's globals vary with the VS Code version.
+`ragents.processes` bundles its own copy, the executor package depends on it, and the extension
+bundles it through the executor. The HTTP forwarding, its operation, buffering, header code, the 501
+answer, and their tests are removed without a shim, since none of it was released;
+`WORKSPACE_EXECUTOR_VERSION` stays 10, because the released 0.1.30 carries 9.
+
+Two details came out of the tests. A leg opens paused, because ws emits frames that arrive with the
+handshake before a caller who awaited the opening could listen, and a service that speaks first lost
+its greeting. And the server judges a leg by anything it hears, its own pings included, instead of by
+pongs, because a leg that stops reading for backpressure, such as a paused download, cannot answer
+a ping but keeps sending its own.
+
+Rejected: chunking the bytes as Base64 through the existing JSON-RPC channels, because every chunk
+would be a server request to the workstation over SSE plus a POST back, with no backpressure, a third
+more bytes, and a round trip per chunk; a WebSocket for the whole message layer, because it would
+replace a transport that works for everything else; the global WebSocket on the clients (above);
+relaying in the server by TCP without WebSockets, because a proxy in front of the server passes only
+HTTP and upgrades on its HTTPS host; a session cookie or token on the legs, because the global
+WebSocket of browsers sends no headers and the one-time secret already binds a leg to one checked
+call; closing a stream when one direction ends, because it cuts the answer of a client that
+half-closes after its request; the server cutting legs without a pong, because of the paused leg
+above. A tunnel for viewers with only a browser stays open as `concepts/browser-service-tunnel.md`.
+Verified with `packages/workspace-executor/tests/tunnel.test.ts` (own port only, foreign port
+refused, bytes both ways, half-close, 20 MiB each way, reset and close propagation, refused leg,
+unreachable port, wildcard and IPv6, stop and shutdown), `apps/server/tests/tunnel-streams.test.ts`
+(pairing with early frames, single-use and foreign secrets, 426, expiry, failed dial-back, run stop,
+silent leg), `run-processes.test.ts` (rights and signal of the method), `workspace-owner-access.test.ts`,
+`access-rights.test.ts` (upgrade dispatch), `workspace-foreign-machine.test.ts` (a stream to a
+service on the workstation through its dial-back, and to the same service as a run on the server
+through the server's own executor),
+`scripts/workspace-client/run-workspace-client.test.ts` (the headless workstation dials back to the
+address of its connection, and unregistering ends its legs), `apps/web/tests/run-panel-host.test.ts`,
+and `apps/vscode/tests/service-tunnels.test.ts` (against the stub server with the real broker and a
+real executor: TCP listener, HTTP, a WebSocket echo, server-sent events, a service that speaks
+first, 20 MiB each way, refusals, end by check, connection, and deactivation).
+
 
 ## 2026-10-03: The document store is the server root `@documents`; `copy` and one content route by reference replace `document_write`
 

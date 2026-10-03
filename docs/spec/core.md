@@ -557,7 +557,8 @@ While `RunState.pause` is set, the scheduler starts no turn and feeds no input i
 is still ending; `turn.started` is rejected in the decision (`run-paused`, 409) and in the journal
 check. Every input is still written as `actor.input.enqueued`: subscription deliveries, automatic
 notices to creators (the interrupted sub-agent reports "was interrupted" to its creator), wake-ups
-of `ragents.watch`, run-script results, and messages. Nothing is discarded.
+of `ragents.watch`, ends of background commands of `bash`, run-script results, and messages. Nothing
+is discarded.
 
 The pause holds the actors: `run.paused` marks every active executable actor with `held`, and an
 actor created during the pause is held too. `run.resumed` lifts the pause and releases the
@@ -584,8 +585,8 @@ TypeScript actors and run scripts pause like agents: a running turn of their pro
 interrupted, its claimed input is consumed, and after the resume the actor stays held like a
 sub-agent unless it is the primary actor. Actor-program processes are not stopped. Functions and
 app actions that a person calls from a view are no turns and keep working during the pause;
-inputs they enqueue wait. Background processes of the Processes tab keep running; they end with
-their own stop or with the run stop.
+inputs they enqueue wait. Background processes of the Processes tab, background commands of `bash`
+among them, keep running; they end with their own stop or with the run stop.
 
 ### Stop procedure, cleanup, and deletion
 
@@ -715,8 +716,9 @@ confirms (`event_unsubscribe`, `run_configure`, `todo_write`) returns
 
 `enqueuedBy` names who queued an input, not who wrote it. Besides the messages of a human, the
 automatic notices to creators, inputs from plugins (the answer to a question from `ragents.ask`,
-the solution answer from `ragents.lsp-roslyn`, the wake-up of a watcher from `ragents.watch`), the
-and the start input of a run script also run under the owner. The message of a human therefore
+the solution answer from `ragents.lsp-roslyn`, the wake-up of a watcher from `ragents.watch`, the
+end of a background command of `bash` from `ragents.workspace`), and the start input of a run script
+also run under the owner. The message of a human therefore
 additionally carries `origin: "human"`, in the payload of `actor.input.enqueued` and in the
 ActorInput of the projection. The field is set by the host's chat path, `ragents.chat.send` and
 `ragents.chat.sendToActor`, through which `ragents.overseer.sendMessage` and the first message of

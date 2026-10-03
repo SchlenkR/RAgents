@@ -10,10 +10,12 @@ import {
   BYTE_OPERATIONS,
   FILE_OPERATIONS,
   RUN_MARKER_ENV,
+  TUNNEL_END,
   WORKSPACE_EXECUTOR_VERSION,
   WorkspaceOperationError,
   EXECUTOR_CONTRIBUTION_FILE,
   WorkspaceOperationExecutor,
+  bytesOf,
   commandModule,
   executorMachine,
   loadExecutorContribution,
@@ -23,7 +25,9 @@ import {
   processModule,
   processTableForPlatform,
   runFolderModule,
+  openTunnelLeg,
   sandboxToolsModule,
+  tunnelAddress,
   workspaceProcessContext,
   type FileBytes,
   type FileListing,
@@ -52,6 +56,7 @@ import { RunWorkspaceRuntime } from "../../../plugins/ragents.workspace/server/r
 import { ActorProgramRuntime } from "../../../plugins/ragents.actor-programs/server/runtime.ts";
 import { createActorProgramToolContributors } from "../../../plugins/ragents.actor-programs/server/tool-contributor.ts";
 import { runProcessesOf } from "../../../plugins/ragents.processes/server/run-processes.ts";
+import { TunnelStreams } from "../../../plugins/ragents.processes/server/tunnel-streams.ts";
 import { RunBrowser } from "../../../plugins/ragents.browser/server/browser.ts";
 import { createShowDocumentTool } from "../../../plugins/ragents.documents/server/show-document-tool.ts";
 import { createCopyTool } from "../../../plugins/ragents.workspace/server/copy-tool.ts";
@@ -61,6 +66,7 @@ import { hostRoot } from "../src/host-version.ts";
 import { NodeTypeScriptExecutor } from "../src/plugin-support/native-typescript-executor.ts";
 import { createTypeScriptToolContributor } from "../src/ragents/typescript-tools.ts";
 import type { WorkspaceResolver } from "../src/ragents/workspace-runtime.ts";
+import type { HttpRouteContribution } from "@ragents/engine";
 import { methodContext, startRpcServer } from "./rpc-fixture.ts";
 
 // Server and workstation run on one machine here; the workstation therefore offers paths that do not exist on the server.
@@ -136,15 +142,16 @@ const foreignWorkstation = async (
 };
 
 /** The server with the real workspace plugin; every run is bound to the workstation the test gives it. */
-const serverFixture = async (t: TestContext, { resolver, skills = [], contributions = [] }: {
+const serverFixture = async (t: TestContext, { resolver, skills = [], contributions = [], routes = [] }: {
   resolver?: WorkspaceResolver;
   skills?: readonly string[];
   contributions?: readonly PreparedExecutorContribution[];
+  routes?: readonly HttpRouteContribution[];
 } = {}) => {
   const root = await realpath(await mkdtemp(path.join(tmpdir(), "ragents-foreign-machine-")));
   t.after(() => rm(root, { recursive: true, force: true }));
   const registry = new WorkspaceClientRegistry(contributions);
-  const { url } = await startRpcServer(t, { methods: clientMethods(registry) });
+  const { url } = await startRpcServer(t, { methods: clientMethods(registry), routes });
   const bindings = new Map<string, WorkspaceBinding>();
   const runState = (runId: string): RunState => {
     const binding = bindings.get(runId) ?? bindings.get("*");
@@ -166,6 +173,7 @@ const serverFixture = async (t: TestContext, { resolver, skills = [], contributi
     storeBinding: () => { throw new Error("The test does not rebind"); },
     clients: registry,
     contributions: contributions.map((contribution) => contribution.parts),
+    serverAddress: () => url,
   });
   t.after(() => runtime.shutdown());
   const browseOptions = {
@@ -283,12 +291,30 @@ test("the process view shows and ends the processes of the workstation, not thos
   assert.deepEqual((await processes.snapshot(runId)).processes, []);
 });
 
-test("a service on the workstation is forwarded through its connection, a port of the server's processes is not", { skip: !hasProcessTable() }, async (t) => {
-  const server = await serverFixture(t);
+/** Sends a request as the caller's leg of a stream and collects the answer until the stream closes; like every leg it answers the end of the other direction with its own. */
+const exchange = async (address: string, request: Buffer): Promise<{ code: number; bytes: Buffer }> => {
+  const leg = await openTunnelLeg(address);
+  const received: Buffer[] = [];
+  const closed = new Promise<number>((resolve) => leg.on("close", (code) => resolve(code)));
+  leg.on("message", (data, binary) => {
+    if (binary) received.push(bytesOf(data));
+    else leg.send(TUNNEL_END);
+  });
+  leg.resume();
+  leg.send(request, { binary: true });
+  const code = await closed;
+  return { code, bytes: Buffer.concat(received) };
+};
+
+test("a service on the workstation streams through a leg the workstation dials back, a port of the server's processes is not reached", { skip: !hasProcessTable(), timeout: 30_000 }, async (t) => {
+  const processes = { of: undefined as ReturnType<typeof runProcessesOf> | undefined };
+  const streams = new TunnelStreams({ dial: (runId, port, stream, signal) => processes.of!.dial(runId, port, stream, signal) });
+  t.after(() => streams.shutdown());
+  const server = await serverFixture(t, { routes: [streams.route()] });
   const project = path.join(server.root, "workstation", "project");
   await mkdir(project, { recursive: true });
   const offered = `/foreign-machine-${randomUUID()}/project`;
-  const runId = `foreign-forward-${process.pid}`;
+  const runId = `foreign-tunnel-${process.pid}`;
   const child = spawn(process.execPath, ["-e", [
     "const server = require('node:http').createServer((request, response) => {",
     "  const chunks = []; request.on('data', (chunk) => chunks.push(chunk));",
@@ -314,22 +340,35 @@ test("a service on the workstation is forwarded through its connection, a port o
     runMarkers: async (pids) => new Map(pids.filter((pid) => pid === child.pid).map((pid) => [pid, runId])),
     listeningPorts: (pids) => machine.listeningPorts(pids),
   };
-  const workstation = await foreignWorkstation(t, server.url, "notebook-0003", "Notebook", { [offered]: project }, [processModule({ table: () => workstationTable })]);
+  const workstation = await foreignWorkstation(t, server.url, "notebook-0003", "Notebook", { [offered]: project },
+    [processModule({ table: () => workstationTable, serverAddress: () => server.url })]);
   server.bindings.set(runId, { machine: { client: "notebook-0003", label: "Notebook" }, folder: { path: offered } });
-  const processes = runProcessesOf(server.runtime.sandbox, (id) => server.runtime.placementOf(id));
+  processes.of = runProcessesOf(server.runtime.sandbox, (id) => server.runtime.placementOf(id));
 
-  const response = await processes.forward({ runId, port, request: { method: "POST", path: "/echo?x=1", headers: [["Content-Type", "application/octet-stream"]], body: Buffer.from([1, 2, 3]).toString("base64") } },
-    new AbortController().signal);
-  assert.ok(response);
-  assert.equal(response.status, 200);
-  assert.deepEqual([...Buffer.from(response.body, "base64")], [0, 255, 1, 2, 3]);
-  assert.deepEqual(response.headers.filter(([name]) => name.toLowerCase().startsWith("x-")), [["X-Host", `localhost:${port}`], ["X-Path", "/echo?x=1"]]);
-  assert.deepEqual(workstation.operations, ["processes.forward"], "the request went to the workstation, not to the server's executor");
+  await processes.of.dial(runId, port, null, new AbortController().signal);
+  const { path: stream } = await streams.open(runId, port, new AbortController().signal);
+  assert.deepEqual(workstation.operations, ["processes.dial", "processes.dial"], "check and dial-back ran on the workstation, not in the server's executor");
+  const response = await exchange(tunnelAddress(server.url, stream),
+    Buffer.concat([Buffer.from("POST /echo?x=1 HTTP/1.1\r\nHost: localhost\r\nContent-Length: 3\r\nConnection: close\r\n\r\n"), Buffer.from([1, 2, 3])]));
+  assert.equal(response.code, 1000, "the service closes after its answer, and both directions end normally");
+  const separator = response.bytes.indexOf("\r\n\r\n");
+  assert.match(response.bytes.subarray(0, separator).toString("latin1"), /^HTTP\/1\.1 200 OK\r\n[\s\S]*X-Path: \/echo\?x=1/);
+  assert.deepEqual(response.bytes.subarray(separator + 4), Buffer.concat([Buffer.from("5\r\n"), Buffer.from([0, 255, 1, 2, 3]), Buffer.from("\r\n0\r\n\r\n")]),
+    "the chunked body with its binary bytes crosses both machines unchanged");
+
+  // The same service under the marker the server's process table sees: a run on the server dials back from the server's own executor.
+  const serverRun = `only-on-the-server-${process.pid}`;
+  server.bindings.set(serverRun, { machine: "server", folder: "fresh" });
+  const onServer = await streams.open(serverRun, port, new AbortController().signal);
+  const local = await exchange(tunnelAddress(server.url, onServer.path), Buffer.from("GET /local HTTP/1.1\r\nHost: localhost\r\nConnection: close\r\n\r\n"));
+  assert.equal(local.code, 1000);
+  assert.match(local.bytes.toString("latin1"), /X-Path: \/local/);
+  assert.equal(workstation.operations.length, 2, "the server's own executor dialed back for the run on the server");
 
   server.bindings.set("server-run", { machine: "server", folder: "fresh" });
-  await assert.rejects(processes.forward({ runId: "server-run", port, request: null }, new AbortController().signal),
-    (error: unknown) => error instanceof DomainError && error.code === "forward-port-unknown");
-  assert.deepEqual(workstation.operations, ["processes.forward"], "a run on the server never reaches the workstation");
+  await assert.rejects(streams.open("server-run", port, new AbortController().signal),
+    (error: unknown) => error instanceof DomainError && error.code === "tunnel-port-unknown");
+  assert.equal(workstation.operations.length, 2, "a run on the server never reaches the workstation");
 });
 
 /** The actor programs of a run are on the server under @actors, as `ragents.actor-programs` registers them. */
@@ -720,4 +759,61 @@ test("a new folder per run is created on the workstation as the contribution's G
   assert.deepEqual(workstation.operations.slice(4), ["stop", "commands.run", "runFolder.remove"]);
   await missingOnServer(folder);
   assert.doesNotMatch(git(repository, "worktree", "list"), new RegExp(runId));
+});
+
+test("a background command runs on the machine of its folder: the server reads it there by its ID, its end reaches the actor over the connection, and the run stop ends it there", { skip: process.platform === "win32" }, async (t) => {
+  const server = await serverFixture(t);
+  const actors = await actorRoot(server);
+  const { offered, project } = await workstationProject(server);
+  const workstation = await foreignWorkstation(t, server.url, "notebook-0014", "Notebook", { [offered]: project }, [sandboxToolsModule]);
+  server.bindings.set("*", { machine: { client: "notebook-0014", label: "Notebook" }, folder: { path: offered } });
+  const setup = setupRun({ grants: allGrants(), toolNames: null });
+  t.after(() => setup.journal.close());
+  const registry = new ToolRegistry().register(server.runtime.sandbox.workspaceTools());
+  const queued = postTo(setup.runtime, setup.view, setup.agent.id, "service-input", "Start the preview.");
+  const input = queued.inputs.find((entry) => entry.actorId === setup.agent.id && entry.lifecycle.kind === "pending");
+  assert.ok(input);
+  const turn = claimTurn(setup.runtime, setup.view.id, setup.agent.id, input.id, "service-turn");
+  const toolset = await TurnToolset.create({ runtime: setup.runtime, turn, catalog, registry, workspace: offered });
+  const call = async (id: string, name: string, value: Record<string, unknown>): Promise<string> => textOf((await toolset.invoke(id, name, value as never)).output);
+  const start = async (id: string, value: Record<string, unknown>): Promise<string> => {
+    const task = /with ID: (b[0-9a-f]{6})\./.exec(await call(id, "bash", { ...value, run_in_background: true }))?.[1];
+    assert.ok(task);
+    return task;
+  };
+  const notices = () => setup.runtime.view(setup.view.id).inputs
+    .filter((entry) => entry.actorId === setup.agent.id && entry.presentation === "background")
+    .map((entry) => entry.content);
+
+  const onWorkstation = await start("start-workstation", { command: "pwd; exit 5" });
+  await until(() => notices().length === 1);
+  assert.deepEqual(notices(), [`Background command ${onWorkstation} exited with code 5. task_output reads what it wrote last.`]);
+  assert.equal(await call("read-workstation", "task_output", { task_id: onWorkstation }), `${project}\n\nStatus: exited with code 5`);
+  assert.deepEqual(workstation.operations, ["bash", "tasks.wait", "task_output"]);
+
+  const onServer = await start("start-server", { command: "pwd", cwd: "@actors" });
+  await until(() => notices().length === 2);
+  assert.equal(notices()[1], `Background command ${onServer} exited with code 0. task_output reads what it wrote last.`);
+  assert.equal(await call("read-server", "task_output", { task_id: onServer }), `${actors}\n\nStatus: exited with code 0`);
+  assert.deepEqual(workstation.operations, ["bash", "tasks.wait", "task_output"], "a command with @actors as cwd and its ID stay on the server");
+
+  const service = await start("start-service", { command: `${JSON.stringify(process.execPath)} -e ${JSON.stringify("console.log('pid ' + process.pid); setInterval(() => {}, 1000)")}` });
+  let pid = 0;
+  for (let attempt = 0; pid === 0 && attempt < 400; attempt++) {
+    pid = Number(/pid (\d+)/.exec(await call(`poll-${attempt}`, "task_output", { task_id: service }))?.[1] ?? 0);
+    if (pid === 0) await new Promise((resolve) => setTimeout(resolve, 25));
+  }
+  assert.ok(pid > 0);
+  await server.runtime.stopSession(setup.view.id);
+  await until(() => {
+    try {
+      process.kill(pid, 0);
+      return false;
+    } catch {
+      return true;
+    }
+  });
+  assert.equal(workstation.operations.at(-1), "stop");
+  await new Promise((resolve) => setTimeout(resolve, 200));
+  assert.equal(notices().length, 2, "the end the stop of the run causes is no notice");
 });

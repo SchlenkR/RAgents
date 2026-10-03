@@ -1,4 +1,5 @@
 import type { IncomingMessage, ServerResponse } from "node:http";
+import type { Duplex } from "node:stream";
 import type { ModelRuntime } from "@ragents/agent";
 import type { TSchema } from "typebox";
 import type { AgentProfile, CatalogModel, ModelCatalog } from "./agents/catalog.ts";
@@ -113,6 +114,15 @@ export interface HttpRouteContext {
   access: AccessContext;
 }
 
+/** An HTTP upgrade request with the raw connection; the route answers it or takes the connection over itself. */
+export interface HttpUpgradeContext {
+  request: IncomingMessage;
+  socket: Duplex;
+  /** The first bytes after the request headers that already arrived. */
+  head: Buffer;
+  url: URL;
+}
+
 export interface HttpRouteContribution {
   id: string;
   isApiPath: (pathname: string) => boolean;
@@ -122,6 +132,8 @@ export interface HttpRouteContribution {
   /** For an address that carries its own credential, such as a short-lived grant in the path: the access it stands for in place of the sign-in, undefined for every other address; an invalid credential throws its error. */
   accessFromAddress?: (request: IncomingMessage, url: URL) => AccessContext | undefined;
   handle: (context: HttpRouteContext) => void | Promise<void>;
+  /** Takes the upgrade requests the route matches, such as a WebSocket; it authenticates them itself, the host checks no rights and no sign-in. */
+  upgrade?: (context: HttpUpgradeContext) => void | Promise<void>;
 }
 
 export type OperationOperatorPolicy = "direct" | "confirm" | "unavailable";

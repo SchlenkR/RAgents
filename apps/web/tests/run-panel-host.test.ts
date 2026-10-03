@@ -67,14 +67,14 @@ test("the back arrow reports the intent, not only its consequence", () => {
   assert.equal(isRunPanelHostMessage({ type: "runChanged", runId: null }), true);
 });
 
-test("a service of a run goes to the VS Code host with its machine and forwarding method; the browser cannot forward", () => {
-  const service = { runId: "run-a", port: 5173, workstation: "client-0001", forward: "example.processes.forward" };
+test("a service of a run goes to the VS Code host with its machine and tunnel method; the browser cannot open a tunnel", () => {
+  const service = { runId: "run-a", port: 5173, workstation: "client-0001", tunnel: "example.processes.tunnel" };
   const { browser, posted } = fakeWindow();
   createVsCodeHost(browser).openService(service);
   assert.deepEqual(posted.map((entry) => entry.message), [{ type: "openService", ...service }]);
   assert.equal(isRunPanelHostMessage({ type: "openService", ...service }), true);
   assert.equal(isRunPanelHostMessage({ type: "openService", ...service, workstation: null }), true, "a run on the server names no workstation");
-  for (const invalid of [{ port: 0 }, { port: 65536 }, { port: 80.5 }, { workstation: "" }, { forward: "" }, { runId: undefined }]) {
+  for (const invalid of [{ port: 0 }, { port: 65536 }, { port: 80.5 }, { workstation: "" }, { tunnel: "" }, { tunnel: undefined }, { runId: undefined }]) {
     assert.equal(isRunPanelHostMessage({ type: "openService", ...service, ...invalid }), false, JSON.stringify(invalid));
   }
   assert.throws(() => createBrowserHost(fakeWindow().browser).openService(service), /only available in VS Code/);

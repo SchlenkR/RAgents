@@ -63,6 +63,10 @@ With `--vscode` a separate VS Code window opens.
 - Files: list and preview show the container; the channel reports a change made via `docker exec`.
 - Processes: a marked process in the container appears, a marked decoy process on this
   machine does not; ending takes effect in the container.
+- Services: a marked echo service in the container appears with its port; `alice` opens a tunnel
+  stream to it, the workspace in the container dials back to the server, and bytes from this machine
+  come back unchanged before the stream closes with code 1000; `bob` (`run-not-found`) and `admin`
+  (`run-workspace-owner-only`) open no stream.
 - Rights: `bob` does not see the run (`run-not-found`); `admin` sees it and its journal, but reads neither
   files nor processes of the workspace (`run-workspace-owner-only`), does not write into it and ends
   no process (`run-owner-only`).

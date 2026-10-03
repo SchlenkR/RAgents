@@ -1,5 +1,6 @@
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from "node:http";
 import type { AddressInfo } from "node:net";
+import type { Duplex } from "node:stream";
 import {
   ARTIFACT_CONTENT_PATH,
   ChannelContributionRegistry,
@@ -18,7 +19,7 @@ import { RpcDispatcher } from "../../server/src/rpc/dispatcher";
 import { RpcHttpTransport } from "../../server/src/rpc/http-transport";
 import { workspaceClientContracts, workspaceContracts, type WorkspaceClientDescription } from "../../../plugins/ragents.workspace/contract";
 import { processesContracts } from "../../../plugins/ragents.processes/contract";
-import type { OperationInput, OperationResult } from "../../../packages/ragents/src/rpc/contract";
+import { TunnelStreams } from "../../../plugins/ragents.processes/server/tunnel-streams";
 import { WORKSPACE_EXECUTOR_VERSION, type ExecutorContributionRevision } from "@ragents/workspace-executor";
 import type { ListedSession } from "../../web/src/api";
 import type { PublicPluginProfile } from "../../../packages/ragents/src/plugin-types";
@@ -132,8 +133,12 @@ export const startStubServer = async (options: {
   version?: string | null;
   /** This is how the server rejects every registration of a workspace, e.g. with a different executor revision. */
   refuseRegistration?: { code: string; message: string };
-  /** The forwarding of the process plugin; without it the stub does not know the method. */
-  forward?: (input: OperationInput<typeof processesContracts.forward>) => OperationResult<typeof processesContracts.forward> | Promise<OperationResult<typeof processesContracts.forward>>;
+  /** The tunnel of the process plugin with the real pairing of legs; the test plays the run's machine. Without it the stub does not know the method. */
+  tunnel?: {
+    /** Fails like the run's executor when no process of the run listens on the port. */
+    check: (runId: string, port: number, signal: AbortSignal) => Promise<void>;
+    dial: (runId: string, port: number, path: string, signal: AbortSignal) => Promise<void>;
+  };
 } = {}): Promise<StubServer> => {
   const requests: StubServer["requests"] = [];
   const workspaceClients = new Map<string, WorkspaceClientDescription>();
@@ -144,6 +149,8 @@ export const startStubServer = async (options: {
   const view: RunView = runView();
   const profile = options.profile ?? stubProfile();
 
+  const tunnel = options.tunnel;
+  const streams = tunnel ? new TunnelStreams({ dial: tunnel.dial }) : undefined;
   const methods = new MethodContributionRegistry();
   methods.register("stub", [
     implement(coreContracts.runs.list, () => sessions),
@@ -177,7 +184,11 @@ export const startStubServer = async (options: {
       workspaceConnections.delete(id);
       return null;
     }),
-    ...(options.forward ? [implement(processesContracts.forward, options.forward)] : []),
+    ...(tunnel && streams ? [implement(processesContracts.tunnel, async ({ runId, port, connect }, { signal }) => {
+      if (connect) return streams.open(runId, port, signal);
+      await tunnel.check(runId, port, signal);
+      return null;
+    })] : []),
   ]);
   const channels = new ChannelContributionRegistry();
   const channel = (key: string, send: () => void): (() => void) => {
@@ -228,6 +239,12 @@ export const startStubServer = async (options: {
     requests.push({ method: request.method ?? "", path: url.pathname, authorization: request.headers.authorization });
     void route(request, response, url);
   });
+  const upgrades = streams?.route();
+  server.on("upgrade", (request: IncomingMessage, socket: Duplex, head: Buffer) => {
+    const url = new URL(request.url ?? "/", "http://localhost");
+    if (upgrades?.upgrade && upgrades.matches(request, url)) void upgrades.upgrade({ request, socket, head, url });
+    else socket.destroy();
+  });
   await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
   const port = (server.address() as AddressInfo).port;
   return {
@@ -243,6 +260,7 @@ export const startStubServer = async (options: {
     viewRequests: () => viewRequests,
     close: async () => {
       transport.close();
+      await streams?.shutdown();
       server.closeAllConnections();
       await new Promise<void>((resolve, reject) => server.close((error) => error ? reject(error) : resolve()));
     },

@@ -31,6 +31,7 @@ export {
   type WorkspaceExecutorParts,
 } from "./contributions.js";
 export { RUN_FOLDER_OPERATIONS, runFolderModule, type RunFolderCreated } from "./run-folders.js";
+export { BACKGROUND_TASK_OPERATIONS } from "./background-tasks.js";
 export {
   BYTE_OPERATIONS,
   FILE_BYTES_LIMIT,
@@ -66,7 +67,24 @@ export {
   type ResolvedWorkspaceRoot,
 } from "./paths.js";
 export { PROCESS_OPERATIONS, SERVICE_PORTS_TTL_MS, processModule } from "./processes/module.js";
-export { FORWARD_BODY_LIMIT, forwardTargets, type ForwardedResponse } from "./processes/forward.js";
+export {
+  TUNNEL_CONNECT_TIMEOUT_MS,
+  TUNNEL_END,
+  TUNNEL_PING_INTERVAL_MS,
+  bytesOf,
+  connectService,
+  dialInputOf,
+  dialService,
+  openTunnelLeg,
+  pipeTunnel,
+  serviceTargets,
+  tunnelAddress,
+  tunnelCloseReason,
+  type DialInput,
+  type DialOptions,
+  type TunnelClosed,
+  type TunnelStream,
+} from "./processes/tunnel.js";
 export { sandboxedLaunch, type ProcessLaunch, type ProcessSandbox } from "./process-sandbox.js";
 export {
   ProcessChangedError,

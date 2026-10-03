@@ -88,7 +88,7 @@ export default defineConfig({
       "/rpc": apiTarget,
       "/files": apiTarget,
       "/health": apiTarget,
-      "/api": apiTarget,
+      "/api": { target: apiTarget, ws: true },
       "/chat": apiTarget,
       "/plugin-assets": apiTarget,
       "/plugins": apiTarget,

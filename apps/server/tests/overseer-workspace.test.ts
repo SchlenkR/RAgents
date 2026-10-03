@@ -37,7 +37,7 @@ const isolated = async () => {
 test("global coordinator uses common tools with actual journal reads and private writes", async () => {
   const f = await isolated();
   try {
-    assert.deepEqual(f.tools.map((tool) => tool.name), ["read", "edit", "write", "bash"]);
+    assert.deepEqual(f.tools.map((tool) => tool.name), ["read", "edit", "write", "bash", "task_output", "task_stop"]);
     assert.ok(f.tools.every(isNativeTool));
     assert.ok(f.host.workspaceTools().descriptors.every(isNativeTool));
     const context = await f.host.serverProcessContextFor("overseer");
@@ -57,7 +57,7 @@ test("global coordinator uses common tools with actual journal reads and private
     assert.match(String(await f.invoke("bash", { command: 'rg "shared history" "$RAGENTS_JOURNAL_DIR"', timeout: 5_000 })), /shared history/);
     assert.equal(await readFile(path.join(f.journals, "journal.jsonl"), "utf8"), '{"test":"shared history"}\n');
     await f.host.shutdown("overseer");
-    assert.equal((await f.host.workspaceTools().tools({ runId: "overseer" } as PluginContext)).length, 4);
+    assert.equal((await f.host.workspaceTools().tools({ runId: "overseer" } as PluginContext)).length, 6);
   } finally { await f.close(); }
 });
 

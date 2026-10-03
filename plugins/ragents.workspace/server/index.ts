@@ -56,10 +56,11 @@ const ragentsWorkspacePlugin = (skillPaths: () => Promise<readonly string[]>): R
     const contribution = (): WorkspaceResolver | undefined => host.optionalService(workspaceResolverToken);
     host.config(...workspaceConfigDescriptors);
     const sandboxSetting = processSandboxSetting();
+    const serverAddress = host.service(hostAddressToken);
     const processSandbox = sandboxSetting.enabled
       ? new ServerProcessSandbox({
         network: sandboxSetting.network,
-        serverAddress: host.service(hostAddressToken)(),
+        serverAddress: serverAddress(),
         dataDirectory: path.dirname(host.storage.sessionsRoot),
         disableSetting: PROCESS_SANDBOX_OFF,
       })
@@ -75,6 +76,7 @@ const ragentsWorkspacePlugin = (skillPaths: () => Promise<readonly string[]>): R
       ...(bash === undefined ? {} : { bash }),
       ...(rg === undefined ? {} : { rg }),
       ...(bashTimeoutSeconds === undefined ? {} : { bashTimeoutSeconds }),
+      serverAddress,
       globalDirectory: host.storage.root(),
       sessionDirectory: (runId, ...segments) => host.storage.session(runId, ...segments),
       storageRootFor: (runId) => path.join(host.storage.sessionsRoot, runId),

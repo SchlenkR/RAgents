@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { createServer, type IncomingMessage } from "node:http";
+import { PassThrough } from "node:stream";
 import test from "node:test";
 import { canStartEntry, createAccessContext, HttpContributionRegistry, unrestrictedAccess, type AccessContext } from "@ragents/engine";
 import { runRights } from "../src/api/rights.ts";
@@ -66,6 +67,24 @@ test("delivery routes keep their own rights check before the handler runs", asyn
     server.closeAllConnections();
     await new Promise<void>((resolve, reject) => server.close((error) => error ? reject(error) : resolve()));
   }
+});
+
+test("an upgrade request goes only to a route with upgrade, which authenticates it itself", async () => {
+  const routes = new HttpContributionRegistry();
+  const taken: string[] = [];
+  routes.register("example", [{
+    id: "plain", isApiPath: () => true, matches: (_request, url) => url.pathname === "/stream",
+    handle: () => { taken.push("plain"); },
+  }, {
+    id: "streams", isApiPath: () => true, matches: (_request, url) => url.pathname === "/stream", requiredRights: ["never.granted"],
+    handle: () => { taken.push("handle"); },
+    upgrade: ({ url, head }) => { taken.push(`upgrade ${url.search} ${head.length}`); },
+  }]);
+  const request = { method: "GET", headers: { upgrade: "websocket" } } as unknown as IncomingMessage;
+  const socket = new PassThrough();
+  assert.equal(await routes.dispatchUpgrade(request, socket, Buffer.from("x"), new URL("http://localhost/stream?secret=s")), true);
+  assert.equal(await routes.dispatchUpgrade(request, socket, Buffer.alloc(0), new URL("http://localhost/elsewhere")), false);
+  assert.deepEqual(taken, ["upgrade ?secret=s 1"]);
 });
 
 test("a coordinator token names its user and is accepted only locally for the message layer and help", () => {

@@ -701,7 +701,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<RAgent
     return picked?.label;
   };
 
-  /** A service on this machine opens directly: on this window's workstation or on the extension's own host. Otherwise a local tunnel forwards it through the run's server. */
+  /** A service on this machine opens directly: on this window's workstation or on the extension's own host. Otherwise a local tunnel streams it through the run's server. */
   const openService = async (connection: string, service: RunService): Promise<void> => {
     const session = requireSession(connection);
     if (serviceOnThisMachine(service, { ownHost: session.host !== undefined, workstation: session.workspaceClient?.id })) {
@@ -709,7 +709,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<RAgent
       await vscode.env.openExternal(vscode.Uri.parse(`http://localhost:${service.port}/`));
       return;
     }
-    const localPort = await tunnels.open(connection, requireClient(connection).rpc, service);
+    const localPort = await tunnels.open(connection, requireClient(connection), service);
     await vscode.env.openExternal(vscode.Uri.parse(`http://localhost:${localPort}/`));
   };
 
@@ -748,8 +748,8 @@ export async function activate(context: vscode.ExtensionContext): Promise<RAgent
         void vscode.commands.executeCommand("simpleBrowser.show", incoming.url);
         return;
       case "openService": {
-        const { runId, port, workstation, forward } = incoming;
-        void openService(connection, { runId, port, workstation, forward }).catch((cause: unknown) => {
+        const { runId, port, workstation, tunnel } = incoming;
+        void openService(connection, { runId, port, workstation, tunnel }).catch((cause: unknown) => {
           log(`== Port ${port} of run ${runId} cannot be opened: ${message(cause)}`);
           void vscode.window.showErrorMessage(`RAgents: port ${port} of the run cannot be opened: ${message(cause)}`);
         });

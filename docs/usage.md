@@ -449,30 +449,37 @@ where the run works:
   this window's workstation, or on the server the extension started itself, it opens
   `http://localhost:<port>/` directly. Otherwise the extension forwards it, as VS Code Remote does:
   it listens on `127.0.0.1` with the same port number if that is free on your machine, otherwise
-  with a free one, and passes every request through the server to the run's machine. A second
+  with a free one, and passes every connection through the server to the run's machine. A second
   click reuses the forwarding. It ends when the process or the run stops, when you disconnect the
-  server, and when VS Code closes; the `RAgents` output channel lists each forwarded request.
-  Forwarding needs the right `runs.inspect` besides reading the processes.
+  server, and when VS Code closes; the `RAgents` output channel lists each connection when it opens
+  and closes. Forwarding needs the right `runs.inspect` besides reading the processes.
 
-Forwarding carries plain HTTP: no WebSockets, so the live reload of a dev server does not connect,
-no streamed responses, and at most 16 MiB per request and response.
+Forwarding carries the connection's bytes unchanged, so the live reload of a dev server, other
+WebSockets, streamed responses, and large downloads and uploads work as on the run's machine. A
+reverse proxy in front of the server must pass WebSocket upgrades for this; see
+[operations.md](operations.md) under "Run a CLI workstation".
 
 How the executor ends processes (SIGTERM, SIGKILL, time limits), which processes it can assign
-to a run, and how forwarding checks a port are in [plugins.md](spec/plugins.md) under "Workspace,
-sandbox tools, and processes".
+to a run, and how forwarding checks a port and opens a stream are in [plugins.md](spec/plugins.md)
+under "Workspace, sandbox tools, and processes".
 
 On the server, agents can use Bash and `curl` to reach public web domains on ports 80 and 443
 by default. The host can restrict this or allow additional local services in its
 [sandbox configuration](operations.md#server-process-sandbox). The run's file isolation remains active.
 
-A deliberately detached Node service can keep running with `child_process.spawn` and the options
-`detached: true`, `stdio: "ignore"`, `env: process.env`, followed by `child.unref()`.
-On macOS and Linux this uses the Node process interface and needs
-no external `setsid` program. The inherited `RAGENTS_RUN_ID` marker must be preserved
-so that the service is found again when the run stops. The same mechanism applies regardless
-of the interpreter used; without a marker there is no assignment to the run. Which processes the
-process table cannot assign per platform despite the marker, such as programs from `/bin` on
-macOS, is named in the same section of the spec.
+An agent starts a dev server or another service that must keep running with `bash` and
+`run_in_background: true`, as in Claude Code. The call returns at once with an ID such as
+`b3f9a1`; `task_output` reads what the service wrote since the last read and whether it still
+runs, and `task_stop` ends it. When the service exits by itself or you end it in the process rail,
+the agent that started it gets a short notice with the ID and the exit code. The service runs on
+the machine of the run, on a workstation there, carries the run's marker, and ends with the run's
+stop or deletion; it has no time limit. The workspace rules tell agents to start services this way
+instead of detaching them with `nohup`, `&`, `setsid`, a detached spawn, or a service manager such as
+`launchctl`, and to stop them when they no longer need them. A process that detaches itself is found
+again only through the inherited `RAGENTS_RUN_ID` marker. Which processes the process table cannot
+assign per platform despite the marker, such as programs from `/bin` on macOS, is named in the same
+section of the spec; with the server's process sandbox, a service of a run on the server cannot be
+opened.
 
 <!-- guide:clients -->
 ## Run panel and VS Code extension

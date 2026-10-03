@@ -22,38 +22,25 @@ export const runPanelPageUrl = (serverUrl: string, query: RunPanelPageQuery): st
   return url.toString();
 };
 
-/** An HTTP service of a run that the panel asks its host to open. */
+/** A service of a run that the panel asks its host to open. */
 export interface RunService {
   runId: string;
   port: number;
   /** The workstation the run works on; null for the server. */
   workstation: string | null;
-  /** The server method that forwards one request to the service, with ServiceForwardInput and ServiceForwardResult; the plugin that shows the port names it. */
-  forward: string;
+  /** The server method that opens a stream to the service, with ServiceTunnelInput and ServiceTunnelResult; the plugin that shows the port names it. */
+  tunnel: string;
 }
 
-/** One HTTP request or response of a forwarded service; headers as pairs because names repeat, the body in Base64. */
-export interface ServiceHttpRequest {
-  method: string;
-  path: string;
-  headers: Array<[string, string]>;
-  body: string;
-}
-
-export interface ServiceHttpResponse {
-  status: number;
-  headers: Array<[string, string]>;
-  body: string;
-}
-
-/** Without a request the forwarding method only checks that a process of the run still listens on the port. */
-export interface ServiceForwardInput {
+/** With connect false the tunnel method only checks that a process of the run still listens on the port. */
+export interface ServiceTunnelInput {
   runId: string;
   port: number;
-  request: ServiceHttpRequest | null;
+  connect: boolean;
 }
 
-export type ServiceForwardResult = ServiceHttpResponse | null;
+/** The path with query on the server where the caller opens its WebSocket leg of the stream. */
+export type ServiceTunnelResult = { path: string } | null;
 
 /** Messages from the panel to its host. */
 export type RunPanelHostMessage =
@@ -132,7 +119,7 @@ export const isRunPanelHostMessage = (value: unknown): value is RunPanelHostMess
     case "openPage":
       return isText(value.url) && typeof value.title === "string";
     case "openService":
-      return isText(value.runId) && isPort(value.port) && (value.workstation === null || isText(value.workstation)) && isText(value.forward);
+      return isText(value.runId) && isPort(value.port) && (value.workstation === null || isText(value.workstation)) && isText(value.tunnel);
     default:
       return false;
   }

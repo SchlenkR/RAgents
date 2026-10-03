@@ -1,7 +1,8 @@
-import { createServer, type IncomingMessage, type Server, type ServerResponse } from "node:http";
+import { createServer, STATUS_CODES, type IncomingMessage, type Server, type ServerResponse } from "node:http";
 import { timingSafeEqual } from "node:crypto";
 import { readFile } from "node:fs/promises";
 import path from "node:path";
+import type { Duplex } from "node:stream";
 import { ACCESS_TOKEN_QUERY, createAccessContext, DomainError, type AccessContext } from "@ragents/engine";
 import { coreChannels, coreMethods } from "./api/core-methods.js";
 import { attachmentContentRoute } from "./api/delivery.js";
@@ -16,7 +17,7 @@ import { coordinatorRequestUser, profileAccessCookieName } from "./access-servic
 import { globalChatToken, globalRunPolicyOf } from "./ragents/global-chat.js";
 import { PayloadTooLargeError, readBody } from "./plugin-support/http.js";
 import { workspaceRuntimeToken } from "./ragents/workspace-runtime.js";
-import { externalAccessOpen, externalGate, isLocalRequest, loadExternalAccess, setExternalAccess } from "./external-access.js";
+import { externalAccessOpen, externalAllowed, externalGate, isLocalRequest, loadExternalAccess, setExternalAccess } from "./external-access.js";
 import { loadPlugins, resolvePluginEntries, staleBuiltInBundles } from "./profile/plugin-discovery.js";
 import { composeProfile, type ProfileComposition } from "./profile/compose.js";
 import { Protocol, teeConsole } from "./protocol.js";
@@ -188,6 +189,7 @@ const listenOn = (target: Server, port: number, host: string | undefined): Promi
 // The port is fixed before setup so that every address is correct from the start; requests wait until the server is ready.
 const opened = Promise.withResolvers<void>();
 const server = createServer((req, res) => { void opened.promise.then(() => handleRequest(req, res)); });
+server.on("upgrade", (req: IncomingMessage, socket: Duplex, head: Buffer) => { void opened.promise.then(() => handleUpgrade(req, socket, head)); });
 const port = withoutHttp ? undefined : await listenOn(server, config.port, announce ? "127.0.0.1" : undefined);
 const provider = new RunSessionProvider((bridges) => composeProfile(composition, bridges), port === undefined ? undefined : `http://127.0.0.1:${port}`);
 validateConfigFileSections({
@@ -363,6 +365,30 @@ async function handleRequest(req: IncomingMessage, res: ServerResponse): Promise
   }
   res.writeHead(404, { "Content-Type": "text/plain; charset=utf-8" });
   res.end("Not found");
+}
+
+/** An upgrade that no route takes is answered on the raw connection, which then closes. */
+const refuseUpgrade = (socket: Duplex, status: number, text: string): void => {
+  socket.end(`HTTP/1.1 ${status} ${STATUS_CODES[status] ?? ""}\r\nContent-Type: text/plain; charset=utf-8\r\nConnection: close\r\n\r\n${text}\n`);
+};
+
+/** Upgrade routes authenticate their requests themselves; of the gates only the switch for external access applies. */
+async function handleUpgrade(req: IncomingMessage, socket: Duplex, head: Buffer): Promise<void> {
+  const url = new URL(req.url ?? "/", "http://localhost");
+  socket.on("error", (error) => console.error(`Upgrade ${url.pathname}: ${error.message}`));
+  if (!externalAllowed(req)) {
+    refuseUpgrade(socket, 503, "External access is turned off.");
+    console.log(`${req.method} ${url.pathname} -> 503 (upgrade)`);
+    return;
+  }
+  try {
+    const taken = await provider.pluginUpgrade(req, socket, head, url);
+    if (!taken) refuseUpgrade(socket, 404, "Not found");
+    console.log(`${req.method} ${url.pathname} -> ${taken ? "taken" : 404} (upgrade)`);
+  } catch (error) {
+    console.error(`Upgrade ${url.pathname} failed: ${error instanceof Error ? error.stack ?? error.message : String(error)}`);
+    socket.destroy();
+  }
 }
 
 opened.resolve();

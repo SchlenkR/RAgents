@@ -133,7 +133,9 @@ import type { LanguageServerDescription, WorkspaceExecutorContribution } from ".
 import { createLanguageServerPlugin } from "../../apps/server/src/plugin-support/language-server/plugin.ts";
 import { pathToFileURL } from "node:url";
 import path from "node:path";
+import { WebSocketServer } from "ws";
 declare const host: PluginRegistration;
+declare const secrets: Set<string>;
 declare const runId: string;
 declare const modelId: string;
 declare const skillDirectory: string;

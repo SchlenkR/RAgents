@@ -1,20 +1,22 @@
-import { createServer, type IncomingMessage, type Server, type ServerResponse } from "node:http";
-import type { AddressInfo } from "node:net";
-import type { Duplex } from "node:stream";
+import { createServer, type AddressInfo, type Server, type Socket } from "node:net";
 import { setTimeout as delay } from "node:timers/promises";
 import { Type, type TUnsafe } from "typebox";
+import { openTunnelLeg, pipeTunnel, tunnelAddress, type TunnelStream } from "@ragents/workspace-executor/src/processes/tunnel";
 import { defineOperation, type OperationContract } from "../../../packages/ragents/src/rpc/contract";
 import { RPC_ERROR_CODES, RpcError } from "../../../packages/ragents/src/rpc/protocol";
 import type { RpcClient } from "../../web/src/rpc/client";
-import type { RunService, ServiceForwardInput, ServiceForwardResult, ServiceHttpResponse } from "../../web/src/run-panel/host-contract";
-
-/** The largest body a tunnel forwards per request; the forwarding on the run's machine has the same limit for both directions. */
-export const SERVICE_BODY_LIMIT = 16 * 1024 * 1024;
+import type { RunService, ServiceTunnelInput, ServiceTunnelResult } from "../../web/src/run-panel/host-contract";
 
 /** How often an open tunnel asks whether a process of its run still listens on the port. */
 const CHECK_INTERVAL_MS = 5_000;
 
-type ForwardContract = OperationContract<TUnsafe<ServiceForwardInput>, TUnsafe<ServiceForwardResult>>;
+type TunnelContract = OperationContract<TUnsafe<ServiceTunnelInput>, TUnsafe<ServiceTunnelResult>>;
+
+/** What a tunnel needs of a server connection: the address its legs connect to and the message layer. */
+export interface TunnelServer {
+  readonly origin: string;
+  readonly rpc: RpcClient;
+}
 
 export interface ServiceTunnelsOptions {
   log: (line: string) => void;
@@ -26,22 +28,17 @@ interface Listening {
   readonly localPort: number;
 }
 
-/** A tunnel from a local port to a port of a run, through the server connection the run belongs to. */
+/** A tunnel from a local port to a port of a run: every accepted connection becomes a stream through the server the run belongs to. */
 interface Tunnel {
   readonly key: string;
   readonly connection: string;
-  readonly rpc: RpcClient;
+  readonly server: TunnelServer;
   readonly service: RunService;
-  readonly contract: ForwardContract;
+  readonly contract: TunnelContract;
   readonly closed: AbortController;
   readonly listening: Promise<Listening>;
-}
-
-/** Refused by the tunnel itself, before the server is asked. */
-class Refusal extends Error {
-  constructor(readonly status: number, message: string) {
-    super(message);
-  }
+  readonly sockets: Set<Socket>;
+  readonly streams: Set<TunnelStream>;
 }
 
 const messageOf = (cause: unknown): string => cause instanceof Error ? cause.message : String(cause);
@@ -52,62 +49,25 @@ export const serviceOnThisMachine = (service: RunService, here: { ownHost: boole
 
 const keyOf = (connection: string, { runId, port }: RunService): string => JSON.stringify([connection, runId, port]);
 
-const forwardContract = (id: string): ForwardContract => defineOperation({
+const tunnelContract = (id: string): TunnelContract => defineOperation({
   id,
-  description: "Forwards one HTTP request to a service of a run.",
-  input: Type.Unsafe<ServiceForwardInput>({}),
-  result: Type.Unsafe<ServiceForwardResult>({}),
+  description: "Opens a byte stream to a service of a run.",
+  input: Type.Unsafe<ServiceTunnelInput>({}),
+  result: Type.Unsafe<ServiceTunnelResult>({}),
 });
 
-/** The server answered that the port, the run, the access, or the forwarding itself is gone; asking again does not help. */
+/** The server answered that the port, the run, the access, or the tunnel itself is gone; asking again does not help. */
 const gone = (cause: unknown): boolean => cause instanceof RpcError
   && (cause.code === RPC_ERROR_CODES.methodNotFound || cause.status === 403 || cause.status === 404);
 
-/** An error status the browser should see; everything without one is a failed gateway. */
-const statusOf = (cause: unknown): number => {
-  const status = cause instanceof Refusal || cause instanceof RpcError ? cause.status : undefined;
-  return status !== undefined && status >= 400 && status <= 599 ? status : 502;
+/** The answer comes from the server; it is checked before a leg connects to it. */
+const pathOf = (value: ServiceTunnelResult): string => {
+  const path = (value as { path?: unknown } | null)?.path;
+  if (typeof path !== "string" || !path.startsWith("/")) throw new Error("The server answered the opening of the stream without a path for its leg");
+  return path;
 };
 
-const isHeaderPair = (value: unknown): value is [string, string] =>
-  Array.isArray(value) && value.length === 2 && typeof value[0] === "string" && typeof value[1] === "string";
-
-/** The response comes from the server; it is checked before it reaches the browser. */
-const responseOf = (value: ServiceForwardResult): ServiceHttpResponse => {
-  const candidate = value as Partial<ServiceHttpResponse> | null;
-  if (candidate === null || typeof candidate !== "object" || typeof candidate.status !== "number" || !Number.isInteger(candidate.status)
-    || candidate.status < 100 || candidate.status > 999 || !Array.isArray(candidate.headers) || !candidate.headers.every(isHeaderPair)
-    || typeof candidate.body !== "string") {
-    throw new Error("The server answered the forwarding with an unreadable response");
-  }
-  return { status: candidate.status, headers: candidate.headers, body: candidate.body };
-};
-
-const pairsOf = (raw: readonly string[]): Array<[string, string]> =>
-  Array.from({ length: raw.length / 2 }, (_, index) => [raw[index * 2]!, raw[index * 2 + 1]!]);
-
-/** An oversized body is read to its end and discarded, so the browser receives the refusal instead of a broken connection. */
-const bodyOf = (request: IncomingMessage): Promise<Buffer> => new Promise((resolve, reject) => {
-  const chunks: Buffer[] = [];
-  let size = 0;
-  request.on("data", (chunk: Buffer) => {
-    size += chunk.length;
-    if (size <= SERVICE_BODY_LIMIT) chunks.push(chunk);
-  });
-  request.on("end", () => size <= SERVICE_BODY_LIMIT
-    ? resolve(Buffer.concat(chunks))
-    : reject(new Refusal(413, `The request body exceeds ${SERVICE_BODY_LIMIT / 1024 / 1024} MiB; forwarding carries at most that much`)));
-  request.on("error", reject);
-});
-
-const answer = (response: ServerResponse, status: number, text: string): void => {
-  if (response.headersSent) {
-    response.destroy();
-    return;
-  }
-  response.writeHead(status, { "Content-Type": "text/plain; charset=utf-8", Connection: "close" });
-  response.end(`${text}\n`);
-};
+const kilobytes = (bytes: number): string => `${(bytes / 1024).toFixed(1)} KB`;
 
 const listen = (server: Server, port: number): Promise<number> => new Promise((resolve, reject) => {
   const failed = (error: Error): void => reject(error);
@@ -129,7 +89,7 @@ const listenOnPort = async (server: Server, port: number): Promise<number> => {
   }
 };
 
-/** VS Code as the forwarding client: a local listener per service of a run, each request through the forwarding method of the run's server. */
+/** VS Code as the forwarding client: a local listener per service of a run, each connection a byte stream through the run's server to the run's machine. */
 export class ServiceTunnels {
   readonly #log: (line: string) => void;
   readonly #checkIntervalMs: number;
@@ -141,21 +101,23 @@ export class ServiceTunnels {
   }
 
   /** The local port of the service; a second call reuses the open tunnel. The server first confirms that a process of the run listens on the port. */
-  async open(connection: string, rpc: RpcClient, service: RunService): Promise<number> {
+  async open(connection: string, server: TunnelServer, service: RunService): Promise<number> {
     const key = keyOf(connection, service);
     const known = this.#tunnels.get(key);
-    if (known?.rpc === rpc) return (await known.listening).localPort;
+    if (known?.server.rpc === server.rpc) return (await known.listening).localPort;
     if (known) this.#close(known, "the server connection was renewed");
     const closed = new AbortController();
-    const contract = forwardContract(service.forward);
+    const contract = tunnelContract(service.tunnel);
     const tunnel: Tunnel = {
-      key, connection, rpc, service, contract, closed,
-      listening: this.#listen(rpc, service, contract, closed.signal, (request, response) => this.#forward(tunnel, request, response)),
+      key, connection, server, service, contract, closed,
+      listening: this.#listen(server, service, contract, closed.signal, (socket) => this.#stream(tunnel, socket)),
+      sockets: new Set(),
+      streams: new Set(),
     };
     this.#tunnels.set(key, tunnel);
     try {
       const { localPort } = await tunnel.listening;
-      this.#log(`== Forwarding http://localhost:${localPort}/ to port ${service.port} of run ${service.runId} on ${connection}`);
+      this.#log(`== Forwarding localhost:${localPort} to port ${service.port} of run ${service.runId} on ${connection}`);
       void this.#watch(tunnel);
       return localPort;
     } catch (cause) {
@@ -167,7 +129,7 @@ export class ServiceTunnels {
   /** Ends every tunnel whose server connection is gone or no longer uses the client the tunnel was opened with. */
   retain(clientOf: (connection: string) => RpcClient | undefined): void {
     for (const tunnel of [...this.#tunnels.values()]) {
-      if (clientOf(tunnel.connection) !== tunnel.rpc) this.#close(tunnel, `the connection to ${tunnel.connection} ended`);
+      if (clientOf(tunnel.connection) !== tunnel.server.rpc) this.#close(tunnel, `the connection to ${tunnel.connection} ended`);
     }
   }
 
@@ -178,47 +140,43 @@ export class ServiceTunnels {
   }
 
   async #listen(
-    rpc: RpcClient,
+    server: TunnelServer,
     service: RunService,
-    contract: ForwardContract,
+    contract: TunnelContract,
     signal: AbortSignal,
-    forward: (request: IncomingMessage, response: ServerResponse) => Promise<void>,
+    accept: (socket: Socket) => Promise<void>,
   ): Promise<Listening> {
-    await rpc.call(contract, { runId: service.runId, port: service.port, request: null }, { signal });
-    const server = createServer((request, response) => { void forward(request, response); });
-    server.on("upgrade", (request: IncomingMessage, socket: Duplex) => {
-      this.#log(`== Forward ${service.runId.slice(0, 8)}:${service.port} ${request.method ?? "GET"} ${request.url ?? "/"} refused: no WebSocket forwarding`);
-      socket.end("HTTP/1.1 501 Not Implemented\r\nContent-Type: text/plain; charset=utf-8\r\nConnection: close\r\n\r\n"
-        + "RAgents forwards HTTP requests only, no WebSocket upgrade.\n");
-    });
-    const localPort = await listenOnPort(server, service.port);
+    await server.rpc.call(contract, { runId: service.runId, port: service.port, connect: false }, { signal });
+    const listener = createServer({ allowHalfOpen: true, pauseOnConnect: true }, (socket) => { void accept(socket); });
+    const localPort = await listenOnPort(listener, service.port);
     if (signal.aborted) {
-      server.close();
+      listener.close();
       throw new Error(`The forwarding of port ${service.port} was closed while it started`);
     }
-    return { server, localPort };
+    return { server: listener, localPort };
   }
 
-  async #forward(tunnel: Tunnel, request: IncomingMessage, response: ServerResponse): Promise<void> {
-    const started = Date.now();
+  /** One accepted connection: the server opens a stream to the service, then this side connects its leg and pipes the bytes. */
+  async #stream(tunnel: Tunnel, socket: Socket): Promise<void> {
     const { runId, port } = tunnel.service;
-    const method = request.method ?? "GET";
-    const path = request.url ?? "/";
-    const line = `${runId.slice(0, 8)}:${port} ${method} ${path}`;
-    const cancelled = new AbortController();
-    response.on("close", () => { if (!response.writableFinished) cancelled.abort(); });
+    const label = `from local port ${socket.remotePort ?? "?"} to port ${port} of run ${runId.slice(0, 8)}`;
+    tunnel.sockets.add(socket);
+    socket.on("error", () => undefined);
+    socket.once("close", () => tunnel.sockets.delete(socket));
+    const { signal } = tunnel.closed;
     try {
-      const body = await bodyOf(request);
-      const result = responseOf(await tunnel.rpc.call(tunnel.contract, {
-        runId, port, request: { method, path, headers: pairsOf(request.rawHeaders), body: body.toString("base64") },
-      }, { signal: cancelled.signal }));
-      response.writeHead(result.status, result.headers.flat());
-      response.end(Buffer.from(result.body, "base64"));
-      this.#log(`== Forward ${line} ${result.status} ${Date.now() - started} ms`);
+      const opened = await tunnel.server.rpc.call(tunnel.contract, { runId, port, connect: true }, { signal });
+      const leg = await openTunnelLeg(tunnelAddress(tunnel.server.origin, pathOf(opened)), signal);
+      const stream = pipeTunnel(socket, leg);
+      tunnel.streams.add(stream);
+      this.#log(`== Stream ${label} opened`);
+      const { sent, received, error } = await stream.closed;
+      tunnel.streams.delete(stream);
+      this.#log(`== Stream ${label} closed: ${kilobytes(sent)} sent, ${kilobytes(received)} received${error === undefined ? "" : `, ${error}`}`);
     } catch (cause) {
-      const status = statusOf(cause);
-      this.#log(`== Forward ${line} failed with ${status}: ${messageOf(cause)}`);
-      if (!cancelled.signal.aborted) answer(response, status, `RAgents could not forward ${method} ${path} to port ${port} of run ${runId}: ${messageOf(cause)}`);
+      socket.destroy();
+      if (signal.aborted) return;
+      this.#log(`== Stream ${label} failed: ${messageOf(cause)}`);
       if (gone(cause)) this.#close(tunnel, messageOf(cause));
     }
   }
@@ -229,7 +187,7 @@ export class ServiceTunnels {
     try {
       for (;;) {
         await delay(this.#checkIntervalMs, undefined, { signal, ref: false });
-        const failure = await tunnel.rpc.call(tunnel.contract, { runId: tunnel.service.runId, port: tunnel.service.port, request: null }, { signal })
+        const failure = await tunnel.server.rpc.call(tunnel.contract, { runId: tunnel.service.runId, port: tunnel.service.port, connect: false }, { signal })
           .then(() => undefined, (cause: unknown) => cause);
         if (signal.aborted) return;
         if (gone(failure)) this.#close(tunnel, messageOf(failure));
@@ -243,10 +201,11 @@ export class ServiceTunnels {
     if (this.#tunnels.get(tunnel.key) !== tunnel) return;
     this.#tunnels.delete(tunnel.key);
     tunnel.closed.abort();
+    for (const stream of tunnel.streams) stream.close(`The forwarding ended: ${reason}`);
+    for (const socket of tunnel.sockets) socket.destroy();
     void tunnel.listening.then(({ server, localPort }) => {
       server.close();
-      server.closeAllConnections();
-      this.#log(`== Forwarding http://localhost:${localPort}/ to port ${tunnel.service.port} of run ${tunnel.service.runId} ended: ${reason}`);
+      this.#log(`== Forwarding localhost:${localPort} to port ${tunnel.service.port} of run ${tunnel.service.runId} ended: ${reason}`);
     }, () => undefined);
   }
 }

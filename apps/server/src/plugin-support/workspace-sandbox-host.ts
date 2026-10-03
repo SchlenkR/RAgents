@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import { mkdir, realpath } from "node:fs/promises";
 import path from "node:path";
 import { Value } from "typebox/value";
@@ -11,12 +12,17 @@ import {
 } from "@ragents/engine";
 import {
   BASH_MAX_TIMEOUT_MS,
+  backgroundStatusText,
   createBashToolDefinition,
   createEditToolDefinition,
   createReadToolDefinition,
+  createTaskOutputToolDefinition,
+  createTaskStopToolDefinition,
   createWriteToolDefinition,
+  type BackgroundTaskStatus,
 } from "@ragents/agent";
 import {
+  BACKGROUND_TASK_OPERATIONS,
   WorkspaceOperationError,
   WorkspaceOperationExecutor,
   containsWorkspacePath,
@@ -93,13 +99,17 @@ export interface WorkspaceSandboxHostOptions {
   rg?: string;
   /** The bash time limit in seconds for calls without their own, on every machine of the runs; when not set, the tool's. */
   bashTimeoutSeconds?: number;
+  /** The server's own address for this server's executor; the dial-back of a service of a run on the server opens its leg there. */
+  serverAddress?: () => string | undefined;
 }
 
 const sandboxDescriptions: Readonly<Record<string, string>> = {
   read: "Read a file with line numbers, or an image, within the run's allowed workspace roots.",
   edit: "Replace an exact string in a file within the run's writable workspace roots.",
   write: "Create or overwrite a file within the run's writable workspace roots.",
-  bash: "Execute a shell command in the run's workspace, or with cwd in one of its roots, with sandbox restrictions.",
+  bash: "Execute a shell command in the run's workspace, or with cwd in one of its roots, with sandbox restrictions; run_in_background keeps a service running.",
+  task_output: "Read the new output and the status of a background command of bash.",
+  task_stop: "Stop a background command of bash.",
 };
 
 const describeSandboxTool = (definition: AgentToolDefinition): AgentToolDefinition => {
@@ -121,9 +131,44 @@ const sandboxDefinitions = (bashTimeoutSeconds: number | undefined): readonly Ag
   createEditToolDefinition("."),
   createWriteToolDefinition("."),
   createBashToolDefinition(".", bashTimeoutSeconds === undefined ? {} : { defaultTimeoutMs: bashDefaultTimeoutMs(bashTimeoutSeconds) }),
+  createTaskOutputToolDefinition(),
+  createTaskStopToolDefinition(),
 ] as readonly AgentToolDefinition[];
 
 const fileToolNames = new Set(["read", "edit", "write"]);
+
+/** The tools that read and stop a background command; bash starts one only for an actor that has both. */
+const taskToolNames: readonly string[] = [BACKGROUND_TASK_OPERATIONS.output, BACKGROUND_TASK_OPERATIONS.stop];
+
+const sequentialTools = new Set(["bash", BACKGROUND_TASK_OPERATIONS.stop]);
+
+/** After a lost connection to a workstation, the server opens the observation of a background command there again after this long. */
+const TASK_WAIT_RETRY_MS = 15_000;
+
+const messageOf = (error: unknown): string => error instanceof Error ? error.message : String(error);
+
+/** The workstation was not there or did not answer; its executor and the command may still be running. */
+const lostConnection = (error: unknown): boolean =>
+  error instanceof DomainError && (error.code === "workspace-client-disconnected" || error.code === "workspace-client-timeout");
+
+const pause = (milliseconds: number, signal: AbortSignal): Promise<void> => new Promise((resolve) => {
+  const timer = setTimeout(resolve, milliseconds);
+  timer.unref();
+  signal.addEventListener("abort", () => {
+    clearTimeout(timer);
+    resolve();
+  }, { once: true });
+});
+
+const taskEndNotice = (id: string, status: BackgroundTaskStatus): string =>
+  `Background command ${id} ${backgroundStatusText(status)}. task_output reads what it wrote last.`;
+
+const backgroundToolsMissing = (missing: readonly string[]): DomainError => new DomainError(
+  "background-tools-missing",
+  `run_in_background needs ${missing.join(" and ")} to read and stop the command, and this actor does not have ${missing.length === 1 ? "it" : "them"}. `
+    + "Run the command in the foreground, or ask for an actor with these tools.",
+  400,
+);
 
 interface StableRunParts {
   ident?: SessionIdent;
@@ -174,13 +219,20 @@ export class WorkspaceSandboxHost implements SandboxServices {
   readonly #stable = new Map<string, Promise<StableRunParts>>();
   /** Per run the file state a model saw last, by actor, model context and path; only in memory, a loss requires at most a new read. */
   readonly #seen = new Map<string, Map<string, SeenFile>>();
+  /** Per run the executor that started each background command; without an entry the executor of the binding holds it. */
+  readonly #tasks = new Map<string, Map<string, WorkspaceExecutor>>();
+  /** Per run the observations of the ends of its background commands; the stop of the run ends them before any process ends. */
+  readonly #taskWatches = new Map<string, AbortController>();
 
   constructor(options: WorkspaceSandboxHostOptions) {
     this.#options = options;
     this.#definitions = sandboxDefinitions(options.bashTimeoutSeconds);
     this.#local = new WorkspaceOperationExecutor({
       contextFor: (runId) => this.serverProcessContextFor(runId),
-      modules: workspaceExecutorModules({ contributions: options.contributions }),
+      modules: workspaceExecutorModules({
+        contributions: options.contributions,
+        ...(options.serverAddress ? { serverAddress: options.serverAddress } : {}),
+      }),
     });
     this.#serverRoots = new WorkspaceOperationExecutor({
       contextFor: (runId) => this.#serverRootsContextFor(runId),
@@ -356,17 +408,29 @@ export class WorkspaceSandboxHost implements SandboxServices {
   /** The duration an input asks for itself applies when the caller names none; it only extends the wait for a remote executor. */
   async execute(runId: string, operation: string, input: unknown, options: WorkspaceExecuteOptions = {}): Promise<unknown> {
     try {
-      const { roots, durationMs } = this.#local.footprintOf(operation, input);
-      const executor = await this.#executorFor(runId, roots);
-      const timed = options.durationMs === undefined && durationMs !== undefined ? { ...options, durationMs } : options;
+      const { executor, timed } = await this.#placed(runId, operation, input, options);
       return await executor.execute(runId, operation, input, timed);
     } catch (error) {
       throw withDomainCause(error);
     }
   }
 
+  /** The executor of the machine that owns the addressed root, and the options with the duration of the input. */
+  async #placed(runId: string, operation: string, input: unknown, options: WorkspaceExecuteOptions): Promise<{
+    executor: WorkspaceExecutor;
+    timed: WorkspaceExecuteOptions;
+  }> {
+    const { roots, durationMs } = this.#local.footprintOf(operation, input);
+    const executor = await this.#executorFor(runId, roots);
+    return { executor, timed: options.durationMs === undefined && durationMs !== undefined ? { ...options, durationMs } : options };
+  }
+
   /** A run with its own executor also has marked TypeScript platform processes on the server; every executor cleans up. */
   async shutdown(runId: string): Promise<void> {
+    // The observations end first, so that no end of a command the stop causes reaches an actor.
+    this.#taskWatches.get(runId)?.abort();
+    this.#taskWatches.delete(runId);
+    this.#tasks.delete(runId);
     this.#stable.delete(runId);
     this.#seen.delete(runId);
     const remote = await this.#options.executorFor?.(runId);
@@ -380,6 +444,9 @@ export class WorkspaceSandboxHost implements SandboxServices {
   }
 
   async shutdownAll(): Promise<void> {
+    for (const watches of this.#taskWatches.values()) watches.abort();
+    this.#taskWatches.clear();
+    this.#tasks.clear();
     this.#stable.clear();
     this.#seen.clear();
     this.#withoutRoot.clear();
@@ -420,11 +487,94 @@ export class WorkspaceSandboxHost implements SandboxServices {
             ...(signal ? { signal } : {}),
           }),
       } as AgentToolDefinition;
-      const tool = agentToolFrom(proxy, alwaysAvailable, described.name === "bash" ? "sequential" : "parallel");
-      return fileToolNames.has(described.name)
-        ? { ...tool, run: (scope: ToolScope, toolCallId: string, input: never) => this.#fileToolCall(context.runId, described.name, scope, toolCallId, input) }
+      const tool = agentToolFrom(proxy, alwaysAvailable, sequentialTools.has(described.name) ? "sequential" : "parallel");
+      if (fileToolNames.has(described.name)) {
+        return { ...tool, run: (scope: ToolScope, toolCallId: string, input: never) => this.#fileToolCall(context.runId, described.name, scope, toolCallId, input) };
+      }
+      if (described.name === "bash") {
+        return { ...tool, run: (scope: ToolScope, toolCallId: string, input: never) => this.#bashCall(context.runId, described, scope, toolCallId, input) };
+      }
+      return taskToolNames.includes(described.name)
+        ? { ...tool, run: (scope: ToolScope, toolCallId: string, input: never) => this.#taskCall(context.runId, described.name, scope, toolCallId, input) }
         : tool;
     }));
+  }
+
+  /** A background command stays with the executor that started it; the server remembers which one and observes its end for the calling actor. */
+  async #bashCall(runId: string, definition: AgentToolDefinition, scope: ToolScope, toolCallId: string, input: object): Promise<string> {
+    const params = Value.Default(definition.parameters, structuredClone(input)) as { run_in_background?: boolean };
+    const options = { toolCallId, ...(scope.signal ? { signal: scope.signal } : {}) };
+    if (params.run_in_background !== true) return textOf(await this.execute(runId, "bash", params, options) as ToolOutput);
+    const available = new Set(scope.availableFunctions().map((fn) => fn.name));
+    const missing = taskToolNames.filter((name) => !available.has(name));
+    if (missing.length > 0) throw backgroundToolsMissing(missing);
+    try {
+      const { executor, timed } = await this.#placed(runId, "bash", params, options);
+      const result = await executor.execute(runId, "bash", params, timed) as ToolOutput & { details?: { backgroundTaskId?: unknown } };
+      const id = result.details?.backgroundTaskId;
+      if (typeof id !== "string") throw new Error("The executor reports no ID for the background command; server and workstation need the same executor version");
+      this.#tasksOf(runId).set(id, executor);
+      void this.#observeTask(runId, id, executor, scope.runtime, scope.caller.actorId);
+      return textOf(result);
+    } catch (error) {
+      throw withDomainCause(error);
+    }
+  }
+
+  /** The executor that started the command answers; after a server restart only the binding's executor can still hold one. */
+  async #taskCall(runId: string, name: string, scope: ToolScope, toolCallId: string, input: { task_id: string }): Promise<string> {
+    const options = { toolCallId, ...(scope.signal ? { signal: scope.signal } : {}) };
+    try {
+      const executor = this.#tasks.get(runId)?.get(input.task_id) ?? (await this.#placed(runId, name, input, options)).executor;
+      return textOf(await executor.execute(runId, name, input, options) as ToolOutput);
+    } catch (error) {
+      throw withDomainCause(error);
+    }
+  }
+
+  #tasksOf(runId: string): Map<string, WorkspaceExecutor> {
+    const known = this.#tasks.get(runId) ?? new Map<string, WorkspaceExecutor>();
+    this.#tasks.set(runId, known);
+    return known;
+  }
+
+  #taskWatchOf(runId: string): AbortController {
+    const known = this.#taskWatches.get(runId) ?? new AbortController();
+    this.#taskWatches.set(runId, known);
+    return known;
+  }
+
+  /** The executor reports the end as the result of an observation; a lost connection to a workstation opens it again, the stop of the run ends it. */
+  async #observeTask(runId: string, id: string, executor: WorkspaceExecutor, runtime: ToolScope["runtime"], actorId: string): Promise<void> {
+    const { signal } = this.#taskWatchOf(runId);
+    for (;;) {
+      try {
+        const status = await executor.execute(runId, BACKGROUND_TASK_OPERATIONS.wait, { task_id: id }, { signal, untilAborted: true }) as BackgroundTaskStatus;
+        if (!signal.aborted && status.state === "exited" && !status.stopped) this.#notify(runtime, runId, actorId, id, taskEndNotice(id, status));
+        return;
+      } catch (error) {
+        if (signal.aborted) return;
+        if (!lostConnection(withDomainCause(error))) {
+          this.#notify(runtime, runId, actorId, id, `Background command ${id} can no longer be observed: ${messageOf(error)}`);
+          return;
+        }
+        await pause(TASK_WAIT_RETRY_MS, signal);
+        if (signal.aborted) return;
+      }
+    }
+  }
+
+  /** The actor that started the command learns of its end as a background input in the owner's name. */
+  #notify(runtime: ToolScope["runtime"], runId: string, actorId: string, id: string, content: string): void {
+    try {
+      runtime.enqueueInput(
+        { actorId: runtime.state(runId).ownerId, commandId: `${this.#options.contributorName}:task-end:${id}:${randomUUID()}` },
+        runId,
+        { actorId, presentation: "background", content },
+      );
+    } catch (error) {
+      console.warn(`The end of background command ${id} in run ${runId} did not reach its actor: ${messageOf(error)}`);
+    }
   }
 
   /** A direct call of the model passes the state it has seen of the file and remembers the new one; a call from TypeScript works without it. */

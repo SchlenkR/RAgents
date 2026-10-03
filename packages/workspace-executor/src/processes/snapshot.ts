@@ -33,8 +33,10 @@ export const labelOf = (command: string): string => {
 
 export interface ObservationInput {
   runId: string;
-  /** The process of this executor; its direct children are running tool calls. */
+  /** The process of this executor; its direct children are running tool calls, unless they lead a background group. */
   executorPid: number;
+  /** The process groups of background commands the executor started; they count as background although it is their parent. */
+  backgroundGroups?: ReadonlySet<number>;
   records: readonly ProcessRecord[];
   markerOf: (record: ProcessRecord) => string | undefined;
   ports: ReadonlyMap<number, readonly WorkspaceProcessPort[]>;
@@ -51,9 +53,9 @@ const byAppearance = (left: WorkspaceProcess, right: WorkspaceProcess): number =
 
 /** Processes of the run: background processes always, children of a running tool call only with an open port. */
 export const runProcessesFrom = (input: ObservationInput): WorkspaceProcess[] => {
-  const toolCallGroups = new Set(
-    input.records.filter((record) => record.ppid === input.executorPid).map((record) => record.pgid),
-  );
+  const toolCallGroups = new Set(input.records
+    .filter((record) => record.ppid === input.executorPid && !input.backgroundGroups?.has(record.pgid))
+    .map((record) => record.pgid));
   return input.records
     .filter((record) => input.markerOf(record) === input.runId)
     .filter((record) => record.pid !== input.executorPid)

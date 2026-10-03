@@ -68,12 +68,32 @@ test("a timeout above the maximum or not above zero is an input error before any
   assert.deepEqual(timeouts, []);
 });
 
-test("run_in_background is rejected before anything runs and names the alternative", async () => {
+test("run_in_background without background operations is rejected before anything runs and names the alternative", async () => {
   const { timeouts, operations } = recording();
   const definition = createBashToolDefinition(".", { operations });
   await assert.rejects(call(definition, { command: "npm run dev", run_in_background: true }),
     /^Error: run_in_background is not available: .*Run the command in the foreground with a timeout of up to 3600000 ms, or split it into shorter steps\.$/);
   assert.deepEqual(timeouts, []);
+});
+
+test("run_in_background starts the command through the background operation and answers with one line and its ID", async () => {
+  const { timeouts, operations } = recording();
+  const started: Array<{ command: string; cwd: string }> = [];
+  const definition = createBashToolDefinition("/work", {
+    operations: {
+      ...operations,
+      background: async (command, cwd) => {
+        started.push({ command, cwd });
+        return { id: "b1a2b3c" };
+      },
+    },
+  });
+  const result = await call(definition, { command: "npm run dev", run_in_background: true, timeout: 500, cwd: "web" });
+  assert.deepEqual(result.content, [{ type: "text", text: "Command running in background with ID: b1a2b3c. task_output reads its new output, task_stop ends it." }]);
+  assert.deepEqual(result.details, { backgroundTaskId: "b1a2b3c" });
+  assert.deepEqual(started, [{ command: "npm run dev", cwd: "/work/web" }]);
+  assert.deepEqual(timeouts, [], "timeout applies only to a command in the foreground");
+  assert.match(definition.description, /pass run_in_background: true instead of nohup, &, setsid, disown, a detached spawn or a service manager/);
 });
 
 test("an operator default replaces the built-in one in description, schema and calls, and may not exceed the maximum", async () => {

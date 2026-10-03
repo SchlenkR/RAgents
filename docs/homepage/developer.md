@@ -270,6 +270,37 @@ isApiPath and matches are different checks: recognizing an API also includes a p
 
 Contract fields: host.http, httpRoute.id, httpRoute.isApiPath, httpRoute.matches, httpRoute.handle, httpContext.request, httpContext.response, httpContext.url.
 
+### Take over a connection with an upgrade
+
+A route can also take HTTP upgrade requests, such as a WebSocket. The server hands over the raw connection, and the route answers it or keeps it. Because no sign-in reaches such a connection, the route checks it itself, for example with a one-time secret in the address.
+
+Place of use: Inside register(host); WebSocketServer comes from the ws package, which the plugin bundles, and secrets is the plugin's own set of one-time secrets.
+
+```typescript
+const pathname = "/api/plugins/ragents.example/live";
+const sockets = new WebSocketServer({ noServer: true });
+host.http({
+  id: "ragents.example.live",
+  isApiPath: (value) => value === pathname,
+  matches: (_request, url) => url.pathname === pathname,
+  requiredRights: [],
+  handle: ({ response }) => { response.writeHead(426).end(); },
+  upgrade: ({ request, socket, head, url }) => {
+    if (!secrets.delete(url.searchParams.get("secret") ?? "")) {
+      socket.end("HTTP/1.1 404 Not Found\r\nConnection: close\r\n\r\n");
+      return;
+    }
+    sockets.handleUpgrade(request, socket, head, (live) => live.send("ready"));
+  },
+});
+```
+
+Only a route with upgrade receives upgrade requests that its matches accepts; an upgrade nobody takes is answered with 404. Of the host's checks only the switch for external access applies: no sign-in, no access token, and no requiredRights.
+
+head holds bytes that already arrived after the request headers; a WebSocket library takes them along. The process plugin's tunnel uses the same contribution for its WebSocket legs.
+
+Contract fields: httpRoute.upgrade, httpUpgrade.request, httpUpgrade.socket, httpUpgrade.head, httpUpgrade.url.
+
 ### API methods and channels
 
 A plugin adds its own methods and event channels to the JSON-RPC API. The contract describes identifier, description, permissions, input, and result; server and interface use the same contract.
@@ -1771,6 +1802,8 @@ export interface HttpRouteContribution {
   /** For an address that carries its own credential, such as a short-lived grant in the path: the access it stands for in place of the sign-in, undefined for every other address; an invalid credential throws its error. */
   accessFromAddress?: (request: IncomingMessage, url: URL) => AccessContext | undefined;
   handle: (context: HttpRouteContext) => void | Promise<void>;
+  /** Takes the upgrade requests the route matches, such as a WebSocket; it authenticates them itself, the host checks no rights and no sign-in. */
+  upgrade?: (context: HttpUpgradeContext) => void | Promise<void>;
 }
 ```
 
@@ -1784,6 +1817,20 @@ export interface HttpRouteContext {
   response: ServerResponse;
   url: URL;
   access: AccessContext;
+}
+```
+
+### HttpUpgradeContext
+
+Source in the repository: packages/ragents/src/plugin-types.ts
+
+```typescript
+export interface HttpUpgradeContext {
+  request: IncomingMessage;
+  socket: Duplex;
+  /** The first bytes after the request headers that already arrived. */
+  head: Buffer;
+  url: URL;
 }
 ```
 

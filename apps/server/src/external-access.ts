@@ -32,8 +32,11 @@ export const setExternalAccess = async (value: boolean): Promise<void> => {
   await writeFile(stateFile, `${JSON.stringify({ open })}\n`, "utf8");
 };
 
+/** With external access turned off only requests addressed to this machine pass. */
+export const externalAllowed = (req: IncomingMessage): boolean => open || isLocalRequest(req);
+
 export const externalGate = (req: IncomingMessage, res: ServerResponse): boolean => {
-  if (open || isLocalRequest(req)) return false;
+  if (externalAllowed(req)) return false;
   res.writeHead(503, { "Content-Type": "text/plain; charset=utf-8" });
   res.end("External access is turned off.\n");
   return true;
