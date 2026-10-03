@@ -40,6 +40,7 @@ Ids from results are reused programmatically, not copied by hand.
 | ragents.chat.start | host | no fixed rights |
 | ragents.chat.stop | host | no fixed rights |
 | ragents.documents.files | ragents.documents | runs.read |
+| ragents.documents.grant | ragents.documents | runs.read |
 | ragents.external.set | host | settings.write |
 | ragents.lsp-fsharp.snapshot | ragents.lsp-fsharp | runs.read, ragents.lsp-fsharp.read |
 | ragents.lsp-roslyn.snapshot | ragents.lsp-roslyn | runs.read, ragents.lsp-roslyn.read |
@@ -935,6 +936,56 @@ Owner: ragents.documents. Rights: runs.read. Execution: the server.
     },
     "truncated": {
       "type": "boolean"
+    }
+  },
+  "additionalProperties": false
+}
+```
+
+## ragents.documents.grant
+
+A short-lived, read-only grant for the files of one root of a run, bound to the caller; the content route accepts it in its path where the page signs in with a token instead of a cookie. Rights: runs.read, for the run's root also runs.inspect and access to its workspace.
+
+Owner: ragents.documents. Rights: runs.read. Execution: the server.
+
+### Input
+
+```json
+{
+  "type": "object",
+  "required": [
+    "runId",
+    "root"
+  ],
+  "properties": {
+    "runId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 64,
+      "description": "Run id"
+    },
+    "root": {
+      "type": "string",
+      "pattern": "^(@[a-z][a-z0-9-]*)?$",
+      "description": "The alias of a root of the server, or empty for the run's root"
+    }
+  },
+  "additionalProperties": false
+}
+```
+
+### Result
+
+```json
+{
+  "type": "object",
+  "required": [
+    "grant"
+  ],
+  "properties": {
+    "grant": {
+      "type": "string",
+      "minLength": 1
     }
   },
   "additionalProperties": false

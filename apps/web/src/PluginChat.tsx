@@ -15,6 +15,7 @@ import { createPortal } from "react-dom";
 import { ChatInputToolbar, ChatMessages, ChatPanel, type ChatAttachmentInput, type ChatEvent, type ToolInfo } from "quassel";
 import { primaryChatState, primaryIsProgram, programChatNotice, runIsWorking, runPausable } from "./chat/chat-target";
 import { PausedRunNotice } from "./chat/PausedRunNotice";
+import { RunUrls } from "./chat/QuasselHost";
 import { StoppedActorNotice } from "./chat/StoppedActorNotice";
 import { ChatViewSwitches, useChatViewSettings } from "./chat-view-settings";
 import { useChat } from "./chat/useChat";
@@ -222,6 +223,7 @@ export function PluginChat({ autoFocusChat, onAutoFocusChatSettled, layout = "pa
         sessionId={session.id}
       >
         <PluginSessionProviders navigation={navigation} registry={registry} session={sessionContext}>
+          <RunUrls resolve={registry.resolveRunUrl} runId={session.id}>
           {!startOnly && onLocationChange && <UserLocationReporter activeTabId={navigation.activeTabId} onChange={onLocationChange}
             panelVisible={panelState === "expanded"} runId={session.id} tabs={availableTabs} />}
           <ChatWorkspace
@@ -244,6 +246,7 @@ export function PluginChat({ autoFocusChat, onAutoFocusChatSettled, layout = "pa
             session={sessionContext}
             tabs={availableTabs}
           />
+          </RunUrls>
         </PluginSessionProviders>
       </StartOptionsProvider>
     </ChatStepsProvider>

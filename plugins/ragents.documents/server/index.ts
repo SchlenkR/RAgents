@@ -2,7 +2,8 @@ import path from "node:path";
 import type { RAgentsPlugin } from "@ragents/engine";
 import { createDocumentToolContributor } from "./tool-contributor.js";
 import { DOCUMENTS_ALIAS, documentsApiPrefix } from "../contract.js";
-import { createContentRoute, createFilesMethod } from "./files-route.js";
+import { createContentRoute, createFilesMethod, createGrantMethod } from "./files-route.js";
+import { DocumentGrants } from "./grants.js";
 import { ragentsDocumentsConfig, ragentsDocumentsConfigDescriptors } from "./config.js";
 import { RunDocumentStore } from "./store.js";
 import { pluginAsset } from "@ragents/host/plugin-support/plugin-folder.js";
@@ -30,12 +31,10 @@ const documentsPlugin: RAgentsPlugin = {
     host.functions(createDocumentToolContributor(sandbox));
     host.prompts(boundToTools({ ...handlebarsPrompt("ragents.documents.prompt", 400, pluginAsset("ragents.documents", "prompt.hbs")), delivery: "initial" },
       "show_document", "write", "copy"));
-    host.methods(createFilesMethod({ filesFor, ensureSession: host.service(runGuardToken) }));
-    host.http(createContentRoute({
-      ensureSession: host.service(runGuardToken),
-      ensureWorkspaceAccess: host.service(workspaceGuardToken),
-      execute: sandbox.execute,
-    }));
+    const grants = new DocumentGrants();
+    const contentAccess = { ensureSession: host.service(runGuardToken), ensureWorkspaceAccess: host.service(workspaceGuardToken) };
+    host.methods(createFilesMethod({ filesFor, ensureSession: host.service(runGuardToken) }), createGrantMethod({ ...contentAccess, grants }));
+    host.http(createContentRoute({ ...contentAccess, execute: sandbox.execute, grants }));
     host.lifecycle({
       id: "ragents.documents.lifecycle",
       initialize: () => host.service(sandboxServicesToken).registerWorkspaceRoot({

@@ -4,9 +4,11 @@ import { DomainError, implement, type AccessContext, type HttpRouteContribution,
 import { BYTE_OPERATIONS, type FileBytes } from "@ragents/workspace-executor";
 import { guardedJsonRoute, withAbort } from "@ragents/host/plugin-support/http.js";
 import type { SandboxServices } from "@ragents/host/plugin-support/workspace-sandbox-host.js";
-import { documentsContracts, type RunFileEntry, type RunFilesListing } from "../contract.js";
+import { documentsContracts, rootOfReference, type RunFileEntry, type RunFilesListing } from "../contract.js";
+import type { DocumentGrants } from "./grants.js";
 
-const contentPattern = /^\/api\/plugins\/ragents\.documents\/runs\/([A-Za-z0-9_-]{1,64})\/raw\/(.+)$/;
+/** A file by reference, after `raw/` with the request's sign-in or after `grant/<grant>/` with a grant in the path. */
+const contentPattern = /^\/api\/plugins\/ragents\.documents\/runs\/([A-Za-z0-9_-]{1,64})\/(?:raw|grant\/([A-Za-z0-9_-]{43}))\/(.+)$/;
 
 const MAX_ENTRIES = 1000;
 
@@ -87,40 +89,75 @@ export const createFilesMethod = (options: FilesRouteOptions): MethodContributio
     return listingOf(await options.filesFor(runId));
   });
 
-/** The reference after `raw/`, one decoded segment per path segment; a malformed one has none. */
-const referenceIn = (pathname: string): { runId: string; reference: string | undefined } | undefined => {
+/** A segment that decodes to a separator or climbs with `..` never comes from an address a document resolves; it would leave the root it starts with. */
+const crafted = (segment: string): boolean => segment.includes("/") || segment.split("\\").some((part) => part === "..");
+
+interface ContentAddress {
+  runId: string;
+  grant: string | undefined;
+  reference: string | undefined;
+}
+
+/** The reference of an address, one decoded segment per path segment; a malformed or crafted one has none. */
+const addressIn = (pathname: string): ContentAddress | undefined => {
   const match = contentPattern.exec(pathname);
   if (!match) return undefined;
+  const runId = match[1]!;
+  const grant = match[2];
   try {
-    return { runId: match[1]!, reference: match[2]!.split("/").map(decodeURIComponent).join("/") };
+    const segments = match[3]!.split("/").map(decodeURIComponent);
+    return { runId, grant, reference: segments.some(crafted) ? undefined : segments.join("/") };
   } catch {
-    return { runId: match[1]!, reference: undefined };
+    return { runId, grant, reference: undefined };
   }
 };
 
-/** A server root is named by its alias; every other reference lies in the run's root, wherever the run works. */
-const onServerRoot = (reference: string | undefined): boolean => reference?.startsWith("@") === true;
+/** A server root needs what the store always needed, the run's root what its workspace needs. */
+const rightsOf = (root: string): readonly string[] => root === "" ? ["runs.read", "runs.inspect"] : ["runs.read"];
 
-export interface ContentRouteOptions {
+/** A server root is named by its alias; every other reference, also one that names no file, lies in the run's root, wherever the run works. */
+const rootOf = (reference: string | undefined): string => reference === undefined ? "" : rootOfReference(reference);
+
+export interface ContentAccessOptions {
   ensureSession: (runId: string) => void;
   ensureWorkspaceAccess: (access: AccessContext, runId: string) => void;
-  execute: SandboxServices["execute"];
 }
 
-/** The bytes of a file by reference, read now at the machine that holds its root; a server root needs what the store needed, the run's root what the workspace needs. */
+const ensureRootAccess = (options: ContentAccessOptions, access: AccessContext, runId: string, root: string): void =>
+  root === "" ? options.ensureWorkspaceAccess(access, runId) : options.ensureSession(runId);
+
+export interface ContentRouteOptions extends ContentAccessOptions {
+  execute: SandboxServices["execute"];
+  grants: DocumentGrants;
+}
+
+/** A grant reaches what the content route serves its caller at that moment, for one root of the run. */
+export const createGrantMethod = (options: ContentAccessOptions & { grants: DocumentGrants }): MethodContribution =>
+  implement(documentsContracts.grant, ({ runId, root }, { access }) => {
+    const missing = rightsOf(root).find((right) => !access.can(right));
+    if (missing) throw new DomainError("access-denied", `The right ${missing} is missing.`, 403);
+    ensureRootAccess(options, access, runId, root);
+    return { grant: options.grants.issue(access, runId, root) };
+  });
+
+/** The bytes of a file by reference, read now at the machine that holds its root; a grant in the address stands in for the sign-in of whoever asked for it. */
 export const createContentRoute = (options: ContentRouteOptions): HttpRouteContribution => ({
   id: "ragents.documents.content",
   isApiPath: (pathname) => contentPattern.test(pathname),
   matches: (request, url) => request.method === "GET" && contentPattern.test(url.pathname),
-  requiredRights: (_request, url) => onServerRoot(referenceIn(url.pathname)?.reference) ? ["runs.read"] : ["runs.read", "runs.inspect"],
+  requiredRights: (_request, url) => rightsOf(rootOf(addressIn(url.pathname)?.reference)),
+  accessFromAddress: (_request, url) => {
+    const found = addressIn(url.pathname);
+    return found?.grant === undefined ? undefined : options.grants.accessFor(found.runId, found.grant, found.reference);
+  },
   handle: async ({ response, request, url, access }) => {
-    const found = referenceIn(url.pathname);
+    const found = addressIn(url.pathname);
     if (!found) throw new Error("Invalid documents route");
     const { runId, reference } = found;
     await guardedJsonRoute({
       response,
       request,
-      ensureSession: () => onServerRoot(reference) ? options.ensureSession(runId) : options.ensureWorkspaceAccess(access, runId),
+      ensureSession: () => ensureRootAccess(options, access, runId, rootOf(reference)),
       handle: async () => {
         if (reference === undefined) throw new DomainError("document-reference-invalid", "The address does not name a file", 400);
         const bytes = await withAbort(request, response, (signal) =>

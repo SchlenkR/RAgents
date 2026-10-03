@@ -581,7 +581,13 @@ creates no directory of its own for it; the contribution brings its own. The res
 `SessionWorkspace` knows: besides `cwd` also `description`, `gitEnv`, `gitConfig`, `extraEnv`,
 `currentRoot`, `runOperation`, `hostSandbox` (home folder, read-only
 roots, and with `ident` the account under which the sandbox executes), and `sandboxFolders` (folders
-outside the workspace that the run's process sandbox allows, section Server process sandbox). Ending and deleting a run
+outside the workspace that the run's process sandbox allows, section Server process sandbox).
+With `ident`, the sandbox host hands every registered root of the server (`@actors`, `@documents`) to
+that account (`syncWorkspaceOwnership`), and it does so only inside the run storage. The resolution
+therefore refuses a run whose registered root lies outside it, such as `@documents` with
+`DOCUMENTS_DIR`, with `workspace-root-outside-storage` (409) and the root's alias, before any tool
+runs; the root is never left out of the handover, because the run's account could then not write
+in it. Ending and deleting a run
 follow suit: `stopSession(runId, sandbox)` wraps the contribution's stop around the stop of the host's
 sandbox, `deleteSession(runId)` then cleans up what `resolve` created. Both apply only to
 runs with a new folder on the server; a run on a workstation is cleaned up by the host alone.
@@ -669,21 +675,43 @@ executor operation `bytes.read` at the machine that holds its root, a workstatio
 16 MiB; a folder, a missing file, a path outside the roots, and the limit are errors that name their
 cause. A server root needs `runs.read` and the run check, as the store always did; the run's root
 needs `runs.read`, `runs.inspect`, and access to the run's workspace (`workspaceGuardToken`), as the
-Files view does. The Documents view, the shown files, and the browser evidence use this one route.
+Files view does. A reference whose decoded segment holds a `/` or climbs with `..` (between `/` or
+`\`) names no file and counts as the run's root, so an encoded separator cannot lead from an alias
+into the run's root with `runs.read` alone. Reading a server root does not need the run's root to
+exist (section Workspace, sandbox tools, and processes). The Documents view, the shown files, and the
+browser evidence use this one route.
+
+Besides `raw/`, the route accepts `grant/<grant>/<reference>`, for a page that cannot send the
+sign-in with a document's own requests. `ragents.documents.grant` (`runId`, `root`: an alias, or empty
+for the run's root) issues a grant to its caller under the rights the route asks for that root: 32
+random bytes, ten minutes long, held only in the server's memory, for `GET` only, and standing for the
+caller's access only at references of its run and its root (otherwise `document-grant-invalid` or
+`document-grant-outside`, both 403). The route reads it with `accessFromAddress` (section Rights in
+server and web contributions), and the host checks run and rights against the grant's access as for
+a signed-in request. The long-lived access token never appears in such an address.
 
 The viewer resolves the addresses inside a document against the document's own reference
 (`plugins/ragents.documents/web/links.ts`): a relative one against the document's folder, one with
 an alias against that root, while `http(s):`, `mailto:`, other schemes, addresses from the site
 root, and `#anchors` stay as they are; text the model wrote has no folder and resolves against the
-run's root. quassel's `Markdown` has no hook for addresses (`QuasselProvider.allowUrl` only
-filters), so the viewer rewrites the Markdown source before rendering: `mdast-util-from-markdown`
-with the GFM extensions finds the destinations of links, images, and definitions with their place
-in the source, and only these spans change, so the rest stays byte for byte. An HTML document gets a
-`<base href>` for its folder at its start, after a doctype, in the `srcDoc` of its frame; the frame
-keeps its sandbox without scripts but with `allow-same-origin`, so that the browser sends the
-sign-in cookie with the images the document names. Image documents load from the route directly.
-Where the page carries an access token instead of a cookie (VS Code), the rewritten Markdown
-addresses, image documents, and downloads carry the token (`withAccessToken`).
+run's root, and a result without a file keeps its addresses as written. A Markdown document hands
+this resolution to quassel as `QuasselProvider` with `resolveUrl` around its `Markdown`; quassel maps
+every link and image address with it before its link policy, so the source stays as written and code
+blocks stay untouched. An HTML document gets a `<base href>` for its folder and
+`<meta name="referrer" content="no-referrer">` at its start, after a doctype, in the `srcDoc` of its
+frame; the frame keeps its sandbox without scripts but with `allow-same-origin`, so that the browser
+sends the sign-in cookie with the images the document names. Image documents load from the route
+directly. Where the page carries an access token instead of a cookie (VS Code), resolved Markdown
+addresses, image documents, and downloads carry the token (`withAccessToken`); an HTML document
+instead asks for a grant of its root and puts it into its base (`.../runs/<runId>/grant/<grant>/` and
+its folder), so that its relative addresses keep the grant, and the referrer policy keeps the token
+in the panel's own address out of the requests. Without a grant the document shows the error
+instead.
+
+The run's chat resolves its Markdown the same way: `ragents.documents` contributes `resolveRunUrl`
+(section Web as plugin host), which maps a relative address and one with an alias against the run's
+root and keeps every absolute one, so that an answer with `![shot](@documents/browser/x.png)` shows
+the image.
 
 `ProductRuntime` and `WorkspaceRuntime` are mandatory contracts of every profile: if one of the two
 services is missing, the server aborts at startup with a clear error message instead of running in a half
@@ -1123,6 +1151,14 @@ opens, and gives the execution the access as `context.access` with the shared ri
 of request and URL. All named rights must be present; the host checks them before
 `handle`. Without its own specification, reading deliveries require the run read rights and other
 methods additionally the run write rights. Own lists replace this default.
+A request that cannot carry the sign-in, such as an image of a document in a frame without the
+sign-in cookie or the access token, can carry its own short-lived credential in the address:
+`accessFromAddress` on the route contribution returns the access such an address stands for,
+undefined for every other address, and throws the error of an invalid credential. The host asks it
+first, before the access token and the sign-in, and then checks the run named in the path and the
+route's rights against that access exactly as for a signed-in request; an error answers the request
+with its status. `ragents.documents` is the only user (grants of its content route, section
+Ownership per facet).
 The current contracts and the host route mapping are generated from the code in the developer reference;
 the owning plugin names further rights itself.
 
@@ -1324,6 +1360,11 @@ Instead, plugins fill typed slots for:
   header instead, like a mini-app (section on the docking workspace below)
 - tool and entity presenters; the run providers bind tool presentations together to
   run and navigation. The standard chat and the actor chat consume the same renderer.
+- Markdown addresses in a run (`resolveRunUrl`, `RunUrlResolver`): at most one active plugin maps a
+  link or image address to one the page can load and returns every other address unchanged;
+  `PluginChat` hands it to quassel as `resolveUrl` for everything below the run (`RunUrls` in
+  `apps/web/src/chat/QuasselHost.tsx`), and a display with a better base sets its own
+  `QuasselProvider`, whose resolver wins. Several active resolvers are an error.
 - run metadata (`sessionMetadata`): a component for the run details in the header; the run list
   takes its lines from the server-side `listDetail` instead
 - run header contributions (`sessionHeaders`): contributions appear in the shared run details;
@@ -2994,7 +3035,13 @@ operation on a server root, receives with `SandboxServices.serverProcessContextF
 an explicitly named server context: on the server the same as the tools, on a
 workstation a separate folder of the run in the run storage (`plugins/ragents.workspace/server`)
 as the run's root, which is created on first need, never the workstation's path; the server's roots
-and the run's process sandbox belong to it in both cases. `typescript_eval` with
+and the run's process sandbox belong to it in both cases. An operation that addresses only roots of
+the server does not need the run's root: if a run on the server has lost its root, such as a bound
+project folder that no longer exists (`currentRoot()` fails), that operation runs at a second
+executor of the server in the context of the run's server folder, as for a run on a workstation,
+while every other operation reports why the root is missing and nothing creates it again. The
+content route thus still serves `@documents` of such a run. `serverProcessContextFor` itself keeps
+needing the root. `typescript_eval` with
 `path` reads its source through `files.read`: relative to the run's root from the binding's executor
 or with an alias such as `@actors/...` from the server, also for a run on a workstation; the server rejects an
 unknown alias with `workspace-alias-unknown` and names the known ones. For the
@@ -4035,7 +4082,8 @@ narrow layouts; the chosen value applies until the next change, also after a res
 of the browser in the same run, because the server holds it and passes it to every new browser; a
 server restart forgets it. The result of `browser_take_screenshot` names only what the model does not
 have: the generated reference when it chose no `filename`, otherwise only that the screenshot is
-saved. A report embeds the PNG with a path relative to itself. An atomically written, hidden capture
+saved. A report embeds the PNG with a path relative to itself, a chat answer with its reference
+or a path relative to the run's root, which the chat resolves (`resolveRunUrl`). An atomically written, hidden capture
 list (`@documents/browser/.captures.json`) keeps names, page IDs, and references across browser stop
 and server restart; a list from before references named its files relative to the store, and its
 entries are read as `@documents/browser/<id>.png`. The evidence names every capture by its address on
@@ -4253,10 +4301,18 @@ right) returns the archive; a different version is 404. The counterpart is `rage
 - `copy` and the content route carry at most 16 MiB and 1000 files per call; bigger files move only
   within one machine through `bash`. A relative address in a document that climbs above its alias,
   such as `../../x` from `@documents/review/`, lands in the run's root, as plain URL semantics say.
-- An HTML document resolves its addresses through its `<base href>`, which carries no access token:
-  where the page signs in with a token instead of a cookie (VS Code), the images of an HTML document
-  do not load; Markdown and image documents do. Chrome's preload scanner may request such an image
-  once against the address of the page before the base applies, which answers with an error.
+- A grant of an HTML document lives ten minutes and covers one root: an image the document loads
+  later, such as a lazy one, fails after that until the document opens again, and an address that
+  climbs from its root into another fails as well. A sign-out does not end a grant; a server restart
+  forgets all of them. The server's access log names the grant with the path of every such request. Chrome's preload scanner may request an image once against the address of the
+  page before the base applies, which answers with an error.
+- Markdown addresses and image documents in VS Code still carry the long-lived access token in their
+  query, and the panel's own address carries it too, so a request of the panel itself sends it as
+  referrer; only HTML documents use grants.
+- While a run on the server has lost its root, language servers and processes on its server roots
+  run at the second executor and stay there until the run stops, also after the root is back.
+- With an account switch, a registered root of the server must lie inside the run storage;
+  `DOCUMENTS_DIR` and an account switch exclude each other.
 - Forwarding a service of a run carries HTTP requests and responses only: no WebSocket upgrade
   (the tunnel answers 501), no streaming. Both bodies are buffered whole and at most 16 MiB, so
   server-sent events and long polling end at the 60-second time limit, and every request takes a
@@ -4317,7 +4373,12 @@ right) returns the archive; a different version is 404. The counterpart is `rage
   such as corepack without `packageManager` in the `package.json`. Node 22 reports
   `EnvHttpProxyAgent is experimental` on stderr at every start. The library is a research preview
   (version 0.0.x). On Linux in a container, bubblewrap needs user namespaces, that is,
-  relaxed container profiles (`docs/operations.md`).
+  relaxed container profiles (`docs/operations.md`). A service a run starts in the sandbox cannot
+  be opened: on Linux every process start has its own network and PID namespace, so the service
+  ends with its command even when detached, listens only on that command's loopback, shows no port
+  in the rail, and is reached by neither a later command, the browser, nor the forwarding; on macOS
+  the profile allows no local binding, and `listen` fails with `EPERM`
+  (`docs/concepts/sandbox-services.md`).
 - On Windows, `scripts/start.sh` and the repository's other shell scripts need the developer's
   own bash (such as Git Bash); the bundled bash applies only to the runs' tool
   `bash`. A standalone server (`ragents start`) still needs `RAGENTS_BASH` pointing to

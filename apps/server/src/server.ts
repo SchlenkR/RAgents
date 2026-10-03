@@ -2,7 +2,7 @@ import { createServer, type IncomingMessage, type Server, type ServerResponse } 
 import { timingSafeEqual } from "node:crypto";
 import { readFile } from "node:fs/promises";
 import path from "node:path";
-import { ACCESS_TOKEN_QUERY, createAccessContext } from "@ragents/engine";
+import { ACCESS_TOKEN_QUERY, createAccessContext, DomainError, type AccessContext } from "@ragents/engine";
 import { coreChannels, coreMethods } from "./api/core-methods.js";
 import { attachmentContentRoute } from "./api/delivery.js";
 import { assertRunAccess } from "./api/rights.js";
@@ -254,6 +254,17 @@ const stylesheetFailed = (res: ServerResponse, error: Error): void => {
   res.end(error.message);
 };
 
+/** The access an address carries itself, such as a document grant; an invalid credential is answered here, null then says the response is done. */
+const addressAccess = (req: IncomingMessage, res: ServerResponse, url: URL): AccessContext | null | undefined => {
+  try {
+    return provider.accessFromAddress(req, url);
+  } catch (error) {
+    if (!(error instanceof DomainError)) throw error;
+    jsonResponse(res, error.status, { error: error.message, code: error.code });
+    return null;
+  }
+};
+
 const isLoopbackRequest = (req: IncomingMessage): boolean => {
   const address = req.socket.remoteAddress;
   return address === "127.0.0.1" || address === "::1" || address === "::ffff:127.0.0.1";
@@ -265,6 +276,13 @@ async function handleRequest(req: IncomingMessage, res: ServerResponse): Promise
   res.once("close", () =>
     console.log(`${req.method} ${url.pathname} -> ${res.statusCode} (${Date.now() - startedAt} ms)`));
   if (externalGate(req, res)) return;
+  // A credential in the address stands in for the sign-in; reachability and rights are checked against it as usual.
+  const granted = addressAccess(req, res, url);
+  if (granted === null) return;
+  if (granted) {
+    if (!await provider.pluginRoutes(req, res, url, granted)) jsonResponse(res, 404, { error: "Not found" });
+    return;
+  }
 
   const coordinator = accessSessions.enabled || configuredAnonymousUser() !== undefined ? coordinatorRequestUser(req, url) : undefined;
   const serviceRequest = coordinator !== undefined;

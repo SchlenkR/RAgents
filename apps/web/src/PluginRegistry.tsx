@@ -314,6 +314,9 @@ export interface AttentionContribution {
   assess: (session: SessionContext) => AttentionState | undefined;
 }
 
+/** Maps a link or image address of the Markdown inside a run to one the page can load; an address it does not resolve it returns unchanged. */
+export type RunUrlResolver = (runId: string, url: string) => string;
+
 export interface SessionProviderProps extends PropsWithChildren {
   navigation: SessionNavigation;
   session: SessionContext;
@@ -331,6 +334,7 @@ export interface WebPlugin extends WebPluginDescriptor {
   surfaceElements?: SurfaceElementContribution[];
   cardSections?: CardSectionContribution[];
   chatDisplayPolicy?: ChatDisplayPolicy;
+  resolveRunUrl?: RunUrlResolver;
   startOptions?: StartOptionContribution[];
   needsRunView?: boolean;
   SessionProvider?: ComponentType<SessionProviderProps>;
@@ -376,6 +380,7 @@ export class PluginRegistry {
   readonly surfaceElements: readonly SurfaceElementContribution[];
   readonly cardSections: readonly CardSectionContribution[];
   readonly chatDisplayPolicy: ChatDisplayPolicy;
+  readonly resolveRunUrl: RunUrlResolver | undefined;
   readonly startOptions: ReadonlyMap<string, StartOptionContribution>;
   readonly activePlugins: readonly WebPlugin[];
   readonly plugins: readonly WebPlugin[];
@@ -435,6 +440,9 @@ export class PluginRegistry {
     const chatPolicies = this.activePlugins.flatMap((plugin) => plugin.chatDisplayPolicy ? [plugin.chatDisplayPolicy] : []);
     if (chatPolicies.length > 1) throw new Error(`Multiple chat display policies registered: ${chatPolicies.length}`);
     this.chatDisplayPolicy = chatPolicies[0] ?? defaultChatDisplayPolicy;
+    const urlResolvers = this.activePlugins.flatMap((plugin) => plugin.resolveRunUrl ? [plugin.resolveRunUrl] : []);
+    if (urlResolvers.length > 1) throw new Error(`Multiple run URL resolvers registered: ${urlResolvers.length}`);
+    this.resolveRunUrl = urlResolvers[0];
     const startOptions = this.activePlugins.flatMap((plugin) => plugin.startOptions ?? []);
     assertUnique(startOptions, (option) => option.id, "Start option");
     this.startOptions = new Map(startOptions.map((option) => [option.id, option]));

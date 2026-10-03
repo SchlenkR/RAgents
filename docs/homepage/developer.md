@@ -156,6 +156,35 @@ access contains the signed-in user without a password, and can checks the same p
 
 Contract fields: httpRoute.requiredRights, httpContext.access, accessContext.can, accessContext.enabled, accessContext.user.
 
+### An address with its own short-lived credential
+
+Some requests cannot carry the sign-in, such as the images of an HTML document in a frame that has neither the sign-in cookie nor the access token. A route can then accept a short-lived credential in its own path: it names the access the credential stands for, and the server checks the run and the permissions against that access as usual.
+
+Place of use: Inside register(host); grants is the plugin's own store of short-lived credentials that returns the access it issued each one for.
+
+```typescript
+const grantedPath = /^\/api\/plugins\/ragents\.example\/runs\/([A-Za-z0-9_-]+)\/grant\/([A-Za-z0-9_-]{43})\/(.+)$/;
+host.http({
+  id: "ragents.example.granted",
+  isApiPath: (value) => grantedPath.test(value),
+  matches: (request, url) => request.method === "GET" && grantedPath.test(url.pathname),
+  accessFromAddress: (_request, url) => {
+    const [, runId, grant] = grantedPath.exec(url.pathname) ?? [];
+    return runId && grant ? grants.accessFor(runId, grant) : undefined;
+  },
+  handle: ({ response, access }) => {
+    response.setHeader("Content-Type", "text/plain; charset=utf-8");
+    response.end(access.user?.label ?? "without sign-in");
+  },
+});
+```
+
+The server asks accessFromAddress before its sign-in: undefined leaves the request to the sign-in, a thrown DomainError answers it with its status. With an access, the server checks the run named in the path and requiredRights against it, as for a signed-in request.
+
+Keep such a credential short-lived, bound to the access that asked for it, read-only, and limited to what the route serves; ragents.documents grants one root of a run for ten minutes. The long-lived access token never belongs in a path.
+
+Contract fields: httpRoute.accessFromAddress.
+
 ### Plugin identity and file storage
 
 Plugins can store data for the entire application or for a single run. The application provides each plugin with its own storage paths for this and assigns them to its identifier.
@@ -691,6 +720,27 @@ const productUi = {
 Several branding contributions or several chat display policies are errors. A domain plugin next to an existing product normally provides neither.
 
 Contract fields: web.brand, web.chatDisplayPolicy.
+
+### Addresses in the Markdown of a run
+
+Inside a run, chat answers and documents name files with relative paths. A plugin can map such an address to one the page can load, for example to its content route; the host applies the mapping to every Markdown display below the run.
+
+Place of use: Properties of a WebPlugin; at most one active contribution.
+
+```tsx
+const urls = {
+  id: "ragents.example",
+  resolveRunUrl: (runId, url) => url.startsWith("@files/")
+    ? `/api/plugins/ragents.example/runs/${encodeURIComponent(runId)}/raw/${url}`
+    : url,
+} satisfies WebPlugin;
+```
+
+Return every address the plugin does not resolve unchanged, and never rewrite an absolute one. Several active resolvers are an error.
+
+A display that knows a better base, such as the Documents view for a file, sets its own resolver through quassel's QuasselProvider with resolveUrl; the inner one wins.
+
+Contract fields: web.resolveRunUrl.
 
 ### Fixed and dynamic tabs
 
@@ -1718,6 +1768,8 @@ export interface HttpRouteContribution {
   matches: (request: IncomingMessage, url: URL) => boolean;
   /** Overrides the default runs.read/runs.write check before the handler executes. */
   requiredRights?: readonly string[] | ((request: IncomingMessage, url: URL) => readonly string[]);
+  /** For an address that carries its own credential, such as a short-lived grant in the path: the access it stands for in place of the sign-in, undefined for every other address; an invalid credential throws its error. */
+  accessFromAddress?: (request: IncomingMessage, url: URL) => AccessContext | undefined;
   handle: (context: HttpRouteContext) => void | Promise<void>;
 }
 ```
@@ -1892,6 +1944,7 @@ export interface WebPlugin extends WebPluginDescriptor {
   surfaceElements?: SurfaceElementContribution[];
   cardSections?: CardSectionContribution[];
   chatDisplayPolicy?: ChatDisplayPolicy;
+  resolveRunUrl?: RunUrlResolver;
   startOptions?: StartOptionContribution[];
   needsRunView?: boolean;
   SessionProvider?: ComponentType<SessionProviderProps>;

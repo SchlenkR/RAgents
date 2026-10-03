@@ -163,6 +163,11 @@ export class HttpContributionRegistry {
     return this.#routes.entries().some(({ value }) => value.isApiPath(pathname));
   }
 
+  /** The access an address carries itself, from the route that matches it; undefined when it carries none. */
+  accessFromAddress(request: IncomingMessage, url: URL): AccessContext | undefined {
+    return this.#routes.entries().find(({ value }) => value.matches(request, url))?.value.accessFromAddress?.(request, url);
+  }
+
   async dispatch(request: IncomingMessage, response: ServerResponse, url: URL, access: AccessContext = unrestrictedAccess): Promise<boolean> {
     const route = this.#routes.entries().find(({ value }) => value.matches(request, url));
     if (!route) return false;
@@ -1369,6 +1374,10 @@ export class PluginHost {
 
   isApiPath(pathname: string): boolean {
     return pathname === "/api/plugins" || this.http.isApiPath(pathname);
+  }
+
+  httpAccessFromAddress(request: IncomingMessage, url: URL): AccessContext | undefined {
+    return this.http.accessFromAddress(request, url);
   }
 
   async dispatchHttp(request: IncomingMessage, response: ServerResponse, url: URL, access: AccessContext = unrestrictedAccess): Promise<boolean> {

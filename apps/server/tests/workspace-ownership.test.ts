@@ -62,3 +62,24 @@ test("the sandbox refreshes ownership for host-generated app files before subseq
     assert.equal(await readFile(generated, "utf8"), "editable");
   } finally { await sandbox.shutdownAll(); await rm(directory, { recursive: true, force: true }); }
 });
+
+test("an account switch hands no root outside the run storage to the run's account and names the root instead", async () => {
+  const directory = await realpath(await mkdtemp(path.join(os.tmpdir(), "ragents-root-outside-")));
+  const storageRoot = path.join(directory, "run");
+  const root = path.join(storageRoot, "workspace");
+  const external = path.join(directory, "external", "run");
+  await Promise.all([root, external].map((entry) => mkdir(entry, { recursive: true })));
+  await writeFile(path.join(external, "report.md"), "report", { mode: 0o640 });
+  const sandbox = new WorkspaceSandboxHost({
+    contributorName: "test", contributions: [], storageRootFor: () => storageRoot,
+    workspaceFor: async () => ({ cwd: root, currentRoot: async () => root, runOperation: (operation) => operation() }),
+    identFor: async () => ({ uid: process.getuid!(), gid: process.getgid!(), name: "current-test-user" }),
+    skillPaths: async () => [], homeFor: async () => ({ home: root }),
+  });
+  sandbox.registerWorkspaceRoot({ id: "documents", alias: "@documents", directoryFor: () => external });
+  try {
+    await assert.rejects(sandbox.serverProcessContextFor("run"), /the root @documents lies outside it/);
+    await assert.rejects(sandbox.assertRootsForAccount("run"), /Place that root inside the run storage or run without an account switch/);
+    assert.equal((await stat(path.join(external, "report.md"))).mode & 0o777, 0o640, "nothing outside the storage changes its rights");
+  } finally { await sandbox.shutdownAll(); await rm(directory, { recursive: true, force: true }); }
+});

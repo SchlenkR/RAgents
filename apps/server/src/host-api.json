@@ -729,6 +729,7 @@
       "ToolbarText"
     ],
     "@ragents/web/access-token": [
+      "accessTokenInstalled",
       "withAccessToken"
     ],
     "@ragents/web/actor-conversation": [
@@ -915,9 +916,11 @@
       "defaultTexts",
       "detailModeLabel",
       "encodeAttachment",
+      "englishTexts",
       "fillText",
       "formatAttachmentSize",
       "formatElapsed",
+      "germanTexts",
       "markdownPlainText",
       "messageDate",
       "prettyJson",

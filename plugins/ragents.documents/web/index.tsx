@@ -11,7 +11,7 @@ import {
   type DocumentSection,
 } from "./DocumentViewer";
 import { fetchRunFiles } from "./api";
-import { documentBaseOf } from "./links";
+import { documentBaseOf, documentUrlResolver } from "./links";
 import { DOCUMENTS_ALIAS, contentPathOf, type RunFileEntry, type RunFilesListing } from "../contract";
 import { actorAddress, runArtifactContentUrl, runViewFrom, type RunView } from "@ragents/web/run-view";
 import { Alert, Badge } from "@ragents/web/ui";
@@ -264,6 +264,7 @@ const configuredPlugin = (descriptor: WebPluginDescriptor, routePrefix: string):
   return {
     ...descriptor,
     needsRunView: true,
+    resolveRunUrl: (runId, url) => documentUrlResolver(documentBaseOf(routePrefix, runId))(url),
     SessionProvider: DocumentsSessionProvider,
     workspaceTabs: [{
       id: DOCUMENTS_TAB_ID,

@@ -14,11 +14,12 @@ import {
   Spinner,
 } from "@ragents/web/ui";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Markdown, type Message } from "quassel";
-import { withAccessToken } from "@ragents/web/access-token";
+import { Markdown, QuasselProvider, type Message } from "quassel";
+import { accessTokenInstalled } from "@ragents/web/access-token";
 import { formatBytes } from "@ragents/web/lib/format";
 import { SourceCode } from "@ragents/web/SourceCode";
-import { htmlWithBase, markdownWithResolvedUrls, resolveDocumentUrl, type DocumentBase } from "./links";
+import { fetchGrant } from "./api";
+import { baseAddressOf, documentUrlResolver, htmlWithBase, withToken, type DocumentBase } from "./links";
 
 export type DocumentFormat = "markdown" | "text" | "html" | "image" | "binary";
 
@@ -202,27 +203,46 @@ export function DocumentToolCall({ active, document, onOpen, status }: DocumentT
   );
 }
 
-/** An address of the document's run carries the access token where the page has one; the anchor stays at the end. */
-const withToken = (url: string): string => {
-  const hash = url.indexOf("#");
-  return hash < 0 ? withAccessToken(url) : `${withAccessToken(url.slice(0, hash))}${url.slice(hash)}`;
+type GrantState = { grant?: string } | { error: string } | undefined;
+
+/** Where the page signs in with a token, an HTML document reaches its files through a short-lived grant of its root, because its base address carries no token. */
+const useHtmlGrant = (base: DocumentBase | undefined, html: boolean): GrantState => {
+  const runId = base?.runId;
+  const root = base?.root;
+  const key = html && runId !== undefined && root !== undefined && accessTokenInstalled() ? `${runId}/${root}` : undefined;
+  const [state, setState] = useState<{ key: string; value: GrantState }>();
+
+  useEffect(() => {
+    if (key === undefined || runId === undefined || root === undefined) return;
+    let alive = true;
+    void fetchGrant(runId, root)
+      .then(({ grant }) => alive && setState({ key, value: { grant } }))
+      .catch((error: unknown) => alive && setState({ key, value: { error: error instanceof Error ? error.message : String(error) } }));
+    return () => {
+      alive = false;
+    };
+  }, [key, runId, root]);
+
+  if (key === undefined) return {};
+  return state?.key === key ? state.value : undefined;
 };
 
-const resolvedMarkdown = (text: string, base: DocumentBase): string => markdownWithResolvedUrls(text, (url) => {
-  const resolved = resolveDocumentUrl(base, url);
-  return resolved === url ? url : withToken(resolved);
-});
+/** A document without a base keeps its addresses as written, also inside a run whose chat resolves them. */
+const keepUrl = (url: string): string => url;
 
 function DocumentContent({ document, loaded }: { document: RunDocument; loaded: LoadState }) {
-  const text = loaded && "text" in loaded ? loaded.text : undefined;
-  const root = document.base?.root;
-  const folder = document.base?.folder;
-  const markdown = useMemo(
-    () => document.format === "markdown" && text !== undefined && root !== undefined && folder !== undefined
-      ? resolvedMarkdown(text, { root, folder })
-      : text,
-    [document.format, root, folder, text],
+  const base = document.base;
+  const routePrefix = base?.routePrefix;
+  const runId = base?.runId;
+  const folder = base?.folder;
+  const root = base?.root;
+  const resolveUrl = useMemo(
+    () => routePrefix !== undefined && runId !== undefined && folder !== undefined && root !== undefined
+      ? documentUrlResolver({ routePrefix, runId, folder, root })
+      : keepUrl,
+    [routePrefix, runId, folder, root],
   );
+  const grant = useHtmlGrant(base, document.format === "html");
   if (document.format === "image" && document.contentUrl) {
     return <img alt={document.title} className="block max-w-full rounded-lg border border-border" src={withToken(document.contentUrl)} />;
   }
@@ -239,7 +259,19 @@ function DocumentContent({ document, loaded }: { document: RunDocument; loaded: 
       </Empty>
     );
   }
-  if (!loaded) {
+  const failure = loaded && "error" in loaded ? loaded.error : grant && "error" in grant ? grant.error : undefined;
+  if (failure !== undefined) {
+    return (
+      <Empty className="min-h-30 gap-2 p-7">
+        <EmptyHeader>
+          <EmptyMedia><IconError /></EmptyMedia>
+          <EmptyTitle>Content not readable</EmptyTitle>
+          <EmptyDescription>{failure}</EmptyDescription>
+        </EmptyHeader>
+      </Empty>
+    );
+  }
+  if (!loaded || "error" in loaded || !grant || "error" in grant) {
     return (
       <div className="flex items-center justify-center gap-2.5 p-9 text-[0.76rem] text-muted-foreground">
         <Spinner className="size-3" />
@@ -247,26 +279,15 @@ function DocumentContent({ document, loaded }: { document: RunDocument; loaded: 
       </div>
     );
   }
-  if ("error" in loaded) {
-    return (
-      <Empty className="min-h-30 gap-2 p-7">
-        <EmptyHeader>
-          <EmptyMedia><IconError /></EmptyMedia>
-          <EmptyTitle>Content not readable</EmptyTitle>
-          <EmptyDescription>{loaded.error}</EmptyDescription>
-        </EmptyHeader>
-      </Empty>
-    );
-  }
   if (document.format === "html") {
-    // Scripts stay off; the app's origin lets the sign-in cookie reach the images the document names.
-    const html = document.base ? htmlWithBase(loaded.text, `${document.base.root}${document.base.folder}`) : loaded.text;
+    // Scripts stay off; the app's origin lets the sign-in cookie reach the images the document names, a grant in the base does so without one.
+    const html = base ? htmlWithBase(loaded.text, baseAddressOf(base, grant.grant)) : loaded.text;
     return <iframe className="h-full min-h-full w-full border-0 bg-white" sandbox="allow-same-origin" srcDoc={html} title={document.title} />;
   }
   if (document.format === "text") {
     return <SourceCode className={sourceClass} content={loaded.text} path={document.title} />;
   }
-  return <Markdown text={markdown ?? loaded.text} />;
+  return <QuasselProvider resolveUrl={resolveUrl}><Markdown text={loaded.text} /></QuasselProvider>;
 }
 
 function DocumentHead({ document }: { document: RunDocument }) {

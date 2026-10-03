@@ -19,6 +19,7 @@ import {
 import {
   WorkspaceOperationError,
   WorkspaceOperationExecutor,
+  containsWorkspacePath,
   resolvedWorkspacePath,
   sandboxRunEnvironment,
   workspaceExecutorModules,
@@ -82,7 +83,7 @@ export interface WorkspaceSandboxHostOptions {
   storageRootFor?: (runId: string) => string;
   /** The executor of a run that does not work on the server; without an answer the server's executor executes. */
   executorFor?: (runId: string) => Promise<WorkspaceExecutor | undefined>;
-  /** The own folder of such a run on the server, for work that runs there. */
+  /** The own folder of a run on the server, for work that runs there while its root is on a workstation or gone. */
   serverDirectoryFor?: (runId: string) => Promise<string>;
   /** The process sandbox in which every process of this server's executor starts; without it processes run without one. */
   processSandbox?: RunProcessSandboxes;
@@ -146,6 +147,13 @@ const sandboxFoldersWith = (folders: readonly SandboxFolder[], access: SandboxFo
     return folder.directory;
   });
 
+const rootOutsideStorage = (name: string): DomainError => new DomainError(
+  "workspace-root-outside-storage",
+  `The run works under its own account, and the server hands files to that account only inside the run storage; the root ${name} lies outside it. `
+    + "Place that root inside the run storage or run without an account switch.",
+  409,
+);
+
 /** A read-only path that does not exist is not a root; a missing skill folder must not prevent a run. */
 const existingRoots = async (roots: readonly ResolvedWorkspaceRoot[]): Promise<ResolvedWorkspaceRoot[]> => {
   const resolved = await Promise.all(roots.map((root) =>
@@ -159,6 +167,10 @@ export class WorkspaceSandboxHost implements SandboxServices {
   readonly #definitions: readonly AgentToolDefinition[];
   readonly #workspaceRoots: RegisteredWorkspaceRoot[] = [];
   readonly #local: WorkspaceOperationExecutor;
+  /** The server's executor for the server's roots of a run on the server whose own root is gone. */
+  readonly #serverRoots: WorkspaceOperationExecutor;
+  /** The runs that used it; only they have something to stop there. */
+  readonly #withoutRoot = new Set<string>();
   readonly #stable = new Map<string, Promise<StableRunParts>>();
   /** Per run the file state a model saw last, by actor, model context and path; only in memory, a loss requires at most a new read. */
   readonly #seen = new Map<string, Map<string, SeenFile>>();
@@ -168,6 +180,10 @@ export class WorkspaceSandboxHost implements SandboxServices {
     this.#definitions = sandboxDefinitions(options.bashTimeoutSeconds);
     this.#local = new WorkspaceOperationExecutor({
       contextFor: (runId) => this.serverProcessContextFor(runId),
+      modules: workspaceExecutorModules({ contributions: options.contributions }),
+    });
+    this.#serverRoots = new WorkspaceOperationExecutor({
+      contextFor: (runId) => this.#serverRootsContextFor(runId),
       modules: workspaceExecutorModules({ contributions: options.contributions }),
     });
   }
@@ -191,12 +207,30 @@ export class WorkspaceSandboxHost implements SandboxServices {
       const directory = await entry.directoryFor(runId);
       if (directory === undefined) return undefined;
       if (!path.isAbsolute(directory)) throw new Error(`Working directory ${entry.id} must be absolute`);
-      if (ident) await syncWorkspaceOwnership(await entry.ownershipDirectoryFor?.(runId) ?? directory, {
+      if (ident) await syncWorkspaceOwnership(await this.#ownedDirectory(runId, entry, directory), {
         ...ident, storageRoot: this.#options.storageRootFor?.(runId),
       });
       return { directory: await resolvedWorkspacePath(directory), alias: entry.alias, environmentVariable: entry.environmentVariable };
     }));
     return roots.filter((root) => root !== undefined);
+  }
+
+  /** The folder an account switch hands to the run's account; outside the run storage it refuses, without a storage the sync names that. */
+  async #ownedDirectory(runId: string, entry: RegisteredWorkspaceRoot, directory: string): Promise<string> {
+    const owned = await entry.ownershipDirectoryFor?.(runId) ?? directory;
+    const storageRoot = this.#options.storageRootFor?.(runId);
+    if (storageRoot === undefined) return owned;
+    const [boundary, target] = await Promise.all([resolvedWorkspacePath(storageRoot), resolvedWorkspacePath(owned)]);
+    if (!containsWorkspacePath(boundary, target) || target === boundary) throw rootOutsideStorage(entry.alias ?? entry.id);
+    return owned;
+  }
+
+  /** Checks at the start of a run with an account switch what every server context of it needs: each registered root inside its run storage. */
+  async assertRootsForAccount(runId: string): Promise<void> {
+    for (const entry of this.#workspaceRoots) {
+      const directory = await entry.directoryFor(runId);
+      if (directory !== undefined) await this.#ownedDirectory(runId, entry, directory);
+    }
   }
 
   /** The server's roots with an alias that a run reaches besides its workspace: the registered ones and the skill folders. */
@@ -211,9 +245,18 @@ export class WorkspaceSandboxHost implements SandboxServices {
   /** For a run with its own executor a folder of the run on the server, otherwise the same context as for its tools. */
   async serverProcessContextFor(runId: string): Promise<WorkspaceProcessContext> {
     if (!await this.#options.executorFor?.(runId)) return this.#contextFor(runId);
+    return this.#contextFor(runId, await this.#serverDirectory(runId, "does not work on the server"));
+  }
+
+  /** The server's roots of a run whose own root is gone, with the run's folder on the server in place of that root, as for a run on a workstation. */
+  async #serverRootsContextFor(runId: string): Promise<WorkspaceProcessContext> {
+    return this.#contextFor(runId, await this.#serverDirectory(runId, "has lost its root"));
+  }
+
+  #serverDirectory(runId: string, reason: string): Promise<string> {
     const serverDirectoryFor = this.#options.serverDirectoryFor;
-    if (!serverDirectoryFor) throw new Error(`The run ${runId} does not work on the server, and the sandbox host knows no server folder for it`);
-    return this.#contextFor(runId, await serverDirectoryFor(runId));
+    if (!serverDirectoryFor) throw new Error(`The run ${runId} ${reason}, and the sandbox host knows no server folder for it`);
+    return serverDirectoryFor(runId);
   }
 
   /** The context of this server's executor; without its own folder the workspace itself, which must then lie on the server. */
@@ -322,28 +365,47 @@ export class WorkspaceSandboxHost implements SandboxServices {
     }
   }
 
-  /** A run with its own executor also has marked TypeScript platform processes on the server; both executors clean up. */
+  /** A run with its own executor also has marked TypeScript platform processes on the server; every executor cleans up. */
   async shutdown(runId: string): Promise<void> {
     this.#stable.delete(runId);
     this.#seen.delete(runId);
     const remote = await this.#options.executorFor?.(runId);
-    const results = await Promise.allSettled([this.#local.stopRun(runId), ...(remote ? [remote.stopRun(runId)] : [])]);
+    const withoutRoot = this.#withoutRoot.has(runId);
+    this.#withoutRoot.delete(runId);
+    const results = await Promise.allSettled([
+      this.#local.stopRun(runId), ...(withoutRoot ? [this.#serverRoots.stopRun(runId)] : []), ...(remote ? [remote.stopRun(runId)] : []),
+    ]);
     const failed = results.find((result): result is PromiseRejectedResult => result.status === "rejected");
     if (failed) throw failed.reason;
   }
 
-  shutdownAll(): Promise<void> {
+  async shutdownAll(): Promise<void> {
     this.#stable.clear();
     this.#seen.clear();
-    return this.#local.shutdown();
+    this.#withoutRoot.clear();
+    const results = await Promise.allSettled([this.#local.shutdown(), this.#serverRoots.shutdown()]);
+    const failed = results.find((result): result is PromiseRejectedResult => result.status === "rejected");
+    if (failed) throw failed.reason;
   }
 
   /** Aliases name roots of the server, every other path the run's root on the machine of its binding; without an alias the binding decides. */
   async #executorFor(runId: string, { aliases, runRoot }: AddressedRoots): Promise<WorkspaceExecutor> {
     const bound = await this.#options.executorFor?.(runId);
-    if (!bound || aliases.length === 0) return bound ?? this.#local;
+    if (!bound) return aliases.length > 0 && !runRoot && !await this.#hasRoot(runId) ? this.#withoutRootFor(runId) : this.#local;
+    if (aliases.length === 0) return bound;
     if (runRoot) throw mixedRoots(aliases);
     return this.#local;
+  }
+
+  #withoutRootFor(runId: string): WorkspaceExecutor {
+    this.#withoutRoot.add(runId);
+    return this.#serverRoots;
+  }
+
+  /** Whether the run's own root is there; an operation that names only roots of the server does not need it, every other one reports why it is missing. */
+  async #hasRoot(runId: string): Promise<boolean> {
+    const workspace = await this.#options.workspaceFor(runId);
+    return workspace.currentRoot().then(() => true, () => false);
   }
 
   #workspaceToolsFor(context: PluginContext): Promise<RunFunction[]> {

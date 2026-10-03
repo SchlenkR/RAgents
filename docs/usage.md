@@ -99,7 +99,9 @@ or a file, also an image, from the run's document store `@documents` or from the
 one on a workstation. A file is read when you open it, so it shows the current content; a workspace
 file needs the permission to inspect the workspace. Images and links inside a Markdown or HTML
 document resolve relative to the document's folder, so a report under `@documents/review/` shows
-the screenshots stored next to it. Agents put reports and evidence under `@documents` and
+the screenshots stored next to it, in the browser and in VS Code. In the chat, an image or link
+that an agent names relative to the working directory or with `@documents/...` opens the same
+way; addresses with a scheme stay as written. Agents put reports and evidence under `@documents` and
 deliverables into the project, and move files between the two with `copy`. Documents lists the
 store by folder; Files shows it as a tree next to the working directory.
 An agent's to-do list appears on its actor card with the
@@ -234,6 +236,8 @@ The document store `@documents` stays isolated per run
 (`sessions/<id>/plugins/ragents.documents/documents`, service `documentStoreToken` of
 `ragents.documents`); `DOCUMENTS_DIR` places it with one subfolder per run under an
 external path, but deliberately stays unset so that test runs never write into someone else's
+storage. A workspace contribution that runs a run under its own account (`hostSandbox.ident`)
+refuses such a run at its start, because the server hands files to that account only inside the run
 storage. A system prompt of the same name in the plugin folder and in
 `SYSTEM_PROMPTS_DIR` is a hard error.
 

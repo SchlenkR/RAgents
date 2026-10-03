@@ -3,9 +3,9 @@ import { randomBytes, randomInt, randomUUID } from "node:crypto";
 import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, realpathSync, renameSync, rmSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { BROWSER_EXECUTABLE_VARIABLE } from "@ragents/workspace-executor";
 import { coreContracts } from "../../apps/server/src/api/contracts.ts";
 import { RpcClient } from "../../apps/web/src/rpc/client.ts";
+import { BROWSER_EXECUTABLE_VARIABLE } from "../../plugins/ragents.browser/executor/contract.ts";
 import { CHECK_SKILL, CONTAINER_ONLY, runChecks, SERVER_ONLY, type Users } from "./checks.ts";
 import {
   buildImage,

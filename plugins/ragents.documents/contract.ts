@@ -6,9 +6,18 @@ export const documentsApiPrefix = "/api/plugins/ragents.documents";
 /** The alias of the document store, a root of the server in every binding. */
 export const DOCUMENTS_ALIAS = "@documents";
 
+const encodedReference = (reference: string): string => reference.split("/").map(encodeURIComponent).join("/");
+
 /** The address of a file's bytes; the reference names the file as read does, so relative addresses inside a document follow URL semantics. */
 export const contentPathOf = (routePrefix: string, runId: string, reference: string): string =>
-  `${routePrefix}/runs/${encodeURIComponent(runId)}/raw/${reference.split("/").map(encodeURIComponent).join("/")}`;
+  `${routePrefix}/runs/${encodeURIComponent(runId)}/raw/${encodedReference(reference)}`;
+
+/** The same address with a grant in its path instead of a sign-in, so that the relative addresses of a document keep it. */
+export const grantedPathOf = (routePrefix: string, runId: string, grant: string, reference: string): string =>
+  `${routePrefix}/runs/${encodeURIComponent(runId)}/grant/${encodeURIComponent(grant)}/${encodedReference(reference)}`;
+
+/** The root a reference names: its alias, or empty for the run's root. */
+export const rootOfReference = (reference: string): string => reference.startsWith("@") ? reference.split("/")[0]! : "";
 
 const fileEntry = Type.Object({
   path: Type.String({ minLength: 1 }),
@@ -38,5 +47,15 @@ export const documentsContracts = {
       runId: Type.String({ minLength: 1, maxLength: 64, description: "Run id" }),
     }, { additionalProperties: false }),
     result: filesListing,
+  }),
+  grant: defineOperation({
+    id: "ragents.documents.grant",
+    description: "A short-lived, read-only grant for the files of one root of a run, bound to the caller; the content route accepts it in its path where the page signs in with a token instead of a cookie. Rights: runs.read, for the run's root also runs.inspect and access to its workspace.",
+    rights: ["runs.read"],
+    input: Type.Object({
+      runId: Type.String({ minLength: 1, maxLength: 64, description: "Run id" }),
+      root: Type.String({ pattern: "^(@[a-z][a-z0-9-]*)?$", description: "The alias of a root of the server, or empty for the run's root" }),
+    }, { additionalProperties: false }),
+    result: Type.Object({ grant: Type.String({ minLength: 1 }) }, { additionalProperties: false }),
   }),
 };

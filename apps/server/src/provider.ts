@@ -539,6 +539,11 @@ export class RunSessionProvider implements ChatSessionProvider {
     return pathname === "/rpc" || pathname === "/rpc/stream" || pathname.startsWith("/files/") || this.plugins.isApiPath(pathname);
   }
 
+  /** The access a delivery address carries itself, such as a grant in its path; it stands in for the sign-in of the request. */
+  accessFromAddress(req: IncomingMessage, url: URL): AccessContext | undefined {
+    return this.plugins.httpAccessFromAddress(req, url);
+  }
+
   /** Delivery routes name their run in the path; another user's run is as unreachable there as in a method, and a writing request operates it. */
   async pluginRoutes(req: IncomingMessage, res: ServerResponse, url: URL, access?: AccessContext): Promise<boolean> {
     const named = runIdInPath(url.pathname);

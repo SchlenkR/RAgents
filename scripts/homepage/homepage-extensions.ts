@@ -168,6 +168,24 @@ host.http({
     "requiredRights replaces the default requirement of the route. Without an explicit list, GET/HEAD/OPTIONS require runs.read, other methods runs.read and runs.write. Further domain checks still belong in the operation.",
     "access contains the signed-in user without a password, and can checks the same permission contract as the interface. Hiding something in the UI alone does not protect an HTTP route.",
   ]),
+  entry("address-credential", "Server contributions", "An address with its own short-lived credential", "Some requests cannot carry the sign-in, such as the images of an HTML document in a frame that has neither the sign-in cookie nor the access token. A route can then accept a short-lived credential in its own path: it names the access the credential stands for, and the server checks the run and the permissions against that access as usual.", "Inside register(host); grants is the plugin's own store of short-lived credentials that returns the access it issued each one for.", `
+const grantedPath = /^\\/api\\/plugins\\/ragents\\.example\\/runs\\/([A-Za-z0-9_-]+)\\/grant\\/([A-Za-z0-9_-]{43})\\/(.+)$/;
+host.http({
+  id: "ragents.example.granted",
+  isApiPath: (value) => grantedPath.test(value),
+  matches: (request, url) => request.method === "GET" && grantedPath.test(url.pathname),
+  accessFromAddress: (_request, url) => {
+    const [, runId, grant] = grantedPath.exec(url.pathname) ?? [];
+    return runId && grant ? grants.accessFor(runId, grant) : undefined;
+  },
+  handle: ({ response, access }) => {
+    response.setHeader("Content-Type", "text/plain; charset=utf-8");
+    response.end(access.user?.label ?? "without sign-in");
+  },
+});`, ["httpRoute.accessFromAddress"], [
+    "The server asks accessFromAddress before its sign-in: undefined leaves the request to the sign-in, a thrown DomainError answers it with its status. With an access, the server checks the run named in the path and requiredRights against it, as for a signed-in request.",
+    "Keep such a credential short-lived, bound to the access that asked for it, read-only, and limited to what the route serves; ragents.documents grants one root of a run for ten minutes. The long-lived access token never belongs in a path.",
+  ]),
   entry("access-view", "Web contributions", "Hide a plugin view or show it read-only", "A plugin view can take the same permissions into account as the matching server function. Without read permission it is hidden; without write permission the change button stays disabled. Both sides use the same permission names for this.", "React component of a plugin; useAccess comes from the web host and accessMode from the shared permission contract.", `
 function BoardAccess() {
   const access = useAccess();
@@ -447,6 +465,13 @@ const productUi = {
     stepsVisible: true, stepsExpandable: true, selectable: true,
   },
 } satisfies WebPlugin;`, ["web.brand", "web.chatDisplayPolicy"], ["Several branding contributions or several chat display policies are errors. A domain plugin next to an existing product normally provides neither."], "tsx"),
+  entry("web-run-urls", "Web contributions", "Addresses in the Markdown of a run", "Inside a run, chat answers and documents name files with relative paths. A plugin can map such an address to one the page can load, for example to its content route; the host applies the mapping to every Markdown display below the run.", "Properties of a WebPlugin; at most one active contribution.", `
+const urls = {
+  id: "ragents.example",
+  resolveRunUrl: (runId, url) => url.startsWith("@files/")
+    ? \`/api/plugins/ragents.example/runs/\${encodeURIComponent(runId)}/raw/\${url}\`
+    : url,
+} satisfies WebPlugin;`, ["web.resolveRunUrl"], ["Return every address the plugin does not resolve unchanged, and never rewrite an absolute one. Several active resolvers are an error.", "A display that knows a better base, such as the Documents view for a file, sets its own resolver through quassel's QuasselProvider with resolveUrl; the inner one wins."], "tsx"),
   entry("web-tabs", "Web contributions", "Fixed and dynamic tabs", "A plugin can add its own tab with an icon, content, and optionally a status badge. Fixed tabs are always part of its offering. Dynamic tabs arise to match the state of the open run.", "Properties of a WebPlugin; exampleTabs(session) is a custom, validating projection.", `
 const tabs = {
   id: "ragents.example",

@@ -709,9 +709,10 @@ ${DATA_DIR}/
         ragents.workspace/
           workspace/              empty working directory with binding fresh, filled by a resolver plugin;
                                   if the contribution brings its own kind, its folder lives in that plugin's storage
-          server/                 only with a binding to a workstation and only when needed: folder for
+          server/                 only when needed: with a binding to a workstation the folder for
                                   typescript_eval, actor programs, and calls on roots
-                                  of the server that run on the server
+                                  of the server that run on the server; on the server
+                                  for calls on those roots while the run's own folder is gone
           home/                   HOME of the sandbox
       tmp/                        the run's temp folder in the process sandbox (TMPDIR)
   delete-intents/                 0700 root - recorded deletion intents

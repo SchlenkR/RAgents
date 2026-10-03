@@ -132,7 +132,7 @@ export const hostApi: { readonly server: HostApiModules; readonly web: HostApiMo
     "@ragents/web/SourceCode": ["SourceCode"],
     "@ragents/web/StatusGroup": ["StatusGroup"],
     "@ragents/web/Toolbar": ["ToolbarCopy", "ToolbarItem", "ToolbarLabel", "ToolbarText"],
-    "@ragents/web/access-token": ["withAccessToken"],
+    "@ragents/web/access-token": ["accessTokenInstalled", "withAccessToken"],
     "@ragents/web/actor-conversation": ["actorChatMessages", "actorInputLabel"],
     "@ragents/web/actor-programs/client-ui/contracts": [],
     "@ragents/web/api": ["interruptActorTurn", "pauseRun", "sendActorMessage"],

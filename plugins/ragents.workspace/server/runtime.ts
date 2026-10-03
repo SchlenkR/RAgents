@@ -244,6 +244,7 @@ export class RunWorkspaceRuntime implements WorkspaceRuntime {
     const onWorkstation = isWorkstationBinding(binding);
     const workspace = onWorkstation ? this.#workstation(runId, state, binding, emitSystem)
       : isFreshFolder(folder) ? await this.#fresh(runId, state, emitSystem) : this.#bound(folder, emitSystem);
+    if (workspace.hostSandbox?.ident) await this.sandbox.assertRootsForAccount(runId);
     return this.#withRoots(workspace, onWorkstation);
   }
 

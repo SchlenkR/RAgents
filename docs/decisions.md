@@ -1,5 +1,79 @@
 # Decisions
 
+## 2026-10-03: Document addresses through quassel's `resolveUrl`, in the run chat too; grants for HTML documents; the store without the run's root
+
+Chapters: `spec/plugins.md` (Ownership per facet: resolution, account switch, content route, grants;
+Rights in server and web contributions: `accessFromAddress`; Web as plugin host: `resolveRunUrl`;
+Workspace, sandbox tools, and processes: server roots without the run's root; Browser checks; Open
+limits), `spec/profiles.md` (sign-in for clients without a cookie); usage: `usage.md` (Run chat and
+inspection, document store); operations: `operations.md` (data folder); handbook: `development.md`
+(web slots, quassel version).
+
+**Why.** Five follow-ups of the entry below. The viewer rewrote the Markdown source with a parser of
+its own, because quassel had no address hook; quassel 0.4.5 has `QuasselProvider.resolveUrl`. The
+run chat resolved nothing, so a model that put `![shot](@documents/browser/x.png)` or a path relative
+to the run's root into its answer showed a broken image. An HTML document resolved its addresses
+through a `<base href>` without a token, so its images failed in VS Code, where the panel signs in with
+a token instead of a cookie. With an account switch (`hostSandbox.ident`), `syncWorkspaceOwnership`
+rejected `@documents` under a `DOCUMENTS_DIR` outside the run storage, so every server context of such
+a run failed with an unclear error. And reading `@documents` went through a context that needed the
+run's root, so a run whose bound folder was gone could not deliver its store.
+
+**Decision.**
+
+- quassel is `^0.4.5`. The Documents view puts a `QuasselProvider` with `resolveUrl` around its
+  `Markdown`; the resolution keeps its semantics (relative to the document's folder, an alias to its
+  root, schemes, `/` addresses, and anchors unchanged, the token in VS Code). The rewrite and
+  `mdast-util-from-markdown`, `mdast-util-gfm`, and `micromark-extension-gfm` are gone.
+- The web host gets the slot `resolveRunUrl` (`RunUrlResolver`, at most one active plugin).
+  `PluginChat` wraps the run in `RunUrls` (`chat/QuasselHost.tsx`), which hands it to quassel;
+  `ragents.documents` contributes the resolution against the run's root, so the host names no
+  plugin. A result document without a base keeps its addresses through its own identity resolver,
+  because an inner provider replaces the outer one. A new type, no new host API name.
+- An HTML document in a page with an access token asks `ragents.documents.grant` for a grant of its
+  root and puts `.../runs/<runId>/grant/<grant>/<folder>/` into its base. A grant is 32 random bytes,
+  ten minutes long, in memory only, `GET` only, and bound to run, caller's access, and root; the long-
+  lived token never lands in a path, a log line, or a referrer, and the frame gets
+  `<meta name="referrer" content="no-referrer">` because the panel's own address carries the token. The
+  host learns the access of such an address through the new optional `HttpRouteContribution`
+  field `accessFromAddress`, asks it before the access token and the sign-in, and then checks run
+  and rights against it as for a signed-in request. The web host API gains the name
+  `accessTokenInstalled` (no new `HOST_API_VERSION`, names only grow).
+- An account switch refuses a registered root outside the run storage when the workspace resolves
+  (`workspace-root-outside-storage`, 409, naming the alias), before any tool runs; the sandbox host
+  checks the same before every ownership sync. The root is not left out of the sync instead, because
+  the run's account could then not write in it, and a chown outside the storage would change rights
+  in a folder the operator placed elsewhere on purpose.
+- An operation that addresses only roots of the server runs, while a run on the server has lost its
+  root, at a second executor of the server in the context of the run's server folder, the same
+  context a run on a workstation uses; every other operation still names why the root is missing,
+  and nothing creates it again. The content route, `copy`, file tools, and `bash` with an alias as
+  `cwd` take this path without code of their own.
+- `scripts/remote-workspace/run-remote-workspace-check.ts` imports `BROWSER_EXECUTABLE_VARIABLE` from
+  the browser plugin's executor contract, where it lives since the browser became a contribution.
+
+One finding on the way: the content route decided the root by the first segment of the decoded
+reference, so `@documents%2F..%2Fproject%2Fx` reached a file of the run's root with `runs.read` alone,
+past `runs.inspect` and the owner-only check. A decoded segment with a `/` or a `..` component now
+names no file and counts as the run's root.
+
+Rejected for now: grants for Markdown addresses, image documents, and downloads as well (they keep
+the token; `TODO.md`); rejected: a grant as a query parameter (relative addresses drop it); routing every
+operation of a server run on a server root through the second executor (language servers on `@actors`
+and the diagnostics of the run would split); a fallback root inside `#contextFor` (the cached sandbox
+of a run keeps its working directory); chowning `DOCUMENTS_DIR/<runId>` with `DOCUMENTS_DIR` as its own
+boundary.
+
+Verified with `apps/web/tests/document-links.test.ts` (resolution, Markdown through quassel, code
+blocks, base with grant and referrer, chat resolver, result without base),
+`apps/web/tests/document-grant-browser.test.ts` (real Chrome: images of an HTML document through the
+grant with a token, without referrer and token, and through `raw/` with a cookie),
+`apps/server/tests/document-content.test.ts` (grants per root, run, expiry, rights; crafted
+references; the store without the run's root), `document-grant-host.test.ts` (the real host lets a
+grant pass its access token gate only on the content route and only for `GET`),
+`run-workspace.test.ts` (server roots without the bound folder, the account switch refused at the
+start), `workspace-ownership.test.ts` (refusal before the sync), and the homepage extension examples.
+
 ## 2026-10-03: The document store is the server root `@documents`; `copy` and one content route by reference replace `document_write`
 
 Chapters: `spec/plugins.md` (Ownership per facet; Workspace, sandbox tools, and processes; Browser

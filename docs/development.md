@@ -277,7 +277,7 @@ to the plugin (`packages/ragents/src/plugin-types.ts`):
 ### Extension points in the web
 
 A web plugin fills slots in the frontend (`WebPlugin` in `apps/web/src/PluginRegistry.tsx`):
-`brand`, `surface` (one `RunPanel`), `surfaceElements`, `cardSections`, `chatDisplayPolicy`, `startOptions`,
+`brand`, `surface` (one `RunPanel`), `surfaceElements`, `cardSections`, `chatDisplayPolicy`, `resolveRunUrl`, `startOptions`,
 `needsRunView`, `SessionProvider`, `sessionHeaders`, `sessionStatus`, `overviewPanels`,
 `settings`, `workspaceTabs`, `workspaceTabsFor`, `toolPresenters`, `entityPresenters`, `guides`,
 `sessionMetadata`, `actionViews`, `attention`; plus `activate` and `enabled`. `actionViews`
@@ -481,7 +481,7 @@ machine, with Docker), and `scripts/maintenance/` (model catalog, concept audit)
 ### Developing quassel and RAgents together
 
 The chat building blocks are the quassel library (github.com/SchlenkR/quassel, npm `quassel`); RAgents
-uses it as an ordinary dependency (`^0.2.0` in the root, `apps/web`, and `apps/server`,
+uses it as an ordinary dependency (`^0.4.5` in the root, `apps/web`, and `apps/server`,
 `minimumReleaseAgeExclude` in `pnpm-workspace.yaml` for freshly published versions). Anyone
 changing both at the same time temporarily links quassel to its sources:
 

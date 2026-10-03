@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { mkdtemp, realpath, rm, stat } from "node:fs/promises";
+import { mkdtemp, readFile, realpath, rm, stat } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import test from "node:test";
@@ -63,6 +63,8 @@ const agentTool = async (runtime: RunWorkspaceRuntime, runId: string, name: stri
   return tool.run({ signal: undefined } as never, "call-1", input as never);
 };
 
+const textOf = (result: unknown): string => (result as { content: { text: string }[] }).content.map((part) => part.text).join("\n");
+
 const runStateWith = (optionId: string | undefined, choice: unknown, ownerUserId: string | null = null): RunState => ({
   ownerUserId,
   pluginStates: new Map(optionId === undefined ? [] : [[
@@ -104,6 +106,38 @@ test("a run bound to a folder on the server works there and creates nothing unde
     await rm(path.join(root, "project"), { recursive: true });
     await assert.rejects(workspace.currentRoot(), (error: unknown) => error instanceof DomainError && error.code === "workspace-path-missing");
   } finally {
+    await remove();
+  }
+});
+
+test("a run on the server whose bound folder is gone still works in the server's roots and never brings the folder back", async () => {
+  let resolved: RunWorkspaceRuntime | undefined;
+  const { root, runtime, remove } = await fixture({
+    sessionWorkspaceFor: (runId) => resolved!.resolve(runId, () => undefined),
+    runState: () => runStateWith(WORKSPACE_BINDING_OPTION_ID, { machine: "server", folder: { path: path.join(root, "project") } }),
+  });
+  resolved = runtime;
+  try {
+    const project = path.join(root, "project");
+    const notes = path.join(root, "notes");
+    await Promise.all([project, notes].map(mkdirInside));
+    runtime.sandbox.registerWorkspaceRoot({ id: "notes", alias: "@notes", directoryFor: () => notes });
+    await rm(project, { recursive: true });
+    const missing = (error: unknown) => error instanceof DomainError && error.code === "workspace-path-missing";
+
+    await runtime.sandbox.execute("bound", "write", { file_path: "@notes/a.md", content: "A" });
+    assert.match(textOf(await runtime.sandbox.execute("bound", "read", { file_path: "@notes/a.md" })), /A/);
+    assert.match(textOf(await runtime.sandbox.execute("bound", "bash", { command: "cat a.md", cwd: "@notes" })), /^A/);
+    await assert.rejects(runtime.sandbox.execute("bound", "write", { file_path: "b.md", content: "B" }), missing);
+    await assert.rejects(runtime.sandbox.execute("bound", "bash", { command: "pwd" }), missing);
+    await assert.rejects(runtime.sandbox.execute("bound", "write", { file_path: "@notes/../project/c.md", content: "C" }), /outside the working directory/);
+    assert.equal(await stat(project).catch(() => undefined), undefined, "no call creates the bound folder again");
+
+    await mkdirInside(project);
+    await runtime.sandbox.execute("bound", "write", { file_path: "b.md", content: "B" });
+    assert.equal(await readFile(path.join(project, "b.md"), "utf8"), "B");
+  } finally {
+    await runtime.sandbox.shutdownAll();
     await remove();
   }
 });
@@ -366,6 +400,40 @@ test("the sandbox of a contributed workspace runs under its account with its rea
     assert.deepEqual(context.readOnlyRoots, [root]);
   } finally {
     await remove();
+  }
+});
+
+test("an account switch refuses a root of the server outside the run storage when the run starts", async () => {
+  const ident = { uid: 4301, gid: 4200, name: "sess-4301" };
+  const contribution = (root: string): WorkspaceResolver => ({
+    kind: { id: "example.account", label: "Own account per run", serverFolders: false },
+    resolve: async ({ directory }) => {
+      await mkdirInside(directory);
+      return { cwd: directory, hostSandbox: { home: directory, readOnlyRoots: [{ directory: root }], ident } };
+    },
+  });
+  const outside = await fixture();
+  try {
+    const external = path.join(outside.root, "external");
+    outside.runtime.sandbox.registerWorkspaceRoot({ id: "documents", alias: "@documents", directoryFor: (runId) => path.join(external, runId) });
+    const withAccount = await fixture({ resolver: () => contribution(outside.root) });
+    try {
+      withAccount.runtime.sandbox.registerWorkspaceRoot({ id: "documents", alias: "@documents", directoryFor: (runId) => path.join(external, runId) });
+      await assert.rejects(withAccount.runtime.resolve("run-1", () => undefined), (error: unknown) => error instanceof DomainError
+        && error.code === "workspace-root-outside-storage" && /the root @documents lies outside it/.test(error.message));
+    } finally {
+      await withAccount.remove();
+    }
+    const inside = await fixture({ resolver: () => contribution(outside.root) });
+    try {
+      inside.runtime.sandbox.registerWorkspaceRoot({ id: "documents", alias: "@documents", directoryFor: (runId) => path.join(inside.root, "sessions", runId, "documents") });
+      assert.equal((await inside.runtime.resolve("run-1", () => undefined)).hostSandbox?.ident, ident);
+    } finally {
+      await inside.remove();
+    }
+    assert.equal((await outside.runtime.resolve("run-1", () => undefined)).hostSandbox, undefined, "without an account switch the store may lie anywhere");
+  } finally {
+    await outside.remove();
   }
 });
 

@@ -119,6 +119,8 @@ export interface HttpRouteContribution {
   matches: (request: IncomingMessage, url: URL) => boolean;
   /** Overrides the default runs.read/runs.write check before the handler executes. */
   requiredRights?: readonly string[] | ((request: IncomingMessage, url: URL) => readonly string[]);
+  /** For an address that carries its own credential, such as a short-lived grant in the path: the access it stands for in place of the sign-in, undefined for every other address; an invalid credential throws its error. */
+  accessFromAddress?: (request: IncomingMessage, url: URL) => AccessContext | undefined;
   handle: (context: HttpRouteContext) => void | Promise<void>;
 }
 
