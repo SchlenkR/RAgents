@@ -1,4 +1,4 @@
-import { createServer, type AddressInfo, type Server, type Socket } from "node:net";
+import { connect, createServer, type AddressInfo, type Server, type Socket } from "node:net";
 import { setTimeout as delay } from "node:timers/promises";
 import { Type, type TUnsafe } from "typebox";
 import { openTunnelLeg, pipeTunnel, tunnelAddress, type TunnelStream } from "@ragents/workspace-executor/src/processes/tunnel";
@@ -78,8 +78,31 @@ const listen = (server: Server, port: number): Promise<number> => new Promise((r
   });
 });
 
-/** The same port number as on the run's machine keeps absolute addresses of the service valid; if it is taken here, a free one. */
+/** Whether something on this machine already accepts connections on the port, on either loopback; the probe closes gracefully so the service sees no reset. */
+const answersHere = async (port: number): Promise<boolean> => {
+  const answers = await Promise.all(["127.0.0.1", "::1"].map((host) => new Promise<boolean>((resolve) => {
+    const socket = connect({ host, port, timeout: 500 });
+    socket.once("connect", () => {
+      resolve(true);
+      socket.setTimeout(2_000);
+      socket.resume();
+      socket.end();
+    });
+    socket.on("timeout", () => {
+      socket.destroy();
+      resolve(false);
+    });
+    socket.on("error", () => {
+      socket.destroy();
+      resolve(false);
+    });
+  })));
+  return answers.some(Boolean);
+};
+
+/** The same port number keeps absolute addresses of the service valid; a free one if it is taken or a local service answers on it, which a tunnel must never shadow. */
 const listenOnPort = async (server: Server, port: number): Promise<number> => {
+  if (await answersHere(port)) return listen(server, 0);
   try {
     return await listen(server, port);
   } catch (error) {

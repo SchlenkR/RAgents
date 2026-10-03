@@ -1,5 +1,26 @@
 # Decisions
 
+## 2026-10-03: A tunnel never shadows a local service
+
+Chapters: `spec/plugins.md` (Workspace, sandbox tools, and processes: opening a service; Open
+limits); usage: `usage.md` (Open and stop services and background processes).
+
+**Why.** A live check opened a tunnel from the extension's code to a service on a workstation that
+ran on the same machine without being this window's workstation, as another window's workstation or
+a headless workstation can. The service listened on the IPv6 wildcard, the extension's listener on
+`127.0.0.1` with the same port number still bound (macOS lets a specific address coexist with a
+wildcard under `SO_REUSEADDR`), and the dial-back, which tries `127.0.0.1` first for a wildcard,
+reached the tunnel itself and opened stream after stream.
+
+**Decision.** Before the extension keeps the service's port number, it connects once to
+`127.0.0.1` and `[::1]` on that port; if anything answers, the tunnel takes a free port. The probe
+closes gracefully, so the service sees no reset. Rejected: probing by binding, because the same
+`SO_REUSEADDR` rule lets the probe bind as well; always a free port, because absolute addresses of a
+service fit only while the local port keeps its number. Verified with
+`apps/vscode/tests/service-tunnels.test.ts` (a service on the IPv6 wildcard keeps its port, and a
+request through the tunnel reaches it) and live: HTTP, a WebSocket echo, and server-sent events of a
+dev server on a workstation through a real server and the dial-back.
+
 ## 2026-10-03: `bash` runs commands in the background; `task_output` and `task_stop` read and end them by ID
 
 Chapters: `spec/plugins.md` (Workspace, sandbox tools, and processes: the tools, the executor's

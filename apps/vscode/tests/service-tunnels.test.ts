@@ -250,6 +250,19 @@ test("bodies far above 16 MiB cross in both directions", { timeout: 30_000 }, as
   assert.ok(download.equals(Buffer.alloc(LARGE, 9)));
 });
 
+test("a local service on an IPv6 wildcard keeps its port, so a tunnel on the same machine does not loop into itself", { timeout: 30_000 }, async (t) => {
+  const { serve, client, tunnels } = await setup(t);
+  const local = createHttpServer((_request: IncomingMessage, response: ServerResponse) => response.end("the service"));
+  await new Promise<void>((resolve) => local.listen(0, "::", resolve));
+  t.after(() => new Promise<void>((resolve) => local.close(() => resolve())));
+  const { port } = local.address() as AddressInfo;
+  serve(port);
+  const tunnel = await tunnels.open("stub", client, target(port));
+  assert.notEqual(tunnel, port);
+  const response = await fetch(`http://127.0.0.1:${tunnel}/`, { headers: { Connection: "close" } });
+  assert.equal(await response.text(), "the service");
+});
+
 test("a taken local port leads to a free one, a refused port opens nothing", async (t) => {
   const { serve, client, tunnels } = await setup(t);
   const port = await freePort();

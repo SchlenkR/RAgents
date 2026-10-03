@@ -448,8 +448,9 @@ where the run works:
 - In VS Code, every port is a button that opens the service in your browser. If the run works on
   this window's workstation, or on the server the extension started itself, it opens
   `http://localhost:<port>/` directly. Otherwise the extension forwards it, as VS Code Remote does:
-  it listens on `127.0.0.1` with the same port number if that is free on your machine, otherwise
-  with a free one, and passes every connection through the server to the run's machine. A second
+  it listens on `127.0.0.1` with the same port number if that is free on your machine and no local
+  service answers on it, otherwise with a free one, and passes every connection through the server to
+  the run's machine. A second
   click reuses the forwarding. It ends when the process or the run stops, when you disconnect the
   server, and when VS Code closes; the `RAgents` output channel lists each connection when it opens
   and closes. Forwarding needs the right `runs.inspect` besides reading the processes.

@@ -3572,7 +3572,8 @@ Remote port forwarding. A service on its own machine opens directly as `http://l
 the window's own workstation (the binding names its ID) and on the server when that is the
 extension's own local host. Every other service gets a tunnel: the extension first asks the server
 whether a process of the run listens on the port, then listens with TCP on `127.0.0.1` with the same
-port number if it is free there, otherwise a free one, and opens `http://localhost:<local port>/` with
+port number if it is free there and nothing on this machine answers on it on `127.0.0.1` or `[::1]`,
+otherwise a free one, and opens `http://localhost:<local port>/` with
 `vscode.env.openExternal`; a second click reuses the tunnel. Every accepted connection becomes one
 byte stream through the server the run belongs to, and the extension pipes its bytes unchanged in
 both directions, so HTTP with bodies of any size, server-sent events, WebSockets, and every other
@@ -4413,10 +4414,11 @@ right) returns the archive; a different version is 404. The counterpart is `rage
   every byte crosses the server, and a new connection waits until its stream is open, one call over
   the message layer plus two WebSocket handshakes. A viewer with only a browser gets no tunnel: a
   port on a workstation stays without a link, and only the VS Code extension forwards
-  (`docs/concepts/browser-service-tunnel.md`). The tunnel listens on `127.0.0.1` only, while the
-  browser opens `localhost`; a local process listening on `[::1]` with the same port number can
-  answer instead. Absolute addresses that the service builds from its port fit only while the local
-  port keeps the service's number. One scan of the process table answers for two seconds, so a port
+  (`docs/concepts/browser-service-tunnel.md`). The tunnel checks only when it opens whether a local
+  service answers on the port: a local process that starts listening on `[::1]` with the same port
+  number afterwards can answer instead, because the tunnel listens on `127.0.0.1` only. The check
+  opens and closes one connection to such a service. Absolute addresses that the service builds from
+  its port fit only while the local port keeps the service's number. One scan of the process table answers for two seconds, so a port
   that a foreign process takes over right after the run's process ended can still be reached within
   that time. Only the server notices a silent leg: an extension or workstation whose server vanished
   without closing the connection keeps its local connection until TCP gives up. A reverse proxy in
