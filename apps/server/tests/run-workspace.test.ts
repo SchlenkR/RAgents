@@ -118,7 +118,7 @@ test("a run bound to a workstation names the bound folder, creates nothing on th
     assert.equal(workspace.cwd, "/home/example/project");
     const local = /is on the workstation Laptop, not on the server; it is reachable only through the run's executor/;
     await assert.rejects(workspace.currentRoot(), local);
-    assert.deepEqual(runtime.placementOf("remote"), { machine: "client", folder: "existing" });
+    assert.deepEqual(runtime.placementOf("remote"), { machine: "client", workstation: { client: CLIENT, label: "Laptop" }, folder: "existing" });
     assert.deepEqual(notes, ["Workspace: /home/example/project (project folder on the workstation Laptop)"]);
     assert.equal(await stat(path.join(root, "sessions")).catch(() => undefined), undefined);
     await assert.rejects(runtime.sandbox.execute("remote", "read", { file_path: "a.txt" }), (error: unknown) =>
@@ -163,6 +163,19 @@ test("the agent tool of a bound run runs in the same folder the prompt names", a
     assert.equal(await agentTool(runtime, "remote", "read", { file_path: "a.txt" }), "read done");
     assert.deepEqual(calls, [{ operation: "read", cwd: "/home/example/project", input: { file_path: "a.txt" } }]);
     assert.equal(calls[0].cwd, workspace.cwd);
+  } finally {
+    await remove();
+  }
+});
+
+test("the placement names the workstation with its current label while it is signed in", async () => {
+  const clients = new WorkspaceClientRegistry([]);
+  const { runtime, remove } = await fixture({ clients, runState: () => runStateWith(WORKSPACE_BINDING_OPTION_ID, laptopProject, "example") });
+  try {
+    assert.deepEqual(runtime.placementOf("remote"), { machine: "client", workstation: { client: CLIENT, label: "Laptop" }, folder: "existing" });
+    await clients.register(CLIENT, { label: "Renamed laptop", hostname: "laptop", platform: "linux", folders: ["/home/example/project"], runsDirectory: RUNS, ripgrep: false },
+      WORKSPACE_EXECUTOR_VERSION, [], workstationConnection([]));
+    assert.deepEqual(runtime.placementOf("remote"), { machine: "client", workstation: { client: CLIENT, label: "Renamed laptop" }, folder: "existing" });
   } finally {
     await remove();
   }
@@ -405,8 +418,8 @@ test("each combination of machine and folder has its own placement, and an older
   try {
     assert.deepEqual(runtime.placementOf("server-fresh"), { machine: "server", folder: "fresh" });
     assert.deepEqual(runtime.placementOf("server-existing"), { machine: "server", folder: "existing" });
-    assert.deepEqual(runtime.placementOf("client-existing"), { machine: "client", folder: "existing" });
-    assert.deepEqual(runtime.placementOf("client-fresh"), { machine: "client", folder: "fresh" });
+    assert.deepEqual(runtime.placementOf("client-existing"), { machine: "client", workstation: { client: CLIENT, label: "Laptop" }, folder: "existing" });
+    assert.deepEqual(runtime.placementOf("client-fresh"), { machine: "client", workstation: { client: CLIENT, label: "Laptop" }, folder: "fresh" });
     assert.deepEqual(runtime.placementOf("old-fresh"), runtime.placementOf("server-fresh"));
     assert.deepEqual(runtime.placementOf("old-path"), runtime.placementOf("server-existing"));
     assert.deepEqual(runtime.placementOf("old-client"), runtime.placementOf("client-existing"));
@@ -492,7 +505,7 @@ test("a contribution fills the new folder on the workstation once, and a failed 
     const workspace = await runtime.resolve("remote", (text) => notes.push(text));
     assert.deepEqual(notes, [`Workspace: ${folder} (Git worktree per run on the workstation Laptop)`]);
     assert.equal(workspace.description, `# Working directory\n\nYour worktree ${folder} on Laptop.`);
-    assert.deepEqual(runtime.placementOf("remote"), { machine: "client", folder: "fresh", kind: "example.worktree" });
+    assert.deepEqual(runtime.placementOf("remote"), { machine: "client", workstation: { client: CLIENT, label: "Laptop" }, folder: "fresh", kind: "example.worktree" });
     await assert.rejects(agentTool(runtime, "remote", "read", { file_path: "a.txt" }), /git fails/);
     assert.deepEqual(calls.map((call) => call.operation), ["runFolder.create", "commands.run", "runFolder.remove"]);
     assert.equal(await agentTool(runtime, "remote", "read", { file_path: "a.txt" }), "read done");
@@ -523,7 +536,7 @@ test("a folder that already exists on the workstation gets no steps again, for i
   try {
     assert.equal(await agentTool(runtime, "remote", "read", { file_path: "a.txt" }), "read done");
     assert.deepEqual(calls.map((call) => call.operation), ["runFolder.create", "read"]);
-    assert.deepEqual(runtime.placementOf("remote"), { machine: "client", folder: "fresh" }, "no kind, no id");
+    assert.deepEqual(runtime.placementOf("remote"), { machine: "client", workstation: { client: CLIENT, label: "Laptop" }, folder: "fresh" }, "no kind, no id");
   } finally {
     await remove();
   }

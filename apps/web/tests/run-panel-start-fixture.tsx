@@ -24,6 +24,7 @@ const host: RunPanelHost = {
   requestLogout() {},
   openExternal() {},
   openPage() {},
+  openService() {},
   onCommand(listener) { commands.add(listener); return () => { commands.delete(listener); }; },
   notify(message) { fixture.notifications.push(message); },
 };

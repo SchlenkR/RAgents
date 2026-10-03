@@ -102,6 +102,7 @@ test("files tab, process view and language servers check workspace access before
     ["ragents.workspace.browse.preview", { runId, root: "workspace", path: ".env" }],
     ["ragents.processes.snapshot", { runId }],
     ["ragents.processes.stop", { runId, processId: `1-${"0".repeat(64)}` }],
+    ["ragents.processes.forward", { runId, port: 5173, request: null }],
     ...snapshotMethods.map((method) => [method, { runId }] as const),
     ["ragents.lsp-roslyn.solutions", { runId }],
     ["ragents.lsp-roslyn.switch", { runId, root: null }],

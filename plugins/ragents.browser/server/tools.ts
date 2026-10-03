@@ -25,7 +25,8 @@ const snapshotSchema = Type.Object({
 
 const emptySchema = Type.Object({}, { additionalProperties: false });
 const targetInputSchema = Type.Object({ target: targetSchema }, { additionalProperties: false });
-const screenshotDescription = "Capture the real browser page into this run's document library. The returned URL and Markdown display it to the user. Call browser_view_screenshot to inspect the latest capture as an image without copying a path.";
+const screenshotDescription = "Capture the real browser page as a PNG file where filename names it, by default a new file under @documents/browser/. "
+  + "Name filename next to the report that shows it and embed it with a path relative to the report. Call browser_view_screenshot to see the latest capture as an image.";
 
 export const createBrowserFunctions = (browser: RunBrowser): RunFunction[] => [
   defineRunFunction({
@@ -132,17 +133,22 @@ export const createBrowserFunctions = (browser: RunBrowser): RunFunction[] => [
     name: "browser_take_screenshot",
     label: "Capture browser",
     description: screenshotDescription,
-    schema: Type.Object({ label: Type.Optional(Type.String({ maxLength: 200, description: "Name of the capture in the document library; defaults to Browser screenshot." })), fullPage: Type.Optional(Type.Boolean({ description: "Capture the whole scrollable page instead of the viewport; defaults to false." })) }, { additionalProperties: false }),
-    resultSchema: Type.Object({
-      name: Type.String(),
-      path: Type.String(),
-      url: Type.String(),
-      markdown: Type.String(),
-      capturedAt: Type.String(),
+    schema: Type.Object({
+      label: Type.Optional(Type.String({ maxLength: 200, description: "Name of the capture in the run's browser evidence; defaults to Browser screenshot." })),
+      filename: Type.Optional(Type.String({
+        minLength: 1,
+        description: "Where the PNG goes, named as read names a file: relative to the working directory on the machine where the browser runs, "
+          + "or starting with @documents, e.g. @documents/review/shots/home.png; defaults to a new file under @documents/browser/.",
+      })),
+      fullPage: Type.Optional(Type.Boolean({ description: "Capture the whole scrollable page instead of the viewport; defaults to false." })),
     }, { additionalProperties: false }),
+    resultSchema: Type.String(),
     available: alwaysAvailable,
     executionMode: "sequential",
-    run: ({ caller, signal }, toolCallId, input) => browser.takeScreenshot(caller.runId, input, { signal, toolCallId }),
+    run: async ({ caller, signal }, toolCallId, input) => {
+      const { reference } = await browser.takeScreenshot(caller.runId, input, { signal, toolCallId });
+      return input.filename === undefined ? `Saved the screenshot as ${reference}.` : "Saved the screenshot.";
+    },
   }),
   defineRunFunction({
     name: "browser_view_screenshot",
@@ -152,16 +158,16 @@ export const createBrowserFunctions = (browser: RunBrowser): RunFunction[] => [
     resultSchema: Type.String(),
     available: alwaysAvailable,
     executionMode: "sequential",
-    run: async ({ caller, signal }) => {
+    run: async ({ caller, signal }, toolCallId) => {
       signal?.throwIfAborted();
-      await browser.image(caller.runId);
+      await browser.image(caller.runId, { signal, toolCallId });
       return "The latest browser screenshot of this run is available.";
     },
   }),
   defineRunFunction({
     name: "browser_close",
     label: "Close browser",
-    description: "Close this run's browser and discard its cookies. Saved screenshots remain in the document library.",
+    description: "Close this run's browser and discard its cookies. Saved screenshots remain where they were stored.",
     schema: emptySchema,
     resultSchema: Type.Object({ closed: Type.Boolean() }, { additionalProperties: false }),
     available: alwaysAvailable,
@@ -177,7 +183,7 @@ export const createBrowserImageContribution = (browser: RunBrowser): AgentContri
     try {
       call.signal?.throwIfAborted();
       if (!call.modelReadsImages) throw new Error("The selected model does not support images. View the screenshot in the documents or choose an image-capable model.");
-      const data = (await browser.image(runId)).toString("base64");
+      const data = (await browser.image(runId, call.signal ? { signal: call.signal } : {})).toString("base64");
       call.signal?.throwIfAborted();
       return { content: [
         { type: "text", text: "Latest browser screenshot of this run." },

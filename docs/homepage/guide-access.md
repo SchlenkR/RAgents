@@ -64,7 +64,7 @@ owner's alone even for reading: the workspace files in the Files tab, the proces
 language-server state are refused to everyone else, including `runs.read.all`
 (`run-workspace-owner-only`). The run list asks nothing from such a
 workspace on their behalf, and web and VS Code hide what needs it; the Files tab then shows only
-the server's file store.
+the server's document store.
 
 Only a signed-in user of a profile with `users` can register a workstation over the network. A
 server without users (open, `ACCESS_TOKEN`, or `anonymousUser`) has one owner for every client, so it

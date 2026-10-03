@@ -3,6 +3,13 @@ import { defineOperation } from "@ragents/engine/src/rpc/contract";
 
 export const documentsApiPrefix = "/api/plugins/ragents.documents";
 
+/** The alias of the document store, a root of the server in every binding. */
+export const DOCUMENTS_ALIAS = "@documents";
+
+/** The address of a file's bytes; the reference names the file as read does, so relative addresses inside a document follow URL semantics. */
+export const contentPathOf = (routePrefix: string, runId: string, reference: string): string =>
+  `${routePrefix}/runs/${encodeURIComponent(runId)}/raw/${reference.split("/").map(encodeURIComponent).join("/")}`;
+
 const fileEntry = Type.Object({
   path: Type.String({ minLength: 1 }),
   size: Type.Integer({ minimum: 0 }),

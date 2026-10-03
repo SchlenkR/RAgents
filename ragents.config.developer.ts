@@ -18,8 +18,10 @@ export const config = {
       "ragents.workspace",
       "ragents.product",
       "ragents.documents",
+      "ragents.browser",
       "ragents.ask",
       "ragents.todo",
+      "ragents.watch",
       "ragents.activity",
       "ragents.processes",
       "ragents.lsp-roslyn",
@@ -39,6 +41,7 @@ export const config = {
 
   "ragents.lsp-roslyn": {
     ROSLYN_LANGUAGE_SERVER: provisioned("ragents.lsp-roslyn", "roslyn/Microsoft.CodeAnalysis.LanguageServer.dll"),
+    ROSLYN_SOLUTION_ON_START: "on",
   },
   "ragents.lsp-fsharp": {
     FSHARP_LANGUAGE_SERVER: provisioned("ragents.lsp-fsharp", "fsautocomplete/fsautocomplete.dll"),

@@ -112,7 +112,7 @@ const toolNames = (events: readonly JournalEvent[], type: string): string[] => n
 
 const TASK = "Read README.md, change the greeting line in src/greeter.ts to 'Hello from VS Code',"
   + " run ls -1 src once, then typescript_open with root \".\" and afterwards typescript_diagnostics without paths,"
-  + " then document_write with a short report.";
+  + " then write a short report to @documents/report.md.";
 
 const SLEEP_TASK = "Make exactly one tool call: bash with the command sleep 120. Nothing else.";
 
@@ -120,10 +120,10 @@ const SHORT_TASK = "Read README.md and run ls -1 src once. Then answer with one 
 
 const GREETING = "Hello from VS Code";
 
-const EXPECTED_TOOLS = ["read", "edit", "bash", "typescript_open", "typescript_diagnostics", "document_write"];
+const EXPECTED_TOOLS = ["read", "edit", "bash", "typescript_open", "typescript_diagnostics", "write"];
 
-/** document_write belongs to ragents.documents and stays in the server; only these tools run in the workspace. */
-const EXECUTOR_TOOLS = EXPECTED_TOOLS.filter((tool) => tool !== "document_write");
+/** The report goes to @documents on the server; only these tools run in the workspace. */
+const EXECUTOR_TOOLS = EXPECTED_TOOLS.filter((tool) => tool !== "write");
 
 /** The second path: the extension as a workspace with client binding, from registration to disconnect. */
 const checkWorkspaceBinding = async (api: RAgentsApi, connection: string, requested: string, report: Record<string, unknown>): Promise<void> => {

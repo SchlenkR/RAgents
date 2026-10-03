@@ -1,5 +1,146 @@
 # Decisions
 
+## 2026-10-03: The document store is the server root `@documents`; `copy` and one content route by reference replace `document_write`
+
+Chapters: `spec/plugins.md` (Ownership per facet; Workspace, sandbox tools, and processes; Browser
+checks; Open limits), `spec/profiles.md` (Run ownership, wording); usage: `usage.md` (Run chat and
+inspection); operations: `operations.md` (data folder).
+
+**Why.** A run bound to a workstation wrote a Markdown report with browser screenshots, and every
+image in Documents was broken. The viewer rendered Markdown without a base, so relative image
+addresses resolved against the app's own address, in every binding; the server read project files
+only as text up to 256 KB; nothing led from the store into the project folder, and `document_write
+{file_path}` copied only text and only into the store; and `browser_take_screenshot` returned
+`name`, `path` (a UUID path in the store), `url`, `markdown`, and `capturedAt`, so the model copied
+the UUID path into its report, against the rules that models copy no paths and tool results stay
+lean.
+
+**Decision.** The server holds journal and store, the machine of the binding holds project folder,
+processes, and browser, viewers talk only to the server, and the alias, not an absolute path,
+decides the machine; the four bindings collapse into "run root on the server" and "run root on a
+workstation".
+
+- `ragents.documents` registers its store as the writable server root `@documents`
+  (`RAGENTS_DOCUMENTS_DIR` for a bash on the server), like `@actors`. `documentStoreToken`,
+  `directoryFor`, and `DOCUMENTS_DIR` stay unchanged. File tools, `bash` with `cwd`, and
+  `show_document` reach it in every binding, and the workspace description names it from
+  `serverRoots()`.
+- `document_write` is gone: writing text is `write` with `@documents/...`, copying is `copy`.
+  `show_document` keeps `file_path | content` and drops `storePath`. A breaking change without a
+  shim; old fields are rejected as unknown, as on 2026-10-02.
+- The executor gets `bytes.read` and `bytes.write` in the module of the sandbox tools: a file, or
+  with `recursive` a folder, as Base64, at most 16 MiB and 1000 files per call, which fits the
+  32 MiB message limit of a workstation's connection; the errors name the limit. Writing runs in
+  the lock of `write`. `WORKSPACE_EXECUTOR_VERSION` is 10.
+- `copy {source, destination}` belongs to `ragents.workspace` and counts as a writing workspace
+  tool: it reads at the source's machine and writes at the destination's, files and folders,
+  writable roots only, and answers "Copied N files.".
+- One content route by reference, `GET .../runs/<runId>/raw/<reference>`, replaces
+  `files/content?path=` and `workspace/content?path=`, with the rights per root as before; being a
+  path, relative addresses inside a document follow plain URL semantics.
+- The viewer resolves the addresses of a document against its reference: Markdown destinations are
+  replaced at the positions `mdast-util-from-markdown` (with GFM) reports, HTML gets a `<base href>`,
+  image documents load from the route. A `resolveUrl` hook in quassel would replace the rewrite
+  (`TODO.md`).
+- `browser_take_screenshot` takes `filename` like the Playwright MCP tool (the 2026-10-02 entry had
+  left it out because nobody needed it), by default `@documents/browser/<id>.png`; the result names
+  only the reference it generated. Capture list entries carry `id` and `reference`; entries of the
+  former shape `{ name, path }` are read as `@documents/browser/<id>.png`.
+- Old journals load unchanged: a replay executes no tool, an old `document_write` call stays an
+  ordinary tool line, and an old `show_document` call with `storePath` opens no document card, as
+  for `path` on 2026-10-02; displays of `content` still do.
+
+Two further details: the frame of an HTML document keeps its sandbox without scripts but gets
+`allow-same-origin`, because Chrome sends no `SameSite=Lax` sign-in cookie with the image requests
+of a sandboxed `srcdoc` frame with an opaque origin (measured with Chromium 1228); and the content
+route answers with `Content-Security-Policy: sandbox` and `nosniff`, because it now serves project
+files of every type on the app's origin.
+
+Rejected: a regular expression over raw Markdown; writing a screenshot at the browser's machine
+directly, which would be a second path beside `bytes.write`; reading the store in the route
+directly on the server, a local branch beside the executor; a separate route per root, because
+relative addresses need one path space.
+
+Verified with `packages/workspace-executor/tests/bytes.test.ts` (roots, folders, links, limits,
+lock), `apps/server/tests/document-content.test.ts` (route rights per root, binary, errors, limit,
+`copy`), `show-document-tool.test.ts`, `browser-tools.test.ts` (`filename`, lean result, former
+capture list), `browser-live.test.ts` (real Chrome), `workspace-foreign-machine.test.ts` (`copy`
+across machines, a screenshot stored on the workstation, `show_document`, the root description),
+`profile-composition.test.ts` (no tool, prompt, or skill names the removed forms), and
+`apps/web/tests/document-links.test.ts` and `documents-presenter.test.ts`.
+
+## 2026-10-03: A service of a run opens on the machine it runs on; VS Code forwards it
+
+Chapters: `spec/plugins.md` (Ownership per facet: `placementOf`; Web as plugin host: the VS Code
+host bridge; Workspace, sandbox tools, and processes: process module, opening a service; Open
+limits); usage: `usage.md` (Open and stop services and background processes).
+
+**Why.** The port link of the process rail was `http://<host name of the page>:<port>/`. It always
+pointed to the server's machine, also for a process on a workstation, and behind a reverse proxy or
+tunnel it reached nothing, because only the server's own HTTPS host is reachable there. It worked
+only when server, workstation, and viewer were one machine. The agent side was right and stays: the
+run's browser runs on the bound machine. Viewers talk only to the server, and the server reaches a
+workstation only through the executor connection the workstation opened; no DNS or proxy change may
+be required.
+
+**Decision.** The server forwards over the executor connection. `ragents.processes.forward`
+(`runId`, `port`, `request` with method, path, header pairs, and a Base64 body, or `null` for a mere
+check) requires `runs.read`, `runs.inspect`, and `ragents.processes.read` plus workspace access,
+because it reaches into the machine like the Files tab, and goes to the run's executor as the new
+operation `processes.forward`. The process module forwards only to a port that a process of the run
+listens on, from the rail's scan, which answers for two seconds so that the files of a page share
+it; it calls the listening address on loopback (a wildcard on `127.0.0.1`, then `::1`), follows no
+redirect, drops hop-by-hop headers, sets `Host` to `localhost:<port>`, buffers at most 16 MiB per
+body, and stops after 60 seconds; every error names its cause. `WORKSPACE_EXECUTOR_VERSION` is 10,
+because an older workstation does not know the operation. VS Code is the forwarding client, as with
+VS Code Remote: the run panel hands the service to its host with the new bridge message
+`openService`, and the extension opens a service on its own machine directly, otherwise through a
+local listener on `127.0.0.1` with the same port number if it is free, which forwards every request
+through the run's server connection, logs it, and ends when the server says the port, the run, or
+the access is gone (also asked every five seconds), when the connection ends, and when the
+extension deactivates. The browser keeps the direct link for a run on the server and shows a port on
+a workstation without a link, with the machine in its tooltip. For that the snapshot names the
+machine, and `WorkspacePlacement` carries the workstation's ID and current label.
+
+Two details follow from the boundaries. The extension names no plugin (`apps/server/tests/core-boundary.test.ts`),
+so it cannot import the contract of `ragents.processes`: `openService` carries the forwarding
+method's ID, which the process plugin supplies, and the host contract defines the request and
+response shape (`ServiceForwardInput`, `ServiceForwardResult`) that the method fulfills. And "on its
+own machine" also covers a run on the server when the server is the extension's own local host;
+a tunnel there would only occupy a second port for the same machine.
+
+Rejected: a subdomain per port, because it needs wildcard DNS and certificates; a path prefix per
+port on the server, because apps with absolute URLs break under it; following redirects in the
+executor, because the browser has to see a redirect to change its address; reading the binding from
+the workspace plugin's run metadata in the web, because the process plugin would depend on another
+plugin's shape; the extension observing the process channel, because it would have to know the
+plugin's messages. WebSocket forwarding and a tunnel for viewers with only a browser stay open
+(`TODO.md`). Verified with `packages/workspace-executor/tests/forward.test.ts` (own port, foreign
+port refused, headers, binary bodies, size limits, redirect not followed, wildcard and IPv6,
+unreachable and silent services, scan reuse), `apps/server/tests/run-processes.test.ts` (rights and
+workspace access of the method), `workspace-owner-access.test.ts`, `workspace-foreign-machine.test.ts`
+(a service on a workstation through its connection), `run-workspace.test.ts` (placement with the
+current label), `apps/web/tests/run-processes.test.ts` (link rules; the browser fixture with a port
+on a workstation), `run-panel-host.test.ts` (bridge message), and
+`apps/vscode/tests/service-tunnels.test.ts` (against the stub server: same or free port, reuse,
+headers and binary bodies, refusals with their status, end by check, connection, and deactivation,
+413 and 501).
+
+## 2026-10-03: The `developer` profile loads the C# solution at run start and brings the browser
+
+Chapters: `spec/profiles.md` (Profiles); handbook: `development.md` (The profiles).
+
+**Why.** The programming profile is the one a developer starts locally from VS Code (a connection
+with `profileFile`) without a central server. It lacked browser checks and watchers, and C#
+diagnostics only started once the coordinator called `roslyn_open`, so a project-specific copy
+was the only way to get a working default.
+
+**Decision.** `ragents.config.developer.ts` adds `ragents.browser` and `ragents.watch` and sets
+`ROSLYN_SOLUTION_ON_START` to `on`: one solution loads directly, several are offered as a question,
+none starts nothing. TypeScript and F# stay on demand. Without `BROWSER_EXECUTABLE_PATH` the
+browser is the provisioned Chromium, so the file names no machine path.
+
+
 ## 2026-10-02: Rooms delimit parts of a run; every run script start opens one
 
 Chapters: `spec/core.md` (Rooms; IDs, handles, and creating actors again; Actor roster and

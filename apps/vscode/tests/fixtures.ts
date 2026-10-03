@@ -17,6 +17,8 @@ import { coreContracts, type HostBootstrap } from "../../server/src/api/contract
 import { RpcDispatcher } from "../../server/src/rpc/dispatcher";
 import { RpcHttpTransport } from "../../server/src/rpc/http-transport";
 import { workspaceClientContracts, workspaceContracts, type WorkspaceClientDescription } from "../../../plugins/ragents.workspace/contract";
+import { processesContracts } from "../../../plugins/ragents.processes/contract";
+import type { OperationInput, OperationResult } from "../../../packages/ragents/src/rpc/contract";
 import { WORKSPACE_EXECUTOR_VERSION, type ExecutorContributionRevision } from "@ragents/workspace-executor";
 import type { ListedSession } from "../../web/src/api";
 import type { PublicPluginProfile } from "../../../packages/ragents/src/plugin-types";
@@ -130,6 +132,8 @@ export const startStubServer = async (options: {
   version?: string | null;
   /** This is how the server rejects every registration of a workspace, e.g. with a different executor revision. */
   refuseRegistration?: { code: string; message: string };
+  /** The forwarding of the process plugin; without it the stub does not know the method. */
+  forward?: (input: OperationInput<typeof processesContracts.forward>) => OperationResult<typeof processesContracts.forward> | Promise<OperationResult<typeof processesContracts.forward>>;
 } = {}): Promise<StubServer> => {
   const requests: StubServer["requests"] = [];
   const workspaceClients = new Map<string, WorkspaceClientDescription>();
@@ -173,6 +177,7 @@ export const startStubServer = async (options: {
       workspaceConnections.delete(id);
       return null;
     }),
+    ...(options.forward ? [implement(processesContracts.forward, options.forward)] : []),
   ]);
   const channels = new ChannelContributionRegistry();
   const channel = (key: string, send: () => void): (() => void) => {

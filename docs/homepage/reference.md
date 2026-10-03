@@ -1856,7 +1856,7 @@ Available in every model turn.
 
 Close browser
 
-Close this run's browser and discard its cookies. Saved screenshots remain in the document library.
+Close this run's browser and discard its cookies. Saved screenshots remain where they were stored.
 
 Owner: ragents.browser. Scope: per-turn. Native model tool: yes. Availability: always.
 
@@ -2322,7 +2322,7 @@ Available in every model turn.
 
 Capture browser
 
-Capture the real browser page into this run's document library. The returned URL and Markdown display it to the user. Call browser_view_screenshot to inspect the latest capture as an image without copying a path.
+Capture the real browser page as a PNG file where filename names it, by default a new file under @documents/browser/. Name filename next to the report that shows it and embed it with a path relative to the report. Call browser_view_screenshot to see the latest capture as an image.
 
 Owner: ragents.browser. Scope: per-turn. Native model tool: yes. Availability: always.
 
@@ -2337,7 +2337,12 @@ Available in every model turn.
     "label": {
       "type": "string",
       "maxLength": 200,
-      "description": "Name of the capture in the document library; defaults to Browser screenshot."
+      "description": "Name of the capture in the run's browser evidence; defaults to Browser screenshot."
+    },
+    "filename": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Where the PNG goes, named as read names a file: relative to the working directory on the machine where the browser runs, or starting with @documents, e.g. @documents/review/shots/home.png; defaults to a new file under @documents/browser/."
     },
     "fullPage": {
       "type": "boolean",
@@ -2352,32 +2357,7 @@ Available in every model turn.
 
 ```json
 {
-  "type": "object",
-  "required": [
-    "name",
-    "path",
-    "url",
-    "markdown",
-    "capturedAt"
-  ],
-  "properties": {
-    "name": {
-      "type": "string"
-    },
-    "path": {
-      "type": "string"
-    },
-    "url": {
-      "type": "string"
-    },
-    "markdown": {
-      "type": "string"
-    },
-    "capturedAt": {
-      "type": "string"
-    }
-  },
-  "additionalProperties": false
+  "type": "string"
 }
 ```
 
@@ -2532,15 +2512,15 @@ Available in every model turn.
 }
 ```
 
-### document_write
+### copy
 
-Store document
+Copy
 
-Stores a file in this run's file store, from text you wrote or as an unchanged copy of a file read reaches.
+Copy a file or a folder within the roots of the run, unchanged and binary-safe, also between the workstation and the server.
 
-Documents, reports and intermediate products belong in the file store, not in the working directory - that only holds what belongs to the task itself. The user sees the store in the "Documents" area, grouped by subdirectory. To put an existing file into the store, name it by its path and never retype its content; the copy is read where the workspace lies, also on a workstation. The store is not a bash path: it does not live in the workspace and can only be written through this tool.
+Use it to move evidence and reports between the working directory and @documents instead of retyping files. The destination names the copy itself, not a folder to put it in; a folder is copied with everything in it, and existing files at the destination are overwritten. One call carries at most 16 MiB and 1000 files.
 
-Owner: ragents.documents. Scope: per-turn. Native model tool: yes. Availability: always.
+Owner: ragents.workspace. Scope: per-turn. Native model tool: yes. Availability: always.
 
 Available in every model turn.
 
@@ -2550,22 +2530,19 @@ Available in every model turn.
 {
   "type": "object",
   "required": [
-    "storePath"
+    "source",
+    "destination"
   ],
   "properties": {
-    "storePath": {
+    "source": {
       "type": "string",
       "minLength": 1,
-      "description": "Where the file goes in this run's file store, one subdirectory per topic, e.g. topic/report.md"
+      "description": "The file or folder to copy, named exactly as read names a file: relative to the working directory, absolute in a root of the run, or starting with an alias such as @documents"
     },
-    "content": {
-      "type": "string",
-      "description": "The complete content of the file, as text you wrote yourself. content and file_path exclude each other: valid are { storePath, content } for text you wrote and { storePath, file_path } for a copy of an existing file; exactly one of the two must be set."
-    },
-    "file_path": {
+    "destination": {
       "type": "string",
       "minLength": 1,
-      "description": "An existing file to copy unchanged, named as read names it: relative to the working directory, absolute, or starting with a workspace alias such as @actors. content and file_path exclude each other: valid are { storePath, content } for text you wrote and { storePath, file_path } for a copy of an existing file; exactly one of the two must be set."
+      "description": "Where the copy goes, named exactly as read names a file: relative to the working directory, absolute in a root of the run, or starting with an alias such as @documents; only a writable root, never @skills"
     }
   },
   "additionalProperties": false
@@ -3991,9 +3968,9 @@ For the primary actor with execution.stopOwned in its own run.
 
 Show document
 
-Shows a file or a document completely in the interface, for any file read reaches, a file of this run's file store, or text you wrote.
+Shows a file or a document completely in the interface: any file read reaches, also an image, or text you wrote.
 
-ALWAYS use this tool when the user wants to see the content of a file or a longer document, instead of copying or paraphrasing it in the chat answer. Name an existing file by its path and never retype its content: the display reads the file itself, where the workspace lies, also on a workstation. Text goes in as content only when you produced it yourself.
+ALWAYS use this tool when the user wants to see the content of a file or a longer document, instead of copying or paraphrasing it in the chat answer. Name an existing file by its path and never retype its content: the display reads the file itself, where it lies, also on a workstation or under @documents. Relative links and images inside a shown document resolve against its folder. Text goes in as content only when you produced it yourself.
 
 Owner: ragents.documents. Scope: per-turn. Native model tool: yes. Availability: always.
 
@@ -4015,16 +3992,11 @@ Available in every model turn.
     "file_path": {
       "type": "string",
       "minLength": 1,
-      "description": "The file to show, named as read names it: relative to the working directory, absolute, or starting with a workspace alias such as @actors; the display reads it, so its content is never retyped. file_path, storePath and content exclude each other: valid are { title, file_path } for a file read reaches, { title, storePath } for a file of the file store and { title, content } for text you wrote, each with an optional format; exactly one of the three must be set."
-    },
-    "storePath": {
-      "type": "string",
-      "minLength": 1,
-      "description": "A file of this run's file store, relative to the store as document_write stored it, e.g. topic/report.md. file_path, storePath and content exclude each other: valid are { title, file_path } for a file read reaches, { title, storePath } for a file of the file store and { title, content } for text you wrote, each with an optional format; exactly one of the three must be set."
+      "description": "The file to show, named as read names it: relative to the working directory, absolute, or starting with an alias such as @documents; the display reads it, so its content is never retyped. file_path and content exclude each other: valid are { title, file_path } for a file read reaches and { title, content } for text you wrote, each with an optional format; exactly one of the two must be set."
     },
     "content": {
       "type": "string",
-      "description": "The complete text you produced yourself; never the content of an existing file, which file_path or storePath names instead. file_path, storePath and content exclude each other: valid are { title, file_path } for a file read reaches, { title, storePath } for a file of the file store and { title, content } for text you wrote, each with an optional format; exactly one of the three must be set."
+      "description": "The complete text you produced yourself; never the content of an existing file, which file_path names instead. file_path and content exclude each other: valid are { title, file_path } for a file read reaches and { title, content } for text you wrote, each with an optional format; exactly one of the two must be set."
     },
     "format": {
       "anyOf": [

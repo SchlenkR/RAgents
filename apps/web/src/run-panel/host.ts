@@ -2,7 +2,7 @@ import type { RunAppNavigation } from "../run-apps";
 import { createContext, createElement, useContext, type PropsWithChildren } from "react";
 import { OfferedMachinesProvider, type OfferedMachines } from "../offered-machines";
 import type { RunPanelHostKind } from "./run-panel-location";
-import { isHostRunPanelMessage, type RunPanelHostMessage, type RunPanelTheme, type HostRunPanelMessage } from "./host-contract";
+import { isHostRunPanelMessage, type RunPanelHostMessage, type RunPanelTheme, type HostRunPanelMessage, type RunService } from "./host-contract";
 
 export interface RunPanelHost extends RunAppNavigation {
   readonly kind: RunPanelHostKind;
@@ -14,6 +14,8 @@ export interface RunPanelHost extends RunAppNavigation {
   openExternal(url: string): void;
   /** Shows a web page in the host, for example as a tab in the VS Code Simple Browser. */
   openPage(url: string, title: string): void;
+  /** Opens a service of a run in the browser; VS Code reaches it directly on its own machine, otherwise through the server. */
+  openService(service: RunService): void;
   onCommand(listener: (message: HostRunPanelMessage) => void): () => void;
   /** Tells the host that the panel is ready, has switched its run, or wants to go back to the Start page. */
   notify(message: Extract<RunPanelHostMessage, { type: "ready" | "runChanged" | "showStart" }>): void;
@@ -32,6 +34,7 @@ export function createBrowserHost(browser: Window): RunPanelHost {
     requestLogout: unsupported("Signing out through the host"),
     openExternal: (url) => { browser.open(url, "_blank", "noopener"); },
     openPage: unsupported("Showing a web page in the host"),
+    openService: unsupported("Forwarding a service of a run"),
     onCommand: () => () => undefined,
     notify: () => undefined,
   };
@@ -56,6 +59,7 @@ export function createVsCodeHost(browser: Window): RunPanelHost {
     requestLogout: () => post({ type: "logout" }),
     openExternal: (url) => post({ type: "openExternal", url }),
     openPage: (url, title) => post({ type: "openPage", url, title }),
+    openService: (service) => post({ type: "openService", ...service }),
     onCommand: (listener) => {
       commandListeners.add(listener);
       return () => { commandListeners.delete(listener); };

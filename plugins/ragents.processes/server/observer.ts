@@ -126,7 +126,7 @@ export class RunProcessObserver {
 
   #publish(watch: RunWatch, runId: string, message: RunProcessMessage): void {
     const serialized = JSON.stringify(message.kind === "snapshot"
-      ? { kind: message.kind, processes: message.snapshot.processes }
+      ? { kind: message.kind, machine: message.snapshot.machine, processes: message.snapshot.processes }
       : message);
     const changed = serialized !== watch.last;
     watch.last = serialized;

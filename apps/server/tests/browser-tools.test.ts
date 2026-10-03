@@ -1,11 +1,11 @@
 import assert from "node:assert/strict";
-import { mkdtemp, readFile, rm } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import test, { type TestContext } from "node:test";
 import type { Browser } from "playwright-core";
-import { isNativeTool } from "@ragents/engine";
-import { WorkspaceOperationExecutor, executorMachine, workspaceProcessContext } from "@ragents/workspace-executor";
+import { isNativeTool, type ToolScope } from "@ragents/engine";
+import { WorkspaceOperationExecutor, executorMachine, sandboxToolsModule, workspaceProcessContext } from "@ragents/workspace-executor";
 import { browserModule, type BrowserModuleOptions } from "../../../plugins/ragents.browser/executor/module.ts";
 import { RunBrowser } from "../../../plugins/ragents.browser/server/browser.ts";
 import { createBrowserFunctions, createBrowserImageContribution } from "../../../plugins/ragents.browser/server/tools.ts";
@@ -24,21 +24,26 @@ const site: Readonly<Record<string, StubDocument>> = {
   "/two": { title: "Second page", elements: [] },
 };
 
-/** The server part on top of the server's executor; the browser itself is a module of that executor. */
-const localBrowser = (options: BrowserModuleOptions, filesFor: (runId: string) => Promise<string> = async () => "/unused") => {
+/** The server part on top of the server's executor; the browser itself is a module of that executor, the run's store is its root @documents. */
+const localBrowser = (options: BrowserModuleOptions, folders: { project: string; documentsFor: (runId: string) => string } = { project: tmpdir(), documentsFor: () => "/unused" }) => {
   const executor = new WorkspaceOperationExecutor({
     contextFor: async (runId) => workspaceProcessContext({
-      runId, cwd: tmpdir(), root: tmpdir(), home: { home: tmpdir() }, logDirectory: tmpdir(), hostRoot: undefined,
+      runId, cwd: folders.project, root: folders.project, home: { home: tmpdir() }, logDirectory: tmpdir(), hostRoot: undefined,
+      additionalRoots: [{ directory: folders.documentsFor(runId), alias: "@documents" }],
     }),
-    modules: [browserModule(executorMachine("/unused"), { timeoutMs: 500, checkTimeoutMs: 50, ...options })],
+    modules: [sandboxToolsModule, browserModule(executorMachine("/unused"), { timeoutMs: 500, checkTimeoutMs: 50, ...options })],
   });
-  return { browser: new RunBrowser({ sandbox: executor, filesFor }), executor };
+  return { browser: new RunBrowser({ sandbox: executor, filesFor: async (runId) => folders.documentsFor(runId) }), executor };
 };
 
-const documentsIn = async (t: TestContext): Promise<string> => {
+/** A project folder and a store per run, each run's store created like the document store creates it. */
+const foldersIn = async (t: TestContext): Promise<{ project: string; documentsFor: (runId: string) => string; documents: string }> => {
   const directory = await mkdtemp(path.join(tmpdir(), "ragents-browser-documents-"));
   t.after(() => rm(directory, { recursive: true, force: true }));
-  return directory;
+  const project = path.join(directory, "project");
+  await Promise.all(["one", "two"].map((runId) => mkdir(path.join(directory, "documents", runId), { recursive: true })));
+  await mkdir(project);
+  return { project, documents: path.join(directory, "documents"), documentsFor: (runId) => path.join(directory, "documents", runId) };
 };
 
 test("browser tools carry the Playwright MCP names, declare typed results and their own native image display", () => {
@@ -54,7 +59,7 @@ test("browser tools carry the Playwright MCP names, declare typed results and th
   assert.deepEqual(fields("browser_select_option"), ["target", "values"]);
   assert.deepEqual(fields("browser_press_key"), ["key", "target"]);
   assert.deepEqual(fields("browser_resize"), ["width", "height"]);
-  assert.deepEqual(fields("browser_take_screenshot"), ["label", "fullPage"]);
+  assert.deepEqual(fields("browser_take_screenshot"), ["label", "filename", "fullPage"]);
   assert.deepEqual(fields("browser_check"), ["target", "text", "url", "count", "noErrors"]);
   const click = functions.find((entry) => entry.name === "browser_click");
   assert.deepEqual(Object.keys((click!.schema.properties as { target: { properties: object } }).target.properties), ["role", "name", "label", "text", "testId", "css", "frame", "nth", "first"]);
@@ -134,11 +139,12 @@ test("an already aborted browser open starts no process", async () => {
   assert.equal(launches, 0);
 });
 
-test("the server holds the evidence: check time by its clock, screenshots in its storage, viewport across the browser restart", async (t) => {
-  const documents = await documentsIn(t);
+test("the server holds the evidence: check time by its clock, screenshots under @documents, viewport across the browser restart", async (t) => {
+  const folders = await foldersIn(t);
+  const { documents } = folders;
   const stub = stubBrowser(site);
-  const { browser } = localBrowser({ launch: stub.launch }, async (runId) => path.join(documents, runId));
-  t.after(() => browser.shutdown());
+  const { browser, executor } = localBrowser({ launch: stub.launch }, folders);
+  t.after(async () => { await browser.shutdown(); await executor.shutdown(); });
 
   await browser.navigate("one", "http://localhost:4173/");
   assert.deepEqual(browser.evidence("one"), { url: "http://localhost:4173/", screenshots: [], currentScreenshots: [], errors: [] });
@@ -149,10 +155,10 @@ test("the server holds the evidence: check time by its clock, screenshots in its
   assert.equal(browser.evidence("one").checkedAt, checked.checkedAt);
 
   const shot = await browser.takeScreenshot("one", { label: "Saved" });
-  assert.match(shot.path, /^browser\/[a-f0-9-]{36}\.png$/);
-  assert.equal(await readFile(path.join(documents, "one", shot.path), "utf8"), "PNG 1920x1080");
+  assert.match(shot.reference, /^@documents\/browser\/[a-f0-9-]{36}\.png$/);
+  assert.equal(await readFile(path.join(documents, "one", shot.reference.slice("@documents/".length)), "utf8"), "PNG 1920x1080");
   assert.equal((await browser.image("one")).toString(), "PNG 1920x1080");
-  assert.match(shot.url, /^\/api\/plugins\/ragents.documents\/runs\/one\/files\/content\?path=browser/);
+  assert.equal(shot.url, `/api/plugins/ragents.documents/runs/one/raw/%40documents/browser/${shot.reference.slice("@documents/browser/".length)}`);
   await browser.snapshot("one");
   assert.deepEqual(browser.evidence("one"), {
     checkedAt: checked.checkedAt,
@@ -181,21 +187,60 @@ test("the server holds the evidence: check time by its clock, screenshots in its
   assert.equal(browser.evidence("one").url, undefined);
   await browser.navigate("one", "http://localhost:4173/");
   const narrow = await browser.takeScreenshot("one", { label: "Narrow" });
-  assert.equal(await readFile(path.join(documents, "one", narrow.path), "utf8"), "PNG 390x844");
+  assert.equal(await readFile(path.join(documents, "one", narrow.reference.slice("@documents/".length)), "utf8"), "PNG 390x844");
 
-  const restored = new RunBrowser({ sandbox: unusedSandbox, filesFor: async (runId) => path.join(documents, runId) });
+  const restored = new RunBrowser({ sandbox: executor, filesFor: async (runId) => path.join(documents, runId) });
   await restored.restore("one");
   assert.deepEqual(restored.evidence("one").screenshots.map((entry) => entry.name), ["Saved", "Narrow"]);
   assert.equal((await restored.image("one")).toString(), "PNG 390x844");
 });
 
 test("simultaneous screenshots of a run all end up in the screenshot list", async (t) => {
-  const documents = await documentsIn(t);
-  const { browser } = localBrowser({ launch: stubBrowser(site).launch }, async () => documents);
-  t.after(() => browser.shutdown());
+  const folders = await foldersIn(t);
+  const { browser, executor } = localBrowser({ launch: stubBrowser(site).launch }, folders);
+  t.after(async () => { await browser.shutdown(); await executor.shutdown(); });
   await browser.navigate("one", "http://localhost:4173/");
   await Promise.all(["A", "B", "C"].map((label) => browser.takeScreenshot("one", { label })));
-  const manifest = JSON.parse(await readFile(path.join(documents, "browser", ".captures.json"), "utf8")) as { name: string }[];
+  const manifest = JSON.parse(await readFile(path.join(folders.documentsFor("one"), "browser", ".captures.json"), "utf8")) as { name: string }[];
   assert.deepEqual(manifest.map((entry) => entry.name).sort(), ["A", "B", "C"]);
   assert.equal(browser.evidence("one").currentScreenshots.length, 3);
+});
+
+test("browser_take_screenshot stores the PNG where filename names it and returns only the reference it generated", async (t) => {
+  const folders = await foldersIn(t);
+  const { browser, executor } = localBrowser({ launch: stubBrowser(site).launch }, folders);
+  t.after(async () => { await browser.shutdown(); await executor.shutdown(); });
+  const screenshot = createBrowserFunctions(browser).find((entry) => entry.name === "browser_take_screenshot")!;
+  const scope = { caller: { runId: "one", actorId: "actor-1", turnId: "turn-1" }, signal: undefined } as unknown as ToolScope;
+  const take = (input: object) => screenshot.run(scope, "shot-1", input as never);
+  await browser.navigate("one", "http://localhost:4173/");
+
+  assert.equal(await take({ filename: "shots/home.png" }), "Saved the screenshot.");
+  assert.equal(await readFile(path.join(folders.project, "shots", "home.png"), "utf8"), "PNG 1920x1080");
+  assert.equal(await take({ label: "Report", filename: "@documents/review/shots/home.png" }), "Saved the screenshot.");
+  assert.equal(await readFile(path.join(folders.documentsFor("one"), "review", "shots", "home.png"), "utf8"), "PNG 1920x1080");
+  assert.match(String(await take({})), /^Saved the screenshot as @documents\/browser\/[a-f0-9-]{36}\.png\.$/);
+  assert.deepEqual(browser.evidence("one").screenshots.slice(0, 2), [
+    { name: "Browser screenshot", url: "/api/plugins/ragents.documents/runs/one/raw/shots/home.png" },
+    { name: "Report", url: "/api/plugins/ragents.documents/runs/one/raw/%40documents/review/shots/home.png" },
+  ]);
+  await assert.rejects(take({ filename: "../outside.png" }), /outside the working directory: \.\.\/outside\.png/);
+  assert.equal(screenshot.resultSchema.type, "string");
+});
+
+test("a screenshot list stored before references loads its captures under @documents", async (t) => {
+  const folders = await foldersIn(t);
+  const id = "0b7a6c1e-3f52-4a8e-9b1d-2c4e6f8a0b1c";
+  await mkdir(path.join(folders.documentsFor("one"), "browser"));
+  await writeFile(path.join(folders.documentsFor("one"), "browser", `${id}.png`), "PNG stored earlier");
+  await writeFile(path.join(folders.documentsFor("one"), "browser", ".captures.json"), JSON.stringify([{ name: "Earlier", path: `browser/${id}.png` }]));
+  const { browser, executor } = localBrowser({ launch: stubBrowser(site).launch }, folders);
+  t.after(async () => { await browser.shutdown(); await executor.shutdown(); });
+
+  await browser.restore("one");
+  assert.deepEqual(browser.evidence("one").screenshots, [{ name: "Earlier", url: `/api/plugins/ragents.documents/runs/one/raw/%40documents/browser/${id}.png` }]);
+  assert.equal((await browser.image("one")).toString(), "PNG stored earlier");
+  await mkdir(path.join(folders.documentsFor("two"), "browser"));
+  await writeFile(path.join(folders.documentsFor("two"), "browser", ".captures.json"), JSON.stringify([{ name: "Broken", path: "elsewhere.png" }]));
+  await assert.rejects(browser.restore("two"), /screenshot list of this run is corrupt/);
 });

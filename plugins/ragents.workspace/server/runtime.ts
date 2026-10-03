@@ -28,6 +28,7 @@ import { FRESH_WORKSPACE_LABEL, isFreshFolder, type ExistingWorkspaceFolder, typ
 import {
   bindingOf,
   boundServerDirectory,
+  currentBindingOf,
   isWorkstationBinding,
   serverDirectoryFolder,
   workspaceOwnerOf,
@@ -255,11 +256,11 @@ export class RunWorkspaceRuntime implements WorkspaceRuntime {
   }
 
   placementOf(runId: string): WorkspacePlacement {
-    const { machine, folder } = bindingOf(this.#options.runState(runId));
-    const placement: WorkspacePlacement = {
-      machine: machine === "server" ? "server" : "client",
-      folder: isFreshFolder(folder) ? "fresh" : "existing",
-    };
+    const { machine, folder } = currentBindingOf(this.#options.clients, this.#options.runState(runId));
+    const where = isFreshFolder(folder) ? "fresh" : "existing";
+    const placement: WorkspacePlacement = machine === "server"
+      ? { machine: "server", folder: where }
+      : { machine: "client", workstation: { client: machine.client, label: machine.label }, folder: where };
     const contribution = this.#contribution();
     const contributed = placement.folder === "fresh" && (placement.machine === "server" || contribution?.workstation !== undefined);
     const kind = contributed ? contribution?.kind?.id : undefined;

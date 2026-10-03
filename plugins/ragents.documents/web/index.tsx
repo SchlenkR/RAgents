@@ -10,8 +10,9 @@ import {
   type RunDocument as Document,
   type DocumentSection,
 } from "./DocumentViewer";
-import { fetchRunFiles, runFileContentUrl, runWorkspaceContentUrl } from "./api";
-import type { RunFileEntry, RunFilesListing } from "../contract";
+import { fetchRunFiles } from "./api";
+import { documentBaseOf } from "./links";
+import { DOCUMENTS_ALIAS, contentPathOf, type RunFileEntry, type RunFilesListing } from "../contract";
 import { actorAddress, runArtifactContentUrl, runViewFrom, type RunView } from "@ragents/web/run-view";
 import { Alert, Badge } from "@ragents/web/ui";
 import {
@@ -27,18 +28,16 @@ import {
 export const DOCUMENTS_PLUGIN_ID = "ragents.documents";
 export const DOCUMENTS_TAB_ID = "ragents.documents.library";
 
-/** A shown file: one of the workspace, named like read names it, or one of the file store. */
-type ShownFile = { title: string; source: "workspace" | "store"; path: string; format?: string };
+/** A shown file, named like read names it; a call of a former contract without file_path shows nothing. */
+type ShownFile = { title: string; path: string; format?: string };
 
 const shownFileFrom = (tool: ToolInfo): ShownFile | undefined => {
   if (tool.name !== "show_document") return undefined;
   try {
-    const args = JSON.parse(tool.arguments) as { title?: unknown; file_path?: unknown; storePath?: unknown; content?: unknown; format?: unknown };
+    const args = JSON.parse(tool.arguments) as { title?: unknown; file_path?: unknown; content?: unknown; format?: unknown };
     if (typeof args.title !== "string" || typeof args.content === "string") return undefined;
     const format = typeof args.format === "string" ? { format: args.format } : {};
-    if (typeof args.file_path === "string" && args.storePath === undefined) return { title: args.title, source: "workspace", path: args.file_path, ...format };
-    if (typeof args.storePath === "string" && args.file_path === undefined) return { title: args.title, source: "store", path: args.storePath, ...format };
-    return undefined;
+    return typeof args.file_path === "string" ? { title: args.title, path: args.file_path, ...format } : undefined;
   } catch {
     return undefined;
   }
@@ -50,19 +49,26 @@ const pathDocumentFrom = (tool: ToolInfo, routePrefix: string, runId: string): D
   const format = shown.format === "markdown" || shown.format === "text" || shown.format === "html"
     ? shown.format
     : formatFromName(shown.path);
-  const contentUrl = shown.source === "workspace"
-    ? runWorkspaceContentUrl(routePrefix, runId, shown.path)
-    : runFileContentUrl(routePrefix, runId, shown.path);
-  return { id: tool.id, title: shown.title, format, contentUrl };
+  return {
+    id: tool.id,
+    title: shown.title,
+    format,
+    contentUrl: contentPathOf(routePrefix, runId, shown.path),
+    base: documentBaseOf(routePrefix, runId, shown.path),
+  };
 };
 
+/** Text the model wrote has no folder of its own; its relative addresses resolve against the run's root. */
+const contentDocumentsFrom = (messages: SessionContext["messages"], routePrefix: string, runId: string): Document[] =>
+  documentsFromMessages(messages).map((document) => ({ ...document, base: documentBaseOf(routePrefix, runId) }));
+
 const chatDocumentFrom = (tool: ToolInfo, routePrefix: string, runId: string): Document | undefined =>
-  documentsFromMessages([{
+  contentDocumentsFrom([{
     key: tool.id,
     role: "tool",
     text: tool.name,
     tool,
-  }])[0] ?? pathDocumentFrom(tool, routePrefix, runId);
+  }], routePrefix, runId)[0] ?? pathDocumentFrom(tool, routePrefix, runId);
 
 const pathDocumentsFromMessages = (
   messages: SessionContext["messages"],
@@ -154,11 +160,13 @@ const sectionsFrom = (
   const view = runViewFrom(session.runView);
   const fileDocument = (directory: string | undefined, entry: RunFileEntry): Document => {
     const relative = directory ? `${directory}/${entry.path}` : entry.path;
+    const reference = `${DOCUMENTS_ALIAS}/${relative}`;
     return {
       id: `file:${relative}`,
       title: entry.path,
       format: formatFromName(entry.path),
-      contentUrl: `${runFileContentUrl(routePrefix, runId, relative)}&v=${encodeURIComponent(entry.modifiedAt)}`,
+      contentUrl: `${contentPathOf(routePrefix, runId, reference)}?v=${encodeURIComponent(entry.modifiedAt)}`,
+      base: documentBaseOf(routePrefix, runId, reference),
       createdAt: entry.modifiedAt,
       size: entry.size,
     };
@@ -183,7 +191,7 @@ const sectionsFrom = (
   ];
   const documentMessages = documentMessagesFrom(session.messages, session.actorConversations);
   const chat = [
-    ...documentsFromMessages(documentMessages),
+    ...contentDocumentsFrom(documentMessages, routePrefix, session.session.id),
     ...pathDocumentsFromMessages(documentMessages, routePrefix, session.session.id),
   ];
   if (chat.length > 0) sections.push({ id: "chat", label: "Shown in chat", kind: "chat", documents: chat });

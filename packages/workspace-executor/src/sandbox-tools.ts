@@ -11,6 +11,7 @@ import {
   type BashOperations,
 } from "@ragents/agent";
 import { bashLaunch } from "./bash-launch.js";
+import { BYTE_OPERATIONS, fileBytesOf, pathInRoots, readFileBytes, writeFileBytes } from "./bytes.js";
 import type { WorkspaceProcessContext } from "./context.js";
 import { WorkspaceOperationError } from "./errors.js";
 import { MSYS_CALL_ENV, processGroupExists, stopMsysCall, stopProcessTree } from "./managed-process.js";
@@ -278,6 +279,31 @@ export const createSandboxTools = async (
     return execute(toolCallId, { ...params, cwd: directory }, signal, onUpdate);
   };
 
+  /** A path of the byte operations resolves like one of the file tools; messages name it as the caller named it. */
+  const resolvedIn = async (shown: unknown, writing: boolean): Promise<{ file: string; shown: string; writable: readonly string[] }> => {
+    if (typeof shown !== "string" || shown.trim() === "" || shown.includes("\0")) {
+      throw new WorkspaceOperationError("workspace-path-invalid", `Invalid path: ${String(shown)}`, 400);
+    }
+    const context = await contextFor();
+    const writable = [context.root, ...context.additionalRoots ?? []];
+    const requested = path.resolve(cwd, expandPathVariables(expandWorkspaceAlias(shown, context.workspaceAliases ?? {}), context.pathVariables ?? {}));
+    return { file: await pathInRoots(requested, shown, writing ? writable : [...writable, ...context.readOnlyRoots ?? []]), shown, writable };
+  };
+
+  const readBytes: ToolExecute = async (_toolCallId, input) => {
+    const params = (input ?? {}) as { path?: unknown; recursive?: unknown };
+    const { file, shown } = await resolvedIn(params.path, false);
+    return readFileBytes(file, shown, params.recursive === true);
+  };
+
+  const writeBytes: ToolExecute = async (_toolCallId, input) => {
+    const params = (input ?? {}) as { path?: unknown; content?: unknown };
+    const content = fileBytesOf(params.content);
+    const { file, shown, writable } = await resolvedIn(params.path, true);
+    await writeFileBytes(file, shown, content, writable);
+    return null;
+  };
+
   const startBash: BashOperations["exec"] = async (command, commandCwd, options) => {
       if (shuttingDown) throw new Error("The tools are being killed");
       const context = await contextFor();
@@ -366,6 +392,8 @@ export const createSandboxTools = async (
     ["edit", guarded("edit", executeOf(createEditToolDefinition(cwd)))],
     ["write", guarded("write", executeOf(createWriteToolDefinition(cwd)))],
     ["bash", serial(inFolder(executeOf(createBashToolDefinition(cwd, { operations: bashOperations }))))],
+    [BYTE_OPERATIONS.read, concurrent(readBytes)],
+    [BYTE_OPERATIONS.write, serial(writeBytes)],
   ];
   return {
     tools: new Map(wrapped.map(([name, execute]) =>
@@ -377,18 +405,23 @@ export const createSandboxTools = async (
 /** The operations of the module are named like the tools the model sees. */
 export const SANDBOX_TOOL_NAMES = ["read", "edit", "write", "bash"] as const;
 
+/** The byte operations belong to this module because writing shares the lock of the file tools. */
+const SANDBOX_OPERATIONS = [...SANDBOX_TOOL_NAMES, BYTE_OPERATIONS.read, BYTE_OPERATIONS.write] as const;
+
 /** An explicitly requested timeout in milliseconds extends how long a remote executor may wait for the bash. */
 const bashDuration = (input: unknown): { durationMs?: number } => {
   const timeout = typeof input === "object" && input !== null ? (input as { timeout?: unknown }).timeout : undefined;
   return typeof timeout === "number" && timeout > 0 ? { durationMs: timeout } : {};
 };
 
-/** The file tools address the root of their path, bash the root of its folder and without a folder no specific one. */
-const sandboxToolFootprints: Readonly<Record<(typeof SANDBOX_TOOL_NAMES)[number], (input: unknown) => OperationFootprint>> = {
+/** The file tools and the byte operations address the root of their path, bash the root of its folder and without a folder no specific one. */
+const sandboxToolFootprints: Readonly<Record<(typeof SANDBOX_OPERATIONS)[number], (input: unknown) => OperationFootprint>> = {
   read: (input) => ({ roots: rootsOfFields(input, "file_path") }),
   edit: (input) => ({ roots: rootsOfFields(input, "file_path") }),
   write: (input) => ({ roots: rootsOfFields(input, "file_path") }),
   bash: (input) => ({ roots: rootsOfFields(input, "cwd"), ...bashDuration(input) }),
+  [BYTE_OPERATIONS.read]: (input) => ({ roots: rootsOfFields(input, "path") }),
+  [BYTE_OPERATIONS.write]: (input) => ({ roots: rootsOfFields(input, "path") }),
 };
 
 const textOf = (update: ToolUpdate): string =>
@@ -397,7 +430,7 @@ const textOf = (update: ToolUpdate): string =>
     .map((part) => part.text)
     .join("\n");
 
-/** The four sandbox tools as operations; the sandbox of a run is created on the first call, bash reports its output as `{ text }`. */
+/** The four sandbox tools and the byte operations; the sandbox of a run is created on the first call, bash reports its output as `{ text }`. */
 export const sandboxToolsModule: WorkspaceModuleFactory = (host) => {
   const sandboxes = new Map<string, Promise<SandboxTools>>();
   const sandboxOf = (runId: string): Promise<SandboxTools> => {
@@ -430,7 +463,7 @@ export const sandboxToolsModule: WorkspaceModuleFactory = (host) => {
     });
   };
   return {
-    operations: Object.fromEntries(SANDBOX_TOOL_NAMES.map((name) => [name, operation(name)])),
+    operations: Object.fromEntries(SANDBOX_OPERATIONS.map((name) => [name, operation(name)])),
     footprints: sandboxToolFootprints,
     stopRun,
     shutdown: async () => {

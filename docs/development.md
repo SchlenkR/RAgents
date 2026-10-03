@@ -311,13 +311,13 @@ value or the file is missing, the server does not start.
 
 The repo contains three neutral profiles:
 
-|                         | `core`                  | `showcase`                         | `developer`                          |
-| ----------------------- | ----------------------- | ---------------------------------- | ------------------------------------ |
-| Plugins                 | neutral `ragents.*`     | like `core` plus `ragents.reference` | workspace, documents, language servers |
-| Working directory       | selectable per run      | selectable per run                 | usually a project folder             |
-| File storage            | per run                 | per run                            | per run                              |
-| Sign-in and permissions | optional per profile file | like `core`                      | off, `anonymousUser` with all permissions |
-| Start                   | `./start.sh core` (4710) | `./start.sh showcase` (4713)      | `./start.sh developer` (4715) or `ragents run` |
+|                         | `core`                    | `showcase`                           | `developer`                                     |
+| ----------------------- | ------------------------- | ------------------------------------ | ----------------------------------------------- |
+| Plugins                 | neutral `ragents.*`       | like `core` plus `ragents.reference` | workspace, documents, browser, language servers |
+| Working directory       | selectable per run        | selectable per run                   | usually a project folder                        |
+| File storage            | per run                   | per run                              | per run                                         |
+| Sign-in and permissions | optional per profile file | like `core`                          | off, `anonymousUser` with all permissions       |
+| Start                   | `./start.sh core` (4710)  | `./start.sh showcase` (4713)         | `./start.sh developer` (4715) or `ragents run`  |
 
 `showcase` is `core` plus the bundled examples from `ragents.reference`: 27 skills and
 8 run scripts, from the word game to balcony planning, and a shared actor package. They are teaching material, which is why `core` remains
@@ -325,7 +325,9 @@ the template for a real profile without them. The internally generated reference
 are created from `showcase`.
 
 `developer` is the programming profile: a server without sign-in on your own machine, with
-C#, F#, and TypeScript diagnostics. It is also the template for your own ad hoc profile.
+C#, F#, and TypeScript diagnostics and browser checks; the C# solution loads at run start. The VS Code
+extension starts it locally from a connection with `profileFile`. It is also the template for your own
+ad hoc profile.
 
 Your own profile is your own `ragents.config.<name>.ts`, which can also live outside the repo
 and name its plugins by path; instead of the profile name, startup also accepts the

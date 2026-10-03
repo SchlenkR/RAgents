@@ -1,5 +1,6 @@
 import { isRecord } from "@ragents/web/lib/guards";
-import type { RunProcess, RunProcessMessage, RunProcessPort, RunProcessSnapshot } from "../contract";
+import type { RunPanelHost } from "@ragents/web/run-panel/host";
+import type { RunProcess, RunProcessMachine, RunProcessMessage, RunProcessPort, RunProcessSnapshot } from "../contract";
 
 export const VISIBLE_PROCESSES = 4;
 
@@ -29,12 +30,20 @@ const processFrom = (value: unknown): RunProcess => {
   };
 };
 
+const machineFrom = (value: unknown): RunProcessMachine => {
+  if (value === "server") return value;
+  if (!isRecord(value) || typeof value.client !== "string" || !value.client || typeof value.label !== "string") {
+    throw new Error("The machine of the process monitoring is unreadable");
+  }
+  return { client: value.client, label: value.label };
+};
+
 const snapshotFrom = (value: unknown): RunProcessSnapshot => {
   if (!isRecord(value) || typeof value.runId !== "string" || typeof value.observedAt !== "string"
     || !Array.isArray(value.processes)) {
     throw new Error("The process monitoring snapshot is unreadable");
   }
-  return { runId: value.runId, observedAt: value.observedAt, processes: value.processes.map(processFrom) };
+  return { runId: value.runId, observedAt: value.observedAt, machine: machineFrom(value.machine), processes: value.processes.map(processFrom) };
 };
 
 export const messageFrom = (value: unknown): RunProcessMessage => {
@@ -46,6 +55,21 @@ export const messageFrom = (value: unknown): RunProcessMessage => {
 
 export const serviceUrl = (hostname: string, port: number): string =>
   `http://${hostname.includes(":") ? `[${hostname}]` : hostname}:${port}/`;
+
+/** What a port pill does: a link, a request to the host to open it, or only the port with where it is. */
+export type PortAction =
+  | { kind: "link"; href: string; title: string }
+  | { kind: "open"; title: string }
+  | { kind: "label"; title: string };
+
+/** The browser reaches only the machine of the page, so it links a port on the server; VS Code opens every port, forwarding it where needed. */
+export const portAction = (host: RunPanelHost["kind"], machine: RunProcessMachine, pageHostname: string, port: RunProcessPort): PortAction => {
+  if (host === "vscode") {
+    return { kind: "open", title: `Open port ${port.port} ${machine === "server" ? "of the server" : `on workstation ${machine.label}`} in the browser` };
+  }
+  if (machine === "server") return { kind: "link", href: serviceUrl(pageHostname, port.port), title: `Open ${port.address}:${port.port} in a new tab` };
+  return { kind: "label", title: `Port ${port.port} on workstation ${machine.label}. The RAgents extension in VS Code can forward it.` };
+};
 
 export const kindLabel = (process: RunProcess): string => process.ports.length > 0 ? "Service" : "Process";
 

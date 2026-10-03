@@ -138,9 +138,10 @@ test("the stop method requires write access and hands the request's signal to th
   let writable = false;
   const calls: AbortSignal[] = [];
   const methods = createProcessMethods({
-    observer: { observe: async () => ({ runId: "run-a", observedAt: "now", processes: [] }), watch: () => () => {} },
+    observer: { observe: async () => ({ runId: "run-a", observedAt: "now", machine: "server", processes: [] }), watch: () => () => {} },
     ensureWorkspaceAccess: () => {},
     terminate: async (_runId, _processId, signal) => { calls.push(signal); },
+    forward: async () => null,
   });
   const method = methods.find((item) => item.contract.id === processesContracts.stop.id);
   assert.ok(method);

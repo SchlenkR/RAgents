@@ -15,8 +15,10 @@ import {
 } from "@ragents/web/ui";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Markdown, type Message } from "quassel";
+import { withAccessToken } from "@ragents/web/access-token";
 import { formatBytes } from "@ragents/web/lib/format";
 import { SourceCode } from "@ragents/web/SourceCode";
+import { htmlWithBase, markdownWithResolvedUrls, resolveDocumentUrl, type DocumentBase } from "./links";
 
 export type DocumentFormat = "markdown" | "text" | "html" | "image" | "binary";
 
@@ -32,6 +34,8 @@ export interface RunDocument {
   format: DocumentFormat;
   content?: string;
   contentUrl?: string;
+  /** Where relative addresses inside the document point; without it they stay as written. */
+  base?: DocumentBase;
   createdAt?: string;
   size?: number;
   meta?: string;
@@ -198,9 +202,29 @@ export function DocumentToolCall({ active, document, onOpen, status }: DocumentT
   );
 }
 
+/** An address of the document's run carries the access token where the page has one; the anchor stays at the end. */
+const withToken = (url: string): string => {
+  const hash = url.indexOf("#");
+  return hash < 0 ? withAccessToken(url) : `${withAccessToken(url.slice(0, hash))}${url.slice(hash)}`;
+};
+
+const resolvedMarkdown = (text: string, base: DocumentBase): string => markdownWithResolvedUrls(text, (url) => {
+  const resolved = resolveDocumentUrl(base, url);
+  return resolved === url ? url : withToken(resolved);
+});
+
 function DocumentContent({ document, loaded }: { document: RunDocument; loaded: LoadState }) {
+  const text = loaded && "text" in loaded ? loaded.text : undefined;
+  const root = document.base?.root;
+  const folder = document.base?.folder;
+  const markdown = useMemo(
+    () => document.format === "markdown" && text !== undefined && root !== undefined && folder !== undefined
+      ? resolvedMarkdown(text, { root, folder })
+      : text,
+    [document.format, root, folder, text],
+  );
   if (document.format === "image" && document.contentUrl) {
-    return <img alt={document.title} className="block max-w-full rounded-lg border border-border" src={document.contentUrl} />;
+    return <img alt={document.title} className="block max-w-full rounded-lg border border-border" src={withToken(document.contentUrl)} />;
   }
   if (document.format === "binary" && document.contentUrl) {
     return (
@@ -210,7 +234,7 @@ function DocumentContent({ document, loaded }: { document: RunDocument; loaded: 
           <EmptyTitle>No preview for this format</EmptyTitle>
         </EmptyHeader>
         <EmptyContent>
-          <Button render={<a download={document.title} href={document.contentUrl} />} size="sm" variant="outline">Download</Button>
+          <Button render={<a download={document.title} href={withToken(document.contentUrl)} />} size="sm" variant="outline">Download</Button>
         </EmptyContent>
       </Empty>
     );
@@ -235,12 +259,14 @@ function DocumentContent({ document, loaded }: { document: RunDocument; loaded: 
     );
   }
   if (document.format === "html") {
-    return <iframe className="h-full min-h-full w-full border-0 bg-white" sandbox="" srcDoc={loaded.text} title={document.title} />;
+    // Scripts stay off; the app's origin lets the sign-in cookie reach the images the document names.
+    const html = document.base ? htmlWithBase(loaded.text, `${document.base.root}${document.base.folder}`) : loaded.text;
+    return <iframe className="h-full min-h-full w-full border-0 bg-white" sandbox="allow-same-origin" srcDoc={html} title={document.title} />;
   }
   if (document.format === "text") {
     return <SourceCode className={sourceClass} content={loaded.text} path={document.title} />;
   }
-  return <Markdown text={loaded.text} />;
+  return <Markdown text={markdown ?? loaded.text} />;
 }
 
 function DocumentHead({ document }: { document: RunDocument }) {

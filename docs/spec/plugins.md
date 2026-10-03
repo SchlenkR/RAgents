@@ -572,7 +572,8 @@ server machine may be bound alongside it), and optionally `directoryPattern` for
 settings. The kind occupies the new folder per run on the server: start option and selection show
 its `label` instead of "Empty folder per run", and without `serverFolders` an existing server folder is
 rejected with `workspace-binding-unsupported` (400). `WorkspaceRuntime.placementOf(runId)`
-answers separately per run where it works (`machine`: `server` or `client`) and in which folder
+answers separately per run where it works (`machine`: `server` or `client`, for `client` with
+`workstation`, its ID and current label) and in which folder
 (`folder`: `fresh` or `existing`), plus with `kind` the `id` of the kind when a contribution provided the new
 folder. This is the one place where a workflow centrally asks where and in what a run
 works; there is no mixed value of both. If a contribution reports a kind, `ragents.workspace`
@@ -622,17 +623,19 @@ that only this bash has the variables, and that one call reaches only one machin
 prompt contribution and no tool description names such a variable, only the alias. The
 chat system note on resolution remains the notice for the user alongside it.
 
-The file storage is a separate service: `ragents.documents` provides `documentStoreToken`
+The document store is a separate service: `ragents.documents` provides `documentStoreToken`
 (`directoryFor(runId)`), by default under `host.storage.session(runId, "documents")`,
-with `DOCUMENTS_DIR` as a subfolder per run under an external path. The storage is not in the workspace and is
-not a bash path: `document_write` (`storePath` in the storage plus either `content` or
-`file_path`) is the only way in. `content` is text the model wrote; `file_path` names an existing
-file exactly as `read` names it (relative to the working directory, absolute in a root of the run,
-or with an alias such as `@actors`), and the server copies it unchanged, so the model never
-retypes a file. The copy is read through the executor operation `files.text` of the machine that
-holds the addressed root, a workstation included, with the roots `read` may read; a file over
-256 KB or a binary file is an error with that reason. Per topic a subdirectory is created there, and `ragents.documents` shows it in the
-Documents tab.
+with `DOCUMENTS_DIR` as a subfolder per run under an external path. The store is not in the
+workspace but a writable server root with the alias `@documents`, registered like `@actors`
+(`registerWorkspaceRoot`, with `RAGENTS_DOCUMENTS_DIR` for a bash on the server): file tools,
+`copy`, `show_document`, language servers, and a bash with `@documents/...` as `cwd` reach it in
+every binding and run at the server's executor for it (section Workspace, sandbox tools, and
+processes). Writing text is `write` with `@documents/<topic>/<file>`; an existing file or folder
+goes there unchanged with `copy`, so the model never retypes a file. Per topic a subdirectory is
+created there, and `ragents.documents` shows it in the Documents tab. Its prompt contribution, bound
+to `show_document`, `write`, and `copy`, says that evidence and reports go to `@documents/...` and
+deliverables into the project, that `copy` moves between the two, and that a document embeds
+images with a path relative to itself or with `@documents/...`.
 Actor programs use their own private pnpm workspace under their run storage.
 Its `actors/` collection is a server root with the alias `@actors`
 (`registerWorkspaceRoot`): file tools and language servers reach it in every binding through
@@ -644,18 +647,43 @@ the model does not need to carry private storage paths over from responses.
 Other plugins consume the workspace services through typed tokens.
 
 `show_document` opens a document display from exactly one source: `file_path` for any file `read`
-reaches, named the same way, `storePath` for a file of the storage, or `content` for text the
-model wrote; a correlation error names the three forms. The call checks a `file_path` through
-`files.text` and returns only "Shown to the user."; the display reads the current content again
-through `GET /api/plugins/ragents.documents/runs/<runId>/workspace/content?path=`, which needs
-`runs.read`, `runs.inspect`, and access to the run's workspace, and a stored file through the
-storage route. Like `document_write`, it is a native model tool, so that a
+reaches, named the same way, also an image or another binary file and a file under `@documents`,
+or `content` for text the model wrote; a correlation error names the two forms. The call checks a
+`file_path` through `files.text` at the machine of its root, where a binary or too large file
+counts as present, and returns only "Shown to the user."; the display reads the current bytes
+again through the content route below. It is a native model tool, so that a
 display costs one round and not three. It publishes no core artifact: `RunView.artifacts` stays
 unchanged. Immutable, versionable run results are created through `artifact_publish`;
 the Documents view lists these results in addition to files and displays.
 The document buttons in the primary chat, in the actor conversations and inspector use the same registered tool presenter and open the Documents view.
 Its chat collection takes all loaded actor histories into account and lists the same
 tool call from the main history and an actor history only once.
+
+The content route `GET /api/plugins/ragents.documents/runs/<runId>/raw/<reference>` serves the
+bytes of one file, text or binary, with the media type of its extension, `Cache-Control: no-store`,
+`Content-Security-Policy: sandbox`, and `X-Content-Type-Options: nosniff`. `<reference>` names the
+file as `read` does, one encoded path segment per segment: relative to the run's root, absolute (an
+empty first segment), or with an alias such as `@documents/...`. Because the reference is a path,
+relative addresses inside a document follow plain URL semantics. The server reads the file with the
+executor operation `bytes.read` at the machine that holds its root, a workstation included, at most
+16 MiB; a folder, a missing file, a path outside the roots, and the limit are errors that name their
+cause. A server root needs `runs.read` and the run check, as the store always did; the run's root
+needs `runs.read`, `runs.inspect`, and access to the run's workspace (`workspaceGuardToken`), as the
+Files view does. The Documents view, the shown files, and the browser evidence use this one route.
+
+The viewer resolves the addresses inside a document against the document's own reference
+(`plugins/ragents.documents/web/links.ts`): a relative one against the document's folder, one with
+an alias against that root, while `http(s):`, `mailto:`, other schemes, addresses from the site
+root, and `#anchors` stay as they are; text the model wrote has no folder and resolves against the
+run's root. quassel's `Markdown` has no hook for addresses (`QuasselProvider.allowUrl` only
+filters), so the viewer rewrites the Markdown source before rendering: `mdast-util-from-markdown`
+with the GFM extensions finds the destinations of links, images, and definitions with their place
+in the source, and only these spans change, so the rest stays byte for byte. An HTML document gets a
+`<base href>` for its folder at its start, after a doctype, in the `srcDoc` of its frame; the frame
+keeps its sandbox without scripts but with `allow-same-origin`, so that the browser sends the
+sign-in cookie with the images the document names. Image documents load from the route directly.
+Where the page carries an access token instead of a cookie (VS Code), the rewritten Markdown
+addresses, image documents, and downloads carry the token (`withAccessToken`).
 
 `ProductRuntime` and `WorkspaceRuntime` are mandatory contracts of every profile: if one of the two
 services is missing, the server aborts at startup with a clear error message instead of running in a half
@@ -1116,7 +1144,7 @@ read right through `readRight`. Technical contributions use `runs.inspect`. Work
 that need the run's workspace declare that with `requiresWorkspace: true`; they are missing
 when the run list reports `workspaceAccessible: false` for the run (`workspaceAccessible` from
 `PluginRegistry`; a run not yet listed counts as reachable). A contribution with mixed
-content queries the same itself, such as the Files tab, which then shows only the file storage. Settings contributions can
+content queries the same itself, such as the Files tab, which then shows only the document store. Settings contributions can
 also require their own read right; without one, the settings read right applies.
 The component checks its write actions as well. Hiding does not replace a server-side
 check: own routes declare their required rights independently of the UI.
@@ -2554,7 +2582,8 @@ navigation values are a hard error.
 The run panel talks to its host through `apps/web/src/run-panel/host.ts`. The host `browser`
 (default) opens links itself, navigates apps locally, and offers only the server for new runs; the host `vscode` (`?host=vscode`, only
 embedded) sends `ready`, `runChanged`, `showStart`, `openInCenter`, `login`, `logout`,
-`openExternal`, and `openPage` through `postMessage` to the surrounding window and receives from there `selectRun`, `newRun`
+`openExternal`, `openPage`, and `openService` (a service of a run, section Workspace, sandbox tools,
+and processes) through `postMessage` to the surrounding window and receives from there `selectRun`, `newRun`
 (with preset start options and optionally the ID of a template, which the start selection then
 opens right away), and `theme`; the
 import-free contract is in `run-panel/host-contract.ts`. Starting or opening a run in either host
@@ -2819,7 +2848,7 @@ sign-in data - it is tied to the address, not to the name.
 ## Workspace, sandbox tools, and processes
 
 The workspace plugins give agents exactly four
-sandbox tools from `@ragents/workspace-executor`. Names and input fields follow the file and shell
+sandbox tools from `@ragents/workspace-executor` plus `copy`. Names and input fields follow the file and shell
 tools of the common agent harnesses, Claude Code first, because models are trained on these shapes
 and fail on look-alikes; the schemas are closed, and an unknown field is removed with a notice
 (`core.md`). `read` takes `file_path`, `offset` (1-based; 0 counts as 1), and `limit` and returns
@@ -2841,6 +2870,21 @@ last 2000 lines or 20 KB, lines over 1000 characters shortened and marked, the f
 a log file whose path the result names. A file path is relative to the working directory,
 absolute, or starts with an alias such as `@actors`; unlike in the standard it need not be
 absolute, because an alias and not an absolute path decides the machine (below).
+`copy` takes `source` and `destination`, both named exactly as `read` names a file, and copies a
+file or a folder with everything in it, unchanged and binary-safe; the standard has no counterpart,
+because there one shell sees every file. Here a root with an alias lies on the server and the
+run's root possibly on a workstation, so a `cp` in one `bash` cannot reach both. The destination
+names the copy itself; a folder copy creates it, and existing files there are overwritten as `write`
+overwrites them, without a seen state. The server reads with `bytes.read` (`recursive`) at the
+machine of the source and writes with `bytes.write` at the machine of the destination, so a copy
+between the project on a workstation and `@documents` is one call; the bytes travel through the
+server as Base64, never through the model. The destination must lie in a writable root (never
+`@skills`), writing runs within the same lock as `write`, `edit`, and `bash` of the run on that
+machine, a folder is read without following links, and a link in the destination never leads out of
+the roots. One call carries at most 16 MiB and 1000 files (`FILE_BYTES_LIMIT`, `FILE_COUNT_LIMIT`),
+an error names the limit, and the result says only how many files were copied, such as "Copied 9
+files.". `copy` belongs to `ragents.workspace` (`plugins/ragents.workspace/server/copy-tool.ts`)
+and counts as a writing workspace tool, so it needs `workspace.use` like `write`.
 `ls`, `grep`, `find`, or a separate type check are not tools, because
 `bash` can do them and the sandbox knows no permission level below bash. `git` runs
 without restriction in the run's working directory; a plugin provides credentials through the
@@ -2887,10 +2931,13 @@ whoever needs one again builds a new one. The executor itself
 `workspace-operation-unknown` (400), a doubly registered one already at construction. An executor carries
 its own modules and the plugins' contributions (`workspaceExecutorModules({ contributions })`,
 section Contributions to the executor): the four sandbox tools with process groups,
-environment, and path checks (`read`, `edit`, `write`, `bash`), the language server sessions for every
+environment, and path checks (`read`, `edit`, `write`, `bash`) and in the same module the byte
+operations `bytes.read` and `bytes.write`, which read and write a file, or with `recursive` a folder,
+in a root of this machine as Base64, at most 16 MiB and 1000 files per call, writing within the
+lock of the tools; the language server sessions for every
 language server a contribution brings along (`<id>_open`, `<id>_diagnostics`, `<id>_close`,
 `<id>_snapshot`, with solutions `<id>_solutions` and `<id>_switch`), the files (`files.list`, `files.read`, `files.text`, `files.watch`, `files.attach`), the
-processes (`processes.snapshot`, `processes.stop`, `processes.stopAll`), the commands (`commands.run`),
+processes (`processes.snapshot`, `processes.stop`, `processes.stopAll`, `processes.forward`), the commands (`commands.run`),
 the contributions' modules, such as the browser of the browser check (`browser.*`, section
 Browser checks), and the folder per run. No language, no language server, and no browser is
 built into it. After `edit` and
@@ -2909,15 +2956,15 @@ it is never loaded later at runtime; at runtime only the plugins' contributions 
 This contract is the only seam to the workspace: `WorkspaceRuntime` resolves the
 folder per run, and `SandboxServices.execute(runId, operation, input, options)` is the plugins' only access
 to it. Every root belongs to one machine: the run's root to the machine of its
-binding, the additional roots with an alias (`@actors` of the actor programs, `@skills/<name>` of the
-skills, section Skills and starting tasks) to the server. An operation runs at the executor of the
+binding, the additional roots with an alias (`@actors` of the actor programs, `@documents` of the
+document store, `@skills/<name>` of the skills, section Skills and starting tasks) to the server. An operation runs at the executor of the
 machine that owns the addressed root; the binding (`executorFor`) determines only the run's root
 and thus where an operation without an alias runs: on the server in the server's executor, on
 a workstation in its executor, regardless of whether in the new or in an existing folder. Which roots
 an input addresses is declared by the module that owns the operation, with its footprint
 (`WorkspaceExecutorModule.footprints`, per operation a function of the input that never throws): the
 file tools with `file_path`, `bash` with `cwd`, the language servers with `root` and `paths`, `files.list`
-and `files.read` with `alias`, `files.text` with `path`. A path with an alias addresses its root, every other one, even an
+and `files.read` with `alias`, `files.text`, `bytes.read`, and `bytes.write` with `path`. A path with an alias addresses its root, every other one, even an
 absolute one, the run's root; an operation without a footprint addresses no particular one. In addition the
 footprint names the running time an input itself requires, for `bash` its time limit; it counts
 as `durationMs` if the caller names none. `SandboxServices.execute` asks for the footprint
@@ -2928,9 +2975,10 @@ call of a run on a workstation addresses roots of both machines, such as `<id>_d
 `root: "@actors/app"` and `paths: ["src/a.ts"]`, it fails with `workspace-roots-mixed` (400) and
 the cause that one call reaches only one machine; for a run on the server all
 roots are on one machine, and nothing changes. The sandbox host decomposes no input itself;
-a new operation with paths declares its footprint in its module. The four tools, the
-language server tools, the tab `Files`, the process display, the browser check, and the
-source file of `typescript_eval` all take this path; there is no "local or remote" branch
+a new operation with paths declares its footprint in its module; a tool that needs two machines,
+such as `copy`, makes one call per machine. The four tools, `copy`, the
+language server tools, the tab `Files`, the process display, the browser check, the content route
+of the documents, and the source file of `typescript_eval` all take this path; there is no "local or remote" branch
 in the code of a consumer. Every method and every channel that leads from outside to the
 workspace of a run (files of the working directory, process display, language server
 state) first checks run and access with the host service `workspaceGuardToken`: a run that
@@ -3180,7 +3228,7 @@ server comes only what is location-independent:
 run marker, `CI`, `GIT_OPTIONAL_LOCKS`, and the sandbox's Git rules. The server's Git credentials and
 toolchain paths do not travel into a foreign bash. An executor sees exclusively
 the folders of its machine: in the server the run's root (for a run on a workstation
-its server folder) plus the server's roots (`@actors`, `@skills/<name>`), in the
+its server folder) plus the server's roots (`@actors`, `@documents`, `@skills/<name>`), in the
 extension the offered project folder. Aliases exist only on the server, and a call
 always reaches exactly one machine: which one is decided by the root its input addresses,
 not by a comparison of absolute paths. An absolute path therefore applies on the binding's machine;
@@ -3365,8 +3413,8 @@ and block neither observation nor cleanup. Access, tool, and format errors trigg
 
 Every visible process has a compact end button with icon and tooltip.
 Process monitoring, its methods, and its channel require `runs.read` and `ragents.processes.read`.
-With pure read access, port links stay usable; ending additionally requires `runs.write`
-and `runs.inspect` and is otherwise disabled. A running
+With pure read access, port links stay usable; forwarding a port additionally requires `runs.inspect`,
+ending `runs.write` and `runs.inspect`, and is otherwise disabled. A running
 end request locks only the affected process in all open views; errors appear
 at the entry and allow a new attempt. Only the next observed process state removes
 the entry. The web uses the snapshot's opaque process reference, not just the PID.
@@ -3388,6 +3436,47 @@ SIGTERM is followed by two seconds of waiting, if needed SIGKILL and another sec
 checking. A pass is limited to eight seconds; missing rights, unreadable process tables,
 and remaining processes are explicit errors.
 
+**Opening a service.** A port in the rail opens the service that listens on it, on the machine the
+run works on. A viewer talks only to the server, so the link depends on the host. The snapshot names
+the machine (`machine`: `"server"` or `{ client, label }` with the workstation's current label, from
+`WorkspaceRuntime.placementOf`). The browser reaches only the machine of its page: for a run on the
+server the port is a link to `http://<host name of the page>:<port>/`; for a run on a workstation the
+pill shows only the port, and its tooltip names the workstation and that the VS Code extension can
+forward it ("Port 5173 on workstation Notebook. The RAgents extension in VS Code can forward it.").
+In VS Code the port is a button; the run panel hands the service to its host (`openService` with run,
+port, the workstation's ID or `null`, and the forwarding method) and the extension acts like VS Code
+Remote port forwarding. A service on its own machine opens directly as `http://localhost:<port>/`: on
+the window's own workstation (the binding names its ID) and on the server when that is the
+extension's own local host. Every other service gets a tunnel: the extension first asks the server
+whether a process of the run listens on the port, then listens on `127.0.0.1` with the same port
+number if it is free there, otherwise a free one, and opens `http://localhost:<local port>/` with
+`vscode.env.openExternal`; a second click reuses the tunnel. Each request goes through the forwarding
+method of the server connection the run belongs to and appears as one line in the `RAgents` output;
+a refusal reaches the browser as a plain-text response with its status and cause, an oversized body
+as 413 without asking the server, a WebSocket upgrade as 501. A tunnel ends when the server answers
+that the port, the run, or the access is gone (403, 404, or an unknown method), which a check every
+five seconds also asks, when its server connection ends or is renewed, and when the extension
+deactivates (`apps/vscode/src/service-tunnels.ts`). The extension names no plugin: the method comes
+with the message, and the request and response shape is the host contract's (`ServiceForwardInput`,
+`ServiceForwardResult` in `run-panel/host-contract.ts`).
+
+`ragents.processes.forward` takes `runId`, `port`, and `request` (`method`, `path` with query,
+header pairs in order, and the body in Base64) or `null`, and returns status, header pairs, and the
+body in Base64, or `null`. It requires `runs.read`, `runs.inspect`, and `ragents.processes.read`
+plus workspace access, because it reaches into the machine like the Files tab, and goes to the run's
+executor as `processes.forward`. The process module accepts only a port that a process of this run
+listens on, from the same scan as the rail; one scan answers for two seconds, so the files of a page
+share it. Any other port fails with `forward-port-unknown` (404) before anything is sent; without a
+request the call ends there with `null`. The request goes to the listening address on this machine:
+a wildcard to `127.0.0.1`, then `::1`, an IPv4 or IPv6 listener to its own address, the next address
+only if the previous one refused the connection. Redirects are not followed and the connection is
+not kept; hop-by-hop headers, including those that `Connection` names, are dropped in both
+directions, and `Host` is `localhost:<port>`, as the service expects it locally. Bodies are buffered,
+at most 16 MiB each (`FORWARD_BODY_LIMIT`; in Base64 below the 32 MiB message size of a
+workstation), and an exchange takes at most 60 seconds. Errors name their cause:
+`forward-invalid` (400), `forward-request-too-large` (413), `forward-response-too-large`,
+`forward-unreachable`, and `forward-failed` (502), and `forward-timeout` (504).
+
 On run stop, the process module ends, in the `stopRun` of its executor, all marked processes of the
 run, also without a port and independently of their display in the header. For a run with a
 workstation, the sandbox host stops its executor and the server's, because the
@@ -3402,12 +3491,12 @@ start ID and the signal are separate operating system calls; they form no atomic
 process reference.
 
 `ragents.workspace` also contributes the purely reading tab `Files`: the run's working directory and
-file storage as a tree with text preview, without writing and deleting; the methods
+document store as a tree with text preview, without writing and deleting; the methods
 `ragents.workspace.browse.list` and `ragents.workspace.browse.preview` provide tree and preview.
 The tab reads the workspace through the file module of the run's executor, for a workstation
 therefore there, and the location line then names its label and path
-(`Workstation <label>: <path>`). The file storage of `ragents.documents` lies on the server and
-does not belong to the workspace; the server reads it directly with the same functions of the package.
+(`Workstation <label>: <path>`). The document store of `ragents.documents` (`@documents`) lies on the
+server and does not belong to the workspace; the tab reads it directly with the same functions of the package.
 Paths are relative to the root, without `..` and not absolute; the check happens where reading happens, and
 no symlink leads out of the root (`workspace-path-invalid`, 400; a missing path
 `workspace-path-not-found`, 404). A list ends after 500 entries with `truncated`; a file
@@ -3869,13 +3958,13 @@ The binding schemas are in `plugins/ragents.browser/server/tools.ts`.
 Their names and input fields follow Microsoft's Playwright MCP server, the de-facto standard of
 agent harnesses: `browser_navigate`, `browser_snapshot`, `browser_click`, `browser_type`
 (`text`, optional `submit` and `slowly`), `browser_select_option` (`values`),
-`browser_press_key`, `browser_resize`, `browser_take_screenshot` (`fullPage`), and
+`browser_press_key`, `browser_resize`, `browser_take_screenshot` (`filename`, `fullPage`), and
 `browser_close`. `browser_check`, `browser_view_screenshot`, and `actor_view_snapshot` have no
 counterpart there and keep their own names.
 The ARIA snapshot contains accessible roles, names, and element references; actions resolve
 role/name, label, text, test ID, or CSS in the run's browser. Unlike upstream, `target` is
-therefore an object with these fields instead of a snapshot reference. Models need to copy neither
-snapshot IDs nor result file paths. An optional target iframe is chosen by CSS.
+therefore an object with these fields instead of a snapshot reference. Models copy no snapshot IDs,
+and a screenshot goes where the model names it with `filename`. An optional target iframe is chosen by CSS.
 `browser_type` replaces the field content, or with `slowly` types key by key without clearing it,
 and with `submit` presses Enter afterwards. `browser_select_option` matches each value against an
 option's value or visible label. `browser_press_key` presses on the focused element, or on
@@ -3921,8 +4010,10 @@ the run's evidence. The server sets the time of a passed check with its own
 clock, so that it can be compared with its other times, even if the browser runs on a
 workstation with a different clock. If a call fails, the server queries the state with
 `browser.state`; if the executor is not reachable, the page counts as closed. A
-screenshot comes back from the executor as PNG in Base64, and the server puts it into the
-run's file storage.
+screenshot comes back from the executor as PNG in Base64, and the server writes it with `bytes.write`
+where `filename` names it, exactly as `read` names a file: relative to the run's root on the machine
+of the binding, where the browser runs, or under `@documents` on the server; without `filename` it goes
+to `@documents/browser/<id>.png`.
 
 A run's actions run in order and use Playwright wait conditions.
 Ambiguous or non-operable targets, missing browsers, and failed navigations
@@ -3942,14 +4033,18 @@ so that screenshots are Full HD images without enlargement and wide interfaces s
 a ribbon are fully visible. `browser_resize` changes the size per run, for example for
 narrow layouts; the chosen value applies until the next change, also after a restart
 of the browser in the same run, because the server holds it and passes it to every new browser; a
-server restart forgets it. Screenshots are stored as PNG under `browser/` in the
-run's file storage and are reachable through its existing image display. An atomically written, hidden capture list keeps
-names and file references across browser stop and server restart. Preparing a run
-loads it again; no browser is started in the process. The service `browserRuntimeToken` provides
+server restart forgets it. The result of `browser_take_screenshot` names only what the model does not
+have: the generated reference when it chose no `filename`, otherwise only that the screenshot is
+saved. A report embeds the PNG with a path relative to itself. An atomically written, hidden capture
+list (`@documents/browser/.captures.json`) keeps names, page IDs, and references across browser stop
+and server restart; a list from before references named its files relative to the store, and its
+entries are read as `@documents/browser/<id>.png`. The evidence names every capture by its address on
+the content route of `ragents.documents`. Preparing a run
+loads the list again; no browser is started in the process. The service `browserRuntimeToken` provides
 the historical capture list separately from current captures and the valid check time.
 Damaged capture metadata report an error for the affected run.
 The native agent tool `browser_view_screenshot` returns the last image directly as
-image content, without a path. A model without image support receives an explicit error.
+image content, without a path, read with `bytes.read` where it lies. A model without image support receives an explicit error.
 
 Browser stop and cancellation close the processes at the executor that started them;
 stored captures are kept. A cancellation before it was the action's turn leaves
@@ -4152,9 +4247,26 @@ right) returns the archive; a different version is 404. The counterpart is `rage
   process has all rights.
 - The browser check's evidence is the state of the last call: what the page does between two
   calls, such as a late console message or a navigation by itself, the server sees only
-  with the next one. A screenshot travels as Base64 in the executor's response; for
-  a workstation, the message size of 32 MiB limits how long a whole page may
-  become.
+  with the next one. A screenshot travels as Base64 in the executor's response and is stored with
+  `bytes.write`, so a full-page capture over 16 MiB fails with that limit. The capture list lies in
+  `@documents`, where a model can change or delete it; a damaged list is an error of the run.
+- `copy` and the content route carry at most 16 MiB and 1000 files per call; bigger files move only
+  within one machine through `bash`. A relative address in a document that climbs above its alias,
+  such as `../../x` from `@documents/review/`, lands in the run's root, as plain URL semantics say.
+- An HTML document resolves its addresses through its `<base href>`, which carries no access token:
+  where the page signs in with a token instead of a cookie (VS Code), the images of an HTML document
+  do not load; Markdown and image documents do. Chrome's preload scanner may request such an image
+  once against the address of the page before the base applies, which answers with an error.
+- Forwarding a service of a run carries HTTP requests and responses only: no WebSocket upgrade
+  (the tunnel answers 501), no streaming. Both bodies are buffered whole and at most 16 MiB, so
+  server-sent events and long polling end at the 60-second time limit, and every request takes a
+  round trip over the server, for a workstation also over its connection. A viewer with only a
+  browser gets no tunnel: a port on a workstation stays without a link, and only the VS Code
+  extension forwards. The tunnel listens on `127.0.0.1` only, while the browser opens `localhost`; a
+  local process listening on `[::1]` with the same port number can answer instead. Absolute
+  addresses that the service builds from its port fit only while the local port keeps the service's
+  number. One scan of the process table answers for two seconds, so a port that a foreign process
+  takes over right after the run's process ended can still be reached within that time.
 - Two runs on the same folder collide; that is the user's decision.
 - `ask_user` ends the asker's turn only when every call of its model step ends the turn: a model
   that calls another tool in the same response, or calls `ask_user` through `typescript_eval`,

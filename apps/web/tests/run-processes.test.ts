@@ -12,6 +12,7 @@ import type { RunProcess } from "../../../plugins/ragents.processes/contract.ts"
 import {
   kindLabel,
   messageFrom,
+  portAction,
   serviceUrl,
   titleOf,
   visibleProcesses,
@@ -32,9 +33,14 @@ test("a stream message is validated and typed", () => {
   const snapshot = {
     runId: "run-1",
     observedAt: "2026-09-03T10:00:00.000Z",
+    machine: "server",
     processes: [process({ pid: 7, ports: [{ port: 5173, address: "*" }] })],
   };
   assert.deepEqual(messageFrom({ kind: "snapshot", snapshot }), { kind: "snapshot", snapshot });
+  const workstation = { ...snapshot, machine: { client: "client-0001", label: "Notebook" } };
+  assert.deepEqual(messageFrom({ kind: "snapshot", snapshot: workstation }), { kind: "snapshot", snapshot: workstation });
+  assert.throws(() => messageFrom({ kind: "snapshot", snapshot: { ...snapshot, machine: undefined } }), /machine/);
+  assert.throws(() => messageFrom({ kind: "snapshot", snapshot: { ...snapshot, machine: { label: "Notebook" } } }), /machine/);
   assert.deepEqual(messageFrom({ kind: "error", error: "broken" }), { kind: "error", error: "broken" });
   assert.throws(() => messageFrom({ kind: "snapshot", snapshot: { runId: "run-1" } }), /unreadable/);
   assert.throws(() => messageFrom({ kind: "snapshot", snapshot: { ...snapshot, processes: [{ pid: 1 }] } }), /process entry/);
@@ -46,6 +52,17 @@ test("the service address uses the host of the interface and the port of the pro
   assert.equal(serviceUrl("localhost", 5173), "http://localhost:5173/");
   assert.equal(serviceUrl("workstation", 10520), "http://workstation:10520/");
   assert.equal(serviceUrl("::1", 8080), "http://[::1]:8080/");
+});
+
+test("the browser links only a port on the server, a port on a workstation names its machine, VS Code opens every port", () => {
+  const port = { port: 5173, address: "127.0.0.1" };
+  const workstation = { client: "client-0001", label: "Notebook" };
+  assert.deepEqual(portAction("browser", "server", "server.example", port),
+    { kind: "link", href: "http://server.example:5173/", title: "Open 127.0.0.1:5173 in a new tab" });
+  assert.deepEqual(portAction("browser", workstation, "server.example", port),
+    { kind: "label", title: "Port 5173 on workstation Notebook. The RAgents extension in VS Code can forward it." });
+  assert.deepEqual(portAction("vscode", "server", "server.example", port), { kind: "open", title: "Open port 5173 of the server in the browser" });
+  assert.deepEqual(portAction("vscode", workstation, "server.example", port), { kind: "open", title: "Open port 5173 on workstation Notebook in the browser" });
 });
 
 test("label and tooltip name kind, command, origin and ports", () => {
@@ -71,7 +88,7 @@ test("process readers see live services and port links while stopping still requ
 }, async (context) => {
   const directory = await mkdtemp("/private/tmp/ragents-process-header-");
   const root = fileURLToPath(new URL("../../../", import.meta.url));
-  const snapshot = { runId: "preview-run", observedAt: "2026-09-14T12:00:00Z", processes: [
+  const snapshot = { runId: "preview-run", observedAt: "2026-09-14T12:00:00Z", machine: "server", processes: [
     process({ pid: 11, label: "dotnet ApiService.dll", command: "dotnet /fixture/ApiService.dll", ports: [{ port: 10520, address: "127.0.0.1" }] }),
     process({ pid: 12, label: "dotnet DashboardServer.dll", command: "dotnet /fixture/DashboardServer.dll", ports: [{ port: 10521, address: "127.0.0.1" }] }),
   ] };
@@ -80,6 +97,7 @@ test("process readers see live services and port links while stopping still requ
 import { createElement, useState } from "react";
 import { createRoot } from "react-dom/client";
 import { AccessContext } from "./apps/web/src/AccessContext";
+import { RunPanelHostProvider, createBrowserHost } from "./apps/web/src/run-panel/host";
 import { createAccessContext } from "./packages/ragents/src/access";
 import "./apps/web/src/ui/tailwind.css";
 import { webPlugin } from "./plugins/ragents.processes/web/index";
@@ -88,6 +106,9 @@ const plugin = webPlugin.activate({});
 const header = plugin.sessionHeaders[0];
 const fixture = window.processFixture = {
   rights: ["runs.read", "runs.write", "ragents.processes.read"], streams: [], channels: [], stops: [], update: () => {}, readRight: header.readRight,
+  send: (next) => fixture.streams.at(-1).push({
+    jsonrpc: "2.0", method: "rpc.event", params: { subscription: "s" + fixture.channels.length, channel: "ragents.processes", message: { kind: "snapshot", snapshot: next } },
+  }),
 };
 let connections = 0;
 window.fetch = async (url, options = {}) => {
@@ -128,7 +149,8 @@ function Harness() {
   fixture.update = rights => { fixture.rights = rights; render(value => value + 1); };
   const access = createAccessContext({ enabled: true, user: { id: "reader", label: "Reader", rights: fixture.rights } });
   return createElement(AccessContext.Provider, { value: { ...access, logout: async () => {} } },
-    access.can(header.readRight) ? createElement(header.Header, { session: { session: { id: snapshot.runId } } }) : null);
+    createElement(RunPanelHostProvider, { value: createBrowserHost(window) },
+      access.can(header.readRight) ? createElement(header.Header, { session: { session: { id: snapshot.runId } } }) : null));
 }
 createRoot(document.getElementById("root")).render(createElement(Harness));`, resolveDir: root, loader: "tsx" },
     outfile: `${directory}/fixture.js`, bundle: true, platform: "browser", format: "iife", jsx: "automatic", plugins: [tailwindPlugin([`${root}plugins/ragents.processes/web`])], logLevel: "silent",
@@ -190,6 +212,11 @@ createRoot(document.getElementById("root")).render(createElement(Harness));`, re
   await page.getByText("dotnet DashboardServer.dll", { exact: true }).waitFor();
   assert.equal(await stop.isDisabled(), true);
   assert.equal(await page.evaluate("window.processFixture.streams.length"), 2);
+  await page.evaluate(`window.processFixture.send(${JSON.stringify({ ...snapshot, machine: { client: "client-0001", label: "Notebook" } })})`);
+  const remote = page.getByText(":10520", { exact: true });
+  await page.waitForFunction(`document.querySelector('a[href$=":10520/"]') === null`);
+  assert.equal(await remote.getAttribute("title"), "Port 10520 on workstation Notebook. The RAgents extension in VS Code can forward it.");
+  assert.equal(await page.getByRole("link").count(), 0, "a port on a workstation is no link in the browser");
   assert.deepEqual(errors, []);
   context.diagnostic(`Process header screenshots: ${directory}`);
 });

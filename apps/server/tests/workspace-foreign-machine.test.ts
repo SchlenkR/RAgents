@@ -5,8 +5,9 @@ import { mkdir, mkdtemp, readdir, readFile, realpath, rm, stat, writeFile } from
 import { tmpdir } from "node:os";
 import path from "node:path";
 import test, { type TestContext } from "node:test";
-import { claimTurn, DomainError, pluginStateKey, ToolRegistry, TurnToolset, type RunState } from "@ragents/engine";
+import { claimTurn, DomainError, pluginStateKey, ToolRegistry, TurnToolset, type RunState, type ToolScope } from "@ragents/engine";
 import {
+  BYTE_OPERATIONS,
   FILE_OPERATIONS,
   RUN_MARKER_ENV,
   WORKSPACE_EXECUTOR_VERSION,
@@ -24,6 +25,7 @@ import {
   runFolderModule,
   sandboxToolsModule,
   workspaceProcessContext,
+  type FileBytes,
   type FileListing,
   type FileText,
   type PreparedExecutorContribution,
@@ -51,6 +53,8 @@ import { ActorProgramRuntime } from "../../../plugins/ragents.actor-programs/ser
 import { createActorProgramToolContributors } from "../../../plugins/ragents.actor-programs/server/tool-contributor.ts";
 import { runProcessesOf } from "../../../plugins/ragents.processes/server/run-processes.ts";
 import { RunBrowser } from "../../../plugins/ragents.browser/server/browser.ts";
+import { createShowDocumentTool } from "../../../plugins/ragents.documents/server/show-document-tool.ts";
+import { createCopyTool } from "../../../plugins/ragents.workspace/server/copy-tool.ts";
 import { browserModule } from "../../../plugins/ragents.browser/executor/module.ts";
 import { stubBrowser } from "./browser-stub.ts";
 import { hostRoot } from "../src/host-version.ts";
@@ -266,10 +270,11 @@ test("the process view shows and ends the processes of the workstation, not thos
   };
   await foreignWorkstation(t, server.url, "notebook-0002", "Notebook", { [offered]: project }, [processModule({ table: () => workstationTable })]);
   server.bindings.set(runId, { machine: { client: "notebook-0002", label: "Notebook" }, folder: { path: offered } });
-  const processes = runProcessesOf(server.runtime.sandbox);
+  const processes = runProcessesOf(server.runtime.sandbox, (id) => server.runtime.placementOf(id));
 
   const snapshot = await processes.snapshot(runId);
   assert.equal(snapshot.runId, runId);
+  assert.deepEqual(snapshot.machine, { client: "notebook-0002", label: "Notebook" });
   const seen = snapshot.processes.find((entry) => entry.pid === child.pid);
   assert.ok(seen, JSON.stringify(snapshot));
   assert.deepEqual(seen.ports, [{ port, address: "127.0.0.1" }]);
@@ -278,12 +283,74 @@ test("the process view shows and ends the processes of the workstation, not thos
   assert.deepEqual((await processes.snapshot(runId)).processes, []);
 });
 
+test("a service on the workstation is forwarded through its connection, a port of the server's processes is not", { skip: !hasProcessTable() }, async (t) => {
+  const server = await serverFixture(t);
+  const project = path.join(server.root, "workstation", "project");
+  await mkdir(project, { recursive: true });
+  const offered = `/foreign-machine-${randomUUID()}/project`;
+  const runId = `foreign-forward-${process.pid}`;
+  const child = spawn(process.execPath, ["-e", [
+    "const server = require('node:http').createServer((request, response) => {",
+    "  const chunks = []; request.on('data', (chunk) => chunks.push(chunk));",
+    "  request.on('end', () => { response.writeHead(200, { 'X-Host': request.headers.host, 'X-Path': request.url }); response.end(Buffer.concat([Buffer.from([0, 255]), ...chunks])); });",
+    "});",
+    "server.listen(0, '127.0.0.1', () => process.stdout.write(String(server.address().port) + '\\n'));",
+    "setTimeout(() => process.exit(0), 30000);",
+  ].join("")], { detached: true, env: { ...process.env, [RUN_MARKER_ENV]: `only-on-the-server-${process.pid}` }, stdio: ["ignore", "pipe", "inherit"] });
+  t.after(() => { if (child.exitCode === null && child.signalCode === null) child.kill("SIGKILL"); });
+  const port = await new Promise<number>((resolve, reject) => {
+    let output = "";
+    child.stdout?.on("data", (chunk: Buffer) => {
+      output += chunk.toString("utf8");
+      const value = Number(output.trim());
+      if (Number.isInteger(value) && value > 0) resolve(value);
+    });
+    child.once("error", reject);
+  });
+  const machine = processTableForPlatform();
+  // Only the process table of the workstation assigns the service to the run; on the server it carries a different marker.
+  const workstationTable: ProcessTable = {
+    list: () => machine.list(),
+    runMarkers: async (pids) => new Map(pids.filter((pid) => pid === child.pid).map((pid) => [pid, runId])),
+    listeningPorts: (pids) => machine.listeningPorts(pids),
+  };
+  const workstation = await foreignWorkstation(t, server.url, "notebook-0003", "Notebook", { [offered]: project }, [processModule({ table: () => workstationTable })]);
+  server.bindings.set(runId, { machine: { client: "notebook-0003", label: "Notebook" }, folder: { path: offered } });
+  const processes = runProcessesOf(server.runtime.sandbox, (id) => server.runtime.placementOf(id));
+
+  const response = await processes.forward({ runId, port, request: { method: "POST", path: "/echo?x=1", headers: [["Content-Type", "application/octet-stream"]], body: Buffer.from([1, 2, 3]).toString("base64") } },
+    new AbortController().signal);
+  assert.ok(response);
+  assert.equal(response.status, 200);
+  assert.deepEqual([...Buffer.from(response.body, "base64")], [0, 255, 1, 2, 3]);
+  assert.deepEqual(response.headers.filter(([name]) => name.toLowerCase().startsWith("x-")), [["X-Host", `localhost:${port}`], ["X-Path", "/echo?x=1"]]);
+  assert.deepEqual(workstation.operations, ["processes.forward"], "the request went to the workstation, not to the server's executor");
+
+  server.bindings.set("server-run", { machine: "server", folder: "fresh" });
+  await assert.rejects(processes.forward({ runId: "server-run", port, request: null }, new AbortController().signal),
+    (error: unknown) => error instanceof DomainError && error.code === "forward-port-unknown");
+  assert.deepEqual(workstation.operations, ["processes.forward"], "a run on the server never reaches the workstation");
+});
+
 /** The actor programs of a run are on the server under @actors, as `ragents.actor-programs` registers them. */
 const actorRoot = async (server: Awaited<ReturnType<typeof serverFixture>>): Promise<string> => {
   const actors = path.join(server.root, "server", "actors");
   await mkdir(path.join(actors, "app", "src"), { recursive: true });
   server.runtime.sandbox.registerWorkspaceRoot({ id: "actors", alias: "@actors", environmentVariable: "RAGENTS_ACTORS_DIR", directoryFor: () => actors });
   return actors;
+};
+
+/** The document store of a run is on the server under @documents, as `ragents.documents` registers it. */
+const documentsRoot = async (server: Awaited<ReturnType<typeof serverFixture>>): Promise<(runId: string) => string> => {
+  const documentsFor = (runId: string): string => path.join(server.root, "server", "documents", runId);
+  server.runtime.sandbox.registerWorkspaceRoot({
+    id: "documents", alias: "@documents", environmentVariable: "RAGENTS_DOCUMENTS_DIR",
+    directoryFor: async (runId) => {
+      await mkdir(documentsFor(runId), { recursive: true });
+      return documentsFor(runId);
+    },
+  });
+  return documentsFor;
 };
 
 /** A project that exists only on the workstation, and the path under which the workstation offers it. */
@@ -435,17 +502,18 @@ test("the self-description names the server roots per binding, and in a workstat
   await mkdir(path.join(skills, "notes"));
   const server = await serverFixture(t, { skills: [path.join(skills, "notes")] });
   await actorRoot(server);
+  await documentsRoot(server);
   server.bindings.set("foreign", { machine: { client: "notebook-0010", label: "Notebook" }, folder: { path: "/foreign-machine/project" } });
   server.bindings.set("here", { machine: "server", folder: "fresh" });
 
   const remote = (await server.runtime.resolve("foreign", () => undefined)).description ?? "";
   assert.match(remote, /## Roots on the server/);
-  assert.match(remote, /`@actors` \(read and write\) and `@skills` \(read only\)/);
-  assert.match(remote, /with a `cwd` that starts with an alias it runs on the server instead and sees only the server, and only that bash has `\$RAGENTS_ACTORS_DIR` for `@actors`/);
+  assert.match(remote, /`@actors` \(read and write\), `@documents` \(read and write\) and `@skills` \(read only\)/);
+  assert.match(remote, /with a `cwd` that starts with an alias it runs on the server instead and sees only the server, and only that bash has `\$RAGENTS_ACTORS_DIR` for `@actors` and `\$RAGENTS_DOCUMENTS_DIR` for `@documents`/);
   assert.match(remote, /never combine a path with an alias and a path in the working directory/);
   const local = (await server.runtime.resolve("here", () => undefined)).description ?? "";
   assert.match(local, /## Roots besides the working directory/);
-  assert.match(local, /`bash` also has `\$RAGENTS_ACTORS_DIR` for `@actors`\./);
+  assert.match(local, /`bash` also has `\$RAGENTS_ACTORS_DIR` for `@actors` and `\$RAGENTS_DOCUMENTS_DIR` for `@documents`\./);
   assert.doesNotMatch(local, /on the server instead/);
 });
 
@@ -522,8 +590,9 @@ test("an actor program is created, edited with the file tools and activated in a
   await missingOnServer(offered);
 });
 
-test("the browser check runs on the workstation, its screenshots are in the server's file store", async (t) => {
+test("the browser check runs on the workstation, its screenshots go to @documents on the server or where filename names them", async (t) => {
   const server = await serverFixture(t);
+  const documentsFor = await documentsRoot(server);
   const project = path.join(server.root, "workstation", "project");
   await mkdir(project, { recursive: true });
   const offered = `/foreign-machine-${randomUUID()}/project`;
@@ -532,10 +601,10 @@ test("the browser check runs on the workstation, its screenshots are in the serv
     "/": { title: "App on the workstation", elements: [{ role: "button", name: "Save", onClick: (page) => page.show({ role: "status", name: "Saved" }) }] },
   });
   const workstation = await foreignWorkstation(t, server.url, "notebook-0004", "Notebook", { [offered]: project },
-    [browserModule(executorMachine("/unused"), { launch: stub.launch, timeoutMs: 500, checkTimeoutMs: 50 })]);
+    [sandboxToolsModule, browserModule(executorMachine("/unused"), { launch: stub.launch, timeoutMs: 500, checkTimeoutMs: 50 })]);
   const runId = "foreign-browser";
   server.bindings.set(runId, { machine: { client: "notebook-0004", label: "Notebook" }, folder: { path: offered } });
-  const documents = path.join(server.root, "server", "documents", runId);
+  const documents = documentsFor(runId);
   const browser = new RunBrowser({ sandbox: server.runtime.sandbox, filesFor: async () => documents });
   t.after(() => browser.shutdown());
 
@@ -544,9 +613,9 @@ test("the browser check runs on the workstation, its screenshots are in the serv
   await browser.click(runId, { role: "button", name: "Save" });
   const checked = await browser.check(runId, { target: { role: "status" }, text: "Saved" });
   const shot = await browser.takeScreenshot(runId, { label: "From the workstation" });
-  assert.equal(await readFile(path.join(documents, shot.path), "utf8"), "PNG 1920x1080");
+  assert.equal(await readFile(path.join(documents, shot.reference.slice("@documents/".length)), "utf8"), "PNG 1920x1080");
   assert.equal((await browser.image(runId)).toString(), "PNG 1920x1080");
-  assert.deepEqual(await readdir(project), [], "the workstation stores no screenshot");
+  assert.deepEqual(await readdir(project), [], "a screenshot without filename stays on the server");
   assert.deepEqual(browser.evidence(runId), {
     checkedAt: checked.checkedAt,
     url: "http://localhost:4173/",
@@ -555,6 +624,11 @@ test("the browser check runs on the workstation, its screenshots are in the serv
     errors: [],
   });
   assert.deepEqual(workstation.operations, ["browser.navigate", "browser.click", "browser.check", "browser.takeScreenshot"]);
+  const local = await browser.takeScreenshot(runId, { label: "In the project", filename: "shots/saved.png" });
+  assert.equal(await readFile(path.join(project, "shots", "saved.png"), "utf8"), "PNG 1920x1080");
+  assert.equal(local.url, `/api/plugins/ragents.documents/runs/${runId}/raw/shots/saved.png`);
+  assert.equal((await browser.image(runId)).toString(), "PNG 1920x1080");
+  assert.deepEqual(workstation.operations.slice(4), ["browser.takeScreenshot", BYTE_OPERATIONS.write, BYTE_OPERATIONS.read]);
   assert.equal(stub.log.launches, 1);
 
   await browser.close(runId);
@@ -565,7 +639,42 @@ test("the browser check runs on the workstation, its screenshots are in the serv
   await until(() => server.registry.list(null).length === 0);
   await assert.rejects(browser.snapshot(runId), (error: unknown) => error instanceof DomainError && error.code === "workspace-client-disconnected");
   assert.equal(browser.evidence(runId).url, undefined, "without a workstation the server knows no page state");
-  assert.equal(browser.evidence(runId).screenshots.length, 1);
+  assert.equal(browser.evidence(runId).screenshots.length, 2);
+});
+
+test("copy carries files and folders between the workstation and @documents on the server, binary-safe, one machine per call", async (t) => {
+  const server = await serverFixture(t);
+  const documentsFor = await documentsRoot(server);
+  const { offered, project } = await workstationProject(server);
+  const image = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x00, 0xff, 0x0a]);
+  await mkdir(path.join(project, "shots"));
+  await writeFile(path.join(project, "shots", "home.png"), image);
+  const workstation = await foreignWorkstation(t, server.url, "notebook-0012", "Notebook", { [offered]: project }, [sandboxToolsModule, fileModule]);
+  const runId = "copy-run";
+  server.bindings.set(runId, { machine: { client: "notebook-0012", label: "Notebook" }, folder: { path: offered } });
+  const documents = documentsFor(runId);
+  const scope = { caller: { runId, actorId: "actor-1", turnId: "turn-1" }, signal: undefined } as unknown as ToolScope;
+  const copy = createCopyTool(server.runtime.sandbox);
+  const call = (input: unknown) => copy.run(scope, "copy-1", input as never);
+
+  assert.equal(await call({ source: "shots/home.png", destination: "@documents/review/home.png" }), "Copied 1 file.");
+  assert.deepEqual(await readFile(path.join(documents, "review", "home.png")), image);
+  assert.deepEqual(workstation.operations, [BYTE_OPERATIONS.read], "the bytes are read on the workstation and written on the server");
+  await writeFile(path.join(documents, "review", "report.md"), "# Review\n\n![Home](home.png)\n");
+  assert.equal(await call({ source: "@documents/review", destination: "docs/review" }), "Copied 2 files.");
+  assert.deepEqual(await readFile(path.join(project, "docs", "review", "home.png")), image);
+  assert.equal(await readFile(path.join(project, "docs", "review", "report.md"), "utf8"), "# Review\n\n![Home](home.png)\n");
+  assert.deepEqual(workstation.operations, [BYTE_OPERATIONS.read, BYTE_OPERATIONS.write]);
+  await missingOnServer(offered);
+
+  const shown = await server.runtime.sandbox.execute(runId, BYTE_OPERATIONS.read, { path: "docs/review/home.png" }) as FileBytes;
+  assert.deepEqual(shown, { kind: "file", content: image.toString("base64") }, "the content route reads a workstation file through the run's executor");
+  const show = createShowDocumentTool(server.runtime.sandbox);
+  assert.equal(await show.run(scope, "show-1", { title: "Review", file_path: "@documents/review/report.md" } as never), "Shown to the user.");
+  assert.equal(await show.run(scope, "show-2", { title: "Home", file_path: "docs/review/home.png" } as never), "Shown to the user.");
+  assert.deepEqual(workstation.operations.slice(2), [BYTE_OPERATIONS.read, FILE_OPERATIONS.text]);
+  await assert.rejects(server.runtime.sandbox.execute(runId, BYTE_OPERATIONS.write, { path: "@skills/x.md", content: { kind: "file", content: "" } }),
+    (error: unknown) => error instanceof DomainError && error.code === "workspace-alias-unknown");
 });
 
 test("a new folder per run is created on the workstation as the contribution's Git worktree and disappears with the run", async (t) => {

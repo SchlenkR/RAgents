@@ -23,6 +23,7 @@ import { WORKSPACE_BINDING_OPTION_ID, WORKSPACE_METADATA_ID, type WorkspaceSessi
 import { bindingOf, currentBindingOf, executorShellChapter, sessionMetadataOf, workspaceBindingOption, workspaceListDetail, workspaceLocation, workspaceOwnerOf } from "./binding.js";
 import { createBrowseChannel, createBrowseMethods } from "./browse-route.js";
 import { clientMethods, WorkspaceClientRegistry } from "./clients.js";
+import { createCopyTool } from "./copy-tool.js";
 import { bashSetting, bashTimeoutSetting, PROCESS_SANDBOX_OFF, processSandboxSetting, rgSetting, workspaceConfigDescriptors } from "./config.js";
 import { RunWorkspaceRuntime } from "./runtime.js";
 
@@ -93,7 +94,7 @@ const ragentsWorkspacePlugin = (skillPaths: () => Promise<readonly string[]>): R
     });
     host.provide(workspaceRuntimeToken, runtime);
     host.provide(sandboxServicesToken, runtime.sandbox);
-    host.functions(runtime.sandbox.workspaceTools());
+    host.functions(runtime.sandbox.workspaceTools(), createCopyTool(runtime.sandbox));
     const rules = handlebarsPrompt("ragents.workspace.prompt", 100, pluginAsset("ragents.workspace", "prompt.hbs"));
     host.prompts(
       boundToTools({

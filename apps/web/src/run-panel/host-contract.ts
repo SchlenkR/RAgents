@@ -22,6 +22,39 @@ export const runPanelPageUrl = (serverUrl: string, query: RunPanelPageQuery): st
   return url.toString();
 };
 
+/** An HTTP service of a run that the panel asks its host to open. */
+export interface RunService {
+  runId: string;
+  port: number;
+  /** The workstation the run works on; null for the server. */
+  workstation: string | null;
+  /** The server method that forwards one request to the service, with ServiceForwardInput and ServiceForwardResult; the plugin that shows the port names it. */
+  forward: string;
+}
+
+/** One HTTP request or response of a forwarded service; headers as pairs because names repeat, the body in Base64. */
+export interface ServiceHttpRequest {
+  method: string;
+  path: string;
+  headers: Array<[string, string]>;
+  body: string;
+}
+
+export interface ServiceHttpResponse {
+  status: number;
+  headers: Array<[string, string]>;
+  body: string;
+}
+
+/** Without a request the forwarding method only checks that a process of the run still listens on the port. */
+export interface ServiceForwardInput {
+  runId: string;
+  port: number;
+  request: ServiceHttpRequest | null;
+}
+
+export type ServiceForwardResult = ServiceHttpResponse | null;
+
 /** Messages from the panel to its host. */
 export type RunPanelHostMessage =
   | { type: "ready" }
@@ -32,7 +65,8 @@ export type RunPanelHostMessage =
   | { type: "login" }
   | { type: "logout" }
   | { type: "openExternal"; url: string }
-  | { type: "openPage"; url: string; title: string };
+  | { type: "openPage"; url: string; title: string }
+  | ({ type: "openService" } & RunService);
 
 /** The shell reads clipboard contents on behalf of its cross-origin frames. */
 export interface ClipboardContent {
@@ -76,6 +110,7 @@ export type HostRunPanelMessage =
 
 const isObject = (value: unknown): value is Record<string, unknown> => typeof value === "object" && value !== null;
 const isText = (value: unknown): value is string => typeof value === "string" && value.length > 0;
+const isPort = (value: unknown): value is number => typeof value === "number" && Number.isInteger(value) && value >= 1 && value <= 65535;
 
 export const isRunPanelTheme = (value: unknown): value is RunPanelTheme => value === "light" || value === "dark";
 
@@ -96,6 +131,8 @@ export const isRunPanelHostMessage = (value: unknown): value is RunPanelHostMess
       return isText(value.url);
     case "openPage":
       return isText(value.url) && typeof value.title === "string";
+    case "openService":
+      return isText(value.runId) && isPort(value.port) && (value.workstation === null || isText(value.workstation)) && isText(value.forward);
     default:
       return false;
   }

@@ -2,7 +2,7 @@ import { hostname } from "node:os";
 import * as vscode from "vscode";
 import { defaultDataDirectory } from "../../server/src/data-directory";
 import { coreContracts } from "../../server/src/api/contracts";
-import type { RunPanelHostMessage, RunPanelTheme, HostRunPanelMessage } from "../../web/src/run-panel/host-contract";
+import type { RunPanelHostMessage, RunPanelTheme, HostRunPanelMessage, RunService } from "../../web/src/run-panel/host-contract";
 import { WORKSPACE_BINDING_OPTION_ID } from "../../../plugins/ragents.workspace/contract";
 import { prepareProfile } from "../../../scripts/remote/connect";
 import { ensureHostLinks } from "../../../scripts/package/host-links.mjs";
@@ -11,6 +11,7 @@ import { DOCUMENT_SCHEME, journalUri, RunDocuments } from "./documents";
 import { bundledBash, bundledRipgrep, ensureHostPackage, hostCommand, inheritedEnvironment, packagedHostVersion, provisionTools, startHost, type RunningHost } from "./host-process";
 import { connectedCount, connectionView, newRunChoices, panelState, pendingActions, preselectable, resolveConnection, type NewRunChoice } from "./overview-model";
 import type { ServerClient } from "./server-client";
+import { ServiceTunnels, serviceOnThisMachine } from "./service-tunnels";
 import { ConnectionSession, type ConnectionSnapshot, type LaunchedConnection, type SessionServices } from "./sessions";
 import { hostEnvironmentSecretKey, isEnvironmentName, missingHostEnvironmentSecrets, parseHostEnvironment, parseThemeSetting, parseZoomSetting, provideMissingSecret, resolveTheme, withHostEnvironmentSecrets, withRelaySession } from "./settings";
 import { connectionState, kindLabel } from "../../web/src/panel/connection-state";
@@ -133,6 +134,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<RAgent
   };
   const panel = new PanelView(bridge, context.extensionUri);
   const panels = new AppPanels(bridge);
+  const tunnels = new ServiceTunnels({ log });
   const documents = new RunDocuments((connection) => requireClient(connection));
   const statusBar = vscode.window.createStatusBarItem("ragents.connections", vscode.StatusBarAlignment.Left, 50);
   statusBar.command = "ragents.showStart";
@@ -441,6 +443,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<RAgent
   };
 
   const sessionChanged = () => {
+    tunnels.retain((name) => sessions.get(name)?.client?.rpc);
     syncContext();
     panel.render();
     announceVersionNotices();
@@ -698,6 +701,18 @@ export async function activate(context: vscode.ExtensionContext): Promise<RAgent
     return picked?.label;
   };
 
+  /** A service on this machine opens directly: on this window's workstation or on the extension's own host. Otherwise a local tunnel forwards it through the run's server. */
+  const openService = async (connection: string, service: RunService): Promise<void> => {
+    const session = requireSession(connection);
+    if (serviceOnThisMachine(service, { ownHost: session.host !== undefined, workstation: session.workspaceClient?.id })) {
+      log(`== Port ${service.port} of run ${service.runId} is on this machine; opened directly`);
+      await vscode.env.openExternal(vscode.Uri.parse(`http://localhost:${service.port}/`));
+      return;
+    }
+    const localPort = await tunnels.open(connection, requireClient(connection).rpc, service);
+    await vscode.env.openExternal(vscode.Uri.parse(`http://localhost:${localPort}/`));
+  };
+
   const handleRunPanelMessage = (connection: string, incoming: RunPanelHostMessage) => {
     const session = sessions.get(connection);
     switch (incoming.type) {
@@ -732,6 +747,14 @@ export async function activate(context: vscode.ExtensionContext): Promise<RAgent
       case "openPage":
         void vscode.commands.executeCommand("simpleBrowser.show", incoming.url);
         return;
+      case "openService": {
+        const { runId, port, workstation, forward } = incoming;
+        void openService(connection, { runId, port, workstation, forward }).catch((cause: unknown) => {
+          log(`== Port ${port} of run ${runId} cannot be opened: ${message(cause)}`);
+          void vscode.window.showErrorMessage(`RAgents: port ${port} of the run cannot be opened: ${message(cause)}`);
+        });
+        return;
+      }
     }
   };
 
@@ -741,6 +764,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<RAgent
     output,
     statusBar,
     { dispose: () => { void stopAllSessions(); } },
+    { dispose: () => { void tunnels.dispose(); } },
     { dispose: () => panels.dispose() },
     vscode.window.registerWebviewViewProvider("ragents.runPanel", panel, { webviewOptions: { retainContextWhenHidden: true } }),
     vscode.workspace.registerTextDocumentContentProvider(DOCUMENT_SCHEME, documents),

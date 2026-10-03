@@ -409,12 +409,12 @@ test("document navigation includes worker histories without duplicating the prim
   const main = documentMessage("main-document", "Main report", { content: "Report" });
   const completed = { ...main, tool: { ...main.tool!, result: "Shown to the user." } };
   const worker = documentMessage("worker-document", "Review", { content: "Checked" });
-  const file = documentMessage("worker-file", "File", { storePath: "result.md" });
+  const file = documentMessage("worker-file", "File", { file_path: "@documents/result.md" });
   const messages = documentMessagesFrom([completed], { primary: [main], worker: [worker, file, { key: "answer", role: "assistant", text: "Done" }] });
   assert.deepEqual(messages.map((message) => message.tool?.id), ["main-document", "worker-document", "worker-file"]);
   assert.equal(messages[0], completed);
   assert.deepEqual(documentsFrom(messages).map((document) => document.title), ["Main report", "Review"]);
-  assert.equal(JSON.parse(messages[2].tool!.arguments).storePath, "result.md");
+  assert.equal(JSON.parse(messages[2].tool!.arguments).file_path, "@documents/result.md");
 });
 
 

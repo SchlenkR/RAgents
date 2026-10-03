@@ -6,7 +6,7 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import test from "node:test";
 
-import { createAccessContext, type MethodConnection, type MethodContext } from "@ragents/engine";
+import { createAccessContext, DomainError, type MethodConnection, type MethodContext } from "@ragents/engine";
 
 import type { RunProcessMessage, RunProcessPort, RunProcessSnapshot } from "../../../plugins/ragents.processes/contract.ts";
 import { RunProcessObserver } from "../../../plugins/ragents.processes/server/observer.ts";
@@ -329,7 +329,7 @@ test("the scanner reads markers only for new processes and remembers the first s
 });
 
 test("the observer asks the executor of each run per tick and reports only changes", async () => {
-  const snapshots = new Map<string, RunProcessSnapshot>([["run-1", { runId: "run-1", observedAt: "t0", processes: [] }]]);
+  const snapshots = new Map<string, RunProcessSnapshot>([["run-1", { runId: "run-1", observedAt: "t0", machine: "server", processes: [] }]]);
   const asked: string[] = [];
   const observer = new RunProcessObserver({
     snapshot: async (runId) => {
@@ -352,7 +352,7 @@ test("the observer asks the executor of each run per tick and reports only chang
   assert.equal(received.length, 1, "an unchanged state does not go to the first subscriber again");
   assert.equal(late.length, 1, "a new subscriber gets the state immediately");
 
-  snapshots.set("run-1", { runId: "run-1", observedAt: "t1", processes: [{
+  snapshots.set("run-1", { runId: "run-1", observedAt: "t1", machine: "server", processes: [{
     id: "11-x", pid: 11, label: "node app.js", command: "node app.js", origin: "background", ports: [], seenSince: "t1",
   }] });
   assert.deepEqual((await observer.observe("run-1")).processes.map((process) => process.pid), [11]);
@@ -447,7 +447,7 @@ const context = (rights: readonly string[]): MethodContext => ({
 });
 
 test("the methods deliver the state and the event channel the stream", async () => {
-  const snapshot: RunProcessSnapshot = { runId: "run-1", observedAt: "2026-09-03T10:00:00.000Z", processes: [] };
+  const snapshot: RunProcessSnapshot = { runId: "run-1", observedAt: "2026-09-03T10:00:00.000Z", machine: "server", processes: [] };
   let listener: ((message: RunProcessMessage) => void) | undefined;
   let stopped = 0;
   const options = {
@@ -462,6 +462,7 @@ test("the methods deliver the state and the event channel the stream", async () 
     ensureWorkspaceAccess: (_access: unknown, runId: string) => {
       if (runId === "run-gone") throw new Error("The run was deleted");
     },
+    forward: async () => null,
   };
   const [snapshotMethod, stopMethod] = createProcessMethods(options);
   const channel = createProcessChannel(options);
@@ -490,6 +491,38 @@ test("the methods deliver the state and the event channel the stream", async () 
     Promise.resolve().then(() => channel.open({ runId: "run-gone" }, () => {}, { access, connection })),
     /deleted/,
   );
+});
+
+test("forwarding needs read, inspection and process rights and the workspace, and hands input and signal to the run's executor", async () => {
+  const forwarded: Array<{ input: unknown; signal: AbortSignal }> = [];
+  const response = { status: 200, headers: [["Content-Type", "text/plain"]] as Array<[string, string]>, body: Buffer.from("ok").toString("base64") };
+  const methods = createProcessMethods({
+    terminate: async () => {},
+    observer: { observe: () => Promise.reject(new Error("unused")), watch: () => () => undefined },
+    ensureWorkspaceAccess: (_access, runId) => {
+      if (runId === "run-owner-only") throw new DomainError("run-workspace-owner-only", "Only the owner reaches the workspace", 403);
+    },
+    forward: async (input, signal) => {
+      forwarded.push({ input, signal });
+      return response;
+    },
+  });
+  const method = methods.find((entry) => entry.contract.id === "ragents.processes.forward");
+  assert.ok(method);
+  assert.deepEqual(method.contract.rights, ["runs.read", "runs.inspect", "ragents.processes.read"]);
+  const request = { method: "GET", path: "/?a=1", headers: [["Accept", "*/*"]], body: "" };
+  const all = context(["runs.read", "runs.inspect", "ragents.processes.read"]);
+  for (const missing of ["runs.read", "runs.inspect", "ragents.processes.read"]) {
+    const rights = ["runs.read", "runs.inspect", "ragents.processes.read"].filter((right) => right !== missing);
+    await assert.rejects(Promise.resolve().then(() => method.execute({ runId: "run-1", port: 5173, request }, context(rights))),
+      (error: unknown) => error instanceof DomainError && error.status === 403, missing);
+  }
+  await assert.rejects(Promise.resolve().then(() => method.execute({ runId: "run-owner-only", port: 5173, request }, all)),
+    (error: unknown) => error instanceof DomainError && error.code === "run-workspace-owner-only");
+  assert.deepEqual(forwarded, [], "nothing reaches the executor without the rights and the workspace");
+  assert.deepEqual(await method.execute({ runId: "run-1", port: 5173, request }, all), response);
+  assert.deepEqual(forwarded.map((entry) => entry.input), [{ runId: "run-1", port: 5173, request }]);
+  assert.equal(forwarded[0]!.signal, all.signal);
 });
 
 const startListener = (runId: string): Promise<{ child: ChildProcess; port: number }> =>

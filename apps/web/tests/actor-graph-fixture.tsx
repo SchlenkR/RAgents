@@ -105,7 +105,7 @@ window.actorGraphFixture = fixture;
 
 const host: RunPanelHost = {
   kind: "vscode", machines: "all",
-  openApp() {}, requestLogin() {}, requestLogout() {}, openExternal() {}, openPage() {},
+  openApp() {}, requestLogin() {}, requestLogout() {}, openExternal() {}, openPage() {}, openService() {},
   onCommand: () => () => {}, notify() {},
 };
 const access = createAccessContext({ enabled: true, user: { id: "tester", label: "Tester", rights: ["runs.read", "runs.write", "runs.create", "runs.inspect"], startEntries: [] } });

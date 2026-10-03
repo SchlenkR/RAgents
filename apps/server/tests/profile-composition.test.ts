@@ -94,7 +94,7 @@ test("the workspace rules hang on its tools and stay in the system prompt", asyn
   const rules = (await host.prompts.snapshot({})).contributions.find((entry) => entry.id === "ragents.workspace.prompt");
   assert.ok(rules);
   assert.equal(rules.delivery, "initial");
-  assert.deepEqual([...rules.requiresTools].sort(), ["bash", "edit", "read", "write"]);
+  assert.deepEqual([...rules.requiresTools].sort(), ["bash", "copy", "edit", "read", "write"]);
   const native = host.tools.describe().filter((entry) => entry.nativeTool).map((entry) => entry.name);
   assert.ok(rules.requiresTools.every((tool) => native.includes(tool)));
   const chapters = await host.prompts.describe({}, { delivery: "on-demand", toolNames: rules.requiresTools });
@@ -112,7 +112,7 @@ test("the neutral showcase fixture composes real plugins and folder contribution
   assert.ok(host.optionalService(browserRuntimeToken), "browser service is missing");
   assert.deepEqual(names(host.operations.describe()), ["actor_input"]);
   assert.deepEqual(host.tools.describe().map((tool) => tool.name).sort(), [
-    "ask_user", "bash", "document_write", "edit",
+    "ask_user", "bash", "copy", "edit",
     "fsharp_close", "fsharp_diagnostics", "fsharp_open",
     "actor_program_activate", "actor_program_controls", "actor_program_create", "actor_program_diagnostics", "actor_program_ensure", "actor_program_list", "actor_program_remove", "actor_view_set_visibility", "actor_view_snapshot",
     "browser_navigate", "browser_snapshot", "browser_click", "browser_type", "browser_select_option", "browser_press_key", "browser_check", "browser_resize", "browser_take_screenshot", "browser_view_screenshot", "browser_close",
@@ -217,6 +217,27 @@ test("no prompt contribution and no tool description names the variable of a ser
     assert.doesNotMatch(text, /RAGENTS_[A-Z_]+_DIR/, id);
   }
   assert.match(prompts.find(([id]) => id === "ragents.actor-programs.summary")?.[1] ?? "", /cwd: "@actors\/<name>"/);
+});
+
+test("the document store is @documents: no tool, prompt or skill names document_write or storePath", async () => {
+  const host = await composed(showcaseFixture);
+  const toolNames = host.tools.describe().map((tool) => tool.name);
+  assert.equal(toolNames.includes("document_write"), false);
+  const prompts = [
+    ...(await host.prompts.snapshot({})).contributions,
+    ...await host.prompts.describe({}, { delivery: "on-demand", toolNames }),
+  ];
+  const functions = (await Promise.all(host.tools.entries().map((contributor) => contributor.tools(toolResolutionContext)))).flat();
+  const { readFileSync } = await import("node:fs");
+  const skills = (await host.skills.global()).map((folder) => readFileSync(path.join(folder, "SKILL.md"), "utf8"));
+  for (const text of [...prompts.map((entry) => entry.content), ...functions.map((fn) => [fn.description, fn.longDescription ?? "", JSON.stringify(fn.schema)].join("\n")), ...skills]) {
+    assert.doesNotMatch(text, /document_write|storePath/);
+  }
+  const documents = prompts.find((entry) => entry.id === "ragents.documents.prompt");
+  assert.ok(documents);
+  assert.deepEqual([...documents.requiresTools].sort(), ["copy", "show_document", "write"]);
+  assert.match(documents.content, /`@documents\/<topic>\/<file>`/);
+  assert.match(documents.content, /`copy` moves files and folders/);
 });
 
 test("function catalogs keep compact descriptions while runtime functions retain detailed instructions", async () => {

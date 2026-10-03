@@ -1,78 +1,63 @@
 import assert from "node:assert/strict";
-import { mkdir, mkdtemp, writeFile } from "node:fs/promises";
-import { tmpdir } from "node:os";
-import path from "node:path";
 import test from "node:test";
 import { Value } from "typebox/value";
-import type { ToolScope } from "@ragents/engine";
+import { DomainError, type ToolScope } from "@ragents/engine";
+import { FILE_OPERATIONS } from "@ragents/workspace-executor";
 
 import { createShowDocumentTool } from "../../../plugins/ragents.documents/server/show-document-tool.ts";
-import type { DocumentSources } from "../../../plugins/ragents.documents/server/sources.ts";
 
 const scope = { caller: { runId: "run-1", actorId: "actor-1", turnId: "turn-1" }, signal: undefined } as unknown as ToolScope;
 
-const fixture = async () => {
-  const files = await mkdtemp(path.join(tmpdir(), "ragents-documents-"));
-  await mkdir(path.join(files, "topic"));
-  await writeFile(path.join(files, "topic", "file.md"), "# Content\n");
-  const read: Array<{ runId: string; filePath: string; toolCallId: string | undefined }> = [];
-  const sources: DocumentSources = {
-    storeFor: async () => files,
-    workspaceText: async (runId, filePath, call) => {
-      read.push({ runId, filePath, toolCallId: call?.toolCallId });
-      if (filePath === "missing.md") throw new Error("Not found: missing.md");
-      return "# Guide\n";
+const fixture = () => {
+  const calls: Array<{ runId: string; operation: string; input: unknown; toolCallId: string | undefined }> = [];
+  const tool = createShowDocumentTool({
+    execute: async (runId, operation, input, options) => {
+      calls.push({ runId, operation, input, toolCallId: options?.toolCallId });
+      if ((input as { path: string }).path === "missing.md") throw new DomainError("workspace-path-not-found", "Not found: missing.md", 404);
+      return { path: (input as { path: string }).path, size: 10, previewable: false, reason: "The file is binary" };
     },
-  };
-  const tool = createShowDocumentTool(sources);
-  return { read, tool, show: (input: unknown) => tool.run(scope, "call-1", input as never) };
+  });
+  return { calls, tool, show: (input: unknown) => tool.run(scope, "call-1", input as never) };
 };
 
-test("show_document reads a file named like read where the workspace lies and does not echo it", async () => {
-  const f = await fixture();
+test("show_document checks a file named like read where its root lies and does not echo it, also an image", async () => {
+  const f = fixture();
 
   assert.equal(await f.show({ title: "Guide", file_path: "docs/guide.md" }), "Shown to the user.");
-  assert.deepEqual(f.read, [{ runId: "run-1", filePath: "docs/guide.md", toolCallId: "call-1" }]);
+  assert.equal(await f.show({ title: "Login", file_path: "@documents/review/shots/login.png" }), "Shown to the user.");
+  assert.deepEqual(f.calls, [
+    { runId: "run-1", operation: FILE_OPERATIONS.text, input: { path: "docs/guide.md" }, toolCallId: "call-1" },
+    { runId: "run-1", operation: FILE_OPERATIONS.text, input: { path: "@documents/review/shots/login.png" }, toolCallId: "call-1" },
+  ]);
   await assert.rejects(async () => await f.show({ title: "Missing", file_path: "missing.md" }), /Not found: missing\.md/);
 });
 
-test("show_document shows a file of the file store and rejects one outside it", async () => {
-  const f = await fixture();
-
-  assert.equal(await f.show({ title: "File", storePath: "topic/file.md" }), "Shown to the user.");
-  await assert.rejects(async () => await f.show({ title: "README", storePath: "src/README.md" }), /src\/README\.md is not in this run's file store/);
-  await assert.rejects(async () => await f.show({ title: "Escape", storePath: "../escape.md" }), /relative to the file store/);
-  assert.deepEqual(f.read, []);
-});
-
 test("show_document shows own content without reading a file", async () => {
-  const f = await fixture();
+  const f = fixture();
 
   assert.equal(await f.show({ title: "Report", content: "# Report" }), "Shown to the user.");
-  assert.deepEqual(f.read, []);
+  assert.deepEqual(f.calls, []);
 });
 
-test("show_document takes exactly one source and names the three valid forms", async () => {
-  const f = await fixture();
+test("show_document takes exactly one source and names the two valid forms", async () => {
+  const f = fixture();
 
-  for (const input of [
-    { title: "File" },
-    { title: "File", content: "# Content", file_path: "docs/guide.md" },
-    { title: "File", storePath: "topic/file.md", file_path: "docs/guide.md" },
-    { title: "File", content: "# Content", storePath: "topic/file.md" },
-  ]) {
-    await assert.rejects(async () => await f.show(input), /file_path, storePath and content exclude each other: valid are \{ title, file_path \}.*\{ title, storePath \}.*\{ title, content \}/, JSON.stringify(input));
+  for (const input of [{ title: "File" }, { title: "File", content: "# Content", file_path: "docs/guide.md" }]) {
+    await assert.rejects(async () => await f.show(input), /file_path and content exclude each other: valid are \{ title, file_path \}.*\{ title, content \}/, JSON.stringify(input));
   }
 });
 
-test("show_document has a flat input without a root union and no longer takes path", async () => {
-  const { tool } = await fixture();
-  const schema = tool.schema as { type?: unknown; anyOf?: unknown; oneOf?: unknown; required?: readonly string[] };
+test("show_document has a flat input without a root union and takes neither path nor storePath", () => {
+  const { tool } = fixture();
+  const schema = tool.schema as { type?: unknown; anyOf?: unknown; oneOf?: unknown; required?: readonly string[]; properties: object };
 
   assert.equal(schema.type, "object");
   assert.equal(schema.anyOf, undefined);
   assert.equal(schema.oneOf, undefined);
   assert.deepEqual(schema.required, ["title"]);
+  assert.deepEqual(Object.keys(schema.properties), ["title", "file_path", "content", "format"]);
   assert.equal(Value.Check(tool.schema, { title: "Old", path: "topic/file.md" }), false);
+  assert.equal(Value.Check(tool.schema, { title: "Old", storePath: "topic/file.md" }), false);
+  assert.doesNotMatch(JSON.stringify([tool.description, tool.longDescription, tool.schema]), /storePath|document_write|file store/);
   assert.notEqual(tool.nativeTool, false);
 });

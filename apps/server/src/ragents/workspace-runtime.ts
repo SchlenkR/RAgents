@@ -37,13 +37,21 @@ export interface WorkspaceTransfer {
   rebind: (runId: string, directory: string) => void;
 }
 
-/** Where and in which folder a run works, answered separately; a flow asks for both, never for a mixed value. */
-export interface WorkspacePlacement {
-  machine: "server" | "client";
+interface WorkspacePlacementFolder {
   folder: "fresh" | "existing";
   /** The id of the kind (`WorkspaceKind.id`), if a contribution provided the new folder. */
   kind?: string;
 }
+
+/** Where and in which folder a run works, answered separately; a flow asks for both, never for a mixed value. */
+export type WorkspacePlacement = WorkspacePlacementFolder & (
+  | { machine: "server" }
+  | {
+    machine: "client";
+    /** The workstation's ID and its current label, the stored one while it is not signed in. */
+    workstation: { client: string; label: string };
+  }
+);
 
 export interface WorkspaceRuntime {
   resolve: (runId: string, emitSystem: (text: string) => void) => Promise<SessionWorkspace>;

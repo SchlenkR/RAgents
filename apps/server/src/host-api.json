@@ -278,7 +278,10 @@
       "workflowInstructions"
     ],
     "@ragents/workspace-executor": [
+      "BYTE_OPERATIONS",
       "COMMAND_OPERATIONS",
+      "FILE_BYTES_LIMIT",
+      "FILE_COUNT_LIMIT",
       "FILE_OPERATIONS",
       "PROCESS_OPERATIONS",
       "RUN_FOLDER_OPERATIONS",

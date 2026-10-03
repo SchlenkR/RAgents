@@ -4,8 +4,9 @@ import type { SessionHeaderContext, WorkspaceTabContext } from "@ragents/web/Plu
 import { Dialog, DialogBody, DialogContent, DialogHeader, DialogTitle, StopButton, cn } from "@ragents/web/ui";
 import { ToolbarCopy, ToolbarItem, ToolbarLabel, ToolbarText } from "@ragents/web/Toolbar";
 import { rpc } from "@ragents/web/rpc";
-import { processesContracts, type RunProcess, type RunProcessSnapshot } from "../contract";
-import { kindLabel, messageFrom, serviceUrl, titleOf, visibleProcesses } from "./processes";
+import { useRunPanelHost } from "@ragents/web/run-panel/host";
+import { processesContracts, type RunProcess, type RunProcessMachine, type RunProcessPort, type RunProcessSnapshot } from "../contract";
+import { kindLabel, messageFrom, portAction, titleOf, visibleProcesses, type PortAction } from "./processes";
 
 interface ProcessWatchState {
   snapshot: RunProcessSnapshot | undefined;
@@ -15,7 +16,8 @@ interface ProcessWatchState {
 const idle: ProcessWatchState = { snapshot: undefined, error: undefined };
 
 const pillClass = "inline-flex h-6 min-w-0 items-center gap-1.5 whitespace-nowrap rounded-full border border-border-soft bg-card/78 pl-2.5 pr-0.5 text-xs font-medium text-muted-foreground data-[origin=background]:border-dashed [&>svg]:flex-none";
-const portClass = "flex-none rounded-full bg-primary/14 px-1.5 py-px text-foreground tabular-nums underline underline-offset-2 hover:bg-primary/28 focus-visible:bg-primary/28";
+const portLabelClass = "flex-none rounded-full bg-primary/14 px-1.5 py-px text-foreground tabular-nums";
+const portClass = `${portLabelClass} cursor-pointer underline underline-offset-2 hover:bg-primary/28 focus-visible:bg-primary/28`;
 const stopClass = "size-5 min-w-5 rounded-full p-0.75 [&_svg]:size-2.5";
 
 const useRunProcesses = (runId: string, active: boolean): ProcessWatchState => {
@@ -47,15 +49,25 @@ export function IconProcess() {
 
 interface StopState { busy?: boolean; error?: string }
 
-function ProcessPill({ process, state, writable, onStop, toolbar = false }: { process: RunProcess; state?: StopState; writable: boolean; onStop: () => void; toolbar?: boolean }) {
+function PortControl({ action, port, onOpen }: { action: PortAction; port: RunProcessPort; onOpen: () => void }) {
+  if (action.kind === "link") return <a className={portClass} href={action.href} rel="noreferrer" target="_blank" title={action.title}>:{port.port}</a>;
+  if (action.kind === "open") return <button className={portClass} onClick={onOpen} title={action.title} type="button">:{port.port}</button>;
+  return <span className={portLabelClass} title={action.title}>:{port.port}</span>;
+}
+
+function ProcessPill({ runId, machine, process, state, writable, onStop, toolbar = false }: {
+  runId: string; machine: RunProcessMachine; process: RunProcess; state?: StopState; writable: boolean; onStop: () => void; toolbar?: boolean;
+}) {
+  const host = useRunPanelHost();
+  const open = (port: RunProcessPort) => host.openService({
+    runId, port: port.port, workstation: machine === "server" ? null : machine.client, forward: processesContracts.forward.id,
+  });
   const stop = <StopButton busy={state?.busy === true} className={stopClass} disabled={!writable || state?.busy}
     label={state?.busy ? `Stopping ${process.label}` : `Stop ${process.label}`}
     onClick={onStop} size="icon-xs"
     title={!writable ? "Write or inspect rights are missing to stop" : state?.busy ? "Stopping ..." : `Stop ${process.label}`} />;
-  const ports = process.ports.map((port) => <a className={portClass} href={serviceUrl(window.location.hostname, port.port)}
-    key={`${port.address}:${port.port}`} rel="noreferrer" target="_blank" title={`Open ${port.address}:${port.port} in a new tab`}>
-    :{port.port}
-  </a>);
+  const ports = process.ports.map((port) => <PortControl action={portAction(host.kind, machine, window.location.hostname, port)}
+    key={`${port.address}:${port.port}`} port={port} onOpen={() => open(port)} />);
   return <div className={cn("flex min-w-0 flex-col", toolbar ? "flex-none self-stretch max-md:not-first:hidden" : "w-full")} data-process-id={process.id}>
     {toolbar
       ? <ToolbarItem className="max-w-none flex-1 data-[origin=background]:[border-right-style:dashed]" data-origin={process.origin} title={titleOf(process)}>
@@ -121,7 +133,11 @@ function ProcessHeaderContent({ runId, panel = false, active = true }: { runId: 
       if (!controller.signal.aborted) setStops((current) => ({ ...current, [process.id]: { error: cause instanceof Error ? cause.message : String(cause) } }));
     } finally { requests.current.delete(process.id); }
   };
-  const renderProcess = (process: RunProcess, toolbar = false) => <ProcessPill key={process.id} process={process} state={stops[process.id]} writable={writable} toolbar={toolbar} onStop={() => { void stop(process); }} />;
+  const snapshot = state.snapshot;
+  const renderProcess = (process: RunProcess, toolbar = false) => snapshot
+    ? <ProcessPill key={process.id} machine={snapshot.machine} process={process} runId={runId} state={stops[process.id]} writable={writable}
+      toolbar={toolbar} onStop={() => { void stop(process); }} />
+    : null;
   if (panel) return <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-auto p-2" ref={rootRef} onFocusCapture={rememberFocus}>
     {processes.length > 0 ? processes.map((process) => renderProcess(process)) : <p role="status">No active processes.</p>}
     {state.error !== undefined && <p className="text-destructive" role="alert">{state.error}</p>}

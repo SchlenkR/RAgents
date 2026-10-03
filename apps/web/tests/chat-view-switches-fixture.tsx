@@ -79,7 +79,7 @@ window.chatViewFixture = fixture;
 
 const host: RunPanelHost = {
   kind: "vscode", machines: "all",
-  openApp() {}, requestLogin() {}, requestLogout() {}, openExternal() {}, openPage() {},
+  openApp() {}, requestLogin() {}, requestLogout() {}, openExternal() {}, openPage() {}, openService() {},
   onCommand: () => () => {}, notify() {},
 };
 const rights = ["runs.read", "runs.write", "runs.create", "runs.inspect", "ragents.overseer.read", "ragents.overseer.write"];

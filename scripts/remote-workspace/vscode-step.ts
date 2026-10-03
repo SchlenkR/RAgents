@@ -19,7 +19,7 @@ export const hostTestTasks: readonly KnownTask[] = [
         { tool: "bash", input: { command: "ls -1 src" } },
         { tool: "typescript_open", input: { root: "." } },
         { tool: "typescript_diagnostics", input: {} },
-        { tool: "document_write", input: { storePath: "report.md", content: "Greeting line changed, diagnostics ran.\n" } },
+        { tool: "write", input: { file_path: "@documents/report.md", content: "Greeting line changed, diagnostics ran.\n" } },
       ],
     },
   },

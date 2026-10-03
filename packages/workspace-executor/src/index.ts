@@ -32,6 +32,13 @@ export {
 } from "./contributions.js";
 export { RUN_FOLDER_OPERATIONS, runFolderModule, type RunFolderCreated } from "./run-folders.js";
 export {
+  BYTE_OPERATIONS,
+  FILE_BYTES_LIMIT,
+  FILE_COUNT_LIMIT,
+  type FileBytes,
+  type FileBytesEntry,
+} from "./bytes.js";
+export {
   FILE_OPERATIONS,
   FILE_READ_LIMIT,
   fileModule,
@@ -58,7 +65,8 @@ export {
   type OperationFootprint,
   type ResolvedWorkspaceRoot,
 } from "./paths.js";
-export { PROCESS_OPERATIONS, processModule } from "./processes/module.js";
+export { PROCESS_OPERATIONS, SERVICE_PORTS_TTL_MS, processModule } from "./processes/module.js";
+export { FORWARD_BODY_LIMIT, forwardTargets, type ForwardedResponse } from "./processes/forward.js";
 export { sandboxedLaunch, type ProcessLaunch, type ProcessSandbox } from "./process-sandbox.js";
 export {
   ProcessChangedError,

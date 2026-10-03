@@ -1390,7 +1390,7 @@ host.provide(workspaceResolverToken, {
 });
 ```
 
-resolve of the complete WorkspaceRuntime returns a SessionWorkspace with cwd, currentRoot, and runOperation; optionally gitEnv, gitConfig, and extraEnv are added. describe returns mode and directory pattern; placementOf states separately whether a run works on the server or on a workstation and whether in a new or existing folder, plus the kind of a contributed folder, and toolNaming can name the existing file tools.
+resolve of the complete WorkspaceRuntime returns a SessionWorkspace with cwd, currentRoot, and runOperation; optionally gitEnv, gitConfig, and extraEnv are added. describe returns mode and directory pattern; placementOf states separately whether a run works on the server or on a workstation, the latter with its ID and current label, and whether in a new or existing folder, plus the kind of a contributed folder, and toolNaming can name the existing file tools.
 
 A resolver receives runId, directory, choice, and emitSystem. optionId connects the selection with a registered start option. kind describes identifier, label, server folder, and display pattern of the contributed workspace on the server. workstation provides the new folder on a workstation: label and steps from operations of the executor there, which run after creation (prepare) and before removal (release); without workstation, a resolver offers no new folder there. The resolver shown keeps the run directory prepared by the host.
 

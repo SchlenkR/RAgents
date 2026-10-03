@@ -24,12 +24,14 @@ applications you started.
 4. Check success and relevant error cases with `browser_check`: visible result, target address
    and browser errors. A typecheck or screenshot alone does not prove a successful user path.
    Every action needs a new check. Do not invent results when the network is missing.
-5. Create real screenshots with `browser_take_screenshot`. Put `url` or `markdown`
-   programmatically into the result report or the mini-app. The image lives in the file storage
-   of this run. The native tool `browser_view_screenshot` shows you the latest screenshot
-   without a path; for that your model needs image support. The viewport defaults to
-   1920 x 1080 (16:9); for narrow layouts or small screens you change it with
-   `browser_resize` and check again afterwards.
+5. Create real screenshots with `browser_take_screenshot`. Give each a `filename` next to the
+   report that shows it, such as `@documents/<topic>/shots/home.png` for
+   `@documents/<topic>/report.md`, and embed it there with a path relative to the report:
+   `![Home](shots/home.png)`. Without `filename` it lands under `@documents/browser/`. The
+   native tool `browser_view_screenshot` shows you the latest screenshot without a path; for
+   that your model needs image support. The viewport defaults to 1920 x 1080 (16:9); for
+   narrow layouts or small screens you change it with `browser_resize` and check again
+   afterwards.
 6. Name the checked steps and remaining limits. Close the browser when you are done;
    screenshots are kept. Stopping the run and shutting down the server close it as well.
 

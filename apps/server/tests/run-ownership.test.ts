@@ -137,7 +137,7 @@ test("the rule per run: own run, foreign run, legacy run, free id, global chat a
     assert.equal(runOwned(unrestrictedAccess, runId, policy), true);
   }
   assert.equal(runIdInPath("/files/runs/own-run/artifacts/a1"), OWN);
-  assert.equal(runIdInPath("/api/plugins/ragents.documents/runs/own-run/files/content"), OWN);
+  assert.equal(runIdInPath("/api/plugins/ragents.documents/runs/own-run/raw/%40documents/report.md"), OWN);
   assert.equal(runIdInPath("/api/plugins/ragents.overseer/settings"), undefined);
 });
 

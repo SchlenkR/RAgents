@@ -95,9 +95,14 @@ plugin contributions when available. Clicking a rail button opens its panel; the
 Escape, X, or the backdrop closes it. Visited persistent panels keep their state.
 
 A document an agent shows appears as a card in the chat and opens in Documents: text it wrote,
-a file of the run's file storage, or a file of the workspace, also one on a workstation. A
-workspace file is read when you open it, so it shows the current content and needs the
-permission to inspect the workspace. An agent's to-do list appears on its actor card with the
+or a file, also an image, from the run's document store `@documents` or from the workspace, also
+one on a workstation. A file is read when you open it, so it shows the current content; a workspace
+file needs the permission to inspect the workspace. Images and links inside a Markdown or HTML
+document resolve relative to the document's folder, so a report under `@documents/review/` shows
+the screenshots stored next to it. Agents put reports and evidence under `@documents` and
+deliverables into the project, and move files between the two with `copy`. Documents lists the
+store by folder; Files shows it as a tree next to the working directory.
+An agent's to-do list appears on its actor card with the
 completed items checked and the item in progress in its running form, such as "Running tests".
 
 Journal in the bottom status bar shows actual events, newest first, with search, expandable JSON,
@@ -225,7 +230,7 @@ system prompt of every agent the coordinator creates. Plain LLMs with `tools: []
 excluded and receive only their own prompt. `SYSTEM_PROMPT_SHARE_DEFAULT=1`
 presets the checkbox; the scope is frozen into the run's journal together with the selection.
 
-The file storage stays isolated per run
+The document store `@documents` stays isolated per run
 (`sessions/<id>/plugins/ragents.documents/documents`, service `documentStoreToken` of
 `ragents.documents`); `DOCUMENTS_DIR` places it with one subfolder per run under an
 external path, but deliberately stays unset so that test runs never write into someone else's
@@ -417,7 +422,7 @@ the new prompt instruction; an existing conversation is not adjusted automatical
 Tools, management methods, journal access, and access of the global coordinator
 are in [core.md](spec/core.md) under "Global coordinator".
 
-## Stop services and background processes
+## Open and stop services and background processes
 
 The process rail shows the run's background processes and services with open ports, on
 the machine where the run works: with a workstation its processes, otherwise those of the
@@ -430,8 +435,26 @@ connected or does not respond within ten seconds, the server remembers the stop 
 carries it out as soon as the workstation registers again, before any new task of this
 run; until then the server log lists it as pending. A server restart forgets it.
 
-How the executor ends processes (SIGTERM, SIGKILL, time limits) and which processes it can assign
-to a run is in [plugins.md](spec/plugins.md) under "Workspace,
+A click on the port of a service, such as a dev server an agent started, opens it on the machine
+where the run works:
+
+- In the browser, a run on the server shows its port as a link to the same host name as the page,
+  so `http://<server>:5173/`. A run on a workstation shows only the port; its tooltip names the
+  workstation and that the VS Code extension can forward it. Nothing is opened on the wrong machine.
+- In VS Code, every port is a button that opens the service in your browser. If the run works on
+  this window's workstation, or on the server the extension started itself, it opens
+  `http://localhost:<port>/` directly. Otherwise the extension forwards it, as VS Code Remote does:
+  it listens on `127.0.0.1` with the same port number if that is free on your machine, otherwise
+  with a free one, and passes every request through the server to the run's machine. A second
+  click reuses the forwarding. It ends when the process or the run stops, when you disconnect the
+  server, and when VS Code closes; the `RAgents` output channel lists each forwarded request.
+  Forwarding needs the right `runs.inspect` besides reading the processes.
+
+Forwarding carries plain HTTP: no WebSockets, so the live reload of a dev server does not connect,
+no streamed responses, and at most 16 MiB per request and response.
+
+How the executor ends processes (SIGTERM, SIGKILL, time limits), which processes it can assign
+to a run, and how forwarding checks a port are in [plugins.md](spec/plugins.md) under "Workspace,
 sandbox tools, and processes".
 
 On the server, agents can use Bash and `curl` to reach public web domains on ports 80 and 443

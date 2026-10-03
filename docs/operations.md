@@ -705,7 +705,7 @@ ${DATA_DIR}/
     <runId>/                      0711 root
       plugins/                    0711 root - exactly one subfolder per plugin
         ragents.documents/
-          documents/              the run's file storage (document_write), without DOCUMENTS_DIR
+          documents/              the run's document store (`@documents`), without DOCUMENTS_DIR
         ragents.workspace/
           workspace/              empty working directory with binding fresh, filled by a resolver plugin;
                                   if the contribution brings its own kind, its folder lives in that plugin's storage

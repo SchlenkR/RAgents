@@ -1,8 +1,9 @@
 import { randomUUID } from "node:crypto";
 import { mkdir, readFile, rename, writeFile } from "node:fs/promises";
 import path from "node:path";
+import { BYTE_OPERATIONS, type FileBytes } from "@ragents/workspace-executor";
 import type { SandboxServices } from "@ragents/host/plugin-support/workspace-sandbox-host.js";
-import { documentsApiPrefix } from "@ragents/plugins/ragents.documents/contract.js";
+import { DOCUMENTS_ALIAS, contentPathOf, documentsApiPrefix } from "@ragents/plugins/ragents.documents/contract.js";
 import {
   BROWSER_OPERATIONS,
   type BrowserCheck,
@@ -18,10 +19,24 @@ import type { BrowserCallOptions, BrowserEvidence, BrowserRuntime } from "./cont
 
 export const DEFAULT_VIEWPORT: BrowserViewport = { width: 1920, height: 1080 };
 
+/** A stored screenshot: the id the page knows it by and where it lies, named as read names a file. */
 interface SavedCapture {
+  id: string;
   name: string;
-  path: string;
+  reference: string;
 }
+
+/** The capture list of a run stored before references named its files relative to the document store. */
+const formerCapture = /^browser\/([a-f0-9-]{36})\.png$/;
+
+const savedCaptureOf = (entry: unknown): SavedCapture => {
+  const { id, name, reference, path: stored } = (entry ?? {}) as { id?: unknown; name?: unknown; reference?: unknown; path?: unknown };
+  if (typeof name !== "string") throw new Error("The stored browser screenshot list of this run is corrupt.");
+  if (typeof id === "string" && id !== "" && typeof reference === "string" && reference !== "") return { id, name, reference };
+  const former = typeof stored === "string" ? formerCapture.exec(stored) : null;
+  if (!former) throw new Error("The stored browser screenshot list of this run is corrupt.");
+  return { id: former[1]!, name, reference: `${DOCUMENTS_ALIAS}/${stored}` };
+};
 
 /** What the server knows about a run's page: the last reported state and the time of the last passed check. */
 interface ObservedPage {
@@ -33,10 +48,9 @@ interface ObservedPage {
 
 export interface BrowserOptions {
   sandbox: Pick<SandboxServices, "execute">;
+  /** The document store, where the capture list of a run lies. */
   filesFor: (runId: string) => Promise<string>;
 }
-
-const capturePath = (id: string): string => `browser/${id}.png`;
 
 /** A run's browser testing: the page lives in the run's executor, the server holds evidence, screenshots and viewport. */
 export class RunBrowser implements BrowserRuntime {
@@ -108,41 +122,37 @@ export class RunBrowser implements BrowserRuntime {
     return { checkedAt, url: result.url, assertions: result.assertions };
   }
 
-  async takeScreenshot(runId: string, input: { label?: string; fullPage?: boolean }, options: BrowserCallOptions = {}): Promise<{
+  /** Stores the PNG where `filename` names it, at the machine of that root; without one under the document store. */
+  async takeScreenshot(runId: string, input: { label?: string; fullPage?: boolean; filename?: string }, options: BrowserCallOptions = {}): Promise<{
     name: string;
-    path: string;
+    reference: string;
     url: string;
-    markdown: string;
-    capturedAt: string;
   }> {
     await this.restore(runId);
     const id = randomUUID();
     const image = await this.#run<string>(runId, BROWSER_OPERATIONS.takeScreenshot, { id, fullPage: input.fullPage ?? false }, options);
-    const capture = { name: input.label?.trim() || "Browser screenshot", path: capturePath(id) };
-    await this.#store(runId, capture, Buffer.from(image, "base64"));
-    const url = this.#captureUrl(runId, capture.path);
-    return {
-      ...capture,
-      url,
-      markdown: `![${capture.name.replace(/[\[\]\\]/g, "")}](${url})`,
-      capturedAt: new Date().toISOString(),
-    };
+    const capture = { id, name: input.label?.trim() || "Browser screenshot", reference: input.filename ?? `${DOCUMENTS_ALIAS}/browser/${id}.png` };
+    await this.#store(runId, capture, image, options);
+    return { name: capture.name, reference: capture.reference, url: this.#captureUrl(runId, capture.reference) };
   }
 
-  async image(runId: string): Promise<Buffer> {
+  /** The latest screenshot, read where it lies. */
+  async image(runId: string, options: BrowserCallOptions = {}): Promise<Buffer> {
     const latest = this.#captures.get(runId)?.at(-1);
     if (!latest) throw new Error("There is no browser screenshot for this run yet. Call browser_take_screenshot first.");
-    return readFile(path.join(await this.#options.filesFor(runId), latest.path));
+    const bytes = await this.#options.sandbox.execute(runId, BYTE_OPERATIONS.read, { path: latest.reference }, options) as FileBytes;
+    if (bytes.kind !== "file") throw new Error(`The latest browser screenshot ${latest.reference} is no longer a file.`);
+    return Buffer.from(bytes.content, "base64");
   }
 
   evidence(runId: string): BrowserEvidence {
     const captures = this.#captures.get(runId) ?? [];
-    const shown = (capture: SavedCapture) => ({ name: capture.name, url: this.#captureUrl(runId, capture.path) });
+    const shown = (capture: SavedCapture) => ({ name: capture.name, url: this.#captureUrl(runId, capture.reference) });
     const screenshots = captures.map(shown);
     const page = this.#pages.get(runId);
     if (!page) return { screenshots, currentScreenshots: [], errors: [] };
     const current = page.screenshots
-      .map((id) => captures.find((capture) => capture.path === capturePath(id)))
+      .map((id) => captures.find((capture) => capture.id === id))
       .filter((capture): capture is SavedCapture => capture !== undefined);
     return {
       ...(page.checkedAt ? { checkedAt: page.checkedAt } : {}),
@@ -231,13 +241,13 @@ export class RunBrowser implements BrowserRuntime {
     });
   }
 
-  /** Puts a screenshot into the run's file storage and writes the screenshot list atomically; a run's screenshots one after another. */
-  #store(runId: string, capture: SavedCapture, image: Buffer): Promise<void> {
+  /** Writes a screenshot (Base64) where its reference names it and the screenshot list atomically; a run's screenshots one after another. */
+  #store(runId: string, capture: SavedCapture, image: string, options: BrowserCallOptions): Promise<void> {
     const previous = this.#captureWrites.get(runId) ?? Promise.resolve();
     const pending = previous.then(async () => {
+      await this.#options.sandbox.execute(runId, BYTE_OPERATIONS.write, { path: capture.reference, content: { kind: "file", content: image } }, options);
       const directory = await this.#options.filesFor(runId);
       await mkdir(path.join(directory, "browser"), { recursive: true });
-      await writeFile(path.join(directory, capture.path), image);
       const captures = [...this.#captures.get(runId) ?? [], capture];
       const manifest = path.join(directory, "browser", ".captures.json");
       const temporary = `${manifest}.${randomUUID()}.tmp`;
@@ -249,8 +259,8 @@ export class RunBrowser implements BrowserRuntime {
     return pending;
   }
 
-  #captureUrl(runId: string, filename: string): string {
-    return `${documentsApiPrefix}/runs/${encodeURIComponent(runId)}/files/content?path=${encodeURIComponent(filename)}`;
+  #captureUrl(runId: string, reference: string): string {
+    return contentPathOf(documentsApiPrefix, runId, reference);
   }
 
   async #restore(runId: string): Promise<void> {
@@ -264,10 +274,7 @@ export class RunBrowser implements BrowserRuntime {
       return;
     }
     const captures: unknown = JSON.parse(content);
-    if (!Array.isArray(captures) || captures.some((entry) => !entry || typeof entry.name !== "string"
-      || typeof entry.path !== "string" || !/^browser\/[a-f0-9-]{36}\.png$/.test(entry.path))) {
-      throw new Error("The stored browser screenshot list of this run is corrupt.");
-    }
-    this.#captures.set(runId, captures);
+    if (!Array.isArray(captures)) throw new Error("The stored browser screenshot list of this run is corrupt.");
+    this.#captures.set(runId, captures.map(savedCaptureOf));
   }
 }

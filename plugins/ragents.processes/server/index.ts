@@ -1,5 +1,6 @@
 import type { RAgentsPlugin } from "@ragents/engine";
 import { workspaceGuardToken } from "@ragents/host/ragents/host-services.js";
+import { workspaceRuntimeToken } from "@ragents/host/ragents/workspace-runtime.js";
 import type { PluginModule } from "@ragents/host/plugin-support/plugin-module.js";
 import { sandboxServicesToken } from "@ragents/host/plugin-support/workspace-sandbox-host.js";
 import { PROCESSES_PLUGIN_ID } from "../contract.js";
@@ -12,10 +13,11 @@ const POLL_INTERVAL_MS = 2_000;
 const processesPlugin: RAgentsPlugin = {
   manifest: { id: PROCESSES_PLUGIN_ID },
   register: (host) => {
-    const processes = runProcessesOf(host.service(sandboxServicesToken));
+    const workspace = host.service(workspaceRuntimeToken);
+    const processes = runProcessesOf(host.service(sandboxServicesToken), (runId) => workspace.placementOf(runId));
     const observer = new RunProcessObserver({ snapshot: processes.snapshot, pollIntervalMs: POLL_INTERVAL_MS });
     const ensureWorkspaceAccess = host.service(workspaceGuardToken);
-    host.methods(...createProcessMethods({ observer, ensureWorkspaceAccess, terminate: processes.terminate }));
+    host.methods(...createProcessMethods({ observer, ensureWorkspaceAccess, terminate: processes.terminate, forward: processes.forward }));
     host.channels(createProcessChannel({ observer, ensureWorkspaceAccess }));
     host.lifecycle({
       id: "ragents.processes.lifecycle",

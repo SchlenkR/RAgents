@@ -1,18 +1,18 @@
-# File store and documents
+# Documents
 
-This run has a file store outside the working directory. It is not a path in bash; the only way
-to put something there is the tool `document_write`.
+This run has a document store on the server: the root `@documents`, which your file tools, `bash`
+with a `cwd` under it and `show_document` reach in every binding.
 
-- Create one subdirectory per topic: `<topic>/<file>` as `storePath`.
-- Put documents, reports and temporary products there - NOT into the working directory, unless
-  they are part of the actual assignment.
-- `document_write` takes either the full `content` you wrote or, for an existing file, its
-  `file_path` as `read` names it; the server copies that file unchanged, so never retype it.
-- The user sees these files in the "Documents" area of the interface, grouped by subdirectory.
-- When you spawn agents, name in their task the store path they are supposed to write to.
+- Evidence, reports and temporary products go to `@documents/<topic>/<file>`, one folder per
+  topic. Deliverables that belong to the task itself go into the working directory.
+- `copy` moves files and folders between the two, also between the workstation and the server;
+  never retype a file to move it.
+- Embed images in a document with a path relative to the document, such as
+  `![Login](shots/login.png)`, or with `@documents/...`.
+- The user sees the store in the "Documents" area, grouped by folder.
+- When you spawn agents, name in their task the folder under `@documents` they write to.
 
 If the user wants to see the content of a file or a document, show it COMPLETELY via
 `show_document` (title = file name or document name) - never paraphrase or shorten. Name an
-existing file instead of retyping it: `file_path` for any file `read` reaches (relative to the
-working directory, absolute, or with an alias such as `@actors`), `storePath` for a file of the
-file store. Only text you produced yourself goes in as `content`.
+existing file, also an image, as `file_path` exactly as `read` names it; only text you produced
+yourself goes in as `content`.

@@ -1,10 +1,10 @@
 import assert from "node:assert/strict";
 import { createServer } from "node:http";
-import { mkdtemp, readFile, rm } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import test from "node:test";
-import { WorkspaceOperationExecutor, executorMachine, workspaceProcessContext } from "@ragents/workspace-executor";
+import { WorkspaceOperationExecutor, executorMachine, sandboxToolsModule, workspaceProcessContext } from "@ragents/workspace-executor";
 import { browserModule } from "../../../plugins/ragents.browser/executor/module.ts";
 import { RunBrowser } from "../../../plugins/ragents.browser/server/browser.ts";
 import { hostRoot } from "../src/host-version.ts";
@@ -21,16 +21,19 @@ document.querySelector('#cookie').onclick = () => { document.cookie = 'session=o
 document.querySelector('#error').onclick = () => { console.error('Intentional browser error'); };
 </script></body></html>`;
 
-/** The same path as in the server: the server part calls the browser module of its executor, which starts Chrome from this machine's host. */
-const serverBrowser = (filesFor: (runId: string) => Promise<string>) => {
+/** The same path as in the server: the server part calls the browser module of its executor, which starts Chrome from this machine's host; the store is its root @documents. */
+const serverBrowser = (documentsFor: (runId: string) => string) => {
   const executor = new WorkspaceOperationExecutor({
     contextFor: async (runId) => workspaceProcessContext({
       runId, cwd: tmpdir(), root: tmpdir(), home: { home: tmpdir() }, logDirectory: tmpdir(), hostRoot: hostRoot(),
+      additionalRoots: [{ directory: documentsFor(runId), alias: "@documents" }],
     }),
-    modules: [browserModule(executorMachine("/unused"), { timeoutMs: 2500, checkTimeoutMs: 500 })],
+    modules: [sandboxToolsModule, browserModule(executorMachine("/unused"), { timeoutMs: 2500, checkTimeoutMs: 500 })],
   });
-  return { browser: new RunBrowser({ sandbox: executor, filesFor }), executor };
+  return { browser: new RunBrowser({ sandbox: executor, filesFor: async (runId) => documentsFor(runId) }), executor };
 };
+
+const stored = (documents: string, reference: string): string => path.join(documents, ...reference.slice("@documents/".length).split("/"));
 
 test("a real browser operates form and iframe, isolates cookies and checks screenshots and abort", { skip: process.env.RAGENTS_BROWSER_TESTS !== "1", timeout: 60_000 }, async (context) => {
   const directory = await mkdtemp(path.join(tmpdir(), "ragents-browser-live-"));
@@ -45,7 +48,8 @@ test("a real browser operates form and iframe, isolates cookies and checks scree
   const address = server.address();
   assert.ok(address && typeof address === "object");
   const url = `http://127.0.0.1:${address.port}`;
-  const { browser, executor } = serverBrowser(async (runId) => path.join(directory, runId));
+  await Promise.all(["one", "two"].map((runId) => mkdir(path.join(directory, runId))));
+  const { browser, executor } = serverBrowser((runId) => path.join(directory, runId));
   context.after(async () => {
     await browser.shutdown();
     await executor.shutdown();
@@ -64,11 +68,11 @@ test("a real browser operates form and iframe, isolates cookies and checks scree
   await browser.check("one", { target: { role: "status" }, text: "New entry: Feature" });
   assert.ok(browser.evidence("one").checkedAt);
   const screenshot = await browser.takeScreenshot("one", { label: "Saved feature" });
-  const bytes = await readFile(path.join(directory, "one", screenshot.path));
+  const bytes = await readFile(stored(path.join(directory, "one"), screenshot.reference));
   assert.equal(bytes.subarray(1, 4).toString(), "PNG");
   assert.deepEqual([bytes.readUInt32BE(16), bytes.readUInt32BE(20)], [1920, 1080]);
   assert.equal((await browser.image("one")).length, bytes.length);
-  assert.match(screenshot.url, /^\/api\/plugins\/ragents.documents\/runs\/one\/files\/content\?path=browser/);
+  assert.match(screenshot.url, /^\/api\/plugins\/ragents.documents\/runs\/one\/raw\/%40documents\/browser\//);
   assert.equal(browser.evidence("one").screenshots.length, 1);
   await assert.rejects(browser.image("other"), /no browser screenshot/);
 
@@ -104,7 +108,7 @@ test("a real browser operates form and iframe, isolates cookies and checks scree
   await browser.check("two", { text: "No sign-in" });
   await browser.resize("two", { width: 390, height: 844 });
   const narrow = await browser.takeScreenshot("two", { label: "Narrow" });
-  const narrowBytes = await readFile(path.join(directory, "two", narrow.path));
+  const narrowBytes = await readFile(stored(path.join(directory, "two"), narrow.reference));
   assert.deepEqual([narrowBytes.readUInt32BE(16), narrowBytes.readUInt32BE(20)], [390, 844]);
   await browser.navigate("one", url);
   await browser.click("one", { role: "button", name: "Raise error" });

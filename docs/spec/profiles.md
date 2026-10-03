@@ -5,8 +5,8 @@
 The repository ships three neutral profiles: `core` is the workshop with all neutral plugins and
 without examples, `showcase` is the same profile plus the example plugin `ragents.reference`, and
 `developer` is the programming profile for working on your own machine (workspace, documents,
-orchestration, Roslyn, FSAC, and TypeScript, without sign-in through `anonymousUser`, models
-through OpenRouter with `OPENROUTER_API_KEY`). Templates for your own profiles are `core` (real
+browser, orchestration, Roslyn with the solution loaded at run start, FSAC, and TypeScript,
+without sign-in through `anonymousUser`, models through OpenRouter with `OPENROUTER_API_KEY`). Templates for your own profiles are `core` (real
 profile) and `developer` (ad-hoc profile); there is no separate example file.
 
 | Profile | Port | Sign-in | Examples from `ragents.reference` |
@@ -119,8 +119,10 @@ examples.
 
 The `developer` profile (product ID `ragents-developer`, port 4715) is the smaller selection for
 working on a project: `ragents.orchestration`, `ragents.workspace`, `ragents.product`,
-`ragents.documents`, `ragents.ask`, `ragents.todo`, `ragents.activity`, `ragents.processes`,
-`ragents.lsp-roslyn`, `ragents.lsp-fsharp`, `ragents.lsp-typescript`. It has no `users` but an
+`ragents.documents`, `ragents.browser`, `ragents.ask`, `ragents.todo`, `ragents.watch`,
+`ragents.activity`, `ragents.processes`, `ragents.lsp-roslyn`, `ragents.lsp-fsharp`,
+`ragents.lsp-typescript`. `ROSLYN_SOLUTION_ON_START` is `on`, so C# diagnostics start with the run
+(one solution loads directly, several are offered as a question). It has no `users` but an
 `anonymousUser` with all permissions, because it runs on your own machine, and gets its models
 through OpenRouter from `OPENROUTER_API_KEY`. It is the default profile of the agent subcommands
 (`ragents run`, section Control RAgents as an agent in [usage.md](../usage.md)) and the template
@@ -562,7 +564,7 @@ owner's alone even for reading: the workspace files in the Files tab, the proces
 language-server state are refused to everyone else, including `runs.read.all`
 (`run-workspace-owner-only`). The run list asks nothing from such a
 workspace on their behalf, and web and VS Code hide what needs it; the Files tab then shows only
-the server's file store.
+the server's document store.
 
 Only a signed-in user of a profile with `users` can register a workstation over the network. A
 server without users (open, `ACCESS_TOKEN`, or `anonymousUser`) has one owner for every client, so it
