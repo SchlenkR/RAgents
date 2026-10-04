@@ -979,8 +979,9 @@ Nothing is both; a concept does not survive its implementation.
   that say what you can do; no slogans, no mirrored sentence pairs, no invented
   features, planned things are marked as "Planned". Diagrams explain principles with general
   roles (agent, script, mini-app, server, laptop) instead of concrete example workflows; every scene has
-  its own visual language. Scroll animations are tied directly to scroll progress (without smoothing,
-  without overshoot). Usage details (buttons, spacing, pixel sizes, storage locations) belong in
+  its own visual language. Feature texts stay in normal page flow. Diagrams play automatically while their text is near
+  the viewport center; their visibility follows scroll position directly (without smoothing or
+  overshoot). Playback controls never move the page. Usage details (buttons, spacing, pixel sizes, storage locations) belong in
   `docs/usage.md`, never on the main page. Screenshots on the main page show
   real runs with neutral example data; browser tests write their screenshots to the system
   temp directory (`ragents-browser-shots`), never into the repository. Private product names and integrations do not appear

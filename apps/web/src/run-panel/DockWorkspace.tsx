@@ -3,7 +3,7 @@ import { createPortal } from "react-dom";
 import { ArrowDownIcon, ArrowLeftIcon, ArrowRightIcon, ArrowUpIcon, LayoutGridIcon, MaximizeIcon, MinimizeIcon, PinIcon, PinOffIcon, SquareDashedIcon, SquareIcon, UsersIcon, XIcon } from "lucide-react";
 import type { SessionContext, SessionNavigation, WorkspaceTabContribution } from "../PluginRegistry";
 import { RunAppView, type RunApp } from "../run-apps";
-import { Badge, BadgeDisplayProvider, Button, cn } from "../ui";
+import { Badge, BadgeDisplayProvider, Button, cn, Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "../ui";
 import { activeDockTool, addDockEmptyPane, appPanelId, closeDockPanels, dockGroups, dockWindowOrder, emptyPanelId, focusedDockWindow, initialDockState, isEmptyPanel, isToolPanel, moveDockPanels, moveDockWindow, reconcileDockState, resizeDockSplit, returnDockTool, revealDockPanel, transitionDockSide, selectDockPanel, tabWindowId, toolPanelId, workspaceTabPanelId, type DockGroup } from "./dock-state";
 import { DOCK_DIVIDER_SIZE, DOCK_HEADER_HEIGHT, containsPoint, dockGeometry, dockHitTest, type DockPoint, type DockRect } from "./dock-geometry";
 import { useDockPointer } from "./dock-pointer";
@@ -320,18 +320,21 @@ export function DockWorkspace({ apps, chat, chatIcon = <UsersIcon />, navigation
         <div data-dock-side-resize aria-label="Resize sidebar" aria-orientation="vertical" aria-valuemin={180} aria-valuemax={maxSideWidth} aria-valuenow={state.side.width} data-dragging={resizing === "side"} className={cn(resizeClass, "z-50 cursor-col-resize")} onPointerEnter={holdSide} onPointerLeave={leaveSide} onPointerDown={resizeSide} role="separator" style={{ left: sideRect.left - gap - 1, top: sideRect.top, width: 8, height: sideRect.height }} tabIndex={0}
           onKeyDown={(event) => { if (event.key !== "ArrowLeft" && event.key !== "ArrowRight") return; event.preventDefault(); update((current) => ({ ...current, side: { ...current.side, width: Math.max(180, Math.min(maxSideWidth, current.side.width + (event.key === "ArrowLeft" ? 20 : -20))) } })); }} ><DockGrip /></div>
       </>}
-      {sideTabs.length > 0 && <nav data-dock-rail aria-label="Sidebar tabs" className={cn("absolute z-40 flex flex-col items-center gap-1 rounded-lg border border-border bg-card py-1", hit?.target?.kind === "bar" && "bg-primary/20 ring-2 ring-inset ring-primary")} style={railRect} onPointerEnter={holdSide} onPointerLeave={leaveSide}>
+      {sideTabs.length > 0 && <TooltipProvider><nav data-dock-rail aria-label="Sidebar tabs" className={cn("absolute z-40 flex flex-col items-center gap-1 rounded-lg border border-border bg-card py-1", hit?.target?.kind === "bar" && "bg-primary/20 ring-2 ring-inset ring-primary")} style={railRect} onPointerEnter={holdSide} onPointerLeave={leaveSide}>
         {sideTabs.filter((tab) => state.bar.includes(toolPanelId(tab.id))).map((tab) => {
           const id = toolPanelId(tab.id);
           const active = sideVisible && sideTab === id;
-          return <Button id={`dock-tab-${encodeURIComponent(id)}`} aria-controls={`dock-panel-${encodeURIComponent(id)}`} aria-label={tab.label} aria-pressed={active} className="relative touch-none aria-pressed:bg-accent" key={id}
-            onClick={(event) => { if (event.detail === 0) sideClick(id); }} onPointerDown={(event) => { event.currentTarget.focus(); startDrag(event, [id], () => sideClick(id)); }}
-            onPointerEnter={() => { holdSide(); if (!drag && !sidePressed.current) update((current) => transitionDockSide(current, { type: "hover", id })); }} size="icon" title={tab.label} variant="ghost">
-            <tab.Icon />
-            <span className="absolute top-1 right-1"><BadgeDisplayProvider value="dot">{marker(tab, active)}</BadgeDisplayProvider></span>
-          </Button>;
+          return <Tooltip disableHoverablePopup key={id}>
+            <TooltipTrigger id={`dock-tab-${encodeURIComponent(id)}`} aria-controls={`dock-panel-${encodeURIComponent(id)}`} aria-label={tab.label} aria-pressed={active} className="relative touch-none aria-pressed:bg-accent"
+              onClick={(event) => { if (event.detail === 0) sideClick(id); }} onPointerDown={(event) => { event.currentTarget.focus(); startDrag(event, [id], () => sideClick(id)); }}
+              onPointerEnter={() => { holdSide(); if (!drag && !sidePressed.current) update((current) => transitionDockSide(current, { type: "hover", id })); }} render={<Button size="icon" variant="ghost" />}>
+              <tab.Icon />
+              <span className="absolute top-1 right-1"><BadgeDisplayProvider value="dot">{marker(tab, active)}</BadgeDisplayProvider></span>
+            </TooltipTrigger>
+            <TooltipContent className="pointer-events-none" side="left" sideOffset={8}>{pendingTabIds.includes(tab.id) ? `${tab.label} - new activity` : tab.label}</TooltipContent>
+          </Tooltip>;
         })}
-      </nav>}
+      </nav></TooltipProvider>}
       {(drag || resizing) && <div className={cn("absolute inset-0 z-[90] touch-none", resizing ? (resizing === "side" || geometry.dividers.find(({ split }) => split.id === resizing)?.split.axis === "horizontal" ? "cursor-col-resize" : "cursor-row-resize") : "cursor-grabbing")} />}
       {drag && hit && <div aria-label="Docking guides" className="pointer-events-none absolute inset-0 z-[91]">
         {hit.preview && <div className="absolute rounded-lg border-2 border-primary bg-primary/20" data-dock-preview style={hit.target?.kind === "bar" ? (sideVisible && containsPoint(sideRect, drag.point) ? sideRect : railRect) : hit.preview} />}

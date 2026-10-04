@@ -121,14 +121,22 @@ setup details live in the getting-started guide. Underlined text tabs and open c
 use spacing and separators instead of nested cards. The closing section links to that guide and
 project feedback without repeating the installation call to action.
 
-The main page renders its diagrams on local canvases. Desktop scenes share a fixed stage; narrow
-views have a stage per chapter. Scene geometry, focus, annotation text and opacity, arrow shafts,
-and arrowheads derive from the scene position. Scrolling backwards restores the same image without
-time-based fades or delayed annotation updates. Desktop playback advances the sequence and its
-scroll position; manual scrolling pauses playback until Play or Fast is selected again. Scene and
-annotation rendering share one animation frame. Reduced motion disables automatic playback and
-shows completed mobile scenes. The diagrams explain principles with general roles (agent, script,
-mini-app, server, laptop) and no concrete example workflows.
+The main page renders its diagrams on local canvases. Feature texts are ordinary sections in
+page flow, starting with workspace setups and then distributed work across server and laptop.
+Desktop diagrams share a sticky stage; text and diagram alternate sides between features.
+The diagram belonging
+to the text nearest the viewport center plays automatically and fades out as that text leaves;
+the next diagram fades in as its text arrives. Narrow views place a diagram below each text and
+play it while visible. Playback loops within the selected chapter without moving the page.
+Play, Pause, and Fast control only diagram playback; manual scrolling never pauses it. Chapter
+buttons scroll to their sections. Desktop sections overlap vertically by a fixed 300 pixels.
+The main page's CSS variables configure overlap, minimum section height, and vertical and
+horizontal margins in pixels; `--chapter-overlap: 0px` removes overlap. A pixel clearance
+fades diagrams out before neighboring text enters their side of the visible stage. Narrow
+views use separate vertical margins and no overlap. Diagram and annotation rendering share one
+animation frame.
+Reduced motion shows static scenes. The diagrams explain principles with general roles (agent,
+script, mini-app, server, laptop) and no concrete example workflows.
 
 Static sections, installation, the alpha notice, limits, and the footer follow the animated
 chapters. Texts are short and direct; usage details are in the guide. The main page keeps its canvas

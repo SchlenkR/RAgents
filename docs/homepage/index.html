@@ -21,6 +21,13 @@
   --track: rgba(238, 243, 248, .13);
   --done: rgba(238, 243, 248, .5);
   --hover: rgba(238, 243, 248, .07);
+  /* Chapter layout in pixels; 0px overlap keeps sections consecutive. */
+  --chapter-overlap: 300px;
+  --chapter-min-height: 1160px;
+  --chapter-margin-block: 180px;
+  --chapter-margin-inline: 72px;
+  --chapter-mobile-margin: 56px;
+  --diagram-clearance: 48px;
   color-scheme: dark;
 }
 * { box-sizing: border-box; }
@@ -91,12 +98,12 @@ a { color: inherit; text-underline-offset: 4px; }
 .copy.ruler, .note.ruler { visibility: hidden; transition: none; pointer-events: none; }
 .copy[data-side="right"] { left: calc(var(--edge) + var(--stage) * .95 - var(--width)); }
 .copy[data-centered] { top: var(--intro-top, 50%); left: 50%; width: min(1040px, calc(100% - 48px)); transform: translateX(-50%); text-align: center; }
-.copy::before { content: ''; display: block; width: 44px; height: 4px; margin-bottom: 22px; border-radius: 2px; background: var(--kick); }
+.copy::before, .reading-copy::before { content: ''; display: block; width: 44px; height: 4px; margin-bottom: 22px; border-radius: 2px; background: var(--kick); }
 .copy[data-centered]::before, .copy[data-centered] .points, .copy[data-centered] .how, .points:empty, .how:empty { display: none; }
-.copy .title { margin: 0; font-size: clamp(32px, 3.5vw, 54px); font-weight: 650; line-height: 1.06; letter-spacing: -.045em; }
-.copy .title > span { display: block; text-wrap: balance; }
-.copy::before, .copy .title { opacity: var(--title-fade, 1); }
-.copy .title .b { color: var(--accent); }
+.copy .title, .reading-copy h2 { margin: 0; font-size: clamp(32px, 3.5vw, 54px); font-weight: 650; line-height: 1.06; letter-spacing: -.045em; }
+.copy .title > span, .reading-copy h2 > span { display: block; text-wrap: balance; }
+.copy::before, .copy .title, .reading-copy h2 { opacity: var(--title-fade, 1); }
+.copy .title .b, .reading-copy h2 > span + span { color: var(--accent); }
 .copy[data-centered] .title { font-size: clamp(36px, 4.4vw, 64px); }
 .points { display: grid; gap: .6em; margin: 1.55em 0 0; padding: 0; list-style: none; font-size: clamp(15px, 1.18vw, 18px); font-weight: 600; line-height: 1.4; letter-spacing: -.01em; }
 .points li { position: relative; padding-left: 1.6em; color: rgba(238, 243, 248, .8); text-wrap: pretty; }
@@ -118,18 +125,18 @@ a { color: inherit; text-underline-offset: 4px; }
 .note { position: absolute; left: 0; top: 0; z-index: 3; width: max-content; max-width: 17em; padding: 2px 0 2px 12px; border-left: 2px solid var(--signal); color: var(--signal); font: 600 clamp(15px, 1.2vw, 17px)/1.35 var(--font); letter-spacing: -.005em; text-align: left; text-wrap: balance; text-shadow: 0 0 12px rgba(var(--veil), .95), 0 0 3px rgba(var(--veil), .95); pointer-events: none; opacity: var(--note-opacity, 1); }
 .note.out, .note.wait { opacity: 0; }
 .stage { display: none; }
-.hold { position: fixed; left: 50%; top: 50%; z-index: 6; display: grid; place-items: center; width: 60px; height: 60px; margin: -30px 0 0 -30px; border: 1.5px solid rgba(238, 243, 248, .34); border-radius: 50%; background: rgba(var(--veil), .82); color: var(--text); box-shadow: 0 10px 30px -12px #000; opacity: 0; transform: scale(.5); pointer-events: none; transition: opacity .14s ease, transform .14s ease; }
-.hold[data-on] { opacity: 1; transform: scale(1); transition: opacity .1s ease, transform .28s cubic-bezier(.34, 1.56, .64, 1); }
-.hold svg { width: 20px; height: 20px; fill: currentColor; }
-.end { position: absolute; left: 50%; bottom: clamp(24px, 6svh, 56px); z-index: 4; display: flex; gap: 12px; transform: translateX(-50%); pointer-events: none; }
-.end-button { display: inline-flex; align-items: center; gap: 9px; min-height: 44px; padding: 0 20px 0 16px; border: 1.5px solid rgba(238, 243, 248, .34); border-radius: 999px; background: rgba(var(--veil), .82); color: var(--text); font: 600 15px/1 var(--font); letter-spacing: -.01em; white-space: nowrap; box-shadow: 0 10px 30px -12px #000; cursor: pointer; opacity: 0; visibility: hidden; transform: scale(.86); transition: background .2s, border-color .2s; }
-.end[data-on] .end-button { opacity: 1; visibility: visible; transform: scale(1); pointer-events: auto; transition: background .2s, border-color .2s; }
-.end-button:hover { border-color: var(--done); background: linear-gradient(var(--hover), var(--hover)) rgba(var(--veil), .82); }
-.end-button svg { width: 18px; height: 18px; flex: none; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
-@media (prefers-reduced-motion: reduce) {
-  .end-button, .end[data-on] .end-button { transform: none; transition: none; }
-}
-.note[data-side="left"], .note[data-side="right"] { max-width: 13em; }
+
+.story { position: relative; z-index: 2; pointer-events: none; }
+.story article { display: flex; align-items: center; justify-content: flex-end; width: min(1480px, 100%); min-height: var(--chapter-min-height); margin: 0 auto; padding: var(--chapter-margin-block) var(--chapter-margin-inline); scroll-margin-top: var(--top, 150px); }
+.story article + article { margin-top: calc(-1 * var(--chapter-overlap)); }
+.story article[data-side="left"] { justify-content: flex-start; }
+.reading-copy { width: min(540px, 42%); pointer-events: auto; }
+.reading-copy h2 { margin: 0; }
+.reading-copy > p:not(.how) { color: var(--muted); font-size: clamp(16px, 1.2vw, 18px); line-height: 1.6; }
+.reading-copy .points { margin-top: 1.55em; }
+.hero[data-reading] .lane { visibility: hidden; }
+.hero[data-reading] .veil.center { opacity: 0; }
+
 .after { position: relative; z-index: 1; background: var(--bg); }
 .after:focus { outline: none; }
 .shell { width: min(1120px, calc(100% - 32px)); margin: 0 auto; }
@@ -195,7 +202,6 @@ a { color: inherit; text-underline-offset: 4px; }
   .footer-about { grid-column: 1 / -1; }
 }
 @media (max-width: 860px) {
-  .end { display: none; }
   .top { display: flex; align-items: center; gap: 14px; padding: 9px 16px; }
   .masthead { display: contents; }
   .masthead nav { order: 2; margin-left: auto; gap: 20px; font-size: 14px; }
@@ -211,15 +217,11 @@ a { color: inherit; text-underline-offset: 4px; }
   .copy[data-centered] .title { font-size: clamp(30px, 6.4vw, 44px); }
   .actions { gap: 10px; margin-top: 26px; }
   .button { min-height: 44px; padding: 9px 16px; font-size: 15px; }
-  .story.sr-only { position: static; width: auto; height: auto; margin: 0; overflow: visible; clip: auto; clip-path: none; white-space: normal; }
-  .story article { position: relative; padding-top: 56px; scroll-margin-top: var(--top, 150px); }
-  .story article > :not(.pin, .run) { position: absolute; top: 0; left: 0; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden; clip: rect(0 0 0 0); clip-path: inset(50%); white-space: nowrap; border: 0; }
-  .pin { position: sticky; top: var(--top, 150px); padding-top: 20px; }
-  .story h2 { width: calc(100% - 32px); margin: 0 auto; font-size: clamp(29px, 7.6vw, 44px); font-weight: 650; line-height: 1.06; letter-spacing: -.045em; }
-  .story h2::before { content: ''; display: block; width: 34px; height: 3px; margin-bottom: 14px; border-radius: 2px; background: var(--kick); }
-  .story h2 > span { display: block; text-wrap: balance; }
-  .story h2 > span + span { color: var(--accent); }
-  .stage { position: relative; display: block; margin-top: 6px; overflow: hidden; -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
+  .story { --chapter-overlap: 0px; }
+  .story article { display: block; width: 100%; min-height: 0; padding: var(--chapter-mobile-margin) 16px; }
+  .reading-copy { width: 100%; }
+  .reading-copy h2 { font-size: clamp(29px, 7.6vw, 44px); }
+  .stage { position: relative; display: block; margin: 26px -16px 0; overflow: hidden; -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
   .stage canvas { display: block; width: 100%; height: 100%; }
   .note, .note[data-side] { max-width: min(calc(100% - 32px), 24em); font-size: 15px; }
 }
@@ -285,16 +287,16 @@ a { color: inherit; text-underline-offset: 4px; }
       </div>
     </div>
     <div class="note out" data-note aria-hidden="true"></div>
-    <div class="end" data-end><button type="button" class="end-button" data-replay><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>Replay</button><button type="button" class="end-button" data-onward><svg class="end-arrow" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14"/><path d="m19 12-7 7-7-7"/></svg>Scroll down</button></div>
+
   </div>
-  <div class="sr-only story" data-story>
+  <div class="story" data-story>
     <article data-chapter="workspace" id="setups" data-anchor="setups"><h2><span>Tailor a workspace</span> <span>for a task</span></h2><p>The script builds the workspace, so the agents start with everything in place.</p><ul class="bullets"><li>A setup script creates agents, scripts and mini-apps</li><li>Start it again with one click</li><li>Add a setup to a run that is already running</li><li>Ask for inputs before the run starts</li></ul><p class="how"><span class="how-label">How it works</span> A setup is a tested TypeScript package that appears as a start card. Its script starts agents, TypeScript programs and mini-apps through the same functions the AI uses. A setup dialog can ask for values, such as a repository or a topic, before the run starts. A setup marked as embeddable also joins a running run, from the run's Run script button, the command line or the coordinator, and reports its result back.</p></article>
+    <article data-chapter="distributed" id="distributed" data-anchor="distributed distributed-modes dm-local dm-server-mode dm-hybrid dm-connected"><h2><span>Distributed across</span> <span>server and laptop</span></h2><p>Coordinate centrally, and let the tools run where the files are.</p><ul class="bullets"><li>Runs, agents and models live on the server</li><li>Laptops and browsers connect to a run</li><li>Messages flow both ways, live</li><li>Tools run on the machine that has the files</li><li>One server, many clients</li></ul><p class="how">Runs, models and tools do not have to live on the same machine. Coordinate centrally, let the tools run where the files are, and choose the split per team and per run.</p></article>
     <article data-chapter="agents" id="agents" data-anchor="agents"><h2><span>Everyone talks</span> <span>to everyone</span></h2><p>Agents write plain text to each other, addressed by handle, such as @agent1.</p><ul class="bullets"><li>Agents hand work to each other</li><li>Agents talk to scripts, scripts answer</li><li>People talk to agents and mini-apps</li><li>Mini-apps talk to people and agents</li><li class="wink">... you get the idea :)</li></ul><p class="how"><span class="how-label">How it works</span> Each agent has its own model, prompt, history and handle. A coordinator takes the task and hands out work. A helper starts with no tools, a picked list, or all tools. When an agent asks you something, the choices appear in the chat and your answer goes back to that agent. You can attach images in the browser and VS Code for models that support them.</p></article>
     <article data-chapter="ui" id="ui" data-anchor="ui"><h2><span>Agents with</span> <span>their own UI</span></h2><p>People are used to working with interfaces. A UI shows what the agent is doing, and you step in with a click.</p><ul class="bullets"><li>The AI builds a UI while it works</li><li>Extensions ship UIs ready to use</li><li>You and the agent use the same UI and state</li><li>Your click goes straight to the agent</li><li>A new UI goes live after its tests pass</li></ul><p class="how"><span class="how-label">How it works</span> A mini-app is a React view on the state of an agent or a TypeScript program. Its buttons call the program's typed functions directly. The AI type-checks and tests a new view before it goes live; if a rebuild fails, the old version stays active. Activated mini-apps appear beside Chat in wide browser windows and as tabs in narrow ones; arrange Chat, apps, and inspection windows in browser docking areas; in VS Code, each app opens in its own editor tab.</p></article>
     <article data-chapter="typescript" id="typescript" data-anchor="typescript"><h2><span>Tools are</span> <span>TypeScript functions</span></h2><ul class="bullets"><li>Register a typed function once, from your own plugin</li><li>Agents get it as a tool</li><li>AI-written code calls it, type-checked first</li><li>A button calls it without a model</li><li>Programs call it when events arrive</li></ul><p class="how"><span class="how-label">How it works</span> A snippet runs once and returns its result to the model. A program keeps its state and reacts to later messages. A setup starts agents, programs and UIs. All of them call the same typed functions, with the same permission checks.</p></article>
     <article data-chapter="events" id="events" data-anchor="events"><h2><span>Event-driven</span> <span>journal</span></h2><p>Every step of a run is an event in the journal. Agents and programs subscribe to the events they care about.</p><ul class="bullets"><li>An agent starts when another one finishes</li><li>Replies arrive later as new input, nobody waits</li><li>A watcher without a model wakes an agent that hangs</li><li>Agents read the run's journal</li><li>Fork an agent with its memory</li></ul><p class="how"><span class="how-label">How it works</span> A subscription turns matching events, such as another agent's finished turn, into new input. A watcher is a TypeScript condition without a model, for example no progress for 120 seconds. Agents query the journal themselves.</p></article>
     <article data-chapter="workflows" id="workflows" data-anchor="workflows"><h2><span>AI or deterministic</span> <span>workflows</span></h2><p>Some work needs judgment, some needs the same steps every time. One run holds both.</p><ul class="bullets"><li>Let an agent choose the next step</li><li>Or write the steps in TypeScript, the same every time</li><li>Mix both in one run: code keeps the order, models do the thinking</li><li>Code steps cost no tokens</li><li>Wait for a person when a decision is due</li></ul><p class="how"><span class="how-label">How it works</span> A setup or an actor program in TypeScript creates the participants and controls the handoffs. Agents fill in the parts that need a model. In the word game, code runs the rounds while four models supply the words.</p></article>
-    <article data-chapter="distributed" id="distributed" data-anchor="distributed distributed-modes dm-local dm-server-mode dm-hybrid dm-connected"><h2><span>Distributed across</span> <span>server and laptop</span></h2><p>Coordinate centrally, and let the tools run where the files are.</p><ul class="bullets"><li>Runs, agents and models live on the server</li><li>Laptops and browsers connect to a run</li><li>Messages flow both ways, live</li><li>Tools run on the machine that has the files</li><li>One server, many clients</li></ul><p class="how">Runs, models and tools do not have to live on the same machine. Coordinate centrally, let the tools run where the files are, and choose the split per team and per run.</p></article>
     <article data-chapter="app" id="use-in-app" data-anchor="use-in-app"><h2><span>Use RAgents</span> <span>in your application</span></h2><p>RAgents is a server with one JSON-RPC API. The web interface and VS Code use it, and your product can too.</p><ul class="bullets"><li>Start the host beside your app, on a private port or over stdio</li><li>Call the same JSON-RPC 2.0 API as the UI</li><li>Follow runs live over Server-Sent Events</li><li>Typed contracts as OpenRPC and TypeScript declarations</li><li>Use mini-apps to build user-facing UIs</li><li>Tailor agents, tools and setups with your own profile and plugins</li><li>Hide the technical views, keep chat and UI</li></ul></article>
     <article data-chapter="plugins" id="plugins" data-anchor="plugins"><h2><span>Plugins</span> <span>and profiles</span></h2><ul class="bullets"><li>A plugin adds tools, skills, prompts and UIs</li><li>Write your own plugins in TypeScript</li><li>A profile picks the plugins, models and users</li><li>A server hands its profile to every laptop</li></ul></article>
     <article data-chapter="outside" id="remote" data-anchor="remote"><h2><span>Drive RAgents</span> <span>from outside</span></h2><ul class="bullets"><li>Start runs from the command line</li><li>Let coding agents like Claude Code drive RAgents</li><li>Send tasks, read the journal, pause or stop a run</li><li>Scripts get the same JSON-RPC API as the UI</li></ul></article>
@@ -409,8 +411,7 @@ a { color: inherit; text-underline-offset: 4px; }
   const slim = () => getComputedStyle(hero).position !== 'sticky';
   let compact = slim();
   const dpr = Math.min(devicePixelRatio || 1, 2);
-  let rested = false;
-  const density = (width, height, most, sharp = dpr) => !slim() ? sharp : rested ? 0 : Math.min(sharp, Math.sqrt(most / Math.max(1, width * height)));
+  const density = (width, height, most, sharp = dpr) => !slim() ? sharp : Math.min(sharp, Math.sqrt(most / Math.max(1, width * height)));
   const scrap = items => items.forEach(item => {
     item.canvas.width = 0;
     item.canvas.height = 0;
@@ -1115,7 +1116,7 @@ a { color: inherit; text-underline-offset: 4px; }
     const mirrored = player.mirror;
     const stage = Math.min(w, 1480);
     const regionWidth = .52 * stage;
-    const regionLeft = (w - stage) / 2 + (mirrored ? .03 : .45) * stage;
+    const regionLeft = (w - stage) / 2 + (player.side === 'left' ? .03 : .45) * stage;
     const fit = player.region;
     const u = fit ? fit.zoom * s : clamp(regionWidth / 690, .7, 1.25) * s;
     const center = regionLeft + regionWidth / 2;
@@ -3297,41 +3298,35 @@ a { color: inherit; text-underline-offset: 4px; }
       slot.shown = true;
     }));
   };
-  const playlist = Object.keys(scenes);
+  const playlist = Object.keys(chapters).filter(name => scenes[name]);
   const preroll = .7;
-  const lengths = playlist.map(name => scenes[name].end - preroll);
-  const reels = playlist.map(name => scenes[name].reel);
-  const reelStarts = reels.map((_, index) => reels.slice(0, index).reduce((sum, value) => sum + value, 0));
-  const reelTotal = reelStarts[reels.length - 1] + reels[reels.length - 1];
-  let upcoming = 0;
-  let [front, back] = players;
-  const begin = (player, depth) => {
-    player.index = upcoming % playlist.length;
-    player.story = scenes[playlist[player.index]];
-    player.mirror = Boolean(player.story.mirror);
-    player.rush = false;
-    upcoming += 1;
-    player.t = 0;
-    player.old = false;
-    player.debris = new Map();
-    player.emitted = 0;
-    player.spot = null;
-    player.wide = 1;
-    player.depth = depth;
-  };
-  const restart = (index = 0) => {
-    upcoming = index;
-    back.story = null;
-    back.old = false;
-    forget();
-    begin(front, 1);
-  };
-  restart();
-
+  const [front, back] = players;
   let mode = reduce ? 'pause' : 'play';
   const speed = .5;
   const rates = { play: 1, fast: 1.5 };
+  let paused = false;
+  window.__pause = value => { paused = value; };
+  const reel = document.querySelector('[data-reel]');
   root.style.setProperty('--signal', theme.signal);
+  const select = index => {
+    const story = scenes[playlist[index]];
+    if (front.story === story) return;
+    discard(front.debris);
+    front.index = index;
+    front.story = story;
+    front.mirror = Boolean(story.mirror);
+    front.side = index % 2 ? 'left' : 'right';
+    front.t = reduce ? story.end - .85 : preroll;
+    front.old = false;
+    front.depth = 1;
+    front.emitted = 0;
+    front.spot = null;
+    front.wide = 1;
+    back.story = null;
+    active = null;
+    wireKey = '';
+    fits.clear();
+  };
 
   const glowStops = Array.from({ length: 13 }, (_, index) => {
     const at = index / 12;
@@ -3382,9 +3377,7 @@ a { color: inherit; text-underline-offset: 4px; }
     c.clearRect(0, 0, w, h);
     player.shown = true;
     canvas.style.visibility = 'visible';
-    const elapsed = Math.max(0, player.t - (player.old ? player.story.end : preroll));
-    player.depth = player.old ? .4 + .6 * Math.exp(-elapsed / (player.rush ? rush : 1) * 2.4)
-      : player.index === 0 ? 1 : 1 - .6 * Math.exp(-elapsed * 2.4);
+    player.depth = 1;
     const k = kit(player);
     focusAt(player, k);
     const step = stepAt(player.story, player.t);
@@ -3396,160 +3389,68 @@ a { color: inherit; text-underline-offset: 4px; }
     }
     const blur = ((1 - player.depth) * 3.2).toFixed(2);
     canvas.style.filter = blur === '0.00' ? 'none' : `blur(${blur}px)`;
-    canvas.style.opacity = String(.42 + player.depth * .58);
+    canvas.style.opacity = String(diagramOpacity);
     drawScene(player, k);
   };
 
-  const turned = (a, b) => !a.centered && !b.centered && Boolean(a.mirror) !== Boolean(b.mirror);
-  const rush = 3;
-  const clearing = .25;
-  const advance = delta => {
-    const last = front.index === playlist.length - 1;
-    front.t = last ? Math.min(front.t + delta, front.story.end - .01) : front.t + delta;
-    if (back.story) back.t = back.old ? back.t + delta * (back.rush ? rush : 1) : Math.min(back.t + delta, preroll);
-    if (back.story && back.old && back.t >= back.story.duration + .6) back.story = null;
-    const handoff = front.story.duration - crossfade;
-    if (!back.story && !last && front.t >= handoff - crossfade) begin(back, .4);
-    if (back.story && !back.old && front.t >= handoff) {
-      [front, back] = [back, front];
-      host.insertBefore(front.canvas, near.canvas);
-      back.old = true;
-      back.rush = turned(front.story, back.story);
-    }
-  };
-  const settle = () => players.forEach(player => {
-    if (!player.story) return;
-    player.spot = null;
-    player.wide = kit(player).focusName(player.t) === '*' ? 1 : 0;
-    while (player.emitted < player.story.events.length && player.story.events[player.emitted][0] <= player.t) player.emitted += 1;
-  });
-  const simulate = time => {
-    for (let passed = 0; passed < time - 1e-9; passed += 1 / 30) {
-      const step = Math.min(1 / 30, time - passed);
-      advance(step);
-    }
-    settle();
-  };
-  window.__seek = time => {
-    restart();
-    simulate(time);
-  };
-  window.__jump = (index, time) => {
-    restart(index);
-    simulate(time);
-  };
-  let paused = false;
-  window.__pause = value => { paused = value; };
-
-  const where = () => front.index + clamp((front.t - preroll) / lengths[front.index]);
-  const positionPlayer = (player, index, time, old = false) => {
-    const story = scenes[playlist[index]];
-    if (player.story !== story || time < player.t) discard(player.debris);
-    player.index = index;
-    player.story = story;
-    player.mirror = Boolean(story.mirror);
-    player.t = time;
-    player.old = old;
-    player.rush = old && turned(front.story, story);
-    player.emitted = story.events.filter(([at]) => at <= time).length;
-  };
-  const rewind = value => {
-    const index = Math.min(playlist.length - 1, Math.floor(value));
-    const time = preroll + (value - index) * lengths[index];
-    positionPlayer(front, index, time);
-    const previous = scenes[playlist[index - 1]];
-    const elapsed = time - preroll;
-    const past = previous ? previous.end + elapsed * (turned(front.story, previous) ? rush : 1) : Infinity;
-    if (previous && past < previous.duration + .6) positionPlayer(back, index - 1, past, true);
-    else if (index < playlist.length - 1 && time >= front.story.end - crossfade) {
-      positionPlayer(back, index + 1, Math.min(preroll, time - front.story.end + crossfade));
-    } else back.story = null;
-    upcoming = index + (back.story && !back.old ? 2 : 1);
-  };
-  const reel = document.querySelector('[data-reel]');
-  let unit = 1;
-  const scrollOf = value => {
-    const index = Math.min(playlist.length - 1, Math.floor(value));
-    return (reelStarts[index] + (value - index) * reels[index]) * unit;
-  };
-  const valueOf = offset => {
-    const at = offset / unit;
-    const index = Math.max(0, reelStarts.findLastIndex(start => start <= at));
-    return index + (at - reelStarts[index]) / reels[index];
-  };
-  const inside = () => scrollY <= unit * reelTotal + 2;
-  let expected = 0;
-  let steering = false;
-  const sync = () => {
-    expected = Math.min(Math.round(scrollOf(where())), root.scrollHeight - innerHeight);
-    if (Math.abs(scrollY - expected) >= 1) scrollTo(0, expected);
-  };
-  const scrub = () => {
-    const goal = clamp(valueOf(scrollY), 0, playlist.length - .002);
-    expected = scrollY;
-    if (Math.abs(goal - where()) > 1e-9) rewind(goal);
-  };
-  const steer = () => {
-    steering = true;
-    if (mode !== 'pause') setMode('pause');
-  };
-  addEventListener('scroll', () => { if (Math.abs(scrollY - expected) >= 1) steer(); }, { passive: true });
-  ['wheel', 'touchmove'].forEach(type => addEventListener(type, steer, { passive: true }));
-  addEventListener('keydown', event => {
-    if (event.key === ' ' && event.target.closest?.('button')) return;
-    if (['ArrowUp', 'ArrowDown', 'PageUp', 'PageDown', 'Home', 'End', ' '].includes(event.key)) steer();
-  });
-  const transit = index => {
-    steering = false;
-    const old = front;
-    upcoming = index;
-    back.story = null;
-    back.old = false;
-    begin(back, .4);
-    back.t = preroll;
-    old.t = Math.max(old.t, old.story.end);
-    front = back;
-    back = old;
-    host.insertBefore(front.canvas, near.canvas);
-    back.old = true;
-    back.rush = turned(front.story, back.story);
-    sync();
-  };
-
+  let diagramOpacity = 1;
+  let diagramClearance = 0;
   let last = performance.now();
+  const clock = (player, delta) => {
+    if (paused || reduce || mode === 'pause' || document.hidden) return;
+    player.t += delta * speed * rates[mode];
+    if (player.t < player.story.duration) return;
+    player.t = preroll;
+    player.emitted = 0;
+    discard(player.debris);
+  };
+  const visibility = (center, height, radius = height * .62) => 1 - span(Math.abs(center - (topHeight + (innerHeight - topHeight) / 2)), Math.min(height * .18, radius * .4), radius);
   const frame = now => {
     requestAnimationFrame(frame);
     const delta = Math.max(0, Math.min(.05, (now - last) / 1000));
     last = now;
-    if (mobile) {
-      glance(delta);
-      markScroll();
-      return;
+    const room = innerHeight - topHeight;
+    const middle = scrollY + topHeight + room / 2;
+    const nearest = sections.reduce((best, section) => Math.abs(section.center - middle) < Math.abs(best.center - middle) ? section : best, { center: topHeight + hero.offsetHeight / 2, index: 0 });
+    select(nearest.index);
+    diagramOpacity = visibility(nearest.center - scrollY, room, nearest.radius);
+    if (!mobile && front.index !== 0) {
+      const stageTop = scrollY + hero.getBoundingClientRect().top;
+      const stageBottom = stageTop + hero.offsetHeight;
+      const gaps = sections.filter(section => section.node.dataset.side === front.side).map(section => section.textBottom <= stageTop ? stageTop - section.textBottom : section.textTop >= stageBottom ? section.textTop - stageBottom : 0);
+      diagramOpacity *= clamp(Math.min(...gaps) / diagramClearance);
     }
-    if (steering) {
-      scrub();
-    } else if (!paused && mode !== 'pause' && !held && inside()) {
-      advance(delta * speed * rates[mode]);
+    hero.toggleAttribute('data-reading', front.index !== 0);
+    hero.toggleAttribute('data-centered', front.index === 0);
+    hero.dataset.side = front.side === 'left' ? 'right' : 'left';
+    copyLane.style.opacity = front.index === 0 ? String(diagramOpacity) : '0';
+    if (mobile) glance(delta);
+    else {
+      if (diagramOpacity > 0) clock(front, delta);
+      drawRain(paused || reduce || mode === 'pause' ? 0 : delta);
+      [far, near].forEach(layer => {
+        if (!layer.used) return;
+        layer.context.save();
+        layer.context.setTransform(1, 0, 0, 1, 0, 0);
+        layer.context.clearRect(0, 0, layer.canvas.width, layer.canvas.height);
+        layer.context.restore();
+        layer.used = false;
+      });
+      follow();
+      renderPlayer(front);
+      renderPlayer(back);
+      drawNote();
+      noteBox.style.opacity = String(diagramOpacity);
+      wire.style.opacity = String(diagramOpacity);
+      if (front.index === 0) drawBubbles([{ t: introClock, old: false, depth: 1 }]);
+      else planes.forEach(plane => plane.slots.forEach(slot => { slot.canvas.style.visibility = 'hidden'; slot.shown = false; }));
+      [far, near].forEach(layer => {
+        layer.canvas.style.visibility = layer.used ? 'visible' : 'hidden';
+        layer.canvas.style.opacity = String((layer === far ? .8 : .92) * diagramOpacity);
+      });
     }
-    if (!steering && inside()) sync();
-    drawRain(paused || reduce ? 0 : delta);
-    [far, near].forEach(layer => {
-      if (!layer.used) return;
-      layer.context.save();
-      layer.context.setTransform(1, 0, 0, 1, 0, 0);
-      layer.context.clearRect(0, 0, layer.canvas.width, layer.canvas.height);
-      layer.context.restore();
-      layer.used = false;
-    });
-    follow();
-    placeCopy();
-    renderPlayer(front);
-    renderPlayer(back);
-    drawNote();
-    mark();
-    showFinale();
-    drawBubbles([front, back].filter(player => player.story === intro));
-    [far, near].forEach(layer => { layer.canvas.style.visibility = layer.used ? 'visible' : 'hidden'; });
+    if (front.index === 0 && !paused && !reduce && mode !== 'pause') introClock += delta * speed * rates[mode];
+    markScroll();
     if (feed.length > 40) feed.splice(0, feed.length - 40);
   };
 
@@ -3558,7 +3459,6 @@ a { color: inherit; text-underline-offset: 4px; }
     return [name, [[0, { a, b, centered: Boolean(story.centered), points, how, side: story.mirror ? 'right' : 'left' }]]];
   }));
   const notes = Object.fromEntries(Object.entries(scenes).map(([name, story]) => [name, story.steps.map(step => [step.at, step])]));
-  const slots = { a: document.querySelector('[data-line-a]'), b: document.querySelector('[data-line-b]') };
   const noteBox = document.querySelector('[data-note]');
   const pointList = document.querySelector('[data-points]');
   const howBox = document.querySelector('[data-how]');
@@ -3572,54 +3472,10 @@ a { color: inherit; text-underline-offset: 4px; }
     target.toggleAttribute('data-centered', next.centered);
     target.dataset.side = next.side;
   };
-  const blocks = new Map();
-  let stageHeight = 0;
-  let copyShift = 0;
-  let titleShift = 0;
-  let copyStyle = '';
-  const leaveAt = (index, height) => Math.max(0, reels[index] * unit - introTop - height);
-  const driftAt = (story, index, time) => {
-    if (mobile || reduce) return [0, 1, 0, 1, 1];
-    const scroll = reels[index] * unit;
-    const p = clamp((time - preroll) / lengths[index]) * scroll;
-    const height = blocks.get(story) ?? 0;
-    const top = story.centered ? introTop : (stageHeight - height) / 2;
-    const out = (stageHeight + height) / 2;
-    const leave = leaveAt(index, height);
-    const q = index === playlist.length - 1 ? Math.min(0, p / scroll - .5) : p / scroll - .5;
-    const reach = .7 * out;
-    const settle = 40;
-    const rest = -.2;
-    const exit = .25;
-    const outward = -out * clamp((q - exit) / (.5 - exit)) ** 2;
-    const inward = q < rest ? settle + (reach - settle) * (1 - clamp((q + .5) / (rest + .5))) ** 2 : settle * clamp((exit - q) / (exit - rest));
-    const y = story.centered ? -Math.max(0, p - leave) * (top + height) / Math.max(1, scroll - leave) : q > exit ? outward : inward;
-    const shown = clamp((Math.min(stageHeight, top + y + height) - Math.max(0, top + y)) / Math.max(1, height));
-    if (story.centered) return [y, shown, y, 1, 1];
-    const arrive = ease(clamp((q + .5) / .08));
-    return [y, q > exit ? shown : 1, q > exit ? outward : 100 * (1 - arrive), arrive, ease(clamp((q + .5) / .15))];
-  };
-  const placeCopy = () => {
-    const [y, fade, titleY, titleFade, bodyFade] = driftAt(front.story, front.index, front.t);
-    copyShift = y;
-    titleShift = titleY;
-    const style = `${y.toFixed(1)}|${titleY.toFixed(1)}|${fade.toFixed(2)}|${titleFade.toFixed(2)}|${bodyFade.toFixed(2)}`;
-    if (style === copyStyle) return;
-    copyStyle = style;
-    copy.style.translate = `0 ${titleY.toFixed(1)}px`;
-    copy.style.setProperty('--title-fade', titleFade.toFixed(2));
-    [pointList, howBox].forEach(part => {
-      part.style.translate = `0 ${(y - titleY).toFixed(1)}px`;
-      part.style.opacity = bodyFade.toFixed(2);
-    });
-    copyLane.style.opacity = fade.toFixed(2);
-  };
-  const hide = () => copy.classList.add('out');
   const showHead = next => {
     if (next === chapter) return;
     chapter = next;
     render(copy, next);
-    hero.toggleAttribute('data-centered', next.centered);
     copy.classList.remove('out');
   };
   let active = null;
@@ -3640,35 +3496,12 @@ a { color: inherit; text-underline-offset: 4px; }
       grow: ease(span(time, start, start + Math.min(.8, (end - start) / 2))),
     };
   };
-  let concealed = false;
-  const conceal = state => {
-    if (state === concealed) return;
-    concealed = state;
-    if (!state) {
-      chapter = null;
-      active = null;
-      return;
-    }
-    hide();
-    noteBox.classList.add('out');
-  };
-  const turning = () => {
-    if (back.story && back.old && back.rush) return front.t - preroll < clearing;
-    const next = scenes[playlist[front.index + 1]];
-    return Boolean(next) && turned(front.story, next) && front.t > front.story.end - .125;
-  };
   const storyName = player => Object.keys(scenes).find(key => scenes[key] === player.story);
-  const latest = list => (list ?? []).filter(([at]) => front.t >= at).pop()?.[1];
   const follow = () => {
-    hero.dataset.side = front.mirror ? 'right' : 'left';
     root.style.setProperty('--kick', front.story.color);
-    conceal(turning());
-    if (concealed) return;
-    const name = storyName(front);
-    const nextHead = latest(heads[name]) ?? heads[name]?.[0]?.[1];
-    const nextNote = latest(notes[name]) ?? notes[name]?.[0]?.[1];
-    if (nextHead) showHead(nextHead);
-    if (nextNote) showNote(nextNote);
+    if (front.index === 0) showHead(heads.intro[0][1]);
+    const step = stepAt(front.story, front.t);
+    showNote(step);
   };
   const wire = document.createElement('canvas');
   wire.className = 'panel wire';
@@ -3735,7 +3568,7 @@ a { color: inherit; text-underline-offset: 4px; }
   };
   const drawNote = () => {
     const box = wire.getBoundingClientRect();
-    const waiting = copy.classList.contains('out');
+    const waiting = front.index === 0 || diagramOpacity === 0;
     noteBox.classList.toggle('wait', waiting);
     if (waiting || !active || !front.story || !noteBox.textContent || noteBox.classList.contains('out')) {
       if (wireKey) wireContext.clearRect(0, 0, box.width, box.height);
@@ -3772,22 +3605,10 @@ a { color: inherit; text-underline-offset: 4px; }
       const position = steps.findIndex(([, item]) => item === active);
       const from = steps[position]?.[0] ?? 0;
       const to = steps[position + 1]?.[0] ?? front.story.end;
-      const sweep = Array.from({ length: 9 }, (_, index) => driftAt(front.story, front.index, lerp(from, to, index / 8))).filter(([, fade]) => fade > .2);
-      const spread = values => [Math.min(0, ...values), Math.max(0, ...values)];
-      const bodySpread = spread(sweep.map(([y]) => y - copyShift));
-      const titleSpread = spread(sweep.map(([, , titleY]) => titleY - titleShift));
-      const lines = [slots.a, slots.b, ...pointList.children, howBox].filter(line => line.textContent).map(line => {
-        const range = document.createRange();
-        range.selectNodeContents(line);
-        const rect = range.getBoundingClientRect();
-        const [low, high] = line === slots.a || line === slots.b ? titleSpread : bodySpread;
-        return { l: rect.left - box.left - 40, t: rect.top - box.top - 40 + low, r: rect.right - box.left + 40, b: rect.bottom - box.top + 40 + high };
-      });
       const { elements, links } = lifetime(front.story);
       const shown = ([born, gone] = [0, Infinity]) => born < to && gone > from;
       const obstacles = [
-        lines.reduce((all, line) => ({ l: Math.min(all.l, line.l), t: Math.min(all.t, line.t), r: Math.max(all.r, line.r), b: Math.max(all.b, line.b) }), { l: Infinity, t: Infinity, r: -Infinity, b: -Infinity }),
-        ...lines.map(line => ({ ...line, weight: 8 })),
+        { l: front.side === 'left' ? box.width * .56 : 0, t: 0, r: front.side === 'left' ? box.width : box.width * .44, b: box.height, weight: 8 },
         ...Object.keys(front.story.sizes ?? {}).filter(name => shown(elements[name])).map(name => boxOf([name])).map(item => ({ l: item.x - item.w - 36, t: item.y - item.h - 36, r: item.x + item.w + 36, b: item.y + item.h + 36 })),
         ...Object.keys(front.story.paths ?? {}).filter(name => shown(links[name])).flatMap(name => Array.from({ length: 19 }, (_, index) => k.pathPoint(name, (index + 1) / 20))).map(([x, y]) => ({ l: x - 16, t: y - 16, r: x + 16, b: y + 16 })),
       ];
@@ -3839,17 +3660,17 @@ a { color: inherit; text-underline-offset: 4px; }
   let mobile = null;
   let marks = [];
   const go = (index, instant = false) => {
-    if (mobile) return scrollTo({ top: marks[index] ?? 0, behavior: instant || reduce ? 'auto' : 'smooth' });
-    if (!reduce && mode !== 'pause') return transit(index);
-    steering = false;
-    rewind(reduce ? index + .9 : index + clamp((scenes[playlist[index]].land - preroll) / lengths[index]));
-    follow();
-    sync();
+    const section = sections.find(section => section.index === index);
+    if (!section && index !== 0) {
+      document.querySelector(`[data-chapter="${playlist[index]}"]`).scrollIntoView({ behavior: instant || reduce ? 'auto' : 'smooth' });
+      return;
+    }
+    const center = section?.center ?? topHeight + hero.offsetHeight / 2;
+    scrollTo({ top: Math.max(0, center - topHeight - (innerHeight - topHeight) / 2), behavior: instant || reduce ? 'auto' : 'smooth' });
   };
   const transport = document.querySelector('[data-play]');
   const setMode = next => {
     mode = next;
-    if (next !== 'pause') steering = false;
     transport.querySelectorAll('[data-mode]').forEach(button => button.setAttribute('aria-pressed', String(button.dataset.mode === mode)));
   };
   setMode(mode);
@@ -3892,17 +3713,12 @@ a { color: inherit; text-underline-offset: 4px; }
       toggle.style.setProperty('--fill', fill);
     }
   };
-  const mark = () => {
-    markAt(front.index);
-    fillAt(front.index, (front.t - preroll) / lengths[front.index]);
-  };
-  const reading = () => scrollY + (innerHeight - topHeight) * .35;
-  const spotted = () => Math.max(0, marks.findLastIndex(value => value <= reading()));
   const markScroll = () => {
-    const index = spotted();
+    const middle = scrollY + topHeight + (innerHeight - topHeight) / 2;
+    const index = Math.max(0, marks.findLastIndex(value => value <= middle));
     if (index !== marked) menu.style.setProperty('--kick', scenes[playlist[index]].color);
     markAt(index);
-    fillAt(index, (reading() - marks[index]) / ((marks[index + 1] ?? root.scrollHeight) - marks[index]));
+    fillAt(index, (middle - marks[index]) / Math.max(1, (marks[index + 1] ?? reel.offsetTop + reel.offsetHeight) - marks[index]));
   };
   const ruler = copy.cloneNode(true);
   ruler.classList.remove('out');
@@ -3931,38 +3747,31 @@ a { color: inherit; text-underline-offset: 4px; }
     const logoBlock = (logoGap + logoSize) * u;
     introTop = Math.round((height - logoBlock - introHeight) / 2 + logoBlock - height * .02);
     hero.style.setProperty('--intro-top', `${introTop}px`);
-    playlist.forEach(name => {
-      render(ruler, heads[name][0][1]);
-      blocks.set(scenes[name], ruler.offsetHeight);
-    });
-    introGone = mobile || reduce ? 1.9 : preroll + leaveAt(0, introHeight) / (reels[0] * unit) * lengths[0];
+    introGone = Infinity;
   };
 
   const sheet = document.querySelector('[data-story]');
-  const after = document.querySelector('.after');
   const sections = playlist.map(name => [name, sheet.querySelector(`[data-chapter="${name}"]`)]).filter(([, node]) => node).map(([name, node]) => {
     const story = scenes[name];
-    const pin = document.createElement('div');
+    node.dataset.side = playlist.indexOf(name) % 2 ? 'right' : 'left';
+    const body = document.createElement('div');
+    body.className = 'reading-copy';
+    body.append(...node.childNodes);
+    body.querySelector('.bullets')?.classList.add('points');
     const stage = document.createElement('div');
     const canvas = document.createElement('canvas');
     const label = document.createElement('div');
-    const run = document.createElement('div');
-    pin.className = 'pin';
-    run.className = 'run';
     stage.className = 'stage';
     stage.setAttribute('aria-hidden', 'true');
     label.className = 'note out';
     label.dataset.side = 'free';
     stage.append(canvas, label);
-    pin.append(node.querySelector('h2'), stage);
-    node.prepend(pin);
-    node.append(run);
+    node.append(body, stage);
     node.style.setProperty('--kick', story.color);
     return {
-      name, node, pin, run, story, stage, label,
-      rest: story.end - .85,
-      player: { canvas, context: canvas.getContext('2d'), story, w: 0, h: 0, ratio: 0, t: 0, depth: 1, mirror: false, spot: null, wide: 1, second: [], region: null, debris: new Map(), sprites: null },
-      bands: [], edges: [0, 0], step: null, text: '', size: [0, 0], shift: '', painted: false, progress: -1, start: 0, span: 0, top: 0, bottom: 0,
+      name, node, body, index: playlist.indexOf(name), story, stage, label, opacity: 0,
+      player: { canvas, context: canvas.getContext('2d'), story, w: 0, h: 0, ratio: 0, t: reduce ? story.end - .85 : preroll, depth: 1, mirror: false, spot: null, wide: 1, second: [], region: null, debris: new Map(), sprites: null },
+      bands: [], edges: [0, 0], step: null, text: '', size: [0, 0], shift: '', painted: false, center: 0,
     };
   });
   const heightOf = (story, name) => {
@@ -4053,268 +3862,92 @@ a { color: inherit; text-underline-offset: 4px; }
     c.restore();
   };
   const stepAt = (story, time) => story.steps.filter(step => step.at <= time).pop() ?? story.steps[0];
-  const landing = .88;
-  const pace = 1.8;
-  const scrubSection = (section, progress) => {
-    const { player, story, rest } = section;
-    const time = preroll + clamp(progress / landing) * (rest - preroll);
-    const calm = clamp((progress - landing) / (1 - landing));
-    const fresh = !section.painted;
-    const moved = time - player.t;
-    if (fresh || moved < 0) {
-      discard(player.debris);
-      player.spot = null;
-    }
-    player.t = time;
-    const step = stepAt(story, time);
+  const paintSection = section => {
+    const { player, story } = section;
+    const step = stepAt(story, player.t);
     showStep(section, step);
     const probe = kit(player);
     focusAt(player, probe);
     player.second = [...step.target, ...step.light.map(name => [name])].filter(([name]) => story.stations[name]).map(([name]) => probe.pos(name));
-    const look = { ...player, wide: lerp(player.wide, 1, calm) };
-    const k = kit(look);
-    const { opacity, grow } = annotationAt(story, time, step);
+    const k = kit(player);
+    const { opacity, grow } = annotationAt(story, player.t, step);
     section.label.style.setProperty('--note-opacity', String(opacity));
     mount(section);
     player.context.clearRect(0, 0, player.w, player.h);
-    drawScene(look, k);
+    drawScene(player, k);
     pointers(section, k, grow, opacity);
     section.painted = true;
-    section.progress = progress;
   };
-  const progressOf = section => reduce ? 1 : clamp((scrollY - section.start) / Math.max(1, section.span));
-  let heroSpan = 0;
   let introClock = 0;
-  let mobileKey = '';
-  let afterTop = 0;
-  let view = [0, 0];
-  const cycle = bubbles.length * bubbleGap;
-  const restHero = state => {
-    rested = state;
-    resize();
-    sizePlayers();
-    if (state) dropBubbles();
-  };
   const glance = delta => {
-    view = [scrollY, innerHeight];
-    const moved = paused || reduce ? 0 : delta * speed;
-    if (rested ? scrollY < heroSpan + innerHeight * .25 : scrollY > heroSpan + innerHeight * .5) restHero(!rested);
-    if (scrollY < heroSpan) {
-      introClock += moved;
-      front.t = Math.min(introClock, intro.end - 1);
-      drawRain(paused || reduce ? 0 : delta);
-      [far, near].forEach(layer => {
-        if (!layer.used) return;
-        layer.context.save();
-        layer.context.setTransform(1, 0, 0, 1, 0, 0);
-        layer.context.clearRect(0, 0, layer.canvas.width, layer.canvas.height);
-        layer.context.restore();
-        layer.used = false;
-      });
+    if (front.index === 0) {
+      if (diagramOpacity > 0) clock(front, delta);
       renderPlayer(front);
-      renderPlayer(back);
-      drawBubbles([-1, 0, 1].map(round => Math.floor(introClock / cycle) + round).filter(round => round >= 0).map(round => ({ t: introClock - round * cycle, old: false, depth: 1 })));
-      [far, near].forEach(layer => { layer.canvas.style.visibility = layer.used ? 'visible' : 'hidden'; });
+      copyLane.style.opacity = String(diagramOpacity);
+      drawRain(paused || reduce || mode === 'pause' ? 0 : delta);
+      drawBubbles([{ t: introClock, old: false, depth: 1 }]);
+    } else {
+      front.canvas.style.visibility = 'hidden';
+      planes.forEach(plane => plane.slots.forEach(slot => { slot.canvas.style.visibility = 'hidden'; slot.shown = false; }));
     }
     sections.forEach(section => {
-      const within = (above, below) => section.bottom > scrollY - innerHeight * above && section.top < scrollY + innerHeight * below;
-      if (!within(.25, 1.25)) {
-        if (section.player.canvas.width && !within(.75, 1.75)) drop(section);
+      const box = section.stage.getBoundingClientRect();
+      section.opacity = visibility(box.top + box.height / 2, innerHeight - topHeight);
+      section.stage.style.opacity = String(section.opacity);
+      if (box.bottom <= topHeight || box.top >= innerHeight) {
+        if (section.painted && (box.bottom < -innerHeight || box.top > innerHeight * 2)) drop(section);
         return;
       }
-      const progress = progressOf(section);
-      if (!section.painted || progress !== section.progress) scrubSection(section, progress);
+      if (section.opacity > 0) clock(section.player, delta);
+      if (!section.painted || (!paused && mode !== 'pause' && !reduce)) paintSection(section);
     });
   };
-  const offsetOf = node => node.getBoundingClientRect().top + scrollY - parseFloat(getComputedStyle(node).scrollMarginTop || 0);
   const shape = () => {
-    const width = sheet.clientWidth;
-    const room = hero.clientHeight;
-    sections.forEach(section => shapeSection(section, width, room - section.pin.offsetHeight + section.stage.offsetHeight - 12));
-    sections.forEach(section => {
-      section.span = reduce ? 0 : Math.round(reels[playlist.indexOf(section.name)] * pace * room);
-      section.run.style.height = `${section.span}px`;
-    });
+    diagramClearance = parseFloat(getComputedStyle(root).getPropertyValue('--diagram-clearance'));
+    if (mobile) sections.forEach(section => shapeSection(section, innerWidth, (innerHeight - topHeight) * .65));
     sections.forEach(section => {
       const box = section.node.getBoundingClientRect();
-      section.start = Math.round(section.run.getBoundingClientRect().top + scrollY - section.pin.offsetHeight - topHeight);
-      section.top = box.top + scrollY;
-      section.bottom = box.bottom + scrollY;
+      const body = section.body.getBoundingClientRect();
+      section.textTop = scrollY + body.top;
+      section.textBottom = scrollY + body.bottom;
+      section.center = scrollY + (mobile ? box.top + box.height / 2 : body.top + body.height / 2);
     });
-    marks = playlist.map((name, index) => index ? sections.find(section => section.name === name)?.start ?? Math.round(offsetOf(document.querySelector(`[data-chapter="${name}"]`))) : 0);
-    heroSpan = hero.offsetHeight;
-    afterTop = after.offsetTop;
-    view = [scrollY, innerHeight];
-  };
-  const release = () => {
-    sections.forEach(section => {
-      drop(section);
-      section.run.style.height = '';
+    const centers = [topHeight + hero.offsetHeight / 2, ...sections.map(section => section.center)];
+    sections.forEach((section, index) => {
+      const before = section.center - centers[index];
+      const after = centers[index + 2] === undefined ? Infinity : centers[index + 2] - section.center;
+      section.radius = Math.min((innerHeight - topHeight) * .62, before / 2, after / 2);
     });
-    menu.style.removeProperty('--kick');
+    marks = playlist.map((name, index) => index === 0 ? 0 : document.querySelector(`[data-chapter="${name}"]`).getBoundingClientRect().top + scrollY);
   };
-
-  const finale = document.querySelector('[data-end]');
-  let dismissed = false;
-  const showFinale = () => {
-    const resting = scrollY <= unit * reelTotal + innerHeight * .15 && front.index === playlist.length - 1 && front.t >= front.story.end - .05;
-    if (!resting) dismissed = false;
-    finale.toggleAttribute('data-on', resting && !dismissed);
-  };
-  finale.querySelector('[data-replay]').addEventListener('click', event => {
-    finale.removeAttribute('data-on');
-    if (mode === 'pause') setMode('play');
-    steering = false;
-    restart();
-    follow();
-    sync();
-    if (!event.detail) transport.querySelector('[aria-pressed="true"]').focus({ preventScroll: true });
-  });
-  finale.querySelector('[data-onward]').addEventListener('click', event => {
-    dismissed = true;
-    finale.removeAttribute('data-on');
-    steer();
-    scrollTo({ top: Math.round(unit * reelTotal + innerHeight * .35), behavior: reduce ? 'auto' : 'smooth' });
-    if (!event.detail) after.focus({ preventScroll: true });
-  });
-
   let topHeight = 0;
   const layout = () => {
-    const was = mobile;
-    const span = unit * reelTotal;
-    const [seenTop, seenHeight] = view;
-    const past = was ? seenTop - (afterTop - seenHeight) : scrollY - span;
-    const below = past > 2;
-    const from = was ? Math.max(0, marks.findLastIndex(value => value <= seenTop + (seenHeight - topHeight) * .35)) : front.index;
-    const offset = was ? seenTop - marks[from] : 0;
     menu.removeAttribute('data-compact');
     menu.toggleAttribute('data-compact', slim() || list.scrollWidth > list.clientWidth);
     if (!menu.hasAttribute('data-compact')) open(false);
-    if (topBar.offsetHeight !== topHeight) {
-      topHeight = topBar.offsetHeight;
-      dispatchEvent(new Event('resize'));
-      return;
-    }
+    topHeight = topBar.offsetHeight;
     compact = slim();
     mobile = compact;
-    if (mobile) {
-      const key = `${innerWidth}:${topHeight}`;
-      if (was && key === mobileKey) return;
-      mobileKey = key;
-      copy.style.translate = '';
-      copy.style.removeProperty('--title-fade');
-      [pointList, howBox].forEach(part => {
-        part.style.translate = '';
-        part.style.opacity = '';
-      });
-      copyLane.style.opacity = '';
-      copyStyle = '';
-      copyShift = 0;
-      titleShift = 0;
-      steering = false;
-      reel.style.height = '';
-      measure();
-      fits.clear();
-      forget();
-      arrangement = { key: '' };
-      marked = -1;
-      if (!was) {
-        players.forEach(player => discard(player.sprites));
-        restart();
-        introClock = reduce ? 6 : 0;
-        follow();
-        wireKey = '';
-      }
-      sizePlayers();
-      shape();
-      if (below) scrollTo(0, after.offsetTop - innerHeight + past);
-      else if (was !== null) scrollTo(0, marks[from] + Math.max(0, offset));
-      return;
-    }
-    mobileKey = '';
-    if (was) {
-      release();
-      restHero(false);
-    }
-    unit = hero.offsetHeight * 2 / .75 / .75;
-    stageHeight = hero.clientHeight;
-    reel.style.height = `${topHeight + hero.offsetHeight + unit * reelTotal}px`;
+    reel.style.height = '';
     measure();
     fits.clear();
     forget();
     arrangement = { key: '' };
     marked = -1;
-    if (below) {
-      expected = Math.round(unit * reelTotal + past);
-      scrollTo(0, expected);
-    } else {
-      if (was) {
-        steering = false;
-        rewind(Math.min(from, playlist.length - 1));
-        follow();
-      }
-      sync();
-    }
+    sections.forEach(drop);
+    sizePlayers();
+    shape();
   };
-
-  let held = false;
-  let press = null;
-  const badge = document.createElement('div');
-  badge.className = 'hold';
-  badge.setAttribute('aria-hidden', 'true');
-  badge.append(transport.querySelector('[data-mode="pause"] svg').cloneNode(true));
-  document.body.append(badge);
-  const grab = () => {
-    if (!press) return;
-    held = true;
-    badge.style.left = `${press.x}px`;
-    badge.style.top = `${press.y}px`;
-    badge.toggleAttribute('data-on', true);
-  };
-  const letGo = () => {
-    clearTimeout(press?.timer);
-    press = null;
-    if (!held) return;
-    held = false;
-    badge.removeAttribute('data-on');
-  };
-  document.addEventListener('pointerdown', event => {
-    const place = !mobile && event.isPrimary && event.button === 0 ? event.target.closest('.hero') : null;
-    if (!place || event.target.closest('a, button')) return;
-    letGo();
-    press = { id: event.pointerId, x: event.clientX, y: event.clientY, timer: 0 };
-    if (event.pointerType === 'touch') {
-      press.timer = setTimeout(grab, 240);
-      return;
-    }
-    place.setPointerCapture(event.pointerId);
-    grab();
-  });
-  addEventListener('pointermove', event => {
-    if (press?.id === event.pointerId && event.pointerType === 'touch' && Math.hypot(event.clientX - press.x, event.clientY - press.y) > 10) letGo();
-  }, { passive: true });
-  ['pointerup', 'pointercancel', 'blur'].forEach(type => addEventListener(type, letGo));
-  document.addEventListener('visibilitychange', letGo);
-  addEventListener('contextmenu', event => { if (press || held) event.preventDefault(); });
 
   history.scrollRestoration = 'manual';
   addEventListener('resize', layout);
+  select(0);
   dispatchEvent(new Event('resize'));
   follow();
   requestAnimationFrame(frame);
-  const seek = window.__seek;
-  const jump = window.__jump;
-  if (reduce) seek(intro.end - 1);
-  window.__seek = time => {
-    seek(time);
-    follow();
-  };
-  window.__jump = (index, time) => {
-    steering = false;
-    jump(index, time);
-    follow();
-  };
-  window.__state = () => ({ index: front.index, t: front.t, where: where(), steering, scroll: scrollY, unit, head: slots.a.textContent, mirror: front.mirror, concealed, mobile, sections: sections.map(section => ({ nav: section.story.nav, progress: section.progress, t: section.player.t, painted: section.painted, pixels: section.player.canvas.width * section.player.canvas.height })), held });
+  document.fonts.ready.then(layout);
+  window.__jump = (index, time = preroll) => { select(index); front.t = time; go(index, true); };
+  window.__state = () => ({ index: front.index, t: front.t, scroll: scrollY, head: chapters[playlist[front.index]].lines[0], mirror: front.mirror, mobile, opacity: diagramOpacity, mode, sections: sections.map(section => ({ nav: section.story.nav, t: section.player.t, opacity: mobile ? section.opacity : front.index === section.index ? diagramOpacity : 0, painted: section.painted, pixels: section.player.canvas.width * section.player.canvas.height })) });
   window.__plan = () => playlist.map(name => {
     const { steps, end } = scenes[name];
     const times = steps.map(step => step.at + 2.1);

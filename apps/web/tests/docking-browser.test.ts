@@ -196,6 +196,13 @@ test("browser docking preserves frames and drafts through split, merge, close, m
   assert.equal(await page.evaluate(() => window.dockingFixture.mounts.notes), 1);
 
   await rail.getByRole("button", { name: "Files", exact: true }).hover();
+  const railTooltip = page.locator('[data-slot="tooltip-content"]').filter({ hasText: /^Files$/ });
+  await railTooltip.waitFor({ timeout: 300 });
+  assert.equal(await rail.getByRole("button", { name: "Files", exact: true }).getAttribute("title"), null);
+  const tooltipBox = await box(railTooltip);
+  const buttonBox = await box(rail.getByRole("button", { name: "Files", exact: true }));
+  assert.ok(tooltipBox.x + tooltipBox.width <= buttonBox.x, "the tooltip appears to the left of the rail button");
+  assert.ok(Math.abs(tooltipBox.y + tooltipBox.height / 2 - buttonBox.y - buttonBox.height / 2) < 2, "the tooltip is vertically centered on the rail button");
   await sidebar.waitFor();
   assert.equal(Math.round((await box(page.locator("[data-dock-frame]"))).width), defaultSideWidth);
   for (const theme of ["light", "dark"]) {

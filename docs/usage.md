@@ -586,7 +586,8 @@ tooltips. The conversation has no separate bottom toolbar.
 
 The inspection rail on the right contains files, documents, functions, executions, and
 language-server diagnostics according to the run and your permissions. A small blue dot at the
-top right of a rail button means the view has content or new activity. Hover a button to
+top right of a rail button means the view has content or new activity. Hover or focus a button
+to see its tooltip immediately to the left. Hover a button to
 preview its view in a flyout; move away from both flyout and rail to hide it.
 Click a rail button or the flyout's pin to dock the view beside the workspace, reserving space.
 While docked, another rail button switches content in place; clicking the active button hides

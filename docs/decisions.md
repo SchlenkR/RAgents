@@ -1,5 +1,21 @@
 # Decisions
 
+## 2026-10-04: Scroll homepage text normally and autoplay its diagrams
+
+Chapter: `spec/overview.md` (Product); development: `development.md` (homepage rules).
+
+The fixed text stage and playback-driven page movement made reading depend on the animation.
+Feature text now stays in normal document flow. A sticky desktop diagram fades according to
+its text's distance from the viewport center and plays its own loop; narrow views place an
+animated diagram below each text. Play, Pause, and Fast affect the diagrams only. Scrolling
+never pauses playback, chapter buttons scroll to their sections, and reduced motion uses static
+scenes. Distributed work follows workspace setups as the second feature; text and chapter
+navigation share the same order. Desktop sections alternate text and diagram sides and overlap
+by a fixed 300 pixels. CSS variables at the top of the main page configure overlap, minimum
+height, and margins in pixels, so shallow windows do not compress chapter spacing. Diagram
+fades finish before neighboring text enters the diagram side of the stage, with a configurable
+pixel clearance.
+
 ## 2026-10-04: A sign-in stops the background commands of runs the server does not have
 
 Chapters: `spec/plugins.md` (Workspace, sandbox tools, and processes: background commands; Open
@@ -283,6 +299,16 @@ workstations remain active; switching ends no runs. Connection management stays 
 extension shell, as do sign-in, startup, and connection error controls when a server is unavailable.
 Server chips and the merged list's server filter are removed, and cancelling a template guide
 returns to the same server's Start page.
+
+## 2026-10-03: Restore immediate tooltips beside the browser inspection rail
+
+Chapter: `spec/plugins.md` (Run panel); usage: `usage.md` (inspection rail).
+
+The docking workspace used native `title` tooltips although the shared run panel rail already
+used the ui tooltip. Both now show the same immediate tooltip to the left of each button,
+including pending activity. The labels do not capture pointer events over sidebar controls.
+The docking browser check covers timing and placement alongside
+the existing flyout, pinning, and drag checks.
 
 ## 2026-10-03: A tunnel never shadows a local service
 

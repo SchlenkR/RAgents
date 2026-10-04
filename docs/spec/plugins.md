@@ -2508,7 +2508,11 @@ receives `SurfaceCenterContext`. Without it the host renders the standard chat.
 The sidebar tabs (`workspaceTabs`, `workspaceTabsFor`) appear as a vertical rail at the far
 right, with each contribution's icon and accessible name; in the browser a tab with
 `placement: "window"` is listed with the run's windows in the header instead, and the rail is
-left out when no sidebar tab remains. A rail button has exactly one marker:
+left out when no sidebar tab remains. Hovering or focusing a rail button immediately shows
+the shared ui tooltip centered to its left, with an 8 px gap; no native `title` tooltip is set.
+The tooltip names the tab and adds " - new activity" for pending activity. Its label does not
+capture pointer events, so it cannot block the sidebar's header controls.
+A rail button has exactly one marker:
 a small `bg-info` dot at its top right when the contribution's `Badge` renders or the tab has
 pending activity. The rail renders the badge inside `BadgeDisplayProvider value="dot"`, so the
 ui `Badge` draws the dot and keeps its text for screen readers only; numeric badges elsewhere
