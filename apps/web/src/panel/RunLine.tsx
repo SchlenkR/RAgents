@@ -1,14 +1,17 @@
 import { cn } from "cn";
-import { CircleAlertIcon, EyeIcon, FolderIcon, GitBranchIcon, Share2Icon, UsersIcon } from "lucide-react";
-import type { ReactNode } from "react";
+import { CircleAlertIcon, EyeIcon, FolderIcon, GitBranchIcon, Share2Icon, Trash2Icon, UsersIcon } from "lucide-react";
+import { useState, type ReactNode } from "react";
 import { sharedWithYouLabel } from "../run-sharing";
 import { Button, Checkbox, longTime, RunStateIcon, shortTime } from "../ui";
-import type { ConnectionRun } from "./contract";
+import type { ConnectionRun, ConnectionView } from "./contract";
+import { ConfirmDialog } from "./PanelDialogs";
 
 const lineClass = "grid grid-cols-subgrid items-center gap-y-0.5 rounded-md px-2 py-1.5 text-left hover:bg-accent"
   + " focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-ring/60";
 
 const DETAIL_ICONS = { folder: FolderIcon, branch: GitBranchIcon } as const;
+
+export const canDeleteRun = (connection: ConnectionView, run: ConnectionRun): boolean => connection.canDelete !== false && run.sharedAccess === undefined;
 
 const columnsOf = (selecting: boolean, actions: boolean): string => {
   if (actions) return selecting
@@ -58,7 +61,7 @@ function RunDetails({ run }: { run: ConnectionRun }) {
 }
 
 /** One item per run, with state, title, time, owner, and metadata. */
-export function RunLine({ run, selecting = false, selectable = true, selected, actions = false, onOpen, onToggle, onShare }: {
+export function RunLine({ run, selecting = false, selectable = true, selected, actions = false, onOpen, onToggle, onShare, onDelete }: {
   run: ConnectionRun;
   selecting?: boolean;
   /** In selection mode, a row that cannot be selected keeps an empty checkbox cell and still opens its run. */
@@ -68,9 +71,10 @@ export function RunLine({ run, selecting = false, selectable = true, selected, a
   actions?: boolean;
   onOpen: () => void;
   onToggle?: () => void;
-  /** Opens the share dialog; without it, the action cell stays empty. */
   onShare?: () => void;
+  onDelete?: () => void;
 }) {
+  const [confirming, setConfirming] = useState(false);
   const time = shortTime(run.updatedAt);
   const locked = run.locked !== undefined ? `Locked: ${run.locked}` : undefined;
   const toggling = selecting && selectable;
@@ -89,8 +93,13 @@ export function RunLine({ run, selecting = false, selectable = true, selected, a
       <span className="w-[42px] text-right font-mono type-meta text-muted-foreground" data-cell="time" title={longTime(run.updatedAt)}>{time}</span>
       <RunDetails run={run} />
     </button>
-    {actions && (onShare
-      ? <Button aria-label={`Share ${run.title}`} className="mt-0.5 self-start text-muted-foreground" data-cell="share" onClick={onShare} size="icon-sm" title="Share ..." type="button" variant="ghost"><Share2Icon /></Button>
-      : <span aria-hidden data-cell="share" />)}
+    {actions && <span className="mt-0.5 flex self-start" data-cell="share">
+      {onShare && <Button aria-label={`Share ${run.title}`} className="text-muted-foreground" onClick={onShare} size="icon-sm" title="Share ..." type="button" variant="ghost"><Share2Icon /></Button>}
+      {onDelete && <Button aria-label={`Delete ${run.title}`} className="text-muted-foreground hover:text-destructive" onClick={() => setConfirming(true)} size="icon-sm" title="Delete run ..." type="button" variant="ghost"><Trash2Icon /></Button>}
+    </span>}
+    {confirming && onDelete && <ConfirmDialog confirmLabel="Delete" onClose={() => setConfirming(false)}
+      onConfirm={() => { setConfirming(false); onDelete(); }} title="Delete one run?">
+      The run "{run.title}" is removed from its server along with its journal. This cannot be undone.
+    </ConfirmDialog>}
   </li>;
 }

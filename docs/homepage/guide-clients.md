@@ -265,9 +265,12 @@ the user may not create runs, the panel explains why and offers "Back to Start".
 For a new run, the visible chat input receives focus as
 soon as it becomes writable. Opening an existing run does the same for its selected chat partner.
 
+The trash button ("Delete run ...") beside a run on Start and Runs opens its deletion
+confirmation. Runs shared with you have no delete button.
+
 **Runs** shows this server's complete list in the same grid, with search, "Hide ended", and a
 selection mode that deletes several runs after a dialog confirmation. Checkboxes occupy an
-additional first column without shifting the others. A run the
+additional first column; row actions disappear during selection. A run the
 server has locked, for example because its journal uses an older format, shows a warning icon whose
 tooltip names the cause; it does not open, but the selection mode deletes it.
 

@@ -55,7 +55,10 @@ the run coordinator is selected by default.
 
 Click the logo at the top left ("Back to Start") to see recent runs and permitted templates; it
 also works with the keyboard. Click a run to continue, or open
-All runs for search and selection; the arrow next to the Runs title leads back to Start. Deleting selected runs requires permission and confirmation;
+All runs for search and selection; the arrow next to the Runs title leads back to Start.
+On Start and Runs, the trash button ("Delete run ...") next to a run deletes it after a
+confirmation that names the run. To delete several, choose "Select" on Runs, check the runs,
+and click "Delete". Deleting runs requires permission and confirmation;
 errors remain visible. Locked runs show the cause and cannot be opened, but can be selected
 for deletion. Each row shows the run's state with the number of open inputs and, below the
 title, who created it and short details such as a workspace other than the empty folder per run.
@@ -757,9 +760,12 @@ the user may not create runs, the panel explains why and offers "Back to Start".
 For a new run, the visible chat input receives focus as
 soon as it becomes writable. Opening an existing run does the same for its selected chat partner.
 
+The trash button ("Delete run ...") beside a run on Start and Runs opens its deletion
+confirmation. Runs shared with you have no delete button.
+
 **Runs** shows this server's complete list in the same grid, with search, "Hide ended", and a
 selection mode that deletes several runs after a dialog confirmation. Checkboxes occupy an
-additional first column without shifting the others. A run the
+additional first column; row actions disappear during selection. A run the
 server has locked, for example because its journal uses an older format, shows a warning icon whose
 tooltip names the cause; it does not open, but the selection mode deletes it.
 

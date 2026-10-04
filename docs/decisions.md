@@ -1,5 +1,15 @@
 # Decisions
 
+## 2026-10-04: Delete a run directly from its row
+
+Chapter: `spec/plugins.md` (shared Start and Runs pages); usage: `usage.md` (Switch runs, VS Code).
+
+Single-run deletion was hidden behind All runs and Select. Start and Runs now offer a trash
+button on each deletable row in both hosts. The existing confirmation dialog names the run,
+and the host receives the same `deleteRuns` action with one ID. Locked runs can be deleted;
+runs shared with the viewer and users without delete permission have no delete action. Bulk
+selection remains available. Runs now displays deletion errors, as Start already does.
+
 ## 2026-10-04: Room addresses hold at every boundary of actor programs
 
 Chapters: `spec/actor-programs.md` (Packages and actor binding; Backend and client; Create, edit,

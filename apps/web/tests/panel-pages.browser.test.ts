@@ -92,6 +92,18 @@ test("Start shows only one server's recent runs and templates and sends each act
     await page.getByRole('button',{name:/^All 3 runs/}).click();
     assert.deepEqual(await sent(page),{action:'page',page:'runs'});
 
+    await page.getByRole('button',{name:'Delete Balcony plan south side',exact:true}).click();
+    const deletion=page.getByRole('dialog',{name:'Delete one run?'});
+    await deletion.getByText('The run "Balcony plan south side"',{exact:false}).waitFor();
+    await deletion.getByRole('button',{name:'Cancel',exact:true}).click();
+    assert.deepEqual(await sent(page),{action:'page',page:'runs'},'cancel keeps the run');
+    await page.getByRole('button',{name:'Delete Balcony plan south side',exact:true}).click();
+    await deletion.getByRole('button',{name:'Delete',exact:true}).click();
+    assert.deepEqual(await sent(page),{action:'deleteRuns',name:'workshop',runIds:['run-b']});
+    await setConnections(page,[{...workshop,canDelete:false}]);
+    await page.getByRole('button',{name:'Delete Balcony plan south side',exact:true}).waitFor({state:'detached'});
+    assert.equal(await page.getByRole('button',{name:/^Delete /}).count(),0,'the server permission controls deletion');
+
     await setConnections(page,[{...core,defaultEntry:'ragents.reference.circle'}]);
     await page.locator('button[title="Moderated round: good collaboration"]').waitFor();
     assert.equal(await page.locator('button[title="Editorial workshop: landing page"]').count(),0,'replacing the server replaces its content');
@@ -121,7 +133,6 @@ test("Runs searches, hides ended runs and deletes confirmed selections on the cu
     assert.equal(await page.getByRole('button',{name:/^Only /}).count(),0,'there is no server filter');
     assert.equal(await columnEdges(page,'Runs','time'),1,'the time column is at the same edge in all lines');
     assert.equal(await columnEdges(page,'Runs','connection'),0,'rows need no server column');
-    const edgesBefore=await page.evaluate(()=>['time'].map((name)=>Math.round(document.querySelector(`ul[aria-label="Runs"] [data-cell="${name}"]`)!.getBoundingClientRect().left)));
     await shoot(page,`${shots}runs-420.png`);
     assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true);
 
@@ -137,15 +148,20 @@ test("Runs searches, hides ended runs and deletes confirmed selections on the cu
     await page.getByRole('status').filter({hasText:'No matching run.'}).waitFor();
     await page.getByLabel('Search runs').fill('');
 
+    await page.getByRole('button',{name:'Delete Word game: sun',exact:true}).click();
+    await page.getByRole('dialog').getByRole('button',{name:'Delete',exact:true}).click();
+    assert.deepEqual(await sent(page),{action:'deleteRuns',name:'workshop',runIds:['run-c']});
+    await page.evaluate(()=>(window as any).fixture.setState((current:any)=>({...current,problem:'The run could not be deleted.'})));
+    await page.getByRole('alert').getByText('The run could not be deleted.',{exact:true}).waitFor();
+
     // Select, mark two runs, confirm in the dialog.
     await page.getByRole('button',{name:'Select'}).click();
+    assert.equal(await page.getByRole('button',{name:/^Delete /}).count(),0,'selection mode keeps only the bulk action');
     await page.getByRole('checkbox',{name:'Select Balcony plan south side'}).click();
     await page.getByRole('checkbox',{name:'Select Word game: sun'}).click();
     await page.getByText('2 selected').waitFor();
     assert.equal(await columnEdges(page,'Runs','time'),1,'the time stays at one edge with checkboxes too');
     assert.equal(await columnEdges(page,'Runs','connection'),0);
-    const edgesSelecting=await page.evaluate(()=>['time'].map((name)=>Math.round(document.querySelector(`ul[aria-label="Runs"] [data-cell="${name}"]`)!.getBoundingClientRect().left)));
-    assert.deepEqual(edgesSelecting,edgesBefore,'the checkbox does not move the right columns');
     await shoot(page,`${shots}runs-selection-420.png`);
     await page.getByRole('button',{name:'Delete'}).click();
     const dialog=page.getByRole('dialog');
@@ -241,6 +257,8 @@ test("Runs offers Share ... per shareable row, the dialog edits and sends the sh
     assert.equal(await columnEdges(page,'Runs','time'),1,'the action column keeps the time column aligned');
     assert.equal(await columnEdges(page,'Runs','share'),1,'every row has its action cell at the same edge');
     assert.equal(await page.getByRole('button',{name:'Share Viewed run'}).count(),0,'a sharee never changes the sharing');
+    assert.equal(await page.getByRole('button',{name:'Delete Viewed run'}).count(),0,'a sharee never deletes the run');
+    assert.equal(await page.getByRole('button',{name:'Delete Joined run'}).count(),0,'operating a shared run does not allow deleting it');
     assert.equal(await page.locator('button[title="Viewed run"] [title="Shared with you - view only"]').count(),1);
     assert.equal(await page.locator('button[title="Own review"] [title="Shared"]').count(),1);
     await mkdir(shots,{recursive:true});

@@ -1,16 +1,13 @@
 import { CheckSquareIcon, SearchIcon, Trash2Icon } from "lucide-react";
 import { useState } from "react";
 import { Button, Input, Toggle } from "../ui";
-import type { ConnectionRun, ConnectionView } from "./contract";
+import type { ConnectionRun } from "./contract";
 import type { PanelPageProps } from "./page-props";
 import { ConfirmDialog } from "./PanelDialogs";
 import { PanelHeader } from "./PanelHeader";
-import { RunLine, RunList } from "./RunLine";
+import { canDeleteRun, RunLine, RunList } from "./RunLine";
 
 const matches = (run: ConnectionRun, query: string): boolean => run.title.toLocaleLowerCase("en-US").includes(query);
-
-/** A run shared with the user stays with its owner; the selection never deletes it. */
-const deletable = (connection: ConnectionView, run: ConnectionRun): boolean => connection.canDelete !== false && run.sharedAccess === undefined;
 
 /** The current server's runs with search, hide ended, and a multi-selection for deleting. */
 export function RunsPage({ state, send }: PanelPageProps) {
@@ -26,7 +23,7 @@ export function RunsPage({ state, send }: PanelPageProps) {
   const shown = all
     .filter((run) => !hideEnded || run.state !== "ended")
     .filter((run) => needle === "" || matches(run, needle));
-  const sharing = !selecting && shown.some((run) => run.canShare === true);
+  const actions = !selecting && shown.some((run) => run.canShare === true || canDeleteRun(connection, run));
   const leaveSelection = () => {
     setSelecting(false);
     setSelected(new Set());
@@ -37,13 +34,14 @@ export function RunsPage({ state, send }: PanelPageProps) {
     return next;
   });
   const remove = () => {
-    const runIds = connection.runs.filter((run) => deletable(connection, run) && selected.has(run.id)).map((run) => run.id);
+    const runIds = connection.runs.filter((run) => canDeleteRun(connection, run) && selected.has(run.id)).map((run) => run.id);
     if (runIds.length > 0) send({ action: "deleteRuns", name: connection.name, runIds });
     setConfirming(false);
     leaveSelection();
   };
   return <div className="grid grid-cols-1 gap-3">
     <PanelHeader send={send} title="Runs" />
+    {state.problem && <p className="type-body text-destructive [overflow-wrap:anywhere]" role="alert">{state.problem}</p>}
     <div className="relative">
       <SearchIcon aria-hidden className="pointer-events-none absolute top-1/2 left-2.5 size-3.5 -translate-y-1/2 text-muted-foreground" />
       <Input aria-label="Search runs" className="h-8 pl-8 text-sm" onChange={(event) => setQuery(event.target.value)}
@@ -57,11 +55,12 @@ export function RunsPage({ state, send }: PanelPageProps) {
     </div>
     {shown.length === 0
       ? <p className="type-body text-muted-foreground" role="status">{all.length === 0 ? "No runs yet." : "No matching run."}</p>
-      : <RunList actions={sharing} label="Runs" selecting={selecting}>
-        {shown.map((run) => <RunLine actions={sharing} key={run.id}
+      : <RunList actions={actions} label="Runs" selecting={selecting}>
+        {shown.map((run) => <RunLine actions={actions} key={run.id}
+          onDelete={!selecting && canDeleteRun(connection, run) ? () => send({ action: "deleteRuns", name: connection.name, runIds: [run.id] }) : undefined}
           onOpen={() => send({ action: "openRun", name: connection.name, runId: run.id })}
           onShare={run.canShare ? () => send({ action: "openSharing", name: connection.name, runId: run.id }) : undefined}
-          onToggle={() => toggle(run.id)} run={run} selectable={deletable(connection, run)} selected={selected.has(run.id)} selecting={selecting} />)}
+          onToggle={() => toggle(run.id)} run={run} selectable={canDeleteRun(connection, run)} selected={selected.has(run.id)} selecting={selecting} />)}
       </RunList>}
     {selecting && <div className="sticky bottom-0 flex flex-wrap items-center gap-2 border-t border-border-soft bg-background py-2">
       <span className="flex-1 type-body text-muted-foreground" role="status">{selected.size} selected</span>

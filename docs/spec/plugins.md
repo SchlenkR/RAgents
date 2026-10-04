@@ -2830,9 +2830,10 @@ badge sums `pendingActions` of the selected environment. A locked run shows its 
 The sharing comes from the same list (`connectionRunOf` in `run-overview.ts`): next to the title a
 run with `ConnectionRun.shared` shows `UsersIcon` with the tooltip "Shared", one with
 `sharedAccess` `EyeIcon` ("Shared with you - view only") or `UsersIcon` ("Shared with you - can
-operate"). As soon as a listed row has `canShare`, the list gets one more column at the end: such
-a row has the icon button "Share ..." (`aria-label` "Share <title>") outside the row's button,
-every other row an empty cell, so the columns stay aligned. The button sends `openSharing` with
+operate"). As soon as a listed row offers sharing or deletion, the list gets one more column
+at the end. A row with `canShare` has the icon button "Share ..." (`aria-label` "Share <title>")
+outside the row's button, beside its delete button when permitted. Rows without actions keep
+an empty cell, so the columns stay aligned. The share button sends `openSharing` with
 server and run; the host loads `ragents.runs.sharing` into `PanelState.sharing` (connection, run,
 `result`, `pending`, `error`), and `PanelPage` shows `ShareDialog` as long as it is set. Its Save
 sends `share` with the whole sharing, Cancel and Escape `closeSharing`; the host closes the dialog
@@ -2861,7 +2862,10 @@ and deletes several runs after a confirmation question in a dialog. The deletion
 host's business: the page sends `deleteRuns` with the IDs, the server interface calls
 `ragents.runs.delete` and refreshes the list. A row the user cannot delete, on a server without
 `canDelete` or with `sharedAccess`, keeps an empty checkbox cell and opens its run on a click; the
-selection mode hides the "Share ..." column.
+selection mode hides the row actions. Start and Runs offer "Delete run ..." next to each
+deletable row, including locked runs. Its confirmation names the run and sends `deleteRuns`
+with that one ID; cancellation sends nothing. Rows shared with the viewer and users without
+delete permission have no delete button. Deletion errors remain visible on both pages.
 
 **New runs in VS Code** start within the selected server's interface. The extension binds the
 new run to its workstation and the selected open folder unless the template fixes its workspace;

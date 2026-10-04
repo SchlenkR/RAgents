@@ -303,7 +303,6 @@ const sharedRuns: ConnectionView["runs"] = [
 test("shared runs carry an indicator, a sharee row says what the share permits, and only runs the user may share offer Share ...", () => {
   const html = render(page({ page: "runs", connections: [connection({ runs: sharedRuns })] }));
   const item = (title: string) => new RegExp(`<button[^>]*title="${title}"[^>]*>(.*?)</button>`, "s").exec(html)?.[1] ?? "";
-  assert.match(html, /<ul aria-label="Runs" class="[^"]*grid-cols-\[auto_minmax\(0,1fr\)_auto_auto\]/, "one more column for the row action");
   assert.match(item("Own review"), /title="Shared"><svg[^>]*lucide-users[^>]*>.*?<span class="sr-only">Shared<\/span>/s);
   assert.doesNotMatch(item("Plain run"), /title="Shared/);
   assert.match(item("Viewed run"), /title="Shared with you - view only"><svg[^>]*lucide-eye/);
@@ -312,9 +311,12 @@ test("shared runs carry an indicator, a sharee row says what the share permits, 
   assert.match(html, /aria-label="Share Plain run"/);
   assert.doesNotMatch(html, /aria-label="Share Viewed run"|aria-label="Share Joined run"/, "a sharee never changes the sharing");
   assert.equal(html.match(/data-cell="share"/g)?.length, 4, "every row keeps its action cell, so the columns stay aligned");
-  const without = render(page({ page: "runs" }));
-  assert.match(without, /<ul aria-label="Runs" class="[^"]*grid-cols-\[auto_minmax\(0,1fr\)_auto\]/);
-  assert.doesNotMatch(without, /data-cell="share"/, "without a shareable run there is no action column");
+  assert.match(html, /aria-label="Delete Own review"/);
+  assert.match(html, /aria-label="Delete Plain run"/);
+  assert.doesNotMatch(html, /aria-label="Delete Viewed run"|aria-label="Delete Joined run"/);
+  const without = render(page({ page: "runs", connections: [connection({ canDelete: false })] }));
+  assert.doesNotMatch(without, /aria-label="Delete /);
+  assert.doesNotMatch(without, /data-cell="share"/, "without sharing or deletion there is no action column");
 });
 
 test("Start offers Share ... in its recent runs too and shows a short notice, such as for a share taken back", () => {

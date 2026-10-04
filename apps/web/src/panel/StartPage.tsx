@@ -5,7 +5,7 @@ import { Button } from "../ui";
 import { SectionHeading } from "../ui/SectionLabel";
 import type { PanelAction, PanelState } from "./contract";
 import type { PanelPageProps } from "./page-props";
-import { RunLine, RunList } from "./RunLine";
+import { canDeleteRun, RunLine, RunList } from "./RunLine";
 
 const RECENT_RUNS = 5;
 
@@ -26,7 +26,7 @@ export function StartPage({ state, send }: PanelPageProps) {
   const connection = state.connections[0]!;
   const runs = [...connection.runs].sort((left, right) => right.updatedAt - left.updatedAt);
   const recent = runs.slice(0, RECENT_RUNS);
-  const sharing = recent.some((run) => run.canShare === true);
+  const actions = recent.some((run) => run.canShare === true || canDeleteRun(connection, run));
   const tiles = startTileCount(connection.entries, connection.defaultEntry, connection.canCreateFree !== false);
   return <div className="grid min-w-0 grid-cols-1 gap-8">
     {state.problem && <p className="type-body text-destructive [overflow-wrap:anywhere]" role="alert">{state.problem}</p>}
@@ -37,8 +37,9 @@ export function StartPage({ state, send }: PanelPageProps) {
       </SectionHeading>
       {runs.length === 0
         ? <p className="type-body text-muted-foreground">No runs yet.</p>
-        : <RunList actions={sharing} label="Recent">
-          {recent.map((run) => <RunLine actions={sharing} key={run.id} onOpen={() => send({ action: "openRun", name: connection.name, runId: run.id })}
+        : <RunList actions={actions} label="Recent">
+          {recent.map((run) => <RunLine actions={actions} key={run.id} onOpen={() => send({ action: "openRun", name: connection.name, runId: run.id })}
+            onDelete={canDeleteRun(connection, run) ? () => send({ action: "deleteRuns", name: connection.name, runIds: [run.id] }) : undefined}
             onShare={run.canShare ? () => send({ action: "openSharing", name: connection.name, runId: run.id }) : undefined} run={run} />)}
         </RunList>}
     </section>
