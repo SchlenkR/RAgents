@@ -1,5 +1,50 @@
 # Decisions
 
+## 2026-10-04: A sign-in stops the background commands of runs the server does not have
+
+Chapters: `spec/plugins.md` (Workspace, sandbox tools, and processes: background commands; Open
+limits); usage: `usage.md` (Open and stop services and background processes).
+
+**Why.** A background command on a workstation whose run was deleted while the workstation was away
+kept running when the server restarted in between and lost the registered stop that would have ended
+it: the workstation named it at its next sign-in, and the server only logged it. A dev server of a
+deleted run then ran until the workstation signed out, and nothing could end it from the server any
+more, because no run was left to stop.
+
+**Decision.**
+
+- For the commands of a run this server does not have, `RunWorkspaceRuntime.resumeBackgroundTasks`
+  stops that run on the workstation once, through `WorkspaceClientRegistry.stopAbsentRun`: a
+  registered stop like the one of a run stop, with the workstation's `runsDirectory` as `cwd`, which
+  the stop does not check. A stop already pending for the run, such as one registered at a deletion
+  while the workstation was away, is that stop, so the run gets one stop. The workstation's run stop
+  ends the commands and removes their output files. The server logs one line per command with the
+  outcome: stopped, pending while the stop does not reach the workstation, or the cause of a failure.
+- Absent means precisely: the journal has no run with that ID (`runState` returns `null` from
+  `run-not-found`). The journal loads every run of the data folder at startup and forgets a run only
+  when it deletes it or resets a global conversation, whose coordinator has no task tools. A locked
+  journal (`journal-unavailable`), an engine that has not started, or any other error keeps the
+  command and logs it, as does a run that exists but is bound to another workstation, owner, or the
+  server. A sign-in after a lost connection therefore stops nothing of a run that still exists; a run
+  deleted during the gap already has its registered stop.
+- A server that answers at the address of an earlier one with another data folder has none of its
+  runs and stops what the workstation names; the workstation tells servers apart only by address, and
+  the spec names this as an open limit.
+
+This revises the rejected alternative of the entry below for runs the server does not have: the gap
+it left (a lost registered stop) closes for every run that still has a background command on the
+workstation. Language servers, browsers, and detached processes of such a run still stay until the
+workstation signs out, unless one of its background commands is named. Rejected: stopping only the
+named commands with `task_stop` (their output files would stay until a run stop that never comes);
+telling "deleted" from "never known" (in both cases no actor of the run on this server can learn of
+the end, and the stop is the same).
+
+Verified with `apps/server/tests/run-workspace.test.ts` (one stop for two commands of an absent run
+and one line each; runs bound elsewhere and a locked journal only logged; a stop pending from a
+deletion is the only stop at the next sign-in) and `scripts/workspace-client/run-workspace-client.test.ts`
+(the headless workstation across a real stop and start of the server: the command of the absent run
+ends with its output file, the one of a run bound to another workstation keeps running).
+
 ## 2026-10-04: A workstation names its background commands at sign-in; a restarted server observes their ends again
 
 Chapters: `spec/plugins.md` (Workspace, sandbox tools, and processes: workstation sign-in, background

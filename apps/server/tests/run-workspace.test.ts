@@ -247,20 +247,24 @@ test("a workstation of another user with the same id never takes over a bound ru
   }
 });
 
-test("a signed-in workstation gets its background commands observed again only for runs bound to it and its owner", async (t) => {
+test("a signed-in workstation gets its background commands observed again for runs bound to it and its owner, and stopped for runs the server does not have", async (t) => {
   const calls: WorkstationCall[] = [];
   const clients = new WorkspaceClientRegistry([]);
   const workstation = { label: "Laptop", hostname: "laptop", platform: "linux", folders: ["/home/example/project"], runsDirectory: RUNS, ripgrep: false };
   const ended = { state: "exited", exitCode: 0, signal: null, stopped: false };
   const client = await clients.register(CLIENT, workstation, WORKSPACE_EXECUTOR_VERSION, [],
-    workstationConnection(calls, "alice", (call) => call.operation === "tasks.wait" ? ended : toolAnswer(call)));
+    workstationConnection(calls, "alice", (call) => call.operation === "tasks.wait" ? ended : call.operation === "stop" ? null : toolAnswer(call)));
   const states = new Map<string, RunState>([
     ["alices-run", runStateWith(WORKSPACE_BINDING_OPTION_ID, laptopProject, "alice")],
     ["bobs-run", runStateWith(WORKSPACE_BINDING_OPTION_ID, laptopProject, "bob")],
     ["other-laptop", runStateWith(WORKSPACE_BINDING_OPTION_ID, { machine: { client: "client-00000002", label: "Other" }, folder: { path: "/home/example/project" } }, "alice")],
     ["server-run", runStateWith(WORKSPACE_BINDING_OPTION_ID, { machine: "server", folder: "fresh" }, "alice")],
   ]);
-  const { runtime, remove } = await fixture({ clients, runState: (runId) => states.get(runId) ?? null });
+  const runState = (runId: string): RunState | null => {
+    if (runId === "locked-run") throw new DomainError("journal-unavailable", "Journal for run locked-run is not available: damaged", 409);
+    return states.get(runId) ?? null;
+  };
+  const { runtime, remove } = await fixture({ clients, runState });
   const inputs: Array<{ runId: string; actorId: string; content: string }> = [];
   const orchestration = {
     state: () => ({ ownerId: "owner-actor" }),
@@ -268,18 +272,61 @@ test("a signed-in workstation gets its background commands observed again only f
   } as unknown as Orchestration;
   const warnings: string[] = [];
   t.mock.method(console, "warn", (message: string) => warnings.push(message));
+  const stoppedLines = () => warnings.flatMap((warning) =>
+    /background command (b\d+) of run ([\w-]+), which this server does not have; the server stopped it there and removed its output\.$/.exec(warning)?.slice(1) ?? []);
   try {
     const task = (runId: string, taskId: string) => ({ runId, taskId, startedBy: "agent-1" });
     runtime.resumeBackgroundTasks(orchestration, {
       owner: "alice",
       client,
-      backgroundTasks: [task("alices-run", "b000001"), task("bobs-run", "b000002"), task("other-laptop", "b000003"), task("server-run", "b000004"), task("deleted-run", "b000005")],
+      backgroundTasks: [
+        task("alices-run", "b000001"), task("deleted-run", "b000005"), task("bobs-run", "b000002"), task("other-laptop", "b000003"),
+        task("server-run", "b000004"), task("locked-run", "b000006"), task("deleted-run", "b000007"),
+      ],
     });
-    for (let attempt = 0; attempt < 200 && inputs.length === 0; attempt++) await new Promise((resolve) => setTimeout(resolve, 10));
-    assert.deepEqual(calls, [{ operation: "tasks.wait", cwd: "/home/example/project", input: { task_id: "b000001" } }]);
+    for (let attempt = 0; attempt < 200 && (inputs.length === 0 || stoppedLines().length < 4); attempt++) await new Promise((resolve) => setTimeout(resolve, 10));
+    assert.deepEqual(calls, [
+      { operation: "tasks.wait", cwd: "/home/example/project", input: { task_id: "b000001" } },
+      { operation: "stop", cwd: RUNS },
+    ], "one run stop for both commands of the deleted run, nothing for the others");
     assert.deepEqual(inputs, [{ runId: "alices-run", actorId: "agent-1", content: "Background command b000001 exited with code 0. task_output reads what it wrote last." }]);
-    assert.deepEqual(warnings.map((warning) => /background command (b\d+) of run ([\w-]+), which is not bound to it on this server/.exec(warning)?.slice(1)),
-      [["b000002", "bobs-run"], ["b000003", "other-laptop"], ["b000004", "server-run"], ["b000005", "deleted-run"]]);
+    assert.deepEqual(warnings.flatMap((warning) => /background command (b\d+) of run ([\w-]+), which is not bound to it on this server/.exec(warning)?.slice(1) ?? []),
+      ["b000002", "bobs-run", "b000003", "other-laptop", "b000004", "server-run"]);
+    assert.ok(warnings.includes("Background command b000006 of run locked-run on the workstation Laptop cannot be observed again: Journal for run locked-run is not available: damaged"),
+      "a run whose journal is locked is not absent: its command keeps running");
+    assert.deepEqual(stoppedLines(), ["b000005", "deleted-run", "b000007", "deleted-run"], "one line per stopped command");
+    assert.deepEqual(clients.pendingStops("alice", CLIENT), []);
+  } finally {
+    await runtime.shutdown();
+    await remove();
+  }
+});
+
+test("a run deleted while its workstation was away gets one stop at the next sign-in, even when the workstation names its background commands", async (t) => {
+  const clients = new WorkspaceClientRegistry([]);
+  const workstation = { label: "Laptop", hostname: "laptop", platform: "linux", folders: ["/home/example/project"], runsDirectory: RUNS, ripgrep: false };
+  const away = workstationConnection([], "alice");
+  await clients.register(CLIENT, workstation, WORKSPACE_EXECUTOR_VERSION, [], away);
+  away.end();
+  const warnings: string[] = [];
+  t.mock.method(console, "warn", (message: string) => warnings.push(message));
+  await clients.executorFor("alice", CLIENT, "Laptop", "/home/example/project").stopRun("deleted-run");
+  assert.deepEqual(clients.pendingStops("alice", CLIENT), ["deleted-run"]);
+  const { runtime, remove } = await fixture({ clients, runState: () => null });
+  const calls: WorkstationCall[] = [];
+  const delivery = Promise.withResolvers<void>();
+  try {
+    const client = await clients.register(CLIENT, workstation, WORKSPACE_EXECUTOR_VERSION, [], workstationConnection(calls, "alice", async (call) => {
+      if (call.operation === "stop") await delivery.promise;
+      return null;
+    }));
+    runtime.resumeBackgroundTasks({} as Orchestration, { owner: "alice", client, backgroundTasks: [{ runId: "deleted-run", taskId: "b000001", startedBy: "agent-1" }] });
+    delivery.resolve();
+    const line = "The workstation Laptop names background command b000001 of run deleted-run, which this server does not have; the server stopped it there and removed its output.";
+    for (let attempt = 0; attempt < 200 && !warnings.includes(line); attempt++) await new Promise((resolve) => setTimeout(resolve, 10));
+    assert.ok(warnings.includes(line), warnings.join("\n"));
+    assert.deepEqual(calls, [{ operation: "stop", cwd: "/home/example/project" }], "the stop registered at the deletion is the only one");
+    assert.deepEqual(clients.pendingStops("alice", CLIENT), []);
   } finally {
     await runtime.shutdown();
     await remove();

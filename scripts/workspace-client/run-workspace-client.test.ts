@@ -3,7 +3,7 @@ import { access, mkdir, mkdtemp, readFile, realpath, rm, writeFile } from "node:
 import { tmpdir } from "node:os";
 import path from "node:path";
 import test, { type TestContext } from "node:test";
-import { claimTurn, DomainError, implement, pluginStateKey, ToolRegistry, TurnToolset, type HttpRouteContribution, type RunState } from "@ragents/engine";
+import { claimTurn, DomainError, implement, pluginStateKey, ToolRegistry, TurnToolset, type HttpRouteContribution, type Orchestration, type RunState } from "@ragents/engine";
 import {
   EXECUTOR_CONTRIBUTION_FILE,
   FILE_OPERATIONS,
@@ -528,4 +528,101 @@ test("after a server restart the workstation names its background commands at si
   assert.deepEqual(second.signIns[2]!.backgroundTasks, []);
   await new Promise((resolve) => setTimeout(resolve, 300));
   assert.equal(notices().length, 2, "a second sign-in during an observation adds no second observation");
+});
+
+test("after a server restart the workstation's background commands of a run the server no longer has end there with their output, those of a run bound elsewhere keep running", { skip: process.platform === "win32", timeout: 60_000 }, async (t) => {
+  const directory = await realpath(await mkdtemp(path.join(tmpdir(), "ragents-cli-absent-")));
+  const storage = await realpath(await mkdtemp(path.join(tmpdir(), "ragents-cli-absent-server-")));
+  const gone = `cli-gone-${process.pid}`;
+  const kept = `cli-kept-${process.pid}`;
+  const outputOf = (runId: string, taskId: string): string => path.join(tmpdir(), "ragents-workspace-logs", runId, "background", `${taskId}.log`);
+  const pids: number[] = [];
+  t.after(async () => {
+    for (const pid of pids) if (alive(pid)) process.kill(-pid, "SIGKILL");
+    await rm(directory, { recursive: true, force: true });
+    await rm(storage, { recursive: true, force: true });
+  });
+  const elsewhere: WorkspaceBinding = { machine: { client: "cli-00000002", label: "Other" }, folder: { path: directory } };
+  const keptState = {
+    ownerUserId: null,
+    pluginStates: new Map([[pluginStateKey(WORKSPACE_BINDING_OPTION_ID, { kind: "run" }),
+      { pluginId: WORKSPACE_BINDING_OPTION_ID, scope: { kind: "run" }, state: elsewhere, updatedAt: "2026-10-04T00:00:00.000Z" }]]),
+  } as unknown as RunState;
+  const firstRegistry = new WorkspaceClientRegistry([]);
+  const first = await startRpcServer(t, { methods: clientMethods(firstRegistry, ignoreSignIn) });
+  const rpc = new RpcClient({ baseUrl: first.url, retryDelayMs: 50 });
+  const client = new WorkspaceClient({ origin: first.url, rpc }, {
+    id: CLIENT, label: "Headless", hostname: "cli-host", platform: process.platform, folders: [directory], runsDirectory: path.join(storage, "runs"),
+  }, { hostRoot });
+  t.after(async () => {
+    await client.unregister();
+    rpc.close();
+  });
+  await client.register();
+  assert.deepEqual(client.status, { kind: "registered" });
+  const executor = firstRegistry.executorFor(null, CLIENT, "Headless", directory);
+  const start = async (runId: string): Promise<{ task: string; pid: number }> => {
+    const pidFile = path.join(directory, `${runId}.pid`);
+    const command = `echo started; printf %s $$ > ${runId}.pid; while :; do sleep 0.05; done`;
+    const text = textOf(await executor.execute(runId, "bash", { command, run_in_background: true, startedBy: "agent-1" }, { toolCallId: `start-${runId}` }));
+    const task = /with ID: (b[0-9a-f]{6})\./.exec(text)?.[1];
+    assert.ok(task, text);
+    await untilAsync(() => exists(pidFile));
+    await untilAsync(async () => (await readFile(pidFile, "utf8")).length > 0);
+    const pid = Number(await readFile(pidFile, "utf8"));
+    pids.push(pid);
+    return { task, pid };
+  };
+  const goneTask = await start(gone);
+  const keptTask = await start(kept);
+  assert.ok(alive(goneTask.pid) && alive(keptTask.pid));
+  assert.ok(await exists(outputOf(gone, goneTask.task)) && await exists(outputOf(kept, keptTask.task)));
+
+  const port = Number(new URL(first.url).port);
+  firstRegistry.shutdown();
+  await first.close();
+  const warnings: string[] = [];
+  t.mock.method(console, "warn", (message: string) => warnings.push(message));
+  const registry = new WorkspaceClientRegistry([]);
+  const runtime: RunWorkspaceRuntime = new RunWorkspaceRuntime({
+    globalDirectory: path.join(storage, "global"),
+    sessionDirectory: (id, ...segments) => path.join(storage, "sessions", id, ...segments),
+    storageRootFor: (id) => path.join(storage, "sessions", id),
+    sessionsDirectoryPattern: path.join(storage, "sessions", "{runId}"),
+    sessionWorkspaceFor: (id) => runtime.resolve(id, () => undefined),
+    skillPaths: async () => [],
+    resolver: () => undefined,
+    runState: (id) => id === kept ? keptState : null,
+    storeBinding: () => { throw new Error("not asked"); },
+    clients: registry,
+    contributions: [],
+  });
+  const signIns: WorkstationSignIn[] = [];
+  const second = await startRpcServer(t, {
+    port,
+    methods: clientMethods(registry, (signIn) => {
+      signIns.push(signIn);
+      runtime.resumeBackgroundTasks({} as Orchestration, signIn);
+    }),
+  });
+  t.after(async () => {
+    await runtime.shutdown();
+    await second.close();
+  });
+  await until(() => signIns.length === 1, 10_000);
+  assert.deepEqual(signIns[0]!.backgroundTasks.map((task) => task.runId).sort(), [gone, kept].sort());
+  await untilAsync(async () => !alive(goneTask.pid) && !await exists(outputOf(gone, goneTask.task)));
+  await until(() => warnings.some((warning) => warning.includes(goneTask.task)), 10_000);
+  assert.deepEqual(warnings.filter((warning) => warning.includes(goneTask.task)), [
+    `The workstation Headless names background command ${goneTask.task} of run ${gone}, which this server does not have; the server stopped it there and removed its output.`,
+  ]);
+  assert.deepEqual(warnings.filter((warning) => warning.includes(keptTask.task)), [
+    `The workstation Headless names background command ${keptTask.task} of run ${kept}, which is not bound to it on this server; it keeps running there until the workstation ends it.`,
+  ]);
+  assert.equal(alive(keptTask.pid), true, "a command of a run that exists stays, even when the run is bound elsewhere");
+  assert.equal(await exists(outputOf(kept, keptTask.task)), true);
+  assert.deepEqual(registry.pendingStops(null, CLIENT), []);
+
+  await registry.executorFor(null, CLIENT, "Headless", directory).stopRun(kept);
+  await untilAsync(async () => !alive(keptTask.pid) && !await exists(outputOf(kept, keptTask.task)));
 });

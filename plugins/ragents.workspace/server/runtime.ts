@@ -24,7 +24,7 @@ import { storedStartOption } from "@ragents/host/ragents/start-option-state.js";
 import { sandboxToolNaming } from "./workspace-tool-naming.js";
 import { WorkspaceSandboxHost, type ServerRootDescription } from "@ragents/host/plugin-support/workspace-sandbox-host.js";
 import type { RunProcessSandboxes } from "@ragents/host/plugin-support/process-sandbox.js";
-import { FRESH_WORKSPACE_LABEL, isFreshFolder, type ExistingWorkspaceFolder, type WorkspaceBinding } from "../contract.js";
+import { FRESH_WORKSPACE_LABEL, isFreshFolder, type ExistingWorkspaceFolder, type WorkspaceBinding, type WorkspaceClientInfo } from "../contract.js";
 import {
   bindingOf,
   boundServerDirectory,
@@ -45,6 +45,7 @@ export interface RunWorkspaceRuntimeOptions {
   sessionWorkspaceFor: (runId: string) => Promise<SessionWorkspace>;
   skillPaths: () => Promise<readonly string[]>;
   resolver: () => WorkspaceResolver | undefined;
+  /** null only if this server's journal has no run with the ID; a locked journal throws. */
   runState: (runId: string) => RunState | null;
   storeBinding: (runId: string, binding: WorkspaceBinding) => void;
   clients: WorkspaceClientRegistry;
@@ -183,9 +184,10 @@ export class RunWorkspaceRuntime implements WorkspaceRuntime {
     return { home, nugetPackages: this.#nugetCacheDirectory };
   }
 
-  /** A signed-in workstation names its background commands whose end no server has learned, such as after a restart of this one; the server observes each one of a run bound to it again, for the actor that started it. */
+  /** A signed-in workstation names its background commands whose end no server has learned, such as after a restart of this one; the server observes each one of a run bound to it again, for the actor that started it, and stops those of runs it does not have. */
   resumeBackgroundTasks(runtime: Orchestration, { owner, client, backgroundTasks }: WorkstationSignIn): void {
-    for (const { runId, taskId, startedBy } of backgroundTasks) {
+    const absent = backgroundTasks.filter(({ runId }) => this.#absent(runId));
+    for (const { runId, taskId, startedBy } of backgroundTasks.filter((task) => !absent.includes(task))) {
       try {
         const executor = this.#boundExecutor(runId, owner, client.id);
         if (executor) this.sandbox.observeBackgroundTask(runId, taskId, executor, runtime, startedBy);
@@ -193,6 +195,29 @@ export class RunWorkspaceRuntime implements WorkspaceRuntime {
       } catch (error) {
         console.warn(`Background command ${taskId} of run ${runId} on the workstation ${client.label} cannot be observed again: ${messageOf(error)}`);
       }
+    }
+    for (const runId of new Set(absent.map((task) => task.runId))) {
+      void this.#stopAbsent(owner, client, runId, absent.filter((task) => task.runId === runId).map((task) => task.taskId));
+    }
+  }
+
+  /** Only a run the journal answers as not found is absent; a locked journal or a server that cannot answer yet keeps the command. */
+  #absent(runId: string): boolean {
+    try {
+      return this.#options.runState(runId) === null;
+    } catch {
+      return false;
+    }
+  }
+
+  /** The run stop on the workstation ends every command of the run and removes their output files, as the lost registered stop would have. */
+  async #stopAbsent(owner: string | null, client: WorkspaceClientInfo, runId: string, taskIds: readonly string[]): Promise<void> {
+    const outcome = await this.#options.clients.stopAbsentRun(owner, client.id, runId, client.runsDirectory).then(
+      (stopped) => stopped ? "the server stopped it there and removed its output." : "its stop stays pending until it reaches the workstation.",
+      (error: unknown) => `stopping it there failed: ${messageOf(error)}`,
+    );
+    for (const taskId of taskIds) {
+      console.warn(`The workstation ${client.label} names background command ${taskId} of run ${runId}, which this server does not have; ${outcome}`);
     }
   }
 

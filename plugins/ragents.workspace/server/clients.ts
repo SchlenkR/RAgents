@@ -226,6 +226,15 @@ export class WorkspaceClientRegistry {
     };
   }
 
+  /** The stop of a run this server does not have, as a registered stop; one already pending for the run is that stop. True once the workstation confirmed it, false while it stays pending. */
+  async stopAbsentRun(owner: string | null, id: string, runId: string, cwd: string): Promise<boolean> {
+    const key = keyOf(owner, id);
+    const pending = this.#pendingStopsOf(key);
+    if (!pending.has(runId)) pending.set(runId, cwd);
+    await this.#deliverStop(key, runId);
+    return this.#pendingStops.get(key)?.has(runId) !== true;
+  }
+
   shutdown(): void {
     for (const entry of this.#clients.values()) {
       entry.release();

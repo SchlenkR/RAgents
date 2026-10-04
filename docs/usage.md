@@ -490,7 +490,9 @@ the agent that started it gets a short notice with the ID and the exit code. The
 the machine of the run, on a workstation there, carries the run's marker, and ends with the run's
 stop or deletion; it has no time limit. A service on a workstation keeps running when the server
 restarts; once the workstation has signed in again, the notice arrives as well, also for an exit
-while the server was down. The workspace rules tell agents to start services this way
+while the server was down. If its run no longer exists on the server by then, for example because it
+was deleted while the workstation was away, the server stops the service at that sign-in, removes its
+output, and names it in the server log. The workspace rules tell agents to start services this way
 instead of detaching them with `nohup`, `&`, `setsid`, a detached spawn, or a service manager such as
 `launchctl`, and to stop them when they no longer need them. A process that detaches itself is found
 again only through the inherited `RAGENTS_RUN_ID` marker. Which processes the process table cannot

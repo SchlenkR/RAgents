@@ -4944,7 +4944,7 @@
                       "additionalProperties": false
                     },
                     "maxItems": 1024,
-                    "description": "The background commands of bash whose end no server has learned yet; the server observes them again, such as after its restart"
+                    "description": "The background commands of bash whose end no server has learned yet; the server observes those of runs bound to the workstation again, such as after its restart, and stops those of runs it does not have"
                   }
                 },
                 "additionalProperties": false

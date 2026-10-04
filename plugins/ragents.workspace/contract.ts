@@ -128,7 +128,7 @@ const backgroundTasks = Type.Array(Type.Object({
   startedBy: Type.String({ minLength: 1, maxLength: 200, description: "The actor the server named when it started the command" }),
 }, { additionalProperties: false }), {
   maxItems: 1024,
-  description: "The background commands of bash whose end no server has learned yet; the server observes them again, such as after its restart",
+  description: "The background commands of bash whose end no server has learned yet; the server observes those of runs bound to the workstation again, such as after its restart, and stops those of runs it does not have",
 });
 
 export const clientInfoSchema = Type.Object({

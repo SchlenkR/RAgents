@@ -3489,8 +3489,24 @@ whose run the server binds to this workstation of this owner, the server opens t
 again for the named actor (`RunWorkspaceRuntime.resumeBackgroundTasks`), and `task_output` and
 `task_stop` find the command by its ID; one it already observes keeps its observation, so a renewed
 sign-in brings no second notice. An end while the server was down arrives right after the sign-in.
-A command of a run not bound there, for example one deleted meanwhile, stays as it is, and the server
-names it in its log. If the observation fails for another reason, for example because a rebuilt
+A command of a run that exists but is bound to another workstation, another owner, or the server
+stays as it is, and the server names it in its log. For the commands of a run this server does not
+have, the server stops that run on the workstation once, as a registered stop of the run (above;
+`WorkspaceClientRegistry.stopAbsentRun`, with the workstation's `runsDirectory` as `cwd`, which the
+stop does not check); a stop already pending for the run is that stop. Like every stop of a run
+there, it ends the run's commands and removes their output files. The server names each command in
+its log with the outcome: stopped and its output removed, its stop pending while it does not reach
+the workstation (delivered at the next sign-in or retried as above), or the cause of a failed stop.
+A run counts as absent only if the journal has no run with that ID
+(`RunWorkspaceRuntimeOptions.runState` returns `null`, from `run-not-found`): the journal loads every
+run of the data folder at startup and forgets a run only when it deletes it or resets a global
+conversation, whose coordinator starts no background command, so the run was deleted or never
+existed in this data folder, which includes a server that answers at the address of an earlier one
+with another data folder. Whatever the server cannot answer keeps the command and goes to the log:
+a run whose journal is locked (`journal-unavailable`), a server whose engine has not started, any
+other error. A sign-in after a lost connection therefore stops nothing of a run that still exists; a
+run deleted in between already had its registered stop, which the sign-in delivers. If the
+observation fails for another reason, for example because a rebuilt
 executor no longer knows the ID, the actor gets that cause as its input instead. `bash` starts a
 background command only for an actor that has `task_output` and `task_stop`; otherwise the call fails with
 `background-tools-missing` (400) and names what is missing, so nothing starts that its actor can
@@ -4634,10 +4650,13 @@ right) returns the archive; a different version is 404. The counterpart is `rage
   keeps its turn and may go on working before the answer arrives.
 - A registered stop for a workstation lives in the server's memory: if the server restarts
   before the workstation signs in again, whatever the run started there stays on the workstation
-  until it is stopped again or the workstation signs out; a background command of such a run the
-  workstation names at its sign-in appears only in the server's log. On signing out
-  the executor ends and with it the background commands of `bash`, but processes a run detached
-  itself do not; only a stop of this run ends them.
+  until it is stopped again or the workstation signs out, unless the run no longer exists and the
+  workstation names one of its background commands at its sign-in, which stops the run there. On
+  signing out the executor ends and with it the background commands of `bash`, but processes a run
+  detached itself do not; only a stop of this run ends them.
+- A workstation tells servers apart only by their address: a server that starts at the address of an
+  earlier one with another data folder has none of its runs and, at the next sign-in, stops every
+  background command the workstation names, together with its output.
 - The server cleans up the new folder of a deleted run on the workstation only if the workstation
   is reachable at that time; otherwise it stays under the workstation's folder for runs, and there is no
   later cleanup. A contribution's steps are operations every executor
