@@ -43,7 +43,7 @@ export const actorProgramSurfaceElements = (session: SessionContext): readonly S
   });
 
 export function ActorProgramSurfaceElement({ definition, session }: SurfaceElementContext) {
-  const { api, invoke, listing, runId } = useActorPrograms();
+  const { api, error, invoke, listing, runId } = useActorPrograms();
   const app = listing?.apps.find((candidate) => candidate.id === definition.id);
   const confirmation = app ? pendingConfirmationFor(session, app) : undefined;
   const title = definition.title ?? definition.id;
@@ -56,6 +56,8 @@ export function ActorProgramSurfaceElement({ definition, session }: SurfaceEleme
       runId={runId}
       session={session}
     />
+  ) : error ? (
+    <p className="m-auto max-w-[60ch] p-4 text-[0.7rem] text-destructive" role="alert">{error}</p>
   ) : (
     <div className="flex flex-1 items-center justify-center gap-2 text-[0.7rem] text-muted-foreground">
       <Spinner aria-hidden aria-label={undefined} role={undefined} />

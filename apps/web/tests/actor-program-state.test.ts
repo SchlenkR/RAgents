@@ -3,7 +3,7 @@ import test from "node:test";
 import { actorProgramsRevision } from "../../../plugins/ragents.actor-programs/web/state-revision.ts";
 import { ACTOR_PROGRAMS_STATE_ID, ACTOR_STATE_ID, ACTOR_INVOCATIONS_STATE_ID } from "../../../apps/server/src/plugin-support/actor-programs/contract.ts";
 import { currentActorListing } from "../../../plugins/ragents.actor-programs/web/program-state.ts";
-import type { ActorProgramsListing } from "../../../plugins/ragents.actor-programs/web/api.ts";
+import { actorProgramsListingFrom, type ActorProgramsListing } from "../../../plugins/ragents.actor-programs/web/api.ts";
 
 const actor = { id: "counter", handle: "counter", kind: "agent", lifecycle: { kind: "idle" } };
 const entry = (pluginId: string, state: unknown, actorId = "counter") => ({ pluginId, scope: { kind: "actor", actorId }, state, updatedAt: "2026-09-10T10:00:00.000Z" });
@@ -50,4 +50,13 @@ test("stopped owners and replaced program revisions unmount stale frames without
   const newer = structuredClone(definition);
   newer.state.program.revision = "next-build";
   assert.deepEqual(currentActorListing(listing, view([newer]))!.apps, []);
+});
+
+test("a listing of an actor in a room keeps its room-qualified view and module identifiers", () => {
+  const hash = "a".repeat(64);
+  const parsed = actorProgramsListingFrom({
+    apps: [{ id: "room.counter--board", title: "Board", description: "", actorId: actor.id, actorHandle: "room.counter", revision: "build", actions: [], invocations: [], state: { version: 1, revision: 1, values: {} } }],
+    tools: [{ actorId: actor.id, actorHandle: "room.counter", functionId: "increment", revision: "build", moduleId: "room.counter", name: "counter_increment", description: "Adds one", parameters: [], sourceHash: hash, targets: [], installedBy: actor.id }],
+  });
+  assert.deepEqual([parsed.apps[0]!.id, parsed.tools[0]!.moduleId], ["room.counter--board", "room.counter"]);
 });

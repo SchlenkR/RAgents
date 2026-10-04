@@ -103,7 +103,8 @@ export interface ActorProgramsApi {
 }
 
 const ID_PATTERN = /^[A-Za-z0-9_-]{1,100}$/;
-const VIEW_ID_PATTERN = /^[A-Za-z0-9_-]{1,130}$/;
+/** View and module identifiers carry the actor's room as a prefix, `<room>.<name>`, like the server contract. */
+const ROOM_ID_PATTERN = /^[A-Za-z0-9_.-]{1,194}$/;
 const HASH_PATTERN = /^[a-f0-9]{64}$/;
 const PARAMETER_TYPES = new Set<RunToolParameter["type"]>(actorFunctionParameterTypes);
 
@@ -121,6 +122,12 @@ const optionalString = (value: unknown, field: string): string | undefined => {
 const idFrom = (value: unknown, field: string): string => {
   const id = requiredString(value, field);
   if (!ID_PATTERN.test(id)) throw new Error(`${field} is not a valid identifier`);
+  return id;
+};
+
+const roomIdFrom = (value: unknown, field: string): string => {
+  const id = requiredString(value, field);
+  if (!ROOM_ID_PATTERN.test(id)) throw new Error(`${field} is not a valid identifier`);
   return id;
 };
 
@@ -212,7 +219,7 @@ export const runAppFrom = (value: unknown): RunApp => {
   }
   if (value.visible !== undefined && typeof value.visible !== "boolean") throw new Error("visible of an app is not a boolean");
   const id = requiredString(value.id, "view.id");
-  if (!VIEW_ID_PATTERN.test(id)) throw new Error("view.id is not a valid identifier");
+  if (!ROOM_ID_PATTERN.test(id)) throw new Error("view.id is not a valid identifier");
   const actorId = requiredString(value.actorId, "view.actorId");
   return {
     id,
@@ -266,7 +273,7 @@ export const runScriptToolFrom = (value: unknown): RunScriptTool => {
     actorHandle: requiredString(value.actorHandle, "tool.actorHandle"),
     functionId: idFrom(value.functionId, "tool.functionId"),
     revision: requiredString(value.revision, "tool.revision"),
-    moduleId: idFrom(value.moduleId, "tool.moduleId"),
+    moduleId: roomIdFrom(value.moduleId, "tool.moduleId"),
     name: idFrom(value.name, "tool.name"),
     description: requiredString(value.description, "tool.description"),
     parameters: unique(value.parameters.map(runToolParameterFrom), (parameter) => parameter.name, "parameters"),

@@ -1,5 +1,13 @@
 # Decisions
 
+## 2026-10-04: The web reads room-qualified view and module identifiers of actor programs
+
+Chapter: `spec/actor-programs.md` (unchanged contract; the web parser now matches it).
+
+**Why.** Since rooms, a script's actor carries its room as a prefix (`review.review`), and so do its view IDs and module IDs. The server contract allows dots, but the web parser of the actor program listing accepted only `[A-Za-z0-9_-]`. It rejected the whole listing, and the view tab of every program started by a run script stayed at "Loading actor view" without any message.
+
+**Decision.** The parser accepts view and module identifiers with the server's character set including dots. A view whose listing fails now shows the error instead of the endless spinner. Verified with `apps/web/tests/actor-program-state.test.ts` and a live run of a run script whose view showed the spinner.
+
 ## 2026-10-04: Scroll homepage text normally and autoplay its diagrams
 
 Chapter: `spec/overview.md` (Product); development: `development.md` (homepage rules).
