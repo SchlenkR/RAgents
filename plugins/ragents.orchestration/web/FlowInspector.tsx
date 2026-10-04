@@ -108,6 +108,7 @@ const STATUS_LABELS: Record<string, string> = {
 const ACTOR_KIND_LABELS: Record<RunActor["kind"], string> = {
   human: "Person",
   agent: "Agent",
+  external: "External agent",
   script: "Logic actor",
 };
 
@@ -185,7 +186,7 @@ export function FlowInspector(props: FlowInspectorProps) {
 
   if (!inspect) {
     const conversationActor = actor ?? fallbackActor;
-    return conversationActor?.kind === "agent" ? <ActorView actor={conversationActor} index={index} key={conversationActor.id} {...props} /> : null;
+    return conversationActor?.kind === "agent" || conversationActor?.kind === "external" ? <ActorView actor={conversationActor} index={index} key={conversationActor.id} {...props} /> : null;
   }
 
   if (input) return <InputView index={index} input={input} key={input.id} {...props} />;

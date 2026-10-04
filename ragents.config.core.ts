@@ -21,7 +21,9 @@ export const config = {
       "ragents.processes",
       "ragents.documents",
       "ragents.browser",
+      "ragents.mcp",
       "ragents.ask",
+      "ragents.acp",
       "ragents.todo",
       "ragents.watch",
       "ragents.actor-programs",
@@ -31,6 +33,14 @@ export const config = {
       "ragents.model-relay",
       "ragents.profile-distribution",
     ],
+  },
+
+  "ragents.acp": {
+    ACP_AGENTS: {},
+  },
+
+  "ragents.mcp": {
+    MCP_SERVERS: {},
   },
 
   "ragents.product": {

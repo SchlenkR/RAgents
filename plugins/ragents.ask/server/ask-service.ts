@@ -74,7 +74,7 @@ export class RuntimeAskService implements AskService {
     return this.#propose(call, request, payload);
   }
 
-  ask(call: AskCall & { turnId: null }, request: AskRequest, signal: AbortSignal | undefined): Promise<AskOutcome> {
+  ask(call: AskCall, request: AskRequest, signal: AbortSignal | undefined): Promise<AskOutcome> {
     return this.#awaitAnswer(call.runId, this.#propose(call, request, payloadOf(request)), signal);
   }
 

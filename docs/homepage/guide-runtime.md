@@ -5,8 +5,9 @@ Runs, actors, messages, turns, and the journal form the shared runtime.
 ## Runs and participants
 
 A run is a piece of work with its own participants, working files, and journal. An actor is a
-participant in that run: the human owner, an LLM agent, or a TypeScript actor. LLM agents
-process tasks with a model; TypeScript actors execute their programmed input handler. The actor
+participant in that run: the human owner, an LLM agent, a TypeScript actor, or an external actor.
+LLM agents process tasks with a model; TypeScript actors execute their programmed input handler;
+external actors use a named runtime provided by a plugin. The actor
 selected as primary is the user's direct chat partner. This choice does not depend on who
 created the other actors.
 
@@ -39,7 +40,7 @@ ended the turn (such as a question to the user), a joined input starts another m
 the same turn. The journal records each joined input with
 `turn.input-steered`, and the chat marks the message as fed into the running turn. An input that
 arrives after the last model request of the turn, or after the turn was interrupted, starts the
-actor's next turn instead. TypeScript actors have no model and take no steering; their inputs
+actor's next turn instead. TypeScript and external actors take no steering; their inputs
 always wait for the next turn. An input longer than 30,000 characters does not join; it and every
 later input wait for the next turn, so the order stays intact.
 
@@ -124,7 +125,7 @@ in effect.
   or ensures a package whose actor is stopped, use the same restart.
 - Run stop: The scheduler temporarily accepts no new work for this run; concurrent stop calls
   are handled together. The primary actor remains, but its running work is interrupted. All
-  other agents and TypeScript actors in the user's ownership tree are stopped. Agent runtimes
+  other executable actors in the user's ownership tree are stopped. Their runtimes
   and plugins receive their abort signals in parallel. The actor-program plugin also cancels
   pending app actions. An open confirmation question is discarded through `ragents.ask` in the
   journal and the domain operation is no longer invoked; the open `ask_user` questions of all
@@ -221,9 +222,9 @@ takes names from their results instead of building them.
 
 ## Equipping subagents
 
-`agent_spawn` creates exactly one LLM agent in the run, with the fields of the subagent tools of
-common agent harnesses: `description` is a required label of a few words, `prompt` is the first
-task, and `name` is the requested handle. `instructions` holds the lasting role and rules for the
+`agent_spawn` creates exactly one LLM agent or external actor in the run, with the fields of the
+subagent tools of common agent harnesses: `description` is a required label of a few words,
+`prompt` is the first task, and `name` is the requested handle. `instructions` holds the lasting role and rules for the
 agent's system prompt; a role from `model_list` supplies none. With `prompt`, the command that
 writes `agent.spawned` also enqueues the task as the agent's first input, so the agent starts at
 once; this needs `actor.input` besides `agent.spawn`. Without `prompt` the agent stays idle until
@@ -235,7 +236,13 @@ agent without `prompt`, subscribes, and then sends the task with `actor_input`. 
 joins a run through `run_script_start` and a TypeScript actor comes from an actor program;
 `agent_spawn` creates neither, and no function of a run creates another run.
 
-`agent_spawn` requires an explicit function selection in `tools`:
+For an external actor, select `runtime` from the names and titles in `model_list` and the
+configured runtime choices of `agent_spawn`. Use `tools: null`; its coding tools belong to its
+runtime, and no RAgents functions are passed to it. `provider`, `model`, `thinking`, and `forkOf`
+are invalid with an external runtime. Its `instructions` become lasting prompt instructions;
+its `prompt` is the first queued task, as for an LLM actor.
+
+`agent_spawn` requires an explicit function selection in `tools` for built-in LLM agents:
 
 | Selection                            | Equipment                                                          |
 | ------------------------------------ | ------------------------------------------------------------------ |
@@ -274,6 +281,7 @@ suggested as an agent's model choice.
 ## Journal and projection
 
 The journal is the shared history of a run. Visible state is produced by replaying its events;
-models and functions are not called again in the process. Recorded responses, function calls,
+models, functions, and external runtimes are not called again in the process.
+Recorded responses, function calls,
 state changes, and interruptions therefore remain traceable after a restart. The model context of
 every LLM agent is part of the journal as well; working files are stored separately.

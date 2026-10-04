@@ -118,6 +118,9 @@ export const spawnAgent =
         assertCapability(caller, "agent.spawn", { kind: "run" });
         assertDelegation(caller, input.grants);
 
+        if (input.execution.driver.kind === "external" && (input.forkOf !== undefined || input.toolNames !== null))
+            throw new DomainError("external-equipment", "An external runtime requires toolNames: null and cannot fork a model context.", 400);
+
         if (input.task !== undefined && caller.id !== state.ownerId)
             assertCapability(caller, "actor.input", { kind: "run" });
 

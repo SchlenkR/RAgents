@@ -19,7 +19,9 @@ export const config = {
       "ragents.product",
       "ragents.documents",
       "ragents.browser",
+      "ragents.mcp",
       "ragents.ask",
+      "ragents.acp",
       "ragents.todo",
       "ragents.watch",
       "ragents.activity",
@@ -28,6 +30,14 @@ export const config = {
       "ragents.lsp-fsharp",
       "ragents.lsp-typescript",
     ],
+  },
+
+  "ragents.acp": {
+    ACP_AGENTS: {},
+  },
+
+  "ragents.mcp": {
+    MCP_SERVERS: {},
   },
 
   "ragents.product": {

@@ -15,6 +15,7 @@ export type AgentDriverConfigs = {
     manual: Record<string, never>;
     script: Record<string, never>;
     agent: ModelSelection;
+    external: { runtime: string };
 };
 
 export type AgentDriverKind = keyof AgentDriverConfigs;
@@ -23,6 +24,7 @@ const driverKinds: Record<AgentDriverKind, true> = {
     manual: true,
     script: true,
     agent: true,
+    external: true,
 };
 
 export const agentDriverKinds = Object.keys(driverKinds) as AgentDriverKind[];

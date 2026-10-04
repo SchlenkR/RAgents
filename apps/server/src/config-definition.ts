@@ -92,7 +92,9 @@ export type ConfigValue =
   | string
   | number
   | boolean
-  | readonly string[]
+  | null
+  | readonly ConfigValue[]
+  | { readonly [key: string]: ConfigValue }
   | readonly ProfileModelAlias[]
   | readonly ProfileModelProvider[]
   | EnvironmentReference
@@ -113,8 +115,7 @@ type HostSection = Omit<Section<typeof hostConfigDescriptors>, "MODEL_ALIASES" |
   readonly MODEL_PROVIDERS?: readonly ProfileModelProvider[];
 };
 
-// The core knows no plugin ids: which section and which key is valid is decided by the
-// runtime check against the declarations of the loaded plugins.
+// Loaded plugins declare the valid sections and keys.
 export type PluginSection = {
   readonly [key: `${string}_PAT`]: EnvironmentReference | undefined;
   readonly [key: `${string}_KEY`]: EnvironmentReference | undefined;

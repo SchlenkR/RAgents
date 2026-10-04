@@ -9,6 +9,7 @@ import { ensureHostLinks } from "./host-links.mjs";
 const AGENT_CLI = "scripts/agent/agent-cli.ts";
 
 export const commands = {
+  acp: "scripts/acp/acp-cli.ts",
   connect: "scripts/remote/connect.ts",
   start: "scripts/remote/start.ts",
   provision: "scripts/provision/run-provision.ts",
@@ -25,6 +26,7 @@ export const commands = {
 
 const usage = `Usage: ragents <command> [arguments]
 
+  acp [--profile <p>]             serve Agent Client Protocol v1 over stdio for an editor
   run <folder> "<task>"            start the host without UI, create a run and wait for the end
                                    (--share <user>[:read|:write], --share-all <read|write>)
   send <run> "<text>"              follow-up task in the same run; continues a paused run

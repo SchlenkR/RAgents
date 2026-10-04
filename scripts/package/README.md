@@ -15,6 +15,16 @@ npm install -g @schlenkr/ragents
 
 ## Commands
 
+- `acp [--profile <profile|path>] [--data-dir <folder>]` - serve stable Agent Client Protocol v1
+  over stdio for an editor such as Zed. Each editor chat uses a run bound to its project folder,
+  with streamed replies, tool progress, plans, and history. Logs go to stderr. Profile, host,
+  and token selection match `run`; `RAGENTS_URL` can connect to a remote host with this machine
+  registered as the run's workstation.
+
+  ```sh
+  ragents acp --profile developer
+  ```
+
 - `connect <server-url>` - fetch the client profile of a RAgents server together with the plugin
   bundles it names and start the local server with it; the models come over the server's relay.
   The local host needs the same host API as the server; nothing is built or installed.

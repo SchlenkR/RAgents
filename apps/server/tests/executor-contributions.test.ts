@@ -1,9 +1,10 @@
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
-import { mkdir, mkdtemp, readFile, realpath, rm, writeFile } from "node:fs/promises";
+import { copyFile, mkdir, mkdtemp, readFile, realpath, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import test from "node:test";
+import { fileURLToPath } from "node:url";
 import {
   EXECUTOR_CONTRIBUTION_FILE,
   WorkspaceOperationExecutor,
@@ -26,6 +27,7 @@ import { executor as typescriptExecutor } from "../../../plugins/ragents.lsp-typ
 import { hostRoot } from "../src/host-version.ts";
 import { loadPlugins } from "../src/profile/plugin-discovery.ts";
 import { workspaceProvisionPlugins } from "../src/profile/provisioning.ts";
+import { httpFixture } from "./fixtures/mcp/http.mjs";
 
 const textOf = (result: unknown): string =>
   ((result as { content?: Array<{ type: string; text?: string }> }).content ?? [])
@@ -59,7 +61,40 @@ test("the language servers come from their plugins: the server loads the contrib
 
 test("a workstation provisions exactly the built-in plugins with an executor contribution and the bundles they need to load", () => {
   assert.deepEqual(workspaceProvisionPlugins().map((plugin) => plugin.id).sort(),
-    ["ragents.ask", "ragents.browser", "ragents.documents", ...LANGUAGE_SERVER_PLUGINS].sort());
+    ["ragents.acp", "ragents.ask", "ragents.browser", "ragents.documents", "ragents.mcp", ...LANGUAGE_SERVER_PLUGINS].sort());
+});
+
+test("the copied MCP executor bundle connects without packages in the workstation folder", async (t) => {
+  const directory = await realpath(await mkdtemp(path.join(tmpdir(), "ragents-mcp-bundle-")));
+  const file = path.join(directory, "executor.mjs");
+  let executor: WorkspaceOperationExecutor | undefined;
+  const http = await httpFixture("modern");
+  t.after(async () => {
+    try { await executor?.shutdown(); }
+    finally { await http.close(); await rm(directory, { recursive: true, force: true }); }
+  });
+  const loaded = await loadPlugins(["ragents.orchestration", "ragents.workspace", "ragents.mcp"]);
+  const revision = loaded.executor.find((entry) => entry.plugin === "ragents.mcp")!.revision;
+  await copyFile(path.join(hostRoot(), "bundles", "ragents.mcp", EXECUTOR_CONTRIBUTION_FILE), file);
+  const copied = await loadExecutorContribution("ragents.mcp", file, revision);
+  executor = new WorkspaceOperationExecutor({
+    contextFor: async (runId) => workspaceProcessContext({ runId, cwd: directory, root: directory, home: { home: directory }, logDirectory: directory, hostRoot: undefined }),
+    modules: copied.contribution(executorMachine(directory)).modules,
+  });
+  const servers = {
+    remote: { url: http.url, type: "http" },
+    local: { command: process.execPath, args: [fileURLToPath(new URL("./fixtures/mcp/stdio.mjs", import.meta.url)), "modern", path.join(directory, "stdio.jsonl")] },
+  };
+  const snapshot = await executor.execute("bundle-run", "mcp.connect", { servers }) as { servers: readonly { state: string; tools: readonly { name: string }[] }[] };
+  assert.equal(snapshot.servers.length, 2);
+  for (const server of snapshot.servers) {
+    assert.equal(server.state, "connected");
+    assert.ok(server.tools.some((tool) => tool.name === "echo"));
+  }
+  for (const server of Object.keys(servers)) {
+    assert.equal(textOf(await executor.execute("bundle-run", "mcp.call", { server, tool: "echo", arguments: { text: "Bundled SDK works" } })), "Bundled SDK works");
+  }
+  await executor.stopRun("bundle-run");
 });
 
 test("Roslyn and FSAC start from their plugin's tool folder, a .dll through dotnet, a binary directly, also with Windows paths", async (t) => {

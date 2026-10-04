@@ -12,8 +12,9 @@ plugins; what a plugin may be built against is set by the host API list
 ## Runs and participants
 
 A run is a piece of work with its own participants, working files, and journal. An actor is a
-participant in that run: the human owner, an LLM agent, or a TypeScript actor. LLM agents
-process tasks with a model; TypeScript actors execute their programmed input handler. The actor
+participant in that run: the human owner, an LLM agent, a TypeScript actor, or an external actor.
+LLM agents process tasks with a model; TypeScript actors execute their programmed input handler;
+external actors use a named runtime provided by a plugin. The actor
 selected as primary is the user's direct chat partner. This choice does not depend on who
 created the other actors.
 
@@ -38,12 +39,31 @@ Commands -> Orchestration -> Journal v4 -> Projection -> LiveBus
                 +-> TurnScheduler -> AgentLoopDriver -> AgentTurn -> agent loop
                                   |        ^
                                   |        +-- model context = projection of the journal
-                                  \-> ScriptDriver -> TypeScript platform -> Node process
+                                  +-> ScriptDriver -> TypeScript platform -> Node process
+                                  \-> external runtime registry -> plugin-provided driver
 ```
 
 `Orchestration` is deterministic application code and not a model. Every accepted command produces
 a coherent group of events. The journal persists them, updates the projection, and only then
 publishes live notifications. No driver, plugin, or protocol adapter writes past the journal.
+
+### External runtimes
+
+The execution kinds are `manual`, `agent`, `script`, and `external`. An external execution carries
+`{ runtime: string }`; `agent.spawned` projects it as actor kind `external`. The catalog and
+scheduler resolve this name against the plugins' `actorRuntimes` contributions. A missing runtime
+is a hard error naming the available runtimes. External runtime selections default to the
+shared run workspace; the contributing driver validates any explicitly requested isolation.
+The engine knows no external protocol or vendor.
+
+A contribution supplies `AgentDriver<"external">` with the ordinary turn and cleanup lifecycle.
+Its request contains the runtime name, lasting instructions, input, attachments, workspace,
+`publish` for live deltas, `emit` for observable text and reasoning, and `recordTool` for tool
+starts, completions, and failures. A separate `external.output.record` decision writes
+`model.output.completed` or `model.reasoning.completed` only for a running external turn. It writes
+no `model.step.completed`: the external runtime owns its model context. Interrupted partial text
+uses the existing `model.output.interrupted`. Chat, subscriptions, and journal replay read these
+same observable events without executing the runtime again.
 
 <!-- guide:runtime -->
 ## Scheduler and turns
@@ -65,7 +85,7 @@ ended the turn (such as a question to the user), a joined input starts another m
 the same turn. The journal records each joined input with
 `turn.input-steered`, and the chat marks the message as fed into the running turn. An input that
 arrives after the last model request of the turn, or after the turn was interrupted, starts the
-actor's next turn instead. TypeScript actors have no model and take no steering; their inputs
+actor's next turn instead. TypeScript and external actors take no steering; their inputs
 always wait for the next turn. An input longer than 30,000 characters does not join; it and every
 later input wait for the next turn, so the order stays intact.
 
@@ -133,8 +153,8 @@ the staged state changes.
 
 A function result is not state. A direct view or tool call of a function needs no model turn.
 ActorInputs, in contrast, stay in the normal actor queue: an LLM actor processes them with its
-model, a TypeScript actor with the input handler of its program. Both can own the same kinds of
-functions and React views. The package and activation lifecycle belongs to the plugin
+model, a TypeScript actor with its program's input handler, and an external actor with its runtime.
+LLM and TypeScript actors can own the same kinds of functions and React views. The package and activation lifecycle belongs to the plugin
 `ragents.actor-programs` and is described in `actor-programs.md`.
 
 <!-- guide:runtime -->
@@ -252,9 +272,11 @@ frozen. `Orchestration.heldModelContexts` names the number of held states.
 resolved skills, the plugins' hooks, and skill preloading; it holds no conversation. Per turn, an
 `AgentTurn` sits directly on the agent loop (`Agent` from `@ragents/agent`): it binds the turn's
 tools, reads the context, stores the loop's messages as events (`TurnRequest.recordContext`), and
-detaches at the end of the turn, so that nothing holds a closure over an old turn. Visible
-responses and reasoning arise only from a model step (`recordContext` with `step`);
-`TurnRequest.emit` only knows the aborted text and runtime outputs.
+detaches at the end of the turn, so that nothing holds a closure over an old turn.
+For the built-in driver, completed responses and reasoning arise from a model step (`recordContext` with `step`);
+`TurnRequest.emit`
+records its aborted text and runtime outputs. External drivers record completed observations
+through the separate decision described under External runtimes.
 
 Every tool call of the model is in the journal, including one that fails before it starts: if the
 tool is missing at the call, the refresh of the tools fails, or the input does not match,
@@ -490,7 +512,7 @@ in effect.
   or ensures a package whose actor is stopped, use the same restart.
 - Run stop: The scheduler temporarily accepts no new work for this run; concurrent stop calls
   are handled together. The primary actor remains, but its running work is interrupted. All
-  other agents and TypeScript actors in the user's ownership tree are stopped. Agent runtimes
+  other executable actors in the user's ownership tree are stopped. Their runtimes
   and plugins receive their abort signals in parallel. The actor-program plugin also cancels
   pending app actions. An open confirmation question is discarded through `ragents.ask` in the
   journal and the domain operation is no longer invoked; the open `ask_user` questions of all
@@ -886,7 +908,7 @@ dot of a handle of an older journal; `freeRoomName` counts up with `-2`, `-3`, a
 places the actor in an open room, and without `room` it joins its creator's room. `agent_spawn`
 places the agent in its creator's room; no function opens a room by itself.
 
-New handles of agents and TypeScript actors contain no dot (`actorHandleOf` in
+New handles of executable actors contain no dot (`actorHandleOf` in
 `runtime/guards.ts`); the owner's handle comes from the user identifier and keeps the older grammar.
 A bare handle is unique within its room and between the main room and every room, because the main
 room's names are written without prefix from anywhere: an agent gets a free suffix, a TypeScript
@@ -909,9 +931,9 @@ address as the main room writes it, which is valid from every room.
 <!-- guide:runtime -->
 ## Equipping subagents
 
-`agent_spawn` creates exactly one LLM agent in the run, with the fields of the subagent tools of
-common agent harnesses: `description` is a required label of a few words, `prompt` is the first
-task, and `name` is the requested handle. `instructions` holds the lasting role and rules for the
+`agent_spawn` creates exactly one LLM agent or external actor in the run, with the fields of the
+subagent tools of common agent harnesses: `description` is a required label of a few words,
+`prompt` is the first task, and `name` is the requested handle. `instructions` holds the lasting role and rules for the
 agent's system prompt; a role from `model_list` supplies none. With `prompt`, the command that
 writes `agent.spawned` also enqueues the task as the agent's first input, so the agent starts at
 once; this needs `actor.input` besides `agent.spawn`. Without `prompt` the agent stays idle until
@@ -923,7 +945,13 @@ agent without `prompt`, subscribes, and then sends the task with `actor_input`. 
 joins a run through `run_script_start` and a TypeScript actor comes from an actor program;
 `agent_spawn` creates neither, and no function of a run creates another run.
 
-`agent_spawn` requires an explicit function selection in `tools`:
+For an external actor, select `runtime` from the names and titles in `model_list` and the
+configured runtime choices of `agent_spawn`. Use `tools: null`; its coding tools belong to its
+runtime, and no RAgents functions are passed to it. `provider`, `model`, `thinking`, and `forkOf`
+are invalid with an external runtime. Its `instructions` become lasting prompt instructions;
+its `prompt` is the first queued task, as for an LLM actor.
+
+`agent_spawn` requires an explicit function selection in `tools` for built-in LLM agents:
 
 | Selection                            | Equipment                                                          |
 | ------------------------------------ | ------------------------------------------------------------------ |
@@ -964,8 +992,9 @@ suggested as an agent's model choice.
 
 The tool description, field descriptions, and orchestration prompt require the explicit choice of a
 role or model for every LLM spawn and explain that the caller's model is not inherited. The fields
-stay individually optional, because a role can supply the model and manual or script drivers need
-no model. A missing selection stays a hard error; there is no automatic choice of a default role.
+stay individually optional, because a role can supply the model and manual, script, or external
+drivers need no host model selection. A missing selection stays a hard error; there is no
+automatic choice of a default role.
 
 Before creating a new actor, the orchestration prompt requires the roster check with `actor_list`.
 Suitable existing participants receive new tasks through `actor_input`; only missing roles or
@@ -974,8 +1003,8 @@ deduplication: `agent_spawn` still creates a new actor and assigns a free suffix
 taken. The runtime does not derive the same role from the same name.
 
 The run itself is configured by `run_configure` under the capability `run.configure`: `title`
-writes the event `run.title-changed`, `primaryActor` chooses an active agent or TypeScript actor as
-primary actor (`run.primary-actor-selected`); both together are allowed, neither is a named error;
+writes the event `run.title-changed`, `primaryActor` chooses an active agent, TypeScript actor, or external
+actor as primary actor (`run.primary-actor-selected`); both together are allowed, neither is a named error;
 the call confirms with `null`. The owner of the run configures by right, every other actor needs
 the grant; the journal semantics check the same when loading. Owner and coordinator hold all ten
 capability names from `domain/vocabulary.ts`; the coordinator holds `script.start` without passing it on. If the primary actor changes, the chat rebinds to it.
@@ -1169,14 +1198,15 @@ take place.
 ## Journal and projection
 
 The journal is the shared history of a run. Visible state is produced by replaying its events;
-models and functions are not called again in the process. Recorded responses, function calls,
+models, functions, and external runtimes are not called again in the process.
+Recorded responses, function calls,
 state changes, and interruptions therefore remain traceable after a restart. The model context of
 every LLM agent is part of the journal as well; working files are stored separately.
 <!-- /guide:runtime -->
 
 ### File format, write boundaries, and replay
 
-Every run has a readable `journal.jsonl` in file format 12 and, for large contents, a neighboring
+Every run has a readable `journal.jsonl` in file format 13 and, for large contents, a neighboring
 folder `payloads/`. A line contains one command with all the events that resulted from it. Format
 version, run ID, command, and timestamp are stored once in the shared envelope; actor and command
 ID as well as the internal event schema version are added when reading. The command holds
@@ -1219,16 +1249,17 @@ already have been written. The restart reads complete lines and discards an inco
 Other runs stay writable. Errors when preparing a content file before the journal append, in
 contrast, allow an immediate retry.
 
-The journal writes file format 12 and reads formats 7 to 12, all with internal event schema 3. Format
+The journal writes file format 13 and reads formats 7 to 13, all with internal event schema 3. Format
 7 brings the model context (`model.input.presented`, `model.step.completed`,
 `model.tool-result.presented`, `context.compacted`); older journals carry none and are rejected with
 this cause, without migration, for the affected run. Format 8 brings `origin` on
 `actor.input.enqueued` (section Origin of an input), format 9 `threshold` on `context.compacted`
 (section Retries and compaction), format 10 the event `run.sharing-changed` (`profiles.md`, Sharing
 in detail), format 11 the events `run.paused` and `run.resumed` (section Pausing a run), format 12
-the event `room.opened` and `room` on `agent.spawned` and `script.created` (section Rooms); a line
-of an older format never carries the respective field or event and therefore stays readable, and a
-format after 12 is rejected. The encoding has been unchanged since
+the event `room.opened` and `room` on `agent.spawned` and `script.created` (section Rooms), format
+13 the external execution kind and standalone output observations (section External runtimes). A
+line of an older format never carries the respective addition and therefore stays readable; a
+format after 13 is rejected. The encoding has been unchanged since
 4; the number increases as soon as an older version would reject newly written lines, so that it
 fails at the first such line with the format version instead of at a semantic contradiction. Every
 run is first completely checked and projected before its events, identifiers, and states are taken

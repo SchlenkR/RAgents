@@ -341,6 +341,21 @@ a { color: inherit; text-underline-offset: 4px; }
       </ul>
     </div>
   </section>
+  <section class="ext-section" id="mcp" aria-labelledby="mcp-title">
+    <div class="shell">
+      <div class="section-head"><h2 id="mcp-title">Connect MCP tools</h2><p>Connect MCP servers from your profile and let agents use their tools on the machine that holds the run's files.</p></div>
+    </div>
+  </section>
+  <section class="ext-section" id="acp" aria-labelledby="acp-title">
+    <div class="shell">
+      <div class="section-head"><h2 id="acp-title">Chat from your editor</h2><p>Connect an ACP editor such as Zed to RAgents and work in its project folder with streamed replies, tool progress, and plans.</p></div>
+    </div>
+  </section>
+  <section class="ext-section" id="acp-actors" aria-labelledby="acp-actors-title">
+    <div class="shell">
+      <div class="section-head"><h2 id="acp-actors-title">Bring coding agents into a run</h2><p>Run external <a href="guide-clients.html#run-external-acp-actors">ACP agents as actors</a> alongside your coordinator, with coding tools, replies, plans, and permission questions in the shared run.</p></div>
+    </div>
+  </section>
   <section class="shell install-section" id="install" aria-labelledby="install-title" data-install>
     <div class="install-heading">
       <h2 id="install-title">Get RAgents</h2>
@@ -377,7 +392,7 @@ a { color: inherit; text-underline-offset: 4px; }
     <section class="start-cta" id="start" data-chapter="start" aria-labelledby="start-title"><h2 id="start-title">Start a run</h2><div class="actions"><a class="button secondary" href="guide-getting-started.html">Getting started guide<svg class="link-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14m-5-5 5 5-5 5"/></svg></a></div></section>
     <section class="alpha-note" id="built-with" aria-labelledby="built-title"><h2 id="built-title">Built with RAgents?</h2><a class="button secondary" href="https://github.com/SchlenkR/RAgents/issues"><svg class="gh-icon" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M12 2a10 10 0 0 0-3.2 19.5c.5.1.7-.2.7-.5v-1.7c-2.8.6-3.4-1.3-3.4-1.3-.5-1.2-1.1-1.5-1.1-1.5-.9-.6.1-.6.1-.6 1 .1 1.5 1 1.5 1 .9 1.6 2.4 1.1 3 .9.1-.7.4-1.1.6-1.4-2.2-.3-4.6-1.1-4.6-5 0-1.1.4-2 1-2.7-.1-.3-.4-1.3.1-2.7 0 0 .8-.3 2.8 1a9.6 9.6 0 0 1 5 0c1.9-1.3 2.8-1 2.8-1 .5 1.4.2 2.4.1 2.7.6.7 1 1.6 1 2.7 0 3.9-2.4 4.7-4.6 5 .4.3.7.9.7 1.9V21c0 .3.2.6.7.5A10 10 0 0 0 12 2Z"/></svg>Tell us on GitHub</a></section>
   </div>
-  <section class="shell limits" id="applications" aria-labelledby="limits-title"><h2 id="limits-title">Current status and limits</h2><p>RAgents is under active development. Actor programs, their functions, state, and mini-apps belong to one run. Events and time-based triggers need an agent or TypeScript actor. Schedules and a user-management interface are not available yet. With sign-in, a run can be shared with other users for reading or working along, from the run list or the run itself, in the browser and in VS Code. Profiles may require sign-in or run without it. General user permissions can limit new runs to approved setups and hide settings, models, and technical views while keeping chats and mini-apps usable.</p></section>
+  <section class="shell limits" id="applications" aria-labelledby="limits-title"><h2 id="limits-title">Current status and limits</h2><p>RAgents is under active development. Actor programs, their functions, state, and mini-apps belong to one run. Events and time-based triggers connect executable actors. Schedules and a user-management interface are not available yet. With sign-in, a run can be shared with other users for reading or working along, from the run list or the run itself, in the browser and in VS Code. Profiles may require sign-in or run without it. General user permissions can limit new runs to approved setups and hide settings, models, and technical views while keeping chats and mini-apps usable.</p></section>
 </div>
 </main>
 <footer class="site-footer"><div class="shell footer-grid"><div class="footer-about"><a class="footer-brand" href="#main"><svg class="footer-logo" aria-hidden="true" viewBox="0 0 787 787"><use href="#ragents-mark"/></svg>RAgents</a><p>Tailored AI Workspaces for your teams or your clients.</p><p>Made by Ronald Schlenker, Pure State IT Consulting</p></div><nav class="footer-col" aria-label="Docs"><h3>Docs</h3><a href="guide.html">Guide</a><a href="guide-getting-started.html">Getting started</a><a href="guide-plugins.html">Plugins</a><a href="guide-clients.html">Web, VS Code and CLI</a></nav><nav class="footer-col" aria-label="Project"><h3>Project</h3><a href="https://github.com/SchlenkR/RAgents">GitHub</a><a href="https://github.com/SchlenkR/RAgents/issues">Issues</a><a href="https://marketplace.visualstudio.com/items?itemName=purestate.ragents-vscode">VS Code Marketplace</a><a href="https://github.com/SchlenkR/RAgents/blob/main/LICENSE">License</a></nav></div><div class="shell footer-bottom"><p>Licensed under <a href="https://github.com/SchlenkR/RAgents/blob/main/LICENSE">PolyForm Shield 1.0.0</a>: free to use, not for building a competing product.</p><p>Alpha, September 2026</p></div></footer>

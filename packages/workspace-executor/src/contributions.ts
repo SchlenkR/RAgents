@@ -8,8 +8,10 @@ import { WorkspaceOperationError } from "./errors.js";
 import type { LanguageServerAdapter } from "./language-server/host.js";
 import { resolveRootDirectory, resolveRootFile } from "./language-server/roots.js";
 import type { WorkspaceModuleFactory } from "./module.js";
+import { startManagedService, type ManagedService, type ManagedServiceOptions } from "./managed-process.js";
 import { RUN_MARKER_ENV } from "./run-marker.js";
 import { safeProcessEnvironment } from "./safe-environment.js";
+import { allowedWorkspacePath } from "./paths.js";
 
 /** Where a bundle carries its contribution to the executor: a self-contained file that every Node process loads without host resolution. */
 export const EXECUTOR_CONTRIBUTION_FILE = "executor/index.mjs";
@@ -24,10 +26,13 @@ export interface WorkspaceExecutorMachine {
   readonly resolveRootFile: (workspaceRoot: string, requested: string, extensions: readonly string[]) => Promise<string>;
   /** A folder in the workspace, resolved and checked. */
   readonly resolveRootDirectory: (workspaceRoot: string, requested: string) => Promise<string>;
+  readonly resolveRootPath: (workspaceRoot: string, requested: string) => Promise<string>;
   /** A domain error of an operation with code and status; it reaches the caller as the same error as one of the executor. */
   readonly operationError: (code: string, message: string, status: number) => Error;
   /** The environment of a process that a contribution starts itself: the safe selection of this machine, its HOME and the marker of the run for the process view. */
   readonly processEnvironment: (runId: string) => NodeJS.ProcessEnv;
+  /** Starts a managed process group with pipes; the contribution applies the run's sandbox before launching. */
+  readonly startManagedService: (options: ManagedServiceOptions) => ManagedService;
 }
 
 /** What a contribution adds to the executor of a machine. */
@@ -82,8 +87,10 @@ export const executorMachine = (toolsDirectory: string): WorkspaceExecutorMachin
   hostPackageFile,
   resolveRootFile,
   resolveRootDirectory,
+  resolveRootPath: (root, requested) => allowedWorkspacePath(path.resolve(root, requested), [root]),
   operationError: (code, message, status) => new WorkspaceOperationError(code, message, status),
   processEnvironment: (runId) => ({ ...safeProcessEnvironment(process.env), HOME: homedir(), [RUN_MARKER_ENV]: runId }),
+  startManagedService,
 });
 
 /** Loads the file of a contribution, with `expected` only in that version; the version is part of its address so that a newly built contribution never comes from the module cache. */

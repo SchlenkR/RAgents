@@ -39,8 +39,8 @@ export const answerMessageOf = (questions: readonly AskQuestion[], outcome: AskO
 export interface AskService {
   /** Shows the questions without waiting and returns the action id; undefined if a message of the user already waits for the asker. */
   pose: (call: AskCall, request: AskRequest) => string | undefined;
-  /** Waits for the answers; only outside a turn, for questions on behalf of the system. */
-  ask: (call: AskCall & { turnId: null }, request: AskRequest, signal: AbortSignal | undefined) => Promise<AskOutcome>;
+  /** Waits for the answers, including a runtime's permission request within its turn. */
+  ask: (call: AskCall, request: AskRequest, signal: AbortSignal | undefined) => Promise<AskOutcome>;
   /** Withdraws open questions: their record says so, a waiting call gets the dismissed outcome, nobody gets an input. */
   withdraw: (runId: string, actionId: string) => void;
 }

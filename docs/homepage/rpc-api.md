@@ -47,6 +47,8 @@ Ids from results are reused programmatically, not copied by hand.
 | ragents.lsp-roslyn.solutions | ragents.lsp-roslyn | runs.read, ragents.lsp-roslyn.read |
 | ragents.lsp-roslyn.switch | ragents.lsp-roslyn | runs.read, runs.write, ragents.lsp-roslyn.read, ragents.lsp-roslyn.write |
 | ragents.lsp-typescript.snapshot | ragents.lsp-typescript | runs.read, ragents.lsp-typescript.read |
+| ragents.mcp.connections.close | ragents.mcp | runs.read, runs.write |
+| ragents.mcp.servers.set | ragents.mcp | runs.read, runs.write, runs.create |
 | ragents.overseer.coordinator | ragents.overseer | ragents.overseer.read |
 | ragents.overseer.createRun | ragents.overseer | runs.read, runs.write, runs.create |
 | ragents.overseer.listRuns | ragents.overseer | runs.read |
@@ -104,6 +106,7 @@ Ids from results are reused programmatically, not copied by hand.
 | Channel | Owner | Rights |
 | --- | --- | --- |
 | ragents.chat | host | no fixed rights |
+| ragents.mcp.status | ragents.mcp | runs.read, ragents.mcp.read |
 | ragents.processes | ragents.processes | runs.read, ragents.processes.read |
 | ragents.run | host | no fixed rights |
 | ragents.runs | host | runs.read |
@@ -1232,6 +1235,78 @@ Owner: ragents.lsp-typescript. Rights: runs.read, ragents.lsp-typescript.read. E
   "type": "object",
   "additionalProperties": true,
   "x-typescript-type": "LanguageServerSnapshot"
+}
+```
+
+## ragents.mcp.connections.close
+
+Close a run's MCP connections while preserving its private server definitions for the next connection.
+
+Owner: ragents.mcp. Rights: runs.read, runs.write. Execution: the server.
+
+### Input
+
+```json
+{
+  "type": "object",
+  "required": [
+    "runId"
+  ],
+  "properties": {
+    "runId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 64
+    }
+  },
+  "additionalProperties": false
+}
+```
+
+### Result
+
+```json
+{
+  "type": "null"
+}
+```
+
+## ragents.mcp.servers.set
+
+Replace a run's external MCP servers before its next turn. Definitions stay in private plugin storage, outside the journal and model context. Refused while an actor is running or input is queued.
+
+Owner: ragents.mcp. Rights: runs.read, runs.write, runs.create. Execution: the server.
+
+### Input
+
+```json
+{
+  "type": "object",
+  "required": [
+    "runId",
+    "servers"
+  ],
+  "properties": {
+    "runId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 64
+    },
+    "servers": {
+      "type": "object",
+      "additionalProperties": true,
+      "x-typescript-type": "McpServers"
+    }
+  },
+  "additionalProperties": false
+}
+```
+
+### Result
+
+```json
+{
+  "type": "null"
 }
 ```
 
@@ -4897,6 +4972,108 @@ Owner: host. Rights: no fixed rights.
   "type": "object",
   "additionalProperties": true,
   "x-typescript-type": "ChatEvent"
+}
+```
+
+## Channel ragents.mcp.status
+
+Connection state of a run's MCP servers, without their definitions or credentials.
+
+Owner: ragents.mcp. Rights: runs.read, ragents.mcp.read.
+
+### Parameter
+
+```json
+{
+  "type": "object",
+  "required": [
+    "runId"
+  ],
+  "properties": {
+    "runId": {
+      "type": "string",
+      "minLength": 1
+    }
+  },
+  "additionalProperties": false
+}
+```
+
+### Message
+
+```json
+{
+  "type": "object",
+  "required": [
+    "servers"
+  ],
+  "properties": {
+    "servers": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "name",
+          "transport",
+          "state",
+          "toolCount"
+        ],
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "transport": {
+            "anyOf": [
+              {
+                "type": "string",
+                "const": "stdio"
+              },
+              {
+                "type": "string",
+                "const": "http"
+              },
+              {
+                "type": "string",
+                "const": "sse"
+              }
+            ]
+          },
+          "protocolVersion": {
+            "type": "string"
+          },
+          "state": {
+            "anyOf": [
+              {
+                "type": "string",
+                "const": "connecting"
+              },
+              {
+                "type": "string",
+                "const": "connected"
+              },
+              {
+                "type": "string",
+                "const": "failed"
+              },
+              {
+                "type": "string",
+                "const": "closed"
+              }
+            ]
+          },
+          "error": {
+            "type": "string"
+          },
+          "toolCount": {
+            "type": "integer",
+            "minimum": 0
+          }
+        },
+        "additionalProperties": false
+      }
+    }
+  },
+  "additionalProperties": false
 }
 ```
 

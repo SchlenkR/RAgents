@@ -211,7 +211,7 @@ test("an older journal without rooms loads unchanged: every actor stands in the 
 
     const root = mkdtempSync(join(tmpdir(), "ragents-rooms-old-"));
     t.after(() => rmSync(root, { recursive: true, force: true }));
-    const older = reload(records, view.id, root, (line) => line.replace('"formatVersion":12', '"formatVersion":11').replace('"handle":"lead"', '"handle":"team.lead"'));
+    const older = reload(records, view.id, root, (line) => line.replace('"formatVersion":13', '"formatVersion":11').replace('"handle":"lead"', '"handle":"team.lead"'));
     t.after(() => older.close());
     assert.equal(older.failureOf(view.id) ?? null, null);
     const oldRuntime = new Orchestration(older, testServices());

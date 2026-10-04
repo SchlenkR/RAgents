@@ -10,7 +10,7 @@ export const createSubscription =
     (input: {
         subscriberId: string;
         sourceActorIds?: readonly string[] | null;
-        sourceActorKinds?: readonly ("human" | "agent" | "script")[] | null;
+        sourceActorKinds?: readonly ("human" | "agent" | "script" | "external")[] | null;
         eventTypes: readonly ObservableEventType[];
         includeSelf?: boolean;
     }): Decision =>

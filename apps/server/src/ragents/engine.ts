@@ -102,10 +102,12 @@ export class SessionWorkspaces implements Workspaces {
 class ProductCatalog implements ModelCatalog {
   readonly #profiles: () => readonly AgentProfile[];
   readonly modelList: readonly CatalogModel[];
+  readonly #runtimes: () => readonly { id: string; title: string }[];
 
-  constructor(models: readonly CatalogModel[], profiles: () => readonly AgentProfile[]) {
+  constructor(models: readonly CatalogModel[], profiles: () => readonly AgentProfile[], runtimes: () => readonly { id: string; title: string }[]) {
     this.#profiles = profiles;
     this.modelList = models;
+    this.#runtimes = runtimes;
   }
 
   async models() {
@@ -115,6 +117,8 @@ class ProductCatalog implements ModelCatalog {
   profiles() {
     return this.#profiles();
   }
+
+  runtimes() { return this.#runtimes(); }
 }
 
 export interface EngineOptions {
@@ -198,7 +202,7 @@ export const createEngine = async (options: EngineOptions): Promise<Engine> => {
       assertCurrentQuestionShape(record);
     },
   });
-  const runtime = new Orchestration(journal, services, new DirectoryArtifactContents(layout.artifactsDir));
+  const runtime = new Orchestration(journal, services, new DirectoryArtifactContents(layout.artifactsDir), (event) => options.plugins.accessProjections.eventVisible(event));
   const productRuntime = options.plugins.service(productRuntimeToken);
   const globalChat = options.plugins.optionalService(globalChatToken);
   const roleFor = (runId: string, actor: ProductActor): ActorRole =>
@@ -222,7 +226,7 @@ export const createEngine = async (options: EngineOptions): Promise<Engine> => {
     if (invalid.length) throw new Error(`The thinking levels ${invalid.join(", ")} do not exist for ${model.provider}/${model.model}; valid: ${supported.join(", ")}.`);
     return model;
   }));
-  const catalog = new ProductCatalog(configuredModels, () => options.plugins.profiles.profiles());
+  const catalog = new ProductCatalog(configuredModels, () => options.plugins.profiles.profiles(), () => options.plugins.actorRuntimes.describe());
   for (const profile of catalog.profiles()) {
     resolveExecution(catalog, { profile: profile.name }, "profile-validation", configuredModels);
   }
@@ -243,7 +247,7 @@ export const createEngine = async (options: EngineOptions): Promise<Engine> => {
       return [...new Set(kinds)].filter((kind) => kind === "image" || kind === "video" || kind === "file");
     });
   }
-  const registry = new ToolRegistry();
+  const registry = new ToolRegistry(() => options.plugins.actorRuntimes.describe());
   for (const contributor of options.plugins.tools.entries()) registry.register(contributor);
   const live = new LiveBus({
     onListenerError: (error, context) => {
@@ -331,6 +335,7 @@ export const createEngine = async (options: EngineOptions): Promise<Engine> => {
   };
   const scheduler = new TurnScheduler(runtime, journal, {
     drivers: { agent: agentRuntime, ...(script ? { script: script.driver } : {}) },
+    actorRuntimes: options.plugins.actorRuntimes.all(),
     catalog,
     workspaces: options.workspaces,
     registry,

@@ -42,14 +42,14 @@ const clientFrame = (element: HTMLElement) => {
   return { bounds, zoom: bounds.width / element.offsetWidth || 1 };
 };
 
-const actorType = (actor: RunActor, technical: boolean) => !technical ? "Agent" : actor.kind === "agent" ? "LLM agent" : "TypeScript actor";
+const actorType = (actor: RunActor, technical: boolean) => !technical ? "Agent" : actor.kind === "agent" ? "LLM agent" : actor.kind === "external" ? "External agent" : "TypeScript actor";
 const lower = (text: string) => text.toLocaleLowerCase("en-US");
 const waitingInputs = (count: number) => count === 1 ? "1 waiting input" : `${count} waiting inputs`;
 
 export function ActorIcon({ actor, className, view }: { actor: RunActor; className?: string; view: RunView }) {
   const tone = actorTone(view, actor);
   return <span className={cn("grid flex-none place-items-center rounded-full text-foreground [&>svg]:size-3", iconClass[tone], className)}>
-    {actor.lifecycle?.kind === "running" ? <Spinner aria-hidden className="size-3" /> : tone === "primary" ? <SparklesIcon /> : actor.kind === "agent" ? <UsersIcon /> : <CodeIcon />}
+    {actor.lifecycle?.kind === "running" ? <Spinner aria-hidden className="size-3" /> : tone === "primary" ? <SparklesIcon /> : actor.kind === "script" ? <CodeIcon /> : <UsersIcon />}
   </span>;
 }
 

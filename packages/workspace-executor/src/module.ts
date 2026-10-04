@@ -1,6 +1,7 @@
 import type { UnreportedBackgroundTask } from "./background-tasks.js";
 import type { WorkspaceProcessContext } from "./context.js";
 import type { OperationFootprint } from "./paths.js";
+import type { WorkspaceExecuteOptions } from "./executor.js";
 
 /** A call of an operation: the run, the input and what the caller passes along. */
 export interface WorkspaceOperationCall {
@@ -36,6 +37,7 @@ export interface WorkspaceModuleHost {
   readonly contextFor: (runId: string) => Promise<WorkspaceProcessContext>;
   readonly annotate: (runId: string, absolutePath: string) => Promise<string | undefined>;
   readonly backgroundGroups: () => ReadonlySet<number>;
+  readonly execute: (runId: string, operation: string, input: unknown, options?: WorkspaceExecuteOptions) => Promise<unknown>;
 }
 
 export type WorkspaceModuleFactory = (host: WorkspaceModuleHost) => WorkspaceExecutorModule;

@@ -203,6 +203,7 @@ export interface ModelCallContext extends AgentHookContext {
 export interface ToolCallOutcome {
   readonly toolName: string;
   readonly isError: boolean;
+  readonly toolCallId?: string;
 }
 
 export type ToolResultPart =
@@ -340,6 +341,12 @@ export interface ScriptContribution {
   create: (context: ScriptFactoryContext) => ScriptRuntime;
 }
 
+export interface ActorRuntimeContribution {
+  id: string;
+  title: string;
+  driver: AgentDriver<"external">;
+}
+
 export interface SessionLifecycleContext {
   runId: string;
 }
@@ -405,6 +412,8 @@ export interface PluginChatEvent {
 export interface AccessProjectionContribution {
   /** The id of the state as it appears in the journal (`pluginId`) and in the chat event. */
   id: string;
+  /** Suppresses this internal state and its chat events even for inspection access. */
+  private?: boolean;
   /** The visible state; undefined removes it from the run view. */
   state: (entry: PluginState) => JsonValue | undefined;
   /** The visible chat event; undefined suppresses it. */
@@ -492,6 +501,7 @@ export interface PluginRegistration {
   accessProjections: (...contributions: readonly AccessProjectionContribution[]) => void;
   functions: (...functions: readonly (RunFunction | ToolContributor)[]) => void;
   script: (...contributions: readonly ScriptContribution[]) => void;
+  actorRuntimes: (...contributions: readonly ActorRuntimeContribution[]) => void;
 }
 
 export interface RAgentsPlugin {

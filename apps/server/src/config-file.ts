@@ -203,7 +203,37 @@ const entryFor = (source: string, section: string, key: string, value: ConfigVal
       `${source}: ${section}.${key} is a secret and must not appear in plain text in the configuration; `
       + `set it through an environment variable or reference it as env("ENV_NAME")`);
   }
-  return { section, key, value: materialize(value), viaReference: false, overriddenByEnvironment };
+  const resolved = section === "host" ? value : resolveStructuredConfig(source, section, key, value, dataDirectory);
+  return { section, key, value: materialize(resolved as Exclude<ConfigValue, EnvironmentReference | ProvisionedReference>), viaReference: false, overriddenByEnvironment };
+};
+
+export const resolveStructuredConfig = (
+  source: string,
+  section: string,
+  key: string,
+  value: unknown,
+  dataDirectory?: () => string,
+  environment: Readonly<Record<string, string | undefined>> = process.env,
+): ConfigValue => {
+  const location = `${source}: ${section}.${key}`;
+  if (isEnvironmentReference(value)) {
+    if (typeof value.name !== "string" || !/^[A-Za-z_][A-Za-z0-9_]*$/.test(value.name)) throw new Error(`${location} has an invalid environment reference`);
+    const resolved = environment[value.name];
+    if (resolved === undefined) throw new MissingEnvironmentError({ variable: value.name, section, key }, `${location} refers to the unset environment variable ${value.name}`);
+    return resolved;
+  }
+  if (isProvisionedReference(value)) {
+    if (!dataDirectory) throw new Error(`${location} cannot resolve a provisioned file without the data directory`);
+    return path.join(pluginToolsDirectory(dataDirectory(), value.plugin), ...value.path.split("/"));
+  }
+  if (SECRET_KEY_PATTERN.test(key.split(".").at(-1)!)) throw new Error(`${location} is a secret and must use env("ENV_NAME")`);
+  if (typeof value === "string" && ENVIRONMENT_PLACEHOLDER.test(value)) throw new Error(`${location} must use env("ENV_NAME") instead of a text placeholder`);
+  if (value === null || typeof value === "string" || typeof value === "boolean" || (typeof value === "number" && Number.isFinite(value))) return value;
+  if (Array.isArray(value)) return value.map((entry, index) => resolveStructuredConfig(source, section, `${key}.${index}`, entry, dataDirectory, environment));
+  if (typeof value === "object" && value !== null && Object.getPrototypeOf(value) === Object.prototype) {
+    return Object.fromEntries(Object.entries(value).map(([name, entry]) => [name, resolveStructuredConfig(source, section, `${key}.${name}`, entry, dataDirectory, environment)]));
+  }
+  throw new Error(`${location} must be a JSON value or env("ENV_NAME")`);
 };
 
 const parseEntries = (source: string, raw: RAgentsConfig): readonly ConfigFileEntry[] => {

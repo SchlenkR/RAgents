@@ -3,6 +3,7 @@ import type { WorkspaceToolNaming } from "@ragents/engine";
 const workspaceToolTable = {
   manual: { read: [], write: [], execute: [] },
   script: { read: [], write: [], execute: [] },
+  external: { read: [], write: [], execute: [] },
   agent: { read: ["read"], write: ["edit", "write", "copy"], execute: ["bash", "task_output", "task_stop"] },
 } as const;
 

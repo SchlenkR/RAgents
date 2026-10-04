@@ -16,13 +16,14 @@ on the [homepage](https://schlenkr.github.io/RAgents/), how to install and opera
 That is all you need to understand the system:
 
 - **Run** - a piece of work. Exactly one journal.
-- **Actor** - who acts in the run. Three kinds: you (the human owner), model actors (agents),
-  TypeScript actors (TypeScript).
+- **Actor** - who acts in the run. Four kinds: you (the human owner), model actors (agents),
+  TypeScript actors (TypeScript), and external actors with a plugin-provided runtime.
 - **ActorInput** - a message to an actor. Lands in its queue.
 - **Turn** - the processing of an ActorInput. Ends as soon as the actor no longer calls a tool
   or a tool result ends it (such as a question to the user).
-  There are no waiting tools. Whatever reaches an agent during its turn is fed into that turn
-  before the next model request (steering).
+  Built-in agent tools do not wait for later inputs. Inputs to a built-in agent during its turn
+  join before the next model request (steering); TypeScript and external actors process them in
+  later turns. An external runtime can await a user permission within its current turn.
 - **Event** - every state change in the journal. Actors can subscribe to them; every matching
   event becomes a new ActorInput at the subscriber.
 
@@ -32,14 +33,14 @@ The terms are described in more detail in `docs/spec/overview.md`.
 
 One line of JSON per command decision, append-only. The line contains the command, its time,
 and an array of its events. `sequence` counts up over all events of the run without gaps.
-The following example shows a line as it is stored in `journal.jsonl` on disk (file format 10),
+The following example shows a line as it is stored in `journal.jsonl` on disk (file format 13),
 indented for reading; IDs, hash, and usage numbers are shortened. It is a completed model step:
 the text as an observable `model.output.completed`, followed by the step itself, which does not
 repeat the text:
 
 ```json
 {
-  "formatVersion": 10,
+  "formatVersion": 13,
   "runId": "example-run",
   "command": {
     "id": "scheduler:review-turn:context:step:4",
@@ -224,7 +225,7 @@ class list. There is no
 compiled catalog and no loading from a foreign source: what exists as a bundle and is listed in
 the profile can be composed, nothing more.
 
-Plugins are NOT npm packages. Currently there are 18, 14 of them with a web part. The five packages under
+Plugins are NOT npm packages. Currently there are 20, 15 of them with a web part. The five packages under
 `packages/` are libraries that plugins are built against - not plugins.
 
 Even things that seem deeply embedded are plugins: the three language servers (`ragents.lsp-roslyn`,
@@ -247,32 +248,33 @@ the workstations.
 registers its contributions in `register(registration)` through the `PluginRegistration` bound
 to the plugin (`packages/ragents/src/plugin-types.ts`):
 
-| Point               | For                                                  |
-| ------------------- | ---------------------------------------------------- |
-| `functions`         | typed run functions, optionally as a tool            |
-| `prompts`           | chapters in the system prompt                        |
-| `skills`            | fixed workflows as skill files                       |
-| `startEntries`      | start page templates: skills, run scripts            |
-| `actorPackages`     | shared actor packages that run scripts name          |
-| `profiles`          | roles (`model_list`)                                 |
-| `agentRuntime`      | hooks before model calls and after tool calls        |
-| `script`            | capabilities for TypeScript actors                   |
-| `operations`        | named operations, also across plugins                |
-| `operation`         | handle to another plugin's named operation           |
-| `invokeOperation`   | call a named operation                               |
-| `provide`           | provide a service under a token                      |
-| `service`           | obtain another plugin's service by its token         |
-| `optionalService`   | obtain another plugin's service that may be missing  |
-| `startOptions`      | start options of the start page, frozen per run      |
-| `accessProjections` | what an access without `runs.inspect` sees of state  |
-| `methods`           | messaging layer methods with a contract              |
-| `channels`          | channels with notifications per subscription         |
-| `http`              | serving: files, frames, uploads, upgrades            |
-| `config`            | configuration keys, strictly checked                 |
-| `clientConfig`      | values the web plugin may see                        |
-| `storage`           | storage under `plugins/<id>`, global and per run     |
-| `lifecycle`         | hooks on creation, start, and deletion of a run      |
-| `sessionMetadata`   | additional details about the run                     |
+| Point               | For                                                 |
+| ------------------- | --------------------------------------------------- |
+| `functions`         | typed run functions, optionally as a tool           |
+| `prompts`           | chapters in the system prompt                       |
+| `skills`            | fixed workflows as skill files                      |
+| `startEntries`      | start page templates: skills, run scripts           |
+| `actorPackages`     | shared actor packages that run scripts name         |
+| `profiles`          | roles (`model_list`)                                |
+| `agentRuntime`      | hooks before model calls and after tool calls       |
+| `actorRuntimes`     | named drivers for external actors                   |
+| `script`            | capabilities for TypeScript actors                  |
+| `operations`        | named operations, also across plugins               |
+| `operation`         | handle to another plugin's named operation          |
+| `invokeOperation`   | call a named operation                              |
+| `provide`           | provide a service under a token                     |
+| `service`           | obtain another plugin's service by its token        |
+| `optionalService`   | obtain another plugin's service that may be missing |
+| `startOptions`      | start options of the start page, frozen per run     |
+| `accessProjections` | what an access without `runs.inspect` sees of state |
+| `methods`           | messaging layer methods with a contract             |
+| `channels`          | channels with notifications per subscription        |
+| `http`              | serving: files, frames, uploads, upgrades           |
+| `config`            | configuration keys, strictly checked                |
+| `clientConfig`      | values the web plugin may see                       |
+| `storage`           | storage under `plugins/<id>`, global and per run    |
+| `lifecycle`         | hooks on creation, start, and deletion of a run     |
+| `sessionMetadata`   | additional details about the run                    |
 
 ### Extension points in the web
 

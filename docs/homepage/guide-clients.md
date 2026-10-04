@@ -1,6 +1,18 @@
-# Web and VS Code
+# Web and editors
 
-Use the same runs in the browser and in the VS Code extension; automate them through the API and command-line tools.
+Use the same runs in the browser, VS Code, and ACP editors; automate them through the API and command-line tools.
+
+## MCP server status
+
+When a run has configured MCP servers, "MCP servers" shows each server's transport, negotiated
+protocol, state, error, and tool count. Connections open when an agent first resolves its tools.
+Errors stay visible; a call to a disconnected server's known tool reports its cause and starts
+reconnection. Tool-list changes appear for agents at their next model step.
+
+Agents use these tools like other native tools, named `mcp__<server>__<tool>`. They also receive
+server instructions and connection failures in their prompt. Configure servers in the profile
+as described in [Connect MCP servers](guide-getting-started.html#connect-mcp-servers).
+Stopping or deleting the run closes its MCP connections.
 
 ## Run panel and VS Code extension
 
@@ -124,7 +136,7 @@ While it names another actor than the run's first chat partner, usually the coor
 next to the name ("Back to @coordinator") returns to that actor at once without opening anything.
 Clicking the chip opens a graph of who created whom drawn from top to bottom, like the
 agent view of a coding assistant: the coordinator at the top, one level below and connected by
-lines the agents and TypeScript actors it started, below those their own subagents. Each card
+lines the executable actors it started, below those their own subagents. Each card
 shows the handle, the state ("working" with a spinner, "waiting for input" when the actor waits
 for your answer, "waiting", or "stopped"), a time, and the task. A working actor shows how long
 its current turn has been running and counts up every second; the others show "last turn" with
@@ -359,6 +371,94 @@ In someone else's run that only its owner operates, the chat input says "Only it
 this run"; "Stop run" and the stop button in the chat input stay. A run shared with you is never deleted by you. If a share is taken
 back while you have the run open, the panel returns to Start and shows "This run is no longer
 available to you."
+
+## Connect an editor over ACP
+
+An editor with Agent Client Protocol support starts `ragents acp` and chats with a run bound to
+its project folder. In Zed, add this to your settings:
+
+```json
+{
+  "agent_servers": {
+    "RAgents": { "command": "ragents", "args": ["acp"] }
+  }
+}
+```
+
+The command uses the `developer` profile by default. Set model access in the environment
+inherited by the editor and provision the profile's tools once with `ragents provision developer`.
+For a different profile, add `"--profile", "/path/to/ragents.config.custom.ts"` to `args`;
+`RAGENTS_PROFILE` selects it through the environment. In a checkout, `pnpm ragents acp` is
+available; stdio clients must launch `pnpm --silent ragents acp` so pnpm's script banner does not
+enter the protocol stream. `--data-dir <folder>` or `DATA_DIR` selects a separate host data folder.
+
+The editor receives streamed replies, thinking, tool progress, file changes, and the agent's
+plan. Cancel interrupts the primary actor's current turn; the next prompt can continue the run.
+Supported editors can list runs for the project folder, load their history, and change the
+selected model. Questions appear as an editor form when the client supports form elicitation;
+otherwise they appear with their options in the chat, and you answer in the next prompt.
+The same run remains available in the browser and VS Code under the same user.
+Profiles with at most 20 skill templates expose them as slash commands using their template
+identifiers. Each command applies the template's prompt and skill, with any text after the
+command added as task details, as when starting that template in the web. Closing the editor
+connection cancels active prompts and disconnects its
+workstations; the host and runs remain available.
+
+The command finds or starts the host like `ragents run`. When no remembered host answers,
+`RAGENTS_URL` selects an existing server; `RAGENTS_TOKEN` supplies its bearer token when sign-in
+is required. For a server on another machine, the ACP process offers the project folder as a
+workstation and runs file and shell
+tools there. A network workstation requires a signed-in user on the server. Connection,
+sign-in, and folder refusals are reported as protocol errors.
+
+MCP servers supplied by the editor belong to this run and execute on the machine holding its
+folder. Their connection definitions and secrets stay outside the journal and model context;
+the profile must include `ragents.mcp`. The protocol is stable ACP v1 over stdin and stdout,
+with all command logs on stderr. This command's stdio protocol is distinct from the host's
+JSON-RPC API described below.
+
+## Run external ACP actors
+
+Configured ACP agents run as participants alongside the coordinator and TypeScript actors.
+After [configuring adapters](guide-getting-started.html#configure-external-acp-agents),
+ask the coordinator to assign work to one of the available runtimes. The actor uses its
+adapter's coding tools in the run's workspace, on the server or workstation that holds that
+folder.
+
+For agent-driven setup, `model_list` names the configured runtimes and their titles. Select one
+with `agent_spawn`, for example through `typescript_eval`:
+
+```ts
+await context.functions.agent_spawn({
+  name: "reviewer",
+  description: "Reviews the proposed changes",
+  runtime: "acp.codex",
+  tools: null,
+  instructions: "Review the changes and report defects with evidence.",
+  prompt: "Review the current diff in the workspace.",
+});
+```
+
+Choose a configured runtime; a missing name is an error that lists the available choices.
+External actors own their model and tool selection, so omit `model`, `provider`, `thinking`,
+and `forkOf`, and use `tools: null`. The actor needs the inherited `workspace.use` capability
+and the shared run workspace; leave `isolateWorkspace` omitted or set it to `false`. Explicit
+isolation is rejected. RAgents functions are not offered to their agents. To
+subscribe before work begins, omit `prompt`, subscribe to the actor's response events, then send
+its task with `actor_input`. Further messages wait for its next turn instead of steering a
+running prompt.
+
+Open the actor's chat to see streamed replies and thinking, tool progress, and plan lines. A
+permission request appears as a question with the adapter's offered choices and holds its turn
+until answered; dismissing it or interrupting the turn cancels the request. Turn interruption
+also cancels the adapter's prompt and keeps its partial reply visible. Stopping the actor or
+run closes its adapter and terminals.
+
+The actor keeps one external session between turns. After a server restart it continues only
+when the adapter advertises session loading and can load that session. Otherwise it reports a
+blocking cause; no empty conversation silently replaces it. Text is always supported; images
+and embedded resources require the adapter's advertised capabilities. Missing installation,
+sign-in, unsupported content, and workspace refusals show their causes in the actor's history.
 
 ## Control RAgents as an agent
 

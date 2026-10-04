@@ -134,6 +134,93 @@ document, an image document, and the chat through the grant of its root, a downl
 address, a result once with the bearer under `blob:`, no address with the token, no referrer beyond
 the origin, the grant requests with their `Origin`; cookie: plain route, no grant),
 `apps/server/tests/document-content.test.ts`, and `document-grant-host.test.ts`.
+## 2026-10-04: ACP tool starts retain streamed input and server failures retain their cause
+
+Chapters: `spec/plugins.md` (External ACP actors, Server process sandbox); operations:
+`operations.md` (Configure external ACP agents).
+
+**Why.** Claude announces tools before their arguments finish streaming, so recording that
+announcement loses the command. Its fixed temporary path is blocked by the server sandbox,
+and ACP request errors can put the actual cause in `data`.
+
+**Decision.** Pending calls collect refinements until execution, permission, or turn end; the
+journal start and live event share that input. A successful turn closes unfinished calls with
+a failure result. Permission details use the same bounds and redaction as updates. Diagnostics
+retain ACP error data. Every server sandbox sets `CLAUDE_CODE_TMPDIR` to the run's writable temp
+folder. Operations document non-interactive environment credentials, including subscription
+tokens for Claude and API-key method selection for Codex; workstation sign-in stays local.
+
+## 2026-10-03: Complete external agents run through a generic actor runtime
+
+Chapters: `spec/overview.md` (actors and layers), `spec/core.md` (External runtimes, journal),
+`spec/plugins.md` (runtime contribution, executor, External ACP actors); usage: `usage.md`
+(Run external ACP actors); operations: `operations.md` (Configure external ACP agents).
+The implemented concept `concepts/acp-agent-drivers.md` is deleted.
+
+**Why.** Complete coding agents need to keep their own tools and conversation while sharing
+RAgents delivery, workspace, turns, and history. A named external runtime keeps protocol and
+vendor behavior in a plugin, and the existing executor keeps processes beside the run's files
+on both server and workstation.
+
+**Decision.** The engine adds `external` execution with a runtime name and an `actorRuntimes`
+contribution supplying its driver. Observable text and reasoning use a separate decision without
+inventing model context. Journal format 13 keeps formats 7 to 12 readable; host API 12 and executor
+version 13 identify the changed driver, module-operation, and confined-path contracts.
+`ragents.acp` registers the configured adapters through one stable ACP client implementation,
+with one sandboxed process and session per actor. Messages queue; permission questions block
+within their turn and retain opaque option IDs in the executor. Actor-scoped state keeps the
+session and cumulative usage behind a private access projection, including inspection access,
+journal queries, and subscriptions; persisted journals and archives retain the state. ACP actors
+use the shared run workspace and reject explicit workspace isolation. Restoration requires
+advertised `session/load`, with replay updates suppressed; a missing capability or failed load
+blocks the actor instead of replacing its history. MCP definitions stay private and only supported transports are forwarded, with
+explicit exclusions and rejection of unrepresentable working directories. RAgents functions
+are not yet supplied to external agents.
+
+## 2026-10-03: Editors use ordinary runs through an ACP stdio adapter
+
+Chapters: `spec/profiles.md` (ACP editor agent), `spec/plugins.md` (MCP client);
+usage: `usage.md` (Connect an editor over ACP).
+
+**Why.** Editors need a standard chat protocol while runs, ownership, workspace tools, and history
+continue to belong to the host. Reusing the host-finding and messaging code avoids a second
+startup path or conversation store.
+
+**Decision.** `ragents acp` translates stable ACP v1 over stdio to the existing run API and
+primary-actor chat channel. It binds a local folder on the server, or registers that folder as
+a workstation when the server is remote. The first prompt creates the run; load replays its
+history and list uses its folder binding. Model selection uses the changeable start option.
+Editor-supplied MCP servers pass through a guarded non-tool method into the plugin's private
+store; an idle load can replace them without exposing their secrets to the journal. Tool
+updates, plans, and questions use the stable protocol. stdout is reserved for ACP, including
+when the shared helper starts a host.
+Skill commands retain their existing template identifiers and use the web's prepared input
+for their prompt and skill; a 20-skill cap keeps the editor's command list small until larger
+catalogs have their own discovery.
+Remote connection cleanup closes MCP before unregistering the workstation, keeping its executor
+reachable during cleanup and its private definitions available for a later load.
+
+## 2026-10-03: MCP tools connect on the run's workspace machine
+
+Chapters: `spec/plugins.md` (MCP client), `spec/profiles.md` (structured plugin configuration);
+usage: `usage.md` (MCP server status); operations: `operations.md` (Connect MCP servers).
+
+**Why.** External tools need the same workspace, process sandbox, and meaning of `localhost`
+as the run. Profile configuration must accept existing MCP server entries, including nested
+environment references, without special host parsing for this integration.
+
+**Decision.** `ragents.mcp` owns one executor state per run for stdio, Streamable HTTP, and
+legacy HTTP+SSE. It exposes dynamic native run functions through the normal journaled tool
+path. Cached tools survive disconnects so fixed actor selections remain valid; failed calls,
+a per-run prompt chapter, and a small status tab report the cause. A typed service stores
+additional run-scoped server definitions separately from the journal, providing the boundary
+for an editor integration. Generic structured configuration resolves `env(...)` recursively;
+the plugin validates its own server map. Remote authentication uses static headers.
+The executor's machine contract provides `startManagedService` for protocol child processes;
+the raised executor version prevents an older workstation from accepting a contribution that needs it.
+Tool calls use cancellable executor observations so MCP progress can reset the SDK timeout
+without a fixed outer transport timeout. Image hooks receive the tool-call ID to bind each
+result during parallel execution.
 
 ## 2026-10-03: A tunnel never shadows a local service
 
@@ -533,7 +620,7 @@ workspace in the system prompt; File format, write boundaries, and replay; Open 
 `spec/typescript-platform.md` (Execution and context; Run scripts as prepared actor programs),
 `spec/actor-programs.md` (Packages and actor binding; functions as tools), `spec/plugins.md`
 (shared actor packages; reference templates; browser checks), `spec/overview.md` (terms);
-usage: `usage.md`; concept: `concepts/rooms.md` (stage 3, the interface).
+usage: `usage.md`; concept: `concepts/rooms.md` (the interface).
 
 **Why.** A repeated start of the same run script reused the script's actor, so two reviews of two
 changesets in one run shared one setup actor, its state, and its participants. The owner wanted a
@@ -5697,7 +5784,7 @@ text for it and sends it back (`clipboardRead`, `clipboardText`); the extension 
 this. Pasting uses `execCommand("insertText")`, so that the input gets a real `input` event and
 React, the caret and undo are right.
 
-**This drops stage 2.** Rebuilding the column as its own bundle in the webview was in the TODO for
+**This drops the separate webview bundle.** Rebuilding the column as its own bundle in the webview was in the TODO for
 exactly this case. It stays unbuilt, because it does not carry the finding better than sixty
 lines: the column bundles the web parts of its server's plugins and is built per profile, a bundle
 in the extension could not contain them. It would therefore still have to come from the server,
@@ -6827,7 +6914,7 @@ native tree, webview with an iframe on `column.html` in the secondary sidebar (V
 are decided:
 
 - Sign-in: the sign-in cookie does not arrive in the iframe of a VS Code webview (third-party
-  context, SameSite). Instead of stage 2 (own bundle, CORS, base URLs in every plugin), the
+  context, SameSite). Instead of a separate bundle (CORS and base URLs in every plugin), the
   extension host signs in itself, keeps the session token in SecretStorage and passes it to the
   iframes in the address; the server accepts the token as a bearer and, for GET requests without
   headers, as the query parameter `access`. The same applies to the older `ACCESS_TOKEN`; in
@@ -6843,7 +6930,7 @@ are decided:
 - The Explorer shows actors only with their server state; the personal actor display lives in the
   webview and is not known to the extension host.
 
-Stage 2 (column without an iframe) remains a TODO line; the concept `vscode-extension.md` is
+A column without an iframe remains a TODO line; the concept `vscode-extension.md` is
 deleted. A host test (`pnpm --filter ragents-vscode test:host`) checks the extension in a real VS
 Code against a running server, also with sign-in and `ACCESS_TOKEN`.
 

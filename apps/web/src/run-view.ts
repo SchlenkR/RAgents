@@ -22,6 +22,7 @@ export interface RunExecution {
       provider?: string | null;
       model?: string | null;
       thinking?: string | null;
+      runtime?: string;
     };
   };
   workspacePath: string | null;
@@ -30,7 +31,7 @@ export interface RunExecution {
 
 export interface RunActor {
   id: string;
-  kind: "human" | "agent" | "script";
+  kind: "human" | "agent" | "script" | "external";
   handle: string;
   /** The actor's room; null or absent is the main room. */
   room?: string | null;

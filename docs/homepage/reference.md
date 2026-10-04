@@ -14,7 +14,7 @@ Enqueue Actor Input
 
 Send plain text and optional artifacts to one existing actor of this run, such as a task, an answer or a question; it receives no routing envelope.
 
-It reaches an actor that already exists; agent_spawn creates a new one. This only confirms enqueueing, not processing, an answer or completion; an answer reaches you only as a later input, for example through a subscription to the recipient's events. An agent in the middle of a turn receives the text in that turn before its next model request; otherwise it starts the agent's next turn. Agents interpret natural language. TypeScript actors only process their programmed input protocol: use their documented functions, or send an exact supported program input after inspecting the program. Never address an unknown script with a natural-language task or assume an idle or completed turn means the requested work happened.
+It reaches an actor that already exists; agent_spawn creates a new one. This only confirms enqueueing, not processing, an answer or completion; an answer reaches you only as a later input, for example through a subscription to the recipient's events. A built-in agent in the middle of a turn receives the text before its next model request; external actors receive it in their next turn. Both interpret natural language. TypeScript actors only process their programmed input protocol: use their documented functions, or send an exact supported program input after inspecting the program. Never address an unknown script with a natural-language task or assume an idle or completed turn means the requested work happened.
 
 Owner: engine. Scope: per-turn. Native model tool: yes. Availability: conditional.
 
@@ -101,7 +101,7 @@ List Actors
 
 List existing actors with their identity, lifecycle and the size of their function selection.
 
-Check before spawning: reuse suitable participants, including actors created by a setup or another actor. Only kind agent is a conversational partner. A script executes its programmed input protocol; it does not interpret arbitrary natural-language requests. Inspect its documented functions or program before using it. toolNames: true also lists the names of each fixed selection. An actor's address is room.name, the main room has no prefix; handle is written from your room, so it is exactly what actor_input and the other functions take.
+Check before spawning: reuse suitable participants, including actors created by a setup or another actor. Kinds agent and external are conversational partners. A script executes its programmed input protocol; it does not interpret arbitrary natural-language requests. Inspect its documented functions or program before using it. toolNames: true also lists the names of each fixed selection. An actor's address is room.name, the main room has no prefix; handle is written from your room, so it is exactly what actor_input and the other functions take.
 
 Owner: engine. Scope: per-turn. Native model tool: yes. Availability: conditional.
 
@@ -163,6 +163,10 @@ Only with the capability actor.input.
           {
             "type": "string",
             "const": "script"
+          },
+          {
+            "type": "string",
+            "const": "external"
           }
         ]
       },
@@ -1066,9 +1070,9 @@ Only in a profile with the plugin ragents.actor-programs.
 
 Spawn Agent
 
-Create an LLM agent actor in this run and optionally give it its first task; it works in its own turns while you continue.
+Create an LLM agent or a configured external runtime actor in this run and optionally give it its first task; it works in its own turns while you continue.
 
-It creates exactly one agent in this run: never a new run, never a TypeScript actor, and never a prepared setup, which run_script_start starts where it is offered. Check actor_list first when available: actor_input gives a further task to an existing actor, while the same name here creates another actor with a suffix. Read model_list before the first spawn and pass a model-bearing profile or an explicit model; the caller's model is not inherited. The agent inherits your delegable capabilities, but its function selection is required and never inherited: exact names, [] for a plain LLM without runtime, workspace or host functions, or null for the open, dynamically resolved set; drivers without plain-LLM isolation are rejected. Nothing waits for the agent: the call returns its reference at once. Its answers are model.output.completed events of its turns and reach you only as later inputs of a subscription made with event_subscribe; failed or interrupted turns reach you as automatic notices. A task given here starts at once, so a subscription made afterwards can miss its first answer: when you need that answer, create the agent without a task, subscribe to its events, then send the task with actor_input. A fork starts with an unchanged copy of the model context of an LLM agent of this run up to the end of that agent's last finished turn; nothing of its running turn is copied, a source without a finished turn is rejected, and the fork still gets its own instructions, functions and model, with its first task after the copy.
+It creates exactly one agent in this run: never a new run, never a TypeScript actor, and never a prepared setup, which run_script_start starts where it is offered. Check actor_list first when available: actor_input gives a further task to an existing actor, while the same name here creates another actor with a suffix. Read model_list before the first spawn. For an LLM actor pass a model-bearing profile or an explicit model; the caller's model is not inherited. For an external actor select a configured runtime, pass tools: null, and omit host model settings and forkOf. It owns its coding tools and receives no RAgents functions. The agent inherits your delegable capabilities, but its function selection is required and never inherited: exact names, [] for a plain LLM without runtime, workspace or host functions, or null for the open, dynamically resolved set; drivers without plain-LLM isolation are rejected. Nothing waits for the agent: the call returns its reference at once. Its answers are model.output.completed events of its turns and reach you only as later inputs of a subscription made with event_subscribe; failed or interrupted turns reach you as automatic notices. A task given here starts at once, so a subscription made afterwards can miss its first answer: when you need that answer, create the agent without a task, subscribe to its events, then send the task with actor_input. A fork starts with an unchanged copy of the model context of an LLM agent of this run up to the end of that agent's last finished turn; nothing of its running turn is copied, a source without a finished turn is rejected, and the fork still gets its own instructions, functions and model, with its first task after the copy.
 
 Owner: engine. Scope: per-turn. Native model tool: yes. Availability: conditional.
 
@@ -1199,9 +1203,18 @@ Only with the capability agent.spawn.
         {
           "type": "string",
           "const": "agent"
+        },
+        {
+          "type": "string",
+          "const": "external"
         }
       ],
       "description": "Normally omitted: the profile's driver, otherwise agent, which runs a model; manual and script need no model."
+    },
+    "runtime": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Configured external runtime; selects driver external and its own coding tools. RAgents functions cannot be passed to it; use tools: null."
     },
     "provider": {
       "type": "string",
@@ -2781,6 +2794,10 @@ Only with the capability event.subscribe.
           {
             "type": "string",
             "const": "script"
+          },
+          {
+            "type": "string",
+            "const": "external"
           }
         ]
       },
@@ -2986,6 +3003,10 @@ Only with the capability event.subscribe.
                     {
                       "type": "string",
                       "const": "script"
+                    },
+                    {
+                      "type": "string",
+                      "const": "external"
                     }
                   ]
                 }
@@ -3090,6 +3111,10 @@ Only with the capability event.subscribe.
                     {
                       "type": "string",
                       "const": "script"
+                    },
+                    {
+                      "type": "string",
+                      "const": "external"
                     }
                   ]
                 }
@@ -3201,6 +3226,10 @@ Only with the capability event.subscribe.
                     {
                       "type": "string",
                       "const": "script"
+                    },
+                    {
+                      "type": "string",
+                      "const": "external"
                     }
                   ]
                 }
@@ -3432,6 +3461,10 @@ Only with the capability agent.spawn.
         {
           "type": "string",
           "const": "agent"
+        },
+        {
+          "type": "string",
+          "const": "external"
         }
       ],
       "description": "Lists only the models of this driver; it does not filter the profiles, which are always listed in full"
@@ -3545,6 +3578,46 @@ Only with the capability agent.spawn.
               }
             },
             "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "required": [
+              "name",
+              "description",
+              "turnTimeoutMs",
+              "isolateWorkspace",
+              "driver",
+              "runtime"
+            ],
+            "properties": {
+              "name": {
+                "type": "string"
+              },
+              "description": {
+                "type": "string"
+              },
+              "turnTimeoutMs": {
+                "anyOf": [
+                  {
+                    "type": "integer"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "isolateWorkspace": {
+                "type": "boolean"
+              },
+              "driver": {
+                "type": "string",
+                "const": "external"
+              },
+              "runtime": {
+                "type": "string"
+              }
+            },
+            "additionalProperties": false
           }
         ]
       }
@@ -3579,6 +3652,25 @@ Only with the capability agent.spawn.
               "type": "string"
             },
             "description": "Thinking levels that agent_spawn accepts for this model."
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    "runtimes": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "id",
+          "title"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
           }
         },
         "additionalProperties": false
@@ -8352,8 +8444,22 @@ Complete package sources are in [run-setup.md](run-setup.md).
     ]
   },
   {
+    "id": "ragents.mcp",
+    "requires": [
+      "ragents.workspace"
+    ]
+  },
+  {
     "id": "ragents.ask",
     "requires": []
+  },
+  {
+    "id": "ragents.acp",
+    "requires": [
+      "ragents.workspace",
+      "ragents.ask",
+      "ragents.mcp"
+    ]
   },
   {
     "id": "ragents.todo",
@@ -8408,6 +8514,7 @@ Complete package sources are in [run-setup.md](run-setup.md).
 
 ```json
 [
-  "ragents.actor-programs.functions"
+  "ragents.actor-programs.functions",
+  "ragents.mcp.tools"
 ]
 ```

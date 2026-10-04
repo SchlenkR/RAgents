@@ -47,8 +47,9 @@ actor programs are available for workflows that need to react to later responses
 
 A run brings together a task, its participants, working files, and events. Its participants are
 called actors. An LLM actor processes messages with a model; a TypeScript actor uses its
-program. A coordinator is itself an LLM actor that can assign work to other participants. A
-prepared sample can also operate without a coordinator.
+program. An external actor uses a complete agent runtime supplied by a plugin, with its own
+coding tools and conversation. A coordinator is itself an LLM actor that can assign work to
+other participants. A prepared sample can also operate without a coordinator.
 
 The word game has four LLM actors for the words and one TypeScript actor for the workflow. In
 the learning-afternoon sample, two LLM actors work in parallel while the program collects their
@@ -93,7 +94,9 @@ provides them.
 RAgents is a programmable AI harness with a web interface: chat, agents, and small operating
 interfaces on a shared surface. Agents can work with different models; the shipped model
 connection runs through OpenRouter. TypeScript actors control fixed workflows; TypeScript and LLM
-actors can own their own functions, state, and React views. Plugins extend the working environment
+actors can own their own functions, state, and React views. External actors run complete agents
+through a named runtime contribution while the run keeps delivery, turns, and observable history.
+Plugins extend the working environment
 with typed functions, prompts, services, and UI; a profile assembles them. An actor's interfaces
 are called mini-apps in the user interface, on the homepage, and in the generated references.
 Technically, they are React views of an actor. Skill templates are grouped by a mandatory, freely
@@ -279,28 +282,29 @@ and their tabs.
 
 ## Terms
 
-| Term                 | Meaning                                                                                                                                                                                    |
-| -------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| Agent runtime        | Runtime of a single agent: model, agent loop on the model context from the journal, tool calls, skills, compaction, providers, and hooks.                                                  |
-| RAgents Core         | Product-neutral multi-agent core: runs, actors, ActorInputs, turns, events, subscriptions, journal, scheduler, artifacts, and plugin host.                                                 |
-| Plugin               | A vertical product capability. It can deliver server services, hooks, tools, skills, prompt parts, methods, UI contributions, data, and lifecycle together.                                |
-| Hook                 | An intervention in model and tool calls of ONE agent: before every model call (`beforeModelCall`) and after every tool call (`afterToolCall`). A hook registers no tools.                  |
-| Skill                | Working instructions for the model with an optional start task and supplementary files. A skill is neither a plugin nor an executable actor.                                                |
-| Actor                | A participant in the run: the human owner, an agent with a model, or a TypeScript actor from TypeScript. Only executable actors have inputs, turns, and a lifecycle.                       |
-| ActorInput           | A task of text, optional artifacts, and optional event origin for exactly one actor. An input is claimed by at most one turn.                                                              |
-| Turn                 | One execution of an actor, started with exactly one ActorInput. Inputs to an agent with a running turn are fed in by it before its next model request (steering).                          |
-| Event                | Immutable fact in journal v4, for example model text, reasoning, tool call, turn completion, action, or artifact.                                                                           |
-| Subscription         | Structured filter of an actor on new observable events. Every match creates a new ActorInput for the subscriber.                                                                           |
-| Primary actor        | The explicitly chosen actor whose model text the product treats as the visible chat. This role is independent of the creator lineage.                                                      |
-| Room                 | A delimited part of a run with its own actors, beside the main room; an actor's address is `room.name`, without prefix in the main room. Every run script start opens one.                |
-| TypeScript actor     | An actor whose turn runs deterministic TypeScript instead of a model. It has no model context but uses the same registered services and tools.                                              |
-| Actor program        | A private TypeScript package that provides an actor with functions, input processing, and optional React views; a type-checked TypeScript build with native Node execution on the shared RAgents execution platform. |
-| Actor state          | Intrinsic journaled data of an actor, shared by its functions, input processing, and views.                                                                                                |
-| Mini-app             | A React interface of its actor. It shows the actor's state and calls functions without an additional model turn.                                                                           |
-| Tool card            | An input generated by the host from the typed tool contract, directly on the target agent, without an additional window frame. It contains no app code of its own.                        |
-| App host             | A mounted mini-app frame, shown in a browser tab or a VS Code editor.                                                                                           |
-| Component            | A reusable building block without an installation or product lifecycle, for example the chat building blocks of the quassel library.                                                     |
-| Profile              | The explicit, ordered composition of core and plugins into a product, for example `core`.                                                                                                  |
+| Term             | Meaning                                                                                                                                                                                                                  |
+| ---------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Agent runtime    | Runtime of a single agent: model, agent loop on the model context from the journal, tool calls, skills, compaction, providers, and hooks.                                                                                |
+| RAgents Core     | Product-neutral multi-agent core: runs, actors, ActorInputs, turns, events, subscriptions, journal, scheduler, artifacts, and plugin host.                                                                               |
+| Plugin           | A vertical product capability. It can deliver server services, hooks, tools, skills, prompt parts, methods, UI contributions, data, and lifecycle together.                                                              |
+| Hook             | An intervention in model and tool calls of ONE agent: before every model call (`beforeModelCall`) and after every tool call (`afterToolCall`). A hook registers no tools.                                                |
+| Skill            | Working instructions for the model with an optional start task and supplementary files. A skill is neither a plugin nor an executable actor.                                                                             |
+| Actor            | A participant in the run: the human owner, an agent with a model, a TypeScript actor, or an external actor with a plugin-provided runtime. Only executable actors have inputs, turns, and a lifecycle.                   |
+| ActorInput       | A task of text, optional artifacts, and optional event origin for exactly one actor. An input is claimed by at most one turn.                                                                                            |
+| Turn             | One execution of an actor, started with exactly one ActorInput. Inputs to a built-in agent with a running turn join before its next model request (steering); external and TypeScript actors queue them for later turns. |
+| Event            | Immutable fact in journal v4, for example model text, reasoning, tool call, turn completion, action, or artifact.                                                                                                        |
+| Subscription     | Structured filter of an actor on new observable events. Every match creates a new ActorInput for the subscriber.                                                                                                         |
+| Primary actor    | The explicitly chosen actor whose model text the product treats as the visible chat. This role is independent of the creator lineage.                                                                                    |
+| Room             | A delimited part of a run with its own actors, beside the main room; an actor's address is `room.name`, without prefix in the main room. Every run script start opens one.                                               |
+| TypeScript actor | An actor whose turn runs deterministic TypeScript instead of a model. It has no model context but uses the same registered services and tools.                                                                           |
+| External actor   | An actor whose turn is handled by a named plugin-provided runtime. RAgents records its observable output; the runtime owns its conversation and coding tools.                                                            |
+| Actor program    | A private TypeScript package that provides an actor with functions, input processing, and optional React views; a type-checked TypeScript build with native Node execution on the shared RAgents execution platform.     |
+| Actor state      | Intrinsic journaled data of an actor, shared by its functions, input processing, and views.                                                                                                                              |
+| Mini-app         | A React interface of its actor. It shows the actor's state and calls functions without an additional model turn.                                                                                                         |
+| Tool card        | An input generated by the host from the typed tool contract, directly on the target agent, without an additional window frame. It contains no app code of its own.                                                       |
+| App host         | A mounted mini-app frame, shown in a browser tab or a VS Code editor.                                                                                                                                                    |
+| Component        | A reusable building block without an installation or product lifecycle, for example the chat building blocks of the quassel library.                                                                                     |
+| Profile          | The explicit, ordered composition of core and plugins into a product, for example `core`.                                                                                                                                |
 
 PLUGIN therefore means neither tool nor hook. Both are possible facets of a plugin. An integration
 plugin, for example, bundles client, projection, methods, agent and logic tools, prompt rules, web
@@ -341,7 +345,7 @@ migrations; the plugin contract still calls a run `Session` in type names (`Sess
 ```text
 Profile, for example core
   |
-  +-- ordered list of plugins (18 in core)
+  +-- ordered list of plugins (19 in core)
   |
   +-- RAgents Core
   |     +-- run, journal, actors, inputs, turns, events, subscriptions, and artifacts
@@ -353,6 +357,10 @@ Profile, for example core
   |     +-- model context as a projection of the journal
   |     +-- ragents-skill-preload per turn
   |     +-- hooks and skills of the plugins
+  |
+  +-- external runtime drivers
+  |     +-- named plugin contributions through actorRuntimes
+  |     +-- shared input, turn, output, and lifecycle contracts
   |
   +-- product and workspace contracts
   |     +-- ProductRuntime: coordinator, display, profile, and role contract
@@ -370,6 +378,7 @@ Profile, for example core
         +-- questions             +-- to-do
         +-- watch                 +-- actor programs and views
         +-- model relay           +-- profile distribution
+        +-- MCP tools             +-- external ACP agents
         +-- language servers: Roslyn, FSAC, TypeScript
 ```
 
@@ -378,13 +387,14 @@ The responsibilities are clearly separated:
 - The agent runtime owns the provider dialog, the inner agent loop, tool calling, skills,
   compaction, and provider-level retries; it reads and writes the model context in the journal.
 - RAgents owns the multi-agent state, ActorInputs, event delivery, orchestration, long-lived
-  TypeScript actors, and the shared journal.
+  TypeScript actors, external actor dispatch, and the shared journal.
 - Plugins own domain logic and integrations. The core knows no domain.
 - The chat building blocks deliver UI. They do not decide which plugins are installed.
 
-The journal is the canonical shared world of the run and at the same time the conversation of every
-model: it holds losslessly what a model has seen, and the model context is a projection of it
-(`core.md`, Model context and agent runtime). There is no second, private copy.
+The journal is the canonical shared history of the run and the conversation of every built-in
+LLM actor: it holds losslessly what that model has seen, and its context is a projection of it
+(`core.md`, Model context and agent runtime). An external runtime owns its conversation separately;
+its replies, reasoning, tools, and turn results still enter the shared journal.
 
 ## Course
 

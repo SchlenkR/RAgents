@@ -84,7 +84,7 @@ export const steerInputs =
     };
 
 const appendText = (
-    type: "model.output.interrupted" | "runtime.output.recorded",
+    type: "model.output.completed" | "model.reasoning.completed" | "model.output.interrupted" | "runtime.output.recorded",
     actorId: string,
     input: { turnId: string; text: string },
 ): Decision => (state, context) => {
@@ -98,6 +98,14 @@ export const appendInterruptedModelOutput = (actorId: string, input: { turnId: s
 
 export const appendRuntimeOutput = (actorId: string, input: { turnId: string; text: string }): Decision =>
     appendText("runtime.output.recorded", actorId, input);
+
+export const appendExternalOutput = (actorId: string, input: { turnId: string; text: string; reasoning: boolean }): Decision =>
+    (state, context, services) => {
+        const actor = runningTurn(state, context, actorId, input.turnId);
+        if (actor.execution.driver.kind !== "external")
+            throw new DomainError("external-output-unsupported", "Only an external runtime can record output without a model step.", 409);
+        return appendText(input.reasoning ? "model.reasoning.completed" : "model.output.completed", actorId, input)(state, context, services);
+    };
 
 /** The input exactly as the model received it, at its place between the model steps. */
 export const presentModelInput =

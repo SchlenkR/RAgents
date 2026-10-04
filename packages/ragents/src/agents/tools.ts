@@ -136,6 +136,7 @@ const actorKindSchema = Type.Union([
     Type.Literal("human"),
     Type.Literal("agent"),
     Type.Literal("script"),
+    Type.Literal("external"),
 ]);
 
 const observableEventTypeSchema = literalUnion(observableEventTypes);
@@ -246,6 +247,11 @@ const modelListResultSchema = Type.Object({
             model: Type.String(),
             thinking: Type.Optional(Type.String()),
         }, { additionalProperties: false }),
+        Type.Object({
+            ...profileBaseSchema,
+            driver: Type.Literal("external"),
+            runtime: Type.String(),
+        }, { additionalProperties: false }),
     ])),
     models: Type.Array(Type.Object({
         driver: Type.String(),
@@ -256,6 +262,7 @@ const modelListResultSchema = Type.Object({
             description: "Thinking levels that agent_spawn accepts for this model.",
         }),
     }, { additionalProperties: false })),
+    runtimes: Type.Optional(Type.Array(Type.Object({ id: Type.String(), title: Type.String() }, { additionalProperties: false }))),
 }, { additionalProperties: false });
 
 const driverKindOf = (description: string) => Type.Union(agentDriverKinds.map((kind) => Type.Literal(kind)), { description });
@@ -266,6 +273,7 @@ const executionSchema = {
         description: "Execution profile from model_list. Normally supply this field: an LLM agent needs a model-bearing profile or an explicit model. The caller's model is not inherited.",
     })),
     driver: Type.Optional(driverKindOf("Normally omitted: the profile's driver, otherwise agent, which runs a model; manual and script need no model.")),
+    runtime: Type.Optional(Type.String({ minLength: 1, description: "Configured external runtime; selects driver external and its own coding tools. RAgents functions cannot be passed to it; use tools: null." })),
     provider: Type.Optional(Type.String({
         minLength: 1,
         description: "Provider from model_list for an explicit model selection; may be omitted when the profile or an unambiguous catalog entry supplies it.",
@@ -342,7 +350,7 @@ export const agentTools: RunFunction[] = [
         name: "actor_list",
         label: "List Actors",
         description: "List existing actors with their identity, lifecycle and the size of their function selection.",
-        longDescription: "Check before spawning: reuse suitable participants, including actors created by a setup or another actor. Only kind agent is a conversational partner. A script executes its programmed input protocol; it does not interpret arbitrary natural-language requests. Inspect its documented functions or program before using it. toolNames: true also lists the names of each fixed selection. "
+        longDescription: "Check before spawning: reuse suitable participants, including actors created by a setup or another actor. Kinds agent and external are conversational partners. A script executes its programmed input protocol; it does not interpret arbitrary natural-language requests. Inspect its documented functions or program before using it. toolNames: true also lists the names of each fixed selection. "
             + "An actor's address is room.name, the main room has no prefix; handle is written from your room, so it is exactly what actor_input and the other functions take.",
         schema: Type.Object({
             toolNames: Type.Optional(Type.Boolean({ description: "Also list the tool names of each actor with a fixed selection." })),
@@ -372,7 +380,7 @@ export const agentTools: RunFunction[] = [
         name: "actor_input",
         label: "Enqueue Actor Input",
         description: "Send plain text and optional artifacts to one existing actor of this run, such as a task, an answer or a question; it receives no routing envelope.",
-        longDescription: "It reaches an actor that already exists; agent_spawn creates a new one. This only confirms enqueueing, not processing, an answer or completion; an answer reaches you only as a later input, for example through a subscription to the recipient's events. An agent in the middle of a turn receives the text in that turn before its next model request; otherwise it starts the agent's next turn. Agents interpret natural language. TypeScript actors only process their programmed input protocol: use their documented functions, or send an exact supported program input after inspecting the program. Never address an unknown script with a natural-language task or assume an idle or completed turn means the requested work happened.",
+        longDescription: "It reaches an actor that already exists; agent_spawn creates a new one. This only confirms enqueueing, not processing, an answer or completion; an answer reaches you only as a later input, for example through a subscription to the recipient's events. A built-in agent in the middle of a turn receives the text before its next model request; external actors receive it in their next turn. Both interpret natural language. TypeScript actors only process their programmed input protocol: use their documented functions, or send an exact supported program input after inspecting the program. Never address an unknown script with a natural-language task or assume an idle or completed turn means the requested work happened.",
         schema: actorInputSchema,
         resultSchema: eventResultSchemaOf("actor.input.enqueued"),
         available: needs("actor.input"),
@@ -479,7 +487,7 @@ export const agentTools: RunFunction[] = [
                 : null;
             const eventTypes = input.eventTypes ? new Set(input.eventTypes) : null;
 
-            return runtime.events(caller.runId)
+            return runtime.publicEvents(caller.runId)
                 .filter((event) => !eventIds || eventIds.has(event.eventId))
                 .filter((event) => !actorIds || actorIds.has(event.actorId))
                 .filter((event) => !eventTypes || eventTypes.has(event.type))
@@ -538,17 +546,18 @@ export const agentTools: RunFunction[] = [
             return {
                 profiles: [...catalog.profiles()],
                 models: listed.map((entry) => ({ ...entry, thinking: [...entry.thinking] })),
+                ...(catalog.runtimes?.().length ? { runtimes: [...catalog.runtimes()] } : {}),
             };
         },
     }),
     tool({
         name: "agent_spawn",
         label: "Spawn Agent",
-        description: "Create an LLM agent actor in this run and optionally give it its first task; it works in its own turns while you continue.",
+        description: "Create an LLM agent or a configured external runtime actor in this run and optionally give it its first task; it works in its own turns while you continue.",
         longDescription:
             "It creates exactly one agent in this run: never a new run, never a TypeScript actor, and never a prepared setup, which run_script_start starts where it is offered. "
             + "Check actor_list first when available: actor_input gives a further task to an existing actor, while the same name here creates another actor with a suffix. "
-            + "Read model_list before the first spawn and pass a model-bearing profile or an explicit model; the caller's model is not inherited. "
+            + "Read model_list before the first spawn. For an LLM actor pass a model-bearing profile or an explicit model; the caller's model is not inherited. For an external actor select a configured runtime, pass tools: null, and omit host model settings and forkOf. It owns its coding tools and receives no RAgents functions. "
             + "The agent inherits your delegable capabilities, but its function selection is required and never inherited: exact names, [] for a plain LLM without runtime, workspace or host functions, or null for the open, dynamically resolved set; drivers without plain-LLM isolation are rejected. "
             + "Nothing waits for the agent: the call returns its reference at once. Its answers are model.output.completed events of its turns and reach you only as later inputs of a subscription made with event_subscribe; failed or interrupted turns reach you as automatic notices. "
             + "A task given here starts at once, so a subscription made afterwards can miss its first answer: when you need that answer, create the agent without a task, subscribe to its events, then send the task with actor_input. "
@@ -569,6 +578,10 @@ export const agentTools: RunFunction[] = [
         run: async ({ runtime, caller, catalog, context, eventsFor, resolveToolsFor }, toolCallId, input) => {
             const executionId = `agent_${toolCallId}`;
             const execution = resolveExecution(catalog, input, executionId, await catalog.models());
+            if (execution.driver.kind === "external" && input.tools !== null)
+                throw new Error("External runtimes own their coding tools; tools must be null. RAgents functions are not passed to them.");
+            if (execution.driver.kind === "external" && input.forkOf !== undefined)
+                throw new Error("External runtimes cannot fork an LLM actor's model context.");
             const actor = addressedActorOf(runtime.view(caller.runId).actors, caller.actorId);
 
             if (actor.kind === "human")

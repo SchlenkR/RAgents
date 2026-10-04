@@ -16,7 +16,7 @@ export const actorInputLabel = (view: RunView, input: RunActorInput): string => 
 export const actorConversation = (view: RunView, actor: RunActor): Message[] => {
   const colorOf = (actorId: string) => {
     if (view.actors.find((entry) => entry.id === actorId)?.kind === "script") return "hsl(220 10% 40%)";
-    const position = Math.max(view.actors.filter((entry) => entry.kind === "agent").findIndex((entry) => entry.id === actorId), 0);
+    const position = Math.max(view.actors.filter((entry) => entry.kind === "agent" || entry.kind === "external").findIndex((entry) => entry.id === actorId), 0);
     return `hsl(${ACTOR_HUES[position % ACTOR_HUES.length]} 45% 42%)`;
   };
   const delivered = view.inputs.filter((input) => input.actorId === actor.id && input.lifecycle.kind !== "discarded" && input.presentation !== "background")

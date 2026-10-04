@@ -386,11 +386,11 @@ export class RunSessionProvider implements ChatSessionProvider {
       list: (access) => this.list(access ? runListScope(access, this.runAccess()) : undefined),
       view: (runId) => {
         this.ensureUsable(runId);
-        return this.requireEngine().runtime.view(runId);
+        return accessibleRunView(this.requireEngine().runtime.view(runId), unrestrictedAccess, this.plugins.accessProjections);
       },
       events: (runId) => {
         this.ensureUsable(runId);
-        return this.requireEngine().runtime.events(runId);
+        return this.requireEngine().runtime.publicEvents(runId);
       },
       create: (start) => this.createManagedRun(start),
       send: (runId, message, access) => {

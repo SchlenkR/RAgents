@@ -11,7 +11,7 @@ room. The current contract is in `docs/spec/core.md` (Rooms) and `docs/spec/type
 (run scripts). The interface so far only shows an actor's address where it showed its handle;
 it neither shows rooms as such nor lets a person work with them.
 
-## Stage 3: the interface
+## The interface
 
 - The run header names the rooms beside the main room, in the window group as one entry per
   room. Choosing a room focuses its apps and its actors; the run view already carries `rooms`
@@ -30,4 +30,4 @@ it neither shows rooms as such nor lets a person work with them.
   switches the whole layout per room.
 - Whether a person may open a room deliberately, for example to give a new agent a fresh
   context; the engine has no such function yet, only run script starts open rooms.
-- Whether the homepage gets a section on rooms before or with this stage.
+- Whether the homepage gets a section on rooms before or with the interface.

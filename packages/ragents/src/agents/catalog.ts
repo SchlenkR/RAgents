@@ -20,6 +20,7 @@ type ProfileBase = {
 export type AgentProfile = ProfileBase & (
     | { driver: "manual" | "script" }
     | { driver: "agent"; provider: string; model: string; thinking?: ThinkingLevel }
+    | { driver: "external"; runtime: string }
 );
 
 type AgentDriverProfile = Extract<AgentProfile, { driver: "agent" }>;
@@ -27,6 +28,7 @@ type AgentDriverProfile = Extract<AgentProfile, { driver: "agent" }>;
 export type ExecutionRequest = {
     profile?: string;
     driver?: AgentDriverKind;
+    runtime?: string;
     provider?: string;
     model?: string;
     thinking?: ThinkingLevel;
@@ -37,6 +39,7 @@ export type ExecutionRequest = {
 export interface ModelCatalog {
     models(): Promise<readonly CatalogModel[]>;
     profiles(): readonly AgentProfile[];
+    runtimes?(): readonly { id: string; title: string }[];
 }
 
 const defaultProfiles: AgentProfile[] = [
@@ -181,18 +184,30 @@ export const resolveExecution = (
             400,
         );
 
-    const kind = request.driver ?? profile?.driver ?? "agent";
+    const kind = request.driver ?? (request.runtime ? "external" : profile?.driver ?? "agent");
 
     if (!agentDriverKinds.includes(kind))
         throw new DomainError("driver-not-found", `Driver ${kind} does not exist.`, 400);
 
-    const isolate = request.isolateWorkspace ?? profile?.isolateWorkspace ?? kind !== "manual";
+    const isolate = request.isolateWorkspace ?? profile?.isolateWorkspace ?? (kind === "agent" || kind === "script");
 
     const workspacePath = isolate ? agentId : null;
     const turnTimeoutMs = request.turnTimeoutMs ?? profile?.turnTimeoutMs ?? null;
 
+    if (request.runtime !== undefined && kind !== "external")
+        throw new DomainError("runtime-driver-mismatch", "A runtime selection requires the external driver.", 400);
+
     if (kind === "manual" || kind === "script")
         return { driver: { kind, config: {} }, workspacePath, turnTimeoutMs };
+
+    if (kind === "external") {
+        const runtime = request.runtime ?? (profile?.driver === "external" ? profile.runtime : undefined);
+        if (!runtime || !catalog.runtimes?.().some((entry) => entry.id === runtime))
+            throw new DomainError("runtime-not-found", `External runtime ${runtime ?? "(missing)"} is not configured. Available: ${catalog.runtimes?.().map((entry) => entry.id).join(", ") || "none"}.`, 400);
+        if (request.provider !== undefined || request.model !== undefined || request.thinking !== undefined)
+            throw new DomainError("runtime-model-selection", "An external runtime owns its model selection; provider, model and thinking cannot be supplied.", 400);
+        return { driver: { kind, config: { runtime } }, workspacePath, turnTimeoutMs };
+    }
 
     const agentProfile = profile?.driver === "agent" ? profile : undefined;
 

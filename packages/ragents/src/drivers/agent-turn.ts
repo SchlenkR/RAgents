@@ -238,7 +238,7 @@ export class AgentTurn {
             },
             sessionId: `${request.runId}.${request.agentId}`,
             transformContext: (_messages, signal) => this.#contextForModelCall(signal),
-            afterToolCall: async ({ toolCall, result, isError }) => this.#afterToolCall(toolCall.name, result.content, isError),
+            afterToolCall: async ({ toolCall, result, isError }) => this.#afterToolCall(toolCall.id, toolCall.name, result.content, isError),
             prepareNextTurnWithContext: async (turn): Promise<AgentLoopTurnUpdate> => {
                 await this.#refreshTools(agent.state.tools);
                 return { context: { ...turn.context, systemPrompt: this.#currentSystemPrompt(), tools: agent.state.tools.slice() } };
@@ -374,7 +374,7 @@ export class AgentTurn {
         return [...context.messages, ...notes];
     }
 
-    async #afterToolCall(toolName: string, original: (TextContent | ImageContent)[], isError: boolean) {
+    async #afterToolCall(toolCallId: string, toolName: string, original: (TextContent | ImageContent)[], isError: boolean) {
         let content = original;
         let error = isError;
         let replaced = false;
@@ -385,7 +385,7 @@ export class AgentTurn {
 
             try {
                 const replacement = await this.#options.track(hook.afterToolCall(
-                    { toolName, isError: error },
+                    { toolCallId, toolName, isError: error },
                     { signal: this.#agent?.signal, modelReadsImages: this.#options.model.input.includes("image") },
                 ));
 

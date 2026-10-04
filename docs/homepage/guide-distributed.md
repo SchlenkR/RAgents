@@ -23,6 +23,8 @@ For an npx invocation without a global install, see [Install from npm](guide-get
 Node.js 22.19 or newer is required, without Git, pnpm, or a source build. The subcommands are:
 
 - `ragents run <folder> "<task>"`, `send`, `journal`, and `stop` let an agent work on a project.
+- `ragents acp` serves stable Agent Client Protocol v1 over stdio for editors; see
+  [Connect an editor over ACP](guide-clients.html#connect-an-editor-over-acp).
 - `ragents connect <server-url>` fetches a client profile with its plugin bundles, provisions
   tools, and starts a server. It supports `--port <n>`, `--clean`, and `--no-start`, like
   `pnpm connect`.

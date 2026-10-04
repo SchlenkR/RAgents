@@ -1207,6 +1207,87 @@
       "x-implemented-by": "server"
     },
     {
+      "name": "ragents.mcp.connections.close",
+      "description": "Close a run's MCP connections while preserving its private server definitions for the next connection.",
+      "params": [
+        {
+          "name": "input",
+          "required": true,
+          "schema": {
+            "type": "object",
+            "required": [
+              "runId"
+            ],
+            "properties": {
+              "runId": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 64
+              }
+            },
+            "additionalProperties": false
+          }
+        }
+      ],
+      "paramStructure": "by-name",
+      "result": {
+        "name": "result",
+        "schema": {
+          "type": "null"
+        }
+      },
+      "x-owner": "ragents.mcp",
+      "x-rights": [
+        "runs.read",
+        "runs.write"
+      ],
+      "x-implemented-by": "server"
+    },
+    {
+      "name": "ragents.mcp.servers.set",
+      "description": "Replace a run's external MCP servers before its next turn. Definitions stay in private plugin storage, outside the journal and model context. Refused while an actor is running or input is queued.",
+      "params": [
+        {
+          "name": "input",
+          "required": true,
+          "schema": {
+            "type": "object",
+            "required": [
+              "runId",
+              "servers"
+            ],
+            "properties": {
+              "runId": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 64
+              },
+              "servers": {
+                "type": "object",
+                "additionalProperties": true,
+                "x-typescript-type": "McpServers"
+              }
+            },
+            "additionalProperties": false
+          }
+        }
+      ],
+      "paramStructure": "by-name",
+      "result": {
+        "name": "result",
+        "schema": {
+          "type": "null"
+        }
+      },
+      "x-owner": "ragents.mcp",
+      "x-rights": [
+        "runs.read",
+        "runs.write",
+        "runs.create"
+      ],
+      "x-implemented-by": "server"
+    },
+    {
       "name": "ragents.overseer.coordinator",
       "description": "Read the run ID of your own global coordinator: one per signed-in user, exactly one without sign-in.",
       "params": [
@@ -5014,6 +5095,101 @@
       },
       "x-owner": "host",
       "x-rights": []
+    },
+    {
+      "name": "ragents.mcp.status",
+      "description": "Connection state of a run's MCP servers, without their definitions or credentials.",
+      "params": {
+        "type": "object",
+        "required": [
+          "runId"
+        ],
+        "properties": {
+          "runId": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "additionalProperties": false
+      },
+      "message": {
+        "type": "object",
+        "required": [
+          "servers"
+        ],
+        "properties": {
+          "servers": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": [
+                "name",
+                "transport",
+                "state",
+                "toolCount"
+              ],
+              "properties": {
+                "name": {
+                  "type": "string"
+                },
+                "transport": {
+                  "anyOf": [
+                    {
+                      "type": "string",
+                      "const": "stdio"
+                    },
+                    {
+                      "type": "string",
+                      "const": "http"
+                    },
+                    {
+                      "type": "string",
+                      "const": "sse"
+                    }
+                  ]
+                },
+                "protocolVersion": {
+                  "type": "string"
+                },
+                "state": {
+                  "anyOf": [
+                    {
+                      "type": "string",
+                      "const": "connecting"
+                    },
+                    {
+                      "type": "string",
+                      "const": "connected"
+                    },
+                    {
+                      "type": "string",
+                      "const": "failed"
+                    },
+                    {
+                      "type": "string",
+                      "const": "closed"
+                    }
+                  ]
+                },
+                "error": {
+                  "type": "string"
+                },
+                "toolCount": {
+                  "type": "integer",
+                  "minimum": 0
+                }
+              },
+              "additionalProperties": false
+            }
+          }
+        },
+        "additionalProperties": false
+      },
+      "x-owner": "ragents.mcp",
+      "x-rights": [
+        "runs.read",
+        "ragents.mcp.read"
+      ]
     },
     {
       "name": "ragents.processes",

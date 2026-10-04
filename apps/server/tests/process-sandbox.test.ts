@@ -109,6 +109,7 @@ test("bash of the global coordinator cannot read a foreign journal but writes it
     assert.match(await f.bash(`echo tampered > ${JSON.stringify(f.foreignJournal)} 2>&1; echo done`), /done/);
     assert.equal(await readFile(f.foreignJournal, "utf8"), '{"secret":"foreign history"}\n');
     assert.match(await f.bash("echo written > own.txt && cat own.txt && touch \"$TMPDIR/scratch\" && echo temp-ok"), /written\s+temp-ok/);
+    assert.match(await f.bash('test "$CLAUDE_CODE_TMPDIR" = "$TMPDIR" && touch "$CLAUDE_CODE_TMPDIR/claude-scratch" && echo claude-temp-ok'), /claude-temp-ok/);
     assert.equal(await readFile(path.join(f.cwd, "own.txt"), "utf8"), "written\n");
     const result = await f.host.execute("coordinator", COMMAND_OPERATIONS.run, { program: "cat", args: [f.foreignJournal], timeoutMs: 10_000 }) as CommandResult;
     assert.notEqual(result.exitCode, 0);

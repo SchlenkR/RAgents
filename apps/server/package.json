@@ -10,7 +10,7 @@
     "dev": "tsx watch src/main.ts",
     "start": "tsx src/main.ts",
     "test": "pnpm --dir ../.. build:plugins && PRODUCT_PROFILE=core node --import tsx --test tests/*.test.ts",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit && tsc --noEmit -p ../../scripts/acp/tsconfig.json"
   },
   "dependencies": {
     "@anthropic-ai/sandbox-runtime": "0.0.77",

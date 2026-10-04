@@ -131,10 +131,11 @@
       <a class="nav-github" href="https://github.com/SchlenkR/RAgents" aria-label="GitHub"><svg class="gh-icon" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M12 2a10 10 0 0 0-3.2 19.5c.5.1.7-.2.7-.5v-1.7c-2.8.6-3.4-1.3-3.4-1.3-.5-1.2-1.1-1.5-1.1-1.5-.9-.6.1-.6.1-.6 1 .1 1.5 1 1.5 1 .9 1.6 2.4 1.1 3 .9.1-.7.4-1.1.6-1.4-2.2-.3-4.6-1.1-4.6-5 0-1.1.4-2 1-2.7-.1-.3-.4-1.3.1-2.7 0 0 .8-.3 2.8 1a9.6 9.6 0 0 1 5 0c1.9-1.3 2.8-1 2.8-1 .5 1.4.2 2.4.1 2.7.6.7 1 1.6 1 2.7 0 3.9-2.4 4.7-4.6 5 .4.3.7.9.7 1.9V21c0 .3.2.6.7.5A10 10 0 0 0 12 2Z"/></svg><span class="gh-label">GitHub</span></a>
     </nav>
     <button class="nav-menu" type="button" aria-expanded="false" aria-controls="main-navigation"><span data-menu-label>Menu</span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></button>
-  </header><main class="shell" id="main"><div class="guide-layout"><aside class="guide-sidebar"><nav class="guide-chapters" aria-label="Guide navigation"><a href="guide.html">Overview</a><div class="guide-nav-group"><p>Understand</p><a href="guide-ideas.html">Core ideas</a><a href="guide-runtime.html" aria-current="page">Actors and messages</a></div><div class="guide-nav-group"><p>Use</p><a href="guide-getting-started.html">Get started</a><a href="guide-clients.html">Web and VS Code</a><a href="guide-distributed.html">Distributed work</a></div><div class="guide-nav-group"><p>Build</p><a href="guide-functions.html">Work with TypeScript</a><a href="guide-programs.html">Build mini-apps</a><a href="guide-plugins.html">Plugins and skills</a></div><div class="guide-nav-group"><p>Access</p><a href="guide-access.html">Assign permissions</a></div></nav></aside><details class="guide-mobile-nav"><summary>Guide: Actors and messages</summary><nav class="guide-chapters" aria-label="Guide navigation"><a href="guide.html">Overview</a><div class="guide-nav-group"><p>Understand</p><a href="guide-ideas.html">Core ideas</a><a href="guide-runtime.html" aria-current="page">Actors and messages</a></div><div class="guide-nav-group"><p>Use</p><a href="guide-getting-started.html">Get started</a><a href="guide-clients.html">Web and VS Code</a><a href="guide-distributed.html">Distributed work</a></div><div class="guide-nav-group"><p>Build</p><a href="guide-functions.html">Work with TypeScript</a><a href="guide-programs.html">Build mini-apps</a><a href="guide-plugins.html">Plugins and skills</a></div><div class="guide-nav-group"><p>Access</p><a href="guide-access.html">Assign permissions</a></div></nav></details><article class="guide-body"><header class="guide-title"><p class="eyebrow"><a href="guide.html">Guide</a></p><h1>Actors and messages</h1><p>Runs, actors, messages, turns, and the journal form the shared runtime.</p></header><details class="guide-page-nav"><summary>On this page</summary><nav aria-label="On this page"><a href="#runs-and-participants">Runs and participants</a><a href="#scheduler-and-turns">Scheduler and turns</a><a href="#model-context-across-turns">Model context across turns</a><a href="#interrupting-a-turn-stopping-an-actor-stopping-a-run-and-shutting-down-the-server">Interrupting a turn, stopping an actor, stopping a run, and shutting down the server</a><a href="#actors-inputs-events-and-subscriptions">Actors, inputs, events, and subscriptions</a><a href="#ids-handles-and-creating-actors-again">IDs, handles, and creating actors again</a><a href="#rooms">Rooms</a><a href="#equipping-subagents">Equipping subagents</a><a href="#journal-and-projection">Journal and projection</a></nav></details><h2 id="runs-and-participants">Runs and participants</h2>
+  </header><main class="shell" id="main"><div class="guide-layout"><aside class="guide-sidebar"><nav class="guide-chapters" aria-label="Guide navigation"><a href="guide.html">Overview</a><div class="guide-nav-group"><p>Understand</p><a href="guide-ideas.html">Core ideas</a><a href="guide-runtime.html" aria-current="page">Actors and messages</a></div><div class="guide-nav-group"><p>Use</p><a href="guide-getting-started.html">Get started</a><a href="guide-clients.html">Web and editors</a><a href="guide-distributed.html">Distributed work</a></div><div class="guide-nav-group"><p>Build</p><a href="guide-functions.html">Work with TypeScript</a><a href="guide-programs.html">Build mini-apps</a><a href="guide-plugins.html">Plugins and skills</a></div><div class="guide-nav-group"><p>Access</p><a href="guide-access.html">Assign permissions</a></div></nav></aside><details class="guide-mobile-nav"><summary>Guide: Actors and messages</summary><nav class="guide-chapters" aria-label="Guide navigation"><a href="guide.html">Overview</a><div class="guide-nav-group"><p>Understand</p><a href="guide-ideas.html">Core ideas</a><a href="guide-runtime.html" aria-current="page">Actors and messages</a></div><div class="guide-nav-group"><p>Use</p><a href="guide-getting-started.html">Get started</a><a href="guide-clients.html">Web and editors</a><a href="guide-distributed.html">Distributed work</a></div><div class="guide-nav-group"><p>Build</p><a href="guide-functions.html">Work with TypeScript</a><a href="guide-programs.html">Build mini-apps</a><a href="guide-plugins.html">Plugins and skills</a></div><div class="guide-nav-group"><p>Access</p><a href="guide-access.html">Assign permissions</a></div></nav></details><article class="guide-body"><header class="guide-title"><p class="eyebrow"><a href="guide.html">Guide</a></p><h1>Actors and messages</h1><p>Runs, actors, messages, turns, and the journal form the shared runtime.</p></header><details class="guide-page-nav"><summary>On this page</summary><nav aria-label="On this page"><a href="#runs-and-participants">Runs and participants</a><a href="#scheduler-and-turns">Scheduler and turns</a><a href="#model-context-across-turns">Model context across turns</a><a href="#interrupting-a-turn-stopping-an-actor-stopping-a-run-and-shutting-down-the-server">Interrupting a turn, stopping an actor, stopping a run, and shutting down the server</a><a href="#actors-inputs-events-and-subscriptions">Actors, inputs, events, and subscriptions</a><a href="#ids-handles-and-creating-actors-again">IDs, handles, and creating actors again</a><a href="#rooms">Rooms</a><a href="#equipping-subagents">Equipping subagents</a><a href="#journal-and-projection">Journal and projection</a></nav></details><h2 id="runs-and-participants">Runs and participants</h2>
 <p>A run is a piece of work with its own participants, working files, and journal. An actor is a
-participant in that run: the human owner, an LLM agent, or a TypeScript actor. LLM agents
-process tasks with a model; TypeScript actors execute their programmed input handler. The actor
+participant in that run: the human owner, an LLM agent, a TypeScript actor, or an external actor.
+LLM agents process tasks with a model; TypeScript actors execute their programmed input handler;
+external actors use a named runtime provided by a plugin. The actor
 selected as primary is the user&#39;s direct chat partner. This choice does not depend on who
 created the other actors.</p>
 <p>An ActorInput is a task for exactly one executable actor. A turn processes exactly that input.
@@ -163,7 +164,7 @@ ended the turn (such as a question to the user), a joined input starts another m
 the same turn. The journal records each joined input with
 <code>turn.input-steered</code>, and the chat marks the message as fed into the running turn. An input that
 arrives after the last model request of the turn, or after the turn was interrupted, starts the
-actor&#39;s next turn instead. TypeScript actors have no model and take no steering; their inputs
+actor&#39;s next turn instead. TypeScript and external actors take no steering; their inputs
 always wait for the next turn. An input longer than 30,000 characters does not join; it and every
 later input wait for the next turn, so the order stays intact.</p>
 <p>A hidden note about the running turn, such as a status note or a progress reminder, does not
@@ -237,7 +238,7 @@ accepts inputs again. Subscriptions removed by the stop stay removed. The button
 or ensures a package whose actor is stopped, use the same restart.</li>
 <li>Run stop: The scheduler temporarily accepts no new work for this run; concurrent stop calls
 are handled together. The primary actor remains, but its running work is interrupted. All
-other agents and TypeScript actors in the user&#39;s ownership tree are stopped. Agent runtimes
+other executable actors in the user&#39;s ownership tree are stopped. Their runtimes
 and plugins receive their abort signals in parallel. The actor-program plugin also cancels
 pending app actions. An open confirmation question is discarded through <code>ragents.ask</code> in the
 journal and the domain operation is no longer invoked; the open <code>ask_user</code> questions of all
@@ -320,9 +321,9 @@ another room it is written <code>review-2.rule-review</code>; and the actors of 
 without prefix from anywhere. Functions show every address from the caller&#39;s room, so a model
 takes names from their results instead of building them.</p>
 <h2 id="equipping-subagents">Equipping subagents</h2>
-<p><code>agent_spawn</code> creates exactly one LLM agent in the run, with the fields of the subagent tools of
-common agent harnesses: <code>description</code> is a required label of a few words, <code>prompt</code> is the first
-task, and <code>name</code> is the requested handle. <code>instructions</code> holds the lasting role and rules for the
+<p><code>agent_spawn</code> creates exactly one LLM agent or external actor in the run, with the fields of the
+subagent tools of common agent harnesses: <code>description</code> is a required label of a few words,
+<code>prompt</code> is the first task, and <code>name</code> is the requested handle. <code>instructions</code> holds the lasting role and rules for the
 agent&#39;s system prompt; a role from <code>model_list</code> supplies none. With <code>prompt</code>, the command that
 writes <code>agent.spawned</code> also enqueues the task as the agent&#39;s first input, so the agent starts at
 once; this needs <code>actor.input</code> besides <code>agent.spawn</code>. Without <code>prompt</code> the agent stays idle until
@@ -333,7 +334,12 @@ once, a subscription made afterwards can miss the first answer; whoever needs it
 agent without <code>prompt</code>, subscribes, and then sends the task with <code>actor_input</code>. A prepared setup
 joins a run through <code>run_script_start</code> and a TypeScript actor comes from an actor program;
 <code>agent_spawn</code> creates neither, and no function of a run creates another run.</p>
-<p><code>agent_spawn</code> requires an explicit function selection in <code>tools</code>:</p>
+<p>For an external actor, select <code>runtime</code> from the names and titles in <code>model_list</code> and the
+configured runtime choices of <code>agent_spawn</code>. Use <code>tools: null</code>; its coding tools belong to its
+runtime, and no RAgents functions are passed to it. <code>provider</code>, <code>model</code>, <code>thinking</code>, and <code>forkOf</code>
+are invalid with an external runtime. Its <code>instructions</code> become lasting prompt instructions;
+its <code>prompt</code> is the first queued task, as for an LLM actor.</p>
+<p><code>agent_spawn</code> requires an explicit function selection in <code>tools</code> for built-in LLM agents:</p>
 <table>
 <thead>
 <tr>
@@ -382,7 +388,8 @@ the error lists the available roles for the selected driver. A manual role is no
 suggested as an agent&#39;s model choice.</p>
 <h2 id="journal-and-projection">Journal and projection</h2>
 <p>The journal is the shared history of a run. Visible state is produced by replaying its events;
-models and functions are not called again in the process. Recorded responses, function calls,
+models, functions, and external runtimes are not called again in the process.
+Recorded responses, function calls,
 state changes, and interruptions therefore remain traceable after a restart. The model context of
 every LLM agent is part of the journal as well; working files are stored separately.</p>
 <p class="guide-source">Source: <a href="../../docs/spec/core.md">docs/spec/core.md</a>. <a href="guide-runtime.md">This chapter as Markdown</a>.</p><p><a href="guide-getting-started.html">Get started</a></p><nav class="guide-next" aria-label="Continue reading"><a href="guide-ideas.html">Previous: Core ideas</a><a href="guide-getting-started.html">Next: Get started</a></nav></article></div></main><footer class="shell"><p>Generated from public documentation. Rebuild with <code>pnpm generate:homepage</code>. Verify with <code>pnpm check:homepage</code>.</p><nav aria-label="More pages"><a href="index.html">Homepage</a><a href="guide.html">Guide</a></nav></footer></body></html>

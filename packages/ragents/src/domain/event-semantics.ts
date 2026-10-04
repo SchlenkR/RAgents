@@ -393,6 +393,8 @@ export const assertEventSemantics = (
             assertActiveHandleFree(state, event.payload.handle, event.payload.room ?? null);
             assertNewId(state.actors, event.payload.agentId, "Actor");
             assertUnique(event.payload.toolNames ?? [], "toolNames");
+            if (event.payload.execution.driver.kind === "external" && (event.payload.toolNames !== null || event.payload.forkOf !== undefined))
+                throw new Error("External actors require their own runtime tools and cannot fork a model context.");
             if (event.payload.forkOf !== undefined) assertForkSource(state, event.payload.forkOf, event.payload.execution);
             break;
         }

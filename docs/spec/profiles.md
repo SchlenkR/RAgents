@@ -84,9 +84,13 @@ runtime), so that an unknown section, an unknown key, and a secret in plain text
 What remains at START: a missing reference, a duplicate key with a differing value, and the check
 of every plugin section after composition against the configuration declarations registered in the
 `PluginHost`; sections of known but inactive plugins are ignored with a notice. Lists are real
-`string[]` in the file and travel through the environment as a JSON array - `process.env` is a
-string map and remains the transport to sandbox bash, language servers, and the agent runtime.
-`MODEL_ALIASES` and `MODEL_PROVIDERS` are lists of objects and travel as JSON as well.
+arrays in the file and travel through the environment as JSON - `process.env` is a string map
+and remains the transport to sandbox bash, language servers, and the agent runtime.
+Plugin sections accept structured JSON: primitives, null, objects, and arrays of objects.
+Nested `env("NAME")` references are resolved while loading the profile; missing variables and
+plain-text keys ending in `_KEY`, `_TOKEN`, `_SECRET`, `_PASSWORD`, or `_PAT` fail at any depth.
+The plugin validates the shape of its own structured value at startup, including unknown fields.
+`MODEL_ALIASES` and `MODEL_PROVIDERS` retain their dedicated host validation and also travel as JSON.
 
 The section is documentation and a validation frame, NOT a namespace: every key is materialized in
 `process.env` under its bare name. Two products with keys of the same name (`AGENT_MODEL`,
@@ -392,6 +396,66 @@ several servers with the same profile name are errors with the respective list. 
 usually gets its models through the server's relay (`AGENT_PROVIDER: "relay"`, above in the
 section Profiles). The client profile names personal values such as the relay token as `env(...)`;
 they come from the developer's environment.
+
+## ACP editor agent
+
+`ragents acp` implements stable Agent Client Protocol v1 with `AgentSideConnection` and
+`ndJsonStream` from `@agentclientprotocol/sdk`. The checkout command is `pnpm ragents acp`, with
+`--silent` before `ragents` when a stdio client launches pnpm to suppress its script banner;
+the package includes the same entry point under `scripts/acp/`. stdin and stdout carry only
+newline-delimited protocol messages; diagnostics go to stderr. This adapter calls the ordinary
+HTTP messaging layer and introduces no separate engine runtime. Usage and an editor settings
+example are in [usage.md](../usage.md#connect-an-editor-over-acp).
+
+The shared host helper under `scripts/agent/host.ts` also serves `ragents run`: profile name or
+path through `--profile`, otherwise `RAGENTS_PROFILE` or `developer`; data through `--data-dir`,
+`DATA_DIR`, or the profile default; address through the profile's `host.json`, `RAGENTS_URL`, or
+`host.PORT`. A local host is found or started with the existing startup path. An explicit server
+on another machine is used as it is; missing hosts and rejected authentication are errors.
+`RAGENTS_TOKEN` travels only as a bearer header. The adapter advertises no interactive sign-in
+method; a host requiring a missing token reports how to provide it.
+`initialize` validates the host before returning capabilities; a sign-in refusal becomes the
+ACP `auth_required` error. A different protocol version receives the supported version 1 and
+does not enable session methods.
+
+`session/new` reserves a run identifier and selects its workspace start option for the absolute
+`cwd`. On this machine the folder is bound on the server; for an explicit remote server the ACP
+process registers a workstation offering that folder, with a stable machine-and-folder
+identifier. Each folder has its own RPC stream and executor, so adding a session cannot replace
+another folder's workstation registration. The first `session/prompt` creates the run through
+`ragents.chat.send`, with the same ownership and permission checks as other clients. The ACP
+session identifier is the run identifier and never enters model text. Editor-supplied MCP
+definitions are stored before the first turn through the guarded `ragents.mcp.servers.set`
+plugin method
+([plugins.md](plugins.md#mcp-client)); `session/load` replaces them only while the run is idle.
+
+Prompt text and resource links form the message text. Embedded text resources become fenced
+blocks naming their URI, limited to 16,384 characters with a truncation note; aggregate prompt
+text over 65,536 characters is rejected. Images and embedded binary resources use the existing
+chat attachment validation and limits. The `ragents.chat` channel supplies the primary actor's
+text, reasoning, tool starts and results, and plugin events. The
+adapter sends message and thought chunks, tool calls and updates with status, kind, file
+locations, edit/write diffs when their input text fits the 16,384-character limit, and result
+text bounded to that same limit with a truncation note. `ragents.todo` state becomes an
+ACP plan. An `ask_user` action uses stable form elicitation when declared by the client;
+otherwise its questions and options are agent text, answered by the next prompt. A completed
+turn returns `end_turn`; `session/cancel` interrupts only the primary actor and returns
+`cancelled` from its pending prompt. Broken streams and failed turns return a protocol error.
+
+`initialize` advertises loading, listing, image and embedded-context prompts, and HTTP/SSE MCP
+servers when the profile includes `ragents.mcp`. `session/load` replays the channel's stored
+history, including user message chunks and attachments downloaded with the host's authentication,
+then ends at `replay-end`. `session/list` filters visible runs by their bound `cwd`.
+The changeable `ragents.model` start option supplies the stable session configuration choices;
+`session/set_config_option` applies a selection through the existing start-option method.
+The adapter preserves the server's user access and exposes only its visible history and models.
+Profiles with at most 20 skills send `available_commands_update` for those templates; command
+names are their existing identifiers. A matching slash prompt expands the template prompt plus
+optional task details after the command, activates its skill through `preparedRunInput`, and
+passes `entry` to `ragents.chat.send`, matching web startup. Larger skill catalogs send no commands.
+Closing the ACP connection cancels active prompts, closes each remote session's MCP connections
+through `ragents.mcp.connections.close`, and unregisters its workstations. The host, runs, and
+private MCP definitions remain available for a later connection.
 
 ## Editable model defaults
 

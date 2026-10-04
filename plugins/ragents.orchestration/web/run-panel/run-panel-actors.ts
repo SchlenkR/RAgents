@@ -1,8 +1,8 @@
 import { chatPrimaryId, type RunActor, type RunView } from "@ragents/web/run-view";
 
-/** The actors of the chip row: coordinator first, then in creation order; without the inspect right only LLM agents. */
+/** The actors of the chip row: coordinator first, then in creation order; without inspection only conversational actors. */
 export const runPanelActors = (view: RunView, inspect: boolean): RunActor[] => {
-  const candidates = view.actors.filter((actor) => actor.kind !== "human" && (inspect || actor.kind === "agent"));
+  const candidates = view.actors.filter((actor) => actor.kind !== "human" && (inspect || actor.kind === "agent" || actor.kind === "external"));
   const primaryId = chatPrimaryId(view);
   const primary = candidates.filter((actor) => actor.id === primaryId);
   return [...primary, ...candidates.filter((actor) => actor.id !== primaryId)];

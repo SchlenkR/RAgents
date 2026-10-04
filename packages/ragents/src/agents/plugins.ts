@@ -32,6 +32,11 @@ export interface ToolProvider {
 export class ToolRegistry implements ToolProvider {
     readonly #plugins: ToolContributor[] = [];
     readonly #descriptorOwners = new Map(agentTools.map((tool) => [tool.name, "ragents.agent-tools"]));
+    readonly #runtimes: () => readonly { id: string; title: string }[];
+
+    constructor(runtimes: () => readonly { id: string; title: string }[] = () => []) {
+        this.#runtimes = runtimes;
+    }
 
     register(plugin: ToolContributor) {
         if (this.#plugins.some((entry) => entry.name === plugin.name))
@@ -74,6 +79,17 @@ export class ToolRegistry implements ToolProvider {
             onUnavailable?.(tool);
             return false;
         });
+        const runtimes = this.#runtimes();
+        const spawn = resolved.findIndex((tool) => tool.name === "agent_spawn");
+        if (spawn >= 0 && runtimes.length > 0) {
+            const tool = resolved[spawn]!;
+            const properties = (tool.schema as unknown as { properties: Record<string, unknown> }).properties;
+            resolved[spawn] = {
+                ...tool,
+                description: `${tool.description} External runtimes: ${runtimes.map(({ id, title }) => `${id} (${title})`).join(", ")}. Select runtime and tools: null.`,
+                schema: { ...tool.schema, properties: { ...properties, runtime: { type: "string", enum: runtimes.map(({ id }) => id), description: "Configured external actor runtime." } } },
+            };
+        }
         const taken = new Set(agentTools.map((entry) => entry.name));
 
         for (const plugin of this.#plugins) {

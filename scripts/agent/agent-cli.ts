@@ -1,35 +1,30 @@
 // The hook resolves @ragents/* also for a profile file outside the host; in the package there is no node_modules there.
 import "../../apps/server/src/host-resolution.ts";
-import { spawn } from "node:child_process";
 import { randomUUID } from "node:crypto";
-import { closeSync, mkdirSync, openSync, readFileSync, statSync } from "node:fs";
+import { statSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { coreContracts } from "../../apps/server/src/api/contracts.ts";
-import { hostRecordFile, readHostRecord, removeHostRecord, writeHostRecord } from "../../apps/server/src/host-record.ts";
-import { hostRoot } from "../../apps/server/src/host-version.ts";
-import { callerDirectory, selectProfileTarget, type ProfileTarget } from "../../apps/server/src/profile-target.ts";
-import { RpcClient } from "../../apps/web/src/rpc/client.ts";
+import { hostRecordFile, readHostRecord, removeHostRecord } from "../../apps/server/src/host-record.ts";
+import { callerDirectory, type ProfileTarget } from "../../apps/server/src/profile-target.ts";
+import type { RpcClient } from "../../apps/web/src/rpc/client.ts";
 import type { Action, RunShareAccess, RunSharing, RunView, Turn, TurnToolCall } from "../../packages/ragents/src/domain/model.ts";
 import { runContracts } from "../../packages/ragents/src/http/contracts.ts";
 import { RpcError } from "../../packages/ragents/src/rpc/protocol.ts";
 import { askPayloadOf, ASK_PLUGIN_ID } from "../../plugins/ragents.ask/ask-payload.ts";
 import { WORKSPACE_BINDING_OPTION_ID, WORKSPACE_CLIENT_ID_PATTERN, type WorkspaceBindingPresentation } from "../../plugins/ragents.workspace/contract.ts";
 import { interruptPrimaryTurn, pauseRun, resumeRun, stopWholeRun } from "./turn-control.ts";
+import { DEFAULT_PROFILE, HEALTH_TIMEOUT_MS, LOGIN_REQUIRED, addressOf, defaultProfile, delay, ensureHost, healthy, hostClient as client, loadProfile, note, withLoginHint } from "./host.ts";
+export { addressOf, defaultProfile, loadProfile, LOGIN_REQUIRED, withLoginHint } from "./host.ts";
 import { journalLines, questionLine, readJournal, RUN_ID_PATTERN, type JournalEvent } from "./journal.ts";
 
-const DEFAULT_PROFILE = "developer";
-const HOST_START_TIMEOUT_MS = 120_000;
 const HOST_STOP_TIMEOUT_MS = 20_000;
 const POLL_INTERVAL_MS = 400;
-const HEALTH_TIMEOUT_MS = 2_000;
 const CHAT_READY_TIMEOUT_MS = 60_000;
-
-/** Default profile of the agent commands; RAGENTS_PROFILE applies to all commands of the same shell. */
-export const defaultProfile = (): string => process.env.RAGENTS_PROFILE ?? DEFAULT_PROFILE;
-
 export const usage = (): string => `Usage: ragents <command> [arguments]
 
+  acp [--profile <p>] [--data-dir <folder>]
+      Serve Agent Client Protocol v1 over stdio for an editor. Logs go to stderr.
   run [<folder>] "<task>" [--profile <p>] [--entry <template>] [--workstation <id>] [--json]
       [--share <user>[:read|:write]]... [--share-all <read|write>]
       Starts the profile's host if none is running, creates a run with a path binding to the
@@ -249,105 +244,6 @@ const parsedInput = (text: string): unknown => {
     return JSON.parse(text);
   } catch (error) {
     throw new Error(`--input is not JSON: ${error instanceof Error ? error.message : String(error)}`);
-  }
-};
-
-export const loadProfile = (selection: string, root = hostRoot()): Promise<ProfileTarget> => selectProfileTarget(selection, root);
-
-const delay = (ms: number): Promise<void> => new Promise((resolve) => setTimeout(resolve, ms));
-
-const healthy = async (baseUrl: string): Promise<boolean> => {
-  try {
-    const response = await fetch(`${baseUrl}/health`, { signal: AbortSignal.timeout(HEALTH_TIMEOUT_MS) });
-    return response.ok;
-  } catch {
-    return false;
-  }
-};
-
-const note = (line: string): void => { process.stderr.write(`${line}\n`); };
-
-const tail = (file: string, lines: number): string =>
-  (statSync(file, { throwIfNoEntry: false })?.isFile() ? readFileSync(file, "utf8") : "").split("\n").slice(-lines).join("\n");
-
-/** The remembered host, otherwise RAGENTS_URL, otherwise the address from host.PORT of the profile. */
-export const addressOf = async (target: ProfileTarget): Promise<string> => {
-  const noted = readHostRecord(target.dataDirectory);
-  if (noted && await healthy(noted.url)) return noted.url;
-  return process.env.RAGENTS_URL ?? target.baseUrl;
-};
-
-const startHost = async (target: ProfileTarget): Promise<void> => {
-  mkdirSync(target.dataDirectory, { recursive: true });
-  const log = path.join(target.dataDirectory, "host.log");
-  const handle = openSync(log, "a");
-  const child = spawn(process.execPath, ["--import", "tsx", path.join(hostRoot(), "apps/server/src/main.ts")], {
-    cwd: path.join(hostRoot(), "apps/server"),
-    detached: true,
-    stdio: ["ignore", handle, handle],
-    env: {
-      ...process.env,
-      PRODUCT_PROFILE: target.profile,
-      PRODUCT_PROFILE_FILE: target.profileFile,
-      PORT: String(target.port),
-      DATA_DIR: target.dataDirectory,
-    },
-  });
-  child.unref();
-  closeSync(handle);
-  if (!child.pid) throw new Error(`The host ${target.profile} could not be started; the log is in ${log}.`);
-  note(`== Host ${target.profile} starting on ${target.baseUrl} (log ${log})`);
-  const deadline = Date.now() + HOST_START_TIMEOUT_MS;
-  while (Date.now() < deadline) {
-    if (await healthy(target.baseUrl)) {
-      writeHostRecord(target.dataDirectory, {
-        profile: target.profile,
-        url: target.baseUrl,
-        pid: child.pid,
-        log,
-        startedAt: new Date().toISOString(),
-      });
-      note(`== Host ready at ${target.baseUrl} (PID ${child.pid})`);
-      return;
-    }
-    if (child.exitCode !== null || child.signalCode !== null) break;
-    await delay(500);
-  }
-  throw new Error(`The host ${target.profile} does not respond at ${target.baseUrl}. End of ${log}:\n${tail(log, 20)}`);
-};
-
-const ensureHost = async (target: ProfileTarget): Promise<string> => {
-  const address = await addressOf(target);
-  if (await healthy(address)) return address;
-  if (process.env.RAGENTS_URL) throw new Error(`No RAgents server responds at ${process.env.RAGENTS_URL} (RAGENTS_URL).`);
-  await startHost(target);
-  return target.baseUrl;
-};
-
-const client = (baseUrl: string): RpcClient => {
-  const token = process.env.RAGENTS_TOKEN;
-  return new RpcClient({
-    baseUrl,
-    fetch: (input, init) => fetch(input, {
-      ...init,
-      headers: {
-        ...init?.headers as Record<string, string> | undefined,
-        ...(token ? { authorization: `Bearer ${token}` } : {}),
-      },
-    }),
-  });
-};
-
-export const LOGIN_REQUIRED = "The profile requires sign-in; set RAGENTS_TOKEN to your user's personal token "
-  + "(in the profile `token: env(...)`).";
-
-/** A 401 is not worth a server error message, but a hint to the profile's personal token. */
-export const withLoginHint = async <T>(call: () => Promise<T>): Promise<T> => {
-  try {
-    return await call();
-  } catch (error) {
-    if (error instanceof RpcError && error.status === 401) throw new Error(`${LOGIN_REQUIRED} ${error.message}`);
-    throw error;
   }
 };
 
@@ -606,7 +502,8 @@ const runCommand = async (command: Extract<AgentCommand, { kind: "run" }>, write
     const shared = await withLoginHint(() => rpc.call(coreContracts.runs.share, { runId, sharing }));
     note(`== Shared with ${sharingLines(shared.sharing).join(", ")}`);
   }
-  if (command.entry) await withLoginHint(() => rpc.call(coreContracts.chat.start, { runId, entry: command.entry }));
+  const entry = command.entry;
+  if (entry) await withLoginHint(() => rpc.call(coreContracts.chat.start, { runId, entry }));
   const outcome = await withLoginHint(() => follow({ rpc, baseUrl, runId, text: command.text, json: command.json, write,
     send: () => command.entry
       ? sendWhenChatReady(rpc, runId, command.text)
@@ -781,6 +678,7 @@ const main = async (): Promise<number> => {
     console.error(usage());
     return 1;
   }
+  if (argv[0] === "acp") { await (await import("../acp/acp-cli.ts")).main(argv.slice(1)); return 0; }
   if (argv[0] === "plugin") return (await import("../plugin/plugin-cli.ts")).main(argv.slice(1));
   return execute(parseArguments(argv));
 };

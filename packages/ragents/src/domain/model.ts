@@ -25,7 +25,7 @@ export type CapabilityGrant = {
     usable?: boolean;
 };
 
-export type ActorKind = "human" | "agent" | "script";
+export type ActorKind = "human" | "agent" | "script" | "external";
 
 type ActorBase = {
     id: ActorId;
@@ -79,7 +79,9 @@ export const actorStatePluginId = "ragents.actor-state";
 
 export type ScriptActor = ExecutableActorBase & { kind: "script" };
 
-export type ExecutableActor = AgentActor | ScriptActor;
+export type ExternalActor = Omit<AgentActor, "kind"> & { kind: "external" };
+
+export type ExecutableActor = AgentActor | ScriptActor | ExternalActor;
 export type Actor = HumanActor | ExecutableActor;
 
 /** `steered` marks an input that joined its already running turn instead of starting it. */

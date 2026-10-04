@@ -218,7 +218,7 @@ export function applyEvent(
 
         case "agent.spawned":
             state.actors.set(event.payload.agentId, {
-                kind: "agent",
+                kind: event.payload.execution.driver.kind === "external" ? "external" : "agent",
                 id: event.payload.agentId,
                 handle: event.payload.handle,
                 room: event.payload.room ?? null,

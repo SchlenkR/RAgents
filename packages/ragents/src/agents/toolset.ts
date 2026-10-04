@@ -121,7 +121,7 @@ export class TurnToolset {
             context: (toolCallId, step) => this.#context(toolCallId, step),
             eventsFor: (toolCallId, step) =>
                 this.#runtime
-                    .events(this.#turn.runId)
+                    .publicEvents(this.#turn.runId)
                     .filter((entry) => entry.commandId === this.#commandId(toolCallId, step))
                     .map((entry) => {
                         assertJsonValue(entry.payload, `Event ${entry.eventId} payload`);

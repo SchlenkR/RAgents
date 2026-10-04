@@ -62,13 +62,15 @@ export class Orchestration {
     readonly #journal: Journal;
     readonly #services: RuntimeServices;
     readonly #artifactContents: ArtifactContents;
+    readonly #eventVisible: (event: JournalEvent) => boolean;
     readonly #suppressedSubscriptionRuns = new Set<string>();
     readonly #modelContexts: ModelContexts;
 
-    constructor(journal: Journal, services: RuntimeServices, artifactContents: ArtifactContents = new MemoryArtifactContents()) {
+    constructor(journal: Journal, services: RuntimeServices, artifactContents: ArtifactContents = new MemoryArtifactContents(), eventVisible: (event: JournalEvent) => boolean = () => true) {
         this.#journal = journal;
         this.#services = services;
         this.#artifactContents = artifactContents;
+        this.#eventVisible = eventVisible;
         this.#modelContexts = new ModelContexts({
             eventsSince: (runId, sequence) => this.#journal.eventsSince(runId, sequence),
             firstEventId: (runId) => this.#journal.firstEventId(runId),
@@ -76,7 +78,7 @@ export class Orchestration {
         });
         this.#journal.subscribe((events) => {
             this.#releaseModelContexts(events);
-            this.#dispatchSubscriptions(events);
+            this.#dispatchSubscriptions(events.filter(this.#eventVisible));
             this.#dispatchCreatorAlerts(events);
         });
         this.#interruptOpenTurns();
@@ -115,6 +117,10 @@ export class Orchestration {
 
     events(runId: string) {
         return this.#journal.load(runId);
+    }
+
+    publicEvents(runId: string) {
+        return this.events(runId).filter(this.#eventVisible);
     }
 
     subscribe(listener: (events: JournalEvent[]) => void) {
@@ -473,6 +479,10 @@ export class Orchestration {
 
     appendRuntimeOutput(context: CommandContext, runId: string, actorId: string, input: { turnId: string; text: string }) {
         return this.#run(context, runId, "runtime.output.record", { actorId, ...input }, turns.appendRuntimeOutput(actorId, input));
+    }
+
+    appendExternalOutput(context: CommandContext, runId: string, actorId: string, input: { turnId: string; text: string; reasoning: boolean }) {
+        return this.#run(context, runId, "external.output.record", { actorId, ...input }, turns.appendExternalOutput(actorId, input));
     }
 
     /** The model context of an actor, extended by the events since the last call. */

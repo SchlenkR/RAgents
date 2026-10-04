@@ -72,7 +72,7 @@ export function runtimeMethods(options: RuntimeMethodOptions): MethodContributio
     }),
     implement(runContracts.events, ({ runId }, { access }) => {
       prepared(access, runId, "inspect");
-      return runtime.events(runId);
+      return runtime.publicEvents(runId);
     }),
     implement(runContracts.enqueueInput, (input, { access }) => {
       prepared(access, input.runId, "write-inspect");

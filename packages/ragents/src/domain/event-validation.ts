@@ -179,6 +179,10 @@ const executionOf = (value: unknown, path: string) => {
 
     if (driver.kind === "manual" || driver.kind === "script")
         exactObject(driver.config, `${path}.driver.config`, []);
+    else if (driver.kind === "external") {
+        const config = exactObject(driver.config, `${path}.driver.config`, ["runtime"]);
+        nonEmptyStringOf(config.runtime, `${path}.driver.config.runtime`);
+    }
     else
         modelSelectionOf(driver.config, `${path}.driver.config`);
 
@@ -348,8 +352,8 @@ const actorKindArrayOf = (value: unknown, path: string) => {
         return;
 
     arrayOf(value, path, (entry, entryPath) => {
-        if (entry !== "human" && entry !== "agent" && entry !== "script")
-            fail(entryPath, "must be human, agent, or script");
+        if (entry !== "human" && entry !== "agent" && entry !== "script" && entry !== "external")
+            fail(entryPath, "must be human, agent, script, or external");
     });
 };
 

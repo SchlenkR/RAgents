@@ -22,7 +22,7 @@ export function actorChatHistoryOf(view: RunView, events: readonly JournalEvent[
   };
   const colorOf = (id: string) => {
     if (actorOf(id).kind === "script") return "hsl(220 10% 40%)";
-    const index = Math.max(view.actors.filter((actor) => actor.kind === "agent").findIndex((actor) => actor.id === id), 0);
+    const index = Math.max(view.actors.filter((actor) => actor.kind === "agent" || actor.kind === "external").findIndex((actor) => actor.id === id), 0);
     return `hsl(${ACTOR_HUES[index % ACTOR_HUES.length]} 45% 42%)`;
   };
   const interrupted = (turnId: string) =>

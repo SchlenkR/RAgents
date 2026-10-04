@@ -3,34 +3,39 @@ import type { ChatEvent, Message } from "quassel/events";
 import type { ActorConversations } from "./ragents/actor-chat-history.js";
 
 /** Each plugin shows its own plugin states and plugin events through its access projection (docs/spec/plugins.md, registrations of the PluginHost). */
-export const accessibleRunView = (view: RunView, access: AccessContext, projections: AccessProjectionRegistry): RunView => access.can("runs.inspect") ? view : {
-  ...view,
-  actors: view.actors.map((actor) => actor.kind === "human" ? { ...actor, grants: [] } : {
-    ...actor,
-    ...(actor.kind === "agent" ? { prompt: "" } : {}),
-    execution: {
-      driver: actor.execution.driver.kind === "agent" ? { kind: "agent", config: { provider: "", model: "" } } : actor.execution.driver,
-      workspacePath: null,
-      turnTimeoutMs: null,
-    },
-    grants: [],
-    toolNames: [],
-    openedToolNames: [],
-    usage: emptyUsage(),
-    lifecycle: actor.lifecycle.kind === "stopped" ? { ...actor.lifecycle, reason: "Stopped" } : actor.lifecycle,
-  }),
-  inputs: view.inputs.map((input) => ({ ...input, content: input.enqueuedBy === view.ownerId && input.presentation !== "background" ? input.content : "",
-    lifecycle: input.lifecycle.kind === "discarded" ? { ...input.lifecycle, reason: "Discarded" } : input.lifecycle,
-  })),
-  turns: view.turns.map((turn) => ({ ...turn, usage: emptyUsage(), toolCalls: [], reason: turn.reason ? "Processing was stopped." : null })),
-  subscriptions: [],
-  pluginStates: view.pluginStates.flatMap((entry) => {
+export const accessibleRunView = (view: RunView, access: AccessContext, projections: AccessProjectionRegistry): RunView => {
+  const pluginStates = view.pluginStates.flatMap((entry) => {
     const state = projections.state(entry, access);
     return state ? [state] : [];
-  }),
+  });
+  if (access.can("runs.inspect")) return pluginStates.length === view.pluginStates.length ? view : { ...view, pluginStates };
+  return {
+    ...view,
+    actors: view.actors.map((actor) => actor.kind === "human" ? { ...actor, grants: [] } : {
+      ...actor,
+      ...(actor.kind === "agent" || actor.kind === "external" ? { prompt: "" } : {}),
+      execution: {
+        driver: actor.execution.driver.kind === "agent" ? { kind: "agent", config: { provider: "", model: "" } } : actor.execution.driver,
+        workspacePath: null,
+        turnTimeoutMs: null,
+      },
+      grants: [],
+      toolNames: [],
+      openedToolNames: [],
+      usage: emptyUsage(),
+      lifecycle: actor.lifecycle.kind === "stopped" ? { ...actor.lifecycle, reason: "Stopped" } : actor.lifecycle,
+    }),
+    inputs: view.inputs.map((input) => ({ ...input, content: input.enqueuedBy === view.ownerId && input.presentation !== "background" ? input.content : "",
+      lifecycle: input.lifecycle.kind === "discarded" ? { ...input.lifecycle, reason: "Discarded" } : input.lifecycle,
+    })),
+    turns: view.turns.map((turn) => ({ ...turn, usage: emptyUsage(), toolCalls: [], reason: turn.reason ? "Processing was stopped." : null })),
+    subscriptions: [],
+    pluginStates,
+  };
 };
 
 export const accessibleChatEvent = (event: ChatEvent, access: AccessContext, projections: AccessProjectionRegistry): ChatEvent | undefined => {
+  if (event.kind === "plugin") return projections.chatEvent(event.pluginId, event, access);
   if (access.can("runs.inspect")) return event;
   if (event.kind === "status" && event.startup?.status === "failed") return {
     ...event,
@@ -41,8 +46,7 @@ export const accessibleChatEvent = (event: ChatEvent, access: AccessContext, pro
   if (event.kind === "tool") return trace ? event : { kind: "tool", id: event.id, name: "", arguments: "", at: event.at };
   if (event.kind === "tool-result") return trace ? event : { kind: "tool-result", id: event.id, result: "", isError: event.isError };
   if (event.kind === "system") return { ...event, text: "Processing notice. If you have questions, contact the responsible agent." };
-  if (event.kind !== "plugin") return event;
-  return projections.chatEvent(event.pluginId, event, access);
+  return event;
 };
 
 const visibleMessage = (message: Message, actorId: string, trace: boolean): Message[] => {

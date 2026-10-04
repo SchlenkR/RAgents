@@ -51,6 +51,7 @@ const contracts: Contract[] = [
   { id: "httpUpgrade", file: "packages/ragents/src/plugin-types.ts", name: "HttpUpgradeContext" },
   { id: "module", file: "apps/server/src/plugin-support/plugin-module.ts", name: "PluginModule" },
   { id: "manifest", file: "packages/ragents/src/plugin-types.ts", name: "PluginManifest" },
+  { id: "toolOutcome", file: "packages/ragents/src/plugin-types.ts", name: "ToolCallOutcome" },
   { id: "plugin", file: "packages/ragents/src/plugin-types.ts", name: "RAgentsPlugin" },
   { id: "host", file: "packages/ragents/src/plugin-types.ts", name: "PluginRegistration" },
   { id: "storage", file: "packages/ragents/src/plugin-types.ts", name: "PluginStorage" },
@@ -360,8 +361,9 @@ host.agentRuntime({
   afterToolCall: (_agent, outcome) => outcome.toolName === "example_probe" && outcome.isError
     ? { content: [{ type: "text", text: "The probe failed; do not retry." }], isError: true }
     : undefined,
-});`, ["host.agentRuntime"], [
+});`, ["host.agentRuntime", "toolOutcome.toolName", "toolOutcome.isError", "toolOutcome.toolCallId"], [
     "Both hooks run per agent; the first parameter names run, agent, audience, and working directory. call.kept and call.keep hold a JSON value in the agent's conversation history, even across a restart; the model never sees it.",
+    "afterToolCall receives ToolCallOutcome with toolName, isError, and optional toolCallId. A tool can keep image results by run and call ID; the hook takes and removes the result for outcome.toolCallId. This binds each image to its own result even when tools run in parallel. Without an ID, return no replacement rather than guessing by tool name.",
     "A contribution registers no tools; tools come through host.functions. A returned note applies only to the next model call and does not end up in the journal.",
   ]),
   entry("models", "Server contributions", "Models and roles", "The model catalog names the AI models that can be selected for agents. A role combines a model with settings such as thinking depth and execution limits. Such roles describe individual agents; the profile assembles the entire installation.", "register(host); modelId is a previously checked, configured OpenRouter model identifier.", `
@@ -444,11 +446,13 @@ host.startOptions({
   entry("access-projections", "Server contributions", "States for restricted access", "Access without runs.inspect sees the plugin states of a run and their chat events the way the plugin they belong to determines. The plugin reports for each state what remains visible of it. Without a projection, a state stays unchanged.", "Inside register(host); ragents.example.board is a state of this plugin.", `
 host.accessProjections({
   id: "ragents.example.board",
+  private: false,
   state: (entry) => ({ title: (entry.state as { title?: string }).title ?? null }),
   chatEvent: () => undefined,
 });`, ["host.accessProjections"], [
     "state receives the state including updatedAt and returns the visible value or undefined; the host keeps identifier, scope, and timestamp. chatEvent receives type and payload of a chat event with this identifier and returns the visible part or undefined. Each identifier has at most one projection.",
     "Only those who have these permissions see the stored value of a start option with rights, in the run view as well as in the chat; this applies before any projection.",
+    "private: true suppresses internal state and its chat events for every access, including runs.inspect; the value remains in the journal for restoration.",
   ]),
   entry("session-metadata", "Server contributions", "Provide run metadata", "A plugin can provide short additional details about a run, such as a processing status. Such metadata is available to the interface for display, and a short line of it appears in the run list of every host. The underlying domain data stays with the plugin.", "Inside register(host); example without its own data storage.", `
 host.sessionMetadata({
@@ -889,7 +893,28 @@ const testDriver: AgentDriver<"agent"> = {
 };`, ["driver.kind", "driver.supportsPlainLlm", "driver.runTurn", "driver.disposeAgent", "driver.reviveAgent", "driver.haltRun", "driver.waitForRunSettlement", "driver.disposeRun", "driver.shutdown"], [
     "kind determines the driver kind. supportsPlainLlm declares operation without RAgents tools. disposeAgent, reviveAgent, haltRun, waitForRunSettlement, disposeRun, and shutdown are optional for the matching lifecycle boundaries.",
     "request provides, among other things, the delivered input, prompt, model selection, tool list, invoke, and recordContext; a model step in the model context is also the visible answer. The return value contains failure and usage.",
-    "There is no host.drivers registry. The current DriverRegistry knows the fixed kinds agent and script; a new kind requires a deliberate engine integration. profiles alone does not extend this boundary.",
+    "The fixed engine kinds are agent, script and external. Plugins register named external runtimes through host.actorRuntimes; profiles alone do not add a driver kind.",
+  ]),
+  entry("actor-runtime", "Product and runtime contracts", "Provide an external actor runtime", "A plugin provides a named runtime for actors whose conversation and tools belong to another agent process. The engine schedules its turns and records its visible output.", "server/index.ts of a plugin; the protocol belongs to its driver.", `
+const driver: AgentDriver<"external"> = {
+  kind: "external",
+  async runTurn(request, signal) {
+    signal.throwIfAborted();
+    request.publish({ kind: "text", delta: "Completed." });
+    request.emit({ kind: "assistant-completed", text: "Completed." });
+    return { failure: null, usage: emptyUsage() };
+  },
+};
+export const plugin: PluginModule = {
+  create: () => ({
+    manifest: { id: "acme.runtime" },
+    register(host) {
+      host.actorRuntimes({ id: "acme.coder", title: "Example coder", driver });
+    },
+  }),
+};`, ["host.actorRuntimes"], [
+    "Runtime ids are unique across the profile. agent_spawn selects runtime and tools: null; the external runtime owns its coding tools.",
+    "request.runtime names the selected runtime; request.instructions carries delegated working rules. Text and reasoning emit observation events without creating a model step. Inputs arriving during a turn wait for the next one.",
   ]),
   entry("language-server", "Product and runtime contracts", "Connect a language server", "A language server analyzes source code and provides language features such as error messages and symbol search. An adapter describes how RAgents recognizes the matching project and starts the server. The plugin brings it as a contribution to the executor, which runs on every machine that holds a workspace; the existing integration makes its functions available as tools and server access.", "executor.ts and server/index.ts of a simple TypeScript LSP, here in one file. The contribution imports only types from the host.", `
 const languages = { ".ts": "typescript" };
@@ -914,13 +939,59 @@ export const plugin: PluginModule = {
   create: () => createLanguageServerPlugin({ id: "ragents.lsp-example", languageServer: exampleLanguageServer }),
 };`, ["lsp.id", "lsp.label", "lsp.languages", "lsp.rootDescription", "lsp.solutionExtensions", "lsp.resolveRoot", "lsp.rootDirectory", "lsp.launch", "lsp.open",
     "executorParts.languageServers", "executorParts.modules", "executorMachine.toolsDirectory", "executorMachine.hostPackageFile", "executorMachine.resolveRootFile",
-    "executorMachine.resolveRootDirectory", "executorMachine.operationError", "executorMachine.processEnvironment"], [
+    "executorMachine.resolveRootDirectory", "executorMachine.resolveRootPath", "executorMachine.operationError", "executorMachine.processEnvironment"], [
     "languages maps file extensions to language identifiers. resolveRoot checks the project target, rootDirectory names the folder that a file of this target is assigned to (the project directory itself for TypeScript, the folder of the project file for Roslyn and FSAC), launch returns the process start contract for the sandbox context, and open adds server-specific opening steps if needed.",
     "solutionExtensions is optional and names the extensions of the solutions, such as .sln and .slnx; with it, the plugin gets the tool <id>_solutions, the solution list, and switching in the tab. A directory adapter like this one omits it.",
     "executor is a function of the machine and returns languageServers and modules; modules are further modules with their own operations, such as the browser of ragents.browser. The machine provides the plugin's tool folder (toolsDirectory), files from the host's packages (hostPackageFile), the checked root resolution (resolveRootFile, resolveRootDirectory), domain errors (operationError), and the environment of its own processes (processEnvironment).",
     "The build tool turns executor.ts into a self-contained file executor/index.mjs; importing a host module or another plugin there is a build error. Server and workstations load the same file, a workstation from the bundles of its own host. The server half imports the description relatively from executor.ts.",
     "The required server programs come through the plugin's provisioning or from the host's packages. A missing program is reported as an error; no substitute process is started silently.",
     "Required imports: path from node:path, pathToFileURL from node:url, the types LanguageServerDescription and WorkspaceExecutorContribution from @ragents/workspace-executor, and in the server half createLanguageServerPlugin as well as PluginModule. The host handles the LSP initialization; open afterwards adds only server-specific steps.",
+  ]),
+  entry("managed-service", "Product and runtime contracts", "Run a managed service", "An executor contribution can keep a child process for a run, such as a stdio protocol server. The machine supplies the managed process helper; the contribution applies the run's sandbox and owns cleanup.", "executor.ts; WorkspaceExecutorContribution is a type-only import from @ragents/workspace-executor.", `
+export const executor: WorkspaceExecutorContribution = (machine) => ({
+  modules: [(host) => {
+    const processes = new Map<string, Promise<ReturnType<typeof machine.startManagedService>>>();
+    const start = async (runId: string) => {
+      const context = await host.contextFor(runId);
+      const launch = { command: "example-server", args: ["--stdio"] };
+      const wrapped = context.sandbox ? await context.sandbox.wrap(launch) : launch;
+      return machine.startManagedService({
+        ...wrapped,
+        args: [...wrapped.args],
+        cwd: context.cwd,
+        env: { ...machine.processEnvironment(runId), ...context.env },
+        uid: context.uid,
+        gid: context.gid,
+        label: "Example server",
+        stdin: "pipe",
+      });
+    };
+    const stopRun = async (runId: string) => {
+      const pending = processes.get(runId);
+      if (!pending) return;
+      processes.delete(runId);
+      const child = await pending;
+      child.kill("SIGTERM");
+      const timer = setTimeout(() => child.kill("SIGKILL"), 1000);
+      try { await child.finished; } finally { clearTimeout(timer); }
+    };
+    return {
+      operations: {
+        "example.start": async ({ runId }) => {
+          const pending = processes.get(runId) ?? start(runId);
+          processes.set(runId, pending);
+          await pending;
+          return "Process started.";
+        },
+      },
+      stopRun,
+      shutdown: async () => { await Promise.all([...processes.keys()].map(stopRun)); },
+    };
+  }],
+});`, ["executorMachine.startManagedService"], [
+    "startManagedService accepts ManagedServiceOptions with stdin and output callbacks, and returns ManagedService with kill and finished. Add protocol framing through onStdout and bounded diagnostics through onStderr; successful spawn alone does not prove protocol readiness.",
+    "The contribution first wraps command and args through context.sandbox.wrap when a sandbox exists. machine.processEnvironment(runId) supplies this machine's safe environment and the run marker; context.env adds the run's environment. The helper does not apply the sandbox itself.",
+    "The module shares startup per run, ends its own process through kill, and awaits finished in stopRun and shutdown. Managed cleanup also ends the process group. Do not import the host's process implementation into a self-contained executor bundle.",
   ]),
 ];
 

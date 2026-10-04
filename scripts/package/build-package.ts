@@ -62,6 +62,7 @@ export const packageContents = (root = repositoryRoot): readonly string[] => [
   "plugins",
   ...PACKAGED_PROFILES.map((profile) => `ragents.config.${profile}.ts`),
   "scripts/agent",
+  "scripts/acp",
   "scripts/package",
   "scripts/plugin",
   "scripts/provision",

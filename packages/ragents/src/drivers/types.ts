@@ -22,6 +22,11 @@ export type SteeredInput = {
 };
 
 type TurnDriverFacts = {
+    external: {
+        driverKind: "external";
+        runtime: string;
+        instructions: string;
+    };
     script: {
         driverKind: "script";
         invoke: (toolCallId: string, name: string, input: JsonValue) => Promise<JsonValue>;
@@ -46,6 +51,8 @@ type TurnDriverFacts = {
 };
 
 export type DriverEvent =
+    | { kind: "assistant-completed"; text: string }
+    | { kind: "reasoning-completed"; text: string }
     | { kind: "assistant-interrupted"; text: string }
     | { kind: "runtime"; text: string };
 

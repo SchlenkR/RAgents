@@ -16,6 +16,7 @@ export {
 export {
   type WorkspaceExecutorModule,
   type WorkspaceModuleFactory,
+  type WorkspaceModuleHost,
 } from "./module.js";
 export { workspaceExecutorModules, type WorkspaceExecutorModuleOptions } from "./modules.js";
 export {

@@ -62,6 +62,10 @@ and uses your own Git.
 Source, documentation, and issue tracking are in this repository. The host is also published as
 [`@schlenkr/ragents`](https://www.npmjs.com/package/@schlenkr/ragents).
 
+Other editors can start `ragents acp` for Agent Client Protocol v1 chat in their project folder;
+the [editor guide](https://schlenkr.github.io/RAgents/guide-clients.html#connect-an-editor-over-acp)
+includes a Zed settings example.
+
 ## Standalone host
 
 [GitHub Releases](https://github.com/SchlenkR/RAgents/releases) offers Windows, macOS, and Linux

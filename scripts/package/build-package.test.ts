@@ -35,7 +35,7 @@ test("the package carries entry point, host version and the files the host loads
     assert.equal(existsSync(path.join(target, `ragents.config.${profile}.ts`)), true, `ragents start ${profile} needs the profile file in the package`);
   }
   assert.equal(existsSync(path.join(target, "plugins/ragents.ask/web/QuestionCard.tsx")), true, "third-party plugins build against the exports of the built-in sources");
-  for (const id of ["ragents.orchestration", "ragents.workspace", "ragents.lsp-roslyn"]) {
+  for (const id of ["ragents.orchestration", "ragents.workspace", "ragents.lsp-roslyn", "ragents.acp"]) {
     assert.equal(existsSync(path.join(target, "bundles", id, "ragents-bundle.json")), true, `the server loads ${id} only as a bundle`);
   }
   for (const file of ["packages/ai/dist/index.d.ts", "packages/agent/dist/index.d.ts"]) {
@@ -96,6 +96,7 @@ test("the package contains no sources nobody needs and no foreign dependencies",
     "the run scripts' tests belong to the shown example");
   const dependencies = result.manifest.dependencies as Record<string, string>;
   assert.equal(dependencies.tsx !== undefined, true, "tsx loads the TypeScript sources at runtime");
+  assert.equal(dependencies["@agentclientprotocol/sdk"], "1.7.0", "the ACP command uses the stable SDK shipped in the package");
   assert.equal(dependencies["typescript-language-server"] !== undefined, true, "the TypeScript contribution resolves it from the host's packages");
   assert.equal(dependencies.react !== undefined, true, "the mini-apps are built at runtime");
   assert.equal(dependencies.gsap, undefined, "gsap belongs to the homepage, which does not go into the package");

@@ -13,8 +13,10 @@ import type { ToolContributor } from "./agents/plugins.ts";
 import { describeToolAvailability, isNativeTool, type RunFunction } from "./agents/tools.ts";
 import type { ChannelContribution, ChannelDescriptor, MethodContribution, MethodDescriptor } from "./rpc/contribution.ts";
 import type { PluginState } from "./domain/model.ts";
+import type { JournalEvent } from "./domain/events.ts";
 import type {
   AccessProjectionContribution,
+  ActorRuntimeContribution,
   AgentAudience,
   HttpRouteContribution,
   OperationContext,
@@ -734,6 +736,22 @@ export class ScriptContributionRegistry {
   }
 }
 
+export class ActorRuntimeContributionRegistry {
+  readonly #runtimes = new ContributionRegistry<ActorRuntimeContribution>("Actor runtime");
+
+  register(owner: string, contributions: readonly ActorRuntimeContribution[]): void {
+    for (const entry of contributions) {
+      if (!/^[A-Za-z0-9][A-Za-z0-9._-]{0,79}$/.test(entry.id) || !entry.title.trim() || entry.driver.kind !== "external")
+        throw new Error(`Actor runtime ${entry.id} needs a valid id, title and external driver`);
+    }
+    this.#runtimes.register(owner, contributions);
+  }
+
+  all(): readonly ActorRuntimeContribution[] { return this.#runtimes.entries().map(({ value }) => value); }
+
+  describe(): readonly { id: string; title: string }[] { return this.all().map(({ id, title }) => ({ id, title })); }
+}
+
 type SessionStopAttempt = {
   bounded: Promise<void>;
   settled: Promise<void>;
@@ -1079,21 +1097,27 @@ export class AccessProjectionRegistry {
   }
 
   state(entry: PluginState, access: Pick<AccessContext, "can">): PluginState | undefined {
+    const projection = this.#find(entry.pluginId);
+    if (projection?.private) return undefined;
     if (access.can("runs.inspect")) return entry;
     if (this.#startOptions.missingRight(entry.pluginId, access) !== undefined) return undefined;
-    const projection = this.#find(entry.pluginId);
     if (!projection) return entry;
     const state = projection.state(entry);
     return state === undefined ? undefined : { ...entry, state };
   }
 
   chatEvent<T extends PluginChatEvent>(pluginId: string, event: T, access: Pick<AccessContext, "can">): T | undefined {
+    const projection = this.#find(pluginId);
+    if (projection?.private) return undefined;
     if (access.can("runs.inspect")) return event;
     if (this.#startOptions.missingRight(pluginId, access) !== undefined) return undefined;
-    const projection = this.#find(pluginId);
     if (!projection) return event;
     const projected = projection.chatEvent(event.payload === undefined ? { type: event.type } : { type: event.type, payload: event.payload });
     return projected === undefined ? undefined : { ...event, type: projected.type, payload: projected.payload };
+  }
+
+  eventVisible(event: JournalEvent): boolean {
+    return (event.type !== "plugin.state-replaced" && event.type !== "plugin.state-patched") || this.#find(event.payload.pluginId)?.private !== true;
   }
 
   #find(id: string): AccessProjectionContribution | undefined {
@@ -1247,6 +1271,7 @@ export class PluginHost {
   readonly actorPackages = new ActorPackageContributionRegistry();
   readonly profiles = new ProfileContributionRegistry();
   readonly script = new ScriptContributionRegistry();
+  readonly actorRuntimes = new ActorRuntimeContributionRegistry();
   readonly lifecycle = new LifecycleContributionRegistry();
   readonly sessionMetadata = new SessionMetadataContributionRegistry();
   readonly startOptions = new StartOptionContributionRegistry();
@@ -1306,6 +1331,7 @@ export class PluginHost {
       accessProjections: (...entries) => this.accessProjections.register(manifest.id, entries),
       functions: (...entries) => this.tools.registerFunctions(manifest.id, entries),
       script: (...entries) => this.script.register(manifest.id, entries),
+      actorRuntimes: (...entries) => this.actorRuntimes.register(manifest.id, entries),
     };
     plugin.register(registration);
     return this;

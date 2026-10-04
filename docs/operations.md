@@ -247,6 +247,117 @@ startup fails. The address stays fixed and a running instance is not terminated.
 set `PORT` must be between 1 and 65535; 0 is invalid. The final server message displays the URL.
 A warning about JavaScript bundle size does not prevent startup.
 
+## Connect MCP servers
+
+The neutral profiles include `ragents.mcp` with an empty `MCP_SERVERS` map. In your profile,
+paste the entries of an `mcpServers` map into the plugin section:
+
+```ts
+"ragents.mcp": {
+  MCP_SERVERS: {
+    files: { command: "npx", args: ["-y", "@modelcontextprotocol/server-filesystem", "."] },
+    docs: {
+      url: "https://mcp.example.com/mcp",
+      headers: { Authorization: env("DOCS_MCP_AUTHORIZATION") },
+    },
+    legacy: { type: "sse", url: "http://localhost:8931/sse" },
+  },
+},
+```
+
+Server names use letters, digits, `_`, and `-`. A local server takes `command`, optional
+`args`, `env`, and `cwd`; `cwd` is relative to the run's workspace and must stay below it.
+A remote server takes `url` and optional `headers`. Without `type`, commands use stdio and
+URLs try Streamable HTTP with compatibility fallback to legacy HTTP+SSE. Set `type: "http"`
+or `type: "sse"` to require one remote transport. Unknown fields or incompatible definitions
+stop profile startup. An empty or missing map adds no MCP tools.
+
+Use `env("NAME")` for secrets, also inside `env` and `headers`; the loader resolves nested
+references and rejects missing variables and plain-text secret keys. Non-secret environment
+values and headers may be literal strings. Remote authentication currently uses static
+headers. Profiles remain the configuration source; project `.mcp.json` files are not read.
+
+Restart after editing the profile. Connections open when agents first resolve their tools,
+on the machine that holds the run's workspace. Commands and packages must be installed there;
+`localhost` URLs also reach that machine. Stdio servers follow its process sandbox and receive
+its safe process environment plus the configured `env`. Workstations must have the matching
+executor contribution from the same plugin build. The run's "MCP servers" tab shows connection
+state and errors; agents receive the same causes and the connected servers' instructions.
+Stopping or deleting the run closes its connections and local processes.
+
+## Configure external ACP agents
+
+The neutral profiles include `ragents.acp` with an empty `ACP_AGENTS` map. Configure the
+adapters you want actors to use, with the same entry shape as an editor's `agent_servers` map.
+For a sandboxed server run, provide credentials through nested `env("NAME")` references:
+
+```ts
+"ragents.acp": {
+  ACP_AGENTS: {
+    claude: {
+      title: "Claude",
+      command: "npx",
+      args: ["-y", "@agentclientprotocol/claude-agent-acp"],
+      env: { CLAUDE_CODE_OAUTH_TOKEN: env("CLAUDE_CODE_OAUTH_TOKEN") },
+    },
+    codex: {
+      title: "Codex",
+      command: "npx",
+      args: ["-y", "@agentclientprotocol/codex-acp"],
+      env: { CODEX_API_KEY: env("CODEX_API_KEY"), DEFAULT_AUTH_REQUEST: '{"methodId":"api-key"}' },
+    },
+    gemini: {
+      title: "Gemini CLI",
+      command: "gemini",
+      args: ["--experimental-acp"],
+      env: { GEMINI_API_KEY: env("GEMINI_API_KEY") },
+    },
+  },
+},
+```
+
+Entries take `command`, optional `title`, `args`, and `env`. Use nested `env("NAME")` references
+for credentials. Missing environment variables, invalid entries, and unknown runtime choices
+are hard errors. Restart after editing the profile; `claude`, `codex`, and `gemini` above become
+`acp.claude`, `acp.codex`, and `acp.gemini`. An empty map starts no adapters and adds no choices.
+
+Install adapters yourself on every machine that will hold a run's workspace; sign in there for
+workstation runs. RAgents does not install them or perform interactive sign-in. The npm adapters
+can also run through the `npx` commands above; a global install provides these setup commands:
+
+| Adapter | Install                                               | Sign in before use                    |
+| ------- | ----------------------------------------------------- | ------------------------------------- |
+| Claude  | `npm install -g @agentclientprotocol/claude-agent-acp`  | `claude-agent-acp --cli auth login`     |
+| Codex   | `npm install -g @agentclientprotocol/codex-acp`         | `codex-acp cli login`                  |
+| Gemini  | `npm install -g @google/gemini-cli`                     | `gemini`, then choose a sign-in method |
+
+Claude accepts `CLAUDE_CODE_OAUTH_TOKEN` from `claude setup-token` (uses the Claude subscription),
+or `ANTHROPIC_API_KEY` for API access. Codex accepts `CODEX_API_KEY` or `OPENAI_API_KEY`;
+`DEFAULT_AUTH_REQUEST` above selects its non-interactive API-key method when authentication is
+required. Gemini CLI accepts `GEMINI_API_KEY`. Set the chosen secret in the server's environment
+and reference it in `ACP_AGENTS.<name>.env`; do not put its value in the profile. See the
+[Claude adapter](https://github.com/agentclientprotocol/claude-agent-acp) and
+[CLI authentication commands](https://code.claude.com/docs/en/cli-reference#cli-commands),
+[Codex adapter CLI forwarding](https://github.com/agentclientprotocol/codex-acp/blob/main/src/index.ts), and
+[Gemini authentication](https://geminicli.com/docs/get-started/authentication/) for their setup.
+An adapter requiring an interactive authentication method fails with that method's cause;
+provide non-interactive credentials for a server run or complete sign-in on the workstation.
+
+Each actor starts its process on the run's workspace machine with that machine's safe process
+environment plus its configured `env`. The run's process sandbox also applies to the adapter,
+and file and terminal callbacks stay inside its workspace. On the server the sandbox gives the
+adapter the run's own `HOME`, so it sees neither the sign-in nor the settings of the server
+account. `CLAUDE_CODE_TMPDIR` points Claude Code to the run's writable temporary folder, including
+when started from `bash`; Claude Code ignores `TMPDIR`. On a workstation the adapter uses the
+developer's own sign-in; omit the server credential entries there when using that sign-in.
+ACP actors require `workspace.use` and the shared run workspace; explicit `isolateWorkspace: true`
+is rejected. Workstations need the
+matching plugin bundle and executor version. Profile and run-scoped MCP servers are passed to
+supported transports; unsupported HTTP/SSE transports produce an exclusion notice. A per-server `cwd`
+is rejected because ACP cannot express it. The ACP client contract is in
+[plugins.md](spec/plugins.md#external-acp-actors); actor creation is in
+[Run external ACP actors](homepage/guide-clients.html#run-external-acp-actors).
+
 ## Build after changes
 
 Server changes take effect after a restart. There is one web interface for every profile, built
@@ -331,6 +442,8 @@ For an npx invocation without a global install, see [Install from npm](homepage/
 Node.js 22.19 or newer is required, without Git, pnpm, or a source build. The subcommands are:
 
 - `ragents run <folder> "<task>"`, `send`, `journal`, and `stop` let an agent work on a project.
+- `ragents acp` serves stable Agent Client Protocol v1 over stdio for editors; see
+  [Connect an editor over ACP](homepage/guide-clients.html#connect-an-editor-over-acp).
 - `ragents connect <server-url>` fetches a client profile with its plugin bundles, provisions
   tools, and starts a server. It supports `--port <n>`, `--clean`, and `--no-start`, like
   `pnpm connect`.

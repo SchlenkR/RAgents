@@ -37,6 +37,7 @@ export {
     StorageRegistry,
     ToolContributionRegistry,
     ScriptContributionRegistry,
+    ActorRuntimeContributionRegistry,
     type PluginStopOperation,
     type PluginHostOptions,
 } from "./plugin-host.ts";

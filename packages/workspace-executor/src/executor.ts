@@ -5,7 +5,7 @@ import type { WorkspaceExecutorModule, WorkspaceModuleFactory, WorkspaceOperatio
 import { NO_ROOTS, type OperationFootprint } from "./paths.js";
 
 /** The version of the executor; server and workspace must carry the same one. */
-export const WORKSPACE_EXECUTOR_VERSION = "12";
+export const WORKSPACE_EXECUTOR_VERSION = "13";
 
 export interface WorkspaceExecuteOptions {
   toolCallId?: string;
@@ -55,6 +55,7 @@ export class WorkspaceOperationExecutor implements WorkspaceExecutor {
       contextFor: options.contextFor,
       annotate: (runId: string, absolutePath: string) => this.#annotate(runId, absolutePath),
       backgroundGroups: () => new Set(this.#modules.flatMap((module) => module.backgroundGroups?.() ?? [])),
+      execute: (runId: string, operation: string, input: unknown, executeOptions?: WorkspaceExecuteOptions) => this.execute(runId, operation, input, executeOptions),
     };
     this.#modules = options.modules.map((create) => create(host));
     const operations = new Map<string, WorkspaceOperation>();

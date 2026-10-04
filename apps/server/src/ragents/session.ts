@@ -535,7 +535,7 @@ export class RunChatSession implements ChatSessionLike {
 
   #assertChatTarget(reference: string): void {
     const actor = this.#targetActor(reference);
-    if (actor.kind !== "agent") {
+    if (actor.kind !== "agent" && actor.kind !== "external") {
       throw new DomainError("actor-chat-unsupported", `@${addressOf(actor)} is a TypeScript actor, not a chat partner. Use its mini-app or its documented functions. The message was not queued.`, 400);
     }
   }
@@ -590,7 +590,7 @@ export class RunChatSession implements ChatSessionLike {
 
   async #checkAttachmentCapabilities(reference: string, attachments: readonly ChatAttachmentInput[], choice: StartChoice): Promise<void> {
     const execution = this.#executionFor(reference, choice);
-    if (execution.driver.kind === "script") return;
+    if (execution.driver.kind === "script" || execution.driver.kind === "external") return;
     if (execution.driver.kind !== "agent") throw new DomainError("attachments-unsupported", "Attachments require an actor with a model runtime", 400);
     const { input, model } = await this.#capabilitiesFor(reference, choice);
     const state = this.#engine.journal.stateOf(this.id);

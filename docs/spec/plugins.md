@@ -253,6 +253,11 @@ The server-side `PluginHost` has registries for:
 - named domain operations with an input schema, operator policy, and shared execution for
   several surfaces
 - roles and prompt parts
+- external actor runtimes (`host.actorRuntimes`): named contributions of
+  `{ id, title, driver: AgentDriver<"external"> }`. IDs are unique across plugins; duplicate or
+  missing names fail with a cause. The catalog exposes the names and titles for actor creation,
+  and the scheduler dispatches the ordinary turn and lifecycle methods through the registered
+  driver. Protocol behavior belongs to the plugin, never to a core branch
 - one run condition per plugin (`host.runCondition(condition)`): a synchronous function of the
   run ID that the plugin provides; the core knows neither product nor tool here. If it does not
   hold for a run, the plugin's run-related contributions are entirely absent there: its prompt parts
@@ -319,9 +324,14 @@ The server-side `PluginHost` has registries for:
   (`coordinatorSelection` in `apps/server/src/ragents/coordinator.ts`), and the attachment check on
   sending does the same; a switch to a model that cannot process images, videos, or files in the
   coordinator's conversation fails with `model-history-unsupported` (400)
-- access projections (`host.accessProjections`): per plugin state ID, what an
-  access without `runs.inspect` sees of it. `state(entry)` receives the state including `updatedAt` and
-  returns the visible value or `undefined`, in which case the state is missing from the run view; the host keeps
+- access projections (`host.accessProjections`): visibility of a plugin state and its chat
+  events by state ID. `private: true` removes both from the run view and chat even with
+  `runs.inspect`. Journal event queries and subscription delivery also omit its state events,
+  including `event_query`, TypeScript access, and the host's journal methods. The raw persisted
+  journal, archives, and internal state replay keep them. Otherwise inspection access receives
+  the original state and events, and the callbacks define what restricted access sees.
+  `state(entry)` receives the state including `updatedAt` and returns the visible value or
+  `undefined`, in which case the state is missing from the run view; the host keeps
   ID, scope, and timestamp. `chatEvent({ type, payload })` applies to every chat event
   with this ID (a changed state appears in the chat as `state-replaced`) and returns the
   visible event or `undefined`, in which case it does not reach the access. The server applies both
@@ -375,7 +385,9 @@ agent except the global coordinator:
   `call.keep` fails.
 - `afterToolCall(agent, outcome, call)` after every tool call, with its name and whether it
   failed. A returned result made of text and image parts replaces what the model sees of
-  the call; `isError` marks it as an error.
+  the call; `isError` marks it as an error. Optional `outcome.toolCallId` identifies the
+  completed call, so a plugin can take its stored image result by run and call ID even
+  when several calls run in parallel.
 
 Both see `call.signal` of the running call and `call.modelReadsImages`. The users are the
 project check of the actor programs (a note on new or fixed errors, state in
@@ -513,19 +525,19 @@ Every plugin folder owns the assets and contributions belonging to its capabilit
 server-side plugin needs no empty web folder. Not every plugin needs every facet,
 but an existing facet stays with its owner:
 
-| Facet                     | Owner                                                                     |
-| ------------------------- | ------------------------------------------------------------------------- |
-| Prompt                    | `.hbs` in the server plugin that provides the rule or capability          |
-| Skill                     | `skills/<name>/SKILL.md` in the owning plugin, including audience and optional starting task |
-| Run script                | `run-scripts/<name>/` in the plugin whose capability the run demonstrates |
-| Selectable system prompt  | `prompts/<name>.md` or `.hbs` in the product plugin                       |
-| API                       | Contracts in `contract.ts`, methods in the server plugin, `rpc.call` in the web plugin |
-| UI and CSS                | Components and styles in the matching web plugin                          |
-| Configuration             | Declaration and evaluation in the matching server plugin                  |
-| Storage                   | `host.storage`, always under `plugins/<plugin-id>`                        |
-| View without `runs.inspect` | `host.accessProjections` in the plugin that owns the state              |
-| Lifecycle                 | Start, run preparation, deletion, and shutdown at the owner               |
-| Provisioning              | `provision.ts` in the plugin folder, in the bundle an export of `server/index.js`; tools in `<data folder>/tools/<plugin-id>/` |
+| Facet                        | Owner                                                                                                                                                                                    |
+| ---------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Prompt                       | `.hbs` in the server plugin that provides the rule or capability                                                                                                                         |
+| Skill                        | `skills/<name>/SKILL.md` in the owning plugin, including audience and optional starting task                                                                                             |
+| Run script                   | `run-scripts/<name>/` in the plugin whose capability the run demonstrates                                                                                                                |
+| Selectable system prompt     | `prompts/<name>.md` or `.hbs` in the product plugin                                                                                                                                      |
+| API                          | Contracts in `contract.ts`, methods in the server plugin, `rpc.call` in the web plugin                                                                                                   |
+| UI and CSS                   | Components and styles in the matching web plugin                                                                                                                                         |
+| Configuration                | Declaration and evaluation in the matching server plugin                                                                                                                                 |
+| Storage                      | `host.storage`, always under `plugins/<plugin-id>`                                                                                                                                       |
+| State and chat visibility    | `host.accessProjections` in the plugin that owns the state                                                                                                                               |
+| Lifecycle                    | Start, run preparation, deletion, and shutdown at the owner                                                                                                                              |
+| Provisioning                 | `provision.ts` in the plugin folder, in the bundle an export of `server/index.js`; tools in `<data folder>/tools/<plugin-id>/`                                                           |
 | Contribution to the executor | `executor.ts` (or `executor/index.ts`) in the plugin folder, in the bundle `executor/index.mjs`; runs in the executor of every machine (section Workspace, sandbox tools, and processes) |
 
 Besides `initialize`, `prepareSession`, the stop phases, `deleteSession`, and `shutdown`, the
@@ -1035,7 +1047,7 @@ build does not see its names.
    module.
 5. An entry without users drops out at the next version jump, as does a name.
 
-**Version contract.** `HOST_API_VERSION` increases with every incompatible change of a
+**Version contract.** `HOST_API_VERSION` is 12 for the external driver and updated host contracts. It increases with every incompatible change of a
 list entry, a listed name, or a fully allowed library, not with every
 package version; whatever else a host module exports changes without a new number. The manifest names it
 in `api`; the host requires equality and otherwise aborts with a cause and the command to rebuild;
@@ -3701,10 +3713,18 @@ everything it needs from the machine it receives through `WorkspaceExecutorMachi
 tools folder of its plugin on this machine (`toolsDirectory`, where its
 provisioning downloads to), a file from the packages of this machine's host (`hostPackageFile`, without a host
 or package an error with a cause), the checked resolution of a root in the workspace
-(`resolveRootFile`, `resolveRootDirectory`), domain errors (`operationError`, at the caller a
+(`resolveRootFile`, `resolveRootDirectory`, `resolveRootPath`), domain errors (`operationError`, at the caller a
 `DomainError` like every error of the executor), and the environment of a process it starts itself
-(`processEnvironment`: the safe selection of this machine, its `HOME`, and the run's marker). The
-function touches neither disk nor network; resolution and checks happen only in the call.
+(`processEnvironment`: the safe selection of this machine, its `HOME`, and the run's marker).
+`machine.startManagedService(options)` starts a managed child process from `ManagedServiceOptions`
+and returns `ManagedService`. The contribution first wraps its launch with
+`context.sandbox.wrap` when present, merges `machine.processEnvironment(runId)` with `context.env`,
+and closes the service through `kill` and `finished` in its module's `stopRun` and `shutdown`.
+`WorkspaceModuleHost.execute` lets a module use the executor's existing confined file and process
+operations locally, including their cancellation and progress. `resolveRootPath` also checks paths
+for files that do not exist yet and refuses links or paths outside the supplied root. The
+contribution function touches neither disk nor network; resolution and checks happen only in the
+call. `WORKSPACE_EXECUTOR_VERSION` is 13 because older machines cannot provide these contracts.
 
 The build tool turns it into a self-contained file `executor/index.mjs` that imports only `node:*`
 (section Bundle, build tool, and host API). It therefore loads in every Node process, in the
@@ -3758,8 +3778,9 @@ run itself (`sessions/<run-id>`), and its read-only roots (skills; for the globa
 without users the journal folder). A run may read and write the root of its
 workspace or its server folder, the registered roots (`@actors`), its
 home, the shared NuGet cache, and its own temp folder `sessions/<run-id>/tmp`, which is in
-`TMPDIR`, `TMP`, and `TEMP`. Added to that are the folders its workspace explicitly
-allows (`SessionWorkspace.sandboxFolders`, below). The rest of the system (`/usr`, `/opt`, toolchains)
+`TMPDIR`, `TMP`, `TEMP`, and `CLAUDE_CODE_TMPDIR` (Claude Code ignores `TMPDIR`). Added to that
+are the folders its workspace explicitly allows (`SessionWorkspace.sandboxFolders`, below).
+The rest of the system (`/usr`, `/opt`, toolchains)
 stays readable and
 is not writable; the library additionally blocks writing `.git/hooks`, `.vscode`,
 `.idea`, and shell startup files; `.git/config` stays writable. The processes therefore do not see other runs, foreign journals, and
@@ -4129,6 +4150,142 @@ the run menu, `ragents script`, or the coordinator's `run_script_start`, it join
 a room of its own, lists the other participants with `actor_list`, and ends each start with
 `context.finish`. Two neutral skill templates guide a decision or a
 learning unit as reusable work instructions in the chat, without a programmed setup.
+
+## MCP client
+
+`ragents.mcp` connects external Model Context Protocol servers and contributes their tools as
+native run functions. It requires the workspace plugin and adds nothing when neither the
+profile nor the run supplies servers. `MCP_SERVERS` in the `ragents.mcp` profile section is a
+map of server names to the usual `command`/`args`/`env`/`cwd` or `url`/`headers` definitions;
+`type` optionally selects `stdio`, `http`, or `sse`. Unknown fields, invalid server names,
+and incompatible fields are startup errors. Configuration and examples are in
+[operations.md](../operations.md#connect-mcp-servers); structured configuration values and
+nested `env(...)` references are described in [profiles.md](profiles.md).
+
+Every connection belongs to the plugin's executor module on the machine of the run's workspace,
+including HTTP and SSE, so `localhost` names that machine. A stdio server is a managed process
+with the run's process sandbox and machine environment plus its configured `env`; its working
+directory is the workspace or `cwd` below it. Bounded stderr is available in connection errors.
+The client's `roots` capability names the workspace root. The self-contained executor bundle
+contains the official MCP client SDK; the server half contains the same dependency wherever
+its imports require it.
+
+Negotiation covers the legacy `initialize` handshake and the `server/discover` era, with supported
+protocols from 2024-10-07 through 2026-07-28. If a legacy stdio process exits on the discovery probe, the module restarts
+it for the legacy handshake. An untyped URL first uses Streamable HTTP and tries legacy
+HTTP+SSE only after a 4xx initialization rejection except 401, 403, 408, and 429; explicit `http`
+or `sse` selects only that transport. Authentication, timeout, and rate-limit errors remain visible.
+
+The first tool resolution connects the configured servers in parallel with a 15-second wait.
+Later resolutions use the cached list. Tool-list change notifications reach the server half
+through an executor observation and apply at the next model step. A failed or disconnected
+server retains its last known tools so fixed actor selections still resolve; a call reports
+the cause and starts reconnection. Stop, deletion, and executor shutdown close connections and
+managed processes on their owning machine.
+Streamable HTTP session termination uses DELETE with a two-second absolute deadline; local
+clients, transports, and observations always close, and cleanup reports redacted failures.
+
+Tool names follow `mcp__<server>__<tool>`, contain only `[A-Za-z0-9_-]`, and are at most 64
+characters; deterministic suffixes resolve sanitization and shortening collisions. The input
+schema comes from the MCP tool, the description names its server, and `readOnlyHint` permits
+parallel calls. Turn cancellation cancels the request; progress resets its five-minute timeout.
+The executor call uses `untilAborted` with a signal so workstation transport does not impose
+a shorter fixed timeout. Workstations require the current executor version and the matching MCP contribution.
+Calls use the normal journaled run-function path. Text content is joined, or structured content
+is returned as JSON when no text exists. Error results fail with the server's text. An
+`afterToolCall` hook presents images to the model, bound to the result by tool-call ID; audio and
+resource content use short text summaries. Results use an 8000-character default limit and a
+1000-character line limit with a truncation note.
+
+A per-run prompt chapter includes bounded server instructions and connection failures. The
+"MCP servers" tab shows server name, transport, negotiated protocol, state, error, and tool
+count through the shared typed channel, without connection definitions or credentials.
+
+Other host components call `setRunServers(runId, servers)` through `mcpRunServersToken` from the
+plugin's declared export `server/service` before the first tool resolution. Run-scoped names
+must differ from profile server names. These definitions stay in memory and in `servers.json`
+in per-run plugin storage across a server restart (file mode 0600, directory mode 0700).
+They never become journal payloads or model tool arguments and results; plain strings in their
+environment and headers are accepted.
+
+External clients replace these definitions through the guarded non-tool method
+`ragents.mcp.servers.set`. It requires run read, write, and create permissions, checks workspace
+access, and refuses a run with a running turn or pending actor inputs. The method calls
+`replaceRunServers`: close existing connections, reset the tool cache, and atomically store
+the replacement definitions before the next turn. The original service method retains its
+before-first-resolution rule. The ACP editor adapter uses this boundary for `session/new` and
+`session/load`; definitions never become a journaled tool call.
+
+`ragents.mcp.connections.close` requires run read and write permissions and workspace access.
+It closes connections idempotently while preserving the private server definitions. The ACP
+adapter closes its remote runs' connections before unregistering their workstations, while
+the owning executor is still reachable.
+
+## External ACP actors
+
+`ragents.acp` supplies one generic Agent Client Protocol client driver for all configured
+adapters. `ACP_AGENTS` in its profile section uses the editor `agent_servers` entry shape:
+`{ title?, command, args?, env? }`, with nested `env(...)` configuration references. Every entry
+contributes a runtime named `acp.<name>` through `actorRuntimes`; an empty map contributes no runtimes.
+The neutral profiles include the plugin with an empty map. Configuration and adapter setup are
+in [operations.md](../operations.md#configure-external-acp-agents), user behavior in
+[usage.md](../usage.md#run-external-acp-actors).
+
+Each ACP actor requires `workspace.use` and uses the shared run workspace. External runtime
+selection defaults to `isolateWorkspace: false`; the ACP driver rejects explicit isolation.
+Every actor has exactly one adapter process and ACP session in the executor on the machine of
+its run's workspace. The launch uses the process sandbox, `machine.processEnvironment(runId)`
+plus configured environment, and the workspace as `cwd`. On the server the sandbox's own `HOME`
+hides the server account's sign-in from the adapter; configure non-interactive credentials in
+`ACP_AGENTS.<name>.env` as described in operations. A workstation has no process sandbox, so its
+adapters use the developer's sign-in. The self-contained executor bundle
+uses the stable `@agentclientprotocol/sdk` entry point and newline-delimited JSON-RPC over pipes.
+`initialize` declares file read, file write, and terminal capabilities. The module serves these
+callbacks through its local executor's confined file and process operations, checks all paths
+against the run root, and keeps terminal handles internal. Missing commands, process errors,
+and authentication that requires interaction fail with a clear cause naming the offered method.
+ACP request errors retain their bounded, redacted `data` in the failure reason.
+The driver starts no interactive sign-in flow.
+
+The session receives the run's MCP definitions from `ragents.mcp`, including profile and
+private run-scoped entries. Stdio is supported by ACP; HTTP and SSE are forwarded only when the
+adapter advertises their capability, with a visible exclusion notice otherwise. An MCP entry
+with its own `cwd` fails with its server name because ACP cannot represent it. Definitions and
+credentials travel directly between the server and executor, never through model tools.
+
+An ActorInput becomes `session/prompt`, with its lasting instructions prefixed to the text.
+Images and embedded resources require the advertised prompt capabilities; unsupported content
+fails explicitly. The executor resolves attached resources to local file URIs inside the run
+workspace, so a workstation path is never interpreted on the server. Inputs received during a
+prompt remain queued for later turns. Message and
+thought chunks publish live deltas; changes of content kind, message, or tool flush completed
+text blocks into the observation events described in [core.md](core.md#external-runtimes).
+Pending tool calls collect title and raw input refinements without publishing a start. The
+journal records the start and the live tool event publishes the same input when the call leaves
+`pending`, a permission request refers to it, or the turn ends. Completion and failure close the
+call once; calls still unfinished at a successful turn end receive a failure result, while
+interrupted or failed turns close open calls through the core projection. The ordinary tool-call
+lifecycle keeps bounded input and result text and locally generated call references; raw ACP
+tool IDs stay internal. Plans become visible runtime output. Reported usage contributes to
+the turn's usage; cumulative values stay in
+actor-scoped plugin state so later turns do not count earlier usage again.
+
+`session/request_permission` produces a blocking question through `ragents.ask` associated with
+the running turn. The user sees the offered labels; the executor retains their option IDs and
+returns the selected ID. Dismissal or abort answers `cancelled`. On a workstation, the question
+travels as progress of the prompt operation and its answer returns through a separate executor
+operation. Aborting a turn sends `session/cancel` and records unfinished text as interrupted.
+
+The session ID and cumulative usage are kept in private actor-scoped plugin state. Its access
+projection hides the state and its chat events even from inspection access; ordinary journal
+queries and subscriptions also omit its state events. Persisted journals and archives retain
+these values for restoration. No model or user is asked to copy the session ID. After a host
+restart the driver uses advertised `session/load` and suppresses replayed updates while loading.
+Without that capability, or when loading fails, the actor reports a blocking cause rather than
+silently starting a replacement session. Stopping an actor or run closes its
+connection, adapter process, and terminals on their owning machine; executor shutdown does the
+same. The adapter's conversation remains its own persistent context, while the RAgents journal
+restores the actor and its observable history without executing it.
 
 ## Browser checks
 

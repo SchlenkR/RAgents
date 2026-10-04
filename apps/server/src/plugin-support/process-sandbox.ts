@@ -55,6 +55,8 @@ const shellCommand = (words: readonly string[]): string => words.map(shellWord).
 const insideEnvironment = (temporary: string, searchPath: string, platform: NodeJS.Platform): readonly string[] => [
   `PATH=${searchPath}`,
   `TMPDIR=${temporary}`,
+  // Claude Code ignores TMPDIR and otherwise writes to the blocked /tmp/claude-<uid>.
+  `CLAUDE_CODE_TMPDIR=${temporary}`,
   `TMP=${temporary}`,
   `TEMP=${temporary}`,
   "NO_PROXY=",

@@ -56,6 +56,13 @@ like the web app and VS Code; this also works when `RAGENTS_URL` points to a ser
 `journal` reads the history from the profile's data folder, with `RAGENTS_URL` from the server
 (there with the right `runs.inspect`); `--tools` shows the tool calls instead of the conversation.
 
+An ACP editor can instead start `ragents acp [--profile <profile|path>] [--data-dir <folder>]`;
+in a checkout its stdio launcher must use `pnpm --silent ragents acp` to suppress pnpm's banner.
+It uses stable Agent Client Protocol v1 over stdio, so stdout contains only protocol messages
+and logs go to stderr. The editor supplies the project folder, prompts, and optional run-scoped
+MCP servers; the same run appears in the browser and VS Code. Editor setup is in
+`docs/usage.md`, section Connect an editor over ACP.
+
 ## Reading output and exit code
 
 stdout shows the tool calls with name and duration, as far as the server shows them to your user

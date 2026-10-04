@@ -1,0 +1,6 @@
+{
+  "id": "ragents.mcp",
+  "exports": {
+    "server": ["server/service"]
+  }
+}

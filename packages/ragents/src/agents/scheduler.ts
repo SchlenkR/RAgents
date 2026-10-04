@@ -14,6 +14,7 @@ import {
 import type { JsonValue } from "../domain/json.ts";
 import type { ModelSelection } from "../domain/driver.ts";
 import type { CommandContext } from "../runtime/command.ts";
+import type { ActorRuntimeContribution } from "../plugin-types.ts";
 import type { Journal } from "../runtime/journal.ts";
 import type { Orchestration } from "../runtime/orchestration.ts";
 import type { ModelCatalog } from "./catalog.ts";
@@ -30,6 +31,7 @@ import { FixedWorkspaces, type Workspaces } from "./workspaces.ts";
 
 export type TurnSchedulerOptions = {
     drivers: DriverRegistry;
+    actorRuntimes?: readonly ActorRuntimeContribution[];
     catalog: ModelCatalog;
     workspaces?: Workspaces;
     registry?: ToolProvider | undefined;
@@ -125,6 +127,7 @@ export class TurnScheduler {
     readonly #runtime: Orchestration;
     readonly #journal: Journal;
     readonly #drivers: DriverRegistry;
+    readonly #runtimes: ReadonlyMap<string, AgentDriver<"external">>;
     readonly #programLifecycle: RuntimeLifecycle;
     readonly #catalog: ModelCatalog;
     readonly #workspaces: Workspaces;
@@ -157,6 +160,9 @@ export class TurnScheduler {
         this.#runtime = runtime;
         this.#journal = journal;
         this.#drivers = options.drivers;
+        this.#runtimes = new Map((options.actorRuntimes ?? []).map(({ id, driver }) => [id, driver]));
+        if (this.#runtimes.size !== (options.actorRuntimes ?? []).length)
+            throw new Error("An external actor runtime is registered more than once.");
         this.#programLifecycle = {
             disposeAgent: async (runId, actorId) => runtime.actorProgramLifecycle?.stopActor?.(runId, actorId),
             haltRun: async (runId) => runtime.actorProgramLifecycle?.stopRun?.(runId),
@@ -579,7 +585,7 @@ export class TurnScheduler {
         if (!actor || !isAutomated(actor.execution.driver.kind))
             return;
 
-        const driver = this.#drivers[actor.execution.driver.kind];
+        const driver = this.#driverFor(actor);
 
         if (!driver?.reviveAgent)
             return;
@@ -600,7 +606,7 @@ export class TurnScheduler {
         const actor = this.#actor(runId, actorId);
 
         if (!actor) return;
-        const driver = isAutomated(actor.execution.driver.kind) ? this.#drivers[actor.execution.driver.kind] : undefined;
+        const driver = this.#driverFor(actor);
         const remaining = new Set<RuntimeLifecycle>([
             ...(driver?.disposeAgent ? [driver] : []),
             ...(this.#runtime.actorProgramLifecycle?.stopActor ? [this.#programLifecycle] : []),
@@ -696,7 +702,7 @@ export class TurnScheduler {
     }
 
     #uniqueLifecycles(): RuntimeLifecycle[] {
-        return [...new Set(Object.values(this.#drivers).filter((driver) => driver !== undefined)),
+        return [...new Set([...Object.values(this.#drivers).filter((driver) => driver !== undefined), ...this.#runtimes.values()]),
             ...(this.#runtime.actorProgramLifecycle ? [this.#programLifecycle] : [])];
     }
 
@@ -853,7 +859,7 @@ export class TurnScheduler {
             if (!actor || !driverRef || driverRef.kind === "manual")
                 throw new Error(`Actor ${actorId} lost its driver before turn ${turn.turnId}.`);
 
-            const driver = this.#requiredDriver(driverRef.kind);
+            const driver = driverRef.kind === "external" ? this.#requiredRuntime(driverRef.config.runtime) : this.#requiredDriver(driverRef.kind);
             const selection = driverRef.kind === "agent"
                 ? { ...(this.#modelSelection ? this.#modelSelection(turn, actor) : driverRef.config) }
                 : null;
@@ -870,7 +876,7 @@ export class TurnScheduler {
                 runtime: this.#runtime,
                 turn,
                 catalog: this.#catalog,
-                registry: this.#registry,
+                registry: driverRef.kind === "external" ? { resolve: async () => [] } : this.#registry,
                 workspace,
                 signal: controller.signal,
                 chapters: (toolNames) => this.#toolChapters(runId, actor, toolNames, toolset.functions),
@@ -957,6 +963,11 @@ export class TurnScheduler {
                         claimSteering: () => this.#claimSteering(turn, controller.signal),
                         ...turnModelContext(this.#runtime, turn, () => emitted++),
                     },
+                    controller.signal,
+                )
+                : driverRef.kind === "external"
+                ? await this.#requiredRuntime(driverRef.config.runtime).runTurn(
+                    { ...request, driverKind: "external", runtime: driverRef.config.runtime, instructions: actor.kind === "external" ? actor.prompt : "", tools: [] },
                     controller.signal,
                 )
                 : await this.#requiredDriver("script").runTurn(
@@ -1061,6 +1072,18 @@ export class TurnScheduler {
         return driver;
     }
 
+    #requiredRuntime(id: string): AgentDriver<"external"> {
+        const driver = this.#runtimes.get(id);
+        if (!driver) throw new Error(`External actor runtime ${id} is not configured.`);
+        return driver;
+    }
+
+    #driverFor(actor: ExecutableActor): AgentDriver | undefined {
+        const ref = actor.execution.driver;
+        return ref.kind === "external" ? this.#runtimes.get(ref.config.runtime)
+            : ref.kind === "manual" ? undefined : this.#drivers[ref.kind];
+    }
+
     #actor(runId: string, actorId: string): ExecutableActor | null {
         const found = this.#runtime.view(runId).actors.find((entry) => entry.id === actorId);
 
@@ -1074,7 +1097,7 @@ export class TurnScheduler {
     }
 
     #append(turn: ClaimedTurn, index: number, driverEvent: DriverEvent) {
-        if (driverEvent.kind === "assistant-interrupted" && !this.#isRunning(turn))
+        if (!this.#isRunning(turn))
             return;
 
         const context = {
@@ -1085,13 +1108,16 @@ export class TurnScheduler {
         };
         const payload = { turnId: turn.turnId, text: driverEvent.text };
 
-        if (driverEvent.kind === "assistant-interrupted")
+        if (driverEvent.kind === "assistant-completed" || driverEvent.kind === "reasoning-completed")
+            this.#runtime.appendExternalOutput(context, turn.runId, turn.actorId, { ...payload, reasoning: driverEvent.kind === "reasoning-completed" });
+        else if (driverEvent.kind === "assistant-interrupted")
             this.#runtime.appendInterruptedModelOutput(context, turn.runId, turn.actorId, payload);
         else
             this.#runtime.appendRuntimeOutput(context, turn.runId, turn.actorId, payload);
     }
 
     #appendTool(turn: ClaimedTurn, index: number, event: DriverToolEvent) {
+        if (!this.#isRunning(turn)) return;
         const context = {
             actorId: turn.actorId,
             commandId: `scheduler:${turn.turnId}:tool:${event.id}:${event.kind}:${index}`,

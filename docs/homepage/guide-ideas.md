@@ -30,8 +30,9 @@ actor programs are available for workflows that need to react to later responses
 
 A run brings together a task, its participants, working files, and events. Its participants are
 called actors. An LLM actor processes messages with a model; a TypeScript actor uses its
-program. A coordinator is itself an LLM actor that can assign work to other participants. A
-prepared sample can also operate without a coordinator.
+program. An external actor uses a complete agent runtime supplied by a plugin, with its own
+coding tools and conversation. A coordinator is itself an LLM actor that can assign work to
+other participants. A prepared sample can also operate without a coordinator.
 
 The word game has four LLM actors for the words and one TypeScript actor for the workflow. In
 the learning-afternoon sample, two LLM actors work in parallel while the program collects their
