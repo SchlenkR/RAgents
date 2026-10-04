@@ -153,6 +153,8 @@ export interface ActorInput {
 export interface ActorStart {
   readonly input: unknown; readonly options: Readonly<Record<string, unknown>>;
   readonly embedded: boolean; readonly startedBy: string; readonly count: number;
+  /** The room this start opened, where the setup actor and everything it creates stand; null in the main room. */
+  readonly room: string | null;
 }
 export interface ActorResult { readonly handle: string; readonly count: number; readonly result: unknown; readonly summary?: string }
 export interface ActorFunction { label: string; description?: string; input: TSchema; output: TSchema; capabilities?: readonly string[]; confirmation?: string; tool?: { name: string; targets?: readonly string[]; card?: boolean } }

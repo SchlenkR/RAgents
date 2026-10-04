@@ -1,5 +1,66 @@
 # Decisions
 
+## 2026-10-04: Room addresses hold at every boundary of actor programs
+
+Chapters: `spec/actor-programs.md` (Packages and actor binding; Backend and client; Create, edit,
+and activate; Diagnostics, type check, and domain tests; App host and functions tab; Host bridge),
+`spec/typescript-platform.md` (Build and process lifecycle; Run scripts as prepared actor programs),
+`spec/core.md` (Rooms in the journal and the resolution of addresses); handbook: `development.md`
+(Actors with functions and views).
+
+**Why.** A review of the room changes and its verification found one class of defect at several
+boundaries of actor programs: a check, a key, or a text still assumed one room, the main room, or the
+caller's room where another one applied. View IDs of three full-length names were refused, two
+rooms' tools of the same name broke the web listing and could be bound to one actor, the chat bridge
+refused room-qualified and long addresses, the function RPCs used the package grammar for actors, a
+reactivation after a contract drift and the background check resolved tool targets from the wrong
+room, relative view aliases followed the package instead of the actor, stored error texts dropped
+the room, and two reference scripts handed the coordinator names that only hold inside their room.
+
+**Decision.**
+
+- A view ID is at most 195 characters (`ACTOR_VIEW_ID_MAX_LENGTH` in the actor programs contract); the
+  RPC contracts, the web listing, and the frame route derive their limit from it.
+- The web identifies a function by `moduleId` and `functionId` (`toolKeyOf`) in the listing, the
+  selection, React keys, and the navigation of the functions tab.
+- A tool name is refused only when another package's tool of that name can reach the same actor:
+  shared targets, a target in the room of an untargeted tool, or two untargeted tools whose rooms
+  share names. Equal names in separate rooms stay possible.
+- The engine owns the address grammar (`actorAddressPattern`, `isActorAddress`); the mini-app chat
+  bridge and the `function` and `function-invocation` RPC schemas use it, without a length limit and
+  with the dotted handles of older journals.
+- A program definition records `targetRoom`, the room its declared targets were resolved from at
+  the last activation. A reactivation after a contract drift keeps it. The background check runs
+  through `diagnose`: an active package with that room, a package nobody activated yet from its own
+  room; its kept results count only for the same `diagnosisContext`.
+- A relative `package/view` means a package of the caller's room, a relative `@actor/view` an actor
+  of the caller's room, wherever that actor's package lives.
+- Stored error texts of the plugin name actors with `addressOf`.
+- A run script start carries `room`, the room it opened. The discussion round and the collection
+  board take their start in `onStart` and hand the coordinator `room.name` addresses, including the
+  suffix of a repeated start; the balcony view chats with `"@" + context.actor.handle`.
+- Authoring texts point to the `directory` that `actor_program_create` returns.
+- The host API gains the names `ACTOR_VIEW_ID_MAX_LENGTH` and `isActorAddress` without a new
+  `HOST_API_VERSION`. `ActorStart.room` is required, so a package test that builds a start by hand
+  names the room.
+
+Rejected: resolving declared targets always from the package's room, which is simpler but would
+change what an explicit activation from another room means; reusing the old target IDs on a
+reactivation, which fails when reloaded sources changed the declaration; handing the coordinator
+actor IDs, which a model would have to copy; `context.actor.room` for every program and snippet
+where only run scripts need the room; keying the kept diagnostics on the actor roster, which would
+check every package again for every agent after each spawn.
+
+Verified with `packages/ragents/tests/rooms.test.ts` (the address grammar),
+`apps/server/tests/actor-program-rooms.test.ts` (tool names across rooms resolved for
+every actor, a contract drift of a room's package, diagnostics from the main room, function RPCs for
+`review.rule_review`, view aliases), `actor-program-frame-route.test.ts` (a 195-character view over
+HTTP, one more refused), `actor-program-diagnostics.test.ts` (a kept result per context),
+`run-script-in-run.test.ts` (`room` of every start, the finish error), `reference-run-scripts.test.ts`
+(both handovers in a suffixed room resolve from the coordinator's room), the reference package
+tests, and `apps/web/tests/actor-program-state.test.ts`, `actor-program-tools.test.ts`, and
+`actor-program-chat.test.ts`. A live check in the browser is open (`TODO.md`).
+
 ## 2026-10-04: The mini-app frame route takes room-qualified view identifiers
 
 Chapter: `spec/actor-programs.md` (unchanged contract; the route now matches it).

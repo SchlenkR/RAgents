@@ -3,7 +3,7 @@ import test from "node:test";
 import { createTestContext } from "@ragents/server/testing";
 import program from "../src/server.ts";
 
-const start = (input: unknown) => ({ input, options: {}, embedded: true, startedBy: "owner-id", count: 1 });
+const start = (input: unknown) => ({ input, options: {}, embedded: true, startedBy: "owner-id", count: 1, room: "quick-note" });
 
 const note = (status: "active" | "installed" = "installed") => {
   const calls: { name: string; input: unknown }[] = [];

@@ -160,6 +160,27 @@ test("the chat bridge validates target and input and does not accept a caller-su
   assert.equal(validateRunAppBridgeRequest({ ...common, type: RUN_APP_CHAT_WATCH, actor: "../other-run" }).ok, false);
 });
 
+test("the chat bridge takes every actor address the run resolves: room-qualified, dotted handles of older journals, long handles, and primary", () => {
+  const roomed = { ...actor("room-reviewer", "reviewer", "agent"), room: "review" };
+  const legacy = actor("legacy-lead", "team.lead", "agent");
+  const long = actor("long-name", "a".repeat(65), "agent");
+  const rooms = session({ runView: { ...view, actors: [...view.actors, roomed, legacy, long] } });
+  const target = (actor: string) => {
+    const validated = validateRunAppBridgeRequest({ version: 1, requestId: "request-2", type: RUN_APP_CHAT_WATCH, actor });
+    return !validated.ok ? validated.error : "actor" in validated.request ? resolveChatActor(rooms, validated.request.actor).actor.id : "no chat request";
+  };
+  assert.equal(target("@review.reviewer"), roomed.id);
+  assert.equal(target("@Review.Reviewer"), roomed.id);
+  assert.equal(target("review.reviewer"), roomed.id);
+  assert.equal(target("@team.lead"), legacy.id);
+  assert.equal(target(`@${"a".repeat(65)}`), long.id);
+  assert.equal(target("@reviewer"), worker.id, "from a surface for people a bare name means the main room");
+  assert.equal(target("primary"), primary.id);
+  for (const invalid of ["../other-run", "@.reviewer", "review/reviewer", "@", " ", "review reviewer"]) {
+    assert.match(String(target(invalid)), /must be primary or an actor address/, invalid);
+  }
+});
+
 test("the chat bridge accepts attachment-only input and rejects invalid or oversized files", () => {
   const common = { version: 1, requestId: "attachment-1", actor: "primary", type: RUN_APP_CHAT_SEND, text: "" };
   const attachment = { name: "notes.txt", mediaType: "text/plain", data: "aGk=" };

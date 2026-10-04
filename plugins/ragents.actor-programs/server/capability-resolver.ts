@@ -1,4 +1,5 @@
 import {
+  addressOf,
   runCapabilityBindingHash,
   runCapabilityContractHash,
   type Actor,
@@ -76,7 +77,7 @@ export const agentCapabilityBinding = (
     capabilityIds,
     (tool) => tool.name,
     (id, names) => new Error(
-      `Capability ${id} is not available to @${actor.handle}. Available: ${names}.`,
+      `Capability ${id} is not available to @${addressOf(actor)}. Available: ${names}.`,
     ),
   );
   const descriptors = resolved.map((tool) => descriptorOf({ ...tool, id: tool.name }));

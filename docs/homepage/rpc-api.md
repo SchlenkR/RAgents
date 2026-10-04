@@ -139,7 +139,7 @@ Owner: ragents.actor-programs. Rights: runs.read, runs.write. Execution: the ser
     },
     "appId": {
       "type": "string",
-      "pattern": "^[a-z][a-z0-9_.-]{0,193}$",
+      "pattern": "^[a-z][a-z0-9_.-]{0,194}$",
       "description": "Identifier of the actor view or the program"
     },
     "revision": {
@@ -259,8 +259,8 @@ Owner: ragents.actor-programs. Rights: runs.read, runs.write, runs.inspect. Exec
     },
     "actorHandle": {
       "type": "string",
-      "pattern": "^(?:[a-z][a-z0-9-]{0,63}\\.)?[a-z][a-z0-9-]{0,63}$",
-      "description": "Address of the actor without @: room.handle in a room, the handle in the main room"
+      "pattern": "^[\\p{L}\\p{N}][\\p{L}\\p{N}._-]*$",
+      "description": "Address of the actor without @: room.handle in a room, the handle in the main room or a dotted handle of an older journal"
     },
     "revision": {
       "type": "string",
@@ -320,8 +320,8 @@ Owner: ragents.actor-programs. Rights: runs.read, runs.inspect. Execution: the s
     },
     "actorHandle": {
       "type": "string",
-      "pattern": "^(?:[a-z][a-z0-9-]{0,63}\\.)?[a-z][a-z0-9-]{0,63}$",
-      "description": "Address of the actor without @: room.handle in a room, the handle in the main room"
+      "pattern": "^[\\p{L}\\p{N}][\\p{L}\\p{N}._-]*$",
+      "description": "Address of the actor without @: room.handle in a room, the handle in the main room or a dotted handle of an older journal"
     },
     "invocationId": {
       "type": "string",
@@ -367,7 +367,7 @@ Owner: ragents.actor-programs. Rights: runs.read. Execution: the server.
     },
     "appId": {
       "type": "string",
-      "pattern": "^[a-z][a-z0-9_.-]{0,193}$",
+      "pattern": "^[a-z][a-z0-9_.-]{0,194}$",
       "description": "Identifier of the actor view or the program"
     },
     "invocationId": {
@@ -413,7 +413,7 @@ Owner: ragents.actor-programs. Rights: runs.read, runs.inspect. Execution: the s
     },
     "moduleId": {
       "type": "string",
-      "pattern": "^[a-z][a-z0-9_.-]{0,193}$",
+      "pattern": "^[a-z][a-z0-9_.-]{0,194}$",
       "description": "Identifier of the actor view or the program"
     }
   },

@@ -1,3 +1,4 @@
+import { isActorAddress } from "@ragents/engine/src/http/contracts";
 import { isRecord } from "@ragents/web/lib/guards";
 import { parseChatAttachments, type ChatAttachmentInput } from "quassel/events";
 
@@ -85,8 +86,8 @@ export const validateRunAppBridgeRequest = (value: unknown): RunAppBridgeValidat
     return { ok: true, request: { type: RUN_APP_GET_STATE, version: RUN_APP_BRIDGE_VERSION, requestId } };
   }
   if (value.type === RUN_APP_CHAT_WATCH || value.type === RUN_APP_CHAT_UNWATCH || value.type === RUN_APP_CHAT_SEND) {
-    if (typeof value.actor !== "string" || !/^@?[\p{L}\p{N}_-]{1,64}$/u.test(value.actor)) {
-      return { ok: false, requestId, error: "The chat target must be primary or an actor handle such as @reviewer" };
+    if (typeof value.actor !== "string" || !isActorAddress(value.actor)) {
+      return { ok: false, requestId, error: "The chat target must be primary or an actor address such as @reviewer or @review.reviewer" };
     }
     const common = { version: RUN_APP_BRIDGE_VERSION, requestId, actor: value.actor } as const;
     if (value.type !== RUN_APP_CHAT_SEND) return { ok: true, request: { ...common, type: value.type } };

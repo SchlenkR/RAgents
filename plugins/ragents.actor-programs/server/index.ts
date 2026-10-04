@@ -30,7 +30,8 @@ const actorProgramsPlugin = (pluginHost: PluginHost): RAgentsPlugin => ({
         });
         host.provide(actorProgramsToken, runtime);
         const diagnostics = createProjectDiagnostics({
-            workspaceFor: (runId) => runtime.workspaceDirectory(runId), check: (runId, name, actorId, signal) => runtime.check(runId, name, actorId, signal),
+            workspaceFor: (runId) => runtime.workspaceDirectory(runId), check: (runId, name, recipientId, signal) => runtime.diagnose(runId, name, recipientId, signal),
+            context: (runId, name) => runtime.diagnosisContext(runId, name),
             applies: (runId, actorId) => {
                 const view = host.service(runtimeProviderToken)().view(runId);
                 const actor = view.actors.find((candidate) => candidate.id === actorId);

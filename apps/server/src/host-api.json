@@ -108,6 +108,7 @@
       "ACTOR_PROGRAMS_STATE_ID",
       "ACTOR_SCRIPT_STATE_ID",
       "ACTOR_STATE_ID",
+      "ACTOR_VIEW_ID_MAX_LENGTH",
       "actorProgramContracts",
       "relativeName",
       "resolveActorView"
@@ -689,6 +690,7 @@
       "actorByHandle",
       "addressOf",
       "handleKey",
+      "isActorAddress",
       "openJson",
       "runContracts"
     ],
@@ -700,6 +702,7 @@
       "ACTOR_INVOCATIONS_STATE_ID",
       "ACTOR_PROGRAMS_STATE_ID",
       "ACTOR_STATE_ID",
+      "ACTOR_VIEW_ID_MAX_LENGTH",
       "actorProgramContracts"
     ],
     "@ragents/web/AccessContext": [

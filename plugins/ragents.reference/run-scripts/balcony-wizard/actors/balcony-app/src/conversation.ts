@@ -1,6 +1,5 @@
 import type { ChatSnapshot } from "@ragents/client/ui";
 
-export const advisor = "@balcony-advisor";
 export const startMarker = "START_BALCONY_INTERVIEW";
 export const retryMarker = "RETRY_BALCONY_RESPONSE";
 export const answerCount = 5;

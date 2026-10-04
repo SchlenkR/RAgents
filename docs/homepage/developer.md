@@ -1174,7 +1174,7 @@ Further prepared programs live under actors/<name>/. The host copies them into @
 
 coordinator: false omits the usual coordinator. The setup must then designate another actor as the primary chat partner.
 
-embeddable: true also lets the script start inside a running run without changing its primary actor; every start opens a room of its own with its own setup actor. onStart receives each start with embedded, startedBy, and count.
+embeddable: true also lets the script start inside a running run without changing its primary actor; every start opens a room of its own with its own setup actor. onStart receives each start with embedded, startedBy, count, and room.
 
 Contract fields: runScript.handle, runScript.coordinator, runScript.embeddable, runScript.sharedPrograms, runScript.files, runScript.programs.
 
@@ -1206,7 +1206,7 @@ export default defineActor({
 });
 ```
 
-start carries input, options, embedded, startedBy, and count, the number of this start of the package in the run. Without onStart, the start arrives in onInput as the JSON { input, options }.
+start carries input, options, embedded, startedBy, count, the number of this start of the package in the run, and room, the room this start opened. Without onStart, the start arrives in onInput as the JSON { input, options }.
 
 context.finish works in onStart, onInput, and onResult; outside onStart it names the start with { start: count }. A second finish of the same start fails the turn.
 
@@ -1267,7 +1267,7 @@ Place of use: package.json; for each view, the host provides the HTML root eleme
 
 At least a backend or a view must be present. Without a backend, a new view binds to the calling actor; a dummy installation is not needed.
 
-actor_program_create creates the package with fixed local dependencies. File tools and language servers use @actors/<name>/, Bash uses the same alias as cwd.
+actor_program_create creates the package with fixed local dependencies and returns its directory: @actors/<name>/, in a room @actors/<room>.<name>/. File tools and language servers use this directory, Bash uses it as cwd.
 
 Changed project errors appear as short deltas before model requests. actor_program_diagnostics returns the complete state, actor_program_activate checks and activates.
 

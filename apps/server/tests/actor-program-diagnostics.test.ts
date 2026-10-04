@@ -26,6 +26,7 @@ test("project diagnostics see Bash changes and deletes, persist per agent, and i
       const source = await readFile(path.join(directory, "src/helper.ts"), "utf8");
       if (source.includes("broken")) throw new Error("src/helper.ts:1:1 TS2322: Type 'string' is not assignable to type 'number'.");
     },
+    context: () => null,
   };
   try {
     await mkdir(path.join(directory, "src"), { recursive: true });
@@ -68,6 +69,7 @@ test("diagnostic delta stays small while the full last compiler result remains a
     const diagnostics = createProjectDiagnostics({
       workspaceFor: () => path.join(workspace, "programs"),
       check: async () => { throw new Error(Array.from({ length: 30 }, (_, i) => `src/f${i}.ts:1 TS2322: ${"problem ".repeat(70)}`).join("\n")); },
+      context: () => null,
     });
     const agent = connect(diagnostics);
     const content = (await agent.beforeModel())!;
@@ -86,9 +88,37 @@ test("project diagnostics reach only agents that hold actor program tools", asyn
   const diagnostics = createProjectDiagnostics({
     workspaceFor: (runId) => { consulted.push(runId); return "/unused"; },
     check: async () => undefined,
+    context: () => null,
     applies: (_runId, agentId) => agentId === "coordinator",
   });
   await connect(diagnostics, [], "coordinator").beforeModel();
   assert.equal(await connect(diagnostics, [], "rule-review-1-comments").beforeModel(), undefined);
   assert.deepEqual(consulted, ["run-1"]);
+});
+
+test("a kept result counts only for the context it was checked in: an activation or another target room checks the same sources again", async () => {
+  const workspace = await mkdtemp(path.join(os.tmpdir(), "ragents-actor-program-diagnostic-context-"));
+  try {
+    await mkdir(path.join(workspace, "programs/review.board/src"), { recursive: true });
+    await writeFile(path.join(workspace, "programs/review.board/src/server.ts"), "export {};");
+    let context: { actorId: string | null; targetRoom: string | null } = { actorId: null, targetRoom: "review" };
+    const checked: string[] = [];
+    const diagnostics = createProjectDiagnostics({
+      workspaceFor: () => path.join(workspace, "programs"),
+      check: async (_runId, name, recipientId) => {
+        checked.push(`${recipientId}/${name}/${context.targetRoom}`);
+        if (context.targetRoom === null) throw new Error("Actor @reviewer is unknown.");
+      },
+      context: () => context,
+    });
+    const agent = connect(diagnostics, [], "coordinator");
+    assert.match((await agent.beforeModel())!, /0 errors in 1 projects/);
+    assert.equal(await agent.beforeModel(), undefined);
+    context = { actorId: "board-actor", targetRoom: "review" };
+    assert.match((await agent.beforeModel())!, /0 errors in 1 projects; 0 new, 0 fixed/, "the activation checks the unchanged sources again");
+    assert.equal(await agent.beforeModel(), undefined);
+    context = { actorId: "board-actor", targetRoom: null };
+    assert.match((await agent.beforeModel())!, /1 new.*\nNew: review\.board: Actor @reviewer is unknown\./s);
+    assert.deepEqual(checked, ["coordinator/review.board/review", "coordinator/review.board/review", "coordinator/review.board/null"]);
+  } finally { await rm(workspace, { recursive: true, force: true }); }
 });

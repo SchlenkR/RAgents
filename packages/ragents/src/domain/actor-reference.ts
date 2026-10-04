@@ -8,6 +8,12 @@ export type ReferencedActor = {
 /** The form in which handles are stored: without a leading @, NFC-composed and lower case. */
 export const handleKey = (reference: string) => reference.trim().replace(/^@/, "").normalize("NFC").toLowerCase();
 
+/** The grammar of an address after handleKey: room.handle, a bare handle, or a dotted handle of an older journal or of an owner. */
+export const actorAddressPattern = /^[\p{L}\p{N}][\p{L}\p{N}._-]*$/u;
+
+/** Whether a reference has the form of an actor address; the leading @, case, and Unicode composition do not matter. */
+export const isActorAddress = (reference: string): boolean => actorAddressPattern.test(handleKey(reference));
+
 /** Room names are package names, so that room.name stays a valid package folder; the main room has none. */
 export const roomNamePattern = /^[a-z][a-z0-9-]{0,63}$/;
 

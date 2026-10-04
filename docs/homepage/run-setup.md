@@ -32,7 +32,7 @@ A program several scripts use lives as a shared actor package under plugins/<plu
 
 ragents.chat.start passes { runId, entry, input }. The setup actor receives in the content of its ActorInput the JSON { input: <guide result or null>, options: { <option-id>: <value> } }. The shape of the guide result belongs to the package and is checked before use.
 
-With onStart(start, context), the program receives every start there instead of in onInput: start carries input, options, embedded, startedBy (the actor ID of the starter), and count (which start of this package in the run it is). Other inputs keep arriving in onInput.
+With onStart(start, context), the program receives every start there instead of in onInput: start carries input, options, embedded, startedBy (the actor ID of the starter), count (which start of this package in the run it is), and room (the room this start opened, null in the main room). A message for an actor in another room, such as the coordinator in the main room, names the start's actors as room.name. Other inputs keep arriving in onInput.
 
 With embeddable: true, the script also starts inside a running run, through ragents.chat.start or ragents.runs.startScript, which waits and returns the actor or the error. The primary actor stays, the template's fixed start options must match the run's, and every start opens a room of its own named after the script, with its own setup actor and bundled programs; shared packages stay in the main room.
 
@@ -227,8 +227,6 @@ const contract = {
   input: { capabilities: ["model_list", "agent_spawn", "actor_program_activate", "actor_input", "run_configure"] },
 } as const;
 
-type Start = { input: unknown };
-
 const settingsFrom = (value: unknown): { title: string; firstEntry: string } => {
   if (value === null) return { title: "Shared list", firstEntry: "Hello from the run script" };
   if (typeof value !== "object" || Array.isArray(value)) {
@@ -243,12 +241,14 @@ const settingsFrom = (value: unknown): { title: string; firstEntry: string } => 
   return { title: settings.title.trim(), firstEntry: settings.firstEntry.trim() };
 };
 
+/** The address of a name of this start's room as the coordinator in the main room writes it. */
+const addressIn = (room: string | null, name: string): string => room === null ? name : `${room}.${name}`;
+
 export default defineActor(contract, {
   functions: {},
-  onInput: async (input, context) => {
-    const state = context.state.read();
-    if (state && state.built) return;
-    const start = JSON.parse(input.content) as Start;
+  onInput: () => {},
+  onStart: async (start, context) => {
+    if (context.state.read().built) return;
     const settings = settingsFrom(start.input);
     const title = settings.title;
     const firstEntry = settings.firstEntry;
@@ -276,7 +276,7 @@ export default defineActor(contract, {
     });
     await context.functions.actor_input({
       to: "@coordinator",
-      message: `The shared collection is called ${JSON.stringify(title)}. The run script has bound the program shared-list to @${helper.handle}. Its view is visible on the surface; the helper is currently adding the first entry with append_to_list. `
+      message: `The shared collection is called ${JSON.stringify(title)}. The run script has bound the program ${addressIn(start.room, "shared-list")} to @${addressIn(start.room, helper.handle)}. Its view is visible on the surface; the helper is currently adding the first entry with append_to_list. `
         + "Use the addressee selector to inspect its owner with chat and details. Open the mini-app from the app catalog. "
         + "Explain to the user in three sentences how to use the visible list, how to open the helper, and that the view and the function share the same list state.",
     });
@@ -311,9 +311,12 @@ export const setupContext = (profiles = [{ name: "coordinator", driver: "agent" 
   return { calls, context: createTestContext<{ built?: boolean }>({ state: {}, functions }) };
 };
 
-export const startInput = (input: unknown) => ({
-  id: "start", content: JSON.stringify({ input, options: {} }), artifactIds: [],
-  sourceEventIds: [], subscriptionId: null, event: null,
+export const start = (input: unknown, room: string | null = "shared-actor-list") => ({
+  input, options: {}, embedded: false, startedBy: "owner-id", count: 1, room,
+});
+
+export const message = (content: string) => ({
+  id: "message", content, artifactIds: [], sourceEventIds: [], subscriptionId: null, event: null,
 });
 ```
 
@@ -323,11 +326,11 @@ export const startInput = (input: unknown) => ({
 import assert from "node:assert/strict";
 import test from "node:test";
 import program from "../src/server.ts";
-import { setupContext, startInput } from "./helpers.ts";
+import { message, setupContext, start } from "./helpers.ts";
 
 test("binds the list to the real list helper and assigns its first call", async () => {
   const { calls, context } = setupContext();
-  await program.onInput!(startInput({ title: "Team breakfast", firstEntry: "Coffee" }), context);
+  await program.onStart!(start({ title: "Team breakfast", firstEntry: "Coffee" }), context);
   assert.deepEqual(calls.map((call) => call.name), ["model_list", "run_configure", "agent_spawn", "actor_program_activate", "actor_input", "actor_input"]);
   assert.equal((calls.find((call) => call.name === "agent_spawn")?.input as { tools: null }).tools, null);
   assert.deepEqual(calls.find((call) => call.name === "actor_program_activate")?.input, { name: "shared-list", actor: "@list-helper" });
@@ -338,29 +341,32 @@ test("binds the list to the real list helper and assigns its first call", async 
   assert.match(assignment.message, /Coffee/);
   assert.deepEqual(context.state.read(), { built: true });
   const completedCalls = calls.length;
-  await program.onInput!(startInput(null), context);
+  await program.onStart!(start(null), context);
+  await program.onInput!(message("Hello"), context);
   assert.equal(calls.length, completedCalls);
 });
 
 test("the default start stays defined and invalid values start nothing", async () => {
   const initial = setupContext();
-  await program.onInput!(startInput(null), initial.context);
+  await program.onStart!(start(null), initial.context);
   assert.match(JSON.stringify(initial.calls), /Hello from the run script/);
   for (const input of [{ title: "Plan" }, { title: "", firstEntry: "Coffee" }, { title: "Plan", firstEntry: "" }, { title: "x".repeat(161), firstEntry: "Coffee" }, { title: "Plan", firstEntry: "Coffee", extra: true }, 3]) {
     const { calls, context } = setupContext();
-    await assert.rejects(async () => program.onInput!(startInput(input), context), /start value needs title/);
+    await assert.rejects(async () => program.onStart!(start(input), context), /start value needs title/);
     assert.deepEqual(calls, []);
     assert.deepEqual(context.state.read(), {});
   }
 });
 
-test("uses the actually created handle for binding and task", async () => {
+test("uses the actually created handle in the room, and the main room's addresses for the coordinator", async () => {
   const { calls, context } = setupContext(undefined, "-2");
-  await program.onInput!(startInput(null), context);
+  await program.onStart!(start(null, "shared-actor-list-2"), context);
   assert.deepEqual(calls.find((call) => call.name === "actor_program_activate")?.input,
     { name: "shared-list", actor: "@list-helper-2" });
-  const assignment = calls.find((call) => call.name === "actor_input")?.input as { to: string };
-  assert.equal(assignment.to, "@list-helper-2");
+  const [assignment, briefing] = calls.filter((call) => call.name === "actor_input").map((call) => call.input as { to: string; message: string });
+  assert.equal(assignment!.to, "@list-helper-2");
+  assert.equal(briefing!.to, "@coordinator");
+  assert.match(briefing!.message, /bound the program shared-actor-list-2\.shared-list to @shared-actor-list-2\.list-helper-2\./);
 });
 ```
 
@@ -410,8 +416,6 @@ const contract = {
   input: { capabilities: ["model_list", "agent_spawn", "actor_input", "run_configure"] },
 } as const;
 
-type Start = { input: unknown };
-
 const settingsFrom = (value: unknown): { topic: string; rounds: number } => {
   if (value === null) return { topic: "Should city centers become car-free?", rounds: 2 };
   if (typeof value !== "object" || Array.isArray(value)) {
@@ -438,12 +442,14 @@ const descriptionOf = (name: string): string => {
   return "looks for common ground";
 };
 
+/** The address of an actor of this start's room as the coordinator in the main room writes it. */
+const addressIn = (room: string | null, handle: string): string => room === null ? handle : `${room}.${handle}`;
+
 export default defineActor(contract, {
   functions: {},
-  onInput: async (input, context) => {
-    const state = context.state.read();
-    if (state && state.built) return;
-    const start = JSON.parse(input.content) as Start;
+  onInput: () => {},
+  onStart: async (start, context) => {
+    if (context.state.read().built) return;
     const settings = settingsFrom(start.input);
     const topic = settings.topic;
     const rounds = settings.rounds;
@@ -464,9 +470,8 @@ export default defineActor(contract, {
         profile: first.name,
         tools: [],
       });
-      participants.push(`@${participant.handle}`);
+      participants.push(`@${addressIn(start.room, participant.handle)}`);
     }
-
 
     await context.functions.actor_input({
       to: "@coordinator",
@@ -506,9 +511,12 @@ export const setupContext = (profiles = [{ name: "coordinator", driver: "agent" 
   return { calls, context: createTestContext<{ built?: boolean }>({ state: {}, functions }) };
 };
 
-export const startInput = (input: unknown) => ({
-  id: "start", content: JSON.stringify({ input, options: {} }), artifactIds: [],
-  sourceEventIds: [], subscriptionId: null, event: null,
+export const start = (input: unknown, room: string | null = "conversation-circle") => ({
+  input, options: {}, embedded: false, startedBy: "owner-id", count: 1, room,
+});
+
+export const message = (content: string) => ({
+  id: "message", content, artifactIds: [], sourceEventIds: [], subscriptionId: null, event: null,
 });
 ```
 
@@ -518,29 +526,42 @@ export const startInput = (input: unknown) => ({
 import assert from "node:assert/strict";
 import test from "node:test";
 import program from "../src/server.ts";
-import { setupContext, startInput } from "./helpers.ts";
+import { message, setupContext, start } from "./helpers.ts";
 
 test("topic and number of rounds control participants and task", async () => {
   const { calls, context } = setupContext();
-  await program.onInput!(startInput({ topic: "Team breakfast", rounds: 3 }), context);
+  await program.onStart!(start({ topic: "Team breakfast", rounds: 3 }), context);
   assert.deepEqual(calls.filter((call) => call.name === "agent_spawn").map((call) => (call.input as { name: string }).name), ["mira", "jon", "ada"]);
   assert.deepEqual(calls.filter((call) => call.name === "agent_spawn").map((call) => (call.input as { description: string }).description), ["asks curious questions", "voices polite disagreement", "looks for common ground"]);
   assert.deepEqual(calls.find((call) => call.name === "run_configure")?.input, { title: "Conversation circle: Team breakfast" });
   assert.match(JSON.stringify(calls.at(-1)), /exactly 3 conversation rounds/);
   assert.deepEqual(context.state.read(), { built: true });
   const completedCalls = calls.length;
-  await program.onInput!(startInput(null), context);
+  await program.onStart!(start(null), context);
+  await program.onInput!(message("Hello"), context);
   assert.equal(calls.length, completedCalls);
+});
+
+test("the coordinator gets the participants' addresses from the main room, in the room this start actually opened", async () => {
+  const task = async (room: string | null) => {
+    const { calls, context } = setupContext();
+    await program.onStart!(start(null, room), context);
+    return calls.at(-1)?.input as { to: string; message: string };
+  };
+  const repeated = await task("conversation-circle-2");
+  assert.equal(repeated.to, "@coordinator");
+  assert.match(repeated.message, /^The circle is ready: @conversation-circle-2\.mira, @conversation-circle-2\.jon, @conversation-circle-2\.ada are set up\./);
+  assert.match((await task(null)).message, /^The circle is ready: @mira, @jon, @ada are set up\./);
 });
 
 test("null has an explicit default, invalid values have no effect", async () => {
   const initial = setupContext();
-  await program.onInput!(startInput(null), initial.context);
+  await program.onStart!(start(null), initial.context);
   assert.match(JSON.stringify(initial.calls), /Should city centers become car-free/);
   assert.match(JSON.stringify(initial.calls.at(-1)), /exactly 2 conversation rounds/);
   for (const input of [{ topic: "Plan" }, { topic: "", rounds: 2 }, { topic: "Plan", rounds: 6 }, { topic: "Plan", rounds: 1.5 }, { topic: "Plan", rounds: 2, extra: true }, "Plan"]) {
     const { calls, context } = setupContext();
-    await assert.rejects(async () => program.onInput!(startInput(input), context), /start value needs topic/);
+    await assert.rejects(async () => program.onStart!(start(input), context), /start value needs topic/);
     assert.deepEqual(calls, []);
     assert.deepEqual(context.state.read(), {});
   }
@@ -733,9 +754,10 @@ import { createRoot } from "react-dom/client";
 import { context } from "@ragents/client";
 import * as UI from "@ragents/client/ui";
 import type { ChatSnapshot, FormValues } from "@ragents/client/ui";
-import { advisor, answerCount, answerInput, createSender, deriveConversation, retryMarker, startMarker } from "./conversation.js";
+import { answerCount, answerInput, createSender, deriveConversation, retryMarker, startMarker } from "./conversation.js";
 
 function App() {
+  const advisor = `@${context.actor.handle}`;
   const [snapshot, setSnapshot] = useState<ChatSnapshot>();
   const [values, setValues] = useState<FormValues>({ answer: "" });
   const [sendError, setSendError] = useState<string>();
@@ -752,7 +774,7 @@ function App() {
     const unsubscribe = context.chat.subscribe(advisor, refresh);
     refresh();
     return unsubscribe;
-  }, [sender]);
+  }, [advisor, sender]);
 
   const send = async (text: string) => {
     if (sender.pending) return;
@@ -815,7 +837,6 @@ createRoot(root).render(<App />);
 ```typescript
 import type { ChatSnapshot } from "@ragents/client/ui";
 
-export const advisor = "@balcony-advisor";
 export const startMarker = "START_BALCONY_INTERVIEW";
 export const retryMarker = "RETRY_BALCONY_RESPONSE";
 export const answerCount = 5;
@@ -2423,7 +2444,7 @@ import test from "node:test";
 import { createTestContext } from "@ragents/server/testing";
 import program from "../src/server.ts";
 
-const start = { input: null, options: {}, embedded: true, startedBy: "owner-id", count: 1 };
+const start = { input: null, options: {}, embedded: true, startedBy: "owner-id", count: 1, room: "run-roster" };
 const actor = (handle: string, kind: "human" | "agent" | "script", lifecycle = "idle") =>
   ({ id: `id-${handle}`, handle, displayName: handle, kind, lifecycle, createdBy: null, description: null, toolCount: null });
 
@@ -2541,7 +2562,7 @@ import test from "node:test";
 import { createTestContext } from "@ragents/server/testing";
 import program from "../src/server.ts";
 
-const start = (input: unknown) => ({ input, options: {}, embedded: true, startedBy: "owner-id", count: 1 });
+const start = (input: unknown) => ({ input, options: {}, embedded: true, startedBy: "owner-id", count: 1, room: "quick-note" });
 
 const note = (status: "active" | "installed" = "installed") => {
   const calls: { name: string; input: unknown }[] = [];
@@ -2589,7 +2610,7 @@ export interface CapabilityContracts { "actor_input": { input: { /** Artifacts t
 "actor_list": { input: { /** Also list the tool names of each actor with a fixed selection. */ "toolNames"?: boolean; }; output: Array<{ "createdBy": (null) | (string); "description": (null) | (string); "displayName": string; /** The actor's address from your room: its handle, prefixed with room. when it stands in another room than yours and not in the main room */ "handle": string; "id": string; "kind": ("agent") | ("external") | ("human") | ("script"); "lifecycle": string; /** Number of selected tools; 0 is a plain LLM, null an open, dynamically resolved toolset. */ "toolCount": (null) | (number); /** Only with toolNames: true, for a fixed selection. */ "toolNames"?: Array<string>; }> };
 "actor_program_activate": { input: { /** self or @handle of an existing actor that takes the package; an activated package keeps its actor */ "actor"?: string; /** Package under @actors/ to check, build, test and activate; a bare name means your room's package, otherwise the main room's, room.name another room's */ "name": string; }; output: { "active": true; /** @handle of the actor that holds the package */ "actor": string; "name": string; /** Number of activated views */ "views": number; } };
 "actor_program_controls": { input: { /** Optional control name from the catalog, without UI. prefix. Only valid when topic is controls or omitted. */ "component"?: string; /** Default controls: query component names or types. Guide: read the short package workflow without component. */ "topic"?: ("controls") | ("guide"); }; output: ({ "components": Array<string>; }) | ({ "files": { [key: string]: unknown }; }) | ({ "guide": string; }) };
-"actor_program_create": { input: { /** Name of the new package: lowercase letters, digits and hyphens; its files go to @actors/name */ "name": string; /** Template for the first files */ "template": ("blank") | ("chat") | ("controls") | ("headless-counter") | ("shared-list") | ("text-analysis"); }; output: { /** Package folder for the file tools and as bash cwd */ "directory": string; /** Created files relative to the package folder */ "files": Array<string>; "name": string; } };
+"actor_program_create": { input: { /** Name of the new package in your room: lowercase letters, digits and hyphens; its files go to the returned directory */ "name": string; /** Template for the first files */ "template": ("blank") | ("chat") | ("controls") | ("headless-counter") | ("shared-list") | ("text-analysis"); }; output: { /** Package folder for the file tools and as bash cwd */ "directory": string; /** Created files relative to the package folder */ "files": Array<string>; "name": string; } };
 "actor_program_diagnostics": { input: { /** Only this package; omitted, every package checked for this actor; a bare name means your room's package, otherwise the main room's, room.name another room's */ "name"?: string; }; output: string };
 "actor_program_ensure": { input: { /** Package of this run or a shared actor package of the profile, which lives in the main room; a bare name means your room's package, otherwise the main room's, room.name another room's */ "name": string; }; output: { "actorId": string; "handle": string; /** active: already active, unchanged; restarted: its stopped actor was restarted; activated: built and activated from this run's package folder; installed: the shared package was installed */ "status": ("activated") | ("active") | ("installed") | ("restarted"); } };
 "actor_program_list": { input: { [key: string]: never }; output: Array<({ "actor": string; "functions": Array<string>; "name": string; "views": Array<({ "name": string; "ref": string; "title": string; "visible": boolean; }) & ({ [key: string]: unknown })>; }) & ({ [key: string]: unknown })> };
@@ -2707,6 +2728,8 @@ export interface ActorInput {
 export interface ActorStart {
   readonly input: unknown; readonly options: Readonly<Record<string, unknown>>;
   readonly embedded: boolean; readonly startedBy: string; readonly count: number;
+  /** The room this start opened, where the setup actor and everything it creates stand; null in the main room. */
+  readonly room: string | null;
 }
 export interface ActorResult { readonly handle: string; readonly count: number; readonly result: unknown; readonly summary?: string }
 export interface ActorFunction { label: string; description?: string; input: TSchema; output: TSchema; capabilities?: readonly string[]; confirmation?: string; tool?: { name: string; targets?: readonly string[]; card?: boolean } }

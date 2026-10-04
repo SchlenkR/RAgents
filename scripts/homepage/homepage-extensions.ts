@@ -690,7 +690,7 @@ The setup uses the actor program from this chapter.`, ["runScript.handle", "runS
     "The package folder determines the handle. package.json.ragents.backend names the entry point with defineActor and onInput. The capabilities appear only in the TypeScript contract.",
     "Further prepared programs live under actors/<name>/. The host copies them into @actors; the setup activates them with actor_program_activate and an optional actor handle.",
     "coordinator: false omits the usual coordinator. The setup must then designate another actor as the primary chat partner.",
-    "embeddable: true also lets the script start inside a running run without changing its primary actor; every start opens a room of its own with its own setup actor. onStart receives each start with embedded, startedBy, and count.",
+    "embeddable: true also lets the script start inside a running run without changing its primary actor; every start opens a room of its own with its own setup actor. onStart receives each start with embedded, startedBy, count, and room.",
   ], "markdown"),
   entry("run-script-results", "Actor programs", "End a start with a result", "A run script can be started again and inside a running run. It receives each start in onStart and ends it with a result that the host delivers once to whoever started it.", "src/server.ts of a run script whose RUN.md sets embeddable: true.", `
 import { defineActor } from "@ragents/server";
@@ -712,7 +712,7 @@ export default defineActor({
     context.log({ from: result.handle, start: result.count, summary: result.summary });
   },
 });`, ["run.finish"], [
-    "start carries input, options, embedded, startedBy, and count, the number of this start of the package in the run. Without onStart, the start arrives in onInput as the JSON { input, options }.",
+    "start carries input, options, embedded, startedBy, count, the number of this start of the package in the run, and room, the room this start opened. Without onStart, the start arrives in onInput as the JSON { input, options }.",
     "context.finish works in onStart, onInput, and onResult; outside onStart it names the start with { start: count }. A second finish of the same start fails the turn.",
     "The owner reads the summary in the chat, an LLM gets summary and result as a message, a TypeScript actor that started the script gets them in onResult.",
     "An embedded start adds its visible views to the app catalog without changing the selected view.",
@@ -747,7 +747,7 @@ test("remembers separate inputs", async () => {
   }
 }`, ["appPackage.title", "appPackage.description", "appPackage.backend", "appPackage.views"], [
     "At least a backend or a view must be present. Without a backend, a new view binds to the calling actor; a dummy installation is not needed.",
-    "actor_program_create creates the package with fixed local dependencies. File tools and language servers use @actors/<name>/, Bash uses the same alias as cwd.",
+    "actor_program_create creates the package with fixed local dependencies and returns its directory: @actors/<name>/, in a room @actors/<room>.<name>/. File tools and language servers use this directory, Bash uses it as cwd.",
     "Changed project errors appear as short deltas before model requests. actor_program_diagnostics returns the complete state, actor_program_activate checks and activates.",
   ], "json"),
   entry("app-contract", "Actor programs", "A contract for actor state and functions", "The TypeBox contract describes an actor's data and the inputs and outputs of its functions. A function can be called in the view and can additionally be offered in the shared TypeScript API with the same implementation. The SDK types are generated from it automatically.", "src/contract.ts; shared contract for the following backend function.", `

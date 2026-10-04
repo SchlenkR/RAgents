@@ -248,9 +248,10 @@ test("an embeddable script joins a running run in a room of its own, keeps the p
   assert.deepEqual(f.rooms(), [["demo-setup", null], ["demo-review", null], ["demo-review-2", null], ["demo-legacy", null], ["demo-legacy-2", null]]);
   assert.equal(f.view().primaryActorId, primary, "an embedded start never changes the primary actor");
   assert.deepEqual(f.hooks, ["demo.demo-setup"], "only the new run tells the plugins about its start");
-  assert.deepEqual(f.logOf("demo-setup.demo-setup"), [{ kind: "start", input: { topic: "Launch" }, options: { "demo.mode": "plain" }, embedded: false, startedBy: owner, count: 1 }]);
-  assert.deepEqual(f.logOf("demo-review.demo-review"), [{ kind: "start", input: { topic: "first" }, options: { "demo.mode": "plain" }, embedded: true, startedBy: owner, count: 1 }]);
-  assert.deepEqual(f.logOf("demo-review-2.demo-review"), [{ kind: "start", input: { topic: "second" }, options: { "demo.mode": "plain" }, embedded: true, startedBy: owner, count: 1 }]);
+  assert.deepEqual(f.logOf("demo-setup.demo-setup"), [{ kind: "start", input: { topic: "Launch" }, options: { "demo.mode": "plain" }, embedded: false, startedBy: owner, count: 1, room: "demo-setup" }]);
+  assert.deepEqual(f.logOf("demo-review.demo-review"), [{ kind: "start", input: { topic: "first" }, options: { "demo.mode": "plain" }, embedded: true, startedBy: owner, count: 1, room: "demo-review" }]);
+  assert.deepEqual(f.logOf("demo-review-2.demo-review"), [{ kind: "start", input: { topic: "second" }, options: { "demo.mode": "plain" }, embedded: true, startedBy: owner, count: 1, room: "demo-review-2" }],
+    "every start names the room it actually opened");
   assert.deepEqual([f.logOf("demo-legacy.demo-legacy"), f.logOf("demo-legacy-2.demo-legacy")], [
     [{ kind: "input", content: JSON.stringify({ input: { topic: "old" }, options: { "demo.mode": "plain" } }) }],
     [{ kind: "input", content: JSON.stringify({ input: null, options: { "demo.mode": "plain" } }) }],
@@ -469,7 +470,7 @@ test("a finished start reaches its starter once: the owner in the chat, a TypeSc
   assert.match(unnamed.reason ?? "", /finish needs options\.start/);
   const twice = await turnFor("twice");
   assert.equal(twice.status, "failed");
-  assert.match(twice.reason ?? "", /start 1 of @demo-later is not open/);
+  assert.match(twice.reason ?? "", /start 1 of @demo-later\.demo-later is not open/, "a stored failure names the address valid from every room");
   assert.equal(f.scriptState().packages["demo-later.demo-later"]!.open.length, 1, "a refused finish ends nothing");
   assert.equal((await turnFor("done")).status, "completed");
   assert.ok(f.systemTexts().includes("@demo-later.demo-later: Late"));

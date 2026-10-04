@@ -185,10 +185,11 @@ A function can be available in the React view and as an agent tool at the same t
 Both work with the same implementation and the same data. Local input drafts
 stay in the view; successful shared state appears even while the chat is idle.
 
-`actor_program_create` creates a private TypeScript package. The normal file and
-language server tools edit it under `@actors/<name>/`, Bash with `cwd: "@actors/<name>"`,
-also in a run on a workstation. New or fixed project errors appear before model requests as a
-short hint; `actor_program_diagnostics` provides the complete state when needed.
+`actor_program_create` creates a private TypeScript package and returns its `directory`,
+`@actors/<name>/`, in a room `@actors/<room>.<name>/`. The normal file and language server tools
+edit it there, Bash with that `directory` as `cwd`, also in a run on a workstation. New or fixed
+project errors appear before model requests as a short hint; `actor_program_diagnostics` provides
+the complete state when needed.
 `actor_program_activate` checks types, builds the program, runs the domain tests, and activates it.
 
 On activation, `actor: "self"` or `actor: "@handle"` binds the program to an

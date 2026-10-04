@@ -3,7 +3,7 @@ import test from "node:test";
 import { createTestContext } from "@ragents/server/testing";
 import program from "../src/server.ts";
 
-const start = { input: null, options: {}, embedded: true, startedBy: "owner-id", count: 1 };
+const start = { input: null, options: {}, embedded: true, startedBy: "owner-id", count: 1, room: "run-roster" };
 const actor = (handle: string, kind: "human" | "agent" | "script", lifecycle = "idle") =>
   ({ id: `id-${handle}`, handle, displayName: handle, kind, lifecycle, createdBy: null, description: null, toolCount: null });
 

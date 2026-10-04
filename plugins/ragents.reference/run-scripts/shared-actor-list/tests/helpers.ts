@@ -20,7 +20,10 @@ export const setupContext = (profiles = [{ name: "coordinator", driver: "agent" 
   return { calls, context: createTestContext<{ built?: boolean }>({ state: {}, functions }) };
 };
 
-export const startInput = (input: unknown) => ({
-  id: "start", content: JSON.stringify({ input, options: {} }), artifactIds: [],
-  sourceEventIds: [], subscriptionId: null, event: null,
+export const start = (input: unknown, room: string | null = "shared-actor-list") => ({
+  input, options: {}, embedded: false, startedBy: "owner-id", count: 1, room,
+});
+
+export const message = (content: string) => ({
+  id: "message", content, artifactIds: [], sourceEventIds: [], subscriptionId: null, event: null,
 });

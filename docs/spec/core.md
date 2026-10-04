@@ -928,6 +928,13 @@ automatic notices to creators show addresses this way; the roster also states th
 actor's room once the run has a room. Surfaces for people and stored texts use `addressOf`, the
 address as the main room writes it, which is valid from every room.
 
+A boundary outside the engine that only checks the form of an address, such as the chat bridge of a
+mini-app or an RPC contract with an actor field, uses the engine's grammar (`actorAddressPattern`,
+`isActorAddress`): after the normalization of `handleKey`, a letter or digit followed by letters,
+digits, dashes, underscores, and dots, without a length limit. It thereby takes `room.handle`,
+bare handles, and the dotted handles of older journals and owners alike, and leaves resolution to
+the one resolver.
+
 <!-- guide:runtime -->
 ## Equipping subagents
 

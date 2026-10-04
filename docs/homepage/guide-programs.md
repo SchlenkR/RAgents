@@ -21,8 +21,9 @@ Programs are private packages in a prepared pnpm workspace for the run. File fun
 language servers access them through `@actors/<name>/`, and `bash` runs in a package with
 `cwd: "@actors/<name>"`. A package belongs to a room like an actor: its folder is
 `@actors/<room>.<name>/` in a room, and package names in the functions are relative to the
-caller's room. The packages stay on the server, and every call that names the alias runs
-there, also when the run works in a folder on a workstation. The
+caller's room. `actor_program_create` returns the folder as `directory`, and authoring texts point
+to it instead of building the path from the name. The packages stay on the server, and every call
+that names the alias runs there, also when the run works in a folder on a workstation. The
 workspace interface exposes the actor-program collection directly. Normal relative imports
 include local modules, while fixed local dependencies come from the host installation.
 
@@ -85,8 +86,12 @@ functions, including mediators.
 
 An optional `tool` declaration publishes the same function in the typed run API. Without
 `targets`, it is available to the active executable actors of the package's room, for a main room
-package to every actor; `self` refers to the program owner. A tool name is unique among the
-packages of a room together with the main room's.
+package to every actor; `self` refers to the program owner. Other targets are addresses as the
+room of the activating actor writes them; the package keeps that room (`targetRoom` of its
+definition), so a reactivation after a contract drift resolves them the same way, whoever triggers
+it. A tool name is never one of the host's tools and is unique per receiving actor: two packages
+publish the same name only when no actor can receive both, judged by their explicit targets and,
+without targets, by their package's room. Equal names in separate rooms therefore stay possible.
 Another caller does not receive a private copy of the function or state. Bindings use names and
 handles, not IDs copied from output.
 
@@ -135,7 +140,10 @@ package of the profile ([TypeScript platform](../spec/typescript-platform.md), R
 views. It also stops a TypeScript actor, while an existing LLM actor remains. Activating a package
 of the same name again restarts that stopped actor with its state instead of creating another. Sources stay
 editable in the private workspace. `actor_view_set_visibility` addresses a view by
-`package-name/view-name` or unique title. Visibility changes neither functions nor actor state.
+`package-name/view-name`, `@handle/view-name`, or unique title. A relative package name means a
+package of the caller's room and a relative actor address an actor of the caller's room, wherever
+that actor's package lives; with the room prefix both work from every room. Visibility changes
+neither functions nor actor state.
 A visible view is already open as a tab for the user. A model that has to see what it renders calls
 `actor_view_snapshot` from `ragents.browser`, which resolves the address itself ([Browser checks](../spec/plugins.md#browser-checks)).
 The host manages hashes and technical bindings.

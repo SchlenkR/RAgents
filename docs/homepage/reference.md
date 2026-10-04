@@ -404,7 +404,7 @@ For executable actors with agent.spawn and plugin.state.write.
     "name": {
       "type": "string",
       "pattern": "^[a-z][a-z0-9-]{0,63}$",
-      "description": "Name of the new package: lowercase letters, digits and hyphens; its files go to @actors/name"
+      "description": "Name of the new package in your room: lowercase letters, digits and hyphens; its files go to the returned directory"
     },
     "template": {
       "anyOf": [
@@ -5515,7 +5515,7 @@ test("adds entries without losing existing entries", async () => {
 
 ## Actor program
 
-actor_program_create creates a package under @actors/<name>/ with fixed local dependencies. File tools and language servers use this alias, Bash uses the same alias as cwd. Before model requests, short diagnostic deltas of changed projects appear. actor_program_diagnostics returns the last complete state, actor_program_activate checks, builds, tests, and activates the package.
+actor_program_create creates a package with fixed local dependencies and returns its directory: @actors/<name>/, in a room @actors/<room>.<name>/. File tools and language servers use this directory, Bash uses it as cwd. Before model requests, short diagnostic deltas of changed projects appear. actor_program_diagnostics returns the last complete state, actor_program_activate checks, builds, tests, and activates the package.
 
 ```json
 {

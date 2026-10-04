@@ -3,9 +3,10 @@ import { createRoot } from "react-dom/client";
 import { context } from "@ragents/client";
 import * as UI from "@ragents/client/ui";
 import type { ChatSnapshot, FormValues } from "@ragents/client/ui";
-import { advisor, answerCount, answerInput, createSender, deriveConversation, retryMarker, startMarker } from "./conversation.js";
+import { answerCount, answerInput, createSender, deriveConversation, retryMarker, startMarker } from "./conversation.js";
 
 function App() {
+  const advisor = `@${context.actor.handle}`;
   const [snapshot, setSnapshot] = useState<ChatSnapshot>();
   const [values, setValues] = useState<FormValues>({ answer: "" });
   const [sendError, setSendError] = useState<string>();
@@ -22,7 +23,7 @@ function App() {
     const unsubscribe = context.chat.subscribe(advisor, refresh);
     refresh();
     return unsubscribe;
-  }, [sender]);
+  }, [advisor, sender]);
 
   const send = async (text: string) => {
     if (sender.pending) return;

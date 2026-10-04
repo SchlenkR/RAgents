@@ -58,7 +58,9 @@ server bookkeeping.
 The one exception is contract drift. If the server, for example after a rebuild, delivers a
 different input or result schema for a declared capability than the one bound at activation, the
 host reactivates the package itself on the next call of a function or of the input handler and
-only then executes the call; the call waits in the actor's queue until then. A package from a run
+only then executes the call; the call waits in the actor's queue until then. The reactivation keeps
+the room the declared tool targets were resolved from at the last activation, so a room's package
+reaches the same actors although the host, not the room's actor, reactivates it. A package from a run
 script first receives the current sources of the plugin, an own package is built from its working
 files. Compatibility is decided solely by the type check against the new contracts, not by a
 schema comparison. If the type check, build, domain tests, or state check fail, the call fails
@@ -402,8 +404,12 @@ The setup actor then receives the start value as JSON in `input.content`:
 guide result belongs to the package; the handler checks it before setting up. A program that also
 implements `onStart(start, context)` gets every start there instead of in `onInput`: `start` carries
 `input`, `options`, `embedded` (started inside a running run), `startedBy` (the actor ID of the
-starter), and `count` (which start of this package it is; since every start has its own room and
-package, a script's setup package receives one start). The host recognizes a start
+starter), `count` (which start of this package it is; since every start has its own room and
+package, a script's setup package receives one start), and `room` (the room this start opened, where
+the setup actor and everything it creates stand; `null` in the main room). The setup's own functions
+take names relative to that room, but a message to an actor of another room, such as the
+coordinator in the main room, is read there: it names the start's actors as `room.name`, with the
+room from `start.room`, including the suffix of a repeated start. The host recognizes a start
 by the command that queued its input: it records the start under that command before it queues the
 input and consumes the record when the program receives the input. A record whose input is no
 longer queued or being processed is dropped at the next write, so the state stays bounded; every
@@ -441,7 +447,8 @@ existing program state. Their start commands and subscribed events remain the in
 another pass needs a new run. Their package tests check configured starts, explicit default
 starts, invalid inputs, and the order of setup. The server test `reference-run-scripts.test.ts`
 activates the bundled packages against the tools of the `core` profile so that outdated examples
-are noticed.
+are noticed, and starts the discussion round and the collection board in a room with a suffix to
+check that the coordinator in the main room reaches every address the setup hands it.
 
 Local packages outside the repo can be started through the shared management methods with a server
 file path. They use the same loader and activation path but are not permanently registered as

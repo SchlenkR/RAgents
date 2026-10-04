@@ -7,7 +7,7 @@ import test from "node:test";
 import { actorRosterText } from "../src/agents/delivery.ts";
 import { TurnToolset } from "../src/agents/toolset.ts";
 import { claimTurn } from "../src/agents/turn.ts";
-import { actorByReference, addressFrom, addressOf, freeRoomName } from "../src/domain/actor-reference.ts";
+import { actorByReference, addressFrom, addressOf, freeRoomName, isActorAddress } from "../src/domain/actor-reference.ts";
 import { Journal, type CommandRecord } from "../src/runtime/journal.ts";
 import { serializeJournalRecord } from "../src/runtime/journal-storage.ts";
 import { Orchestration } from "../src/runtime/orchestration.ts";
@@ -38,6 +38,13 @@ test("addresses resolve relative to the caller's room, absolute with one dot, an
 
     assert.deepEqual(actors.map((actor) => addressFrom(actor, "review")), ["owner", "coordinator", "team.lead", "rule-review", "review-2.rule-review", "review"]);
     assert.deepEqual(actors.map((actor) => addressOf(actor)), ["owner", "coordinator", "team.lead", "review.rule-review", "review-2.rule-review", "review.review"]);
+});
+
+test("the address grammar takes every form the resolver reads, for boundaries that only check the form", () => {
+    for (const address of ["review.rule-review", "@Review.Rule_Review", "team.lead", "9bot", "review.m\u00fcller", "a".repeat(200), "primary"])
+        assert.equal(isActorAddress(address), true, address);
+    for (const address of ["", "@", ".review", "review/lead", "review lead", "../other-run"])
+        assert.equal(isActorAddress(address), false, address);
 });
 
 test("a free room name counts up past open rooms and the prefixes of dotted handles", () => {

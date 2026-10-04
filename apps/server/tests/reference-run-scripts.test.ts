@@ -1,10 +1,12 @@
 import assert from "node:assert/strict";
 import { mkdtempSync } from "node:fs";
+import { mkdir } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import test from "node:test";
 
 import {
+  actorByReference,
   Journal,
   LiveBus,
   Orchestration,
@@ -163,6 +165,7 @@ test("the balcony setup builds its advisor and view through native core tools be
       ? [(entry.state as unknown as ActorProgramState).program].filter((program) => program !== null) : []);
     const app = resolveActorView(programs, "balcony-app/main", "balcony-wizard");
     assert.equal(app.program.actorId, advisor.id);
+    assert.equal(app.program.actorHandle, "balcony-wizard.balcony-advisor", "the view's context.actor.handle names the advisor from the main room");
     assert.equal(app.view.visible, true);
     assert.equal(resolveActorView(programs, "@balcony-advisor/main", "balcony-wizard").view.id, app.view.id);
     assert.equal(resolveActorView(programs, "balcony-wizard.balcony-app/main").view.id, app.view.id, "from the main room the room is part of the name");
@@ -247,6 +250,63 @@ for (const sample of ["word-game", "learning-afternoon"]) {
       assert.equal((await invocationResult(programs, session.id, app.id, repeated.id)).status, "succeeded");
       await scheduler.waitForIdle();
       assert.equal(calls.length, sample === "word-game" ? 12 : 2, "Repeated clicks must not restart completed work");
+    } finally {
+      session.dispose();
+      await scheduler.stop();
+      await close();
+    }
+  });
+}
+
+for (const sample of ["conversation-circle", "shared-actor-list"]) {
+  test(`${sample} hands the coordinator addresses that hold in the main room, in the room the start actually opened`, async () => {
+    const { host, journal, runtime, registry, close } = await referenceFixture();
+    const catalog = new StaticModelCatalog(host.profiles.models(), host.profiles.profiles());
+    const scheduler = new TurnScheduler(runtime, journal, {
+      registry, catalog, workspaces: { ensure: () => workspaceDirectory },
+      drivers: {
+        script: new ScriptDriver({ runtime }),
+        agent: { kind: "agent", runTurn: async (request) => {
+          request.recordContext({ kind: "step", step: textStep("Noted.") });
+          return { failure: null, usage: noUsage() };
+        } },
+      },
+    });
+    const engine = { runtime, journal, registry, catalog, catalogModels: host.profiles.models(), scheduler,
+      live: new LiveBus(), startOptions: host.startOptions } as Engine;
+    const entry = folderRunScripts(pluginFolder("ragents.reference"), "ragents.reference").find((candidate) => candidate.script.handle === sample)!;
+    const programs = host.service(actorProgramsToken) as ActorProgramRuntime;
+    const runId = `reference-${sample}`;
+    const session = new RunChatSession({
+      engine, id: runId,
+      coordinator: { handle: "coordinator", displayName: "Coordinator", profile: "coordinator", runTitle: entry.title, ownerHandle: "owner", ownerDisplayName: "Owner" },
+      prompt: () => "Coordinate.", assertUsable: () => {}, prepare: async () => {}, prepareWorkspace: async () => {}, started: async () => {},
+      scriptEntryFor: () => undefined, startEntryFor: () => undefined, actorPrograms: programs,
+    });
+    try {
+      await mkdir(path.join(await programs.workspaceDirectory(runId), `${sample}.${sample}`), { recursive: true });
+      const { script, ...descriptor } = entry;
+      const started = await session.startPackageAndWait({ ...script, entry: { ...descriptor, coordinator: script.coordinator } }, null);
+      const room = `${sample}-2`;
+      assert.equal(started.handle, `${room}.${sample}`, "a folder an aborted start left behind moves the start to the next room");
+      scheduler.start();
+      await scheduler.waitForIdle();
+      const view = runtime.view(runId);
+      assert.deepEqual(view.turns.filter((turn) => turn.status !== "completed"), []);
+      const coordinator = view.actors.find((actor) => actor.handle === "coordinator" && (actor.room ?? null) === null)!;
+      const briefing = view.inputs.find((input) => input.actorId === coordinator.id && /circle is ready|shared collection/.test(input.content))!.content;
+      const addressed = [...briefing.matchAll(/@([\p{L}\p{N}._-]+[\p{L}\p{N}])/gu)].map((match) => match[1]!);
+      const expected = sample === "conversation-circle" ? ["mira", "jon", "ada"] : ["list-helper"];
+      assert.deepEqual(addressed, sample === "conversation-circle" ? [...expected, ...expected].map((name) => `${room}.${name}`) : [`${room}.list-helper`]);
+      for (const address of addressed) {
+        const actor = actorByReference(view.actors, address, coordinator.room ?? null);
+        assert.ok(actor && actor.kind === "agent" && actor.room === room, `${address} resolves from the coordinator's room`);
+      }
+      if (sample === "shared-actor-list") {
+        assert.match(briefing, new RegExp(`bound the program ${room}\\.shared-list to`));
+        const list = programs.programs(runId).find((program) => program.name === `${room}.shared-list`);
+        assert.equal(list?.actorHandle, `${room}.list-helper`, "the package the coordinator is told about is bound to the helper it is told about");
+      }
     } finally {
       session.dispose();
       await scheduler.stop();

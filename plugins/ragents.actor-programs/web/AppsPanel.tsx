@@ -20,6 +20,7 @@ import {
 import { runViewFrom, type RunAction } from "@ragents/web/run-view";
 import { ProgramSlotContext, type ProgramSlot } from "@ragents/plugins/ragents.orchestration/web/program-slot";
 import {
+  toolKeyOf,
   type RunApp,
   type RunAppInvocation,
   type ActorProgramsApi,
@@ -226,8 +227,8 @@ const targetLabel = (target: RunScriptTool["targets"][number]): string =>
 
 export function ToolsPanel({ active, navigation, selection, session }: WorkspaceTabContext) {
   const { api, error, listing, refresh, runId } = useActorPrograms();
-  const selectedName = typeof selection === "string" ? selection : undefined;
-  const selected = listing?.tools.find((tool) => tool.name === selectedName);
+  const selectedKey = typeof selection === "string" ? selection : undefined;
+  const selected = listing?.tools.find((tool) => toolKeyOf(tool) === selectedKey);
 
   if (!listing && !error) {
     return (
@@ -251,7 +252,7 @@ export function ToolsPanel({ active, navigation, selection, session }: Workspace
       </Empty>
     );
   }
-  if (selectedName && !selected) {
+  if (selectedKey && !selected) {
     return (
       <Empty>
         <EmptyHeader>
@@ -329,8 +330,8 @@ export function ToolsPanel({ active, navigation, selection, session }: Workspace
       {listing.tools.map((tool) => (
         <button
           className="grid w-full cursor-pointer grid-cols-[34px_minmax(0,1fr)_auto_14px] items-center gap-2.5 rounded-lg border border-border bg-card px-[11px] py-2.5 text-left text-foreground transition-[background-color,border-color] hover:border-[color-mix(in_srgb,var(--primary)_52%,var(--border))] hover:bg-[color-mix(in_srgb,var(--primary)_7%,var(--card))] focus-visible:border-[color-mix(in_srgb,var(--primary)_52%,var(--border))] focus-visible:bg-[color-mix(in_srgb,var(--primary)_7%,var(--card))] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary/52 @max-[470px]:grid-cols-[34px_minmax(0,1fr)_14px]"
-          key={tool.name}
-          onClick={() => navigation.openTab(RUN_TOOLS_TAB_ID, tool.name)}
+          key={toolKeyOf(tool)}
+          onClick={() => navigation.openTab(RUN_TOOLS_TAB_ID, toolKeyOf(tool))}
           type="button"
         >
           <span className={entryIconClass}><IconTools size={20} /></span>

@@ -1,7 +1,7 @@
 import { isRecord } from "@ragents/web/lib/guards";
 import { rpc } from "@ragents/web/rpc";
 import { withAccessToken } from "@ragents/web/access-token";
-import { actorProgramContracts } from "@ragents/host/plugin-support/actor-programs/contract";
+import { ACTOR_VIEW_ID_MAX_LENGTH, actorProgramContracts } from "@ragents/host/plugin-support/actor-programs/contract";
 import {
   actorFunctionParameterTypes,
   type ActorFunctionParameterType,
@@ -74,6 +74,9 @@ export interface RunScriptTool {
   installedBy: string;
 }
 
+/** A function is identified by its package and function ID; packages of different rooms may share a tool name. */
+export const toolKeyOf = (tool: Pick<RunScriptTool, "moduleId" | "functionId">): string => `${tool.moduleId}/${tool.functionId}`;
+
 export interface ActorProgramSourceFile {
   path: string;
   content: string;
@@ -104,7 +107,7 @@ export interface ActorProgramsApi {
 
 const ID_PATTERN = /^[A-Za-z0-9_-]{1,100}$/;
 /** View and module identifiers carry the actor's room as a prefix, `<room>.<name>`, like the server contract. */
-const ROOM_ID_PATTERN = /^[A-Za-z0-9_.-]{1,194}$/;
+const ROOM_ID_PATTERN = new RegExp(`^[A-Za-z0-9_.-]{1,${ACTOR_VIEW_ID_MAX_LENGTH}}$`);
 const HASH_PATTERN = /^[a-f0-9]{64}$/;
 const PARAMETER_TYPES = new Set<RunToolParameter["type"]>(actorFunctionParameterTypes);
 
@@ -304,7 +307,7 @@ export const actorProgramsListingFrom = (value: unknown): ActorProgramsListing =
   }
   return {
     apps: unique(value.apps.map(runAppFrom), (app) => app.id, "apps"),
-    tools: unique(value.tools.map(runScriptToolFrom), (tool) => tool.name, "tools"),
+    tools: unique(value.tools.map(runScriptToolFrom), toolKeyOf, "tools"),
   };
 };
 

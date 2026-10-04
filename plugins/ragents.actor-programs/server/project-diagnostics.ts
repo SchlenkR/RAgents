@@ -20,7 +20,10 @@ export interface ProjectDiagnosticsSnapshot {
 
 export interface ProjectDiagnosticsOptions {
   workspaceFor: (runId: string) => string | Promise<string>;
-  check: (runId: string, programName: string, actorId: string, signal?: AbortSignal) => Promise<unknown>;
+  /** Checks a package for the agent that receives the diagnostics; the package's own context, not the recipient's room, resolves its names. */
+  check: (runId: string, programName: string, recipientId: string, signal?: AbortSignal) => Promise<unknown>;
+  /** What the check reads besides the sources, such as the package's binding; a kept result counts only for the same context. */
+  context: (runId: string, programName: string) => unknown;
   applies?: (runId: string, actorId: string) => boolean;
 }
 
@@ -72,7 +75,7 @@ export const createProjectDiagnostics = (options: ProjectDiagnosticsOptions) => 
           let errors: string[] = [];
           try {
             if (entry.isSymbolicLink()) throw new Error("Actor projects must not be symlinks.");
-            fingerprint = fingerprintOf(await projectSourceFiles(path.join(directory, entry.name)));
+            fingerprint = fingerprintOf({ files: await projectSourceFiles(path.join(directory, entry.name)), context: options.context(runId, entry.name) });
           } catch (error) {
             errors = errorLines(error);
             fingerprint = fingerprintOf({ errors });

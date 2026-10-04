@@ -11,7 +11,7 @@ import type {
     RunState,
     Turn,
 } from "../domain/model.ts";
-import { actorByReference, addressFrom, handleKey, roomNameFree, sharesNames } from "../domain/actor-reference.ts";
+import { actorAddressPattern, actorByReference, addressFrom, handleKey, roomNameFree, sharesNames } from "../domain/actor-reference.ts";
 import { firstHandCapabilities } from "../domain/vocabulary.ts";
 import { DomainError } from "./domain-error.ts";
 
@@ -54,7 +54,7 @@ export const optionalClean = (value: string | null | undefined, name: string) =>
 export const handleOf = (value: string) => {
     const result = handleKey(value);
 
-    if (!/^[\p{L}\p{N}][\p{L}\p{N}._-]*$/u.test(result))
+    if (!actorAddressPattern.test(result))
         throw new DomainError("invalid-handle", "A handle may contain letters, digits, dot, dash, and underscore.", 400);
 
     return result;

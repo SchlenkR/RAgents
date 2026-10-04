@@ -43,7 +43,7 @@ export const hostApi: { readonly server: HostApiModules; readonly web: HostApiMo
     ],
     "@ragents/host/plugin-support/actor-programs/contract": [
       "ACTOR_INVOCATIONS_STATE_ID", "ACTOR_PROGRAMS_STATE_ID", "ACTOR_SCRIPT_STATE_ID", "ACTOR_STATE_ID",
-      "actorProgramContracts", "relativeName", "resolveActorView",
+      "ACTOR_VIEW_ID_MAX_LENGTH", "actorProgramContracts", "relativeName", "resolveActorView",
     ],
     "@ragents/host/plugin-support/actor-programs/service": ["actorProgramsToken"],
     "@ragents/host/plugin-support/actor-programs/tailwind": ["buildTailwind"],
@@ -118,10 +118,10 @@ export const hostApi: { readonly server: HostApiModules; readonly web: HostApiMo
   web: {
     "@ragents/engine/src/domain/events": ["eventTypeMap"],
     "@ragents/engine/src/domain/json": [],
-    "@ragents/engine/src/http/contracts": ["actorByHandle", "addressOf", "handleKey", "openJson", "runContracts"],
+    "@ragents/engine/src/http/contracts": ["actorByHandle", "addressOf", "handleKey", "isActorAddress", "openJson", "runContracts"],
     "@ragents/engine/src/rpc/contract": ["defineChannel", "defineOperation"],
     "@ragents/host/plugin-support/actor-programs/contract": [
-      "ACTOR_INVOCATIONS_STATE_ID", "ACTOR_PROGRAMS_STATE_ID", "ACTOR_STATE_ID", "actorProgramContracts",
+      "ACTOR_INVOCATIONS_STATE_ID", "ACTOR_PROGRAMS_STATE_ID", "ACTOR_STATE_ID", "ACTOR_VIEW_ID_MAX_LENGTH", "actorProgramContracts",
     ],
     "@ragents/web/AccessContext": ["useAccess"],
     "@ragents/web/DiffCode": ["DiffCode"],

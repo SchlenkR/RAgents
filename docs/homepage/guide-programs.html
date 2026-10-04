@@ -146,8 +146,9 @@ model.</p>
 language servers access them through <code>@actors/&lt;name&gt;/</code>, and <code>bash</code> runs in a package with
 <code>cwd: &quot;@actors/&lt;name&gt;&quot;</code>. A package belongs to a room like an actor: its folder is
 <code>@actors/&lt;room&gt;.&lt;name&gt;/</code> in a room, and package names in the functions are relative to the
-caller&#39;s room. The packages stay on the server, and every call that names the alias runs
-there, also when the run works in a folder on a workstation. The
+caller&#39;s room. <code>actor_program_create</code> returns the folder as <code>directory</code>, and authoring texts point
+to it instead of building the path from the name. The packages stay on the server, and every call
+that names the alias runs there, also when the run works in a folder on a workstation. The
 workspace interface exposes the actor-program collection directly. Normal relative imports
 include local modules, while fixed local dependencies come from the host installation.</p>
 <pre><code class="language-text">@actors/&lt;name&gt;/
@@ -200,8 +201,12 @@ actor, whose <code>onInput</code> sends it under the actor&#39;s identity. Snipp
 functions, including mediators.</p>
 <p>An optional <code>tool</code> declaration publishes the same function in the typed run API. Without
 <code>targets</code>, it is available to the active executable actors of the package&#39;s room, for a main room
-package to every actor; <code>self</code> refers to the program owner. A tool name is unique among the
-packages of a room together with the main room&#39;s.
+package to every actor; <code>self</code> refers to the program owner. Other targets are addresses as the
+room of the activating actor writes them; the package keeps that room (<code>targetRoom</code> of its
+definition), so a reactivation after a contract drift resolves them the same way, whoever triggers
+it. A tool name is never one of the host&#39;s tools and is unique per receiving actor: two packages
+publish the same name only when no actor can receive both, judged by their explicit targets and,
+without targets, by their package&#39;s room. Equal names in separate rooms therefore stay possible.
 Another caller does not receive a private copy of the function or state. Bindings use names and
 handles, not IDs copied from output.</p>
 <p>React, <code>createRoot</code>, and local modules use normal imports. <code>context</code> and <code>useAppState</code> come from
@@ -243,7 +248,10 @@ package of the profile (<a href="../spec/typescript-platform.md">TypeScript plat
 views. It also stops a TypeScript actor, while an existing LLM actor remains. Activating a package
 of the same name again restarts that stopped actor with its state instead of creating another. Sources stay
 editable in the private workspace. <code>actor_view_set_visibility</code> addresses a view by
-<code>package-name/view-name</code> or unique title. Visibility changes neither functions nor actor state.
+<code>package-name/view-name</code>, <code>@handle/view-name</code>, or unique title. A relative package name means a
+package of the caller&#39;s room and a relative actor address an actor of the caller&#39;s room, wherever
+that actor&#39;s package lives; with the room prefix both work from every room. Visibility changes
+neither functions nor actor state.
 A visible view is already open as a tab for the user. A model that has to see what it renders calls
 <code>actor_view_snapshot</code> from <code>ragents.browser</code>, which resolves the address itself (<a href="../spec/plugins.md#browser-checks">Browser checks</a>).
 The host manages hashes and technical bindings.</p>

@@ -7,8 +7,6 @@ const contract = {
   input: { capabilities: ["model_list", "agent_spawn", "actor_input", "run_configure"] },
 } as const;
 
-type Start = { input: unknown };
-
 const settingsFrom = (value: unknown): { topic: string; rounds: number } => {
   if (value === null) return { topic: "Should city centers become car-free?", rounds: 2 };
   if (typeof value !== "object" || Array.isArray(value)) {
@@ -35,12 +33,14 @@ const descriptionOf = (name: string): string => {
   return "looks for common ground";
 };
 
+/** The address of an actor of this start's room as the coordinator in the main room writes it. */
+const addressIn = (room: string | null, handle: string): string => room === null ? handle : `${room}.${handle}`;
+
 export default defineActor(contract, {
   functions: {},
-  onInput: async (input, context) => {
-    const state = context.state.read();
-    if (state && state.built) return;
-    const start = JSON.parse(input.content) as Start;
+  onInput: () => {},
+  onStart: async (start, context) => {
+    if (context.state.read().built) return;
     const settings = settingsFrom(start.input);
     const topic = settings.topic;
     const rounds = settings.rounds;
@@ -61,9 +61,8 @@ export default defineActor(contract, {
         profile: first.name,
         tools: [],
       });
-      participants.push(`@${participant.handle}`);
+      participants.push(`@${addressIn(start.room, participant.handle)}`);
     }
-
 
     await context.functions.actor_input({
       to: "@coordinator",

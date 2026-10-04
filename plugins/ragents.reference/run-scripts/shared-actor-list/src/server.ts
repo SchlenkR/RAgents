@@ -7,8 +7,6 @@ const contract = {
   input: { capabilities: ["model_list", "agent_spawn", "actor_program_activate", "actor_input", "run_configure"] },
 } as const;
 
-type Start = { input: unknown };
-
 const settingsFrom = (value: unknown): { title: string; firstEntry: string } => {
   if (value === null) return { title: "Shared list", firstEntry: "Hello from the run script" };
   if (typeof value !== "object" || Array.isArray(value)) {
@@ -23,12 +21,14 @@ const settingsFrom = (value: unknown): { title: string; firstEntry: string } => 
   return { title: settings.title.trim(), firstEntry: settings.firstEntry.trim() };
 };
 
+/** The address of a name of this start's room as the coordinator in the main room writes it. */
+const addressIn = (room: string | null, name: string): string => room === null ? name : `${room}.${name}`;
+
 export default defineActor(contract, {
   functions: {},
-  onInput: async (input, context) => {
-    const state = context.state.read();
-    if (state && state.built) return;
-    const start = JSON.parse(input.content) as Start;
+  onInput: () => {},
+  onStart: async (start, context) => {
+    if (context.state.read().built) return;
     const settings = settingsFrom(start.input);
     const title = settings.title;
     const firstEntry = settings.firstEntry;
@@ -56,7 +56,7 @@ export default defineActor(contract, {
     });
     await context.functions.actor_input({
       to: "@coordinator",
-      message: `The shared collection is called ${JSON.stringify(title)}. The run script has bound the program shared-list to @${helper.handle}. Its view is visible on the surface; the helper is currently adding the first entry with append_to_list. `
+      message: `The shared collection is called ${JSON.stringify(title)}. The run script has bound the program ${addressIn(start.room, "shared-list")} to @${addressIn(start.room, helper.handle)}. Its view is visible on the surface; the helper is currently adding the first entry with append_to_list. `
         + "Use the addressee selector to inspect its owner with chat and details. Open the mini-app from the app catalog. "
         + "Explain to the user in three sentences how to use the visible list, how to open the helper, and that the view and the function share the same list state.",
     });

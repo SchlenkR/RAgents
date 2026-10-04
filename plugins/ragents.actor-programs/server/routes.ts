@@ -2,11 +2,12 @@ import { randomBytes } from "node:crypto";
 import type { HttpRouteContribution } from "@ragents/engine";
 import { guardedJsonRoute } from "@ragents/host/plugin-support/http.js";
 import { browserInputRuntime, browserRuntimeStyles } from "@ragents/host/plugin-support/actor-programs/client-runtime.js";
+import { ACTOR_VIEW_ID_MAX_LENGTH } from "@ragents/host/plugin-support/actor-programs/contract.js";
 import type { ActorProgramRuntime } from "./runtime.js";
 
 export const miniAppsApiPrefix = "/api/plugins/ragents.actor-programs";
 
-const framePattern = new RegExp(`^${miniAppsApiPrefix.replaceAll(".", "\\.")}\/runs\/([A-Za-z0-9_-]{1,64})\/apps\/([a-z][a-z0-9_.-]{0,193})\/frame$`);
+const framePattern = new RegExp(`^${miniAppsApiPrefix.replaceAll(".", "\\.")}\/runs\/([A-Za-z0-9_-]{1,64})\/apps\/([a-z][a-z0-9_.-]{0,${ACTOR_VIEW_ID_MAX_LENGTH - 1}})\/frame$`);
 
 const escapeForwarder = `
   window.addEventListener("keydown", (event) => {

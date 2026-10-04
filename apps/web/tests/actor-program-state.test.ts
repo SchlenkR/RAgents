@@ -1,9 +1,9 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { actorProgramsRevision } from "../../../plugins/ragents.actor-programs/web/state-revision.ts";
-import { ACTOR_PROGRAMS_STATE_ID, ACTOR_STATE_ID, ACTOR_INVOCATIONS_STATE_ID } from "../../../apps/server/src/plugin-support/actor-programs/contract.ts";
+import { ACTOR_PROGRAMS_STATE_ID, ACTOR_STATE_ID, ACTOR_INVOCATIONS_STATE_ID, ACTOR_VIEW_ID_MAX_LENGTH } from "../../../apps/server/src/plugin-support/actor-programs/contract.ts";
 import { currentActorListing } from "../../../plugins/ragents.actor-programs/web/program-state.ts";
-import { actorProgramsListingFrom, type ActorProgramsListing } from "../../../plugins/ragents.actor-programs/web/api.ts";
+import { actorProgramsListingFrom, toolKeyOf, type ActorProgramsListing } from "../../../plugins/ragents.actor-programs/web/api.ts";
 
 const actor = { id: "counter", handle: "counter", kind: "agent", lifecycle: { kind: "idle" } };
 const entry = (pluginId: string, state: unknown, actorId = "counter") => ({ pluginId, scope: { kind: "actor", actorId }, state, updatedAt: "2026-09-10T10:00:00.000Z" });
@@ -59,4 +59,24 @@ test("a listing of an actor in a room keeps its room-qualified view and module i
     tools: [{ actorId: actor.id, actorHandle: "room.counter", functionId: "increment", revision: "build", moduleId: "room.counter", name: "counter_increment", description: "Adds one", parameters: [], sourceHash: hash, targets: [], installedBy: actor.id }],
   });
   assert.deepEqual([parsed.apps[0]!.id, parsed.tools[0]!.moduleId], ["room.counter--board", "room.counter"]);
+});
+
+test("view identifiers of three names at full length pass the listing, one character more does not", () => {
+  const hash = "a".repeat(64);
+  const name = (letter: string) => letter + "x".repeat(63);
+  const longest = `${name("r")}.${name("p")}--${name("v")}`;
+  const app = (id: string) => ({ id, title: "Board", description: "", actorId: actor.id, actorHandle: "room.counter", revision: "build", actions: [], invocations: [], state: { version: 1, revision: 1, values: {} } });
+  assert.equal(longest.length, ACTOR_VIEW_ID_MAX_LENGTH);
+  assert.equal(actorProgramsListingFrom({ apps: [app(longest)], tools: [] }).apps[0]!.id, longest);
+  assert.throws(() => actorProgramsListingFrom({ apps: [app(`${longest}x`)], tools: [] }), /view\.id is not a valid identifier/);
+  const tool = { actorId: actor.id, actorHandle: "room.counter", functionId: "increment", revision: "build", moduleId: `${name("r")}.${name("p")}`, name: "counter_increment", description: "Adds one", parameters: [], sourceHash: hash, targets: [], installedBy: actor.id };
+  assert.equal(actorProgramsListingFrom({ apps: [], tools: [tool] }).tools[0]!.moduleId.length, 129);
+});
+
+test("a tool is its package's function: equal tool names of packages in different rooms both stay listed", () => {
+  const hash = "a".repeat(64);
+  const tool = (moduleId: string, actorHandle: string) => ({ actorId: actorHandle, actorHandle, functionId: "append", revision: "build", moduleId, name: "append_to_list", description: "Appends", parameters: [], sourceHash: hash, targets: [], installedBy: "owner" });
+  const parsed = actorProgramsListingFrom({ apps: [], tools: [tool("review.list", "review.list"), tool("review-2.list", "review-2.list")] });
+  assert.deepEqual(parsed.tools.map(toolKeyOf), ["review.list/append", "review-2.list/append"]);
+  assert.throws(() => actorProgramsListingFrom({ apps: [], tools: [tool("review.list", "review.list"), tool("review.list", "review.list")] }), /tools contains duplicate identifiers/);
 });

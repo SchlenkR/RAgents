@@ -8,7 +8,7 @@ its model for ActorInputs; a TypeScript actor can handle them with `onInput`. Ca
 from a view executes that function directly and does not start a model turn.
 
 1. Create the closest template with `actor_program_create`; read and reuse its package, contract,
-   implementation, view and tests under `@actors/<name>/`, the path for file tools, language
+   implementation, view and tests in the returned `directory`, the path for file tools, language
    servers and `bash` (as `cwd`).
 2. Edit with ordinary file tools; preserve imports and structure. Changed errors arrive before
    model requests; `actor_program_diagnostics` returns the full last check.

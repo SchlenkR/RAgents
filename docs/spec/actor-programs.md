@@ -23,8 +23,9 @@ Programs are private packages in a prepared pnpm workspace for the run. File fun
 language servers access them through `@actors/<name>/`, and `bash` runs in a package with
 `cwd: "@actors/<name>"`. A package belongs to a room like an actor: its folder is
 `@actors/<room>.<name>/` in a room, and package names in the functions are relative to the
-caller's room. The packages stay on the server, and every call that names the alias runs
-there, also when the run works in a folder on a workstation. The
+caller's room. `actor_program_create` returns the folder as `directory`, and authoring texts point
+to it instead of building the path from the name. The packages stay on the server, and every call
+that names the alias runs there, also when the run works in a folder on a workstation. The
 workspace interface exposes the actor-program collection directly. Normal relative imports
 include local modules, while fixed local dependencies come from the host installation.
 
@@ -98,8 +99,12 @@ functions, including mediators.
 
 An optional `tool` declaration publishes the same function in the typed run API. Without
 `targets`, it is available to the active executable actors of the package's room, for a main room
-package to every actor; `self` refers to the program owner. A tool name is unique among the
-packages of a room together with the main room's.
+package to every actor; `self` refers to the program owner. Other targets are addresses as the
+room of the activating actor writes them; the package keeps that room (`targetRoom` of its
+definition), so a reactivation after a contract drift resolves them the same way, whoever triggers
+it. A tool name is never one of the host's tools and is unique per receiving actor: two packages
+publish the same name only when no actor can receive both, judged by their explicit targets and,
+without targets, by their package's room. Equal names in separate rooms therefore stay possible.
 Another caller does not receive a private copy of the function or state. Bindings use names and
 handles, not IDs copied from output.
 
@@ -156,7 +161,10 @@ package of the profile ([TypeScript platform](typescript-platform.md), Run scrip
 views. It also stops a TypeScript actor, while an existing LLM actor remains. Activating a package
 of the same name again restarts that stopped actor with its state instead of creating another. Sources stay
 editable in the private workspace. `actor_view_set_visibility` addresses a view by
-`package-name/view-name` or unique title. Visibility changes neither functions nor actor state.
+`package-name/view-name`, `@handle/view-name`, or unique title. A relative package name means a
+package of the caller's room and a relative actor address an actor of the caller's room, wherever
+that actor's package lives; with the room prefix both work from every room. Visibility changes
+neither functions nor actor state.
 A visible view is already open as a tab for the user. A model that has to see what it renders calls
 `actor_view_snapshot` from `ragents.browser`, which resolves the address itself ([Browser checks](plugins.md#browser-checks)).
 The host manages hashes and technical bindings.
@@ -194,8 +202,12 @@ renaming and as a copy in the build folder of the activation.
 
 Before every model request, a runtime contribution checks changed actor programs including types
 and build. The context receives only a short difference from the last error state; unchanged
-projects and error lists are not repeated. `actor_program_diagnostics` returns the last complete
-state, optionally for one program name. The normal language server tools can check the same
+projects and error lists are not repeated. The check reads a package in its own context, not in
+the room of the agent that receives the diagnostics: an active package with its actor and the
+room its targets were resolved from, a package nobody activated yet from its own room. A kept
+result counts only for the same sources and the same context; an activation checks the package
+again. `actor_program_diagnostics` returns the last complete state, optionally for one program
+name. The normal language server tools can check the same
 projects directly.
 
 The type check always covers the backend entry point from `package.json.ragents.backend`, even with
@@ -266,8 +278,9 @@ lock only the affected run before replay, without changing its files.
 The shared app host renders the selected mini-app through `RunAppView`.
 
 The functions tab shows programs, owner
-actors, functions, and installed sources. The detail view of a function contains a generic
-parameter form derived from its contract. It uses the same form building block as the tool cards:
+actors, functions, and installed sources. It identifies a function by its package and function ID,
+not by the tool name, which packages of separate rooms can share. The detail view of a function
+contains a generic parameter form derived from its contract. It uses the same form building block as the tool cards:
 texts, numbers, integers, checkboxes, and lists, plus JSON for structured values. Required fields
 and invalid inputs are checked before the call. Functions without parameters can also be executed
 directly. The call runs without a model turn through the same host as for mini-apps and tool
@@ -280,7 +293,10 @@ highlighting come from the shared source code viewer. A new program revision loa
 sources; cancelled earlier responses do not overwrite them. The source code stays read-only and
 requires `runs.inspect`. Running tool calls appear in the general activity display.
 
-Browser tabs and VS Code editors use the same frame endpoint and build. Each app has an iframe with
+Browser tabs and VS Code editors use the same frame endpoint and build. A view's identifier is
+`<package key>--<view key>`, in a room `<room>.<package>--<view>`, at most 195 characters
+(`ACTOR_VIEW_ID_MAX_LENGTH` in the contract); the RPC contracts, the web listing, and the frame
+route take exactly that length. Each app has an iframe with
 `sandbox="allow-scripts allow-forms allow-downloads"` and a content security policy;
 `form-action 'none'` prevents any real form submission. The browser client is bundled including
 its imports; React and UI building blocks come from the prepared local dependencies. The host
@@ -632,7 +648,10 @@ the client sees the imported, typed `context`:
   capabilities for attachments, optional `owner` as the resolved actor, and optional errors;
   `undefined` before the first delivery.
 - `context.chat.subscribe(actor, listener)` subscribes to changes of this actor view and returns an
-  unsubscribe function; `actor` is `primary` or `@handle` in the app's run.
+  unsubscribe function; `actor` is `primary` or an actor address of the app's run, such as
+  `"@" + context.actor.handle`. The host checks it with the engine's address grammar
+  (`isActorAddress`: room-qualified addresses and dotted handles of older journals included) and
+  resolves it as the main room writes it.
 - `context.chat.send(actor, text, attachments?)` sends a user message with optional attachments
   through the host and returns a promise. This fixed UI connection is not an arbitrary module
   capability and does not allow switching to another run. An app sends only after an explicit
@@ -685,6 +704,9 @@ execution paths. Deleting the run also removes its private app workspace.
 - Progress within a backend function that is still running is not automatically published as
   shared state; the state is committed at successful completion.
 - A view has no scheduler of its own; subscription events deliver normal ActorInputs to the actor.
+- The background project check keeps a result while the package's sources and context stay the
+  same; a target actor that appears later clears an "unknown actor" error only with the next
+  change of either or with an activation, which always checks anew.
 - Browser CSP and run file permissions do not replace a separate trust boundary for foreign code.
 - Between the last check and the renaming of a new package, only a foreign process, such as a shell
   of the run, can still create an empty folder of the same name; `rename` then replaces it. Node
