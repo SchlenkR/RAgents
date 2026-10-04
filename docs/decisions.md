@@ -1,5 +1,13 @@
 # Decisions
 
+## 2026-10-04: The mini-app frame route takes room-qualified view identifiers
+
+Chapter: `spec/actor-programs.md` (unchanged contract; the route now matches it).
+
+**Why.** After the web accepted room-qualified view IDs, the view of a run script's actor still showed "App disconnected": the frame route of `ragents.actor-programs` matched only `[a-z][a-z0-9_-]`, so `/apps/review.review--main/frame` fell through to the web page, whose scripts a sandboxed frame cannot load.
+
+**Decision.** The route takes the contract's character set and length for view IDs, `[a-z][a-z0-9_.-]{0,193}`. Verified with `apps/server/tests/actor-program-frame-route.test.ts` and a live run of a run script's view.
+
 ## 2026-10-04: The web reads room-qualified view and module identifiers of actor programs
 
 Chapter: `spec/actor-programs.md` (unchanged contract; the web parser now matches it).

@@ -6,7 +6,7 @@ import type { ActorProgramRuntime } from "./runtime.js";
 
 export const miniAppsApiPrefix = "/api/plugins/ragents.actor-programs";
 
-const framePattern = new RegExp(`^${miniAppsApiPrefix.replaceAll(".", "\\.")}\/runs\/([A-Za-z0-9_-]{1,64})\/apps\/([a-z][a-z0-9_-]{0,129})\/frame$`);
+const framePattern = new RegExp(`^${miniAppsApiPrefix.replaceAll(".", "\\.")}\/runs\/([A-Za-z0-9_-]{1,64})\/apps\/([a-z][a-z0-9_.-]{0,193})\/frame$`);
 
 const escapeForwarder = `
   window.addEventListener("keydown", (event) => {
