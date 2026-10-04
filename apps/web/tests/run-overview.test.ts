@@ -18,18 +18,26 @@ test("unread notices compare the journal revision with the caller's own read mar
   assert.equal(runActivityNotice(run("a", 1000, 0, 0)), undefined);
 });
 
-test("a listed run becomes the same row in every host: state, pending actions, notice, owner, lines, and lock", () => {
+test("a listed run carries metadata and becomes the same row in every host", () => {
   assert.deepEqual(connectionRunOf({
     ...run("a", 5, 4, 2), state: "waiting", pendingActions: 2, ownerLabel: "Alice",
     listDetails: [{ label: "Workspace", text: "/home/user/project", icon: "folder" }], metadata: { "ragents.workspace": {} },
   }), {
     id: "a", title: "a", state: "waiting", pendingActions: 2, updatedAt: 5, notice: "updated", owner: "Alice",
+    metadata: { "ragents.workspace": {} },
     details: [{ label: "Workspace", text: "/home/user/project", icon: "folder" }],
   });
   assert.deepEqual(connectionRunOf({ ...run("b", 6, 3, 3), listDetails: [] }), { id: "b", title: "b", state: "idle", pendingActions: 0, updatedAt: 6 });
   assert.deepEqual(connectionRunOf({ ...run("c", 7), locked: "unsupported journal format 6" }), {
     id: "c", title: "c", state: "idle", pendingActions: 0, updatedAt: 7, locked: "unsupported journal format 6",
   });
+});
+
+test("run metadata keeps each contribution's values, including empty and missing metadata", () => {
+  const metadata = { "test.documents": [{ title: "Project brief", path: "brief.md" }], "test.review": { complete: true } };
+  assert.equal(connectionRunOf({ ...run("documents", 1), metadata }).metadata, metadata);
+  assert.deepEqual(connectionRunOf({ ...run("empty", 2), metadata: {} }).metadata, {});
+  assert.equal("metadata" in connectionRunOf(run("missing", 3)), false);
 });
 
 test("a row carries the caller's sharing: who may share and whether it is shared, or what a share permits a sharee", () => {

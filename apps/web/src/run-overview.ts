@@ -17,6 +17,7 @@ export const connectionRunOf = (session: ListedSession): ConnectionRun => {
     state: session.state,
     pendingActions: session.pendingActions,
     updatedAt: session.updatedAt,
+    ...(session.metadata !== undefined ? { metadata: session.metadata } : {}),
     ...(notice !== undefined ? { notice } : {}),
     ...(session.ownerLabel !== undefined ? { owner: session.ownerLabel } : {}),
     ...(session.listDetails !== undefined && session.listDetails.length > 0 ? { details: session.listDetails } : {}),

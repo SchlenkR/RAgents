@@ -12,6 +12,7 @@ import { useAccess } from "./AccessContext";
 import { unrestrictedAccess, type AccessContext } from "../../../packages/ragents/src/access";
 import { DETAIL_MODES, type ChatAttachmentInput, type DetailMode, type Message, type PendingAction, type ToolInfo, type ChatStartupStatus } from "quassel";
 import type { SessionInfo } from "./api";
+import type { ConnectionRun } from "./panel/contract";
 import type { ChatUserLocation } from "../../server/src/chat-context";
 import { CHAT_STEP_SCOPES, type ChatStepScope } from "../../server/src/plugin-support/chat-display-contract";
 import type { StartOptionState } from "../../server/src/plugin-support/start-options-contract";
@@ -187,6 +188,18 @@ export interface CardSectionContribution {
   Section: ComponentType<CardSectionContext>;
 }
 
+export interface StartSectionContext {
+  runs: readonly ConnectionRun[];
+  onOpenRun: (runId: string) => void;
+}
+
+export interface StartSectionContribution {
+  id: string;
+  order: number;
+  readRight?: string;
+  Section: ComponentType<StartSectionContext>;
+}
+
 export interface WorkspaceTabContext {
   active: boolean;
   navigation: SessionNavigation;
@@ -333,6 +346,7 @@ export interface WebPlugin extends WebPluginDescriptor {
   surface?: SurfaceContribution;
   surfaceElements?: SurfaceElementContribution[];
   cardSections?: CardSectionContribution[];
+  startSections?: StartSectionContribution[];
   chatDisplayPolicy?: ChatDisplayPolicy;
   resolveRunUrl?: RunUrlResolver;
   startOptions?: StartOptionContribution[];
@@ -379,6 +393,7 @@ export class PluginRegistry {
   readonly surface: SurfaceContribution | undefined;
   readonly surfaceElements: readonly SurfaceElementContribution[];
   readonly cardSections: readonly CardSectionContribution[];
+  readonly startSections: readonly StartSectionContribution[];
   readonly chatDisplayPolicy: ChatDisplayPolicy;
   readonly resolveRunUrl: RunUrlResolver | undefined;
   readonly startOptions: ReadonlyMap<string, StartOptionContribution>;
@@ -436,6 +451,10 @@ export class PluginRegistry {
       .flatMap((plugin) => plugin.cardSections ?? [])
       .sort((left, right) => left.order - right.order || left.id.localeCompare(right.id));
     assertUnique(this.cardSections, (section) => section.id, "Card section");
+    this.startSections = this.activePlugins
+      .flatMap((plugin) => plugin.startSections ?? [])
+      .sort((left, right) => left.order - right.order || left.id.localeCompare(right.id));
+    assertUnique(this.startSections, (section) => section.id, "Start section");
     this.needsRunView = this.activePlugins.some((plugin) => plugin.needsRunView);
     const chatPolicies = this.activePlugins.flatMap((plugin) => plugin.chatDisplayPolicy ? [plugin.chatDisplayPolicy] : []);
     if (chatPolicies.length > 1) throw new Error(`Multiple chat display policies registered: ${chatPolicies.length}`);

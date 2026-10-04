@@ -1,6 +1,7 @@
 {
   "id": "ragents.documents",
   "exports": {
-    "server": ["contract"]
+    "server": ["contract"],
+    "web": ["contract"]
   }
 }

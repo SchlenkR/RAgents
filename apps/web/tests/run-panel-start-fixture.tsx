@@ -3,7 +3,8 @@ import { createAccessContext } from "../../../packages/ragents/src/access";
 import { OrchestrationRunPanel } from "../../../plugins/ragents.orchestration/web/run-panel/RunPanel";
 import { AccessContext } from "../src/AccessContext";
 import type { PluginActivationState } from "../src/PluginActivation";
-import { PluginRegistry, type SurfaceElementDefinition, type EntryGuideContext } from "../src/PluginRegistry";
+import { PluginRegistry, type SurfaceElementDefinition, type EntryGuideContext, type StartSectionContext, type WebPlugin } from "../src/PluginRegistry";
+import type { ListedSession } from "../src/api";
 import { RunPanelApp } from "../src/run-panel/RunPanelApp";
 import { RunPanelHostProvider, type RunPanelHost } from "../src/run-panel/host";
 import type { HostRunPanelMessage, RunPanelHostMessage } from "../src/run-panel/host-contract";
@@ -37,6 +38,24 @@ function TopicGuide({ onCancel, onComplete }: EntryGuideContext) {
     <button onClick={onCancel} type="button">Cancel guide</button>
   </div>;
 }
+function WorkDocuments({ runs, onOpenRun }: StartSectionContext) {
+  const documents = runs.flatMap((run) => {
+    const titles = run.metadata?.["start.documents"];
+    if (titles === undefined) return [];
+    if (!Array.isArray(titles) || !titles.every((title) => typeof title === "string")) throw new Error("Invalid work document metadata.");
+    return titles.map((title: string) => ({ run, title }));
+  });
+  if (documents.length === 0) return null;
+  return <section aria-label="Work documents">
+    <h2>Work documents</h2>
+    <ul>{documents.map(({ run, title }) => <li key={`${run.id}:${title}`}>
+      <button onClick={() => onOpenRun(run.id)} type="button">{title} - {run.title}</button>
+    </li>)}</ul>
+  </section>;
+}
+const documentPlugin: WebPlugin = {
+  id: "start.documents", startSections: [{ id: "start.documents", order: 100, Section: WorkDocuments }],
+};
 const registry = new PluginRegistry({
   brand: { title: "Start check" }, product: { id: "start", title: "Start check" },
   plugins: [{
@@ -44,7 +63,7 @@ const registry = new PluginRegistry({
     surface: { RunPanel: OrchestrationRunPanel },
     surfaceElements: [{ id: "start.app", order: 0, select: () => fixture.elements, Element: () => <p>Mini-app ready</p> }],
     guides: [{ id: "start.topic", Guide: TopicGuide }],
-  }],
+  }, documentPlugin],
   startEntries: [
     { id: "start.script", owner: "start", title: "Setup template", description: "Builds a mini-app", action: "script", coordinator: false },
     { id: "start.other", owner: "start", title: "Second template", description: "Builds something else", action: "script", coordinator: false },
@@ -63,6 +82,12 @@ const fixture = {
   starts: [] as Array<{ runId: string; entry: string; input: unknown }>,
   scriptStarts: [] as Array<{ runId: string; entry: string; input: unknown }>,
   views: new Set<string>(),
+  runs: [{ id: "existing", title: "Existing run", updatedAt: 7, running: false, state: "idle", pendingActions: 0, workspaceAccessible: true, operable: true },
+    ...(query.has("documents") ? Array.from({ length: 6 }, (_, index): ListedSession => ({
+      id: `document-run-${index}`, title: `Document run ${index}`, updatedAt: 6 - index, running: false, state: "idle", pendingActions: 0,
+      workspaceAccessible: true, operable: true, metadata: { "start.documents": [`Work note ${index}`] },
+    })) : []),
+  ] as ListedSession[],
   holdStart: false,
   activate() { fixture.activation = { status: "ready", registry, failures: [] } as PluginActivationState; activationListeners.forEach((listener) => listener(fixture.activation)); },
   onActivation(listener: (state: PluginActivationState) => void) { activationListeners.add(listener); return () => { activationListeners.delete(listener); }; },
@@ -80,7 +105,7 @@ const fixture = {
   async call(contract: { id: string }, params: { runId?: string; entry?: string; input?: unknown }) {
     fixture.calls.push(contract.id);
     switch (contract.id) {
-      case "ragents.runs.list": return [{ id: "existing", title: "Existing run", updatedAt: 0, running: false, state: "idle", pendingActions: 0, workspaceAccessible: true }];
+      case "ragents.runs.list": return fixture.runs;
       case "ragents.runs.markViewed": return null;
       case "ragents.startOptions.list": return [];
       case "ragents.runs.view": return params.runId !== undefined && fixture.views.has(params.runId) ? emptyView(params.runId) : null;

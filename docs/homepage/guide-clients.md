@@ -242,14 +242,8 @@ toolbar row. VS Code keeps its single run header and editor tabs.
 **Start** arranges template cards in several columns when space allows, up to five at the
 maximum content width, and one in narrow panels. Cards stay between 240 and 320 pixels wide,
 shrinking only when the panel is narrower.
-It has no server block. **Continue** shows this server's five most recent runs in a fixed-column
-grid with status, title, and right-aligned time. Rows are
-the same as in the browser: below the title the owner and short details such as the workspace,
-the whole row is clickable, and a dot in the status icon marks activity you have not viewed in
-any host yet. Shared runs carry their sharing icon next to the title, and runs you may share
-end with "Share ..." (see [Share runs](#share-runs)). "All N runs" opens this server's Runs page.
-**New** appears when the selected server permits new runs. The first entry is its default template,
-marked "Default", or "New chat" in the "No template" category. Remaining templates follow,
+It has no server block. **New** comes first when the selected server permits new runs. The first
+entry is its default template, marked "Default", or "New chat" in the "No template" category. Remaining templates follow,
 without duplicating the default. Clicking an entry creates and starts the run on its server
 and opens the run panel. Until the run opens, the entry shows "Starting ..." with a
 spinner and all other entries stay locked; a cancelled folder choice or a failed start unlocks
@@ -265,8 +259,17 @@ the user may not create runs, the panel explains why and offers "Back to Start".
 For a new run, the visible chat input receives focus as
 soon as it becomes writable. Opening an existing run does the same for its selected chat partner.
 
+**Continue** follows with this server's five most recent runs in a fixed-column
+grid with status, title, and right-aligned time. Rows are
+the same as in the browser: below the title the owner and short details such as the workspace,
+the whole row is clickable, and a dot in the status icon marks activity you have not viewed in
+any host yet. Shared runs carry their sharing icon next to the title, and runs you may share
+end with "Share ..." (see [Share runs](#share-runs)). "All N runs" opens this server's Runs page.
 The trash button ("Delete run ...") beside a run on Start and Runs opens its deletion
 confirmation. Runs shared with you have no delete button.
+Plugin sections appear directly below Continue when installed, for example a list of work
+documents from all runs you can see. Clicking such an entry can open its run. Empty sections
+show no heading or gap.
 
 **Runs** shows this server's complete list in the same grid, with search, "Hide ended", and a
 selection mode that deletes several runs after a dialog confirmation. Checkboxes occupy an

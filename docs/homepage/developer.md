@@ -867,6 +867,49 @@ actor is unknown at this boundary. Anyone using actor fields must check them wit
 
 Contract fields: web.cardSections.
 
+### Work documents across runs on Start
+
+A plugin can add a section directly below Continue on Start. It receives all runs the viewer can see, including their metadata, and can open an entry's run through the host navigation.
+
+Place of use: Properties of a WebPlugin; Type comes from typebox. The server metadata contribution ragents.example.documents returns documents with id and title.
+
+```tsx
+import { Value } from "typebox/value";
+
+const documentsSchema = Type.Array(Type.Object({ id: Type.String(), title: Type.String() }));
+const startUi = {
+  id: "ragents.example",
+  startSections: [{
+    id: "ragents.example.documents", order: 100, readRight: "ragents.example.read",
+    Section: ({ runs, onOpenRun }) => {
+      const documents = runs.flatMap((run) => {
+        const value = run.metadata?.["ragents.example.documents"];
+        if (value === undefined) return [];
+        if (!Value.Check(documentsSchema, value)) throw new Error("Invalid work document metadata.");
+        return value.map((document) => ({ ...document, runId: run.id, runTitle: run.title }));
+      });
+      if (documents.length === 0) return null;
+      return <section aria-label="Work documents">
+        <h2>Work documents</h2>
+        <ul>{documents.map((document) => <li key={document.runId + ":" + document.id}>
+          <button onClick={() => onOpenRun(document.runId)}>{document.title} ({document.runTitle})</button>
+        </li>)}</ul>
+      </section>;
+    },
+  }],
+} satisfies WebPlugin;
+```
+
+Start shows New templates, then Continue with the five recent runs, then plugin sections sorted by order and id. The context contains every server-listed visible run, sorted by updatedAt, with id, title, updatedAt, and optional metadata keyed by contribution ID.
+
+The server filters the run list for the viewer; the slot performs no additional run access checks. readRight hides the entire section without the named permission.
+
+onOpenRun uses the same navigation as a run row in both browser and VS Code server frames. The local VS Code shell has no plugin registry and contributes no sections.
+
+Sections own their heading and spacing. Returning null leaves no empty wrapper or gap.
+
+Contract fields: web.startSections, startSection.id, startSection.order, startSection.readRight, startSection.Section, startSectionContext.runs, startSectionContext.onOpenRun.
+
 ### Run data and React context
 
 Several interface contributions of a plugin can need shared data about the open run. A SessionProvider passes this data on through React context. With needsRunView, the plugin additionally requests the run state provided by the server.
@@ -2100,6 +2143,7 @@ export interface WebPlugin extends WebPluginDescriptor {
   surface?: SurfaceContribution;
   surfaceElements?: SurfaceElementContribution[];
   cardSections?: CardSectionContribution[];
+  startSections?: StartSectionContribution[];
   chatDisplayPolicy?: ChatDisplayPolicy;
   resolveRunUrl?: RunUrlResolver;
   startOptions?: StartOptionContribution[];
@@ -2127,6 +2171,30 @@ Source in the repository: apps/web/src/PluginRegistry.tsx
 ```typescript
 export interface WebPluginDescriptor {
   id: string;
+}
+```
+
+### StartSectionContribution
+
+Source in the repository: apps/web/src/PluginRegistry.tsx
+
+```typescript
+export interface StartSectionContribution {
+  id: string;
+  order: number;
+  readRight?: string;
+  Section: ComponentType<StartSectionContext>;
+}
+```
+
+### StartSectionContext
+
+Source in the repository: apps/web/src/PluginRegistry.tsx
+
+```typescript
+export interface StartSectionContext {
+  runs: readonly ConnectionRun[];
+  onOpenRun: (runId: string) => void;
 }
 ```
 

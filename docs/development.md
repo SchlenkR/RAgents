@@ -280,7 +280,7 @@ to the plugin (`packages/ragents/src/plugin-types.ts`):
 ### Extension points in the web
 
 A web plugin fills slots in the frontend (`WebPlugin` in `apps/web/src/PluginRegistry.tsx`):
-`brand`, `surface` (one `RunPanel`), `surfaceElements`, `cardSections`, `chatDisplayPolicy`, `resolveRunUrl`, `startOptions`,
+`brand`, `surface` (one `RunPanel`), `surfaceElements`, `cardSections`, `chatDisplayPolicy`, `resolveRunUrl`, `startOptions`, `startSections`,
 `needsRunView`, `SessionProvider`, `sessionHeaders`, `sessionStatus`, `overviewPanels`,
 `settings`, `workspaceTabs`, `workspaceTabsFor`, `toolPresenters`, `entityPresenters`, `guides`,
 `sessionMetadata`, `actionViews`, `attention`; plus `activate` and `enabled`. `actionViews`
@@ -300,6 +300,8 @@ sidebar behavior, persistence, and iframe/draft identity with `RAGENTS_BROWSER_T
 `startOptions` provides, per server-side start option, its own control component and a badge
 for the header of the running run; without a component, the host draws a selection menu from the
 option's presentation.
+`startSections` adds sections below Start's "New" templates and "Continue" recent runs, with
+all server-listed visible runs, their metadata, and run navigation.
 
 A domain plugin owns its prompt parts, skills, server API, web components, CSS, configuration,
 and storage itself. If you remove it from the profile, prompt,

@@ -371,10 +371,11 @@ the same website under `docs/homepage/dist`.
 
 ## Create your first run
 
-Start shows one server's recent runs and templates in both the browser and VS Code: "New chat" or the server's default
-template first, then skill templates with a prepared task and script templates with programmed
-setups. "New chat" opens an empty run whose task you write in its chat; a template starts with one
-click. Some templates collect values in a setup dialog first ("Set up"); a skill template then
+Start shows one server's permitted templates under "New", then its five recent runs under
+"Continue", then any plugin sections, in both the browser and VS Code. Templates begin with
+"New chat" or the server's default template, then skill templates with a prepared task and script
+templates with programmed setups. "New chat" opens an empty run whose task you write in its chat;
+a template starts with one click. Some templates collect values in a setup dialog first ("Set up"); a skill template then
 continues in the preparation chat. There you can discuss the task, give a clear go-ahead such as
 "Start", or choose "Create run". Merely confirming a detail does not start
 anything. In the browser a new run always works on the server; only VS Code and `ragents run`

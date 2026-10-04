@@ -2,9 +2,12 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
+import { createAccessContext } from "../../../packages/ragents/src/access";
+import { AccessContext } from "../src/AccessContext";
+import { PluginRegistry, type StartSectionContext, type WebPlugin } from "../src/PluginRegistry";
 import { PanelPage } from "../src/panel/PanelPage";
 import { RunLine, RunList } from "../src/panel/RunLine";
-import { isPanelActionMessage, isPanelStateMessage, type PanelState, type ConnectionView } from "../src/panel/contract";
+import { isPanelActionMessage, isPanelStateMessage, type PanelAction, type PanelState, type ConnectionView } from "../src/panel/contract";
 
 const render = (state: PanelState) => renderToStaticMarkup(createElement(PanelPage, { state, send: () => {} }));
 
@@ -37,11 +40,72 @@ test("Start shows only the current server's recent runs and templates", () => {
   assert.match(html, /title="Night bus round"/);
   assert.match(html, /title="running"/);
   assert.match(html, />New</);
+  assert.ok(html.indexOf('aria-label="Templates"') < html.indexOf('>Continue<'), "New appears before Continue");
   assert.match(html, /aria-label="Templates"/);
   assert.match(html, />Collection board</);
   assert.match(html, />Discussion circle</);
   assert.doesNotMatch(html, /Search templates/, "Start has no search over the templates");
   assert.doesNotMatch(html, /Disconnect|Stop|Question/);
+});
+
+const registryWith = (plugins: WebPlugin[]) => new PluginRegistry({
+  brand: { title: "Workshop" }, product: { id: "workshop", title: "Workshop" }, plugins, startEntries: [],
+});
+
+test("Start sections receive all listed runs with metadata and open through the current server", () => {
+  const runs = Array.from({ length: 7 }, (_, index) => ({
+    id: `run-${index}`, title: `Run ${index}`, state: "idle" as const, pendingActions: 0, updatedAt: index,
+    metadata: { "test.documents": [{ title: `Document ${index}` }] },
+  }));
+  const contexts: StartSectionContext[] = [];
+  const actions: PanelAction[] = [];
+  const registry = registryWith([{ id: "test.documents", startSections: [{ id: "documents", order: 100, Section: (context) => {
+    contexts.push(context);
+    return createElement("section", null, createElement("h2", null, "Work documents"));
+  } }] }]);
+  const html = renderToStaticMarkup(createElement(PanelPage, { registry, state: page({ connections: [connection({ runs })] }), send: (action) => actions.push(action) }));
+  assert.ok(html.indexOf('>Continue<') < html.indexOf('>Work documents<'));
+  assert.doesNotMatch(html, />Run 0</, "the oldest run is outside Continue");
+  assert.deepEqual(contexts[0]!.runs, [...runs].reverse(), "the section receives the complete list, newest first, with unchanged metadata");
+  assert.deepEqual(runs.map((run) => run.id), Array.from({ length: 7 }, (_, index) => `run-${index}`), "rendering does not reorder the source list");
+  contexts[0]!.onOpenRun("run-0");
+  assert.deepEqual(actions, [{ action: "openRun", name: "workshop", runId: "run-0" }]);
+  contexts.length = 0;
+  for (const current of ["runs", "connections"] as const) {
+    renderToStaticMarkup(createElement(PanelPage, { registry, state: page({ page: current }), send: () => {} }));
+  }
+  assert.equal(contexts.length, 0, "only Start mounts the sections");
+});
+
+test("Start sections retain contribution order and empty sections add no markup", () => {
+  const state = page();
+  const empty = registryWith([{ id: "test.empty", startSections: [{ id: "empty", order: 0, Section: () => null }] }]);
+  assert.equal(renderToStaticMarkup(createElement(PanelPage, { registry: empty, state, send: () => {} })), render(state));
+  const section = (id: string, order: number) => ({ id, order, Section: () => createElement("section", null, id) });
+  const registry = registryWith([
+    { id: "test.first", startSections: [section("later", 200), section("second", 100)] },
+    { id: "test.second", startSections: [section("first", 100)] },
+    { id: "test.disabled", enabled: () => false, startSections: [section("hidden", 0)] },
+  ]);
+  assert.deepEqual(registry.startSections.map((section) => section.id), ["first", "second", "later"]);
+  const html = renderToStaticMarkup(createElement(PanelPage, { registry, state, send: () => {} }));
+  assert.match(html, /<section>first<\/section><section>second<\/section><section>later<\/section>/);
+  assert.doesNotMatch(html, />hidden</);
+  assert.deepEqual(registryWith([]).startSections, []);
+  assert.throws(() => registryWith([{ id: "test.duplicate", startSections: [section("same", 0), section("same", 1)] }]), /Start section registered twice: same/);
+  assert.throws(() => registryWith([{ id: "test.empty", startSections: [section("", 0)] }]), /Start section without ID/);
+});
+
+test("a Start section with a read right mounts only when the viewer has that right", () => {
+  const state = page({ connections: [connection({ canCreate: false, runs: [] })] });
+  const registry = registryWith([{ id: "test.guarded", startSections: [{
+    id: "guarded", order: 0, readRight: "test.read", Section: () => createElement("section", null, "Work documents"),
+  }] }]);
+  const renderWithRights = (rights: string[]) => renderToStaticMarkup(createElement(AccessContext.Provider, {
+    value: { ...createAccessContext({ enabled: true, user: { id: "alice", label: "Alice", rights, startEntries: [] } }), logout: async () => {} },
+  }, createElement(PanelPage, { registry, state, send: () => {} })));
+  assert.doesNotMatch(renderWithRights([]), /Work documents/);
+  assert.match(renderWithRights(["test.read"]), /Work documents/);
 });
 
 test("Start and Runs require exactly one server, while server management accepts all configured servers", () => {

@@ -337,7 +337,7 @@ function RunPanelPage({ connection, initialRunId, registry }: { connection: stri
             <>
               <div className="min-h-0 min-w-0 flex-1 overflow-auto">
                 {unreachable && <Alert className="mb-3" variant="destructive">The server is unreachable.</Alert>}
-                <PanelPage send={navigate} state={navigationState} />
+                <PanelPage registry={registry} send={navigate} state={navigationState} />
               </div>
             </>
           )}

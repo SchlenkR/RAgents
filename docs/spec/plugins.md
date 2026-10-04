@@ -655,6 +655,8 @@ created there, and `ragents.documents` shows it in the Documents tab. Its prompt
 to `show_document`, `write`, and `copy`, says that evidence and reports go to `@documents/...` and
 deliverables into the project, that `copy` moves between the two, and that a document embeds
 images with a path relative to itself or with `@documents/...`.
+Its `contract` (content route paths, the grant operation, and the grant lifetime) is a declared
+export for the server and web halves of plugins that require `ragents.documents`.
 Actor programs use their own private pnpm workspace under their run storage.
 Its `actors/` collection is a server root with the alias `@actors`
 (`registerWorkspaceRoot`): file tools and language servers reach it in every binding through
@@ -1398,6 +1400,17 @@ Instead, plugins fill typed slots for:
   but activate their own connections only on use and keep them afterwards across run switches.
   In both browser and VS Code, only the selected server supplies these contributions, including
   on Start before a run is opened. Contributions from different environments are never merged.
+- Start sections (`startSections`): `StartSectionContribution` declares `id`, `order`, optional
+  `readRight`, and `Section`, a component receiving `StartSectionContext` with `runs` and
+  `onOpenRun(runId)`. Sections follow "Continue", sorted by `order` and then `id`. The context
+  carries every run the server lists for the viewer, sorted by update time, through readonly
+  `ConnectionRun` values including `id`, `title`, `updatedAt`, and optional `metadata` keyed by
+  server-side `sessionMetadata` contribution ID. `connectionRunOf` preserves `ListedSession.metadata`;
+  row detail lines still come from `listDetail`. `onOpenRun` uses the same navigation as a run
+  row. The slot performs no additional run access checks; `readRight` only gates the section.
+  A section owns its heading and spacing and may return `null`, leaving no empty wrapper or gap.
+  `RunPanelApp` passes its registry to `PanelPage` for both browser and VS Code server frames;
+  the local VS Code shell has no registry and shows no sections. `PanelPage` also works without a registry.
 - workspace tabs and badges (`workspaceTabs`, `workspaceTabsFor`): the toolbar at the right edge
   with the tab area as a popout over the selected content view; the same contribution, the same visibility (`readRight`, `requiresWorkspace`, `available`);
   `placement: "window"` (default `"sidebar"`) lists a tab in the browser among the run's windows in the
@@ -1445,7 +1458,8 @@ Instead, plugins fill typed slots for:
 The shared `main.tsx` bootstrap renders `RunPanelApp` for either host. The browser and the VS Code
 iframe use the same `PanelPage`, `StartPage`, and `RunsPage` with one current-server adapter.
 In the browser the address selects that server; in VS Code the selected environment does.
-Start offers recent runs and permitted templates; Runs adds search and deletion with confirmation.
+Start shows permitted templates under "New", then the five recent runs under "Continue", then
+plugin sections; Runs adds search and deletion with confirmation.
 Neither page combines servers, and Start contains no server chips.
 Free creation, template access, reading, and deletion retain their independent rights.
 Both hosts draw run rows from the same mapping of `ragents.runs.list` (`connectionRunOf` in
@@ -2814,7 +2828,22 @@ with side padding, for Start and Runs in both hosts and for Server in VS Code. T
 page host adds no second padding; the outer header remains full width. The Runs search field
 and run rows use the same bounded column.
 
-**Start** has no page header or server block. **Continue** shows the selected server's last
+**Start** has no page header or server block. **New** appears first as soon as the selected server
+allows new runs. First is its default template from `ConnectionView.defaultEntry` with the marker
+"Default", or the entry "New chat" (category "No template", dashed edge, plus icon, `newRun`
+without `entryId`). Then follow the selected server's other templates, the default not a second
+time; the count in the heading counts all entries. An entry shows category, title, two lines of
+description, at the bottom "Start", for a template with a guide, as in the web app, "Set up"
+(`ConnectionEntry.guided` from the template's `guide`); skill round and `--primary`, run script
+angular and `--success`, the grid `repeat(auto-fill, minmax(240px, 1fr))`, with cards capped at
+320 pixels. `StartTiles` measures its own container: below 240 pixels it uses one shrinking
+column, without horizontal overflow. At the maximum content width the grid has five columns.
+There is no search here, and `ListDetail` does not fit, because it measures itself by its own
+width and would become a list with a detail page at 420 pixels (decisions of 09/19 and
+09/21/2026). The tiles including the heading are the building block `StartTiles`, the same as in
+the browser's start selection.
+
+**Continue** follows with the selected server's last
 five runs in `RunList` (`panel/RunLine.tsx`): a CSS grid with the columns state, title, and time,
 in selection mode the checkbox in front; every row and its
 button are `grid-cols-subgrid`, so that the columns stand at the same edge in all rows, and
@@ -2841,20 +2870,8 @@ on success and leaves a refusal in it, with the user's draft. `openSharing` and 
 `run-sharing.ts` are this flow for every host: the server interface keeps the dialog in React
 state in both the browser and VS Code, and an answer for a dialog closed meanwhile is dropped.
 `PanelState.notice` is a short message on Start, such as the one for a share taken back.
-Below that, **New** appears as soon as the selected server allows new runs. First is its default
-template from `ConnectionView.defaultEntry` with the marker "Default", or the entry "New chat"
-(category "No template", dashed edge, plus icon, `newRun` without `entryId`). Then follow
-the selected server's other templates, the default not a second time; the
-count in the heading counts all entries. An entry shows category,
-title, two lines of description, at the bottom "Start", for a template with a guide, as in the
-web app, "Set up" (`ConnectionEntry.guided` from the template's `guide`); skill round and
-`--primary`, run script angular and `--success`, the grid
-`repeat(auto-fill, minmax(240px, 1fr))`, with cards capped at 320 pixels.
-`StartTiles` measures its own container: below 240 pixels it uses one shrinking column,
-without horizontal overflow. At the maximum content width the grid has five columns. There is no search here, and `ListDetail` does not fit,
-because it measures itself by its own width and would become a list with a detail page at 420 pixels
-(decisions of 09/19 and 09/21/2026). The tiles including the heading are the building block
-`StartTiles`, the same as in the browser's start selection.
+Plugin `startSections` render directly below Continue with the complete server-listed visible
+run list and its metadata; the host adds no heading or wrapper for a section.
 
 **Runs** is the selected server's complete list: search over title, "Hide ended", and a
 selection mode with checkboxes, which names the count in a bar at the bottom

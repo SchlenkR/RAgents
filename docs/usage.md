@@ -10,10 +10,11 @@ in `docs/spec/`, the why in `docs/decisions.md`.
 <!-- guide:getting-started -->
 ## Create your first run
 
-Start shows one server's recent runs and templates in both the browser and VS Code: "New chat" or the server's default
-template first, then skill templates with a prepared task and script templates with programmed
-setups. "New chat" opens an empty run whose task you write in its chat; a template starts with one
-click. Some templates collect values in a setup dialog first ("Set up"); a skill template then
+Start shows one server's permitted templates under "New", then its five recent runs under
+"Continue", then any plugin sections, in both the browser and VS Code. Templates begin with
+"New chat" or the server's default template, then skill templates with a prepared task and script
+templates with programmed setups. "New chat" opens an empty run whose task you write in its chat;
+a template starts with one click. Some templates collect values in a setup dialog first ("Set up"); a skill template then
 continues in the preparation chat. There you can discuss the task, give a clear go-ahead such as
 "Start", or choose "Create run". Merely confirming a detail does not start
 anything. In the browser a new run always works on the server; only VS Code and `ragents run`
@@ -53,8 +54,8 @@ the run coordinator is selected by default.
 
 ## Switch runs
 
-Click the logo at the top left ("Back to Start") to see recent runs and permitted templates; it
-also works with the keyboard. Click a run to continue, or open
+Click the logo at the top left ("Back to Start") to see permitted templates, recent runs, and
+plugin sections; it also works with the keyboard. Click a run to continue, or open
 All runs for search and selection; the arrow next to the Runs title leads back to Start.
 On Start and Runs, the trash button ("Delete run ...") next to a run deletes it after a
 confirmation that names the run. To delete several, choose "Select" on Runs, check the runs,
@@ -737,14 +738,8 @@ toolbar row. VS Code keeps its single run header and editor tabs.
 **Start** arranges template cards in several columns when space allows, up to five at the
 maximum content width, and one in narrow panels. Cards stay between 240 and 320 pixels wide,
 shrinking only when the panel is narrower.
-It has no server block. **Continue** shows this server's five most recent runs in a fixed-column
-grid with status, title, and right-aligned time. Rows are
-the same as in the browser: below the title the owner and short details such as the workspace,
-the whole row is clickable, and a dot in the status icon marks activity you have not viewed in
-any host yet. Shared runs carry their sharing icon next to the title, and runs you may share
-end with "Share ..." (see [Share runs](#share-runs)). "All N runs" opens this server's Runs page.
-**New** appears when the selected server permits new runs. The first entry is its default template,
-marked "Default", or "New chat" in the "No template" category. Remaining templates follow,
+It has no server block. **New** comes first when the selected server permits new runs. The first
+entry is its default template, marked "Default", or "New chat" in the "No template" category. Remaining templates follow,
 without duplicating the default. Clicking an entry creates and starts the run on its server
 and opens the run panel. Until the run opens, the entry shows "Starting ..." with a
 spinner and all other entries stay locked; a cancelled folder choice or a failed start unlocks
@@ -760,8 +755,17 @@ the user may not create runs, the panel explains why and offers "Back to Start".
 For a new run, the visible chat input receives focus as
 soon as it becomes writable. Opening an existing run does the same for its selected chat partner.
 
+**Continue** follows with this server's five most recent runs in a fixed-column
+grid with status, title, and right-aligned time. Rows are
+the same as in the browser: below the title the owner and short details such as the workspace,
+the whole row is clickable, and a dot in the status icon marks activity you have not viewed in
+any host yet. Shared runs carry their sharing icon next to the title, and runs you may share
+end with "Share ..." (see [Share runs](#share-runs)). "All N runs" opens this server's Runs page.
 The trash button ("Delete run ...") beside a run on Start and Runs opens its deletion
 confirmation. Runs shared with you have no delete button.
+Plugin sections appear directly below Continue when installed, for example a list of work
+documents from all runs you can see. Clicking such an entry can open its run. Empty sections
+show no heading or gap.
 
 **Runs** shows this server's complete list in the same grid, with search, "Hide ended", and a
 selection mode that deletes several runs after a dialog confirmation. Checkboxes occupy an

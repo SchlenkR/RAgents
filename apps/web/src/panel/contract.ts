@@ -31,6 +31,8 @@ export interface ConnectionRun {
   readonly pendingActions: number;
   readonly notice?: "unseen" | "updated";
   readonly updatedAt: number;
+  /** The run's session metadata values by contribution ID, for plugin sections on Start. */
+  readonly metadata?: Readonly<Record<string, unknown>>;
   /** Who created the run; missing for a run created without sign-in. */
   readonly owner?: string;
   /** The list lines of the run metadata, below the title after the owner. */

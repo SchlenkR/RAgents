@@ -63,6 +63,7 @@ test("Start shows only one server's recent runs and templates and sends each act
   try{
     const page=await browser.newPage({viewport:{width:420,height:1100}});await page.goto(url);
     await page.getByRole('heading',{name:'Continue'}).waitFor();
+    assert.deepEqual(await page.getByRole('heading',{level:2}).allTextContents(),['New5','Continue'],'templates appear before recent runs');
     assert.equal(await page.getByRole('heading',{level:1}).count(),0,'Start has no header of its own');
     assert.equal(await page.getByRole('list',{name:'Server',exact:true}).count(),0);
     assert.equal(await page.getByRole('heading',{name:'Server',exact:true}).count(),0);

@@ -45,6 +45,36 @@ const buildFixture = async (): Promise<string> => {
 let fixtureUrl: Promise<string> | undefined;
 const launchBrowser = () => chromium.launch({ headless: true, executablePath: process.env.BROWSER_EXECUTABLE_PATH ?? "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome" });
 
+for (const host of ["browser", "vscode"] as const) {
+  test(`a Start plugin lists metadata from all visible runs and opens the selected run in ${host}`, {
+    skip: process.env.RAGENTS_BROWSER_TESTS !== "1", timeout: 90_000,
+  }, async () => {
+    const url = await (fixtureUrl ??= buildFixture());
+    const browser = await launchBrowser();
+    try {
+      const page = await browser.newPage({ viewport: { width: 900, height: 900 } });
+      const errors: string[] = [];
+      page.on("pageerror", (error) => errors.push(error.message));
+      await page.goto(`${url}?host=${host}&documents`);
+      const section = page.getByRole("region", { name: "Work documents", exact: true });
+      await section.waitFor();
+      assert.deepEqual(await page.locator("main[data-page=start] h2").allTextContents(), ["New4", "Continue", "Work documents"]);
+      assert.equal(await page.getByRole("list", { name: "Recent", exact: true }).getByRole("listitem").count(), 5);
+      assert.equal(await page.getByRole("button", { name: /^All 7 runs/ }).count(), 1);
+      assert.deepEqual(await section.getByRole("button").allTextContents(), Array.from({ length: 6 }, (_, index) => `Work note ${index} - Document run ${index}`));
+      assert.equal(await page.getByRole("list", { name: "Recent", exact: true }).getByText("Document run 5").count(), 0);
+      await section.getByRole("button", { name: "Work note 5 - Document run 5", exact: true }).click();
+      await page.waitForFunction(() => window.runStartFixture.activeRun() === "document-run-5");
+      assert.equal(await section.count(), 0, "opening a document uses the run navigation and leaves Start");
+      await page.getByRole("button", { name: "Back to Start", exact: true }).click();
+      await section.waitFor();
+      await page.getByRole("list", { name: "Recent", exact: true }).getByRole("button", { name: /Document run 0/ }).click();
+      await page.waitForFunction(() => window.runStartFixture.activeRun() === "document-run-0");
+      assert.deepEqual(errors, []);
+    } finally { await browser.close(); }
+  });
+}
+
 test("the VS Code panel starts on the server's Start page and keeps one loading state from a start click to the first content", {
   skip: process.env.RAGENTS_BROWSER_TESTS !== "1", timeout: 90_000,
 }, async () => {

@@ -1,5 +1,25 @@
 # Decisions
 
+## 2026-10-04: Export the document store contract to web halves
+
+Chapter: `spec/plugins.md` (document store).
+
+A plugin that renders files from a run's document store in its own view needs the content route
+paths and a grant for token sign-in. `ragents.documents` exported its `contract` only to server
+halves, so such a view had to copy the grant operation and the route format. The same module is
+now also a web export.
+
+## 2026-10-04: Put new runs first and add plugin sections to Start
+
+Chapters: `spec/plugins.md` (Web as plugin host); development: `development.md` (Extension points
+in the web); usage: `usage.md` (Create your first run, Switch runs, Run panel and VS Code extension).
+
+Start puts "New" templates before "Continue" recent runs so creating work comes first. Plugins
+can add sections below Continue that collect their metadata across all server-listed visible
+runs and open a run through the existing navigation. Run rows keep their presentation. The
+optional slot and carried metadata preserve existing plugin contracts, so host API version 12
+stays unchanged. The generated developer reference includes a work-document example.
+
 ## 2026-10-04: Delete a run directly from its row
 
 Chapter: `spec/plugins.md` (shared Start and Runs pages); usage: `usage.md` (Switch runs, VS Code).

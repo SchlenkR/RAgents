@@ -596,11 +596,12 @@ export class WorkspaceSandboxHost implements SandboxServices {
     const options = { toolCallId, ...(scope.signal ? { signal: scope.signal } : {}) };
     if (scope.modelContext === undefined) return textOf(await this.execute(runId, name, input, options) as ToolOutput);
     const known = this.#seen.get(runId) ?? new Map<string, SeenFile>();
+    this.#seen.set(runId, known);
     const key = [scope.caller.actorId, scope.modelContext, path.posix.normalize(input.file_path)].join("\0");
     const result = await this.execute(runId, name, { ...input, seen: known.get(key) ?? null }, options) as ToolOutput & { details?: { seen?: SeenFile } };
     const seen = result.details?.seen;
     if (!seen) throw new Error(`The executor reports no file state after ${name}; server and workstation need the same executor version`);
-    this.#seen.set(runId, known.set(key, seen));
+    known.set(key, seen);
     return textOf(result);
   }
 }
