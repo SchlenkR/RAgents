@@ -72,8 +72,8 @@ The value is a string in the form of a template identifier (`config-file.ts`,
 plugin of the profile has registered exactly this template; otherwise it aborts with the list of
 registered templates. `ragents.plugins.bootstrap` delivers it as `defaultStartEntry` only to users
 for whom the template is allowed (`publicProfile`); without that, the field is missing and the
-other templates remain. The VS Code extension uses the default for the plus on the server chip,
-the first template under Start, and the first row per server in `RAgents: New run`
+other templates remain. The default is the first tile on the server's Start page in both hosts
+and the first row of the selected environment's `RAgents: New run` picker in VS Code
 ([usage.md](../usage.md), section Run panel and VS Code extension). `core`, `showcase`, and
 `developer` set no default.
 

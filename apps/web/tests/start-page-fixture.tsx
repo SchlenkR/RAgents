@@ -13,7 +13,7 @@ import type { ConnectionView, PanelState } from "../src/panel/contract";
 import { productStartOptions } from "../src/product/start-options";
 import { RunPanelApp } from "../src/run-panel/RunPanelApp";
 import { createBrowserHost, RunPanelHostProvider, type RunPanelHost } from "../src/run-panel/host";
-import type { HostRunPanelMessage } from "../src/run-panel/host-contract";
+import type { HostRunPanelMessage, RunPanelHostMessage } from "../src/run-panel/host-contract";
 import "../src/ui/tailwind.css";
 
 type Subscription = { id: string; runId?: string; message: (event: unknown) => void };
@@ -83,6 +83,7 @@ const connection: ConnectionView = {
 
 const fixture = {
   calls: [] as Array<{ id: string; params: Record<string, unknown> }>,
+  notifications: [] as RunPanelHostMessage[],
   views: new Set<string>(),
   command(message: HostRunPanelMessage) { commands.forEach((listener) => listener(message)); },
   /** The extension's next state message: the same content as a new object. */
@@ -129,7 +130,12 @@ const vsCodeHost: RunPanelHost = {
   kind: "vscode",
   machines: "all",
   onCommand(listener) { commands.add(listener); return () => { commands.delete(listener); }; },
-  notify() {},
+  notify(message) {
+    fixture.notifications.push(message);
+    if (message.type === "newRun") queueMicrotask(() => fixture.command({ ...message,
+      startOptions: { [WORKSPACE_BINDING_OPTION_ID]: { machine: { client: workstation.id, label: workstation.label }, folder: { path: workstation.folders[0] } } },
+    }));
+  },
 } as RunPanelHost;
 window.startPageActivation = { status: "ready", registry, bootstrap: { product: registry.profile.product, plugins: [], startEntries }, failures: [] } as unknown as PluginActivationState;
 

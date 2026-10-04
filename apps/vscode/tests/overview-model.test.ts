@@ -38,8 +38,8 @@ const local = (overrides: Partial<ConnectionSnapshot> = {}): ConnectionSnapshot 
   ...overrides,
 });
 
-test("the overview combines servers and local profiles in one list", () => {
-  const state = panelState({ theme: "dark", page: "start", connections: [snapshot(), local()], profileSuggestions: ["/x/ragents.config.core.ts"], missingSecrets: [], problem: undefined, pickedProfileFile: undefined, runsConnection: undefined });
+test("connection management lists servers and local profiles with their own runs and templates", () => {
+  const state = panelState({ theme: "dark", page: "connections", connections: [snapshot(), local()], profileSuggestions: ["/x/ragents.config.core.ts"], missingSecrets: [], problem: undefined, pickedProfileFile: undefined });
   assert.deepEqual(state.connections.map((entry) => [entry.name, entry.kind, entry.state.kind, entry.runs.length, entry.entries.length]), [
     ["workshop", "server", "connected", 1, 2],
     ["core", "profile", "stopped", 0, 0],
@@ -52,14 +52,12 @@ test("the overview combines servers and local profiles in one list", () => {
   ]);
   assert.deepEqual(state.profileSuggestions, ["/x/ragents.config.core.ts"]);
   assert.deepEqual(state.connections[0]?.runs[0], { id: "run-a", title: "Night bus round", state: "running", pendingActions: 1, updatedAt: 2 });
-  assert.equal(state.page, "start");
+  assert.equal(state.page, "connections");
   assert.equal(state.problem, undefined);
-  assert.equal(state.runsConnection, undefined);
-  assert.equal(panelState({ theme: "dark", page: "runs", connections: [], profileSuggestions: [], missingSecrets: [], problem: undefined, pickedProfileFile: undefined, runsConnection: "workshop" }).runsConnection, "workshop");
 });
 
 test("the panel carries the share dialog and the Start notice the extension keeps, and every row its sharing for the user", () => {
-  const base = { theme: "dark" as const, page: "start" as const, profileSuggestions: [], missingSecrets: [], problem: undefined, pickedProfileFile: undefined, runsConnection: undefined };
+  const base = { theme: "dark" as const, page: "connections" as const, profileSuggestions: [], missingSecrets: [], problem: undefined, pickedProfileFile: undefined };
   const runs = [session({ id: "own", canShare: true, shared: true }), session({ id: "viewed", operable: false, ownerLabel: "Alice", sharedAccess: "read" })];
   const sharing = { connection: "workshop", runId: "own", result: { sharing: { everyone: "read" as const, users: [] }, users: [{ id: "bob", label: "Bob" }] } };
   const state = panelState({ ...base, connections: [snapshot({ runs })], sharing, notice: "This run is no longer available to you." });
@@ -134,10 +132,12 @@ test("a paused run keeps its state in the row, the badge still counts only its o
   assert.equal(pendingActions([paused]), 0);
 });
 
-test("numbers of the status bar and the badge count across all servers", () => {
+test("connection and waiting counts use exactly the supplied snapshots", () => {
   const snapshots = [snapshot(), snapshot({ connection: { kind: "server", name: "second", url: "http://localhost:4727" } }), local()];
   assert.equal(connectedCount(snapshots), 2);
   assert.equal(pendingActions(snapshots), 2);
+  assert.equal(pendingActions([snapshots[0]!]), 1);
+  assert.equal(pendingActions([]), 0);
 });
 
 test("New run offers the free task and its templates per connected server", () => {

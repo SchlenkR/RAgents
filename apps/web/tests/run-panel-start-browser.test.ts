@@ -45,7 +45,7 @@ const buildFixture = async (): Promise<string> => {
 let fixtureUrl: Promise<string> | undefined;
 const launchBrowser = () => chromium.launch({ headless: true, executablePath: process.env.BROWSER_EXECUTABLE_PATH ?? "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome" });
 
-test("the run panel shows one loading state from the click to the first content and never a run list in VS Code", {
+test("the VS Code panel starts on the server's Start page and keeps one loading state from a start click to the first content", {
   skip: process.env.RAGENTS_BROWSER_TESTS !== "1", timeout: 90_000,
 }, async () => {
   const url = await (fixtureUrl ??= buildFixture());
@@ -61,7 +61,7 @@ test("the run panel shows one loading state from the click to the first content 
     const waitForTitle = (title: string) => page.waitForFunction((expected) => document.querySelector("[data-startup] strong")?.textContent === expected, title);
     const settle = () => page.evaluate(() => new Promise<void>((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve()))));
     const chat = (event: unknown) => page.evaluate((payload) => window.runStartFixture.chat(payload), event);
-    const listSeen = () => page.evaluate(() => window.runStartFixture.listSeen);
+    const startPage = page.getByRole("list", { name: "Recent", exact: true });
 
     await page.goto(`${url}?profile=pending`);
     await notice.waitFor();
@@ -69,16 +69,12 @@ test("the run panel shows one loading state from the click to the first content 
     assert.equal(await notice.getAttribute("data-startup"), "working");
     assert.equal(await notice.locator("[role=progressbar]").count(), 1, "Loading the profile shows the same progress as the run.");
     await page.evaluate(() => window.runStartFixture.activate());
-    await waitForTitle("Starting run");
-    assert.equal(await detailOf(), "Creating the new run.");
+    await startPage.getByRole("button", { name: /Existing run/ }).waitFor();
+    assert.equal(await notice.count(), 0, "Without a run, VS Code shows the server's Start page immediately.");
     assert.ok((await page.evaluate(() => window.runStartFixture.notifications)).some((message) => message.type === "ready"));
-    const waiting = await center(notice);
 
-    await page.evaluate(() => {
-      window.runStartFixture.holdStart = true;
-      window.runStartFixture.command({ type: "selectRun", runId: null });
-      window.runStartFixture.command({ type: "newRun", entryId: "start.script" });
-    });
+    await page.evaluate(() => { window.runStartFixture.holdStart = true; });
+    await page.getByRole("list", { name: "Templates", exact: true }).locator('button[data-tile="Setup template"]').click();
     await page.waitForFunction(() => window.runStartFixture.calls.includes("ragents.chat.start"));
     assert.equal(await titleOf(), "Starting run");
     assert.equal(await detailOf(), "Starting the template.");
@@ -86,7 +82,8 @@ test("the run panel shows one loading state from the click to the first content 
     const launching = await center(notice);
     const statusBar = await page.getByRole("contentinfo", { name: "Run status bar" }).boundingBox();
     assert.ok(statusBar, "The pending panel reserves the run status bar.");
-    assert.ok(Math.abs(launching.x - waiting.x) < 1 && Math.abs(launching.y - waiting.y) < 1, "Waiting for the host and launching share one place.");
+    assert.equal(await startPage.count(), 0, "The run takes the place of Start while it launches.");
+    assert.ok((await page.evaluate(() => window.runStartFixture.notifications)).some((message) => message.type === "newRun" && message.entryId === "start.script"), "The start click asks the extension to apply its workstation selection.");
 
     await page.evaluate(() => window.runStartFixture.releaseStart());
     await page.waitForFunction(() => window.runStartFixture.activeRun() !== undefined);
@@ -123,10 +120,10 @@ test("the run panel shows one loading state from the click to the first content 
     await chat({ kind: "status", running: true });
     await settle();
     assert.equal(await notice.count(), 0, "Once content was shown, later work brings no loading state back.");
-    assert.equal(await listSeen(), false, "VS Code never renders the run list, not even for a moment.");
+    assert.equal(await startPage.count(), 0, "A running run does not show the Start list.");
 
     await page.goto(url);
-    await waitForTitle("Starting run");
+    await startPage.waitFor();
     await page.evaluate(() => window.runStartFixture.command({ type: "newRun" }));
     await page.waitForFunction(() => window.runStartFixture.activeRun() !== undefined);
     await waitForTitle("Loading run");
@@ -161,39 +158,35 @@ test("the run panel shows one loading state from the click to the first content 
     await waitForTitle("Preparing run");
     await chat({ kind: "user", text: "Please get started" });
     await page.waitForFunction(() => document.querySelector("[data-startup]") === null);
-    assert.equal(await listSeen(), false);
+    assert.equal(await startPage.count(), 0);
 
     await page.goto(`${url}?rights=runs.read`);
-    await waitForTitle("Starting run");
+    await startPage.waitFor();
     await page.evaluate(() => window.runStartFixture.command({ type: "newRun", entryId: "start.script" }));
-    await waitForTitle("No new run possible");
-    assert.equal(await detailOf(), "New runs are not enabled for this user account.");
+    await page.getByRole("alert").filter({ hasText: "New runs are not enabled for this user account." }).waitFor();
+    assert.equal(await startPage.isVisible(), true, "A refused start leaves the server's Start page visible.");
     await page.getByRole("button", { name: "Back to Start", exact: true }).last().click();
     assert.ok((await page.evaluate(() => window.runStartFixture.notifications)).some((message) => message.type === "showStart"), "The refusal leads back to Start.");
 
     await page.goto(`${url}?rights=runs.read,runs.write`);
-    await waitForTitle("Starting run");
+    await startPage.waitFor();
     await page.evaluate(() => window.runStartFixture.command({ type: "newRun" }));
-    await waitForTitle("No new run possible");
-    assert.equal(await detailOf(), "Free runs are not enabled for this user account.");
+    await page.getByRole("alert").filter({ hasText: "Free runs are not enabled for this user account." }).waitFor();
     await page.evaluate(() => window.runStartFixture.command({ type: "newRun", entryId: "start.script" }));
     await page.waitForFunction(() => window.runStartFixture.calls.includes("ragents.chat.start"));
     await page.waitForFunction(() => window.runStartFixture.activeRun() !== undefined);
-    assert.equal(await listSeen(), false);
+    assert.equal(await startPage.count(), 0);
 
     await page.clock.install();
     await page.goto(url);
-    await waitForTitle("Starting run");
+    await startPage.waitFor();
     await page.clock.fastForward(5100);
-    await waitForTitle("No run selected");
-    assert.equal(await notice.locator("[role=progressbar]").count(), 0, "Without a start request the panel does not spin forever.");
-    await page.getByRole("button", { name: "Back to Start", exact: true }).last().click();
-    assert.ok((await page.evaluate(() => window.runStartFixture.notifications)).some((message) => message.type === "showStart"));
-    assert.equal(await listSeen(), false);
+    assert.equal(await notice.count(), 0, "An idle server page has no timed-out host waiting state.");
+    assert.equal(await startPage.isVisible(), true);
 
     await page.goto(`${url}?host=browser`);
     await page.getByText("Existing run").waitFor();
-    assert.equal(await notice.count(), 0, "The browser keeps its run list without a run.");
+    assert.equal(await notice.count(), 0, "The browser shows the same Start page without a run.");
     assert.deepEqual(errors, []);
   } finally { await browser.close(); }
 });
@@ -217,6 +210,36 @@ const starts = (page: Page) => page.evaluate(() => window.runStartFixture.starts
 const activeRun = (page: Page) => page.evaluate(() => window.runStartFixture.activeRun());
 const pause = (page: Page) => page.evaluate(() => new Promise<void>((resolve) => setTimeout(resolve, 300)));
 const browserOnly = { skip: process.env.RAGENTS_BROWSER_TESTS !== "1", timeout: 90_000 };
+
+test("a cancelled guide returns to the same server's Start page in VS Code", browserOnly, () => withPanel(async (page) => {
+  const templates = page.getByRole("list", { name: "Templates", exact: true });
+  await templates.locator('button[data-tile="Round with a guide"]').click();
+  await page.getByRole("button", { name: "Cancel guide", exact: true }).click();
+  await templates.waitFor();
+  await page.getByRole("list", { name: "Recent", exact: true }).getByRole("button", { name: /Existing run/ }).waitFor();
+  assert.deepEqual(await starts(page), [], "Cancelling the guide creates no run.");
+  assert.equal(await activeRun(page), undefined);
+  assert.equal(await page.locator("[data-startup]").count(), 0);
+  assert.ok((await page.evaluate(() => window.runStartFixture.notifications)).some((message) => message.type === "showStart"));
+}));
+
+test("host navigation switches Start and Runs within the selected server and selectRun null returns to Start", browserOnly, () => withPanel(async (page) => {
+  await page.evaluate(() => window.runStartFixture.command({ type: "showPage", page: "runs" }));
+  await page.getByRole("heading", { name: "Runs", exact: true }).waitFor();
+  await page.getByRole("list", { name: "Runs", exact: true }).getByRole("button", { name: /Existing run/ }).waitFor();
+  assert.equal(await page.getByRole("button", { name: /^Only / }).count(), 0);
+  await page.evaluate(() => window.runStartFixture.command({ type: "showPage", page: "start", notice: "The run is no longer shared." }));
+  await page.getByRole("status").filter({ hasText: "The run is no longer shared." }).waitFor();
+  await page.evaluate(() => {
+    window.runStartFixture.views.add("existing");
+    window.runStartFixture.command({ type: "selectRun", runId: "existing" });
+  });
+  await page.waitForFunction(() => window.runStartFixture.activeRun() === "existing");
+  await page.evaluate(() => window.runStartFixture.command({ type: "selectRun", runId: null }));
+  await page.getByRole("list", { name: "Templates", exact: true }).waitFor();
+  assert.equal(await activeRun(page), undefined);
+  assert.equal(await page.getByText("The run is no longer shared.", { exact: true }).count(), 0, "Selecting the home page clears the old notice.");
+}));
 
 test("a template with a guide asks first in VS Code, like in the web app, and starts with its answer", browserOnly, () => withPanel(async (page) => {
   await page.evaluate(() => window.runStartFixture.command({ type: "newRun", entryId: "start.guided" }));

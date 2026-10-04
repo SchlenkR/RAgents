@@ -69,9 +69,44 @@ test("run panel urls skip undefined parameters and support the app layout", () =
   assert.equal(runPanelPageUrl("http://localhost:4710", { run: undefined }), "http://localhost:4710/run-panel.html");
 });
 
+test("a server Start frame relays page and new-run actions only to its selected origin", () => {
+  const origins = ["https://first.example", "https://second.example"];
+  for (const origin of origins) {
+    const html = frameHtml({ serverUrl: origin, query: { host: "vscode", connection: origin }, nonce: "switch", title: "RAgents" });
+    const listeners: Array<(event: unknown) => void> = [];
+    const outgoing: unknown[] = [];
+    const incoming: unknown[] = [];
+    const frame = { contentWindow: { postMessage(message: unknown, target: string) { outgoing.push({ message, target }); } } };
+    const browser = { origin: "vscode-webview://test", addEventListener(_type: string, listener: (event: unknown) => void) { listeners.push(listener); } };
+    for (const script of html.matchAll(/<script[^>]*>([\s\S]*?)<\/script>/g)) {
+      runInNewContext(script[1], { window: browser, document: { getElementById: () => frame }, acquireVsCodeApi: () => ({ postMessage(message: unknown) { incoming.push(message); } }) });
+    }
+    const page = { type: "showPage", page: "runs" };
+    for (const listener of listeners) listener({ origin: browser.origin, data: page });
+    assert.deepEqual(outgoing, [{ message: page, target: origin }]);
+    const start = { type: "newRun", entryId: "demo.board" };
+    for (const listener of listeners) {
+      listener({ source: frame.contentWindow, origin: origins.find((candidate) => candidate !== origin), data: start });
+      listener({ source: frame.contentWindow, origin, data: start });
+    }
+    assert.deepEqual(incoming, [start], "events from another environment never cross the frame bridge");
+    assert.equal(new URL(html.match(/<iframe[^>]+src="([^"]+)"/)![1]!.replaceAll("&amp;", "&")).searchParams.has("run"), false);
+  }
+});
+
 test("host messages are validated before they cross the bridge", () => {
   assert.equal(isHostRunPanelMessage({ type: "newRun", entryId: "ragents.reference.board" }), true);
   assert.equal(isHostRunPanelMessage({ type: "newRun", entryId: 3 }), false);
+  assert.equal(isRunPanelHostMessage({ type: "newRun" }), true);
+  assert.equal(isRunPanelHostMessage({ type: "newRun", entryId: "ragents.reference.board" }), true);
+  assert.equal(isRunPanelHostMessage({ type: "newRun", entryId: "" }), false);
+  assert.equal(isRunPanelHostMessage({ type: "newRun", entryId: 3 }), false);
+  assert.equal(isHostRunPanelMessage({ type: "showPage", page: "start" }), true);
+  assert.equal(isHostRunPanelMessage({ type: "showPage", page: "runs", notice: "Run removed." }), true);
+  assert.equal(isHostRunPanelMessage({ type: "showPage", page: "connections" }), false);
+  assert.equal(isHostRunPanelMessage({ type: "showPage", page: "run" }), false);
+  assert.equal(isHostRunPanelMessage({ type: "showPage", page: "start", notice: 3 }), false);
+  assert.equal(isRunPanelHostMessage({ type: "showPage", page: "start" }), false);
   assert.equal(isRunPanelHostMessage({ type: "openInCenter", runId: "r", elementId: "e", title: "" }), true);
   assert.equal(isRunPanelHostMessage({ type: "openInCenter", runId: "r" }), false);
   assert.equal(isRunPanelHostMessage({ type: "runChanged", runId: null }), true);
@@ -91,10 +126,10 @@ test("settings are parsed strictly and the theme follows the editor only on auto
   assert.equal(resolveTheme("light", "dark"), "light");
 });
 
-test("the panel page loads the built web page from the extension and embeds the state", () => {
+test("connection management loads the built web page from the extension and embeds the state", () => {
   const state = {
     theme: "dark" as const,
-    page: "start" as const,
+    page: "connections" as const,
     connections: [{ name: "core <local>", kind: "profile" as const, address: "/x/ragents.config.core.ts", route: { kind: "profile" as const, profile: "core" }, state: { kind: "stopped" as const }, runs: [], entries: [], canCreate: false }],
     profileSuggestions: [],
   };
@@ -120,7 +155,7 @@ test("zoom is applied only by the outer hull and validates the initial setting",
 });
 
 test("both hulls scale only by zoom and leave the font size to the theme's rem scale", () => {
-  const state = { theme: "dark" as const, page: "start" as const, connections: [], profileSuggestions: [] };
+  const state = { theme: "dark" as const, page: "connections" as const, connections: [], profileSuggestions: [] };
   const panel = panelHtml({ nonce: "zoom", title: "RAgents", state, zoom: 90, scriptUri: "https://file+.vscode-resource/panel.js", styleUri: "https://file+.vscode-resource/panel.css", cspSource: "https://file+.vscode-resource" });
   const frame = frameHtml({ serverUrl: "http://localhost:4710", query: { host: "vscode" }, nonce: "zoom", title: "RAgents", zoom: 90 });
   for (const html of [panel, frame]) {

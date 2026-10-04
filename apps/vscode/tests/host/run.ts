@@ -275,7 +275,7 @@ const checkTwoConnections = async (api: RAgentsApi, first: string, second: strin
   // The client profile per server brings product and templates; the developer profile itself brings no templates.
   await waitFor(() => [first, second].every((name) => parts(api, name).store.product !== undefined), 60_000, "both servers have loaded their profile");
   checks.products = Object.fromEntries([first, second].map((name) => [name, { product: parts(api, name).store.product, entries: parts(api, name).store.startEntries.length }]));
-  const overview = panelState({ theme: "dark", page: "start", connections: api.snapshots(), profileSuggestions: [], missingSecrets: [], problem: undefined, pickedProfileFile: undefined, runsConnection: undefined });
+  const overview = panelState({ theme: "dark", page: "connections", connections: api.snapshots(), profileSuggestions: [], missingSecrets: [], problem: undefined, pickedProfileFile: undefined });
   checks.overview = overview.connections.map((connection) => ({
     name: connection.name, kind: connection.kind, state: connection.state.kind, runs: connection.runs.length, entries: connection.entries.length, canCreate: connection.canCreate,
   }));
@@ -284,6 +284,19 @@ const checkTwoConnections = async (api: RAgentsApi, first: string, second: strin
     if (connection.state.kind !== "connected") throw new Error(`The server ${connection.name} appears as ${connection.state.kind} in the overview`);
     if (!connection.canCreate) throw new Error(`The server ${connection.name} allows no new runs`);
   }
+
+  for (const name of [first, second]) {
+    await api.selectEnvironment(name);
+    if (api.activeEnvironment() !== name) throw new Error(`Selecting ${name} did not make it the current environment`);
+    await waitFor(() => seen.some((entry) => entry.connection === name && entry.message.type === "ready"),
+      30_000, `the Start page of ${name} reports ready without selecting a run`);
+  }
+  await vscode.commands.executeCommand("ragents.showRuns");
+  await vscode.commands.executeCommand("ragents.showConnections");
+  if (api.activeEnvironment() !== second) throw new Error("Connection management lost the selected environment");
+  await vscode.commands.executeCommand("ragents.showStart");
+  if (api.activeEnvironment() !== second) throw new Error("Home switched to another environment");
+  checks.selectedEnvironment = api.activeEnvironment();
 
   // The workspace of this window registers with both servers using the same identifier.
   const registrations: Record<string, unknown> = {};
@@ -323,22 +336,24 @@ const checkTwoConnections = async (api: RAgentsApi, first: string, second: strin
     };
     if (tileEvents.length === 0) throw new Error("The run of the template has no journal");
 
-    // The plus of a server creates an empty run: the same newRun without entryId, the task is written in the chat.
+    // New run in the selected environment opens an empty run whose task is written in the chat.
     const beforePlus = seen.length;
     await api.panelAction({ action: "newRun", name: tileConnection });
     const plus = await waitUntil(async () => seen.slice(beforePlus)
       .find((entry) => entry.connection === tileConnection && entry.message.type === "runChanged"
         && entry.message.runId !== null && entry.message.runId !== tileRunId),
-    120_000, "the plus of the server opens an empty run", 500);
+    120_000, "the selected server opens an empty run", 500);
     checks.newChat = { connection: tileConnection, runId: (plus.message as Extract<RunPanelHostMessage, { type: "runChanged" }>).runId };
 
     // The logo of the run panel always leads to the Start page; the shell switches the page for it.
     api.selectRun(tileConnection, tileRunId);
-    checks.pageWithRun = api.panel().page;
-    if (api.panel().page !== "run") throw new Error(`With an open run, the page is ${api.panel().page} instead of run`);
+    if (api.activeEnvironment() !== tileConnection) throw new Error("Opening a run did not select its environment");
+    const beforeBack = seen.length;
     await vscode.commands.executeCommand("ragents.showStart");
-    checks.pageAfterBack = api.panel().page;
-    if (api.panel().page !== "start") throw new Error(`The way back leads to ${api.panel().page} instead of start`);
+    await waitFor(() => seen.slice(beforeBack).some((entry) => entry.connection === tileConnection
+      && entry.message.type === "runChanged" && entry.message.runId === null), 15_000, "Home clears the run in the same server frame");
+    checks.environmentAfterBack = api.activeEnvironment();
+    if (api.activeEnvironment() !== tileConnection) throw new Error("Home changed the selected environment");
 
     // The Runs page deletes the selection via the host; the list then shows only what is left.
     await api.panelAction({ action: "deleteRuns", name: tileConnection, runIds: [tileRunId] });
@@ -398,14 +413,15 @@ const checkSettings = async (api: RAgentsApi, serverUrl: string, profileFile: st
   const checks: Record<string, unknown> = {};
   report.settings = checks;
   const view = (name: string) => api.panel().connections.find((connection) => connection.name === name);
-  const names = () => api.panel().connections.map((connection) => connection.name);
+  const names = () => api.snapshots().map((snapshot) => snapshot.connection.name);
 
   checks.start = { page: api.panel().page, connections: names(), setting: api.connections() };
   if (api.panel().connections.length !== 0) throw new Error(`The test starts with ${api.panel().connections.length} servers instead of none`);
-  if (api.panel().page !== "start") throw new Error(`The extension starts on ${api.panel().page} instead of the Start page`);
+  if (api.panel().page !== "connections") throw new Error(`Without a selected environment, the extension shows ${api.panel().page} instead of connection management`);
+  if (api.activeEnvironment() !== undefined) throw new Error("Without configured connections, an environment was selected");
   for (const page of ["runs", "connections", "start"] as const) {
     await api.panelAction({ action: "page", page });
-    if (api.panel().page !== page) throw new Error(`The page action does not lead to ${page}`);
+    if (api.panel().page !== "connections") throw new Error(`Without an environment, ${page} should show connection management`);
   }
 
   await api.panelAction({ action: "page", page: "connections" });

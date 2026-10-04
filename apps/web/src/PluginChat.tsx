@@ -364,7 +364,7 @@ function ChatWorkspace({
   if (startDialog) return (
     <Modal className="gap-0 p-0 [&_[data-slot=dialog-body]:has([data-preparation])]:overflow-hidden" nextBehavior="push" onClose={startDialog.onClose} scope="page" showCloseButton size="full">
       <DialogTitle className="sr-only">New run</DialogTitle>
-      <StartSelection registry={registry} session={startSession} initialEntryId={startDialog.initialEntryId} onOpen={onStarted} />
+      <StartSelection registry={registry} session={startSession} initialEntryId={startDialog.initialEntryId} onCancel={startDialog.onClose} onOpen={onStarted} />
     </Modal>
   );
 

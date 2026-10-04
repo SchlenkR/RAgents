@@ -26,10 +26,16 @@ const host: RunPanelHost = {
   openPage() {},
   openService() {},
   onCommand(listener) { commands.add(listener); return () => { commands.delete(listener); }; },
-  notify(message) { fixture.notifications.push(message); },
+  notify(message) {
+    fixture.notifications.push(message);
+    if (message.type === "newRun") queueMicrotask(() => fixture.command(message));
+  },
 };
-function TopicGuide({ onComplete }: EntryGuideContext) {
-  return <button onClick={() => onComplete("Night bus")} type="button">Apply topic</button>;
+function TopicGuide({ onCancel, onComplete }: EntryGuideContext) {
+  return <div>
+    <button onClick={() => onComplete("Night bus")} type="button">Apply topic</button>
+    <button onClick={onCancel} type="button">Cancel guide</button>
+  </div>;
 }
 const registry = new PluginRegistry({
   brand: { title: "Start check" }, product: { id: "start", title: "Start check" },
@@ -57,7 +63,6 @@ const fixture = {
   starts: [] as Array<{ runId: string; entry: string; input: unknown }>,
   scriptStarts: [] as Array<{ runId: string; entry: string; input: unknown }>,
   views: new Set<string>(),
-  listSeen: false,
   holdStart: false,
   activate() { fixture.activation = { status: "ready", registry, failures: [] } as PluginActivationState; activationListeners.forEach((listener) => listener(fixture.activation)); },
   onActivation(listener: (state: PluginActivationState) => void) { activationListeners.add(listener); return () => { activationListeners.delete(listener); }; },
@@ -108,8 +113,6 @@ const fixture = {
 
 declare global { interface Window { runStartFixture: typeof fixture; } }
 window.runStartFixture = fixture;
-new MutationObserver(() => { if (document.body.textContent?.includes("Existing run")) fixture.listSeen = true; })
-  .observe(document.body, { childList: true, subtree: true, characterData: true });
 
 const access = createAccessContext({ enabled: true, user: { id: "tester", label: "Tester", rights, startEntries: ["start.script", "start.other", "start.guided"] } });
 const initialRun = query.get("run") ?? undefined;

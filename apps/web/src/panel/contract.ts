@@ -123,8 +123,6 @@ export interface PanelState {
   readonly problem?: string;
   /** The profile path most recently chosen in the file dialog; the dialog takes it over. */
   readonly pickedProfileFile?: string;
-  /** The Runs page starts with the runs of this server; the chip on Start sets it, the title bar does not. */
-  readonly runsConnection?: string;
   /** Names from ragents.hostEnvironment without a value in the SecretStorage; the setting applies to all servers, so the list appears once. */
   readonly missingSecrets?: readonly string[];
   /** The open share dialog; without it, none is open. */
@@ -141,7 +139,7 @@ export interface PanelStateMessage {
 
 /** What the panel page sends to the extension. */
 export type PanelAction =
-  | { readonly action: "page"; readonly page: (typeof PANEL_PAGES)[number]; readonly connection?: string }
+  | { readonly action: "page"; readonly page: (typeof PANEL_PAGES)[number] }
   | { readonly action: "settingsFile" }
   | { readonly action: "pickProfile" }
   | { readonly action: "showOutput" }
@@ -182,7 +180,7 @@ export const isPanelActionMessage = (value: unknown): value is PanelActionMessag
   if (typeof value !== "object" || value === null || (value as { type?: unknown }).type !== "ragents.panel") return false;
   switch ((value as { action?: unknown }).action) {
     case "page": return (PANEL_PAGES as readonly unknown[]).includes((value as { page?: unknown }).page)
-      && ((value as { connection?: unknown }).connection === undefined || text(value, "connection"));
+      && (value as { connection?: unknown }).connection === undefined;
     case "settingsFile": case "pickProfile": case "showOutput": return true;
     case "addServer": return text(value, "name") && text(value, "url");
     case "addProfile": return text(value, "name") && text(value, "profileFile");

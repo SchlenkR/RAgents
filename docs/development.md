@@ -122,7 +122,7 @@ from plugins.
 | `packages/ai`         | the LLM integration (openrouter)                                                                     |
 | `apps/server`         | Node backend, plugin discovery, profile composition; `plugin-support/` are host building blocks, not plugins |
 | `apps/web`            | Shared browser and VS Code panel; chat binding to quassel in `src/chat`, navigation in `src/panel`, run UI in `src/run-panel` |
-| `apps/vscode`         | VS Code extension: Start, Runs, and Server pages, run panel and mini-apps as webviews, workstation for runs |
+| `apps/vscode`         | VS Code extension: environment selection and connection management, server interface and mini-apps as webviews, workstation for runs |
 | `scripts`             | entry points `start.sh`, `start-vscode.sh`; tools in subfolders, `remote/` for `pnpm connect`, `provision/` for `pnpm provision`, `workspace-client/` for `pnpm workspace-client`, `remote-workspace/` for `pnpm check:remote-workspace`, `run-transfer/` for `pnpm run-transfer` |
 | `selftest`            | catalog and log of the autonomous test rounds                                                        |
 | `docs`                | spec, concepts, decisions, operations, product homepage, drafts                                      |
@@ -545,7 +545,10 @@ is not part of `pnpm check`, because it needs Docker.
 `apps/web/index.html` loads `src/main.tsx` for browser runs and VS Code run/app frames.
 The host build emits the same HTML as `run-panel.html` for the iframe host contract; the server
 verifies that both pages match. Both routes share access, theme, host modules, and `RunPanelApp`.
-`src/panel.tsx` only binds VS Code messages to the shared `panel/PanelPage` navigation.
+Start, Runs, and the run belong to this server in both hosts, including its plugin header before
+a run opens. The extension selects one environment per workspace and sends navigation to that
+server's frame. `src/panel.tsx` binds VS Code messages to the local connection-management and
+unavailable-server shell using `panel/PanelPage`.
 `pnpm --filter @ragents/web build:panel` builds its JavaScript and CSS, without a separate HTML
 page, into the extension. `pnpm --filter ragents-vscode build` includes this navigation build.
 
@@ -786,8 +789,8 @@ connection, run panel, run switching, and a mini-app in the center; `RAGENTS_HOS
 or `RAGENTS_HOST_TEST_TOKEN=<token>` check sign-in.
 `RAGENTS_HOST_TEST_WORKSPACE=<folder>` additionally checks a run on the workstation,
 `RAGENTS_HOST_TEST_SECOND=<address>` a second server alongside: both connected at the same time, the
-Start page with both, the workstation registered with both servers, a click on a template, the
-back arrow to the Start page, deleting a run, a server's plus button as an empty run,
+selected server's Start page, environment switching, the workstation registered with both servers,
+a click on a template, the way back to the same Start page, deleting a run, a new empty run,
 and a disconnect that affects only one. `RAGENTS_HOST_TEST_VSIX=<path>` checks the packaged
 extension instead of the checkout: the runner unpacks the file into its user folder and
 loads `extension/` from it, that is, exactly what is also installed - without `node_modules`

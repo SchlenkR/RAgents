@@ -371,7 +371,7 @@ the same website under `docs/homepage/dist`.
 
 ## Create your first run
 
-Start shows recent runs and the same templates in the browser and VS Code: "New chat" or the server's default
+Start shows one server's recent runs and templates in both the browser and VS Code: "New chat" or the server's default
 template first, then skill templates with a prepared task and script templates with programmed
 setups. "New chat" opens an empty run whose task you write in its chat; a template starts with one
 click. Some templates collect values in a setup dialog first ("Set up"); a skill template then

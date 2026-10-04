@@ -59,7 +59,6 @@ export interface PanelInput {
   missingSecrets: readonly string[];
   problem: string | undefined;
   pickedProfileFile: string | undefined;
-  runsConnection: string | undefined;
   /** The open share dialog of a run, with what the server returned or refused. */
   sharing?: PanelSharing;
   /** A short message on Start, such as for a run that is no longer shared with the user. */
@@ -75,7 +74,6 @@ export const panelState = (input: PanelInput): PanelState => ({
   ...(input.missingSecrets.length > 0 ? { missingSecrets: [...input.missingSecrets] } : {}),
   ...(input.problem !== undefined ? { problem: input.problem } : {}),
   ...(input.pickedProfileFile !== undefined ? { pickedProfileFile: input.pickedProfileFile } : {}),
-  ...(input.runsConnection !== undefined ? { runsConnection: input.runsConnection } : {}),
   ...(input.sharing !== undefined ? { sharing: input.sharing } : {}),
   ...(input.notice !== undefined ? { notice: input.notice } : {}),
 });
@@ -84,7 +82,7 @@ export const panelState = (input: PanelInput): PanelState => ({
 export const connectedCount = (snapshots: readonly ConnectionSnapshot[]): number =>
   snapshots.filter((snapshot) => snapshot.status.kind === "connected").length;
 
-/** Waiting inputs across all servers; the badge on the run panel counts them. */
+/** Waiting inputs of the supplied environments. */
 export const pendingActions = (snapshots: readonly ConnectionSnapshot[]): number =>
   snapshots.reduce((sum, snapshot) => sum + snapshot.runs.reduce((count, run) => count + run.pendingActions, 0), 0);
 

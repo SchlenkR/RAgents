@@ -24,7 +24,7 @@ const workshop={name:"workshop",kind:"server",address:"http://localhost:4715",ro
   runs:[run("run-a","Editorial workshop: landing page","running",0),run("run-b","Balcony plan south side","waiting",5),run("run-c","Word game: sun","ended",1440*3)],entries,canCreate:true};
 const core={name:"core",kind:"server",address:"https://workshop.example.com",route:{kind:"server",host:"workshop.example.com",localHost:true},state:{kind:"connected"},
   runs:[run("run-d","Moderated round: good collaboration","idle",180),run("run-e","Clarify decision: hosting","ended",1440*5)],entries,canCreate:true};
-const developer={name:"developer",kind:"profile",address:"/Users/example/repos/RAgents/ragents.config.developer.ts",route:{kind:"profile",profile:"developer"},state:{kind:"starting"},runs:[],entries:[],canCreate:false};
+const developer={name:"developer",kind:"profile",address:"/home/user/project/ragents.config.developer.ts",route:{kind:"profile",profile:"developer"},state:{kind:"starting"},runs:[],entries:[],canCreate:false};
 const review={name:"review",kind:"server",address:"https://review.example.com",route:{kind:"server",host:"review.example.com",localHost:false},state:{kind:"login-required",mode:"password"},runs:[],entries:[],canCreate:false};
 const nightrun={name:"nightrun",kind:"server",address:"https://nightrun.example.com:8443",route:{kind:"server",host:"nightrun.example.com:8443",localHost:false},state:{kind:"unreachable",message:"fetch failed"},runs:[],entries:[],canCreate:false};
 const all=[workshop,core,developer,review,nightrun];
@@ -57,163 +57,82 @@ const sent=(page:Page)=>page.evaluate(()=>(window as any).fixture.sent.at(-1));
 const columnEdges=(page:Page,list:string,cell:string)=>page.evaluate(([label,name])=>
   new Set([...document.querySelectorAll(`ul[aria-label="${label}"] [data-cell="${name}"]`)].map((item)=>Math.round(item.getBoundingClientRect().left))).size,[list,cell]);
 
-test("Start shows the servers as split chips with a route line, the recent runs in a grid and the templates, and starts with one click",{skip,timeout:120_000},async(context)=>{
-  const url=await preparePage({theme:"dark",page:"start",profileSuggestions:[],connections:all});
+test("Start shows only one server's recent runs and templates and sends each action to that server",{skip,timeout:120_000},async(context)=>{
+  const url=await preparePage({theme:"dark",page:"start",profileSuggestions:[],connections:[workshop]});
   const browser=await launch();
   try{
-    const browserContext=await browser.newContext({viewport:{width:420,height:1100}});const page=await browserContext.newPage();await page.goto(url);
-    await page.getByRole('heading',{name:'Server'}).waitFor();
+    const page=await browser.newPage({viewport:{width:420,height:1100}});await page.goto(url);
+    await page.getByRole('heading',{name:'Continue'}).waitFor();
     assert.equal(await page.getByRole('heading',{level:1}).count(),0,'Start has no header of its own');
-    assert.equal(await page.getByRole('button',{name:'Runs',exact:true}).count(),0,'the actions are only in the VS Code title bar');
-    assert.equal(await page.getByRole('button',{name:'Set up server'}).count(),0);
-
-    // One server per row in a narrow panel, two in a wide panel.
-    const connectionRows=()=>page.evaluate(()=>
-      new Set([...document.querySelectorAll('ul[aria-label="Server"] > li')].map((item)=>Math.round(item.getBoundingClientRect().top))).size);
-    assert.equal(await connectionRows(),5,'five servers take five rows at 420 pixels');
-    assert.equal(await page.getByRole('button',{name:'New chat on workshop'}).count(),1);
-    assert.equal(await page.getByRole('button',{name:'New chat on review'}).count(),0,'no plus without the start right');
-    const chip=(name:string)=>page.locator('ul[aria-label="Server"] > li').filter({hasText:name}).first();
-    assert.equal(await chip('workshop').locator('[data-cell="route"]').innerText(),'localhost:4715');
-    assert.equal(await chip('core').locator('[data-cell="route"]').innerText(),'workshop.example.com \u00b7 local','a distributed profile runs locally');
-    assert.equal(await chip('developer').locator('[data-cell="route"]').innerText(),'local \u00b7 developer');
-    assert.equal(await chip('nightrun').locator('[data-cell="route"]').innerText(),'nightrun.example.com:8443','a non-default port stays');
-    const widths=await page.evaluate(()=>[...document.querySelectorAll('ul[aria-label="Server"] > li')].map((item)=>Math.round(item.getBoundingClientRect().width)));
-    assert.equal(new Set(widths).size,1,`all chips are the same width, with and without plus: ${widths.join(', ')}`);
-    assert.equal(await page.getByRole('button',{name:'developer is starting'}).isDisabled(),true,'a starting server is not clickable');
-
-    // The left part is a button with an action word: Sign in, Retry, Runs.
-    const signIn=page.getByRole('button',{name:'Sign in to review'});
-    assert.equal(await signIn.count(),1);
-    assert.match(await signIn.innerText(),/Sign in\s+review\.example\.com$/,'the action word is next to the name, the route line below');
-    const placement=await chip('review').evaluate((item)=>{
-      const state=item.querySelector<HTMLElement>('button[aria-label="Sign-in for review"]')!;
-      const icon=state.querySelector<HTMLElement>('svg')!;
-      const action=item.querySelector<HTMLElement>('button[aria-label="Sign in to review"]')!;
-      const text=action.querySelector<HTMLElement>(':scope > span')!;
-      const stateBox=state.getBoundingClientRect();
-      const iconBox=icon.getBoundingClientRect();
-      return {
-        iconOffset:Math.abs(iconBox.left+iconBox.width/2-(stateBox.left+stateBox.width/2)),
-        textInset:text.getBoundingClientRect().left-action.getBoundingClientRect().left,
-      };
-    });
-    assert.ok(placement.iconOffset<0.5,`the state icon is centered: ${placement.iconOffset}`);
-    assert.ok(placement.textInset>=7.5,`the text has a nominal 8 pixel inset: ${placement.textInset}`);
-    await signIn.click();
-    await page.getByRole('dialog').waitFor();
-    await page.keyboard.press('Escape');
-    await page.waitForSelector('[role=dialog]',{state:'detached'});
-    await page.getByRole('button',{name:'Retry nightrun'}).click();
-    assert.deepEqual(await sent(page),{action:'retry',name:'nightrun'});
-    await page.getByRole('button',{name:'Runs on workshop'}).click();
-    assert.deepEqual(await sent(page),{action:'page',page:'runs',connection:'workshop'});
-
-    // Continue shows five lines of all servers in the grid, New all templates flat.
-    assert.equal(await page.getByRole('button',{name:/^All 5 runs/}).count(),1);
-    assert.equal(await page.locator('button[title="Editorial workshop: landing page (workshop)"]').count(),1);
-    assert.equal(await columnEdges(page,'Recent','time'),1,'the time column is at the same edge in all lines');
-    assert.equal(await columnEdges(page,'Recent','connection'),1,'the server column is at the same edge in all lines');
-    assert.equal(await page.locator('ul[aria-label="Templates on core"] button[data-tile="Word game"]').count(),1,'every template of every server is in its server group');
-    assert.equal(await page.getByLabel('Search templates').count(),0,'Start has no search');
+    assert.equal(await page.getByRole('list',{name:'Server',exact:true}).count(),0);
+    assert.equal(await page.getByRole('heading',{name:'Server',exact:true}).count(),0);
+    assert.equal(await page.locator('[data-cell="route"], [data-cell="connection"]').count(),0);
+    assert.equal(await page.getByRole('button',{name:/^All 3 runs/}).count(),1);
+    assert.equal(await page.locator('button[title="Editorial workshop: landing page"]').count(),1);
+    assert.equal(await columnEdges(page,'Recent','time'),1);
+    assert.equal(await page.getByLabel('Search templates').count(),0);
+    const templates=page.getByRole('list',{name:'Templates',exact:true});
+    const tile=(title:string)=>templates.locator(`button[data-tile="${title}"]`);
+    assert.deepEqual(await templates.getByRole('button').evaluateAll((items)=>items.map((item)=>item.getAttribute('data-tile'))),
+      ['New chat','Collection board','Notes board','Discussion circle','Word game']);
+    await mkdir(shots,{recursive:true});
     await shoot(page,`${shots}start-420.png`);
     assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true);
 
-    // One click is one click: the template creates the run, the plus the empty chat, the line opens the run.
-    await page.locator('ul[aria-label="Templates on core"] button[data-tile="Discussion circle"]').click();
-    assert.deepEqual(await sent(page),{action:'newRun',name:'core',entryId:'ragents.reference.circle'});
-    assert.equal(await page.locator('ul[aria-label="Templates on core"] button[data-tile="Discussion circle"]').getAttribute('aria-busy'),'true','the template shows that it is starting');
-    assert.equal(await page.getByRole('button',{name:'New chat on workshop'}).isDisabled(),true,'every other start waits for the next state');
+    await tile('Discussion circle').click();
+    assert.deepEqual(await sent(page),{action:'newRun',name:'workshop',entryId:'ragents.reference.circle'});
+    assert.equal(await tile('Discussion circle').getAttribute('aria-busy'),'true');
+    assert.equal(await templates.getByRole('button',{disabled:false}).count(),0,'every other start waits for the next state');
     await page.evaluate(()=>(window as any).fixture.setState((current:any)=>({...current})));
-    await page.getByRole('button',{name:'New chat on workshop'}).click();
+    await tile('New chat').click();
     assert.deepEqual(await sent(page),{action:'newRun',name:'workshop'});
     await page.evaluate(()=>(window as any).fixture.setState((current:any)=>({...current})));
-    await page.locator('button[title="Balcony plan south side (workshop)"]').click();
+    await page.locator('button[title="Balcony plan south side"]').click();
     assert.deepEqual(await sent(page),{action:'openRun',name:'workshop',runId:'run-b'});
+    await page.getByRole('button',{name:/^All 3 runs/}).click();
+    assert.deepEqual(await sent(page),{action:'page',page:'runs'});
 
-    // New groups per reachable server and starts each group with New chat; with a default, its template comes first and marked, and the plus takes it.
-    const groups=()=>page.evaluate(()=>[...document.querySelectorAll('ul[aria-label^="Templates on "]')].map((list)=>({
-      connection:list.getAttribute('aria-label')!.replace('Templates on ',''),
-      heading:list.parentElement?.previousElementSibling?.textContent?.trim(),
-      titles:[...list.querySelectorAll(':scope > li > button')].map((item)=>item.getAttribute('data-tile')),
-    })));
-    const tilesOf=async(connection:string)=>(await groups()).find((group)=>group.connection===connection)!;
-    assert.deepEqual((await groups()).map((group)=>group.connection),['workshop','core'],'one group per reachable server, in the order of the chips');
-    assert.match((await tilesOf('workshop')).heading??'',/workshop$/,'the group carries the server name as its heading');
-    assert.equal((await tilesOf('workshop')).titles[0],'New chat');
-    assert.equal((await tilesOf('core')).titles[0],'New chat');
-    assert.equal((await groups()).flatMap((group)=>group.titles).length,10,'New chat twice before the eight templates');
-    await page.locator('ul[aria-label="Templates on core"] button[data-tile="New chat"]').click();
-    assert.deepEqual(await sent(page),{action:'newRun',name:'core'});
-    const firstTile=(connection:string,title:string)=>page.waitForFunction(([list,expected])=>document.querySelector(`ul[aria-label="Templates on ${list}"] > li > button`)?.getAttribute('data-tile')===expected,[connection,title]);
-    await setConnections(page,[{...workshop,defaultEntry:'ragents.reference.circle'},core,developer,review,nightrun]);
-    await firstTile('workshop','Discussion circle');
-    assert.deepEqual((await tilesOf('workshop')).titles.slice(0,1),['Discussion circle']);
-    assert.equal((await groups()).flatMap((group)=>group.titles).length,9,'the default does not appear a second time');
-    const standardTile=page.locator('ul[aria-label="Templates on workshop"] button[data-tile="Discussion circle"]');
-    assert.equal(await standardTile.getByText('Default').count(),1);
-    await standardTile.click();
-    assert.deepEqual(await sent(page),{action:'newRun',name:'workshop',entryId:'ragents.reference.circle'});
-    assert.equal(await page.getByRole('button',{name:'New run from Discussion circle on workshop'}).getAttribute('aria-busy'),'true','the plus with the same start shows it too');
-    await page.evaluate(()=>(window as any).fixture.setState((current:any)=>({...current})));
-    await page.getByRole('button',{name:'New run from Discussion circle on workshop'}).click();
-    assert.deepEqual(await sent(page),{action:'newRun',name:'workshop',entryId:'ragents.reference.circle'});
-    await shoot(page,`${shots}start-default-420.png`);
-    await setConnections(page,all);
-    await firstTile('workshop','New chat');
-
-    // The state icon of a failed server opens the message with Open output and Retry; the lock opens the sign-in.
-    await page.getByRole('button',{name:'Show error of nightrun'}).click();
-    const failure=page.getByRole('dialog',{name:'unreachable'});
-    await failure.waitFor();
-    await failure.getByText('fetch failed').waitFor();
-    await page.evaluate(()=>Promise.all(document.getAnimations().map((animation)=>animation.finished)));
-    await page.screenshot({path:`${shots}start-error-420.png`});
-    await failure.getByRole('button',{name:'Open output'}).click();
-    assert.deepEqual(await sent(page),{action:'showOutput'});
-    await failure.getByRole('button',{name:'Retry'}).click();
-    assert.deepEqual(await sent(page),{action:'retry',name:'nightrun'});
-    await page.waitForSelector('[role=dialog]',{state:'detached'});
-    await page.getByRole('button',{name:'Sign-in for review'}).click();
-    await page.getByRole('dialog',{name:'Sign in to review'}).waitFor();
-    await page.keyboard.press('Escape');
-    await page.waitForSelector('[role=dialog]',{state:'detached'});
-
+    await setConnections(page,[{...core,defaultEntry:'ragents.reference.circle'}]);
+    await page.locator('button[title="Moderated round: good collaboration"]').waitFor();
+    assert.equal(await page.locator('button[title="Editorial workshop: landing page"]').count(),0,'replacing the server replaces its content');
+    assert.equal(await page.getByRole('button',{name:/^All 2 runs/}).count(),1);
+    assert.equal(await templates.locator(':scope > li > button').first().getAttribute('data-tile'),'Discussion circle');
+    assert.equal(await tile('Discussion circle').getByText('Default').count(),1);
+    assert.equal(await tile('Discussion circle').count(),1,'the default is shown once');
+    assert.equal(await tile('New chat').count(),0);
+    await tile('Discussion circle').click();
+    assert.deepEqual(await sent(page),{action:'newRun',name:'core',entryId:'ragents.reference.circle'});
     await page.setViewportSize({width:900,height:1100});
-    await page.waitForFunction(()=>innerWidth===900);
-    assert.equal(await connectionRows(),3,'wide panels use two server columns');
-    await shoot(page,`${shots}start-900.png`);
+    await shoot(page,`${shots}start-default-900.png`);
     assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true);
     context.diagnostic(`Screenshots: ${shots}`);
   }finally{await browser.close()}
 });
 
-test("Runs brings all runs together, searches, hides ended ones and deletes after a confirmation",{skip,timeout:120_000},async(context)=>{
-  const url=await preparePage({theme:"dark",page:"runs",profileSuggestions:[],connections:all});
+test("Runs searches, hides ended runs and deletes confirmed selections on the current server",{skip,timeout:120_000},async(context)=>{
+  const url=await preparePage({theme:"dark",page:"runs",profileSuggestions:[],connections:[workshop]});
   const browser=await launch();
   try{
     const browserContext=await browser.newContext({viewport:{width:420,height:1100}});const page=await browserContext.newPage();await page.goto(url);
     await page.getByRole('heading',{name:'Runs'}).waitFor();
     assert.equal(await page.getByRole('button',{name:'Server',exact:true}).count(),0,'the header carries only back and the title');
     const lines=()=>page.locator('ul[aria-label="Runs"] > li').count();
-    assert.equal(await lines(),5,'all runs of all servers are here');
+    assert.equal(await lines(),3,"only the selected server's runs are here");
+    assert.equal(await page.getByRole('button',{name:/^Only /}).count(),0,'there is no server filter');
     assert.equal(await columnEdges(page,'Runs','time'),1,'the time column is at the same edge in all lines');
-    assert.equal(await columnEdges(page,'Runs','connection'),1,'the server column is at the same edge in all lines');
-    const edgesBefore=await page.evaluate(()=>['time','connection'].map((name)=>Math.round(document.querySelector(`ul[aria-label="Runs"] [data-cell="${name}"]`)!.getBoundingClientRect().left)));
+    assert.equal(await columnEdges(page,'Runs','connection'),0,'rows need no server column');
+    const edgesBefore=await page.evaluate(()=>['time'].map((name)=>Math.round(document.querySelector(`ul[aria-label="Runs"] [data-cell="${name}"]`)!.getBoundingClientRect().left)));
     await shoot(page,`${shots}runs-420.png`);
     assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true);
 
     await page.getByRole('button',{name:'Hide ended'}).click();
     await page.waitForFunction(()=>document.querySelectorAll('button[title*="Word game: sun"]').length===0);
-    assert.equal(await lines(),3);
+    assert.equal(await lines(),2);
     await page.getByRole('button',{name:'Hide ended'}).click();
 
     await page.getByLabel('Search runs').fill('balcony');
     await page.waitForFunction(()=>document.querySelectorAll('button[title*="Editorial workshop"]').length===0);
     assert.equal(await lines(),1);
-    await page.getByLabel('Search runs').fill('core');
-    await page.waitForFunction(()=>document.querySelectorAll('button[title*="Balcony"]').length===0);
-    assert.equal(await lines(),2,'the search also knows the server name');
     await page.getByLabel('Search runs').fill('doesnotexist');
     await page.getByRole('status').filter({hasText:'No matching run.'}).waitFor();
     await page.getByLabel('Search runs').fill('');
@@ -224,8 +143,8 @@ test("Runs brings all runs together, searches, hides ended ones and deletes afte
     await page.getByRole('checkbox',{name:'Select Word game: sun'}).click();
     await page.getByText('2 selected').waitFor();
     assert.equal(await columnEdges(page,'Runs','time'),1,'the time stays at one edge with checkboxes too');
-    assert.equal(await columnEdges(page,'Runs','connection'),1);
-    const edgesSelecting=await page.evaluate(()=>['time','connection'].map((name)=>Math.round(document.querySelector(`ul[aria-label="Runs"] [data-cell="${name}"]`)!.getBoundingClientRect().left)));
+    assert.equal(await columnEdges(page,'Runs','connection'),0);
+    const edgesSelecting=await page.evaluate(()=>['time'].map((name)=>Math.round(document.querySelector(`ul[aria-label="Runs"] [data-cell="${name}"]`)!.getBoundingClientRect().left)));
     assert.deepEqual(edgesSelecting,edgesBefore,'the checkbox does not move the right columns');
     await shoot(page,`${shots}runs-selection-420.png`);
     await page.getByRole('button',{name:'Delete'}).click();
@@ -244,26 +163,10 @@ test("Runs brings all runs together, searches, hides ended ones and deletes afte
     assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true);
 
     await setPage(page,'start');
-    await page.getByRole('heading',{name:'Server'}).waitFor();
+    await page.getByRole('heading',{name:'Continue'}).waitFor();
     await page.setViewportSize({width:420,height:1100});
     assert.equal(await page.getByRole('button',{name:'Back to Start'}).count(),0);
     context.diagnostic(`Screenshots: ${shots}`);
-  }finally{await browser.close()}
-});
-
-test("the chip on Start filters the Runs page to its server; the toggle removes the filter",{skip,timeout:120_000},async()=>{
-  const url=await preparePage({theme:"dark",page:"runs",runsConnection:"core",profileSuggestions:[],connections:all});
-  const browser=await launch();
-  try{
-    const browserContext=await browser.newContext({viewport:{width:420,height:1100}});const page=await browserContext.newPage();await page.goto(url);
-    await page.getByRole('heading',{name:'Runs'}).waitFor();
-    const lines=()=>page.locator('ul[aria-label="Runs"] > li').count();
-    assert.equal(await lines(),2,'only the runs of core');
-    const filter=page.getByRole('button',{name:'Only core'});
-    assert.equal(await filter.getAttribute('aria-pressed'),'true');
-    await filter.click();
-    await page.waitForFunction(()=>document.querySelectorAll('ul[aria-label="Runs"] > li').length===5);
-    assert.equal(await filter.count(),0,'without a filter the toggle disappears');
   }finally{await browser.close()}
 });
 
@@ -274,13 +177,13 @@ test("a long run title stays within the panel width and the page scrolls vertica
   const browser=await launch();
   try{
     const browserContext=await browser.newContext({viewport:{width:420,height:380}});const page=await browserContext.newPage();await page.goto(url);
-    await page.getByRole('heading',{name:'Server'}).waitFor();
+    await page.getByRole('heading',{name:'Continue'}).waitFor();
     await page.locator('button[data-tile="Word game"]').waitFor();
 
     const metrics=await page.evaluate((title)=>{
       const main=document.querySelector('main')!;
       const tiles=document.querySelector('ul[aria-label="Templates"]')!;
-      const span=document.querySelector(`button[title="${title}"] span.truncate`)!;
+      const span=[...document.querySelectorAll(`button[title="${title}"] span`)].find((item)=>item.childElementCount===0&&item.textContent===title)!;
       main.scrollTop=100;
       return {
         documentOverflow:document.documentElement.scrollWidth-document.documentElement.clientWidth,

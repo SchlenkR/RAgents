@@ -163,13 +163,14 @@ actor there also makes it the chat's addressee. In a narrow run header the butto
 icon.
 
 
-The extension lives under `apps/vscode`. It works with all configured **servers at the same
-time**; there is no single active connection. A server in the `ragents.connections` setting is
-either a server (`name` and `url`; it connects automatically when activated and its card asks
-for sign-in in the panel) or a local profile (`name` and `profileFile`, the path to a
+The extension lives under `apps/vscode`. All configured **servers** can remain connected at the
+same time, while one selected **environment** supplies the visible Start page, Runs, templates,
+and plugin interface. A server in the `ragents.connections` setting is
+either a server (`name` and `url`; it connects automatically when activated and the panel asks
+for sign-in when needed) or a local profile (`name` and `profileFile`, the path to a
 `ragents.config.<profile>.ts`). When activated, the extension starts a local profile silently in
-the background with `--port 0`. The page shows "starting" and then "ready", so its card and
-templates are immediately available; a stopped local profile can be started again from its chip. The
+the background with `--port 0`. The environment shows "starting" and then "ready", so its interface and
+templates are immediately available; a stopped local profile can be started again from Server. The
 host runs until the VS Code session ends and terminates with it, even if the window reloads, VS
 Code crashes, or it is forcibly closed. Before starting, the extension provisions the profile's
 tools; the web interface comes finished with the host. With a checkout as host, the host refuses
@@ -207,19 +208,32 @@ Window" and reopen the run panel. If `code` is not on `PATH`, it is available at
 needs no checkout; it fetches the host from `@schlenkr/ragents` when first required by a
 distributing server.
 
-The extension is an app with four pages: Start, Runs, the run panel, and "Server". All appear in
-the RAgents panel of VS Code's secondary sidebar. Navigation and commands live in the view title
-bar, following VS Code conventions: Start (home), Runs (list), Server (gear), "New run", and "Refresh". They remain available
+The extension shows Start, Runs, and the run panel from the selected server, plus its own "Server"
+configuration page. All appear in the RAgents panel of VS Code's secondary sidebar.
+Navigation and commands live in the view title
+bar, following VS Code conventions: Start (home), Runs (list), "Switch environment"
+(server-environment icon), Server (gear), "New run", and "Refresh". They remain available
 while the panel shows a run. Start has no separate page header; Runs and Server show their
 title next to a back arrow to Start, and the logo at the top left of the run panel ("Back to
 Start") also returns there. There is no Explorer tree in the activity bar. The view badge counts
-pending inputs across all servers.
+pending inputs in the selected environment, and Refresh refreshes that environment.
 
-Start, Runs, and Server share a centered content area up to 1280 pixels wide, with side
-padding, in both the browser and VS Code. The Runs search field and rows stay within this area,
+"Switch environment" opens VS Code's native Quick Pick for configured servers and local profiles.
+The title `RAgents: <name>` and the header pill showing the name identify the selection;
+the pill's tooltip reads `Environment <name>`.
+The choice is remembered per workspace; reopening selects it again when still configured,
+otherwise the first configured environment. Switching changes the interface without stopping
+runs or disconnecting other servers or workstations. The selected server supplies its plugin
+header already on Start, including its global coordinator when installed. If that environment
+needs sign-in, is starting, or cannot be reached, the local shell shows its status and the
+appropriate sign-in, connect, or retry action on a Server page showing only this environment.
+The gear opens connection and profile management for all configured environments.
+
+Start and Runs in both hosts, and Server in VS Code, share a centered content area up to
+1280 pixels wide, with side padding. The Runs search field and rows stay within this area,
 including on ultrawide displays. The outer header remains full width. All three pages begin their
 content at the same distance below the header, and on Start each section label stands well apart
-from the section above it. In the browser, logo, global coordinator button, Settings, and Help share
+from the section above it. In both hosts, logo, global coordinator button, Settings, and Help share
 one header row. The logo leads back to Start there, so the run header has no back arrow of its
 own; Runs keeps its back arrow ("Back to Start") next to its title in the browser as in VS Code. An open run places its layout actions in the run header, without a separate
 toolbar row. VS Code keeps its single run header and editor tabs.
@@ -227,49 +241,32 @@ toolbar row. VS Code keeps its single run header and editor tabs.
 **Start** arranges template cards in several columns when space allows, up to five at the
 maximum content width, and one in narrow panels. Cards stay between 240 and 320 pixels wide,
 shrinking only when the panel is narrower.
-**Server** begins the page, left aligned with the cards and limited to 720 pixels. Chips
-use one column in narrow panels and two from a panel width of 560 pixels. Each chip is a split button. Its left side shows a status icon,
-name, and when needed an action label: none for a connected or ready server (clicking opens
-Runs filtered to it), "Sign in" when authentication is required or access was denied,
-"Retry" when unreachable or failed, "Start" for a stopped local profile,
-and "Connect" for a stopped server. "starting ..." is not a button. A monospace line below identifies the server:
-`local / <profile>` for a local profile, the server host and non-default port, or `<host> / local`
-when a server distributes a client profile whose host runs here.
-
-The right side contains a plus button for a new run. If the server's profile defines
-`defaultStartEntry` (see [profiles.md](../spec/profiles.md)), it starts that template; otherwise it
-starts an empty chat. Without permission to start, an equally wide empty space remains. For a
-failed, unreachable, or rejected server, its status icon is also a button. It opens a
-popover with the status, full selectable message, "Open output", and either
-"Retry" or "Sign in". A lock opens the same sign-in dialog.
-
-Below that, **Continue** shows the five most recent runs from all servers in a fixed-column
-grid with status, title, right-aligned time, and, when more than one exists, server. Rows are
+It has no server block. **Continue** shows this server's five most recent runs in a fixed-column
+grid with status, title, and right-aligned time. Rows are
 the same as in the browser: below the title the owner and short details such as the workspace,
 the whole row is clickable, and a dot in the status icon marks activity you have not viewed in
 any host yet. Shared runs carry their sharing icon next to the title, and runs you may share
-end with "Share ..." (see [Share runs](#share-runs)). "All N runs" opens the Runs page. **New** appears when at least one server is reachable and permits
-new runs. Entries are grouped by server when needed. The first entry is its default template,
-marked "Default", or "New chat" in the "No template"
-category. Remaining templates follow,
+end with "Share ..." (see [Share runs](#share-runs)). "All N runs" opens this server's Runs page.
+**New** appears when the selected server permits new runs. The first entry is its default template,
+marked "Default", or "New chat" in the "No template" category. Remaining templates follow,
 without duplicating the default. Clicking an entry creates and starts the run on its server
-and opens the run panel. Until the run panel takes over, the entry shows "Starting ..." with a
-spinner, a server's plus that starts the same run shows the spinner too, and all other entries
-and pluses stay locked; a cancelled folder choice or a failed start unlocks them again.
+and opens the run panel. Until the run opens, the entry shows "Starting ..." with a
+spinner and all other entries stay locked; a cancelled folder choice or a failed start unlocks
+them again. Cancelling a template's guide returns to the same server's Start page.
 
 The new run uses your open folder as its workspace, asking you to choose when several are open.
 If the template defines its own workspace, such as one server folder per run, VS Code does not
 ask. Until content appears, the panel shows a progress bar and the current step: starting,
 loading, preparing, or setting up. A startup or setup error appears in the same place while the
 chat input remains usable. The loading state disappears with the first mini-app or chat item; an
-empty chat without a template does not show it. VS Code never displays the run panel's run-list
-view. If a run cannot be started, for example because the user may not create runs, the panel
-explains why and offers "Go to Start". For a new run, the visible chat input receives focus as
+empty chat without a template does not show it. If a run cannot be started, for example because
+the user may not create runs, the panel explains why and offers "Back to Start".
+For a new run, the visible chat input receives focus as
 soon as it becomes writable. Opening an existing run does the same for its selected chat partner.
 
-**Runs** shows the complete list in the same grid, with search, "Hide ended", a server
-filter carried over from Start, and a selection mode that deletes several runs after a dialog
-confirmation. Checkboxes occupy an additional first column without shifting the others. A run the
+**Runs** shows this server's complete list in the same grid, with search, "Hide ended", and a
+selection mode that deletes several runs after a dialog confirmation. Checkboxes occupy an
+additional first column without shifting the others. A run the
 server has locked, for example because its journal uses an older format, shows a warning icon whose
 tooltip names the cause; it does not open, but the selection mode deletes it.
 
@@ -279,7 +276,7 @@ at the bottom. If a connected server does not accept this window's folders as a 
 entry says "Workstation not registered" with the cause.
 
 The extension compares its own RAgents version with the version each server reports. If they
-differ, the server row, the top of Start, the status bar, and a notification show "RAgents
+differ, the Server row, the status bar, and a notification show "RAgents
 version mismatch: extension 0.1.9, server 0.1.8 - ...", followed by
 what to update: the extension if it is older, the server if it is older, or the host in
 `ragents.hostPath` for a local profile. A server that reports no version counts as older. While the
@@ -319,8 +316,8 @@ primary actor again, and the run chat continues.
 
 Click a mini-app in the run panel to open or focus its editor tab. Move and close that tab with
 VS Code; opening it again reuses its current group or creates one editor after it was closed. Text artifacts and the journal open as read-only documents, while other artifacts
-open in the browser. `RAgents: New run` uses a Quick Pick grouped by server and template.
-The first entry for each server is its default, marked "Default", or the free task without
+open in the browser. `RAgents: New run` uses a Quick Pick for the selected environment's templates.
+The first entry is its default, marked "Default", or the free task without
 a template. The commands `RAgents: Disconnect`, `RAgents: Connect`, and
 `RAgents: Sign out` apply to the selected run's server or ask when several match.
 
@@ -341,7 +338,7 @@ effect immediately without reloading the page or losing input drafts. Regular br
 are unaffected. This scales text, controls, and spacing together; it is independent of
 `editor.fontSize` and the built-in chat font settings.
 
-If a server profile requires users, both the lock on Start and the Server row open the
+If a server profile requires users, both the selected environment's sign-in action and the Server row open the
 same sign-in dialog. For a profile with `ACCESS_TOKEN`, the dialog requests that token. User name
 and password are stored per server address in VS Code SecretStorage and reused silently next
 session. The session token is stored there as well and sent as a bearer token; iframes receive it

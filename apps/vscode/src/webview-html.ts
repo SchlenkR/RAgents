@@ -106,7 +106,7 @@ export interface PanelPageOptions {
   cspSource: string;
 }
 
-/** Without an open run, the panel shows the web page (React, Tailwind) from the extension's files. */
+/** Connection management stays local even when no server can deliver its interface. */
 export const panelHtml = ({ nonce, title, state, scriptUri, styleUri, cspSource, zoom = 100 }: PanelPageOptions): string => `<!DOCTYPE html>
 <html lang="en" data-theme="${state.theme}">
 <head>

@@ -267,6 +267,23 @@ Tool calls use cancellable executor observations so MCP progress can reset the S
 without a fixed outer transport timeout. Image hooks receive the tool-call ID to bind each
 result during parallel execution.
 
+## 2026-10-03: Select one environment for the complete server interface
+
+Chapters: `spec/plugins.md` (Web as plugin host), `spec/profiles.md` (default start template);
+usage: `usage.md` (Run panel and VS Code
+extension); development: `development.md` (Shared web entry points).
+
+The merged Start page combined runs and templates from several servers while plugin headers
+belonged to one server, obscuring which global coordinator a user was addressing. Start, Runs,
+and the run now come from one server in both hosts. The browser address selects it; VS Code's
+"Switch environment" button selects a configured server or local profile and remembers that
+choice per workspace. The selected server supplies its plugin header even before a run opens.
+Home, Runs, Refresh, and new-run choices stay within this environment. Other connections and
+workstations remain active; switching ends no runs. Connection management stays in the local
+extension shell, as do sign-in, startup, and connection error controls when a server is unavailable.
+Server chips and the merged list's server filter are removed, and cancelling a template guide
+returns to the same server's Start page.
+
 ## 2026-10-03: A tunnel never shadows a local service
 
 Chapters: `spec/plugins.md` (Workspace, sandbox tools, and processes: opening a service; Open

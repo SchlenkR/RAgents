@@ -20,12 +20,13 @@ const tileOf = (entry: StartEntry, guided: boolean, technical: boolean): Connect
 });
 
 /** The start selection of a draft: the same tiles as Start in VS Code; New chat opens the empty run, a template starts right away or after its guide. */
-export function StartSelection({ registry, session, initialEntryId, onOpen }: {
+export function StartSelection({ registry, session, initialEntryId, onOpen, onCancel }: {
   registry: PluginRegistry;
   session: SessionContext;
   initialEntryId?: string;
   /** The draft becomes the open run, as an empty chat or after a template starts. */
   onOpen: () => void;
+  onCancel: () => void;
 }) {
   const access = useAccess();
   const modal = useModalController();
@@ -65,8 +66,8 @@ export function StartSelection({ registry, session, initialEntryId, onOpen }: {
       setError("This template is not available in the current profile.");
       return;
     }
-    openStartEntry(entry, registry, modal, sessionRef, launch);
-  }, [access, launch, modal, registry]);
+    openStartEntry(entry, registry, modal, sessionRef, launch, onCancel);
+  }, [access, launch, modal, onCancel, registry]);
 
   useEffect(() => {
     if (!initialEntryId || disabled || openedInitialEntry.current) return;
@@ -87,13 +88,13 @@ export function StartSelection({ registry, session, initialEntryId, onOpen }: {
 
 /** Opens a template: its guide asks first, a skill with a guide then moves to the preparation chat, everything else starts right away. */
 export function openStartEntry(entry: StartEntry, registry: PluginRegistry, modal: ModalController,
-  sessionRef: RefObject<SessionContext>, launch: (entry: StartEntry, value: JsonValue | null) => Promise<void>) {
+  sessionRef: RefObject<SessionContext>, launch: (entry: StartEntry, value: JsonValue | null) => Promise<void>, onCancel?: () => void) {
   const guide = registry.guideFor(entry);
   if (!guide) { void launch(entry, null); return; }
   let completed = false;
   modal.open({ title: entry.title, subtitle: entry.description,
     render: (controller) => <guide.Guide entry={entry} session={sessionRef.current}
-      onCancel={controller.back} onComplete={(value) => {
+      onCancel={() => { controller.back(); onCancel?.(); }} onComplete={(value) => {
         if (completed) return;
         if (entry.action === "script") {
           completed = true;

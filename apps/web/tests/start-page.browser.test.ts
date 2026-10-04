@@ -7,9 +7,10 @@ import { join } from "node:path";
 import { build } from "esbuild";
 import { chromium, type Page } from "playwright-core";
 import { tailwindPlugin } from "./tailwind-plugin";
+import { WORKSPACE_BINDING_OPTION_ID } from "../../../plugins/ragents.workspace/contract";
 import type {} from "./start-page-fixture";
 
-/** Builds the fixture once: the web app, the run panel and the extension's Start with the same templates and a connected workstation. */
+/** Builds the browser and VS Code panel with the same server templates and a connected workstation. */
 const buildFixture = async (): Promise<string> => {
   await mkdir("/private/tmp/ragents-start-page", { recursive: true });
   const directory = await mkdtemp("/private/tmp/ragents-start-page/browser-");
@@ -43,8 +44,17 @@ const withPage = async (query: string, width: number, run: (page: Page) => Promi
     const errors: string[] = [];
     page.on("pageerror", (error) => errors.push(error.message));
     await page.goto(`${url}?${query}`);
-    await run(page);
-    assert.deepEqual(errors, []);
+    try {
+      await run(page);
+      assert.deepEqual(errors, []);
+    } catch (cause) {
+      const shots = join(tmpdir(), "ragents-browser-shots");
+      await mkdir(shots, { recursive: true });
+      const failureName = `start-page-failed-${query.replace(/[^a-zA-Z0-9]/g, "-")}-${width}`;
+      await page.screenshot({ path: join(shots, `${failureName}.png`) });
+      await writeFile(join(shots, `${failureName}.html`), await page.content());
+      throw cause;
+    }
   } finally { await browser.close(); }
 };
 
@@ -112,18 +122,16 @@ test("the start selection in the browser shows the tiles of Start in VS Code and
   });
 });
 
-test("Start in VS Code marks the clicked template as starting until the extension sends its next state", browserOnly, async () => {
+test("Start marks the clicked template as starting until its next state", browserOnly, async () => {
   await withPage("view=start", 1280, async (page) => {
     const templates = page.getByRole("list", { name: "Templates", exact: true });
     const tile = (title: string) => templates.locator(`button[data-tile="${title}"]`);
-    const plus = page.getByRole("button", { name: "New chat on local", exact: true });
     const busy = () => page.locator('[aria-busy="true"]').evaluateAll((elements) => elements.map((element) => element.getAttribute("data-tile") ?? element.getAttribute("aria-label")));
     await tile("Discussion circle").click();
     assert.deepEqual(await calls(page, "panel.newRun"), [{ action: "newRun", name: "local", entryId: "demo.circle" }]);
     assert.deepEqual(await busy(), ["Discussion circle"]);
     assert.match(await tile("Discussion circle").textContent() ?? "", /Starting \.\.\.$/);
     assert.equal(await templates.getByRole("button", { disabled: false }).count(), 0, "no second start while one is under way");
-    assert.equal(await plus.isDisabled(), true);
     await tile("Word game").click({ force: true });
     assert.equal((await calls(page, "panel.newRun")).length, 1, "a locked tile sends nothing");
 
@@ -132,12 +140,29 @@ test("Start in VS Code marks the clicked template as starting until the extensio
     assert.doesNotMatch(await tile("Discussion circle").textContent() ?? "", /Starting/, "the next state ends the marker, also when no run opened");
     assert.equal(await templates.getByRole("button", { disabled: true }).count(), 0);
 
-    await plus.click();
+    await tile("New chat").click();
     assert.deepEqual((await calls(page, "panel.newRun")).at(-1), { action: "newRun", name: "local" });
-    assert.deepEqual(await busy(), ["New chat on local", "New chat"], "the plus and New chat are the same start");
+    assert.deepEqual(await busy(), ["New chat"]);
     await page.evaluate(() => window.startPageFixture.renewPanel());
     await page.waitForFunction(() => document.querySelector('[aria-busy="true"]') === null);
-    assert.equal(await plus.isEnabled(), true);
+    assert.equal(await tile("New chat").isEnabled(), true);
+  });
+});
+
+test("a template clicked on VS Code Start asks the host and retains its workstation folder", browserOnly, async () => {
+  await withPage("view=panel&host=vscode", 520, async (page) => {
+    const templates = page.getByRole("list", { name: "Templates", exact: true });
+    await templates.waitFor();
+    assert.equal(await page.getByRole("list", { name: "Server", exact: true }).count(), 0);
+    await templates.locator('button[data-tile="Discussion circle"]').click();
+    await page.waitForFunction(() => window.startPageFixture.calls.some((call) => call.id === "ragents.chat.start"));
+    const notifications = await page.evaluate(() => window.startPageFixture.notifications);
+    assert.ok(notifications.some((message) => message.type === "newRun" && message.entryId === "demo.circle"));
+    const binding = (await calls(page, "ragents.startOptions.select")).find((call) => call.optionId === WORKSPACE_BINDING_OPTION_ID);
+    assert.deepEqual(binding?.value, { machine: { client: "laptop-01", label: "Notebook" }, folder: { path: "/home/user/project" } },
+      "The host's selection reaches the server before the template starts.");
+    const order = await page.evaluate(() => window.startPageFixture.calls.map((call) => call.id));
+    assert.ok(order.indexOf("ragents.startOptions.select") < order.indexOf("ragents.chat.start"));
   });
 });
 
@@ -204,7 +229,6 @@ for (const view of ["web", "start"] as const) {
           const main = document.querySelector("main")!;
           const grid = main.querySelector<HTMLElement>('ul[aria-label="Templates"]');
           const list = main.querySelector<HTMLElement>('ul[aria-label="Recent"], ul[aria-label="Runs"]')!;
-          const servers = main.querySelector<HTMLElement>('ul[aria-label="Server"]');
           const search = main.querySelector<HTMLInputElement>('input[aria-label="Search runs"]');
           const rect = list.getBoundingClientRect();
           const sections = [...main.querySelectorAll(":scope > div > div > section")].map((section) => ({
@@ -218,7 +242,6 @@ for (const view of ["web", "start"] as const) {
             left: rect.left, width: rect.width, hostWidth: main.clientWidth, hostLeft: main.getBoundingClientRect().left,
             gridWidth: grid?.getBoundingClientRect().width,
             columns: grid ? getComputedStyle(grid).gridTemplateColumns.split(" ").length : undefined,
-            serverWidth: servers?.getBoundingClientRect().width,
             searchWidth: search?.getBoundingClientRect().width,
             rows: [...list.children].map((row) => row.getBoundingClientRect().width),
             cards: grid ? [...grid.children].map((card) => ({ width: card.getBoundingClientRect().width, top: card.getBoundingClientRect().top })) : [],
@@ -234,7 +257,7 @@ for (const view of ["web", "start"] as const) {
         const start = await measure();
         await page.screenshot({ path: join(shots, `panel-${view}-start-${width}.png`) });
         checkColumn(start);
-        assert.ok(start.serverWidth! <= 720);
+        assert.equal(await page.getByRole("list", { name: "Server", exact: true }).count(), 0);
         assert.ok(Math.abs(start.gridWidth! - start.width) < 1);
         assert.equal(start.columns, width < 900 ? 1 : width === 900 ? 3 : 5);
         assert.equal(start.cards.filter((card) => card.top === start.cards[0]!.top).length, start.columns, "cards occupy each column");
@@ -268,6 +291,8 @@ for (const view of ["web", "start"] as const) {
 for (const host of ["browser", "vscode"] as const) {
   test(`one shared header retains the coordinator and run actions (${host})`, browserOnly, async () => {
     await withPage(`view=${host === "browser" ? "web" : "panel"}&host=${host}&coordinator=1`, 1280, async (page) => {
+      await page.getByRole("list", { name: "Templates", exact: true }).waitFor();
+      assert.equal(await page.getByRole("list", { name: "Server", exact: true }).count(), 0, "The selected server supplies its own home page.");
       const header = page.locator("header").filter({ has: page.locator('[data-slot="overseer-toolbar"]') });
       const coordinator = header.getByRole("button", { name: "Global coordinator", exact: true });
       await coordinator.click();
@@ -332,17 +357,25 @@ for (const host of ["browser", "vscode"] as const) {
         await page.setViewportSize({ width: 520, height: 820 });
         const allWindows = header.getByRole("group", { name: "Layout actions" }).getByRole("button", { name: /^All windows/ });
         await allWindows.waitFor();
-        await page.screenshot({ path: join(shots, "header-browser-narrow-actions.png") });
-        assert.equal(await openChat.isVisible(), false, "A narrow header moves the window buttons into one menu.");
-        assert.equal(await reset.isVisible(), false, "Reset layout moves into the same menu.");
         await visibleAction(allWindows);
-        const menu = page.getByRole("menu", { name: "All windows" });
+        assert.equal(await openChat.isVisible(), false, "The narrow header moves window buttons into All windows.");
+        assert.equal(await reset.isVisible(), false, "Reset layout moves into the same menu.");
         await allWindows.click();
-        await menu.waitFor();
-        assert.equal(await menu.getByRole("menuitem", { name: "Reset layout", exact: true }).count(), 1, "Reset layout stays reachable in the narrow header.");
-        await menu.getByRole("menuitemcheckbox", { name: "Chat", exact: true }).click();
+        const menu = page.getByRole("menu", { name: /^All windows/ });
+        const chatItem = menu.getByRole("menuitemcheckbox", { name: "Chat", exact: true });
+        await chatItem.waitFor();
+        assert.equal(await chatItem.getAttribute("aria-checked"), "false");
+        assert.equal(await menu.getByRole("menuitem", { name: "Reset layout", exact: true }).isVisible(), true);
+        await page.screenshot({ path: join(shots, "header-browser-narrow-actions.png") });
+        await chatItem.click();
         await menu.waitFor({ state: "hidden" });
         await page.getByRole("tab", { name: "Chat", exact: true }).waitFor();
+        await allWindows.click();
+        await chatItem.waitFor();
+        assert.equal(await chatItem.getAttribute("aria-checked"), "true", "All windows reflects the restored Chat.");
+        await chatItem.focus();
+        await page.keyboard.press("Escape");
+        await menu.waitFor({ state: "hidden" });
         await page.setViewportSize({ width: 1280, height: 820 });
         await openChat.waitFor();
       } else {
@@ -351,14 +384,37 @@ for (const host of ["browser", "vscode"] as const) {
       await coordinator.click();
       await history.waitFor();
       await page.screenshot({ path: join(shots, `header-${host}-run-coordinator.png`) });
-      if (host === "browser") {
-        await page.keyboard.press("Escape");
-        await history.waitFor({ state: "hidden" });
-        await logo.focus();
-        await page.keyboard.press("Enter");
-        await page.getByRole("list", { name: "Templates", exact: true }).waitFor();
-        assert.equal(await header.getByRole("button", { name: "Stop run", exact: true }).count(), 0, "the logo leads back to Start");
+      await page.keyboard.press("Escape");
+      await history.waitFor({ state: "hidden" });
+      await logo.focus();
+      await page.keyboard.press("Enter");
+      const templates = page.getByRole("list", { name: "Templates", exact: true });
+      await templates.waitFor();
+      assert.equal(await header.getByRole("button", { name: "Stop run", exact: true }).count(), 0, "The logo leads back to this server's Start page.");
+      if (host === "vscode") {
+        assert.ok((await page.evaluate(() => window.startPageFixture.notifications)).some((message) => message.type === "showStart"));
       }
+      await page.getByRole("button", { name: /All .* runs/ }).click();
+      await page.getByRole("heading", { name: "Runs", exact: true }).waitFor();
+      if (host === "vscode") assert.ok((await page.evaluate(() => window.startPageFixture.notifications)).some((message) => message.type === "pageChanged" && message.page === "runs"));
+      assert.equal(await page.getByRole("list", { name: "Runs", exact: true }).getByRole("button").count(), 1);
+      assert.equal(await page.locator('[data-cell="connection"]').count(), 0);
+      await coordinator.click();
+      await history.waitFor();
+      assert.equal(await draft.evaluate((element, original) => element === original, input), true, "Start, run, and Runs keep the server's coordinator mounted.");
+      assert.equal(await draft.inputValue(), "Unsent coordinator draft");
+      await page.keyboard.press("Escape");
+      await history.waitFor({ state: "hidden" });
+      await page.locator("main").getByRole("button", { name: "Back to Start", exact: true }).click();
+      await templates.waitFor();
+      if (host === "vscode") assert.ok((await page.evaluate(() => window.startPageFixture.notifications)).some((message) => message.type === "pageChanged" && message.page === "start"));
+      await templates.locator('button[data-tile="Clarify decision"]').click();
+      await page.getByRole("button", { name: "Cancel guide", exact: true }).click();
+      await templates.waitFor();
+      await coordinator.click();
+      await history.waitFor();
+      assert.equal(await draft.evaluate((element, original) => element === original, input), true, "Cancelling a guide stays in this server's frame.");
+      assert.equal(await draft.inputValue(), "Unsent coordinator draft");
     });
   });
 }

@@ -1,4 +1,4 @@
-import { CheckSquareIcon, SearchIcon, Trash2Icon, XIcon } from "lucide-react";
+import { CheckSquareIcon, SearchIcon, Trash2Icon } from "lucide-react";
 import { useState } from "react";
 import { Button, Input, Toggle } from "../ui";
 import type { ConnectionRun, ConnectionView } from "./contract";
@@ -7,31 +7,26 @@ import { ConfirmDialog } from "./PanelDialogs";
 import { PanelHeader } from "./PanelHeader";
 import { RunLine, RunList } from "./RunLine";
 
-const keyOf = (connection: string, runId: string): string => `${connection}\u0000${runId}`;
-
-const matches = (connection: ConnectionView, run: ConnectionRun, query: string): boolean =>
-  `${run.title} ${connection.name}`.toLocaleLowerCase("en-US").includes(query);
+const matches = (run: ConnectionRun, query: string): boolean => run.title.toLocaleLowerCase("en-US").includes(query);
 
 /** A run shared with the user stays with its owner; the selection never deletes it. */
 const deletable = (connection: ConnectionView, run: ConnectionRun): boolean => connection.canDelete !== false && run.sharedAccess === undefined;
 
-/** All runs of all servers as one list: search, hide ended, the server filter from the chip on Start, and a multi-selection for deleting. */
+/** The current server's runs with search, hide ended, and a multi-selection for deleting. */
 export function RunsPage({ state, send }: PanelPageProps) {
   const [query, setQuery] = useState("");
-  const [onlyConnection, setOnlyConnection] = useState(state.runsConnection);
   const [hideEnded, setHideEnded] = useState(false);
   const [selecting, setSelecting] = useState(false);
   const [selected, setSelected] = useState<ReadonlySet<string>>(new Set());
   const [confirming, setConfirming] = useState(false);
-  const marked = state.connections.length > 1;
-  const all = state.connections.flatMap((connection) => connection.runs.map((run) => ({ connection, run })))
-    .sort((left, right) => right.run.updatedAt - left.run.updatedAt);
+  const connection = state.connections[0]!;
+  const all = [...connection.runs]
+    .sort((left, right) => right.updatedAt - left.updatedAt);
   const needle = query.trim().toLocaleLowerCase("en-US");
   const shown = all
-    .filter(({ connection }) => onlyConnection === undefined || connection.name === onlyConnection)
-    .filter(({ run }) => !hideEnded || run.state !== "ended")
-    .filter(({ connection, run }) => needle === "" || matches(connection, run, needle));
-  const sharing = !selecting && shown.some(({ run }) => run.canShare === true);
+    .filter((run) => !hideEnded || run.state !== "ended")
+    .filter((run) => needle === "" || matches(run, needle));
+  const sharing = !selecting && shown.some((run) => run.canShare === true);
   const leaveSelection = () => {
     setSelecting(false);
     setSelected(new Set());
@@ -42,10 +37,8 @@ export function RunsPage({ state, send }: PanelPageProps) {
     return next;
   });
   const remove = () => {
-    for (const connection of state.connections.filter((connection) => connection.canDelete !== false)) {
-      const runIds = connection.runs.filter((run) => deletable(connection, run) && selected.has(keyOf(connection.name, run.id))).map((run) => run.id);
-      if (runIds.length > 0) send({ action: "deleteRuns", name: connection.name, runIds });
-    }
+    const runIds = connection.runs.filter((run) => deletable(connection, run) && selected.has(run.id)).map((run) => run.id);
+    if (runIds.length > 0) send({ action: "deleteRuns", name: connection.name, runIds });
     setConfirming(false);
     leaveSelection();
   };
@@ -57,21 +50,18 @@ export function RunsPage({ state, send }: PanelPageProps) {
         placeholder="Search runs ..." type="search" value={query} />
     </div>
     <div className="flex flex-wrap items-center gap-1.5">
-      {onlyConnection !== undefined && <Toggle aria-label={`Only ${onlyConnection}`} onPressedChange={() => setOnlyConnection(undefined)} pressed size="sm" title={`Only runs on ${onlyConnection}; click to show all`} variant="outline">
-        {onlyConnection}<XIcon data-icon="inline-end" />
-      </Toggle>}
       <Toggle onPressedChange={setHideEnded} pressed={hideEnded} size="sm" variant="outline">Hide ended</Toggle>
-      {state.connections.some((connection) => connection.canDelete !== false) && <Toggle onPressedChange={(next) => (next ? setSelecting(true) : leaveSelection())} pressed={selecting} size="sm" variant="outline">
+      {connection.canDelete !== false && <Toggle onPressedChange={(next) => (next ? setSelecting(true) : leaveSelection())} pressed={selecting} size="sm" variant="outline">
         <CheckSquareIcon data-icon="inline-start" />Select
       </Toggle>}
     </div>
     {shown.length === 0
       ? <p className="type-body text-muted-foreground" role="status">{all.length === 0 ? "No runs yet." : "No matching run."}</p>
-      : <RunList actions={sharing} label="Runs" selecting={selecting} showConnection={marked}>
-        {shown.map(({ connection, run }) => <RunLine actions={sharing} connection={connection} key={keyOf(connection.name, run.id)}
+      : <RunList actions={sharing} label="Runs" selecting={selecting}>
+        {shown.map((run) => <RunLine actions={sharing} key={run.id}
           onOpen={() => send({ action: "openRun", name: connection.name, runId: run.id })}
           onShare={run.canShare ? () => send({ action: "openSharing", name: connection.name, runId: run.id }) : undefined}
-          onToggle={() => toggle(keyOf(connection.name, run.id))} run={run} selectable={deletable(connection, run)} selected={selected.has(keyOf(connection.name, run.id))} selecting={selecting} showConnection={marked} />)}
+          onToggle={() => toggle(run.id)} run={run} selectable={deletable(connection, run)} selected={selected.has(run.id)} selecting={selecting} />)}
       </RunList>}
     {selecting && <div className="sticky bottom-0 flex flex-wrap items-center gap-2 border-t border-border-soft bg-background py-2">
       <span className="flex-1 type-body text-muted-foreground" role="status">{selected.size} selected</span>

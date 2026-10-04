@@ -7,7 +7,7 @@ import { chromium } from "playwright-core";
 import { frameHtml, panelHtml } from "../../vscode/src/webview-html";
 import { tailwindPlugin } from "./tailwind-plugin";
 
-const state = { theme: "dark" as const, page: "start" as const, connections: [], profileSuggestions: [] };
+const state = { theme: "dark" as const, page: "connections" as const, connections: [], profileSuggestions: [] };
 
 test("VS Code hull zoom fills the viewport once across nested frames and changes without reloading", {
   skip: process.env.RAGENTS_BROWSER_TESTS !== "1", timeout: 60_000,
@@ -144,12 +144,12 @@ test("panel text and spacing follow ragents.zoom alone, not VS Code's font setti
     const measured: Record<string, { heading: number; title: number; body: string; start: number; runs: number; overflow: number }> = {};
     for (const font of ["13px", "20px"]) {
       await page.goto(`${hull}/host?font=${font}`);
-      await hosted.getByRole("heading", { name: "Server" }).waitFor();
+      await hosted.getByRole("heading", { name: "Continue" }).waitFor();
       for (const zoom of [100, 125, 200]) {
         await post({ type: "ragents.zoom", zoom });
         await page.waitForFunction((expected) => getComputedStyle((document.getElementById("host") as HTMLIFrameElement).contentDocument!.body).zoom === String(expected / 100), zoom);
         const start = await firstBlock();
-        const heading = (await hosted.getByRole("heading", { name: "Server" }).boundingBox())!.height;
+        const heading = (await hosted.getByRole("heading", { name: "Continue" }).boundingBox())!.height;
         const title = (await hosted.getByText("Night bus round").boundingBox())!.height;
         const body = await hosted.locator("body").evaluate((element) => getComputedStyle(element).fontSize);
         const overflow = await hosted.locator("main").evaluate((element) => element.scrollWidth - element.clientWidth);
@@ -157,7 +157,7 @@ test("panel text and spacing follow ragents.zoom alone, not VS Code's font setti
         await hosted.getByRole("button", { name: "Back to Start" }).waitFor();
         const runs = await firstBlock();
         await post({ type: "ragents.panel.state", state: filled });
-        await hosted.getByRole("heading", { name: "Server" }).waitFor();
+        await hosted.getByRole("heading", { name: "Continue" }).waitFor();
         measured[`${font}@${zoom}`] = { heading, title, body, start, runs, overflow };
       }
     }

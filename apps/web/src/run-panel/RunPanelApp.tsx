@@ -33,17 +33,12 @@ const connectionClass = "max-w-[120px] self-center truncate rounded-full bg-seco
 const pendingTitleClass = "min-w-0 flex-1 self-center truncate px-1.5 type-item";
 const STOP_REASON = "Stopped in the run panel";
 const statusBarClass = "relative flex min-h-statusbar flex-none items-stretch border-t border-border bg-shell";
-/** How long the panel in VS Code without a run waits for its host's start request. */
-const HOST_COMMAND_TIMEOUT_MS = 5000;
 const NEW_RUN_TITLE = "New run";
 const noticeClass = "m-auto max-w-[420px] p-6 text-center text-muted-foreground";
 const newDraft = (): SessionInfo => ({ id: crypto.randomUUID(), title: NEW_RUN_TITLE, updatedAt: Date.now() });
 const placeholderSession = (id: string, title = "Run"): SessionInfo => ({ id, title, updatedAt: Date.now() });
 const profileLoading: StartupNoticeState = { kind: "working", title: "Loading profile", detail: "Loading the server's interface." };
-const hostStarting: StartupNoticeState = { kind: "working", title: "Starting run", detail: "Creating the new run." };
 const launchStarting: StartupNoticeState = { kind: "working", title: "Starting run", detail: "Starting the template." };
-const noRunSelected: StartupNoticeState = { kind: "waiting", title: "No run selected", detail: "On the Start page you start a new run or open an existing one." };
-const noRunsReadable: StartupNoticeState = { kind: "error", title: "No runs enabled", detail: "No runs are enabled for this user account." };
 
 /** The run panel: a run with chat and mini-apps, without a run the shared Start page; layout=app shows one mini-app. */
 export function RunPanelApp({ location }: { location: RunPanelLocation }) {
@@ -101,7 +96,6 @@ function RunPanelPage({ connection, initialRunId, registry }: { connection: stri
     launching.current = next?.runId;
     setLaunch(next);
   }, []);
-  const [refusal, setRefusal] = useState<string>();
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [stopError, setStopError] = useState<string>();
   const openSettings = useCallback(() => setSettingsOpen(true), []);
@@ -132,14 +126,15 @@ function RunPanelPage({ connection, initialRunId, registry }: { connection: stri
       (cause: unknown) => { if (launching.current === next.runId) setLaunch({ ...next, error: cause instanceof Error ? cause.message : String(cause) }); },
     );
   }, [access, openRun, registry, replaceLaunch]);
-  /** Back to the Start page, optionally with a short notice there; in VS Code the extension shows it. */
+  /** Return to this server's Start page and tell the host which run is open. */
   const leaveToStart = useCallback((notice: string | undefined) => {
     setFocusRunId(undefined);
     setDraft(undefined);
     replaceLaunch(undefined);
-    setRefusal(undefined);
+    setRunId(undefined);
+    setPage("start");
+    setNavigationNotice(notice);
     if (host.kind === "vscode") host.notify({ type: "showStart", ...(notice === undefined ? {} : { notice }) });
-    else { setRunId(undefined); setPage("start"); setNavigationNotice(notice); }
   }, [host, replaceLaunch]);
   /** The logo always leads to the Start page; in the browser it lists this server's templates and recent runs. */
   const showStart = useCallback(() => leaveToStart(undefined), [leaveToStart]);
@@ -161,14 +156,19 @@ function RunPanelPage({ connection, initialRunId, registry }: { connection: stri
   }, [draft, focusRunId, settingsOpen, settleAutoFocus]);
 
   useEffect(() => host.onCommand((message) => {
-    if (message.type === "selectRun") {
-      setFocusRunId(message.runId ?? undefined);
+    if (message.type === "selectRun" || message.type === "showPage") {
+      const selectedRun = message.type === "selectRun" ? message.runId ?? undefined : undefined;
+      setFocusRunId(selectedRun);
       setDraft(undefined);
       replaceLaunch(undefined);
-      setRefusal(undefined);
       setRunStartOptions(undefined);
       setRunTitle(undefined);
-      setRunId(message.runId ?? undefined);
+      setRunId(selectedRun);
+      setPage(message.type === "showPage" ? message.page : "start");
+      setNavigationNotice(message.type === "showPage" ? message.notice : undefined);
+      setNavigationError(undefined);
+      setSettingsOpen(false);
+      setHelpOpen(false);
     }
     if (message.type !== "newRun") return;
     if (host.kind !== "vscode") {
@@ -178,7 +178,7 @@ function RunPanelPage({ connection, initialRunId, registry }: { connection: stri
     // In the panel a click is a click: only a guide asks questions first as in the web app, the free task is formed in the chat.
     const refused = !canCreate ? "New runs are not enabled for this user account."
       : message.entryId === undefined && !canCreateFree ? "Free runs are not enabled for this user account." : undefined;
-    setRefusal(refused);
+    setNavigationError(refused);
     if (refused !== undefined) return;
     const entry = registry.startEntries.find((candidate) => candidate.id === message.entryId);
     setRunTitle(entry?.title ?? NEW_RUN_TITLE);
@@ -243,15 +243,7 @@ function RunPanelPage({ connection, initialRunId, registry }: { connection: stri
       {draftChat}
       {settings}
     </>;
-    // In VS Code the extension's Start page chooses the run; without one the panel waits for its request instead of showing a list.
-    if (host.kind === "vscode" && !(readRuns && runId)) return <>
-      {!readRuns ? <PendingPanel bar headless state={noRunsReadable}>{toStart}</PendingPanel>
-        : refusal !== undefined ? <PendingPanel bar headless state={{ kind: "error", title: "No new run possible", detail: refusal }}>{toStart}</PendingPanel>
-          : <HostWaiting>{toStart}</HostWaiting>}
-      {settings}
-    </>;
-
-    const connectionName = registry.brand.title;
+    const connectionName = connection ?? registry.brand.title;
     const navigationState: PanelState = {
       theme: "light",
       page,
@@ -283,9 +275,14 @@ function RunPanelPage({ connection, initialRunId, registry }: { connection: stri
         case "page":
           if (action.page === "connections") throw new Error("The browser is connected to its current server.");
           setPage(action.page);
+          if (host.kind === "vscode") host.notify({ type: "pageChanged", page: action.page });
           return;
         case "openRun": setRunTitle(undefined); openRun(action.runId); return;
         case "newRun": {
+          if (host.kind === "vscode") {
+            host.notify({ type: "newRun", ...(action.entryId === undefined ? {} : { entryId: action.entryId }) });
+            return;
+          }
           if (!canCreate || action.entryId === undefined && !canCreateFree) throw new Error("New runs are not enabled.");
           if (action.entryId && !canStartEntry(access, action.entryId)) throw new Error("This template is not enabled.");
           const entry = registry.startEntries.find((entry) => entry.id === action.entryId);
@@ -362,8 +359,8 @@ function RunPanelPage({ connection, initialRunId, registry }: { connection: stri
         {launch || draft ? <div aria-label="Run title bar" className="flex min-w-0 flex-1 items-stretch" role="region"><h1 className={pendingTitleClass}>{runTitle ?? NEW_RUN_TITLE}</h1></div>
           : <div aria-label="Run title bar" className="flex min-w-0 flex-1 items-stretch" ref={setHeaderContainer} role="region" />}
       </div> : <div className="flex-1" />}
+      {connection && <span className={connectionClass} title={`Environment ${connection}`}>{connection}</span>}
       {readRuns && runId && <>
-        {connection && <span className={connectionClass} title={`Server ${connection}`}>{connection}</span>}
         <RunStateIcon className="self-center px-1.5" state={session?.state === "paused" ? "paused" : session?.running ? "running" : "idle"} />
         {session?.sharedAccess !== "read" && <StopButton className="self-center" disabled={!writeRuns} label="Stop run" onClick={stop} size="icon-lg" title="Stop the run with all agents and flows" />}
       </>}
@@ -391,18 +388,6 @@ async function launchRun(launch: Launch, registry: PluginRegistry, access: Acces
     for (const [id, value] of initialStartOptionUpdates(options, preselected)) await setStartOption(launch.runId, id, value);
   }
   await startEntryDirectly(launch.runId, entry, null);
-}
-
-/** Without a run the panel in VS Code waits for its host's start request; if none comes, it shows the way back instead of an endless loading state. */
-function HostWaiting({ children }: { children: ReactNode }) {
-  const [waited, setWaited] = useState(false);
-  useEffect(() => {
-    const timer = window.setTimeout(() => setWaited(true), HOST_COMMAND_TIMEOUT_MS);
-    return () => window.clearTimeout(timer);
-  }, []);
-  return waited
-    ? <PendingPanel bar headless state={noRunSelected}>{children}</PendingPanel>
-    : <PendingPanel bar headless state={hostStarting} />;
 }
 
 /** Header and below it the loading state, as the run panel later shows it centered in the chat; a single mini-app has no header. */

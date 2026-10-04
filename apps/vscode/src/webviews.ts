@@ -14,10 +14,10 @@ export interface WebviewBridge {
   zoom(): number;
   /** Address, appearance, and token of a server; only a connected session provides them. */
   frame(connection: string): FrameSettings | undefined;
-  /** What the panel shows: the run of a server, otherwise the panel page. */
+  /** The selected environment and optional run; undefined shows local connection management. */
   selection(): { connection: string; runId: string | undefined } | undefined;
   panel(): PanelState;
-  handle(connection: string, message: RunPanelHostMessage): void;
+  handle(connection: string, message: RunPanelHostMessage, source: "panel" | "app"): void;
   panelAction(message: PanelActionMessage): void;
 }
 
@@ -32,15 +32,15 @@ const zoomOf = (bridge: WebviewBridge): { zoom: number } | { error: string } => 
   try { return { zoom: bridge.zoom() }; } catch (cause) { return { error: cause instanceof Error ? cause.message : String(cause) }; }
 };
 
-const relay = (webview: vscode.Webview, bridge: WebviewBridge, connection: () => string | undefined): vscode.Disposable =>
+const relay = (webview: vscode.Webview, bridge: WebviewBridge, connection: () => string | undefined, source: "panel" | "app"): vscode.Disposable =>
   webview.onDidReceiveMessage((message: unknown) => {
     if (isPanelActionMessage(message)) { bridge.panelAction(message); return; }
     if (!isRunPanelHostMessage(message)) return;
     const name = connection();
-    if (name !== undefined) bridge.handle(name, message);
+    if (name !== undefined) bridge.handle(name, message, source);
   });
 
-/** The RAgents panel in the secondary sidebar: the overview of all servers or the run panel of the selected run. */
+/** The selected server's interface, or local connection management while no frame is available. */
 export class PanelView implements vscode.WebviewViewProvider {
   #view: vscode.WebviewView | undefined;
   #showsPage = false;
@@ -52,7 +52,7 @@ export class PanelView implements vscode.WebviewViewProvider {
   resolveWebviewView(view: vscode.WebviewView): void {
     this.#view = view;
     view.webview.options = { enableScripts: true, localResourceRoots: [vscode.Uri.joinPath(this.extensionUri, "dist/webview")] };
-    const subscription = relay(view.webview, this.bridge, () => this.bridge.selection()?.connection);
+    const subscription = relay(view.webview, this.bridge, () => this.bridge.selection()?.connection, "panel");
     view.onDidDispose(() => {
       subscription.dispose();
       if (this.#view === view) this.#view = undefined;
@@ -76,6 +76,7 @@ export class PanelView implements vscode.WebviewViewProvider {
     }
     this.#showsError = false;
     const selection = this.bridge.selection();
+    view.title = selection ? `${PANEL_TITLE}: ${selection.connection}` : PANEL_TITLE;
     const frame = selection ? this.bridge.frame(selection.connection) : undefined;
     if (!selection || !frame) {
       this.#renderPage(view, zoom.zoom);
@@ -159,7 +160,7 @@ export class AppPanels {
     });
     const entry: OpenPanel = { panel, connection, runId, elementId, title, showsError: false };
     this.#panels.set(key, entry);
-    const subscription = relay(panel.webview, this.bridge, () => connection);
+    const subscription = relay(panel.webview, this.bridge, () => connection, "app");
     panel.onDidDispose(() => {
       subscription.dispose();
       this.#panels.delete(key);

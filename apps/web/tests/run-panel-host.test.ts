@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { createBrowserHost, createVsCodeHost } from "../src/run-panel/host.ts";
-import { isRunPanelHostMessage, type HostRunPanelMessage } from "../src/run-panel/host-contract.ts";
+import { isHostRunPanelMessage, isRunPanelHostMessage, type HostRunPanelMessage } from "../src/run-panel/host-contract.ts";
 
 const fakeWindow = () => {
   const listeners: Array<(event: { source: unknown; data: unknown }) => void> = [];
@@ -36,20 +36,43 @@ test("the vscode host relays messages to the parent and only accepts valid comma
   host.openApp("run-a", "board--main", "Collection board");
   host.notify({ type: "runChanged", runId: "run-a" });
   host.notify({ type: "showStart" });
+  host.notify({ type: "newRun", entryId: "demo.board" });
   assert.deepEqual(posted.map((entry) => entry.message), [
     { type: "openInCenter", runId: "run-a", elementId: "board--main", title: "Collection board" },
     { type: "runChanged", runId: "run-a" },
     { type: "showStart" },
+    { type: "newRun", entryId: "demo.board" },
   ]);
   receive({}, { type: "selectRun", runId: "run-b" });
   receive(parent, { type: "selectRun", runId: 42 });
   receive(parent, { type: "theme", theme: "dark" });
   receive(parent, { type: "newRun", startOptions: { "ragents.workspace.binding": { machine: "server", folder: "fresh" } } });
   receive(parent, { type: "newRun", startOptions: [] });
+  receive(parent, { type: "showPage", page: "runs" });
+  receive(parent, { type: "showPage", page: "start", notice: "The run is no longer shared." });
+  receive(parent, { type: "showPage", page: "connections" });
   assert.deepEqual(commands, [
     { type: "theme", theme: "dark" },
     { type: "newRun", startOptions: { "ragents.workspace.binding": { machine: "server", folder: "fresh" } } },
+    { type: "showPage", page: "runs" },
+    { type: "showPage", page: "start", notice: "The run is no longer shared." },
   ]);
+});
+
+test("server page commands accept Start and Runs with a notice, and a start request carries only its template", () => {
+  assert.equal(isHostRunPanelMessage({ type: "showPage", page: "start" }), true);
+  assert.equal(isHostRunPanelMessage({ type: "showPage", page: "runs", notice: "The run was removed." }), true);
+  for (const invalid of [{ page: "connections" }, { page: "run" }, { page: undefined }, { page: "start", notice: 3 }, { page: "start", notice: "" }]) {
+    assert.equal(isHostRunPanelMessage({ type: "showPage", ...invalid }), false, JSON.stringify(invalid));
+  }
+  assert.equal(isRunPanelHostMessage({ type: "newRun" }), true);
+  assert.equal(isRunPanelHostMessage({ type: "newRun", entryId: "demo.board" }), true);
+  assert.equal(isRunPanelHostMessage({ type: "newRun", entryId: "" }), false);
+  assert.equal(isRunPanelHostMessage({ type: "newRun", entryId: 3 }), false);
+  assert.equal(isRunPanelHostMessage({ type: "pageChanged", page: "start" }), true);
+  assert.equal(isRunPanelHostMessage({ type: "pageChanged", page: "runs" }), true);
+  assert.equal(isRunPanelHostMessage({ type: "pageChanged", page: "connections" }), false);
+  assert.equal(isRunPanelHostMessage({ type: "pageChanged", page: undefined }), false);
 });
 
 test("a vscode host without an embedding page is an error", () => {

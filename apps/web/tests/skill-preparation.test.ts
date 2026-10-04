@@ -60,6 +60,17 @@ test("cancelling a skill guide opens no preparation", () => {
   assert.equal(modal.getSnapshot().length, 1);
 });
 
+test("cancelling a guide notifies the caller after closing the guide so the draft can return to Start", () => {
+  const { registry, modal, sessionRef, run } = setup();
+  const cancellations: number[] = [];
+  openStartEntry({ ...skill, guide: "example.guide" }, registry, modal, sessionRef, run,
+    () => { cancellations.push(modal.getSnapshot().length); });
+  const content = modal.getSnapshot().at(-1)!.page!.render(modal) as ReactElement<EntryGuideContext>;
+  content.props.onCancel();
+  assert.deepEqual(cancellations, [1], "The caller observes the guide already closed.");
+  assert.equal(modal.getSnapshot().length, 1, "Cancelling does not open preparation or another template selection.");
+});
+
 test("run scripts still receive the guide value directly", () => {
   const { registry, modal, sessionRef } = setup();
   const calls: unknown[] = [];

@@ -124,6 +124,7 @@ const readBody = (request: IncomingMessage): Promise<string> => new Promise((res
 /** A stub made of the real building blocks: sign-in and artifacts over HTTP, everything else via dispatcher and transport. */
 export const startStubServer = async (options: {
   loginRequired?: boolean;
+  userRights?: string[];
   tokenGate?: boolean;
   logoutFails?: boolean;
   profile?: PublicPluginProfile;
@@ -154,6 +155,10 @@ export const startStubServer = async (options: {
   const methods = new MethodContributionRegistry();
   methods.register("stub", [
     implement(coreContracts.runs.list, () => sessions),
+    implement(coreContracts.runs.delete, ({ runId }) => {
+      sessions = sessions.filter((entry) => entry.id !== runId);
+      return null;
+    }),
     implement(coreContracts.plugins.bootstrap, () => options.version === null ? profile as HostBootstrap : { ...profile, version: options.version ?? STUB_VERSION }),
     implement(runContracts.view, ({ runId }) => {
       viewRequests += 1;
@@ -206,7 +211,7 @@ export const startStubServer = async (options: {
     response.writeHead(status, { "content-type": "application/json" });
     response.end(JSON.stringify(body));
   };
-  const user = { id: "alice", label: "Alice", rights: ["runs.read", "runs.write", "runs.inspect"] };
+  const user = { id: "alice", label: "Alice", rights: options.userRights ?? ["runs.read", "runs.write", "runs.inspect"] };
   const authorized = (request: IncomingMessage) => request.headers.authorization === `Bearer ${SESSION_TOKEN}`;
   const route = async (request: IncomingMessage, response: ServerResponse, url: URL): Promise<void> => {
     if (options.tokenGate && !authorized(request)) return json(response, 401, { error: "Access token missing" });

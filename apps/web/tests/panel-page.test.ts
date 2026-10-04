@@ -26,48 +26,43 @@ const connection = (overrides: Partial<ConnectionView> = {}): ConnectionView => 
 const page = (overrides: Partial<PanelState> = {}): PanelState =>
   ({ theme: "dark", page: "start", connections: [connection()], profileSuggestions: [], ...overrides });
 
-test("Start shows the servers as a block, the recent runs and all templates; the actions are only in the VS Code title bar", () => {
-  const html = render(page({
-    connections: [
-      connection(),
-      connection({ name: "core", kind: "profile", address: "/x/ragents.config.core.ts", route: { kind: "profile", profile: "core" }, state: { kind: "starting" }, runs: [], entries: [], canCreate: false }),
-    ],
-  }));
+test("Start shows only the current server's recent runs and templates", () => {
+  const html = render(page());
   assert.doesNotMatch(html, /<h1/, "Start has no header of its own, the title is already in the view title bar");
   assert.doesNotMatch(html, /aria-label="Runs"|aria-label="Set up server"|Back to Start/, "no icons the title bar already has");
-  assert.match(html, /aria-label="Server"/);
-  assert.match(html, />Server</);
-  assert.match(html, />workshop</);
-  assert.match(html, /title="connected"/);
-  assert.match(html, /aria-label="Runs on workshop"[^>]*>/, "a connected server leads to its runs");
-  assert.doesNotMatch(html, />Runs<\/span>/, "a connected server carries no action word");
-  assert.match(html, /data-cell="route"[^>]*title="localhost:4710"[^>]*>localhost:4710</);
-  assert.match(html, />core</);
-  assert.match(html, /title="starting"/);
-  assert.match(html, /aria-label="core is starting"[^>]*disabled=""/, "a starting server is not clickable");
-  assert.match(html, />starting \.\.\.</);
-  assert.match(html, /data-cell="route"[^>]*title="local \u00b7 core"[^>]*>local \u00b7 core</);
-  assert.match(html, /aria-label="New chat on workshop"/);
-  assert.doesNotMatch(html, /aria-label="New chat on core"/, "a server without the start right gets no plus");
+  assert.doesNotMatch(html, /aria-label="Server"|>Server</);
+  assert.doesNotMatch(html, /data-cell="route"|data-cell="connection"|>workshop</);
   assert.match(html, />Continue</);
   assert.match(html, />Night bus round</);
+  assert.match(html, /title="Night bus round"/);
   assert.match(html, /title="running"/);
   assert.match(html, />New</);
+  assert.match(html, /aria-label="Templates"/);
   assert.match(html, />Collection board</);
   assert.match(html, />Discussion circle</);
   assert.doesNotMatch(html, /Search templates/, "Start has no search over the templates");
   assert.doesNotMatch(html, /Disconnect|Stop|Question/);
 });
 
-test("New starts for each reachable server with the default template as the marked template, otherwise with New chat; the plus takes the same one", () => {
+test("Start and Runs require exactly one server, while server management accepts all configured servers", () => {
+  for (const current of ["start", "runs"] as const) {
+    for (const connections of [[], [connection(), connection({ name: "second" })]]) {
+      assert.throws(() => render(page({ page: current, connections })), /exactly one server/i, `${current} with ${connections.length} servers`);
+    }
+  }
+  assert.match(render(page({ page: "connections", connections: [] })), />No server yet\.</);
+  const management = render(page({ page: "connections", connections: [connection(), connection({ name: "second" })] }));
+  assert.match(management, />workshop</);
+  assert.match(management, />second</);
+});
+
+test("New starts with the marked default template, otherwise with New chat", () => {
   const chat = render(page());
   assert.match(chat, />New<span[^>]*>3</, "the New chat template is counted");
   assert.match(chat, /<ul aria-label="Templates"[^>]*><li[^>]*><button[^>]*data-tile="New chat"/, "New chat is the first template");
   assert.match(chat, />No template</);
   assert.match(chat, />New chat</);
   assert.match(chat, />Empty run; the task takes shape in the chat\.</);
-  assert.match(chat, /lucide-plus size-3\.5/, "New chat differs only by its icon");
-  assert.match(chat, /aria-label="New chat on workshop"/);
   assert.doesNotMatch(chat, />Default</);
   const standard = render(page({ connections: [connection({ defaultEntry: "ragents.reference.circle" })] }));
   assert.match(standard, />New<span[^>]*>2</, "the default does not appear a second time");
@@ -75,40 +70,21 @@ test("New starts for each reachable server with the default template as the mark
   assert.match(standard, />Default</);
   assert.equal(standard.match(/>Discussion circle</g)?.length, 1);
   assert.doesNotMatch(standard, />New chat</);
-  assert.match(standard, /aria-label="New run from Discussion circle on workshop"/);
-  const two = render(page({ connections: [connection(), connection({ name: "second", address: "http://localhost:4727", runs: [] })] }));
-  assert.match(two, /aria-label="Templates on workshop"[^>]*><li[^>]*><button[^>]*data-tile="New chat"/, "each server starts its group with New chat or the default template");
-  assert.match(two, /aria-label="Templates on second"[^>]*><li[^>]*><button[^>]*data-tile="New chat"/);
-  const none = render(page({ connections: [connection({ state: { kind: "stopped" }, runs: [] })] }));
+  const none = render(page({ connections: [connection({ state: { kind: "stopped" }, runs: [], canCreate: false })] }));
   assert.doesNotMatch(none, />New</, "without a reachable server there is no New section");
 });
 
-test("on an error the state icon is a button of its own for the message, on the lock for the sign-in, otherwise none", () => {
-  const failed = render(page({ connections: [connection({ state: { kind: "failed", message: "no checkout" }, runs: [] })] }));
-  assert.match(failed, /aria-haspopup="dialog"[^>]*aria-label="Show error of workshop"/);
-  assert.match(failed, /title="failed"/);
-  assert.match(failed, /aria-label="Retry workshop"/, "the left part of the chip keeps its action");
-  assert.doesNotMatch(failed, /no checkout/, "the message appears only in the opened popover");
-  const forbidden = render(page({ connections: [connection({ state: { kind: "forbidden", message: "No access" }, runs: [] })] }));
-  assert.match(forbidden, /aria-label="Show error of workshop"/);
-  const login = render(page({ connections: [connection({ state: { kind: "login-required", mode: "password" }, runs: [] })] }));
-  assert.match(login, /aria-label="Sign-in for workshop"/);
-  assert.doesNotMatch(login, /aria-label="Show error of/);
-  for (const state of [{ kind: "connected" as const }, { kind: "starting" as const }, { kind: "stopped" as const }]) {
-    const html = render(page({ connections: [connection({ state, runs: [] })] }));
-    assert.doesNotMatch(html, /aria-label="Show error of|aria-label="Sign-in for/, `${state.kind}: the icon has no action of its own`);
-  }
-});
-
-test("with two or more servers every run line names its server and New groups the templates per server, with one neither", () => {
-  const two = render(page({ connections: [connection(), connection({ name: "second", address: "http://localhost:4727", runs: [] })] }));
-  assert.match(two, /Night bus round \(workshop\)/);
-  assert.match(two, /<h3[^>]*>[\s\S]*?workshop<\/h3><div[^>]*><ul aria-label="Templates on workshop"/, "group heading per server");
-  assert.match(two, /<h3[^>]*>[\s\S]*?second<\/h3><div[^>]*><ul aria-label="Templates on second"/);
-  assert.equal(two.match(/data-tile="Collection board"/g)?.length, 2, "the template does not name the server itself");
-  const one = render(page());
-  assert.doesNotMatch(one, /Night bus round \(workshop\)|<h3/);
-  assert.match(one, /<ul aria-label="Templates"/);
+test("server management retains sign-in, retry, and connect actions with the error cause", () => {
+  const failed = render(page({ page: "connections", connections: [connection({ state: { kind: "failed", message: "no checkout" }, runs: [] })] }));
+  assert.match(failed, /role="alert"[^>]*>no checkout</);
+  assert.match(failed, />Retry</);
+  const login = render(page({ page: "connections", connections: [connection({ state: { kind: "login-required", mode: "password" }, runs: [] })] }));
+  assert.match(login, />Sign in</);
+  assert.match(login, /title="sign-in required"/);
+  const stopped = render(page({ page: "connections", connections: [connection({ state: { kind: "stopped" }, runs: [] })] }));
+  assert.match(stopped, />Connect</);
+  const start = render(page());
+  assert.doesNotMatch(start, /Show error of|Sign-in for|>Retry<|>Connect</);
 });
 
 test("a run line names the cause of a locked run with a warning icon and opens nothing", () => {
@@ -141,38 +117,19 @@ test("a template with a guide is called Set up as in the web app, otherwise Star
   assert.doesNotMatch(html, /data-tile="Discussion circle"(?:(?!<\/button>).)*>Start</s);
 });
 
-test("the left part of the chip carries its action word per state", () => {
-  const login = render(page({ connections: [connection({ state: { kind: "login-required", mode: "password" }, runs: [] })] }));
-  assert.match(login, /title="sign-in required"/);
-  assert.match(login, /aria-label="Sign in to workshop"/);
-  assert.match(login, />Sign in<\/span>/);
-  const unreachable = render(page({ connections: [connection({ state: { kind: "unreachable", message: "fetch failed" }, runs: [] })] }));
-  assert.match(unreachable, /title="unreachable"/);
-  assert.match(unreachable, /aria-label="Retry workshop"/);
-  assert.match(unreachable, />Retry<\/span>/);
-  const stoppedServer = render(page({ connections: [connection({ state: { kind: "stopped" }, runs: [] })] }));
-  assert.match(stoppedServer, /aria-label="Connect to workshop"/);
-  assert.match(stoppedServer, />Connect<\/span>/);
-  const stoppedProfile = render(page({ connections: [connection({ kind: "profile", route: { kind: "profile", profile: "core" }, state: { kind: "stopped" }, runs: [] })] }));
-  assert.match(stoppedProfile, /aria-label="Start workshop"/);
-  assert.match(stoppedProfile, />Start<\/span>/);
-  const distributed = render(page({ connections: [connection({ route: { kind: "server", host: "workshop.example.com", localHost: true }, runs: [] })] }));
-  assert.match(distributed, /title="workshop.example.com \u00b7 local"/);
-});
-
-test("without a server and with a broken setting Start leads to the servers", () => {
-  const empty = render(page({ connections: [] }));
-  assert.match(empty, />Add server</);
-  const broken = render(page({ connections: [], problem: "ragents.connections must be a list" }));
+test("a broken connection setting is shown by server management", () => {
+  const broken = render(page({ page: "connections", connections: [], problem: "ragents.connections must be a list" }));
   assert.match(broken, /role="alert"[^>]*>ragents.connections must be a list</);
 });
 
-test("the Runs page brings all runs together and offers search, hiding and selection", () => {
+test("the Runs page lists only the current server's runs and offers search, hiding and selection", () => {
   const html = render(page({
     page: "runs",
     connections: [
-      connection({ runs: [{ id: "run-a", title: "Night bus round", state: "waiting", pendingActions: 2, updatedAt: Date.now() }] }),
-      connection({ name: "core", runs: [{ id: "run-b", title: "Word game", state: "ended", pendingActions: 0, updatedAt: Date.now() - 3 * 86_400_000 }] }),
+      connection({ runs: [
+        { id: "run-a", title: "Night bus round", state: "waiting", pendingActions: 2, updatedAt: Date.now() },
+        { id: "run-b", title: "Word game", state: "ended", pendingActions: 0, updatedAt: Date.now() - 3 * 86_400_000 },
+      ] }),
     ],
   }));
   assert.match(html, /<h1[^>]*>Runs<\/h1>/);
@@ -185,11 +142,9 @@ test("the Runs page brings all runs together and offers search, hiding and selec
   assert.match(html, />Word game</);
   assert.match(html, /title="waiting for input \(2\)"/);
   assert.match(html, />3d</);
-  assert.doesNotMatch(html, /All servers/, "filter chips are off");
-  assert.doesNotMatch(html, /aria-label="Only /, "without a chip click there is no server filter");
+  assert.doesNotMatch(html, /All servers|aria-label="Only /, "there is no server filter inside a server page");
   assert.doesNotMatch(html, /selected</, "the selection bar appears only with the selection mode");
-  assert.match(html, /<ul aria-label="Runs" class="[^"]*grid-cols-\[auto_minmax\(0,1fr\)_auto_auto\]/, "with two or more servers the list has a column for the server");
-  assert.match(html, /data-cell="connection"[^>]*title="core"[^>]*>core</);
+  assert.doesNotMatch(html, /data-cell="connection"|Night bus round \(workshop\)/);
 });
 
 test("Runs and Server always lead back to Start with the arrow before their title, Start has no arrow", () => {
@@ -199,23 +154,6 @@ test("Runs and Server always lead back to Start with the arrow before their titl
     assert.equal(html.match(/aria-label="Back to Start"/g)?.length, 1);
   }
   assert.doesNotMatch(render(page()), /Back to Start/);
-});
-
-test("the chip on Start passes its server to the Runs page; the filter shows as a pressed toggle", () => {
-  const html = render(page({
-    page: "runs",
-    runsConnection: "core",
-    connections: [
-      connection({ runs: [{ id: "run-a", title: "Night bus round", state: "waiting", pendingActions: 2, updatedAt: Date.now() }] }),
-      connection({ name: "core", runs: [{ id: "run-b", title: "Word game", state: "ended", pendingActions: 0, updatedAt: Date.now() }] }),
-    ],
-  }));
-  assert.match(html, /aria-pressed="true"[^>]*aria-label="Only core"/);
-  assert.match(html, />Word game</);
-  assert.doesNotMatch(html, />Night bus round</, "the runs of the other server stay out");
-  const single = render(page({ page: "runs" }));
-  assert.match(single, /<ul aria-label="Runs" class="[^"]*grid-cols-\[auto_minmax\(0,1fr\)_auto\]/, "with one server the column is missing");
-  assert.doesNotMatch(single, /data-cell="connection"/);
 });
 
 test("the Server page lists the rows with their actions, without Start and Stop", () => {
@@ -278,23 +216,22 @@ test("a server missing an environment variable explains the case and leads to th
   assert.match(html, /aria-label="Set value for SERVICE_TOKEN and restart workshop"/);
   assert.match(html, />Set value</);
   assert.match(html, />Retry</);
-  const start = render(page({ connections: [connection({ state: { kind: "failed", message: "run-provision.ts ended with code 1" }, runs: [], missingEnvironment: missing })] }));
-  assert.match(start, /aria-label="Show error of workshop"/, "the chip carries the reason on its state icon");
   const without = render(page({ page: "connections", connections: [connection({ state: { kind: "failed", message: "no checkout" }, runs: [], entries: [] })] }));
   assert.match(without, /role="alert"[^>]*>no checkout</);
   assert.doesNotMatch(without, />Set value</, "without a finding the previous reason stays");
 });
 
-test("a differing RAgents version shows on Start and at the server, as an error in red and as a warning in the warning color", () => {
+test("server management reports differing RAgents versions with their severity", () => {
   const warning = { level: "warning" as const, text: "RAgents version does not match: extension 0.1.9, server 0.1.8 - update the server to 0.1.9." };
   const error = { level: "error" as const, text: "RAgents version does not match: extension 0.1.8, server 0.1.9 - update the RAgents extension to 0.1.9. The workspace is therefore not registered: executor 7 instead of 8." };
-  const start = render(page({ connections: [connection({ versionNotice: warning })] }));
-  assert.match(start, /<p class="[^"]*text-warning[^"]*" data-notice="warning" role="status">RAgents version does not match: extension 0\.1\.9, server 0\.1\.8 - update the server to 0\.1\.9\.<\/p>/);
-  const two = render(page({ connections: [connection({ versionNotice: error }), connection({ name: "second", address: "http://localhost:4727" })] }));
-  assert.match(two, /<p class="[^"]*text-destructive[^"]*" data-notice="error" role="alert">workshop: RAgents version does not match/, "with two or more servers the notice names its server");
-  assert.equal(two.match(/data-notice=/g)?.length, 1);
-  const servers = render(page({ page: "connections", connections: [connection({ versionNotice: error })] }));
+  const warningPage = render(page({ page: "connections", connections: [connection({ versionNotice: warning })] }));
+  assert.match(warningPage, /data-notice="warning" role="status">RAgents version does not match: extension 0\.1\.9, server 0\.1\.8 - update the server to 0\.1\.9\.<\/p>/);
+  const failed = render(page({ page: "connections", connections: [connection({ versionNotice: error })] }));
+  assert.match(failed, /data-notice="error" role="alert">RAgents version does not match/);
+  assert.doesNotMatch(failed, /workshop: RAgents version/);
+  const servers = render(page({ page: "connections", connections: [connection({ versionNotice: error }), connection({ name: "second", address: "http://localhost:4727" })] }));
   assert.match(servers, /data-notice="error" role="alert">RAgents version does not match: extension 0\.1\.8, server 0\.1\.9/);
+  assert.equal(servers.match(/data-notice=/g)?.length, 1);
   assert.doesNotMatch(render(page()), /data-notice=/);
 });
 
@@ -304,8 +241,6 @@ test("messages in both directions are checked before processing", () => {
   assert.equal(isPanelActionMessage({ type: "ragents.panel", action: "page", page: "connections" }), true);
   assert.equal(isPanelActionMessage({ type: "ragents.panel", action: "page", page: "run" }), false, "openRun leads to the run, not page");
   assert.equal(isPanelActionMessage({ type: "ragents.panel", action: "page", page: "whatever" }), false);
-  assert.equal(isPanelActionMessage({ type: "ragents.panel", action: "page", page: "runs", connection: "core" }), true, "the chip passes its server to Runs");
-  assert.equal(isPanelActionMessage({ type: "ragents.panel", action: "page", page: "runs", connection: 3 }), false);
   assert.equal(isPanelActionMessage({ type: "ragents.panel", action: "connect", name: "workshop" }), true);
   assert.equal(isPanelActionMessage({ type: "ragents.panel", action: "connect" }), false);
   assert.equal(isPanelActionMessage({ type: "ragents.panel", action: "retry", name: "workshop" }), true);
@@ -338,7 +273,7 @@ test("template-only access keeps its templates without exposing free creation or
   const restricted = connection({ canCreateFree: false, canDelete: false });
   const start = render(page({ connections: [restricted] }));
   assert.match(start, /data-tile="Collection board"/);
-  assert.doesNotMatch(start, /data-tile="New chat"|aria-label="New chat on/);
+  assert.doesNotMatch(start, /data-tile="New chat"/);
   const runs = render(page({ page: "runs", connections: [restricted] }));
   assert.match(runs, /Night bus round/);
   assert.doesNotMatch(runs, />Select<|>Delete</);
@@ -392,9 +327,9 @@ test("Start offers Share ... in its recent runs too and shows a short notice, su
 
 test("in selection mode a row that cannot be deleted keeps an empty checkbox cell and no checkbox", () => {
   const rows = sharedRuns.slice(0, 3).map((run) => createElement(RunLine, {
-    key: run.id, connection: connection(), run, showConnection: false, selecting: true, selectable: run.sharedAccess === undefined, onOpen: () => {},
+    key: run.id, run, selecting: true, selectable: run.sharedAccess === undefined, onOpen: () => {},
   }));
-  const html = renderToStaticMarkup(createElement(RunList, { label: "Runs", showConnection: false, selecting: true, children: rows }));
+  const html = renderToStaticMarkup(createElement(RunList, { label: "Runs", selecting: true, children: rows }));
   assert.match(html, /grid-cols-\[auto_auto_minmax\(0,1fr\)_auto\]/);
   assert.match(html, /aria-label="Select Own review"/);
   assert.doesNotMatch(html, /aria-label="Select Viewed run"/);

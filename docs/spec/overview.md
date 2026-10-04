@@ -326,8 +326,8 @@ used for it. Code terms appear in names, methods, and contracts.
 | files and executor of a run | workspace | `workspace` | working folder, workspace for panels |
 | signed-in machine or VS Code window | workstation | `WorkspaceClient` | workspace for the machine |
 | inspection rail next to the selected content | tab bar | `workspaceTabs` | right workspace, right panel |
-| entry of the VS Code extension for a RAgents server | server | `Connection` | environment, target |
-| chat of a user across all of their runs | global coordinator | plugin `ragents.overseer` | parent coordinator, overseer |
+| selectable remote server or local profile in VS Code | environment | `Connection` | target |
+| chat of a user across all of their runs on one server | global coordinator | plugin `ragents.overseer` | parent coordinator, overseer |
 | file `ragents.config.<name>.ts` | profile | `PRODUCT_PROFILE` | application profile, product profile |
 | model default `coordinator`, `standard`, `relay` | role | `profile` in `model_list` and journal | agent profile, coordinator profile, role profile |
 | extension unit of RAgents | plugin | `plugin` | extension |

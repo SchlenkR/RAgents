@@ -60,6 +60,12 @@
     },
     "commands": [
       {
+        "command": "ragents.selectEnvironment",
+        "title": "Switch environment",
+        "category": "RAgents",
+        "icon": "$(server-environment)"
+      },
+      {
         "command": "ragents.showStart",
         "title": "Start",
         "category": "RAgents",
@@ -145,6 +151,11 @@
     ],
     "menus": {
       "view/title": [
+        {
+          "command": "ragents.selectEnvironment",
+          "when": "view == ragents.runPanel",
+          "group": "navigation@0"
+        },
         {
           "command": "ragents.showStart",
           "when": "view == ragents.runPanel",

@@ -1396,6 +1396,8 @@ Instead, plugins fill typed slots for:
   Their context contains the registry, open state, `onOpen`, `onClose`, and `onBusy`. The host
   coordinates overview and toolbar history. Toolbar contributions are mounted from application start,
   but activate their own connections only on use and keep them afterwards across run switches.
+  In both browser and VS Code, only the selected server supplies these contributions, including
+  on Start before a run is opened. Contributions from different environments are never merged.
 - workspace tabs and badges (`workspaceTabs`, `workspaceTabsFor`): the toolbar at the right edge
   with the tab area as a popout over the selected content view; the same contribution, the same visibility (`readRight`, `requiresWorkspace`, `available`);
   `placement: "window"` (default `"sidebar"`) lists a tab in the browser among the run's windows in the
@@ -1440,9 +1442,11 @@ Instead, plugins fill typed slots for:
   first message, for a run script the start value as JSON (such as the conversation round
   of `ragents.reference`)
 
-The shared `main.tsx` bootstrap renders `RunPanelApp` for either host. Browser navigation uses the same
-`PanelPage`, `StartPage`, and `RunsPage` as the extension with one current-server adapter.
+The shared `main.tsx` bootstrap renders `RunPanelApp` for either host. The browser and the VS Code
+iframe use the same `PanelPage`, `StartPage`, and `RunsPage` with one current-server adapter.
+In the browser the address selects that server; in VS Code the selected environment does.
 Start offers recent runs and permitted templates; Runs adds search and deletion with confirmation.
+Neither page combines servers, and Start contains no server chips.
 Free creation, template access, reading, and deletion retain their independent rights.
 Both hosts draw run rows from the same mapping of `ragents.runs.list` (`connectionRunOf` in
 `run-overview.ts`): state, pending actions, read notice, owner, metadata lines, and lock.
@@ -2219,7 +2223,8 @@ responses start no run.
 
 When the run is created, the selected skill stays linked to the task and is loaded for
 its first turn. The current, edited task takes precedence over a
-default or example task in the skill. Back and Cancel lead to the start selection.
+default or example task in the skill. Back returns to the start selection within preparation;
+cancelling the dialog returns to this server's Start page.
 A run script opens its guide or starts directly;
 as long as the start request is running, further starts are locked. Errors appear in the start selection.
 A run script calls `ragents.chat.start { runId, entry, input }` with the guide result
@@ -2246,7 +2251,8 @@ taken over, and further updates are combined into a subsequent query.
 As a result, the start dialog does not hang even with slow responses. Already closed
 start dialogs ignore late send responses, so that these cannot close a newly opened draft.
 
-The shared header contains the brand on Start, or Back and the active run title. The global
+The shared header contains the brand on Start, or Back and the active run title. In VS Code,
+the pill shows the selected server's name on every page, with the tooltip `Environment <name>`. The global
 coordinator stays mounted beside it across navigation. Run layout actions share the title row;
 run details and plugin header contributions open from the title. Status, Stop, and the menu
 remain on the right. Installed tool shortcuts do not appear here.
@@ -2363,8 +2369,9 @@ relative page links resolve correctly.
 of the overview buttons. On display and after every user change, the contribution queries
 the run ID of the user's own coordinator with `ragents.overseer.coordinator` and only then binds chat,
 level of detail, and attachments to it; until then the space stays empty, and an error appears as an exclamation mark.
-The VS Code extension shows no global coordinator; it does not see coordinators in the
-run list either. In the header the contribution is a plain button (`PopoverTrigger`) with the
+In VS Code the selected environment supplies its own global coordinator, also on Start. It
+oversees only this server's runs; switching environments selects a separate conversation.
+Coordinator runs do not appear in the ordinary run list. In the header the contribution is a plain button (`PopoverTrigger`) with the
 accessible name "Global coordinator", styled like an input field with that text in muted color;
 it fills its header slot, and the header keeps its fixed height of 45 pixels. Button and status
 are on one row. The button opens the history as a non-modal dropdown below the header with
@@ -2491,8 +2498,9 @@ narrow windows the navigation items are on one row that can be scrolled sideways
 Vite emits an identical `run-panel.html` alias for the iframe host contract; both routes load the
 same assets and initialize host modules, access, theme, and host navigation once. The server
 rejects a build whose entry pages differ. `?run=<id>` chooses a run;
-without a run the browser shows Start. The logo returns there. In VS Code the extension
-owns Start, Runs, and Servers and sends the selected run to the panel.
+without a run both hosts show this server's Start page. The logo returns there.
+VS Code selects the environment and embeds its server interface for Start, Runs, and the run;
+connection management and unavailable-server states remain in the extension's local shell.
 `?layout=app&run=<id>&element=<id>` renders one app through the same catalog and renderer.
 `PluginChat` has only `panel` and `{ element }`; the single `surface.RunPanel` contribution
 receives `SurfaceCenterContext`. Without it the host renders the standard chat.
@@ -2710,20 +2718,31 @@ spacing therefore scale together and only with the window zoom and `ragents.zoom
 
 The VS Code extension under `apps/vscode` is such a host, and for several servers
 at once: every configured **server** (a RAgents server by address or a local profile) has
-its own session with connection, runs, templates, and workstation. "Server" is the name in every
-visible text; in the code the types are called `Connection*`. Without a chosen run, the panel in
-the secondary sidebar shows one of three pages - Start, Runs, or Servers; they are a separate
-page composed from the shared web components (`apps/web/src/panel/`) that runs without a server, receives its state as
-`PanelState` from the extension, and sends its actions back as `PanelAction`. With
-a chosen run, the run panel of its server is there as an iframe; per mini-app an editor tab
-with `layout=app` is added. `PanelState.page` therefore carries four values (`start`, `runs`, `run`,
-`connections`), and the action `page` only the three the panel may switch to itself; with
-`connection`, the chip on Start passes its server to the Runs page, and the extension passes it back
-as `PanelState.runsConnection`. The paths between the pages and the commands (Start, Runs,
-Servers, New run, Refresh) are exclusively in the view's `view/title` menu; the
+its own session with connection, runs, templates, and workstation. An **environment** selects
+one such server for the visible interface; the code types remain `Connection*`. The selection
+is stored per VS Code workspace. Reopening restores it when still configured, otherwise the
+first configured environment is selected. Switching environments changes the interface without
+disconnecting other sessions, stopping their hosts, or ending runs.
+The secondary sidebar embeds the selected server's interface for Start, Runs, and the run,
+including its installed web plugins before a run is opened. A mini-app adds an editor tab with
+`layout=app`. The local shell, composed from `apps/web/src/panel/` with `PanelState` and
+`PanelAction`, retains connection management and the status, sign-in, and retry controls when
+the selected environment is not connected. That fallback Server page shows only the selected
+environment; the gear opens management of all configured connections.
+The paths between the pages and the commands (Start, Runs, Switch environment,
+Server, New run, Refresh) are exclusively in the view's `view/title` menu; the
 pages themselves carry no icons for them (`panel/PanelHeader.tsx` has only back arrow and title,
-Start no header; Runs and Server keep the back arrow in the browser too, where the logo also leads to Start), and the commands `ragents.showStart`, `ragents.showRuns`, and
-`ragents.showConnections` also work while the run panel's iframe is shown. In the host `vscode`, the run panel itself executes paste, copy, and cut
+Start no header; Runs keeps the back arrow in the browser too, where the logo also leads to Start;
+Server management is local to VS Code), and the commands `ragents.showStart`, `ragents.showRuns`, and
+`ragents.showConnections` also work while the server's iframe is shown. The server-environment
+button opens the native "Switch environment" Quick Pick for configured remote servers and local
+profiles (`ragents.selectEnvironment`). The view title is "RAgents: <name>".
+Home and Runs navigate within the selected server; Refresh refreshes that environment. The gear
+opens local connection and profile management. The new-run picker and view badge are scoped to
+the selected environment.
+The server interface reports its page changes to the extension, which restores that page when
+the frame is recreated without sending a navigation echo.
+In the host `vscode`, the run panel itself executes paste, copy, and cut
 (`installClipboardBridge`, `apps/web/src/run-panel/clipboard.ts`): macOS delivers these commands through
 the application menu, and VS Code passes them only to the document of its webview, never into
 an iframe of foreign origin. The run panel therefore fetches clipboard text and files through the shell
@@ -2759,9 +2778,8 @@ The nested clipboard browser regression checks editor and document focus right a
 text appears and, after an empty paste, waits for both with frame-local polling before typing,
 without refocusing the editor through a locator action.
 
-There is no longer an Explorer tree next to it: Start and
-Runs show the same servers, runs, and templates more flatly, and a second navigation tree would be
-a second truth. Every session speaks the same
+There is no longer an Explorer tree next to it: the selected server supplies Start and Runs,
+and the native picker selects the environment. Every session speaks the same
 message layer with the same client (`RpcClient` with its own `fetch` and bearer), keeps its
 own event stream, signs in itself with `POST /api/access/login`, and reads its
 templates from `ragents.plugins.bootstrap` of its server; operation and limits are in
@@ -2788,38 +2806,13 @@ the whole run is called "Stop run" everywhere, interrupting the running turn in 
 work".
 
 **Shared page width.** `PanelPage` owns one centered content column of at most 1280 pixels,
-with side padding, for Start, Runs, and Server in both the browser and VS Code. The browser
+with side padding, for Start and Runs in both hosts and for Server in VS Code. The browser
 page host adds no second padding; the outer header remains full width. The Runs search field
 and run rows use the same bounded column.
 
-**Start** is the Start page and has no header. The **servers** are a block of their own
-at the very top, with a count in the heading, and do not filter. The left-aligned server
-grid is at most 720 pixels wide: one column, two from 560 pixels of panel width
-(container query `@[560px]/panel`, independent of viewport width). Every chip
-is a split button: the left part is a `button` with `aria-label`, state icon, name, and
-an action word in muted small type that depends on the state ("Sign in" for
-`login-required` and `forbidden`, "Retry" for `unreachable` and `failed`, "Start" for
-a stopped profile and "Connect" for a stopped server, "Runs" for `connected` and
-`ready` with the action `page` including `connection`, "starting ..." for `starting` as a locked
-button); below it, in the monospace font of the time, the route line from `ConnectionView.route`
-(`panel/connection-state.ts`, `routeLabel`): `local · <profile>`, the server's host, or
-`<host> · local` when a server has distributed a client profile. The extension provides `route`
-from the connection and `ConnectionSnapshot.localHost`; the page guesses nothing from paths or addresses.
-The right part is the plus behind a fine divider: it sends `newRun` with the
-`entryId` from `ConnectionView.defaultEntry` when the server's profile names a default template,
-otherwise without `entryId` as an empty chat; without the start right an empty placeholder of the same
-width stands there. For `failed`, `unreachable`, and `forbidden`, the state icon is a button of its own
-("Show error of <server>"), which opens a `Popover` with the state word as title, the
-message from `ConnectionState.message` (`stateDetail`, the same source as the Servers page), and
-the buttons "Open output" (action `showOutput`; the extension shows the RAgents channel) and
-the chip's action word; the popover survives the short `connecting` state of an
-automatic retry and closes as soon as the server is without error again. For
-`login-required`, the lock opens the sign-in dialog ("Sign in to <server>"); in all
-other states the icon has no action of its own. The separate icon button is 32 pixels wide
-and centers the icon; the following content begins with 8 pixels of padding. Below that,
-**Continue** with the last five runs of all
-servers in `RunList` (`panel/RunLine.tsx`): a CSS grid with the columns state, title, time,
-and, from two servers on, server, in selection mode the checkbox in front; every row and its
+**Start** has no page header or server block. **Continue** shows the selected server's last
+five runs in `RunList` (`panel/RunLine.tsx`): a CSS grid with the columns state, title, and time,
+in selection mode the checkbox in front; every row and its
 button are `grid-cols-subgrid`, so that the columns stand at the same edge in all rows, and
 "All N runs" leads to the Runs page. Below the title, inside the same button, a second line
 names the owner (`ConnectionRun.owner`) and then the metadata lines (`ConnectionRun.details`), each
@@ -2828,8 +2821,8 @@ cover the whole item, in selection mode the click toggles it. The gap to the sec
 smaller than the gap between items. State and pending actions come from `ragents.runs.list`, which
 derives them from the journal: running while an actor has a running turn or the session works,
 otherwise waiting with pending actions, ended when every non-human actor has stopped, otherwise
-idle (`run-list-state.ts`). The extension loads no run view for the list; the
-badge sums `pendingActions`. A locked run shows its cause as a red notice icon with a tooltip.
+idle (`run-list-state.ts`). The extension loads no run view for the list; its
+badge sums `pendingActions` of the selected environment. A locked run shows its cause as a red notice icon with a tooltip.
 The sharing comes from the same list (`connectionRunOf` in `run-overview.ts`): next to the title a
 run with `ConnectionRun.shared` shows `UsersIcon` with the tooltip "Shared", one with
 `sharedAccess` `EyeIcon` ("Shared with you - view only") or `UsersIcon` ("Shared with you - can
@@ -2840,17 +2833,16 @@ server and run; the host loads `ragents.runs.sharing` into `PanelState.sharing` 
 `result`, `pending`, `error`), and `PanelPage` shows `ShareDialog` as long as it is set. Its Save
 sends `share` with the whole sharing, Cancel and Escape `closeSharing`; the host closes the dialog
 on success and leaves a refusal in it, with the user's draft. `openSharing` and `saveSharing` in
-`run-sharing.ts` are this flow for every host: the browser keeps the dialog in React state, the
-extension in its panel state, and an answer for a dialog closed meanwhile is dropped.
+`run-sharing.ts` are this flow for every host: the server interface keeps the dialog in React
+state in both the browser and VS Code, and an answer for a dialog closed meanwhile is dropped.
 `PanelState.notice` is a short message on Start, such as the one for a share taken back.
-Below that, **New**, as soon as a server is connected and
-allows new runs: per such server first its default template - the template from
-`ConnectionView.defaultEntry` with the marker "Default", without a default the entry "New chat"
-(category "No template", dashed edge, plus icon, `newRun` without `entryId`) -, then
-all other templates of all servers flat, the default not a second time; the
+Below that, **New** appears as soon as the selected server allows new runs. First is its default
+template from `ConnectionView.defaultEntry` with the marker "Default", or the entry "New chat"
+(category "No template", dashed edge, plus icon, `newRun` without `entryId`). Then follow
+the selected server's other templates, the default not a second time; the
 count in the heading counts all entries. An entry shows category,
 title, two lines of description, at the bottom "Start", for a template with a guide, as in the
-web app, "Set up" (`ConnectionEntry.guided` from the template's `guide`), and on the right the server; skill round and
+web app, "Set up" (`ConnectionEntry.guided` from the template's `guide`); skill round and
 `--primary`, run script angular and `--success`, the grid
 `repeat(auto-fill, minmax(240px, 1fr))`, with cards capped at 320 pixels.
 `StartTiles` measures its own container: below 240 pixels it uses one shrinking column,
@@ -2859,59 +2851,30 @@ because it measures itself by its own width and would become a list with a detai
 (decisions of 09/19 and 09/21/2026). The tiles including the heading are the building block
 `StartTiles`, the same as in the browser's start selection.
 
-**Runs** is the same merged list, only complete: search over title and server,
-"Hide ended", the server filter from `PanelState.runsConnection` as a pressed toggle
-with the name (a click removes it; the page is rebuilt per server), and a
+**Runs** is the selected server's complete list: search over title, "Hide ended", and a
 selection mode with checkboxes, which names the count in a bar at the bottom
 and deletes several runs after a confirmation question in a dialog. The deletion itself is the
-host's business: the page sends `deleteRuns` per server with the IDs, the extension calls
+host's business: the page sends `deleteRuns` with the IDs, the server interface calls
 `ragents.runs.delete` and refreshes the list. A row the user cannot delete, on a server without
 `canDelete` or with `sharedAccess`, keeps an empty checkbox cell and opens its run on a click; the
 selection mode hides the "Share ..." column.
 
-**The host `vscode` needs the run panel's start selection only for guides.** A click on a template sends
-`newRun` with `name` and `entryId`; the extension creates the run on this server (bound to
-itself as workstation with the workspace folder, unless the template fixes the workspace itself;
-then it also asks for no folder, `preselectable` in `overview-model.ts`), the run panel
-in the host `vscode` sets the start options the template does not fix
-(`withoutFixedStartOptions`), calls `ragents.chat.start` with the start value `null` for a run script
-and `ragents.chat.send` with the skill's prepared task and the
-template as `entry` for a skill, and then opens itself on the
-running run (`startLaunch` in `run-panel/RunPanelApp.tsx`). From the click on, Start marks the
-template, and a server's plus with the same `newRun`, as `starting` and locks all other entries
-and pluses; the page keeps this marker only while the `PanelState` it was sent from is current.
-The extension renders the page again after every `newRun`, so a cancelled folder choice or a
-failed start ends the marker, while a started run replaces the page with the run panel; the
-contract stays unchanged. If the template names a guide
-(`registry.guideFor`), the run panel does not start it itself but takes the web app's path:
-the start selection with this template (`initialEntryId`), in it `openStartEntry` with the guide,
-whose result is the start value; after the start the run panel opens on the new run, and
-closing leads to the Start page. A start counts only as long as it is the current one: a later
-click on a template, a free run, a chosen run, or the way back supersede it, and its
-result then opens nothing anymore; an already created run stays in the list. The entry "New chat" and the plus of a
-server without a default send the same without `entryId`; the run panel then immediately opens an
-empty run whose task is created in the chat. The default template comes from the server: `RunStore`
-reads `defaultStartEntry` from `ragents.plugins.bootstrap` and rejects one that is not among
-the delivered templates; `ConnectionSnapshot.defaultEntry` and `ConnectionView.defaultEntry` pass
-it through; the page guesses nothing. `newRunChoices` in `overview-model.ts` makes it the first
-row of its server in the QuickPick of `ragents.newRun`.
-For this the extension first shows the run panel without a run and sends `newRun` afterwards, for a
-newly built iframe only on its `ready`. Without a chosen run, the run panel in the host
-`vscode` therefore never shows the run list, but, under the same header as a run (logo,
-title, server pill, menu), the loading state "Starting run"; even loading the
-profile before that shows it in the same presentation. The start of a template keeps header,
-presentation, and place and names the template's title; the run panel then continues the loading state
-in the chat until the run has content, and the new run carries, until its entry in the
-run list, the title of its template or "New run". If the start fails, the
-reason and "Back to Start" are shown there; if no start request arrives within five seconds,
-"No run selected" is shown there with the same way back instead of an endless loading state.
-The run panel's header carries on the left the logo as the button "Back to Start", which always leads to the Start page
-(`showStart`, the intent instead of its consequence `runChanged`), then the run title, on the right the
-server pill from `?connection=`, the state icon, and the stop as an icon.
-`StartSelection` is the browser's path and, in the host `vscode`, the path of a template with a guide.
-For this `ConnectionEntry` carries, besides `id`, `title`, and `description`, also `kind`, `category`, and
-`guided`; a run script may name its own `category` in its `RUN.md`;
-without one it is under "Run scripts".
+**New runs in VS Code** start within the selected server's interface. The extension binds the
+new run to its workstation and the selected open folder unless the template fixes its workspace;
+with several open folders it asks which to use. The run panel applies only start options the
+template does not fix (`withoutFixedStartOptions`). Direct templates use `startLaunch`, guided
+ones the shared preparation dialog and chat. Cancelling a guide returns to this server's Start
+page. A cancelled folder choice or failed start releases the pending tile; an environment
+switch or newer navigation prevents a late start result from reopening the old environment.
+An already created run remains on its server.
+The default template comes from `defaultStartEntry` in `ragents.plugins.bootstrap`; `RunStore`
+rejects one absent from the delivered templates. The `ragents.newRun` Quick Pick puts the selected
+environment's default first, or "New chat" when none is configured, followed by its other templates.
+The extension sends `newRun` to the selected server iframe, waiting for `ready` when it is new.
+The pending start keeps its template title or "New run" and shows preparation progress in the
+chat area until content appears. A refusal remains visible with "Back to Start".
+Home, the logo ("Back to Start"), and Runs keep the selected server; they preserve its mounted
+toolbar contributions across run navigation.
 
 **Servers** is the page where setup happens: per server a row with icon,
 name, kind, address or profile file (shortened, full path in the title), and state icon, plus
@@ -4584,16 +4547,16 @@ right) returns the archive; a different version is 404. The counterpart is `rage
   browser storage, in VS Code therefore per window. The rail sidebar opens one tool at a time;
   browser tools docked in separate areas can be visible together. A workspace tab with
   `placement: "window"` is a window only in the browser; VS Code keeps it in its rail.
-  Run and app frames load from their server; only the server navigation shell is packaged locally.
+  Start, Runs, run, and app frames load from their server; only connection management and the
+  unavailable-server shell are packaged locally.
   A local profile of the extension names its templates only once its host is running; before the
   start nobody knows the templates, because they come into being only with the registered plugins.
   The extension does not clean up fetched host versions: each stays under
   `<globalStorage>/hosts/<version>/`, about 250 MB per version, until someone deletes the
   folder.
-  Whether a `newRun` still comes after a run panel without a run is not stated by the contract; the panel
-  therefore waits five seconds. If the extension rebuilds the iframe during a start (for example
-  when switching theme or access token), the start request is lost: the panel shows
-  "No run selected", and an already created run then appears only on the Start page. The run view
+  If the extension rebuilds the iframe during a start (for example when switching theme or
+  access token), the local pending response is lost; an already created run remains available
+  on its server's Start page. The run view
   loads independently of the chat; until it is there, a run whose only content is a mini-app
   can briefly show an empty chat after connecting. Only a surface contribution with `RunPanel`
   shows a loading state in the run; without it the empty chat is shown.

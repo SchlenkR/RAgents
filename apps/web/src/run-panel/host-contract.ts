@@ -10,7 +10,7 @@ export interface RunPanelPageQuery {
   run?: string;
   element?: string;
   host?: "vscode";
-  /** The name of the server this run lives on; the header shows it as a pill. */
+  /** The selected environment; the header shows it on Start, Runs, and the run. */
   connection?: string;
   theme?: RunPanelTheme;
   access?: string;
@@ -46,6 +46,8 @@ export type ServiceTunnelResult = { path: string } | null;
 export type RunPanelHostMessage =
   | { type: "ready" }
   | { type: "runChanged"; runId: string | null }
+  | { type: "pageChanged"; page: "start" | "runs" }
+  | { type: "newRun"; entryId?: string }
   /** With notice, Start shows it, such as for a run that is no longer shared with the user. */
   | { type: "showStart"; notice?: string }
   | { type: "openInCenter"; runId: string; elementId: string; title: string }
@@ -92,6 +94,7 @@ export function isRunPanelKeyboardMessage(value: unknown): value is RunPanelKeyb
 /** Messages from the host to the panel. */
 export type HostRunPanelMessage =
   | { type: "selectRun"; runId: string | null }
+  | { type: "showPage"; page: "start" | "runs"; notice?: string }
   | { type: "newRun"; startOptions?: Record<string, unknown>; entryId?: string }
   | { type: "theme"; theme: RunPanelTheme };
 
@@ -112,6 +115,10 @@ export const isRunPanelHostMessage = (value: unknown): value is RunPanelHostMess
       return value.notice === undefined || isText(value.notice);
     case "runChanged":
       return value.runId === null || isText(value.runId);
+    case "pageChanged":
+      return value.page === "start" || value.page === "runs";
+    case "newRun":
+      return value.entryId === undefined || isText(value.entryId);
     case "openInCenter":
       return isText(value.runId) && isText(value.elementId) && typeof value.title === "string";
     case "openExternal":
@@ -137,6 +144,8 @@ export const isHostRunPanelMessage = (value: unknown): value is HostRunPanelMess
   switch (value.type) {
     case "selectRun":
       return value.runId === null || isText(value.runId);
+    case "showPage":
+      return (value.page === "start" || value.page === "runs") && (value.notice === undefined || isText(value.notice));
     case "newRun":
       return (value.startOptions === undefined || (isObject(value.startOptions) && !Array.isArray(value.startOptions)))
         && (value.entryId === undefined || isText(value.entryId));
