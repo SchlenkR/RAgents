@@ -5,6 +5,7 @@ import { Value } from "typebox/value";
 import {
   DomainError,
   serviceToken,
+  type Orchestration,
   type RunFunction,
   type PluginContext,
   type ToolContributor,
@@ -223,6 +224,8 @@ export class WorkspaceSandboxHost implements SandboxServices {
   readonly #tasks = new Map<string, Map<string, WorkspaceExecutor>>();
   /** Per run the observations of the ends of its background commands; the stop of the run ends them before any process ends. */
   readonly #taskWatches = new Map<string, AbortController>();
+  /** Per run the IDs whose end an observation is waiting for; a workstation that signs in again names them once more. */
+  readonly #observed = new Map<string, Set<string>>();
 
   constructor(options: WorkspaceSandboxHostOptions) {
     this.#options = options;
@@ -430,6 +433,7 @@ export class WorkspaceSandboxHost implements SandboxServices {
     // The observations end first, so that no end of a command the stop causes reaches an actor.
     this.#taskWatches.get(runId)?.abort();
     this.#taskWatches.delete(runId);
+    this.#observed.delete(runId);
     this.#tasks.delete(runId);
     this.#stable.delete(runId);
     this.#seen.delete(runId);
@@ -446,6 +450,7 @@ export class WorkspaceSandboxHost implements SandboxServices {
   async shutdownAll(): Promise<void> {
     for (const watches of this.#taskWatches.values()) watches.abort();
     this.#taskWatches.clear();
+    this.#observed.clear();
     this.#tasks.clear();
     this.#stable.clear();
     this.#seen.clear();
@@ -500,7 +505,7 @@ export class WorkspaceSandboxHost implements SandboxServices {
     }));
   }
 
-  /** A background command stays with the executor that started it; the server remembers which one and observes its end for the calling actor. */
+  /** A background command stays with the executor that started it, which keeps the calling actor as its starter; the server remembers the executor and observes the end for that actor. */
   async #bashCall(runId: string, definition: AgentToolDefinition, scope: ToolScope, toolCallId: string, input: object): Promise<string> {
     const params = Value.Default(definition.parameters, structuredClone(input)) as { run_in_background?: boolean };
     const options = { toolCallId, ...(scope.signal ? { signal: scope.signal } : {}) };
@@ -509,12 +514,12 @@ export class WorkspaceSandboxHost implements SandboxServices {
     const missing = taskToolNames.filter((name) => !available.has(name));
     if (missing.length > 0) throw backgroundToolsMissing(missing);
     try {
-      const { executor, timed } = await this.#placed(runId, "bash", params, options);
-      const result = await executor.execute(runId, "bash", params, timed) as ToolOutput & { details?: { backgroundTaskId?: unknown } };
+      const started = { ...params, startedBy: scope.caller.actorId };
+      const { executor, timed } = await this.#placed(runId, "bash", started, options);
+      const result = await executor.execute(runId, "bash", started, timed) as ToolOutput & { details?: { backgroundTaskId?: unknown } };
       const id = result.details?.backgroundTaskId;
       if (typeof id !== "string") throw new Error("The executor reports no ID for the background command; server and workstation need the same executor version");
-      this.#tasksOf(runId).set(id, executor);
-      void this.#observeTask(runId, id, executor, scope.runtime, scope.caller.actorId);
+      this.observeBackgroundTask(runId, id, executor, scope.runtime, scope.caller.actorId);
       return textOf(result);
     } catch (error) {
       throw withDomainCause(error);
@@ -532,6 +537,15 @@ export class WorkspaceSandboxHost implements SandboxServices {
     }
   }
 
+  /** Observes the end of a background command for the actor that started it; one the server already observes stays with that observation. */
+  observeBackgroundTask(runId: string, id: string, executor: WorkspaceExecutor, runtime: Orchestration, startedBy: string): void {
+    this.#tasksOf(runId).set(id, executor);
+    const observed = this.#observed.get(runId) ?? new Set<string>();
+    if (observed.has(id)) return;
+    this.#observed.set(runId, observed.add(id));
+    void this.#observeTask(runId, id, executor, runtime, startedBy).finally(() => this.#observed.get(runId)?.delete(id));
+  }
+
   #tasksOf(runId: string): Map<string, WorkspaceExecutor> {
     const known = this.#tasks.get(runId) ?? new Map<string, WorkspaceExecutor>();
     this.#tasks.set(runId, known);
@@ -545,7 +559,7 @@ export class WorkspaceSandboxHost implements SandboxServices {
   }
 
   /** The executor reports the end as the result of an observation; a lost connection to a workstation opens it again, the stop of the run ends it. */
-  async #observeTask(runId: string, id: string, executor: WorkspaceExecutor, runtime: ToolScope["runtime"], actorId: string): Promise<void> {
+  async #observeTask(runId: string, id: string, executor: WorkspaceExecutor, runtime: Orchestration, actorId: string): Promise<void> {
     const { signal } = this.#taskWatchOf(runId);
     for (;;) {
       try {
@@ -565,7 +579,7 @@ export class WorkspaceSandboxHost implements SandboxServices {
   }
 
   /** The actor that started the command learns of its end as a background input in the owner's name. */
-  #notify(runtime: ToolScope["runtime"], runId: string, actorId: string, id: string, content: string): void {
+  #notify(runtime: Orchestration, runId: string, actorId: string, id: string, content: string): void {
     try {
       runtime.enqueueInput(
         { actorId: runtime.state(runId).ownerId, commandId: `${this.#options.contributorName}:task-end:${id}:${randomUUID()}` },

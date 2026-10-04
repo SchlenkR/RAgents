@@ -1,6 +1,6 @@
 import { mkdir, realpath } from "node:fs/promises";
 import path from "node:path";
-import type { JsonValue, RunState, WorkspaceToolNaming } from "@ragents/engine";
+import type { JsonValue, Orchestration, RunState, WorkspaceToolNaming } from "@ragents/engine";
 import { DomainError } from "@ragents/engine";
 import {
   RUN_FOLDER_OPERATIONS,
@@ -34,7 +34,7 @@ import {
   workspaceOwnerOf,
   type WorkstationBinding,
 } from "./binding.js";
-import type { WorkspaceClientRegistry } from "./clients.js";
+import type { WorkspaceClientRegistry, WorkstationSignIn } from "./clients.js";
 
 export interface RunWorkspaceRuntimeOptions {
   globalDirectory: string;
@@ -61,6 +61,8 @@ export interface RunWorkspaceRuntimeOptions {
   /** The server's own address, where the server's executor dials back for a service of a run on the server. */
   serverAddress?: () => string | undefined;
 }
+
+const messageOf = (error: unknown): string => error instanceof Error ? error.message : String(error);
 
 const runNotStarted = (): DomainError => new DomainError(
   "run-not-started",
@@ -179,6 +181,28 @@ export class RunWorkspaceRuntime implements WorkspaceRuntime {
     await mkdir(home, { recursive: true });
     await mkdir(this.#nugetCacheDirectory, { recursive: true });
     return { home, nugetPackages: this.#nugetCacheDirectory };
+  }
+
+  /** A signed-in workstation names its background commands whose end no server has learned, such as after a restart of this one; the server observes each one of a run bound to it again, for the actor that started it. */
+  resumeBackgroundTasks(runtime: Orchestration, { owner, client, backgroundTasks }: WorkstationSignIn): void {
+    for (const { runId, taskId, startedBy } of backgroundTasks) {
+      try {
+        const executor = this.#boundExecutor(runId, owner, client.id);
+        if (executor) this.sandbox.observeBackgroundTask(runId, taskId, executor, runtime, startedBy);
+        else console.warn(`The workstation ${client.label} names background command ${taskId} of run ${runId}, which is not bound to it on this server; it keeps running there until the workstation ends it.`);
+      } catch (error) {
+        console.warn(`Background command ${taskId} of run ${runId} on the workstation ${client.label} cannot be observed again: ${messageOf(error)}`);
+      }
+    }
+  }
+
+  /** The executor of a run only if the run works on this workstation of this owner. */
+  #boundExecutor(runId: string, owner: string | null, client: string): WorkspaceExecutor | undefined {
+    const state = this.#options.runState(runId);
+    if (!state) return undefined;
+    const binding = bindingOf(state);
+    if (!isWorkstationBinding(binding) || binding.machine.client !== client || workspaceOwnerOf(state) !== owner) return undefined;
+    return this.#executorFor(runId);
   }
 
   /** On a workstation, its executor runs on behalf of the run owner, otherwise the server's executor. */

@@ -117,7 +117,10 @@ const ragentsWorkspacePlugin = (skillPaths: () => Promise<readonly string[]>): R
       documentsFor: documentsRoot,
       locationOf: (runId: string, location: string) => workspaceLocation(currentBindingOf(clients, runState(runId)), location),
     };
-    host.methods(...createBrowseMethods(browseOptions), ...clientMethods(clients));
+    host.methods(
+      ...createBrowseMethods(browseOptions),
+      ...clientMethods(clients, (signIn) => runtime.resumeBackgroundTasks(orchestration(), signIn)),
+    );
     host.channels(createBrowseChannel(browseOptions));
     host.startOptions(workspaceBindingOption(clients, contribution));
     host.sessionMetadata({

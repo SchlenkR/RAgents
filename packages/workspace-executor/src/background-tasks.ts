@@ -44,14 +44,24 @@ export interface BackgroundProcessGroups {
   readonly signal: (pid: number, signal: NodeJS.Signals) => Promise<void>;
 }
 
+/** A background command whose end has not reached the server yet, with the starter the server named when it started it. */
+export interface UnreportedBackgroundTask {
+  readonly runId: string;
+  readonly taskId: string;
+  readonly startedBy: string;
+}
+
 export interface BackgroundTasks {
-  readonly start: (command: string, cwd: string, signal: AbortSignal | undefined) => Promise<{ id: string }>;
+  /** startedBy is opaque here: the server names whom it tells about the end, and gets it back after a restart. */
+  readonly start: (command: string, cwd: string, startedBy: string, signal: AbortSignal | undefined) => Promise<{ id: string }>;
   readonly output: (id: unknown, maxBytes: number) => Promise<BackgroundTaskOutput>;
   readonly stop: (id: unknown) => Promise<BackgroundTaskStatus>;
   /** The end of a command; an abort ends only the observation, never the command. */
   readonly wait: (id: unknown, signal: AbortSignal | undefined) => Promise<BackgroundTaskStatus>;
   /** The process groups of the commands still running. */
   readonly running: () => ReadonlySet<number>;
+  /** The commands whose end no observation has returned yet, without those task_stop ended. */
+  readonly unreported: () => readonly Omit<UnreportedBackgroundTask, "runId">[];
   /** After the cleanup of the run has ended every group: waits for the ends and removes the output files. */
   readonly dispose: () => Promise<void>;
 }
@@ -65,6 +75,9 @@ interface BackgroundCommand {
   readonly read: number;
   readonly stopRequested: boolean;
   readonly failure: string | undefined;
+  readonly startedBy: string;
+  /** An observation has returned the end to its caller. */
+  readonly reported: boolean;
 }
 
 const delay = (milliseconds: number): Promise<void> => new Promise((resolve) => setTimeout(resolve, milliseconds).unref());
@@ -154,7 +167,7 @@ export const backgroundTasks = (
     return status;
   };
 
-  const start = async (command: string, cwd: string, abort: AbortSignal | undefined): Promise<{ id: string }> => {
+  const start = async (command: string, cwd: string, startedBy: string, abort: AbortSignal | undefined): Promise<{ id: string }> => {
     const context = await contextFor();
     abort?.throwIfAborted();
     const bash = bashLaunch({ bash: context.bash, rg: context.rg }, command, context.env);
@@ -208,7 +221,7 @@ export const backgroundTasks = (
         void settle(id, pid, child, output, closed, exitCode, signal).then(resolve);
       });
     });
-    commands.set(id, { pid, file, ended, status: { state: "running" }, read: 0, stopRequested: false, failure: undefined });
+    commands.set(id, { pid, file, ended, status: { state: "running" }, read: 0, stopRequested: false, failure: undefined, startedBy, reported: false });
     return { id };
   };
 
@@ -244,16 +257,22 @@ export const backgroundTasks = (
     return command.ended;
   };
 
+  /** Only an observation that returns the end reports it; an aborted one leaves it for the next. */
   const wait = (id: unknown, abort: AbortSignal | undefined): Promise<BackgroundTaskStatus> => {
-    const command = known(taskId(id));
-    if (!abort) return command.ended;
+    const task = taskId(id);
+    const command = known(task);
+    const reported = (status: BackgroundTaskStatus): BackgroundTaskStatus => {
+      update(task, { reported: true });
+      return status;
+    };
+    if (!abort) return command.ended.then(reported);
     if (abort.aborted) return Promise.reject(abortError(abort));
     return new Promise((resolve, reject) => {
       const onAbort = (): void => reject(abortError(abort));
       abort.addEventListener("abort", onAbort, { once: true });
       void command.ended.then((status) => {
         abort.removeEventListener("abort", onAbort);
-        resolve(status);
+        if (!abort.aborted) resolve(reported(status));
       });
     });
   };
@@ -261,11 +280,15 @@ export const backgroundTasks = (
   const running = (): ReadonlySet<number> =>
     new Set([...commands.values()].filter((command) => command.status.state === "running").map((command) => command.pid));
 
+  const unreported = (): readonly Omit<UnreportedBackgroundTask, "runId">[] => [...commands]
+    .filter(([, command]) => !command.reported && !command.stopRequested)
+    .map(([id, command]) => ({ taskId: id, startedBy: command.startedBy }));
+
   const dispose = async (): Promise<void> => {
     const all = [...commands.values()];
     await Promise.all(all.map((command) => command.ended));
     await Promise.all(all.map((command) => rm(command.file, { force: true })));
   };
 
-  return { start, output, stop, wait, running, dispose };
+  return { start, output, stop, wait, running, unreported, dispose };
 };

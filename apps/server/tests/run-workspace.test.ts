@@ -3,7 +3,7 @@ import { mkdtemp, readFile, realpath, rm, stat } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import test from "node:test";
-import { DomainError, pluginStateKey, type MethodConnection, type PluginContext, type RunState } from "@ragents/engine";
+import { DomainError, pluginStateKey, type MethodConnection, type Orchestration, type PluginContext, type RunState } from "@ragents/engine";
 import { WORKSPACE_EXECUTOR_VERSION } from "@ragents/workspace-executor";
 
 import { WORKSPACE_BINDING_OPTION_ID } from "../../../plugins/ragents.workspace/contract.ts";
@@ -243,6 +243,45 @@ test("a workstation of another user with the same id never takes over a bound ru
     assert.deepEqual(alices.map((call) => call.operation), ["read", "read"], "Alice signs in again next to Bob with the same id");
     assert.deepEqual(bobs, []);
   } finally {
+    await remove();
+  }
+});
+
+test("a signed-in workstation gets its background commands observed again only for runs bound to it and its owner", async (t) => {
+  const calls: WorkstationCall[] = [];
+  const clients = new WorkspaceClientRegistry([]);
+  const workstation = { label: "Laptop", hostname: "laptop", platform: "linux", folders: ["/home/example/project"], runsDirectory: RUNS, ripgrep: false };
+  const ended = { state: "exited", exitCode: 0, signal: null, stopped: false };
+  const client = await clients.register(CLIENT, workstation, WORKSPACE_EXECUTOR_VERSION, [],
+    workstationConnection(calls, "alice", (call) => call.operation === "tasks.wait" ? ended : toolAnswer(call)));
+  const states = new Map<string, RunState>([
+    ["alices-run", runStateWith(WORKSPACE_BINDING_OPTION_ID, laptopProject, "alice")],
+    ["bobs-run", runStateWith(WORKSPACE_BINDING_OPTION_ID, laptopProject, "bob")],
+    ["other-laptop", runStateWith(WORKSPACE_BINDING_OPTION_ID, { machine: { client: "client-00000002", label: "Other" }, folder: { path: "/home/example/project" } }, "alice")],
+    ["server-run", runStateWith(WORKSPACE_BINDING_OPTION_ID, { machine: "server", folder: "fresh" }, "alice")],
+  ]);
+  const { runtime, remove } = await fixture({ clients, runState: (runId) => states.get(runId) ?? null });
+  const inputs: Array<{ runId: string; actorId: string; content: string }> = [];
+  const orchestration = {
+    state: () => ({ ownerId: "owner-actor" }),
+    enqueueInput: (_context: unknown, runId: string, input: { actorId: string; content: string }) => inputs.push({ runId, actorId: input.actorId, content: input.content }),
+  } as unknown as Orchestration;
+  const warnings: string[] = [];
+  t.mock.method(console, "warn", (message: string) => warnings.push(message));
+  try {
+    const task = (runId: string, taskId: string) => ({ runId, taskId, startedBy: "agent-1" });
+    runtime.resumeBackgroundTasks(orchestration, {
+      owner: "alice",
+      client,
+      backgroundTasks: [task("alices-run", "b000001"), task("bobs-run", "b000002"), task("other-laptop", "b000003"), task("server-run", "b000004"), task("deleted-run", "b000005")],
+    });
+    for (let attempt = 0; attempt < 200 && inputs.length === 0; attempt++) await new Promise((resolve) => setTimeout(resolve, 10));
+    assert.deepEqual(calls, [{ operation: "tasks.wait", cwd: "/home/example/project", input: { task_id: "b000001" } }]);
+    assert.deepEqual(inputs, [{ runId: "alices-run", actorId: "agent-1", content: "Background command b000001 exited with code 0. task_output reads what it wrote last." }]);
+    assert.deepEqual(warnings.map((warning) => /background command (b\d+) of run ([\w-]+), which is not bound to it on this server/.exec(warning)?.slice(1)),
+      [["b000002", "bobs-run"], ["b000003", "other-laptop"], ["b000004", "server-run"], ["b000005", "deleted-run"]]);
+  } finally {
+    await runtime.shutdown();
     await remove();
   }
 });

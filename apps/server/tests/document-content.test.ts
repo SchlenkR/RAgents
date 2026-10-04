@@ -7,9 +7,9 @@ import test, { type TestContext } from "node:test";
 import { createAccessContext, DomainError, HttpContributionRegistry, type AccessContext, type MethodContext, type ToolScope } from "@ragents/engine";
 import { FILE_BYTES_LIMIT } from "@ragents/workspace-executor";
 import { WorkspaceSandboxHost } from "../src/plugin-support/workspace-sandbox-host.ts";
-import { contentPathOf, documentsApiPrefix, grantedPathOf } from "../../../plugins/ragents.documents/contract.ts";
+import { contentPathOf, DOCUMENT_GRANT_LIFETIME_MS, documentsApiPrefix, grantedPathOf } from "../../../plugins/ragents.documents/contract.ts";
 import { createContentRoute, createGrantMethod } from "../../../plugins/ragents.documents/server/files-route.ts";
-import { DocumentGrants, GRANT_LIFETIME_MS } from "../../../plugins/ragents.documents/server/grants.ts";
+import { DocumentGrants } from "../../../plugins/ragents.documents/server/grants.ts";
 import { createCopyTool } from "../../../plugins/ragents.workspace/server/copy-tool.ts";
 
 const png = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0x00, 0xff]);
@@ -177,7 +177,7 @@ test("a grant serves the files of one root of its run without a sign-in, to whoe
   assert.equal(await (await granted("run-1", project, "docs/guide.md")).text(), "# Guide\n");
   assert.equal((await errorOf(await granted("run-1", project, "@documents/report/shot one.png"))).code, "document-grant-outside");
 
-  clock += GRANT_LIFETIME_MS;
+  clock += DOCUMENT_GRANT_LIFETIME_MS;
   assert.deepEqual(await errorOf(await granted("run-1", store, "@documents/report/shot one.png")), {
     status: 403, code: "document-grant-invalid", error: "The grant in this address is unknown or expired; open the document again.",
   });

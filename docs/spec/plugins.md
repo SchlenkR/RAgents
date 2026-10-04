@@ -685,11 +685,12 @@ browser evidence use this one route.
 Besides `raw/`, the route accepts `grant/<grant>/<reference>`, for a page that cannot send the
 sign-in with a document's own requests. `ragents.documents.grant` (`runId`, `root`: an alias, or empty
 for the run's root) issues a grant to its caller under the rights the route asks for that root: 32
-random bytes, ten minutes long, held only in the server's memory, for `GET` only, and standing for the
-caller's access only at references of its run and its root (otherwise `document-grant-invalid` or
-`document-grant-outside`, both 403). The route reads it with `accessFromAddress` (section Rights in
-server and web contributions), and the host checks run and rights against the grant's access as for
-a signed-in request. The long-lived access token never appears in such an address.
+random bytes, ten minutes long (`DOCUMENT_GRANT_LIFETIME_MS` in the plugin's contract), held only in
+the server's memory, for `GET` only, and standing for the caller's access only at references of its
+run and its root (otherwise `document-grant-invalid` or `document-grant-outside`, both 403). The route
+reads it with `accessFromAddress` (section Rights in server and web contributions), and the host
+checks run and rights against the grant's access as for a signed-in request. The long-lived access
+token never appears in such an address.
 
 The viewer resolves the addresses inside a document against the document's own reference
 (`plugins/ragents.documents/web/links.ts`): a relative one against the document's folder, one with
@@ -701,18 +702,35 @@ every link and image address with it before its link policy, so the source stays
 blocks stay untouched. An HTML document gets a `<base href>` for its folder and
 `<meta name="referrer" content="no-referrer">` at its start, after a doctype, in the `srcDoc` of its
 frame; the frame keeps its sandbox without scripts but with `allow-same-origin`, so that the browser
-sends the sign-in cookie with the images the document names. Image documents load from the route
-directly. Where the page carries an access token instead of a cookie (VS Code), resolved Markdown
-addresses, image documents, and downloads carry the token (`withAccessToken`); an HTML document
-instead asks for a grant of its root and puts it into its base (`.../runs/<runId>/grant/<grant>/` and
-its folder), so that its relative addresses keep the grant, and the referrer policy keeps the token
-in the panel's own address out of the requests. Without a grant the document shows the error
-instead.
+sends the sign-in cookie with the images the document names. Image documents and downloads load
+from the route directly.
+
+Where the page carries an access token instead of a cookie (VS Code), no address of a document
+carries it. Every address of the content route takes, instead of `raw/`, the grant of the root its
+first segment names (`grantedAddressOf` in `web/links.ts`): resolved Markdown addresses, image
+documents, and downloads alike, so a Markdown address that climbs from `@documents` into the run's
+root takes that root's grant. An HTML document puts the grant of its own root into its base
+(`.../runs/<runId>/grant/<grant>/` and its folder), so that its relative addresses keep it, and keeps
+the grant it opened with until its file changes, so that a renewal does not reload the frame. The
+page holds one grant per run and root (`DocumentGrantStore` in `web/grants.ts`), shared by the
+Documents view and the chat: it asks for one when an address first needs it, renews it after half its
+lifetime while a view watches, and hands none out in its last minute. A failed grant is asked again
+after 30 seconds; until then a document shows the error instead, and a Markdown address keeps its
+plain address, which fails visibly. While a grant loads, a Markdown address is empty. A result of
+`artifact_publish` lies on the host's artifact route, which knows no grant: with a token, its image
+or download loads with the page's bearer, as text documents always did, and shows under a `blob:`
+address.
+
+quassel resolves a Markdown address only when its Markdown mounts: Streamdown's memo ignores a
+changed `urlTransform`. The Documents view therefore mounts its Markdown again with every change of
+the grants, and with a token the plugin's `SessionProvider` shows a run only once the grants of its
+own root and of `@documents` have settled (`useRunGrantsSettled`), once per run, so that the chat
+names its images with them from its first render.
 
 The run's chat resolves its Markdown the same way: `ragents.documents` contributes `resolveRunUrl`
 (section Web as plugin host), which maps a relative address and one with an alias against the run's
-root and keeps every absolute one, so that an answer with `![shot](@documents/browser/x.png)` shows
-the image.
+root, with a token through the page's current grants, and keeps every absolute one, so that an
+answer with `![shot](@documents/browser/x.png)` shows the image.
 
 `ProductRuntime` and `WorkspaceRuntime` are mandatory contracts of every profile: if one of the two
 services is missing, the server aborts at startup with a clear error message instead of running in a half
@@ -1376,7 +1394,8 @@ Instead, plugins fill typed slots for:
   link or image address to one the page can load and returns every other address unchanged;
   `PluginChat` hands it to quassel as `resolveUrl` for everything below the run (`RunUrls` in
   `apps/web/src/chat/QuasselHost.tsx`), and a display with a better base sets its own
-  `QuasselProvider`, whose resolver wins. Several active resolvers are an error.
+  `QuasselProvider`, whose resolver wins. Several active resolvers are an error. quassel resolves an
+  address once, when its Markdown mounts, so whatever the resolution needs must be there before.
 - run metadata (`sessionMetadata`): a component for the run details in the header; the run list
   takes its lines from the server-side `listDetail` instead
 - run header contributions (`sessionHeaders`): contributions appear in the shared run details;
@@ -2649,7 +2668,12 @@ without `runs.create`, it shows the reason and "Back to Start" (`showStart`) ins
 `?theme=light|dark` sets the appearance
 on loading. If the page runs without a sign-in cookie, it carries the access token from `?access=`:
 `apps/web/src/access-token.ts` attaches it as `Authorization: Bearer` to every fetch to the
-own server and as a query parameter to addresses without headers (mini-app frames).
+own server and as a query parameter to addresses without headers (mini-app frames). The shared
+web entry declares `<meta name="referrer" content="strict-origin">` before it loads anything, so no
+request of the page sends more of its address than the origin: `same-origin` would send the whole
+address with the token to the own server and every proxy before it, and `no-referrer` would make the
+browser send `Origin: null` with the page's own changing requests, which the server's same-site
+check refuses.
 A host that can show web pages offers itself to the interface as `PageOpener`
 (`apps/web/src/page-opener.tsx`): domain plugins with an application preview ask it
 first and then open a running application there instead of in their own dialog with an iframe; in VS Code that is a Simple Browser tab
@@ -3236,7 +3260,9 @@ makes the sign-in fail with that cause. Before signing in, the workstation asks 
 input is `label` and `executor`; the version counts first as with the sign-in, and further fields
 do not count. It builds its executor from them and names them in the sign-in under `contributions`;
 the server rejects a different list with `workspace-executor-contributions` (409), and the message names
-both (section Contributions to the executor). If an older server does not know the question, the workstation's
+both (section Contributions to the executor). Under `backgroundTasks` the sign-in names the background
+commands of `bash` whose end no observation has returned yet, each with run, ID, and the actor that
+started it (section Background commands). If an older server does not know the question, the workstation's
 message says exactly that and that the server needs to be updated. If the sign-in fails because of
 one of these versions (`workspace-executor-version`, `workspace-executor-contributions`, a
 missing question at the server, or a bundle of the own host that is missing or has a different version),
@@ -3430,9 +3456,12 @@ and `timeout` of `TaskOutput` are not taken, because no tool waits.
 The server keeps per run which executor started which ID (`WorkspaceSandboxHost`) and sends
 `task_output` and `task_stop` there, for a command with an alias as `cwd` therefore to the server; an
 ID it does not know goes to the executor of the binding, the only one that can still hold a command
-after a server restart. Right after the start it opens the observation `tasks.wait` (`task_id`) at
-that executor, with `untilAborted` like `files.watch`; its result is the status at the end. The actor
-that called `bash` then gets an ActorInput in the owner's name with `presentation: "background"`:
+after a server restart. The server passes the calling actor in the input of `bash` as `startedBy`,
+which the executor keeps with the command without reading it; a background start without it fails
+with `background-task-starter-missing` (400). Right after the start the server opens the observation
+`tasks.wait` (`task_id`) at that executor, with `untilAborted` like `files.watch`; its result is the
+status at the end. The actor that called `bash` then gets an ActorInput in the owner's name with
+`presentation: "background"`:
 "Background command b3f9a1 exited with code 1. task_output reads what it wrote last." (or "ended by
 signal SIGTERM"). An end that `task_stop` caused brings no input, because the caller already knows
 it; an end through the rail does. The stop of a run first aborts the observations of the run and only
@@ -3440,9 +3469,18 @@ then stops its executors, so the ends it causes reach nobody; an abort ends only
 never the command. If the connection to the workstation is lost, the server opens the observation
 again every 15 seconds until the workstation answers or the run stops; the executor keeps the status
 of an ended command until the run stops there, so an end in the meantime arrives with the next
-answer. If the observation fails for another reason, for example because a rebuilt executor no longer
-knows the ID, the actor gets that cause as its input instead. `bash` starts a background command only
-for an actor that has `task_output` and `task_stop`; otherwise the call fails with
+answer. A command on a workstation outlives a restart of the server, its observation does not: the
+executor counts an end as reported once an observation has returned it, and the workstation names
+every command of its executor without a reported end, except those `task_stop` ended, at each
+sign-in (`backgroundTasks`, `WorkspaceOperationExecutor.unreportedBackgroundTasks`). For each one
+whose run the server binds to this workstation of this owner, the server opens the observation
+again for the named actor (`RunWorkspaceRuntime.resumeBackgroundTasks`), and `task_output` and
+`task_stop` find the command by its ID; one it already observes keeps its observation, so a renewed
+sign-in brings no second notice. An end while the server was down arrives right after the sign-in.
+A command of a run not bound there, for example one deleted meanwhile, stays as it is, and the server
+names it in its log. If the observation fails for another reason, for example because a rebuilt
+executor no longer knows the ID, the actor gets that cause as its input instead. `bash` starts a
+background command only for an actor that has `task_output` and `task_stop`; otherwise the call fails with
 `background-tools-missing` (400) and names what is missing, so nothing starts that its actor can
 neither read nor end (the global coordinator has neither). The process display counts the process
 group of a background command as background although the executor is its parent: the module names its
@@ -4398,14 +4436,23 @@ right) returns the archive; a different version is 404. The counterpart is `rage
 - `copy` and the content route carry at most 16 MiB and 1000 files per call; bigger files move only
   within one machine through `bash`. A relative address in a document that climbs above its alias,
   such as `../../x` from `@documents/review/`, lands in the run's root, as plain URL semantics say.
-- A grant of an HTML document lives ten minutes and covers one root: an image the document loads
-  later, such as a lazy one, fails after that until the document opens again, and an address that
-  climbs from its root into another fails as well. A sign-out does not end a grant; a server restart
-  forgets all of them. The server's access log names the grant with the path of every such request. Chrome's preload scanner may request an image once against the address of the
+- A grant lives ten minutes and covers one root. An HTML document keeps the grant it opened with: an
+  image it loads later, such as a lazy one, fails after that until the document opens again, and an
+  address that climbs from its root into another fails as well. A message in the chat keeps the
+  addresses of its first render: a link clicked more than ten minutes later answers that the grant
+  expired, and an address under an alias other than `@documents` stays empty in a message that
+  rendered while its grant loaded, until the message renders again. A sign-out does not end a grant;
+  a server restart forgets all of them. The server's access log names the grant with the path of
+  every such request. Chrome's preload scanner may request an image once against the address of the
   page before the base applies, which answers with an error.
-- Markdown addresses and image documents in VS Code still carry the long-lived access token in their
-  query, and the panel's own address carries it too, so a request of the panel itself sends it as
-  referrer; only HTML documents use grants.
+- With an access token, a run shows only once the grants of its root and of `@documents` have
+  settled, one round trip more when it first opens, and the Documents view loads the images of an
+  open document again with every renewal, every five minutes.
+- The panel's own address still carries the long-lived access token in `?access=`, as do the
+  addresses of mini-app frames, so access logs of the server and of every proxy before it name it
+  with these requests; the referrer policy keeps it out of all others. Removing it from the panel's
+  address needs a handshake over the webview's message channel and a page that the `ACCESS_TOKEN`
+  gate serves without a token.
 - While a run on the server has lost its root, language servers and processes on its server roots
   run at the second executor and stay there until the run stops, also after the root is back.
 - With an account switch, a registered root of the server must lie inside the run storage;
@@ -4430,7 +4477,8 @@ right) returns the archive; a different version is 404. The counterpart is `rage
   keeps its turn and may go on working before the answer arrives.
 - A registered stop for a workstation lives in the server's memory: if the server restarts
   before the workstation signs in again, whatever the run started there stays on the workstation
-  until it is stopped again or the workstation signs out. On signing out
+  until it is stopped again or the workstation signs out; a background command of such a run the
+  workstation names at its sign-in appears only in the server's log. On signing out
   the executor ends and with it the background commands of `bash`, but processes a run detached
   itself do not; only a stop of this run ends them.
 - The server cleans up the new folder of a deleted run on the workstation only if the workstation
@@ -4507,4 +4555,7 @@ right) returns the archive; a different version is 404. The counterpart is `rage
   new output per call; what it leaves out of a command that writes faster cannot be read later, and
   no tool names the path of the output file. The ID is random per run and machine
   (24 bits); the server finds the machine of an ID in its memory, so two commands of one run with the
-  same ID on two machines would be confused.
+  same ID on two machines would be confused. A workstation counts an end as reported once an
+  observation has returned it, even if the answer is lost with a connection that breaks at that
+  moment; its actor then gets no notice. A background command on the server ends when the server
+  shuts down; only those on workstations outlive a restart and are observed again.

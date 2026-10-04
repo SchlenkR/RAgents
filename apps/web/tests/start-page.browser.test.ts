@@ -330,14 +330,21 @@ for (const host of ["browser", "vscode"] as const) {
         assert.equal(await openChat.getAttribute("aria-pressed"), "true", "A shown view stays listed as pressed.");
         await page.getByRole("button", { name: "Close Chat", exact: true }).click();
         await page.setViewportSize({ width: 520, height: 820 });
-        await openChat.waitFor();
+        const allWindows = header.getByRole("group", { name: "Layout actions" }).getByRole("button", { name: /^All windows/ });
+        await allWindows.waitFor();
         await page.screenshot({ path: join(shots, "header-browser-narrow-actions.png") });
-        await visibleAction(openChat);
-        await visibleAction(reset);
-        await openChat.click();
+        assert.equal(await openChat.isVisible(), false, "A narrow header moves the window buttons into one menu.");
+        assert.equal(await reset.isVisible(), false, "Reset layout moves into the same menu.");
+        await visibleAction(allWindows);
+        const menu = page.getByRole("menu", { name: "All windows" });
+        await allWindows.click();
+        await menu.waitFor();
+        assert.equal(await menu.getByRole("menuitem", { name: "Reset layout", exact: true }).count(), 1, "Reset layout stays reachable in the narrow header.");
+        await menu.getByRole("menuitemcheckbox", { name: "Chat", exact: true }).click();
+        await menu.waitFor({ state: "hidden" });
         await page.getByRole("tab", { name: "Chat", exact: true }).waitFor();
-        assert.equal(await reset.isVisible(), true, "Reset remains visible in the narrow header.");
         await page.setViewportSize({ width: 1280, height: 820 });
+        await openChat.waitFor();
       } else {
         assert.equal(await header.getByRole("button", { name: "Reset layout", exact: true }).count(), 0);
       }

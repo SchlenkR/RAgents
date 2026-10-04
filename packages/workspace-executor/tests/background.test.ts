@@ -60,8 +60,8 @@ const fixture = async (t: TestContext, modules = [sandboxToolsModule]) => {
     await executor.shutdown();
     await rm(directory, { recursive: true, force: true });
   });
-  const start = async (runId: string, command: string): Promise<string> => {
-    const result = await executor.execute(runId, "bash", { command, run_in_background: true, timeout: 120_000 }) as { details?: { backgroundTaskId?: string } };
+  const start = async (runId: string, command: string, startedBy = "agent-1"): Promise<string> => {
+    const result = await executor.execute(runId, "bash", { command, run_in_background: true, timeout: 120_000, startedBy }) as { details?: { backgroundTaskId?: string } };
     const id = result.details?.backgroundTaskId;
     assert.ok(id, JSON.stringify(result));
     assert.equal(textOf(result), `Command running in background with ID: ${id}. task_output reads its new output, task_stop ends it.`);
@@ -143,6 +143,37 @@ test("the stop of the run ends its background commands and removes their output 
   await assert.rejects(f.executor.execute("run-2", BACKGROUND_TASK_OPERATIONS.stop, { task_id: 7 }), coded("background-task-invalid"));
   await f.executor.shutdown();
   await until(() => !processExists(otherPid));
+});
+
+test("the executor names the commands whose end no observation has returned, with their starter, until one returns it", { skip: onWindows }, async (t) => {
+  const f = await fixture(t);
+  const service = await f.start("run-1", node("setInterval(() => {}, 1000)"), "agent-1");
+  const ending = await f.start("run-2", "sleep 0.2; exit 6", "agent-2");
+  const stopped = await f.start("run-2", node("setInterval(() => {}, 1000)"), "agent-2");
+  const named = () => [...f.executor.unreportedBackgroundTasks()].sort((left, right) => left.taskId.localeCompare(right.taskId));
+  assert.deepEqual(named(), [
+    { runId: "run-1", taskId: service, startedBy: "agent-1" },
+    { runId: "run-2", taskId: ending, startedBy: "agent-2" },
+    { runId: "run-2", taskId: stopped, startedBy: "agent-2" },
+  ].sort((left, right) => left.taskId.localeCompare(right.taskId)));
+  await f.executor.execute("run-2", BACKGROUND_TASK_OPERATIONS.stop, { task_id: stopped });
+  const observer = new AbortController();
+  const aborted = f.wait("run-2", ending, observer.signal);
+  observer.abort();
+  await assert.rejects(aborted);
+  await until(async () => /exited with code 6/.test(await f.output("run-2", ending)));
+  assert.deepEqual(named().map((task) => task.taskId).sort(), [service, ending].sort(), "an ended command stays named until an observation returns its end; task_stop's end is never news");
+  assert.equal((await f.wait("run-2", ending) as { exitCode?: number }).exitCode, 6);
+  assert.deepEqual(named(), [{ runId: "run-1", taskId: service, startedBy: "agent-1" }]);
+  await f.executor.stopRun("run-1");
+  assert.deepEqual(named(), [], "a stopped run names nothing");
+});
+
+test("a background start without the starter the server names is refused before anything runs", { skip: onWindows }, async (t) => {
+  const f = await fixture(t);
+  await assert.rejects(f.executor.execute("run-1", "bash", { command: "touch started", run_in_background: true }), coded("background-task-starter-missing"));
+  assert.deepEqual(await readdir(f.workspace), [], "nothing ran");
+  assert.match(textOf(await f.executor.execute("run-1", "bash", { command: "echo foreground" })), /foreground/, "a call in the foreground needs no starter");
 });
 
 test("more new output than one read carries shows its end, starting at a line, and says how much was left out", { skip: onWindows }, async (t) => {

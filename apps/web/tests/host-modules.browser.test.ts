@@ -110,23 +110,27 @@ test("the built web carries every name from host-api.json in the register, loads
     const loaded = new Set<string>();
     page.on("pageerror", (error) => errors.push(error.message));
     page.on("response", (response) => {
+      const url = new URL(response.url());
       if (response.status() >= 400) errors.push(`${response.status()} ${response.url()}`);
-      else loaded.add(new URL(response.url()).pathname);
+      else loaded.add(`${url.pathname}${url.search}`);
     });
     await page.goto(`${host.url}/?access=${host.token}`);
-    await page.locator("link[href='/plugins/acme.probe/web/index.css']").waitFor({ state: "attached" });
     const bootstrap = await page.evaluate(async () => (await (await fetch("/rpc", {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: "ragents.plugins.bootstrap", params: {} }),
-    })).json()) as { result: { plugins: { id: string; web?: { entry: string } }[] } });
+    })).json()) as { result: { plugins: { id: string; web?: { entry: string; css?: string } }[] } });
+    const probeCss = bootstrap.result.plugins.find((plugin) => plugin.id === "acme.probe")?.web?.css ?? "";
+    assert.match(probeCss, /^\/plugins\/acme\.probe\/web\/index\.css\?v=[0-9a-f]+$/, "the stylesheet of a web half carries the bundle revision in its address");
+    const probeLink = `link[href=${JSON.stringify(probeCss)}]`;
+    await page.locator(probeLink).waitFor({ state: "attached" });
     const entries = bootstrap.result.plugins.flatMap((plugin) => plugin.web ? [plugin.web.entry] : []);
     assert.equal(entries.length, 16, "the 14 web halves of the showcase profile plus probe and broken probe");
     for (let attempt = 0; attempt < 50 && entries.some((entry) => !loaded.has(entry)); attempt += 1) await page.waitForTimeout(100);
     assert.deepEqual(entries.filter((entry) => !loaded.has(entry)), [], "the web loads every web half by its address");
     const failures = page.locator("[data-slot=plugin-failures]");
     await failures.waitFor();
-    assert.match(await failures.innerText(), /The plugin acme\.broken failed to load[\s\S]*\/plugins\/acme\.broken\/web\/index\.js: deliberately broken/, "a broken web half is a plugin failure, the interface stays");
+    assert.match(await failures.innerText(), /The plugin acme\.broken failed to load[\s\S]*\/plugins\/acme\.broken\/web\/index\.js\?v=[0-9a-f]+: deliberately broken/, "a broken web half is a plugin failure, the interface stays");
 
     const register = await registerOf(page);
     const stored = readHostApiRecord(root).web;
@@ -159,7 +163,7 @@ test("the built web carries every name from host-api.json in the register, loads
     embedded.on("response", (response) => { if (response.status() >= 400) errors.push(`Panel: ${response.status()} ${response.url()}`); });
     await embedded.goto(`http://localhost:${address.port}/?src=${encodeURIComponent(panel)}`);
     const frame = embedded.frameLocator("#frame");
-    await frame.locator("link[href='/plugins/acme.probe/web/index.css']").waitFor({ state: "attached" });
+    await frame.locator(probeLink).waitFor({ state: "attached" });
     const inner = embedded.frames().find((candidate) => candidate.url().startsWith(host.url))!;
     assert.deepEqual(Object.keys(await registerOf(inner)).sort(), Object.keys(register).sort(), "the run panel in a foreign iframe has the same register");
     assert.notEqual(await inner.evaluate(() => getComputedStyle(document.body).backgroundColor), "rgba(0, 0, 0, 0)", "the stylesheet reaches the iframe without a cookie");

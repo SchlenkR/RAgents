@@ -74,6 +74,14 @@ export interface WorkspaceClientInfo extends WorkspaceClientDescription {
   id: string;
 }
 
+/** A background command a workstation names at sign-in because no server has learned of its end yet. */
+export interface WorkstationBackgroundTask {
+  runId: string;
+  taskId: string;
+  /** The actor the server named when it started the command; it learns of the end. */
+  startedBy: string;
+}
+
 /** What the new folder per run is called on each machine: the empty folder or a plugin's contribution; null where there is none. */
 export interface FreshWorkspaceLabels {
   server: string;
@@ -114,6 +122,15 @@ const clientDescription = {
   ripgrep: Type.Boolean({ description: "Whether the workstation's bash finds rg" }),
 };
 
+const backgroundTasks = Type.Array(Type.Object({
+  runId: Type.String({ minLength: 1, maxLength: 64, description: "ID of the run" }),
+  taskId: Type.String({ pattern: "^b[0-9a-f]{6}$", description: "ID of the background command, as bash returned it" }),
+  startedBy: Type.String({ minLength: 1, maxLength: 200, description: "The actor the server named when it started the command" }),
+}, { additionalProperties: false }), {
+  maxItems: 1024,
+  description: "The background commands of bash whose end no server has learned yet; the server observes them again, such as after its restart",
+});
+
 export const clientInfoSchema = Type.Object({
   id: Type.String(),
   ...clientDescription,
@@ -125,6 +142,7 @@ export const clientRegistrationSchema = Type.Object({
   ...clientDescription,
   executor: executorVersion,
   contributions: executorContributions,
+  backgroundTasks,
 }, { additionalProperties: false });
 
 /** A workstation with a different executor does not know the shape of this version; the server rejects it by its version, not by its shape. */
@@ -205,7 +223,7 @@ export const workspaceContracts = {
     }),
     register: defineOperation({
       id: "ragents.workspace.clients.register",
-      description: "Sign in a workstation or renew its folders; the connection of this request becomes its return path and needs an event stream. A workstation with a different executor version fails on its version before the rest of the shape matters.",
+      description: "Sign in a workstation or renew its folders; the connection of this request becomes its return path and needs an event stream. The server observes the named background commands of its runs on this workstation again. A workstation with a different executor version fails on its version before the rest of the shape matters.",
       rights: ["runs.write"],
       input: Type.Union([clientRegistrationSchema, otherExecutorRegistration]),
       result: clientInfoSchema,

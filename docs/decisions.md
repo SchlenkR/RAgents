@@ -1,5 +1,140 @@
 # Decisions
 
+## 2026-10-04: A workstation names its background commands at sign-in; a restarted server observes their ends again
+
+Chapters: `spec/plugins.md` (Workspace, sandbox tools, and processes: workstation sign-in, background
+commands; Open limits); usage: `usage.md` (Open and stop services and background processes).
+
+**Why.** A background command of `bash` on a workstation outlives a restart of the server, and
+`task_output` and `task_stop` still reached it by ID through the executor of the binding, but the
+observation of its end lived only in the server's memory: after a restart nothing observed it, and
+the actor that started a dev server never learned that it had exited.
+
+**Decision.**
+
+- When the server starts a background command, it passes the calling actor in the input of `bash` as
+  `startedBy`; the executor keeps it with the command without reading it, and a background start
+  without it fails with `background-task-starter-missing` (400). The binding of actor and command
+  lives in the executor's own record, not in the journal: command and record live and end together on
+  one machine, and only the workstation knows which commands still run, so a journal entry would
+  outlive the command and still need the workstation's word.
+- The executor counts an end as reported once an observation `tasks.wait` has returned it; an aborted
+  one, such as one the server's restart cuts off, does not count.
+  `WorkspaceOperationExecutor.unreportedBackgroundTasks()` lists the commands of all runs without a
+  reported end, except those `task_stop` ended, with run, ID, and starter.
+- The workstation names them at every sign-in under `backgroundTasks` of
+  `ragents.workspace.clients.register` (required, at most 1024). `clientMethods` hands the sign-in to
+  the plugin, and `RunWorkspaceRuntime.resumeBackgroundTasks` opens the observation again for each
+  command whose run the server binds to this workstation of this owner, for the named actor
+  (`WorkspaceSandboxHost.observeBackgroundTask`). A command the server already observes keeps its
+  observation, so a sign-in after a lost connection or with changed folders brings no second notice.
+  An end while the server was down arrives right after the sign-in. A command of a run not bound
+  there, such as one deleted while the workstation was away and the server restarted since, keeps
+  running, and the server names it in its log.
+- `WORKSPACE_EXECUTOR_VERSION` is 12, because the sign-in and the input of `bash` have a new field.
+
+Rejected: a separate method after the sign-in to name the commands (a second round trip and a second
+check that the caller holds the sign-in); stopping a command of a run the server does not bind to the
+workstation (destructive on the user's machine, for example after the server changed its data folder;
+the lost registered stop that would have ended it is an existing open limit); counting an end as
+reported only after the server confirmed it (the messaging layer acknowledges no response; the gap is
+one answer that a breaking connection loses, named in the open limits).
+
+Verified with `packages/workspace-executor/tests/background.test.ts` (the listing with starter after an
+aborted and a returned observation, `task_stop`, and the run stop; the refusal without starter),
+`scripts/workspace-client/run-workspace-client.test.ts` (the headless workstation across a real stop
+and start of the server on the same port: both commands named with their actor, an end during the
+downtime and one after it each reach the actor once, a sign-in during an observation adds none, a
+reported end is not named again, `task_output` on the new server), `apps/server/tests/run-workspace.test.ts`
+(only runs bound to this workstation and owner are observed again, the others are logged), and
+`workspace-clients.test.ts` (the sign-in hands the named commands to the plugin). A live run with a
+real model is still open (`TODO.md`).
+
+## 2026-10-04: The remote-workspace check reads before it writes; the host-modules browser test expects versioned web addresses
+
+Chapters: none of the spec; `scripts/remote-workspace/README.md` (Checks: server roots).
+
+**Why.** Two Roots checks of `pnpm check:remote-workspace` failed independently of what they check:
+the scripted actor program replaced the template's `package.json` with `write` without a `read`, which
+the seen-file rule refuses since 2026-10-02, and the prompt check expected the sentence "only that bash
+has `$RAGENTS_ACTORS_DIR`", which the root description no longer contains in that order since
+`@documents` names `$RAGENTS_DOCUMENTS_DIR` first. `apps/web/tests/host-modules.browser.test.ts` waited
+for the probe's stylesheet without the `?v=<revision>` that web halves carry since 2026-10-02 and
+compared loaded addresses without their query.
+
+**Decision.** The script reads `package.json` before it writes it. The prompt check asserts the
+meaning: `RAGENTS_ACTORS_DIR` appears once, in the sentence about the bash that runs on the server, as
+`$RAGENTS_ACTORS_DIR` for `@actors`. The browser test takes the probe's stylesheet address from
+`ragents.plugins.bootstrap`, checks that it carries the revision, waits for exactly that link in the
+page and in the run panel's frame, and compares loaded addresses with their query. The product links
+what it should and stays unchanged.
+
+Verified: `pnpm check:remote-workspace` with 64 ok, 0 FAILED, 0 skipped, and the browser test with
+`RAGENTS_BROWSER_TESTS=1` against the built web.
+
+## 2026-10-04: No document address carries the access token; the web sends only its origin as referrer
+
+Chapters: `spec/plugins.md` (Ownership per facet: grants and resolution; Web as plugin host:
+`resolveRunUrl`, access token and referrer policy; Open limits), `spec/profiles.md` (sign-in for
+clients without a cookie); usage: `usage.md` (VS Code sign-in).
+
+**Why.** Follow-up of the entry below on grants: in VS Code, Markdown images, image documents, and
+downloads still carried the long-lived access token as `?access=`, so it landed in the access logs of
+the server and of every proxy before it and in the address of every copied image or download, and the
+panel's own address carried it as well, so every request of the panel sent it as referrer.
+
+**Decision.**
+
+- The shared web entry `apps/web/index.html`, and with it `run-panel.html`, declares
+  `<meta name="referrer" content="strict-origin">` before its first request. Not `no-referrer`: with
+  it the browser sends `Origin: null` with the page's own POST requests (Fetch standard), which
+  `isSameOriginRequest` refuses, so a page with sign-in could change nothing any more. Not
+  `same-origin`: it sends the whole address, token included, to the own server, which is the leak.
+  `strict-origin` sends only the origin, keeps the `Origin` header, and sends nothing after a
+  downgrade to http.
+- Where the page has a token, every address of the content route takes the grant of the root its
+  first segment names instead of `raw/`: Markdown in the Documents view and in the chat, image
+  documents, and downloads. One store per page (`DocumentGrantStore`, `web/grants.ts`) holds one grant
+  per run and root, asks once, renews after half the lifetime while a view watches, hands none out in
+  its last minute, forgets one nobody watches, and asks for a failed one again after 30 seconds. The
+  lifetime moved into the plugin's contract (`DOCUMENT_GRANT_LIFETIME_MS`) for both halves.
+  `withToken` is gone; `withAccessToken` stays in the host API for mini-app frames.
+- quassel 0.4.5 resolves an address only when its Markdown mounts: Streamdown's memo compares the
+  content and a few options, not `urlTransform`, so a changed `resolveUrl` never reaches a rendered
+  message (measured in Chrome: the image keeps its empty address). The Documents view therefore keys
+  its Markdown on the revision of the grants, the documents `SessionProvider` shows a run with a token
+  only once the grants of its root and of `@documents` have settled, once per run, and the chat's
+  `resolveRunUrl` reads the current grants when it resolves. An HTML frame keeps the grant it opened
+  with until its file changes, so that a renewal does not reload it.
+- A result of `artifact_publish` lies on the host's artifact route, which a grant of the plugin cannot
+  reach without the core naming the plugin; with a token its image or download loads with the bearer,
+  like a text document, and shows under a `blob:` address.
+- The panel's own address keeps `?access=`: removing it needs a handshake over the webview's message
+  channel and a page that the `ACCESS_TOKEN` gate serves without a token; an Open limit.
+
+Rejected: a resolver that announces changes and that `RunUrls` reads again, because quassel would not
+render a mounted message again anyway; mounting the whole run again on every change of the grants
+(drafts, scroll position, dock state); extending one grant while a view watches, because a leaked
+address would then live as long as the view; loading every image and download as `blob:`, because
+grants keep one way for every address the browser loads by itself and a download address also works
+outside the page; an empty address for a failed grant, because a broken image says more than a
+missing one.
+
+Also: `start-page.browser.test.ts` "one shared header retains the coordinator and run actions
+(browser)" still expected the "Chat" and "Reset layout" buttons at 520 px, which the header moved into
+the "All windows" menu on 2026-10-02 (entry "A run header too narrow for the window buttons shows one
+'All windows' menu"); the header is right, the test now opens that menu, finds "Reset layout" in it,
+and shows Chat through it.
+
+Verified with `apps/web/tests/document-grants.test.ts` (store: one request per run and root,
+renewal, last minute, retry, forgetting; addresses per root with query and anchor; the referrer
+policy before the first request), `document-links.test.ts`, `document-grant-browser.test.ts` (real
+Chrome, token: one grant per root for documents and chat, every image of an HTML and a Markdown
+document, an image document, and the chat through the grant of its root, a download to its grant
+address, a result once with the bearer under `blob:`, no address with the token, no referrer beyond
+the origin, the grant requests with their `Origin`; cookie: plain route, no grant),
+`apps/server/tests/document-content.test.ts`, and `document-grant-host.test.ts`.
+
 ## 2026-10-03: A tunnel never shadows a local service
 
 Chapters: `spec/plugins.md` (Workspace, sandbox tools, and processes: opening a service; Open

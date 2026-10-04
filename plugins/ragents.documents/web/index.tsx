@@ -11,12 +11,15 @@ import {
   type DocumentSection,
 } from "./DocumentViewer";
 import { fetchRunFiles } from "./api";
+import { documentGrants, useRunGrantsSettled } from "./grants";
 import { documentBaseOf, documentUrlResolver } from "./links";
 import { DOCUMENTS_ALIAS, contentPathOf, type RunFileEntry, type RunFilesListing } from "../contract";
 import { actorAddress, runArtifactContentUrl, runViewFrom, type RunView } from "@ragents/web/run-view";
+import { accessTokenInstalled } from "@ragents/web/access-token";
 import { Alert, Badge } from "@ragents/web/ui";
 import {
   pluginRoutePrefixFrom,
+  type RunUrlResolver,
   type SessionContext,
   type SessionProviderProps,
   type ToolPresenterContext,
@@ -127,7 +130,8 @@ const useRunFiles = (session: SessionContext): RunFilesState => {
 
 function DocumentsSessionProvider({ children, session }: SessionProviderProps) {
   const state = useRunFiles(session);
-  return <RunFilesContext.Provider value={state}>{children}</RunFilesContext.Provider>;
+  const settled = useRunGrantsSettled(session.session.id);
+  return <RunFilesContext.Provider value={state}>{settled ? children : null}</RunFilesContext.Provider>;
 }
 
 const resultSection = (runId: string, view: RunView): DocumentSection => {
@@ -259,12 +263,16 @@ function IconDocument() {
   );
 }
 
+/** The chat resolves against the run's root; with a token an address takes the current grant of its root when its message first renders. */
+const runUrlResolver = (routePrefix: string): RunUrlResolver => (runId, url) =>
+  documentUrlResolver(documentBaseOf(routePrefix, runId), accessTokenInstalled() ? documentGrants.current() : undefined)(url);
+
 const configuredPlugin = (descriptor: WebPluginDescriptor, routePrefix: string): WebPlugin => {
   const { DocumentsPanelContribution, DocumentsBadge } = contribution(routePrefix);
   return {
     ...descriptor,
     needsRunView: true,
-    resolveRunUrl: (runId, url) => documentUrlResolver(documentBaseOf(routePrefix, runId))(url),
+    resolveRunUrl: runUrlResolver(routePrefix),
     SessionProvider: DocumentsSessionProvider,
     workspaceTabs: [{
       id: DOCUMENTS_TAB_ID,

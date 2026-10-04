@@ -4626,7 +4626,7 @@ Owner: ragents.workspace. Rights: runs.read. Execution: the server.
 
 ## ragents.workspace.clients.register
 
-Sign in a workstation or renew its folders; the connection of this request becomes its return path and needs an event stream. A workstation with a different executor version fails on its version before the rest of the shape matters.
+Sign in a workstation or renew its folders; the connection of this request becomes its return path and needs an event stream. The server observes the named background commands of its runs on this workstation again. A workstation with a different executor version fails on its version before the rest of the shape matters.
 
 Owner: ragents.workspace. Rights: runs.write. Execution: the server.
 
@@ -4646,7 +4646,8 @@ Owner: ragents.workspace. Rights: runs.write. Execution: the server.
         "runsDirectory",
         "ripgrep",
         "executor",
-        "contributions"
+        "contributions",
+        "backgroundTasks"
       ],
       "properties": {
         "id": {
@@ -4715,6 +4716,39 @@ Owner: ragents.workspace. Rights: runs.write. Execution: the server.
           },
           "maxItems": 64,
           "description": "The plugins' contributions to the executor, in the order of the server's plugin list"
+        },
+        "backgroundTasks": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": [
+              "runId",
+              "taskId",
+              "startedBy"
+            ],
+            "properties": {
+              "runId": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 64,
+                "description": "ID of the run"
+              },
+              "taskId": {
+                "type": "string",
+                "pattern": "^b[0-9a-f]{6}$",
+                "description": "ID of the background command, as bash returned it"
+              },
+              "startedBy": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 200,
+                "description": "The actor the server named when it started the command"
+              }
+            },
+            "additionalProperties": false
+          },
+          "maxItems": 1024,
+          "description": "The background commands of bash whose end no server has learned yet; the server observes them again, such as after its restart"
         }
       },
       "additionalProperties": false

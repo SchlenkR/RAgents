@@ -1,5 +1,5 @@
-import { withAccessToken } from "@ragents/web/access-token";
 import { contentPathOf, grantedPathOf, rootOfReference } from "../contract";
+import type { GrantSnapshot } from "./grants";
 
 /** Where the addresses inside a document point: its run, the folder of the document in it (encoded), and the root that folder lies in. */
 export interface DocumentBase {
@@ -34,16 +34,35 @@ export const resolveDocumentUrl = (base: DocumentBase, url: string): string => {
   return `${resolved.pathname}${resolved.search}${resolved.hash}`;
 };
 
-/** An address of the run carries the access token where the page has one; the anchor stays at the end. */
-export const withToken = (url: string): string => {
-  const hash = url.indexOf("#");
-  return hash < 0 ? withAccessToken(url) : `${withAccessToken(url.slice(0, hash))}${url.slice(hash)}`;
+/** The root an address of the content route names by its first segment, and the address after `raw/`; undefined for every other address. */
+const routeAddressOf = (base: DocumentBase, address: string): { root: string; rest: string } | undefined => {
+  const prefix = contentPathOf(base.routePrefix, base.runId, "");
+  if (!address.startsWith(prefix)) return undefined;
+  const rest = address.slice(prefix.length);
+  try {
+    return { root: rootOfReference(decodeURIComponent(rest.split(/[/?#]/, 1)[0]!)), rest };
+  } catch {
+    return { root: "", rest };
+  }
 };
 
-/** The resolver a Markdown display hands to quassel: only an address it changes gets the token, every other stays as written. */
-export const documentUrlResolver = (base: DocumentBase) => (url: string): string => {
+/** An address the page can load, the reason it cannot, or undefined while that is still open. */
+export type AddressState = { readonly url: string } | { readonly error: string } | undefined;
+
+/** An address of the content route with the grant of its root instead of `raw/`; an address elsewhere stays as it is. */
+export const grantedAddressOf = (base: DocumentBase, address: string, grants: GrantSnapshot): AddressState => {
+  const found = routeAddressOf(base, address);
+  if (found === undefined) return { url: address };
+  const state = grants.grantFor(base.runId, found.root);
+  return state === undefined || "error" in state ? state : { url: `${grantedPathOf(base.routePrefix, base.runId, state.grant, "")}${found.rest}` };
+};
+
+/** The resolver a Markdown display hands to quassel: with grants an address it changes takes the grant of its root, empty while that loads and without one where it failed. */
+export const documentUrlResolver = (base: DocumentBase, grants?: GrantSnapshot) => (url: string): string => {
   const resolved = resolveDocumentUrl(base, url);
-  return resolved === url ? url : withToken(resolved);
+  if (resolved === url || grants === undefined) return resolved;
+  const granted = grantedAddressOf(base, resolved, grants);
+  return granted === undefined ? "" : "url" in granted ? granted.url : resolved;
 };
 
 /** Puts a base address in front of the document, after a doctype so that it keeps its rendering mode; its requests send no referrer, because the page's own address may carry a token. */

@@ -342,12 +342,14 @@ test("nonce", async () => {
 const PROBE = 'uname -s; hostname; pwd; echo "[${RAGENTS_ACTORS_DIR:-}]"';
 
 /** The tools the script model calls itself; the functions a snippet calls appear in between in the journal. */
-const MODEL_TOOLS: readonly string[] = ["typescript_eval", "write", "edit", "bash"];
+const MODEL_TOOLS: readonly string[] = ["typescript_eval", "read", "write", "edit", "bash"];
 
 const programSteps = (nonce: string): ScriptProgram => ({
   id: "actor-program",
   steps: [
     { tool: "typescript_eval", input: { code: `return context.functions.actor_program_create({ name: ${JSON.stringify(PROGRAM)}, template: "blank" });` } },
+    // The template wrote package.json, and write replaces only a file the model has read.
+    { tool: "read", input: { file_path: `@actors/${PROGRAM}/package.json` } },
     ...Object.entries(programFiles(nonce)).map(([file, content]) => ({ tool: "write", input: { file_path: `@actors/${PROGRAM}/${file}`, content } })),
     { tool: "edit", input: { file_path: `@actors/${PROGRAM}/src/server.ts`, old_string: '() => "before"', new_string: `() => ${JSON.stringify(nonce)}` } },
     { tool: "bash", input: { command: PROBE, cwd: `@actors/${PROGRAM}` } },
@@ -387,10 +389,10 @@ const checkServerRoots = async (env: CheckEnvironment): Promise<void> => {
     const all = await runScript(run, "Build the check program.", programSteps(env.nonce));
     const turn = { ...all, tools: all.tools.filter((tool) => MODEL_TOOLS.includes(tool.name)) };
     const tools = all.tools.map((tool) => `${tool.name} ${tool.error === undefined ? "ok" : `fails: ${tool.error}`}`).join(", ");
-    expect(all.failure === undefined && turn.tools.length === 9 && all.tools.every((tool) => tool.done && tool.error === undefined), `The turn does not end cleanly (${tools}): ${all.failure ?? "without error"}`);
-    const activated = (turn.tools[7]!.output as { result?: unknown } | undefined)?.result;
+    expect(all.failure === undefined && turn.tools.length === 10 && all.tools.every((tool) => tool.done && tool.error === undefined), `The turn does not end cleanly (${tools}): ${all.failure ?? "without error"}`);
+    const activated = (turn.tools[8]!.output as { result?: unknown } | undefined)?.result;
     expect(JSON.stringify(activated) === JSON.stringify({ name: PROGRAM, actor: `@${PROGRAM}`, views: 0, active: true }), `Activate reports ${JSON.stringify(activated)}`);
-    const called = (turn.tools[8]!.output as { result?: unknown } | undefined)?.result;
+    const called = (turn.tools[9]!.output as { result?: unknown } | undefined)?.result;
     expect(called === env.nonce, `The program's function returns ${JSON.stringify(called)} instead of the nonce ${env.nonce}`);
     return { value: turn, detail: `${PROGRAM} activated, check_nonce returns the nonce` };
   });
@@ -408,12 +410,12 @@ const checkServerRoots = async (env: CheckEnvironment): Promise<void> => {
       return passed(`${path.relative(env.dataDirectory, path.dirname(path.dirname(onServer[0]!)))} in the server's data folder; in the container only the bash without alias`);
     });
     await report.check("Roots", programTitles[1]!, async () => {
-      const [platform, host, folder, variable] = completedText(stepOf(programTurn, 5, "bash")).trim().split("\n");
+      const [platform, host, folder, variable] = completedText(stepOf(programTurn, 6, "bash")).trim().split("\n");
       expect(platform === serverPlatform() && host === hostname(), `bash with @actors reports ${platform} on ${host} instead of ${serverPlatform()} on ${hostname()}`);
       const data = realpathSync(env.dataDirectory);
       expect(folder !== undefined && realpathSync(folder).startsWith(`${data}${path.sep}`) && folder.endsWith(`${path.sep}${PROGRAM}`), `pwd reports ${folder}`);
       expect(variable !== undefined && variable !== "[]" && realpathSync(variable.slice(1, -1)).startsWith(`${data}${path.sep}`), `RAGENTS_ACTORS_DIR is ${variable} there`);
-      const [remotePlatform, remoteHost, remoteFolder, remoteVariable] = completedText(stepOf(programTurn, 6, "bash")).trim().split("\n");
+      const [remotePlatform, remoteHost, remoteFolder, remoteVariable] = completedText(stepOf(programTurn, 7, "bash")).trim().split("\n");
       expect(remotePlatform === "Linux" && remoteHost === container.hostname && remoteFolder === env.folder, `bash without cwd reports ${remotePlatform} on ${remoteHost} in ${remoteFolder}`);
       expect(remoteVariable === "[]", `bash in the container knows RAGENTS_ACTORS_DIR: ${remoteVariable}`);
       return passed(`${platform} on ${host} in ${path.relative(data, realpathSync(folder))}, Linux in the container without variable`);
@@ -444,7 +446,10 @@ const checkServerRoots = async (env: CheckEnvironment): Promise<void> => {
     expect(!prompt.includes(env.skillsDirectory) && !prompt.includes(realpathSync(env.skillsDirectory)), "The prompt names the skills folder on the server");
     expect(prompt.includes("## Roots on the server"), "The prompt does not describe the server's roots");
     const mentions = prompt.match(/RAGENTS_ACTORS_DIR/g) ?? [];
-    expect(mentions.length === 1 && prompt.includes("only that bash has `$RAGENTS_ACTORS_DIR`"), `The prompt names RAGENTS_ACTORS_DIR ${mentions.length} times, not only for the bash on the server`);
+    const roots = prompt.slice(prompt.indexOf("## Roots on the server")).split("\n## ")[0]!;
+    const named = roots.split(/(?<=\.)\s+/).find((sentence) => sentence.includes("RAGENTS_ACTORS_DIR")) ?? "";
+    expect(mentions.length === 1 && named.includes("runs on the server") && named.includes("`$RAGENTS_ACTORS_DIR` for `@actors`"),
+      `The prompt names RAGENTS_ACTORS_DIR ${mentions.length} times, not once for @actors in the sentence about the bash on the server: ${named || "no such sentence"}`);
     return passed("catalog and preload under @skills, the server's roots, the variable only for the bash there");
   });
 };

@@ -23,6 +23,7 @@ import {
   workspaceContracts,
   type WorkspaceClientDescription,
   type WorkspaceClientInfo,
+  type WorkstationBackgroundTask,
 } from "../contract.js";
 
 interface ClientEntry {
@@ -46,6 +47,13 @@ const CLEANUP_TIMEOUT_MS = 10_000;
 const STOP_RETRY_MS = 30_000;
 
 export const ownerOf = (access: AccessContext): string | null => access.user?.id ?? null;
+
+/** A completed sign-in with the background commands whose end the workstation has not reported to any server yet. */
+export interface WorkstationSignIn {
+  readonly owner: string | null;
+  readonly client: WorkspaceClientInfo;
+  readonly backgroundTasks: readonly WorkstationBackgroundTask[];
+}
 
 /** A watch runs until aborted, cleanup briefly; everything else waits for the safety limit plus the duration the call itself requests. */
 const timeoutFor = (options: WorkspaceExecuteOptions): { timeoutMs?: number } => {
@@ -351,14 +359,14 @@ export class WorkspaceClientRegistry {
   }
 }
 
-export const clientMethods = (registry: WorkspaceClientRegistry): MethodContribution[] => [
+export const clientMethods = (registry: WorkspaceClientRegistry, onSignIn: (signIn: WorkstationSignIn) => void): MethodContribution[] => [
   implement(workspaceContracts.clients.list, (_input, { access }) => registry.list(ownerOf(access))),
   implement(workspaceContracts.clients.contributions, ({ label, executor }, { access, local }) => {
     assertMayRegister(access, local);
     assertExecutor(label, executor);
     return registry.contributions.map((entry) => ({ ...entry }));
   }),
-  implement(workspaceContracts.clients.register, (input, { access, connection, local }) => {
+  implement(workspaceContracts.clients.register, async (input, { access, connection, local }) => {
     assertMayRegister(access, local);
     // Version first: a workstation with a different one does not know the shape of this version; with this one, the shape applies fully.
     assertExecutor(input.label, input.executor);
@@ -366,8 +374,10 @@ export const clientMethods = (registry: WorkspaceClientRegistry): MethodContribu
       throw new RpcError(RPC_ERROR_CODES.invalidParams,
         `Invalid input for ${workspaceContracts.clients.register.id}: ${schemaComplaints(clientRegistrationSchema, input, "params")}`);
     }
-    const { id, executor, contributions, ...description } = input;
-    return registry.register(id, description, executor, contributions, connection);
+    const { id, executor, contributions, backgroundTasks, ...description } = input;
+    const client = await registry.register(id, description, executor, contributions, connection);
+    onSignIn({ owner: connection.userId, client, backgroundTasks });
+    return client;
   }),
   implement(workspaceContracts.clients.unregister, ({ id }, { access, connection }) => {
     registry.unregister(ownerOf(access), id, connection);

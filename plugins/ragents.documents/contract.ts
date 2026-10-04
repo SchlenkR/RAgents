@@ -16,6 +16,9 @@ export const contentPathOf = (routePrefix: string, runId: string, reference: str
 export const grantedPathOf = (routePrefix: string, runId: string, grant: string, reference: string): string =>
   `${routePrefix}/runs/${encodeURIComponent(runId)}/grant/${encodeURIComponent(grant)}/${encodedReference(reference)}`;
 
+/** How long a grant of the content route is valid; a page renews its grants after half of it. */
+export const DOCUMENT_GRANT_LIFETIME_MS = 10 * 60 * 1000;
+
 /** The root a reference names: its alias, or empty for the run's root. */
 export const rootOfReference = (reference: string): string => reference.startsWith("@") ? reference.split("/")[0]! : "";
 

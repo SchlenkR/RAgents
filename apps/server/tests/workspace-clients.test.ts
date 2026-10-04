@@ -9,7 +9,7 @@ import { RUN_MARKER_ENV, WORKSPACE_EXECUTOR_VERSION } from "@ragents/workspace-e
 import { RpcClient } from "../../web/src/rpc/client.ts";
 import { WORKSPACE_BINDING_OPTION_ID, workspaceClientContracts, workspaceContracts } from "../../../plugins/ragents.workspace/contract.ts";
 import { workspaceBindingOption } from "../../../plugins/ragents.workspace/server/binding.ts";
-import { assertMayRegister, clientMethods, WorkspaceClientRegistry } from "../../../plugins/ragents.workspace/server/clients.ts";
+import { assertMayRegister, clientMethods, WorkspaceClientRegistry, type WorkstationSignIn } from "../../../plugins/ragents.workspace/server/clients.ts";
 import { coreContracts } from "../src/api/contracts.ts";
 import { coreMethods } from "../src/api/core-methods.ts";
 import { productStartOptions } from "../src/plugin-support/product-start-options.ts";
@@ -20,6 +20,9 @@ const CLIENT = "client-00000001";
 
 const description = (folders: string[] = ["/home/example/project"]) =>
   ({ label: "Laptop", hostname: "laptop", platform: "darwin", folders, runsDirectory: "/home/example/.local/share/ragents/workspace/runs", ripgrep: true });
+
+/** The tests that do not look at the background commands of a sign-in. */
+const ignoreSignIn = (): void => undefined;
 
 const onServer = (folder: "fresh" | { path: string }) => ({ machine: "server", folder });
 
@@ -66,10 +69,11 @@ const registryWith = async () => {
 /** Server with the workstation methods and a client that answers the callbacks. */
 const fixture = async (t: TestContext) => {
   const registry = new WorkspaceClientRegistry([]);
-  const { url } = await startRpcServer(t, { methods: clientMethods(registry) });
+  const signIns: WorkstationSignIn[] = [];
+  const { url } = await startRpcServer(t, { methods: clientMethods(registry, (signIn) => signIns.push(signIn)) });
   const client = new RpcClient({ baseUrl: url, retryDelayMs: 50 });
   t.after(() => client.close());
-  return { registry, client };
+  return { registry, client, signIns };
 };
 
 test("registration binds the calling connection, checks the executor and its end removes the workstation", async () => {
@@ -121,7 +125,7 @@ test("a user lists only the workstations he registered himself", async () => {
   await registry.register(CLIENT, description(["/home/alice/project"]), WORKSPACE_EXECUTOR_VERSION, [], stubConnection("alice"));
   await registry.register("client-00000002", description(["/home/bob/project"]), WORKSPACE_EXECUTOR_VERSION, [], stubConnection("bob"));
   const methods = new MethodContributionRegistry();
-  methods.register("ragents.workspace", clientMethods(registry));
+  methods.register("ragents.workspace", clientMethods(registry, ignoreSignIn));
   const listed = async (userId: string) => {
     const access = createAccessContext({ enabled: true, user: { id: userId, label: userId, rights: ["runs.read", "runs.read.all"] } });
     return (await dispatchMethod(methods, workspaceContracts.clients.list.id, {}, access) as Array<{ id: string }>).map((entry) => entry.id);
@@ -132,7 +136,7 @@ test("a user lists only the workstations he registered himself", async () => {
 });
 
 test("the server runs the executor of the registered workstation over its connection", async (t) => {
-  const { registry, client } = await fixture(t);
+  const { registry, client, signIns } = await fixture(t);
   const calls: Array<{ operation: string; toolCallId: string | undefined; cwd: string; env: Record<string, string>; input: unknown }> = [];
   const progress: unknown[] = [];
   t.after(client.handle(workspaceClientContracts.execute, async (input, context) => {
@@ -146,10 +150,12 @@ test("the server runs the executor of the registered workstation over its connec
   }));
   await until(() => client.status.kind === "connected");
 
+  const backgroundTasks = [{ runId: "run-1", taskId: "b0a1b2c", startedBy: "agent-1" }];
   const registered = await client.call(workspaceContracts.clients.register, {
-    id: CLIENT, ...description(), executor: WORKSPACE_EXECUTOR_VERSION, contributions: [],
+    id: CLIENT, ...description(), executor: WORKSPACE_EXECUTOR_VERSION, contributions: [], backgroundTasks,
   });
   assert.deepEqual(registered, { ...description(), id: CLIENT });
+  assert.deepEqual(signIns, [{ owner: null, client: registered, backgroundTasks }], "the sign-in hands the named background commands to the plugin");
   assert.deepEqual(await client.call(workspaceContracts.clients.list, {}), [registered]);
 
   const executor = registry.executorFor(null, CLIENT, "Laptop", "/home/example/project");
@@ -194,7 +200,7 @@ test("the server runs the executor of the registered workstation over its connec
 test("a registration without an event stream is refused", async (t) => {
   const { client } = await fixture(t);
   await assert.rejects(client.call(workspaceContracts.clients.register, {
-    id: CLIENT, ...description(), executor: WORKSPACE_EXECUTOR_VERSION, contributions: [],
+    id: CLIENT, ...description(), executor: WORKSPACE_EXECUTOR_VERSION, contributions: [], backgroundTasks: [],
   }), (error: unknown) => error instanceof RpcError && error.domainCode === "stream-required" && error.status === 409);
 });
 
@@ -213,7 +219,7 @@ test("an older or newer workstation learns both executor versions and what to up
   await assert.rejects(client.call(workspaceContracts.clients.register, newer), versionRefusal(
     `The workstation Laptop brings executor ${newerExecutor}, the server requires ${WORKSPACE_EXECUTOR_VERSION}. `
       + "Update the server to the workstation's version."));
-  await assert.rejects(client.call(workspaceContracts.clients.register, { id: CLIENT, ...olderDescription, executor: WORKSPACE_EXECUTOR_VERSION, contributions: [] }), (error: unknown) =>
+  await assert.rejects(client.call(workspaceContracts.clients.register, { id: CLIENT, ...olderDescription, executor: WORKSPACE_EXECUTOR_VERSION, contributions: [], backgroundTasks: [] }), (error: unknown) =>
     error instanceof RpcError && error.code === RPC_ERROR_CODES.invalidParams
     && error.message === "Invalid input for ragents.workspace.clients.register: params is missing required field ripgrep");
   assert.deepEqual(await client.call(workspaceContracts.clients.list, {}), []);
@@ -417,7 +423,7 @@ test("a workstation carries exactly the executor contributions of the server, le
     refusal("acme.lsp-demo (aaaaaaaaaaaa), acme.lsp-other (cccccccccccc)", "acme.lsp-demo (aaaaaaaaaaaa), acme.lsp-other (bbbbbbbbbbbb)"));
   await assert.rejects(new WorkspaceClientRegistry([]).register(CLIENT, description(), WORKSPACE_EXECUTOR_VERSION, [roslyn], stubConnection()), refusal("acme.lsp-demo (aaaaaaaaaaaa)", "none"));
 
-  const { url } = await startRpcServer(t, { methods: clientMethods(registry) });
+  const { url } = await startRpcServer(t, { methods: clientMethods(registry, ignoreSignIn) });
   const client = new RpcClient({ baseUrl: url, retryDelayMs: 50 });
   t.after(() => client.close());
   assert.deepEqual(await client.call(workspaceContracts.clients.contributions, { label: "Laptop", executor: WORKSPACE_EXECUTOR_VERSION }), [roslyn, other]);
@@ -452,13 +458,13 @@ const workstation = async (t: TestContext, url: string, hang: readonly string[] 
   }));
   t.after(() => client.close());
   await until(() => client.status.kind === "connected");
-  await client.call(workspaceContracts.clients.register, { id: CLIENT, ...description(), executor: WORKSPACE_EXECUTOR_VERSION, contributions: [] });
+  await client.call(workspaceContracts.clients.register, { id: CLIENT, ...description(), executor: WORKSPACE_EXECUTOR_VERSION, contributions: [], backgroundTasks: [] });
   return { client, operations };
 };
 
 test("a stop while the workstation is away is held and delivered when it registers again, before any new order of that run", async (t) => {
   const { registry } = await fixture(t);
-  const url = (await startRpcServer(t, { methods: clientMethods(registry) })).url;
+  const url = (await startRpcServer(t, { methods: clientMethods(registry, ignoreSignIn) })).url;
   const first = await workstation(t, url);
   const executor = registry.executorFor(null, CLIENT, "Laptop", "/home/example/project");
   first.client.close();
@@ -477,7 +483,7 @@ test("a stop while the workstation is away is held and delivered when it registe
 
 test("a new connection of the same workstation takes over: open calls of the old one fail at once, a stop in flight arrives over the new one", async (t) => {
   const { registry } = await fixture(t);
-  const url = (await startRpcServer(t, { methods: clientMethods(registry) })).url;
+  const url = (await startRpcServer(t, { methods: clientMethods(registry, ignoreSignIn) })).url;
   const old = await workstation(t, url, ["bash", "stop"]);
   const executor = registry.executorFor(null, CLIENT, "Laptop", "/home/example/project");
   const running = executor.execute("run-1", "bash", { command: "sleep 600" }).then(() => undefined, (error: unknown) => error);
@@ -498,12 +504,12 @@ test("a new connection of the same workstation takes over: open calls of the old
 
 test("without user sign-in the server accepts a workstation only over a loopback connection", async (t) => {
   const registry = new WorkspaceClientRegistry([]);
-  const remote = await startRpcServer(t, { methods: clientMethods(registry), local: false });
+  const remote = await startRpcServer(t, { methods: clientMethods(registry, ignoreSignIn), local: false });
   const client = new RpcClient({ baseUrl: remote.url, retryDelayMs: 50 });
   t.after(client.handle(workspaceClientContracts.execute, () => ({ value: null })));
   t.after(() => client.close());
   await until(() => client.status.kind === "connected");
-  const register = () => client.call(workspaceContracts.clients.register, { id: CLIENT, ...description(), executor: WORKSPACE_EXECUTOR_VERSION, contributions: [] });
+  const register = () => client.call(workspaceContracts.clients.register, { id: CLIENT, ...description(), executor: WORKSPACE_EXECUTOR_VERSION, contributions: [], backgroundTasks: [] });
   await assert.rejects(register(), (error: unknown) =>
     error instanceof RpcError && error.domainCode === "workspace-client-login-required" && error.status === 403 && /loopback/.test(error.message));
   assert.deepEqual(registry.list(null), []);
@@ -514,11 +520,11 @@ test("without user sign-in the server accepts a workstation only over a loopback
   assert.doesNotThrow(() => assertMayRegister(anonymous, true));
   assert.doesNotThrow(() => assertMayRegister(signedIn, false));
 
-  const local = await startRpcServer(t, { methods: clientMethods(registry), local: true });
+  const local = await startRpcServer(t, { methods: clientMethods(registry, ignoreSignIn), local: true });
   const nearby = new RpcClient({ baseUrl: local.url, retryDelayMs: 50 });
   t.after(nearby.handle(workspaceClientContracts.execute, () => ({ value: null })));
   t.after(() => nearby.close());
   await until(() => nearby.status.kind === "connected");
-  await nearby.call(workspaceContracts.clients.register, { id: CLIENT, ...description(), executor: WORKSPACE_EXECUTOR_VERSION, contributions: [] });
+  await nearby.call(workspaceContracts.clients.register, { id: CLIENT, ...description(), executor: WORKSPACE_EXECUTOR_VERSION, contributions: [], backgroundTasks: [] });
   assert.deepEqual(registry.list(null).map((entry) => entry.id), [CLIENT]);
 });

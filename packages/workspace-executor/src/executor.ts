@@ -1,10 +1,11 @@
+import type { UnreportedBackgroundTask } from "./background-tasks.js";
 import type { WorkspaceProcessContext } from "./context.js";
 import { WorkspaceOperationError } from "./errors.js";
 import type { WorkspaceExecutorModule, WorkspaceModuleFactory, WorkspaceOperation } from "./module.js";
 import { NO_ROOTS, type OperationFootprint } from "./paths.js";
 
 /** The version of the executor; server and workspace must carry the same one. */
-export const WORKSPACE_EXECUTOR_VERSION = "11";
+export const WORKSPACE_EXECUTOR_VERSION = "12";
 
 export interface WorkspaceExecuteOptions {
   toolCallId?: string;
@@ -80,6 +81,11 @@ export class WorkspaceOperationExecutor implements WorkspaceExecutor {
     if (!run) throw new WorkspaceOperationError("workspace-operation-unknown", `The executor does not know the operation ${operation}`, 400);
     if (options.untilAborted && !options.signal) throw new Error(`The operation ${operation} runs until it is aborted and needs an abort signal for that`);
     return run({ runId, input, toolCallId: options.toolCallId, signal: options.signal, progress: options.onProgress });
+  }
+
+  /** A workstation names them at its sign-in, so that a restarted server observes their ends again. */
+  unreportedBackgroundTasks(): readonly UnreportedBackgroundTask[] {
+    return this.#modules.flatMap((module) => module.unreportedBackgroundTasks?.() ?? []);
   }
 
   stopRun(runId: string): Promise<void> {

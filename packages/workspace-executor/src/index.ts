@@ -31,7 +31,7 @@ export {
   type WorkspaceExecutorParts,
 } from "./contributions.js";
 export { RUN_FOLDER_OPERATIONS, runFolderModule, type RunFolderCreated } from "./run-folders.js";
-export { BACKGROUND_TASK_OPERATIONS } from "./background-tasks.js";
+export { BACKGROUND_TASK_OPERATIONS, type UnreportedBackgroundTask } from "./background-tasks.js";
 export {
   BYTE_OPERATIONS,
   FILE_BYTES_LIMIT,

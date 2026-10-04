@@ -474,7 +474,9 @@ An agent starts a dev server or another service that must keep running with `bas
 runs, and `task_stop` ends it. When the service exits by itself or you end it in the process rail,
 the agent that started it gets a short notice with the ID and the exit code. The service runs on
 the machine of the run, on a workstation there, carries the run's marker, and ends with the run's
-stop or deletion; it has no time limit. The workspace rules tell agents to start services this way
+stop or deletion; it has no time limit. A service on a workstation keeps running when the server
+restarts; once the workstation has signed in again, the notice arrives as well, also for an exit
+while the server was down. The workspace rules tell agents to start services this way
 instead of detaching them with `nohup`, `&`, `setsid`, a detached spawn, or a service manager such as
 `launchctl`, and to stop them when they no longer need them. A process that detaches itself is found
 again only through the inherited `RAGENTS_RUN_ID` marker. Which processes the process table cannot
@@ -815,6 +817,8 @@ same sign-in dialog. For a profile with `ACCESS_TOKEN`, the dialog requests that
 and password are stored per server address in VS Code SecretStorage and reused silently next
 session. The session token is stored there as well and sent as a bearer token; iframes receive it
 in their URL (the server accepts a bearer token or the `access` query parameter for GET requests).
+Images, links, and downloads of documents and of the chat never carry it: they load through
+short-lived grants that the panel renews while a run is open.
 After expiry or a server restart, that server asks for sign-in again without affecting others.
 `RAgents: Sign out` revokes the session.
 

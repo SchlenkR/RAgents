@@ -15,11 +15,10 @@ import {
 } from "@ragents/web/ui";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Markdown, QuasselProvider, type Message } from "quassel";
-import { accessTokenInstalled } from "@ragents/web/access-token";
 import { formatBytes } from "@ragents/web/lib/format";
 import { SourceCode } from "@ragents/web/SourceCode";
-import { fetchGrant } from "./api";
-import { baseAddressOf, documentUrlResolver, htmlWithBase, withToken, type DocumentBase } from "./links";
+import { useDocumentGrants, type GrantSnapshot } from "./grants";
+import { baseAddressOf, documentUrlResolver, grantedAddressOf, htmlWithBase, type AddressState, type DocumentBase } from "./links";
 
 export type DocumentFormat = "markdown" | "text" | "html" | "image" | "binary";
 
@@ -123,6 +122,13 @@ export const documentsFrom = (messages: Message[]): RunDocument[] =>
 
 type LoadState = { text: string } | { error: string } | undefined;
 
+const messageOf = (error: unknown): string => error instanceof Error ? error.message : String(error);
+
+const failureOf = async (response: Response): Promise<Error> => {
+  const body = await response.json().catch(() => undefined) as { error?: unknown } | undefined;
+  return new Error(typeof body?.error === "string" ? body.error : `Status ${response.status}`);
+};
+
 const useDocumentContent = (document: RunDocument | undefined): LoadState => {
   const [cache, setCache] = useState<Record<string, LoadState>>({});
   const textual = document?.format === "markdown" || document?.format === "text" || document?.format === "html";
@@ -133,16 +139,13 @@ const useDocumentContent = (document: RunDocument | undefined): LoadState => {
     let alive = true;
     void fetch(url, { cache: "no-store" })
       .then(async (response) => {
-        if (!response.ok) {
-          const body = await response.json().catch(() => undefined) as { error?: unknown } | undefined;
-          throw new Error(typeof body?.error === "string" ? body.error : `Status ${response.status}`);
-        }
+        if (!response.ok) throw await failureOf(response);
         return response.text();
       })
       .then((text) => alive && setCache((current) => ({ ...current, [url]: { text } })))
       .catch((error: unknown) => alive && setCache((current) => ({
         ...current,
-        [url]: { error: error instanceof Error ? error.message : String(error) },
+        [url]: { error: messageOf(error) },
       })));
     return () => {
       alive = false;
@@ -203,34 +206,80 @@ export function DocumentToolCall({ active, document, onOpen, status }: DocumentT
   );
 }
 
-type GrantState = { grant?: string } | { error: string } | undefined;
-
-/** Where the page signs in with a token, an HTML document reaches its files through a short-lived grant of its root, because its base address carries no token. */
-const useHtmlGrant = (base: DocumentBase | undefined, html: boolean): GrantState => {
-  const runId = base?.runId;
-  const root = base?.root;
-  const key = html && runId !== undefined && root !== undefined && accessTokenInstalled() ? `${runId}/${root}` : undefined;
-  const [state, setState] = useState<{ key: string; value: GrantState }>();
+/** A result lies outside the content route and its grants: with a token its bytes load with the page's sign-in and show under a blob address. */
+const useBlobAddress = (url: string | undefined): AddressState => {
+  const [state, setState] = useState<{ url: string; value: AddressState }>();
 
   useEffect(() => {
-    if (key === undefined || runId === undefined || root === undefined) return;
+    if (url === undefined) return;
     let alive = true;
-    void fetchGrant(runId, root)
-      .then(({ grant }) => alive && setState({ key, value: { grant } }))
-      .catch((error: unknown) => alive && setState({ key, value: { error: error instanceof Error ? error.message : String(error) } }));
+    let objectUrl: string | undefined;
+    void fetch(url, { cache: "no-store" })
+      .then(async (response) => {
+        if (!response.ok) throw await failureOf(response);
+        return response.blob();
+      })
+      .then((blob) => {
+        if (!alive) return;
+        objectUrl = URL.createObjectURL(blob);
+        setState({ url, value: { url: objectUrl } });
+      })
+      .catch((error: unknown) => alive && setState({ url, value: { error: messageOf(error) } }));
     return () => {
       alive = false;
+      if (objectUrl !== undefined) URL.revokeObjectURL(objectUrl);
     };
-  }, [key, runId, root]);
+  }, [url]);
 
-  if (key === undefined) return {};
-  return state?.key === key ? state.value : undefined;
+  return url !== undefined && state?.url === url ? state.value : undefined;
+};
+
+/** Where an image or a download loads from: with a cookie the route itself, with a token the grant of its root or, for a result, its bytes. */
+const useFileAddress = (url: string | undefined, base: DocumentBase | undefined, grants: GrantSnapshot | undefined): AddressState => {
+  const blob = useBlobAddress(url !== undefined && grants !== undefined && base === undefined ? url : undefined);
+  if (url === undefined || grants === undefined) return url === undefined ? undefined : { url };
+  return base === undefined ? blob : grantedAddressOf(base, url, grants);
+};
+
+type FrameGrant = { grant?: string } | { error: string } | undefined;
+
+/** With a token an HTML document reaches its files through the grant of its root and keeps the one it opened with until its file changes, so that a renewal does not reload it. */
+const useFrameGrant = (document: RunDocument, grants: GrantSnapshot | undefined): FrameGrant => {
+  const base = document.base;
+  const current: FrameGrant = document.format === "html" && base !== undefined && grants !== undefined ? grants.grantFor(base.runId, base.root) : {};
+  const [opened, setOpened] = useState<{ key: string; grant: string }>();
+  const key = `${document.id}\n${document.contentUrl ?? ""}`;
+  const ready = current !== undefined && "grant" in current ? current.grant : undefined;
+  if (ready !== undefined && opened?.key !== key) setOpened({ key, grant: ready });
+  return opened?.key === key ? { grant: opened.grant } : current;
 };
 
 /** A document without a base keeps its addresses as written, also inside a run whose chat resolves them. */
 const keepUrl = (url: string): string => url;
 
+function ContentLoading() {
+  return (
+    <div className="flex items-center justify-center gap-2.5 p-9 text-[0.76rem] text-muted-foreground">
+      <Spinner className="size-3" />
+      <span>Loading</span>
+    </div>
+  );
+}
+
+function ContentFailure({ failure }: { failure: string }) {
+  return (
+    <Empty className="min-h-30 gap-2 p-7">
+      <EmptyHeader>
+        <EmptyMedia><IconError /></EmptyMedia>
+        <EmptyTitle>Content not readable</EmptyTitle>
+        <EmptyDescription>{failure}</EmptyDescription>
+      </EmptyHeader>
+    </Empty>
+  );
+}
+
 function DocumentContent({ document, loaded }: { document: RunDocument; loaded: LoadState }) {
+  const grants = useDocumentGrants();
   const base = document.base;
   const routePrefix = base?.routePrefix;
   const runId = base?.runId;
@@ -238,15 +287,19 @@ function DocumentContent({ document, loaded }: { document: RunDocument; loaded: 
   const root = base?.root;
   const resolveUrl = useMemo(
     () => routePrefix !== undefined && runId !== undefined && folder !== undefined && root !== undefined
-      ? documentUrlResolver({ routePrefix, runId, folder, root })
+      ? documentUrlResolver({ routePrefix, runId, folder, root }, grants)
       : keepUrl,
-    [routePrefix, runId, folder, root],
+    [routePrefix, runId, folder, root, grants],
   );
-  const grant = useHtmlGrant(base, document.format === "html");
-  if (document.format === "image" && document.contentUrl) {
-    return <img alt={document.title} className="block max-w-full rounded-lg border border-border" src={withToken(document.contentUrl)} />;
-  }
-  if (document.format === "binary" && document.contentUrl) {
+  const fileUrl = document.format === "image" || document.format === "binary" ? document.contentUrl : undefined;
+  const file = useFileAddress(fileUrl, base, grants);
+  const grant = useFrameGrant(document, grants);
+  if (fileUrl !== undefined) {
+    if (file === undefined) return <ContentLoading />;
+    if ("error" in file) return <ContentFailure failure={file.error} />;
+    if (document.format === "image") {
+      return <img alt={document.title} className="block max-w-full rounded-lg border border-border" src={file.url} />;
+    }
     return (
       <Empty className="min-h-30 gap-2 p-7">
         <EmptyHeader>
@@ -254,31 +307,14 @@ function DocumentContent({ document, loaded }: { document: RunDocument; loaded: 
           <EmptyTitle>No preview for this format</EmptyTitle>
         </EmptyHeader>
         <EmptyContent>
-          <Button render={<a download={document.title} href={withToken(document.contentUrl)} />} size="sm" variant="outline">Download</Button>
+          <Button render={<a download={document.title} href={file.url} />} size="sm" variant="outline">Download</Button>
         </EmptyContent>
       </Empty>
     );
   }
   const failure = loaded && "error" in loaded ? loaded.error : grant && "error" in grant ? grant.error : undefined;
-  if (failure !== undefined) {
-    return (
-      <Empty className="min-h-30 gap-2 p-7">
-        <EmptyHeader>
-          <EmptyMedia><IconError /></EmptyMedia>
-          <EmptyTitle>Content not readable</EmptyTitle>
-          <EmptyDescription>{failure}</EmptyDescription>
-        </EmptyHeader>
-      </Empty>
-    );
-  }
-  if (!loaded || "error" in loaded || !grant || "error" in grant) {
-    return (
-      <div className="flex items-center justify-center gap-2.5 p-9 text-[0.76rem] text-muted-foreground">
-        <Spinner className="size-3" />
-        <span>Loading</span>
-      </div>
-    );
-  }
+  if (failure !== undefined) return <ContentFailure failure={failure} />;
+  if (!loaded || "error" in loaded || !grant || "error" in grant) return <ContentLoading />;
   if (document.format === "html") {
     // Scripts stay off; the app's origin lets the sign-in cookie reach the images the document names, a grant in the base does so without one.
     const html = base ? htmlWithBase(loaded.text, baseAddressOf(base, grant.grant)) : loaded.text;
@@ -287,7 +323,8 @@ function DocumentContent({ document, loaded }: { document: RunDocument; loaded: 
   if (document.format === "text") {
     return <SourceCode className={sourceClass} content={loaded.text} path={document.title} />;
   }
-  return <QuasselProvider resolveUrl={resolveUrl}><Markdown text={loaded.text} /></QuasselProvider>;
+  // quassel resolves an address only when its Markdown mounts, so a changed grant mounts it again.
+  return <QuasselProvider resolveUrl={resolveUrl}><Markdown key={grants?.revision} text={loaded.text} /></QuasselProvider>;
 }
 
 function DocumentHead({ document }: { document: RunDocument }) {

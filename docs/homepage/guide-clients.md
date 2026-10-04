@@ -334,6 +334,8 @@ same sign-in dialog. For a profile with `ACCESS_TOKEN`, the dialog requests that
 and password are stored per server address in VS Code SecretStorage and reused silently next
 session. The session token is stored there as well and sent as a bearer token; iframes receive it
 in their URL (the server accepts a bearer token or the `access` query parameter for GET requests).
+Images, links, and downloads of documents and of the chat never carry it: they load through
+short-lived grants that the panel renews while a run is open.
 After expiry or a server restart, that server asks for sign-in again without affecting others.
 `RAgents: Sign out` revokes the session.
 

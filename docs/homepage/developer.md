@@ -771,6 +771,8 @@ Return every address the plugin does not resolve unchanged, and never rewrite an
 
 A display that knows a better base, such as the Documents view for a file, sets its own resolver through quassel's QuasselProvider with resolveUrl; the inner one wins.
 
+quassel resolves an address once, when its Markdown mounts; whatever the resolution needs, such as a grant, must be there before.
+
 Contract fields: web.resolveRunUrl.
 
 ### Fixed and dynamic tabs

@@ -1,9 +1,9 @@
 import assert from "node:assert/strict";
-import { mkdir, mkdtemp, readFile, realpath, rm, writeFile } from "node:fs/promises";
+import { access, mkdir, mkdtemp, readFile, realpath, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import test, { type TestContext } from "node:test";
-import { DomainError, implement, pluginStateKey, type HttpRouteContribution, type RunState } from "@ragents/engine";
+import { claimTurn, DomainError, implement, pluginStateKey, ToolRegistry, TurnToolset, type HttpRouteContribution, type RunState } from "@ragents/engine";
 import {
   EXECUTOR_CONTRIBUTION_FILE,
   FILE_OPERATIONS,
@@ -18,19 +18,24 @@ import {
   type FileWatchProgress,
   type WorkspaceProcessSnapshot,
 } from "@ragents/workspace-executor";
-import { workspaceContracts } from "../../plugins/ragents.workspace/contract.ts";
+import { workspaceContracts, type WorkspaceBinding } from "../../plugins/ragents.workspace/contract.ts";
 import { WORKSPACE_BINDING_OPTION_ID } from "../../plugins/ragents.workspace/contract.ts";
 import { workspaceBindingOption } from "../../plugins/ragents.workspace/server/binding.ts";
-import { clientMethods, WorkspaceClientRegistry } from "../../plugins/ragents.workspace/server/clients.ts";
+import { clientMethods, WorkspaceClientRegistry, type WorkstationSignIn } from "../../plugins/ragents.workspace/server/clients.ts";
 import { RunWorkspaceRuntime } from "../../plugins/ragents.workspace/server/runtime.ts";
 import { workspaceClientTransport } from "../../plugins/ragents.workspace/client/transport.ts";
 import { TunnelStreams } from "../../plugins/ragents.processes/server/tunnel-streams.ts";
 import { WorkspaceClient } from "../../plugins/ragents.workspace/client/workspace-client.ts";
+import { RpcClient } from "../../apps/web/src/rpc/client.ts";
 import { hostRoot } from "../../apps/server/src/host-version.ts";
 import { startRpcServer } from "../../apps/server/tests/rpc-fixture.ts";
+import { allGrants, catalog, postTo, setupRun } from "../../packages/ragents/tests/support.ts";
 import { parseArguments, resolvedFolders, workspaceClientId } from "./run-workspace-client.ts";
 
 const CLIENT = "cli-00000001";
+
+/** The tests that do not look at the background commands of a sign-in. */
+const ignoreSignIn = (): void => undefined;
 
 const textOf = (result: unknown): string =>
   ((result as { content?: Array<{ type: string; text?: string }> }).content ?? [])
@@ -93,7 +98,7 @@ const started = async (t: TestContext, contributions: readonly ExecutorContribut
   const directory = await realpath(await mkdtemp(path.join(tmpdir(), "ragents-cli-client-")));
   const runs = await realpath(await mkdtemp(path.join(tmpdir(), "ragents-cli-runs-")));
   const registry = new WorkspaceClientRegistry(contributions);
-  const { url } = await startRpcServer(t, { methods: clientMethods(registry), routes });
+  const { url } = await startRpcServer(t, { methods: clientMethods(registry, ignoreSignIn), routes });
   const transport = workspaceClientTransport(url, undefined);
   const client = new WorkspaceClient(transport, {
     id: CLIENT,
@@ -156,7 +161,7 @@ test("the headless workspace loads the contributions the server requires from it
 
 test("an older server without the question about contributions does not accept the workspace, and the message says who needs updating", async (t) => {
   const registry = new WorkspaceClientRegistry([]);
-  const older = clientMethods(registry).filter((method) => method.contract.id !== workspaceContracts.clients.contributions.id);
+  const older = clientMethods(registry, ignoreSignIn).filter((method) => method.contract.id !== workspaceContracts.clients.contributions.id);
   const { url } = await startRpcServer(t, { methods: older });
   const transport = workspaceClientTransport(url, undefined);
   t.after(() => transport.rpc.close());
@@ -387,7 +392,7 @@ test("unregistering waits only a limited time for the server and ends the execut
   t.after(() => rm(directory, { recursive: true, force: true }));
   const registry = new WorkspaceClientRegistry([]);
   const methods = [
-    ...clientMethods(registry).filter((method) => method.contract.id !== workspaceContracts.clients.unregister.id),
+    ...clientMethods(registry, ignoreSignIn).filter((method) => method.contract.id !== workspaceContracts.clients.unregister.id),
     implement(workspaceContracts.clients.unregister, () => new Promise<null>(() => undefined)),
   ];
   const { url } = await startRpcServer(t, { methods });
@@ -403,4 +408,124 @@ test("unregistering waits only a limited time for the server and ends the execut
   assert.ok(Date.now() - begun < 6_000, `unregistering took ${Date.now() - begun} ms`);
   assert.equal(client.status.kind === "failed" && /No response/.test(client.status.message), true, JSON.stringify(client.status));
   assert.match(await ended, /ended|failed/);
+});
+
+const exists = (file: string): Promise<boolean> => access(file).then(() => true, () => false);
+
+const untilAsync = async (condition: () => Promise<boolean>, timeoutMs = 10_000): Promise<void> => {
+  const started = Date.now();
+  while (!await condition()) {
+    if (Date.now() - started > timeoutMs) throw new Error("Condition was not met.");
+    await new Promise((resolve) => setTimeout(resolve, 20));
+  }
+};
+
+test("after a server restart the workstation names its background commands at sign-in, and each end reaches the actor that started it once", { skip: process.platform === "win32", timeout: 60_000 }, async (t) => {
+  const directory = await realpath(await mkdtemp(path.join(tmpdir(), "ragents-cli-restart-")));
+  const storage = await realpath(await mkdtemp(path.join(tmpdir(), "ragents-cli-restart-server-")));
+  const setup = setupRun({ grants: allGrants(), toolNames: null });
+  t.after(async () => {
+    setup.journal.close();
+    await rm(directory, { recursive: true, force: true });
+    await rm(storage, { recursive: true, force: true });
+  });
+  const runId = setup.view.id;
+  const binding: WorkspaceBinding = { machine: { client: CLIENT, label: "Headless" }, folder: { path: directory } };
+  const state = {
+    ownerUserId: null,
+    pluginStates: new Map([[pluginStateKey(WORKSPACE_BINDING_OPTION_ID, { kind: "run" }),
+      { pluginId: WORKSPACE_BINDING_OPTION_ID, scope: { kind: "run" }, state: binding, updatedAt: "2026-10-04T00:00:00.000Z" }]]),
+  } as unknown as RunState;
+  /** One life of the server: its registry, its workspace runtime and its methods, gone with its stop. */
+  const serverLife = async (port: number | undefined) => {
+    const registry = new WorkspaceClientRegistry([]);
+    const runtime: RunWorkspaceRuntime = new RunWorkspaceRuntime({
+      globalDirectory: path.join(storage, "global"),
+      sessionDirectory: (id, ...segments) => path.join(storage, "sessions", id, ...segments),
+      storageRootFor: (id) => path.join(storage, "sessions", id),
+      sessionsDirectoryPattern: path.join(storage, "sessions", "{runId}"),
+      sessionWorkspaceFor: (id) => runtime.resolve(id, () => undefined),
+      skillPaths: async () => [],
+      resolver: () => undefined,
+      runState: (id) => id === runId ? state : null,
+      storeBinding: () => { throw new Error("not asked"); },
+      clients: registry,
+      contributions: [],
+    });
+    const signIns: WorkstationSignIn[] = [];
+    const server = await startRpcServer(t, {
+      ...(port === undefined ? {} : { port }),
+      methods: clientMethods(registry, (signIn) => {
+        signIns.push(signIn);
+        runtime.resumeBackgroundTasks(setup.runtime, signIn);
+      }),
+    });
+    const stop = async (): Promise<void> => {
+      await runtime.shutdown();
+      await server.close();
+    };
+    t.after(stop);
+    return { runtime, signIns, url: server.url, stop };
+  };
+  const first = await serverLife(undefined);
+  const rpc = new RpcClient({ baseUrl: first.url, retryDelayMs: 50 });
+  const client = new WorkspaceClient({ origin: first.url, rpc }, {
+    id: CLIENT, label: "Headless", hostname: "cli-host", platform: process.platform, folders: [directory], runsDirectory: path.join(storage, "runs"),
+  }, { hostRoot });
+  t.after(async () => {
+    await client.unregister();
+    rpc.close();
+  });
+  await client.register();
+  assert.deepEqual(client.status, { kind: "registered" });
+
+  const queued = postTo(setup.runtime, setup.view, setup.agent.id, "restart-input", "Start the services.");
+  const input = queued.inputs.find((entry) => entry.actorId === setup.agent.id && entry.lifecycle.kind === "pending");
+  assert.ok(input);
+  const turn = claimTurn(setup.runtime, runId, setup.agent.id, input.id, "restart-turn");
+  const toolsOf = (life: Awaited<ReturnType<typeof serverLife>>) =>
+    TurnToolset.create({ runtime: setup.runtime, turn, catalog, registry: new ToolRegistry().register(life.runtime.sandbox.workspaceTools()), workspace: directory });
+  const before = await toolsOf(first);
+  const start = async (id: string, flag: string, code: number): Promise<string> => {
+    const text = String((await before.invoke(id, "bash", { command: `while [ ! -e ${flag} ]; do sleep 0.05; done; rm ${flag}; exit ${code}`, run_in_background: true } as never)).output);
+    const task = /with ID: (b[0-9a-f]{6})\./.exec(text)?.[1];
+    assert.ok(task, text);
+    return task;
+  };
+  const meanwhile = await start("start-meanwhile", "meanwhile.flag", 3);
+  const later = await start("start-later", "later.flag", 4);
+  const notices = () => setup.runtime.view(runId).inputs
+    .filter((entry) => entry.actorId === setup.agent.id && entry.presentation === "background")
+    .map((entry) => entry.content);
+
+  const port = Number(new URL(first.url).port);
+  await first.stop();
+  await writeFile(path.join(directory, "meanwhile.flag"), "");
+  await untilAsync(async () => !await exists(path.join(directory, "meanwhile.flag")));
+  await new Promise((resolve) => setTimeout(resolve, 300));
+  assert.deepEqual(notices(), [], "nobody observes while the server is down");
+
+  const second = await serverLife(port);
+  await until(() => second.signIns.length === 1, 10_000);
+  const named = [...second.signIns[0]!.backgroundTasks].sort((left, right) => left.taskId.localeCompare(right.taskId));
+  assert.deepEqual(named, [
+    { runId, taskId: meanwhile, startedBy: setup.agent.id },
+    { runId, taskId: later, startedBy: setup.agent.id },
+  ].sort((left, right) => left.taskId.localeCompare(right.taskId)), "the sign-in names both commands with the actor that started them");
+  await until(() => notices().length >= 1, 10_000);
+  assert.deepEqual(notices(), [`Background command ${meanwhile} exited with code 3. task_output reads what it wrote last.`], "an end while the server was down arrives after the sign-in");
+  const after = await toolsOf(second);
+  assert.equal(String((await after.invoke("read-meanwhile", "task_output", { task_id: meanwhile } as never)).output), "(no new output)\n\nStatus: exited with code 3");
+
+  await client.update([directory, storage]);
+  await until(() => second.signIns.length === 2, 10_000);
+  assert.deepEqual(second.signIns[1]!.backgroundTasks.map((task) => task.taskId), [later], "a reported end is not named again, a running command is");
+  await writeFile(path.join(directory, "later.flag"), "");
+  await until(() => notices().length >= 2, 10_000);
+  assert.equal(notices()[1], `Background command ${later} exited with code 4. task_output reads what it wrote last.`);
+  await client.update([directory]);
+  await until(() => second.signIns.length === 3, 10_000);
+  assert.deepEqual(second.signIns[2]!.backgroundTasks, []);
+  await new Promise((resolve) => setTimeout(resolve, 300));
+  assert.equal(notices().length, 2, "a second sign-in during an observation adds no second observation");
 });

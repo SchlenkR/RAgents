@@ -137,6 +137,7 @@ const foreignWorkstation = async (
   const contributions = await client.call(workspaceContracts.clients.contributions, { label, executor: WORKSPACE_EXECUTOR_VERSION });
   await client.call(workspaceContracts.clients.register, {
     id, label, hostname: "foreign-machine", platform: process.platform, folders: Object.keys(folders), runsDirectory, ripgrep: false, executor: WORKSPACE_EXECUTOR_VERSION, contributions,
+    backgroundTasks: [...executor.unreportedBackgroundTasks()],
   });
   return { operations, disconnect: () => client.close() };
 };
@@ -151,7 +152,7 @@ const serverFixture = async (t: TestContext, { resolver, skills = [], contributi
   const root = await realpath(await mkdtemp(path.join(tmpdir(), "ragents-foreign-machine-")));
   t.after(() => rm(root, { recursive: true, force: true }));
   const registry = new WorkspaceClientRegistry(contributions);
-  const { url } = await startRpcServer(t, { methods: clientMethods(registry), routes });
+  const { url } = await startRpcServer(t, { methods: clientMethods(registry, () => undefined), routes });
   const bindings = new Map<string, WorkspaceBinding>();
   const runState = (runId: string): RunState => {
     const binding = bindings.get(runId) ?? bindings.get("*");

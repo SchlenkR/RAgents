@@ -314,7 +314,7 @@ export class WorkspaceClient {
     return this.#announcing;
   }
 
-  /** First the contributions the server requires, then the sign-in with the executor built from them; an answer after a sign-out no longer changes the state. */
+  /** First the contributions the server requires, then the sign-in with the executor built from them and its background commands whose end no server has learned; an answer after a sign-out no longer changes the state. */
   async #send(): Promise<void> {
     const attachment = this.#attachment;
     if (!attachment) return;
@@ -327,7 +327,7 @@ export class WorkspaceClient {
         throw new VersionMismatch(`The server does not know ${workspaceContracts.clients.contributions.id}; it is older than this workstation `
           + `with executor ${WORKSPACE_EXECUTOR_VERSION}. Update the server to the workstation's version.`);
       });
-      const { contributions } = await this.#built(attachment, wanted);
+      const { executor, contributions } = await this.#built(attachment, wanted);
       await this.transport.rpc.call(workspaceContracts.clients.register, {
         id: this.#identity.id,
         label: this.#identity.label,
@@ -338,6 +338,7 @@ export class WorkspaceClient {
         ripgrep: ripgrepAvailable(this.options.rg, process.env),
         executor: WORKSPACE_EXECUTOR_VERSION,
         contributions: contributions.map((contribution) => ({ ...contribution })),
+        backgroundTasks: executor.unreportedBackgroundTasks().map((task) => ({ ...task })),
       }, { timeoutMs: REGISTER_TIMEOUT_MS });
       if (attachment === this.#attachment) this.#set({ kind: "registered" });
     } catch (cause) {

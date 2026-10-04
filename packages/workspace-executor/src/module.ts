@@ -1,3 +1,4 @@
+import type { UnreportedBackgroundTask } from "./background-tasks.js";
 import type { WorkspaceProcessContext } from "./context.js";
 import type { OperationFootprint } from "./paths.js";
 
@@ -22,6 +23,8 @@ export interface WorkspaceExecutorModule {
   readonly annotate?: (runId: string, absolutePath: string) => Promise<string | undefined>;
   /** The process groups the module keeps running beyond a call, such as background commands of bash; the process display counts them as background. */
   readonly backgroundGroups?: () => readonly number[];
+  /** The background commands of every run whose end no observation has returned yet. */
+  readonly unreportedBackgroundTasks?: () => readonly UnreportedBackgroundTask[];
   /** Releases what the module holds for a run. */
   readonly stopRun?: (runId: string) => Promise<void>;
   /** Releases everything; afterwards nobody calls the module anymore, it may reject later calls with a cause. */

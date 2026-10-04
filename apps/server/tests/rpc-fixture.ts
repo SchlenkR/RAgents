@@ -89,11 +89,15 @@ export interface RpcServerOptions {
   maxBodyBytes?: number;
   accessFor?: (request: IncomingMessage) => AccessContext;
   local?: boolean;
+  /** A fixed port, such as the one of a server the test stopped before. */
+  port?: number;
 }
 
 export interface RpcTestServer {
   url: string;
   transport: RpcHttpTransport;
+  /** Ends the server before the test does, like a stopped process: its streams and connections end. */
+  close: () => Promise<void>;
   call: (method: string, params?: unknown, headers?: Record<string, string>) => Promise<Partial<RpcSuccess & RpcFailure>>;
 }
 
@@ -120,8 +124,14 @@ export const startRpcServer = async (t: TestContext, options: RpcServerOptions):
     if (route?.upgrade) void route.upgrade({ request, socket, head, url });
     else socket.destroy();
   });
-  t.after(() => { transport.close(); server.closeAllConnections(); server.close(); });
-  server.listen(0, "127.0.0.1");
+  const close = async (): Promise<void> => {
+    if (!server.listening) return;
+    transport.close();
+    server.closeAllConnections();
+    await new Promise<void>((resolve) => server.close(() => resolve()));
+  };
+  t.after(close);
+  server.listen(options.port ?? 0, "127.0.0.1");
   await once(server, "listening");
   const address = server.address();
   if (!address || typeof address === "string") throw new Error("test server without port");
@@ -130,6 +140,7 @@ export const startRpcServer = async (t: TestContext, options: RpcServerOptions):
   return {
     url,
     transport,
+    close,
     call: async (method, params, headers = {}) => {
       id += 1;
       const response = await fetch(`${url}/rpc`, {

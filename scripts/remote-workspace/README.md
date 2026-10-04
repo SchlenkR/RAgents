@@ -48,8 +48,8 @@ With `--vscode` a separate VS Code window opens.
   `attachments/` in the container, where `bash` reads it, and neither in the data folder nor in the
   server's copy.
 - Server roots: another run of `alice` on the folder in the container creates an
-  actor program with `actor_program_create`, writes and edits it under `@actors/...` and
-  activates it; its domain test passes only after editing, and the activated function returns
+  actor program with `actor_program_create`, reads the template's `package.json`, writes and edits it
+  under `@actors/...` and activates it; its domain test passes only after editing, and the activated function returns
   the check run's nonce. The package is in the server's data folder and nowhere in the container,
   the workspace logs only the one `bash` without alias for this run. `bash` with
   `cwd: "@actors/..."` reports the server's platform and machine and `RAGENTS_ACTORS_DIR`, without `cwd`

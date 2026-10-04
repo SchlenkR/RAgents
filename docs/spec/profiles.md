@@ -522,9 +522,9 @@ iframes) read the session token from the `Set-Cookie` header of the sign-in resp
 as `Authorization: Bearer`; for GET requests that cannot set a header (event stream, mini-app
 frames), it also applies as the query parameter `access` (`ACCESS_TOKEN_QUERY` in
 `packages/ragents/src/access.ts`). A bearer header takes precedence over cookie and query
-parameter; signing out with a bearer revokes the session the same way. The images of an HTML
-document can send none of these; for them a delivery route may accept a short-lived grant in its
-path that stands for the access of whoever asked for it (`accessFromAddress`, `plugins.md`, Rights in
+parameter; signing out with a bearer revokes the session the same way. The addresses a document
+names, its images, and its downloads can send none of these; for them a delivery route may accept a
+short-lived grant in its path that stands for the access of whoever asked for it (`accessFromAddress`, `plugins.md`, Rights in
 server and web contributions), which applies before sign-in and `ACCESS_TOKEN`; signing out does not
 revoke such a grant.
 

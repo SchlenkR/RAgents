@@ -1,9 +1,6 @@
 import { randomBytes } from "node:crypto";
 import { DomainError, type AccessContext } from "@ragents/engine";
-import { rootOfReference } from "../contract.js";
-
-/** How long a grant is valid; a document loads the files it names right after it opens. */
-export const GRANT_LIFETIME_MS = 10 * 60 * 1000;
+import { DOCUMENT_GRANT_LIFETIME_MS, rootOfReference } from "../contract.js";
 
 interface Grant {
   readonly runId: string;
@@ -27,7 +24,7 @@ export class DocumentGrants {
     const now = this.#now();
     for (const [grant, entry] of this.#grants) if (entry.expiresAt <= now) this.#grants.delete(grant);
     const grant = randomBytes(32).toString("base64url");
-    this.#grants.set(grant, { runId, root, access, expiresAt: now + GRANT_LIFETIME_MS });
+    this.#grants.set(grant, { runId, root, access, expiresAt: now + DOCUMENT_GRANT_LIFETIME_MS });
     return grant;
   }
 

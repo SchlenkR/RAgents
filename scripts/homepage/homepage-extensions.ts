@@ -492,7 +492,7 @@ const urls = {
   resolveRunUrl: (runId, url) => url.startsWith("@files/")
     ? \`/api/plugins/ragents.example/runs/\${encodeURIComponent(runId)}/raw/\${url}\`
     : url,
-} satisfies WebPlugin;`, ["web.resolveRunUrl"], ["Return every address the plugin does not resolve unchanged, and never rewrite an absolute one. Several active resolvers are an error.", "A display that knows a better base, such as the Documents view for a file, sets its own resolver through quassel's QuasselProvider with resolveUrl; the inner one wins."], "tsx"),
+} satisfies WebPlugin;`, ["web.resolveRunUrl"], ["Return every address the plugin does not resolve unchanged, and never rewrite an absolute one. Several active resolvers are an error.", "A display that knows a better base, such as the Documents view for a file, sets its own resolver through quassel's QuasselProvider with resolveUrl; the inner one wins.", "quassel resolves an address once, when its Markdown mounts; whatever the resolution needs, such as a grant, must be there before."], "tsx"),
   entry("web-tabs", "Web contributions", "Fixed and dynamic tabs", "A plugin can add its own tab with an icon, content, and optionally a status badge. Fixed tabs are always part of its offering. Dynamic tabs arise to match the state of the open run.", "Properties of a WebPlugin; exampleTabs(session) is a custom, validating projection.", `
 const tabs = {
   id: "ragents.example",

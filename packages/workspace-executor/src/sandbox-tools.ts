@@ -13,7 +13,7 @@ import {
   type BackgroundTaskOperations,
   type BashOperations,
 } from "@ragents/agent";
-import { BACKGROUND_TASK_OPERATIONS, backgroundTasks } from "./background-tasks.js";
+import { BACKGROUND_TASK_OPERATIONS, backgroundTasks, type UnreportedBackgroundTask } from "./background-tasks.js";
 import { bashLaunch } from "./bash-launch.js";
 import { BYTE_OPERATIONS, fileBytesOf, pathInRoots, readFileBytes, writeFileBytes } from "./bytes.js";
 import type { WorkspaceProcessContext } from "./context.js";
@@ -45,6 +45,8 @@ export interface SandboxTools {
   readonly tools: ReadonlyMap<string, (input: unknown, call: SandboxToolCall) => Promise<unknown>>;
   /** The process groups of the background commands still running; the process display counts them as background. */
   readonly backgroundGroups: () => ReadonlySet<number>;
+  /** The background commands of the run whose end no observation has returned yet. */
+  readonly unreportedTasks: () => readonly UnreportedBackgroundTask[];
   shutdown: () => Promise<void>;
 }
 
@@ -71,6 +73,12 @@ type FileToolInput = {
 };
 
 type FileToolName = "read" | "edit" | "write";
+
+/** The input of bash: what the model passes, and for a background command whom the server tells about its end. */
+type BashInput = { readonly startedBy?: unknown; readonly [field: string]: unknown };
+
+const starterMissing = (): WorkspaceOperationError => new WorkspaceOperationError("background-task-starter-missing",
+  "run_in_background needs startedBy in the input of the operation bash: whom the server tells about the end of the command", 400);
 
 const unchangedNotice = "File unchanged since last read. The content from the earlier read result in this conversation is still current - refer to that instead of re-reading.";
 
@@ -406,7 +414,7 @@ export const createSandboxTools = async (
       });
   };
 
-  const bashOperations: BashOperations = {
+  const bashOperationsFor = (startedBy: unknown): BashOperations => ({
     exec: (command, commandCwd, options) => {
       if (shuttingDown) throw new Error("The tools are being killed");
       if (options.signal?.aborted) throw new Error("Cancelled");
@@ -414,9 +422,10 @@ export const createSandboxTools = async (
     },
     background: (command, commandCwd, options) => {
       if (shuttingDown) throw new Error("The tools are being killed");
-      return background.start(command, commandCwd, options.signal);
+      if (typeof startedBy !== "string" || startedBy === "") throw starterMissing();
+      return background.start(command, commandCwd, startedBy, options.signal);
     },
-  };
+  });
 
   const taskOperations: BackgroundTaskOperations = {
     output: (id, { maxBytes }) => background.output(id, maxBytes),
@@ -428,11 +437,18 @@ export const createSandboxTools = async (
     background.wait((input as { task_id?: unknown } | null)?.task_id, signal);
 
   const executeOf = (definition: { execute: unknown }): ToolExecute => definition.execute as ToolExecute;
+
+  /** The bash definition per call, because a background start carries whom the server tells about its end. */
+  const runBash: ToolExecute = (toolCallId, input, signal, onUpdate) => {
+    const { startedBy, ...params } = (input ?? {}) as BashInput;
+    return executeOf(createBashToolDefinition(cwd, { operations: bashOperationsFor(startedBy) }))(toolCallId, params, signal, onUpdate);
+  };
+
   const wrapped: ReadonlyArray<readonly [string, ToolExecute]> = [
     ["read", guarded("read", executeOf(createReadToolDefinition(cwd)))],
     ["edit", guarded("edit", executeOf(createEditToolDefinition(cwd)))],
     ["write", guarded("write", executeOf(createWriteToolDefinition(cwd)))],
-    ["bash", serial(inFolder(executeOf(createBashToolDefinition(cwd, { operations: bashOperations }))))],
+    ["bash", serial(inFolder(runBash))],
     [BACKGROUND_TASK_OPERATIONS.output, concurrent(executeOf(createTaskOutputToolDefinition(taskOperations)))],
     [BACKGROUND_TASK_OPERATIONS.stop, concurrent(executeOf(createTaskStopToolDefinition(taskOperations)))],
     [BACKGROUND_TASK_OPERATIONS.wait, waitForTask],
@@ -443,6 +459,7 @@ export const createSandboxTools = async (
     tools: new Map(wrapped.map(([name, execute]) =>
       [name, (input: unknown, call: SandboxToolCall) => execute(call.toolCallId, input, call.signal, call.onUpdate)])),
     backgroundGroups: background.running,
+    unreportedTasks: () => background.unreported().map((task) => ({ runId, ...task })),
     shutdown,
   };
 };
@@ -522,6 +539,7 @@ export const sandboxToolsModule: WorkspaceModuleFactory = (host) => {
     operations: Object.fromEntries(SANDBOX_OPERATIONS.map((name) => [name, operation(name)])),
     footprints: sandboxToolFootprints,
     backgroundGroups: () => [...created.values()].flatMap((tools) => [...tools.backgroundGroups()]),
+    unreportedBackgroundTasks: () => [...created.values()].flatMap((tools) => tools.unreportedTasks()),
     stopRun,
     shutdown: async () => {
       const results = await Promise.allSettled([...sandboxes.keys()].map(stopRun));

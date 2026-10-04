@@ -174,7 +174,7 @@ export const startStubServer = async (options: {
       if (options.refuseRegistration) throw new DomainError(options.refuseRegistration.code, options.refuseRegistration.message, 409);
       if (!("id" in input) || input.executor !== WORKSPACE_EXECUTOR_VERSION) throw new Error(`The workspace brings executor ${input.executor}`);
       if (JSON.stringify(input.contributions) !== JSON.stringify(options.contributions ?? [])) throw new Error("The workspace brings different executor contributions");
-      const { id, executor: _executor, contributions: _contributions, ...description } = input;
+      const { id, executor: _executor, contributions: _contributions, backgroundTasks: _backgroundTasks, ...description } = input;
       workspaceClients.set(id, description);
       workspaceConnections.set(id, connection);
       return { ...description, id };
