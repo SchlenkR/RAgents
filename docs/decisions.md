@@ -1,5 +1,19 @@
 # Decisions
 
+## 2026-10-05: Delete unloaded runs without stopping a session
+
+Chapters: `spec/core.md` (Stop procedure, cleanup, and deletion; Journal and projection),
+`spec/plugins.md` (Ownership per facet); usage: `usage.md` (Switch runs); operations:
+`operations.md` (Data storage and logs).
+
+Workspace, processes, browser, and ACP stop hooks need the journal to select the run's executor.
+An unloaded journal made these hooks fail, left a delete intent behind, and made its retry abort
+startup and shutdown. Such runs now skip stop hooks while every delete hook still gets a chance
+to clean up; only cleanup that reports `journal-unavailable` is inapplicable. The original journal
+and old chat files are archived unchanged. Other failures retain the intent and remaining files,
+show the cause on the locked run, and allow startup and shutdown to finish. Retrying deletion
+does not prepare or open the affected run, and other runs continue normally.
+
 ## 2026-10-04: Export the document store contract to web halves
 
 Chapter: `spec/plugins.md` (document store).

@@ -868,7 +868,10 @@ VS Code do not open them, but offer to delete them. A journal that could not be 
 owner; with sign-in, only someone with `runs.read.all` therefore sees and deletes the run. Every
 other access reports the error `journal-unavailable` (status 409). The files are kept and are not
 automatically migrated, moved, or deleted; only an explicit deletion moves them unchanged into
-the archive. An old journal of the global coordinator does not prevent the server start either;
+the archive. Pending delete intents are retried at startup and shutdown. A failed deletion keeps
+its intent and remaining files, logs the cause, and shows the run as locked; it does not prevent
+server start or shutdown. The run's delete action can retry the cleanup.
+An old journal of the global coordinator does not prevent the server start either;
 its explicitly confirmed conversation reset then starts a new conversation. For other runs, a
 deliberate repair followed by a restart can make the existing storage usable again.
 A completely fresh data set is not required.

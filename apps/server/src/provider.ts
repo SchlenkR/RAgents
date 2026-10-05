@@ -70,6 +70,7 @@ export class RunSessionProvider implements ChatSessionProvider {
   private readonly sessions = new Map<string, RunChatSession>();
   private readonly deleting = new Map<string, DeleteJob>();
   private readonly deleteRequested = new Set<string>();
+  private readonly deleteFailures = new Map<string, JournalLoadFailure>();
   private readonly deleted = new Set<string>();
   private readonly workspaces = new SessionWorkspaces(() => this.plugins.service(sandboxServicesToken));
   private readonly sessionWorkspaces = new Map<string, Promise<SessionWorkspace>>();
@@ -175,10 +176,11 @@ export class RunSessionProvider implements ChatSessionProvider {
         throw new Error(`Archived run ${id} has active data again`);
       }
     }
-    for (const id of pendingDeletes) await this.beginDelete(id).done;
+    for (const id of pendingDeletes) await this.beginDelete(id).done.catch(() => undefined);
     this.requireReadMarkers().forgetRuns(this.deleted);
     // A coordinator without a current access (the former shared one, a removed user) stays untouched.
-    const runIds = this.engine.journal.runIds().filter((runId) => !globalChat?.isCoordinator(runId) || this.coordinatorUser(runId) !== undefined);
+    const runIds = this.engine.journal.runIds().filter((runId) => !this.deleteRequested.has(runId)
+      && (!globalChat?.isCoordinator(runId) || this.coordinatorUser(runId) !== undefined));
     await Promise.all(runIds.map((runId) => this.sessionWorkspace(runId, () => {})));
     for (const runId of runIds) this.openSession(runId);
     this.engine.start();
@@ -362,7 +364,10 @@ export class RunSessionProvider implements ChatSessionProvider {
     const locked = engine.journal.unavailableRuns()
       .filter(({ runId }) => !isCoordinator(runId) && !this.deleteRequested.has(runId) && !this.deleted.has(runId) && visible(runId))
       .map((failure) => lockedSession(failure, engine.journal));
-    const infos = [...described.filter((info): info is ListedSession => info !== undefined), ...locked];
+    const failedDeletes = [...this.deleteFailures.values()]
+      .filter(({ runId }) => !isCoordinator(runId) && visible(runId))
+      .map((failure) => lockedSession(failure, engine.journal));
+    const infos = [...described.filter((info): info is ListedSession => info !== undefined), ...locked, ...failedDeletes];
     for (const [id, session] of this.sessions) {
       if (isCoordinator(id) || !visible(id)) continue;
       if (this.deleteRequested.has(id) || this.deleted.has(id)) continue;
@@ -577,6 +582,8 @@ export class RunSessionProvider implements ChatSessionProvider {
     if (this.globalResetsRequested.has(id)) {
       throw new DomainError("conversation-resetting", "The global conversation is being reset. Please wait a moment or repeat the reset after an error.", 409);
     }
+    const deleteFailure = this.deleteFailures.get(id);
+    if (deleteFailure) throw new DomainError("run-delete-failed", deleteFailure.message, 409);
     if (this.deleteRequested.has(id)) throw new DomainError("run-deleting", "The run is being deleted", 409);
     if (this.deleted.has(id)) throw new DomainError("run-deleted", "The run was deleted", 410);
     this.engine?.journal.assertRunAvailable(id);
@@ -822,6 +829,7 @@ export class RunSessionProvider implements ChatSessionProvider {
     const existing = this.deleting.get(id);
     if (existing) return existing;
     this.deleteRequested.add(id);
+    this.deleteFailures.delete(id);
     this.runPreparations.get(id)?.controller.abort();
     const accepted = this.persistDeleteIntent(id)
       .then(() => this.notifyList())
@@ -831,13 +839,27 @@ export class RunSessionProvider implements ChatSessionProvider {
       });
     const done = accepted
       .then(() => this.deleteInner(id))
+      .catch(async (error: unknown) => {
+        if (this.deleteRequested.has(id)) {
+          const failure = this.engine?.journal.stateOf(id)
+            ? await this.engine.scheduler.stopRun(id).then(() => error, (stopError: unknown) => new AggregateError([error, stopError]))
+            : error;
+          this.deleteFailures.set(id, {
+            runId: id,
+            path: path.join(layout.runsDir, id, "journal.jsonl"),
+            message: `Deletion of run ${id} failed: ${deleteFailureMessage(failure)}`,
+          });
+          console.warn(`Delete job for ${id} failed:`, failure);
+        }
+        throw error;
+      })
       .finally(() => {
         if (this.deleting.get(id) === job) this.deleting.delete(id);
         this.notifyList();
       });
     const job = { accepted, done };
     this.deleting.set(id, job);
-    done.catch((error: unknown) => { if (this.deleteRequested.has(id)) console.warn(`Delete job for ${id} failed:`, error); });
+    void done.catch(() => undefined);
     return job;
   }
 
@@ -886,7 +908,7 @@ export class RunSessionProvider implements ChatSessionProvider {
       )),
     ]);
     results.push(...resetResults);
-    results.push(...await Promise.allSettled([...this.deleteRequested].map((id) => this.beginDelete(id).done)));
+    await Promise.allSettled([...this.deleteRequested].map((id) => this.beginDelete(id).done));
     results.push(...await Promise.allSettled([
       this.engine ? this.engine.shutdown() : this.plugins.lifecycle.shutdown(),
       this.readMarkers?.flush(),
@@ -903,10 +925,11 @@ export class RunSessionProvider implements ChatSessionProvider {
     const session = this.sessions.get(id);
     const workspace = this.sessionWorkspaces.get(id);
     session?.dispose();
+    const journalUnavailable = engine.journal.failureOf(id) !== null && engine.journal.stateOf(id) === null;
     const stopped = await Promise.allSettled([
       session?.drain() ?? Promise.resolve(),
-      engine.scheduler.stopRun(id),
-      this.plugins.lifecycle.stopSession(id),
+      journalUnavailable ? Promise.resolve() : engine.scheduler.stopRun(id),
+      journalUnavailable ? Promise.resolve() : this.plugins.lifecycle.stopSession(id),
       workspace ?? Promise.resolve(),
     ]);
     const failures = stopped
@@ -914,7 +937,7 @@ export class RunSessionProvider implements ChatSessionProvider {
       .filter((result): result is PromiseRejectedResult => result.status === "rejected")
       .map((result) => result.reason);
     if (failures.length > 0) throw new AggregateError(failures, `Run ${id} could not be stopped`);
-    await this.plugins.lifecycle.deleteSession(id);
+    await this.plugins.lifecycle.deleteSession(id, { journalUnavailable });
     await this.archiveSession(id);
     this.engine?.runtime.forgetRun(id);
     this.sessions.delete(id);
@@ -923,22 +946,22 @@ export class RunSessionProvider implements ChatSessionProvider {
     await rm(layout.deleteIntentFile(id), { force: true });
     await this.syncDirectory(layout.deleteIntentsDir);
     this.deleteRequested.delete(id);
+    this.deleteFailures.delete(id);
     this.deleted.add(id);
     this.requireReadMarkers().forgetRuns(new Set([id]));
   }
 
   private async loadDeleteIntents(): Promise<string[]> {
     const entries = await readdir(layout.deleteIntentsDir, { withFileTypes: true });
-    const ids = entries
+    const candidates = entries
       .filter((entry) => entry.isFile() && entry.name.endsWith(".json"))
       .map((entry) => entry.name.slice(0, -5));
 
-    for (const id of ids) {
-      if (!isRunId(id)) throw new Error(`Invalid delete intent: ${id}`);
-      await this.validateDeleteIntent(id);
-    }
-
-    return ids;
+    return candidates.filter((id) => {
+      if (isRunId(id)) return true;
+      console.warn(`Invalid delete intent: ${id}; its file is preserved.`);
+      return false;
+    });
   }
 
   private async loadArchivedRunIds(): Promise<string[]> {
@@ -1055,6 +1078,10 @@ export class RunSessionProvider implements ChatSessionProvider {
     await this.syncDirectory(layout.runsDir);
   }
 }
+
+const deleteFailureMessage = (error: unknown): string => error instanceof AggregateError
+  ? [...new Set(error.errors.map(deleteFailureMessage))].join("; ")
+  : error instanceof Error ? error.message : String(error);
 
 /** A locked run without plugin metadata and workspace; without loaded state, the journal file counts. */
 const lockedSession = (failure: JournalLoadFailure, journal: Journal): ListedSession => {

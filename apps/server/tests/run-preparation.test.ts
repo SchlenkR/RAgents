@@ -292,7 +292,7 @@ const providerFixture = async (t: TestContext) => {
   const { runtime, streamSimple } = runtimeFixture(t, async () => { started.resolve(); return response.promise; });
   const provider = Object.create(RunSessionProvider.prototype) as InstanceType<typeof RunSessionProvider>;
   const preparations = new Map<string, { controller: AbortController; done: Promise<unknown> }>();
-  Object.assign(provider, { sessions: new Map([["draft", session]]), runPreparations: preparations, deleted: new Set(), deleteRequested: new Set(),
+  Object.assign(provider, { sessions: new Map([["draft", session]]), runPreparations: preparations, deleted: new Set(), deleteRequested: new Set(), deleteFailures: new Map(),
     deleting: new Map(), plugins: { optionalService: () => ({ preparationPrompt, isCoordinator: () => false }) }, engine, modelRuntime: Promise.resolve(runtime),
     titleCompactor: { shutdown: async () => {}, cancel: async () => {} }, listListeners: new Set(), sessionWorkspaces: new Map(),
     globalResets: new Map(), globalResetsRequested: new Set() });
@@ -352,7 +352,7 @@ test("provider describes only visible runs, in parallel, and a silent or failing
   Object.assign(provider, {
     engine,
     sessions: new Map(),
-    deleteRequested: new Set(), deleted: new Set(),
+    deleteRequested: new Set(), deleted: new Set(), deleteFailures: new Map(),
     plugins: { optionalService: () => undefined, service: () => ({ coordinator: { runTitle: "New" } }), sessionMetadata: metadata },
     readMarkers: await RunReadMarkers.load(path.join(directory, "run-read-markers.json")),
   });
@@ -382,7 +382,7 @@ test("provider lists the current journal revision and leaves preparing runs with
   Object.assign(provider, {
     engine,
     sessions: new Map([["preparing", { started: true, running: true }]]),
-    deleteRequested: new Set(), deleted: new Set(),
+    deleteRequested: new Set(), deleted: new Set(), deleteFailures: new Map(),
     plugins: {
       optionalService: () => undefined,
       service: () => ({ coordinator: { runTitle: "New" } }),

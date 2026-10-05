@@ -836,13 +836,18 @@ export class LifecycleContributionRegistry {
     return operation.bounded;
   }
 
-  async deleteSession(runId: string): Promise<void> {
+  async deleteSession(runId: string, options: { journalUnavailable?: boolean } = {}): Promise<void> {
     const pendingStops = [...this.#stopAttempts.entries()]
       .filter(([key]) => key.startsWith(`${runId}\0`))
       .map(([, attempt]) => attempt.settled);
     await Promise.allSettled(pendingStops);
     await this.#settle("Plugin deletion", [...this.#lifecycle.entries()].reverse()
-      .map(({ value }) => () => value.deleteSession?.({ runId })));
+      .map(({ value }) => async () => {
+        try { await value.deleteSession?.({ runId }); }
+        catch (error) {
+          if (!options.journalUnavailable || !(error instanceof DomainError) || error.code !== "journal-unavailable") throw error;
+        }
+      }));
     this.#releaseStopAttempts(runId);
   }
 

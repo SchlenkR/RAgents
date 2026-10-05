@@ -11,6 +11,7 @@ import {
     StartOptionContributionRegistry,
 } from "../src/plugin-host.ts";
 import { canonicalHash } from "../src/runtime/canonical-hash.ts";
+import { DomainError } from "../src/runtime/domain-error.ts";
 
 const operationContext = (
     kind: "agent" | "operator",
@@ -407,6 +408,34 @@ test("session deletion settles every plugin after a failure", async () => {
 
     await assert.rejects(lifecycle.deleteSession("run-1"), /Plugin deletion failed in 1 plugin/);
     assert.deepEqual(calls, ["second", "first"]);
+});
+
+test("deletion of an unavailable journal skips only cleanup that requires its state", async () => {
+    const calls: string[] = [];
+    const lifecycle = new LifecycleContributionRegistry();
+    const unavailable = new DomainError("journal-unavailable", "The journal is damaged", 409);
+    const storageFailure = new Error("Example storage failed");
+    lifecycle.register("example", [{
+        id: "example.storage",
+        deleteSession: () => { calls.push("storage"); throw storageFailure; },
+    }, {
+        id: "example.state",
+        deleteSession: () => { calls.push("state"); throw unavailable; },
+    }, {
+        id: "example.files",
+        deleteSession: () => { calls.push("files"); },
+    }]);
+    await assert.rejects(lifecycle.deleteSession("run-1", { journalUnavailable: true }), (error: unknown) => {
+        assert.ok(error instanceof AggregateError);
+        assert.deepEqual(error.errors, [storageFailure]);
+        return true;
+    });
+    assert.deepEqual(calls, ["files", "state", "storage"]);
+    await assert.rejects(lifecycle.deleteSession("run-1"), (error: unknown) => {
+        assert.ok(error instanceof AggregateError);
+        assert.deepEqual(error.errors, [unavailable, storageFailure]);
+        return true;
+    });
 });
 
 test("start options validate their contribution, defaults and accepted values against the schema", () => {

@@ -58,7 +58,7 @@ const fixture = async (register?: (metadata: SessionMetadataContributionRegistry
   Object.assign(provider, {
     engine: { journal, runtime, live: new LiveBus(), scheduler: { isRunning: () => false } } as unknown as Engine,
     sessions: new Map(),
-    deleteRequested: new Set(), deleted: new Set(), globalResetsRequested: new Set(),
+    deleteRequested: new Set(), deleted: new Set(), deleteFailures: new Map(), globalResetsRequested: new Set(),
     plugins: { optionalService: () => undefined, service: () => ({ coordinator: { runTitle: "New" } }), sessionMetadata: metadata },
     readMarkers: await RunReadMarkers.load(path.join(directory, `run-read-markers-${markerFiles += 1}.json`)),
     listListeners: new Set(), readMarkerNotices: new Map(),

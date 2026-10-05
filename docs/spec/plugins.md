@@ -550,6 +550,11 @@ repeated after a failure calls it again; whoever may act only once keeps its
 marker in the journal. The global coordinator does not get it. The hook knows no tool; what
 a plugin does with it is its own business.
 
+A run whose journal could not be loaded receives no stop hooks during deletion because it has no
+live session. Every delete hook is still invoked; a `journal-unavailable` error from cleanup that
+requires its state is skipped only for such a run. Other deletion errors remain failures, all
+other hooks still run, and the host keeps the intent and reports the run as locked (`core.md`).
+
 The host reads the three asset folders `skills/`, `run-scripts/`, and `prompts/` by CONVENTION from
 the bundle folder of every composed plugin (`pluginFolder(id)` in
 `plugin-support/plugin-folder.ts`, applied in `profile/compose.ts`). A missing asset folder is not an error; an existing one with broken

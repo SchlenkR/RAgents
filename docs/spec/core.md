@@ -653,10 +653,18 @@ before it repeats the final plugin contributions.
 A run deletion is marked durably before the first irreversible step. With this marker, the delete
 request is answered (`ragents.runs.delete` returns `null`) and the run has disappeared from the
 list; stopping, removing, and archiving continue as a deletion job in the background, and errors
-end up in the server log. If it fails or the host crashes, the next server start finishes this
-deletion before the scheduler is started. The finished archive itself stays the durable tombstone
-of its run ID. A deleted ID is not created again even after a restart, and an archive is never
-overwritten.
+end up in the server log. A run whose journal could not be loaded has no live session: deletion
+skips scheduler and plugin stop hooks, invokes every plugin delete hook, and archives the original
+journal and old chat files unchanged. Delete hooks that require the unavailable journal have
+nothing to clean up; other hook errors still fail the deletion.
+
+If deletion fails, the run reappears as locked with the deletion cause, without metadata or workspace
+access. Its intent and remaining files stay for a retry. The next server start retries pending
+deletions before starting the scheduler; a failed job locks only its run and does not prevent
+other runs or the server from starting. Shutdown also retries pending deletions and reports their
+failures in the log without failing shutdown. The delete action can retry a failed job immediately.
+The finished archive itself stays the durable tombstone of its run ID. A deleted ID is not created
+again even after a restart, and an archive is never overwritten.
 
 Dispose errors must not make the associated resource drop out of management; the cleanup stays
 repeatable. The run deletion itself belongs to the product host, because it additionally manages
@@ -1278,8 +1286,10 @@ runs and the server keep starting. The error contains run ID, file path, and cau
 cause under `locked`, without title generation, plugin metadata, and workspace
 (`workspaceAccessible: false`); web and VS Code do not open them but offer deletion. A journal that
 could not be loaded names no owner; the permission check treats the run like one without an owner,
-so it is visible and deletable with `runs.read.all` or without sign-in. Deletion archives the files
-unchanged and releases the lock. The host also checks persisted plugin contracts before replay; removed host layouts, view
+so it is visible and deletable with `runs.read.all` or without sign-in. Deletion requires no live
+session for an unloaded journal, archives its files unchanged, and releases the lock. A failed
+deletion instead shows its cause in `locked` and keeps its intent for retry without blocking server
+start or shutdown. The host also checks persisted plugin contracts before replay; removed host layouts, view
 placements, layout-function references, and questions of `ragents.ask` in the removed single-question shape (an action with a
 `question` text instead of a `questions` list, open or answered) isolate only the affected run without rewriting files. The same checks refuse such
 records when they are appended or adopted.

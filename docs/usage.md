@@ -61,7 +61,9 @@ On Start and Runs, the trash button ("Delete run ...") next to a run deletes it 
 confirmation that names the run. To delete several, choose "Select" on Runs, check the runs,
 and click "Delete". Deleting runs requires permission and confirmation;
 errors remain visible. Locked runs show the cause and cannot be opened, but can be selected
-for deletion. Each row shows the run's state with the number of open inputs and, below the
+for deletion. If background deletion fails, the run returns as locked with the deletion cause;
+its delete action retries the cleanup. Other runs stay usable.
+Each row shows the run's state with the number of open inputs and, below the
 title, who created it and short details such as a workspace other than the empty folder per run.
 Click anywhere on the row to open the run. A dot in the state icon marks activity you have not
 viewed yet. The read state belongs to your user on the server: a run you viewed in the browser
