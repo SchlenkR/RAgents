@@ -15,7 +15,10 @@
   --primary-foreground: #ffffff;
   --secondary: #e1ddeb;
   --muted-foreground: #574c63;
-  --hover: #e5dfea;
+  --hover: var(--foreground);
+  @supports (color: color-mix(in lab, red, red)) {
+    --hover: color-mix(in srgb, var(--foreground) 7%, transparent);
+  }
   --hover-foreground: #34303d;
   --selected: #dcc6ed;
   --selected-hover: #d8c1ea;
@@ -81,7 +84,10 @@
   --primary-foreground: #2d2235;
   --secondary: #373247;
   --muted-foreground: #c1b3c8;
-  --hover: #383241;
+  --hover: var(--foreground);
+  @supports (color: color-mix(in lab, red, red)) {
+    --hover: color-mix(in srgb, var(--foreground) 9%, transparent);
+  }
   --hover-foreground: #e9e2ed;
   --selected: #4e3b5d;
   --selected-hover: #534062;

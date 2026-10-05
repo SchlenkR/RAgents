@@ -575,8 +575,9 @@ run header it shows only its icon.
 At a workspace width of at least 1000 pixels, the browser places Chat on the left and mini-apps
 on the right, each taking half the space. This also happens when the first app appears later.
 Narrower workspaces use tabs in one area. The default adapts to width until you arrange windows
-yourself; saved custom layouts stay as you left them. Drag a tab to arrange windows, or drag the
-grip at the left of an area's tab strip to move all its windows together.
+yourself; saved custom layouts stay as you left them. The active tab is one filled shape without
+a border that holds its grip, maximize, and close buttons. Drag a tab to arrange windows, or drag
+the grip on the active tab to move all windows of its area together.
 A compass appears over the area under the pointer: its four sides split that area in half,
 and its center merges windows as tabs. Dropping on a tab strip also merges. The four outer
 workspace guides dock along the whole edge. A translucent rectangle previews the result.

@@ -131,8 +131,8 @@ test("browser docking preserves frames and drafts through split, merge, close, m
   assert.equal(await page.locator("section[aria-label=Chat]").count(), 0, "The dock wrapper does not duplicate its content's region label.");
   await page.getByRole("textbox", { name: "Chat draft" }).fill("Unsent chat");
   const chat = await page.getByRole("textbox", { name: "Chat draft" }).elementHandle();
-  const chatWidth = (await box(tab("Chat"))).width;
-  assert.ok(Math.abs(chatWidth - (await box(tab("Notes"))).width) < 1, "tabs share the strip equally");
+  const chatWidth = (await box(tab("Chat").locator(".."))).width;
+  assert.ok(Math.abs(chatWidth - (await box(tab("Notes").locator(".."))).width) < 1, "tabs share the strip equally");
   await tab("Notes").click();
   await page.getByRole("textbox", { name: "App draft" }).fill("Unsent app");
   await page.frameLocator('iframe[title="App frame"]').getByRole("textbox", { name: "Frame draft" }).fill("Inside frame");

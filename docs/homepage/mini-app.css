@@ -1714,6 +1714,9 @@
   .bg-secondary {
     background-color: var(--secondary);
   }
+  .bg-selected {
+    background-color: var(--selected);
+  }
   .bg-shell {
     background-color: var(--shell);
   }
@@ -1800,6 +1803,9 @@
   }
   .px-\(--card-spacing\) {
     padding-inline: var(--card-spacing);
+  }
+  .px-0\.5 {
+    padding-inline: calc(var(--spacing) * 0.5);
   }
   .px-1 {
     padding-inline: var(--spacing);
@@ -2308,6 +2314,9 @@
   }
   .text-secondary-foreground {
     color: var(--foreground);
+  }
+  .text-selected-foreground {
+    color: var(--selected-foreground);
   }
   .text-success {
     color: var(--success);
@@ -2822,10 +2831,6 @@
   .last\:mt-0:last-child {
     margin-top: 0px;
   }
-  .last\:border-r-0:last-child {
-    border-right-style: var(--tw-border-style);
-    border-right-width: 0px;
-  }
   .last\:border-b-0:last-child {
     border-bottom-style: var(--tw-border-style);
     border-bottom-width: 0px;
@@ -2859,8 +2864,17 @@
     .hover\:bg-primary-hover:hover {
       background-color: var(--primary-hover);
     }
+    .hover\:bg-selected-hover:hover {
+      background-color: var(--selected-hover);
+    }
+    .hover\:bg-transparent:hover {
+      background-color: transparent;
+    }
     .hover\:text-destructive:hover {
       color: var(--destructive);
+    }
+    .hover\:text-foreground:hover {
+      color: var(--foreground);
     }
     .hover\:text-hover-foreground:hover {
       color: var(--hover-foreground);
@@ -3857,11 +3871,18 @@
     border-style: var(--tw-border-style);
     border-width: 1px;
   }
+  .selected\:border-0:is([aria-pressed="true"], [aria-selected="true"], [aria-current="page"], [aria-current="true"], [aria-expanded="true"], [data-state="on"], [data-state="active"], [data-state="selected"], [data-active]:not([data-active="false"]), [data-selected]:not([data-selected="false"]), [data-checked]:not([data-checked="false"])) {
+    border-style: var(--tw-border-style);
+    border-width: 0px;
+  }
   .selected\:border-selected-border:is([aria-pressed="true"], [aria-selected="true"], [aria-current="page"], [aria-current="true"], [aria-expanded="true"], [data-state="on"], [data-state="active"], [data-state="selected"], [data-active]:not([data-active="false"]), [data-selected]:not([data-selected="false"]), [data-checked]:not([data-checked="false"])) {
     border-color: var(--selected-border);
   }
   .selected\:bg-selected:is([aria-pressed="true"], [aria-selected="true"], [aria-current="page"], [aria-current="true"], [aria-expanded="true"], [data-state="on"], [data-state="active"], [data-state="selected"], [data-active]:not([data-active="false"]), [data-selected]:not([data-selected="false"]), [data-checked]:not([data-checked="false"])) {
     background-color: var(--selected);
+  }
+  .selected\:bg-transparent:is([aria-pressed="true"], [aria-selected="true"], [aria-current="page"], [aria-current="true"], [aria-expanded="true"], [data-state="on"], [data-state="active"], [data-state="selected"], [data-active]:not([data-active="false"]), [data-selected]:not([data-selected="false"]), [data-checked]:not([data-checked="false"])) {
+    background-color: transparent;
   }
   .selected\:text-selected-foreground:is([aria-pressed="true"], [aria-selected="true"], [aria-current="page"], [aria-current="true"], [aria-expanded="true"], [data-state="on"], [data-state="active"], [data-state="selected"], [data-active]:not([data-active="false"]), [data-selected]:not([data-selected="false"]), [data-checked]:not([data-checked="false"])) {
     color: var(--selected-foreground);
@@ -3872,6 +3893,9 @@
   @media (hover: hover) {
     .selected\:hover\:bg-selected-hover:is([aria-pressed="true"], [aria-selected="true"], [aria-current="page"], [aria-current="true"], [aria-expanded="true"], [data-state="on"], [data-state="active"], [data-state="selected"], [data-active]:not([data-active="false"]), [data-selected]:not([data-selected="false"]), [data-checked]:not([data-checked="false"])):hover {
       background-color: var(--selected-hover);
+    }
+    .selected\:hover\:bg-transparent:is([aria-pressed="true"], [aria-selected="true"], [aria-current="page"], [aria-current="true"], [aria-expanded="true"], [data-state="on"], [data-state="active"], [data-state="selected"], [data-active]:not([data-active="false"]), [data-selected]:not([data-selected="false"]), [data-checked]:not([data-checked="false"])):hover {
+      background-color: transparent;
     }
     .selected\:hover\:text-selected-foreground:is([aria-pressed="true"], [aria-selected="true"], [aria-current="page"], [aria-current="true"], [aria-expanded="true"], [data-state="on"], [data-state="active"], [data-state="selected"], [data-active]:not([data-active="false"]), [data-selected]:not([data-selected="false"]), [data-checked]:not([data-checked="false"])):hover {
       color: var(--selected-foreground);
@@ -4289,7 +4313,10 @@
   --primary-foreground: #ffffff;
   --secondary: #e1ddeb;
   --muted-foreground: #574c63;
-  --hover: #e5dfea;
+  --hover: var(--foreground);
+  @supports (color: color-mix(in lab, red, red)) {
+    --hover: color-mix(in srgb, var(--foreground) 7%, transparent);
+  }
   --hover-foreground: #34303d;
   --selected: #dcc6ed;
   --selected-hover: #d8c1ea;
@@ -4355,7 +4382,10 @@
   --primary-foreground: #2d2235;
   --secondary: #373247;
   --muted-foreground: #c1b3c8;
-  --hover: #383241;
+  --hover: var(--foreground);
+  @supports (color: color-mix(in lab, red, red)) {
+    --hover: color-mix(in srgb, var(--foreground) 9%, transparent);
+  }
   --hover-foreground: #e9e2ed;
   --selected: #4e3b5d;
   --selected-hover: #534062;

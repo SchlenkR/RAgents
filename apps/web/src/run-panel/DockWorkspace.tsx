@@ -13,8 +13,9 @@ import { DockWindowActions } from "./DockWindowActions";
 export { DockWindowActions } from "./DockWindowActions";
 
 export const DockToolsContext = createContext<{ tabs: readonly WorkspaceTabContribution[]; pendingTabIds: readonly string[]; actionsContainer?: HTMLElement | null }>({ tabs: [], pendingTabIds: [] });
-const areaHeaderClass = "absolute z-20 flex min-w-0 items-center rounded-t-lg border-b border-border bg-card";
+const areaHeaderClass = "absolute z-20 flex min-w-0 items-center gap-0.5 rounded-t-lg border-b border-border bg-card px-0.5";
 const cardClass = "pointer-events-none absolute rounded-lg border bg-card";
+const tabClass = "flex min-w-0 flex-1 items-center rounded-md hover:bg-hover";
 const gripClass = "group/grip flex items-center justify-center text-muted-foreground/50 hover:text-muted-foreground focus-visible:text-primary data-[dragging=true]:text-primary";
 const resizeClass = `absolute z-30 touch-none outline-offset-[-2px] focus-visible:outline-2 focus-visible:outline-ring ${gripClass}`;
 function DockGrip({ horizontal = false }: { horizontal?: boolean }) {
@@ -270,18 +271,19 @@ export function DockWorkspace({ apps, chat, chatIcon = <UsersIcon />, navigation
       {geometry.groups.map(({ group, rect }) => <div className="contents" key={group.id}>
         <div aria-hidden data-dock-card={group.id} className={cn(cardClass, "z-0", state.focused === group.id && !state.side.focused ? "border-primary/70" : "border-border")} style={rect} />
         <div aria-label="Area tabs" className={areaHeaderClass} data-dock-group={group.id} role="tablist" style={headerRect(rect)} onFocusCapture={() => { if (state.focused !== group.id || state.side.focused) update((current) => ({ ...current, focused: group.id, side: { ...current.side, focused: false } })); }}>
-          <Button aria-label="Move area" className={cn(gripClass, "flex-none touch-none cursor-grab active:cursor-grabbing")} onPointerDown={(event) => startDrag(event, group.tabs)} size="icon-xs" title="Drag all windows of this area" variant="ghost"><DockGrip /></Button>
-          {group.tabs.map((id, index) => <div className="flex min-w-0 flex-1 items-center border-r border-border last:border-r-0" key={id} role="presentation">
-            <InteractiveItem id={`dock-tab-${encodeURIComponent(id)}`} aria-controls={`dock-panel-${encodeURIComponent(id)}`} aria-label={title(id)} aria-selected={id === group.active} className="flex h-7 min-w-0 flex-1 touch-none cursor-grab items-center gap-1.5 px-2 text-left text-xs text-muted-foreground [&>svg]:size-4 [&>svg]:shrink-0"
+          {group.tabs.map((id) => <div className={cn(tabClass, id === group.active && "bg-selected text-selected-foreground hover:bg-selected-hover")} key={id} role="presentation">
+            {id === (group.active ?? group.tabs[0]) && <Button aria-label="Move area" className={cn(gripClass, "flex-none touch-none cursor-grab hover:bg-transparent active:cursor-grabbing")} onPointerDown={(event) => startDrag(event, group.tabs)} size="icon-xs" title="Drag all windows of this area" variant="ghost"><DockGrip /></Button>}
+            <InteractiveItem id={`dock-tab-${encodeURIComponent(id)}`} aria-controls={`dock-panel-${encodeURIComponent(id)}`} aria-label={title(id)} aria-selected={id === group.active} className="flex h-7 min-w-0 flex-1 touch-none cursor-grab items-center gap-1.5 border-0 px-2 text-left text-xs text-muted-foreground hover:bg-transparent hover:text-foreground selected:border-0 selected:bg-transparent selected:text-selected-foreground selected:hover:bg-transparent [&>svg]:size-4 [&>svg]:shrink-0"
               onClick={(event) => { if (event.detail === 0) select(id); }} onKeyDown={(event) => selectFromKeyboard(event, group, id)}
               onPointerDown={(event) => startDrag(event, [id], () => select(id))} role="tab" tabIndex={id === group.active ? 0 : -1} title={title(id)} type="button">{icon(id)}<span className="truncate">{title(id)}</span></InteractiveItem>
-            {index === group.tabs.length - 1 && <>
+            {id === group.active && <>
               {toolHeader(group.active)}
               {group.active && isToolPanel(group.active) && <Button aria-label={`Return ${title(group.active)} to sidebar`} onClick={() => update((current) => returnDockTool(current, group.active!))} size="icon-xs" title="Return to sidebar" variant="ghost"><PinOffIcon /></Button>}
               {dockGroups(state.root).length > 1 && <Button aria-label={state.maximized === group.id ? "Restore area" : "Maximize area"} onClick={() => update((current) => ({ ...current, automatic: false, maximized: current.maximized === group.id ? null : group.id }))} size="icon-xs" variant="ghost">{state.maximized === group.id ? <MinimizeIcon /> : <MaximizeIcon />}</Button>}
             </>}
             <Button aria-label={`Close ${title(id)}`} className="flex-none" onClick={() => close([id])} size="icon-xs" variant="ghost"><XIcon /></Button>
           </div>)}
+          {group.tabs.length === 0 && <Button aria-label="Move area" className={cn(gripClass, "flex-none touch-none cursor-grab active:cursor-grabbing")} onPointerDown={(event) => startDrag(event, group.tabs)} size="icon-xs" title="Drag all windows of this area" variant="ghost"><DockGrip /></Button>}
           {group.tabs.length === 0 && <span className="min-w-0 flex-1 truncate px-1 text-xs text-muted-foreground">Empty area</span>}
           {group.tabs.length === 0 && dockGroups(state.root).length > 1 && <Button aria-label="Close area" onClick={() => close([], group.id)} size="icon-xs" variant="ghost"><XIcon /></Button>}
         </div>

@@ -1,5 +1,15 @@
 # Decisions
 
+## 2026-10-05: Hover lifts the surface instead of tinting it
+
+Chapters: `spec/plugins.md` (Web as plugin host, UI library), `usage.md` (Run panel docking).
+
+The opaque hover color read as a muddy brown-gray on the bluish cards. Hover is now a
+translucent mix of the foreground over whatever surface lies below, so it lifts background,
+cards, and menus alike without a hue of its own; selection keeps its violet tint and border.
+Dock tabs follow common tab bars: the active tab is a single filled shape without a border that
+holds the area grip, the maximize and close buttons; the strip carries no separators.
+
 ## 2026-10-05: Share readable interaction states and semantic status tones
 
 Chapter: `spec/plugins.md` (Web as plugin host, UI library); usage: `usage.md` (Settings, Start).
