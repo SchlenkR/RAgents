@@ -34,6 +34,7 @@ async function prepare(context: TestContext, search = "") {
     await page.getByRole("tab", { name: "Board", exact: true }).waitFor();
   };
   const page = await browser.newPage({ viewport: { width: 1200, height: 800 } });
+  page.setDefaultTimeout(8000);
   await open(page);
   const actions = page.getByRole("group", { name: "Layout actions" });
   const view = (name: string) => actions.getByRole("button", { name, exact: true });
@@ -279,75 +280,94 @@ test("browser empty panes come from the header, behave like windows, take a drop
   assert.deepEqual(errors, []);
 });
 
-test("a run header too narrow for the window buttons lists every window, Empty space and Reset layout in one menu", options, async (context) => {
-  const { errors, page, actions, view, drop, box, press, moveTo, tab, panel } = await prepare(context, "?header");
-  const menuButton = actions.getByRole("button", { name: /^All windows/ });
-  const menu = page.getByRole("menu", { name: "All windows" });
-  const entries = () => menu.locator('[role^="menuitem"]').evaluateAll((items) => items.map((item) => [item.textContent, item.getAttribute("aria-checked")]));
+test("run header buttons stay direct at every width and count, wrap, and reorder across rows", options, async (context) => {
+  const { errors, page, actions, view, drop, box, press, moveTo, tab, panel, groups, dockOnto } = await prepare(context, "?header");
+  const header = page.locator("header");
   const shown = () => actions.getByRole("button").evaluateAll((buttons) => buttons.map((button) => button.getAttribute("aria-label")));
-  const fitsBeforeAgents = async () => {
-    const group = await box(actions);
-    return group.x + group.width <= (await box(page.getByRole("button", { name: "Agents", exact: true }))).x + 0.5;
+  const order = () => actions.locator("[data-dock-window]").evaluateAll((buttons) => buttons.map((button) => button.getAttribute("aria-label")));
+  const assertFits = async () => {
+    const bounds = await box(header);
+    for (const button of await header.getByRole("button").all()) {
+      assert.equal(await button.isVisible(), true);
+      const rect = await box(button);
+      assert.ok(rect.x >= bounds.x && rect.x + rect.width <= bounds.x + bounds.width + 0.5, "every button fits the header width");
+      assert.ok(rect.y >= bounds.y && rect.y + rect.height <= bounds.y + bounds.height + 0.5, "every button fits the header height");
+      assert.equal(await button.evaluate((element) => {
+        const rect = element.getBoundingClientRect();
+        return element.contains(document.elementFromPoint(rect.left + rect.width / 2, rect.top + rect.height / 2));
+      }), true, "every button is directly reachable");
+    }
+    assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), false, "wrapping never introduces horizontal scroll");
+    for (const card of await page.locator("[data-dock-card]").all()) {
+      const rect = await box(card);
+      assert.ok(rect.y >= bounds.y + bounds.height, "the resized dock starts below the taller header");
+      assert.ok(rect.y + rect.height <= 700.5, "the dock still fits its container height");
+    }
+    assert.equal(await actions.getByRole("button", { name: /^All windows/ }).count(), 0);
   };
 
   await page.waitForFunction(() => document.querySelectorAll("[data-dock-group]").length === 2);
-  assert.deepEqual(await shown(), ["Chat", "Notes", "Board", "Empty space", "Reset layout"], "a wide run header shows every button and no menu");
+  assert.deepEqual(await shown(), ["Chat", "Notes", "Board", "Empty space", "Reset layout"]);
+  const wideHeight = (await box(header)).height;
   await press(view("Board"));
   await moveTo(view("Chat"), 0.25);
   await drop.waitFor();
   await page.mouse.up();
-  assert.deepEqual(await shown(), ["Board", "Chat", "Notes", "Empty space", "Reset layout"], "the buttons in the run header still reorder by drag");
+  assert.deepEqual(await shown(), ["Board", "Chat", "Notes", "Empty space", "Reset layout"], "direct buttons still reorder by drag");
   await page.screenshot({ path: join(shots, "dock-windows-header-wide.png") });
 
-  await page.setViewportSize({ width: 560, height: 800 });
-  await menuButton.waitFor();
-  assert.deepEqual(await shown(), ["All windows, Chat"], "a narrow run header keeps only the menu, named after the focused window");
-  assert.equal(await menuButton.textContent(), "Chat");
-  assert.ok(await fitsBeforeAgents(), "the menu stays clear of the other header actions");
-  await menuButton.click();
-  await menu.waitFor();
-  assert.deepEqual(await entries(), [["Board", "false"], ["Chat", "true"], ["Notes", "false"], ["Empty space", null], ["Reset layout", null]],
-    "the menu lists every window in the saved order with the visible ones checked, then Empty space and Reset layout");
-  await menu.evaluate((element) => Promise.all(element.getAnimations({ subtree: true }).map((animation) => animation.finished)));
-  await page.screenshot({ path: join(shots, "dock-windows-narrow-menu.png") });
-  await menu.getByRole("menuitemcheckbox", { name: "Board", exact: true }).click();
-  await menu.waitFor({ state: "hidden" });
-  assert.equal(await panel("Board").isVisible(), true, "a menu entry shows its window");
-  assert.equal(await menuButton.getAttribute("aria-label"), "All windows, Board");
-
-  await menuButton.click();
-  await menu.getByRole("menuitem", { name: "Empty space", exact: true }).click();
+  for (const width of [560, 320, 200]) {
+    await page.setViewportSize({ width, height: 800 });
+    await page.waitForFunction(() => new Set([...document.querySelectorAll('header button')].map((button) => button.getBoundingClientRect().top)).size > 1);
+    assert.deepEqual(await shown(), ["Board", "Chat", "Notes", "Empty space", "Reset layout"]);
+    assert.ok((await box(header)).height > wideHeight, "the header grows when its controls do not fit one line");
+    await assertFits();
+    if (width <= 320) assert.ok(new Set(await actions.getByRole("button").evaluateAll((buttons) => buttons.map((button) => button.getBoundingClientRect().top))).size > 1, "whole window buttons wrap into multiple rows");
+    await page.screenshot({ path: join(shots, `dock-windows-header-${width}.png`) });
+  }
+  await view("Board").click();
+  assert.equal(await panel("Board").isVisible(), true, "a narrow direct button opens its window");
+  await view("Empty space").click();
   await tab("Empty space").waitFor();
-  assert.equal(await menuButton.getAttribute("aria-label"), "All windows, Empty space", "Empty space in the menu adds an empty pane and focuses it");
-  await menuButton.click();
-  await menu.getByRole("menuitem", { name: "Reset layout", exact: true }).click();
+  await view("Reset layout").click();
   await tab("Empty space").waitFor({ state: "detached" });
-  await menuButton.focus();
-  await page.keyboard.press("Enter");
-  await menu.waitFor();
-  assert.deepEqual((await entries()).map(([name]) => name), ["Chat", "Notes", "Board", "Empty space", "Reset layout"], "Reset layout in the menu restores the order");
-  await page.waitForFunction(() => document.activeElement?.getAttribute("role") === "menuitemcheckbox" && document.activeElement.textContent === "Chat");
-  await page.keyboard.press("ArrowDown");
-  await page.keyboard.press("ArrowDown");
-  await page.keyboard.press("Enter");
-  await menu.waitFor({ state: "hidden" });
-  assert.equal(await panel("Board").isVisible(), true, "the menu works from the keyboard");
+  assert.deepEqual(await shown(), ["Chat", "Notes", "Board", "Empty space", "Reset layout"], "direct reset restores the order");
+
+  assert.ok((await box(view("Board"))).y > (await box(view("Chat"))).y, "the reorder target is on a later row");
+  await press(view("Chat"));
+  await moveTo(view("Board"), 0.75);
+  await drop.waitFor();
+  await page.mouse.up();
+  assert.deepEqual(await order(), ["Notes", "Board", "Chat"], "dragging across rows uses both coordinates");
+  await view("Chat").focus();
+  await page.keyboard.press("Alt+ArrowLeft");
+  await page.waitForFunction(() => document.activeElement?.getAttribute("aria-label") === "Chat");
+  assert.deepEqual(await order(), ["Notes", "Chat", "Board"], "keyboard reorder keeps working across rows");
+  await press(view("Board"));
+  await moveTo(view("Notes"), 0.25);
+  await drop.waitFor();
+  await page.mouse.up();
+  assert.deepEqual(await order(), ["Board", "Notes", "Chat"], "dragging back to an earlier row preserves header order");
 
   await page.setViewportSize({ width: 320, height: 800 });
-  assert.ok(await fitsBeforeAgents(), "the menu also fits the narrowest run header");
-  await page.setViewportSize({ width: 1200, height: 800 });
-  await view("Chat").waitFor();
-  assert.deepEqual(await shown(), ["Chat", "Notes", "Board", "Empty space", "Reset layout"], "widening the header brings the buttons back");
-  assert.ok(await fitsBeforeAgents());
-
-  await page.evaluate(() => window.dockingFixture.setApps(["notes", "board", "plan", "map", "log"]));
-  await menuButton.waitFor();
-  assert.equal(await view("Chat").count(), 0, "more than five windows use the menu at any width");
-  await menuButton.click();
-  await menu.waitFor();
-  assert.deepEqual((await entries()).map(([name]) => name), ["Chat", "Notes", "Board", "Plan", "Map", "Log", "Empty space", "Reset layout"]);
+  await page.getByRole("button", { name: "Close Board", exact: true }).click();
+  await dockOnto(view("Board"), groups.filter({ has: tab("Chat") }), "group-bottom");
+  assert.equal(await panel("Board").isVisible(), true, "a wrapped button still docks onto workspace guides");
+  await assertFits();
+  await page.getByRole("button", { name: "first", exact: true }).click();
+  await page.getByRole("dialog", { name: "Run details", exact: true }).waitFor();
   await page.keyboard.press("Escape");
-  await menu.waitFor({ state: "hidden" });
+
+  await page.setViewportSize({ width: 1200, height: 800 });
+  await view("Reset layout").click();
+  assert.equal((await box(header)).height, wideHeight, "widening restores the single-line height");
+  await page.evaluate(() => window.dockingFixture.setApps(["notes", "board", "plan", "map", "log"]));
+  await view("Log").waitFor();
+  assert.deepEqual(await shown(), ["Chat", "Notes", "Board", "Plan", "Map", "Log", "Empty space", "Reset layout"], "more than five windows remain direct");
+  await assertFits();
+  await page.setViewportSize({ width: 320, height: 800 });
+  await assertFits();
+  assert.deepEqual(await shown(), ["Chat", "Notes", "Board", "Plan", "Map", "Log", "Empty space", "Reset layout"]);
   assert.deepEqual(errors, []);
 });
 
@@ -420,29 +440,24 @@ test("a workspace tab placed as a window is a header window that opens, docks an
   assert.deepEqual(errors, []);
 });
 
-test("a narrow run header lists a window tab with its badge in the All windows menu and marks the menu button", options, async (context) => {
+test("a narrow run header keeps a window tab and its badge directly reachable", options, async (context) => {
   const { errors, page, actions, view, tab, panel } = await prepare(context, "?header&window");
-  const menuButton = actions.getByRole("button", { name: /^All windows/ });
-  const menu = page.getByRole("menu", { name: "All windows" });
 
   await page.waitForFunction(() => document.querySelectorAll("[data-dock-group]").length === 2);
-  assert.equal(await view("Preview").isVisible(), true, "a wide run header shows the window tab as a button");
   await page.getByRole("button", { name: "Close Preview", exact: true }).click();
   await tab("Preview").waitFor({ state: "detached" });
-  await page.setViewportSize({ width: 560, height: 800 });
-  await menuButton.waitFor();
-  assert.equal(await menuButton.locator('[data-slot="badge"]').textContent(), "2 checks", "the menu button carries the badge of a window it holds");
-  await menuButton.click();
-  await menu.waitFor();
-  assert.deepEqual(await menu.locator('[role^="menuitem"]').evaluateAll((items) => items.map((item) => item.textContent)),
-    ["Chat", "Preview2 checks", "Notes", "Board", "Empty space", "Reset layout"], "the menu lists the window tab in the header order with its badge");
-  await menu.evaluate((element) => Promise.all(element.getAnimations({ subtree: true }).map((animation) => animation.finished)));
-  await page.screenshot({ path: join(shots, "dock-windows-window-tab-menu.png") });
-  const entry = menu.getByRole("menuitemcheckbox", { name: /^Preview/ });
-  assert.equal(await entry.getAttribute("aria-checked"), "false");
-  await entry.click();
-  await menu.waitFor({ state: "hidden" });
+  await page.setViewportSize({ width: 320, height: 800 });
+  assert.deepEqual(await actions.getByRole("button").evaluateAll((buttons) => buttons.map((button) => button.getAttribute("aria-label"))),
+    ["Chat", "Preview", "Notes", "Board", "Empty space", "Reset layout"]);
+  const preview = view("Preview");
+  assert.equal(await preview.isVisible(), true);
+  assert.equal(await preview.locator('[data-slot="badge"]').textContent(), "2 checks", "the direct button keeps its badge");
+  assert.equal(await preview.getAttribute("aria-pressed"), "false");
+  await page.screenshot({ path: join(shots, "dock-windows-window-tab-wrapped.png") });
+  await preview.focus();
+  await page.keyboard.press("Enter");
   await tab("Preview").waitFor();
-  assert.equal(await panel("Preview").isVisible(), true, "the menu entry opens the window");
+  assert.equal(await preview.getAttribute("aria-pressed"), "true");
+  assert.equal(await panel("Preview").isVisible(), true, "the direct button opens its window from the keyboard");
   assert.deepEqual(errors, []);
 });

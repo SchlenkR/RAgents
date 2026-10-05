@@ -32,7 +32,7 @@ export function AgentsHeader({ session }: SessionHeaderContext) {
 
   return <>
     <Button aria-controls={open ? panelId : undefined} aria-expanded={open} aria-haspopup="dialog" aria-label="Agents" className="flex-none self-center" onClick={() => setOpen(!open)} ref={buttonRef} size="lg" title="Show the agents of this run" variant="ghost">
-      <NetworkIcon /><span className="hidden @xs/run-header:inline">Agents</span>
+      <NetworkIcon /><span>Agents</span>
     </Button>
     {open && <ActorPopout align="end" buttonRef={buttonRef} closeLabel="Close agents" id={panelId} label="Agents" onClose={close} open role="dialog">
       <ActorGraph actors={actors} onPick={pick} selectedId={selected.id} technical={inspect} view={view} />

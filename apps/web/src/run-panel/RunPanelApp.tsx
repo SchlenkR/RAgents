@@ -28,7 +28,7 @@ import { useSessionList } from "./use-session-list";
 import { viewedReporter } from "./viewed-runs";
 import { BrandLogo } from "../ui/brand-logo";
 
-const headerClass = "relative z-[80] flex h-header flex-none items-stretch border-b border-border bg-shell shadow-bar";
+const headerClass = "relative z-[80] flex min-h-header flex-none flex-wrap items-center border-b border-border bg-shell shadow-bar";
 const connectionClass = "max-w-[120px] self-center truncate rounded-full bg-secondary px-2 py-0.5 type-meta font-semibold text-muted-foreground";
 const pendingTitleClass = "min-w-0 flex-1 self-center truncate px-1.5 type-item";
 const STOP_REASON = "Stopped in the run panel";
@@ -352,10 +352,10 @@ function RunPanelPage({ connection, initialRunId, registry }: { connection: stri
       <Button aria-label="Back to Start" className="self-center" onClick={showStart} size="icon" title="Back to Start" variant="ghost">
         <BrandLogo className="size-6 text-foreground" title={registry.brand.title} />
       </Button>
-      <div className="flex w-[360px] min-w-10 shrink items-center">
+      <div className="flex w-[360px] min-w-10 max-w-full shrink items-center">
         <PanelContributions registry={registry} userLocation={chatUserLocation(runId, false, runLocation)} />
       </div>
-      {hasRunTitle ? <div className="flex min-w-40 flex-1 items-stretch">
+      {hasRunTitle ? <div className="flex min-w-0 max-w-full flex-1 basis-80 items-stretch">
         {launch || draft ? <div aria-label="Run title bar" className="flex min-w-0 flex-1 items-stretch" role="region"><h1 className={pendingTitleClass}>{runTitle ?? NEW_RUN_TITLE}</h1></div>
           : <div aria-label="Run title bar" className="flex min-w-0 flex-1 items-stretch" ref={setHeaderContainer} role="region" />}
       </div> : <div className="flex-1" />}

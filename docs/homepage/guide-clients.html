@@ -196,8 +196,8 @@ locked until the server accepts the start, then the list closes;
 the primary actor stays, every start gets a room of its own with its own participants (<code>name</code>,
 <code>name-2</code>, ...), its main view becomes available as an app, and its output and summary appear in
 the chat as <code>@room.handle: ...</code>. If the start is refused,
-the list stays open and shows why. The same button works in the VS Code run panel; in a narrow
-run header it shows only its icon.</p>
+the list stays open and shows why. The same labeled button works in the VS Code run panel and
+wraps with the other header actions when space is short.</p>
 <p>At a workspace width of at least 1000 pixels, the browser places Chat on the left and mini-apps
 on the right, each taking half the space. This also happens when the first app appears later.
 Narrower workspaces use tabs in one area. The default adapts to width until you arrange windows
@@ -220,26 +220,26 @@ window, and every app as buttons with their existing icons, whether shown or not
 visible window appears pressed.
 Clicking a closed window opens it beside the current area in a wide browser workspace, or as a
 tab when narrow. Clicking a window that waits as a background tab brings that tab to the front.
-Clicking a visible window changes nothing. Labels shorten when the header gets narrower. Where
-the buttons would lose their labels, and always with more than five windows, the header shows one
-&quot;All windows&quot; menu instead of the buttons, &quot;Empty space&quot;, and &quot;Reset layout&quot;. Its button shows the
-icon and name of the window in front in the focused area. The menu lists every window in the
-button order and checks the visible ones; clicking an entry acts like clicking its button. &quot;Empty
-space&quot; and &quot;Reset layout&quot; follow below a separator.
+Clicking a visible window changes nothing. All window buttons, &quot;Empty space&quot;, &quot;Reset layout&quot;,
+bar contributions such as &quot;Agents&quot;, &quot;Share&quot;, &quot;Run script&quot;, and the other header icons remain
+directly available in the browser and VS Code, regardless of width or window count. Whole
+buttons wrap onto further rows when needed, with labels visible within their available width.
+The title can shrink or occupy its own row. The header grows and pushes the workspace down;
+its controls are never clipped, hidden in a window menu, or placed in a horizontal scroll area.
 Each window button has a grip at its left edge, shown on hover or focus and always on touch
-screens. Drag a button sideways within the header to reorder the buttons; a thin line marks
+screens. Drag a button within the header to reorder the buttons across rows; a thin line marks
 where it lands. Drag it into the workspace to get the same compass and edge guides as for a tab:
 the drop opens or moves that window there. A press without movement still counts as a click,
 and Escape cancels the drag. Alt+Left Arrow and Alt+Right Arrow move a focused button. New
-windows join at the end. The entries of the &quot;All windows&quot; menu cannot be dragged.</p>
-<p>After the window buttons, or in the &quot;All windows&quot; menu, &quot;Empty space&quot; is always available.
+windows join at the end.</p>
+<p>After the window buttons, &quot;Empty space&quot; is always directly available.
 Clicking it adds an empty pane beside the current area in a wide workspace, or as a tab when
 narrow; dragging the button places the pane on a docking guide. You can add several. An empty
 pane is a window like any other: move it, split beside it, merge it as a tab, maximize it, or
 close it with X, which removes it. It shows &quot;Drag an app or actor here&quot;. Dropping a header
 button or a tab anywhere on a shown empty pane, or on the compass center labeled &quot;Replace empty
 pane&quot;, puts that window in its place. Empty panes survive reload.</p>
-<p>The &quot;Reset layout&quot; icon after the window buttons, or its entry in the &quot;All windows&quot; menu,
+<p>The &quot;Reset layout&quot; icon after the window buttons and &quot;Empty space&quot;
 restores the automatic layout, the button order, and the inspection rail, and removes empty
 panes. Maximize appears only with multiple areas, at the right end of the area header just
 before the last tab&#39;s X; Restore or Escape returns to the split layout. Tabs support arrow
@@ -267,9 +267,8 @@ drag it back onto the rail or sidebar. A docked tool uses the same tabs, docking
 maximize, and close controls as Chat and apps.</p>
 <p>A plugin can also show its view as a window instead of in the rail. Its button then sits with the
 window buttons in the run header, and the view appears, moves, splits, and closes like an app; it
-never appears in the rail and has no return-to-sidebar button. A small blue dot on its button, on
-its entry in the &quot;All windows&quot; menu, or on the &quot;All windows&quot; button itself means the view has
-content or new activity.</p>
+never appears in the rail and has no return-to-sidebar button. A small blue dot on its directly
+available header button means the view has content or new activity.</p>
 <p>The browser remembers areas, sizes, active tabs, closed windows, empty panes, the header button
 order, and sidebar settings for each server and run. New apps appear without taking focus;
 unavailable apps disappear. Chat drafts, app input, and visited tool state survive tab switches,
@@ -309,8 +308,8 @@ closes. All actors permitted by your access rights are available, including stop
 TypeScript actors require inspection rights.</p>
 <p>&quot;Agents&quot; in the run header opens the same graph with the title &quot;Agents&quot; as soon as the run has an
 actor besides you; it grows down to the bottom of the window and pans the same way. Clicking an
-actor there also makes it the chat&#39;s addressee. In a narrow run header the button shows only its
-icon.</p>
+actor there also makes it the chat&#39;s addressee. Its labeled button wraps with the other header
+actions when space is short.</p>
 <p>The extension lives under <code>apps/vscode</code>. All configured <strong>servers</strong> can remain connected at the
 same time, while one selected <strong>environment</strong> supplies the visible Start page, Runs, templates,
 and plugin interface. A server in the <code>ragents.connections</code> setting is
@@ -386,9 +385,10 @@ The gear opens connection and profile management for all configured environments
 including on ultrawide displays. The outer header remains full width. All three pages begin their
 content at the same distance below the header, and on Start each section label stands well apart
 from the section above it. In both hosts, logo, global coordinator button, Settings, and Help share
-one header row. The logo leads back to Start there, so the run header has no back arrow of its
+the header. The logo leads back to Start there, so the run header has no back arrow of its
 own; Runs keeps its back arrow (&quot;Back to Start&quot;) next to its title in the browser as in VS Code. An open run places its layout actions in the run header, without a separate
-toolbar row. VS Code keeps its single run header and editor tabs.</p>
+toolbar row. The run header wraps onto further rows when needed in either host; VS Code keeps
+its app editor tabs.</p>
 <p><strong>Start</strong> arranges template cards in several columns when space allows, up to five at the
 maximum content width, and one in narrow panels. Cards stay between 240 and 320 pixels wide,
 shrinking only when the panel is narrower.
@@ -512,7 +512,7 @@ every other user of the profile, each row with the switch &quot;Off&quot;, &quot
 user gets the higher of &quot;Everyone&quot; and their own row. &quot;Save&quot; stays disabled until something changes
 and while saving; when the server refuses, the reason appears in the dialog, which keeps your
 changes. &quot;Cancel&quot; or Escape closes it without saving. The dialog is the same in the browser and in
-VS Code; in a narrow run header the button shows only its icon.</p>
+VS Code; the labeled header button wraps with the other actions when space is short.</p>
 <p>&quot;Can view&quot; shows the run, its chat, apps, and journal as far as your own permissions go, but
 operates nothing: the run header shows &quot;View only&quot;, the chat input is disabled with &quot;Shared with
 you for viewing only&quot;, and &quot;Stop run&quot;, &quot;Run script&quot;, answers to questions, and app actions are

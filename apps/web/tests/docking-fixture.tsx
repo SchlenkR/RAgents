@@ -16,8 +16,8 @@ const withHeader = new URLSearchParams(location.search).has("header");
 const withWindowTab = new URLSearchParams(location.search).has("window");
 const registry = new PluginRegistry({ brand: { title: "Example" }, product: { id: "example", title: "Example" }, plugins: [{ id: "example" }], startEntries: [] });
 const headers: readonly SessionHeaderContribution[] = [{ id: "example.agents", placement: "bar", order: 0, Header: () => <Button aria-label="Agents" className="flex-none self-center" size="lg" variant="ghost">
-  <NetworkIcon /><span className="hidden @xs/run-header:inline">Agents</span>
-</Button> }];
+  <NetworkIcon /><span>Agents</span>
+</Button> }, { id: "example.details", order: 1, Header: () => <p className="p-2">Run metadata</p> }];
 const mounts: Record<string, number> = {};
 function App() {
   useEffect(() => { mounts.notes = (mounts.notes ?? 0) + 1; }, []);
@@ -44,7 +44,7 @@ function Run({ run, appIds }: { run: string; appIds: readonly string[] }) {
   useEffect(() => { window.dockingFixture.openTab = navigation.openTab; });
   const workspace = <DockToolsContext.Provider value={{ tabs: tools, pendingTabIds: [], actionsContainer: withHeader ? actions : undefined }}><DockWorkspace apps={apps} chat={<textarea aria-label="Chat draft" className="h-full" />} navigation={navigation} session={session} /></DockToolsContext.Provider>;
   return withHeader ? <div className="flex min-w-0 flex-1 flex-col">
-    <header className="flex h-header flex-none items-stretch border-b border-border bg-shell px-2">
+    <header className="flex min-h-header flex-none items-center border-b border-border bg-shell px-2">
       <RunPanelHeader actionsRef={setActions} attention={undefined} contributions={headers} navigation={navigation} registry={registry} runError={undefined} session={session} working={false} />
     </header>
     {workspace}

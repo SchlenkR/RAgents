@@ -1,5 +1,16 @@
 # Decisions
 
+## 2026-10-05: Keep every run header action directly reachable
+
+Chapter: `spec/plugins.md` (Web as plugin host, Run panel); usage: `usage.md`
+(Use chat and mini-apps, Run panel and VS Code extension).
+
+The owner needs window buttons and run controls available at all times, including narrow
+VS Code panels and runs with many windows. The header no longer replaces them with an
+"All windows" menu: whole buttons wrap, and the header grows above the dock workspace in
+both hosts. Bar contributions, extra/reset actions, and the remaining icons stay direct;
+the run details popover still opens from the title. Header dragging follows button rows,
+keyboard reordering stays available, and activity badges stay on their window buttons.
 ## 2026-10-05: Hover lifts the surface instead of tinting it
 
 Chapters: `spec/plugins.md` (Web as plugin host, UI library), `usage.md` (Run panel docking).

@@ -131,7 +131,7 @@ export function DockWorkspace({ apps, chat, chatIcon = <UsersIcon />, navigation
     if (!group || !containsPoint(group.getBoundingClientRect(), point)) return undefined;
     const slot = [...group.querySelectorAll<HTMLElement>("[data-dock-window]")].filter((button) => {
       const rect = button.getBoundingClientRect();
-      return rect.left + rect.width / 2 < point.x;
+      return rect.bottom <= point.y || (rect.top <= point.y && rect.left + rect.width / 2 < point.x);
     }).length;
     const from = windows.indexOf(id);
     return from < 0 || slot === from || slot === from + 1 ? null : slot;
@@ -247,10 +247,8 @@ export function DockWorkspace({ apps, chat, chatIcon = <UsersIcon />, navigation
     (strip?.querySelectorAll<HTMLElement>('[role="tab"]')[next])?.focus();
   };
 
-  const focused = focusedDockWindow(state);
   const reveal = (id: string) => update((current) => id === EMPTY_PANE_ENTRY ? addDockEmptyPane(current, emptyPanelId(newId()), undefined, splitApps, newId) : revealDockPanel(current, id, splitApps, newId));
   const actions = <DockWindowActions
-    active={focused ? { id: focused, title: title(focused), icon: icon(focused) } : undefined}
     dragging={drag?.header ? drag.ids[0] : undefined}
     dropIndex={drag?.slot ?? undefined}
     extra={{ id: EMPTY_PANE_ENTRY, title: EMPTY_PANE_TITLE, icon: icon(EMPTY_PANE_ENTRY), hint: "Add an empty pane" }}

@@ -1565,34 +1565,24 @@ actions" group, whether shown or not; a visible view's button is pressed (`aria-
 `revealDockPanel` decides the click: a closed view opens beside the focused area in wide browser
 workspaces or as a tab in narrow ones; a background tab or the active tab of an area hidden by
 another maximized area is selected and its area focused; an already visible view changes nothing.
-Labels truncate when space is short. The group shows either its direct entries or one "All
-windows" `DropdownMenu`, never both; nothing is measured. More than five views always use the
-menu. Otherwise container queries on `@container/run-header` decide by the number of direct
-entries (views plus `extra`): for one to six entries, a run header narrower than `@md`, `@lg`,
-`@xl`, `@2xl`, `@3xl`, or `@4xl` (28 to 56rem) would leave the buttons without labels beside the
-other header actions, so the buttons, "Empty space", and "Reset layout" are hidden and the menu
-button is shown. Outside a run header the width rule never applies. The menu button shows the
-icon and title of `focusedDockWindow` (`dock-state.ts`: the active tab of the focused area, an
-empty pane or a docked tool included) and is named "All windows, <title>", without one just "All
-windows". The menu lists the views in header order as checkbox items, checked while visible
-(plain items where the caller passes no visible state), then after a separator "Empty space" and
-"Reset layout"; an entry runs the same action as its button and closes the menu.
-VS Code uses the same app buttons and menu to open editor tabs, without a pressed state, grips,
-dragging, or the width rule. In the browser, each direct view button carries a small `GripVerticalIcon` inside its
+Every view button and the extra and reset actions remain directly available regardless of width
+or window count. Whole buttons wrap to further rows with flex layout; the run header grows with
+them instead of hiding actions or scrolling horizontally. Labels remain visible within the
+available button width. VS Code uses the same wrapping app buttons to open editor tabs, without
+a pressed state, grips, or dragging. In the browser, each view button carries a small `GripVerticalIcon` inside its
 existing left padding (`data-dock-window-grip`), so buttons keep their width; it is transparent
 until the button is hovered, focused, or dragged and always visible under `pointer: coarse`. The whole button is the drag source through the dock's
 pointer capture: a press that moves less than 6 px stays a click and calls `revealDockPanel`; a
-longer drag inside the "Layout actions" group inserts the view before the button whose center lies
-right of the pointer (a 2 px primary line marks the slot; no line and no change where the order
+longer drag inside the "Layout actions" group inserts the view at the pointer's row and horizontal
+position (a 2 px primary line marks the slot; no line and no change where the order
 would stay), and anywhere else it uses the same compass, edge guides, previews, and
 `moveDockPanels` as a tab drag, so the drop opens a closed view or moves an open one. Escape
 cancels. Alt+ArrowLeft and Alt+ArrowRight move a focused button by one place and keep its focus.
 The header slot compares client coordinates with the buttons' client rectangles, so the page zoom
-cancels out there. Menu entries are not draggable and follow the same order.
+cancels out there.
 
 After the views, the browser always offers "Empty space" (`extra` of `DockWindowActions`,
-`SquareDashedIcon`, no pressed state, not part of `order` or the five-view count), as a direct
-entry or in the menu.
+`SquareDashedIcon`, no pressed state, not part of `order`), as a direct button.
 Its click adds an empty pane through `addDockEmptyPane` the same way `revealDockPanel` opens a
 closed view; its drag drops a new pane on a docking guide, and a drop inside the header changes
 nothing. Empty panes are panels with the ID `empty:<uuid>`, titled "Empty space": they live only
@@ -1601,8 +1591,8 @@ and closing one removes it. Their content is the hint "Drag an app or actor here
 (header button, tab, area grip, or rail tool) on an area whose active tab is an empty pane replaces
 that pane in place; for such an area the whole content is a center target and the compass center
 reads "Replace empty pane". A background empty pane is merged beside like any tab.
-"Reset layout" uses the standard header icon button directly after the views, or the last menu
-entry, and restores the automatic layout, the button order, and the inspection rail, and removes
+"Reset layout" uses the standard header icon button directly after the views and extra actions,
+and restores the automatic layout, the button order, and the inspection rail, and removes
 empty panes. Arrow keys, Home, and End select tabs; focused dividers resize with arrow keys.
 
 A workspace tab with `placement: "window"` is the same contribution in another place: in the browser
@@ -1611,10 +1601,9 @@ it is a view like an app, never a rail tool. Its panel has the ID `tab:<tab id>`
 `known`, `closed`, and `order`, never in `bar`. The catalog order is Chat, window tabs in tab order,
 then apps, so apps that arrive later still join at the end. Such a tab joins the layout like a new
 app (the automatic wide layout puts it into the app area; Reset layout opens it again), and its
-header button shows its `Icon` and `label` with grip, reordering, and menu entry like any view.
+header button shows its `Icon` and `label` with grip and reordering like any view.
 Its `Badge` or pending activity is drawn as the same `bg-info` dot inside `BadgeDisplayProvider
-value="dot"` at the top right of its header button, at the end of its menu entry, and on the "All
-windows" button, which collects the dots of all views it holds. Its `Header` renders in the area
+value="dot"` at the top right of its directly available header button. Its `Header` renders in the area
 header while it is the area's active tab, and its `Panel` receives `active` while it is visible. It
 has no return-to-sidebar button, and the rail is no drop target for it. `SessionNavigation.openTab`
 selects it in its area or opens a closed one as the active tab of the focused area
@@ -2337,8 +2326,9 @@ start dialogs ignore late send responses, so that these cannot close a newly ope
 
 The shared header contains the brand on Start, or Back and the active run title. In VS Code,
 the pill shows the selected server's name on every page, with the tooltip `Environment <name>`. The global
-coordinator stays mounted beside it across navigation. Run layout actions share the title row;
-run details and plugin header contributions open from the title. Status, Stop, and the menu
+coordinator stays mounted beside it across navigation. Run layout actions share the run header
+and wrap when needed; run details and plugin header contributions without bar placement open
+from the title. Status, Stop, and the menu
 remain on the right. Installed tool shortcuts do not appear here.
 The activity display reads running tool calls of all actors from the `toolCalls` of the
 projected turns. Subagent tools carry the name of their actor; the identity of a
@@ -2650,10 +2640,14 @@ Its tab remains stored under `ragents.run-panel.workspace-tab:<runId>`; unavaila
 closed until available. The browser instead uses the docking state described above. The
 `app` layout never has an inspection rail in either host. The chat reports the active inspection
 tab through the existing navigation and user-location contract.
-The run panel's header is one row (`RunPanelHeader`): title, a pulsing dot
-during processing, the attention badge, and a chevron; a click on the title
-opens the plugins' header contributions, the run metadata, and the start options as a
-popover. With `runs.write`, "Run script" (`RunScriptMenu`) follows the layout actions behind a
+The run panel's header (`RunPanelHeader`) grows to fit its controls in both browser and VS Code.
+The title shrinks within its row or moves to its own row; window buttons, bar contributions,
+Share, Run script, and the remaining header icons wrap as whole controls and stay directly
+reachable without clipping or horizontal scrolling. The header occupies its natural height in
+the panel layout, so the dock's measured workspace begins below it. The title shows a pulsing
+dot during processing, the attention badge, and a chevron; a click opens the plugins' header
+contributions without bar placement, the run metadata, and the start options as a popover.
+With `runs.write`, "Run script" (`RunScriptMenu`) follows the layout actions behind a
 thin divider: an outline button in the primary color whose pop-out lists the run scripts from
 `ragents.runs.scripts` as the Start page's compact `StartTile` items filling their grid cells,
 with title, two lines of description, and a play icon at the top right. Available ones come
@@ -2662,12 +2656,12 @@ The pop-out is anchored to the shared header: it opens below it, ends 8 pixels b
 edge, and is `min(800px, header width - 16px)` wide, with two columns from a content width of 480
 pixels. A click starts the script through `ragents.runs.startScript`; until the answer its item
 is `starting` ("Starting ..." with a spinner in the action position) and every other item is
-locked, success closes the pop-out, a refusal stays visible in it. In a run header narrower
-than 20rem the button shows only its icon.
+locked, success closes the pop-out, a refusal stays visible in it. Its label stays visible when
+the header wraps.
 With `canShare`, "Share" (`RunShareButton`) stands right before it, its icon in the primary color
 while the run is shared, and opens `ShareDialog` (`panel/ShareDialog.tsx`) against
 `ragents.runs.sharing` and `ragents.runs.share`, in the browser and in the VS Code iframe alike;
-narrower than 20rem it shows only its icon. A run the panel opened under a fresh identifier (a new
+its label stays visible when the header wraps. A run the panel opened under a fresh identifier (a new
 empty run) counts as shareable before its first message when the profile has sign-in and the user
 `runs.write`; the server keeps that choice until the run is created. For a sharee the title carries
 a badge, "View only" for `sharedAccess: "read"` and "Shared" for `"write"`, with the tooltip "Shared

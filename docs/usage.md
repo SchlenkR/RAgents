@@ -43,8 +43,8 @@ through switches and moves. New apps appear without taking focus; unavailable ap
 Close windows with X. The run header keeps a button for every window; a pressed button is
 visible, and clicking another one shows that window. Drag a header button by its grip to
 reorder the buttons, or onto the docking guides to place that window. "Empty space" in the
-header adds an empty pane that holds a place until you drop a window onto it. When the header is
-too narrow for the buttons, they all move into one "All windows" menu.
+header adds an empty pane that holds a place until you drop a window onto it. Every button stays
+directly available; a narrow header wraps onto further rows and pushes the workspace down.
 
 In VS Code, clicking an app opens or focuses its editor tab. VS Code controls where that tab
 appears. Questions and news stay in chat. The selector below the input chooses the addressee;
@@ -569,8 +569,8 @@ locked until the server accepts the start, then the list closes;
 the primary actor stays, every start gets a room of its own with its own participants (`name`,
 `name-2`, ...), its main view becomes available as an app, and its output and summary appear in
 the chat as `@room.handle: ...`. If the start is refused,
-the list stays open and shows why. The same button works in the VS Code run panel; in a narrow
-run header it shows only its icon.
+the list stays open and shows why. The same labeled button works in the VS Code run panel and
+wraps with the other header actions when space is short.
 
 At a workspace width of at least 1000 pixels, the browser places Chat on the left and mini-apps
 on the right, each taking half the space. This also happens when the first app appears later.
@@ -595,20 +595,20 @@ window, and every app as buttons with their existing icons, whether shown or not
 visible window appears pressed.
 Clicking a closed window opens it beside the current area in a wide browser workspace, or as a
 tab when narrow. Clicking a window that waits as a background tab brings that tab to the front.
-Clicking a visible window changes nothing. Labels shorten when the header gets narrower. Where
-the buttons would lose their labels, and always with more than five windows, the header shows one
-"All windows" menu instead of the buttons, "Empty space", and "Reset layout". Its button shows the
-icon and name of the window in front in the focused area. The menu lists every window in the
-button order and checks the visible ones; clicking an entry acts like clicking its button. "Empty
-space" and "Reset layout" follow below a separator.
+Clicking a visible window changes nothing. All window buttons, "Empty space", "Reset layout",
+bar contributions such as "Agents", "Share", "Run script", and the other header icons remain
+directly available in the browser and VS Code, regardless of width or window count. Whole
+buttons wrap onto further rows when needed, with labels visible within their available width.
+The title can shrink or occupy its own row. The header grows and pushes the workspace down;
+its controls are never clipped, hidden in a window menu, or placed in a horizontal scroll area.
 Each window button has a grip at its left edge, shown on hover or focus and always on touch
-screens. Drag a button sideways within the header to reorder the buttons; a thin line marks
+screens. Drag a button within the header to reorder the buttons across rows; a thin line marks
 where it lands. Drag it into the workspace to get the same compass and edge guides as for a tab:
 the drop opens or moves that window there. A press without movement still counts as a click,
 and Escape cancels the drag. Alt+Left Arrow and Alt+Right Arrow move a focused button. New
-windows join at the end. The entries of the "All windows" menu cannot be dragged.
+windows join at the end.
 
-After the window buttons, or in the "All windows" menu, "Empty space" is always available.
+After the window buttons, "Empty space" is always directly available.
 Clicking it adds an empty pane beside the current area in a wide workspace, or as a tab when
 narrow; dragging the button places the pane on a docking guide. You can add several. An empty
 pane is a window like any other: move it, split beside it, merge it as a tab, maximize it, or
@@ -616,7 +616,7 @@ close it with X, which removes it. It shows "Drag an app or actor here". Droppin
 button or a tab anywhere on a shown empty pane, or on the compass center labeled "Replace empty
 pane", puts that window in its place. Empty panes survive reload.
 
-The "Reset layout" icon after the window buttons, or its entry in the "All windows" menu,
+The "Reset layout" icon after the window buttons and "Empty space"
 restores the automatic layout, the button order, and the inspection rail, and removes empty
 panes. Maximize appears only with multiple areas, at the right end of the area header just
 before the last tab's X; Restore or Escape returns to the split layout. Tabs support arrow
@@ -648,9 +648,8 @@ maximize, and close controls as Chat and apps.
 
 A plugin can also show its view as a window instead of in the rail. Its button then sits with the
 window buttons in the run header, and the view appears, moves, splits, and closes like an app; it
-never appears in the rail and has no return-to-sidebar button. A small blue dot on its button, on
-its entry in the "All windows" menu, or on the "All windows" button itself means the view has
-content or new activity.
+never appears in the rail and has no return-to-sidebar button. A small blue dot on its directly
+available header button means the view has content or new activity.
 
 The browser remembers areas, sizes, active tabs, closed windows, empty panes, the header button
 order, and sidebar settings for each server and run. New apps appear without taking focus;
@@ -694,8 +693,8 @@ TypeScript actors require inspection rights.
 
 "Agents" in the run header opens the same graph with the title "Agents" as soon as the run has an
 actor besides you; it grows down to the bottom of the window and pans the same way. Clicking an
-actor there also makes it the chat's addressee. In a narrow run header the button shows only its
-icon.
+actor there also makes it the chat's addressee. Its labeled button wraps with the other header
+actions when space is short.
 
 
 The extension lives under `apps/vscode`. All configured **servers** can remain connected at the
@@ -777,9 +776,10 @@ Start and Runs in both hosts, and Server in VS Code, share a centered content ar
 including on ultrawide displays. The outer header remains full width. All three pages begin their
 content at the same distance below the header, and on Start each section label stands well apart
 from the section above it. In both hosts, logo, global coordinator button, Settings, and Help share
-one header row. The logo leads back to Start there, so the run header has no back arrow of its
+the header. The logo leads back to Start there, so the run header has no back arrow of its
 own; Runs keeps its back arrow ("Back to Start") next to its title in the browser as in VS Code. An open run places its layout actions in the run header, without a separate
-toolbar row. VS Code keeps its single run header and editor tabs.
+toolbar row. The run header wraps onto further rows when needed in either host; VS Code keeps
+its app editor tabs.
 
 **Start** arranges template cards in several columns when space allows, up to five at the
 maximum content width, and one in narrow panels. Cards stay between 240 and 320 pixels wide,
@@ -917,7 +917,7 @@ every other user of the profile, each row with the switch "Off", "Can view", or 
 user gets the higher of "Everyone" and their own row. "Save" stays disabled until something changes
 and while saving; when the server refuses, the reason appears in the dialog, which keeps your
 changes. "Cancel" or Escape closes it without saving. The dialog is the same in the browser and in
-VS Code; in a narrow run header the button shows only its icon.
+VS Code; the labeled header button wraps with the other actions when space is short.
 
 "Can view" shows the run, its chat, apps, and journal as far as your own permissions go, but
 operates nothing: the run header shows "View only", the chat input is disabled with "Shared with

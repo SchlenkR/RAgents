@@ -7,9 +7,9 @@ import { Badge, InteractiveItem, Popover, PopoverContent } from "../ui";
 import { RunScriptMenu } from "./RunScriptMenu";
 import { RunShareButton } from "./RunShareButton";
 
-const titleClass = "flex h-[30px] min-w-0 flex-1 cursor-pointer items-center gap-2 self-center rounded-md px-1.5 text-left";
+const titleClass = "flex h-[30px] min-w-0 max-w-full flex-1 basis-40 cursor-pointer items-center gap-2 self-center rounded-md px-1.5 text-left";
 
-/** The panel header: one line with title and state, the plugins' header contributions behind the title as a popover or, placed there, in the bar. */
+/** The wrapping panel header keeps bar actions direct and run details behind the title. */
 export function RunPanelHeader({ actionsRef, attention, contributions, navigation, registry, runError, session, working }: {
   actionsRef?: Ref<HTMLDivElement>;
   attention: AttentionState | undefined;
@@ -27,7 +27,7 @@ export function RunPanelHeader({ actionsRef, attention, contributions, navigatio
   const sharedAccess = session.session.sharedAccess;
   const pressedAnchor = (details: { reason: string; event: Event }) =>
     details.reason === "outside-press" && details.event.target instanceof Node && buttonRef.current?.contains(details.event.target) === true;
-  return <div className="@container/run-header flex min-w-0 flex-1 items-stretch">
+  return <div className="flex min-w-0 flex-1 flex-wrap items-center gap-1 py-1">
     <InteractiveItem aria-controls={open ? panelId : undefined} aria-expanded={open} aria-haspopup="dialog" className={titleClass} onClick={() => setOpen((value) => !value)} ref={buttonRef} title={`${title}. Click to show the run details`} type="button">
       <strong className="min-w-0 truncate type-item">{title}</strong>
       {working && <span aria-label="Processing" className="size-1.5 flex-none rounded-full bg-active animate-fade-pulse motion-reduce:animate-none" role="status" />}
@@ -36,7 +36,7 @@ export function RunPanelHeader({ actionsRef, attention, contributions, navigatio
       {sharedAccess && <Badge className="flex-none" title={sharedWithYouLabel(sharedAccess)} variant="secondary">{sharedAccess === "read" ? "View only" : "Shared"}</Badge>}
       <ChevronDownIcon aria-hidden className="size-3.5 flex-none text-muted-foreground" />
     </InteractiveItem>
-    <div className="flex min-w-20 max-w-1/2 shrink items-center justify-end empty:hidden" ref={actionsRef} />
+    <div className="flex min-w-0 max-w-full flex-auto items-center justify-end empty:hidden" ref={actionsRef} />
     {contributions.filter((entry) => entry.placement === "bar").map(({ id, Header }) => <Header key={id} navigation={navigation} session={session} />)}
     {session.session.canShare && <RunShareButton runId={session.session.id} shared={session.session.shared === true} title={title} />}
     <RunScriptMenu runId={session.session.id} />

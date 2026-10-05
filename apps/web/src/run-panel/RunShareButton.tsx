@@ -15,7 +15,7 @@ export function RunShareButton({ runId, title, shared }: { runId: string; title:
   const label = shared ? "Shared - change whom the run is shared with" : "Share run";
   return <>
     <Button aria-label="Share" className="flex-none self-center" onClick={() => void openSharing(THIS_SERVER, runId, SERVER_SHARING, store)} size="lg" title={label} variant="ghost">
-      <Share2Icon className={shared ? "text-primary" : undefined} /><span className="hidden @xs/run-header:inline">Share</span>
+      <Share2Icon className={shared ? "text-primary" : undefined} /><span>Share</span>
     </Button>
     {sharing && <ShareDialog onClose={() => store.set(undefined)} onSave={(next) => void saveSharing(THIS_SERVER, runId, next, SERVER_SHARING, store)} runTitle={title} sharing={sharing} />}
   </>;

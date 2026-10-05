@@ -5,7 +5,7 @@ import { fileURLToPath } from "node:url";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { build } from "esbuild";
-import { chromium, type Page } from "playwright-core";
+import { chromium, type Locator, type Page } from "playwright-core";
 import { tailwindPlugin } from "./tailwind-plugin";
 import { WORKSPACE_BINDING_OPTION_ID } from "../../../plugins/ragents.workspace/contract";
 import type {} from "./start-page-fixture";
@@ -384,6 +384,17 @@ for (const host of ["browser", "vscode"] as const) {
       assert.equal(await draft.inputValue(), "Unsent coordinator draft");
       await page.keyboard.press("Escape");
       await history.waitFor({ state: "hidden" });
+      const visibleAction = async (button: Locator) => {
+        const bounds = await button.boundingBox();
+        const headerBounds = await header.boundingBox();
+        assert.ok(bounds && headerBounds);
+        assert.ok(bounds.x >= headerBounds.x && bounds.x + bounds.width <= headerBounds.x + headerBounds.width, JSON.stringify({ bounds, headerBounds }));
+        assert.ok(bounds.y >= headerBounds.y && bounds.y + bounds.height <= headerBounds.y + headerBounds.height, "Layout controls fit the shared header height.");
+        assert.equal(await button.evaluate((element) => {
+          const rect = element.getBoundingClientRect();
+          return [[rect.left + 2, rect.top + rect.height / 2], [rect.right - 2, rect.top + rect.height / 2], [rect.left + rect.width / 2, rect.top + 2], [rect.left + rect.width / 2, rect.bottom - 2]].every(([x, y]) => element.contains(document.elementFromPoint(x!, y!)));
+        }), true, "The action container does not clip the buttons.");
+      };
       if (host === "browser") {
         const reset = header.getByRole("button", { name: "Reset layout", exact: true });
         await reset.waitFor();
@@ -393,17 +404,6 @@ for (const host of ["browser", "vscode"] as const) {
         const openChat = header.getByRole("group", { name: "Layout actions" }).getByRole("button", { name: "Chat", exact: true });
         await openChat.waitFor();
         assert.equal(await openChat.getAttribute("aria-pressed"), "false", "A closed view keeps its button.");
-        const visibleAction = async (button: typeof openChat) => {
-          const bounds = await button.boundingBox();
-          const headerBounds = await header.boundingBox();
-          assert.ok(bounds && headerBounds);
-          assert.ok(bounds.x >= headerBounds.x && bounds.x + bounds.width <= headerBounds.x + headerBounds.width, JSON.stringify({ bounds, headerBounds }));
-          assert.ok(bounds.y >= headerBounds.y && bounds.y + bounds.height <= headerBounds.y + headerBounds.height, "Layout controls fit the shared header height.");
-          assert.equal(await button.evaluate((element) => {
-            const rect = element.getBoundingClientRect();
-            return [[rect.left + 2, rect.top + rect.height / 2], [rect.right - 2, rect.top + rect.height / 2], [rect.left + rect.width / 2, rect.top + 2], [rect.left + rect.width / 2, rect.bottom - 2]].every(([x, y]) => element.contains(document.elementFromPoint(x!, y!)));
-          }), true, "The action container does not clip the buttons.");
-        };
         await page.screenshot({ path: join(shots, "header-browser-direct-actions.png") });
         await visibleAction(openChat);
         await visibleAction(reset);
@@ -412,32 +412,32 @@ for (const host of ["browser", "vscode"] as const) {
         assert.equal(await openChat.getAttribute("aria-pressed"), "true", "A shown view stays listed as pressed.");
         await page.getByRole("button", { name: "Close Chat", exact: true }).click();
         await page.setViewportSize({ width: 520, height: 820 });
-        const allWindows = header.getByRole("group", { name: "Layout actions" }).getByRole("button", { name: /^All windows/ });
-        await allWindows.waitFor();
-        await visibleAction(allWindows);
-        assert.equal(await openChat.isVisible(), false, "The narrow header moves window buttons into All windows.");
-        assert.equal(await reset.isVisible(), false, "Reset layout moves into the same menu.");
-        await allWindows.click();
-        const menu = page.getByRole("menu", { name: /^All windows/ });
-        const chatItem = menu.getByRole("menuitemcheckbox", { name: "Chat", exact: true });
-        await chatItem.waitFor();
-        assert.equal(await chatItem.getAttribute("aria-checked"), "false");
-        assert.equal(await menu.getByRole("menuitem", { name: "Reset layout", exact: true }).isVisible(), true);
+        await visibleAction(openChat);
+        await visibleAction(reset);
+        await visibleAction(header.getByRole("button", { name: "Empty space", exact: true }));
+        assert.equal(await openChat.getAttribute("aria-pressed"), "false");
+        assert.equal(await header.getByRole("button", { name: /^All windows/ }).count(), 0);
         await page.screenshot({ path: join(shots, "header-browser-narrow-actions.png") });
-        await chatItem.click();
-        await menu.waitFor({ state: "hidden" });
+        await openChat.click();
         await page.getByRole("tab", { name: "Chat", exact: true }).waitFor();
-        await allWindows.click();
-        await chatItem.waitFor();
-        assert.equal(await chatItem.getAttribute("aria-checked"), "true", "All windows reflects the restored Chat.");
-        await chatItem.focus();
-        await page.keyboard.press("Escape");
-        await menu.waitFor({ state: "hidden" });
+        assert.equal(await openChat.getAttribute("aria-pressed"), "true", "A narrow direct button restores Chat.");
         await page.setViewportSize({ width: 1280, height: 820 });
         await openChat.waitFor();
       } else {
         assert.equal(await header.getByRole("button", { name: "Reset layout", exact: true }).count(), 0);
       }
+      const wideHeader = await header.boundingBox();
+      for (const width of [520, 320, 200]) {
+        await page.setViewportSize({ width, height: 820 });
+        const narrowHeader = await header.boundingBox();
+        assert.ok(wideHeader && narrowHeader && narrowHeader.height > wideHeader.height, "Both hosts grow the header when its controls wrap.");
+        for (const button of await header.getByRole("button").all()) await visibleAction(button);
+        assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), false, "The panel has no horizontal scroll.");
+        const content = await page.locator("main").boundingBox();
+        assert.ok(content && content.y >= narrowHeader.y + narrowHeader.height, "The content starts below the wrapping header.");
+        await page.screenshot({ path: join(shots, `header-${host}-wrapped-${width}.png`) });
+      }
+      await page.setViewportSize({ width: 1280, height: 820 });
       await coordinator.click();
       await history.waitFor();
       await page.screenshot({ path: join(shots, `header-${host}-run-coordinator.png`) });
@@ -477,3 +477,34 @@ for (const host of ["browser", "vscode"] as const) {
     });
   });
 }
+
+test("a narrow VS Code panel keeps more than five mini-app buttons direct and opens their editor tabs", browserOnly, async () => {
+  await withPage("view=panel&host=vscode&windows=1", 320, async (page) => {
+    await page.getByRole("list", { name: "Templates", exact: true }).waitFor();
+    await page.evaluate(() => {
+      window.startPageFixture.views.add("existing");
+      window.startPageFixture.command({ type: "selectRun", runId: "existing" });
+    });
+    const apps = page.getByRole("navigation", { name: "Mini-apps of the run" });
+    await apps.waitFor();
+    assert.deepEqual(await apps.getByRole("button").evaluateAll((buttons) => buttons.map((button) => button.getAttribute("aria-label"))),
+      ["Notes", "Board", "Plan", "Map", "Log", "Preview"]);
+    for (const width of [320, 200]) {
+      await page.setViewportSize({ width, height: 820 });
+      const bounds = await apps.boundingBox();
+      assert.ok(bounds);
+      for (const button of await apps.getByRole("button").all()) {
+        assert.equal(await button.isVisible(), true);
+        const rect = await button.boundingBox();
+        assert.ok(rect && rect.x >= bounds.x && rect.x + rect.width <= bounds.x + bounds.width);
+        assert.ok(rect.y >= bounds.y && rect.y + rect.height <= bounds.y + bounds.height);
+        await button.click();
+      }
+      assert.ok(new Set(await apps.getByRole("button").evaluateAll((buttons) => buttons.map((button) => button.getBoundingClientRect().top))).size > 1);
+      assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), false);
+      assert.equal(await apps.getByRole("button", { name: /^All windows/ }).count(), 0);
+    }
+    assert.deepEqual(await page.evaluate(() => window.startPageFixture.notifications.filter((entry) => entry.type === "openInCenter").map((entry) => entry.elementId)),
+      ["notes", "board", "plan", "map", "log", "preview", "notes", "board", "plan", "map", "log", "preview"], "every direct button requests its editor tab");
+  });
+});

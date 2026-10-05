@@ -3,6 +3,7 @@ import { createRoot } from "react-dom/client";
 import { createAccessContext } from "../../../packages/ragents/src/access";
 import { WORKSPACE_BINDING_OPTION_ID } from "../../../plugins/ragents.workspace/contract";
 import { webPlugin as overseerPlugin } from "../../../plugins/ragents.overseer/web/index";
+import { OrchestrationRunPanel } from "../../../plugins/ragents.orchestration/web/run-panel/RunPanel";
 import { WorkspaceBindingControl } from "../../../plugins/ragents.workspace/web/WorkspaceBinding";
 import { parseRunPanelLocation } from "../src/run-panel/run-panel-location";
 import { AccessContext } from "../src/AccessContext";
@@ -48,6 +49,10 @@ const registry = new PluginRegistry({
   plugins: [
     ...(query.has("coordinator") ? [overseerPlugin] : []),
     { id: "demo", startOptions: productStartOptions, guides: [{ id: "demo.topic", Guide: TopicGuide }] },
+    ...(query.has("windows") ? [{ id: "demo.windows", surface: { RunPanel: OrchestrationRunPanel }, surfaceElements: [{ id: "demo.apps", order: 0,
+      select: () => ["Notes", "Board", "Plan", "Map", "Log", "Preview"].map((title) => ({ id: title.toLowerCase(), title })),
+      Element: () => <p>App content</p>,
+    }] }] : []),
     { id: "ragents.workspace", startOptions: [{ id: WORKSPACE_BINDING_OPTION_ID, Control: WorkspaceBindingControl }] },
   ],
   startEntries,
@@ -129,6 +134,7 @@ const vsCodeHost: RunPanelHost = {
   ...createBrowserHost(window),
   kind: "vscode",
   machines: "all",
+  openApp(runId, elementId, title) { fixture.notifications.push({ type: "openInCenter", runId, elementId, title }); },
   onCommand(listener) { commands.add(listener); return () => { commands.delete(listener); }; },
   notify(message) {
     fixture.notifications.push(message);

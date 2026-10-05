@@ -404,8 +404,8 @@ through switches and moves. New apps appear without taking focus; unavailable ap
 Close windows with X. The run header keeps a button for every window; a pressed button is
 visible, and clicking another one shows that window. Drag a header button by its grip to
 reorder the buttons, or onto the docking guides to place that window. "Empty space" in the
-header adds an empty pane that holds a place until you drop a window onto it. When the header is
-too narrow for the buttons, they all move into one "All windows" menu.
+header adds an empty pane that holds a place until you drop a window onto it. Every button stays
+directly available; a narrow header wraps onto further rows and pushes the workspace down.
 
 In VS Code, clicking an app opens or focuses its editor tab. VS Code controls where that tab
 appears. Questions and news stay in chat. The selector below the input chooses the addressee;

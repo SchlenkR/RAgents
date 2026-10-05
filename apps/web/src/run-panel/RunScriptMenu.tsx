@@ -39,7 +39,7 @@ export function RunScriptMenu({ runId }: { runId: string }) {
     <Separator className="my-2.5" orientation="vertical" />
     <Popover onOpenChange={(next) => { if (next) listScripts(); else close(); }} open={open}>
       <PopoverTrigger ref={trigger} render={<Button aria-label="Run script" className="border-primary/40 text-primary" size="lg" title="Run script" variant="outline" />}>
-        <WandSparklesIcon /><span className="hidden @xs/run-header:inline">Run script</span>
+        <WandSparklesIcon /><span>Run script</span>
       </PopoverTrigger>
       <PopoverContent align="end" alignOffset={8} anchor={() => trigger.current?.closest("header") ?? null} aria-label="Run script"
         className="@container/scripts max-h-[min(70vh,560px)] w-[min(800px,calc(var(--anchor-width)-16px))] gap-2 overflow-auto p-2" collisionPadding={8} dim role="dialog" side="bottom">
