@@ -1,5 +1,5 @@
 import { CheckIcon } from "lucide-react";
-import { Badge, Button, Card, cn, Input } from "@ragents/web/ui";
+import { Badge, Button, Card, Input } from "@ragents/web/ui";
 import { useState } from "react";
 import type { AskQuestion, QuestionAnswer } from "../ask-payload";
 
@@ -115,7 +115,7 @@ export function QuestionCard({
             return (
               <Button
                 aria-pressed={selected}
-                className={cn(optionClasses, "aria-pressed:border-primary aria-pressed:bg-accent")}
+                className={optionClasses}
                 data-question="option"
                 key={option.label}
                 onClick={() => choose(index, question, option.label)}

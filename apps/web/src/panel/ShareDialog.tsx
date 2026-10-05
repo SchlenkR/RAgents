@@ -91,7 +91,7 @@ function AccessRow({ label, title, access, strong, disabled, onChange }: {
     <span className={`min-w-0 flex-[1_1_8rem] truncate ${strong ? "type-item" : "type-body"}`} title={title ?? label}>{label}</span>
     <ToggleGroup aria-label={`Access for ${label}`} disabled={disabled} size="sm" spacing={0} value={[access ?? OFF]} variant="outline"
       onValueChange={([value]) => { if (value) onChange(accessOf(value)); }}>
-      {ACCESS_CHOICES.map((choice) => <ToggleGroupItem className="aria-pressed:bg-primary aria-pressed:text-primary-foreground" key={choice.value} value={choice.value}>{choice.label}</ToggleGroupItem>)}
+      {ACCESS_CHOICES.map((choice) => <ToggleGroupItem key={choice.value} value={choice.value}>{choice.label}</ToggleGroupItem>)}
     </ToggleGroup>
   </li>;
 }

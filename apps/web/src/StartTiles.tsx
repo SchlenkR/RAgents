@@ -1,47 +1,43 @@
-import { BookIcon, ChevronRightIcon, CodeIcon, PlusIcon } from "lucide-react";
-import type { ReactNode } from "react";
+import { PlayIcon, PlusIcon, SlidersHorizontalIcon } from "lucide-react";
 import type { ConnectionEntry } from "./panel/contract";
 import { Spinner } from "./ui";
 
-const NEW_CHAT = { category: "No template", title: "New chat", description: "Empty run; the task takes shape in the chat." };
+const NEW_CHAT = { title: "New chat", description: "Empty run; the task takes shape in the chat." };
 
-const tileClass = "group/tile flex h-full w-full min-w-0 flex-col gap-1.5 rounded-[12px] border border-border-soft bg-card p-2.5 text-left [--tone:var(--primary)]"
-  + " enabled:hover:border-border enabled:hover:bg-accent/40 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-ring/60 disabled:not-aria-busy:opacity-60"
+const tileClass = "group/tile flex h-full w-full min-w-0 flex-col gap-1.5 rounded-[12px] border border-border-soft bg-card p-2.5 text-left"
+  + " enabled:hover:border-border enabled:hover:bg-accent/40 focus-visible:outline-1 focus-visible:-outline-offset-2 focus-visible:outline-ring disabled:not-aria-busy:opacity-60"
   + " aria-busy:border-border aria-busy:bg-accent/40";
-const entryIcon = (entry: ConnectionEntry): ReactNode => entry.kind === "skill"
-  ? <BookIcon aria-hidden className="size-3.5" />
-  : <CodeIcon aria-hidden className="size-3.5" />;
 
-/** One Start page item: category, title, description and the start hint; run scripts in a run use it too. */
-export function StartTile({ category, title, description, icon, standard, guided, disabled, starting = false, fill = false, onClick }: {
-  category: string;
+/** One Start page item: title, description and a top-right action; run scripts in a run use it too. */
+export function StartTile({ title, description, action, standard, disabled, starting = false, fill = false, onClick }: {
   title: string;
   description: string;
-  icon: ReactNode;
+  action: "chat" | "start" | "setup";
   /** The template is its server's default. */
   standard?: boolean;
-  guided?: boolean;
   disabled: boolean;
-  /** Its start is under way: the tile stays locked and shows a spinner with "Starting ..." instead of the start hint. */
+  /** Its start is under way: the tile stays locked and shows a spinner with "Starting ..." in the action position. */
   starting?: boolean;
   /** Fills its grid cell instead of keeping the Start page's maximum width. */
   fill?: boolean;
   onClick: () => void;
 }) {
   return <li className={fill ? "w-full min-w-0" : "w-full max-w-[320px] min-w-0"}>
-    <button aria-busy={starting || undefined} className={tileClass} disabled={disabled || starting} data-tile={title} onClick={onClick} type="button">
-      <span className="flex min-w-0 items-center gap-1.5 text-(--tone)">
-        {icon}
-        <span className="truncate type-caption text-muted-foreground">{category}</span>
+    <button aria-busy={starting || undefined} aria-label={action === "chat" ? "New chat" : `${action === "setup" ? "Set up" : "Start"} ${title}`}
+      className={tileClass} disabled={disabled || starting} data-tile={title} onClick={onClick} type="button">
+      <span className="flex min-w-0 items-start gap-2">
+        <span className="min-w-0 flex-1 type-item [overflow-wrap:anywhere]" data-slot="start-title">{title}</span>
         {standard && <span className="ml-auto flex-none rounded-sm border border-current px-1 type-caption opacity-70">Default</span>}
+        <span className="flex flex-none items-center gap-1 type-meta font-semibold text-muted-foreground group-enabled/tile:group-hover/tile:text-primary group-focus-visible/tile:text-primary group-aria-busy/tile:text-primary"
+          data-action={action} data-slot="start-action">
+          {starting
+            ? <><Spinner aria-hidden className="size-3.5" />Starting ...</>
+            : action === "chat" ? <PlusIcon aria-hidden className="size-3.5" />
+              : action === "setup" ? <SlidersHorizontalIcon aria-hidden className="size-3.5" />
+                : <PlayIcon aria-hidden className="size-3.5" />}
+        </span>
       </span>
-      <span className="type-item [overflow-wrap:anywhere]">{title}</span>
-      <span className="line-clamp-2 type-body text-muted-foreground">{description}</span>
-      <span className="mt-auto flex items-center gap-0.5 pt-1.5 type-meta font-semibold text-(--tone) opacity-50 group-enabled/tile:group-hover/tile:opacity-100 group-aria-busy/tile:opacity-100">
-        {starting
-          ? <><Spinner aria-hidden className="mr-0.5 size-3" />Starting ...</>
-          : <>{guided ? "Set up" : "Start"}<ChevronRightIcon aria-hidden className="size-3" /></>}
-      </span>
+      <span className="line-clamp-2 type-body text-muted-foreground" data-slot="start-description">{description}</span>
     </button>
   </li>;
 }
@@ -68,11 +64,11 @@ export function StartTiles({ entries, defaultEntry, label, disabled = false, sta
   return <div className="@container/templates min-w-0">
     <ul aria-label={label} className="grid grid-cols-1 gap-2 @[240px]/templates:grid-cols-[repeat(auto-fill,minmax(240px,1fr))]">
       {standard
-        ? <StartTile category={standard.category} description={standard.description} disabled={locked} guided={standard.guided} icon={entryIcon(standard)} onClick={() => onStart(standard.id)} standard
+        ? <StartTile action={standard.guided ? "setup" : "start"} description={standard.description} disabled={locked} onClick={() => onStart(standard.id)} standard
           starting={starting?.entryId === standard.id} title={standard.title} />
-        : onNewChat && <StartTile {...NEW_CHAT} disabled={locked} icon={<PlusIcon aria-hidden className="size-3.5" />} onClick={onNewChat}
+        : onNewChat && <StartTile {...NEW_CHAT} action="chat" disabled={locked} onClick={onNewChat}
           starting={starting !== undefined && starting.entryId === undefined} />}
-      {others.map((entry) => <StartTile category={entry.category} description={entry.description} disabled={locked} guided={entry.guided} icon={entryIcon(entry)} key={entry.id}
+      {others.map((entry) => <StartTile action={entry.guided ? "setup" : "start"} description={entry.description} disabled={locked} key={entry.id}
         onClick={() => onStart(entry.id)} starting={starting?.entryId === entry.id} title={entry.title} />)}
     </ul>
   </div>;

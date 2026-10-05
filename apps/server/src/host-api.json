@@ -863,6 +863,7 @@
       "ImagePreviewGroup",
       "ImageViewer",
       "Input",
+      "InteractiveItem",
       "Label",
       "Popover",
       "PopoverContent",

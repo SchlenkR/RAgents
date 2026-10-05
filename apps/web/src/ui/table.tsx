@@ -1,5 +1,6 @@
 import * as React from "react"
 import { cn } from "cn"
+import { interactionStyle } from "./interaction"
 
 function Table({ className, ...props }: React.ComponentProps<"table">) {
   return (
@@ -30,7 +31,7 @@ function TableBody({ className, ...props }: React.ComponentProps<"tbody">) {
   return (
     <tbody
       data-slot="table-body"
-      className={cn("[&_tr:last-child]:border-0", className)}
+      className={className}
       {...props}
     />
   )
@@ -54,7 +55,8 @@ function TableRow({ className, ...props }: React.ComponentProps<"tr">) {
     <tr
       data-slot="table-row"
       className={cn(
-        "border-b transition-colors hover:bg-muted/50 has-aria-expanded:bg-muted/50 data-[state=selected]:bg-muted",
+        interactionStyle,
+        "border border-transparent border-b-border transition-colors has-aria-expanded:border-selected-border has-aria-expanded:bg-selected has-aria-expanded:text-selected-foreground",
         className
       )}
       {...props}

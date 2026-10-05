@@ -1782,8 +1782,8 @@ copied into the source tree by CLI and styled with Tailwind: `Button`, `Badge`, 
 `Textarea`, `Checkbox`, `Switch`, `RadioGroup`, `Field`, `Label`, `Table`, `Card`, `Alert`,
 `Progress`, `Separator`, `Skeleton`, `Spinner`, `Empty` with their parts (`SelectTrigger`,
 `DialogContent`, `TabsList`, and so on), plus `cn` and icons from `lucide-react`. Props, variants, and
-composition are those documented by shadcn; the library invents no prop names
-of its own. The host's own building blocks on top are `ListDetail`, `SectionLabel`, `SvgEdge`,
+composition follow shadcn; `Badge` additionally accepts semantic `tone` (see below).
+The host's own building blocks on top are `InteractiveItem`, `ListDetail`, `SectionLabel`, `SvgEdge`,
 and, only in the host, the page `Modal` in `modal.tsx`. The choice follows the role, not
 taste:
 
@@ -1819,12 +1819,43 @@ taste:
 - There are no longer native `<select>`, custom buttons, or class contracts; the built-in
   plugins bring no CSS of their own.
 
+Interaction states use the shared `hover`/`hover-foreground`,
+`selected`/`selected-foreground`/`selected-border`, and `ring` tokens in both themes.
+Selected cards, rows, options, navigation items, and tabs use a clearly tinted surface and a
+uniform one-pixel border in the selection hue on all four sides. Hover remains subtler than
+selection; hovering a selected item gently strengthens its tint. Selection adds no shadows,
+rings, inset edges, bevels, or asymmetric borders. Tabs have square corners, selection-colored
+text, and no bottom indicator. Icon-only action toggles remain borderless and ringless in every
+state; their selection-colored or filled icon sits on a subtler `selected-icon` surface.
+Keyboard focus uses a solid one-pixel ring on `:focus-visible`, except for icon-only actions,
+where the background marks focus. Text and secondary labels reach AA in both themes.
+`Button`, `Toggle`, `ToggleGroup`, `Tabs`, `Select`, menu items, selectable field labels,
+and table rows apply these states themselves. `InteractiveItem` supplies the same behavior
+for clickable rows, tiles, and navigation, including `aria-current="page"` or `"true"`,
+`aria-pressed`, `aria-selected`, and expanded states. It accepts a `render` element like
+other Base UI composites. Layout and corners stay with the caller; shared state colors do not. Existing card and
+document surfaces retain their appearance unless a state needs better visibility. Actor cards
+use these shared selection states in both the Agents view and the addressee chooser.
+
+Status displays use `Badge tone="success|warning|danger|info|neutral|active"`:
+success for passed or completed work, warning for attention or open actions, danger for
+failure, info for information or queued work, neutral for idle or inactive states, and
+active for ongoing work. Tones map to the semantic foreground and `-soft` surface tokens;
+danger uses `destructive`/`destructive-soft`, neutral uses
+`muted-foreground`/`secondary`. Labels and state icons still name or depict the state;
+color never carries it alone. Compact rail badges retain their tone as dots and their
+label for screen readers. Existing badge variants remain available for counts and
+non-status labels. Plugins import `Badge` and `InteractiveItem` from `@ragents/web/ui`;
+no separate status palette or per-screen interaction colors are allowed. Text on these
+surfaces meets WCAG AA contrast in both modes.
+
 Tailwind applies to the whole interface. Host, plugins, mini-app building blocks, and the
 bundled mini-apps write their styling as utility classes directly on the elements;
 there are no longer stylesheets with their own class contracts. `apps/web/src/ui/theme.css` is
 the only token source: the shadcn variables (`--background`, `--card`, `--primary`,
 `--border`, `--radius`, and so on) and the additional host colors `shell`, `app`, `surface`,
-`border-soft`, `border-strong`, `success`, `warning`, `info`, `teal`, `destructive-soft`, and
+`border-soft`, `border-strong`, `hover`, `selected`, `success`, `warning`, `info`, `active`,
+their foreground, border, or soft counterparts, `teal`, `destructive-soft`, and
 the material colors `glass-*` are there once per mode, light and dark follow `data-theme`;
 plus font, the compact spacing scale with `header`, `statusbar`, and `workspace-inset`,
 the card radius `rounded-panel`, the shadows `shadow-bar`, `shadow-status`, `shadow-pop`,
@@ -2217,10 +2248,13 @@ The start selection looks like Start in VS Code and consists of the same buildin
 `StartTiles` (`apps/web/src/StartTiles.tsx`) that `panel/StartPage.tsx` also uses: under the
 heading "New" with the number of entries, first the server's default template
 (`defaultStartEntry` from `ragents.plugins.bootstrap`, marker "Default") or, without one,
-"New chat", then the other templates in the server's order, per tile category
-(a run script without a category under "Run scripts", without `runs.inspect` under "Workflows"), title,
-two lines of description, and "Start" or, for a guide, "Set up"; the start selection's width token
-limits them to 880 pixels. Task input, start options, search, and preview do not exist
+"New chat", then the other templates in the server's order. Each card shows its title,
+two lines of description, and an always-visible action icon at the top right: plus for
+"New chat", play for a direct start, and sliders for a guide ("Set up"). Hover and keyboard
+focus emphasize the icon. There is no category row or bottom action bar, and skill and
+run script cards share the same flat appearance. Category metadata remains available;
+the start selection's width token limits them to 880 pixels. Task input, start options,
+search, and preview do not exist
 there. "New chat" is there only with `runs.create` and turns the draft into the open run without a request to the
 server, whose task is created in the chat; a skill is there only with `runs.create`.
 A template without a guide starts on click as in VS Code (`startEntryDirectly` in
@@ -2231,7 +2265,7 @@ server. Guided starts use the preparation dialog. New browser runs use the serve
 While start options are loading or being saved, such as the preset from VS Code, and
 as long as a start is running, the tiles are locked. The tile of the running start (`StartTiles`
 prop `starting`, an `entryId` or none for New chat) keeps full opacity, carries `aria-busy`, and
-shows a `Spinner` with "Starting ..." instead of its start hint (`StartTile` prop `starting`).
+shows a `Spinner` with "Starting ..." in the top-right action position (`StartTile` prop `starting`).
 During the start dialog, the live stream and periodic query of the hidden run list pause.
 After closing, they resume with an immediate refresh.
 The draft subscribes only to the run stream to detect the start. Only the started run
@@ -2621,13 +2655,15 @@ during processing, the attention badge, and a chevron; a click on the title
 opens the plugins' header contributions, the run metadata, and the start options as a
 popover. With `runs.write`, "Run script" (`RunScriptMenu`) follows the layout actions behind a
 thin divider: an outline button in the primary color whose pop-out lists the run scripts from
-`ragents.runs.scripts` as the Start page's `StartTile` items filling their grid cells, available
-ones first and unavailable ones after them disabled with their reason, each group in listed order.
+`ragents.runs.scripts` as the Start page's compact `StartTile` items filling their grid cells,
+with title, two lines of description, and a play icon at the top right. Available ones come
+first and unavailable ones after them disabled with their reason, each group in listed order.
 The pop-out is anchored to the shared header: it opens below it, ends 8 pixels before its right
 edge, and is `min(800px, header width - 16px)` wide, with two columns from a content width of 480
 pixels. A click starts the script through `ragents.runs.startScript`; until the answer its item
-is `starting` ("Starting ..." with a spinner) and every other item is locked, success closes the
-pop-out, a refusal stays visible in it. In a run header narrower than 20rem the button shows only its icon.
+is `starting` ("Starting ..." with a spinner in the action position) and every other item is
+locked, success closes the pop-out, a refusal stays visible in it. In a run header narrower
+than 20rem the button shows only its icon.
 With `canShare`, "Share" (`RunShareButton`) stands right before it, its icon in the primary color
 while the run is shared, and opens `ShareDialog` (`panel/ShareDialog.tsx`) against
 `ragents.runs.sharing` and `ragents.runs.share`, in the browser and in the VS Code iframe alike;
@@ -2866,13 +2902,18 @@ and run rows use the same bounded column.
 
 **Start** has no page header or server block. **New** appears first as soon as the selected server
 allows new runs. First is its default template from `ConnectionView.defaultEntry` with the marker
-"Default", or the entry "New chat" (category "No template", dashed edge, plus icon, `newRun`
+"Default" in the title row, or the entry "New chat" (plus icon, `newRun`
 without `entryId`). Then follow the selected server's other templates, the default not a second
-time; the count in the heading counts all entries. An entry shows category, title, two lines of
-description, at the bottom "Start", for a template with a guide, as in the web app, "Set up"
-(`ConnectionEntry.guided` from the template's `guide`); skill round and `--primary`, run script
-angular and `--success`, the grid `repeat(auto-fill, minmax(240px, 1fr))`, with cards capped at
-320 pixels. `StartTiles` measures its own container: below 240 pixels it uses one shrinking
+time; the count in the heading counts all entries. Each compact, flat card shows only its title
+and two lines of description, with an always-visible action icon at the top right of the title
+row: plus for "New chat", play for a direct start, and sliders for a template with a guide
+("Set up", `ConnectionEntry.guided` from the template's `guide`). Hover and keyboard focus
+emphasize the action. The whole card is one button, with accessible name "New chat",
+`Start <title>`, or `Set up <title>`. A starting card shows a spinner and "Starting ..." in
+the action position. There is no category row or bottom action bar, and no skill/run-script
+shape or color badge. Category metadata stays intact. Cards use the shared typography;
+the grid is `repeat(auto-fill, minmax(240px, 1fr))`, with cards capped at 320 pixels.
+`StartTiles` measures its own container: below 240 pixels it uses one shrinking
 column, without horizontal overflow. At the maximum content width the grid has five columns.
 There is no search here, and `ListDetail` does not fit, because it measures itself by its own
 width and would become a list with a detail page at 420 pixels (decisions of 09/19 and
@@ -2910,8 +2951,13 @@ Plugin `startSections` render directly below Continue with the complete server-l
 run list and its metadata; the host adds no heading or wrapper for a section.
 
 **Runs** is the selected server's complete list: search over title, "Hide ended", and a
-selection mode with checkboxes, which names the count in a bar at the bottom
-and deletes several runs after a confirmation question in a dialog. The deletion itself is the
+selection mode with checkboxes. Search and the toolbar below it stay sticky while the list
+scrolls. Selection replaces "Hide ended" and "Select" with "Select all", the selected count,
+"Delete", and "Cancel" in that order, without a bottom bar. "Select all" toggles only visible
+deletable runs, including locked runs, and becomes "Select none" when all of them are selected;
+selections outside the current search remain unchanged. "Delete" is disabled at zero and deletes
+several runs after a confirmation question in the existing dialog. "Cancel" clears the selection
+and leaves selection mode. The controls are keyboard accessible. The deletion itself is the
 host's business: the page sends `deleteRuns` with the IDs, the server interface calls
 `ragents.runs.delete` and refreshes the list. A row the user cannot delete, on a server without
 `canDelete` or with `sharedAccess`, keeps an empty checkbox cell and opens its run on a click; the

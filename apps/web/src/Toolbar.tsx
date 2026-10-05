@@ -1,8 +1,9 @@
 import { cn } from "cn";
+import { interactionStyle } from "./ui/interaction";
 import { createElement, type ComponentProps } from "react";
 
 const toolbarItemClass = "flex flex-none items-center gap-2 self-stretch min-h-header max-w-[220px] px-3 py-1.5 border-r border-border text-left text-[0.72rem] leading-tight text-foreground no-underline [&>svg]:flex-none";
-const toolbarButtonClass = "cursor-pointer hover:not-disabled:bg-accent aria-expanded:bg-accent aria-pressed:bg-accent aria-expanded:text-primary aria-pressed:text-primary active:not-disabled:bg-accent active:not-disabled:text-primary aria-expanded:shadow-[inset_0_2px_5px_color-mix(in_srgb,var(--foreground)_25%,transparent),inset_0_-2px_0_var(--primary)] aria-pressed:shadow-[inset_0_2px_5px_color-mix(in_srgb,var(--foreground)_25%,transparent),inset_0_-2px_0_var(--primary)] focus-visible:outline-2 focus-visible:outline-ring/60 focus-visible:-outline-offset-3 disabled:opacity-50 disabled:cursor-not-allowed";
+const toolbarButtonClass = cn(interactionStyle, "cursor-pointer active:not-disabled:bg-hover disabled:cursor-not-allowed");
 
 interface ToolbarItemProps extends ComponentProps<"button"> {
   as?: "button" | "a" | "span" | "div";

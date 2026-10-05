@@ -260,6 +260,11 @@ test("browser docking preserves frames and drafts through split, merge, close, m
   await tab("Notes").click();
   const beforePin = (await box(page.locator('[data-dock-panel="app:notes"]'))).width;
   await rail.getByRole("button", { name: "Files", exact: true }).click();
+  const filesButton = rail.getByRole("button", { name: "Files", exact: true });
+  assert.equal(await filesButton.evaluate((element) => element.matches(":focus")), true, "pointer selection retains native focus");
+  assert.equal(await filesButton.evaluate((element) => element.matches(":focus-visible")), false, "pointer selection does not show keyboard focus");
+  assert.equal(await filesButton.evaluate((element) => getComputedStyle(element).borderWidth), "1px", "selected rail navigation has a uniform one-pixel border");
+  assert.equal(visibleShadow(await filesButton.evaluate((element) => getComputedStyle(element).boxShadow)), false, "rail selection stays flat");
   await page.mouse.move(10, 100);
   await page.waitForTimeout(400);
   assert.equal(await sidebar.getAttribute("data-dock-sidebar"), "docked");

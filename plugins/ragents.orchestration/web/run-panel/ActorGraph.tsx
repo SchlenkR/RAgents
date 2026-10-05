@@ -1,12 +1,12 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
 import { ChevronDownIcon, CodeIcon, SparklesIcon, UsersIcon } from "lucide-react";
-import { Badge, cn, Spinner, SvgEdge, type SvgEdgeProps } from "@ragents/web/ui";
+import { Badge, cn, InteractiveItem, Spinner, SvgEdge, type SvgEdgeProps } from "@ragents/web/ui";
 import { actorAddress, actorTone, type RunActor, type RunView } from "@ragents/web/run-view";
 import { pendingInputCount } from "./run-panel-actors";
 import { addresseeNodeContains, addresseeStatus, addresseeStatusCounts, addresseeStatusWord, addresseeSummaries, addresseeTree, type AddresseeGroupNode, type AddresseeStatus } from "./addressee-tree";
 import { actorGraphLayout, actorTimings, clampGraphPan, formatDuration, GRAPH_CARD_HEIGHT, GRAPH_CARD_WIDTH, graphColumns, graphNodeStatus, graphPannable, graphPanTo, graphViewport, type ActorTiming, type GraphSize } from "./actor-graph";
 
-const cardClass = "flex size-full min-w-0 cursor-pointer flex-col justify-center gap-0.5 rounded-lg border border-border bg-card px-2.5 py-1.5 text-left text-[0.72rem] text-card-foreground shadow-xs hover:border-primary/50 hover:bg-accent aria-current:border-primary aria-current:bg-[color-mix(in_srgb,var(--color-primary)_10%,var(--color-card))] aria-current:ring-2 aria-current:ring-primary/20 focus-visible:outline-2 focus-visible:outline-ring/60 focus-visible:outline-offset-1";
+const cardClass = "flex size-full min-w-0 cursor-pointer flex-col justify-center gap-0.5 rounded-lg border border-border bg-card px-2.5 py-1.5 text-left text-[0.72rem] text-card-foreground shadow-xs";
 const stackClass = "shadow-[3px_3px_0_-1px_var(--color-card),3px_3px_0_0_var(--color-border)]";
 const lineClass = "flex min-w-0 items-center gap-1.5 text-[0.66rem]";
 const iconClass: Readonly<Record<string, string>> = {
@@ -16,10 +16,10 @@ const iconClass: Readonly<Record<string, string>> = {
   app: "bg-glass-app",
 };
 const statusClass: Readonly<Record<AddresseeStatus, string>> = {
-  running: "text-primary",
+  running: "text-active",
   input: "text-warning",
-  waiting: "text-muted-foreground",
-  stopped: "text-muted-foreground/70",
+  waiting: "text-warning",
+  stopped: "text-muted-foreground",
 };
 const edgeStyle: Readonly<Record<AddresseeStatus, Pick<SvgEdgeProps, "active" | "tone">>> = {
   running: { tone: "accent", active: true },
@@ -199,20 +199,20 @@ function ActorCard({ actor, current, onPick, summary, technical, timing, view }:
   const status = addresseeStatus(view, actor);
   const name = actor.displayName.trim();
   const named = name !== "" && lower(name) !== lower(actor.handle) && name !== summary ? `, ${name}` : "";
-  return <button aria-current={current || undefined} className={cardClass} data-actor-handle={actorAddress(actor)} onClick={() => onPick(actor)}
+  return <InteractiveItem aria-current={current || undefined} className={cardClass} data-actor-handle={actorAddress(actor)} onClick={() => onPick(actor)}
     title={`@${actorAddress(actor)}${named}, ${actorType(actor, technical)}, ${addresseeStatusWord(status)}. Address messages to @${actorAddress(actor)}`} type="button">
     <span className="flex min-w-0 items-center gap-1.5">
       <ActorIcon actor={actor} className="size-5" view={view} />
       <span className="min-w-0 flex-1 truncate font-semibold">@{actorAddress(actor)}</span>
-      {pending > 0 && <Badge className="h-4 min-w-4 px-1 text-[0.6rem]" title={waitingInputs(pending)} variant="secondary">{pending}</Badge>}
+      {pending > 0 && <Badge className="h-4 min-w-4 px-1 text-[0.6rem]" title={waitingInputs(pending)} tone="warning">{pending}</Badge>}
     </span>
     <span className={lineClass}>
       <span className={cn("min-w-0 truncate", statusClass[status])} data-addressee-status={status}>{addresseeStatusWord(status)}</span>
-      {timing?.kind === "running" && <span className="ml-auto flex-none text-primary tabular-nums" data-actor-duration="running" title="Running time of the current turn"><Elapsed since={timing.since} /></span>}
+      {timing?.kind === "running" && <span className="ml-auto flex-none text-active tabular-nums" data-actor-duration="running" title="Running time of the current turn"><Elapsed since={timing.since} /></span>}
       {timing?.kind === "finished" && <span className="ml-auto flex-none text-muted-foreground tabular-nums" data-actor-duration="finished" title="Duration of the last turn">last turn {formatDuration(timing.milliseconds)}</span>}
     </span>
     <span className="min-w-0 truncate text-[0.66rem] text-muted-foreground">{summary}</span>
-  </button>;
+  </InteractiveItem>;
 }
 
 function GroupCard({ node, onToggle, open, view }: { node: AddresseeGroupNode; onToggle: (key: string) => void; open: boolean; view: RunView }) {
@@ -220,17 +220,17 @@ function GroupCard({ node, onToggle, open, view }: { node: AddresseeGroupNode; o
   const counts = addresseeStatusCounts(view, actors);
   const running = actors.some((actor) => actor.lifecycle?.kind === "running");
   const pending = actors.reduce((sum, actor) => sum + pendingInputCount(view, actor.id), 0);
-  return <button aria-expanded={open} className={cn(cardClass, !open && stackClass)} data-addressee-group={node.label} onClick={() => onToggle(node.key)}
+  return <InteractiveItem aria-expanded={open} className={cn(cardClass, !open && stackClass)} data-addressee-group={node.label} onClick={() => onToggle(node.key)}
     title={`${node.label}: ${actors.length} similar actors, ${counts}. Click ${open ? "collapses the group" : "shows all"}`} type="button">
     <span className="flex min-w-0 items-center gap-1.5">
       <span className="grid size-5 flex-none place-items-center rounded-full bg-muted text-foreground [&>svg]:size-3">{running ? <Spinner aria-hidden className="size-3" /> : <UsersIcon />}</span>
       <span className="min-w-0 flex-1 truncate font-semibold">{node.label}</span>
-      {pending > 0 && <Badge className="h-4 min-w-4 px-1 text-[0.6rem]" title={waitingInputs(pending)} variant="secondary">{pending}</Badge>}
+      {pending > 0 && <Badge className="h-4 min-w-4 px-1 text-[0.6rem]" title={waitingInputs(pending)} tone="warning">{pending}</Badge>}
       <ChevronDownIcon aria-hidden className={cn("size-3.5 flex-none text-muted-foreground transition-transform", !open && "-rotate-90")} />
     </span>
     <span className={cn(lineClass, "text-muted-foreground")}>{actors.length} actors</span>
     <span className="min-w-0 truncate text-[0.66rem] text-muted-foreground">{counts}</span>
-  </button>;
+  </InteractiveItem>;
 }
 
 function Elapsed({ since }: { since: number }) {

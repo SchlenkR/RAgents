@@ -2,7 +2,7 @@ import type { SessionContext, SessionNavigation, WorkspaceTabContribution } from
 import { Badge, BadgeDisplayProvider, Button, Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "../ui";
 import { RUN_PANEL_WORKSPACE_ID } from "./workspace-state";
 
-const railButtonClass = "relative aria-pressed:bg-accent aria-pressed:text-primary";
+const railButtonClass = "relative border border-transparent";
 
 /** The toolbar at the right edge of the run panel: one button per sidebar tab that opens the sidebar with this tab or closes it again. */
 export function RunPanelRail({ navigation, onClose, open, pendingTabIds, session, tabs }: {
@@ -28,7 +28,7 @@ export function RunPanelRail({ navigation, onClose, open, pendingTabIds, session
         >
           <tab.Icon />
           <span className="absolute top-1 right-1"><BadgeDisplayProvider value="dot">
-            {pending ? <Badge>New activity</Badge> : tab.Badge && <tab.Badge active={active} navigation={navigation} selection={navigation.selectionFor(tab.id)} session={session} />}
+            {pending ? <Badge tone="info">New activity</Badge> : tab.Badge && <tab.Badge active={active} navigation={navigation} selection={navigation.selectionFor(tab.id)} session={session} />}
           </BadgeDisplayProvider></span>
         </TooltipTrigger>
         <TooltipContent side="left" sideOffset={8}>{pending ? `${tab.label} - new activity` : tab.label}</TooltipContent>

@@ -5,29 +5,47 @@ import { cva, type VariantProps } from "class-variance-authority"
 import { cn } from "cn"
 
 type BadgeDisplay = "badge" | "dot"
+type BadgeTone = "success" | "warning" | "danger" | "info" | "neutral" | "active"
+
+const dotTones: Record<BadgeTone, string> = {
+  success: "bg-success",
+  warning: "bg-warning",
+  danger: "bg-destructive",
+  info: "bg-info",
+  neutral: "bg-muted-foreground",
+  active: "bg-active",
+}
 
 const BadgeDisplayContext = createContext<BadgeDisplay>("badge")
 
-/** In "dot" mode every Badge below shows a small info dot and keeps its text for screen readers only. */
+/** In "dot" mode badges keep their tone and their text for screen readers. */
 function BadgeDisplayProvider({ children, value }: { children: ReactNode; value: BadgeDisplay }) {
   return <BadgeDisplayContext.Provider value={value}>{children}</BadgeDisplayContext.Provider>
 }
 
 const badgeVariants = cva(
-  "group/badge inline-flex h-5 w-fit shrink-0 items-center justify-center gap-1 overflow-hidden rounded-4xl border border-transparent px-2 py-0.5 text-xs font-medium whitespace-nowrap transition-all focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 has-data-[icon=inline-end]:pr-1.5 has-data-[icon=inline-start]:pl-1.5 aria-invalid:border-destructive aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 [&>svg]:pointer-events-none [&>svg]:size-3!",
+  "group/badge inline-flex h-5 w-fit shrink-0 items-center justify-center gap-1 overflow-hidden rounded-4xl border border-transparent px-2 py-0.5 text-xs font-medium whitespace-nowrap transition-all focus-visible:border-ring focus-visible:ring-1 focus-visible:ring-ring has-data-[icon=inline-end]:pr-1.5 has-data-[icon=inline-start]:pl-1.5 aria-invalid:border-destructive aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 [&>svg]:pointer-events-none [&>svg]:size-3!",
   {
     variants: {
       variant: {
-        default: "bg-primary text-primary-foreground [a]:hover:bg-primary/80",
+        default: "bg-primary text-primary-foreground [a]:hover:bg-primary-hover",
         secondary:
-          "bg-secondary text-secondary-foreground [a]:hover:bg-secondary/80",
+          "bg-secondary text-secondary-foreground [a]:hover:bg-hover",
         destructive:
-          "bg-destructive/10 text-destructive focus-visible:ring-destructive/20 dark:bg-destructive/20 dark:focus-visible:ring-destructive/40 [a]:hover:bg-destructive/20",
+          "bg-destructive-soft text-destructive [a]:hover:bg-destructive-hover",
         outline:
-          "border-border text-foreground [a]:hover:bg-accent [a]:hover:text-foreground",
+          "border-border text-foreground [a]:hover:bg-hover [a]:hover:text-hover-foreground",
         ghost:
-          "hover:bg-accent hover:text-foreground",
+          "hover:bg-hover hover:text-hover-foreground",
         link: "text-primary underline-offset-4 hover:underline",
+      },
+      tone: {
+        success: "border-success/25 bg-success-soft text-success",
+        warning: "border-warning/25 bg-warning-soft text-warning",
+        danger: "border-destructive/25 bg-destructive-soft text-destructive",
+        info: "border-info/25 bg-info-soft text-info",
+        neutral: "border-border bg-secondary text-muted-foreground",
+        active: "border-active/25 bg-active-soft text-active",
       },
     },
     defaultVariants: {
@@ -39,6 +57,7 @@ const badgeVariants = cva(
 function Badge({
   className,
   variant = "default",
+  tone,
   render,
   ...props
 }: useRender.ComponentProps<"span"> & VariantProps<typeof badgeVariants>) {
@@ -47,12 +66,12 @@ function Badge({
     defaultTagName: "span",
     props: dot
       ? mergeProps<"span">(
-        { className: "block size-2 rounded-full bg-info" },
+        { className: cn("block size-2 rounded-full", dotTones[tone ?? (variant === "destructive" ? "danger" : "info")]) },
         { ...props, children: <span className="sr-only">{props.children}</span> }
       )
       : mergeProps<"span">(
         {
-          className: cn(badgeVariants({ variant }), className),
+          className: cn(badgeVariants({ variant: tone ? null : variant, tone }), tone && "[a]:hover:underline", className),
         },
         props
       ),
@@ -60,8 +79,9 @@ function Badge({
     state: {
       slot: "badge",
       variant,
+      tone,
     },
   })
 }
 
-export { Badge, BadgeDisplayProvider, badgeVariants }
+export { Badge, BadgeDisplayProvider, badgeVariants, type BadgeTone }

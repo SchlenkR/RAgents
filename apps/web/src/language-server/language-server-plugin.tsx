@@ -358,7 +358,7 @@ const badgeFor = (settings: TabSettings) => {
   function LanguageServerBadge({ session }: WorkspaceTabContext) {
     const { snapshot } = useSnapshot(settings.pluginId, session.session.id, true, BADGE_POLL_MS);
     const errors = errorsOf(snapshot);
-    return errors > 0 ? <Badge variant="secondary">{errors}</Badge> : null;
+    return errors > 0 ? <Badge tone="danger">{errors}</Badge> : null;
   }
 
   return LanguageServerBadge;

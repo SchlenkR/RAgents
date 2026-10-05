@@ -21,8 +21,8 @@ anything. In the browser a new run always works on the server; only VS Code and 
 bind a run to a workstation.
 
 A click shows its effect at once: either the run's progress appears, or the chosen entry shows
-a spinner and "Starting ..." while the other entries stay locked until the run opens or the start
-fails; a run script in the run header's "Run script" list does the same. While a template starts,
+a spinner and "Starting ..." at the top right while the other entries stay locked until the
+run opens or the start fails; a run script in the run header's "Run script" list does the same. While a template starts,
 the panel shows its progress in the chat area and reserves the bottom status bar, keeping the
 notice in place when the run connects.
 
@@ -58,8 +58,12 @@ Click the logo at the top left ("Back to Start") to see permitted templates, rec
 plugin sections; it also works with the keyboard. Click a run to continue, or open
 All runs for search and selection; the arrow next to the Runs title leads back to Start.
 On Start and Runs, the trash button ("Delete run ...") next to a run deletes it after a
-confirmation that names the run. To delete several, choose "Select" on Runs, check the runs,
-and click "Delete". Deleting runs requires permission and confirmation;
+confirmation that names the run. To delete several, choose "Select" on Runs. The toolbar below
+search stays visible while the list scrolls and shows "Select all", the selected count, "Delete",
+and "Cancel" in that order. "Select all" selects every visible run you may delete and becomes
+"Select none", which clears those visible selections. You can also check runs individually.
+"Delete" is disabled with no selection and asks for confirmation; "Cancel" clears the selection
+and leaves selection mode. All actions work with the keyboard. Deleting runs requires permission;
 errors remain visible. Locked runs show the cause and cannot be opened, but can be selected
 for deletion. If background deletion fails, the run returns as locked with the deletion cause;
 its delete action retries the cleanup. Other runs stay usable.
@@ -272,17 +276,19 @@ storage. A system prompt of the same name in the plugin folder and in
 
 ## Skill templates in the start selection
 
-The start selection shows every template as a tile with category, title, and description, in the same
-form as Start in VS Code; categories are freely chosen and not a list from the code. Every
-skill template contains a short, freely worded start task that describes the desired result
+The start selection shows the same compact cards as Start in VS Code: a title, two lines of
+description, and an always-visible action icon at the top right. Hover or keyboard focus
+emphasizes the icon; clicking anywhere on the card performs its action. Cards share the same
+flat appearance, with no category row or bottom action bar. Categories remain freely chosen
+template metadata. Every skill template contains a short, freely worded start task that describes the desired result
 without platform knowledge; its `description` explains what the demo is meant to show. The
 settings show the same prompt with a copy action. Format and rules of the templates are
 in [plugins.md](spec/plugins.md) under "Skills and starting tasks" and "Reference cases from
 ragents.reference", the templates and building blocks of the actor programs in
 [actor-programs.md](spec/actor-programs.md).
 
-"Start" starts the run immediately with the skill's task. "Set up" first opens the
-guide; after that it leads into the preparation chat in the next dialog step. There the
+The play icon starts the run immediately with the skill's task. The sliders icon ("Set up")
+first opens the guide; after that it leads into the preparation chat in the next dialog step. There the
 task can be discussed with a separate coordinator instance, and model, thinking level,
 system prompts, and workspace are available for selection. After your explicit go-ahead in any wording, it starts
 the run; no fixed sentence is needed. "Create run" starts directly. Both paths take over
@@ -314,6 +320,11 @@ Lavender marks the main actor, clay color other AI actors, mustard yellow
 TypeScript actors, and blue-gray the mini-apps. The fronts stay straight and even.
 Round buttons with an X close dialogs; a round arrow leads back to the previous view.
 The hints on the button name the respective action.
+Selected cards, rows, options, and tabs use a clearly tinted surface with a uniform thin border;
+hover stays subtler. Tabs have square corners. Pin and maximize actions show selection through
+their icon and a subtle background, without a border or ring. Keyboard focus has a thin ring
+on other controls. Status labels use muted green for completion, red for failure, amber for attention,
+blue for information, and violet for ongoing work, in both light and dark appearance.
 Selection menus open above or below their button depending on space and stay fully reachable even in narrow
 input and dialog areas. Escape first closes the open menu.
 
@@ -547,12 +558,14 @@ Clicking or typing elsewhere while it loads cancels that focus request.
 With write rights, the run header offers "Run script" right of the window buttons, behind a thin
 divider. It opens a scrollable list of the run scripts you may start below the header, as wide as
 the window allows up to 800 pixels and ending at its right edge, in two columns when there is room.
-The scripts appear as the same cards as on the Start page with title and description; those you
-can start come first, the others follow greyed out with the reason when a script cannot
+The scripts appear as the same compact cards as on the Start page with title, two lines of
+description, and an always-visible play icon at the top right; hover or keyboard focus emphasizes
+the icon, and the whole card starts the script. Those you can start come first, the others
+follow greyed out with the reason when a script cannot
 join this run, because its `RUN.md` does not set `embeddable: true` or because it fixes a start
 option to a value the run does not have. A click starts it inside the run without a start value;
-its card shows a spinner and "Starting ..." and the other cards are locked until the server
-accepts the start, then the list closes;
+its card shows a spinner and "Starting ..." in the icon position and the other cards are
+locked until the server accepts the start, then the list closes;
 the primary actor stays, every start gets a room of its own with its own participants (`name`,
 `name-2`, ...), its main view becomes available as an app, and its output and summary appear in
 the chat as `@room.handle: ...`. If the start is refused,
@@ -771,11 +784,16 @@ toolbar row. VS Code keeps its single run header and editor tabs.
 maximum content width, and one in narrow panels. Cards stay between 240 and 320 pixels wide,
 shrinking only when the panel is narrower.
 It has no server block. **New** comes first when the selected server permits new runs. The first
-entry is its default template, marked "Default", or "New chat" in the "No template" category. Remaining templates follow,
-without duplicating the default. Clicking an entry creates and starts the run on its server
+entry is its default template, marked "Default" in the title row, or "New chat". Remaining
+templates follow without duplicating the default. Each flat card shows a title and two lines
+of description, with an always-visible action icon at the top right: plus for "New chat",
+play for a direct start, and sliders for "Set up". Hover or keyboard focus emphasizes the icon.
+The whole card is clickable, with accessible name "New chat", `Start <title>`, or
+`Set up <title>`. There is no category row or bottom action bar, and skill and script templates
+share the same card appearance. Clicking an entry creates and starts the run on its server
 and opens the run panel. Until the run opens, the entry shows "Starting ..." with a
-spinner and all other entries stay locked; a cancelled folder choice or a failed start unlocks
-them again. Cancelling a template's guide returns to the same server's Start page.
+spinner in the icon position and all other entries stay locked; a cancelled folder choice
+or a failed start unlocks them again. Cancelling a template's guide returns to the same server's Start page.
 
 The new run uses your open folder as its workspace, asking you to choose when several are open.
 If the template defines its own workspace, such as one server folder per run, VS Code does not

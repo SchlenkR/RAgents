@@ -3,11 +3,11 @@ import { Markdown } from "quassel";
 import { QuasselHost } from "../../chat/QuasselHost";
 import { DiffCode } from "../../DiffCode";
 import { SourceCode } from "../../SourceCode";
-import { cn, Progress } from "../../ui";
+import { Badge, Progress, type BadgeTone } from "../../ui";
 import type { DiffViewerProps, DocumentViewerProps, TaskProgressProps } from "./viewer-contracts";
 
 const taskLabels = { pending: "Pending", running: "In progress", done: "Done", error: "Failed", skipped: "Skipped" };
-const taskTones = { pending: "text-muted-foreground", running: "text-primary", done: "text-muted-foreground", error: "text-destructive", skipped: "text-muted-foreground" };
+const taskTones: Record<keyof typeof taskLabels, BadgeTone> = { pending: "info", running: "active", done: "success", error: "danger", skipped: "neutral" };
 
 export function TaskProgress({ title = "Tasks", tasks, showProgress = true }: TaskProgressProps) {
   const completed = tasks.filter((task) => task.status === "done" || task.status === "skipped").length;
@@ -19,7 +19,7 @@ export function TaskProgress({ title = "Tasks", tasks, showProgress = true }: Ta
     </div>}
     {!tasks.length && <p>No tasks yet.</p>}
     <ol className="divide-y">{tasks.map((task) => <li className="py-1.5" data-status={task.status} key={task.id}>
-      <div className="flex justify-between gap-3"><strong>{task.label}</strong><span className={cn("whitespace-nowrap", taskTones[task.status])}>{taskLabels[task.status]}</span></div>
+      <div className="flex justify-between gap-3"><strong>{task.label}</strong><Badge tone={taskTones[task.status]}>{taskLabels[task.status]}</Badge></div>
       {task.description && <p className="mt-1 text-muted-foreground">{task.description}</p>}
     </li>)}</ol>
   </section>;

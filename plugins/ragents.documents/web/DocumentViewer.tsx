@@ -13,6 +13,7 @@ import {
   EmptyTitle,
   ImagePreview,
   ImagePreviewGroup,
+  InteractiveItem,
   Spinner,
 } from "@ragents/web/ui";
 import { useCallback, useEffect, useMemo, useState } from "react";
@@ -181,9 +182,9 @@ export function DocumentToolCall({ active, document, onOpen, status }: DocumentT
         : "Open";
 
   return (
-    <button
+    <InteractiveItem
       aria-pressed={active}
-      className="group/call grid w-[min(100%,620px)] grid-cols-[42px_minmax(0,1fr)_auto] items-center gap-3 rounded-xl border border-border bg-[color-mix(in_srgb,var(--background)_95%,var(--primary))] px-3.5 py-3 text-left shadow-sm transition-[background-color,border-color,box-shadow,transform] duration-100 hover:-translate-y-px hover:border-primary/50 hover:bg-[color-mix(in_srgb,var(--background)_91%,var(--primary))] hover:shadow-md focus-visible:border-primary/50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary/55 aria-pressed:border-primary/50 aria-pressed:bg-[color-mix(in_srgb,var(--background)_91%,var(--primary))] data-[status=error]:border-destructive/45 max-[620px]:grid-cols-[38px_minmax(0,1fr)_auto] max-[620px]:gap-2.5 max-[620px]:px-2.5 max-[620px]:py-2.5"
+      className="group/call grid w-[min(100%,620px)] grid-cols-[42px_minmax(0,1fr)_auto] items-center gap-3 rounded-xl border border-border bg-[color-mix(in_srgb,var(--background)_95%,var(--primary))] px-3.5 py-3 text-left shadow-sm duration-100 data-[status=error]:border-destructive/45 max-[620px]:grid-cols-[38px_minmax(0,1fr)_auto] max-[620px]:gap-2.5 max-[620px]:px-2.5 max-[620px]:py-2.5"
       data-status={status}
       onClick={onOpen}
       type="button"
@@ -192,7 +193,7 @@ export function DocumentToolCall({ active, document, onOpen, status }: DocumentT
         <IconDocument size={22} />
       </span>
       <span className="flex min-w-0 flex-col gap-0.5">
-        <span className="text-[0.62rem] font-semibold tracking-[0.05em] text-primary uppercase">Document</span>
+        <span className="text-[0.62rem] font-semibold tracking-[0.05em] text-primary uppercase group-aria-pressed/call:text-selected-foreground">Document</span>
         <strong className="truncate text-[0.84rem] leading-[1.35]" title={document.title}>{document.title}</strong>
         <span className="text-[0.7rem] leading-[1.35] text-muted-foreground">
           {document.content === undefined
@@ -200,11 +201,11 @@ export function DocumentToolCall({ active, document, onOpen, status }: DocumentT
             : `${formatLabels[document.format]}, ${lineCount.toLocaleString()} ${lineCount === 1 ? "line" : "lines"}`}
         </span>
       </span>
-      <span className="flex items-center gap-1 text-[0.7rem] font-semibold text-primary group-data-[status=error]/call:text-destructive">
+      <span className="flex items-center gap-1 text-[0.7rem] font-semibold text-primary group-aria-pressed/call:text-selected-foreground group-data-[status=error]/call:text-destructive">
         <span className="max-[620px]:sr-only">{statusLabel}</span>
         {status === "running" ? <Spinner className="size-3" /> : status === "error" ? <IconError /> : <IconOpen />}
       </span>
-    </button>
+    </InteractiveItem>
   );
 }
 

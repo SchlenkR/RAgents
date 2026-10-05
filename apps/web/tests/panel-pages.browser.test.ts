@@ -46,7 +46,7 @@ const preparePage=async(initial:unknown):Promise<string>=>{
   const scratch="/private/tmp/ragents-panel-pages";await mkdir(scratch,{recursive:true});const directory=await mkdtemp(`${scratch}/page-`);const root=fileURLToPath(new URL("../../../",import.meta.url));
   await build({stdin:{contents:`import React,{useState}from'react';import{createRoot}from'react-dom/client';import{PanelPage}from'${root}apps/web/src/panel/PanelPage.tsx';import'${root}apps/web/src/ui/tailwind.css';
 function App(){const[state,setState]=useState(window.fixture.initial);window.fixture={...window.fixture,setState};window.fixture.sent??=[];return <PanelPage state={state} send={action=>window.fixture.sent.push(action)}/>};createRoot(document.getElementById('root')).render(<App/>);`,resolveDir:`${root}apps/web`,loader:"tsx"},jsx:"automatic",bundle:true,platform:"browser",format:"iife",outfile:`${directory}/app.js`,plugins:[tailwindPlugin([])],logLevel:"silent"});
-  await writeFile(`${directory}/index.html`,`<!doctype html><html data-theme="dark"><head><meta charset="utf-8"><link rel="stylesheet" href="app.css"><script>window.fixture={initial:${JSON.stringify(initial)}}</script></head><body><div id="root"></div><script src="app.js"></script></body></html>`);
+  await writeFile(`${directory}/index.html`,`<!doctype html><html data-theme="dark"><head><meta charset="utf-8"><link rel="stylesheet" href="app.css"><script>window.fixture={initial:${JSON.stringify(initial)}};document.documentElement.dataset.theme=window.fixture.initial.theme</script></head><body><div id="root"></div><script src="app.js"></script></body></html>`);
   return `file://${directory}/index.html`;
 };
 
@@ -155,8 +155,10 @@ test("Runs searches, hides ended runs and deletes confirmed selections on the cu
     await page.evaluate(()=>(window as any).fixture.setState((current:any)=>({...current,problem:'The run could not be deleted.'})));
     await page.getByRole('alert').getByText('The run could not be deleted.',{exact:true}).waitFor();
 
-    // Select, mark two runs, confirm in the dialog.
     await page.getByRole('button',{name:'Select'}).click();
+    const toolbar=page.getByRole('group',{name:'Run actions',exact:true});
+    assert.deepEqual(await toolbar.getByRole('button').allTextContents(),['Select all','Delete','Cancel']);
+    assert.equal(await toolbar.getByRole('button',{name:'Delete',exact:true}).isDisabled(),true);
     assert.equal(await page.getByRole('button',{name:/^Delete /}).count(),0,'selection mode keeps only the bulk action');
     await page.getByRole('checkbox',{name:'Select Balcony plan south side'}).click();
     await page.getByRole('checkbox',{name:'Select Word game: sun'}).click();
@@ -164,7 +166,7 @@ test("Runs searches, hides ended runs and deletes confirmed selections on the cu
     assert.equal(await columnEdges(page,'Runs','time'),1,'the time stays at one edge with checkboxes too');
     assert.equal(await columnEdges(page,'Runs','connection'),0);
     await shoot(page,`${shots}runs-selection-420.png`);
-    await page.getByRole('button',{name:'Delete'}).click();
+    await toolbar.getByRole('button',{name:'Delete',exact:true}).click();
     const dialog=page.getByRole('dialog');
     await dialog.waitFor();
     await dialog.getByRole('heading',{name:'Delete 2 runs?'}).waitFor();
@@ -186,6 +188,107 @@ test("Runs searches, hides ended runs and deletes confirmed selections on the cu
     context.diagnostic(`Screenshots: ${shots}`);
   }finally{await browser.close()}
 });
+
+for (const theme of ["light", "dark"]) {
+  test(`Runs selection toolbar stays reachable and toggles only visible deletable runs in ${theme}`, {skip, timeout:120_000}, async () => {
+    const runs = [
+      {...run("own", "Review plan", "running", 0), shared:true},
+      {...run("locked", "Review locked", "idle", 1), locked:"Unsupported journal format"},
+      run("ended", "Archive review", "ended", 2),
+      {...run("viewed", "Shared notes", "idle", 3), sharedAccess:"read"},
+      {...run("joined", "Shared edits", "idle", 4), sharedAccess:"write"},
+    ];
+    const connection = {...workshop, runs};
+    const url = await preparePage({theme, page:"runs", profileSuggestions:[], connections:[connection]});
+    const browser = await launch();
+    try {
+      for (const width of [380, 900]) {
+        const page = await browser.newPage({viewport:{width, height:620}});
+        await page.goto(url);
+        const search = page.getByRole("searchbox", {name:"Search runs"});
+        const toolbar = page.getByRole("group", {name:"Run actions", exact:true});
+        const button = (name:string) => toolbar.getByRole("button", {name, exact:true});
+        const count = (value:number) => toolbar.getByRole("status").filter({hasText:`${value} selected`}).waitFor();
+        await button("Hide ended").click();
+        await button("Select").click();
+        await count(0);
+        assert.deepEqual(await toolbar.locator(":scope > *").allTextContents(), ["Select all", "0 selected", "Delete", "Cancel"]);
+        assert.equal(await button("Delete").isDisabled(), true);
+        assert.equal(await page.getByRole("checkbox").count(), 2, "locked runs can be selected, sharees cannot");
+        await search.focus();
+        await page.keyboard.press("Tab");
+        assert.equal(await button("Select all").evaluate((item) => item === document.activeElement), true);
+        await page.keyboard.press("Space");
+        await count(2);
+        assert.equal(await page.getByRole("checkbox", {name:"Select Review locked"}).isChecked(), true);
+        await button("Select none").click();
+        await count(0);
+        assert.equal(await page.getByRole("checkbox", {checked:true}).count(), 0);
+        await button("Select all").click();
+        await button("Delete").focus();
+        await page.keyboard.press("Enter");
+        const dialog = page.getByRole("dialog", {name:"Delete 2 runs?"});
+        await dialog.waitFor();
+        await page.keyboard.press("Escape");
+        await dialog.waitFor({state:"detached"});
+        await count(2);
+        assert.equal(await sent(page), undefined, "dismissing confirmation sends no deletion");
+        await button("Cancel").focus();
+        await page.keyboard.press("Space");
+        await button("Select").waitFor();
+        assert.equal(await toolbar.getByRole("status").count(), 0);
+        assert.equal(await page.getByRole("checkbox").count(), 0);
+        assert.equal(await button("Hide ended").getAttribute("aria-pressed"), "true", "leaving selection keeps the filter");
+        await button("Hide ended").click();
+        await button("Select").click();
+        await count(0);
+        await button("Select all").click();
+        await count(3);
+        await search.fill("Review plan");
+        await button("Select none").click();
+        await count(2);
+        await button("Select all").click();
+        await count(3);
+        await search.fill("Shared");
+        await button("Select all").waitFor();
+        assert.equal(await button("Select all").isDisabled(), true, "sharees do not make Select all available");
+        await search.fill("no matching title");
+        await page.getByText("No matching run.", {exact:true}).waitFor();
+        assert.equal(await button("Select all").isDisabled(), true);
+        await search.fill("");
+        await button("Select none").waitFor();
+        await count(3);
+        assert.deepEqual(await toolbar.locator(":scope > *").allTextContents(), ["Select none", "3 selected", "Delete", "Cancel"]);
+        assert.equal(await button("Delete").evaluate((item) => getComputedStyle(item).boxShadow), "none");
+        if (width === 900) {
+          const directory = process.env.RAGENTS_SCREENSHOT_DIR ?? shots;
+          await mkdir(directory, {recursive:true});
+          await page.screenshot({path:join(directory, `runs-select-${theme}.png`)});
+        }
+        await setConnections(page, [{...connection, runs:[...runs, ...Array.from({length:45}, (_, index) => run(`extra-${index}`, `Planning task ${index + 1}`, "idle", index + 10))]}]);
+        await page.getByRole("list", {name:"Runs", exact:true}).getByRole("button", {name:/Planning task 45/}).waitFor();
+        await page.locator("main").evaluate((main) => { main.scrollTop = 350; });
+        await page.waitForFunction(() => document.querySelector("main")!.scrollTop > 300);
+        const bounds = await toolbar.evaluate((item) => {
+          const rect = item.getBoundingClientRect();
+          const search = document.querySelector('[aria-label="Search runs"]')!.getBoundingClientRect();
+          const first = item.querySelector("button")!.getBoundingClientRect();
+          return {top:rect.top, bottom:rect.bottom, searchTop:search.top, searchBottom:search.bottom,
+            unobstructed:item.contains(document.elementFromPoint(first.x + first.width / 2, first.y + first.height / 2)),
+            overflow:document.querySelector("main")!.scrollWidth > document.querySelector("main")!.clientWidth};
+        });
+        assert.ok(bounds.searchTop >= 0 && bounds.top >= bounds.searchBottom && bounds.bottom < 620, "the toolbar sticks below search");
+        assert.equal(bounds.unobstructed, true, "scrolling rows cannot cover the actions");
+        assert.equal(bounds.overflow, false, "the toolbar fits narrow and wide panels");
+        await button("Delete").click();
+        await page.getByRole("dialog", {name:"Delete 3 runs?"}).getByRole("button", {name:"Delete", exact:true}).click();
+        assert.deepEqual(await sent(page), {action:"deleteRuns", name:"workshop", runIds:["own", "locked", "ended"]});
+        await button("Select").waitFor();
+        await page.close();
+      }
+    } finally { await browser.close(); }
+  });
+}
 
 test("a long run title stays within the panel width and the page scrolls vertically",{skip,timeout:120_000},async()=>{
   const longTitle="ReadTASKmdAndCarryOutExactlyThisTask".repeat(5);

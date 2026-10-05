@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import type { JournalEvent } from "@ragents/engine/src/domain/events";
 import type { WorkspaceTabContext } from "@ragents/web/PluginRegistry";
 import { SourceCode } from "@ragents/web/SourceCode";
-import { Alert, AlertDescription, Badge, Button, Input, Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@ragents/web/ui";
+import { Alert, AlertDescription, Badge, Button, Input, Select, SelectContent, SelectItem, SelectTrigger, SelectValue, type BadgeTone } from "@ragents/web/ui";
 import { runContracts } from "@ragents/engine/src/http/contracts";
 import { rpc } from "@ragents/web/rpc";
 import { executionDuration, executionEventsFrom, executionStatusLabel, filterExecutions, projectExecutions, type ExecutionStatus, type TypeScriptExecution } from "./executions";
@@ -68,11 +68,11 @@ function RunExecutionsPanel({ active, runId, view }: { active: boolean; runId: s
   </section>;
 }
 
-const statusBadgeClass: Readonly<Record<string, string>> = {
-  running: "bg-background text-info",
-  completed: "bg-success-soft text-success",
-  failed: "bg-destructive-soft text-destructive",
-  interrupted: "bg-warning-soft text-warning",
+const statusTones: Readonly<Record<ExecutionStatus, BadgeTone>> = {
+  running: "active",
+  completed: "success",
+  failed: "danger",
+  interrupted: "warning",
 };
 
 const summaryClass = "relative grid cursor-pointer list-none grid-cols-[minmax(0,1fr)_auto] gap-x-2 gap-y-[7px] pt-3 pr-2.5 pb-2.5 pl-[25px] focus-visible:outline-2 focus-visible:outline-primary focus-visible:-outline-offset-2 [&::-webkit-details-marker]:hidden before:absolute before:top-[15px] before:left-2.5 before:size-[5px] before:rotate-[-45deg] before:border-r-[1.5px] before:border-b-[1.5px] before:border-solid before:border-current before:content-['']";
@@ -89,7 +89,7 @@ function ExecutionEntry({ execution, now }: { execution: TypeScriptExecution; no
   return <details className="mt-2.5 overflow-hidden rounded-sm border border-border-soft bg-card open:[&>summary]:before:rotate-45" onToggle={(event) => setExpanded(event.currentTarget.open)}>
     <summary className={summaryClass}>
       <span className="truncate font-[650]" title={`${execution.actorName} (${execution.actorId})`}>@{execution.actorHandle}</span>
-      <Badge className={`h-auto rounded-[5px] px-[5px] py-0.5 text-[0.64rem] ${statusBadgeClass[execution.status] ?? "bg-secondary text-muted-foreground"}`}>{executionStatusLabel(execution.status)}</Badge>
+      <Badge className="h-auto rounded-[5px] px-[5px] py-0.5 text-[0.64rem]" tone={statusTones[execution.status]}>{executionStatusLabel(execution.status)}</Badge>
       <span className="col-span-full truncate font-mono text-[0.68rem]" title={preview}>{preview}</span>
       <span className="col-span-full flex flex-wrap justify-between gap-x-3 gap-y-1.5 text-[0.65rem] tabular-nums text-muted-foreground"><time dateTime={execution.startedAt} title={new Date(execution.startedAt).toLocaleString()}>{new Date(execution.startedAt).toLocaleString(undefined, { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit", second: "2-digit" })}</time><span>{executionDuration(execution, now)}</span></span>
     </summary>

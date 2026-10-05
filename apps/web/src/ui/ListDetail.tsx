@@ -2,6 +2,7 @@ import { useEffect, useId, useLayoutEffect, useRef, useState, type ReactNode } f
 import { ArrowLeftIcon, ChevronDownIcon } from "lucide-react";
 import { cn } from "cn";
 import { Button } from "./button";
+import { focusRing, interactionStyle } from "./interaction";
 
 export interface ListDetailItem {
   id: string;
@@ -34,12 +35,9 @@ const toneVariables = "[--tone:var(--muted-foreground)] [--tone-soft:var(--secon
   + "data-[tone=success]:[--tone:var(--success)] data-[tone=success]:[--tone-soft:var(--success-soft)] "
   + "data-[tone=purple]:[--tone:var(--primary)] data-[tone=purple]:[--tone-soft:var(--accent)]";
 
-const focusRing = "focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-ring/60";
-
-const itemClasses = cn(toneVariables, focusRing,
+const itemClasses = cn(toneVariables, interactionStyle,
   "group/item flex w-full min-w-0 items-center gap-2.5 rounded-lg border border-transparent px-2.5 py-3 text-left",
-  "not-disabled:hover:bg-foreground/7 disabled:cursor-default disabled:opacity-55",
-  "aria-pressed:border-border-strong aria-pressed:bg-(--tone-soft)");
+  "disabled:cursor-default disabled:opacity-55");
 
 const paneClasses = "min-h-0 min-w-0 flex-auto overflow-auto overscroll-contain [scrollbar-gutter:stable]";
 
@@ -122,7 +120,7 @@ export function ListDetail({ label, items, selectedId, onSelect, disabled = fals
                   className={itemClasses} data-tone={item.tone ?? "neutral"} disabled={disabled}
                   onClick={() => choose(item.id)} ref={(element) => { if (element) buttons.current.set(item.id, element); else buttons.current.delete(item.id); }} type="button">
                   {item.icon !== undefined && <span className="flex h-9 w-8 flex-none items-center justify-center rounded-sm border border-border-soft bg-(--tone-soft) text-(--tone) data-[tone=accent]:border-l-[3px] data-[tone=accent]:[border-left-color:var(--tone)] data-[tone=purple]:rounded-[10px_10px_10px_3px]" aria-hidden="true" data-tone={item.tone ?? "neutral"}>{item.icon}</span>}
-                  <span className="flex min-w-0 flex-1 flex-col gap-1"><span className="text-[0.77rem] font-semibold leading-snug [overflow-wrap:anywhere] group-aria-pressed/item:font-bold group-aria-pressed/item:text-(--tone)">{item.title}</span>
+                  <span className="flex min-w-0 flex-1 flex-col gap-1"><span className="text-[0.77rem] font-semibold leading-snug [overflow-wrap:anywhere] group-aria-pressed/item:font-bold">{item.title}</span>
                     {item.description && <span className="overflow-hidden text-[0.67rem] leading-[1.45] text-ellipsis whitespace-nowrap text-muted-foreground">{item.description}</span>}
                   </span>
                   {item.meta !== undefined && <span className="max-w-[30%] flex-none text-[0.62rem] leading-snug text-muted-foreground [overflow-wrap:anywhere] @max-[900px]/list-detail:max-w-[24%] @max-[900px]/list-detail:text-[0.6rem]">{item.meta}</span>}

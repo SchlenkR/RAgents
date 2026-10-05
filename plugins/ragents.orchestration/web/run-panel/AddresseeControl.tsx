@@ -1,15 +1,15 @@
 import { useCallback, useId, useMemo, useRef, useState } from "react";
 import { ChevronDownIcon, XIcon } from "lucide-react";
-import { Badge, cn, Spinner } from "@ragents/web/ui";
+import { Badge, cn, InteractiveItem, Spinner } from "@ragents/web/ui";
 import { ActorPopout } from "../ActorPopout";
 import { actorAddress, type RunActor, type RunView } from "@ragents/web/run-view";
 import { pendingInputCount, selectedRunPanelActor } from "./run-panel-actors";
 import { ActorGraph, ActorIcon } from "./ActorGraph";
 
-const chipClass = "flex h-7 min-w-[70px] max-w-[220px] flex-[0_1_auto] items-center rounded-full border border-border bg-background text-[0.72rem] font-semibold text-foreground hover:bg-accent has-aria-expanded:border-primary";
-const pickClass = "flex h-full min-w-0 flex-1 cursor-pointer items-center gap-1.5 rounded-full pr-2 pl-1 focus-visible:outline-2 focus-visible:outline-ring/60 focus-visible:outline-offset-1";
-const backClass = "mr-1 grid size-5 flex-none cursor-pointer place-items-center rounded-full text-muted-foreground hover:bg-background hover:text-foreground focus-visible:outline-2 focus-visible:outline-ring/60 [&>svg]:size-3";
-const busyClass = "flex h-7 min-w-0 flex-[0_1_auto] cursor-pointer items-center gap-1.5 rounded-md px-1.5 text-[0.7rem] text-muted-foreground hover:bg-accent hover:text-foreground focus-visible:outline-2 focus-visible:outline-ring/60 focus-visible:outline-offset-1";
+const chipClass = "flex h-7 min-w-[70px] max-w-[220px] flex-[0_1_auto] items-center rounded-full border border-border bg-background text-[0.72rem] font-semibold text-foreground";
+const pickClass = "flex h-full min-w-0 flex-1 cursor-pointer items-center gap-1.5 rounded-full pr-2 pl-1";
+const backClass = "mr-1 grid size-5 flex-none cursor-pointer place-items-center rounded-full text-muted-foreground [&>svg]:size-3";
+const busyClass = "flex h-7 min-w-0 flex-[0_1_auto] cursor-pointer items-center gap-1.5 rounded-md px-1.5 text-[0.7rem] text-active";
 
 /** The chat's addressee as a chip in the input bar; the pop-out shows the actors as a graph by creator, including stopped actors, and the x returns to the primary actor. */
 export function AddresseeControl({ actors, onSelect, selected, technical, view }: {
@@ -38,19 +38,19 @@ export function AddresseeControl({ actors, onSelect, selected, technical, view }
 
   return <>
     <span className={chipClass}>
-      <button aria-controls={open ? panelId : undefined} aria-expanded={open} aria-haspopup="dialog" className={cn(pickClass, back && "pr-1")} onClick={() => setOpen(!open)} ref={buttonRef} title={`Addressee: @${actorAddress(selected)}. Click to choose another actor`} type="button">
+      <InteractiveItem aria-controls={open ? panelId : undefined} aria-expanded={open} aria-haspopup="dialog" className={cn(pickClass, back && "pr-1")} onClick={() => setOpen(!open)} ref={buttonRef} title={`Addressee: @${actorAddress(selected)}. Click to choose another actor`} type="button">
         <ActorIcon actor={selected} className="size-5" view={view} />
         <span className="truncate">@{actorAddress(selected)}</span>
         <ChevronDownIcon aria-hidden className="size-3 flex-none text-muted-foreground" />
-      </button>
-      {back && <button aria-label={`Back to @${actorAddress(back)}`} className={backClass} onClick={() => onSelect(back)} title={`Back to @${actorAddress(back)}`} type="button"><XIcon aria-hidden /></button>}
+      </InteractiveItem>
+      {back && <InteractiveItem aria-label={`Back to @${actorAddress(back)}`} className={backClass} onClick={() => onSelect(back)} title={`Back to @${actorAddress(back)}`} type="button"><XIcon aria-hidden /></InteractiveItem>}
     </span>
-    {working.length > 0 && <button className={busyClass} onClick={() => setOpen(!open)} title={busyTitle} type="button">
+    {working.length > 0 && <InteractiveItem className={busyClass} onClick={() => setOpen(!open)} title={busyTitle} type="button">
       <Spinner aria-hidden className="size-3 flex-none" />
       <span className="truncate in-data-[compact=true]:hidden">@{actorAddress(working[0])}</span>
-      {busyPending > 0 && <Badge className="h-4 min-w-4 px-1 text-[0.6rem]" variant="secondary">{busyPending}</Badge>}
+      {busyPending > 0 && <Badge className="h-4 min-w-4 px-1 text-[0.6rem]" tone="warning">{busyPending}</Badge>}
       {working.length > 1 && <span className="flex-none">+{working.length - 1}</span>}
-    </button>}
+    </InteractiveItem>}
     {open && <ActorPopout buttonRef={buttonRef} closeLabel="Close addressee" id={panelId} label="Addressee" onClose={close} open placement="top" role="dialog" showLabel={false}>
       <ActorGraph actors={actors} onPick={pick} selectedId={selected.id} technical={technical} view={view} />
     </ActorPopout>}

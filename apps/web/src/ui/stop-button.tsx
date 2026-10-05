@@ -9,7 +9,7 @@ export function StopGlyph({ className, ...props }: Omit<ComponentProps<typeof Sq
   return <SquareIcon aria-hidden className={cn("text-destructive", className)} fill="currentColor" {...props} />;
 }
 
-const stopButtonClass = "text-destructive hover:bg-destructive/10 hover:text-destructive dark:hover:bg-destructive/20";
+const stopButtonClass = "text-destructive hover:text-destructive";
 
 /** Every stop button looks the same: the glyph as the icon, the word in the tooltip, red at rest and on hover. */
 export function StopButton({ label, busy = false, className, title, ...props }: Omit<ComponentProps<typeof Button>, "children" | "variant"> & {

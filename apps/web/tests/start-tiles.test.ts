@@ -16,7 +16,8 @@ const titles = (html: string) => [...html.matchAll(/data-tile="([^"]+)"/g)].map(
 test("without a default template New chat comes first, then the templates in their order", () => {
   const html = render();
   assert.deepEqual(titles(html), ["New chat", "board", "decision", "word"]);
-  assert.match(html, /No template/);
+  assert.match(html, /aria-label="New chat"/);
+  assert.doesNotMatch(html, /No template/);
   assert.equal(startTileCount(entries, undefined, true), 4);
 });
 
@@ -31,8 +32,17 @@ test("without the right to free runs New chat is missing, a template with a guid
   const html = render({ onNewChat: undefined });
   assert.deepEqual(titles(html), ["board", "decision", "word"]);
   assert.equal(startTileCount(entries, undefined, false), 3);
-  assert.equal((html.match(/Set up/g) ?? []).length, 1);
-  assert.equal((html.match(/Start/g) ?? []).length, 2);
+  assert.match(html, /aria-label="Set up decision"/);
+  assert.equal((html.match(/aria-label="Start [^"]+"/g) ?? []).length, 2);
+});
+
+test("compact tiles contain a title, description and action, without categories or a start bar", () => {
+  const html = render();
+  assert.doesNotMatch(html, />Mini-apps<|>Discuss<|>Games<|>Start<|>Set up</);
+  assert.deepEqual([...html.matchAll(/data-action="([^"]+)"/g)].map((match) => match[1]), ["chat", "start", "setup", "start"]);
+  assert.equal((html.match(/data-slot="start-title"/g) ?? []).length, 4);
+  assert.equal((html.match(/data-slot="start-description"/g) ?? []).length, 4);
+  assert.equal((html.match(/data-slot="start-action"/g) ?? []).length, 4);
 });
 
 test("while a start is running, all tiles are locked", () => {
@@ -49,8 +59,9 @@ test("the tile whose start is under way says Starting with a spinner, all tiles 
   assert.deepEqual(buttons.filter((button) => button.includes('aria-busy="true"')).map((button) => button.match(/data-tile="([^"]+)"/)?.[1]), ["word"]);
   assert.equal((html.match(/Starting \.\.\./g) ?? []).length, 1);
   assert.equal((html.match(/data-slot="spinner"/g) ?? []).length, 1);
-  assert.equal((html.match(/>Start</g) ?? []).length, 2, "the other tiles keep their start hint");
+  assert.match(html, /aria-label="Start word"/, "the action name stays intact during a start");
+  assert.match(html, /data-slot="start-action">(?:(?!<\/span>).)*data-slot="spinner"(?:(?!<\/span>).)*Starting \.\.\./s);
   const chat = render({ starting: {} });
-  assert.match(chat, /<button aria-busy="true"[^>]*data-tile="New chat"/, "a start without template is the New chat tile");
+  assert.match(chat, /<button\b(?=[^>]*aria-busy="true")(?=[^>]*data-tile="New chat")[^>]*>/, "a start without template is the New chat tile");
   assert.equal((chat.match(/Starting \.\.\./g) ?? []).length, 1);
 });

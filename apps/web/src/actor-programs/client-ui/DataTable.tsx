@@ -1,6 +1,6 @@
 import React, { useId, useRef, useState } from "react";
 import { ArrowDownIcon, ArrowUpIcon } from "lucide-react";
-import { Button, Checkbox, Input, Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../../ui";
+import { Badge, Button, Checkbox, Input, Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../../ui";
 import type { DataTableProps, TableAction, TableColumn, TableValue } from "./table-contracts";
 
 export type TableSort = { id: string; direction: "asc" | "desc" };
@@ -86,7 +86,7 @@ export function DataTable<Row>(props: DataTableProps<Row>) {
                 {columns.map((column) => <TableCell className="align-top break-words whitespace-normal" key={column.id}>{column.render ? column.render(row) : displayValue(column.value(row))}</TableCell>)}
                 {actions.length > 0 && <TableCell className="align-top">
                   <div aria-busy={pending.has(key)} className="flex flex-wrap gap-1.5">{actions.map((action) => <Button disabled={loading || pending.has(key) || action.disabled?.(row)} key={action.id} onClick={() => void runAction(action, row, key)} size="sm" variant="outline">{action.label}</Button>)}</div>
-                  {pending.has(key) && <span className="text-xs text-muted-foreground" role="status">Running...</span>}
+                  {pending.has(key) && <Badge role="status" tone="active">Running...</Badge>}
                   {errors.has(key) && <p className="mt-1.5 text-sm text-destructive" role="alert">{errors.get(key)}</p>}
                 </TableCell>}
               </TableRow>;

@@ -1,5 +1,6 @@
 import { hostInputEnabled, isRunPanelKeyboardMessage, relayFrameInput } from "@ragents/web/run-panel/input-bridge";
 import { useAccess } from "@ragents/web/AccessContext";
+import { Badge } from "@ragents/web/ui";
 import { useResolvedTheme } from "@ragents/web/theme";
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import type { RunApp, RunAppInvocation, ActorProgramsApi } from "./api";
@@ -433,7 +434,7 @@ export function ActorViewFrame({
       <div aria-live="polite" role="status"
         className={`order-1 grid min-w-0 grid-cols-[auto_minmax(0,1fr)] items-center gap-1.5 overflow-hidden px-workspace-inset text-xs text-muted-foreground ${visibleStatus ? "h-7 flex-[0_0_28px] py-1" : "h-0 flex-none"}`}>
         {visibleStatus && <>
-          <strong className="text-[0.63rem] font-semibold whitespace-nowrap text-foreground">{visibleStatus.title}</strong>
+          <Badge tone={visibleStatus.tone === "error" ? "danger" : visibleStatus.tone === "running" ? "active" : visibleStatus.tone === "confirm" ? "warning" : "neutral"}>{visibleStatus.title}</Badge>
           <span className="truncate" title={visibleStatus.detail}>{visibleStatus.detail}</span>
         </>}
       </div>

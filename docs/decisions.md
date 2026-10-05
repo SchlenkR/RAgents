@@ -1,5 +1,27 @@
 # Decisions
 
+## 2026-10-05: Share readable interaction states and semantic status tones
+
+Chapter: `spec/plugins.md` (Web as plugin host, UI library); usage: `usage.md` (Settings, Start).
+
+Selected controls and hovered actions need distinct surfaces in both themes. Shared tokens
+define a subtle hover surface and a stronger selection tint with a uniform one-pixel border
+in its hue. The owner found the earlier flat selection too faint, particularly among actor
+cards. These cards now stand apart in the Agents view, as do multiselect answers, dock tabs,
+navigation, menus, and select options. Selection adds no rings, shadows, inset edges, bevels,
+or asymmetric borders. Tabs stay square with selection-colored text and no bottom indicator.
+Icon-only action toggles keep a subtler surface and a colored or filled icon, with no border
+or ring even under keyboard focus. Other controls retain the one-pixel keyboard focus ring.
+Shared controls and `InteractiveItem` carry these rules, including document cards and detail
+lists; the compact templates keep their appearance. Browser comparisons and AA checks cover both themes,
+including secondary actor and question text.
+Start templates keep their title and two-line description with an always-visible action icon at the top right, making the next step clear in a more compact card.
+Runs selection actions sit in the sticky top toolbar below search so Select all/none, the count, Delete, and Cancel remain reachable while scrolling (`spec/plugins.md`, `usage.md`).
+
+`Badge` accepts semantic tones for completed, failed, ongoing, waiting, and neutral states.
+The same tones survive compact dot presentation. The host and bundled status views use
+these tokens, and plugins receive the additive API through `@ragents/web/ui`.
+
 ## 2026-10-05: Share image zoom controls and make browser assertions explicit
 
 Chapter: `spec/plugins.md` (Documents, shared UI, Browser checks); usage: `usage.md`

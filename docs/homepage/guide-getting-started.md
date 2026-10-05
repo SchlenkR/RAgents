@@ -382,8 +382,8 @@ anything. In the browser a new run always works on the server; only VS Code and 
 bind a run to a workstation.
 
 A click shows its effect at once: either the run's progress appears, or the chosen entry shows
-a spinner and "Starting ..." while the other entries stay locked until the run opens or the start
-fails; a run script in the run header's "Run script" list does the same. While a template starts,
+a spinner and "Starting ..." at the top right while the other entries stay locked until the
+run opens or the start fails; a run script in the run header's "Run script" list does the same. While a template starts,
 the panel shows its progress in the chat area and reserves the bottom status bar, keeping the
 notice in place when the run connects.
 

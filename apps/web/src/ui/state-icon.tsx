@@ -11,13 +11,13 @@ interface Mark {
   readonly filled?: boolean;
 }
 
-/** Green is running, blue is moving, yellow is waiting for you (also a paused run), red is broken, gray is idle, muted is over; no state ever carries the stop glyph (square). */
+/** Active is running, warning is waiting or paused, success is completed, danger is broken; the stop glyph stays an action. */
 const RUN_MARKS: Record<RunStateName, Mark> = {
-  running: { Icon: CirclePlayIcon, tone: "text-success" },
+  running: { Icon: CirclePlayIcon, tone: "text-active" },
   waiting: { Icon: CircleEllipsisIcon, tone: "text-warning" },
   paused: { Icon: CirclePauseIcon, tone: "text-warning" },
   idle: { Icon: CircleIcon, tone: "text-muted-foreground" },
-  ended: { Icon: CircleCheckIcon, tone: "text-muted-foreground opacity-70" },
+  ended: { Icon: CircleCheckIcon, tone: "text-success" },
   failed: { Icon: CircleXIcon, tone: "text-destructive" },
   cancelled: { Icon: CircleSlashIcon, tone: "text-muted-foreground opacity-70" },
 };

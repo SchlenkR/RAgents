@@ -3,7 +3,7 @@ import { createPortal } from "react-dom";
 import { ArrowDownIcon, ArrowLeftIcon, ArrowRightIcon, ArrowUpIcon, LayoutGridIcon, MaximizeIcon, MinimizeIcon, PinIcon, PinOffIcon, SquareDashedIcon, SquareIcon, UsersIcon, XIcon } from "lucide-react";
 import type { SessionContext, SessionNavigation, WorkspaceTabContribution } from "../PluginRegistry";
 import { RunAppView, type RunApp } from "../run-apps";
-import { Badge, BadgeDisplayProvider, Button, cn, Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "../ui";
+import { Badge, InteractiveItem, BadgeDisplayProvider, Button, cn, Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "../ui";
 import { activeDockTool, addDockEmptyPane, appPanelId, closeDockPanels, dockGroups, dockWindowOrder, emptyPanelId, focusedDockWindow, initialDockState, isEmptyPanel, isToolPanel, moveDockPanels, moveDockWindow, reconcileDockState, resizeDockSplit, returnDockTool, revealDockPanel, transitionDockSide, selectDockPanel, tabWindowId, toolPanelId, workspaceTabPanelId, type DockGroup } from "./dock-state";
 import { DOCK_DIVIDER_SIZE, DOCK_HEADER_HEIGHT, containsPoint, dockGeometry, dockHitTest, type DockPoint, type DockRect } from "./dock-geometry";
 import { useDockPointer } from "./dock-pointer";
@@ -119,7 +119,7 @@ export function DockWorkspace({ apps, chat, chatIcon = <UsersIcon />, navigation
     const ToolIcon = tabFor(id)?.Icon;
     return id === "chat" ? chatIcon : ToolIcon ? <ToolIcon /> : id === EMPTY_PANE_ENTRY || isEmptyPanel(id) ? <SquareDashedIcon /> : <LayoutGridIcon />;
   };
-  const marker = (tab: WorkspaceTabContribution, active: boolean) => pendingTabIds.includes(tab.id) && activeDockTool(state) !== tab.id ? <Badge>New activity</Badge>
+  const marker = (tab: WorkspaceTabContribution, active: boolean) => pendingTabIds.includes(tab.id) && activeDockTool(state) !== tab.id ? <Badge tone="info">New activity</Badge>
     : tab.Badge && <tab.Badge active={active} navigation={navigation} selection={navigation.selectionFor(tab.id)} session={session} />;
   // A CSS zoom on the page scales client coordinates, not the dock geometry.
   const pointerZoom = () => container.current!.getBoundingClientRect().width / container.current!.offsetWidth || 1;
@@ -272,9 +272,9 @@ export function DockWorkspace({ apps, chat, chatIcon = <UsersIcon />, navigation
         <div aria-label="Area tabs" className={areaHeaderClass} data-dock-group={group.id} role="tablist" style={headerRect(rect)} onFocusCapture={() => { if (state.focused !== group.id || state.side.focused) update((current) => ({ ...current, focused: group.id, side: { ...current.side, focused: false } })); }}>
           <Button aria-label="Move area" className={cn(gripClass, "flex-none touch-none cursor-grab active:cursor-grabbing")} onPointerDown={(event) => startDrag(event, group.tabs)} size="icon-xs" title="Drag all windows of this area" variant="ghost"><DockGrip /></Button>
           {group.tabs.map((id, index) => <div className="flex min-w-0 flex-1 items-center border-r border-border last:border-r-0" key={id} role="presentation">
-            <button id={`dock-tab-${encodeURIComponent(id)}`} aria-controls={`dock-panel-${encodeURIComponent(id)}`} aria-label={title(id)} aria-selected={id === group.active} className="flex h-7 min-w-0 flex-1 touch-none cursor-grab items-center gap-1.5 px-2 text-left text-xs text-muted-foreground outline-offset-[-2px] aria-selected:bg-accent aria-selected:text-foreground focus-visible:outline-2 focus-visible:outline-ring [&>svg]:size-4 [&>svg]:shrink-0"
+            <InteractiveItem id={`dock-tab-${encodeURIComponent(id)}`} aria-controls={`dock-panel-${encodeURIComponent(id)}`} aria-label={title(id)} aria-selected={id === group.active} className="flex h-7 min-w-0 flex-1 touch-none cursor-grab items-center gap-1.5 px-2 text-left text-xs text-muted-foreground [&>svg]:size-4 [&>svg]:shrink-0"
               onClick={(event) => { if (event.detail === 0) select(id); }} onKeyDown={(event) => selectFromKeyboard(event, group, id)}
-              onPointerDown={(event) => { event.currentTarget.focus(); startDrag(event, [id], () => select(id)); }} role="tab" tabIndex={id === group.active ? 0 : -1} title={title(id)} type="button">{icon(id)}<span className="truncate">{title(id)}</span></button>
+              onPointerDown={(event) => startDrag(event, [id], () => select(id))} role="tab" tabIndex={id === group.active ? 0 : -1} title={title(id)} type="button">{icon(id)}<span className="truncate">{title(id)}</span></InteractiveItem>
             {index === group.tabs.length - 1 && <>
               {toolHeader(group.active)}
               {group.active && isToolPanel(group.active) && <Button aria-label={`Return ${title(group.active)} to sidebar`} onClick={() => update((current) => returnDockTool(current, group.active!))} size="icon-xs" title="Return to sidebar" variant="ghost"><PinOffIcon /></Button>}
@@ -325,8 +325,8 @@ export function DockWorkspace({ apps, chat, chatIcon = <UsersIcon />, navigation
           const id = toolPanelId(tab.id);
           const active = sideVisible && sideTab === id;
           return <Tooltip disableHoverablePopup key={id}>
-            <TooltipTrigger id={`dock-tab-${encodeURIComponent(id)}`} aria-controls={`dock-panel-${encodeURIComponent(id)}`} aria-label={tab.label} aria-pressed={active} className="relative touch-none aria-pressed:bg-accent"
-              onClick={(event) => { if (event.detail === 0) sideClick(id); }} onPointerDown={(event) => { event.currentTarget.focus(); startDrag(event, [id], () => sideClick(id)); }}
+            <TooltipTrigger id={`dock-tab-${encodeURIComponent(id)}`} aria-controls={`dock-panel-${encodeURIComponent(id)}`} aria-label={tab.label} aria-pressed={active} className="relative touch-none border border-transparent"
+              onClick={(event) => { if (event.detail === 0) sideClick(id); }} onPointerDown={(event) => startDrag(event, [id], () => sideClick(id))}
               onPointerEnter={() => { holdSide(); if (!drag && !sidePressed.current) update((current) => transitionDockSide(current, { type: "hover", id })); }} render={<Button size="icon" variant="ghost" />}>
               <tab.Icon />
               <span className="absolute top-1 right-1"><BadgeDisplayProvider value="dot">{marker(tab, active)}</BadgeDisplayProvider></span>

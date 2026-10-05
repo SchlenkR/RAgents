@@ -27,12 +27,14 @@ Clicking or typing elsewhere while it loads cancels that focus request.
 With write rights, the run header offers "Run script" right of the window buttons, behind a thin
 divider. It opens a scrollable list of the run scripts you may start below the header, as wide as
 the window allows up to 800 pixels and ending at its right edge, in two columns when there is room.
-The scripts appear as the same cards as on the Start page with title and description; those you
-can start come first, the others follow greyed out with the reason when a script cannot
+The scripts appear as the same compact cards as on the Start page with title, two lines of
+description, and an always-visible play icon at the top right; hover or keyboard focus emphasizes
+the icon, and the whole card starts the script. Those you can start come first, the others
+follow greyed out with the reason when a script cannot
 join this run, because its `RUN.md` does not set `embeddable: true` or because it fixes a start
 option to a value the run does not have. A click starts it inside the run without a start value;
-its card shows a spinner and "Starting ..." and the other cards are locked until the server
-accepts the start, then the list closes;
+its card shows a spinner and "Starting ..." in the icon position and the other cards are
+locked until the server accepts the start, then the list closes;
 the primary actor stays, every start gets a room of its own with its own participants (`name`,
 `name-2`, ...), its main view becomes available as an app, and its output and summary appear in
 the chat as `@room.handle: ...`. If the start is refused,
@@ -251,11 +253,16 @@ toolbar row. VS Code keeps its single run header and editor tabs.
 maximum content width, and one in narrow panels. Cards stay between 240 and 320 pixels wide,
 shrinking only when the panel is narrower.
 It has no server block. **New** comes first when the selected server permits new runs. The first
-entry is its default template, marked "Default", or "New chat" in the "No template" category. Remaining templates follow,
-without duplicating the default. Clicking an entry creates and starts the run on its server
+entry is its default template, marked "Default" in the title row, or "New chat". Remaining
+templates follow without duplicating the default. Each flat card shows a title and two lines
+of description, with an always-visible action icon at the top right: plus for "New chat",
+play for a direct start, and sliders for "Set up". Hover or keyboard focus emphasizes the icon.
+The whole card is clickable, with accessible name "New chat", `Start <title>`, or
+`Set up <title>`. There is no category row or bottom action bar, and skill and script templates
+share the same card appearance. Clicking an entry creates and starts the run on its server
 and opens the run panel. Until the run opens, the entry shows "Starting ..." with a
-spinner and all other entries stay locked; a cancelled folder choice or a failed start unlocks
-them again. Cancelling a template's guide returns to the same server's Start page.
+spinner in the icon position and all other entries stay locked; a cancelled folder choice
+or a failed start unlocks them again. Cancelling a template's guide returns to the same server's Start page.
 
 The new run uses your open folder as its workspace, asking you to choose when several are open.
 If the template defines its own workspace, such as one server folder per run, VS Code does not

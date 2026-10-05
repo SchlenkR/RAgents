@@ -130,7 +130,9 @@ test("Start marks the clicked template as starting until its next state", browse
     await tile("Discussion circle").click();
     assert.deepEqual(await calls(page, "panel.newRun"), [{ action: "newRun", name: "local", entryId: "demo.circle" }]);
     assert.deepEqual(await busy(), ["Discussion circle"]);
-    assert.match(await tile("Discussion circle").textContent() ?? "", /Starting \.\.\.$/);
+    assert.equal(await tile("Discussion circle").locator('[data-slot="start-action"]').textContent(), "Starting ...");
+    assert.equal(await tile("Discussion circle").locator('[data-slot="start-action"] [data-slot="spinner"]').count(), 1);
+    assert.equal(await tile("Discussion circle").getAttribute("aria-label"), "Start Discussion circle");
     assert.equal(await templates.getByRole("button", { disabled: false }).count(), 0, "no second start while one is under way");
     await tile("Word game").click({ force: true });
     assert.equal((await calls(page, "panel.newRun")).length, 1, "a locked tile sends nothing");
@@ -147,6 +149,61 @@ test("Start marks the clicked template as starting until its next state", browse
     await page.waitForFunction(() => document.querySelector('[aria-busy="true"]') === null);
     assert.equal(await tile("New chat").isEnabled(), true);
   });
+});
+
+test("compact Start cards keep top-right actions visible and highlight hover and keyboard focus in both themes and hosts", browserOnly, async () => {
+  const shots = join(tmpdir(), "ragents-browser-shots");
+  await mkdir(shots, { recursive: true });
+  for (const view of ["web", "start"] as const) {
+    for (const theme of ["light", "dark"] as const) {
+      await withPage(`view=${view}`, 1600, async (page) => {
+        const templates = page.getByRole("list", { name: "Templates", exact: true });
+        await templates.waitFor();
+        await page.evaluate((value) => document.documentElement.setAttribute("data-theme", value), theme);
+        await page.mouse.move(0, 0);
+        assert.deepEqual(await templates.getByRole("button").evaluateAll((buttons) => buttons.map((button) => button.getAttribute("aria-label"))),
+          ["New chat", "Start Collection board", "Set up Clarify decision", "Start Discussion circle", "Start Word game"]);
+        const cards = await templates.getByRole("button").evaluateAll((buttons) => buttons.map((button) => {
+          const title = button.querySelector<HTMLElement>('[data-slot="start-title"]')!;
+          const action = button.querySelector<HTMLElement>('[data-slot="start-action"]')!;
+          const description = button.querySelector<HTMLElement>('[data-slot="start-description"]')!;
+          return { text: button.textContent, children: button.children.length, action: action.dataset.action, icons: action.querySelectorAll('svg[aria-hidden="true"]').length,
+            title: title.getBoundingClientRect().toJSON(), icon: action.getBoundingClientRect().toJSON(), description: description.getBoundingClientRect().toJSON(),
+            height: button.getBoundingClientRect().height, clamp: getComputedStyle(description).webkitLineClamp, shadow: getComputedStyle(button).boxShadow };
+        }));
+        assert.deepEqual(cards.map((card) => card.action), ["chat", "start", "setup", "start", "start"]);
+        for (const card of cards) {
+          assert.equal(card.children, 2, "only the title row and description remain");
+          assert.equal(card.icons, 1, "every action is always visible");
+          assert.doesNotMatch(card.text ?? "", /No template|Mini-apps|\bDiscuss\b|Moderation|Run scripts|Set up|Start/);
+          assert.ok(Math.abs(card.icon.top - card.title.top) < 1 && card.icon.left >= card.title.right, "action sits to the right of the title");
+          assert.ok(card.description.top >= card.title.bottom, "description is below the title row");
+          assert.equal(card.clamp, "2");
+          assert.ok(card.height < 100, `compact card: ${card.height}px`);
+          assert.equal(card.shadow, "none");
+        }
+        await page.screenshot({ animations: "disabled", path: join(shots, `start-compact-${view}-${theme}.png`) });
+        const tile = templates.getByRole("button", { name: "Start Collection board", exact: true });
+        const action = tile.locator('[data-slot="start-action"]');
+        const color = () => action.evaluate((element) => getComputedStyle(element).color);
+        const resting = await color();
+        assert.equal(await action.isVisible(), true);
+        await tile.hover();
+        const hovered = await color();
+        assert.notEqual(hovered, resting, "hover highlights the action");
+        await page.screenshot({ animations: "disabled", path: join(shots, `start-compact-${view}-${theme}-hover.png`) });
+        await page.mouse.move(0, 0);
+        assert.equal(await color(), resting);
+        await page.keyboard.press("Tab");
+        await tile.focus();
+        assert.equal(await tile.evaluate((element) => element.matches(":focus-visible")), true);
+        assert.equal(await color(), hovered, "keyboard focus highlights the same action");
+        await tile.press("Enter");
+        if (view === "start") assert.deepEqual(await calls(page, "panel.newRun"), [{ action: "newRun", name: "local", entryId: "demo.board" }]);
+        else await page.getByRole("list", { name: "Templates", exact: true }).waitFor({ state: "detached" });
+      });
+    }
+  }
 });
 
 test("a template clicked on VS Code Start asks the host and retains its workstation folder", browserOnly, async () => {
@@ -397,7 +454,9 @@ for (const host of ["browser", "vscode"] as const) {
       await page.getByRole("button", { name: /All .* runs/ }).click();
       await page.getByRole("heading", { name: "Runs", exact: true }).waitFor();
       if (host === "vscode") assert.ok((await page.evaluate(() => window.startPageFixture.notifications)).some((message) => message.type === "pageChanged" && message.page === "runs"));
-      assert.equal(await page.getByRole("list", { name: "Runs", exact: true }).getByRole("button").count(), 1);
+      const runs = page.getByRole("list", { name: "Runs", exact: true });
+      assert.equal(await runs.getByRole("listitem").count(), 1);
+      assert.equal(await runs.getByRole("button").filter({ hasText: "Existing run" }).count(), 1);
       assert.equal(await page.locator('[data-cell="connection"]').count(), 0);
       await coordinator.click();
       await history.waitFor();

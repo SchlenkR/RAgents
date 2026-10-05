@@ -1,5 +1,5 @@
 import { useRef, useState } from "react";
-import { CodeIcon, WandSparklesIcon } from "lucide-react";
+import { WandSparklesIcon } from "lucide-react";
 import { coreContracts } from "@ragents/host/api/contracts";
 import type { RunScriptListing } from "../../../server/src/chat-handler";
 import { useAccess } from "../AccessContext";
@@ -38,7 +38,7 @@ export function RunScriptMenu({ runId }: { runId: string }) {
   return <div className="ml-1 flex flex-none items-center gap-2">
     <Separator className="my-2.5" orientation="vertical" />
     <Popover onOpenChange={(next) => { if (next) listScripts(); else close(); }} open={open}>
-      <PopoverTrigger ref={trigger} render={<Button aria-label="Run script" className="border-primary/40 text-primary hover:bg-primary/10 hover:text-primary aria-expanded:bg-primary/10 aria-expanded:text-primary dark:border-primary/40" size="lg" title="Run script" variant="outline" />}>
+      <PopoverTrigger ref={trigger} render={<Button aria-label="Run script" className="border-primary/40 text-primary" size="lg" title="Run script" variant="outline" />}>
         <WandSparklesIcon /><span className="hidden @xs/run-header:inline">Run script</span>
       </PopoverTrigger>
       <PopoverContent align="end" alignOffset={8} anchor={() => trigger.current?.closest("header") ?? null} aria-label="Run script"
@@ -46,9 +46,9 @@ export function RunScriptMenu({ runId }: { runId: string }) {
         {scripts?.kind === "loading" && <p className={noticeClass}>Loading run scripts ...</p>}
         {scripts?.kind === "ready" && scripts.scripts.length === 0 && !error && <p className={noticeClass}>This profile has no run scripts for you.</p>}
         {scripts?.kind === "ready" && scripts.scripts.length > 0 && <ul aria-label="Run scripts" className="grid grid-cols-1 gap-2 @[480px]/scripts:grid-cols-2">
-          {[...scripts.scripts.filter((script) => script.available), ...scripts.scripts.filter((script) => !script.available)].map((script) => <StartTile category="Run script"
+          {[...scripts.scripts.filter((script) => script.available), ...scripts.scripts.filter((script) => !script.available)].map((script) => <StartTile action="start"
             description={(script.available ? script.description : script.reason) ?? ""} disabled={starting !== undefined || !script.available} fill
-            icon={<CodeIcon aria-hidden className="size-3.5" />} key={script.id} onClick={() => startScript(script.id)} starting={starting === script.id} title={script.title} />)}
+            key={script.id} onClick={() => startScript(script.id)} starting={starting === script.id} title={script.title} />)}
         </ul>}
         {error && <p className="px-1 type-body text-destructive" role="alert">{error}</p>}
       </PopoverContent>

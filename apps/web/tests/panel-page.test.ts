@@ -6,7 +6,7 @@ import { createAccessContext } from "../../../packages/ragents/src/access";
 import { AccessContext } from "../src/AccessContext";
 import { PluginRegistry, type StartSectionContext, type WebPlugin } from "../src/PluginRegistry";
 import { PanelPage } from "../src/panel/PanelPage";
-import { RunLine, RunList } from "../src/panel/RunLine";
+import { canDeleteRun, RunLine, RunList } from "../src/panel/RunLine";
 import { isPanelActionMessage, isPanelStateMessage, type PanelAction, type PanelState, type ConnectionView } from "../src/panel/contract";
 
 const render = (state: PanelState) => renderToStaticMarkup(createElement(PanelPage, { state, send: () => {} }));
@@ -124,7 +124,8 @@ test("New starts with the marked default template, otherwise with New chat", () 
   const chat = render(page());
   assert.match(chat, />New<span[^>]*>3</, "the New chat template is counted");
   assert.match(chat, /<ul aria-label="Templates"[^>]*><li[^>]*><button[^>]*data-tile="New chat"/, "New chat is the first template");
-  assert.match(chat, />No template</);
+  assert.match(chat, /aria-label="New chat"/);
+  assert.doesNotMatch(chat, />No template</);
   assert.match(chat, />New chat</);
   assert.match(chat, />Empty run; the task takes shape in the chat\.</);
   assert.doesNotMatch(chat, />Default</);
@@ -158,7 +159,7 @@ test("a run line names the cause of a locked run with a warning icon and opens n
   ] })] }));
   assert.match(html, /Night bus round<\/span><span class="[^"]*text-destructive[^"]*" title="Locked: unsupported journal format 6">/);
   assert.equal(html.match(/text-destructive[^"]*" title="Locked:/g)?.length, 1, "only the affected run carries the cause");
-  assert.match(html, /<button aria-disabled="true"[^>]*title="Night bus round"/);
+  assert.match(html, /<button\b(?=[^>]*aria-disabled="true")(?=[^>]*title="Night bus round")[^>]*>/);
 });
 
 test("Start shows at most five runs and leads to the full list", () => {
@@ -176,9 +177,9 @@ test("a template with a guide is called Set up as in the web app, otherwise Star
     { id: "ragents.reference.board", title: "Collection board", description: "A board for ideas", kind: "skill", category: "Mini-apps" },
     { id: "ragents.reference.circle", title: "Discussion circle", description: "Four agents in a circle", kind: "script", category: "Run scripts", guided: true },
   ] })] }));
-  assert.match(html, /data-tile="Discussion circle"(?:(?!<\/button>).)*>Set up</s);
-  assert.match(html, /data-tile="Collection board"(?:(?!<\/button>).)*>Start</s);
-  assert.doesNotMatch(html, /data-tile="Discussion circle"(?:(?!<\/button>).)*>Start</s);
+  assert.match(html, /aria-label="Set up Discussion circle"/);
+  assert.match(html, /aria-label="Start Collection board"/);
+  assert.doesNotMatch(html, />Set up<|>Start</);
 });
 
 test("a broken connection setting is shown by server management", () => {
@@ -202,12 +203,15 @@ test("the Runs page lists only the current server's runs and offers search, hidi
   assert.match(html, /aria-label="Search runs"/);
   assert.match(html, />Hide ended</);
   assert.match(html, />Select</);
+  assert.match(html, /aria-label="Run actions"[^>]*role="group"/);
+  assert.ok(html.indexOf('aria-label="Search runs"') < html.indexOf('aria-label="Run actions"'));
+  assert.ok(html.indexOf('aria-label="Run actions"') < html.indexOf('aria-label="Runs"'));
   assert.match(html, />Night bus round</);
   assert.match(html, />Word game</);
   assert.match(html, /title="waiting for input \(2\)"/);
   assert.match(html, />3d</);
   assert.doesNotMatch(html, /All servers|aria-label="Only /, "there is no server filter inside a server page");
-  assert.doesNotMatch(html, /selected</, "the selection bar appears only with the selection mode");
+  assert.doesNotMatch(html, /selected<|>Select all<|>Select none<|>Cancel</, "bulk actions appear only in selection mode");
   assert.doesNotMatch(html, /data-cell="connection"|Night bus round \(workshop\)/);
 });
 
@@ -364,6 +368,19 @@ const sharedRuns: ConnectionView["runs"] = [
   { id: "viewed", title: "Viewed run", state: "idle", pendingActions: 0, updatedAt: 1, owner: "Alice", sharedAccess: "read" },
   { id: "joined", title: "Joined run", state: "idle", pendingActions: 0, updatedAt: 0, owner: "Alice", sharedAccess: "write" },
 ];
+
+test("bulk selection permits locked and owner-shared runs, but excludes sharees and denied deletion", () => {
+  const locked = { ...sharedRuns[1]!, locked: "Unsupported journal format" };
+  for (const run of [...sharedRuns, locked]) {
+    assert.equal(canDeleteRun(connection(), run), run.sharedAccess === undefined, run.title);
+    assert.equal(canDeleteRun(connection({ canDelete: false }), run), false, run.title);
+  }
+  const html = renderToStaticMarkup(createElement(RunLine, {
+    run: locked, selecting: true, selectable: canDeleteRun(connection(), locked), selected: true, onOpen: () => {},
+  }));
+  assert.match(html, /<[^>]+(?=[^>]*aria-label="Select Plain run")(?=[^>]*aria-checked="true")[^>]*>/);
+  assert.match(html, /Locked: Unsupported journal format/);
+});
 
 test("shared runs carry an indicator, a sharee row says what the share permits, and only runs the user may share offer Share ...", () => {
   const html = render(page({ page: "runs", connections: [connection({ runs: sharedRuns })] }));

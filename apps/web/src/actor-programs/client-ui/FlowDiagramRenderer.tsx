@@ -11,7 +11,7 @@ const edgeClasses = {
   done: "[--xy-edge-stroke:var(--success)]",
   blocked: "[--xy-edge-stroke:var(--destructive)]",
 };
-const statusIconClass = "size-[18px] flex-none text-muted-foreground data-[status=active]:text-info data-[status=done]:text-success data-[status=blocked]:text-destructive in-data-[running=true]:data-[status=active]:animate-spin in-data-[running=true]:data-[status=active]:[animation-duration:1.3s] in-data-[running=true]:data-[status=active]:motion-reduce:animate-none";
+const statusIconClass = "size-[18px] flex-none text-muted-foreground data-[status=active]:text-active data-[status=done]:text-success data-[status=blocked]:text-destructive in-data-[running=true]:data-[status=active]:animate-spin in-data-[running=true]:data-[status=active]:[animation-duration:1.3s] in-data-[running=true]:data-[status=active]:motion-reduce:animate-none";
 const cardStatusTones = "[--flow-status:var(--muted-foreground)] data-[status=active]:[--flow-status:var(--info)] data-[status=done]:[--flow-status:var(--success)] data-[status=blocked]:[--flow-status:var(--destructive)]";
 
 function StatusIcon({ status, className }: { status: keyof typeof statusLabels; className?: string }) {
@@ -36,7 +36,7 @@ function Card({ data }: NodeProps<CardNode>) {
     {data.itemLines.length > 0 && <ul>{data.itemLines.map((item, index) => <li className="group border-t border-border px-[17px] pt-[11px] pb-[12px] whitespace-pre in-data-[detail-level=summary]:pt-[5px] in-data-[detail-level=summary]:pb-[6px]"
       key={index} data-status={item.status ?? "pending"} title={[item.label, statusLabels[item.status ?? "pending"], item.detail].filter(Boolean).join("\n")}>
       <div className="flex items-start gap-[10px] font-semibold in-data-[detail-level=summary]:font-normal"><StatusIcon className="mt-[3px]" status={item.status ?? "pending"} /><span>{item.labelLines}</span></div>
-      {data.detailLevel !== "summary" && <div className="text-muted-foreground group-data-[status=active]:text-info group-data-[status=done]:text-success group-data-[status=blocked]:text-destructive">{statusLabels[item.status ?? "pending"]}</div>}
+      {data.detailLevel !== "summary" && <div className="text-muted-foreground group-data-[status=active]:text-active group-data-[status=done]:text-success group-data-[status=blocked]:text-destructive">{statusLabels[item.status ?? "pending"]}</div>}
       {item.detailLines !== undefined && <div>{item.detailLines}</div>}
     </li>)}</ul>}
     {data.actions !== undefined && data.actions.length > 0 && <div className="nodrag nopan flex flex-wrap gap-2 border-t border-border px-[17px] py-[10px]">{data.actions.map((action) =>

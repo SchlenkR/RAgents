@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { useAccess } from "@ragents/web/AccessContext";
-import { Button, cn, Input, Textarea } from "@ragents/web/ui";
+import { Badge, Button, cn, Input, Textarea } from "@ragents/web/ui";
 import type { SessionContext } from "@ragents/web/PluginRegistry";
 import type { RunAppInvocation, RunScriptTool } from "./api";
 import { HostConfirmation, pendingConfirmationFor, useActorPrograms } from "./AppsPanel";
@@ -86,7 +86,7 @@ export function FunctionForm({ session, tool, detail = false }: {
         ))}
         <div className="flex flex-wrap items-center gap-2">
           <Button disabled={!writable || busy} type="submit">{busy ? "Running ..." : "Run"}</Button>
-          {status && <span className="text-[0.63rem] text-muted-foreground" role="status">{status}</span>}
+          {status && <Badge role="status" tone={confirmation ? "warning" : invocation?.status === "succeeded" ? "success" : invocation?.status === "failed" ? "danger" : invocation?.status === "running" ? "active" : invocation?.status === "queued" ? "info" : "neutral"}>{status}</Badge>}
         </div>
       </form>
       {confirmation && <HostConfirmation action={confirmation} key={confirmation.id} session={session} />}

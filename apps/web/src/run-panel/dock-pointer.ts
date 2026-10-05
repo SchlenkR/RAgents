@@ -7,7 +7,7 @@ export function useDockPointer() {
   return (event: ReactPointerEvent<HTMLElement>, move: (point: DockPoint) => void, finish: (point: DockPoint | null) => void) => {
     if (event.button !== 0) return;
     cleanup.current?.();
-    event.preventDefault();
+    if (event.currentTarget.tagName !== "BUTTON") event.preventDefault();
     const element = event.currentTarget;
     const pointerId = event.pointerId;
     element.setPointerCapture(pointerId);

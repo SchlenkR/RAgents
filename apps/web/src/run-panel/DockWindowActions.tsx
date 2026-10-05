@@ -54,7 +54,7 @@ export function DockWindowActions({ active, dragging, dropIndex, extra, groupRef
     requestAnimationFrame(() => button.focus());
   };
   const windowButton = (item: DockWindowItem, index?: number) => <Button aria-keyshortcuts={onMove && index !== undefined ? "Alt+ArrowLeft Alt+ArrowRight" : undefined} aria-label={item.title} aria-pressed={item.visible}
-    className={cn("min-w-11 shrink aria-pressed:bg-accent aria-pressed:text-foreground", (onDragStart || item.badge !== undefined) && "relative", onDragStart && "touch-none data-[dragging=true]:opacity-60")}
+    className={cn("min-w-11 shrink", (onDragStart || item.badge !== undefined) && "relative", onDragStart && "touch-none data-[dragging=true]:opacity-60")}
     data-dock-window={onDragStart && index !== undefined ? item.id : undefined} data-dragging={onDragStart ? dragging === item.id : undefined} key={item.id}
     onClick={(event) => { if (!onDragStart || event.detail === 0) onOpen(item.id); }} onKeyDown={index === undefined ? undefined : (event) => moveFromKeyboard(event, item.id)}
     onPointerDown={onDragStart && ((event) => onDragStart(event, item.id))} title={item.hint ?? (item.visible ? item.title : `Show ${item.title}`)} variant="ghost">

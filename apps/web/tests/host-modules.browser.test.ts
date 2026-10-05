@@ -125,7 +125,7 @@ test("the built web carries every name from host-api.json in the register, loads
     const probeLink = `link[href=${JSON.stringify(probeCss)}]`;
     await page.locator(probeLink).waitFor({ state: "attached" });
     const entries = bootstrap.result.plugins.flatMap((plugin) => plugin.web ? [plugin.web.entry] : []);
-    assert.equal(entries.length, 16, "the 14 web halves of the showcase profile plus probe and broken probe");
+    assert.equal(entries.length, 17, "the 15 web halves of the showcase profile plus probe and broken probe");
     for (let attempt = 0; attempt < 50 && entries.some((entry) => !loaded.has(entry)); attempt += 1) await page.waitForTimeout(100);
     assert.deepEqual(entries.filter((entry) => !loaded.has(entry)), [], "the web loads every web half by its address");
     const failures = page.locator("[data-slot=plugin-failures]");

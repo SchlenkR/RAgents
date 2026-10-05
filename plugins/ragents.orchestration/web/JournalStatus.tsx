@@ -3,7 +3,7 @@ import { XIcon } from "lucide-react";
 import type { JournalEvent } from "@ragents/engine/src/domain/events";
 import type { SessionHeaderContext, WorkspaceTabContext } from "@ragents/web/PluginRegistry";
 import { SourceCode } from "@ragents/web/SourceCode";
-import { Button, Input, Popover, PopoverContent } from "@ragents/web/ui";
+import { Badge, Button, Input, InteractiveItem, Popover, PopoverContent } from "@ragents/web/ui";
 import { runContracts } from "@ragents/engine/src/http/contracts";
 import { rpc } from "@ragents/web/rpc";
 import { actorAddress, runViewFrom } from "@ragents/web/run-view";
@@ -59,7 +59,7 @@ export function JournalStatus({ session, dockActive }: SessionHeaderContext & { 
       </header>
       <div className="flex flex-none items-center gap-3 px-2.5 py-2">
         <Input className="flex-1" aria-label="Search journal" onChange={(event) => { setQuery(event.target.value); setLimit(100); }} placeholder="Search event type, actor or content ..." ref={searchRef} type="search" value={query} />
-        <span className="flex-none whitespace-nowrap text-[0.68rem] text-muted-foreground" role="status">{loading ? "Loading ..." : `${filtered.length} events`}</span>
+        <Badge className="flex-none" role="status" tone={loading ? "active" : "neutral"}>{loading ? "Loading ..." : `${filtered.length} events`}</Badge>
       </div>
       {error && <p className="flex-none px-2.5 pb-2 text-destructive" role="alert">{error}</p>}
       <div aria-label="Journal events, newest first" className="min-h-0 flex-1 overflow-auto overscroll-contain px-2.5 pb-2.5">
@@ -70,9 +70,9 @@ export function JournalStatus({ session, dockActive }: SessionHeaderContext & { 
   </>;
   if (dockActive !== undefined) return <div className="flex min-h-0 flex-1 flex-col text-[0.76rem]">{content}</div>;
   return <div className="flex h-full min-w-0 items-stretch">
-    <button aria-controls={panelId} aria-expanded={open} className={statusControlClass} onClick={() => setOpen((value) => !value)} ref={buttonRef} type="button">
+    <InteractiveItem aria-controls={panelId} aria-expanded={open} className={statusControlClass} onClick={() => setOpen((value) => !value)} ref={buttonRef} type="button">
       Journal
-    </button>
+    </InteractiveItem>
     <Popover open={open} onOpenChange={(next) => { if (!next) close(); }}>
       <PopoverContent align="start" anchor={buttonRef} aria-label="Journal of the run" className="flex min-h-0 min-w-0 flex-col gap-0 overflow-hidden rounded-t-sm rounded-b-none p-0 text-[0.76rem]" collisionPadding={8} id={panelId}
         initialFocus={searchRef} role="region" side="top" style={{ width: "min(900px, var(--available-width))", height: "min(480px, var(--available-height))" }}>
@@ -84,13 +84,13 @@ export function JournalStatus({ session, dockActive }: SessionHeaderContext & { 
 
 function JournalEntry({ actor, event }: { actor: string | undefined; event: JournalEvent }) {
   const [expanded, setExpanded] = useState(false);
-  return <details className="border-b border-border-soft open:[&>summary]:text-primary" onToggle={(toggle) => setExpanded(toggle.currentTarget.open)}>
-    <summary className="grid cursor-pointer grid-cols-[32px_minmax(130px,1fr)_minmax(70px,140px)_auto] items-baseline gap-2 px-0.5 py-2 text-[0.68rem] focus-visible:outline-2 focus-visible:outline-primary focus-visible:-outline-offset-2 max-[550px]:grid-cols-[24px_minmax(0,1fr)_auto] max-[550px]:gap-x-2 max-[550px]:gap-y-1">
+  return <details className="border-b border-border-soft" onToggle={(toggle) => setExpanded(toggle.currentTarget.open)}>
+    <InteractiveItem aria-expanded={expanded} className="grid cursor-pointer grid-cols-[32px_minmax(130px,1fr)_minmax(70px,140px)_auto] items-baseline gap-2 px-0.5 py-2 text-[0.68rem] max-[550px]:grid-cols-[24px_minmax(0,1fr)_auto] max-[550px]:gap-x-2 max-[550px]:gap-y-1" render={<summary />}>
       <span className="text-muted-foreground tabular-nums">{event.sequence}</span>
       <span className="font-mono [overflow-wrap:anywhere]">{event.type}</span>
       <span className="truncate max-[550px]:col-start-2 max-[550px]:row-start-2" title={event.actorId}>{actor ? `@${actor}` : event.actorId}</span>
       <time className="text-muted-foreground tabular-nums max-[550px]:col-start-3 max-[550px]:row-start-1" dateTime={event.occurredAt}>{new Date(event.occurredAt).toLocaleTimeString()}</time>
-    </summary>
+    </InteractiveItem>
     {expanded && <SourceCode className="m-0 mb-2 text-[0.68rem]" content={JSON.stringify(event, null, 2)} language="json" path="event.json" />}
   </details>;
 }

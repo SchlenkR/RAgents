@@ -23,7 +23,7 @@ function App(){const[view,setView]=useState('runs');const now=new Date();const[s
     const item=page.getByTitle('Ongoing research',{exact:true});const workspace=item.getByTitle('Workspace: /home/user/project');
     assert.equal(await item.getByTitle('Owner: Alice').count(),1,'the owner stands inside the item');assert.equal(await workspace.count(),1,'the lines stand inside the item');assert.equal(await item.getByTitle('Branch: main').count(),1);
     const background=()=>item.evaluate((element)=>getComputedStyle(element).backgroundColor);const resting=await background();
-    await workspace.hover();assert.notEqual(await background(),resting,'hovering the second line highlights the whole item');
+    await workspace.hover();await page.waitForFunction(({row,resting})=>row!==null&&getComputedStyle(row).backgroundColor!==resting,{row:await item.elementHandle(),resting});assert.notEqual(await background(),resting,'hovering the second line highlights the whole item');
     const [titleBox,detailBox]=[await item.getByText('Ongoing research').boundingBox(),await workspace.boundingBox()];assert.ok(titleBox&&detailBox&&detailBox.y-(titleBox.y+titleBox.height)<6,'the second line stays close to the title');
     await workspace.click();assert.deepEqual(await page.evaluate(()=>(window as any).fixture.calls),[{action:'openRun',name:'demo',runId:'running'}],'a click on the second line opens the run');
     const lockedRow=page.getByRole('listitem').filter({hasText:'Journal format 3 is no longer supported.'});

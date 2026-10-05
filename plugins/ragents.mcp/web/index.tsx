@@ -2,8 +2,11 @@ import { useEffect, useState } from "react";
 import { Plug } from "lucide-react";
 import type { Static } from "typebox";
 import type { WebPlugin, WorkspaceTabContext } from "@ragents/web/PluginRegistry";
+import { Badge, type BadgeTone } from "@ragents/web/ui";
 import { rpc } from "@ragents/web/rpc";
 import { MCP_PLUGIN_ID, mcpContracts } from "../contract";
+
+const stateTones: Record<"connecting" | "connected" | "failed" | "closed", BadgeTone> = { connecting: "active", connected: "success", failed: "danger", closed: "neutral" };
 
 function McpServersPanel({ active, session }: WorkspaceTabContext) {
   const runId = session.session.id;
@@ -19,7 +22,7 @@ function McpServersPanel({ active, session }: WorkspaceTabContext) {
     {!current && <p className="text-sm text-muted-foreground">Loading MCP server status...</p>}
     {current?.servers.length === 0 && <p className="text-sm text-muted-foreground">No MCP servers configured for this run.</p>}
     {current?.servers.map((server) => <div key={server.name} className="border-b border-border pb-3">
-      <div className="flex items-center justify-between gap-2"><strong className="text-sm">{server.name}</strong><span className="text-xs text-muted-foreground">{server.state}</span></div>
+      <div className="flex items-center justify-between gap-2"><strong className="text-sm">{server.name}</strong><Badge tone={stateTones[server.state]}>{server.state}</Badge></div>
       <p className="mt-1 text-xs text-muted-foreground">{server.transport} {server.protocolVersion ?? ""} - {server.toolCount} tools</p>
       {server.error && <p className="mt-2 break-words text-sm text-destructive">{server.error}</p>}
     </div>)}

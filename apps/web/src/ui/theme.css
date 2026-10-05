@@ -70,20 +70,33 @@
     --color-muted: var(--secondary);
     --color-muted-foreground: var(--muted-foreground);
     --color-accent: var(--accent);
-    --color-accent-foreground: var(--foreground);
+    --color-accent-foreground: var(--hover-foreground);
+    --color-hover: var(--hover);
+    --color-hover-foreground: var(--hover-foreground);
+    --color-selected: var(--selected);
+    --color-selected-hover: var(--selected-hover);
+    --color-selected-icon: var(--selected-icon);
+    --color-selected-icon-hover: var(--selected-icon-hover);
+    --color-selected-foreground: var(--selected-foreground);
+    --color-selected-border: var(--selected-border);
+    --color-primary-hover: var(--primary-hover);
     --color-destructive: var(--destructive);
     --color-destructive-soft: var(--destructive-soft);
+    --color-destructive-hover: var(--destructive-hover);
     --color-success: var(--success);
     --color-success-soft: var(--success-soft);
     --color-warning: var(--warning);
     --color-warning-soft: var(--warning-soft);
     --color-info: var(--info);
+    --color-info-soft: var(--info-soft);
+    --color-active: var(--active);
+    --color-active-soft: var(--active-soft);
     --color-teal: var(--teal);
     --color-border: var(--border);
     --color-border-soft: var(--border-soft);
     --color-border-strong: var(--border-strong);
     --color-input: var(--border);
-    --color-ring: var(--primary);
+    --color-ring: var(--ring);
     --color-shell: var(--shell);
     --color-app: var(--app);
     --color-surface: var(--surface);
@@ -122,18 +135,32 @@
     --background: #f3f2f7;
     --foreground: #34303d;
     --card: #e7eaf2;
-    --primary: #79638d;
+    --primary: #674c7a;
+    --primary-hover: #58396b;
     --primary-foreground: #ffffff;
     --secondary: #e1ddeb;
-    --muted-foreground: #62586e;
-    --accent: #dcd0e8;
-    --destructive: #a94360;
+    --muted-foreground: #574c63;
+    --hover: #e5dfea;
+    --hover-foreground: #34303d;
+    --selected: #dcc6ed;
+    --selected-hover: #d8c1ea;
+    --selected-icon: #e1d5e9;
+    --selected-icon-hover: #dacde4;
+    --selected-foreground: #4a2c61;
+    --selected-border: #87639e;
+    --ring: #644778;
+    --accent: var(--hover);
+    --destructive: #94314c;
     --destructive-soft: #f5e1e9;
-    --success: #3b705f;
+    --destructive-hover: #efd3df;
+    --success: #32604f;
     --success-soft: #e1eee8;
-    --warning: #925d37;
+    --warning: #784a29;
     --warning-soft: #f3e4d8;
-    --info: #4b648a;
+    --info: #405779;
+    --info-soft: #e1e9f4;
+    --active: #644778;
+    --active-soft: #e7ddec;
     --teal: #356c70;
     --env-lightness: 0.55;
     --env-chroma: 0.12;
@@ -177,17 +204,31 @@
     --foreground: #e9e2ed;
     --card: #2b303e;
     --primary: #bda6cf;
+    --primary-hover: #d0b9e1;
     --primary-foreground: #2d2235;
     --secondary: #373247;
-    --muted-foreground: #b6a9bd;
-    --accent: #4b3d59;
+    --muted-foreground: #c1b3c8;
+    --hover: #383241;
+    --hover-foreground: #e9e2ed;
+    --selected: #4e3b5d;
+    --selected-hover: #534062;
+    --selected-icon: #44394f;
+    --selected-icon-hover: #4b3e57;
+    --selected-foreground: #eadcf6;
+    --selected-border: #aa88c2;
+    --ring: #cdb2e4;
+    --accent: var(--hover);
     --destructive: #ffa2b0;
     --destructive-soft: #482d3b;
+    --destructive-hover: #543442;
     --success: #8dceae;
     --success-soft: #233f37;
     --warning: #e7bd81;
     --warning-soft: #43382b;
     --info: #9dbade;
+    --info-soft: #2c3b50;
+    --active: #cdb2e4;
+    --active-soft: #3e304e;
     --teal: #8ec9c4;
     --env-lightness: 0.79;
     --env-chroma: 0.1;
@@ -264,10 +305,14 @@
 }
 
 @custom-variant data-selected {
-    &:where([data-selected="true"]) {
+    &:where([data-selected]:not([data-selected="false"])) {
         @slot;
     }
 }
+
+@custom-variant selected (&:is([aria-pressed="true"], [aria-selected="true"], [aria-current="page"], [aria-current="true"], [aria-expanded="true"], [data-state="on"], [data-state="active"], [data-state="selected"], [data-active]:not([data-active="false"]), [data-selected]:not([data-selected="false"]), [data-checked]:not([data-checked="false"])));
+
+@custom-variant icon-only (&:has(> svg:only-child));
 
 @custom-variant data-disabled {
     &:where([data-disabled="true"]),

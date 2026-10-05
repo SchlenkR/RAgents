@@ -294,7 +294,8 @@ test("after its guide a template shows in the start selection that it is startin
   const tile = templates.locator('button[data-tile="Round with a guide"]');
   await tile.waitFor();
   assert.equal(await tile.getAttribute("aria-busy"), "true", "The answered template shows that it is starting.");
-  assert.match(await tile.textContent() ?? "", /Starting \.\.\.$/);
+  assert.equal(await tile.locator('[data-slot="start-action"]').textContent(), "Starting ...");
+  assert.equal(await tile.getAttribute("aria-label"), "Set up Round with a guide");
   assert.equal(await templates.getByRole("button", { disabled: false }).count(), 0, "No other template starts meanwhile.");
   const [guided] = await starts(page);
   await page.evaluate((runId) => window.runStartFixture.releaseStart(runId), guided!.runId);
@@ -381,7 +382,8 @@ test("the run script button lists the run scripts of the open run as start items
   await page.waitForFunction(() => window.runStartFixture.scriptStarts.length === 1);
   assert.deepEqual(await page.evaluate(() => window.runStartFixture.scriptStarts), [{ runId: "existing", entry: "start.review", input: null }]);
   assert.equal(await script("Review").getAttribute("aria-busy"), "true", "The clicked script shows that it is starting.");
-  assert.match(await script("Review").textContent() ?? "", /Starting \.\.\.$/);
+  assert.equal(await script("Review").locator('[data-slot="start-action"]').textContent(), "Starting ...");
+  assert.equal(await script("Review").getAttribute("aria-label"), "Start Review");
   assert.equal(await script("Strict review").isDisabled(), true, "No second script starts meanwhile.");
   await page.evaluate(() => { window.runStartFixture.holdStart = false; window.runStartFixture.releaseStart("start.review"); });
   await list.waitFor({ state: "detached" });

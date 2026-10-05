@@ -36,8 +36,8 @@ test("restricted launch shows only the allowed setup without free chat, composer
   const html = renderRestricted(createElement(ModalControllerContext.Provider, { value: modal },
     createElement(StartOptionsProvider, { connected: true, messageCount: 0, sessionId: "run" }, createElement(StartSelection, { registry, session, onOpen: () => {} }))));
   assert.match(html, /Sync/);
-  assert.match(html, /Workflows/);
-  assert.match(html, />Start<svg/);
+  assert.doesNotMatch(html, />Workflows</);
+  assert.match(html, /aria-label="Start Sync"/);
   assert.doesNotMatch(html, /<button[^>]*disabled=""/);
   assert.doesNotMatch(html, /textarea|New chat|Other workflow|Free task|Private start task|Run script|start-source|[Ss]tart options/);
 });

@@ -1,7 +1,7 @@
 import { useAccess } from "./AccessContext";
 import { ArrowLeftIcon, CheckIcon, ChevronRightIcon, CircleAlertIcon, CopyIcon, InfoIcon, SettingsIcon, XIcon } from "lucide-react";
 import { cn } from "cn";
-import { Button, Card, Dialog, DialogContent, DialogTitle, Input, Spinner, Toggle, ToggleGroup, ToggleGroupItem } from "./ui";
+import { Badge, Button, InteractiveItem, Card, Dialog, DialogContent, DialogTitle, Input, Spinner, Toggle, ToggleGroup, ToggleGroupItem } from "./ui";
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { Markdown } from "quassel";
 import { SourceCode } from "./SourceCode";
@@ -61,13 +61,13 @@ const pageLeadClass = "mt-1.5 max-w-[780px] text-[0.76rem] leading-[1.55] text-m
 const sectionCopyClass = "-mt-1 mb-0.5 text-[0.72rem] leading-normal text-muted-foreground";
 const settingsPanelsClass = "grid gap-5";
 const panelSectionClass = "gap-4 p-5.5 max-md:p-4";
-const settingsAreaClass = "min-h-11 flex-none cursor-pointer border-b-2 border-transparent px-3.5 py-2.5 text-[0.8rem] focus-visible:outline-2 focus-visible:outline-primary focus-visible:-outline-offset-4 max-md:px-2.5 max-md:text-[0.75rem]";
+const settingsAreaClass = "min-h-11 flex-none cursor-pointer px-3.5 py-2.5 text-[0.8rem] max-md:px-2.5 max-md:text-[0.75rem]";
 const navigationItemClass = "flex min-h-[37px] w-full cursor-pointer items-center justify-between gap-2 rounded-lg px-2.5 py-1.5 text-left text-[0.75rem] max-md:w-auto max-md:min-h-8 max-md:flex-none max-md:whitespace-nowrap";
-const navigationItemActiveClass = "bg-primary/12 font-semibold text-primary";
-const navigationItemQuietClass = "text-muted-foreground hover:bg-foreground/6 hover:text-foreground";
+const navigationItemActiveClass = "font-semibold";
+const navigationItemQuietClass = "text-muted-foreground";
 const navigationCountClass = "min-w-5 flex-shrink-0 rounded-full bg-current/11 px-1.5 py-px text-center text-[0.63rem] tabular-nums";
 const loadStateClass = "flex min-h-full items-center justify-center gap-2 p-8 text-[0.78rem] text-muted-foreground";
-const ownerLinkClass = "flex w-full min-w-0 cursor-pointer items-center justify-between gap-2.5 text-left font-semibold text-foreground [overflow-wrap:anywhere] hover:text-primary focus-visible:outline-2 focus-visible:outline-primary focus-visible:outline-offset-2";
+const ownerLinkClass = "flex w-full min-w-0 cursor-pointer items-center justify-between gap-2.5 text-left font-semibold text-foreground [overflow-wrap:anywhere] hover:text-primary focus-visible:outline-1 focus-visible:outline-primary focus-visible:outline-offset-2";
 const ownerLinkNoteClass = "flex-shrink-0 text-[0.7rem] font-normal text-primary";
 const cardListClass = "grid gap-2";
 const cardClass = "min-w-0 rounded-xl border border-border-soft bg-background/76 px-3.5 py-3";
@@ -198,13 +198,13 @@ export function SettingsModal({ onClose, registry }: SettingsModalProps) {
         </Button>
       </header>
       <nav aria-label="Settings areas" className="flex flex-none gap-1 overflow-x-auto border-b border-border px-4.5 max-md:px-2">
-        {settingsAreas.map((area) => <button
+        {settingsAreas.map((area) => <InteractiveItem
           aria-current={activeArea === area.id ? "page" : undefined}
-          className={cn(settingsAreaClass, activeArea === area.id ? "border-b-primary font-bold text-primary" : "text-muted-foreground hover:text-foreground")}
+          className={cn(settingsAreaClass, activeArea === area.id ? "font-bold" : "text-muted-foreground")}
           key={area.id}
           onClick={() => area.id === "plugins" ? changeAxis(axis) : setSelection({ kind: area.id })}
           type="button"
-        >{area.label}</button>)}
+        >{area.label}</InteractiveItem>)}
       </nav>
       {catalogVisible && <div className="flex flex-none gap-1 border-b border-border-soft px-3.5 py-2.5">
         <ToggleGroup aria-label="Group plugins" size="sm" spacing={0} value={[axis]} variant="outline"
@@ -220,7 +220,7 @@ export function SettingsModal({ onClose, registry }: SettingsModalProps) {
             const selected = selection.kind === "plugin" && selection.id === group.id;
             const classNames = cn(navigationItemClass, selected ? navigationItemActiveClass : navigationItemQuietClass, count === 0 && "opacity-42");
             return (
-              <button
+              <InteractiveItem
                 aria-current={selected ? "page" : undefined}
                 className={classNames}
                 key={group.id}
@@ -229,14 +229,14 @@ export function SettingsModal({ onClose, registry }: SettingsModalProps) {
               >
                 {group.id}
                 <span className={navigationCountClass}>{count}</span>
-              </button>
+              </InteractiveItem>
             );
           })}
           {axis === "capability" && capabilityResults.map((option) => {
             const selected = selection.kind === "capability" && selection.id === option.id;
             const count = option.groups.reduce((sum, group) => sum + countContributions(group), 0);
             return (
-              <button
+              <InteractiveItem
                 aria-current={selected ? "page" : undefined}
                 className={cn(navigationItemClass, selected ? navigationItemActiveClass : navigationItemQuietClass)}
                 key={option.id}
@@ -248,7 +248,7 @@ export function SettingsModal({ onClose, registry }: SettingsModalProps) {
               >
                 {option.label}
                 <span className={navigationCountClass}>{count}</span>
-              </button>
+              </InteractiveItem>
             );
           })}
         </nav>}
@@ -473,8 +473,8 @@ function PluginPage({ group, settings, onOpenPlugin }: {
             ? <button className={ownerLinkClass} onClick={onOpenPlugin} type="button">{group.id}<span className={ownerLinkNoteClass}>Open plugin</span></button>
             : <h2 className={`${pageTitleClass} truncate font-mono`}>{group.id}</h2>}
           {!onOpenPlugin && <span className={statusListClass}>
-            <StatusBadge active={group.serverRegistered} label={group.serverRegistered ? "Server registered" : "Server unknown"} />
-            <StatusBadge active={group.webActive} label={group.webActive ? "Web active" : "Web inactive"} />
+            <Badge tone={group.serverRegistered ? "success" : "warning"}>{group.serverRegistered ? "Server registered" : "Server unknown"}</Badge>
+            <Badge tone={group.webActive ? "success" : "neutral"}>{group.webActive ? "Web active" : "Web inactive"}</Badge>
           </span>}
         </div>
         {!onOpenPlugin && <p className={pageLeadClass}>Dependencies: {group.requires.length === 0 ? "none" : group.requires.join(", ")}</p>}
@@ -911,7 +911,7 @@ function CopyButton({ className, label, text }: { className?: string; label: str
 }
 
 function StatusBadge({ active, label }: { active: boolean; label: string }) {
-  return <span className={cn(chipClass, active && "bg-primary/12 text-primary")}>{label}</span>;
+  return <Badge tone={active ? "info" : "neutral"}>{label}</Badge>;
 }
 
 function SettingsNote({ children }: { children: ReactNode }) {

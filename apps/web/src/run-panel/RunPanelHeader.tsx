@@ -3,11 +3,11 @@ import { ChevronDownIcon } from "lucide-react";
 import type { AttentionState, PluginRegistry, SessionContext, SessionNavigation } from "../PluginRegistry";
 import { sharedWithYouLabel } from "../run-sharing";
 import { StartOptionBadges } from "../StartOptions";
-import { Badge, Popover, PopoverContent } from "../ui";
+import { Badge, InteractiveItem, Popover, PopoverContent } from "../ui";
 import { RunScriptMenu } from "./RunScriptMenu";
 import { RunShareButton } from "./RunShareButton";
 
-const titleClass = "flex h-[30px] min-w-0 flex-1 cursor-pointer items-center gap-2 self-center rounded-md px-1.5 text-left hover:bg-accent aria-expanded:bg-accent focus-visible:outline-2 focus-visible:outline-ring/60 focus-visible:-outline-offset-2";
+const titleClass = "flex h-[30px] min-w-0 flex-1 cursor-pointer items-center gap-2 self-center rounded-md px-1.5 text-left";
 
 /** The panel header: one line with title and state, the plugins' header contributions behind the title as a popover or, placed there, in the bar. */
 export function RunPanelHeader({ actionsRef, attention, contributions, navigation, registry, runError, session, working }: {
@@ -28,14 +28,14 @@ export function RunPanelHeader({ actionsRef, attention, contributions, navigatio
   const pressedAnchor = (details: { reason: string; event: Event }) =>
     details.reason === "outside-press" && details.event.target instanceof Node && buttonRef.current?.contains(details.event.target) === true;
   return <div className="@container/run-header flex min-w-0 flex-1 items-stretch">
-    <button aria-controls={open ? panelId : undefined} aria-expanded={open} aria-haspopup="dialog" className={titleClass} onClick={() => setOpen((value) => !value)} ref={buttonRef} title={`${title}. Click to show the run details`} type="button">
+    <InteractiveItem aria-controls={open ? panelId : undefined} aria-expanded={open} aria-haspopup="dialog" className={titleClass} onClick={() => setOpen((value) => !value)} ref={buttonRef} title={`${title}. Click to show the run details`} type="button">
       <strong className="min-w-0 truncate type-item">{title}</strong>
-      {working && <span aria-label="Processing" className="size-1.5 flex-none rounded-full bg-primary animate-fade-pulse motion-reduce:animate-none" role="status" />}
+      {working && <span aria-label="Processing" className="size-1.5 flex-none rounded-full bg-active animate-fade-pulse motion-reduce:animate-none" role="status" />}
       {runError && <span className="flex-none type-meta font-medium text-destructive" title={runError}>Run unreachable</span>}
-      {attention && <span className="flex-none truncate rounded-full bg-primary/10 px-2 py-0.5 type-meta font-semibold text-primary" role="status">{attention.label}</span>}
+      {attention && <Badge className="flex-none truncate" role="status" tone="warning">{attention.label}</Badge>}
       {sharedAccess && <Badge className="flex-none" title={sharedWithYouLabel(sharedAccess)} variant="secondary">{sharedAccess === "read" ? "View only" : "Shared"}</Badge>}
       <ChevronDownIcon aria-hidden className="size-3.5 flex-none text-muted-foreground" />
-    </button>
+    </InteractiveItem>
     <div className="flex min-w-20 max-w-1/2 shrink items-center justify-end empty:hidden" ref={actionsRef} />
     {contributions.filter((entry) => entry.placement === "bar").map(({ id, Header }) => <Header key={id} navigation={navigation} session={session} />)}
     {session.session.canShare && <RunShareButton runId={session.session.id} shared={session.session.shared === true} title={title} />}

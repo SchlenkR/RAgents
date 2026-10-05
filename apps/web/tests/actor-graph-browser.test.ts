@@ -148,6 +148,10 @@ test("the addressee pop-out and the header's agents view show who created whom a
 
   await group.click();
   assert.equal(await group.getAttribute("aria-expanded"), "true");
+  await page.waitForFunction(() => {
+    const bounds = document.querySelector('[role="dialog"][aria-label="Addressee"]')?.getBoundingClientRect();
+    return bounds !== undefined && bounds.y <= 9 && bounds.width >= 1280 - 17;
+  });
   const grown = await box(dialog);
   assert.ok(grown.y <= 9 && grown.width >= 1280 - 17, `the large graph grows the pop-out up to the top and across the window (${grown.x}, ${grown.y}, ${grown.width} x ${grown.height})`);
   assert.equal(await inView(group), true, "the clicked group card stays in view");

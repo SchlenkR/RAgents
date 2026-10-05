@@ -15,7 +15,7 @@ import { ModelSettings, useModelSettings } from "./ModelSettings";
 import { overseerChatDisplayPolicy, overseerChatStorageKeyPrefix } from "./chat-display";
 
 const toolbarClass = "flex h-header w-full min-w-0 flex-1 items-center px-2 py-1 max-md:px-1";
-const triggerClass = "h-full min-w-0 flex-1 justify-start border-border-strong bg-background px-2 font-normal text-muted-foreground aria-expanded:border-primary data-[working=true]:animate-working-pulse data-[working=true]:border-primary motion-reduce:data-[working=true]:animate-none";
+const triggerClass = "h-full min-w-0 flex-1 justify-start border-border-strong bg-background px-2 font-normal text-muted-foreground data-[working=true]:animate-working-pulse data-[working=true]:border-primary motion-reduce:data-[working=true]:animate-none";
 const noteClass = "text-[0.8rem] text-muted-foreground";
 const errorClass = "text-[0.8rem] text-destructive";
 

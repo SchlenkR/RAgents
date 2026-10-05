@@ -2,7 +2,7 @@
 // Icons come from lucide-react; ListDetail, SectionLabel and SvgEdge are the host's own composites, modal.tsx stays host-only.
 export { cn } from "cn";
 export { Alert, AlertAction, AlertDescription, AlertTitle } from "./alert";
-export { Badge, BadgeDisplayProvider, badgeVariants } from "./badge";
+export { Badge, BadgeDisplayProvider, badgeVariants, type BadgeTone } from "./badge";
 export { Button, buttonVariants } from "./button";
 export { Card, CardAction, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "./card";
 export { Checkbox } from "./checkbox";
@@ -22,6 +22,7 @@ export {
 export { Input } from "./input";
 export { ImagePreview, ImageViewer, type ImagePreviewProps, type ImageViewerProps } from "./image-viewer";
 export { ImagePreviewGroup } from "./image-preview-group";
+export { InteractiveItem } from "./interactive-item";
 export { Label } from "./label";
 export { Popover, PopoverContent, PopoverDescription, PopoverHeader, PopoverTitle, PopoverTrigger } from "./popover";
 export { Progress, ProgressIndicator, ProgressLabel, ProgressTrack, ProgressValue } from "./progress";

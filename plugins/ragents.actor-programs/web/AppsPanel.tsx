@@ -329,7 +329,7 @@ export function ToolsPanel({ active, navigation, selection, session }: Workspace
       {error && <Alert className="mb-1" role="status" variant="destructive">{error}</Alert>}
       {listing.tools.map((tool) => (
         <button
-          className="grid w-full cursor-pointer grid-cols-[34px_minmax(0,1fr)_auto_14px] items-center gap-2.5 rounded-lg border border-border bg-card px-[11px] py-2.5 text-left text-foreground transition-[background-color,border-color] hover:border-[color-mix(in_srgb,var(--primary)_52%,var(--border))] hover:bg-[color-mix(in_srgb,var(--primary)_7%,var(--card))] focus-visible:border-[color-mix(in_srgb,var(--primary)_52%,var(--border))] focus-visible:bg-[color-mix(in_srgb,var(--primary)_7%,var(--card))] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary/52 @max-[470px]:grid-cols-[34px_minmax(0,1fr)_14px]"
+          className="grid w-full cursor-pointer grid-cols-[34px_minmax(0,1fr)_auto_14px] items-center gap-2.5 rounded-lg border border-border bg-card px-[11px] py-2.5 text-left text-foreground transition-[background-color,border-color] hover:border-[color-mix(in_srgb,var(--primary)_52%,var(--border))] hover:bg-[color-mix(in_srgb,var(--primary)_7%,var(--card))] focus-visible:border-[color-mix(in_srgb,var(--primary)_52%,var(--border))] focus-visible:bg-[color-mix(in_srgb,var(--primary)_7%,var(--card))] focus-visible:outline-1 focus-visible:outline-offset-2 focus-visible:outline-ring @max-[470px]:grid-cols-[34px_minmax(0,1fr)_14px]"
           key={toolKeyOf(tool)}
           onClick={() => navigation.openTab(RUN_TOOLS_TAB_ID, toolKeyOf(tool))}
           type="button"

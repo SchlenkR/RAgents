@@ -1,6 +1,6 @@
 import { FolderOpenIcon } from "lucide-react";
 import { useEffect, useState, type FormEvent, type ReactNode } from "react";
-import { Button, Dialog, DialogContent, DialogHeader, DialogTitle, Input, Label, Toggle } from "../ui";
+import { Button, InteractiveItem, Dialog, DialogContent, DialogHeader, DialogTitle, Input, Label, Toggle } from "../ui";
 import { busyState } from "./connection-state";
 import type { ConnectionKind, ConnectionView, PanelAction, PanelState } from "./contract";
 import { LoginForm } from "./LoginForm";
@@ -109,10 +109,10 @@ export function ConnectionDialog({ state, connection, onClose, send }: {
             <p className="type-body text-muted-foreground">Found in the host folder, click one to use it:</p>
             <ul className="grid grid-cols-[repeat(auto-fill,minmax(160px,1fr))] gap-1.5">
               {state.profileSuggestions.map((file) => <li key={file}>
-                <button aria-pressed={profileFile === file} className="flex w-full min-w-0 flex-col gap-0.5 rounded-md border border-border-soft px-2.5 py-1.5 text-left hover:border-border aria-pressed:border-primary aria-pressed:bg-accent" onClick={() => takeProfile(file)} type="button">
+                <InteractiveItem aria-pressed={profileFile === file} className="flex w-full min-w-0 flex-col gap-0.5 rounded-md border border-border-soft px-2.5 py-1.5 text-left" onClick={() => takeProfile(file)} type="button">
                   <strong className="truncate type-item">{profileNameOf(file)}</strong>
                   <span className="truncate font-mono type-meta text-muted-foreground" title={file}>{fileNameOf(file)}</span>
-                </button>
+                </InteractiveItem>
               </li>)}
             </ul>
           </>}

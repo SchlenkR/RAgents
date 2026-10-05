@@ -2,12 +2,11 @@ import { cn } from "cn";
 import { CircleAlertIcon, EyeIcon, FolderIcon, GitBranchIcon, Share2Icon, Trash2Icon, UsersIcon } from "lucide-react";
 import { useState, type ReactNode } from "react";
 import { sharedWithYouLabel } from "../run-sharing";
-import { Button, Checkbox, longTime, RunStateIcon, shortTime } from "../ui";
+import { Button, InteractiveItem, Checkbox, longTime, RunStateIcon, shortTime } from "../ui";
 import type { ConnectionRun, ConnectionView } from "./contract";
 import { ConfirmDialog } from "./PanelDialogs";
 
-const lineClass = "grid grid-cols-subgrid items-center gap-y-0.5 rounded-md px-2 py-1.5 text-left hover:bg-accent"
-  + " focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-ring/60";
+const lineClass = "grid grid-cols-subgrid items-center gap-y-0.5 rounded-md px-2 py-1.5 text-left";
 
 const DETAIL_ICONS = { folder: FolderIcon, branch: GitBranchIcon } as const;
 
@@ -82,7 +81,7 @@ export function RunLine({ run, selecting = false, selectable = true, selected, a
     {selecting && (selectable
       ? <Checkbox aria-label={`Select ${run.title}`} checked={selected === true} className="mt-1.75 ml-1 self-start" onCheckedChange={() => onToggle?.()} />
       : <span aria-hidden />)}
-    <button aria-disabled={run.locked !== undefined && !toggling} className={cn(lineClass, itemColumns(selecting, actions), "aria-disabled:cursor-default aria-disabled:hover:bg-transparent")}
+    <InteractiveItem aria-pressed={toggling ? selected === true : undefined} aria-disabled={run.locked !== undefined && !toggling} className={cn(lineClass, itemColumns(selecting, actions), "aria-disabled:cursor-default")}
       onClick={() => (toggling ? onToggle?.() : run.locked === undefined && onOpen())} title={run.title} type="button">
       <RunStateIcon notice={run.locked ? undefined : run.notice} open={run.pendingActions} state={run.state} />
       <span className="flex min-w-0 items-center gap-1.5">
@@ -92,7 +91,7 @@ export function RunLine({ run, selecting = false, selectable = true, selected, a
       </span>
       <span className="w-[42px] text-right font-mono type-meta text-muted-foreground" data-cell="time" title={longTime(run.updatedAt)}>{time}</span>
       <RunDetails run={run} />
-    </button>
+    </InteractiveItem>
     {actions && <span className="mt-0.5 flex self-start" data-cell="share">
       {onShare && <Button aria-label={`Share ${run.title}`} className="text-muted-foreground" onClick={onShare} size="icon-sm" title="Share ..." type="button" variant="ghost"><Share2Icon /></Button>}
       {onDelete && <Button aria-label={`Delete ${run.title}`} className="text-muted-foreground hover:text-destructive" onClick={() => setConfirming(true)} size="icon-sm" title="Delete run ..." type="button" variant="ghost"><Trash2Icon /></Button>}
