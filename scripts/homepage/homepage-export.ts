@@ -50,7 +50,7 @@ export async function buildHomepageExport(repoRoot: string): Promise<Map<string,
     if (target.startsWith("docs/homepage/")) {
       const local = target.slice("docs/homepage/".length);
       assertPublicOutput(local);
-      if (/^screenshots\/.+\.(?:png|jpe?g|webp|gif)$/i.test(local)) screenshots.add(local);
+      if (/^(?:screenshots|media)\/.+\.(?:png|jpe?g|webp|gif)$/i.test(local)) screenshots.add(local);
       else if (!published.has(local)) throw new Error(`Unpublished homepage file in ${document}: ${value}`);
       return value;
     }

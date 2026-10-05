@@ -1,5 +1,21 @@
 # Decisions
 
+## 2026-10-05: Homepage sections share one width and the logo follows the pointer
+
+Chapters: `spec/overview.md` (main page); handbook: `development.md` (Homepage and generated
+references). Homepage: `docs/homepage/index.html`, export: `scripts/homepage/homepage-export.ts`.
+
+**Why.** Feature chapters were wider than the static sections, explosions of diagram elements were
+cut off at the stage edge, the background rain shone through the translucent boxes, and the
+sections sat too close together.
+
+**Decision.** Header, chapters, and static sections share one page width. Vertical spacing between
+sections is doubled. Each diagram canvas extends beyond its stage, so falling glyphs are never
+clipped; the story clips only horizontal overflow at the page edge. Boxes are nearly opaque, and
+below the hero the rain is softened behind the content band. The dev server tile shows no
+screenshot and the sharing screenshot is small. The intro logo looks toward the pointer, choosing
+one of nine head turns from a sprite; the export also publishes referenced images under `media/`.
+
 ## 2026-10-05: Homepage chapters carry their own diagrams
 
 Chapters: `spec/overview.md` (main page). Homepage: `docs/homepage/index.html`.

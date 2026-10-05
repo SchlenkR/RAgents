@@ -602,7 +602,7 @@ by hand. New tools, result types, and package files appear with the next build.
 The generated reference describes showcase, not private profiles or individual run permissions.
 
 The homepage build also generates `docs/homepage/dist/`. For static hosting, the
-contents of this folder are uploaded, including JS, CSS, and screenshots if any. That is exactly
+contents of this folder are uploaded, including JS, CSS, and the images referenced from `screenshots/` and `media/`. That is exactly
 what the GitHub workflow `.github/workflows/homepage.yml` does: on every push to `main` (and by
 hand through "Run workflow") it installs the dependencies, builds the agent runtime, generates the
 homepage, and publishes `docs/homepage/dist/` through GitHub Pages at

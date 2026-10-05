@@ -129,12 +129,17 @@ width only, never on the viewport height. A diagram plays automatically while it
 near the viewport center and fades toward the edges of the viewport. Narrow views place the
 diagram below its text. Playback loops within the chapter without moving the page. Play, Pause,
 and Fast control only diagram playback and start in Fast; manual scrolling never pauses it. Chapter buttons
-scroll to their sections. The main page's CSS variables configure the vertical and horizontal
-chapter margins in pixels. After the feature chapters, static sections show the browser and
+scroll to their sections. The main page's CSS variables configure the vertical
+chapter margins in pixels and one page width that the header, the chapters, and the static
+sections share. A diagram's canvas extends beyond its stage, so particles and falling glyphs are
+never cut off. After the feature chapters, static sections show the browser and
 VS Code clients with screenshots, collect smaller capabilities (local models, rooms, dev servers,
 the agent graph, sharing) as tiles with a link to the getting started guide, and continue with the
 machine roles, the extensions, installation, and the current limits. One animated
-background runs behind every section without separators. Diagram and annotation rendering
+background runs behind every section without separators; below the hero it is softened behind the
+page content and returns to full strength toward the sides. Boxes on the page are nearly opaque.
+The intro logo turns its head toward the pointer in nine steps from a sprite under
+`docs/homepage/media/`; without a pointer it looks ahead. Diagram and annotation rendering
 share one animation frame.
 Reduced motion shows static scenes. The diagrams explain principles with general roles (agent,
 script, mini-app, server, laptop) and no concrete example workflows.

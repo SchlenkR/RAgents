@@ -21,12 +21,13 @@
   --track: rgba(238, 243, 248, .13);
   --done: rgba(238, 243, 248, .5);
   --hover: rgba(238, 243, 248, .07);
+  --panel: rgba(22, 34, 47, .94);
   /* Chapter layout in pixels; 0px overlap keeps sections consecutive. */
   --chapter-overlap: 0px;
   --chapter-min-height: 1160px;
-  --chapter-margin-block: 64px;
-  --chapter-margin-inline: 72px;
-  --chapter-mobile-margin: 56px;
+  --chapter-margin-block: 128px;
+  --page-width: 1240px;
+  --chapter-mobile-margin: 112px;
   --diagram-clearance: 120px;
   color-scheme: dark;
 }
@@ -40,7 +41,7 @@ a { color: inherit; text-underline-offset: 4px; }
 .skip:focus { top: 12px; }
 .sr-only { position: absolute; top: 0; left: 0; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden; clip: rect(0 0 0 0); clip-path: inset(50%); white-space: nowrap; border: 0; }
 .top { position: fixed; inset: 0 0 auto; z-index: 7; background: var(--bg); }
-.masthead { display: flex; align-items: center; justify-content: space-between; gap: 16px; width: min(1120px, calc(100% - 32px)); margin: 0 auto; padding: 14px 0 8px; }
+.masthead { display: flex; align-items: center; justify-content: space-between; gap: 16px; width: min(var(--page-width), calc(100% - 32px)); margin: 0 auto; padding: 14px 0 8px; }
 .masthead a { text-decoration: none; }
 .brand { display: inline-flex; align-items: center; gap: 9px; font-weight: 750; font-size: 23px; letter-spacing: -.05em; }
 .brand-icon { width: 26px; height: 26px; flex: none; }
@@ -125,11 +126,11 @@ a { color: inherit; text-underline-offset: 4px; }
 .layers canvas.rain { position: fixed; inset: 0; width: 100vw; height: 100vh; }
 .note { position: absolute; left: 0; top: 0; z-index: 3; width: max-content; max-width: 17em; padding: 2px 0 2px 12px; border-left: 2px solid var(--signal); color: var(--signal); font: 600 clamp(15px, 1.2vw, 17px)/1.35 var(--font); letter-spacing: -.005em; text-align: left; text-wrap: balance; text-shadow: 0 0 12px rgba(var(--veil), .95), 0 0 3px rgba(var(--veil), .95); pointer-events: none; opacity: var(--note-opacity, 1); }
 .note.out, .note.wait { opacity: 0; }
-.stage { position: relative; display: block; overflow: hidden; -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
-.stage canvas { display: block; width: 100%; height: 100%; }
+.stage { position: relative; display: block; overflow: visible; -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
+.stage canvas { position: absolute; display: block; pointer-events: none; }
 
-.story { position: relative; z-index: 2; pointer-events: none; }
-.story article { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); align-items: center; gap: 56px; width: min(1480px, 100%); margin: 0 auto; padding: var(--chapter-margin-block) var(--chapter-margin-inline); scroll-margin-top: var(--top, 150px); }
+.story { position: relative; z-index: 2; pointer-events: none; overflow-x: clip; }
+.story article { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); align-items: center; gap: 56px; width: min(var(--page-width), calc(100% - 32px)); margin: 0 auto; padding: var(--chapter-margin-block) 0; scroll-margin-top: var(--top, 150px); }
 .story article[data-side="right"] .reading-copy { order: 2; }
 .reading-copy { justify-self: center; width: min(540px, 100%); pointer-events: auto; }
 .reading-copy h2 { margin: 0; }
@@ -140,18 +141,18 @@ a { color: inherit; text-underline-offset: 4px; }
 
 .after { position: relative; z-index: 1; background: transparent; }
 .after:focus { outline: none; }
-.shell { width: min(1120px, calc(100% - 32px)); margin: 0 auto; }
+.shell { width: min(var(--page-width), calc(100% - 32px)); margin: 0 auto; }
 .after section { scroll-margin-top: calc(var(--top, 150px) + 16px); }
 .after h2 { margin: 0; font-size: clamp(28px, 3vw, 40px); font-weight: 650; line-height: 1.1; letter-spacing: -.04em; text-wrap: balance; }
 .after p { margin: 0; }
 .text-link { display: inline-flex; align-items: center; gap: 7px; color: var(--accent); font-weight: 600; text-decoration: none; }
 .text-link:hover { text-decoration: underline; }
 .text-link svg { flex: none; width: 17px; height: 17px; }
-.ext-section { padding: 104px 0 80px; }
+.ext-section { padding: 208px 0 160px; }
 .section-head { display: grid; justify-items: start; gap: 12px; }
 .section-head p { color: var(--muted); font-size: 18px; }
-.where-section { padding: 104px 0 24px; }
-.where-frame { margin-top: 40px; border: 1px solid var(--track); border-radius: 16px; background: rgba(238, 243, 248, .025); overflow: hidden; }
+.where-section { padding: 208px 0 48px; }
+.where-frame { margin-top: 40px; border: 1px solid var(--track); border-radius: 16px; background: var(--panel); overflow: hidden; }
 .where { width: 100%; border-collapse: collapse; table-layout: fixed; font-size: 15px; line-height: 1.4; }
 .where th, .where td { padding: 14px 18px; border-top: 1px solid var(--track); text-align: left; vertical-align: top; }
 .where thead th, .where thead td { border-top: 0; padding-top: 18px; padding-bottom: 16px; color: var(--text); font-size: 14.5px; font-weight: 700; letter-spacing: -.01em; }
@@ -163,8 +164,8 @@ a { color: inherit; text-underline-offset: 4px; }
 .where-chip.server { --chip: #f2fff8; background: rgba(242, 255, 248, .07); }
 .where-chip.plain { --chip: #c2ddff; border-color: rgba(194, 221, 255, .38); }
 .ext-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; margin: 40px 0 0; padding: 0; list-style: none; }
-.ext-card { --tint: #ffdd68; display: flex; align-items: flex-start; gap: 14px; min-width: 0; padding: 16px 18px; border: 1px solid var(--track); border-radius: 14px; background: rgba(238, 243, 248, .03); transition: border-color .2s, background .2s; }
-.ext-card:hover { border-color: rgba(238, 243, 248, .26); background: rgba(238, 243, 248, .05); }
+.ext-card { --tint: #ffdd68; display: flex; align-items: flex-start; gap: 14px; min-width: 0; padding: 16px 18px; border: 1px solid var(--track); border-radius: 14px; background: var(--panel); transition: border-color .2s, background .2s; }
+.ext-card:hover { border-color: rgba(238, 243, 248, .26); background: rgba(28, 41, 55, .96); }
 .ext-card:nth-child(5n+2) { --tint: #a7e8d4; }
 .ext-card:nth-child(5n+3) { --tint: #e2ccff; }
 .ext-card:nth-child(5n+4) { --tint: #c2ddff; }
@@ -182,20 +183,20 @@ a { color: inherit; text-underline-offset: 4px; }
 .closing section + section { padding-left: 64px; border-left: 1px solid var(--track); }
 #clients { --kick: #c2ddff; }
 #clients .points { margin-top: 20px; }
-.shot { margin: 0; border: 1px solid var(--track); border-radius: 14px; overflow: hidden; background: rgba(238, 243, 248, .03); }
+.shot { margin: 0; border: 1px solid var(--track); border-radius: 14px; overflow: hidden; background: var(--panel); }
 .shot img { display: block; width: 100%; height: auto; }
 .shot figcaption { padding: 12px 16px; color: var(--muted); font-size: 14px; border-top: 1px solid var(--track); }
 .shot-pair { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px; margin-top: 40px; }
 .shot-side { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 48px; align-items: center; }
 .bento { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 16px; margin: 40px 0 0; padding: 0; list-style: none; }
-.bento > li { --tint: #ffdd68; display: flex; flex-direction: column; gap: 14px; min-width: 0; padding: 22px 22px 20px; border: 1px solid var(--track); border-radius: 16px; background: rgba(238, 243, 248, .03); }
+.bento > li { --tint: #ffdd68; display: flex; flex-direction: column; gap: 14px; min-width: 0; padding: 22px 22px 20px; border: 1px solid var(--track); border-radius: 16px; background: var(--panel); }
 .bento > li:nth-child(2) { --tint: #a7e8d4; }
 .bento > li:nth-child(3) { --tint: #e2ccff; }
 .bento > li:nth-child(4) { --tint: #c2ddff; }
 .bento > li.wide { grid-column: span 4; }
 .bento > li.narrow { grid-column: span 2; }
 .bento > li.full { grid-column: 1 / -1; }
-.bento-split { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 32px; align-items: center; }
+.bento-split { display: grid; grid-template-columns: minmax(0, 1fr) 280px; gap: 32px; align-items: center; }
 .bento-split > div { display: flex; flex-direction: column; gap: 14px; align-items: flex-start; }
 .bento h3 { margin: 0; font-size: 20px; font-weight: 650; letter-spacing: -.02em; line-height: 1.25; }
 .bento p { color: var(--muted); font-size: 15px; line-height: 1.6; }
@@ -209,9 +210,10 @@ a { color: inherit; text-underline-offset: 4px; }
   .bento { grid-template-columns: minmax(0, 1fr); }
   .bento > li.wide, .bento > li.narrow, .bento > li.full { grid-column: auto; }
   .bento-split { grid-template-columns: minmax(0, 1fr); gap: 20px; }
+  .bento-split .shot { max-width: 280px; }
   .bento-points { grid-template-columns: minmax(0, 1fr); }
 }
-.limits { display: grid; gap: 14px; margin-bottom: 72px; padding: 28px 32px; border: 1px solid var(--track); border-radius: 16px; background: rgba(238, 243, 248, .025); }
+.limits { display: grid; gap: 14px; margin-bottom: 144px; padding: 28px 32px; border: 1px solid var(--track); border-radius: 16px; background: var(--panel); }
 .limits h2 { font-size: clamp(22px, 2vw, 26px); }
 .limits p { color: var(--muted); font-size: 15.5px; line-height: 1.7; }
 .site-footer { padding: 64px 0 32px; background: var(--deep); color: var(--muted); border-top: 1px solid var(--track); }
@@ -253,8 +255,7 @@ a { color: inherit; text-underline-offset: 4px; }
   .story article { display: block; width: 100%; min-height: 0; padding: var(--chapter-mobile-margin) 16px; }
   .reading-copy { width: 100%; }
   .reading-copy h2 { font-size: clamp(29px, 7.6vw, 44px); }
-  .stage { position: relative; display: block; margin: 26px -16px 0; overflow: hidden; -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
-  .stage canvas { display: block; width: 100%; height: 100%; }
+  .stage { position: relative; display: block; margin: 26px -16px 0; overflow: visible; -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
   .note, .note[data-side] { max-width: min(calc(100% - 32px), 24em); font-size: 15px; }
 }
 @media (max-width: 640px) {
@@ -266,23 +267,23 @@ a { color: inherit; text-underline-offset: 4px; }
   .nav-icon { display: block; }
   .nav-github { padding: 0; border: 0; }
   .nav-github svg { width: 19px; height: 19px; }
-  .where-section { padding: 72px 0 8px; }
+  .where-section { padding: 144px 0 16px; }
   .where-frame { margin-top: 28px; border: 0; border-radius: 0; background: none; overflow: visible; }
   .where, .where tbody, .where tr, .where th, .where td { display: block; width: auto; }
   .where thead { display: none; }
   .where tbody { display: grid; gap: 12px; }
-  .where tbody tr { padding: 6px 0; border: 1px solid var(--track); border-radius: 14px; background: rgba(238, 243, 248, .025); }
+  .where tbody tr { padding: 6px 0; border: 1px solid var(--track); border-radius: 14px; background: var(--panel); }
   .where tbody tr:hover { background: rgba(238, 243, 248, .025); }
   .where tbody th { width: auto; padding: 10px 16px 8px; border-top: 0; color: var(--text); font-weight: 700; }
   .where td { display: grid; grid-template-columns: minmax(0, 9.5em) minmax(0, 1fr); column-gap: 12px; align-items: baseline; padding: 9px 16px; }
   .where td::before { content: attr(data-label); grid-row: 1 / span 2; color: var(--muted); font-size: 13.5px; }
   .where td > * { grid-column: 2; justify-self: start; }
-  .ext-section { padding: 72px 0 56px; }
+  .ext-section { padding: 144px 0 112px; }
   .ext-grid { grid-template-columns: 1fr; gap: 10px; margin-top: 28px; }
   .section-head p { font-size: 16px; }
   .closing { padding: 32px 0; }
   .closing p { font-size: 16px; }
-  .limits { margin-bottom: 56px; padding: 22px 20px; }
+  .limits { margin-bottom: 112px; padding: 22px 20px; }
   .footer-grid { grid-template-columns: 1fr 1fr; gap: 32px 24px; }
 }
 </style>
@@ -308,6 +309,7 @@ a { color: inherit; text-underline-offset: 4px; }
   <header class="sr-only" data-chapter="intro"><h1><span>Tailored AI Workspaces</span> <span>for your teams or your clients.</span></h1></header>
   <div class="hero">
     <div class="layers" data-layers aria-hidden="true"></div>
+    <img src="media/logo-gaze.webp" alt="" hidden data-gaze>
     <div class="veil left"></div>
     <div class="veil right"></div>
     <div class="lane">
@@ -347,7 +349,7 @@ a { color: inherit; text-underline-offset: 4px; }
       <ul class="bento">
         <li class="wide" id="local-ai"><span class="glyph square">AI</span><h3>Run Agents with Local Models</h3><p>Add an OpenAI-compatible server to your profile, give model aliases their own thinking levels and send images to models that can read them.</p><ul class="bento-points"><li><strong>Your own model server</strong>Add the OpenAI-compatible endpoint you host to your profile.</li><li><strong>Model aliases</strong>Give each alias its own default and available thinking levels.</li><li><strong>Images</strong>Attach images in the browser and VS Code for models that support them.</li></ul></li>
         <li class="narrow" id="rooms"><span class="glyph square">#</span><h3>Each Setup Starts in Its Own Room</h3><p>Start a setup again in the same run with its own agents and state in a new room.</p><a class="text-link" href="guide-runtime.html#rooms">Rooms<svg class="link-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14m-5-5 5 5-5 5"/></svg></a></li>
-        <li class="narrow" id="services"><span class="glyph square">:80</span><h3>Dev Servers Keep Running</h3><p>Let agents start dev servers in the background and open them in your browser through VS Code, including workstation services with WebSockets and live reload.</p><figure class="shot"><img src="screenshots/services.webp" alt="The process rail of a run listing a running dev server and its port." loading="lazy" width="1440" height="650"></figure></li>
+        <li class="narrow" id="services"><span class="glyph square">:80</span><h3>Dev Servers Keep Running</h3><p>Let agents start dev servers in the background and open them in your browser through VS Code, including workstation services with WebSockets and live reload.</p></li>
         <li class="wide" id="graph"><span class="glyph square">@</span><h3>Loops and More</h3><p>Open the agent graph from the run header to see all agents and how long their turns run.</p><figure class="shot"><img src="screenshots/graph.webp" alt="The agent graph of a run, showing the coordinator, its agents, their tasks, states, and turn times." loading="lazy" width="1200" height="390"></figure></li>
         <li class="full" id="sharing"><div class="bento-split"><div><span class="glyph square"><svg viewBox="0 0 24 24"><circle cx="18" cy="5" r="2.5"/><circle cx="6" cy="12" r="2.5"/><circle cx="18" cy="19" r="2.5"/><path d="m8.2 10.8 7.6-4.6M8.2 13.2l7.6 4.6"/></svg></span><h3>Let Others Join a Run</h3><p>Share a run with individual users or everyone to watch or work along in the browser and VS Code.</p><a class="text-link" href="guide-clients.html#share-runs">Sharing and permissions<svg class="link-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14m-5-5 5 5-5 5"/></svg></a></div><figure class="shot"><img src="screenshots/sharing.webp" alt="The sharing dialog of a run, with access choices for everyone and individual users." loading="lazy" width="500" height="370"></figure></div></li>
       </ul>
@@ -643,16 +645,24 @@ a { color: inherit; text-underline-offset: 4px; }
     const shade = reach < .55 ? .12 + .13 * reach / .55 : reach < 1 ? .25 + .75 * (reach - .55) / .45 : 1;
     return clamp((.97 * h - y) / (.39 * h)) * shade;
   };
+  // Below the hero the rain is only softened behind the page content and returns to full strength outside.
+  const calm = (x, y, w, h, page) => {
+    const content = Math.min(w - 32, page);
+    const outside = Math.max(0, (w - content) / 2 - x, x - (w + content) / 2);
+    return clamp((.97 * h - y) / (.39 * h)) * (1 - .45 * (1 - ease(clamp(outside / 160))));
+  };
   const drawRain = delta => {
     rainContext.setTransform(1, 0, 0, 1, 0, 0);
     rainContext.clearRect(0, 0, rain.width, rain.height);
     const [r, g, b] = theme.tail;
     const tail = `rgb(${r}, ${g}, ${b})`;
-    const holeAt = Number(getComputedStyle(hero).getPropertyValue('--hole-at'));
-    layers.forEach(layer => drawLayer(layer, delta, tail, holeAt));
+    const style = getComputedStyle(hero);
+    const holeAt = Number(style.getPropertyValue('--hole-at'));
+    const page = hero.hasAttribute('data-reading') ? parseFloat(style.getPropertyValue('--page-width')) : 0;
+    layers.forEach(layer => drawLayer(layer, delta, tail, holeAt, page));
     rainContext.globalAlpha = 1;
   };
-  const drawLayer = (layer, delta, tail, holeAt) => {
+  const drawLayer = (layer, delta, tail, holeAt, page) => {
     const { w, h, cell, atlas } = layer;
     const [width, height] = layer.slot;
     const stage = Math.min(w, 1480);
@@ -676,7 +686,7 @@ a { color: inherit; text-underline-offset: 4px; }
           const alpha = .9 * (1 - .3 * clamp(behind / 40)) * (1 - clamp((age - hold - index / text.length * stagger - hash(current.seed + row, 1) * scatter) / fade));
           if (alpha <= 0) continue;
           const y = row * cell + cell / 2;
-          const strength = (behind < 1 ? 1 : alpha) * layer.alpha * cover(column.x, y, w, h, hole);
+          const strength = (behind < 1 ? 1 : alpha) * layer.alpha * (page ? calm(column.x, y, w, h, page) : cover(column.x, y, w, h, hole));
           if (strength < .002) continue;
           const settle = decode * (.7 + .6 * hash(current.seed + row, 2));
           const step = reduce ? flips : Math.floor(flips * (1 - (1 - clamp(behind / current.speed / settle)) ** 3));
@@ -745,12 +755,12 @@ a { color: inherit; text-underline-offset: 4px; }
   let warmedAt = 0;
   const drawDebris = (player, debris, light, t) => {
     const { particles, pool, cx, cy, base } = debris;
-    const own = { context: player.context, ratio: player.ratio ?? dpr };
+    const own = { context: player.context, ratio: player.ratio ?? dpr, bleed: player.bleed ?? [0, 0] };
     const targets = player.region ? [own, own, own] : [far, own, near];
     const tail = tailColor();
     [0, 1, 2].forEach(layer => {
       const target = targets[layer];
-      const { context: g, ratio } = target;
+      const { context: g, ratio, bleed: [bx, by] = [0, 0] } = target;
       const fade = light * (layer === 1 ? 1 : clamp(player.depth));
       target.used = true;
       g.save();
@@ -771,12 +781,12 @@ a { color: inherit; text-underline-offset: 4px; }
         if (falling > .06 && layer > 0 && particle.strength > .3) (layer === 2 ? [.05, .1] : [.06]).forEach((lag, index) => {
           const [x, y, scale] = motion(particle, falling - lag, cx, cy);
           g.globalAlpha = alpha * [.4, .16][index];
-          g.setTransform(ratio * quantum(scale), 0, 0, ratio * quantum(scale), x * ratio, y * ratio);
+          g.setTransform(ratio * quantum(scale), 0, 0, ratio * quantum(scale), (x + bx) * ratio, (y + by) * ratio);
           g.fillText(glyph, 0, 0);
         });
         const [x, y, scale] = motion(particle, Math.max(0, falling), cx, cy);
         g.globalAlpha = alpha;
-        g.setTransform(ratio * quantum(scale), 0, 0, ratio * quantum(scale), x * ratio, y * ratio);
+        g.setTransform(ratio * quantum(scale), 0, 0, ratio * quantum(scale), (x + bx) * ratio, (y + by) * ratio);
         g.fillText(glyph, 0, 0);
       });
       g.restore();
@@ -3144,6 +3154,55 @@ a { color: inherit; text-underline-offset: 4px; }
   }));
   const logoSize = 118;
   const logoGap = 20;
+  const gazeImage = document.querySelector('[data-gaze]');
+  const gazeWeights = Array.from({ length: 9 }, (_, index) => index === 4 ? 1 : 0);
+  let gazePointer = null;
+  let gazeTinted = null;
+  let gazeTime = 0;
+  addEventListener('pointermove', event => { if (event.pointerType !== 'touch') gazePointer = [event.clientX, event.clientY]; }, { passive: true });
+  document.documentElement.addEventListener('pointerleave', () => { gazePointer = null; });
+  // The sprite holds nine head turns: rows look up, ahead and down, columns look left, ahead and right.
+  const gazeTarget = c => {
+    if (!gazePointer) return 4;
+    const m = c.getTransform();
+    const { canvas } = players[0];
+    const box = canvas.getBoundingClientRect();
+    const dx = gazePointer[0] - (box.left + m.e * box.width / canvas.width);
+    const dy = gazePointer[1] - (box.top + m.f * box.height / canvas.height);
+    const reach = Math.max(Math.abs(dx), Math.abs(dy));
+    if (Math.hypot(dx, dy) < 48) return 4;
+    const step = value => value / reach > .38 ? 2 : value / reach < -.38 ? 0 : 1;
+    return step(dy) * 3 + step(dx);
+  };
+  const drawGaze = (c, height) => {
+    const color = typeof c.fillStyle === 'string' ? c.fillStyle : theme.head;
+    if (gazeTinted?.color !== color) {
+      const canvas = document.createElement('canvas');
+      canvas.width = gazeImage.naturalWidth;
+      canvas.height = gazeImage.naturalHeight;
+      const g = canvas.getContext('2d');
+      g.fillStyle = color;
+      g.fillRect(0, 0, canvas.width, canvas.height);
+      g.globalCompositeOperation = 'destination-in';
+      g.drawImage(gazeImage, 0, 0);
+      gazeTinted = { color, canvas };
+    }
+    const now = performance.now();
+    const blend = reduce ? 1 : Math.min(1, (now - gazeTime) / 1000 * 14);
+    gazeTime = now;
+    const target = gazeTarget(c);
+    gazeWeights.forEach((weight, index) => { gazeWeights[index] = weight + ((index === target ? 1 : 0) - weight) * blend; });
+    const cellWidth = gazeTinted.canvas.width / 3;
+    const cellHeight = gazeTinted.canvas.height / 3;
+    const width = height * cellWidth / cellHeight;
+    const alpha = c.globalAlpha;
+    gazeWeights.forEach((weight, index) => {
+      if (weight < .01) return;
+      c.globalAlpha = alpha * weight;
+      c.drawImage(gazeTinted.canvas, index % 3 * cellWidth, Math.floor(index / 3) * cellHeight, cellWidth, cellHeight, -width / 2, -height / 2, width, height);
+    });
+    c.globalAlpha = alpha;
+  };
   let logoAt = [.5, .5];
   let introTop = 0;
   let introHeight = 0;
@@ -3169,9 +3228,12 @@ a { color: inherit; text-underline-offset: 4px; }
         const zoom = logoSize / 716 * (.94 + .06 * q);
         c.save();
         c.globalAlpha *= q;
-        c.scale(zoom, zoom);
-        c.translate(-395, -394);
-        c.fill(logo, 'evenodd');
+        if (gazeImage.complete && gazeImage.naturalWidth) drawGaze(c, logoSize * 1.1 * (.94 + .06 * q));
+        else {
+          c.scale(zoom, zoom);
+          c.translate(-395, -394);
+          c.fill(logo, 'evenodd');
+        }
         c.restore();
       });
     },
@@ -3825,6 +3887,7 @@ a { color: inherit; text-underline-offset: 4px; }
     return y <= middle ? 'top' : 'bottom';
   };
   const noteGap = 34;
+  const stageBleed = { side: 160, top: 140, bottom: 360 };
   const shapeSection = (section, width, room) => {
     const { story, label, player } = section;
     const [l, t, r, b] = bounds(story);
@@ -3846,17 +3909,21 @@ a { color: inherit; text-underline-offset: 4px; }
     player.region = { zoom: scale / 1.07, x: (l + r) / 2, y: (t + b) / 2, cx: width / 2, cy: top + (b - t) * scale / 2 };
     player.w = width;
     player.h = height;
-    player.ratio = Math.min(dpr, Math.sqrt(2e6 / Math.max(1, width * height)));
+    player.bleed = [stageBleed.side, stageBleed.top];
+    player.ratio = Math.min(dpr, Math.sqrt(4e6 / Math.max(1, (width + stageBleed.side * 2) * (height + stageBleed.top + stageBleed.bottom))));
     section.shift = '';
     drop(section);
   };
   const mount = ({ player }) => {
-    const width = Math.round(player.w * player.ratio);
-    const height = Math.round(player.h * player.ratio);
+    const outerWidth = player.w + stageBleed.side * 2;
+    const outerHeight = player.h + stageBleed.top + stageBleed.bottom;
+    const width = Math.round(outerWidth * player.ratio);
+    const height = Math.round(outerHeight * player.ratio);
     if (player.canvas.width === width && player.canvas.height === height) return;
+    Object.assign(player.canvas.style, { left: `${-stageBleed.side}px`, top: `${-stageBleed.top}px`, width: `${outerWidth}px`, height: `${outerHeight}px` });
     player.canvas.width = width;
     player.canvas.height = height;
-    player.context.setTransform(player.ratio, 0, 0, player.ratio, 0, 0);
+    player.context.setTransform(player.ratio, 0, 0, player.ratio, stageBleed.side * player.ratio, stageBleed.top * player.ratio);
   };
   const drop = section => {
     scrap([section.player]);
@@ -3911,7 +3978,7 @@ a { color: inherit; text-underline-offset: 4px; }
     const { opacity, grow } = annotationAt(story, player.t, step);
     section.label.style.setProperty('--note-opacity', String(opacity));
     mount(section);
-    player.context.clearRect(0, 0, player.w, player.h);
+    player.context.clearRect(-stageBleed.side, -stageBleed.top, player.w + stageBleed.side * 2, player.h + stageBleed.top + stageBleed.bottom);
     drawScene(player, k);
     pointers(section, k, grow, opacity);
     section.painted = true;

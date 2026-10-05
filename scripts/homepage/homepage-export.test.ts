@@ -28,22 +28,25 @@ test("guide links check existing pages and decoded anchor targets", () => {
   assert.throws(() => assertHomepageLinks(outputs), /Missing homepage link target/);
 });
 
-test("export contains only public pages and used screenshots, with relative assets", async () => {
+test("export contains only public pages and used screenshots and media, with relative assets", async () => {
   await fixture(async (root, home) => {
     await mkdir(path.join(home, "screenshots"));
+    await mkdir(path.join(home, "media"));
     await mkdir(path.join(home, "preview"));
     await writeFile(path.join(home, "screenshots/core.png"), Buffer.from([1, 2, 3]));
+    await writeFile(path.join(home, "media/sprite.webp"), Buffer.from([4, 5]));
     await writeFile(path.join(home, "screenshots/unused.png"), "unused");
     await writeFile(path.join(home, "preview/preview.png"), "preview");
     await writeFile(path.join(home, "reference-ui.tsx"), "source");
-    const html = '<a href="guide.html">Guide</a><script src="scroll-vendor.js" defer></script><script src="site.js" defer></script><img src="screenshots/core.png">';
+    const html = '<a href="guide.html">Guide</a><script src="scroll-vendor.js" defer></script><script src="site.js" defer></script><img src="screenshots/core.png"><img src="media/sprite.webp" alt="" hidden>';
     await writeFile(path.join(home, "index.html"), html);
     await writeFile(path.join(home, "scroll-vendor.js"), "window.gsap = {}; window.ScrollTrigger = {};");
     const outputs = await buildHomepageExport(root);
-    assert.deepEqual([...outputs.keys()], [...homepageFiles, "screenshots/core.png"]);
+    assert.deepEqual([...outputs.keys()], [...homepageFiles, "media/sprite.webp", "screenshots/core.png"]);
     assert.equal(outputs.get("index.html"), html);
     assert.equal(outputs.get("scroll-vendor.js"), "window.gsap = {}; window.ScrollTrigger = {};");
     assert.deepEqual(outputs.get("screenshots/core.png"), Buffer.from([1, 2, 3]));
+    assert.deepEqual(outputs.get("media/sprite.webp"), Buffer.from([4, 5]));
     for (const base of ["https://example.org/", "https://example.org/help/", "https://example.org/project/docs/"]) {
       for (const [, reference] of String(outputs.get("index.html")).matchAll(/(?:href|src)="([^"]+)"/g)) {
         const resolved = new URL(reference, base);
