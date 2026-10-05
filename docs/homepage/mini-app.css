@@ -1794,9 +1794,6 @@
   .px-\(--card-spacing\) {
     padding-inline: var(--card-spacing);
   }
-  .px-0\.5 {
-    padding-inline: calc(var(--spacing) * 0.5);
-  }
   .px-1 {
     padding-inline: var(--spacing);
   }

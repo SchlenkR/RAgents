@@ -371,7 +371,7 @@ test("run header buttons stay direct at every width and count, wrap, and reorder
   assert.deepEqual(errors, []);
 });
 
-test("a workspace tab placed as a window is a header window that opens, docks and closes like an app and never enters the rail", options, async (context) => {
+test("a workspace tab placed as a window defaults to a header window that opens, docks and closes like an app", options, async (context) => {
   const { errors, page, actions, view, drop, box, press, moveTo, dockOnto, tab, panel, groups, savedLayout } = await prepare(context, "?window");
   const order = () => actions.locator("[data-dock-window]").evaluateAll((buttons) => buttons.map((button) => button.getAttribute("aria-label")));
   const rail = page.getByRole("navigation", { name: "Sidebar tabs" });
@@ -386,7 +386,7 @@ test("a workspace tab placed as a window is a header window that opens, docks an
   assert.equal(await view("Preview").locator('[data-slot="badge"]').textContent(), "2 checks", "its badge marks its header button");
   assert.equal(await view("Notes").locator('[data-slot="badge"]').count(), 0);
   assert.equal(await groups.filter({ has: tab("Preview") }).getByRole("button", { name: "Refresh preview", exact: true }).count(), 1, "its header contribution sits in its area header");
-  assert.equal(await page.getByRole("button", { name: "Return Preview to sidebar", exact: true }).count(), 0, "a window has no way into the sidebar");
+  assert.equal(await page.getByRole("button", { name: "Return Preview to sidebar", exact: true }).count(), 0, "a default window tab has no panel return control");
   await page.screenshot({ path: join(shots, "dock-windows-window-tab.png") });
   await draft.fill("Kept");
 
@@ -459,5 +459,202 @@ test("a narrow run header keeps a window tab and its badge directly reachable", 
   await tab("Preview").waitFor();
   assert.equal(await preview.getAttribute("aria-pressed"), "true");
   assert.equal(await panel("Preview").isVisible(), true, "the direct button opens its window from the keyboard");
+  assert.deepEqual(errors, []);
+});
+
+test("browser button drags move between header slots and the rail while preserving panels, persistence, and reset", options, async (context) => {
+  const { errors, page, actions, view, drop, press, moveTo, box, tab, panel, savedLayout } = await prepare(context, "?header&window");
+  const rail = page.getByRole("navigation", { name: "Sidebar tabs" });
+  const button = (name: string) => rail.getByRole("button", { name, exact: true });
+  const order = () => actions.locator("[data-dock-window]").evaluateAll((buttons) => buttons.map((element) => element.getAttribute("aria-label")));
+  const samePanels = async (before: Awaited<ReturnType<typeof savedLayout>>) => {
+    const after = await savedLayout();
+    for (const key of ["root", "known", "closed", "bar", "side", "focused", "maximized", "automatic"]) assert.deepEqual(after[key], before[key], key);
+  };
+  const intoHeader = async (source: Locator, target: string, fraction = 0.25) => {
+    await press(source);
+    await moveTo(view(target), fraction);
+    await drop.waitFor();
+    await page.mouse.up();
+    await drop.waitFor({ state: "hidden" });
+  };
+  const intoRail = async (source: Locator) => {
+    await press(source);
+    const bounds = await box(source);
+    await page.mouse.move(bounds.x + bounds.width / 2, bounds.y + bounds.height + 15, { steps: 4 });
+    const target = await box(rail);
+    await page.mouse.move(target.x + target.width / 2, target.y + target.height - 30, { steps: 8 });
+    await page.locator("[data-dock-preview]").waitFor();
+    await page.mouse.up();
+    await page.getByLabel("Docking guides", { exact: true }).waitFor({ state: "hidden" });
+  };
+
+  await page.waitForFunction(() => document.querySelectorAll("[data-dock-group]").length === 2);
+  await page.getByRole("separator", { name: "Resize areas", exact: true }).focus();
+  await page.keyboard.press("ArrowRight");
+  await button("Files").click();
+  await page.locator('[data-dock-sidebar="docked"]').waitFor();
+  await page.getByRole("textbox", { name: "Files draft" }).fill("Kept selection");
+  const pinned = await savedLayout();
+  await intoHeader(button("Files"), "Chat");
+  assert.deepEqual(await order(), ["Files", "Chat", "Preview", "Notes", "Board"]);
+  assert.equal(await button("Files").count(), 0);
+  assert.equal(await view("Files").getAttribute("aria-pressed"), "true");
+  assert.equal(await panel("Files").isVisible(), true);
+  assert.equal(await page.getByRole("textbox", { name: "Files draft" }).inputValue(), "Kept selection");
+  await samePanels(pinned);
+  await intoRail(view("Files"));
+  await button("Files").waitFor();
+  await samePanels(pinned);
+  await page.getByRole("button", { name: "Close sidebar", exact: true }).click();
+
+  const preview = await savedLayout();
+  await intoRail(view("Preview"));
+  await button("Preview").waitFor();
+  assert.equal(await panel("Preview").isVisible(), true, "moving an open window button leaves its docked panel open");
+  assert.equal(await button("Preview").locator('[data-slot="badge"]').textContent(), "2 checks");
+  await samePanels(preview);
+  await page.evaluate(() => { document.documentElement.style.zoom = "1.3"; });
+  await intoHeader(button("Preview"), "Notes");
+  assert.deepEqual(await order(), ["Chat", "Preview", "Notes", "Board"], "insertion follows the pointer under zoom");
+  await samePanels(preview);
+  await page.evaluate(() => { document.documentElement.style.zoom = ""; });
+
+  await button("Files").click();
+  await page.locator('[data-dock-sidebar="docked"]').waitFor();
+  await page.getByRole("button", { name: "Close Board", exact: true }).click();
+  const closed = await savedLayout();
+  await intoRail(view("Board"));
+  await button("Board").waitFor();
+  assert.equal(await panel("Board").isVisible(), false, "moving a closed button does not open its panel");
+  await samePanels(closed);
+  await intoHeader(button("Board"), "Chat");
+  assert.equal(await panel("Board").isVisible(), false);
+  await samePanels(closed);
+
+  await intoHeader(button("Journal"), "Chat");
+  await intoHeader(button("Files"), "Reset layout", 0.5);
+  assert.equal(await rail.count(), 0, "the empty rail disappears outside a drag");
+  await intoRail(view("Notes"));
+  await button("Notes").waitFor();
+  assert.equal(await panel("Notes").isVisible(), false, "a background tab stays in the background");
+  const placements = (await savedLayout()).placements;
+  await page.reload();
+  await tab("Chat").waitFor();
+  await button("Notes").waitFor();
+  assert.deepEqual((await savedLayout()).placements["app:notes"], placements["app:notes"]);
+  assert.equal(await view("Files").isVisible(), true);
+  assert.equal(await view("Journal").isVisible(), true);
+  await page.evaluate(() => window.dockingFixture.setRun("second"));
+  await button("Files").waitFor();
+  assert.equal(await view("Notes").isVisible(), true, "another run uses its plugin defaults");
+  await page.evaluate(() => window.dockingFixture.setRun("first"));
+  await button("Notes").waitFor();
+  assert.equal(await view("Files").isVisible(), true, "returning to a run restores its choice");
+  await view("Reset layout").click();
+  assert.deepEqual(await order(), ["Chat", "Preview", "Notes"]);
+  assert.deepEqual(await rail.getByRole("button").evaluateAll((buttons) => buttons.map((element) => element.getAttribute("aria-label"))), ["Files", "Journal"]);
+  assert.equal((await savedLayout()).placements, undefined);
+  assert.equal((await savedLayout()).order, undefined);
+  assert.deepEqual(errors, []);
+});
+
+test("browser context menus move buttons in both directions by keyboard and pointer without opening or closing panels", options, async (context) => {
+  const { errors, page, view, panel, tab, savedLayout } = await prepare(context, "?header&window");
+  const rail = page.getByRole("navigation", { name: "Sidebar tabs" });
+  const button = (name: string) => rail.getByRole("button", { name, exact: true });
+  const menuMove = async (source: Locator, destination: "header" | "sidebar", keyboard = true) => {
+    if (keyboard) {
+      await source.focus();
+      await page.keyboard.press("Shift+F10");
+      const item = page.getByRole("menuitem", { name: `Move to ${destination}`, exact: true });
+      await item.waitFor();
+      await page.waitForFunction(() => document.activeElement?.getAttribute("role") === "menuitem");
+      await page.keyboard.press("ArrowDown");
+      await page.keyboard.press("Enter");
+    } else {
+      await source.click({ button: "right" });
+      await page.getByRole("menuitem", { name: `Move to ${destination}`, exact: true }).click();
+    }
+    await page.getByRole("menu").waitFor({ state: "hidden" });
+  };
+
+  await page.waitForFunction(() => document.querySelectorAll("[data-dock-group]").length === 2);
+  const hidden = await savedLayout();
+  await menuMove(button("Files"), "header");
+  await view("Files").waitFor();
+  await page.waitForFunction(() => document.activeElement?.getAttribute("data-dock-window") === "tool:files");
+  assert.deepEqual((await savedLayout()).root, hidden.root);
+  assert.deepEqual((await savedLayout()).side, hidden.side);
+  assert.equal(await page.getByRole("tabpanel", { name: "Files", exact: true }).count(), 0, "the hidden tool stays hidden");
+  await menuMove(view("Files"), "sidebar");
+  await button("Files").waitFor();
+  await page.waitForFunction(() => document.activeElement?.getAttribute("data-dock-rail-button") === "tool:files");
+  assert.deepEqual((await savedLayout()).side, hidden.side);
+
+  await menuMove(view("Notes"), "sidebar");
+  await button("Notes").waitFor();
+  assert.deepEqual((await savedLayout()).root, hidden.root);
+  assert.equal(await panel("Notes").isVisible(), false, "the background app stays in its tab");
+  await menuMove(button("Notes"), "header");
+  assert.deepEqual((await savedLayout()).root, hidden.root);
+
+  await view("Notes").focus();
+  await page.keyboard.press("Enter");
+  const notes = panel("Notes");
+  await notes.getByRole("textbox", { name: "App draft", exact: true }).fill("App draft survives");
+  const frame = await notes.locator('iframe[title="App frame"]').elementHandle();
+  const identity = await frame!.evaluate((element) => Reflect.get((element as HTMLIFrameElement).contentWindow!, "identity"));
+  const mounts = await page.evaluate(() => window.dockingFixture.mounts.notes);
+  await menuMove(view("Notes"), "sidebar");
+  assert.equal(await notes.isVisible(), true);
+  await menuMove(button("Notes"), "header");
+  assert.equal(await notes.getByRole("textbox", { name: "App draft", exact: true }).inputValue(), "App draft survives");
+  assert.equal(await notes.locator('iframe[title="App frame"]').evaluate((element, original) => element === original, frame), true);
+  assert.equal(await frame!.evaluate((element) => Reflect.get((element as HTMLIFrameElement).contentWindow!, "identity")), identity);
+  assert.equal(await page.evaluate(() => window.dockingFixture.mounts.notes), mounts);
+
+  await tab("Preview").click();
+  await page.getByRole("textbox", { name: "Preview draft" }).fill("Kept draft");
+  await menuMove(view("Preview"), "sidebar", false);
+  assert.equal(await panel("Preview").isVisible(), true);
+  await menuMove(button("Preview"), "header", false);
+  assert.equal(await page.getByRole("textbox", { name: "Preview draft" }).inputValue(), "Kept draft");
+  assert.equal(await panel("Preview").isVisible(), true);
+  await menuMove(view("Chat"), "sidebar");
+  assert.equal(await panel("Chat").isVisible(), true, "Chat uses the same placement path");
+  await view("Reset layout").click();
+  assert.equal((await savedLayout()).placements, undefined);
+  assert.equal(await view("Chat").isVisible(), true);
+  assert.equal(await view("Preview").isVisible(), true);
+  assert.equal(await button("Preview").count(), 0);
+  assert.deepEqual(errors, []);
+});
+
+test("browser active dock tabs are square fills flush with a strip clipped to the card corners", options, async (context) => {
+  const { errors, page, tab } = await prepare(context);
+  for (const theme of ["light", "dark"]) {
+    await page.evaluate((value) => document.documentElement.setAttribute("data-theme", value), theme);
+    const shape = await tab("Chat").evaluate((element) => {
+      const fill = element.parentElement!;
+      const strip = fill.parentElement!;
+      const style = getComputedStyle(fill);
+      const stripStyle = getComputedStyle(strip);
+      const rect = fill.getBoundingClientRect();
+      const bounds = strip.getBoundingClientRect();
+      return { radius: style.borderRadius, left: rect.left - bounds.left, top: rect.top - bounds.top,
+        height: bounds.height - rect.height, padding: stripStyle.padding, gap: stripStyle.gap,
+        overflow: stripStyle.overflow, corner: parseFloat(stripStyle.borderTopLeftRadius) };
+    });
+    assert.equal(shape.radius, "0px");
+    assert.equal(shape.left, 0);
+    assert.equal(shape.top, 0);
+    assert.equal(shape.height, 1, "only the strip's bottom border separates the fill from the panel");
+    assert.equal(shape.padding, "0px");
+    assert.ok(shape.gap === "normal" || shape.gap === "0px");
+    assert.equal(shape.overflow, "hidden");
+    assert.ok(shape.corner > 0);
+    await page.screenshot({ path: join(shots, `dock-tabs-square-${theme}.png`) });
+  }
   assert.deepEqual(errors, []);
 });

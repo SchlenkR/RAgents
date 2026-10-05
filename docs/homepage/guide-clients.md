@@ -44,8 +44,9 @@ wraps with the other header actions when space is short.
 At a workspace width of at least 1000 pixels, the browser places Chat on the left and mini-apps
 on the right, each taking half the space. This also happens when the first app appears later.
 Narrower workspaces use tabs in one area. The default adapts to width until you arrange windows
-yourself; saved custom layouts stay as you left them. The active tab is one filled shape without
-a border that holds its grip, maximize, and close buttons. Drag a tab to arrange windows, or drag
+yourself; saved custom layouts stay as you left them. The active tab is one square filled shape
+flush with the strip, without a border, holding its grip, maximize, and close buttons. The strip
+clips to the card's rounded top corners. Drag a tab to arrange windows, or drag
 the grip on the active tab to move all windows of its area together.
 A compass appears over the area under the pointer: its four sides split that area in half,
 and its center merges windows as tabs. Dropping on a tab strip also merges. The four outer
@@ -59,7 +60,7 @@ dragging. The tab-strip drag grips and sidebar resize grip use the same dots.
 Dragging the only window to a side of its own area leaves an empty half. Drop another window
 there or use "Close area". Moving all windows into another area removes their empty source.
 Each tab's X closes that window. Only empty areas have an additional X, when another area
-remains. Chat can be closed too. The run header always lists Chat, every plugin view shown as a
+remains. Chat can be closed too. By default, the run header lists Chat, every plugin view shown as a
 window, and every app as buttons with their existing icons, whether shown or not; the button of a
 visible window appears pressed.
 Clicking a closed window opens it beside the current area in a wide browser workspace, or as a
@@ -77,6 +78,14 @@ the drop opens or moves that window there. A press without movement still counts
 and Escape cancels the drag. Alt+Left Arrow and Alt+Right Arrow move a focused button. New
 windows join at the end.
 
+Move any entry's button between the header and right sidebar rail: drag a rail button onto a
+header insertion line, or drag a header button onto the rail. An empty rail appears as a drop
+target during a button drag. Right-click either button for "Move to header" or "Move to sidebar";
+from the keyboard, focus it, press Shift+F10, then choose the action with arrow keys and Enter.
+The menu moves a button to the end of the header. Moving a button leaves its panel open, closed,
+or in its current dock area. A rail button for an already docked window selects that window;
+it does not open a second copy.
+
 After the window buttons, "Empty space" is always directly available.
 Clicking it adds an empty pane beside the current area in a wide workspace, or as a tab when
 narrow; dragging the button places the pane on a docking guide. You can add several. An empty
@@ -86,9 +95,9 @@ button or a tab anywhere on a shown empty pane, or on the compass center labeled
 pane", puts that window in its place. Empty panes survive reload.
 
 The "Reset layout" icon after the window buttons and "Empty space"
-restores the automatic layout, the button order, and the inspection rail, and removes empty
-panes. Maximize appears only with multiple areas, at the right end of the area header just
-before the last tab's X; Restore or Escape returns to the split layout. Tabs support arrow
+restores the automatic layout, default button positions and order, and the inspection rail,
+and removes empty panes. Maximize appears only with multiple areas, in the active tab just
+before its X; Restore or Escape returns to the split layout. Tabs support arrow
 keys, Home, and End, and focused dividers support arrow keys.
 
 Inspection puts its actor selector in the window title row. A second, horizontally scrollable
@@ -111,18 +120,18 @@ using its left edge. The rail and side views share the card frame. Only the hove
 a drop shadow; docked cards stay flat.
 
 Drag a rail button or the view's header grip into the workspace to make it a regular window.
-Its rail button disappears until you close the window, use its return-to-sidebar button, or
-drag it back onto the rail or sidebar. A docked tool uses the same tabs, docking guides,
-maximize, and close controls as Chat and apps.
+Its button stays in the rail until you move the button itself. Close the window, use its
+return-to-sidebar button, or drag its tab back onto the rail or sidebar to return the panel.
+A docked tool uses the same tabs, docking guides, maximize, and close controls as Chat and apps.
 
 A plugin can also show its view as a window instead of in the rail. Its button then sits with the
-window buttons in the run header, and the view appears, moves, splits, and closes like an app; it
-never appears in the rail and has no return-to-sidebar button. A small blue dot on its directly
-available header button means the view has content or new activity.
+window buttons in the run header by default, and the view appears, moves, splits, and closes like
+an app. You can move its button into the rail using the same drag or menu actions. A small blue
+dot on its directly available header button means the view has content or new activity.
 
 The browser remembers areas, sizes, active tabs, closed windows, empty panes, the header button
-order, and sidebar settings for each server and run. New apps appear without taking focus;
-unavailable apps disappear. Chat drafts, app input, and visited tool state survive tab switches,
+order, button positions, and sidebar settings for each server and run. New apps appear without
+taking focus; unavailable apps disappear. Chat drafts, app input, and visited tool state survive tab switches,
 moves, and close/reopen while the run stays open. Reloading the page restores the layout but not
 unsent input.
 

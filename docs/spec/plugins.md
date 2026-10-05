@@ -1439,7 +1439,8 @@ Instead, plugins fill typed slots for:
 - workspace tabs and badges (`workspaceTabs`, `workspaceTabsFor`): the toolbar at the right edge
   with the tab area as a popout over the selected content view; the same contribution, the same visibility (`readRight`, `requiresWorkspace`, `available`);
   `placement: "window"` (default `"sidebar"`) lists a tab in the browser among the run's windows in the
-  header instead, like a mini-app (section on the docking workspace below)
+  header by default, like a mini-app; per-run user layout overrides can move either kind of button
+  between the header and rail (section on the docking workspace below)
 - tool and entity presenters; the run providers bind tool presentations together to
   run and navigation. The standard chat and the actor chat consume the same renderer.
 - Markdown addresses in a run (`resolveRunUrl`, `RunUrlResolver`): at most one active plugin maps a
@@ -1538,7 +1539,7 @@ in `apps/web/src/run-panel/`). Areas form a binary split tree with draggable div
 the strip width equally, truncate long titles, and each have a close button. Every area header
 has a grip for moving all its tabs. A populated area offers maximize/restore only when another
 area exists. The area controls (a tool's header contribution, return to sidebar, maximize/restore)
-sit in the last tab cell before its close button, so the header ends with
+sit in the active tab cell before its close button, so that cell ends with
 `[return to sidebar] [maximize/restore] [X]`. Only an empty area with a neighbour has a close-area
 button; populated areas use the individual tab close buttons. Tabs use the existing actor,
 mini-app, and inspection icons.
@@ -1546,7 +1547,10 @@ mini-app, and inspection icons.
 Dock areas (including empty ones), the inspection rail, and the side view have a 1 px token
 border, `rounded-lg` corners, and `bg-card` surfaces over the `bg-app` workspace. The focused
 area uses `border-primary/70`. Headers sit inside the border with a subtle bottom rule. Cards
-have 6 px gaps, also at workspace edges; pinned and docked cards have no shadow. Dividers
+have 6 px gaps, also at workspace edges; pinned and docked cards have no shadow. Active tab cells
+are square, borderless fills stretched flush to the strip, with no inset padding or inter-tab
+gap. The strip clips overflow to its rounded top corners; the tabs themselves have no radius.
+Dividers
 are transparent gaps with centered three-dot grips aligned along the divider. Their hit areas
 are at least 8 px wide or high. The same dots appear on header drag and side resize grips,
 muted by default, stronger on hover/focus, and primary while dragging. Resize cursors persist
@@ -1560,7 +1564,7 @@ preview shows the result. Escape cancels the drag; outside a target nothing chan
 last window within its own area leaves an empty half with "Drop a window here" and "Close area".
 Moving it to another area removes the emptied source. Closing the last tab removes its area
 when others exist; closing the sole area leaves it empty. Escape also restores a maximized area.
-The run header lists every view (Chat, each window tab, and each app) as an icon-and-label button in a "Layout
+By default, the run header lists every view (Chat, each window tab, and each app) as an icon-and-label button in a "Layout
 actions" group, whether shown or not; a visible view's button is pressed (`aria-pressed`).
 `revealDockPanel` decides the click: a closed view opens beside the focused area in wide browser
 workspaces or as a tab in narrow ones; a background tab or the active tab of an area hidden by
@@ -1575,7 +1579,12 @@ until the button is hovered, focused, or dragged and always visible under `point
 pointer capture: a press that moves less than 6 px stays a click and calls `revealDockPanel`; a
 longer drag inside the "Layout actions" group inserts the view at the pointer's row and horizontal
 position (a 2 px primary line marks the slot; no line and no change where the order
-would stay), and anywhere else it uses the same compass, edge guides, previews, and
+would stay). A rail button dropped there joins at that slot. Dropping a header button on the
+rail moves its button there; when all buttons are in the header, a temporary empty rail appears
+during a button drag. These drops call `moveDockButton` and leave panel location, visibility,
+focus, and automatic layout unchanged. Right-click or Shift+F10 on either button opens the
+shared context menu with "Move to sidebar" or "Move to header"; the latter appends to the header,
+and focus follows the moved button. Elsewhere a button uses the same compass, edge guides, previews, and
 `moveDockPanels` as a tab drag, so the drop opens a closed view or moves an open one. Escape
 cancels. Alt+ArrowLeft and Alt+ArrowRight move a focused button by one place and keep its focus.
 The header slot compares client coordinates with the buttons' client rectangles, so the page zoom
@@ -1592,32 +1601,39 @@ and closing one removes it. Their content is the hint "Drag an app or actor here
 that pane in place; for such an area the whole content is a center target and the compass center
 reads "Replace empty pane". A background empty pane is merged beside like any tab.
 "Reset layout" uses the standard header icon button directly after the views and extra actions,
-and restores the automatic layout, the button order, and the inspection rail, and removes
-empty panes. Arrow keys, Home, and End select tabs; focused dividers resize with arrow keys.
+and restores the automatic layout, default button positions and order, and the inspection rail,
+and removes empty panes. Arrow keys, Home, and End select tabs; focused dividers resize with arrow keys.
 
-A workspace tab with `placement: "window"` is the same contribution in another place: in the browser
-it is a view like an app, never a rail tool. Its panel has the ID `tab:<tab id>`
-(`workspaceTabPanelId` in `dock-state.ts`; a sidebar tab is `tool:<tab id>`) and lives in the tree,
-`known`, `closed`, and `order`, never in `bar`. The catalog order is Chat, window tabs in tab order,
-then apps, so apps that arrive later still join at the end. Such a tab joins the layout like a new
+A workspace tab with `placement: "window"` defaults to a header button and opens like an app.
+Its panel has the ID `tab:<tab id>` (`workspaceTabPanelId` in `dock-state.ts`; a default sidebar
+tab is `tool:<tab id>`). Moving a button never changes this ID or the plugin contribution.
+`dockButtonPlacement` resolves a user override before the default. Any entry, including Chat,
+apps, and both kinds of workspace tab, can have its button in either place. The catalog order is
+Chat, window tabs in tab order, then apps, so apps that arrive later still join at the end.
+Such a tab joins the layout like a new
 app (the automatic wide layout puts it into the app area; Reset layout opens it again), and its
 header button shows its `Icon` and `label` with grip and reordering like any view.
 Its `Badge` or pending activity is drawn as the same `bg-info` dot inside `BadgeDisplayProvider
 value="dot"` at the top right of its directly available header button. Its `Header` renders in the area
 header while it is the area's active tab, and its `Panel` receives `active` while it is visible. It
-has no return-to-sidebar button, and the rail is no drop target for it. `SessionNavigation.openTab`
-selects it in its area or opens a closed one as the active tab of the focused area
+has no panel return-to-sidebar control by default. `SessionNavigation.openTab`
+selects an existing docked panel, focuses an open sidebar panel, or opens a closed one in the
+button's chosen place (sidebar or the focused area)
 (`selectDockPanel`, which ignores IDs outside `known`), and `activeTabId` names it while it is the
-active tab of the focused area. A tab whose placement changes leaves the rail or the windows through
-catalog reconciliation and joins the other place.
+active tab of the focused area or focused sidebar. A changed plugin default is reconciled through
+the catalog; a user's button move only changes local layout state.
 
 `dock-state.ts` holds the tree operations and catalog reconciliation; `dock-geometry.ts` calculates
 rectangles and drag targets. The layout including empty panes, split ratios, active tabs, closed
-windows, rail membership, sidebar mode and width, maximized area, and the optional header button order (`order`, applied by
+windows, undocked panels (`bar`), sidebar mode and width, maximized area, optional button overrides
+(`placements`, mapping stable panel IDs to `"sidebar"` or `"window"`), and the optional header
+button order (`order`, applied by
 `dockWindowOrder` and changed by `moveDockWindow`, which never touches the tree or the automatic
 layout) are stored locally per server origin and run
 (`ragents.docking:<encoded-origin>:<encoded-run>`). Views missing from `order` follow in catalog
-order, and catalog reconciliation drops unavailable views from it. Invalid storage or a failed
+order, and catalog reconciliation drops unavailable views from order and overrides. Sidebar
+buttons remain available when their panels are docked; their position is independent of `bar`.
+Older saved layouts without overrides use plugin defaults. Invalid storage or a failed
 write is reported; "Reset layout" explicitly replaces invalid state. No server function controls this layout.
 The first run snapshot reconciles saved IDs with the shared catalog from `run-apps.ts`; loading
 alone does not discard positions. Unavailable apps are removed, including stopped or hidden views.
@@ -2583,8 +2599,10 @@ receives `SurfaceCenterContext`. Without it the host renders the standard chat.
 
 The sidebar tabs (`workspaceTabs`, `workspaceTabsFor`) appear as a vertical rail at the far
 right, with each contribution's icon and accessible name; in the browser a tab with
-`placement: "window"` is listed with the run's windows in the header instead, and the rail is
-left out when no sidebar tab remains. Hovering or focusing a rail button immediately shows
+`placement: "window"` defaults to the run's windows in the header. Browser layout overrides also
+allow apps and Chat in the rail or default sidebar tabs in the header. The rail is left out
+when no sidebar button remains, except as a drop target during a button drag. Hovering or
+focusing a rail button immediately shows
 the shared ui tooltip centered to its left, with an 8 px gap; no native `title` tooltip is set.
 The tooltip names the tab and adds " - new activity" for pending activity. Its label does not
 capture pointer events, so it cannot block the sidebar's header controls.
@@ -2599,7 +2617,7 @@ Processes additionally expose their existing content as browser-only tools; thei
 and header access remains. `PluginChat` supplies these tools through `DockToolsContext` to the browser's
 `DockWorkspace`; the orchestration plugin supplies its chat and the shared app catalog.
 Without a surface contribution, the host supplies the standard chat to the same docking workspace.
-Visible dock panels are named through `aria-labelledby` referencing their tab or sidebar button;
+Visible dock panels are named through `aria-labelledby` referencing their tab or sidebar title;
 the inner chat keeps its own Chat region label.
 
 In the browser, the sidebar has exactly three modes: `hidden`, `hover-preview`, and `docked`.
@@ -2619,12 +2637,15 @@ ring-1 ring-foreground/10 in both themes, only theme tokens and no per-element s
 The frame sits above the areas (z-30), so the shadow falls over them; the workspace clips it only
 at the header and status bar edges. A pinned sidebar has `shadow-none`.
 Dragging a rail button or the sidebar header grip into the workspace docks a tool as a normal
-window and removes its rail button. Closing that window or dropping it on the highlighted
-rail/sidebar returns it to the rail, hidden. Its return-to-sidebar button instead opens it
-as a docked sidebar. Compass and edge guides drawn over a hover flyout take precedence over it
+window and keeps its button in its chosen place. Clicking that rail button selects the docked
+window; hovering it does not create a second panel. Closing a tool window or dropping its tab
+on the highlighted rail/sidebar leaves the panel undocked and hidden. Its return-to-sidebar
+button instead opens it as a docked sidebar without changing button placement. Compass and
+edge guides drawn over a hover flyout take precedence over it
 as drop targets. Mixed document/tool groups
 cannot be dropped on the rail. Visited tools keep their mounted instances across these moves.
-`SessionNavigation.openTab` selects an already docked tool in its area or opens it in the sidebar.
+`SessionNavigation.openTab` selects an already docked tool in its area, focuses an open sidebar
+panel, or opens a hidden tool in its button's chosen place.
 
 Workspace tabs can contribute a `Header` with the same context as `Panel`. Docked group headers,
 the sidebar title row and the VS Code popout render it. Inspection contributes the actor selector

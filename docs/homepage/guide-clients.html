@@ -201,8 +201,9 @@ wraps with the other header actions when space is short.</p>
 <p>At a workspace width of at least 1000 pixels, the browser places Chat on the left and mini-apps
 on the right, each taking half the space. This also happens when the first app appears later.
 Narrower workspaces use tabs in one area. The default adapts to width until you arrange windows
-yourself; saved custom layouts stay as you left them. The active tab is one filled shape without
-a border that holds its grip, maximize, and close buttons. Drag a tab to arrange windows, or drag
+yourself; saved custom layouts stay as you left them. The active tab is one square filled shape
+flush with the strip, without a border, holding its grip, maximize, and close buttons. The strip
+clips to the card&#39;s rounded top corners. Drag a tab to arrange windows, or drag
 the grip on the active tab to move all windows of its area together.
 A compass appears over the area under the pointer: its four sides split that area in half,
 and its center merges windows as tabs. Dropping on a tab strip also merges. The four outer
@@ -215,7 +216,7 @@ dragging. The tab-strip drag grips and sidebar resize grip use the same dots.</p
 <p>Dragging the only window to a side of its own area leaves an empty half. Drop another window
 there or use &quot;Close area&quot;. Moving all windows into another area removes their empty source.
 Each tab&#39;s X closes that window. Only empty areas have an additional X, when another area
-remains. Chat can be closed too. The run header always lists Chat, every plugin view shown as a
+remains. Chat can be closed too. By default, the run header lists Chat, every plugin view shown as a
 window, and every app as buttons with their existing icons, whether shown or not; the button of a
 visible window appears pressed.
 Clicking a closed window opens it beside the current area in a wide browser workspace, or as a
@@ -232,6 +233,13 @@ where it lands. Drag it into the workspace to get the same compass and edge guid
 the drop opens or moves that window there. A press without movement still counts as a click,
 and Escape cancels the drag. Alt+Left Arrow and Alt+Right Arrow move a focused button. New
 windows join at the end.</p>
+<p>Move any entry&#39;s button between the header and right sidebar rail: drag a rail button onto a
+header insertion line, or drag a header button onto the rail. An empty rail appears as a drop
+target during a button drag. Right-click either button for &quot;Move to header&quot; or &quot;Move to sidebar&quot;;
+from the keyboard, focus it, press Shift+F10, then choose the action with arrow keys and Enter.
+The menu moves a button to the end of the header. Moving a button leaves its panel open, closed,
+or in its current dock area. A rail button for an already docked window selects that window;
+it does not open a second copy.</p>
 <p>After the window buttons, &quot;Empty space&quot; is always directly available.
 Clicking it adds an empty pane beside the current area in a wide workspace, or as a tab when
 narrow; dragging the button places the pane on a docking guide. You can add several. An empty
@@ -240,9 +248,9 @@ close it with X, which removes it. It shows &quot;Drag an app or actor here&quot
 button or a tab anywhere on a shown empty pane, or on the compass center labeled &quot;Replace empty
 pane&quot;, puts that window in its place. Empty panes survive reload.</p>
 <p>The &quot;Reset layout&quot; icon after the window buttons and &quot;Empty space&quot;
-restores the automatic layout, the button order, and the inspection rail, and removes empty
-panes. Maximize appears only with multiple areas, at the right end of the area header just
-before the last tab&#39;s X; Restore or Escape returns to the split layout. Tabs support arrow
+restores the automatic layout, default button positions and order, and the inspection rail,
+and removes empty panes. Maximize appears only with multiple areas, in the active tab just
+before its X; Restore or Escape returns to the split layout. Tabs support arrow
 keys, Home, and End, and focused dividers support arrow keys.</p>
 <p>Inspection puts its actor selector in the window title row. A second, horizontally scrollable
 row holds the actor name, Stop or Restart, chat display switches, and detail-view icons with
@@ -262,16 +270,16 @@ after release it stays only while the pointer is over the flyout or rail. Resize
 using its left edge. The rail and side views share the card frame. Only the hover flyout has
 a drop shadow; docked cards stay flat.</p>
 <p>Drag a rail button or the view&#39;s header grip into the workspace to make it a regular window.
-Its rail button disappears until you close the window, use its return-to-sidebar button, or
-drag it back onto the rail or sidebar. A docked tool uses the same tabs, docking guides,
-maximize, and close controls as Chat and apps.</p>
+Its button stays in the rail until you move the button itself. Close the window, use its
+return-to-sidebar button, or drag its tab back onto the rail or sidebar to return the panel.
+A docked tool uses the same tabs, docking guides, maximize, and close controls as Chat and apps.</p>
 <p>A plugin can also show its view as a window instead of in the rail. Its button then sits with the
-window buttons in the run header, and the view appears, moves, splits, and closes like an app; it
-never appears in the rail and has no return-to-sidebar button. A small blue dot on its directly
-available header button means the view has content or new activity.</p>
+window buttons in the run header by default, and the view appears, moves, splits, and closes like
+an app. You can move its button into the rail using the same drag or menu actions. A small blue
+dot on its directly available header button means the view has content or new activity.</p>
 <p>The browser remembers areas, sizes, active tabs, closed windows, empty panes, the header button
-order, and sidebar settings for each server and run. New apps appear without taking focus;
-unavailable apps disappear. Chat drafts, app input, and visited tool state survive tab switches,
+order, button positions, and sidebar settings for each server and run. New apps appear without
+taking focus; unavailable apps disappear. Chat drafts, app input, and visited tool state survive tab switches,
 moves, and close/reopen while the run stays open. Reloading the page restores the layout but not
 unsent input.</p>
 <p>In VS Code, click an app entry to open or focus its single editor tab; moving that tab between

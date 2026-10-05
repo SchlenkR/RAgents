@@ -4,18 +4,19 @@ import { ArrowDownIcon, ArrowLeftIcon, ArrowRightIcon, ArrowUpIcon, LayoutGridIc
 import type { SessionContext, SessionNavigation, WorkspaceTabContribution } from "../PluginRegistry";
 import { RunAppView, type RunApp } from "../run-apps";
 import { Badge, InteractiveItem, BadgeDisplayProvider, Button, cn, Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "../ui";
-import { activeDockTool, addDockEmptyPane, appPanelId, closeDockPanels, dockGroups, dockWindowOrder, emptyPanelId, focusedDockWindow, initialDockState, isEmptyPanel, isToolPanel, moveDockPanels, moveDockWindow, reconcileDockState, resizeDockSplit, returnDockTool, revealDockPanel, transitionDockSide, selectDockPanel, tabWindowId, toolPanelId, workspaceTabPanelId, type DockGroup } from "./dock-state";
+import { activeDockTool, addDockEmptyPane, appPanelId, closeDockPanels, dockButtonPlacement, dockGroups, dockWindowOrder, emptyPanelId, focusedDockWindow, initialDockState, isEmptyPanel, isToolPanel, moveDockButton, moveDockPanels, moveDockWindow, reconcileDockState, resizeDockSplit, returnDockTool, revealDockPanel, transitionDockSide, selectDockPanel, tabWindowId, toolPanelId, workspaceTabPanelId, type DockGroup, type DockButtonPlacement } from "./dock-state";
 import { DOCK_DIVIDER_SIZE, DOCK_HEADER_HEIGHT, containsPoint, dockGeometry, dockHitTest, type DockPoint, type DockRect } from "./dock-geometry";
 import { useDockPointer } from "./dock-pointer";
 import { useDockStorage } from "./dock-storage";
 import { DockWindowActions } from "./DockWindowActions";
+import { DockButtonMenu } from "./DockButtonMenu";
 
 export { DockWindowActions } from "./DockWindowActions";
 
 export const DockToolsContext = createContext<{ tabs: readonly WorkspaceTabContribution[]; pendingTabIds: readonly string[]; actionsContainer?: HTMLElement | null }>({ tabs: [], pendingTabIds: [] });
-const areaHeaderClass = "absolute z-20 flex min-w-0 items-center gap-0.5 rounded-t-lg border-b border-border bg-card px-0.5";
+const areaHeaderClass = "absolute z-20 flex min-w-0 items-stretch overflow-hidden rounded-t-lg border-b border-border bg-card";
 const cardClass = "pointer-events-none absolute rounded-lg border bg-card";
-const tabClass = "flex min-w-0 flex-1 items-center rounded-md hover:bg-hover";
+const tabClass = "flex min-w-0 flex-1 items-center hover:bg-hover";
 const gripClass = "group/grip flex items-center justify-center text-muted-foreground/50 hover:text-muted-foreground focus-visible:text-primary data-[dragging=true]:text-primary";
 const resizeClass = `absolute z-30 touch-none outline-offset-[-2px] focus-visible:outline-2 focus-visible:outline-ring ${gripClass}`;
 function DockGrip({ horizontal = false }: { horizontal?: boolean }) {
@@ -34,7 +35,7 @@ const EMPTY_PANE_TITLE = "Empty space";
 
 export function useDockActiveApp(runId: string): string | undefined {
   const { state } = useDockStorage(runId);
-  const active = focusedDockWindow(state);
+  const active = state.side.focused ? state.side.tab : focusedDockWindow(state);
   return active?.startsWith("app:") ? active.slice(4) : undefined;
 }
 
@@ -49,9 +50,9 @@ export function DockWorkspace({ apps, chat, chatIcon = <UsersIcon />, navigation
   const { state: stored, error, update } = useDockStorage(session.session.id);
   const [size, setSize] = useState({ width: 0, height: 0 });
   const splitApps = size.width >= 1000;
-  const sideTabs = tabs.filter((tab) => tab.placement !== "window");
   const panelIds = ["chat", ...tabs.filter((tab) => tab.placement === "window").map((tab) => tabWindowId(tab.id)), ...apps.map((app) => appPanelId(app.definition.id))];
-  const toolIds = sideTabs.map((tab) => toolPanelId(tab.id));
+  const toolIds = tabs.filter((tab) => tab.placement !== "window").map((tab) => toolPanelId(tab.id));
+  const catalog = [...panelIds, ...toolIds];
   // The initial run snapshot has not arrived yet; keep saved app positions until it does.
   const ready = session.runView !== undefined || apps.length > 0;
   const state = error ? stored : reconcileDockState(stored, ready ? panelIds : [...new Set([...stored.known.filter((id) => !isToolPanel(id)), ...panelIds])],
@@ -64,7 +65,8 @@ export function DockWorkspace({ apps, chat, chatIcon = <UsersIcon />, navigation
   }, [session.session.id, update]);
   const container = useRef<HTMLDivElement>(null);
   const windowsRef = useRef<HTMLDivElement>(null);
-  const windows = dockWindowOrder(state, panelIds);
+  const windows = dockWindowOrder(state, catalog);
+  const sideButtons = catalog.filter((id) => dockButtonPlacement(state, id) === "sidebar");
   const [visited, setVisited] = useState<readonly string[]>(["chat"]);
   const [drag, setDrag] = useState<{ ids: readonly string[]; point: DockPoint; header?: boolean; slot?: number | null }>();
   const [resizing, setResizing] = useState<string>();
@@ -81,9 +83,9 @@ export function DockWorkspace({ apps, chat, chatIcon = <UsersIcon />, navigation
     return () => observer.disconnect();
   }, []);
   const sideTab = state.side.tab;
-  const sideVisible = sideTab !== null && state.bar.includes(sideTab) && toolIds.includes(sideTab);
+  const sideVisible = sideTab !== null && state.bar.includes(sideTab) && catalog.includes(sideTab);
   const gap = DOCK_DIVIDER_SIZE;
-  const railWidth = sideTabs.length > 0 ? 36 : 0;
+  const railWidth = sideButtons.length > 0 || (drag?.header && drag.ids[0] !== EMPTY_PANE_ENTRY) ? 36 : 0;
   const railSpace = railWidth ? railWidth + gap : 0;
   const height = Math.max(0, size.height - gap * 2);
   const maxSideWidth = Math.max(180, size.width - railSpace - gap * 3 - 80);
@@ -125,7 +127,7 @@ export function DockWorkspace({ apps, chat, chatIcon = <UsersIcon />, navigation
   // A CSS zoom on the page scales client coordinates, not the dock geometry.
   const pointerZoom = () => container.current!.getBoundingClientRect().width / container.current!.offsetWidth || 1;
   const localPoint = (point: DockPoint, rect: DOMRect, zoom: number): DockPoint => ({ x: (point.x - rect.left) / zoom, y: (point.y - rect.top) / zoom });
-  // The slot of a dragged header window button, all in client coordinates: undefined outside the buttons, null where the order stays.
+  // Client coordinates keep header insertion independent of page zoom.
   const headerSlot = (point: DockPoint, id: string): number | null | undefined => {
     const group = windowsRef.current;
     if (!group || !containsPoint(group.getBoundingClientRect(), point)) return undefined;
@@ -134,7 +136,7 @@ export function DockWorkspace({ apps, chat, chatIcon = <UsersIcon />, navigation
       return rect.bottom <= point.y || (rect.top <= point.y && rect.left + rect.width / 2 < point.x);
     }).length;
     const from = windows.indexOf(id);
-    return from < 0 || slot === from || slot === from + 1 ? null : slot;
+    return id === EMPTY_PANE_ENTRY || (from >= 0 && (slot === from || slot === from + 1)) ? null : slot;
   };
   const startDrag = (event: PointerEvent<HTMLElement>, ids: readonly string[], click?: () => void, header = false) => {
     if (ids.length === 0 || event.button !== 0) return;
@@ -154,7 +156,12 @@ export function DockWorkspace({ apps, chat, chatIcon = <UsersIcon />, navigation
       if (!started) { click?.(); return; }
       const slot = header ? headerSlot(point, ids[0]) : undefined;
       if (slot !== undefined) {
-        if (slot !== null) update((current) => moveDockWindow(current, ids[0], windows[slot] ?? null));
+        if (slot !== null && ids[0] !== EMPTY_PANE_ENTRY) update((current) => moveDockButton(current, ids[0], "window", windows[slot] ?? null));
+        return;
+      }
+      const rail = container.current?.querySelector("[data-dock-rail]");
+      if (header && ids[0] !== EMPTY_PANE_ENTRY && rail && containsPoint(rail.getBoundingClientRect(), point)) {
+        update((current) => moveDockButton(current, ids[0], "sidebar"));
         return;
       }
       const hit = dockHitTest(localPoint(point, bounds, zoom), workspace, geometry.groups, barRect, ids.every(isToolPanel));
@@ -165,7 +172,16 @@ export function DockWorkspace({ apps, chat, chatIcon = <UsersIcon />, navigation
     const target = windows.indexOf(id) + offset;
     if (target >= 0 && target < windows.length) update((current) => moveDockWindow(current, id, windows[offset < 0 ? target : target + 1] ?? null));
   };
+  const railDrop = drag?.header && drag.ids[0] !== EMPTY_PANE_ENTRY && railWidth > 0 && containsPoint(railRect, drag.point);
   const hit = drag && dockHitTest(drag.point, workspace, geometry.groups, barRect, drag.ids.every(isToolPanel));
+  const moveButton = (id: string, placement: DockButtonPlacement) => {
+    holdSide();
+    update((current) => moveDockButton(current, id, placement));
+    requestAnimationFrame(() => {
+      const buttons = placement === "window" ? windowsRef.current : container.current?.querySelector("[data-dock-rail]");
+      [...buttons?.querySelectorAll<HTMLElement>("[data-dock-window], [data-dock-rail-button]") ?? []].find((button) => button.getAttribute(placement === "window" ? "data-dock-window" : "data-dock-rail-button") === id)?.focus();
+    });
+  };
   const close = (ids: readonly string[], area?: string) => update((current) => closeDockPanels(current, ids, area));
   const select = (id: string) => update((current) => selectDockPanel(current, id));
   const holdSide = () => clearTimeout(leaveTimer.current);
@@ -224,7 +240,7 @@ export function DockWorkspace({ apps, chat, chatIcon = <UsersIcon />, navigation
   };
   const panel = (id: string, content: ReactNode) => {
     const position = panelPosition(id);
-    return <section aria-labelledby={position ? `dock-tab-${encodeURIComponent(id)}` : undefined} className={cn("absolute flex min-h-0 min-w-0 flex-col overflow-hidden rounded-b-lg bg-card", position?.side ? "z-40" : "z-10")}
+    return <section aria-labelledby={position ? `dock-${position.side ? "side" : "tab"}-${encodeURIComponent(id)}` : undefined} className={cn("absolute flex min-h-0 min-w-0 flex-col overflow-hidden rounded-b-lg bg-card", position?.side ? "z-40" : "z-10")}
       data-dock-side-content={position?.side ? "" : undefined} data-dock-panel={id} id={`dock-panel-${encodeURIComponent(id)}`} tabIndex={-1} hidden={!position} inert={!position} key={id} role="tabpanel" style={{ ...(position?.rect ?? emptyRect), ...(!position ? { display: "none" } : {}) }}
       onPointerDownCapture={position?.side ? pressSide : undefined} onPointerEnter={position?.side ? holdSide : undefined} onPointerLeave={position?.side ? leaveSide : undefined}
       onFocusCapture={() => {
@@ -260,6 +276,7 @@ export function DockWorkspace({ apps, chat, chatIcon = <UsersIcon />, navigation
     onDragStart={(event, id) => startDrag(event, [id], () => reveal(id), true)}
     onMove={moveWindow}
     onOpen={reveal}
+    onMoveToSidebar={(id) => moveButton(id, "sidebar")}
     onReset={() => update(() => reconcileDockState(initialDockState(panelIds, toolIds), panelIds, toolIds, splitApps), true)}
   />;
   return <div className="flex min-h-0 min-w-0 flex-1 flex-col bg-app" data-docking="workspace">
@@ -310,9 +327,9 @@ export function DockWorkspace({ apps, chat, chatIcon = <UsersIcon />, navigation
       {sideVisible && <>
         <div aria-hidden data-dock-frame className={cn(cardClass, "z-30", state.side.focused ? "border-primary/70" : "border-border",
           state.side.mode === "docked" ? "shadow-none" : "shadow-pop ring-1 ring-foreground/10")} style={sideRect} />
-        <div aria-label="Sidebar" className={cn(areaHeaderClass, "z-40")} data-dock-sidebar={(state.side.mode === "docked") ? "docked" : "flyout"} style={headerRect(sideRect)} onFocusCapture={() => { if (!state.side.focused) update((current) => ({ ...current, side: { ...current.side, focused: true } })); }} onPointerDownCapture={pressSide} onPointerEnter={holdSide} onPointerLeave={leaveSide}>
+        <div aria-label="Sidebar" className={cn(areaHeaderClass, "z-40 items-center")} data-dock-sidebar={(state.side.mode === "docked") ? "docked" : "flyout"} style={headerRect(sideRect)} onFocusCapture={() => { if (!state.side.focused) update((current) => ({ ...current, side: { ...current.side, focused: true } })); }} onPointerDownCapture={pressSide} onPointerEnter={holdSide} onPointerLeave={leaveSide}>
           <Button aria-label="Move sidebar window" className={cn(gripClass, "touch-none cursor-grab active:cursor-grabbing")} onPointerDown={(event) => startDrag(event, [sideTab!])} size="icon-xs" variant="ghost"><DockGrip /></Button>
-          <span className="min-w-0 flex-1 truncate px-1 text-xs font-semibold">{title(sideTab!)}</span>
+          <span className="min-w-0 flex-1 truncate px-1 text-xs font-semibold" id={`dock-side-${encodeURIComponent(sideTab!)}`}>{title(sideTab!)}</span>
           {toolHeader(sideTab)}
           <Button aria-label={(state.side.mode === "docked") ? "Unpin sidebar" : "Pin sidebar"} aria-pressed={state.side.mode === "docked"} title={state.side.mode === "docked" ? "Unpin sidebar" : "Pin sidebar"} onClick={() => update((current) => transitionDockSide(current, { type: "pin" }))} size="icon-xs" variant="ghost"><PinIcon className={state.side.mode === "docked" ? "fill-current" : undefined} /></Button>
           <Button aria-label="Close sidebar" onClick={hideSide} size="icon-xs" variant="ghost"><XIcon /></Button>
@@ -320,24 +337,27 @@ export function DockWorkspace({ apps, chat, chatIcon = <UsersIcon />, navigation
         <div data-dock-side-resize aria-label="Resize sidebar" aria-orientation="vertical" aria-valuemin={180} aria-valuemax={maxSideWidth} aria-valuenow={state.side.width} data-dragging={resizing === "side"} className={cn(resizeClass, "z-50 cursor-col-resize")} onPointerEnter={holdSide} onPointerLeave={leaveSide} onPointerDown={resizeSide} role="separator" style={{ left: sideRect.left - gap - 1, top: sideRect.top, width: 8, height: sideRect.height }} tabIndex={0}
           onKeyDown={(event) => { if (event.key !== "ArrowLeft" && event.key !== "ArrowRight") return; event.preventDefault(); update((current) => ({ ...current, side: { ...current.side, width: Math.max(180, Math.min(maxSideWidth, current.side.width + (event.key === "ArrowLeft" ? 20 : -20))) } })); }} ><DockGrip /></div>
       </>}
-      {sideTabs.length > 0 && <TooltipProvider><nav data-dock-rail aria-label="Sidebar tabs" className={cn("absolute z-40 flex flex-col items-center gap-1 rounded-lg border border-border bg-card py-1", hit?.target?.kind === "bar" && "bg-primary/20 ring-2 ring-inset ring-primary")} style={railRect} onPointerEnter={holdSide} onPointerLeave={leaveSide}>
-        {sideTabs.filter((tab) => state.bar.includes(toolPanelId(tab.id))).map((tab) => {
-          const id = toolPanelId(tab.id);
-          const active = sideVisible && sideTab === id;
+      {railWidth > 0 && <TooltipProvider><nav data-dock-rail aria-label="Sidebar tabs" className={cn("absolute z-40 flex flex-col items-center gap-1 rounded-lg border border-border bg-card py-1", (railDrop || hit?.target?.kind === "bar") && "bg-primary/20 ring-2 ring-inset ring-primary")} style={railRect} onPointerEnter={holdSide} onPointerLeave={leaveSide}>
+        {sideButtons.map((id) => {
+          const tab = tabFor(id);
+          const active = visible.includes(id);
+          const pending = tab && pendingTabIds.includes(tab.id);
           return <Tooltip disableHoverablePopup key={id}>
-            <TooltipTrigger id={`dock-tab-${encodeURIComponent(id)}`} aria-controls={`dock-panel-${encodeURIComponent(id)}`} aria-label={tab.label} aria-pressed={active} className="relative touch-none border border-transparent"
-              onClick={(event) => { if (event.detail === 0) sideClick(id); }} onPointerDown={(event) => startDrag(event, [id], () => sideClick(id))}
-              onPointerEnter={() => { holdSide(); if (!drag && !sidePressed.current) update((current) => transitionDockSide(current, { type: "hover", id })); }} render={<Button size="icon" variant="ghost" />}>
-              <tab.Icon />
-              <span className="absolute top-1 right-1"><BadgeDisplayProvider value="dot">{marker(tab, active)}</BadgeDisplayProvider></span>
-            </TooltipTrigger>
-            <TooltipContent className="pointer-events-none" side="left" sideOffset={8}>{pendingTabIds.includes(tab.id) ? `${tab.label} - new activity` : tab.label}</TooltipContent>
+            <DockButtonMenu destination="header" onMove={() => moveButton(id, "window")}>
+              <TooltipTrigger id={sideVisible && sideTab === id ? `dock-tab-${encodeURIComponent(id)}` : undefined} aria-controls={`dock-panel-${encodeURIComponent(id)}`} aria-label={title(id)} aria-pressed={active} className="relative touch-none border border-transparent" data-dock-rail-button={id}
+                onClick={(event) => { if (event.detail === 0) sideClick(id); }} onPointerDown={(event) => startDrag(event, [id], () => sideClick(id), true)}
+                onPointerEnter={() => { holdSide(); if (!drag && !sidePressed.current) update((current) => transitionDockSide(current, { type: "hover", id })); }} render={<Button size="icon" variant="ghost" />}>
+                {icon(id)}
+                {tab && <span className="absolute top-1 right-1"><BadgeDisplayProvider value="dot">{marker(tab, active)}</BadgeDisplayProvider></span>}
+              </TooltipTrigger>
+            </DockButtonMenu>
+            <TooltipContent className="pointer-events-none" side="left" sideOffset={8}>{pending ? `${title(id)} - new activity` : title(id)}</TooltipContent>
           </Tooltip>;
         })}
       </nav></TooltipProvider>}
       {(drag || resizing) && <div className={cn("absolute inset-0 z-[90] touch-none", resizing ? (resizing === "side" || geometry.dividers.find(({ split }) => split.id === resizing)?.split.axis === "horizontal" ? "cursor-col-resize" : "cursor-row-resize") : "cursor-grabbing")} />}
       {drag && hit && <div aria-label="Docking guides" className="pointer-events-none absolute inset-0 z-[91]">
-        {hit.preview && <div className="absolute rounded-lg border-2 border-primary bg-primary/20" data-dock-preview style={hit.target?.kind === "bar" ? (sideVisible && containsPoint(sideRect, drag.point) ? sideRect : railRect) : hit.preview} />}
+        {(railDrop || hit.preview) && <div className="absolute rounded-lg border-2 border-primary bg-primary/20" data-dock-preview style={railDrop ? railRect : hit.target?.kind === "bar" ? (sideVisible && containsPoint(sideRect, drag.point) ? sideRect : railRect) : hit.preview} />}
         {hit.guides.map((guide, index) => {
           const Icon = guideIcons[guide.target.kind === "bar" ? "center" : guide.target.side];
           const selected = JSON.stringify(guide.target) === JSON.stringify(hit.target);

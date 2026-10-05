@@ -1,6 +1,7 @@
 import { type KeyboardEvent, type PointerEvent, type ReactNode, type Ref } from "react";
 import { GripVerticalIcon, RotateCcwIcon } from "lucide-react";
 import { BadgeDisplayProvider, Button, cn } from "../ui";
+import { DockButtonMenu } from "./DockButtonMenu";
 const gripClass = "absolute inset-y-0 left-0 flex cursor-grab items-center text-muted-foreground opacity-0 transition-opacity active:cursor-grabbing group-hover/button:opacity-100 group-focus-visible/button:opacity-100 group-data-[dragging=true]/button:opacity-100 pointer-coarse:opacity-100";
 const dropClass = "pointer-events-none absolute inset-y-1 w-0.5 rounded-full bg-primary";
 
@@ -15,7 +16,7 @@ export interface DockWindowItem {
 }
 
 /** Direct window buttons wrap, with `extra` and reset after them outside the order. */
-export function DockWindowActions({ dragging, dropIndex, extra, groupRef, items, onDragStart, onMove, onOpen, onReset }: {
+export function DockWindowActions({ dragging, dropIndex, extra, groupRef, items, onDragStart, onMove, onOpen, onReset, onMoveToSidebar }: {
   dragging?: string;
   dropIndex?: number;
   extra?: DockWindowItem;
@@ -25,6 +26,7 @@ export function DockWindowActions({ dragging, dropIndex, extra, groupRef, items,
   onMove?: (id: string, offset: -1 | 1) => void;
   onOpen: (id: string) => void;
   onReset?: () => void;
+  onMoveToSidebar?: (id: string) => void;
 }) {
   const content = (item: DockWindowItem) => <>{item.icon}<span className="min-w-0 truncate">{item.title}</span></>;
   const dot = (badge: ReactNode, className: string) => <span className={className}><BadgeDisplayProvider value="dot">{badge}</BadgeDisplayProvider></span>;
@@ -48,7 +50,9 @@ export function DockWindowActions({ dragging, dropIndex, extra, groupRef, items,
     {index !== undefined && dropIndex === items.length && index === items.length - 1 && <span aria-hidden className={cn(dropClass, "-right-1")} data-dock-window-drop />}
   </Button>;
   return <div aria-label="Layout actions" className="flex min-w-0 max-w-full flex-wrap items-center gap-1" ref={groupRef} role="group">
-    {items.map((item, index) => windowButton(item, index))}
+    {items.map((item, index) => onMoveToSidebar
+      ? <DockButtonMenu destination="sidebar" key={item.id} onMove={() => onMoveToSidebar(item.id)}>{windowButton(item, index)}</DockButtonMenu>
+      : windowButton(item, index))}
     {extra && windowButton(extra)}
     {onReset && <Button aria-label="Reset layout" onClick={onReset} size="icon-lg" title="Reset layout" variant="ghost"><RotateCcwIcon /></Button>}
   </div>;

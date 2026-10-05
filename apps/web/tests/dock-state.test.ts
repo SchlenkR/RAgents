@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { activeDockTool, addDockEmptyPane, closeDockPanels, dockGroups, dockWindowOrder, emptyPanelId, focusedDockWindow, initialDockState, moveDockPanels, moveDockWindow, parseDockState, persistentDockState, reconcileDockState, resizeDockSplit, revealDockPanel, transitionDockSide, returnDockTool, selectDockPanel, workspaceTabPanelId, type DockState, type DockTarget } from "../src/run-panel/dock-state";
+import { activeDockTool, addDockEmptyPane, closeDockPanels, dockButtonPlacement, dockGroups, dockWindowOrder, emptyPanelId, focusedDockWindow, initialDockState, moveDockButton, moveDockPanels, moveDockWindow, parseDockState, persistentDockState, reconcileDockState, resizeDockSplit, revealDockPanel, transitionDockSide, returnDockTool, selectDockPanel, workspaceTabPanelId, type DockState, type DockTarget } from "../src/run-panel/dock-state";
 import { dockGeometry, dockHitTest, dockPreview, dockingGuides } from "../src/run-panel/dock-geometry";
 import { dockStorageKey } from "../src/run-panel/dock-storage";
 
@@ -271,17 +271,19 @@ test("hit testing distinguishes compass, outer guides, strip merging, bar return
   assert.deepEqual(dockPreview(rect, "center", 0.5), rect);
 });
 
-test("arbitrary sequences of close, move, select, resize and reconcile preserve the storage invariants", () => {
+test("arbitrary sequences of close, move, select, resize, placement and reconcile preserve the storage invariants", () => {
   let state = initial();
   for (let i = 0; i < 200; i++) {
     const id = state.known[i % state.known.length];
     const group = dockGroups(state.root)[0];
-    switch (i % 5) {
+    switch (i % 7) {
       case 0: state = move(state, [id], { kind: "group", group: group.id, side: i % 2 ? "center" : "left" }); break;
       case 1: state = closeDockPanels(state, [id]); break;
       case 2: state = selectDockPanel(state, id); break;
       case 3: state = resizeDockSplit(state, state.root.id, (i % 10) / 10); break;
       case 4: state = reconcileDockState(state, ["chat", "app:notes", "app:board"], ["tool:files", "tool:journal"]); break;
+      case 5: state = moveDockButton(state, id, i % 2 ? "sidebar" : "window"); break;
+      case 6: state = transitionDockSide(state, { type: "click", id }); break;
     }
     roundtrip(state);
   }
@@ -467,7 +469,7 @@ test("layout storage rejects closed or ordered empty panes", () => {
   assert.throws(() => parseDockState(JSON.stringify({ ...initial(), known: [...initial().known, "empty:two"], closed: ["empty:two"] })), /invalid/);
 });
 
-test("a workspace tab placed as a window is a header window like an app and never a rail tool", () => {
+test("a workspace tab placed as a window defaults to a header window like an app", () => {
   assert.equal(workspaceTabPanelId({ id: "preview", placement: "window" }), "tab:preview");
   assert.equal(workspaceTabPanelId({ id: "files" }), "tool:files");
   assert.equal(workspaceTabPanelId({ id: "files", placement: "sidebar" }), "tool:files");
@@ -482,7 +484,7 @@ test("a workspace tab placed as a window is a header window like an app and neve
   assert.deepEqual(closed.closed, ["tab:preview"]);
   assert.deepEqual(closed.bar, ["tool:files"], "closing it does not move it into the rail");
   assert.equal(move(closed, ["tab:preview"], { kind: "bar" }), closed, "the rail takes no window");
-  assert.throws(() => parseDockState(JSON.stringify({ ...closed, closed: [], bar: [...closed.bar, "tab:preview"] })), /invalid/);
+  roundtrip({ ...closed, closed: [], bar: [...closed.bar, "tab:preview"] });
   roundtrip(closed);
   const reopened = selectDockPanel(closed, "tab:preview");
   assert.equal(focusedDockWindow(reopened), "tab:preview");
@@ -498,4 +500,95 @@ test("a workspace tab placed as a window is a header window like an app and neve
   assert.deepEqual(placed.bar, [], "a tab that changes its placement leaves the rail");
   assert.ok(dockGroups(placed.root).some((g) => g.tabs.includes("tab:files")), "and joins the windows");
   roundtrip(placed);
+});
+
+test("button placement and header slots change without changing open, closed, or pinned panels", () => {
+  const start = transitionDockSide(closeDockPanels(initial(), ["app:board"]), { type: "open", id: "tool:files" });
+  const header = moveDockButton(start, "tool:files", "window", "app:notes");
+  assert.equal(dockButtonPlacement(header, "tool:files"), "window");
+  assert.deepEqual(dockWindowOrder(header, header.known), ["chat", "tool:files", "app:notes", "app:board"]);
+  assert.equal(moveDockButton(header, "tool:files", "window", "app:notes"), header);
+  const side = moveDockButton(header, "app:notes", "sidebar");
+  const closed = moveDockButton(side, "app:board", "sidebar");
+  const returned = moveDockButton(closed, "tool:files", "sidebar");
+  assert.deepEqual(dockWindowOrder(returned, returned.known), ["chat"]);
+  for (const next of [header, side, closed, returned]) {
+    for (const key of ["root", "closed", "bar", "side", "focused", "maximized", "known", "automatic"] as const) assert.deepEqual(next[key], start[key], key);
+    roundtrip(next);
+  }
+  assert.equal(dockButtonPlacement(returned, "app:notes"), "sidebar");
+  assert.equal(moveDockButton(returned, "app:notes", "sidebar"), returned);
+  assert.equal(moveDockButton(start, "missing", "sidebar"), start);
+  assert.equal(moveDockButton(start, "tool:files", "window", "missing"), start);
+  assert.equal(moveDockButton(start, "chat", "window", "chat"), start);
+  const pane = addDockEmptyPane(start, "empty:one", undefined, false, () => `node-${++serial}`);
+  assert.equal(moveDockButton(pane, "empty:one", "sidebar"), pane);
+});
+
+test("placement overrides reconcile with the catalog, round-trip, and reset to plugin defaults", () => {
+  const panels = ["chat", "tab:preview", "app:notes"];
+  const tools = ["tool:files"];
+  const start = initialDockState(panels, tools);
+  const custom = moveDockButton(moveDockButton(start, "tab:preview", "sidebar"), "tool:files", "window", "chat");
+  assert.deepEqual(dockWindowOrder(custom, custom.known), ["tool:files", "chat", "app:notes"]);
+  const added = reconcileDockState(custom, [...panels, "app:new"], tools);
+  assert.equal(dockButtonPlacement(added, "tab:preview"), "sidebar");
+  assert.equal(dockButtonPlacement(added, "app:new"), "window");
+  assert.deepEqual(added.placements, custom.placements);
+  const removed = reconcileDockState(added, ["chat", "app:notes", "app:new"], []);
+  assert.deepEqual(removed.placements, {});
+  assert.deepEqual(removed.order, ["chat", "app:notes"]);
+  roundtrip(added);
+  roundtrip(removed);
+  const reset = reconcileDockState(initialDockState(panels, tools), panels, tools);
+  assert.equal(reset.placements, undefined);
+  assert.equal(reset.order, undefined);
+  assert.equal(dockButtonPlacement(reset, "tab:preview"), "window");
+  assert.equal(dockButtonPlacement(reset, "tool:files"), "sidebar");
+  assert.deepEqual(dockWindowOrder(reset, reset.known), panels);
+});
+
+test("moved buttons open closed panels in their chosen place and preserve single panel membership", () => {
+  const sidebar = moveDockButton(closeDockPanels(initial(), ["app:notes"]), "app:notes", "sidebar");
+  const opened = selectDockPanel(sidebar, "app:notes");
+  assert.equal(opened.side.tab, "app:notes");
+  assert.equal(opened.side.mode, "docked");
+  assert.equal(activeDockTool(opened), "");
+  assert.ok(!opened.closed.includes("app:notes"));
+  roundtrip(opened);
+  const header = moveDockButton(opened, "app:notes", "window");
+  assert.equal(revealDockPanel(header, "app:notes", true, () => `node-${++serial}`), header, "an open sidebar stays open after its button moves");
+  const closed = closeDockPanels(header, ["app:notes"]);
+  assert.ok(closed.closed.includes("app:notes"));
+  assert.ok(!closed.bar.includes("app:notes"));
+  roundtrip(closed);
+  const tool = moveDockButton(initial(), "tool:files", "window");
+  const narrow = revealDockPanel(tool, "tool:files", false, () => `node-${++serial}`);
+  assert.ok(dockGroups(narrow.root)[0].tabs.includes("tool:files"));
+  assert.ok(!narrow.bar.includes("tool:files"));
+  assert.equal(narrow.side.tab, null);
+  roundtrip(narrow);
+  const wide = revealDockPanel(tool, "tool:files", true, () => `node-${++serial}`);
+  assert.equal(dockGroups(wide.root).length, 2);
+  const rail = moveDockButton(wide, "tool:files", "sidebar");
+  assert.equal(transitionDockSide(rail, { type: "hover", id: "tool:files" }), rail, "hovering an open dock window does not open a second panel");
+  assert.equal(transitionDockSide(rail, { type: "click", id: "tool:files" }).side.tab, null);
+  roundtrip(rail);
+  const windowTab = initialDockState(["chat", "tab:preview"]);
+  const movedTab = moveDockButton(closeDockPanels(windowTab, ["tab:preview"]), "tab:preview", "sidebar");
+  const sidebarTab = selectDockPanel(movedTab, "tab:preview");
+  assert.equal(sidebarTab.side.tab, "tab:preview");
+  assert.equal(activeDockTool(sidebarTab), "preview");
+  roundtrip(sidebarTab);
+});
+
+test("layout storage accepts old layouts and rejects invalid placement overrides", () => {
+  roundtrip(initial());
+  for (const placements of [null, [], "sidebar", { chat: "header" }, { "app:missing": "sidebar" }, { "tool:files": 1 }]) {
+    assert.throws(() => parseDockState(JSON.stringify({ ...initial(), placements })), /invalid/);
+  }
+  const empty = addDockEmptyPane(initial(), "empty:one", undefined, false, () => `node-${++serial}`);
+  assert.throws(() => parseDockState(JSON.stringify({ ...empty, placements: { "empty:one": "sidebar" } })), /invalid/);
+  const sidebar = moveDockButton(initial(), "chat", "sidebar");
+  assert.throws(() => parseDockState(JSON.stringify({ ...sidebar, order: ["chat"] })), /invalid/);
 });

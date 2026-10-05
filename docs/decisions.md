@@ -1,5 +1,16 @@
 # Decisions
 
+## 2026-10-05: Choose button placement independently of panel layout
+
+Chapter: `spec/plugins.md` (Web as plugin host, Run panel); usage: `usage.md`
+(Use chat and mini-apps, Run panel docking).
+
+The owner needs to choose whether each entry is reached from the header or sidebar rail.
+Pointer drops and a keyboard-accessible context menu now move buttons without opening,
+closing, or moving their panels. Per-run local placement overrides preserve plugin defaults
+and panel IDs; Reset layout clears them. Rail buttons remain reachable when their panels are
+docked. Active dock tabs use square fills flush with the strip; clipping the strip preserves
+the card's rounded outer corners.
 ## 2026-10-05: A shared prose style for rendered Markdown
 
 Chapter: `spec/plugins.md` (Web as plugin host, UI library).

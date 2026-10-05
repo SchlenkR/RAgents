@@ -15,6 +15,7 @@ export interface DockSplit {
 }
 
 export type DockNode = DockGroup | DockSplit;
+export type DockButtonPlacement = "sidebar" | "window";
 export type DockSide = "left" | "right" | "top" | "bottom";
 export type DockTarget = { readonly kind: "group"; readonly group: string; readonly side: DockSide | "center" }
   | { readonly kind: "edge"; readonly side: DockSide }
@@ -32,6 +33,7 @@ export interface DockState {
   readonly side: { readonly tab: string | null; readonly mode: "hidden" | "hover-preview" | "docked"; readonly focused: boolean; readonly width: number };
   /** The arranged order of the window buttons in the run header; windows missing from it follow in catalog order. */
   readonly order?: readonly string[];
+  readonly placements?: Readonly<Record<string, DockButtonPlacement>>;
 }
 
 export const appPanelId = (id: string) => `app:${id}`;
@@ -41,6 +43,7 @@ export const emptyPanelId = (id: string) => `empty:${id}`;
 export const isEmptyPanel = (id: string) => id.startsWith("empty:");
 export const tabWindowId = (id: string) => `tab:${id}`;
 export const isTabWindow = (id: string) => id.startsWith("tab:");
+export const dockButtonPlacement = (state: DockState, id: string): DockButtonPlacement => state.placements?.[id] ?? (isToolPanel(id) ? "sidebar" : "window");
 /** A workspace tab is a rail tool unless it is placed among the header windows. */
 export const workspaceTabPanelId = (tab: { readonly id: string; readonly placement?: "sidebar" | "window" }) => tab.placement === "window" ? tabWindowId(tab.id) : toolPanelId(tab.id);
 const group = (id: string, tabs: readonly string[]): DockGroup => ({ kind: "group", id, tabs, active: tabs[0] ?? null });
@@ -90,6 +93,7 @@ export function reconcileDockState(state: DockState, panels: readonly string[], 
     known: [...new Set([...available, ...state.known.filter(isEmptyPanel)])],
     closed: state.closed.filter(keep),
     ...(state.order ? { order: state.order.filter(keep) } : {}),
+    ...(state.placements ? { placements: Object.fromEntries(Object.entries(state.placements).filter(([id]) => keep(id))) } : {}),
     bar: [...state.bar.filter(keep), ...tools.filter((id) => !state.known.includes(id))],
     side: { ...state.side, tab: state.side.tab !== null && keep(state.side.tab) ? state.side.tab : null },
   });
@@ -117,10 +121,10 @@ export function selectDockPanel(state: DockState, id: string): DockState {
   const target = dockGroups(state.root).find((g) => g.tabs.includes(id));
   if (target) return { ...state, root: mapDockNode(state.root, target.id, () => ({ ...target, active: id })), focused: target.id, side: { ...state.side, focused: false },
     maximized: state.maximized === null ? null : target.id };
-  if (!state.known.includes(id) || (isToolPanel(id) && !state.bar.includes(id))) return state;
-  if (isToolPanel(id)) return transitionDockSide(state, { type: "open", id });
+  if (!state.known.includes(id)) return state;
+  if (state.side.tab === id || dockButtonPlacement(state, id) === "sidebar") return transitionDockSide(state, { type: "open", id });
   const first = dockGroups(state.root).find((g) => g.id === state.focused) ?? dockGroups(state.root)[0];
-  return { ...state, automatic: false, closed: state.closed.filter((p) => p !== id), side: { ...state.side, focused: false },
+  return { ...state, automatic: false, closed: state.closed.filter((p) => p !== id), bar: state.bar.filter((p) => p !== id), side: { ...state.side, focused: false },
     root: mapDockNode(state.root, first.id, () => ({ ...first, tabs: [...first.tabs, id], active: id })) };
 }
 
@@ -128,6 +132,7 @@ export function revealDockPanel(state: DockState, id: string, split: boolean, ne
   const groups = dockGroups(state.root);
   const owner = groups.find((entry) => entry.tabs.includes(id));
   if (owner) return owner.active === id && (state.maximized === null || state.maximized === owner.id) ? state : selectDockPanel(state, id);
+  if (state.side.tab === id) return state.side.mode === "docked" ? state : transitionDockSide(state, { type: "pin" });
   const target = groups.find((entry) => entry.id === state.focused) ?? groups[0];
   const restored = { ...state, automatic: false, maximized: null };
   return !split || target.tabs.length === 0
@@ -149,7 +154,7 @@ export function closeDockPanels(state: DockState, ids: readonly string[], area?:
     root: area ? removeGroup(root, area) : pruneEmptied(root, state.root),
     known: state.known.filter((id) => !isEmptyPanel(id) || !ids.includes(id)),
     closed: [...new Set([...state.closed, ...ids.filter((id) => !isToolPanel(id) && !isEmptyPanel(id))])],
-    bar: [...new Set([...state.bar, ...ids.filter(isToolPanel)])],
+    bar: [...new Set([...state.bar.filter((id) => !ids.includes(id)), ...ids.filter(isToolPanel)])],
     side: { ...state.side, tab: state.side.tab !== null && ids.includes(state.side.tab) ? null : state.side.tab },
   });
 }
@@ -191,15 +196,16 @@ export function resizeDockSplit(state: DockState, id: string, ratio: number): Do
 }
 
 export function dockWindowOrder(state: DockState, panels: readonly string[]): readonly string[] {
-  const arranged = (state.order ?? []).filter((id) => panels.includes(id));
-  return [...arranged, ...panels.filter((id) => !arranged.includes(id))];
+  const windows = panels.filter((id) => !isEmptyPanel(id) && dockButtonPlacement(state, id) === "window");
+  const arranged = (state.order ?? []).filter((id) => windows.includes(id));
+  return [...arranged, ...windows.filter((id) => !arranged.includes(id))];
 }
 
 /** The active window of the focused area, as the run header names it and the user location reports it. */
 export const focusedDockWindow = (state: DockState): string | undefined => dockGroups(state.root).find((group) => group.id === state.focused)?.active ?? undefined;
 
 export function moveDockWindow(state: DockState, id: string, before: string | null): DockState {
-  const order = dockWindowOrder(state, state.known.filter((entry) => !isToolPanel(entry) && !isEmptyPanel(entry)));
+  const order = dockWindowOrder(state, state.known);
   if (!order.includes(id) || id === before || (before !== null && !order.includes(before))) return state;
   const rest = order.filter((entry) => entry !== id);
   const index = before === null ? rest.length : rest.indexOf(before);
@@ -207,9 +213,16 @@ export function moveDockWindow(state: DockState, id: string, before: string | nu
   return next.every((entry, position) => entry === order[position]) ? state : { ...state, order: next };
 }
 
+export function moveDockButton(state: DockState, id: string, placement: DockButtonPlacement, before: string | null = null): DockState {
+  if (!state.known.includes(id) || isEmptyPanel(id) || id === before
+    || (placement === "window" && before !== null && !dockWindowOrder(state, state.known).includes(before))) return state;
+  const next = dockButtonPlacement(state, id) === placement ? state : { ...state, placements: { ...state.placements, [id]: placement } };
+  if (placement === "window") return moveDockWindow(next, id, before);
+  return next.order?.includes(id) ? { ...next, order: next.order.filter((entry) => entry !== id) } : next;
+}
+
 export function activeDockTool(state: DockState): string {
-  if (state.side.tab && state.side.focused) return state.side.tab.slice(5);
-  const active = focusedDockWindow(state);
+  const active = state.side.tab && state.side.focused ? state.side.tab : focusedDockWindow(state);
   return active && isToolPanel(active) ? active.slice(5) : active && isTabWindow(active) ? active.slice(4) : "";
 }
 
@@ -237,9 +250,11 @@ export function parseDockState(raw: string | null): DockState {
       && Number.isFinite(node.ratio) && node.ratio >= 0.1 && node.ratio <= 0.9 && validNode(node.first, depth + 1) && validNode(node.second, depth + 1);
   };
   if (!state || state.version !== 1 || (state.automatic !== undefined && typeof state.automatic !== "boolean") || !validNode(state.root) || !strings(state.closed) || !uniquePanels(state.closed)
-    || state.closed.some(isToolPanel) || state.closed.some(isEmptyPanel) || !strings(state.bar) || !uniquePanels(state.bar) || !state.bar.every(isToolPanel)
+    || state.closed.some(isToolPanel) || state.closed.some(isEmptyPanel) || !strings(state.bar) || !uniquePanels(state.bar) || state.bar.some(isEmptyPanel)
     || !strings(state.known) || new Set(state.known).size !== state.known.length || state.known.length !== panels.size || !state.known.every((id) => panels.has(id))
-    || (state.order !== undefined && (!strings(state.order) || new Set(state.order).size !== state.order.length || !state.order.every((id) => state.known.includes(id) && !isToolPanel(id) && !isEmptyPanel(id))))
+    || (state.placements !== undefined && (!state.placements || typeof state.placements !== "object" || Array.isArray(state.placements)
+      || !Object.entries(state.placements).every(([id, placement]) => state.known.includes(id) && !isEmptyPanel(id) && (placement === "sidebar" || placement === "window"))))
+    || (state.order !== undefined && (!strings(state.order) || new Set(state.order).size !== state.order.length || !state.order.every((id) => state.known.includes(id) && !isEmptyPanel(id) && dockButtonPlacement(state, id) === "window")))
     || !dockGroups(state.root).some((g) => g.id === state.focused)
     || !(state.maximized === null || dockGroups(state.root).some((g) => g.id === state.maximized))
     || !state.side || !(state.side.tab === null || state.bar.includes(state.side.tab))
@@ -255,14 +270,15 @@ export type DockSideAction = { type: "hover" | "click" | "open"; id: string }
 export function transitionDockSide(state: DockState, action: DockSideAction): DockState {
   const side = state.side;
   const show = (tab: string, mode: DockState["side"]["mode"]): DockState =>
-    ({ ...state, side: { ...side, tab, mode, focused: true } });
+    ({ ...state, closed: state.closed.filter((id) => id !== tab), bar: state.bar.includes(tab) ? state.bar : [...state.bar, tab], side: { ...side, tab, mode, focused: true } });
   const hide = (): DockState => ({ ...state, side: { ...side, tab: null, mode: "hidden", focused: false } });
   switch (action.type) {
     case "hover":
-      return !state.bar.includes(action.id) || side.mode === "docked" ? state : show(action.id, "hover-preview");
+      return !state.known.includes(action.id) || isEmptyPanel(action.id) || dockGroups(state.root).some((g) => g.tabs.includes(action.id)) || side.mode === "docked" ? state : show(action.id, "hover-preview");
     case "click":
     case "open":
-      if (!state.bar.includes(action.id)) return state;
+      if (!state.known.includes(action.id) || isEmptyPanel(action.id)) return state;
+      if (dockGroups(state.root).some((g) => g.tabs.includes(action.id))) return selectDockPanel(state, action.id);
       if (action.type === "click" && side.tab === action.id && side.mode === "docked") return hide();
       return show(action.id, "docked");
     case "leave": return side.mode === "hover-preview" ? hide() : state;

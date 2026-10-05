@@ -288,7 +288,7 @@ test("browser docking preserves frames and drafts through split, merge, close, m
   await startDrag(page.getByRole("button", { name: "Move sidebar window", exact: true }), groups.first());
   await dropGuide("group-left");
   await screenshot("split-left");
-  assert.equal(await rail.getByRole("button", { name: "Journal", exact: true }).count(), 0);
+  assert.equal(await rail.getByRole("button", { name: "Journal", exact: true }).count(), 1, "docking a panel preserves its button placement");
   assert.equal(await groups.count(), 2);
   await page.getByRole("button", { name: "Return Journal to sidebar", exact: true }).click();
   await rail.getByRole("button", { name: "Journal", exact: true }).waitFor();
