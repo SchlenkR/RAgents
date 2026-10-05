@@ -25,7 +25,15 @@ const contrast = (foreground: string, background: string) => {
 const styleOf = (locator: Locator) => locator.evaluate(async (element) => {
   const style = getComputedStyle(element);
   await Promise.allSettled(element.getAnimations().map((animation) => animation.finished));
-  return { background: style.backgroundColor, color: style.color, border: style.borderBottomColor,
+  // Composites the translucent backgrounds of the element and its ancestors into the surface the text sits on.
+  const layers: string[] = [];
+  for (let node: Element | null = element; node; node = node.parentElement) layers.unshift(getComputedStyle(node).backgroundColor);
+  const canvas = document.createElement("canvas").getContext("2d", { willReadFrequently: true })!;
+  canvas.fillStyle = "#ffffff";
+  canvas.fillRect(0, 0, 1, 1);
+  for (const layer of layers) { canvas.fillStyle = layer; canvas.fillRect(0, 0, 1, 1); }
+  const [r, g, b] = canvas.getImageData(0, 0, 1, 1).data;
+  return { background: style.backgroundColor, surface: `rgb(${r}, ${g}, ${b})`, color: style.color, border: style.borderBottomColor,
     borderWidths: [style.borderTopWidth, style.borderRightWidth, style.borderBottomWidth, style.borderLeftWidth],
     radius: style.borderRadius, edge: getComputedStyle(element, "::after").content,
     shadow: style.boxShadow, opacity: style.opacity, pointerEvents: style.pointerEvents, textDecoration: style.textDecorationLine };
@@ -65,6 +73,10 @@ test("shared controls retain readable states and status tones in both themes", {
         return [name, getComputedStyle(sample).color];
       }));
       sample.remove();
+      const canvas = document.createElement("canvas").getContext("2d", { willReadFrequently: true })!;
+      for (const layer of [values.background, values.hover]) { canvas.fillStyle = layer; canvas.fillRect(0, 0, 1, 1); }
+      const [r, g, b] = canvas.getImageData(0, 0, 1, 1).data;
+      values["hover-surface"] = `rgb(${r}, ${g}, ${b})`;
       return values;
     });
     const selected = async (control: Locator, label: string) => {
@@ -91,7 +103,7 @@ test("shared controls retain readable states and status tones in both themes", {
       assert.equal(hovered.background, tokens.hover, `${label}: shared hover background`);
       assert.equal(hovered.color, tokens["hover-foreground"], `${label}: shared hover foreground`);
       assert.notEqual(hovered.background, before.background, `${label}: hover changes the surface`);
-      assert.ok(contrast(hovered.color, hovered.background) >= 4.5, `${label}: hover text reaches AA`);
+      assert.ok(contrast(hovered.color, hovered.surface) >= 4.5, `${label}: hover text reaches AA`);
     };
 
     await context.test(`${theme}: selected controls survive hover`, async (state) => {
@@ -208,7 +220,7 @@ test("shared controls retain readable states and status tones in both themes", {
         assert.ok(geometry.width >= 7 && geometry.width <= 9, "dot remains compact");
         assert.ok(geometry.textWidth <= 1, "dot text is visually hidden");
       }
-      assert.ok(contrast(tokens["hover-foreground"], tokens.hover) >= 4.5);
+      assert.ok(contrast(tokens["hover-foreground"], tokens["hover-surface"]) >= 4.5);
       assert.ok(contrast(tokens["selected-foreground"], tokens.selected) >= 4.5);
       for (const token of ["foreground", "muted-foreground", "primary", "success", "warning", "destructive", "info", "active"]) {
         assert.ok(contrast(tokens[token], tokens.selected) >= 4.5, `${theme} ${token}: child text on selected surfaces reaches AA`);
@@ -239,7 +251,7 @@ test("shared controls retain readable states and status tones in both themes", {
         const hovered = await styleOf(badge);
         assert.equal(hovered.color, before.color, `${name}: hover retains the tone foreground`);
         assert.equal(hovered.background, before.background, `${name}: hover retains the tone surface`);
-        assert.ok(contrast(hovered.color, hovered.background) >= 4.5, `${name}: hovered status text reaches AA`);
+        assert.ok(contrast(hovered.color, hovered.surface) >= 4.5, `${name}: hovered status text reaches AA`);
         assert.ok(hovered.textDecoration.includes("underline"), `${name}: hover marks the link`);
       }
     });
