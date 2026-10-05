@@ -20,6 +20,8 @@ export {
   Field, FieldContent, FieldDescription, FieldError, FieldGroup, FieldLabel, FieldLegend, FieldSeparator, FieldSet, FieldTitle,
 } from "./field";
 export { Input } from "./input";
+export { ImagePreview, ImageViewer, type ImagePreviewProps, type ImageViewerProps } from "./image-viewer";
+export { ImagePreviewGroup } from "./image-preview-group";
 export { Label } from "./label";
 export { Popover, PopoverContent, PopoverDescription, PopoverHeader, PopoverTitle, PopoverTrigger } from "./popover";
 export { Progress, ProgressIndicator, ProgressLabel, ProgressTrack, ProgressValue } from "./progress";

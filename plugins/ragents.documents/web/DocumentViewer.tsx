@@ -11,6 +11,8 @@ import {
   EmptyHeader,
   EmptyMedia,
   EmptyTitle,
+  ImagePreview,
+  ImagePreviewGroup,
   Spinner,
 } from "@ragents/web/ui";
 import { useCallback, useEffect, useMemo, useState } from "react";
@@ -298,7 +300,7 @@ function DocumentContent({ document, loaded }: { document: RunDocument; loaded: 
     if (file === undefined) return <ContentLoading />;
     if ("error" in file) return <ContentFailure failure={file.error} />;
     if (document.format === "image") {
-      return <img alt={document.title} className="block max-w-full rounded-lg border border-border" src={file.url} />;
+      return <ImagePreview className="block max-w-full border border-border" fileName={document.title} src={file.url} />;
     }
     return (
       <Empty className="min-h-30 gap-2 p-7">
@@ -324,7 +326,7 @@ function DocumentContent({ document, loaded }: { document: RunDocument; loaded: 
     return <SourceCode className={sourceClass} content={loaded.text} path={document.title} />;
   }
   // quassel resolves an address only when its Markdown mounts, so a changed grant mounts it again.
-  return <QuasselProvider resolveUrl={resolveUrl}><Markdown key={grants?.revision} text={loaded.text} /></QuasselProvider>;
+  return <ImagePreviewGroup><QuasselProvider resolveUrl={resolveUrl}><Markdown key={grants?.revision} text={loaded.text} /></QuasselProvider></ImagePreviewGroup>;
 }
 
 function DocumentHead({ document }: { document: RunDocument }) {
@@ -477,7 +479,7 @@ export function DocumentPanel({ activeId, sections, truncated, onSelect }: Docum
         <span className={copyClass}>
           <DocumentHead document={active} />
         </span>
-        <Button onClick={() => setModalOpen(true)} size="sm" variant="outline">Large</Button>
+        {active.format !== "image" && <Button onClick={() => setModalOpen(true)} size="sm" variant="outline">Expand document</Button>}
       </header>
       <div className="min-h-0 flex-1 overflow-y-auto px-workspace-inset py-4 text-[13px] leading-[1.6]">
         <DocumentContent document={active} loaded={loaded} />

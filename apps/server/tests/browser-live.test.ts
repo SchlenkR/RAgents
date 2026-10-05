@@ -14,6 +14,8 @@ const fixture = `<!doctype html><html lang="en"><head><title>Browser-Test</title
 <form><label for="title">Title</label><input id="title" name="title"><label for="kind">Kind</label><select id="kind" name="kind"><option>Bug</option><option>Feature</option></select><button>Save</button></form>
 <p role="status">Not saved yet</p>
 <button id="cookie">Set sign-in</button><button id="error">Raise error</button>
+<button id="blocked" hidden>Never operable</button>
+<div id="overflow" style="width:120px;overflow:hidden"><div style="width:260px">Clipped content</div></div>
 <iframe title="Preview" srcdoc="<button onclick='this.textContent=&quot;Clicked in frame&quot;'>Save in frame</button>"></iframe>
 <script>
 document.querySelector('form').onsubmit = (event) => { event.preventDefault(); document.querySelector('[role=status]').textContent = document.querySelector('[name=title]').value + ': ' + document.querySelector('[name=kind]').value; };
@@ -38,11 +40,14 @@ const stored = (documents: string, reference: string): string => path.join(docum
 test("a real browser operates form and iframe, isolates cookies and checks screenshots and abort", { skip: process.env.RAGENTS_BROWSER_TESTS !== "1", timeout: 60_000 }, async (context) => {
   const directory = await mkdtemp(path.join(tmpdir(), "ragents-browser-live-"));
   const server = createServer((request, response) => {
+    if (request.url === "/logo.svg") { response.writeHead(404); response.end(); return; }
     if (request.url === "/missing") { response.writeHead(503); response.end("Service missing"); return; }
     response.setHeader("Content-Type", "text/html; charset=utf-8");
     response.end(request.url === "/cookie"
       ? `<!doctype html><head><link rel="icon" href="data:,"></head><body>${request.headers.cookie || "No sign-in"}</body>`
-      : fixture);
+      : request.url === "/noisy" ? fixture.replace("<script>", '<img alt="Logo" src="/logo.svg"><script>')
+        : request.url === "/large" ? fixture.replace("</body>", `${Array.from({ length: 100 }, (_, index) => `<p>Entry ${index} ${"x".repeat(350)}</p>`).join("")}</body>`)
+          : fixture);
   });
   await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
   const address = server.address();
@@ -91,16 +96,43 @@ test("a real browser operates form and iframe, isolates cookies and checks scree
   assert.equal(browser.evidence("one").checkedAt, undefined);
   await browser.click("one", { frame: "iframe", role: "button", name: "Save in frame" });
   await browser.check("one", { target: { frame: "iframe", role: "button", name: "Clicked in frame" } });
-  await assert.rejects(browser.click("one", { role: "button" }), /strict mode violation[\s\S]*nth \(0-based\) or first: true/);
+  await browser.check("one", { frame: "iframe", text: "CLICKED IN FRAME" });
+  await assert.rejects(browser.check("one", { text: "Clicked in frame" }), /0 matches for/);
+  await assert.rejects(browser.check("one", { frame: "iframe", text: "Review draft" }), /0 matches for/);
+  await assert.rejects(browser.click("one", { role: "button" }), /Target matches several elements[\s\S]*target.nth \(0-based\), first: true/);
   await assert.rejects(browser.check("one", {}), /at least/);
   await browser.check("one", { target: { role: "button" }, count: 3 });
+  await browser.check("one", { target: { role: "button" }, count: 1, text: "save" });
+  await browser.check("one", { target: { role: "button" }, count: 0, text: "Absent" });
+  const wrongSelector = await browser.check("one", { target: { css: ".missing-selector" }, count: 0 });
+  assert.match(wrongSelector.warnings?.[0] ?? "", /never matched.*wrong selector/);
+  assert.equal((await browser.check("one", { target: { css: "#blocked" }, count: 0 })).warnings, undefined);
+  assert.equal((await browser.check("one", { target: { role: "button" }, count: 0, text: "Absent" })).warnings, undefined);
+  const measured = await browser.check("one", { target: { css: "#overflow" }, measure: true });
+  assert.equal(measured.measurement?.box.width, 120);
+  assert.equal(measured.measurement?.clientWidth, 120);
+  assert.equal(measured.measurement?.scrollWidth, 260);
+  assert.equal(measured.measurement?.overflowX, 140);
+  const pageSize = await browser.check("one", { target: { css: "html" }, measure: true });
+  assert.equal(pageSize.measurement?.clientWidth, 1920);
+  assert.equal(pageSize.measurement?.overflowX, 0);
+  const frameSize = await browser.check("one", { target: { frame: "iframe", role: "button" }, measure: true });
+  assert.ok(frameSize.measurement && frameSize.measurement.box.x > 0 && frameSize.measurement.box.width > 0);
+  await assert.rejects(browser.check("one", { target: { role: "button" }, count: 2, text: "Save" }), /Expected 2 visible matches, found 1/);
+  await browser.check("one", { target: { role: "button" }, text: "Raise error" });
   await browser.check("one", { target: { role: "button", first: true } });
   await assert.rejects(browser.check("one", { target: { role: "button" }, count: 2 }), /Expected 2 visible matches, found 3/);
   await assert.rejects(browser.check("one", { target: { role: "button", first: true }, count: 1 }), /without nth or first/);
   const missingSince = Date.now();
-  await assert.rejects(browser.check("one", { target: { role: "button", name: "Never shown" } }), /Timeout/);
-  assert.ok(Date.now() - missingSince < 2000, "visibility checks wait shorter than actions");
+  await assert.rejects(browser.check("one", { target: { role: "button", name: "Never shown" } }), /0 matches for/);
+  assert.ok(Date.now() - missingSince < 1000, "missing targets fail before the check timeout");
 
+  await browser.navigate("one", `${url}/noisy`);
+  await new Promise((resolve) => setTimeout(resolve, 50));
+  const logoCheck = await browser.check("one", { text: "Review draft" });
+  assert.equal(logoCheck.errors.filter((error) => error.includes("/logo.svg")).length, 1);
+  await assert.rejects(browser.check("one", { text: "Review draft", noErrors: true }), /logo.svg/);
+  await browser.navigate("one", url);
   await browser.click("one", { role: "button", nth: 1 });
   await browser.navigate("one", `${url}/cookie`);
   await browser.check("one", { text: "session=one" });
@@ -112,13 +144,38 @@ test("a real browser operates form and iframe, isolates cookies and checks scree
   assert.deepEqual([narrowBytes.readUInt32BE(16), narrowBytes.readUInt32BE(20)], [390, 844]);
   await browser.navigate("one", url);
   await browser.click("one", { role: "button", name: "Raise error" });
+  const noisy = await browser.check("one", { text: "Review draft" });
+  assert.ok(noisy.errors.some((error) => error.includes("Intentional browser error")));
   await assert.rejects(browser.check("one", { noErrors: true }), /Intentional browser error/);
+  await browser.check("one", { text: "Review draft", noErrors: false });
+  const missingActionSince = Date.now();
+  await assert.rejects(browser.click("one", { role: "button", name: "Absent" }), (error: Error) => {
+    assert.ok(error.message.split("\n").length <= 2);
+    assert.doesNotMatch(error.message, /Call log|retrying click/);
+    assert.match(error.message, /0 matches for.*Absent/);
+    return true;
+  });
+  assert.ok(Date.now() - missingActionSince < 1000, "missing actions fail before the action timeout");
   assert.ok(browser.evidence("one").errors.some((error) => error.includes("Intentional browser error")));
   await assert.rejects(browser.navigate("one", `${url}/missing`), /HTTP 503/);
 
+  const large = await browser.navigate("one", `${url}/large`);
+  assert.ok(large.snapshot.length > 2000);
+  const clickedLarge = await browser.click("one", { role: "button", name: "Set sign-in" });
+  assert.ok(clickedLarge.truncated && clickedLarge.snapshot.length <= 2000);
+  const resizedLarge = await browser.resize("one", { width: 1300, height: 800 });
+  assert.ok(resizedLarge.truncated && resizedLarge.snapshot.length <= 2000);
+  const full = await browser.snapshot("one");
+  assert.ok(full.snapshot.length > 2000);
+  assert.match(full.snapshot, /Entry 99/);
+  await browser.check("one", { text: "Entry 99" });
+  await browser.resize("one", { width: 390, height: 844 });
+  assert.equal(browser.evidence("one").checkedAt, undefined, "resize invalidates layout evidence");
+  assert.equal((await browser.check("one", { target: { css: "html" }, measure: true })).measurement?.clientWidth, 390);
+
   await browser.navigate("one", url);
   const abort = new AbortController();
-  const pending = browser.click("one", { role: "button", name: "Never shown" }, { signal: abort.signal });
+  const pending = browser.click("one", { css: "#blocked" }, { signal: abort.signal });
   const rejected = assert.rejects(pending, /closed|ended|abort/i);
   setTimeout(() => abort.abort(), 50);
   await rejected;

@@ -5,12 +5,18 @@ export interface StubElement {
   readonly role: string;
   readonly name: string;
   readonly label?: string;
+  readonly css?: string;
+  readonly visible?: boolean;
+  readonly box?: { x: number; y: number; width: number; height: number };
+  readonly clientWidth?: number;
+  readonly scrollWidth?: number;
   readonly onClick?: (page: StubPageControl) => void | Promise<void>;
 }
 
 export interface StubDocument {
   readonly title: string;
   readonly elements: readonly StubElement[];
+  readonly frames?: Readonly<Record<string, StubDocument>>;
 }
 
 /** Reaches into the open page from outside, the way the application would between two calls. */
@@ -18,6 +24,7 @@ export interface StubPageControl {
   navigate: (target: string) => void;
   consoleError: (text: string) => void;
   show: (element: StubElement) => void;
+  remove: (name: string) => void;
 }
 
 export interface StubBrowserLog {
@@ -63,10 +70,17 @@ const stubLocator = (description: string, match: () => StubElement[], parts: Stu
     press: async (key: string) => { log.actions.push(`press ${single().name} ${key}`); },
     waitFor: async () => { single(); },
     count: async () => match().length,
+    boundingBox: async () => single().box ?? { x: 0, y: 0, width: 100, height: 20 },
+    evaluate: async (read: (element: { clientWidth: number; scrollWidth: number }) => unknown) => {
+      const element = single();
+      return read({ clientWidth: element.clientWidth ?? 100, scrollWidth: element.scrollWidth ?? 100 });
+    },
+    evaluateAll: async () => match().slice(0, 5).map((element, index) => `[${index}] ${element.role} "${element.name.slice(0, 80)}"`),
     first: () => derived("first", () => match().slice(0, 1)),
     nth: (index: number) => derived(`nth=${index}`, () => match().slice(index, index + 1)),
-    filter: ({ hasText }: { hasText?: string }) =>
-      derived(hasText === undefined ? "visible" : `with ${hasText}`, () => match().filter((element) => hasText === undefined || element.name.includes(hasText))),
+    filter: ({ hasText, visible }: { hasText?: string; visible?: boolean }) =>
+      derived(hasText === undefined ? "visible" : `with ${hasText}`, () => match().filter((element) =>
+        (hasText === undefined || element.name.toLowerCase().includes(hasText.toLowerCase())) && (visible === undefined || (element.visible !== false) === visible))),
     ariaSnapshot: async () => snapshot(),
   };
 };
@@ -99,12 +113,24 @@ const stubPage = (
     navigate: (target) => { navigate(new URL(target, url).href); },
     consoleError: (text) => emit("console", { type: () => "error", text: () => text }),
     show: (element) => { document = { ...document, elements: [...document.elements, element] }; },
+    remove: (name) => { document = { ...document, elements: document.elements.filter((element) => element.name !== name) }; },
   };
   expose(control);
   const snapshot = (): string =>
     [`- document "${document.title}"`, ...document.elements.map((element, index) => `  - ${element.role} "${element.name}" [ref=e${index + 1}]`)].join("\n");
-  const locator = (description: string, match: (element: StubElement) => boolean) =>
-    stubLocator(description, () => document.elements.filter(match), { log, control, snapshot, closed });
+  const selectors = (documentOf: () => StubDocument) => {
+    const locator = (description: string, match: (element: StubElement) => boolean) =>
+      stubLocator(description, () => documentOf().elements.filter(match), { log, control, snapshot, closed });
+    return {
+      locator: (css: string) => locator(css, (element) => css === "body" || element.css === css),
+      getByRole: (role: string, { name }: { name?: string }) =>
+        locator(`role=${role}`, (element) => element.role === role && (name === undefined || element.name === name)),
+      getByText: (text: string, { exact }: { exact: boolean }) =>
+        locator(`text=${text}`, (element) => exact ? element.name === text : element.name.toLowerCase().includes(text.toLowerCase())),
+      getByLabel: (label: string) => locator(`label=${label}`, (element) => element.label === label),
+      getByTestId: (testId: string) => locator(`testId=${testId}`, () => false),
+    };
+  };
   const page = {
     on: (event: string, handler: Handler) => { handlers.set(event, [...handlers.get(event) ?? [], handler]); },
     goto: async (target: string) => {
@@ -120,14 +146,8 @@ const stubPage = (
     waitForURL: async (expected: string) => {
       if (expected !== url) throw new Error(`Timeout exceeded waiting for URL ${expected}`);
     },
-    locator: (css: string) => locator(css, () => css === "body"),
-    getByRole: (role: string, { name }: { name?: string }) =>
-      locator(`role=${role}`, (element) => element.role === role && (name === undefined || element.name === name)),
-    getByText: (text: string, { exact }: { exact: boolean }) =>
-      locator(`text=${text}`, (element) => exact ? element.name === text : element.name.includes(text)),
-    getByLabel: (label: string) => locator(`label=${label}`, (element) => element.label === label),
-    getByTestId: (testId: string) => locator(`testId=${testId}`, () => false),
-    frameLocator: () => page,
+    ...selectors(() => document),
+    frameLocator: (frame: string) => selectors(() => document.frames?.[frame] ?? { title: "", elements: [] }),
   };
   return page;
 };

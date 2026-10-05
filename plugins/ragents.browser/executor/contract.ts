@@ -50,15 +50,32 @@ export interface BrowserSnapshot {
 export interface BrowserCheck {
   target?: BrowserTarget;
   text?: string;
+  frame?: string;
   url?: string;
   count?: number;
+  measure?: boolean;
   noErrors?: boolean;
 }
+
+export type BrowserMeasurement = {
+  box: {
+    x: number;
+    y: number;
+    width: number;
+    height: number;
+  };
+  clientWidth: number;
+  scrollWidth: number;
+  overflowX: number;
+};
 
 /** What a passed check proves; the time is set by whoever holds the run's evidence. */
 export interface BrowserCheckResult {
   url: string;
   assertions: string[];
+  errors: string[];
+  warnings?: string[];
+  measurement?: BrowserMeasurement;
 }
 
 /** The page state after an operation; the caller derives the run's evidence from it. */

@@ -13,17 +13,23 @@ const targetSchema = Type.Object({
   frame: Type.Optional(Type.String({ minLength: 1, description: "CSS selector of an iframe containing the target." })),
   nth: Type.Optional(Type.Integer({ minimum: 0, description: "0-based index among all matches when the target matches several elements; not together with first." })),
   first: Type.Optional(Type.Boolean({ description: "Use the first match when the target matches several elements; not together with nth." })),
-}, { additionalProperties: false, description: "Use exactly one of role (with optional name), label, text, testId, css. Resolve semantic targets server-side; never copy snapshot element IDs. Ambiguous targets are errors naming the candidates unless nth or first selects one." });
+}, { additionalProperties: false, description: "Use exactly one of role (with optional name), label, text, testId, css. Resolve semantic targets server-side; never copy snapshot element IDs. Zero matches fail immediately; ambiguous targets name candidates unless nth or first selects one." });
 
 const snapshotSchema = Type.Object({
   url: Type.String(),
   title: Type.String(),
-  snapshot: Type.String(),
-  truncated: Type.Boolean(),
+  snapshot: Type.String({ description: "Accessible page structure; actions return at most 2000 characters, 40 lines and 300 characters per line. browser_snapshot returns up to 40000 characters." }),
+  truncated: Type.Boolean({ description: "The structure was shortened; call browser_snapshot for the full snapshot." }),
   errors: Type.Array(Type.String()),
 }, { additionalProperties: false });
 
 const emptySchema = Type.Object({}, { additionalProperties: false });
+const measurementSchema = Type.Object({
+  box: Type.Object({ x: Type.Number(), y: Type.Number(), width: Type.Number(), height: Type.Number() }, { additionalProperties: false }),
+  clientWidth: Type.Number(),
+  scrollWidth: Type.Number(),
+  overflowX: Type.Number(),
+}, { additionalProperties: false, description: "Target dimensions in CSS pixels; box coordinates are relative to the main viewport, including iframe targets. overflowX is max(0, scrollWidth - clientWidth)." });
 const targetInputSchema = Type.Object({ target: targetSchema }, { additionalProperties: false });
 const screenshotDescription = "Capture the real browser page as a PNG file where filename names it, by default a new file under @documents/browser/. "
   + "Name filename next to the report that shows it and embed it with a path relative to the report. Call browser_view_screenshot to see the latest capture as an image.";
@@ -42,7 +48,7 @@ export const createBrowserFunctions = (browser: RunBrowser): RunFunction[] => [
   defineRunFunction({
     name: "browser_snapshot",
     label: "Read browser",
-    description: "Read the current real page's accessible structure, title, URL and errors. Use role/name or labels for subsequent actions; snapshot reference IDs never need to be copied.",
+    description: "Read the current real page's full accessible structure (up to 40000 characters), title, URL and errors, including content omitted after actions. Use role/name or labels for subsequent actions; snapshot reference IDs never need to be copied.",
     schema: emptySchema,
     resultSchema: snapshotSchema,
     available: alwaysAvailable,
@@ -52,7 +58,7 @@ export const createBrowserFunctions = (browser: RunBrowser): RunFunction[] => [
   defineRunFunction({
     name: "browser_click",
     label: "Click in browser",
-    description: "Click a uniquely identified visible element with Playwright auto-waiting. Returns the actual resulting page. Ambiguous or absent targets are errors.",
+    description: "Click a visible element with Playwright auto-waiting for operability. Zero matches fail immediately; multiple matches name candidates for target.nth (0-based), first: true, or a more specific target. Returns a short page snapshot; browser_snapshot reads the full structure.",
     schema: targetInputSchema,
     resultSchema: snapshotSchema,
     available: alwaysAvailable,
@@ -62,7 +68,7 @@ export const createBrowserFunctions = (browser: RunBrowser): RunFunction[] => [
   defineRunFunction({
     name: "browser_type",
     label: "Type in browser",
-    description: "Type text into an input or textarea chosen by accessible label or another semantic target, firing the normal input events. Returns the resulting page.",
+    description: "Type text into an input or textarea chosen by accessible label or another semantic target, firing the normal input events. Returns a short page snapshot; browser_snapshot reads the full structure.",
     schema: Type.Object({
       target: targetSchema,
       text: Type.String({ description: "Text that replaces the content of the field, unless slowly is set." }),
@@ -77,7 +83,7 @@ export const createBrowserFunctions = (browser: RunBrowser): RunFunction[] => [
   defineRunFunction({
     name: "browser_select_option",
     label: "Select in browser",
-    description: "Select options in a native select element; several values select several options of a multiple select. For custom dropdowns use browser_click on the trigger and the visible option.",
+    description: "Select options in a native select element; several values select several options of a multiple select. For custom dropdowns use browser_click on the trigger and the visible option. Returns a short page snapshot; browser_snapshot reads the full structure.",
     schema: Type.Object({
       target: targetSchema,
       values: Type.Array(Type.String({ minLength: 1 }), { minItems: 1, description: "Value or visible label of each option to select." }),
@@ -90,7 +96,7 @@ export const createBrowserFunctions = (browser: RunBrowser): RunFunction[] => [
   defineRunFunction({
     name: "browser_press_key",
     label: "Press browser key",
-    description: "Press a key or chord such as Enter, Escape, Tab or ControlOrMeta+A on the focused element, or on target after focusing it. Returns the resulting page.",
+    description: "Press a key or chord such as Enter, Escape, Tab or ControlOrMeta+A on the focused element, or on target after focusing it. Returns a short page snapshot; browser_snapshot reads the full structure.",
     schema: Type.Object({
       key: Type.String({ minLength: 1, description: "Playwright key name, character or chord, such as Enter, ArrowLeft, a or ControlOrMeta+A." }),
       target: Type.Optional(targetSchema),
@@ -103,23 +109,32 @@ export const createBrowserFunctions = (browser: RunBrowser): RunFunction[] => [
   defineRunFunction({
     name: "browser_check",
     label: "Check browser result",
-    description: "Assert visible target/text, resulting URL and absence of browser errors. Fails on mismatch; records successful evidence for this page until the next action/navigation/error. Supply at least one assertion. Browser errors are checked by default. Visibility assertions wait at most 5 seconds, shorter than actions.",
+    description: "Assert visible target/text, match count or URL. frame scopes pure text checks; measure returns target dimensions and horizontal overflow. count: 0 warns if the unfiltered target has never matched on this page. Page errors are informational unless noErrors: true. Missing targets fail immediately, other assertions wait at most 5 seconds. Records success until the next action or navigation.",
     schema: Type.Object({
       target: Type.Optional(targetSchema),
-      text: Type.Optional(Type.String({ minLength: 1, description: "Text expected to be visible, case-insensitive and as a part, inside target if given, otherwise anywhere on the page; cannot be combined with count." })),
+      text: Type.Optional(Type.String({ minLength: 1, description: "Visible text, case-insensitive substring; inside target if given, otherwise in frame or the main page. With count, filter target matches to those containing this text." })),
+      frame: Type.Optional(Type.String({ minLength: 1, description: "CSS selector of the iframe for a pure text check. Requires text without target; with target, use target.frame instead." })),
       url: Type.Optional(Type.String({ minLength: 1, description: "Expected page address, exact or as a glob pattern such as **/done." })),
-      count: Type.Optional(Type.Integer({ minimum: 0, description: "Expected number of visible matches of target instead of exactly one; 0 asserts absence. Requires target without nth or first." })),
-      noErrors: Type.Optional(Type.Boolean({ description: "true (default): the check also fails on any browser error collected since the last navigation. false: ignore browser errors and judge only the assertions; use this when the page has known noise such as 404s or third-party script errors that are not part of the check." })),
+      count: Type.Optional(Type.Integer({ minimum: 0, description: "Expected visible target matches, filtered by text when supplied; 0 asserts absence and warns if the unfiltered target has never matched since navigation. Requires target without nth or first." })),
+      measure: Type.Optional(Type.Boolean({ description: "True returns the visible target's bounding box, clientWidth, scrollWidth and overflowX in CSS pixels. Requires target without count; choose nth or first for multiple matches. Use css: html for page overflow." })),
+      noErrors: Type.Optional(Type.Boolean({ description: "Defaults to false: page errors are reported as information. Explicit true also fails on browser or network errors collected since navigation, including unrelated resource failures." })),
     }, { additionalProperties: false }),
-    resultSchema: Type.Object({ checkedAt: Type.String(), url: Type.String(), assertions: Type.Array(Type.String()) }, { additionalProperties: false }),
+    resultSchema: Type.Object({
+      checkedAt: Type.String(),
+      url: Type.String(),
+      assertions: Type.Array(Type.String()),
+      errors: Type.Array(Type.String()),
+      warnings: Type.Optional(Type.Array(Type.String())),
+      measurement: Type.Optional(measurementSchema),
+    }, { additionalProperties: false }),
     available: alwaysAvailable,
     executionMode: "sequential",
-    run: ({ caller, signal }, toolCallId, input) => browser.check(caller.runId, input, { signal, toolCallId }),
+    run: async ({ caller, signal }, toolCallId, input) => ({ ...await browser.check(caller.runId, input, { signal, toolCallId }) }),
   }),
   defineRunFunction({
     name: "browser_resize",
     label: "Resize browser",
-    description: "Resize the page viewport in CSS pixels, for example to check a narrow layout. The default is 1920 x 1080 (16:9) and screenshots use the viewport size at scale 1; the chosen size stays for the run until changed again. Returns the resulting page.",
+    description: "Resize the page viewport in CSS pixels, for example to check a narrow layout. The default is 1920 x 1080 (16:9), scale 1; the size stays until changed. Invalidates prior checks and returns a short page snapshot; browser_snapshot reads the full structure.",
     schema: Type.Object({
       width: Type.Integer({ minimum: 320, maximum: 3840, description: "Viewport width in CSS pixels." }),
       height: Type.Integer({ minimum: 240, maximum: 2160, description: "Viewport height in CSS pixels." }),

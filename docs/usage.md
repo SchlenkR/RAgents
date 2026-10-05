@@ -112,6 +112,13 @@ that an agent names relative to the working directory or with `@documents/...` o
 way; addresses with a scheme stay as written. Agents put reports and evidence under `@documents` and
 deliverables into the project, and move files between the two with `copy`. Documents lists the
 store by folder; Files shows it as a tree next to the working directory.
+
+Click an image in Documents, a Markdown report, or the chat's attachments to open it across
+the window. The preview shows a magnifier on hover. The viewer shows the file name; use the
+wheel or trackpad pinch to zoom around the pointer and drag to pan when enlarged. + and -
+zoom, 0 fits, and the Fit/100 % button or double click switches size. Escape, Close, or a click
+outside the image closes the viewer and returns focus to the preview.
+
 An agent's to-do list appears on its actor card with the
 completed items checked and the item in progress in its running form, such as "Running tests".
 
@@ -510,6 +517,21 @@ again only through the inherited `RAGENTS_RUN_ID` marker. Which processes the pr
 assign per platform despite the marker, such as programs from `/bin` on macOS, is named in the same
 section of the spec; with the server's process sandbox, a service of a run on the server cannot be
 opened.
+
+Agents check a running web application with `browser_check` after taking browser actions.
+Combine `target`, `count`, and `text` to count visible matches containing a case-insensitive
+substring; `count: 0` checks absence and warns when the unfiltered target has never matched
+during checks or actions since navigation. Verify a warned selector with a positive check.
+For a pure text check inside an iframe, supply `frame` with `text`; element targets use
+`target.frame`. Set `measure: true` with one target and without `count` to read its bounding
+box, client and scroll widths, and horizontal overflow in CSS pixels, for example on
+`{ css: "html" }` or a clipped container. Page errors are reported as information. Add
+`noErrors: true` when the check must also prove there have been no browser or network errors
+since navigation. An ambiguous click lists candidates; select one with `target.nth` (0-based),
+`first: true`, or a more specific text or role/name target.
+Missing targets fail immediately with `0 matches for <target>`. Actions and resizing return
+short snapshots (at most 2000 characters); use `browser_snapshot` for the full structure.
+Check again after resizing because the previous evidence applies to the previous size.
 
 <!-- guide:clients -->
 ## Run panel and VS Code extension

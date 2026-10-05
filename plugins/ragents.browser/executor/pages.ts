@@ -2,6 +2,7 @@ import type { Browser, Locator, Page } from "playwright-core";
 import type {
   BrowserCheck,
   BrowserCheckResult,
+  BrowserMeasurement,
   BrowserPageState,
   BrowserSnapshot,
   BrowserStep,
@@ -21,6 +22,7 @@ interface BrowserSession {
   /** Addresses whose failed request is already reported; HTTP status, console and network report the same cause only once. */
   failedRequests: Set<string>;
   screenshots: string[];
+  matchedTargets: Set<string>;
 }
 
 export interface BrowserPagesOptions {
@@ -32,11 +34,31 @@ export interface BrowserPagesOptions {
 const errorText = (error: unknown): string => error instanceof Error ? error.message : String(error);
 const endedError = (): Error => new Error("The browser service of this executor has ended.");
 const maxSnapshotLength = 40_000;
-const ambiguityHint = "Pick one match with nth (0-based) or first: true in the target, or check the number with count in browser_check.";
+const maxActionSnapshotLength = 2_000;
+const targetKey = (target: BrowserTarget): string => JSON.stringify([target.frame, target.role, target.name, target.label, target.text, target.testId, target.css]);
+const concise = (text: string): string => text.replace(/\s+/g, " ").trim().slice(0, 300);
+const reportedErrors = (errors: readonly string[]): string[] => [
+  ...errors.slice(0, 5).map(concise),
+  ...(errors.length > 5 ? [`${errors.length - 5} more page errors`] : []),
+];
 
-const withAmbiguityHint = (error: unknown): never => {
-  if (error instanceof Error && error.message.includes("strict mode violation")) throw new Error(`${error.message}\n${ambiguityHint}`, { cause: error });
-  throw error;
+const conciseFailure = (error: unknown): Error => {
+  const message = errorText(error);
+  if (!/Timeout|strict mode violation/.test(message)) return error instanceof Error ? error : new Error(message);
+  const lines = message.split("\n").map((line) => line.trim());
+  if (message.includes("strict mode violation")) return new Error("Target matches several elements. Choose target.nth (0-based), first: true, or a more specific text or role/name target.");
+  const cause = lines.findLast((line) => /not visible|not enabled|not editable|intercepts pointer/.test(line))
+    ?? lines.findLast((line) => /waiting for|waiting until/.test(line));
+  return new Error(`Timed out: ${concise(cause ?? lines[0]!)}. Check that the target exists and is visible and operable.`, { cause: error });
+};
+
+const targetFailure = async (error: unknown, locator: Locator): Promise<never> => {
+  if (!errorText(error).includes("strict mode violation")) throw conciseFailure(error);
+  const candidates = await locator.evaluateAll((elements) => elements.slice(0, 5).map((element, index) => {
+    const name = element.getAttribute("aria-label") || element.textContent || element.getAttribute("title") || "";
+    return `[${index}] ${element.getAttribute("role") || element.tagName.toLowerCase()} "${name.replace(/\s+/g, " ").trim().slice(0, 80)}"`;
+  })).catch(() => []);
+  throw new Error(`Target matches several elements${candidates.length ? `: ${candidates.join("; ")}` : ""}.\nChoose target.nth (0-based), first: true, or a more specific text or role/name target.`, { cause: error });
 };
 
 export const browserLocator = (page: Page, target: BrowserTarget): Locator => {
@@ -83,10 +105,7 @@ export class BrowserPages {
   }
 
   resize(runId: string, viewport: BrowserViewport, signal?: AbortSignal): Promise<BrowserStep<BrowserSnapshot>> {
-    return this.#perform(runId, signal, async (session, page) => {
-      await page.setViewportSize(viewport);
-      return this.#snapshot(session, page);
-    });
+    return this.#pageAction(runId, signal, (page) => page.setViewportSize(viewport));
   }
 
   click(runId: string, target: BrowserTarget, signal?: AbortSignal): Promise<BrowserStep<BrowserSnapshot>> {
@@ -120,39 +139,63 @@ export class BrowserPages {
       if (input.count !== undefined && (!input.target || input.target.nth !== undefined || input.target.first)) {
         throw new Error("count in browser_check needs a target without nth or first and counts its visible matches.");
       }
-      if (input.count !== undefined && input.text !== undefined) {
-        throw new Error("browser_check cannot combine count with text; narrow the target to the text instead, or check the text in a second call.");
+      if (input.frame !== undefined && (!input.text || input.target)) {
+        throw new Error("frame in browser_check requires text without target; use target.frame with a target.");
+      }
+      if (input.measure === true && (!input.target || input.count !== undefined)) {
+        throw new Error("measure in browser_check needs a target without count.");
       }
       const timeout = this.#options.checkTimeoutMs;
       const assertions: string[] = [];
+      const warnings: string[] = [];
+      let measurement: BrowserMeasurement | undefined;
       if (input.target && input.count !== undefined) {
-        const visible = browserLocator(page, input.target).filter({ visible: true });
-        const found = await this.#waitForCount(visible, input.count, timeout);
+        const matches = browserLocator(page, input.target);
+        const key = targetKey(input.target);
+        if (await matches.count() > 0) session.matchedTargets.add(key);
+        else if (input.count > 0) throw new Error(`0 matches for ${concise(JSON.stringify(input.target))}`);
+        const visible = (input.text === undefined ? matches : matches.filter({ hasText: input.text })).filter({ visible: true });
+        const found = await this.#waitForCount(visible, input.count, timeout, async () => {
+          if (await matches.count() > 0) session.matchedTargets.add(key);
+        });
         if (found !== input.count) throw new Error(`Expected ${input.count} visible matches, found ${found}.`);
-        assertions.push(`${input.count} visible matches`);
+        assertions.push("Visible match count matches");
+        if (input.count === 0 && !session.matchedTargets.has(key)) {
+          warnings.push("The target has never matched any elements on this page. count: 0 may reflect a wrong selector; verify it with a positive check.");
+        }
       } else if (input.target) {
-        const locator = browserLocator(page, input.target);
-        await locator.waitFor({ state: "visible", timeout }).catch(withAmbiguityHint);
-        assertions.push("Target is visible");
-        if (input.text !== undefined) {
-          try { await locator.filter({ hasText: input.text }).waitFor({ state: "visible", timeout }); }
-          catch (error) { throw new Error(`Expected text is missing in the target: ${input.text}`, { cause: error }); }
-          assertions.push(`Text in target: ${input.text}`);
+        const matches = await this.#target(session, page, input.target);
+        const locator = input.text === undefined ? matches : matches.filter({ hasText: input.text });
+        await locator.waitFor({ state: "visible", timeout }).catch(async (error: unknown) => {
+          if (input.text !== undefined && !errorText(error).includes("strict mode violation")) throw new Error("Expected text is missing in the target. Check its text or narrow the target.", { cause: error });
+          return targetFailure(error, locator);
+        });
+        assertions.push(input.text === undefined ? "Target is visible" : "Target text is visible");
+        if (input.measure === true) {
+          const box = await locator.boundingBox({ timeout });
+          if (!box) throw new Error("Cannot measure the target: it is no longer visible.");
+          const widths = await locator.evaluate((element) => ({ clientWidth: element.clientWidth, scrollWidth: element.scrollWidth }), undefined, { timeout });
+          measurement = { box, ...widths, overflowX: Math.max(0, widths.scrollWidth - widths.clientWidth) };
         }
       } else if (input.text !== undefined) {
-        await page.getByText(input.text, { exact: false }).first().waitFor({ state: "visible", timeout });
-        assertions.push(`Visible text: ${input.text}`);
+        const root = input.frame ? page.frameLocator(input.frame) : page;
+        const matches = root.getByText(input.text, { exact: false });
+        if (await matches.count() === 0) throw new Error(`0 matches for ${concise(JSON.stringify({ text: input.text, ...(input.frame ? { frame: input.frame } : {}) }))}`);
+        const locator = matches.filter({ visible: true }).first();
+        await locator.waitFor({ state: "visible", timeout });
+        assertions.push("Visible text found");
       }
       if (input.url !== undefined) {
         await page.waitForURL(input.url, { timeout });
-        assertions.push(`Address: ${input.url}`);
+        assertions.push("Address matches");
       }
-      if (input.noErrors !== false) {
-        if (session.errors.length > 0) throw new Error(`Browser errors: ${session.errors.join("\n")}`);
+      if (input.noErrors === true) {
+        if (session.errors.length > 0) throw new Error(`Browser errors: ${concise(session.errors[0]!)}${session.errors.length > 1 ? ` (${session.errors.length} captured)` : ""}. Use browser_snapshot to inspect page errors.`);
         assertions.push("No captured browser or network errors since the navigation");
       }
       session.checked = true;
-      return { url: page.url(), assertions };
+      return { url: page.url(), assertions, errors: reportedErrors(session.errors),
+        ...(warnings.length ? { warnings } : {}), ...(measurement ? { measurement } : {}) };
     });
   }
 
@@ -199,6 +242,7 @@ export class BrowserPages {
       errors: [],
       failedRequests: new Set(),
       screenshots: [],
+      matchedTargets: new Set(),
     };
     this.#sessions.set(runId, session);
     void session.browser.catch(() => {
@@ -211,11 +255,13 @@ export class BrowserPages {
     return this.#options.launch(runId);
   }
 
-  async #waitForCount(locator: Locator, expected: number, timeout: number): Promise<number> {
+  async #waitForCount(locator: Locator, expected: number, timeout: number, observe: () => Promise<void>): Promise<number> {
     const deadline = Date.now() + timeout;
+    await observe();
     let found = await locator.count();
     while (found !== expected && Date.now() < deadline) {
       await new Promise((resolve) => setTimeout(resolve, 100));
+      await observe();
       found = await locator.count();
     }
     return found;
@@ -226,6 +272,7 @@ export class BrowserPages {
     session.screenshots = [];
     session.errors = [];
     session.failedRequests = new Set();
+    session.matchedTargets = new Set();
   }
 
   async #page(session: BrowserSession): Promise<Page> {
@@ -279,6 +326,8 @@ export class BrowserPages {
         signal?.throwIfAborted();
         if (session.closed) throw new Error("The browser was closed.");
         return { result, page: this.#stateOf(session, page) };
+      } catch (error) {
+        throw conciseFailure(error);
       } finally {
         signal?.removeEventListener("abort", abort);
       }
@@ -288,15 +337,25 @@ export class BrowserPages {
   }
 
   #action(runId: string, target: BrowserTarget, signal: AbortSignal | undefined, action: (locator: Locator) => Promise<unknown>): Promise<BrowserStep<BrowserSnapshot>> {
-    return this.#pageAction(runId, signal, (page) => action(browserLocator(page, target)).catch(withAmbiguityHint));
+    return this.#pageAction(runId, signal, async (page, session) => {
+      const locator = await this.#target(session, page, target);
+      return action(locator).catch((error) => targetFailure(error, locator));
+    });
   }
 
-  #pageAction(runId: string, signal: AbortSignal | undefined, action: (page: Page) => Promise<unknown>): Promise<BrowserStep<BrowserSnapshot>> {
+  async #target(session: BrowserSession, page: Page, target: BrowserTarget): Promise<Locator> {
+    const locator = browserLocator(page, target);
+    if (await locator.count() === 0) throw new Error(`0 matches for ${concise(JSON.stringify(target))}`);
+    session.matchedTargets.add(targetKey(target));
+    return locator;
+  }
+
+  #pageAction(runId: string, signal: AbortSignal | undefined, action: (page: Page, session: BrowserSession) => Promise<unknown>): Promise<BrowserStep<BrowserSnapshot>> {
     return this.#perform(runId, signal, async (session, page) => {
       session.checked = false;
       session.screenshots = [];
-      await action(page);
-      return this.#snapshot(session, page);
+      await action(page, session);
+      return this.#snapshot(session, page, true);
     });
   }
 
@@ -304,9 +363,12 @@ export class BrowserPages {
     return { url: page.url(), checked: session.checked, errors: [...session.errors], screenshots: [...session.screenshots] };
   }
 
-  async #snapshot(session: BrowserSession, page: Page): Promise<BrowserSnapshot> {
-    const snapshot = await page.locator("body").ariaSnapshot({ mode: "ai", timeout: this.#options.timeoutMs });
-    return { url: page.url(), title: await page.title(), snapshot: snapshot.slice(0, maxSnapshotLength),
-      truncated: snapshot.length > maxSnapshotLength, errors: [...session.errors] };
+  async #snapshot(session: BrowserSession, page: Page, afterAction = false): Promise<BrowserSnapshot> {
+    const full = await page.locator("body").ariaSnapshot({ mode: "ai", timeout: this.#options.timeoutMs });
+    const snapshot = afterAction
+      ? full.split("\n").slice(0, 40).map((line) => line.slice(0, 300)).join("\n").slice(0, maxActionSnapshotLength)
+      : full.slice(0, maxSnapshotLength);
+    return { url: page.url(), title: await page.title(), snapshot,
+      truncated: snapshot !== full, errors: reportedErrors(session.errors) };
   }
 }

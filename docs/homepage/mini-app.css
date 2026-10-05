@@ -720,6 +720,9 @@
   .h-\[calc\(100\%-1px\)\] {
     height: calc(100% - 1px);
   }
+  .h-\[calc\(100\%-1rem\)\] {
+    height: calc(100% - 1rem);
+  }
   .h-\[calc\(100\%-3rem\)\] {
     height: calc(100% - 3rem);
   }
@@ -834,6 +837,9 @@
   .w-9 {
     width: calc(var(--spacing) * 9);
   }
+  .w-14 {
+    width: calc(var(--spacing) * 14);
+  }
   .w-64 {
     width: calc(var(--spacing) * 64);
   }
@@ -854,6 +860,9 @@
   }
   .w-\[360px\] {
     width: 360px;
+  }
+  .w-\[calc\(100\%-1rem\)\] {
+    width: calc(100% - 1rem);
   }
   .w-\[calc\(100\%-3rem\)\] {
     width: calc(100% - 3rem);
@@ -1044,6 +1053,9 @@
   .origin-\(--transform-origin\) {
     transform-origin: var(--transform-origin);
   }
+  .origin-center {
+    transform-origin: center;
+  }
   .-translate-x-1\/2 {
     --tw-translate-x: calc(calc(1 / 2 * 100%) * -1);
     translate: var(--tw-translate-x) var(--tw-translate-y);
@@ -1100,6 +1112,9 @@
   }
   .cursor-row-resize {
     cursor: row-resize;
+  }
+  .cursor-zoom-in {
+    cursor: zoom-in;
   }
   .touch-none {
     touch-action: none;
@@ -1559,6 +1574,12 @@
     background-color: var(--background);
     @supports (color: color-mix(in lab, red, red)) {
       background-color: color-mix(in oklab, var(--background) 78%, transparent);
+    }
+  }
+  .bg-background\/90 {
+    background-color: var(--background);
+    @supports (color: color-mix(in lab, red, red)) {
+      background-color: color-mix(in oklab, var(--background) 90%, transparent);
     }
   }
   .bg-background\/92 {
@@ -2351,6 +2372,9 @@
     outline-style: var(--tw-outline-style);
     outline-width: 1px;
   }
+  .outline-offset-4 {
+    outline-offset: 4px;
+  }
   .outline-offset-\[-2px\] {
     outline-offset: -2px;
   }
@@ -2549,6 +2573,9 @@
     .group-hover\/button\:opacity-100:is(:where(.group\/button):hover *) {
       opacity: 100%;
     }
+    .group-hover\/image\:opacity-100:is(:where(.group\/image):hover *) {
+      opacity: 100%;
+    }
   }
   .group-focus\/dropdown-menu-item\:text-accent-foreground:is(:where(.group\/dropdown-menu-item):focus *) {
     color: var(--foreground);
@@ -2557,6 +2584,9 @@
     color: var(--primary);
   }
   .group-focus-visible\/button\:opacity-100:is(:where(.group\/button):focus-visible *) {
+    opacity: 100%;
+  }
+  .group-focus-visible\/image\:opacity-100:is(:where(.group\/image):focus-visible *) {
     opacity: 100%;
   }
   .group-active\/grip\:text-primary:is(:where(.group\/grip):active *) {
@@ -4019,6 +4049,9 @@
   .data-open\:animate-in:where([data-state="open"]), .data-open\:animate-in:where([data-open]:not([data-open="false"])) {
     animation: enter var(--tw-animation-duration,var(--tw-duration,.15s))var(--tw-ease,ease)var(--tw-animation-delay,0s)var(--tw-animation-iteration-count,1)var(--tw-animation-direction,normal)var(--tw-animation-fill-mode,none);
   }
+  .data-open\:animate-none:where([data-state="open"]), .data-open\:animate-none:where([data-open]:not([data-open="false"])) {
+    animation: none;
+  }
   .data-open\:bg-accent:where([data-state="open"]), .data-open\:bg-accent:where([data-open]:not([data-open="false"])) {
     background-color: var(--accent);
   }
@@ -4032,6 +4065,9 @@
   .data-open\:zoom-in-95:where([data-state="open"]), .data-open\:zoom-in-95:where([data-open]:not([data-open="false"])) {
     --tw-enter-scale: calc(95*1%);
     --tw-enter-scale: .95;
+  }
+  .data-closed\:animate-none:where([data-state="closed"]), .data-closed\:animate-none:where([data-closed]:not([data-closed="false"])) {
+    animation: none;
   }
   .data-closed\:animate-out:where([data-state="closed"]), .data-closed\:animate-out:where([data-closed]:not([data-closed="false"])) {
     animation: exit var(--tw-animation-duration,var(--tw-duration,.15s))var(--tw-ease,ease)var(--tw-animation-delay,0s)var(--tw-animation-iteration-count,1)var(--tw-animation-direction,normal)var(--tw-animation-fill-mode,none);
@@ -4202,6 +4238,9 @@
     .\[\&_a\]\:hover\:text-foreground a:hover {
       color: var(--foreground);
     }
+  }
+  .\[\&_img\]\:cursor-zoom-in img {
+    cursor: zoom-in;
   }
   .\[\&_p\:not\(\:last-child\)\]\:mb-4 p:not(:last-child) {
     margin-bottom: calc(var(--spacing) * 4);

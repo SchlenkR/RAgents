@@ -1,7 +1,7 @@
 import { useMemo, type ReactNode } from "react";
 import { QuasselProvider, type QuasselComponents } from "quassel";
 import type { RunUrlResolver } from "../PluginRegistry";
-import { Button, Card, Popover, PopoverContent, StopButton, Toggle } from "../ui";
+import { Button, Card, ImagePreviewGroup, Popover, PopoverContent, StopButton, Toggle } from "../ui";
 
 const components: QuasselComponents = { Button, Toggle, Card, StopButton, Popover, PopoverContent };
 
@@ -9,7 +9,7 @@ const allowRunLinks = (url: string): boolean => /^flow:(actor|input|turn|subscri
 
 /** Every chat building block below renders with the host's UI primitives and keeps the links into a run. */
 export function QuasselHost({ children }: { children: ReactNode }) {
-  return <QuasselProvider allowUrl={allowRunLinks} components={components}>{children}</QuasselProvider>;
+  return <QuasselProvider allowUrl={allowRunLinks} components={components}><ImagePreviewGroup>{children}</ImagePreviewGroup></QuasselProvider>;
 }
 
 /** Inside a run, Markdown addresses go through the profile's resolver for that run; without one they stay as written. */

@@ -165,7 +165,7 @@ export const hostApi: { readonly server: HostApiModules; readonly web: HostApiMo
     "@ragents/web/ui": [
       "Alert", "AlertDescription", "AlertTitle", "Badge", "Button", "Card", "Dialog", "DialogBody", "DialogContent",
       "DialogDescription", "DialogFooter", "DialogHeader", "DialogTitle", "Empty", "EmptyContent", "EmptyDescription",
-      "EmptyHeader", "EmptyMedia", "EmptyTitle", "Field", "FieldDescription", "FieldTitle", "Input", "Label",
+      "EmptyHeader", "EmptyMedia", "EmptyTitle", "Field", "FieldDescription", "FieldTitle", "ImagePreview", "ImagePreviewGroup", "ImageViewer", "Input", "Label",
       "Popover", "PopoverContent", "PopoverTrigger", "SectionLabel", "Select", "SelectContent", "SelectItem", "SelectTrigger",
       "SelectValue", "Spinner", "StartupNotice", "StopButton", "StopGlyph", "SvgEdge", "Switch", "Tabs", "TabsContent",
       "TabsList", "TabsTrigger", "Textarea", "Toggle", "ToggleGroup", "ToggleGroupItem", "buttonVariants", "cn",

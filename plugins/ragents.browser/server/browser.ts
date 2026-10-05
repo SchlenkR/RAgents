@@ -114,12 +114,12 @@ export class RunBrowser implements BrowserRuntime {
   }
 
   /** The time of a passed check is the server's, so it compares with its other times. */
-  async check(runId: string, input: BrowserCheck, options: BrowserCallOptions = {}): Promise<{ checkedAt: string; url: string; assertions: string[] }> {
+  async check(runId: string, input: BrowserCheck, options: BrowserCallOptions = {}): Promise<{ checkedAt: string } & BrowserCheckResult> {
     const generation = this.#generation(runId);
     const { result, page } = await this.#execute<BrowserCheckResult>(runId, generation, BROWSER_OPERATIONS.check, input, options);
     const checkedAt = new Date().toISOString();
     this.#observe(runId, generation, page, checkedAt);
-    return { checkedAt, url: result.url, assertions: result.assertions };
+    return { checkedAt, ...result };
   }
 
   /** Stores the PNG where `filename` names it, at the machine of that root; without one under the document store. */

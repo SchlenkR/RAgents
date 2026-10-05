@@ -25,8 +25,17 @@ applications you started.
 3. Read the snapshot and follow the actual user path. Choose targets by visible
    roles/names or field labels, for example `{ role: "button", name: "Save" }`.
    Resolution happens in the browser. Snapshot IDs are not copied.
-4. Check success and relevant error cases with `browser_check`: visible result, target address
-   and browser errors. A typecheck or screenshot alone does not prove a successful user path.
+4. Check success and relevant error cases with `browser_check`: visible result, target address,
+   or match count. Combine `target`, `count`, and `text` to count visible matches containing
+   the text (case-insensitive substring); `count: 0` checks absence and warns if the unfiltered
+   target has never matched since navigation. Verify a warned selector with a positive check.
+   A pure text check can use `frame` to search inside an iframe; element targets use `target.frame`.
+   With `target` and `measure: true` (without `count`), inspect the bounding box, client/scroll
+   widths and `overflowX` in CSS pixels. Measure `{ css: "html" }` for page overflow or the
+   relevant container for clipped fields and text. Page errors are reported
+   as information by default. Set `noErrors: true` explicitly when browser and network errors
+   since navigation must also fail the check. A typecheck or screenshot alone does not prove
+   a successful user path.
    Every action needs a new check. Do not invent results when the network is missing.
 5. Create real screenshots with `browser_take_screenshot`. Give each a `filename` next to the
    report that shows it, such as `@documents/<topic>/shots/home.png` for
@@ -41,9 +50,13 @@ applications you started.
    down the server end both as well.
 
 The browser actions use Playwright locators with automatic waiting. Ambiguous targets
-are errors that name the candidates; then pick one match with `nth` (0-based) or `first: true` in
-the target, or check the number of visible matches with `count` in `browser_check`.
-Visibility checks wait at most 5 seconds, actions longer; a missing element
-therefore costs no long wait. Native selects use `browser_select_option`; custom dropdown menus are clicked.
+name up to five candidates; pick one with `target.nth` (0-based), `first: true`, or a more
+specific text or role/name target. `count` in `browser_check` needs a target without `nth`
+or `first`. Page error lists contain at most five errors, each cut to 300 characters,
+and the number omitted. Timeout errors name the actionable cause in one or two lines.
+Zero matches fail immediately with `0 matches for <target>`; other visibility checks wait
+at most 5 seconds and actions wait longer for operability. Actions and resizing return short
+snapshots, at most 2000 characters; `browser_snapshot` reads the full structure up to 40000.
+Resizing discards prior check evidence. Native selects use `browser_select_option`; custom dropdown menus are clicked.
 With `target.frame` you choose an iframe by CSS. New windows are reported explicitly;
 this flow operates one page. Hidden elements are not clicked via JavaScript.

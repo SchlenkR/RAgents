@@ -1641,7 +1641,7 @@ Available in every model turn.
 
 Check browser result
 
-Assert visible target/text, resulting URL and absence of browser errors. Fails on mismatch; records successful evidence for this page until the next action/navigation/error. Supply at least one assertion. Browser errors are checked by default. Visibility assertions wait at most 5 seconds, shorter than actions.
+Assert visible target/text, match count or URL. frame scopes pure text checks; measure returns target dimensions and horizontal overflow. count: 0 warns if the unfiltered target has never matched on this page. Page errors are informational unless noErrors: true. Missing targets fail immediately, other assertions wait at most 5 seconds. Records success until the next action or navigation.
 
 Owner: ragents.browser. Scope: per-turn. Native model tool: yes. Availability: always.
 
@@ -1701,12 +1701,17 @@ Available in every model turn.
         }
       },
       "additionalProperties": false,
-      "description": "Use exactly one of role (with optional name), label, text, testId, css. Resolve semantic targets server-side; never copy snapshot element IDs. Ambiguous targets are errors naming the candidates unless nth or first selects one."
+      "description": "Use exactly one of role (with optional name), label, text, testId, css. Resolve semantic targets server-side; never copy snapshot element IDs. Zero matches fail immediately; ambiguous targets name candidates unless nth or first selects one."
     },
     "text": {
       "type": "string",
       "minLength": 1,
-      "description": "Text expected to be visible, case-insensitive and as a part, inside target if given, otherwise anywhere on the page; cannot be combined with count."
+      "description": "Visible text, case-insensitive substring; inside target if given, otherwise in frame or the main page. With count, filter target matches to those containing this text."
+    },
+    "frame": {
+      "type": "string",
+      "minLength": 1,
+      "description": "CSS selector of the iframe for a pure text check. Requires text without target; with target, use target.frame instead."
     },
     "url": {
       "type": "string",
@@ -1716,11 +1721,15 @@ Available in every model turn.
     "count": {
       "type": "integer",
       "minimum": 0,
-      "description": "Expected number of visible matches of target instead of exactly one; 0 asserts absence. Requires target without nth or first."
+      "description": "Expected visible target matches, filtered by text when supplied; 0 asserts absence and warns if the unfiltered target has never matched since navigation. Requires target without nth or first."
+    },
+    "measure": {
+      "type": "boolean",
+      "description": "True returns the visible target's bounding box, clientWidth, scrollWidth and overflowX in CSS pixels. Requires target without count; choose nth or first for multiple matches. Use css: html for page overflow."
     },
     "noErrors": {
       "type": "boolean",
-      "description": "true (default): the check also fails on any browser error collected since the last navigation. false: ignore browser errors and judge only the assertions; use this when the page has known noise such as 404s or third-party script errors that are not part of the check."
+      "description": "Defaults to false: page errors are reported as information. Explicit true also fails on browser or network errors collected since navigation, including unrelated resource failures."
     }
   },
   "additionalProperties": false
@@ -1735,7 +1744,8 @@ Available in every model turn.
   "required": [
     "checkedAt",
     "url",
-    "assertions"
+    "assertions",
+    "errors"
   ],
   "properties": {
     "checkedAt": {
@@ -1749,6 +1759,64 @@ Available in every model turn.
       "items": {
         "type": "string"
       }
+    },
+    "errors": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "warnings": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "measurement": {
+      "type": "object",
+      "required": [
+        "box",
+        "clientWidth",
+        "scrollWidth",
+        "overflowX"
+      ],
+      "properties": {
+        "box": {
+          "type": "object",
+          "required": [
+            "x",
+            "y",
+            "width",
+            "height"
+          ],
+          "properties": {
+            "x": {
+              "type": "number"
+            },
+            "y": {
+              "type": "number"
+            },
+            "width": {
+              "type": "number"
+            },
+            "height": {
+              "type": "number"
+            }
+          },
+          "additionalProperties": false
+        },
+        "clientWidth": {
+          "type": "number"
+        },
+        "scrollWidth": {
+          "type": "number"
+        },
+        "overflowX": {
+          "type": "number"
+        }
+      },
+      "additionalProperties": false,
+      "description": "Target dimensions in CSS pixels; box coordinates are relative to the main viewport, including iframe targets. overflowX is max(0, scrollWidth - clientWidth)."
     }
   },
   "additionalProperties": false
@@ -1759,7 +1827,7 @@ Available in every model turn.
 
 Click in browser
 
-Click a uniquely identified visible element with Playwright auto-waiting. Returns the actual resulting page. Ambiguous or absent targets are errors.
+Click a visible element with Playwright auto-waiting for operability. Zero matches fail immediately; multiple matches name candidates for target.nth (0-based), first: true, or a more specific target. Returns a short page snapshot; browser_snapshot reads the full structure.
 
 Owner: ragents.browser. Scope: per-turn. Native model tool: yes. Availability: always.
 
@@ -1822,7 +1890,7 @@ Available in every model turn.
         }
       },
       "additionalProperties": false,
-      "description": "Use exactly one of role (with optional name), label, text, testId, css. Resolve semantic targets server-side; never copy snapshot element IDs. Ambiguous targets are errors naming the candidates unless nth or first selects one."
+      "description": "Use exactly one of role (with optional name), label, text, testId, css. Resolve semantic targets server-side; never copy snapshot element IDs. Zero matches fail immediately; ambiguous targets name candidates unless nth or first selects one."
     }
   },
   "additionalProperties": false
@@ -1849,10 +1917,12 @@ Available in every model turn.
       "type": "string"
     },
     "snapshot": {
-      "type": "string"
+      "type": "string",
+      "description": "Accessible page structure; actions return at most 2000 characters, 40 lines and 300 characters per line. browser_snapshot returns up to 40000 characters."
     },
     "truncated": {
-      "type": "boolean"
+      "type": "boolean",
+      "description": "The structure was shortened; call browser_snapshot for the full snapshot."
     },
     "errors": {
       "type": "array",
@@ -1951,10 +2021,12 @@ Available in every model turn.
       "type": "string"
     },
     "snapshot": {
-      "type": "string"
+      "type": "string",
+      "description": "Accessible page structure; actions return at most 2000 characters, 40 lines and 300 characters per line. browser_snapshot returns up to 40000 characters."
     },
     "truncated": {
-      "type": "boolean"
+      "type": "boolean",
+      "description": "The structure was shortened; call browser_snapshot for the full snapshot."
     },
     "errors": {
       "type": "array",
@@ -1971,7 +2043,7 @@ Available in every model turn.
 
 Press browser key
 
-Press a key or chord such as Enter, Escape, Tab or ControlOrMeta+A on the focused element, or on target after focusing it. Returns the resulting page.
+Press a key or chord such as Enter, Escape, Tab or ControlOrMeta+A on the focused element, or on target after focusing it. Returns a short page snapshot; browser_snapshot reads the full structure.
 
 Owner: ragents.browser. Scope: per-turn. Native model tool: yes. Availability: always.
 
@@ -2039,7 +2111,7 @@ Available in every model turn.
         }
       },
       "additionalProperties": false,
-      "description": "Use exactly one of role (with optional name), label, text, testId, css. Resolve semantic targets server-side; never copy snapshot element IDs. Ambiguous targets are errors naming the candidates unless nth or first selects one."
+      "description": "Use exactly one of role (with optional name), label, text, testId, css. Resolve semantic targets server-side; never copy snapshot element IDs. Zero matches fail immediately; ambiguous targets name candidates unless nth or first selects one."
     }
   },
   "additionalProperties": false
@@ -2066,10 +2138,12 @@ Available in every model turn.
       "type": "string"
     },
     "snapshot": {
-      "type": "string"
+      "type": "string",
+      "description": "Accessible page structure; actions return at most 2000 characters, 40 lines and 300 characters per line. browser_snapshot returns up to 40000 characters."
     },
     "truncated": {
-      "type": "boolean"
+      "type": "boolean",
+      "description": "The structure was shortened; call browser_snapshot for the full snapshot."
     },
     "errors": {
       "type": "array",
@@ -2086,7 +2160,7 @@ Available in every model turn.
 
 Resize browser
 
-Resize the page viewport in CSS pixels, for example to check a narrow layout. The default is 1920 x 1080 (16:9) and screenshots use the viewport size at scale 1; the chosen size stays for the run until changed again. Returns the resulting page.
+Resize the page viewport in CSS pixels, for example to check a narrow layout. The default is 1920 x 1080 (16:9), scale 1; the size stays until changed. Invalidates prior checks and returns a short page snapshot; browser_snapshot reads the full structure.
 
 Owner: ragents.browser. Scope: per-turn. Native model tool: yes. Availability: always.
 
@@ -2139,10 +2213,12 @@ Available in every model turn.
       "type": "string"
     },
     "snapshot": {
-      "type": "string"
+      "type": "string",
+      "description": "Accessible page structure; actions return at most 2000 characters, 40 lines and 300 characters per line. browser_snapshot returns up to 40000 characters."
     },
     "truncated": {
-      "type": "boolean"
+      "type": "boolean",
+      "description": "The structure was shortened; call browser_snapshot for the full snapshot."
     },
     "errors": {
       "type": "array",
@@ -2159,7 +2235,7 @@ Available in every model turn.
 
 Select in browser
 
-Select options in a native select element; several values select several options of a multiple select. For custom dropdowns use browser_click on the trigger and the visible option.
+Select options in a native select element; several values select several options of a multiple select. For custom dropdowns use browser_click on the trigger and the visible option. Returns a short page snapshot; browser_snapshot reads the full structure.
 
 Owner: ragents.browser. Scope: per-turn. Native model tool: yes. Availability: always.
 
@@ -2223,7 +2299,7 @@ Available in every model turn.
         }
       },
       "additionalProperties": false,
-      "description": "Use exactly one of role (with optional name), label, text, testId, css. Resolve semantic targets server-side; never copy snapshot element IDs. Ambiguous targets are errors naming the candidates unless nth or first selects one."
+      "description": "Use exactly one of role (with optional name), label, text, testId, css. Resolve semantic targets server-side; never copy snapshot element IDs. Zero matches fail immediately; ambiguous targets name candidates unless nth or first selects one."
     },
     "values": {
       "type": "array",
@@ -2259,10 +2335,12 @@ Available in every model turn.
       "type": "string"
     },
     "snapshot": {
-      "type": "string"
+      "type": "string",
+      "description": "Accessible page structure; actions return at most 2000 characters, 40 lines and 300 characters per line. browser_snapshot returns up to 40000 characters."
     },
     "truncated": {
-      "type": "boolean"
+      "type": "boolean",
+      "description": "The structure was shortened; call browser_snapshot for the full snapshot."
     },
     "errors": {
       "type": "array",
@@ -2279,7 +2357,7 @@ Available in every model turn.
 
 Read browser
 
-Read the current real page's accessible structure, title, URL and errors. Use role/name or labels for subsequent actions; snapshot reference IDs never need to be copied.
+Read the current real page's full accessible structure (up to 40000 characters), title, URL and errors, including content omitted after actions. Use role/name or labels for subsequent actions; snapshot reference IDs never need to be copied.
 
 Owner: ragents.browser. Scope: per-turn. Native model tool: yes. Availability: always.
 
@@ -2315,10 +2393,12 @@ Available in every model turn.
       "type": "string"
     },
     "snapshot": {
-      "type": "string"
+      "type": "string",
+      "description": "Accessible page structure; actions return at most 2000 characters, 40 lines and 300 characters per line. browser_snapshot returns up to 40000 characters."
     },
     "truncated": {
-      "type": "boolean"
+      "type": "boolean",
+      "description": "The structure was shortened; call browser_snapshot for the full snapshot."
     },
     "errors": {
       "type": "array",
@@ -2378,7 +2458,7 @@ Available in every model turn.
 
 Type in browser
 
-Type text into an input or textarea chosen by accessible label or another semantic target, firing the normal input events. Returns the resulting page.
+Type text into an input or textarea chosen by accessible label or another semantic target, firing the normal input events. Returns a short page snapshot; browser_snapshot reads the full structure.
 
 Owner: ragents.browser. Scope: per-turn. Native model tool: yes. Availability: always.
 
@@ -2442,7 +2522,7 @@ Available in every model turn.
         }
       },
       "additionalProperties": false,
-      "description": "Use exactly one of role (with optional name), label, text, testId, css. Resolve semantic targets server-side; never copy snapshot element IDs. Ambiguous targets are errors naming the candidates unless nth or first selects one."
+      "description": "Use exactly one of role (with optional name), label, text, testId, css. Resolve semantic targets server-side; never copy snapshot element IDs. Zero matches fail immediately; ambiguous targets name candidates unless nth or first selects one."
     },
     "text": {
       "type": "string",
@@ -2481,10 +2561,12 @@ Available in every model turn.
       "type": "string"
     },
     "snapshot": {
-      "type": "string"
+      "type": "string",
+      "description": "Accessible page structure; actions return at most 2000 characters, 40 lines and 300 characters per line. browser_snapshot returns up to 40000 characters."
     },
     "truncated": {
-      "type": "boolean"
+      "type": "boolean",
+      "description": "The structure was shortened; call browser_snapshot for the full snapshot."
     },
     "errors": {
       "type": "array",
@@ -6408,6 +6490,34 @@ declare function FieldError({ className, children, errors, ...props }: React.Com
 export { Field, FieldLabel, FieldDescription, FieldError, FieldGroup, FieldLegend, FieldSeparator, FieldSet, FieldContent, FieldTitle, };
 ```
 
+#### apps/web/src/ui/image-preview-group.d.ts
+
+```typescript
+import { type ReactNode } from "react";
+export declare function ImagePreviewGroup({ children }: {
+    children: ReactNode;
+}): string | number | bigint | boolean | import("react").JSX.Element | Iterable<ReactNode> | Promise<string | number | bigint | boolean | import("react").ReactPortal | import("react").ReactElement<unknown, string | import("react").JSXElementConstructor<any>> | Iterable<ReactNode> | null | undefined> | null | undefined;
+```
+
+#### apps/web/src/ui/image-viewer.d.ts
+
+```typescript
+import { type ComponentProps, type RefObject } from "react";
+export interface ImageViewerProps {
+    src: string;
+    fileName: string;
+    alt?: string;
+    onClose: () => void;
+    returnFocus?: RefObject<HTMLElement | null>;
+}
+export declare function ImageViewer({ src, fileName, alt, onClose, returnFocus }: ImageViewerProps): import("react").JSX.Element;
+export interface ImagePreviewProps extends Omit<ComponentProps<"img">, "src"> {
+    src: string;
+    fileName: string;
+}
+export declare function ImagePreview({ fileName, className, alt, ...props }: ImagePreviewProps): import("react").JSX.Element;
+```
+
 #### apps/web/src/ui/index.d.ts
 
 ```typescript
@@ -6422,6 +6532,8 @@ export { DropdownMenu, DropdownMenuCheckboxItem, DropdownMenuContent, DropdownMe
 export { Empty, EmptyContent, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from "./empty";
 export { Field, FieldContent, FieldDescription, FieldError, FieldGroup, FieldLabel, FieldLegend, FieldSeparator, FieldSet, FieldTitle, } from "./field";
 export { Input } from "./input";
+export { ImagePreview, ImageViewer, type ImagePreviewProps, type ImageViewerProps } from "./image-viewer";
+export { ImagePreviewGroup } from "./image-preview-group";
 export { Label } from "./label";
 export { Popover, PopoverContent, PopoverDescription, PopoverHeader, PopoverTitle, PopoverTrigger } from "./popover";
 export { Progress, ProgressIndicator, ProgressLabel, ProgressTrack, ProgressValue } from "./progress";

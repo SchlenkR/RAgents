@@ -60,7 +60,7 @@ test("browser tools carry the Playwright MCP names, declare typed results and th
   assert.deepEqual(fields("browser_press_key"), ["key", "target"]);
   assert.deepEqual(fields("browser_resize"), ["width", "height"]);
   assert.deepEqual(fields("browser_take_screenshot"), ["label", "filename", "fullPage"]);
-  assert.deepEqual(fields("browser_check"), ["target", "text", "url", "count", "noErrors"]);
+  assert.deepEqual(fields("browser_check"), ["target", "text", "frame", "url", "count", "measure", "noErrors"]);
   const click = functions.find((entry) => entry.name === "browser_click");
   assert.deepEqual(Object.keys((click!.schema.properties as { target: { properties: object } }).target.properties), ["role", "name", "label", "text", "testId", "css", "frame", "nth", "first"]);
   for (const fn of functions) {
@@ -97,6 +97,26 @@ test("the native image display resolves the run on the server and rejects models
   ]);
   assert.equal(await handler({ ...outcome, toolName: "browser_snapshot" }, true), undefined);
   assert.equal(await handler({ ...outcome, isError: true }, true), undefined);
+});
+
+test("browser_check carries selector warnings and layout measurements through the server tool", async (t) => {
+  const folders = await foldersIn(t);
+  const stub = stubBrowser({ "/": { title: "Layout", elements: [
+    { role: "region", name: "Preview", css: ".preview", clientWidth: 100, scrollWidth: 240 },
+  ], frames: { iframe: { title: "Frame", elements: [{ role: "status", name: "Frame ready" }] } } } });
+  const { browser, executor } = localBrowser({ launch: stub.launch }, folders);
+  t.after(async () => { await browser.shutdown(); await executor.shutdown(); });
+  await browser.navigate("one", "http://localhost/");
+  const fn = createBrowserFunctions(browser).find((entry) => entry.name === "browser_check")!;
+  const scope = { caller: { runId: "one", actorId: "actor-1", turnId: "turn-1" }, signal: undefined } as unknown as ToolScope;
+  const invoke = (input: object) => fn.run(scope, "check-1", input as never);
+  const result = await invoke({ target: { css: ".preview" }, measure: true });
+  assert.equal((result as { measurement: { overflowX: number } }).measurement.overflowX, 140);
+  assert.equal((result as { warnings?: unknown }).warnings, undefined);
+  const warned = await invoke({ target: { css: ".typo" }, count: 0 });
+  assert.match((warned as { warnings: string[] }).warnings[0]!, /wrong selector/);
+  await invoke({ text: "Frame ready", frame: "iframe" });
+  assert.ok(browser.evidence("one").checkedAt);
 });
 
 test("a missing browser and missing screenshots are clear errors without artificial success", async () => {

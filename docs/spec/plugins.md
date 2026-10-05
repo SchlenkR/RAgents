@@ -700,6 +700,9 @@ the Documents view lists these results in addition to files and displays.
 The document buttons in the primary chat, in the actor conversations and inspector use the same registered tool presenter and open the Documents view.
 Its chat collection takes all loaded actor histories into account and lists the same
 tool call from the main history and an actor history only once.
+Image documents use the host's `ImagePreview`; Markdown images use `ImagePreviewGroup`.
+Clicking a preview opens the shared full-window image viewer. Text documents keep their
+"Expand document" action.
 
 The content route `GET /api/plugins/ragents.documents/runs/<runId>/raw/<reference>` serves the
 bytes of one file, text or binary, with the media type of its extension, `Cache-Control: no-store`,
@@ -1890,6 +1893,17 @@ applies to the start dialog, Settings, Help, and document dialogs, as well as
 the Back actions in narrow `ListDetail` views; otherwise the shared
 `DialogContent` shows shadcn's X at the top right. Accessible names and tooltips
 still name the respective action.
+
+`@ragents/web/ui` exports `ImageViewer`, `ImagePreview`, and `ImagePreviewGroup` as additive
+host API names; the version remains 12. `ImagePreview` takes an image source and file name;
+`ImagePreviewGroup` enhances images in rendered Markdown and chat attachments without changing
+their resolved addresses. The host's `QuasselHost` applies the group to its chats. Previews
+have a zoom-in cursor, a small magnifier on hover, and a keyboard opening action.
+`ImageViewer` uses a page dialog with the file name, focus trapping and restored trigger focus.
+Wheel and trackpad pinch zoom around the pointer; + and - zoom, 0 fits, and dragging pans an
+image that exceeds the viewport. The Fit/100 % control and double click switch between fitted
+and natural size. Escape, Close, or clicking outside the image closes it. The viewer uses host
+controls and Tailwind theme colors in light and dark mode.
 
 Mini-apps use the same components with the same look; the mini-app runtime sets
 `data-ui-surface="mini-app"` on the frame root element only as a marker for font and
@@ -4359,6 +4373,8 @@ The ARIA snapshot contains accessible roles, names, and element references; acti
 role/name, label, text, test ID, or CSS in the run's browser. Unlike upstream, `target` is
 therefore an object with these fields instead of a snapshot reference. Models copy no snapshot IDs,
 and a screenshot goes where the model names it with `filename`. An optional target iframe is chosen by CSS.
+For a pure text check, top-level `frame` chooses the iframe without inventing an element target;
+with an element target, only `target.frame` is used.
 `browser_type` replaces the field content, or with `slowly` types key by key without clearing it,
 and with `submit` presses Enter afterwards. `browser_select_option` matches each value against an
 option's value or visible label. `browser_press_key` presses on the focused element, or on
@@ -4410,17 +4426,45 @@ of the binding, where the browser runs, or under `@documents` on the server; wit
 to `@documents/browser/<id>.png`.
 
 A run's actions run in order and use Playwright wait conditions.
+Before an action or a positive target check, zero current matches fail immediately with
+`0 matches for <target>`. Text filters on an existing target can still wait for the expected text.
 Ambiguous or non-operable targets, missing browsers, and failed navigations
-report errors; for ambiguity the error names the candidates and the way out. A target
+report errors; ambiguity lists at most five candidates with their 0-based indexes and
+advises `target.nth`, `first: true`, or a more specific text or role/name target. Timeout
+errors give the actionable cause in one or two lines rather than Playwright's call log. A target
 chooses one of several matches with `nth` (0-based) or `first: true`; `browser_check`
 checks with `count` the number of visible matches of a target instead of its uniqueness
-(`0` proves absence). Pure visibility and address checks in `browser_check` wait
+(`0` checks absence). With `text`, it counts only visible matches containing that
+case-insensitive substring; `count` requires a target without `nth` or `first`.
+For `count: 0`, an unfiltered target that has never matched during checks or actions since
+navigation adds a result warning: absence can otherwise be a misspelled selector. Text filtering
+and hidden CSS matches do not cause this warning; navigation clears the observed selector history.
+Pure visibility and address checks in `browser_check` wait
 at most 5 seconds, actions the full time limit of 15 seconds.
 Console, JavaScript exceptions, and failed network responses feed into
-the check; a failed request appears only once in the error list, even if
-HTTP status, console ("Failed to load resource"), and network report it. Successful explicit assertions create a timestamp; actions
+the reported page errors; a failed request appears only once in the error list, even if
+HTTP status, console ("Failed to load resource"), and network report it. Page errors are
+informational by default (`noErrors: false`); only explicit `noErrors: true` fails a check
+on errors collected since navigation. A check needs at least one target, text, address,
+or explicit no-errors assertion. Results name passed assertions without repeating the
+input and report at most five page errors, each limited to 300 characters, followed by
+the number omitted. Successful explicit assertions create a timestamp; actions
 and navigation discard it; new errors stay visible in the run's error list without
 discarding the check. A screenshot alone is not a successful test.
+
+With `target` and `measure: true`, `browser_check` also returns one visible element's bounding
+box (`x`, `y`, `width`, `height`), `clientWidth`, `scrollWidth`, and `overflowX`
+(`max(0, scrollWidth - clientWidth)`). All values are CSS pixels; box coordinates are relative
+to the main viewport, including targets inside frames. Measurement cannot be combined with
+`count`; several matches need `nth` or `first`. A target such as `{ css: "html" }` measures page
+overflow; a container target reveals clipped content even when it uses `overflow: hidden`.
+These are measurements, not a claim that every child or text is unclipped.
+
+Clicking, typing, selecting, pressing keys, and resizing return a short accessible snapshot:
+at most 2000 characters, 40 lines, and 300 characters per line, with `truncated` when shortened.
+`browser_snapshot` and navigation retain the full structure up to the existing 40000-character
+limit. Resizing discards the prior check and current captures, so evidence always follows a
+check at the chosen size.
 
 By default the page runs in a viewport of 1920 x 1080 pixels (16:9, scale 1),
 so that screenshots are Full HD images without enlargement and wide interfaces such as

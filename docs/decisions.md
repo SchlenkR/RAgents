@@ -1,5 +1,32 @@
 # Decisions
 
+## 2026-10-05: Share image zoom controls and make browser assertions explicit
+
+Chapter: `spec/plugins.md` (Documents, shared UI, Browser checks); usage: `usage.md`
+(Run chat and inspection, Open and stop services and background processes).
+
+Images in Documents, Markdown, and chat attachments open the same accessible full-window
+viewer with pointer-centered zoom, panning, fit/100 %, and keyboard controls. The host exports
+`ImageViewer`, `ImagePreview`, and `ImagePreviewGroup` through `@ragents/web/ui` so plugins
+reuse the behavior. These are additive names; host API 12 stays unchanged.
+
+`browser_check` allows `count` with `text` to count visible matches containing the text.
+`noErrors` now defaults to false: an unrelated logo 404 should not defeat a functional
+assertion. Explicit `noErrors: true` retains the clean-page assertion, while page errors
+remain bounded information in results. Ambiguous actions give candidates and selection
+guidance, and timeout failures give a short actionable cause instead of a Playwright dump.
+
+Pure text assertions can select an iframe with top-level `frame`. Missing targets fail before
+Playwright waiting with `0 matches for <target>`. Zero-count checks warn when the unfiltered
+selector has never matched during checks or actions since navigation, so a typo is not silent
+absence evidence. Positive observations survive actions and reset on navigation.
+
+`measure: true` adds one target's bounding box, client/scroll widths and horizontal overflow
+to a check result, making clipped containers and responsive widths observable without a page dump.
+Action and resize snapshots are capped at 2000 characters, 40 lines and 300 characters per line;
+explicit `browser_snapshot` retains the 40000-character limit. Resize invalidates prior evidence
+because a passed check at one width cannot prove the layout at another width.
+
 ## 2026-10-05: Compact during turns and reject image reads without image input
 
 Chapters: `spec/core.md` (Retries and compaction), `spec/plugins.md` (Agent runtime hooks;
@@ -19,6 +46,7 @@ Native `read` now presents image pixels through the workspace hook and returns a
 to a text-only model. Reads are isolated by run, actor, and call, including parallel calls and
 workstation reads. Hooks also apply to the global coordinator so its tools enforce the same image
 capability check. Text reads and TypeScript file access keep their existing result contracts.
+
 
 ## 2026-10-05: Deploy an unpublished host with its workstation package
 
