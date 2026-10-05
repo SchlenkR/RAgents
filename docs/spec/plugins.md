@@ -1858,6 +1858,8 @@ Each sets size in `rem`, line height, weight, and letter spacing; `leading-*`, `
 `text-<name>` for a text color and drops it next to `text-muted-foreground` or `text-destructive`.
 Text on Start, Runs, Server, in their dialogs, on the template tiles, and in the run header uses
 these roles; controls such as buttons, inputs, and dialog titles keep the library's size scale.
+`type-prose` styles rendered Markdown that a plugin draws itself: headings in four clearly
+distinct steps, lists, tables with a muted first column, code, quotes, and framed images.
 `tailwind.css` is the host entry point with preflight; `frame.css` the entry point of the mini-app frames.
 Both include `quassel.css` after the host's utilities: the precompiled stylesheet
 of the chat building blocks `quassel/chat.css` (classes with prefix `qsl:`, variables `--qsl-*`) and the

@@ -1,5 +1,14 @@
 # Decisions
 
+## 2026-10-05: A shared prose style for rendered Markdown
+
+Chapter: `spec/plugins.md` (Web as plugin host, UI library).
+
+Plugin views that render Markdown themselves styled headings with ad hoc classes, and below the
+second level headings looked like body text. `type-prose` gives them one hierarchy: a large first
+heading, a ruled section heading, a semibold subheading, and an uppercase muted label for deeper
+levels, plus lists, tables, code, quotes, and images.
+
 ## 2026-10-05: Keep every run header action directly reachable
 
 Chapter: `spec/plugins.md` (Web as plugin host, Run panel); usage: `usage.md`
