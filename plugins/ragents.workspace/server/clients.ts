@@ -195,7 +195,8 @@ export class WorkspaceClientRegistry {
   }
 
   /** The executor of a bound run: the same interface as in the server, only through the connection of its owner's workstation. */
-  executorFor(owner: string | null, id: string, label: string, cwd: string): WorkspaceExecutor {
+  executorFor(owner: string | null, id: string, label: string, cwd: string,
+    browserNetworkFor?: (runId: string) => WorkspaceExecuteOptions["browserNetwork"]): WorkspaceExecutor {
     const key = keyOf(owner, id);
     const call = async (runId: string, operation: string, input: unknown, options: WorkspaceExecuteOptions): Promise<unknown> => {
       if (options.untilAborted && !options.signal) throw new Error(`The operation ${operation} runs until aborted and needs an abort signal for that`);
@@ -210,7 +211,10 @@ export class WorkspaceClientRegistry {
         throw new DomainError("workspace-client-disconnected", `The workstation ${label} is not connected.`, 409);
       }
       try {
-        return await this.#send(entry, runId, operation, input, cwd, options);
+        return await this.#send(entry, runId, operation, input, cwd, {
+          ...options,
+          browserNetwork: browserNetworkFor?.(runId),
+        });
       } catch (cause) {
         if (options.whenReachable && unreached(cause)) return null;
         throw cause;
@@ -288,6 +292,7 @@ export class WorkspaceClientRegistry {
             ...(options.toolCallId ? { toolCallId: options.toolCallId } : {}),
             cwd,
             env: sandboxRunEnvironment(runId),
+            ...(options.browserNetwork ? { browserNetwork: { allowedOrigins: [...options.browserNetwork.allowedOrigins] } } : {}),
             input,
           },
           {

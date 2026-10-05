@@ -171,6 +171,7 @@ const serverFixture = async (t: TestContext, { resolver, skills = [], contributi
     skillPaths: async () => skills,
     resolver: () => resolver,
     runState,
+    administratorFor: () => false,
     storeBinding: () => { throw new Error("The test does not rebind"); },
     clients: registry,
     contributions: contributions.map((contribution) => contribution.parts),

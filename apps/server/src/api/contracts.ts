@@ -186,8 +186,8 @@ export const coreContracts = {
     }),
     import: defineOperation({
       id: "ragents.runs.import",
-      description: "Accept a run archive, replay its journal and open the run stopped. Rights: runs.read, runs.write and runs.create.",
-      rights: ["runs.read", "runs.write", "runs.create"],
+      description: "Accept a run archive, replay its journal and open the run stopped. Requires administrator access (*).",
+      rights: ["*"],
       input: Type.Object({
         archive: Type.String({ minLength: 1, description: "The export's tar.gz as Base64" }),
         workspacePath: Type.Optional(Type.String({ minLength: 1, description: "Replacement folder on this server for a run with binding path" })),

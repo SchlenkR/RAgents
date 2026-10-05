@@ -5,7 +5,7 @@ import { type Static, Type } from "typebox";
 import type { ToolDefinition } from "../tool-definition.ts";
 import { applyEditToNormalizedContent, detectLineEnding, editOutcome, normalizeToLF, restoreLineEndings, stripBom } from "./edit-diff.ts";
 import { withFileMutationQueue } from "./file-mutation-queue.ts";
-import { resolveToCwd } from "./path-utils.ts";
+import { resolveToCwd, type FilePathResolver } from "./path-utils.ts";
 
 const editSchema = Type.Object(
 	{
@@ -47,6 +47,7 @@ const defaultEditOperations: EditOperations = {
 export interface EditToolOptions {
 	/** Custom operations for file editing. Default: local filesystem */
 	operations?: EditOperations;
+	resolvePath?: FilePathResolver;
 }
 
 const missingFile = (error: unknown): boolean => (error as NodeJS.ErrnoException | undefined)?.code === "ENOENT";
@@ -61,6 +62,7 @@ export function createEditToolDefinition(
 	options?: EditToolOptions,
 ): ToolDefinition<typeof editSchema, EditToolDetails> {
 	const ops = options?.operations ?? defaultEditOperations;
+	const resolvePath = options?.resolvePath ?? resolveToCwd;
 	return {
 		name: "edit",
 		label: "edit",
@@ -74,7 +76,7 @@ export function createEditToolDefinition(
 			if (old_string === new_string) {
 				throw new Error("No changes to make: old_string and new_string are exactly the same.");
 			}
-			const absolutePath = resolveToCwd(file_path, cwd);
+			const absolutePath = await resolvePath(file_path, cwd);
 
 			return withFileMutationQueue(absolutePath, async () => {
 				// An abort listener must not reject here: that would release the queue while a file operation still runs.

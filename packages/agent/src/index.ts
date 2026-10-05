@@ -36,6 +36,7 @@ export {
 	createWriteToolDefinition,
 	editApplies,
 } from "./core/tools/index.ts";
+export { resolveReadPathAsync, resolveToCwd, type FilePathResolver } from "./core/tools/path-utils.ts";
 export {
 	Agent,
 	type AgentEvent,

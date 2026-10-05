@@ -7,6 +7,8 @@ import {
   executorContributionsToken,
   hostAddressToken,
   runtimeProviderToken,
+  runOwnerAccessToken,
+  userAccessToken,
   runGuardToken,
   runWorkspaceProviderToken,
   workspaceGuardToken,
@@ -20,16 +22,14 @@ import { shellPlatformPrompt } from "./shell-platform.js";
 import { agentWorkspaceToolNames } from "./workspace-tool-naming.js";
 import { startOptionScope } from "@ragents/host/ragents/start-option-state.js";
 import { WORKSPACE_BINDING_OPTION_ID, WORKSPACE_METADATA_ID, type WorkspaceSessionMetadata } from "../contract.js";
+import { runSecurityPolicyToken } from "./contract.js";
 import { bindingOf, currentBindingOf, executorShellChapter, sessionMetadataOf, workspaceBindingOption, workspaceListDetail, workspaceLocation, workspaceOwnerOf } from "./binding.js";
 import { createBrowseChannel, createBrowseMethods } from "./browse-route.js";
 import { clientMethods, WorkspaceClientRegistry } from "./clients.js";
 import { createCopyTool } from "./copy-tool.js";
 import { bashSetting, bashTimeoutSetting, PROCESS_SANDBOX_OFF, processSandboxSetting, rgSetting, workspaceConfigDescriptors } from "./config.js";
 import { RunWorkspaceRuntime } from "./runtime.js";
-
-const warnWithoutSandbox = (): void => {
-  console.warn(`Process sandbox turned off (${PROCESS_SANDBOX_OFF}): run processes run on the server without a sandbox.`);
-};
+import { sandboxStartOption, securityPolicyFor } from "./security.js";
 
 const ragentsWorkspacePlugin = (skillPaths: () => Promise<readonly string[]>): RAgentsPlugin => ({
   manifest: { id: "ragents.workspace" },
@@ -56,15 +56,31 @@ const ragentsWorkspacePlugin = (skillPaths: () => Promise<readonly string[]>): R
     const contribution = (): WorkspaceResolver | undefined => host.optionalService(workspaceResolverToken);
     host.config(...workspaceConfigDescriptors);
     const sandboxSetting = processSandboxSetting();
+    const ownerAccess = host.service(runOwnerAccessToken);
+    const userAccess = host.service(userAccessToken);
+    const securityFor = (runId: string) => {
+      const state = runState(runId);
+      return securityPolicyFor(sandboxSetting.enabled, state ? ownerAccess(runId) : userAccess(null), state);
+    };
+    host.provide(runSecurityPolicyToken, securityFor);
     const serverAddress = host.service(hostAddressToken);
-    const processSandbox = sandboxSetting.enabled
-      ? new ServerProcessSandbox({
-        network: sandboxSetting.network,
-        serverAddress: serverAddress(),
-        dataDirectory: path.dirname(host.storage.sessionsRoot),
-        disableSetting: PROCESS_SANDBOX_OFF,
-      })
-      : undefined;
+    let startedSandbox: Promise<ServerProcessSandbox> | undefined;
+    const startSandbox = (): Promise<ServerProcessSandbox> => {
+      if (startedSandbox) return startedSandbox;
+      const pending = (async () => {
+        const sandbox = new ServerProcessSandbox({
+          network: sandboxSetting.network,
+          serverAddress: serverAddress(),
+          dataDirectory: path.dirname(host.storage.sessionsRoot),
+          disableSetting: PROCESS_SANDBOX_OFF,
+        });
+        await sandbox.start();
+        return sandbox;
+      })();
+      startedSandbox = pending;
+      void pending.catch(() => { if (startedSandbox === pending) startedSandbox = undefined; });
+      return pending;
+    };
     const bash = bashSetting();
     const rg = rgSetting();
     const bashTimeoutSeconds = bashTimeoutSetting();
@@ -72,7 +88,8 @@ const ragentsWorkspacePlugin = (skillPaths: () => Promise<readonly string[]>): R
     const runtime = new RunWorkspaceRuntime({
       clients,
       contributions: contributions.map((contribution) => contribution.parts),
-      ...(processSandbox ? { processSandbox } : {}),
+      processSandboxFor: (runId) => securityFor(runId).restricted ? startSandbox() : Promise.resolve(undefined),
+      restrictedFor: (runId) => securityFor(runId).restricted,
       ...(bash === undefined ? {} : { bash }),
       ...(rg === undefined ? {} : { rg }),
       ...(bashTimeoutSeconds === undefined ? {} : { bashTimeoutSeconds }),
@@ -85,6 +102,7 @@ const ragentsWorkspacePlugin = (skillPaths: () => Promise<readonly string[]>): R
       skillPaths,
       resolver: contribution,
       runState,
+      administratorFor: (runId) => ownerAccess(runId).can("*"),
       storeBinding: (runId, binding) => {
         const state = orchestration().state(runId);
         orchestration().replacePluginState(
@@ -123,7 +141,7 @@ const ragentsWorkspacePlugin = (skillPaths: () => Promise<readonly string[]>): R
       ...clientMethods(clients, (signIn) => runtime.resumeBackgroundTasks(orchestration(), signIn)),
     );
     host.channels(createBrowseChannel(browseOptions));
-    host.startOptions(workspaceBindingOption(clients, contribution));
+    host.startOptions(workspaceBindingOption(clients, contribution, userAccess), sandboxStartOption(sandboxSetting.enabled, userAccess, runState));
     host.sessionMetadata({
       id: WORKSPACE_METADATA_ID,
       describe: ({ runId }) => sessionMetadataOf(currentBindingOf(clients, runState(runId)), contribution()),
@@ -132,12 +150,16 @@ const ragentsWorkspacePlugin = (skillPaths: () => Promise<readonly string[]>): R
     });
     host.lifecycle({
       id: "ragents.workspace.lifecycle",
-      initialize: () => processSandbox ? processSandbox.start() : warnWithoutSandbox(),
+      initialize: async () => {
+        if (sandboxSetting.enabled) await startSandbox();
+      },
       stopSession: ({ runId }) => runtime.stopSession(runId),
       deleteSession: ({ runId }) => runtime.deleteSession(runId),
       shutdown: async () => {
         await runtime.shutdown();
-        await processSandbox?.stop();
+        const pending = startedSandbox;
+        startedSandbox = undefined;
+        await pending?.then((sandbox) => sandbox.stop(), () => undefined);
       },
     });
   },

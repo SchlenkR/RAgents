@@ -6,7 +6,7 @@ import { type Static, Type } from "typebox";
 import { processImage } from "../../utils/image-process.ts";
 import { detectSupportedImageMimeTypeFromFile } from "../../utils/mime.ts";
 import type { ToolDefinition } from "../tool-definition.ts";
-import { resolveReadPathAsync } from "./path-utils.ts";
+import { resolveReadPathAsync, type FilePathResolver } from "./path-utils.ts";
 import { DEFAULT_MAX_BYTES, DEFAULT_MAX_LINES, formatSize, truncateHead } from "./truncate.ts";
 
 export const READ_MAX_LINE_CHARS = 2000;
@@ -59,6 +59,7 @@ export interface ReadToolOptions {
 	autoResizeImages?: boolean;
 	/** Custom operations for file reading. Default: local filesystem */
 	operations?: ReadOperations;
+	resolvePath?: FilePathResolver;
 }
 
 /** The lines of a text; a final line break ends the last line instead of starting an empty one. */
@@ -94,6 +95,7 @@ export function createReadToolDefinition(
 ): ToolDefinition<typeof readSchema, ReadToolDetails> {
 	const autoResizeImages = options?.autoResizeImages ?? true;
 	const ops = options?.operations ?? defaultReadOperations;
+	const resolvePath = options?.resolvePath ?? resolveReadPathAsync;
 	return {
 		name: "read",
 		label: "read",
@@ -123,7 +125,7 @@ export function createReadToolDefinition(
 
 					(async () => {
 						try {
-							const absolutePath = await resolveReadPathAsync(file_path, cwd);
+							const absolutePath = await resolvePath(file_path, cwd);
 							if (aborted) return;
 							await ops.access(absolutePath);
 							if (aborted) return;

@@ -1,13 +1,14 @@
 import type { UnreportedBackgroundTask } from "./background-tasks.js";
-import type { WorkspaceProcessContext } from "./context.js";
+import type { BrowserNetworkPolicy, WorkspaceProcessContext } from "./context.js";
 import { WorkspaceOperationError } from "./errors.js";
 import type { WorkspaceExecutorModule, WorkspaceModuleFactory, WorkspaceOperation } from "./module.js";
 import { NO_ROOTS, type OperationFootprint } from "./paths.js";
 
 /** The version of the executor; server and workspace must carry the same one. */
-export const WORKSPACE_EXECUTOR_VERSION = "13";
+export const WORKSPACE_EXECUTOR_VERSION = "14";
 
 export interface WorkspaceExecuteOptions {
+  browserNetwork?: BrowserNetworkPolicy;
   toolCallId?: string;
   signal?: AbortSignal;
   /** Receives the progress of the operation as a JSON value. */

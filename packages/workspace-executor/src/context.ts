@@ -5,6 +5,10 @@ import { inheritedProcessEnvironment, safeProcessEnvironment } from "./safe-envi
 import type { SessionIdent } from "./session-ident.js";
 import type { ResolvedWorkspaceRoot } from "./paths.js";
 
+export interface BrowserNetworkPolicy {
+  readonly allowedOrigins: readonly string[];
+}
+
 /** What an executor knows about a run: its folders, its environment and its id. */
 export interface WorkspaceProcessContext {
   runId: string;
@@ -25,6 +29,7 @@ export interface WorkspaceProcessContext {
   runOperation?: <T>(operation: () => Promise<T>) => Promise<T>;
   /** The process sandbox of this run; if it is missing, processes start without one. */
   sandbox?: ProcessSandbox;
+  browserNetwork?: BrowserNetworkPolicy;
   /** The bash the bash tool starts with; required on Windows, otherwise the system's one applies without a value. */
   bash?: string;
   /** The rg whose folder the bash tool has at the front of PATH; without a value one in PATH applies, if there is one. */
@@ -102,6 +107,7 @@ export interface WorkspaceContextOptions {
   additions?: Readonly<Record<string, string>>;
   runOperation?: <T>(operation: () => Promise<T>) => Promise<T>;
   sandbox?: ProcessSandbox;
+  browserNetwork?: BrowserNetworkPolicy;
   source?: NodeJS.ProcessEnv;
   baseEnvironment?: BaseEnvironment;
   bash?: string;
@@ -153,6 +159,7 @@ export const workspaceProcessContext = (options: WorkspaceContextOptions): Works
     pathVariables,
     ...(options.runOperation === undefined ? {} : { runOperation: options.runOperation }),
     ...(options.sandbox === undefined ? {} : { sandbox: options.sandbox }),
+    ...(options.browserNetwork === undefined ? {} : { browserNetwork: options.browserNetwork }),
     ...(options.bash === undefined ? {} : { bash: options.bash }),
     ...(options.rg === undefined ? {} : { rg: options.rg }),
   };

@@ -255,9 +255,11 @@
       "executorContributionsToken",
       "hostAddressToken",
       "runGuardToken",
+      "runOwnerAccessToken",
       "runWorkspaceProviderToken",
       "runtimeProviderToken",
       "secretEnvNamesToken",
+      "userAccessToken",
       "workspaceGuardToken"
     ],
     "@ragents/host/ragents/product-runtime": [
@@ -290,6 +292,7 @@
       "RUN_MARKER_ENV",
       "TUNNEL_PING_INTERVAL_MS",
       "WORKSPACE_EXECUTOR_VERSION",
+      "allowedWorkspacePath",
       "bytesOf",
       "languageServerOpenOperation",
       "languageServerSolutionsOperation",

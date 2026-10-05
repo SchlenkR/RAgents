@@ -262,6 +262,7 @@ browsers are not transferred; they are recreated on the target when next used.
 
 The transfer enforces these prerequisites:
 
+- The target requires administrator access (`*`); the source requires `runs.read` and `runs.inspect`.
 - Both servers use the same host version and workspace executor. There is no override.
 - The run is stopped, with no active turn or waiting input.
 - Its ID is unused on the target. An existing run, folder, or archive entry rejects the import.
@@ -311,9 +312,10 @@ The local host and workspace also run on Windows. Requirements are:
   Git Bash.
 - The **.NET SDK** is required when the profile includes Roslyn or FSAC. Provisioning downloads
   the language servers; the TypeScript server comes from the host directory.
-- A **server** on Windows has no process sandbox. Its profile file must switch it off explicitly
-  with `PROCESS_SANDBOX: "off"` in the `ragents.workspace` section, otherwise startup fails. A
-  Windows workstation connected to a server needs nothing, because the sandbox applies only to
+- A **server** on Windows has no process sandbox. `PROCESS_SANDBOX: "auto"` (the default)
+  permits unrestricted administrator runs, but execution that requires a sandbox fails.
+  `PROCESS_SANDBOX: "on"` fails at startup. A Windows workstation connected to a server
+  needs nothing for server process isolation, because the sandbox applies only to
   the server.
 
 The data directory is `%LOCALAPPDATA%\ragents\<profile>` and server-provided profiles use
@@ -339,14 +341,21 @@ unit tests that simulate the platform. A first real run should verify `pnpm conn
 Credential Manager and over SSH.
 ## Server process sandbox
 
-What a run starts on the server (Bash, commands, language servers, TypeScript snippets, actor
-programs) runs in a process sandbox: it reads and writes only the folders of its run, sees
+What a restricted run starts on the server (Bash, commands, language servers, TypeScript snippets,
+actor programs) runs in a process sandbox: it reads and writes only the permitted folders of its run, sees
 neither other runs nor the home of the server account, and can reach public web domains by
 default. Rules and limits are in [plugins.md](../spec/plugins.md) under "Server process sandbox". It
 does not apply on a workstation; there the run works with the developer's Bash and credentials.
 Only what such a run starts on the server, such as a Bash in `@actors`, runs inside it.
 
-Prerequisites that startup checks:
+Nonadministrators always get this protection. Administrators keep unrestricted execution by
+default and can select "Sandbox protection" before starting a run. A server can force it for
+everyone with `PROCESS_SANDBOX: "on"`. The setting is fixed after the start and follows the
+run's owner, including when someone else operates a shared run. Existing server folders can
+only be bound by administrators; nonadministrators use a new folder per run or their own
+workstation. Restricted runs have their own NuGet cache.
+
+The first restricted execution checks these prerequisites; `"on"` checks them at startup:
 
 - **macOS**: nothing extra, `sandbox-exec` is part of the system.
 - **Linux**: `bubblewrap`, `socat`, and `ripgrep` (Debian and Ubuntu:
@@ -357,10 +366,11 @@ Prerequisites that startup checks:
   verified with `--security-opt seccomp=unconfined --security-opt apparmor=unconfined --security-opt
   systempaths=unconfined` (in Compose `security_opt`) and a non-root user in the container;
   `--privileged` works too, but grants more than necessary.
-- **Windows**: no sandbox. Startup aborts as long as the profile file does not explicitly switch
-  it off.
+- **Windows**: no sandbox. A restricted server operation fails; `"on"` aborts startup.
 
-The profile file controls it in the `ragents.workspace` section:
+The profile file controls it in the `ragents.workspace` section. `"auto"` is the default;
+`"on"` forces protection for all runs. The legacy `"off"` allows administrator runs to be
+unrestricted but cannot disable protection for nonadministrators.
 
 ```ts
 "ragents.workspace": {
@@ -375,6 +385,23 @@ website. IP literals, localhost and internal services need explicit entries, for
 The server's own address is always allowed. A list such as `["registry.npmjs.org", "*.example.com"]`
 restricts access to those targets; `[]` leaves only the own server reachable. Network permission
 does not distinguish downloads from uploads or destructive API calls. File isolation remains
-active. `PROCESS_SANDBOX: "off"` explicitly disables the whole sandbox, for example on Windows.
+active for restricted runs. If isolation cannot be initialized, their execution fails with a
+cause instead of starting without protection.
 On macOS, pnpm through corepack needs a `packageManager` in the workspace's
 `package.json`, because corepack otherwise aborts at a blocked folder above it.
+
+The browser check has a separate network policy for protected runs. It reaches public
+websites on ports 80 and 443; local or internal applications require exact permitted
+origins in the browser section, independently of the process-network list:
+
+```ts
+"ragents.browser": {
+  BROWSER_ALLOWED_ORIGINS: ["http://127.0.0.1:8080"],
+},
+```
+
+An origin contains only scheme, hostname, and optional port. Use only the services these
+users need; the allowance also applies when their browser check runs on a workstation.
+Redirects, embedded requests, and WebSockets follow the same policy. Without an allowance,
+local and internal targets fail instead of bypassing it. Administrators' unrestricted runs
+keep ordinary browser network access.

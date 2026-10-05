@@ -26,7 +26,12 @@ import { httpFixture } from "./fixtures/mcp/http.mjs";
 
 const root = path.resolve(import.meta.dirname, "../../..");
 const directory = await mkdtemp(path.join(tmpdir(), "ragents-acp-server-"));
+const fixtureUsers = [
+  { id: "alice", label: "User", rights: ["*"] },
+  { id: "bob", label: "Other user", rights: ["runs.read", "runs.write", "runs.create", "runs.inspect", "ragents.workspace.read", "ragents.workspace.write", "ragents.mcp.read"] },
+];
 const environment = { DATA_DIR: path.join(directory, "data"), PRODUCT_PROFILE: "core", PRODUCT_ID: "test-acp", PRODUCT_TITLE: "ACP fixture",
+  PRODUCT_PROFILE_FILE: path.join(directory, "ragents.config.core.ts"),
   PROCESS_SANDBOX: "off", COMPACTION_MODEL: "", MODEL_ALIASES: undefined, MODEL_PROVIDERS: undefined, MCP_SERVERS: undefined, ACCESS_TOKEN: undefined };
 const previous = new Map(Object.keys(environment).map((key) => [key, process.env[key]]));
 for (const [key, value] of Object.entries(environment)) { if (value === undefined) delete process.env[key]; else process.env[key] = value; }
@@ -34,6 +39,9 @@ after(async () => {
   for (const [key, value] of previous) { if (value === undefined) delete process.env[key]; else process.env[key] = value; }
   await rm(directory, { recursive: true, force: true });
 });
+await writeFile(environment.PRODUCT_PROFILE_FILE, `export const config = {};\nexport const users = ${JSON.stringify(fixtureUsers.map((user) => ({ ...user, password: "fixture-password" })))};\n`);
+const { loadConfigFile } = await import("../src/config-file.ts");
+await loadConfigFile(directory);
 
 const until = async (test: () => boolean | Promise<boolean>, label: string): Promise<void> => {
   const deadline = Date.now() + 15_000;
@@ -86,9 +94,8 @@ const fixture = async (t: TestContext) => {
   provider.plugins.channels.register("host", coreChannels(sources));
   const transport = new RpcHttpTransport({ dispatcher: new RpcDispatcher({ methods: provider.plugins.methods, channels: provider.plugins.channels,
     assertRunReachable: (access, runId, operates) => assertRunAccess(access, runId, operates, policy) }) });
-  const access = createAccessContext({ enabled: true, user: { id: "alice", label: "User", rights: ["*"] } });
-  const otherAccess = createAccessContext({ enabled: true, user: { id: "bob", label: "Other user",
-    rights: ["runs.read", "runs.write", "runs.create", "runs.inspect", "ragents.workspace.read", "ragents.workspace.write", "ragents.mcp.read"] } });
+  const access = createAccessContext({ enabled: true, user: fixtureUsers[0]! });
+  const otherAccess = createAccessContext({ enabled: true, user: fixtureUsers[1]! });
   const attachments = attachmentContentRoute(provider, policy);
   const server = createServer((request, response) => {
     void (async () => {

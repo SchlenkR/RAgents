@@ -30,7 +30,7 @@ import {
   boundServerDirectory,
   currentBindingOf,
   isWorkstationBinding,
-  serverDirectoryFolder,
+  permittedServerDirectory,
   workspaceOwnerOf,
   type WorkstationBinding,
 } from "./binding.js";
@@ -47,12 +47,15 @@ export interface RunWorkspaceRuntimeOptions {
   resolver: () => WorkspaceResolver | undefined;
   /** null only if this server's journal has no run with the ID; a locked journal throws. */
   runState: (runId: string) => RunState | null;
+  administratorFor: (runId: string) => boolean;
   storeBinding: (runId: string, binding: WorkspaceBinding) => void;
   clients: WorkspaceClientRegistry;
   /** What the profile's plugins contribute to the server's executor; the workstations load the same contributions themselves. */
   contributions: readonly WorkspaceExecutorParts[];
   /** The server's process sandbox; without it, the server's processes run without one. */
   processSandbox?: RunProcessSandboxes;
+  processSandboxFor?: (runId: string) => Promise<RunProcessSandboxes | undefined>;
+  restrictedFor?: (runId: string) => boolean;
   /** The server's bash from RAGENTS_BASH; required on Windows for the bash tool. */
   bash?: string;
   /** The server's rg from RAGENTS_RG; without a value, one in the PATH applies. */
@@ -148,8 +151,8 @@ export class RunWorkspaceRuntime implements WorkspaceRuntime {
     this.#options = options;
     this.transfer = {
       boundDirectory: (runId) => boundServerDirectory(options.runState(runId)),
-      assertDirectory: (directory) => void serverDirectoryFolder(directory),
-      rebind: (runId, directory) => options.storeBinding(runId, { machine: "server", folder: serverDirectoryFolder(directory) }),
+      assertDirectory: (directory) => void permittedServerDirectory(directory, options.resolver()),
+      rebind: (runId, directory) => options.storeBinding(runId, { machine: "server", folder: permittedServerDirectory(directory, options.resolver()) }),
     };
     this.#nugetCacheDirectory = path.join(options.globalDirectory, "nuget-cache");
     this.sandbox = new WorkspaceSandboxHost({
@@ -163,6 +166,8 @@ export class RunWorkspaceRuntime implements WorkspaceRuntime {
       executorFor: (runId) => Promise.resolve(this.#executorFor(runId)),
       serverDirectoryFor: (runId) => this.#serverDirectoryFor(runId),
       ...(options.processSandbox ? { processSandbox: options.processSandbox } : {}),
+      ...(options.processSandboxFor ? { processSandboxFor: options.processSandboxFor } : {}),
+      ...(options.restrictedFor ? { restrictedFor: options.restrictedFor } : {}),
       ...(options.bash === undefined ? {} : { bash: options.bash }),
       ...(options.rg === undefined ? {} : { rg: options.rg }),
       ...(options.bashTimeoutSeconds === undefined ? {} : { bashTimeoutSeconds: options.bashTimeoutSeconds }),
@@ -180,8 +185,11 @@ export class RunWorkspaceRuntime implements WorkspaceRuntime {
   async #homeFor(runId: string): Promise<SandboxHomeEnvironment> {
     const home = this.#options.sessionDirectory(runId, "home");
     await mkdir(home, { recursive: true });
-    await mkdir(this.#nugetCacheDirectory, { recursive: true });
-    return { home, nugetPackages: this.#nugetCacheDirectory };
+    const nugetPackages = this.#options.restrictedFor?.(runId)
+      ? path.join(home, ".nuget", "packages")
+      : this.#nugetCacheDirectory;
+    await mkdir(nugetPackages, { recursive: true });
+    return { home, nugetPackages };
   }
 
   /** A signed-in workstation names its background commands whose end no server has learned, such as after a restart of this one; the server observes each one of a run bound to it again, for the actor that started it, and stops those of runs it does not have. */
@@ -236,7 +244,8 @@ export class RunWorkspaceRuntime implements WorkspaceRuntime {
     const binding = bindingOf(state);
     if (!isWorkstationBinding(binding)) return undefined;
     const { machine, folder } = binding;
-    const executor = this.#options.clients.executorFor(workspaceOwnerOf(state), machine.client, machine.label, folder.path);
+    const executor = this.#options.clients.executorFor(workspaceOwnerOf(state), machine.client, machine.label, folder.path,
+      (id) => this.sandbox.browserNetworkFor(id));
     return "fresh" in folder ? this.#preparing(state, binding, executor) : executor;
   }
 
@@ -289,6 +298,9 @@ export class RunWorkspaceRuntime implements WorkspaceRuntime {
   }
 
   async resolve(runId: string, emitSystem: (text: string) => void): Promise<SessionWorkspace> {
+    if (boundServerDirectory(this.#options.runState(runId)) && !this.#options.administratorFor(runId)) {
+      throw new DomainError("workspace-server-folder-admin", "Only administrators may bind an existing folder on the server.", 403);
+    }
     const state = this.#options.runState(runId);
     if (!state) throw runNotStarted();
     const binding = bindingOf(state);

@@ -374,6 +374,7 @@ run keeps its binding to that workstation. Running processes, language servers, 
 browsers are not transferred; they are recreated on the target when next used.</p>
 <p>The transfer enforces these prerequisites:</p>
 <ul>
+<li>The target requires administrator access (<code>*</code>); the source requires <code>runs.read</code> and <code>runs.inspect</code>.</li>
 <li>Both servers use the same host version and workspace executor. There is no override.</li>
 <li>The run is stopped, with no active turn or waiting input.</li>
 <li>Its ID is unused on the target. An existing run, folder, or archive entry rejects the import.</li>
@@ -421,9 +422,10 @@ dependencies enabled. A checkout uses the extension build from <code>pnpm bundle
 Git Bash.</li>
 <li>The <strong>.NET SDK</strong> is required when the profile includes Roslyn or FSAC. Provisioning downloads
 the language servers; the TypeScript server comes from the host directory.</li>
-<li>A <strong>server</strong> on Windows has no process sandbox. Its profile file must switch it off explicitly
-with <code>PROCESS_SANDBOX: &quot;off&quot;</code> in the <code>ragents.workspace</code> section, otherwise startup fails. A
-Windows workstation connected to a server needs nothing, because the sandbox applies only to
+<li>A <strong>server</strong> on Windows has no process sandbox. <code>PROCESS_SANDBOX: &quot;auto&quot;</code> (the default)
+permits unrestricted administrator runs, but execution that requires a sandbox fails.
+<code>PROCESS_SANDBOX: &quot;on&quot;</code> fails at startup. A Windows workstation connected to a server
+needs nothing for server process isolation, because the sandbox applies only to
 the server.</li>
 </ul>
 <p>The data directory is <code>%LOCALAPPDATA%\ragents\&lt;profile&gt;</code> and server-provided profiles use
@@ -446,13 +448,19 @@ unit tests that simulate the platform. A first real run should verify <code>pnpm
 <code>pnpm workspace-client</code>, and with the bundled bash <code>git fetch</code> and <code>git push</code> over HTTPS with Git
 Credential Manager and over SSH.</p>
 <h2 id="server-process-sandbox">Server process sandbox</h2>
-<p>What a run starts on the server (Bash, commands, language servers, TypeScript snippets, actor
-programs) runs in a process sandbox: it reads and writes only the folders of its run, sees
+<p>What a restricted run starts on the server (Bash, commands, language servers, TypeScript snippets,
+actor programs) runs in a process sandbox: it reads and writes only the permitted folders of its run, sees
 neither other runs nor the home of the server account, and can reach public web domains by
 default. Rules and limits are in <a href="../spec/plugins.md">plugins.md</a> under &quot;Server process sandbox&quot;. It
 does not apply on a workstation; there the run works with the developer&#39;s Bash and credentials.
 Only what such a run starts on the server, such as a Bash in <code>@actors</code>, runs inside it.</p>
-<p>Prerequisites that startup checks:</p>
+<p>Nonadministrators always get this protection. Administrators keep unrestricted execution by
+default and can select &quot;Sandbox protection&quot; before starting a run. A server can force it for
+everyone with <code>PROCESS_SANDBOX: &quot;on&quot;</code>. The setting is fixed after the start and follows the
+run&#39;s owner, including when someone else operates a shared run. Existing server folders can
+only be bound by administrators; nonadministrators use a new folder per run or their own
+workstation. Restricted runs have their own NuGet cache.</p>
+<p>The first restricted execution checks these prerequisites; <code>&quot;on&quot;</code> checks them at startup:</p>
 <ul>
 <li><strong>macOS</strong>: nothing extra, <code>sandbox-exec</code> is part of the system.</li>
 <li><strong>Linux</strong>: <code>bubblewrap</code>, <code>socat</code>, and <code>ripgrep</code> (Debian and Ubuntu:
@@ -462,10 +470,11 @@ If the server runs as root, it needs <code>CAP_SETFCAP</code>; it is better to r
 <li><strong>Linux in a container</strong>: Docker&#39;s default profile forbids the namespaces. Startup has been
 verified with <code>--security-opt seccomp=unconfined --security-opt apparmor=unconfined --security-opt systempaths=unconfined</code> (in Compose <code>security_opt</code>) and a non-root user in the container;
 <code>--privileged</code> works too, but grants more than necessary.</li>
-<li><strong>Windows</strong>: no sandbox. Startup aborts as long as the profile file does not explicitly switch
-it off.</li>
+<li><strong>Windows</strong>: no sandbox. A restricted server operation fails; <code>&quot;on&quot;</code> aborts startup.</li>
 </ul>
-<p>The profile file controls it in the <code>ragents.workspace</code> section:</p>
+<p>The profile file controls it in the <code>ragents.workspace</code> section. <code>&quot;auto&quot;</code> is the default;
+<code>&quot;on&quot;</code> forces protection for all runs. The legacy <code>&quot;off&quot;</code> allows administrator runs to be
+unrestricted but cannot disable protection for nonadministrators.</p>
 <pre><code class="language-ts">&quot;ragents.workspace&quot;: {
   PROCESS_SANDBOX: &quot;on&quot;,
   PROCESS_SANDBOX_NETWORK: [&quot;*&quot;], // public web domains on ports 80 and 443 (the default)
@@ -477,7 +486,20 @@ website. IP literals, localhost and internal services need explicit entries, for
 The server&#39;s own address is always allowed. A list such as <code>[&quot;registry.npmjs.org&quot;, &quot;*.example.com&quot;]</code>
 restricts access to those targets; <code>[]</code> leaves only the own server reachable. Network permission
 does not distinguish downloads from uploads or destructive API calls. File isolation remains
-active. <code>PROCESS_SANDBOX: &quot;off&quot;</code> explicitly disables the whole sandbox, for example on Windows.
+active for restricted runs. If isolation cannot be initialized, their execution fails with a
+cause instead of starting without protection.
 On macOS, pnpm through corepack needs a <code>packageManager</code> in the workspace&#39;s
 <code>package.json</code>, because corepack otherwise aborts at a blocked folder above it.</p>
+<p>The browser check has a separate network policy for protected runs. It reaches public
+websites on ports 80 and 443; local or internal applications require exact permitted
+origins in the browser section, independently of the process-network list:</p>
+<pre><code class="language-ts">&quot;ragents.browser&quot;: {
+  BROWSER_ALLOWED_ORIGINS: [&quot;http://127.0.0.1:8080&quot;],
+},
+</code></pre>
+<p>An origin contains only scheme, hostname, and optional port. Use only the services these
+users need; the allowance also applies when their browser check runs on a workstation.
+Redirects, embedded requests, and WebSockets follow the same policy. Without an allowance,
+local and internal targets fail instead of bypassing it. Administrators&#39; unrestricted runs
+keep ordinary browser network access.</p>
 <p class="guide-source">Source: <a href="../../docs/operations.md">docs/operations.md</a>. <a href="guide-distributed.md">This chapter as Markdown</a>.</p><p><a href="guide-access.html">Assign tokens and permissions</a></p><nav class="guide-next" aria-label="Continue reading"><a href="guide-clients.html">Previous: Web and editors</a><a href="guide-functions.html">Next: Work with TypeScript</a></nav></article></div></main><footer class="shell"><p>Generated from public documentation. Rebuild with <code>pnpm generate:homepage</code>. Verify with <code>pnpm check:homepage</code>.</p><nav aria-label="More pages"><a href="index.html">Homepage</a><a href="guide.html">Guide</a></nav></footer></body></html>

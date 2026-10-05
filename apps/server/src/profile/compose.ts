@@ -8,10 +8,13 @@ import type { PluginModule } from "../plugin-support/plugin-module.js";
 import { runManagementToken } from "../ragents/global-chat.js";
 import { registerRunScriptFunctions } from "../ragents/run-script-tools.js";
 import { registerTypeScriptFunctions } from "../ragents/typescript-tools.js";
+import { profileAccessFor } from "../ragents/profile-access.js";
 import {
   executorContributionsToken,
   hostAddressToken,
   runtimeProviderToken,
+  runOwnerAccessToken,
+  userAccessToken,
   secretEnvNamesToken,
   runGuardToken,
   runWorkspaceProviderToken,
@@ -48,6 +51,11 @@ export const composeProfile = (options: ProfileComposition, bridges: HostBridges
   host.provideHost(workspaceGuardToken, bridges.ensureWorkspaceAccess);
   host.provideHost(runWorkspaceProviderToken, bridges.sessionWorkspaceFor);
   host.provideHost(runtimeProviderToken, bridges.runtime);
+  host.provideHost(userAccessToken, profileAccessFor);
+  host.provideHost(runOwnerAccessToken, (runId) => {
+    bridges.ensureSession(runId);
+    return profileAccessFor(bridges.runtime().state(runId).ownerUserId);
+  });
   host.provideHost(hostAddressToken, () => bridges.apiBaseUrl);
   host.provideHost(executorContributionsToken, options.executor.map((loaded) =>
     prepareExecutorContribution(loaded, pluginToolsDirectory(config.dataDir, loaded.plugin))));

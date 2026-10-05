@@ -1785,7 +1785,7 @@ Generated automatically from the registered contracts; the host checks methods w
 
 | ragents.runs.export | runs.read, runs.inspect |
 
-| ragents.runs.import | runs.read, runs.write, runs.create |
+| ragents.runs.import | * |
 
 | ragents.runs.interruptTurn | per run |
 

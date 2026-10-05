@@ -1,4 +1,4 @@
-import type { Browser, Locator, Page } from "playwright-core";
+import type { Browser, BrowserContextOptions, Locator, Page } from "playwright-core";
 import type {
   BrowserCheck,
   BrowserCheckResult,
@@ -12,6 +12,7 @@ import type {
 } from "./contract.js";
 
 interface BrowserSession {
+  readonly runId: string;
   readonly browser: Promise<Browser>;
   readonly viewport: BrowserViewport;
   page?: Page;
@@ -27,6 +28,7 @@ interface BrowserSession {
 
 export interface BrowserPagesOptions {
   launch: (runId: string) => Promise<Browser>;
+  contextOptions?: (runId: string) => Promise<BrowserContextOptions>;
   timeoutMs: number;
   checkTimeoutMs: number;
 }
@@ -234,6 +236,7 @@ export class BrowserPages {
 
   #start(runId: string, viewport: BrowserViewport): void {
     const session: BrowserSession = {
+      runId,
       browser: this.#launch(runId),
       viewport,
       queue: Promise.resolve(),
@@ -280,7 +283,7 @@ export class BrowserPages {
     if (session.page) return session.page;
     const browser = await session.browser;
     if (session.closed) throw new Error("The browser was closed.");
-    const context = await browser.newContext({ viewport: session.viewport });
+    const context = await browser.newContext({ ...await this.#options.contextOptions?.(session.runId), viewport: session.viewport });
     context.setDefaultTimeout(this.#options.timeoutMs);
     context.setDefaultNavigationTimeout(this.#options.timeoutMs);
     const page = await context.newPage();

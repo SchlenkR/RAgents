@@ -3278,7 +3278,7 @@
     },
     {
       "name": "ragents.runs.import",
-      "description": "Accept a run archive, replay its journal and open the run stopped. Rights: runs.read, runs.write and runs.create.",
+      "description": "Accept a run archive, replay its journal and open the run stopped. Requires administrator access (*).",
       "params": [
         {
           "name": "input",
@@ -3315,9 +3315,7 @@
       },
       "x-owner": "host",
       "x-rights": [
-        "runs.read",
-        "runs.write",
-        "runs.create"
+        "*"
       ],
       "x-implemented-by": "server"
     },

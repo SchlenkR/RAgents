@@ -1,5 +1,50 @@
 # Decisions
 
+## 2026-10-06: Isolate workspace failures per run
+
+Chapters: `spec/core.md` (Journal), `spec/plugins.md` (Workspace, sandbox tools, and
+processes); operations: `operations.md` (Data storage and logs).
+
+A refused or damaged workspace must neither stop server startup nor reach the scheduler.
+Resolution now retains the cause per run and uses the existing locked-run presentation,
+preserving the files and ownership while healthy runs continue. The scheduler consults a
+generic host availability guard before scheduling, tool validation, and driver execution,
+including after asynchronous preparation. A deliberate repair followed by a restart
+retries workspace resolution; a disconnected workstation remains a normal connection state.
+
+## 2026-10-05: Enforce execution protection by run owner
+
+Chapters: `spec/plugins.md` (Workspace, sandbox tools, and processes; Server process sandbox;
+Browser checks), `spec/profiles.md` (Run ownership), `spec/typescript-platform.md` (Native
+execution); usage and operations: `usage.md`, `operations.md`.
+
+Remote users can cause native code to run on the server, including in runs whose workspace
+is on a workstation. The host now derives restriction from the owner's administrator
+rights, applies the process sandbox to nonadministrator runs, and refuses execution if
+isolation cannot start. Administrators retain unrestricted operation unless they select
+the immutable sandbox start option or the server forces it. Existing server folders
+require administrator access; imports follow the same contributed-folder rule.
+Restricted runs have their own NuGet cache. Trusted plugins can obtain the same effective
+policy to constrain subprocesses and select separate, limited credentials.
+
+File tools use one checked canonical path for resolution, access, and seen state, closing
+the discrepancy between the guard and the agent's path interpretation. Chromium's sandbox
+is enabled explicitly and its environment comes from the run. Restricted browsers receive
+an authenticated proxy that validates and pins destinations, including redirects and
+WebSockets; local and internal origins require an explicit browser allowance. Executor
+protocol 14 carries this server-selected policy to workstations.
+
+## 2026-10-05: Restrict run archive imports to administrators
+
+Chapters: `spec/core.md` (Moving a run to another server), `spec/profiles.md` (Run ownership);
+operations: `operations.md` (Moving a run).
+
+Run archives carry ownership, executable programs and workspace bindings. Ordinary run permissions
+must not authorize restoring these server-side records. `ragents.runs.import` now requires the
+administrator wildcard `*`, checked by the message layer before decoding the archive or binding a
+replacement folder. Local operation without configured access retains its unrestricted access.
+Export permissions stay `runs.read` and `runs.inspect`.
+
 ## 2026-10-05: Give header dropdowns one shared panel
 
 Chapters: `spec/plugins.md` (Web as plugin host, UI library), `spec/profiles.md`

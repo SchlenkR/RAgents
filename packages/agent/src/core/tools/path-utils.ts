@@ -4,6 +4,8 @@ import { resolvePath } from "../../utils/paths.ts";
 
 const NARROW_NO_BREAK_SPACE = "\u202F";
 
+export type FilePathResolver = (filePath: string, cwd: string) => string | Promise<string>;
+
 function tryMacOSScreenshotPath(filePath: string): string {
 	return filePath.replace(/ (AM|PM)\./gi, `${NARROW_NO_BREAK_SPACE}$1.`);
 }

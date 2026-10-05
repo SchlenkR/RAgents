@@ -1,3 +1,6 @@
 {
-  "id": "ragents.workspace"
+  "id": "ragents.workspace",
+  "exports": {
+    "server": ["server/contract"]
+  }
 }

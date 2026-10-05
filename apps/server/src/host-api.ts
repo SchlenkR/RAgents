@@ -91,7 +91,7 @@ export const hostApi: { readonly server: HostApiModules; readonly web: HostApiMo
     "@ragents/host/ragents/document-store": ["documentStoreToken"],
     "@ragents/host/ragents/global-chat": ["globalChatToken", "runManagementToken"],
     "@ragents/host/ragents/host-services": [
-      "executorContributionsToken", "hostAddressToken", "runtimeProviderToken", "secretEnvNamesToken", "runGuardToken", "runWorkspaceProviderToken",
+      "executorContributionsToken", "hostAddressToken", "runtimeProviderToken", "runOwnerAccessToken", "userAccessToken", "secretEnvNamesToken", "runGuardToken", "runWorkspaceProviderToken",
       "workspaceGuardToken",
     ],
     "@ragents/host/ragents/product-runtime": ["productRuntimeToken"],
@@ -103,7 +103,7 @@ export const hostApi: { readonly server: HostApiModules; readonly web: HostApiMo
     "@ragents/workflow": ["defineWorkflow", "workflowInstructions"],
     "@ragents/workspace-executor": [
       "BYTE_OPERATIONS", "COMMAND_OPERATIONS", "FILE_BYTES_LIMIT", "FILE_COUNT_LIMIT", "FILE_OPERATIONS", "PROCESS_OPERATIONS", "RUN_FOLDER_OPERATIONS", "RUN_MARKER_ENV", "TUNNEL_PING_INTERVAL_MS", "WORKSPACE_EXECUTOR_VERSION",
-      "bytesOf", "languageServerOpenOperation", "languageServerSolutionsOperation", "listDirectory", "readTextFile", "ripgrepAvailable", "runManagedProcess", "safeProcessEnvironment", "sandboxRunEnvironment", "sandboxedLaunch",
+      "allowedWorkspacePath", "bytesOf", "languageServerOpenOperation", "languageServerSolutionsOperation", "listDirectory", "readTextFile", "ripgrepAvailable", "runManagedProcess", "safeProcessEnvironment", "sandboxRunEnvironment", "sandboxedLaunch",
       "shellPlatformText", "startManagedService", "tunnelCloseReason", "watchDirectory",
     ],
     "@ragents/workspace-executor/src/git-config-environment": ["withGitConfigPairs"],

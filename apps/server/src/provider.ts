@@ -37,6 +37,7 @@ import { configuredModelProviders, modelProviderRegistration } from "./plugin-su
 import { runScriptFromDirectory } from "./plugin-support/run-scripts.js";
 import { createEngine, SessionWorkspaces, type Engine } from "./ragents/engine.js";
 import type { ProductProfileFactory } from "./ragents/host-services.js";
+import { profileAccessFor } from "./ragents/profile-access.js";
 import { actorProgramsToken } from "./plugin-support/actor-programs/service.js";
 import { productRuntimeToken } from "./ragents/product-runtime.js";
 import { runOwnerOf, runOwnerOnly, runSharingOf } from "./ragents/run-owner.js";
@@ -71,6 +72,7 @@ export class RunSessionProvider implements ChatSessionProvider {
   private readonly deleting = new Map<string, DeleteJob>();
   private readonly deleteRequested = new Set<string>();
   private readonly deleteFailures = new Map<string, JournalLoadFailure>();
+  private readonly workspaceFailures = new Map<string, JournalLoadFailure>();
   private readonly deleted = new Set<string>();
   private readonly workspaces = new SessionWorkspaces(() => this.plugins.service(sandboxServicesToken));
   private readonly sessionWorkspaces = new Map<string, Promise<SessionWorkspace>>();
@@ -181,8 +183,10 @@ export class RunSessionProvider implements ChatSessionProvider {
     // A coordinator without a current access (the former shared one, a removed user) stays untouched.
     const runIds = this.engine.journal.runIds().filter((runId) => !this.deleteRequested.has(runId)
       && (!globalChat?.isCoordinator(runId) || this.coordinatorUser(runId) !== undefined));
-    await Promise.all(runIds.map((runId) => this.sessionWorkspace(runId, () => {})));
-    for (const runId of runIds) this.openSession(runId);
+    const workspaces = await Promise.allSettled(runIds.map(async (runId) => this.sessionWorkspace(runId, () => {})));
+    for (const [index, result] of workspaces.entries()) {
+      if (result.status === "fulfilled") this.openSession(runIds[index]!);
+    }
     this.engine.start();
   }
 
@@ -324,7 +328,7 @@ export class RunSessionProvider implements ChatSessionProvider {
     const productRuntime = this.plugins.service(productRuntimeToken);
     const isCoordinator = (runId: string) => this.plugins.optionalService(globalChatToken)?.isCoordinator(runId) ?? false;
     const listed = engine.journal.runIds().filter((runId) => !isCoordinator(runId)
-      && !this.deleteRequested.has(runId) && !this.deleted.has(runId) && visible(runId));
+      && !this.workspaceFailures.has(runId) && !this.deleteRequested.has(runId) && !this.deleted.has(runId) && visible(runId));
     const anonymousUser = configuredAnonymousUser();
     const userLabels = new Map([...configuredUsers() ?? [], ...anonymousUser ? [anonymousUser] : []].map((user) => [user.id, user.label]));
     const described = await Promise.all(listed.map(async (runId): Promise<ListedSession | undefined> => {
@@ -364,13 +368,18 @@ export class RunSessionProvider implements ChatSessionProvider {
     const locked = engine.journal.unavailableRuns()
       .filter(({ runId }) => !isCoordinator(runId) && !this.deleteRequested.has(runId) && !this.deleted.has(runId) && visible(runId))
       .map((failure) => lockedSession(failure, engine.journal));
+    const failedWorkspaces = [...this.workspaceFailures.values()]
+      .filter(({ runId }) => engine.journal.failureOf(runId) === null && !isCoordinator(runId)
+        && !this.deleteRequested.has(runId) && !this.deleted.has(runId) && visible(runId))
+      .map((failure) => lockedSession(failure, engine.journal));
     const failedDeletes = [...this.deleteFailures.values()]
       .filter(({ runId }) => !isCoordinator(runId) && visible(runId))
       .map((failure) => lockedSession(failure, engine.journal));
-    const infos = [...described.filter((info): info is ListedSession => info !== undefined), ...locked, ...failedDeletes];
+    const infos = [...described.filter((info): info is ListedSession => info !== undefined && !this.workspaceFailures.has(info.id)),
+      ...locked, ...failedWorkspaces, ...failedDeletes];
     for (const [id, session] of this.sessions) {
       if (isCoordinator(id) || !visible(id)) continue;
-      if (this.deleteRequested.has(id) || this.deleted.has(id)) continue;
+      if (this.workspaceFailures.has(id) || this.deleteRequested.has(id) || this.deleted.has(id)) continue;
       if (!session.started || infos.some((info) => info.id === id)) continue;
       infos.push({
         id,
@@ -422,11 +431,8 @@ export class RunSessionProvider implements ChatSessionProvider {
   /** The owner's access as a user of this profile; the run's own actors start run scripts with it. */
   private ownerAccess(runId: string): AccessContext {
     this.ensureUsable(runId);
-    const users = configuredUsers();
     const ownerUserId = this.requireEngine().journal.stateOf(runId)?.ownerUserId ?? null;
-    return createAccessContext(ownerUserId === null
-      ? { enabled: users !== undefined, user: users ? null : configuredAnonymousUser() ?? null }
-      : { enabled: true, user: users?.find((user) => user.id === ownerUserId) ?? null });
+    return profileAccessFor(ownerUserId);
   }
 
   private async createManagedRun(start: ManagedRunStart): Promise<string> {
@@ -587,6 +593,8 @@ export class RunSessionProvider implements ChatSessionProvider {
     if (this.deleteRequested.has(id)) throw new DomainError("run-deleting", "The run is being deleted", 409);
     if (this.deleted.has(id)) throw new DomainError("run-deleted", "The run was deleted", 410);
     this.engine?.journal.assertRunAvailable(id);
+    const workspaceFailure = this.workspaceFailures.get(id);
+    if (workspaceFailure) throw new DomainError("workspace-unavailable", workspaceFailure.message, 409);
   }
 
   private ensureAvailable(): void {
@@ -598,6 +606,16 @@ export class RunSessionProvider implements ChatSessionProvider {
     const running = this.sessionWorkspaces.get(id);
     if (running) return running;
     const created = this.resolveWorkspace(id, emitSystem)
+      .catch((error: unknown) => {
+        // A run that has not started yet or a coordinator without access is a state, not a broken workspace.
+        if (error instanceof DomainError && (error.code === "run-not-started" || error.code === "coordinator-without-access")) throw error;
+        const message = `Workspace for run ${id} is not available: ${runFailureMessage(error)}`;
+        this.workspaceFailures.set(id, { runId: id, path: layout.sessionDir(id), message });
+        this.workspaces.forget(id);
+        this.notifyList();
+        console.error(message);
+        throw new DomainError("workspace-unavailable", message, 409);
+      })
       .then((workspace) => {
         this.ensureUsable(id);
         this.workspaces.remember(id, workspace.cwd, workspace.description);
@@ -792,6 +810,7 @@ export class RunSessionProvider implements ChatSessionProvider {
       await this.removeGlobalConversation(id, policy);
       engine.runtime.forgetRun(id);
       this.sessionWorkspaces.delete(id);
+      this.workspaceFailures.delete(id);
       this.workspaces.forget(id);
     });
     await rm(intentFile);
@@ -847,7 +866,7 @@ export class RunSessionProvider implements ChatSessionProvider {
           this.deleteFailures.set(id, {
             runId: id,
             path: path.join(layout.runsDir, id, "journal.jsonl"),
-            message: `Deletion of run ${id} failed: ${deleteFailureMessage(failure)}`,
+            message: `Deletion of run ${id} failed: ${runFailureMessage(failure)}`,
           });
           console.warn(`Delete job for ${id} failed:`, failure);
         }
@@ -942,6 +961,7 @@ export class RunSessionProvider implements ChatSessionProvider {
     this.engine?.runtime.forgetRun(id);
     this.sessions.delete(id);
     this.sessionWorkspaces.delete(id);
+    this.workspaceFailures.delete(id);
     this.workspaces.forget(id);
     await rm(layout.deleteIntentFile(id), { force: true });
     await this.syncDirectory(layout.deleteIntentsDir);
@@ -1079,8 +1099,8 @@ export class RunSessionProvider implements ChatSessionProvider {
   }
 }
 
-const deleteFailureMessage = (error: unknown): string => error instanceof AggregateError
-  ? [...new Set(error.errors.map(deleteFailureMessage))].join("; ")
+const runFailureMessage = (error: unknown): string => error instanceof AggregateError
+  ? [...new Set(error.errors.map(runFailureMessage))].join("; ")
   : error instanceof Error ? error.message : String(error);
 
 /** A locked run without plugin metadata and workspace; without loaded state, the journal file counts. */

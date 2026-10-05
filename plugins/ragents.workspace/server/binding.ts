@@ -1,7 +1,7 @@
 import { statSync } from "node:fs";
 import path from "node:path";
 import { Type } from "typebox";
-import { DomainError, type JsonValue, type RunListDetail, type RunState, type StartOptionContribution } from "@ragents/engine";
+import { DomainError, type AccessContext, type JsonValue, type RunListDetail, type RunState, type StartOptionContribution } from "@ragents/engine";
 import type { ShellTools } from "@ragents/workspace-executor";
 import { shellPlatformChapter } from "./shell-platform.js";
 import { storedStartOption } from "@ragents/host/ragents/start-option-state.js";
@@ -130,6 +130,13 @@ export const workspaceListDetail = ({ binding, summary }: WorkspaceSessionMetada
 
 const unsupported = (message: string): DomainError => new DomainError("workspace-binding-unsupported", message, 400);
 
+export const permittedServerDirectory = (directory: string, contribution: WorkspaceResolver | undefined): ExistingWorkspaceFolder => {
+  if (!(contribution?.kind?.serverFolders ?? true)) {
+    throw unsupported(`An existing folder on the server machine is not a binding here; choose ${freshLabels(contribution).server} or a workstation.`);
+  }
+  return serverDirectoryFolder(directory);
+};
+
 /** A workstation of the acting user that offers the folder; a new folder per run gets its path there below its folder for runs. */
 const workstationBinding = (
   client: WorkspaceClientInfo,
@@ -153,6 +160,7 @@ const workstationBinding = (
 export const workspaceBindingOption = (
   registry: WorkspaceClientRegistry,
   contribution: () => WorkspaceResolver | undefined,
+  accessFor: (userId: string | null) => AccessContext,
 ): StartOptionContribution => ({
   id: WORKSPACE_BINDING_OPTION_ID,
   schema: bindingSchema,
@@ -165,10 +173,10 @@ export const workspaceBindingOption = (
     if (machine === "server") {
       if (folder === "fresh") return freshServerBinding();
       if ("fresh" in folder) throw new DomainError("workspace-binding-invalid", "On the server, the host creates the new folder per run; it has no chosen path.", 400);
-      if (!(contribution()?.kind?.serverFolders ?? true)) {
-        throw unsupported(`An existing folder on the server machine is not a binding here; choose ${labels.server} or a workstation.`);
+      if (!accessFor(userId).can("*")) {
+        throw new DomainError("workspace-server-folder-admin", "Only administrators may bind an existing folder on the server.", 403);
       }
-      return { machine, folder: serverDirectoryFolder(folder.path) };
+      return { machine, folder: permittedServerDirectory(folder.path, contribution()) };
     }
     const client = registry.info(userId, machine.client);
     if (!client) throw new DomainError("workspace-client-disconnected", `The workstation ${machine.label || machine.client} is not connected.`, 409);
@@ -179,7 +187,7 @@ export const workspaceBindingOption = (
       kind: "workspace-binding",
       clients: registry.list(userId),
       fresh: freshLabels(contribution()),
-      serverFolders: contribution()?.kind?.serverFolders ?? true,
+      serverFolders: accessFor(userId).can("*") && (contribution()?.kind?.serverFolders ?? true),
     };
     return presentation as unknown as JsonValue;
   },

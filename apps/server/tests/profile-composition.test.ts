@@ -132,7 +132,11 @@ test("the neutral showcase fixture composes real plugins and folder contribution
     ["ragents.reference.shared-actor-list", "ragents.reference.conversation-circle", "ragents.reference.moderated-round", "ragents.reference.balcony-wizard", "ragents.reference.learning-afternoon", "ragents.reference.word-game", "ragents.reference.run-roster", "ragents.reference.quick-note"],
   );
   assert.ok(profile.startEntries.every((entry) => !("files" in entry) && !("programs" in entry)), "a run script does not reveal its source");
-  assert.deepEqual(host.startOptions.describe(), [{ id: "ragents.workspace.binding", owner: "ragents.workspace" }, { id: "ragents.model", owner: "ragents.product" }]);
+  assert.deepEqual(host.startOptions.describe(), [
+    { id: "ragents.workspace.binding", owner: "ragents.workspace" },
+    { id: "ragents.workspace.sandbox", owner: "ragents.workspace" },
+    { id: "ragents.model", owner: "ragents.product" },
+  ]);
   assert.equal(JSON.stringify(host.accessProjections.state(programState, restricted)), JSON.stringify({ ...programState, state: { version: 1, program: { name: "board", views: [] } } }), "actor programs bring their projection");
   assert.equal(host.service(workspaceRuntimeToken).describe().mode, "per-run");
   assert.ok(host.optionalService(documentStoreToken), "document store is missing");

@@ -457,7 +457,8 @@ test("a run bound to a workstation is only readable and stoppable for someone el
   try {
     const runtime = new Orchestration(journal, testServices());
     const startOptions = new StartOptionContributionRegistry();
-    startOptions.register("ragents.workspace", [workspaceBindingOption(new WorkspaceClientRegistry([]), () => undefined)]);
+    startOptions.register("ragents.workspace", [workspaceBindingOption(new WorkspaceClientRegistry([]), () => undefined,
+      (userId) => createAccessContext({ enabled: true, user: userId === null ? null : { id: userId, label: userId, rights: ["runs.read", "runs.write", "runs.create"] } }))]);
     const workstation = { kind: "client", client: "client-00000001", label: "Laptop", path: "/home/alice/project" };
     runtime.createRun({ commandId: "create-bound" }, {
       runId: BOUND, title: "Bound", ownerHandle: "alice", ownerDisplayName: "Alice", ownerUserId: "alice",

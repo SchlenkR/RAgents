@@ -10,6 +10,8 @@ import {
   createTaskStopToolDefinition,
   createWriteToolDefinition,
   editApplies,
+  resolveReadPathAsync,
+  resolveToCwd,
   type BackgroundTaskOperations,
   type BashOperations,
 } from "@ragents/agent";
@@ -220,11 +222,6 @@ export const createSandboxTools = async (
     await background.dispose();
   };
 
-  const assertInsideRoots = async (raw: unknown, roots: readonly string[]): Promise<void> => {
-    if (raw === undefined || raw === null || raw === "") return;
-    await allowedWorkspacePath(path.resolve(cwd, String(raw)), roots);
-  };
-
   const concurrent = (execute: ToolExecute): ToolExecute => (toolCallId, input, signal, onUpdate) => {
     if (shuttingDown) throw new Error("The tools are being killed");
     if (signal?.aborted) throw new Error("Cancelled");
@@ -278,20 +275,22 @@ export const createSandboxTools = async (
       const requested = shown === undefined
         ? undefined
         : expandPathVariables(expandWorkspaceAlias(shown, context.workspaceAliases ?? {}), context.pathVariables ?? {});
+      const resolved = requested === undefined ? undefined
+        : name === "read" ? await resolveReadPathAsync(requested, cwd) : resolveToCwd(requested, cwd);
       try {
         const writable = [context.root, ...context.additionalRoots ?? []];
-        await assertInsideRoots(requested ?? params.file_path, writing ? writable : [...writable, ...context.readOnlyRoots ?? []]);
-        const file = requested === undefined ? undefined : path.resolve(cwd, requested);
+        const file = resolved === undefined ? undefined
+          : await allowedWorkspacePath(resolved, writing ? writable : [...writable, ...context.readOnlyRoots ?? []]);
         const tracked = seen !== undefined && file !== undefined;
         const { answer, stale } = tracked ? await checkedAgainstSeen(name, file, params, seen) : {};
         if (answer) return answer;
-        const result = await execute(toolCallId, requested === undefined ? params : { ...params, file_path: requested }, signal, onUpdate);
+        const result = await execute(toolCallId, file === undefined ? params : { ...params, file_path: file }, signal, onUpdate);
         const recorded = tracked ? { ...result as ToolResult, details: { ...(result as ToolResult).details as object, seen: stale ?? seenAfter(name, file, params, result) } } : result;
         const noted = withAnnotation(recorded, stale && staleEditNote);
         const annotated = writing && annotate && file !== undefined ? withAnnotation(noted, await annotate(file)) : noted;
-        return requested === undefined || shown === undefined ? annotated : withShownPath(annotated, requested, shown);
+        return file === undefined || shown === undefined ? annotated : withShownPath(annotated, file, shown);
       } catch (error) {
-        throw requested === undefined || shown === undefined ? error : errorWithShownPath(error, requested, shown);
+        throw resolved === undefined || shown === undefined ? error : errorWithShownPath(error, resolved, shown);
       }
     };
     return writing ? serial(checked) : concurrent(checked);
@@ -445,9 +444,9 @@ export const createSandboxTools = async (
   };
 
   const wrapped: ReadonlyArray<readonly [string, ToolExecute]> = [
-    ["read", guarded("read", executeOf(createReadToolDefinition(cwd)))],
-    ["edit", guarded("edit", executeOf(createEditToolDefinition(cwd)))],
-    ["write", guarded("write", executeOf(createWriteToolDefinition(cwd)))],
+    ["read", guarded("read", executeOf(createReadToolDefinition(cwd, { resolvePath: (file) => file })))],
+    ["edit", guarded("edit", executeOf(createEditToolDefinition(cwd, { resolvePath: (file) => file })))],
+    ["write", guarded("write", executeOf(createWriteToolDefinition(cwd, { resolvePath: (file) => file })))],
     ["bash", serial(inFolder(runBash))],
     [BACKGROUND_TASK_OPERATIONS.output, concurrent(executeOf(createTaskOutputToolDefinition(taskOperations)))],
     [BACKGROUND_TASK_OPERATIONS.stop, concurrent(executeOf(createTaskStopToolDefinition(taskOperations)))],

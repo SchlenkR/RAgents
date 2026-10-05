@@ -75,11 +75,17 @@ on the server.
 
 `runs.write` permits messages and app actions in existing owned runs. Free-form runs,
 preparation chats, and start options additionally require `runs.create`. Without it, a user can
-start only explicitly allowed run scripts. `runs.inspect` protects models, journals, source code,
-tools, and general technical views. Language-server views use their own plugin read permission.
+start only explicitly allowed run scripts. Importing a run archive requires administrator access
+(`*`); individually granted run permissions do not authorize imports. `runs.inspect` protects models,
+journals, source code, tools, and general technical views. Language-server views use their own plugin read permission.
 `runs.trace` separately reveals reasoning and function-call content in chat. Without it, those
 phases appear only as empty progress markers while arguments, source, results, and reasoning are
 removed on the server.
+
+Server-side execution is always sandboxed for nonadministrators. Administrators can select
+"Sandbox protection" before starting a run, and the server can require it for everyone.
+Only administrators can bind an existing server folder; other users work in a new folder
+per run or on their own workstation. Sharing does not change the owner's execution policy.
 
 ## Function selection and actor grants
 

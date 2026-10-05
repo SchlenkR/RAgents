@@ -3074,6 +3074,15 @@ a log file whose path the result names; with `run_in_background` it returns at o
 a background command (below). A file path is relative to the working directory,
 absolute, or starts with an alias such as `@actors`; unlike in the standard it need not be
 absolute, because an alias and not an absolute path decides the machine (below).
+After aliases and path variables, `read`, `write`, and `edit` resolve the path exactly once,
+including `file://`, home notation, and the read tool's macOS filename variants. The root
+check, actual file access, seen state, and result all use that checked canonical path;
+the agent tools receive an identity resolver instead of interpreting the path again.
+The canonical check is a filesystem snapshot. Host-side operations still open files by
+path: replacing a parent directory after the check can redirect that access. The child
+process sandbox does not enclose these host operations, including seen/hash reads, file
+and byte operations, and post-write language-server reads. They assume stable directory
+parents and do not provide complete isolation against actively hostile run code.
 `copy` takes `source` and `destination`, both named exactly as `read` names a file, and copies a
 file or a folder with everything in it, unchanged and binary-safe; the standard has no counterpart,
 because there one shell sees every file. Here a root with an alias lies on the server and the
@@ -3084,8 +3093,8 @@ machine of the source and writes with `bytes.write` at the machine of the destin
 between the project on a workstation and `@documents` is one call; the bytes travel through the
 server as Base64, never through the model. The destination must lie in a writable root (never
 `@skills`), writing runs within the same lock as `write`, `edit`, and `bash` of the run on that
-machine, a folder is read without following links, and a link in the destination never leads out of
-the roots. One call carries at most 16 MiB and 1000 files (`FILE_BYTES_LIMIT`, `FILE_COUNT_LIMIT`),
+machine, a folder is read without following links, and a destination link resolved outside
+the roots is rejected. One call carries at most 16 MiB and 1000 files (`FILE_BYTES_LIMIT`, `FILE_COUNT_LIMIT`),
 an error names the limit, and the result says only how many files were copied, such as "Copied 9
 files.". `copy` belongs to `ragents.workspace` (`plugins/ragents.workspace/server/copy-tool.ts`)
 and counts as a writing workspace tool, so it needs `workspace.use` like `write`.
@@ -3199,7 +3208,13 @@ operation on a server root, receives with `SandboxServices.serverProcessContextF
 an explicitly named server context: on the server the same as the tools, on a
 workstation a separate folder of the run in the run storage (`plugins/ragents.workspace/server`)
 as the run's root, which is created on first need, never the workstation's path; the server's roots
-and the run's process sandbox belong to it in both cases. An operation that addresses only roots of
+and the run's process sandbox belong to it in both cases. A trusted workspace contribution
+can bootstrap its server folder with `SandboxServices.serverProcessContextForWorkspace`
+and a supplied minimal `SessionWorkspace`: the host applies the same run policy,
+environment, home, temporary folder, and account without recursively resolving the
+workspace. It adds no registered roots and does not cache these bootstrap roots for later
+operations. A contribution requiring this optional additive method fails on an older host
+that does not provide it. An operation that addresses only roots of
 the server does not need the run's root: if a run on the server has lost its root, such as a bound
 project folder that no longer exists (`currentRoot()` fails), that operation runs at a second
 executor of the server in the context of the run's server folder, as for a run on a workstation,
@@ -3219,6 +3234,11 @@ hook through which a further plugin contributes the content of a new folder, its
 workspace on the server, or the new folder on a workstation. In core, no plugin
 uses it.
 
+If workspace resolution fails at startup or on first use, the host locks only that run with the cause,
+retains its files and ownership, and lets the other runs start. Locked runs receive no
+scheduler execution or tool validation. Repairing the prerequisite and restarting retries
+resolution; an ordinarily disconnected workstation does not create this lock.
+
 Where and in what a run works is decided by its binding: the start option `ragents.workspace.binding`
 of `ragents.workspace` with two separate values, `{ machine, folder }`
 (`plugins/ragents.workspace/contract.ts`). `machine` is the machine, `"server"` or
@@ -3226,7 +3246,12 @@ of `ragents.workspace` with two separate values, `{ machine, folder }`
 new one per run or `{ path }` for an existing one. All four combinations are valid. The default is
 the new folder on the server, the empty folder under the run storage. An existing folder on
 the server is an absolute folder of the server machine that exists at the time of choosing; the run works
-directly in it, and neither stopping nor deleting the run touches it. A workstation is one of the
+directly in it, and neither stopping nor deleting the run touches it. Selecting an existing
+server folder requires administrator access (`*`) and the contribution's `serverFolders`
+permission. Nonadministrators are not offered that choice. The runtime also rejects older
+or imported existing-server-folder bindings of nonadministrator owners; enabling the
+sandbox does not remove the administrator's ability to bind a permitted folder.
+Archive rebind checks the same contribution rule as ordinary selection. A workstation is one of the
 acting user: `accept` requires that this user has signed it in, for an
 existing folder that the workstation offers it, and writes its label into the value so that the
 run can name it even without the registry. While the workstation is registered, the location line,
@@ -3853,7 +3878,9 @@ and closes the service through `kill` and `finished` in its module's `stopRun` a
 operations locally, including their cancellation and progress. `resolveRootPath` also checks paths
 for files that do not exist yet and refuses links or paths outside the supplied root. The
 contribution function touches neither disk nor network; resolution and checks happen only in the
-call. `WORKSPACE_EXECUTOR_VERSION` is 13 because older machines cannot provide these contracts.
+call. `WORKSPACE_EXECUTOR_VERSION` is 14 because older machines cannot carry the browser's
+run-owner network policy. The server supplies this policy in the executor request, separately
+from the operation's input, and the workstation adds it to `WorkspaceProcessContext`.
 
 The build tool turns it into a self-contained file `executor/index.mjs` that imports only `node:*`
 (section Bundle, build tool, and host API). It therefore loads in every Node process, in the
@@ -3901,7 +3928,7 @@ executor also applies to the workstation.
 
 ### Server process sandbox
 
-Every process the server's executor starts for a run (`bash`, `commands.run`, the
+For a restricted run, every process the server's executor starts (`bash`, `commands.run`, the
 language servers including their `git` calls), and the Node processes the TypeScript platform starts in the
 server context (snippets of `typescript_eval`, backends and tests of the actor programs),
 run in an operating system process sandbox: on macOS Seatbelt (`sandbox-exec`), on
@@ -3913,7 +3940,20 @@ server root; the workstation's executor itself gets no sandbox; there it remains
 developer's bash. The core does not know the sandbox: the server's sandbox host
 (`WorkspaceSandboxHost`) passes it along with a run's process context (`WorkspaceProcessContext.sandbox`),
 and every place that starts a process wraps it with `sandboxedLaunch`; without a sandbox in the
-context it starts unchanged. The browser of the browser check starts without a sandbox (Open limits).
+context it starts unchanged. The browser check has its own Chromium sandbox and network policy
+(section Browser checks).
+
+Restriction is a property of the run's owner, obtained from the profile's current access
+configuration through `host.run-owner-access`, never from whoever sends the current message.
+An owner without administrator access (`*`), including an unknown or ownerless run on a
+server with sign-in, always gets the sandbox. An administrator or unrestricted local user
+can choose it through the Boolean start option `ragents.workspace.sandbox` ("Sandbox
+protection"); it cannot change after the run starts. `PROCESS_SANDBOX: "on"` forces it for
+every run. The default `"auto"` and the legacy `"off"` allow only administrator runs to
+remain unrestricted. Neither a stored `false` nor an administrator's message can weaken a
+nonadministrator owner's policy; an invalid stored choice fails. The service
+`ragents.workspace.run-security` exposes the resulting `{ restricted }` to trusted plugins
+so their process launches and credential selection follow the same policy.
 
 The rules are created per run from its folders (`apps/server/src/plugin-support/process-sandbox.ts`).
 Blocked for reading are the server account's home, the other homes (`/Users`, on Linux `/home`
@@ -3923,7 +3963,7 @@ Docker socket. Within these, readable again are the host folder, the toolchains 
 run itself (`sessions/<run-id>`), and its read-only roots (skills; for the global coordinator
 without users the journal folder). A run may read and write the root of its
 workspace or its server folder, the registered roots (`@actors`), its
-home, the shared NuGet cache, and its own temp folder `sessions/<run-id>/tmp`, which is in
+home, its own NuGet cache below that home, and its own temp folder `sessions/<run-id>/tmp`, which is in
 `TMPDIR`, `TMP`, `TEMP`, and `CLAUDE_CODE_TMPDIR` (Claude Code ignores `TMPDIR`). Added to that
 are the folders its workspace explicitly allows (`SessionWorkspace.sandboxFolders`, below).
 The rest of the system (`/usr`, `/opt`, toolchains)
@@ -3975,16 +4015,15 @@ readable or writable folders of the run; a relative path is an error. The
 core knows no Git here, and the allowance applies only to processes: the file tools do not reach
 such folders.
 
-`PROCESS_SANDBOX` in the same section is `"on"` without a value; `"off"` switches the sandbox off for the
-whole server, and the start reports that in the log. The extension starts the VS Code extension's local host
-with `"off"`, because it is the developer's workstation. At startup the server checks the
-prerequisites, starts the proxy, and runs one process in the sandbox once; every failure is a
-startup error with a cause and an instruction: Windows (the per-run folder rules cannot be
-set there), another platform, on Linux missing bubblewrap, socat, or ripgrep, and a
-kernel or container without user namespaces. `ragents.workspace` gives the building block
-`ServerProcessSandbox` the instruction for switching off the sandbox as `disableSetting`
-(`PROCESS_SANDBOX: "off" in the ragents.workspace section`); the building block itself names neither
-key nor section. The library has one state per process;
+When forced by `PROCESS_SANDBOX: "on"`, startup checks the prerequisites, starts the proxy,
+and runs one sandboxed process. Otherwise the first restricted server operation initializes
+it. Initialization failures refuse that operation with their cause; execution never falls
+back to an unrestricted process. Causes include Windows (unsupported per-run folder rules),
+another unsupported platform, missing bubblewrap, socat, or ripgrep on Linux, and a kernel
+or container without user namespaces. An unrestricted administrator run can still work
+without these prerequisites. `ragents.workspace` gives `ServerProcessSandbox` a diagnostic
+hint for administrator-only unrestricted operation as `disableSetting`; the building block
+itself names neither key nor section. The library has one state per process;
 several servers in one process (tests) share it, and their network allowances are merged.
 
 ## Provisioning per plugin
@@ -4483,12 +4522,34 @@ The module loads playwright-core only in the call, through the machine's `hostPa
 host root of this machine (`hostRoot`), as the TypeScript adapter does for its language server; neither the
 contribution nor the VS Code extension's bundle contains it. If playwright-core is missing in the host,
 `browser_navigate` fails with exactly this cause. It reports input errors with the machine's `operationError`
-as `browser-input-invalid` (400); Chrome starts with the machine's `processEnvironment`.
+as `browser-input-invalid` (400); Chrome starts with the run's `WorkspaceProcessContext.env`,
+the safe server environment or the workstation's own environment, with Chromium's sandbox
+explicitly enabled.
 Chrome is the browser from `BROWSER_EXECUTABLE_PATH` in the environment of this machine, otherwise the Chromium that
 provisioning puts into Playwright's browser cache for the pinned playwright-core version;
 if both are missing, the error names the expected path and the command. On the server, the
 profile section `ragents.browser` sets the value in its environment. It does not travel to a workstation:
 there its own environment applies or the Chromium from `pnpm provision --workspace`.
+
+For a restricted run, `WorkspaceProcessContext.browserNetwork` carries the server's
+allowed origins; an operation cannot replace it through model input. The browser uses
+an authenticated loopback HTTP/CONNECT proxy that resolves each destination once,
+rejects private, loopback, link-local, metadata, reserved, and local interface addresses, and connects to
+that checked IP. Public HTTP(S) destinations on ports 80 and 443 are allowed by default.
+The policy applies to redirects, subresources, frames, workers, and WebSockets. The
+browser has no implicit loopback proxy bypass; direct DNS and QUIC are disabled.
+An isolated temporary Chromium profile sets `webrtc.ip_handling_policy` to
+`disable_non_proxied_udp`, and startup verifies the effective value before releasing
+the run context. A failed verification refuses startup. Proxy authentication is installed
+only for the proxy; an origin's HTTP authentication challenge cannot obtain its token.
+
+`BROWSER_ALLOWED_ORIGINS` in the server's `ragents.browser` section is a list of exact
+HTTP(S) origins such as `http://127.0.0.1:8080`. An entry allows that scheme, hostname,
+and port, including internal addresses; paths, credentials, queries, and fragments are
+invalid. This allowance travels to a workstation through executor protocol 14. It is
+separate from `PROCESS_SANDBOX_NETWORK`. Administrators' unrestricted runs keep ordinary
+HTTP(S) browser access. Every browser still uses Chromium's sandbox and a fresh run
+context; no personal Chrome profile or sign-in is inherited.
 Chrome thus starts with the safe environment of this machine, its `HOME`, and the run's marker,
 and the process display therefore attributes it to the run.
 
@@ -4849,8 +4910,8 @@ right) returns the archive; a different version is 404. The counterpart is `rage
   that names the workstation, and the workstation aborts the command as soon as it notices the loss;
   until then it may have kept running.
 - The server process sandbox (section Server process sandbox) has gaps that its
-  tools dictate: the browser of the browser check runs without it; the NuGet cache is shared by all runs
-  and writable; on macOS a run reaches Unix sockets under `/tmp` and thus also
+  tools dictate: the browser parent is outside that filesystem sandbox (its renderer uses
+  Chromium's sandbox and restricted runs get a separate network policy); on macOS a run reaches Unix sockets under `/tmp` and thus also
   build servers of other processes of the same account (a running `VBCSCompiler` or
   MSBuild nodes of an IDE), and `trustd` fetches revocation lists outside the sandbox, which is a
   side channel onto the network; on Linux all Unix sockets that are visible in the sandbox's

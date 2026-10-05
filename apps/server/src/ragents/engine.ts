@@ -4,6 +4,7 @@ import type { ModelRuntime } from "@ragents/agent";
 import { FILE_OPERATIONS } from "@ragents/workspace-executor";
 import {
   DirectoryArtifactContents,
+  DomainError,
   Journal,
   LiveBus,
   Orchestration,
@@ -340,6 +341,13 @@ export const createEngine = async (options: EngineOptions): Promise<Engine> => {
     workspaces: options.workspaces,
     registry,
     live,
+    runAvailable: (runId) => {
+      try { options.assertRunUsable(runId); return true; }
+      catch (error) {
+        if (error instanceof DomainError) return false;
+        throw error;
+      }
+    },
     modelSelection: (turn, actor) => {
       if (actor.execution.driver.kind !== "agent") throw new Error("Model choice requires a model actor");
       if (globalChat?.isCoordinator(turn.runId) && globalChat.model) return globalChat.model.forTurn(runtime, turn.runId, actor.id, turn.turnId);

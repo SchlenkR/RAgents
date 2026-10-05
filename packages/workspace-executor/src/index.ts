@@ -3,6 +3,7 @@ export {
   sandboxRunEnvironment,
   workspaceProcessContext,
   type BaseEnvironment,
+  type BrowserNetworkPolicy,
   type SandboxHomeEnvironment,
   type WorkspaceProcessContext,
 } from "./context.js";
@@ -60,6 +61,7 @@ export {
 } from "./commands.js";
 export { processGroupExists, runManagedProcess, startManagedService, type ManagedService } from "./managed-process.js";
 export {
+  allowedWorkspacePath,
   containsWorkspacePath,
   resolvedWorkspacePath,
   rootsOfFields,

@@ -1306,6 +1306,13 @@ execution and cannot accidentally be created anew under the same ID. `Journal.un
 names all locked runs, including those after a write error. This also applies to the global
 coordinator. Its explicit conversation reset can release the locked ID after removing the old files.
 
+The host also isolates workspace resolution failures per run, at startup or on first use. These locks retain
+the loaded journal and its ownership, report the workspace cause through the same run-list
+presentation, and leave the original files in place. A generic scheduler availability guard
+prevents turns and tool validation for these runs, including when a lock takes effect during
+asynchronous turn preparation. Other runs continue normally. Repair and restart retry workspace
+resolution; a workstation's ordinary disconnected state is not a workspace failure.
+
 The original files of a rejected run stay byte-identical. A torn last line is repaired only after
 all complete v4 records have been checked successfully. An empty or unrecognizable journal is not
 reinterpreted as a new run. Errors in the shared storage or an active foreign writer stay real
@@ -1350,7 +1357,8 @@ of it.
 
 A run can move from one server to another and continue running there. `ragents.runs.export`
 (permissions `runs.read` and `runs.inspect`) delivers a manifest and a `tar.gz` as Base64,
-`ragents.runs.import` (permissions `runs.read`, `runs.write`, and `runs.create`) accepts both.
+`ragents.runs.import` requires administrator access (`*`) on the target and accepts both.
+The message layer checks this access before decoding the archive or binding a replacement folder.
 `pnpm run-transfer <source-url> <target-url> <runId>` connects both sides. The archive contains
 `transfer/manifest.json`, the folder `runs/<id>` with journal and payloads, including the model
 contexts, the folder `sessions/<id>` with actor programs and all plugin storages of the run, among

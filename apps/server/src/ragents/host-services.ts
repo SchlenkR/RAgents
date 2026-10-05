@@ -22,6 +22,10 @@ export const secretEnvNamesToken: ServiceToken<() => readonly string[]> = servic
 
 export const runtimeProviderToken: ServiceToken<() => Orchestration> = serviceToken("host.runtime-provider");
 
+export const userAccessToken: ServiceToken<(userId: string | null) => AccessContext> = serviceToken("host.user-access");
+
+export const runOwnerAccessToken: ServiceToken<(runId: string) => AccessContext> = serviceToken("host.run-owner-access");
+
 /** The address at which this server offers its API, e.g. http://127.0.0.1:4710; none without HTTP (stdio only). */
 export const hostAddressToken: ServiceToken<() => string | undefined> = serviceToken("host.address");
 

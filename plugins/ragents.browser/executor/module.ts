@@ -51,7 +51,15 @@ export const browserModule = (machine: WorkspaceExecutorMachine, options: Browse
   };
   const timeoutMs = options.timeoutMs ?? BROWSER_TIMEOUT_MS;
   const pages = new BrowserPages({
-    launch: options.launch ?? (async (runId) => launchChromium(machine, (await host.contextFor(runId)).hostRoot, runId, timeoutMs)),
+    launch: options.launch ?? (async (runId) => {
+      const context = await host.contextFor(runId);
+      return launchChromium(machine, context.hostRoot, runId, timeoutMs, context.browserNetwork === undefined ? undefined : async () => {
+        const policy = (await host.contextFor(runId)).browserNetwork;
+        if (policy === undefined) throw new Error("The restricted browser has no network policy.");
+        return policy;
+      }, context.env);
+    }),
+    contextOptions: async (runId) => (await host.contextFor(runId)).browserNetwork === undefined ? {} : { serviceWorkers: "block" },
     timeoutMs,
     checkTimeoutMs: options.checkTimeoutMs ?? Math.min(5_000, timeoutMs),
   });

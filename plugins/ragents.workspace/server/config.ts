@@ -16,14 +16,12 @@ export interface ProcessSandboxSetting {
   readonly network: readonly string[];
 }
 
-/** This is how the operator turns off the process sandbox in the profile file. */
-export const PROCESS_SANDBOX_OFF = 'PROCESS_SANDBOX: "off" in the ragents.workspace section';
+export const PROCESS_SANDBOX_OFF = 'PROCESS_SANDBOX: "auto" in the ragents.workspace section (administrator runs only)';
 
-/** Without a value the sandbox is on; it can only be turned off explicitly with "off". */
 export const processSandboxSetting = (): ProcessSandboxSetting => {
-  const mode = env.optional("PROCESS_SANDBOX") ?? "on";
-  if (mode !== "on" && mode !== "off") {
-    throw new Error(`PROCESS_SANDBOX in the ragents.workspace section is "on" or "off", not "${mode}"`);
+  const mode = env.optional("PROCESS_SANDBOX") ?? "auto";
+  if (mode !== "on" && mode !== "off" && mode !== "auto") {
+    throw new Error(`PROCESS_SANDBOX in the ragents.workspace section is "on", "auto" or "off", not "${mode}"`);
   }
   const network = env.optional("PROCESS_SANDBOX_NETWORK") === undefined
     ? PROCESS_SANDBOX_DEFAULT_NETWORK

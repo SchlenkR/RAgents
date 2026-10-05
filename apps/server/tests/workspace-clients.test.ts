@@ -18,6 +18,15 @@ import { coreSources, dispatchMethod, startRpcServer } from "./rpc-fixture.ts";
 
 const CLIENT = "client-00000001";
 
+const bindingAccessFor = (userId: string | null) => createAccessContext({
+  enabled: true,
+  user: userId === null ? null : {
+    id: userId,
+    label: userId,
+    rights: userId === "administrator" ? ["*"] : ["runs.read", "runs.write", "runs.create"],
+  },
+});
+
 const description = (folders: string[] = ["/home/example/project"]) =>
   ({ label: "Laptop", hostname: "laptop", platform: "darwin", folders, runsDirectory: "/home/example/.local/share/ragents/workspace/runs", ripgrep: true });
 
@@ -229,14 +238,15 @@ test("the start option accepts only bindings that can be resolved later, on both
   const root = await realpath(await mkdtemp(path.join(tmpdir(), "ragents-binding-")));
   try {
     const { registry, connection } = await registryWith();
-    const option = workspaceBindingOption(registry, () => undefined);
+    const option = workspaceBindingOption(registry, () => undefined, bindingAccessFor);
     const context = { runId: "run-1", userId: "alice" };
+    const serverContext = { ...context, userId: "administrator" };
     assert.deepEqual(option.defaultValue(context), onServer("fresh"));
     assert.deepEqual(option.accept(onServer("fresh"), context), onServer("fresh"));
-    assert.throws(() => option.accept(onServer({ path: "relative" }), context), /absolute path/);
-    assert.throws(() => option.accept(onServer({ path: path.join(root, "missing") }), context), /does not exist on the server/);
+    assert.throws(() => option.accept(onServer({ path: "relative" }), serverContext), /absolute path/);
+    assert.throws(() => option.accept(onServer({ path: path.join(root, "missing") }), serverContext), /does not exist on the server/);
     await mkdir(path.join(root, "project"));
-    assert.deepEqual(option.accept(onServer({ path: path.join(root, "project") }), context), onServer({ path: path.join(root, "project") }));
+    assert.deepEqual(option.accept(onServer({ path: path.join(root, "project") }), serverContext), onServer({ path: path.join(root, "project") }));
     assert.throws(() => option.accept({ machine: "server", folder: { path: path.join(root, "project"), fresh: true } }, context),
       (error: unknown) => error instanceof DomainError && error.code === "workspace-binding-invalid");
     assert.throws(() => option.accept(onLaptop({ path: "/home/other" }), context), /does not offer the folder/);
@@ -251,7 +261,7 @@ test("the start option accepts only bindings that can be resolved later, on both
       kind: "workspace-binding",
       clients: [{ ...description(), id: CLIENT }],
       fresh: { server: "Empty folder per run", client: "Empty folder per run" },
-      serverFolders: true,
+      serverFolders: false,
     });
     connection.end();
     assert.throws(() => option.accept(onLaptop({ path: "/home/example/project" }), context), /not connected/);
@@ -260,7 +270,7 @@ test("the start option accepts only bindings that can be resolved later, on both
       kind: "workspace-binding",
       clients: [],
       fresh: { server: "Empty folder per run", client: "Empty folder per run" },
-      serverFolders: true,
+      serverFolders: false,
     });
     assert.throws(() => option.accept({ kind: "fresh" }, context), /no valid format/, "the shape before the split is no longer a choice");
     assert.throws(() => option.accept({ machine: "elsewhere", folder: "fresh" }, context), /no valid format/);
@@ -273,11 +283,36 @@ test("a new folder per run on a workstation sits under its runs folder with the 
   const registry = new WorkspaceClientRegistry([]);
   await registry.register(CLIENT, { ...description(["C:\\projects\\workshop"]), platform: "win32", runsDirectory: "C:\\ragents\\runs\\" },
     WORKSPACE_EXECUTOR_VERSION, [], stubConnection());
-  const option = workspaceBindingOption(registry, () => undefined);
+  const option = workspaceBindingOption(registry, () => undefined, bindingAccessFor);
   assert.deepEqual(option.accept(onLaptop("fresh"), { runId: "run-7", userId: "alice" }), {
     machine: { client: CLIENT, label: "Laptop" },
     folder: { path: "C:\\ragents\\runs\\run-7", fresh: true },
   });
+});
+
+test("a nonadministrator can choose a fresh server folder and its workstation but cannot choose an existing server folder", async () => {
+  const root = await realpath(await mkdtemp(path.join(tmpdir(), "ragents-binding-access-")));
+  try {
+    const { registry, connection } = await registryWith();
+    const startOptions = new StartOptionContributionRegistry();
+    startOptions.register("ragents.workspace", [workspaceBindingOption(registry, () => undefined, bindingAccessFor)]);
+    const binding = onServer({ path: root });
+    for (const userId of ["alice", "bob", null]) {
+      const context = { runId: "draft", userId };
+      assert.throws(() => startOptions.accept(WORKSPACE_BINDING_OPTION_ID, binding, context), (error: unknown) =>
+        error instanceof DomainError && error.code === "workspace-server-folder-admin" && error.status === 403);
+      assert.deepEqual(startOptions.accept(WORKSPACE_BINDING_OPTION_ID, onServer("fresh"), context), onServer("fresh"));
+    }
+    assert.deepEqual(startOptions.accept(WORKSPACE_BINDING_OPTION_ID, onLaptop({ path: "/home/example/project" }),
+      { runId: "draft", userId: "alice" }), onLaptop({ path: "/home/example/project" }, "Laptop"));
+    assert.deepEqual(startOptions.accept(WORKSPACE_BINDING_OPTION_ID, binding, { runId: "draft", userId: "administrator" }), binding);
+    const option = startOptions.entry(WORKSPACE_BINDING_OPTION_ID)!.option;
+    assert.equal((option.describe(onServer("fresh"), { runId: "draft", userId: "administrator" }) as { serverFolders: boolean }).serverFolders, true);
+    assert.equal((option.describe(onServer("fresh"), { runId: "draft", userId: "alice" }) as { serverFolders: boolean }).serverFolders, false);
+    connection.end();
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
 });
 
 test("a contribution names the new folder on the server, keeps folders of the server out and offers none on a workstation unless it brings one", async () => {
@@ -286,11 +321,11 @@ test("a contribution names the new folder on the server, keeps folders of the se
     const { registry } = await registryWith();
     const kind = { id: "example.worktree", label: "Worktree per run", serverFolders: false };
     const resolve = () => Promise.reject(new Error("not asked"));
-    const option = workspaceBindingOption(registry, () => ({ kind, resolve }));
+    const option = workspaceBindingOption(registry, () => ({ kind, resolve }), bindingAccessFor);
     const context = { runId: "run-1", userId: "alice" };
     await mkdir(path.join(root, "project"));
     assert.throws(
-      () => option.accept(onServer({ path: path.join(root, "project") }), context),
+      () => option.accept(onServer({ path: path.join(root, "project") }), { ...context, userId: "administrator" }),
       (error: unknown) => error instanceof DomainError && error.code === "workspace-binding-unsupported"
         && error.message.includes("Worktree per run"),
     );
@@ -307,7 +342,7 @@ test("a contribution names the new folder on the server, keeps folders of the se
       serverFolders: false,
     });
     const workstation = { label: "Git worktree per run", prepare: () => [] };
-    const both = workspaceBindingOption(registry, () => ({ kind, workstation, resolve }));
+    const both = workspaceBindingOption(registry, () => ({ kind, workstation, resolve }), bindingAccessFor);
     assert.equal((both.accept(onLaptop("fresh"), context) as { folder: { fresh?: boolean } }).folder.fresh, true);
     assert.deepEqual((both.describe(onServer("fresh"), context) as { fresh: unknown }).fresh, { server: "Worktree per run", client: "Git worktree per run" });
   } finally {
@@ -317,7 +352,7 @@ test("a contribution names the new folder on the server, keeps folders of the se
 
 test("a workstation of another user is neither offered nor accepted as binding, and only a workstation reserves the run for its owner", async () => {
   const { registry } = await registryWith();
-  const option = workspaceBindingOption(registry, () => undefined);
+  const option = workspaceBindingOption(registry, () => undefined, bindingAccessFor);
   const binding = onLaptop({ path: "/home/example/project" });
   const alice = { runId: "run-1", userId: "alice" };
   const bob = { runId: "run-2", userId: "bob" };
@@ -341,7 +376,7 @@ test("a workstation of another user is neither offered nor accepted as binding, 
 
 test("choosing the binding in the web takes the user of the request, not any registered workstation", async () => {
   const { registry } = await registryWith();
-  const option = workspaceBindingOption(registry, () => undefined);
+  const option = workspaceBindingOption(registry, () => undefined, bindingAccessFor);
   const chosen: unknown[] = [];
   const methods = new MethodContributionRegistry();
   methods.register("host", coreMethods(coreSources({
@@ -365,7 +400,7 @@ test("choosing the binding in the web takes the user of the request, not any reg
 test("without runs.inspect the user binds folder and workstation but neither sees nor chooses model or system prompt", async () => {
   const { registry } = await registryWith();
   const startOptions = new StartOptionContributionRegistry();
-  startOptions.register("ragents.workspace", [workspaceBindingOption(registry, () => undefined)]);
+  startOptions.register("ragents.workspace", [workspaceBindingOption(registry, () => undefined, bindingAccessFor)]);
   startOptions.register("ragents.product", productStartOptions({
     modelChoice: { options: ["private-model"], defaultModel: "private-model", provider: "private-provider", selectable: true, thinkingOptionsFor: () => ["off"] },
     coordinatorThinking: "off",
@@ -395,7 +430,9 @@ test("without runs.inspect the user binds folder and workstation but neither see
   const offered = await list(developer);
   assert.deepEqual(offered.map((option) => option.id), [WORKSPACE_BINDING_OPTION_ID]);
   assert.doesNotMatch(JSON.stringify(offered), /private-model|private-provider|Private prompt/);
-  await select(WORKSPACE_BINDING_OPTION_ID, onServer({ path: tmpdir() }), developer);
+  await assert.rejects(select(WORKSPACE_BINDING_OPTION_ID, onServer({ path: tmpdir() }), developer), (error: unknown) =>
+    error instanceof DomainError && error.code === "workspace-server-folder-admin" && error.status === 403);
+  await select(WORKSPACE_BINDING_OPTION_ID, onServer("fresh"), developer);
   await select(WORKSPACE_BINDING_OPTION_ID, onLaptop({ path: "/home/example/project" }), developer);
   assert.deepEqual(chosen.get(WORKSPACE_BINDING_OPTION_ID), onLaptop({ path: "/home/example/project" }, "Laptop"));
   for (const optionId of [modelStartOptionId, systemPromptStartOptionId]) {

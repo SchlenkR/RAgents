@@ -7,20 +7,40 @@ import { sandboxServicesToken } from "@ragents/host/plugin-support/workspace-san
 import { documentStoreToken } from "@ragents/host/ragents/document-store.js";
 import { hostAddressToken } from "@ragents/host/ragents/host-services.js";
 import { BROWSER_EXECUTABLE_VARIABLE } from "../executor/contract.js";
+import { browserOrigin } from "../executor/network.js";
 import { RunBrowser } from "./browser.js";
 import { browserRuntimeToken } from "./contract.js";
 import { createBrowserFunctions, createBrowserImageContribution } from "./tools.js";
 import { createViewSnapshotFunction } from "./view-snapshot.js";
 
-/** The server's executor reads the value from its environment; a workspace from its own, never from the profile. */
-export const browserConfigDescriptors = [{ key: BROWSER_EXECUTABLE_VARIABLE, source: "environment" }] as const;
+/** Browser executables belong to the machine; network exceptions belong to the server profile. */
+export const browserConfigDescriptors = [
+  { key: BROWSER_EXECUTABLE_VARIABLE, source: "environment" },
+  { key: "BROWSER_ALLOWED_ORIGINS", source: "profile" },
+] as const;
+
+export const browserAllowedOrigins = (configured: string | undefined = process.env.BROWSER_ALLOWED_ORIGINS): readonly string[] => {
+  if (configured === undefined) return [];
+  const origins: unknown = (() => {
+    try { return JSON.parse(configured); }
+    catch { throw new Error("BROWSER_ALLOWED_ORIGINS in the ragents.browser section must be a list of HTTP or HTTPS origins."); }
+  })();
+  if (!Array.isArray(origins) || origins.some((origin) => typeof origin !== "string")) {
+    throw new Error("BROWSER_ALLOWED_ORIGINS in the ragents.browser section must be a list of HTTP or HTTPS origins.");
+  }
+  return [...new Set(origins.map((origin) => browserOrigin(origin)))];
+};
 
 const browserPlugin: RAgentsPlugin = {
   manifest: { id: "ragents.browser" },
   register: (host) => {
     const documents = host.service(documentStoreToken);
+    const sandbox = host.service(sandboxServicesToken);
+    if (sandbox.registerBrowserOrigins === undefined) throw new Error("The host does not support browser network policies; update the host before loading ragents.browser.");
+    const allowedOrigins = browserAllowedOrigins();
+    sandbox.registerBrowserOrigins(() => allowedOrigins);
     const browser = new RunBrowser({
-      sandbox: host.service(sandboxServicesToken),
+      sandbox,
       filesFor: (runId) => documents.directoryFor(runId),
     });
     host.config(...browserConfigDescriptors);

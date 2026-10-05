@@ -72,7 +72,7 @@ Ids from results are reused programmatically, not copied by hand.
 | ragents.runs.enqueueInput | host | no fixed rights |
 | ragents.runs.events | host | no fixed rights |
 | ragents.runs.export | host | runs.read, runs.inspect |
-| ragents.runs.import | host | runs.read, runs.write, runs.create |
+| ragents.runs.import | host | * |
 | ragents.runs.interruptTurn | host | no fixed rights |
 | ragents.runs.list | host | runs.read |
 | ragents.runs.markViewed | host | runs.read |
@@ -3218,9 +3218,9 @@ Owner: host. Rights: runs.read, runs.inspect. Execution: the server.
 
 ## ragents.runs.import
 
-Accept a run archive, replay its journal and open the run stopped. Rights: runs.read, runs.write and runs.create.
+Accept a run archive, replay its journal and open the run stopped. Requires administrator access (*).
 
-Owner: host. Rights: runs.read, runs.write, runs.create. Execution: the server.
+Owner: host. Rights: *. Execution: the server.
 
 ### Input
 

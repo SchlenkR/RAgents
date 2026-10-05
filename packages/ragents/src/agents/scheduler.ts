@@ -42,6 +42,8 @@ export type TurnSchedulerOptions = {
     toolChapters?: (runId: string, actor: ExecutableActor, toolNames: readonly string[], availableTools: readonly RunFunction[]) => string | Promise<string>;
     modelSelection?: (turn: ClaimedTurn, actor: ExecutableActor) => ModelSelection;
     onError?: (error: unknown) => void;
+    /** Whether the host currently allows this run to execute. */
+    runAvailable?: (runId: string) => boolean;
     /** How long an interruption waits for the aborted driver before it ends the turn in the journal alone. */
     interruptWaitMs?: number;
 };
@@ -143,6 +145,7 @@ export class TurnScheduler {
         availableTools: readonly RunFunction[],
     ) => string | Promise<string>;
     readonly #onError: (error: unknown) => void;
+    readonly #runAvailable: (runId: string) => boolean;
     readonly #modelSelection: TurnSchedulerOptions["modelSelection"];
     readonly #active = new Map<string, ActiveTurn>();
     readonly #interruptions = new Map<string, TurnInterruption & { turnId: string }>();
@@ -180,6 +183,7 @@ export class TurnScheduler {
         this.#toolChapters = options.toolChapters ?? (() => "");
         this.#modelSelection = options.modelSelection;
         this.#onError = options.onError ?? ((error) => console.error("Turn scheduler failed:", error));
+        this.#runAvailable = options.runAvailable ?? (() => true);
         this.#interruptWaitMs = options.interruptWaitMs ?? DEFAULT_INTERRUPT_WAIT_MS;
     }
 
@@ -337,7 +341,7 @@ export class TurnScheduler {
     }
 
     #acceptsTurns(runId: string) {
-        return !this.#stopped && !this.#runState(runId).stopping;
+        return !this.#stopped && !this.#runState(runId).stopping && this.#runAvailable(runId);
     }
 
     #beginRunStop(runId: string, retire: boolean) {
@@ -734,6 +738,7 @@ export class TurnScheduler {
 
     /** A requested tool name that no host function resolves, not even as unavailable, stops a scheduled actor before its first turn. */
     #checkToolNames(runId: string, actorId: string) {
+        if (!this.#acceptsTurns(runId)) return;
         const actor = this.#actor(runId, actorId);
 
         if (!actor || !isAutomated(actor.execution.driver.kind) || actor.toolNames === null || actor.toolNames.length === 0)
@@ -744,7 +749,7 @@ export class TurnScheduler {
             .then((unknown) => {
                 const current = this.#actor(runId, actorId);
 
-                if (unknown.length === 0 || !current || current.lifecycle.kind === "stopped")
+                if (!this.#acceptsTurns(runId) || unknown.length === 0 || !current || current.lifecycle.kind === "stopped")
                     return;
 
                 const reason = `No host function resolves the tools ${unknown.join(", ")}; `
@@ -953,6 +958,10 @@ export class TurnScheduler {
                 recordTool: (toolEvent: DriverToolEvent) => this.#appendTool(turn, emitted++, toolEvent),
                 publish: (liveEvent: LiveEvent) => this.#live?.publish(runId, actorId, liveEvent),
             };
+            if (controller.signal.aborted || !this.#acceptsTurns(runId)) {
+                this.#interrupt(turn, "The turn was cancelled.");
+                return;
+            }
             const result = driverRef.kind === "agent"
                 ? await this.#requiredDriver("agent").runTurn(
                     {

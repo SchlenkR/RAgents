@@ -140,7 +140,8 @@ describes the model settings.
 
 The process sandbox has platform prerequisites too: Linux needs `bubblewrap`, `socat`, and
 working user namespaces; the standalone starter exposes its bundled ripgrep automatically.
-On Windows, explicitly set `PROCESS_SANDBOX: "off"` in the profile's `ragents.workspace` section.
+Windows servers support unrestricted administrator runs; restricted server execution requires
+macOS or Linux.
 See [Server process sandbox](https://github.com/SchlenkR/RAgents/blob/main/docs/operations.md#server-process-sandbox)
 for setup and configuration.
 
@@ -380,6 +381,11 @@ continues in the preparation chat. There you can discuss the task, give a clear 
 "Start", or choose "Create run". Merely confirming a detail does not start
 anything. In the browser a new run always works on the server; only VS Code and `ragents run`
 bind a run to a workstation.
+
+Before starting, "Sandbox protection" lets administrators restrict the run's server-side
+code execution. For other users, or when the server requires it, the switch is on and locked.
+The choice cannot change after the run starts. Workstation tools use that workstation's
+permissions; server-side code still follows the run's protection.
 
 A click shows its effect at once: either the run's progress appears, or the chosen entry shows
 a spinner and "Starting ..." at the top right while the other entries stay locked until the

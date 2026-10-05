@@ -34,6 +34,7 @@ import {
   workspaceExecutorModules,
   workspaceProcessContext,
   type AddressedRoots,
+  type BrowserNetworkPolicy,
   type ResolvedWorkspaceRoot,
   type SandboxHomeEnvironment,
   type SeenFile,
@@ -71,7 +72,10 @@ export interface SandboxServices {
   execute: (runId: string, operation: string, input: unknown, options?: WorkspaceExecuteOptions) => Promise<unknown>;
   /** The context for work that runs on the server (TypeScript platform, actor programs); never the folder of a workstation. */
   serverProcessContextFor: (runId: string) => Promise<WorkspaceProcessContext>;
+  /** Bootstrap a contributed server workspace without recursively resolving it or caching its temporary roots. */
+  serverProcessContextForWorkspace?: (runId: string, workspace: SessionWorkspace) => Promise<WorkspaceProcessContext>;
   registerWorkspaceRoot: (root: RegisteredWorkspaceRoot) => void;
+  registerBrowserOrigins?: (origins: () => readonly string[]) => void;
   shutdown: (runId: string) => Promise<void>;
 }
 
@@ -96,6 +100,8 @@ export interface WorkspaceSandboxHostOptions {
   serverDirectoryFor?: (runId: string) => Promise<string>;
   /** The process sandbox in which every process of this server's executor starts; without it processes run without one. */
   processSandbox?: RunProcessSandboxes;
+  processSandboxFor?: (runId: string) => Promise<RunProcessSandboxes | undefined>;
+  restrictedFor?: (runId: string) => boolean;
   /** The bash of this server's executor; required on Windows, otherwise the system's when not set. */
   bash?: string;
   /** The rg of this server's executor; when not set, one on the PATH applies. */
@@ -214,6 +220,7 @@ export class WorkspaceSandboxHost implements SandboxServices {
   readonly #options: WorkspaceSandboxHostOptions;
   readonly #definitions: readonly AgentToolDefinition[];
   readonly #workspaceRoots: RegisteredWorkspaceRoot[] = [];
+  #browserOrigins: (() => readonly string[]) | undefined;
   readonly #local: WorkspaceOperationExecutor;
   /** The server's executor for the server's roots of a run on the server whose own root is gone. */
   readonly #serverRoots: WorkspaceOperationExecutor;
@@ -258,6 +265,17 @@ export class WorkspaceSandboxHost implements SandboxServices {
       throw new Error(`Working directory variable ${root.environmentVariable} is invalid or already registered`);
     }
     this.#workspaceRoots.push(root);
+  }
+
+  registerBrowserOrigins(origins: () => readonly string[]): void {
+    if (this.#browserOrigins) throw new Error("Browser network origins have already been registered");
+    this.#browserOrigins = origins;
+  }
+
+  browserNetworkFor(runId: string): BrowserNetworkPolicy | undefined {
+    return this.#options.restrictedFor?.(runId)
+      ? { allowedOrigins: [...this.#browserOrigins?.() ?? []] }
+      : undefined;
   }
 
   async #additionalRoots(runId: string, ident?: SessionIdent): Promise<ResolvedWorkspaceRoot[]> {
@@ -306,6 +324,10 @@ export class WorkspaceSandboxHost implements SandboxServices {
     return this.#contextFor(runId, await this.#serverDirectory(runId, "does not work on the server"));
   }
 
+  async serverProcessContextForWorkspace(runId: string, workspace: SessionWorkspace): Promise<WorkspaceProcessContext> {
+    return this.#contextFor(runId, undefined, workspace);
+  }
+
   /** The server's roots of a run whose own root is gone, with the run's folder on the server in place of that root, as for a run on a workstation. */
   async #serverRootsContextFor(runId: string): Promise<WorkspaceProcessContext> {
     return this.#contextFor(runId, await this.#serverDirectory(runId, "has lost its root"));
@@ -318,14 +340,19 @@ export class WorkspaceSandboxHost implements SandboxServices {
   }
 
   /** The context of this server's executor; without its own folder the workspace itself, which must then lie on the server. */
-  async #contextFor(runId: string, serverDirectory?: string): Promise<WorkspaceProcessContext> {
-    const workspace = await this.#options.workspaceFor(runId);
-    const { ident, home, readOnlyRoots, temporary } = await this.#stableParts(runId, workspace);
+  async #contextFor(runId: string, serverDirectory?: string, suppliedWorkspace?: SessionWorkspace): Promise<WorkspaceProcessContext> {
+    const workspace = suppliedWorkspace ?? await this.#options.workspaceFor(runId);
+    const { ident, home, readOnlyRoots, temporary } = suppliedWorkspace
+      ? await this.#resolveStableParts(runId, workspace)
+      : await this.#stableParts(runId, workspace);
     const root = serverDirectory ?? await workspace.currentRoot();
-    const additionalRoots = await this.#additionalRoots(runId, ident);
+    const additionalRoots = suppliedWorkspace ? [] : await this.#additionalRoots(runId, ident);
     const folders = workspace.sandboxFolders ?? [];
-    const sandbox = this.#options.processSandbox && temporary !== undefined
-      ? this.#options.processSandbox.forRun({
+    const processSandbox = this.#options.processSandboxFor
+      ? await this.#options.processSandboxFor(runId)
+      : this.#options.processSandbox;
+    const sandbox = processSandbox && temporary !== undefined
+      ? processSandbox.forRun({
         writable: [
           root, ...additionalRoots.map((entry) => entry.directory), home.home, ...home.nugetPackages ? [home.nugetPackages] : [],
           ...sandboxFoldersWith(folders, "write"),
@@ -350,6 +377,7 @@ export class WorkspaceSandboxHost implements SandboxServices {
       additions: sandboxRunEnvironment(runId, workspace),
       runOperation: workspace.runOperation,
       ...(sandbox ? { sandbox } : {}),
+      browserNetwork: this.browserNetworkFor(runId),
       ...(this.#options.bash === undefined ? {} : { bash: this.#options.bash }),
       ...(this.#options.rg === undefined ? {} : { rg: this.#options.rg }),
     });
@@ -357,7 +385,7 @@ export class WorkspaceSandboxHost implements SandboxServices {
 
   /** A run's temp folder lies in its storage so that it vanishes with the run and no other run sees it. */
   async #temporaryFor(runId: string, ident: SessionIdent | undefined): Promise<string | undefined> {
-    if (!this.#options.processSandbox) return undefined;
+    if (!this.#options.processSandbox && !this.#options.processSandboxFor) return undefined;
     const storageRoot = this.#options.storageRootFor?.(runId);
     if (!storageRoot) throw new Error(`The process sandbox needs the storage of the run ${runId} for its temp folder`);
     const directory = path.join(storageRoot, "tmp");

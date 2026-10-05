@@ -4,7 +4,7 @@ import { dirname } from "path";
 import { type Static, Type } from "typebox";
 import type { ToolDefinition } from "../tool-definition.ts";
 import { withFileMutationQueue } from "./file-mutation-queue.ts";
-import { resolveToCwd } from "./path-utils.ts";
+import { resolveToCwd, type FilePathResolver } from "./path-utils.ts";
 
 const writeSchema = Type.Object(
 	{
@@ -40,6 +40,7 @@ const defaultWriteOperations: WriteOperations = {
 export interface WriteToolOptions {
 	/** Custom operations for file writing. Default: local filesystem */
 	operations?: WriteOperations;
+	resolvePath?: FilePathResolver;
 }
 
 export function createWriteToolDefinition(
@@ -47,6 +48,7 @@ export function createWriteToolDefinition(
 	options?: WriteToolOptions,
 ): ToolDefinition<typeof writeSchema, undefined> {
 	const ops = options?.operations ?? defaultWriteOperations;
+	const resolvePath = options?.resolvePath ?? resolveToCwd;
 	return {
 		name: "write",
 		label: "write",
@@ -55,7 +57,7 @@ export function createWriteToolDefinition(
 			+ "Prefer edit for changes to an existing file; use write for new files or complete rewrites.",
 		parameters: writeSchema,
 		async execute(_toolCallId, { file_path, content }: WriteToolInput, signal?: AbortSignal) {
-			const absolutePath = resolveToCwd(file_path, cwd);
+			const absolutePath = await resolvePath(file_path, cwd);
 			return withFileMutationQueue(absolutePath, async () => {
 				// An abort listener must not reject here: that would release the queue while a file operation still runs.
 				const throwIfAborted = (): void => {

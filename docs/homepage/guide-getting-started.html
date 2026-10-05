@@ -275,7 +275,8 @@ the other commands, and <a href="#configure-model-access-and-start">Configure mo
 describes the model settings.</p>
 <p>The process sandbox has platform prerequisites too: Linux needs <code>bubblewrap</code>, <code>socat</code>, and
 working user namespaces; the standalone starter exposes its bundled ripgrep automatically.
-On Windows, explicitly set <code>PROCESS_SANDBOX: &quot;off&quot;</code> in the profile&#39;s <code>ragents.workspace</code> section.
+Windows servers support unrestricted administrator runs; restricted server execution requires
+macOS or Linux.
 See <a href="https://github.com/SchlenkR/RAgents/blob/main/docs/operations.md#server-process-sandbox">Server process sandbox</a>
 for setup and configuration.</p>
 <h2 id="install-from-npm">Install from npm</h2>
@@ -491,6 +492,10 @@ continues in the preparation chat. There you can discuss the task, give a clear 
 &quot;Start&quot;, or choose &quot;Create run&quot;. Merely confirming a detail does not start
 anything. In the browser a new run always works on the server; only VS Code and <code>ragents run</code>
 bind a run to a workstation.</p>
+<p>Before starting, &quot;Sandbox protection&quot; lets administrators restrict the run&#39;s server-side
+code execution. For other users, or when the server requires it, the switch is on and locked.
+The choice cannot change after the run starts. Workstation tools use that workstation&#39;s
+permissions; server-side code still follows the run&#39;s protection.</p>
 <p>A click shows its effect at once: either the run&#39;s progress appears, or the chosen entry shows
 a spinner and &quot;Starting ...&quot; at the top right while the other entries stay locked until the
 run opens or the start fails; a run script in the run header&#39;s &quot;Run script&quot; list does the same. While a template starts,

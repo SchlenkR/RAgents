@@ -1,11 +1,15 @@
 import assert from "node:assert/strict";
 import { createServer } from "node:http";
+import { createServer as createTcpServer } from "node:net";
+import { createSocket } from "node:dgram";
 import { mkdir, mkdtemp, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import test from "node:test";
 import { WorkspaceOperationExecutor, executorMachine, sandboxToolsModule, workspaceProcessContext } from "@ragents/workspace-executor";
+import type { Browser } from "playwright-core";
 import { browserModule } from "../../../plugins/ragents.browser/executor/module.ts";
+import { launchChromium } from "../../../plugins/ragents.browser/executor/playwright.ts";
 import { RunBrowser } from "../../../plugins/ragents.browser/server/browser.ts";
 import { hostRoot } from "../src/host-version.ts";
 
@@ -36,6 +40,112 @@ const serverBrowser = (documentsFor: (runId: string) => string) => {
 };
 
 const stored = (documents: string, reference: string): string => path.join(documents, ...reference.slice("@documents/".length).split("/"));
+
+test("a restricted real browser proxies redirects, frames, WebSockets and TURN without direct UDP or TCP", { skip: process.env.RAGENTS_BROWSER_TESTS !== "1", timeout: 30_000 }, async (t) => {
+  let forbiddenHits = 0;
+  let tcpHits = 0;
+  let udpHits = 0;
+  let stunHits = 0;
+  let quicHits = 0;
+  let originCredentials = 0;
+  const forbidden = createServer((_request, response) => { forbiddenHits += 1; response.end("Forbidden fixture"); });
+  const tcp = createTcpServer((socket) => { tcpHits += 1; socket.destroy(); });
+  const udp = createSocket("udp4");
+  udp.on("message", (message) => { udpHits += 1; if (message[0]! < 64) stunHits += 1; else quicHits += 1; });
+  await Promise.all([
+    new Promise<void>((resolve) => forbidden.listen(0, "127.0.0.1", resolve)),
+    new Promise<void>((resolve) => tcp.listen(0, "127.0.0.1", resolve)),
+    new Promise<void>((resolve) => udp.bind(0, "127.0.0.1", resolve)),
+  ]);
+  const forbiddenAddress = forbidden.address();
+  const tcpAddress = tcp.address();
+  assert.ok(forbiddenAddress && typeof forbiddenAddress === "object");
+  assert.ok(tcpAddress && typeof tcpAddress === "object");
+  const hidden = `http://127.0.0.1:${forbiddenAddress.port}`;
+  const preview = createServer((request, response) => {
+    if (request.url === "/challenge") {
+      if (request.headers.authorization) originCredentials += 1;
+      response.writeHead(401, { "WWW-Authenticate": 'Basic realm="fixture"' });
+      response.end("Sign-in required");
+      return;
+    }
+    if (request.url === "/redirect") { response.writeHead(302, { Location: `${hidden}/redirected` }); response.end(); return; }
+    if (request.url === "/worker.js") { response.setHeader("Content-Type", "application/javascript"); response.end(`fetch('${hidden}/worker');`); return; }
+    response.setHeader("Content-Type", "text/html");
+    response.end(`<!doctype html><head><link rel="icon" href="data:,"></head><body>Preview fixture<img src="${hidden}/image"><iframe src="${hidden}/frame"></iframe></body>`);
+  });
+  const websocketSockets = new Set<import("node:stream").Duplex>();
+  preview.on("upgrade", (request, socket) => {
+    const key = request.headers["sec-websocket-key"];
+    assert.equal(typeof key, "string");
+    void import("node:crypto").then(({ createHash }) => {
+      websocketSockets.add(socket);
+      socket.once("close", () => websocketSockets.delete(socket));
+      socket.write(`HTTP/1.1 101 Switching Protocols\r\nConnection: Upgrade\r\nUpgrade: websocket\r\nSec-WebSocket-Accept: ${createHash("sha1").update(`${key}258EAFA5-E914-47DA-95CA-C5AB0DC85B11`).digest("base64")}\r\n\r\n`);
+    });
+  });
+  await new Promise<void>((resolve) => preview.listen(0, "127.0.0.1", resolve));
+  const previewAddress = preview.address();
+  assert.ok(previewAddress && typeof previewAddress === "object");
+  const origin = `http://127.0.0.1:${previewAddress.port}`;
+  let browser: Browser | undefined;
+  t.after(async () => {
+    try { await browser?.close(); }
+    finally {
+      for (const socket of websocketSockets) socket.destroy();
+      forbidden.closeAllConnections();
+      preview.closeAllConnections();
+      await Promise.all([
+        new Promise<void>((resolve) => forbidden.close(() => resolve())),
+        new Promise<void>((resolve) => preview.close(() => resolve())),
+        new Promise<void>((resolve) => tcp.close(() => resolve())),
+        new Promise<void>((resolve) => udp.close(() => resolve())),
+      ]);
+    }
+  });
+  browser = await launchChromium(executorMachine("/unused"), hostRoot(), "network-fixture", 5000, async () => ({ allowedOrigins: [origin] }));
+  const context = await browser.newContext({ serviceWorkers: "block" });
+  t.diagnostic(`Chromium ${browser.version()}`);
+  const page = await context.newPage();
+  await page.goto(origin, { waitUntil: "networkidle", timeout: 5000 });
+  assert.match(await page.locator("body").innerText(), /Preview fixture/);
+  assert.equal(forbiddenHits, 0, "subresources and frames cannot bypass the proxy for loopback");
+  const result = await page.evaluate(async ({ origin, hidden, tcpPort, udpPort }) => {
+    const [allowedSocket, blockedSocket] = await Promise.all([origin.replace("http:", "ws:") + "/socket", hidden.replace("http:", "ws:") + "/socket"].map((url) => new Promise<string>((resolve) => {
+      const socket = new WebSocket(url);
+      const timeout = setTimeout(() => { socket.close(); resolve("timeout"); }, 3000);
+      socket.onopen = () => { clearTimeout(timeout); socket.close(); resolve("opened"); };
+      socket.onerror = () => { clearTimeout(timeout); resolve("blocked"); };
+    })));
+    const fetchResult = await fetch(`${hidden}/fetch`).then(() => "opened", () => "blocked");
+    const challenge = await fetch(`${origin}/challenge`).then((response) => response.status);
+    const worker = await navigator.serviceWorker.register(`${origin}/worker.js`).then((registered) => registered === undefined ? "blocked" : "registered", () => "blocked");
+    const peer = new RTCPeerConnection({ iceServers: [
+      { urls: `turn:127.0.0.1:${tcpPort}?transport=tcp`, username: "fixture", credential: "fixture" },
+      { urls: `stun:127.0.0.1:${udpPort}` },
+      { urls: `turn:127.0.0.1:${udpPort}?transport=udp`, username: "fixture", credential: "fixture" },
+    ] });
+    peer.createDataChannel("fixture");
+    await peer.setLocalDescription(await peer.createOffer());
+    await new Promise<void>((resolve) => {
+      const timeout = setTimeout(resolve, 2000);
+      peer.onicegatheringstatechange = () => { if (peer.iceGatheringState === "complete") { clearTimeout(timeout); resolve(); } };
+    });
+    peer.close();
+    const transport = new WebTransport(`https://127.0.0.1:${udpPort}/transport`);
+    const webTransport = await Promise.race([transport.ready.then(() => "opened", () => "blocked"), new Promise<string>((resolve) => setTimeout(() => resolve("timeout"), 2000))]);
+    transport.closed.catch(() => undefined);
+    transport.close();
+    return { allowedSocket, blockedSocket, fetchResult, challenge, worker, webTransport };
+  }, { origin, hidden, tcpPort: tcpAddress.port, udpPort: udp.address().port });
+  assert.deepEqual(result, { allowedSocket: "opened", blockedSocket: "blocked", fetchResult: "blocked", challenge: 401, worker: "blocked", webTransport: "blocked" });
+  const redirected = await page.goto(`${origin}/redirect`, { timeout: 5000 }).then((response) => response?.status(), (error: Error) => { assert.match(error.message, /403|ERR_/); return 403; });
+  assert.equal(redirected, 403);
+  assert.equal(forbiddenHits, 0);
+  assert.equal(tcpHits, 0, "TURN TCP does not connect directly around the HTTP proxy");
+  assert.equal(udpHits, 0, `STUN, TURN UDP and WebTransport do not connect directly (STUN/TURN ${stunHits}, QUIC ${quicHits})`);
+  assert.equal(originCredentials, 0, "an origin's authentication challenge never receives proxy credentials");
+});
 
 test("a real browser operates form and iframe, isolates cookies and checks screenshots and abort", { skip: process.env.RAGENTS_BROWSER_TESTS !== "1", timeout: 60_000 }, async (context) => {
   const directory = await mkdtemp(path.join(tmpdir(), "ragents-browser-live-"));

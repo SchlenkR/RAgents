@@ -398,6 +398,7 @@ export class WorkspaceClient {
       logDirectory: join(tmpdir(), "ragents-workspace-logs", input.runId),
       hostRoot: attachment.built?.hostRoot,
       additions: input.env,
+      ...(input.browserNetwork ? { browserNetwork: input.browserNetwork } : {}),
       baseEnvironment: "inherited",
       ...(this.options.bash === undefined ? {} : { bash: this.options.bash }),
       ...(this.options.rg === undefined ? {} : { rg: this.options.rg }),

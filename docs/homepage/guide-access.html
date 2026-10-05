@@ -226,11 +226,16 @@ accepts a workstation only over a loopback connection and otherwise refuses with
 on the server.</p>
 <p><code>runs.write</code> permits messages and app actions in existing owned runs. Free-form runs,
 preparation chats, and start options additionally require <code>runs.create</code>. Without it, a user can
-start only explicitly allowed run scripts. <code>runs.inspect</code> protects models, journals, source code,
-tools, and general technical views. Language-server views use their own plugin read permission.
+start only explicitly allowed run scripts. Importing a run archive requires administrator access
+(<code>*</code>); individually granted run permissions do not authorize imports. <code>runs.inspect</code> protects models,
+journals, source code, tools, and general technical views. Language-server views use their own plugin read permission.
 <code>runs.trace</code> separately reveals reasoning and function-call content in chat. Without it, those
 phases appear only as empty progress markers while arguments, source, results, and reasoning are
 removed on the server.</p>
+<p>Server-side execution is always sandboxed for nonadministrators. Administrators can select
+&quot;Sandbox protection&quot; before starting a run, and the server can require it for everyone.
+Only administrators can bind an existing server folder; other users work in a new folder
+per run or on their own workstation. Sharing does not change the owner&#39;s execution policy.</p>
 <h2 id="function-selection-and-actor-grants">Function selection and actor grants</h2>
 <p>An engine capability is a technical permission such as <code>workspace.use</code>. A grant assigns it to
 an actor for the run or a workspace path and records whether the actor may use or delegate it.

@@ -643,11 +643,17 @@ on the server.
 
 `runs.write` permits messages and app actions in existing owned runs. Free-form runs,
 preparation chats, and start options additionally require `runs.create`. Without it, a user can
-start only explicitly allowed run scripts. `runs.inspect` protects models, journals, source code,
-tools, and general technical views. Language-server views use their own plugin read permission.
+start only explicitly allowed run scripts. Importing a run archive requires administrator access
+(`*`); individually granted run permissions do not authorize imports. `runs.inspect` protects models,
+journals, source code, tools, and general technical views. Language-server views use their own plugin read permission.
 `runs.trace` separately reveals reasoning and function-call content in chat. Without it, those
 phases appear only as empty progress markers while arguments, source, results, and reasoning are
 removed on the server.
+
+Server-side execution is always sandboxed for nonadministrators. Administrators can select
+"Sandbox protection" before starting a run, and the server can require it for everyone.
+Only administrators can bind an existing server folder; other users work in a new folder
+per run or on their own workstation. Sharing does not change the owner's execution policy.
 <!-- /guide:access -->
 
 ### Ownership in detail
@@ -773,9 +779,11 @@ with start and completion information for reasoning and tool phases; the server 
 arguments, source, results, and reasoning texts. This keeps the current working phase visible
 without revealing technical details.
 
-Settings and the global coordinator keep their own permissions. These permissions do not replace
-an execution sandbox for self-written native code; on the server, the process sandbox takes care of
-that ([plugins.md](plugins.md), Server process sandbox). The global coordinator has its own
+Settings and the global coordinator keep their own permissions. Native server execution uses the
+run owner's policy: nonadministrators always receive the process sandbox, administrators can
+select it before starting, and the server can force it for all runs. Neither sharing nor a
+message from an administrator changes a restricted owner's policy
+([plugins.md](plugins.md), Server process sandbox). The global coordinator has its own
 read and write permissions; changes to its model selection additionally require the permission to
 write settings. Its workspace receives a local token for its user's access, exclusively for the
 message layer and help over loopback; the server resolves it on every call to the current state of
@@ -816,12 +824,11 @@ use the set allowed for this actor.
 - A share names user identifiers. A user removed from the profile keeps their entries in the
   journal until the next change, and a new user with the same identifier would get them. A channel
   ended by a taken-back share sends no message of its own.
-- With users, the global coordinator has no host shell. Its TypeScript snippets run, like all
-  processes of the server, in the process sandbox and read neither the data directory nor the
-  journals of other users. If the profile file turns the sandbox off (`PROCESS_SANDBOX: "off"`),
-  they run as a native Node process of the server without their own system identity and could read
-  both. Through the server itself, the coordinator still reaches exactly the permissions of its
-  user.
+- With users, the global coordinator has no host shell. A nonadministrator's TypeScript
+  snippets receive the process sandbox and cannot read foreign journals or the server home;
+  administrator code remains unrestricted unless the server forces protection. Unrestricted
+  code runs as the server account and can reach that account's files. Through the server API,
+  the coordinator still reaches exactly its user's permissions.
 - When switching, the coordinators' model selection checks the attachments of all coordinator
   conversations, including those of a former shared user or a removed user.
 - Provisioning fetches only what the bundles of a profile export as `provision`; prerequisites

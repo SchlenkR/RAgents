@@ -1,7 +1,8 @@
 import type { WebPlugin } from "@ragents/web/PluginRegistry";
-import { WORKSPACE_BINDING_OPTION_ID, WORKSPACE_PLUGIN_ID } from "../contract";
+import { WORKSPACE_BINDING_OPTION_ID, WORKSPACE_PLUGIN_ID, WORKSPACE_SANDBOX_OPTION_ID } from "../contract";
 import { FileBrowserPanel } from "./FileBrowser";
 import { WorkspaceBindingBadge, WorkspaceBindingControl, WorkspaceMetadata } from "./WorkspaceBinding";
+import { SandboxBadge, SandboxControl } from "./SandboxOption";
 
 export const WORKSPACE_FILES_TAB_ID = "ragents.workspace.files";
 
@@ -28,6 +29,10 @@ export const webPlugin: WebPlugin = {
     id: WORKSPACE_BINDING_OPTION_ID,
     Control: WorkspaceBindingControl,
     Badge: WorkspaceBindingBadge,
+  }, {
+    id: WORKSPACE_SANDBOX_OPTION_ID,
+    Control: SandboxControl,
+    Badge: SandboxBadge,
   }],
   sessionMetadata: [{
     id: "ragents.workspace.binding",

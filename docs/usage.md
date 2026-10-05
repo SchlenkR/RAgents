@@ -20,6 +20,11 @@ continues in the preparation chat. There you can discuss the task, give a clear 
 anything. In the browser a new run always works on the server; only VS Code and `ragents run`
 bind a run to a workstation.
 
+Before starting, "Sandbox protection" lets administrators restrict the run's server-side
+code execution. For other users, or when the server requires it, the switch is on and locked.
+The choice cannot change after the run starts. Workstation tools use that workstation's
+permissions; server-side code still follows the run's protection.
+
 A click shows its effect at once: either the run's progress appears, or the chosen entry shows
 a spinner and "Starting ..." at the top right while the other entries stay locked until the
 run opens or the start fails; a run script in the run header's "Run script" list does the same. While a template starts,
@@ -299,7 +304,8 @@ conversation, skill, and attachments; the button also takes the last unsent addi
 discards the local preparation history and leads to the start selection. At startup, the
 skill is taken over with the task; the edited task takes precedence over example text in the skill.
 As the machine, the workspace in the browser offers only the server, in the VS Code run panel also
-the connected workstations.
+the connected workstations. An existing server folder is available only to administrators;
+other users choose a new server folder per run or an offered folder of their own workstation.
 
 ## Start run scripts
 
@@ -510,9 +516,13 @@ How the executor ends processes (SIGTERM, SIGKILL, time limits), which processes
 to a run, and how forwarding checks a port and opens a stream are in [plugins.md](spec/plugins.md)
 under "Workspace, sandbox tools, and processes".
 
-On the server, agents can use Bash and `curl` to reach public web domains on ports 80 and 443
+In a protected server run, agents can use Bash and `curl` to reach public web domains on ports 80 and 443
 by default. The host can restrict this or allow additional local services in its
 [sandbox configuration](operations.md#server-process-sandbox). The run's file isolation remains active.
+
+In a protected run, the browser check reaches public websites by default. Checking a local
+or internal application needs an allowance from the server administrator, as described
+in the same configuration section.
 
 An agent starts a dev server or another service that must keep running with `bash` and
 `run_in_background: true`, as in Claude Code. The call returns at once with an ID such as

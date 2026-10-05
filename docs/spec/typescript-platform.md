@@ -80,6 +80,8 @@ and process environment come from the server context of the run
 (`SandboxServices.serverProcessContextFor`): for a workspace on the server from its workspace, for
 a workstation from a dedicated folder of the run on the server, never from the workstation's
 folder. Native execution is not an additional language sandbox against arbitrary backend code.
+For nonadministrator owners, or when requested for the run or forced by the server, these
+processes use the operating system sandbox described in `plugins.md` (Server process sandbox).
 
 ## TypeScript actors
 

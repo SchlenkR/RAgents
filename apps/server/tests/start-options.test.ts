@@ -5,6 +5,7 @@ import { Type } from "typebox";
 
 import {
   DomainError,
+  createAccessContext,
   Journal,
   LiveBus,
   Orchestration,
@@ -26,6 +27,8 @@ import {
   storedStartOption,
   systemPromptStartOptionId,
 } from "../src/ragents/start-option-state.ts";
+import { WORKSPACE_SANDBOX_OPTION_ID } from "../../../plugins/ragents.workspace/contract.ts";
+import { sandboxStartOption, securityPolicyFor } from "../../../plugins/ragents.workspace/server/security.ts";
 
 const modelChoice = (selectable = true): ModelChoice => ({
   options: ["fast", "deep"],
@@ -115,7 +118,7 @@ const fixture = (runId: string, contributions: readonly StartOptionContribution[
     startEntryFor: (entryId) => entries.find((entry) => entry.id === entryId),
     actorPrograms: unavailableActorPrograms,
   });
-  return { journal, runtime, session, prepared };
+  return { journal, runtime, session, prepared, startOptions };
 };
 
 /** A script template with its package, as the host hands it out for the start. */
@@ -319,6 +322,114 @@ const recordedSource = (seen: string[]): StartOptionContribution => ({
 });
 
 const alice = { id: "alice", label: "Alice" };
+
+const sandboxAccessFor = (userId: string | null) => createAccessContext({
+  enabled: true,
+  user: userId === null ? null : { id: userId, label: userId, rights: userId === "admin" ? ["*"] : ["runs.read", "runs.write", "runs.create"] },
+});
+
+const sandboxFixture = (runId: string, force: boolean) => {
+  const setup = fixture(runId, []);
+  setup.startOptions.register("ragents.workspace", [sandboxStartOption(force, sandboxAccessFor, (id) => setup.journal.stateOf(id))]);
+  return setup;
+};
+
+test("a non-administrator cannot choose an unrestricted run and the sandbox choice locks at start", async () => {
+  const runId = "sandbox-employee";
+  const { journal, session } = sandboxFixture(runId, false);
+  try {
+    const option = session.startOptions("alice")[0];
+    assert.equal(option.value, true);
+    assert.deepEqual(option.presentation, { kind: "process-sandbox", forced: true });
+    await assert.rejects(session.selectStartOption(WORKSPACE_SANDBOX_OPTION_ID, false, "alice"),
+      (error: unknown) => error instanceof DomainError && error.code === "workspace-sandbox-required" && error.status === 403);
+    await session.selectStartOption(WORKSPACE_SANDBOX_OPTION_ID, true, "alice");
+    session.send("Start", undefined, undefined, alice);
+    await session.drain();
+    assert.equal(storedStartOption(journal.stateOf(runId), WORKSPACE_SANDBOX_OPTION_ID), true);
+    assert.equal(session.startOptions("admin")[0].locked, true);
+    await assert.rejects(session.selectStartOption(WORKSPACE_SANDBOX_OPTION_ID, false, "admin"),
+      (error: unknown) => error instanceof DomainError && error.code === "option-locked" && error.status === 409);
+  } finally { journal.close(); }
+});
+
+test("an administrator may choose restriction before start unless the server forces it", async () => {
+  for (const force of [false, true]) {
+    const runId = `sandbox-admin-${force}`;
+    const { journal, session } = sandboxFixture(runId, force);
+    try {
+      assert.equal(session.startOptions("admin")[0].value, force);
+      assert.deepEqual(session.startOptions("admin")[0].presentation, { kind: "process-sandbox", forced: force });
+      if (force) {
+        await assert.rejects(session.selectStartOption(WORKSPACE_SANDBOX_OPTION_ID, false, "admin"),
+          (error: unknown) => error instanceof DomainError && error.code === "workspace-sandbox-required");
+      } else {
+        await session.selectStartOption(WORKSPACE_SANDBOX_OPTION_ID, true, "admin");
+        assert.equal(session.startOptions("admin")[0].value, true);
+        await session.selectStartOption(WORKSPACE_SANDBOX_OPTION_ID, false, "admin");
+      }
+      session.send("Start", undefined, undefined, { id: "admin", label: "Administrator" });
+      await session.drain();
+      const state = journal.stateOf(runId);
+      assert.equal(state?.ownerUserId, "admin");
+      assert.equal(storedStartOption(state, WORKSPACE_SANDBOX_OPTION_ID), force);
+      assert.equal(securityPolicyFor(force, sandboxAccessFor(state!.ownerUserId), state).restricted, force);
+    } finally { journal.close(); }
+  }
+});
+
+test("a manipulated stored choice or an administrator's message cannot lower an employee run's policy", async () => {
+  const runId = "sandbox-owned";
+  const { journal, runtime, session } = sandboxFixture(runId, false);
+  try {
+    session.send("Start", undefined, undefined, alice);
+    await session.settle();
+    runtime.replacePluginState({ actorId: runtime.state(runId).ownerId, commandId: "stored-sandbox-false" }, runId, {
+      pluginId: WORKSPACE_SANDBOX_OPTION_ID, scope: { kind: "run" }, state: false,
+    });
+    session.send("Continue", undefined, undefined, { id: "admin", label: "Administrator" });
+    await session.drain();
+    const state = journal.stateOf(runId)!;
+    assert.equal(state.ownerUserId, "alice");
+    assert.equal(storedStartOption(state, WORKSPACE_SANDBOX_OPTION_ID), false);
+    assert.equal(securityPolicyFor(false, sandboxAccessFor(state.ownerUserId), state).restricted, true);
+    for (const [index, invalid] of ["false", 0, null, {}, []].entries()) {
+      runtime.replacePluginState({ actorId: state.ownerId, commandId: `stored-sandbox-invalid-${index}` }, runId, {
+        pluginId: WORKSPACE_SANDBOX_OPTION_ID, scope: { kind: "run" }, state: invalid,
+      });
+      assert.throws(() => securityPolicyFor(false, sandboxAccessFor("admin"), journal.stateOf(runId)),
+        (error: unknown) => error instanceof DomainError && error.code === "workspace-sandbox-invalid" && error.status === 409);
+    }
+  } finally { journal.close(); }
+});
+
+test("a started run's sandbox presentation follows its owner for old and imported state, including to an administrator viewer", async () => {
+  for (const ownerUserId of ["alice", "admin"]) {
+    for (const choice of [undefined, false]) {
+      const runId = `sandbox-view-${ownerUserId}-${choice === undefined ? "missing" : "false"}`;
+      const { journal, runtime, session } = sandboxFixture(runId, false);
+      try {
+        runtime.createRun({ commandId: "restore" }, {
+          runId, title: "Restored fixture", ownerHandle: "owner", ownerDisplayName: "Owner", ownerUserId,
+          initialPluginStates: choice === undefined ? [] : [{ pluginId: WORKSPACE_SANDBOX_OPTION_ID, state: choice }],
+        });
+        const forced = ownerUserId === "alice";
+        for (const viewer of ["admin", "alice"]) {
+          const option = session.startOptions(viewer).find((entry) => entry.id === WORKSPACE_SANDBOX_OPTION_ID)!;
+          assert.equal(option.locked, true);
+          assert.equal(option.value, choice ?? forced);
+          assert.deepEqual(option.presentation, { kind: "process-sandbox", forced });
+          assert.equal((option.presentation as { forced: boolean }).forced || option.value === true,
+            securityPolicyFor(false, sandboxAccessFor(ownerUserId), journal.stateOf(runId)).restricted);
+        }
+        await assert.rejects(session.selectStartOption(WORKSPACE_SANDBOX_OPTION_ID, false, "admin"), (error: unknown) =>
+          error instanceof DomainError && error.code === "option-locked" && error.status === 409);
+      } finally {
+        journal.close();
+      }
+    }
+  }
+});
 
 const cloningSkill: PublicStartEntry = {
   id: "test.cloning-skill", owner: "test.plugin", action: "skill", skill: "demo", category: "Examples",

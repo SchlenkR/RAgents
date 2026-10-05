@@ -4,6 +4,8 @@ import { defineChannel, defineOperation } from "@ragents/engine/src/rpc/contract
 
 export const WORKSPACE_PLUGIN_ID = "ragents.workspace";
 
+export const WORKSPACE_SANDBOX_OPTION_ID = "ragents.workspace.sandbox";
+
 export const BROWSE_ROOTS = ["workspace", "files"] as const;
 export type BrowseRoot = typeof BROWSE_ROOTS[number];
 
@@ -167,6 +169,9 @@ export const workspaceClientContracts = {
       toolCallId: Type.Optional(Type.String({ minLength: 1, maxLength: 200, description: "Only for a tool call of the model" })),
       cwd: absolutePath,
       env: Type.Record(Type.String(), Type.String(), { description: "What the server contributes: run marker and git rules of the sandbox" }),
+      browserNetwork: Type.Optional(Type.Object({
+        allowedOrigins: Type.Array(Type.String()),
+      }, { additionalProperties: false })),
       input: Type.Unknown({ description: "The input of the operation" }),
     }, { additionalProperties: false }),
     result: Type.Object({ value: Type.Unknown() }, { additionalProperties: false }),

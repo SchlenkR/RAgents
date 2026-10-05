@@ -3,10 +3,11 @@ import { mkdtemp, readFile, realpath, rm, stat } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import test from "node:test";
-import { DomainError, pluginStateKey, type MethodConnection, type Orchestration, type PluginContext, type RunState } from "@ragents/engine";
+import { createAccessContext, DomainError, pluginStateKey, type MethodConnection, type Orchestration, type PluginContext, type RunState } from "@ragents/engine";
 import { WORKSPACE_EXECUTOR_VERSION } from "@ragents/workspace-executor";
 
-import { WORKSPACE_BINDING_OPTION_ID } from "../../../plugins/ragents.workspace/contract.ts";
+import { WORKSPACE_BINDING_OPTION_ID, type WorkspaceBinding } from "../../../plugins/ragents.workspace/contract.ts";
+import { workspaceBindingOption } from "../../../plugins/ragents.workspace/server/binding.ts";
 import { WorkspaceClientRegistry } from "../../../plugins/ragents.workspace/server/clients.ts";
 import { RunWorkspaceRuntime, type RunWorkspaceRuntimeOptions } from "../../../plugins/ragents.workspace/server/runtime.ts";
 import type { WorkspaceResolver, WorkspaceResolverContext } from "../src/ragents/workspace-runtime.ts";
@@ -75,6 +76,7 @@ const runStateWith = (optionId: string | undefined, choice: unknown, ownerUserId
 
 const fixture = async (overrides: Partial<RunWorkspaceRuntimeOptions> = {}) => {
   const root = await realpath(await mkdtemp(path.join(tmpdir(), "ragents-run-workspace-")));
+  const runState = overrides.runState ?? (() => runStateWith(undefined, undefined, "administrator"));
   const runtime = new RunWorkspaceRuntime({
     globalDirectory: path.join(root, "global"),
     sessionDirectory: (runId, ...segments) => path.join(root, "sessions", runId, "plugins", "ragents.workspace", ...segments),
@@ -83,7 +85,9 @@ const fixture = async (overrides: Partial<RunWorkspaceRuntimeOptions> = {}) => {
     sessionWorkspaceFor: () => Promise.reject(new Error("not asked")),
     skillPaths: async () => [],
     resolver: () => undefined,
-    runState: () => runStateWith(undefined, undefined),
+    runState,
+    administratorFor: (runId) => runState(runId)?.ownerUserId === "administrator",
+    storeBinding: () => { throw new Error("The test does not rebind"); },
     clients: new WorkspaceClientRegistry([]),
     contributions: [],
     ...overrides,
@@ -93,7 +97,7 @@ const fixture = async (overrides: Partial<RunWorkspaceRuntimeOptions> = {}) => {
 
 test("a run bound to a folder on the server works there and creates nothing under the session storage", async () => {
   const { root, runtime, remove } = await fixture({
-    runState: (runId) => runId === "bound" ? runStateWith(WORKSPACE_BINDING_OPTION_ID, { machine: "server", folder: { path: path.join(root, "project") } }) : null,
+    runState: (runId) => runId === "bound" ? runStateWith(WORKSPACE_BINDING_OPTION_ID, { machine: "server", folder: { path: path.join(root, "project") } }, "administrator") : null,
   });
   try {
     await mkdtempInside(root, "project");
@@ -110,11 +114,85 @@ test("a run bound to a folder on the server works there and creates nothing unde
   }
 });
 
+test("stored and imported server folder bindings remain unavailable to a nonadministrator", async () => {
+  const states = new Map<string, RunState>();
+  const { root, runtime, remove } = await fixture({
+    runState: (runId) => states.get(runId) ?? null,
+    storeBinding: (runId, binding) => states.set(runId, runStateWith(WORKSPACE_BINDING_OPTION_ID, binding, "employee")),
+  });
+  try {
+    const project = path.join(root, "project");
+    await mkdirInside(project);
+    for (const [runId, binding] of [
+      ["stored", { machine: "server", folder: { path: project } }],
+      ["legacy", { kind: "path", path: project }],
+    ] as const) {
+      states.set(runId, runStateWith(WORKSPACE_BINDING_OPTION_ID, binding, "employee"));
+    }
+    runtime.transfer.rebind("imported", project);
+    for (const runId of ["stored", "legacy", "imported"]) {
+      assert.equal(runtime.transfer.boundDirectory(runId), project);
+      const notes: string[] = [];
+      await assert.rejects(runtime.resolve(runId, (text) => notes.push(text)), (error: unknown) =>
+        error instanceof DomainError && error.code === "workspace-server-folder-admin" && error.status === 403);
+      assert.deepEqual(notes, []);
+    }
+    assert.equal(await stat(path.join(root, "sessions")).catch(() => undefined), undefined);
+    assert.ok((await stat(project)).isDirectory());
+  } finally {
+    await remove();
+  }
+});
+
+test("import validation and rebinding enforce the same server folder policy as an administrator's start option", async () => {
+  const stored: WorkspaceBinding[] = [];
+  const resolver: WorkspaceResolver = {
+    kind: { id: "example.workspace", label: "Prepared folder per run", serverFolders: false },
+    resolve: () => Promise.reject(new Error("not asked")),
+  };
+  const administrator = createAccessContext({ enabled: true, user: { id: "administrator", label: "Administrator", rights: ["*"] } });
+  const { root, runtime, remove } = await fixture({ resolver: () => resolver, storeBinding: (_runId, binding) => { stored.push(binding); } });
+  try {
+    const option = workspaceBindingOption(new WorkspaceClientRegistry([]), () => resolver, () => administrator);
+    const failures = [
+      () => option.accept({ machine: "server", folder: { path: root } }, { runId: "draft", userId: administrator.userId }),
+      () => runtime.transfer.assertDirectory(root),
+      () => runtime.transfer.rebind("imported", root),
+    ].map((action) => {
+      try { action(); }
+      catch (error) {
+        assert.ok(error instanceof DomainError);
+        return { code: error.code, status: error.status, message: error.message };
+      }
+      assert.fail("The profile forbids an existing server folder, including for administrators and imports.");
+    });
+    assert.equal(failures[0]!.code, "workspace-binding-unsupported");
+    assert.equal(failures[0]!.status, 400);
+    assert.deepEqual(failures[1], failures[0]);
+    assert.deepEqual(failures[2], failures[0]);
+    assert.deepEqual(stored, []);
+  } finally {
+    await remove();
+  }
+});
+
+test("import validation and rebinding retain an allowed administrator server folder", async () => {
+  const stored: WorkspaceBinding[] = [];
+  const { root, runtime, remove } = await fixture({ storeBinding: (_runId, binding) => { stored.push(binding); } });
+  try {
+    runtime.transfer.assertDirectory(root);
+    runtime.transfer.rebind("imported", root);
+    assert.deepEqual(stored, [{ machine: "server", folder: { path: root } }]);
+  } finally {
+    await remove();
+  }
+});
+
 test("a run on the server whose bound folder is gone still works in the server's roots and never brings the folder back", async () => {
   let resolved: RunWorkspaceRuntime | undefined;
   const { root, runtime, remove } = await fixture({
     sessionWorkspaceFor: (runId) => resolved!.resolve(runId, () => undefined),
-    runState: () => runStateWith(WORKSPACE_BINDING_OPTION_ID, { machine: "server", folder: { path: path.join(root, "project") } }),
+    runState: () => runStateWith(WORKSPACE_BINDING_OPTION_ID, { machine: "server", folder: { path: path.join(root, "project") } }, "administrator"),
   });
   resolved = runtime;
   try {
