@@ -501,10 +501,11 @@ identifies a checkout by `pnpm-workspace.yaml`, it should test for something the
 instead, such as `apps/server/src/main.ts` beside `package.json`. Start with `ragents start <path-to-profile>`;
 the symlink is used only by scripts and tsconfig files in the external repository.
 
-The VS Code extension starts the same profile from the same package. Set `ragents.hostPath` to
-the package directory (`<npm-prefix>/lib/node_modules/@schlenkr/ragents`) rather than a checkout.
-If the setting is empty and the extension is not running from a checkout, it fetches the package
-itself as described under Run panel and VS Code extension.
+The VS Code extension starts the same profile from the same package. To override automatic host
+selection, set `ragents.hostPath` to a checkout or the package directory
+(`<npm-prefix>/lib/node_modules/@schlenkr/ragents`). For workstation registration without this
+override, it fetches the package in the server's version as described under Run panel and VS Code
+extension in [usage.md](usage.md).
 
 ## Connect to a server
 
@@ -573,6 +574,9 @@ expose only the alias.
 and executor as the VS Code extension. No folder means the current directory; `--id` and `--label`
 set its stable identity and display name. The npm installation includes ripgrep on every supported
 platform and the curated Bash on Windows. Plugin tools are provisioned before registration.
+The client uses contributions from its own host package. If the server rejects its executor
+version or contribution states, registration names both package versions and the fix: install
+`@schlenkr/ragents@<server-version>`, for example with `npm install -g @schlenkr/ragents@<server-version>`.
 
 Set `RAGENTS_TOKEN` for a personal or existing session token. For automatic sign-in and renewal,
 configure `RAGENTS_USER` and `RAGENTS_PASSWORD` in the process environment. Neither is a command-line
@@ -916,10 +920,16 @@ Workstation and server need the same executor version; if a workstation brings a
 the server rejects the registration with both versions and names what to update: for an older
 workstation the RAgents extension or `@schlenkr/ragents` there, for a newer one the server.
 Likewise, both need the same plugin contributions to the executor, such as the language servers
-and the browser: the server names them before registration, and the workstation loads them from
-the bundles of its own host. If it knows no host, a bundle is missing there, or it has a
-different version, registration fails with this cause; then bring the workstation's host
-(`ragents.hostPath` or the package) to the server's version. The VS Code extension shows such a
+and the browser: the server names them before registration. The VS Code extension loads them from
+the host package in the exact RAgents version reported by `ragents.plugins.bootstrap`, fetched
+with its configured environment, including npm registry settings, into
+`<globalStorage>/hosts/<server-version>/`. Each server selects its own version; servers with the
+same version share the cached package, which survives extension restarts. A machine that connects
+only to remote servers needs no local profile or distributing server. An explicit
+`ragents.hostPath` overrides fetching; a different package version or contribution state fails
+registration with its cause, without falling back to another host. A missing bundle also fails.
+The headless workstation uses its own host package and names both package versions and the
+matching version to install on a mismatch. The VS Code extension shows such a
 rejection as the error "RAgents version mismatch" with its own version, the server's version, and
 the side to update, and a differing version with an accepted workstation as a warning
 ([usage.md](usage.md), Run panel and VS Code extension); the server names the version in the
@@ -929,8 +939,11 @@ the server's profile: startup calls `pnpm provision --workspace`, stores Roslyn 
 under `~/.local/share/ragents/workspace/tools/<plugin-id>/`, and fetches Chromium into
 Playwright's browser cache; TypeScript and `playwright-core` come from the host folder.
 `ROSLYN_LANGUAGE_SERVER`, `FSHARP_LANGUAGE_SERVER`, and `BROWSER_EXECUTABLE_PATH` override this.
-The VS Code extension provisions the same at startup and writes the report to its `RAgents`
-output channel. `HOME` stays the developer's home, so that Git, SSH, and NuGet work with their
+The VS Code extension provisions once per selected host during an activation, before registration,
+and writes the report to its `RAgents` output channel. The Server entry shows fetching and
+provisioning progress; a fetch failure, such as an offline registry or unpublished version, stays
+there with its cause. If the server requests no contributions, no host fetch or workspace
+provisioning is needed. `HOME` stays the developer's home, so that Git, SSH, and NuGet work with their
 credentials; language server logs end up under `os.tmpdir()`. Every tool call of the model
 appears as one line on stdout (run ID, tool, duration, `ok` or error text); the VS Code extension
 writes the same line to its `RAgents` output channel. Queries from the interface, such as the

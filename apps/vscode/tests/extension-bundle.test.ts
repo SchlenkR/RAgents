@@ -1,12 +1,14 @@
 import assert from "node:assert/strict";
+import { createHash } from "node:crypto";
 import { execFile, spawnSync } from "node:child_process";
-import { copyFileSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { copyFileSync, existsSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import test, { before } from "node:test";
 import { fileURLToPath } from "node:url";
 import { promisify } from "node:util";
 import { session, SESSION_TOKEN, startStubServer, stubProfile } from "./fixtures";
+import { hostEnvironmentSecretKey } from "../src/settings";
 
 const extensionRoot = fileURLToPath(new URL("..", import.meta.url));
 const execute = promisify(execFile);
@@ -550,4 +552,176 @@ test("the title bar selects one server for Start, Runs, plugin sources, and new-
     await Promise.all([first.close(), second.close()]);
     rmSync(directory, { recursive: true, force: true });
   }
+});
+
+const CHECK_WORKSTATION_HOSTS = `${LOAD_EXTENSION}
+const configuration = JSON.parse(process.env.RAGENTS_TEST_WORKSTATIONS);
+settings["ragents.connections"] = configuration.connections;
+settings["ragents.hostPath"] = configuration.override ?? "";
+settings["ragents.hostEnvironment"] = ["NPM_CONFIG_REGISTRY"];
+secrets.set(configuration.registrySecret, "https://registry.example.com");
+vscode.workspace.workspaceFolders = [{ uri: vscode.Uri.file(path.join(process.cwd(), "workspace")) }];
+context.globalState.get = () => path.join(process.cwd(), "stale-host");
+const progress = [];
+const check = async () => {
+  let api = await extension.activate(context);
+  for (const session of api.sessions()) session.onChange(() => {
+    const entry = session.snapshot();
+    if (entry.status.kind === "starting") progress.push(entry.status.detail);
+  });
+  const settled = () => api.sessions().every((session) => ["registered", "failed"].includes(session.workspaceClient?.status.kind));
+  await waitFor(settled);
+  await api.panelAction({ action: "page", page: "connections" });
+  const first = api.panel().connections;
+  if (configuration.restart) {
+    await extension.deactivate();
+    api = await extension.activate(context);
+    await waitFor(settled);
+    await api.panelAction({ action: "page", page: "connections" });
+  }
+  const result = { first, final: api.panel().connections, progress, workspaces: api.sessions().map((session) => session.workspaceClient.status) };
+  await extension.deactivate();
+  console.log(JSON.stringify(result));
+};
+check().then(() => process.exit(0), (cause) => { console.error(cause.stack ?? cause); process.exit(1); });
+`;
+
+const stubHost = (directory: string, version: string): { plugin: string; revision: string } => {
+  const plugin = "acme.executor";
+  const contribution = `export const version = ${JSON.stringify(version)};\nexport const executor = () => ({});\n`;
+  mkdirSync(path.join(directory, "apps/server/src"), { recursive: true });
+  mkdirSync(path.join(directory, "bundles", plugin, "executor"), { recursive: true });
+  writeFileSync(path.join(directory, "package.json"), JSON.stringify({ name: "@schlenkr/ragents", version }));
+  writeFileSync(path.join(directory, "apps/server/src/main.ts"), "");
+  writeFileSync(path.join(directory, "bundles", plugin, "executor/index.mjs"), contribution);
+  return { plugin, revision: createHash("sha256").update(contribution).digest("hex") };
+};
+
+const stubCommand = (directory: string, name: string, body: string): void => {
+  const script = path.join(directory, `${name}.cjs`);
+  writeFileSync(script, `#!${process.execPath}\n${body}`, { mode: 0o755 });
+  if (process.platform === "win32") writeFileSync(path.join(directory, `${name}.cmd`), `@"${process.execPath}" "${script}" %*\r\n`);
+  else copyFileSync(script, path.join(directory, name));
+};
+
+const workstationHosts = (directory: string, versions: readonly string[], failure?: string) => {
+  copyFileSync(path.join(extensionRoot, "dist/extension.js"), path.join(directory, "extension.js"));
+  copyFileSync(path.join(extensionRoot, "package.json"), path.join(directory, "package.json"));
+  writeFileSync(path.join(directory, "vscode.cjs"), VSCODE_STUB);
+  writeFileSync(path.join(directory, "check.cjs"), CHECK_WORKSTATION_HOSTS);
+  mkdirSync(path.join(directory, "workspace"));
+  mkdirSync(path.join(directory, "bin"));
+  const contributions = versions.map((version) => stubHost(path.join(directory, "packages", version), version));
+  stubHost(path.join(directory, "stale-host"), "0.0.1");
+  stubCommand(path.join(directory, "bin"), "npm", `
+const fs = require("node:fs");
+const path = require("node:path");
+const args = process.argv.slice(2);
+const folder = args[args.indexOf("--prefix") + 1];
+fs.appendFileSync(process.env.RAGENTS_TEST_NPM_CALLS, JSON.stringify({ args, registry: process.env.NPM_CONFIG_REGISTRY }) + "\\n");
+setTimeout(() => {
+  const failure = process.env.RAGENTS_TEST_FETCH_FAILURE;
+  if (failure) { console.error(failure); process.exit(1); }
+  const root = path.join(folder, "node_modules", "@schlenkr", "ragents");
+  fs.cpSync(path.join(process.env.RAGENTS_TEST_PACKAGES, path.basename(folder)), root, { recursive: true });
+}, 150);
+`);
+  stubCommand(path.join(directory, "bin"), "node", `
+require("node:fs").appendFileSync(process.env.RAGENTS_TEST_PROVISION_CALLS, JSON.stringify({ args: process.argv.slice(2), cwd: process.cwd() }) + "\\n");
+`);
+  const calls = path.join(directory, "npm-calls.jsonl");
+  const environment = {
+    ...process.env,
+    PATH: `${path.join(directory, "bin")}${path.delimiter}${process.env.PATH ?? ""}`,
+    DATA_DIR: path.join(directory, "data"),
+    RAGENTS_TEST_NPM_CALLS: calls,
+    RAGENTS_TEST_PROVISION_CALLS: path.join(directory, "provision-calls.jsonl"),
+    RAGENTS_TEST_PACKAGES: path.join(directory, "packages"),
+    RAGENTS_TEST_FETCH_FAILURE: failure ?? "",
+    RAGENTS_HOST_PACKAGE_SPEC: path.join(directory, "fixture.tgz"),
+  };
+  return {
+    contributions,
+    environment,
+    calls: (): Array<{ args: string[]; registry: string }> => existsSync(calls) ? readFileSync(calls, "utf8").trim().split("\n").map((line) => JSON.parse(line)) : [],
+    run: async (configuration: { connections: Array<{ name: string; url: string }>; override?: string; restart?: boolean }) => {
+      const result = await execute(process.execPath, ["check.cjs"], {
+        cwd: directory, timeout: 60_000,
+        env: { ...environment, RAGENTS_TEST_WORKSTATIONS: JSON.stringify({ ...configuration, registrySecret: hostEnvironmentSecretKey("NPM_CONFIG_REGISTRY") }) },
+      });
+      assert.equal(result.stderr, "");
+      return JSON.parse(result.stdout) as {
+        first: Array<{ state: { kind: string }; problem?: string; versionNotice?: { text: string } }>;
+        final: Array<{ state: { kind: string }; problem?: string }>;
+        progress: string[];
+        workspaces: Array<{ kind: string; message?: string }>;
+      };
+    },
+  };
+};
+
+test("a remote-only workstation fetches the server's host version, registers, and reuses it after restart", async (t) => {
+  const directory = mkdtempSync(path.join(tmpdir(), "ragents-workstation-hosts-"));
+  t.after(() => rmSync(directory, { recursive: true, force: true }));
+  const host = workstationHosts(directory, ["0.1.8"]);
+  const server = await startStubServer({ version: "0.1.8", contributions: host.contributions });
+  t.after(() => server.close());
+  const result = await host.run({ connections: [{ name: "remote", url: server.url }], restart: true });
+  assert.deepEqual(result.workspaces, [{ kind: "registered" }]);
+  assert.equal(result.first[0]?.problem, undefined);
+  assert.equal(result.final[0]?.state.kind, "connected");
+  assert.ok(result.progress.includes("Fetching host package 0.1.8 ..."));
+  assert.ok(result.progress.includes("Provisioning workstation tools ..."));
+  assert.equal(host.calls().length, 1);
+  assert.deepEqual(host.calls()[0], {
+    args: ["install", "--prefix", path.join(realpathSync(directory), "storage/hosts/0.1.8"), host.environment.RAGENTS_HOST_PACKAGE_SPEC],
+    registry: "https://registry.example.com",
+  });
+});
+
+test("two servers select separate host versions instead of a remembered host", async (t) => {
+  const directory = mkdtempSync(path.join(tmpdir(), "ragents-workstation-versions-"));
+  t.after(() => rmSync(directory, { recursive: true, force: true }));
+  const host = workstationHosts(directory, ["0.1.8", "0.2.0"]);
+  const first = await startStubServer({ version: "0.1.8", contributions: [host.contributions[0]!] });
+  const second = await startStubServer({ version: "0.2.0", contributions: [host.contributions[1]!] });
+  t.after(() => Promise.all([first.close(), second.close()]));
+  const result = await host.run({ connections: [{ name: "first", url: first.url }, { name: "second", url: second.url }] });
+  assert.deepEqual(result.workspaces, [{ kind: "registered" }, { kind: "registered" }]);
+  assert.deepEqual(host.calls().map(({ args }) => path.basename(args[2]!)).sort(), ["0.1.8", "0.2.0"]);
+});
+
+test("hostPath overrides package fetching and mismatched versions or contribution states fail clearly", async (t) => {
+  const directory = mkdtempSync(path.join(tmpdir(), "ragents-workstation-override-"));
+  t.after(() => rmSync(directory, { recursive: true, force: true }));
+  const host = workstationHosts(directory, ["0.1.8"]);
+  const override = path.join(directory, "packages/0.1.8");
+  const server = await startStubServer({ version: "0.1.8", contributions: host.contributions });
+  t.after(() => server.close());
+  const connections = [{ name: "remote", url: server.url }];
+  assert.deepEqual((await host.run({ connections, override })).workspaces, [{ kind: "registered" }]);
+  const mismatch = await host.run({ connections, override: path.join(directory, "stale-host") });
+  assert.equal(mismatch.workspaces[0]?.kind, "failed");
+  assert.match(mismatch.first[0]!.versionNotice!.text, /host.*version 0\.0\.1, the server requires 0\.1\.8/);
+  writeFileSync(path.join(override, "bundles/acme.executor/executor/index.mjs"), "export const executor = () => ({});\n");
+  const drift = await host.run({ connections, override });
+  assert.equal(drift.workspaces[0]?.kind, "failed");
+  assert.match(drift.first[0]!.versionNotice!.text, /acme\.executor.*has the version.*required is/);
+  assert.equal(host.calls().length, 0);
+});
+
+test("fetch failures show the npm cause on the Servers entry and a retry can register", async (t) => {
+  const directory = mkdtempSync(path.join(tmpdir(), "ragents-workstation-failure-"));
+  t.after(() => rmSync(directory, { recursive: true, force: true }));
+  const host = workstationHosts(directory, ["0.1.8"], "npm error ENOTFOUND registry.example.com: offline");
+  const server = await startStubServer({ version: "0.1.8", contributions: host.contributions });
+  t.after(() => server.close());
+  const connections = [{ name: "remote", url: server.url }];
+  const result = await host.run({ connections });
+  assert.equal(result.workspaces[0]?.kind, "failed");
+  assert.match(result.first[0]!.problem!, /Workspace not registered:.*code 1.*ENOTFOUND registry\.example\.com: offline/s);
+  assert.ok(result.progress.includes("Fetching host package 0.1.8 ..."));
+  host.environment.RAGENTS_TEST_FETCH_FAILURE = "";
+  assert.deepEqual((await host.run({ connections })).workspaces, [{ kind: "registered" }]);
+  assert.equal(host.calls().length, 2);
 });

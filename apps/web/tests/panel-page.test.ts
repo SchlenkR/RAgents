@@ -225,7 +225,7 @@ test("the Server page lists the rows with their actions, without Start and Stop"
     page: "connections",
     connections: [
       connection({ savedLogin: true }),
-      connection({ name: "core", kind: "profile", address: "/x/ragents.config.core.ts", route: { kind: "profile", profile: "core" }, state: { kind: "starting" }, runs: [], entries: [], canCreate: false }),
+      connection({ name: "core", kind: "profile", address: "/x/ragents.config.core.ts", route: { kind: "profile", profile: "core" }, state: { kind: "starting", detail: "Fetching host package 0.1.8 ..." }, runs: [], entries: [], canCreate: false }),
     ],
   }));
   assert.match(html, /<h1[^>]*>Server<\/h1>/);
@@ -239,6 +239,7 @@ test("the Server page lists the rows with their actions, without Start and Stop"
   assert.match(html, />Edit</);
   assert.match(html, />New server</);
   assert.match(html, /title="starting"/);
+  assert.match(html, /role="status">Fetching host package 0\.1\.8 \.\.\.<\/p>/);
   assert.doesNotMatch(html, />Start</, "the extension starts a local profile itself");
   assert.doesNotMatch(html, />Stop</);
   assert.doesNotMatch(html, /Really remove\?/, "removing asks for confirmation in the dialog");

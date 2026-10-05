@@ -6,7 +6,7 @@ import { fileURLToPath } from "node:url";
 import { resolveBundledTools } from "../../packages/workspace-executor/src/bundled-tools.ts";
 import { exitWorkspaceProcess, watchOwnerLifetime } from "../../packages/workspace-executor/src/owner-lifetime.mjs";
 import { isCheckout } from "../../apps/server/src/host-web.ts";
-import { hostRoot } from "../../apps/server/src/host-version.ts";
+import { hostRoot, readPackageVersion } from "../../apps/server/src/host-version.ts";
 import { callerDirectory } from "../../apps/server/src/profile-target.ts";
 import { provisionWorkspace } from "../../apps/server/src/profile/provisioning.ts";
 import { workspaceClientTransport } from "../../plugins/ragents.workspace/client/transport.ts";
@@ -108,6 +108,7 @@ const main = async (): Promise<void> => {
   const tools = resolveBundledTools({ root: isCheckout(root) ? path.join(root, "apps/vscode") : root, distribution: isCheckout(root) ? "extension" : "package" });
   const client = new WorkspaceClient(transport, identity, {
     hostRoot,
+    version: readPackageVersion(root),
     ...tools,
     onExecuted: ({ runId, operation, durationMs, error }) =>
       console.log(`== ${runId.slice(0, 8)} ${operation} ${durationMs} ms ${error ?? "ok"}`),

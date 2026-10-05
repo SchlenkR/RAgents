@@ -395,9 +395,11 @@ export class ConnectionSession {
   snapshot(): ConnectionSnapshot {
     const parts = this.#parts;
     const store = parts?.store;
+    const workspace = parts?.workspaceClient.status;
     return {
       connection: this.connection,
-      status: this.status,
+      status: store?.status.kind === "connected" && workspace?.kind === "preparing"
+        ? { kind: "starting", detail: workspace.detail } : this.status,
       url: parts?.url,
       localHost: parts?.host !== undefined,
       runs: store?.runs ?? [],

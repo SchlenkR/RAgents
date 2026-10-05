@@ -24,6 +24,7 @@ import type { OperationInput } from "../../../packages/ragents/src/rpc/contract"
 import type { RpcHandlerContext } from "../../../packages/ragents/src/rpc/peer";
 import { RPC_ERROR_CODES, RpcError } from "../../../packages/ragents/src/rpc/protocol";
 import { DomainError } from "../../../packages/ragents/src/runtime/domain-error";
+import { coreContracts } from "../../../apps/server/src/api/contracts";
 import {
   PLUGIN_ID_PATTERN,
   WORKSPACE_CLIENT_STOP_OPERATION,
@@ -36,6 +37,7 @@ import {
 /** mismatch: workstation and server carry a different version of executor or bundles; only an update of one side fixes it. */
 export type WorkspaceClientStatus =
   | { kind: "idle" }
+  | { kind: "preparing"; detail: string }
   | { kind: "registered" }
   | { kind: "failed"; message: string; mismatch: boolean };
 
@@ -55,6 +57,10 @@ export interface WorkspaceClientExecution {
 export interface WorkspaceClientOptions {
   /** The host root of this machine with the bundles from which the executor loads its contributions; it may only come into existence later. */
   hostRoot: () => string | undefined;
+  /** Resolves the host for this server before loading its requested contributions. */
+  prepareHost?: (report: (detail: string) => void) => Promise<string>;
+  /** The headless client's package version, included in mismatch errors. */
+  version?: string;
   /** The bash of this machine for the bash tool; on Windows the bundled one and required, otherwise without a value the system's. */
   bash?: string | undefined;
   /** The bundled rg, whose folder the bash has at the front of its PATH; without a value, one in the PATH of this machine applies. */
@@ -87,7 +93,8 @@ const VERSION_REFUSALS = ["workspace-executor-version", "workspace-executor-cont
 /** By the domain code instead of the class: RpcError can be loaded twice in one process. */
 const isVersionMismatch = (cause: unknown): boolean => {
   if (cause instanceof VersionMismatch) return true;
-  const code = typeof cause === "object" && cause !== null ? (cause as { domainCode?: unknown }).domainCode : undefined;
+  const error = typeof cause === "object" && cause !== null ? cause as { domainCode?: unknown; code?: unknown } : undefined;
+  const code = error?.domainCode ?? error?.code;
   return typeof code === "string" && VERSION_REFUSALS.includes(code);
 };
 
@@ -135,8 +142,8 @@ const loadedContributions = async (
   if (wanted.length === 0) return [];
   if (!hostRoot) {
     throw new Error(`The server requires the executor contributions of ${wanted.map(({ plugin }) => plugin).join(", ")}; this workstation `
-      + "knows no host from whose bundles it could load them. It gets one with the first connection to a distributing "
-      + "server or through the setting ragents.hostPath");
+      + "knows no host from whose bundles it could load them. Use the RAgents extension to fetch the server's host version, "
+      + "set ragents.hostPath to a matching host, or install @schlenkr/ragents in the server's version.");
   }
   return Promise.all(wanted.map(async ({ plugin, revision }) => {
     if (!PLUGIN_ID_PATTERN.test(plugin)) throw new Error(`The server names ${plugin} as a plugin; that is not a plugin ID`);
@@ -150,6 +157,7 @@ const loadedContributions = async (
 
 /** An executor from the contributions the server required at sign-in. */
 interface BuiltExecutor {
+  readonly hostRoot: string | undefined;
   readonly executor: WorkspaceOperationExecutor;
   readonly contributions: readonly ExecutorContributionRevision[];
 }
@@ -269,10 +277,15 @@ export class WorkspaceClient {
 
   /** Keeps the executor as long as the server requires the same contributions; otherwise it builds a new one from the bundles of this machine and ends the old one. */
   async #built(attachment: Attachment, wanted: readonly ExecutorContributionRevision[]): Promise<BuiltExecutor> {
+    const hostRoot = wanted.length > 0 && this.options.prepareHost ? await this.options.prepareHost((detail) => {
+      if (attachment === this.#attachment) this.#set({ kind: "preparing", detail });
+    }) : this.options.hostRoot();
+    if (attachment !== this.#attachment) throw new Error("The workstation has signed out in the meantime");
     const current = attachment.built;
-    if (current && sameContributions(current.contributions, wanted)) return current;
-    const contributions = await loadedContributions(this.options.hostRoot(), wanted);
+    if (current && current.hostRoot === hostRoot && sameContributions(current.contributions, wanted)) return current;
+    const contributions = await loadedContributions(hostRoot, wanted);
     const built: BuiltExecutor = {
+      hostRoot,
       executor: new WorkspaceOperationExecutor({
         contextFor: (runId) => contextOf(attachment.runs, runId),
         modules: workspaceExecutorModules({
@@ -342,7 +355,22 @@ export class WorkspaceClient {
       }, { timeoutMs: REGISTER_TIMEOUT_MS });
       if (attachment === this.#attachment) this.#set({ kind: "registered" });
     } catch (cause) {
-      if (attachment === this.#attachment) this.#set({ kind: "failed", message: messageOf(cause), mismatch: isVersionMismatch(cause) });
+      const mismatch = isVersionMismatch(cause);
+      const message = mismatch && this.options.version !== undefined
+        ? await this.#versionFailure(cause, this.options.version) : messageOf(cause);
+      if (attachment === this.#attachment) this.#set({ kind: "failed", message, mismatch });
+    }
+  }
+
+  async #versionFailure(cause: unknown, version: string): Promise<string> {
+    try {
+      const server = await this.transport.rpc.call(coreContracts.plugins.bootstrap, {}, { timeoutMs: REGISTER_TIMEOUT_MS });
+      return `${messageOf(cause)} Workstation package version ${version}, server version ${server.version ?? "unreported"}. `
+        + (server.version ? `Install the matching package version: npm install -g @schlenkr/ragents@${server.version}.`
+          : "Update the server to a version that reports its RAgents version, then install the matching @schlenkr/ragents version.");
+    } catch (failure) {
+      return `${messageOf(cause)} Workstation package version ${version}; the server version could not be read: ${messageOf(failure)}. `
+        + "Install @schlenkr/ragents in the server's version.";
     }
   }
 
@@ -368,7 +396,7 @@ export class WorkspaceClient {
       root,
       home: { home: homedir() },
       logDirectory: join(tmpdir(), "ragents-workspace-logs", input.runId),
-      hostRoot: this.options.hostRoot(),
+      hostRoot: attachment.built?.hostRoot,
       additions: input.env,
       baseEnvironment: "inherited",
       ...(this.options.bash === undefined ? {} : { bash: this.options.bash }),

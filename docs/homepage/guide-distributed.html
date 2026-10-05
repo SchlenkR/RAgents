@@ -194,10 +194,11 @@ appropriate location:</p>
 identifies a checkout by <code>pnpm-workspace.yaml</code>, it should test for something the package shares
 instead, such as <code>apps/server/src/main.ts</code> beside <code>package.json</code>. Start with <code>ragents start &lt;path-to-profile&gt;</code>;
 the symlink is used only by scripts and tsconfig files in the external repository.</p>
-<p>The VS Code extension starts the same profile from the same package. Set <code>ragents.hostPath</code> to
-the package directory (<code>&lt;npm-prefix&gt;/lib/node_modules/@schlenkr/ragents</code>) rather than a checkout.
-If the setting is empty and the extension is not running from a checkout, it fetches the package
-itself as described under Run panel and VS Code extension.</p>
+<p>The VS Code extension starts the same profile from the same package. To override automatic host
+selection, set <code>ragents.hostPath</code> to a checkout or the package directory
+(<code>&lt;npm-prefix&gt;/lib/node_modules/@schlenkr/ragents</code>). For workstation registration without this
+override, it fetches the package in the server&#39;s version as described under Run panel and VS Code
+extension in <a href="../usage.md">usage.md</a>.</p>
 <h2 id="connect-to-a-server">Connect to a server</h2>
 <p>A developer can run RAgents locally with the profile and models of a central server. This
 requires a local host with the same host API as that server: either the <code>@schlenkr/ragents</code>
@@ -255,7 +256,10 @@ refuses the fetched bundles, and <code>connect</code> names the version to insta
 <p><code>ragents workspace-client &lt;server-url&gt; [folders ...]</code> registers this machine with the same tools
 and executor as the VS Code extension. No folder means the current directory; <code>--id</code> and <code>--label</code>
 set its stable identity and display name. The npm installation includes ripgrep on every supported
-platform and the curated Bash on Windows. Plugin tools are provisioned before registration.</p>
+platform and the curated Bash on Windows. Plugin tools are provisioned before registration.
+The client uses contributions from its own host package. If the server rejects its executor
+version or contribution states, registration names both package versions and the fix: install
+<code>@schlenkr/ragents@&lt;server-version&gt;</code>, for example with <code>npm install -g @schlenkr/ragents@&lt;server-version&gt;</code>.</p>
 <p>Set <code>RAGENTS_TOKEN</code> for a personal or existing session token. For automatic sign-in and renewal,
 configure <code>RAGENTS_USER</code> and <code>RAGENTS_PASSWORD</code> in the process environment. Neither is a command-line
 option. Invalid or absent credentials when sign-in is required produce a visible failure and a

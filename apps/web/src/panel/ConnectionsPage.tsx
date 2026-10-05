@@ -44,6 +44,7 @@ function ConnectionRow({ connection, send, onEdit, onLogin, onRemove }: {
   onRemove: (name: string) => void;
 }) {
   const busy = busyState(connection);
+  const progress = connection.state.kind === "starting" ? connection.state.detail : undefined;
   const detail = stateDetail(connection) ?? connection.problem;
   const notice = connection.versionNotice;
   const profile = connection.kind === "profile";
@@ -59,6 +60,7 @@ function ConnectionRow({ connection, send, onEdit, onLogin, onRemove }: {
       </span>
       <span className="block truncate font-mono type-meta text-muted-foreground" title={connection.address}>{profile ? fileNameOf(connection.address) : connection.address}</span>
     </span>
+    {progress && <p className="col-span-2 type-body text-muted-foreground [overflow-wrap:anywhere]" role="status">{progress}</p>}
     {detail && <p className="col-span-2 type-body text-destructive [overflow-wrap:anywhere]" role="alert">{detail}</p>}
     {notice && <p className={cn("col-span-2 type-body [overflow-wrap:anywhere]", notice.level === "error" ? "text-destructive" : "text-warning")} data-notice={notice.level} role={notice.level === "error" ? "alert" : "status"}>{notice.text}</p>}
     <span className="col-span-2 flex flex-wrap items-center gap-1.5">

@@ -6,6 +6,8 @@ import { createInterface, type Interface } from "node:readline";
 import { resolveBundledTools } from "@ragents/workspace-executor/src/bundled-tools";
 import { editorFreeEnvironment } from "@ragents/workspace-executor/src/safe-environment";
 import { MissingEnvironmentError, parseMissingEnvironmentNotice, type MissingEnvironment } from "../../server/src/missing-environment";
+import { readPackageVersion } from "../../server/src/host-version";
+import { DomainError } from "../../../packages/ragents/src/runtime/domain-error";
 import { isHostRoot } from "./connections";
 
 export interface HostAnnouncement {
@@ -92,15 +94,20 @@ const run = (file: string, args: readonly string[], cwd: string, environment: No
   new Promise((resolve, reject) => {
     const child = spawn(file, args, { cwd, env: environment, stdio: ["ignore", "pipe", "pipe"], shell: process.platform === "win32" });
     let missing: MissingEnvironment | undefined;
+    const recent: string[] = [];
     const line = (text: string) => {
       const notice = parseMissingEnvironmentNotice(text);
       if (notice) missing ??= notice;
-      else log(text);
+      else {
+        recent.push(text);
+        if (recent.length > KEPT_LINES) recent.shift();
+        log(text);
+      }
     };
     const output = drained([child.stdout, child.stderr].map((stream) => createInterface({ input: stream }).on("line", line)));
     child.once("error", reject);
     child.once("exit", (code) => void output.then(() =>
-      code === 0 ? resolve() : reject(failure(`${path.basename(file)} ${args.join(" ")} ended with code ${code}`, missing))));
+      code === 0 ? resolve() : reject(failure(`${path.basename(file)} ${args.join(" ")} ended with code ${code}${recent.length ? `\n${recent.join("\n")}` : ""}`, missing))));
   });
 
 /** Provisions the tools of a profile or, with --workspace, those of this workspace, like pnpm provision. */
@@ -147,12 +154,34 @@ export const installHostPackage = async (folder: string, specifier: string, envi
 
 /** The host of a version: the already fetched folder, otherwise an installation from npm. */
 export const ensureHostPackage = async (storage: string, version: string, environment: NodeJS.ProcessEnv, log: (line: string) => void): Promise<string> => {
+  if (!/^\d+\.\d+\.\d+(?:-[\da-zA-Z.-]+)?(?:\+[\da-zA-Z.-]+)?$/.test(version)) throw new Error(`The server's host package version ${version} is not an exact npm version`);
   const folder = hostPackageFolder(storage, version);
+  const pending = fetchingHosts.get(folder);
+  if (pending) return pending;
+  const fetching = fetchHostPackage(folder, version, environment, log);
+  fetchingHosts.set(folder, fetching);
+  try {
+    return await fetching;
+  } finally {
+    fetchingHosts.delete(folder);
+  }
+};
+
+const fetchingHosts = new Map<string, Promise<string>>();
+
+const fetchHostPackage = async (folder: string, version: string, environment: NodeJS.ProcessEnv, log: (line: string) => void): Promise<string> => {
   const installed = installedHostRoot(folder);
-  if (isHostRoot(installed)) return installed;
+  if (isHostRoot(installed)) return matchingHostVersion(installed, version);
   const specifier = hostPackageSpecifier(version, environment);
   log(`== Fetching host package ${specifier} into ${folder}`);
-  return installHostPackage(folder, specifier, environment, log);
+  return matchingHostVersion(await installHostPackage(folder, specifier, environment, log), version);
+};
+
+export const matchingHostVersion = (root: string, version: string): string => {
+  const actual = readPackageVersion(root);
+  if (actual !== version) throw new DomainError("workspace-executor-version", `The workstation host at ${root} has RAgents version ${actual}, the server requires ${version}. `
+    + `Use a matching ragents.hostPath checkout or install @schlenkr/ragents@${version}.`, 409);
+  return root;
 };
 
 const terminate = (child: ChildProcess): void => {

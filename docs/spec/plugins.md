@@ -855,7 +855,8 @@ changes only when the host API changes incompatibly, not with every host release
 host offers the same host API with the names it uses. Native tools such as language servers come through the plugin's
 provisioning. The contribution to the workspace executor becomes one self-contained file that
 imports only Node modules, so every machine can load it, the VS Code extension included; a
-workstation loads it from the bundles of its own host, in exactly the version the server uses. To hand a profile together with its bundles to other machines, a server adds
+workstation loads it from the selected host's bundles, in exactly the version the server uses
+(section Contributions to the executor). To hand a profile together with its bundles to other machines, a server adds
 `ragents.profile-distribution`; `ragents connect` fetches the profile and its bundles and starts
 them with the local host ([Distributed work](../homepage/guide-distributed.html)). The client
 profile names such bundles relative to itself (`./` or `../`); the client resolves an absolute or
@@ -2927,6 +2928,11 @@ the name comes from the file name. "Sign in" opens the same dialog from both pag
 entry in its place in `ragents.connections`, so that renaming keeps the stored
 sign-in data - it is tied to the address, not to the name.
 
+Before workstation registration, each session selects the host in its server's reported RAgents
+version (section Contributions to the executor). Its row shows `Fetching host package <version> ...`
+and `Provisioning workstation tools ...`, or a failure with its cause. A remote server needs no
+previously started local profile.
+
 ## Workspace, sandbox tools, and processes
 
 The workspace plugins give agents exactly four
@@ -3270,7 +3276,7 @@ commands of `bash` whose end no observation has returned yet, each with run, ID,
 started it (section Background commands). If an older server does not know the question, the workstation's
 message says exactly that and that the server needs to be updated. If the sign-in fails because of
 one of these versions (`workspace-executor-version`, `workspace-executor-contributions`, a
-missing question at the server, or a bundle of the own host that is missing or has a different version),
+missing question at the server, or a selected host package or bundle with a different version, or a missing bundle),
 the client's status says so with `mismatch: true` (`WorkspaceClientStatus` in
 `plugins/ragents.workspace/client/workspace-client.ts`), every other failure with `false`; it
 reads the domain codes from the error itself, not from its class. The VS Code extension turns this into
@@ -3753,14 +3759,24 @@ names their IDs and versions to every workstation. Because the contributions are
 not a registration, they are fixed before any plugin registers; the order of the
 plugins does not matter.
 
-A workstation loads exactly these contributions from the built-in bundles of its own host
-(`<host>/bundles/<id>/executor/index.mjs`; in the VS Code extension the host is `ragents.hostPath`
-or the one started last, for the headless workstation its own), requires the server's version in doing so,
-and builds them with its data folder's tools folders. If the host is missing, a bundle is missing, or
-it has a different version, the sign-in fails with a cause and the advice to bring the host to the server's
-version; without required contributions it needs no host. The executor of every machine
-thus carries the same operations, and the footprint the server asks of its own executor
-also applies to the workstation.
+A workstation loads exactly these contributions from the built-in bundles of its selected host
+(`<host>/bundles/<id>/executor/index.mjs`) and builds them with its data folder's tools folders.
+The VS Code extension selects a host separately for each server from `version` in
+`ragents.plugins.bootstrap`: `ensureHostPackage` fetches `@schlenkr/ragents@<version>` with the
+extension's configured process environment, including npm registry settings, into
+`<globalStorage>/hosts/<version>/`. Requests for the same version share the fetch;
+the installed package is reused across sessions and restarts. No local profile or distributing
+server is required. The Servers entry reports fetching progress and a failure with its cause.
+
+An explicit `ragents.hostPath` overrides fetching. Before loading, the selected host's package
+version must match the server's RAgents version, and every requested contribution must match its
+SHA-256 state. A missing host, missing bundle, different package version, or different contribution
+state fails registration with the cause; no other host is used as a fallback. The headless
+`ragents workspace-client` uses its own host; a rejected executor version or contribution state names both package
+versions and the command to install `@schlenkr/ragents@<server-version>`. If the server requests no
+contributions, the extension fetches no host and does no workspace provisioning. The executor of
+every machine thus carries the same operations, and the footprint the server asks of its own
+executor also applies to the workstation.
 
 ### Server process sandbox
 
@@ -3886,12 +3902,13 @@ whose bundle carries a contribution to the executor, because its tools run on th
 `~/.local/share/ragents/workspace/`, or wherever a plugin's provisioning otherwise puts them, such as
 Chromium in Playwright's browser cache. Which plugins these are is not written down anywhere as a list but is in
 the manifest of their bundles. The bundles whose exports these import are loaded along, because a
-bundle does not load without them; only what exports `provision` is provisioned. The workstation
-provisions at its own start, before it knows a server, and therefore according to its host and not
-according to a server's list; what a server requires must be among these bundles anyway,
-otherwise the sign-in fails.
-`pnpm workspace-client` and the VS Code extension call this at their own start; a gap
-does not hold up the workstation; it fails only when the affected contribution is called.
+bundle does not load without them; only what exports `provision` is provisioned. The headless
+workstation provisions at its own start, before it knows a server, according to its own host.
+The VS Code extension provisions once per selected host during an activation, before registration,
+only when the server requests contributions. Neither uses the server's profile or a fixed plugin
+list; what a server requires must be among the selected host's bundles, otherwise registration
+fails. A provisioning gap does not hold up the workstation; it fails only when the affected
+contribution is called.
 
 A profile names a provisioned file with `provisioned("<plugin-id>", "<path>")` instead of an
 absolute path; when the profile file is loaded, this becomes `<data folder>/tools/<plugin-id>/<path>`.
@@ -3931,8 +3948,8 @@ TypeScript is not provisioned but lies in the host's `node_modules`; the adapter
 resolves `typescript-language-server` and `typescript` through the machine's `hostPackageFile` from the
 folder the run's context names as `hostRoot`. Every
 caller of the executor sets the value: the server its own root (`hostRoot()`), the headless workstation
-the same, the VS Code extension `ragents.hostPath` or the host it started last
-(`ragents.lastHostPath`, the fetched package under `<globalStorage>/hosts/<version>/`). No adapter
+the same, the VS Code extension the host selected for this server: the explicit `ragents.hostPath`
+or its package under `<globalStorage>/hosts/<server-version>/`. No adapter
 and no module resolves anything, downloads anything, or checks anything on
 disk when its contribution is loaded: every resolution happens only in the call and fails there with a cause. A contribution that
 did so on loading would take down every executor that carries it, such as the VS Code extension's.
@@ -4581,9 +4598,6 @@ right) returns the archive; a different version is 404. The counterpart is `rage
   unavailable-server shell are packaged locally.
   A local profile of the extension names its templates only once its host is running; before the
   start nobody knows the templates, because they come into being only with the registered plugins.
-  The extension does not clean up fetched host versions: each stays under
-  `<globalStorage>/hosts/<version>/`, about 250 MB per version, until someone deletes the
-  folder.
   If the extension rebuilds the iframe during a start (for example when switching theme or
   access token), the local pending response is lost; an already created run remains available
   on its server's Start page. The run view

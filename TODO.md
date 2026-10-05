@@ -4,6 +4,7 @@ Inbox for everything; the owner and the AI write here. One line per entry, newes
 
 ## Open
 
+- Workstation host cache (05.10.2026): remove fetched versions under `<globalStorage>/hosts/<version>/` when no configured server or local profile uses them.
 - Check live (04.10.2026): the balcony view chats with its advisor in the room `balcony-wizard` through the frame bridge, the coordinator of the conversation circle reaches `@conversation-circle.mira` and the others, and the Functions tab opens the right one of two equal tool names from two rooms; unit and server tests cover the parts.
 - Types of `ws` in the package (04.10.2026): `@schlenkr/ragents` 0.1.33 ships `packages/workspace-executor/src/processes/tunnel.ts`, which imports `ws`, but not `@types/ws`; a foreign plugin whose typecheck includes the package sources reports TS7016 and implicit `any` there. Ship the types with the package (as for the other declared dependencies) and let `pnpm check:package` typecheck against a tunnel import.
 - Check live (03.10.2026): a dev server with `run_in_background` in a real run on the server and on a workstation, opened from the rail, stopped with `task_stop` and with the run; on a workstation also a restart of the server while it runs, with the notice of its end after the new sign-in, and a run deleted while the workstation was away, whose dev server stops at the next sign-in also after a server restart (04.10.2026, both covered by the headless workstation test).

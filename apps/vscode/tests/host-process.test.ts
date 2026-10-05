@@ -165,7 +165,7 @@ appendFileSync(process.env.RAGENTS_FAKE_NPM_CALLS, process.argv.slice(2).join(" 
 const prefix = process.argv[process.argv.indexOf("--prefix") + 1];
 const root = path.join(prefix, "node_modules", "@schlenkr", "ragents");
 mkdirSync(path.join(root, "apps", "server", "src"), { recursive: true });
-writeFileSync(path.join(root, "package.json"), JSON.stringify({ name: "@schlenkr/ragents", version: "0.1.0" }));
+writeFileSync(path.join(root, "package.json"), JSON.stringify({ name: "@schlenkr/ragents", version: path.basename(prefix) }));
 writeFileSync(path.join(root, "apps", "server", "src", "main.ts"), "");
 console.log("added 1 package");
 `;
@@ -211,4 +211,24 @@ test("without npm and without a host in the result, fetching is a named error", 
 require("node:fs").appendFileSync(process.env.RAGENTS_FAKE_NPM_CALLS, "empty\\n");
 `);
   await assert.rejects(() => installHostPackage(path.join(storage, "empty"), "anything.tgz", empty.environment, () => undefined), /anything\.tgz did not leave a RAgents host/);
+});
+
+test("concurrent requests for one host version share the installation", async () => {
+  const npm = fakeNpm(installing);
+  const storage = mkdtempSync(path.join(tmpdir(), "ragents-storage-"));
+  const roots = await Promise.all([
+    ensureHostPackage(storage, "0.1.0", npm.environment, () => undefined),
+    ensureHostPackage(storage, "0.1.0", npm.environment, () => undefined),
+  ]);
+  assert.equal(roots[0], roots[1]);
+  assert.equal(npm.calls().length, 1);
+});
+
+test("a fetched or cached package with the wrong version is refused", async () => {
+  const npm = fakeNpm(installing.replace("version: path.basename(prefix)", 'version: "0.0.1"'));
+  const storage = mkdtempSync(path.join(tmpdir(), "ragents-storage-"));
+  await assert.rejects(ensureHostPackage(storage, "0.1.0", npm.environment, () => undefined), /version 0\.0\.1, the server requires 0\.1\.0/);
+  await assert.rejects(ensureHostPackage(storage, "0.1.0", { PATH: "" }, () => undefined), /version 0\.0\.1, the server requires 0\.1\.0/);
+  assert.equal(npm.calls().length, 1);
+  await assert.rejects(ensureHostPackage(storage, "../other", npm.environment, () => undefined), /not an exact npm version/);
 });

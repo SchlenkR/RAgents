@@ -82,10 +82,11 @@ identifies a checkout by `pnpm-workspace.yaml`, it should test for something the
 instead, such as `apps/server/src/main.ts` beside `package.json`. Start with `ragents start <path-to-profile>`;
 the symlink is used only by scripts and tsconfig files in the external repository.
 
-The VS Code extension starts the same profile from the same package. Set `ragents.hostPath` to
-the package directory (`<npm-prefix>/lib/node_modules/@schlenkr/ragents`) rather than a checkout.
-If the setting is empty and the extension is not running from a checkout, it fetches the package
-itself as described under Run panel and VS Code extension.
+The VS Code extension starts the same profile from the same package. To override automatic host
+selection, set `ragents.hostPath` to a checkout or the package directory
+(`<npm-prefix>/lib/node_modules/@schlenkr/ragents`). For workstation registration without this
+override, it fetches the package in the server's version as described under Run panel and VS Code
+extension in [usage.md](../usage.md).
 
 ## Connect to a server
 
@@ -154,6 +155,9 @@ expose only the alias.
 and executor as the VS Code extension. No folder means the current directory; `--id` and `--label`
 set its stable identity and display name. The npm installation includes ripgrep on every supported
 platform and the curated Bash on Windows. Plugin tools are provisioned before registration.
+The client uses contributions from its own host package. If the server rejects its executor
+version or contribution states, registration names both package versions and the fix: install
+`@schlenkr/ragents@<server-version>`, for example with `npm install -g @schlenkr/ragents@<server-version>`.
 
 Set `RAGENTS_TOKEN` for a personal or existing session token. For automatic sign-in and renewal,
 configure `RAGENTS_USER` and `RAGENTS_PASSWORD` in the process environment. Neither is a command-line

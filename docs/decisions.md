@@ -1,5 +1,24 @@
 # Decisions
 
+## 2026-10-05: Select the workstation host in each server's version
+
+Chapter: `spec/plugins.md` (VS Code extension, Contributions to the executor, Provisioning per
+plugin, Language server plugins); operations: `operations.md` (CLI workstation, Isolation per
+run); usage: `usage.md` (Run panel and VS Code extension, Server page).
+
+Point (3) of "Language servers and browser come as a contribution to the executor from their
+plugins" (29.09.2026) loaded contributions from a workstation's own known host. A machine that
+connected only to a remote server had none, and a host remembered from a local profile could
+become stale after a server update.
+
+Each VS Code session now selects the host in the RAgents version reported by its server's
+bootstrap. The existing npm fetch uses the configured environment and caches one package per
+version in global storage across restarts. Registration loads the requested bundles from this
+host, with fetching and provisioning progress and failures on the Server entry. An explicit
+`ragents.hostPath` overrides the fetch; a different package version or contribution state fails
+without another host as a fallback. The headless npm workstation keeps its own host and names
+both package versions and the matching package to install when registration rejects its executor.
+
 ## 2026-10-05: Delete unloaded runs without stopping a session
 
 Chapters: `spec/core.md` (Stop procedure, cleanup, and deletion; Journal and projection),
@@ -13,6 +32,7 @@ to clean up; only cleanup that reports `journal-unavailable` is inapplicable. Th
 and old chat files are archived unchanged. Other failures retain the intent and remaining files,
 show the cause on the locked run, and allow startup and shutdown to finish. Retrying deletion
 does not prepare or open the affected run, and other runs continue normally.
+
 
 ## 2026-10-04: Export the document store contract to web halves
 

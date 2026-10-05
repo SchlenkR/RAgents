@@ -676,15 +676,19 @@ tools; the web interface comes finished with the host. With a checkout as host, 
 to start while its built-in bundles or its web interface are outdated and names the build
 command. If a server distributes a client profile, the extension
 fetches it after sign-in like `pnpm connect`, starts its host locally, and supplies the token as
-`RAGENTS_TOKEN`. If `ragents.hostPath` is empty and the extension is not running from a checkout,
-as with an installed `.vsix`, it downloads the host itself:
+`RAGENTS_TOKEN`. For workstation registration without an explicit `ragents.hostPath`, the
+extension downloads the host itself:
 `npm install --prefix <globalStorage>/hosts/<package-version> @schlenkr/ragents@<package-version>`,
-using the `npm` available on `PATH`. For a distributing server, that server specifies the version
-through `ragents.profile.describe`; for a local profile, the extension supplies its own
-`ragents.packageVersion` from `package.json`, keeping extension and host compatible. npm progress
-and output appear in the `RAgents` output channel. Downloaded versions remain installed, and a
-failure appears as the reason in the server row. A local profile therefore no longer needs
-a checkout. `ragents.hostPath` remains an override pointing to a checkout or installed package.
+using the `npm` available on `PATH` and the configured process environment, including registry
+settings. For workstation registration, each server supplies its RAgents version through
+`ragents.plugins.bootstrap`; for a distributed profile, through `ragents.profile.describe`;
+for a local profile, the extension supplies its own `ragents.packageVersion` from `package.json`.
+Different server versions get separate hosts; a cached version is reused across restarts.
+Workstation registration needs no previous local profile or distributing server. npm output
+appears in the `RAgents` output channel, fetching progress and failures with their cause in the
+server entry. A local profile therefore needs no checkout. `ragents.hostPath` remains an explicit
+override pointing to a checkout or installed package; its version and contribution states must
+match the server, or registration fails without fetching another host.
 The status bar shows the number of connected servers and opens the start page when clicked. See
 the root `README.md` for details.
 
@@ -704,8 +708,8 @@ servers (`scripts/start.sh`, identified by `RAGENTS_LAUNCH=start.sh` in their en
 are left alone and restart with the reload. Afterward, reload VS Code with "Developer: Reload
 Window" and reopen the run panel. If `code` is not on `PATH`, it is available at
 `/Applications/Visual Studio Code.app/Contents/Resources/app/bin/code`. An installed extension
-needs no checkout; it fetches the host from `@schlenkr/ragents` when first required by a
-distributing server.
+needs no checkout; it fetches the host from `@schlenkr/ragents` when first required by a server
+or local profile.
 
 The extension shows Start, Runs, and the run panel from the selected server, plus its own "Server"
 configuration page. All appear in the RAgents panel of VS Code's secondary sidebar.
@@ -779,6 +783,10 @@ tooltip names the cause; it does not open, but the selection mode deletes it.
 disconnect, and remove servers with confirmation, then open `settings.json` from the link
 at the bottom. If a connected server does not accept this window's folders as a workstation, its
 entry says "Workstation not registered" with the cause.
+Before registration, the entry shows `Fetching host package <version> ...` and
+`Provisioning workstation tools ...`. A fetch failure, such as an offline registry or a version
+that has not been published, appears there with its cause. If the server requests no executor
+contributions, the extension needs no host fetch or workspace provisioning.
 
 The extension compares its own RAgents version with the version each server reports. If they
 differ, the Server row, the status bar, and a notification show "RAgents

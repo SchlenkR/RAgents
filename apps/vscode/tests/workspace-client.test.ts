@@ -362,6 +362,78 @@ test("a missing bundle, a different revision, or a missing host make the registr
   }
 });
 
+test("a headless package mismatch names both RAgents versions and the matching package installation", async () => {
+  const server = await startStubServer({ version: "0.2.0", refuseRegistration: { code: "workspace-executor-version", message: "The executor versions differ." } });
+  const client = new ServerClient(server.url, undefined);
+  const directory = await folder();
+  const workspace = new WorkspaceClient(client, {
+    id: CLIENT_ID, label: "Headless", hostname: "notebook.local", platform: process.platform, folders: [directory], runsDirectory: join(directory, "runs"),
+  }, { hostRoot: () => HOST_ROOT, version: "0.1.8" });
+  try {
+    await workspace.register();
+    assert.equal(workspace.status.kind, "failed");
+    assert.match((workspace.status as { message: string }).message, /Workstation package version 0\.1\.8, server version 0\.2\.0\. Install the matching package version: npm install -g @schlenkr\/ragents@0\.2\.0/);
+  } finally {
+    await workspace.unregister();
+    client.rpc.close();
+    await server.close();
+    await rm(directory, { recursive: true, force: true });
+  }
+});
+
+test("operations resolve dependencies from the asynchronously selected host, also after a host change", async (t) => {
+  const directory = await folder();
+  t.after(() => rm(directory, { recursive: true, force: true }));
+  const contribution = `import { readFileSync } from "node:fs";
+export const executor = (machine) => ({ modules: [(host) => ({ operations: {
+  acme_version: async ({ runId }) => JSON.parse(readFileSync(machine.hostPackageFile((await host.contextFor(runId)).hostRoot, "acme-dependency"), "utf8")),
+} })] });
+`;
+  const roots = [join(directory, "first-host"), join(directory, "second-host")];
+  for (const [index, root] of roots.entries()) {
+    await mkdir(join(root, "bundles/acme.executor/executor"), { recursive: true });
+    await mkdir(join(root, "node_modules/acme-dependency"), { recursive: true });
+    await writeFile(join(root, "bundles/acme.executor/executor/index.mjs"), contribution);
+    await writeFile(join(root, "node_modules/acme-dependency/index.json"), JSON.stringify({ version: index + 1 }));
+  }
+  const loaded = await loadExecutorContribution("acme.executor", join(roots[0]!, "bundles/acme.executor/executor/index.mjs"));
+  const server = await startStubServer({ contributions: [{ plugin: loaded.plugin, revision: loaded.revision }] });
+  t.after(() => server.close());
+  const client = new ServerClient(server.url, undefined);
+  t.after(() => client.rpc.close());
+  const selection = { root: roots[0]! };
+  const workspace = new WorkspaceClient(client, {
+    id: CLIENT_ID, label: "Notebook", hostname: "notebook.local", platform: process.platform, folders: [directory], runsDirectory: join(directory, "runs"),
+  }, { hostRoot: () => undefined, prepareHost: () => Promise.resolve(selection.root) });
+  t.after(() => workspace.unregister());
+  await workspace.register();
+  selection.root = roots[1]!;
+  const version = () => server.workspaceConnection(CLIENT_ID)!.call(workspaceClientContracts.execute, {
+    runId: RUN, operation: "acme_version", cwd: directory, env: {}, input: null,
+  });
+  assert.deepEqual(await version(), { value: { version: 1 } });
+  await workspace.register();
+  assert.deepEqual(await version(), { value: { version: 2 } });
+});
+
+test("signing out during host preparation discards the late result", async (t) => {
+  const server = await startStubServer({ contributions: [await typescriptContribution()] });
+  t.after(() => server.close());
+  const client = new ServerClient(server.url, undefined);
+  t.after(() => client.rpc.close());
+  const pending = Promise.withResolvers<string>();
+  const workspace = new WorkspaceClient(client, {
+    id: CLIENT_ID, label: "Notebook", hostname: "notebook.local", platform: process.platform, folders: [tmpdir()], runsDirectory: join(tmpdir(), "ragents-runs"),
+  }, { hostRoot: () => undefined, prepareHost: (report) => { report("Fetching host ..."); return pending.promise; } });
+  const registering = workspace.register();
+  await waitFor(() => workspace.status.kind === "preparing");
+  const stopping = workspace.unregister();
+  pending.resolve(HOST_ROOT);
+  await Promise.all([registering, stopping]);
+  assert.deepEqual(workspace.status, { kind: "idle" });
+  assert.equal(server.workspaceClients().size, 0);
+});
+
 test("a dead server is reported as an error", async () => {
   const offline = new ServerClient("http://127.0.0.1:1", undefined);
   const dead = new WorkspaceClient(offline, {

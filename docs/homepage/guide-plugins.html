@@ -447,7 +447,8 @@ changes only when the host API changes incompatibly, not with every host release
 host offers the same host API with the names it uses. Native tools such as language servers come through the plugin&#39;s
 provisioning. The contribution to the workspace executor becomes one self-contained file that
 imports only Node modules, so every machine can load it, the VS Code extension included; a
-workstation loads it from the bundles of its own host, in exactly the version the server uses. To hand a profile together with its bundles to other machines, a server adds
+workstation loads it from the selected host&#39;s bundles, in exactly the version the server uses
+(section Contributions to the executor). To hand a profile together with its bundles to other machines, a server adds
 <code>ragents.profile-distribution</code>; <code>ragents connect</code> fetches the profile and its bundles and starts
 them with the local host (<a href="guide-distributed.html">Distributed work</a>). The client
 profile names such bundles relative to itself (<code>./</code> or <code>../</code>); the client resolves an absolute or

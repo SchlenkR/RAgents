@@ -239,12 +239,12 @@
         "ragents.hostPath": {
           "type": "string",
           "default": "",
-          "markdownDescription": "RAgents host from which the extension starts the local server: the npm package `@schlenkr/ragents` (only Node required) or a checkout (additionally Git, pnpm, and pnpm install). Empty: the repo the extension runs from; if it runs from none, it fetches the package in the server's version itself."
+          "markdownDescription": "Explicit host override for local servers and workstation contributions: the npm package `@schlenkr/ragents` or a development checkout. Its version and executor contributions must match the connected server. Empty: workstation registration fetches each server's exact host version into global storage; local profiles use the extension's checkout or package version."
         },
         "ragents.hostEnvironment": {
           "type": "array",
           "default": [],
-          "markdownDescription": "Names of environment variables that a locally started host gets in addition to the inherited environment. Only names go here; the command `RAgents: Set secret` stores the values in the VS Code SecretStorage, never in a settings file.",
+          "markdownDescription": "Names of environment variables for host fetching, provisioning, and locally started hosts, in addition to the inherited environment. Only names go here; the command `RAgents: Set secret` stores the values in the VS Code SecretStorage, never in a settings file.",
           "items": {
             "type": "string",
             "pattern": "^[A-Za-z_][A-Za-z0-9_]*$",
