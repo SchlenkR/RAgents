@@ -97,6 +97,7 @@ const ragentsWorkspacePlugin = (skillPaths: () => Promise<readonly string[]>): R
     host.provide(workspaceRuntimeToken, runtime);
     host.provide(sandboxServicesToken, runtime.sandbox);
     host.functions(runtime.sandbox.workspaceTools(), createCopyTool(runtime.sandbox));
+    host.agentRuntime(runtime.sandbox.readImageContribution());
     const rules = handlebarsPrompt("ragents.workspace.prompt", 100, pluginAsset("ragents.workspace", "prompt.hbs"));
     host.prompts(
       boundToTools({

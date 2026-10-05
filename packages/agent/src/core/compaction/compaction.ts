@@ -136,8 +136,8 @@ export interface ContextUsageEstimate {
 	lastUsageIndex: number | null;
 }
 
-function getLastAssistantUsageInfo(messages: AgentMessage[]): { usage: Usage; index: number } | undefined {
-	for (let i = messages.length - 1; i >= 0; i--) {
+function getLastAssistantUsageInfo(messages: AgentMessage[], startIndex: number): { usage: Usage; index: number } | undefined {
+	for (let i = messages.length - 1; i >= startIndex; i--) {
 		const usage = getAssistantUsage(messages[i]);
 		if (usage) return { usage, index: i };
 	}
@@ -148,8 +148,8 @@ function getLastAssistantUsageInfo(messages: AgentMessage[]): { usage: Usage; in
  * Estimate context tokens from messages, using the last assistant usage when available.
  * If there are messages after the last usage, estimate their tokens with estimateTokens.
  */
-export function estimateContextTokens(messages: AgentMessage[]): ContextUsageEstimate {
-	const usageInfo = getLastAssistantUsageInfo(messages);
+export function estimateContextTokens(messages: AgentMessage[], usageStartIndex = 0): ContextUsageEstimate {
+	const usageInfo = getLastAssistantUsageInfo(messages, usageStartIndex);
 
 	if (!usageInfo) {
 		let estimated = 0;
@@ -331,6 +331,7 @@ export function findCutPoint(
 		accumulatedTokens += messageTokens;
 
 		if (accumulatedTokens >= keepRecentTokens) {
+			cutIndex = cutPoints[cutPoints.length - 1];
 			for (let c = 0; c < cutPoints.length; c++) {
 				if (cutPoints[c] >= i) {
 					cutIndex = cutPoints[c];
@@ -569,7 +570,9 @@ export function prepareCompaction(
 	}
 	const boundaryEnd = entries.length;
 
-	const tokensBefore = estimateContextTokens(contextMessages(entries)).tokens;
+	const messages = contextMessages(entries);
+	const usageStartIndex = previous ? messages.length - (entries.length - prevCompactionIndex - 1) : 0;
+	const tokensBefore = estimateContextTokens(messages, usageStartIndex).tokens;
 
 	const cutPoint = findCutPoint(entries, boundaryStart, boundaryEnd, compaction.keepRecentTokens);
 	const firstKeptEntry = entries[cutPoint.firstKeptEntryIndex];

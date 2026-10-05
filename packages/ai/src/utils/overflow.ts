@@ -29,7 +29,7 @@ import type { AssistantMessage } from "../types.ts";
  * - Mistral: "Prompt contains X tokens ... too large for model with Y maximum context length"
  * - z.ai: Does NOT error, accepts overflow silently - handled via usage.input > contextWindow
  * - Xiaomi MiMo: Truncates input to fill contextWindow exactly, then returns finish_reason "length"
- *   with output=0 (no room left to generate). Detected via stopReason "length" + zero output +
+ *   with little or no output. Detected via stopReason "length" + at most eight output tokens +
  *   input filling the context window.
  * - Ollama: Some deployments truncate silently, others return errors like "prompt too long; exceeded max context length by X tokens"
  */
@@ -106,7 +106,7 @@ const NON_OVERFLOW_PATTERNS = [
  * - z.ai: Sometimes accepts overflow silently (detectable via usage.input > contextWindow),
  *   sometimes returns rate limit errors. Pass contextWindow param to detect silent overflow.
  * - Xiaomi MiMo: Truncates input to fit contextWindow then returns stopReason "length" with
- *   output=0. Pass contextWindow param to detect via the "filled context + zero output" signal.
+ *   little or no output. Pass contextWindow to detect a nearly full context with at most eight output tokens.
  * - Ollama: May truncate input silently for some setups, but may also return explicit
  *   overflow errors that match the patterns above. Silent truncation still cannot be
  *   detected here because we do not know the expected token count.
@@ -144,12 +144,10 @@ export function isContextOverflow(message: AssistantMessage, contextWindow?: num
 		}
 	}
 
-	// Case 3: Length-stop overflow (Xiaomi MiMo style) - server truncates oversized input
-	// to fit the context window, leaving no room for output. Returns stopReason "length"
-	// with output=0 and input+cacheRead filling the context window.
-	if (contextWindow && message.stopReason === "length" && message.usage.output === 0) {
+	// A length stop with at most eight output tokens and 98 percent of the window used leaves no usable answer.
+	if (contextWindow && message.stopReason === "length" && message.usage.output <= 8) {
 		const inputTokens = message.usage.input + message.usage.cacheRead;
-		if (inputTokens >= contextWindow * 0.99) {
+		if (inputTokens >= contextWindow * 0.98) {
 			return true;
 		}
 	}

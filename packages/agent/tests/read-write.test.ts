@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { createHash } from "node:crypto";
 import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -55,6 +56,20 @@ test("read truncates long lines and stops at 2000 lines", async () => {
     await writeFile(join(directory, "many.txt"), Array.from({ length: 2500 }, (_, index) => `line ${index + 1}`).join("\n"));
     const many = textOf(await tool.execute("many", { file_path: "many.txt", limit: 3000 }));
     assert.match(many, /\n2000\tline 2000\n\n\[Showing lines 1-2000 of 2500\. Use offset=2001 to continue\.\]$/);
+  });
+});
+
+test("read identifies image contents for the host even without an image file extension", async () => {
+  await inFolder("read-image", async (directory) => {
+    const png = Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR4nGP4z8DwHwAFAAH/iZk9HQAAAABJRU5ErkJggg==", "base64");
+    await writeFile(join(directory, "picture.bin"), png);
+    const result = await createReadToolDefinition(directory).execute("image", { file_path: "picture.bin" });
+    assert.equal(result.details.imageMimeType, "image/png");
+    assert.equal(result.details.contentHash, createHash("sha256").update(png).digest("hex"));
+    assert.ok(result.content.some((part) => part.type === "image"));
+    await writeFile(join(directory, "notes.txt"), "Notes.");
+    const text = await createReadToolDefinition(directory).execute("text", { file_path: "notes.txt" });
+    assert.equal(text.details.imageMimeType, undefined);
   });
 });
 

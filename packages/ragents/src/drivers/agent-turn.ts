@@ -1,14 +1,12 @@
 import { setTimeout as sleep } from "node:timers/promises";
 
 import {
-    activeContextEntries,
     Agent,
     type AgentEvent,
     type AgentLoopTurnUpdate,
     type AgentMessage,
     type AgentSettings,
     type AgentTool,
-    calculateContextTokens,
     compact,
     compactionOf,
     contextMessages,
@@ -103,9 +101,10 @@ const lastAssistantOf = (messages: readonly AgentMessage[]): AssistantMessage | 
     [...messages].reverse().find((message): message is AssistantMessage => message.role === "assistant");
 
 /** A retry continues behind every failed step at the end, since the journal keeps each of them. */
-const withoutTrailingFailures = (messages: readonly AgentMessage[]) => {
+const withoutTrailingFailures = (messages: readonly AgentMessage[], contextWindow: number) => {
     const failed = (message: AgentMessage | undefined) =>
-        message?.role === "assistant" && (message.stopReason === "error" || message.stopReason === "aborted");
+        message?.role === "assistant" && (message.stopReason === "error" || message.stopReason === "aborted"
+            || (message.stopReason === "length" && isContextOverflow(message, contextWindow)));
     let end = messages.length;
 
     while (failed(messages[end - 1]))
@@ -157,8 +156,6 @@ export class AgentTurn {
         if (!(await this.#options.modelRuntime.checkAuth(model.provider)))
             throw new Error(`No key is configured for the provider ${model.provider}; it comes from the configuration of the profile.`);
 
-        const context = request.modelContext();
-        await this.#checkCompaction(lastAssistantOf(context.messages), false);
         this.#preloadedSkills = this.#options.preload
             ? (await this.#options.track(this.#options.preload({ prompt: prepared.prompt, skills: this.#options.skills, model, signal }))) ?? ""
             : "";
@@ -343,6 +340,11 @@ export class AgentTurn {
 
     /** The projection of the journal plus the hidden notes of the hooks for this one call. */
     async #contextForModelCall(signal: AbortSignal | undefined): Promise<AgentMessage[]> {
+        await this.#checkCompaction(lastAssistantOf(this.#request.modelContext().messages), false);
+
+        if (this.#overflowRecoveryAttempted && this.#modelFailure)
+            throw new Error(this.#modelFailure);
+
         const context = this.#request.modelContext();
         this.#contextKey = context.key;
         const notes: AgentMessage[] = [];
@@ -371,7 +373,11 @@ export class AgentTurn {
             }
         }
 
-        return [...context.messages, ...notes];
+        const messages = this.#overflowRecoveryAttempted || this.#retryAttempt > 0
+            ? withoutTrailingFailures(context.messages, this.#options.model.contextWindow)
+            : context.messages;
+
+        return [...messages, ...notes];
     }
 
     async #afterToolCall(toolCallId: string, toolName: string, original: (TextContent | ImageContent)[], isError: boolean) {
@@ -540,7 +546,7 @@ export class AgentTurn {
         request.recordContext({ kind: "step", step: step as unknown as CompletedModelStep });
         this.#lastAssistant = message;
 
-        if (message.stopReason !== "error") {
+        if (message.stopReason !== "error" && !isContextOverflow(message, this.#options.model.contextWindow)) {
             this.#overflowRecoveryAttempted = false;
             this.#retryAttempt = 0;
         }
@@ -548,7 +554,9 @@ export class AgentTurn {
         // A retry or a compaction continues after a provider error, so only the last answer decides.
         this.#modelFailure = message.stopReason === "error"
             ? message.errorMessage ?? "The model provider returned an error."
-            : null;
+            : message.stopReason === "length"
+                ? "The model response hit the output token limit before producing a complete answer."
+                : null;
     }
 
     /** The journal keys a tool call by its ID; a model that reuses one gets a suffixed ID before the loop runs the call. */
@@ -585,7 +593,7 @@ export class AgentTurn {
         const message = this.#lastAssistant;
         this.#lastAssistant = undefined;
 
-        if (!message || !this.#active || this.#options.signal.aborted)
+        if (!message || this.#failure || !this.#active || this.#options.signal.aborted)
             return false;
 
         if (this.#isRetryable(message) && (await this.#prepareRetry()))
@@ -597,7 +605,13 @@ export class AgentTurn {
         if (message.stopReason === "error")
             this.#retryAttempt = 0;
 
-        return this.#checkCompaction(message);
+        if (await this.#checkCompaction(message))
+            return true;
+
+        if (!this.#modelFailure && !message.content.some((part) => part.type === "toolCall" || (part.type === "text" && part.text.trim())))
+            this.#modelFailure = "The model ended the turn without an answer.";
+
+        return false;
     }
 
     #isRetryable(message: AssistantMessage) {
@@ -612,7 +626,7 @@ export class AgentTurn {
 
         this.#retryAttempt++;
         const agent = this.#agent!;
-        agent.state.messages = withoutTrailingFailures(agent.state.messages);
+        agent.state.messages = withoutTrailingFailures(agent.state.messages, this.#options.model.contextWindow);
         this.#retryAbort = new AbortController();
 
         try {
@@ -633,47 +647,31 @@ export class AgentTurn {
     async #checkCompaction(assistant: AssistantMessage | undefined, skipAborted = true): Promise<boolean> {
         const { model } = this.#options;
 
-        if (!assistant || (skipAborted && assistant.stopReason === "aborted"))
+        if (skipAborted && assistant?.stopReason === "aborted")
             return false;
 
         const contextWindow = model.contextWindow ?? 0;
-        const sameModel = assistant.provider === model.provider && assistant.model === model.id;
+        const sameModel = assistant?.provider === model.provider && assistant.model === model.id;
         const log = this.#request.modelContext().entries;
         const compactionIndex = log.findLastIndex((entry) => entry.kind === "compaction");
         const assistantIndex = log.findLastIndex((entry) => entry.kind === "message" && entry.message.role === "assistant");
 
-        if (compactionIndex >= 0 && assistantIndex < compactionIndex)
-            return false;
-
-        if (sameModel && isContextOverflow(assistant, contextWindow)) {
+        if (assistant && sameModel && assistantIndex > compactionIndex && isContextOverflow(assistant, contextWindow)) {
             if (assistant.stopReason === "stop")
                 return this.#compact(false);
 
-            if (this.#overflowRecoveryAttempted)
+            if (this.#overflowRecoveryAttempted) {
+                this.#modelFailure = "The model context overflowed again after compaction and one retry.";
                 return false;
+            }
 
             this.#overflowRecoveryAttempted = true;
             return this.#compact(true);
         }
 
-        const direct = assistant.usage ? calculateContextTokens(assistant.usage) : 0;
-        let contextTokens = direct;
-
-        if (assistant.stopReason === "error" || direct === 0) {
-            const active = activeContextEntries(log);
-            const estimate = estimateContextTokens(contextMessages(log));
-
-            if (estimate.lastUsageIndex === null)
-                return false;
-
-            const usageEntry = active[estimate.lastUsageIndex];
-
-            if (compactionIndex >= 0 && (!usageEntry || log.indexOf(usageEntry) < compactionIndex))
-                return false;
-
-            contextTokens = estimate.tokens;
-        }
-
+        const messages = contextMessages(log);
+        const usageStartIndex = compactionIndex < 0 ? 0 : messages.length - (log.length - compactionIndex - 1);
+        const contextTokens = estimateContextTokens(messages, usageStartIndex).tokens;
         return shouldCompact(contextTokens, compactionOf(model).values) ? this.#compact(false) : false;
     }
 
@@ -682,8 +680,11 @@ export class AgentTurn {
         const compaction = compactionOf(model);
         const preparation = prepareCompaction([...this.#request.modelContext().entries], compaction.values);
 
-        if (!preparation)
+        if (!preparation) {
+            if (retry)
+                this.#modelFailure = "Context overflow recovery failed: there is no context to compact.";
             return false;
+        }
 
         const abort = new AbortController();
         this.#compactionAbort = abort;
@@ -724,12 +725,18 @@ export class AgentTurn {
             const messages = this.#request.modelContext().messages;
 
             if (this.#agent)
-                this.#agent.state.messages = retry ? withoutTrailingFailures(messages) : [...messages];
+                this.#agent.state.messages = retry ? withoutTrailingFailures(messages, model.contextWindow) : [...messages];
+
+            if (retry)
+                this.#modelFailure = null;
 
             return retry;
         } catch (error) {
-            if (!abort.signal.aborted && !this.#options.signal.aborted)
+            if (!abort.signal.aborted && !this.#options.signal.aborted) {
                 this.#options.onDiagnostic(`Compaction of the model context failed: ${errorMessage(error)}`);
+                if (retry)
+                    this.#modelFailure = `Context overflow recovery failed: compaction failed: ${errorMessage(error)}`;
+            }
             return false;
         } finally {
             if (this.#compactionAbort === abort)

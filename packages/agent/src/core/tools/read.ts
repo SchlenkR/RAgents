@@ -32,6 +32,7 @@ export type ReadToolInput = Static<typeof readSchema>;
 
 export interface ReadToolDetails {
 	contentHash: string;
+	imageMimeType?: string;
 }
 
 /**
@@ -142,7 +143,7 @@ export function createReadToolDefinition(
 
 							if (aborted) return;
 							signal?.removeEventListener("abort", onAbort);
-							resolve({ content, details: { contentHash } });
+							resolve({ content, details: { contentHash, ...(mimeType ? { imageMimeType: mimeType } : {}) } });
 						} catch (error: any) {
 							signal?.removeEventListener("abort", onAbort);
 							if (!aborted) reject(error);

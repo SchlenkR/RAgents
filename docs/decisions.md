@@ -1,5 +1,25 @@
 # Decisions
 
+## 2026-10-05: Compact during turns and reject image reads without image input
+
+Chapters: `spec/core.md` (Retries and compaction), `spec/plugins.md` (Agent runtime hooks;
+Workspace, sandbox tools, and processes).
+
+Tool results can cross the context threshold during a long turn. The runtime now checks the
+projected context before every model request, includes new results and inputs, and disregards
+usage from before the latest compaction. A trailing result larger than the recent token budget
+keeps its preceding call while earlier context can be summarized.
+
+A nearly full context can produce a `length` stop with a few output tokens. At most eight output
+tokens with at least 98 percent of the window used triggers compaction and one request retry.
+Unrecoverable overflow and incomplete final responses fail with a clear reason. Original steps
+and existing compaction events remain in the replayable journal; its format is unchanged.
+
+Native `read` now presents image pixels through the workspace hook and returns an explicit error
+to a text-only model. Reads are isolated by run, actor, and call, including parallel calls and
+workstation reads. Hooks also apply to the global coordinator so its tools enforce the same image
+capability check. Text reads and TypeScript file access keep their existing result contracts.
+
 ## 2026-10-05: Deploy an unpublished host with its workstation package
 
 Chapter: `spec/plugins.md` (Web halves at runtime, Contributions to the executor, Provisioning

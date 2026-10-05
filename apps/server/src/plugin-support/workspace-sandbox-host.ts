@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 import { mkdir, realpath } from "node:fs/promises";
 import path from "node:path";
 import { Value } from "typebox/value";
+import type { ImageContent, TextContent } from "@ragents/ai";
 import {
   DomainError,
   serviceToken,
@@ -10,6 +11,7 @@ import {
   type PluginContext,
   type ToolContributor,
   type ToolScope,
+  type AgentContribution,
 } from "@ragents/engine";
 import {
   BASH_MAX_TIMEOUT_MS,
@@ -220,6 +222,7 @@ export class WorkspaceSandboxHost implements SandboxServices {
   readonly #stable = new Map<string, Promise<StableRunParts>>();
   /** Per run the file state a model saw last, by actor, model context and path; only in memory, a loss requires at most a new read. */
   readonly #seen = new Map<string, Map<string, SeenFile>>();
+  readonly #readImages = new Map<string, Map<string, { content: (TextContent | ImageContent)[]; seenKey: string; seen: SeenFile }>>();
   /** Per run the executor that started each background command; without an entry the executor of the binding holds it. */
   readonly #tasks = new Map<string, Map<string, WorkspaceExecutor>>();
   /** Per run the observations of the ends of its background commands; the stop of the run ends them before any process ends. */
@@ -408,6 +411,28 @@ export class WorkspaceSandboxHost implements SandboxServices {
     };
   }
 
+  readImageContribution(): AgentContribution {
+    return {
+      id: `${this.#options.contributorName}.read-image`,
+      afterToolCall: ({ runId, agentId }, outcome, call) => {
+        if (outcome.toolName !== "read" || !outcome.toolCallId) return undefined;
+        const images = this.#readImages.get(runId);
+        const key = `${agentId}\0${outcome.toolCallId}`;
+        const image = images?.get(key);
+        images?.delete(key);
+        if (!image || outcome.isError) return undefined;
+        if (call.modelReadsImages) {
+          this.#seen.get(runId)?.set(image.seenKey, image.seen);
+          return { content: image.content };
+        }
+        return {
+          content: [{ type: "text", text: "This model cannot see images; ask the user or use a model with image input" }],
+          isError: true,
+        };
+      },
+    };
+  }
+
   /** The duration an input asks for itself applies when the caller names none; it only extends the wait for a remote executor. */
   async execute(runId: string, operation: string, input: unknown, options: WorkspaceExecuteOptions = {}): Promise<unknown> {
     try {
@@ -437,6 +462,7 @@ export class WorkspaceSandboxHost implements SandboxServices {
     this.#tasks.delete(runId);
     this.#stable.delete(runId);
     this.#seen.delete(runId);
+    this.#readImages.delete(runId);
     const remote = await this.#options.executorFor?.(runId);
     const withoutRoot = this.#withoutRoot.has(runId);
     this.#withoutRoot.delete(runId);
@@ -454,6 +480,7 @@ export class WorkspaceSandboxHost implements SandboxServices {
     this.#tasks.clear();
     this.#stable.clear();
     this.#seen.clear();
+    this.#readImages.clear();
     this.#withoutRoot.clear();
     const results = await Promise.allSettled([this.#local.shutdown(), this.#serverRoots.shutdown()]);
     const failed = results.find((result): result is PromiseRejectedResult => result.status === "rejected");
@@ -598,10 +625,19 @@ export class WorkspaceSandboxHost implements SandboxServices {
     const known = this.#seen.get(runId) ?? new Map<string, SeenFile>();
     this.#seen.set(runId, known);
     const key = [scope.caller.actorId, scope.modelContext, path.posix.normalize(input.file_path)].join("\0");
-    const result = await this.execute(runId, name, { ...input, seen: known.get(key) ?? null }, options) as ToolOutput & { details?: { seen?: SeenFile } };
+    const result = await this.execute(runId, name, { ...input, seen: known.get(key) ?? null }, options) as {
+      content: (TextContent | ImageContent)[];
+      details?: { seen?: SeenFile; imageMimeType?: string };
+    };
     const seen = result.details?.seen;
     if (!seen) throw new Error(`The executor reports no file state after ${name}; server and workstation need the same executor version`);
-    known.set(key, seen);
+    if (name === "read" && (result.details?.imageMimeType || result.content.some((part) => part.type === "image"))) {
+      const images = this.#readImages.get(runId) ?? new Map();
+      this.#readImages.set(runId, images);
+      images.set(`${scope.caller.actorId}\0${toolCallId}`, { content: result.content, seenKey: key, seen });
+    } else {
+      known.set(key, seen);
+    }
     return textOf(result);
   }
 }

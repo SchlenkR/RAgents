@@ -374,7 +374,7 @@ its optional agent hooks hook precisely into the agents' model calls.
 `host.agentRuntime(...contributions)` takes contributions with an ID and at least one of
 two hooks; one without a hook is a registration error. Both first receive the agent
 (`AgentContributionContext`: run, agent, audience, working directory) and run for every
-agent except the global coordinator:
+agent, including the global coordinator:
 
 - `beforeModelCall(agent, call)` before every model call of a turn. A returned text
   reaches the model as a hidden note after the conversation history, only for this call;
@@ -391,8 +391,8 @@ agent except the global coordinator:
 
 Both see `call.signal` of the running call and `call.modelReadsImages`. The users are the
 project check of the actor programs (a note on new or fixed errors, state in
-`call.kept`) and the browser's image display (replaces the result of `browser_view_screenshot`
-with the capture). A contribution registers no tools; those come through `host.functions`.
+`call.kept`), image reads, and the browser's image display (replaces the result of
+`browser_view_screenshot` with the capture). A contribution registers no tools; those come through `host.functions`.
 The engine binds every contribution to the agent and calls it directly
 (`packages/ragents/src/drivers/agent-hooks.ts`); the settings show it under its ID.
 
@@ -2960,7 +2960,12 @@ and fail on look-alikes; the schemas are closed, and an unknown field is removed
 the lines in cat -n style, line number, tab, line, at most 2000 lines and 50 KB; a line over 2000
 characters ends in `... (line truncated to 2000 chars)`, and a note names the `offset` to continue
 with. An empty file and an `offset` behind the end answer with a warning instead of content; an
-image comes as an attachment. A call from TypeScript gets the same numbered text. `write` takes `file_path` and `content` and says whether it created
+image comes as an attachment for a model with image input. For a text-only model, a native image
+read returns `isError: true` with "This model cannot see images; ask the user or use a model with
+image input". The workspace hook keeps each read's image by run, actor, and call until presentation;
+failed image reads do not mark the image as seen. The same behavior applies on the server and a
+workstation, and detection uses file contents rather than the extension. A call from TypeScript
+gets the same numbered text; image pixels require the native tool. `write` takes `file_path` and `content` and says whether it created
 or updated the file. `edit` takes `file_path`, `old_string`, `new_string`, and `replace_all` and
 makes one replacement per call: `old_string` occurs exactly once, with `replace_all` at least
 once. An exact match wins; otherwise the match ignores trailing whitespace, typographic quotes and

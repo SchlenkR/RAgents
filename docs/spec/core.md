@@ -330,8 +330,9 @@ context.
 ### Retries and compaction
 
 Whether a turn fails at the model is decided by the model's last response: the turn survives a
-provider error that the runtime then successfully retries or continues after a compaction; only if
-the last response is an error does it end as `failed` with that error's message. Cancellation and
+provider error that the runtime then successfully retries or continues after a compaction. A final
+error, a truncated response, or a response without an answer ends as `failed` with a clear reason;
+a successful tool result that explicitly ends the turn remains a valid completion. Cancellation and
 a hook's error, once they occur, remain the result of the turn. A retryable provider error
 (overload, rate limit, server error; not the overflow and no rejected request with 4xx except 408,
 409, and 429) is retried up to three times with exponential backoff starting at two seconds; the
@@ -343,18 +344,25 @@ a retryable `Timeout` error.
 
 Compaction happens on the projection, with the values of the model that runs the turn
 (`Model.compaction`, type `ModelCompaction` in `packages/ai/src/types.ts`, evaluated by
-`compactionOf` in `packages/agent/src/core/compaction/compaction.ts`): after a response whose
-context is above `threshold`, an absolute token count of this model, without a retry; after an
-overflow error of the same model once per user message with a subsequent retry; and before a new
-turn if the last response calls for it. Roughly `keepRecentTokens` of the most recent entries are
-kept, never starting from a tool result; if that cuts into the middle of a turn, a second call
+`compactionOf` in `packages/agent/src/core/compaction/compaction.ts`): before every model request,
+including requests within a turn, and after its final response when the projected context exceeds
+`threshold`, an absolute token count of this model. The estimate includes tool results and newly
+presented inputs. Retained usage from before the latest compaction does not measure the new context;
+until a new response reports usage, the runtime estimates the active summary and messages.
+An overflow error of the same model, or a `length` stop with at most eight output tokens and input
+plus cache-read tokens at least 98 percent of its window, compacts and retries that request once.
+A second overflow or an unavailable or failed recovery ends the turn as `failed`, never as a silent
+completion. Roughly `keepRecentTokens` of the most recent entries are kept, never starting from a
+tool result; an oversized trailing tool result keeps its preceding call. If that cuts into the middle of a turn, a second call
 summarizes that turn's beginning separately. The summary may be `summaryTokens` long, the one of the
 turn beginning five eighths of that, the ratio of the two budgets in the forked runtime; both are
 limited by the model's output limit. An existing summary is continued, not created anew. Whether a
 response lies before the last compaction is decided by its position in the journal. A retry and
-the continuation after a compaction start behind all error steps at the end of the context, because
-the journal keeps every one of them. A failed compaction is in the server log; the turn continues
-without it.
+the continuation after a compaction start behind all error steps and truncated overflow responses
+at the end of the context, because the journal keeps every one of them unchanged. A failed proactive
+compaction is in the server log; the turn continues without it. A failed overflow compaction also
+reports its cause as the turn's failure. Summaries use the existing `context.compacted` event and
+replay without a journal format change or migration.
 
 A model gets its own values through an alias of the profile (`MODEL_ALIASES`,
 [profiles.md](profiles.md)), on a client through the relay, which passes on the values of its

@@ -217,7 +217,7 @@ export const createEngine = async (options: EngineOptions): Promise<Engine> => {
     modelRuntime: options.modelRuntime,
     resolveSkills: async (context) => globalChat?.isCoordinator(context.runId) ? []
       : (await options.plugins.skills.resolve(contributionContextFor(context))).map(skillOfDirectory),
-    resolveHooks: (context) => globalChat?.isCoordinator(context.runId) ? [] : options.plugins.agentRuntime.resolve(contributionContextFor(context)),
+    resolveHooks: (context) => options.plugins.agentRuntime.resolve(contributionContextFor(context)),
   });
   const configuredModels = await Promise.all(options.plugins.profiles.models().map(async (model) => {
     if (model.driver !== "agent") return model;
