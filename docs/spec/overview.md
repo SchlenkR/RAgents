@@ -117,24 +117,25 @@ with the product heading, animated previews, and links to installation and GitHu
 shows the current section and jumps to another chapter. Installation offers VS Code, npm/npx,
 shell and PowerShell scripts with one command each for the current user and for all users, and
 GitHub release downloads. Each tab shows its action or commands and essential prerequisites;
-setup details live in the getting-started guide. Underlined text tabs and open command rows
-use spacing and separators instead of nested cards. The closing section links to that guide and
-project feedback without repeating the installation call to action.
+setup details live in the getting-started guide. Underlined text tabs stay flat; each
+command sits in one framed code box with its label and copy button, without further nested cards.
 
 The main page renders its diagrams on local canvases. Feature texts are ordinary sections in
 page flow, starting with workspace setups and then distributed work across server and laptop.
-Desktop diagrams share a sticky stage; text and diagram alternate sides between features.
-The diagram belonging
-to the text nearest the viewport center plays automatically and fades out as that text leaves;
-the next diagram fades in as its text arrives. Narrow views place a diagram below each text and
-play it while visible. Playback loops within the selected chapter without moving the page.
-Play, Pause, and Fast control only diagram playback; manual scrolling never pauses it. Chapter
-buttons scroll to their sections. Desktop sections overlap vertically by a fixed 300 pixels.
-The main page's CSS variables configure overlap, minimum section height, and vertical and
-horizontal margins in pixels; `--chapter-overlap: 0px` removes overlap. A pixel clearance
-fades diagrams out before neighboring text enters their side of the visible stage. Narrow
-views use separate vertical margins and no overlap. Diagram and annotation rendering share one
-animation frame.
+Each chapter carries its own diagram beside its text; text and diagram alternate sides between
+chapters, and the diagram scrolls with its chapter, so no diagram ever has to give way to
+another chapter's text. Chapters follow each other directly; their heights depend on the page
+width only, never on the viewport height. A diagram plays automatically while its chapter is
+near the viewport center and fades toward the edges of the viewport. Narrow views place the
+diagram below its text. Playback loops within the chapter without moving the page. Play, Pause,
+and Fast control only diagram playback and start in Fast; manual scrolling never pauses it. Chapter buttons
+scroll to their sections. The main page's CSS variables configure the vertical and horizontal
+chapter margins in pixels. After the feature chapters, static sections show the browser and
+VS Code clients with screenshots, collect smaller capabilities (local models, rooms, dev servers,
+the agent graph, sharing) as tiles with a link to the getting started guide, and continue with the
+machine roles, the extensions, installation, and the current limits. One animated
+background runs behind every section without separators. Diagram and annotation rendering
+share one animation frame.
 Reduced motion shows static scenes. The diagrams explain principles with general roles (agent,
 script, mini-app, server, laptop) and no concrete example workflows.
 

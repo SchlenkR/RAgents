@@ -1,5 +1,25 @@
 # Decisions
 
+## 2026-10-05: Homepage chapters carry their own diagrams
+
+Chapters: `spec/overview.md` (main page). Homepage: `docs/homepage/index.html`.
+
+**Why.** All chapters shared one sticky diagram stage while text and diagram alternated sides. A
+chapter's diagram therefore stood exactly where the next chapter's text arrived and had to hide
+whenever both texts were visible. Measured over the story, the diagram was hidden for about half
+of the reading time of most chapters, and the positions it compared against were cached, so a late
+layout shift (fonts, zoom) let a diagram stand over text. Moving chapters closer made both worse.
+
+**Decision.** Every chapter renders its own diagram beside its text, alternating sides, as narrow
+views already did below the text. Chapters follow each other directly with fixed pixel margins and
+heights that do not depend on the viewport height. A pixel check over several viewport sizes finds
+no diagram over text and a diagram on screen for about 99 % of the story. The chapter for browser
+and VS Code became a static section with screenshots; a tile section collects local models, rooms,
+the agent graph, dev servers, and sharing and links the getting started guide; install commands sit
+in one framed code box each; the start and "built with"
+sections are gone; the integrations moved into "Drive RAgents from Outside"; the background
+animation now runs behind every section. Diagrams start in Fast; Play remains the slower option.
+
 ## 2026-10-05: Select the workstation host in each server's version
 
 Chapter: `spec/plugins.md` (VS Code extension, Contributions to the executor, Provisioning per

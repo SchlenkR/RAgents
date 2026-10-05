@@ -22,12 +22,12 @@
   --done: rgba(238, 243, 248, .5);
   --hover: rgba(238, 243, 248, .07);
   /* Chapter layout in pixels; 0px overlap keeps sections consecutive. */
-  --chapter-overlap: 300px;
+  --chapter-overlap: 0px;
   --chapter-min-height: 1160px;
-  --chapter-margin-block: 180px;
+  --chapter-margin-block: 64px;
   --chapter-margin-inline: 72px;
   --chapter-mobile-margin: 56px;
-  --diagram-clearance: 48px;
+  --diagram-clearance: 120px;
   color-scheme: dark;
 }
 * { box-sizing: border-box; }
@@ -75,7 +75,7 @@ a { color: inherit; text-underline-offset: 4px; }
 .chapters i::after { content: ''; display: block; height: 100%; background: var(--done); transform: scaleX(var(--fill, 0)); transform-origin: left; }
 .chapters button[aria-current] i::after { background: var(--kick, var(--accent)); }
 .reel { position: relative; padding-top: var(--top, 150px); }
-.hero { --stage: min(100%, 1480px); --edge: calc((100% - var(--stage)) / 2); position: sticky; top: var(--top, 150px); height: calc(100svh - var(--top, 150px)); display: grid; place-items: center; overflow: hidden; -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
+.hero { --stage: min(100%, 1480px); --edge: calc((100% - var(--stage)) / 2); position: relative; top: 0; height: calc(100svh - var(--top, 150px)); display: grid; place-items: center; overflow: hidden; -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
 .layers { position: absolute; inset: 0; }
 .layers canvas.panel { inset: 0; width: 100%; height: 100%; }
 .layers canvas { position: absolute; inset: -40px; width: calc(100% + 80px); height: calc(100% + 80px); display: block; will-change: transform, filter; }
@@ -122,22 +122,23 @@ a { color: inherit; text-underline-offset: 4px; }
 .button.secondary:hover { background: var(--hover); border-color: var(--done); }
 .button svg { flex: none; width: 18px; height: 18px; }
 .layers canvas.wire { z-index: 1; pointer-events: none; }
+.layers canvas.rain { position: fixed; inset: 0; width: 100vw; height: 100vh; }
 .note { position: absolute; left: 0; top: 0; z-index: 3; width: max-content; max-width: 17em; padding: 2px 0 2px 12px; border-left: 2px solid var(--signal); color: var(--signal); font: 600 clamp(15px, 1.2vw, 17px)/1.35 var(--font); letter-spacing: -.005em; text-align: left; text-wrap: balance; text-shadow: 0 0 12px rgba(var(--veil), .95), 0 0 3px rgba(var(--veil), .95); pointer-events: none; opacity: var(--note-opacity, 1); }
 .note.out, .note.wait { opacity: 0; }
-.stage { display: none; }
+.stage { position: relative; display: block; overflow: hidden; -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
+.stage canvas { display: block; width: 100%; height: 100%; }
 
 .story { position: relative; z-index: 2; pointer-events: none; }
-.story article { display: flex; align-items: center; justify-content: flex-end; width: min(1480px, 100%); min-height: var(--chapter-min-height); margin: 0 auto; padding: var(--chapter-margin-block) var(--chapter-margin-inline); scroll-margin-top: var(--top, 150px); }
-.story article + article { margin-top: calc(-1 * var(--chapter-overlap)); }
-.story article[data-side="left"] { justify-content: flex-start; }
-.reading-copy { width: min(540px, 42%); pointer-events: auto; }
+.story article { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); align-items: center; gap: 56px; width: min(1480px, 100%); margin: 0 auto; padding: var(--chapter-margin-block) var(--chapter-margin-inline); scroll-margin-top: var(--top, 150px); }
+.story article[data-side="right"] .reading-copy { order: 2; }
+.reading-copy { justify-self: center; width: min(540px, 100%); pointer-events: auto; }
 .reading-copy h2 { margin: 0; }
 .reading-copy > p:not(.how) { color: var(--muted); font-size: clamp(16px, 1.2vw, 18px); line-height: 1.6; }
 .reading-copy .points { margin-top: 1.55em; }
 .hero[data-reading] .lane { visibility: hidden; }
 .hero[data-reading] .veil.center { opacity: 0; }
 
-.after { position: relative; z-index: 1; background: var(--bg); }
+.after { position: relative; z-index: 1; background: transparent; }
 .after:focus { outline: none; }
 .shell { width: min(1120px, calc(100% - 32px)); margin: 0 auto; }
 .after section { scroll-margin-top: calc(var(--top, 150px) + 16px); }
@@ -146,10 +147,10 @@ a { color: inherit; text-underline-offset: 4px; }
 .text-link { display: inline-flex; align-items: center; gap: 7px; color: var(--accent); font-weight: 600; text-decoration: none; }
 .text-link:hover { text-decoration: underline; }
 .text-link svg { flex: none; width: 17px; height: 17px; }
-.ext-section { padding: 104px 0 80px; border-top: 1px solid var(--track); }
+.ext-section { padding: 104px 0 80px; }
 .section-head { display: grid; justify-items: start; gap: 12px; }
 .section-head p { color: var(--muted); font-size: 18px; }
-.where-section { padding: 104px 0 24px; border-top: 1px solid var(--track); }
+.where-section { padding: 104px 0 24px; }
 .where-frame { margin-top: 40px; border: 1px solid var(--track); border-radius: 16px; background: rgba(238, 243, 248, .025); overflow: hidden; }
 .where { width: 100%; border-collapse: collapse; table-layout: fixed; font-size: 15px; line-height: 1.4; }
 .where th, .where td { padding: 14px 18px; border-top: 1px solid var(--track); text-align: left; vertical-align: top; }
@@ -179,6 +180,37 @@ a { color: inherit; text-underline-offset: 4px; }
 .closing p { color: var(--muted); font-size: 17px; }
 .closing .actions { justify-content: flex-start; margin-top: 8px; }
 .closing section + section { padding-left: 64px; border-left: 1px solid var(--track); }
+#clients { --kick: #c2ddff; }
+#clients .points { margin-top: 20px; }
+.shot { margin: 0; border: 1px solid var(--track); border-radius: 14px; overflow: hidden; background: rgba(238, 243, 248, .03); }
+.shot img { display: block; width: 100%; height: auto; }
+.shot figcaption { padding: 12px 16px; color: var(--muted); font-size: 14px; border-top: 1px solid var(--track); }
+.shot-pair { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px; margin-top: 40px; }
+.shot-side { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 48px; align-items: center; }
+.bento { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 16px; margin: 40px 0 0; padding: 0; list-style: none; }
+.bento > li { --tint: #ffdd68; display: flex; flex-direction: column; gap: 14px; min-width: 0; padding: 22px 22px 20px; border: 1px solid var(--track); border-radius: 16px; background: rgba(238, 243, 248, .03); }
+.bento > li:nth-child(2) { --tint: #a7e8d4; }
+.bento > li:nth-child(3) { --tint: #e2ccff; }
+.bento > li:nth-child(4) { --tint: #c2ddff; }
+.bento > li.wide { grid-column: span 4; }
+.bento > li.narrow { grid-column: span 2; }
+.bento > li.full { grid-column: 1 / -1; }
+.bento-split { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 32px; align-items: center; }
+.bento-split > div { display: flex; flex-direction: column; gap: 14px; align-items: flex-start; }
+.bento h3 { margin: 0; font-size: 20px; font-weight: 650; letter-spacing: -.02em; line-height: 1.25; }
+.bento p { color: var(--muted); font-size: 15px; line-height: 1.6; }
+.bento .glyph { width: 40px; height: 40px; }
+.bento .shot { margin-top: auto; }
+.bento-points { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; margin: 4px 0 0; padding: 0; list-style: none; }
+.bento-points li { padding: 12px 14px; border: 1px solid var(--track); border-radius: 12px; font-size: 14px; line-height: 1.45; color: var(--muted); }
+.bento-points strong { display: block; color: var(--text); font-size: 14.5px; margin-bottom: 2px; }
+@media (max-width: 900px) {
+  .shot-pair, .shot-side { grid-template-columns: minmax(0, 1fr); gap: 24px; }
+  .bento { grid-template-columns: minmax(0, 1fr); }
+  .bento > li.wide, .bento > li.narrow, .bento > li.full { grid-column: auto; }
+  .bento-split { grid-template-columns: minmax(0, 1fr); gap: 20px; }
+  .bento-points { grid-template-columns: minmax(0, 1fr); }
+}
 .limits { display: grid; gap: 14px; margin-bottom: 72px; padding: 28px 32px; border: 1px solid var(--track); border-radius: 16px; background: rgba(238, 243, 248, .025); }
 .limits h2 { font-size: clamp(22px, 2vw, 26px); }
 .limits p { color: var(--muted); font-size: 15.5px; line-height: 1.7; }
@@ -269,7 +301,7 @@ a { color: inherit; text-underline-offset: 4px; }
     </nav>
     <button class="nav-menu" type="button" aria-expanded="false" aria-controls="main-navigation"><span data-menu-label>Menu</span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></button>
   </header>
-  <nav class="chapters" aria-label="Chapters" data-chapters><div class="play" role="group" aria-label="Autoplay" data-play><button type="button" data-mode="pause" aria-pressed="false" aria-label="Pause"><svg viewBox="0 0 12 12" aria-hidden="true"><rect x="2" y="1.5" width="3" height="9" rx=".8"/><rect x="7" y="1.5" width="3" height="9" rx=".8"/></svg></button><button type="button" data-mode="play" aria-pressed="true" aria-label="Play"><svg viewBox="0 0 12 12" aria-hidden="true"><path d="M3 1.6v8.8L10.4 6Z"/></svg></button><button type="button" data-mode="fast" aria-pressed="false" aria-label="Fast forward"><svg viewBox="0 0 12 12" aria-hidden="true"><path d="M.6 2.2v7.6L6 6ZM6 2.2v7.6L11.4 6Z"/></svg></button></div><button type="button" class="chapters-toggle" data-chapters-toggle aria-expanded="false"><span data-chapters-label></span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg><i></i></button><div class="chapters-list" data-chapters-list></div></nav>
+  <nav class="chapters" aria-label="Chapters" data-chapters><div class="play" role="group" aria-label="Autoplay" data-play><button type="button" data-mode="pause" aria-pressed="false" aria-label="Pause"><svg viewBox="0 0 12 12" aria-hidden="true"><rect x="2" y="1.5" width="3" height="9" rx=".8"/><rect x="7" y="1.5" width="3" height="9" rx=".8"/></svg></button><button type="button" data-mode="play" aria-pressed="false" aria-label="Play"><svg viewBox="0 0 12 12" aria-hidden="true"><path d="M3 1.6v8.8L10.4 6Z"/></svg></button><button type="button" data-mode="fast" aria-pressed="true" aria-label="Fast forward"><svg viewBox="0 0 12 12" aria-hidden="true"><path d="M.6 2.2v7.6L6 6ZM6 2.2v7.6L11.4 6Z"/></svg></button></div><button type="button" class="chapters-toggle" data-chapters-toggle aria-expanded="false"><span data-chapters-label></span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg><i></i></button><div class="chapters-list" data-chapters-list></div></nav>
 </div>
 <main id="main">
 <div class="reel" data-reel>
@@ -290,23 +322,40 @@ a { color: inherit; text-underline-offset: 4px; }
 
   </div>
   <div class="story" data-story>
-    <article data-chapter="workspace" id="setups" data-anchor="setups"><h2><span>Tailor a workspace</span> <span>for a task</span></h2><p>The script builds the workspace, so the agents start with everything in place.</p><ul class="bullets"><li>A setup script creates agents, scripts and mini-apps</li><li>Start it again with one click</li><li>Add a setup to a run that is already running</li><li>Ask for inputs before the run starts</li></ul><p class="how"><span class="how-label">How it works</span> A setup is a tested TypeScript package that appears as a start card. Its script starts agents, TypeScript programs and mini-apps through the same functions the AI uses. A setup dialog can ask for values, such as a repository or a topic, before the run starts. A setup marked as embeddable also joins a running run, from the run's Run script button, the command line or the coordinator, and reports its result back.</p></article>
-    <article data-chapter="distributed" id="distributed" data-anchor="distributed distributed-modes dm-local dm-server-mode dm-hybrid dm-connected"><h2><span>Distributed across</span> <span>server and laptop</span></h2><p>Coordinate centrally, and let the tools run where the files are.</p><ul class="bullets"><li>Runs, agents and models live on the server</li><li>Laptops and browsers connect to a run</li><li>Messages flow both ways, live</li><li>Tools run on the machine that has the files</li><li>One server, many clients</li></ul><p class="how">Runs, models and tools do not have to live on the same machine. Coordinate centrally, let the tools run where the files are, and choose the split per team and per run.</p></article>
-    <article data-chapter="agents" id="agents" data-anchor="agents"><h2><span>Everyone talks</span> <span>to everyone</span></h2><p>Agents write plain text to each other, addressed by handle, such as @agent1.</p><ul class="bullets"><li>Agents hand work to each other</li><li>Agents talk to scripts, scripts answer</li><li>People talk to agents and mini-apps</li><li>Mini-apps talk to people and agents</li><li class="wink">... you get the idea :)</li></ul><p class="how"><span class="how-label">How it works</span> Each agent has its own model, prompt, history and handle. A coordinator takes the task and hands out work. A helper starts with no tools, a picked list, or all tools. When an agent asks you something, the choices appear in the chat and your answer goes back to that agent. You can attach images in the browser and VS Code for models that support them.</p></article>
-    <article data-chapter="ui" id="ui" data-anchor="ui"><h2><span>Agents with</span> <span>their own UI</span></h2><p>People are used to working with interfaces. A UI shows what the agent is doing, and you step in with a click.</p><ul class="bullets"><li>The AI builds a UI while it works</li><li>Extensions ship UIs ready to use</li><li>You and the agent use the same UI and state</li><li>Your click goes straight to the agent</li><li>A new UI goes live after its tests pass</li></ul><p class="how"><span class="how-label">How it works</span> A mini-app is a React view on the state of an agent or a TypeScript program. Its buttons call the program's typed functions directly. The AI type-checks and tests a new view before it goes live; if a rebuild fails, the old version stays active. Activated mini-apps appear beside Chat in wide browser windows and as tabs in narrow ones; arrange Chat, apps, and inspection windows in browser docking areas; in VS Code, each app opens in its own editor tab.</p></article>
-    <article data-chapter="typescript" id="typescript" data-anchor="typescript"><h2><span>Tools are</span> <span>TypeScript functions</span></h2><ul class="bullets"><li>Register a typed function once, from your own plugin</li><li>Agents get it as a tool</li><li>AI-written code calls it, type-checked first</li><li>A button calls it without a model</li><li>Programs call it when events arrive</li></ul><p class="how"><span class="how-label">How it works</span> A snippet runs once and returns its result to the model. A program keeps its state and reacts to later messages. A setup starts agents, programs and UIs. All of them call the same typed functions, with the same permission checks.</p></article>
-    <article data-chapter="events" id="events" data-anchor="events"><h2><span>Event-driven</span> <span>journal</span></h2><p>Every step of a run is an event in the journal. Agents and programs subscribe to the events they care about.</p><ul class="bullets"><li>An agent starts when another one finishes</li><li>Replies arrive later as new input, nobody waits</li><li>A watcher without a model wakes an agent that hangs</li><li>Agents read the run's journal</li><li>Fork an agent with its memory</li></ul><p class="how"><span class="how-label">How it works</span> A subscription turns matching events, such as another agent's finished turn, into new input. A watcher is a TypeScript condition without a model, for example no progress for 120 seconds. Agents query the journal themselves.</p></article>
-    <article data-chapter="workflows" id="workflows" data-anchor="workflows"><h2><span>AI or deterministic</span> <span>workflows</span></h2><p>Some work needs judgment, some needs the same steps every time. One run holds both.</p><ul class="bullets"><li>Let an agent choose the next step</li><li>Or write the steps in TypeScript, the same every time</li><li>Mix both in one run: code keeps the order, models do the thinking</li><li>Code steps cost no tokens</li><li>Wait for a person when a decision is due</li></ul><p class="how"><span class="how-label">How it works</span> A setup or an actor program in TypeScript creates the participants and controls the handoffs. Agents fill in the parts that need a model. In the word game, code runs the rounds while four models supply the words.</p></article>
-    <article data-chapter="app" id="use-in-app" data-anchor="use-in-app"><h2><span>Use RAgents</span> <span>in your application</span></h2><p>RAgents is a server with one JSON-RPC API. The web interface and VS Code use it, and your product can too.</p><ul class="bullets"><li>Start the host beside your app, on a private port or over stdio</li><li>Call the same JSON-RPC 2.0 API as the UI</li><li>Follow runs live over Server-Sent Events</li><li>Typed contracts as OpenRPC and TypeScript declarations</li><li>Use mini-apps to build user-facing UIs</li><li>Tailor agents, tools and setups with your own profile and plugins</li><li>Hide the technical views, keep chat and UI</li></ul></article>
-    <article data-chapter="plugins" id="plugins" data-anchor="plugins"><h2><span>Plugins</span> <span>and profiles</span></h2><ul class="bullets"><li>A plugin adds tools, skills, prompts and UIs</li><li>Write your own plugins in TypeScript</li><li>A profile picks the plugins, models and users</li><li>A server hands its profile to every laptop</li></ul></article>
-    <article data-chapter="outside" id="remote" data-anchor="remote"><h2><span>Drive RAgents</span> <span>from outside</span></h2><ul class="bullets"><li>Start runs from the command line</li><li>Let coding agents like Claude Code drive RAgents</li><li>Send tasks, read the journal, pause or stop a run</li><li>Scripts get the same JSON-RPC API as the UI</li></ul></article>
-    <article data-chapter="web" id="clients" data-anchor="clients"><h2><span>The same run in the browser</span> <span>and in VS Code</span></h2><ul class="bullets"><li>No install in the browser</li><li>Open a mini-app in an editor tab</li><li>Offer your open folder to a server</li></ul><p>Follow startup progress in the shared chat area.</p><p>Choose an environment in VS Code to see its runs, templates and plugins.</p></article>
+    <article data-chapter="workspace" id="setups" data-anchor="setups"><h2><span>Tailor a Workspace</span> <span>for a Task</span></h2><p>The script builds the workspace, so the agents start with everything in place.</p><ul class="bullets"><li>A setup script creates agents, scripts and mini-apps</li><li>Start it again with one click</li><li>Add a setup to a run that is already running</li><li>Ask for inputs before the run starts</li></ul><p class="how"><span class="how-label">How it works</span> A setup is a tested TypeScript package that appears as a start card. Its script starts agents, TypeScript programs and mini-apps through the same functions the AI uses. A setup dialog can ask for values, such as a repository or a topic, before the run starts. A setup marked as embeddable also joins a running run, from the run's Run script button, the command line or the coordinator, and reports its result back.</p></article>
+    <article data-chapter="distributed" id="distributed" data-anchor="distributed distributed-modes dm-local dm-server-mode dm-hybrid dm-connected"><h2><span>Distributed Across</span> <span>Server and Laptop</span></h2><p>Coordinate centrally, and let the tools run where the files are.</p><ul class="bullets"><li>Runs, agents and models live on the server</li><li>Laptops and browsers connect to a run</li><li>Messages flow both ways, live</li><li>Tools run on the machine that has the files</li><li>One server, many clients</li></ul><p class="how">Runs, models and tools do not have to live on the same machine. Coordinate centrally, let the tools run where the files are, and choose the split per team and per run.</p></article>
+    <article data-chapter="agents" id="agents" data-anchor="agents"><h2><span>Everyone Talks</span> <span>To Everyone</span></h2><p>Agents write plain text to each other, addressed by handle, such as @agent1.</p><ul class="bullets"><li>Agents hand work to each other</li><li>Agents talk to scripts, scripts answer</li><li>People talk to agents and mini-apps</li><li>Mini-apps talk to people and agents</li><li class="wink">... you get the idea :)</li></ul><p class="how"><span class="how-label">How it works</span> Each agent has its own model, prompt, history and handle. A coordinator takes the task and hands out work. A helper starts with no tools, a picked list, or all tools. When an agent asks you something, the choices appear in the chat and your answer goes back to that agent. You can attach images in the browser and VS Code for models that support them.</p></article>
+    <article data-chapter="ui" id="ui" data-anchor="ui"><h2><span>Agents with</span> <span>Their Own UI</span></h2><p>People are used to working with interfaces. A UI shows what the agent is doing, and you step in with a click.</p><ul class="bullets"><li>The AI builds a UI while it works</li><li>Extensions ship UIs ready to use</li><li>You and the agent use the same UI and state</li><li>Your click goes straight to the agent</li><li>A new UI goes live after its tests pass</li></ul><p class="how"><span class="how-label">How it works</span> A mini-app is a React view on the state of an agent or a TypeScript program. Its buttons call the program's typed functions directly. The AI type-checks and tests a new view before it goes live; if a rebuild fails, the old version stays active. Activated mini-apps appear beside Chat in wide browser windows and as tabs in narrow ones; arrange Chat, apps, and inspection windows in browser docking areas; in VS Code, each app opens in its own editor tab.</p></article>
+    <article data-chapter="typescript" id="typescript" data-anchor="typescript"><h2><span>Tools Are</span> <span>TypeScript Functions</span></h2><ul class="bullets"><li>Register a typed function once, from your own plugin</li><li>Agents get it as a tool</li><li>AI-written code calls it, type-checked first</li><li>A button calls it without a model</li><li>Programs call it when events arrive</li></ul><p class="how"><span class="how-label">How it works</span> A snippet runs once and returns its result to the model. A program keeps its state and reacts to later messages. A setup starts agents, programs and UIs. All of them call the same typed functions, with the same permission checks.</p></article>
+    <article data-chapter="events" id="events" data-anchor="events"><h2><span>Event-Driven</span> <span>Journal</span></h2><p>Every step of a run is an event in the journal. Agents and programs subscribe to the events they care about.</p><ul class="bullets"><li>An agent starts when another one finishes</li><li>Replies arrive later as new input, nobody waits</li><li>A watcher without a model wakes an agent that hangs</li><li>Agents read the run's journal</li><li>Fork an agent with its memory</li></ul><p class="how"><span class="how-label">How it works</span> A subscription turns matching events, such as another agent's finished turn, into new input. A watcher is a TypeScript condition without a model, for example no progress for 120 seconds. Agents query the journal themselves.</p></article>
+    <article data-chapter="workflows" id="workflows" data-anchor="workflows"><h2><span>AI or Deterministic</span> <span>Workflows</span></h2><p>Some work needs judgment, some needs the same steps every time. One run holds both.</p><ul class="bullets"><li>Let an agent choose the next step</li><li>Or write the steps in TypeScript, the same every time</li><li>Mix both in one run: code keeps the order, models do the thinking</li><li>Code steps cost no tokens</li><li>Wait for a person when a decision is due</li></ul><p class="how"><span class="how-label">How it works</span> A setup or an actor program in TypeScript creates the participants and controls the handoffs. Agents fill in the parts that need a model. In the word game, code runs the rounds while four models supply the words.</p></article>
+    <article data-chapter="app" id="use-in-app" data-anchor="use-in-app"><h2><span>Use RAgents</span> <span>in Your Application</span></h2><p>RAgents is a server with one JSON-RPC API. The web interface and VS Code use it, and your product can too.</p><ul class="bullets"><li>Start the host beside your app, on a private port or over stdio</li><li>Call the same JSON-RPC 2.0 API as the UI</li><li>Follow runs live over Server-Sent Events</li><li>Typed contracts as OpenRPC and TypeScript declarations</li><li>Use mini-apps to build user-facing UIs</li><li>Tailor agents, tools and setups with your own profile and plugins</li><li>Hide the technical views, keep chat and UI</li></ul></article>
+    <article data-chapter="plugins" id="plugins" data-anchor="plugins"><h2><span>Plugins</span> <span>and Profiles</span></h2><ul class="bullets"><li>A plugin adds tools, skills, prompts and UIs</li><li>Write your own plugins in TypeScript</li><li>A profile picks the plugins, models and users</li><li>A server hands its profile to every laptop</li></ul></article>
+    <article data-chapter="outside" id="remote" data-anchor="remote"><h2><span>Drive RAgents</span> <span>from Outside</span></h2><ul class="bullets"><li>Start runs from the command line</li><li>Let coding agents like Claude Code drive RAgents</li><li>Send tasks, read the journal, pause or stop a run</li><li>Scripts get the same JSON-RPC API as the UI</li><li id="mcp">Connect MCP servers so agents can use their tools</li><li id="acp">Chat with RAgents from an ACP editor such as Zed</li><li id="acp-actors">Run Claude, Codex or Gemini CLI as actors alongside the coordinator</li></ul></article>
   </div>
 </div>
 <div class="after" tabindex="-1">
+  <section class="ext-section" id="clients" data-chapter="web" aria-labelledby="clients-title">
+    <div class="shell">
+      <div class="section-head"><h2 id="clients-title">The Same Run in the Browser and in VS Code</h2><ul class="points"><li>No install in the browser</li><li>Open a mini-app in an editor tab</li><li>Offer your open folder to a server</li></ul><p>Follow startup progress in the shared chat area.</p><p>Choose an environment in VS Code to see its runs, templates and plugins.</p></div>
+      <div class="shot-pair"><figure class="shot"><img src="screenshots/clients-browser.webp" alt="A browser run with the coordinator chat, run controls, and message input." loading="lazy" width="1440" height="650"><figcaption>Browser</figcaption></figure><figure class="shot"><img src="screenshots/clients-vscode.webp" alt="The same run in the VS Code extension, with the coordinator chat beside a project file." loading="lazy" width="1440" height="650"><figcaption>VS Code</figcaption></figure></div>
+    </div>
+  </section>
+  <section class="ext-section" id="highlights" aria-labelledby="highlights-title">
+    <div class="shell">
+      <div class="section-head"><h2 id="highlights-title">More Workspace Features</h2><p>Run local models, start setups in separate rooms, keep dev servers running, view the agent graph and share runs with other users.</p><a class="text-link" href="guide-getting-started.html">Getting started guide<svg class="link-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14m-5-5 5 5-5 5"/></svg></a></div>
+      <ul class="bento">
+        <li class="wide" id="local-ai"><span class="glyph square">AI</span><h3>Run Agents with Local Models</h3><p>Add an OpenAI-compatible server to your profile, give model aliases their own thinking levels and send images to models that can read them.</p><ul class="bento-points"><li><strong>Your own model server</strong>Add the OpenAI-compatible endpoint you host to your profile.</li><li><strong>Model aliases</strong>Give each alias its own default and available thinking levels.</li><li><strong>Images</strong>Attach images in the browser and VS Code for models that support them.</li></ul></li>
+        <li class="narrow" id="rooms"><span class="glyph square">#</span><h3>Each Setup Starts in Its Own Room</h3><p>Start a setup again in the same run with its own agents and state in a new room.</p><a class="text-link" href="guide-runtime.html#rooms">Rooms<svg class="link-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14m-5-5 5 5-5 5"/></svg></a></li>
+        <li class="narrow" id="services"><span class="glyph square">:80</span><h3>Dev Servers Keep Running</h3><p>Let agents start dev servers in the background and open them in your browser through VS Code, including workstation services with WebSockets and live reload.</p><figure class="shot"><img src="screenshots/services.webp" alt="The process rail of a run listing a running dev server and its port." loading="lazy" width="1440" height="650"></figure></li>
+        <li class="wide" id="graph"><span class="glyph square">@</span><h3>Loops and More</h3><p>Open the agent graph from the run header to see all agents and how long their turns run.</p><figure class="shot"><img src="screenshots/graph.webp" alt="The agent graph of a run, showing the coordinator, its agents, their tasks, states, and turn times." loading="lazy" width="1200" height="390"></figure></li>
+        <li class="full" id="sharing"><div class="bento-split"><div><span class="glyph square"><svg viewBox="0 0 24 24"><circle cx="18" cy="5" r="2.5"/><circle cx="6" cy="12" r="2.5"/><circle cx="18" cy="19" r="2.5"/><path d="m8.2 10.8 7.6-4.6M8.2 13.2l7.6 4.6"/></svg></span><h3>Let Others Join a Run</h3><p>Share a run with individual users or everyone to watch or work along in the browser and VS Code.</p><a class="text-link" href="guide-clients.html#share-runs">Sharing and permissions<svg class="link-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14m-5-5 5 5-5 5"/></svg></a></div><figure class="shot"><img src="screenshots/sharing.webp" alt="The sharing dialog of a run, with access choices for everyone and individual users." loading="lazy" width="500" height="370"></figure></div></li>
+      </ul>
+    </div>
+  </section>
   <section class="where-section" id="what-runs-where" aria-labelledby="where-title">
     <div class="shell">
-      <div class="section-head"><h2 id="where-title">What runs where</h2><p>Four setups, one host. Only the location of each part changes.</p></div>
+      <div class="section-head"><h2 id="where-title">What Runs Where</h2><p>Four setups, one host. Only the location of each part changes.</p></div>
       <div class="where-frame">
         <table class="where">
           <thead><tr><td></td><th scope="col">On your laptop</th><th scope="col">On the server</th><th scope="col">Server plus laptop</th><th scope="col">Connected laptop</th></tr></thead>
@@ -337,25 +386,15 @@ a { color: inherit; text-underline-offset: 4px; }
         <li class="ext-card"><span class="glyph square"><svg viewBox="0 0 24 24"><path d="M4 5h16v11H9l-5 4z"/><path d="M10 9a2 2 0 1 1 2.5 1.9c-.4.2-.5.5-.5.9M12 13.5h.01"/></svg></span><div><strong>Ask the user</strong><p>The agent stops and asks you a question</p><small>ragents.ask</small></div></li>
         <li class="ext-card"><span class="glyph square"><svg viewBox="0 0 24 24"><path d="M2 12s3.5-6 10-6 10 6 10 6-3.5 6-10 6S2 12 2 12z"/><circle cx="12" cy="12" r="2.5"/></svg></span><div><strong>Watchers</strong><p>Wake an agent when a check turns true, no model needed</p><small>ragents.watch</small></div></li>
         <li class="ext-card"><span class="glyph square"><svg viewBox="0 0 24 24"><path d="M3 12h4l2-5 4 10 2-5h6"/></svg></span><div><strong>Processes</strong><p>See and stop what a run has started, and open its services</p><small>ragents.processes</small></div></li>
+        <li class="ext-card"><span class="glyph square">MCP</span><div><strong>MCP tools</strong><p>Use tools from MCP servers in the run's workspace</p><small>ragents.mcp</small></div></li>
+        <li class="ext-card"><span class="glyph square">ACP</span><div><strong>Coding agents</strong><p>Run external ACP agents alongside the coordinator</p><small>ragents.acp</small></div></li>
+        <li class="ext-card"><span class="glyph square">CTX</span><div><strong>Context compaction</strong><p>Agents summarize older context and keep recent messages as the conversation grows</p><small>built-in</small></div></li>
+        <li class="ext-card"><span class="glyph square">RUN</span><div><strong>Run sharing</strong><p>Let other users view a run or work in it with you</p><small>built-in</small></div></li>
+        <li class="ext-card"><span class="glyph square">EX</span><div><strong>Bundled examples</strong><p>Try prepared tasks and run scripts for agent teams and mini-apps</p><small>ragents.reference</small></div></li>
         <li class="ext-card"><span class="glyph square"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><circle cx="4.5" cy="5" r="1.8"/><circle cx="19.5" cy="5" r="1.8"/><circle cx="4.5" cy="19" r="1.8"/><circle cx="19.5" cy="19" r="1.8"/><path d="m6 6.5 3.8 3.6M18 6.5l-3.8 3.6M6 17.5l3.8-3.6M18 17.5l-3.8-3.6"/></svg></span><div><strong>Global coordinator</strong><p>One chat for a server's runs</p><small>ragents.overseer</small></div></li>
         <li class="ext-card"><span class="glyph square"><svg viewBox="0 0 24 24"><circle cx="5" cy="12" r="2.5"/><circle cx="19" cy="12" r="2.5"/><path d="M7.5 12h9M13 9l3 3-3 3"/></svg></span><div><strong>Model relay</strong><p>Use another server's models without their keys</p><small>ragents.model-relay</small></div></li>
         <li class="ext-card"><span class="glyph square"><svg viewBox="0 0 24 24"><path d="M4 7h10m4 0h2M4 17h4m4 0h8"/><circle cx="16" cy="7" r="2"/><circle cx="10" cy="17" r="2"/></svg></span><div><strong>Profile distribution</strong><p>A server hands its profile and plugins to clients</p><small>ragents.profile-distribution</small></div></li>
       </ul>
-    </div>
-  </section>
-  <section class="ext-section" id="mcp" aria-labelledby="mcp-title">
-    <div class="shell">
-      <div class="section-head"><h2 id="mcp-title">Connect MCP tools</h2><p>Connect MCP servers from your profile and let agents use their tools on the machine that holds the run's files.</p></div>
-    </div>
-  </section>
-  <section class="ext-section" id="acp" aria-labelledby="acp-title">
-    <div class="shell">
-      <div class="section-head"><h2 id="acp-title">Chat from your editor</h2><p>Connect an ACP editor such as Zed to RAgents and work in its project folder with streamed replies, tool progress, and plans.</p></div>
-    </div>
-  </section>
-  <section class="ext-section" id="acp-actors" aria-labelledby="acp-actors-title">
-    <div class="shell">
-      <div class="section-head"><h2 id="acp-actors-title">Bring coding agents into a run</h2><p>Run external <a href="guide-clients.html#run-external-acp-actors">ACP agents as actors</a> alongside your coordinator, with coding tools, replies, plans, and permission questions in the shared run.</p></div>
     </div>
   </section>
   <section class="shell install-section" id="install" aria-labelledby="install-title" data-install>
@@ -391,10 +430,8 @@ a { color: inherit; text-underline-offset: 4px; }
     <noscript><p>Find every installation method in the <a href="guide-getting-started.html">setup guide</a>.</p></noscript>
   </section>
   <div class="shell closing">
-    <section class="start-cta" id="start" data-chapter="start" aria-labelledby="start-title"><h2 id="start-title">Start a run</h2><div class="actions"><a class="button secondary" href="guide-getting-started.html">Getting started guide<svg class="link-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14m-5-5 5 5-5 5"/></svg></a></div></section>
-    <section class="alpha-note" id="built-with" aria-labelledby="built-title"><h2 id="built-title">Built with RAgents?</h2><a class="button secondary" href="https://github.com/SchlenkR/RAgents/issues"><svg class="gh-icon" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M12 2a10 10 0 0 0-3.2 19.5c.5.1.7-.2.7-.5v-1.7c-2.8.6-3.4-1.3-3.4-1.3-.5-1.2-1.1-1.5-1.1-1.5-.9-.6.1-.6.1-.6 1 .1 1.5 1 1.5 1 .9 1.6 2.4 1.1 3 .9.1-.7.4-1.1.6-1.4-2.2-.3-4.6-1.1-4.6-5 0-1.1.4-2 1-2.7-.1-.3-.4-1.3.1-2.7 0 0 .8-.3 2.8 1a9.6 9.6 0 0 1 5 0c1.9-1.3 2.8-1 2.8-1 .5 1.4.2 2.4.1 2.7.6.7 1 1.6 1 2.7 0 3.9-2.4 4.7-4.6 5 .4.3.7.9.7 1.9V21c0 .3.2.6.7.5A10 10 0 0 0 12 2Z"/></svg>Tell us on GitHub</a></section>
   </div>
-  <section class="shell limits" id="applications" aria-labelledby="limits-title"><h2 id="limits-title">Current status and limits</h2><p>RAgents is under active development. Actor programs, their functions, state, and mini-apps belong to one run. Events and time-based triggers connect executable actors. Schedules and a user-management interface are not available yet. With sign-in, a run can be shared with other users for reading or working along, from the run list or the run itself, in the browser and in VS Code. Profiles may require sign-in or run without it. General user permissions can limit new runs to approved setups and hide settings, models, and technical views while keeping chats and mini-apps usable.</p></section>
+  <section class="shell limits" id="applications" aria-labelledby="limits-title"><h2 id="limits-title">Current Status and Limits</h2><p>RAgents is under active development. Actor programs, their functions, state, and mini-apps belong to one run. Events and time-based triggers connect executable actors. Schedules and a user-management interface are not available yet. With sign-in, a run can be shared with other users for reading or working along, from the run list or the run itself, in the browser and in VS Code. Profiles may require sign-in or run without it. General user permissions can limit new runs to approved setups and hide settings, models, and technical views while keeping chats and mini-apps usable.</p></section>
 </div>
 </main>
 <footer class="site-footer"><div class="shell footer-grid"><div class="footer-about"><a class="footer-brand" href="#main"><svg class="footer-logo" aria-hidden="true" viewBox="0 0 787 787"><use href="#ragents-mark"/></svg>RAgents</a><p>Tailored AI Workspaces for your teams or your clients.</p><p>Made by Ronald Schlenker, Pure State IT Consulting</p></div><nav class="footer-col" aria-label="Docs"><h3>Docs</h3><a href="guide.html">Guide</a><a href="guide-getting-started.html">Getting started</a><a href="guide-plugins.html">Plugins</a><a href="guide-clients.html">Web, VS Code and CLI</a></nav><nav class="footer-col" aria-label="Project"><h3>Project</h3><a href="https://github.com/SchlenkR/RAgents">GitHub</a><a href="https://github.com/SchlenkR/RAgents/issues">Issues</a><a href="https://marketplace.visualstudio.com/items?itemName=purestate.ragents-vscode">VS Code Marketplace</a><a href="https://github.com/SchlenkR/RAgents/blob/main/LICENSE">License</a></nav></div><div class="shell footer-bottom"><p>Licensed under <a href="https://github.com/SchlenkR/RAgents/blob/main/LICENSE">PolyForm Shield 1.0.0</a>: free to use, not for building a competing product.</p><p>Alpha, September 2026</p></div></footer>
@@ -408,7 +445,7 @@ a { color: inherit; text-underline-offset: 4px; }
   measureTop();
   addEventListener('resize', measureTop);
   const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
-  const slim = () => getComputedStyle(hero).position !== 'sticky';
+  const slim = () => matchMedia('(max-width: 860px)').matches;
   let compact = slim();
   const dpr = Math.min(devicePixelRatio || 1, 2);
   const density = (width, height, most, sharp = dpr) => !slim() ? sharp : Math.min(sharp, Math.sqrt(most / Math.max(1, width * height)));
@@ -3301,7 +3338,7 @@ a { color: inherit; text-underline-offset: 4px; }
   const playlist = Object.keys(chapters).filter(name => scenes[name]);
   const preroll = .7;
   const [front, back] = players;
-  let mode = reduce ? 'pause' : 'play';
+  let mode = reduce ? 'pause' : 'fast';
   const speed = .5;
   const rates = { play: 1, fast: 1.5 };
   let paused = false;
@@ -3404,12 +3441,13 @@ a { color: inherit; text-underline-offset: 4px; }
     player.emitted = 0;
     discard(player.debris);
   };
-  const visibility = (center, height, radius = height * .62) => 1 - span(Math.abs(center - (topHeight + (innerHeight - topHeight) / 2)), Math.min(height * .18, radius * .4), radius);
+  const visibility = (center, height, radius = height * .62) => 1 - span(Math.abs(center - (topHeight + (innerHeight - topHeight) / 2)), radius * .65, radius);
   const frame = now => {
     requestAnimationFrame(frame);
     const delta = Math.max(0, Math.min(.05, (now - last) / 1000));
     last = now;
     const room = innerHeight - topHeight;
+    measureSections();
     const middle = scrollY + topHeight + room / 2;
     const nearest = sections.reduce((best, section) => Math.abs(section.center - middle) < Math.abs(best.center - middle) ? section : best, { center: topHeight + hero.offsetHeight / 2, index: 0 });
     select(nearest.index);
@@ -3454,7 +3492,7 @@ a { color: inherit; text-underline-offset: 4px; }
     if (feed.length > 40) feed.splice(0, feed.length - 40);
   };
 
-  const heads = Object.fromEntries(Object.entries(scenes).map(([name, story]) => {
+  const heads = Object.fromEntries(Object.entries(scenes).filter(([name]) => chapters[name]).map(([name, story]) => {
     const { lines: [a, b = ''], points, how } = chapters[name];
     return [name, [[0, { a, b, centered: Boolean(story.centered), points, how, side: story.mirror ? 'right' : 'left' }]]];
   }));
@@ -3887,6 +3925,7 @@ a { color: inherit; text-underline-offset: 4px; }
       drawRain(paused || reduce || mode === 'pause' ? 0 : delta);
       drawBubbles([{ t: introClock, old: false, depth: 1 }]);
     } else {
+      if (!compact) drawRain(paused || reduce || mode === 'pause' ? 0 : delta);
       front.canvas.style.visibility = 'hidden';
       planes.forEach(plane => plane.slots.forEach(slot => { slot.canvas.style.visibility = 'hidden'; slot.shown = false; }));
     }
@@ -3902,9 +3941,8 @@ a { color: inherit; text-underline-offset: 4px; }
       if (!section.painted || (!paused && mode !== 'pause' && !reduce)) paintSection(section);
     });
   };
-  const shape = () => {
-    diagramClearance = parseFloat(getComputedStyle(root).getPropertyValue('--diagram-clearance'));
-    if (mobile) sections.forEach(section => shapeSection(section, innerWidth, (innerHeight - topHeight) * .65));
+  // Measured every frame, so late font, zoom or content changes never leave stale text positions.
+  const measureSections = () => {
     sections.forEach(section => {
       const box = section.node.getBoundingClientRect();
       const body = section.body.getBoundingClientRect();
@@ -3918,6 +3956,11 @@ a { color: inherit; text-underline-offset: 4px; }
       const after = centers[index + 2] === undefined ? Infinity : centers[index + 2] - section.center;
       section.radius = Math.min((innerHeight - topHeight) * .62, before / 2, after / 2);
     });
+  };
+  const shape = () => {
+    diagramClearance = parseFloat(getComputedStyle(root).getPropertyValue('--diagram-clearance'));
+    if (mobile) sections.forEach(section => shapeSection(section, compact ? innerWidth : section.stage.clientWidth, compact ? (innerHeight - topHeight) * .65 : 560));
+    measureSections();
     marks = playlist.map((name, index) => index === 0 ? 0 : document.querySelector(`[data-chapter="${name}"]`).getBoundingClientRect().top + scrollY);
   };
   let topHeight = 0;
@@ -3927,7 +3970,7 @@ a { color: inherit; text-underline-offset: 4px; }
     if (!menu.hasAttribute('data-compact')) open(false);
     topHeight = topBar.offsetHeight;
     compact = slim();
-    mobile = compact;
+    mobile = true;
     reel.style.height = '';
     measure();
     fits.clear();

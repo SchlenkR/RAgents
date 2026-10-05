@@ -94,65 +94,30 @@ test("homepage text scrolls naturally while diagrams fade between centered chapt
     await page.locator('[data-mode="pause"]').click();
     assert.deepEqual(await page.evaluate(() => [...document.querySelectorAll<HTMLElement>('[data-story] article[data-chapter]')].slice(0, 3).map(article => article.dataset.chapter)), ["workspace", "distributed", "agents"]);
     assert.deepEqual((await page.locator('[data-chapters-list] button').allTextContents()).slice(0, 4), ["Intro", "Setups", "Distributed", "Talk"]);
-    for (const overlap of [0, 300]) {
-      await page.evaluate(overlap => {
-        document.documentElement.style.setProperty('--chapter-overlap', `${overlap}px`);
-        dispatchEvent(new Event('resize'));
-      }, overlap);
-      let baseline: { delta: number; height: number }[] | undefined;
-      for (const height of [1000, 500, 400]) {
-        await page.setViewportSize({ width: 1440, height });
-        await scroll(page, 0);
-        const spacing = await page.evaluate(() => {
-          const articles = [...document.querySelectorAll('[data-story] article[data-chapter]')].map(article => article.getBoundingClientRect());
-          return articles.slice(1).map((article, index) => ({ delta: article.top - articles[index].top, height: articles[index].height }));
-        });
-        for (const section of spacing) assert.ok(Math.abs(section.delta - (section.height - overlap)) < 1, `Chapter spacing must use the configured ${overlap}px overlap: ${JSON.stringify(section)}`);
-        if (baseline) assert.deepEqual(spacing, baseline, "Chapter heights and spacing must remain fixed when the viewport becomes shorter.");
-        else baseline = spacing;
-      }
-    }
-    for (const height of [500, 400]) {
+    let baseline: { delta: number; height: number }[] | undefined;
+    for (const height of [1000, 500, 400]) {
       await page.setViewportSize({ width: 1440, height });
       await scroll(page, 0);
-      const positions = await page.evaluate(() => {
-        const top = document.querySelector('.top')!.getBoundingClientRect().bottom;
-        return [...document.querySelectorAll('[data-story] article[data-chapter]')].map(article => {
-          const body = article.querySelector('.reading-copy')!.getBoundingClientRect();
-          return scrollY + body.top + body.height / 2 - (top + innerHeight) / 2;
-        });
+      const spacing = await page.evaluate(() => {
+        const articles = [...document.querySelectorAll('[data-story] article[data-chapter]')].map(article => article.getBoundingClientRect());
+        return articles.slice(1).map((article, index) => ({ delta: article.top - articles[index].top, height: articles[index].height }));
       });
-      for (let index = 0; index < positions.length - 1; index++) {
-        for (let step = 0; step <= 12; step++) {
-          await scroll(page, positions[index] + (positions[index + 1] - positions[index]) * step / 12);
-          const collision = await page.evaluate(() => {
-            const state = (window as any).__state();
-            if (state.opacity <= 0 || state.index === 0) return null;
-            const top = document.querySelector('.top')!.getBoundingClientRect().bottom;
-            const diagramLeft = Number(getComputedStyle(document.querySelector('.hero')!).getPropertyValue('--hole-at')) < .5;
-            const articles = [...document.querySelectorAll<HTMLElement>('[data-story] article[data-chapter]')];
-            return articles.filter((_, index) => index + 1 !== state.index).map(article => {
-              const body = article.querySelector('.reading-copy')!.getBoundingClientRect();
-              const textLeft = body.left + body.width / 2 < innerWidth / 2;
-              return { chapter: article.dataset.chapter, top: body.top, bottom: body.bottom, overlaps: textLeft === diagramLeft && body.bottom > top + 1 && body.top < innerHeight - 1 };
-            }).find(article => article.overlaps) ?? null;
-          });
-          assert.equal(collision, null, `Neighboring text must stay outside a visible diagram on a ${height}px viewport: ${JSON.stringify(collision)}`);
-        }
+      for (const section of spacing) assert.ok(Math.abs(section.delta - section.height) < 1, `Chapters must follow each other directly: ${JSON.stringify(section)}`);
+      if (baseline) assert.deepEqual(spacing, baseline, "Chapter heights and spacing must remain fixed when the viewport becomes shorter.");
+      else baseline = spacing;
+      const layouts = await page.evaluate(() => [...document.querySelectorAll<HTMLElement>('[data-story] article[data-chapter]')].map(article => {
+        const body = article.querySelector('.reading-copy')!.getBoundingClientRect();
+        const stage = article.querySelector('.stage')!.getBoundingClientRect();
+        return { chapter: article.dataset.chapter, textCenter: body.left + body.width / 2, stageCenter: stage.left + stage.width / 2, apart: stage.right <= body.left || stage.left >= body.right, inside: stage.top >= article.getBoundingClientRect().top - 1 && stage.bottom <= article.getBoundingClientRect().bottom + 1 };
+      }));
+      for (const [index, layout] of layouts.entries()) {
+        assert.ok(layout.apart, `A chapter's diagram must stay beside its text: ${JSON.stringify(layout)}`);
+        assert.ok(layout.inside, `A chapter's diagram must stay inside its chapter: ${JSON.stringify(layout)}`);
+        assert.ok(index % 2 === 0 ? layout.textCenter > 720 && layout.stageCenter < 720 : layout.textCenter < 720 && layout.stageCenter > 720, `Text and diagram must alternate sides: ${JSON.stringify(layout)}`);
       }
     }
     await page.setViewportSize({ width: 1440, height: 1000 });
     await scroll(page, 0);
-    for (const [index, chapter] of ["workspace", "distributed", "agents"].entries()) {
-      await center(page, chapter);
-      const layout = await page.evaluate(chapter => {
-        const article = document.querySelector(`[data-story] article[data-chapter="${chapter}"]`)!;
-        const body = article.querySelector('.reading-copy')!.getBoundingClientRect();
-        return { center: body.left + body.width / 2, viewport: innerWidth, diagramCenter: Number(getComputedStyle(document.querySelector('.hero')!).getPropertyValue('--hole-at')) };
-      }, chapter);
-      assert.ok(index % 2 === 0 ? layout.center > layout.viewport / 2 : layout.center < layout.viewport / 2, "Feature text must alternate between the right and left sides.");
-      assert.ok(index % 2 === 0 ? layout.diagramCenter < .5 : layout.diagramCenter > .5, "The diagram's visible area must occupy the side opposite its text.");
-    }
     const start = await center(page, "ui");
     const before = await textPosition(page, "ui");
     assert.ok((await scene(page)).opacity > .9, "The centered chapter's diagram must be visible.");
@@ -173,7 +138,7 @@ test("homepage text scrolls naturally while diagrams fade between centered chapt
       await scroll(page, start + (next - start) * step / 10);
       fades.push(await page.evaluate(() => Math.max(...(window as any).__state().sections.map((section: any) => section.opacity))));
     }
-    assert.ok(Math.min(...fades) < .2, `Diagrams must fade out between text sections: ${fades}`);
+    assert.ok(Math.min(...fades) > .5, `A diagram must stay visible between neighboring chapters: ${fades}`);
     assert.ok((await scene(page, "typescript")).opacity > .9, "The next centered diagram must fade in.");
 
     await page.getByRole("button", { name: "Mini-apps", exact: true }).click();
@@ -199,7 +164,7 @@ test("homepage autoplay advances only the diagram clock and wheel input preserve
 
     await page.mouse.wheel(0, 80);
     await page.waitForTimeout(200);
-    assert.equal(await page.locator('[data-mode="play"]').getAttribute("aria-pressed"), "true", "Wheel input must preserve Play.");
+    assert.equal(await page.locator('[data-mode="fast"]').getAttribute("aria-pressed"), "true", "Diagrams must start in Fast and wheel input must preserve it.");
     const wheeled = await scene(page);
     await page.waitForTimeout(900);
     const resumed = await scene(page);
@@ -212,12 +177,16 @@ test("homepage autoplay advances only the diagram clock and wheel input preserve
     assert.deepEqual(await scene(page), paused, "Pause must freeze the diagram clock and pixels.");
     await scroll(page, paused.scroll + 40);
     assert.equal((await scene(page)).time, paused.time, "Scrolling while paused must not scrub the diagram clock.");
+    await page.locator('[data-mode="play"]').click();
+    const normal = await scene(page);
+    await page.waitForTimeout(900);
+    const normalAdvanced = await scene(page);
     await page.locator('[data-mode="fast"]').click();
     const fast = await scene(page);
     await page.waitForTimeout(900);
     const advanced = await scene(page);
     assert.equal(advanced.scroll, fast.scroll, "Fast forward must not move the page.");
-    assert.ok(advanced.time - fast.time > (playing.time - before.time) * 1.15, "Fast forward must accelerate the diagram clock.");
+    assert.ok(advanced.time - fast.time > (normalAdvanced.time - normal.time) * 1.15, "Fast forward must accelerate the diagram clock.");
   });
 });
 
