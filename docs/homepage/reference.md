@@ -6325,16 +6325,18 @@ import { type ReactNode } from "react";
 import { useRender } from "@base-ui/react/use-render";
 import { type VariantProps } from "class-variance-authority";
 type BadgeDisplay = "badge" | "dot";
-/** In "dot" mode every Badge below shows a small info dot and keeps its text for screen readers only. */
+type BadgeTone = "success" | "warning" | "danger" | "info" | "neutral" | "active";
+/** In "dot" mode badges keep their tone and their text for screen readers. */
 declare function BadgeDisplayProvider({ children, value }: {
     children: ReactNode;
     value: BadgeDisplay;
 }): import("react").JSX.Element;
 declare const badgeVariants: (props?: ({
     variant?: "default" | "destructive" | "link" | "secondary" | "outline" | "ghost" | null | undefined;
+    tone?: "success" | "warning" | "danger" | "info" | "neutral" | "active" | null | undefined;
 } & import("class-variance-authority/types").ClassProp) | undefined) => string;
-declare function Badge({ className, variant, render, ...props }: useRender.ComponentProps<"span"> & VariantProps<typeof badgeVariants>): import("react").ReactElement<unknown, string | import("react").JSXElementConstructor<any>>;
-export { Badge, BadgeDisplayProvider, badgeVariants };
+declare function Badge({ className, variant, tone, render, ...props }: useRender.ComponentProps<"span"> & VariantProps<typeof badgeVariants>): import("react").ReactElement<unknown, string | import("react").JSXElementConstructor<any>>;
+export { Badge, BadgeDisplayProvider, badgeVariants, type BadgeTone };
 ```
 
 #### apps/web/src/ui/button.d.ts
@@ -6523,7 +6525,7 @@ export declare function ImagePreview({ fileName, className, alt, ...props }: Ima
 ```typescript
 export { cn } from "cn";
 export { Alert, AlertAction, AlertDescription, AlertTitle } from "./alert";
-export { Badge, BadgeDisplayProvider, badgeVariants } from "./badge";
+export { Badge, BadgeDisplayProvider, badgeVariants, type BadgeTone } from "./badge";
 export { Button, buttonVariants } from "./button";
 export { Card, CardAction, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "./card";
 export { Checkbox } from "./checkbox";
@@ -6534,6 +6536,7 @@ export { Field, FieldContent, FieldDescription, FieldError, FieldGroup, FieldLab
 export { Input } from "./input";
 export { ImagePreview, ImageViewer, type ImagePreviewProps, type ImageViewerProps } from "./image-viewer";
 export { ImagePreviewGroup } from "./image-preview-group";
+export { InteractiveItem } from "./interactive-item";
 export { Label } from "./label";
 export { Popover, PopoverContent, PopoverDescription, PopoverHeader, PopoverTitle, PopoverTrigger } from "./popover";
 export { Progress, ProgressIndicator, ProgressLabel, ProgressTrack, ProgressValue } from "./progress";
@@ -6566,6 +6569,13 @@ export { useFileInput } from "./useFileInput";
 import * as React from "react";
 declare function Input({ className, type, ...props }: React.ComponentProps<"input">): React.JSX.Element;
 export { Input };
+```
+
+#### apps/web/src/ui/interactive-item.d.ts
+
+```typescript
+import { useRender } from "@base-ui/react/use-render";
+export declare function InteractiveItem({ className, render, ...props }: useRender.ComponentProps<"button">): import("react").ReactElement<unknown, string | import("react").JSXElementConstructor<any>>;
 ```
 
 #### apps/web/src/ui/label.d.ts
