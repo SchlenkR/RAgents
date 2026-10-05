@@ -25,7 +25,7 @@ test("a corrupt runtime is rejected before it can be unpacked or executed", () =
 
 test("the launcher uses its bundled Node and preserves arguments and the caller's directory", async (t) => {
   const temporary = await realpath(await mkdtemp(path.join(tmpdir(), "ragents launcher ")));
-  t.after(() => rm(temporary, { recursive: true, force: true }));
+  t.after(() => rm(temporary, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 }));
   const windows = process.platform === "win32";
   const directory = path.join(temporary, "bundle with spaces");
   const runtime = path.join(directory, "runtime", ...(windows ? [] : ["bin"]));
