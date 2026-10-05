@@ -1519,7 +1519,7 @@ open inputs, turn count, and, where applicable, cost. Chat and input stay mounte
 so that the draft is preserved. Arrow keys, Home, and End also choose the
 view; when space is short, the toolbar scrolls horizontally.
 
-The browser inspection rail opens a flyout or a pinned sidebar, and its tools can also become
+The browser inspection rail opens a flyout, and its tools can also become
 windows in the docking workspace. Visited browser panels stay mounted and receive `active: false`
 while hidden. In VS Code, inspection stays in the existing popout; only contributions with
 `keepMounted` retain their state there. File-browser state belongs to its component instance
@@ -1554,15 +1554,15 @@ sit in the active tab cell before its close button, so that cell ends with
 button; populated areas use the individual tab close buttons. Tabs use the existing actor,
 mini-app, and inspection icons.
 
-Dock areas (including empty ones), the inspection rail, and the side view have a 1 px token
+Dock areas (including empty ones), the inspection rail, and the flyout have a 1 px token
 border, `rounded-lg` corners, and `bg-card` surfaces over the `bg-app` workspace. The focused
 area uses `border-primary/70`. Headers sit inside the border with a subtle bottom rule. Cards
-have 6 px gaps, also at workspace edges; pinned and docked cards have no shadow. Active tab cells
+have 6 px gaps, also at workspace edges; docked cards have no shadow. Active tab cells
 are square, borderless fills stretched flush to the strip, with no inset padding or inter-tab
 gap. The strip clips overflow to its rounded top corners; the tabs themselves have no radius.
 Dividers
 are transparent gaps with centered three-dot grips aligned along the divider. Their hit areas
-are at least 8 px wide or high. The same dots appear on header drag and side resize grips,
+are at least 8 px wide or high. The same dots appear on header and flyout drag grips,
 muted by default, stronger on hover/focus, and primary while dragging. Resize cursors persist
 during capture. Split previews exclude the new gap; merge previews cover the target card.
 Frames remain stable siblings, inset within the cards rather than reparented into them.
@@ -1635,14 +1635,16 @@ the catalog; a user's button move only changes local layout state.
 
 `dock-state.ts` holds the tree operations and catalog reconciliation; `dock-geometry.ts` calculates
 rectangles and drag targets. The layout including empty panes, split ratios, active tabs, closed
-windows, undocked panels (`bar`), sidebar mode and width, maximized area, optional button overrides
+windows, undocked panels (`bar`), maximized area, optional button overrides
 (`placements`, mapping stable panel IDs to `"sidebar"` or `"window"`), and the optional header
 button order (`order`, applied by
 `dockWindowOrder` and changed by `moveDockWindow`, which never touches the tree or the automatic
 layout) are stored locally per server origin and run
 (`ragents.docking:<encoded-origin>:<encoded-run>`). Views missing from `order` follow in catalog
-order, and catalog reconciliation drops unavailable views from order and overrides. Sidebar
-buttons remain available when their panels are docked; their position is independent of `bar`.
+order, and catalog reconciliation drops unavailable views from order and overrides. Flyout
+visibility is transient; no flyout width is stored. Older saved sidebar modes and widths
+reconcile to a closed flyout without migration. Sidebar buttons remain available when their
+panels are docked; their position is independent of `bar`.
 Older saved layouts without overrides use plugin defaults. Invalid storage or a failed
 write is reported; "Reset layout" explicitly replaces invalid state. No server function controls this layout.
 The first run snapshot reconciles saved IDs with the shared catalog from `run-apps.ts`; loading
@@ -1652,7 +1654,7 @@ they enter the original group if it still exists, otherwise the first area, with
 focus or another selected tab. Reactivated apps appear again without taking focus.
 
 Chat and visited app/tool containers are stable siblings positioned by rectangles, independent of
-the split tree. They stay mounted and inert while hidden or closed; moves, splits, merges, pinning,
+the split tree. They stay mounted and inert while hidden or closed; moves, splits, merges,
 and maximization never reparent a frame. Removed or unavailable contributions, leaving a run,
 reloading the page, and an app's own rebuild can still unmount or reload its content. Persistence
 stores layout, not unsent input across a page reload. VS Code keeps chat in the panel and opens
@@ -2632,30 +2634,31 @@ Without a surface contribution, the host supplies the standard chat to the same 
 Visible dock panels are named through `aria-labelledby` referencing their tab or sidebar title;
 the inner chat keeps its own Chat region label.
 
-In the browser, the sidebar has exactly three modes: `hidden`, `hover-preview`, and `docked`.
+In the browser, the sidebar has exactly two runtime modes: `hidden` and `hover-preview`.
 Hovering a rail button previews the tool over the workspace; leaving both rail and flyout
-closes it after a short delay. Clicking a rail button or the preview's pin docks it beside
-the workspace, reserving space. While docked, another button switches content in place;
-clicking the active button, unpinning, or X hides it. The pin is filled and pressed only
-in docked mode. No click or pointer press creates a persistent overlay.
-`transitionDockSide` handles these transitions. Moving the active tool into a group clears
-sidebar visibility and focus. The default width is 630 pixels, adjustable from 180
-and limited by available space. Width and docked state survive reload; hover previews close
-when the workspace mounts. Pointer presses cancel pending hover-close timers. Capture keeps
-both grips active through release or cancellation, even beyond the flyout; after release,
-hover closing resumes based on the pointer position. Pressing without motion never docks it.
+closes it after a short delay. Clicking a rail button opens or focuses its flyout; X hides it.
+The keyboard-accessible "Move into layout" button uses the same right outer-edge drop as a
+drag through `moveDockPanels`, creating an ordinary window area at 35 percent of workspace
+width. `transitionDockSide` handles flyout transitions. Moving the active tool into a group
+clears sidebar visibility and focus. The flyout width is fixed at 630 pixels, limited by
+available space. Hover previews close when the workspace mounts; old saved sidebar modes and
+widths reconcile to a closed flyout without migration. Pointer presses cancel pending
+hover-close timers. Capture keeps drag grips active through release or cancellation, even
+beyond the flyout; after release, hover closing resumes based on the pointer position.
+Pressing without motion never moves a panel into the layout.
 The floating frame uses the same card tokens as docked areas, with `shadow-pop` and
 ring-1 ring-foreground/10 in both themes, only theme tokens and no per-element shadow values.
 The frame sits above the areas (z-30), so the shadow falls over them; the workspace clips it only
-at the header and status bar edges. A pinned sidebar has `shadow-none`.
+at the header and status bar edges.
 Dragging a rail button or the sidebar header grip into the workspace docks a tool as a normal
 window and keeps its button in its chosen place. Clicking that rail button selects the docked
 window; hovering it does not create a second panel. Closing a tool window or dropping its tab
-on the highlighted rail/sidebar leaves the panel undocked and hidden. Its return-to-sidebar
-button instead opens it as a docked sidebar without changing button placement. Compass and
-edge guides drawn over a hover flyout take precedence over it
-as drop targets. Mixed document/tool groups
-cannot be dropped on the rail. Visited tools keep their mounted instances across these moves.
+on the highlighted rail/sidebar leaves the panel undocked and hidden. Its "Return to sidebar"
+button instead opens and focuses its hover-preview flyout without changing button placement.
+The layout window has the same tabs, split, close, maximize, and drag controls as Chat and apps.
+Compass and edge guides drawn over a hover flyout take precedence over it as drop targets.
+Mixed document/tool groups cannot be dropped on the rail. Visited tools keep their mounted
+instances across these moves.
 `SessionNavigation.openTab` selects an already docked tool in its area, focuses an open sidebar
 panel, or opens a hidden tool in its button's chosen place.
 

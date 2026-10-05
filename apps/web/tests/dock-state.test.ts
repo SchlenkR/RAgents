@@ -146,14 +146,12 @@ test("explicitly closing an empty area returns its space to its neighbour", () =
   roundtrip(closed);
 });
 
-test("returning tools to the bar rejects mixed document drags and preserves sidebar width and clears pin", () => {
-  const start = initial();
-  const pinned = { ...start, side: { tab: "tool:files", mode: "docked" as const, focused: true, width: 360 } };
-  const docked = move(pinned, ["tool:files", "tool:journal"], { kind: "edge", side: "right" });
+test("returning tools to the bar rejects mixed document drags and clears the flyout", () => {
+  const preview = transitionDockSide(initial(), { type: "hover", id: "tool:files" });
+  const docked = move(preview, ["tool:files", "tool:journal"], { kind: "edge", side: "right" });
   assert.deepEqual(docked.bar, []);
   assert.equal(docked.side.tab, null);
   assert.equal(docked.side.mode, "hidden");
-  assert.equal(docked.side.width, 360);
   assert.equal(move(docked, ["chat", "tool:files"], { kind: "bar" }), docked);
   const returned = move(docked, ["tool:files", "tool:journal"], { kind: "bar" });
   assert.equal(dockGroups(returned.root).length, 1);
@@ -161,12 +159,11 @@ test("returning tools to the bar rejects mixed document drags and preserves side
   roundtrip(returned);
 });
 
-test("opening another pinned view switches content without changing the tree", () => {
-  const start = initial();
-  const pinned = { ...start, side: { ...start.side, tab: "tool:files", mode: "docked" as const } };
-  const switched = selectDockPanel(pinned, "tool:journal");
-  assert.equal(switched.root, pinned.root);
-  assert.equal(switched.side.mode, "docked");
+test("opening another sidebar view switches the flyout without changing the tree", () => {
+  const preview = transitionDockSide(initial(), { type: "hover", id: "tool:files" });
+  const switched = selectDockPanel(preview, "tool:journal");
+  assert.equal(switched.root, preview.root);
+  assert.equal(switched.side.mode, "hover-preview");
   assert.equal(activeDockTool(switched), "journal");
   roundtrip(switched);
 });
@@ -182,7 +179,7 @@ test("navigation to a docked tool selects its existing group, including while ma
   roundtrip(selected);
 });
 
-test("selecting a docked tool while the pinned sidebar is open reports the focused tool", () => {
+test("selecting a docked tool while the flyout is open reports the focused tool", () => {
   const docked = move(initial(), ["tool:journal"], { kind: "edge", side: "left" });
   const side = selectDockPanel(docked, "tool:files");
   assert.equal(activeDockTool(side), "files");
@@ -208,23 +205,27 @@ test("catalog reconciliation keeps closed windows and focus, removes vanished ap
   roundtrip(returned);
 });
 
-test("catalog changes preserve sizes, empty areas, closed apps and the pinned side view", () => {
+test("catalog changes preserve sizes, empty areas, closed apps and the flyout", () => {
   const split = move(initial(), ["chat", "app:notes", "app:board"], { kind: "group", group: "main", side: "left" });
   const resized = resizeDockSplit(split, split.root.id, 0.7);
   const closed = closeDockPanels(resized, ["app:notes"]);
-  const pinned = { ...closed, side: { tab: "tool:files", mode: "docked" as const, focused: true, width: 420 } };
-  const next = reconcileDockState(pinned, ["chat", "app:notes", "app:board", "app:new"], ["tool:files", "tool:journal"]);
+  const preview = transitionDockSide(closed, { type: "hover", id: "tool:files" });
+  const next = reconcileDockState(preview, ["chat", "app:notes", "app:board", "app:new"], ["tool:files", "tool:journal"]);
   assert.equal(next.root.kind === "split" && next.root.ratio, 0.7);
   assert.deepEqual(next.closed, ["app:notes"]);
   assert.deepEqual(dockGroups(next.root).find((g) => g.id === "main")?.tabs, ["app:new"]);
-  assert.deepEqual(next.side, pinned.side);
+  assert.deepEqual(next.side, preview.side);
   roundtrip(next);
 });
 
 test("layout storage rejects corrupt trees, duplicated panels and invalid side settings", () => {
   roundtrip(initial());
   for (const patch of [ { version: 2 }, { root: null }, { focused: "missing" }, { maximized: "missing" }, { closed: ["chat"] },
-    { side: { tab: "tool:missing", mode: "docked" as const, focused: true, width: 280 } }, { known: [] }, { bar: ["chat"] } ]) {
+    { side: { tab: "tool:missing", mode: "hover-preview", focused: true } },
+    { side: { tab: "tool:files", mode: "hidden", focused: false } },
+    { side: { tab: null, mode: "hidden", focused: true } },
+    { side: { tab: null, focused: false } },
+    { side: { tab: null, mode: 1, focused: false } }, { known: [] }, { bar: ["chat"] } ]) {
     assert.throws(() => parseDockState(JSON.stringify({ ...initial(), ...patch })), /invalid/);
   }
   const split = move(initial(), ["chat"], { kind: "edge", side: "left" });
@@ -290,7 +291,7 @@ test("arbitrary sequences of close, move, select, resize, placement and reconcil
 });
 
 
-test("sidebar transitions keep visibility, pin state and persistence consistent", () => {
+test("sidebar transitions keep flyouts transient for hover, click and navigation", () => {
   let state = initial();
   const act = (action: Parameters<typeof transitionDockSide>[1]) => {
     state = transitionDockSide(state, action);
@@ -300,33 +301,78 @@ test("sidebar transitions keep visibility, pin state and persistence consistent"
   assert.equal(act({ type: "hover", id: "tool:files" }), "hover-preview");
   assert.equal(act({ type: "leave" }), "hidden");
   assert.equal(act({ type: "hover", id: "tool:files" }), "hover-preview");
-  assert.equal(act({ type: "click", id: "tool:files" }), "docked");
-  assert.equal(act({ type: "leave" }), "docked");
-  assert.equal(act({ type: "hover", id: "tool:journal" }), "docked");
-  assert.equal(state.side.tab, "tool:files");
-  assert.equal(act({ type: "click", id: "tool:journal" }), "docked");
+  assert.equal(act({ type: "click", id: "tool:files" }), "hover-preview");
+  assert.equal(act({ type: "leave" }), "hidden");
+  assert.equal(act({ type: "hover", id: "tool:journal" }), "hover-preview");
   assert.equal(state.side.tab, "tool:journal");
-  assert.equal(act({ type: "click", id: "tool:journal" }), "hidden");
-  assert.equal(act({ type: "hover", id: "tool:files" }), "hover-preview");
-  assert.equal(act({ type: "pin" }), "docked");
-  assert.equal(act({ type: "pin" }), "hidden");
+  assert.equal(act({ type: "click", id: "tool:journal" }), "hover-preview");
+  assert.equal(state.side.tab, "tool:journal");
+  assert.equal(act({ type: "click", id: "tool:journal" }), "hover-preview");
+  assert.equal(act({ type: "open", id: "tool:files" }), "hover-preview");
+  assert.equal(act({ type: "leave" }), "hidden");
   assert.equal(act({ type: "hover", id: "tool:files" }), "hover-preview");
   assert.equal(act({ type: "close" }), "hidden");
   const docked = move(state, ["tool:files"], { kind: "edge", side: "left" });
   const returned = returnDockTool(docked, "tool:files");
-  assert.equal(returned.side.mode, "docked");
+  assert.equal(returned.side.mode, "hover-preview");
   assert.equal(returned.side.tab, "tool:files");
   roundtrip(returned);
 });
 
-test("persistent layouts exclude hover previews and retain docked sidebars", () => {
+test("Move into layout uses the right outer guide and creates an ordinary focused window", () => {
+  const split = move(initial(), ["app:notes"], { kind: "edge", side: "left" });
+  const preview = transitionDockSide({ ...split, maximized: "main" }, { type: "hover", id: "tool:files" });
+  const ids = () => { let index = 0; return () => `layout-node-${++index}`; };
+  const layout = transitionDockSide(preview, { type: "layout", newId: ids() });
+  const dropped = moveDockPanels(preview, ["tool:files"], { kind: "edge", side: "right" }, ids());
+  assert.deepEqual(layout, dropped);
+  assert.equal(layout.root.kind, "split");
+  if (layout.root.kind !== "split") throw new Error("Expected a workspace split");
+  assert.equal(layout.root.axis, "horizontal");
+  assert.equal(layout.root.ratio, 0.65);
+  assert.deepEqual(layout.root.first, split.root);
+  assert.deepEqual(dockGroups(layout.root.second).map((g) => g.tabs), [["tool:files"]]);
+  assert.equal(layout.focused, layout.root.second.id);
+  assert.equal(layout.maximized, null);
+  assert.equal(layout.automatic, false);
+  assert.equal(activeDockTool(layout), "files");
+  assert.deepEqual(layout.side, initial().side);
+  assert.deepEqual(layout.bar, ["tool:journal"]);
+  assert.equal(dockButtonPlacement(layout, "tool:files"), "sidebar");
+  roundtrip(layout);
+  const closed = closeDockPanels(layout, ["tool:files"]);
+  assert.deepEqual(closed.root, split.root);
+  assert.ok(closed.bar.includes("tool:files"));
+  assert.deepEqual(closed.side, initial().side);
+  assert.equal(transitionDockSide(closed, { type: "layout", newId: () => "unused" }), closed);
+});
+
+test("persistent layouts exclude flyouts and retain windows moved into the layout", () => {
   const hovered = transitionDockSide(initial(), { type: "hover", id: "tool:files" });
   const saved = parseDockState(JSON.stringify(persistentDockState(hovered)));
   assert.equal(hovered.side.mode, "hover-preview");
   assert.deepEqual(saved.side, { ...hovered.side, tab: null, mode: "hidden", focused: false });
   assert.deepEqual(saved.root, hovered.root);
-  const docked = transitionDockSide(hovered, { type: "pin" });
+  const clicked = transitionDockSide(initial(), { type: "click", id: "tool:files" });
+  assert.deepEqual(persistentDockState(clicked).side, saved.side);
+  const docked = transitionDockSide(hovered, { type: "layout", newId: () => `node-${++serial}` });
   assert.deepEqual(parseDockState(JSON.stringify(persistentDockState(docked))), docked);
+});
+
+test("obsolete saved sidebar modes reconcile to a closed flyout without changing the layout", () => {
+  const start = move(initial(), ["app:notes"], { kind: "edge", side: "left" });
+  const arranged = moveDockButton(start, "tool:files", "window", "chat");
+  const obsolete = { ...arranged, side: { tab: "tool:files", mode: "docked", focused: true, width: 420 } };
+  const saved = parseDockState(JSON.stringify(obsolete));
+  const reconciled = reconcileDockState(obsolete as unknown as DockState, ["chat", "app:notes", "app:board"], ["tool:files", "tool:journal"]);
+  for (const state of [saved, reconciled]) {
+    assert.deepEqual(state, arranged);
+    assert.deepEqual(state.side, initial().side);
+    assert.ok(!("width" in state.side));
+    roundtrip(state);
+  }
+  const hidden = parseDockState(JSON.stringify({ ...arranged, side: { ...arranged.side, width: 360 } }));
+  assert.deepEqual(hidden, arranged);
 });
 
 test("header window order moves a button before another one or to the end without touching the layout", () => {
@@ -502,7 +548,7 @@ test("a workspace tab placed as a window defaults to a header window like an app
   roundtrip(placed);
 });
 
-test("button placement and header slots change without changing open, closed, or pinned panels", () => {
+test("button placement and header slots change without changing open, closed, or previewed panels", () => {
   const start = transitionDockSide(closeDockPanels(initial(), ["app:board"]), { type: "open", id: "tool:files" });
   const header = moveDockButton(start, "tool:files", "window", "app:notes");
   assert.equal(dockButtonPlacement(header, "tool:files"), "window");
@@ -552,7 +598,7 @@ test("moved buttons open closed panels in their chosen place and preserve single
   const sidebar = moveDockButton(closeDockPanels(initial(), ["app:notes"]), "app:notes", "sidebar");
   const opened = selectDockPanel(sidebar, "app:notes");
   assert.equal(opened.side.tab, "app:notes");
-  assert.equal(opened.side.mode, "docked");
+  assert.equal(opened.side.mode, "hover-preview");
   assert.equal(activeDockTool(opened), "");
   assert.ok(!opened.closed.includes("app:notes"));
   roundtrip(opened);

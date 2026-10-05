@@ -207,6 +207,134 @@ test("browser header window buttons show grips, reorder by drag and keyboard, do
   assert.deepEqual(errors, []);
 });
 
+test("the flyout button moves a tool into the right workspace edge as a regular window by pointer and keyboard", options, async (context) => {
+  const { errors, page, view, tab, panel, groups, box, dockOnto, savedLayout } = await prepare(context);
+  const rail = page.getByRole("navigation", { name: "Sidebar tabs" });
+  const files = rail.getByRole("button", { name: "Files", exact: true });
+  const sidebar = page.locator("[data-dock-sidebar]");
+  const move = page.getByRole("button", { name: "Move into layout", exact: true });
+  const filesArea = groups.filter({ has: tab("Files") });
+  const card = async (area: Locator) => page.locator(`[data-dock-card="${await area.getAttribute("data-dock-group")}"]`);
+
+  await page.waitForFunction(() => document.querySelectorAll("[data-dock-group]").length === 2);
+  const original = await savedLayout();
+  const bounds = await page.locator("[data-dock-card]").evaluateAll((cards) => {
+    const rectangles = cards.map((element) => element.getBoundingClientRect());
+    const left = Math.min(...rectangles.map((rect) => rect.left));
+    const top = Math.min(...rectangles.map((rect) => rect.top));
+    return { left, top, right: Math.max(...rectangles.map((rect) => rect.right)), bottom: Math.max(...rectangles.map((rect) => rect.bottom)) };
+  });
+  const assertRightEdge = async () => {
+    const rect = await box(await card(filesArea));
+    const width = (bounds.right - bounds.left - 6) * 0.35;
+    assert.ok(Math.abs(rect.width - width) < 1, "the tool gets the outer guide's 35 percent workspace allocation");
+    assert.ok(Math.abs(rect.x + rect.width - bounds.right) < 1, "the window sits at the workspace's right edge");
+    assert.ok(Math.abs(rect.y - bounds.top) < 1);
+    assert.ok(Math.abs(rect.height - (bounds.bottom - bounds.top)) < 1, "the window spans the whole workspace height");
+    assert.equal(await sidebar.count(), 0);
+    assert.equal(await page.getByRole("separator", { name: "Resize sidebar", exact: true }).count(), 0);
+    assert.equal(await files.count(), 1, "moving the panel leaves its button in the rail");
+    assert.equal(await files.getAttribute("aria-pressed"), "true");
+    assert.deepEqual((await savedLayout()).side, { tab: null, mode: "hidden", focused: false });
+    return rect;
+  };
+
+  await files.click();
+  await sidebar.waitFor();
+  assert.equal(await sidebar.getAttribute("data-dock-sidebar"), "flyout");
+  assert.deepEqual((await savedLayout()).root, original.root, "a rail click opens an overlay without inserting a window");
+  assert.equal(await groups.count(), 2);
+  assert.equal(await move.getAttribute("title"), "Move into layout");
+  assert.equal(await move.getAttribute("aria-pressed"), null, "placing a window is an action");
+  const draft = page.getByRole("textbox", { name: "Files draft", exact: true });
+  await draft.fill("Kept tool draft");
+  const input = await draft.elementHandle();
+  await move.click();
+  await tab("Files").waitFor();
+  assert.equal(await groups.count(), 3);
+  const placed = await assertRightEdge();
+  assert.deepEqual(await filesArea.getByRole("button").evaluateAll((buttons) => buttons.map((button) => button.getAttribute("aria-label"))),
+    ["Move area", "Return Files to sidebar", "Maximize area", "Close Files"]);
+  assert.equal(await panel("Files").getAttribute("aria-labelledby"), await tab("Files").getAttribute("id"));
+  assert.equal(await page.getByRole("separator", { name: "Resize areas", exact: true }).count(), 2);
+  await filesArea.getByRole("button", { name: "Maximize area", exact: true }).click();
+  assert.equal(await groups.count(), 1);
+  assert.equal(await panel("Files").isVisible(), true);
+  await filesArea.getByRole("button", { name: "Restore area", exact: true }).click();
+  await assertRightEdge();
+  await page.screenshot({ path: join(shots, "dock-windows-move-into-layout.png") });
+
+  await filesArea.getByRole("button", { name: "Return Files to sidebar", exact: true }).click();
+  await sidebar.waitFor();
+  assert.equal(await groups.count(), 2);
+  assert.equal(await sidebar.getAttribute("data-dock-sidebar"), "flyout");
+  assert.equal(await panel("Files").getByText("Files active", { exact: true }).isVisible(), true);
+  assert.equal(await draft.inputValue(), "Kept tool draft");
+  assert.equal(await files.count(), 1);
+  await move.focus();
+  await page.keyboard.press("Space");
+  await tab("Files").waitFor();
+  await assertRightEdge();
+  assert.equal(await draft.evaluate((element, original) => element === original, input), true, "placement and return keep the mounted tool");
+  await page.reload();
+  await tab("Files").waitFor();
+  await assertRightEdge();
+  assert.equal(await filesArea.getByRole("button", { name: "Close Files", exact: true }).isVisible(), true);
+
+  await filesArea.getByRole("button", { name: "Close Files", exact: true }).click();
+  assert.equal(await groups.count(), 2);
+  assert.equal(await files.count(), 1);
+  assert.equal(await files.getAttribute("aria-pressed"), "false");
+  assert.equal(await sidebar.count(), 0, "closing the regular window leaves the flyout closed");
+  await files.focus();
+  await page.keyboard.press("Enter");
+  await sidebar.waitFor();
+  assert.equal(await groups.count(), 2, "keyboard rail access opens the overlay");
+  await page.mouse.move(10, 100);
+  await sidebar.waitFor({ state: "hidden" });
+  await dockOnto(files, groups.filter({ has: tab("Chat") }), "edge-right");
+  assert.deepEqual(await assertRightEdge(), placed, "the button and the right outer guide produce the same geometry");
+  await dockOnto(tab("Files"), groups.filter({ has: tab("Chat") }), "group-center");
+  assert.equal(await groups.count(), 2, "the placed tool can move and merge as an ordinary tab");
+  assert.equal(await groups.filter({ has: tab("Chat") }).getByRole("tab", { name: "Files", exact: true }).count(), 1);
+  await page.getByRole("button", { name: "Close Files", exact: true }).click();
+  await view("Reset layout").click();
+  assert.deepEqual(errors, []);
+});
+
+test("an obsolete saved sidebar mode reloads with the flyout closed and preserves the workspace", options, async (context) => {
+  const { errors, page, tab, groups, savedLayout } = await prepare(context);
+  const rail = page.getByRole("navigation", { name: "Sidebar tabs" });
+  const files = rail.getByRole("button", { name: "Files", exact: true });
+  const sidebar = page.locator("[data-dock-sidebar]");
+
+  await page.evaluate(() => window.dockingFixture.setApps(["notes"]));
+  await tab("Board").waitFor({ state: "detached" });
+  await page.getByRole("separator", { name: "Resize areas", exact: true }).focus();
+  await page.keyboard.press("ArrowRight");
+  const original = await savedLayout();
+  await page.evaluate(() => {
+    const [key, raw] = Object.entries(localStorage).find(([key]) => key.startsWith("ragents.docking:"))!;
+    localStorage.setItem(key, JSON.stringify({ ...JSON.parse(raw), side: { tab: "tool:files", mode: "docked", focused: true, width: 420 } }));
+  });
+  await page.reload();
+  await tab("Chat").waitFor();
+  assert.equal(await sidebar.count(), 0, "the obsolete mode does not reopen a sidebar");
+  assert.equal(await page.getByRole("separator", { name: "Resize sidebar", exact: true }).count(), 0);
+  assert.equal(await page.getByRole("alert").count(), 0);
+  assert.equal(await groups.count(), 2);
+  assert.deepEqual((await savedLayout()).root, original.root);
+  await files.click();
+  await sidebar.waitFor();
+  assert.equal(await sidebar.getAttribute("data-dock-sidebar"), "flyout");
+  await page.getByRole("button", { name: "Move into layout", exact: true }).click();
+  await tab("Files").waitFor();
+  assert.equal(await groups.count(), 3);
+  assert.equal(await sidebar.count(), 0);
+  assert.deepEqual((await savedLayout()).side, { tab: null, mode: "hidden", focused: false });
+  assert.deepEqual(errors, []);
+});
+
 test("browser empty panes come from the header, behave like windows, take a dropped window, and persist", options, async (context) => {
   const { errors, page, actions, view, drop, box, press, moveTo, finishDrop, dockOnto, tab, groups } = await prepare(context);
   const empties = page.getByRole("tab", { name: "Empty space", exact: true });
@@ -429,7 +557,7 @@ test("a workspace tab placed as a window defaults to a header window that opens,
   assert.equal(await tab("Preview").getAttribute("aria-selected"), "true");
 
   await rail.getByRole("button", { name: "Files", exact: true }).click();
-  await page.locator('[data-dock-sidebar="docked"]').waitFor();
+  await page.locator('[data-dock-sidebar="flyout"]').waitFor();
   assert.equal(await page.getByText("Files active", { exact: true }).isVisible(), true, "a sidebar tool still opens in the sidebar");
   await page.getByRole("button", { name: "Close sidebar", exact: true }).click();
 
@@ -493,20 +621,21 @@ test("browser button drags move between header slots and the rail while preservi
   await page.getByRole("separator", { name: "Resize areas", exact: true }).focus();
   await page.keyboard.press("ArrowRight");
   await button("Files").click();
-  await page.locator('[data-dock-sidebar="docked"]').waitFor();
+  await page.getByRole("button", { name: "Move into layout", exact: true }).click();
+  await tab("Files").waitFor();
   await page.getByRole("textbox", { name: "Files draft" }).fill("Kept selection");
-  const pinned = await savedLayout();
+  const placed = await savedLayout();
   await intoHeader(button("Files"), "Chat");
   assert.deepEqual(await order(), ["Files", "Chat", "Preview", "Notes", "Board"]);
   assert.equal(await button("Files").count(), 0);
   assert.equal(await view("Files").getAttribute("aria-pressed"), "true");
   assert.equal(await panel("Files").isVisible(), true);
   assert.equal(await page.getByRole("textbox", { name: "Files draft" }).inputValue(), "Kept selection");
-  await samePanels(pinned);
+  await samePanels(placed);
   await intoRail(view("Files"));
   await button("Files").waitFor();
-  await samePanels(pinned);
-  await page.getByRole("button", { name: "Close sidebar", exact: true }).click();
+  await samePanels(placed);
+  await page.getByRole("button", { name: "Close Files", exact: true }).click();
 
   const preview = await savedLayout();
   await intoRail(view("Preview"));
@@ -521,16 +650,23 @@ test("browser button drags move between header slots and the rail while preservi
   await page.evaluate(() => { document.documentElement.style.zoom = ""; });
 
   await button("Files").click();
-  await page.locator('[data-dock-sidebar="docked"]').waitFor();
+  await page.getByRole("button", { name: "Move into layout", exact: true }).click();
+  await tab("Files").waitFor();
   await page.getByRole("button", { name: "Close Board", exact: true }).click();
   const closed = await savedLayout();
   await intoRail(view("Board"));
   await button("Board").waitFor();
   assert.equal(await panel("Board").isVisible(), false, "moving a closed button does not open its panel");
   await samePanels(closed);
+  await button("Board").hover();
+  await panel("Board").waitFor();
+  const previewed = await savedLayout();
+  assert.deepEqual(previewed.root, closed.root, "hovering a closed rail entry only previews its panel");
   await intoHeader(button("Board"), "Chat");
+  await page.mouse.move(10, 100);
+  await panel("Board").waitFor({ state: "hidden" });
   assert.equal(await panel("Board").isVisible(), false);
-  await samePanels(closed);
+  await samePanels(previewed);
 
   await intoHeader(button("Journal"), "Chat");
   await intoHeader(button("Files"), "Reset layout", 0.5);
@@ -603,6 +739,7 @@ test("browser context menus move buttons in both directions by keyboard and poin
   await page.keyboard.press("Enter");
   const notes = panel("Notes");
   await notes.getByRole("textbox", { name: "App draft", exact: true }).fill("App draft survives");
+  await notes.frameLocator('iframe[title="App frame"]').getByRole("textbox", { name: "Frame draft", exact: true }).fill("Frame draft survives");
   const frame = await notes.locator('iframe[title="App frame"]').elementHandle();
   const identity = await frame!.evaluate((element) => Reflect.get((element as HTMLIFrameElement).contentWindow!, "identity"));
   const mounts = await page.evaluate(() => window.dockingFixture.mounts.notes);
@@ -610,6 +747,7 @@ test("browser context menus move buttons in both directions by keyboard and poin
   assert.equal(await notes.isVisible(), true);
   await menuMove(button("Notes"), "header");
   assert.equal(await notes.getByRole("textbox", { name: "App draft", exact: true }).inputValue(), "App draft survives");
+  assert.equal(await notes.frameLocator('iframe[title="App frame"]').getByRole("textbox", { name: "Frame draft", exact: true }).inputValue(), "Frame draft survives");
   assert.equal(await notes.locator('iframe[title="App frame"]').evaluate((element, original) => element === original, frame), true);
   assert.equal(await frame!.evaluate((element) => Reflect.get((element as HTMLIFrameElement).contentWindow!, "identity")), identity);
   assert.equal(await page.evaluate(() => window.dockingFixture.mounts.notes), mounts);

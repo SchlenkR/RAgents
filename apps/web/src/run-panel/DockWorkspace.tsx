@@ -1,6 +1,6 @@
 import { createContext, useContext, useEffect, useLayoutEffect, useRef, useState, type PointerEvent, type ReactNode } from "react";
 import { createPortal } from "react-dom";
-import { ArrowDownIcon, ArrowLeftIcon, ArrowRightIcon, ArrowUpIcon, LayoutGridIcon, MaximizeIcon, MinimizeIcon, PinIcon, PinOffIcon, SquareDashedIcon, SquareIcon, UsersIcon, XIcon } from "lucide-react";
+import { ArrowDownIcon, ArrowLeftIcon, ArrowRightIcon, ArrowUpIcon, LayoutGridIcon, MaximizeIcon, MinimizeIcon, PanelRightCloseIcon, PanelRightOpenIcon, SquareDashedIcon, SquareIcon, UsersIcon, XIcon } from "lucide-react";
 import type { SessionContext, SessionNavigation, WorkspaceTabContribution } from "../PluginRegistry";
 import { RunAppView, type RunApp } from "../run-apps";
 import { Badge, InteractiveItem, BadgeDisplayProvider, Button, cn, Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "../ui";
@@ -88,9 +88,8 @@ export function DockWorkspace({ apps, chat, chatIcon = <UsersIcon />, navigation
   const railWidth = sideButtons.length > 0 || (drag?.header && drag.ids[0] !== EMPTY_PANE_ENTRY) ? 36 : 0;
   const railSpace = railWidth ? railWidth + gap : 0;
   const height = Math.max(0, size.height - gap * 2);
-  const maxSideWidth = Math.max(180, size.width - railSpace - gap * 3 - 80);
-  const sideWidth = Math.min(state.side.width, maxSideWidth);
-  const workspace: DockRect = { left: gap, top: gap, width: Math.max(0, size.width - gap * 2 - railSpace - (sideVisible && state.side.mode === "docked" ? sideWidth + gap : 0)), height };
+  const sideWidth = Math.min(630, Math.max(180, size.width - railSpace - gap * 3 - 80));
+  const workspace: DockRect = { left: gap, top: gap, width: Math.max(0, size.width - gap * 2 - railSpace), height };
   const sideRect: DockRect = { left: size.width - gap - railSpace - sideWidth, top: gap, width: sideWidth, height };
   const railRect: DockRect = { left: size.width - gap - railWidth, top: gap, width: railWidth, height };
   const barRect: DockRect = { left: sideVisible ? sideRect.left : railRect.left, top: gap, width: railWidth + (sideVisible ? sideWidth + gap : 0), height };
@@ -105,14 +104,14 @@ export function DockWorkspace({ apps, chat, chatIcon = <UsersIcon />, navigation
     const escape = (event: KeyboardEvent) => {
       if (event.key !== "Escape" || event.defaultPrevented) return;
       if (stored.maximized) update((current) => ({ ...current, maximized: null }));
-      else if (stored.side.tab && stored.side.mode !== "docked") {
+      else if (stored.side.tab) {
         update((current) => transitionDockSide(current, { type: "close" }));
       } else return;
       event.preventDefault();
     };
     window.addEventListener("keydown", escape);
     return () => window.removeEventListener("keydown", escape);
-  }, [stored.maximized, stored.side.mode, stored.side.tab, update]);
+  }, [stored.maximized, stored.side.tab, update]);
   const emptyPanes = state.known.filter(isEmptyPanel);
   const labels = new Map<string, string>([["chat", "Chat"], ...apps.map((app) => [appPanelId(app.definition.id), app.definition.title ?? app.definition.id] as const), ...tabs.map((tab) => [workspaceTabPanelId(tab), tab.label] as const),
     [EMPTY_PANE_ENTRY, EMPTY_PANE_TITLE], ...emptyPanes.map((id) => [id, EMPTY_PANE_TITLE] as const)]);
@@ -193,7 +192,7 @@ export function DockWorkspace({ apps, chat, chatIcon = <UsersIcon />, navigation
       clearTimeout(leaveTimer.current);
       leaveTimer.current = setTimeout(() => {
         const target = point && document.elementFromPoint(point.x, point.y);
-        if (!sidePressed.current && !target?.closest('[data-dock-sidebar], [data-dock-side-content], [data-dock-rail], [data-dock-side-resize]')) {
+        if (!sidePressed.current && !target?.closest('[data-dock-sidebar], [data-dock-side-content], [data-dock-rail]')) {
           update((current) => transitionDockSide(current, { type: "leave" }));
         }
       }, 300);
@@ -220,15 +219,6 @@ export function DockWorkspace({ apps, chat, chatIcon = <UsersIcon />, navigation
   };
   const hideSide = () => { update((current) => transitionDockSide(current, { type: "close" })); };
   const sideClick = (id: string) => update((current) => transitionDockSide(current, { type: "click", id }));
-  const resizeSide = (event: PointerEvent<HTMLElement>) => {
-    if (event.button !== 0) return;
-    pressSide();
-    const start = event.clientX;
-    const zoom = pointerZoom();
-    const width = sideWidth;
-    setResizing("side");
-    pointer(event, (point) => update((current) => ({ ...current, side: { ...current.side, width: Math.max(180, width + (start - point.x) / zoom) } })), () => setResizing(undefined));
-  };
   const toolHeader = (id: string | null) => {
     const tab = tabFor(id);
     return tab?.Header ? <tab.Header active navigation={navigation} selection={navigation.selectionFor(tab.id)} session={session} /> : null;
@@ -293,7 +283,7 @@ export function DockWorkspace({ apps, chat, chatIcon = <UsersIcon />, navigation
               onPointerDown={(event) => startDrag(event, [id], () => select(id))} role="tab" tabIndex={id === group.active ? 0 : -1} title={title(id)} type="button">{icon(id)}<span className="truncate">{title(id)}</span></InteractiveItem>
             {id === group.active && <>
               {toolHeader(group.active)}
-              {group.active && isToolPanel(group.active) && <Button aria-label={`Return ${title(group.active)} to sidebar`} onClick={() => update((current) => returnDockTool(current, group.active!))} size="icon-xs" title="Return to sidebar" variant="ghost"><PinOffIcon /></Button>}
+              {group.active && isToolPanel(group.active) && <Button aria-label={`Return ${title(group.active)} to sidebar`} onClick={() => update((current) => returnDockTool(current, group.active!))} size="icon-xs" title="Return to sidebar" variant="ghost"><PanelRightOpenIcon /></Button>}
               {dockGroups(state.root).length > 1 && <Button aria-label={state.maximized === group.id ? "Restore area" : "Maximize area"} onClick={() => update((current) => ({ ...current, automatic: false, maximized: current.maximized === group.id ? null : group.id }))} size="icon-xs" variant="ghost">{state.maximized === group.id ? <MinimizeIcon /> : <MaximizeIcon />}</Button>}
             </>}
             <Button aria-label={`Close ${title(id)}`} className="flex-none" onClick={() => close([id])} size="icon-xs" variant="ghost"><XIcon /></Button>
@@ -325,17 +315,14 @@ export function DockWorkspace({ apps, chat, chatIcon = <UsersIcon />, navigation
       {apps.filter((app) => visited.includes(appPanelId(app.definition.id)) || visible.includes(appPanelId(app.definition.id))).map((app) => panel(appPanelId(app.definition.id), <RunAppView app={app} navigation={navigation} session={session} />))}
       {tabs.map((tab) => [tab, workspaceTabPanelId(tab)] as const).filter(([, id]) => visited.includes(id) || visible.includes(id)).map(([tab, id]) => panel(id, <tab.Panel active={visible.includes(id)} navigation={navigation} selection={navigation.selectionFor(tab.id)} session={session} />))}
       {sideVisible && <>
-        <div aria-hidden data-dock-frame className={cn(cardClass, "z-30", state.side.focused ? "border-primary/70" : "border-border",
-          state.side.mode === "docked" ? "shadow-none" : "shadow-pop ring-1 ring-foreground/10")} style={sideRect} />
-        <div aria-label="Sidebar" className={cn(areaHeaderClass, "z-40 items-center")} data-dock-sidebar={(state.side.mode === "docked") ? "docked" : "flyout"} style={headerRect(sideRect)} onFocusCapture={() => { if (!state.side.focused) update((current) => ({ ...current, side: { ...current.side, focused: true } })); }} onPointerDownCapture={pressSide} onPointerEnter={holdSide} onPointerLeave={leaveSide}>
+        <div aria-hidden data-dock-frame className={cn(cardClass, "z-30 shadow-pop ring-1 ring-foreground/10", state.side.focused ? "border-primary/70" : "border-border")} style={sideRect} />
+        <div aria-label="Sidebar" className={cn(areaHeaderClass, "z-40 items-center")} data-dock-sidebar="flyout" style={headerRect(sideRect)} onFocusCapture={() => { if (!state.side.focused) update((current) => ({ ...current, side: { ...current.side, focused: true } })); }} onPointerDownCapture={pressSide} onPointerEnter={holdSide} onPointerLeave={leaveSide}>
           <Button aria-label="Move sidebar window" className={cn(gripClass, "touch-none cursor-grab active:cursor-grabbing")} onPointerDown={(event) => startDrag(event, [sideTab!])} size="icon-xs" variant="ghost"><DockGrip /></Button>
           <span className="min-w-0 flex-1 truncate px-1 text-xs font-semibold" id={`dock-side-${encodeURIComponent(sideTab!)}`}>{title(sideTab!)}</span>
           {toolHeader(sideTab)}
-          <Button aria-label={(state.side.mode === "docked") ? "Unpin sidebar" : "Pin sidebar"} aria-pressed={state.side.mode === "docked"} title={state.side.mode === "docked" ? "Unpin sidebar" : "Pin sidebar"} onClick={() => update((current) => transitionDockSide(current, { type: "pin" }))} size="icon-xs" variant="ghost"><PinIcon className={state.side.mode === "docked" ? "fill-current" : undefined} /></Button>
+          <Button aria-label="Move into layout" title="Move into layout" onClick={() => update((current) => transitionDockSide(current, { type: "layout", newId }))} size="icon-xs" variant="ghost"><PanelRightCloseIcon /></Button>
           <Button aria-label="Close sidebar" onClick={hideSide} size="icon-xs" variant="ghost"><XIcon /></Button>
         </div>
-        <div data-dock-side-resize aria-label="Resize sidebar" aria-orientation="vertical" aria-valuemin={180} aria-valuemax={maxSideWidth} aria-valuenow={state.side.width} data-dragging={resizing === "side"} className={cn(resizeClass, "z-50 cursor-col-resize")} onPointerEnter={holdSide} onPointerLeave={leaveSide} onPointerDown={resizeSide} role="separator" style={{ left: sideRect.left - gap - 1, top: sideRect.top, width: 8, height: sideRect.height }} tabIndex={0}
-          onKeyDown={(event) => { if (event.key !== "ArrowLeft" && event.key !== "ArrowRight") return; event.preventDefault(); update((current) => ({ ...current, side: { ...current.side, width: Math.max(180, Math.min(maxSideWidth, current.side.width + (event.key === "ArrowLeft" ? 20 : -20))) } })); }} ><DockGrip /></div>
       </>}
       {railWidth > 0 && <TooltipProvider><nav data-dock-rail aria-label="Sidebar tabs" className={cn("absolute z-40 flex flex-col items-center gap-1 rounded-lg border border-border bg-card py-1", (railDrop || hit?.target?.kind === "bar") && "bg-primary/20 ring-2 ring-inset ring-primary")} style={railRect} onPointerEnter={holdSide} onPointerLeave={leaveSide}>
         {sideButtons.map((id) => {
@@ -355,7 +342,7 @@ export function DockWorkspace({ apps, chat, chatIcon = <UsersIcon />, navigation
           </Tooltip>;
         })}
       </nav></TooltipProvider>}
-      {(drag || resizing) && <div className={cn("absolute inset-0 z-[90] touch-none", resizing ? (resizing === "side" || geometry.dividers.find(({ split }) => split.id === resizing)?.split.axis === "horizontal" ? "cursor-col-resize" : "cursor-row-resize") : "cursor-grabbing")} />}
+      {(drag || resizing) && <div className={cn("absolute inset-0 z-[90] touch-none", resizing ? (geometry.dividers.find(({ split }) => split.id === resizing)?.split.axis === "horizontal" ? "cursor-col-resize" : "cursor-row-resize") : "cursor-grabbing")} />}
       {drag && hit && <div aria-label="Docking guides" className="pointer-events-none absolute inset-0 z-[91]">
         {(railDrop || hit.preview) && <div className="absolute rounded-lg border-2 border-primary bg-primary/20" data-dock-preview style={railDrop ? railRect : hit.target?.kind === "bar" ? (sideVisible && containsPoint(sideRect, drag.point) ? sideRect : railRect) : hit.preview} />}
         {hit.guides.map((guide, index) => {

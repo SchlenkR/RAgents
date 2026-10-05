@@ -1725,9 +1725,6 @@
   .fill-background {
     fill: var(--background);
   }
-  .fill-current {
-    fill: currentcolor;
-  }
   .fill-foreground {
     fill: var(--foreground);
   }

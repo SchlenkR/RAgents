@@ -30,7 +30,7 @@ export interface DockState {
   readonly bar: readonly string[];
   readonly focused: string;
   readonly maximized: string | null;
-  readonly side: { readonly tab: string | null; readonly mode: "hidden" | "hover-preview" | "docked"; readonly focused: boolean; readonly width: number };
+  readonly side: { readonly tab: string | null; readonly mode: "hidden" | "hover-preview"; readonly focused: boolean };
   /** The arranged order of the window buttons in the run header; windows missing from it follow in catalog order. */
   readonly order?: readonly string[];
   readonly placements?: Readonly<Record<string, DockButtonPlacement>>;
@@ -53,7 +53,7 @@ export const mapDockNode = (node: DockNode, id: string, update: (node: DockNode)
 
 export function initialDockState(panels: readonly string[] = ["chat"], tools: readonly string[] = []): DockState {
   return { version: 1, automatic: true, root: group("main", panels), known: [...panels, ...tools], closed: [], bar: tools, focused: "main", maximized: null,
-    side: { tab: null, mode: "hidden", focused: false, width: 630 } };
+    side: { tab: null, mode: "hidden", focused: false } };
 }
 
 function removeGroup(node: DockNode, id: string): DockNode {
@@ -63,9 +63,17 @@ function removeGroup(node: DockNode, id: string): DockNode {
   return { ...node, first: removeGroup(node.first, id), second: removeGroup(node.second, id) };
 }
 
+function reconcileDockSide(side: DockState["side"]): DockState["side"] {
+  if (typeof side.mode !== "string") return side;
+  return side.mode === "hidden" || side.mode === "hover-preview"
+    ? { tab: side.tab, mode: side.mode, focused: side.focused }
+    : { tab: null, mode: "hidden", focused: false };
+}
+
 function normalize(state: DockState): DockState {
   const groups = dockGroups(state.root);
-  return { ...state, side: state.side.tab === null ? { ...state.side, mode: "hidden", focused: false } : state.side, focused: groups.some((g) => g.id === state.focused) ? state.focused : groups[0].id,
+  const side = reconcileDockSide(state.side);
+  return { ...state, side: side.tab === null ? { ...side, mode: "hidden", focused: false } : side, focused: groups.some((g) => g.id === state.focused) ? state.focused : groups[0].id,
     maximized: groups.some((g) => g.id === state.maximized) ? state.maximized : null };
 }
 
@@ -132,7 +140,7 @@ export function revealDockPanel(state: DockState, id: string, split: boolean, ne
   const groups = dockGroups(state.root);
   const owner = groups.find((entry) => entry.tabs.includes(id));
   if (owner) return owner.active === id && (state.maximized === null || state.maximized === owner.id) ? state : selectDockPanel(state, id);
-  if (state.side.tab === id) return state.side.mode === "docked" ? state : transitionDockSide(state, { type: "pin" });
+  if (state.side.tab === id) return state.side.focused ? state : transitionDockSide(state, { type: "open", id });
   const target = groups.find((entry) => entry.id === state.focused) ?? groups[0];
   const restored = { ...state, automatic: false, maximized: null };
   return !split || target.tabs.length === 0
@@ -232,7 +240,9 @@ export function persistentDockState(state: DockState): DockState {
 
 export function parseDockState(raw: string | null): DockState {
   if (raw === null) return initialDockState();
-  const state: DockState = JSON.parse(raw);
+  const parsed: DockState = JSON.parse(raw);
+  const state = parsed?.side && typeof parsed.side === "object" && !Array.isArray(parsed.side)
+    ? { ...parsed, side: reconcileDockSide(parsed.side) } : parsed;
   const nodes = new Set<string>();
   const panels = new Set<string>();
   const strings = (value: unknown): value is string[] => Array.isArray(value) && value.every((id) => typeof id === "string");
@@ -258,32 +268,31 @@ export function parseDockState(raw: string | null): DockState {
     || !dockGroups(state.root).some((g) => g.id === state.focused)
     || !(state.maximized === null || dockGroups(state.root).some((g) => g.id === state.maximized))
     || !state.side || !(state.side.tab === null || state.bar.includes(state.side.tab))
-    || !["hidden", "hover-preview", "docked"].includes(state.side.mode)
-    || (state.side.mode === "hidden") !== (state.side.tab === null) || (state.side.mode === "hidden" && state.side.focused) || typeof state.side.focused !== "boolean"
-    || !Number.isFinite(state.side.width) || state.side.width < 180) throw new Error("The saved docking layout is invalid. Reset layout to recover.");
+    || !["hidden", "hover-preview"].includes(state.side.mode)
+    || (state.side.mode === "hidden") !== (state.side.tab === null) || (state.side.mode === "hidden" && state.side.focused) || typeof state.side.focused !== "boolean") throw new Error("The saved docking layout is invalid. Reset layout to recover.");
   return state;
 }
 
 export type DockSideAction = { type: "hover" | "click" | "open"; id: string }
-  | { type: "leave" | "close" | "pin" };
+  | { type: "leave" | "close" }
+  | { type: "layout"; newId: () => string };
 
 export function transitionDockSide(state: DockState, action: DockSideAction): DockState {
   const side = state.side;
-  const show = (tab: string, mode: DockState["side"]["mode"]): DockState =>
-    ({ ...state, closed: state.closed.filter((id) => id !== tab), bar: state.bar.includes(tab) ? state.bar : [...state.bar, tab], side: { ...side, tab, mode, focused: true } });
-  const hide = (): DockState => ({ ...state, side: { ...side, tab: null, mode: "hidden", focused: false } });
+  const show = (tab: string): DockState =>
+    ({ ...state, closed: state.closed.filter((id) => id !== tab), bar: state.bar.includes(tab) ? state.bar : [...state.bar, tab], side: { tab, mode: "hover-preview", focused: true } });
+  const hide = (): DockState => ({ ...state, side: { tab: null, mode: "hidden", focused: false } });
   switch (action.type) {
     case "hover":
-      return !state.known.includes(action.id) || isEmptyPanel(action.id) || dockGroups(state.root).some((g) => g.tabs.includes(action.id)) || side.mode === "docked" ? state : show(action.id, "hover-preview");
+      return !state.known.includes(action.id) || isEmptyPanel(action.id) || dockGroups(state.root).some((g) => g.tabs.includes(action.id)) ? state : show(action.id);
     case "click":
     case "open":
       if (!state.known.includes(action.id) || isEmptyPanel(action.id)) return state;
       if (dockGroups(state.root).some((g) => g.tabs.includes(action.id))) return selectDockPanel(state, action.id);
-      if (action.type === "click" && side.tab === action.id && side.mode === "docked") return hide();
-      return show(action.id, "docked");
+      return show(action.id);
     case "leave": return side.mode === "hover-preview" ? hide() : state;
     case "close": return hide();
-    case "pin": return side.mode === "docked" ? hide() : side.tab ? show(side.tab, "docked") : state;
+    case "layout": return side.tab ? moveDockPanels(state, [side.tab], { kind: "edge", side: "right" }, action.newId) : state;
   }
 }
 

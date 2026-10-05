@@ -62,7 +62,7 @@ Escape cancels a drag. Each area, including an empty one, is a rounded, thin-bor
 Small gaps separate the cards and the workspace edge; the focused card has an accent border.
 Drag the three-dot grips in the gaps to resize areas. Vertical gaps have vertical dots,
 horizontal gaps horizontal dots. The grips brighten on hover and use the accent color while
-dragging. The tab-strip drag grips and sidebar resize grip use the same dots.
+dragging. The tab-strip and flyout drag grips use the same dots.
 
 Dragging the only window to a side of its own area leaves an empty half. Drop another window
 there or use "Close area". Moving all windows into another area removes their empty source.
@@ -116,20 +116,19 @@ language-server diagnostics according to the run and your permissions. A small b
 top right of a rail button means the view has content or new activity. Hover or focus a button
 to see its tooltip immediately to the left. Hover a button to
 preview its view in a flyout; move away from both flyout and rail to hide it.
-Click a rail button or the flyout's pin to dock the view beside the workspace, reserving space.
-While docked, another rail button switches content in place; clicking the active button hides
-it. Unpinning or X also hides it and returns to hover-only behavior. The pin is filled only
-while docked, and its tooltip names the next action. Reload restores docked views and their
-width, but never a hover preview. The return-to-sidebar button docks the tool beside the layout.
+Click a rail button to open or focus its flyout. X hides it. The flyout is 630 pixels wide,
+limited by the available space. Its keyboard-accessible "Move into layout" button places the
+view in a regular window at the workspace's right edge, just like dragging it onto the right
+outer guide; the new area takes 35 percent of the workspace width.
 Pressing a flyout grip keeps the preview open through the gesture, without making it sticky;
-after release it stays only while the pointer is over the flyout or rail. Resize either mode
-using its left edge. The rail and side views share the card frame. Only the hover flyout has
-a drop shadow; docked cards stay flat.
+after release it stays only while the pointer is over the flyout or rail. The rail and flyout
+share the card frame. The flyout has a drop shadow; layout cards stay flat.
 
 Drag a rail button or the view's header grip into the workspace to make it a regular window.
-Its button stays in the rail until you move the button itself. Close the window, use its
-return-to-sidebar button, or drag its tab back onto the rail or sidebar to return the panel.
-A docked tool uses the same tabs, docking guides, maximize, and close controls as Chat and apps.
+Its button stays in the rail until you move the button itself. The window uses the same tabs,
+splits, docking guides, maximize, drag, and close controls as Chat and apps. Closing it or
+dragging its tab back onto the rail or flyout returns the hidden panel to the rail.
+"Return to sidebar" opens and focuses its flyout instead, keeping the button in its chosen place.
 
 A plugin can also show its view as a window instead of in the rail. Its button then sits with the
 window buttons in the run header by default, and the view appears, moves, splits, and closes like
@@ -137,7 +136,8 @@ an app. You can move its button into the rail using the same drag or menu action
 dot on its directly available header button means the view has content or new activity.
 
 The browser remembers areas, sizes, active tabs, closed windows, empty panes, the header button
-order, button positions, and sidebar settings for each server and run. New apps appear without
+order, and button positions for each server and run. Flyouts close on reload; saved layouts
+with the removed sidebar mode or width also reconcile to a closed flyout. New apps appear without
 taking focus; unavailable apps disappear. Chat drafts, app input, and visited tool state survive tab switches,
 moves, and close/reopen while the run stays open. Reloading the page restores the layout but not
 unsent input.

@@ -1,5 +1,17 @@
 # Decisions
 
+## 2026-10-06: Move sidebar panels directly into the layout
+
+Chapter: `spec/plugins.md` (Web as plugin host, Run panel); usage: `usage.md`
+(Run panel docking).
+
+The sidebar's separate docked mode duplicated the regular layout controls. "Move into
+layout" now puts the flyout panel at the workspace's right outer edge through the same drop
+operation as dragging it there. It becomes an ordinary window; button placement stays
+independent, closing returns it hidden to the rail, and "Return to sidebar" opens its flyout.
+The flyout retains hover preview with a fixed width and no resize handle. Reload closes
+flyouts, and old sidebar modes and widths reconcile to closed without migration.
+
 ## 2026-10-06: Isolate workspace failures per run
 
 Chapters: `spec/core.md` (Journal), `spec/plugins.md` (Workspace, sandbox tools, and
