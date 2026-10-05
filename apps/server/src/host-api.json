@@ -859,6 +859,7 @@
       "Field",
       "FieldDescription",
       "FieldTitle",
+      "HeaderDropdown",
       "ImagePreview",
       "ImagePreviewGroup",
       "ImageViewer",

@@ -56,7 +56,7 @@ test("connection management lists servers and local profiles with their own runs
   assert.equal(state.problem, undefined);
 });
 
-test("the panel carries the share dialog and the Start notice the extension keeps, and every row its sharing for the user", () => {
+test("the panel carries the sharing panel and the Start notice the extension keeps, and every row its sharing for the user", () => {
   const base = { theme: "dark" as const, page: "connections" as const, profileSuggestions: [], missingSecrets: [], problem: undefined, pickedProfileFile: undefined };
   const runs = [session({ id: "own", canShare: true, shared: true }), session({ id: "viewed", operable: false, ownerLabel: "Alice", sharedAccess: "read" })];
   const sharing = { connection: "workshop", runId: "own", result: { sharing: { everyone: "read" as const, users: [] }, users: [{ id: "bob", label: "Bob" }] } };

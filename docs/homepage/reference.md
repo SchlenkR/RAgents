@@ -6492,6 +6492,31 @@ declare function FieldError({ className, children, errors, ...props }: React.Com
 export { Field, FieldLabel, FieldDescription, FieldError, FieldGroup, FieldLegend, FieldSeparator, FieldSet, FieldContent, FieldTitle, };
 ```
 
+#### apps/web/src/ui/HeaderDropdown.d.ts
+
+```typescript
+import { type ComponentProps, type ReactElement, type ReactNode, type Ref } from "react";
+import { PopoverContent } from "./popover";
+type DropdownAnchor = HTMLElement | {
+    contextElement: HTMLElement;
+    getBoundingClientRect: () => DOMRect;
+};
+export declare function HeaderDropdown({ open, onOpenChange, label, trigger, anchor, children, id, initialFocus, keepMounted, role, ref }: {
+    open: boolean;
+    onOpenChange: (open: boolean) => void;
+    label: string;
+    trigger?: ReactElement;
+    anchor?: () => DropdownAnchor | null;
+    children: ReactNode;
+    id?: string;
+    initialFocus?: ComponentProps<typeof PopoverContent>["initialFocus"];
+    keepMounted?: boolean;
+    role?: "dialog" | "region";
+    ref?: Ref<HTMLDivElement>;
+}): import("react").JSX.Element;
+export {};
+```
+
 #### apps/web/src/ui/image-preview-group.d.ts
 
 ```typescript
@@ -6534,6 +6559,7 @@ export { DropdownMenu, DropdownMenuCheckboxItem, DropdownMenuContent, DropdownMe
 export { Empty, EmptyContent, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from "./empty";
 export { Field, FieldContent, FieldDescription, FieldError, FieldGroup, FieldLabel, FieldLegend, FieldSeparator, FieldSet, FieldTitle, } from "./field";
 export { Input } from "./input";
+export { HeaderDropdown } from "./HeaderDropdown";
 export { ImagePreview, ImageViewer, type ImagePreviewProps, type ImageViewerProps } from "./image-viewer";
 export { ImagePreviewGroup } from "./image-preview-group";
 export { InteractiveItem } from "./interactive-item";

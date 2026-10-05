@@ -9,7 +9,7 @@ export const SHARE_ACCESS_LABELS: Readonly<Record<RunShareAccess, string>> = { r
 
 export const REVOKED_SHARE_NOTICE = "This run is no longer available to you.";
 
-/** The sharing as the dialog edits it: the server's, without display names. */
+/** The sharing as the panel edits it: the server's, without display names. */
 export const sharingOf = (result: RunSharingResult): RunSharing => ({
   everyone: result.sharing.everyone,
   users: result.sharing.users.map(({ userId, access }) => ({ userId, access })),
@@ -30,7 +30,7 @@ export const withoutUser = (sharing: RunSharing, userId: string): RunSharing => 
   users: sharing.users.filter((user) => user.userId !== userId),
 });
 
-/** The rows of the dialog's user list: every user the run can be shared with, then shared users the profile no longer offers. */
+/** The rows of the panel's user list: every user the run can be shared with, then shared users the profile no longer offers. */
 export const listedUsers = (result: RunSharingResult): RunSharingResult["users"] => [
   ...result.users,
   ...result.sharing.users
@@ -56,7 +56,7 @@ export interface SharingClient {
   save: (runId: string, sharing: RunSharing) => Promise<RunSharingResult>;
 }
 
-/** Where a host keeps its open share dialog. */
+/** Where a host keeps its open sharing panel. */
 export interface SharingStore {
   get: () => PanelSharing | undefined;
   set: (next: PanelSharing | undefined) => void;
@@ -64,24 +64,24 @@ export interface SharingStore {
 
 const messageOf = (cause: unknown): string => cause instanceof Error ? cause.message : String(cause);
 
-const isDialogOf = (sharing: PanelSharing | undefined, connection: string, runId: string): sharing is PanelSharing =>
+const isPanelOf = (sharing: PanelSharing | undefined, connection: string, runId: string): sharing is PanelSharing =>
   sharing?.connection === connection && sharing.runId === runId;
 
-/** Opens the dialog and loads the sharing; an answer for a dialog closed or replaced meanwhile is dropped. */
+/** Opens the panel and loads the sharing; an answer for a panel closed or replaced meanwhile is dropped. */
 export const openSharing = async (connection: string, runId: string, client: SharingClient, store: SharingStore): Promise<void> => {
   store.set({ connection, runId, pending: true });
   try {
     const result = await client.load(runId);
-    if (isDialogOf(store.get(), connection, runId)) store.set({ connection, runId, result });
+    if (isPanelOf(store.get(), connection, runId)) store.set({ connection, runId, result });
   } catch (cause) {
-    if (isDialogOf(store.get(), connection, runId)) store.set({ connection, runId, error: messageOf(cause) });
+    if (isPanelOf(store.get(), connection, runId)) store.set({ connection, runId, error: messageOf(cause) });
   }
 };
 
-/** Saves the whole sharing: success closes the dialog, a refusal stays in it; without an open dialog of the run, the refusal goes to the caller. */
+/** Saves the whole sharing: success closes the panel, a refusal stays in it; without an open panel of the run, the refusal goes to the caller. */
 export const saveSharing = async (connection: string, runId: string, sharing: RunSharing, client: SharingClient, store: SharingStore): Promise<void> => {
   const opened = store.get();
-  if (!isDialogOf(opened, connection, runId)) {
+  if (!isPanelOf(opened, connection, runId)) {
     await client.save(runId, sharing);
     return;
   }
@@ -89,8 +89,8 @@ export const saveSharing = async (connection: string, runId: string, sharing: Ru
   store.set({ connection, runId, ...kept, pending: true });
   try {
     await client.save(runId, sharing);
-    if (isDialogOf(store.get(), connection, runId)) store.set(undefined);
+    if (isPanelOf(store.get(), connection, runId)) store.set(undefined);
   } catch (cause) {
-    if (isDialogOf(store.get(), connection, runId)) store.set({ connection, runId, ...kept, error: messageOf(cause) });
+    if (isPanelOf(store.get(), connection, runId)) store.set({ connection, runId, ...kept, error: messageOf(cause) });
   }
 };

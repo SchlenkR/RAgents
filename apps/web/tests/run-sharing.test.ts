@@ -17,7 +17,7 @@ const memoryStore = (initial?: PanelSharing): SharingStore & { history: Array<Pa
   return { history, get: () => current, set: (next) => { current = next; history.push(next); } };
 };
 
-test("the dialog edits a copy without labels: everyone, access per user, new users at the end, removal", () => {
+test("the panel edits a copy without labels: everyone, access per user, new users at the end, removal", () => {
   const start = sharingOf(result());
   assert.deepEqual(start, { everyone: null, users: [{ userId: "bob", access: "read" }] });
   const edited = withUser(withUser(withEveryone(start, "read"), "carol", "read"), "bob", "write");
@@ -48,7 +48,7 @@ test("sharees read what the share permits, and the composer names why it is disa
   assert.equal(readOnlyReason({ id: "run", title: "Run", updatedAt: 0 }), "Read access to this run");
 });
 
-test("opening loads into the dialog; a refusal stays in it, an answer for a dialog closed meanwhile is dropped", async () => {
+test("opening loads into the panel; a refusal stays in it, an answer for a panel closed meanwhile is dropped", async () => {
   const loaded = result();
   const store = memoryStore();
   await openSharing("workshop", "run-a", { load: async () => loaded, save: async () => loaded }, store);
@@ -64,7 +64,7 @@ test("opening loads into the dialog; a refusal stays in it, an answer for a dial
   closed.set(undefined);
   late.resolve(loaded);
   await opening;
-  assert.equal(closed.get(), undefined, "a closed dialog does not reopen");
+  assert.equal(closed.get(), undefined, "a closed panel does not reopen");
 });
 
 test("saving keeps the loaded sharing while pending, closes on success, and shows a refusal next to the draft", async () => {
@@ -82,7 +82,7 @@ test("saving keeps the loaded sharing while pending, closes on success, and show
   assert.deepEqual(refused.get(), { connection: "workshop", runId: "run-a", result: loaded, error: "carol is not a user of this profile" });
 });
 
-test("saving without an open dialog of the run hands a refusal to the caller and leaves another dialog alone", async () => {
+test("saving without an open panel of the run hands a refusal to the caller and leaves another panel alone", async () => {
   const loaded = result();
   const other: PanelSharing = { connection: "workshop", runId: "run-b", result: loaded };
   const store = memoryStore(other);

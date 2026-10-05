@@ -617,7 +617,8 @@ operates nothing: no messages, app actions, answers, run scripts, restarts, or s
 would, still only within their own permissions. A user gets the higher of the share for everyone
 and their own. Only the owner and users with `runs.read.all` change whom a run is shared with, and
 a share never permits deleting the run. The browser and VS Code offer this as the "Share run"
-dialog from the run list and the run header ([Share runs](../homepage/guide-clients.html#share-runs)).
+dropdown from the run list and the run header, with the same sharing content in both contexts
+([Share runs](../homepage/guide-clients.html#share-runs)).
 
 The server enforces ownership on lists, methods, event channels, and file routes before opening a
 run. An inaccessible run responds like a missing one. Each signed-in user has a global coordinator

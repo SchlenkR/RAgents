@@ -697,7 +697,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<RAgent
     sessionChanged();
   };
 
-  /** The share dialog lives in the panel state; every change redraws the page. */
+  /** The sharing panel lives in the panel state; every change redraws the page. */
   const sharingStore: SharingStore = {
     get: () => sharing,
     set: (next) => {

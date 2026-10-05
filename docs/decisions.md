@@ -1,5 +1,19 @@
 # Decisions
 
+## 2026-10-05: Give header dropdowns one shared panel
+
+Chapters: `spec/plugins.md` (Web as plugin host, UI library), `spec/profiles.md`
+(Run ownership); usage: `usage.md` (Run panel, Global coordinator, Share runs).
+
+Run details used a metadata strip, Agents used its own popout, and sharing opened a modal.
+`HeaderDropdown`, exported through `@ragents/web/ui`, gives them the Run script panel's
+layout: square corners, common header anchoring, width, padding, dimming, and keyboard focus
+behavior. Responsive detail cells keep every contribution readable in narrow panels.
+Sharing reuses one content component below the run header or a run-list action, preserving
+loading, saving, errors, and Cancel. The global coordinator shares the shell while retaining
+its mounted history, composer focus, and region semantics. The homepage drops screenshots of
+the old sharing dialog and graph shell.
+
 ## 2026-10-05: Choose button placement independently of panel layout
 
 Chapter: `spec/plugins.md` (Web as plugin host, Run panel); usage: `usage.md`

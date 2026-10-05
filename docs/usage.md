@@ -78,7 +78,7 @@ also counts as read in VS Code and on your other devices, and other users learn 
 With sign-in, a run you shared shows a people icon ("Shared") next to its title, and a run
 someone shared with you shows "Shared with you - view only" or "Shared with you - can operate";
 such a run cannot be selected for deletion. "Share ..." at the end of a row opens the Share
-dialog for runs you may share, as described under [Share runs](#share-runs).
+dropdown for runs you may share, as described under [Share runs](#share-runs).
 
 As long as no finished automatic title exists, the run list shows the original
 task. After successful generation and storage, the short heading appears without
@@ -397,10 +397,10 @@ loading these catalogs. Plugin forms are additionally reachable at their plugin.
 
 With `ragents.overseer` in `host.PLUGINS`, the "Global coordinator" button sits to the right
 of the overview buttons and looks like an input field. A click, or Enter or Space while it has
-focus, opens the conversation below the header and dims the rest of the application; the button
-stays visible above the dimming. At the bottom of the dropdown is the same input as in a run
-chat, and it gets the keyboard focus right away: Enter sends, Shift+Enter inserts a line, and
-attachments can be selected, dragged in, or pasted. Its toolbar holds details, model choice,
+focus, opens the conversation in the shared square header dropdown and dims the rest of the
+application; the button stays visible above the dimming. At the bottom is the same input as in
+a run chat, and it gets the keyboard focus right away: Enter sends, Shift+Enter inserts a line,
+and attachments can be selected, dragged in, or pasted. Its toolbar holds details, model choice,
 reasoning, reset, send, and stop.
 This dropdown is the only place of the conversation; Start has no second coordinator chat.
 It belongs to the server shown by the browser or selected in VS Code and oversees that server's
@@ -436,10 +436,10 @@ complete run contents. The detail helps with assigning your question and grants 
 additional task; a view change alone triggers no model request.
 
 Escape first closes an open selection menu and then the history; focus returns to the
-button. A click on the button or on the dimmed area, or tabbing out of the conversation,
-closes it as well. This ends no work and discards no draft. Overview, Settings, and Help close
-the history; on a run switch, conversation and input are kept. The overview corner and `Cmd+I` or
-`Ctrl+I` open only the run overview.
+button. The close button, a click on the header button or on the dimmed area, or tabbing out of
+the conversation closes it as well. This ends no work and discards no draft. Overview, Settings,
+and Help close the history; on a run switch, conversation and input are kept. The overview corner
+and `Cmd+I` or `Ctrl+I` open only the run overview.
 
 Only the first opening connects the stream. While the global coordinator works, the frame of
 the button pulses, as with working agents in their chat.
@@ -558,9 +558,16 @@ The browser docking layout and addressee are stored per run in the browser. Star
 a run focuses its visible chat input once it is ready, including a remembered chat partner.
 Clicking or typing elsewhere while it loads cancels that focus request.
 
+The run title opens "Run details". Its panel contains all run metadata, start option badges,
+and contributed detail controls in cells that wrap as the panel narrows. "Run details",
+"Run script", "Agents", and "Share" use the same square dropdown below the header, up to
+800 pixels wide with a small inset at the right. Each dims the application and keeps its content
+within the available width. The close button, Escape, or clicking outside closes it. Focus returns
+to its button unless it has moved elsewhere.
+
 With write rights, the run header offers "Run script" right of the window buttons, behind a thin
-divider. It opens a scrollable list of the run scripts you may start below the header, as wide as
-the window allows up to 800 pixels and ending at its right edge, in two columns when there is room.
+divider. Its dropdown lists the run scripts you may start, in two columns when there is room
+and one column in narrow panels.
 The scripts appear as the same compact cards as on the Start page with title, two lines of
 description, and an always-visible play icon at the top right; hover or keyboard focus emphasizes
 the icon, and the whole card starts the script. Those you can start come first, the others
@@ -703,8 +710,8 @@ brings a hidden card into view, and Escape, a click outside, or the x in the top
 closes. All actors permitted by your access rights are available, including stopped actors.
 TypeScript actors require inspection rights.
 
-"Agents" in the run header opens the same graph with the title "Agents" as soon as the run has an
-actor besides you; it grows down to the bottom of the window and pans the same way. Clicking an
+"Agents" in the run header opens the same graph with the title "Agents" in the shared header
+dropdown as soon as the run has an actor besides you; the graph pans within the panel. Clicking an
 actor there also makes it the chat's addressee. Its labeled button wraps with the other header
 actions when space is short.
 
@@ -924,12 +931,14 @@ After expiry or a server restart, that server asks for sign-in again without aff
 With sign-in, the owner of a run and users with `runs.read.all` can share it with other users of
 the same profile. Click "Share ..." at the end of its row on Start or Runs, or "Share" in the run
 header. A new empty run offers "Share" before its first message; the choice applies as soon as the
-run is created. The "Share run" dialog names the run and shows a list: "Everyone" first, then
-every other user of the profile, each row with the switch "Off", "Can view", or "Can operate". A
-user gets the higher of "Everyone" and their own row. "Save" stays disabled until something changes
-and while saving; when the server refuses, the reason appears in the dialog, which keeps your
-changes. "Cancel" or Escape closes it without saving. The dialog is the same in the browser and in
-VS Code; the labeled header button wraps with the other actions when space is short.
+run is created. The "Share run" dropdown opens below the header or the row's share action and
+uses the same panel and content in both places. It names the run and shows a list: "Everyone"
+first, then every other user of the profile, each row with the switch "Off", "Can view", or
+"Can operate". A user gets the higher of "Everyone" and their own row. "Save" stays disabled until
+something changes and while saving; when the server refuses, the reason appears in the panel,
+which keeps your changes. "Cancel", Escape, or clicking outside closes it without saving. The panel is the same
+in the browser and in VS Code; the labeled header button wraps with the other actions when
+space is short.
 
 "Can view" shows the run, its chat, apps, and journal as far as your own permissions go, but
 operates nothing: the run header shows "View only", the chat input is disabled with "Shared with

@@ -1381,11 +1381,19 @@ the header's window buttons compares client coordinates with client rectangles. 
 `vscode` has no such setting, the shell's `ragents.zoom` applies there (`apps/web/tests/zoom.test.ts`,
 `apps/web/tests/zoom-browser.test.ts`).
 
-Menus, header hints, actor popouts, chat step details, journal, and global
-coordinator are `Popover`, `Tooltip`, and `Select` from the UI library; Base UI positions
-them at the anchor (also at a virtual position or below the header edge), limits them to
-the available space, and follows scrolling and layout changes. Spacing, opening direction,
-focus target, and closing behavior remain properties of the respective caller.
+Menus, header hints, actor popouts, chat step details, and journal use `Popover`, `Tooltip`,
+and `Select` from the UI library. Base UI follows their anchors, scrolling, and layout changes.
+Header dropdowns share `HeaderDropdown`, exported through `@ragents/web/ui`: Run details,
+Run script, Agents, Share, and the global coordinator use the same square panel, labeled
+heading, close button, 8 px padding, and theme dimming. The panel opens below the nearest
+header, inset 8 px from its right edge; outside a header it follows the calling row or action.
+Its width is `min(800px, max(320px, anchor width - 16px), available width)`, so narrow action
+anchors still give a readable panel and the viewport always limits its width. Height is limited
+to 70 percent of the viewport, 560 px, and the available space. The portal sits within the
+nearest header by default, keeping the trigger above dimming. The nonmodal Base UI popover
+closes on Escape or an outside press and restores focus unless it has moved elsewhere.
+The global conversation uses region semantics, keeps its history mounted, and initially
+focuses its composer.
 
 The local chat and run panel settings share storage, validation before
 writing, and notification in the same and in other browser tabs. The theme uses
@@ -1449,8 +1457,10 @@ Instead, plugins fill typed slots for:
   `apps/web/src/chat/QuasselHost.tsx`), and a display with a better base sets its own
   `QuasselProvider`, whose resolver wins. Several active resolvers are an error. quassel resolves an
   address once, when its Markdown mounts, so whatever the resolution needs must be there before.
-- run metadata (`sessionMetadata`): a component for the run details in the header; the run list
-  takes its lines from the server-side `listDetail` instead
+- run metadata (`sessionMetadata`): a component for the Run details dropdown opened from the
+  run title; responsive cells contain every metadata contribution, start option badge, and
+  details-placed header contribution. Cells and their text wrap in narrow panels without
+  horizontal clipping. The run list takes its lines from the server-side `listDetail` instead
 - run header contributions (`sessionHeaders`): contributions appear in the shared run details;
   with `placement: "bar"` instead in the run's title bar between the window buttons and "Share"
   (`RunPanelHeader`), where a contribution that has nothing to show renders `null`.
@@ -1788,9 +1798,9 @@ copied into the source tree by CLI and styled with Tailwind: `Button`, `Badge`, 
 `Progress`, `Separator`, `Skeleton`, `Spinner`, `Empty` with their parts (`SelectTrigger`,
 `DialogContent`, `TabsList`, and so on), plus `cn` and icons from `lucide-react`. Props, variants, and
 composition follow shadcn; `Badge` additionally accepts semantic `tone` (see below).
-The host's own building blocks on top are `InteractiveItem`, `ListDetail`, `SectionLabel`, `SvgEdge`,
-and, only in the host, the page `Modal` in `modal.tsx`. The choice follows the role, not
-taste:
+The host's own building blocks on top are `InteractiveItem`, `ListDetail`, `SectionLabel`,
+`SvgEdge`, `HeaderDropdown`, and, only in the host, the page `Modal` in `modal.tsx`.
+The choice follows the role, not taste:
 
 - `Button` without a variant (`default`): the ONE main action of a surface or dialog
   (Start, Confirm, New run); at most one per view.
@@ -1947,17 +1957,20 @@ Mini-apps use the same components with the same look; the mini-app runtime sets
 `data-ui-surface="mini-app"` on the frame root element only as a marker for font and
 base dimensions. Details on forms, tables, theme bridge, and own app CSS are in actor-programs.md.
 
-The journal surface and the global coordinator history are `PopoverContent` surfaces with their own
-opening direction and corner shape. `PopoverContent` keeps 8 pixels of distance to the
+The journal surface uses `PopoverContent`; header panels use `HeaderDropdown` with shared
+positioning and square corners. `PopoverContent` keeps 8 pixels of distance to the
 calling control by default. Dialogs and dimming popouts share
 `--backdrop` from the theme (black at 40 percent opacity in the light and 60 percent in the dark
 theme); individual surfaces define no dimming color of their own. `PopoverContent` with `dim`
 dims everything in the stacking context of its portal; `container` moves the portal into a given
-element, which the global coordinator uses to keep its header button above its own dimming.
+element, which lets a header button remain above its dropdown's dimming.
 
 Settings and Help are icon buttons in the shared header. The run title opens metadata, start
 options, and contributed run controls. The logo at the left of the header is the button
 "Back to Start"; the header also provides Stop run.
+`ShareContent` in `panel/SharePanel.tsx` owns loading, access choices, errors, Save, and Cancel;
+`SharePanel` presents it in the same dropdown shell for run headers and run-list actions.
+Callers without an action anchor use a virtual anchor at the top of their page container.
 
 `DialogContent` distinguishes four regular app areas with `scope` (`ModalScope`); the
 host's page `Modal` passes it through:
@@ -2466,12 +2479,12 @@ oversees only this server's runs; switching environments selects a separate conv
 Coordinator runs do not appear in the ordinary run list. In the header the contribution is a plain button (`PopoverTrigger`) with the
 accessible name "Global coordinator", styled like an input field with that text in muted color;
 it fills its header slot, and the header keeps its fixed height of 45 pixels. Button and status
-are on one row. The button opens the history as a non-modal dropdown below the header with
-`dim`; `aria-expanded` and, while open, `aria-controls` point to the dropdown. The dropdown is
-portaled into the contribution's own element inside the header, so its backdrop shares the
-header's stacking context and the button stays visible and clickable above the dimming. At
-the bottom of the dropdown is the normal card composer of the run chat (`ChatPanel` with
-`ChatInputToolbar`); level of detail, attachment, model, reasoning, reset, send, and stop are in
+are on one row. The button opens the history in the shared square `HeaderDropdown` below the
+header; `aria-expanded` and, while open, `aria-controls` point to the dropdown. The shared shell
+provides its labeled heading, close button, width and height limits, padding, and dimming;
+the button stays visible and clickable above the dimming. At the bottom is the normal card
+composer of the run chat (`ChatPanel` with `ChatInputToolbar`); level of detail, attachment,
+model, reasoning, reset, send, and stop are in
 its toolbar. The contribution has one conversation, one draft with attachments, and one
 stream, independent of the active run.
 
@@ -2512,12 +2525,11 @@ through its existing tools when needed; the orientation grants no rights.
 The dropdown keeps the role `region` with the name "Global coordinator", has no combobox
 semantics, and no focus trap. A click, Enter, or Space on the button opens it, and its
 composer input gets the focus at once; with read access only, the history gets it. Escape
-first closes an open selection menu and then the dropdown; a click on the button or on the
-dimmed area and tabbing out of button and dropdown close it as well. On closing, focus returns
-to the button unless it already moved elsewhere. Typing on the closed button does not open the
-dropdown. The overview and page-wide dialogs also close the history but keep the
-conversation. The dropdown height takes the visible viewport into account; when narrow, it uses
-the available width.
+first closes an open selection menu and then the dropdown; the close button, a click on the
+header button or on the dimmed area, and tabbing out of button and dropdown close it as well.
+On closing, focus returns to the button unless it already moved elsewhere. Typing on the closed
+button does not open the dropdown. The overview and page-wide dialogs also close the history but keep the
+conversation. Panel geometry comes from `HeaderDropdown` in both browser and VS Code.
 
 The global chat uses the coordinator's level of detail, `grouped` without a product default. Its
 level of detail stays switchable and is stored in the browser separately from the run chats.
@@ -2668,21 +2680,22 @@ The title shrinks within its row or moves to its own row; window buttons, bar co
 Share, Run script, and the remaining header icons wrap as whole controls and stay directly
 reachable without clipping or horizontal scrolling. The header occupies its natural height in
 the panel layout, so the dock's measured workspace begins below it. The title shows a pulsing
-dot during processing, the attention badge, and a chevron; a click opens the plugins' header
-contributions without bar placement, the run metadata, and the start options as a popover.
+dot during processing, the attention badge, and a chevron; a click opens "Run details" in
+`HeaderDropdown`, with every metadata contribution, start option badge, and header contribution
+without bar placement in responsive cells. Cells and their content wrap without clipping.
 With `runs.write`, "Run script" (`RunScriptMenu`) follows the layout actions behind a
 thin divider: an outline button in the primary color whose pop-out lists the run scripts from
 `ragents.runs.scripts` as the Start page's compact `StartTile` items filling their grid cells,
 with title, two lines of description, and a play icon at the top right. Available ones come
 first and unavailable ones after them disabled with their reason, each group in listed order.
-The pop-out is anchored to the shared header: it opens below it, ends 8 pixels before its right
-edge, and is `min(800px, header width - 16px)` wide, with two columns from a content width of 480
-pixels. A click starts the script through `ragents.runs.startScript`; until the answer its item
-is `starting` ("Starting ..." with a spinner in the action position) and every other item is
-locked, success closes the pop-out, a refusal stays visible in it. Its label stays visible when
+`HeaderDropdown` supplies the shared panel geometry; the script cards form two columns from a
+content width of 480 pixels and one column below it. A click starts the script through
+`ragents.runs.startScript`; until the answer its item is `starting` ("Starting ..." with a
+spinner in the action position) and every other item is locked. Success closes the pop-out;
+a refusal stays visible in it. Its label stays visible when
 the header wraps.
 With `canShare`, "Share" (`RunShareButton`) stands right before it, its icon in the primary color
-while the run is shared, and opens `ShareDialog` (`panel/ShareDialog.tsx`) against
+while the run is shared, and opens `SharePanel` (`panel/SharePanel.tsx`) against
 `ragents.runs.sharing` and `ragents.runs.share`, in the browser and in the VS Code iframe alike;
 its label stays visible when the header wraps. A run the panel opened under a fresh identifier (a new
 empty run) counts as shareable before its first message when the profile has sign-in and the user
@@ -2694,10 +2707,10 @@ buttons of the chat inputs for a read share and keeps them for a run only its ow
 owner operates this run", otherwise "Read access to this run"). When the open run, seen as shared
 with the viewer, leaves the run list, the panel returns to Start with "This run is no longer available
 to you."; in the host `vscode` it sends `showStart` with this `notice`.
-The run panel's popouts (run details, run scripts, recipient, agents) dim the rest
-(`dim` on the popover building block), so that they stand out. At the far right of the shared
-header, `RunPanelActions` shows icon buttons for Settings (`settings.read`, the same dialog as in
-the web app), Help (`runs.inspect`), in the host `vscode` "Open in browser", and with a signed-in
+The header dropdowns, including sharing, and the recipient popout use the shared theme dimming.
+At the far right of the shared header, `RunPanelActions` shows icon buttons for Settings
+(`settings.read`, the same dialog as in the web app), Help (`runs.inspect`), in the host `vscode`
+"Open in browser", and with a signed-in
 user a sign-out button whose tooltip names the account; there is no menu. `ragents.orchestration` provides the run panel (`web/run-panel/`): mini-apps come from the shared app catalog with `visible !== false`. In VS Code the panel stays on
 chat and every app entry opens or focuses its editor tab. In the browser, it renders its chat and
 the shared app catalog through `DockWorkspace`. Questions and news remain in the chat.
@@ -2743,8 +2756,8 @@ to the top of the child as `SvgEdge` from the UI library; an edge into a working
 with a working member) is `accent` and `active`, one into an actor waiting for input `warning`.
 An open group stands above a frame holding its members in rows, with a single edge into the frame.
 The graph is a list of buttons in creator-before-child order, so Tab follows the tree.
-`ActorPopout` sizes itself by its content up to the room Base UI computes beside the anchor
-(`--available-width`, `--available-height`) and hands that room, less its header, to its body as
+The recipient's `ActorPopout` sizes itself by its content up to the room Base UI computes
+beside the anchor (`--available-width`, `--available-height`) and hands that room, less its header, to its body as
 `--popout-body-width` and `--popout-body-height`; the graph measures both with a `ResizeObserver` on a
 hidden probe, so window resizes and new actors recompute columns, layout, and size. `graphViewport`
 makes the view as large as the layout up to that room; an axis that does not fit pans over the
@@ -2758,7 +2771,8 @@ key in the canvas. After a click on a group, the group card stays at its screen 
 the pan limits allow; the position is applied again on the first resize notification after the
 popout has moved to fit its new size. `ActorGraph` (`ActorGraph.tsx`) is the only renderer, used by
 the recipient popout without a header (its label only names the dialog, the close button sits in
-the top right corner) and by the header view with the title "Agents". Per
+the top right corner) and by `HeaderDropdown` with the title "Agents". The header graph uses
+the shared panel's available body dimensions and pans within them. Per
 card there are the handle, the state (`working` with a spinner, `waiting for input` for an open
 action of the actor, `waiting`, or `stopped`), a time, the short description (the actor's
 `description`, otherwise the first line of its first own input, shortened to 90 characters,
@@ -2771,8 +2785,8 @@ While the recipient is not the actor chosen without a stored choice (`selectedRu
 chooses that actor directly without opening the popout.
 Next to it the bar names the first working other actor with a spinner and waiting inputs. The
 header contribution `ragents.orchestration.agents` (`placement: "bar"`, `AgentsHeader.tsx`) shows
-"Agents" while the run lists at least one actor besides humans and opens the same graph in a
-popout with a header, aligned to its right edge and growing down to the bottom of the window; a click there stores the chosen actor the same way, and the run
+"Agents" while the run lists at least one actor besides humans and opens the same graph in
+the shared `HeaderDropdown`; a click there stores the chosen actor the same way, and the run
 panel takes it over through the stored state. The chosen actor is stored per run in browser storage
 (`ragents.orchestration.run-navigation:<runId>`); browser app selection belongs to the docking
 state. These domains have separate storage keys; layout preferences are not migrated. Invalid
@@ -2958,11 +2972,13 @@ at the end. A row with `canShare` has the icon button "Share ..." (`aria-label` 
 outside the row's button, beside its delete button when permitted. Rows without actions keep
 an empty cell, so the columns stay aligned. The share button sends `openSharing` with
 server and run; the host loads `ragents.runs.sharing` into `PanelState.sharing` (connection, run,
-`result`, `pending`, `error`), and `PanelPage` shows `ShareDialog` as long as it is set. Its Save
-sends `share` with the whole sharing, Cancel and Escape `closeSharing`; the host closes the dialog
-on success and leaves a refusal in it, with the user's draft. `openSharing` and `saveSharing` in
-`run-sharing.ts` are this flow for every host: the server interface keeps the dialog in React
-state in both the browser and VS Code, and an answer for a dialog closed meanwhile is dropped.
+`result`, `pending`, `error`), and `PanelPage` shows `SharePanel` as long as it is set, anchored
+to the row's share action or the top of the page when that action is unavailable. Its Save
+sends `share` with the whole sharing; Cancel, Escape, and outside presses send `closeSharing`.
+The host closes the panel on success and leaves a refusal in it, with the user's draft.
+`openSharing` and `saveSharing` in `run-sharing.ts` are this flow for every host:
+the server interface keeps the panel in React
+state in both the browser and VS Code, and an answer for a panel closed meanwhile is dropped.
 `PanelState.notice` is a short message on Start, such as the one for a share taken back.
 Plugin `startSections` render directly below Continue with the complete server-listed visible
 run list and its metadata; the host adds no heading or wrapper for a section.

@@ -1,6 +1,8 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { mkdir, mkdtemp, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { build } from "esbuild";
 import { chromium, type Locator, type Page } from "playwright-core";
@@ -110,6 +112,7 @@ test("the VS Code panel starts on the server's Start page and keeps one loading 
     assert.equal(await detailOf(), "Starting the template.");
     assert.equal(await page.getByRole("region", { name: "Run title bar" }).getByRole("heading").textContent(), "Setup template");
     const launching = await center(notice);
+    const launchingHeader = await page.locator("header").boundingBox();
     const statusBar = await page.getByRole("contentinfo", { name: "Run status bar" }).boundingBox();
     assert.ok(statusBar, "The pending panel reserves the run status bar.");
     assert.equal(await startPage.count(), 0, "The run takes the place of Start while it launches.");
@@ -119,8 +122,11 @@ test("the VS Code panel starts on the server's Start page and keeps one loading 
     await page.waitForFunction(() => window.runStartFixture.activeRun() !== undefined);
     await waitForTitle("Loading run");
     const loading = await center(notice);
+    const loadingHeader = await page.locator("header").boundingBox();
     assert.deepEqual(await page.getByRole("contentinfo", { name: "Run status bar" }).boundingBox(), statusBar, "The status bar keeps its space when the run opens.");
-    assert.ok(Math.abs(loading.x - launching.x) < 1 && Math.abs(loading.y - launching.y) < 1, "The run view continues the loading state at the same place.");
+    assert.ok(launchingHeader && loadingHeader);
+    assert.ok(Math.abs(loading.x - launching.x) < 1 && Math.abs(loading.y - launching.y - (loadingHeader.height - launchingHeader.height) / 2) < 1,
+      `The run view keeps the loading state centered below its wrapping header: ${JSON.stringify({ launching, loading, launchingHeader, loadingHeader })}.`);
     assert.equal(await page.locator("textarea").count(), 1, "The chat input stays below the loading state.");
 
     await chat({ kind: "status", running: false, startup: { status: "preparing", message: "Preparing the working directory." } });
@@ -393,3 +399,171 @@ test("the run script button lists the run scripts of the open run as start items
   await page.getByRole("alert").filter({ hasText: "fixes the start option demo.mode" }).waitFor();
   assert.equal(await list.isVisible(), true, "A refused start keeps the list open with its reason.");
 }));
+
+const settleDropdown = (page: Page) => page.evaluate(async () => {
+  await Promise.all(document.getAnimations().filter((animation) => animation.effect?.getComputedTiming().iterations !== Infinity)
+    .map((animation) => animation.finished.catch(() => undefined)));
+});
+
+const dropdownBounds = async (page: Page, panel: Locator, trigger: Locator) => {
+  await settleDropdown(page);
+  const header = await page.locator("header").filter({ has: trigger }).boundingBox();
+  const bounds = await panel.boundingBox();
+  assert.ok(header && bounds, "The header and dropdown are visible.");
+  assert.ok(Math.abs(bounds.y - header.y - header.height - 8) < 1, "Every dropdown opens below the complete wrapping header.");
+  assert.ok(Math.abs(bounds.x + bounds.width - header.x - header.width + 8) < 1, "Every dropdown ends at the same header gutter.");
+  assert.ok(Math.abs(bounds.width - Math.min(800, header.width - 16)) < 1, "Every dropdown shares the same responsive width.");
+  assert.notEqual(await panel.getAttribute("aria-modal"), "true", "Header dropdowns keep the header available.");
+  const style = await panel.evaluate((element) => {
+    const computed = getComputedStyle(element);
+    return { corners: [computed.borderTopLeftRadius, computed.borderTopRightRadius, computed.borderBottomLeftRadius, computed.borderBottomRightRadius],
+      padding: [computed.paddingTop, computed.paddingRight, computed.paddingBottom, computed.paddingLeft], overflow: element.scrollWidth > element.clientWidth };
+  });
+  assert.deepEqual(style.corners, ["0px", "0px", "0px", "0px"], "Header dropdowns have square corners.");
+  assert.deepEqual(style.padding, ["8px", "8px", "8px", "8px"], "Header dropdowns share their padding.");
+  assert.equal(style.overflow, false, "The panel never clips its content horizontally.");
+  const dim = page.locator('[data-slot="popover-backdrop"]:visible');
+  assert.equal(await dim.count(), 1, "One shared dimming surface belongs to the open dropdown.");
+  assert.notEqual(await dim.evaluate((element) => getComputedStyle(element).backgroundColor), "rgba(0, 0, 0, 0)");
+  return bounds;
+};
+
+for (const { host, width } of [{ host: "browser", width: 1400 }, { host: "browser", width: 420 }, { host: "vscode", width: 420 }]) {
+  test(`run details, scripts, and sharing use the same header dropdown at ${width}px in ${host}`, browserOnly, async () => {
+    const url = await (fixtureUrl ??= buildFixture());
+    const browser = await launchBrowser();
+    try {
+      const page = await browser.newPage({ viewport: { width, height: 900 }, reducedMotion: "reduce" });
+      page.setDefaultTimeout(8000);
+      const errors: string[] = [];
+      page.on("pageerror", (error) => errors.push(error.message));
+      await page.goto(`${url}?host=${host}&dropdowns`);
+      await page.getByRole("list", { name: "Recent", exact: true }).waitFor();
+      await page.evaluate(() => {
+        window.runStartFixture.views.add("existing");
+        window.runStartFixture.command({ type: "selectRun", runId: "existing" });
+      });
+      await page.waitForFunction(() => window.runStartFixture.activeRun() === "existing");
+      await page.evaluate(() => {
+        window.runStartFixture.chat({ kind: "status", running: false });
+        window.runStartFixture.chat({ kind: "replay-end", conversationId: null });
+      });
+      const shots = join(tmpdir(), "ragents-browser-shots");
+      await mkdir(shots, { recursive: true });
+      const shoot = async (name: string) => {
+        await settleDropdown(page);
+        await page.screenshot({ path: join(shots, `header-${name}-${width}${host === "vscode" ? "-vscode" : ""}.png`) });
+      };
+      const title = page.getByRole("button", { name: "Existing run", exact: true });
+      const details = page.getByRole("dialog", { name: "Run details", exact: true });
+      await title.click();
+      const texts = await page.evaluate(() => Object.values(window.runStartFixture.metadataTexts));
+      for (const text of [...texts, "Careful review", "Contributed details action"]) {
+        const cell = details.getByText(text, { exact: true });
+        await cell.waitFor();
+        assert.equal(await cell.evaluate((element) => element.scrollWidth <= element.clientWidth && element.scrollHeight <= element.clientHeight), true,
+          `The whole contribution stays readable: ${text}`);
+      }
+      const detailBounds = await dropdownBounds(page, details, title);
+      const metadataRows = await details.getByText(texts[0]!, { exact: true }).boundingBox();
+      const nextMetadata = await details.getByText(texts[1]!, { exact: true }).boundingBox();
+      assert.ok(metadataRows && nextMetadata);
+      assert.ok(width > 420 ? Math.abs(metadataRows.y - nextMetadata.y) < 1 : nextMetadata.y > metadataRows.y, "Metadata changes from a grid to wrapped cells in a narrow panel.");
+      assert.equal(await details.evaluate((element) => element.contains(document.activeElement)), true, "Opening details moves focus into the panel.");
+      assert.equal(await title.getAttribute("aria-controls"), await details.getAttribute("id"));
+      await shoot("run-details");
+      await page.keyboard.press("Escape");
+      await details.waitFor({ state: "detached" });
+      assert.equal(await title.evaluate((element) => element === document.activeElement), true, "Escape restores title focus.");
+      assert.equal(await title.getAttribute("aria-expanded"), "false");
+      await title.click();
+      await details.waitFor();
+      await title.click();
+      await details.waitFor({ state: "detached" });
+
+      const scriptButton = page.getByRole("button", { name: "Run script", exact: true });
+      const scripts = page.getByRole("dialog", { name: "Run script", exact: true });
+      await scriptButton.click();
+      await scripts.getByRole("list", { name: "Run scripts" }).waitFor();
+      const scriptBounds = await dropdownBounds(page, scripts, scriptButton);
+      assert.deepEqual({ x: scriptBounds.x, y: scriptBounds.y, width: scriptBounds.width }, { x: detailBounds.x, y: detailBounds.y, width: detailBounds.width });
+      const review = await scripts.locator('button[data-tile="Review"]').boundingBox();
+      const strict = await scripts.locator('button[data-tile="Strict review"]').boundingBox();
+      assert.ok(review && strict);
+      assert.ok(width > 420 ? Math.abs(review.y - strict.y) < 1 : strict.y > review.y, "Script cards use two columns only when they fit.");
+      await shoot("run-script");
+      await page.keyboard.press("Escape");
+      await scripts.waitFor({ state: "detached" });
+      assert.equal(await scriptButton.evaluate((element) => element === document.activeElement), true, "Scripts restore trigger focus.");
+
+      const shareButton = page.getByRole("button", { name: "Share", exact: true });
+      const share = page.getByRole("dialog", { name: "Share run", exact: true });
+      await page.evaluate(() => { window.runStartFixture.holdSharing = true; });
+      await shareButton.click();
+      await share.getByRole("status").filter({ hasText: "Loading ..." }).waitFor();
+      const shareBounds = await dropdownBounds(page, share, shareButton);
+      assert.deepEqual({ x: shareBounds.x, y: shareBounds.y, width: shareBounds.width }, { x: detailBounds.x, y: detailBounds.y, width: detailBounds.width });
+      await page.evaluate(() => { window.runStartFixture.holdSharing = false; window.runStartFixture.releaseSharing(); });
+      const save = share.getByRole("button", { name: "Save", exact: true });
+      await save.waitFor();
+      assert.equal(await save.isDisabled(), true, "An unchanged sharing cannot be saved.");
+      const choose = (user: string, access: string) => share.getByRole("group", { name: `Access for ${user}`, exact: true }).getByRole("button", { name: access, exact: true }).click();
+      await choose("Everyone", "Can view");
+      await choose("Bob", "Can operate");
+      await choose("Carol", "Can view");
+      await shoot("share");
+      await page.evaluate(() => { window.runStartFixture.holdSharing = true; window.runStartFixture.sharingError = "Sharing could not be saved."; });
+      await save.click();
+      await share.getByRole("button", { name: "Saving ...", exact: true }).waitFor();
+      assert.equal(await share.getByRole("group", { name: "Access for Carol", exact: true }).getByRole("button", { name: "Off", exact: true }).isDisabled(), true);
+      await page.evaluate(() => { window.runStartFixture.holdSharing = false; window.runStartFixture.releaseSharing(); });
+      await share.getByRole("alert").filter({ hasText: "Sharing could not be saved." }).waitFor();
+      assert.equal(await share.getByRole("group", { name: "Access for Carol", exact: true }).getByRole("button", { name: "Can view", exact: true }).getAttribute("aria-pressed"), "true", "A saving error keeps the draft.");
+      await page.evaluate(() => { window.runStartFixture.sharingError = undefined; });
+      await save.click();
+      await share.waitFor({ state: "detached" });
+      assert.deepEqual(await page.evaluate(() => window.runStartFixture.shares), Array.from({ length: 2 }, () => ({ everyone: "read", users: [{ userId: "bob", access: "write" }, { userId: "carol", access: "read" }] })));
+      assert.equal(await shareButton.evaluate((element) => element === document.activeElement), true, "Saving restores the Share button's focus.");
+
+      for (const [trigger, panel] of [[title, details], [scriptButton, scripts], [shareButton, share]]) {
+        await trigger!.click();
+        await panel!.waitFor();
+        await settleDropdown(page);
+        await page.mouse.click(2, 898);
+        await panel!.waitFor({ state: "detached" });
+        assert.equal(await trigger!.evaluate((element) => element === document.activeElement), true, "Outside closing restores the same trigger.");
+      }
+      await title.click();
+      await details.waitFor();
+      await scriptButton.click();
+      await details.waitFor({ state: "detached" });
+      await scripts.waitFor();
+      await shareButton.click();
+      await scripts.waitFor({ state: "detached" });
+      await share.waitFor();
+      await page.keyboard.press("Escape");
+      await share.waitFor({ state: "detached" });
+      if (host === "browser" && width === 1400) {
+        await page.evaluate(() => { window.runStartFixture.sharingError = "Sharing could not be loaded."; });
+        await shareButton.click();
+        await share.getByRole("alert").filter({ hasText: "Sharing could not be loaded." }).waitFor();
+        assert.equal(await share.getByRole("list", { name: "Shared with", exact: true }).count(), 0);
+        await share.getByRole("button", { name: "Cancel", exact: true }).click();
+        await share.waitFor({ state: "detached" });
+        assert.equal(await shareButton.evaluate((element) => element === document.activeElement), true);
+        await page.evaluate(() => { window.runStartFixture.sharingError = undefined; });
+        await shareButton.click();
+        await share.getByRole("button", { name: "Close share run", exact: true }).click();
+        await share.waitFor({ state: "detached" });
+        assert.equal(await shareButton.evaluate((element) => element === document.activeElement), true);
+        await title.click();
+        await details.getByRole("button", { name: /Contributed details action/ }).focus();
+        await page.keyboard.press("Tab");
+        await details.waitFor({ state: "detached" });
+        assert.equal(await page.locator("header").getByRole("button", { name: "Chat", exact: true }).evaluate((element) => element === document.activeElement), true,
+          "Tabbing out closes the dropdown and preserves focus on the next header control.");
+      }
+      assert.deepEqual(errors, []);
+    } finally { await browser.close(); }
+  });
+}

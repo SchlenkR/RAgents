@@ -13,7 +13,7 @@ import { connectionRunOf } from "../run-overview";
 import { openSharing, REVOKED_SHARE_NOTICE, saveSharing } from "../run-sharing";
 import { PanelPage } from "../panel/PanelPage";
 import type { PanelAction, PanelState } from "../panel/contract";
-import { useSharingStore } from "../panel/ShareDialog";
+import { useSharingStore } from "../panel/SharePanel";
 import { HelpDialog } from "../HelpDialog";
 import { chatUserLocation, type ChatRunLocation } from "../chat/user-location";
 import { PanelContributions } from "./PanelContributions";

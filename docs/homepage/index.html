@@ -196,8 +196,6 @@ a { color: inherit; text-underline-offset: 4px; }
 .bento > li.wide { grid-column: span 4; }
 .bento > li.narrow { grid-column: span 2; }
 .bento > li.full { grid-column: 1 / -1; }
-.bento-split { display: grid; grid-template-columns: minmax(0, 1fr) 280px; gap: 32px; align-items: center; }
-.bento-split > div { display: flex; flex-direction: column; gap: 14px; align-items: flex-start; }
 .bento h3 { margin: 0; font-size: 20px; font-weight: 650; letter-spacing: -.02em; line-height: 1.25; }
 .bento p { color: var(--muted); font-size: 15px; line-height: 1.6; }
 .bento .glyph { width: 40px; height: 40px; }
@@ -209,8 +207,6 @@ a { color: inherit; text-underline-offset: 4px; }
   .shot-pair, .shot-side { grid-template-columns: minmax(0, 1fr); gap: 24px; }
   .bento { grid-template-columns: minmax(0, 1fr); }
   .bento > li.wide, .bento > li.narrow, .bento > li.full { grid-column: auto; }
-  .bento-split { grid-template-columns: minmax(0, 1fr); gap: 20px; }
-  .bento-split .shot { max-width: 280px; }
   .bento-points { grid-template-columns: minmax(0, 1fr); }
 }
 .limits { display: grid; gap: 14px; margin-bottom: 144px; padding: 28px 32px; border: 1px solid var(--track); border-radius: 16px; background: var(--panel); }
@@ -350,8 +346,8 @@ a { color: inherit; text-underline-offset: 4px; }
         <li class="wide" id="local-ai"><span class="glyph square">AI</span><h3>Run Agents with Local Models</h3><p>Add an OpenAI-compatible server to your profile, give model aliases their own thinking levels and send images to models that can read them.</p><ul class="bento-points"><li><strong>Your own model server</strong>Add the OpenAI-compatible endpoint you host to your profile.</li><li><strong>Model aliases</strong>Give each alias its own default and available thinking levels.</li><li><strong>Images</strong>Attach images in the browser and VS Code for models that support them.</li></ul></li>
         <li class="narrow" id="rooms"><span class="glyph square">#</span><h3>Each Setup Starts in Its Own Room</h3><p>Start a setup again in the same run with its own agents and state in a new room.</p><a class="text-link" href="guide-runtime.html#rooms">Rooms<svg class="link-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14m-5-5 5 5-5 5"/></svg></a></li>
         <li class="narrow" id="services"><span class="glyph square">:80</span><h3>Dev Servers Keep Running</h3><p>Let agents start dev servers in the background and open them in your browser through VS Code, including workstation services with WebSockets and live reload.</p></li>
-        <li class="wide" id="graph"><span class="glyph square">@</span><h3>Loops and More</h3><p>Open the agent graph from the run header to see all agents and how long their turns run.</p><figure class="shot"><img src="screenshots/graph.webp" alt="The agent graph of a run, showing the coordinator, its agents, their tasks, states, and turn times." loading="lazy" width="1200" height="390"></figure></li>
-        <li class="full" id="sharing"><div class="bento-split"><div><span class="glyph square"><svg viewBox="0 0 24 24"><circle cx="18" cy="5" r="2.5"/><circle cx="6" cy="12" r="2.5"/><circle cx="18" cy="19" r="2.5"/><path d="m8.2 10.8 7.6-4.6M8.2 13.2l7.6 4.6"/></svg></span><h3>Let Others Join a Run</h3><p>Share a run with individual users or everyone to watch or work along in the browser and VS Code.</p><a class="text-link" href="guide-clients.html#share-runs">Sharing and permissions<svg class="link-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14m-5-5 5 5-5 5"/></svg></a></div><figure class="shot"><img src="screenshots/sharing.webp" alt="The sharing dialog of a run, with access choices for everyone and individual users." loading="lazy" width="500" height="370"></figure></div></li>
+        <li class="narrow" id="graph"><span class="glyph square">@</span><h3>Loops and More</h3><p>Open the agent graph from the run header to see all agents and how long their turns run.</p></li>
+        <li class="full" id="sharing"><span class="glyph square"><svg viewBox="0 0 24 24"><circle cx="18" cy="5" r="2.5"/><circle cx="6" cy="12" r="2.5"/><circle cx="18" cy="19" r="2.5"/><path d="m8.2 10.8 7.6-4.6M8.2 13.2l7.6 4.6"/></svg></span><h3>Let Others Join a Run</h3><p>Share a run from its header or run list with individual users or everyone, in the browser and VS Code.</p><a class="text-link" href="guide-clients.html#share-runs">Sharing and permissions<svg class="link-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14m-5-5 5 5-5 5"/></svg></a></li>
       </ul>
     </div>
   </section>

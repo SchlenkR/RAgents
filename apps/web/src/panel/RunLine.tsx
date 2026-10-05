@@ -60,7 +60,7 @@ function RunDetails({ run }: { run: ConnectionRun }) {
 }
 
 /** One item per run, with state, title, time, owner, and metadata. */
-export function RunLine({ run, selecting = false, selectable = true, selected, actions = false, onOpen, onToggle, onShare, onDelete }: {
+export function RunLine({ run, selecting = false, selectable = true, selected, actions = false, onOpen, onToggle, onShare, sharingOpen = false, onDelete }: {
   run: ConnectionRun;
   selecting?: boolean;
   /** In selection mode, a row that cannot be selected keeps an empty checkbox cell and still opens its run. */
@@ -71,6 +71,7 @@ export function RunLine({ run, selecting = false, selectable = true, selected, a
   onOpen: () => void;
   onToggle?: () => void;
   onShare?: () => void;
+  sharingOpen?: boolean;
   onDelete?: () => void;
 }) {
   const [confirming, setConfirming] = useState(false);
@@ -93,7 +94,7 @@ export function RunLine({ run, selecting = false, selectable = true, selected, a
       <RunDetails run={run} />
     </InteractiveItem>
     {actions && <span className="mt-0.5 flex self-start" data-cell="share">
-      {onShare && <Button aria-label={`Share ${run.title}`} className="text-muted-foreground" onClick={onShare} size="icon-sm" title="Share ..." type="button" variant="ghost"><Share2Icon /></Button>}
+      {onShare && <Button aria-controls={sharingOpen ? "run-sharing-dropdown" : undefined} aria-expanded={sharingOpen} aria-haspopup="dialog" aria-label={`Share ${run.title}`} className={cn("text-muted-foreground", sharingOpen && "relative z-[110]")} data-share-run={run.id} onClick={onShare} size="icon-sm" title="Share ..." type="button" variant="ghost"><Share2Icon /></Button>}
       {onDelete && <Button aria-label={`Delete ${run.title}`} className="text-muted-foreground hover:text-destructive" onClick={() => setConfirming(true)} size="icon-sm" title="Delete run ..." type="button" variant="ghost"><Trash2Icon /></Button>}
     </span>}
     {confirming && onDelete && <ConfirmDialog confirmLabel="Delete" onClose={() => setConfirming(false)}

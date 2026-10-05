@@ -1,6 +1,8 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { build } from "esbuild";
 import { chromium, type Locator, type Page } from "playwright-core";
@@ -51,7 +53,8 @@ const inView = (element: Locator) => element.evaluate((node) => {
 
 /** Pan position, pan range, and cursor of the graph canvas in a pop-out. */
 const canvasOf = (popout: Locator) => popout.evaluate((node) => {
-  const scroller = [...node.querySelectorAll<HTMLElement>("*")].find((element) => getComputedStyle(element).overflowY === "auto");
+  let scroller = node.querySelector<HTMLElement>('ul[aria-label="Actors by creator"]')?.parentElement;
+  while (scroller && getComputedStyle(scroller).overflowY !== "auto") scroller = scroller.parentElement;
   if (!scroller) throw new Error("The pop-out has no graph canvas.");
   return { left: scroller.scrollLeft, top: scroller.scrollTop, maxLeft: scroller.scrollWidth - scroller.clientWidth, maxTop: scroller.scrollHeight - scroller.clientHeight, cursor: getComputedStyle(scroller).cursor };
 });
@@ -229,7 +232,7 @@ test("the addressee pop-out and the header's agents view show who created whom a
   assert.equal(await agents.locator("g[data-tone]").count(), 6, "one line leads into the open group's frame, none to each member");
   await settle();
   const agentsBox = await box(agents);
-  assert.ok(agentsBox.y + agentsBox.height >= 860 - 9 && agentsBox.width >= 1280 - 17, `the agents view grows down to the bottom and across the window (${agentsBox.x}, ${agentsBox.y}, ${agentsBox.width} x ${agentsBox.height})`);
+  assert.ok(agentsBox.y + agentsBox.height <= 860 - 7 && near(agentsBox.width, 800), `the agents view uses the shared header width and stays inside the window (${agentsBox.x}, ${agentsBox.y}, ${agentsBox.width} x ${agentsBox.height})`);
   await shoot("actor-graph-agents");
   await agentsGroup.click();
   assert.equal(await agentsGroup.getAttribute("aria-expanded"), "false");
@@ -240,6 +243,7 @@ test("the addressee pop-out and the header's agents view show who created whom a
   assert.ok(near(openAt.x, closedAt.x) && near(openAt.y, closedAt.y), `the clicked group card stays where it was clicked while the view grows (${closedAt.x}, ${closedAt.y} -> ${openAt.x}, ${openAt.y})`);
   await agents.locator("button[data-actor-handle=\"test-writer\"]").click();
   await page.locator("button[title^=\"Addressee: @test-writer\"]:visible").waitFor();
+  await agents.waitFor({ state: "detached" });
   assert.equal(await agents.count(), 0, "picking in the agents view closes it");
 
   await shoot("actor-graph-back");
@@ -261,4 +265,63 @@ test("the addressee pop-out and the header's agents view show who created whom a
   const zoomedEnd = await canvasOf(agents);
   assert.ok(near(zoomedStart.left - zoomedEnd.left, 80 * direction), `a drag follows the pointer under a page zoom (${zoomedStart.left} -> ${zoomedEnd.left})`);
   assert.deepEqual(errors, []);
+});
+
+test("the Agents header dropdown shares square responsive bounds and restores focus", {
+  skip: process.env.RAGENTS_BROWSER_TESTS !== "1", timeout: 90_000,
+}, async (context) => {
+  await mkdir("/private/tmp/ragents-actor-graph", { recursive: true });
+  const directory = await mkdtemp("/private/tmp/ragents-actor-graph/browser-");
+  context.after(() => rm(directory, { recursive: true, force: true }));
+  const url = await buildFixture(directory);
+  const screenshots = join(tmpdir(), "ragents-browser-shots");
+  await mkdir(screenshots, { recursive: true });
+  for (const width of [1400, 420]) {
+    const errors: string[] = [];
+    const page = await openPage(url, errors, { width, height: 900 });
+    try {
+      await page.locator("[data-chat=composer]").waitFor();
+      await page.evaluate(() => {
+        window.actorGraphFixture.chat("demo", { kind: "status", running: false });
+        window.actorGraphFixture.chat("demo", { kind: "replay-end", conversationId: null });
+      });
+      const trigger = page.getByRole("button", { name: "Agents", exact: true });
+      const panel = page.getByRole("dialog", { name: "Agents", exact: true });
+      await trigger.click();
+      await panel.locator('button[data-actor-handle="coordinator"]').waitFor();
+      await page.evaluate(async () => {
+        await Promise.all(document.getAnimations().filter((animation) => animation.effect?.getComputedTiming().iterations !== Infinity)
+          .map((animation) => animation.finished.catch(() => undefined)));
+      });
+      const header = await box(page.locator("header").filter({ has: trigger }));
+      const bounds = await box(panel);
+      assert.ok(near(bounds.y, header.y + header.height + 8), "Agents opens below the entire wrapping header.");
+      assert.ok(near(bounds.x + bounds.width, header.x + header.width - 8), "Agents shares the header's right gutter.");
+      assert.ok(near(bounds.width, Math.min(800, header.width - 16)), "Agents shares the header dropdown width.");
+      assert.ok(bounds.y + bounds.height <= 893, "The graph stays inside the visible viewport.");
+      const style = await panel.evaluate((element) => {
+        const computed = getComputedStyle(element);
+        return { corners: [computed.borderTopLeftRadius, computed.borderTopRightRadius, computed.borderBottomLeftRadius, computed.borderBottomRightRadius],
+          padding: [computed.paddingTop, computed.paddingRight, computed.paddingBottom, computed.paddingLeft], focused: element.contains(document.activeElement) };
+      });
+      assert.deepEqual(style.corners, ["0px", "0px", "0px", "0px"]);
+      assert.deepEqual(style.padding, ["8px", "8px", "8px", "8px"]);
+      assert.equal(style.focused, true);
+      assert.equal(await page.locator('[data-slot="popover-backdrop"]:visible').count(), 1);
+      await page.screenshot({ path: join(screenshots, `header-agents-${width}.png`) });
+      await page.keyboard.press("Escape");
+      await panel.waitFor({ state: "detached" });
+      assert.equal(await trigger.evaluate((element) => element === document.activeElement), true);
+      await trigger.click();
+      await panel.waitFor();
+      await trigger.click();
+      await panel.waitFor({ state: "detached" });
+      await trigger.click();
+      await panel.waitFor();
+      await page.mouse.click(2, 898);
+      await panel.waitFor({ state: "detached" });
+      assert.equal(await trigger.evaluate((element) => element === document.activeElement), true);
+      assert.deepEqual(errors, []);
+    } finally { await page.close(); }
+  }
 });

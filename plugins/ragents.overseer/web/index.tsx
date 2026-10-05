@@ -1,5 +1,5 @@
 import { useAccess } from "@ragents/web/AccessContext";
-import { Button, Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, Popover, PopoverContent, PopoverTrigger } from "@ragents/web/ui";
+import { Button, Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, HeaderDropdown } from "@ragents/web/ui";
 import { RunModalContext } from "@ragents/web/ui/dialog";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ChatMessages, ChatInputToolbar, ChatPanel, type ChatInputHandle, type ChatEvent } from "quassel";
@@ -55,8 +55,6 @@ function OverseerConversation({ open, onOpen, onClose, onBusy, userLocation, run
   const resetPending = useRef(false);
   const resetObserved = useRef(false);
   const composer = useRef<ChatInputHandle>(null);
-  const [toolbar, setToolbar] = useState<HTMLDivElement | null>(null);
-  const [trigger, setTrigger] = useState<HTMLElement | null>(null);
   const dropdown = useRef<HTMLElement>(null);
   const [scroller, setScroller] = useState<HTMLDivElement | null>(null);
   const conversationId = useRef<string | null | undefined>(undefined);
@@ -87,14 +85,6 @@ function OverseerConversation({ open, onOpen, onClose, onBusy, userLocation, run
   const messages = useMemo(() => withToolSummaries(chat.messages), [chat.messages]);
   useEffect(() => { if (open) setActivated(true); }, [open]);
   useEffect(() => onBusy(chat.running), [chat.running, onBusy]);
-  const belowHeader = useCallback(() => {
-    if (!toolbar) return null;
-    const boundary = toolbar.closest("header") ?? toolbar;
-    return { contextElement: toolbar, getBoundingClientRect: () => {
-      const bounds = toolbar.getBoundingClientRect();
-      return new DOMRect(trigger?.getBoundingClientRect().left ?? bounds.left, boundary.getBoundingClientRect().bottom, bounds.width, 0);
-    } };
-  }, [toolbar, trigger]);
   const composerInput = () => {
     const input = dropdown.current?.querySelector("textarea");
     return input && !input.disabled ? input : scroller ?? true;
@@ -122,20 +112,12 @@ function OverseerConversation({ open, onOpen, onClose, onBusy, userLocation, run
   };
   const connectionNote = activated && !chat.connected ? "No connection. Your draft is kept; sending is disabled." : undefined;
   const problem = error ?? composerError ?? modelState.error ?? connectionNote;
-  return <div className={toolbarClass} data-slot="overseer-toolbar" ref={setToolbar}>
-    <Popover modal={false} open={open} onOpenChange={(next) => { if (next) onOpen(); else if (!confirmReset) onClose(); }}>
-      <div className="relative z-[110] flex h-full min-w-0 flex-1 items-center gap-1">
-        <PopoverTrigger className={triggerClass} data-working={chat.running} render={<Button ref={setTrigger} variant="ghost" />}>
+  return <div className={toolbarClass} data-slot="overseer-toolbar">
+    <HeaderDropdown id="overseer-dropdown" initialFocus={composerInput} keepMounted label="Global coordinator"
+      onOpenChange={(next) => { if (next) onOpen(); else if (!confirmReset) onClose(); }} open={open} ref={setDropdown} role="region"
+      trigger={<Button className={triggerClass} data-working={chat.running} variant="ghost">
           <span className="truncate">Global coordinator</span>
-        </PopoverTrigger>
-        <span className="flex min-w-0 flex-none items-center justify-end gap-1.5 empty:hidden" role="status" aria-live="polite">
-          {chat.running && <span className="sr-only">Working</span>}
-          {problem && <span className="text-[0.7rem] font-bold text-destructive" title={problem} aria-label={problem}>!</span>}
-        </span>
-      </div>
-      <PopoverContent align="start" anchor={belowHeader} aria-label="Global coordinator" className="flex min-h-0 flex-col gap-0 overflow-hidden rounded-t-none rounded-b-panel border-t-2 border-t-primary p-0" collisionPadding={8}
-        container={toolbar} dim id="overseer-dropdown" initialFocus={composerInput} keepMounted ref={setDropdown} role="region" side="bottom"
-        style={{ width: "min(760px, var(--available-width))", height: "min(650px, var(--available-height))" }}>
+      </Button>}>
         {confirmReset && dialogContainer && <RunModalContext.Provider value={dialogContainer}>
           <Dialog open onOpenChange={(next) => { if (!next && !resetting) setConfirmReset(false); }} modal="trap-focus" disablePointerDismissal>
             <DialogContent initialFocus={cancelReset} onBackdropClick={() => { if (!resetting) setConfirmReset(false); }} scope="run" showCloseButton={false} size="small">
@@ -154,7 +136,7 @@ function OverseerConversation({ open, onOpen, onClose, onBusy, userLocation, run
             </DialogContent>
           </Dialog>
         </RunModalContext.Provider>}
-        <ChatPanel className="flex-1" composer={<div className="[--qsl-input-card-radius:var(--radius-lg)]">
+        <ChatPanel className="h-(--popout-body-height) flex-none" composer={<div className="[--qsl-input-card-radius:var(--radius-lg)]">
           {connectionNote && <p className={noteClass} role="status">{connectionNote}</p>}
           {error && <p className={errorClass} role="alert">{error}</p>}
           <ChatInputToolbar {...attachments} handleRef={composer}
@@ -177,8 +159,11 @@ function OverseerConversation({ open, onOpen, onClose, onBusy, userLocation, run
             messages={messages} running={chat.running} showTimestamps={chatView.showTimestamps} stepsExpandable={chatView.stepsExpandable}
           />
         </ChatPanel>
-      </PopoverContent>
-    </Popover>
+    </HeaderDropdown>
+    <span className="flex min-w-0 flex-none items-center justify-end gap-1.5 empty:hidden" role="status" aria-live="polite">
+      {chat.running && <span className="sr-only">Working</span>}
+      {problem && <span className="text-[0.7rem] font-bold text-destructive" title={problem} aria-label={problem}>!</span>}
+    </span>
   </div>;
 }
 

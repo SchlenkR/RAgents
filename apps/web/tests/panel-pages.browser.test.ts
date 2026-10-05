@@ -344,7 +344,7 @@ for (const width of [380, 900, 1600, 2600]) {
   });
 }
 
-test("Runs offers Share ... per shareable row, the dialog edits and sends the sharing, and the host's refusal stays in it",{skip,timeout:120_000},async()=>{
+test("Runs offers Share ... per shareable row, the dropdown edits and sends the sharing, and the host's refusal stays in it",{skip,timeout:120_000},async()=>{
   const sharedRuns=[
     {...run("own","Own review","idle",1),canShare:true,shared:true},
     {...run("plain","Plain run","idle",2),canShare:true},
@@ -374,6 +374,7 @@ test("Runs offers Share ... per shareable row, the dialog edits and sends the sh
     await setSharing(page,{connection:'workshop',runId:'own',pending:true});
     const dialog=page.getByRole('dialog',{name:'Share run'});
     await dialog.getByText('Loading ...').waitFor();
+    assert.notEqual(await dialog.getAttribute('aria-modal'),'true','the Runs sharing panel uses the non-modal header dropdown shell');
     await setSharing(page,{connection:'workshop',runId:'own',result:loaded});
     const save=dialog.getByRole('button',{name:'Save'});
     await save.waitFor();
@@ -385,7 +386,7 @@ test("Runs offers Share ... per shareable row, the dialog edits and sends the sh
     await choose('Everyone','Can view');
     await choose('Bob','Can operate');
     await choose('Carol','Can view');
-    await page.screenshot({path:`${shots}share-dialog-420.png`});
+    await page.screenshot({path:`${shots}share-panel-420.png`});
     await save.click();
     assert.deepEqual(await sent(page),{action:'share',name:'workshop',runId:'own',sharing:{everyone:'read',users:[{userId:'bob',access:'write'},{userId:'carol',access:'read'}]}});
 
@@ -401,6 +402,7 @@ test("Runs offers Share ... per shareable row, the dialog edits and sends the sh
     assert.deepEqual(await sent(page),{action:'closeSharing'});
     await setSharing(page,undefined);
     await page.waitForSelector('[role=dialog]',{state:'detached'});
+    assert.equal(await page.getByRole('button',{name:'Share Own review'}).evaluate((button)=>button===document.activeElement),true,'closing restores the row share button');
 
     await page.getByRole('button',{name:'Select'}).click();
     assert.equal(await page.getByRole('checkbox',{name:'Select Own review'}).count(),1);
@@ -408,3 +410,71 @@ test("Runs offers Share ... per shareable row, the dialog edits and sends the sh
     assert.equal(await columnEdges(page,'Runs','time'),1,'rows without a checkbox stay in their columns');
   }finally{await browser.close()}
 });
+
+for(const width of [1400,420]){
+  test(`Runs sharing uses the same square dropdown content at ${width}px and a page anchor if its row disappears`,{skip,timeout:90_000},async()=>{
+    const own={...run('own','Own review','idle',1),canShare:true};
+    const connection={...workshop,runs:[own],canDelete:true};
+    const url=await preparePage({theme:'light',page:'runs',profileSuggestions:[],connections:[connection]});
+    const loaded={sharing:{everyone:null,users:[]},users:[{id:'bob',label:'Bob'}]};
+    const update=(page:Page,value:unknown)=>page.evaluate((sharing)=>(window as any).fixture.setState((current:any)=>({...current,sharing})),value);
+    const browser=await launch();
+    try{
+      const page=await browser.newPage({viewport:{width,height:900},reducedMotion:'reduce'});
+      page.setDefaultTimeout(8000);
+      const errors:string[]=[];
+      page.on('pageerror',(error)=>errors.push(error.message));
+      await page.goto(url);
+      const trigger=page.getByRole('button',{name:'Share Own review',exact:true});
+      await trigger.click();
+      await update(page,{connection:'workshop',runId:'own',result:loaded});
+      const panel=page.getByRole('dialog',{name:'Share run',exact:true});
+      await panel.getByRole('group',{name:'Access for Bob',exact:true}).waitFor();
+      await panel.evaluate(async(element)=>{await Promise.all(element.getAnimations().map((animation)=>animation.finished.catch(()=>undefined)))});
+      const row=await trigger.boundingBox();
+      const bounds=await panel.boundingBox();
+      assert.ok(row&&bounds);
+      assert.ok(Math.abs(bounds.y-row.y-row.height-8)<1,'sharing opens below its row button');
+      assert.ok(bounds.x>=7&&bounds.x+bounds.width<=width-7,'the sharing dropdown stays in the viewport');
+      const style=await panel.evaluate((element)=>{
+        const computed=getComputedStyle(element);
+        return{corners:[computed.borderTopLeftRadius,computed.borderTopRightRadius,computed.borderBottomLeftRadius,computed.borderBottomRightRadius],
+          padding:[computed.paddingTop,computed.paddingRight,computed.paddingBottom,computed.paddingLeft],overflow:element.scrollWidth>element.clientWidth};
+      });
+      assert.deepEqual(style.corners,['0px','0px','0px','0px']);
+      assert.deepEqual(style.padding,['8px','8px','8px','8px']);
+      assert.equal(style.overflow,false);
+      assert.notEqual(await panel.getAttribute('aria-modal'),'true');
+      assert.equal(await page.locator('[data-slot="popover-backdrop"]:visible').count(),1);
+      assert.equal(await trigger.getAttribute('aria-expanded'),'true');
+      assert.equal(await trigger.getAttribute('aria-controls'),await panel.getAttribute('id'));
+      await trigger.click();
+      assert.deepEqual(await sent(page),{action:'closeSharing'},'the row share button toggles its dropdown closed');
+      await update(page,undefined);
+      await panel.waitFor({state:'detached'});
+      await trigger.click();
+      await update(page,{connection:'workshop',runId:'own',result:loaded});
+      await panel.getByRole('group',{name:'Access for Bob',exact:true}).waitFor();
+      await panel.getByRole('group',{name:'Access for Bob',exact:true}).getByRole('button',{name:'Can operate',exact:true}).click();
+      await panel.getByRole('button',{name:'Save',exact:true}).click();
+      assert.deepEqual(await sent(page),{action:'share',name:'workshop',runId:'own',sharing:{everyone:null,users:[{userId:'bob',access:'write'}]}});
+      await update(page,undefined);
+      await panel.waitFor({state:'detached'});
+      assert.equal(await trigger.evaluate((element)=>element===document.activeElement),true,'successful sharing restores the row button');
+
+      await page.evaluate(()=>(window as any).fixture.setState((current:any)=>({...current,connections:current.connections.map((entry:any)=>({...entry,runs:[]})),sharing:{connection:'workshop',runId:'own',result:{sharing:{everyone:null,users:[]},users:[]}}})));
+      await panel.getByText('This profile has no other users to share with.',{exact:true}).waitFor();
+      await panel.getByRole('group',{name:'Access for Everyone',exact:true}).getByRole('button',{name:'Can view',exact:true}).click();
+      await page.keyboard.press('Escape');
+      assert.deepEqual(await sent(page),{action:'closeSharing'});
+      await update(page,undefined);
+      await panel.waitFor({state:'detached'});
+      await page.waitForFunction(()=>document.activeElement?.getAttribute('aria-label')==='Back to Start').catch(async(error)=>{
+        const focused=await page.evaluate(()=>({tag:document.activeElement?.tagName,id:document.activeElement?.id,label:document.activeElement?.getAttribute('aria-label')}));
+        throw new Error(`The page's first control did not receive focus: ${JSON.stringify(focused)}.`,{cause:error});
+      });
+      assert.equal(await page.getByRole('button',{name:'Back to Start',exact:true}).evaluate((element)=>element===document.activeElement),true,'a vanished row restores the page first control');
+      assert.deepEqual(errors,[]);
+    }finally{await browser.close()}
+  });
+}

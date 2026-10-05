@@ -5,6 +5,8 @@ import { AccessContext } from "../src/AccessContext";
 import type { PluginActivationState } from "../src/PluginActivation";
 import { PluginRegistry, type SurfaceElementDefinition, type EntryGuideContext, type StartSectionContext, type WebPlugin } from "../src/PluginRegistry";
 import type { ListedSession } from "../src/api";
+import { ToolbarCopy, ToolbarItem, ToolbarLabel, ToolbarText } from "../src/Toolbar";
+import type { RunSharing } from "../src/run-sharing";
 import { RunPanelApp } from "../src/run-panel/RunPanelApp";
 import { RunPanelHostProvider, type RunPanelHost } from "../src/run-panel/host";
 import type { HostRunPanelMessage, RunPanelHostMessage } from "../src/run-panel/host-contract";
@@ -56,6 +58,20 @@ function WorkDocuments({ runs, onOpenRun }: StartSectionContext) {
 const documentPlugin: WebPlugin = {
   id: "start.documents", startSections: [{ id: "start.documents", order: 100, Section: WorkDocuments }],
 };
+const metadataTexts = {
+  workspace: "/home/user/project/packages/an-example-package-with-a-long-name/src/features/shared-header-panels/complete-session-metadata.ts",
+  source: "A prepared workflow with a descriptive source name that stays readable in a narrow editor sidebar.",
+  notes: "All metadata contributions remain available, including this final note after the workspace and source.",
+};
+const dropdownPlugin: WebPlugin = {
+  id: "start.dropdown",
+  sessionMetadata: Object.entries(metadataTexts).map(([id, text], order) => ({ id: `start.dropdown.${id}`, order,
+    Metadata: () => <ToolbarItem><ToolbarCopy><ToolbarLabel>{id}</ToolbarLabel><ToolbarText>{text}</ToolbarText></ToolbarCopy></ToolbarItem> })),
+  sessionHeaders: [{ id: "start.dropdown.control", order: 50, Header: () => <ToolbarItem as="button" type="button">
+    <ToolbarCopy><ToolbarLabel>Run controls</ToolbarLabel><ToolbarText>Contributed details action</ToolbarText></ToolbarCopy>
+  </ToolbarItem> }],
+  startOptions: [{ id: "start.dropdown.mode", Badge: () => <ToolbarItem><ToolbarCopy><ToolbarLabel>Mode</ToolbarLabel><ToolbarText>Careful review</ToolbarText></ToolbarCopy></ToolbarItem> }],
+};
 const registry = new PluginRegistry({
   brand: { title: "Start check" }, product: { id: "start", title: "Start check" },
   plugins: [{
@@ -63,7 +79,7 @@ const registry = new PluginRegistry({
     surface: { RunPanel: OrchestrationRunPanel },
     surfaceElements: [{ id: "start.app", order: 0, select: () => fixture.elements, Element: () => <p>Mini-app ready</p> }],
     guides: [{ id: "start.topic", Guide: TopicGuide }],
-  }, documentPlugin],
+  }, documentPlugin, ...(query.has("dropdowns") ? [dropdownPlugin] : [])],
   startEntries: [
     { id: "start.script", owner: "start", title: "Setup template", description: "Builds a mini-app", action: "script", coordinator: false },
     { id: "start.other", owner: "start", title: "Second template", description: "Builds something else", action: "script", coordinator: false },
@@ -81,8 +97,15 @@ const fixture = {
   calls: [] as string[],
   starts: [] as Array<{ runId: string; entry: string; input: unknown }>,
   scriptStarts: [] as Array<{ runId: string; entry: string; input: unknown }>,
+  metadataTexts,
+  shares: [] as RunSharing[],
+  sharing: { sharing: { everyone: null, users: [{ userId: "bob", label: "Bob", access: "read" }] }, users: [{ id: "bob", label: "Bob" }, { id: "carol", label: "Carol" }] },
+  sharingError: undefined as string | undefined,
+  holdSharing: false,
+  releaseSharing: () => {},
   views: new Set<string>(),
-  runs: [{ id: "existing", title: "Existing run", updatedAt: 7, running: false, state: "idle", pendingActions: 0, workspaceAccessible: true, operable: true },
+  runs: [{ id: "existing", title: "Existing run", updatedAt: 7, running: false, state: "idle", pendingActions: 0, workspaceAccessible: true, operable: true,
+    ...(query.has("dropdowns") ? { canShare: true } : {}) },
     ...(query.has("documents") ? Array.from({ length: 6 }, (_, index): ListedSession => ({
       id: `document-run-${index}`, title: `Document run ${index}`, updatedAt: 6 - index, running: false, state: "idle", pendingActions: 0,
       workspaceAccessible: true, operable: true, metadata: { "start.documents": [`Work note ${index}`] },
@@ -102,12 +125,19 @@ const fixture = {
   },
   runChanged(runId: string) { subscriptions.forEach((entry) => { if (entry.id !== "ragents.chat" && entry.runId === runId) entry.message({ kind: "run" }); }); },
   activeRun() { return [...subscriptions].find((entry) => entry.id === "ragents.chat")?.runId; },
-  async call(contract: { id: string }, params: { runId?: string; entry?: string; input?: unknown }) {
+  async call(contract: { id: string }, params: { runId?: string; entry?: string; input?: unknown; sharing?: RunSharing }) {
     fixture.calls.push(contract.id);
     switch (contract.id) {
       case "ragents.runs.list": return fixture.runs;
       case "ragents.runs.markViewed": return null;
-      case "ragents.startOptions.list": return [];
+      case "ragents.startOptions.list": return query.has("dropdowns") ? [{ id: "start.dropdown.mode", owner: "start.dropdown", value: "careful", presentation: {}, selectable: false, locked: true, chosen: false }] : [];
+      case "ragents.runs.sharing":
+      case "ragents.runs.share": {
+        if (params.sharing) fixture.shares.push(params.sharing);
+        if (fixture.holdSharing) await new Promise<void>((resolve) => { fixture.releaseSharing = resolve; });
+        if (fixture.sharingError) throw new Error(fixture.sharingError);
+        return fixture.sharing;
+      }
       case "ragents.runs.view": return params.runId !== undefined && fixture.views.has(params.runId) ? emptyView(params.runId) : null;
       case "ragents.chat.actorHistory": return { actors: {} };
       case "ragents.chat.start": {

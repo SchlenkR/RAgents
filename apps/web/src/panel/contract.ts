@@ -47,7 +47,7 @@ export interface ConnectionRun {
   readonly sharedAccess?: RunShareAccess;
 }
 
-/** The share dialog of a run on Start or Runs; the host loads and saves, the page draws what it gets. */
+/** The sharing panel of a run on Start or Runs; the host loads and saves, the page draws what it gets. */
 export interface PanelSharing {
   readonly connection: string;
   readonly runId: string;
@@ -127,7 +127,7 @@ export interface PanelState {
   readonly pickedProfileFile?: string;
   /** Names from ragents.hostEnvironment without a value in the SecretStorage; the setting applies to all servers, so the list appears once. */
   readonly missingSecrets?: readonly string[];
-  /** The open share dialog; without it, none is open. */
+  /** The open sharing panel; without it, none is open. */
   readonly sharing?: PanelSharing;
   /** A short message on Start, such as for a run that left the list because it is no longer shared with the user. */
   readonly notice?: string;
@@ -159,9 +159,9 @@ export type PanelAction =
   | { readonly action: "deleteRuns"; readonly name: string; readonly runIds: readonly string[] }
   /** Start shows it as starting until the next state; the host also sends one when the start opens no run. */
   | { readonly action: "newRun"; readonly name: string; readonly entryId?: string }
-  /** Opens the share dialog of a run; the host loads its sharing into PanelState.sharing. */
+  /** Opens the sharing panel of a run; the host loads its sharing into PanelState.sharing. */
   | { readonly action: "openSharing"; readonly name: string; readonly runId: string }
-  /** Replaces the whole sharing of a run; on success the host closes the dialog, otherwise it shows the refusal in it. */
+  /** Replaces the whole sharing of a run; on success the host closes the panel, otherwise it shows the refusal in it. */
   | { readonly action: "share"; readonly name: string; readonly runId: string; readonly sharing: RunSharing }
   | { readonly action: "closeSharing" };
 

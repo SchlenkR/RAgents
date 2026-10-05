@@ -79,7 +79,8 @@ export function RunsPage({ state, send }: PanelPageProps) {
         {shown.map((run) => <RunLine actions={actions} key={run.id}
           onDelete={!selecting && canDeleteRun(connection, run) ? () => send({ action: "deleteRuns", name: connection.name, runIds: [run.id] }) : undefined}
           onOpen={() => send({ action: "openRun", name: connection.name, runId: run.id })}
-          onShare={run.canShare ? () => send({ action: "openSharing", name: connection.name, runId: run.id }) : undefined}
+          onShare={run.canShare ? () => send(state.sharing?.runId === run.id ? { action: "closeSharing" } : { action: "openSharing", name: connection.name, runId: run.id }) : undefined}
+          sharingOpen={state.sharing?.runId === run.id}
           onToggle={() => toggle(run.id)} run={run} selectable={canDeleteRun(connection, run)} selected={selected.has(run.id)} selecting={selecting} />)}
       </RunList>}
     {confirming && <ConfirmDialog

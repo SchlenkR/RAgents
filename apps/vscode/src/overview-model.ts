@@ -59,7 +59,7 @@ export interface PanelInput {
   missingSecrets: readonly string[];
   problem: string | undefined;
   pickedProfileFile: string | undefined;
-  /** The open share dialog of a run, with what the server returned or refused. */
+  /** The open sharing panel of a run, with what the server returned or refused. */
   sharing?: PanelSharing;
   /** A short message on Start, such as for a run that is no longer shared with the user. */
   notice?: string;

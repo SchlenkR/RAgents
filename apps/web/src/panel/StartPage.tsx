@@ -49,7 +49,8 @@ export function StartPage({ state, send, registry }: PanelPageProps) {
         : <RunList actions={actions} label="Recent">
           {recent.map((run) => <RunLine actions={actions} key={run.id} onOpen={() => openRun(run.id)}
             onDelete={canDeleteRun(connection, run) ? () => send({ action: "deleteRuns", name: connection.name, runIds: [run.id] }) : undefined}
-            onShare={run.canShare ? () => send({ action: "openSharing", name: connection.name, runId: run.id }) : undefined} run={run} />)}
+            onShare={run.canShare ? () => send(state.sharing?.runId === run.id ? { action: "closeSharing" } : { action: "openSharing", name: connection.name, runId: run.id }) : undefined}
+            run={run} sharingOpen={state.sharing?.runId === run.id} />)}
         </RunList>}
     </section>
     {registry?.startSections.filter((section) => !section.readRight || access.can(section.readRight))
