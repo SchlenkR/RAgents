@@ -45,6 +45,9 @@ export const createAccessContext = (snapshot: AccessSnapshot): AccessContext => 
   can: (right) => hasRight(snapshot, right),
 });
 
+export const hasWorkstationOwner = (access: AccessSnapshot, local: boolean): boolean =>
+  local || (access.enabled && access.user !== null);
+
 export const unrestrictedAccess = createAccessContext({ enabled: false, user: null });
 
 export const accessMode = (access: AccessSnapshot, read: string, write: string): "hidden" | "readonly" | "write" =>

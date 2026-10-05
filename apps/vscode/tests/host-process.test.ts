@@ -1,11 +1,25 @@
 import assert from "node:assert/strict";
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
+import { createHash } from "node:crypto";
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import test from "node:test";
 import { readPackageVersion } from "../../server/src/host-version";
 import { missingEnvironmentNotice, missingEnvironmentOf } from "../../server/src/missing-environment";
 import { bundledBash, bundledRipgrep, ensureHostPackage, findExecutable, HOST_PACKAGE_NAME, hostPackageFolder, hostPackageSpecifier, inheritedEnvironment, installHostPackage, packagedHostVersion, startHost } from "../src/host-process";
+import { packageManagerInvocation } from "../../../scripts/package/package-manager.ts";
+
+test("Windows installs npm and server tarballs with spaces as literal Node arguments", () => {
+  const npm = "C:\\Program Files\\nodejs\\npm.cmd";
+  const cli = "C:\\Program Files\\nodejs\\node_modules\\npm\\bin\\npm-cli.js";
+  const node = "C:\\Program Files\\nodejs\\node.exe";
+  const folder = "C:\\Users\\Demo User\\AppData\\Local\\ragents\\hosts\\0.1.40-local.abc";
+  for (const specifier of ["@schlenkr/ragents@0.1.40", `${folder}\\host.tgz`]) {
+    const args = ["install", "--prefix", folder, specifier];
+    assert.deepEqual(packageManagerInvocation("npm", args, { platform: "win32", node, npmExecpath: "", locations: () => [npm], exists: (file) => file === cli }),
+      { command: node, args: [cli, ...args] });
+  }
+});
 
 const fakeHost = (body: string): { file: string; args: string[]; cwd: string } => {
   const directory = mkdtempSync(path.join(tmpdir(), "ragents-fake-host-"));
@@ -151,9 +165,15 @@ const fakeNpm = (body: string): { directory: string; environment: NodeJS.Process
   const directory = mkdtempSync(path.join(tmpdir(), "ragents-fake-npm-"));
   const calls = path.join(directory, "calls.txt");
   writeFileSync(path.join(directory, "npm"), `#!${process.execPath}\n${body}`, { mode: 0o755 });
+  if (process.platform === "win32") {
+    const cli = path.join(directory, "node_modules", "npm", "bin", "npm-cli.js");
+    mkdirSync(path.dirname(cli), { recursive: true });
+    writeFileSync(cli, body);
+    writeFileSync(path.join(directory, "npm.cmd"), "");
+  }
   return {
     directory,
-    environment: { PATH: directory, RAGENTS_FAKE_NPM_CALLS: calls },
+    environment: { PATH: process.platform === "win32" ? `${directory}${path.delimiter}${path.dirname(process.execPath)}` : directory, RAGENTS_FAKE_NPM_CALLS: calls },
     calls: () => existsSync(calls) ? readFileSync(calls, "utf8").split("\n").filter(Boolean) : [],
   };
 };
@@ -231,4 +251,93 @@ test("a fetched or cached package with the wrong version is refused", async () =
   await assert.rejects(ensureHostPackage(storage, "0.1.0", { PATH: "" }, () => undefined), /version 0\.0\.1, the server requires 0\.1\.0/);
   assert.equal(npm.calls().length, 1);
   await assert.rejects(ensureHostPackage(storage, "../other", npm.environment, () => undefined), /not an exact npm version/);
+});
+
+const archive = Buffer.from("the exact host package archive");
+const archiveIntegrity = `sha512-${createHash("sha512").update(archive).digest("base64")}`;
+const download = { path: "/api/host-package", integrity: archiveIntegrity };
+
+const installingServerArchive = installing.replace('const root = path.join(prefix, "node_modules", "@schlenkr", "ragents");', `
+const { existsSync, readFileSync } = require("node:fs");
+const { createHash } = require("node:crypto");
+if (process.argv.at(-1).startsWith("@schlenkr/ragents@")) {
+  writeFileSync(path.join(prefix, "partial-install"), "incomplete");
+  console.error("npm ERR! E404 unpublished host version");
+  process.exit(1);
+}
+if (existsSync(path.join(prefix, "partial-install"))) throw new Error("the partial npm installation was retained");
+const integrity = "sha512-" + createHash("sha512").update(readFileSync(process.argv.at(-1))).digest("base64");
+if (integrity !== process.env.RAGENTS_FAKE_ARCHIVE_INTEGRITY) throw new Error("npm received different archive bytes");
+const root = path.join(prefix, "node_modules", "@schlenkr", "ragents");`);
+
+test("a published workstation host is installed from npm without downloading the server archive", async (t) => {
+  const npm = fakeNpm(installing);
+  const storage = mkdtempSync(path.join(tmpdir(), "ragents-storage-"));
+  t.after(() => { rmSync(npm.directory, { recursive: true, force: true }); rmSync(storage, { recursive: true, force: true }); });
+  const fetch = t.mock.fn(async () => { throw new Error("the server archive must not be requested"); });
+  const root = await ensureHostPackage(storage, "0.1.40", npm.environment, () => undefined, { download, fetch });
+  assert.equal(readPackageVersion(root), "0.1.40");
+  assert.equal(fetch.mock.callCount(), 0);
+  assert.deepEqual(npm.calls(), [`install --prefix ${hostPackageFolder(storage, "0.1.40")} @schlenkr/ragents@0.1.40`]);
+});
+
+test("an unpublished workstation host uses the verified server archive after npm fails and reuses the installed cache", async (t) => {
+  const npm = fakeNpm(installingServerArchive);
+  const storage = mkdtempSync(path.join(tmpdir(), "ragents-storage-"));
+  t.after(() => { rmSync(npm.directory, { recursive: true, force: true }); rmSync(storage, { recursive: true, force: true }); });
+  const version = "0.1.40-local.abcdef";
+  const folder = hostPackageFolder(storage, version);
+  const fetch = t.mock.fn(async (_path: string, _init?: RequestInit) => new Response(archive));
+  const environment = { ...npm.environment, RAGENTS_FAKE_ARCHIVE_INTEGRITY: archiveIntegrity };
+  const root = await ensureHostPackage(storage, version, environment, () => undefined, { download, fetch });
+  assert.equal(readPackageVersion(root), version);
+  assert.deepEqual(npm.calls(), [
+    `install --prefix ${folder} @schlenkr/ragents@${version}`,
+    `install --prefix ${folder} ${path.join(folder, "host.tgz")}`,
+  ]);
+  assert.deepEqual(fetch.mock.calls[0]?.arguments, ["/api/host-package", { redirect: "error" }]);
+  assert.equal(existsSync(path.join(folder, "host.tgz")), false);
+  assert.equal(existsSync(path.join(folder, "partial-install")), false);
+  assert.equal(await ensureHostPackage(storage, version, { PATH: "" }, () => undefined, { download, fetch }), root);
+  assert.equal(fetch.mock.callCount(), 1);
+  assert.equal(npm.calls().length, 2);
+});
+
+test("an archive integrity mismatch prevents a tarball installation and removes the failed version cache", async (t) => {
+  const npm = fakeNpm(installingServerArchive);
+  const storage = mkdtempSync(path.join(tmpdir(), "ragents-storage-"));
+  t.after(() => { rmSync(npm.directory, { recursive: true, force: true }); rmSync(storage, { recursive: true, force: true }); });
+  const version = "0.1.40-local.abcdef";
+  const fetch = t.mock.fn(async () => new Response("a modified archive"));
+  await assert.rejects(ensureHostPackage(storage, version, npm.environment, () => undefined, { download, fetch }),
+    /npm failed:.*E404 unpublished host version.*Server download failed:.*integrity does not match/s);
+  assert.equal(npm.calls().length, 1);
+  assert.equal(fetch.mock.callCount(), 1);
+  assert.equal(existsSync(hostPackageFolder(storage, version)), false);
+});
+
+test("when neither source supplies the workstation host the error names npm and the absent server download", async (t) => {
+  const npm = fakeNpm(installingServerArchive);
+  const storage = mkdtempSync(path.join(tmpdir(), "ragents-storage-"));
+  t.after(() => { rmSync(npm.directory, { recursive: true, force: true }); rmSync(storage, { recursive: true, force: true }); });
+  const version = "0.1.40-local.abcdef";
+  const fetch = t.mock.fn(async () => { throw new Error("no download was advertised"); });
+  await assert.rejects(ensureHostPackage(storage, version, npm.environment, () => undefined, { download: null, fetch }),
+    /Host 0\.1\.40-local\.abcdef is unavailable: npm failed:.*E404 unpublished host version.*The server offers no host package download/s);
+  assert.equal(npm.calls().length, 1);
+  assert.equal(fetch.mock.callCount(), 0);
+  assert.equal(existsSync(hostPackageFolder(storage, version)), false);
+});
+
+test("a refused server archive download reports its HTTP cause and leaves no version cache", async (t) => {
+  const npm = fakeNpm(installingServerArchive);
+  const storage = mkdtempSync(path.join(tmpdir(), "ragents-storage-"));
+  t.after(() => { rmSync(npm.directory, { recursive: true, force: true }); rmSync(storage, { recursive: true, force: true }); });
+  const version = "0.1.40-local.abcdef";
+  const fetch = t.mock.fn(async () => new Response("workstation registration denied", { status: 403 }));
+  await assert.rejects(ensureHostPackage(storage, version, npm.environment, () => undefined, { download, fetch }),
+    /npm failed:.*E404 unpublished host version.*Server download failed:.*HTTP 403 workstation registration denied/s);
+  assert.equal(npm.calls().length, 1);
+  assert.equal(fetch.mock.callCount(), 1);
+  assert.equal(existsSync(hostPackageFolder(storage, version)), false);
 });

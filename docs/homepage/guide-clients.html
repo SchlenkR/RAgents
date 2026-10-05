@@ -292,7 +292,11 @@ fetches it after sign-in like <code>pnpm connect</code>, starts its host locally
 extension downloads the host itself:
 <code>npm install --prefix &lt;globalStorage&gt;/hosts/&lt;package-version&gt; @schlenkr/ragents@&lt;package-version&gt;</code>,
 using the <code>npm</code> available on <code>PATH</code> and the configured process environment, including registry
-settings. For workstation registration, each server supplies its RAgents version through
+settings. If npm cannot provide that version and the server offers its own host package, the
+extension downloads it after sign-in, verifies its SHA-512 integrity, and installs it with npm
+into the same cache. This also supports servers deployed from an unpublished local build; see
+<a href="../operations.md#deploy-from-a-local-build">Deploy from a local build</a>. For workstation registration,
+each server supplies its RAgents version through
 <code>ragents.plugins.bootstrap</code>; for a distributed profile, through <code>ragents.profile.describe</code>;
 for a local profile, the extension supplies its own <code>ragents.packageVersion</code> from <code>package.json</code>.
 Different server versions get separate hosts; a cached version is reused across restarts.
@@ -387,9 +391,10 @@ disconnect, and remove servers with confirmation, then open <code>settings.json<
 at the bottom. If a connected server does not accept this window&#39;s folders as a workstation, its
 entry says &quot;Workstation not registered&quot; with the cause.
 Before registration, the entry shows <code>Fetching host package &lt;version&gt; ...</code> and
-<code>Provisioning workstation tools ...</code>. A fetch failure, such as an offline registry or a version
-that has not been published, appears there with its cause. If the server requests no executor
-contributions, the extension needs no host fetch or workspace provisioning.</p>
+<code>Provisioning workstation tools ...</code>. If npm and the server download cannot supply the host,
+or the download&#39;s integrity differs, the entry shows the cause. Every registration selects and
+verifies the server&#39;s exact host version and provisions its tools, even if no executor
+contributions are requested.</p>
 <p>The extension compares its own RAgents version with the version each server reports. If they
 differ, the Server row, the status bar, and a notification show &quot;RAgents
 version mismatch: extension 0.1.9, server 0.1.8 - ...&quot;, followed by

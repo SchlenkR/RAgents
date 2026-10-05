@@ -680,7 +680,11 @@ fetches it after sign-in like `pnpm connect`, starts its host locally, and suppl
 extension downloads the host itself:
 `npm install --prefix <globalStorage>/hosts/<package-version> @schlenkr/ragents@<package-version>`,
 using the `npm` available on `PATH` and the configured process environment, including registry
-settings. For workstation registration, each server supplies its RAgents version through
+settings. If npm cannot provide that version and the server offers its own host package, the
+extension downloads it after sign-in, verifies its SHA-512 integrity, and installs it with npm
+into the same cache. This also supports servers deployed from an unpublished local build; see
+[Deploy from a local build](operations.md#deploy-from-a-local-build). For workstation registration,
+each server supplies its RAgents version through
 `ragents.plugins.bootstrap`; for a distributed profile, through `ragents.profile.describe`;
 for a local profile, the extension supplies its own `ragents.packageVersion` from `package.json`.
 Different server versions get separate hosts; a cached version is reused across restarts.
@@ -784,9 +788,10 @@ disconnect, and remove servers with confirmation, then open `settings.json` from
 at the bottom. If a connected server does not accept this window's folders as a workstation, its
 entry says "Workstation not registered" with the cause.
 Before registration, the entry shows `Fetching host package <version> ...` and
-`Provisioning workstation tools ...`. A fetch failure, such as an offline registry or a version
-that has not been published, appears there with its cause. If the server requests no executor
-contributions, the extension needs no host fetch or workspace provisioning.
+`Provisioning workstation tools ...`. If npm and the server download cannot supply the host,
+or the download's integrity differs, the entry shows the cause. Every registration selects and
+verifies the server's exact host version and provisions its tools, even if no executor
+contributions are requested.
 
 The extension compares its own RAgents version with the version each server reports. If they
 differ, the Server row, the status bar, and a notification show "RAgents

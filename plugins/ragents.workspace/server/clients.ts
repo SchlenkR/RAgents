@@ -4,6 +4,7 @@ import {
   RPC_ERROR_CODES,
   RpcError,
   implement,
+  hasWorkstationOwner,
   schemaComplaints,
   type AccessContext,
   type MethodConnection,
@@ -118,7 +119,7 @@ const assertContributions = (label: string, expected: readonly ExecutorContribut
 
 /** Over the network, the server accepts workstations only from signed-in users; without users there would be only one owner for all access. */
 export const assertMayRegister = (access: AccessContext, local: boolean): void => {
-  if (local || (access.enabled && access.user !== null)) return;
+  if (hasWorkstationOwner(access, local)) return;
   throw new DomainError(
     "workspace-client-login-required",
     "This server has no user sign-in; it therefore accepts a workstation only over a loopback connection "

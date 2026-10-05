@@ -25,6 +25,7 @@
       "eventResultSchemaOf",
       "freeRoomName",
       "handleKey",
+      "hasWorkstationOwner",
       "holdsUsable",
       "implement",
       "implementChannel",

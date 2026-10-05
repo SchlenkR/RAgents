@@ -1,14 +1,12 @@
 import { spawn, type ChildProcess } from "node:child_process";
-import { accessSync, constants, readFileSync, statSync } from "node:fs";
-import { mkdir } from "node:fs/promises";
+import { readFileSync } from "node:fs";
 import path from "node:path";
-import { createInterface, type Interface } from "node:readline";
+import { createInterface } from "node:readline";
 import { resolveBundledTools } from "@ragents/workspace-executor/src/bundled-tools";
 import { editorFreeEnvironment } from "@ragents/workspace-executor/src/safe-environment";
-import { MissingEnvironmentError, parseMissingEnvironmentNotice, type MissingEnvironment } from "../../server/src/missing-environment";
-import { readPackageVersion } from "../../server/src/host-version";
-import { DomainError } from "../../../packages/ragents/src/runtime/domain-error";
-import { isHostRoot } from "./connections";
+import { parseMissingEnvironmentNotice, type MissingEnvironment } from "../../server/src/missing-environment";
+import { drained, findExecutable, hostProcessFailure, runHostCommand } from "../../../scripts/package/host-package.ts";
+export { ensureHostPackage, findExecutable, HOST_PACKAGE_NAME, hostPackageFolder, hostPackageSpecifier, installHostPackage, matchingHostVersion } from "../../../scripts/package/host-package.ts";
 
 export interface HostAnnouncement {
   url: string;
@@ -44,7 +42,6 @@ export interface HostStartOptions {
 const START_TIMEOUT_MS = 180_000;
 const STOP_TIMEOUT_MS = 10_000;
 const KEPT_LINES = 30;
-const DRAIN_TIMEOUT_MS = 1_000;
 
 /** The environment of the extension without the variables of the surrounding VS Code, so child processes do not attach to it. */
 export const inheritedEnvironment = (): Record<string, string> => editorFreeEnvironment(process.env);
@@ -55,23 +52,6 @@ export const bundledBash = (extensionPath: string, platform: NodeJS.Platform = p
 export const bundledRipgrep = (extensionPath: string, platform: NodeJS.Platform = process.platform, arch: string = process.arch): string | undefined =>
   resolveBundledTools({ root: extensionPath, distribution: "extension", platform, arch }).rg;
 
-/** Looks for a program in the PATH; on Windows with the extensions from PATHEXT. */
-export const findExecutable = (name: string, environment: NodeJS.ProcessEnv = process.env): string | undefined => {
-  const extensions = process.platform === "win32" ? (environment.PATHEXT ?? ".EXE;.CMD;.BAT").split(";") : [""];
-  for (const directory of (environment.PATH ?? "").split(path.delimiter).filter(Boolean)) {
-    for (const extension of extensions) {
-      const candidate = path.join(directory, `${name}${extension.toLowerCase()}`);
-      try {
-        accessSync(candidate, constants.X_OK);
-        if (statSync(candidate).isFile()) return candidate;
-      } catch {
-        continue;
-      }
-    }
-  }
-  return undefined;
-};
-
 /** The host from package or checkout: Node with the tsx loader in apps/server, on a free port with announcement. */
 export const hostCommand = (hostPath: string, environment: NodeJS.ProcessEnv = process.env): HostCommand => {
   const node = findExecutable("node", environment);
@@ -79,109 +59,21 @@ export const hostCommand = (hostPath: string, environment: NodeJS.ProcessEnv = p
   return { file: node, args: ["--import", "tsx", "src/main.ts", "--port", "0"], cwd: path.join(hostPath, "apps/server") };
 };
 
-/** Waits until the output streams are read to the end; the last line often only comes after the process has ended.
- * If a grandchild process keeps a stream open, the result does not wait for it. */
-const drained = (readers: readonly Interface[]): Promise<unknown> => Promise.race([
-  Promise.all(readers.map((reader) => new Promise<void>((settle) => reader.once("close", () => settle())))),
-  new Promise<void>((settle) => setTimeout(settle, DRAIN_TIMEOUT_MS).unref()),
-]);
-
-/** A failure that carries a child process's finding about a missing environment variable. */
-const failure = (message: string, missing: MissingEnvironment | undefined): Error =>
-  missing ? new MissingEnvironmentError(missing, message) : new Error(message);
-
-const run = (file: string, args: readonly string[], cwd: string, environment: NodeJS.ProcessEnv, log: (line: string) => void): Promise<void> =>
-  new Promise((resolve, reject) => {
-    const child = spawn(file, args, { cwd, env: environment, stdio: ["ignore", "pipe", "pipe"], shell: process.platform === "win32" });
-    let missing: MissingEnvironment | undefined;
-    const recent: string[] = [];
-    const line = (text: string) => {
-      const notice = parseMissingEnvironmentNotice(text);
-      if (notice) missing ??= notice;
-      else {
-        recent.push(text);
-        if (recent.length > KEPT_LINES) recent.shift();
-        log(text);
-      }
-    };
-    const output = drained([child.stdout, child.stderr].map((stream) => createInterface({ input: stream }).on("line", line)));
-    child.once("error", reject);
-    child.once("exit", (code) => void output.then(() =>
-      code === 0 ? resolve() : reject(failure(`${path.basename(file)} ${args.join(" ")} ended with code ${code}${recent.length ? `\n${recent.join("\n")}` : ""}`, missing))));
-  });
-
 /** Provisions the tools of a profile or, with --workspace, those of this workspace, like pnpm provision. */
 export const provisionTools = (hostPath: string, selection: string, environment: NodeJS.ProcessEnv, log: (line: string) => void): Promise<void> => {
   const node = findExecutable("node", environment);
   if (!node) throw new Error("node was not found in the PATH; the tools cannot be provisioned");
-  return run(node, ["--import", "tsx", "../../scripts/provision/run-provision.ts", selection], path.join(hostPath, "apps/server"), environment, log);
+  return runHostCommand(node, ["--import", "tsx", "../../scripts/provision/run-provision.ts", selection], path.join(hostPath, "apps/server"), environment, log);
 };
-
-export const HOST_PACKAGE_NAME = "@schlenkr/ragents";
 
 /** The package version that belongs to this extension; the extension build writes it into its package.json. */
 export const packagedHostVersion = (extensionPath: string): string => {
   const file = path.join(extensionPath, "package.json");
   const version = (JSON.parse(readFileSync(file, "utf8")) as { ragents?: { packageVersion?: unknown } }).ragents?.packageVersion;
   if (typeof version !== "string" || !/^\d+\.\d+\.\d+/.test(version)) {
-    throw new Error(`${file}: ragents.packageVersion names the version of ${HOST_PACKAGE_NAME} that belongs to this extension`);
+    throw new Error(`${file}: ragents.packageVersion names the version of @schlenkr/ragents that belongs to this extension`);
   }
   return version;
-};
-
-/** What npm installs: the published package; RAGENTS_HOST_PACKAGE_SPEC puts a local .tgz in its place for tests. */
-export const hostPackageSpecifier = (version: string, environment: NodeJS.ProcessEnv = process.env): string =>
-  environment.RAGENTS_HOST_PACKAGE_SPEC?.trim() || `${HOST_PACKAGE_NAME}@${version}`;
-
-/** One folder per version in the extension's storage; fetched versions stay. */
-export const hostPackageFolder = (storage: string, version: string): string => path.join(storage, "hosts", version);
-
-const installedHostRoot = (folder: string): string => path.join(folder, "node_modules", ...HOST_PACKAGE_NAME.split("/"));
-
-/** Fetches the host as an npm package into its own folder and returns its root. */
-export const installHostPackage = async (folder: string, specifier: string, environment: NodeJS.ProcessEnv, log: (line: string) => void): Promise<string> => {
-  const npm = findExecutable("npm", environment);
-  if (!npm) {
-    throw new Error("npm was not found in the PATH; without npm, the extension cannot fetch the host. "
-      + "Install Node 22 with npm or set ragents.hostPath to a checkout or an installed package.");
-  }
-  await mkdir(folder, { recursive: true });
-  await run(npm, ["install", "--prefix", folder, specifier], folder, environment, log);
-  const root = installedHostRoot(folder);
-  if (!isHostRoot(root)) throw new Error(`${specifier} did not leave a RAgents host in ${root}`);
-  return root;
-};
-
-/** The host of a version: the already fetched folder, otherwise an installation from npm. */
-export const ensureHostPackage = async (storage: string, version: string, environment: NodeJS.ProcessEnv, log: (line: string) => void): Promise<string> => {
-  if (!/^\d+\.\d+\.\d+(?:-[\da-zA-Z.-]+)?(?:\+[\da-zA-Z.-]+)?$/.test(version)) throw new Error(`The server's host package version ${version} is not an exact npm version`);
-  const folder = hostPackageFolder(storage, version);
-  const pending = fetchingHosts.get(folder);
-  if (pending) return pending;
-  const fetching = fetchHostPackage(folder, version, environment, log);
-  fetchingHosts.set(folder, fetching);
-  try {
-    return await fetching;
-  } finally {
-    fetchingHosts.delete(folder);
-  }
-};
-
-const fetchingHosts = new Map<string, Promise<string>>();
-
-const fetchHostPackage = async (folder: string, version: string, environment: NodeJS.ProcessEnv, log: (line: string) => void): Promise<string> => {
-  const installed = installedHostRoot(folder);
-  if (isHostRoot(installed)) return matchingHostVersion(installed, version);
-  const specifier = hostPackageSpecifier(version, environment);
-  log(`== Fetching host package ${specifier} into ${folder}`);
-  return matchingHostVersion(await installHostPackage(folder, specifier, environment, log), version);
-};
-
-export const matchingHostVersion = (root: string, version: string): string => {
-  const actual = readPackageVersion(root);
-  if (actual !== version) throw new DomainError("workspace-executor-version", `The workstation host at ${root} has RAgents version ${actual}, the server requires ${version}. `
-    + `Use a matching ragents.hostPath checkout or install @schlenkr/ragents@${version}.`, 409);
-  return root;
 };
 
 const terminate = (child: ChildProcess): void => {
@@ -220,7 +112,7 @@ export const startHost = (options: HostStartOptions): Promise<RunningHost> => ne
     if (announced) return;
     announced = true;
     terminate(child);
-    reject(failure(`${message}${recent.length ? `\n${recent.join("\n")}` : ""}`, missing));
+    reject(hostProcessFailure(`${message}${recent.length ? `\n${recent.join("\n")}` : ""}`, missing));
   };
   const timer = setTimeout(() => fail(`The host did not announce itself after ${Math.round((options.startTimeoutMs ?? START_TIMEOUT_MS) / 1000)} seconds`), options.startTimeoutMs ?? START_TIMEOUT_MS);
   child.once("error", (cause) => { clearTimeout(timer); fail(`The host could not be started: ${cause.message}`); });

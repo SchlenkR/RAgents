@@ -10,6 +10,8 @@ import { runtimeLibraries } from "../../apps/server/src/plugin-support/actor-pro
 import { assertBundleRevision, readBundleManifest, sourceRevisionOf } from "../../apps/server/src/profile/bundle-manifest.ts";
 import { builtInPluginFolders } from "../plugin/build-builtin-plugins.ts";
 import { WORKSPACE_TOOL_TARGETS, workspaceToolsPackageName } from "../../packages/workspace-executor/src/bundled-tools.ts";
+import { assertCleanCheckout, localPackageVersion, publishedToolDependencies } from "./local-package.ts";
+import { packageManagerInvocation } from "./package-manager.ts";
 
 export const PACKAGE_NAME = "@schlenkr/ragents";
 /** The folder under dist/; the package name has a scope, the folder name stays plain. */
@@ -40,7 +42,7 @@ export const PACKAGE_ROOT_FILES: readonly (readonly [string, string])[] = [
 ];
 
 const ROOT_FILE_SOURCES = new Set(PACKAGE_ROOT_FILES.map(([source]) => source));
-const BUILD_ONLY_FILES = new Set(["scripts/package/build-package.ts", "scripts/package/publish-package.ts", "scripts/package/tools-package.ts"]);
+const BUILD_ONLY_FILES = new Set(["scripts/package/build-package.ts", "scripts/package/publish-package.ts", "scripts/package/tools-package.ts", "scripts/package/local-package.ts"]);
 
 const skippedInPackage = (relative: string): boolean => SKIPPED_IN_PACKAGE.test(relative) || ROOT_FILE_SOURCES.has(relative) || BUILD_ONLY_FILES.has(relative);
 
@@ -237,7 +239,7 @@ const copyDeclarations = async (root: string, target: string): Promise<readonly 
   return copied;
 };
 
-export const buildPackage = async (target: string, root = repositoryRoot, version = readPackageVersion(root)): Promise<BuiltPackage> => {
+export const buildPackage = async (target: string, root = repositoryRoot, version = readPackageVersion(root), toolDependencies?: Readonly<Record<string, string>>): Promise<BuiltPackage> => {
   assertBuiltInBundles(root);
   assertHostWeb(root);
   await rm(target, { recursive: true, force: true });
@@ -287,7 +289,7 @@ export const buildPackage = async (target: string, root = repositoryRoot, versio
     engines: { node: ">=22.19.0" },
     publishConfig: { access: "public" },
     dependencies,
-    optionalDependencies: Object.fromEntries(WORKSPACE_TOOL_TARGETS.map((target) => [workspaceToolsPackageName(target), version])),
+    optionalDependencies: toolDependencies ?? Object.fromEntries(WORKSPACE_TOOL_TARGETS.map((target) => [workspaceToolsPackageName(target), version])),
     ragents: { hostVersion: readHostVersion(root) },
   };
   const manifestFile = path.join(target, "package.json");
@@ -299,17 +301,23 @@ export const buildPackage = async (target: string, root = repositoryRoot, versio
 
 const main = async (): Promise<void> => {
   const pack = process.argv.includes("--pack");
-  const unknown = process.argv.slice(2).filter((argument) => argument !== "--pack");
-  if (unknown.length) throw new Error(`Unknown argument: ${unknown.join(" ")} (allowed: --pack)`);
+  const local = process.argv.includes("--local");
+  const unknown = process.argv.slice(2).filter((argument) => !["--pack", "--local"].includes(argument));
+  if (unknown.length) throw new Error(`Unknown argument: ${unknown.join(" ")} (allowed: --pack, --local)`);
+  if (local) assertCleanCheckout(repositoryRoot);
+  const version = local ? localPackageVersion(readPackageVersion(), readHostVersion()) : readPackageVersion();
+  const toolDependencies = local ? publishedToolDependencies(repositoryRoot) : undefined;
   const target = path.join(repositoryRoot, "dist", PACKAGE_FOLDER);
-  const built = await buildPackage(target);
+  const built = await buildPackage(target, repositoryRoot, version, toolDependencies);
   console.log(`== Package ${PACKAGE_NAME}@${built.manifest.version as string} in ${built.directory}`);
   console.log(`== Host version ${(built.manifest.ragents as { hostVersion: string }).hostVersion}`);
   console.log(`== ${built.fileCount} files, ${(built.byteSize / 1024 / 1024).toFixed(1)} MB, ${Object.keys(built.manifest.dependencies as object).length} dependencies`);
   for (const [name, version] of Object.entries(built.manifest.dependencies as Record<string, string>)) console.log(`   ${name}@${version}`);
   for (const entry of built.flattened) console.log(`== Multiple versions flattened: ${entry}`);
+  for (const [name, toolVersion] of Object.entries(built.manifest.optionalDependencies as Record<string, string>)) console.log(`== Workstation tools ${name}@${toolVersion}`);
   if (!pack) return;
-  const packed = spawnSync("npm", ["pack", "--pack-destination", path.dirname(built.directory)], { cwd: built.directory, encoding: "utf8", stdio: ["ignore", "pipe", "inherit"] });
+  const invocation = packageManagerInvocation("npm", ["pack", "--pack-destination", path.dirname(built.directory)]);
+  const packed = spawnSync(invocation.command, invocation.args, { cwd: built.directory, encoding: "utf8", stdio: ["ignore", "pipe", "inherit"] });
   if (packed.status !== 0) throw new Error(`npm pack ended with code ${packed.status}`);
   console.log(`== Archive ${path.join(path.dirname(built.directory), packed.stdout.trim().split("\n").at(-1) ?? "")}`);
 };

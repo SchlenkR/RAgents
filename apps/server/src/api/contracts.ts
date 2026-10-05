@@ -53,9 +53,14 @@ const runSharingResult = Type.Object({
 /** Whom a run is shared with, as ragents.runs.sharing and ragents.runs.share return it. */
 export type RunSharingResult = Static<typeof runSharingResult>;
 
-/** The host checks per-run rights dynamically; contracts without `rights` state their rule in the description. */
-/** What a UI gets from the server at startup: the plugins' profile and the server's RAgents version, against which it checks its own. */
-export type HostBootstrap = PublicPluginProfile & { readonly version: string };
+/** The retained installed host tarball available to workstation users. */
+export interface HostPackageDownload {
+  readonly path: string;
+  readonly integrity: string;
+}
+
+/** The plugins' profile, server version and optional workstation host download. */
+export type HostBootstrap = PublicPluginProfile & { readonly version: string; readonly hostPackage: HostPackageDownload | null };
 
 export const coreContracts = {
   runs: {

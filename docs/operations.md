@@ -507,6 +507,59 @@ selection, set `ragents.hostPath` to a checkout or the package directory
 override, it fetches the package in the server's version as described under Run panel and VS Code
 extension in [usage.md](usage.md).
 
+## Deploy from a local build
+
+Build an installable host from a clean checkout without publishing to npm:
+
+```sh
+pnpm install --frozen-lockfile
+pnpm build:package --local --pack
+```
+
+The build includes the agent runtime, built-in plugins, and web interface. It writes
+`dist/schlenkr-ragents-<version>.tgz`, with a version such as
+`0.1.40-local.<full-40-character-commit>`, without changing tracked manifests. Tracked changes
+and untracked files are rejected. Each of the six platform tool dependencies is pinned to its
+newest published stable npm version, so the package remains installable on Windows, macOS, and Linux,
+x64 and ARM64. Registry access is required for building and installing dependencies; keep
+optional dependencies enabled. Build details are in
+[development.md](development.md#building-and-publishing-the-package).
+
+Copy the tarball to a permanent deployment folder and install it into a separate prefix. For
+example, after placing the archive at `/opt/ragents/host.tgz`, with that folder writable by the
+installing account:
+
+```sh
+npm install --prefix /opt/ragents/host /opt/ragents/host.tgz
+RAGENTS_HOST_TARBALL=/opt/ragents/host.tgz \
+  DATA_DIR=/var/lib/ragents/demo \
+  /opt/ragents/host/node_modules/.bin/ragents start /opt/ragents/ragents.config.demo.ts
+```
+
+Keep the profile outside the checkout too, with its port and model settings, and provide its
+required environment variables in the shell or service environment. External plugin paths must
+point to deployed bundles. The server runs from the installed copy; the checkout can be removed.
+
+`RAGENTS_HOST_TARBALL` explicitly enables the workstation download. At startup, before listening,
+the server checks that the archive contains exactly its installed package's published files,
+package name, version, and source commit. A missing file, a different archive, or extra content
+is a hard error. Keep the original archive beside the installation and configure the same path
+on every restart. Custom profiles, credentials, data, and installed dependencies are not in
+this archive.
+Without the variable, including an ordinary npm installation without a retained tarball, the
+server offers no host download.
+
+For network workstations, configure `users` in the profile and grant them `runs.write`; they
+sign in with a password or personal token. Token-only access to a profile without users cannot
+register a network workstation: bootstrap offers no archive and the download returns 403.
+Loopback clients can use a profile without users, still with `runs.write`. These are the same
+access rules as workstation registration.
+
+The extension and CLI workstation first try npm for the server's exact version.
+If that fails, they download the retained archive from the server, verify its SHA-512 integrity,
+and install it into their per-version cache with npm. No manual host installation is required on the
+workstation; `ragents.hostPath` still overrides automatic selection in VS Code.
+
 ## Connect to a server
 
 A developer can run RAgents locally with the profile and models of a central server. This
@@ -574,9 +627,13 @@ expose only the alias.
 and executor as the VS Code extension. No folder means the current directory; `--id` and `--label`
 set its stable identity and display name. The npm installation includes ripgrep on every supported
 platform and the curated Bash on Windows. Plugin tools are provisioned before registration.
-The client uses contributions from its own host package. If the server rejects its executor
-version or contribution states, registration names both package versions and the fix: install
-`@schlenkr/ragents@<server-version>`, for example with `npm install -g @schlenkr/ragents@<server-version>`.
+For each registration, the client selects the server's exact host version. It reuses its own
+host when the versions match; otherwise it installs from npm first, then from the server's
+retained tarball when offered, verifying SHA-512 before installing the download. Fetched hosts
+are reused at `<user-cache>/ragents/hosts/<version>/`: the user cache is `~/Library/Caches` on
+macOS, `%LOCALAPPDATA%` on Windows, and `XDG_CACHE_HOME` or `~/.cache` on Linux. Tools are
+provisioned from the selected host. If neither source works, registration reports both causes.
+Different executor versions or contribution states still fail with their cause.
 
 Set `RAGENTS_TOKEN` for a personal or existing session token. For automatic sign-in and renewal,
 configure `RAGENTS_USER` and `RAGENTS_PASSWORD` in the process environment. Neither is a command-line
@@ -920,31 +977,28 @@ Workstation and server need the same executor version; if a workstation brings a
 the server rejects the registration with both versions and names what to update: for an older
 workstation the RAgents extension or `@schlenkr/ragents` there, for a newer one the server.
 Likewise, both need the same plugin contributions to the executor, such as the language servers
-and the browser: the server names them before registration. The VS Code extension loads them from
-the host package in the exact RAgents version reported by `ragents.plugins.bootstrap`, fetched
-with its configured environment, including npm registry settings, into
-`<globalStorage>/hosts/<server-version>/`. Each server selects its own version; servers with the
-same version share the cached package, which survives extension restarts. A machine that connects
-only to remote servers needs no local profile or distributing server. An explicit
-`ragents.hostPath` overrides fetching; a different package version or contribution state fails
-registration with its cause, without falling back to another host. A missing bundle also fails.
-The headless workstation uses its own host package and names both package versions and the
-matching version to install on a mismatch. The VS Code extension shows such a
+and the browser: the server names them before registration. Both clients select the host in the
+server's exact version from `ragents.plugins.bootstrap`, using npm first and the verified server
+download when needed, and reuse cached installations. See [Run a CLI workstation](#run-a-cli-workstation)
+and [Run panel and VS Code extension](usage.md#run-panel-and-vs-code-extension) for the caches
+and progress. A machine that connects only to remote servers needs no local profile or
+distributing server. An explicit `ragents.hostPath` overrides fetching; a different package version,
+contribution state, or missing bundle fails registration with its cause. The VS Code extension shows such a
 rejection as the error "RAgents version mismatch" with its own version, the server's version, and
 the side to update, and a differing version with an accepted workstation as a warning
 ([usage.md](usage.md), Run panel and VS Code extension); the server names the version in the
 bootstrap (`version` in `ragents.plugins.bootstrap`).
 The workstation reads the tools of these contributions from its own process environment, not from
-the server's profile: startup calls `pnpm provision --workspace`, stores Roslyn and fsautocomplete
+the server's profile: before registration it provisions with its selected host, stores Roslyn and fsautocomplete
 under `~/.local/share/ragents/workspace/tools/<plugin-id>/`, and fetches Chromium into
 Playwright's browser cache; TypeScript and `playwright-core` come from the host folder.
 `ROSLYN_LANGUAGE_SERVER`, `FSHARP_LANGUAGE_SERVER`, and `BROWSER_EXECUTABLE_PATH` override this.
 The VS Code extension provisions once per selected host during an activation, before registration,
 and writes the report to its `RAgents` output channel. The Server entry shows fetching and
-provisioning progress; a fetch failure, such as an offline registry or unpublished version, stays
-there with its cause. If the server requests no contributions, no host fetch or workspace
-provisioning is needed. `HOME` stays the developer's home, so that Git, SSH, and NuGet work with their
-credentials; language server logs end up under `os.tmpdir()`. Every tool call of the model
+provisioning progress; if npm and the server download cannot supply the host, the cause stays
+there. Every registration selects and verifies the server's exact host version and provisions
+its tools, even if no contributions are requested. `HOME` stays the developer's home, so that
+Git, SSH, and NuGet work with their credentials; language server logs end up under `os.tmpdir()`. Every tool call of the model
 appears as one line on stdout (run ID, tool, duration, `ok` or error text); the VS Code extension
 writes the same line to its `RAgents` output channel. Queries from the interface, such as the
 Files tab or the process rail every two seconds, do not appear there.

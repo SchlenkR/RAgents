@@ -14,7 +14,7 @@ export const hostApi: { readonly server: HostApiModules; readonly web: HostApiMo
       "actorByReference", "actorDescriptionMaxLength", "actorInputSchema", "addressFrom", "addressOf", "agentTools", "assertJsonValue", "builtinProfiles", "canonicalHash",
       "compileVirtualTypeScriptAsync", "defineRunFunction", "defineToolAvailability", "emptyUsage",
       "enqueueActorInput", "eventResultSchemaOf", "freeRoomName", "handleKey", "holdsUsable", "implement", "implementChannel", "inheritedGrants",
-      "isRunId", "isThinkingLevel", "modelToolDescriptors", "pluginStateAt", "runCapabilityBindingHash",
+      "isRunId", "isThinkingLevel", "hasWorkstationOwner", "modelToolDescriptors", "pluginStateAt", "runCapabilityBindingHash",
       "runCapabilityContractHash", "schemaComplaints", "scriptInputOf", "serviceToken",
     ],
     "@ragents/engine/src/domain/events": ["eventTypeMap"],

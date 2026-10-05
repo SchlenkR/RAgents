@@ -11,6 +11,7 @@ const rootDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../.
 export const hostConfigDescriptors = [
   { key: "PORT", source: "environment" },
   { key: "DATA_DIR", source: "environment" },
+  { key: "RAGENTS_HOST_TARBALL", source: "environment" },
   { key: "AGENT_THINKING", source: "environment" },
   { key: "COMPACTION_PROVIDER", source: "environment" },
   { key: "COMPACTION_MODEL", source: "environment" },
@@ -35,6 +36,7 @@ const env = declaredEnvironment(hostConfigDescriptors);
 export const config = Object.freeze({
   port: Number(env.value("PORT", "4710")),
   dataDir: path.resolve(env.value("DATA_DIR", defaultDataDirectory(env.required("PRODUCT_PROFILE")))),
+  hostTarball: env.value("RAGENTS_HOST_TARBALL", ""),
   webDistDir: hostWebDirectory(rootDir),
   agentThinking: env.value("AGENT_THINKING", "high"),
   compactionProvider: env.value("COMPACTION_PROVIDER", "openrouter"),

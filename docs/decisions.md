@@ -1,5 +1,31 @@
 # Decisions
 
+## 2026-10-05: Deploy an unpublished host with its workstation package
+
+Chapter: `spec/plugins.md` (Web halves at runtime, Contributions to the executor, Provisioning
+per plugin, Language server plugins); operations: `operations.md` (Deploy from a local build,
+Run a CLI workstation); development: `development.md` (Building and publishing the package);
+usage: `usage.md` (Run panel and VS Code extension, Server page).
+
+Workstations require the server's exact host version. Fetching only from npm prevented them
+from registering with a locally built, unpublished host. A local build now derives a unique
+prerelease version from the stable package version and full source commit without editing
+tracked manifests. Its six platform tool dependencies use exact published stable versions,
+so deployment does not require publishing tools for the local prerelease.
+
+The operator retains the built host tarball outside the checkout and explicitly configures it
+with `RAGENTS_HOST_TARBALL`. Startup verifies that its files, package name, version, and commit
+match the installed host; a missing or mismatching archive aborts startup. Bootstrap advertises
+the archive and SHA-512 integrity. Only users permitted to register a workstation can download
+it, and it contains only the published package content.
+
+The extension and CLI workstation share npm-first selection with a verified server download
+as the second source. Both reuse their per-version caches; the CLI reuses its launching host
+when that version already matches. Selecting and provisioning per registration allows an
+existing CLI installation to connect to a newer or locally built server. An explicit
+`ragents.hostPath` keeps its override semantics. A server without a configured retained archive
+continues to use npm, and unavailable sources or integrity failures report their causes.
+
 ## 2026-10-05: Homepage sections share one width and the logo follows the pointer
 
 Chapters: `spec/overview.md` (main page); handbook: `development.md` (Homepage and generated
@@ -15,6 +41,7 @@ clipped; the story clips only horizontal overflow at the page edge. Boxes are ne
 below the hero the rain is softened behind the content band. The dev server tile shows no
 screenshot and the sharing screenshot is small. The intro logo looks toward the pointer, choosing
 one of nine head turns from a sprite; the export also publishes referenced images under `media/`.
+
 
 ## 2026-10-05: Homepage chapters carry their own diagrams
 
@@ -35,6 +62,7 @@ the agent graph, dev servers, and sharing and links the getting started guide; i
 in one framed code box each; the start and "built with"
 sections are gone; the integrations moved into "Drive RAgents from Outside"; the background
 animation now runs behind every section. Diagrams start in Fast; Play remains the slower option.
+
 
 ## 2026-10-05: Select the workstation host in each server's version
 

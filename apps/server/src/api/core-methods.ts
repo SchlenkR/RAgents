@@ -1,4 +1,4 @@
-import { canStartEntry, DomainError, implement, implementChannel, type AccessContext, type ChannelContribution, type MethodContribution, type PluginHost, type RunSharing } from "@ragents/engine";
+import { canStartEntry, DomainError, hasWorkstationOwner, implement, implementChannel, type AccessContext, type ChannelContribution, type MethodContribution, type PluginHost, type RunSharing } from "@ragents/engine";
 import { parseChatAttachments } from "quassel/events";
 import type { ChatSessionLike, ChatSessionProvider, ChatUser } from "../chat-handler.js";
 import { accessibleActorConversations, accessibleChatEvent } from "../access-projection.js";
@@ -7,7 +7,7 @@ import type { RunPreparationResponse } from "../run-preparation-contract.js";
 import type { RunTransferExport, RunTransferImport } from "../run-transfer.js";
 import type { SettingsResponse, SettingsSkillDetail } from "../settings.js";
 import type { TitleModelSettings } from "../title-settings-contract.js";
-import { coreContracts, type RunSharingResult } from "./contracts.js";
+import { coreContracts, type HostPackageDownload, type RunSharingResult } from "./contracts.js";
 import { assertRunDeletable, assertRunReachable, assertRunRights, runListScope, runSharer, type GlobalRunPolicy, type RunAccessPolicy } from "./rights.js";
 
 export interface CoreMethodSources {
@@ -32,6 +32,7 @@ export interface CoreMethodSources {
   plugins: PluginHost;
   /** The RAgents version of this server; a UI with a different version shows the difference. */
   version: string;
+  hostPackage?: HostPackageDownload;
   global: GlobalRunPolicy | undefined;
   /** The user of a run: null without an owner, undefined for an id without a run. */
   runOwner: (runId: string) => string | null | undefined;
@@ -181,7 +182,10 @@ export const coreMethods = (sources: CoreMethodSources): MethodContribution[] =>
     implement(coreContracts.settings.skill, ({ id }, { local }) => { assertSettingsReachable(local); return sessions.skill(id); }),
     implement(coreContracts.settings.titlesRead, (_input, { local }) => { assertSettingsReachable(local); return sessions.titleModelSettings(); }),
     implement(coreContracts.settings.titlesSave, ({ value }, { local }) => { assertSettingsReachable(local); return sessions.saveTitleModelSettings(value); }),
-    implement(coreContracts.plugins.bootstrap, (_input, { access }) => ({ ...sources.plugins.publicProfile(access), version: sources.version })),
+    implement(coreContracts.plugins.bootstrap, (_input, { access, local }) => ({
+      ...sources.plugins.publicProfile(access), version: sources.version,
+      hostPackage: access.can("runs.write") && hasWorkstationOwner(access, local) ? sources.hostPackage ?? null : null,
+    })),
     implement(coreContracts.external.set, async ({ state }, { local }) => {
       if (!local) throw new DomainError("local-only", "Can only be switched locally", 403);
       await sources.external.set(state === "on");

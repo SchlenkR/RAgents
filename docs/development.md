@@ -813,8 +813,28 @@ the host with `hostPackageFile`, and the libraries that the actor programs link 
 runtime. If a package exists in the checkout in two versions, the package names one of them
 and the build says which.
 
-A local build uses the root `package.json` version; CI supplies the shared release version.
-`pnpm build:package --pack` also writes the npm tarball. Platform packages reuse `bundle-rg.ts`
+A normal package build uses the root `package.json` version; CI supplies the shared release version.
+`pnpm build:package --pack` also writes the npm tarball. For deployment without publishing, run
+from a clean Git checkout:
+
+```sh
+pnpm install --frozen-lockfile
+pnpm build:package --local --pack
+```
+
+`--local` derives `<base-version>-local.<full-commit>` from the X.Y.Z base of the root package
+version and the full 40-character Git commit, without editing tracked manifests. It rejects
+tracked changes and untracked files. The host folder is `dist/ragents`, the tarball
+`dist/schlenkr-ragents-<version>.tgz`. The build queries npm for each of the six
+`@schlenkr/ragents-tools-*` packages and pins its newest published stable version as an exact
+optional dependency through the configured npm registry. This needs registry access and a
+published stable version for every target; it emits no tool tarballs and does not depend on
+unpublished tools at the local host version.
+Keep optional dependencies enabled when installing on any supported workstation platform.
+See [Deploy from a local build](operations.md#deploy-from-a-local-build) for installation and
+serving this same archive to workstations.
+
+Platform packages reuse `bundle-rg.ts`
 and `bundle-bash.ts`; their `os`/`cpu` constraints select the user's platform. To assemble their
 folders locally, run `pnpm --filter @ragents/host exec node --import tsx ../../scripts/package/tools-package.ts`
 (optionally followed by target names). Publishing goes through the shared release below.

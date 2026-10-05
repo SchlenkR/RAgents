@@ -1,10 +1,11 @@
 import assert from "node:assert/strict";
 import { spawn, spawnSync, type ChildProcess } from "node:child_process";
-import { existsSync, mkdirSync, readdirSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
 import test from "node:test";
-import { announcement, assertGreetingServed, GREETING_PLUGIN, isolatedDirectory, profileSource, stopChild, writeFiles } from "../../apps/server/tests/foreign-plugin-fixture.ts";
+import { announcement, assertGreetingServed, GREETING_PLUGIN, isolatedDirectory, profileSource, rpc, stopChild, writeFiles } from "../../apps/server/tests/foreign-plugin-fixture.ts";
+import type { HostBootstrap } from "../../apps/server/src/api/contracts.ts";
 import { WORKSPACE_TOOL_TARGETS } from "../../packages/workspace-executor/src/bundled-tools.ts";
 import { buildPackage, PACKAGE_FOLDER, PACKAGE_NAME } from "./build-package.ts";
 import { buildToolsPackage } from "./tools-package.ts";
@@ -114,11 +115,27 @@ if (!result.javaScript.includes("Installed view")) throw new Error("The installe
       profileSource("greeting", ["ragents.orchestration", "ragents.workspace", "ragents.product", "./dist/plugins/acme.greeting"]));
     const host = spawn(process.execPath, [ragents, "start", "./ragents.config.greeting.ts", "--port", "0"], {
       cwd: work,
-      env: { ...process.env, ACME_MODEL_KEY: "not-a-real-key", DATA_DIR: path.join(directory, "data"), RAGENTS_DEV: "" },
+      env: { ...process.env, ACME_MODEL_KEY: "not-a-real-key", DATA_DIR: path.join(directory, "data"), RAGENTS_DEV: "", RAGENTS_HOST_TARBALL: path.join(directory, "build", tarball) },
       stdio: ["ignore", "pipe", "pipe"],
     });
     children.push(host);
-    await assertGreetingServed(await announcement(host, []), path.join(packageRoot, "apps/web/dist"));
+    const running = await announcement(host, []);
+    await assertGreetingServed(running, path.join(packageRoot, "apps/web/dist"));
+    const bootstrap = await rpc(running, "ragents.plugins.bootstrap") as HostBootstrap;
+    assert.equal(bootstrap.hostPackage?.path, "/api/host-package");
+    assert.equal((await fetch(`${running.url}/api/host-package`)).status, 401);
+    const downloaded = await fetch(`${running.url}/api/host-package`, { headers: { authorization: `Bearer ${running.token}` } });
+    assert.equal(downloaded.status, 200);
+    assert.equal(downloaded.headers.get("x-ragents-integrity"), bootstrap.hostPackage?.integrity);
+    assert.deepEqual(Buffer.from(await downloaded.arrayBuffer()), readFileSync(path.join(directory, "build", tarball)));
+    const rejected = spawnSync(process.execPath, ["--import", "tsx", "src/main.ts", "--port", "0"], {
+      cwd: path.join(packageRoot, "apps/server"), encoding: "utf8", timeout: 15_000,
+      env: { ...process.env, ACME_MODEL_KEY: "not-a-real-key", PRODUCT_PROFILE: "greeting", PRODUCT_PROFILE_FILE: path.join(work, "ragents.config.greeting.ts"),
+        DATA_DIR: path.join(directory, "missing-archive-data"), RAGENTS_DEV: "", RAGENTS_HOST_TARBALL: path.join(directory, "missing.tgz") },
+    });
+    assert.equal(rejected.status, 1, rejected.stderr);
+    assert.match(rejected.stderr, /RAGENTS_HOST_TARBALL.*ENOENT/);
+    assert.doesNotMatch(rejected.stdout, /"ragents"/);
     for (const entry of ["apps/web/vite.config.ts", "apps/web/index.html"]) {
       assert.equal(existsSync(path.join(packageRoot, entry)), false, `${entry}: the package builds no web`);
     }

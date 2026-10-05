@@ -277,7 +277,7 @@ export class WorkspaceClient {
 
   /** Keeps the executor as long as the server requires the same contributions; otherwise it builds a new one from the bundles of this machine and ends the old one. */
   async #built(attachment: Attachment, wanted: readonly ExecutorContributionRevision[]): Promise<BuiltExecutor> {
-    const hostRoot = wanted.length > 0 && this.options.prepareHost ? await this.options.prepareHost((detail) => {
+    const hostRoot = this.options.prepareHost ? await this.options.prepareHost((detail) => {
       if (attachment === this.#attachment) this.#set({ kind: "preparing", detail });
     }) : this.options.hostRoot();
     if (attachment !== this.#attachment) throw new Error("The workstation has signed out in the meantime");

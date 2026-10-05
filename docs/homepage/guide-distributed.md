@@ -88,6 +88,59 @@ selection, set `ragents.hostPath` to a checkout or the package directory
 override, it fetches the package in the server's version as described under Run panel and VS Code
 extension in [usage.md](../usage.md).
 
+## Deploy from a local build
+
+Build an installable host from a clean checkout without publishing to npm:
+
+```sh
+pnpm install --frozen-lockfile
+pnpm build:package --local --pack
+```
+
+The build includes the agent runtime, built-in plugins, and web interface. It writes
+`dist/schlenkr-ragents-<version>.tgz`, with a version such as
+`0.1.40-local.<full-40-character-commit>`, without changing tracked manifests. Tracked changes
+and untracked files are rejected. Each of the six platform tool dependencies is pinned to its
+newest published stable npm version, so the package remains installable on Windows, macOS, and Linux,
+x64 and ARM64. Registry access is required for building and installing dependencies; keep
+optional dependencies enabled. Build details are in
+[development.md](../development.md#building-and-publishing-the-package).
+
+Copy the tarball to a permanent deployment folder and install it into a separate prefix. For
+example, after placing the archive at `/opt/ragents/host.tgz`, with that folder writable by the
+installing account:
+
+```sh
+npm install --prefix /opt/ragents/host /opt/ragents/host.tgz
+RAGENTS_HOST_TARBALL=/opt/ragents/host.tgz \
+  DATA_DIR=/var/lib/ragents/demo \
+  /opt/ragents/host/node_modules/.bin/ragents start /opt/ragents/ragents.config.demo.ts
+```
+
+Keep the profile outside the checkout too, with its port and model settings, and provide its
+required environment variables in the shell or service environment. External plugin paths must
+point to deployed bundles. The server runs from the installed copy; the checkout can be removed.
+
+`RAGENTS_HOST_TARBALL` explicitly enables the workstation download. At startup, before listening,
+the server checks that the archive contains exactly its installed package's published files,
+package name, version, and source commit. A missing file, a different archive, or extra content
+is a hard error. Keep the original archive beside the installation and configure the same path
+on every restart. Custom profiles, credentials, data, and installed dependencies are not in
+this archive.
+Without the variable, including an ordinary npm installation without a retained tarball, the
+server offers no host download.
+
+For network workstations, configure `users` in the profile and grant them `runs.write`; they
+sign in with a password or personal token. Token-only access to a profile without users cannot
+register a network workstation: bootstrap offers no archive and the download returns 403.
+Loopback clients can use a profile without users, still with `runs.write`. These are the same
+access rules as workstation registration.
+
+The extension and CLI workstation first try npm for the server's exact version.
+If that fails, they download the retained archive from the server, verify its SHA-512 integrity,
+and install it into their per-version cache with npm. No manual host installation is required on the
+workstation; `ragents.hostPath` still overrides automatic selection in VS Code.
+
 ## Connect to a server
 
 A developer can run RAgents locally with the profile and models of a central server. This
@@ -155,9 +208,13 @@ expose only the alias.
 and executor as the VS Code extension. No folder means the current directory; `--id` and `--label`
 set its stable identity and display name. The npm installation includes ripgrep on every supported
 platform and the curated Bash on Windows. Plugin tools are provisioned before registration.
-The client uses contributions from its own host package. If the server rejects its executor
-version or contribution states, registration names both package versions and the fix: install
-`@schlenkr/ragents@<server-version>`, for example with `npm install -g @schlenkr/ragents@<server-version>`.
+For each registration, the client selects the server's exact host version. It reuses its own
+host when the versions match; otherwise it installs from npm first, then from the server's
+retained tarball when offered, verifying SHA-512 before installing the download. Fetched hosts
+are reused at `<user-cache>/ragents/hosts/<version>/`: the user cache is `~/Library/Caches` on
+macOS, `%LOCALAPPDATA%` on Windows, and `XDG_CACHE_HOME` or `~/.cache` on Linux. Tools are
+provisioned from the selected host. If neither source works, registration reports both causes.
+Different executor versions or contribution states still fail with their cause.
 
 Set `RAGENTS_TOKEN` for a personal or existing session token. For automatic sign-in and renewal,
 configure `RAGENTS_USER` and `RAGENTS_PASSWORD` in the process environment. Neither is a command-line

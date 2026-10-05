@@ -514,6 +514,22 @@ surface; the message then also names the failed web halves. Bundle and host matc
 the host API number and the names used, not through a shared build
 (section Bundle, build tool, and host API).
 
+Bootstrap also returns `hostPackage`: either `null` or
+`{ path: "/api/host-package", integrity: "sha512-..." }`. The descriptor is present only when
+the server has a retained package archive and the caller is eligible to register a workstation.
+Loopback access can register without profile users; network access requires enabled sign-in and
+a signed-in user. Both require `runs.write`. Token-only network access to a profile without
+users receives `hostPackage: null` and a 403 on download.
+`RAGENTS_HOST_TARBALL` explicitly names that archive. Before
+listening, startup checks its package name, version, source commit, complete published file set,
+and file bytes against the installed host, excluding installed `node_modules`. A missing,
+damaged, or mismatching archive aborts startup. Without the variable, bootstrap advertises none;
+the server does not recreate a package from its installation or serve a source checkout.
+`GET /api/host-package` applies the same ownership and permission rules as registration and
+returns the retained tarball bytes with
+`X-Ragents-Integrity` set to their SHA-512 integrity. The archive contains only published package
+content, without profiles from outside the package, credentials, or runtime data.
+
 Public plugin configuration also controls the web contributions that are actually active. A
 plugin that is installed but disabled for the current configuration stays in the profile for list matching,
 but provides neither providers nor tabs or presenters, and its templates are dropped. That way
@@ -3761,20 +3777,27 @@ plugins does not matter.
 
 A workstation loads exactly these contributions from the built-in bundles of its selected host
 (`<host>/bundles/<id>/executor/index.mjs`) and builds them with its data folder's tools folders.
-The VS Code extension selects a host separately for each server from `version` in
-`ragents.plugins.bootstrap`: `ensureHostPackage` fetches `@schlenkr/ragents@<version>` with the
-extension's configured process environment, including npm registry settings, into
-`<globalStorage>/hosts/<version>/`. Requests for the same version share the fetch;
-the installed package is reused across sessions and restarts. No local profile or distributing
-server is required. The Servers entry reports fetching progress and a failure with its cause.
+The VS Code extension and headless `ragents workspace-client` select a host separately for each
+server from `version` in `ragents.plugins.bootstrap`. Their shared `ensureHostPackage` in
+`scripts/package/host-package.ts` first installs `@schlenkr/ragents@<version>` from npm with the
+client's configured process environment, including registry settings. If that fails and bootstrap
+offers `hostPackage`, it downloads from the authenticated server, verifies SHA-512 against the
+descriptor, and installs the tarball with npm into the same per-version cache. Integrity failures
+abort before installation. If neither source works, registration reports the npm cause and the
+download cause or its absence. No local profile or distributing server is required.
+
+The extension cache is `<globalStorage>/hosts/<version>/`; the CLI cache is `ragents/hosts/<version>/`
+under the operating system's user cache directory. Requests for the same version share the fetch;
+installed packages are reused across sessions and restarts. The CLI reuses its launching host
+when its package version matches the server. The Servers entry reports fetching progress and
+failures with their cause.
 
 An explicit `ragents.hostPath` overrides fetching. Before loading, the selected host's package
 version must match the server's RAgents version, and every requested contribution must match its
 SHA-256 state. A missing host, missing bundle, different package version, or different contribution
-state fails registration with the cause; no other host is used as a fallback. The headless
-`ragents workspace-client` uses its own host; a rejected executor version or contribution state names both package
-versions and the command to install `@schlenkr/ragents@<server-version>`. If the server requests no
-contributions, the extension fetches no host and does no workspace provisioning. The executor of
+state fails registration with the cause; no other host is used as a fallback. A rejected executor
+version or contribution state names both package versions. Every registration selects and
+verifies the exact host version, including servers that request no contributions. The executor of
 every machine thus carries the same operations, and the footprint the server asks of its own
 executor also applies to the workstation.
 
@@ -3902,11 +3925,11 @@ whose bundle carries a contribution to the executor, because its tools run on th
 `~/.local/share/ragents/workspace/`, or wherever a plugin's provisioning otherwise puts them, such as
 Chromium in Playwright's browser cache. Which plugins these are is not written down anywhere as a list but is in
 the manifest of their bundles. The bundles whose exports these import are loaded along, because a
-bundle does not load without them; only what exports `provision` is provisioned. The headless
-workstation provisions at its own start, before it knows a server, according to its own host.
+bundle does not load without them; only what exports `provision` is provisioned. Both workstation
+clients select their host from the server's bootstrap before provisioning and registration.
 The VS Code extension provisions once per selected host during an activation, before registration,
-only when the server requests contributions. Neither uses the server's profile or a fixed plugin
-list; what a server requires must be among the selected host's bundles, otherwise registration
+including when the server requests no contributions. Neither uses the server's profile or a
+fixed plugin list; what a server requires must be among the selected host's bundles, otherwise registration
 fails. A provisioning gap does not hold up the workstation; it fails only when the affected
 contribution is called.
 
@@ -3947,9 +3970,10 @@ project files, `resolveRootDirectory` for TypeScript).
 TypeScript is not provisioned but lies in the host's `node_modules`; the adapter therefore
 resolves `typescript-language-server` and `typescript` through the machine's `hostPackageFile` from the
 folder the run's context names as `hostRoot`. Every
-caller of the executor sets the value: the server its own root (`hostRoot()`), the headless workstation
-the same, the VS Code extension the host selected for this server: the explicit `ragents.hostPath`
-or its package under `<globalStorage>/hosts/<server-version>/`. No adapter
+caller of the executor sets the value: the server its own root (`hostRoot()`), both workstation
+clients the host selected for this server: in VS Code the explicit `ragents.hostPath` or its
+package under `<globalStorage>/hosts/<server-version>/`, in the CLI its matching launching host
+or package in the user cache. No adapter
 and no module resolves anything, downloads anything, or checks anything on
 disk when its contribution is loaded: every resolution happens only in the call and fails there with a cause. A contribution that
 did so on loading would take down every executor that carries it, such as the VS Code extension's.

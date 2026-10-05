@@ -537,15 +537,12 @@ test("the title bar selects one server for Start, Runs, plugin sources, and new-
   second.setSessions([session({ pendingActions: 5 })]);
   const directory = mkdtempSync(path.join(tmpdir(), "ragents-environments-"));
   try {
-    copyFileSync(path.join(extensionRoot, "dist/extension.js"), path.join(directory, "extension.js"));
-    copyFileSync(path.join(extensionRoot, "package.json"), path.join(directory, "package.json"));
-    writeFileSync(path.join(directory, "vscode.cjs"), VSCODE_STUB);
+    const host = workstationHosts(directory, [version]);
     writeFileSync(path.join(directory, "check.cjs"), CHECK_ENVIRONMENTS);
-    mkdirSync(path.join(directory, "workspace"));
     mkdirSync(path.join(directory, "other-workspace"));
     const configuration = { connections: [{ name: "first", url: first.url }, { name: "second", url: second.url }], token: SESSION_TOKEN };
     const result = await execute(process.execPath, ["check.cjs"], {
-      cwd: directory, timeout: 60_000, env: { ...process.env, RAGENTS_TEST_ENVIRONMENTS: JSON.stringify(configuration) },
+      cwd: directory, timeout: 60_000, env: { ...host.environment, RAGENTS_TEST_ENVIRONMENTS: JSON.stringify(configuration) },
     }).catch((cause: unknown) => { assert.fail(cause instanceof Error ? cause.message : String(cause)); });
     assert.equal(result.stderr, "");
   } finally {
@@ -602,6 +599,11 @@ const stubCommand = (directory: string, name: string, body: string): void => {
   writeFileSync(script, `#!${process.execPath}\n${body}`, { mode: 0o755 });
   if (process.platform === "win32") writeFileSync(path.join(directory, `${name}.cmd`), `@"${process.execPath}" "${script}" %*\r\n`);
   else copyFileSync(script, path.join(directory, name));
+  if (name === "npm" && process.platform === "win32") {
+    const cli = path.join(directory, "node_modules", "npm", "bin", "npm-cli.js");
+    mkdirSync(path.dirname(cli), { recursive: true });
+    copyFileSync(script, cli);
+  }
 };
 
 const workstationHosts = (directory: string, versions: readonly string[], failure?: string) => {

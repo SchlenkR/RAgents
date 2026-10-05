@@ -159,7 +159,7 @@ export const startStubServer = async (options: {
       sessions = sessions.filter((entry) => entry.id !== runId);
       return null;
     }),
-    implement(coreContracts.plugins.bootstrap, () => options.version === null ? profile as HostBootstrap : { ...profile, version: options.version ?? STUB_VERSION }),
+    implement(coreContracts.plugins.bootstrap, () => options.version === null ? profile as HostBootstrap : { ...profile, version: options.version ?? STUB_VERSION, hostPackage: null }),
     implement(runContracts.view, ({ runId }) => {
       viewRequests += 1;
       if (sessions.some((entry) => entry.id === runId && entry.locked !== undefined)) throw new DomainError("journal-unavailable", `Journal for run ${runId} is not available`, 409);

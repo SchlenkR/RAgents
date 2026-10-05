@@ -25,6 +25,8 @@ import { RunSessionProvider } from "./provider.js";
 import { readHelpResponse } from "./help-files.js";
 import { watchParentProcess } from "./parent-watch.js";
 import { hostRoot, readPackageVersion } from "./host-version.js";
+import { hostPackageRoute, loadServedHostPackage } from "./host-package.js";
+import { isLoopbackRequest } from "./local-request.js";
 import { hostWebProblem, isCheckout } from "./host-web.js";
 import { createStylesheet, linkVersionedStylesheet, STYLESHEET_PATH, stylesheetResponse, type Stylesheet } from "./web-stylesheet.js";
 import { isBundleSourceMap, isPublicBundleFile, isWebBundlePath, webBundleFile } from "./web-bundles.js";
@@ -154,6 +156,7 @@ const contentTypes: Record<string, string> = {
 if (config.plugins.length === 0)
   throw new Error(`The profile ${config.productProfile} names no plugins: PLUGINS is missing in ragents.config.${config.productProfile}.ts`);
 const root = hostRoot();
+const servedHostPackage = await loadServedHostPackage(config.hostTarball, root);
 const checkout = isCheckout(root);
 const rebuild = (command: string): string => checkout ? `rebuild in the checkout with ${command}` : "the package is incomplete; reinstall it";
 if (!devMode) {
@@ -217,6 +220,7 @@ provider.plugins.methods.register("host", [
     sessions: provider,
     plugins: provider.plugins,
     version: readPackageVersion(),
+    hostPackage: servedHostPackage?.download,
     global: globalAccess,
     runOwner: (runId) => provider.runOwner(runId),
     runOwnerOnly: (runId) => provider.runOwnerOnly(runId),
@@ -233,7 +237,7 @@ provider.plugins.channels.register("host", coreChannels({
   runOwnerOnly: (runId) => provider.runOwnerOnly(runId),
   runSharing: (runId) => provider.runSharing(runId),
 }));
-provider.plugins.http.register("host", [provider.engineArtifactRoute(), attachmentContentRoute(provider, provider.runAccess())]);
+provider.plugins.http.register("host", [provider.engineArtifactRoute(), attachmentContentRoute(provider, provider.runAccess()), hostPackageRoute(servedHostPackage)]);
 const dispatcher = new RpcDispatcher({
   methods: provider.plugins.methods,
   channels: provider.plugins.channels,
@@ -265,11 +269,6 @@ const addressAccess = (req: IncomingMessage, res: ServerResponse, url: URL): Acc
     jsonResponse(res, error.status, { error: error.message, code: error.code });
     return null;
   }
-};
-
-const isLoopbackRequest = (req: IncomingMessage): boolean => {
-  const address = req.socket.remoteAddress;
-  return address === "127.0.0.1" || address === "::1" || address === "::ffff:127.0.0.1";
 };
 
 async function handleRequest(req: IncomingMessage, res: ServerResponse): Promise<void> {

@@ -1,6 +1,6 @@
 import { createHash } from "node:crypto";
 import { statSync } from "node:fs";
-import { hostname } from "node:os";
+import { homedir, hostname } from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { resolveBundledTools } from "../../packages/workspace-executor/src/bundled-tools.ts";
@@ -8,7 +8,9 @@ import { exitWorkspaceProcess, watchOwnerLifetime } from "../../packages/workspa
 import { isCheckout } from "../../apps/server/src/host-web.ts";
 import { hostRoot, readPackageVersion } from "../../apps/server/src/host-version.ts";
 import { callerDirectory } from "../../apps/server/src/profile-target.ts";
-import { provisionWorkspace } from "../../apps/server/src/profile/provisioning.ts";
+import { coreContracts } from "../../apps/server/src/api/contracts.ts";
+import { ensureHostLinks } from "../package/host-links.mjs";
+import { ensureHostPackage, findExecutable, matchingHostVersion, runHostCommand } from "../package/host-package.ts";
 import { workspaceClientTransport } from "../../plugins/ragents.workspace/client/transport.ts";
 import { WorkspaceClient, workstationRunsDirectory } from "../../plugins/ragents.workspace/client/workspace-client.ts";
 
@@ -70,6 +72,25 @@ export const resolvedFolders = (folders: readonly string[], caller = callerDirec
   return resolved;
 };
 
+export const workstationHostStorage = (environment: NodeJS.ProcessEnv = process.env): string => {
+  const cache = process.platform === "win32" ? environment.LOCALAPPDATA ?? path.join(homedir(), "AppData", "Local")
+    : process.platform === "darwin" ? path.join(homedir(), "Library", "Caches")
+    : environment.XDG_CACHE_HOME ?? path.join(homedir(), ".cache");
+  return path.join(cache, "ragents");
+};
+
+export const selectWorkspaceHost = async (
+  transport: ReturnType<typeof workspaceClientTransport>, root: string, environment: NodeJS.ProcessEnv,
+  log: (line: string) => void, storage = workstationHostStorage(environment),
+): Promise<string> => {
+  const server = await transport.rpc.call(coreContracts.plugins.bootstrap, {});
+  if (!server.version) throw new Error("The server reports no RAgents version. Update the server before registering this workstation.");
+  if (readPackageVersion(root) === server.version) return root;
+  return matchingHostVersion(await ensureHostPackage(storage, server.version, environment, log, {
+    download: server.hostPackage, fetch: (path, init) => transport.fetch(path, init),
+  }), server.version);
+};
+
 const main = async (): Promise<void> => {
   const parsed = parseArguments(process.argv.slice(2));
   let stopping: Promise<void> | undefined;
@@ -108,6 +129,17 @@ const main = async (): Promise<void> => {
   const tools = resolveBundledTools({ root: isCheckout(root) ? path.join(root, "apps/vscode") : root, distribution: isCheckout(root) ? "extension" : "package" });
   const client = new WorkspaceClient(transport, identity, {
     hostRoot,
+    prepareHost: async (report) => {
+      report("Selecting workstation host ...");
+      const selected = await selectWorkspaceHost(transport, root, process.env, console.log);
+      ensureHostLinks(selected);
+      report("Provisioning workstation tools ...");
+      const node = findExecutable("node");
+      if (!node) throw new Error("node was not found in the PATH; workstation tools cannot be provisioned");
+      await runHostCommand(node, ["--import", "tsx", "../../scripts/provision/run-provision.ts", "--workspace"], path.join(selected, "apps/server"), process.env, console.log)
+        .catch((cause: unknown) => console.error(`== Workspace tools: ${cause instanceof Error ? cause.message : String(cause)}`));
+      return selected;
+    },
     version: readPackageVersion(root),
     ...tools,
     onExecuted: ({ runId, operation, durationMs, error }) =>
@@ -116,8 +148,6 @@ const main = async (): Promise<void> => {
   console.log(`== Workspace ${identity.label} (${identity.id})`);
   for (const folder of folders) console.log(`== Folder ${folder}`);
   process.send?.({ type: "workspace-ready" });
-  console.log("== Provisioning tools");
-  await provisionWorkspace((line) => console.log(line));
   console.log(`== Server ${parsed.serverUrl}`);
   const workspace = client;
   workspace.onChange(() => {

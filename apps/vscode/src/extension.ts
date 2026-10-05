@@ -369,11 +369,11 @@ export async function activate(context: vscode.ExtensionContext): Promise<RAgent
   };
 
   /** A configured host or the cached package in the requested version. */
-  const ensureHost = async (version: string, report: (detail: string) => void): Promise<string> => {
+  const ensureHost = async (version: string, report: (detail: string) => void, source?: import("../../../scripts/package/host-package.ts").HostPackageSource): Promise<string> => {
     const configured = configuredHost();
     if (configured) return configured;
     report(`Fetching host package ${version} ...`);
-    return ensureHostPackage(context.globalStorageUri.fsPath, version, await hostEnvironment(), log);
+    return ensureHostPackage(context.globalStorageUri.fsPath, version, await hostEnvironment(), log, source);
   };
 
   /** Starts the local host from a profile file; for local profiles and for profiles a server distributes. */
@@ -454,7 +454,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<RAgent
       prepareHost: async (report) => {
         const server = await transport.rpc.call(coreContracts.plugins.bootstrap, {});
         if (!server.version) throw new Error("The server reports no RAgents version. Update the server before registering this workstation.");
-        const root = matchingHostVersion(await ensureHost(server.version, report), server.version);
+        const root = matchingHostVersion(await ensureHost(server.version, report, { download: server.hostPackage, fetch: (path, init) => transport.fetch(path, init) }), server.version);
         return prepareWorkstationHost(root, report);
       },
       bash: bundledBash(context.extensionPath),

@@ -2,19 +2,12 @@ import type { IncomingMessage, ServerResponse } from "node:http";
 import { readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { config } from "./config.js";
+import { isLocalRequest } from "./local-request.js";
+export { isLocalRequest } from "./local-request.js";
 
 const stateFile = path.join(config.dataDir, "external-access.json");
-const LOCAL_HOSTS = new Set(["127.0.0.1", "localhost", "::1"]);
 
 let open = true;
-
-const hostOf = (req: IncomingMessage): string => {
-  const header = req.headers.host ?? "";
-  const bracketed = /^\[(.+)\]/.exec(header);
-  return (bracketed ? bracketed[1] : header.split(":")[0] ?? "").toLowerCase();
-};
-
-export const isLocalRequest = (req: IncomingMessage): boolean => LOCAL_HOSTS.has(hostOf(req));
 
 export const externalAccessOpen = (): boolean => open;
 

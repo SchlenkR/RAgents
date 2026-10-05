@@ -1,6 +1,8 @@
 import { readdirSync, statSync } from "node:fs";
 import { homedir } from "node:os";
 import path from "node:path";
+import { isHostRoot } from "../../../scripts/package/host-package.ts";
+export { isHostRoot } from "../../../scripts/package/host-package.ts";
 import { parseServerUrl } from "./settings";
 
 /** Where the extension connects to: a server (sign-in there; if it distributes a profile, the host runs locally) or, for developers, a profile it starts itself. */
@@ -105,10 +107,6 @@ export const connectionsLocation = (inspected: { workspaceValue?: unknown; globa
   Array.isArray(inspected?.workspaceValue)
     ? { scope: "workspace", entries: inspected.workspaceValue }
     : { scope: "global", entries: Array.isArray(inspected?.globalValue) ? inspected.globalValue : [] };
-
-export const isHostRoot = (candidate: string): boolean =>
-  statSync(path.join(candidate, "package.json"), { throwIfNoEntry: false })?.isFile() === true
-  && statSync(path.join(candidate, "apps/server/src/main.ts"), { throwIfNoEntry: false })?.isFile() === true;
 
 /** The host from the setting or the repo of the extension; without either, it fetches the package @schlenkr/ragents itself. */
 export const resolveHostPath = (configured: unknown, extensionPath: string): string | undefined => {
