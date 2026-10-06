@@ -4442,7 +4442,7 @@
     background: var(--app);
     color: var(--foreground);
     font-family: var(--font-sans);
-    font-size: 14px;
+    font-size: 0.875rem;
     line-height: 1.5;
   }
 }

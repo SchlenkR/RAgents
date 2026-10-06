@@ -5,6 +5,11 @@
 @import "./quassel.css";
 
 @layer base {
+    /* Base size of the whole interface; every rem-based size scales with it. */
+    html {
+        font-size: 110%;
+    }
+
     html, body, #root {
         height: 100%;
     }
