@@ -1,5 +1,17 @@
 # Decisions
 
+## 2026-10-06: Anchor the global coordinator chat to its own field
+
+Chapter: `spec/plugins.md` (Web as plugin host, Global coordinator); usage: `usage.md`
+(Global coordinator).
+
+The shared header dropdown change anchored the global coordinator to the header's right edge,
+away from its field on the left. `HeaderDropdown` now offers a chat variant that opens directly
+below its calling field, left-aligned with 8 px collision padding, in the browser and VS Code.
+The panel uses at least 80 percent of the viewport height when space permits, fills its body
+with the chat, and keeps the composer at the bottom; short windows bound it to the available
+height. Run details, Run script, Agents, and Share keep their existing placement and size limits.
+
 ## 2026-10-06: Limit turn inactivity instead of total running time
 
 Chapters: `spec/core.md` (Scheduler and turns, Empty responses, tool calls, and toolset,

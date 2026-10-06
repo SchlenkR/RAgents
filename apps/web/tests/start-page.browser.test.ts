@@ -349,6 +349,59 @@ for (const view of ["web", "start"] as const) {
 }
 
 for (const host of ["browser", "vscode"] as const) {
+  for (const width of [1400, 420]) {
+    test(`the global coordinator opens below its field with a tall chat at ${width}px in ${host}`, browserOnly, async (context) => {
+      await withPage(`view=${host === "browser" ? "web" : "panel"}&host=${host}&coordinator=1`, width, async (page) => {
+        const trigger = page.getByRole("button", { name: "Global coordinator", exact: true });
+        const history = page.getByRole("region", { name: "Global coordinator", exact: true });
+        const measure = async () => {
+          await page.evaluate(async () => {
+            await new Promise<void>((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve())));
+            await Promise.all(document.getAnimations().filter((animation) => animation.effect?.getComputedTiming().iterations !== Infinity)
+              .map((animation) => animation.finished.catch(() => undefined)));
+          });
+          const [field, panel, chat, composer] = await Promise.all([
+            trigger.boundingBox(), history.boundingBox(), history.locator('[data-chat="panel"]').boundingBox(), history.locator('[data-chat="composer"]').boundingBox(),
+          ]);
+          const viewport = page.viewportSize()!;
+          assert.ok(field && panel && chat && composer);
+          const left = Math.max(8, Math.min(field.x, viewport.width - panel.width - 8));
+          assert.ok(Math.abs(panel.x - left) < 1, `The chat aligns with its field, shifted only for viewport padding: ${JSON.stringify({ field, panel })}`);
+          assert.ok(Math.abs(panel.y - field.y - field.height - 8) < 1, "The chat opens directly below its field, including in a two-row header.");
+          assert.ok(panel.height >= viewport.height * 0.8, `The chat uses at least 80 percent of the viewport height: ${panel.height}/${viewport.height}`);
+          assert.ok(panel.x >= 8 && panel.x + panel.width <= viewport.width - 8 && panel.y + panel.height <= viewport.height - 8 + 1, `The whole chat respects viewport padding: ${JSON.stringify({ panel, viewport })}`);
+          assert.ok(Math.abs(panel.width - Math.min(800, viewport.width - 16)) < 1, "The chat keeps a readable width when its field is narrow.");
+          assert.ok(Math.abs(chat.y + chat.height - panel.y - panel.height + 8) < 1, "The chat fills the panel down to its bottom padding.");
+          assert.ok(Math.abs(composer.y + composer.height - chat.y - chat.height) < 1, "The composer stays at the bottom of the chat.");
+          assert.equal(await history.evaluate((element) => element.scrollWidth > element.clientWidth), false);
+        };
+        await trigger.click();
+        await history.getByRole("textbox", { name: "Ask the global coordinator", exact: true }).waitFor();
+        await measure();
+        await page.keyboard.press("Escape");
+        await history.waitFor({ state: "hidden" });
+        if (host === "browser") {
+          await page.getByRole("list", { name: "Recent", exact: true }).getByRole("button").first().click();
+        } else {
+          await page.evaluate(() => window.startPageFixture.command({ type: "selectRun", runId: "existing" }));
+        }
+        await page.getByRole("button", { name: "Stop run", exact: true }).waitFor();
+        await trigger.click();
+        await history.waitFor();
+        await measure();
+        const shots = join(tmpdir(), "ragents-browser-shots");
+        await mkdir(shots, { recursive: true });
+        const screenshot = join(shots, `global-coordinator-${host}-${width}.png`);
+        await page.screenshot({ path: screenshot });
+        context.diagnostic(`Screenshot: ${screenshot}`);
+        for (const height of [1400, 300]) {
+          await page.setViewportSize({ width, height });
+          await measure();
+        }
+      });
+    });
+  }
+
   test(`one shared header retains the coordinator and run actions (${host})`, browserOnly, async () => {
     await withPage(`view=${host === "browser" ? "web" : "panel"}&host=${host}&coordinator=1`, 1280, async (page) => {
       await page.getByRole("list", { name: "Templates", exact: true }).waitFor();

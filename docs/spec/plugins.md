@@ -1391,12 +1391,16 @@ Menus, header hints, actor popouts, chat step details, and journal use `Popover`
 and `Select` from the UI library. Base UI follows their anchors, scrolling, and layout changes.
 Header dropdowns share `HeaderDropdown`, exported through `@ragents/web/ui`: Run details,
 Run script, Agents, Share, and the global coordinator use the same square panel, labeled
-heading, close button, 8 px padding, and theme dimming. The panel opens below the nearest
+heading, close button, 8 px padding, and theme dimming. By default, the panel opens below the nearest
 header, inset 8 px from its right edge; outside a header it follows the calling row or action.
 Its width is `min(800px, max(320px, anchor width - 16px), available width)`, so narrow action
 anchors still give a readable panel and the viewport always limits its width. Height is limited
-to 70 percent of the viewport, 560 px, and the available space. The portal sits within the
-nearest header by default, keeping the trigger above dimming. The nonmodal Base UI popover
+to 70 percent of the viewport, 560 px, and the available space. With `variant="chat"`, it opens
+directly below the calling field, aligned with its left edge and with 8 px collision padding.
+Its width is `min(800px, available width)` and its height is
+`min(max(80vh, 320px), available height)`; the body fills the panel and keeps the composer at
+the bottom. The portal sits within the nearest header by default, keeping the trigger above
+dimming. The nonmodal Base UI popover
 closes on Escape or an outside press and restores focus unless it has moved elsewhere.
 The global conversation uses region semantics, keeps its history mounted, and initially
 focuses its composer.
@@ -2558,11 +2562,14 @@ oversees only this server's runs; switching environments selects a separate conv
 Coordinator runs do not appear in the ordinary run list. In the header the contribution is a plain button (`PopoverTrigger`) with the
 accessible name "Global coordinator", styled like an input field with that text in muted color;
 it fills its header slot, and the header keeps its fixed height of 45 pixels. Button and status
-are on one row. The button opens the history in the shared square `HeaderDropdown` below the
-header; `aria-expanded` and, while open, `aria-controls` point to the dropdown. The shared shell
+are on one row. The button opens the history directly below itself, left-aligned, in the shared
+square `HeaderDropdown` with `variant="chat"` in both browser and VS Code;
+`aria-expanded` and, while open, `aria-controls` point to the dropdown. The shared shell
 provides its labeled heading, close button, width and height limits, padding, and dimming;
-the button stays visible and clickable above the dimming. At the bottom is the normal card
-composer of the run chat (`ChatPanel` with `ChatInputToolbar`); level of detail, attachment,
+the button stays visible and clickable above the dimming. The panel uses at least 80 percent of
+the viewport height when space permits, bounded by the available height in short windows.
+The chat fills the panel, with the normal card composer of the run chat at the bottom
+(`ChatPanel` with `ChatInputToolbar`); level of detail, attachment,
 model, reasoning, reset, send, and stop are in
 its toolbar. The contribution has one conversation, one draft with attachments, and one
 stream, independent of the active run.

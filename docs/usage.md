@@ -447,8 +447,11 @@ loading these catalogs. Plugin forms are additionally reachable at their plugin.
 With `ragents.overseer` in `host.PLUGINS`, the "Global coordinator" button sits to the right
 of the overview buttons and looks like an input field. A click, or Enter or Space while it has
 focus, opens the conversation in the shared square header dropdown and dims the rest of the
-application; the button stays visible above the dimming. At the bottom is the same input as in
-a run chat, and it gets the keyboard focus right away: Enter sends, Shift+Enter inserts a line,
+application; the button stays visible above the dimming. In the browser and VS Code, the panel
+opens directly below this field, aligned with its left edge, with a small viewport inset. It is
+up to 800 pixels wide and uses at least 80 percent of the viewport height when space permits;
+short windows limit it to the available height. The chat fills the panel, with the same composer
+as a run chat at the bottom. Its input gets the keyboard focus right away: Enter sends, Shift+Enter inserts a line,
 and attachments can be selected, dragged in, or pasted. Its toolbar holds details, model choice,
 reasoning, reset, send, and stop.
 This dropdown is the only place of the conversation; Start has no second coordinator chat.

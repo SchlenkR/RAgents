@@ -685,6 +685,9 @@
   .h-\(--control-height\) {
     height: var(--control-height);
   }
+  .h-\(--header-dropdown-height\) {
+    height: var(--header-dropdown-height);
+  }
   .h-1 {
     height: var(--spacing);
   }
@@ -870,6 +873,9 @@
   }
   .w-\[min\(800px\,max\(320px\,calc\(var\(--anchor-width\)-16px\)\)\,var\(--available-width\)\)\] {
     width: min(800px, max(320px, calc(var(--anchor-width) - 16px)), var(--available-width));
+  }
+  .w-\[min\(800px\,var\(--available-width\)\)\] {
+    width: min(800px, var(--available-width));
   }
   .w-\[min\(860px\,calc\(100\%-2rem\)\)\] {
     width: min(860px, calc(100% - 2rem));
@@ -2568,6 +2574,9 @@
   }
   .\[--header-dropdown-height\:min\(70vh\,560px\,var\(--available-height\)\)\] {
     --header-dropdown-height: min(70vh, 560px, var(--available-height));
+  }
+  .\[--header-dropdown-height\:min\(max\(80vh\,320px\)\,var\(--available-height\)\)\] {
+    --header-dropdown-height: min(max(80vh, 320px), var(--available-height));
   }
   .\[--popout-body-height\:calc\(var\(--header-dropdown-height\)_-_3\.25rem\)\] {
     --popout-body-height: calc(var(--header-dropdown-height) - 3.25rem);

@@ -114,7 +114,7 @@ function OverseerConversation({ open, onOpen, onClose, onBusy, userLocation, run
   const problem = error ?? composerError ?? modelState.error ?? connectionNote;
   return <div className={toolbarClass} data-slot="overseer-toolbar">
     <HeaderDropdown id="overseer-dropdown" initialFocus={composerInput} keepMounted label="Global coordinator"
-      onOpenChange={(next) => { if (next) onOpen(); else if (!confirmReset) onClose(); }} open={open} ref={setDropdown} role="region"
+      onOpenChange={(next) => { if (next) onOpen(); else if (!confirmReset) onClose(); }} open={open} ref={setDropdown} role="region" variant="chat"
       trigger={<Button className={triggerClass} data-working={chat.running} variant="ghost">
           <span className="truncate">Global coordinator</span>
       </Button>}>
@@ -136,7 +136,7 @@ function OverseerConversation({ open, onOpen, onClose, onBusy, userLocation, run
             </DialogContent>
           </Dialog>
         </RunModalContext.Provider>}
-        <ChatPanel className="h-(--popout-body-height) flex-none" composer={<div className="[--qsl-input-card-radius:var(--radius-lg)]">
+        <ChatPanel className="flex-1" composer={<div className="[--qsl-input-card-radius:var(--radius-lg)]">
           {connectionNote && <p className={noteClass} role="status">{connectionNote}</p>}
           {error && <p className={errorClass} role="alert">{error}</p>}
           <ChatInputToolbar {...attachments} handleRef={composer}

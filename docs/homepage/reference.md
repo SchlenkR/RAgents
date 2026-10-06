@@ -6601,7 +6601,7 @@ type DropdownAnchor = HTMLElement | {
     contextElement: HTMLElement;
     getBoundingClientRect: () => DOMRect;
 };
-export declare function HeaderDropdown({ open, onOpenChange, label, trigger, anchor, children, id, initialFocus, keepMounted, role, ref }: {
+export declare function HeaderDropdown({ open, onOpenChange, label, trigger, anchor, children, id, initialFocus, keepMounted, role, variant, ref }: {
     open: boolean;
     onOpenChange: (open: boolean) => void;
     label: string;
@@ -6612,6 +6612,7 @@ export declare function HeaderDropdown({ open, onOpenChange, label, trigger, anc
     initialFocus?: ComponentProps<typeof PopoverContent>["initialFocus"];
     keepMounted?: boolean;
     role?: "dialog" | "region";
+    variant?: "default" | "chat";
     ref?: Ref<HTMLDivElement>;
 }): import("react").JSX.Element;
 export {};
@@ -6757,7 +6758,7 @@ import * as React from "react";
 import { Popover as PopoverPrimitive } from "@base-ui/react/popover";
 declare function Popover({ ...props }: PopoverPrimitive.Root.Props): React.JSX.Element;
 declare function PopoverTrigger({ ...props }: PopoverPrimitive.Trigger.Props): React.JSX.Element;
-declare function PopoverContent({ className, align, alignOffset, side, sideOffset, anchor, collisionPadding, container, keepMounted, dim, ...props }: PopoverPrimitive.Popup.Props & Pick<PopoverPrimitive.Positioner.Props, "align" | "alignOffset" | "side" | "sideOffset" | "anchor" | "collisionPadding"> & Pick<PopoverPrimitive.Portal.Props, "container" | "keepMounted"> & {
+declare function PopoverContent({ className, align, alignOffset, side, sideOffset, anchor, collisionAvoidance, collisionPadding, container, keepMounted, dim, ...props }: PopoverPrimitive.Popup.Props & Pick<PopoverPrimitive.Positioner.Props, "align" | "alignOffset" | "side" | "sideOffset" | "anchor" | "collisionAvoidance" | "collisionPadding"> & Pick<PopoverPrimitive.Portal.Props, "container" | "keepMounted"> & {
     /** Dims the rest of the page so the pop-out stands out; a click outside closes it. */
     dim?: boolean;
 }): React.JSX.Element;

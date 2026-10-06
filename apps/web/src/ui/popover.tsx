@@ -18,6 +18,7 @@ function PopoverContent({
   side = "bottom",
   sideOffset = 8,
   anchor,
+  collisionAvoidance,
   collisionPadding,
   container,
   keepMounted,
@@ -26,7 +27,7 @@ function PopoverContent({
 }: PopoverPrimitive.Popup.Props &
   Pick<
     PopoverPrimitive.Positioner.Props,
-    "align" | "alignOffset" | "side" | "sideOffset" | "anchor" | "collisionPadding"
+    "align" | "alignOffset" | "side" | "sideOffset" | "anchor" | "collisionAvoidance" | "collisionPadding"
   > & Pick<PopoverPrimitive.Portal.Props, "container" | "keepMounted"> & {
     /** Dims the rest of the page so the pop-out stands out; a click outside closes it. */
     dim?: boolean
@@ -43,6 +44,7 @@ function PopoverContent({
         align={align}
         alignOffset={alignOffset}
         anchor={anchor}
+        collisionAvoidance={collisionAvoidance}
         collisionPadding={collisionPadding}
         side={side}
         sideOffset={sideOffset}
