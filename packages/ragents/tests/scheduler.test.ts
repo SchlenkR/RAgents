@@ -477,6 +477,10 @@ test("an aborted turn is interrupted without requeue", async () => {
 
         const view = setup.runtime.view(setup.view.id);
         assert.equal(view.turns[0]?.status, "interrupted");
+        assert.equal(view.turns[0]?.reason, "The turn was cancelled.");
+        assert.deepEqual(setup.runtime.events(setup.view.id)
+            .filter((event) => event.type === "turn.interrupted")
+            .map((event) => event.payload.reason), ["The turn was cancelled."]);
         assert.equal(view.inputs.length, 1);
         assert.equal(view.inputs[0]?.lifecycle.kind, "claimed");
         assert.equal(driver.requests.length, 1);

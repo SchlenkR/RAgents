@@ -1,5 +1,22 @@
 # Decisions
 
+## 2026-10-06: Limit turn inactivity instead of total running time
+
+Chapters: `spec/core.md` (Scheduler and turns, Empty responses, tool calls, and toolset,
+Equipping subagents), `spec/profiles.md` (Editable model defaults), `spec/plugins.md`
+(PluginHost registrations, Web as plugin host); usage: `usage.md` (Settings).
+
+A slow model kept completing work but lost its coordinator turn when the one-hour total timer
+expired. `turnTimeoutMs` now restarts on completed model steps, streamed output, tool starts
+and completions, presented tool results, and joined steering input. Active turns can continue;
+a turn without progress still stops after the configured limit.
+Streamed tool arguments and compaction summaries report progress without adding visible output.
+
+A typed abort cause gives the journal a specific inactivity reason instead of suggesting a
+manual cancellation. Manual stops keep their current reason, and event types, journal format,
+and replay stay unchanged. Tool contracts, role documentation, and profile cards describe the
+same inactivity limit.
+
 ## 2026-10-06: Apply run sharing choices immediately
 
 Chapter: `spec/plugins.md` (Web as plugin host); usage: `usage.md` (Share runs).

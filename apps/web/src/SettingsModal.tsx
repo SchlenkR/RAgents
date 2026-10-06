@@ -755,7 +755,7 @@ function ProfileCard({ profile }: { profile: SettingsProfile }) {
       </header>
       <p className={cardCopyTextClass}>{profile.description}</p>
       <footer className="flex flex-wrap gap-x-3 gap-y-1.5 text-[0.64rem] text-muted-foreground">
-        <span>{profile.turnTimeoutMs === null ? "No turn timeout" : `Turn timeout ${formatDuration(profile.turnTimeoutMs)}`}</span>
+        <span>{profile.turnTimeoutMs === null || profile.turnTimeoutMs === 0 ? "No turn inactivity limit" : `Turn inactivity limit ${formatDuration(profile.turnTimeoutMs)}`}</span>
         <span>{profile.isolateWorkspace ? "Own agent workspace" : "Shared run workspace"}</span>
       </footer>
     </article>

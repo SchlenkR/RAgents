@@ -450,6 +450,8 @@ export class AgentTurn {
                 request.publish({ kind: "text", delta: delta.delta });
             } else if (delta.type === "thinking_delta" && delta.delta)
                 request.publish({ kind: "thinking", delta: delta.delta });
+            else if (delta.type === "toolcall_delta" && delta.delta)
+                request.progress?.();
 
             return;
         }
@@ -702,7 +704,14 @@ export class AgentTurn {
                 undefined,
                 AbortSignal.any([abort.signal, this.#options.signal]),
                 thinkingLevel,
-                (streamModel, context, options) => modelRuntime.streamSimple(streamModel, context, options),
+                async (streamModel, context, options) => {
+                    const stream = modelRuntime.streamSimple(streamModel, context, options);
+                    for await (const event of stream) {
+                        if ("delta" in event && event.delta)
+                            this.#request.progress?.();
+                    }
+                    return stream;
+                },
                 auth?.env,
             ));
 

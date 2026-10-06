@@ -471,6 +471,11 @@ roles can be adjusted separately in the model settings. Model and thinking level
 separate; the run does not override the thinking level at start. The model catalog limits the
 allowed levels per model.
 
+The product's roles also supply `turnTimeoutMs`, the maximum time without turn progress in
+milliseconds (`null` or zero for no limit). Core's `coordinator`, `relay`, and `standard` roles use
+3,600,000 ms (60 minutes). Progress restarts the timer as described in
+[core.md](core.md#scheduler-and-turns); model defaults do not edit this limit.
+
 The defaults are stored under `${DATA_DIR}/plugins/<product-plugin>/model-settings.json`. Each
 product plugin owns its own store and its own methods `ragents.product.modelSettings.read` and
 `.save`. Reading requires `settings.read`, saving additionally `settings.write`. A save transmits

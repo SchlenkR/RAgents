@@ -32,6 +32,15 @@ The scheduler processes at most one turn per actor:
    events in the journal.
 5. The turn ends as `completed`, `failed`, or `interrupted`.
 
+`turnTimeoutMs` limits inactivity, in milliseconds. The timer restarts after a completed model
+step, streamed model output (including reasoning, tool arguments, and compaction summaries),
+a tool call start or completion,
+a presented tool result, or steering input joining the turn. A turn that keeps making progress
+can run longer than the limit; a stalled turn is stopped after the limit. `null` or zero disables it.
+The journal records the timeout cause, for example "The turn made no progress for 60 minutes
+and was stopped." Manual cancellation keeps "The turn was cancelled." Turn end event types and
+the journal format stay unchanged, so existing journals replay as before.
+
 Inputs that arrive while an agent's turn runs join that turn as steering. Before each model
 request, the turn takes all waiting inputs of its actor in journal order and hands them to the
 model after the results of the tool calls that were running; a running tool call is neither
@@ -273,10 +282,13 @@ overview in the system prompt lists only the snippet-only functions (`nativeTool
 names and short descriptions. Tools and overview stay current during the turn. Roles
 and work boundaries remain prompt instructions. Alongside a role (field `profile`), `agent_spawn` accepts
 `model` and `thinking` from the model list. A role supplies only the driver, provider,
-reasoning level, timeout, and workspace default; the product model list defines which models are
-available. If neither a model nor a role that supplies one is present when an agent starts,
-the error lists the available roles for the selected driver. A manual role is not
+reasoning level, turn inactivity limit, and workspace default; the product model list defines
+which models are available. If neither a model nor a role that supplies one is present when an
+agent starts, the error lists the available roles for the selected driver. A manual role is not
 suggested as an agent's model choice.
+
+`agent_spawn.turnTimeoutMs` overrides the role's inactivity limit; without either value there is
+no limit. `model_list` reports each role's limit as `turnTimeoutMs`, with `null` for no limit.
 
 ## Journal and projection
 

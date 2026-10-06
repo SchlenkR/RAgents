@@ -190,6 +190,14 @@ without inspection permission, the run view contains none of the task text.</p>
 events in the journal.</li>
 <li>The turn ends as <code>completed</code>, <code>failed</code>, or <code>interrupted</code>.</li>
 </ol>
+<p><code>turnTimeoutMs</code> limits inactivity, in milliseconds. The timer restarts after a completed model
+step, streamed model output (including reasoning, tool arguments, and compaction summaries),
+a tool call start or completion,
+a presented tool result, or steering input joining the turn. A turn that keeps making progress
+can run longer than the limit; a stalled turn is stopped after the limit. <code>null</code> or zero disables it.
+The journal records the timeout cause, for example &quot;The turn made no progress for 60 minutes
+and was stopped.&quot; Manual cancellation keeps &quot;The turn was cancelled.&quot; Turn end event types and
+the journal format stay unchanged, so existing journals replay as before.</p>
 <p>Inputs that arrive while an agent&#39;s turn runs join that turn as steering. Before each model
 request, the turn takes all waiting inputs of its actor in journal order and hands them to the
 model after the results of the tool calls that were running; a running tool call is neither
@@ -416,10 +424,12 @@ overview in the system prompt lists only the snippet-only functions (<code>nativ
 names and short descriptions. Tools and overview stay current during the turn. Roles
 and work boundaries remain prompt instructions. Alongside a role (field <code>profile</code>), <code>agent_spawn</code> accepts
 <code>model</code> and <code>thinking</code> from the model list. A role supplies only the driver, provider,
-reasoning level, timeout, and workspace default; the product model list defines which models are
-available. If neither a model nor a role that supplies one is present when an agent starts,
-the error lists the available roles for the selected driver. A manual role is not
+reasoning level, turn inactivity limit, and workspace default; the product model list defines
+which models are available. If neither a model nor a role that supplies one is present when an
+agent starts, the error lists the available roles for the selected driver. A manual role is not
 suggested as an agent&#39;s model choice.</p>
+<p><code>agent_spawn.turnTimeoutMs</code> overrides the role&#39;s inactivity limit; without either value there is
+no limit. <code>model_list</code> reports each role&#39;s limit as <code>turnTimeoutMs</code>, with <code>null</code> for no limit.</p>
 <h2 id="journal-and-projection">Journal and projection</h2>
 <p>The journal is the shared history of a run. Visible state is produced by replaying its events;
 models, functions, and external runtimes are not called again in the process.

@@ -93,6 +93,7 @@ export type TurnRequest<Kind extends AutomatedDriverKind = AutomatedDriverKind> 
     emit: (event: DriverEvent) => void;
     recordTool?: (event: DriverToolEvent) => void;
     publish: (event: LiveEvent) => void;
+    progress?: () => void;
 };
 
 export type TurnResult = {

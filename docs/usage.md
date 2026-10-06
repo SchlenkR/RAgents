@@ -405,6 +405,10 @@ drafts are rejected before saving. The available model list is still maintained 
 profile file. Storage, precedence, and startup errors of the saved defaults are in
 [profiles.md](spec/profiles.md) under "Editable model defaults".
 
+Under Runtime, profile cards show "Turn inactivity limit" or "No turn inactivity limit".
+The limit measures time without progress; ongoing model output and tool activity restart it
+([core.md](spec/core.md#scheduler-and-turns)).
+
 The coordinator's role is called `coordinator`, that of the agents `standard`. Under
 "New runs and agents" you can choose their thinking levels separately. The defaults are in the
 profile file, in core under `ragents.product`:

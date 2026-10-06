@@ -252,7 +252,9 @@ The server-side `PluginHost` has registries for:
 - typed run functions (`host.functions`), native model tools unless they opt out
 - named domain operations with an input schema, operator policy, and shared execution for
   several surfaces
-- roles and prompt parts
+- roles (`host.profiles`) and prompt parts; a role's `turnTimeoutMs` is its turn inactivity
+  limit in milliseconds, with `null` or zero for no limit. Progress restarts it
+  ([core.md](core.md#scheduler-and-turns)); `model_list` publishes the same value
 - external actor runtimes (`host.actorRuntimes`): named contributions of
   `{ id, title, driver: AgentDriver<"external"> }`. IDs are unique across plugins; duplicate or
   missing names fail with a cause. The catalog exposes the names and titles for actor creation,
@@ -2662,6 +2664,7 @@ templates, skills, hooks, configuration, and web across their owners. Both
 views use the same detail components, including skill files. Runtime shows
 technical overview facts, configured models, profiles, and system prompt. These catalogs
 are read views; new model defaults are edited in the Models area.
+Profile cards show "Turn inactivity limit" with the duration, or "No turn inactivity limit".
 Skill templates show their single prompt with a copy action.
 
 For tools, the settings response optionally contains the required execution rights

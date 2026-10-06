@@ -230,7 +230,9 @@ const artifactReadResultSchema = Type.Object({
 const profileBaseSchema = {
     name: Type.String(),
     description: Type.String(),
-    turnTimeoutMs: Type.Union([Type.Integer(), Type.Null()]),
+    turnTimeoutMs: Type.Union([Type.Integer(), Type.Null()], {
+        description: "Turn inactivity limit in milliseconds, reset by model output, completed steps, tool progress, and steering; null or zero means no limit.",
+    }),
     isolateWorkspace: Type.Boolean(),
 };
 
@@ -287,7 +289,7 @@ const executionSchema = {
     })),
     turnTimeoutMs: Type.Optional(Type.Integer({
         minimum: 1_000,
-        description: "Milliseconds after which a turn of the agent is aborted; defaults to the profile's limit, otherwise none.",
+        description: "Turn inactivity limit in milliseconds, reset by model output, completed steps, tool progress, and steering; defaults to the profile's limit, otherwise none.",
     })),
     isolateWorkspace: Type.Optional(Type.Boolean({
         description: "Currently without effect: every actor of a run works in the run's shared workspace.",

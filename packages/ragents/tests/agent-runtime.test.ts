@@ -215,6 +215,50 @@ const withTokens = (message: AssistantMessage, input: number, output = 1): Assis
 
 const isSummary = (context: Context) => context.systemPrompt?.startsWith("You are a context summarization assistant");
 
+for (const output of ["tool arguments", "compaction summary"] as const) {
+    test(`streamed ${output} reports progress without visible output`, async () => {
+        let requests = 0;
+        const setup = scriptedRuntime("stream-progress", () => fauxAssistantMessage("Done."));
+        setup.modelRuntime.streamSimple = (model, context) => {
+            const stream = createAssistantMessageEventStream();
+            const summary = isSummary(context);
+            const first = !summary && ++requests === 1;
+            const response = summary
+                ? fauxAssistantMessage("## Goal\nKeep working.")
+                : first
+                ? withTokens(fauxAssistantMessage([fauxToolCall("lookup", {}, { id: "lookup-1" })], { stopReason: "toolUse" }), 2_800)
+                : fauxAssistantMessage("Done.");
+            const message = { ...response, api: model.api, provider: model.provider, model: model.id };
+            stream.push({ type: "start", partial: message });
+            if (output === "tool arguments" && first)
+                stream.push({ type: "toolcall_delta", contentIndex: 0, delta: "{}", partial: message });
+            if (output === "compaction summary" && summary)
+                stream.push({ type: "text_delta", contentIndex: 0, delta: "Keep working.", partial: message });
+            stream.push({ type: "done", reason: message.stopReason as "stop" | "toolUse", message });
+            stream.end(message);
+            return stream;
+        };
+        const harness = journalHarness(setup.selection);
+        const manager = new AgentRuntimeManager({ modelRuntime: setup.modelRuntime });
+        let progress = 0;
+        try {
+            const { result } = await turnOf(harness, manager, "Look up the details.", {
+                tools: [nativeTool("lookup")],
+                invoke: async () => "x".repeat(1_600),
+                progress: () => { progress++; },
+            });
+            assert.equal(result.failure, null);
+            assert.equal(progress, 1);
+            assert.equal(harness.published.some((event) => event.kind === "text" || event.kind === "thinking"), false);
+            assert.equal(harness.runtime.events(harness.runId).filter((event) => event.type === "context.compacted").length, 1);
+        } finally {
+            await manager.shutdown();
+            harness.journal.close();
+            setup.faux.unregister();
+        }
+    });
+}
+
 test("the context threshold crossed by a tool result compacts before the next request in the same turn", async () => {
     const requests: Context[] = [];
     let summaries = 0;

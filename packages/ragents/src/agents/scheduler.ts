@@ -12,6 +12,7 @@ import {
     type TurnAttachment,
 } from "../drivers/types.ts";
 import type { JsonValue } from "../domain/json.ts";
+import type { JournalEvent } from "../domain/events.ts";
 import type { ModelSelection } from "../domain/driver.ts";
 import type { CommandContext } from "../runtime/command.ts";
 import type { ActorRuntimeContribution } from "../plugin-types.ts";
@@ -110,6 +111,34 @@ const clearRunRuntimeState: RunRuntimeState = {
 const keyOf = (runId: string, actorId: string) => JSON.stringify([runId, actorId]);
 
 const errorMessage = (error: unknown) => (error instanceof Error ? error.message : String(error));
+
+class TurnTimeoutError extends Error {
+    constructor(ms: number) {
+        const unit = ms % 60_000 === 0 ? "minute" : ms % 1_000 === 0 ? "second" : "millisecond";
+        const amount = ms / (unit === "minute" ? 60_000 : unit === "second" ? 1_000 : 1);
+        super(`The turn made no progress for ${amount} ${unit}${amount === 1 ? "" : "s"} and was stopped.`);
+        this.name = "TurnTimeoutError";
+    }
+}
+
+const cancellationReason = (signal: AbortSignal) => signal.reason instanceof TurnTimeoutError
+    ? signal.reason.message
+    : "The turn was cancelled.";
+
+const turnProgressEvents = new Set<JournalEvent["type"]>([
+    "model.step.completed",
+    "model.input.presented",
+    "model.output.completed",
+    "model.reasoning.completed",
+    "model.tool-result.presented",
+    "tool.call.started",
+    "tool.call.source",
+    "tool.call.completed",
+    "tool.call.failed",
+    "turn.input-steered",
+    "runtime.output.recorded",
+    "context.compacted",
+]);
 
 const systemPromptFor = (
     runId: string,
@@ -853,9 +882,24 @@ export class TurnScheduler {
             `scheduler:start:${actorId}:${inputId}:${revision}`,
         );
         this.#live?.publish(runId, actorId, { kind: "turn-started", turnId: turn.turnId });
-        const timeout = idle.execution.turnTimeoutMs
-            ? setTimeout(() => controller.abort(), idle.execution.turnTimeoutMs)
-            : null;
+        const turnTimeoutMs = idle.execution.turnTimeoutMs;
+        let timeout: ReturnType<typeof setTimeout> | null = null;
+        const progress = () => {
+            if (!turnTimeoutMs || controller.signal.aborted || !this.#isRunning(turn))
+                return;
+            if (timeout)
+                clearTimeout(timeout);
+            timeout = setTimeout(() => controller.abort(new TurnTimeoutError(turnTimeoutMs)), turnTimeoutMs);
+        };
+        progress();
+        const unsubscribeProgress = turnTimeoutMs ? this.#journal.subscribe((events) => {
+            if (events.some((event) => event.runId === runId
+                && event.actorId === actorId
+                && "turnId" in event.payload
+                && event.payload.turnId === turn.turnId
+                && turnProgressEvents.has(event.type)))
+                progress();
+        }) : null;
 
         try {
             const actor = this.#actor(runId, actorId);
@@ -956,10 +1000,15 @@ export class TurnScheduler {
                 },
                 emit: (driverEvent: DriverEvent) => this.#append(turn, emitted++, driverEvent),
                 recordTool: (toolEvent: DriverToolEvent) => this.#appendTool(turn, emitted++, toolEvent),
-                publish: (liveEvent: LiveEvent) => this.#live?.publish(runId, actorId, liveEvent),
+                progress,
+                publish: (liveEvent: LiveEvent) => {
+                    if (!("delta" in liveEvent) || liveEvent.delta.length > 0)
+                        progress();
+                    this.#live?.publish(runId, actorId, liveEvent);
+                },
             };
             if (controller.signal.aborted || !this.#acceptsTurns(runId)) {
-                this.#interrupt(turn, "The turn was cancelled.");
+                this.#interrupt(turn, cancellationReason(controller.signal));
                 return;
             }
             const result = driverRef.kind === "agent"
@@ -992,7 +1041,7 @@ export class TurnScheduler {
                 return;
 
             if (controller.signal.aborted || !this.#acceptsTurns(runId)) {
-                this.#interrupt(turn, "The turn was cancelled.");
+                this.#interrupt(turn, cancellationReason(controller.signal));
 
                 return;
             }
@@ -1007,7 +1056,7 @@ export class TurnScheduler {
         } catch (error) {
             const usage = (error as { usage?: TurnUsage }).usage;
             const message = controller.signal.aborted
-                ? "The turn was cancelled."
+                ? cancellationReason(controller.signal)
                 : `The turn failed: ${errorMessage(error)}`;
 
             if (this.#isRunning(turn)) {
@@ -1017,6 +1066,7 @@ export class TurnScheduler {
                     this.#fail(turn, message, usage);
             }
         } finally {
+            unsubscribeProgress?.();
             if (timeout)
                 clearTimeout(timeout);
         }
