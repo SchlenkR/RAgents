@@ -70,9 +70,9 @@ const openStartSelection = async (page: Page) => {
 /** Goes through the guide of the skill template and reads the offered machines in the preparation chat. */
 const offeredMachines = async (page: Page) => {
   await page.getByRole("button", { name: "Use topic" }).click();
-  await page.getByRole("combobox", { name: "Workspace machine" }).click();
-  await page.getByRole("option", { name: "Server" }).waitFor();
-  return page.getByRole("option").allTextContents();
+  const machines = page.getByRole("group", { name: "Workspace machine", exact: true });
+  await machines.waitFor();
+  return machines.getByRole("button").allTextContents();
 };
 
 const calls = (page: Page, id: string) => page.evaluate((method) => window.startPageFixture.calls.filter((call) => call.id === method).map((call) => call.params), id);
@@ -247,10 +247,10 @@ for (const [view, query, width] of [["web", "view=web", 1280], ["panel", "view=p
       await options.first().waitFor();
       assert.deepEqual(await options.allTextContents(), ["openrouter/z-ai/glm-5.3-flash", "openrouter/qwen/qwen3.8-max"], "only the models of the profile");
       await options.filter({ hasText: "openrouter/qwen/qwen3.8-max" }).click();
-      await page.getByRole("combobox", { name: "Reasoning" }).click();
-      await options.filter({ hasText: "low" }).waitFor();
-      assert.deepEqual(await options.allTextContents(), ["off", "low", "high"], "only the levels of the model");
-      await options.filter({ hasText: "low" }).click();
+      const reasoning = page.getByRole("group", { name: "Reasoning", exact: true });
+      await reasoning.getByRole("button", { name: "low", exact: true }).waitFor();
+      assert.deepEqual(await reasoning.getByRole("button").allTextContents(), ["off", "low", "high"], "only the levels of the model");
+      await reasoning.getByRole("button", { name: "low", exact: true }).click();
       await page.waitForFunction(() => window.startPageFixture.calls.filter((call) => call.id === "ragents.startOptions.select").length === 2);
       await page.locator("textarea").fill("First message");
       await page.locator("textarea").press("Enter");
@@ -261,6 +261,8 @@ for (const [view, query, width] of [["web", "view=web", 1280], ["panel", "view=p
       await page.waitForFunction(() => window.startPageFixture.calls.filter((call) => call.id === "ragents.startOptions.list").length >= 2);
       await model.waitFor();
       assert.equal(await model.isEnabled(), true, "after the start the model choice stays in the chat");
+      assert.match(await model.textContent() ?? "", /qwen\/qwen3\.8-max/);
+      assert.equal(await reasoning.getByRole("button", { name: "low", exact: true }).getAttribute("aria-pressed"), "true", "the selected thinking level stays in the chat");
     });
   });
 }
@@ -270,7 +272,7 @@ test("without runs.inspect the chat shows no model choice, neither in the browse
     await withPage(query, width, async (page) => {
       await openNewChat(page, view);
       assert.equal(await page.getByRole("combobox", { name: "Model" }).count(), 0, view);
-      assert.equal(await page.getByRole("combobox", { name: "Reasoning" }).count(), 0, view);
+      assert.equal(await page.getByRole("group", { name: "Reasoning", exact: true }).count(), 0, view);
     });
   }
 });

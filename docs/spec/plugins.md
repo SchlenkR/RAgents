@@ -2694,7 +2694,8 @@ when no sidebar button remains, except as a drop target during a button drag. Ho
 focusing a rail button immediately shows
 the shared ui tooltip centered to its left, with an 8 px gap; no native `title` tooltip is set.
 The tooltip names the tab and adds " - new activity" for pending activity. Its label does not
-capture pointer events, so it cannot block the sidebar's header controls.
+capture pointer events, so it cannot block the sidebar's header controls. Its portal is layered
+above the flyout and docked panels.
 A rail button has exactly one marker:
 a small `bg-info` dot at its top right when the contribution's `Badge` renders or the tab has
 pending activity. The rail renders the badge inside `BadgeDisplayProvider value="dot"`, so the
@@ -3836,7 +3837,9 @@ the entry. The web uses the snapshot's opaque process reference, not just the PI
 The header shows at most four entries. The remainder counter opens a shared run dialog
 with all processes and the same actions; there the entries stay compact pills with
 a dashed border for background processes. Below 700 pixels, the first process surface stays
-reachable with "All N". The dialog leaves the global header operable. If the currently
+reachable with "All N". The dialog leaves the global header operable. In narrow headers,
+process labels shrink while ports, end controls, and "All N" keep their space; longer port
+lists scroll within the strip instead of widening the page. If the currently
 focused process disappears, focus moves to the next process control, in the empty dialog
 to its empty state, and after closing to the header navigation. If there are no processes
 left, the display is dropped. Escape and background click close the dialog.

@@ -198,21 +198,34 @@ test("browser docking preserves frames and drafts through split, merge, close, m
   const railTooltip = page.locator('[data-slot="tooltip-content"]').filter({ hasText: /^Files$/ });
   await railTooltip.waitFor({ timeout: 300 });
   assert.equal(await rail.getByRole("button", { name: "Files", exact: true }).getAttribute("title"), null);
-  const tooltipBox = await box(railTooltip);
-  const buttonBox = await box(rail.getByRole("button", { name: "Files", exact: true }));
-  assert.ok(tooltipBox.x + tooltipBox.width <= buttonBox.x, "the tooltip appears to the left of the rail button");
-  assert.ok(Math.abs(tooltipBox.y + tooltipBox.height / 2 - buttonBox.y - buttonBox.height / 2) < 2, "the tooltip is vertically centered on the rail button");
   await sidebar.waitFor();
   assert.equal(Math.round((await box(page.locator("[data-dock-frame]"))).width), defaultSideWidth);
+  const cornerRadius = await page.evaluate(() => `${parseFloat(getComputedStyle(document.documentElement).fontSize) / 2}px`);
   for (const theme of ["light", "dark"]) {
     await page.evaluate((value) => document.documentElement.setAttribute("data-theme", value), theme);
+    const tooltip = await railTooltip.evaluate(async (element) => {
+      await Promise.allSettled(element.getAnimations().map((animation) => animation.finished));
+      const bounds = element.getBoundingClientRect();
+      const pointerEvents = getComputedStyle(element).pointerEvents;
+      const previous = element.style.pointerEvents;
+      element.style.pointerEvents = "auto";
+      const uncovered = element.contains(document.elementFromPoint(bounds.x + bounds.width / 2, bounds.y + bounds.height / 2));
+      element.style.pointerEvents = previous;
+      return { bounds: bounds.toJSON(), side: element.getAttribute("data-side"), pointerEvents, uncovered };
+    });
+    const buttonBox = await box(rail.getByRole("button", { name: "Files", exact: true }));
+    assert.equal(tooltip.side, "left");
+    assert.ok(Math.abs(buttonBox.x - tooltip.bounds.right - 8) < 1, "the tooltip appears 8px to the left of the rail button");
+    assert.ok(Math.abs(tooltip.bounds.y + tooltip.bounds.height / 2 - buttonBox.y - buttonBox.height / 2) < 2, "the tooltip is vertically centered on the rail button");
+    assert.equal(tooltip.pointerEvents, "none", "the tooltip leaves sidebar controls reachable");
+    assert.equal(tooltip.uncovered, true, `the tooltip is above the open flyout in the ${theme} theme`);
     for (const card of [page.locator("[data-dock-card]").first(), rail, page.locator("[data-dock-frame]")]) {
       const style = await card.evaluate((element) => {
         const computed = getComputedStyle(element);
         return { border: computed.borderLeftWidth, radius: computed.borderTopLeftRadius };
       });
       assert.equal(style.border, "1px");
-      assert.equal(style.radius, "8px");
+      assert.equal(style.radius, cornerRadius, "rounded corners follow the root font size");
     }
     const frameStyle = await page.locator("[data-dock-frame]").evaluate((element) => {
       const style = getComputedStyle(element);

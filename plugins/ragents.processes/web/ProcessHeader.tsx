@@ -68,11 +68,11 @@ function ProcessPill({ runId, machine, process, state, writable, onStop, toolbar
     title={!writable ? "Write or inspect rights are missing to stop" : state?.busy ? "Stopping ..." : `Stop ${process.label}`} />;
   const ports = process.ports.map((port) => <PortControl action={portAction(host.kind, machine, window.location.hostname, port)}
     key={`${port.address}:${port.port}`} port={port} onOpen={() => open(port)} />);
-  return <div className={cn("flex min-w-0 flex-col", toolbar ? "flex-none self-stretch max-md:not-first:hidden" : "w-full")} data-process-id={process.id}>
+  return <div className={cn("flex min-w-0 flex-col", toolbar ? "flex-auto self-stretch max-md:not-first:hidden" : "w-full")} data-process-id={process.id}>
     {toolbar
-      ? <ToolbarItem className="max-w-none flex-1 data-[origin=background]:[border-right-style:dashed]" data-origin={process.origin} title={titleOf(process)}>
+      ? <ToolbarItem className="min-w-0 max-w-none flex-1 data-[origin=background]:[border-right-style:dashed]" data-origin={process.origin} title={titleOf(process)}>
         <IconProcess />
-        <ToolbarCopy className="w-35 flex-none">
+        <ToolbarCopy className="w-35">
           <ToolbarLabel>{kindLabel(process)}</ToolbarLabel>
           <ToolbarText>{process.label}</ToolbarText>
         </ToolbarCopy>
@@ -144,7 +144,7 @@ function ProcessHeaderContent({ runId, panel = false, active = true }: { runId: 
   </div>;
   if (shown.length === 0 && state.error === undefined && !allOpen) return null;
   return <>
-    <div aria-label="Processes and ports of the run" className="flex min-w-0 flex-none items-stretch self-stretch" ref={rootRef} onFocusCapture={rememberFocus}>
+    <div aria-label="Processes and ports of the run" className="flex min-w-0 max-w-full flex-none items-stretch self-stretch overflow-x-auto" ref={rootRef} onFocusCapture={rememberFocus}>
       {shown.map((process) => renderProcess(process, true))}
       {(processes.length > 1 || allOpen) && <ToolbarItem as="button" className="md:data-[hidden=false]:hidden" data-hidden={hidden > 0 || allOpen} type="button" onClick={() => setAllOpen(true)} title="Show all processes of the run">
         <span className="max-md:hidden">{hidden > 0 ? `+${hidden} more` : "Processes"}</span><span className="hidden max-md:inline">All {processes.length}</span>

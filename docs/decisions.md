@@ -1,5 +1,31 @@
 # Decisions
 
+## 2026-10-06: Keep process controls inside narrow headers
+
+Chapter: `spec/plugins.md` (Processes); usage: `usage.md` (Open and stop services and
+background processes).
+
+The larger browser font made a process surface plus "All N" exceed a 320 px header: the label
+and its parent could not shrink. The process strip now stays within the available width,
+labels shrink before port and stop controls, and longer port lists scroll inside the strip.
+The browser regression checks page width and the actual bounds of all three controls.
+
+## 2026-10-06: Check shared control behavior in browser regressions
+
+Chapter: `spec/plugins.md` (Run panel); usage: `usage.md` (Selection controls and tables,
+Run panel).
+
+Four browser failures came from test assumptions: machine selection and reasoning now use the
+documented short-choice segments, while the docking assertion sampled a tooltip during its
+entrance animation. The tests address named groups and pressed segments, preserve first-message
+selection checks, and wait for the tooltip's actual animation before measuring its left-side
+gap and checking that it is above the open flyout in both themes. Product behavior is unchanged.
+The next docking assertion also replaces its fixed 8 px corner expectation with the radius
+scaled by the browser's root font size. Header-button drag tests wait for the source to be
+stable and reachable through Playwright hover before pressing, so a zoom resize cannot leave
+the raw mouse press at the button's previous coordinates. The hover-close check enters the
+keyboard-opened flyout before leaving it instead of depending on the pointer's old position.
+
 ## 2026-10-06: The run header packs its controls into two gapless rows
 
 Chapters: `spec/plugins.md` (Web as plugin host, Run panel); usage: `usage.md` (Run panel).

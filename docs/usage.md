@@ -335,8 +335,9 @@ tinted fill on selected segments. A group chooses one value, or several independ
 multiple selection is available. Tab enters the group; arrow keys move between enabled
 segments, Home and End move to the first and last, and Space or Enter selects or deselects.
 Settings theme and zoom, sharing access levels, and view and grouping choices use these controls.
-Single required choices keep the current value when its selected segment is pressed again;
-longer value lists use a selection menu.
+Single required choices keep the current value when its selected segment is pressed again.
+Workspace machine, folder, and reasoning choices use segments for up to five values and
+selection menus for longer lists. Model selection stays in a menu.
 
 Selection menus open below their button, or above when there is less room, and stay at least
 as wide as it. Selectors with more than eight choices show a search field. Type part of a label
@@ -521,6 +522,8 @@ are in [core.md](spec/core.md) under "Global coordinator".
 The process rail shows the run's background processes and services with open ports, on
 the machine where the run works: with a workstation its processes, otherwise those of the
 server. With write permission, the small stop icon ends exactly the selected process instance.
+In a narrow header, process labels shrink while ports, stop controls, and "All N" stay reachable.
+Long port lists scroll within the strip.
 During the request its button is blocked; errors stay visible at the entry. The next
 process state removes ended entries. When stopping and before deleting a run, the
 run's executor also cleans up marked processes without an open port, on the workstation as on the
@@ -696,7 +699,7 @@ tooltips. The conversation has no separate bottom toolbar.
 The inspection rail on the right contains files, documents, functions, executions, and
 language-server diagnostics according to the run and your permissions. A small blue dot at the
 top right of a rail button means the view has content or new activity. Hover or focus a button
-to see its tooltip immediately to the left. Hover a button to
+to see its tooltip immediately to the left, above the flyout and workspace panels. Hover a button to
 preview its view in a flyout; move away from both flyout and rail to hide it.
 Click a rail button to open or focus its flyout. X hides it. The flyout is 630 pixels wide,
 limited by the available space. Its keyboard-accessible "Move into layout" button places the

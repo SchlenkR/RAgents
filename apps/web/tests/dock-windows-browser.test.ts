@@ -41,8 +41,7 @@ async function prepare(context: TestContext, search = "") {
   const drop = actions.locator("[data-dock-window-drop]");
   const box = async (locator: Locator) => { const rect = await locator.boundingBox(); assert.ok(rect); return rect; };
   const press = async (locator: Locator) => {
-    const rect = await box(locator);
-    await page.mouse.move(rect.x + rect.width / 2, rect.y + rect.height / 2);
+    await locator.hover();
     await page.mouse.down();
   };
   const moveTo = async (locator: Locator, fraction: number) => {
@@ -290,6 +289,7 @@ test("the flyout button moves a tool into the right workspace edge as a regular 
   await page.keyboard.press("Enter");
   await sidebar.waitFor();
   assert.equal(await groups.count(), 2, "keyboard rail access opens the overlay");
+  await sidebar.hover();
   await page.mouse.move(10, 100);
   await sidebar.waitFor({ state: "hidden" });
   await dockOnto(files, groups.filter({ has: tab("Chat") }), "edge-right");

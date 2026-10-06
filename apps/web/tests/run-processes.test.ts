@@ -194,6 +194,10 @@ createRoot(document.getElementById("root")).render(createElement(Harness));`, re
   assert.equal(await page.getByRole("link", { name: ":10520", exact: true }).isVisible(), true);
   assert.equal(await page.getByText("All 2", { exact: true }).innerText(), "All 2");
   assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true);
+  for (const control of [page.getByRole("link", { name: ":10520", exact: true }), stop, page.getByRole("button", { name: "All 2", exact: true })]) {
+    const bounds = await control.boundingBox();
+    assert.ok(bounds && bounds.x >= 0 && bounds.x + bounds.width <= 320, "ports, stop, and All stay inside the narrow header");
+  }
   await page.getByText("All 2", { exact: true }).scrollIntoViewIfNeeded();
   await page.screenshot({ path: `${directory}/processes-reader-narrow.png` });
   await page.setViewportSize({ width: 850, height: 180 });
