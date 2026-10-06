@@ -438,17 +438,21 @@ the same profile. Click "Share ..." at the end of its row on Start or Runs, or "
 header. A new empty run offers "Share" before its first message; the choice applies as soon as the
 run is created. The "Share run" dropdown opens below the header or the row's share action and
 uses the same panel and content in both places. It names the run and shows a list: "Everyone"
-first, then every other user of the profile, each row with the segmented choice "Off", "Can view", or
-"Can operate". A user gets the higher of "Everyone" and their own row. "Save" stays disabled until
-something changes and while saving; when the server refuses, the reason appears in the panel,
-which keeps your changes. "Cancel", Escape, or clicking outside closes it without saving. The panel is the same
-in the browser and in VS Code; the labeled header button wraps with the other actions when
+first, then every other user of the profile, each row with the segmented choice "Off", "View", or
+"Operate". Names and controls line up in two columns; a long name truncates with a tooltip in a
+narrow panel, while its control stays on the same line. View's tooltip says "Sees the run";
+Operate's says "Also works in it, within the user's own permissions". A user gets the higher of
+"Everyone" and their own row. Every choice saves the whole sharing immediately and keeps the
+dropdown open with the saved state. Access controls are briefly disabled while saving. If the
+server refuses, the reason appears inline and the choices return to the server's saved state.
+There is no Save or Cancel. Escape or clicking outside closes the dropdown. The panel is the
+same in the browser and in VS Code; the labeled header button wraps with the other actions when
 space is short.
 
-"Can view" shows the run, its chat, apps, and journal as far as your own permissions go, but
+"View" shows the run, its chat, apps, and journal as far as your own permissions go, but
 operates nothing: the run header shows "View only", the chat input is disabled with "Shared with
 you for viewing only", and "Stop run", "Run script", answers to questions, and app actions are
-missing. "Can operate" works in the run within your own permissions, and the header shows "Shared".
+missing. "Operate" works in the run within your own permissions, and the header shows "Shared".
 In someone else's run that only its owner operates, the chat input says "Only its owner operates
 this run"; "Stop run" and the stop button in the chat input stay. A run shared with you is never deleted by you. If a share is taken
 back while you have the run open, the panel returns to Start and shows "This run is no longer

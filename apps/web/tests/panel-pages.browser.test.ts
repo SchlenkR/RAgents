@@ -344,7 +344,7 @@ for (const width of [380, 900, 1600, 2600]) {
   });
 }
 
-test("Runs offers Share ... per shareable row, the dropdown edits and sends the sharing, and the host's refusal stays in it",{skip,timeout:120_000},async()=>{
+test("Runs saves every sharing choice immediately, keeps the returned state open and restores a refused change",{skip,timeout:120_000},async()=>{
   const sharedRuns=[
     {...run("own","Own review","idle",1),canShare:true,shared:true},
     {...run("plain","Plain run","idle",2),canShare:true},
@@ -376,28 +376,41 @@ test("Runs offers Share ... per shareable row, the dropdown edits and sends the 
     await dialog.getByText('Loading ...').waitFor();
     assert.notEqual(await dialog.getAttribute('aria-modal'),'true','the Runs sharing panel uses the non-modal header dropdown shell');
     await setSharing(page,{connection:'workshop',runId:'own',result:loaded});
-    const save=dialog.getByRole('button',{name:'Save'});
-    await save.waitFor();
-    assert.equal(await save.isDisabled(),true,'nothing changed yet');
+    await dialog.getByRole('list',{name:'Shared with'}).waitFor();
+    assert.equal(await dialog.getByRole('button',{name:/^(Save|Cancel)$/}).count(),0,'access choices need no confirmation');
     assert.match(await dialog.innerText(),/Own review/,'the dialog names the run');
     assert.equal(await dialog.getByRole('combobox').count(),0,'the dialog is a list, without dropdowns');
     assert.deepEqual((await dialog.getByRole('list',{name:'Shared with'}).getByRole('listitem').allInnerTexts()).map((row)=>row.split('\n')[0]),['Everyone','Bob','Carol'],'every user is a row');
-    const choose=(name:string,access:string)=>dialog.getByRole('group',{name:`Access for ${name}`}).getByRole('button',{name:access}).click();
-    await choose('Everyone','Can view');
-    await choose('Bob','Can operate');
-    await choose('Carol','Can view');
-    await page.screenshot({path:`${shots}share-panel-420.png`});
-    await save.click();
-    assert.deepEqual(await sent(page),{action:'share',name:'workshop',runId:'own',sharing:{everyone:'read',users:[{userId:'bob',access:'write'},{userId:'carol',access:'read'}]}});
-
+    const access=(name:string,value:string)=>dialog.getByRole('group',{name:`Access for ${name}`,exact:true}).getByRole('button',{name:value,exact:true});
+    const choose=(name:string,value:string)=>access(name,value).click();
+    const pressed=(name:string,value:string)=>access(name,value).getAttribute('aria-pressed');
+    assert.deepEqual(await dialog.getByRole('group',{name:'Access for Everyone',exact:true}).getByRole('button').allTextContents(),['Off','View','Operate']);
+    assert.equal(await access('Everyone','View').getAttribute('title'),'Sees the run');
+    assert.equal(await access('Everyone','Operate').getAttribute('title'),"Also works in it, within the user's own permissions");
+    assert.equal(await dialog.getByText("Can view sees the run. Can operate also works in it, within the user's own permissions.",{exact:true}).count(),0);
+    await choose('Everyone','View');
+    assert.deepEqual(await sent(page),{action:'share',name:'workshop',runId:'own',sharing:{everyone:'read',users:[{userId:'bob',access:'read'}]}});
     await setSharing(page,{connection:'workshop',runId:'own',result:loaded,pending:true});
-    await dialog.getByRole('button',{name:'Saving ...'}).waitFor();
-    await setSharing(page,{connection:'workshop',runId:'own',result:loaded,error:'carol is not a user of this profile'});
+    await dialog.locator('[aria-busy="true"]').waitFor();
+    assert.equal(await dialog.getByRole('group').getByRole('button',{disabled:false}).count(),0,'all rows wait while a save is pending');
+    const accepted={...loaded,sharing:{everyone:'read',users:[{userId:'bob',label:'Bob',access:'write'}]}};
+    await setSharing(page,{connection:'workshop',runId:'own',result:accepted});
+    await access('Bob','Operate').waitFor();
+    assert.equal(await pressed('Everyone','View'),'true');
+    assert.equal(await pressed('Bob','Operate'),'true','the returned server state replaces the displayed values');
+    assert.equal(await dialog.isVisible(),true,'saving keeps the dropdown open');
+    await choose('Carol','View');
+    assert.deepEqual(await sent(page),{action:'share',name:'workshop',runId:'own',sharing:{everyone:'read',users:[{userId:'bob',access:'write'},{userId:'carol',access:'read'}]}},'the next row change preserves the whole saved sharing');
+    await setSharing(page,{connection:'workshop',runId:'own',result:accepted,pending:true});
+    await dialog.locator('[aria-busy="true"]').waitFor();
+    await setSharing(page,{connection:'workshop',runId:'own',result:accepted,error:'carol is not a user of this profile'});
     await dialog.getByRole('alert').filter({hasText:'carol is not a user of this profile'}).waitFor();
-    const pressed=(name:string,access:string)=>dialog.getByRole('group',{name:`Access for ${name}`}).getByRole('button',{name:access}).getAttribute('aria-pressed');
-    assert.equal(await pressed('Carol','Can view'),'true','the draft survives the refusal');
-    await choose('Carol','Off');
-    assert.equal(await pressed('Carol','Off'),'true');
+    assert.equal(await pressed('Carol','Off'),'true','a refused change restores the last saved access');
+    assert.equal(await pressed('Bob','Operate'),'true','a refusal preserves other saved rows');
+    await choose('Bob','Off');
+    assert.deepEqual(await sent(page),{action:'share',name:'workshop',runId:'own',sharing:{everyone:'read',users:[]}},'Off removes the user while preserving Everyone');
+    await setSharing(page,{connection:'workshop',runId:'own',result:{...accepted,sharing:{everyone:'read',users:[]}}});
+    await page.screenshot({path:`${shots}share-panel-420.png`});
     await page.keyboard.press('Escape');
     assert.deepEqual(await sent(page),{action:'closeSharing'});
     await setSharing(page,undefined);
@@ -411,12 +424,13 @@ test("Runs offers Share ... per shareable row, the dropdown edits and sends the 
   }finally{await browser.close()}
 });
 
-for(const width of [1400,420]){
+for(const width of [1400,360,320]){
   test(`Runs sharing uses the same square dropdown content at ${width}px and a page anchor if its row disappears`,{skip,timeout:90_000},async()=>{
     const own={...run('own','Own review','idle',1),canShare:true};
     const connection={...workshop,runs:[own],canDelete:true};
     const url=await preparePage({theme:'light',page:'runs',profileSuggestions:[],connections:[connection]});
-    const loaded={sharing:{everyone:null,users:[]},users:[{id:'bob',label:'Bob'}]};
+    const longName='Carol with a deliberately long display name';
+    const loaded={sharing:{everyone:null,users:[]},users:[{id:'bob',label:'Bob'},{id:'carol',label:longName}]};
     const update=(page:Page,value:unknown)=>page.evaluate((sharing)=>(window as any).fixture.setState((current:any)=>({...current,sharing})),value);
     const browser=await launch();
     try{
@@ -448,6 +462,22 @@ for(const width of [1400,420]){
       assert.equal(await page.locator('[data-slot="popover-backdrop"]:visible').count(),1);
       assert.equal(await trigger.getAttribute('aria-expanded'),'true');
       assert.equal(await trigger.getAttribute('aria-controls'),await panel.getAttribute('id'));
+      const rows=await panel.getByRole('list',{name:'Shared with',exact:true}).getByRole('listitem').evaluateAll((items)=>items.map((item)=>{
+        const name=item.querySelector('span')!;
+        const group=item.querySelector('[role="group"]')!;
+        const nameBounds=name.getBoundingClientRect();
+        const groupBounds=group.getBoundingClientRect();
+        const buttons=[...group.querySelectorAll('button')].map((button)=>button.getBoundingClientRect());
+        return{left:Math.round(groupBounds.left),sameRow:Math.abs(nameBounds.top+nameBounds.height/2-groupBounds.top-groupBounds.height/2)<1,
+          controlRows:new Set(buttons.map((button)=>Math.round(button.top))).size,nameWrap:getComputedStyle(name).whiteSpace,
+          title:name.getAttribute('title'),truncated:name.scrollWidth>name.clientWidth};
+      }));
+      assert.equal(new Set(rows.map((row)=>row.left)).size,1,'every control shares one grid column');
+      assert.ok(rows.every((row)=>row.sameRow&&row.controlRows===1&&row.nameWrap==='nowrap'),'names and controls stay on one line');
+      assert.equal(rows[2]!.title,`${longName} (carol)`,'a truncated name keeps its full tooltip');
+      if(width<=360)assert.equal(rows[2]!.truncated,true,'narrow panels truncate long names');
+      await mkdir(shots,{recursive:true});
+      await page.screenshot({path:`${shots}share-dropdown-${width}.png`});
       await trigger.click();
       assert.deepEqual(await sent(page),{action:'closeSharing'},'the row share button toggles its dropdown closed');
       await update(page,undefined);
@@ -455,16 +485,20 @@ for(const width of [1400,420]){
       await trigger.click();
       await update(page,{connection:'workshop',runId:'own',result:loaded});
       await panel.getByRole('group',{name:'Access for Bob',exact:true}).waitFor();
-      await panel.getByRole('group',{name:'Access for Bob',exact:true}).getByRole('button',{name:'Can operate',exact:true}).click();
-      await panel.getByRole('button',{name:'Save',exact:true}).click();
+      await panel.getByRole('group',{name:'Access for Bob',exact:true}).getByRole('button',{name:'Operate',exact:true}).click();
       assert.deepEqual(await sent(page),{action:'share',name:'workshop',runId:'own',sharing:{everyone:null,users:[{userId:'bob',access:'write'}]}});
+      await update(page,{connection:'workshop',runId:'own',result:{...loaded,sharing:{everyone:null,users:[{userId:'bob',label:'Bob',access:'write'}]}}});
+      assert.equal(await panel.isVisible(),true,'successful sharing stays open');
+      await page.mouse.click(2,898);
+      assert.deepEqual(await sent(page),{action:'closeSharing'},'clicking outside closes without another sharing change');
       await update(page,undefined);
       await panel.waitFor({state:'detached'});
-      assert.equal(await trigger.evaluate((element)=>element===document.activeElement),true,'successful sharing restores the row button');
+      assert.equal(await trigger.evaluate((element)=>element===document.activeElement),true,'closing restores the row button');
 
       await page.evaluate(()=>(window as any).fixture.setState((current:any)=>({...current,connections:current.connections.map((entry:any)=>({...entry,runs:[]})),sharing:{connection:'workshop',runId:'own',result:{sharing:{everyone:null,users:[]},users:[]}}})));
       await panel.getByText('This profile has no other users to share with.',{exact:true}).waitFor();
-      await panel.getByRole('group',{name:'Access for Everyone',exact:true}).getByRole('button',{name:'Can view',exact:true}).click();
+      await panel.getByRole('group',{name:'Access for Everyone',exact:true}).getByRole('button',{name:'View',exact:true}).click();
+      assert.deepEqual(await sent(page),{action:'share',name:'workshop',runId:'own',sharing:{everyone:'read',users:[]}});
       await page.keyboard.press('Escape');
       assert.deepEqual(await sent(page),{action:'closeSharing'});
       await update(page,undefined);

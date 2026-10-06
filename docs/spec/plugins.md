@@ -3062,9 +3062,16 @@ outside the row's button, beside its delete button when permitted. Rows without 
 an empty cell, so the columns stay aligned. The share button sends `openSharing` with
 server and run; the host loads `ragents.runs.sharing` into `PanelState.sharing` (connection, run,
 `result`, `pending`, `error`), and `PanelPage` shows `SharePanel` as long as it is set, anchored
-to the row's share action or the top of the page when that action is unavailable. Its Save
-sends `share` with the whole sharing; Cancel, Escape, and outside presses send `closeSharing`.
-The host closes the panel on success and leaves a refusal in it, with the user's draft.
+to the row's share action or the top of the page when that action is unavailable. `ShareContent`
+uses one two-column grid for the whole list: names first, segmented access controls second,
+"Everyone" before the profile's users. The segments are "Off", "View", and "Operate"; View's
+tooltip is "Sees the run", Operate's is "Also works in it, within the user's own permissions".
+Every row stays on one line, also in a 320 px VS Code panel; names truncate with a full-name
+tooltip and the aligned controls never wrap. There is no explanatory paragraph below
+the list and no Save or Cancel. Each choice sends `share` with the whole sharing immediately.
+All access controls are disabled while that request is pending. Success keeps the panel open
+with the returned `RunSharingResult`; a refusal shows its error inline and restores the server's
+saved sharing. Escape and outside presses send `closeSharing` without changing the sharing.
 `openSharing` and `saveSharing` in `run-sharing.ts` are this flow for every host:
 the server interface keeps the panel in React
 state in both the browser and VS Code, and an answer for a panel closed meanwhile is dropped.

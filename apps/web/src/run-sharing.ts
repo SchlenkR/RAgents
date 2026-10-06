@@ -5,7 +5,7 @@ import type { PanelSharing } from "./panel/contract";
 
 export type { RunShareAccess, RunSharing, RunSharingResult };
 
-export const SHARE_ACCESS_LABELS: Readonly<Record<RunShareAccess, string>> = { read: "Can view", write: "Can operate" };
+export const SHARE_ACCESS_LABELS: Readonly<Record<RunShareAccess, string>> = { read: "View", write: "Operate" };
 
 export const REVOKED_SHARE_NOTICE = "This run is no longer available to you.";
 
@@ -69,28 +69,31 @@ const isPanelOf = (sharing: PanelSharing | undefined, connection: string, runId:
 
 /** Opens the panel and loads the sharing; an answer for a panel closed or replaced meanwhile is dropped. */
 export const openSharing = async (connection: string, runId: string, client: SharingClient, store: SharingStore): Promise<void> => {
-  store.set({ connection, runId, pending: true });
+  const pending: PanelSharing = { connection, runId, pending: true };
+  store.set(pending);
   try {
     const result = await client.load(runId);
-    if (isPanelOf(store.get(), connection, runId)) store.set({ connection, runId, result });
+    if (store.get() === pending) store.set({ connection, runId, result });
   } catch (cause) {
-    if (isPanelOf(store.get(), connection, runId)) store.set({ connection, runId, error: messageOf(cause) });
+    if (store.get() === pending) store.set({ connection, runId, error: messageOf(cause) });
   }
 };
 
-/** Saves the whole sharing: success closes the panel, a refusal stays in it; without an open panel of the run, the refusal goes to the caller. */
+/** Saves the whole sharing and keeps the returned state open; a refusal keeps the previous server state. */
 export const saveSharing = async (connection: string, runId: string, sharing: RunSharing, client: SharingClient, store: SharingStore): Promise<void> => {
   const opened = store.get();
   if (!isPanelOf(opened, connection, runId)) {
     await client.save(runId, sharing);
     return;
   }
+  if (opened.pending || (opened.result && !sharingChanged(opened.result, sharing))) return;
   const kept = opened.result ? { result: opened.result } : {};
-  store.set({ connection, runId, ...kept, pending: true });
+  const pending: PanelSharing = { connection, runId, ...kept, pending: true };
+  store.set(pending);
   try {
-    await client.save(runId, sharing);
-    if (isPanelOf(store.get(), connection, runId)) store.set(undefined);
+    const result = await client.save(runId, sharing);
+    if (store.get() === pending) store.set({ connection, runId, result });
   } catch (cause) {
-    if (isPanelOf(store.get(), connection, runId)) store.set({ connection, runId, ...kept, error: messageOf(cause) });
+    if (store.get() === pending) store.set({ connection, runId, ...kept, error: messageOf(cause) });
   }
 };

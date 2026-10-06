@@ -161,7 +161,7 @@ export type PanelAction =
   | { readonly action: "newRun"; readonly name: string; readonly entryId?: string }
   /** Opens the sharing panel of a run; the host loads its sharing into PanelState.sharing. */
   | { readonly action: "openSharing"; readonly name: string; readonly runId: string }
-  /** Replaces the whole sharing of a run; on success the host closes the panel, otherwise it shows the refusal in it. */
+  /** Replaces the whole sharing and keeps the saved state or refusal in the open panel. */
   | { readonly action: "share"; readonly name: string; readonly runId: string; readonly sharing: RunSharing }
   | { readonly action: "closeSharing" };
 

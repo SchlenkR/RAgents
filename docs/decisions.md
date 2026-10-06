@@ -1,5 +1,18 @@
 # Decisions
 
+## 2026-10-06: Apply run sharing choices immediately
+
+Chapter: `spec/plugins.md` (Web as plugin host); usage: `usage.md` (Share runs).
+
+Sharing choices now take effect as they are selected, so the dropdown needs no Save or Cancel.
+Each change replaces the whole sharing, briefly locks the controls, and keeps the returned server
+state visible. Refused changes show their reason inline and restore the saved choices. The same
+flow serves the run list and header in the browser and through the VS Code sharing bridge.
+
+Short "Off", "View", and "Operate" segments leave room for one aligned name/control grid.
+Tooltips explain the access levels and reveal truncated names; controls stay on one line in
+narrow panels. This also removes the repeated explanatory paragraph below the list.
+
 ## 2026-10-06: Keep process controls inside narrow headers
 
 Chapter: `spec/plugins.md` (Processes); usage: `usage.md` (Open and stop services and

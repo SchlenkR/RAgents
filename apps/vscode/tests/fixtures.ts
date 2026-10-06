@@ -13,8 +13,8 @@ import {
   type MethodConnection,
 } from "@ragents/engine";
 import type { JournalEvent } from "../../../packages/ragents/src/domain/events";
-import type { RunView as JournalRunView } from "../../../packages/ragents/src/domain/model";
-import { coreContracts, type HostBootstrap } from "../../server/src/api/contracts";
+import type { RunSharing, RunView as JournalRunView } from "../../../packages/ragents/src/domain/model";
+import { coreContracts, type HostBootstrap, type RunSharingResult } from "../../server/src/api/contracts";
 import { RpcDispatcher } from "../../server/src/rpc/dispatcher";
 import { RpcHttpTransport } from "../../server/src/rpc/http-transport";
 import { workspaceClientContracts, workspaceContracts, type WorkspaceClientDescription } from "../../../plugins/ragents.workspace/contract";
@@ -134,6 +134,10 @@ export const startStubServer = async (options: {
   version?: string | null;
   /** This is how the server rejects every registration of a workspace, e.g. with a different executor revision. */
   refuseRegistration?: { code: string; message: string };
+  sharing?: {
+    load: (runId: string) => RunSharingResult | Promise<RunSharingResult>;
+    save: (runId: string, sharing: RunSharing) => RunSharingResult | Promise<RunSharingResult>;
+  };
   /** The tunnel of the process plugin with the real pairing of legs; the test plays the run's machine. Without it the stub does not know the method. */
   tunnel?: {
     /** Fails like the run's executor when no process of the run listens on the port. */
@@ -151,6 +155,7 @@ export const startStubServer = async (options: {
   const profile = options.profile ?? stubProfile();
 
   const tunnel = options.tunnel;
+  const sharing = options.sharing;
   const streams = tunnel ? new TunnelStreams({ dial: tunnel.dial }) : undefined;
   const methods = new MethodContributionRegistry();
   methods.register("stub", [
@@ -159,6 +164,10 @@ export const startStubServer = async (options: {
       sessions = sessions.filter((entry) => entry.id !== runId);
       return null;
     }),
+    ...(sharing ? [
+      implement(coreContracts.runs.sharing, ({ runId }) => sharing.load(runId)),
+      implement(coreContracts.runs.share, ({ runId, sharing: next }) => sharing.save(runId, next)),
+    ] : []),
     implement(coreContracts.plugins.bootstrap, () => options.version === null ? profile as HostBootstrap : { ...profile, version: options.version ?? STUB_VERSION, hostPackage: null }),
     implement(runContracts.view, ({ runId }) => {
       viewRequests += 1;

@@ -428,7 +428,7 @@ const dropdownBounds = async (page: Page, panel: Locator, trigger: Locator) => {
   return bounds;
 };
 
-for (const { host, width } of [{ host: "browser", width: 1400 }, { host: "browser", width: 420 }, { host: "vscode", width: 420 }]) {
+for (const { host, width } of [{ host: "browser", width: 1400 }, { host: "browser", width: 420 }, { host: "vscode", width: 420 }, { host: "vscode", width: 360 }, { host: "vscode", width: 320 }]) {
   test(`run details, scripts, and sharing use the same header dropdown at ${width}px in ${host}`, browserOnly, async () => {
     const url = await (fixtureUrl ??= buildFixture());
     const browser = await launchBrowser();
@@ -504,26 +504,53 @@ for (const { host, width } of [{ host: "browser", width: 1400 }, { host: "browse
       const shareBounds = await dropdownBounds(page, share, shareButton);
       assert.deepEqual({ x: shareBounds.x, y: shareBounds.y, width: shareBounds.width }, { x: detailBounds.x, y: detailBounds.y, width: detailBounds.width });
       await page.evaluate(() => { window.runStartFixture.holdSharing = false; window.runStartFixture.releaseSharing(); });
-      const save = share.getByRole("button", { name: "Save", exact: true });
-      await save.waitFor();
-      assert.equal(await save.isDisabled(), true, "An unchanged sharing cannot be saved.");
-      const choose = (user: string, access: string) => share.getByRole("group", { name: `Access for ${user}`, exact: true }).getByRole("button", { name: access, exact: true }).click();
-      await choose("Everyone", "Can view");
-      await choose("Bob", "Can operate");
-      await choose("Carol", "Can view");
-      await shoot("share");
+      await share.getByRole("list", { name: "Shared with", exact: true }).waitFor();
+      assert.equal(await share.getByRole("button", { name: /^(Save|Cancel)$/ }).count(), 0, "Access changes need no confirmation.");
+      const access = (user: string, value: string) => share.getByRole("group", { name: `Access for ${user}`, exact: true }).getByRole("button", { name: value, exact: true });
+      const choose = (user: string, value: string) => access(user, value).click();
+      const selected = (user: string, value: string) => access(user, value).and(share.locator('[aria-pressed="true"]')).waitFor();
+      assert.deepEqual(await share.getByRole("group", { name: "Access for Everyone", exact: true }).getByRole("button").allTextContents(), ["Off", "View", "Operate"]);
+      assert.equal(await access("Everyone", "View").getAttribute("title"), "Sees the run");
+      assert.equal(await access("Everyone", "Operate").getAttribute("title"), "Also works in it, within the user's own permissions");
+      await page.evaluate(() => { window.runStartFixture.holdSharing = true; });
+      await choose("Everyone", "View");
+      await share.locator('[aria-busy="true"]').waitFor();
+      assert.deepEqual(await page.evaluate(() => window.runStartFixture.shares), [{ everyone: "read", users: [{ userId: "bob", access: "read" }] }], "A choice immediately saves the whole sharing.");
+      assert.equal(await share.getByRole("group").getByRole("button", { disabled: false }).count(), 0, "Every row waits for the pending save.");
+      await page.evaluate(() => { window.runStartFixture.holdSharing = false; window.runStartFixture.releaseSharing(); });
+      await selected("Everyone", "View");
+      assert.equal(await share.isVisible(), true, "A successful save keeps sharing open.");
+      await choose("Bob", "Operate");
+      await selected("Bob", "Operate");
       await page.evaluate(() => { window.runStartFixture.holdSharing = true; window.runStartFixture.sharingError = "Sharing could not be saved."; });
-      await save.click();
-      await share.getByRole("button", { name: "Saving ...", exact: true }).waitFor();
-      assert.equal(await share.getByRole("group", { name: "Access for Carol", exact: true }).getByRole("button", { name: "Off", exact: true }).isDisabled(), true);
+      await choose("Carol", "View");
+      await share.locator('[aria-busy="true"]').waitFor();
+      assert.equal(await access("Carol", "Off").isDisabled(), true);
       await page.evaluate(() => { window.runStartFixture.holdSharing = false; window.runStartFixture.releaseSharing(); });
       await share.getByRole("alert").filter({ hasText: "Sharing could not be saved." }).waitFor();
-      assert.equal(await share.getByRole("group", { name: "Access for Carol", exact: true }).getByRole("button", { name: "Can view", exact: true }).getAttribute("aria-pressed"), "true", "A saving error keeps the draft.");
+      assert.equal(await access("Carol", "Off").getAttribute("aria-pressed"), "true", "A refused choice restores the saved access.");
+      assert.equal(await access("Bob", "Operate").getAttribute("aria-pressed"), "true", "A refusal keeps other successful changes.");
       await page.evaluate(() => { window.runStartFixture.sharingError = undefined; });
-      await save.click();
+      await choose("Carol", "View");
+      await selected("Carol", "View");
+      assert.equal(await share.getByRole("alert").count(), 0, "A successful retry clears the refusal.");
+      const first = { everyone: "read", users: [{ userId: "bob", access: "read" }] };
+      const second = { everyone: "read", users: [{ userId: "bob", access: "write" }] };
+      const third = { everyone: "read", users: [{ userId: "bob", access: "write" }, { userId: "carol", access: "read" }] };
+      assert.deepEqual(await page.evaluate(() => window.runStartFixture.shares), [first, second, third, third], "Each choice includes the last successful sharing.");
+      const rows = await share.getByRole("list", { name: "Shared with", exact: true }).getByRole("listitem").evaluateAll((items) => items.map((item) => {
+        const name = item.querySelector("span")!.getBoundingClientRect();
+        const group = item.querySelector('[role="group"]')!;
+        const control = group.getBoundingClientRect();
+        return { left: Math.round(control.left), sameRow: Math.abs(name.top + name.height / 2 - control.top - control.height / 2) < 1,
+          controlRows: new Set([...group.querySelectorAll("button")].map((button) => Math.round(button.getBoundingClientRect().top))).size };
+      }));
+      assert.equal(new Set(rows.map((row) => row.left)).size, 1, "All access controls share one column.");
+      assert.ok(rows.every((row) => row.sameRow && row.controlRows === 1), "Names and complete segmented controls stay on one row.");
+      await shoot("share");
+      await page.keyboard.press("Escape");
       await share.waitFor({ state: "detached" });
-      assert.deepEqual(await page.evaluate(() => window.runStartFixture.shares), Array.from({ length: 2 }, () => ({ everyone: "read", users: [{ userId: "bob", access: "write" }, { userId: "carol", access: "read" }] })));
-      assert.equal(await shareButton.evaluate((element) => element === document.activeElement), true, "Saving restores the Share button's focus.");
+      assert.equal(await shareButton.evaluate((element) => element === document.activeElement), true, "Escape restores the Share button's focus.");
 
       for (const [trigger, panel] of [[title, details], [scriptButton, scripts], [shareButton, share]]) {
         await trigger!.click();
@@ -533,6 +560,17 @@ for (const { host, width } of [{ host: "browser", width: 1400 }, { host: "browse
         await panel!.waitFor({ state: "detached" });
         assert.equal(await trigger!.evaluate((element) => element === document.activeElement), true, "Outside closing restores the same trigger.");
       }
+      assert.deepEqual(await page.evaluate(() => window.runStartFixture.shares), [first, second, third, third], "Dismissals send no further sharing changes.");
+      await shareButton.click();
+      await access("Bob", "Operate").waitFor();
+      await page.evaluate(() => { window.runStartFixture.holdSharing = true; });
+      await choose("Bob", "Off");
+      await share.locator('[aria-busy="true"]').waitFor();
+      await page.keyboard.press("Escape");
+      await share.waitFor({ state: "detached" });
+      await page.evaluate(() => { window.runStartFixture.holdSharing = false; window.runStartFixture.releaseSharing(); });
+      await page.waitForFunction(() => window.runStartFixture.sharing.sharing.users.every((user) => user.userId !== "bob"));
+      assert.equal(await share.count(), 0, "Finishing a pending save cannot reopen a dismissed dropdown.");
       await title.click();
       await details.waitFor();
       await scriptButton.click();
@@ -548,7 +586,8 @@ for (const { host, width } of [{ host: "browser", width: 1400 }, { host: "browse
         await shareButton.click();
         await share.getByRole("alert").filter({ hasText: "Sharing could not be loaded." }).waitFor();
         assert.equal(await share.getByRole("list", { name: "Shared with", exact: true }).count(), 0);
-        await share.getByRole("button", { name: "Cancel", exact: true }).click();
+        assert.equal(await share.getByRole("button", { name: "Cancel", exact: true }).count(), 0);
+        await page.keyboard.press("Escape");
         await share.waitFor({ state: "detached" });
         assert.equal(await shareButton.evaluate((element) => element === document.activeElement), true);
         await page.evaluate(() => { window.runStartFixture.sharingError = undefined; });

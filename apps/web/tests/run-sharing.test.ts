@@ -26,7 +26,7 @@ test("the panel edits a copy without labels: everyone, access per user, new user
   assert.deepEqual(start, { everyone: null, users: [{ userId: "bob", access: "read" }] }, "editing never changes the previous value");
 });
 
-test("Save counts only a real change, in any order of the users", () => {
+test("sharing changes ignore the order of users", () => {
   const loaded = result({ everyone: "read", users: [{ userId: "bob", label: "Bob", access: "read" }, { userId: "carol", label: "Carol", access: "write" }] });
   assert.equal(sharingChanged(loaded, sharingOf(loaded)), false);
   assert.equal(sharingChanged(loaded, { everyone: "read", users: [{ userId: "carol", access: "write" }, { userId: "bob", access: "read" }] }), false);
@@ -67,19 +67,70 @@ test("opening loads into the panel; a refusal stays in it, an answer for a panel
   assert.equal(closed.get(), undefined, "a closed panel does not reopen");
 });
 
-test("saving keeps the loaded sharing while pending, closes on success, and shows a refusal next to the draft", async () => {
+test("saving keeps the server state while pending, displays the returned state, and restores it on refusal", async () => {
   const loaded = result();
   const choice: RunSharing = { everyone: "write", users: [] };
+  const returned = result({ everyone: "read", users: [{ userId: "carol", label: "Carol", access: "write" }] });
   const saved: Array<[string, RunSharing]> = [];
-  const client: SharingClient = { load: async () => loaded, save: async (runId, sharing) => { saved.push([runId, sharing]); return loaded; } };
+  const client: SharingClient = { load: async () => loaded, save: async (runId, sharing) => { saved.push([runId, sharing]); return returned; } };
   const open = memoryStore({ connection: "workshop", runId: "run-a", result: loaded, error: "earlier refusal" });
   await saveSharing("workshop", "run-a", choice, client, open);
   assert.deepEqual(saved, [["run-a", choice]]);
-  assert.deepEqual(open.history, [{ connection: "workshop", runId: "run-a", result: loaded, pending: true }, undefined], "pending drops the earlier refusal, success closes");
+  assert.deepEqual(open.history, [
+    { connection: "workshop", runId: "run-a", result: loaded, pending: true },
+    { connection: "workshop", runId: "run-a", result: returned },
+  ], "pending drops the earlier refusal, success keeps the actual server response open");
 
-  const refused = memoryStore({ connection: "workshop", runId: "run-a", result: loaded });
+  const refused = memoryStore(open.get());
   await saveSharing("workshop", "run-a", choice, { load: client.load, save: async () => { throw new Error("carol is not a user of this profile"); } }, refused);
-  assert.deepEqual(refused.get(), { connection: "workshop", runId: "run-a", result: loaded, error: "carol is not a user of this profile" });
+  assert.deepEqual(refused.get(), { connection: "workshop", runId: "run-a", result: returned, error: "carol is not a user of this profile" });
+});
+
+test("another access change waits for the pending save, and unchanged sharing sends nothing", async () => {
+  const loaded = result();
+  const store = memoryStore({ connection: "workshop", runId: "run-a", result: loaded });
+  const reply = Promise.withResolvers<RunSharingResult>();
+  const calls: RunSharing[] = [];
+  const client: SharingClient = { load: async () => loaded, save: async (_runId, sharing) => { calls.push(sharing); return reply.promise; } };
+  await saveSharing("workshop", "run-a", sharingOf(loaded), client, store);
+  assert.deepEqual(calls, []);
+  const next = withEveryone(sharingOf(loaded), "read");
+  const saving = saveSharing("workshop", "run-a", next, client, store);
+  assert.equal(store.get()?.pending, true);
+  await saveSharing("workshop", "run-a", withEveryone(sharingOf(loaded), "write"), client, store);
+  assert.deepEqual(calls, [next], "a second request cannot overwrite the pending save");
+  const saved = result({ everyone: "read", users: loaded.sharing.users });
+  reply.resolve(saved);
+  await saving;
+  assert.deepEqual(store.get(), { connection: "workshop", runId: "run-a", result: saved });
+});
+
+test("late loads and saves leave a closed or reopened panel alone", async () => {
+  const loaded = result();
+  for (const operation of ["load", "save"] as const) {
+    for (const refused of [false, true]) {
+      const reply = Promise.withResolvers<RunSharingResult>();
+      const store = memoryStore({ connection: "workshop", runId: "run-a", result: loaded });
+      const client: SharingClient = { load: () => reply.promise, save: () => reply.promise };
+      const pending = operation === "load"
+        ? openSharing("workshop", "run-a", client, store)
+        : saveSharing("workshop", "run-a", withEveryone(sharingOf(loaded), "write"), client, store);
+      store.set(undefined);
+      const reopened = { connection: "workshop", runId: "run-a", result: result({ everyone: "read", users: [] }) };
+      store.set(reopened);
+      if (refused) reply.reject(new Error("late refusal"));
+      else reply.resolve(loaded);
+      await pending;
+      assert.equal(store.get(), reopened, `${operation} completion cannot replace the reopened panel`);
+    }
+  }
+  const reply = Promise.withResolvers<RunSharingResult>();
+  const closed = memoryStore({ connection: "workshop", runId: "run-a", result: loaded });
+  const saving = saveSharing("workshop", "run-a", withEveryone(sharingOf(loaded), "write"), { load: async () => loaded, save: () => reply.promise }, closed);
+  closed.set(undefined);
+  reply.resolve(result({ everyone: "write", users: [] }));
+  await saving;
+  assert.equal(closed.get(), undefined, "saving does not reopen a dismissed panel");
 });
 
 test("saving without an open panel of the run hands a refusal to the caller and leaves another panel alone", async () => {

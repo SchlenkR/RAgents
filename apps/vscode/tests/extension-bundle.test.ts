@@ -7,6 +7,9 @@ import path from "node:path";
 import test, { before } from "node:test";
 import { fileURLToPath } from "node:url";
 import { promisify } from "node:util";
+import { DomainError } from "@ragents/engine";
+import type { RunSharing } from "../../../packages/ragents/src/domain/model";
+import type { RunSharingResult } from "../../server/src/api/contracts";
 import { session, SESSION_TOKEN, startStubServer, stubProfile } from "./fixtures";
 import { hostEnvironmentSecretKey } from "../src/settings";
 
@@ -238,6 +241,73 @@ extension.activate(context).then(
   },
   (cause) => { console.error("activate:", cause && cause.stack ? cause.stack : cause); process.exit(5); },
 ).catch((cause) => { console.error("panelAction:", cause && cause.stack ? cause.stack : cause); process.exit(6); });
+`;
+
+const CHECK_SHARING = `${LOAD_EXTENSION}
+const configuration = JSON.parse(process.env.RAGENTS_TEST_SHARING);
+settings["ragents.connections"] = [{ name: "first", url: configuration.url }];
+secrets.set("ragents.token:" + configuration.url, configuration.token);
+const posted = [];
+const ignore = () => ({ dispose() {} });
+const check = async () => {
+  const api = await extension.activate(context);
+  await waitFor(() => api.session("first")?.status.kind === "connected");
+  await api.panelAction({ action: "page", page: "connections" });
+  vscode.providers.get("ragents.runPanel").resolveWebviewView({
+    webview: { options: {}, html: "", cspSource: "vscode-webview:", asWebviewUri: (uri) => uri,
+      onDidReceiveMessage: ignore,
+      postMessage: (message) => { posted.push(message); return Promise.resolve(true); } },
+    onDidDispose: ignore,
+    show() {},
+  });
+  const panelState = () => posted.findLast((message) => message.type === "ragents.panel.state").state;
+  const action = (sharing) => ({ action: "share", name: "first", runId: "run-a", sharing });
+  await api.panelAction({ action: "openSharing", name: "first", runId: "run-a" });
+  assert.deepEqual(api.panel().sharing.result, configuration.initial);
+  assert.deepEqual(panelState().sharing.result, configuration.initial);
+
+  const saved = api.panelAction(action(configuration.next));
+  assert.equal(api.panel().sharing.pending, true);
+  assert.equal(panelState().sharing.pending, true, "the webview disables changes until the answer");
+  assert.deepEqual(panelState().sharing.result, configuration.initial);
+  const overlapping = api.panelAction(action({ everyone: "write", users: [] }));
+  assert.equal(api.panel().sharing.pending, true, "a second pending change leaves the first request active");
+  await Promise.all([saved, overlapping]);
+  assert.deepEqual(api.panel().sharing.result, configuration.saved);
+  assert.deepEqual(panelState().sharing.result, configuration.saved, "the returned labels and sharing replace the loaded state");
+  assert.equal(api.panel().sharing.pending, undefined);
+  assert.equal(api.panel().sharing.error, undefined);
+
+  const refused = api.panelAction(action(configuration.refused));
+  assert.equal(api.panel().sharing.pending, true);
+  await refused;
+  assert.deepEqual(api.panel().sharing.result, configuration.saved, "a refused edit restores the last server state");
+  assert.equal(api.panel().sharing.error, "Sharing denied for this run");
+  assert.equal(panelState().sharing.error, "Sharing denied for this run");
+  assert.equal(panelState().sharing.pending, undefined);
+  assert.deepEqual(panelState().sharing.result, configuration.saved);
+  assert.deepEqual(vscode.notifications, [], "the save refusal belongs in the open dropdown");
+
+  await api.panelAction({ action: "closeSharing" });
+  assert.equal(api.panel().sharing, undefined);
+  assert.equal(panelState().sharing, undefined);
+  await api.panelAction({ action: "openSharing", name: "first", runId: "run-a" });
+  assert.deepEqual(api.panel().sharing.result, configuration.saved, "closing kept the successfully saved sharing");
+  assert.equal(api.panel().sharing.error, undefined);
+
+  const late = api.panelAction(action(configuration.late));
+  assert.equal(api.panel().sharing.pending, true);
+  await api.panelAction({ action: "closeSharing" });
+  await late;
+  assert.equal(api.panel().sharing, undefined, "a late save answer never reopens the dropdown");
+  assert.equal(panelState().sharing, undefined);
+  await api.panelAction({ action: "openSharing", name: "first", runId: "run-a" });
+  assert.deepEqual(api.panel().sharing.result, configuration.final, "closing while saving does not undo the server change");
+  await api.panelAction({ action: "closeSharing" });
+  await extension.deactivate();
+};
+process.on("unhandledRejection", (cause) => { console.error(cause); process.exit(4); });
+check().then(() => process.exit(0), (cause) => { console.error(cause.stack ?? cause); process.exit(6); });
 `;
 
 const CHECK_ENVIRONMENTS = `${LOAD_EXTENSION}
@@ -512,6 +582,51 @@ test("the built bundle loads, activates without node_modules next to it, and run
     const run = spawnSync(process.execPath, ["activate.cjs"], { cwd: directory, encoding: "utf8", timeout: 120_000 });
     assert.equal(run.status, 0, `${run.stdout}${run.stderr}`);
   } finally {
+    rmSync(directory, { recursive: true, force: true });
+  }
+});
+
+test("the sharing bridge keeps saved server results open, refuses overlapping edits, and retains state after errors and closing", async () => {
+  const manifest = JSON.parse(readFileSync(path.join(extensionRoot, "package.json"), "utf8"));
+  const users = [{ id: "bob", label: "Bob" }, { id: "carol", label: "Carol" }];
+  const initial: RunSharingResult = { sharing: { everyone: null, users: [{ userId: "bob", label: "Bob", access: "read" }] }, users };
+  const next: RunSharing = { everyone: "read", users: [{ userId: "bob", access: "write" }, { userId: "carol", access: "read" }] };
+  const saved: RunSharingResult = {
+    sharing: { everyone: next.everyone, users: [{ userId: "bob", label: "Bob updated", access: "write" }, { userId: "carol", label: "Carol", access: "read" }] },
+    users: [{ id: "bob", label: "Bob updated" }, { id: "carol", label: "Carol" }],
+  };
+  const refused: RunSharing = { everyone: "write", users: [{ userId: "carol", access: "write" }] };
+  const late: RunSharing = { everyone: null, users: [{ userId: "carol", access: "write" }] };
+  const final: RunSharingResult = { sharing: { everyone: null, users: [{ userId: "carol", label: "Carol", access: "write" }] }, users: saved.users };
+  const loads: string[] = [];
+  const saves: Array<{ runId: string; sharing: RunSharing }> = [];
+  let result = initial;
+  const server = await startStubServer({
+    version: manifest.version as string,
+    loginRequired: true,
+    sharing: {
+      load: (runId) => { loads.push(runId); return result; },
+      save: (runId, sharing) => {
+        saves.push({ runId, sharing });
+        if (saves.length === 2) throw new DomainError("run-sharing-denied", "Sharing denied for this run", 403);
+        result = saves.length === 1 ? saved : final;
+        return result;
+      },
+    },
+  });
+  const directory = mkdtempSync(path.join(tmpdir(), "ragents-sharing-bridge-"));
+  try {
+    const host = workstationHosts(directory, [manifest.version as string]);
+    writeFileSync(path.join(directory, "check.cjs"), CHECK_SHARING);
+    const configuration = { url: server.url, token: SESSION_TOKEN, initial, next, saved, refused, late, final };
+    const checked = await execute(process.execPath, ["check.cjs"], {
+      cwd: directory, timeout: 60_000, env: { ...host.environment, RAGENTS_TEST_SHARING: JSON.stringify(configuration) },
+    }).catch((cause: unknown) => { assert.fail(cause instanceof Error ? cause.message : String(cause)); });
+    assert.equal(checked.stderr, "");
+    assert.deepEqual(loads, ["run-a", "run-a", "run-a"]);
+    assert.deepEqual(saves, [next, refused, late].map((sharing) => ({ runId: "run-a", sharing })), "each accepted edit replaces the complete sharing once");
+  } finally {
+    await server.close();
     rmSync(directory, { recursive: true, force: true });
   }
 });

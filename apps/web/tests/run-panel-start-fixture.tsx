@@ -6,7 +6,7 @@ import type { PluginActivationState } from "../src/PluginActivation";
 import { PluginRegistry, type SurfaceElementDefinition, type EntryGuideContext, type StartSectionContext, type WebPlugin } from "../src/PluginRegistry";
 import type { ListedSession } from "../src/api";
 import { ToolbarCopy, ToolbarItem, ToolbarLabel, ToolbarText } from "../src/Toolbar";
-import type { RunSharing } from "../src/run-sharing";
+import type { RunSharing, RunSharingResult } from "../src/run-sharing";
 import { RunPanelApp } from "../src/run-panel/RunPanelApp";
 import { RunPanelHostProvider, type RunPanelHost } from "../src/run-panel/host";
 import type { HostRunPanelMessage, RunPanelHostMessage } from "../src/run-panel/host-contract";
@@ -99,7 +99,7 @@ const fixture = {
   scriptStarts: [] as Array<{ runId: string; entry: string; input: unknown }>,
   metadataTexts,
   shares: [] as RunSharing[],
-  sharing: { sharing: { everyone: null, users: [{ userId: "bob", label: "Bob", access: "read" }] }, users: [{ id: "bob", label: "Bob" }, { id: "carol", label: "Carol" }] },
+  sharing: { sharing: { everyone: null, users: [{ userId: "bob", label: "Bob", access: "read" }] }, users: [{ id: "bob", label: "Bob" }, { id: "carol", label: "Carol" }] } as RunSharingResult,
   sharingError: undefined as string | undefined,
   holdSharing: false,
   releaseSharing: () => {},
@@ -136,6 +136,8 @@ const fixture = {
         if (params.sharing) fixture.shares.push(params.sharing);
         if (fixture.holdSharing) await new Promise<void>((resolve) => { fixture.releaseSharing = resolve; });
         if (fixture.sharingError) throw new Error(fixture.sharingError);
+        if (params.sharing) fixture.sharing = { ...fixture.sharing, sharing: { everyone: params.sharing.everyone,
+          users: params.sharing.users.map((user) => ({ ...user, label: fixture.sharing.users.find((entry) => entry.id === user.userId)?.label ?? user.userId })) } };
         return fixture.sharing;
       }
       case "ragents.runs.view": return params.runId !== undefined && fixture.views.has(params.runId) ? emptyView(params.runId) : null;
