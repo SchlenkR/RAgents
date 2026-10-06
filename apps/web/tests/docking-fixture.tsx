@@ -39,7 +39,7 @@ function Run({ run, appIds }: { run: string; appIds: readonly string[] }) {
   const { state, update } = useDockStorage(run);
   const [actions, setActions] = useState<HTMLDivElement | null>(null);
   const session = { session: { id: run, title: run, updatedAt: 0, canShare: true as const }, connected: true, runView: {}, messages: [], pluginEvents: [], running: false, send: async () => {}, start: async () => {} };
-  const apps: readonly RunApp[] = appIds.map((id) => ({ runId: run, definition: { id, title: id[0].toUpperCase() + id.slice(1) }, Element: App }));
+  const apps: readonly RunApp[] = appIds.map((id) => ({ runId: run, definition: { id, title: id[0].toUpperCase() + id.slice(1) }, Element: App, layoutKey: id }));
   const navigation = { activeTabId: activeDockTool(state), openTab: (id: string) => update((current) => selectDockPanel(current, workspaceTabPanelId(tools.find((tool) => tool.id === id)!))), revealEntity: () => false, selectionFor: () => undefined };
   useEffect(() => { window.dockingFixture.openTab = navigation.openTab; });
   const workspace = <DockToolsContext.Provider value={{ tabs: tools, pendingTabIds: [], actionsContainer: withHeader ? actions : undefined }}><DockWorkspace apps={apps} chat={<textarea aria-label="Chat draft" className="h-full" />} navigation={navigation} session={session} /></DockToolsContext.Provider>;

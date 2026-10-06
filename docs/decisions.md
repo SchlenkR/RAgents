@@ -1,5 +1,32 @@
 # Decisions
 
+## 2026-10-06: Keep dock places of briefly unavailable windows
+
+Chapters: `spec/plugins.md` (Ownership per facet: run metadata; Web as plugin host: run panel,
+docking workspace, shared mini-app catalog), `spec/actor-programs.md` (view identifiers); usage:
+`usage.md` (Use chat and mini-apps, Run panel and VS Code extension); handbook: `development.md`
+(Extension points in the web).
+
+A user arranged a window tab, Chat, and a mini-app side by side; without any action the tab
+vanished and came back next to Chat, and Chat's area changed size. Every render reconciled the
+saved layout with the currently available panels and saved the removals, so a panel missing for
+one render lost its area and returned as a new one in the main area. Panels go missing for
+harmless reasons: a run metadata contribution that misses its 1.5 s list timeout drops the value
+a dynamic tab depends on, the run list briefly misses the open run, and every start of a run
+script gave its view a new dock ID because the ID contains the numbered room.
+
+Reconciliation now only adds panels; an unavailable panel keeps its place, button slot, and
+override, and only the user's close and "Reset layout" give a place up. The dock derives what it
+shows: hidden panels, and once the run snapshot is loaded, areas holding only hidden panels yield
+their space until a panel returns; before that they stay as empty cards. An area whose shown panel
+is missing selects another available tab, so the returning panel does not take the selection
+back, as before. The run list keeps a contribution's earlier value while a refresh reports it
+unavailable, and the run panel keeps the open run's last listed state while the list misses it.
+Mini-apps get a layout key, by default their ID; actor program views use their ID without the
+start count of their room, so a later start's view takes over the earlier area, and apps shown at
+the same time with one key get numbered places. The view ID itself, used by selection, VS Code
+editor tabs, and browser checks, is unchanged.
+
 ## 2026-10-06: Reasoning is chosen from a menu again
 
 Chapter: `docs/usage.md` (clients). The joined segmented control had also replaced the reasoning

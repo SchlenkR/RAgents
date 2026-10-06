@@ -30,11 +30,15 @@ export function ActorProgramToolCardSection({ actor, session }: CardSectionConte
   );
 }
 
+/** A view ID without the start count of its room (`review-2.board--main` is `review.board--main`), so a later start of the same setup takes over the dock area. */
+const actorViewLayoutKey = (id: string): string => id.replace(/^([a-z][a-z0-9-]*)-\d+\./, "$1.");
+
 export const actorProgramSurfaceElements = (session: SessionContext): readonly SurfaceElementDefinition[] =>
   actorProgramApps(session).flatMap((module): SurfaceElementDefinition[] => {
     return [{
       id: module.id,
       title: module.title,
+      layoutKey: actorViewLayoutKey(module.id),
       visible: module.app.visible !== false,
       anchorActorId: module.actorId,
       data: { actorId: module.actorId, actorHandle: module.actorHandle },

@@ -45,9 +45,10 @@ are locked with an explanation; their original files are kept. Start a new run w
 
 Wide browser runs start with Chat beside the mini-apps; narrow ones use one tab group. Drag tabs
 onto the docking guides to arrange areas or merge them. Chat and visited apps keep their input
-through switches and moves. New apps appear without taking focus; unavailable apps disappear.
-Close windows with X. Each window keeps a button in the header or sidebar rail; a pressed button is
-visible, and clicking another one shows that window. Drag a header button by its grip to
+through switches and moves. New apps appear without taking focus. A window that is unavailable
+for a while keeps its place and returns to it; the app of a later start of the same run script
+takes over the area of the earlier one. Close windows with X. Each window keeps a button in the
+header or sidebar rail; a pressed button is visible, and clicking another one shows that window. Drag a header button by its grip to
 reorder the buttons, or onto the docking guides to place that window. "Empty space" in the
 header adds an empty pane that holds a place until you drop a window onto it. Every button stays
 directly available; a narrow header wraps onto further rows and pushes the workspace down.
@@ -742,7 +743,14 @@ dot on its directly available header button means the view has content or new ac
 The browser remembers areas, sizes, active tabs, closed windows, empty panes, the header button
 order, and button positions for each server and run. Flyouts close on reload; saved layouts
 with the removed sidebar mode or width also reconcile to a closed flyout. New apps appear without
-taking focus; unavailable apps disappear. Chat drafts, app input, and visited tool state survive tab switches,
+taking focus. A window that is unavailable for a while, such as the app of a stopped actor or a
+view whose run details arrive late, keeps its place: its area gives its space to the others and
+its button leaves the header until it returns, then both are back where they were, without taking
+the selection from the tab shown meanwhile. While a run loads, such areas stay as empty cards.
+The app of a later start of the same run script takes over the area of the earlier one; while both
+are shown, each has its own. Only closing a window or "Reset layout" gives up its place. A run
+whose details are briefly missing from the server's list keeps its tabs and details meanwhile.
+Chat drafts, app input, and visited tool state survive tab switches,
 moves, and close/reopen while the run stays open. Hidden panels pause their background refreshes and
 receive current run data when shown again; their drafts and existing app frames stay in place.
 This does not pause a mini-app's own code inside its frame. Reloading the page restores the

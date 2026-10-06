@@ -146,6 +146,8 @@ export interface SurfaceElementDefinition {
   id: string;
   visible?: boolean;
   title?: string;
+  /** Where the browser dock keeps the app, by default its ID; a later app with the same key takes over the area of an earlier one. */
+  layoutKey?: string;
   anchorActorId?: string;
   entity?: EntityReference;
   data?: unknown;

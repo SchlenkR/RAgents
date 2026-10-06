@@ -798,7 +798,7 @@ The run list queries contributions only for the runs the caller may see,
 for all runs and contributions at once, and waits at most `SESSION_METADATA_TIMEOUT_MS`
 (1.5 s, `apps/server/src/provider.ts`) per contribution. Whoever does not answer by then or fails loses only
 its value: it is missing under `metadata` and appears with the reason under the run's `metadataUnavailable`;
-the list itself arrives. Because every client queries the list every few seconds, a contribution with
+the list itself arrives, and the shared run panel keeps the value of an earlier list (section Web as plugin host). Because every client queries the list every few seconds, a contribution with
 expensive work (such as a call to a run's executor) keeps a short-lived intermediate result itself.
 A contribution that reaches the run's workspace declares that with `requiresWorkspace: true`.
 The host calls it only for runs whose workspace the caller may reach (the same rule as
@@ -1513,6 +1513,12 @@ Both hosts draw run rows from the same mapping of `ragents.runs.list` (`connecti
 The shared panel reloads the list on the `ragents.runs` channel and every five seconds.
 Equal responses retain the previous array and run entries; changed responses reuse unchanged
 entries. Equality includes metadata, access, and viewed state, not just the run revision.
+A contribution that a response reports under `metadataUnavailable` keeps the value an earlier
+response delivered for that run, next to the reason (`shareSessionList` in `use-session-list.ts`),
+so a slow answer does not take away the tabs or header details derived from it. While a response
+briefly misses the open run, for example during a reconnect, the panel keeps the run's last listed
+state instead of a placeholder without metadata (`useRetainedSession`); only the check for a
+withdrawn share reads the response itself.
 Derived session contexts retain their identity while their inputs are unchanged, so polling and
 unrelated parent renders do not notify context consumers. Real chat, run-view, or session changes
 still update the context.
@@ -1658,17 +1664,25 @@ button order (`order`, applied by
 `dockWindowOrder` and changed by `moveDockWindow`, which never touches the tree or the automatic
 layout) are stored locally per server origin and run
 (`ragents.docking:<encoded-origin>:<encoded-run>`). Views missing from `order` follow in catalog
-order, and catalog reconciliation drops unavailable views from order and overrides. Flyout
+order; an unavailable view keeps its slot and override and takes them again when it returns. Flyout
 visibility is transient; no flyout width is stored. Older saved sidebar modes and widths
 reconcile to a closed flyout without migration. Sidebar buttons remain available when their
 panels are docked; their position is independent of `bar`.
 Older saved layouts without overrides use plugin defaults. Invalid storage or a failed
 write is reported; "Reset layout" explicitly replaces invalid state. No server function controls this layout.
-The first run snapshot reconciles saved IDs with the shared catalog from `run-apps.ts`; loading
-alone does not discard positions. Unavailable apps are removed, including stopped or hidden views.
+Catalog reconciliation (`reconcileDockState`) with the shared catalog from `run-apps.ts` only
+adds: a panel the layout never knew joins it, and a known panel that is unavailable, such as a
+stopped or hidden app or a window tab whose run metadata is missing, keeps its place in the tree,
+`known`, `closed`, `bar`, `order`, and `placements`. Only the user's close and "Reset layout"
+remove a place. `visibleDockState` derives what the dock shows: unavailable panels are hidden;
+once the first run snapshot has arrived, an area that holds only hidden panels gives its space to
+its neighbours until one of them returns, before that it stays as an empty card, so loading never
+moves an area. Once loaded, an area whose active panel is unavailable activates its first
+available one (`activateAvailableDockTabs`), so a returning panel appears in its area again
+without taking the selection back; the only panel of an area stays its active one.
 In automatic wide layouts, new apps join the right-hand app area. In user-arranged layouts,
 they enter the original group if it still exists, otherwise the first area, without changing
-focus or another selected tab. Reactivated apps appear again without taking focus.
+focus or another selected tab.
 
 Chat and visited app/tool containers are stable siblings positioned by rectangles, independent of
 the split tree. Hidden or closed panels are inert and use React `Activity` in hidden mode:
@@ -1794,7 +1808,11 @@ Missing source text is reported explicitly.
 `apps/web/src/run-apps.ts` builds the shared mini-app catalog from surface contributions
 for the shared panel and the standalone app route. Entries retain the run ID,
 plugin definition (ID, title, ownership, and data), and renderer; `visible: false` entries
-are excluded and duplicate IDs within a run are errors. Selection resolves only an exact
+are excluded and duplicate IDs within a run are errors. Each entry also has a `layoutKey`, the
+definition's `layoutKey` or else its ID, under which the browser dock keeps its place
+(`app:<layout key>`): a later app with the same key takes over the area of an earlier one, and
+while several shown apps share a key, each later one gets the next free `<key>~2`, `<key>~3`.
+`useDockActiveApp` reports the layout key of the focused app. Selection resolves only an exact
 visible ID. The browser panel shows Chat when its stored app selection is unavailable;
 the standalone route shows its unavailable message instead.
 `RunAppView` passes the same session and navigation to the contributed renderer and rejects
@@ -4989,6 +5007,11 @@ right) returns the archive; a different version is 404. The counterpart is `rage
   loads independently of the chat; until it is there, a run whose only content is a mini-app
   can briefly show an empty chat after connecting. Only a surface contribution with `RunPanel`
   shows a loading state in the run; without it the empty chat is shown.
+- The saved browser layout of a run keeps the place of every panel it ever showed until the user
+  closes it or resets the layout, also of apps that never return; the dock cannot tell a brief
+  absence from a final one. An actor program view finds its place by the room name without a
+  trailing `-<number>`, so the first start of a run script whose name itself ends that way has a
+  place of its own.
 - Hidden `Activity` boundaries pause React effects and retain parent-fed panel props. They do not
   suspend scripts inside an iframe; independent context or state updates can still render a
   hidden React subtree at lower priority.

@@ -407,9 +407,10 @@ are locked with an explanation; their original files are kept. Start a new run w
 
 Wide browser runs start with Chat beside the mini-apps; narrow ones use one tab group. Drag tabs
 onto the docking guides to arrange areas or merge them. Chat and visited apps keep their input
-through switches and moves. New apps appear without taking focus; unavailable apps disappear.
-Close windows with X. Each window keeps a button in the header or sidebar rail; a pressed button is
-visible, and clicking another one shows that window. Drag a header button by its grip to
+through switches and moves. New apps appear without taking focus. A window that is unavailable
+for a while keeps its place and returns to it; the app of a later start of the same run script
+takes over the area of the earlier one. Close windows with X. Each window keeps a button in the
+header or sidebar rail; a pressed button is visible, and clicking another one shows that window. Drag a header button by its grip to
 reorder the buttons, or onto the docking guides to place that window. "Empty space" in the
 header adds an empty pane that holds a place until you drop a window onto it. Every button stays
 directly available; a narrow header wraps onto further rows and pushes the workspace down.

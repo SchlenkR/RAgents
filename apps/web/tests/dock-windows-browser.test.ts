@@ -164,23 +164,24 @@ test("browser header window buttons show grips, reorder by drag and keyboard, do
   await tab("Chat").waitFor();
   await page.waitForFunction(() => document.querySelectorAll("[data-dock-window]").length === 2);
   assert.deepEqual(await order(), ["Notes", "Chat"], "the order survives reload");
-  await page.evaluate(() => window.dockingFixture.setApps(["notes", "board"]));
-  await tab("Board").waitFor();
-  assert.deepEqual(await order(), ["Notes", "Chat", "Board"], "a new window joins at the end");
+  await page.evaluate(() => window.dockingFixture.setApps(["notes", "board", "plan"]));
+  await tab("Plan").waitFor();
+  assert.deepEqual(await order(), ["Board", "Notes", "Chat", "Plan"], "a returning window takes its remembered slot, a new one joins at the end");
+  assert.ok((await box(groups.filter({ has: tab("Board") }))).y > (await box(chatArea)).y + 50, "the returning window is below Chat again");
 
   await page.evaluate(() => { document.documentElement.style.zoom = "1.3"; });
   await page.waitForFunction(() => document.documentElement.style.zoom === "1.3");
-  await dragInHeader("Board", "Notes", 0.25);
+  await dragInHeader("Plan", "Notes", 0.25);
   await page.mouse.up();
-  assert.deepEqual(await order(), ["Board", "Notes", "Chat"], "header reordering follows the pointer under page zoom");
+  assert.deepEqual(await order(), ["Board", "Plan", "Notes", "Chat"], "header reordering follows the pointer under page zoom");
   const zoomedBefore = await groups.count();
-  await dockOnto("Board", groups.filter({ has: tab("Chat") }), "group-right");
+  await dockOnto("Plan", groups.filter({ has: tab("Chat") }), "group-right");
   assert.equal(await groups.count(), zoomedBefore + 1, "docking from the header follows the pointer under page zoom");
-  assert.equal(await groups.filter({ has: tab("Board") }).getByRole("tab").count(), 1);
+  assert.equal(await groups.filter({ has: tab("Plan") }).getByRole("tab").count(), 1);
   await page.evaluate(() => { document.documentElement.style.zoom = ""; });
 
   await view("Reset layout").click();
-  assert.deepEqual(await order(), ["Chat", "Notes", "Board"], "Reset layout restores the catalog order");
+  assert.deepEqual(await order(), ["Chat", "Notes", "Board", "Plan"], "Reset layout restores the catalog order");
   assert.equal(await savedOrder(), undefined);
 
   await page.setViewportSize({ width: 200, height: 800 });

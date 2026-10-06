@@ -4,6 +4,9 @@ Inbox for everything; the owner and the AI write here. One line per entry, newes
 
 ## Open
 
+- Check live (06.10.2026): in a browser run with a window tab, Chat, and a mini-app side by side, a slow run metadata contribution, a server restart, and a second start of the same run script leave the areas in place; dock, session-list, and run-app unit tests and the docking browser fixtures cover the parts.
+- Run list lines of a slow contribution (06.10.2026): a contribution that misses the metadata timeout loses its `listDetails` line for one refresh, so run rows flicker; the lines carry no contribution ID yet, which keeping them like metadata needs.
+- Withdrawn share check (06.10.2026): the run panel leaves a shared run with the revoked notice as soon as one list response misses it, also during a reconnect; it should wait for a confirmed absence.
 - Check live (06.10.2026): in a real VS Code window, "New chat" and a template while the workstation still fetches its host show the progress notification and then open the run on the workstation; without a folder, against a server without sign-in over the network, and against one that refuses the workstation, the error and the Start notice name the cause. Extension bundle, session, and run panel browser tests cover the parts.
 - Atomic host file access (05.10.2026): close parent-directory symlink races between canonical checks and host I/O, reproduced with neutral fixtures. Cover read/write/edit, seen/hash, files and bytes operations, and language-server annotation with descriptor-relative access or a dedicated filesystem worker whose read policy allows only the addressed roots.
 - Workstation host cache (05.10.2026): remove fetched versions under `<globalStorage>/hosts/<version>/` when no configured server or local profile uses them.

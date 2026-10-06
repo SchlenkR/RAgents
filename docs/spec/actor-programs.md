@@ -296,7 +296,10 @@ requires `runs.inspect`. Running tool calls appear in the general activity displ
 Browser tabs and VS Code editors use the same frame endpoint and build. A view's identifier is
 `<package key>--<view key>`, in a room `<room>.<package>--<view>`, at most 195 characters
 (`ACTOR_VIEW_ID_MAX_LENGTH` in the contract); the RPC contracts, the web listing, and the frame
-route take exactly that length. Each app has an iframe with
+route take exactly that length. The browser dock keeps a view's area under its identifier without
+the start count of its room (`layoutKey`; `review-2.board--main` becomes `review.board--main`), so
+the view of a later start of the same run script takes over the area of an earlier one; while
+both are shown, the later one gets a numbered place of its own (`spec/plugins.md`, `run-apps.ts`). Each app has an iframe with
 `sandbox="allow-scripts allow-forms allow-downloads"` and a content security policy;
 `form-action 'none'` prevents any real form submission. The browser client is bundled including
 its imports; React and UI building blocks come from the prepared local dependencies. The host

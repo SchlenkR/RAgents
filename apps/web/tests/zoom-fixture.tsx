@@ -11,7 +11,7 @@ import "../src/ui/tailwind.css";
 initializeTheme(window);
 initializeZoom(window);
 const page = new URLSearchParams(location.search).get("page");
-const apps: readonly RunApp[] = [{ runId: "zoomed", definition: { id: "notes", title: "Notes" }, Element: () => <input aria-label="App draft" /> }];
+const apps: readonly RunApp[] = [{ runId: "zoomed", definition: { id: "notes", title: "Notes" }, Element: () => <input aria-label="App draft" />, layoutKey: "notes" }];
 const session = { session: { id: "zoomed", title: "zoomed", updatedAt: 0 }, connected: true, runView: {}, messages: [], pluginEvents: [], running: false, send: async () => {}, start: async () => {} };
 const navigation = { activeTabId: "", openTab: () => {}, revealEntity: () => false, selectionFor: () => undefined };
 const workspace = <div className="flex h-full flex-col">

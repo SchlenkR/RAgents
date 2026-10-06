@@ -24,7 +24,7 @@ import type { RunPanelLocation } from "./run-panel-location";
 import { RunPanelActions } from "./RunPanelActions";
 import { SERVER_SHARING } from "./RunShareButton";
 import { useRunPanelHost } from "./host";
-import { useSessionList } from "./use-session-list";
+import { useRetainedSession, useSessionList } from "./use-session-list";
 import { viewedReporter } from "./viewed-runs";
 import { BrandLogo } from "../ui/brand-logo";
 
@@ -222,18 +222,19 @@ function RunPanelPage({ connection, initialRunId, registry }: { connection: stri
     startDialog={{ onClose: host.kind === "vscode" ? showStart : () => setDraft(undefined), initialEntryId: draft.entryId }}
   />;
   const hasRunTitle = readRuns && Boolean(runId || launch || draft);
-  const session = sessions.find((entry) => entry.id === runId);
+  const listed = sessions.find((entry) => entry.id === runId);
+  const session = useRetainedSession(sessions, runId);
   const shareableBeforeStart = access.enabled && access.user !== null && writeRuns && runId !== undefined && runId === freshRunId;
   const pendingSession = useMemo(() => runId === undefined ? undefined
     : { ...placeholderSession(runId, runTitle), ...(shareableBeforeStart ? { canShare: true as const } : {}) }, [runId, runTitle, shareableBeforeStart]);
   useEffect(() => {
     if (runId === undefined) return;
-    if (session?.sharedAccess !== undefined) setWatchedShare(runId);
-    else if (session === undefined && watchedShare === runId) {
+    if (listed?.sharedAccess !== undefined) setWatchedShare(runId);
+    else if (listed === undefined && watchedShare === runId) {
       setWatchedShare(undefined);
       leaveToStart(REVOKED_SHARE_NOTICE);
     }
-  }, [leaveToStart, runId, session, watchedShare]);
+  }, [leaveToStart, listed, runId, watchedShare]);
   const stop = () => {
     if (runId === undefined) return;
     setStopError(undefined);
@@ -415,13 +416,14 @@ function ElementPage({ elementId, registry, runId }: { elementId: string; regist
   const host = useRunPanelHost();
   const readRuns = useAccess().can("runs.read");
   const { sessions } = useSessionList(readRuns);
+  const session = useRetainedSession(sessions, runId);
   const pendingSession = useMemo(() => placeholderSession(runId), [runId]);
   const layout = useMemo(() => ({ element: elementId }), [elementId]);
   useEffect(() => { host.notify({ type: "ready" }); }, [host]);
   if (!readRuns) return <p className={noticeClass}>No runs are enabled for this user account.</p>;
   return (
     <main className="relative flex h-full min-h-0 min-w-0 flex-1 bg-background @container/chat-content">
-      <PluginChat key={runId} layout={layout} registry={registry} session={sessions.find((entry) => entry.id === runId) ?? pendingSession} />
+      <PluginChat key={runId} layout={layout} registry={registry} session={session ?? pendingSession} />
     </main>
   );
 }

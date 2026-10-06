@@ -36,6 +36,17 @@ test("visibility and exact selection agree across contributions and updates", ()
   assert.equal(selectedRunApp(runApps(session(), [contribution([{ id: "hidden", visible: true }])]), "hidden")?.definition.id, "hidden");
 });
 
+test("layout keys default to the ID, are shared by successors, and stay distinct among shown apps", () => {
+  const keys = (definitions: readonly SurfaceElementDefinition[]) => runApps(session(), [contribution(definitions)]).map((app) => app.layoutKey);
+  assert.deepEqual(keys([{ id: "board" }, { id: "notes" }]), ["board", "notes"]);
+  assert.deepEqual(keys([{ id: "review-2.board", layoutKey: "review.board" }]), ["review.board"], "a single successor takes the shared place");
+  assert.deepEqual(keys([{ id: "review.board", layoutKey: "review.board" }, { id: "review-2.board", layoutKey: "review.board" }, { id: "review-3.board", layoutKey: "review.board" }]),
+    ["review.board", "review.board~2", "review.board~3"]);
+  assert.deepEqual(keys([{ id: "review.board", layoutKey: "review.board", visible: false }, { id: "review-2.board", layoutKey: "review.board" }]), ["review.board"], "a hidden app holds no place");
+  assert.deepEqual(keys([{ id: "shared", layoutKey: "board" }, { id: "board" }, { id: "board~2" }]), ["board", "board~2", "board~2~2"], "an ID never repeats a numbered key");
+  assert.throws(() => keys([{ id: "board", layoutKey: "one" }, { id: "board", layoutKey: "two" }]), /Duplicate mini-app ID: board/);
+});
+
 test("the shared renderer preserves plugin context and rejects cross-run rendering", () => {
   const current = session();
   const navigation = {} as SessionNavigation;

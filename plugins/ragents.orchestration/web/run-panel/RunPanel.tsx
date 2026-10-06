@@ -37,7 +37,7 @@ function RunPanel({ autoFocusChat, onAutoFocusChatSettled, surfaceElements, card
   const save = useCallback((patch: Partial<RunPanelState>) => saveRunPanelState(runId, { ...stored, ...patch }), [runId, stored]);
   const elements = useMemo(() => runApps(session, surfaceElements), [surfaceElements, session]);
   const activeApp = useDockActiveApp(runId);
-  const selectedElement = host.kind === "browser" ? elements.find((app) => app.definition.id === activeApp) : undefined;
+  const selectedElement = host.kind === "browser" ? elements.find((app) => app.layoutKey === activeApp) : undefined;
   const startup = useRunPanelStartup(
     surfaceStartupState({ view, startup: session.startup, connected: session.connected, running: session.running, error: session.conversationError }),
     session.connected,

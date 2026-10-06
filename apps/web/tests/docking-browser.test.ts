@@ -337,6 +337,14 @@ test("browser docking preserves frames and drafts through split, merge, close, m
   await page.evaluate(() => window.dockingFixture.setApps(["notes", "board"]));
   await tab("Board").waitFor();
   assert.equal(await tab("Chat").getAttribute("aria-selected"), "true");
+  const boardArea = await box(groups.filter({ has: tab("Board") }));
+  await page.evaluate(() => window.dockingFixture.setApps([]));
+  await tab("Board").waitFor({ state: "hidden" });
+  assert.equal(await groups.count(), 1, "the area of a missing app gives its space away");
+  await page.evaluate(() => window.dockingFixture.setApps(["notes", "board"]));
+  await tab("Board").waitFor();
+  assert.deepEqual(await box(groups.filter({ has: tab("Board") })), boardArea, "a returning app takes its own area again");
+  assert.equal(await groups.filter({ has: tab("Chat") }).getByRole("tab", { name: "Board", exact: true }).count(), 0, "it does not join Chat's area");
   await page.evaluate(() => window.dockingFixture.setApps([]));
   await tab("Board").waitFor({ state: "hidden" });
   await page.evaluate(() => window.dockingFixture.setRun("second"));

@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { activeDockTool, addDockEmptyPane, closeDockPanels, dockButtonPlacement, dockGroups, dockWindowOrder, emptyPanelId, focusedDockWindow, initialDockState, moveDockButton, moveDockPanels, moveDockWindow, parseDockState, persistentDockState, reconcileDockState, resizeDockSplit, revealDockPanel, transitionDockSide, returnDockTool, selectDockPanel, workspaceTabPanelId, type DockState, type DockTarget } from "../src/run-panel/dock-state";
+import { activateAvailableDockTabs, activeDockTool, addDockEmptyPane, closeDockPanels, dockButtonPlacement, dockGroups, dockWindowOrder, emptyPanelId, focusedDockWindow, initialDockState, moveDockButton, moveDockPanels, moveDockWindow, parseDockState, persistentDockState, reconcileDockState, resizeDockSplit, revealDockPanel, transitionDockSide, returnDockTool, selectDockPanel, visibleDockState, workspaceTabPanelId, type DockState, type DockTarget } from "../src/run-panel/dock-state";
 import { dockGeometry, dockHitTest, dockPreview, dockingGuides } from "../src/run-panel/dock-geometry";
 import { dockStorageKey } from "../src/run-panel/dock-storage";
 
@@ -189,7 +189,7 @@ test("selecting a docked tool while the flyout is open reports the focused tool"
   roundtrip(selected);
 });
 
-test("catalog reconciliation keeps closed windows and focus, removes vanished apps and adds newcomers", () => {
+test("catalog reconciliation keeps closed windows and focus, keeps vanished apps in place and adds newcomers", () => {
   const split = move(initial(), ["app:notes"], { kind: "edge", side: "left" });
   const state = closeDockPanels(split, ["app:board"]);
   const reconciled = reconcileDockState(state, ["chat", "app:notes", "app:new"], ["tool:files", "tool:journal"]);
@@ -197,12 +197,70 @@ test("catalog reconciliation keeps closed windows and focus, removes vanished ap
   assert.equal(dockGroups(reconciled.root).find((g) => g.id === state.focused)?.active, "app:notes");
   assert.ok(reconciled.known.includes("app:new"));
   const vanished = reconcileDockState(reconciled, ["chat", "app:new"], ["tool:files"]);
-  assert.equal(dockGroups(vanished.root).length, 1);
-  assert.ok(!vanished.known.includes("app:notes"));
+  assert.equal(vanished, reconciled, "an unavailable app or tool changes nothing that is stored");
+  const shown = visibleDockState(vanished, ["chat", "app:new", "tool:files"], true);
+  assert.deepEqual(dockGroups(shown.root).map((g) => g.tabs), [["chat", "app:new"]], "the area of the missing app gives its space away");
+  assert.equal(shown.focused, "main");
   const returned = reconcileDockState(vanished, ["chat", "app:new", "app:notes"], ["tool:files"]);
-  assert.equal(dockGroups(returned.root)[0].active, "chat");
-  assert.equal(reconcileDockState(returned, ["chat", "app:new", "app:notes"], ["tool:files"]), returned);
+  assert.equal(returned, reconciled);
+  assert.deepEqual(visibleDockState(returned, ["chat", "app:new", "app:notes", "tool:files"], true).root, reconciled.root, "the app returns to its own area");
   roundtrip(returned);
+});
+
+test("a window that is briefly unavailable keeps its area and size and returns there instead of beside Chat", () => {
+  const panels = ["chat", "tab:topic", "app:board"];
+  const left = move(initialDockState(panels), ["tab:topic"], { kind: "edge", side: "left" });
+  const arranged = resizeDockSplit(move(left, ["app:board"], { kind: "group", group: "main", side: "right" }), left.root.id, 0.25);
+  const missing = reconcileDockState(arranged, ["chat", "app:board"], []);
+  assert.equal(missing, arranged);
+  const hidden = visibleDockState(missing, ["chat", "app:board"], true);
+  assert.deepEqual(dockGroups(hidden.root).map((g) => g.tabs), [["chat"], ["app:board"]], "Chat and the app share the space meanwhile");
+  const loading = visibleDockState(missing, ["chat", "app:board"], false);
+  assert.deepEqual(dockGroups(loading.root).map((g) => g.tabs), [[], ["chat"], ["app:board"]], "before the run snapshot the area stays as an empty card");
+  const back = reconcileDockState(missing, panels, []);
+  assert.equal(back, arranged);
+  const shown = visibleDockState(back, panels, true);
+  assert.deepEqual(shown.root, arranged.root, "it returns to its own area with its size");
+  assert.deepEqual(dockGroups(shown.root).find((g) => g.id === "main")?.tabs, ["chat"], "it does not join Chat's area");
+  const none = visibleDockState(closeDockPanels(arranged, ["chat"]), [], true);
+  assert.deepEqual(dockGroups(none.root).map((g) => g.tabs), [[]], "without any available panel one empty area remains");
+  roundtrip(back);
+});
+
+test("only an explicit close or Reset layout takes an unavailable panel out of its area", () => {
+  const panels = ["chat", "tab:topic", "app:board"];
+  const arranged = move(initialDockState(panels), ["tab:topic"], { kind: "edge", side: "left" });
+  const closed = closeDockPanels(reconcileDockState(arranged, ["chat", "app:board"], []), ["tab:topic"]);
+  assert.ok(!dockGroups(closed.root).some((g) => g.tabs.includes("tab:topic")));
+  assert.deepEqual(closed.closed, ["tab:topic"]);
+  const returned = reconcileDockState(closed, panels, []);
+  assert.ok(!dockGroups(returned.root).some((g) => g.tabs.includes("tab:topic")), "a closed window stays closed when it becomes available again");
+  assert.ok(dockWindowOrder(returned, panels).includes("tab:topic"), "its header button reopens it");
+  roundtrip(returned);
+  const reset = reconcileDockState(initialDockState(["chat", "app:board"]), ["chat", "app:board"], []);
+  assert.ok(!reset.known.includes("tab:topic"), "Reset layout keeps only the available panels");
+});
+
+test("an area whose shown app goes missing selects another tab, so the app returns without taking the selection back", () => {
+  const start = selectDockPanel(initial(), "app:notes");
+  const settled = activateAvailableDockTabs(start, ["chat", "app:board", "tool:files", "tool:journal"]);
+  assert.equal(dockGroups(settled.root)[0].active, "chat");
+  assert.deepEqual(dockGroups(settled.root)[0].tabs, ["chat", "app:notes", "app:board"], "the missing app keeps its tab position");
+  assert.equal(activateAvailableDockTabs(settled, ["chat", "app:notes", "app:board"]), settled);
+  const alone = move(start, ["app:notes"], { kind: "edge", side: "right" });
+  assert.equal(activateAvailableDockTabs(alone, ["chat", "app:board"]), alone, "the only tab of an area stays its selection");
+  roundtrip(settled);
+});
+
+test("an automatic layout gives the app area away while its apps are missing and restores it", () => {
+  const split = reconcileDockState(initialDockState(), ["chat", "app:notes"], [], true);
+  const missing = reconcileDockState(split, ["chat"], [], true);
+  assert.equal(missing, split);
+  assert.equal(visibleDockState(missing, ["chat"], true).root.kind, "group");
+  assert.deepEqual(visibleDockState(missing, ["chat", "app:notes"], true).root, split.root);
+  const preview = transitionDockSide(initial(), { type: "hover", id: "tool:files" });
+  assert.deepEqual(visibleDockState(preview, ["chat", "tool:journal"], true).side, initial().side, "a missing tool closes its flyout only in the view");
+  assert.deepEqual(visibleDockState(preview, ["chat", "tool:files"], true).side, preview.side);
 });
 
 test("catalog changes preserve sizes, empty areas, closed apps and the flyout", () => {
@@ -282,7 +340,7 @@ test("arbitrary sequences of close, move, select, resize, placement and reconcil
       case 1: state = closeDockPanels(state, [id]); break;
       case 2: state = selectDockPanel(state, id); break;
       case 3: state = resizeDockSplit(state, state.root.id, (i % 10) / 10); break;
-      case 4: state = reconcileDockState(state, ["chat", "app:notes", "app:board"], ["tool:files", "tool:journal"]); break;
+      case 4: state = i % 3 ? reconcileDockState(state, ["chat", "app:notes", "app:board"], ["tool:files", "tool:journal"]) : reconcileDockState(state, ["chat", "app:board"], ["tool:journal"]); break;
       case 5: state = moveDockButton(state, id, i % 2 ? "sidebar" : "window"); break;
       case 6: state = transitionDockSide(state, { type: "click", id }); break;
     }
@@ -395,7 +453,7 @@ test("header window order moves a button before another one or to the end withou
   roundtrip(last);
 });
 
-test("header window order appends new windows, forgets vanished ones and survives layout changes and reset", () => {
+test("header window order appends new windows, keeps the slots of vanished ones and survives layout changes and reset", () => {
   const panels = ["chat", "app:notes", "app:board"];
   const tools = ["tool:files", "tool:journal"];
   const arranged = moveDockWindow(initial(), "app:board", "chat");
@@ -405,8 +463,9 @@ test("header window order appends new windows, forgets vanished ones and survive
   assert.deepEqual(added.order, ["app:board", "chat", "app:notes"]);
   assert.deepEqual(dockWindowOrder(moveDockWindow(added, "app:new", "chat"), [...panels, "app:new"]), ["app:board", "app:new", "chat", "app:notes"]);
   const vanished = reconcileDockState(added, ["chat", "app:notes", "app:new"], tools);
-  assert.deepEqual(vanished.order, ["chat", "app:notes"]);
+  assert.deepEqual(vanished.order, ["app:board", "chat", "app:notes"], "a vanished window keeps its slot");
   assert.deepEqual(dockWindowOrder(vanished, ["chat", "app:notes", "app:new"]), ["chat", "app:notes", "app:new"]);
+  assert.deepEqual(dockWindowOrder(vanished, [...panels, "app:new"]), ["app:board", "chat", "app:notes", "app:new"], "and takes it again when it returns");
   const moved = move(closeDockPanels(arranged, ["app:notes"]), ["app:board"], { kind: "edge", side: "left" });
   assert.deepEqual(moved.order, arranged.order);
   assert.deepEqual(selectDockPanel(moved, "app:notes").order, arranged.order);
@@ -543,8 +602,8 @@ test("a workspace tab placed as a window defaults to a header window like an app
   assert.deepEqual(dockWindowOrder(arranged, panels), ["tab:preview", "chat", "app:notes"]);
   roundtrip(arranged);
   const placed = reconcileDockState(start, [...panels, "tab:files"], [], true);
-  assert.deepEqual(placed.bar, [], "a tab that changes its placement leaves the rail");
-  assert.ok(dockGroups(placed.root).some((g) => g.tabs.includes("tab:files")), "and joins the windows");
+  assert.deepEqual(placed.bar, ["tool:files"], "the former rail ID stays known; the rail lists only available tools");
+  assert.ok(dockGroups(placed.root).some((g) => g.tabs.includes("tab:files")), "the tab joins the windows");
   roundtrip(placed);
 });
 
@@ -582,10 +641,8 @@ test("placement overrides reconcile with the catalog, round-trip, and reset to p
   assert.equal(dockButtonPlacement(added, "app:new"), "window");
   assert.deepEqual(added.placements, custom.placements);
   const removed = reconcileDockState(added, ["chat", "app:notes", "app:new"], []);
-  assert.deepEqual(removed.placements, {});
-  assert.deepEqual(removed.order, ["chat", "app:notes"]);
+  assert.equal(removed, added, "unavailable entries keep their overrides and slots");
   roundtrip(added);
-  roundtrip(removed);
   const reset = reconcileDockState(initialDockState(panels, tools), panels, tools);
   assert.equal(reset.placements, undefined);
   assert.equal(reset.order, undefined);
