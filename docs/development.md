@@ -290,7 +290,11 @@ Browser runs arrange Chat, apps, and inspection tools through `run-panel/DockWor
 `PluginChat` supplies `DockToolsContext`, and the surface contribution supplies its chat and apps.
 `dock-state.ts` owns immutable tree operations, `dock-geometry.ts` rectangles and docking targets,
 `dock-pointer.ts` pointer capture/cancellation, and `dock-storage.ts` per-origin/run persistence.
-All panel containers stay at stable DOM positions during moves. The additive web host API module
+All panel containers stay at stable DOM positions during moves. Hidden visited panels retain
+their parent-fed props inside React `Activity`, preserving state and frames while pausing effects;
+reveal supplies current props and resumes effects. The shared run-list hook structurally shares
+unchanged responses and entries, keeping derived session contexts stable between real changes.
+The additive web host API module
 `@ragents/web/run-panel/DockWorkspace` exposes `DockWorkspace` and `useDockActiveApp`; the latter
 reports the focused app for the existing user-location contract. Workspace tabs optionally declare
 `hosts` to expose the Journal and Processes tools only in the browser. Server layout contracts

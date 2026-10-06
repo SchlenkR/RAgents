@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { createRoot } from "react-dom/client";
 import { OrchestrationRunPanel } from "../../../plugins/ragents.orchestration/web/run-panel/RunPanel";
 import { unrestrictedAccess } from "../../../packages/ragents/src/access";
@@ -9,7 +9,7 @@ import "../src/ui/tailwind.css";
 
 const mounts: Record<string, number> = {};
 function MiniApp({ definition }: SurfaceElementContext) {
-  useEffect(() => { mounts[definition.id] = (mounts[definition.id] ?? 0) + 1; }, [definition.id]);
+  useState(() => { mounts[definition.id] = (mounts[definition.id] ?? 0) + 1; return undefined; });
   return <input aria-label={`${definition.title} draft`} />;
 }
 const navigation = { activeTabId: "", openTab() {}, revealEntity: () => false, selectionFor: () => undefined };

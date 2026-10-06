@@ -139,14 +139,18 @@ The browser remembers areas, sizes, active tabs, closed windows, empty panes, th
 order, and button positions for each server and run. Flyouts close on reload; saved layouts
 with the removed sidebar mode or width also reconcile to a closed flyout. New apps appear without
 taking focus; unavailable apps disappear. Chat drafts, app input, and visited tool state survive tab switches,
-moves, and close/reopen while the run stays open. Reloading the page restores the layout but not
-unsent input.
+moves, and close/reopen while the run stays open. Hidden panels pause their background refreshes and
+receive current run data when shown again; their drafts and existing app frames stay in place.
+This does not pause a mini-app's own code inside its frame. Reloading the page restores the
+layout but not unsent input.
 
 In VS Code, click an app entry to open or focus its single editor tab; moving that tab between
 editor groups does not create a second one. The run panel stays on chat. Its inspection rail
 retains the popout: the same icon, Escape, X, or backdrop closes it, and its selected tab is
 remembered per run. Plugin views that the browser shows as windows stay in this rail. Questions
 and news stay in the chat, and unsent drafts stay with their addressee when you switch actors.
+Inspection views that retain their state pause background refreshes while the popout is hidden
+and resume with current run data on reopening.
 
 The chip at the left of the chat input names the addressee, the actor your messages go to.
 An actor in a room, such as one a run script started, appears with its address `room.handle`;

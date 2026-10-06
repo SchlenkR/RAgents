@@ -1500,6 +1500,12 @@ Neither page combines servers, and Start contains no server chips.
 Free creation, template access, reading, and deletion retain their independent rights.
 Both hosts draw run rows from the same mapping of `ragents.runs.list` (`connectionRunOf` in
 `run-overview.ts`): state, pending actions, read notice, owner, metadata lines, and lock.
+The shared panel reloads the list on the `ragents.runs` channel and every five seconds.
+Equal responses retain the previous array and run entries; changed responses reuse unchanged
+entries. Equality includes metadata, access, and viewed state, not just the run revision.
+Derived session contexts retain their identity while their inputs are unchanged, so polling and
+unrelated parent renders do not notify context consumers. Real chat, run-view, or session changes
+still update the context.
 Global coordinator and other toolbar contributions stay mounted across run switches and starts;
 overview contributions retain their slot. Settings and Help are header buttons.
 Guided templates still use the existing preparation dialog and chat. Browser runs use the server.
@@ -1520,9 +1526,10 @@ so that the draft is preserved. Arrow keys, Home, and End also choose the
 view; when space is short, the toolbar scrolls horizontally.
 
 The browser inspection rail opens a flyout, and its tools can also become
-windows in the docking workspace. Visited browser panels stay mounted and receive `active: false`
-while hidden. In VS Code, inspection stays in the existing popout; only contributions with
-`keepMounted` retain their state there. File-browser state belongs to its component instance
+windows in the docking workspace. Visited browser panels retain their instances while hidden,
+with React effects paused as described below. In VS Code, inspection stays in the existing
+popout; only contributions with `keepMounted` retain their state there, with the same pause.
+File-browser state belongs to its component instance
 and disappears on unmount.
 
 The actor view's chat sets the selected actor as the presentation owner: its own
@@ -1654,8 +1661,11 @@ they enter the original group if it still exists, otherwise the first area, with
 focus or another selected tab. Reactivated apps appear again without taking focus.
 
 Chat and visited app/tool containers are stable siblings positioned by rectangles, independent of
-the split tree. They stay mounted and inert while hidden or closed; moves, splits, merges,
-and maximization never reparent a frame. Removed or unavailable contributions, leaving a run,
+the split tree. Hidden or closed panels are inert and use React `Activity` in hidden mode:
+React state and DOM, including iframe identity, are retained, while effects are cleaned up.
+The host retains the panel's parent-fed props while hidden, so session updates do not render
+that panel. Revealing it supplies the latest props and resumes its effects. Moves, splits,
+merges, and maximization never reparent a frame. Removed or unavailable contributions, leaving a run,
 reloading the page, and an app's own rebuild can still unmount or reload its content. Persistence
 stores layout, not unsent input across a page reload. VS Code keeps chat in the panel and opens
 or focuses one editor per server, run, and app. Questions and news remain in the chat; background
@@ -2658,7 +2668,7 @@ button instead opens and focuses its hover-preview flyout without changing butto
 The layout window has the same tabs, split, close, maximize, and drag controls as Chat and apps.
 Compass and edge guides drawn over a hover flyout take precedence over it as drop targets.
 Mixed document/tool groups cannot be dropped on the rail. Visited tools keep their mounted
-instances across these moves.
+instances across these moves and pause their React effects while hidden.
 `SessionNavigation.openTab` selects an already docked tool in its area, focuses an open sidebar
 panel, or opens a hidden tool in its button's chosen place.
 
@@ -2671,7 +2681,9 @@ composer keep their input controls. Inspector transcripts use compact margins an
 
 In VS Code, `RunPanelRail` and `RunPanelWorkspace` retain the inspection popout over the chat.
 A click opens it with its title and X, and the same icon, X, Escape, or backdrop closes it.
-On opening it receives focus. Visited `keepMounted` contributions stay mounted with `active: false`.
+On opening it receives focus. Visited `keepMounted` contributions use the same hidden
+`Activity` boundary and retained parent-fed props as browser panels; revealing them restores
+the latest session and resumes effects. Other contributions unmount when hidden.
 VS Code keeps every tab there, also one with `placement: "window"`: an editor tab exists only for
 mini-apps, and a workspace tab has no editor layout of its own.
 Its tab remains stored under `ragents.run-panel.workspace-tab:<runId>`; unavailable tabs stay
@@ -4820,6 +4832,9 @@ right) returns the archive; a different version is 404. The counterpart is `rage
   loads independently of the chat; until it is there, a run whose only content is a mini-app
   can briefly show an empty chat after connecting. Only a surface contribution with `RunPanel`
   shows a loading state in the run; without it the empty chat is shown.
+- Hidden `Activity` boundaries pause React effects and retain parent-fed panel props. They do not
+  suspend scripts inside an iframe; independent context or state updates can still render a
+  hidden React subtree at lower priority.
 - The message layer knows no batch requests and no WebSocket; over HTTP every
   JSON-RPC response is an HTTP 200 with `result` or `error`; only transport errors (no JSON, too
   large, foreign connection) carry a different status. Stdio has no sign-in: whoever starts the

@@ -1,6 +1,6 @@
 import { ListIcon, SearchIcon } from "lucide-react";
 import { INSPECTION_TAB_ID, InspectionHeader, InspectionPanel } from "./InspectionPanel";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { OrchestrationRunPanel } from "./run-panel/RunPanel";
 import { AgentsHeader } from "./run-panel/AgentsHeader";
 import { DocumentsSection } from "./DocumentsSection";
@@ -22,19 +22,21 @@ export { ORCHESTRATION_PLUGIN_ID } from "./constants";
 function OrchestrationSessionProvider({ children, navigation, session }: SessionProviderProps) {
   const runView = runViewFrom(session.runView);
   const [selection, setSelection] = useState<EntityReference>();
+  const { revealEntity } = navigation;
 
   useEffect(() => {
     if (runView) return;
     setSelection(undefined);
   }, [runView]);
 
-  const acceptSelection = (next: EntityReference | undefined) => {
-    if (next?.type === "artifact" && navigation.revealEntity(next)) return;
+  const acceptSelection = useCallback((next: EntityReference | undefined) => {
+    if (next?.type === "artifact" && revealEntity(next)) return;
     setSelection(next);
-  };
+  }, [revealEntity]);
+  const controller = useMemo(() => ({ acceptSelection, selection }), [acceptSelection, selection]);
 
   return (
-    <SurfaceControllerProvider value={{ acceptSelection, selection }}>
+    <SurfaceControllerProvider value={controller}>
       {children}
     </SurfaceControllerProvider>
   );

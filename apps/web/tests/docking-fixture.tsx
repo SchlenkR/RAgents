@@ -20,7 +20,7 @@ const headers: readonly SessionHeaderContribution[] = [{ id: "example.agents", p
 </Button> }, { id: "example.details", order: 1, Header: () => <p className="p-2">Run metadata</p> }];
 const mounts: Record<string, number> = {};
 function App() {
-  useEffect(() => { mounts.notes = (mounts.notes ?? 0) + 1; }, []);
+  useState(() => { mounts.notes = (mounts.notes ?? 0) + 1; return undefined; });
   return <><input aria-label="App draft" /><iframe className="min-h-0 flex-1" title="App frame" srcDoc={'<!doctype html><input aria-label="Frame draft"><script>window.identity = Math.random()</script>'} /></>;
 }
 const preview: WorkspaceTabContribution = {

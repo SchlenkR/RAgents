@@ -1,5 +1,19 @@
 # Decisions
 
+## 2026-10-06: Stop unchanged polls and hidden panels from amplifying renders
+
+Chapter: `spec/plugins.md` (Web as plugin host, Run panel); usage: `usage.md`
+(Run panel docking); handbook: `development.md` (Extension points in the web).
+
+The five-second run-list poll replaced equal entries, rebuilding session contexts throughout
+the panel tree. The host now structurally shares equal responses and entries, including
+metadata, access, and viewed state, and keeps derived contexts stable between real changes.
+Visited browser panels and VS Code `keepMounted` panels retain state and DOM through React
+`Activity`, which pauses their effects while hidden. Retaining their parent-fed props until
+reveal also avoids background renders from session updates; `Activity` alone permits deferred
+rendering. Reopening supplies current data without replacing drafts or frames. Independent
+context/state updates and scripts inside frames are outside this host pause.
+
 ## 2026-10-06: Move sidebar panels directly into the layout
 
 Chapter: `spec/plugins.md` (Web as plugin host, Run panel); usage: `usage.md`

@@ -6,6 +6,7 @@ import {
   useCallback,
   useEffect,
   useLayoutEffect,
+  memo,
   useMemo,
   useRef,
   useState,
@@ -97,7 +98,7 @@ interface ChatWorkspaceProps {
   tabs: readonly WorkspaceTabContribution[];
 }
 
-export function PluginChat({ autoFocusChat, onAutoFocusChatSettled, layout = "panel", headerContainer, toolbarContainer, statusContainer, initialStartOptions, onStarted, onLocationChange, onViewed, viewing = false, registry, session, startDialog }: PluginChatProps) {
+export const PluginChat = memo(function PluginChat({ autoFocusChat, onAutoFocusChatSettled, layout = "panel", headerContainer, toolbarContainer, statusContainer, initialStartOptions, onStarted, onLocationChange, onViewed, viewing = false, registry, session, startDialog }: PluginChatProps) {
   const access = useAccess();
   const host = useRunPanelHost();
   const startOnly = startDialog !== undefined;
@@ -254,7 +255,7 @@ export function PluginChat({ autoFocusChat, onAutoFocusChatSettled, layout = "pa
     </RunModalContext.Provider>
     </RunAccessScope>
   );
-}
+});
 
 function useWorkspaceTabs(runId: string, availableTabs: readonly WorkspaceTabContribution[]) {
   const host = useRunPanelHost();
@@ -316,6 +317,7 @@ function ChatWorkspace({
 }: ChatWorkspaceProps) {
   const access = useAccess();
   const [dockActionsContainer, setDockActionsContainer] = useState<HTMLDivElement | null>(null);
+  const dockTools = useMemo(() => ({ tabs, pendingTabIds, actionsContainer: dockActionsContainer }), [tabs, pendingTabIds, dockActionsContainer]);
   const headerContributions = registry.headersFor(session, access);
   const startSession = useMemo<SessionContext>(() => {
     const attempt = async (work: () => Promise<void>) => {
@@ -381,7 +383,7 @@ function ChatWorkspace({
       <div className="relative isolate flex min-h-0 min-w-0 flex-1" ref={bindCompactContainers}>
         {typeof layout === "object"
           ? <SurfaceElementView elementId={layout.element} navigation={navigation} registry={registry} session={session} />
-          : <DockToolsContext.Provider value={{ tabs, pendingTabIds, actionsContainer: dockActionsContainer }}>
+          : <DockToolsContext.Provider value={dockTools}>
             <div className="relative flex min-h-0 min-w-0 flex-1 flex-col">
               {SurfaceRunPanel
                 ? <SurfaceRunPanel

@@ -218,6 +218,8 @@ function RunPanelPage({ connection, initialRunId, registry }: { connection: stri
   const hasRunTitle = readRuns && Boolean(runId || launch || draft);
   const session = sessions.find((entry) => entry.id === runId);
   const shareableBeforeStart = access.enabled && access.user !== null && writeRuns && runId !== undefined && runId === freshRunId;
+  const pendingSession = useMemo(() => runId === undefined ? undefined
+    : { ...placeholderSession(runId, runTitle), ...(shareableBeforeStart ? { canShare: true as const } : {}) }, [runId, runTitle, shareableBeforeStart]);
   useEffect(() => {
     if (runId === undefined) return;
     if (session?.sharedAccess !== undefined) setWatchedShare(runId);
@@ -327,7 +329,7 @@ function RunPanelPage({ connection, initialRunId, registry }: { connection: stri
                   statusContainer={statusContainer}
                   onViewed={reportViewed}
                   registry={registry}
-                  session={session ?? { ...placeholderSession(runId, runTitle), ...(shareableBeforeStart ? { canShare: true } : {}) }}
+                  session={session ?? pendingSession!}
                   viewing={!draft && !settingsOpen && !helpOpen}
                 />
               </main>
@@ -403,11 +405,13 @@ function ElementPage({ elementId, registry, runId }: { elementId: string; regist
   const host = useRunPanelHost();
   const readRuns = useAccess().can("runs.read");
   const { sessions } = useSessionList(readRuns);
+  const pendingSession = useMemo(() => placeholderSession(runId), [runId]);
+  const layout = useMemo(() => ({ element: elementId }), [elementId]);
   useEffect(() => { host.notify({ type: "ready" }); }, [host]);
   if (!readRuns) return <p className={noticeClass}>No runs are enabled for this user account.</p>;
   return (
     <main className="relative flex h-full min-h-0 min-w-0 flex-1 bg-background @container/chat-content">
-      <PluginChat key={runId} layout={{ element: elementId }} registry={registry} session={sessions.find((entry) => entry.id === runId) ?? placeholderSession(runId)} />
+      <PluginChat key={runId} layout={layout} registry={registry} session={sessions.find((entry) => entry.id === runId) ?? pendingSession} />
     </main>
   );
 }

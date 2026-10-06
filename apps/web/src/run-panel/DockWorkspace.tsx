@@ -10,6 +10,8 @@ import { useDockPointer } from "./dock-pointer";
 import { useDockStorage } from "./dock-storage";
 import { DockWindowActions } from "./DockWindowActions";
 import { DockButtonMenu } from "./DockButtonMenu";
+import { PanelActivity } from "./PanelActivity";
+import { WorkspaceTabPanel } from "./WorkspaceTabPanel";
 
 export { DockWindowActions } from "./DockWindowActions";
 
@@ -240,7 +242,7 @@ export function DockWorkspace({ apps, chat, chatIcon = <UsersIcon />, navigation
         }
         const owner = dockGroups(state.root).find((g) => g.tabs.includes(id));
         if (owner && (owner.id !== state.focused || state.side.focused)) update((current) => ({ ...current, focused: owner.id, side: { ...current.side, focused: false } }));
-      }}>{content}</section>;
+      }}><PanelActivity active={position !== undefined}>{content}</PanelActivity></section>;
   };
   const selectFromKeyboard = (event: React.KeyboardEvent, group: DockGroup, id: string) => {
     const index = group.tabs.indexOf(id);
@@ -313,7 +315,7 @@ export function DockWorkspace({ apps, chat, chatIcon = <UsersIcon />, navigation
       {panel("chat", chat)}
       {emptyPanes.map((id) => panel(id, <p className="m-1.5 flex flex-1 items-center justify-center rounded-md border border-dashed border-border p-2 text-center text-xs text-muted-foreground">Drag an app or actor here</p>))}
       {apps.filter((app) => visited.includes(appPanelId(app.definition.id)) || visible.includes(appPanelId(app.definition.id))).map((app) => panel(appPanelId(app.definition.id), <RunAppView app={app} navigation={navigation} session={session} />))}
-      {tabs.map((tab) => [tab, workspaceTabPanelId(tab)] as const).filter(([, id]) => visited.includes(id) || visible.includes(id)).map(([tab, id]) => panel(id, <tab.Panel active={visible.includes(id)} navigation={navigation} selection={navigation.selectionFor(tab.id)} session={session} />))}
+      {tabs.map((tab) => [tab, workspaceTabPanelId(tab)] as const).filter(([, id]) => visited.includes(id) || visible.includes(id)).map(([tab, id]) => panel(id, <WorkspaceTabPanel Panel={tab.Panel} active={visible.includes(id)} navigation={navigation} selection={navigation.selectionFor(tab.id)} session={session} />))}
       {sideVisible && <>
         <div aria-hidden data-dock-frame className={cn(cardClass, "z-30 shadow-pop ring-1 ring-foreground/10", state.side.focused ? "border-primary/70" : "border-border")} style={sideRect} />
         <div aria-label="Sidebar" className={cn(areaHeaderClass, "z-40 items-center")} data-dock-sidebar="flyout" style={headerRect(sideRect)} onFocusCapture={() => { if (!state.side.focused) update((current) => ({ ...current, side: { ...current.side, focused: true } })); }} onPointerDownCapture={pressSide} onPointerEnter={holdSide} onPointerLeave={leaveSide}>

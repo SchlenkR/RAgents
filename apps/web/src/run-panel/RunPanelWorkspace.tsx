@@ -4,6 +4,8 @@ import { cn } from "cn";
 import type { SessionContext, SessionNavigation, WorkspaceTabContribution } from "../PluginRegistry";
 import { Button } from "../ui";
 import { RUN_PANEL_WORKSPACE_ID } from "./workspace-state";
+import { PanelActivity } from "./PanelActivity";
+import { WorkspaceTabPanel } from "./WorkspaceTabPanel";
 
 /** Inspection overlays the selected content; visited keepMounted tabs retain their state. */
 export function RunPanelWorkspace({ navigation, onClose, open, session, tabs }: {
@@ -47,7 +49,9 @@ export function RunPanelWorkspace({ navigation, onClose, open, session, tabs }: 
       </header>
       <div className="relative min-h-0 flex-1 overflow-hidden">
         {mountedTabs(tabs, activeTabId, visited).map((tab) => <div className={cn("absolute inset-0 flex min-h-0 flex-col", tab.id !== activeTabId && "pointer-events-none invisible")} key={tab.id}>
-          <tab.Panel active={tab.id === activeTabId} navigation={navigation} selection={navigation.selectionFor(tab.id)} session={session} />
+          <PanelActivity active={tab.id === activeTabId}>
+            <WorkspaceTabPanel Panel={tab.Panel} active={tab.id === activeTabId} navigation={navigation} selection={navigation.selectionFor(tab.id)} session={session} />
+          </PanelActivity>
         </div>)}
       </div>
     </section>

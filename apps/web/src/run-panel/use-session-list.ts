@@ -2,8 +2,29 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { listSessions, type ListedSession } from "../api";
 import { coreContracts } from "@ragents/host/api/contracts";
 import { rpc } from "../rpc";
+import { isRecord } from "../lib/guards";
 
 const POLL_INTERVAL_MS = 5000;
+
+const sameContent = (previous: unknown, next: unknown): boolean => {
+  if (Object.is(previous, next)) return true;
+  if (Array.isArray(previous) && Array.isArray(next)) {
+    return previous.length === next.length && previous.every((value, index) => sameContent(value, next[index]));
+  }
+  if (!isRecord(previous) || !isRecord(next)) return false;
+  const keys = Object.keys(previous);
+  return keys.length === Object.keys(next).length
+    && keys.every((key) => Object.hasOwn(next, key) && sameContent(previous[key], next[key]));
+};
+
+export function shareSessionList(previous: ListedSession[], next: ListedSession[]): ListedSession[] {
+  const byId = new Map(previous.map((session) => [session.id, session]));
+  const shared = next.map((session) => {
+    const current = byId.get(session.id);
+    return current && sameContent(current, session) ? current : session;
+  });
+  return previous.length === shared.length && shared.every((session, index) => session === previous[index]) ? previous : shared;
+}
 
 /** The server's run list, live over the ragents.runs channel and reloaded every five seconds as a safety net. */
 export function useSessionList(enabled: boolean): { sessions: ListedSession[]; unreachable: boolean; refresh: () => Promise<void> } {
@@ -21,7 +42,8 @@ export function useSessionList(enabled: boolean): { sessions: ListedSession[]; u
       do {
         requested.current = false;
         try {
-          setSessions(await listSessions());
+          const next = await listSessions();
+          setSessions((previous) => shareSessionList(previous, next));
           setUnreachable(false);
         } catch { setUnreachable(true); }
       } while (requested.current);
