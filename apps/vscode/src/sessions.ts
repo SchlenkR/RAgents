@@ -133,7 +133,7 @@ export class ConnectionSession {
   #connecting: Promise<void> | undefined;
   /** Counts starts and disconnects; a start overtaken by a disconnect discards its result. */
   #generation = 0;
-  #registering = false;
+  #registering: Promise<void> | undefined;
   #probed: boolean;
   #automaticSignInDisabled = false;
   #loginUser: string | undefined;
@@ -291,12 +291,30 @@ export class ConnectionSession {
     const parts = this.#parts;
     if (!parts || this.#registering || parts.store.status.kind !== "connected" || parts.workspaceClient.folders.length === 0) return;
     if (workspaceRegistrationRefusal(parts.store.access, parts.url) !== undefined) return;
-    this.#registering = true;
+    const registering = parts.workspaceClient.register();
+    this.#registering = registering;
     try {
-      await parts.workspaceClient.register();
+      await registering;
     } finally {
-      this.#registering = false;
+      this.#registering = undefined;
     }
+  }
+
+  /** The workspace once the server has registered it; a registration in progress runs inside waiting, every other state is an error with its cause. */
+  async registeredWorkspaceClient(waiting: (registration: Promise<void>, workspaceClient: WorkspaceClient) => Promise<void>): Promise<WorkspaceClient> {
+    const parts = this.#parts;
+    if (!parts || parts.store.status.kind !== "connected") throw new Error(`The environment ${this.name} is not connected.`);
+    const workspaceClient = parts.workspaceClient;
+    if (workspaceClient.folders.length === 0) throw new Error("Open a folder in VS Code first; a new run works in a folder of this window.");
+    const refusal = workspaceRegistrationRefusal(parts.store.access, parts.url);
+    if (refusal !== undefined) throw new Error(refusal);
+    const unsettled = workspaceClient.status.kind === "idle" || workspaceClient.status.kind === "preparing";
+    const registration = this.#registering ?? (unsettled ? this.registerWorkspaceClient() : undefined);
+    if (registration !== undefined) await waiting(registration, workspaceClient);
+    if (this.#parts !== parts) throw new Error(`The environment ${this.name} is not connected.`);
+    const status = workspaceClient.status;
+    if (status.kind === "registered") return workspaceClient;
+    throw new Error(`Workstation not registered: ${status.kind === "failed" ? status.message : "the registration did not complete."}`);
   }
 
   async updateFolders(folders: readonly string[]): Promise<void> {

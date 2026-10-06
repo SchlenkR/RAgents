@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { WorkspaceClient } from "../../../plugins/ragents.workspace/client/workspace-client";
+import { WorkspaceClient, type WorkspaceClientOptions } from "../../../plugins/ragents.workspace/client/workspace-client";
 import { MissingEnvironmentError } from "../../server/src/missing-environment";
 import type { Connection } from "../src/connections";
 import { hostEnvironmentSecretKey, provideMissingSecret } from "../src/settings";
@@ -23,12 +23,13 @@ interface Harness {
   secrets: ReturnType<typeof secrets>;
 }
 
-const harness = (urls: Record<string, string>, stored: Record<string, string> = {}): Harness => {
+const harness = (urls: Record<string, string>, stored: Record<string, string> = {}, workspace: { folders?: readonly string[]; options?: Partial<WorkspaceClientOptions> } = {}): Harness => {
   const launches: string[] = [];
   const store = secrets(stored);
+  const folders = [...workspace.folders ?? [process.cwd()]];
   const services: SessionServices = {
     version: STUB_VERSION,
-    workspaceClient: (transport) => new WorkspaceClient(transport, { id: "vscode-test", label: "Notebook", hostname: "notebook.local", platform: process.platform, folders: [process.cwd()], runsDirectory: "/tmp/ragents-runs" }, { hostRoot: () => undefined }),
+    workspaceClient: (transport) => new WorkspaceClient(transport, { id: "vscode-test", label: "Notebook", hostname: "notebook.local", platform: process.platform, folders, runsDirectory: "/tmp/ragents-runs" }, { hostRoot: () => undefined, ...workspace.options }),
     secrets: store,
     launch: (connection: Connection): Promise<LaunchedConnection> => {
       launches.push(connection.name);
@@ -200,6 +201,45 @@ test("at a server without users over the network, the workspace does not registe
     assert.match(session.snapshot().problem ?? "", /Workspace not registered: .*loopback/);
   } finally {
     await closeAll([session], [server]);
+  }
+});
+
+test("a new run gets the workspace only once it is registered and otherwise the cause", async () => {
+  const server = await startStubServer();
+  const refusing = await startStubServer({ refuseRegistration: { code: "workspace-client-busy", message: "Not right now." } });
+  const preparation = Promise.withResolvers<string>();
+  const waits: string[] = [];
+  const wait = async (registration: Promise<void>, workspaceClient: WorkspaceClient) => {
+    waits.push(workspaceClient.status.kind);
+    preparation.resolve(process.cwd());
+    await registration;
+  };
+  const remote = server.url.replace("127.0.0.1", "[::ffff:127.0.0.1]");
+  const empty = new ConnectionSession(serverConnection("A", server.url), harness({ A: server.url }, {}, { folders: [] }).services);
+  const network = new ConnectionSession(serverConnection("B", remote), harness({ B: remote }).services);
+  const failing = new ConnectionSession(serverConnection("C", refusing.url), harness({ C: refusing.url }).services);
+  const preparing = new ConnectionSession(serverConnection("D", server.url), harness({ D: server.url }, {}, {
+    options: { prepareHost: (report) => { report("Fetching host ..."); return preparation.promise; } },
+  }).services);
+  try {
+    await assert.rejects(empty.registeredWorkspaceClient(wait), /The environment A is not connected/);
+    await Promise.all([empty.connect(), network.connect(), failing.connect()]);
+    await waitFor(() => failing.workspaceClient?.status.kind === "failed");
+    await assert.rejects(empty.registeredWorkspaceClient(wait), /^Error: Open a folder in VS Code first; a new run works in a folder of this window\.$/);
+    await assert.rejects(network.registeredWorkspaceClient(wait), /Workspace not registered: .*loopback/);
+    await assert.rejects(failing.registeredWorkspaceClient(wait), /^Error: Workstation not registered: Not right now\.$/);
+    assert.deepEqual(waits, [], "a missing folder, a refusal, or a failure does not wait");
+
+    const connecting = preparing.connect();
+    await waitFor(() => preparing.workspaceClient?.status.kind === "preparing");
+    const workspaceClient = await preparing.registeredWorkspaceClient(wait);
+    assert.deepEqual(waits, ["preparing"], "a registration in progress is awaited");
+    assert.equal(workspaceClient.status.kind, "registered");
+    assert.equal(await preparing.registeredWorkspaceClient(wait), workspaceClient);
+    assert.equal(waits.length, 1, "a registered workspace needs no wait");
+    await connecting;
+  } finally {
+    await closeAll([empty, network, failing, preparing], [server, refusing]);
   }
 });
 

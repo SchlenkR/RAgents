@@ -18,7 +18,8 @@ a template starts with one click. Some templates collect values in a setup dialo
 continues in the preparation chat. There you can discuss the task, give a clear go-ahead such as
 "Start", or choose "Create run". Merely confirming a detail does not start
 anything. In the browser a new run always works on the server; only VS Code and `ragents run`
-bind a run to a workstation.
+bind a run to a workstation. VS Code binds every new run to an open folder of its window unless
+the template sets its own workspace.
 
 Before starting, "Sandbox protection" lets administrators restrict the run's server-side
 code execution. For other users, or when the server requires it, the switch is on and locked.
@@ -892,9 +893,17 @@ and opens the run panel. Until the run opens, the entry shows "Starting ..." wit
 spinner in the icon position and all other entries stay locked; a cancelled folder choice
 or a failed start unlocks them again. Cancelling a template's guide returns to the same server's Start page.
 
-The new run uses your open folder as its workspace, asking you to choose when several are open.
-If the template defines its own workspace, such as one server folder per run, VS Code does not
-ask. Until content appears, the panel shows a progress bar and the current step: starting,
+The new run always works in an open folder of the window, asking you to choose when several are
+open. If the template defines its own workspace, such as one server folder per run, VS Code does
+not ask. Without an open folder, VS Code does not start the run and asks you to open one first.
+While the window is still registering as a workstation with the server, the run waits and a
+notification shows the current step. If the server does not accept the workstation, the run does
+not start either; an error message and Start name the cause, such as "Workstation not registered:"
+followed by the server's reason. If the server refuses the folder when the run opens, the chat
+shows "The run cannot start as prepared:" with the cause and does not send, and a template does
+not open its setup dialog. Go back to Start and try again.
+
+Until content appears, the panel shows a progress bar and the current step: starting,
 loading, preparing, or setting up. A startup or setup error appears in the same place while the
 chat input remains usable. The loading state disappears with the first mini-app or chat item; an
 empty chat without a template does not show it. If a run cannot be started, for example because
@@ -923,7 +932,8 @@ tooltip names the cause; it does not open, but the selection mode deletes it.
 **Server** is the configuration page. You can add, edit, sign in, sign out, connect,
 disconnect, and remove servers with confirmation, then open `settings.json` from the link
 at the bottom. If a connected server does not accept this window's folders as a workstation, its
-entry says "Workstation not registered" with the cause.
+entry says "Workstation not registered" with the cause, and new runs there that need the
+workstation are refused with it.
 Before registration, the entry shows `Fetching host package <version> ...` and
 `Provisioning workstation tools ...`. If npm and the server download cannot supply the host,
 or the download's integrity differs, the entry shows the cause. Every registration selects and

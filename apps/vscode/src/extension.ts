@@ -712,21 +712,39 @@ export async function activate(context: vscode.ExtensionContext): Promise<RAgent
     save: (runId, next) => requireClient(connection).rpc.call(coreContracts.runs.share, { runId, sharing: next }),
   });
 
-  /** "New run" presets the workspace with an offered folder unless the template fixes it; with several folders, a picker asks. */
+  /** A new run works in a folder of this window; while the workstation registers, a notification shows what it is preparing. */
+  const registeredWorkstation = (session: ConnectionSession): Promise<WorkspaceClient> =>
+    session.registeredWorkspaceClient(async (registration, workspaceClient) => {
+      await vscode.window.withProgress({ location: vscode.ProgressLocation.Notification, title: `RAgents: ${session.name}` }, async (progress) => {
+        const report = () => {
+          const status = workspaceClient.status;
+          progress.report({ message: status.kind === "preparing" ? status.detail : "Registering workstation ..." });
+        };
+        report();
+        const release = workspaceClient.onChange(report);
+        try {
+          await registration;
+        } finally {
+          release();
+        }
+      });
+    });
+
+  /** "New run" binds the workstation with an offered folder unless the template fixes the workspace; with several folders, a picker asks. */
   const newRun = async (connection: string, entryId?: string) => {
     const session = requireSession(connection);
     if (session.status.kind !== "connected") await session.connect();
     if (session.status.kind !== "connected") throw new Error(`The environment ${connection} is not connected.`);
     const entry = entryId === undefined ? undefined : session.store?.startEntries.find((candidate) => candidate.id === entryId);
-    const workspaceClient = session.workspaceClient;
-    const folders = workspaceClient?.status.kind === "registered" && preselectable(entry, WORKSPACE_BINDING_OPTION_ID) ? workspaceClient.folders : [];
+    const workstation = preselectable(entry, WORKSPACE_BINDING_OPTION_ID) ? await registeredWorkstation(session) : undefined;
+    const folders = workstation?.folders ?? [];
     const folder = folders.length > 1
       ? await vscode.window.showQuickPick([...folders], { title: "Folder for the new run", ignoreFocusOut: true })
       : folders[0];
-    if (folders.length > 1 && folder === undefined) { showPage("start", { notice: "Run start cancelled." }); return; }
+    if (workstation !== undefined && folder === undefined) { showPage("start", { notice: "Run start cancelled." }); return; }
     const request: Extract<HostRunPanelMessage, { type: "newRun" }> = {
       type: "newRun",
-      ...(folder === undefined || !workspaceClient ? {} : { startOptions: { [WORKSPACE_BINDING_OPTION_ID]: workspaceClient.binding(folder) } }),
+      ...(workstation === undefined || folder === undefined ? {} : { startOptions: { [WORKSPACE_BINDING_OPTION_ID]: workstation.binding(folder) } }),
       ...(entryId === undefined ? {} : { entryId }),
     };
     if (selectRun(connection, undefined, { focusPanel: true }) === "frame-kept") panel.post(request);

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState, type RefObject } from "react";
 import { useModalController, type ModalController } from "./ui/modal-controller";
-import { useStartOptions } from "./StartOptions";
+import { StartOptionPresetErrors, useStartOptions } from "./StartOptions";
 import { useAccess } from "./AccessContext";
 import { canStartEntry } from "../../../packages/ragents/src/access";
 import { startEntryDirectly } from "./chat/requests";
@@ -37,7 +37,7 @@ export function StartSelection({ registry, session, initialEntryId, onOpen, onCa
   const sessionRef = useRef(session);
   sessionRef.current = session;
   const startOptions = useStartOptions();
-  const disabled = starting !== undefined || startOptions.pending;
+  const disabled = starting !== undefined || startOptions.pending || startOptions.presetErrors.length > 0;
   const technical = access.can("runs.inspect");
   const free = access.can("runs.create");
   const entries = registry.startEntries.filter((entry) => canStartEntry(access, entry.id) && (entry.action === "script" || free));
@@ -79,6 +79,7 @@ export function StartSelection({ registry, session, initialEntryId, onOpen, onCa
     <section aria-label="Start selection" className="mx-auto grid w-full max-w-composer grid-cols-1 gap-3">
       <SectionHeading count={startTileCount(tiles, defaultEntry, free)} title="New" />
       {error && <p className="type-body text-destructive" role="alert">{error}</p>}
+      <StartOptionPresetErrors className="type-body text-destructive" />
       {tiles.length === 0 && !free
         ? <p className="type-body text-muted-foreground" role="status">No template is shared with this user account.</p>
         : <StartTiles defaultEntry={defaultEntry} disabled={disabled} entries={tiles} label="Templates" onNewChat={free ? onOpen : undefined} onStart={open} starting={starting} />}

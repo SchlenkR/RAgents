@@ -736,12 +736,15 @@ const path = require("node:path");
 const args = process.argv.slice(2);
 const folder = args[args.indexOf("--prefix") + 1];
 fs.appendFileSync(process.env.RAGENTS_TEST_NPM_CALLS, JSON.stringify({ args, registry: process.env.NPM_CONFIG_REGISTRY }) + "\\n");
-setTimeout(() => {
+const gate = process.env.RAGENTS_TEST_NPM_GATE;
+const install = () => {
+  if (gate && !fs.existsSync(gate)) { setTimeout(install, 20); return; }
   const failure = process.env.RAGENTS_TEST_FETCH_FAILURE;
   if (failure) { console.error(failure); process.exit(1); }
   const root = path.join(folder, "node_modules", "@schlenkr", "ragents");
   fs.cpSync(path.join(process.env.RAGENTS_TEST_PACKAGES, path.basename(folder)), root, { recursive: true });
-}, 150);
+};
+setTimeout(install, 150);
 `);
   stubCommand(path.join(directory, "bin"), "node", `
 require("node:fs").appendFileSync(process.env.RAGENTS_TEST_PROVISION_CALLS, JSON.stringify({ args: process.argv.slice(2), cwd: process.cwd() }) + "\\n");
@@ -841,4 +844,112 @@ test("fetch failures show the npm cause on the Servers entry and a retry can reg
   host.environment.RAGENTS_TEST_FETCH_FAILURE = "";
   assert.deepEqual((await host.run({ connections })).workspaces, [{ kind: "registered" }]);
   assert.equal(host.calls().length, 2);
+});
+
+const CHECK_NEW_RUN_BINDING = `${LOAD_EXTENSION}
+const fs = require("node:fs");
+const configuration = JSON.parse(process.env.RAGENTS_TEST_NEW_RUNS);
+settings["ragents.connections"] = configuration.connections;
+const folder = path.join(process.cwd(), "workspace");
+const binding = "ragents.workspace.binding";
+const posted = [];
+const progress = [];
+let receive;
+const ignore = () => ({ dispose() {} });
+vscode.window.withProgress = (options, task) => task({ report: (value) => progress.push({ title: options.title, message: value.message }) },
+  { isCancellationRequested: false, onCancellationRequested: ignore });
+const newRuns = () => posted.filter((message) => message.type === "newRun");
+const pause = () => new Promise((resolve) => setTimeout(resolve, 300));
+const refusedFromPanel = async (text) => {
+  posted.length = 0;
+  vscode.notifications.length = 0;
+  receive({ type: "newRun" });
+  await waitFor(() => vscode.notifications.includes("RAgents: " + text));
+  assert.ok(posted.some((message) => message.type === "showPage" && message.page === "start" && message.notice === text), "Start names the cause");
+  assert.deepEqual(newRuns(), [], "a refused new run never reaches the server interface");
+};
+
+const check = async () => {
+  const api = await extension.activate(context);
+  await waitFor(() => configuration.connections.every(({ name }) => api.session(name)?.status.kind === "connected"
+    && api.session(name).store.startEntries.length === 2));
+  vscode.providers.get("ragents.runPanel").resolveWebviewView({
+    webview: { options: {}, html: "", cspSource: "vscode-webview:", asWebviewUri: (uri) => uri,
+      onDidReceiveMessage: (listener) => { receive = listener; return ignore(); },
+      postMessage: (message) => { posted.push(message); return Promise.resolve(true); } },
+    onDidDispose: ignore,
+    show() {},
+  });
+  receive({ type: "ready" });
+
+  const noFolder = "Open a folder in VS Code first; a new run works in a folder of this window.";
+  await assert.rejects(api.newRun("open"), (cause) => cause.message === noFolder);
+  await refusedFromPanel(noFolder);
+  posted.length = 0;
+  await api.newRun("open", "ragents.reference.circle");
+  assert.deepEqual(newRuns(), [{ type: "newRun", entryId: "ragents.reference.circle" }], "a template that fixes the workspace needs no folder");
+
+  await api.session("remote").updateFolders([folder]);
+  assert.equal(api.session("remote").workspaceClient.status.kind, "idle");
+  await assert.rejects(api.newRun("remote"), /Workspace not registered: .*loopback connection/);
+
+  const registering = api.session("open").updateFolders([folder]);
+  await waitFor(() => {
+    const status = api.session("open").workspaceClient.status;
+    return status.kind === "preparing" && status.detail.startsWith("Fetching host package");
+  });
+  posted.length = 0;
+  const started = api.newRun("open");
+  await pause();
+  assert.deepEqual(newRuns(), [], "the new run waits for the workstation registration");
+  assert.ok(progress.some((entry) => entry.title === "RAgents: open" && entry.message.startsWith("Fetching host package")), "the wait shows what is being prepared");
+  fs.writeFileSync(process.env.RAGENTS_TEST_NPM_GATE, "");
+  await started;
+  await registering;
+  assert.equal(api.session("open").workspaceClient.status.kind, "registered");
+  assert.deepEqual(newRuns(), [{ type: "newRun", startOptions: { [binding]: api.session("open").workspaceClient.binding(folder) } }]);
+
+  await api.session("refusing").updateFolders([folder]);
+  assert.equal(api.session("refusing").workspaceClient.status.kind, "failed");
+  await assert.rejects(api.newRun("refusing"), (cause) => cause.message === "Workstation not registered: Not right now.");
+  await api.selectEnvironment("refusing");
+  await refusedFromPanel("Workstation not registered: Not right now.");
+  vscode.quickPicks.answers.push((items) => items.find((item) => item.choice && item.choice.entryId === undefined));
+  vscode.notifications.length = 0;
+  posted.length = 0;
+  await vscode.commands.executeCommand("ragents.newRun");
+  assert.deepEqual(vscode.notifications, ["RAgents: Workstation not registered: Not right now."], "the New run command reports the cause");
+  assert.deepEqual(newRuns(), []);
+  posted.length = 0;
+  await api.newRun("refusing", "ragents.reference.circle");
+  assert.deepEqual(newRuns(), [{ type: "newRun", entryId: "ragents.reference.circle" }], "the server's own template still starts without the workstation");
+  await extension.deactivate();
+};
+process.on("unhandledRejection", (cause) => { console.error(cause); process.exit(4); });
+check().then(() => process.exit(0), (cause) => { console.error(cause.stack ?? cause); process.exit(6); });
+`;
+
+test("a new run in VS Code binds an open folder, waits for the workstation registration, and refuses with the cause otherwise", async (t) => {
+  const manifest = JSON.parse(readFileSync(path.join(extensionRoot, "package.json"), "utf8"));
+  const version = manifest.version as string;
+  const directory = mkdtempSync(path.join(tmpdir(), "ragents-new-run-binding-"));
+  t.after(() => rmSync(directory, { recursive: true, force: true }));
+  const host = workstationHosts(directory, [version]);
+  const serverWorkspace = { "ragents.workspace.binding": { machine: "server", folder: "fresh" } };
+  const profile = stubProfile({ startEntries: stubProfile().startEntries.map((entry) => entry.action === "script" ? { ...entry, fixedStartOptions: serverWorkspace } : entry) });
+  const open = await startStubServer({ version, profile });
+  const refusing = await startStubServer({ version, profile, refuseRegistration: { code: "workspace-client-busy", message: "Not right now." } });
+  t.after(() => Promise.all([open.close(), refusing.close()]));
+  writeFileSync(path.join(directory, "check.cjs"), CHECK_NEW_RUN_BINDING);
+  const connections = [
+    { name: "open", url: open.url },
+    { name: "remote", url: open.url.replace("127.0.0.1", "[::ffff:127.0.0.1]") },
+    { name: "refusing", url: refusing.url },
+  ];
+  const result = await execute(process.execPath, ["check.cjs"], {
+    cwd: directory, timeout: 60_000,
+    env: { ...host.environment, RAGENTS_TEST_NPM_GATE: path.join(directory, "npm-gate"), RAGENTS_TEST_NEW_RUNS: JSON.stringify({ connections }) },
+  }).catch((cause: unknown) => { assert.fail(cause instanceof Error ? cause.message : String(cause)); });
+  assert.equal(result.stderr, "");
+  assert.equal(host.calls().length, 1, "the host package is fetched once");
 });

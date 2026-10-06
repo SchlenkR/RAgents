@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import { PluginRegistry, type StartOptionContribution } from "../src/PluginRegistry.tsx";
-import { conflictingStartOptions, initialStartOptionUpdates, shownStartOptions, withoutFixedStartOptions } from "../src/StartOptions.tsx";
+import { conflictingStartOptions, initialStartOptionUpdates, presetErrorsOf, shownStartOptions, withoutFixedStartOptions } from "../src/StartOptions.tsx";
 import type { StartOptionState } from "../../server/src/plugin-support/start-options-contract.ts";
 import { choicePresentationFrom } from "../../server/src/plugin-support/start-options-contract.ts";
 
@@ -58,6 +58,15 @@ test("a preset sets only selectable, open options and ignores anything unknown",
     "test.unknown": "x",
   }), [["ragents.workspace.binding", binding]]);
   assert.deepEqual(initialStartOptionUpdates(options, {}), []);
+});
+
+test("a refused preset blocks the start until its option is set again, and options that do not load block it too", () => {
+  const refused = new Map([["test.binding", "The workstation Notebook is not connected."], ["test.other", "Not a preset."]]);
+  assert.deepEqual(presetErrorsOf(false, ["test.binding"], refused), ["The workstation Notebook is not connected."]);
+  assert.deepEqual(presetErrorsOf(false, ["test.binding"], new Map([["test.other", "Not a preset."]])), [], "a successful new choice resolves the refusal");
+  assert.deepEqual(presetErrorsOf(false, [], refused), [], "without presets, refusals stay with their controls");
+  assert.deepEqual(presetErrorsOf(true, [], new Map([["", "The server is unreachable."]])), ["The server is unreachable."], "presets waiting for options name why they cannot load");
+  assert.deepEqual(presetErrorsOf(true, ["test.binding"], refused), [], "while presets are applied, nothing is refused yet");
 });
 
 test("nothing presets what a template fixes, and the start page shows it fixed with its value", () => {

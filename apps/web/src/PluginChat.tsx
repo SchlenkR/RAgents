@@ -24,7 +24,7 @@ import { runUserLocation, type ChatRunLocation } from "./chat/user-location";
 import { dismissAction, pauseRun, type SessionInfo } from "./api";
 import { useRunStore } from "./RunStore";
 import { withToolSummaries } from "./toolLine";
-import { StartOptionControls, StartOptionsProvider, useStartOptions } from "./StartOptions";
+import { StartOptionControls, StartOptionPresetErrors, StartOptionsProvider, useStartOptions } from "./StartOptions";
 import { useAttachmentCapabilities } from "./chat/useAttachmentCapabilities";
 import { StartSelection } from "./StartSelection";
 import { StatusGroup } from "./StatusGroup";
@@ -477,11 +477,13 @@ function ChatSurface({
         : <div className="[--qsl-input-card-radius:var(--radius-lg)]">
           <PausedRunNotice runId={session.session.id} view={session.runView} />
           {sendError && <p className="text-[0.8rem] text-destructive" role="alert">{sendError}</p>}
+          <StartOptionPresetErrors className="text-[0.8rem] text-destructive" />
           <ChatInputToolbar
             {...attachments}
             autoFocus={autoFocus}
             onAutoFocusSettled={onAutoFocusSettled}
             disabled={!session.connected || !writable}
+            sendDisabled={startOptions.applyingPresets || startOptions.presetErrors.length > 0}
             maxRows={4}
             texts={writable ? undefined : { placeholder: readOnlyReason(session.session) }}
             onSend={(text, attachments) => {

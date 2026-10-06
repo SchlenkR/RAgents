@@ -4,6 +4,7 @@ Inbox for everything; the owner and the AI write here. One line per entry, newes
 
 ## Open
 
+- Check live (06.10.2026): in a real VS Code window, "New chat" and a template while the workstation still fetches its host show the progress notification and then open the run on the workstation; without a folder, against a server without sign-in over the network, and against one that refuses the workstation, the error and the Start notice name the cause. Extension bundle, session, and run panel browser tests cover the parts.
 - Atomic host file access (05.10.2026): close parent-directory symlink races between canonical checks and host I/O, reproduced with neutral fixtures. Cover read/write/edit, seen/hash, files and bytes operations, and language-server annotation with descriptor-relative access or a dedicated filesystem worker whose read policy allows only the addressed roots.
 - Workstation host cache (05.10.2026): remove fetched versions under `<globalStorage>/hosts/<version>/` when no configured server or local profile uses them.
 - Check live (04.10.2026): the balcony view chats with its advisor in the room `balcony-wizard` through the frame bridge, the coordinator of the conversation circle reaches `@conversation-circle.mira` and the others, and the Functions tab opens the right one of two equal tool names from two rooms; unit and server tests cover the parts.

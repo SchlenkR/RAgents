@@ -2414,7 +2414,9 @@ through `ragents.chat.start` with the start value `null`, a skill through `ragen
 prepared task and the template as `entry`. The browser uses the same Start page with one
 server. Guided starts use the preparation dialog. New browser runs use the server workspace.
 While start options are loading or being saved, such as the preset from VS Code, and
-as long as a start is running, the tiles are locked. The tile of the running start (`StartTiles`
+as long as a start is running, the tiles are locked. A preset that does not apply keeps them
+locked and names its cause above them (`presetErrors`, described with the run panel's host below),
+so the template's guide does not open either. The tile of the running start (`StartTiles`
 prop `starting`, an `entryId` or none for New chat) keeps full opacity, carries `aria-busy`, and
 shows a `Spinner` with "Starting ..." in the top-right action position (`StartTile` prop `starting`).
 During the start dialog, the live stream and periodic query of the hidden run list pause.
@@ -2953,6 +2955,14 @@ connection and remembered addressee; explicit user interaction or another dialog
 Pure mini-apps receive no chat focus; reconnections or messages do not bring it back.
 If the panel cannot execute a `newRun` because the right to new runs is missing or a free run is requested
 without `runs.create`, it shows the reason and "Back to Start" (`showStart`) instead of the loading state.
+The preset start options of a `newRun` are the provider's `initialValues` (`StartOptionsProvider` in
+`apps/web/src/StartOptions.tsx`); they apply once the run's options have loaded and no reload is under
+way, only to options the run lets you choose (`initialStartOptionUpdates`). Until then the chat input
+of the empty run does not send (`applyingPresets`). If the server refuses a preset, the options do not
+load, or the user lacks `runs.create`, `presetErrors` names the cause: the chat input and the start
+selection show "The run cannot start as prepared: <cause>", the input does not send, and no template
+starts, until the refused option is set successfully or a later load applies the waiting presets.
+The run thus never starts with the defaults instead of the preset.
 `?theme=light|dark` sets the appearance
 on loading. If the page runs without a sign-in cookie, it carries the access token from `?access=`:
 `apps/web/src/access-token.ts` attaches it as `Authorization: Bearer` to every fetch to the
@@ -3153,9 +3163,14 @@ deletable row, including locked runs. Its confirmation names the run and sends `
 with that one ID; cancellation sends nothing. Rows shared with the viewer and users without
 delete permission have no delete button. Deletion errors remain visible on both pages.
 
-**New runs in VS Code** start within the selected server's interface. The extension binds the
+**New runs in VS Code** start within the selected server's interface. The extension binds every
 new run to its workstation and the selected open folder unless the template fixes its workspace;
-with several open folders it asks which to use. The run panel applies only start options the
+with several open folders it asks which to use. The binding is mandatory: without an open file
+folder in the window, with a refused registration (`workspaceRegistrationRefusal`), or with a failed
+one, the extension sends no `newRun` and reports the cause as an error message and as a notice on
+Start ("Workstation not registered: <message>" for a failure). While the workstation is still
+registering, it waits for the registration (`ConnectionSession.registeredWorkspaceClient`) and shows
+its current preparation step in a progress notification. The run panel applies only start options the
 template does not fix (`withoutFixedStartOptions`). Direct templates use `startLaunch`, guided
 ones the shared preparation dialog and chat. Cancelling a guide returns to this server's Start
 page. A cancelled folder choice or failed start releases the pending tile; an environment
@@ -3451,7 +3466,8 @@ workspace binding is invalid".
 
 The VS Code extension and the headless workstation (`pnpm workspace-client`) always bind
 themselves with an offered folder, even if the server runs on the same machine, unless a
-template fixes the binding (plugin contract, start options); runs without a workstation
+template fixes the binding (plugin contract, start options); the extension refuses a new run
+instead of falling back to the server (Web as plugin host, New runs in VS Code); runs without a workstation
 (web, `pnpm driver`, container) choose the server as machine, and the preparation chat in the VS Code run panel chooses
 the new folder on a workstation; the browser offers no workstation (`machines`). On a workstation, the bound folder is the run's whole working directory
 and its `cwd`: this path is what the workspace description in the system prompt names, because

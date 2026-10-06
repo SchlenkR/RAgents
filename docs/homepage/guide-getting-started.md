@@ -380,7 +380,8 @@ a template starts with one click. Some templates collect values in a setup dialo
 continues in the preparation chat. There you can discuss the task, give a clear go-ahead such as
 "Start", or choose "Create run". Merely confirming a detail does not start
 anything. In the browser a new run always works on the server; only VS Code and `ragents run`
-bind a run to a workstation.
+bind a run to a workstation. VS Code binds every new run to an open folder of its window unless
+the template sets its own workspace.
 
 Before starting, "Sandbox protection" lets administrators restrict the run's server-side
 code execution. For other users, or when the server requires it, the switch is on and locked.

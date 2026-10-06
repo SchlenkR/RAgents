@@ -130,7 +130,9 @@ const fixture = {
     switch (contract.id) {
       case "ragents.runs.list": return fixture.runs;
       case "ragents.runs.markViewed": return null;
-      case "ragents.startOptions.list": return query.has("dropdowns") ? [{ id: "start.dropdown.mode", owner: "start.dropdown", value: "careful", presentation: {}, selectable: false, locked: true, chosen: false }] : [];
+      case "ragents.startOptions.list": return query.has("dropdowns") ? [{ id: "start.dropdown.mode", owner: "start.dropdown", value: "careful", presentation: {}, selectable: false, locked: true, chosen: false }]
+        : query.has("preset") ? [{ id: "start.machine", owner: "start", value: "server", presentation: {}, selectable: true, locked: false, chosen: false }] : [];
+      case "ragents.startOptions.select": throw new Error("The workstation Notebook is not connected.");
       case "ragents.runs.sharing":
       case "ragents.runs.share": {
         if (params.sharing) fixture.shares.push(params.sharing);

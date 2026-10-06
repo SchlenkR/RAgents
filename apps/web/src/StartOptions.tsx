@@ -14,6 +14,10 @@ export interface StartOptionsControl {
   readonly options: readonly StartOptionState[];
   readonly errors: ReadonlyMap<string, string>;
   readonly pending: boolean;
+  /** The host's presets are still being applied; a run started now would not have them. */
+  readonly applyingPresets: boolean;
+  /** Why the host's presets did not apply; while there is one, the run must not start with the defaults instead. */
+  readonly presetErrors: readonly string[];
   set: (optionId: string, value: unknown) => Promise<void>;
 }
 
@@ -21,8 +25,12 @@ const inertControl: StartOptionsControl = Object.freeze({
   options: [],
   errors: new Map(),
   pending: false,
+  applyingPresets: false,
+  presetErrors: [],
   set: async () => undefined,
 });
+
+const presetsRefused: StartOptionsControl = Object.freeze({ ...inertControl, presetErrors: ["This user account cannot choose start options."] });
 
 const StartOptionsContext = createContext<StartOptionsControl>(inertControl);
 
@@ -35,6 +43,17 @@ export const initialStartOptionUpdates = (
 ): readonly (readonly [string, unknown])[] => options
   .filter((option) => option.selectable && !option.locked && Object.hasOwn(values, option.id))
   .map((option) => [option.id, values[option.id]] as const);
+
+/** Why presets do not apply: while they wait for the options, the error loading them; afterwards the refusal of each preset option until it is set again. */
+export const presetErrorsOf = (
+  waiting: boolean,
+  presetIds: readonly string[],
+  errors: ReadonlyMap<string, string>,
+): readonly string[] => {
+  const loadError = errors.get("");
+  if (waiting) return loadError === undefined ? [] : [loadError];
+  return presetIds.flatMap((optionId) => errors.get(optionId) ?? []);
+};
 
 /** Nothing presets what a template fixes; otherwise its start fails on the differing choice. */
 export const withoutFixedStartOptions = (
@@ -96,6 +115,7 @@ export function StartOptionsProvider({
   const outstanding = useRef<{ sessionId: string; values: Readonly<Record<string, unknown>> } | null>(
     initialValues ? { sessionId, values: initialValues } : null);
   const [applying, setApplying] = useState(outstanding.current !== null);
+  const [presets, setPresets] = useState<{ sessionId: string; optionIds: readonly string[] }>();
   const saving = useRef<{ sessionId: string; done: Promise<void> } | null>(null);
   const [defaultsRevision, setDefaultsRevision] = useState(0);
 
@@ -181,10 +201,13 @@ export function StartOptionsProvider({
       setApplying(false);
       return;
     }
-    if (state.sessionId !== sessionId || state.pending) return;
+    // Presets wait until the options have loaded and no reload is under way.
+    if (state.sessionId !== sessionId || state.pending || state.errors.has("") || active.current?.pending) return;
     outstanding.current = null;
+    const updates = initialStartOptionUpdates(state.options, initial.values);
+    setPresets({ sessionId, optionIds: updates.map(([optionId]) => optionId) });
     void (async () => {
-      for (const [optionId, value] of initialStartOptionUpdates(state.options, initial.values)) await set(optionId, value);
+      for (const [optionId, value] of updates) await set(optionId, value);
       setApplying(false);
     })();
   }, [allowed, sessionId, set, state]);
@@ -194,13 +217,22 @@ export function StartOptionsProvider({
     options: state.sessionId === sessionId ? state.options.map((option) => ({ ...option, locked: option.locked || (started && !state.loadedStarted) })) : [],
     errors: state.sessionId === sessionId ? state.errors : new Map(),
     pending: state.sessionId !== sessionId || state.pending || applying,
+    applyingPresets: applying,
+    presetErrors: state.sessionId === sessionId ? presetErrorsOf(applying, presets?.sessionId === sessionId ? presets.optionIds : [], state.errors) : [],
     set,
-  }), [applying, state, sessionId, started, set]);
+  }), [applying, presets, state, sessionId, started, set]);
 
-  return <StartOptionsContext.Provider value={allowed ? control : inertControl}>{children}</StartOptionsContext.Provider>;
+  const preset = initialValues !== undefined && Object.keys(initialValues).length > 0;
+  return <StartOptionsContext.Provider value={allowed ? control : preset ? presetsRefused : inertControl}>{children}</StartOptionsContext.Provider>;
 }
 
 export const useStartOptions = () => useContext(StartOptionsContext);
+
+/** The presets that did not apply, shown where the run would start; it cannot start like this. */
+export function StartOptionPresetErrors({ className }: { className: string }) {
+  const { presetErrors } = useStartOptions();
+  return <>{presetErrors.map((error, index) => <p className={className} key={index} role="alert">The run cannot start as prepared: {error}</p>)}</>;
+}
 
 const ChoiceControl = ({ disabled, error, option, setValue }: StartOptionControlContext) => {
   const parsed = useMemo(() => {

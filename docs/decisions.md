@@ -1,5 +1,22 @@
 # Decisions
 
+## 2026-10-06: Bind every new run from VS Code to the workstation
+
+Chapters: `spec/plugins.md` (Web as plugin host: start selection, run panel host, New runs in
+VS Code; Workspace, sandbox tools, and processes); usage: `usage.md` (Create your first run, VS Code
+Start and Server).
+
+A user clicked "New chat" in VS Code and got a run on the server: the extension preset the
+workstation folder only while the workstation was already registered, and without the preset the
+server's default binding applied silently. A new run from VS Code must work on the workstation.
+The extension now requires the binding whenever the template does not fix the workspace: it waits
+for a registration in progress with a progress notification, and without an open folder, with a
+refused or a failed registration it sends no new run and names the cause. In the run panel, a
+preset start option that does not apply (refused by the server, options that do not load, no
+`runs.create`) no longer disappears: the chat input and the start selection show the cause and
+neither send nor start a template, and sending waits until the presets are applied. The checks
+stay generic in the web host; only the extension knows the workspace option.
+
 ## 2026-10-06: Share one virtualized data grid across lists
 
 Chapters: `spec/plugins.md` (Web as plugin host, UI library), `spec/actor-programs.md`

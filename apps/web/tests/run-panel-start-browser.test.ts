@@ -228,7 +228,7 @@ test("the VS Code panel starts on the server's Start page and keeps one loading 
 });
 
 /** A fixture page in VS Code, ready for commands from the extension. */
-const withPanel = async (run: (page: Page) => Promise<void>) => {
+const withPanel = async (run: (page: Page) => Promise<void>, query = "") => {
   const url = await (fixtureUrl ??= buildFixture());
   const browser = await launchBrowser();
   try {
@@ -236,7 +236,7 @@ const withPanel = async (run: (page: Page) => Promise<void>) => {
     page.setDefaultTimeout(8000);
     const errors: string[] = [];
     page.on("pageerror", (error) => errors.push(error.message));
-    await page.goto(url);
+    await page.goto(`${url}${query}`);
     await page.waitForFunction(() => window.runStartFixture.notifications.some((message) => message.type === "ready"));
     await run(page);
     assert.deepEqual(errors, []);
@@ -276,6 +276,33 @@ test("host navigation switches Start and Runs within the selected server and sel
   assert.equal(await activeRun(page), undefined);
   assert.equal(await page.getByText("The run is no longer shared.", { exact: true }).count(), 0, "Selecting the home page clears the old notice.");
 }));
+
+test("a preset start option the server refuses keeps a new run from starting and names the cause in VS Code", browserOnly, () => withPanel(async (page) => {
+  const refusal = page.getByRole("alert").filter({ hasText: "The run cannot start as prepared: The workstation Notebook is not connected." });
+  await page.evaluate(() => window.runStartFixture.command({ type: "newRun", startOptions: { "start.machine": { client: "notebook" } } }));
+  await page.waitForFunction(() => window.runStartFixture.activeRun() !== undefined);
+  await page.evaluate(() => {
+    window.runStartFixture.chat({ kind: "status", running: false });
+    window.runStartFixture.chat({ kind: "replay-end", conversationId: null });
+  });
+  await refusal.waitFor();
+  const input = page.locator("textarea");
+  await input.fill("Please get started");
+  assert.equal(await page.getByRole("button", { name: "Send", exact: true }).isEnabled(), false, "The free run does not start with the default instead.");
+  await input.press("Enter");
+  await pause(page);
+  assert.equal((await page.evaluate(() => window.runStartFixture.calls)).includes("ragents.chat.send"), false);
+
+  await page.evaluate(() => {
+    window.runStartFixture.command({ type: "selectRun", runId: null });
+    window.runStartFixture.command({ type: "newRun", entryId: "start.guided", startOptions: { "start.machine": { client: "notebook" } } });
+  });
+  await refusal.waitFor();
+  await pause(page);
+  assert.equal(await page.getByRole("button", { name: "Apply topic" }).count(), 0, "The guide does not open with a refused preset.");
+  assert.equal(await page.getByRole("list", { name: "Templates", exact: true }).getByRole("button", { disabled: false }).count(), 0, "No template starts with the default instead.");
+  assert.deepEqual(await starts(page), []);
+}, "?preset"));
 
 test("a template with a guide asks first in VS Code, like in the web app, and starts with its answer", browserOnly, () => withPanel(async (page) => {
   await page.evaluate(() => window.runStartFixture.command({ type: "newRun", entryId: "start.guided" }));
