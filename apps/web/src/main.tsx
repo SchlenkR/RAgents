@@ -23,6 +23,7 @@ if (!root) throw new Error("Root element is missing");
 const reactRoot = createRoot(root);
 try {
   const location = parseRunPanelLocation(window.location.search);
+  document.documentElement.dataset.host = location.host;
   if (location.access !== undefined) installAccessToken(location.access);
   const host = createRunPanelHost(location.host, window);
   if (location.host === "vscode") {

@@ -13,6 +13,7 @@ if (!root || !embedded?.textContent) throw new Error("Root element or embedded s
 
 const vscode = acquireVsCodeApi();
 const initial = JSON.parse(embedded.textContent) as PanelState;
+document.documentElement.dataset.host = "vscode";
 const theme = initializeTheme(window);
 
 function App() {
