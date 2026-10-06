@@ -1,5 +1,5 @@
 import {
-  CircleAlertIcon, CircleCheckIcon, CircleEllipsisIcon, CircleIcon, CirclePauseIcon, CirclePlayIcon, CircleSlashIcon, CircleXIcon, HourglassIcon, LockIcon,
+  CircleAlertIcon, CircleCheckIcon, CircleEllipsisIcon, CircleIcon, CirclePauseIcon, CircleSlashIcon, CircleXIcon, HourglassIcon, LoaderCircleIcon, LockIcon,
 } from "lucide-react";
 import type { ComponentType } from "react";
 import { cn } from "cn";
@@ -9,11 +9,12 @@ interface Mark {
   readonly Icon: ComponentType<{ className?: string; fill?: string }>;
   readonly tone: string;
   readonly filled?: boolean;
+  readonly spinning?: boolean;
 }
 
 /** Active is running, warning is waiting or paused, success is completed, danger is broken; the stop glyph stays an action. */
 const RUN_MARKS: Record<RunStateName, Mark> = {
-  running: { Icon: CirclePlayIcon, tone: "text-active" },
+  running: { Icon: LoaderCircleIcon, tone: "text-active", spinning: true },
   waiting: { Icon: CircleEllipsisIcon, tone: "text-warning" },
   paused: { Icon: CirclePauseIcon, tone: "text-warning" },
   idle: { Icon: CircleIcon, tone: "text-muted-foreground" },
@@ -45,10 +46,10 @@ const NOTICE_WORDS = { unseen: "not viewed yet", updated: "new activity" } as co
 export function RunStateIcon({ state, open = 0, notice, className }: { state: RunStateName; open?: number; notice?: "unseen" | "updated"; className?: string }) {
   const mark = RUN_MARKS[state];
   const word = notice ? `${runStateWord(state, open)}, ${NOTICE_WORDS[notice]}` : runStateWord(state, open);
-  const Icon = notice ? CircleIcon : mark.Icon;
+  const Icon = notice && !mark.spinning ? CircleIcon : mark.Icon;
   return <span className={cn(markClass, mark.tone, className)} title={word}>
     <span className="relative inline-flex">
-      <Icon className="size-3.5" />
+      <Icon className={cn("size-3.5", mark.spinning && "animate-spin motion-reduce:animate-none")} />
       {notice && <span aria-hidden className="absolute inset-0 m-auto size-1.5 rounded-full bg-info" />}
     </span>
     {state === "waiting" && open > 0 && <span aria-hidden className="font-mono text-[0.62rem] font-semibold leading-none">{open}</span>}
