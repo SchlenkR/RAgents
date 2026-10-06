@@ -281,7 +281,8 @@ test("ACP returns clear errors for missing auth, folders, sessions, and incompat
   await assert.rejects(editor.connection.setSessionConfigOption({ sessionId: session.sessionId, configId: "ragents.model", value: "missing-model" }), /not available/);
   await assert.rejects(editor.connection.loadSession({ sessionId: session.sessionId, cwd: directory, mcpServers: [] }), /different folder/);
   host.faux.setResponses([(context) => {
-    assert.match(context.systemPrompt ?? "", /preloaded_skill name="review"/);
+    assert.doesNotMatch(context.systemPrompt ?? "", /preloaded_skill/);
+    assert.match(JSON.stringify(context.messages.at(-1)), /preloaded_skill name=\\"review\\"/);
     assert.match(JSON.stringify(context.messages), /Review the project.*Focus on tests/s);
     return fauxAssistantMessage("Review completed.");
   }]);

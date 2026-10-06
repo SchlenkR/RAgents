@@ -651,10 +651,10 @@ resolution must be deterministic for the same binding, because the agent runtime
 working directory after a restart. The host calls the resolution only after the run has been
 created, so that the start options are in the journal; the scheduler receives the `cwd` per run through the
 provider cache and passes it to the agent runtime as the tools' working directory; it receives its
-own folder separately from that (`core.md`, Actor roster and workspace in the system prompt). Besides the `cwd`, the resolution
+own folder separately from that (`core.md`, Actor roster in the input, workspace in the system prompt). Besides the `cwd`, the resolution
 provides with `SessionWorkspace.description` a text that describes the resolved workspace;
 it becomes a chapter in the system prompt of every actor with workspace tools (section
-Actor roster and workspace in the system prompt in `core.md`). `ragents.workspace` words it per binding: an existing folder
+Actor roster in the input, workspace in the system prompt in `core.md`). `ragents.workspace` words it per binding: an existing folder
 on the server is called the project folder on the server machine, one on a workstation the project folder
 there including that workstation's name; the new folder on the server is the run's private, initially empty folder
 with the path the resolver provided, the new one on a workstation the same
@@ -2670,7 +2670,11 @@ the user copying an ID.
 
 The orientation belongs to the sent input and stays unchanged even on a later run switch
 or delayed processing. The visible message text contains no
-appended context block. A message without UI information receives no current location;
+appended context block. The model reads it as a block "[Interface context of this message at the
+time of sending]" before the message text in the coordinator's model input
+(`GlobalChatPolicy.inputOrientation`, passed to the scheduler as `inputOrientation`), journaled with
+that input and never in the system prompt; a message that joins a running turn brings its own. Only
+a person's own message (`origin` `human`) gets the block. A message without UI information receives no current location;
 earlier information is not taken over as the current location. View switches alone
 send nothing to a model. The snapshot includes no screenshots, DOM or
 form content, and no complete run state. The coordinator reads domain details

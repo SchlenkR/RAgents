@@ -95,7 +95,7 @@ test("an agent without a subscription keeps its plain input text", async () => {
     }
 });
 
-test("an orchestrator sees existing participants from another creator and refreshes their state each turn", async () => {
+test("an orchestrator sees existing participants from another creator in each turn's input, never in its system prompt", async () => {
     const setup = setupRun({ grants: allGrants(), toolNames: ["actor_list", "actor_input"] });
     const spawnGuest = (handle: string) => setup.runtime.spawnAgent(
         { actorId: setup.view.ownerId, commandId: `spawn-${handle}` }, setup.view.id, {
@@ -114,21 +114,24 @@ test("an orchestrator sees existing participants from another creator and refres
         postTo(setup.runtime, setup.view, setup.agent.id, "first", "Moderate the existing guests.");
         scheduler.start();
         await scheduler.waitForIdle();
-        const first = driver.requests[0]?.systemPrompt ?? "";
-        assert.match(first, /Actors in the run, as of turn start/);
+        const first = driver.requests[0]?.orientation ?? "";
+        assert.match(first, /^\[Actors in the run, as of turn start\]/);
         assert.match(first, /@kai: "kai", agent, idle/);
         assert.match(first, /@lena: "lena", agent, idle/);
         assert.match(first, /@worker: "Worker", agent, running \(you\)/);
         assert.doesNotMatch(first, /Private role instructions/);
+        assert.equal(driver.requests[0]?.prompt, "Moderate the existing guests.");
 
         setup.runtime.stopActor({ actorId: setup.view.ownerId, commandId: "stop-kai" }, setup.view.id, kai.id, "Done.");
         spawnGuest("reviewer");
         postTo(setup.runtime, setup.view, setup.agent.id, "second", "Continue with the current team.");
         await scheduler.waitForIdle();
-        const second = driver.requests[1]?.systemPrompt ?? "";
+        const second = driver.requests[1]?.orientation ?? "";
         assert.match(second, /@kai: "kai", agent, stopped/);
         assert.match(second, /@reviewer: "reviewer", agent, idle/);
         assert.doesNotMatch(first, /@reviewer/);
+        assert.doesNotMatch(driver.requests[0]?.systemPrompt ?? "", /Actors in the run|@kai|@lena/);
+        assert.equal(driver.requests[1]?.systemPrompt, driver.requests[0]?.systemPrompt);
     } finally {
         await scheduler.stop();
         setup.journal.close();
@@ -151,6 +154,7 @@ test("the actor roster is absent without an allowed actor_list tool, including p
             await scheduler.waitForIdle();
             assert.equal(driver.requests.length, 1);
             assert.doesNotMatch(driver.requests[0]?.systemPrompt ?? "", /Actors in the run|@owner|@worker/);
+            assert.equal(driver.requests[0]?.orientation, "");
             assert.equal(driver.requests[0]?.prompt, "Answer normally.");
         } finally {
             await scheduler.stop();

@@ -137,7 +137,7 @@ export type SkillPreloadRequest = {
     signal: AbortSignal | undefined;
 };
 
-/** Selects skills for the task of a turn and returns their bodies as a section of this turn's system prompt, or undefined. */
+/** Selects skills for the task of a turn and returns their bodies as a text block of the input that starts the turn, or undefined. */
 export type SkillPreload = (request: SkillPreloadRequest) => Promise<string | undefined>;
 
 export const createSkillPreload = (options: SkillPreloadOptions): SkillPreload => async ({ prompt, skills, model, signal }) => {

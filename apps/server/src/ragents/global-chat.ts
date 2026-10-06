@@ -1,4 +1,4 @@
-import { serviceToken, type AccessContext, type CatalogModel, type ExecutableActor, type JournalEvent, type JsonValue, type ModelSelection, type Orchestration, type RunSharing, type RunView } from "@ragents/engine";
+import { serviceToken, type AccessContext, type CatalogModel, type DeliveredInput, type JournalEvent, type JsonValue, type ModelSelection, type Orchestration, type RunSharing, type RunView } from "@ragents/engine";
 import type { GlobalRunPolicy } from "../api/rights.js";
 import type { ChatUser, RunScriptListing, SessionInfo, StartedScript } from "../chat-handler.js";
 
@@ -17,7 +17,8 @@ export interface GlobalChatPolicy {
   /** One file <runId>.json per coordinator, as long as its conversation reset is not complete. */
   resetIntentDirectory?: string;
   inputContext?: (runtime: Orchestration, runId: string, value: unknown) => Promise<readonly string[]>;
-  contextPrompt?: (runtime: Orchestration, runId: string, actor: ExecutableActor) => string;
+  /** What the coordinator's model reads before one of its inputs; journaled with the input, so the system prompt stays the same across turns. */
+  inputOrientation?: (runtime: Orchestration, runId: string, input: DeliveredInput) => string;
   model?: {
     initialize: (models: readonly (CatalogModel & { input: readonly string[] })[], initial: ModelSelection, requiredInputs: () => readonly string[]) => Promise<void>;
     selection: () => ModelSelection;

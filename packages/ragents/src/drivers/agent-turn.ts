@@ -100,6 +100,8 @@ const asText = (value: unknown): string => {
 const lastAssistantOf = (messages: readonly AgentMessage[]): AssistantMessage | undefined =>
     [...messages].reverse().find((message): message is AssistantMessage => message.role === "assistant");
 
+const inputText = (orientation: string, prompt: string) => [orientation, prompt].filter(Boolean).join("\n\n");
+
 /** A retry continues behind every failed step at the end, since the journal keeps each of them. */
 const withoutTrailingFailures = (messages: readonly AgentMessage[], contextWindow: number) => {
     const failed = (message: AgentMessage | undefined) =>
@@ -128,7 +130,6 @@ export class AgentTurn {
     #modelFailure: string | null = null;
     #pendingText = "";
     #systemPrompt = "";
-    #preloadedSkills = "";
     #contextKey: string | undefined;
     #lastAssistant: AssistantMessage | undefined;
     #retryAttempt = 0;
@@ -156,7 +157,7 @@ export class AgentTurn {
         if (!(await this.#options.modelRuntime.checkAuth(model.provider)))
             throw new Error(`No key is configured for the provider ${model.provider}; it comes from the configuration of the profile.`);
 
-        this.#preloadedSkills = this.#options.preload
+        const preloadedSkills = this.#options.preload
             ? (await this.#options.track(this.#options.preload({ prompt: prepared.prompt, skills: this.#options.skills, model, signal }))) ?? ""
             : "";
 
@@ -165,7 +166,11 @@ export class AgentTurn {
 
         const prompt: UserMessage = {
             role: "user",
-            content: [{ type: "text", text: prepared.prompt }, ...prepared.attachments],
+            content: [
+                { type: "text", text: inputText(request.orientation, prepared.prompt) },
+                ...(preloadedSkills ? [{ type: "text" as const, text: preloadedSkills }] : []),
+                ...prepared.attachments,
+            ],
             timestamp: Date.now(),
         };
         this.#inputIds.set(prompt, request.input.id);
@@ -221,7 +226,7 @@ export class AgentTurn {
     #agentFor(messages: readonly AgentMessage[], tools: AgentTool[]): Agent {
         const { modelRuntime, model, thinkingLevel, settings, request } = this.#options;
         const agent: Agent = new Agent({
-            initialState: { systemPrompt: this.#currentSystemPrompt(), model, thinkingLevel, tools, messages: [...messages] },
+            initialState: { systemPrompt: this.#systemPrompt, model, thinkingLevel, tools, messages: [...messages] },
             convertToLlm,
             streamFn: (streamModel, context, options) => {
                 const maxRetries = options?.maxRetries ?? settings.providerRequest.maxRetries;
@@ -238,7 +243,7 @@ export class AgentTurn {
             afterToolCall: async ({ toolCall, result, isError }) => this.#afterToolCall(toolCall.id, toolCall.name, result.content, isError),
             prepareNextTurnWithContext: async (turn): Promise<AgentLoopTurnUpdate> => {
                 await this.#refreshTools(agent.state.tools);
-                return { context: { ...turn.context, systemPrompt: this.#currentSystemPrompt(), tools: agent.state.tools.slice() } };
+                return { context: { ...turn.context, systemPrompt: this.#systemPrompt, tools: agent.state.tools.slice() } };
             },
             steeringSource: () => this.#steering(),
             formatUnknownToolError: (name) => this.#active && !this.#options.signal.aborted
@@ -249,10 +254,6 @@ export class AgentTurn {
         agent.subscribe((event: AgentEvent) => this.#handleEvent(event));
 
         return agent;
-    }
-
-    #currentSystemPrompt() {
-        return this.#preloadedSkills ? `${this.#systemPrompt}\n\n${this.#preloadedSkills}` : this.#systemPrompt;
     }
 
     #setSystemPrompt(prompt: string, tools: readonly AgentTool[]) {
@@ -425,7 +426,11 @@ export class AgentTurn {
                 { ...this.#request, attachments: steered.attachments, prompt: steered.prompt },
                 this.#options.model.input,
             );
-            const message: UserMessage = { role: "user", content: [{ type: "text", text: prepared.prompt }, ...prepared.attachments], timestamp: Date.now() };
+            const message: UserMessage = {
+                role: "user",
+                content: [{ type: "text", text: inputText(steered.orientation, prepared.prompt) }, ...prepared.attachments],
+                timestamp: Date.now(),
+            };
             this.#inputIds.set(message, steered.input.id);
             messages.push(message);
         }

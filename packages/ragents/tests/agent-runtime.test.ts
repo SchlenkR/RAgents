@@ -101,6 +101,7 @@ const harnessOver = (
             input: turn.input,
             prompt,
             selection,
+            orientation: "",
             systemPrompt: "System contract.",
             workspace: process.cwd(),
             storeAttachment: () => Promise.reject(new Error("The test stores no attachments.")),
@@ -214,6 +215,11 @@ const withTokens = (message: AssistantMessage, input: number, output = 1): Assis
 });
 
 const isSummary = (context: Context) => context.systemPrompt?.startsWith("You are a context summarization assistant");
+
+const userTextsOf = (message: Context["messages"][number] | undefined): string[] =>
+    message?.role !== "user" ? []
+        : typeof message.content === "string" ? [message.content]
+        : message.content.flatMap((part) => part.type === "text" ? [part.text] : []);
 
 for (const output of ["tool arguments", "compaction summary"] as const) {
     test(`streamed ${output} reports progress without visible output`, async () => {
@@ -787,18 +793,21 @@ test("Preloading names the location the tools reach, never the host path of the 
         location: "@skills/review/SKILL.md",
         disableModelInvocation: false,
     };
-    const prompts: string[] = [];
+    const requests: Context[] = [];
     faux.setResponses([(context) => {
-        prompts.push(context.systemPrompt ?? "");
+        requests.push(JSON.parse(JSON.stringify(context)) as Context);
         return fauxAssistantMessage("Reviewed.");
     }]);
     const manager = new AgentRuntimeManager({ modelRuntime, resolveSkills: () => [skill] });
     try {
         const { result } = await turnOf(harness, manager, "/skill:review please");
         assert.equal(result.failure, null);
-        assert.equal(prompts.length, 1);
-        assert.match(prompts[0]!, /<preloaded_skill name="review" location="@skills\/review\/SKILL\.md">\nRead checklist\.md\./);
-        assert.equal(prompts[0]!.includes(directory), false);
+        assert.equal(requests.length, 1);
+        const texts = userTextsOf(requests[0]!.messages.at(-1));
+        assert.equal(texts[0], "/skill:review please");
+        assert.match(texts[1]!, /<preloaded_skill name="review" location="@skills\/review\/SKILL\.md">\nRead checklist\.md\./);
+        assert.equal(requests[0]!.systemPrompt, "System contract.");
+        assert.equal(JSON.stringify(requests[0]).includes(directory), false);
     } finally {
         await manager.shutdown();
         faux.unregister();

@@ -18,6 +18,8 @@ export type TurnAttachment = { name: string; mediaType: string; content: Uint8Ar
 export type SteeredInput = {
     input: DeliveredInput;
     prompt: string;
+    /** What the model reads before the prompt, such as the interface context of a message; empty for none. */
+    orientation: string;
     attachments: readonly TurnAttachment[];
 };
 
@@ -34,6 +36,8 @@ type TurnDriverFacts = {
     agent: {
         driverKind: "agent";
         selection: ModelSelection;
+        /** What the model reads before the prompt of the input that starts the turn: the actor roster as of turn start and the input's own context; never part of the system prompt. */
+        orientation: string;
         /** `modelContext` names the model context the result enters, see `ToolScope.modelContext`; without it file tools track no seen state. */
         invoke: (toolCallId: string, name: string, input: JsonValue, modelContext?: string) => Promise<ToolInvocation>;
         /** Claims the pending inputs that may join this turn now, in journal order; empty once the turn ends or aborts. */

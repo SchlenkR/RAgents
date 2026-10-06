@@ -27,6 +27,31 @@ start count of their room, so a later start's view takes over the earlier area, 
 the same time with one key get numbered places. The view ID itself, used by selection, VS Code
 editor tabs, and browser checks, is unchanged.
 
+## 2026-10-06: Keep the system prompt static and put per-turn context into the turn's input
+
+Chapters: `spec/core.md` (Model context across turns, Model context and agent runtime, What goes
+into the journal, Turns of an agent, Hooks and skills, Actor roster in the input, workspace in the
+system prompt, Rooms in the journal and the resolution of addresses); `spec/plugins.md` (Web as
+plugin host: global coordinator; Ownership per facet); `concepts/prompt-context.md`.
+
+A coordinator on a local model with a prefix KV cache filled about 135,000 tokens anew on the
+first request of every turn, because only the tool definitions and the stable start of the system
+prompt still matched. The spec promised a byte-identical prefix, but that held only for the
+projected messages: the system prompt was rendered per request and ended with per-turn data, the
+skills preloaded for the turn, the actor roster with live lifecycles, and for the global
+coordinator the interface context of the current message.
+
+The system prompt now holds only what stays the same for an actor in its run and changes only with
+configuration or tool set. The roster as of turn start and a host's context for an input
+(`TurnRequest.orientation`, `SteeredInput.orientation`, scheduler option `inputOrientation`) stand
+before the input text, and preloaded skills follow it as a second text part. All of it is journaled
+once in `model.input.presented` and replayed byte for byte, so earlier turns keep their exact text
+and the cached prefix only grows. Preloaded skills therefore stay in the context of later turns
+until a compaction; the skill classifier still sees only the input text. `GlobalChatPolicy`
+replaces `contextPrompt` with `inputOrientation`, which gets the input instead of the actor: a
+person's message that joins a running turn now brings its own interface context, and inputs that
+no person sent get none. Older journals keep their inputs without these parts; nothing is migrated.
+
 ## 2026-10-06: Reasoning is chosen from a menu again
 
 Chapter: `docs/usage.md` (clients). The joined segmented control had also replaced the reasoning
