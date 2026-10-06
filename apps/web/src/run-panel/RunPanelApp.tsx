@@ -29,6 +29,12 @@ import { viewedReporter } from "./viewed-runs";
 import { BrandLogo } from "../ui/brand-logo";
 
 const headerClass = "relative z-[80] flex min-h-header flex-none flex-wrap items-center border-b border-border bg-shell shadow-bar";
+const globalBarClass = "flex max-w-[25rem] min-w-0 flex-[1_1_10rem] items-center gap-1";
+const runBarClass = "order-3 flex min-w-0 max-w-full flex-[1_1_100%] items-stretch";
+const actionsBarClass = "order-2 ml-auto flex max-w-full min-w-0 flex-wrap items-center justify-end gap-1";
+// The VS Code run bar is short enough to share one row on wide panels; the browser's window buttons are not.
+const wideRunBarClass = "min-[1100px]:order-2 min-[1100px]:flex-[1_1_26rem]";
+const wideActionsBarClass = "min-[1100px]:order-3";
 const connectionClass = "max-w-[120px] self-center truncate rounded-full bg-secondary px-2 py-0.5 type-meta font-semibold text-muted-foreground";
 const pendingTitleClass = "min-w-0 flex-1 self-center truncate px-1.5 type-item";
 const STOP_REASON = "Stopped in the run panel";
@@ -350,23 +356,27 @@ function RunPanelPage({ connection, initialRunId, registry }: { connection: stri
     );
   };
   return <WorkspaceModalContext.Provider value={workspaceContainer}><div className="flex h-full flex-col">
-    <header className={`${headerClass} gap-1 px-2`}>
-      <Button aria-label="Back to Start" className="self-center" onClick={showStart} size="icon" title="Back to Start" variant="ghost">
-        <BrandLogo className="size-6 text-foreground" title={registry.brand.title} />
-      </Button>
-      <div className="flex w-[360px] min-w-10 max-w-full shrink items-center">
-        <PanelContributions registry={registry} userLocation={chatUserLocation(runId, false, runLocation)} />
+    <header className={`${headerClass} gap-x-1 px-2`}>
+      <div className={globalBarClass}>
+        <Button aria-label="Back to Start" className="self-center" onClick={showStart} size="icon" title="Back to Start" variant="ghost">
+          <BrandLogo className="size-6 text-foreground" title={registry.brand.title} />
+        </Button>
+        <div className="flex min-w-10 flex-1 items-center">
+          <PanelContributions registry={registry} userLocation={chatUserLocation(runId, false, runLocation)} />
+        </div>
       </div>
-      {hasRunTitle ? <div className="flex min-w-0 max-w-full flex-1 basis-80 items-stretch">
+      {hasRunTitle && <div className={`${runBarClass} ${host.kind === "vscode" ? wideRunBarClass : ""}`}>
         {launch || draft ? <div aria-label="Run title bar" className="flex min-w-0 flex-1 items-stretch" role="region"><h1 className={pendingTitleClass}>{runTitle ?? NEW_RUN_TITLE}</h1></div>
           : <div aria-label="Run title bar" className="flex min-w-0 flex-1 items-stretch" ref={setHeaderContainer} role="region" />}
-      </div> : <div className="flex-1" />}
-      {connection && <span className={connectionClass} title={`Environment ${connection}`}>{connection}</span>}
-      {readRuns && runId && <>
-        <RunStateIcon className="self-center px-1.5" state={session?.state === "paused" ? "paused" : session?.running ? "running" : "idle"} />
-        {session?.sharedAccess !== "read" && <StopButton className="self-center" disabled={!writeRuns} label="Stop run" onClick={stop} size="icon-lg" title="Stop the run with all agents and flows" />}
-      </>}
-      <RunPanelActions onOpenSettings={openSettings} onOpenHelp={() => setHelpOpen(true)} />
+      </div>}
+      <div className={`${actionsBarClass} ${host.kind === "vscode" ? wideActionsBarClass : ""}`}>
+        {connection && <span className={connectionClass} title={`Environment ${connection}`}>{connection}</span>}
+        {readRuns && runId && <>
+          <RunStateIcon className="self-center px-1.5" state={session?.state === "paused" ? "paused" : session?.running ? "running" : "idle"} />
+          {session?.sharedAccess !== "read" && <StopButton className="self-center" disabled={!writeRuns} label="Stop run" onClick={stop} size="icon-lg" title="Stop the run with all agents and flows" />}
+        </>}
+        <RunPanelActions onOpenSettings={openSettings} onOpenHelp={() => setHelpOpen(true)} />
+      </div>
     </header>
     <div className="relative flex min-h-0 flex-1 flex-col" ref={setWorkspaceContainer}>{content()}</div>
   </div></WorkspaceModalContext.Provider>;

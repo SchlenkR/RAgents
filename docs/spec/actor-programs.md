@@ -302,6 +302,13 @@ route take exactly that length. Each app has an iframe with
 its imports; React and UI building blocks come from the prepared local dependencies. The host
 receives no later-loaded app code as a plugin.
 
+The strip below an app reports only what needs attention: a failed or cancelled action, a pending
+confirmation, a disconnected frame, or a bridge that is not connected yet. It takes its own row. A
+running action ("Starting action", "Action running") never changes the size of the app: after
+400 ms it appears as a chip floating over the lower right corner of the app, ignores the pointer,
+and disappears when the action ends, so an app's own background calls stay invisible unless one
+takes longer.
+
 ## Reusable UI building blocks
 
 The host exports reusable controls under `@ragents/client/ui` (sources under

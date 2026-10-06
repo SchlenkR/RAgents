@@ -479,6 +479,41 @@ for (const host of ["browser", "vscode"] as const) {
   });
 }
 
+test("the VS Code run header packs the global and the run controls into at most two gapless rows", browserOnly, async () => {
+  await withPage("view=panel&host=vscode&windows=1&coordinator=1", 700, async (page) => {
+    await page.getByRole("list", { name: "Templates", exact: true }).waitFor();
+    await page.evaluate(() => {
+      window.startPageFixture.views.add("existing");
+      window.startPageFixture.command({ type: "selectRun", runId: "existing" });
+    });
+    const header = page.locator("header").filter({ has: page.locator('[data-slot="overseer-toolbar"]') });
+    const rect = async (name: string) => {
+      const box = await header.getByRole("button", { name, exact: true }).boundingBox();
+      assert.ok(box, name);
+      return box;
+    };
+    await header.getByRole("button", { name: "Run script", exact: true }).waitFor();
+    const [coordinator, settings, agents, share, script] = await Promise.all(["Global coordinator", "Settings", "Agents", "Share", "Run script"].map(rect));
+    const headerBox = await header.boundingBox();
+    assert.ok(headerBox && headerBox.height < 100, `two rows at most: ${headerBox?.height}`);
+    assert.ok(Math.abs(coordinator!.y + coordinator!.height / 2 - (settings!.y + settings!.height / 2)) < 4, "the coordinator shares its row with the global actions");
+    assert.ok(Math.abs(agents!.y + agents!.height / 2 - (script!.y + script!.height / 2)) < 4 && Math.abs(share!.y + share!.height / 2 - (script!.y + script!.height / 2)) < 4, "Agents, Share, and Run script share one row");
+    assert.ok(script!.y > settings!.y + settings!.height / 2, "the run controls form their own row below the global ones");
+    const rowEnd = await header.locator('[data-slot="overseer-toolbar"]').evaluate((element) => {
+      const next = element.closest("header")!.querySelector('[aria-label="Environment local"], [title="Environment local"]');
+      return next ? next.getBoundingClientRect().left - element.getBoundingClientRect().right : -1;
+    });
+    assert.ok(rowEnd >= 0 && rowEnd < 24, `the coordinator grows up to the global actions: ${rowEnd}`);
+    await page.setViewportSize({ width: 1280, height: 820 });
+    const wide = await header.boundingBox();
+    assert.ok(wide && wide.height < 50, "a wide VS Code panel keeps one row");
+    for (const name of ["Global coordinator", "Settings", "Agents", "Share", "Run script"]) {
+      const box = await rect(name);
+      assert.ok(box.y >= wide.y && box.y + box.height <= wide.y + wide.height, `${name} fits the single row`);
+    }
+  });
+});
+
 test("a narrow VS Code panel keeps more than five mini-app buttons direct and opens their editor tabs", browserOnly, async () => {
   await withPage("view=panel&host=vscode&windows=1", 320, async (page) => {
     await page.getByRole("list", { name: "Templates", exact: true }).waitFor();

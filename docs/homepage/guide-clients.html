@@ -430,8 +430,12 @@ content at the same distance below the header, and on Start each section label s
 from the section above it. In both hosts, logo, global coordinator button, Settings, and Help share
 the header. The logo leads back to Start there, so the run header has no back arrow of its
 own; Runs keeps its back arrow (&quot;Back to Start&quot;) next to its title in the browser as in VS Code. An open run places its layout actions in the run header, without a separate
-toolbar row. The run header wraps onto further rows when needed in either host; VS Code keeps
-its app editor tabs.</p>
+toolbar row. With an open run, the first header row holds the global controls (logo, global
+coordinator, Settings, Help) and the second the run&#39;s own (title, Agents, Share, Run script, and in
+the browser the window buttons); the coordinator stretches up to the controls at its right, so
+no row keeps empty gaps. A VS Code panel at least 1100 pixels wide shares one row. Narrower
+panels wrap whole controls onto further rows in either host. VS Code keeps its app editor tabs
+as a row of buttons below the header.</p>
 <p><strong>Start</strong> arranges template cards in several columns when space allows, up to five at the
 maximum content width, and one in narrow panels. Cards stay between 240 and 320 pixels wide,
 shrinking only when the panel is narrower.

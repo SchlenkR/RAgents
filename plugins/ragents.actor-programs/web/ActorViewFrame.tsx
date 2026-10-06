@@ -47,6 +47,20 @@ interface ActorViewFrameProps {
 
 const ACTIVE_STATUSES = new Set(["queued", "running"]);
 const REQUEST_ID_HISTORY_LIMIT = 512;
+const RUNNING_CHIP_DELAY_MS = 400;
+
+const useSustained = (active: boolean, delayMs: number): boolean => {
+  const [sustained, setSustained] = useState(false);
+  useEffect(() => {
+    if (!active) {
+      setSustained(false);
+      return;
+    }
+    const timer = setTimeout(() => setSustained(true), delayMs);
+    return () => clearTimeout(timer);
+  }, [active, delayMs]);
+  return sustained;
+};
 
 const invocationSignature = (invocation: RunAppInvocation): string => JSON.stringify(invocation);
 
@@ -426,15 +440,16 @@ export function ActorViewFrame({
                     ? undefined
                     : { tone: "muted", title: "Loading app", detail: "Bridge not connected yet" };
 
-  const visibleStatus = status && status.tone !== "success" ? status : undefined;
-
+  const running = status?.tone === "running" ? status : undefined;
+  const showRunning = useSustained(running !== undefined, RUNNING_CHIP_DELAY_MS);
+  const visibleStatus = status && status.tone !== "success" && !running ? status : undefined;
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
       <div aria-live="polite" role="status"
         className={`order-1 grid min-w-0 grid-cols-[auto_minmax(0,1fr)] items-center gap-1.5 overflow-hidden px-workspace-inset text-xs text-muted-foreground ${visibleStatus ? "h-7 flex-[0_0_28px] py-1" : "h-0 flex-none"}`}>
         {visibleStatus && <>
-          <Badge tone={visibleStatus.tone === "error" ? "danger" : visibleStatus.tone === "running" ? "active" : visibleStatus.tone === "confirm" ? "warning" : "neutral"}>{visibleStatus.title}</Badge>
+          <Badge tone={visibleStatus.tone === "error" ? "danger" : visibleStatus.tone === "confirm" ? "warning" : "neutral"}>{visibleStatus.title}</Badge>
           <span className="truncate" title={visibleStatus.detail}>{visibleStatus.detail}</span>
         </>}
       </div>
@@ -448,6 +463,12 @@ export function ActorViewFrame({
           aria-label={app.title}
           title=""
         />
+        <div aria-live="polite" role="status" className="pointer-events-none absolute right-2 bottom-2 left-2 flex justify-end">
+          {showRunning && running && <span className="flex max-w-full items-center gap-1.5 rounded-full border border-border-soft bg-background/90 py-0.5 pr-2.5 pl-1 text-xs text-muted-foreground shadow-sm">
+            <Badge tone="active">{running.title}</Badge>
+            <span className="truncate" title={running.detail}>{running.detail}</span>
+          </span>}
+        </div>
       </div>
     </div>
   );

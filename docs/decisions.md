@@ -1,5 +1,41 @@
 # Decisions
 
+## 2026-10-06: The run header packs its controls into two gapless rows
+
+Chapters: `spec/plugins.md` (Web as plugin host, Run panel); usage: `usage.md` (Run panel).
+
+Letting the header wrap spread a 700 pixel VS Code panel over three rows with large empty areas:
+logo and coordinator filled a row at a fixed 360 pixels, the title bar with its 320 pixel basis
+wrapped below it, and the controls inside it wrapped on their own, so Run script sat alone on a
+third row while the action icons waited at the right of the second. The header now has three
+groups. The coordinator grows, the actions stay with it on the first row, and the run bar takes the
+second; a VS Code panel from 1100 pixels shares one row. The browser keeps two rows because its
+window buttons would not fit beside the rest. Rejected: always two rows, which costs 45 pixels in
+wide VS Code panels, and a container-query grid, which needs inline-size containment around the
+header and its dropdown layer.
+
+## 2026-10-06: Delete hooks can look up the owner's access of their run
+
+Chapter: `spec/plugins.md` (Lifecycle).
+
+A plugin that asks the run's security policy while it cleans up, as a product workspace plugin does to
+choose how a worktree is removed, could never delete a run: the owner lookup passed the same guard
+as every operation on the run, and the run is marked as being deleted before its hooks start. The
+hook failed with `run-deleting`, the run stayed locked, and every retry failed the same way. The
+guard behind `runOwnerAccessToken` now lets a run that is being deleted pass; every other guard
+still rejects it. The log line of a failed deletion names the cause instead of only the number of
+failed plugins.
+
+## 2026-10-06: A running action floats over the app instead of resizing it
+
+Chapter: `spec/actor-programs.md` (App host and functions tab).
+
+A mini-app that polls its status every few seconds made the strip below it appear and disappear: the
+28 px row for "Action running" shrank the frame for the length of every call, so the layout jumped.
+Running and starting actions now show as a chip over the lower right corner of the app, only after
+400 ms and without catching the pointer; the row stays for failures, confirmations, and connection
+problems. Rejected: reserving the row permanently, which costs every app 28 px, and a delay alone,
+which leaves long calls jumping.
 ## 2026-10-06: Join short option groups in one shared segmented control
 
 Chapters: `spec/plugins.md` (Web as plugin host, UI library), `spec/actor-programs.md`

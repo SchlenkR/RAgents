@@ -33,7 +33,8 @@ export const hostAddressToken: ServiceToken<() => string | undefined> = serviceT
 export const executorContributionsToken: ServiceToken<readonly PreparedExecutorContribution[]> = serviceToken("host.executor-contributions");
 
 export interface HostBridges {
-  ensureSession: (runId: string) => void;
+  /** `deleting` lets a run pass that is being deleted, for the lookups its delete hooks still need. */
+  ensureSession: (runId: string, options?: { deleting?: boolean }) => void;
   ensureWorkspaceAccess: (access: AccessContext, runId: string) => void;
   runtime: () => Orchestration;
   sessionWorkspaceFor: (runId: string) => Promise<SessionWorkspace>;

@@ -47,13 +47,13 @@ export const composeProfile = (options: ProfileComposition, bridges: HostBridges
     storageModes: { sessionsRoot: SESSIONS_MODE, session: SESSION_MODE },
     ...(options.defaultStartEntry !== undefined ? { defaultStartEntry: options.defaultStartEntry } : {}),
   });
-  host.provideHost(runGuardToken, bridges.ensureSession);
+  host.provideHost(runGuardToken, (runId) => bridges.ensureSession(runId));
   host.provideHost(workspaceGuardToken, bridges.ensureWorkspaceAccess);
   host.provideHost(runWorkspaceProviderToken, bridges.sessionWorkspaceFor);
   host.provideHost(runtimeProviderToken, bridges.runtime);
   host.provideHost(userAccessToken, profileAccessFor);
   host.provideHost(runOwnerAccessToken, (runId) => {
-    bridges.ensureSession(runId);
+    bridges.ensureSession(runId, { deleting: true });
     return profileAccessFor(bridges.runtime().state(runId).ownerUserId);
   });
   host.provideHost(hostAddressToken, () => bridges.apiBaseUrl);

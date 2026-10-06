@@ -49,7 +49,8 @@ const registry = new PluginRegistry({
   plugins: [
     ...(query.has("coordinator") ? [overseerPlugin] : []),
     { id: "demo", startOptions: productStartOptions, guides: [{ id: "demo.topic", Guide: TopicGuide }] },
-    ...(query.has("windows") ? [{ id: "demo.windows", surface: { RunPanel: OrchestrationRunPanel }, surfaceElements: [{ id: "demo.apps", order: 0,
+    ...(query.has("windows") ? [{ id: "demo.windows", surface: { RunPanel: OrchestrationRunPanel },
+      sessionHeaders: [{ id: "demo.agents", placement: "bar" as const, order: 10, Header: () => <button className="h-9 px-3" type="button">Agents</button> }], surfaceElements: [{ id: "demo.apps", order: 0,
       select: () => ["Notes", "Board", "Plan", "Map", "Log", "Preview"].map((title) => ({ id: title.toLowerCase(), title })),
       Element: () => <p>App content</p>,
     }] }] : []),
@@ -99,7 +100,7 @@ const fixture = {
     switch (contract.id) {
       case "ragents.overseer.coordinator": return { runId: "global" };
       case "ragents.overseer.settings.read": return { provider: "demo", model: "demo-model", thinking: "off", models: [{ id: "demo-model", provider: "demo", label: "Demo", thinking: ["off"] }] };
-      case "ragents.runs.list": return [{ id: "existing", title: "Existing run", updatedAt: Date.now() - 180_000, running: false, state: "idle", pendingActions: 0, workspaceAccessible: true }];
+      case "ragents.runs.list": return [{ id: "existing", title: "Existing run", updatedAt: Date.now() - 180_000, running: false, state: "idle", pendingActions: 0, workspaceAccessible: true, canShare: true }];
       case "ragents.runs.markViewed": return null;
       case "ragents.startOptions.list": return optionsOf(runId);
       case "ragents.startOptions.select": {

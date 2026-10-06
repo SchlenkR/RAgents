@@ -22,6 +22,7 @@ const { RunSessionProvider } = await import("../src/provider.ts");
 const { loadPlugins } = await import("../src/profile/plugin-discovery.ts");
 const { composeProfile } = await import("../src/profile/compose.ts");
 const { layout } = await import("../src/layout.ts");
+const { runOwnerAccessToken } = await import("../src/ragents/host-services.ts");
 const pluginIds = [...showcaseFixture.plugins, "ragents.mcp", "ragents.acp"];
 const loaded = await loadPlugins(pluginIds);
 after(() => rm(directory, { recursive: true, force: true }));
@@ -30,6 +31,7 @@ const hooks: SessionLifecycleContribution[] = [];
 const stopped: string[] = [];
 const deleted: string[] = [];
 const failures = new Map<string, Error>();
+const ownerLookups = new Map<string, unknown>();
 const createProvider = () => new RunSessionProvider((bridges) => {
   hooks.length = 0;
   stopped.length = 0;
@@ -47,6 +49,7 @@ const createProvider = () => new RunSessionProvider((bridges) => {
           stopSession: ({ runId }) => { stopped.push(runId); },
           deleteSession: ({ runId }) => {
             deleted.push(runId);
+            if (ownerLookups.has(runId)) ownerLookups.set(runId, host.service(runOwnerAccessToken)(runId));
             const failure = failures.get(runId);
             if (failure) throw failure;
           },
@@ -177,6 +180,22 @@ test("a failed deletion of a loaded run locks only that run and can be retried",
     assert.equal(existsSync(layout.deleteIntentFile(runId)), false);
     assert.equal(await readFile(path.join(layout.archiveSessionDir(runId), "run", "journal.jsonl"), "utf8"), source);
   } finally { failures.delete(runId); await provider.shutdown(); }
+});
+
+test("a delete hook can still look up the owner's access of the run it deletes", async (t) => {
+  const runId = "owner-lookup-run";
+  await writeRun(runId);
+  ownerLookups.set(runId, undefined);
+  const provider = createProvider();
+  t.after(async () => { ownerLookups.delete(runId); await provider.shutdown(); });
+  await provider.init();
+  assert.equal(await requestDeletion(provider, runId), null);
+  await provider.deletion(runId);
+  assert.deepEqual(deleted, [runId]);
+  assert.ok(ownerLookups.get(runId));
+  assert.equal(existsSync(layout.deleteIntentFile(runId)), false);
+  assert.equal((await provider.list()).some((run) => run.id === runId), false);
+  await assert.rejects(provider.get(runId), { code: "run-deleted" });
 });
 
 test("an invalid delete marker locks its run without blocking startup or shutdown", async () => {

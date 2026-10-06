@@ -8,6 +8,7 @@ import test, { type TestContext } from "node:test";
 import { build } from "esbuild";
 import { chromium, type Page } from "playwright-core";
 import { frameContentSecurityPolicy } from "../../../plugins/ragents.actor-programs/server/routes.ts";
+import { tailwindPlugin } from "./tailwind-plugin";
 
 const bridgeScript = `
 const channel = new MessageChannel();
@@ -51,6 +52,7 @@ type BridgeResponse = { type: string; message?: string; invocation?: { result: u
 type ProbeWindow = Window & {
   bridgeRequest: (request: Record<string, unknown>) => Promise<BridgeResponse>;
   invocationRequests: string[];
+  invokeDelayMs: number;
 };
 
 type FrameResponse = { html: string; headers?: Record<string, string> };
@@ -66,15 +68,18 @@ const openHostFrame = async (context: TestContext, frameResponse: FrameResponse)
         import { createRoot } from "react-dom/client";
         import { ActorViewFrame } from "./plugins/ragents.actor-programs/web/ActorViewFrame";
         import { initializeTheme } from "./apps/web/src/theme";
+        import "./apps/web/src/ui/tailwind.css";
         initializeTheme(window);
         const app = { id: "status-view", actorId: "worker", actorHandle: "worker", title: "Status check",
           revision: "installed-revision", actions: [{ id: "status", label: "Status", confirmation: null }],
           state: { version: 1, revision: 1, values: { phase: "working" } }, invocations: [] };
         const api = { frameUrl: () => "/frame" };
         window.invocationRequests = [];
+        window.invokeDelayMs = 0;
         const invoke = async (appId, revision, actionId, requestId, input) => {
           if (appId !== app.id || revision !== app.revision || actionId !== "status") throw new Error("Wrong invocation target");
           window.invocationRequests.push(requestId);
+          if (window.invokeDelayMs > 0) await new Promise((resolve) => setTimeout(resolve, window.invokeDelayMs));
           return { id: "invocation-" + window.invocationRequests.length, appId, actorId: app.actorId,
             actorHandle: app.actorHandle, revision, actionId, requestId, output: [], result: input,
             status: "succeeded", createdAt: "2026-09-14T10:00:00Z", startedAt: "2026-09-14T10:00:00Z", finishedAt: "2026-09-14T10:00:00Z" };
@@ -88,10 +93,13 @@ const openHostFrame = async (context: TestContext, frameResponse: FrameResponse)
     },
     outfile: path.join(directory, "fixture.js"), bundle: true, platform: "browser", format: "esm",
     jsx: "automatic", define: { "process.env.NODE_ENV": '"development"' }, logLevel: "silent",
+    plugins: [tailwindPlugin([`${root}apps/web/src`, `${root}plugins/ragents.actor-programs/web`])],
   });
   const script = await readFile(path.join(directory, "fixture.js"));
+  const styles = await readFile(path.join(directory, "fixture.css"));
   const server = createServer((request, response) => {
     if (request.url === "/fixture.js") { response.setHeader("Content-Type", "text/javascript"); response.end(script); return; }
+    if (request.url === "/fixture.css") { response.setHeader("Content-Type", "text/css"); response.end(styles); return; }
     if (request.url?.startsWith("/frame")) {
       response.writeHead(200, { "Content-Type": "text/html", ...frameResponse.headers });
       response.end(frameResponse.html);
@@ -99,7 +107,7 @@ const openHostFrame = async (context: TestContext, frameResponse: FrameResponse)
     }
     if (request.url !== "/") { response.writeHead(404); response.end(); return; }
     response.setHeader("Content-Type", "text/html");
-    response.end('<!doctype html><html><head><link rel="icon" href="data:,"></head><body><div id="root"></div><script type="module" src="/fixture.js"></script></body></html>');
+    response.end('<!doctype html><html><head><link rel="icon" href="data:,"><link rel="stylesheet" href="/fixture.css"></head><body style="margin:0"><div id="root" style="height:400px;display:flex"></div><script type="module" src="/fixture.js"></script></body></html>');
   });
   await new Promise<void>((resolve, reject) => { server.once("error", reject); server.listen(0, "127.0.0.1", resolve); });
   context.after(async () => {
@@ -172,6 +180,38 @@ test("actor view keeps polling past 512 requests, rejects recent duplicates and 
   await frame.evaluate(() => { location.href = "/frame?replacement" + location.hash; });
   await page.getByText("The app left its installed page and was disconnected.", { exact: true }).waitFor();
   assert.equal(await page.evaluate(() => (window as ProbeWindow).invocationRequests.length), 603);
+  assert.deepEqual(errors, []);
+});
+
+test("a running action floats over the app after a delay and never resizes it", {
+  skip: process.env.RAGENTS_BROWSER_TESTS !== "1",
+  timeout: 30_000,
+}, async (context) => {
+  const { page, errors } = await openHostFrame(context, { html: frameHtml });
+  await page.frameLocator("iframe").getByText("Bridge-Fixture", { exact: true }).waitFor();
+  const frame = await contentFrame(page);
+  const boxOfFrame = () => page.locator("iframe").boundingBox();
+  const before = await boxOfFrame();
+  assert.ok(before);
+  await page.evaluate(() => {
+    const probe = window as ProbeWindow & { chipSeen: boolean };
+    probe.chipSeen = false;
+    new MutationObserver(() => { probe.chipSeen ||= document.body.textContent?.includes("Starting action") ?? false; })
+      .observe(document.body, { childList: true, subtree: true, characterData: true });
+    probe.invokeDelayMs = 100;
+  });
+  await frame.evaluate(() => (window as ProbeWindow).bridgeRequest({ type: "ragents.app.invoke", version: 1, requestId: "short", actionId: "status", input: null }));
+  await page.waitForTimeout(600);
+  assert.equal(await page.evaluate(() => (window as ProbeWindow & { chipSeen: boolean }).chipSeen), false, "A short action shows no chip");
+  await page.evaluate(() => { (window as ProbeWindow).invokeDelayMs = 2000; });
+  const long = frame.evaluate(() => (window as ProbeWindow).bridgeRequest({ type: "ragents.app.invoke", version: 1, requestId: "long", actionId: "status", input: null }));
+  const chip = page.getByText("Starting action", { exact: true });
+  await chip.waitFor();
+  assert.deepEqual(await boxOfFrame(), before, "The chip does not change the size of the app");
+  assert.equal((await chip.evaluate((element) => getComputedStyle(element.closest("[role=status]")!).pointerEvents)), "none");
+  assert.equal((await long).type, "ragents.app.invocation");
+  await chip.waitFor({ state: "detached" });
+  assert.deepEqual(await boxOfFrame(), before);
   assert.deepEqual(errors, []);
 });
 

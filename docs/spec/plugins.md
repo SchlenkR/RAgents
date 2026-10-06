@@ -571,6 +571,10 @@ live session. Every delete hook is still invoked; a `journal-unavailable` error 
 requires its state is skipped only for such a run. Other deletion errors remain failures, all
 other hooks still run, and the host keeps the intent and reports the run as locked (`core.md`).
 
+A delete hook still reaches the host services of its run: the owner's access
+(`runOwnerAccessToken`) behind the security policy passes a run that is being deleted, while the
+guards of operations on the run reject it as `run-deleting`.
+
 The host reads the three asset folders `skills/`, `run-scripts/`, and `prompts/` by CONVENTION from
 the bundle folder of every composed plugin (`pluginFolder(id)` in
 `plugin-support/plugin-folder.ts`, applied in `profile/compose.ts`). A missing asset folder is not an error; an existing one with broken
@@ -2751,6 +2755,14 @@ Its tab remains stored under `ragents.run-panel.workspace-tab:<runId>`; unavaila
 closed until available. The browser instead uses the docking state described above. The
 `app` layout never has an inspection rail in either host. The chat reports the active inspection
 tab through the existing navigation and user-location contract.
+The panel header (`RunPanelPage`) is one wrapping flex row of three groups: the global group (logo
+and coordinator, at most 25rem wide, otherwise growing), the actions group (environment pill, run
+state, Stop, Settings, Help, browser, sign-out; it shrinks and wraps inside itself), and, with a
+run, the run bar that receives `RunPanelHeader` through a portal. `order` puts the actions group
+before the run bar, and the run bar's `100%` basis gives it the whole second row, so the first row
+has no gap between the coordinator and the actions. From a viewport width of 1100 pixels the VS
+Code run bar moves before the actions group and shares the single row; the browser never does,
+because its window buttons need the width.
 The run panel's header (`RunPanelHeader`) grows to fit its controls in both browser and VS Code.
 The title shrinks within its row or moves to its own row; window buttons, bar contributions,
 Share, Run script, and the remaining header icons wrap as whole controls and stay directly

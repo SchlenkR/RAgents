@@ -102,7 +102,7 @@ export class RunSessionProvider implements ChatSessionProvider {
   constructor(profileFactory: ProductProfileFactory, apiBaseUrl: string | undefined) {
     this.apiBaseUrl = apiBaseUrl;
     this.plugins = profileFactory({
-      ensureSession: (runId) => this.ensureUsable(runId),
+      ensureSession: (runId, options) => this.ensureUsable(runId, options),
       ensureWorkspaceAccess: (access, runId) => {
         this.ensureUsable(runId);
         assertRunWorkspaceAccess(access, runId, this.runAccess());
@@ -582,7 +582,7 @@ export class RunSessionProvider implements ChatSessionProvider {
     return this.plugins.dispatchUpgrade(req, socket, head, url);
   }
 
-  private ensureUsable(id: string): void {
+  private ensureUsable(id: string, options: { deleting?: boolean } = {}): void {
     if (!isRunId(id)) throw new DomainError("invalid-run", `Invalid run id: ${id}`, 400);
     this.ensureAvailable();
     if (this.globalResetsRequested.has(id)) {
@@ -590,7 +590,7 @@ export class RunSessionProvider implements ChatSessionProvider {
     }
     const deleteFailure = this.deleteFailures.get(id);
     if (deleteFailure) throw new DomainError("run-delete-failed", deleteFailure.message, 409);
-    if (this.deleteRequested.has(id)) throw new DomainError("run-deleting", "The run is being deleted", 409);
+    if (this.deleteRequested.has(id) && !options.deleting) throw new DomainError("run-deleting", "The run is being deleted", 409);
     if (this.deleted.has(id)) throw new DomainError("run-deleted", "The run was deleted", 410);
     this.engine?.journal.assertRunAvailable(id);
     const workspaceFailure = this.workspaceFailures.get(id);
@@ -868,7 +868,7 @@ export class RunSessionProvider implements ChatSessionProvider {
             path: path.join(layout.runsDir, id, "journal.jsonl"),
             message: `Deletion of run ${id} failed: ${runFailureMessage(failure)}`,
           });
-          console.warn(`Delete job for ${id} failed:`, failure);
+          console.warn(`Delete job for ${id} failed: ${runFailureMessage(failure)}`, failure);
         }
         throw error;
       })

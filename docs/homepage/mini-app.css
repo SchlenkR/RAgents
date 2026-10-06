@@ -409,6 +409,12 @@
   .z-\[110\] {
     z-index: 110;
   }
+  .order-2 {
+    order: 2;
+  }
+  .order-3 {
+    order: 3;
+  }
   .col-\[1\/-2\] {
     grid-column: 1/-2;
   }
@@ -841,9 +847,6 @@
   .w-\[42px\] {
     width: 42px;
   }
-  .w-\[360px\] {
-    width: 360px;
-  }
   .w-\[calc\(100\%-1rem\)\] {
     width: calc(100% - 1rem);
   }
@@ -900,6 +903,9 @@
   }
   .max-w-60 {
     max-width: calc(var(--spacing) * 60);
+  }
+  .max-w-\[25rem\] {
+    max-width: 25rem;
   }
   .max-w-\[30\%\] {
     max-width: 30%;
@@ -1003,6 +1009,12 @@
   .flex-\[1_1_8rem\] {
     flex: 1 1 8rem;
   }
+  .flex-\[1_1_10rem\] {
+    flex: 1 1 10rem;
+  }
+  .flex-\[1_1_100\%\] {
+    flex: 1 1 100%;
+  }
   .flex-\[1_1_220px\] {
     flex: 1 1 220px;
   }
@@ -1015,17 +1027,11 @@
   .flex-shrink-0 {
     flex-shrink: 0;
   }
-  .shrink {
-    flex-shrink: 1;
-  }
   .shrink-0 {
     flex-shrink: 0;
   }
   .basis-40 {
     flex-basis: calc(var(--spacing) * 40);
-  }
-  .basis-80 {
-    flex-basis: calc(var(--spacing) * 80);
   }
   .basis-full {
     flex-basis: 100%;
@@ -1266,6 +1272,9 @@
   }
   .gap-px {
     gap: 1px;
+  }
+  .gap-x-1 {
+    column-gap: var(--spacing);
   }
   .gap-x-2 {
     column-gap: calc(var(--spacing) * 2);
@@ -3605,6 +3614,17 @@
     }
     .max-sm\:pb-9 {
       padding-bottom: calc(var(--spacing) * 9);
+    }
+  }
+  @media (width >= 1100px) {
+    .min-\[1100px\]\:order-2 {
+      order: 2;
+    }
+    .min-\[1100px\]\:order-3 {
+      order: 3;
+    }
+    .min-\[1100px\]\:flex-\[1_1_26rem\] {
+      flex: 1 1 26rem;
     }
   }
   @media (width >= 40rem) {
