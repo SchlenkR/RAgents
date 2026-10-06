@@ -1,5 +1,23 @@
 # Decisions
 
+## 2026-10-06: Share one virtualized data grid across lists
+
+Chapters: `spec/plugins.md` (Web as plugin host, UI library), `spec/actor-programs.md`
+(Mini-app building blocks); usage: `usage.md`
+(Selection controls and tables).
+
+A large work-item list had a framed inner scrollbar, unused width, and columns that could
+not be adjusted effectively. `DataGrid` now combines TanStack Table's sorting, sizing,
+grouping, and optional selection with TanStack Virtual's measured rows. The default grid
+fills its parent on the page canvas, follows page scrolling, and keeps its header below a
+caller-supplied toolbar offset. A supplied height retains bounded scrolling for panels.
+
+The shared component owns resize handles, fitting, width persistence, keyboard navigation,
+and incremental-loading signals, so host lists and plugin views use the same behavior and
+tokens. Plugins import it from `@ragents/web/ui`, sharing the host's implementation and
+dependencies. `DataTable` reuses it for mini-app lists; the `Table` primitives remain for
+simple static markup. The generated developer reference and local UI demo show the grid.
+
 ## 2026-10-06: Anchor the global coordinator chat to its own field
 
 Chapter: `spec/plugins.md` (Web as plugin host, Global coordinator); usage: `usage.md`

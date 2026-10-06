@@ -366,6 +366,34 @@ test("a name the host's register does not have is an error with its cause in the
   }
 });
 
+test("a plugin receives the shared data grid from the host without bundling its table or virtualizer", async () => {
+  const root = scratch();
+  try {
+    writeFiles(root, plainPlugin("acme.grid", {
+      "web/index.ts": `import { DataGrid } from "@ragents/web/ui";\nexport const webPlugin = { id: "acme.grid", Grid: DataGrid };\n`,
+    }));
+    const [outcome] = await buildPlugins([path.join(root, "acme.grid")], { out: path.join(root, "dist"), typecheck: true });
+    const { bundle, manifest } = built(outcome);
+    assert.deepEqual(manifest.hostNames.web, { "@ragents/web/ui": ["DataGrid"] });
+    const code = readFileSync(path.join(bundle, "web/index.js"), "utf8");
+    const map = JSON.parse(readFileSync(path.join(bundle, "web/index.js.map"), "utf8")) as { sources: string[] };
+    assert.deepEqual(importsOf(path.join(bundle, "web/index.js")), []);
+    assert.equal(map.sources.some((source) => /@tanstack|ui\/data-grid/.test(source)), false,
+      "the plugin retains only the host shim, with no shared grid implementation");
+    const DataGrid = () => null;
+    const previous = Reflect.get(globalThis, HOST_MODULES_GLOBAL);
+    try {
+      Object.assign(globalThis, { [HOST_MODULES_GLOBAL]: { "@ragents/web/ui": { DataGrid } } });
+      const loaded = await import(`data:text/javascript,${encodeURIComponent(code)}`) as { webPlugin: { Grid: unknown } };
+      assert.equal(loaded.webPlugin.Grid, DataGrid, "the loaded plugin uses the host's exact grid instance");
+    } finally {
+      Object.assign(globalThis, { [HOST_MODULES_GLOBAL]: previous });
+    }
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
 test("type errors, a wrong id and unknown fields are build errors", async () => {
   const root = scratch();
   try {

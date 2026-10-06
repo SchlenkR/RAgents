@@ -855,6 +855,7 @@
       "ComboboxSeparator",
       "ComboboxTrigger",
       "ComboboxValue",
+      "DataGrid",
       "Dialog",
       "DialogBody",
       "DialogContent",

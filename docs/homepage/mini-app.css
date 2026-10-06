@@ -571,9 +571,6 @@
   .mb-6 {
     margin-bottom: calc(var(--spacing) * 6);
   }
-  .-ml-2 {
-    margin-left: calc(var(--spacing) * -2);
-  }
   .ml-1 {
     margin-left: var(--spacing);
   }
@@ -786,6 +783,9 @@
   }
   .min-h-8 {
     min-height: calc(var(--spacing) * 8);
+  }
+  .min-h-9 {
+    min-height: calc(var(--spacing) * 9);
   }
   .min-h-11 {
     min-height: calc(var(--spacing) * 11);
@@ -1548,6 +1548,9 @@
   .border-b-border {
     border-bottom-color: var(--border);
   }
+  .border-b-border-soft {
+    border-bottom-color: var(--border-soft);
+  }
   .bg-\(--tone-soft\) {
     background-color: var(--tone-soft);
   }
@@ -1979,9 +1982,6 @@
   }
   .align-middle {
     vertical-align: middle;
-  }
-  .align-top {
-    vertical-align: top;
   }
   .font-\[inherit\] {
     font-family: inherit;
@@ -2918,6 +2918,9 @@
     .hover\:bg-primary-hover:hover {
       background-color: var(--primary-hover);
     }
+    .hover\:bg-selected-border:hover {
+      background-color: var(--selected-border);
+    }
     .hover\:bg-selected-hover:hover {
       background-color: var(--selected-hover);
     }
@@ -2969,6 +2972,9 @@
     @supports (color: color-mix(in lab, red, red)) {
       background-color: color-mix(in srgb,var(--primary) 6%,var(--background));
     }
+  }
+  .focus-visible\:bg-selected-border:focus-visible {
+    background-color: var(--selected-border);
   }
   .focus-visible\:text-primary:focus-visible {
     color: var(--primary);

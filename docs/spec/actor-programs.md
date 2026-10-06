@@ -513,7 +513,7 @@ mini-apps no longer have a stylesheet of their own. The runtime sets
 `data-ui-surface="mini-app"` on the root element of the frame for type and base dimensions; the
 building block demo of the reference sets the same marker. `Form`, `DataTable`, `FilePicker`,
 `TaskProgress`, `DocumentViewer`, `DiffViewer`, `AppLayout`, `Stack`, and `Grid` are built from
-`Field`, `Input`, `Checkbox`, `Select`, `Table`, `Progress`, and Tailwind classes and keep their
+`Field`, `Input`, `Checkbox`, `Select`, `DataGrid`, `Progress`, and Tailwind classes and keep their
 own props. The card frame remains; the app content appears at 100 percent in all modes.
 
 The text analysis and shared list templates as well as the collection board use the shared
@@ -540,10 +540,13 @@ select fields show field name and required marker directly in the select button;
 display, the field name sits above the value. Multi-line fields without their own `rows` value
 start with two lines and can be enlarged. Forms, file and task lists, and tables use compact
 padding and row spacing with unchanged font size. Data tables have typed columns, search, sorting,
-controlled row selection, and asynchronous row actions. `DataTable id="..."` enables the shared
-table's persisted resizing; columns accept `width`, `minWidth`, and `resizable`, and cells
-truncate with full-text tooltips (see `plugins.md`, UI library). Errors stay visible and inputs
-are preserved. The table search sits on one line with the placeholder "Search table"; the same
+controlled row selection, and asynchronous row actions. `DataTable` delegates its rows to the
+shared `DataGrid`, so its list fills the available width, uses the page's scroll, and virtualizes
+measured rows. A stable `id` retains resized widths across reloads; columns accept `width`,
+`minWidth`, `resizable`, `wrap`, and `flex`, and cells truncate with full-text tooltips. Mini-apps can also use
+`UI.DataGrid` directly for grouping or a bounded scrolling panel (see `plugins.md`, UI library).
+Errors stay visible and inputs are preserved. The table search sits on one line with the
+placeholder "Search table"; the same
 accessible label is kept regardless of the entered search text. Host chat and mini-app file picker
 share the intake of files through input, drop, and paste. Text insertion at the selection stays
 with the chat; file filters, selection rules, and preview stay with the respective control. The

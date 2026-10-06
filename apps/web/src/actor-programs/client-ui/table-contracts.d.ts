@@ -11,6 +11,8 @@ export interface TableColumn<Row> {
   width?: number;
   minWidth?: number;
   resizable?: boolean;
+  wrap?: boolean;
+  flex?: boolean;
   /** Searched when table filtering is enabled; defaults to true. */
   filterable?: boolean;
 }

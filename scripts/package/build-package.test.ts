@@ -9,7 +9,7 @@ import { x } from "tar";
 import { readPackageVersion } from "../../apps/server/src/host-version.ts";
 import { loadServedHostPackage } from "../../apps/server/src/host-package.ts";
 import { WORKSPACE_TOOL_TARGETS, workspaceToolsPackageName } from "../../packages/workspace-executor/src/bundled-tools.ts";
-import { buildPackage, PACKAGE_AUTHOR, PACKAGE_FOLDER, PACKAGE_KEYWORDS, PACKAGE_LICENSE, PACKAGE_NAME, PACKAGE_ROOT_FILES, PACKAGED_PROFILES } from "./build-package.ts";
+import { buildPackage, installedVersions, PACKAGE_AUTHOR, PACKAGE_FOLDER, PACKAGE_KEYWORDS, PACKAGE_LICENSE, PACKAGE_NAME, PACKAGE_ROOT_FILES, PACKAGED_PROFILES } from "./build-package.ts";
 import { commands } from "./ragents.mjs";
 import { assertCleanCheckout, localPackageVersion, newestPublishedToolVersion } from "./local-package.ts";
 import { packageManagerInvocation } from "./package-manager.ts";
@@ -110,6 +110,9 @@ test("the package brings the built web and builds nothing: no Vite, no entry pag
   }
   for (const name of ["tailwindcss", "tw-animate-css", "@tailwindcss/node", "@tailwindcss/oxide", "react", "react-dom"]) {
     assert.equal(dependencies[name] !== undefined, true, `the host needs ${name} for the stylesheet, mini-apps or the build tool`);
+  }
+  for (const name of ["@tanstack/react-table", "@tanstack/react-virtual"]) {
+    assert.equal(dependencies[name], installedVersions(name).at(-1), `the shared grid ships its installed ${name} version for plugin compilation`);
   }
 });
 

@@ -67,6 +67,9 @@ const contracts: Contract[] = [
   { id: "filterSelect", file: "apps/web/src/ui/filter-select.tsx", name: "FilterSelectProps" },
   { id: "filterOption", file: "apps/web/src/ui/filter-select.tsx", name: "FilterSelectOption" },
   { id: "tableColumn", file: "apps/web/src/ui/table-widths.ts", name: "TableColumnDefinition" },
+  { id: "dataGrid", file: "apps/web/src/ui/data-grid.tsx", name: "DataGridProps" },
+  { id: "dataGridColumn", file: "apps/web/src/ui/data-grid.tsx", name: "DataGridColumn" },
+  { id: "dataGridSort", file: "apps/web/src/ui/data-grid.tsx", name: "DataGridSort" },
   { id: "run", file: "apps/server/src/plugin-support/actor-programs/app-project.ts", name: "RunContext", kind: "embedded" },
   { id: "app", file: "apps/server/src/plugin-support/actor-programs/client-compiler.ts", name: "AppContext", kind: "embedded" },
   { id: "appState", file: "apps/server/src/plugin-support/actor-programs/client-compiler.ts", name: "AppStateView", kind: "embedded" },
@@ -557,7 +560,40 @@ export function ExampleToolbar() {
     "FilterSelect uses the same multiple-selection segments for one to five options, with Clear beside the group. Longer lists search by default, show the label and chosen count or All, and provide checkbox options and Clear. Color, count, and disabled are optional per option; an empty value array means unrestricted.",
     "Select, filters, dropdown menus, context menus, and popovers share square panel corners. Select opens outside the trigger and stays at least as wide as it.",
   ], "tsx"),
-  entry("web-ui-tables", "Web contributions", "Resizable table columns", "A plugin can opt into browser-persisted column widths without implementing drag handling or storage. Cells truncate long values and expose their full text on hover.", "A React component in a plugin's web half; table IDs stay stable across renders.", `
+  entry("web-ui-data-grid", "Web contributions", "Virtualized lists on the page", "DataGrid fills the page canvas and keeps its header visible as the page scrolls. The shared implementation supplies adjustable columns, sorting, expandable groups, optional selection, and measured row virtualization.", "A React component in a plugin's web half; the grid ID and row keys stay stable across renders.", `
+import { useState } from "react";
+import { Badge, DataGrid, type DataGridColumn, type DataGridSort } from "@ragents/web/ui";
+
+type Entry = { id: string; title: string; status: string };
+const entries: Entry[] = [
+  { id: "entry-1", title: "Review the draft specification", status: "Open" },
+  { id: "entry-2", title: "Prepare the sample data", status: "Done" },
+];
+const columns: DataGridColumn<Entry>[] = [
+  { id: "title", label: "Title", value: (row) => row.title, minWidth: 120, flex: true, sortable: true },
+  { id: "status", label: "Status", value: (row) => row.status, width: 140, minWidth: 80,
+    render: (row) => <Badge tone={row.status === "Done" ? "success" : "neutral"}>{row.status}</Badge> },
+];
+
+export function EntryList() {
+  const [sorting, setSorting] = useState<DataGridSort[]>([{ id: "title", desc: false }]);
+  const [selection, setSelection] = useState<string[]>([]);
+  const [opened, setOpened] = useState("");
+  return <DataGrid id="ragents.example.entries" aria-label="Example entries"
+    rows={entries} columns={columns} rowKey={(row) => row.id}
+    sorting={sorting} onSortingChange={setSorting} grouping={["status"]}
+    selection={selection} onSelectionChange={setSelection}
+    onOpen={(row) => setOpened(row.title)} footer={<p>{opened || "Choose an entry and press Enter."}</p>} />;
+}`, ["dataGrid.id", 'dataGrid."aria-label"', "dataGrid.rows", "dataGrid.columns", "dataGrid.rowKey", "dataGrid.stickyOffset", "dataGrid.height", "dataGrid.sorting", "dataGrid.defaultSorting", "dataGrid.onSortingChange", "dataGrid.grouping", "dataGrid.selection", "dataGrid.onSelectionChange", "dataGrid.onRowClick", "dataGrid.onOpen", "dataGrid.onEndReached", "dataGrid.endReachedThreshold", "dataGrid.loading", "dataGrid.footer", "dataGrid.emptyText", "dataGrid.className", "dataGridColumn.id", "dataGridColumn.label", "dataGridColumn.value", "dataGridColumn.render", "dataGridColumn.width", "dataGridColumn.minWidth", "dataGridColumn.resizable", "dataGridColumn.sortable", "dataGridColumn.wrap", "dataGridColumn.flex", "dataGridSort.id", "dataGridSort.desc"], [
+    "TanStack Table supplies the headless row model; TanStack Virtual measures and mounts only visible rows plus overscan. Plugins import DataGrid from @ragents/web/ui, sharing the host's bundled implementation and dependencies through the host-module registry.",
+    "The default grid has no frame or inner scrollbar. It fills its parent and follows the window or nearest scrolling ancestor. Set stickyOffset in pixels below a sticky toolbar; set height for a bounded panel with its own scrolling area.",
+    "Columns provide id and label, value for sorting and grouping, and optional render for custom cells. width and minWidth are pixels (180 and 64 by default); resizable: false hides the handle, and sortable: true enables sorting for a value column. One flex column, or the last data column by default, takes the remaining space. wrap allows multiline cells and measured row heights.",
+    "Mouse or touch drag resizes a header edge; double-click fits rendered content. Handles support Left/Right, Shift for larger steps, Home for minimum, and Enter/End for fitting. Widths persist per grid ID; corrupt values and failed saves show Reset column widths, while blocked access offers Retry column widths. Truncated cells reveal their full value on hover.",
+    "defaultSorting starts local sorting; sorting and onSortingChange make it controlled. Sort entries have id and desc. grouping lists column IDs and renders expandable group rows with counts. selection or onSelectionChange enables selection; selection controls its keys, or they stay local when omitted.",
+    "Arrows, Home, and End navigate rows. Enter or a double-click calls onOpen; Space selects a row or toggles a group. onRowClick receives clicked rows, while custom cell controls keep their own interactions.",
+    "onEndReached requests more rows within endReachedThreshold pixels of the end (200 by default). Set loading while fetching, and use footer for status or a Load more action. emptyText changes the empty-state message; className adjusts the outer layout.",
+  ], "tsx"),
+  entry("web-ui-tables", "Web contributions", "Static table primitives", "Table and its parts compose simple static tables. Existing tables can also opt into browser-persisted column widths; large interactive lists use DataGrid.", "A React component in a plugin's web half; table IDs stay stable across renders.", `
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@ragents/web/ui";

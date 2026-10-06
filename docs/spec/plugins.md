@@ -1821,7 +1821,7 @@ copied into the source tree by CLI and styled with Tailwind: `Button`, `Badge`, 
 `Progress`, `Separator`, `Skeleton`, `Spinner`, `Empty` with their parts (`SelectTrigger`,
 `DialogContent`, `TabsList`, and so on), plus `cn` and icons from `lucide-react`. Props, variants, and
 composition follow shadcn; `Badge` additionally accepts semantic `tone` (see below).
-The host's own building blocks on top are `InteractiveItem`, `ListDetail`, `SectionLabel`,
+The host's own building blocks on top are `DataGrid`, `InteractiveItem`, `ListDetail`, `SectionLabel`,
 `SvgEdge`, `HeaderDropdown`, and, only in the host, the page `Modal` in `modal.tsx`.
 The choice follows the role, not taste:
 
@@ -1902,7 +1902,56 @@ uses the same search field by default (`searchable={false}` disables it) and pan
 with checkbox options, optional color dots and counts, and "Clear" to remove the restriction. Several filters belong together in a
 toolbar; long checkbox facet lists do not need their own sidebar.
 
-`Table` opts into column resizing with `id` and `columns`. Each `TableColumnDefinition` has
+`DataGrid<Row>` is the shared list grid, built on TanStack Table for sorting, sizing,
+grouping, and selection, and TanStack Virtual for measured rows. Plugins import it and its
+`DataGridColumn`, `DataGridProps`, and `DataGridSort` types from `@ragents/web/ui`;
+mini-apps receive the same component as `UI.DataGrid`. The host bundles the implementation
+and its TanStack dependencies once; plugin bundles obtain the grid through the existing host
+module registry instead of embedding their own copy. These additive exports enter
+`host-api.json` through `pnpm update:host-api` without changing `HOST_API_VERSION`.
+
+The required props are a stable, non-empty `id`, an `aria-label`, `rows`, `columns`, and
+`rowKey`. Row keys and column IDs must be unique and non-empty. By default the grid fills its
+parent directly on the page canvas, without a frame or an inner scroll container. Its
+virtualizer follows the window or the nearest ancestor that actually scrolls; only the visible
+rows and a small overscan are mounted. Non-scrolling overflow wrappers retain page virtualization
+and header positioning. The header stays sticky at `stickyOffset` pixels, so a caller
+can leave room for a sticky toolbar. Supplying `height` chooses a bounded panel with its own
+scrolling area. Rows use compact spacing, subtle dividers, and the shared hover, selection,
+focus, and label styles in both themes and the VS Code panel.
+
+Each `DataGridColumn<Row>` has `id` and `label`; `value` supplies the sortable, groupable,
+text value, while `render` optionally supplies custom cell content. `width` and `minWidth`
+are pixels, defaulting to 180 and 64; `resizable: false` hides the header handle and
+`sortable: true` enables header sorting for a value column.
+One column marked `flex`, or the last data column by default, takes the remaining width.
+Dragging a header edge with a mouse or touch resizes the column down to its minimum;
+double-click fits its header and currently rendered cells. A keyboard resize handle uses
+Left/Right, Shift for larger steps, Home for the minimum, and Enter or End for fitting.
+Column widths persist per browser origin and grid ID through the shared local-setting
+helpers. Invalid saved widths and failed saves show an error with "Reset column widths";
+blocked storage access offers "Retry column widths". Cells truncate with an ellipsis and
+expose their full text as a tooltip; `wrap` allows a column's text to wrap and its measured
+row height to grow.
+
+Header clicks sort locally from `defaultSorting`, or return changes through
+`onSortingChange` when `sorting` is controlled. `DataGridSort` names a column `id` and its
+`desc` flag. `grouping` lists column IDs; expandable group rows show their label and count.
+Supplying `selection` or `onSelectionChange` enables row selection; `selection` controls
+selected keys, or the grid keeps them locally when omitted. Arrow keys, Home, and End move
+between rows. Enter or a double-click calls `onOpen`; Space selects a row when selection is
+enabled or toggles a group. `onRowClick` receives a clicked data row; cell controls retain
+their own interactions.
+
+`onEndReached` requests more data when the remaining distance to the last row reaches
+`endReachedThreshold` pixels (200 by default). The caller supplies the additional rows and
+sets `loading` while a request is pending. Each row-count/last-key boundary signals once, so
+row measurement cannot repeat a request. `footer` hosts a loading status or a "Load more"
+action; `emptyText` supplies the empty-state message, and `className` adjusts the outer
+layout. The grid neither fetches data nor limits the complete data set to a client page.
+
+`Table` and its parts remain for simple static tables. The existing optional column sizing
+uses `id` and `columns`. Each `TableColumnDefinition` has
 `id`, optional `label`, initial `width`, `minWidth`, and `resizable`; widths are pixels,
 defaulting to 180 initially and 64 for the minimum. `resizable: false` on a definition omits
 its handle. Headers and cells follow definition order; `TableHead columnId="..."` optionally
@@ -1914,8 +1963,7 @@ local-setting helpers. Corrupt values and failed saves show "Reset column widths
 browser denies storage access, the table remains visible at initial widths with disabled
 handles, a visible error, and "Retry column widths". Resizable cells truncate overflow with an ellipsis
 and expose their full text as a tooltip. A table without the opt-in keeps its ordinary layout.
-Plugins import these controls and table parts from `@ragents/web/ui`; additive exports enter
-`host-api.json` through `pnpm update:host-api` without changing `HOST_API_VERSION`.
+Plugins import these controls and table parts from `@ragents/web/ui`.
 
 Interaction states use the shared `hover`/`hover-foreground`,
 `selected`/`selected-foreground`/`selected-border`, and `ring` tokens in both themes.

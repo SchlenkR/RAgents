@@ -2,6 +2,7 @@ import { useState } from "react";
 import { createRoot } from "react-dom/client";
 import { AppLayout, Stack, Grid, Chat, ChatInput, ChatMessages, MessageList, Markdown, Form, DataTable, FilePicker, TaskProgress, DocumentViewer, DiffViewer, Badge, Button, Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, Input, Select, SelectContent, SelectItem, SelectTrigger, SelectValue, Tabs, TabsContent, TabsList, TabsTrigger, Toggle, ToggleGroup, ToggleGroupItem, Tooltip, TooltipContent, TooltipProvider, TooltipTrigger, ListDetail, SvgEdge, FlowDiagram, WorkflowDiagram } from "../../apps/web/src/actor-programs/client-ui/index";
 import { learningWorkflow } from "../../plugins/ragents.reference/run-scripts/learning-afternoon/src/workflow";
+import { DataGrid, type DataGridColumn } from "../../apps/web/src/ui";
 import { ArrowLeftIcon, CheckIcon, SparklesIcon, Trash2Icon, WrenchIcon, XIcon } from "lucide-react";
 import type { ChatAttachmentInput, Message, FormValues, ListDetailItem } from "../../apps/web/src/actor-programs/client-ui/contracts";
 import "../../apps/web/src/actor-programs/client-ui/flow-diagram.css";
@@ -18,6 +19,51 @@ const localMessage = (key: string, text: string, attachments: ChatAttachmentInpu
     name, mediaType, size: atob(data).length, url: `data:${mediaType};base64,${data}`,
   })),
 });
+
+type GridEntry = { id: string; title: string; status: string; results: number };
+
+const gridRows: GridEntry[] = Array.from({ length: 1000 }, (_, index) => ({
+  id: `work-${index + 1}`,
+  title: `Work item ${index + 1}: Review the sample specification and prepare a clear result`,
+  status: ["Open", "Review", "Done"][index % 3]!,
+  results: index % 17,
+}));
+
+const gridColumns: DataGridColumn<GridEntry>[] = [
+  { id: "title", label: "Work", value: (row) => row.title, minWidth: 140, flex: true, sortable: true },
+  { id: "status", label: "Status", value: (row) => row.status, width: 120, minWidth: 80, sortable: true,
+    render: (row) => <Badge tone={row.status === "Done" ? "success" : row.status === "Review" ? "warning" : "neutral"}>{row.status}</Badge> },
+  { id: "results", label: "Results", value: (row) => row.results, width: 100, minWidth: 70, sortable: true },
+];
+
+function DataGridShowcase() {
+  const [count, setCount] = useState(24);
+  const [selection, setSelection] = useState<string[]>([]);
+  const [grouped, setGrouped] = useState(false);
+  const [opened, setOpened] = useState("");
+  const loadMore = () => setCount((current) => Math.min(60, current + 12));
+  return <section data-component="DataGrid" className="reference-ui-example">
+    <h3>Data grid on the page</h3>
+    <p>The page scrolls through this flat list while the header stays visible. Drag a header edge to resize, double-click to fit visible content, or click a heading to sort. Arrow keys move between rows; Enter or a double-click opens one, and Space selects it.</p>
+    <div className="reference-ui-controls">
+      <Toggle aria-label="Group grid by status" pressed={grouped} onPressedChange={setGrouped} size="sm" variant="outline">Group by status</Toggle>
+      <span aria-live="polite">{selection.length} rows selected</span>
+    </div>
+    <DataGrid id="reference.work-items" aria-label="Local work items" rows={gridRows.slice(0, count)} columns={gridColumns}
+      rowKey={(row) => row.id} stickyOffset={80} grouping={grouped ? ["status"] : []}
+      selection={selection} onSelectionChange={setSelection} onOpen={(row) => setOpened(row.title)}
+      onEndReached={count < 60 ? loadMore : undefined}
+      footer={<div className="reference-ui-controls">
+        <span>{count} of 60 local sample rows loaded.</span>
+        {count < 60 && <Button onClick={loadMore} size="sm" variant="outline">Load more</Button>}
+      </div>} />
+    <p aria-live="polite">{opened ? `Opened: ${opened}` : "No entry opened yet."}</p>
+    <h3>Bounded panel with 1,000 rows</h3>
+    <p>A supplied height gives a panel its own scroll area. Collapse or expand groups to browse the same measured, virtualized rows.</p>
+    <DataGrid id="reference.work-items-panel" aria-label="Grouped local work items" rows={gridRows} columns={gridColumns}
+      rowKey={(row) => row.id} height={280} grouping={["status"]} />
+  </section>;
+}
 
 function ListDetailShowcase() {
   const [selectedId, setSelectedId] = useState("draft");
@@ -192,7 +238,7 @@ function ControlsShowcase() {
     <section data-component="DataTable" className="reference-ui-example">
       <h3>Data table</h3>
       <p>Columns can be sorted, and search filters the rows. The mini-app owns the selection.</p>
-      <DataTable rows={rows} rowKey={(row) => row.id} filterable selectedKeys={selected} onSelectionChange={setSelected}
+      <DataTable id="reference.summary-table" rows={rows} rowKey={(row) => row.id} filterable selectedKeys={selected} onSelectionChange={setSelected}
         columns={[{ id: "name", label: "Work", value: (row) => row.name, sortable: true }, { id: "count", label: "Results", value: (row) => row.count, sortable: true }]}
         actions={[{ id: "open", label: "Select", onClick: (row) => { setSelected([row.id]); } }]} />
       <p aria-live="polite">{selected.length} rows selected</p>
@@ -317,6 +363,7 @@ function Showcase() {
       </section>
       <ControlsShowcase />
       <ListDetailShowcase />
+      <DataGridShowcase />
     </div>
   );
 }

@@ -18,32 +18,23 @@ const columns: readonly TableColumn<Row>[] = [
   { id: "active", label: "Active", value: (row) => row.active },
 ];
 
-test("table sorts numerically and stably, null values last, without changing data or object identity", () => {
-  const sorted = tableRows(rows, columns, "", { id: "count", direction: "asc" });
-  assert.deepEqual(sorted.map((row) => row.id), ["b", "c", "a", "d"]);
-  assert.equal(sorted[0], rows[1]);
-  assert.deepEqual(tableRows(rows, columns, "", { id: "count", direction: "desc" }).map((row) => row.id), ["a", "b", "c", "d"]);
-  assert.deepEqual(rows.map((row) => row.id), ["a", "b", "c", "d"]);
-  assert.deepEqual(tableRows(rows, columns, "", { id: "active", direction: "desc" }), rows);
-});
-
-test("table search considers only enabled columns and combines with sorting", () => {
-  assert.deepEqual(tableRows(rows, columns, " AN ", { id: "count", direction: "asc" }).map((row) => row.id), ["c", "a"]);
+test("table search considers only enabled columns", () => {
+  assert.deepEqual(tableRows(rows, columns, " AN ").map((row) => row.id), ["a", "c"]);
   assert.deepEqual(tableRows(rows, columns, "Yes").map((row) => row.id), ["a", "c"]);
   assert.deepEqual(tableRows(rows, columns, "10"), []);
   assert.deepEqual(tableRows(rows, columns, "Unknown"), []);
   assert.deepEqual(tableRows([], columns, ""), []);
 });
 
-test("table renders a real table structure, controlled selection, custom cells and disabled actions", () => {
+test("table delegates to the shared grid, controlled selection, custom cells and disabled actions", () => {
   const html = renderToStaticMarkup(createElement(DataTable<Row>, {
     title: "Contacts", rows, rowKey: (row) => row.id,
     columns: [...columns, { id: "custom", label: "Display", value: (row) => row.name, render: (row) => createElement("strong", null, row.name) }],
     selectedKeys: ["a"], onSelectionChange: () => {}, filterable: true,
     actions: [{ id: "open", label: "Open", onClick: async () => {}, disabled: (row) => row.id === "a" }],
   }));
-  assert.match(html, /<table[^>]*data-slot="table"/);
-  assert.match(html, /<th[^>]*data-slot="table-head"/);
+  assert.match(html, /role="grid"[^>]*data-slot="data-grid"/);
+  assert.match(html, /role="columnheader"/);
   assert.ok(html.includes('aria-checked="mixed"'));
   assert.ok(html.includes('aria-selected="true"'));
   assert.ok(html.includes('type="search"'));

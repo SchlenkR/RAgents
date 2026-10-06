@@ -68,7 +68,7 @@ test("table columns resize, fit, retain widths and expose full cell text without
   const fitted = await columnWidth(table, "Name");
   assert.ok(fitted > 500, "double-click fits the entire rendered content");
   assert.equal(await text.evaluate((element) => element.scrollWidth > element.clientWidth), false);
-  const app = page.getByRole("region", { name: "Mini-app table", exact: true }).getByRole("table");
+  const app = page.getByRole("grid", { name: "Mini-app table", exact: true });
   assert.equal(await app.getByRole("separator").count(), 3, "DataTable forwards definitions and includes its action column");
   await page.evaluate((storageKey) => { localStorage.setItem(storageKey, '{"name":-1}'); window.dispatchEvent(new Event("ragents-table-widths-change")); }, key);
   await page.getByRole("alert").first().waitFor();
@@ -104,7 +104,7 @@ test("table columns resize, fit, retain widths and expose full cell text without
   await blocked.goto(pathToFileURL(join(directory, "index.html")).href);
   await blocked.getByRole("alert").first().waitFor();
   assert.match(await blocked.getByRole("alert").first().textContent() ?? "", /Storage access denied/);
-  assert.equal(await blocked.getByRole("table").count(), 3, "storage access failure leaves all tables visible");
+  assert.equal(await blocked.getByRole("table").count(), 2, "storage access failure leaves all tables visible");
   await blocked.evaluate("window.restoreTableStorage()");
   await blocked.getByRole("button", { name: "Retry column widths" }).first().click();
   const recovered = blocked.getByRole("table", { name: "Work items", exact: true }).getByRole("separator", { name: "Resize Name column" });

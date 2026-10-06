@@ -303,7 +303,7 @@ test("normal control modules render with the shared React and preserve native ch
   assert.match(form, /data-slot="select-trigger"/);
   assert.match(form, /type="submit"/);
   const table = renderControl("DataTable", `{rows:[{id:"one",name:"Demo"}],rowKey:(row)=>row.id,columns:[{id:"name",label:"Name",value:(row)=>row.name,sortable:true}],selectedKeys:["one"],onSelectionChange:()=>{},actions:[{id:"open",label:"Open",onClick:async()=>{}}]}`);
-  assert.match(table, /<table[^>]*data-slot="table"/);
+  assert.match(table, /role="grid"[^>]*data-slot="data-grid"/);
   assert.match(table, /aria-selected="true"/);
   assert.match(table, /Open/);
   assert.match(renderControl("FilePicker", `{label:"Choose files",files:[],onChange:()=>{}}`), /type="file"/);

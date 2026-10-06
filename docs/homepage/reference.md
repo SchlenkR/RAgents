@@ -6225,6 +6225,8 @@ export interface TableColumn<Row> {
   width?: number;
   minWidth?: number;
   resizable?: boolean;
+  wrap?: boolean;
+  flex?: boolean;
   /** Searched when table filtering is enabled; defaults to true. */
   filterable?: boolean;
 }
@@ -6451,6 +6453,68 @@ export declare const controlSizes: {
 };
 ```
 
+#### apps/web/src/ui/data-grid-model.d.ts
+
+```typescript
+import type { ColumnDef } from "@tanstack/react-table";
+import type { DataGridColumn } from "./data-grid";
+import { type TableColumnWidths } from "./table-widths";
+export type DataGridValue = string | number | boolean | null | undefined;
+export declare const displayGridValue: (value: DataGridValue) => string;
+export declare function gridColumnDefinitions<T>(columns: readonly DataGridColumn<T>[]): ColumnDef<T>[];
+export declare function gridColumnSizes<T>(columns: readonly DataGridColumn<T>[], widths: TableColumnWidths, available: number, selectionWidth?: number): {
+    [k: string]: number;
+};
+```
+
+#### apps/web/src/ui/data-grid.d.ts
+
+```typescript
+import * as React from "react";
+import { type DataGridValue } from "./data-grid-model";
+export type { DataGridValue } from "./data-grid-model";
+export interface DataGridSort {
+    id: string;
+    desc: boolean;
+}
+export interface DataGridColumn<T> {
+    id: string;
+    label: string;
+    value?: (row: T) => DataGridValue;
+    render?: (row: T) => React.ReactNode;
+    width?: number;
+    minWidth?: number;
+    resizable?: boolean;
+    sortable?: boolean;
+    wrap?: boolean;
+    flex?: boolean;
+}
+export interface DataGridProps<T> {
+    id: string;
+    "aria-label": string;
+    rows: readonly T[];
+    columns: readonly DataGridColumn<T>[];
+    rowKey: (row: T) => string;
+    stickyOffset?: number;
+    height?: number | string;
+    sorting?: DataGridSort[];
+    defaultSorting?: DataGridSort[];
+    onSortingChange?: (sorting: DataGridSort[]) => void;
+    grouping?: string[];
+    selection?: readonly string[];
+    onSelectionChange?: (keys: string[]) => void;
+    onRowClick?: (row: T) => void;
+    onOpen?: (row: T) => void;
+    onEndReached?: () => void;
+    endReachedThreshold?: number;
+    loading?: boolean;
+    footer?: React.ReactNode;
+    emptyText?: string;
+    className?: string;
+}
+export declare function DataGrid<T>(props: DataGridProps<T>): React.JSX.Element;
+```
+
 #### apps/web/src/ui/dialog.d.ts
 
 ```typescript
@@ -6655,6 +6719,7 @@ export { Badge, BadgeDisplayProvider, badgeVariants, type BadgeTone } from "./ba
 export { Button, buttonVariants } from "./button";
 export { Card, CardAction, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "./card";
 export { Checkbox } from "./checkbox";
+export { DataGrid, type DataGridProps, type DataGridColumn, type DataGridSort, type DataGridValue } from "./data-grid";
 export { ChoiceSelect, type ChoiceSelectProps } from "./choice-select";
 export { Combobox, ComboboxContent, ComboboxGroup, ComboboxItem, ComboboxLabel, ComboboxSeparator, ComboboxTrigger, ComboboxValue } from "./combobox";
 export { type ControlSize } from "./control-size";
