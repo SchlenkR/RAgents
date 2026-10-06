@@ -1,5 +1,11 @@
 # Decisions
 
+## 2026-10-06: Reasoning is chosen from a menu again
+
+Chapter: `docs/usage.md` (clients). The joined segmented control had also replaced the reasoning
+selection next to the model in the chat and in the model settings. The owner wants the menu back
+there; model and reasoning are chosen the same way, other option groups keep their segments.
+
 ## 2026-10-06: Bind every new run from VS Code to the workstation
 
 Chapters: `spec/plugins.md` (Web as plugin host: start selection, run panel host, New runs in

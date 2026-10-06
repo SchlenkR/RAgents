@@ -22,8 +22,8 @@ multiple selection is available. Tab enters the group; arrow keys move between e
 segments, Home and End move to the first and last, and Space or Enter selects or deselects.
 Settings theme and zoom, sharing access levels, and view and grouping choices use these controls.
 Single required choices keep the current value when its selected segment is pressed again.
-Workspace machine, folder, and reasoning choices use segments for up to five values and
-selection menus for longer lists. Model selection stays in a menu.
+Workspace machine and folder choices use segments for up to five values and selection menus
+for longer lists. Model and reasoning selection stay in menus.
 
 Selection menus open below their button, or above when there is less room, and stay at least
 as wide as it. Selectors with more than eight choices show a search field. Type part of a label

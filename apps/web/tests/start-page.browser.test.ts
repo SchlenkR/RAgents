@@ -247,10 +247,11 @@ for (const [view, query, width] of [["web", "view=web", 1280], ["panel", "view=p
       await options.first().waitFor();
       assert.deepEqual(await options.allTextContents(), ["openrouter/z-ai/glm-5.3-flash", "openrouter/qwen/qwen3.8-max"], "only the models of the profile");
       await options.filter({ hasText: "openrouter/qwen/qwen3.8-max" }).click();
-      const reasoning = page.getByRole("group", { name: "Reasoning", exact: true });
-      await reasoning.getByRole("button", { name: "low", exact: true }).waitFor();
-      assert.deepEqual(await reasoning.getByRole("button").allTextContents(), ["off", "low", "high"], "only the levels of the model");
-      await reasoning.getByRole("button", { name: "low", exact: true }).click();
+      const reasoning = page.getByRole("combobox", { name: "Reasoning" });
+      await reasoning.click();
+      await options.first().waitFor();
+      assert.deepEqual(await options.allTextContents(), ["off", "low", "high"], "only the levels of the model");
+      await options.filter({ hasText: /^low$/ }).click();
       await page.waitForFunction(() => window.startPageFixture.calls.filter((call) => call.id === "ragents.startOptions.select").length === 2);
       await page.locator("textarea").fill("First message");
       await page.locator("textarea").press("Enter");
@@ -262,7 +263,7 @@ for (const [view, query, width] of [["web", "view=web", 1280], ["panel", "view=p
       await model.waitFor();
       assert.equal(await model.isEnabled(), true, "after the start the model choice stays in the chat");
       assert.match(await model.textContent() ?? "", /qwen\/qwen3\.8-max/);
-      assert.equal(await reasoning.getByRole("button", { name: "low", exact: true }).getAttribute("aria-pressed"), "true", "the selected thinking level stays in the chat");
+      assert.match(await reasoning.textContent() ?? "", /low/, "the selected thinking level stays in the chat");
     });
   });
 }
@@ -272,7 +273,7 @@ test("without runs.inspect the chat shows no model choice, neither in the browse
     await withPage(query, width, async (page) => {
       await openNewChat(page, view);
       assert.equal(await page.getByRole("combobox", { name: "Model" }).count(), 0, view);
-      assert.equal(await page.getByRole("group", { name: "Reasoning", exact: true }).count(), 0, view);
+      assert.equal(await page.getByRole("combobox", { name: "Reasoning" }).count(), 0, view);
     });
   }
 });

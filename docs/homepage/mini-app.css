@@ -1171,6 +1171,9 @@
   .grid-cols-\[minmax\(0\,1fr\)_max-content\] {
     grid-template-columns: minmax(0,1fr) max-content;
   }
+  .grid-cols-\[minmax\(0\,1fr\)_minmax\(125px\,180px\)\] {
+    grid-template-columns: minmax(0,1fr) minmax(125px,180px);
+  }
   .grid-cols-\[minmax\(130px\,0\.28fr\)_minmax\(0\,1fr\)_auto\] {
     grid-template-columns: minmax(130px,0.28fr) minmax(0,1fr) auto;
   }

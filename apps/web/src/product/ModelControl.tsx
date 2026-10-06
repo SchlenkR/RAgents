@@ -1,5 +1,5 @@
 import { useMemo } from "react";
-import { ChoiceSelect, Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../ui";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../ui";
 import { thinkingLabel } from "../lib/labels";
 import type { StartOptionControlContext } from "../PluginRegistry";
 
@@ -70,7 +70,10 @@ export function ModelControl({ disabled, error, option, setValue }: StartOptionC
         <SelectContent>{modelOptions.map((option) => <SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>)}</SelectContent>
       </Select>
       {presentation.thinkingOptions.length > 0 && (
-        <ChoiceSelect label="Reasoning" disabled={disabled} options={thinkingOptions} value={value.thinking ?? ""} onValueChange={chooseThinking} size="sm" />
+        <Select disabled={disabled} items={thinkingOptions} value={value.thinking ?? ""} onValueChange={(thinking) => { if (thinking !== null) chooseThinking(thinking); }}>
+          <SelectTrigger aria-label="Reasoning" className="min-w-0 max-w-full" size="sm"><SelectValue /></SelectTrigger>
+          <SelectContent>{thinkingOptions.map((option) => <SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>)}</SelectContent>
+        </Select>
       )}
       {error && <p className={`${errorClass} w-full`} role="alert">{error}</p>}
     </div>
