@@ -3,7 +3,7 @@ import { createRoot } from "react-dom/client";
 import { SearchIcon } from "lucide-react";
 import { DockButtonMenu } from "../src/run-panel/DockButtonMenu";
 import {
-  Button, Combobox, ComboboxContent, ComboboxItem, ComboboxTrigger, ComboboxValue,
+  Button, ChoiceSelect, Combobox, ComboboxContent, ComboboxItem, ComboboxTrigger, ComboboxValue,
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, FilterSelect, Input,
   Popover, PopoverContent, PopoverTrigger, Select, SelectContent, SelectGroup, SelectItem, SelectLabel,
   SelectTrigger, SelectValue, Textarea, Toggle, ToggleGroup, ToggleGroupItem,
@@ -33,9 +33,14 @@ function SizeRow({ size }: { size: typeof sizes[number] }) {
       <Button size={size} variant="outline" aria-label={`${size} button`}>Button</Button>
       <Button size={size === "default" ? "icon" : `icon-${size}`} variant="outline" aria-label={`${size} icon button`}><SearchIcon /></Button>
       <Toggle size={size} variant="outline" aria-label={`${size} toggle`}>Toggle</Toggle>
-      <ToggleGroup size={size} spacing={0} variant="outline" defaultValue={["list"]} aria-label={`${size} view`}>
+      <ToggleGroup size={size} defaultValue={["list"]} aria-label={`${size} view`}>
         <ToggleGroupItem value="list">List</ToggleGroupItem>
         <ToggleGroupItem value="lanes">Lanes</ToggleGroupItem>
+      </ToggleGroup>
+      <ToggleGroup size={size} multiple defaultValue={["read", "write"]} aria-label={`${size} permissions`}>
+        <ToggleGroupItem value="read">Read</ToggleGroupItem>
+        <ToggleGroupItem value="write">Write</ToggleGroupItem>
+        <ToggleGroupItem value="share">Share</ToggleGroupItem>
       </ToggleGroup>
       <Select items={priorities} defaultValue={priorities[0].value}>
         <SelectTrigger size={size} aria-label={`${size} select`}><SelectValue /></SelectTrigger>
@@ -57,9 +62,39 @@ function Fixture() {
   const [filters, setFilters] = useState<string[]>([]);
   const [multiple, setMultiple] = useState<string[]>(["alpha"]);
   const [expanded, setExpanded] = useState(false);
+  const [view, setView] = useState(["list"]);
+  const [shortFilters, setShortFilters] = useState<string[]>([]);
+  const [shortChoice, setShortChoice] = useState("alpha");
+  const [sixOptions, setSixOptions] = useState(false);
   return <main className="min-h-screen overflow-x-auto bg-background p-6 text-foreground">
     <h1 className="mb-5 text-lg font-semibold">Shared controls</h1>
     <section aria-label="Control sizes" className="space-y-5">{sizes.map((size) => <SizeRow key={size} size={size} />)}</section>
+    <section aria-label="Segmented controls" className="mt-8 flex flex-col items-start gap-4">
+      <ToggleGroup aria-label="Board view" value={view} onValueChange={setView}>
+        <ToggleGroupItem value="list">List</ToggleGroupItem>
+        <ToggleGroupItem value="disabled" disabled>Timeline</ToggleGroupItem>
+        <ToggleGroupItem value="lanes">Lanes</ToggleGroupItem>
+      </ToggleGroup>
+      <output aria-label="Board view value">{view.join(",") || "None"}</output>
+      <ToggleGroup aria-label="Grouping" defaultValue={["story"]}>
+        <ToggleGroupItem value="story">By story</ToggleGroupItem>
+        <ToggleGroupItem value="none">No grouping</ToggleGroupItem>
+      </ToggleGroup>
+      <ToggleGroup aria-label="Vertical view" orientation="vertical" defaultValue={["list"]}>
+        <ToggleGroupItem value="list">List</ToggleGroupItem>
+        <ToggleGroupItem value="lanes">Lanes</ToggleGroupItem>
+      </ToggleGroup>
+      <ToggleGroup aria-label="Disabled view" disabled defaultValue={["list"]}>
+        <ToggleGroupItem value="list">List</ToggleGroupItem>
+        <ToggleGroupItem value="lanes">Lanes</ToggleGroupItem>
+      </ToggleGroup>
+      <ChoiceSelect label="Short choice" options={options.slice(0, sixOptions ? 6 : 5)} value={shortChoice} onValueChange={setShortChoice} />
+      <FilterSelect label="Short stages" options={options.slice(0, sixOptions ? 6 : 5)} value={shortFilters} onValueChange={setShortFilters} />
+      <FilterSelect label="Disabled stages" disabled options={options.slice(0, 2)} value={["alpha"]} onValueChange={() => {}} />
+      <output aria-label="Short choice value">{shortChoice}</output>
+      <output aria-label="Short filter values">{shortFilters.join(",") || "All"}</output>
+      <Button onClick={() => setSixOptions(!sixOptions)} variant="outline">{sixOptions ? "Use five values" : "Use six values"}</Button>
+    </section>
     <section aria-label="Dropdown behavior" className="mt-8 space-y-4">
       <h2 className="font-semibold">Search and filtering</h2>
       <div className="flex items-center gap-3">

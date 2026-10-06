@@ -85,8 +85,8 @@ test("shared control sizes, searchable dropdowns and multi-value filters work in
           row.getByRole("button", { name: `${size} button`, exact: true }),
           row.getByRole("button", { name: `${size} icon button`, exact: true }),
           row.getByRole("button", { name: `${size} toggle`, exact: true }),
-          row.getByRole("button", { name: "List", exact: true }),
-          row.getByRole("button", { name: "Lanes", exact: true }),
+          row.getByRole("group", { name: `${size} view`, exact: true }),
+          row.getByRole("group", { name: `${size} permissions`, exact: true }),
           row.getByLabel(`${size} select`, { exact: true }),
           row.getByLabel(`${size} input`, { exact: true }),
           row.getByLabel(`${size} combobox`, { exact: true }),
@@ -100,16 +100,142 @@ test("shared control sizes, searchable dropdowns and multi-value filters work in
           assert.ok(Math.abs(geometry.height - expected.height) < 0.01, `${size} control ${index}: ${geometry.height}px, expected ${expected.height}px`);
           if (geometry.textOffset !== null && expected.textOffset !== null) assert.ok(Math.abs(geometry.textOffset - expected.textOffset) <= 1, `${size} control ${index}: text offset ${geometry.textOffset}px, expected ${expected.textOffset}px`);
         }
+        for (const label of [`${size} view`, `${size} permissions`]) {
+          const group = row.getByRole("group", { name: label, exact: true });
+          const geometry = await group.evaluate((element) => {
+            const style = getComputedStyle(element);
+            return { radius: style.borderRadius, gap: style.gap, borders: [style.borderTopWidth, style.borderRightWidth, style.borderBottomWidth, style.borderLeftWidth],
+              height: element.getBoundingClientRect().height,
+              segments: [...element.querySelectorAll("button")].map((item) => {
+                const bounds = item.getBoundingClientRect();
+                const segmentStyle = getComputedStyle(item);
+                return { x: bounds.x, width: bounds.width, height: bounds.height, radius: segmentStyle.borderRadius,
+                  borders: [segmentStyle.borderTopWidth, segmentStyle.borderRightWidth, segmentStyle.borderBottomWidth, segmentStyle.borderLeftWidth] };
+              }) };
+          });
+          assert.equal(geometry.radius, "0px", label);
+          assert.equal(geometry.gap, "0px", label);
+          assert.deepEqual(geometry.borders, ["1px", "1px", "1px", "1px"], `${label}: one shared border`);
+          for (const [index, segment] of geometry.segments.entries()) {
+            assert.equal(segment.radius, "0px", `${label}: square segment ${index}`);
+            assert.deepEqual(segment.borders, ["0px", "0px", "0px", index === 0 ? "0px" : "1px"], `${label}: only one divider`);
+            assert.equal(segment.height, geometry.height - 2, `${label}: fills the group's inner height`);
+            if (index > 0) assert.ok(Math.abs(segment.x - geometry.segments[index - 1].x - geometry.segments[index - 1].width) < 0.01, `${label}: no gap or overlapping borders`);
+          }
+        }
       }
       if (theme === "light" && width === 1560) await page.getByRole("region", { name: "Control sizes" }).screenshot({ path: join(shots, "shared-controls-toolbar.png") });
     });
   }
   await page.setViewportSize({ width: 1560, height: 900 });
 
+  await context.test("controlled and uncontrolled segments support roving keyboard focus and disabled options", async () => {
+    await reset();
+    const view = page.getByRole("group", { name: "Board view", exact: true });
+    const list = view.getByRole("button", { name: "List", exact: true });
+    const lanes = view.getByRole("button", { name: "Lanes", exact: true });
+    assert.equal(await view.getByRole("button", { name: "Timeline", exact: true }).isDisabled(), true);
+    assert.equal(await view.locator('[tabindex="0"]').count(), 1, "a group has a single tab stop");
+    await list.focus();
+    await list.press("ArrowRight");
+    assert.equal(await lanes.evaluate((element) => element === document.activeElement), true, "arrows skip the disabled segment");
+    assert.equal(await page.getByLabel("Board view value", { exact: true }).textContent(), "list", "focus movement does not change selection");
+    const focus = await lanes.evaluate((element) => ({ visible: element.matches(":focus-visible"), shadow: getComputedStyle(element).boxShadow }));
+    assert.equal(focus.visible, true);
+    assert.notEqual(focus.shadow, "none", "keyboard focus is visible");
+    await lanes.press("Enter");
+    assert.equal(await list.getAttribute("aria-pressed"), "false");
+    assert.equal(await lanes.getAttribute("aria-pressed"), "true");
+    assert.equal(await page.getByLabel("Board view value", { exact: true }).textContent(), "lanes");
+    await lanes.press("Home");
+    await list.press("Space");
+    assert.equal(await page.getByLabel("Board view value", { exact: true }).textContent(), "list");
+    await list.press("End");
+    assert.equal(await lanes.evaluate((element) => element === document.activeElement), true);
+    await lanes.press("ArrowRight");
+    assert.equal(await list.evaluate((element) => element === document.activeElement), true, "focus loops");
+    await list.press("Space");
+    assert.equal(await page.getByLabel("Board view value", { exact: true }).textContent(), "None", "ordinary ToggleGroup permits clearing its sole selection");
+    const grouping = page.getByRole("group", { name: "Grouping", exact: true });
+    await grouping.getByRole("button", { name: "No grouping", exact: true }).click();
+    assert.equal(await grouping.getByRole("button", { name: "By story", exact: true }).getAttribute("aria-pressed"), "false");
+    assert.equal(await grouping.getByRole("button", { name: "No grouping", exact: true }).getAttribute("aria-pressed"), "true");
+    const disabled = page.getByRole("group", { name: "Disabled view", exact: true });
+    for (const button of await disabled.getByRole("button").all()) assert.equal(await button.isDisabled(), true);
+    const vertical = page.getByRole("group", { name: "Vertical view", exact: true });
+    const verticalList = vertical.getByRole("button", { name: "List", exact: true });
+    const verticalLanes = vertical.getByRole("button", { name: "Lanes", exact: true });
+    await verticalList.focus();
+    await verticalList.press("ArrowDown");
+    assert.equal(await verticalLanes.evaluate((element) => element === document.activeElement), true);
+    await verticalLanes.press("Space");
+    assert.equal(await verticalLanes.getAttribute("aria-pressed"), "true");
+    const divider = await verticalLanes.evaluate((element) => ({ top: getComputedStyle(element).borderTopWidth, left: getComputedStyle(element).borderLeftWidth }));
+    assert.deepEqual(divider, { top: "1px", left: "0px" });
+    const verticalHeight = await geometryOf(verticalLanes);
+    const buttonHeight = await geometryOf(page.getByLabel("default button", { exact: true }));
+    assert.equal(verticalHeight.height, buttonHeight.height, "vertical segments retain the shared control height");
+  });
+
+  await context.test("short single and multiple filters retain choices when their lists grow into dropdowns", async () => {
+    await reset();
+    const choice = page.getByRole("group", { name: "Short choice", exact: true });
+    for (const segment of await choice.getByRole("button").all()) {
+      const label = await segment.locator("span").evaluate((element) => ({ width: element.clientWidth, content: element.scrollWidth }));
+      assert.ok(label.content <= label.width, "segments show complete labels when space is available");
+    }
+    await choice.getByRole("button", { name: "Beta follow-up", exact: true }).click();
+    await choice.getByRole("button", { name: "Beta follow-up", exact: true }).click();
+    assert.equal(await page.getByLabel("Short choice value", { exact: true }).textContent(), "beta", "ChoiceSelect retains a required single choice");
+    const stages = page.getByRole("group", { name: "Short stages", exact: true });
+    const alpha = stages.getByRole("button", { name: /^Alpha research/ });
+    const beta = stages.getByRole("button", { name: /^Beta follow-up/ });
+    await alpha.focus();
+    await alpha.press("Space");
+    await alpha.press("ArrowRight");
+    await beta.press("Enter");
+    assert.equal(await alpha.getAttribute("aria-pressed"), "true");
+    assert.equal(await beta.getAttribute("aria-pressed"), "true");
+    assert.equal(await page.getByLabel("Short filter values", { exact: true }).textContent(), "alpha,beta");
+    await page.getByRole("button", { name: "Use six values", exact: true }).click();
+    assert.equal(await page.getByRole("group", { name: "Short stages", exact: true }).count(), 0);
+    const trigger = page.getByLabel("Short choice", { exact: true });
+    assert.equal(await selectedText(trigger), "Beta follow-up");
+    await trigger.click();
+    await selectPopup().getByRole("option", { name: "Beta follow-up", selected: true, exact: true }).waitFor();
+    await close(selectPopup());
+    await page.getByRole("combobox", { name: /^Short stages:/ }).click();
+    const popup = page.locator('[data-slot="filter-select-content"]');
+    await popup.waitFor();
+    assert.equal(await popup.getByRole("option", { selected: true }).count(), 2);
+    await close(popup);
+    await page.getByRole("button", { name: "Use five values", exact: true }).click();
+    assert.equal(await beta.getAttribute("aria-pressed"), "true");
+    await page.getByRole("button", { name: "Clear Short stages", exact: true }).click();
+    assert.equal(await page.getByLabel("Short filter values", { exact: true }).textContent(), "All");
+    assert.equal(await page.getByRole("button", { name: "Clear Short stages", exact: true }).isDisabled(), true);
+    const permissions = page.getByRole("group", { name: "default permissions", exact: true });
+    await permissions.getByRole("button", { name: "Share", exact: true }).click();
+    assert.equal(await permissions.getByRole("button", { pressed: true }).count(), 3, "uncontrolled multiple groups retain earlier choices");
+    for (const button of await page.getByRole("group", { name: "Disabled stages", exact: true }).getByRole("button").all()) assert.equal(await button.isDisabled(), true);
+    assert.equal(await page.getByRole("button", { name: "Clear Disabled stages", exact: true }).isDisabled(), true);
+    await page.getByRole("region", { name: "Segmented controls", exact: true }).screenshot({ path: join(shots, "shared-controls-segments.png") });
+    await page.setViewportSize({ width: 320, height: 900 });
+    const available = await page.getByRole("region", { name: "Segmented controls", exact: true }).boundingBox();
+    assert.ok(available);
+    for (const label of ["Short choice", "Short stages"]) {
+      const bounds = await page.getByRole("group", { name: label, exact: true }).boundingBox();
+      assert.ok(bounds && bounds.width <= available.width && bounds.x + bounds.width <= available.x + available.width, `${label}: fits a narrow pane`);
+    }
+    assert.equal(await beta.getAttribute("title"), "Beta follow-up", "truncated segment labels retain the full text on hover");
+    await page.setViewportSize({ width: 1560, height: 900 });
+  });
+
   await context.test("Select opens outside its trigger, stays at least as wide, and flips above near the bottom", async () => {
     await reset();
     for (const label of ["Searchable select", "Eight option select"]) {
       const trigger = page.getByLabel(label, { exact: true });
+      await trigger.evaluate((element) => element.scrollIntoView({ block: "center" }));
       await trigger.click();
       await selectPopup().waitFor();
       const triggerBounds = await trigger.boundingBox();

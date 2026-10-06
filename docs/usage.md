@@ -136,8 +136,9 @@ completed items checked and the item in progress in its running form, such as "R
 
 Journal in the bottom status bar shows actual events, newest first, with search, expandable JSON,
 and more results on demand. Executions shows recorded TypeScript calls and their results.
-Its "Status" toolbar filter lets you check several states together, with the number of
-executions beside each state; "Clear" returns to all states. Search narrows actor, code, or result.
+Its "Status" toolbar filter lets you select several state segments together, with the number of
+executions beside each state; "Clear" or no selected state means all states. Search narrows
+actor, code, or result.
 
 Chat responses stream as Markdown. Copy preserves original text and line breaks. Attachments,
 timestamps, and the detail-level selector use the same controls in both hosts. A button in the
@@ -198,16 +199,16 @@ If the product allows it (`MODEL_SELECTABLE`, preset to on in `core`) and the us
 permissions allow free starts (`runs.create`), writing (`runs.write`), and technical views
 (`runs.inspect`), you choose the coordinator's model in the run's chat input, in the browser
 as in the VS Code run panel, through a keyboard-operable selection menu to the right of the
-input's switches. The thinking level sits compactly next to it as a second selection menu and offers only
-the levels of the selected model, including extended levels such as `max` where
-supported. `AGENT_MODEL_REASONING` is only needed to deliberately restrict these
+input's switches. The thinking level sits compactly next to it as joined segments for up to
+five choices, or a selection menu for more. It offers only the selected model's supported levels,
+including extended levels such as `max`. `AGENT_MODEL_REASONING` is only needed to deliberately restrict these
 model capabilities; invalid levels abort the configuration.
 
 If the profile works with aliases (`MODEL_ALIASES` in the `host` section, `AGENT_PROVIDER: "alias"`
 in the product plugin), the selection shows only the alias names, without provider and without the real
 model name, and the journal stores the same names. The thinking levels are those of the model behind
 the alias, unless the alias offers its own with `thinkingLevels`; then exactly this
-selection appears in the menu, and a chosen level goes out as the model level it points to.
+selection appears in the control, and a chosen level goes out as the model level it points to.
 If an alias brings its own thinking level (`thinking`), it is preselected when switching to this alias.
 Each alias also states from how many tokens on the history is compacted
 (`compaction`, rules in [profiles.md](spec/profiles.md)):
@@ -308,6 +309,8 @@ skill is taken over with the task; the edited task takes precedence over example
 As the machine, the workspace in the browser offers only the server, in the VS Code run panel also
 the connected workstations. An existing server folder is available only to administrators;
 other users choose a new server folder per run or an offered folder of their own workstation.
+Machine and folder choices use joined segments for up to five values and a selection menu
+for longer lists.
 
 ## Start run scripts
 
@@ -325,16 +328,26 @@ start option is in [typescript-platform.md](spec/typescript-platform.md) under
 "Reference cases from ragents.reference".
 
 <!-- guide:clients -->
-## Selection menus and tables
+## Selection controls and tables
+
+Short option groups form one square segmented control, with dividers between choices and a
+tinted fill on selected segments. A group chooses one value, or several independently when
+multiple selection is available. Tab enters the group; arrow keys move between enabled
+segments, Home and End move to the first and last, and Space or Enter selects or deselects.
+Settings theme and zoom, sharing access levels, and view and grouping choices use these controls.
+Single required choices keep the current value when its selected segment is pressed again;
+longer value lists use a selection menu.
 
 Selection menus open below their button, or above when there is less room, and stay at least
 as wide as it. Selectors with more than eight choices show a search field. Type part of a label
 to narrow the list; matching ignores case. Use the arrow keys to move through the results,
 Enter to choose, and Escape to close. "No matching options." means no choice matches the search.
 
-Toolbar filters show their name and the number of chosen values, or "All" when unrestricted.
-Open a filter to search and check several values. A dot can identify a value's color, and a
-count at the right shows its number of entries. "Clear" returns the filter to "All".
+Toolbar filters with up to five values show their choices as multiple-selection segments.
+Select several values together; "Clear" or deselecting them all removes the restriction.
+Longer lists show the filter name and the number of chosen values, or "All" when unrestricted. Open the
+dropdown to search and check several values; "Clear" returns it to "All". A dot can identify a
+value's color, and a count shows its number of entries in either form.
 
 In tables with resize handles, drag the right edge of a column header to change its width,
 or double-click the handle to fit the content. Columns retain their minimum width. The
@@ -360,6 +373,7 @@ on other controls. Status labels use muted green for completion, red for failure
 blue for information, and violet for ongoing work, in both light and dark appearance.
 Dropdown panels have square corners and stay fully reachable even in narrow input and dialog areas.
 Buttons, selectors, toggles, and text inputs of the same size align in a toolbar.
+Option groups share one square border, without gaps between segments; selected choices are tinted.
 
 Under "Appearance", "Schichtwerk" you choose Light, Dark, or System. The default is Dark;
 System follows the operating system's color scheme setting, also on later changes.
@@ -971,7 +985,7 @@ the same profile. Click "Share ..." at the end of its row on Start or Runs, or "
 header. A new empty run offers "Share" before its first message; the choice applies as soon as the
 run is created. The "Share run" dropdown opens below the header or the row's share action and
 uses the same panel and content in both places. It names the run and shows a list: "Everyone"
-first, then every other user of the profile, each row with the switch "Off", "Can view", or
+first, then every other user of the profile, each row with the segmented choice "Off", "Can view", or
 "Can operate". A user gets the higher of "Everyone" and their own row. "Save" stays disabled until
 something changes and while saving; when the server refuses, the reason appears in the panel,
 which keeps your changes. "Cancel", Escape, or clicking outside closes it without saving. The panel is the same

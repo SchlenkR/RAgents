@@ -1,6 +1,8 @@
 export const focusRing = "outline-none focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-offset-1 focus-visible:ring-offset-background";
 
-export const selectionStyle = "selected:border selected:border-selected-border selected:bg-selected selected:text-selected-foreground selected:not-focus-visible:[box-shadow:none] selected:hover:bg-selected-hover selected:hover:text-selected-foreground";
+export const selectionTint = "selected:bg-selected selected:text-selected-foreground selected:not-focus-visible:[box-shadow:none] selected:hover:bg-selected-hover selected:hover:text-selected-foreground";
+
+export const selectionStyle = `selected:border selected:border-selected-border ${selectionTint}`;
 
 export const iconOnlyStyle = "icon-only:border-0 icon-only:[box-shadow:none] icon-only:focus-visible:[box-shadow:none] icon-only:focus-visible:bg-hover icon-only:focus-visible:text-hover-foreground icon-only:selected:border-0 icon-only:selected:bg-selected-icon icon-only:selected:text-primary icon-only:selected:hover:bg-selected-icon-hover icon-only:selected:hover:text-primary icon-only:selected:focus-visible:bg-selected-icon-hover icon-only:selected:focus-visible:text-primary";
 

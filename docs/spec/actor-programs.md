@@ -584,10 +584,13 @@ the program.
 `showInput={false}` shows only the history in both forms. Title, input placeholder, timestamps, and
 detail display can be set through props. `UI.ChatMessages` and `UI.ChatInput` offer history and
 input separately. `UI.Markdown` renders its `text`; `UI.Select`, `UI.Button`, `UI.Toggle`,
-`UI.ToggleGroup`, `UI.Tabs`, `UI.Dialog`, and the other shadcn components are the same controls as
-in the main interface (see plugins); a mini-app builds no buttons or tabs of its own, and icons
+`UI.ToggleGroup`, `UI.ChoiceSelect`, `UI.FilterSelect`, `UI.Tabs`, `UI.Dialog`, and the other
+shadcn components are the same controls as in the main interface (see plugins); a mini-app
+builds no buttons or tabs of its own, and icons
 come from `lucide-react`. The binding props and message types are in the UI contracts in the code;
-for the shadcn components, they are the ones documented by shadcn and Base UI.
+for the shadcn components, they are the ones documented by shadcn and Base UI. `UI.ChoiceSelect`
+and `UI.FilterSelect` choose joined segments for one to five values and dropdowns for longer
+lists, with the shared host sizes, colors, and keyboard behavior.
 
 `UI.Chat` and `UI.ChatMessages` can use `owner` to name a sender whose messages appear without a
 bubble. The value is compared with `sender`; roles and bubbles of the other senders are preserved.

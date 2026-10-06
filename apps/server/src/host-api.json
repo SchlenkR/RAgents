@@ -846,6 +846,7 @@
       "Badge",
       "Button",
       "Card",
+      "ChoiceSelect",
       "Combobox",
       "ComboboxContent",
       "ComboboxGroup",

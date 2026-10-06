@@ -1,6 +1,6 @@
 import { useId, useMemo, useState } from "react";
 import { FolderIcon } from "lucide-react";
-import { Input, Label, Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@ragents/web/ui";
+import { ChoiceSelect, Input, Label, Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@ragents/web/ui";
 import { ToolbarCopy, ToolbarItem, ToolbarLabel, ToolbarText } from "@ragents/web/Toolbar";
 import type {
   SessionMetadataContext,
@@ -186,17 +186,11 @@ export function WorkspaceBindingControl({ disabled, error, machines: offeredMach
       <div className="flex w-full flex-wrap items-end gap-2">
         <div className="flex flex-col gap-1">
           <span className={labelClass}>Machine</span>
-          <Select disabled={disabled} items={machines} onValueChange={(next) => { if (next !== null) chooseMachine(next); }} value={machine}>
-            <SelectTrigger aria-label="Workspace machine" className="min-w-0 max-w-full" size="sm"><SelectValue /></SelectTrigger>
-            <SelectContent>{machines.map((choice) => <SelectItem key={choice.value} value={choice.value}>{choice.label}</SelectItem>)}</SelectContent>
-          </Select>
+          <ChoiceSelect label="Workspace machine" disabled={disabled} options={machines} onValueChange={chooseMachine} value={machine} size="sm" />
         </div>
         <div className="flex flex-col gap-1">
           <span className={labelClass}>Folder</span>
-          <Select disabled={disabled} items={folderChoices} onValueChange={(next) => { if (next !== null) chooseFolder(next as FolderChoice); }} value={folder}>
-            <SelectTrigger aria-label="Workspace folder" className="min-w-0 max-w-full" size="sm"><SelectValue /></SelectTrigger>
-            <SelectContent>{folderChoices.map((choice) => <SelectItem key={choice.value} value={choice.value}>{choice.label}</SelectItem>)}</SelectContent>
-          </Select>
+          <ChoiceSelect label="Workspace folder" disabled={disabled} options={folderChoices} onValueChange={(next) => chooseFolder(next as FolderChoice)} value={folder} size="sm" />
         </div>
         {folder === "existing" && (
           <div className="flex min-w-[15rem] flex-1 flex-col gap-1">

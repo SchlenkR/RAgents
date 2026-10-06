@@ -1,86 +1,56 @@
 import * as React from "react"
 import { Toggle as TogglePrimitive } from "@base-ui/react/toggle"
 import { ToggleGroup as ToggleGroupPrimitive } from "@base-ui/react/toggle-group"
-import { type VariantProps } from "class-variance-authority"
 import { cn } from "cn"
+import { controlSizes, type ControlSize } from "./control-size"
+import { focusRing, selectionTint } from "./interaction"
 
-import { toggleVariants } from "./toggle"
+const ToggleGroupContext = React.createContext<ControlSize>("default")
 
-const ToggleGroupContext = React.createContext<
-  VariantProps<typeof toggleVariants> & {
-    spacing?: number
-    orientation?: "horizontal" | "vertical"
-  }
->({
-  size: undefined,
-  variant: undefined,
-  spacing: 2,
-  orientation: "horizontal",
-})
+export const segmentedOptionLimit = 5
 
-function ToggleGroup({
+function ToggleGroup<Value extends string>({
   className,
-  variant,
-  size,
-  spacing = 2,
+  size = "default",
   orientation = "horizontal",
   children,
   ...props
-}: ToggleGroupPrimitive.Props &
-  VariantProps<typeof toggleVariants> & {
-    spacing?: number
-    orientation?: "horizontal" | "vertical"
-  }) {
+}: ToggleGroupPrimitive.Props<Value> & { size?: ControlSize }) {
   return (
     <ToggleGroupPrimitive
       data-slot="toggle-group"
-      data-variant={variant}
       data-size={size}
-      data-spacing={spacing}
-      data-orientation={orientation}
-      style={{ "--gap": spacing } as React.CSSProperties}
+      orientation={orientation}
       className={cn(
-        "group/toggle-group flex w-fit flex-row items-center gap-[--spacing(var(--gap))] rounded-lg data-[size=sm]:rounded-[min(var(--radius-md),10px)] data-vertical:flex-col data-vertical:items-stretch",
+        controlSizes[size],
+        "group/toggle-group isolate flex w-fit flex-row items-stretch gap-0 rounded-none border border-input bg-transparent data-vertical:h-auto data-vertical:flex-col",
         className
       )}
       {...props}
     >
-      <ToggleGroupContext.Provider
-        value={{ variant, size, spacing, orientation }}
-      >
+      <ToggleGroupContext.Provider value={size}>
         {children}
       </ToggleGroupContext.Provider>
     </ToggleGroupPrimitive>
   )
 }
 
-function ToggleGroupItem({
-  className,
-  children,
-  variant = "default",
-  size = "default",
-  ...props
-}: TogglePrimitive.Props & VariantProps<typeof toggleVariants>) {
-  const context = React.useContext(ToggleGroupContext)
-
+function ToggleGroupItem({ className, ...props }: TogglePrimitive.Props) {
+  const size = React.useContext(ToggleGroupContext)
   return (
     <TogglePrimitive
       data-slot="toggle-group-item"
-      data-variant={context.variant || variant}
-      data-size={context.size || size}
-      data-spacing={context.spacing}
+      data-size={size}
       className={cn(
-        "shrink-0 group-data-[spacing=0]/toggle-group:rounded-none group-data-[spacing=0]/toggle-group:px-2 focus:z-10 focus-visible:z-10 group-data-[spacing=0]/toggle-group:has-data-[icon=inline-end]:pr-1.5 group-data-[spacing=0]/toggle-group:has-data-[icon=inline-start]:pl-1.5 group-data-horizontal/toggle-group:data-[spacing=0]:first:rounded-l-lg group-data-vertical/toggle-group:data-[spacing=0]:first:rounded-t-lg group-data-horizontal/toggle-group:data-[spacing=0]:last:rounded-r-lg group-data-vertical/toggle-group:data-[spacing=0]:last:rounded-b-lg",
-        toggleVariants({
-          variant: context.variant || variant,
-          size: context.size || size,
-        }),
+        focusRing,
+        selectionTint,
+        "inline-flex h-full min-w-0 flex-auto items-center justify-center gap-1 rounded-none border-0 bg-transparent px-2.5 font-medium whitespace-nowrap transition-colors not-first:border-l not-first:border-input hover:bg-hover hover:text-hover-foreground focus-visible:z-10 disabled:pointer-events-none disabled:opacity-50 group-data-vertical/toggle-group:h-(--control-height) group-data-vertical/toggle-group:flex-none group-data-vertical/toggle-group:not-first:border-t group-data-vertical/toggle-group:not-first:border-l-0 [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0",
+        size === "xs" && "px-2 [&_svg]:size-3",
+        size === "sm" && "[&_svg]:size-3.5",
         className
       )}
       {...props}
-    >
-      {children}
-    </TogglePrimitive>
+    />
   )
 }
 

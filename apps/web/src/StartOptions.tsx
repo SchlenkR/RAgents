@@ -5,7 +5,7 @@ import {
   choicePresentationFrom,
   type StartOptionState,
 } from "../../server/src/plugin-support/start-options-contract";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./ui";
+import { ChoiceSelect } from "./ui";
 import type { PluginRegistry, SessionContext, StartOptionControlContext } from "./PluginRegistry";
 import { modelDefaultsChangedEvent } from "./model-settings-events";
 import { useOfferedMachines, type OfferedMachines } from "./offered-machines";
@@ -218,12 +218,7 @@ const ChoiceControl = ({ disabled, error, option, setValue }: StartOptionControl
   if ("message" in parsed) return <p className="text-[0.75rem] text-destructive" role="alert">{parsed.message}</p>;
   return (
     <div className="flex flex-col items-start gap-2">
-      <Select disabled={disabled} items={parsed.presentation.options} value={parsed.value} onValueChange={(value) => { if (value !== null) void setValue(value); }}>
-        <SelectTrigger aria-label={parsed.presentation.label} size="sm"><SelectValue /></SelectTrigger>
-        <SelectContent>
-          {parsed.presentation.options.map((option) => <SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>)}
-        </SelectContent>
-      </Select>
+      <ChoiceSelect label={parsed.presentation.label} disabled={disabled} size="sm" options={parsed.presentation.options} value={parsed.value} onValueChange={(value) => { void setValue(value); }} />
       {error && <p className="text-[0.75rem] text-destructive" role="alert">{error}</p>}
     </div>
   );

@@ -30,8 +30,8 @@ export function ThemeSettings() {
           <h3 className="mb-1.5 text-lg font-semibold" id="theme-settings-title">Schichtwerk</h3>
           <p className={noteClasses}>Matte surfaces and drawn outlines.</p>
         </div>
-        <ToggleGroup aria-label="Schichtwerk color scheme" className="flex-none max-sm:w-full" disabled={!writable} size="sm" spacing={0}
-          value={[preference]} variant="outline"
+        <ToggleGroup aria-label="Schichtwerk color scheme" className="flex-none max-sm:w-full" disabled={!writable} size="sm"
+          value={[preference]}
           onValueChange={([value]) => { if (value && writable) store.setPreference(parseThemePreference(value)); }}>
           {themeOptions.map((option) => <ToggleGroupItem key={option.value} value={option.value}>{option.label}</ToggleGroupItem>)}
         </ToggleGroup>
@@ -58,7 +58,7 @@ function ZoomSettings() {
         <h3 className="mb-1.5 text-lg font-semibold" id="zoom-settings-title">Zoom</h3>
         <p className={noteClasses}>Scales text, controls, and spacing of the whole interface including mini-apps. Saved in this browser.</p>
       </div>
-      <ToggleGroup aria-label="Zoom" className="flex-none max-sm:w-full" size="sm" spacing={0} value={[String(zoom)]} variant="outline"
+      <ToggleGroup aria-label="Zoom" className="flex-none max-sm:w-full" size="sm" value={[String(zoom)]}
         onValueChange={([value]) => { if (value) store.setZoom(parseZoom(value)); }}>
         {zoomSteps.map((step) => <ToggleGroupItem key={step} value={String(step)}>{step}%</ToggleGroupItem>)}
       </ToggleGroup>

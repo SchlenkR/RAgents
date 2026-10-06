@@ -46,7 +46,7 @@ function Fixture() {
           <ToggleGroupItem value="share">Share option</ToggleGroupItem>
           <ToggleGroupItem value="disabled" disabled>Disabled option</ToggleGroupItem>
         </ToggleGroup>
-        <ToggleGroup spacing={0} variant="outline" defaultValue={["list"]} aria-label="View mode">
+        <ToggleGroup defaultValue={["list"]} aria-label="View mode">
           <ToggleGroupItem value="list">List mode</ToggleGroupItem>
           <ToggleGroupItem value="grid">Grid mode</ToggleGroupItem>
         </ToggleGroup>

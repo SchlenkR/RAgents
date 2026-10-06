@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { useAccess } from "../AccessContext";
-import { Alert, AlertAction, AlertDescription, Button, Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../ui";
+import { Alert, AlertAction, AlertDescription, Button, ChoiceSelect, Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../ui";
 import { thinkingLabel } from "../lib/labels";
 import type { ProductModelDraft, ProductModelSettings as Settings } from "@ragents/host/plugin-support/product-model-settings-contract";
 import { modelDraftOf, requestProductModelSettings } from "./model-settings";
@@ -95,7 +95,7 @@ export function ProductModelSettings({ pluginId }: { pluginId: string }) {
         return <fieldset className="min-w-0 border-t border-border-soft pt-4 first:border-t-0 first:pt-0" key={profile.name} disabled={!writable || pending}>
           <legend className="float-left w-full text-[0.9rem] font-semibold">{label.title}</legend>
           <p className="clear-both mt-0.5 mb-3 text-[0.8rem] text-muted-foreground">{label.description}</p>
-          <div className="grid grid-cols-[minmax(0,1fr)_minmax(125px,180px)] gap-3 max-sm:grid-cols-[minmax(0,1fr)]">
+          <div className="grid grid-cols-[minmax(0,1fr)_auto] gap-3 max-sm:grid-cols-[minmax(0,1fr)]">
             <Select disabled={!writable || pending} items={modelOptions} value={value.model}
               onValueChange={(model) => {
                 if (model === null) return;
@@ -107,14 +107,11 @@ export function ProductModelSettings({ pluginId }: { pluginId: string }) {
               <SelectTrigger aria-label="Model" className={triggerClass}><SelectValue /></SelectTrigger>
               <SelectContent>{modelOptions.map((option) => <SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>)}</SelectContent>
             </Select>
-            <Select disabled={!writable || pending || metadata.thinking.length < 2} items={thinkingOptions} value={value.thinking}
+            <ChoiceSelect label="Reasoning" disabled={!writable || pending || metadata.thinking.length < 2} options={thinkingOptions} value={value.thinking}
               onValueChange={(thinking) => {
                 const level = metadata.thinking.find((entry) => entry === thinking);
                 if (level) change(profile.name, value.model, level);
-              }}>
-              <SelectTrigger aria-label="Reasoning" className={triggerClass}><SelectValue /></SelectTrigger>
-              <SelectContent>{thinkingOptions.map((option) => <SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>)}</SelectContent>
-            </Select>
+              }} />
           </div>
         </fieldset>;
       })}

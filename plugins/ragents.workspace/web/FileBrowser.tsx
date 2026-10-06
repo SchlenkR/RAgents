@@ -7,6 +7,8 @@ import {
   EmptyMedia,
   EmptyTitle,
   Toggle,
+  ToggleGroup,
+  ToggleGroupItem,
 } from "@ragents/web/ui";
 import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import { ChevronRight, Eye, EyeOff, FolderOpen, RefreshCw } from "lucide-react";
@@ -220,13 +222,13 @@ export function FileBrowserPanel({ active, session }: WorkspaceTabContext) {
   return (
     <div className="flex h-full min-h-0 flex-col">
       <header className="flex items-center gap-2 px-2.5 py-2">
-        <div className="flex min-w-0 flex-1 gap-1">
+        <ToggleGroup aria-label="File root" className="mr-auto" size="sm" value={[root]} onValueChange={([value]) => { if (value) setRoot(value); }}>
           {roots.map((value) => (
-            <Toggle key={value} onPressedChange={() => setRoot(value)} pressed={value === root} size="sm" variant="outline">
+            <ToggleGroupItem key={value} value={value}>
               {rootLabels[value]}
-            </Toggle>
+            </ToggleGroupItem>
           ))}
-        </div>
+        </ToggleGroup>
         <div className="flex items-center gap-1">
           <Toggle
             aria-label={showHidden ? "Hide hidden entries" : "Show hidden entries"}

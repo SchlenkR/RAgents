@@ -97,7 +97,7 @@ function AccessRow({ label, title, access, strong, disabled, onChange }: {
 }) {
   return <li className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1.5 border-b border-border-soft px-3 py-2 last:border-b-0">
     <span className={`min-w-0 flex-[1_1_8rem] truncate ${strong ? "type-item" : "type-body"}`} title={title ?? label}>{label}</span>
-    <ToggleGroup aria-label={`Access for ${label}`} disabled={disabled} size="sm" spacing={0} value={[access ?? OFF]} variant="outline"
+    <ToggleGroup aria-label={`Access for ${label}`} disabled={disabled} size="sm" value={[access ?? OFF]}
       onValueChange={([value]) => { if (value) onChange(accessOf(value)); }}>
       {ACCESS_CHOICES.map((choice) => <ToggleGroupItem key={choice.value} value={choice.value}>{choice.label}</ToggleGroupItem>)}
     </ToggleGroup>

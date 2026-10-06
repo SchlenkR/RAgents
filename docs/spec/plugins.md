@@ -1805,7 +1805,8 @@ Controls are not a registry slot: the host provides them as a UI library under
 `apps/web/src/ui/`, and plugins use them directly instead of building their own. The library
 is the shadcn/ui components on Base UI (`components.json` in `apps/web`, style `base-nova`),
 copied into the source tree by CLI and styled with Tailwind: `Button`, `Badge`, `Toggle`,
-`ToggleGroup`, `Tabs`, `Select`, `Combobox`, `FilterSelect`, `Dialog`, `Popover`, `Tooltip`, `DropdownMenu`, `Input`,
+`ToggleGroup`, `Tabs`, `Select`, `ChoiceSelect`, `Combobox`, `FilterSelect`, `Dialog`, `Popover`,
+`Tooltip`, `DropdownMenu`, `Input`,
 `Textarea`, `Checkbox`, `Switch`, `RadioGroup`, `Field`, `Label`, `Table`, `Card`, `Alert`,
 `Progress`, `Separator`, `Skeleton`, `Spinner`, `Empty` with their parts (`SelectTrigger`,
 `DialogContent`, `TabsList`, and so on), plus `cn` and icons from `lucide-react`. Props, variants, and
@@ -1826,10 +1827,11 @@ The choice follows the role, not taste:
   library button (see below).
 - `size="sm"` in rows, cards, and toolbars, `size="lg"` for highlighted
   header actions, otherwise the default height.
-- `Toggle` for an on/off state and filter chips; `ToggleGroup` for exactly one of
-  few options (`spacing={0}` as a connected segment bar) or a
-  multiple selection; `Select` for one or several (`multiple`) of many, with `items` for the
-  labels; `FilterSelect` for a multi-value toolbar filter; `Tabs` for navigating between the views of a surface; a count
+- `Toggle` for an on/off state; `ToggleGroup` for a short option set, with
+  `multiple` for several selected values; `ChoiceSelect` for one required choice with
+  automatic presentation by list length; `Select` for one or several (`multiple`) of many,
+  with `items` for the labels; `FilterSelect` for a multi-value toolbar filter; `Tabs` for
+  navigating between the views of a surface; a count
   per tab is a `Badge` (`destructive` for items that need the user, otherwise
   `secondary`). A value is not a tab: `ToggleGroup` chooses an option, `Tabs` switches
   the view.
@@ -1853,6 +1855,24 @@ same outer height and vertically centered text at the same step. `Textarea` uses
 as its single-line minimum and grows for additional lines. Size is a component prop; a
 toolbar chooses one step instead of overriding individual heights.
 
+`ToggleGroup` is the shared segmented control for single and multiple selection. Its items
+join without gaps or rounding inside one square border, with a single divider between
+neighbors. Selected segments use the shared selection tint; adjacent selected segments
+keep their divider. The group owns this treatment, so callers set its size and selection
+instead of individual spacing, borders, or variants. Settings theme and zoom, sharing access,
+view and grouping choices, and other short option groups use it. Each group has an accessible
+name. Tab enters the group once; arrow keys move along its orientation, Home and End move to
+the first and last enabled segment, and Space or Enter changes the focused segment's
+selection. Disabled segments remain unavailable. `value` and `onValueChange` use arrays in
+both modes; `multiple` permits independent selections.
+
+`ChoiceSelect` takes `label`, `options`, controlled `value`, and `onValueChange`, with the shared
+`size`, `disabled`, and `className` props. Its options provide `value`, `label`, and optional
+`disabled`. One to five options use `ToggleGroup`; longer lists use `Select`. The current choice
+cannot be deselected. Start options, contribution kinds, machine, file and folder choices, and reasoning
+levels use this component instead of choosing their presentation per view. Plugins and mini-apps
+receive the same control through `@ragents/web/ui` and `UI.ChoiceSelect`.
+
 `SelectContent` opens outside its trigger, below by default and above when space requires it,
 with at least the trigger's width. It never aligns an option over the trigger. Select,
 dropdown menu, context menu, and popover panels share the square corners of `HeaderDropdown`.
@@ -1864,7 +1884,10 @@ search behavior for Select and FilterSelect rather than separate implementations
 
 `FilterSelect` takes `label`, `options`, controlled `value`, and `onValueChange`, plus the same
 `size` steps. Each option has `value` and `label`, optional `color`, `count`, and `disabled`.
-The trigger shows the filter name and chosen count, or "All" for no restriction. Its popup
+One to five options render as the same multiple-selection `ToggleGroup`, with color dots and
+counts on the segments and a separate "Clear" action. An empty value array means no restriction;
+"Clear" or toggling selected segments off removes the restriction. Longer lists use a dropdown
+whose trigger shows the filter name and chosen count, or "All" for no restriction. Its popup
 uses the same search field by default (`searchable={false}` disables it) and panel treatment,
 with checkbox options, optional color dots and counts, and "Clear" to remove the restriction. Several filters belong together in a
 toolbar; long checkbox facet lists do not need their own sidebar.

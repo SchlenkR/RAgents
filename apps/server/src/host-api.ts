@@ -163,7 +163,7 @@ export const hostApi: { readonly server: HostApiModules; readonly web: HostApiMo
     "@ragents/web/theme": ["useResolvedTheme"],
     "@ragents/web/toolLine": ["withToolSummaries"],
     "@ragents/web/ui": [
-      "Alert", "AlertDescription", "AlertTitle", "Badge", "Button", "Card", "Combobox", "ComboboxContent",
+      "Alert", "AlertDescription", "AlertTitle", "Badge", "Button", "Card", "ChoiceSelect", "Combobox", "ComboboxContent",
       "ComboboxGroup", "ComboboxItem", "ComboboxLabel", "ComboboxSeparator", "ComboboxTrigger", "ComboboxValue", "Dialog", "DialogBody", "DialogContent",
       "DialogDescription", "DialogFooter", "DialogHeader", "DialogTitle", "Empty", "EmptyContent", "EmptyDescription",
       "EmptyHeader", "EmptyMedia", "EmptyTitle", "Field", "FieldDescription", "FieldTitle", "FilterSelect", "HeaderDropdown", "ImagePreview", "ImagePreviewGroup", "ImageViewer", "Input", "InteractiveItem", "Label",

@@ -63,6 +63,7 @@ const contracts: Contract[] = [
   { id: "startSection", file: "apps/web/src/PluginRegistry.tsx", name: "StartSectionContribution" },
   { id: "startSectionContext", file: "apps/web/src/PluginRegistry.tsx", name: "StartSectionContext" },
   { id: "surfaceElement", file: "apps/web/src/PluginRegistry.tsx", name: "SurfaceElementDefinition" },
+  { id: "choiceSelect", file: "apps/web/src/ui/choice-select.tsx", name: "ChoiceSelectProps" },
   { id: "filterSelect", file: "apps/web/src/ui/filter-select.tsx", name: "FilterSelectProps" },
   { id: "filterOption", file: "apps/web/src/ui/filter-select.tsx", name: "FilterSelectOption" },
   { id: "tableColumn", file: "apps/web/src/ui/table-widths.ts", name: "TableColumnDefinition" },
@@ -486,27 +487,59 @@ export const webPlugin = {
     "activate must not change the plugin ID. Deactivation removes all contributions of this web half from the active registry.",
     "The plugin folder is built as its own chunk. Foreign web bundles are not installed later at runtime.",
   ], "tsx"),
-  entry("web-ui-controls", "Web contributions", "Searchable selections and toolbar filters", "Plugins use the host's controls so buttons, selectors, text inputs, and filter triggers align at the same size. A Select chooses one value; FilterSelect combines several values in one searchable toolbar menu.", "A React component in a plugin's web half.", `
+  entry("web-ui-controls", "Web contributions", "Segmented choices and searchable filters", "Plugins use the host's controls so buttons, selectors, text inputs, and filter triggers align at the same size. ToggleGroup joins single or multiple choices; ChoiceSelect and FilterSelect choose segments for short lists and dropdowns for longer lists.", "A React component in a plugin's web half.", `
 import { useState } from "react";
 import {
-  Button, FilterSelect, Input, Select, SelectContent,
-  SelectItem, SelectTrigger, SelectValue,
+  Button, ChoiceSelect, FilterSelect, Input, Select, SelectContent,
+  SelectItem, SelectTrigger, SelectValue, ToggleGroup, ToggleGroupItem,
 } from "@ragents/web/ui";
 
 const statuses = [
-  { value: "open", label: "Open", color: "#4f46e5", count: 12 },
-  { value: "done", label: "Done", color: "#15803d", count: 7 },
+  { value: "open", label: "Open", count: 12 },
+  { value: "done", label: "Done", count: 7 },
+];
+const groupings = [
+  { value: "story", label: "By story" },
+  { value: "none", label: "No grouping" },
+];
+const categories = [
+  { value: "planning", label: "Planning" },
+  { value: "design", label: "Design" },
+  { value: "implementation", label: "Implementation" },
+  { value: "testing", label: "Testing" },
+  { value: "documentation", label: "Documentation" },
+  { value: "release", label: "Release" },
 ];
 const orders = [
   { value: "priority", label: "Priority, then date" },
   { value: "date", label: "Date" },
+  { value: "title", label: "Title" },
+  { value: "owner", label: "Owner" },
+  { value: "status", label: "Status" },
+  { value: "category", label: "Category" },
+  { value: "due", label: "Due date" },
+  { value: "updated", label: "Updated" },
+  { value: "created", label: "Created" },
 ];
 
 export function ExampleToolbar() {
+  const [view, setView] = useState<string[]>(["list"]);
+  const [grouping, setGrouping] = useState("story");
   const [order, setOrder] = useState<string | null>("priority");
   const [status, setStatus] = useState<string[]>([]);
+  const [category, setCategory] = useState<string[]>([]);
   return <div className="flex flex-wrap items-center gap-2">
     <Button size="sm" variant="outline">Add entry</Button>
+    <ToggleGroup size="sm" aria-label="View" value={view} onValueChange={setView}>
+      <ToggleGroupItem value="list">List</ToggleGroupItem>
+      <ToggleGroupItem value="lanes">Lanes</ToggleGroupItem>
+    </ToggleGroup>
+    <ChoiceSelect size="sm" label="Grouping" options={groupings} value={grouping} onValueChange={setGrouping} />
+    <ToggleGroup multiple size="sm" aria-label="Status" value={status} onValueChange={setStatus}>
+      {statuses.map((item) => <ToggleGroupItem key={item.value} value={item.value}>
+        {item.label} <span className="tabular-nums">{item.count}</span>
+      </ToggleGroupItem>)}
+    </ToggleGroup>
     <Select items={orders} value={order} onValueChange={setOrder} searchable>
       <SelectTrigger size="sm" aria-label="Order"><SelectValue /></SelectTrigger>
       <SelectContent>
@@ -514,12 +547,14 @@ export function ExampleToolbar() {
       </SelectContent>
     </Select>
     <Input size="sm" aria-label="Assigned person" placeholder="Assigned person ..." />
-    <FilterSelect size="sm" label="Status" options={statuses} value={status} onValueChange={setStatus} />
+    <FilterSelect size="sm" label="Category" options={categories} value={category} onValueChange={setCategory} />
   </div>;
-}`, ["filterSelect.label", "filterSelect.options", "filterSelect.value", "filterSelect.onValueChange", "filterSelect.size", "filterSelect.searchable", "filterSelect.disabled", "filterSelect.className", "filterOption.value", "filterOption.label", "filterOption.color", "filterOption.count", "filterOption.disabled"], [
+}`, ["choiceSelect.label", "choiceSelect.options", "choiceSelect.value", "choiceSelect.onValueChange", "choiceSelect.size", "choiceSelect.disabled", "choiceSelect.className", "filterSelect.label", "filterSelect.options", "filterSelect.value", "filterSelect.onValueChange", "filterSelect.size", "filterSelect.searchable", "filterSelect.disabled", "filterSelect.className", "filterOption.value", "filterOption.label", "filterOption.color", "filterOption.count", "filterOption.disabled"], [
     "Every interactive control shares the xs, sm, default, and lg height steps. Choose one size for a toolbar; Textarea uses it as its single-line minimum.",
+    "ToggleGroup is one square segmented control with no gaps, a shared border and dividers, and the selection tint on pressed segments. Set multiple for independent choices; both modes use arrays. Name the group with aria-label. Arrows, Home, and End move focus; Space or Enter changes selection. Disabled segments stay unavailable.",
+    "ChoiceSelect chooses one required value, using ToggleGroup for one to five options and Select for longer lists. It keeps the selected value when that segment is pressed again. Options provide value, label, and optional disabled; callers provide label, options, value, and onValueChange.",
     "Select automatically shows search above eight options; searchable overrides the threshold. Search matches labels without case sensitivity, arrows move through matches, Enter selects, and Escape closes. The empty-state line reads No matching options.",
-    "FilterSelect searches by default, shows the label and chosen count or All, and provides checkbox options and Clear. Color, count, and disabled are optional per option; an empty value array means unrestricted.",
+    "FilterSelect uses the same multiple-selection segments for one to five options, with Clear beside the group. Longer lists search by default, show the label and chosen count or All, and provide checkbox options and Clear. Color, count, and disabled are optional per option; an empty value array means unrestricted.",
     "Select, filters, dropdown menus, context menus, and popovers share square panel corners. Select opens outside the trigger and stays at least as wide as it.",
   ], "tsx"),
   entry("web-ui-tables", "Web contributions", "Resizable table columns", "A plugin can opt into browser-persisted column widths without implementing drag handling or storage. Cells truncate long values and expose their full text on hover.", "A React component in a plugin's web half; table IDs stay stable across renders.", `

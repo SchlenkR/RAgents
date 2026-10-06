@@ -1,5 +1,5 @@
 import { useMemo } from "react";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../ui";
+import { ChoiceSelect, Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../ui";
 import { thinkingLabel } from "../lib/labels";
 import type { StartOptionControlContext } from "../PluginRegistry";
 
@@ -64,18 +64,15 @@ export function ModelControl({ disabled, error, option, setValue }: StartOptionC
   const modelOptions = presentation.options.map((model) => ({ value: model, label: modelLabel(presentation.provider, model) }));
   const thinkingOptions = presentation.thinkingOptions.map((level) => ({ value: level, label: thinkingLabel(level) }));
   return (
-    <div className="grid flex-1 min-w-0 grid-cols-[minmax(0,1fr)_auto] items-center gap-1.5">
+    <div className="flex min-w-0 flex-1 flex-wrap items-center gap-1.5">
       <Select disabled={disabled} items={modelOptions} value={value.model} onValueChange={(model) => { if (model !== null) chooseModel(model); }}>
-        <SelectTrigger aria-label="Model" className="min-w-0 max-w-full" size="sm"><SelectValue /></SelectTrigger>
+        <SelectTrigger aria-label="Model" className="min-w-0 max-w-full flex-1" size="sm"><SelectValue /></SelectTrigger>
         <SelectContent>{modelOptions.map((option) => <SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>)}</SelectContent>
       </Select>
       {presentation.thinkingOptions.length > 0 && (
-        <Select disabled={disabled} items={thinkingOptions} value={value.thinking ?? ""} onValueChange={(thinking) => { if (thinking !== null) chooseThinking(thinking); }}>
-          <SelectTrigger aria-label="Reasoning" className="min-w-0 max-w-full" size="sm"><SelectValue /></SelectTrigger>
-          <SelectContent>{thinkingOptions.map((option) => <SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>)}</SelectContent>
-        </Select>
+        <ChoiceSelect label="Reasoning" disabled={disabled} options={thinkingOptions} value={value.thinking ?? ""} onValueChange={chooseThinking} size="sm" />
       )}
-      {error && <p className={`${errorClass} col-span-full`} role="alert">{error}</p>}
+      {error && <p className={`${errorClass} w-full`} role="alert">{error}</p>}
     </div>
   );
 }

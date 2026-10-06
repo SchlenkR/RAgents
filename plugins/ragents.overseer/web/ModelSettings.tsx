@@ -1,5 +1,5 @@
 import { useAccess } from "@ragents/web/AccessContext";
-import { Button, Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@ragents/web/ui";
+import { Button, ChoiceSelect, Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@ragents/web/ui";
 import { useEffect, useSyncExternalStore, type ReactNode } from "react";
 import { thinkingLabel } from "@ragents/web/lib/labels";
 import { modelSettingsStore } from "./model-settings";
@@ -30,7 +30,7 @@ export function ModelSettings({ active = true, compact = false, disabled = false
   if (!readable) return null;
   return (
     <section aria-label="Model of the global coordinator" className={compact ? "min-w-0 flex-1" : "min-w-0"}>
-      <div className={compact ? "flex flex-nowrap items-center gap-2 max-md:gap-1" : "flex flex-wrap items-center gap-2.5"}>
+      <div className={compact ? "flex flex-wrap items-center gap-2 max-md:gap-1" : "flex flex-wrap items-center gap-2.5"}>
         {settings && model ? <>
           <Select
             disabled={!writable || disabled || state.status === "saving"}
@@ -47,15 +47,14 @@ export function ModelSettings({ active = true, compact = false, disabled = false
             <SelectTrigger aria-label="Model" className={`${triggerClass} ${compact ? "flex-1" : "flex-[0_1_auto]"}`} size={compact ? "sm" : "default"}><SelectValue /></SelectTrigger>
             <SelectContent>{modelOptions.map((option) => <SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>)}</SelectContent>
           </Select>
-          <Select
+          <ChoiceSelect
+            label={compact ? "Reasoning" : "Reasoning level"}
+            size={compact ? "sm" : "default"}
             disabled={!writable || disabled || state.status === "saving" || model.thinking.length < 2}
-            items={thinkingOptions}
+            options={thinkingOptions}
             value={settings.thinking}
             onValueChange={(thinking) => { if (thinking !== null) save({ provider: settings.provider, model: settings.model, thinking }); }}
-          >
-            <SelectTrigger aria-label={compact ? "Reasoning" : "Reasoning level"} className={`${triggerClass} flex-none`} size={compact ? "sm" : "default"}><SelectValue /></SelectTrigger>
-            <SelectContent>{thinkingOptions.map((option) => <SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>)}</SelectContent>
-          </Select>
+          />
         </> : state.status === "loading" ? <p className={`${noteClass} min-w-0 flex-[0_1_auto]`} role="status">Loading models ...</p>
         : !state.error && <p className={`${errorClass} min-w-0 flex-[0_1_auto]`} role="alert">The stored model is missing from the model catalog.</p>}
         {actions && <div className="ml-auto flex-none">{actions}</div>}

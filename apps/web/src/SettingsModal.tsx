@@ -1,7 +1,7 @@
 import { useAccess } from "./AccessContext";
 import { ArrowLeftIcon, CheckIcon, ChevronRightIcon, CircleAlertIcon, CopyIcon, InfoIcon, SettingsIcon, XIcon } from "lucide-react";
 import { cn } from "cn";
-import { Badge, Button, InteractiveItem, Card, Dialog, DialogContent, DialogTitle, Input, Spinner, Toggle, ToggleGroup, ToggleGroupItem } from "./ui";
+import { Badge, Button, InteractiveItem, Card, ChoiceSelect, Dialog, DialogContent, DialogTitle, Input, Spinner, ToggleGroup, ToggleGroupItem } from "./ui";
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { Markdown } from "quassel";
 import { SourceCode } from "./SourceCode";
@@ -207,7 +207,7 @@ export function SettingsModal({ onClose, registry }: SettingsModalProps) {
         >{area.label}</InteractiveItem>)}
       </nav>
       {catalogVisible && <div className="flex flex-none gap-1 border-b border-border-soft px-3.5 py-2.5">
-        <ToggleGroup aria-label="Group plugins" size="sm" spacing={0} value={[axis]} variant="outline"
+        <ToggleGroup aria-label="Group plugins" size="sm" value={[axis]}
           onValueChange={([value]) => { if (value) changeAxis(value === "capability" ? "capability" : "plugin"); }}>
           <ToggleGroupItem value="plugin">By plugin</ToggleGroupItem>
           <ToggleGroupItem value="capability">By capability</ToggleGroupItem>
@@ -324,13 +324,7 @@ function ContributionFilterBar({ filter, onFilter, onQuery, query, showKinds }: 
 }) {
   return (
     <div className="sticky top-0 z-[2] grid gap-2.5 border-b border-border-soft bg-background/92 px-[clamp(20px,4vw,46px)] py-3 backdrop-blur-[6px] max-md:px-3.5">
-      {showKinds && <div aria-label="Contribution kinds" className="flex flex-wrap gap-1.5" role="group">
-        {contributionFilters.map((option) => (
-          <Toggle key={option.id} pressed={filter === option.id} onPressedChange={() => onFilter(option.id)} size="sm" variant="outline">
-            {option.label}
-          </Toggle>
-        ))}
-      </div>}
+      {showKinds && <ChoiceSelect label="Contribution kinds" size="sm" value={filter} onValueChange={onFilter} options={contributionFilters.map((option) => ({ value: option.id, label: option.label }))} />}
       <label className="grid gap-1.5">
         <span className="text-[0.67rem] font-medium text-muted-foreground">Search contributions</span>
         <Input
@@ -695,13 +689,7 @@ function SkillDetail({ onBack, skill }: { onBack: () => void; skill: SettingsSki
         <SettingsEmpty>The skill path contains no files.</SettingsEmpty>
       )}
       {files.length > 1 && (
-        <div className="flex flex-wrap gap-1.5">
-          {files.map((file) => (
-            <Toggle key={skillFileKey(file)} pressed={file === active} onPressedChange={() => setActiveFile(skillFileKey(file))} size="sm" variant="outline">
-              {file.path}
-            </Toggle>
-          ))}
-        </div>
+        <ChoiceSelect label="Skill file" size="sm" value={active ? skillFileKey(active) : ""} onValueChange={setActiveFile} options={files.map((file) => ({ value: skillFileKey(file), label: file.path }))} />
       )}
       {active && <SkillDocument file={active} />}
     </div>

@@ -14,16 +14,26 @@ server instructions and connection failures in their prompt. Configure servers i
 as described in [Connect MCP servers](guide-getting-started.html#connect-mcp-servers).
 Stopping or deleting the run closes its MCP connections.
 
-## Selection menus and tables
+## Selection controls and tables
+
+Short option groups form one square segmented control, with dividers between choices and a
+tinted fill on selected segments. A group chooses one value, or several independently when
+multiple selection is available. Tab enters the group; arrow keys move between enabled
+segments, Home and End move to the first and last, and Space or Enter selects or deselects.
+Settings theme and zoom, sharing access levels, and view and grouping choices use these controls.
+Single required choices keep the current value when its selected segment is pressed again;
+longer value lists use a selection menu.
 
 Selection menus open below their button, or above when there is less room, and stay at least
 as wide as it. Selectors with more than eight choices show a search field. Type part of a label
 to narrow the list; matching ignores case. Use the arrow keys to move through the results,
 Enter to choose, and Escape to close. "No matching options." means no choice matches the search.
 
-Toolbar filters show their name and the number of chosen values, or "All" when unrestricted.
-Open a filter to search and check several values. A dot can identify a value's color, and a
-count at the right shows its number of entries. "Clear" returns the filter to "All".
+Toolbar filters with up to five values show their choices as multiple-selection segments.
+Select several values together; "Clear" or deselecting them all removes the restriction.
+Longer lists show the filter name and the number of chosen values, or "All" when unrestricted. Open the
+dropdown to search and check several values; "Clear" returns it to "All". A dot can identify a
+value's color, and a count shows its number of entries in either form.
 
 In tables with resize handles, drag the right edge of a column header to change its width,
 or double-click the handle to fit the content. Columns retain their minimum width. The
@@ -423,7 +433,7 @@ the same profile. Click "Share ..." at the end of its row on Start or Runs, or "
 header. A new empty run offers "Share" before its first message; the choice applies as soon as the
 run is created. The "Share run" dropdown opens below the header or the row's share action and
 uses the same panel and content in both places. It names the run and shows a list: "Everyone"
-first, then every other user of the profile, each row with the switch "Off", "Can view", or
+first, then every other user of the profile, each row with the segmented choice "Off", "Can view", or
 "Can operate". A user gets the higher of "Everyone" and their own row. "Save" stays disabled until
 something changes and while saving; when the server refuses, the reason appears in the panel,
 which keeps your changes. "Cancel", Escape, or clicking outside closes it without saving. The panel is the same

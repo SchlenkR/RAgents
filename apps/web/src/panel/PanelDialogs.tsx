@@ -1,6 +1,6 @@
 import { FolderOpenIcon } from "lucide-react";
 import { useEffect, useState, type FormEvent, type ReactNode } from "react";
-import { Button, InteractiveItem, Dialog, DialogContent, DialogHeader, DialogTitle, Input, Label, Toggle } from "../ui";
+import { Button, InteractiveItem, Dialog, DialogContent, DialogHeader, DialogTitle, Input, Label, ToggleGroup, ToggleGroupItem } from "../ui";
 import { busyState } from "./connection-state";
 import type { ConnectionKind, ConnectionView, PanelAction, PanelState } from "./contract";
 import { LoginForm } from "./LoginForm";
@@ -45,10 +45,10 @@ export function LoginDialog({ connection, onClose, send }: { connection: Connect
   const [mode, setMode] = useState<"password" | "token">(demanded);
   useEffect(() => { if (connection.state.kind === "connected") onClose(); }, [onClose, connection.state.kind]);
   return <PanelDialog onClose={onClose} title={`Sign in to ${connection.name}`}>
-    <div aria-label="Sign-in method" className="flex gap-1.5" role="group">
-      <Toggle onPressedChange={() => setMode("password")} pressed={mode === "password"} size="sm" variant="outline">User</Toggle>
-      <Toggle onPressedChange={() => setMode("token")} pressed={mode === "token"} size="sm" variant="outline">Access token</Toggle>
-    </div>
+    <ToggleGroup aria-label="Sign-in method" size="sm" value={[mode]} onValueChange={([value]) => { if (value) setMode(value); }}>
+      <ToggleGroupItem value="password">User</ToggleGroupItem>
+      <ToggleGroupItem value="token">Access token</ToggleGroupItem>
+    </ToggleGroup>
     <LoginForm busy={busyState(connection)} connection={connection} key={mode} mode={mode} onCancel={onClose} send={send} submitLabel="Sign in" />
   </PanelDialog>;
 }
@@ -93,10 +93,10 @@ export function ConnectionDialog({ state, connection, onClose, send }: {
   };
   return <PanelDialog onClose={onClose} title={connection ? `Edit ${connection.name}` : "New server"}>
     <form className="grid gap-3" onSubmit={submit}>
-      <div aria-label="Server type" className="flex gap-1.5" role="group">
-        <Toggle onPressedChange={() => setKind("server")} pressed={kind === "server"} size="sm" variant="outline">Server</Toggle>
-        <Toggle onPressedChange={() => setKind("profile")} pressed={kind === "profile"} size="sm" variant="outline">Local profile</Toggle>
-      </div>
+      <ToggleGroup aria-label="Server type" size="sm" value={[kind]} onValueChange={([value]) => { if (value) setKind(value); }}>
+        <ToggleGroupItem value="server">Server</ToggleGroupItem>
+        <ToggleGroupItem value="profile">Local profile</ToggleGroupItem>
+      </ToggleGroup>
       {kind === "server"
         ? <div className="grid gap-1.5"><Label htmlFor="connection-url">Address</Label><Input id="connection-url" onChange={(event) => setUrl(event.target.value)} placeholder="https://workshop.example.com" value={url} /></div>
         : <div className="grid gap-1.5">

@@ -1,5 +1,20 @@
 # Decisions
 
+## 2026-10-06: Join short option groups in one shared segmented control
+
+Chapters: `spec/plugins.md` (Web as plugin host, UI library), `spec/actor-programs.md`
+(Frame, layout, forms, and chat building blocks); usage: `usage.md`
+(Selection controls and tables, Settings, Share runs); developer examples:
+`scripts/homepage/homepage-extensions.ts`.
+
+Separated rounded toggles obscured which choices belonged together. `ToggleGroup` now joins
+single and multiple selections in one square border with dividers and the shared selection
+tint, using the same height steps and keyboard behavior as the library. Host option groups
+reuse it without spacing or variant overrides. `ChoiceSelect` provides one required value and
+`FilterSelect` several filter values; both choose segments for one to five options and dropdowns
+for longer lists. The shared library owns the threshold, selection rules, and presentation,
+with the same additive exports for plugin views and mini-apps.
+
 ## 2026-10-06: Share control sizes, searchable filters, and column resizing
 
 Chapters: `spec/plugins.md` (Web as plugin host, UI library), `spec/actor-programs.md`

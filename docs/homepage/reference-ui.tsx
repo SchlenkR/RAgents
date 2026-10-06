@@ -134,10 +134,10 @@ function ControlsShowcase() {
         <Toggle aria-label="Pin" onPressedChange={setPinned} pressed={pinned} size="sm" variant="outline">{pinned ? "Pinned" : "Pin"}</Toggle>
       </div>
       <div className="reference-ui-controls">
-        <ToggleGroup aria-label="Filter" size="sm" value={[filter]} variant="outline" onValueChange={([next]) => { if (next) setFilter(next); }}>
+        <ToggleGroup aria-label="Filter" size="sm" value={[filter]} onValueChange={([next]) => { if (next) setFilter(next); }}>
           {["All", "Open", "Completed"].map((label) => <ToggleGroupItem key={label} value={label}>{label}</ToggleGroupItem>)}
         </ToggleGroup>
-        <ToggleGroup aria-label="View" size="sm" spacing={0} value={[view]} variant="outline" onValueChange={([next]) => { if (next) setView(next); }}>
+        <ToggleGroup aria-label="View" size="sm" value={[view]} onValueChange={([next]) => { if (next) setView(next); }}>
           <ToggleGroupItem value="list">List</ToggleGroupItem>
           <ToggleGroupItem value="board">Board</ToggleGroupItem>
         </ToggleGroup>

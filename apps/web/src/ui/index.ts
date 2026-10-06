@@ -6,6 +6,7 @@ export { Badge, BadgeDisplayProvider, badgeVariants, type BadgeTone } from "./ba
 export { Button, buttonVariants } from "./button";
 export { Card, CardAction, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "./card";
 export { Checkbox } from "./checkbox";
+export { ChoiceSelect, type ChoiceSelectProps } from "./choice-select";
 export { Combobox, ComboboxContent, ComboboxGroup, ComboboxItem, ComboboxLabel, ComboboxSeparator, ComboboxTrigger, ComboboxValue } from "./combobox";
 export { type ControlSize } from "./control-size";
 export { FilterSelect, type FilterSelectOption, type FilterSelectProps } from "./filter-select";

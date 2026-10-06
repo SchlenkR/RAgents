@@ -1,6 +1,8 @@
 import { Button } from "./button"
+import { cn } from "cn"
 import { Combobox, ComboboxContent, ComboboxItem, ComboboxTrigger } from "./combobox"
 import type { ControlSize } from "./control-size"
+import { segmentedOptionLimit, ToggleGroup, ToggleGroupItem } from "./toggle-group"
 
 export interface FilterSelectOption {
   readonly value: string
@@ -22,6 +24,17 @@ export interface FilterSelectProps {
 }
 
 function FilterSelect({ label, options, value, onValueChange, size = "default", searchable = true, disabled, className }: FilterSelectProps) {
+  if (options.length > 0 && options.length <= segmentedOptionLimit) return <div className={cn("flex min-w-0 max-w-full flex-wrap items-center gap-2", className)} data-slot="filter-select-segments">
+    <span className="text-sm text-muted-foreground">{label}</span>
+    <ToggleGroup aria-label={label} className="max-w-full" disabled={disabled} multiple size={size} value={value} onValueChange={onValueChange}>
+      {options.map((option) => <ToggleGroupItem disabled={option.disabled} key={option.value} value={option.value} title={option.label}>
+        {option.color && <span aria-hidden className="size-2 shrink-0 rounded-full" style={{ backgroundColor: option.color }} />}
+        <span className="min-w-0 truncate">{option.label}</span>
+        {option.count !== undefined && <span className="text-muted-foreground tabular-nums">{option.count}</span>}
+      </ToggleGroupItem>)}
+    </ToggleGroup>
+    <Button disabled={disabled || value.length === 0} onClick={() => onValueChange([])} size={size} variant="ghost" aria-label={`Clear ${label}`}>Clear</Button>
+  </div>
   const labels = new Map(options.map((option) => [option.value, option.label]))
   return <Combobox multiple disabled={disabled} items={options.map((option) => option.value)} value={[...value]} onValueChange={onValueChange}
     itemToStringLabel={(item) => labels.get(item) ?? item}>

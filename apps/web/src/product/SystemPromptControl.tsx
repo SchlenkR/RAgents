@@ -1,4 +1,4 @@
-import { Checkbox, Toggle } from "../ui";
+import { Checkbox, ToggleGroup, ToggleGroupItem } from "../ui";
 import { ToolbarCopy, ToolbarItem, ToolbarLabel, ToolbarText } from "../Toolbar";
 import { useMemo, useState } from "react";
 import type { StartOptionBadgeContext, StartOptionControlContext } from "../PluginRegistry";
@@ -62,13 +62,6 @@ export function SystemPromptControl({ disabled, error, option, setValue }: Start
   const { presentation, value } = parsed;
   const preview = presentation.options.find((entry) => entry.id === previewId);
 
-  const toggle = (wanted: string) => {
-    const next = value.promptIds.includes(wanted)
-      ? value.promptIds.filter((id) => id !== wanted)
-      : presentation.options.map((entry) => entry.id).filter((id) => id === wanted || value.promptIds.includes(id));
-    void setValue({ promptIds: next, shareWithAgents: value.shareWithAgents });
-  };
-
   const share = (shareWithAgents: boolean) => {
     void setValue({ promptIds: value.promptIds, shareWithAgents });
   };
@@ -77,23 +70,20 @@ export function SystemPromptControl({ disabled, error, option, setValue }: Start
     <div className="flex flex-col items-start gap-2" onMouseLeave={() => setPreviewId(undefined)}>
       <span className="text-[0.72rem] font-semibold text-muted-foreground">System prompts</span>
       <div className="relative flex justify-center">
-        <div aria-label="System prompts" className="flex flex-wrap justify-center gap-2" role="group">
+        <ToggleGroup aria-label="System prompts" disabled={disabled} multiple size="sm" value={value.promptIds}
+          onValueChange={(next) => { void setValue({ promptIds: presentation.options.map((entry) => entry.id).filter((id) => next.includes(id)), shareWithAgents: value.shareWithAgents }); }}>
           {presentation.options.map((entry) => (
-            <Toggle
-              disabled={disabled}
+            <ToggleGroupItem
               key={entry.id}
               onBlur={() => setPreviewId(undefined)}
               onFocus={() => setPreviewId(entry.id)}
               onMouseEnter={() => setPreviewId(entry.id)}
-              onPressedChange={() => toggle(entry.id)}
-              pressed={value.promptIds.includes(entry.id)}
-              size="sm"
-              variant="outline"
+              value={entry.id}
             >
               {entry.label}
-            </Toggle>
+            </ToggleGroupItem>
           ))}
-        </div>
+        </ToggleGroup>
         {preview && <div className="absolute top-[calc(100%+6px)] left-1/2 z-3 max-h-[44vh] w-max max-w-[min(620px,78vw)] -translate-x-1/2 overflow-y-auto whitespace-pre-wrap rounded-xl border border-border bg-background px-3.5 py-3 text-left text-sm leading-[1.5] text-foreground shadow-pop" role="tooltip">{preview.text}</div>}
       </div>
       <label className="flex max-w-[34rem] cursor-pointer items-start gap-2 text-sm">

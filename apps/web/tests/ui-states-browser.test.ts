@@ -85,8 +85,13 @@ test("shared controls retain readable states and status tones in both themes", {
       assert.ok([tokens.selected, tokens["selected-hover"]].includes(before.background), `${label}: selected background`);
       assert.equal(before.color, tokens["selected-foreground"], `${label}: selected foreground`);
       assert.equal(before.shadow, "none", `${label}: selection adds no shadow or ring`);
-      assert.deepEqual(before.borderWidths, ["1px", "1px", "1px", "1px"], `${label}: selection has a uniform one-pixel border`);
-      assert.equal(before.border, tokens["selected-border"], `${label}: selection border uses its hue`);
+      if (await control.getAttribute("data-slot") === "toggle-group-item") {
+        assert.deepEqual(before.borderWidths.slice(0, 3), ["0px", "0px", "0px"], `${label}: segments share their group's outer border`);
+        assert.ok(["0px", "1px"].includes(before.borderWidths[3]), `${label}: only a divider may border the segment`);
+      } else {
+        assert.deepEqual(before.borderWidths, ["1px", "1px", "1px", "1px"], `${label}: selection has a uniform one-pixel border`);
+        assert.equal(before.border, tokens["selected-border"], `${label}: selection border uses its hue`);
+      }
       assert.ok(contrast(before.color, before.background) >= 4.5, `${label}: selected text reaches AA`);
       await control.hover();
       const hovered = await styleOf(control);

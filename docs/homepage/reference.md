@@ -6380,6 +6380,27 @@ declare function Checkbox({ className, ...props }: CheckboxPrimitive.Root.Props)
 export { Checkbox };
 ```
 
+#### apps/web/src/ui/choice-select.d.ts
+
+```typescript
+import type { ControlSize } from "./control-size";
+export interface ChoiceSelectProps<Value extends string = string> {
+    readonly label: string;
+    readonly options: readonly {
+        readonly value: Value;
+        readonly label: string;
+        readonly disabled?: boolean;
+    }[];
+    readonly value: Value;
+    readonly onValueChange: (value: Value) => void;
+    readonly size?: ControlSize;
+    readonly disabled?: boolean;
+    readonly className?: string;
+}
+declare function ChoiceSelect<Value extends string>({ label, options, value, onValueChange, size, disabled, className }: ChoiceSelectProps<Value>): import("react").JSX.Element;
+export { ChoiceSelect };
+```
+
 #### apps/web/src/ui/combobox.d.ts
 
 ```typescript
@@ -6630,6 +6651,7 @@ export { Badge, BadgeDisplayProvider, badgeVariants, type BadgeTone } from "./ba
 export { Button, buttonVariants } from "./button";
 export { Card, CardAction, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "./card";
 export { Checkbox } from "./checkbox";
+export { ChoiceSelect, type ChoiceSelectProps } from "./choice-select";
 export { Combobox, ComboboxContent, ComboboxGroup, ComboboxItem, ComboboxLabel, ComboboxSeparator, ComboboxTrigger, ComboboxValue } from "./combobox";
 export { type ControlSize } from "./control-size";
 export { FilterSelect, type FilterSelectOption, type FilterSelectProps } from "./filter-select";
@@ -6994,13 +7016,12 @@ export { Textarea };
 import * as React from "react";
 import { Toggle as TogglePrimitive } from "@base-ui/react/toggle";
 import { ToggleGroup as ToggleGroupPrimitive } from "@base-ui/react/toggle-group";
-import { type VariantProps } from "class-variance-authority";
-import { toggleVariants } from "./toggle";
-declare function ToggleGroup({ className, variant, size, spacing, orientation, children, ...props }: ToggleGroupPrimitive.Props & VariantProps<typeof toggleVariants> & {
-    spacing?: number;
-    orientation?: "horizontal" | "vertical";
+import { type ControlSize } from "./control-size";
+export declare const segmentedOptionLimit = 5;
+declare function ToggleGroup<Value extends string>({ className, size, orientation, children, ...props }: ToggleGroupPrimitive.Props<Value> & {
+    size?: ControlSize;
 }): React.JSX.Element;
-declare function ToggleGroupItem({ className, children, variant, size, ...props }: TogglePrimitive.Props & VariantProps<typeof toggleVariants>): React.JSX.Element;
+declare function ToggleGroupItem({ className, ...props }: TogglePrimitive.Props): React.JSX.Element;
 export { ToggleGroup, ToggleGroupItem };
 ```
 
