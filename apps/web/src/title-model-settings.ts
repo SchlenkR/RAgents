@@ -30,13 +30,10 @@ export function titleSelectionFromKey(key: string, models: TitleModelSettings["m
   return { provider: model.provider, model: model.id };
 }
 
-export function titleModelOptions(models: TitleModelSettings["models"], selection: TitleModelSelection | null, query: string) {
-  const search = query.trim().toLocaleLowerCase("en-US");
+export function titleModelOptions(models: TitleModelSettings["models"]) {
   return [
     { value: "null", label: "No automatic titles" },
-    ...models.filter((model) => (model.provider === selection?.provider && model.id === selection.model)
-      || `${model.label} ${model.id}`.toLocaleLowerCase("en-US").includes(search))
-      .map((model) => ({ value: titleSelectionKey({ provider: model.provider, model: model.id }), label: model.label })),
+    ...models.map((model) => ({ value: titleSelectionKey({ provider: model.provider, model: model.id }), label: model.label })),
   ];
 }
 

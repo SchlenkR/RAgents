@@ -21,6 +21,7 @@ export async function buildHomepageSamples(repoRoot: string): Promise<Map<string
         || relative.startsWith("apps/web/src/actor-programs/client-ui/")
         || relative === "apps/server/src/plugin-support/actor-programs/workflow/index.ts"
         || relative.startsWith("apps/web/src/chat/") || relative.startsWith("apps/web/src/ui/")
+        || relative === "apps/web/src/lib/local-storage-setting.ts"
         || ["apps/web/src/SourceCode.tsx", "apps/web/src/DiffCode.tsx", "apps/web/src/highlighting.ts", "apps/web/src/highlighting.css", "apps/web/src/diff-view.css", "apps/web/src/Toolbar.tsx"].includes(relative)
         || relative.startsWith("node_modules/") || relative.startsWith("apps/web/node_modules/");
       if (!allowed) throw new Error(`The sample preview imports a source that is not approved: ${relative}`);

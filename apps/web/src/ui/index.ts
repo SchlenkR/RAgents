@@ -6,6 +6,9 @@ export { Badge, BadgeDisplayProvider, badgeVariants, type BadgeTone } from "./ba
 export { Button, buttonVariants } from "./button";
 export { Card, CardAction, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "./card";
 export { Checkbox } from "./checkbox";
+export { Combobox, ComboboxContent, ComboboxGroup, ComboboxItem, ComboboxLabel, ComboboxSeparator, ComboboxTrigger, ComboboxValue } from "./combobox";
+export { type ControlSize } from "./control-size";
+export { FilterSelect, type FilterSelectOption, type FilterSelectProps } from "./filter-select";
 export {
   Dialog, DialogBody, DialogClose, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogOverlay, DialogPortal, DialogTitle, DialogTrigger,
   type DialogContentProps, type DialogSize, type ModalScope,
@@ -35,7 +38,7 @@ export { Separator } from "./separator";
 export { Skeleton } from "./skeleton";
 export { Spinner } from "./spinner";
 export { Switch } from "./switch";
-export { Table, TableBody, TableCaption, TableCell, TableFooter, TableHead, TableHeader, TableRow } from "./table";
+export { Table, TableBody, TableCaption, TableCell, TableFooter, TableHead, TableHeader, TableRow, type TableColumnDefinition, type TableProps } from "./table";
 export { Tabs, TabsContent, TabsList, TabsTrigger, tabsListVariants } from "./tabs";
 export { Textarea } from "./textarea";
 export { Toggle, toggleVariants } from "./toggle";

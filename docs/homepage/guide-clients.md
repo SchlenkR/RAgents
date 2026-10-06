@@ -14,6 +14,26 @@ server instructions and connection failures in their prompt. Configure servers i
 as described in [Connect MCP servers](guide-getting-started.html#connect-mcp-servers).
 Stopping or deleting the run closes its MCP connections.
 
+## Selection menus and tables
+
+Selection menus open below their button, or above when there is less room, and stay at least
+as wide as it. Selectors with more than eight choices show a search field. Type part of a label
+to narrow the list; matching ignores case. Use the arrow keys to move through the results,
+Enter to choose, and Escape to close. "No matching options." means no choice matches the search.
+
+Toolbar filters show their name and the number of chosen values, or "All" when unrestricted.
+Open a filter to search and check several values. A dot can identify a value's color, and a
+count at the right shows its number of entries. "Clear" returns the filter to "All".
+
+In tables with resize handles, drag the right edge of a column header to change its width,
+or double-click the handle to fit the content. Columns retain their minimum width. The
+browser remembers the widths for that table at the same server address. Hover truncated
+cell text to read the full value. From a focused resize handle, Left and Right change the
+width (Shift makes larger steps), Home sets the minimum, and Enter or End fits the content.
+If saved widths are damaged or saving fails, an error and "Reset column widths" remain
+visible. If the browser blocks storage access, the table still shows its initial widths;
+"Retry column widths" enables resizing after access returns.
+
 ## Run panel and VS Code extension
 
 The run panel is also available in the browser. `http://localhost:4710/run-panel.html?run=<id>`

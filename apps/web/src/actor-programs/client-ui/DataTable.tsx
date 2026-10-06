@@ -34,6 +34,12 @@ export function DataTable<Row>(props: DataTableProps<Row>) {
   const visible = tableRows(rows, columns, filterable ? query : "", sort);
   const selected = new Set(props.selectedKeys);
   const selectable = props.onSelectionChange !== undefined;
+  const resizing = props.id !== undefined;
+  const layoutColumns = [
+    ...(selectable ? [{ id: "selection", label: "Selection", width: 40, minWidth: 40, resizable: false }] : []),
+    ...columns.map((column) => ({ id: `data:${column.id}`, label: column.label, width: column.width, minWidth: column.minWidth, resizable: column.resizable })),
+    ...(actions.length > 0 ? [{ id: "actions", label: "Actions", width: 180, minWidth: 80 }] : []),
+  ];
   const keys = rows.map(rowKey);
   if (new Set(keys).size !== rows.length || keys.some((key) => !key.trim())) throw new Error("Table rows require unique, non-empty keys.");
   if (columns.length === 0 || new Set(columns.map((column) => column.id)).size !== columns.length || columns.some((column) => !column.id.trim())) throw new Error("A table requires columns with unique, non-empty IDs.");
@@ -66,24 +72,24 @@ export function DataTable<Row>(props: DataTableProps<Row>) {
       {filterable && <Input aria-label="Search table" id={filterId} onChange={(event) => setQuery(event.target.value)} placeholder="Search table" type="search" value={query} />}
       {loading && <p className="text-sm text-muted-foreground" role="status">Loading...</p>}
       <div aria-label={title ?? "Table content"} className="max-w-full overflow-auto" role="region" tabIndex={0}>
-        <Table>
+        <Table id={props.id} columns={resizing ? layoutColumns : undefined}>
           <TableHeader><TableRow>
-            {selectable && <TableHead className="w-8"><Checkbox aria-label="Select all visible rows" checked={allSelected} disabled={loading || visible.length === 0} indeterminate={partiallySelected} onCheckedChange={toggleVisible} /></TableHead>}
-            {columns.map((column) => <TableHead aria-sort={sort?.id === column.id ? sort.direction === "asc" ? "ascending" : "descending" : undefined} key={column.id}>
+            {selectable && <TableHead columnId="selection" className="w-8"><Checkbox aria-label="Select all visible rows" checked={allSelected} disabled={loading || visible.length === 0} indeterminate={partiallySelected} onCheckedChange={toggleVisible} /></TableHead>}
+            {columns.map((column) => <TableHead columnId={`data:${column.id}`} aria-sort={sort?.id === column.id ? sort.direction === "asc" ? "ascending" : "descending" : undefined} key={column.id}>
               {column.sortable
-                ? <Button className="-ml-2 h-7 gap-1 px-2 font-medium" onClick={() => setSort((current) => current?.id === column.id && current.direction === "asc" ? { id: column.id, direction: "desc" } : { id: column.id, direction: "asc" })} size="sm" variant="ghost">
+                ? <Button className="-ml-2 gap-1 px-2 font-medium" onClick={() => setSort((current) => current?.id === column.id && current.direction === "asc" ? { id: column.id, direction: "desc" } : { id: column.id, direction: "asc" })} size="sm" variant="ghost">
                   {column.label}{sort?.id === column.id && (sort.direction === "asc" ? <ArrowUpIcon aria-hidden="true" /> : <ArrowDownIcon aria-hidden="true" />)}
                 </Button>
                 : column.label}
             </TableHead>)}
-            {actions.length > 0 && <TableHead>Actions</TableHead>}
+            {actions.length > 0 && <TableHead columnId="actions">Actions</TableHead>}
           </TableRow></TableHeader>
           <TableBody>
             {visible.map((row) => {
               const key = rowKey(row);
               return <TableRow aria-selected={selectable ? selected.has(key) : undefined} data-state={selectable && selected.has(key) ? "selected" : undefined} key={key}>
                 {selectable && <TableCell><Checkbox aria-label={`Select row ${key}`} checked={selected.has(key)} disabled={loading} onCheckedChange={() => { const next = new Set(selected); if (next.has(key)) next.delete(key); else next.add(key); props.onSelectionChange?.([...next]); }} /></TableCell>}
-                {columns.map((column) => <TableCell className="align-top break-words whitespace-normal" key={column.id}>{column.render ? column.render(row) : displayValue(column.value(row))}</TableCell>)}
+                {columns.map((column) => <TableCell className={resizing ? "align-top" : "align-top break-words whitespace-normal"} key={column.id}>{column.render ? column.render(row) : displayValue(column.value(row))}</TableCell>)}
                 {actions.length > 0 && <TableCell className="align-top">
                   <div aria-busy={pending.has(key)} className="flex flex-wrap gap-1.5">{actions.map((action) => <Button disabled={loading || pending.has(key) || action.disabled?.(row)} key={action.id} onClick={() => void runAction(action, row, key)} size="sm" variant="outline">{action.label}</Button>)}</div>
                   {pending.has(key) && <Badge role="status" tone="active">Running...</Badge>}

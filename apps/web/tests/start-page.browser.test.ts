@@ -242,14 +242,15 @@ for (const [view, query, width] of [["web", "view=web", 1280], ["panel", "view=p
     await withPage(query, width, async (page) => {
       await openNewChat(page, view);
       const model = page.getByRole("combobox", { name: "Model" });
+      const options = page.locator('[data-slot="select-content"][data-open]').getByRole("option");
       await model.click();
-      await page.getByRole("option").first().waitFor();
-      assert.deepEqual(await page.getByRole("option").allTextContents(), ["openrouter/z-ai/glm-5.3-flash", "openrouter/qwen/qwen3.8-max"], "only the models of the profile");
-      await page.getByRole("option", { name: "openrouter/qwen/qwen3.8-max" }).click();
+      await options.first().waitFor();
+      assert.deepEqual(await options.allTextContents(), ["openrouter/z-ai/glm-5.3-flash", "openrouter/qwen/qwen3.8-max"], "only the models of the profile");
+      await options.filter({ hasText: "openrouter/qwen/qwen3.8-max" }).click();
       await page.getByRole("combobox", { name: "Reasoning" }).click();
-      await page.getByRole("option", { name: "low" }).waitFor();
-      assert.deepEqual(await page.getByRole("option").allTextContents(), ["off", "low", "high"], "only the levels of the model");
-      await page.getByRole("option", { name: "low" }).click();
+      await options.filter({ hasText: "low" }).waitFor();
+      assert.deepEqual(await options.allTextContents(), ["off", "low", "high"], "only the levels of the model");
+      await options.filter({ hasText: "low" }).click();
       await page.waitForFunction(() => window.startPageFixture.calls.filter((call) => call.id === "ragents.startOptions.select").length === 2);
       await page.locator("textarea").fill("First message");
       await page.locator("textarea").press("Enter");

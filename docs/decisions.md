@@ -1,5 +1,17 @@
 # Decisions
 
+## 2026-10-06: Share control sizes, searchable filters, and column resizing
+
+Chapters: `spec/plugins.md` (Web as plugin host, UI library), `spec/actor-programs.md`
+(Frame, layout, forms, and chat building blocks); usage: `usage.md`
+(Selection menus and tables); developer examples: `scripts/homepage/homepage-extensions.ts`.
+
+Mixed toolbar heights and option popups covering their triggers made the same controls behave
+differently across views. The shared library now defines each size once, uses square dropdown
+panels, and opens Select outside its trigger. Larger selections reuse one searchable option
+list; `FilterSelect` brings multi-value facets into toolbars. Tables can opt into persistent
+column widths, minimums, content fitting, and full-text tooltips. Host views and plugins use
+the same components and additive host API exports, so these improvements apply generally.
 ## 2026-10-06: Stop unchanged polls and hidden panels from amplifying renders
 
 Chapter: `spec/plugins.md` (Web as plugin host, Run panel); usage: `usage.md`

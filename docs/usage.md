@@ -136,6 +136,8 @@ completed items checked and the item in progress in its running form, such as "R
 
 Journal in the bottom status bar shows actual events, newest first, with search, expandable JSON,
 and more results on demand. Executions shows recorded TypeScript calls and their results.
+Its "Status" toolbar filter lets you check several states together, with the number of
+executions beside each state; "Clear" returns to all states. Search narrows actor, code, or result.
 
 Chat responses stream as Markdown. Copy preserves original text and line breaks. Attachments,
 timestamps, and the detail-level selector use the same controls in both hosts. A button in the
@@ -322,6 +324,28 @@ start option is in [typescript-platform.md](spec/typescript-platform.md) under
 "PluginHost registrations"; the setup dialogs of the reference cases under
 "Reference cases from ragents.reference".
 
+<!-- guide:clients -->
+## Selection menus and tables
+
+Selection menus open below their button, or above when there is less room, and stay at least
+as wide as it. Selectors with more than eight choices show a search field. Type part of a label
+to narrow the list; matching ignores case. Use the arrow keys to move through the results,
+Enter to choose, and Escape to close. "No matching options." means no choice matches the search.
+
+Toolbar filters show their name and the number of chosen values, or "All" when unrestricted.
+Open a filter to search and check several values. A dot can identify a value's color, and a
+count at the right shows its number of entries. "Clear" returns the filter to "All".
+
+In tables with resize handles, drag the right edge of a column header to change its width,
+or double-click the handle to fit the content. Columns retain their minimum width. The
+browser remembers the widths for that table at the same server address. Hover truncated
+cell text to read the full value. From a focused resize handle, Left and Right change the
+width (Shift makes larger steps), Home sets the minimum, and Enter or End fits the content.
+If saved widths are damaged or saving fails, an error and "Reset column widths" remain
+visible. If the browser blocks storage access, the table still shows its initial widths;
+"Retry column widths" enables resizing after access returns.
+<!-- /guide:clients -->
+
 ## Settings
 
 The shared panel uses matte surfaces with rounded edges.
@@ -334,8 +358,8 @@ hover stays subtler. Tabs have square corners. Maximize actions show selection t
 their icon and a subtle background, without a border or ring. Keyboard focus has a thin ring
 on other controls. Status labels use muted green for completion, red for failure, amber for attention,
 blue for information, and violet for ongoing work, in both light and dark appearance.
-Selection menus open above or below their button depending on space and stay fully reachable even in narrow
-input and dialog areas. Escape first closes the open menu.
+Dropdown panels have square corners and stay fully reachable even in narrow input and dialog areas.
+Buttons, selectors, toggles, and text inputs of the same size align in a toolbar.
 
 Under "Appearance", "Schichtwerk" you choose Light, Dark, or System. The default is Dark;
 System follows the operating system's color scheme setting, also on later changes.

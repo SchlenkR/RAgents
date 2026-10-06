@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import type { TitleModelSelection, TitleModelSettings as Settings } from "../../server/src/title-settings-contract";
 import { useAccess } from "./AccessContext";
-import { Alert, AlertDescription, Button, Input, Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./ui";
+import { Alert, AlertDescription, Button, Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./ui";
 import { requestTitleModelSettings, titleModelOptions, titleModelSettingsChangedEvent, titleSelectionFromKey, titleSelectionKey } from "./title-model-settings";
 
 type LoadState = { status: "loading" } | { status: "failed"; error: string } | { status: "ready"; settings: Settings };
@@ -20,7 +20,6 @@ export function TitleModelSettings() {
   const [error, setError] = useState<string>();
   const [notice, setNotice] = useState<string>();
   const [retry, setRetry] = useState(0);
-  const [query, setQuery] = useState("");
   const dirty = state.status === "ready" && draft !== undefined && titleSelectionKey(draft) !== titleSelectionKey(state.settings.selection);
 
   useEffect(() => {
@@ -67,7 +66,7 @@ export function TitleModelSettings() {
     finally { saving.current = false; setPending(false); }
   };
 
-  const options = titleModelOptions(settings.models, draft, settings.models.length > 20 ? query : "");
+  const options = titleModelOptions(settings.models);
   return <form aria-label="Model for automatic titles" className="flex min-w-0 flex-col items-start gap-3" onSubmit={(event) => {
     event.preventDefault();
     void save();
@@ -75,8 +74,6 @@ export function TitleModelSettings() {
     <p className={noteClasses}>Condenses the first task into a short title line. Applies to the next automatically generated titles.</p>
     {settings.models.length === 0 && <p className={noteClasses}>The provider offers no model for titles; automatic titles stay off.</p>}
     {!writable && <p className={noteClasses}>You have read access to these settings.</p>}
-    {settings.models.length > 20 && <Input aria-label="Search title models" className={controlClasses} disabled={!writable || pending}
-      onChange={(event) => setQuery(event.target.value)} placeholder="Search models ..." type="search" value={query} />}
     <Select disabled={!writable || pending} items={options} value={titleSelectionKey(draft)} onValueChange={(key) => {
       if (key === null) return;
       setDraft(titleSelectionFromKey(key, settings.models));

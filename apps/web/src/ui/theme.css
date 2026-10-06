@@ -3,6 +3,10 @@
 /* Compact scale: one unit is 0.235rem, so shadcn sizes land on the host's 0.76rem controls and 30px rows. */
 @theme {
     --spacing: 0.235rem;
+    --spacing-control-xs: calc(var(--spacing) * 6);
+    --spacing-control-sm: calc(var(--spacing) * 7);
+    --spacing-control-default: calc(var(--spacing) * 8);
+    --spacing-control-lg: calc(var(--spacing) * 9);
     --spacing-header: 45px;
     --spacing-statusbar: 28px;
     --spacing-workspace-inset: 18px;

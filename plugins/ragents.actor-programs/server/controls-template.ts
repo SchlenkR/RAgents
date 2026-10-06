@@ -42,9 +42,9 @@ const App = () => {
         { id: "approved", label: "Selection confirmed", type: "checkbox", required: true },
       ]} values={values} onChange={setValues} onSubmit={async (next) => { setResult(JSON.stringify(next, null, 2)); }} submitLabel="Show values locally" />
       <UI.Stack gap="small">
-        <UI.DataTable<Row> title="Data table" rows={rows} rowKey={(row) => row.id} filterable
+        <UI.DataTable<Row> id="controls-demo-table" title="Data table" rows={rows} rowKey={(row) => row.id} filterable
           selectedKeys={selected} onSelectionChange={setSelected}
-          columns={[{ id: "name", label: "Work", value: (row) => row.name, sortable: true }, { id: "count", label: "Results", value: (row) => row.count, sortable: true }]}
+          columns={[{ id: "name", label: "Work", value: (row) => row.name, sortable: true, width: 240, minWidth: 100 }, { id: "count", label: "Results", value: (row) => row.count, sortable: true, width: 120, minWidth: 80 }]}
           actions={[{ id: "select", label: "Select", onClick: (row) => { setSelected([row.id]); } }]} />
         <p aria-live="polite">{selected.length} rows selected</p>
       </UI.Stack>

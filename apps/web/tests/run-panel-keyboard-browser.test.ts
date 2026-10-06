@@ -115,6 +115,7 @@ document.querySelector('textarea').addEventListener('input', event => {
       element.dispatchEvent(new KeyboardEvent("keydown", { key: "Process", code: "KeyP", metaKey: true, isComposing: true, bubbles: true }));
       element.dispatchEvent(new KeyboardEvent("keyup", { key: "Process", code: "KeyP", metaKey: true, isComposing: true, bubbles: true }));
     });
+    await page.waitForFunction((start) => window.keyboardHarness.keys.slice(start).some((event) => event.type === "keyup" && event.key === "Meta"), beforeLocal);
     const localEvents = (await page.evaluate(() => window.keyboardHarness.keys)).slice(beforeLocal);
     assert.ok(localEvents.every((event) => event.key === "Meta"));
     const beforePaste = await page.evaluate(() => window.keyboardHarness.keys.length);

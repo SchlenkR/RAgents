@@ -74,7 +74,7 @@ export function JournalStatus({ session, dockActive }: SessionHeaderContext & { 
       Journal
     </InteractiveItem>
     <Popover open={open} onOpenChange={(next) => { if (!next) close(); }}>
-      <PopoverContent align="start" anchor={buttonRef} aria-label="Journal of the run" className="flex min-h-0 min-w-0 flex-col gap-0 overflow-hidden rounded-t-sm rounded-b-none p-0 text-[0.76rem]" collisionPadding={8} id={panelId}
+      <PopoverContent align="start" anchor={buttonRef} aria-label="Journal of the run" className="flex min-h-0 min-w-0 flex-col gap-0 overflow-hidden p-0 text-[0.76rem]" collisionPadding={8} id={panelId}
         initialFocus={searchRef} role="region" side="top" style={{ width: "min(900px, var(--available-width))", height: "min(480px, var(--available-height))" }}>
         {content}
       </PopoverContent>

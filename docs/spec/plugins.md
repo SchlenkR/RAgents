@@ -1805,7 +1805,7 @@ Controls are not a registry slot: the host provides them as a UI library under
 `apps/web/src/ui/`, and plugins use them directly instead of building their own. The library
 is the shadcn/ui components on Base UI (`components.json` in `apps/web`, style `base-nova`),
 copied into the source tree by CLI and styled with Tailwind: `Button`, `Badge`, `Toggle`,
-`ToggleGroup`, `Tabs`, `Select`, `Dialog`, `Popover`, `Tooltip`, `DropdownMenu`, `Input`,
+`ToggleGroup`, `Tabs`, `Select`, `Combobox`, `FilterSelect`, `Dialog`, `Popover`, `Tooltip`, `DropdownMenu`, `Input`,
 `Textarea`, `Checkbox`, `Switch`, `RadioGroup`, `Field`, `Label`, `Table`, `Card`, `Alert`,
 `Progress`, `Separator`, `Skeleton`, `Spinner`, `Empty` with their parts (`SelectTrigger`,
 `DialogContent`, `TabsList`, and so on), plus `cn` and icons from `lucide-react`. Props, variants, and
@@ -1819,7 +1819,7 @@ The choice follows the role, not taste:
 - `variant="outline"`: an ordinary action with a border; several may stand side by side.
 - `variant="ghost"`: a quiet action without a surface in bars, rows, and in the composer.
 - `variant="destructive"` for deleting actions; the text says what happens.
-- Icon buttons are `Button` with `size="icon"` (small `icon-sm`, large `icon-lg`), a
+- Icon buttons are `Button` with `size="icon"` (smaller `icon-xs`, small `icon-sm`, large `icon-lg`), a
   lucide icon as child, and a required `aria-label`; `title` provides the native tooltip.
   Close and Back in dialog headers are round icon buttons (`rounded-full`) with an X
   or an arrow. The overview corner on the left of the header is deliberately not a
@@ -1829,7 +1829,7 @@ The choice follows the role, not taste:
 - `Toggle` for an on/off state and filter chips; `ToggleGroup` for exactly one of
   few options (`spacing={0}` as a connected segment bar) or a
   multiple selection; `Select` for one or several (`multiple`) of many, with `items` for the
-  labels; `Tabs` for navigating between the views of a surface; a count
+  labels; `FilterSelect` for a multi-value toolbar filter; `Tabs` for navigating between the views of a surface; a count
   per tab is a `Badge` (`destructive` for items that need the user, otherwise
   `secondary`). A value is not a tab: `ToggleGroup` chooses an option, `Tabs` switches
   the view.
@@ -1845,6 +1845,44 @@ The choice follows the role, not taste:
   action at the other end); it is not part of the plugin API.
 - There are no longer native `<select>`, custom buttons, or class contracts; the built-in
   plugins bring no CSS of their own.
+
+The `xs`, `sm`, `default`, and `lg` size steps share the `--spacing-control-*` heights in
+`theme.css`, applied through `control-size.ts`. `Button`, `Toggle`,
+`ToggleGroupItem`, `SelectTrigger`, `Input`, and filter or combobox triggers have exactly the
+same outer height and vertically centered text at the same step. `Textarea` uses that step
+as its single-line minimum and grows for additional lines. Size is a component prop; a
+toolbar chooses one step instead of overriding individual heights.
+
+`SelectContent` opens outside its trigger, below by default and above when space requires it,
+with at least the trigger's width. It never aligns an option over the trigger. Select,
+dropdown menu, context menu, and popover panels share the square corners of `HeaderDropdown`.
+Selects with more than eight options show a search field at the top; `searchable` on `Select`
+enables or disables it explicitly. Search matches option labels without case sensitivity. Arrow keys
+move through the filtered options, Enter selects, and Escape closes the popup; no matches
+show "No matching options." `Combobox` and its trigger, content, and item parts supply this
+search behavior for Select and FilterSelect rather than separate implementations per view.
+
+`FilterSelect` takes `label`, `options`, controlled `value`, and `onValueChange`, plus the same
+`size` steps. Each option has `value` and `label`, optional `color`, `count`, and `disabled`.
+The trigger shows the filter name and chosen count, or "All" for no restriction. Its popup
+uses the same search field by default (`searchable={false}` disables it) and panel treatment,
+with checkbox options, optional color dots and counts, and "Clear" to remove the restriction. Several filters belong together in a
+toolbar; long checkbox facet lists do not need their own sidebar.
+
+`Table` opts into column resizing with `id` and `columns`. Each `TableColumnDefinition` has
+`id`, optional `label`, initial `width`, `minWidth`, and `resizable`; widths are pixels,
+defaulting to 180 initially and 64 for the minimum. `resizable: false` on a definition omits
+its handle. Headers and cells follow definition order; `TableHead columnId="..."` optionally
+binds a header explicitly for advanced markup. Header
+handles drag widths down to each column's minimum; double-click fits a column to its rendered
+content. Keyboard handles use Left/Right (10 pixels, Shift for 50), Home for the minimum,
+and End or Enter to fit. Widths are stored per browser origin and table ID through the shared
+local-setting helpers. Corrupt values and failed saves show "Reset column widths". If the
+browser denies storage access, the table remains visible at initial widths with disabled
+handles, a visible error, and "Retry column widths". Resizable cells truncate overflow with an ellipsis
+and expose their full text as a tooltip. A table without the opt-in keeps its ordinary layout.
+Plugins import these controls and table parts from `@ragents/web/ui`; additive exports enter
+`host-api.json` through `pnpm update:host-api` without changing `HOST_API_VERSION`.
 
 Interaction states use the shared `hover`/`hover-foreground`,
 `selected`/`selected-foreground`/`selected-border`, and `ring` tokens in both themes.
@@ -1970,7 +2008,7 @@ Mini-apps use the same components with the same look; the mini-app runtime sets
 base dimensions. Details on forms, tables, theme bridge, and own app CSS are in actor-programs.md.
 
 The journal surface uses `PopoverContent`; header panels use `HeaderDropdown` with shared
-positioning and square corners. `PopoverContent` keeps 8 pixels of distance to the
+positioning and the same square corners as the other dropdown panels. `PopoverContent` keeps 8 pixels of distance to the
 calling control by default. Dialogs and dimming popouts share
 `--backdrop` from the theme (black at 40 percent opacity in the light and 60 percent in the dark
 theme); individual surfaces define no dimming color of their own. `PopoverContent` with `dim`

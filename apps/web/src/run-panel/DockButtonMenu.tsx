@@ -1,6 +1,7 @@
 import { useRef, type ReactElement } from "react";
 import { ContextMenu } from "@base-ui/react/context-menu";
 import { DropdownMenuItem } from "../ui";
+import { dropdownPanelStyle } from "../ui/dropdown-panel";
 
 export function DockButtonMenu({ children, destination, onMove }: {
   children: ReactElement;
@@ -18,7 +19,7 @@ export function DockButtonMenu({ children, destination, onMove }: {
     }} render={children} />
     <ContextMenu.Portal>
       <ContextMenu.Positioner className="z-[110] outline-none">
-        <ContextMenu.Popup className="min-w-32 rounded-lg bg-popover p-1 text-popover-foreground shadow-md ring-1 ring-foreground/10 outline-none" ref={popup}>
+        <ContextMenu.Popup className={`${dropdownPanelStyle} min-w-32 p-1 outline-none`} ref={popup}>
           <DropdownMenuItem onClick={onMove}>Move to {destination}</DropdownMenuItem>
         </ContextMenu.Popup>
       </ContextMenu.Positioner>

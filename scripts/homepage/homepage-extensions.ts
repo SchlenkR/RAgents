@@ -63,6 +63,9 @@ const contracts: Contract[] = [
   { id: "startSection", file: "apps/web/src/PluginRegistry.tsx", name: "StartSectionContribution" },
   { id: "startSectionContext", file: "apps/web/src/PluginRegistry.tsx", name: "StartSectionContext" },
   { id: "surfaceElement", file: "apps/web/src/PluginRegistry.tsx", name: "SurfaceElementDefinition" },
+  { id: "filterSelect", file: "apps/web/src/ui/filter-select.tsx", name: "FilterSelectProps" },
+  { id: "filterOption", file: "apps/web/src/ui/filter-select.tsx", name: "FilterSelectOption" },
+  { id: "tableColumn", file: "apps/web/src/ui/table-widths.ts", name: "TableColumnDefinition" },
   { id: "run", file: "apps/server/src/plugin-support/actor-programs/app-project.ts", name: "RunContext", kind: "embedded" },
   { id: "app", file: "apps/server/src/plugin-support/actor-programs/client-compiler.ts", name: "AppContext", kind: "embedded" },
   { id: "appState", file: "apps/server/src/plugin-support/actor-programs/client-compiler.ts", name: "AppStateView", kind: "embedded" },
@@ -482,6 +485,76 @@ export const webPlugin = {
 } satisfies WebPlugin;`, ["webIdentity.id", "web.id", "web.activate", "web.enabled"], [
     "activate must not change the plugin ID. Deactivation removes all contributions of this web half from the active registry.",
     "The plugin folder is built as its own chunk. Foreign web bundles are not installed later at runtime.",
+  ], "tsx"),
+  entry("web-ui-controls", "Web contributions", "Searchable selections and toolbar filters", "Plugins use the host's controls so buttons, selectors, text inputs, and filter triggers align at the same size. A Select chooses one value; FilterSelect combines several values in one searchable toolbar menu.", "A React component in a plugin's web half.", `
+import { useState } from "react";
+import {
+  Button, FilterSelect, Input, Select, SelectContent,
+  SelectItem, SelectTrigger, SelectValue,
+} from "@ragents/web/ui";
+
+const statuses = [
+  { value: "open", label: "Open", color: "#4f46e5", count: 12 },
+  { value: "done", label: "Done", color: "#15803d", count: 7 },
+];
+const orders = [
+  { value: "priority", label: "Priority, then date" },
+  { value: "date", label: "Date" },
+];
+
+export function ExampleToolbar() {
+  const [order, setOrder] = useState<string | null>("priority");
+  const [status, setStatus] = useState<string[]>([]);
+  return <div className="flex flex-wrap items-center gap-2">
+    <Button size="sm" variant="outline">Add entry</Button>
+    <Select items={orders} value={order} onValueChange={setOrder} searchable>
+      <SelectTrigger size="sm" aria-label="Order"><SelectValue /></SelectTrigger>
+      <SelectContent>
+        {orders.map((item) => <SelectItem key={item.value} value={item.value}>{item.label}</SelectItem>)}
+      </SelectContent>
+    </Select>
+    <Input size="sm" aria-label="Assigned person" placeholder="Assigned person ..." />
+    <FilterSelect size="sm" label="Status" options={statuses} value={status} onValueChange={setStatus} />
+  </div>;
+}`, ["filterSelect.label", "filterSelect.options", "filterSelect.value", "filterSelect.onValueChange", "filterSelect.size", "filterSelect.searchable", "filterSelect.disabled", "filterSelect.className", "filterOption.value", "filterOption.label", "filterOption.color", "filterOption.count", "filterOption.disabled"], [
+    "Every interactive control shares the xs, sm, default, and lg height steps. Choose one size for a toolbar; Textarea uses it as its single-line minimum.",
+    "Select automatically shows search above eight options; searchable overrides the threshold. Search matches labels without case sensitivity, arrows move through matches, Enter selects, and Escape closes. The empty-state line reads No matching options.",
+    "FilterSelect searches by default, shows the label and chosen count or All, and provides checkbox options and Clear. Color, count, and disabled are optional per option; an empty value array means unrestricted.",
+    "Select, filters, dropdown menus, context menus, and popovers share square panel corners. Select opens outside the trigger and stays at least as wide as it.",
+  ], "tsx"),
+  entry("web-ui-tables", "Web contributions", "Resizable table columns", "A plugin can opt into browser-persisted column widths without implementing drag handling or storage. Cells truncate long values and expose their full text on hover.", "A React component in a plugin's web half; table IDs stay stable across renders.", `
+import {
+  Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
+} from "@ragents/web/ui";
+
+const columns = [
+  { id: "title", label: "Title", width: 280, minWidth: 120 },
+  { id: "status", label: "Status", width: 140, minWidth: 80 },
+];
+const entries = [
+  { id: "entry-1", title: "Review the draft specification", status: "Open" },
+  { id: "entry-2", title: "Prepare the sample data", status: "Done" },
+];
+
+export function ExampleTable() {
+  return <Table id="ragents.example.entries" columns={columns}>
+    <TableHeader>
+      <TableRow>
+        {columns.map((column) => <TableHead key={column.id}>{column.label}</TableHead>)}
+      </TableRow>
+    </TableHeader>
+    <TableBody>
+      {entries.map((entry) => <TableRow key={entry.id}>
+        <TableCell>{entry.title}</TableCell>
+        <TableCell>{entry.status}</TableCell>
+      </TableRow>)}
+    </TableBody>
+  </Table>;
+}`, ["tableColumn.id", "tableColumn.label", "tableColumn.width", "tableColumn.minWidth", "tableColumn.resizable"], [
+    "Table requires both a non-empty id and columns for resizing; ordinary tables keep their existing layout. Headers and cells follow column order; TableHead columnId optionally binds a header explicitly.",
+    "Column definitions accept id, label, width, minWidth, and resizable. Widths are pixels; initial width defaults to 180 and minimum to 64. Set resizable: false to omit a handle.",
+    "Drag a handle to resize or double-click to fit rendered content. Keyboard handles support Left/Right, Shift for larger steps, Home for minimum, and Enter/End for fitting.",
+    "Widths persist for the browser origin and table ID. Corrupt values or failed saves offer Reset column widths; blocked storage access retains the table with disabled handles and Retry column widths. New UI exports are additive host API names; rebuild bundles after updating the host API list.",
   ], "tsx"),
   entry("web-brand", "Web contributions", "Branding and chat display", "A product contribution defines the name and appearance of the application. It also determines how the agents' intermediate steps are displayed in the chat, including thinking output and tool calls.", "Properties of a WebPlugin; exactly one active branding contribution.", `
 const productUi = {

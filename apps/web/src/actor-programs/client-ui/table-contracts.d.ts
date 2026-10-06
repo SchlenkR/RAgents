@@ -8,6 +8,9 @@ export interface TableColumn<Row> {
   value: (row: Row) => TableValue;
   render?: (row: Row) => ReactNode;
   sortable?: boolean;
+  width?: number;
+  minWidth?: number;
+  resizable?: boolean;
   /** Searched when table filtering is enabled; defaults to true. */
   filterable?: boolean;
 }
@@ -18,6 +21,7 @@ export interface TableAction<Row> {
   disabled?: (row: Row) => boolean;
 }
 interface DataTableBaseProps<Row> {
+  id?: string;
   title?: string;
   rows: readonly Row[];
   columns: readonly TableColumn<Row>[];

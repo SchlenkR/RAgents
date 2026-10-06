@@ -44,6 +44,7 @@ export async function buildHomepageMiniApp(repoRoot: string): Promise<Map<string
       || relative === "apps/server/src/plugin-support/actor-programs/workflow/index.ts"
       || relative.startsWith("apps/web/src/chat/")
       || relative.startsWith("apps/web/src/ui/")
+      || relative === "apps/web/src/lib/local-storage-setting.ts"
       || ["apps/web/src/SourceCode.tsx", "apps/web/src/DiffCode.tsx", "apps/web/src/highlighting.ts", "apps/web/src/highlighting.css", "apps/web/src/diff-view.css", "apps/web/src/Toolbar.tsx"].includes(relative)
       || relative.startsWith("node_modules/") || relative.startsWith("apps/web/node_modules/");
     if (!allowed) throw new Error(`The public mini-app demo imports a source that is not approved: ${relative}`);

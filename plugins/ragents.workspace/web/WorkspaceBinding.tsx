@@ -202,7 +202,7 @@ export function WorkspaceBindingControl({ disabled, error, machines: offeredMach
           <div className="flex min-w-[15rem] flex-1 flex-col gap-1">
             <Label className={labelClass} htmlFor={pathId}>Absolute path</Label>
             <Input
-              className="h-7 text-sm"
+              size="sm"
               disabled={disabled}
               id={pathId}
               onBlur={() => commit(machine, folder, path)}

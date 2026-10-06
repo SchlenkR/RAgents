@@ -62,19 +62,11 @@ test("selection keys distinguish providers and reject stale choices instead of s
   assert.throws(() => titleSelectionFromKey(titleSelectionKey(settings.selection), []), /not available/);
 });
 
-test("local search preserves catalog order, the selected model and the disable option", () => {
-  const options = titleModelOptions(settings.models, settings.selection, "");
+test("title choices preserve catalog order and the disable option for shared Select search", () => {
+  const options = titleModelOptions(settings.models);
   assert.deepEqual(options.map(({ label }) => label), ["No automatic titles", ...settings.models.map(({ label }) => label)]);
-  assert.deepEqual(titleModelOptions(settings.models, settings.selection, "  RECOMMENDED  ").map(({ label }) => label), [
-    "No automatic titles", "Recommended model", "Previous model",
-  ]);
-  assert.deepEqual(titleModelOptions(settings.models, null, "model-a").map(({ label }) => label), [
-    "No automatic titles", "Previous model", "Other provider",
-  ]);
-  assert.deepEqual(titleModelOptions(settings.models, settings.selection, "no results").map(({ label }) => label), [
-    "No automatic titles", "Previous model",
-  ]);
-  assert.deepEqual(titleModelOptions(settings.models, null, "no results"), [{ value: "null", label: "No automatic titles" }]);
+  assert.deepEqual(options.slice(1).map(({ value }) => titleSelectionFromKey(value, settings.models)), settings.models.map((model) => ({ provider: model.provider, model: model.id })));
+  assert.deepEqual(titleModelOptions([]), [{ value: "null", label: "No automatic titles" }]);
 });
 
 test("failed saves expose the API error and preserve the local selection", async () => {

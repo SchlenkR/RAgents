@@ -56,7 +56,7 @@ export function RunsPage({ state, send }: PanelPageProps) {
     <div className="sticky top-0 z-10 grid gap-3 bg-background pb-2">
       <div className="relative">
         <SearchIcon aria-hidden className="pointer-events-none absolute top-1/2 left-2.5 size-3.5 -translate-y-1/2 text-muted-foreground" />
-        <Input aria-label="Search runs" className="h-8 pl-8 text-sm" onChange={(event) => setQuery(event.target.value)}
+        <Input aria-label="Search runs" className="pl-8" size="sm" onChange={(event) => setQuery(event.target.value)}
           placeholder="Search runs ..." type="search" value={query} />
       </div>
       <div aria-label="Run actions" className="flex flex-wrap items-center gap-1.5" role="group">

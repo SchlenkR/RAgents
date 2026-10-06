@@ -741,6 +741,7 @@ test("browser context menus move buttons in both directions by keyboard and poin
   await notes.getByRole("textbox", { name: "App draft", exact: true }).fill("App draft survives");
   await notes.frameLocator('iframe[title="App frame"]').getByRole("textbox", { name: "Frame draft", exact: true }).fill("Frame draft survives");
   const frame = await notes.locator('iframe[title="App frame"]').elementHandle();
+  await page.waitForFunction((element) => typeof Reflect.get((element as HTMLIFrameElement).contentWindow!, "identity") === "number", frame);
   const identity = await frame!.evaluate((element) => Reflect.get((element as HTMLIFrameElement).contentWindow!, "identity"));
   const mounts = await page.evaluate(() => window.dockingFixture.mounts.notes);
   await menuMove(view("Notes"), "sidebar");

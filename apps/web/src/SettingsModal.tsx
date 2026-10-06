@@ -336,6 +336,7 @@ function ContributionFilterBar({ filter, onFilter, onQuery, query, showKinds }: 
         <Input
           onChange={(event) => onQuery(event.target.value)}
           placeholder="ID, name, title or description"
+          size="sm"
           type="search"
           value={query}
         />

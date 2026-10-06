@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import type { JournalEvent } from "@ragents/engine/src/domain/events";
 import type { WorkspaceTabContext } from "@ragents/web/PluginRegistry";
 import { SourceCode } from "@ragents/web/SourceCode";
-import { Alert, AlertDescription, Badge, Button, Input, Select, SelectContent, SelectItem, SelectTrigger, SelectValue, type BadgeTone } from "@ragents/web/ui";
+import { Alert, AlertDescription, Badge, Button, FilterSelect, Input, type BadgeTone } from "@ragents/web/ui";
 import { runContracts } from "@ragents/engine/src/http/contracts";
 import { rpc } from "@ragents/web/rpc";
 import { executionDuration, executionEventsFrom, executionStatusLabel, filterExecutions, projectExecutions, type ExecutionStatus, type TypeScriptExecution } from "./executions";
@@ -19,8 +19,8 @@ export function ExecutionsPanel({ active, session }: WorkspaceTabContext) {
 function RunExecutionsPanel({ active, runId, view }: { active: boolean; runId: string; view: RunView | undefined }) {
   const [journal, setJournal] = useState<{ events: readonly JournalEvent[]; loaded: boolean; loading: boolean; error: string | null }>({ events: [], loaded: false, loading: false, error: null });
   const [query, setQuery] = useState("");
-  const [status, setStatus] = useState<ExecutionStatus | "all">("all");
-  const statusOptions = [{ value: "all", label: "All statuses" }, ...(["running", "completed", "failed", "interrupted"] as const).map((value) => ({ value, label: executionStatusLabel(value) }))];
+  const [statuses, setStatuses] = useState<string[]>([]);
+  const statusOptions = (["running", "completed", "failed", "interrupted"] as const).map((value) => ({ value, label: executionStatusLabel(value) }));
   const [now, setNow] = useState(Date.now);
   const [reload, setReload] = useState(0);
   const revision = view?.revision;
@@ -41,7 +41,7 @@ function RunExecutionsPanel({ active, runId, view }: { active: boolean; runId: s
   }, [active, runId, revision, reload]);
 
   const executions = useMemo(() => projectExecutions(journal.events, view), [journal.events, view]);
-  const filtered = useMemo(() => filterExecutions(executions, query, status), [executions, query, status]);
+  const filtered = useMemo(() => filterExecutions(executions, query, "all").filter((execution) => statuses.length === 0 || statuses.includes(execution.status)), [executions, query, statuses]);
   const running = executions.some((execution) => execution.status === "running");
   useEffect(() => {
     if (!active || !running) return;
@@ -52,12 +52,10 @@ function RunExecutionsPanel({ active, runId, view }: { active: boolean; runId: s
 
   return <section aria-label="TypeScript executions" className="flex h-full min-h-0 min-w-0 flex-col bg-background text-[0.78rem] text-foreground">
     <header className="px-3.5 pt-3.5 pb-2.5"><h2 className="mb-1.5 text-[0.92rem]">Executions</h2><p className="leading-[1.5] text-muted-foreground">TypeScript snippets of all actors in this run.</p></header>
-    <div className="grid grid-cols-[minmax(0,1fr)_auto] gap-2 border-b border-border-soft px-3.5 pb-3">
-      <Input className="col-span-full" aria-label="Search executions" onChange={(event) => setQuery(event.target.value)} placeholder="Search actor, code or result" type="search" value={query} />
-      <Select items={statusOptions} value={status} onValueChange={(value) => { if (value !== null) setStatus(value as ExecutionStatus | "all"); }}>
-        <SelectTrigger className="min-w-0" aria-label="Execution status"><SelectValue /></SelectTrigger>
-        <SelectContent>{statusOptions.map((option) => <SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>)}</SelectContent>
-      </Select>
+    <div className="flex flex-wrap items-center gap-2 border-b border-border-soft px-3.5 pb-3">
+      <Input className="min-w-0" size="sm" aria-label="Search executions" onChange={(event) => setQuery(event.target.value)} placeholder="Search actor, code or result" type="search" value={query} />
+      <FilterSelect label="Status" options={statusOptions.map((option) => ({ ...option, count: executions.filter((execution) => execution.status === option.value).length }))}
+        size="sm" value={statuses} onValueChange={setStatuses} />
       <span className="self-center text-right text-[0.68rem] text-muted-foreground" role="status">{journal.loading ? (journal.loaded ? "Refreshing ..." : "Loading ...") : journal.loaded ? `${filtered.length} of ${executions.length} executions` : "Not loaded yet"}</span>
     </div>
     {journal.error && <Alert className="mx-3.5 my-2 w-auto" variant="destructive"><AlertDescription className="whitespace-pre-wrap text-destructive [overflow-wrap:anywhere]">{journal.error}{journal.loaded ? " The last loaded state stays visible." : ""}</AlertDescription><Button disabled={!active || journal.loading} onClick={() => setReload((value) => value + 1)} size="sm" variant="ghost">Reload</Button></Alert>}

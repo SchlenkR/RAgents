@@ -5182,9 +5182,9 @@ const App = () => {
         { id: "approved", label: "Selection confirmed", type: "checkbox", required: true },
       ]} values={values} onChange={setValues} onSubmit={async (next) => { setResult(JSON.stringify(next, null, 2)); }} submitLabel="Show values locally" />
       <UI.Stack gap="small">
-        <UI.DataTable<Row> title="Data table" rows={rows} rowKey={(row) => row.id} filterable
+        <UI.DataTable<Row> id="controls-demo-table" title="Data table" rows={rows} rowKey={(row) => row.id} filterable
           selectedKeys={selected} onSelectionChange={setSelected}
-          columns={[{ id: "name", label: "Work", value: (row) => row.name, sortable: true }, { id: "count", label: "Results", value: (row) => row.count, sortable: true }]}
+          columns={[{ id: "name", label: "Work", value: (row) => row.name, sortable: true, width: 240, minWidth: 100 }, { id: "count", label: "Results", value: (row) => row.count, sortable: true, width: 120, minWidth: 80 }]}
           actions={[{ id: "select", label: "Select", onClick: (row) => { setSelected([row.id]); } }]} />
         <p aria-live="polite">{selected.length} rows selected</p>
       </UI.Stack>
@@ -6219,6 +6219,9 @@ export interface TableColumn<Row> {
   value: (row: Row) => TableValue;
   render?: (row: Row) => ReactNode;
   sortable?: boolean;
+  width?: number;
+  minWidth?: number;
+  resizable?: boolean;
   /** Searched when table filtering is enabled; defaults to true. */
   filterable?: boolean;
 }
@@ -6229,6 +6232,7 @@ export interface TableAction<Row> {
   disabled?: (row: Row) => boolean;
 }
 interface DataTableBaseProps<Row> {
+  id?: string;
   title?: string;
   rows: readonly Row[];
   columns: readonly TableColumn<Row>[];
@@ -6376,6 +6380,53 @@ declare function Checkbox({ className, ...props }: CheckboxPrimitive.Root.Props)
 export { Checkbox };
 ```
 
+#### apps/web/src/ui/combobox.d.ts
+
+```typescript
+import * as React from "react";
+import { Combobox as ComboboxPrimitive } from "@base-ui/react/combobox";
+import { type ControlSize } from "./control-size";
+export declare const dropdownTriggerStyle = "flex w-fit shrink-0 items-center justify-between gap-1.5 rounded-lg border border-input bg-background px-2.5 py-0 shadow-xs whitespace-nowrap transition-colors outline-none select-none disabled:cursor-not-allowed disabled:opacity-50 aria-invalid:border-destructive aria-invalid:ring-1 aria-invalid:ring-destructive data-placeholder:text-muted-foreground dark:bg-input/30 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4";
+export declare function optionText(node: React.ReactNode): string;
+export declare function matchesOption(label: string, query: string): boolean;
+declare function Combobox<Value, Multiple extends boolean | undefined = false>({ onInputValueChange, onOpenChange, inputValue, defaultInputValue, ...props }: ComboboxPrimitive.Root.Props<Value, Multiple>): React.JSX.Element;
+declare function ComboboxTrigger({ className, size, children, ref, ...props }: ComboboxPrimitive.Trigger.Props & {
+    size?: ControlSize;
+}): React.JSX.Element;
+declare function ComboboxValue(props: ComboboxPrimitive.Value.Props): React.JSX.Element;
+declare function ComboboxContent({ className, children, searchable, emptyText, footer, side, sideOffset, align, alignOffset, ...props }: ComboboxPrimitive.Popup.Props & Pick<ComboboxPrimitive.Positioner.Props, "align" | "alignOffset" | "side" | "sideOffset"> & {
+    searchable?: boolean;
+    emptyText?: string;
+    footer?: React.ReactNode;
+}): React.JSX.Element;
+declare function ComboboxItem({ className, children, label, indicator, ...props }: ComboboxPrimitive.Item.Props & {
+    label?: string;
+    indicator?: "check" | "checkbox";
+}): React.JSX.Element | null;
+declare function ComboboxGroup({ className, ...props }: ComboboxPrimitive.Group.Props): React.JSX.Element;
+declare function ComboboxLabel({ className, ...props }: ComboboxPrimitive.GroupLabel.Props): React.JSX.Element;
+declare function ComboboxSeparator({ className, ...props }: ComboboxPrimitive.Separator.Props): React.JSX.Element;
+export { Combobox, ComboboxContent, ComboboxGroup, ComboboxItem, ComboboxLabel, ComboboxSeparator, ComboboxTrigger, ComboboxValue };
+```
+
+#### apps/web/src/ui/control-size.d.ts
+
+```typescript
+export type ControlSize = "xs" | "sm" | "default" | "lg";
+export declare const controlMetrics: {
+    xs: string;
+    sm: string;
+    default: string;
+    lg: string;
+};
+export declare const controlSizes: {
+    xs: string;
+    sm: string;
+    default: string;
+    lg: string;
+};
+```
+
 #### apps/web/src/ui/dialog.d.ts
 
 ```typescript
@@ -6492,6 +6543,31 @@ declare function FieldError({ className, children, errors, ...props }: React.Com
 export { Field, FieldLabel, FieldDescription, FieldError, FieldGroup, FieldLegend, FieldSeparator, FieldSet, FieldContent, FieldTitle, };
 ```
 
+#### apps/web/src/ui/filter-select.d.ts
+
+```typescript
+import type { ControlSize } from "./control-size";
+export interface FilterSelectOption {
+    readonly value: string;
+    readonly label: string;
+    readonly color?: string;
+    readonly count?: number;
+    readonly disabled?: boolean;
+}
+export interface FilterSelectProps {
+    readonly label: string;
+    readonly options: readonly FilterSelectOption[];
+    readonly value: readonly string[];
+    readonly onValueChange: (value: string[]) => void;
+    readonly size?: ControlSize;
+    readonly searchable?: boolean;
+    readonly disabled?: boolean;
+    readonly className?: string;
+}
+declare function FilterSelect({ label, options, value, onValueChange, size, searchable, disabled, className }: FilterSelectProps): import("react").JSX.Element;
+export { FilterSelect };
+```
+
 #### apps/web/src/ui/HeaderDropdown.d.ts
 
 ```typescript
@@ -6554,6 +6630,9 @@ export { Badge, BadgeDisplayProvider, badgeVariants, type BadgeTone } from "./ba
 export { Button, buttonVariants } from "./button";
 export { Card, CardAction, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "./card";
 export { Checkbox } from "./checkbox";
+export { Combobox, ComboboxContent, ComboboxGroup, ComboboxItem, ComboboxLabel, ComboboxSeparator, ComboboxTrigger, ComboboxValue } from "./combobox";
+export { type ControlSize } from "./control-size";
+export { FilterSelect, type FilterSelectOption, type FilterSelectProps } from "./filter-select";
 export { Dialog, DialogBody, DialogClose, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogOverlay, DialogPortal, DialogTitle, DialogTrigger, type DialogContentProps, type DialogSize, type ModalScope, } from "./dialog";
 export { DropdownMenu, DropdownMenuCheckboxItem, DropdownMenuContent, DropdownMenuGroup, DropdownMenuItem, DropdownMenuLabel, DropdownMenuPortal, DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuSeparator, DropdownMenuShortcut, DropdownMenuSub, DropdownMenuSubContent, DropdownMenuSubTrigger, DropdownMenuTrigger, } from "./dropdown-menu";
 export { Empty, EmptyContent, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from "./empty";
@@ -6572,7 +6651,7 @@ export { Separator } from "./separator";
 export { Skeleton } from "./skeleton";
 export { Spinner } from "./spinner";
 export { Switch } from "./switch";
-export { Table, TableBody, TableCaption, TableCell, TableFooter, TableHead, TableHeader, TableRow } from "./table";
+export { Table, TableBody, TableCaption, TableCell, TableFooter, TableHead, TableHeader, TableRow, type TableColumnDefinition, type TableProps } from "./table";
 export { Tabs, TabsContent, TabsList, TabsTrigger, tabsListVariants } from "./tabs";
 export { Textarea } from "./textarea";
 export { Toggle, toggleVariants } from "./toggle";
@@ -6593,7 +6672,10 @@ export { useFileInput } from "./useFileInput";
 
 ```typescript
 import * as React from "react";
-declare function Input({ className, type, ...props }: React.ComponentProps<"input">): React.JSX.Element;
+import { type ControlSize } from "./control-size";
+declare function Input({ className, type, size, ...props }: Omit<React.ComponentProps<"input">, "size"> & {
+    size?: ControlSize | number;
+}): React.JSX.Element;
 export { Input };
 ```
 
@@ -6710,18 +6792,21 @@ export declare function SectionHeading({ title, count, children }: {
 ```typescript
 import * as React from "react";
 import { Select as SelectPrimitive } from "@base-ui/react/select";
-declare const Select: typeof SelectPrimitive.Root;
+import { type ControlSize } from "./control-size";
+declare function Select<Value, Multiple extends boolean | undefined = false>({ searchable, children, items, onOpenChange, onValueChange, ...props }: SelectPrimitive.Root.Props<Value, Multiple> & {
+    searchable?: boolean;
+}): React.JSX.Element;
 declare function SelectGroup({ className, ...props }: SelectPrimitive.Group.Props): React.JSX.Element;
 declare function SelectValue({ className, ...props }: SelectPrimitive.Value.Props): React.JSX.Element;
-declare function SelectTrigger({ className, size, children, ...props }: SelectPrimitive.Trigger.Props & {
-    size?: "sm" | "default";
+declare function SelectTrigger({ className, size, children, render, ...props }: SelectPrimitive.Trigger.Props & {
+    size?: ControlSize;
 }): React.JSX.Element;
 declare function SelectContent({ className, children, side, sideOffset, align, alignOffset, alignItemWithTrigger, ...props }: SelectPrimitive.Popup.Props & Pick<SelectPrimitive.Positioner.Props, "align" | "alignOffset" | "side" | "sideOffset" | "alignItemWithTrigger">): React.JSX.Element;
 declare function SelectLabel({ className, ...props }: SelectPrimitive.GroupLabel.Props): React.JSX.Element;
 declare function SelectItem({ className, children, ...props }: SelectPrimitive.Item.Props): React.JSX.Element;
 declare function SelectSeparator({ className, ...props }: SelectPrimitive.Separator.Props): React.JSX.Element;
-declare function SelectScrollUpButton({ className, ...props }: React.ComponentProps<typeof SelectPrimitive.ScrollUpArrow>): React.JSX.Element;
-declare function SelectScrollDownButton({ className, ...props }: React.ComponentProps<typeof SelectPrimitive.ScrollDownArrow>): React.JSX.Element;
+declare function SelectScrollUpButton({ className, ...props }: React.ComponentProps<typeof SelectPrimitive.ScrollUpArrow>): React.JSX.Element | null;
+declare function SelectScrollDownButton({ className, ...props }: React.ComponentProps<typeof SelectPrimitive.ScrollDownArrow>): React.JSX.Element | null;
 export { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectScrollDownButton, SelectScrollUpButton, SelectSeparator, SelectTrigger, SelectValue, };
 ```
 
@@ -6837,19 +6922,44 @@ declare function Switch({ className, size, ...props }: SwitchPrimitive.Root.Prop
 export { Switch };
 ```
 
+#### apps/web/src/ui/table-widths.d.ts
+
+```typescript
+export interface TableColumnDefinition {
+    id: string;
+    label?: string;
+    width?: number;
+    minWidth?: number;
+    resizable?: boolean;
+}
+export type TableColumnWidths = Readonly<Record<string, number>>;
+export declare const tableWidthsKey: (id: string) => string;
+export declare function parseTableColumnWidths(raw: string | null): TableColumnWidths;
+export declare function validateTableColumns(columns: readonly TableColumnDefinition[]): void;
+export declare const tableColumnMinimum: (column: TableColumnDefinition) => number;
+export declare const tableColumnWidth: (column: TableColumnDefinition, widths: TableColumnWidths) => number;
+```
+
 #### apps/web/src/ui/table.d.ts
 
 ```typescript
 import * as React from "react";
-declare function Table({ className, ...props }: React.ComponentProps<"table">): React.JSX.Element;
+import { type TableColumnDefinition } from "./table-widths";
+export type TableProps = React.ComponentProps<"table"> & {
+    columns?: readonly TableColumnDefinition[];
+};
+declare function Table({ columns, ...props }: TableProps): React.JSX.Element;
 declare function TableHeader({ className, ...props }: React.ComponentProps<"thead">): React.JSX.Element;
 declare function TableBody({ className, ...props }: React.ComponentProps<"tbody">): React.JSX.Element;
 declare function TableFooter({ className, ...props }: React.ComponentProps<"tfoot">): React.JSX.Element;
 declare function TableRow({ className, ...props }: React.ComponentProps<"tr">): React.JSX.Element;
-declare function TableHead({ className, ...props }: React.ComponentProps<"th">): React.JSX.Element;
-declare function TableCell({ className, ...props }: React.ComponentProps<"td">): React.JSX.Element;
+declare function TableHead({ className, children, columnId, ref, title, ...props }: React.ComponentProps<"th"> & {
+    columnId?: string;
+}): React.JSX.Element;
+declare function TableCell({ className, children, title, ...props }: React.ComponentProps<"td">): React.JSX.Element;
 declare function TableCaption({ className, ...props }: React.ComponentProps<"caption">): React.JSX.Element;
 export { Table, TableHeader, TableBody, TableFooter, TableHead, TableRow, TableCell, TableCaption, };
+export type { TableColumnDefinition } from "./table-widths";
 ```
 
 #### apps/web/src/ui/tabs.d.ts
@@ -6871,7 +6981,10 @@ export { Tabs, TabsList, TabsTrigger, TabsContent, tabsListVariants };
 
 ```typescript
 import * as React from "react";
-declare function Textarea({ className, ...props }: React.ComponentProps<"textarea">): React.JSX.Element;
+import { type ControlSize } from "./control-size";
+declare function Textarea({ className, size, rows, ...props }: React.ComponentProps<"textarea"> & {
+    size?: ControlSize;
+}): React.JSX.Element;
 export { Textarea };
 ```
 
@@ -6898,7 +7011,7 @@ import { Toggle as TogglePrimitive } from "@base-ui/react/toggle";
 import { type VariantProps } from "class-variance-authority";
 declare const toggleVariants: (props?: ({
     variant?: "default" | "outline" | null | undefined;
-    size?: "default" | "sm" | "lg" | null | undefined;
+    size?: "default" | "xs" | "sm" | "lg" | null | undefined;
 } & import("class-variance-authority/types").ClassProp) | undefined) => string;
 declare function Toggle({ className, variant, size, ...props }: TogglePrimitive.Props & VariantProps<typeof toggleVariants>): import("react").JSX.Element;
 export { Toggle, toggleVariants };
