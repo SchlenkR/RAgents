@@ -442,8 +442,7 @@ const dropdownBounds = async (page: Page, panel: Locator, trigger: Locator) => {
   assert.ok(origin, "The trigger is visible.");
   if (origin.x + origin.width / 2 < header.x + header.width / 2) assert.ok(Math.abs(bounds.x - header.x - 8) < 1, "A dropdown of a trigger in the left half starts at the header gutter.");
   else assert.ok(Math.abs(bounds.x + bounds.width - header.x - header.width + 8) < 1, "A dropdown of a trigger in the right half ends at the header gutter.");
-  const expected = (await panel.getAttribute("aria-label")) === "Share run" ? Math.min(800, header.width - 16) : header.width - 16;
-  assert.ok(Math.abs(bounds.width - expected) < 1, "A dropdown spans its header; sharing keeps a readable column.");
+  assert.ok(Math.abs(bounds.width - Math.min(800, header.width - 16)) < 1, "Every dropdown shares the same responsive width.");
   assert.notEqual(await panel.getAttribute("aria-modal"), "true", "Header dropdowns keep the header available.");
   const style = await panel.evaluate((element) => {
     const computed = getComputedStyle(element);
@@ -710,7 +709,7 @@ for (const { host, width } of [{ host: "browser", width: 1400 }, { host: "vscode
       await shareButton.click();
       await share.getByRole("status").filter({ hasText: "Loading ..." }).waitFor();
       const shareBounds = await dropdownBounds(page, share, shareButton);
-      assert.deepEqual({ y: shareBounds.y, width: shareBounds.width }, { y: detailBounds.y, width: Math.min(800, detailBounds.width) });
+      assert.deepEqual({ y: shareBounds.y, width: shareBounds.width }, { y: detailBounds.y, width: detailBounds.width });
       await page.evaluate(() => { window.runStartFixture.holdSharing = false; window.runStartFixture.releaseSharing(); });
       await share.getByRole("list", { name: "Shared with", exact: true }).waitFor();
       assert.equal(await share.getByRole("button", { name: /^(Save|Cancel)$/ }).count(), 0, "Access changes need no confirmation.");

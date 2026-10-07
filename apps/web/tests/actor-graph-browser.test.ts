@@ -237,7 +237,7 @@ test("the addressee pop-out and the header's agents view show who created whom a
   assert.equal(await agents.locator("g[data-tone]").count(), 6, "one line leads into the open group's frame, none to each member");
   await settle();
   const agentsBox = await box(agents);
-  assert.ok(agentsBox.y + agentsBox.height <= 860 - 7 && near(agentsBox.width, 1264), `the agents view uses the shared header width and stays inside the window (${agentsBox.x}, ${agentsBox.y}, ${agentsBox.width} x ${agentsBox.height})`);
+  assert.ok(agentsBox.y + agentsBox.height <= 860 - 7 && near(agentsBox.width, 800), `the agents view uses the shared header width and stays inside the window (${agentsBox.x}, ${agentsBox.y}, ${agentsBox.width} x ${agentsBox.height})`);
   await shoot("actor-graph-agents");
   await agentsGroup.click();
   assert.equal(await agentsGroup.getAttribute("aria-expanded"), "false");
@@ -302,7 +302,7 @@ test("the Agents header dropdown shares square responsive bounds and restores fo
       const bounds = await box(panel);
       assert.ok(near(bounds.y, header.y + header.height + 8), "Agents opens below the entire wrapping header.");
       assert.ok(near(bounds.x + bounds.width, header.x + header.width - 8), "Agents shares the header's right gutter.");
-      assert.ok(near(bounds.width, header.width - 16), "Agents shares the header dropdown width.");
+      assert.ok(near(bounds.width, Math.min(800, header.width - 16)), "Agents shares the header dropdown width.");
       assert.ok(bounds.y + bounds.height <= 893, "The graph stays inside the visible viewport.");
       const style = await panel.evaluate((element) => {
         const computed = getComputedStyle(element);

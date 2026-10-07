@@ -40,7 +40,7 @@ export function SharePanel({ runTitle, sharing, onSave, onOpenChange, trigger, a
   anchor?: ComponentProps<typeof HeaderDropdown>["anchor"];
   id?: string;
 }) {
-  return <HeaderDropdown anchor={anchor} id={id} label="Share run" width="content" onOpenChange={onOpenChange} open={sharing !== undefined} trigger={trigger}>
+  return <HeaderDropdown anchor={anchor} id={id} label="Share run" onOpenChange={onOpenChange} open={sharing !== undefined} trigger={trigger}>
     {sharing && <ShareContent onSave={onSave} runTitle={runTitle} sharing={sharing} />}
   </HeaderDropdown>;
 }

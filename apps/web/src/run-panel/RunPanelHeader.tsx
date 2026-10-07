@@ -10,7 +10,7 @@ import { RunShareButton } from "./RunShareButton";
 import { useRunHeader } from "./RunHeader";
 
 const titleClass = "flex h-[30px] min-w-0 max-w-full flex-1 cursor-pointer items-center gap-2 self-center rounded-md px-1.5 text-left";
-const detailsClass = "grid grid-cols-1 gap-2 @[480px]/header-dropdown:grid-cols-2 @[800px]/header-dropdown:grid-cols-3 @[1100px]/header-dropdown:grid-cols-4 [&>*]:min-w-0 [&>*]:max-w-full [&>*]:items-start [&>*]:rounded-[12px] [&>*]:border [&>*]:border-border [&>*]:bg-card [&>*]:p-3 [&_*]:max-w-full [&_*]:whitespace-normal [&_*]:[overflow-wrap:anywhere] [&_span]:[-webkit-line-clamp:unset]";
+const detailsClass = "grid grid-cols-1 gap-2 @[480px]/header-dropdown:grid-cols-2 @[720px]/header-dropdown:grid-cols-3 [&>*]:min-w-0 [&>*]:max-w-full [&>*]:items-start [&>*]:rounded-[12px] [&>*]:border [&>*]:border-border [&>*]:bg-card [&>*]:p-3 [&_*]:max-w-full [&_*]:whitespace-normal [&_*]:[overflow-wrap:anywhere] [&_span]:[-webkit-line-clamp:unset]";
 
 /** The wrapping panel header keeps bar actions direct and run details behind the title. */
 export function RunPanelHeader({ actionsRef, attention, contributions, navigation, registry, runError, session, working }: {

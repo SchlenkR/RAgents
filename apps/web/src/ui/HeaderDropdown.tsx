@@ -7,7 +7,7 @@ type DropdownAnchor = HTMLElement | { contextElement: HTMLElement; getBoundingCl
 // The whole header stays bright and usable, so every header control looks and works alike; only what lies below it dims.
 const belowHeader = "absolute inset-x-0 top-full bottom-auto h-screen";
 
-export function HeaderDropdown({ open, onOpenChange, label, trigger, anchor, children, id, initialFocus, keepMounted, role = "dialog", variant = "default", width = "header", ref }: {
+export function HeaderDropdown({ open, onOpenChange, label, trigger, anchor, children, id, initialFocus, keepMounted, role = "dialog", variant = "default", ref }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   label: string;
@@ -19,8 +19,6 @@ export function HeaderDropdown({ open, onOpenChange, label, trigger, anchor, chi
   keepMounted?: boolean;
   role?: "dialog" | "region";
   variant?: "default" | "chat";
-  /** "header" takes the width of the header it hangs from; "content" keeps a readable column. */
-  width?: "header" | "content";
   ref?: Ref<HTMLDivElement>;
 }) {
   const [button, setButton] = useState<HTMLButtonElement | null>(null);
@@ -51,7 +49,7 @@ export function HeaderDropdown({ open, onOpenChange, label, trigger, anchor, chi
     <PopoverContent align={side()} alignOffset={variant === "chat" ? 0 : 8} anchor={boundary} aria-label={label}
       className={`@container/header-dropdown min-h-0 min-w-0 max-h-(--header-dropdown-height) gap-2 overflow-hidden rounded-none p-[8px] [--popout-body-width:100cqw] [--popout-body-height:calc(var(--header-dropdown-height)_-_3.25rem)] ${variant === "chat"
         ? "h-(--header-dropdown-height) w-[min(800px,var(--available-width))] [--header-dropdown-height:min(max(calc(var(--ragents-viewport-height,100dvh)*0.8),320px),var(--available-height))]"
-        : `${width === "content" ? "w-[min(800px,max(320px,calc(var(--anchor-width)-16px)),var(--available-width))]" : "w-[min(max(320px,calc(var(--anchor-width)-16px)),var(--available-width))]"} [--header-dropdown-height:min(calc(var(--ragents-viewport-height,100dvh)*0.7),560px,var(--available-height))]`}`}
+        : "w-[min(800px,max(320px,calc(var(--anchor-width)-16px)),var(--available-width))] [--header-dropdown-height:min(calc(var(--ragents-viewport-height,100dvh)*0.7),560px,var(--available-height))]"}`}
       collisionAvoidance={variant === "chat" ? { side: "none", align: "shift" } : undefined}
       backdropClassName={header ? belowHeader : undefined} collisionPadding={8} container={header} data-slot="header-dropdown" dim
       finalFocus={trigger ? undefined : () => element() ?? true}

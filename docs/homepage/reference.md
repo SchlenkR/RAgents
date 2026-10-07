@@ -6671,7 +6671,7 @@ type DropdownAnchor = HTMLElement | {
     contextElement: HTMLElement;
     getBoundingClientRect: () => DOMRect;
 };
-export declare function HeaderDropdown({ open, onOpenChange, label, trigger, anchor, children, id, initialFocus, keepMounted, role, variant, width, ref }: {
+export declare function HeaderDropdown({ open, onOpenChange, label, trigger, anchor, children, id, initialFocus, keepMounted, role, variant, ref }: {
     open: boolean;
     onOpenChange: (open: boolean) => void;
     label: string;
@@ -6683,8 +6683,6 @@ export declare function HeaderDropdown({ open, onOpenChange, label, trigger, anc
     keepMounted?: boolean;
     role?: "dialog" | "region";
     variant?: "default" | "chat";
-    /** "header" takes the width of the header it hangs from; "content" keeps a readable column. */
-    width?: "header" | "content";
     ref?: Ref<HTMLDivElement>;
 }): import("react").JSX.Element;
 export {};

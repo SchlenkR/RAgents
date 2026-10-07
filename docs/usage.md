@@ -654,7 +654,7 @@ Clicking or typing elsewhere while it loads cancels that focus request.
 The run title opens "Run details". Its panel contains all run metadata, start option badges (an option
 that a metadata cell already shows appears once), and contributed detail controls in cells that wrap as the
 panel narrows. "Run details", "Run script", "Agents", and "Share" use the same square dropdown below the header,
-as wide as the header with a small inset (sharing stays up to 800 pixels wide). Each dims the page below the header and keeps
+up to 800 pixels wide with a small inset on the side of their button. Each dims the page below the header and keeps
 its content within the available width. The close button, Escape, or clicking outside closes it. Focus returns
 to its button unless it has moved elsewhere.
 

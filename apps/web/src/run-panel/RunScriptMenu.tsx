@@ -42,7 +42,7 @@ export function RunScriptMenu({ runId }: { runId: string }) {
       </Button>}>
         {scripts?.kind === "loading" && <p className={noticeClass}>Loading run scripts ...</p>}
         {scripts?.kind === "ready" && scripts.scripts.length === 0 && !error && <p className={noticeClass}>This profile has no run scripts for you.</p>}
-        {scripts?.kind === "ready" && scripts.scripts.length > 0 && <ul aria-label="Run scripts" className="grid grid-cols-1 gap-2 @[480px]/header-dropdown:grid-cols-2 @[800px]/header-dropdown:grid-cols-3 @[1100px]/header-dropdown:grid-cols-4">
+        {scripts?.kind === "ready" && scripts.scripts.length > 0 && <ul aria-label="Run scripts" className="grid grid-cols-1 gap-2 @[480px]/header-dropdown:grid-cols-2">
           {[...scripts.scripts.filter((script) => script.available), ...scripts.scripts.filter((script) => !script.available)].map((script) => <StartTile action="start"
             description={(script.available ? script.description : script.reason) ?? ""} disabled={starting !== undefined || !script.available} fill
             key={script.id} onClick={() => startScript(script.id)} starting={starting === script.id} title={script.title} />)}

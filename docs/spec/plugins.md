@@ -1441,9 +1441,9 @@ Run script, Agents, Share, and the global coordinator use the same square panel,
 heading, close button, 8 px padding, and theme dimming. By default, the panel opens below the nearest
 header, inset 8 px from the header edge on the side of its trigger (the left edge for a trigger in the left half,
 otherwise the right edge); outside a header it follows the calling row or action.
-Its width is `max(320px, anchor width - 16px)` limited by the available width, so it spans the header it
-hangs from and its tiles flow into two, three, or four columns as the panel widens; sharing (`width="content"`)
-keeps `min(800px, ...)` because its rows read best as one column. The viewport always limits the width. Height is limited
+Its width is `min(800px, max(320px, anchor width - 16px), available width)`, so narrow action
+anchors still give a readable panel and the viewport always limits its width; the tiles of Run details flow into
+two or three columns as the panel widens. Height is limited
 to 70 percent of the viewport, 560 px, and the available space. With `variant="chat"`, it opens
 directly below the calling field, aligned with its left edge and with 8 px collision padding.
 Its width is `min(800px, available width)` and its height is
