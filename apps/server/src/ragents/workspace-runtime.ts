@@ -54,7 +54,7 @@ export type WorkspacePlacement = WorkspacePlacementFolder & (
 );
 
 export interface WorkspaceRuntime {
-  resolve: (runId: string, emitSystem: (text: string) => void) => Promise<SessionWorkspace>;
+  resolve: (runId: string, emitSystem: (text: string) => void, signal?: AbortSignal) => Promise<SessionWorkspace>;
   describe: () => WorkspaceRuntimeDescription;
   /** The one central place where a flow asks where and in which folder a run works. */
   placementOf: (runId: string) => WorkspacePlacement;
@@ -69,6 +69,7 @@ export interface WorkspaceResolverContext {
   directory: string;
   choice: JsonValue | null;
   emitSystem: (text: string) => void;
+  signal?: AbortSignal;
 }
 
 /** What a contribution delivers for a run's workspace; what it leaves out, the workspace plugin fills in. */

@@ -45,15 +45,19 @@ are locked with an explanation; their original files are kept. Start a new run w
 
 Wide browser runs start with Chat beside the mini-apps; narrow ones use one tab group. Drag tabs
 onto the docking guides to arrange areas or merge them. Chat and visited apps keep their input
-through switches and moves. New apps appear without taking focus; unavailable apps disappear.
-Close windows with X. Each window keeps a button in the header or sidebar rail; a pressed button is
-visible, and clicking another one shows that window. Drag a header button by its grip to
+through switches and moves. New apps appear without taking focus. A window that is unavailable
+for a while keeps its place and returns to it; the app of a later start of the same run script
+takes over the area of the earlier one. Close windows with X. Each window keeps a button in the
+header or sidebar rail; a pressed button is visible, and clicking another one shows that window. Drag a header button by its grip to
 reorder the buttons, or onto the docking guides to place that window. "Empty space" in the
 header adds an empty pane that holds a place until you drop a window onto it. Every button stays
 directly available; a narrow header wraps onto further rows and pushes the workspace down.
 Drag a button between the sidebar rail and header to choose where it lives, or right-click it
 and choose "Move to header" or "Move to sidebar". Shift+F10 opens the same menu from the keyboard.
 Moving a button keeps its panel's open state; "Reset layout" restores the plugin defaults.
+
+When step details are enabled, click a thinking or tool step to open its popup. Long traces
+scroll inside it; the heading and close button stay visible within the available screen space.
 
 In VS Code, clicking an app opens or focuses its editor tab. VS Code controls where that tab
 appears. Questions and news stay in chat. The selector below the input chooses the addressee;
@@ -115,6 +119,10 @@ The right-hand inspection rail also provides Documents, Files, Functions, Execut
 plugin contributions when available. Clicking a rail button opens its panel; the same button,
 Escape, X, or the backdrop closes it. Visited persistent panels keep their state.
 
+If a panel fails, it shows the cause with Retry and Reload; other panels remain usable.
+A failed required plugin provider identifies the plugin and blocks the part that depends on it.
+Mini-app listing errors offer Retry and also retry briefly or when the connection returns.
+
 A document an agent shows appears as a card in the chat and opens in Documents: text it wrote,
 or a file, also an image, from the run's document store `@documents` or from the workspace, also
 one on a workstation. A file is read when you open it, so it shows the current content; a workspace
@@ -125,6 +133,8 @@ that an agent names relative to the working directory or with `@documents/...` o
 way; addresses with a scheme stay as written. Agents put reports and evidence under `@documents` and
 deliverables into the project, and move files between the two with `copy`. Documents lists the
 store by folder; Files shows it as a tree next to the working directory.
+The Files preview follows the selected file, even when reads finish out of order. A failed
+preview shows its cause; Refresh retries it, and hiding the panel retains a loaded preview.
 
 Click an image in Documents, a Markdown report, or the chat's attachments to open it across
 the window. The preview shows a magnifier on hover. The viewer shows the file name; use the
@@ -671,7 +681,7 @@ Narrower workspaces use tabs in one area. The default adapts to width until you 
 yourself; saved custom layouts stay as you left them. The active tab is one square filled shape
 flush with the strip, without a border, holding its grip, maximize, and close buttons. The strip
 clips to the card's rounded top corners. Drag a tab to arrange windows, or drag
-the grip on the active tab to move all windows of its area together.
+the grip on the active tab to move only that window; the other tabs stay in their area.
 A compass appears over the area under the pointer: its four sides split that area in half,
 and its center merges windows as tabs. Dropping on a tab strip also merges. The four outer
 workspace guides dock along the whole edge. A translucent rectangle previews the result.
@@ -689,11 +699,11 @@ window, and every app as buttons with their existing icons, whether shown or not
 visible window appears pressed.
 Clicking a closed window opens it beside the current area in a wide browser workspace, or as a
 tab when narrow. Clicking a window that waits as a background tab brings that tab to the front.
-Clicking a visible window changes nothing. All window buttons, "Empty space", "Reset layout",
-bar contributions such as "Agents", "Share", "Run script", and the other header icons remain
-directly available in the browser and VS Code, regardless of width or window count. Whole
-buttons wrap onto further rows when needed, with labels visible within their available width.
-The title can shrink or occupy its own row. The header grows and pushes the workspace down;
+Clicking a visible window changes nothing. All window buttons, "Empty space", and "Reset layout" remain directly available. They fill
+the space between the fixed controls first, then continue across the full header width when
+needed. Adding apps keeps the title and actions such as "Agents", "Share", Stop, and Settings
+in place. The title and long button labels truncate; full labels remain available on hover.
+Narrow panels can also wrap fixed controls. The header grows and pushes the workspace down;
 its controls are never clipped, hidden in a window menu, or placed in a horizontal scroll area.
 Each window button has a grip at its left edge, shown on hover or focus and always on touch
 screens. Drag a button within the header to reorder the buttons across rows; a thin line marks
@@ -755,7 +765,14 @@ dot on its directly available header button means the view has content or new ac
 The browser remembers areas, sizes, active tabs, closed windows, empty panes, the header button
 order, and button positions for each server and run. Flyouts close on reload; saved layouts
 with the removed sidebar mode or width also reconcile to a closed flyout. New apps appear without
-taking focus; unavailable apps disappear. Chat drafts, app input, and visited tool state survive tab switches,
+taking focus. A window that is unavailable for a while, such as the app of a stopped actor or a
+view whose run details arrive late, keeps its place: its area gives its space to the others and
+its button leaves the header until it returns, then both are back where they were, without taking
+the selection from the tab shown meanwhile. While a run loads, such areas stay as empty cards.
+The app of a later start of the same run script takes over the area of the earlier one; while both
+are shown, each has its own. Only closing a window or "Reset layout" gives up its place. A run
+whose details are briefly missing from the server's list keeps its tabs and details meanwhile.
+Chat drafts, app input, and visited tool state survive tab switches,
 moves, and close/reopen while the run stays open. Hidden panels pause their background refreshes and
 receive current run data when shown again; their drafts and existing app frames stay in place.
 This does not pause a mini-app's own code inside its frame. Reloading the page restores the
@@ -817,8 +834,7 @@ tools; the web interface comes finished with the host. With a checkout as host, 
 to start while its built-in bundles or its web interface are outdated and names the build
 command. If a server distributes a client profile, the extension
 fetches it after sign-in like `pnpm connect`, starts its host locally, and supplies the token as
-`RAGENTS_TOKEN`. For workstation registration without an explicit `ragents.hostPath`, the
-extension downloads the host itself:
+`RAGENTS_TOKEN`. For workstation registration, the extension downloads the host itself:
 `npm install --prefix <globalStorage>/hosts/<package-version> @schlenkr/ragents@<package-version>`,
 using the `npm` available on `PATH` and the configured process environment, including registry
 settings. If npm cannot provide that version and the server offers its own host package, the
@@ -831,9 +847,10 @@ for a local profile, the extension supplies its own `ragents.packageVersion` fro
 Different server versions get separate hosts; a cached version is reused across restarts.
 Workstation registration needs no previous local profile or distributing server. npm output
 appears in the `RAgents` output channel, fetching progress and failures with their cause in the
-server entry. A local profile therefore needs no checkout. `ragents.hostPath` remains an explicit
-override pointing to a checkout or installed package; its version and contribution states must
-match the server, or registration fails without fetching another host.
+server entry. A local profile therefore needs no checkout. There is no setting for the host: only
+an extension started from a checkout (`scripts/start-vscode.sh`) uses that checkout instead of the
+package; its version and contribution states must match the server, or registration fails without
+fetching another host.
 The status bar shows the number of connected servers and opens the start page when clicked. See
 the root `README.md` for details.
 
@@ -884,12 +901,11 @@ content at the same distance below the header, and on Start each section label s
 from the section above it. In both hosts, logo, global coordinator button, Settings, and Help share
 the header. The logo leads back to Start there, so the run header has no back arrow of its
 own; Runs keeps its back arrow ("Back to Start") next to its title in the browser as in VS Code. An open run places its layout actions in the run header, without a separate
-toolbar row. With an open run, the first header row holds the global controls (logo, global
-coordinator, Settings, Help) and the second the run's own (title, Agents, Share, Run script, and in
-the browser the window buttons); the coordinator stretches up to the controls at its right, so
-no row keeps empty gaps. A VS Code panel at least 1100 pixels wide shares one row. Narrower
-panels wrap whole controls onto further rows in either host. VS Code keeps its app editor tabs
-as a row of buttons below the header.
+toolbar row. With an open run, the logo, global coordinator, run title, run controls, and
+settings share one header row whenever they fit, in both the browser and VS Code. Mini-app
+buttons use the remaining width between the fixed controls, then continue over the full width
+in further rows. VS Code opens them in editor tabs; the browser opens them in its
+workspace. Narrow panels can also wrap fixed controls.
 
 **Start** arranges template cards in several columns when space allows, up to five at the
 maximum content width, and one in narrow panels. Cards stay between 240 and 320 pixels wide,
@@ -953,18 +969,22 @@ or the download's integrity differs, the entry shows the cause. Every registrati
 verifies the server's exact host version and provisions its tools, even if no executor
 contributions are requested.
 
-The extension compares its own RAgents version with the version each server reports. If they
-differ, the Server row, the status bar, and a notification show "RAgents
-version mismatch: extension 0.1.9, server 0.1.8 - ...", followed by
-what to update: the extension if it is older, the server if it is older, or the host in
-`ragents.hostPath` for a local profile. A server that reports no version counts as older. While the
-workstation stays registered, this is a warning and everything keeps working. When the server
-rejects the workstation for the same reason, because the workspace executor versions differ or the
-host the extension uses lacks a plugin bundle the server's executor carries, or carries it in
-another version, it is an error that also names the server's cause; the same error appears when
-both report the same version but their builds differ. The notification appears once per server
-and message; "Show extension" opens the extension page for the update, and
-"Show servers" opens the Server page.
+Extension and server do not need the same RAgents version: the interface comes from the server,
+and only a small contract between the two must match. The extension compares the number of that
+contract, its extension interface, with the number each server reports, not the release versions;
+while both numbers are equal, a different release shows nothing. A server that reports no number
+is older than this check and gets a warning: "RAgents server 0.1.8 predates the extension
+interface check - update the server to 0.1.9." A different number is an error: "RAgents extension
+interface does not match: extension 0.1.9 (interface 1), server 0.1.10 (interface 2) - update the
+RAgents extension to 0.1.10." The lower number decides what to update: the extension, the server,
+or for a local profile the local host ("bring the local host to 0.1.9"). The Server row, the
+status bar, and a notification show the notice. When the server rejects the workstation because
+the workspace executor versions differ or the host the extension uses lacks a plugin bundle the
+server's executor carries, or carries it in another version, it is an error that also names the
+server's cause: the notice continues with "The workspace is therefore not registered: ...", and
+with equal numbers it reads "RAgents revision does not match the server, the workspace is not
+registered: ...". The notification appears once per server and message; "Show extension" opens
+the extension page for the update, and "Show servers" opens the Server page.
 
 Every status uses a colored icon and a tooltip with the same vocabulary everywhere. A run is
 "running", "paused", "waiting for input" (with the number of open inputs),

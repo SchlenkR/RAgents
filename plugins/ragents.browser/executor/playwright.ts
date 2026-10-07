@@ -5,10 +5,13 @@ import path from "node:path";
 import { pathToFileURL } from "node:url";
 import type { Browser, Page } from "playwright-core";
 import type { WorkspaceExecutorMachine } from "@ragents/workspace-executor";
-import { BROWSER_EXECUTABLE_VARIABLE } from "./contract.js";
+import { BROWSER_CHROMIUM_SANDBOX_VARIABLE, BROWSER_EXECUTABLE_VARIABLE } from "./contract.js";
 import { startBrowserProxy, type BrowserNetworkPolicy, type BrowserProxy } from "./network.js";
 
 type Playwright = typeof import("playwright-core");
+
+/** What Chromium or Playwright log when this machine cannot set up Chromium's sandbox, such as a hardened container. */
+const SANDBOX_FAILURE = /Chromium sandboxing failed|No usable sandbox|sys_chroot|SUID sandbox|Failed to move to new namespace/;
 
 const assertWebRtcPolicy = async (page: Page, timeoutMs: number): Promise<void> => {
   await page.goto("chrome://prefs-internals", { waitUntil: "domcontentloaded", timeout: timeoutMs });
@@ -56,6 +59,24 @@ export const browserExecutable = async (playwright: Playwright, environment: Nod
     + "on a workspace in its environment.");
 };
 
+/** Chromium's own sandbox stays on unless this machine's environment turns it off with "0"; the profile's false becomes "0". */
+export const chromiumSandbox = (environment: NodeJS.ProcessEnv = process.env): boolean => {
+  const configured = environment[BROWSER_CHROMIUM_SANDBOX_VARIABLE];
+  if (configured === undefined || configured === "" || configured === "1") return true;
+  if (configured === "0") return false;
+  throw new Error(`${BROWSER_CHROMIUM_SANDBOX_VARIABLE} is true or false in the profile section ragents.browser `
+    + `and "1" or "0" in an environment, not "${configured}".`);
+};
+
+/** A launch that aborts in Chromium's sandbox setup names the cause and the setting; it stays an error and never retries. */
+const sandboxFailure = (error: unknown): unknown => {
+  const line = (error instanceof Error ? error.message : String(error)).split("\n").find((entry) => SANDBOX_FAILURE.test(entry));
+  if (line === undefined) return error;
+  return new Error(`Chromium's sandbox cannot start on this machine (${line.trim().replace(/^\[pid=\d+\]\[\w+\]\s*/, "").slice(0, 200)}). `
+    + `Set ${BROWSER_CHROMIUM_SANDBOX_VARIABLE} to false only when this machine runs in an isolated container: `
+    + "a server takes it from the profile section ragents.browser, a workstation as \"0\" from its own environment.", { cause: error });
+};
+
 /** Starts Chrome headless with this machine's environment and the run's marker so the process view can attribute it. */
 export const launchChromium = async (
   machine: WorkspaceExecutorMachine,
@@ -67,6 +88,7 @@ export const launchChromium = async (
 ): Promise<Browser> => {
   const playwright = await hostPlaywright(machine, hostRoot);
   const executablePath = await browserExecutable(playwright);
+  const sandboxed = chromiumSandbox();
   const proxy = networkPolicy === undefined ? undefined : await startBrowserProxy({ policy: networkPolicy, timeoutMs });
   let profile: string | undefined;
   let started: Browser | undefined;
@@ -84,7 +106,7 @@ export const launchChromium = async (
     const options = {
       executablePath,
       headless: true,
-      chromiumSandbox: true,
+      chromiumSandbox: sandboxed,
       timeout: timeoutMs,
       env: environment,
       ...(proxy === undefined ? {} : {
@@ -136,6 +158,6 @@ export const launchChromium = async (
   } catch (error) {
     await started?.close();
     await cleanup();
-    throw error;
+    throw sandboxed ? sandboxFailure(error) : error;
   }
 };

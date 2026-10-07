@@ -440,3 +440,27 @@ test("edit and write results carry the annotation of the written file", async ()
     await rm(directory, { recursive: true, force: true });
   }
 });
+
+test("language RPC methods forward cancellation and a cancelled switch announces no opened solution", async () => {
+  const controller = new AbortController();
+  const signals: Array<AbortSignal | undefined> = [];
+  const opened: string[] = [];
+  const options = {
+    pluginId: "ragents.lsp-example",
+    adapterId: "example",
+    sandbox: { execute: async (_runId, operation, _input, callOptions) => {
+      signals.push(callOptions?.signal);
+      if (operation === "example_switch") controller.abort();
+      return { source: "git", solutions: [], opened: false };
+    } } as SandboxServices,
+    ensureWorkspaceAccess: () => undefined,
+    opened: (runId: string) => { opened.push(runId); },
+  };
+  const context = { ...methodContext, signal: controller.signal };
+  await createLanguageServerSnapshotMethod(options).execute({ runId: "run-1" }, context);
+  const [solutions, change] = createLanguageServerSolutionMethods(options);
+  await solutions.execute({ runId: "run-1" }, context);
+  await assert.rejects(Promise.resolve(change.execute({ runId: "run-1", root: "Sample.sln" }, context)), { name: "AbortError" });
+  assert.deepEqual(signals, [controller.signal, controller.signal, controller.signal]);
+  assert.deepEqual(opened, []);
+});

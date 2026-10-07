@@ -150,7 +150,7 @@ test("the VS Code panel starts on the server's Start page and keeps one loading 
 
     await page.evaluate(() => { window.runStartFixture.elements = [{ id: "start.app--main", title: "Setup" }]; });
     await chat({ kind: "plugin", pluginId: "start", type: "app-ready" });
-    await page.getByRole("navigation", { name: "Mini-apps of the run" }).getByRole("button", { name: "Setup", exact: true }).waitFor();
+    await page.getByRole("group", { name: "Layout actions", exact: true }).getByRole("button", { name: "Setup", exact: true }).waitFor();
     assert.equal(await notice.count(), 0, "The first mini-app ends the loading state.");
     await page.evaluate(() => { window.runStartFixture.elements = []; });
     await chat({ kind: "status", running: true });
@@ -459,7 +459,174 @@ const dropdownBounds = async (page: Page, panel: Locator, trigger: Locator) => {
   return bounds;
 };
 
-for (const { host, width } of [{ host: "browser", width: 1400 }, { host: "browser", width: 420 }, { host: "vscode", width: 420 }, { host: "vscode", width: 360 }, { host: "vscode", width: 320 }]) {
+const settleHeader = (page: Page) => page.evaluate(async () => {
+  await document.fonts.ready;
+  for (let frame = 0; frame < 4; frame++) await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
+  await Promise.all(document.getAnimations().filter((animation) => animation.effect?.getComputedTiming().iterations !== Infinity)
+    .map((animation) => animation.finished.catch(() => undefined)));
+  await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
+});
+
+const headerGeometry = async (header: Locator) => {
+  const geometry = await header.evaluate((element) => {
+    const frame = element.getBoundingClientRect();
+    const boxes = Array.from(element.querySelectorAll("button")).filter((button) => button.getClientRects().length > 0).map((button) => {
+      const bounds = button.getBoundingClientRect();
+      return { name: button.getAttribute("aria-label") ?? button.textContent, left: bounds.left, right: bounds.right, top: bounds.top, bottom: bounds.bottom, center: bounds.top + bounds.height / 2 };
+    });
+    return { left: frame.left, right: frame.right, top: frame.top, bottom: frame.bottom, height: frame.height, boxes,
+      documentWidth: document.documentElement.scrollWidth, viewportWidth: document.documentElement.clientWidth,
+      overflow: element.scrollWidth > element.clientWidth || document.documentElement.scrollWidth > document.documentElement.clientWidth };
+  });
+  assert.equal(geometry.overflow, false, `Growing headers never scroll horizontally: ${JSON.stringify(geometry)}`);
+  for (const box of geometry.boxes) {
+    assert.ok(box.right > box.left && box.bottom > box.top, `The header control is visible: ${box.name}`);
+    assert.ok(box.left >= geometry.left - 1 && box.right <= geometry.right + 1 && box.top >= geometry.top - 1 && box.bottom <= geometry.bottom + 1,
+      `The header contains the complete control: ${JSON.stringify({ frame: geometry, box })}`);
+  }
+  for (let index = 0; index < geometry.boxes.length; index++) {
+    const first = geometry.boxes[index]!;
+    for (const second of geometry.boxes.slice(index + 1)) {
+      const overlapWidth = Math.min(first.right, second.right) - Math.max(first.left, second.left);
+      const overlapHeight = Math.min(first.bottom, second.bottom) - Math.max(first.top, second.top);
+      assert.ok(overlapWidth < 1 || overlapHeight < 1, `Header controls never cover one another: ${JSON.stringify({ first, second })}`);
+    }
+  }
+  return geometry;
+};
+
+const growingAppTitles = [
+  "Notes",
+  "Planning board for the sample workspace",
+  "Implementation tasks and review results",
+  "Document inspector with a descriptive label",
+  "Actor workspace for the implementation team",
+  "Verification results and open questions",
+  "A detailed comparison of proposed changes and their consequences for the complete example workflow",
+  "Release preparation and deployment checks",
+  "Service monitor for the example application",
+  "Additional actor view created during the run",
+];
+
+for (const host of ["browser", "vscode"] as const) {
+  for (const width of [1800, 420]) {
+    test(`the growing run header packs apps across its full width and keeps controls stable at ${width}px in ${host}`, browserOnly, async () => {
+      const url = await (fixtureUrl ??= buildFixture());
+      const browser = await launchBrowser();
+      try {
+        const page = await browser.newPage({ viewport: { width, height: 1200 }, reducedMotion: "reduce" });
+        page.setDefaultTimeout(8000);
+        const errors: string[] = [];
+        page.on("pageerror", (error) => errors.push(error.message));
+        await page.goto(`${url}?host=${host}&growing-header&rights=runs.read,runs.write,runs.create,runs.inspect,settings.read`);
+        await page.getByRole("list", { name: "Recent", exact: true }).waitFor();
+        await page.evaluate(() => {
+          window.runStartFixture.views.add("existing");
+          window.runStartFixture.command({ type: "selectRun", runId: "existing" });
+        });
+        await page.waitForFunction(() => window.runStartFixture.activeRun() === "existing");
+        await page.evaluate(() => {
+          window.runStartFixture.chat({ kind: "status", running: false });
+          window.runStartFixture.chat({ kind: "replay-end", conversationId: null });
+        });
+        const header = page.locator("header");
+        const windows = header.getByRole("group", { name: "Layout actions", exact: true });
+        const notes = windows.getByRole("button", { name: "Notes", exact: true });
+        await notes.waitFor();
+        await header.getByRole("button", { name: "Settings", exact: true }).waitFor();
+        const chat = await page.locator('section[data-view="chat"]').elementHandle();
+        const originalNotes = await notes.elementHandle();
+        assert.ok(chat && originalNotes, "The run and its initial app button are mounted.");
+        const fixed = ["Back to Start", "Global coordinator", "Actors", "Share", "Run script", "Stop run", "Settings"];
+        const fixedBounds = async () => Promise.all(fixed.map(async (name) => {
+          const bounds = await header.getByRole("button", { name, exact: true }).boundingBox();
+          assert.ok(bounds, `The fixed header control is visible: ${name}`);
+          return { name, ...bounds };
+        }));
+        const sameFixedBounds = (before: Awaited<ReturnType<typeof fixedBounds>>, after: Awaited<ReturnType<typeof fixedBounds>>) => {
+          for (let index = 0; index < before.length; index++) {
+            const expected = before[index]!;
+            const current = after[index]!;
+            assert.ok(Math.abs(current.x - expected.x) < 1 && Math.abs(current.y - expected.y) < 1 && Math.abs(current.width - expected.width) < 1,
+              `App growth leaves ${expected.name} in place: ${JSON.stringify({ expected, current })}`);
+          }
+        };
+        const setApps = async (titles: readonly string[]) => {
+          await page.evaluate((labels) => {
+            window.runStartFixture.elements = labels.map((title, index) => ({ id: index === 0 ? "notes" : `view-${index}`, title }));
+            window.runStartFixture.runChanged("existing");
+          }, titles);
+          await windows.getByRole("button", { name: titles[titles.length - 1]!, exact: true }).waitFor();
+          await page.waitForFunction((count) => document.querySelector('header [aria-label="Layout actions"]')?.querySelectorAll("button").length === count,
+            titles.length + (host === "browser" ? 3 : 0));
+          await settleHeader(page);
+        };
+        await settleHeader(page);
+        const initial = await headerGeometry(header);
+        const initialFixed = await fixedBounds();
+        if (width === 1800) {
+          assert.ok(Math.max(...initial.boxes.map((box) => box.center)) - Math.min(...initial.boxes.map((box) => box.center)) < 2,
+            "A small app list uses one header row in either host.");
+        }
+        await notes.focus();
+        await setApps(growingAppTitles);
+        const grown = await headerGeometry(header);
+        sameFixedBounds(initialFixed, await fixedBounds());
+        assert.ok(grown.height > initial.height, "Additional app and actor views add header rows only when they need room.");
+        assert.equal(await notes.evaluate((element, original) => element === original && element === document.activeElement, originalNotes), true,
+          "Adding app views preserves the existing button and its keyboard focus.");
+        const title = header.getByRole("button", { name: /^A long run title/ });
+        assert.equal(await title.locator("strong").evaluate((element) => element.scrollWidth > element.clientWidth), true,
+          "Long run titles truncate while their complete label remains available.");
+        const longAppTitle = growingAppTitles[6]!;
+        const longApp = windows.getByRole("button", { name: longAppTitle, exact: true });
+        assert.equal(await longApp.getByText(longAppTitle, { exact: true }).evaluate((element) => element.scrollWidth > element.clientWidth), true,
+          "A long app label truncates instead of taking most of the wide header.");
+        assert.equal(await longApp.getAttribute("aria-label"), longAppTitle, "The complete app label remains its accessible name.");
+        assert.ok((await longApp.getAttribute("title"))?.includes(longAppTitle), "The complete app label remains available in its tooltip.");
+        const shots = join(tmpdir(), "ragents-browser-shots");
+        await mkdir(shots, { recursive: true });
+        await page.screenshot({ path: join(shots, `header-growing-${width}-${host}.png`) });
+
+        for (const nextWidth of width === 1800 ? [420, 320, 1800] : [320, 1800, 420]) {
+          await page.setViewportSize({ width: nextWidth, height: 1200 });
+          await settleHeader(page);
+          const resized = await headerGeometry(header);
+          assert.equal(await notes.evaluate((element, original) => element === original && element === document.activeElement, originalNotes), true,
+            "Resizing retains the same focused app button.");
+          assert.equal(await page.locator('section[data-view="chat"]').evaluate((element, original) => element === original, chat), true,
+            "Header growth and resizing keep the run mounted.");
+          if (nextWidth === 1800) {
+            const fixedBottom = Math.max(...(await fixedBounds()).map((bounds) => bounds.y + bounds.height));
+            const later = await windows.getByRole("button").evaluateAll((buttons, bottom) => buttons.map((button) => {
+              const bounds = button.getBoundingClientRect();
+              return { left: bounds.left, right: bounds.right, top: bounds.top };
+            }).filter((bounds) => bounds.top >= bottom - 1), fixedBottom);
+            assert.ok(later.length > 0, "The growing list continues below the fixed controls.");
+            assert.ok(Math.min(...later.map((bounds) => bounds.left)) <= resized.left + 9,
+              "Continuation rows start at the header's left gutter, including the leading controls' width.");
+            const trailing = await header.getByRole("button", { name: "Actors", exact: true }).boundingBox();
+            assert.ok(trailing && Math.max(...later.map((bounds) => bounds.right)) > trailing.x,
+              "Continuation rows also use the width underneath the trailing controls.");
+          }
+        }
+
+        const grownAtOriginalWidth = await headerGeometry(header);
+        const fixedAtOriginalWidth = await fixedBounds();
+        await setApps(["Notes"]);
+        const shrunk = await headerGeometry(header);
+        assert.ok(shrunk.height < grownAtOriginalWidth.height, "Removing app views gives the workspace its vertical space back.");
+        assert.ok(Math.abs(shrunk.height - initial.height) < 1, "Shrinking restores the original compact header height.");
+        sameFixedBounds(fixedAtOriginalWidth, await fixedBounds());
+        assert.equal(await notes.evaluate((element, original) => element === original && element === document.activeElement, originalNotes), true,
+          "Removing other app views preserves the focused surviving button.");
+        assert.deepEqual(errors, []);
+      } finally { await browser.close(); }
+    });
+  }
+}
+
+for (const { host, width } of [{ host: "browser", width: 1400 }, { host: "vscode", width: 1400 }, { host: "browser", width: 420 }, { host: "vscode", width: 420 }, { host: "vscode", width: 360 }, { host: "vscode", width: 320 }]) {
   test(`run details, scripts, and sharing use the same header dropdown at ${width}px in ${host}`, browserOnly, async () => {
     const url = await (fixtureUrl ??= buildFixture());
     const browser = await launchBrowser();
@@ -486,6 +653,16 @@ for (const { host, width } of [{ host: "browser", width: 1400 }, { host: "browse
         await page.screenshot({ path: join(shots, `header-${name}-${width}${host === "vscode" ? "-vscode" : ""}.png`) });
       };
       const title = page.getByRole("button", { name: "Existing run", exact: true });
+      const headerControls = page.locator("header").getByRole("button");
+      const bounds = await headerControls.evaluateAll((buttons) => buttons.map((button) => {
+        const bounds = button.getBoundingClientRect();
+        return { left: bounds.left, right: bounds.right, center: bounds.y + bounds.height / 2 };
+      }));
+      assert.ok(bounds.every((box) => box.left >= 0 && box.right <= width), "Header controls stay within the panel.");
+      if (width === 1400) {
+        assert.ok(Math.max(...bounds.map((box) => box.center)) - Math.min(...bounds.map((box) => box.center)) < 2,
+          "Global, run, and action controls share one row when space permits in either host.");
+      }
       const details = page.getByRole("dialog", { name: "Run details", exact: true });
       await title.click();
       const texts = await page.evaluate(() => Object.values(window.runStartFixture.metadataTexts));

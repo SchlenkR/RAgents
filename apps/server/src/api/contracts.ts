@@ -59,8 +59,8 @@ export interface HostPackageDownload {
   readonly integrity: string;
 }
 
-/** The plugins' profile, server version and optional workstation host download. */
-export type HostBootstrap = PublicPluginProfile & { readonly version: string; readonly hostPackage: HostPackageDownload | null };
+/** The plugins' profile, server version, extension interface number and optional workstation host download. */
+export type HostBootstrap = PublicPluginProfile & { readonly version: string; readonly extensionApi: number; readonly hostPackage: HostPackageDownload | null };
 
 export const coreContracts = {
   runs: {
@@ -111,6 +111,7 @@ export const coreContracts = {
     }),
     startScript: defineOperation({
       id: "ragents.runs.startScript",
+      timeoutMs: 75 * 60_000,
       description: "Start a run script and wait until its actor has the start input; errors come back to the caller instead of the chat. A new run starts as with ragents.chat.start. In a running run only a script whose RUN.md sets embeddable: true starts, its fixed start options must match the run's, and the primary actor stays. Every start opens a new room named after the script with its own actors. Result: the script actor, its address (room.handle), and which start of its package this was. Rights: runs.read, runs.write and the template's release.",
       input: Type.Object({ runId, entry: Type.String({ minLength: 1 }), input: Type.Optional(Type.Any()) }, { additionalProperties: false }),
       result: Type.Object({ actorId: Type.String(), handle: Type.String(), count: Type.Integer({ minimum: 1 }) }, { additionalProperties: false }),
@@ -119,6 +120,7 @@ export const coreContracts = {
   chat: {
     send: defineOperation({
       id: "ragents.chat.send",
+      timeoutMs: 75 * 60_000,
       description: "A message to the run's coordinator; starts a new run or cuts into a running one. With entry, it starts the run through this skill template and the start options it fixes. Rights: runs.read and runs.write, for a new run runs.create; for the global chat its rights.",
       input: Type.Object({
         runId,
@@ -131,6 +133,7 @@ export const coreContracts = {
     }),
     sendToActor: defineOperation({
       id: "ragents.chat.sendToActor",
+      timeoutMs: 75 * 60_000,
       description: "A message to a specific LLM actor of the run. Rights as for ragents.chat.send.",
       input: Type.Object({ runId, actorId: Type.String({ minLength: 1 }), text: Type.Optional(Type.String()), attachments: Type.Optional(Type.Array(attachment)) }, { additionalProperties: false }),
       result: Type.Null(),
@@ -197,6 +200,7 @@ export const coreContracts = {
   },
   prepare: defineOperation({
     id: "ragents.runs.prepare",
+    timeoutMs: 125_000,
     description: "Work out the task of a new run in a conversation with a separate coordinator instance. Rights: runs.read, runs.write, runs.create.",
     rights: ["runs.read", "runs.write", "runs.create"],
     input: Type.Intersect([Type.Object({ runId }), openJson<RunPreparationRequest>("RunPreparationRequest")]),
@@ -235,7 +239,7 @@ export const coreContracts = {
   plugins: {
     bootstrap: defineOperation({
       id: "ragents.plugins.bootstrap",
-      description: "Product, active plugins with web configuration, released templates and the server's RAgents version for the UI.",
+      description: "Product, active plugins with web configuration, released templates, the server's RAgents version for the UI and the number of its interface to the VS Code extension.",
       input: Type.Object({}, { additionalProperties: false }),
       result: openJson<HostBootstrap>("HostBootstrap"),
     }),

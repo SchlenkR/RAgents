@@ -212,12 +212,17 @@ and the model's `compaction` values: the context size in tokens at which an agen
 `AGENT_PROVIDER: "alias"` makes the product use them. The interface, the chat, and the journal then
 show only the alias names.
 
-An alias can also point to a self-hosted OpenAI-compatible server. `MODEL_PROVIDERS` in the `host`
-section lists such servers with `id`, `baseUrl` (up to `/v1`), `apiKey: env("...")`, optional
-`compat`, and their `models` (`id`, `contextWindow`, `maxTokens`, `reasoning`, `input`, optional
-`thinkingLevelMap`); an alias then names `<id>/<model>`. For a Qwen chat template, as served by
-oMLX, set `compat: { thinkingFormat: "qwen-chat-template" }`, so the alias's thinking levels reach
-the server. Details and an example in `docs/spec/profiles.md`.
+An alias can also point to a provider of your own, such as a self-hosted server or Mistral's API.
+`MODEL_PROVIDERS` in the `host` section lists such providers with `id`, `sdk` (the AI SDK package
+that talks to it: `mistral` or `openai-compatible`), `baseUrl` (up to `/v1`; `mistral` has a
+default), `apiKey: env("...")`, optional `compat`, and their `models` (`id`, `contextWindow`,
+`maxTokens`, `reasoning`, `input`, optional `thinkingLevelMap` and `cost`); an alias then names
+`<id>/<model>`. Mistral receives the chosen level as `reasoning_effort`. For a Qwen chat template, as
+served by oMLX, set `sdk: "openai-compatible"` and `compat: { thinkingFormat: "qwen-chat-template" }`,
+so the alias's thinking levels reach the server. `cost` gives the model's prices in USD per million
+tokens, for example `{ input: 1.4, cacheRead: 0.14, output: 4.4 }`; without it, runs on that model
+show cost 0, while the token counts, including cached tokens, stay complete. An entry without `sdk`
+keeps working as before. Details and an example in `docs/spec/profiles.md`.
 
 Alternatively, a profile can obtain its models from another RAgents server running the
 `ragents.model-relay` plugin, which offers that server's `MODEL_ALIASES` with their thinking levels
@@ -415,9 +420,17 @@ Playwright version and, on Linux, its system libraries; it ends up in Playwright
 cache, not in the tools folder. If `BROWSER_EXECUTABLE_PATH` points nowhere, provisioning reports
 this as a gap it must not close.
 
+Chromium starts with its own sandbox, which a hardened container (all capabilities dropped,
+`no-new-privileges`, a strict seccomp profile) does not permit: the browser check then fails with
+a cause that names `BROWSER_CHROMIUM_SANDBOX`. Only for a server in such an isolated container,
+`BROWSER_CHROMIUM_SANDBOX: false` in the same section starts Chromium with `--no-sandbox`; the pages
+it renders are then confined only by the container, because the browser runs outside the
+[server process sandbox](#server-process-sandbox), while restricted runs keep their browser network policy.
+
 A workstation gets none of this from the server's profile: it takes `BROWSER_EXECUTABLE_PATH`
 from its own environment, otherwise the Chromium that `pnpm provision --workspace` fetches when
-`pnpm workspace-client` and the VS Code extension start. What the agent does with the browser,
+`pnpm workspace-client` and the VS Code extension start, and it keeps Chromium's sandbox unless
+its own environment sets `BROWSER_CHROMIUM_SANDBOX=0`. What the agent does with the browser,
 where recordings are stored, and how long a check stays valid is in
 [plugins.md](spec/plugins.md) under "Browser checks".
 
@@ -502,11 +515,9 @@ identifies a checkout by `pnpm-workspace.yaml`, it should test for something the
 instead, such as `apps/server/src/main.ts` beside `package.json`. Start with `ragents start <path-to-profile>`;
 the symlink is used only by scripts and tsconfig files in the external repository.
 
-The VS Code extension starts the same profile from the same package. To override automatic host
-selection, set `ragents.hostPath` to a checkout or the package directory
-(`<npm-prefix>/lib/node_modules/@schlenkr/ragents`). For workstation registration without this
-override, it fetches the package in the server's version as described under Run panel and VS Code
-extension in [usage.md](usage.md).
+The VS Code extension starts the same profile from the same package, fetched in its own version.
+For workstation registration, it fetches the package in the server's version as described under
+Run panel and VS Code extension in [usage.md](usage.md).
 
 ## Deploy from a local build
 
@@ -559,7 +570,7 @@ access rules as workstation registration.
 The extension and CLI workstation first try npm for the server's exact version.
 If that fails, they download the retained archive from the server, verify its SHA-512 integrity,
 and install it into their per-version cache with npm. No manual host installation is required on the
-workstation; `ragents.hostPath` still overrides automatic selection in VS Code.
+workstation.
 
 ## Connect to a server
 
@@ -1015,12 +1026,12 @@ server's exact version from `ragents.plugins.bootstrap`, using npm first and the
 download when needed, and reuse cached installations. See [Run a CLI workstation](#run-a-cli-workstation)
 and [Run panel and VS Code extension](usage.md#run-panel-and-vs-code-extension) for the caches
 and progress. A machine that connects only to remote servers needs no local profile or
-distributing server. An explicit `ragents.hostPath` overrides fetching; a different package version,
-contribution state, or missing bundle fails registration with its cause. The VS Code extension shows such a
-rejection as the error "RAgents version mismatch" with its own version, the server's version, and
-the side to update, and a differing version with an accepted workstation as a warning
-([usage.md](usage.md), Run panel and VS Code extension); the server names the version in the
-bootstrap (`version` in `ragents.plugins.bootstrap`).
+distributing server. An extension started from a checkout uses that checkout instead; a different
+package version, contribution state, or missing bundle fails registration with its cause. The VS Code extension shows such a
+rejection as an error with the server's cause; a different release alone shows no notice, only a
+different extension interface does ([usage.md](usage.md), Run panel and VS Code extension). The
+server names its version and its interface number in the bootstrap (`version` and `extensionApi`
+in `ragents.plugins.bootstrap`); the workstation's host follows the version.
 The workstation reads the tools of these contributions from its own process environment, not from
 the server's profile: before registration it provisions with its selected host, stores Roslyn and fsautocomplete
 under `~/.local/share/ragents/workspace/tools/<plugin-id>/`, and fetches Chromium into

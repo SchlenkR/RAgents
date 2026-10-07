@@ -1,0 +1,73 @@
+diff --git a/chat.css b/chat.css
+index 1b93e56fc56707c11cdc2d2504a76ebfab5288f6..5089cfc66631f44f0ac4d69464e72c714bd082e7 100644
+--- a/chat.css
++++ b/chat.css
+@@ -206,11 +206,8 @@
+   .qsl\:max-h-\[calc\(var\(--qsl-panel-height\,100dvh\)_\/_2\)\] {
+     max-height: calc(var(--qsl-panel-height,100dvh) / 2);
+   }
+-  .qsl\:max-h-\[min\(70vh\,620px\)\] {
+-    max-height: min(70vh, 620px);
+-  }
+-  .qsl\:max-h-none {
+-    max-height: none;
++  .qsl\:max-h-\[min\(70dvh\,620px\,var\(--available-height\)\)\] {
++    max-height: min(70dvh, 620px, var(--available-height));
+   }
+   .qsl\:min-h-0 {
+     min-height: 0px;
+@@ -406,15 +403,15 @@
+   .qsl\:overflow-hidden {
+     overflow: hidden;
+   }
+-  .qsl\:overflow-visible {
+-    overflow: visible;
+-  }
+   .qsl\:overflow-x-auto {
+     overflow-x: auto;
+   }
+   .qsl\:overflow-y-auto {
+     overflow-y: auto;
+   }
++  .qsl\:overscroll-contain {
++    overscroll-behavior: contain;
++  }
+   .qsl\:rounded-\[min\(--theme\(--radius-md\)\,10px\)\] {
+     border-radius: min(var(--qsl-radius-md, calc(var(--qsl-radius) * 0.8)), 10px);
+   }
+diff --git a/index.js b/index.js
+index e99f15ae7053e6b4da2d37ebc7d22bd1ef87d511..0b3d3896e1627dc5c126f0e33d2d04e77a0e34ef 100644
+--- a/index.js
++++ b/index.js
+@@ -599,7 +599,12 @@ function StepPopover({
+   onClose
+ }) {
+   const anchor = useMemo2(() => ({
+-    getBoundingClientRect: () => new DOMRect(position.x, position.y, 0, 0),
++    getBoundingClientRect: () => new DOMRect(
++      Math.max(16, Math.min(position.x, window.innerWidth - 16)),
++      Math.max(16, Math.min(position.y, window.innerHeight - 16)),
++      0,
++      0
++    ),
+     contextElement: document.documentElement
+   }), [position]);
+   const { Button: Button2, Popover: Popover2, PopoverContent: PopoverContent2 } = useQuasselComponents();
+@@ -617,7 +622,7 @@ function StepPopover({
+       "aria-label": title,
+       className: cn(
+         "qsl:w-[min(680px,calc(100vw-32px))] qsl:gap-0 qsl:overflow-hidden qsl:p-0 qsl:text-[13px] qsl:leading-normal qsl:shadow-pop",
+-        thinking ? "qsl:max-h-none" : "qsl:max-h-[min(70vh,620px)]"
++        "qsl:max-h-[min(70dvh,620px,var(--available-height))]"
+       ),
+       collisionPadding: 16,
+       portalContainer,
+@@ -629,7 +634,7 @@ function StepPopover({
+           /* @__PURE__ */ jsx9("span", { className: "qsl:min-w-0 qsl:flex-1 qsl:overflow-hidden qsl:text-ellipsis qsl:whitespace-nowrap qsl:font-medium", children: title }),
+           /* @__PURE__ */ jsx9(Button2, { "aria-label": texts.close, className: "qsl:flex-none", onClick: onClose, size: "icon-sm", title: texts.close, variant: "ghost", children: /* @__PURE__ */ jsx9(XIcon, {}) })
+         ] }),
+-        /* @__PURE__ */ jsx9("div", { className: cn("qsl:min-h-0 qsl:p-4", thinking ? "qsl:overflow-visible" : "qsl:overflow-auto"), children: thinking ? /* @__PURE__ */ jsx9("div", { className: "qsl:text-sm qsl:leading-[1.625] qsl:whitespace-pre-wrap", children: message.text }) : tool ? /* @__PURE__ */ jsxs2("div", { className: "qsl:flex qsl:flex-col qsl:gap-4", children: [
++        /* @__PURE__ */ jsx9("div", { className: "qsl:min-h-0 qsl:flex-1 qsl:overflow-auto qsl:overscroll-contain qsl:p-4", children: thinking ? /* @__PURE__ */ jsx9("div", { className: "qsl:text-sm qsl:leading-[1.625] qsl:whitespace-pre-wrap", children: message.text }) : tool ? /* @__PURE__ */ jsxs2("div", { className: "qsl:flex qsl:flex-col qsl:gap-4", children: [
+           /* @__PURE__ */ jsx9("div", { className: "qsl:font-mono qsl:text-sm", children: message.text }),
+           /* @__PURE__ */ jsx9(PopoverSection, { label: texts.argumentsLabel, value: toolArgumentsText(tool) }),
+           tool.result === void 0 ? /* @__PURE__ */ jsx9("div", { className: "qsl:text-sm qsl:text-muted-foreground", children: texts.toolStillRunning }) : /* @__PURE__ */ jsx9(PopoverSection, { error: tool.isError, label: texts.resultLabel, value: prettyJson(tool.result) })

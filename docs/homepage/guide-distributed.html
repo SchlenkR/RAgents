@@ -750,11 +750,9 @@ appropriate location:</p>
 identifies a checkout by <code>pnpm-workspace.yaml</code>, it should test for something the package shares
 instead, such as <code>apps/server/src/main.ts</code> beside <code>package.json</code>. Start with <code>ragents start &lt;path-to-profile&gt;</code>;
 the symlink is used only by scripts and tsconfig files in the external repository.</p>
-<p>The VS Code extension starts the same profile from the same package. To override automatic host
-selection, set <code>ragents.hostPath</code> to a checkout or the package directory
-(<code>&lt;npm-prefix&gt;/lib/node_modules/@schlenkr/ragents</code>). For workstation registration without this
-override, it fetches the package in the server&#39;s version as described under Run panel and VS Code
-extension in <a href="../usage.md">usage.md</a>.</p>
+<p>The VS Code extension starts the same profile from the same package, fetched in its own version.
+For workstation registration, it fetches the package in the server&#39;s version as described under
+Run panel and VS Code extension in <a href="../usage.md">usage.md</a>.</p>
 <h2 id="deploy-from-a-local-build">Deploy from a local build</h2>
 <p>Build an installable host from a clean checkout without publishing to npm:</p>
 <pre><code class="language-sh">pnpm install --frozen-lockfile
@@ -795,7 +793,7 @@ access rules as workstation registration.</p>
 <p>The extension and CLI workstation first try npm for the server&#39;s exact version.
 If that fails, they download the retained archive from the server, verify its SHA-512 integrity,
 and install it into their per-version cache with npm. No manual host installation is required on the
-workstation; <code>ragents.hostPath</code> still overrides automatic selection in VS Code.</p>
+workstation.</p>
 <h2 id="connect-to-a-server">Connect to a server</h2>
 <p>A developer can run RAgents locally with the profile and models of a central server. This
 requires a local host with the same host API as that server: either the <code>@schlenkr/ragents</code>

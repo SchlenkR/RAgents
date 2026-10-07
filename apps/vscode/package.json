@@ -236,11 +236,6 @@
             "additionalProperties": false
           }
         },
-        "ragents.hostPath": {
-          "type": "string",
-          "default": "",
-          "markdownDescription": "Explicit host override for local servers and workstation contributions: the npm package `@schlenkr/ragents` or a development checkout. Its version and executor contributions must match the connected server. Empty: workstation registration fetches each server's exact host version into global storage; local profiles use the extension's checkout or package version."
-        },
         "ragents.hostEnvironment": {
           "type": "array",
           "default": [],

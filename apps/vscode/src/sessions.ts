@@ -1,10 +1,11 @@
 import type { WorkspaceClient, WorkspaceClientStatus } from "../../../plugins/ragents.workspace/client/workspace-client";
+import { EXTENSION_API_VERSION } from "../../server/src/extension-api";
 import { missingEnvironmentOf, type MissingEnvironment } from "../../server/src/missing-environment";
 import type { ListedSession } from "../../web/src/api";
 import { connectionSecretKey, credentialsSecretKey, type Connection } from "./connections";
 import type { RunningHost } from "./host-process";
 import { ServerClient } from "./server-client";
-import { RunStore, type ConnectionStatus, type StartEntrySummary } from "./store";
+import { RunStore, type ConnectionStatus, type Release, type ServerRelease, type StartEntrySummary } from "./store";
 import { workspaceRegistrationRefusal } from "./workspace-identity";
 
 /** State of a server: not started, being set up, failed, or the connection state of its session. */
@@ -28,7 +29,7 @@ export interface SecretStore {
 }
 
 export interface SessionServices {
-  /** The RAgents version of this extension (ragents.packageVersion, equal to its own); every server is compared with it. */
+  /** The RAgents version of this extension (ragents.packageVersion, equal to its own); a notice names it as the version to bring a server to. */
   version: string;
   /** The workspace of this window with the folders it currently offers. */
   workspaceClient: (transport: Pick<ServerClient, "origin" | "rpc" | "fetch">) => WorkspaceClient;
@@ -60,58 +61,50 @@ export interface ConnectionSnapshot {
   problem: string | undefined;
   /** The last attempt failed on an environment variable that the configuration names with env("NAME"). */
   missingEnvironment: MissingEnvironment | undefined;
-  /** Extension and server carry a different RAgents version or a different revision. */
+  /** Extension and server speak a different extension interface, or the server rejects the workspace for its revision. */
   versionNotice: VersionNotice | undefined;
 }
 
-/** What does not match about the version: error if the workspace is therefore not registered, otherwise warning; update names the side that needs updating. */
+/** What does not match between extension and server: a warning for a server older than the interface check, otherwise an error; update names the side that needs updating. */
 export interface VersionNotice {
   level: "error" | "warning";
   text: string;
   update: "extension" | "server" | undefined;
 }
 
-const versionParts = (version: string): readonly number[] | undefined => {
-  const match = /^(\d+)\.(\d+)\.(\d+)/.exec(version);
-  return match ? match.slice(1).map(Number) : undefined;
-};
-
-/** Which side is older; without a readable version, this cannot be said. */
-const olderSide = (extension: string, server: string | null): "extension" | "server" | undefined => {
-  if (server === null) return "server";
-  const left = versionParts(extension);
-  const right = versionParts(server);
-  if (!left || !right) return undefined;
-  const difference = left.map((part, index) => part - right[index]!).find((value) => value !== 0) ?? 0;
-  return difference === 0 ? undefined : difference < 0 ? "extension" : "server";
-};
-
 export interface VersionInput {
-  extension: string;
-  /** undefined as long as the server has not answered; null if it names no version. */
-  server: string | null | undefined;
-  /** A local profile runs on the host that ragents.hostPath names; without the setting, the extension fetches its own version. */
+  extension: Release;
+  /** undefined as long as the server has not answered. */
+  server: ServerRelease | undefined;
+  /** A local profile runs on the extension's checkout or on the package in the extension's own version. */
   connection: Connection["kind"];
   workspace: WorkspaceClientStatus | undefined;
 }
 
-/** A different version is a warning as long as the workspace is registered; if the server rejects it because of that, it is an error. */
+/** Release versions do not count, only the extension interface; the interface numbers decide which side is older, and a rejected workspace is always an error. */
 export const versionNotice = ({ extension, server, connection, workspace }: VersionInput): VersionNotice | undefined => {
   const refusal = workspace?.kind === "failed" && workspace.mismatch ? workspace.message : undefined;
-  if (server === undefined || server === extension) {
+  if (server === undefined || server.extensionApi === extension.extensionApi) {
     return refusal === undefined ? undefined
       : { level: "error", text: `RAgents revision does not match the server, the workspace is not registered: ${refusal}`, update: undefined };
   }
-  const older = olderSide(extension, server);
-  const target = older === "extension" ? server : extension;
-  const action = older === "extension" ? `update the RAgents extension to ${target}`
-    : older === "server" && connection === "profile" ? `bring the host at ragents.hostPath to ${target}`
-    : older === "server" ? `update the server to ${target}`
-    : "bring extension and server to the same version";
-  const text = `RAgents version does not match: extension ${extension}, server ${server ?? "without version"} - ${action}`;
-  return refusal === undefined
-    ? { level: "warning", text: `${text}.`, update: older }
-    : { level: "error", text: `${text}. The workspace is therefore not registered: ${refusal}`, update: older };
+  const refused = refusal === undefined ? "" : ` The workspace is therefore not registered: ${refusal}`;
+  const serverUpdate = connection === "profile" ? `bring the local host to ${extension.version}` : `update the server to ${extension.version}`;
+  if (server.extensionApi === null) {
+    return {
+      level: refusal === undefined ? "warning" : "error",
+      text: `RAgents server ${server.version ?? "without version"} predates the extension interface check - ${serverUpdate}.${refused}`,
+      update: "server",
+    };
+  }
+  const older = server.extensionApi < extension.extensionApi ? "server" : "extension";
+  const action = older === "server" ? serverUpdate : `update the RAgents extension to ${server.version}`;
+  return {
+    level: "error",
+    text: `RAgents extension interface does not match: extension ${extension.version} (interface ${extension.extensionApi}), `
+      + `server ${server.version} (interface ${server.extensionApi}) - ${action}.${refused}`,
+    update: older,
+  };
 };
 
 interface SessionParts {
@@ -430,8 +423,8 @@ export class ConnectionSession {
       problem: this.#problem ?? this.#workspaceProblem(parts),
       missingEnvironment: this.#missingEnvironment,
       versionNotice: parts ? versionNotice({
-        extension: this.services.version,
-        server: parts.store.serverVersion,
+        extension: { version: this.services.version, extensionApi: EXTENSION_API_VERSION },
+        server: parts.store.release,
         connection: this.connection.kind,
         workspace: parts.workspaceClient.status,
       }) : undefined,

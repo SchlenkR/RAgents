@@ -389,7 +389,7 @@ function ChatWorkspace({
                 ? <SurfaceRunPanel
                   autoFocusChat={autoFocusChat}
                   onAutoFocusChatSettled={onAutoFocusChatSettled}
-                  toolbarContainer={toolbarContainer}
+                  toolbarContainer={dockActionsContainer ?? toolbarContainer}
                   statusContainer={statusContainer}
                   cardSections={registry.cardSections}
                   surfaceElements={registry.surfaceElements}

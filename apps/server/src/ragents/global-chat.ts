@@ -1,4 +1,4 @@
-import { serviceToken, type AccessContext, type CatalogModel, type ExecutableActor, type JournalEvent, type JsonValue, type ModelSelection, type Orchestration, type RunSharing, type RunView } from "@ragents/engine";
+import { serviceToken, type AccessContext, type CatalogModel, type DeliveredInput, type JournalEvent, type JsonValue, type ModelSelection, type Orchestration, type RunSharing, type RunView } from "@ragents/engine";
 import type { GlobalRunPolicy } from "../api/rights.js";
 import type { ChatUser, RunScriptListing, SessionInfo, StartedScript } from "../chat-handler.js";
 
@@ -13,11 +13,12 @@ export interface GlobalChatPolicy {
   preparationPrompt?: string;
   toolNames: readonly string[];
   workspaceDirectory: (runId: string) => string;
-  prepareWorkspace?: (directory: string) => Promise<void>;
+  prepareWorkspace?: (directory: string, signal?: AbortSignal) => Promise<void>;
   /** One file <runId>.json per coordinator, as long as its conversation reset is not complete. */
   resetIntentDirectory?: string;
   inputContext?: (runtime: Orchestration, runId: string, value: unknown) => Promise<readonly string[]>;
-  contextPrompt?: (runtime: Orchestration, runId: string, actor: ExecutableActor) => string;
+  /** What the coordinator's model reads before one of its inputs; journaled with the input, so the system prompt stays the same across turns. */
+  inputOrientation?: (runtime: Orchestration, runId: string, input: DeliveredInput) => string;
   model?: {
     initialize: (models: readonly (CatalogModel & { input: readonly string[] })[], initial: ModelSelection, requiredInputs: () => readonly string[]) => Promise<void>;
     selection: () => ModelSelection;
@@ -46,9 +47,9 @@ export interface RunManagement {
   list: (access?: AccessContext) => Promise<SessionInfo[]>;
   view: (runId: string) => RunView;
   events: (runId: string) => readonly JournalEvent[];
-  create: (start: ManagedRunStart) => Promise<string>;
+  create: (start: ManagedRunStart, signal?: AbortSignal) => Promise<string>;
   /** A message operates the run; the host checks the same access for it as for the chat. */
-  send: (runId: string, message: string, access: AccessContext) => Promise<void>;
+  send: (runId: string, message: string, access: AccessContext, signal?: AbortSignal) => Promise<void>;
   /** With an access, the host checks the same access as for the chat's stop; without one it is the run's own stop. */
   stop: (runId: string, access?: AccessContext) => Promise<void>;
   resetGlobal: (runId: string) => Promise<void>;

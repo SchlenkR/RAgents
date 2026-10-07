@@ -90,23 +90,37 @@ function pruneEmptied(root: DockNode, before: DockNode, preserve?: string): Dock
   }, root);
 }
 
+/** Adds the available panels that were never known; a known panel that is unavailable keeps its place, `visibleDockState` hides it. */
 export function reconcileDockState(state: DockState, panels: readonly string[], tools: readonly string[], splitApps = false): DockState {
-  const available = [...panels, ...tools];
-  const keep = (id: string) => available.includes(id) || isEmptyPanel(id);
-  const root = pruneEmptied(filterPanels(state.root, keep), state.root);
   const added = panels.filter((id) => !state.known.includes(id));
-  const first = dockGroups(root).find((g) => g.id === "main") ?? dockGroups(root)[0];
+  const addedTools = tools.filter((id) => !state.known.includes(id));
+  const first = dockGroups(state.root).find((g) => g.id === "main") ?? dockGroups(state.root)[0];
   const reconciled = normalize({ ...state,
-    root: mapDockNode(root, first.id, () => ({ ...first, tabs: [...first.tabs, ...added], active: first.active ?? added[0] ?? null })),
-    known: [...new Set([...available, ...state.known.filter(isEmptyPanel)])],
-    closed: state.closed.filter(keep),
-    ...(state.order ? { order: state.order.filter(keep) } : {}),
-    ...(state.placements ? { placements: Object.fromEntries(Object.entries(state.placements).filter(([id]) => keep(id))) } : {}),
-    bar: [...state.bar.filter(keep), ...tools.filter((id) => !state.known.includes(id))],
-    side: { ...state.side, tab: state.side.tab !== null && keep(state.side.tab) ? state.side.tab : null },
+    root: mapDockNode(state.root, first.id, () => ({ ...first, tabs: [...first.tabs, ...added], active: first.active ?? added[0] ?? null })),
+    known: [...state.known, ...added, ...addedTools],
+    bar: [...state.bar, ...addedTools],
   });
   const result = state.automatic ? defaultDockLayout(reconciled, splitApps) : reconciled;
   return JSON.stringify(result) === JSON.stringify(state) ? state : result;
+}
+
+/** An area whose active panel is unavailable activates its first available one, so a returning panel does not take the selection back. */
+export function activateAvailableDockTabs(state: DockState, available: readonly string[]): DockState {
+  const shown = (id: string) => available.includes(id) || isEmptyPanel(id);
+  return dockGroups(state.root).reduce((next, group) => {
+    const fallback = group.active !== null && !shown(group.active) ? group.tabs.find(shown) : undefined;
+    return fallback === undefined ? next : { ...next, root: mapDockNode(next.root, group.id, () => ({ ...group, active: fallback })) };
+  }, state);
+}
+
+/** What the dock shows of a stored layout: unavailable panels are hidden in their place; once the run is `loaded`, areas that hold only hidden panels give their space away until one returns. */
+export function visibleDockState(state: DockState, available: readonly string[], loaded: boolean): DockState {
+  const shown = (id: string) => available.includes(id) || isEmptyPanel(id);
+  const filtered = filterPanels(state.root, shown);
+  return normalize({ ...state,
+    root: loaded ? pruneEmptied(filtered, state.root) : filtered,
+    side: state.side.tab !== null && !shown(state.side.tab) ? { tab: null, mode: "hidden", focused: false } : state.side,
+  });
 }
 
 function defaultDockLayout(state: DockState, splitApps: boolean): DockState {

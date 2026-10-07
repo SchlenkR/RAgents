@@ -9,6 +9,7 @@ export interface OperationContract<I extends TSchema = TSchema, R extends TSchem
   readonly input: I;
   readonly result: R;
   readonly implementedBy: "server" | "client";
+  readonly timeoutMs?: number;
 }
 
 /** After subscribing, a channel delivers messages until the subscription ends. */
@@ -42,9 +43,13 @@ export const defineOperation = <I extends TSchema, R extends TSchema>(definition
   input: I;
   result: R;
   implementedBy?: "server" | "client";
+  timeoutMs?: number;
 }): OperationContract<I, R> => {
   assertContractId(definition.id);
   if (!definition.description.trim()) throw new Error(`Operation ${definition.id} has no description`);
+  if (definition.timeoutMs !== undefined && (!Number.isSafeInteger(definition.timeoutMs) || definition.timeoutMs <= 0 || definition.timeoutMs > 2_147_483_647)) {
+    throw new Error(`Operation ${definition.id} timeoutMs must be a positive timer duration`);
+  }
   return Object.freeze({
     kind: "operation",
     id: definition.id,
@@ -53,6 +58,7 @@ export const defineOperation = <I extends TSchema, R extends TSchema>(definition
     input: definition.input,
     result: definition.result,
     implementedBy: definition.implementedBy ?? "server",
+    ...(definition.timeoutMs === undefined ? {} : { timeoutMs: definition.timeoutMs }),
   });
 };
 

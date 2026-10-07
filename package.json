@@ -35,6 +35,7 @@
     "update:models": "pnpm --filter @ragents/host exec node --import tsx ../../scripts/maintenance/update-model-catalog.ts",
     "generate:palettes": "pnpm --filter @ragents/host exec node --import tsx ../../scripts/maintenance/generate-palettes.ts",
     "update:host-api": "pnpm --filter @ragents/host exec node --import tsx ../../scripts/maintenance/update-host-api.ts",
+    "update:extension-api": "pnpm --filter ragents-vscode exec node --import tsx ../../scripts/maintenance/update-extension-api.ts",
     "driver": "pnpm --filter @ragents/host exec node --import tsx ../../scripts/driver/run-driver.ts",
     "ragents": "pnpm --filter @ragents/host exec node --import tsx ../../scripts/agent/agent-cli.ts",
     "connect": "pnpm --filter @ragents/host exec node --import tsx ../../scripts/remote/connect.ts",

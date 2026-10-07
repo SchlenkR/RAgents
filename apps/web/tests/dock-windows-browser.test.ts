@@ -12,6 +12,40 @@ import type {} from "./docking-fixture";
 const shots = join(tmpdir(), "ragents-browser-shots");
 const options = { skip: process.env.RAGENTS_BROWSER_TESTS !== "1", timeout: 120_000 };
 
+test("browser tab grips split and move only their window from a group", options, async (context) => {
+  const { page, groups, tab, panel, box, press, dockOnto, finishDrop, errors } = await prepare(context);
+  await dockOnto(tab("Chat"), groups.filter({ has: tab("Notes") }), "group-center");
+  assert.equal(await groups.count(), 1);
+  await tab("Notes").click();
+  await panel("Notes").getByRole("textbox", { name: "App draft" }).fill("Keep the notes draft");
+  const notesFrame = panel("Notes").locator('iframe[title="App frame"]');
+  const frame = await notesFrame.elementHandle();
+  const frameIdentity = await frame!.evaluate((element) => Reflect.get((element as HTMLIFrameElement).contentWindow!, "identity"));
+  const grip = groups.first().getByRole("button").filter({ has: page.locator("[data-dock-grip]") });
+  await press(grip);
+  const source = await box(groups.first());
+  await page.mouse.move(source.x + source.width / 2, source.y + 100, { steps: 8 });
+  await page.getByLabel("Docking guides", { exact: true }).getByText("Notes", { exact: true }).waitFor();
+  const left = await box(page.locator('[data-dock-guide="group-left"]'));
+  await page.mouse.move(left.x + left.width / 2, left.y + left.height / 2, { steps: 3 });
+  await finishDrop();
+  assert.equal(await groups.count(), 2, "the left guide splits the active window out of its own group");
+  assert.deepEqual(await groups.filter({ has: tab("Chat") }).getByRole("tab").allTextContents(), ["Board", "Chat"]);
+  assert.ok((await box(groups.filter({ has: tab("Notes") }))).x < (await box(groups.filter({ has: tab("Chat") }))).x);
+  assert.equal(await panel("Notes").getByRole("textbox", { name: "App draft" }).inputValue(), "Keep the notes draft");
+  assert.equal(await notesFrame.evaluate((element, original) => element === original, frame), true);
+  assert.equal(await frame!.evaluate((element) => Reflect.get((element as HTMLIFrameElement).contentWindow!, "identity")), frameIdentity);
+
+  await tab("Board").click();
+  await dockOnto(groups.filter({ has: tab("Board") }).getByRole("button", { name: "Move Board", exact: true }), groups.filter({ has: tab("Notes") }), "group-left");
+  assert.equal(await groups.count(), 3, "moving a grip to another area leaves the source's other windows in place");
+  for (const name of ["Board", "Notes", "Chat"]) assert.equal(await groups.filter({ has: tab(name) }).getByRole("tab").count(), 1);
+  assert.ok((await box(groups.filter({ has: tab("Board") }))).x < (await box(groups.filter({ has: tab("Notes") }))).x);
+  assert.ok((await box(groups.filter({ has: tab("Notes") }))).x < (await box(groups.filter({ has: tab("Chat") }))).x);
+  await page.screenshot({ path: join(shots, "docking-single-window-grips.png") });
+  assert.deepEqual(errors, []);
+});
+
 /** Builds the docking fixture and opens it with Chat, Notes and Board; the returned helpers act on the header and the dock. */
 async function prepare(context: TestContext, search = "") {
   const directory = await mkdtemp(join(tmpdir(), "ragents-dock-windows-"));
@@ -164,23 +198,24 @@ test("browser header window buttons show grips, reorder by drag and keyboard, do
   await tab("Chat").waitFor();
   await page.waitForFunction(() => document.querySelectorAll("[data-dock-window]").length === 2);
   assert.deepEqual(await order(), ["Notes", "Chat"], "the order survives reload");
-  await page.evaluate(() => window.dockingFixture.setApps(["notes", "board"]));
-  await tab("Board").waitFor();
-  assert.deepEqual(await order(), ["Notes", "Chat", "Board"], "a new window joins at the end");
+  await page.evaluate(() => window.dockingFixture.setApps(["notes", "board", "plan"]));
+  await tab("Plan").waitFor();
+  assert.deepEqual(await order(), ["Board", "Notes", "Chat", "Plan"], "a returning window takes its remembered slot, a new one joins at the end");
+  assert.ok((await box(groups.filter({ has: tab("Board") }))).y > (await box(chatArea)).y + 50, "the returning window is below Chat again");
 
   await page.evaluate(() => { document.documentElement.style.zoom = "1.3"; });
   await page.waitForFunction(() => document.documentElement.style.zoom === "1.3");
-  await dragInHeader("Board", "Notes", 0.25);
+  await dragInHeader("Plan", "Notes", 0.25);
   await page.mouse.up();
-  assert.deepEqual(await order(), ["Board", "Notes", "Chat"], "header reordering follows the pointer under page zoom");
+  assert.deepEqual(await order(), ["Board", "Plan", "Notes", "Chat"], "header reordering follows the pointer under page zoom");
   const zoomedBefore = await groups.count();
-  await dockOnto("Board", groups.filter({ has: tab("Chat") }), "group-right");
+  await dockOnto("Plan", groups.filter({ has: tab("Chat") }), "group-right");
   assert.equal(await groups.count(), zoomedBefore + 1, "docking from the header follows the pointer under page zoom");
-  assert.equal(await groups.filter({ has: tab("Board") }).getByRole("tab").count(), 1);
+  assert.equal(await groups.filter({ has: tab("Plan") }).getByRole("tab").count(), 1);
   await page.evaluate(() => { document.documentElement.style.zoom = ""; });
 
   await view("Reset layout").click();
-  assert.deepEqual(await order(), ["Chat", "Notes", "Board"], "Reset layout restores the catalog order");
+  assert.deepEqual(await order(), ["Chat", "Notes", "Board", "Plan"], "Reset layout restores the catalog order");
   assert.equal(await savedOrder(), undefined);
 
   await page.setViewportSize({ width: 200, height: 800 });
@@ -253,7 +288,7 @@ test("the flyout button moves a tool into the right workspace edge as a regular 
   assert.equal(await groups.count(), 3);
   const placed = await assertRightEdge();
   assert.deepEqual(await filesArea.getByRole("button").evaluateAll((buttons) => buttons.map((button) => button.getAttribute("aria-label"))),
-    ["Move area", "Return Files to sidebar", "Maximize area", "Close Files"]);
+    ["Move Files", "Return Files to sidebar", "Maximize area", "Close Files"]);
   assert.equal(await panel("Files").getAttribute("aria-labelledby"), await tab("Files").getAttribute("id"));
   assert.equal(await page.getByRole("separator", { name: "Resize areas", exact: true }).count(), 2);
   await filesArea.getByRole("button", { name: "Maximize area", exact: true }).click();
@@ -414,6 +449,7 @@ test("run header buttons stay direct at every width and count, wrap, and reorder
   const shown = () => actions.getByRole("button").evaluateAll((buttons) => buttons.map((button) => button.getAttribute("aria-label")));
   const order = () => actions.locator("[data-dock-window]").evaluateAll((buttons) => buttons.map((button) => button.getAttribute("aria-label")));
   const assertFits = async () => {
+    await page.evaluate(async () => { for (let frame = 0; frame < 4; frame++) await new Promise<void>((resolve) => requestAnimationFrame(() => resolve())); });
     const bounds = await box(header);
     for (const button of await header.getByRole("button").all()) {
       assert.equal(await button.isVisible(), true);
@@ -444,8 +480,9 @@ test("run header buttons stay direct at every width and count, wrap, and reorder
   assert.deepEqual(await shown(), ["Board", "Chat", "Notes", "Empty space", "Reset layout"], "direct buttons still reorder by drag");
   await page.screenshot({ path: join(shots, "dock-windows-header-wide.png") });
 
-  for (const width of [560, 320, 200]) {
+  for (const width of [420, 320, 200]) {
     await page.setViewportSize({ width, height: 800 });
+    await page.evaluate(async () => { for (let frame = 0; frame < 4; frame++) await new Promise<void>((resolve) => requestAnimationFrame(() => resolve())); });
     await page.waitForFunction(() => new Set([...document.querySelectorAll('header button')].map((button) => button.getBoundingClientRect().top)).size > 1);
     assert.deepEqual(await shown(), ["Board", "Chat", "Notes", "Empty space", "Reset layout"]);
     assert.ok((await box(header)).height > wideHeight, "the header grows when its controls do not fit one line");
@@ -489,6 +526,7 @@ test("run header buttons stay direct at every width and count, wrap, and reorder
 
   await page.setViewportSize({ width: 1200, height: 800 });
   await view("Reset layout").click();
+  await page.evaluate(async () => { for (let frame = 0; frame < 4; frame++) await new Promise<void>((resolve) => requestAnimationFrame(() => resolve())); });
   assert.equal((await box(header)).height, wideHeight, "widening restores the single-line height");
   await page.evaluate(() => window.dockingFixture.setApps(["notes", "board", "plan", "map", "log"]));
   await view("Log").waitFor();

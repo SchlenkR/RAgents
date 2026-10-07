@@ -1,4 +1,4 @@
-import { EXTENDED_THINKING_LEVELS, type Api, type InputModality, type Model } from "@ragents/ai";
+import { EXTENDED_THINKING_LEVELS, isModelSdk, MODEL_SDK_BASE_URLS, MODEL_SDKS, type Api, type InputModality, type Model, type ModelSdk } from "@ragents/ai";
 import { builtinProviders } from "@ragents/ai/providers/all";
 import type { ModelProviderRegistration } from "@ragents/engine";
 import { isEnvironmentReference } from "../config-definition.js";
@@ -13,10 +13,11 @@ export const modelProviderEnvDescriptors = [
 
 const PROVIDER_ID = /^[a-z0-9][a-z0-9._-]{0,63}$/;
 const ENVIRONMENT_NAME = /^[A-Za-z_][A-Za-z0-9_]*$/;
-const PROVIDER_KEYS: readonly string[] = ["id", "baseUrl", "apiKey", "compat", "models"];
+const PROVIDER_KEYS: readonly string[] = ["id", "sdk", "baseUrl", "apiKey", "compat", "models"];
 const COMPAT_KEYS: readonly string[] = ["thinkingFormat", "requiresReasoningContentOnAssistantMessages"];
 const THINKING_FORMATS: readonly string[] = ["qwen-chat-template"];
-const MODEL_KEYS: readonly string[] = ["id", "contextWindow", "maxTokens", "reasoning", "input", "thinkingLevelMap"];
+const MODEL_KEYS: readonly string[] = ["id", "contextWindow", "maxTokens", "reasoning", "input", "thinkingLevelMap", "cost"];
+const COST_KEYS: readonly string[] = ["input", "output", "cacheRead", "cacheWrite"];
 const INPUTS: readonly InputModality[] = ["text", "image", "video", "file", "audio"];
 
 type Entry = Record<string, unknown>;
@@ -36,7 +37,15 @@ const positiveInteger = (value: unknown, location: string): number => {
   return value;
 };
 
-const baseUrlOf = (value: unknown, location: string): string => {
+const sdkOf = (value: unknown, location: string): ModelSdk | undefined => {
+  if (value === undefined) return undefined;
+  if (!isModelSdk(value)) throw new Error(`${location}.sdk "${String(value)}" is not supported; supported are ${MODEL_SDKS.join(", ")}`);
+  return value;
+};
+
+const baseUrlOf = (value: unknown, sdk: ModelSdk | undefined, location: string): string => {
+  const preset = sdk === undefined ? undefined : MODEL_SDK_BASE_URLS[sdk];
+  if (value === undefined && preset !== undefined) return preset;
   const text = typeof value === "string" ? value : "";
   const url = URL.canParse(text) ? new URL(text) : undefined;
   if (!url || (url.protocol !== "http:" && url.protocol !== "https:") || text.endsWith("/")) {
@@ -57,8 +66,9 @@ const apiKeyOf = (value: unknown, location: string, environment: Readonly<Record
   return key;
 };
 
-const compatOf = (value: unknown, location: string): Model<Api>["compat"] => {
+const compatOf = (value: unknown, sdk: ModelSdk | undefined, location: string): Model<Api>["compat"] => {
   if (value === undefined) return undefined;
+  if (sdk === "mistral") throw new Error(`${location}.compat is not supported with sdk "mistral"; it applies to OpenAI-compatible servers`);
   const entry = objectAt(value, `${location}.compat`, COMPAT_KEYS.join(" and/or "));
   onlyKeys(entry, COMPAT_KEYS, `${location}.compat`);
   if (entry.thinkingFormat !== undefined && !THINKING_FORMATS.includes(entry.thinkingFormat as string)) {
@@ -84,9 +94,27 @@ const thinkingLevelMapOf = (value: unknown, reasoning: boolean, location: string
   return entry as Model<Api>["thinkingLevelMap"];
 };
 
-const modelOf = (value: unknown, index: number, provider: { id: string; baseUrl: string; compat: Model<Api>["compat"] }, location: string): Model<Api> => {
+const rateOf = (value: unknown, location: string): number => {
+  if (typeof value !== "number" || !Number.isFinite(value) || value < 0) throw new Error(`${location} must be a non-negative number of USD per million tokens`);
+  return value;
+};
+
+/** Without cost every token costs 0; a left-out cache rate counts those tokens at 0. */
+const costOf = (value: unknown, location: string): Model<Api>["cost"] => {
+  if (value === undefined) return { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 };
+  const entry = objectAt(value, `${location}.cost`, "input, output and optionally cacheRead and cacheWrite in USD per million tokens");
+  onlyKeys(entry, COST_KEYS, `${location}.cost`);
+  return {
+    input: rateOf(entry.input, `${location}.cost.input`),
+    output: rateOf(entry.output, `${location}.cost.output`),
+    cacheRead: entry.cacheRead === undefined ? 0 : rateOf(entry.cacheRead, `${location}.cost.cacheRead`),
+    cacheWrite: entry.cacheWrite === undefined ? 0 : rateOf(entry.cacheWrite, `${location}.cost.cacheWrite`),
+  };
+};
+
+const modelOf = (value: unknown, index: number, provider: { id: string; sdk: ModelSdk | undefined; baseUrl: string; compat: Model<Api>["compat"] }, location: string): Model<Api> => {
   const at = `${location}.models[${index}]`;
-  const entry = objectAt(value, at, "id, contextWindow, maxTokens, reasoning, input and optionally thinkingLevelMap");
+  const entry = objectAt(value, at, "id, contextWindow, maxTokens, reasoning, input and optionally thinkingLevelMap and cost");
   onlyKeys(entry, MODEL_KEYS, at);
   if (typeof entry.id !== "string" || !entry.id.trim()) throw new Error(`${at}.id must name the model as the server knows it`);
   const contextWindow = positiveInteger(entry.contextWindow, `${at}.contextWindow`);
@@ -104,9 +132,10 @@ const modelOf = (value: unknown, index: number, provider: { id: string; baseUrl:
     api: "openai-completions",
     provider: provider.id,
     baseUrl: provider.baseUrl,
+    ...(provider.sdk ? { sdk: provider.sdk } : {}),
     reasoning: entry.reasoning,
     input: [...new Set(input as InputModality[])],
-    cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
+    cost: costOf(entry.cost, at),
     contextWindow,
     maxTokens,
     ...(thinkingLevelMap ? { thinkingLevelMap } : {}),
@@ -116,24 +145,25 @@ const modelOf = (value: unknown, index: number, provider: { id: string; baseUrl:
 
 const providerOf = (value: unknown, index: number, reserved: ReadonlySet<string>, environment: Readonly<Record<string, string | undefined>>): ModelUpstream => {
   const location = `MODEL_PROVIDERS[${index}]`;
-  const entry = objectAt(value, location, "id, baseUrl, apiKey, models and optionally compat");
+  const entry = objectAt(value, location, "id, apiKey, models and optionally sdk, baseUrl and compat");
   onlyKeys(entry, PROVIDER_KEYS, location);
   if (typeof entry.id !== "string" || !PROVIDER_ID.test(entry.id)) {
     throw new Error(`${location}.id needs 1 to 64 lowercase letters, digits, dots, underscores or hyphens`);
   }
   if (reserved.has(entry.id)) throw new Error(`${location}.id ${entry.id} is already a provider of the host`);
   const at = `${location} (${entry.id})`;
-  const baseUrl = baseUrlOf(entry.baseUrl, at);
+  const sdk = sdkOf(entry.sdk, at);
+  const baseUrl = baseUrlOf(entry.baseUrl, sdk, at);
   const apiKey = apiKeyOf(entry.apiKey, at, environment);
-  const compat = compatOf(entry.compat, at);
+  const compat = compatOf(entry.compat, sdk, at);
   if (!Array.isArray(entry.models) || entry.models.length === 0) throw new Error(`${at}.models needs at least one model`);
-  const models = entry.models.map((model, modelIndex) => modelOf(model, modelIndex, { id: entry.id as string, baseUrl, compat }, at));
+  const models = entry.models.map((model, modelIndex) => modelOf(model, modelIndex, { id: entry.id as string, sdk, baseUrl, compat }, at));
   const duplicate = models.find((model, modelIndex) => models.findIndex((other) => other.id === model.id) !== modelIndex);
   if (duplicate) throw new Error(`${at}.models names the model ${duplicate.id} more than once`);
   return { id: entry.id, baseUrl, apiKey, models };
 };
 
-/** MODEL_PROVIDERS: a list of OpenAI-compatible servers { id, baseUrl, apiKey: env("NAME"), compat?, models }, for instance self-hosted ones. */
+/** MODEL_PROVIDERS: a list of providers { id, sdk?, baseUrl, apiKey: env("NAME"), compat?, models }; sdk names the AI SDK package, without it requests take the OpenRouter shape. */
 export const parseModelProviders = (entries: unknown, environment: Readonly<Record<string, string | undefined>> = process.env): readonly ModelUpstream[] => {
   if (!Array.isArray(entries)) throw new Error("MODEL_PROVIDERS must be a list of providers");
   const reserved = new Set([...builtinProviders().map((provider) => provider.id), RELAY_PROVIDER]);
@@ -158,7 +188,7 @@ export const configuredModelProviders = (): readonly ModelUpstream[] => {
   return parseModelProviders(parsed);
 };
 
-/** The registration in the model runtime: every model over the OpenAI-compatible transport with the provider's address and key. */
+/** The registration in the model runtime: every model with the provider's address, key and sdk. */
 export const modelProviderRegistration = (provider: ModelUpstream): ModelProviderRegistration => ({
   id: provider.id,
   config: {

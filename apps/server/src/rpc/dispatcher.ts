@@ -108,7 +108,7 @@ export class RpcDispatcher {
   }
 
   async dispatch(connection: RpcConnection, method: string, params: unknown, context: RpcHandlerContext): Promise<unknown> {
-    if (method === RPC_METHODS.subscribe) return this.#subscribe(connection, params);
+    if (method === RPC_METHODS.subscribe) return this.#subscribe(connection, params, context.signal);
     if (method === RPC_METHODS.unsubscribe) return this.#unsubscribe(connection, params);
     const found = this.#options.methods.find(method);
     if (!found || found.contribution.contract.implementedBy === "client") {
@@ -138,7 +138,7 @@ export class RpcDispatcher {
     return plain;
   }
 
-  async #subscribe(connection: RpcConnection, params: unknown): Promise<RpcSubscribeResult> {
+  async #subscribe(connection: RpcConnection, params: unknown, signal: AbortSignal): Promise<RpcSubscribeResult> {
     const { channel, params: channelParams } = (params ?? {}) as Partial<RpcSubscribeParams>;
     if (typeof channel !== "string") throw new RpcError(RPC_ERROR_CODES.invalidParams, "channel is missing");
     if (connection.streamless) throw new DomainError("stream-required", "Subscriptions need an event stream.", 409);
@@ -163,9 +163,9 @@ export class RpcDispatcher {
     };
     const stop = await open(input, emit, { access: connection.access, connection });
     opening = false;
-    if (connection.closed) {
+    if (connection.closed || signal.aborted) {
       stop();
-      throw new DomainError("connection-closed", "The event connection was closed.", 410);
+      throw new RpcError(RPC_ERROR_CODES.cancelled, "The subscription was cancelled.");
     }
     const unwatch = target === undefined ? undefined : this.#options.watchRunAccess?.(target, () => {
       try {

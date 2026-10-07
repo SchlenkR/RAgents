@@ -1,5 +1,5 @@
 import type { ChannelContract, ChannelMessage, ChannelParams, OperationContract, OperationInput, OperationResult } from "@ragents/engine/src/rpc/contract";
-import { RpcPeer, type RpcCallOptions, type RpcHandlerContext } from "@ragents/engine/src/rpc/peer";
+import { RPC_REQUEST_TIMEOUT_MS, RpcPeer, type RpcCallOptions, type RpcHandlerContext } from "@ragents/engine/src/rpc/peer";
 import {
   isRpcMessage,
   isRpcNotification,
@@ -21,7 +21,7 @@ export const RPC_CONNECTION_HEADER = "x-ragents-connection";
 export type RpcStreamStatus =
   | { kind: "idle" }
   | { kind: "connecting" }
-  | { kind: "connected" }
+  | { kind: "connected"; channelErrors?: readonly { channel: string; message: string }[] }
   | { kind: "unauthorized" }
   | { kind: "retrying"; message: string };
 
@@ -31,6 +31,8 @@ export interface RpcClientOptions {
   retryDelayMs?: number;
   /** How long the stream may stay silent before it counts as lost; the server pings every 15 seconds. */
   idleTimeoutMs?: number;
+  connectTimeoutMs?: number;
+  requestTimeoutMs?: number;
 }
 
 interface Subscription {
@@ -39,6 +41,9 @@ interface Subscription {
   onMessage: (message: unknown) => void;
   onError: ((message: string) => void) | undefined;
   serverId: string | undefined;
+  binding: AbortController | undefined;
+  retry: ReturnType<typeof setTimeout> | undefined;
+  error: string | undefined;
 }
 
 const RETRY_DELAY_MS = 5_000;
@@ -77,9 +82,11 @@ export class RpcClient {
   readonly #fetch: typeof fetch;
   readonly #retryDelayMs: number;
   readonly #idleTimeoutMs: number;
+  readonly #connectTimeoutMs: number;
+  readonly #requestTimeoutMs: number;
   readonly #peer: RpcPeer;
   readonly #subscriptions = new Set<Subscription>();
-  readonly #inFlight = new Map<string, AbortController>();
+  readonly #inFlight = new Map<string, { controller: AbortController; request: RpcMessage & { id: string | number }; connection: string | undefined }>();
   readonly #earlyEvents = new Map<string, { at: number; messages: unknown[] }>();
   readonly #statusListeners = new Set<(status: RpcStreamStatus) => void>();
   readonly #connectedListeners = new Set<() => void>();
@@ -96,7 +103,9 @@ export class RpcClient {
     this.#fetch = options.fetch ?? ((input, init) => fetch(input, init));
     this.#retryDelayMs = options.retryDelayMs ?? RETRY_DELAY_MS;
     this.#idleTimeoutMs = options.idleTimeoutMs ?? IDLE_TIMEOUT_MS;
-    this.#peer = new RpcPeer({ send: (message) => this.#send(message) });
+    this.#connectTimeoutMs = options.connectTimeoutMs ?? this.#idleTimeoutMs;
+    this.#requestTimeoutMs = options.requestTimeoutMs ?? RPC_REQUEST_TIMEOUT_MS;
+    this.#peer = new RpcPeer({ send: (message) => this.#send(message), requestTimeoutMs: this.#requestTimeoutMs });
     this.#peer.onNotification(RPC_METHODS.event, (params) => this.#event(params as RpcEventParams));
   }
 
@@ -118,15 +127,17 @@ export class RpcClient {
     onMessage: (message: ChannelMessage<C>) => void,
     onError?: (message: string) => void,
   ): () => void {
-    const subscription: Subscription = { contract, params, onMessage: onMessage as (message: unknown) => void, onError, serverId: undefined };
+    const subscription: Subscription = { contract, params, onMessage: onMessage as (message: unknown) => void, onError, serverId: undefined, binding: undefined, retry: undefined, error: undefined };
     this.#subscriptions.add(subscription);
     if (this.#connection) void this.#bind(subscription);
     else this.connect();
     return () => {
       if (!this.#subscriptions.delete(subscription)) return;
+      this.#clearBinding(subscription);
       const serverId = subscription.serverId;
       subscription.serverId = undefined;
       if (serverId && this.#connection) void this.#peer.request(RPC_METHODS.unsubscribe, { subscription: serverId }).catch(() => undefined);
+      this.#channelStatus();
       this.#settle();
     };
   }
@@ -165,16 +176,21 @@ export class RpcClient {
   /** Ends the stream; open requests from the server are cancelled, own requests stay possible. */
   close(): void {
     this.#stop();
+    this.#peer.cancelOutgoing("The RPC client was closed.");
+    for (const pending of this.#inFlight.values()) pending.controller.abort();
     this.#set({ kind: "idle" });
   }
 
   #settle(): void {
-    if (this.#subscriptions.size === 0 && this.#handlers === 0) this.close();
+    if (this.#subscriptions.size === 0 && this.#handlers === 0) {
+      this.#stop();
+      this.#set({ kind: "idle" });
+    }
   }
 
   #set(status: RpcStreamStatus): void {
     this.#status = status;
-    for (const listener of [...this.#statusListeners]) listener(status);
+    for (const listener of [...this.#statusListeners]) this.#invoke(() => listener(status));
   }
 
   /** Without a stream no answer reaches the server anymore; running handlers therefore end with it. */
@@ -183,26 +199,40 @@ export class RpcClient {
     this.#retry = undefined;
     if (this.#idle !== undefined) clearTimeout(this.#idle);
     this.#idle = undefined;
+    const connection = this.#connection;
     this.#stream?.abort();
     this.#stream = undefined;
     this.#connection = undefined;
     this.#peer.cancelIncoming();
-    for (const subscription of this.#subscriptions) subscription.serverId = undefined;
+    for (const subscription of this.#subscriptions) {
+      this.#clearBinding(subscription);
+      subscription.serverId = undefined;
+      subscription.error = undefined;
+    }
+    this.#earlyEvents.clear();
+    for (const pending of this.#inFlight.values()) {
+      if (pending.connection !== connection || connection === undefined) continue;
+      this.#peer.receive(rpcFailure(pending.request.id, RPC_ERROR_CODES.connectionClosed, "The event connection was closed."));
+      pending.controller.abort();
+    }
   }
 
   /** A half-open stream delivers nothing anymore, not even a ping; after the idle time it counts as lost. */
-  #watchIdle(controller: AbortController): void {
+  #watchIdle(controller: AbortController, timeoutMs = this.#idleTimeoutMs): void {
     if (this.#idle !== undefined) clearTimeout(this.#idle);
     this.#idle = setTimeout(() => {
       this.#idle = undefined;
-      if (this.#stream === controller) this.#scheduleRetry(`The event stream has been silent for ${Math.round(this.#idleTimeoutMs / 1000)} s.`);
-    }, this.#idleTimeoutMs);
+      if (this.#stream === controller) this.#scheduleRetry(this.#connection
+        ? `The event stream has been silent for ${Math.round(timeoutMs / 1000)} s.`
+        : `The event stream did not connect within ${timeoutMs} ms.`);
+    }, timeoutMs);
   }
 
   #open(): void {
     const controller = new AbortController();
     this.#stream = controller;
     this.#set({ kind: "connecting" });
+    this.#watchIdle(controller, this.#connectTimeoutMs);
     void this.#run(controller).catch((cause: unknown) => {
       if (controller.signal.aborted) return;
       this.#scheduleRetry(messageOf(cause));
@@ -211,21 +241,23 @@ export class RpcClient {
 
   async #run(controller: AbortController): Promise<void> {
     const response = await this.#fetch(`${this.#baseUrl}${RPC_STREAM_PATH}`, { headers: { accept: "text/event-stream" }, signal: controller.signal, cache: "no-store" });
+    if (controller.signal.aborted || this.#stream !== controller) return;
     if (response.status === 401) {
-      this.#stream = undefined;
-      this.#peer.cancelIncoming();
+      this.#stop();
       this.#set({ kind: "unauthorized" });
       return;
     }
     if (!response.ok || !response.body) throw new Error(`The event stream responded with ${response.status}.`);
-    this.#watchIdle(controller);
-    for await (const block of sseBlocks(response.body, () => this.#watchIdle(controller))) {
+    for await (const block of sseBlocks(response.body, () => { if (this.#stream === controller && !controller.signal.aborted && this.#connection) this.#watchIdle(controller); })) {
       if (controller.signal.aborted) return;
       if (block.event === "hello") {
         this.#connection = (JSON.parse(block.data ?? "{}") as { connection: string }).connection;
+        this.#watchIdle(controller);
         this.#set({ kind: "connected" });
-        await Promise.all([...this.#subscriptions].map((subscription) => this.#bind(subscription)));
-        for (const listener of [...this.#connectedListeners]) listener();
+        void Promise.all([...this.#subscriptions].map((subscription) => this.#bind(subscription))).then(() => {
+          if (this.#stream !== controller || controller.signal.aborted) return;
+          for (const listener of [...this.#connectedListeners]) this.#invoke(listener);
+        });
         continue;
       }
       if (block.data === undefined) continue;
@@ -237,37 +269,82 @@ export class RpcClient {
 
   #scheduleRetry(message: string): void {
     this.#stop();
-    this.#set({ kind: "retrying", message });
-    for (const subscription of this.#subscriptions) subscription.onError?.(message);
     this.#retry = setTimeout(() => {
       this.#retry = undefined;
       if (this.#subscriptions.size > 0 || this.#handlers > 0) this.#open();
       else this.#set({ kind: "idle" });
     }, this.#retryDelayMs);
+    this.#set({ kind: "retrying", message });
+    for (const subscription of this.#subscriptions) this.#report(subscription, message);
   }
 
   async #bind(subscription: Subscription): Promise<void> {
     const connection = this.#connection;
-    if (!connection || subscription.serverId !== undefined) return;
+    if (!connection || !this.#subscriptions.has(subscription) || subscription.serverId !== undefined || subscription.binding) return;
+    const controller = new AbortController();
+    subscription.binding = controller;
     try {
-      const { subscription: serverId } = await this.#peer.request(RPC_METHODS.subscribe, { channel: subscription.contract.id, params: subscription.params }) as RpcSubscribeResult;
+      const { subscription: serverId } = await this.#peer.request(RPC_METHODS.subscribe, { channel: subscription.contract.id, params: subscription.params }, { signal: controller.signal }) as RpcSubscribeResult;
       if (this.#connection !== connection || !this.#subscriptions.has(subscription)) {
         if (this.#connection === connection) void this.#peer.request(RPC_METHODS.unsubscribe, { subscription: serverId }).catch(() => undefined);
         return;
       }
       subscription.serverId = serverId;
+      subscription.error = undefined;
+      this.#channelStatus();
       const early = this.#earlyEvents.get(serverId);
       this.#earlyEvents.delete(serverId);
-      for (const message of early?.messages ?? []) subscription.onMessage(message);
+      for (const message of early?.messages ?? []) this.#message(subscription, message);
     } catch (cause) {
-      subscription.onError?.(`Channel ${subscription.contract.id}: ${messageOf(cause)}`);
+      if (controller.signal.aborted || this.#connection !== connection || !this.#subscriptions.has(subscription)) return;
+      subscription.error = `Channel ${subscription.contract.id}: ${messageOf(cause)}`;
+      subscription.retry = setTimeout(() => {
+        subscription.retry = undefined;
+        if (this.#connection === connection) void this.#bind(subscription);
+      }, this.#retryDelayMs);
+      this.#channelStatus();
+      this.#report(subscription, subscription.error);
+    } finally {
+      if (subscription.binding === controller) subscription.binding = undefined;
     }
+  }
+
+  #clearBinding(subscription: Subscription): void {
+    subscription.binding?.abort();
+    subscription.binding = undefined;
+    if (subscription.retry !== undefined) clearTimeout(subscription.retry);
+    subscription.retry = undefined;
+  }
+
+  #channelStatus(): void {
+    if (this.#status.kind !== "connected") return;
+    const channelErrors = [...this.#subscriptions].flatMap((subscription) => subscription.error === undefined ? [] : [{ channel: subscription.contract.id, message: subscription.error }]);
+    const previous = this.#status.channelErrors ?? [];
+    if (previous.length === channelErrors.length && previous.every((error, index) => error.channel === channelErrors[index]?.channel && error.message === channelErrors[index]?.message)) return;
+    this.#set(channelErrors.length === 0 ? { kind: "connected" } : { kind: "connected", channelErrors });
+  }
+
+  #invoke(callback: () => unknown): void {
+    const report = (cause: unknown) => console.error(`RPC callback failed: ${messageOf(cause)}`);
+    try { void Promise.resolve(callback()).catch(report); } catch (cause) { report(cause); }
+  }
+
+  #report(subscription: Subscription, message: string): void {
+    if (subscription.onError) this.#invoke(() => subscription.onError!(message));
+    else console.error(message);
+  }
+
+  #message(subscription: Subscription, message: unknown): void {
+    const report = (cause: unknown) => {
+      if (this.#subscriptions.has(subscription)) this.#report(subscription, `Channel ${subscription.contract.id} callback: ${messageOf(cause)}`);
+    };
+    try { void Promise.resolve(subscription.onMessage(message)).catch(report); } catch (cause) { report(cause); }
   }
 
   #event(params: RpcEventParams): void {
     const subscription = [...this.#subscriptions].find((entry) => entry.serverId === params.subscription);
     if (subscription) {
-      subscription.onMessage(params.message);
+      this.#message(subscription, params.message);
       return;
     }
     // The event can arrive before the answer to the subscription; keep it briefly.
@@ -283,26 +360,38 @@ export class RpcClient {
       const id = String((message.params as RpcCancelParams).id);
       const inFlight = this.#inFlight.get(id);
       if (inFlight) {
-        inFlight.abort();
-        return;
+        inFlight.controller.abort();
+        if (!inFlight.connection || inFlight.connection !== this.#connection) return;
       }
     }
     const headers: Record<string, string> = { "content-type": "application/json" };
     if (this.#connection) headers[RPC_CONNECTION_HEADER] = this.#connection;
     if (!isRpcRequest(message)) {
       if (!this.#connection) return;
+      const connection = this.#connection;
+      const streamSignal = this.#stream?.signal;
       // Notifications and responses go out in order so progress never overtakes its result.
-      const send = this.#outgoing.then(() => this.#fetch(`${this.#baseUrl}${RPC_PATH}`, { method: "POST", headers, body: JSON.stringify(message) }));
+      const deliver = async (): Promise<void> => {
+        if (this.#connection !== connection || streamSignal?.aborted) return;
+        const timeout = AbortSignal.timeout(this.#requestTimeoutMs);
+        await this.#fetch(`${this.#baseUrl}${RPC_PATH}`, { method: "POST", headers, body: JSON.stringify(message), signal: streamSignal ? AbortSignal.any([streamSignal, timeout]) : timeout });
+      };
+      if (isRpcNotification(message) && message.method === RPC_METHODS.cancel) {
+        await deliver();
+        return;
+      }
+      const send = this.#outgoing.then(deliver);
       this.#outgoing = send.then(() => undefined, () => undefined);
       await send;
       return;
     }
     const id = String(message.id);
     const controller = new AbortController();
-    this.#inFlight.set(id, controller);
+    this.#inFlight.set(id, { controller, request: message, connection: this.#connection });
     try {
       const response = await this.#fetch(`${this.#baseUrl}${RPC_PATH}`, { method: "POST", headers, body: JSON.stringify(message), signal: controller.signal });
       const body = await response.json().catch(() => undefined) as unknown;
+      controller.signal.throwIfAborted();
       if (isRpcMessage(body)) {
         this.#peer.receive(body);
         return;

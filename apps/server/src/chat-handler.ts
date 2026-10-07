@@ -71,13 +71,13 @@ export interface RunScriptListing {
 export interface ChatSessionLike {
   readonly running: boolean;
   subscribe(listener: (event: ChatEvent) => void): () => void;
-  send(text: string, attachments?: ChatAttachmentInput[], userLocation?: unknown, user?: ChatUser, entryId?: string): void | Promise<void>;
-  sendToActor?(actorId: string, text: string, attachments?: ChatAttachmentInput[], user?: ChatUser): Promise<void>;
+  send(text: string, attachments?: ChatAttachmentInput[], userLocation?: unknown, user?: ChatUser, entryId?: string, signal?: AbortSignal): void | Promise<void>;
+  sendToActor?(actorId: string, text: string, attachments?: ChatAttachmentInput[], user?: ChatUser, signal?: AbortSignal): Promise<void>;
   actorConversations?(): ActorConversations;
   capabilities?(actor: string, userId: string | null): Promise<{ input: string[]; model: string }>;
   attachment?(artifactId: string): { attachment: ChatAttachment; content: Uint8Array };
   start(entryId: string, input: unknown, user?: ChatUser): void;
-  startAndWait?(entryId: string, input: unknown, user?: ChatUser, startedBy?: string): Promise<StartedScript>;
+  startAndWait?(entryId: string, input: unknown, user?: ChatUser, startedBy?: string, signal?: AbortSignal): Promise<StartedScript>;
   runScripts?(entries: readonly PublicStartEntry[], userId: string | null): RunScriptListing[];
   stop(): void | Promise<void>;
 }

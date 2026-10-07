@@ -1028,7 +1028,9 @@ const elements = {
 
 Definitions require an id; title is optional. visible: false removes an entry from the catalog. The host determines its size. anchorActorId, entity, and custom data are optional. New apps do not steal focus. Visited browser views stay mounted while hidden; unavailable selections return to Chat.
 
-Contract fields: web.surfaceElements, surfaceElement.id, surfaceElement.visible, surfaceElement.title, surfaceElement.anchorActorId, surfaceElement.entity, surfaceElement.data.
+An unavailable app keeps its place in the browser dock. layoutKey, by default the id, names that place: a later app with the same key, such as the view of a later start of a run script, takes over the area of an earlier one.
+
+Contract fields: web.surfaceElements, surfaceElement.id, surfaceElement.visible, surfaceElement.title, surfaceElement.layoutKey, surfaceElement.anchorActorId, surfaceElement.entity, surfaceElement.data.
 
 ### Sections on actor cards
 
@@ -2388,6 +2390,8 @@ export interface SurfaceElementDefinition {
   id: string;
   visible?: boolean;
   title?: string;
+  /** Where the browser dock keeps the app, by default its ID; a later app with the same key takes over the area of an earlier one. */
+  layoutKey?: string;
   anchorActorId?: string;
   entity?: EntityReference;
   data?: unknown;
@@ -2652,7 +2656,7 @@ Source in the repository: apps/server/src/ragents/workspace-runtime.ts
 
 ```typescript
 export interface WorkspaceRuntime {
-  resolve: (runId: string, emitSystem: (text: string) => void) => Promise<SessionWorkspace>;
+  resolve: (runId: string, emitSystem: (text: string) => void, signal?: AbortSignal) => Promise<SessionWorkspace>;
   describe: () => WorkspaceRuntimeDescription;
   /** The one central place where a flow asks where and in which folder a run works. */
   placementOf: (runId: string) => WorkspacePlacement;

@@ -29,6 +29,7 @@ import {
   type ModelSelection,
 } from "@ragents/engine";
 import type { ActivatedActorProgram, ActorProgramsService } from "../plugin-support/actor-programs/service.js";
+import { awaitWithSignal, sharedPreparation } from "../plugin-support/await-with-signal.js";
 import { modelLabel } from "../plugin-support/model-aliases.js";
 import type { StartOptionState } from "../plugin-support/start-options-contract.js";
 import type { Engine } from "./engine.js";
@@ -101,10 +102,10 @@ export interface RunChatSessionOptions {
   inputContext?: GlobalChatPolicy["inputContext"];
   prompt: () => string;
   assertUsable: (id: string) => void;
-  prepare: (id: string, emitSystem: (text: string) => void) => Promise<void>;
-  prepareWorkspace: (id: string, emitSystem: (text: string) => void) => Promise<void>;
+  prepare: (id: string, emitSystem: (text: string) => void, signal?: AbortSignal) => Promise<void>;
+  prepareWorkspace: (id: string, emitSystem: (text: string) => void, signal?: AbortSignal) => Promise<void>;
   /** After the first actor is set up in the prepared workspace, before any actor gets input. */
-  started: (id: string, startEntry: SessionStartedContext["startEntry"]) => Promise<void>;
+  started: (id: string, startEntry: SessionStartedContext["startEntry"], signal?: AbortSignal) => Promise<void>;
   scriptEntryFor: (entryId: string) => RunScriptStart | undefined;
   startEntryFor: (entryId: string) => PublicStartEntry | undefined;
   actorPrograms: RunScriptPrograms;
@@ -120,9 +121,9 @@ export class RunChatSession implements ChatSessionLike {
   readonly #inputContext: GlobalChatPolicy["inputContext"];
   readonly #prompt: () => string;
   readonly #assertUsable: (id: string) => void;
-  readonly #prepare: (id: string, emitSystem: (text: string) => void) => Promise<void>;
-  readonly #prepareWorkspace: (id: string, emitSystem: (text: string) => void) => Promise<void>;
-  readonly #started: (id: string, startEntry: SessionStartedContext["startEntry"]) => Promise<void>;
+  readonly #prepare: (id: string, emitSystem: (text: string) => void, signal?: AbortSignal) => Promise<void>;
+  readonly #prepareWorkspace: (id: string, emitSystem: (text: string) => void, signal?: AbortSignal) => Promise<void>;
+  readonly #started: (id: string, startEntry: SessionStartedContext["startEntry"], signal?: AbortSignal) => Promise<void>;
   readonly #scriptEntryFor: (entryId: string) => RunScriptStart | undefined;
   readonly #startEntryFor: (entryId: string) => PublicStartEntry | undefined;
   readonly #actorPrograms: RunScriptPrograms;
@@ -137,6 +138,12 @@ export class RunChatSession implements ChatSessionLike {
   #primaryActorId: string | undefined;
   #activeLiveTurnId: string | undefined;
   #starting: Promise<void> | undefined;
+  #startingPreparation: ReturnType<typeof sharedPreparation<void>> | undefined;
+  /** Actors may exist before sessionStarted finishes; retries must finish that readiness before accepting input. */
+  #initialStartup: {
+    entry: SessionStartedContext["startEntry"];
+    script?: {entryId: string; installed: ActivatedActorProgram};
+  } | undefined;
   #scriptQueue: Promise<unknown> = Promise.resolve();
   readonly #scriptStarts = new Set<AbortController>();
   #startup: ChatStartupStatus | undefined;
@@ -306,16 +313,16 @@ export class RunChatSession implements ChatSessionLike {
   }
 
   /** With a skill template, the message starts a new run through it, with the start options it fixes. */
-  send(text: string, attachments?: ChatAttachmentInput[], userLocation?: unknown, user?: ChatUser, entryId?: string): Promise<void> {
-    return this.#track(() => this.#send(text, attachments, undefined, userLocation, user, entryId), false);
+  send(text: string, attachments?: ChatAttachmentInput[], userLocation?: unknown, user?: ChatUser, entryId?: string, signal?: AbortSignal): Promise<void> {
+    return this.#track(() => this.#send(text, attachments, undefined, userLocation, user, entryId, signal), false);
   }
 
-  async sendAndWait(text: string, user?: ChatUser): Promise<void> {
-    await this.send(text, undefined, undefined, user);
+  async sendAndWait(text: string, user?: ChatUser, signal?: AbortSignal): Promise<void> {
+    await this.send(text, undefined, undefined, user, undefined, signal);
   }
 
-  sendToActor(actorId: string, text: string, attachments?: ChatAttachmentInput[], user?: ChatUser): Promise<void> {
-    return this.#track(() => this.#send(text, attachments, actorId, undefined, user), false);
+  sendToActor(actorId: string, text: string, attachments?: ChatAttachmentInput[], user?: ChatUser, signal?: AbortSignal): Promise<void> {
+    return this.#track(() => this.#send(text, attachments, actorId, undefined, user, undefined, signal), false);
   }
 
   actorConversations(): ActorConversations {
@@ -349,8 +356,8 @@ export class RunChatSession implements ChatSessionLike {
   }
 
   /** startedBy is the actor that receives the script's result; without it, the owner. */
-  async startAndWait(entryId: string, input: unknown, user?: ChatUser, startedBy?: string): Promise<StartedScript> {
-    return this.#track(() => this.#start(entryId, input, user, startedBy));
+  async startAndWait(entryId: string, input: unknown, user?: ChatUser, startedBy?: string, signal?: AbortSignal): Promise<StartedScript> {
+    return this.#track(() => this.#start(entryId, input, user, startedBy, signal));
   }
 
   /** The script templates among these entries, and whether each can start in this run now. */
@@ -375,8 +382,8 @@ export class RunChatSession implements ChatSessionLike {
     }
   }
 
-  async startPackageAndWait(script: RunScriptStart, input: unknown, user?: ChatUser): Promise<StartedScript> {
-    return this.#track(() => this.#startPackage(() => script, input, user));
+  async startPackageAndWait(script: RunScriptStart, input: unknown, user?: ChatUser, signal?: AbortSignal): Promise<StartedScript> {
+    return this.#track(() => this.#startPackage(() => script, input, user, undefined, signal));
   }
 
   #track<T>(work: () => Promise<T>, reportError = true): Promise<T> {
@@ -436,6 +443,7 @@ export class RunChatSession implements ChatSessionLike {
     this.#startCancellation = undefined;
     for (const controller of this.#scriptStarts) controller.abort(new Error("The start preparation was reset."));
     this.#startup = undefined;
+    this.#initialStartup = undefined;
     this.#unsubscribeJournal?.();
     this.#unsubscribeLive?.();
     this.#unsubscribeJournal = undefined;
@@ -482,7 +490,8 @@ export class RunChatSession implements ChatSessionLike {
     return (system) => this.#emit({ kind: "system", text: system });
   }
 
-  async #send(text: string, supplied?: ChatAttachmentInput[], target?: string, userLocation?: unknown, user?: ChatUser, entryId?: string): Promise<void> {
+  async #send(text: string, supplied?: ChatAttachmentInput[], target?: string, userLocation?: unknown, user?: ChatUser, entryId?: string, signal?: AbortSignal): Promise<void> {
+    signal?.throwIfAborted();
     if (userLocation !== undefined && !this.#inputContext) throw new DomainError("chat-context-unavailable", "This run does not accept UI context.", 400);
     const choice = entryId === undefined ? freeChoice(userIdOf(user)) : this.#startChoice(this.#skillEntry(entryId), userIdOf(user));
     const attachments = this.#checkedAttachments(supplied);
@@ -490,16 +499,20 @@ export class RunChatSession implements ChatSessionLike {
     const existingTarget = target ?? this.#engine.journal.stateOf(this.id)?.primaryActorId;
     if (existingTarget) this.#assertChatTarget(existingTarget);
     if (attachments.length > 0) await this.#checkAttachmentCapabilities(target ?? "primary", attachments, choice);
-    await this.#prepare(this.id, this.#emitSystem());
+    await this.#prepare(this.id, this.#emitSystem(), signal);
+    signal?.throwIfAborted();
     this.#assertUsable(this.id);
-    const primaryActorId = target ? this.#targetActor(target).id : await this.#ensureRun(user, choice);
+    if (target && this.#initialStartup) await this.#ensureRun(user, choice, signal);
+    const primaryActorId = target ? this.#targetActor(target).id : await this.#ensureRun(user, choice, signal);
     this.#assertUsable(this.id);
     this.#assertChatTarget(primaryActorId);
-    if (target) await this.#prepareWorkspace(this.id, this.#emitSystem());
+    if (target) await this.#prepareWorkspace(this.id, this.#emitSystem(), signal);
+    signal?.throwIfAborted();
     this.#assertUsable(this.id);
     if (attachments.length > 0) await this.#checkAttachmentCapabilities(primaryActorId, attachments, choice);
     const sourceEventIds = !target && this.#inputContext ? await this.#inputContext(this.#engine.runtime, this.id, userLocation) : [];
     this.#assertUsable(this.id);
+    signal?.throwIfAborted();
     const state = this.#engine.runtime.state(this.id);
     this.#assertChatTarget(primaryActorId);
     const artifactIds = attachments.map((attachment) => {
@@ -612,55 +625,69 @@ export class RunChatSession implements ChatSessionLike {
       url: attachmentContentPath(this.id, artifact.id) };
   }
 
-  async #ensureRun(user: ChatUser | undefined, choice: StartChoice): Promise<string> {
+  async #ensureRun(user: ChatUser | undefined, choice: StartChoice, signal?: AbortSignal): Promise<string> {
     this.#assertUsable(this.id);
-    const bound = this.#syncPrimaryActor();
-    if (bound) return bound;
-    if (this.#starting) await this.#starting;
+    if (this.#startingPreparation) {
+      if (this.#startingPreparation.signal.aborted) await awaitWithSignal(this.#startingPreparation.promise.catch(() => undefined), signal);
+      else await this.#startingPreparation.wait(signal);
+    }
+    signal?.throwIfAborted();
     const afterStart = this.#syncPrimaryActor();
-    if (afterStart) return afterStart;
-    await this.#exclusiveStart(() => this.#startRun(user, choice));
+    if (afterStart && !this.#initialStartup) return afterStart;
+    await this.#exclusiveStart((preparationSignal) => this.#startRun(user, choice, preparationSignal), signal);
+    signal?.throwIfAborted();
     const primaryActorId = this.#syncPrimaryActor();
     if (!primaryActorId) throw new Error("The run has no primary actor after the start");
     return primaryActorId;
   }
 
-  #exclusiveStart(work: () => Promise<void>): Promise<void> {
-    this.#starting ??= Promise.resolve().then(work).finally(() => {
-      this.#starting = undefined;
-    });
-    return this.#starting;
+  #exclusiveStart(work: (signal: AbortSignal) => Promise<void>, signal?: AbortSignal): Promise<void> {
+    signal?.throwIfAborted();
+    if (!this.#startingPreparation) {
+      const preparation = sharedPreparation(async (preparationSignal) => {
+        try { await work(preparationSignal); }
+        finally {
+          this.#starting = undefined;
+          this.#startingPreparation = undefined;
+        }
+      });
+      this.#startingPreparation = preparation;
+      this.#starting = preparation.promise;
+    }
+    return this.#startingPreparation.wait(signal);
   }
 
-  #start(entryId: string, input: unknown, user?: ChatUser, startedBy?: string): Promise<StartedScript> {
+  #start(entryId: string, input: unknown, user?: ChatUser, startedBy?: string, signal?: AbortSignal): Promise<StartedScript> {
     return this.#startPackage(() => {
       const found = this.#scriptEntryFor(entryId);
       if (!found) throw new DomainError("entry-unknown", `The template ${entryId} is not a script template of this profile.`, 404);
       return found;
-    }, input, user, startedBy);
+    }, input, user, startedBy, signal);
   }
 
   #runStarted(): boolean {
-    return this.startLocked && this.#engine.runtime.view(this.id).actors.some((actor) => actor.kind !== "human");
+    return !this.#initialStartup && this.startLocked && this.#engine.runtime.view(this.id).actors.some((actor) => actor.kind !== "human");
   }
 
-  async #startPackage(resolve: () => RunScriptStart, input: unknown, user?: ChatUser, startedBy?: string): Promise<StartedScript> {
-    if (this.#runStarted()) return this.#startInRun(resolve(), input, user, startedBy);
+  async #startPackage(resolve: () => RunScriptStart, input: unknown, user?: ChatUser, startedBy?: string, callerSignal?: AbortSignal): Promise<StartedScript> {
+    callerSignal?.throwIfAborted();
+    if (this.#startingPreparation?.signal.aborted) await awaitWithSignal(this.#startingPreparation.promise.catch(() => undefined), callerSignal);
+    if (this.#runStarted()) return this.#startInRun(resolve(), input, user, startedBy, callerSignal);
     if (this.#starting) throw new DomainError("run-starting", "The run is being started.", 409);
     const cancellation = new AbortController();
     this.#startCancellation = cancellation;
     let started: StartedScript | undefined;
-    const operation = this.#exclusiveStart(async () => {
-      const { signal } = cancellation;
+    const operation = this.#exclusiveStart(async (preparationSignal) => {
+      const signal = AbortSignal.any([preparationSignal, cancellation.signal]);
       try {
         signal.throwIfAborted();
         const found = resolve();
         const choice = this.#startChoice(found.entry, userIdOf(user));
         const startValue = startValueOf(input);
-        await this.#prepare(this.id, this.#emitSystem());
+        await this.#prepare(this.id, this.#emitSystem(), signal);
         signal.throwIfAborted();
         this.#assertUsable(this.id);
-        started = await this.#startWithScript(found, startValue, signal, user, choice);
+        started = await this.#startWithScript(found, startValue, signal, user, choice, callerSignal);
         signal.throwIfAborted();
         this.#setStartup(undefined);
       } catch (error) {
@@ -671,7 +698,7 @@ export class RunChatSession implements ChatSessionLike {
       } finally {
         if (this.#startCancellation === cancellation) this.#startCancellation = undefined;
       }
-    });
+    }, callerSignal);
     this.#setStartup({ status: "preparing", message: "Preparing run." });
     await operation;
     if (!started) throw new Error("The run script start ended without a result");
@@ -679,7 +706,7 @@ export class RunChatSession implements ChatSessionLike {
   }
 
   /** Starts in a running run wait for each other; each checks what can refuse it before the run changes, and none touches the primary actor or the startup status. */
-  async #startInRun(found: RunScriptStart, input: unknown, user?: ChatUser, startedBy?: string): Promise<StartedScript> {
+  async #startInRun(found: RunScriptStart, input: unknown, user?: ChatUser, startedBy?: string, callerSignal?: AbortSignal): Promise<StartedScript> {
     if (!found.embeddable) {
       throw new DomainError("run-started", `The run is already running; the run script "${found.entry.title}" only starts a new run. A run script starts inside a running run only if its RUN.md sets embeddable: true.`, 409);
     }
@@ -687,15 +714,15 @@ export class RunChatSession implements ChatSessionLike {
     const cancellation = new AbortController();
     this.#scriptStarts.add(cancellation);
     const operation = this.#scriptQueue.then(async () => {
-      const { signal } = cancellation;
+      const signal = callerSignal ? AbortSignal.any([callerSignal, cancellation.signal]) : cancellation.signal;
       signal.throwIfAborted();
-      await this.#starting?.catch(() => undefined);
+      if (this.#starting) await awaitWithSignal(this.#starting.catch(() => undefined), signal);
       signal.throwIfAborted();
       const choice = this.#startChoice(found.entry, userIdOf(user));
-      await this.#prepare(this.id, this.#emitSystem());
+      await this.#prepare(this.id, this.#emitSystem(), signal);
       signal.throwIfAborted();
       this.#assertUsable(this.id);
-      await this.#prepareWorkspace(this.id, this.#emitSystem());
+      await this.#prepareWorkspace(this.id, this.#emitSystem(), signal);
       signal.throwIfAborted();
       this.#assertUsable(this.id);
       const installed = await this.#installScript(found, signal, startedBy);
@@ -711,28 +738,51 @@ export class RunChatSession implements ChatSessionLike {
     }
   }
 
-  async #startRun(user: ChatUser | undefined, choice: StartChoice): Promise<void> {
+  async #startRun(user: ChatUser | undefined, choice: StartChoice, signal?: AbortSignal): Promise<void> {
+    signal?.throwIfAborted();
+    if (this.#initialStartup) {
+      await this.#completeInitialLifecycle(signal);
+      signal?.throwIfAborted();
+      this.#initialStartup = undefined;
+      return;
+    }
     this.#createRunIfNeeded(this.#initialTitle ?? this.#coordinator.runTitle, user, choice);
     this.#assertUsable(this.id);
-    await this.#prepareWorkspace(this.id, this.#emitSystem());
+    await this.#prepareWorkspace(this.id, this.#emitSystem(), signal);
+    signal?.throwIfAborted();
     this.#assertUsable(this.id);
     this.#ensureCoordinatorAsPrimary(choice);
-    await this.#started(this.id, choice.entry);
+    this.#initialStartup = {entry: choice.entry};
+    await this.#completeInitialLifecycle(signal);
+    signal?.throwIfAborted();
+    this.#initialStartup = undefined;
+  }
+
+  async #completeInitialLifecycle(signal?: AbortSignal): Promise<void> {
+    if (!this.#initialStartup) throw new Error("The run has no initial lifecycle to complete");
+    signal?.throwIfAborted();
+    await this.#started(this.id, this.#initialStartup.entry, signal);
+    signal?.throwIfAborted();
     this.#assertUsable(this.id);
   }
 
-  async #startWithScript(found: RunScriptStart, input: JsonValue | null, signal: AbortSignal, user: ChatUser | undefined, choice: StartChoice): Promise<StartedScript> {
+  async #startWithScript(found: RunScriptStart, input: JsonValue | null, signal: AbortSignal, user: ChatUser | undefined, choice: StartChoice, callerSignal?: AbortSignal): Promise<StartedScript | undefined> {
     const { entry } = found;
+    const pending = this.#initialStartup;
+    if (pending && pending.script?.entryId !== entry.id) {
+      throw new DomainError("run-starting", "The initial lifecycle is incomplete; retry its original start before choosing another template.", 409);
+    }
     this.#createRunIfNeeded(this.#initialTitle ?? entry.title, user, choice);
     this.#assertUsable(this.id);
     this.#setStartup({ status: "preparing", message: "Preparing working directory." });
     signal.throwIfAborted();
-    await this.#prepareWorkspace(this.id, this.#emitSystem());
+    await this.#prepareWorkspace(this.id, this.#emitSystem(), signal);
     signal.throwIfAborted();
     this.#assertUsable(this.id);
     this.#setStartup({ status: "preparing", message: "Preparing UI." });
     signal.throwIfAborted();
-    const installed = await this.#installScript(found, signal);
+    const installed = pending?.script?.installed ?? await this.#installScript(found, signal);
+    this.#initialStartup = {entry: pending?.entry ?? choice.entry, script: {entryId: entry.id, installed}};
     signal.throwIfAborted();
     this.#assertUsable(this.id);
     if (found.coordinator) this.#ensureCoordinatorAsPrimary(choice);
@@ -741,10 +791,17 @@ export class RunChatSession implements ChatSessionLike {
       this.#engine.runtime.selectPrimaryActor({actorId: state.ownerId, commandId: `run-script-primary:${this.id}`}, this.id, installed.actorId);
       this.#bind(installed.actorId);
     }
-    await this.#started(this.id, choice.entry);
+    await this.#completeInitialLifecycle(signal);
+    signal?.throwIfAborted();
     this.#assertUsable(this.id);
     signal.throwIfAborted();
+    // Another sender can keep shared readiness alive after this script's caller leaves.
+    if (callerSignal?.aborted) {
+      this.#initialStartup = undefined;
+      return undefined;
+    }
     const started = this.#enqueueStart(installed, input, choice, false);
+    this.#initialStartup = undefined;
     if (found.coordinator) this.#emit({ kind: "system", text: `The run script "${entry.title}" runs as @${installed.actorHandle} and sets up the run.` });
     return started;
   }

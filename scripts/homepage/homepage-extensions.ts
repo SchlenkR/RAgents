@@ -676,7 +676,7 @@ const elements = {
     select: () => [{ id: "example-note", title: "Note", visible: true }],
     Element: ({ definition }) => <p>{definition.title}</p>,
   }],
-} satisfies WebPlugin;`, ["web.surfaceElements", "surfaceElement.id", "surfaceElement.visible", "surfaceElement.title", "surfaceElement.anchorActorId", "surfaceElement.entity", "surfaceElement.data"], ["Definitions require an id; title is optional. visible: false removes an entry from the catalog. The host determines its size. anchorActorId, entity, and custom data are optional. New apps do not steal focus. Visited browser views stay mounted while hidden; unavailable selections return to Chat."], "tsx"),
+} satisfies WebPlugin;`, ["web.surfaceElements", "surfaceElement.id", "surfaceElement.visible", "surfaceElement.title", "surfaceElement.layoutKey", "surfaceElement.anchorActorId", "surfaceElement.entity", "surfaceElement.data"], ["Definitions require an id; title is optional. visible: false removes an entry from the catalog. The host determines its size. anchorActorId, entity, and custom data are optional. New apps do not steal focus. Visited browser views stay mounted while hidden; unavailable selections return to Chat.", "An unavailable app keeps its place in the browser dock. layoutKey, by default the id, names that place: a later app with the same key, such as the view of a later start of a run script, takes over the area of an earlier one."], "tsx"),
   entry("web-card-sections", "Web contributions", "Sections on actor cards", "A plugin can add sections above the selected actor chat, for example for documents or a status.", "Properties of a WebPlugin; a neutral section without access to actor fields.", `
 const cards = {
   id: "ragents.example",

@@ -136,7 +136,7 @@ test("the asking turn ends without a second model request, and the answer starts
   const context = run.contexts[0]!;
   assert.deepEqual(context.messages.map((entry) => entry.role), ["user", "assistant", "toolResult", "user"]);
   assert.equal(textOf(context.messages[2]), QUESTION_POSED);
-  assert.equal(textOf(context.messages[3]), "The user answered your question:\n\"Which branch?\" = \"main\"");
+  assert.match(textOf(context.messages[3]), /^\[Actors in the run, as of turn start\]\n[\s\S]*\n\nThe user answered your question:\n"Which branch\?" = "main"$/);
 });
 
 test("a person's message during the ask_user call closes the question and still reaches the asker in the same turn", async (t) => {

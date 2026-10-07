@@ -83,7 +83,9 @@ recorded there, and the context is read back from those records before each mode
 a restart the actor therefore continues with exactly the same context. A new actor starts with its
 own context or, when spawned with `forkOf`, with an unchanged copy of the context another LLM actor
 of the same run had at the end of its last finished turn before the spawn. Updating the system
-prompt does not replace the existing conversation history.
+prompt does not replace the existing conversation history. The system prompt stays the same from
+turn to turn; what changes per turn, such as the actors of the run at the start of the turn or the
+skills selected for the task, arrives with the turn's input and stays in the conversation as it was.
 
 Programmed actor state stores explicitly assigned data for functions and mini-apps. Before a
 replacement state is diffed and journaled, it is converted to JSON form: keys whose value is

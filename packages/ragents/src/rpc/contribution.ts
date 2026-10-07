@@ -55,6 +55,7 @@ export interface MethodDescriptor {
   input: TSchema;
   result: TSchema;
   implementedBy: "server" | "client";
+  timeoutMs?: number;
 }
 
 export interface ChannelDescriptor {

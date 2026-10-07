@@ -6,6 +6,7 @@ import { Type } from "typebox";
 import { ALIAS_PROVIDER, aliasCatalog, parseModelAliases } from "../src/plugin-support/model-aliases.ts";
 import { aliasCompletionModel } from "../src/plugin-support/model-completion.ts";
 import { configuredModelProviders, modelProviderRegistration, parseModelProviders } from "../src/plugin-support/model-providers.ts";
+import type { ModelAlias } from "../src/plugin-support/model-aliases.ts";
 import { catalogEntryOf, resolveAliases } from "../../../plugins/ragents.model-relay/server/relay.ts";
 import { modelRelayConfig } from "../../../plugins/ragents.model-relay/server/config.ts";
 
@@ -18,11 +19,19 @@ const provider = (extra: Record<string, unknown> = {}) => ({
 const alias = { alias: "local-model", model: "local/example-model", thinking: "medium",
   thinkingLevels: { off: "off", low: "low", medium: "medium", xhigh: "xhigh" },
   compaction: { threshold: 100_000, keepRecentTokens: 16_000, summaryTokens: 8_000 } };
+const mistralModel = { id: "zai-glm-5-3", contextWindow: 1_048_576, maxTokens: 131_072, reasoning: true, input: ["text"],
+  thinkingLevelMap: { minimal: null, medium: null, low: "low", high: "high", max: "max" }, cost: { input: 1.4, cacheRead: 0.14, output: 4.4 } };
+const mistralProvider = (extra: Record<string, unknown> = {}) => ({
+  id: "example-mistral", sdk: "mistral", apiKey: { kind: "environment", name: "EXAMPLE_API_KEY" }, models: [mistralModel], ...extra,
+});
+const mistralAlias = { alias: "team-mistral", model: "example-mistral/zai-glm-5-3", thinking: "low",
+  thinkingLevels: { off: "low", low: "low", high: "high", max: "max" },
+  compaction: { threshold: 400_000, keepRecentTokens: 32_000, summaryTokens: 16_000 } };
 
-const withProfile = (t: TestContext): void => {
+const withProfile = (t: TestContext, providers: unknown[] = [provider()], aliases: unknown[] = [alias]): void => {
   const previous = { MODEL_PROVIDERS: process.env.MODEL_PROVIDERS, MODEL_ALIASES: process.env.MODEL_ALIASES, EXAMPLE_API_KEY: process.env.EXAMPLE_API_KEY };
-  process.env.MODEL_PROVIDERS = JSON.stringify([provider()]);
-  process.env.MODEL_ALIASES = JSON.stringify([alias]);
+  process.env.MODEL_PROVIDERS = JSON.stringify(providers);
+  process.env.MODEL_ALIASES = JSON.stringify(aliases);
   process.env.EXAMPLE_API_KEY = environment.EXAMPLE_API_KEY;
   t.after(() => {
     for (const [key, value] of Object.entries(previous)) {
@@ -32,10 +41,10 @@ const withProfile = (t: TestContext): void => {
   });
 };
 
-const runtimeOf = (): ModelRuntime => {
+const runtimeOf = (aliases: readonly ModelAlias[] = parseModelAliases([alias])): ModelRuntime => {
   const runtime = ModelRuntime.create();
   for (const registration of configuredModelProviders().map(modelProviderRegistration)) runtime.registerProvider(registration.id, registration.config);
-  runtime.registerAliases(ALIAS_PROVIDER, parseModelAliases([alias]));
+  runtime.registerAliases(ALIAS_PROVIDER, aliases);
   return runtime;
 };
 
@@ -57,7 +66,12 @@ test("MODEL_PROVIDERS accepts OpenAI-compatible servers only with an env key and
   assert.throws(() => parse(provider({ models: [{ ...exampleModel, input: ["image"] }] })), /input needs "text"/);
   assert.throws(() => parse(provider({ models: [{ ...exampleModel, reasoning: false }] })), /thinkingLevelMap needs reasoning: true/);
   assert.throws(() => parse(provider({ models: [{ ...exampleModel, thinkingLevelMap: { extreme: "x" } }] })), /thinkingLevelMap\.extreme is not a thinking level/);
-  assert.throws(() => parse(provider({ models: [{ ...exampleModel, cost: 1 }] })), /models\[0\]\.cost is not supported/);
+  assert.throws(() => parse(provider({ models: [{ ...exampleModel, cost: 1 }] })), /models\[0\]\.cost must be an object with input, output/);
+  assert.throws(() => parse(provider({ models: [{ ...exampleModel, cost: { input: -1, output: 1 } }] })), /cost\.input must be a non-negative number of USD per million tokens/);
+  assert.throws(() => parse(provider({ models: [{ ...exampleModel, cost: { input: 1 } }] })), /cost\.output must be a non-negative number/);
+  assert.throws(() => parse(provider({ models: [{ ...exampleModel, cost: { input: "1", output: 1 } }] })), /cost\.input must be a non-negative number/);
+  assert.throws(() => parse(provider({ models: [{ ...exampleModel, cost: { input: 1, output: 1, cacheRead: -0.1 } }] })), /cost\.cacheRead must be a non-negative number/);
+  assert.throws(() => parse(provider({ models: [{ ...exampleModel, cost: { input: 1, output: 1, tiers: [] } }] })), /cost\.tiers is not supported/);
   assert.throws(() => parse(provider({ models: [exampleModel, exampleModel] })), /names the model example-model more than once/);
   assert.throws(() => parseModelProviders([provider(), provider()], environment), /names the provider local more than once/);
   const [parsed] = parse(provider());
@@ -146,4 +160,59 @@ test("a profile provider streams null delta fields, reasoning and fragmented too
   ]);
   assert.equal(payloads[0]!.reasoning_effort, "low");
   assert.deepEqual(payloads[0]!.chat_template_kwargs, { enable_thinking: true, preserve_thinking: true });
+});
+
+test("MODEL_PROVIDERS names its AI SDK package with sdk, which sets the address rules, and prices models in USD per million tokens", () => {
+  const parse = (entry: unknown) => parseModelProviders([entry], environment);
+  assert.throws(() => parse(provider({ sdk: "anthropic" })), /\(local\)\.sdk "anthropic" is not supported; supported are mistral, openai-compatible/);
+  assert.throws(() => parse(provider({ sdk: "openai-compatible", baseUrl: undefined })), /\(local\)\.baseUrl needs an http or https address/);
+  assert.throws(() => parse(provider({ baseUrl: undefined })), /\(local\)\.baseUrl needs an http or https address/);
+  assert.throws(() => parse(mistralProvider({ baseUrl: "https://api.mistral.ai/v1/" })), /baseUrl needs an http or https address without a trailing slash/);
+  assert.throws(() => parse(mistralProvider({ compat: { thinkingFormat: "qwen-chat-template" } })), /\(example-mistral\)\.compat is not supported with sdk "mistral"/);
+  assert.throws(() => parse(mistralProvider({ apiKey: "plain-key" })), /apiKey must be env\("NAME"\)/);
+  assert.throws(() => parse(mistralProvider({ apiKey: { kind: "environment", name: "UNSET_EXAMPLE_KEY" } })), /env\("UNSET_EXAMPLE_KEY"\) to an environment variable that is not set/);
+  const [mistral] = parse(mistralProvider());
+  assert.equal(mistral!.baseUrl, "https://api.mistral.ai/v1");
+  assert.deepEqual(mistral!.models[0], {
+    id: "zai-glm-5-3", name: "zai-glm-5-3", api: "openai-completions", provider: "example-mistral", baseUrl: "https://api.mistral.ai/v1",
+    sdk: "mistral", reasoning: true, input: ["text"], cost: { input: 1.4, output: 4.4, cacheRead: 0.14, cacheWrite: 0 },
+    contextWindow: 1_048_576, maxTokens: 131_072, thinkingLevelMap: { minimal: null, medium: null, low: "low", high: "high", max: "max" },
+  });
+  assert.equal(parse(mistralProvider({ baseUrl: "https://eu.example.invalid/v1" }))[0]!.models[0]!.baseUrl, "https://eu.example.invalid/v1");
+  const [compatible] = parse(provider({ sdk: "openai-compatible" }));
+  assert.equal(compatible!.models[0]!.sdk, "openai-compatible");
+  assert.deepEqual(compatible!.models[0]!.compat, { thinkingFormat: "qwen-chat-template" });
+  assert.equal("sdk" in parse(provider())[0]!.models[0]!, false);
+  assert.deepEqual(modelProviderRegistration(mistral!).config.models?.map((model) => [model.sdk, model.cost]),
+    [["mistral", { input: 1.4, output: 4.4, cacheRead: 0.14, cacheWrite: 0 }]]);
+});
+
+test("an alias on a Mistral provider sends the mapped level as reasoning_effort and books cached tokens at the configured price", async (t) => {
+  withProfile(t, [mistralProvider()], [mistralAlias]);
+  const [offered] = aliasCatalog();
+  assert.deepEqual(getSupportedThinkingLevels(offered!), ["off", "low", "high", "max"]);
+  const runtime = runtimeOf(parseModelAliases([mistralAlias]));
+  const model = runtime.getModel(ALIAS_PROVIDER, "team-mistral")!;
+  const requests: { url: string; authorization: string | null; body: Record<string, any> }[] = [];
+  t.mock.method(globalThis, "fetch", async (input: unknown, init?: RequestInit) => {
+    requests.push({ url: String(input), authorization: new Headers(init?.headers).get("authorization"), body: JSON.parse(String(init?.body)) });
+    const chunk = { id: "fixture", model: "zai-glm-5-3", choices: [{ index: 0, delta: { role: "assistant", content: "ok" }, finish_reason: "stop" }],
+      usage: { prompt_tokens: 1000, completion_tokens: 50, total_tokens: 1050, num_cached_tokens: 800 } };
+    return new Response(`data: ${JSON.stringify(chunk)}\n\ndata: [DONE]\n\n`, { headers: { "content-type": "text/event-stream" } });
+  });
+  const results = [];
+  for (const reasoning of ["off", "high", "max"] as const) {
+    const result = await runtime.completeSimple(model, { messages: [{ role: "user", content: "Hello", timestamp: 1 }] }, reasoning === "off" ? {} : { reasoning });
+    assert.equal(result.errorMessage, undefined);
+    assert.equal(result.model, "team-mistral");
+    results.push(result);
+  }
+  assert.deepEqual(requests.map((request) => [request.url, request.authorization, request.body.model, request.body.reasoning_effort, "reasoning" in request.body]), [
+    ["https://api.mistral.ai/v1/chat/completions", "Bearer example-key", "zai-glm-5-3", "low", false],
+    ["https://api.mistral.ai/v1/chat/completions", "Bearer example-key", "zai-glm-5-3", "high", false],
+    ["https://api.mistral.ai/v1/chat/completions", "Bearer example-key", "zai-glm-5-3", "max", false],
+  ]);
+  const usage = results[0]!.usage;
+  assert.deepEqual([usage.input, usage.cacheRead, usage.output], [200, 800, 50]);
+  assert.ok(Math.abs(usage.cost.total - (200 * 1.4 + 800 * 0.14 + 50 * 4.4) / 1_000_000) < 1e-12);
 });

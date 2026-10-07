@@ -84,7 +84,7 @@ export function SystemPromptControl({ disabled, error, option, setValue }: Start
             </ToggleGroupItem>
           ))}
         </ToggleGroup>
-        {preview && <div className="absolute top-[calc(100%+6px)] left-1/2 z-3 max-h-[44vh] w-max max-w-[min(620px,78vw)] -translate-x-1/2 overflow-y-auto whitespace-pre-wrap rounded-xl border border-border bg-background px-3.5 py-3 text-left text-sm leading-[1.5] text-foreground shadow-pop" role="tooltip">{preview.text}</div>}
+        {preview && <div className="absolute top-[calc(100%+6px)] left-1/2 z-3 max-h-[calc(var(--ragents-viewport-height,100dvh)*0.44)] w-max max-w-[min(620px,calc(var(--ragents-viewport-width,100vw)*0.78))] -translate-x-1/2 overflow-y-auto whitespace-pre-wrap rounded-xl border border-border bg-background px-3.5 py-3 text-left text-sm leading-[1.5] text-foreground shadow-pop" role="tooltip">{preview.text}</div>}
       </div>
       <label className="flex max-w-[34rem] cursor-pointer items-start gap-2 text-sm">
         <Checkbox

@@ -30,7 +30,6 @@ await build({ ...bundle, entryPoints: [path.join(root, "tests/host/run.ts")], ou
 mkdirSync(path.join(userDataDir, "User"), { recursive: true });
 writeFileSync(path.join(userDataDir, "User/settings.json"), JSON.stringify({
   "ragents.connections": settingsPath ? [] : connections,
-  "ragents.hostPath": settingsPath ? "" : root.replace(/\/apps\/vscode\/?$/, ""),
   "workbench.startupEditor": "none", "security.workspace.trust.enabled": false,
   "update.mode": "none", "telemetry.telemetryLevel": "off", "extensions.autoUpdate": false,
 }, null, 2));

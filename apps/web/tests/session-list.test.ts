@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import type { ListedSession } from "../src/api";
-import { shareSessionList } from "../src/run-panel/use-session-list";
+import { retainedSession, shareSessionList } from "../src/run-panel/use-session-list";
 
 const run = (id: string): ListedSession => ({
   id,
@@ -131,4 +131,41 @@ test("unchanged empty polls retain the previous empty array", () => {
   const previous: ListedSession[] = [];
 
   assert.equal(shareSessionList(previous, []), previous);
+});
+
+test("a contribution that is unavailable for one refresh keeps its known value and reason", () => {
+  const previous = [run("alpha"), run("beta")];
+  const review = previous[0]!.metadata!["test.review"];
+  const timedOut = { ...structuredClone(previous[0]!), metadata: { "test.workspace": { root: "/home/user/project", paths: ["notes.md", "board.md"] } },
+    metadataUnavailable: { "test.review": "no answer after 1500 ms" } };
+
+  const shared = shareSessionList(previous, [timedOut, structuredClone(previous[1]!)]);
+
+  assert.equal(shared[0]!.metadata!["test.review"], review);
+  assert.deepEqual(shared[0]!.metadataUnavailable, { "test.review": "no answer after 1500 ms" });
+  assert.equal(shared[1], previous[1]);
+  const again = shareSessionList(shared, [structuredClone(timedOut), structuredClone(previous[1]!)]);
+  assert.equal(again, shared, "a repeated failure keeps the entry unchanged");
+  assert.equal(again[0]!.metadata!["test.review"], review);
+});
+
+test("a delivered value replaces the known one, and an unknown value is not invented", () => {
+  const previous = [run("alpha")];
+  const delivered = { ...structuredClone(previous[0]!), metadata: { ...previous[0]!.metadata, "test.review": { complete: true, count: 3 } }, metadataUnavailable: undefined };
+  assert.deepEqual(shareSessionList(previous, [delivered])[0]!.metadata!["test.review"], { complete: true, count: 3 });
+  const unavailable = { ...structuredClone(previous[0]!), metadataUnavailable: { "test.offline": "Not connected", "test.other": "Access denied" } };
+  assert.ok(!Object.hasOwn(shareSessionList(previous, [unavailable])[0]!.metadata!, "test.other"));
+  const fresh = { ...run("gamma"), metadata: {}, metadataUnavailable: { "test.review": "no answer after 1500 ms" } };
+  assert.deepEqual(shareSessionList(previous, [fresh])[0]!.metadata, {});
+});
+
+test("the open run keeps its last listed state while a refresh briefly misses it", () => {
+  const alpha = run("alpha");
+  const beta = run("beta");
+  assert.equal(retainedSession([alpha, beta], "alpha", undefined), alpha);
+  assert.equal(retainedSession([beta], "alpha", alpha), alpha);
+  assert.equal(retainedSession([beta], "gamma", alpha), undefined, "the last state of another run does not stand in");
+  assert.equal(retainedSession([beta], undefined, alpha), undefined);
+  const updated = { ...alpha, title: "Updated" };
+  assert.equal(retainedSession([updated], "alpha", alpha), updated);
 });

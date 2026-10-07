@@ -2,6 +2,7 @@ import { randomBytes } from "node:crypto";
 import type { IncomingMessage, ServerResponse } from "node:http";
 import {
   isRpcMessage,
+  isRpcNotification,
   isRpcRequest,
   isRpcResponse,
   RPC_ERROR_CODES,
@@ -9,7 +10,8 @@ import {
   RpcPeer,
   rpcFailure,
   type AccessContext,
-  type RpcMessage,
+  type RpcCancelParams,
+  type RpcRequest,
 } from "@ragents/engine";
 import { PayloadTooLargeError, readBody, writeJson } from "../plugin-support/http.js";
 import { RpcConnection, type RpcDispatcher } from "./dispatcher.js";
@@ -25,6 +27,7 @@ interface StreamConnection {
   connection: RpcConnection;
   response: ServerResponse;
   ping: NodeJS.Timeout;
+  requests: Map<string, RpcPeer>;
 }
 
 export interface RpcHttpTransportOptions {
@@ -37,6 +40,7 @@ export class RpcHttpTransport {
   readonly #dispatcher: RpcDispatcher;
   readonly #maxBodyBytes: number;
   readonly #streams = new Map<string, StreamConnection>();
+  readonly #requests = new Set<() => void>();
 
   constructor(options: RpcHttpTransportOptions) {
     this.#dispatcher = options.dispatcher;
@@ -69,6 +73,7 @@ export class RpcHttpTransport {
 
   close(): void {
     for (const stream of [...this.#streams.values()]) this.#end(stream, "The server is shutting down");
+    for (const cancel of [...this.#requests]) cancel();
   }
 
   #openStream(request: IncomingMessage, response: ServerResponse, access: AccessContext, local: boolean): void {
@@ -78,16 +83,18 @@ export class RpcHttpTransport {
     };
     const peer = new RpcPeer({ send: (message) => write(`data: ${JSON.stringify(message)}\n\n`) });
     const connection = new RpcConnection({ id, access, local, peer }, this.#dispatcher);
-    const stream: StreamConnection = { connection, response, ping: setInterval(() => write(": ping\n\n"), PING_INTERVAL_MS) };
+    const stream: StreamConnection = { connection, response, requests: new Map(), ping: setInterval(() => write(": ping\n\n"), PING_INTERVAL_MS) };
     this.#streams.set(id, stream);
     response.writeHead(200, { "Content-Type": "text/event-stream", "Cache-Control": "no-cache", Connection: "keep-alive" });
     write(`event: hello\ndata: ${JSON.stringify({ connection: id })}\n\n`);
-    request.on("close", () => this.#end(stream, "The event stream was closed"));
+    response.once("close", () => this.#end(stream, "The event stream was closed"));
   }
 
   #end(stream: StreamConnection, reason: string): void {
     if (!this.#streams.delete(stream.connection.id)) return;
     clearInterval(stream.ping);
+    for (const peer of stream.requests.values()) peer.close(reason);
+    stream.requests.clear();
     stream.connection.close(reason);
     if (!stream.response.writableEnded) stream.response.end();
   }
@@ -134,6 +141,10 @@ export class RpcHttpTransport {
         return;
       }
       stream.connection.peer.receive(message);
+      if (isRpcNotification(message) && message.method === RPC_METHODS.cancel) {
+        const id = (message.params as RpcCancelParams | undefined)?.id;
+        if (id !== undefined) stream.requests.get(String(id))?.receive(message);
+      }
       response.writeHead(202, { "Cache-Control": "no-store" });
       response.end();
       return;
@@ -142,9 +153,34 @@ export class RpcHttpTransport {
   }
 
   /** A request gets its own peer, whose response is the HTTP response; subscriptions land on the stream. */
-  #answer(request: IncomingMessage, response: ServerResponse, message: RpcMessage, stream: StreamConnection | undefined, access: AccessContext, local: boolean): Promise<void> {
+  #answer(request: IncomingMessage, response: ServerResponse, message: RpcRequest, stream: StreamConnection | undefined, access: AccessContext, local: boolean): Promise<void> {
     return new Promise<void>((resolve) => {
       let answered = false;
+      const key = String(message.id);
+      if (stream?.requests.has(key)) {
+        writeJson(response, 400, rpcFailure(message.id, RPC_ERROR_CODES.invalidRequest, "The request ID is already running."));
+        resolve();
+        return;
+      }
+      const finish = () => {
+        if (answered) return;
+        answered = true;
+        response.removeListener("close", disconnect);
+        request.removeListener("aborted", disconnect);
+        releaseClose?.();
+        stream?.requests.delete(key);
+        this.#requests.delete(disconnect);
+        if (!stream) target.close("The HTTP request ended");
+        else peer.close("The HTTP request ended");
+        resolve();
+      };
+      const disconnect = () => {
+        if (!answered && !response.writableEnded && !response.destroyed) {
+          writeJson(response, 200, rpcFailure(message.id, RPC_ERROR_CODES.connectionClosed, "The event connection was closed."));
+        }
+        peer.close("The HTTP response was disconnected");
+        finish();
+      };
       const peer = new RpcPeer({
         send: (reply) => {
           if (!isRpcResponse(reply)) {
@@ -152,18 +188,21 @@ export class RpcHttpTransport {
             return;
           }
           if (answered) return;
-          answered = true;
           writeJson(response, 200, reply);
-          resolve();
+          finish();
         },
       });
       const target = stream?.connection ?? new RpcConnection({ id: `request-${randomBytes(8).toString("hex")}`, access, local, peer, streamless: true }, this.#dispatcher);
       peer.fallback((method, params, context) => this.#dispatcher.dispatch(target, method, params, context));
-      request.on("close", () => {
-        if (answered) return;
-        peer.receive({ jsonrpc: "2.0", method: RPC_METHODS.cancel, params: { id: (message as { id: unknown }).id } });
-      });
-      response.on("close", () => { if (!answered) { answered = true; resolve(); } });
+      const releaseClose = stream?.connection.onClose(disconnect);
+      stream?.requests.set(key, peer);
+      this.#requests.add(disconnect);
+      request.once("aborted", disconnect);
+      response.once("close", disconnect);
+      if (response.destroyed || request.aborted || target.closed) {
+        disconnect();
+        return;
+      }
       peer.receive(message);
     });
   }

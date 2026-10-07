@@ -19,7 +19,7 @@ import type { ActorRuntimeContribution } from "../plugin-types.ts";
 import type { Journal } from "../runtime/journal.ts";
 import type { Orchestration } from "../runtime/orchestration.ts";
 import type { ModelCatalog } from "./catalog.ts";
-import { actorRosterText, deliveredInputOf, renderedPromptFor } from "./delivery.ts";
+import { actorRosterText, deliveredInputOf, renderedPromptFor, type DeliveredInput } from "./delivery.ts";
 import type { LiveBus } from "./live.ts";
 import { ToolRegistry, type ToolProvider } from "./plugins.ts";
 import { holdsUsable, type RunFunction } from "./tools.ts";
@@ -41,6 +41,8 @@ export type TurnSchedulerOptions = {
     basePrompt?: (runId: string, actor: ExecutableActor, toolNames: readonly string[]) => string;
     contract?: (actor: ExecutableActor) => string;
     toolChapters?: (runId: string, actor: ExecutableActor, toolNames: readonly string[], availableTools: readonly RunFunction[]) => string | Promise<string>;
+    /** What a model reads before one of its inputs, such as the interface context of a message; journaled with the input, never in the system prompt. */
+    inputOrientation?: (runId: string, input: DeliveredInput) => string;
     modelSelection?: (turn: ClaimedTurn, actor: ExecutableActor) => ModelSelection;
     onError?: (error: unknown) => void;
     /** Whether the host currently allows this run to execute. */
@@ -173,6 +175,7 @@ export class TurnScheduler {
         toolNames: readonly string[],
         availableTools: readonly RunFunction[],
     ) => string | Promise<string>;
+    readonly #inputOrientation: (runId: string, input: DeliveredInput) => string;
     readonly #onError: (error: unknown) => void;
     readonly #runAvailable: (runId: string) => boolean;
     readonly #modelSelection: TurnSchedulerOptions["modelSelection"];
@@ -210,6 +213,7 @@ export class TurnScheduler {
         this.#basePrompt = options.basePrompt ?? ((_runId, actor) => (actor.kind === "agent" ? actor.prompt : ""));
         this.#contract = options.contract ?? (() => "");
         this.#toolChapters = options.toolChapters ?? (() => "");
+        this.#inputOrientation = options.inputOrientation ?? (() => "");
         this.#modelSelection = options.modelSelection;
         this.#onError = options.onError ?? ((error) => console.error("Turn scheduler failed:", error));
         this.#runAvailable = options.runAvailable ?? (() => true);
@@ -954,6 +958,7 @@ export class TurnScheduler {
                 throw new Error(`Actor ${actor.id} requested unknown tools: ${unresolvedToolNames.join(", ")}.`);
 
             let emitted = 0;
+            const startView = this.#runtime.view(runId);
             const request = {
                 runId,
                 agentId: actorId,
@@ -961,19 +966,14 @@ export class TurnScheduler {
                 startedAt: turn.startedAt,
                 input: turn.input,
                 attachments: this.#attachmentsOf(runId, actorId, turn.input.artifactIds),
-                prompt: renderedPromptFor(this.#runtime.view(runId), actorId, turn.input),
+                prompt: renderedPromptFor(startView, actorId, turn.input),
                 systemPrompt: systemPromptFor(
                     runId,
                     actor,
                     [...resolvedToolNames],
                     this.#basePrompt,
                     this.#contract,
-                    actor.kind === "agent" ? [
-                        toolOrientationText(toolset.functions),
-                        toolset.functions.some((tool) => tool.name === "actor_list")
-                            ? actorRosterText(this.#runtime.view(runId), actorId)
-                            : "",
-                    ].filter(Boolean).join("\n\n") : "",
+                    actor.kind === "agent" ? toolOrientationText(toolset.functions) : "",
                     workspaceChapter,
                 ),
                 workspace,
@@ -988,12 +988,7 @@ export class TurnScheduler {
                             runId, actor,
                             toolset.functions.map((tool) => tool.name),
                             this.#basePrompt, this.#contract,
-                            actor.kind === "agent" ? [
-                                toolOrientationText(toolset.functions),
-                                toolset.functions.some((tool) => tool.name === "actor_list")
-                                    ? actorRosterText(this.#runtime.view(runId), actorId)
-                                    : "",
-                            ].filter(Boolean).join("\n\n") : "",
+                            actor.kind === "agent" ? toolOrientationText(toolset.functions) : "",
                             workspaceChapter,
                         ),
                     };
@@ -1017,6 +1012,12 @@ export class TurnScheduler {
                         ...request,
                         driverKind: "agent",
                         selection: selection!,
+                        orientation: [
+                            actor.kind === "agent" && toolset.functions.some((tool) => tool.name === "actor_list")
+                                ? actorRosterText(startView, actorId)
+                                : "",
+                            this.#inputOrientation(runId, turn.input),
+                        ].filter(Boolean).join("\n\n"),
                         invoke: (toolCallId: string, name: string, input: JsonValue, modelContext?: string) => toolset.invoke(toolCallId, name, input, modelContext),
                         claimSteering: () => this.#claimSteering(turn, controller.signal),
                         ...turnModelContext(this.#runtime, turn, () => emitted++),
@@ -1117,6 +1118,7 @@ export class TurnScheduler {
             return {
                 input,
                 prompt: renderedPromptFor(steered, turn.actorId, input),
+                orientation: this.#inputOrientation(turn.runId, input),
                 attachments: this.#attachmentsOf(turn.runId, turn.actorId, input.artifactIds),
             };
         });

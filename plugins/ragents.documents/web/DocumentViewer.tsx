@@ -356,7 +356,7 @@ export function DocumentModal({ document, onClose }: DocumentModalProps) {
 
   return (
     <Dialog open onOpenChange={(open) => { if (!open) onClose(); }}>
-    <DialogContent className="w-[min(1080px,calc(100%-2*clamp(16px,5vw,72px)))] gap-0 rounded-panel border border-border bg-card p-0 shadow-pop" scope="run" showCloseButton={false} size="full">
+    <DialogContent className="w-[min(1080px,calc(100%-2*clamp(16px,calc(var(--ragents-viewport-width,100vw)*0.05),72px)))] gap-0 rounded-panel border border-border bg-card p-0 shadow-pop" scope="run" showCloseButton={false} size="full">
       <header className="grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-3 border-b border-border px-3.5 py-3">
         <span className="flex size-8 items-center justify-center rounded-[10px] bg-[color-mix(in_srgb,var(--primary)_12%,var(--background))] text-primary"><IconDocument size={20} /></span>
         <DialogTitle className={copyClass} render={<span />}>
@@ -366,7 +366,7 @@ export function DocumentModal({ document, onClose }: DocumentModalProps) {
           <XIcon />
         </Button>
       </header>
-      <div className="min-h-0 flex-1 overflow-y-auto px-[clamp(18px,4vw,54px)] pt-5 pb-10 text-[13.5px] leading-[1.65]">
+      <div className="min-h-0 flex-1 overflow-y-auto px-[clamp(18px,calc(var(--ragents-viewport-width,100vw)*0.04),54px)] pt-5 pb-10 text-[13.5px] leading-[1.65]">
         <DocumentContent document={document} loaded={loaded} />
       </div>
     </DialogContent>

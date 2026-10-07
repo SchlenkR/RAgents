@@ -6,6 +6,7 @@ import type { PluginActivationState } from "../src/PluginActivation";
 import { PluginRegistry, type SurfaceElementDefinition, type EntryGuideContext, type StartSectionContext, type WebPlugin } from "../src/PluginRegistry";
 import type { ListedSession } from "../src/api";
 import { ToolbarCopy, ToolbarItem, ToolbarLabel, ToolbarText } from "../src/Toolbar";
+import { Button } from "../src/ui";
 import type { RunSharing, RunSharingResult } from "../src/run-sharing";
 import { RunPanelApp } from "../src/run-panel/RunPanelApp";
 import { RunPanelHostProvider, type RunPanelHost } from "../src/run-panel/host";
@@ -72,6 +73,13 @@ const dropdownPlugin: WebPlugin = {
   </ToolbarItem> }],
   startOptions: [{ id: "start.dropdown.mode", Badge: () => <ToolbarItem><ToolbarCopy><ToolbarLabel>Mode</ToolbarLabel><ToolbarText>Careful review</ToolbarText></ToolbarCopy></ToolbarItem> }],
 };
+const growingHeaderPlugin: WebPlugin = {
+  id: "start.growing-header",
+  overviewPanels: [{ id: "start.growing-header.coordinator", order: 0, placement: "toolbar",
+    Panel: () => <Button aria-label="Global coordinator" className="min-w-0 max-w-48" variant="outline"><span className="truncate">Global coordinator</span></Button> }],
+  sessionHeaders: [{ id: "start.growing-header.actors", order: 0, placement: "bar",
+    Header: () => <Button aria-label="Actors" className="flex-none" variant="ghost">Actors</Button> }],
+};
 const registry = new PluginRegistry({
   brand: { title: "Start check" }, product: { id: "start", title: "Start check" },
   plugins: [{
@@ -79,7 +87,7 @@ const registry = new PluginRegistry({
     surface: { RunPanel: OrchestrationRunPanel },
     surfaceElements: [{ id: "start.app", order: 0, select: () => fixture.elements, Element: () => <p>Mini-app ready</p> }],
     guides: [{ id: "start.topic", Guide: TopicGuide }],
-  }, documentPlugin, ...(query.has("dropdowns") ? [dropdownPlugin] : [])],
+  }, documentPlugin, ...(query.has("dropdowns") ? [dropdownPlugin] : []), ...(query.has("growing-header") ? [growingHeaderPlugin] : [])],
   startEntries: [
     { id: "start.script", owner: "start", title: "Setup template", description: "Builds a mini-app", action: "script", coordinator: false },
     { id: "start.other", owner: "start", title: "Second template", description: "Builds something else", action: "script", coordinator: false },
@@ -87,12 +95,13 @@ const registry = new PluginRegistry({
   ],
 });
 const heldStarts = new Map<string, () => void>();
-const emptyView = (runId: string) => ({ id: runId, revision: 1, title: "Run", ownerId: "tester", primaryActorId: null, createdAt: "2026-09-24T10:00:00.000Z", forkedFrom: null,
+const viewRevisions = new Map<string, number>();
+const emptyView = (runId: string) => ({ id: runId, revision: viewRevisions.get(runId) ?? 1, title: "Run", ownerId: "tester", primaryActorId: null, createdAt: "2026-09-24T10:00:00.000Z", forkedFrom: null,
   actors: [], inputs: [], turns: [], subscriptions: [], pluginStates: [], actions: [], artifacts: [] });
 
 const fixture = {
   activation: (query.get("profile") === "pending" ? { status: "loading" } : { status: "ready", registry, failures: [] }) as PluginActivationState,
-  elements: [] as SurfaceElementDefinition[],
+  elements: (query.has("growing-header") ? [{ id: "notes", title: "Notes" }] : []) as SurfaceElementDefinition[],
   notifications: [] as RunPanelHostMessage[],
   calls: [] as string[],
   starts: [] as Array<{ runId: string; entry: string; input: unknown }>,
@@ -104,8 +113,8 @@ const fixture = {
   holdSharing: false,
   releaseSharing: () => {},
   views: new Set<string>(),
-  runs: [{ id: "existing", title: "Existing run", updatedAt: 7, running: false, state: "idle", pendingActions: 0, workspaceAccessible: true, operable: true,
-    ...(query.has("dropdowns") ? { canShare: true } : {}) },
+  runs: [{ id: "existing", title: query.has("growing-header") ? "A long run title covering the complete planning and implementation of the sample workspace" : "Existing run", updatedAt: 7, running: false, state: "idle", pendingActions: 0, workspaceAccessible: true, operable: true,
+    ...(query.has("dropdowns") || query.has("growing-header") ? { canShare: true } : {}) },
     ...(query.has("documents") ? Array.from({ length: 6 }, (_, index): ListedSession => ({
       id: `document-run-${index}`, title: `Document run ${index}`, updatedAt: 6 - index, running: false, state: "idle", pendingActions: 0,
       workspaceAccessible: true, operable: true, metadata: { "start.documents": [`Work note ${index}`] },
@@ -123,7 +132,10 @@ const fixture = {
       release();
     }
   },
-  runChanged(runId: string) { subscriptions.forEach((entry) => { if (entry.id !== "ragents.chat" && entry.runId === runId) entry.message({ kind: "run" }); }); },
+  runChanged(runId: string) {
+    viewRevisions.set(runId, (viewRevisions.get(runId) ?? 1) + 1);
+    subscriptions.forEach((entry) => { if (entry.id !== "ragents.chat" && entry.runId === runId) entry.message({ kind: "run" }); });
+  },
   activeRun() { return [...subscriptions].find((entry) => entry.id === "ragents.chat")?.runId; },
   async call(contract: { id: string }, params: { runId?: string; entry?: string; input?: unknown; sharing?: RunSharing }) {
     fixture.calls.push(contract.id);

@@ -48,6 +48,7 @@ import { settingsResponse, skillDetailResponse, type SettingsResponse, type Sett
 import { createTitleCompactor, MAX_TITLE_CHARS } from "./title-compactor.js";
 import { ModelRuntime } from "@ragents/agent";
 import { TitleSettingsStore } from "./title-settings.js";
+import { awaitWithSignal, sharedPreparation } from "./plugin-support/await-with-signal.js";
 import { sandboxServicesToken } from "./plugin-support/workspace-sandbox-host.js";
 import { parseRunPreparationRequest, prepareRunMessage } from "./run-preparation.js";
 import type { RunPreparationResponse } from "./run-preparation-contract.js";
@@ -75,7 +76,7 @@ export class RunSessionProvider implements ChatSessionProvider {
   private readonly workspaceFailures = new Map<string, JournalLoadFailure>();
   private readonly deleted = new Set<string>();
   private readonly workspaces = new SessionWorkspaces(() => this.plugins.service(sandboxServicesToken));
-  private readonly sessionWorkspaces = new Map<string, Promise<SessionWorkspace>>();
+  private readonly sessionWorkspaces = new Map<string, ReturnType<typeof sharedPreparation<SessionWorkspace>>>();
   private modelRuntime: Promise<ModelRuntime> | undefined;
   private readonly runPreparations = new Map<string, { controller: AbortController; done: Promise<RunPreparationResponse> }>();
   private titleSettings: TitleSettingsStore | undefined;
@@ -108,7 +109,7 @@ export class RunSessionProvider implements ChatSessionProvider {
         assertRunWorkspaceAccess(access, runId, this.runAccess());
       },
       runtime: () => this.requireEngine().runtime,
-      sessionWorkspaceFor: (runId) => this.sessionWorkspace(runId, () => {}),
+      sessionWorkspaceFor: (runId, signal) => this.sessionWorkspace(runId, () => {}, signal),
       sessions: () => this.sessionManagement(),
       modelRuntime: () => this.getModelRuntime(),
       ...(apiBaseUrl === undefined ? {} : { apiBaseUrl }),
@@ -273,9 +274,9 @@ export class RunSessionProvider implements ChatSessionProvider {
           throw new DomainError("global-tools-changed", "The tools of the top-level coordinator have changed. Reset its conversation to use the current tools.", 409);
         }
       },
-      prepare: (runId) => this.prepareRun(runId),
-      prepareWorkspace: (runId, emitSystem) => this.prepareWorkspace(runId, emitSystem),
-      started: (runId, startEntry) => this.startedRun(runId, startEntry),
+      prepare: (runId, _emitSystem, signal) => this.prepareRun(runId, signal),
+      prepareWorkspace: (runId, emitSystem, signal) => this.prepareWorkspace(runId, emitSystem, signal),
+      started: (runId, startEntry, signal) => this.startedRun(runId, startEntry, signal),
       scriptEntryFor: (entryId) => globalPolicy ? undefined : this.plugins.startEntries.scriptPackage(entryId),
       startEntryFor: (entryId) => globalPolicy ? undefined : this.plugins.startEntries.entry(entryId),
       actorPrograms: {
@@ -406,10 +407,10 @@ export class RunSessionProvider implements ChatSessionProvider {
         this.ensureUsable(runId);
         return this.requireEngine().runtime.publicEvents(runId);
       },
-      create: (start) => this.createManagedRun(start),
-      send: (runId, message, access) => {
+      create: (start, signal) => this.createManagedRun(start, signal),
+      send: (runId, message, access, signal) => {
         assertRunRights(access, runId, "write", this.runAccess());
-        return this.openSession(runId).sendAndWait(message, access.user ? { id: access.user.id, label: access.user.label } : undefined);
+        return this.openSession(runId).sendAndWait(message, access.user ? { id: access.user.id, label: access.user.label } : undefined, signal);
       },
       stop: (runId, access) => {
         if (access) assertRunRights(access, runId, "stop", this.runAccess());
@@ -435,7 +436,8 @@ export class RunSessionProvider implements ChatSessionProvider {
     return profileAccessFor(ownerUserId);
   }
 
-  private async createManagedRun(start: ManagedRunStart): Promise<string> {
+  private async createManagedRun(start: ManagedRunStart, signal?: AbortSignal): Promise<string> {
+    signal?.throwIfAborted();
     const local = start.kind === "package" ? runScriptFromDirectory(start.directory) : undefined;
     const id = randomUUID();
     const session = this.openSession(id, start.title);
@@ -445,13 +447,13 @@ export class RunSessionProvider implements ChatSessionProvider {
       if (!user || configuredUsers() === undefined) throw sharingUnavailable();
       session.shareBeforeStart(user.id, checkedProfileSharing(start.sharing, user.id, notShared(), this.shareableUsers()));
     }
-    if (start.kind === "script") await session.startAndWait(start.entryId, start.input, user);
+    if (start.kind === "script") await session.startAndWait(start.entryId, start.input, user, undefined, signal);
     else if (start.kind === "package") {
       if (!local) throw new Error("The run script package was not loaded");
       const { script, ...entry } = local;
-      await session.startPackageAndWait({ ...script, entry: { ...entry, coordinator: script.coordinator, owner: start.owner } }, start.input, user);
+      await session.startPackageAndWait({ ...script, entry: { ...entry, coordinator: script.coordinator, owner: start.owner } }, start.input, user, signal);
     }
-    else await session.sendAndWait(start.message, user);
+    else await session.sendAndWait(start.message, user, signal);
     return id;
   }
 
@@ -601,13 +603,22 @@ export class RunSessionProvider implements ChatSessionProvider {
     if (this.shutdownPromise) throw new DomainError("server-stopping", "The server is shutting down", 503);
   }
 
-  private sessionWorkspace(id: string, emitSystem: (text: string) => void): Promise<SessionWorkspace> {
+  private sessionWorkspace(id: string, emitSystem: (text: string) => void, signal?: AbortSignal): Promise<SessionWorkspace> {
+    signal?.throwIfAborted();
     this.ensureUsable(id);
     const running = this.sessionWorkspaces.get(id);
-    if (running) return running;
-    const created = this.resolveWorkspace(id, emitSystem)
-      .catch((error: unknown) => {
-        // A run that has not started yet or a coordinator without access is a state, not a broken workspace.
+    if (running?.signal.aborted) return awaitWithSignal(running.promise.catch(() => undefined), signal).then(() => this.sessionWorkspace(id, emitSystem, signal));
+    if (running) return running.wait(signal);
+    const created = sharedPreparation(async (preparationSignal) => {
+      try {
+        const workspace = await this.resolveWorkspace(id, emitSystem, preparationSignal);
+        preparationSignal.throwIfAborted();
+        this.ensureUsable(id);
+        this.workspaces.remember(id, workspace.cwd, workspace.description);
+        return workspace;
+      } catch (error) {
+        this.sessionWorkspaces.delete(id);
+        if (preparationSignal.aborted) throw preparationSignal.reason;
         if (error instanceof DomainError && (error.code === "run-not-started" || error.code === "coordinator-without-access")) throw error;
         const message = `Workspace for run ${id} is not available: ${runFailureMessage(error)}`;
         this.workspaceFailures.set(id, { runId: id, path: layout.sessionDir(id), message });
@@ -615,34 +626,27 @@ export class RunSessionProvider implements ChatSessionProvider {
         this.notifyList();
         console.error(message);
         throw new DomainError("workspace-unavailable", message, 409);
-      })
-      .then((workspace) => {
-        this.ensureUsable(id);
-        this.workspaces.remember(id, workspace.cwd, workspace.description);
-        return workspace;
-      })
-      .catch((error: unknown) => {
-        this.sessionWorkspaces.delete(id);
-        throw error;
-      });
+      }
+    });
     this.sessionWorkspaces.set(id, created);
-    return created;
+    return created.wait(signal);
   }
 
-  private async prepareRun(id: string): Promise<void> {
+  private async prepareRun(id: string, signal?: AbortSignal): Promise<void> {
     this.ensureUsable(id);
-    if (!this.plugins.optionalService(globalChatToken)?.isCoordinator(id)) await this.plugins.lifecycle.prepareSession(id);
+    if (!this.plugins.optionalService(globalChatToken)?.isCoordinator(id)) await this.plugins.lifecycle.prepareSession(id, signal);
     this.ensureUsable(id);
   }
 
-  private async startedRun(id: string, startEntry: SessionStartedContext["startEntry"]): Promise<void> {
+  private async startedRun(id: string, startEntry: SessionStartedContext["startEntry"], signal?: AbortSignal): Promise<void> {
     this.ensureUsable(id);
-    if (!this.plugins.optionalService(globalChatToken)?.isCoordinator(id)) await this.plugins.lifecycle.sessionStarted(id, startEntry);
+    if (!this.plugins.optionalService(globalChatToken)?.isCoordinator(id)) await this.plugins.lifecycle.sessionStarted(id, startEntry, signal);
   }
 
-  private async prepareWorkspace(id: string, emitSystem: (text: string) => void): Promise<void> {
+  private async prepareWorkspace(id: string, emitSystem: (text: string) => void, signal?: AbortSignal): Promise<void> {
     this.ensureUsable(id);
-    await this.sessionWorkspace(id, emitSystem);
+    await this.sessionWorkspace(id, emitSystem, signal);
+    signal?.throwIfAborted();
     this.ensureUsable(id);
   }
 
@@ -801,7 +805,7 @@ export class RunSessionProvider implements ChatSessionProvider {
     await this.validateGlobalResetIntent(intentFile, id);
     const session = this.sessions.get(id);
     await session?.settle();
-    await this.sessionWorkspaces.get(id)?.catch(() => undefined);
+    await this.sessionWorkspaces.get(id)?.promise.catch(() => undefined);
     const engine = this.requireEngine();
     await engine.scheduler.haltRun(id, async (stopped, settled) => {
       await stopped;
@@ -921,7 +925,7 @@ export class RunSessionProvider implements ChatSessionProvider {
     for (const [, session] of sessions) session.dispose();
     const results = await Promise.allSettled([
       ...sessions.map(([, session]) => session.drain()),
-      ...[...this.sessionWorkspaces.values()].map((workspace) => workspace.then(
+      ...[...this.sessionWorkspaces.values()].map((workspace) => workspace.promise.then(
         () => undefined,
         () => undefined,
       )),
@@ -949,7 +953,7 @@ export class RunSessionProvider implements ChatSessionProvider {
       session?.drain() ?? Promise.resolve(),
       journalUnavailable ? Promise.resolve() : engine.scheduler.stopRun(id),
       journalUnavailable ? Promise.resolve() : this.plugins.lifecycle.stopSession(id),
-      workspace ?? Promise.resolve(),
+      workspace?.promise ?? Promise.resolve(),
     ]);
     const failures = stopped
       .slice(0, 3)
@@ -1046,7 +1050,7 @@ export class RunSessionProvider implements ChatSessionProvider {
     }
   }
 
-  private async resolveWorkspace(id: string, emitSystem: (text: string) => void): Promise<SessionWorkspace> {
+  private async resolveWorkspace(id: string, emitSystem: (text: string) => void, signal?: AbortSignal): Promise<SessionWorkspace> {
     const globalChat = this.plugins.optionalService(globalChatToken);
     if (globalChat?.isCoordinator(id)) {
       const owner = this.coordinatorUser(id);
@@ -1054,7 +1058,7 @@ export class RunSessionProvider implements ChatSessionProvider {
       const directory = globalChat.workspaceDirectory(id);
       await mkdir(directory, { recursive: true, mode: ROOT_ONLY_MODE });
       const cwd = await realpath(directory);
-      await globalChat.prepareWorkspace?.(cwd);
+      await globalChat.prepareWorkspace?.(cwd, signal);
       const users = configuredUsers();
       return {
         cwd,
@@ -1069,7 +1073,7 @@ export class RunSessionProvider implements ChatSessionProvider {
         runOperation: (operation) => operation(),
       };
     }
-    return this.plugins.service(workspaceRuntimeToken).resolve(id, emitSystem);
+    return this.plugins.service(workspaceRuntimeToken).resolve(id, emitSystem, signal);
   }
 
   private async archiveSession(id: string): Promise<void> {

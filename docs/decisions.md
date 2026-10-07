@@ -48,6 +48,217 @@ The temporary design lab is gone after the owner's choices: inline code is a tin
 surface), corners stay round, table spacing stays comfortable. Making these appearance options user settings is in `TODO.md`.
 Open: the border against the colored backdrop glows of the light palettes (1.15:1 to 1.24:1 at the strongest spots,
 `TODO.md`), plus the smaller items listed there.
+## 2026-10-07: Chromium's sandbox can be turned off for a server in a hardened container
+
+Chapters: `spec/plugins.md` (Browser checks, Open limits); operations: `operations.md` (Provide a
+browser for browser checks).
+
+A server in a hardened container (all capabilities dropped, `no-new-privileges`, its own seccomp
+profile) could not start the run browser: the launch hard-coded `chromiumSandbox: true`, and
+Chromium aborted before the first page with `Check failed: sys_chroot("/proc/self/fdinfo/")` and
+SIGABRT, every time. `ragents.browser` now declares `BROWSER_CHROMIUM_SANDBOX` (environment key,
+default on). `false` in the profile, `0` in an environment, launches Chromium with
+`chromiumSandbox: false`; any other value is an error, on the server at startup. A launch with the
+sandbox that fails with a sandbox line in the browser log reports that line and the setting; it
+stays an error and never retries without the sandbox.
+
+The value takes the path of `BROWSER_EXECUTABLE_PATH`: the executor reads it from its machine's
+process environment, which on the server the profile section fills. The preferred variant, a
+workstation that always keeps the sandbox, would need the executor to know whether it is the
+server's, while every machine runs the same executor and contributions; it is therefore the same
+key in the workstation's own environment, default on, and the server's value never travels there.
+A container server's exception thus never weakens a developer's machine, and a workstation that is
+itself a container, such as a dev container, can use it. Rejected: turning the sandbox off
+automatically after a failed launch, because a misconfigured host would silently lose isolation;
+carrying the server's value to workstations with the browser network policy, because the reason is
+a property of the machine, not of the run. The trade-off is documented: without Chromium's sandbox
+the renderers are confined only by the container, because the browser parent runs outside the
+server process sandbox; restricted runs keep their browser network policy.
+
+## 2026-10-07: Profile providers name their AI SDK package
+
+Chapters: `spec/profiles.md` (Profiles, paragraph on `MODEL_PROVIDERS`, Open limits),
+`spec/plugins.md` (Model relay); operations: `operations.md` (Configure model access and start).
+
+Every provider of `MODEL_PROVIDERS` went through the OpenRouter provider of the AI SDK, so a
+custom endpoint received OpenRouter's fields, among them `reasoning: { effort }`. Mistral's API
+rejects unknown fields with 422, so a model there failed as soon as a thinking level was set; the
+only escape was the Qwen chat template branch for one local server. An entry now names `sdk`, which
+selects the provider package from a fixed registry in `packages/ai`: `mistral` (`@ai-sdk/mistral`)
+and `openai-compatible` (`@ai-sdk/openai-compatible`), each pinned to the version that shares
+`@ai-sdk/provider` and `@ai-sdk/provider-utils` with the installed `ai`. One stream loop and one
+usage and cost mapping serve all routes; per sdk the request carries only what package and provider
+accept. `@ai-sdk/mistral` (4.0.43, and the newest 4.0.59 alike) offers `reasoningEffort` only as
+`high` or `none` and sends it only for model ids on its own list, which lacks `zai-glm-5-3`; the
+transport therefore writes the mapped `reasoning_effort` into the Mistral request body itself, and
+`off` without a value of its own sends nothing rather than a guess.
+
+A model can be priced with `cost` in USD per million tokens. Usage carries cache reads, cache writes,
+and reasoning tokens from the packages and, where a package drops a reported count (Mistral's
+reasoning tokens, cache writes in both), from the provider's raw usage, so `model.step.completed`
+shows real cost instead of 0. The relay catalog names the sdk, so a client speaks the package's wire
+format through the relay, which keeps passing bodies through unchanged.
+
+`sdk` is optional: an entry without it keeps the OpenRouter-shaped route unchanged, so existing
+profiles start as before; moving them, and then OpenRouter itself, onto the registry is in
+`TODO.md`. Rejected: a hand-written request shape per vendor in the transport, because the packages
+already own message format, usage, and error bodies; clamping efforts to a package's enum, because
+the profile maps levels to what the model accepts. Verified live against Mistral with `zai-glm-5-3`:
+effort `low` with a tool definition (200, streamed tool call, usage), and the same long prompt twice
+(the second call read 5184 of 5303 input tokens from the cache and was priced at the cache rate).
+
+## 2026-10-07: Version the contract between VS Code extension and server
+
+Chapters: `spec/plugins.md` (Web halves at runtime, Web as plugin host, Workspace, sandbox tools,
+and processes, Open limits); usage: `usage.md` (Run panel and VS Code extension); operations:
+`operations.md`; development: `development.md`.
+
+The extension compared its release version with the server's and warned after every release,
+although it kept working: its interface comes from the server, and only a small contract between
+the two must match. That contract now has its own number, `EXTENSION_API_VERSION`, which the
+server reports as `extensionApi` in `ragents.plugins.bootstrap`. `scripts/vscode/extension-api.ts`
+lists it: the operations and channels the extension and its workstation use, the frame protocol,
+the message layer, and the HTTP routes the extension calls directly. `apps/vscode/extension-api.json`
+records hashes of their schemas, types, and files, and a test forces a decision about the number on
+every change, as `HOST_API_VERSION` does for plugins. Equal numbers show no notice whatever the
+releases; servers without the field predate the check and get a warning, a different number is an
+error that names the older side.
+The contract inventory and recorder stay with the build tools under `scripts/vscode`, outside the
+extension bundle and the neutral core; the core's plugin-boundary guard keeps its existing rules.
+
+## 2026-10-07: Give asynchronous failures an owner and a recovery path
+
+Chapters: `spec/plugins.md` (Lifecycle, Message layer, Web as plugin host, Workspace),
+`spec/actor-programs.md` (State and lifecycle), `spec/core.md` (Run isolation);
+usage: `usage.md` (Run chat and inspection).
+
+HTTP disconnects and client timeouts previously left server handlers running, channel opening
+failures stayed disconnected on healthy streams, and throwing consumers interrupted every live
+channel. Requests now have declared deadlines and cancellation lifetimes; channels retry locally
+and callback failures stay with their consumer. Long operations declare their own outer limits
+instead of inheriting an ordinary read deadline.
+Pending handlers retain their connection identity so an old response cannot answer a reused ID.
+Cancellation now reaches session preparation, workspace resolvers, and workstation processes;
+shared preparation stops only after its last waiting caller leaves. Cancellation is retryable
+after cleanup and leaves already accepted work with the run.
+An interrupted initial lifecycle stays retryable in its live session, using an already installed
+script actor; actor existence alone no longer skips an unfinished preparation.
+
+Actor invocation status writes are observed by their background task, including errors while
+recording another error. A failed journal remains unavailable only for its run. Listing reads
+have bounded retry, reconnect recovery, and an operator Retry action. React render failures have
+local and application recovery boundaries; a required provider is never silently bypassed.
+File previews have one request owner and discard obsolete responses. Browser zoom now uses a
+root transform with inverse document dimensions and shared viewport limits for host overlays.
+WebKit retained the previous effective CSS zoom inside loaded frames and clipped percentage-sized
+app roots and native scrollbars; scaling the host preserves each frame's internal viewport.
+
+## 2026-10-07: Remove the `ragents.hostPath` setting
+
+Chapter: `spec/plugins.md` (Contributions to the executor); usage: `usage.md` (Run panel and VS Code
+extension); operations: `operations.md`.
+
+The setting overrode the host for every server, including workstation registration. A checkout
+keeps the version of its last committed manifest, because the release never commits its version,
+so a checkout as host never matched a released server and every registration failed with a
+version mismatch. The extension now uses its own checkout when started from one
+(`scripts/start-vscode.sh`, the host tests) and otherwise fetches the package in the server's
+version, or in its own version for a local profile. Profile suggestions come from that checkout or
+the last started host.
+
+## 2026-10-06: Keep the app bridge with its retained frame document
+
+Chapter: `spec/actor-programs.md` (Host bridge).
+
+Hiding a tab paused its React effects and closed the app's MessagePort, but kept its document.
+Revealing assigned the same URL again without creating a fresh document, leaving the one-time
+handshake disconnected. The host now retains the connection with the document and closes it
+only on revision replacement, removal, or navigation. Host callback updates do not reconnect.
+The handshake timeout starts after loading and pauses for hidden panels, so a slow initial
+load is not reported as a broken connection.
+
+## 2026-10-06: Move only the window beside a tab grip
+
+Chapter: `spec/plugins.md` (Run panel); usage: `usage.md` (Browser docking).
+
+The grip inside the active tab cell dragged every tab in its area, although its position
+identified a single window. It now moves only that window, matching a tab-label drag. Splitting
+within the source area and docking beside another area leave the other tabs in place. Empty
+areas no longer expose an inert drag grip.
+
+## 2026-10-06: Keep long thinking traces inside the viewport
+
+Chapter: `spec/plugins.md` (Chat step details).
+
+Thinking popovers had no height limit and allowed their body to overflow, which placed the
+heading and close button outside the viewport for long traces. Thinking and tool details
+now share an available-space height cap and an internal scroll area. Their click anchor is
+clamped to the current viewport so resizing an open popup keeps it visible. Quassel carries the fix
+in its source; a pinned dependency patch applies it to the installed 0.4.5 without publishing.
+
+## 2026-10-06: Keep fixed header controls stable as mini-apps grow
+
+Chapter: `spec/plugins.md` (Run panel); usage: `usage.md` (Navigation, docking).
+
+Both hosts use the same header. The title and fixed actions keep their positions while window
+buttons fill the measured first-row gap and continue over the full width below it. Nested
+wrapping previously left free space unused; a reserved second row wasted height on wide views.
+Continuation rows now appear only when needed. Long labels truncate, position changes do not
+animate, and buttons stay mounted through growth and resizing so focus and dragging survive.
+VS Code mini-app buttons join the header and continue opening editor tabs.
+
+## 2026-10-06: Keep dock places of briefly unavailable windows
+
+Chapters: `spec/plugins.md` (Ownership per facet: run metadata; Web as plugin host: run panel,
+docking workspace, shared mini-app catalog), `spec/actor-programs.md` (view identifiers); usage:
+`usage.md` (Use chat and mini-apps, Run panel and VS Code extension); handbook: `development.md`
+(Extension points in the web).
+
+A user arranged a window tab, Chat, and a mini-app side by side; without any action the tab
+vanished and came back next to Chat, and Chat's area changed size. Every render reconciled the
+saved layout with the currently available panels and saved the removals, so a panel missing for
+one render lost its area and returned as a new one in the main area. Panels go missing for
+harmless reasons: a run metadata contribution that misses its 1.5 s list timeout drops the value
+a dynamic tab depends on, the run list briefly misses the open run, and every start of a run
+script gave its view a new dock ID because the ID contains the numbered room.
+
+Reconciliation now only adds panels; an unavailable panel keeps its place, button slot, and
+override, and only the user's close and "Reset layout" give a place up. The dock derives what it
+shows: hidden panels, and once the run snapshot is loaded, areas holding only hidden panels yield
+their space until a panel returns; before that they stay as empty cards. An area whose shown panel
+is missing selects another available tab, so the returning panel does not take the selection
+back, as before. The run list keeps a contribution's earlier value while a refresh reports it
+unavailable, and the run panel keeps the open run's last listed state while the list misses it.
+Mini-apps get a layout key, by default their ID; actor program views use their ID without the
+start count of their room, so a later start's view takes over the earlier area, and apps shown at
+the same time with one key get numbered places. The view ID itself, used by selection, VS Code
+editor tabs, and browser checks, is unchanged.
+
+## 2026-10-06: Keep the system prompt static and put per-turn context into the turn's input
+
+Chapters: `spec/core.md` (Model context across turns, Model context and agent runtime, What goes
+into the journal, Turns of an agent, Hooks and skills, Actor roster in the input, workspace in the
+system prompt, Rooms in the journal and the resolution of addresses); `spec/plugins.md` (Web as
+plugin host: global coordinator; Ownership per facet); `concepts/prompt-context.md`.
+
+A coordinator on a local model with a prefix KV cache filled about 135,000 tokens anew on the
+first request of every turn, because only the tool definitions and the stable start of the system
+prompt still matched. The spec promised a byte-identical prefix, but that held only for the
+projected messages: the system prompt was rendered per request and ended with per-turn data, the
+skills preloaded for the turn, the actor roster with live lifecycles, and for the global
+coordinator the interface context of the current message.
+
+The system prompt now holds only what stays the same for an actor in its run and changes only with
+configuration or tool set. The roster as of turn start and a host's context for an input
+(`TurnRequest.orientation`, `SteeredInput.orientation`, scheduler option `inputOrientation`) stand
+before the input text, and preloaded skills follow it as a second text part. All of it is journaled
+once in `model.input.presented` and replayed byte for byte, so earlier turns keep their exact text
+and the cached prefix only grows. Preloaded skills therefore stay in the context of later turns
+until a compaction; the skill classifier still sees only the input text. `GlobalChatPolicy`
+replaces `contextPrompt` with `inputOrientation`, which gets the input instead of the actor: a
+person's message that joins a running turn now brings its own interface context, and inputs that
+no person sent get none. Older journals keep their inputs without these parts; nothing is migrated.
+
 
 ## 2026-10-06: Reasoning is chosen from a menu again
 

@@ -6,7 +6,7 @@ import { AssistantMessageEventStream } from "../utils/event-stream.ts";
 import { parseStreamingJson } from "../utils/json-parse.ts";
 import { getProviderEnvValue } from "../utils/provider-env.ts";
 import { convertMessages } from "./ai-sdk-messages.ts";
-import { createSdkProvider } from "./ai-sdk-transport.ts";
+import { createChatModel } from "./ai-sdk-transport.ts";
 import { buildBaseOptions } from "./simple-options.ts";
 
 export interface OpenRouterOptions extends StreamOptions {
@@ -45,7 +45,8 @@ async function runStream(model: Model<"openai-completions">, context: Context, o
 	};
 	try {
 		const retention = options?.cacheRetention ?? (getProviderEnvValue("AGENT_CACHE_RETENTION", options?.env) === "long" ? "long" : "short");
-		const cacheControl = retention !== "none" && (model.compat?.cacheControlFormat === "anthropic" || model.id.startsWith("anthropic/"))
+		const sessionId = retention !== "none" ? options?.sessionId : undefined;
+		const cacheControl = model.sdk === undefined && retention !== "none" && (model.compat?.cacheControlFormat === "anthropic" || model.id.startsWith("anthropic/"))
 			? { type: "ephemeral" as const, ...(retention === "long" ? { ttl: "1h" as const } : {}) }
 			: undefined;
 		const messages = convertMessages(context, model, cacheControl);
@@ -53,18 +54,16 @@ async function runStream(model: Model<"openai-completions">, context: Context, o
 		const offEffort = model.thinkingLevelMap?.off;
 		const reasoning: Reasoning = effort ? { effort: model.thinkingLevelMap?.[effort] ?? effort }
 			: typeof offEffort === "string" ? { effort: offEffort } : { enabled: false };
-		const provider = createSdkProvider(model, {
+		const chatModel = createChatModel(model, {
 			...options,
-			headers: { ...(retention !== "none" && options?.sessionId ? { "x-session-id": options.sessionId } : {}), ...options?.headers },
+			headers: { ...(model.sdk === undefined && sessionId ? { "x-session-id": sessionId } : {}), ...options?.headers },
 			onPayload: async (payload, target) => {
 				applyRequestCompatibility(payload, model, cacheControl, reasoning);
 				return options?.onPayload?.(payload, target);
 			},
 		});
-		const hasPdf = context.messages.some((message) => message.role === "user" && Array.isArray(message.content)
-			&& message.content.some((part) => part.type === "file" && part.mimeType === "application/pdf"));
 		const result = streamText({
-			model: provider.chat(model.id),
+			model: chatModel,
 			instructions: messages.filter((message) => message.role === "system"),
 			messages: messages.filter((message) => message.role !== "system"),
 			tools: Object.fromEntries((context.tools ?? []).map((tool) => [tool.name, {
@@ -80,11 +79,7 @@ async function runStream(model: Model<"openai-completions">, context: Context, o
 			stopWhen: stepCountIs(1),
 			includeRawChunks: true,
 			onError: () => {},
-			providerOptions: { openrouter: {
-				...(model.reasoning ? { reasoning } : {}),
-				...(model.compat?.openRouterRouting ? { provider: { ...model.compat.openRouterRouting } } : {}),
-				...(hasPdf ? { plugins: [{ id: "file-parser", pdf: { engine: "native" } }] } : {}),
-			} },
+			providerOptions: providerOptionsOf(model, context, reasoning, sessionId),
 		});
 		const indices = new Map<string, number>();
 		const argumentsById = new Map<string, string>();
@@ -104,6 +99,8 @@ async function runStream(model: Model<"openai-completions">, context: Context, o
 					if (chunk.id) output.responseId = chunk.id;
 					if (chunk.model) output.responseModel = chunk.model;
 					if (chunk.choices?.[0]?.finish_reason != null) hasFinishReason = true;
+					// The sdk packages parse tool fragments and reasoning fields themselves.
+					if (model.sdk !== undefined) break;
 					const delta = chunk.choices?.[0]?.delta;
 					for (const fragment of delta?.tool_calls ?? []) {
 						const tool = rawTools.get(fragment.index) ?? { input: "" };
@@ -247,9 +244,18 @@ function reasoningDetails(metadata: ProviderMetadata | undefined) {
 	return Array.isArray(details) && details.length > 0 ? details : undefined;
 }
 
+type RawUsage = {
+	prompt_tokens_details?: { cache_write_tokens?: unknown } | null;
+	completion_tokens_details?: { reasoning_tokens?: unknown } | null;
+};
+
+const countOf = (value: unknown): number | undefined => typeof value === "number" ? value : undefined;
+
 function convertUsage(usage: LanguageModelUsage, model: Model<"openai-completions">): AssistantMessage["usage"] {
+	// The Mistral package drops the reported reasoning tokens, and neither sdk package reads cache writes.
+	const raw = model.sdk === undefined ? undefined : usage.raw as RawUsage | undefined;
 	const cacheRead = usage.inputTokenDetails.cacheReadTokens ?? 0;
-	const cacheWrite = usage.inputTokenDetails.cacheWriteTokens ?? 0;
+	const cacheWrite = usage.inputTokenDetails.cacheWriteTokens ?? countOf(raw?.prompt_tokens_details?.cache_write_tokens) ?? 0;
 	const input = Math.max(0, (usage.inputTokens ?? 0) - cacheRead - cacheWrite);
 	const output = usage.outputTokens ?? 0;
 	const result = {
@@ -257,7 +263,7 @@ function convertUsage(usage: LanguageModelUsage, model: Model<"openai-completion
 		output,
 		cacheRead,
 		cacheWrite,
-		reasoning: usage.outputTokenDetails.reasoningTokens ?? 0,
+		reasoning: usage.outputTokenDetails.reasoningTokens ?? countOf(raw?.completion_tokens_details?.reasoning_tokens) ?? 0,
 		totalTokens: input + output + cacheRead + cacheWrite,
 		cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, total: 0 },
 	};
@@ -266,6 +272,27 @@ function convertUsage(usage: LanguageModelUsage, model: Model<"openai-completion
 }
 
 type Reasoning = { effort: string } | { enabled: false };
+
+type ProviderOptions = NonNullable<Parameters<typeof streamText>[0]["providerOptions"]>;
+
+/** The effort the request carries; none for a model without reasoning and for off without its own value. */
+const sentEffort = (model: Model<"openai-completions">, reasoning: Reasoning): string | undefined =>
+	model.reasoning && "effort" in reasoning ? reasoning.effort : undefined;
+
+function providerOptionsOf(model: Model<"openai-completions">, context: Context, reasoning: Reasoning, sessionId: string | undefined): ProviderOptions {
+	if (model.sdk === "mistral") return { mistral: sessionId ? { promptCacheKey: sessionId } : {} };
+	if (model.sdk === "openai-compatible") {
+		const effort = sentEffort(model, reasoning);
+		return { openaiCompatible: effort === undefined ? {} : { reasoningEffort: effort } };
+	}
+	const hasPdf = context.messages.some((message) => message.role === "user" && Array.isArray(message.content)
+		&& message.content.some((part) => part.type === "file" && part.mimeType === "application/pdf"));
+	return { openrouter: {
+		...(model.reasoning ? { reasoning } : {}),
+		...(model.compat?.openRouterRouting ? { provider: { ...model.compat.openRouterRouting } } : {}),
+		...(hasPdf ? { plugins: [{ id: "file-parser", pdf: { engine: "native" } }] } : {}),
+	} };
+}
 
 type RequestBody = {
 	messages: Array<{ role: string; reasoning?: string; reasoning_content?: string; reasoning_details?: unknown }>;
@@ -292,12 +319,19 @@ function applyQwenChatTemplate(body: RequestBody, reasoning: Reasoning | undefin
 
 function applyRequestCompatibility(payload: unknown, model: Model<"openai-completions">, cacheControl: { type: "ephemeral"; ttl?: "1h" } | undefined, reasoning: Reasoning) {
 	const body = payload as RequestBody;
+	// The Mistral package sends reasoning_effort only as high or none and only for the models it lists.
+	if (model.sdk === "mistral") {
+		const effort = sentEffort(model, reasoning);
+		if (effort !== undefined) body.reasoning_effort = effort;
+		return;
+	}
 	if (model.compat?.requiresReasoningContentOnAssistantMessages) {
 		for (const message of body.messages) {
-			if (message.role === "assistant") message.reasoning_content = message.reasoning ?? "";
+			if (message.role === "assistant") message.reasoning_content = message.reasoning ?? message.reasoning_content ?? "";
 		}
 	}
 	if (model.compat?.thinkingFormat === "qwen-chat-template") applyQwenChatTemplate(body, model.reasoning ? reasoning : undefined);
+	if (model.sdk !== undefined) return;
 	if (cacheControl && body.tools?.length) body.tools[body.tools.length - 1].cache_control = cacheControl;
 	if (!body.tools && body.messages.some((message) => message.role === "tool")) body.tools = [];
 	const marks = cacheMarksOf(body);

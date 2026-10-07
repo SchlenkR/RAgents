@@ -126,7 +126,7 @@ test("a result that ends the turn completes it after a tool-use step, and the ne
     const context = run.contexts[0]!;
     assert.deepEqual(rolesOf(context), ["user", "assistant", "toolResult", "user"], "the tool result stays in place before the next input");
     assert.equal(textOf(context.messages[2]), HANDED_OVER);
-    assert.equal(textOf(context.messages[3]), "Go on.");
+    assert.match(textOf(context.messages[3]), /^\[Actors in the run, as of turn start\]\n[\s\S]*\n\nGo on\.$/);
     assert.doesNotThrow(() => project(run.events()), "the journal check accepts a turn that ends with a tool result");
 });
 

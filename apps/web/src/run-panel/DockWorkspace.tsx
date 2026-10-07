@@ -4,7 +4,7 @@ import { ArrowDownIcon, ArrowLeftIcon, ArrowRightIcon, ArrowUpIcon, LayoutGridIc
 import type { SessionContext, SessionNavigation, WorkspaceTabContribution } from "../PluginRegistry";
 import { RunAppView, type RunApp } from "../run-apps";
 import { Badge, InteractiveItem, Button, cn, Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "../ui";
-import { activeDockTool, addDockEmptyPane, appPanelId, closeDockPanels, dockButtonPlacement, dockGroups, dockWindowOrder, emptyPanelId, focusedDockWindow, initialDockState, isEmptyPanel, isToolPanel, moveDockButton, moveDockPanels, moveDockWindow, reconcileDockState, resizeDockSplit, returnDockTool, revealDockPanel, transitionDockSide, selectDockPanel, tabWindowId, toolPanelId, workspaceTabPanelId, type DockGroup, type DockButtonPlacement } from "./dock-state";
+import { activateAvailableDockTabs, activeDockTool, addDockEmptyPane, appPanelId, closeDockPanels, dockButtonPlacement, dockGroups, dockWindowOrder, emptyPanelId, focusedDockWindow, initialDockState, isEmptyPanel, isToolPanel, moveDockButton, moveDockPanels, moveDockWindow, reconcileDockState, resizeDockSplit, returnDockTool, revealDockPanel, transitionDockSide, selectDockPanel, tabWindowId, toolPanelId, visibleDockState, workspaceTabPanelId, type DockGroup, type DockButtonPlacement, type DockState } from "./dock-state";
 import { DOCK_DIVIDER_SIZE, DOCK_HEADER_HEIGHT, containsPoint, dockGeometry, dockHitTest, type DockPoint, type DockRect } from "./dock-geometry";
 import { useDockPointer } from "./dock-pointer";
 import { useDockStorage } from "./dock-storage";
@@ -38,6 +38,7 @@ const modalOpen = () => document.querySelector('[data-slot="dialog-content"][dat
 const EMPTY_PANE_ENTRY = "empty";
 const EMPTY_PANE_TITLE = "Empty space";
 
+/** The layout key (`RunApp.layoutKey`) of the app in the focused area or the focused sidebar. */
 export function useDockActiveApp(runId: string): string | undefined {
   const { state } = useDockStorage(runId);
   const active = state.side.focused ? state.side.tab : focusedDockWindow(state);
@@ -55,16 +56,22 @@ export function DockWorkspace({ apps, chat, chatIcon = <UsersIcon />, navigation
   const { state: stored, error, update } = useDockStorage(session.session.id);
   const [size, setSize] = useState({ width: 0, height: 0 });
   const splitApps = size.width >= 1000;
-  const panelIds = ["chat", ...tabs.filter((tab) => tab.placement === "window").map((tab) => tabWindowId(tab.id)), ...apps.map((app) => appPanelId(app.definition.id))];
+  const panelIds = ["chat", ...tabs.filter((tab) => tab.placement === "window").map((tab) => tabWindowId(tab.id)), ...apps.map((app) => appPanelId(app.layoutKey))];
   const toolIds = tabs.filter((tab) => tab.placement !== "window").map((tab) => toolPanelId(tab.id));
   const catalog = [...panelIds, ...toolIds];
-  // The initial run snapshot has not arrived yet; keep saved app positions until it does.
-  const ready = session.runView !== undefined || apps.length > 0;
-  const state = error ? stored : reconcileDockState(stored, ready ? panelIds : [...new Set([...stored.known.filter((id) => !isToolPanel(id)), ...panelIds])],
-    ready ? toolIds : [...new Set([...stored.known.filter(isToolPanel), ...toolIds])], splitApps);
+  const catalogKey = JSON.stringify([panelIds, toolIds]);
+  // Until the first run snapshot arrives, panels it has not delivered yet keep their areas and selection.
+  const loaded = session.runView !== undefined || apps.length > 0;
+  const reconcile = useCallback((current: DockState, panels: readonly string[], tools: readonly string[]) => {
+    const next = reconcileDockState(current, panels, tools, splitApps);
+    return loaded ? activateAvailableDockTabs(next, [...panels, ...tools]) : next;
+  }, [loaded, splitApps]);
+  const reconciled = error ? stored : reconcile(stored, panelIds, toolIds);
+  const state = visibleDockState(reconciled, catalog, loaded);
   useEffect(() => {
-    if (!error && size.width > 0 && state !== stored) update((current) => reconcileDockState(current, state.known.filter((id) => !isToolPanel(id)), state.known.filter(isToolPanel), splitApps));
-  }, [error, size.width, splitApps, state, stored, update]);
+    const [panels, tools]: [string[], string[]] = JSON.parse(catalogKey);
+    if (!error && size.width > 0 && reconciled !== stored) update((current) => reconcile(current, panels, tools));
+  }, [catalogKey, error, reconcile, reconciled, size.width, stored, update]);
   useLayoutEffect(() => {
     update((current) => current.side.mode === "hover-preview" ? transitionDockSide(current, { type: "close" }) : current);
   }, [session.session.id, update]);
@@ -118,7 +125,7 @@ export function DockWorkspace({ apps, chat, chatIcon = <UsersIcon />, navigation
     return () => window.removeEventListener("keydown", escape);
   }, [stored.maximized, stored.side.tab, update]);
   const emptyPanes = state.known.filter(isEmptyPanel);
-  const labels = new Map<string, string>([["chat", "Chat"], ...apps.map((app) => [appPanelId(app.definition.id), app.definition.title ?? app.definition.id] as const), ...tabs.map((tab) => [workspaceTabPanelId(tab), tab.label] as const),
+  const labels = new Map<string, string>([["chat", "Chat"], ...apps.map((app) => [appPanelId(app.layoutKey), app.definition.title ?? app.definition.id] as const), ...tabs.map((tab) => [workspaceTabPanelId(tab), tab.label] as const),
     [EMPTY_PANE_ENTRY, EMPTY_PANE_TITLE], ...emptyPanes.map((id) => [id, EMPTY_PANE_TITLE] as const)]);
   const title = (id: string) => labels.get(id) ?? id;
   const tabFor = (id: string | null) => tabs.find((tab) => workspaceTabPanelId(tab) === id);
@@ -128,13 +135,14 @@ export function DockWorkspace({ apps, chat, chatIcon = <UsersIcon />, navigation
   };
   const marker = (tab: WorkspaceTabContribution, active: boolean) => pendingTabIds.includes(tab.id) && activeDockTool(state) !== tab.id ? <Badge tone="info">New activity</Badge>
     : tab.Badge && <tab.Badge active={active} navigation={navigation} selection={navigation.selectionFor(tab.id)} session={session} />;
-  // A CSS zoom on the page scales client coordinates, not the dock geometry.
+  // Page scaling affects client coordinates; dock geometry uses layout units.
   const pointerZoom = () => container.current!.getBoundingClientRect().width / container.current!.offsetWidth || 1;
   const localPoint = (point: DockPoint, rect: DOMRect, zoom: number): DockPoint => ({ x: (point.x - rect.left) / zoom, y: (point.y - rect.top) / zoom });
   // Client coordinates keep header insertion independent of page zoom.
   const headerSlot = (point: DockPoint, id: string): number | null | undefined => {
     const group = windowsRef.current;
     if (!group || !containsPoint(group.getBoundingClientRect(), point)) return undefined;
+    if (document.elementFromPoint(point.x, point.y)?.closest("[data-header-fixed]")) return undefined;
     const slot = [...group.querySelectorAll<HTMLElement>("[data-dock-window]")].filter((button) => {
       const rect = button.getBoundingClientRect();
       return rect.bottom <= point.y || (rect.top <= point.y && rect.left + rect.width / 2 < point.x);
@@ -299,7 +307,7 @@ export function DockWorkspace({ apps, chat, chatIcon = <UsersIcon />, navigation
         <div aria-hidden data-dock-card={group.id} className={cn(cardClass, "z-0", areaFocused(group.id) ? "border-primary/70" : "border-border")} style={rect} />
         <div aria-label="Area tabs" className={areaHeaderClass} data-dock-group={group.id} role="tablist" style={headerRect(rect)} onFocusCapture={() => { if (state.focused !== group.id || state.side.focused) update((current) => ({ ...current, focused: group.id, side: { ...current.side, focused: false } })); }}>
           {group.tabs.map((id) => <div className={cn(tabClass, id === group.active && (areaFocused(group.id) ? "bg-selected text-selected-foreground hover:bg-selected-hover" : group.tabs.length > 1 && "bg-band"))} key={id} role="presentation">
-            {id === (group.active ?? group.tabs[0]) && <Button aria-label="Move area" className={cn(gripClass, "flex-none touch-none cursor-grab hover:bg-transparent active:cursor-grabbing")} onPointerDown={(event) => startDrag(event, group.tabs)} size="icon-xs" title="Drag all windows of this area" variant="ghost"><DockGrip /></Button>}
+            {id === (group.active ?? group.tabs[0]) && <Button aria-label={`Move ${title(id)}`} className={cn(gripClass, "flex-none touch-none cursor-grab hover:bg-transparent active:cursor-grabbing")} onPointerDown={(event) => startDrag(event, [id])} size="icon-xs" title="Drag this window" variant="ghost"><DockGrip /></Button>}
             <InteractiveItem id={`dock-tab-${encodeURIComponent(id)}`} aria-controls={`dock-panel-${encodeURIComponent(id)}`} aria-label={title(id)} aria-selected={id === group.active} className="flex h-7 min-w-0 flex-1 touch-none cursor-grab items-center gap-1.5 border-0 px-2 text-left text-xs text-muted-foreground hover:bg-transparent hover:text-foreground selected:border-0 selected:bg-transparent selected:text-selected-foreground selected:hover:bg-transparent [&>svg]:size-4 [&>svg]:shrink-0"
               onClick={(event) => { if (event.detail === 0) select(id); }} onKeyDown={(event) => selectFromKeyboard(event, group, id)}
               onPointerDown={(event) => startDrag(event, [id], () => select(id))} role="tab" tabIndex={id === group.active ? 0 : -1} title={title(id)} type="button">{icon(id)}<span className="truncate">{title(id)}</span></InteractiveItem>
@@ -310,9 +318,8 @@ export function DockWorkspace({ apps, chat, chatIcon = <UsersIcon />, navigation
             </>}
             <Button aria-label={`Close ${title(id)}`} className="flex-none" onClick={() => close([id])} size="icon-xs" variant="ghost"><XIcon /></Button>
           </div>)}
-          {group.tabs.length === 0 && <Button aria-label="Move area" className={cn(gripClass, "flex-none touch-none cursor-grab active:cursor-grabbing")} onPointerDown={(event) => startDrag(event, group.tabs)} size="icon-xs" title="Drag all windows of this area" variant="ghost"><DockGrip /></Button>}
           {group.tabs.length === 0 && <span className="min-w-0 flex-1 truncate px-1 text-xs text-muted-foreground">Empty area</span>}
-          {group.tabs.length === 0 && dockGroups(state.root).length > 1 && <Button aria-label="Close area" onClick={() => close([], group.id)} size="icon-xs" variant="ghost"><XIcon /></Button>}
+          {group.tabs.length === 0 && dockGroups(state.root).length > 1 && <Button aria-label="Close area" onClick={() => close(dockGroups(reconciled.root).find((entry) => entry.id === group.id)?.tabs ?? [], group.id)} size="icon-xs" variant="ghost"><XIcon /></Button>}
         </div>
         {group.tabs.length === 0 && <div className="absolute flex flex-col items-center justify-center gap-2 rounded-b-lg border border-dashed border-border p-2 text-center text-xs text-muted-foreground" data-dock-empty={group.id} style={{ ...contentRect(rect), left: rect.left + 7, top: rect.top + DOCK_HEADER_HEIGHT + 7, width: Math.max(0, rect.width - 14), height: Math.max(0, rect.height - DOCK_HEADER_HEIGHT - 14) }}>
           <span>Drop a window here</span>
@@ -334,7 +341,7 @@ export function DockWorkspace({ apps, chat, chatIcon = <UsersIcon />, navigation
         }} ><DockGrip horizontal={split.axis === "vertical"} /></div>)}
       {panel("chat", chat)}
       {emptyPanes.map((id) => panel(id, <p className="m-1.5 flex flex-1 items-center justify-center rounded-md border border-dashed border-border p-2 text-center text-xs text-muted-foreground">Drag an app or actor here</p>))}
-      {apps.filter((app) => visited.includes(appPanelId(app.definition.id)) || visible.includes(appPanelId(app.definition.id))).map((app) => panel(appPanelId(app.definition.id), <RunAppView app={app} navigation={navigation} session={session} />))}
+      {apps.filter((app) => visited.includes(appPanelId(app.layoutKey)) || visible.includes(appPanelId(app.layoutKey))).map((app) => panel(appPanelId(app.layoutKey), <RunAppView app={app} key={app.definition.id} navigation={navigation} session={session} />))}
       {tabs.map((tab) => [tab, workspaceTabPanelId(tab)] as const).filter(([, id]) => visited.includes(id) || visible.includes(id)).map(([tab, id]) => panel(id, <WorkspaceTabPanel Panel={tab.Panel} active={visible.includes(id)} navigation={navigation} selection={navigation.selectionFor(tab.id)} session={session} />))}
       {sideVisible && <>
         <div aria-hidden data-dock-frame className={cn(cardClass, "z-30 shadow-pop ring-1 ring-foreground/10", state.side.focused ? "border-primary/70" : "border-border")} style={sideRect} />

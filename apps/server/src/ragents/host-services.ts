@@ -37,7 +37,7 @@ export interface HostBridges {
   ensureSession: (runId: string, options?: { deleting?: boolean }) => void;
   ensureWorkspaceAccess: (access: AccessContext, runId: string) => void;
   runtime: () => Orchestration;
-  sessionWorkspaceFor: (runId: string) => Promise<SessionWorkspace>;
+  sessionWorkspaceFor: (runId: string, signal?: AbortSignal) => Promise<SessionWorkspace>;
   sessions?: () => RunManagement;
   /** The server's one model runtime with the profile's providers and aliases. */
   modelRuntime?: () => Promise<ModelRuntime>;

@@ -4,7 +4,7 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import test, { type TestContext } from "node:test";
 import { Type } from "typebox";
-import { createAccessContext, PluginHost, RPC_ERROR_CODES, type JournalEvent, type RunView } from "@ragents/engine";
+import { createAccessContext, PluginHost, RPC_ERROR_CODES, RPC_REQUEST_TIMEOUT_MS, type JournalEvent, type RunView } from "@ragents/engine";
 import { methodReference, openRpcDocument } from "../src/api/reference.ts";
 import { overseerContracts } from "../../../plugins/ragents.overseer/contract.ts";
 import { managementMethods } from "../../../plugins/ragents.overseer/server/api.ts";
@@ -54,7 +54,9 @@ test("reference and OpenRPC follow the registered contracts of methods and chann
     assert.deepEqual(entry.params, [{ name: "input", required: true, schema: JSON.parse(JSON.stringify(method.input)) }]);
     assert.deepEqual(entry.result, { name: "result", schema: JSON.parse(JSON.stringify(method.result)) });
     assert.deepEqual(entry["x-rights"], [...method.rights]);
+    assert.equal(entry["x-timeout-ms"], method.timeoutMs ?? RPC_REQUEST_TIMEOUT_MS);
   }
+  assert.equal(described.find((method) => method.id === overseerContracts.createRun.id)?.timeoutMs, 75 * 60_000);
   assert.match(methodReference(host, { kind: "token" }), /ACCESS_TOKEN/);
   assert.match(String((openRpcDocument(host, { kind: "users", cookieName: "test-core-user" }).info as { description: string }).description), /User sign-in/);
 });

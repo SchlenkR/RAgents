@@ -65,18 +65,10 @@ export interface ProfileModelAlias {
   readonly compaction: Readonly<ModelCompaction>;
 }
 
-/** An entry of MODEL_PROVIDERS: an OpenAI-compatible server, for instance a self-hosted one, whose models aliases can name as provider/model. */
-export interface ProfileModelProvider {
+interface ProfileModelProviderBase {
   readonly id: string;
-  /** The address up to /v1, without a trailing slash; requests go to baseUrl/chat/completions. */
-  readonly baseUrl: string;
   /** Only as env(...), never in plain text. */
   readonly apiKey: EnvironmentReference;
-  readonly compat?: Readonly<{
-    /** "qwen-chat-template" switches thinking with chat_template_kwargs.enable_thinking and sends the effort as reasoning_effort. */
-    thinkingFormat?: "qwen-chat-template";
-    requiresReasoningContentOnAssistantMessages?: boolean;
-  }>;
   readonly models: readonly Readonly<{
     id: string;
     contextWindow: number;
@@ -85,8 +77,32 @@ export interface ProfileModelProvider {
     input: readonly ("text" | "image" | "video" | "file" | "audio")[];
     /** What the server gets per level; null removes a level, xhigh and max exist only when named here. */
     thinkingLevelMap?: Readonly<Partial<Record<ThinkingLevel, string | null>>>;
+    /** USD per million tokens; without it the model costs 0, a left-out cache rate counts those tokens at 0. */
+    cost?: Readonly<{ input: number; output: number; cacheRead?: number; cacheWrite?: number }>;
   }>[];
 }
+
+/** An OpenAI-compatible server: with sdk over @ai-sdk/openai-compatible, without it with requests in the OpenRouter shape. */
+export interface ProfileOpenAiCompatibleProvider extends ProfileModelProviderBase {
+  readonly sdk?: "openai-compatible";
+  /** The address up to /v1, without a trailing slash; requests go to baseUrl/chat/completions. */
+  readonly baseUrl: string;
+  readonly compat?: Readonly<{
+    /** "qwen-chat-template" switches thinking with chat_template_kwargs.enable_thinking and sends the effort as reasoning_effort. */
+    thinkingFormat?: "qwen-chat-template";
+    requiresReasoningContentOnAssistantMessages?: boolean;
+  }>;
+}
+
+/** Mistral's API over @ai-sdk/mistral; the level goes out as reasoning_effort after the thinkingLevelMap. */
+export interface ProfileMistralProvider extends ProfileModelProviderBase {
+  readonly sdk: "mistral";
+  /** Without it https://api.mistral.ai/v1. */
+  readonly baseUrl?: string;
+}
+
+/** An entry of MODEL_PROVIDERS: a provider of the profile whose models aliases can name as provider/model. */
+export type ProfileModelProvider = ProfileOpenAiCompatibleProvider | ProfileMistralProvider;
 
 export type ConfigValue =
   | string

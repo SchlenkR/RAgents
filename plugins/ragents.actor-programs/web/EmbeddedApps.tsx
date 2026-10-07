@@ -1,5 +1,5 @@
 import { useAccess } from "@ragents/web/AccessContext";
-import { Spinner } from "@ragents/web/ui";
+import { Button, Spinner } from "@ragents/web/ui";
 import { runActorFrom } from "@ragents/web/run-view";
 import type {
   SurfaceElementContext,
@@ -30,11 +30,15 @@ export function ActorProgramToolCardSection({ actor, session }: CardSectionConte
   );
 }
 
+/** A view ID without the start count of its room (`review-2.board--main` is `review.board--main`), so a later start of the same setup takes over the dock area. */
+const actorViewLayoutKey = (id: string): string => id.replace(/^([a-z][a-z0-9-]*)-\d+\./, "$1.");
+
 export const actorProgramSurfaceElements = (session: SessionContext): readonly SurfaceElementDefinition[] =>
   actorProgramApps(session).flatMap((module): SurfaceElementDefinition[] => {
     return [{
       id: module.id,
       title: module.title,
+      layoutKey: actorViewLayoutKey(module.id),
       visible: module.app.visible !== false,
       anchorActorId: module.actorId,
       data: { actorId: module.actorId, actorHandle: module.actorHandle },
@@ -43,7 +47,7 @@ export const actorProgramSurfaceElements = (session: SessionContext): readonly S
   });
 
 export function ActorProgramSurfaceElement({ definition, session }: SurfaceElementContext) {
-  const { api, error, invoke, listing, runId } = useActorPrograms();
+  const { api, error, invoke, listing, refresh, runId } = useActorPrograms();
   const app = listing?.apps.find((candidate) => candidate.id === definition.id);
   const confirmation = app ? pendingConfirmationFor(session, app) : undefined;
   const title = definition.title ?? definition.id;
@@ -57,7 +61,10 @@ export function ActorProgramSurfaceElement({ definition, session }: SurfaceEleme
       session={session}
     />
   ) : error ? (
-    <p className="m-auto max-w-[60ch] p-4 text-[0.7rem] text-destructive" role="alert">{error}</p>
+    <div className="m-auto grid max-w-[60ch] justify-items-start gap-3 p-4">
+      <p className="text-[0.7rem] text-destructive" role="alert">{error}</p>
+      <Button onClick={() => void refresh()} variant="outline">Retry</Button>
+    </div>
   ) : (
     <div className="flex flex-1 items-center justify-center gap-2 text-[0.7rem] text-muted-foreground">
       <Spinner aria-hidden aria-label={undefined} role={undefined} />

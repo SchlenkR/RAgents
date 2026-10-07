@@ -3,7 +3,7 @@ import { mkdtempSync, mkdirSync, writeFileSync } from "node:fs";
 import { homedir, tmpdir } from "node:os";
 import path from "node:path";
 import test from "node:test";
-import { connectionSecretKey, connectionSetting, connectionsLocation, credentialsSecretKey, describeConnection, isProfileFile, parseConnections, profileNameOf, resolveHostPath } from "../src/connections";
+import { connectionSecretKey, connectionSetting, connectionsLocation, credentialsSecretKey, describeConnection, isProfileFile, parseConnections, profileNameOf, extensionCheckout } from "../src/connections";
 
 test("connections are validated: server or profile, unique names, profile file name, and server address", () => {
   const parsed = parseConnections([
@@ -50,17 +50,13 @@ test("a server is written as an entry of the setting and is readable again after
   assert.deepEqual(parseConnections(written), parsed);
 });
 
-test("the host comes from the setting or from the repo of the extension and may be a checkout or the package", () => {
+test("the extension's own repo is its host; without one it fetches the package", () => {
   const root = mkdtempSync(path.join(tmpdir(), "ragents-host-"));
   mkdirSync(path.join(root, "apps/server/src"), { recursive: true });
   writeFileSync(path.join(root, "package.json"), "{}\n");
   writeFileSync(path.join(root, "apps/server/src/main.ts"), "");
-  assert.equal(resolveHostPath(undefined, path.join(root, "apps/vscode")), root);
-  assert.equal(resolveHostPath("", path.join(root, "apps/vscode")), root);
-  assert.equal(resolveHostPath(root, "/nowhere/apps/vscode"), root);
-  assert.equal(resolveHostPath(undefined, "/nowhere/apps/vscode"), undefined, "without a checkout, the extension fetches the package itself");
-  assert.throws(() => resolveHostPath("/nowhere", "/nowhere/apps/vscode"), /not a RAgents host .* ragents\.hostPath/s);
-  assert.throws(() => resolveHostPath(42, root), /ragents\.hostPath must be a path/);
+  assert.equal(extensionCheckout(path.join(root, "apps/vscode")), root);
+  assert.equal(extensionCheckout("/nowhere/apps/vscode"), undefined, "without a checkout, the extension fetches the package itself");
 });
 
 test("a new server goes where the list already is; otherwise into the user setting", () => {

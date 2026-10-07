@@ -40,6 +40,7 @@ export const languageServerSolutionsContract = (pluginId: string) =>
 export const languageServerSwitchContract = (pluginId: string) =>
   defineOperation({
     id: `${pluginId}.switch`,
+    timeoutMs: 15 * 60_000 + 5_000,
     description: `Loads a solution in ${pluginId} and ends all other instances of the run; null ends all of them. `
       + `Does not wait for the load. Rights: runs.read, runs.write, ${pluginId}.read and ${pluginId}.write.`,
     rights: ["runs.read", "runs.write", `${pluginId}.read`, `${pluginId}.write`],

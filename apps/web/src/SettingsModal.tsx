@@ -185,7 +185,7 @@ export function SettingsModal({ onClose, registry }: SettingsModalProps) {
 
   return (
     <Dialog open onOpenChange={(open) => { if (!open) onClose(); }}>
-    <DialogContent className="mx-auto flex h-[calc(100vh-2*clamp(14px,4vh,42px))] max-h-none w-[min(1220px,calc(100vw-2*clamp(14px,4vw,58px)))] max-w-none min-h-0 min-w-0 flex-col gap-0 overflow-hidden rounded-xl bg-card p-0 shadow-pop max-md:h-[calc(100vh-16px)] max-md:w-[calc(100vw-16px)]" initialFocus={closeRef} scope="page" showCloseButton={false} size="full">
+    <DialogContent className="mx-auto flex h-[calc(var(--ragents-viewport-height,100dvh)-2*clamp(14px,calc(var(--ragents-viewport-height,100dvh)*0.04),42px))] max-h-none w-[min(1220px,calc(var(--ragents-viewport-width,100vw)-2*clamp(14px,calc(var(--ragents-viewport-width,100vw)*0.04),58px)))] max-w-none min-h-0 min-w-0 flex-col gap-0 overflow-hidden rounded-xl bg-card p-0 shadow-pop max-md:h-[calc(var(--ragents-viewport-height,100dvh)-16px)] max-md:w-[calc(var(--ragents-viewport-width,100vw)-16px)]" initialFocus={closeRef} scope="page" showCloseButton={false} size="full">
       <header className="grid flex-none grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-3 border-b border-border px-3.5 py-2.5">
         <span className="flex size-[34px] items-center justify-center rounded-[10px] bg-[color-mix(in_srgb,var(--primary)_12%,var(--background))] text-primary"><SettingsIcon size={18} /></span>
         <span className="grid min-w-0 gap-px">
@@ -329,7 +329,7 @@ function ContributionFilterBar({ filter, onFilter, onQuery, query, showKinds }: 
 }) {
   const searchId = useId();
   return (
-    <div className="sticky top-0 z-[2] grid gap-2.5 border-b border-border bg-app px-[clamp(20px,4vw,46px)] py-3 max-md:px-3.5">
+    <div className="sticky top-0 z-[2] grid gap-2.5 border-b border-border bg-app px-[clamp(20px,calc(var(--ragents-viewport-width,100vw)*0.04),46px)] py-3 max-md:px-3.5">
       {showKinds && <ChoiceSelect label="Contribution kinds" size="sm" value={filter} onValueChange={onFilter} options={contributionFilters.map((option) => ({ value: option.id, label: option.label }))} />}
       <div className="grid gap-1.5">
         <label className="text-[0.67rem] font-medium text-muted-foreground" htmlFor={searchId}>Search contributions</label>

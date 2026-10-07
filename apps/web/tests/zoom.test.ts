@@ -52,7 +52,7 @@ function browserFixture(stored: string | null = null) {
     storage,
     stored: () => value,
     writes: () => writes,
-    applied: () => properties.get("zoom"),
+    applied: () => properties.get("transform")?.slice(6, -1),
     denyWrites: () => { writeError = new Error("Browser storage is full"); },
     allowWrites: () => { writeError = undefined; },
     denyReads: () => { readError = new Error("Browser storage is blocked"); },
@@ -63,7 +63,7 @@ function browserFixture(stored: string | null = null) {
   };
 }
 
-test("the page starts at 100 percent without a zoom on the root element and without writing the browser storage", () => {
+test("the page starts at 100 percent without a transform on the root element and without writing the browser storage", () => {
   const fixture = browserFixture();
   const store = createZoomStore(fixture.browser);
   assert.deepEqual(store.getSnapshot(), { zoom: 100, error: null });
@@ -87,7 +87,7 @@ test("the saved zoom is applied right at bootstrap and every change is saved and
   store.setZoom(80);
   assert.equal(updates, 1, "the same zoom notifies nobody");
   store.setZoom(100);
-  assert.equal(fixture.applied(), undefined, "100 percent removes the zoom from the root element");
+  assert.equal(fixture.applied(), undefined, "100 percent removes the transform from the root element");
   assert.equal(fixture.stored(), "100");
   store.dispose();
 });

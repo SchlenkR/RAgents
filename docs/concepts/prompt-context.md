@@ -29,7 +29,9 @@ The overview must not show other actors' prompts, complete states, or source cod
 Which views or actions are accessible to the actor must follow from the same identity and
 permission check as their actual access.
 
-The inventory is taken from the run at the start of the turn. The existing list tools remain
+The inventory is taken from the run at the start of the turn. Like the actor roster, it belongs at
+the head of the turn's input, not into the system prompt, so that the request prefix stays stable
+(`core.md`, Model context and agent runtime). The existing list tools remain
 responsible for changes during a turn; an additional push channel for prompt texts is not
 planned. The global coordinator must continue to distinguish regular run building blocks from
 its own immediately usable actions.

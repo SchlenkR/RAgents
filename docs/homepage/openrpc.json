@@ -82,7 +82,8 @@
         "runs.read",
         "runs.write"
       ],
-      "x-implemented-by": "server"
+      "x-implemented-by": "server",
+      "x-timeout-ms": 30000
     },
     {
       "name": "ragents.actor-programs.apps",
@@ -141,7 +142,8 @@
       "x-rights": [
         "runs.read"
       ],
-      "x-implemented-by": "server"
+      "x-implemented-by": "server",
+      "x-timeout-ms": 30000
     },
     {
       "name": "ragents.actor-programs.function",
@@ -210,7 +212,8 @@
         "runs.write",
         "runs.inspect"
       ],
-      "x-implemented-by": "server"
+      "x-implemented-by": "server",
+      "x-timeout-ms": 30000
     },
     {
       "name": "ragents.actor-programs.function-invocation",
@@ -261,7 +264,8 @@
         "runs.read",
         "runs.inspect"
       ],
-      "x-implemented-by": "server"
+      "x-implemented-by": "server",
+      "x-timeout-ms": 30000
     },
     {
       "name": "ragents.actor-programs.invocation",
@@ -311,7 +315,8 @@
       "x-rights": [
         "runs.read"
       ],
-      "x-implemented-by": "server"
+      "x-implemented-by": "server",
+      "x-timeout-ms": 30000
     },
     {
       "name": "ragents.actor-programs.source",
@@ -380,7 +385,8 @@
         "runs.read",
         "runs.inspect"
       ],
-      "x-implemented-by": "server"
+      "x-implemented-by": "server",
+      "x-timeout-ms": 30000
     },
     {
       "name": "ragents.ask.answer",
@@ -469,7 +475,8 @@
         "runs.read",
         "runs.write"
       ],
-      "x-implemented-by": "server"
+      "x-implemented-by": "server",
+      "x-timeout-ms": 30000
     },
     {
       "name": "ragents.chat.actorHistory",
@@ -506,7 +513,8 @@
       },
       "x-owner": "host",
       "x-rights": [],
-      "x-implemented-by": "server"
+      "x-implemented-by": "server",
+      "x-timeout-ms": 30000
     },
     {
       "name": "ragents.chat.capabilities",
@@ -547,7 +555,8 @@
       },
       "x-owner": "host",
       "x-rights": [],
-      "x-implemented-by": "server"
+      "x-implemented-by": "server",
+      "x-timeout-ms": 30000
     },
     {
       "name": "ragents.chat.send",
@@ -621,7 +630,8 @@
       },
       "x-owner": "host",
       "x-rights": [],
-      "x-implemented-by": "server"
+      "x-implemented-by": "server",
+      "x-timeout-ms": 4500000
     },
     {
       "name": "ragents.chat.sendToActor",
@@ -690,7 +700,8 @@
       },
       "x-owner": "host",
       "x-rights": [],
-      "x-implemented-by": "server"
+      "x-implemented-by": "server",
+      "x-timeout-ms": 4500000
     },
     {
       "name": "ragents.chat.start",
@@ -731,7 +742,8 @@
       },
       "x-owner": "host",
       "x-rights": [],
-      "x-implemented-by": "server"
+      "x-implemented-by": "server",
+      "x-timeout-ms": 30000
     },
     {
       "name": "ragents.chat.stop",
@@ -766,7 +778,8 @@
       },
       "x-owner": "host",
       "x-rights": [],
-      "x-implemented-by": "server"
+      "x-implemented-by": "server",
+      "x-timeout-ms": 30000
     },
     {
       "name": "ragents.documents.files",
@@ -883,7 +896,8 @@
       "x-rights": [
         "runs.read"
       ],
-      "x-implemented-by": "server"
+      "x-implemented-by": "server",
+      "x-timeout-ms": 30000
     },
     {
       "name": "ragents.documents.grant",
@@ -936,7 +950,8 @@
       "x-rights": [
         "runs.read"
       ],
-      "x-implemented-by": "server"
+      "x-implemented-by": "server",
+      "x-timeout-ms": 30000
     },
     {
       "name": "ragents.external.set",
@@ -987,7 +1002,8 @@
       "x-rights": [
         "settings.write"
       ],
-      "x-implemented-by": "server"
+      "x-implemented-by": "server",
+      "x-timeout-ms": 30000
     },
     {
       "name": "ragents.lsp-fsharp.snapshot",
@@ -1027,7 +1043,8 @@
         "runs.read",
         "ragents.lsp-fsharp.read"
       ],
-      "x-implemented-by": "server"
+      "x-implemented-by": "server",
+      "x-timeout-ms": 30000
     },
     {
       "name": "ragents.lsp-roslyn.snapshot",
@@ -1067,7 +1084,8 @@
         "runs.read",
         "ragents.lsp-roslyn.read"
       ],
-      "x-implemented-by": "server"
+      "x-implemented-by": "server",
+      "x-timeout-ms": 30000
     },
     {
       "name": "ragents.lsp-roslyn.solutions",
@@ -1107,7 +1125,8 @@
         "runs.read",
         "ragents.lsp-roslyn.read"
       ],
-      "x-implemented-by": "server"
+      "x-implemented-by": "server",
+      "x-timeout-ms": 30000
     },
     {
       "name": "ragents.lsp-roslyn.switch",
@@ -1164,7 +1183,8 @@
         "ragents.lsp-roslyn.read",
         "ragents.lsp-roslyn.write"
       ],
-      "x-implemented-by": "server"
+      "x-implemented-by": "server",
+      "x-timeout-ms": 905000
     },
     {
       "name": "ragents.lsp-typescript.snapshot",
@@ -1204,7 +1224,8 @@
         "runs.read",
         "ragents.lsp-typescript.read"
       ],
-      "x-implemented-by": "server"
+      "x-implemented-by": "server",
+      "x-timeout-ms": 30000
     },
     {
       "name": "ragents.mcp.connections.close",
@@ -1241,7 +1262,8 @@
         "runs.read",
         "runs.write"
       ],
-      "x-implemented-by": "server"
+      "x-implemented-by": "server",
+      "x-timeout-ms": 30000
     },
     {
       "name": "ragents.mcp.servers.set",
@@ -1285,7 +1307,8 @@
         "runs.write",
         "runs.create"
       ],
-      "x-implemented-by": "server"
+      "x-implemented-by": "server",
+      "x-timeout-ms": 30000
     },
     {
       "name": "ragents.overseer.coordinator",
@@ -1321,7 +1344,8 @@
       "x-rights": [
         "ragents.overseer.read"
       ],
-      "x-implemented-by": "server"
+      "x-implemented-by": "server",
+      "x-timeout-ms": 30000
     },
     {
       "name": "ragents.overseer.createRun",
@@ -1637,7 +1661,8 @@
         "runs.write",
         "runs.create"
       ],
-      "x-implemented-by": "server"
+      "x-implemented-by": "server",
+      "x-timeout-ms": 4500000
     },
     {
       "name": "ragents.overseer.listRuns",
@@ -1700,7 +1725,8 @@
       "x-rights": [
         "runs.read"
       ],
-      "x-implemented-by": "server"
+      "x-implemented-by": "server",
+      "x-timeout-ms": 30000
     },
     {
       "name": "ragents.overseer.readCatalog",
@@ -1802,7 +1828,8 @@
         "runs.read",
         "runs.inspect"
       ],
-      "x-implemented-by": "server"
+      "x-implemented-by": "server",
+      "x-timeout-ms": 30000
     },
     {
       "name": "ragents.overseer.readEvents",
@@ -2263,7 +2290,8 @@
         "runs.read",
         "runs.inspect"
       ],
-      "x-implemented-by": "server"
+      "x-implemented-by": "server",
+      "x-timeout-ms": 30000
     },
     {
       "name": "ragents.overseer.readOpenRpc",
@@ -2294,7 +2322,8 @@
         "runs.read",
         "runs.inspect"
       ],
-      "x-implemented-by": "server"
+      "x-implemented-by": "server",
+      "x-timeout-ms": 30000
     },
     {
       "name": "ragents.overseer.readReference",
@@ -2322,7 +2351,8 @@
         "runs.read",
         "runs.inspect"
       ],
-      "x-implemented-by": "server"
+      "x-implemented-by": "server",
+      "x-timeout-ms": 30000
     },
     {
       "name": "ragents.overseer.readRun",
@@ -2504,7 +2534,8 @@
         "runs.read",
         "runs.inspect"
       ],
-      "x-implemented-by": "server"
+      "x-implemented-by": "server",
+      "x-timeout-ms": 30000
     },
     {
       "name": "ragents.overseer.reset",
@@ -2541,7 +2572,8 @@
         "ragents.overseer.read",
         "ragents.overseer.write"
       ],
-      "x-implemented-by": "server"
+      "x-implemented-by": "server",
+      "x-timeout-ms": 30000
     },
     {
       "name": "ragents.overseer.sendMessage",
@@ -2607,7 +2639,8 @@
         "runs.read",
         "runs.write"
       ],
-      "x-implemented-by": "server"
+      "x-implemented-by": "server",
+      "x-timeout-ms": 4500000
     },
     {
       "name": "ragents.overseer.settings.read",
@@ -2682,7 +2715,8 @@
       "x-rights": [
         "ragents.overseer.read"
       ],
-      "x-implemented-by": "server"
+      "x-implemented-by": "server",
+      "x-timeout-ms": 30000
     },
     {
       "name": "ragents.overseer.settings.save",
@@ -2780,7 +2814,8 @@
         "ragents.overseer.write",
         "settings.write"
       ],
-      "x-implemented-by": "server"
+      "x-implemented-by": "server",
+      "x-timeout-ms": 30000
     },
     {
       "name": "ragents.overseer.stopRun",
@@ -2840,11 +2875,12 @@
         "runs.read",
         "runs.write"
       ],
-      "x-implemented-by": "server"
+      "x-implemented-by": "server",
+      "x-timeout-ms": 30000
     },
     {
       "name": "ragents.plugins.bootstrap",
-      "description": "Product, active plugins with web configuration, released templates and the server's RAgents version for the UI.",
+      "description": "Product, active plugins with web configuration, released templates, the server's RAgents version for the UI and the number of its interface to the VS Code extension.",
       "params": [
         {
           "name": "input",
@@ -2867,7 +2903,8 @@
       },
       "x-owner": "host",
       "x-rights": [],
-      "x-implemented-by": "server"
+      "x-implemented-by": "server",
+      "x-timeout-ms": 30000
     },
     {
       "name": "ragents.processes.snapshot",
@@ -2907,7 +2944,8 @@
         "runs.read",
         "ragents.processes.read"
       ],
-      "x-implemented-by": "server"
+      "x-implemented-by": "server",
+      "x-timeout-ms": 30000
     },
     {
       "name": "ragents.processes.stop",
@@ -2952,7 +2990,8 @@
         "runs.write",
         "runs.inspect"
       ],
-      "x-implemented-by": "server"
+      "x-implemented-by": "server",
+      "x-timeout-ms": 30000
     },
     {
       "name": "ragents.processes.tunnel",
@@ -3021,7 +3060,8 @@
         "runs.inspect",
         "ragents.processes.read"
       ],
-      "x-implemented-by": "server"
+      "x-implemented-by": "server",
+      "x-timeout-ms": 30000
     },
     {
       "name": "ragents.product.modelSettings.read",
@@ -3050,7 +3090,8 @@
       "x-rights": [
         "settings.read"
       ],
-      "x-implemented-by": "server"
+      "x-implemented-by": "server",
+      "x-timeout-ms": 30000
     },
     {
       "name": "ragents.product.modelSettings.save",
@@ -3089,7 +3130,8 @@
         "settings.read",
         "settings.write"
       ],
-      "x-implemented-by": "server"
+      "x-implemented-by": "server",
+      "x-timeout-ms": 30000
     },
     {
       "name": "ragents.runs.delete",
@@ -3127,7 +3169,8 @@
         "runs.read",
         "runs.delete"
       ],
-      "x-implemented-by": "server"
+      "x-implemented-by": "server",
+      "x-timeout-ms": 30000
     },
     {
       "name": "ragents.runs.enqueueInput",
@@ -3194,7 +3237,8 @@
       },
       "x-owner": "host",
       "x-rights": [],
-      "x-implemented-by": "server"
+      "x-implemented-by": "server",
+      "x-timeout-ms": 30000
     },
     {
       "name": "ragents.runs.events",
@@ -3234,7 +3278,8 @@
       },
       "x-owner": "host",
       "x-rights": [],
-      "x-implemented-by": "server"
+      "x-implemented-by": "server",
+      "x-timeout-ms": 30000
     },
     {
       "name": "ragents.runs.export",
@@ -3274,7 +3319,8 @@
         "runs.read",
         "runs.inspect"
       ],
-      "x-implemented-by": "server"
+      "x-implemented-by": "server",
+      "x-timeout-ms": 30000
     },
     {
       "name": "ragents.runs.import",
@@ -3317,7 +3363,8 @@
       "x-rights": [
         "*"
       ],
-      "x-implemented-by": "server"
+      "x-implemented-by": "server",
+      "x-timeout-ms": 30000
     },
     {
       "name": "ragents.runs.interruptTurn",
@@ -3376,7 +3423,8 @@
       },
       "x-owner": "host",
       "x-rights": [],
-      "x-implemented-by": "server"
+      "x-implemented-by": "server",
+      "x-timeout-ms": 30000
     },
     {
       "name": "ragents.runs.list",
@@ -3408,7 +3456,8 @@
       "x-rights": [
         "runs.read"
       ],
-      "x-implemented-by": "server"
+      "x-implemented-by": "server",
+      "x-timeout-ms": 30000
     },
     {
       "name": "ragents.runs.markViewed",
@@ -3451,7 +3500,8 @@
       "x-rights": [
         "runs.read"
       ],
-      "x-implemented-by": "server"
+      "x-implemented-by": "server",
+      "x-timeout-ms": 30000
     },
     {
       "name": "ragents.runs.pause",
@@ -3505,7 +3555,8 @@
       },
       "x-owner": "host",
       "x-rights": [],
-      "x-implemented-by": "server"
+      "x-implemented-by": "server",
+      "x-timeout-ms": 30000
     },
     {
       "name": "ragents.runs.prepare",
@@ -3554,7 +3605,8 @@
         "runs.write",
         "runs.create"
       ],
-      "x-implemented-by": "server"
+      "x-implemented-by": "server",
+      "x-timeout-ms": 125000
     },
     {
       "name": "ragents.runs.resolveAction",
@@ -3625,7 +3677,8 @@
       },
       "x-owner": "host",
       "x-rights": [],
-      "x-implemented-by": "server"
+      "x-implemented-by": "server",
+      "x-timeout-ms": 30000
     },
     {
       "name": "ragents.runs.restartActor",
@@ -3684,7 +3737,8 @@
       },
       "x-owner": "host",
       "x-rights": [],
-      "x-implemented-by": "server"
+      "x-implemented-by": "server",
+      "x-timeout-ms": 30000
     },
     {
       "name": "ragents.runs.resume",
@@ -3734,7 +3788,8 @@
       },
       "x-owner": "host",
       "x-rights": [],
-      "x-implemented-by": "server"
+      "x-implemented-by": "server",
+      "x-timeout-ms": 30000
     },
     {
       "name": "ragents.runs.scripts",
@@ -3796,7 +3851,8 @@
       },
       "x-owner": "host",
       "x-rights": [],
-      "x-implemented-by": "server"
+      "x-implemented-by": "server",
+      "x-timeout-ms": 30000
     },
     {
       "name": "ragents.runs.share",
@@ -3986,7 +4042,8 @@
       },
       "x-owner": "host",
       "x-rights": [],
-      "x-implemented-by": "server"
+      "x-implemented-by": "server",
+      "x-timeout-ms": 30000
     },
     {
       "name": "ragents.runs.sharing",
@@ -4112,7 +4169,8 @@
       },
       "x-owner": "host",
       "x-rights": [],
-      "x-implemented-by": "server"
+      "x-implemented-by": "server",
+      "x-timeout-ms": 30000
     },
     {
       "name": "ragents.runs.startScript",
@@ -4171,7 +4229,8 @@
       },
       "x-owner": "host",
       "x-rights": [],
-      "x-implemented-by": "server"
+      "x-implemented-by": "server",
+      "x-timeout-ms": 4500000
     },
     {
       "name": "ragents.runs.stopActor",
@@ -4231,7 +4290,8 @@
       },
       "x-owner": "host",
       "x-rights": [],
-      "x-implemented-by": "server"
+      "x-implemented-by": "server",
+      "x-timeout-ms": 30000
     },
     {
       "name": "ragents.runs.stopAll",
@@ -4286,7 +4346,8 @@
       },
       "x-owner": "host",
       "x-rights": [],
-      "x-implemented-by": "server"
+      "x-implemented-by": "server",
+      "x-timeout-ms": 30000
     },
     {
       "name": "ragents.runs.view",
@@ -4334,7 +4395,8 @@
       },
       "x-owner": "host",
       "x-rights": [],
-      "x-implemented-by": "server"
+      "x-implemented-by": "server",
+      "x-timeout-ms": 30000
     },
     {
       "name": "ragents.settings.read",
@@ -4363,7 +4425,8 @@
       "x-rights": [
         "settings.read"
       ],
-      "x-implemented-by": "server"
+      "x-implemented-by": "server",
+      "x-timeout-ms": 30000
     },
     {
       "name": "ragents.settings.skill",
@@ -4407,7 +4470,8 @@
       "x-rights": [
         "settings.read"
       ],
-      "x-implemented-by": "server"
+      "x-implemented-by": "server",
+      "x-timeout-ms": 30000
     },
     {
       "name": "ragents.settings.titles.read",
@@ -4436,7 +4500,8 @@
       "x-rights": [
         "settings.read"
       ],
-      "x-implemented-by": "server"
+      "x-implemented-by": "server",
+      "x-timeout-ms": 30000
     },
     {
       "name": "ragents.settings.titles.save",
@@ -4470,7 +4535,8 @@
       "x-rights": [
         "settings.write"
       ],
-      "x-implemented-by": "server"
+      "x-implemented-by": "server",
+      "x-timeout-ms": 30000
     },
     {
       "name": "ragents.startOptions.list",
@@ -4513,7 +4579,8 @@
         "runs.read",
         "runs.create"
       ],
-      "x-implemented-by": "server"
+      "x-implemented-by": "server",
+      "x-timeout-ms": 30000
     },
     {
       "name": "ragents.startOptions.select",
@@ -4562,7 +4629,8 @@
         "runs.write",
         "runs.create"
       ],
-      "x-implemented-by": "server"
+      "x-implemented-by": "server",
+      "x-timeout-ms": 30000
     },
     {
       "name": "ragents.workspace.browse.list",
@@ -4620,7 +4688,8 @@
         "runs.read",
         "runs.inspect"
       ],
-      "x-implemented-by": "server"
+      "x-implemented-by": "server",
+      "x-timeout-ms": 30000
     },
     {
       "name": "ragents.workspace.browse.preview",
@@ -4678,7 +4747,8 @@
         "runs.read",
         "runs.inspect"
       ],
-      "x-implemented-by": "server"
+      "x-implemented-by": "server",
+      "x-timeout-ms": 30000
     },
     {
       "name": "ragents.workspace.clients.contributions",
@@ -4743,7 +4813,8 @@
       "x-rights": [
         "runs.write"
       ],
-      "x-implemented-by": "server"
+      "x-implemented-by": "server",
+      "x-timeout-ms": 30000
     },
     {
       "name": "ragents.workspace.clients.list",
@@ -4818,7 +4889,8 @@
       "x-rights": [
         "runs.read"
       ],
-      "x-implemented-by": "server"
+      "x-implemented-by": "server",
+      "x-timeout-ms": 30000
     },
     {
       "name": "ragents.workspace.clients.register",
@@ -5028,7 +5100,8 @@
       "x-rights": [
         "runs.write"
       ],
-      "x-implemented-by": "server"
+      "x-implemented-by": "server",
+      "x-timeout-ms": 30000
     },
     {
       "name": "ragents.workspace.clients.unregister",
@@ -5064,7 +5137,8 @@
       "x-rights": [
         "runs.write"
       ],
-      "x-implemented-by": "server"
+      "x-implemented-by": "server",
+      "x-timeout-ms": 30000
     }
   ],
   "x-channels": [

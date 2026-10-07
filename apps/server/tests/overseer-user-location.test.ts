@@ -6,7 +6,7 @@ import path from "node:path";
 import test, { type TestContext } from "node:test";
 import {
   DomainError, FixedWorkspaces, Journal, LiveBus, Orchestration, StartOptionContributionRegistry,
-  StaticModelCatalog, TurnScheduler, type CatalogModel,
+  StaticModelCatalog, TurnScheduler, type CatalogModel, type TurnRequest,
 } from "@ragents/engine";
 import { manualExecution, FakeDriver, noUsage, testServices } from "../../../packages/ragents/tests/support.ts";
 import { OVERSEER_PLUGIN_ID } from "../../../plugins/ragents.overseer/contract.ts";
@@ -30,7 +30,9 @@ const catalog = new StaticModelCatalog(offered, [{
   turnTimeoutMs: null, isolateWorkspace: false,
 }]);
 
-const fixture = async (t: TestContext, existingDirectory?: string) => {
+type TurnProbe = (request: TurnRequest<"agent">, data: { session: RunChatSession; location: (id: string) => ChatUserLocation }) => Promise<void>;
+
+const fixture = async (t: TestContext, existingDirectory?: string, onTurn?: TurnProbe) => {
   const directory = existingDirectory ?? await mkdtemp(path.join(tmpdir(), "ragents-overseer-location-"));
   const services = { ...testServices(), newId: (kind: string) => `${kind}-${randomUUID()}` };
   const journal = new Journal(path.join(directory, "journal"), services);
@@ -59,12 +61,15 @@ const fixture = async (t: TestContext, existingDirectory?: string) => {
   await runDirectory.describe(await management.list());
   const policy = createUserLocationContext(() => management, runDirectory);
   const errors: unknown[] = [];
-  const driver = new FakeDriver(async () => ({ failure: null, usage: noUsage() }));
+  const driver = new FakeDriver(async (request) => {
+    await onTurn?.(request, { session, location });
+    return { failure: null, usage: noUsage() };
+  });
   const live = new LiveBus();
   const scheduler = new TurnScheduler(runtime, journal, {
     drivers: { agent: driver }, catalog, live, workspaces: new FixedWorkspaces(directory),
-    basePrompt: (runId, actor) => runId === OVERSEER_RUN_ID
-      ? `Global coordinator\n\n${policy.contextPrompt!(runtime, runId, actor)}` : "Ordinary run without location context",
+    basePrompt: (runId) => runId === OVERSEER_RUN_ID ? "Global coordinator" : "Ordinary run without location context",
+    inputOrientation: (runId, input) => runId === OVERSEER_RUN_ID ? policy.inputOrientation!(runtime, runId, input) : "",
     onError: (error) => errors.push(error),
   });
   const engine = { runtime, journal, scheduler, catalog, live, catalogModels: offered, startOptions: new StartOptionContributionRegistry() } as unknown as Engine;
@@ -130,17 +135,37 @@ test("queued global messages keep their own location snapshots and leave visible
   assert.deepEqual(data.errors, []);
   assert.equal(data.driver.requests.length, 3);
   const [first, second, third] = data.driver.requests;
-  assert.match(first!.systemPrompt, /Run: Run 1, title "Shopping list"/);
-  assert.match(first!.systemPrompt, /Actor @listhelper/);
-  assert.match(first!.systemPrompt, /Open area: "ragents.orchestration"/);
-  assert.doesNotMatch(first!.systemPrompt, /Title changed later|@reviewer|CSV import/);
-  assert.match(second!.systemPrompt, /Run: Run 2, title "Check CSV import"/);
-  assert.match(second!.systemPrompt, /Actor @reviewer/);
-  assert.doesNotMatch(second!.systemPrompt, /@listhelper|Shopping list/);
-  assert.match(third!.systemPrompt, /No interface context.*Earlier location details do not count as current/s);
-  assert.doesNotMatch(third!.systemPrompt, /Run: Run \d|@listhelper|@reviewer|CSV import/);
+  assert.match(first!.orientation, /Run: Run 1, title "Shopping list"/);
+  assert.match(first!.orientation, /Actor @listhelper/);
+  assert.match(first!.orientation, /Open area: "ragents.orchestration"/);
+  assert.doesNotMatch(first!.orientation, /Title changed later|@reviewer|CSV import/);
+  assert.match(second!.orientation, /Run: Run 2, title "Check CSV import"/);
+  assert.match(second!.orientation, /Actor @reviewer/);
+  assert.doesNotMatch(second!.orientation, /@listhelper|Shopping list/);
+  assert.match(third!.orientation, /No interface context.*Earlier location details do not count as current/s);
+  assert.doesNotMatch(third!.orientation, /Run: Run \d|@listhelper|@reviewer|CSV import/);
+  assert.ok(data.driver.requests.every((request) => request.systemPrompt === first!.systemPrompt), "the location never changes the system prompt");
+  assert.doesNotMatch(first!.systemPrompt, /[Ii]nterface context|Shopping list|CSV import/);
   assert.deepEqual(data.driver.requests.map((request) => request.input.content), [firstText, secondText, thirdText]);
   assert.equal(data.runtime.view(OVERSEER_RUN_ID).turns.length, 3);
+});
+
+test("a message steered into the running turn brings its own location", async (t) => {
+  const steered: string[][] = [];
+  const data = await fixture(t, undefined, async (request, { session, location }) => {
+    if (request.input.content !== "First question") return;
+    await session.send("Follow-up question", [], location("second-run"));
+    steered.push(...request.claimSteering().map((entry) => [entry.input.content, entry.orientation]));
+  });
+  await data.session.send("First question", [], data.location("first-run"));
+  data.scheduler.start();
+  await data.scheduler.waitForIdle();
+  assert.deepEqual(data.errors, []);
+  assert.equal(data.driver.requests.length, 1);
+  assert.match(data.driver.requests[0]!.orientation, /Run: Run 1, title "Shopping list"/);
+  assert.deepEqual(steered.map(([content]) => content), ["Follow-up question"]);
+  assert.match(steered[0]![1]!, /Run: Run 2, title "Check CSV import"/);
+  assert.doesNotMatch(steered[0]![1]!, /Shopping list|@listhelper/);
 });
 
 test("journal reload preserves each pending input's location binding instead of reading the latest plugin state", async (t) => {
@@ -159,11 +184,11 @@ test("journal reload preserves each pending input's location binding instead of 
   await restored.scheduler.waitForIdle();
   assert.deepEqual(restored.errors, []);
   assert.equal(restored.driver.requests.length, 3);
-  assert.match(restored.driver.requests[0]!.systemPrompt, /Run: Run 1, title "Shopping list"/);
-  assert.match(restored.driver.requests[0]!.systemPrompt, /@listhelper/);
-  assert.match(restored.driver.requests[1]!.systemPrompt, /Run: Run 1, title "Shopping list"/);
-  assert.match(restored.driver.requests[2]!.systemPrompt, /Interface: run overview/);
-  assert.doesNotMatch(restored.driver.requests[2]!.systemPrompt, /Shopping list|@listhelper/);
+  assert.match(restored.driver.requests[0]!.orientation, /Run: Run 1, title "Shopping list"/);
+  assert.match(restored.driver.requests[0]!.orientation, /@listhelper/);
+  assert.match(restored.driver.requests[1]!.orientation, /Run: Run 1, title "Shopping list"/);
+  assert.match(restored.driver.requests[2]!.orientation, /Interface: run overview/);
+  assert.doesNotMatch(restored.driver.requests[2]!.orientation, /Shopping list|@listhelper/);
   await restored.close();
 });
 
@@ -181,6 +206,7 @@ test("ordinary run messages receive no global location context and reject a supp
   assert.equal(data.driver.requests.length, 1);
   assert.match(data.driver.requests[0]!.systemPrompt, /Ordinary run/);
   assert.doesNotMatch(data.driver.requests[0]!.systemPrompt, /[Ii]nterface context|Run 1|listhelper/);
+  assert.doesNotMatch(data.driver.requests[0]!.orientation, /[Ii]nterface context|Run 1|listhelper/);
 });
 
 test("invalid and oversized user locations are rejected before any message or location event is queued", async (t) => {
@@ -222,12 +248,12 @@ test("foreign or stale selections and unavailable runs never invent an actor or 
   assert.deepEqual(data.errors, []);
   assert.equal(data.driver.requests.length, 4);
   for (const request of data.driver.requests.slice(0, 3)) {
-    assert.match(request.systemPrompt, /Run: Run 1, title "Shopping list"/);
-    assert.match(request.systemPrompt, /Element no longer exists or cannot be resolved here/);
-    assert.doesNotMatch(request.systemPrompt, /@reviewer|@listhelper|CSV import/);
+    assert.match(request.orientation, /Run: Run 1, title "Shopping list"/);
+    assert.match(request.orientation, /Element no longer exists or cannot be resolved here/);
+    assert.doesNotMatch(request.orientation, /@reviewer|@listhelper|CSV import/);
   }
-  assert.match(data.driver.requests[3]!.systemPrompt, /run that was open when sending is no longer available/);
-  assert.doesNotMatch(data.driver.requests[3]!.systemPrompt, /Run 2|@reviewer|CSV import/);
+  assert.match(data.driver.requests[3]!.orientation, /run that was open when sending is no longer available/);
+  assert.doesNotMatch(data.driver.requests[3]!.orientation, /Run 2|@reviewer|CSV import/);
 });
 
 test("the chat method forwards user location separately and reports a client error for malformed context", async (t) => {
@@ -245,6 +271,6 @@ test("the chat method forwards user location separately and reports a client err
   await data.scheduler.waitForIdle();
   assert.deepEqual(data.errors, []);
   assert.equal(data.driver.requests.length, 1);
-  assert.match(data.driver.requests[0]!.systemPrompt, /Run: Run 1, title "Shopping list"/);
-  assert.match(data.driver.requests[0]!.systemPrompt, /@listhelper/);
+  assert.match(data.driver.requests[0]!.orientation, /Run: Run 1, title "Shopping list"/);
+  assert.match(data.driver.requests[0]!.orientation, /@listhelper/);
 });

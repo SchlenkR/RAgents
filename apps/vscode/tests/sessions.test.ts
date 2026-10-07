@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { WorkspaceClient, type WorkspaceClientOptions } from "../../../plugins/ragents.workspace/client/workspace-client";
+import { EXTENSION_API_VERSION } from "../../server/src/extension-api";
 import { MissingEnvironmentError } from "../../server/src/missing-environment";
 import type { Connection } from "../src/connections";
 import { hostEnvironmentSecretKey, provideMissingSecret } from "../src/settings";
@@ -330,7 +331,7 @@ test("if applying a distributed profile fails on an environment variable, the fi
   }
 });
 
-test("same version and accepted workspace: no notice", async () => {
+test("same extension interface and accepted workspace: no notice", async () => {
   const server = await startStubServer();
   const { services } = harness({ A: server.url });
   const session = new ConnectionSession(serverConnection("A", server.url), services);
@@ -343,18 +344,14 @@ test("same version and accepted workspace: no notice", async () => {
   }
 });
 
-test("a different server version is a warning with what needs updating; the workspace stays registered", async () => {
+test("a different release with the same extension interface shows no notice; the workspace stays registered", async () => {
   const server = await startStubServer({ version: "0.1.7" });
   const { services } = harness({ A: server.url });
   const session = new ConnectionSession(serverConnection("A", server.url), services);
   try {
     await session.connect();
-    await waitFor(() => session.workspaceClient?.status.kind === "registered" && session.snapshot().versionNotice !== undefined);
-    assert.deepEqual(session.snapshot().versionNotice, {
-      level: "warning",
-      text: "RAgents version does not match: extension 0.1.8, server 0.1.7 - update the server to 0.1.8.",
-      update: "server",
-    });
+    await waitFor(() => session.workspaceClient?.status.kind === "registered");
+    assert.equal(session.snapshot().versionNotice, undefined);
     assert.equal(session.snapshot().problem, undefined);
     assert.equal(server.workspaceClients().size, 1);
   } finally {
@@ -362,9 +359,9 @@ test("a different server version is a warning with what needs updating; the work
   }
 });
 
-test("if the server rejects the workspace because of its revision, the different version is an error and not a second problem", async () => {
+test("if the server rejects the workspace and speaks a newer extension interface, the error names both and not a second problem", async () => {
   const refusal = "The workspace Notebook brings executor 7, the server requires 8. Update the RAgents extension in VS Code or the package @schlenkr/ragents on the workspace.";
-  const server = await startStubServer({ version: "0.1.9", refuseRegistration: { code: "workspace-executor-version", message: refusal } });
+  const server = await startStubServer({ version: "0.1.9", extensionApi: EXTENSION_API_VERSION + 1, refuseRegistration: { code: "workspace-executor-version", message: refusal } });
   const { services } = harness({ A: server.url });
   const session = new ConnectionSession(serverConnection("A", server.url), services);
   try {
@@ -372,7 +369,8 @@ test("if the server rejects the workspace because of its revision, the different
     await waitFor(() => session.workspaceClient?.status.kind === "failed" && session.snapshot().versionNotice?.level === "error");
     assert.deepEqual(session.snapshot().versionNotice, {
       level: "error",
-      text: `RAgents version does not match: extension 0.1.8, server 0.1.9 - update the RAgents extension to 0.1.9. The workspace is therefore not registered: ${refusal}`,
+      text: `RAgents extension interface does not match: extension 0.1.8 (interface ${EXTENSION_API_VERSION}), server 0.1.9 (interface ${EXTENSION_API_VERSION + 1}) `
+        + `- update the RAgents extension to 0.1.9. The workspace is therefore not registered: ${refusal}`,
       update: "extension",
     });
     assert.equal(session.snapshot().problem, undefined, "the refusal appears only in the version notice");
@@ -382,7 +380,7 @@ test("if the server rejects the workspace because of its revision, the different
   }
 });
 
-test("with the same version, a rejected revision is an error; another refusal stays a problem of the workspace", async () => {
+test("with the same extension interface, a rejected revision is an error; another refusal stays a problem of the workspace", async () => {
   const refusing = await startStubServer({ refuseRegistration: { code: "workspace-executor-contributions", message: "The workspace Notebook brings none of the executor contributions." } });
   const other = await startStubServer({ refuseRegistration: { code: "workspace-client-busy", message: "Not right now." } });
   const { services } = harness({ A: refusing.url, B: other.url });
@@ -404,33 +402,51 @@ test("with the same version, a rejected revision is an error; another refusal st
   }
 });
 
-test("a server without a version is older than this extension", async () => {
-  const server = await startStubServer({ version: null });
-  const { services } = harness({ A: server.url });
-  const session = new ConnectionSession(serverConnection("A", server.url), services);
+test("a server without an extension interface predates the check and is a warning; without a version too", async () => {
+  const older = await startStubServer({ version: "0.1.7", extensionApi: null });
+  const oldest = await startStubServer({ version: null });
+  const { services } = harness({ A: older.url, B: oldest.url });
+  const a = new ConnectionSession(serverConnection("A", older.url), services);
+  const b = new ConnectionSession(serverConnection("B", oldest.url), services);
   try {
-    await session.connect();
-    await waitFor(() => session.snapshot().versionNotice !== undefined);
-    assert.deepEqual(session.snapshot().versionNotice, {
+    await Promise.all([a.connect(), b.connect()]);
+    await waitFor(() => a.snapshot().versionNotice !== undefined && b.snapshot().versionNotice !== undefined);
+    assert.deepEqual(a.snapshot().versionNotice, {
       level: "warning",
-      text: "RAgents version does not match: extension 0.1.8, server without version - update the server to 0.1.8.",
+      text: "RAgents server 0.1.7 predates the extension interface check - update the server to 0.1.8.",
+      update: "server",
+    });
+    assert.deepEqual(b.snapshot().versionNotice, {
+      level: "warning",
+      text: "RAgents server without version predates the extension interface check - update the server to 0.1.8.",
       update: "server",
     });
   } finally {
-    await closeAll([session], [server]);
+    await closeAll([a, b], [older, oldest]);
   }
 });
 
-test("the order of versions counts per position; a local profile brings the host at ragents.hostPath to the extension version", () => {
+test("the interface numbers decide the older side, not the release versions; a local profile brings the local host to the extension version", () => {
   const registered = { kind: "registered" } as const;
-  assert.equal(versionNotice({ extension: "0.1.10", server: "0.1.9", connection: "server", workspace: registered })?.update, "server");
-  assert.equal(versionNotice({ extension: "0.1.9", server: "0.1.10", connection: "server", workspace: registered })?.update, "extension");
-  assert.equal(versionNotice({ extension: "0.1.9", server: "0.1.9", connection: "server", workspace: registered }), undefined);
-  assert.equal(versionNotice({ extension: "0.1.9", server: undefined, connection: "server", workspace: registered }), undefined, "without an answer from the server, there is nothing to compare");
-  assert.equal(versionNotice({ extension: "0.2.0", server: "0.1.9", connection: "profile", workspace: undefined })?.text,
-    "RAgents version does not match: extension 0.2.0, server 0.1.9 - bring the host at ragents.hostPath to 0.2.0.");
-  assert.deepEqual(versionNotice({ extension: "dev", server: "0.1.9", connection: "server", workspace: registered }), {
-    level: "warning", text: "RAgents version does not match: extension dev, server 0.1.9 - bring extension and server to the same version.", update: undefined,
+  const refused = { kind: "failed", message: "executor 7 instead of 8.", mismatch: true } as const;
+  const extension = { version: "0.1.9", extensionApi: 2 };
+  assert.equal(versionNotice({ extension, server: { version: "0.1.12", extensionApi: 2 }, connection: "server", workspace: registered }), undefined);
+  assert.equal(versionNotice({ extension, server: undefined, connection: "server", workspace: registered }), undefined, "without an answer from the server, there is nothing to compare");
+  assert.deepEqual(versionNotice({ extension, server: { version: "0.1.12", extensionApi: 1 }, connection: "server", workspace: registered }), {
+    level: "error", text: "RAgents extension interface does not match: extension 0.1.9 (interface 2), server 0.1.12 (interface 1) - update the server to 0.1.9.", update: "server",
+  });
+  assert.deepEqual(versionNotice({ extension, server: { version: "0.1.8", extensionApi: 3 }, connection: "server", workspace: registered }), {
+    level: "error", text: "RAgents extension interface does not match: extension 0.1.9 (interface 2), server 0.1.8 (interface 3) - update the RAgents extension to 0.1.8.", update: "extension",
+  });
+  assert.equal(versionNotice({ extension, server: { version: "0.1.7", extensionApi: 1 }, connection: "profile", workspace: undefined })?.text,
+    "RAgents extension interface does not match: extension 0.1.9 (interface 2), server 0.1.7 (interface 1) - bring the local host to 0.1.9.");
+  assert.deepEqual(versionNotice({ extension, server: { version: "0.1.7", extensionApi: null }, connection: "profile", workspace: registered }), {
+    level: "warning", text: "RAgents server 0.1.7 predates the extension interface check - bring the local host to 0.1.9.", update: "server",
+  });
+  assert.deepEqual(versionNotice({ extension, server: { version: "0.1.7", extensionApi: null }, connection: "server", workspace: refused }), {
+    level: "error",
+    text: "RAgents server 0.1.7 predates the extension interface check - update the server to 0.1.9. The workspace is therefore not registered: executor 7 instead of 8.",
+    update: "server",
   });
 });
 

@@ -1146,17 +1146,18 @@ export class ActorProgramRuntime implements ActorProgramsService, ActorProgramEx
             throw new Error("Eight actor functions are already running.");
         checked(fn.inputSchema, input, "Function input");
         const invocation: ActorFunctionInvocation = { id: randomUUID(), requestId, actorId: program.actorId, actorHandle: program.actorHandle, appId: viewId, revision, actionId: functionId, input, output: [], createdAt: new Date().toISOString(), status: "queued" };
-        this.#replaceInvocation(runId, invocation, true);
+        this.#persistInvocation(runId, invocation, true);
         const controller = new AbortController();
         const completed = Promise.resolve().then(async () => {
             const started = { ...invocation, status: "running" as const, startedAt: new Date().toISOString() };
-            this.#replaceInvocation(runId, started);
+            this.#persistInvocation(runId, started);
+            const output: string[] = [];
+            let result: JsonValue;
             try {
                 if (fn.confirmation && !await this.#confirm(runId, invocation, fn.confirmation, controller.signal))
                     throw new Error("The function was not confirmed.");
                 const descriptorsFor = (capabilityIds: readonly string[]) => operatorCapabilityBinding(this.ownerId(runId), this.#options.operations.list(), capabilityIds).descriptors;
-                const output: string[] = [];
-                const result = await this.#executeFunction(runId, program, fn, input, { output, id: invocation.id, kind: "app-action", principal: { id: this.ownerId(runId), kind: "operator" }, descriptorsFor, call: async (name, value, index) => {
+                result = await this.#executeFunction(runId, program, fn, input, { output, id: invocation.id, kind: "app-action", principal: { id: this.ownerId(runId), kind: "operator" }, descriptorsFor, call: async (name, value, index) => {
                         const operation = this.#options.operations.operation(name)!;
                         const id = `${invocation.id}:capability:${index}`;
                         const confirmation = operation.operator === "confirm" ? await this.#confirm(runId, invocation, `Run ${operation.label}?`, controller.signal, value) : true;
@@ -1164,12 +1165,14 @@ export class ActorProgramRuntime implements ActorProgramsService, ActorProgramEx
                             throw new Error("The action was not confirmed.");
                         return this.#options.operations.invoke(name, { runId, invocationId: id, principal: { kind: "operator", actorId: this.ownerId(runId) }, signal: controller.signal, ...(operation.operator === "confirm" ? { operatorConfirmation: { operationId: name, invocationId: id, inputHash: canonicalHash(value) } } : {}) }, value);
                     } }, controller.signal);
-                this.#replaceInvocation(runId, { ...started, status: "succeeded", result, output, finishedAt: new Date().toISOString() });
             }
             catch (error) {
-                this.#replaceInvocation(runId, { ...started, status: controller.signal.aborted ? "cancelled" : "failed", error: errorText(error).slice(0, 8000), finishedAt: new Date().toISOString() });
+                this.#persistInvocation(runId, { ...started, status: controller.signal.aborted ? "cancelled" : "failed", error: errorText(error).slice(0, 8000), finishedAt: new Date().toISOString() });
+                return;
             }
-        }).finally(() => this.#active.delete(invocation.id));
+            this.#persistInvocation(runId, { ...started, status: "succeeded", result, output, finishedAt: new Date().toISOString() });
+        }).catch((error) => console.error("Actor function background task failed:", error))
+            .finally(() => this.#active.delete(invocation.id));
         this.#active.set(invocation.id, { runId, actorId: program.actorId, controller, completed });
         return invocation;
     }
@@ -1180,6 +1183,14 @@ export class ActorProgramRuntime implements ActorProgramsService, ActorProgramEx
         return invocation;
     }
     #invocations(runId: string): InvocationState { return (this.view(runId).pluginStates.find((entry) => entry.pluginId === ACTOR_INVOCATIONS_STATE_ID && entry.scope.kind === "run")?.state as unknown as InvocationState) ?? { version: 1, invocations: [], requestIds: [] }; }
+    #persistInvocation(runId: string, invocation: ActorFunctionInvocation, remember = false): void {
+        try {
+            this.#replaceInvocation(runId, invocation, remember);
+        }
+        catch (error) {
+            throw new Error(`Could not persist ${invocation.status} actor function invocation ${invocation.id} for actor ${invocation.actorId} in run ${runId}: ${errorText(error)}`, { cause: error });
+        }
+    }
     #replaceInvocation(runId: string, invocation: ActorFunctionInvocation, remember = false): void {
         const current = this.#invocations(runId);
         const entries = [...current.invocations.filter((entry) => entry.id !== invocation.id), invocation];

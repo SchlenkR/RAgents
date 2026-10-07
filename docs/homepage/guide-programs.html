@@ -926,6 +926,10 @@ and reloads the listing selectively, even while chat is idle. Text tokens do not
 and late responses cannot replace newer state. <code>useAppState()</code> moves this data through the bridge
 into React without remounting the client, preserving local form drafts. Active browser calls also
 poll their status until completion.</p>
+<p>A failed listing read retries at most three times, after 500, 1500, and 4000 milliseconds.
+Connection changes, browser online events, and the visible Retry action start a fresh attempt.
+Run and API identities own pending reads and retries; disposal aborts reads, and obsolete
+responses cannot change the current listing. Function calls are never automatically retried.</p>
 <p>Functions on the same actor execute in order; different actors can work in parallel. Every call
 receives an abort signal. The native execution platform owns processes and stop boundaries for
 runs and instances. Stopping a run ends active work, while removing an actor program or
@@ -933,5 +937,10 @@ activating a new version terminates execution resources from the previous versio
 server restart, previously pending or active mini-app function calls are marked <code>cancelled</code> and
 are not retried automatically. Unclaimed ActorInputs behave differently: they remain queued for
 an actor that is still executable. A mini-app click and a message to an actor use separate
-execution paths. Deleting the run also removes its private app workspace.</p>
+execution paths. Deleting the run also removes its private app workspace.
+Invocation status writes belong to the background task&#39;s error handling. A failed write reports
+the run, actor, invocation, attempted status, and cause, releases active task tracking, and
+preserves the last committed journal state. A journal write failure locks only that run;
+unrelated runs and the server remain available. Failure to store an execution result is not
+reported as a successfully stored failed execution.</p>
 <p class="guide-source">Source: <a href="../../docs/spec/actor-programs.md">docs/spec/actor-programs.md</a>. <a href="guide-programs.md">This chapter as Markdown</a>.</p><p><a href="guide-plugins.html">Choose a plugin form</a></p><nav class="guide-next" aria-label="Continue reading"><a href="guide-functions.html">Previous: Work with TypeScript</a><a href="guide-plugins.html">Next: Plugins and skills</a></nav></article></div></main><footer class="shell"><p>Generated from public documentation. Rebuild with <code>pnpm generate:homepage</code>. Verify with <code>pnpm check:homepage</code>.</p><nav aria-label="More pages"><a href="index.html">Homepage</a><a href="guide.html">Guide</a></nav></footer></body></html>

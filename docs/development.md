@@ -119,7 +119,7 @@ from plugins.
 | `packages/ragents`    | the engine: journal, actors, turns, events, scheduler, TypeScript platform                           |
 | `packages/agent`      | the agent runtime: agent loop, compaction, tools (read, write, edit, bash)                           |
 | `packages/workspace-executor` | the workstation executor made of modules: sandbox tools, language server client, files, processes, commands; plugins bring language servers and the browser as a contribution to the executor; with the same contributions in the server as on the workstation |
-| `packages/ai`         | the LLM integration (openrouter)                                                                     |
+| `packages/ai`         | the LLM integration (OpenRouter, AI SDK packages of profile providers)                               |
 | `apps/server`         | Node backend, plugin discovery, profile composition; `plugin-support/` are host building blocks, not plugins |
 | `apps/web`            | Shared browser and VS Code panel; chat binding to quassel in `src/chat`, navigation in `src/panel`, run UI in `src/run-panel` |
 | `apps/vscode`         | VS Code extension: environment selection and connection management, server interface and mini-apps as webviews, workstation for runs |
@@ -293,10 +293,13 @@ Browser runs arrange Chat, apps, and inspection tools through `run-panel/DockWor
 All panel containers stay at stable DOM positions during moves. Hidden visited panels retain
 their parent-fed props inside React `Activity`, preserving state and frames while pausing effects;
 reveal supplies current props and resumes effects. The shared run-list hook structurally shares
-unchanged responses and entries, keeping derived session contexts stable between real changes.
+unchanged responses and entries, keeping derived session contexts stable between real changes,
+and keeps known metadata through a refresh that reports it unavailable. Reconciliation never
+removes a panel that is only unavailable; `visibleDockState` hides it in its place.
 The additive web host API module
 `@ragents/web/run-panel/DockWorkspace` exposes `DockWorkspace` and `useDockActiveApp`; the latter
-reports the focused app for the existing user-location contract. Workspace tabs optionally declare
+reports the layout key (`RunApp.layoutKey`) of the focused app for the existing user-location
+contract. Workspace tabs optionally declare
 `hosts` to expose the Journal and Processes tools only in the browser. Server layout contracts
 stay unchanged. VS Code retains its app editor tabs and inspection popout.
 Unit coverage is in `apps/web/tests/dock-state.test.ts`; `docking-browser.test.ts` checks gestures,
@@ -808,6 +811,11 @@ its host from this file instead of from npm and starts the local profile from
 specifier is always `@schlenkr/ragents@<version>`. Without VS Code, `apps/vscode/tests/extension-bundle.test.ts` checks the same on a small scale: the
 built `dist/extension.js` lies in an empty temp folder, and a child process calls `activate`
 with a stub `vscode`.
+
+The extension works with a server of another release as long as both speak the same extension
+interface (`EXTENSION_API_VERSION`, `docs/spec/plugins.md`, section Web as plugin host). If
+`apps/vscode/tests/extension-api.test.ts` reports a changed contract, decide whether an older
+extension or server breaks with it, raise the number if so, and run `pnpm update:extension-api`.
 
 ### Building and publishing the package
 

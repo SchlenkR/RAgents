@@ -82,11 +82,9 @@ identifies a checkout by `pnpm-workspace.yaml`, it should test for something the
 instead, such as `apps/server/src/main.ts` beside `package.json`. Start with `ragents start <path-to-profile>`;
 the symlink is used only by scripts and tsconfig files in the external repository.
 
-The VS Code extension starts the same profile from the same package. To override automatic host
-selection, set `ragents.hostPath` to a checkout or the package directory
-(`<npm-prefix>/lib/node_modules/@schlenkr/ragents`). For workstation registration without this
-override, it fetches the package in the server's version as described under Run panel and VS Code
-extension in [usage.md](../usage.md).
+The VS Code extension starts the same profile from the same package, fetched in its own version.
+For workstation registration, it fetches the package in the server's version as described under
+Run panel and VS Code extension in [usage.md](../usage.md).
 
 ## Deploy from a local build
 
@@ -139,7 +137,7 @@ access rules as workstation registration.
 The extension and CLI workstation first try npm for the server's exact version.
 If that fails, they download the retained archive from the server, verify its SHA-512 integrity,
 and install it into their per-version cache with npm. No manual host installation is required on the
-workstation; `ragents.hostPath` still overrides automatic selection in VS Code.
+workstation.
 
 ## Connect to a server
 

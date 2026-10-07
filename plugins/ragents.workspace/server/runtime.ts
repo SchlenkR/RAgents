@@ -21,6 +21,7 @@ import type {
   WorkstationFolderContext,
 } from "@ragents/host/ragents/workspace-runtime.js";
 import { storedStartOption } from "@ragents/host/ragents/start-option-state.js";
+import { awaitWithSignal, sharedPreparation } from "@ragents/host/plugin-support/await-with-signal.js";
 import { sandboxToolNaming } from "./workspace-tool-naming.js";
 import { WorkspaceSandboxHost, type ServerRootDescription } from "@ragents/host/plugin-support/workspace-sandbox-host.js";
 import type { RunProcessSandboxes } from "@ragents/host/plugin-support/process-sandbox.js";
@@ -145,7 +146,7 @@ export class RunWorkspaceRuntime implements WorkspaceRuntime {
   readonly #options: RunWorkspaceRuntimeOptions;
   readonly #nugetCacheDirectory: string;
   /** The new folders on workstations that have already been created or are in progress during this server run. */
-  readonly #preparations = new Map<string, Promise<void>>();
+  readonly #preparations = new Map<string, ReturnType<typeof sharedPreparation<void>>>();
 
   constructor(options: RunWorkspaceRuntimeOptions) {
     this.#options = options;
@@ -254,29 +255,32 @@ export class RunWorkspaceRuntime implements WorkspaceRuntime {
     return {
       ...executor,
       execute: async (runId, operation, input, options = {}) => {
-        if (!options.whenReachable) await this.#prepared(runId, state, binding, executor);
+        if (!options.whenReachable) await this.#prepared(runId, state, binding, executor, options.signal);
+        options.signal?.throwIfAborted();
         return executor.execute(runId, operation, input, options);
       },
     };
   }
 
-  #prepared(runId: string, state: RunState | null, binding: WorkstationBinding, executor: WorkspaceExecutor): Promise<void> {
+  #prepared(runId: string, state: RunState | null, binding: WorkstationBinding, executor: WorkspaceExecutor, signal?: AbortSignal): Promise<void> {
+    signal?.throwIfAborted();
     const known = this.#preparations.get(runId);
-    if (known) return known;
-    const preparation = this.#prepare(runId, state, binding, executor).catch((error: unknown) => {
+    if (known?.signal.aborted) return awaitWithSignal(known.promise.catch(() => undefined), signal).then(() => this.#prepared(runId, state, binding, executor, signal));
+    if (known) return known.wait(signal);
+    const preparation = sharedPreparation((preparationSignal) => this.#prepare(runId, state, binding, executor, preparationSignal).catch((error: unknown) => {
       this.#preparations.delete(runId);
       throw error;
-    });
+    }));
     this.#preparations.set(runId, preparation);
-    return preparation;
+    return preparation.wait(signal);
   }
 
   /** Only a freshly created folder gets the contribution's steps; if one fails, the folder disappears again and the next task starts over. */
-  async #prepare(runId: string, state: RunState | null, binding: WorkstationBinding, executor: WorkspaceExecutor): Promise<void> {
-    const { created } = await executor.execute(runId, RUN_FOLDER_OPERATIONS.create, null) as RunFolderCreated;
+  async #prepare(runId: string, state: RunState | null, binding: WorkstationBinding, executor: WorkspaceExecutor, signal: AbortSignal): Promise<void> {
+    const { created } = await executor.execute(runId, RUN_FOLDER_OPERATIONS.create, null, { signal }) as RunFolderCreated;
     const steps = created ? this.#contribution()?.workstation?.prepare(this.#workstationContext(runId, state, binding)) ?? [] : [];
     try {
-      await this.#runSteps(runId, executor, steps);
+      await this.#runSteps(runId, executor, steps, { signal });
     } catch (error) {
       await executor.execute(runId, RUN_FOLDER_OPERATIONS.remove, null, { whenReachable: true });
       throw error;
@@ -284,7 +288,11 @@ export class RunWorkspaceRuntime implements WorkspaceRuntime {
   }
 
   async #runSteps(runId: string, executor: WorkspaceExecutor, steps: readonly WorkspaceFolderStep[], options: WorkspaceExecuteOptions = {}): Promise<void> {
-    for (const step of steps) await executor.execute(runId, step.operation, step.input, options);
+    for (const step of steps) {
+      options.signal?.throwIfAborted();
+      await executor.execute(runId, step.operation, step.input, options);
+    }
+    options.signal?.throwIfAborted();
   }
 
   #workstationContext(runId: string, state: RunState | null, binding: WorkstationBinding): WorkstationFolderContext {
@@ -297,7 +305,8 @@ export class RunWorkspaceRuntime implements WorkspaceRuntime {
     };
   }
 
-  async resolve(runId: string, emitSystem: (text: string) => void): Promise<SessionWorkspace> {
+  async resolve(runId: string, emitSystem: (text: string) => void, signal?: AbortSignal): Promise<SessionWorkspace> {
+    signal?.throwIfAborted();
     if (boundServerDirectory(this.#options.runState(runId)) && !this.#options.administratorFor(runId)) {
       throw new DomainError("workspace-server-folder-admin", "Only administrators may bind an existing folder on the server.", 403);
     }
@@ -307,9 +316,12 @@ export class RunWorkspaceRuntime implements WorkspaceRuntime {
     const { folder } = binding;
     const onWorkstation = isWorkstationBinding(binding);
     const workspace = onWorkstation ? this.#workstation(runId, state, binding, emitSystem)
-      : isFreshFolder(folder) ? await this.#fresh(runId, state, emitSystem) : this.#bound(folder, emitSystem);
+      : isFreshFolder(folder) ? await this.#fresh(runId, state, emitSystem, signal) : this.#bound(folder, emitSystem);
     if (workspace.hostSandbox?.ident) await this.sandbox.assertRootsForAccount(runId);
-    return this.#withRoots(workspace, onWorkstation);
+    signal?.throwIfAborted();
+    const resolved = await this.#withRoots(workspace, onWorkstation);
+    signal?.throwIfAborted();
+    return resolved;
   }
 
   /** What the prompt says about roots depends on the run's machine: only a bash on the server knows their variables. */
@@ -332,18 +344,21 @@ export class RunWorkspaceRuntime implements WorkspaceRuntime {
     return kind === undefined ? placement : { ...placement, kind };
   }
 
-  async #fresh(runId: string, state: RunState, emitSystem: (text: string) => void): Promise<SessionWorkspace> {
+  async #fresh(runId: string, state: RunState, emitSystem: (text: string) => void, signal?: AbortSignal): Promise<SessionWorkspace> {
     const resolver = this.#options.resolver();
     const directory = resolver?.kind
       ? this.#options.sessionDirectory(runId, "workspace")
       : await this.#sessionWorkspace(runId);
+    signal?.throwIfAborted();
     if (!resolver) return this.#directory(directory, freshDescription(directory));
     const { cwd, description, currentRoot, runOperation, ...rest } = await resolver.resolve({
       runId,
       directory,
       choice: this.#choiceFor(state, resolver),
       emitSystem,
+      signal,
     });
+    signal?.throwIfAborted();
     const resolved = path.resolve(cwd);
     return {
       ...this.#directory(resolved, description ?? freshDescription(resolved)),

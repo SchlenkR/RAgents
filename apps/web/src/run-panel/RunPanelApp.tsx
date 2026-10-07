@@ -24,17 +24,15 @@ import type { RunPanelLocation } from "./run-panel-location";
 import { RunPanelActions } from "./RunPanelActions";
 import { SERVER_SHARING } from "./RunShareButton";
 import { useRunPanelHost } from "./host";
-import { useSessionList } from "./use-session-list";
+import { useRetainedSession, useSessionList } from "./use-session-list";
 import { viewedReporter } from "./viewed-runs";
 import { BrandLogo } from "../ui/brand-logo";
+import { RunHeader } from "./RunHeader";
 
 const headerClass = "relative z-[80] flex min-h-header flex-none flex-wrap items-center border-b border-border bg-shell shadow-bar";
-const globalBarClass = "flex max-w-[25rem] min-w-0 flex-[1_1_10rem] items-center gap-1";
-const runBarClass = "order-3 flex min-w-0 max-w-full flex-[1_1_100%] items-stretch";
-const actionsBarClass = "order-2 ml-auto flex max-w-full min-w-0 flex-wrap items-center justify-end gap-1";
-// The VS Code run bar is short enough to share one row on wide panels; the browser's window buttons are not.
-const wideRunBarClass = "min-[1100px]:order-2 min-[1100px]:flex-[1_1_26rem]";
-const wideActionsBarClass = "min-[1100px]:order-3";
+const globalBarClass = "flex max-w-[18rem] min-w-0 flex-[0_1_auto] items-center gap-1";
+const runBarClass = "flex min-w-0 max-w-[22rem] flex-[0_1_auto] items-stretch";
+const actionsBarClass = "ml-auto flex max-w-full min-w-0 flex-wrap items-center justify-end gap-1";
 const connectionClass = "max-w-[120px] self-center truncate rounded-full bg-secondary px-2 py-0.5 type-meta font-semibold text-muted-foreground";
 const pendingTitleClass = "min-w-0 flex-1 self-center truncate px-1.5 type-item";
 const STOP_REASON = "Stopped in the run panel";
@@ -222,18 +220,19 @@ function RunPanelPage({ connection, initialRunId, registry }: { connection: stri
     startDialog={{ onClose: host.kind === "vscode" ? showStart : () => setDraft(undefined), initialEntryId: draft.entryId }}
   />;
   const hasRunTitle = readRuns && Boolean(runId || launch || draft);
-  const session = sessions.find((entry) => entry.id === runId);
+  const listed = sessions.find((entry) => entry.id === runId);
+  const session = useRetainedSession(sessions, runId);
   const shareableBeforeStart = access.enabled && access.user !== null && writeRuns && runId !== undefined && runId === freshRunId;
   const pendingSession = useMemo(() => runId === undefined ? undefined
     : { ...placeholderSession(runId, runTitle), ...(shareableBeforeStart ? { canShare: true as const } : {}) }, [runId, runTitle, shareableBeforeStart]);
   useEffect(() => {
     if (runId === undefined) return;
-    if (session?.sharedAccess !== undefined) setWatchedShare(runId);
-    else if (session === undefined && watchedShare === runId) {
+    if (listed?.sharedAccess !== undefined) setWatchedShare(runId);
+    else if (listed === undefined && watchedShare === runId) {
       setWatchedShare(undefined);
       leaveToStart(REVOKED_SHARE_NOTICE);
     }
-  }, [leaveToStart, runId, session, watchedShare]);
+  }, [leaveToStart, listed, runId, watchedShare]);
   const stop = () => {
     if (runId === undefined) return;
     setStopError(undefined);
@@ -356,29 +355,29 @@ function RunPanelPage({ connection, initialRunId, registry }: { connection: stri
     );
   };
   return <WorkspaceModalContext.Provider value={workspaceContainer}><div className="flex h-full flex-col">
-    <header className={`${headerClass} gap-x-1 px-2`}>
+    <RunHeader leading={<>
       <div className={globalBarClass}>
         <Button aria-label="Back to Start" className="self-center" onClick={showStart} size="icon" title="Back to Start" variant="ghost">
           <BrandLogo className="size-6 text-foreground" title={registry.brand.title} />
         </Button>
-        <div className="flex min-w-10 flex-1 items-center">
+        <div className="flex min-w-0 flex-1 items-center empty:hidden">
           <PanelContributions registry={registry} userLocation={chatUserLocation(runId, false, runLocation)} />
         </div>
       </div>
-      {hasRunTitle && <div className={`${runBarClass} ${host.kind === "vscode" ? wideRunBarClass : ""}`}>
+      {hasRunTitle && <div className={runBarClass}>
         {launch || draft ? <div aria-label="Run title bar" className="flex min-w-0 flex-1 items-stretch" role="region"><h1 className={pendingTitleClass}>{runTitle ?? NEW_RUN_TITLE}</h1></div>
           : <div aria-label="Run title bar" className="flex min-w-0 flex-1 items-stretch" ref={setHeaderContainer} role="region" />}
       </div>}
-      <div className={`${actionsBarClass} ${host.kind === "vscode" ? wideActionsBarClass : ""}`}>
+    </>} trailing={<div className={actionsBarClass}>
         {connection && <span className={connectionClass} title={`Environment ${connection}`}>{connection}</span>}
         {readRuns && runId && <>
           <RunStateIcon className="self-center px-1.5" state={session?.state === "paused" ? "paused" : session?.running ? "running" : "idle"} />
           {session?.sharedAccess !== "read" && <StopButton className="self-center" disabled={!writeRuns} label="Stop run" onClick={stop} size="icon-lg" title="Stop the run with all agents and flows" />}
         </>}
         <RunPanelActions onOpenSettings={openSettings} onOpenHelp={() => setHelpOpen(true)} />
-      </div>
-    </header>
+    </div>}>
     <div className="relative flex min-h-0 flex-1 flex-col" ref={setWorkspaceContainer}>{content()}</div>
+    </RunHeader>
   </div></WorkspaceModalContext.Provider>;
 }
 
@@ -415,13 +414,14 @@ function ElementPage({ elementId, registry, runId }: { elementId: string; regist
   const host = useRunPanelHost();
   const readRuns = useAccess().can("runs.read");
   const { sessions } = useSessionList(readRuns);
+  const session = useRetainedSession(sessions, runId);
   const pendingSession = useMemo(() => placeholderSession(runId), [runId]);
   const layout = useMemo(() => ({ element: elementId }), [elementId]);
   useEffect(() => { host.notify({ type: "ready" }); }, [host]);
   if (!readRuns) return <p className={noticeClass}>No runs are enabled for this user account.</p>;
   return (
     <main className="relative flex h-full min-h-0 min-w-0 flex-1 bg-background @container/chat-content">
-      <PluginChat key={runId} layout={layout} registry={registry} session={sessions.find((entry) => entry.id === runId) ?? pendingSession} />
+      <PluginChat key={runId} layout={layout} registry={registry} session={session ?? pendingSession} />
     </main>
   );
 }

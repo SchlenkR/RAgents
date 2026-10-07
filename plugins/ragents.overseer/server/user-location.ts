@@ -57,7 +57,7 @@ function selectedElement(view: RunView, selection: NonNullable<ChatUserLocation[
   return "Element no longer exists or cannot be resolved here";
 }
 
-export function createUserLocationContext(management: () => RunManagement, directory: RunDirectory): Pick<GlobalChatPolicy, "inputContext" | "contextPrompt"> {
+export function createUserLocationContext(management: () => RunManagement, directory: RunDirectory): Pick<GlobalChatPolicy, "inputContext" | "inputOrientation"> {
   return {
     inputContext: async (runtime, coordinatorId, value) => {
       const location = parseUserLocation(value);
@@ -81,13 +81,10 @@ export function createUserLocationContext(management: () => RunManagement, direc
       if (!event) throw new Error("The interface context was not journaled.");
       return [event.eventId];
     },
-    contextPrompt: (runtime, coordinatorId, actor) => {
-      const view = runtime.view(coordinatorId);
-      const turnId = actor.lifecycle.kind === "running" ? actor.lifecycle.turnId : undefined;
-      const inputId = view.turns.find((turn) => turn.id === turnId)?.inputId;
-      const sources = view.inputs.find((input) => input.id === inputId)?.sourceEventIds ?? [];
+    inputOrientation: (runtime, coordinatorId, input) => {
+      if (input.origin !== "human") return "";
       const events = runtime.events(coordinatorId);
-      const event = events.find((entry) => sources.includes(entry.eventId)
+      const event = events.find((entry) => input.sourceEventIds.includes(entry.eventId)
         && (entry.type === "plugin.state-replaced" || entry.type === "plugin.state-patched") && entry.payload.pluginId === OVERSEER_PLUGIN_ID);
       const state = event && (event.type === "plugin.state-replaced" || event.type === "plugin.state-patched") ? pluginStateAt(events, event) : undefined;
       const text = record(state) && state.kind === "user-location" && typeof state.text === "string" ? state.text : unavailable;

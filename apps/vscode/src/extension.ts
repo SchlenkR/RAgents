@@ -6,7 +6,7 @@ import type { RunPanelHostMessage, RunPanelTheme, HostRunPanelMessage, RunServic
 import { WORKSPACE_BINDING_OPTION_ID } from "../../../plugins/ragents.workspace/contract";
 import { prepareProfile } from "../../../scripts/remote/connect";
 import { ensureHostLinks } from "../../../scripts/package/host-links.mjs";
-import { connectionSecretKey, connectionSetting, connectionsLocation, describeConnection, isProfileFile, parseConnections, profileFilesIn, profileNameOf, resolveHostPath, type Connection, type ConnectionsLocation } from "./connections";
+import { connectionSecretKey, connectionSetting, connectionsLocation, describeConnection, isProfileFile, parseConnections, profileFilesIn, profileNameOf, extensionCheckout, type Connection, type ConnectionsLocation } from "./connections";
 import { DOCUMENT_SCHEME, journalUri, RunDocuments } from "./documents";
 import { bundledBash, bundledRipgrep, ensureHostPackage, hostCommand, inheritedEnvironment, matchingHostVersion, packagedHostVersion, provisionTools, startHost, type RunningHost } from "./host-process";
 import { connectedCount, connectionView, newRunChoices, panelState, pendingActions, preselectable, resolveConnection, type NewRunChoice } from "./overview-model";
@@ -353,25 +353,14 @@ export async function activate(context: vscode.ExtensionContext): Promise<RAgent
     void vscode.window.showInformationMessage(`No value is stored for ${name} anymore.`);
   };
 
-  const configuredHost = (): string | undefined => {
-    const value = vscode.workspace.getConfiguration("ragents").get("hostPath");
-    return value === undefined || typeof value === "string" && !value.trim() ? undefined : resolveHostPath(value, context.extensionPath);
-  };
+  const checkout = extensionCheckout(context.extensionPath);
 
-  /** The host used for profile suggestions: a setting, development checkout, or last local host. */
-  const knownHost = (): string | undefined => {
-    try {
-      return configuredHost() ?? resolveHostPath(undefined, context.extensionPath) ?? context.globalState.get<string>(HOST_PATH_KEY);
-    } catch (cause) {
-      log(`== Setting ragents.hostPath: ${message(cause)}`);
-      return context.globalState.get<string>(HOST_PATH_KEY);
-    }
-  };
+  /** The host used for profile suggestions: the extension's checkout or the last local host. */
+  const knownHost = (): string | undefined => checkout ?? context.globalState.get<string>(HOST_PATH_KEY);
 
-  /** A configured host or the cached package in the requested version. */
+  /** The extension's checkout or the cached package in the requested version. */
   const ensureHost = async (version: string, report: (detail: string) => void, source?: import("../../../scripts/package/host-package.ts").HostPackageSource): Promise<string> => {
-    const configured = configuredHost();
-    if (configured) return configured;
+    if (checkout) return checkout;
     report(`Fetching host package ${version} ...`);
     return ensureHostPackage(context.globalStorageUri.fsPath, version, await hostEnvironment(), log, source);
   };
@@ -400,7 +389,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<RAgent
     }
     return vscode.window.withProgress({ location: vscode.ProgressLocation.Notification, title: `RAgents: ${connection.name}` }, async (progress) => {
       const detail = (text: string) => { progress.report({ message: text }); report(text); };
-      const hostPath = configuredHost() ?? resolveHostPath(undefined, context.extensionPath) ?? await ensureHost(packagedHostVersion(context.extensionPath), detail);
+      const hostPath = await ensureHost(packagedHostVersion(context.extensionPath), detail);
       const host = await startLocalHost(hostPath, connection.profileFile, defaultDataDirectory(profileNameOf(connection.profileFile)), await hostEnvironment(), detail);
       return { url: host.url, token: host.token, host };
     });
@@ -450,7 +439,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<RAgent
   const services: SessionServices = {
     version: packagedHostVersion(context.extensionPath),
     workspaceClient: (transport) => new WorkspaceClient(transport, identity(), {
-      hostRoot: configuredHost,
+      hostRoot: () => checkout,
       prepareHost: async (report) => {
         const server = await transport.rpc.call(coreContracts.plugins.bootstrap, {});
         if (!server.version) throw new Error("The server reports no RAgents version. Update the server before registering this workstation.");
@@ -475,7 +464,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<RAgent
     },
   };
 
-  /** A different version is announced once per server and text as a notification; the pages and the status bar show it as long as it persists. */
+  /** A version notice is announced once per server and text as a notification; the pages and the status bar show it as long as it persists. */
   const shownNotices = new Map<string, string>();
   const announceVersionNotices = () => {
     const current = snapshots();
@@ -898,9 +887,6 @@ export async function activate(context: vscode.ExtensionContext): Promise<RAgent
       }
       if (event.affectsConfiguration("ragents.theme")) rerender();
       if (event.affectsConfiguration("ragents.connections")) void syncConnections();
-      if (event.affectsConfiguration("ragents.hostPath") && [...sessions.values()].some((session) => session.host)) {
-        void vscode.window.showInformationMessage("The host has changed; it applies from the next start of a server.");
-      }
       if (event.affectsConfiguration("ragents.hostEnvironment")) {
         void refreshMissingSecrets();
         if ([...sessions.values()].some((session) => session.host)) {

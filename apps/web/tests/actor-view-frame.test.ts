@@ -25,17 +25,19 @@ channel.port1.onmessage = ({ data }) => {
 };
 channel.port1.start();
 window.bridgeRequest = async (request) => {
-  await ready;
-  return new Promise((resolve) => {
-    pending.set(request.requestId, resolve);
-    channel.port1.postMessage(request);
+  return new Promise((resolve, reject) => {
+    const timeout = setTimeout(() => reject(new Error('Bridge response timed out: ' + request.requestId)), 3000);
+    ready.then(() => {
+      pending.set(request.requestId, value => { clearTimeout(timeout); resolve(value); });
+      channel.port1.postMessage(request);
+    });
   });
 };
 parent.postMessage({ type: 'ragents.app.frame-ready', version: 1,
   token: new URLSearchParams(location.hash.slice(1)).get('ragentsBridge') }, '*', [channel.port2]);
 `;
 
-const frameHtml = `<!doctype html><html><body><p>Bridge-Fixture</p><script>${bridgeScript}</script></body></html>`;
+const frameHtml = `<!doctype html><html><body><p>Bridge-Fixture</p><input aria-label="Frame draft"><script>window.documentIdentity = Math.random();${bridgeScript}</script></body></html>`;
 
 const formNonce = "form-test-nonce";
 
@@ -53,9 +55,16 @@ type ProbeWindow = Window & {
   bridgeRequest: (request: Record<string, unknown>) => Promise<BridgeResponse>;
   invocationRequests: string[];
   invokeDelayMs: number;
+  hostBridgeCloseCount: number;
+  frameFixture: {
+    setActive: (active: boolean) => void;
+    setRevision: (revision: string) => void;
+    changeInvoke: () => void;
+    unmount: () => void;
+  };
 };
 
-type FrameResponse = { html: string; headers?: Record<string, string> };
+type FrameResponse = { html: string; headers?: Record<string, string>; delayMs?: number };
 
 const openHostFrame = async (context: TestContext, frameResponse: FrameResponse) => {
   const scratch = path.join(tmpdir(), "ragents-frame-request-window");
@@ -66,6 +75,8 @@ const openHostFrame = async (context: TestContext, frameResponse: FrameResponse)
     stdin: {
       contents: `
         import { createRoot } from "react-dom/client";
+        import { useState } from "react";
+        import { PanelActivity } from "./apps/web/src/run-panel/PanelActivity";
         import { ActorViewFrame } from "./plugins/ragents.actor-programs/web/ActorViewFrame";
         import { initializePalette } from "./apps/web/src/palette";
         import { initializeTheme } from "./apps/web/src/theme";
@@ -75,19 +86,32 @@ const openHostFrame = async (context: TestContext, frameResponse: FrameResponse)
         const app = { id: "status-view", actorId: "worker", actorHandle: "worker", title: "Status check",
           revision: "installed-revision", actions: [{ id: "status", label: "Status", confirmation: null }],
           state: { version: 1, revision: 1, values: { phase: "working" } }, invocations: [] };
-        const api = { frameUrl: () => "/frame" };
+        const api = { frameUrl: (_runId, _appId, revision) => "/frame?revision=" + revision };
         window.invocationRequests = [];
         window.invokeDelayMs = 0;
+        window.hostBridgeCloseCount = 0;
+        const closePort = MessagePort.prototype.close;
+        MessagePort.prototype.close = function () { window.hostBridgeCloseCount += 1; return closePort.call(this); };
         const invoke = async (appId, revision, actionId, requestId, input) => {
-          if (appId !== app.id || revision !== app.revision || actionId !== "status") throw new Error("Wrong invocation target");
+          if (appId !== app.id || revision !== window.frameRevision || actionId !== "status") throw new Error("Wrong invocation target");
           window.invocationRequests.push(requestId);
           if (window.invokeDelayMs > 0) await new Promise((resolve) => setTimeout(resolve, window.invokeDelayMs));
           return { id: "invocation-" + window.invocationRequests.length, appId, actorId: app.actorId,
             actorHandle: app.actorHandle, revision, actionId, requestId, output: [], result: input,
             status: "succeeded", createdAt: "2026-09-14T10:00:00Z", startedAt: "2026-09-14T10:00:00Z", finishedAt: "2026-09-14T10:00:00Z" };
         };
-        createRoot(document.getElementById("root")).render(<ActorViewFrame api={api} app={app}
-          invoke={invoke} runId="frame-test" session={{ session: { id: "frame-test" } }} />);
+        const root = createRoot(document.getElementById("root"));
+        function Fixture() {
+          const [active, setActive] = useState(true);
+          const [revision, setRevision] = useState(app.revision);
+          const [invokeVersion, setInvokeVersion] = useState(0);
+          window.frameRevision = revision;
+          window.frameFixture = { setActive, setRevision, changeInvoke: () => setInvokeVersion(value => value + 1), unmount: () => root.unmount() };
+          const currentInvoke = invokeVersion === 0 ? invoke : async (...args) => ({ ...(await invoke(...args)), result: "updated callback" });
+          return <PanelActivity active={active}><ActorViewFrame api={api} app={{ ...app, revision }}
+            invoke={currentInvoke} runId="frame-test" session={{ session: { id: "frame-test" } }} /></PanelActivity>;
+        }
+        root.render(<Fixture />);
       `,
       resolveDir: root,
       sourcefile: "frame-fixture.tsx",
@@ -99,12 +123,18 @@ const openHostFrame = async (context: TestContext, frameResponse: FrameResponse)
   });
   const script = await readFile(path.join(directory, "fixture.js"));
   const styles = await readFile(path.join(directory, "fixture.css"));
+  let frameLoads = 0;
   const server = createServer((request, response) => {
     if (request.url === "/fixture.js") { response.setHeader("Content-Type", "text/javascript"); response.end(script); return; }
     if (request.url === "/fixture.css") { response.setHeader("Content-Type", "text/css"); response.end(styles); return; }
     if (request.url?.startsWith("/frame")) {
-      response.writeHead(200, { "Content-Type": "text/html", ...frameResponse.headers });
-      response.end(frameResponse.html);
+      frameLoads += 1;
+      const respond = () => {
+        response.writeHead(200, { "Content-Type": "text/html", ...frameResponse.headers });
+        response.end(frameResponse.html);
+      };
+      if (frameResponse.delayMs) setTimeout(respond, frameResponse.delayMs);
+      else respond();
       return;
     }
     if (request.url !== "/") { response.writeHead(404); response.end(); return; }
@@ -126,10 +156,10 @@ const openHostFrame = async (context: TestContext, frameResponse: FrameResponse)
   page.on("pageerror", (error) => errors.push(error.message));
   const consoleErrors: string[] = [];
   page.on("console", (message) => { if (message.type() === "error") consoleErrors.push(message.text()); });
-  await page.goto(`http://127.0.0.1:${address.port}`);
+  await page.goto(`http://127.0.0.1:${address.port}`, { waitUntil: "domcontentloaded" });
   await page.locator("iframe").waitFor();
   context.diagnostic(`Isolated host frame fixture: ${directory}`);
-  return { page, errors, consoleErrors };
+  return { page, errors, consoleErrors, frameLoads: () => frameLoads };
 };
 
 const contentFrame = async (page: Page) => {
@@ -137,6 +167,92 @@ const contentFrame = async (page: Page) => {
   assert.ok(frame);
   return frame;
 };
+
+test("actor view retains its connected document, draft and current callbacks across Activity hiding", {
+  skip: process.env.RAGENTS_BROWSER_TESTS !== "1",
+  timeout: 30_000,
+}, async (context) => {
+  const { page, errors, frameLoads } = await openHostFrame(context, { html: frameHtml });
+  const frame = await contentFrame(page);
+  await frame.getByRole("textbox", { name: "Frame draft" }).fill("Keep this draft");
+  await frame.evaluate(() => (window as ProbeWindow).bridgeRequest({ type: "ragents.app.get-state", version: 1, requestId: "before-hide" }));
+  const identity = await frame.evaluate(() => Reflect.get(window, "documentIdentity"));
+  await page.evaluate(() => (window as ProbeWindow).frameFixture.setActive(false));
+  await page.locator("iframe").waitFor({ state: "hidden" });
+  await page.evaluate(() => (window as ProbeWindow).frameFixture.setActive(true));
+  await page.locator("iframe").waitFor({ state: "visible" });
+  assert.equal(await frame.getByRole("textbox", { name: "Frame draft" }).inputValue(), "Keep this draft");
+  assert.equal(await frame.evaluate(() => Reflect.get(window, "documentIdentity")), identity);
+  assert.equal(frameLoads(), 1, "Revealing must not reload the document");
+  const resumed = await frame.evaluate(() => (window as ProbeWindow).bridgeRequest({ type: "ragents.app.get-state", version: 1, requestId: "after-hide" }));
+  assert.equal(resumed.type, "ragents.app.state");
+  await page.evaluate(() => (window as ProbeWindow).frameFixture.changeInvoke());
+  const result = await frame.evaluate(() => (window as ProbeWindow).bridgeRequest({ type: "ragents.app.invoke", version: 1, requestId: "current-invoke", actionId: "status", input: null }));
+  assert.equal(result.invocation?.result, "updated callback");
+  assert.equal(frameLoads(), 1, "Replacing a callback must not reload the document");
+  await page.evaluate(() => { (window as ProbeWindow).invokeDelayMs = 300; });
+  const pending = frame.evaluate(() => (window as ProbeWindow).bridgeRequest({ type: "ragents.app.invoke", version: 1, requestId: "pending-hide", actionId: "status", input: null }));
+  await page.waitForFunction(() => (window as ProbeWindow).invocationRequests.includes("pending-hide"));
+  await page.evaluate(() => (window as ProbeWindow).frameFixture.setActive(false));
+  await page.locator("iframe").waitFor({ state: "hidden" });
+  assert.equal((await pending).invocation?.result, "updated callback", "An in-flight invocation can finish while hidden");
+  await page.evaluate(() => (window as ProbeWindow).frameFixture.setActive(true));
+  await page.locator("iframe").waitFor({ state: "visible" });
+  assert.equal(await page.evaluate(() => (window as ProbeWindow).hostBridgeCloseCount), 0);
+  await page.evaluate(() => (window as ProbeWindow).frameFixture.setRevision("new-revision"));
+  await page.waitForFunction(() => (window as ProbeWindow).hostBridgeCloseCount === 1);
+  await frame.getByRole("textbox", { name: "Frame draft" }).waitFor();
+  await frame.evaluate(() => (window as ProbeWindow).bridgeRequest({ type: "ragents.app.get-state", version: 1, requestId: "new-revision-state" }));
+  assert.equal(frameLoads(), 2, "A changed installed revision loads a fresh document");
+  assert.notEqual(await frame.evaluate(() => Reflect.get(window, "documentIdentity")), identity);
+  await page.evaluate(() => (window as ProbeWindow).frameFixture.setActive(false));
+  await page.locator("iframe").waitFor({ state: "hidden" });
+  await page.evaluate(() => (window as ProbeWindow).frameFixture.unmount());
+  await page.waitForFunction(() => (window as ProbeWindow).hostBridgeCloseCount === 2);
+  assert.equal(await page.locator("iframe").count(), 0);
+  assert.deepEqual(errors, []);
+});
+
+test("actor view finishes its first bridge while hidden and permits slow document loading", {
+  skip: process.env.RAGENTS_BROWSER_TESTS !== "1",
+  timeout: 30_000,
+}, async (context) => {
+  const { page, errors, frameLoads } = await openHostFrame(context, { html: frameHtml, delayMs: 5_500 });
+  await page.evaluate(() => (window as ProbeWindow).frameFixture.setActive(false));
+  await page.locator("iframe").waitFor({ state: "hidden" });
+  const frame = await contentFrame(page);
+  await frame.getByText("Bridge-Fixture", { exact: true }).waitFor({ state: "attached", timeout: 10_000 });
+  const result = await frame.evaluate(() => (window as ProbeWindow).bridgeRequest({ type: "ragents.app.get-state", version: 1, requestId: "hidden-state" }));
+  assert.equal(result.type, "ragents.app.state");
+  await page.evaluate(() => (window as ProbeWindow).frameFixture.setActive(true));
+  await page.locator("iframe").waitFor({ state: "visible" });
+  assert.equal(await page.getByText("App disconnected", { exact: true }).count(), 0);
+  assert.equal(frameLoads(), 1);
+  assert.deepEqual(errors, []);
+});
+
+test("actor view waits for a slow document before its bridge deadline", {
+  skip: process.env.RAGENTS_BROWSER_TESTS !== "1",
+  timeout: 30_000,
+}, async (context) => {
+  const { page, errors } = await openHostFrame(context, { html: frameHtml, delayMs: 6_000 });
+  await page.waitForTimeout(5_200);
+  assert.equal(await page.getByText("App disconnected", { exact: true }).count(), 0);
+  const frame = await contentFrame(page);
+  await frame.getByText("Bridge-Fixture", { exact: true }).waitFor();
+  const result = await frame.evaluate(() => (window as ProbeWindow).bridgeRequest({ type: "ragents.app.get-state", version: 1, requestId: "slow-state" }));
+  assert.equal(result.type, "ragents.app.state");
+  assert.deepEqual(errors, []);
+});
+
+test("actor view reports a loaded document without a bridge", {
+  skip: process.env.RAGENTS_BROWSER_TESTS !== "1",
+  timeout: 30_000,
+}, async (context) => {
+  const { page, errors } = await openHostFrame(context, { html: "<!doctype html><p>Missing bridge</p>" });
+  await page.getByText("The app did not open a valid host bridge.", { exact: true }).waitFor({ timeout: 10_000 });
+  assert.deepEqual(errors, []);
+});
 
 test("actor view keeps polling past 512 requests, rejects recent duplicates and disconnects navigation", {
   skip: process.env.RAGENTS_BROWSER_TESTS !== "1",

@@ -177,7 +177,9 @@ recorded there, and the context is read back from those records before each mode
 a restart the actor therefore continues with exactly the same context. A new actor starts with its
 own context or, when spawned with `forkOf`, with an unchanged copy of the context another LLM actor
 of the same run had at the end of its last finished turn before the spawn. Updating the system
-prompt does not replace the existing conversation history.
+prompt does not replace the existing conversation history. The system prompt stays the same from
+turn to turn; what changes per turn, such as the actors of the run at the start of the turn or the
+skills selected for the task, arrives with the turn's input and stays in the conversation as it was.
 
 Programmed actor state stores explicitly assigned data for functions and mini-apps. Before a
 replacement state is diffed and journaled, it is converted to JSON form: keys whose value is
@@ -198,9 +200,20 @@ and how long the summary may be are values of the model; a profile sets them for
 The journal alone holds the model context of an LLM actor. It is lossless for everything the model
 sees; the context is a pure, deterministic projection of it (`modelContextOf` in
 `packages/ragents/src/agents/model-context.ts`). The projection never re-renders; it reads stored
-forms. This keeps the prefix of every request byte-identical across turns and restarts, which the
-providers' prompt cache needs, and an actor continues with exactly the same context after a server
-restart. There is no private session file of the runtime.
+forms. There is no private session file of the runtime.
+
+The system prompt holds only what stays the same for an actor in its run: base prompt, role and
+output contracts, the tool orientation, the skill catalog, and the workspace chapter. It changes
+only with the configuration or the tool set, never with the run's state. Everything that changes
+from turn to turn goes into the input that starts the turn and is journaled with it in
+`model.input.presented`: before the input text the orientation (`TurnRequest.orientation`), that is
+the actor roster as of turn start and the host's context for this input, such as the interface
+context of a global message; after it, as a text part of its own, the skills preloaded for the
+turn. The projection replays earlier turns with exactly this text. The request prefix of system
+prompt, tools, and projected messages is therefore byte-identical across turns and restarts and
+only grows at its end, which the providers' prompt cache needs, and an actor continues with exactly
+the same context after a server restart. Inputs of older journals lack these parts and replay as
+they were stored; nothing adds them afterwards.
 
 ### What goes into the journal
 
@@ -210,7 +223,8 @@ payloads are in `domain/events.ts`):
 - `model.input.presented`: a user message exactly as it went to the model, at its position between
   the model steps: the input that starts the turn, every input taken over through steering
   (`inputId`), and the loop's nudge after an empty response (`inputId` `null`). The text is
-  rendered, with the header line of delivered events and embedded text attachments. Images, videos,
+  rendered, with the orientation before it, the header line of delivered events, and embedded text
+  attachments; preloaded skills follow as a second text part. Images, videos,
   and PDFs are stored as the SHA-256 of their bytes under `artifacts/` (`{ type, mimeType, hash }`,
   files with `filename`), never as Base64.
 - `model.step.completed`: the complete assistant message of a model step, unabridged, with text,
@@ -305,7 +319,9 @@ passes this on to `TurnRequest.claimSteering`. The scheduler then takes the olde
 of the actor in journal order, up to the first one with more than 30000 characters of content
 (`STEERING_MAX_CHARS`), and writes a `turn.input-steered` with turn and input for each, all in one
 command. Only then do the texts go into the model context as user messages, prepared as at turn
-start: the same header line for delivered events, attachments as media, text, or a stored file. The
+start: the same header line for delivered events, the host's context for this input
+(`SteeredInput.orientation`), attachments as media, text, or a stored file; the actor roster and
+preloaded skills come only with the input that starts the turn. The
 decision checks that the turn is running, its actor has the agent driver, and no older waiting
 input is skipped; the journal check requires the same when loading, except for the driver. An input
 taken over this way is claimed by this turn (`lifecycle` `claimed` with `steered: true`) and starts
@@ -426,8 +442,9 @@ contains the agent loop, compaction, model runtime, and tools. Both packages rem
 third-party code; a rebase onto the upstream project has been given up. Only the host reads skills,
 and the runtime reads neither settings nor credential files, nor does it search for or install
 packages. Its own behavior is part of this chapter: the system prompt is that of the turn, with new
-tools in the middle of the turn the renewed one, plus the skill catalog if the agent has `read`,
-and the skills preloaded for this turn; an empty system prompt stays empty. Updated role rules and
+tools in the middle of the turn the renewed one, plus the skill catalog if the agent has `read`;
+preloaded skills are part of the turn's input, not of the system prompt, and an empty system prompt
+stays empty. Updated role rules and
 short initial hints thus take effect per turn; explicitly retrieved detail chapters remain
 conversation content and are not additionally taken into the system prompt. Thinking level `off`
 sends OpenRouter the explicit deactivation from the model catalog, such as
@@ -465,11 +482,15 @@ and processes). The check of the last read file state happens within the same mu
 writing, also for symbolic file aliases. A cancellation releases this lock only when a file operation already running
 has finished.
 
-Skill preloading (`ragents-skill-preload`, `drivers/skill-preload.ts`) attaches selected skill
-bodies only to the system prompt of the current turn. Explicit skill names are resolved
-deterministically. Otherwise, a short call to the same selected agent model classifies only the
-task, audience, skill names, and descriptions. It sees no skill bodies and may return `ABSTAIN`.
-Errors do not block the main turn but leave the normal skill catalog unchanged.
+Skill preloading (`ragents-skill-preload`, `drivers/skill-preload.ts`) attaches the selected skill
+bodies as a second text part to the input that starts the turn, after its text and before its
+media ("# Preloaded skills for this turn"). The part is journaled with the input, so later turns
+keep it unchanged in their context until a compaction summarizes it, and the system prompt stays
+the same. Explicit skill names are resolved deterministically. Otherwise, a short call to the same
+selected agent model classifies only the task, audience, skill names, and descriptions. The task is
+the rendered input text with its text attachments, without the orientation. The classifier sees
+no skill bodies and may return `ABSTAIN`. Errors do not block the main turn but leave the normal
+skill catalog unchanged. Inputs taken over through steering are not classified.
 
 A skill name exists exactly once in the whole profile, also across audiences, because it determines
 the folder under which the model reaches the skill. If two plugins deliver a skill of the same
@@ -796,14 +817,18 @@ same facts as a readable header line with event type, sender handle, and sequenc
 line of its active subscriptions. An input from `actor_input` stays unchanged: its `message` is
 `input.content`, `event` is `null`.
 
-### Actor roster and workspace in the system prompt
+### Actor roster in the input, workspace in the system prompt
 
-If an LLM actor actually has access to `actor_list`, the scheduler adds the current actor roster to
-its system prompt for every turn: addresses from the actor's room, display names, kind, and
+If an LLM actor actually has access to `actor_list`, the scheduler puts the actor roster as of
+turn start ("[Actors in the run, as of turn start]") at the head of the input that starts each
+turn, never into the system prompt: addresses from the actor's room, display names, kind, and
 lifecycle, plus the markers for the actor itself and the primary actor; in a run with rooms one
 line states the rule of addresses and the actor's room. This includes participants from run setups and from other
-creators; other actors' system prompts are not shown. During a turn, `actor_list` updates the
-roster. Without this tool, in particular with `tools: []`, the overview is omitted.
+creators; other actors' system prompts are not shown. The roster is journaled with the input, so
+every earlier turn keeps the roster it started with, and a fork inherits these rosters unchanged
+and starts its own turns with its own. Inputs taken over through steering bring no roster. During a
+turn, `actor_list` updates the roster. Without this tool, in particular with `tools: []`, the
+overview is omitted.
 
 If an actor has workspace tools, the scheduler appends a last chapter to its system prompt for
 every turn: the description of the resolved workspace, which the workspace itself provides
@@ -952,7 +977,7 @@ otherwise `room.handle`, with at most one dot; a bare name means the caller's ro
 room. A rejection names the addresses that exist from the caller's room. `addressFrom(actor, room)`
 writes an address as an actor in `room` reads it: the own room's and the main room's actors without
 prefix, any other with its room. The results of `actor_list`, `agent_spawn`, and the event
-subscriptions, the actor roster in the system prompt, the header of a delivered event, and the
+subscriptions, the actor roster at the head of a turn's input, the header of a delivered event, and the
 automatic notices to creators show addresses this way; the roster also states the rule and the
 actor's room once the run has a room. Surfaces for people and stored texts use `addressOf`, the
 address as the main room writes it, which is valid from every room.
@@ -1328,6 +1353,9 @@ presentation, and leave the original files in place. A generic scheduler availab
 prevents turns and tool validation for these runs, including when a lock takes effect during
 asynchronous turn preparation. Other runs continue normally. Repair and restart retry workspace
 resolution; a workstation's ordinary disconnected state is not a workspace failure.
+Caller cancellation during preparation also creates no workspace lock: the shared preparation
+stops only when no callers remain, clears its pending cache after cleanup, and can be retried
+without a host restart. An input already accepted by the run keeps its own execution lifetime.
 
 The original files of a rejected run stay byte-identical. A torn last line is repaired only after
 all complete v4 records have been checked successfully. An empty or unrecognizable journal is not

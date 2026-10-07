@@ -321,7 +321,7 @@ export const createEngine = async (options: EngineOptions): Promise<Engine> => {
     selectedSystemPrompts(promptCatalog, promptCatalog.defaultIds).map((option) => optionTexts.get(option.id) ?? ""),
     null);
   const basePromptFor = (runId: string, actor: ExecutableActor, toolNames: readonly string[]): string => {
-    if (globalChat?.isCoordinator(runId)) return [globalChat.prompt, outputContractFor("primary"), globalChat.contextPrompt?.(runtime, runId, actor)].filter(Boolean).join("\n\n");
+    if (globalChat?.isCoordinator(runId)) return [globalChat.prompt, outputContractFor("primary")].filter(Boolean).join("\n\n");
     const role = roleFor(runId, actor);
     const prompt = isRunCoordinator(runtime, runId, actor.id)
       ? coordinatorPromptFor(runId, toolNames)
@@ -359,6 +359,8 @@ export const createEngine = async (options: EngineOptions): Promise<Engine> => {
     basePrompt: basePromptFor,
     contract: (actor) => coreContractFor(actor),
     toolChapters: (runId, _actor, toolNames) => chaptersFor(runId, toolNames),
+    inputOrientation: (runId, input) => globalChat?.inputOrientation && globalChat.isCoordinator(runId)
+      ? globalChat.inputOrientation(runtime, runId, input) : "",
     onError: (error) => console.error(`Turn failed: ${error instanceof Error ? error.stack ?? error.message : String(error)}`),
   });
   const stopExternal: RunStopBoundary = (runId, stopJournal) => scheduler.haltRun(runId, async (

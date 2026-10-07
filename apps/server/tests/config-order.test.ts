@@ -64,7 +64,7 @@ export const config = { host: { ACCESS_TOKEN: env("RAGENTS_TEST_UNSET_VARIABLE")
 test("after loading, the configuration is in the environment and values already set win", async () => {
   const root = configRoot(`export const config = {
   host: { RAGENTS_TEST_HOST_VALUE: "from-the-file" },
-  "ragents.todo": { RAGENTS_TEST_PLUGIN_VALUE: 7, RAGENTS_TEST_LIST: ["a", "b"] },
+  "ragents.todo": { RAGENTS_TEST_PLUGIN_VALUE: 7, RAGENTS_TEST_LIST: ["a", "b"], RAGENTS_TEST_SWITCH: false },
 };
 `);
   process.env.PRODUCT_PROFILE = "test-order";
@@ -76,6 +76,7 @@ test("after loading, the configuration is in the environment and values already 
   assert.equal(process.env.RAGENTS_TEST_HOST_VALUE, "from-the-environment");
   assert.equal(process.env.RAGENTS_TEST_PLUGIN_VALUE, "7");
   assert.equal(process.env.RAGENTS_TEST_LIST, '["a","b"]');
+  assert.equal(process.env.RAGENTS_TEST_SWITCH, "0");
   assert.equal(configFilePath(), path.join(root, "ragents.config.test-order.ts"));
   await assert.rejects(() => loadConfigFile(root), /already been loaded/);
 });

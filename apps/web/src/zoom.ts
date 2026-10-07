@@ -20,7 +20,7 @@ export function parseZoom(value: string | null): ZoomStep {
 
 const errorMessage = (cause: unknown) => cause instanceof Error ? cause.message : String(cause);
 
-/** The zoom of the whole page in the browser, as CSS zoom on the root element; in VS Code the shell scales with ragents.zoom instead. */
+/** The zoom of the whole page in the browser, as a transform of the root element; in VS Code the shell scales with ragents.zoom instead. */
 export function createZoomStore(browser: Window) {
   const loaded = (() => {
     try {
@@ -41,8 +41,17 @@ export function createZoomStore(browser: Window) {
 
   function apply(next: ZoomStep) {
     const style = browser.document.documentElement.style;
-    if (next === 100) style.removeProperty("zoom");
-    else style.setProperty("zoom", String(next / 100));
+    const scale = next / 100;
+    style.setProperty("--ragents-viewport-width", `calc(100vw / ${scale})`);
+    style.setProperty("--ragents-viewport-height", `calc(100dvh / ${scale})`);
+    if (next === 100) {
+      for (const property of ["transform", "transform-origin", "width", "height"]) style.removeProperty(property);
+    } else {
+      style.setProperty("transform", `scale(${scale})`);
+      style.setProperty("transform-origin", "top left");
+      style.setProperty("width", `calc(100% / ${scale})`);
+      style.setProperty("height", `calc(100% / ${scale})`);
+    }
     if (snapshot.zoom === next && snapshot.error === null) return;
     snapshot = { zoom: next, error: null };
     notify();

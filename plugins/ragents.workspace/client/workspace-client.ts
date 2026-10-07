@@ -142,8 +142,8 @@ const loadedContributions = async (
   if (wanted.length === 0) return [];
   if (!hostRoot) {
     throw new Error(`The server requires the executor contributions of ${wanted.map(({ plugin }) => plugin).join(", ")}; this workstation `
-      + "knows no host from whose bundles it could load them. Use the RAgents extension to fetch the server's host version, "
-      + "set ragents.hostPath to a matching host, or install @schlenkr/ragents in the server's version.");
+      + "knows no host from whose bundles it could load them. Use the RAgents extension to fetch the server's host version "
+      + "or install @schlenkr/ragents in the server's version.");
   }
   return Promise.all(wanted.map(async ({ plugin, revision }) => {
     if (!PLUGIN_ID_PATTERN.test(plugin)) throw new Error(`The server names ${plugin} as a plugin; that is not a plugin ID`);

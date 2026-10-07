@@ -45,7 +45,7 @@ export * from "./plugin-types.ts";
 export * from "./rpc/protocol.ts";
 export * from "./rpc/contract.ts";
 export * from "./rpc/contribution.ts";
-export { RpcPeer, rpcErrorOf, rpcFailureOf, type RpcCallOptions, type RpcHandlerContext, type RpcPeerOptions } from "./rpc/peer.ts";
+export { RPC_REQUEST_TIMEOUT_MS, RpcPeer, rpcErrorOf, rpcFailureOf, type RpcCallOptions, type RpcHandlerContext, type RpcPeerOptions } from "./rpc/peer.ts";
 export { assertJsonValue, type JsonObject, type JsonValue } from "./domain/json.ts";
 export { PluginStateProjection, pluginStateAt } from "./domain/plugin-state.ts";
 export { actorByHandle, actorByReference, addressFrom, addressOf, freeRoomName, handleKey, type ReferencedActor } from "./domain/actor-reference.ts";

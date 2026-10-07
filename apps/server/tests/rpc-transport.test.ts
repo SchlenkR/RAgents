@@ -61,6 +61,7 @@ const fixture = () => {
   const channels = new ChannelContributionRegistry();
   const emitters = new Map<string, (message: { tick: number }) => void>();
   const stopped: string[] = [];
+  const slowSignals: AbortSignal[] = [];
   let echoed: unknown;
   methods.register("test", [
     implement(greet, ({ name }) => ({ text: `Hello ${name}` })),
@@ -72,14 +73,14 @@ const fixture = () => {
       return echoed as { value: string };
     }),
     implement(defineOperation({ id: "test.slow", description: "Waits for cancellation", input: Type.Object({}), result: Type.Object({ aborted: Type.Boolean() }) }), (_input, context) =>
-      new Promise((resolve) => { context.progress("running"); context.signal.addEventListener("abort", () => resolve({ aborted: true })); })),
+      new Promise((resolve) => { slowSignals.push(context.signal); context.progress("running"); context.signal.addEventListener("abort", () => resolve({ aborted: true })); })),
   ]);
   channels.register("test", [implementChannel(ticks, ({ runId }, emit) => {
     emitters.set(runId, emit);
     emit({ tick: 0 });
     return () => { emitters.delete(runId); stopped.push(runId); };
   })]);
-  return { dispatcher: new RpcDispatcher({ methods, channels }), emitters, stopped, echoed: () => echoed };
+  return { dispatcher: new RpcDispatcher({ methods, channels }), emitters, stopped, slowSignals, echoed: () => echoed };
 };
 
 const reader = createAccessContext({ enabled: true, user: { id: "reader", label: "Reader", rights: ["runs.read"] } });
@@ -188,6 +189,36 @@ test("http: closing the request aborts the running method", async (t) => {
   await new Promise((resolve) => setTimeout(resolve, 50));
   controller.abort();
   await assert.rejects(pending);
+  await until(() => f.slowSignals[0]?.aborted === true);
+});
+
+const until = async (condition: () => boolean): Promise<void> => {
+  const deadline = Date.now() + 3000;
+  while (!condition()) {
+    if (Date.now() > deadline) throw new Error("Condition was not met.");
+    await new Promise((resolve) => setTimeout(resolve, 5));
+  }
+};
+
+test("http: rpc.cancel reaches only the POST with the matching connection and ID", async (t) => {
+  const f = await httpFixture(t);
+  const first = await f.stream();
+  const second = await f.stream();
+  t.after(first.close);
+  t.after(second.close);
+  const request = { jsonrpc: "2.0", id: 10, method: "test.slow", params: {} };
+  const firstCall = f.post(request, first.connection);
+  await until(() => f.slowSignals.length === 1);
+  const secondCall = f.post(request, second.connection);
+  await until(() => f.slowSignals.length === 2);
+  assert.equal((await f.post({ jsonrpc: "2.0", method: RPC_METHODS.cancel, params: { id: 10 } }, first.connection)).status, 202);
+  assert.deepEqual((await firstCall).body, { jsonrpc: "2.0", id: 10, result: { aborted: true } });
+  assert.equal(f.slowSignals[0]!.aborted, true);
+  assert.equal(f.slowSignals[1]!.aborted, false);
+  await f.post({ jsonrpc: "2.0", method: RPC_METHODS.cancel, params: { id: 10 } }, second.connection);
+  assert.deepEqual((await secondCall).body, { jsonrpc: "2.0", id: 10, result: { aborted: true } });
+  const reused = await f.post({ jsonrpc: "2.0", id: 10, method: "test.greet", params: { name: "Alice" } }, first.connection);
+  assert.deepEqual(reused.body, { jsonrpc: "2.0", id: 10, result: { text: "Hello Alice" } });
 });
 
 test("stdio: one JSON message per line in both directions, closing the input ends the connection", async () => {
@@ -214,4 +245,37 @@ test("stdio: one JSON message per line in both directions, closing the input end
   await transport.closed;
   assert.deepEqual(f.stopped, ["s"]);
   assert.ok(transport.connection.closed);
+});
+
+test("http: cancelling a subscription while its provider opens releases the provider", async (t) => {
+  const methods = new MethodContributionRegistry();
+  const channels = new ChannelContributionRegistry();
+  let finishOpening: (() => void) | undefined;
+  let stopped = 0;
+  channels.register("test", [implementChannel(ticks, () => new Promise<() => void>((resolve) => {
+    finishOpening = () => resolve(() => { stopped += 1; });
+  }))]);
+  const transport = new RpcHttpTransport({ dispatcher: new RpcDispatcher({ methods, channels }) });
+  const server = createServer((request, response) => {
+    void transport.handle(request, response, new URL(request.url ?? "/", "http://host"), reader, true);
+  });
+  t.after(() => { transport.close(); server.closeAllConnections(); server.close(); });
+  server.listen(0, "127.0.0.1");
+  await once(server, "listening");
+  const address = server.address();
+  if (!address || typeof address === "string") throw new Error("test server without port");
+  const base = `http://127.0.0.1:${address.port}`;
+  const controller = new AbortController();
+  t.after(() => controller.abort());
+  const stream = await fetch(`${base}/rpc/stream`, { signal: controller.signal });
+  const hello = await stream.body!.getReader().read();
+  const connection = JSON.parse(new TextDecoder().decode(hello.value).match(/^data: (.+)$/m)![1]!).connection;
+  const post = (message: unknown) => fetch(`${base}/rpc`, { method: "POST", headers: { "content-type": "application/json", [RPC_CONNECTION_HEADER]: connection }, body: JSON.stringify(message) });
+  const pending = post({ jsonrpc: "2.0", id: 1, method: RPC_METHODS.subscribe, params: { channel: ticks.id, params: { runId: "run-1" } } });
+  await until(() => finishOpening !== undefined);
+  await post({ jsonrpc: "2.0", method: RPC_METHODS.cancel, params: { id: 1 } });
+  finishOpening!();
+  const outcome = await (await pending).json();
+  assert.equal(outcome.error.code, RPC_ERROR_CODES.cancelled);
+  assert.equal(stopped, 1);
 });

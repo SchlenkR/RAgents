@@ -57,8 +57,8 @@ export interface WorkstationSignIn {
 }
 
 /** A watch runs until aborted, cleanup briefly; everything else waits for the safety limit plus the duration the call itself requests. */
-const timeoutFor = (options: WorkspaceExecuteOptions): { timeoutMs?: number } => {
-  if (options.untilAborted) return {};
+const timeoutFor = (options: WorkspaceExecuteOptions): { timeoutMs: number | null } => {
+  if (options.untilAborted) return { timeoutMs: null };
   if (options.whenReachable) return { timeoutMs: CLEANUP_TIMEOUT_MS };
   return { timeoutMs: CLIENT_TIMEOUT_MS + (options.durationMs ?? 0) };
 };

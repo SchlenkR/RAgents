@@ -4,6 +4,9 @@ settings:
   autoInstallPeers: true
   excludeLinksFromLockfile: false
 
+patchedDependencies:
+  quassel@0.4.5: 7a7bd3ddc0adff7d342a8215f16036da3d76e883beea91d4d4f642cdc24520cc
+
 importers:
 
   .:
@@ -67,7 +70,7 @@ importers:
         version: 1.61.1
       quassel:
         specifier: ^0.4.5
-        version: 0.4.5(@types/react@19.2.18)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
+        version: 0.4.5(patch_hash=7a7bd3ddc0adff7d342a8215f16036da3d76e883beea91d4d4f642cdc24520cc)(@types/react@19.2.18)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
       react:
         specifier: ^19.2.0
         version: 19.2.8
@@ -146,7 +149,7 @@ importers:
         version: 4.7.9
       quassel:
         specifier: ^0.4.5
-        version: 0.4.5(@types/react@19.2.18)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
+        version: 0.4.5(patch_hash=7a7bd3ddc0adff7d342a8215f16036da3d76e883beea91d4d4f642cdc24520cc)(@types/react@19.2.18)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
       tsx:
         specifier: ^4.20.0
         version: 4.23.12
@@ -213,7 +216,7 @@ importers:
         version: 1.46.0(react@19.2.8)
       quassel:
         specifier: ^0.4.5
-        version: 0.4.5(@types/react@19.2.18)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
+        version: 0.4.5(patch_hash=7a7bd3ddc0adff7d342a8215f16036da3d76e883beea91d4d4f642cdc24520cc)(@types/react@19.2.18)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
       react:
         specifier: ^19.2.0
         version: 19.2.8
@@ -291,6 +294,12 @@ importers:
 
   packages/ai:
     dependencies:
+      '@ai-sdk/mistral':
+        specifier: 4.0.43
+        version: 4.0.43(zod@4.4.3)
+      '@ai-sdk/openai-compatible':
+        specifier: 3.0.48
+        version: 3.0.48(zod@4.4.3)
       '@openrouter/ai-sdk-provider':
         specifier: ^3.0.0
         version: 3.0.0(ai@7.0.99(zod@4.4.3))(zod@4.4.3)
@@ -371,6 +380,18 @@ packages:
 
   '@ai-sdk/gateway@4.0.80':
     resolution: {integrity: sha512-6t+07o8lSthpKf64Xb1qHWR2bWvJ3Fd2oFvS9fQc45p31bi2OUqan246e/ojAmZpWCiMPjKyQ4TBr4MYytnTiQ==}
+    engines: {node: '>=22'}
+    peerDependencies:
+      zod: ^3.25.76 || ^4.1.8
+
+  '@ai-sdk/mistral@4.0.43':
+    resolution: {integrity: sha512-QnJYogzXG3AYpOGTHlKQw9ybPv4oNQWHBehEwQJrgp5n2JM6mzu2BVvmR6nIXLHZQlZ7tkIyKlZN4zoL1rASbA==}
+    engines: {node: '>=22'}
+    peerDependencies:
+      zod: ^3.25.76 || ^4.1.8
+
+  '@ai-sdk/openai-compatible@3.0.48':
+    resolution: {integrity: sha512-WbalnkqFWBnLOQt0w5Jba4LROZz6nacpm5FXKNiJmcZkPbOju0K/DYFtPal2kLP4DiE9q23T0GIM8Zq6/O73tw==}
     engines: {node: '>=22'}
     peerDependencies:
       zod: ^3.25.76 || ^4.1.8
@@ -2873,6 +2894,18 @@ snapshots:
       '@vercel/oidc': 3.2.0
       zod: 4.4.3
 
+  '@ai-sdk/mistral@4.0.43(zod@4.4.3)':
+    dependencies:
+      '@ai-sdk/provider': 4.0.14
+      '@ai-sdk/provider-utils': 5.0.40(zod@4.4.3)
+      zod: 4.4.3
+
+  '@ai-sdk/openai-compatible@3.0.48(zod@4.4.3)':
+    dependencies:
+      '@ai-sdk/provider': 4.0.14
+      '@ai-sdk/provider-utils': 5.0.40(zod@4.4.3)
+      zod: 4.4.3
+
   '@ai-sdk/provider-utils@5.0.40(zod@4.4.3)':
     dependencies:
       '@ai-sdk/provider': 4.0.14
@@ -4985,7 +5018,7 @@ snapshots:
       es-define-property: 1.0.1
       side-channel: 1.1.1
 
-  quassel@0.4.5(@types/react@19.2.18)(react-dom@19.2.8(react@19.2.8))(react@19.2.8):
+  quassel@0.4.5(patch_hash=7a7bd3ddc0adff7d342a8215f16036da3d76e883beea91d4d4f642cdc24520cc)(@types/react@19.2.18)(react-dom@19.2.8(react@19.2.8))(react@19.2.8):
     dependencies:
       '@base-ui/react': 1.8.0(@types/react@19.2.18)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
       class-variance-authority: 0.7.1
