@@ -1405,18 +1405,38 @@ inspection rail, header, status bar, and dialogs. Colors, fonts, radii, and shad
 in `apps/web/src/ui/theme.css`; mini-app controls share these tokens.
 
 Under Settings, Appearance, the interface offers a palette (`ragents.palette`: `schichtwerk`, `graphite`,
-`midnight`, or `black`; default `schichtwerk`) and a color scheme: light, dark, or according to the system setting.
-Without a stored choice, the interface starts dark. The palette is a root attribute (`data-palette`) next to
-`data-theme`, stored and synchronized like the color scheme; the selectors in `palettes.css` work on any element,
-so the previews in the settings carry their own palette. The choice applies immediately to
-all runs and open tabs of the same server address in this browser; it is not a profile value
-and is not stored on the server. Changing it requires settings write rights.
+`midnight`, or `black`; default `schichtwerk`), a color scheme (light, dark, or according to the system setting), and
+three looks: corners (`ragents.corners`: `round` or `tight`, the radius token 0.5 or 0.375 rem), inline code
+(`ragents.codeStyle`: `tint`, a tinted background, or `outlined`, a chip with an outline) and table spacing
+(`ragents.density`: `comfortable` or `spacious`, the padding tokens of grid cells). Without a stored choice,
+the interface starts dark with the defaults above. Each choice is an attribute on the root element next to
+`data-theme` (`data-palette`, `data-corners`, `data-code-style`, `data-density`); the selectors in `palettes.css` work
+on any element, so the previews in the settings carry their own palette. The options, storage keys, and attribute
+names are defined once, import-free, in `apps/web/src/appearance-options.ts`; `appearance.ts` holds one store per
+choice (`createChoiceStore`), stored and synchronized like the color scheme. The choices apply immediately to
+all runs and open tabs of the same server address in this browser; they are not a profile value
+and are not stored on the server. Changing them requires settings write rights.
+The same controls (`AppearanceControls.tsx`) sit in Settings, Appearance, and in a quick switch: the palette
+button in the header, before Settings, opens a pop-out with the palette, color scheme, corners, inline code,
+and table spacing, so the look changes without leaving the run.
 The interface applies the stored appearance before the first React render. Only with the
 system choice does it follow later changes of the system setting. Theme switches change
 neither mounted views nor input drafts. Invalid stored values
 and storage errors are shown explicitly. The appearance is a fixed host area
 and stays reachable independently of contribution filters and the loading of the plugin settings.
 Mini-app frames receive the resolved appearance through their existing bridge (see actor-programs.md).
+
+In VS Code, the extension keeps the choices as the settings `ragents.theme` (`auto` follows the color theme of
+VS Code, which then also sets "System" in the panel), `ragents.palette`, `ragents.corners`,
+`ragents.codeStyle`, and `ragents.density`; the browser storage inside the panel is only a cache. The address
+of a frame carries the resolved scheme (`theme`), the setting (`scheme`), and the four looks, so the first paint
+is right; later changes of a setting or of the editor's color theme reach every webview (the sidebar panel, the
+navigation page, mini-app tabs) as an `appearance` message without reloading, together with the older `theme`
+message for servers that only know that one (the panel ignores it once it has received the settings). A change
+the user makes in the panel is reported as `appearanceChanged` with only the changed values; the extension
+writes the differing ones into the user settings and a setting that a workspace overrides is sent back, so the
+panel never shows a look that VS Code does not keep (`apps/vscode/src/extension.ts`,
+`apps/web/src/run-panel/host-appearance.ts`, `apps/vscode/tests/extension-bundle.test.ts`).
 
 In the browser host, Settings, Appearance, Zoom scales the whole page in the steps 80, 90, 100, 110,
 120, 130, and 150 percent, default 100 (`apps/web/src/zoom.ts`). Like the appearance, the choice is

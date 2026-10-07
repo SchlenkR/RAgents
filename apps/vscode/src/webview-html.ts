@@ -36,6 +36,13 @@ export const errorHtml = ({ nonce, title, message }: { nonce: string; title: str
 <body><p>RAgents: ${escapeHtml(message)}</p></body>
 </html>`;
 
+const looksAttributes = (looks: PanelState["looks"]): string => !looks ? "" : [
+  ["palette", looks.palette],
+  ["code-style", looks.codeStyle],
+  ["corners", looks.corners],
+  ["density", looks.density],
+].flatMap(([name, value]) => value === undefined ? [] : [` data-${name}="${escapeHtml(value)}"`]).join("");
+
 export const serverOrigin = (serverUrl: string): string => new URL(serverUrl).origin;
 
 /** The webview frames the shared web entry alias and bridges host messages and clipboard access. */
@@ -108,7 +115,7 @@ export interface PanelPageOptions {
 
 /** Connection management stays local even when no server can deliver its interface. */
 export const panelHtml = ({ nonce, title, state, scriptUri, styleUri, cspSource, zoom = 100 }: PanelPageOptions): string => `<!DOCTYPE html>
-<html lang="en" data-theme="${state.theme}">
+<html lang="en" data-theme="${state.theme}"${looksAttributes(state.looks)}>
 <head>
 <meta charset="UTF-8">
 <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'nonce-${nonce}'; style-src ${cspSource} 'unsafe-inline'; font-src ${cspSource}; img-src ${cspSource} data:;">

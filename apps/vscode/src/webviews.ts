@@ -1,12 +1,14 @@
 import { randomBytes } from "node:crypto";
 import * as vscode from "vscode";
-import { isRunPanelHostMessage, type RunPanelHostMessage, type RunPanelTheme, type HostRunPanelMessage } from "../../web/src/run-panel/host-contract";
+import { isRunPanelHostMessage, type RunPanelHostMessage, type RunPanelLooks, type RunPanelScheme, type RunPanelTheme, type HostRunPanelMessage } from "../../web/src/run-panel/host-contract";
 import { isPanelActionMessage, type PanelActionMessage, type PanelState } from "../../web/src/panel/contract";
 import { errorHtml, frameHtml, panelHtml } from "./webview-html";
 
 export interface FrameSettings {
   serverUrl: string;
   theme: RunPanelTheme;
+  scheme: RunPanelScheme;
+  looks: RunPanelLooks;
   accessToken: string | undefined;
 }
 
@@ -82,13 +84,13 @@ export class PanelView implements vscode.WebviewViewProvider {
       this.#renderPage(view, zoom.zoom);
       return "page";
     }
-    const key = `${selection.connection}|${frame.serverUrl}|${frame.theme}|${frame.accessToken ?? ""}`;
+    const key = `${selection.connection}|${frame.serverUrl}|${frame.accessToken ?? ""}`;
     if (!this.#showsPage && this.#frameKey === key) return "frame-kept";
     this.#showsPage = false;
     this.#frameKey = key;
     view.webview.html = frameHtml({
       serverUrl: frame.serverUrl,
-      query: { run: selection.runId, host: "vscode", connection: selection.connection, theme: frame.theme, access: frame.accessToken },
+      query: { run: selection.runId, host: "vscode", connection: selection.connection, theme: frame.theme, scheme: frame.scheme, ...frame.looks, access: frame.accessToken },
       nonce: nonce(),
       title: PANEL_TITLE,
       zoom: zoom.zoom,
@@ -173,10 +175,6 @@ export class AppPanels {
     for (const entry of [...this.#panels.values()]) if (entry.connection === connection) entry.panel.dispose();
   }
 
-  render(): void {
-    for (const entry of this.#panels.values()) this.#render(entry);
-  }
-
   zoomChanged(): void {
     const zoom = zoomOf(this.bridge);
     for (const entry of this.#panels.values()) {
@@ -204,7 +202,7 @@ export class AppPanels {
     }
     entry.panel.webview.html = frameHtml({
       serverUrl: frame.serverUrl,
-      query: { layout: "app", run: entry.runId, element: entry.elementId, host: "vscode", connection: entry.connection, theme: frame.theme, access: frame.accessToken },
+      query: { layout: "app", run: entry.runId, element: entry.elementId, host: "vscode", connection: entry.connection, theme: frame.theme, scheme: frame.scheme, ...frame.looks, access: frame.accessToken },
       nonce: nonce(),
       title: entry.title,
       zoom: zoom.zoom,

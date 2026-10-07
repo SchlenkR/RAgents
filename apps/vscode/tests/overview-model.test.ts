@@ -3,6 +3,7 @@ import test from "node:test";
 import { WORKSPACE_BINDING_OPTION_ID } from "../../../plugins/ragents.workspace/contract";
 import { connectedCount, connectionView, newRunChoices, panelState, pendingActions, preselectable, resolveConnection } from "../src/overview-model";
 import type { ConnectionSnapshot, SessionStatus } from "../src/sessions";
+import { defaultAppearance } from "../../web/src/appearance-options";
 import { session } from "./fixtures";
 
 const entries = [
@@ -39,7 +40,7 @@ const local = (overrides: Partial<ConnectionSnapshot> = {}): ConnectionSnapshot 
 });
 
 test("connection management lists servers and local profiles with their own runs and templates", () => {
-  const state = panelState({ theme: "dark", page: "connections", connections: [snapshot(), local()], profileSuggestions: ["/x/ragents.config.core.ts"], missingSecrets: [], problem: undefined, pickedProfileFile: undefined });
+  const state = panelState({ theme: "dark", looks: defaultAppearance, page: "connections", connections: [snapshot(), local()], profileSuggestions: ["/x/ragents.config.core.ts"], missingSecrets: [], problem: undefined, pickedProfileFile: undefined });
   assert.deepEqual(state.connections.map((entry) => [entry.name, entry.kind, entry.state.kind, entry.runs.length, entry.entries.length]), [
     ["workshop", "server", "connected", 1, 2],
     ["core", "profile", "stopped", 0, 0],
@@ -57,7 +58,7 @@ test("connection management lists servers and local profiles with their own runs
 });
 
 test("the panel carries the sharing panel and the Start notice the extension keeps, and every row its sharing for the user", () => {
-  const base = { theme: "dark" as const, page: "connections" as const, profileSuggestions: [], missingSecrets: [], problem: undefined, pickedProfileFile: undefined };
+  const base = { theme: "dark" as const, looks: defaultAppearance, page: "connections" as const, profileSuggestions: [], missingSecrets: [], problem: undefined, pickedProfileFile: undefined };
   const runs = [session({ id: "own", canShare: true, shared: true }), session({ id: "viewed", operable: false, ownerLabel: "Alice", sharedAccess: "read" })];
   const sharing = { connection: "workshop", runId: "own", result: { sharing: { everyone: "read" as const, users: [] }, users: [{ id: "bob", label: "Bob" }] } };
   const state = panelState({ ...base, connections: [snapshot({ runs })], sharing, notice: "This run is no longer available to you." });

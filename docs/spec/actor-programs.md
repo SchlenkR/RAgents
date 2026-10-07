@@ -525,9 +525,9 @@ light is no longer used. Actor programs that were already created keep their own
 explicitly edited and activated.
 
 Status colors and diff markers keep using the host's semantic tokens. On the first connection and
-on later theme changes, the host bridge sets the resolved appearance and the palette (`theme` and `palette` in the
-ready and theme messages; a message without `palette` leaves the palette unchanged) on the root element of the
-frame document, whose body takes the surface of the window. Neither the frame nor the actor state is reloaded for this; local inputs are
+on later theme changes, the host bridge sets the resolved appearance, the palette, and the looks (`theme`, `palette`, and
+`looks` with `codeStyle`, `corners`, and `density` in the ready and theme messages; a message without `palette` or
+`looks` leaves them unchanged) on the root element of the frame document, whose body takes the surface of the window. Neither the frame nor the actor state is reloaded for this; local inputs are
 preserved. An optional stylesheet of a mini-app's own stays loaded after the shared CSS. Hard-coded
 app colors are not recolored automatically.
 

@@ -23,7 +23,7 @@ before(() => {
 
 /** The .vsix brings no node_modules; the stub is everything the bundle finds when loading and activating. */
 const VSCODE_STUB = `const noop = () => undefined;
-const settings = { "ragents.connections": [], "ragents.theme": "auto", "ragents.zoom": 100 };
+const settings = { "ragents.connections": [], "ragents.theme": "auto", "ragents.zoom": 100, "ragents.palette": "schichtwerk", "ragents.codeStyle": "tint", "ragents.corners": "round", "ragents.density": "comfortable" };
 const providers = new Map();
 const commandHandlers = new Map();
 const contextValues = new Map();
@@ -486,6 +486,24 @@ const check = async () => {
   assert.equal(view.webview.html, secondFrame);
   assert.deepEqual(posted, [], "a server page change is observed without a navigation echo");
   assert.deepEqual(ready(), [{ type: "showPage", page: "start" }], "frame readiness restores the page selected in the server interface");
+  const configured = (key) => vscode.workspace.getConfiguration("ragents").get(key);
+  posted.length = 0;
+  receive({ type: "appearanceChanged", scheme: "dark", palette: "midnight", corners: "tight" });
+  await waitFor(() => configured("palette") === "midnight" && configured("corners") === "tight" && configured("theme") === "dark");
+  assert.deepEqual([configured("codeStyle"), configured("density")], ["tint", "comfortable"], "only the changed looks reach the settings");
+  assert.equal(view.webview.html, secondFrame, "a change made in the panel does not reload its frame");
+  assert.deepEqual(posted.filter((message) => message.type === "appearance").at(-1),
+    { type: "appearance", scheme: "dark", theme: "dark", palette: "midnight", codeStyle: "tint", corners: "tight", density: "comfortable" });
+  assert.ok(posted.some((message) => message.type === "theme" && message.theme === "dark"), "servers that only know the theme message still follow");
+  posted.length = 0;
+  receive({ type: "appearanceChanged", palette: "midnight", scheme: "dark" });
+  await new Promise((resolve) => setTimeout(resolve, 20));
+  assert.deepEqual(posted, [], "values that match the settings are neither written nor echoed");
+  receive({ type: "appearanceChanged", palette: "sepia" });
+  await waitFor(() => vscode.notifications.some((text) => text.includes("ragents.palette must be schichtwerk, graphite, midnight, or black")));
+  assert.equal(configured("palette"), "midnight");
+  receive({ type: "appearanceChanged", scheme: "auto", palette: "schichtwerk", corners: "round" });
+  await waitFor(() => configured("palette") === "schichtwerk" && configured("corners") === "round" && configured("theme") === "auto");
   receive({ type: "pageChanged", page: "runs" });
   appPanels[0].receive({ type: "pageChanged", page: "start" });
   assert.deepEqual(ready(), [{ type: "showPage", page: "runs" }], "another environment cannot change the selected server page");

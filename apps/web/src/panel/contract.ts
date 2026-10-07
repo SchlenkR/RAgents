@@ -1,7 +1,7 @@
 import type { RunShareAccess, RunSharing } from "@ragents/engine/src/domain/model";
 import type { RunListDetail } from "@ragents/engine/src/plugin-types";
 import type { RunSharingResult } from "@ragents/host/api/contracts";
-import type { RunPanelTheme } from "../run-panel/host-contract";
+import type { RunPanelLooks, RunPanelTheme } from "../run-panel/host-contract";
 
 /** A server of the extension: a RAgents server by address or a local profile that the extension starts itself. */
 export type ConnectionKind = "server" | "profile";
@@ -117,6 +117,8 @@ export const PANEL_PAGES = ["start", "runs", "connections"] as const;
 
 export interface PanelState {
   readonly theme: RunPanelTheme;
+  /** Palette, inline code style, corners, and table spacing from the host's settings; without it the defaults apply. */
+  readonly looks?: RunPanelLooks;
   readonly page: PanelPage;
   readonly connections: readonly ConnectionView[];
   /** The profile files in the host folder; the dialog offers them, without a host the list stays empty. */

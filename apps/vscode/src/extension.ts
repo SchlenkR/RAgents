@@ -13,7 +13,8 @@ import { connectedCount, connectionView, newRunChoices, panelState, pendingActio
 import type { ServerClient } from "./server-client";
 import { ServiceTunnels, serviceOnThisMachine } from "./service-tunnels";
 import { ConnectionSession, type ConnectionSnapshot, type LaunchedConnection, type SessionServices } from "./sessions";
-import { hostEnvironmentSecretKey, isEnvironmentName, missingHostEnvironmentSecrets, parseHostEnvironment, parseThemeSetting, parseZoomSetting, provideMissingSecret, resolveTheme, withHostEnvironmentSecrets, withRelaySession } from "./settings";
+import { hostEnvironmentSecretKey, isEnvironmentName, missingHostEnvironmentSecrets, parseHostEnvironment, parseLooks, parseLookSetting, parseThemeSetting, parseZoomSetting, provideMissingSecret, resolveTheme, withHostEnvironmentSecrets, withRelaySession } from "./settings";
+import { appearanceChoiceIds, appearanceChoices } from "../../web/src/appearance-options";
 import { connectionState, kindLabel } from "../../web/src/panel/connection-state";
 import { connectionStateWord } from "../../web/src/ui/state-vocabulary";
 import type { PanelAction, PanelActionMessage, PanelPage, PanelSharing, PanelState } from "../../web/src/panel/contract";
@@ -68,6 +69,13 @@ const configuredZoom = () => parseZoomSetting(vscode.workspace.getConfiguration(
 
 const configuredTheme = () => parseThemeSetting(vscode.workspace.getConfiguration("ragents").get("theme"));
 
+const appearanceSettings = ["ragents.theme", ...appearanceChoiceIds.map((id) => `ragents.${appearanceChoices[id].setting}`)];
+
+const configuredLooks = () => {
+  const configuration = vscode.workspace.getConfiguration("ragents");
+  return parseLooks((setting, fallback) => configuration.get(setting, fallback));
+};
+
 const sameConnection = (left: Connection, right: Connection): boolean =>
   left.kind === right.kind && (left.kind === "server"
     ? left.url === (right as Extract<Connection, { kind: "server" }>).url
@@ -107,7 +115,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<RAgent
   const frameFor = (connection: string): FrameSettings | undefined => {
     const session = sessions.get(connection);
     if (!session?.client || session.status.kind !== "connected") return undefined;
-    return { serverUrl: session.client.baseUrl, theme: resolveTheme(configuredTheme(), editorTheme()), accessToken: session.client.accessToken };
+    return { serverUrl: session.client.baseUrl, theme: resolveTheme(configuredTheme(), editorTheme()), scheme: configuredTheme(), looks: configuredLooks(), accessToken: session.client.accessToken };
   };
 
   const bridge = {
@@ -116,6 +124,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<RAgent
     selection: () => page === "connections" ? undefined : selection,
     panel: () => panelState({
       theme: resolveTheme(configuredTheme(), editorTheme()),
+      looks: configuredLooks(),
       page: "connections",
       connections: snapshots().filter((snapshot) => page === "connections" || selection === undefined || snapshot.connection.name === selection.connection),
       profileSuggestions: profileFilesIn(knownHost()),
@@ -152,9 +161,43 @@ export async function activate(context: vscode.ExtensionContext): Promise<RAgent
     return client;
   };
 
-  const rerender = () => {
-    panel.render();
-    panels.render();
+  const appearanceMessage = (): Extract<HostRunPanelMessage, { type: "appearance" }> => ({
+    type: "appearance",
+    scheme: configuredTheme(),
+    theme: resolveTheme(configuredTheme(), editorTheme()),
+    ...configuredLooks(),
+  });
+
+  /** Live panels and mini-app tabs follow the settings and the editor's color theme without reloading; the legacy theme message serves servers that do not know the appearance. */
+  const broadcastAppearance = () => {
+    try {
+      const appearance = appearanceMessage();
+      panel.render();
+      for (const target of [panel, panels]) {
+        target.post({ type: "theme", theme: appearance.theme });
+        target.post(appearance);
+      }
+    } catch (cause) {
+      log(`== The appearance cannot be applied: ${message(cause)}`);
+      void vscode.window.showErrorMessage(`RAgents: ${message(cause)}`);
+    }
+  };
+
+  /** The user changed the scheme or a look in a panel: only differences reach the user settings; the settings change then reaches every panel, and a more specific setting that wins is sent back explicitly. */
+  const saveAppearance = async (incoming: Extract<RunPanelHostMessage, { type: "appearanceChanged" }>): Promise<void> => {
+    const configuration = vscode.workspace.getConfiguration("ragents");
+    const current = configuredLooks();
+    const writes: Thenable<void>[] = [];
+    if (incoming.scheme !== undefined && incoming.scheme !== configuredTheme()) writes.push(configuration.update("theme", parseThemeSetting(incoming.scheme), vscode.ConfigurationTarget.Global));
+    for (const id of appearanceChoiceIds) {
+      const value = incoming[id];
+      if (value === undefined || value === current[id]) continue;
+      writes.push(configuration.update(appearanceChoices[id].setting, parseLookSetting(id, value), vscode.ConfigurationTarget.Global));
+    }
+    await Promise.all(writes);
+    const overridden = (incoming.scheme !== undefined && incoming.scheme !== configuredTheme())
+      || appearanceChoiceIds.some((id) => incoming[id] !== undefined && incoming[id] !== configuredLooks()[id]);
+    if (overridden) broadcastAppearance();
   };
 
   /** The state of a server in one line; panel and status bar name it the same way. */
@@ -845,6 +888,12 @@ export async function activate(context: vscode.ExtensionContext): Promise<RAgent
       case "openPage":
         void vscode.commands.executeCommand("simpleBrowser.show", incoming.url);
         return;
+      case "appearanceChanged":
+        void saveAppearance(incoming).catch((cause: unknown) => {
+          log(`== The appearance cannot be saved: ${message(cause)}`);
+          void vscode.window.showErrorMessage(`RAgents: the appearance cannot be saved: ${message(cause)}`);
+        });
+        return;
       case "openService": {
         const { runId, port, workstation, tunnel } = incoming;
         void openService(connection, { runId, port, workstation, tunnel }).catch((cause: unknown) => {
@@ -874,18 +923,13 @@ export async function activate(context: vscode.ExtensionContext): Promise<RAgent
         void vscode.commands.executeCommand("workbench.action.reloadWindow");
       },
     }),
-    vscode.window.onDidChangeActiveColorTheme(() => {
-      const theme = resolveTheme(configuredTheme(), editorTheme());
-      panel.render();
-      panel.post({ type: "theme", theme });
-      panels.post({ type: "theme", theme });
-    }),
+    vscode.window.onDidChangeActiveColorTheme(broadcastAppearance),
     vscode.workspace.onDidChangeConfiguration((event) => {
       if (event.affectsConfiguration("ragents.zoom")) {
         panel.zoomChanged();
         panels.zoomChanged();
       }
-      if (event.affectsConfiguration("ragents.theme")) rerender();
+      if (appearanceSettings.some((setting) => event.affectsConfiguration(setting))) broadcastAppearance();
       if (event.affectsConfiguration("ragents.connections")) void syncConnections();
       if (event.affectsConfiguration("ragents.hostEnvironment")) {
         void refreshMissingSecrets();

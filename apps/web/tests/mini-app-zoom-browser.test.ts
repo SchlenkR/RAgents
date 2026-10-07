@@ -16,12 +16,12 @@ const fixture = `
 import { createRoot } from "react-dom/client";
 import { DockToolsContext, DockWorkspace } from "./apps/web/src/run-panel/DockWorkspace";
 import { ActorViewFrame } from "./plugins/ragents.actor-programs/web/ActorViewFrame";
-import { initializePalette } from "./apps/web/src/palette";
+import { initializeAppearance } from "./apps/web/src/appearance";
 import { initializeTheme } from "./apps/web/src/theme";
 import { initializeZoom } from "./apps/web/src/zoom";
 import "./apps/web/src/ui/tailwind.css";
 initializeTheme(window);
-initializePalette(window);
+initializeAppearance(window);
 const zoom = initializeZoom(window);
 window.frameZoomFixture = { setZoom: value => zoom.setZoom(value) };
 const session = { session: { id: "zoom-test", title: "Zoom test", updatedAt: 0 }, connected: true,

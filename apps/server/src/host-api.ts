@@ -162,7 +162,7 @@ export const hostApi: { readonly server: HostApiModules; readonly web: HostApiMo
       "actorAddress", "actorPluginState", "actorTone", "chatPrimaryId", "isPendingRunActorInput", "runActorFrom",
       "runArtifactContentUrl", "runViewFrom",
     ],
-    "@ragents/web/theme": ["usePalette", "useResolvedTheme"],
+    "@ragents/web/theme": ["useLooks", "usePalette", "useResolvedTheme"],
     "@ragents/web/toolLine": ["withToolSummaries"],
     "@ragents/web/ui": [
       "Alert", "AlertDescription", "AlertTitle", "Badge", "Button", "Card", "Checkbox", "ChoiceSelect", "Combobox", "ComboboxContent",

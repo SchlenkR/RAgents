@@ -1,7 +1,7 @@
 import { hostInputEnabled, isRunPanelKeyboardMessage, relayFrameInput } from "@ragents/web/run-panel/input-bridge";
 import { useAccess } from "@ragents/web/AccessContext";
 import { Badge } from "@ragents/web/ui";
-import { usePalette, useResolvedTheme } from "@ragents/web/theme";
+import { useLooks, usePalette, useResolvedTheme } from "@ragents/web/theme";
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import type { RunApp, RunAppInvocation, ActorProgramsApi } from "./api";
 import { latestInvocation } from "./invocations";
@@ -87,6 +87,9 @@ export function ActorViewFrame({
   const palette = usePalette();
   const paletteRef = useRef(palette);
   paletteRef.current = palette;
+  const looks = useLooks();
+  const looksRef = useRef(looks);
+  looksRef.current = looks;
   const writableRef = useRef(access.can("runs.write"));
   writableRef.current = access.can("runs.write");
   const iframeRef = useRef<HTMLIFrameElement>(null);
@@ -314,6 +317,7 @@ export function ActorViewFrame({
       version: RUN_APP_BRIDGE_VERSION,
       theme: themeRef.current,
       palette: paletteRef.current,
+      looks: looksRef.current,
       hostInput: hostInputEnabled(window),
       app: {
         id: installedApp.id,
@@ -437,8 +441,8 @@ export function ActorViewFrame({
 
   useEffect(() => {
     if (!bridgeReady) return;
-    portRef.current?.postMessage({ type: RUN_APP_THEME, version: RUN_APP_BRIDGE_VERSION, theme, palette });
-  }, [bridgeReady, palette, theme]);
+    portRef.current?.postMessage({ type: RUN_APP_THEME, version: RUN_APP_BRIDGE_VERSION, theme, palette, looks });
+  }, [bridgeReady, looks, palette, theme]);
 
   useEffect(() => {
     if (!bridgeReady) return;

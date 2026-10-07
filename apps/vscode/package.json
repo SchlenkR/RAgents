@@ -261,7 +261,63 @@
             "dark"
           ],
           "default": "auto",
-          "description": "Appearance of the RAgents panel: auto follows the VS Code color theme."
+          "description": "Color scheme of the RAgents panel: auto follows the VS Code color theme. Switching it in the panel saves it here."
+        },
+        "ragents.palette": {
+          "type": "string",
+          "enum": [
+            "schichtwerk",
+            "graphite",
+            "midnight",
+            "black"
+          ],
+          "enumDescriptions": [
+            "Violet-tinted layers with drawn outlines.",
+            "Neutral grey with one violet accent.",
+            "Deep blue-black with a sky accent.",
+            "True black with a cyan accent."
+          ],
+          "default": "schichtwerk",
+          "description": "Color palette of the RAgents panel and its mini-apps. Switching it in the panel saves it here."
+        },
+        "ragents.codeStyle": {
+          "type": "string",
+          "enum": [
+            "tint",
+            "outlined"
+          ],
+          "enumDescriptions": [
+            "Inline code sits on a tinted background.",
+            "Inline code is drawn as a chip with an outline."
+          ],
+          "default": "tint",
+          "description": "How code inside a sentence is drawn. Switching it in the panel saves it here."
+        },
+        "ragents.corners": {
+          "type": "string",
+          "enum": [
+            "round",
+            "tight"
+          ],
+          "enumDescriptions": [
+            "Generous corner radius on controls and panels.",
+            "Smaller corner radius on controls and panels."
+          ],
+          "default": "round",
+          "description": "Corner radius of controls and panels. Switching it in the panel saves it here."
+        },
+        "ragents.density": {
+          "type": "string",
+          "enum": [
+            "comfortable",
+            "spacious"
+          ],
+          "enumDescriptions": [
+            "Table rows with the standard padding.",
+            "Table rows with more padding."
+          ],
+          "default": "comfortable",
+          "description": "Padding of table rows and lists. Switching it in the panel saves it here."
         }
       }
     }

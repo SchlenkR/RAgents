@@ -16,13 +16,13 @@ export function ContextUsageControl({ usage, error }: { usage: ContextUsage | nu
   const remaining = current && Math.max(0, current.compactionThreshold - current.tokens);
   return <Popover>
     <PopoverTrigger render={<Button aria-label={label} title={label} size="icon-sm" variant="ghost" />}>
-      <svg aria-hidden="true" viewBox="0 0 24 24" className={cn("size-5 -rotate-90", nearCompaction ? "text-warning" : "text-muted-foreground")} fill="none" strokeWidth="2.5">
+      <svg aria-hidden="true" viewBox="0 0 24 24" className="size-5 -rotate-90" fill="none" strokeWidth="2.5">
         <circle cx="12" cy="12" r="9" className="stroke-border-strong" />
-        <circle cx="12" cy="12" r="9" pathLength="100" stroke="currentColor" strokeDasharray="100" strokeDashoffset={100 - fraction * 100}
-          className="transition-[stroke-dashoffset] duration-300 motion-reduce:transition-none" />
+        <circle cx="12" cy="12" r="9" pathLength="100" strokeDasharray="100" strokeDashoffset={100 - fraction * 100}
+          className={cn("transition-[stroke-dashoffset] duration-300 motion-reduce:transition-none", nearCompaction ? "stroke-warning" : "stroke-primary")} />
       </svg>
     </PopoverTrigger>
-    <PopoverContent aria-label="Context usage" align="end" side="top" className="w-72 max-w-[calc(100vw_-_2rem)] gap-3 p-4">
+    <PopoverContent aria-label="Context usage" align="end" side="top" className="w-90 max-w-[calc(100vw_-_2rem)] gap-3 p-4">
       <PopoverHeader>
         <PopoverTitle>Context usage</PopoverTitle>
         <PopoverDescription>{current ? `${percentage}% of the context window` : error ? "Context usage unavailable" : "Loading context usage ..."}</PopoverDescription>

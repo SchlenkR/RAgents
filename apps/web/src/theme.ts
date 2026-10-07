@@ -1,7 +1,8 @@
 import { useSyncExternalStore } from "react";
 import { subscribeStorageChanges } from "./lib/local-storage-setting";
 
-export { usePalette, type PaletteId } from "./palette";
+export { useLooks, usePalette } from "./appearance";
+export type { PaletteId } from "./appearance-options";
 
 export const THEME_STORAGE_KEY = "ragents.theme";
 export type ThemePreference = "light" | "dark" | "system";
@@ -27,7 +28,41 @@ export function parseThemePreference(value: string | null): ThemePreference {
 
 const errorMessage = (cause: unknown) => cause instanceof Error ? cause.message : String(cause);
 
-export function createThemeStore(browser: Window) {
+/** Where "system" gets its scheme from: the browser, or in VS Code the editor. */
+export interface SystemScheme {
+  current(): ResolvedTheme;
+  subscribe(listener: () => void): () => void;
+}
+
+export function browserSystemScheme(browser: Window): SystemScheme {
+  const media = browser.matchMedia("(prefers-color-scheme: dark)");
+  return {
+    current: () => media.matches ? "dark" : "light",
+    subscribe(listener) {
+      media.addEventListener("change", listener);
+      return () => media.removeEventListener("change", listener);
+    },
+  };
+}
+
+export function createEditorSystemScheme(initial: ResolvedTheme) {
+  let scheme = initial;
+  const listeners = new Set<() => void>();
+  return {
+    current: () => scheme,
+    subscribe(listener: () => void) {
+      listeners.add(listener);
+      return () => { listeners.delete(listener); };
+    },
+    set(next: ResolvedTheme) {
+      if (next === scheme) return;
+      scheme = next;
+      for (const listener of listeners) listener();
+    },
+  };
+}
+
+export function createThemeStore(browser: Window, system: SystemScheme = browserSystemScheme(browser)) {
   let storage: Storage;
   let preference: ThemePreference;
   try {
@@ -36,11 +71,10 @@ export function createThemeStore(browser: Window) {
   } catch (cause) {
     throw new Error(`The saved theme could not be loaded. ${errorMessage(cause)}`);
   }
-  const media = browser.matchMedia("(prefers-color-scheme: dark)");
-  const appearanceOf = (value: ThemePreference): ResolvedTheme => value === "system" ? media.matches ? "dark" : "light" : value;
+  const appearanceOf = (value: ThemePreference): ResolvedTheme => value === "system" ? system.current() : value;
   let snapshot: ThemeSnapshot = { preference, appearance: appearanceOf(preference), error: null };
   const listeners = new Set<() => void>();
-  let watchingSystem = false;
+  let unwatchSystem: (() => void) | undefined;
   let disposed = false;
 
   function notify() {
@@ -57,11 +91,12 @@ export function createThemeStore(browser: Window) {
   }
 
   function apply(next: ThemePreference) {
-    const watchSystem = next === "system";
-    if (watchSystem !== watchingSystem) {
-      if (watchSystem) media.addEventListener("change", systemChanged);
-      else media.removeEventListener("change", systemChanged);
-      watchingSystem = watchSystem;
+    if ((next === "system") !== (unwatchSystem !== undefined)) {
+      if (next === "system") unwatchSystem = system.subscribe(systemChanged);
+      else {
+        unwatchSystem?.();
+        unwatchSystem = undefined;
+      }
     }
     const appearance = appearanceOf(next);
     browser.document.documentElement.dataset.theme = appearance;
@@ -108,7 +143,7 @@ export function createThemeStore(browser: Window) {
       if (disposed) return;
       disposed = true;
       unsubscribeStorage();
-      if (watchingSystem) media.removeEventListener("change", systemChanged);
+      unwatchSystem?.();
       listeners.clear();
     },
   };
@@ -116,10 +151,10 @@ export function createThemeStore(browser: Window) {
 
 let activeTheme: ReturnType<typeof createThemeStore> | undefined;
 
-export function initializeTheme(browser: Window) {
+export function initializeTheme(browser: Window, system?: SystemScheme) {
   activeTheme?.dispose();
   activeTheme = undefined;
-  activeTheme = createThemeStore(browser);
+  activeTheme = createThemeStore(browser, system);
   return activeTheme;
 }
 

@@ -12,10 +12,10 @@ export async function nestedInputFixture(serverUrl: string, chat = false): Promi
     import { createRoot } from "react-dom/client";
     import { ActorViewFrame } from "./plugins/ragents.actor-programs/web/ActorViewFrame";
     import { installRunPanelInputBridge } from "./apps/web/src/run-panel/input-bridge";
-    import { initializePalette } from "./apps/web/src/palette";
+    import { initializeAppearance } from "./apps/web/src/appearance";
     import { initializeTheme } from "./apps/web/src/theme";
     initializeTheme(window);
-    initializePalette(window);
+    initializeAppearance(window);
     if (new URLSearchParams(location.search).get("host") === "vscode") installRunPanelInputBridge(window);
     const app = {id:"first",actorId:"worker",actorHandle:"worker",title:"Mini-App",revision:"1",actions:[],placements:[],invocations:[],state:null};
     const api = {frameUrl: () => ${JSON.stringify(`${serverUrl}/first`)}};

@@ -422,8 +422,12 @@ segment is filled.
 
 Under "Appearance" you choose a palette - Schichtwerk, Graphite, Midnight, or Black - and a color
 scheme: Light, Dark, or System. The default is Schichtwerk in Dark; System follows the operating
-system's color scheme setting, also on later changes.
-Both choices immediately affect the interface, chat, and shared actor view controls, without reloading chats
+system's color scheme setting, also on later changes. "Shape and spacing" adds three looks: the
+corners of controls and panels (Round or Tight), how code inside a sentence is drawn (Tint or
+Outlined), and the padding of table rows (Comfortable or Spacious).
+The same choices are one click away in the header: the palette button before "Settings" opens a small
+panel with all of them, so you can try a look while a run stays in view.
+All choices immediately affect the interface, chat, and shared actor view controls, without reloading chats
 or apps. They are stored in the browser for the same server address and synchronized with
 other open tabs. Changing them requires settings write permissions. Every palette keeps body text
 at 7:1 or more and secondary text at 4.5:1 or more against its surfaces, in light and dark.
@@ -1088,7 +1092,12 @@ available to you."
 
 ## Settings and behavior of the VS Code extension
 
-- `ragents.theme` (`auto`, `light`, `dark`) takes effect immediately.
+- `ragents.theme` (`auto`, `light`, `dark`), `ragents.palette` (`schichtwerk`, `graphite`, `midnight`,
+   `black`), `ragents.corners` (`round`, `tight`), `ragents.codeStyle` (`tint`, `outlined`), and
+   `ragents.density` (`comfortable`, `spacious`) take effect immediately in every open panel and
+   mini-app tab. Switching in the panel (the palette button in the header or Settings, Appearance)
+   writes the matching user setting, so the choice is kept across restarts and workspaces; `auto`
+   follows the VS Code color theme, which is also what "System" means there.
 - `ragents.zoom` (50 to 200 percent, default 100) scales the entire interface including
    mini-apps immediately, without reloading pages. VS Code's window zoom stays unchanged.
 - `ragents.hostEnvironment` lists the names of the environment variables that a locally started

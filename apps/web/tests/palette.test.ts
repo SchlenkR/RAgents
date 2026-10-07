@@ -2,22 +2,22 @@ import { strict as assert } from "node:assert";
 import { readFileSync } from "node:fs";
 import { test } from "node:test";
 import { contrastRules, paletteStylesheet, palettes, paletteTokens, type PaletteMode, type PaletteName } from "../../../scripts/maintenance/palettes.ts";
-import { createPaletteStore, defaultPalette, PALETTE_STORAGE_KEY, paletteOptions, parsePalette } from "../src/palette";
+import { applyAppearance, createChoiceStore, initializeAppearance, parseAppearanceValue } from "../src/appearance";
+import { appearanceChoiceIds, appearanceChoices, defaultAppearance, defaultPalette, paletteOptions, type AppearanceChoiceId } from "../src/appearance-options";
 
-function browserFixture(stored: string | null = null) {
-  let value = stored;
+function browserFixture(id: AppearanceChoiceId = "palette", stored: string | null = null) {
+  const key = appearanceChoices[id].storageKey;
+  const values = new Map<string, string | null>([[key, stored]]);
   let writeError: Error | undefined;
   let readError: Error | undefined;
   const storage = {
-    getItem: (key: string) => {
-      assert.equal(key, PALETTE_STORAGE_KEY);
+    getItem: (name: string) => {
       if (readError) throw readError;
-      return value;
+      return values.get(name) ?? null;
     },
-    setItem: (key: string, next: string) => {
-      assert.equal(key, PALETTE_STORAGE_KEY);
+    setItem: (name: string, next: string) => {
       if (writeError) throw writeError;
-      value = next;
+      values.set(name, next);
     },
   };
   const target = Object.assign(new EventTarget(), {
@@ -26,45 +26,45 @@ function browserFixture(stored: string | null = null) {
   });
   return {
     browser: target as unknown as Window,
-    target,
     storage,
-    stored: () => value,
-    applied: () => target.document.documentElement.dataset.palette,
+    stored: () => values.get(key) ?? null,
+    applied: () => target.document.documentElement.dataset[id],
+    dataset: target.document.documentElement.dataset,
     denyWrites: () => { writeError = new Error("Browser storage is full"); },
     denyReads: () => { readError = new Error("Browser storage is blocked"); },
     otherTab: (next: string | null, storageArea: unknown = storage) => {
-      value = next;
-      target.dispatchEvent(Object.assign(new Event("storage"), { key: PALETTE_STORAGE_KEY, storageArea, newValue: next }));
+      values.set(key, next);
+      target.dispatchEvent(Object.assign(new Event("storage"), { key, storageArea, newValue: next }));
     },
   };
 }
 
 test("the interface starts with the default palette without writing to the browser storage", () => {
   const fixture = browserFixture();
-  const store = createPaletteStore(fixture.browser);
-  assert.deepEqual(store.getSnapshot(), { palette: defaultPalette, error: null });
+  const store = createChoiceStore(fixture.browser, "palette");
+  assert.deepEqual(store.getSnapshot(), { value: defaultPalette, error: null });
   assert.equal(fixture.applied(), defaultPalette);
   assert.equal(fixture.stored(), null);
   store.dispose();
 });
 
 test("the saved palette is applied at bootstrap and a choice is saved and announced", () => {
-  const fixture = browserFixture("graphite");
-  const store = createPaletteStore(fixture.browser);
+  const fixture = browserFixture("palette", "graphite");
+  const store = createChoiceStore(fixture.browser, "palette");
   assert.equal(fixture.applied(), "graphite");
   let updates = 0;
   store.subscribe(() => { updates++; });
-  store.setPalette("black");
+  store.set("black");
   assert.equal(fixture.applied(), "black");
   assert.equal(fixture.stored(), "black");
-  assert.equal(store.getSnapshot().palette, "black");
+  assert.equal(store.getSnapshot().value, "black");
   assert.equal(updates, 1);
   store.dispose();
 });
 
 test("another browser tab changes the palette without writing back", () => {
   const fixture = browserFixture();
-  const store = createPaletteStore(fixture.browser);
+  const store = createChoiceStore(fixture.browser, "palette");
   fixture.otherTab("midnight");
   assert.equal(fixture.applied(), "midnight");
   fixture.otherTab(null);
@@ -76,19 +76,47 @@ test("another browser tab changes the palette without writing back", () => {
 
 test("invalid values, blocked storage and a failed save are reported with a cause", () => {
   for (const value of ["", "GRAPHITE", "sepia"]) {
-    assert.throws(() => parsePalette(value), /Allowed are schichtwerk, graphite, midnight, black/);
-    assert.throws(() => createPaletteStore(browserFixture(value).browser), /The saved palette could not be loaded/);
+    assert.throws(() => parseAppearanceValue("palette", value), /Allowed are schichtwerk, graphite, midnight, black/);
+    assert.throws(() => createChoiceStore(browserFixture("palette", value).browser, "palette"), /The saved palette could not be loaded/);
   }
   const blocked = browserFixture();
   blocked.denyReads();
-  assert.throws(() => createPaletteStore(blocked.browser), /Browser storage is blocked/);
+  assert.throws(() => createChoiceStore(blocked.browser, "palette"), /Browser storage is blocked/);
   const full = browserFixture();
-  const store = createPaletteStore(full.browser);
+  const store = createChoiceStore(full.browser, "palette");
   full.denyWrites();
-  store.setPalette("graphite");
+  store.set("graphite");
   assert.match(store.getSnapshot().error ?? "", /The palette could not be saved. Browser storage is full/);
   assert.equal(full.applied(), defaultPalette);
   store.dispose();
+});
+
+test("corners, inline code and table spacing are choices with their own attribute, key and default", () => {
+  assert.deepEqual(appearanceChoiceIds, ["palette", "codeStyle", "corners", "density"]);
+  assert.deepEqual(defaultAppearance, { palette: "schichtwerk", codeStyle: "tint", corners: "round", density: "comfortable" });
+  const fixture = browserFixture("density");
+  const store = createChoiceStore(fixture.browser, "density");
+  assert.equal(fixture.dataset.density, "comfortable");
+  store.set("spacious");
+  assert.equal(fixture.stored(), "spacious");
+  assert.equal(fixture.dataset.density, "spacious");
+  const code = browserFixture("codeStyle");
+  createChoiceStore(code.browser, "codeStyle").set("outlined");
+  assert.equal(code.dataset.codeStyle, "outlined");
+  assert.throws(() => createChoiceStore(browserFixture("corners", "square").browser, "corners"), /The saved corners could not be loaded.*Allowed are round, tight/);
+  assert.throws(() => createChoiceStore(browserFixture("codeStyle", "chip").browser, "codeStyle"), /The saved inline code could not be loaded.*Allowed are tint, outlined/);
+  store.dispose();
+});
+
+test("a host applies several choices at once and an unknown value is a hard error", () => {
+  const fixture = browserFixture();
+  const appearance = initializeAppearance(fixture.browser);
+  applyAppearance({ palette: "midnight", corners: "tight", density: "spacious", codeStyle: "outlined" });
+  assert.deepEqual(fixture.dataset, { palette: "midnight", codeStyle: "outlined", corners: "tight", density: "spacious" });
+  applyAppearance({ palette: undefined });
+  assert.equal(fixture.dataset.palette, "midnight");
+  assert.throws(() => applyAppearance({ corners: "square" }), /Unknown corners "square". Allowed are round, tight/);
+  appearance.dispose();
 });
 
 test("every palette defines the same tokens in a light and a dark block", () => {

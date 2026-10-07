@@ -645,12 +645,25 @@
   --radius: 0.5rem;
   --grid-cell-x: calc(var(--spacing) * 3);
   --grid-cell-y: calc(var(--spacing) * 2.5);
+  --inline-code: var(--code-tint);
+  --inline-code-edge: transparent;
   --hover: var(--foreground);
   @supports (color: color-mix(in lab, red, red)) {
     --hover: color-mix(in srgb, var(--foreground) 8%, transparent);
   }
   --accent: var(--hover);
   color-scheme: light;
+}
+:root[data-corners="tight"] {
+  --radius: 0.375rem;
+}
+:root[data-density="spacious"] {
+  --grid-cell-x: calc(var(--spacing) * 3.5);
+  --grid-cell-y: calc(var(--spacing) * 3.5);
+}
+:root[data-code-style="outlined"] {
+  --inline-code: var(--code);
+  --inline-code-edge: var(--code-border);
 }
 :root[data-theme="dark"] {
   --hover: var(--foreground);

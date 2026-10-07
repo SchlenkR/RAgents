@@ -841,6 +841,7 @@
       "runViewFrom"
     ],
     "@ragents/web/theme": [
+      "useLooks",
       "usePalette",
       "useResolvedTheme"
     ],

@@ -1,5 +1,5 @@
 import type { ConnectionEntry, ConnectionRoute, ConnectionState, ConnectionView, PanelPage, PanelSharing, PanelState } from "../../web/src/panel/contract";
-import type { RunPanelTheme } from "../../web/src/run-panel/host-contract";
+import type { RunPanelLooks, RunPanelTheme } from "../../web/src/run-panel/host-contract";
 import { connectionRunOf } from "../../web/src/run-overview";
 import { connectionAddress, profileNameOf, serverHost } from "./connections";
 import type { ConnectionSnapshot, SessionStatus } from "./sessions";
@@ -52,6 +52,7 @@ export const connectionView = (snapshot: ConnectionSnapshot): ConnectionView => 
 
 export interface PanelInput {
   theme: RunPanelTheme;
+  looks: RunPanelLooks;
   page: PanelPage;
   connections: readonly ConnectionSnapshot[];
   profileSuggestions: readonly string[];
@@ -68,6 +69,7 @@ export interface PanelInput {
 /** The whole state of the panel page; it draws Start, Runs, or Server from it. */
 export const panelState = (input: PanelInput): PanelState => ({
   theme: input.theme,
+  looks: input.looks,
   page: input.page,
   connections: input.connections.map(connectionView),
   profileSuggestions: [...input.profileSuggestions],

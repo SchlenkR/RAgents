@@ -1,5 +1,21 @@
 # Decisions
 
+## 2026-10-07: Appearance switch in the header and in VS Code settings
+
+Chapters: `spec/plugins.md` (Appearance), `spec/actor-programs.md` (mini-app theme bridge); usage: `usage.md`
+(Appearance, VS Code settings).
+
+The design-lab choices (palette, color scheme, corners, inline code, table spacing) became real, switchable
+options instead of fixed values: one import-free definition (`appearance-options.ts`) and one generic store per
+choice (`appearance.ts`) replace the palette-only store, the CSS reacts to root attributes, and one set of controls
+serves Settings, Appearance and a quick switch next to Settings in the header. Defaults are the lab's choices, the
+alternatives stay available. In VS Code the settings (`ragents.theme`, `ragents.palette`, `ragents.corners`,
+`ragents.codeStyle`, `ragents.density`) are the truth and the panel's browser storage only a cache; a switch in the
+panel writes the user setting through an `appearanceChanged` message, and every webview and mini-app frame follows a
+settings change without reloading (the frame address no longer includes the theme, so a change does not rebuild it).
+The change to the extension interface is additive (new messages and address parameters, an older panel ignores
+them, and the legacy `theme` message is still sent), so `EXTENSION_API_VERSION` stays.
+
 ## 2026-10-07: Context usage in the chat composer
 
 Chapters: `spec/core.md` (Model context across turns); usage: `usage.md` (Context usage).

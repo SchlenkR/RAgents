@@ -78,11 +78,11 @@ const openHostFrame = async (context: TestContext, frameResponse: FrameResponse)
         import { useState } from "react";
         import { PanelActivity } from "./apps/web/src/run-panel/PanelActivity";
         import { ActorViewFrame } from "./plugins/ragents.actor-programs/web/ActorViewFrame";
-        import { initializePalette } from "./apps/web/src/palette";
+        import { initializeAppearance } from "./apps/web/src/appearance";
         import { initializeTheme } from "./apps/web/src/theme";
         import "./apps/web/src/ui/tailwind.css";
         initializeTheme(window);
-        initializePalette(window);
+        initializeAppearance(window);
         const app = { id: "status-view", actorId: "worker", actorHandle: "worker", title: "Status check",
           revision: "installed-revision", actions: [{ id: "status", label: "Status", confirmation: null }],
           state: { version: 1, revision: 1, values: { phase: "working" } }, invocations: [] };

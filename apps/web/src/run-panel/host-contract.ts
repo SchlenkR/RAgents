@@ -4,8 +4,18 @@ export const RUN_PANEL_PAGE = "run-panel.html";
 
 export type RunPanelLayout = "panel" | "app";
 export type RunPanelTheme = "light" | "dark";
+/** The ragents.theme setting: auto follows the editor, whose current scheme the host sends as theme. */
+export type RunPanelScheme = "auto" | RunPanelTheme;
 
-export interface RunPanelPageQuery {
+/** The looks a host keeps in settings besides the scheme; values are checked by the panel against its own options. */
+export interface RunPanelLooks {
+  palette?: string;
+  codeStyle?: string;
+  corners?: string;
+  density?: string;
+}
+
+export interface RunPanelPageQuery extends RunPanelLooks {
   layout?: RunPanelLayout;
   run?: string;
   element?: string;
@@ -13,6 +23,7 @@ export interface RunPanelPageQuery {
   /** The selected environment; the header shows it on Start, Runs, and the run. */
   connection?: string;
   theme?: RunPanelTheme;
+  scheme?: RunPanelScheme;
   access?: string;
 }
 
@@ -51,6 +62,8 @@ export type RunPanelHostMessage =
   /** With notice, Start shows it, such as for a run that is no longer shared with the user. */
   | { type: "showStart"; notice?: string }
   | { type: "openInCenter"; runId: string; elementId: string; title: string }
+  /** The user changed the scheme or a look in the panel; the host saves it in its settings. */
+  | ({ type: "appearanceChanged"; scheme?: RunPanelScheme } & RunPanelLooks)
   | { type: "login" }
   | { type: "logout" }
   | { type: "openExternal"; url: string }
@@ -96,13 +109,19 @@ export type HostRunPanelMessage =
   | { type: "selectRun"; runId: string | null }
   | { type: "showPage"; page: "start" | "runs"; notice?: string }
   | { type: "newRun"; startOptions?: Record<string, unknown>; entryId?: string }
-  | { type: "theme"; theme: RunPanelTheme };
+  | { type: "theme"; theme: RunPanelTheme }
+  /** The settings of the host; theme is the editor's current scheme that "auto" follows. */
+  | ({ type: "appearance"; scheme: RunPanelScheme; theme: RunPanelTheme } & Required<RunPanelLooks>);
 
 const isObject = (value: unknown): value is Record<string, unknown> => typeof value === "object" && value !== null;
 const isText = (value: unknown): value is string => typeof value === "string" && value.length > 0;
 const isPort = (value: unknown): value is number => typeof value === "number" && Number.isInteger(value) && value >= 1 && value <= 65535;
 
 export const isRunPanelTheme = (value: unknown): value is RunPanelTheme => value === "light" || value === "dark";
+export const isRunPanelScheme = (value: unknown): value is RunPanelScheme => value === "auto" || isRunPanelTheme(value);
+
+const isLooks = (value: Record<string, unknown>, required: boolean): boolean =>
+  (["palette", "codeStyle", "corners", "density"] as const).every((key) => value[key] === undefined ? !required : isText(value[key]));
 
 export const isRunPanelHostMessage = (value: unknown): value is RunPanelHostMessage => {
   if (!isObject(value)) return false;
@@ -127,6 +146,8 @@ export const isRunPanelHostMessage = (value: unknown): value is RunPanelHostMess
       return isText(value.url) && typeof value.title === "string";
     case "openService":
       return isText(value.runId) && isPort(value.port) && (value.workstation === null || isText(value.workstation)) && isText(value.tunnel);
+    case "appearanceChanged":
+      return (value.scheme === undefined || isRunPanelScheme(value.scheme)) && isLooks(value, false);
     default:
       return false;
   }
@@ -151,6 +172,8 @@ export const isHostRunPanelMessage = (value: unknown): value is HostRunPanelMess
         && (value.entryId === undefined || isText(value.entryId));
     case "theme":
       return isRunPanelTheme(value.theme);
+    case "appearance":
+      return isRunPanelScheme(value.scheme) && isRunPanelTheme(value.theme) && isLooks(value, true);
     default:
       return false;
   }

@@ -1,9 +1,11 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import { readFileSync } from "node:fs";
 import { runInNewContext } from "node:vm";
 import { runPanelPageUrl, isClipboardRunPanelMessage, isRunPanelClipboardMessage, isRunPanelHostMessage, isHostRunPanelMessage } from "../../web/src/run-panel/host-contract";
 import { errorHtml, frameHtml, panelHtml } from "../src/webview-html";
-import { parseServerUrl, parseThemeSetting, resolveTheme } from "../src/settings";
+import { parseLooks, parseLookSetting, parseServerUrl, parseThemeSetting, resolveTheme } from "../src/settings";
+import { appearanceChoiceIds, appearanceChoices, defaultAppearance } from "../../web/src/appearance-options";
 
 test("the webview hull frames run-panel.html of the server with a strict CSP and relays messages by origin", () => {
   const html = frameHtml({ serverUrl: "http://localhost:4710", query: { run: "run-a", host: "vscode", theme: "dark", access: "t/ok" }, nonce: "n0nce", title: "RAgents" });
@@ -116,6 +118,35 @@ test("host messages are validated before they cross the bridge", () => {
   assert.equal(isHostRunPanelMessage({ type: "theme", theme: "blue" }), false);
 });
 
+test("the panel and the host exchange the scheme and looks in checked messages", () => {
+  const looks = { palette: "midnight", codeStyle: "tint", corners: "tight", density: "comfortable" };
+  assert.equal(isHostRunPanelMessage({ type: "appearance", scheme: "auto", theme: "dark", ...looks }), true);
+  assert.equal(isHostRunPanelMessage({ type: "appearance", scheme: "system", theme: "dark", ...looks }), false);
+  assert.equal(isHostRunPanelMessage({ type: "appearance", scheme: "auto", theme: "auto", ...looks }), false);
+  assert.equal(isHostRunPanelMessage({ type: "appearance", scheme: "auto", theme: "dark", palette: "midnight" }), false);
+  assert.equal(isRunPanelHostMessage({ type: "appearanceChanged", palette: "black" }), true);
+  assert.equal(isRunPanelHostMessage({ type: "appearanceChanged", scheme: "light", corners: "tight" }), true);
+  assert.equal(isRunPanelHostMessage({ type: "appearanceChanged" }), true);
+  assert.equal(isRunPanelHostMessage({ type: "appearanceChanged", scheme: "system" }), false);
+  assert.equal(isRunPanelHostMessage({ type: "appearanceChanged", palette: 3 }), false);
+  assert.equal(isRunPanelHostMessage({ type: "appearanceChanged", density: "" }), false);
+});
+
+test("looks settings are parsed strictly, default when unset, and match the contributed settings", () => {
+  const settings = { palette: "black", codeStyle: "outlined", corners: "tight", density: "spacious" };
+  assert.deepEqual(parseLooks((setting) => settings[setting as keyof typeof settings]), settings);
+  assert.deepEqual(parseLooks((_, fallback) => fallback), defaultAppearance);
+  assert.throws(() => parseLooks((setting) => setting === "corners" ? "square" : defaultAppearance[setting as keyof typeof defaultAppearance]), /ragents\.corners must be round, or tight, not "square"/);
+  assert.throws(() => parseLookSetting("palette", undefined), /ragents\.palette must be schichtwerk, graphite, midnight, or black, not undefined/);
+  const properties = JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8")).contributes.configuration.properties;
+  for (const id of appearanceChoiceIds) {
+    const schema = properties[`ragents.${appearanceChoices[id].setting}`];
+    assert.deepEqual(schema.enum, appearanceChoices[id].options.map((option) => option.value), `ragents.${appearanceChoices[id].setting} offers the options of the panel`);
+    assert.equal(schema.default, defaultAppearance[id]);
+    assert.deepEqual(schema.enumDescriptions, appearanceChoices[id].options.map((option) => option.description));
+  }
+});
+
 test("settings are parsed strictly and the theme follows the editor only on auto", () => {
   assert.equal(parseServerUrl(" http://localhost:4710/ "), "http://localhost:4710");
   assert.throws(() => parseServerUrl("localhost:4710"), /http/);
@@ -135,6 +166,8 @@ test("connection management loads the built web page from the extension and embe
   };
   const html = panelHtml({ nonce: "n0nce", title: "RAgents", state, scriptUri: "https://file+.vscode-resource/dist/webview/panel.js", styleUri: "https://file+.vscode-resource/dist/webview/panel.css", cspSource: "https://file+.vscode-resource" });
   assert.match(html, /<html lang="en" data-theme="dark">/);
+  assert.match(panelHtml({ nonce: "n0nce", title: "RAgents", state: { ...state, looks: { palette: "midnight", codeStyle: "outlined", corners: "tight", density: "spacious" } }, scriptUri: "s", styleUri: "c", cspSource: "x" }),
+    /<html lang="en" data-theme="dark" data-palette="midnight" data-code-style="outlined" data-corners="tight" data-density="spacious">/);
   assert.match(html, /script-src 'nonce-n0nce'/);
   assert.match(html, /style-src https:\/\/file\+\.vscode-resource/);
   assert.match(html, /<link rel="stylesheet" href="https:\/\/file\+\.vscode-resource\/dist\/webview\/panel\.css">/);

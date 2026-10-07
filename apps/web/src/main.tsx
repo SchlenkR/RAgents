@@ -12,8 +12,9 @@ import { RunPanelApp, HostLogin } from "./run-panel/RunPanelApp";
 import { parseRunPanelLocation } from "./run-panel/run-panel-location";
 import { RunPanelHostProvider, createRunPanelHost } from "./run-panel/host";
 import { PageOpenerProvider } from "./page-opener";
-import { initializePalette } from "./palette";
-import { initializeTheme } from "./theme";
+import { initializeAppearance } from "./appearance";
+import { bindHostAppearance } from "./run-panel/host-appearance";
+import { createEditorSystemScheme, initializeTheme } from "./theme";
 import { initializeZoom } from "./zoom";
 import { installHostModules } from "./host-modules";
 import { RenderBoundary } from "./RenderBoundary";
@@ -32,11 +33,11 @@ try {
     const disposeInput = installRunPanelInputBridge(window);
     import.meta.hot?.dispose(disposeInput);
   }
-  const theme = initializeTheme(window);
-  const palette = initializePalette(window);
-  if (location.theme !== undefined) theme.setPreference(location.theme);
-  host.onCommand((message) => { if (message.type === "theme") theme.setPreference(message.theme); });
-  import.meta.hot?.dispose(() => { theme.dispose(); palette.dispose(); });
+  const editor = location.host === "vscode" ? createEditorSystemScheme(location.theme ?? "dark") : undefined;
+  const theme = initializeTheme(window, editor);
+  const appearance = initializeAppearance(window);
+  const unbindAppearance = bindHostAppearance({ host, location, theme, editor });
+  import.meta.hot?.dispose(() => { unbindAppearance(); theme.dispose(); appearance.dispose(); });
   if (location.host === "browser") {
     const zoom = initializeZoom(window);
     import.meta.hot?.dispose(() => zoom.dispose());

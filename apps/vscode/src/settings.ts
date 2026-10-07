@@ -1,3 +1,4 @@
+import { allowedAppearanceValues, appearanceChoiceIds, appearanceChoices, defaultAppearance, isAppearanceValue, type AppearanceChoiceId, type AppearanceValue, type AppearanceValues } from "../../web/src/appearance-options";
 import type { RunPanelTheme } from "../../web/src/run-panel/host-contract";
 
 export type ThemeSetting = "auto" | "light" | "dark";
@@ -18,6 +19,17 @@ export const parseServerUrl = (value: unknown): string => {
 export const parseThemeSetting = (value: unknown): ThemeSetting => {
   if (value === "auto" || value === "light" || value === "dark") return value;
   throw new Error(`ragents.theme must be auto, light, or dark, not ${JSON.stringify(value)}`);
+};
+
+export const parseLookSetting = <Id extends AppearanceChoiceId>(id: Id, value: unknown): AppearanceValue<Id> => {
+  if (isAppearanceValue(id, value)) return value;
+  throw new Error(`ragents.${appearanceChoices[id].setting} must be ${allowedAppearanceValues(id).replace(/, ([a-z]+)$/, ", or $1")}, not ${JSON.stringify(value)}`);
+};
+
+/** Palette, inline code style, corners, and table spacing from the settings; read gets the setting name and its default. */
+export const parseLooks = (read: (setting: string, fallback: string) => unknown): AppearanceValues => {
+  const entries = appearanceChoiceIds.map((id) => [id, parseLookSetting(id, read(appearanceChoices[id].setting, defaultAppearance[id]))] as const);
+  return Object.fromEntries(entries) as unknown as AppearanceValues;
 };
 
 export const ZOOM_MIN = 50;

@@ -17,7 +17,7 @@
     "ragents.workspace.client.execute": "362780674f8c1d90ff51adb5b2ab40c9ccf12a684592b91fb41281354920c19f"
   },
   "files": {
-    "apps/web/src/run-panel/host-contract.ts": "6457def2628e585238845bbd5226528ea344eaf244655d1cc16372c0001a67db",
+    "apps/web/src/run-panel/host-contract.ts": "e27a2b31b5e903c723e951a6d52cefdd393573f74c3ac521685a465066713894",
     "packages/ragents/src/rpc/protocol.ts": "82bbcb8181a2f90708dc607922fef4a9d472cd82d6dede09324df778773699a6",
     "apps/server/src/rpc/http-transport.ts": "106da64289a5c90e59b483285347156ac9eb54a08a03427c8aafb0a408ef4c8c",
     "apps/server/src/access-session.ts": "315452c735d674baf0ee22e41f73ac7019fa058d55a4386b110b8a7a4d08589c",

@@ -18,7 +18,7 @@ export interface RunPanelHost extends RunAppNavigation {
   openService(service: RunService): void;
   onCommand(listener: (message: HostRunPanelMessage) => void): () => void;
   /** Tells the host that the panel is ready, has switched its run, or wants to go back to the Start page. */
-  notify(message: Extract<RunPanelHostMessage, { type: "ready" | "runChanged" | "pageChanged" | "showStart" | "newRun" }>): void;
+  notify(message: Extract<RunPanelHostMessage, { type: "ready" | "runChanged" | "pageChanged" | "showStart" | "newRun" | "appearanceChanged" }>): void;
 }
 
 const unsupported = (action: string) => (): never => {
