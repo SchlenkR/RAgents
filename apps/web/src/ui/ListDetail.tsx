@@ -111,8 +111,8 @@ export function ListDetail({ label, items, selectedId, onSelect, disabled = fals
         ref={listRef} role="region" tabIndex={-1}>
         {items.length === 0 ? <div className="p-6 text-[0.8rem] leading-relaxed text-muted-foreground">{emptyState ?? <p>No entries available.</p>}</div>
           : [...groups].map(([group, entries], groupIndex) => <section aria-labelledby={group ? `${prefix}-group-${groupIndex}` : undefined} className="not-first:mt-4.5" key={group}>
-            {group && <h3 className="mx-2 mb-2 flex items-center gap-2.5 text-[0.67rem] font-bold tracking-[0.04em] text-muted-foreground" id={`${prefix}-group-${groupIndex}`}>
-              {group}<span className="font-mono text-[0.63rem] opacity-80" aria-label={`${entries.length} entries`}>{entries.length}</span>
+            {group && <h3 className="mx-2 mb-2 flex items-center gap-2.5 text-[0.71rem] font-semibold tracking-[0.02em] text-muted-foreground" id={`${prefix}-group-${groupIndex}`}>
+              {group}<span className="font-normal tabular-nums" aria-label={`${entries.length} entries`}>{entries.length}</span>
             </h3>}
             <ul className="grid grid-cols-[minmax(0,1fr)] gap-1 *:min-w-0">
               {entries.map((item) => <li key={item.id}>
@@ -121,9 +121,9 @@ export function ListDetail({ label, items, selectedId, onSelect, disabled = fals
                   onClick={() => choose(item.id)} ref={(element) => { if (element) buttons.current.set(item.id, element); else buttons.current.delete(item.id); }} type="button">
                   {item.icon !== undefined && <span className="flex h-9 w-8 flex-none items-center justify-center rounded-sm border border-border-soft bg-(--tone-soft) text-(--tone) data-[tone=accent]:border-l-[3px] data-[tone=accent]:[border-left-color:var(--tone)] data-[tone=purple]:rounded-[10px_10px_10px_3px]" aria-hidden="true" data-tone={item.tone ?? "neutral"}>{item.icon}</span>}
                   <span className="flex min-w-0 flex-1 flex-col gap-1"><span className="text-[0.77rem] font-semibold leading-snug [overflow-wrap:anywhere] group-aria-pressed/item:font-bold">{item.title}</span>
-                    {item.description && <span className="overflow-hidden text-[0.67rem] leading-[1.45] text-ellipsis whitespace-nowrap text-muted-foreground">{item.description}</span>}
+                    {item.description && <span className="overflow-hidden text-[0.71rem] leading-[1.45] text-ellipsis whitespace-nowrap text-muted-foreground">{item.description}</span>}
                   </span>
-                  {item.meta !== undefined && <span className="max-w-[30%] flex-none text-[0.62rem] leading-snug text-muted-foreground [overflow-wrap:anywhere] @max-[900px]/list-detail:max-w-[24%] @max-[900px]/list-detail:text-[0.6rem]">{item.meta}</span>}
+                  {item.meta !== undefined && <span className="max-w-[30%] flex-none text-[0.68rem] leading-snug text-muted-foreground tabular-nums [overflow-wrap:anywhere] @max-[900px]/list-detail:max-w-[24%]">{item.meta}</span>}
                   <ChevronDownIcon className="flex-none -rotate-90 text-muted-foreground" size={14} />
                 </button>
               </li>)}

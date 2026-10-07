@@ -7,7 +7,7 @@ import { useDockStorage } from "../src/run-panel/dock-storage";
 import { RunPanelHeader } from "../src/run-panel/RunPanelHeader";
 import { PluginRegistry, type SessionHeaderContribution, type WorkspaceTabContribution } from "../src/PluginRegistry";
 import type { RunApp } from "../src/run-apps";
-import { Badge, Button } from "../src/ui";
+import { Badge, Button, Dialog, DialogContent, DialogTitle } from "../src/ui";
 import "../src/ui/tailwind.css";
 
 // With "?header" the window buttons sit in the real run header, as in a browser run.
@@ -29,10 +29,27 @@ const preview: WorkspaceTabContribution = {
   Header: () => <Button aria-label="Refresh preview" size="icon-xs" variant="ghost"><svg aria-hidden /></Button>,
   Badge: () => <Badge>2 checks</Badge>,
 };
+// A dialog that loads on open, like a tool panel's detail view; its effect only completes while the panel stays active.
+function JournalDetails() {
+  const [text, setText] = useState("Loading details");
+  useEffect(() => {
+    const timer = setTimeout(() => setText("Details loaded"), 500);
+    return () => clearTimeout(timer);
+  }, []);
+  return <p>{text}</p>;
+}
+function JournalDialog() {
+  const [open, setOpen] = useState(false);
+  return <>
+    <button onClick={() => setOpen(true)} type="button">Open details</button>
+    <Dialog onOpenChange={setOpen} open={open}><DialogContent><DialogTitle>Journal details</DialogTitle><JournalDetails /></DialogContent></Dialog>
+  </>;
+}
 const tools: readonly WorkspaceTabContribution[] = [...["Files", "Journal"].map((label): WorkspaceTabContribution => ({
   id: label.toLowerCase(), label, order: 0, Icon: () => <svg aria-hidden />,
   Panel: function Tool({ active, navigation }) {
-    return <><input aria-label={`${label} draft`} /><p>{active ? `${label} active` : `${label} inactive`}</p><button onClick={() => navigation.openTab("files")}>Open Files</button></>;
+    return <><input aria-label={`${label} draft`} /><p>{active ? `${label} active` : `${label} inactive`}</p><button onClick={() => navigation.openTab("files")}>Open Files</button>
+      {label === "Journal" && <JournalDialog />}</>;
   },
 })), ...(withWindowTab ? [preview] : [])];
 function Run({ run, appIds }: { run: string; appIds: readonly string[] }) {
@@ -42,7 +59,7 @@ function Run({ run, appIds }: { run: string; appIds: readonly string[] }) {
   const apps: readonly RunApp[] = appIds.map((id) => ({ runId: run, definition: { id, title: id[0].toUpperCase() + id.slice(1) }, Element: App }));
   const navigation = { activeTabId: activeDockTool(state), openTab: (id: string) => update((current) => selectDockPanel(current, workspaceTabPanelId(tools.find((tool) => tool.id === id)!))), revealEntity: () => false, selectionFor: () => undefined };
   useEffect(() => { window.dockingFixture.openTab = navigation.openTab; });
-  const workspace = <DockToolsContext.Provider value={{ tabs: tools, pendingTabIds: [], actionsContainer: withHeader ? actions : undefined }}><DockWorkspace apps={apps} chat={<textarea aria-label="Chat draft" className="h-full" />} navigation={navigation} session={session} /></DockToolsContext.Provider>;
+  const workspace = <DockToolsContext.Provider value={{ tabs: tools, pendingTabIds: [], actionsContainer: withHeader ? actions : undefined }}><DockWorkspace apps={apps} chat={<><button onClick={() => navigation.openTab("files")}>Reveal Files from chat</button><textarea aria-label="Chat draft" className="h-full" /></>} navigation={navigation} session={session} /></DockToolsContext.Provider>;
   return withHeader ? <div className="flex min-w-0 flex-1 flex-col">
     <header className="flex min-h-header flex-none items-center border-b border-border bg-shell px-2">
       <RunPanelHeader actionsRef={setActions} attention={undefined} contributions={headers} navigation={navigation} registry={registry} runError={undefined} session={session} working={false} />

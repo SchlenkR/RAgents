@@ -3,12 +3,14 @@ import { ThemeSettings } from "../src/ThemeSettings";
 import { DockToolsContext, DockWorkspace } from "../src/run-panel/DockWorkspace";
 import { createBrowserHost, RunPanelHostProvider } from "../src/run-panel/host";
 import type { RunApp } from "../src/run-apps";
+import { initializePalette } from "../src/palette";
 import { initializeTheme } from "../src/theme";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, Popover, PopoverContent, PopoverTrigger } from "../src/ui";
 import { initializeZoom } from "../src/zoom";
 import "../src/ui/tailwind.css";
 
 initializeTheme(window);
+initializePalette(window);
 initializeZoom(window);
 const page = new URLSearchParams(location.search).get("page");
 const apps: readonly RunApp[] = [{ runId: "zoomed", definition: { id: "notes", title: "Notes" }, Element: () => <input aria-label="App draft" /> }];

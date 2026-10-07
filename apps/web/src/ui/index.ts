@@ -48,6 +48,7 @@ export { ToggleGroup, ToggleGroupItem } from "./toggle-group";
 export { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "./tooltip";
 export { ListDetail, type ListDetailItem, type ListDetailProps } from "./ListDetail";
 export { longTime, shortTime } from "./relative-time";
+export { SearchInput } from "./search-input";
 export { SectionLabel } from "./SectionLabel";
 export { StartupNotice, type StartupNoticeState } from "./startup-notice";
 export { ConnectionStateIcon, connectionStateTone, RunStateIcon, runStateTone } from "./state-icon";

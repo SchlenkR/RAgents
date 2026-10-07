@@ -40,7 +40,7 @@ export function SharePanel({ runTitle, sharing, onSave, onOpenChange, trigger, a
   anchor?: ComponentProps<typeof HeaderDropdown>["anchor"];
   id?: string;
 }) {
-  return <HeaderDropdown anchor={anchor} id={id} label="Share run" onOpenChange={onOpenChange} open={sharing !== undefined} trigger={trigger}>
+  return <HeaderDropdown anchor={anchor} id={id} label="Share run" width="content" onOpenChange={onOpenChange} open={sharing !== undefined} trigger={trigger}>
     {sharing && <ShareContent onSave={onSave} runTitle={runTitle} sharing={sharing} />}
   </HeaderDropdown>;
 }
@@ -60,7 +60,7 @@ export function ShareContent({ runTitle, sharing, onSave }: {
         {sharing.error && <p className={errorClass} role="alert">{sharing.error}</p>}
       </>
       : <div aria-busy={sharing.pending === true} className="grid gap-3">
-        <ul aria-label="Shared with" className="grid grid-cols-[minmax(0,1fr)_max-content] gap-x-3 rounded-lg border border-border-soft bg-card">
+        <ul aria-label="Shared with" className="grid grid-cols-[minmax(0,1fr)_max-content] gap-x-3 rounded-lg border border-border bg-card">
           <AccessRow access={current.everyone} disabled={sharing.pending === true} label="Everyone" onChange={(access) => onSave(withEveryone(current, access))} strong />
           {listedUsers(result).map((user) => <AccessRow
             access={current.users.find((entry) => entry.userId === user.id)?.access ?? null}
@@ -85,7 +85,7 @@ function AccessRow({ label, title, access, strong, disabled, onChange }: {
   disabled: boolean;
   onChange: (access: RunShareAccess | null) => void;
 }) {
-  return <li className="col-span-2 grid grid-cols-subgrid items-center border-b border-border-soft px-3 py-2 last:border-b-0">
+  return <li className="col-span-2 grid grid-cols-subgrid items-center border-b border-border px-3 py-2 last:border-b-0">
     <span className={`min-w-0 truncate ${strong ? "type-item" : "type-body"}`} title={title ?? label}>{label}</span>
     <ToggleGroup aria-label={`Access for ${label}`} disabled={disabled} size="sm" value={[access ?? OFF]}
       onValueChange={([value]) => { if (value) onChange(accessOf(value)); }}>

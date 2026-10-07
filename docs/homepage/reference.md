@@ -6412,7 +6412,7 @@ export { ChoiceSelect };
 import * as React from "react";
 import { Combobox as ComboboxPrimitive } from "@base-ui/react/combobox";
 import { type ControlSize } from "./control-size";
-export declare const dropdownTriggerStyle = "flex w-fit shrink-0 items-center justify-between gap-1.5 rounded-lg border border-input bg-background px-2.5 py-0 shadow-xs whitespace-nowrap transition-colors outline-none select-none disabled:cursor-not-allowed disabled:opacity-50 aria-invalid:border-destructive aria-invalid:ring-1 aria-invalid:ring-destructive data-placeholder:text-muted-foreground dark:bg-input/30 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4";
+export declare const dropdownTriggerStyle = "flex w-fit max-w-full shrink-0 items-center justify-between gap-1.5 border py-0 pr-2 pl-2.5 whitespace-nowrap transition-colors outline-none select-none disabled:cursor-not-allowed disabled:opacity-50 aria-invalid:border-destructive aria-invalid:ring-3 aria-invalid:ring-destructive/20 dark:aria-invalid:border-destructive/50 dark:aria-invalid:ring-destructive/40 data-placeholder:text-muted-foreground [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4 border-border-strong bg-background dark:bg-input/30";
 export declare function optionText(node: React.ReactNode): string;
 export declare function matchesOption(label: string, query: string): boolean;
 declare function Combobox<Value, Multiple extends boolean | undefined = false>({ onInputValueChange, onOpenChange, inputValue, defaultInputValue, ...props }: ComboboxPrimitive.Root.Props<Value, Multiple>): React.JSX.Element;
@@ -6440,6 +6440,12 @@ export { Combobox, ComboboxContent, ComboboxGroup, ComboboxItem, ComboboxLabel, 
 ```typescript
 export type ControlSize = "xs" | "sm" | "default" | "lg";
 export declare const controlMetrics: {
+    xs: string;
+    sm: string;
+    default: string;
+    lg: string;
+};
+export declare const controlRadius: {
     xs: string;
     sm: string;
     default: string;
@@ -6665,7 +6671,7 @@ type DropdownAnchor = HTMLElement | {
     contextElement: HTMLElement;
     getBoundingClientRect: () => DOMRect;
 };
-export declare function HeaderDropdown({ open, onOpenChange, label, trigger, anchor, children, id, initialFocus, keepMounted, role, variant, ref }: {
+export declare function HeaderDropdown({ open, onOpenChange, label, trigger, anchor, children, id, initialFocus, keepMounted, role, variant, width, ref }: {
     open: boolean;
     onOpenChange: (open: boolean) => void;
     label: string;
@@ -6677,6 +6683,8 @@ export declare function HeaderDropdown({ open, onOpenChange, label, trigger, anc
     keepMounted?: boolean;
     role?: "dialog" | "region";
     variant?: "default" | "chat";
+    /** "header" takes the width of the header it hangs from; "content" keeps a readable column. */
+    width?: "header" | "content";
     ref?: Ref<HTMLDivElement>;
 }): import("react").JSX.Element;
 export {};
@@ -6750,6 +6758,7 @@ export { ToggleGroup, ToggleGroupItem } from "./toggle-group";
 export { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "./tooltip";
 export { ListDetail, type ListDetailItem, type ListDetailProps } from "./ListDetail";
 export { longTime, shortTime } from "./relative-time";
+export { SearchInput } from "./search-input";
 export { SectionLabel } from "./SectionLabel";
 export { StartupNotice, type StartupNoticeState } from "./startup-notice";
 export { ConnectionStateIcon, connectionStateTone, RunStateIcon, runStateTone } from "./state-icon";
@@ -6823,9 +6832,11 @@ import * as React from "react";
 import { Popover as PopoverPrimitive } from "@base-ui/react/popover";
 declare function Popover({ ...props }: PopoverPrimitive.Root.Props): React.JSX.Element;
 declare function PopoverTrigger({ ...props }: PopoverPrimitive.Trigger.Props): React.JSX.Element;
-declare function PopoverContent({ className, align, alignOffset, side, sideOffset, anchor, collisionAvoidance, collisionPadding, container, keepMounted, dim, ...props }: PopoverPrimitive.Popup.Props & Pick<PopoverPrimitive.Positioner.Props, "align" | "alignOffset" | "side" | "sideOffset" | "anchor" | "collisionAvoidance" | "collisionPadding"> & Pick<PopoverPrimitive.Portal.Props, "container" | "keepMounted"> & {
+declare function PopoverContent({ className, align, alignOffset, side, sideOffset, anchor, collisionAvoidance, collisionPadding, container, keepMounted, dim, backdropClassName, ...props }: PopoverPrimitive.Popup.Props & Pick<PopoverPrimitive.Positioner.Props, "align" | "alignOffset" | "side" | "sideOffset" | "anchor" | "collisionAvoidance" | "collisionPadding"> & Pick<PopoverPrimitive.Portal.Props, "container" | "keepMounted"> & {
     /** Dims the rest of the page so the pop-out stands out; a click outside closes it. */
     dim?: boolean;
+    /** Places the dimming surface, for example only below the container the pop-out belongs to. */
+    backdropClassName?: string;
 }): React.JSX.Element;
 declare function PopoverHeader({ className, ...props }: React.ComponentProps<"div">): React.JSX.Element;
 declare function PopoverTitle({ className, ...props }: PopoverPrimitive.Title.Props): React.JSX.Element;
@@ -6862,6 +6873,22 @@ export { RadioGroup, RadioGroupItem };
 export declare const shortTime: (at: number, now?: number) => string;
 /** The same time written out; it appears only in the title of the compact time. */
 export declare const longTime: (at: number, now?: number) => string;
+```
+
+#### apps/web/src/ui/search-input.d.ts
+
+```typescript
+import { type ComponentProps, type Ref } from "react";
+import { Input } from "./input";
+/** A search field with the product's own clear button in place of the browser's. */
+export declare function SearchInput({ className, icon, inputRef, onValueChange, value, ...props }: Omit<ComponentProps<typeof Input>, "className" | "onChange" | "ref" | "type" | "value"> & {
+    className?: string;
+    /** A magnifier at the start of the field. */
+    icon?: boolean;
+    inputRef?: Ref<HTMLInputElement>;
+    onValueChange: (value: string) => void;
+    value: string;
+}): import("react").JSX.Element;
 ```
 
 #### apps/web/src/ui/SectionLabel.d.ts
@@ -7039,6 +7066,10 @@ import { type TableColumnDefinition } from "./table-widths";
 export type TableProps = React.ComponentProps<"table"> & {
     columns?: readonly TableColumnDefinition[];
 };
+export declare const tableRowMin = "[--grid-row-min:calc(var(--spacing)_*_5.5_+_var(--grid-cell-y)_*_2_+_1px)]";
+export declare const tableHeadStyle = "px-(--grid-cell-x) py-[calc(var(--grid-cell-y)*0.8)] text-[0.71rem] leading-snug font-semibold text-muted-foreground aria-[sort=ascending]:text-foreground aria-[sort=descending]:text-foreground";
+export declare const tableRowStyle = "border-b border-border outline-none hover:bg-hover/50 hover:text-hover-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset selected:bg-selected selected:text-selected-foreground selected:shadow-[inset_0_0_0_1px_var(--selected-border)] selected:hover:bg-selected-hover selected:hover:text-selected-foreground aria-disabled:pointer-events-none aria-disabled:opacity-50";
+export declare const tableResizeStyle = "absolute inset-y-0 right-0 z-10 w-2 cursor-col-resize touch-none outline-none after:absolute after:inset-y-[28%] after:right-0 after:w-px after:bg-border group-last/column:not-hover:not-focus-visible:after:bg-transparent hover:after:inset-y-1 hover:after:w-0.5 hover:after:bg-ring focus-visible:after:inset-y-1 focus-visible:after:w-0.5 focus-visible:after:bg-ring";
 declare function Table({ columns, ...props }: TableProps): React.JSX.Element;
 declare function TableHeader({ className, ...props }: React.ComponentProps<"thead">): React.JSX.Element;
 declare function TableBody({ className, ...props }: React.ComponentProps<"tbody">): React.JSX.Element;

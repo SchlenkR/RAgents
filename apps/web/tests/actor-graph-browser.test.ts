@@ -112,8 +112,11 @@ test("the addressee pop-out and the header's agents view show who created whom a
   await card("coordinator").waitFor();
   assert.equal(await card("coordinator").getAttribute("aria-current"), "true");
   assert.equal(await dialog.getByRole("searchbox").count(), 0, "the picker has no search");
-  assert.equal(await dialog.getByText("Addressee", { exact: true }).count(), 0, "the pop-out shows the graph without a title");
-  await dialog.getByRole("button", { name: "Close addressee" }).waitFor();
+  await dialog.getByText("Addressee", { exact: true }).waitFor();
+  const closeBox = await dialog.getByRole("button", { name: "Close addressee" }).boundingBox();
+  const firstCard = await card("coordinator").boundingBox();
+  assert.ok(closeBox && firstCard && closeBox.y + closeBox.height <= firstCard.y, "the close button sits in the pop-out's title bar, clear of the actor cards");
+  assert.equal(await page.locator('[data-slot="popover-backdrop"]:visible').count(), 0, "the addressee pop-out leaves the page undimmed, like the model menus");
   assert.equal(await node("actor:implementer").getAttribute("data-graph-parent"), "actor:coordinator");
   assert.equal(await node("actor:test-writer").getAttribute("data-graph-parent"), "actor:implementer");
   assert.equal(await node("actor:formatter").getAttribute("data-graph-parent"), "actor:implementer", "the TypeScript actor hangs below its creator");
@@ -144,8 +147,9 @@ test("the addressee pop-out and the header's agents view show who created whom a
   await shoot("actor-graph-picker");
   await settle();
   const compact = await box(dialog);
+  const titleBar = await box(dialog.locator("header"));
   const fits = await canvasOf(dialog);
-  assert.ok(compact.width < 1000 && compact.height < 360, `a small graph keeps the pop-out compact (${compact.width} x ${compact.height})`);
+  assert.ok(compact.width < 1000 && compact.height - titleBar.height < 360, `a small graph keeps the pop-out compact below its title bar (${compact.width} x ${compact.height})`);
   assert.deepEqual([fits.maxLeft, fits.maxTop], [0, 0], "a graph that fits does not pan");
   assert.notEqual(fits.cursor, "grab");
 
@@ -175,7 +179,8 @@ test("the addressee pop-out and the header's agents view show who created whom a
   const first = await canvasOf(dialog);
   assert.deepEqual([first.left, first.top], [0, 0]);
   assert.ok(near((await box(card("test-writer"))).x, grown.x + 40), "panning stops 40 pixels left of the leftmost card");
-  assert.ok(near((await box(card("coordinator"))).y, grown.y + 40), "panning stops 40 pixels above the top card");
+  const grownTitle = await box(dialog.locator("header"));
+  assert.ok(near((await box(card("coordinator"))).y, grownTitle.y + grownTitle.height + 40), "panning stops 40 pixels above the top card, below the title bar");
   await drag(page, { x: grown.x + grown.width - 60, y: grown.y + grown.height - 60 }, -1100, -700);
   assert.equal(await dialog.count(), 1, "a drag that starts on a card pans instead of picking it");
   const last = await canvasOf(dialog);
@@ -232,7 +237,7 @@ test("the addressee pop-out and the header's agents view show who created whom a
   assert.equal(await agents.locator("g[data-tone]").count(), 6, "one line leads into the open group's frame, none to each member");
   await settle();
   const agentsBox = await box(agents);
-  assert.ok(agentsBox.y + agentsBox.height <= 860 - 7 && near(agentsBox.width, 800), `the agents view uses the shared header width and stays inside the window (${agentsBox.x}, ${agentsBox.y}, ${agentsBox.width} x ${agentsBox.height})`);
+  assert.ok(agentsBox.y + agentsBox.height <= 860 - 7 && near(agentsBox.width, 1264), `the agents view uses the shared header width and stays inside the window (${agentsBox.x}, ${agentsBox.y}, ${agentsBox.width} x ${agentsBox.height})`);
   await shoot("actor-graph-agents");
   await agentsGroup.click();
   assert.equal(await agentsGroup.getAttribute("aria-expanded"), "false");
@@ -297,7 +302,7 @@ test("the Agents header dropdown shares square responsive bounds and restores fo
       const bounds = await box(panel);
       assert.ok(near(bounds.y, header.y + header.height + 8), "Agents opens below the entire wrapping header.");
       assert.ok(near(bounds.x + bounds.width, header.x + header.width - 8), "Agents shares the header's right gutter.");
-      assert.ok(near(bounds.width, Math.min(800, header.width - 16)), "Agents shares the header dropdown width.");
+      assert.ok(near(bounds.width, header.width - 16), "Agents shares the header dropdown width.");
       assert.ok(bounds.y + bounds.height <= 893, "The graph stays inside the visible viewport.");
       const style = await panel.evaluate((element) => {
         const computed = getComputedStyle(element);

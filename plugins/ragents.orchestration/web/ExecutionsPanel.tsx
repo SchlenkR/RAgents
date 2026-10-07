@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import type { JournalEvent } from "@ragents/engine/src/domain/events";
 import type { WorkspaceTabContext } from "@ragents/web/PluginRegistry";
 import { SourceCode } from "@ragents/web/SourceCode";
-import { Alert, AlertDescription, Badge, Button, FilterSelect, Input, type BadgeTone } from "@ragents/web/ui";
+import { Alert, AlertDescription, Badge, Button, FilterSelect, SearchInput, type BadgeTone } from "@ragents/web/ui";
 import { runContracts } from "@ragents/engine/src/http/contracts";
 import { rpc } from "@ragents/web/rpc";
 import { executionDuration, executionEventsFrom, executionStatusLabel, filterExecutions, projectExecutions, type ExecutionStatus, type TypeScriptExecution } from "./executions";
@@ -50,10 +50,10 @@ function RunExecutionsPanel({ active, runId, view }: { active: boolean; runId: s
     return () => window.clearInterval(timer);
   }, [active, running]);
 
-  return <section aria-label="TypeScript executions" className="flex h-full min-h-0 min-w-0 flex-col bg-background text-[0.78rem] text-foreground">
+  return <section aria-label="TypeScript executions" className="flex h-full min-h-0 min-w-0 flex-col text-[0.78rem] text-foreground">
     <header className="px-3.5 pt-3.5 pb-2.5"><h2 className="mb-1.5 text-[0.92rem]">Executions</h2><p className="leading-[1.5] text-muted-foreground">TypeScript snippets of all actors in this run.</p></header>
     <div className="flex flex-wrap items-center gap-2 border-b border-border-soft px-3.5 pb-3">
-      <Input className="min-w-0" size="sm" aria-label="Search executions" onChange={(event) => setQuery(event.target.value)} placeholder="Search actor, code or result" type="search" value={query} />
+      <SearchInput className="min-w-0" size="sm" aria-label="Search executions" onValueChange={setQuery} placeholder="Search actor, code or result" value={query} />
       <FilterSelect label="Status" options={statusOptions.map((option) => ({ ...option, count: executions.filter((execution) => execution.status === option.value).length }))}
         size="sm" value={statuses} onValueChange={setStatuses} />
       <span className="self-center text-right text-[0.68rem] text-muted-foreground" role="status">{journal.loading ? (journal.loaded ? "Refreshing ..." : "Loading ...") : journal.loaded ? `${filtered.length} of ${executions.length} executions` : "Not loaded yet"}</span>
@@ -77,19 +77,19 @@ const summaryClass = "relative grid cursor-pointer list-none grid-cols-[minmax(0
 
 const contentClass = "min-w-0 border-t border-border-soft px-2.5 pb-2.5 [&>h3]:mt-3 [&>h3]:mb-1.5 [&>h3]:text-[0.72rem] [&>h3]:font-[650]";
 
-const sourceClass = "m-0 max-h-[28rem] overflow-auto text-[0.68rem]";
+const sourceClass = "m-0 max-h-[28rem] overflow-auto";
 
-const logClass = "m-0 max-h-[24rem] overflow-auto rounded-sm bg-background p-2 font-mono text-[0.68rem] leading-[1.5] whitespace-pre-wrap [overflow-wrap:anywhere]";
+const logClass = "m-0 max-h-[24rem] overflow-auto rounded-sm border border-code-border bg-code p-2 font-mono text-[0.75rem] leading-[1.55] whitespace-pre-wrap [overflow-wrap:anywhere]";
 
 function ExecutionEntry({ execution, now }: { execution: TypeScriptExecution; now: number }) {
   const [expanded, setExpanded] = useState(false);
   const preview = execution.code?.trim().split("\n").find((line) => line.trim()) ?? execution.path ?? "TypeScript snippet";
-  return <details className="mt-2.5 overflow-hidden rounded-sm border border-border-soft bg-card open:[&>summary]:before:rotate-45" onToggle={(event) => setExpanded(event.currentTarget.open)}>
+  return <details className="mt-2.5 overflow-hidden rounded-sm border border-border bg-card open:[&>summary]:before:rotate-45" onToggle={(event) => setExpanded(event.currentTarget.open)}>
     <summary className={summaryClass}>
       <span className="truncate font-[650]" title={`${execution.actorName} (${execution.actorId})`}>@{execution.actorHandle}</span>
-      <Badge className="h-auto rounded-[5px] px-[5px] py-0.5 text-[0.64rem]" tone={statusTones[execution.status]}>{executionStatusLabel(execution.status)}</Badge>
-      <span className="col-span-full truncate font-mono text-[0.68rem]" title={preview}>{preview}</span>
-      <span className="col-span-full flex flex-wrap justify-between gap-x-3 gap-y-1.5 text-[0.65rem] tabular-nums text-muted-foreground"><time dateTime={execution.startedAt} title={new Date(execution.startedAt).toLocaleString()}>{new Date(execution.startedAt).toLocaleString(undefined, { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit", second: "2-digit" })}</time><span>{executionDuration(execution, now)}</span></span>
+      <Badge tone={statusTones[execution.status]}>{executionStatusLabel(execution.status)}</Badge>
+      <span className="col-span-full truncate font-mono text-[0.75rem]" title={preview}>{preview}</span>
+      <span className="col-span-full flex flex-wrap justify-between gap-x-3 gap-y-1.5 text-xs tabular-nums text-muted-foreground"><time dateTime={execution.startedAt} title={new Date(execution.startedAt).toLocaleString()}>{new Date(execution.startedAt).toLocaleString(undefined, { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit", second: "2-digit" })}</time><span>{executionDuration(execution, now)}</span></span>
     </summary>
     {expanded && <div className={contentClass}>
       {execution.path && <p className="mt-2.5 grid gap-1 text-[0.68rem] text-muted-foreground"><span>Path</span><code className="[overflow-wrap:anywhere]">{execution.path}</code></p>}

@@ -21,8 +21,8 @@ export function PanelPage(props: PanelPageProps) {
       return new DOMRect(bounds.x, bounds.y, bounds.width, 0);
     } };
   };
-  return <main data-page={page} className="h-full min-w-0 overflow-y-auto p-3 pt-6" ref={main} tabIndex={-1}>
-    <div className="@container/panel mx-auto w-full max-w-[1280px] min-w-0">
+  return <main data-page={page} className="h-full min-w-0 overflow-y-auto px-3 pb-3" ref={main} tabIndex={-1}>
+    <div className="@container/panel mx-auto w-full max-w-[1280px] min-w-0 pt-6">
       {page === "connections" ? <ConnectionsPage {...props} /> : page === "runs" ? <RunsPage key={props.state.connections[0]!.name} {...props} /> : <StartPage {...props} />}
     </div>
     {sharing && <SharePanel anchor={shareAnchor} id="run-sharing-dropdown" key={`${sharing.connection}\u0000${sharing.runId}`} onOpenChange={(open) => { if (!open) props.send({ action: "closeSharing" }); }}

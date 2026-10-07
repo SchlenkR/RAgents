@@ -33,6 +33,7 @@
     "start": "pnpm --filter @ragents/host start",
     "test:engine": "pnpm --filter @ragents/engine test",
     "update:models": "pnpm --filter @ragents/host exec node --import tsx ../../scripts/maintenance/update-model-catalog.ts",
+    "generate:palettes": "pnpm --filter @ragents/host exec node --import tsx ../../scripts/maintenance/generate-palettes.ts",
     "update:host-api": "pnpm --filter @ragents/host exec node --import tsx ../../scripts/maintenance/update-host-api.ts",
     "driver": "pnpm --filter @ragents/host exec node --import tsx ../../scripts/driver/run-driver.ts",
     "ragents": "pnpm --filter @ragents/host exec node --import tsx ../../scripts/agent/agent-cli.ts",

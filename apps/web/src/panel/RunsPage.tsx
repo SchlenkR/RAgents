@@ -1,11 +1,12 @@
-import { CheckSquareIcon, SearchIcon, Trash2Icon } from "lucide-react";
+import { CheckSquareIcon, Trash2Icon } from "lucide-react";
 import { useState } from "react";
-import { Button, Input, Toggle } from "../ui";
+import { Button, Toggle } from "../ui";
+import { SearchInput } from "../ui/search-input";
 import type { ConnectionRun } from "./contract";
 import type { PanelPageProps } from "./page-props";
 import { ConfirmDialog } from "./PanelDialogs";
 import { PanelHeader } from "./PanelHeader";
-import { canDeleteRun, RunLine, RunList } from "./RunLine";
+import { canDeleteRun, RunCard, RunLine, RunList } from "./RunLine";
 
 const matches = (run: ConnectionRun, query: string): boolean => run.title.toLocaleLowerCase("en-US").includes(query);
 
@@ -53,18 +54,14 @@ export function RunsPage({ state, send }: PanelPageProps) {
   return <div className="grid grid-cols-1 gap-3">
     <PanelHeader send={send} title="Runs" />
     {state.problem && <p className="type-body text-destructive [overflow-wrap:anywhere]" role="alert">{state.problem}</p>}
-    <div className="sticky top-0 z-10 grid gap-3 bg-background pb-2">
-      <div className="relative">
-        <SearchIcon aria-hidden className="pointer-events-none absolute top-1/2 left-2.5 size-3.5 -translate-y-1/2 text-muted-foreground" />
-        <Input aria-label="Search runs" className="pl-8" size="sm" onChange={(event) => setQuery(event.target.value)}
-          placeholder="Search runs ..." type="search" value={query} />
-      </div>
+    <RunCard toolbar={<div className="flex flex-wrap items-center gap-2">
+      <SearchInput aria-label="Search runs" className="min-w-[min(12rem,100%)] flex-1" icon onValueChange={setQuery} placeholder="Search runs ..." size="sm" value={query} />
       <div aria-label="Run actions" className="flex flex-wrap items-center gap-1.5" role="group">
         {selecting ? <>
-          <Button disabled={selectable.length === 0} onClick={toggleAll} size="sm" variant="ghost">{allSelected ? "Select none" : "Select all"}</Button>
+          <Button disabled={selectable.length === 0} onClick={toggleAll} size="sm" variant="outline">{allSelected ? "Select none" : "Select all"}</Button>
           <span className="type-body text-muted-foreground" role="status">{selectedRuns.length} selected</span>
           <Button disabled={selectedRuns.length === 0} onClick={() => setConfirming(true)} size="sm" variant="destructive"><Trash2Icon data-icon="inline-start" />Delete</Button>
-          <Button onClick={leaveSelection} size="sm" variant="ghost">Cancel</Button>
+          <Button onClick={leaveSelection} size="sm" variant="outline">Cancel</Button>
         </> : <>
           <Toggle onPressedChange={setHideEnded} pressed={hideEnded} size="sm" variant="outline">Hide ended</Toggle>
           {connection.canDelete !== false && <Toggle onPressedChange={setSelecting} pressed={selecting} size="sm" variant="outline">
@@ -72,17 +69,18 @@ export function RunsPage({ state, send }: PanelPageProps) {
           </Toggle>}
         </>}
       </div>
-    </div>
-    {shown.length === 0
-      ? <p className="type-body text-muted-foreground" role="status">{all.length === 0 ? "No runs yet." : "No matching run."}</p>
-      : <RunList actions={actions} label="Runs" selecting={selecting}>
-        {shown.map((run) => <RunLine actions={actions} key={run.id}
-          onDelete={!selecting && canDeleteRun(connection, run) ? () => send({ action: "deleteRuns", name: connection.name, runIds: [run.id] }) : undefined}
-          onOpen={() => send({ action: "openRun", name: connection.name, runId: run.id })}
-          onShare={run.canShare ? () => send(state.sharing?.runId === run.id ? { action: "closeSharing" } : { action: "openSharing", name: connection.name, runId: run.id }) : undefined}
-          sharingOpen={state.sharing?.runId === run.id}
-          onToggle={() => toggle(run.id)} run={run} selectable={canDeleteRun(connection, run)} selected={selected.has(run.id)} selecting={selecting} />)}
-      </RunList>}
+    </div>}>
+      {shown.length === 0
+        ? <p className="type-body px-3 py-4 text-muted-foreground" role="status">{all.length === 0 ? "No runs yet." : "No matching run."}</p>
+        : <RunList actions={actions} label="Runs" selecting={selecting}>
+          {shown.map((run) => <RunLine actions={actions} key={run.id}
+            onDelete={!selecting && canDeleteRun(connection, run) ? () => send({ action: "deleteRuns", name: connection.name, runIds: [run.id] }) : undefined}
+            onOpen={() => send({ action: "openRun", name: connection.name, runId: run.id })}
+            onShare={run.canShare ? () => send(state.sharing?.runId === run.id ? { action: "closeSharing" } : { action: "openSharing", name: connection.name, runId: run.id }) : undefined}
+            sharingOpen={state.sharing?.runId === run.id}
+            onToggle={() => toggle(run.id)} run={run} selectable={canDeleteRun(connection, run)} selected={selected.has(run.id)} selecting={selecting} />)}
+        </RunList>}
+    </RunCard>
     {confirming && <ConfirmDialog
       confirmLabel="Delete"
       onClose={() => setConfirming(false)}

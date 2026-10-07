@@ -3,36 +3,120 @@
 @import "react-diff-view/style/index.css";
 
 .diff {
-  font-size: 10.5px;
+  --diff-font-family: var(--font-mono);
+  --diff-background-color: transparent;
+  --diff-text-color: var(--foreground);
+  --diff-selection-background-color: color-mix(in srgb, var(--primary) 30%, transparent);
+  --diff-selection-text-color: var(--foreground);
+  --diff-gutter-insert-background-color: var(--diff-insert-gutter);
+  --diff-gutter-insert-text-color: var(--foreground);
+  --diff-gutter-delete-background-color: var(--diff-delete-gutter);
+  --diff-gutter-delete-text-color: var(--foreground);
+  --diff-code-insert-background-color: var(--diff-insert);
+  --diff-code-insert-text-color: var(--foreground);
+  --diff-code-delete-background-color: var(--diff-delete);
+  --diff-code-delete-text-color: var(--foreground);
+  --diff-code-insert-edit-background-color: var(--diff-insert-edit);
+  --diff-code-delete-edit-background-color: var(--diff-delete-edit);
+  --diff-number-width: calc(var(--diff-digits) * 1ch + 1.8ch);
+  --diff-sign-width: 2.6ch;
+  table-layout: auto;
+  font-size: calc(var(--text-sm) * 0.95);
 }
 
-.diff-line {
-  line-height: 1.45;
+.diff-code::selection,
+.diff-code ::selection {
+  background-color: var(--diff-selection-background-color);
+  color: var(--diff-selection-text-color);
 }
 
-.diff-code {
-  white-space: pre;
-  word-break: normal;
-  overflow-wrap: normal;
+.diff-line,
+.diff-decoration {
+  line-height: 1.55;
 }
 
-.diff-code-edit {
-  border-radius: 2px;
+.diff-gutter-col {
+  width: auto;
 }
 
 .diff-gutter {
+  position: sticky;
+  left: 0;
+  z-index: 1;
+  width: var(--diff-number-width);
+  min-width: var(--diff-number-width);
+  padding: 0 0.9ch 0 0;
   color: var(--muted-foreground);
+  font-variant-numeric: tabular-nums;
+  cursor: default;
 }
 
-.diff-gutter-insert,
-.diff-gutter-delete {
+.diff-gutter + .diff-gutter {
+  left: var(--diff-number-width);
+  width: calc(var(--diff-number-width) + var(--diff-sign-width));
+  min-width: calc(var(--diff-number-width) + var(--diff-sign-width));
+  padding-right: var(--diff-sign-width);
+  box-shadow: inset -1px 0 0 var(--border-soft);
+}
+
+.diff-gutter-normal {
+  background-color: var(--diff-surface, var(--background));
+}
+
+.diff-gutter-insert {
+  color: var(--diff-gutter-insert-text-color);
   font-weight: 600;
 }
 
-.diff-gutter-insert:first-child {
-  box-shadow: inset 3px 0 0 var(--success);
+.diff-gutter-delete {
+  color: var(--diff-gutter-delete-text-color);
+  font-weight: 600;
 }
 
-.diff-gutter-delete:first-child {
-  box-shadow: inset 3px 0 0 var(--destructive);
+.diff-gutter-insert + .diff-gutter-insert::after,
+.diff-gutter-delete + .diff-gutter-delete::after {
+  position: absolute;
+  right: 0.8ch;
+  font-weight: 700;
+}
+
+.diff-gutter-insert + .diff-gutter-insert::after {
+  content: "+";
+  color: var(--success);
+}
+
+.diff-gutter-delete + .diff-gutter-delete::after {
+  content: "-";
+  color: var(--destructive);
+}
+
+.diff-code {
+  padding: 0 2ch 0 1.2ch;
+  white-space: pre;
+  word-break: normal;
+  overflow-wrap: normal;
+  tab-size: 4;
+}
+
+.diff-code-edit {
+  border-radius: 0.2em;
+}
+
+.diff-code-insert .diff-code-edit {
+  box-shadow: inset 0 -2px 0 var(--success);
+}
+
+.diff-code-delete .diff-code-edit {
+  box-shadow: inset 0 -2px 0 var(--destructive);
+}
+
+.diff-decoration-content {
+  padding: 0;
+  border-block: 1px solid var(--border-soft);
+  background-color: color-mix(in srgb, var(--secondary) 45%, transparent);
+  font-family: var(--font-mono);
+}
+
+.diff-decoration:first-of-type .diff-decoration-content {
+  border-top-width: 0;
 }

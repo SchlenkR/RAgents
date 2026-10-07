@@ -1,5 +1,5 @@
 import React, { useId, useRef, useState } from "react";
-import { Badge, Button, DataGrid, Input } from "../../ui";
+import { Badge, Button, DataGrid, SearchInput } from "../../ui";
 import type { DataTableProps, TableAction, TableColumn, TableValue } from "./table-contracts";
 
 const displayValue = (value: TableValue) => value === null || value === undefined ? "" : typeof value === "boolean" ? value ? "Yes" : "No" : String(value);
@@ -26,7 +26,7 @@ export function DataTable<Row>(props: DataTableProps<Row>) {
     ...(actions.length > 0 ? [{ id: "actions", label: "Actions", width: 180, minWidth: 80, render: (row: Row) => {
       const key = rowKey(row);
       return <>
-        <div aria-busy={pending.has(key)} className="flex flex-wrap gap-1.5">{actions.map((action) => <Button disabled={loading || pending.has(key) || action.disabled?.(row)} key={action.id} onClick={() => void runAction(action, row, key)} size="sm" variant="outline">{action.label}</Button>)}</div>
+        <div aria-busy={pending.has(key)} className="flex flex-wrap gap-1.5">{actions.map((action) => <Button disabled={loading || pending.has(key) || action.disabled?.(row)} key={action.id} onClick={() => void runAction(action, row, key)} size="sm" variant="secondary">{action.label}</Button>)}</div>
         {pending.has(key) && <Badge role="status" tone="active">Running...</Badge>}
         {errors.has(key) && <p className="mt-1.5 text-sm text-destructive" role="alert">{errors.get(key)}</p>}
       </>;
@@ -49,7 +49,7 @@ export function DataTable<Row>(props: DataTableProps<Row>) {
   return (
     <section aria-label={title ?? "Data table"} aria-busy={loading} className="flex min-w-0 flex-col gap-3">
       {title && <h2 className="text-base font-semibold">{title}</h2>}
-      {filterable && <Input aria-label="Search table" id={filterId} onChange={(event) => setQuery(event.target.value)} placeholder="Search table" type="search" value={query} />}
+      {filterable && <SearchInput aria-label="Search table" id={filterId} onValueChange={setQuery} placeholder="Search table" value={query} />}
       {loading && <p className="text-sm text-muted-foreground" role="status">Loading...</p>}
       <DataGrid id={props.id ?? filterId} aria-label={title ?? "Table content"} rows={visible} columns={layoutColumns} rowKey={rowKey}
         selection={props.selectedKeys} onSelectionChange={props.onSelectionChange} loading={loading} emptyText={emptyText} />

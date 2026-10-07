@@ -1,6 +1,5 @@
 import * as React from "react"
 import { cn } from "cn"
-import { interactionStyle } from "./interaction"
 import { Button } from "./button"
 import { createLocalStorageSetting } from "../lib/local-storage-setting"
 import { parseTableColumnWidths, tableColumnMinimum, tableColumnWidth, tableWidthsKey, validateTableColumns, type TableColumnDefinition, type TableColumnWidths } from "./table-widths"
@@ -22,6 +21,14 @@ const widthSetting = createLocalStorageSetting<WidthSetting>({
     return raw
   },
 })
+
+export const tableRowMin = "[--grid-row-min:calc(var(--spacing)_*_5.5_+_var(--grid-cell-y)_*_2_+_1px)]";
+
+export const tableHeadStyle = "px-(--grid-cell-x) py-[calc(var(--grid-cell-y)*0.8)] text-[0.71rem] leading-snug font-semibold text-muted-foreground aria-[sort=ascending]:text-foreground aria-[sort=descending]:text-foreground"
+
+export const tableRowStyle = "border-b border-border outline-none hover:bg-hover/50 hover:text-hover-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset selected:bg-selected selected:text-selected-foreground selected:shadow-[inset_0_0_0_1px_var(--selected-border)] selected:hover:bg-selected-hover selected:hover:text-selected-foreground aria-disabled:pointer-events-none aria-disabled:opacity-50"
+
+export const tableResizeStyle = "absolute inset-y-0 right-0 z-10 w-2 cursor-col-resize touch-none outline-none after:absolute after:inset-y-[28%] after:right-0 after:w-px after:bg-border group-last/column:not-hover:not-focus-visible:after:bg-transparent hover:after:inset-y-1 hover:after:w-0.5 hover:after:bg-ring focus-visible:after:inset-y-1 focus-visible:after:w-0.5 focus-visible:after:bg-ring"
 
 type TableResizeContext = {
   columns: readonly TableColumnDefinition[]
@@ -105,7 +112,7 @@ function TableSurface({ className, ...props }: React.ComponentProps<"table">) {
     >
       <table
         data-slot="table"
-        className={cn("w-full caption-bottom text-sm", className)}
+        className={cn("w-full caption-bottom text-sm tabular-nums", className)}
         {...props}
       />
     </div>
@@ -116,7 +123,7 @@ function TableHeader({ className, ...props }: React.ComponentProps<"thead">) {
   return (
     <thead
       data-slot="table-header"
-      className={cn("[&_tr]:border-b", className)}
+      className={cn("bg-band [&_tr]:border-b [&_tr]:border-border-strong [&_tr]:hover:bg-transparent", className)}
       {...props}
     />
   )
@@ -150,8 +157,8 @@ function TableRow({ className, ...props }: React.ComponentProps<"tr">) {
     <tr
       data-slot="table-row"
       className={cn(
-        interactionStyle,
-        "border border-transparent border-b-border transition-colors has-aria-expanded:border-selected-border has-aria-expanded:bg-selected has-aria-expanded:text-selected-foreground",
+        tableRowStyle,
+        "transition-colors has-[[aria-expanded=true]:not([aria-haspopup])]:border-b-transparent",
         className
       )}
       {...props}
@@ -179,7 +186,8 @@ function TableHead({ className, children, columnId, ref, title, ...props }: Reac
       ref={head}
       data-slot="table-head"
       className={cn(
-        "relative h-10 px-2 text-left align-middle font-medium whitespace-nowrap text-foreground [&:has([role=checkbox])]:pr-0",
+        tableHeadStyle,
+        "group/column relative text-left align-middle whitespace-nowrap [&:has([role=checkbox])]:pr-0",
         resize && "overflow-hidden",
         className
       )}
@@ -224,7 +232,7 @@ function TableResizeHandle({ column, context }: { column: TableColumnDefinition;
     aria-disabled={context.disabled || undefined}
     tabIndex={context.disabled ? -1 : 0}
     title="Drag to resize; double-click to fit content"
-    className="absolute inset-y-0 right-0 z-10 w-2 cursor-col-resize touch-none border-r-2 border-transparent hover:border-ring focus-visible:border-ring focus-visible:outline-none"
+    className={tableResizeStyle}
     onClick={(event) => event.stopPropagation()}
     onPointerDown={(event) => {
       if (context.disabled || event.button !== 0) return
@@ -268,7 +276,8 @@ function TableCell({ className, children, title, ...props }: React.ComponentProp
     <td
       data-slot="table-cell"
       className={cn(
-        "p-2 align-middle whitespace-nowrap [&:has([role=checkbox])]:pr-0",
+        tableRowMin,
+        "h-(--grid-row-min) px-(--grid-cell-x) py-(--grid-cell-y) align-middle whitespace-nowrap [&:has([role=checkbox])]:pr-0",
         resizing && "overflow-hidden",
         className
       )}

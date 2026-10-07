@@ -485,6 +485,7 @@ test("run header buttons stay direct at every width and count, wrap, and reorder
   await page.getByRole("button", { name: "first", exact: true }).click();
   await page.getByRole("dialog", { name: "Run details", exact: true }).waitFor();
   await page.keyboard.press("Escape");
+  await page.getByRole("dialog", { name: "Run details", exact: true }).waitFor({ state: "detached" });
 
   await page.setViewportSize({ width: 1200, height: 800 });
   await view("Reset layout").click();
@@ -641,7 +642,13 @@ test("browser button drags move between header slots and the rail while preservi
   await intoRail(view("Preview"));
   await button("Preview").waitFor();
   assert.equal(await panel("Preview").isVisible(), true, "moving an open window button leaves its docked panel open");
-  assert.equal(await button("Preview").locator('[data-slot="badge"]').textContent(), "2 checks");
+  // The rail badge sits beside its icon-only button, on the button's corner.
+  const railBadge = rail.locator("div", { has: page.getByRole("button", { name: "Preview", exact: true }) }).locator('[data-slot="badge"]');
+  assert.equal(await railBadge.textContent(), "2 checks");
+  const badgeBox = await railBadge.boundingBox();
+  const previewBox = await button("Preview").boundingBox();
+  assert.ok(badgeBox && previewBox && badgeBox.x >= previewBox.x && badgeBox.x + badgeBox.width <= previewBox.x + previewBox.width && badgeBox.y >= previewBox.y && badgeBox.y + badgeBox.height <= previewBox.y + previewBox.height,
+    "the rail badge stays on its button");
   await samePanels(preview);
   await page.evaluate(() => { document.documentElement.style.zoom = "1.3"; });
   await intoHeader(button("Preview"), "Notes");

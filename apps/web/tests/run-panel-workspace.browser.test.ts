@@ -99,7 +99,8 @@ createRoot(document.getElementById('root')).render(<div style={{ width: 600, hei
   const button = (label: string) => rail.getByRole("button", { name: label, exact: true });
   const stored = (runId: string) => page.evaluate((key) => JSON.parse(localStorage.getItem(key) ?? "null"), `ragents.run-panel.workspace-tab:${runId}`);
   await rail.waitFor();
-  assert.deepEqual(await rail.getByRole("button").allTextContents().then((texts) => texts.map((text) => text.trim())), ["3", ""], "Documents with badge first, then files");
+  // A badge sits beside its icon-only rail button, inside the same rail entry.
+  assert.deepEqual(await rail.locator(":scope > div").allTextContents().then((texts) => texts.map((text) => text.trim())), ["3", ""], "Documents with badge first, then files");
   assert.deepEqual(await rail.getByRole("button").evaluateAll((buttons) => buttons.map((entry) => entry.getAttribute("aria-label"))), ["Documents", "Files"]);
   assert.equal(await area.isHidden(), true, "the sidebar is initially closed");
   assert.equal(await stored("run-a"), null);

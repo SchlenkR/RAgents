@@ -339,6 +339,7 @@ function RunPanelPage({ connection, initialRunId, registry }: { connection: stri
                   viewing={!draft && !settingsOpen && !helpOpen}
                 />
               </main>
+              <footer aria-label="Run status bar" className={statusBarClass} ref={setStatusContainer} />
             </>
           )
           : (
@@ -349,7 +350,6 @@ function RunPanelPage({ connection, initialRunId, registry }: { connection: stri
               </div>
             </>
           )}
-        <footer aria-label="Run status bar" className={statusBarClass} ref={setStatusContainer} />
         {settings}
         {draftChat}
       </div>

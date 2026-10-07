@@ -1,14 +1,16 @@
 import * as React from "react";
 import { cn } from "cn";
-import { ArrowDownIcon, ArrowUpIcon, ChevronDownIcon, ChevronRightIcon } from "lucide-react";
+import { ArrowDownIcon, ArrowUpIcon, ChevronRightIcon } from "lucide-react";
 import { flexRender, getCoreRowModel, getExpandedRowModel, getGroupedRowModel, getSortedRowModel, useReactTable, type Column, type Row, type RowSelectionState, type Updater } from "@tanstack/react-table";
 import { useVirtualizer, useWindowVirtualizer, type Virtualizer } from "@tanstack/react-virtual";
+import { Badge } from "./badge";
 import { Button } from "./button";
 import { Checkbox } from "./checkbox";
-import { interactionStyle } from "./interaction";
+import { focusRing } from "./interaction";
 import { displayGridValue, gridColumnDefinitions, gridColumnSizes, type DataGridValue } from "./data-grid-model";
 import { gridWidthSetting, gridWidthsKey, type GridWidthSetting } from "./data-grid-storage";
-import type { TableColumnWidths } from "./table-widths";
+import { tableHeadStyle, tableResizeStyle, tableRowMin, tableRowStyle } from "./table";
+import { tableColumnWidth, type TableColumnWidths } from "./table-widths";
 
 export type { DataGridValue } from "./data-grid-model";
 
@@ -81,6 +83,7 @@ type GridVirtualizer = Virtualizer<HTMLElement, HTMLDivElement> | Virtualizer<Wi
 const isWindow = (element: HTMLElement | Window | null): element is Window => element !== null && "window" in element;
 const emptyGrouping: string[] = [];
 const rowSelector = '[data-slot="data-grid-row"]';
+const groupRowStyle = "-mt-px border-y border-border bg-band font-semibold outline-none hover:bg-[image:linear-gradient(var(--hover),var(--hover))] focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset";
 
 function GridLayout<T>({ stored, onRetry, columns, rows, rowKey, grouping, ...props }: DataGridProps<T> & { stored: GridWidthSetting; onRetry?: () => void }) {
   const root = React.useRef<HTMLDivElement>(null);
@@ -130,7 +133,7 @@ function GridLayout<T>({ stored, onRetry, columns, rows, rowKey, grouping, ...pr
   const getItemKey = React.useCallback((index: number) => visible[index].id, [visible]);
   const stickyOffset = props.height === undefined ? props.stickyOffset ?? 0 : 0;
   const virtualOptions = {
-    count: visible.length, getItemKey, estimateSize: () => 36, overscan: 8,
+    count: visible.length, getItemKey, estimateSize: () => 42, overscan: 8,
     scrollMargin: geometry.margin, scrollPaddingStart: stickyOffset + geometry.header,
     initialRect: { width: 0, height: 900 },
   };
@@ -181,6 +184,7 @@ function GridLayout<T>({ stored, onRetry, columns, rows, rowKey, grouping, ...pr
   }, [props.height, props.stickyOffset, visible.length]);
   const template = [...(selectable ? ["40px"] : []), ...columns.map((column) => `${widths[column.id]}px`)].join(" ");
   const contentWidth = Object.values(widths).reduce((sum, width) => sum + width, selectable ? 40 : 0);
+  const naturalWidth = columns.reduce((sum, column) => sum + tableColumnWidth(column, { ...stored.widths, ...draftWidths }), selectable ? 40 : 0);
   const items = virtualizer.getVirtualItems();
   const itemsSignature = items.map((item) => `${item.index}:${item.start}:${item.size}`).join(",");
   React.useLayoutEffect(() => {
@@ -217,8 +221,10 @@ function GridLayout<T>({ stored, onRetry, columns, rows, rowKey, grouping, ...pr
       if (!content) continue;
       const sample = content.cloneNode(true) as HTMLElement;
       Object.assign(sample.style, { position: "absolute", visibility: "hidden", width: "max-content", maxWidth: "none", whiteSpace: "nowrap" });
+      for (const hint of sample.querySelectorAll<HTMLElement>("[data-sort-hint]")) hint.style.display = "block";
       cell.append(sample);
-      width = Math.max(width, sample.getBoundingClientRect().width + 24);
+      const style = getComputedStyle(cell);
+      width = Math.max(width, sample.getBoundingClientRect().width + parseFloat(style.paddingLeft) + parseFloat(style.paddingRight) + 8);
       sample.remove();
     }
     saveWidth(column.id, Math.ceil(width));
@@ -233,7 +239,8 @@ function GridLayout<T>({ stored, onRetry, columns, rows, rowKey, grouping, ...pr
     if (mounted) { mounted.focus({ preventScroll: true }); pendingFocus.current = null; }
   };
   const error = stored.error ?? writeError;
-  return <div className={cn("min-w-0 w-full", props.height !== undefined && "relative overflow-auto", props.className)} style={{ height: props.height }} ref={root}>
+  const bounded = props.height !== undefined;
+  return <div data-slot="data-grid-root" className={cn("min-w-0 w-full", bounded && "overflow-auto rounded-xl border border-border", props.className)} style={{ height: props.height }} ref={root}>
     {error && <div role="alert" className="flex items-center gap-2 text-sm text-destructive">
       <span>{error}</span><Button variant="link" size="sm" onClick={() => {
         if (onRetry) { onRetry(); return; }
@@ -241,31 +248,34 @@ function GridLayout<T>({ stored, onRetry, columns, rows, rowKey, grouping, ...pr
         catch (cause) { setWriteError(`Could not reset grid column widths: ${String(cause)}`); }
       }}>{onRetry ? "Retry column widths" : "Reset column widths"}</Button>
     </div>}
-    <div role="grid" id={props.id} aria-label={props["aria-label"]} aria-rowcount={visible.length + 1} aria-colcount={columns.length + Number(selectable)} aria-multiselectable={selectable || undefined} aria-busy={props.loading} data-slot="data-grid" style={{ minWidth: contentWidth }}>
-      <div ref={header} role="row" aria-rowindex={1} data-slot="data-grid-header" className="sticky z-20 grid border-b border-border-soft bg-background type-label text-muted-foreground" style={{ top: stickyOffset, gridTemplateColumns: template }}>
-        {selectable && <div role="columnheader" className="flex items-center justify-center"><Checkbox aria-label="Select all rows" checked={table.getIsAllRowsSelected()} indeterminate={table.getIsSomeRowsSelected()} disabled={props.loading || rows.length === 0} onCheckedChange={() => table.toggleAllRowsSelected()} /></div>}
-        {table.getFlatHeaders().map((head) => {
-          const column = columns.find((entry) => entry.id === head.id)!;
-          const sorted = head.column.getIsSorted();
-          return <div role="columnheader" aria-sort={sorted ? sorted === "asc" ? "ascending" : "descending" : undefined} data-grid-column={column.id} className="relative flex min-w-0 items-center px-2 py-2" key={head.id}>
-            <div data-slot="data-grid-cell-content" className="min-w-0 flex-1 truncate" title={column.label}>
-              {head.column.getCanSort() ? <button type="button" className={cn("flex w-full items-center gap-1 text-left type-label", interactionStyle)} onClick={head.column.getToggleSortingHandler()}>
-                <span className="truncate">{column.label}</span>{sorted && (sorted === "asc" ? <ArrowUpIcon className="size-3 shrink-0" /> : <ArrowDownIcon className="size-3 shrink-0" />)}
-              </button> : column.label}
-            </div>
-            {head.column.getCanResize() && <GridResize column={head.column} preview={(id, width) => setDraftWidths((current) => { const next = { ...current }; if (width === undefined) delete next[id]; else next[id] = width; return next; })} label={column.label} width={widths[column.id]} disabled={Boolean(stored.error)} save={saveWidth} fit={() => fit(column)} />}
-          </div>;
-        })}
+    <div data-slot="data-grid-frame" className={cn("isolate overflow-clip rounded-xl bg-card", !bounded && "relative after:pointer-events-none after:absolute after:inset-0 after:z-30 after:rounded-[inherit] after:ring-1 after:ring-inset after:ring-border")} style={{ minWidth: `max(100%, ${naturalWidth}px)` }}>
+      <div role="grid" id={props.id} aria-label={props["aria-label"]} aria-rowcount={visible.length + 1} aria-colcount={columns.length + Number(selectable)} aria-multiselectable={selectable || undefined} aria-busy={props.loading} data-slot="data-grid" className="tabular-nums" style={{ minWidth: contentWidth }}>
+        <div ref={header} role="row" aria-rowindex={1} data-slot="data-grid-header" className="sticky z-20 grid border-b border-border-strong bg-band" style={{ top: stickyOffset, gridTemplateColumns: template }}>
+          {selectable && <div role="columnheader" className="flex items-center justify-center"><Checkbox aria-label="Select all rows" checked={table.getIsAllRowsSelected()} indeterminate={table.getIsSomeRowsSelected()} disabled={props.loading || rows.length === 0} onCheckedChange={() => table.toggleAllRowsSelected()} /></div>}
+          {table.getFlatHeaders().map((head) => {
+            const column = columns.find((entry) => entry.id === head.id)!;
+            const sorted = head.column.getIsSorted();
+            return <div role="columnheader" aria-sort={sorted ? sorted === "asc" ? "ascending" : "descending" : undefined} data-grid-column={column.id} className={cn("group/column relative flex min-w-0 items-center", tableHeadStyle)} key={head.id}>
+              <div data-slot="data-grid-cell-content" className={cn("min-w-0 flex-1", !head.column.getCanSort() && "truncate")} title={column.label}>
+                {head.column.getCanSort() ? <button type="button" className={cn("group/sort flex w-full min-w-0 items-center gap-1 rounded-sm text-left hover:text-foreground", focusRing)} onClick={head.column.getToggleSortingHandler()}>
+                  <span className="truncate">{column.label}</span>
+                  {sorted === "asc" ? <ArrowUpIcon className="size-3.5 shrink-0" /> : sorted === "desc" ? <ArrowDownIcon className="size-3.5 shrink-0" /> : <ArrowUpIcon data-sort-hint className="hidden size-3.5 shrink-0 opacity-60 group-hover/sort:block group-focus-visible/sort:block" />}
+                </button> : column.label}
+              </div>
+              {head.column.getCanResize() && <GridResize column={head.column} preview={(id, width) => setDraftWidths((current) => { const next = { ...current }; if (width === undefined) delete next[id]; else next[id] = width; return next; })} label={column.label} width={widths[column.id]} disabled={Boolean(stored.error)} save={saveWidth} fit={() => fit(column)} />}
+            </div>;
+          })}
+        </div>
+        <div ref={body} role="rowgroup" className="relative" style={{ height: virtualizer.getTotalSize() }}>
+          {items.map((item) => <GridRow key={item.key} row={visible[item.index]} index={item.index} columns={columns} template={template} virtualizer={virtualizer} start={item.start - geometry.margin}
+            selectable={selectable} loading={props.loading} onOpen={props.onOpen} onRowClick={props.onRowClick}
+            tabIndex={items.some((entry) => visible[entry.index].id === focusedId) ? visible[item.index].id === focusedId ? 0 : -1 : item.index === items[0]?.index ? 0 : -1}
+            onFocus={() => setFocusedId(visible[item.index].id)} onNavigate={focusRow} />)}
+        </div>
+        {visible.length === 0 && <p className="px-(--grid-cell-x) py-4 text-sm text-muted-foreground">{props.loading ? "Loading ..." : props.emptyText ?? "No entries."}</p>}
       </div>
-      <div ref={body} role="rowgroup" className="relative" style={{ height: virtualizer.getTotalSize() }}>
-        {items.map((item) => <GridRow key={item.key} row={visible[item.index]} index={item.index} columns={columns} template={template} virtualizer={virtualizer} start={item.start - geometry.margin}
-          selectable={selectable} loading={props.loading} onOpen={props.onOpen} onRowClick={props.onRowClick}
-          tabIndex={items.some((entry) => visible[entry.index].id === focusedId) ? visible[item.index].id === focusedId ? 0 : -1 : item.index === items[0]?.index ? 0 : -1}
-          onFocus={() => setFocusedId(visible[item.index].id)} onNavigate={focusRow} />)}
-      </div>
-      {visible.length === 0 && !props.loading && <p className="py-3 text-sm text-muted-foreground">{props.emptyText ?? "No entries."}</p>}
+      {props.footer && <div data-slot="data-grid-footer" className="-mt-px border-t border-border px-(--grid-cell-x) py-2.5 text-sm text-muted-foreground">{props.footer}</div>}
     </div>
-    {props.footer && <div data-slot="data-grid-footer" className="py-2 text-sm text-muted-foreground">{props.footer}</div>}
   </div>;
 }
 
@@ -277,7 +287,7 @@ function GridResize<T>({ column, preview, label, width, disabled, save, fit }: {
   const minimum = column.columnDef.minSize ?? 64;
   const draggedWidth = (x: number) => Math.max(minimum, drag.current!.width + x - drag.current!.x);
   return <div role="separator" aria-orientation="vertical" aria-label={`Resize ${label} column`} aria-valuemin={minimum} aria-valuenow={Math.round(width)} aria-disabled={disabled || undefined} tabIndex={disabled ? -1 : 0}
-    className="absolute inset-y-0 right-0 w-2 touch-none cursor-col-resize hover:bg-selected-border focus-visible:bg-selected-border focus-visible:outline-none"
+    className={tableResizeStyle}
     onClick={(event) => event.stopPropagation()} onDoubleClick={(event) => { event.stopPropagation(); if (!disabled) fit(); }}
     onKeyDown={(event) => {
       if (disabled) return;
@@ -314,7 +324,7 @@ function GridRow<T>({ row, index, columns, template, virtualizer, start, selecta
   const interactive = (target: EventTarget | null) => target instanceof Element && Boolean(target.closest("button,a,input,textarea,select,[role=checkbox]"));
   return <div role="row" data-slot="data-grid-row" data-index={index} data-row-id={row.id} aria-rowindex={index + 2} aria-selected={!grouped && selectable ? row.getIsSelected() : undefined} aria-expanded={grouped ? row.getIsExpanded() : undefined}
     ref={virtualizer.measureElement} tabIndex={tabIndex} onFocus={onFocus}
-    className={cn("absolute top-0 left-0 grid min-h-9 w-full border border-transparent border-b-border-soft text-sm", interactionStyle, grouped && "font-medium")}
+    className={cn(tableRowMin, "absolute top-0 left-0 grid min-h-(--grid-row-min) w-full text-sm", grouped ? groupRowStyle : tableRowStyle)}
     style={{ gridTemplateColumns: template, transform: `translateY(${start}px)` }}
     onClick={(event) => { if (!interactive(event.target)) { if (grouped) row.toggleExpanded(); else onRowClick?.(row.original); } }}
     onDoubleClick={(event) => { if (!grouped && !interactive(event.target)) onOpen?.(row.original); }}
@@ -326,13 +336,13 @@ function GridRow<T>({ row, index, columns, template, virtualizer, start, selecta
       if (event.key === "Enter") { event.preventDefault(); if (grouped) row.toggleExpanded(); else onOpen?.(row.original); }
       if (event.key === " ") { event.preventDefault(); if (grouped) row.toggleExpanded(); else if (selectable && !loading) row.toggleSelected(); }
     }}>
-    {grouped ? <div role="gridcell" aria-colspan={columns.length + Number(selectable)} className="col-span-full flex min-w-0 items-center gap-2 px-2 py-2" style={{ paddingLeft: 8 + row.depth * 16 }}>
-      <button type="button" aria-label={`${row.getIsExpanded() ? "Collapse" : "Expand"} ${displayGridValue(row.getValue(row.groupingColumnId!))}`} onClick={() => row.toggleExpanded()} className={cn("flex min-w-0 items-center gap-2", interactionStyle)}>
-        {row.getIsExpanded() ? <ChevronDownIcon className="size-3.5 shrink-0" /> : <ChevronRightIcon className="size-3.5 shrink-0" />}
-        <span className="truncate" title={displayGridValue(row.getValue(row.groupingColumnId!))}>{displayGridValue(row.getValue(row.groupingColumnId!))}</span><span className="font-mono type-meta text-muted-foreground">{row.getLeafRows().length}</span>
+    {grouped ? <div role="gridcell" aria-colspan={columns.length + Number(selectable)} className="col-span-full flex min-w-0 items-center py-(--grid-cell-y) pr-(--grid-cell-x)" style={{ paddingLeft: `calc(var(--grid-cell-x) + ${row.depth * 16}px)` }}>
+      <button type="button" aria-label={`${row.getIsExpanded() ? "Collapse" : "Expand"} ${displayGridValue(row.getValue(row.groupingColumnId!))}`} onClick={() => row.toggleExpanded()} className={cn("flex min-w-0 items-center gap-2 rounded-sm text-left", focusRing)}>
+        <ChevronRightIcon className={cn("size-4 shrink-0 text-muted-foreground transition-transform motion-reduce:transition-none", row.getIsExpanded() && "rotate-90")} />
+        <span className="truncate" title={displayGridValue(row.getValue(row.groupingColumnId!))}>{displayGridValue(row.getValue(row.groupingColumnId!))}</span><Badge variant="outline">{row.getLeafRows().length}</Badge>
       </button>
     </div> : <>
-      {selectable && <div role="gridcell" className="flex items-start justify-center py-2"><Checkbox aria-label={`Select row ${row.id}`} checked={row.getIsSelected()} disabled={loading} onCheckedChange={() => row.toggleSelected()} /></div>}
+      {selectable && <div role="gridcell" className="flex items-center justify-center"><Checkbox aria-label={`Select row ${row.id}`} checked={row.getIsSelected()} disabled={loading} onCheckedChange={() => row.toggleSelected()} /></div>}
       {row.getVisibleCells().map((cell, columnIndex) => <GridCell key={cell.id} column={columns[columnIndex]}>{flexRender(cell.column.columnDef.cell, cell.getContext())}</GridCell>)}
     </>}
   </div>;
@@ -342,7 +352,7 @@ function GridCell<T>({ column, children }: { column: DataGridColumn<T>; children
   const content = React.useRef<HTMLDivElement>(null);
   const [text, setText] = React.useState<string>();
   React.useEffect(() => { setText(content.current?.textContent ?? undefined); }, [children]);
-  return <div role="gridcell" data-grid-column={column.id} className="min-w-0 px-2 py-2">
-    <div ref={content} data-slot="data-grid-cell-content" title={text} className={column.wrap ? "whitespace-normal break-words" : "truncate"}>{children}</div>
+  return <div role="gridcell" data-grid-column={column.id} className="flex min-w-0 items-center px-(--grid-cell-x) py-(--grid-cell-y)">
+    <div ref={content} data-slot="data-grid-cell-content" title={text} className={cn("min-w-0 flex-1", column.wrap ? "whitespace-normal break-words" : "truncate")}>{children}</div>
   </div>;
 }

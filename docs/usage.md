@@ -67,9 +67,9 @@ Click the logo at the top left ("Back to Start") to see permitted templates, rec
 plugin sections; it also works with the keyboard. Click a run to continue, or open
 All runs for search and selection; the arrow next to the Runs title leads back to Start.
 On Start and Runs, the trash button ("Delete run ...") next to a run deletes it after a
-confirmation that names the run. To delete several, choose "Select" on Runs. The toolbar below
-search stays visible while the list scrolls and shows "Select all", the selected count, "Delete",
-and "Cancel" in that order. "Select all" selects every visible run you may delete and becomes
+confirmation that names the run. To delete several, choose "Select" on Runs. The toolbar on top of
+the list card (search, "Hide ended", "Select") stays visible while the list scrolls; in selection
+mode it shows "Select all", the selected count, "Delete", and "Cancel" in that order. "Select all" selects every visible run you may delete and becomes
 "Select none", which clears those visible selections. You can also check runs individually.
 "Delete" is disabled with no selection and asks for confirmation; "Cancel" clears the selection
 and leaves selection mode. All actions work with the keyboard. Deleting runs requires permission;
@@ -141,7 +141,9 @@ Its "Status" toolbar filter lets you select several state segments together, wit
 executions beside each state; "Clear" or no selected state means all states. Search narrows
 actor, code, or result.
 
-Chat responses stream as Markdown. Copy preserves original text and line breaks. Attachments,
+Chat responses stream as Markdown in a comfortable reading size and line height: bold text is clearly
+heavier, headings step down in size, inline code is a tinted chip, and code blocks, tables, and quotes
+sit on their own surfaces. Copy preserves original text and line breaks. Attachments,
 timestamps, and the detail-level selector use the same controls in both hosts. A button in the
 input toolbar of every chat switches between all replies and only the latest reply between two
 of your inputs (hiding the intermediate replies of a long turn; your inputs and the final answers
@@ -351,10 +353,13 @@ Longer lists show the filter name and the number of chosen values, or "All" when
 dropdown to search and check several values; "Clear" returns it to "All". A dot can identify a
 value's color, and a count shows its number of entries in either form.
 
-Large lists fill the available page width with flat rows. The page scrolls, and the column
-headers remain visible below a sticky toolbar. A list inside a bounded panel scrolls within
-that panel. Click a sortable column heading to change the row order; expandable group rows
-show their entry count. Use the arrow keys, Home, and End to move between rows, Enter or a
+Large lists fill the available page width as one framed card whose rows are separated by visible lines.
+The page scrolls, and the column headers remain visible below a sticky toolbar. A list inside a bounded
+panel scrolls within that panel; columns wider than the page scroll sideways with the frame. Click a sortable
+column heading to change the row order; expandable group rows show their entry count in a small outlined badge on a
+tinted band. Column headings use sentence case on a band of their own with a strong lower edge, and the
+sorted column is emphasized. Hovering a row tints it lightly, and a selected row is tinted and framed like every other
+selected item. Use the arrow keys, Home, and End to move between rows, Enter or a
 double-click to open an entry, and Space to select it when selection is offered or to toggle
 a group.
 Lists that load incrementally can request more entries near their end and show a loading
@@ -374,29 +379,37 @@ visible. If the browser blocks storage access, the list still shows its initial 
 
 ## Settings
 
-The shared panel uses matte surfaces with rounded edges.
+The shared panel uses matte surfaces with rounded edges; page, bars, panels, cards, insets, and
+floating panels are clearly separated steps.
 Lavender marks the main actor, clay color other AI actors, mustard yellow
 TypeScript actors, and blue-gray the mini-apps. The fronts stay straight and even.
 Round buttons with an X close dialogs; a round arrow leads back to the previous view.
 The hints on the button name the respective action.
-Selected cards, rows, options, and tabs use a clearly tinted surface with a uniform thin border;
-hover stays subtler. Tabs have square corners. Maximize actions show selection through
-their icon and a subtle background, without a border or ring. Keyboard focus has a thin ring
-on other controls. Status labels use muted green for completion, red for failure, amber for attention,
-blue for information, and violet for ongoing work, in both light and dark appearance.
-Dropdown panels have square corners and stay fully reachable even in narrow input and dialog areas.
-Buttons, selectors, toggles, and text inputs of the same size align in a toolbar.
-Option groups share one square border, without gaps between segments; selected choices are tinted.
+Selected cards, rows, options, and tabs use a clearly tinted surface; hover stays subtler, and an
+open dropdown shows only a light fill. An expanded group row is not painted as selected.
+Maximize actions show selection through their icon and a subtle background, without a border
+or ring. Keyboard focus shows a two-pixel ring. Status labels are colored text on a tinted fill: muted green
+for completion, red for failure, amber for attention, blue for information, and violet for
+ongoing work, in both light and dark appearance.
+Buttons, selectors, toggles, tabs, and text inputs share one corner radius, and at the same size one
+height, so they align in a toolbar. Dropdown panels, menus, and popovers float with a thin ring and a
+shadow and stay fully reachable even in narrow input and dialog areas; the large panels that hang
+from the header stay square.
+Option groups are segmented controls with one rounded outline and thin dividers; the selected
+segment is filled.
 
-Under "Appearance", "Schichtwerk" you choose Light, Dark, or System. The default is Dark;
-System follows the operating system's color scheme setting, also on later changes.
-The choice immediately affects the interface, chat, and shared actor view controls, without reloading chats
-or apps. It is stored in the browser for the same server address and synchronized with
-other open tabs. Changing it requires settings write permissions.
+Under "Appearance" you choose a palette - Schichtwerk, Graphite, Midnight, or Black - and a color
+scheme: Light, Dark, or System. The default is Schichtwerk in Dark; System follows the operating
+system's color scheme setting, also on later changes.
+Both choices immediately affect the interface, chat, and shared actor view controls, without reloading chats
+or apps. They are stored in the browser for the same server address and synchronized with
+other open tabs. Changing them requires settings write permissions. Every palette keeps body text
+at 7:1 or more and secondary text at 4.5:1 or more against its surfaces, in light and dark.
 Your own fixed actor view colors stay in place. Colors, fonts, radii, shadows, and
-animations are maintained centrally for development in `apps/web/src/ui/theme.css`.
+animations are maintained centrally for development in `apps/web/src/ui/theme.css`; the palettes are
+generated from a few seed colors (`pnpm generate:palettes`).
 Actor views use the same shadcn/ui controls as the host, with the colors from the tokens.
-They follow the same light/dark choice; there is no separate selection for them.
+They follow the same palette and light/dark choice; there is no separate selection for them.
 
 In the browser, "Zoom" under "Appearance" makes the whole interface smaller or larger: 80, 90,
 100, 110, 120, 130, or 150 percent, with 100 as the default. Text, controls, spacing, menus, and
@@ -458,8 +471,8 @@ loading these catalogs. Plugin forms are additionally reachable at their plugin.
 
 With `ragents.overseer` in `host.PLUGINS`, the "Global coordinator" button sits to the right
 of the overview buttons and looks like an input field. A click, or Enter or Space while it has
-focus, opens the conversation in the shared square header dropdown and dims the rest of the
-application; the button stays visible above the dimming. In the browser and VS Code, the panel
+focus, opens the conversation in the shared square header dropdown and dims the page below the
+header; the header, with the button, stays bright. In the browser and VS Code, the panel
 opens directly below this field, aligned with its left edge, with a small viewport inset. It is
 up to 800 pixels wide and uses at least 80 percent of the viewport height when space permits;
 short windows limit it to the available height. The chat fills the panel, with the same composer
@@ -628,11 +641,11 @@ The browser docking layout and addressee are stored per run in the browser. Star
 a run focuses its visible chat input once it is ready, including a remembered chat partner.
 Clicking or typing elsewhere while it loads cancels that focus request.
 
-The run title opens "Run details". Its panel contains all run metadata, start option badges,
-and contributed detail controls in cells that wrap as the panel narrows. "Run details",
-"Run script", "Agents", and "Share" use the same square dropdown below the header, up to
-800 pixels wide with a small inset at the right. Each dims the application and keeps its content
-within the available width. The close button, Escape, or clicking outside closes it. Focus returns
+The run title opens "Run details". Its panel contains all run metadata, start option badges (an option
+that a metadata cell already shows appears once), and contributed detail controls in cells that wrap as the
+panel narrows. "Run details", "Run script", "Agents", and "Share" use the same square dropdown below the header,
+as wide as the header with a small inset (sharing stays up to 800 pixels wide). Each dims the page below the header and keeps
+its content within the available width. The close button, Escape, or clicking outside closes it. Focus returns
 to its button unless it has moved elsewhere.
 
 With write rights, the run header offers "Run script" right of the window buttons, behind a thin
@@ -923,7 +936,7 @@ Plugin sections appear directly below Continue when installed, for example a lis
 documents from all runs you can see. Clicking such an entry can open its run. Empty sections
 show no heading or gap.
 
-**Runs** shows this server's complete list in the same grid, with search, "Hide ended", and a
+**Runs** shows this server's complete list in the same card, with search, "Hide ended", and a
 selection mode that deletes several runs after a dialog confirmation. Checkboxes occupy an
 additional first column; row actions disappear during selection. A run the
 server has locked, for example because its journal uses an older format, shows a warning icon whose

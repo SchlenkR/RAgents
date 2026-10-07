@@ -10,10 +10,18 @@ import { tailwindPlugin } from "./tailwind-plugin";
 import type {} from "./docking-fixture";
 
 const defaultSideWidth = 630;
+const contrast = (first: string, second: string) => {
+  const luminance = (color: string) => {
+    const channels = color.match(/[\d.]+/g)!.slice(0, 3).map((value) => Number(value) / 255);
+    const [red, green, blue] = channels.map((channel) => channel <= 0.04045 ? channel / 12.92 : ((channel + 0.055) / 1.055) ** 2.4);
+    return red * 0.2126 + green * 0.7152 + blue * 0.0722;
+  };
+  const [light, dark] = [luminance(first), luminance(second)].sort((a, b) => b - a);
+  return (light + 0.05) / (dark + 0.05);
+};
+const browserOnly = { skip: process.env.RAGENTS_BROWSER_TESTS !== "1", timeout: 120_000 };
 
-test("browser docking preserves frames and drafts through split, merge, close, maximize, rail and catalog changes", {
-  skip: process.env.RAGENTS_BROWSER_TESTS !== "1", timeout: 120_000,
-}, async (context) => {
+async function fixturePage(context: test.TestContext) {
   const directory = await mkdtemp(join(tmpdir(), "ragents-docking-"));
   context.after(() => rm(directory, { recursive: true, force: true }));
   const root = fileURLToPath(new URL("../../../", import.meta.url));
@@ -24,12 +32,54 @@ test("browser docking preserves frames and drafts through split, merge, close, m
   const browser = await chromium.launch({ headless: true, executablePath: process.env.BROWSER_EXECUTABLE_PATH ?? "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome" });
   context.after(() => browser.close());
   const page = await browser.newPage({ viewport: { width: 1200, height: 800 } });
+  return { page, url: pathToFileURL(join(directory, "index.html")).href };
+}
+
+test("a flyout that a click in the chat opens stays open until a later outside click", browserOnly, async (context) => {
+  const { page, url } = await fixturePage(context);
+  await page.goto(url);
+  const sidebar = page.locator("[data-dock-sidebar]");
+  await page.getByRole("button", { name: "Reveal Files from chat", exact: true }).click();
+  await sidebar.waitFor();
+  await page.waitForTimeout(1000);
+  assert.equal(await sidebar.isVisible(), true, "the press that opened the flyout is not an outside click");
+  await page.mouse.click(10, 300);
+  await sidebar.waitFor({ state: "hidden" });
+});
+
+test("a dialog opened from the sidebar flyout keeps the flyout and loads while the pointer rests on it", browserOnly, async (context) => {
+  const { page, url } = await fixturePage(context);
+  const errors: string[] = [];
+  page.on("pageerror", (error) => errors.push(error.message));
+  await page.goto(url);
+  const rail = page.getByRole("navigation", { name: "Sidebar tabs" });
+  const sidebar = page.locator("[data-dock-sidebar]");
+  await rail.getByRole("button", { name: "Journal", exact: true }).hover();
+  await sidebar.waitFor();
+  await page.getByRole("button", { name: "Open details", exact: true }).click();
+  const dialog = page.getByRole("dialog", { name: "Journal details" });
+  await dialog.waitFor();
+  const bounds = await dialog.boundingBox();
+  assert.ok(bounds);
+  await page.mouse.move(bounds.x + bounds.width / 2, bounds.y + bounds.height / 2, { steps: 4 });
+  await page.waitForTimeout(1000);
+  assert.equal(await sidebar.isVisible(), true, "an open modal dialog holds the hover flyout open");
+  assert.equal(await dialog.getByText("Details loaded", { exact: true }).isVisible(), true, "the dialog's request completes");
+  await page.keyboard.press("Escape");
+  await dialog.waitFor({ state: "hidden" });
+  await page.mouse.click(10, 100);
+  await sidebar.waitFor({ state: "hidden" });
+  assert.deepEqual(errors, []);
+});
+
+test("browser docking preserves frames and drafts through split, merge, close, maximize, rail and catalog changes", browserOnly, async (context) => {
+  const { page, url } = await fixturePage(context);
   const shots = join(tmpdir(), "ragents-browser-shots");
   await mkdir(shots, { recursive: true });
   const screenshot = (name: string) => page.screenshot({ path: join(shots, `docking-${name}.png`) });
   const errors: string[] = [];
   page.on("pageerror", (error) => errors.push(error.message));
-  await page.goto(pathToFileURL(join(directory, "index.html")).href);
+  await page.goto(url);
   const tab = (name: string) => page.getByRole("tab", { name, exact: true });
   const groups = page.locator("[data-dock-group]");
   const rail = page.getByRole("navigation", { name: "Sidebar tabs" });
@@ -261,7 +311,10 @@ test("browser docking preserves frames and drafts through split, merge, close, m
   const filesButton = rail.getByRole("button", { name: "Files", exact: true });
   assert.equal(await filesButton.evaluate((element) => element.matches(":focus")), true, "pointer selection retains native focus");
   assert.equal(await filesButton.evaluate((element) => element.matches(":focus-visible")), false, "pointer selection does not show keyboard focus");
-  assert.equal(await filesButton.evaluate((element) => getComputedStyle(element).borderWidth), "1px", "selected rail navigation has a uniform one-pixel border");
+  const pressedRail = await filesButton.evaluate((element) => ({ border: getComputedStyle(element).borderWidth, fill: getComputedStyle(element).backgroundColor,
+    rail: getComputedStyle(element.closest("[data-dock-rail]")!).backgroundColor }));
+  assert.equal(pressedRail.border, "0px", "a pressed rail button has the shared icon-only look without a border");
+  assert.ok(contrast(pressedRail.fill, pressedRail.rail) >= 1.15, `a pressed rail button's fill stands out from the rail (${pressedRail.fill} on ${pressedRail.rail})`);
   assert.equal(visibleShadow(await filesButton.evaluate((element) => getComputedStyle(element).boxShadow)), false, "rail selection stays flat");
   assert.equal(await sidebar.getAttribute("data-dock-sidebar"), "flyout");
   assert.equal(await groups.count(), 1, "a rail click keeps the panel in the overlay");

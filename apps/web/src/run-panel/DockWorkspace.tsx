@@ -1,9 +1,9 @@
-import { createContext, useContext, useEffect, useLayoutEffect, useRef, useState, type PointerEvent, type ReactNode } from "react";
+import { createContext, useCallback, useContext, useEffect, useLayoutEffect, useRef, useState, type PointerEvent, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { ArrowDownIcon, ArrowLeftIcon, ArrowRightIcon, ArrowUpIcon, LayoutGridIcon, MaximizeIcon, MinimizeIcon, PanelRightCloseIcon, PanelRightOpenIcon, SquareDashedIcon, SquareIcon, UsersIcon, XIcon } from "lucide-react";
 import type { SessionContext, SessionNavigation, WorkspaceTabContribution } from "../PluginRegistry";
 import { RunAppView, type RunApp } from "../run-apps";
-import { Badge, InteractiveItem, BadgeDisplayProvider, Button, cn, Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "../ui";
+import { Badge, InteractiveItem, Button, cn, Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "../ui";
 import { activeDockTool, addDockEmptyPane, appPanelId, closeDockPanels, dockButtonPlacement, dockGroups, dockWindowOrder, emptyPanelId, focusedDockWindow, initialDockState, isEmptyPanel, isToolPanel, moveDockButton, moveDockPanels, moveDockWindow, reconcileDockState, resizeDockSplit, returnDockTool, revealDockPanel, transitionDockSide, selectDockPanel, tabWindowId, toolPanelId, workspaceTabPanelId, type DockGroup, type DockButtonPlacement } from "./dock-state";
 import { DOCK_DIVIDER_SIZE, DOCK_HEADER_HEIGHT, containsPoint, dockGeometry, dockHitTest, type DockPoint, type DockRect } from "./dock-geometry";
 import { useDockPointer } from "./dock-pointer";
@@ -11,6 +11,7 @@ import { useDockStorage } from "./dock-storage";
 import { DockWindowActions } from "./DockWindowActions";
 import { DockButtonMenu } from "./DockButtonMenu";
 import { PanelActivity } from "./PanelActivity";
+import { RailBadge } from "./RunPanelRail";
 import { WorkspaceTabPanel } from "./WorkspaceTabPanel";
 
 export { DockWindowActions } from "./DockWindowActions";
@@ -32,6 +33,8 @@ const headerRect = (rect: DockRect): DockRect => ({ left: rect.left + 1, top: re
 const contentRect = (rect: DockRect): DockRect => ({ left: rect.left + 1, top: rect.top + 1 + DOCK_HEADER_HEIGHT, width: Math.max(0, rect.width - 2), height: Math.max(0, rect.height - DOCK_HEADER_HEIGHT - 2) });
 const resizeRect = (rect: DockRect, horizontal: boolean): DockRect => ({ ...rect, ...(horizontal ? { left: rect.left - 1, width: 8 } : { top: rect.top - 1, height: 8 }) });
 const newId = () => crypto.randomUUID();
+// A modal dialog covers the flyout that may own it; collapsing the flyout then would pause the dialog's panel.
+const modalOpen = () => document.querySelector('[data-slot="dialog-content"][data-open]') !== null;
 const EMPTY_PANE_ENTRY = "empty";
 const EMPTY_PANE_TITLE = "Empty space";
 
@@ -187,14 +190,20 @@ export function DockWorkspace({ apps, chat, chatIcon = <UsersIcon />, navigation
   const select = (id: string) => update((current) => selectDockPanel(current, id));
   const holdSide = () => clearTimeout(leaveTimer.current);
   const sidePressed = useRef(false);
+  const sideOpenedAt = useRef(0);
+  useEffect(() => {
+    if (state.side.tab !== null) sideOpenedAt.current = performance.now();
+  }, [state.side.tab]);
   useEffect(() => {
     const release = (event: Event) => {
       sidePressed.current = false;
+      const releasedAt = performance.now();
       const point = event instanceof MouseEvent ? { x: event.clientX, y: event.clientY } : undefined;
       clearTimeout(leaveTimer.current);
       leaveTimer.current = setTimeout(() => {
         const target = point && document.elementFromPoint(point.x, point.y);
-        if (!sidePressed.current && !target?.closest('[data-dock-sidebar], [data-dock-side-content], [data-dock-rail]')) {
+        // A flyout that the press itself opened, for example from a button in the chat, is not an outside click.
+        if (sideOpenedAt.current < releasedAt && !sidePressed.current && !modalOpen() && !target?.closest('[data-dock-sidebar], [data-dock-side-content], [data-dock-rail]')) {
           update((current) => transitionDockSide(current, { type: "leave" }));
         }
       }, 300);
@@ -216,7 +225,7 @@ export function DockWorkspace({ apps, chat, chatIcon = <UsersIcon />, navigation
     holdSide();
     if (sidePressed.current) return;
     leaveTimer.current = setTimeout(() => {
-      if (!sidePressed.current) update((current) => transitionDockSide(current, { type: "leave" }));
+      if (!sidePressed.current && !modalOpen()) update((current) => transitionDockSide(current, { type: "leave" }));
     }, 300);
   };
   const hideSide = () => { update((current) => transitionDockSide(current, { type: "close" })); };
@@ -225,6 +234,23 @@ export function DockWorkspace({ apps, chat, chatIcon = <UsersIcon />, navigation
     const tab = tabFor(id);
     return tab?.Header ? <tab.Header active navigation={navigation} selection={navigation.selectionFor(tab.id)} session={session} /> : null;
   };
+  // A press anywhere in a panel or focus inside it activates its area, not only a click on its tab.
+  const focusPanel = useCallback((id: string, side: boolean) => update((current) => {
+    if (side) return current.side.focused ? current : { ...current, side: { ...current.side, focused: true } };
+    const owner = dockGroups(current.root).find((g) => g.tabs.includes(id));
+    return owner && (owner.id !== current.focused || current.side.focused) ? { ...current, focused: owner.id, side: { ...current.side, focused: false } } : current;
+  }), [update]);
+  useEffect(() => {
+    // Focus moving into a mini-app frame leaves only the window's blur in this document.
+    const frameFocus = () => {
+      const owner = document.activeElement instanceof HTMLIFrameElement ? document.activeElement.closest<HTMLElement>("[data-dock-panel]") : null;
+      if (owner?.dataset.dockPanel) focusPanel(owner.dataset.dockPanel, owner.hasAttribute("data-dock-side-content"));
+    };
+    window.addEventListener("blur", frameFocus);
+    return () => window.removeEventListener("blur", frameFocus);
+  }, [focusPanel]);
+  // Only the focused area tints its active tab; an unfocused area marks it calmly, and only beside other tabs.
+  const areaFocused = (id: string) => state.focused === id && !state.side.focused;
   const panelPosition = (id: string) => {
     if (sideVisible && id === sideTab) return { rect: contentRect(sideRect), side: true };
     const area = geometry.groups.find(({ group }) => group.active === id);
@@ -232,17 +258,11 @@ export function DockWorkspace({ apps, chat, chatIcon = <UsersIcon />, navigation
   };
   const panel = (id: string, content: ReactNode) => {
     const position = panelPosition(id);
-    return <section aria-labelledby={position ? `dock-${position.side ? "side" : "tab"}-${encodeURIComponent(id)}` : undefined} className={cn("absolute flex min-h-0 min-w-0 flex-col overflow-hidden rounded-b-lg bg-card", position?.side ? "z-40" : "z-10")}
-      data-dock-side-content={position?.side ? "" : undefined} data-dock-panel={id} id={`dock-panel-${encodeURIComponent(id)}`} tabIndex={-1} hidden={!position} inert={!position} key={id} role="tabpanel" style={{ ...(position?.rect ?? emptyRect), ...(!position ? { display: "none" } : {}) }}
-      onPointerDownCapture={position?.side ? pressSide : undefined} onPointerEnter={position?.side ? holdSide : undefined} onPointerLeave={position?.side ? leaveSide : undefined}
-      onFocusCapture={() => {
-        if (position?.side) {
-          if (!state.side.focused) update((current) => ({ ...current, side: { ...current.side, focused: true } }));
-          return;
-        }
-        const owner = dockGroups(state.root).find((g) => g.tabs.includes(id));
-        if (owner && (owner.id !== state.focused || state.side.focused)) update((current) => ({ ...current, focused: owner.id, side: { ...current.side, focused: false } }));
-      }}><PanelActivity active={position !== undefined}>{content}</PanelActivity></section>;
+    const side = position?.side === true;
+    return <section aria-labelledby={position ? `dock-${side ? "side" : "tab"}-${encodeURIComponent(id)}` : undefined} className={cn("absolute flex min-h-0 min-w-0 flex-col overflow-hidden rounded-b-lg bg-card", side ? "z-40" : "z-10")}
+      data-dock-side-content={side ? "" : undefined} data-dock-panel={id} id={`dock-panel-${encodeURIComponent(id)}`} tabIndex={-1} hidden={!position} inert={!position} key={id} role="tabpanel" style={{ ...(position?.rect ?? emptyRect), ...(!position ? { display: "none" } : {}) }}
+      onPointerDownCapture={side ? pressSide : undefined} onPointerEnter={side ? holdSide : undefined} onPointerLeave={side ? leaveSide : undefined}
+      onFocusCapture={() => focusPanel(id, side)}><PanelActivity active={position !== undefined}>{content}</PanelActivity></section>;
   };
   const selectFromKeyboard = (event: React.KeyboardEvent, group: DockGroup, id: string) => {
     const index = group.tabs.indexOf(id);
@@ -276,9 +296,9 @@ export function DockWorkspace({ apps, chat, chatIcon = <UsersIcon />, navigation
     {error && <p className="p-2 text-xs text-destructive" role="alert">{error}</p>}
     <div className="relative min-h-0 min-w-0 flex-1 overflow-hidden" ref={container}>
       {geometry.groups.map(({ group, rect }) => <div className="contents" key={group.id}>
-        <div aria-hidden data-dock-card={group.id} className={cn(cardClass, "z-0", state.focused === group.id && !state.side.focused ? "border-primary/70" : "border-border")} style={rect} />
+        <div aria-hidden data-dock-card={group.id} className={cn(cardClass, "z-0", areaFocused(group.id) ? "border-primary/70" : "border-border")} style={rect} />
         <div aria-label="Area tabs" className={areaHeaderClass} data-dock-group={group.id} role="tablist" style={headerRect(rect)} onFocusCapture={() => { if (state.focused !== group.id || state.side.focused) update((current) => ({ ...current, focused: group.id, side: { ...current.side, focused: false } })); }}>
-          {group.tabs.map((id) => <div className={cn(tabClass, id === group.active && "bg-selected text-selected-foreground hover:bg-selected-hover")} key={id} role="presentation">
+          {group.tabs.map((id) => <div className={cn(tabClass, id === group.active && (areaFocused(group.id) ? "bg-selected text-selected-foreground hover:bg-selected-hover" : group.tabs.length > 1 && "bg-band"))} key={id} role="presentation">
             {id === (group.active ?? group.tabs[0]) && <Button aria-label="Move area" className={cn(gripClass, "flex-none touch-none cursor-grab hover:bg-transparent active:cursor-grabbing")} onPointerDown={(event) => startDrag(event, group.tabs)} size="icon-xs" title="Drag all windows of this area" variant="ghost"><DockGrip /></Button>}
             <InteractiveItem id={`dock-tab-${encodeURIComponent(id)}`} aria-controls={`dock-panel-${encodeURIComponent(id)}`} aria-label={title(id)} aria-selected={id === group.active} className="flex h-7 min-w-0 flex-1 touch-none cursor-grab items-center gap-1.5 border-0 px-2 text-left text-xs text-muted-foreground hover:bg-transparent hover:text-foreground selected:border-0 selected:bg-transparent selected:text-selected-foreground selected:hover:bg-transparent [&>svg]:size-4 [&>svg]:shrink-0"
               onClick={(event) => { if (event.detail === 0) select(id); }} onKeyDown={(event) => selectFromKeyboard(event, group, id)}
@@ -332,14 +352,16 @@ export function DockWorkspace({ apps, chat, chatIcon = <UsersIcon />, navigation
           const active = visible.includes(id);
           const pending = tab && pendingTabIds.includes(tab.id);
           return <Tooltip disableHoverablePopup key={id}>
-            <DockButtonMenu destination="header" onMove={() => moveButton(id, "window")}>
-              <TooltipTrigger id={sideVisible && sideTab === id ? `dock-tab-${encodeURIComponent(id)}` : undefined} aria-controls={`dock-panel-${encodeURIComponent(id)}`} aria-label={title(id)} aria-pressed={active} className="relative touch-none border border-transparent" data-dock-rail-button={id}
-                onClick={(event) => { if (event.detail === 0) sideClick(id); }} onPointerDown={(event) => startDrag(event, [id], () => sideClick(id), true)}
-                onPointerEnter={() => { holdSide(); if (!drag && !sidePressed.current) update((current) => transitionDockSide(current, { type: "hover", id })); }} render={<Button size="icon" variant="ghost" />}>
-                {icon(id)}
-                {tab && <span className="absolute top-1 right-1"><BadgeDisplayProvider value="dot">{marker(tab, active)}</BadgeDisplayProvider></span>}
-              </TooltipTrigger>
-            </DockButtonMenu>
+            <div className="relative flex">
+              <DockButtonMenu destination="header" onMove={() => moveButton(id, "window")}>
+                <TooltipTrigger id={sideVisible && sideTab === id ? `dock-tab-${encodeURIComponent(id)}` : undefined} aria-controls={`dock-panel-${encodeURIComponent(id)}`} aria-label={title(id)} aria-pressed={active} className="touch-none" data-dock-rail-button={id}
+                  onClick={(event) => { if (event.detail === 0) sideClick(id); }} onPointerDown={(event) => startDrag(event, [id], () => sideClick(id), true)}
+                  onPointerEnter={() => { holdSide(); if (!drag && !sidePressed.current) update((current) => transitionDockSide(current, { type: "hover", id })); }} render={<Button size="icon" variant="ghost" />}>
+                  {icon(id)}
+                </TooltipTrigger>
+              </DockButtonMenu>
+              {tab && <RailBadge>{marker(tab, active)}</RailBadge>}
+            </div>
             <TooltipContent className="pointer-events-none" side="left" sideOffset={8}>{pending ? `${title(id)} - new activity` : title(id)}</TooltipContent>
           </Tooltip>;
         })}

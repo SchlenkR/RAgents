@@ -1,6 +1,8 @@
 import { useSyncExternalStore } from "react";
 import { subscribeStorageChanges } from "./lib/local-storage-setting";
 
+export { usePalette, type PaletteId } from "./palette";
+
 export const THEME_STORAGE_KEY = "ragents.theme";
 export type ThemePreference = "light" | "dark" | "system";
 export type ResolvedTheme = Exclude<ThemePreference, "system">;

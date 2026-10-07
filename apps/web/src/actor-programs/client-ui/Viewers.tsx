@@ -2,6 +2,7 @@ import React from "react";
 import { Markdown } from "quassel";
 import { QuasselHost } from "../../chat/QuasselHost";
 import { DiffCode } from "../../DiffCode";
+import { codeScrollbarClass } from "../../highlighting";
 import { SourceCode } from "../../SourceCode";
 import { Badge, Progress, type BadgeTone } from "../../ui";
 import type { DiffViewerProps, DocumentViewerProps, TaskProgressProps } from "./viewer-contracts";
@@ -29,7 +30,7 @@ export function DocumentViewer({ title, content, format = "text", language, file
   return <section aria-label={title ?? filename ?? "Document"} className="min-w-0 text-sm">
     {(title || filename) && <h3 className="mb-2 text-[15px] font-semibold">{title ?? filename}</h3>}
     {format === "markdown" ? <QuasselHost><Markdown text={content} /></QuasselHost>
-      : format === "code" ? <SourceCode content={content} language={language} path={filename ?? ""} />
+      : format === "code" ? <div className={`max-w-full overflow-auto rounded-lg border border-border bg-background ${codeScrollbarClass}`}><SourceCode content={content} language={language} path={filename ?? ""} /></div>
         : <pre className="m-0 font-[inherit] break-words whitespace-pre-wrap">{content}</pre>}
   </section>;
 }
@@ -37,6 +38,6 @@ export function DocumentViewer({ title, content, format = "text", language, file
 export function DiffViewer({ title = "Changes", patch, emptyText = "No changes.", language, filename }: DiffViewerProps) {
   return <section aria-label={title} className="min-w-0 text-sm">
     <h3 className="mb-2 text-[15px] font-semibold">{title}</h3>
-    {!patch ? <p>{emptyText}</p> : <div className="max-w-full overflow-auto rounded-lg border"><DiffCode content={patch} emptyText={emptyText} language={language} path={filename} /></div>}
+    {!patch ? <p>{emptyText}</p> : <div className="max-w-full overflow-auto rounded-lg border border-border bg-background"><DiffCode content={patch} emptyText={emptyText} language={language} path={filename} /></div>}
   </section>;
 }

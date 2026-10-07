@@ -6,7 +6,7 @@ import { Button, InteractiveItem, Checkbox, longTime, RunStateIcon, shortTime } 
 import type { ConnectionRun, ConnectionView } from "./contract";
 import { ConfirmDialog } from "./PanelDialogs";
 
-const lineClass = "grid grid-cols-subgrid items-center gap-y-0.5 rounded-md px-2 py-1.5 text-left";
+const lineClass = "grid grid-cols-subgrid items-center gap-y-0.5 rounded-md px-2 py-2 text-left";
 
 const DETAIL_ICONS = { folder: FolderIcon, branch: GitBranchIcon } as const;
 
@@ -25,6 +25,14 @@ const columnsOf = (selecting: boolean, actions: boolean): string => {
 const itemColumns = (selecting: boolean, actions: boolean): string =>
   selecting ? (actions ? "col-[2/-2]" : "col-[2/-1]") : (actions ? "col-[1/-2]" : "col-span-full");
 
+/** The surface of a run list: one card; its toolbar sticks to the top of the page while the lines scroll beneath it. */
+export function RunCard({ toolbar, children }: { toolbar?: ReactNode; children: ReactNode }) {
+  return <div className="min-w-0 rounded-xl border border-border bg-card shadow-card">
+    {toolbar && <div className="sticky top-0 z-10 rounded-t-xl border-b border-border bg-card p-2">{toolbar}</div>}
+    {children}
+  </div>;
+}
+
 /** The list of run lines: a grid whose columns the rows share via subgrid so everything lines up. */
 export function RunList({ label, selecting = false, actions = false, children }: {
   label: string;
@@ -33,7 +41,7 @@ export function RunList({ label, selecting = false, actions = false, children }:
   actions?: boolean;
   children: ReactNode;
 }) {
-  return <ul aria-label={label} className={cn("grid min-w-0 gap-x-2 gap-y-0.5", columnsOf(selecting, actions))}>{children}</ul>;
+  return <ul aria-label={label} className={cn("grid min-w-0 gap-x-2 p-1.5", columnsOf(selecting, actions))}>{children}</ul>;
 }
 
 /** Next to the title: a run the user shared, or one shared with the user and what that permits. */
@@ -78,11 +86,14 @@ export function RunLine({ run, selecting = false, selectable = true, selected, a
   const time = shortTime(run.updatedAt);
   const locked = run.locked !== undefined ? `Locked: ${run.locked}` : undefined;
   const toggling = selecting && selectable;
-  return <li className="col-span-full grid grid-cols-subgrid items-center">
+  const disabled = run.locked !== undefined && !toggling;
+  // The hover fill belongs to the whole line with its actions; a locked line dims its content but keeps its focus ring.
+  return <li className={cn("col-span-full grid grid-cols-subgrid items-center border-t border-border first:border-t-0", !disabled && "hover:bg-hover")}>
     {selecting && (selectable
       ? <Checkbox aria-label={`Select ${run.title}`} checked={selected === true} className="mt-1.75 ml-1 self-start" onCheckedChange={() => onToggle?.()} />
       : <span aria-hidden />)}
-    <InteractiveItem aria-pressed={toggling ? selected === true : undefined} aria-disabled={run.locked !== undefined && !toggling} className={cn(lineClass, itemColumns(selecting, actions), "aria-disabled:cursor-default")}
+    <InteractiveItem aria-pressed={toggling ? selected === true : undefined} aria-disabled={disabled}
+      className={cn(lineClass, itemColumns(selecting, actions), "hover:bg-transparent aria-disabled:cursor-default aria-disabled:opacity-100 aria-disabled:*:opacity-50")}
       onClick={() => (toggling ? onToggle?.() : run.locked === undefined && onOpen())} title={run.title} type="button">
       <RunStateIcon notice={run.locked ? undefined : run.notice} open={run.pendingActions} state={run.state} />
       <span className="flex min-w-0 items-center gap-1.5">

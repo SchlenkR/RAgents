@@ -1363,8 +1363,11 @@ The shared run panel shows chat and mini-apps with the same semantic theme token
 inspection rail, header, status bar, and dialogs. Colors, fonts, radii, and shadows are defined
 in `apps/web/src/ui/theme.css`; mini-app controls share these tokens.
 
-Under Settings, Appearance, the interface can be shown light, dark, or according to the system setting.
-Without a stored choice, the interface starts dark. The choice applies immediately to
+Under Settings, Appearance, the interface offers a palette (`ragents.palette`: `schichtwerk`, `graphite`,
+`midnight`, or `black`; default `schichtwerk`) and a color scheme: light, dark, or according to the system setting.
+Without a stored choice, the interface starts dark. The palette is a root attribute (`data-palette`) next to
+`data-theme`, stored and synchronized like the color scheme; the selectors in `palettes.css` work on any element,
+so the previews in the settings carry their own palette. The choice applies immediately to
 all runs and open tabs of the same server address in this browser; it is not a profile value
 and is not stored on the server. Changing it requires settings write rights.
 The interface applies the stored appearance before the first React render. Only with the
@@ -1392,15 +1395,18 @@ and `Select` from the UI library. Base UI follows their anchors, scrolling, and 
 Header dropdowns share `HeaderDropdown`, exported through `@ragents/web/ui`: Run details,
 Run script, Agents, Share, and the global coordinator use the same square panel, labeled
 heading, close button, 8 px padding, and theme dimming. By default, the panel opens below the nearest
-header, inset 8 px from its right edge; outside a header it follows the calling row or action.
-Its width is `min(800px, max(320px, anchor width - 16px), available width)`, so narrow action
-anchors still give a readable panel and the viewport always limits its width. Height is limited
+header, inset 8 px from the header edge on the side of its trigger (the left edge for a trigger in the left half,
+otherwise the right edge); outside a header it follows the calling row or action.
+Its width is `max(320px, anchor width - 16px)` limited by the available width, so it spans the header it
+hangs from and its tiles flow into two, three, or four columns as the panel widens; sharing (`width="content"`)
+keeps `min(800px, ...)` because its rows read best as one column. The viewport always limits the width. Height is limited
 to 70 percent of the viewport, 560 px, and the available space. With `variant="chat"`, it opens
 directly below the calling field, aligned with its left edge and with 8 px collision padding.
 Its width is `min(800px, available width)` and its height is
 `min(max(80vh, 320px), available height)`; the body fills the panel and keeps the composer at
-the bottom. The portal sits within the nearest header by default, keeping the trigger above
-dimming. The nonmodal Base UI popover
+the bottom. The portal sits within the nearest header by default, and the dimming starts below
+that header: every header control stays bright and usable, and the open trigger keeps its normal open
+fill. The nonmodal Base UI popover
 closes on Escape or an outside press and restores focus unless it has moved elsewhere.
 The global conversation uses region semantics, keeps its history mounted, and initially
 focuses its composer.
@@ -1866,7 +1872,7 @@ as its single-line minimum and grows for additional lines. Size is a component p
 toolbar chooses one step instead of overriding individual heights.
 
 `ToggleGroup` is the shared segmented control for single and multiple selection. Its items
-join without gaps or rounding inside one square border, with a single divider between
+join without gaps inside one rounded outline that clips the segments, with a single divider between
 neighbors. Selected segments use the shared selection tint; adjacent selected segments
 keep their divider. The group owns this treatment, so callers set its size and selection
 instead of individual spacing, borders, or variants. Settings theme and zoom, sharing access,
@@ -1885,7 +1891,8 @@ receive the same control through `@ragents/web/ui` and `UI.ChoiceSelect`.
 
 `SelectContent` opens outside its trigger, below by default and above when space requires it,
 with at least the trigger's width. It never aligns an option over the trigger. Select,
-dropdown menu, context menu, and popover panels share the square corners of `HeaderDropdown`.
+dropdown menu, context menu, and popover panels share one rounded shell (`dropdown-panel.ts`: `bg-popover`, a one-pixel
+ring, `shadow-pop`); the large panels of `HeaderDropdown` hang from the header and stay square.
 Selects with more than eight options show a search field at the top; `searchable` on `Select`
 enables or disables it explicitly. Search matches option labels without case sensitivity. Arrow keys
 move through the filtered options, Enter selects, and Escape closes the popup; no matches
@@ -1948,7 +1955,14 @@ their own interactions.
 sets `loading` while a request is pending. Each row-count/last-key boundary signals once, so
 row measurement cannot repeat a request. `footer` hosts a loading status or a "Load more"
 action; `emptyText` supplies the empty-state message, and `className` adjusts the outer
-layout. The grid neither fetches data nor limits the complete data set to a client page.
+layout. The grid neither fetches data nor limits the complete data set to a client page. It
+paints its own surface so that it reads the same on every page: a `card` frame with a one-pixel
+inset ring drawn above the content (it adds no layout width), the header on the `band` surface with a
+`border-strong` lower edge, the group rows on the `band` surface with their count in an outlined badge, and
+`border` lines between rows. The grid keeps the width of its parent; its frame grows to the column
+widths, so the surrounding scroller reaches every column. A row hover is half as strong as a control hover
+and a selected row carries the selection frame (see the states below), so hover, group band, and selection stay
+three distinct levels. While loading without rows the grid shows "Loading ...".
 
 `Table` and its parts remain for simple static tables. The existing optional column sizing
 uses `id` and `columns`. Each `TableColumnDefinition` has
@@ -1967,19 +1981,22 @@ Plugins import these controls and table parts from `@ragents/web/ui`.
 
 Interaction states use the shared `hover`/`hover-foreground`,
 `selected`/`selected-foreground`/`selected-border`, and `ring` tokens in both themes.
-Selected cards, rows, options, navigation items, and tabs use a clearly tinted surface and a
-uniform one-pixel border in the selection hue on all four sides. Hover remains subtler than
-selection; hovering a selected item gently strengthens its tint. Selection adds no shadows,
-rings, inset edges, bevels, or asymmetric borders. Tabs have square corners, selection-colored
-text, and no bottom indicator. Icon-only action toggles remain borderless and ringless in every
-state; their selection-colored or filled icon sits on a subtler `selected-icon` surface.
-Keyboard focus uses a solid one-pixel ring on `:focus-visible`, except for icon-only actions,
-where the background marks focus. Text and secondary labels reach AA in both themes.
+Selected cards, rows, navigation items, and tabs use a clearly tinted surface (`selected` keeps 1.32:1, in dark 1.35:1,
+against `card` and 1.2:1 against the other content surfaces, and the primary and tone text colors stay AA on it), and every
+selection adds a one-pixel frame in the selection hue: a border on outlined controls, tabs, and pressed buttons, an inset
+frame on table rows, an inset outline on the selected segment of a segmented control. Menu items and options show selection
+by a check mark and a heavier weight and never by a fill, so the keyboard highlight and the chosen option cannot be
+confused. No state adds a bar or ring on one side. Hover remains subtler than selection (a row hover is half as strong as a
+control hover); hovering a selected item gently strengthens its tint. Tabs are rounded like the other controls,
+with selection-colored text and no bottom indicator. Icon-only action toggles remain borderless; their selection-colored or
+filled icon sits on a subtler `selected-icon` surface. Keyboard focus uses a solid two-pixel ring on `:focus-visible`
+for every control, icon-only actions included. Text and secondary labels reach AA in both themes.
+Secondary buttons and badges carry a `border` edge, so they stay visible on `card` and `popover`.
 `Button`, `Toggle`, `ToggleGroup`, `Tabs`, `Select`, menu items, selectable field labels,
 and table rows apply these states themselves. `InteractiveItem` supplies the same behavior
 for clickable rows, tiles, and navigation, including `aria-current="page"` or `"true"`,
-`aria-pressed`, `aria-selected`, and expanded states. It accepts a `render` element like
-other Base UI composites. Layout and corners stay with the caller; shared state colors do not. Existing card and
+`aria-pressed`, and `aria-selected`; the trigger of an open popup (`aria-haspopup` with `aria-expanded`) shows the
+light open fill instead. It accepts a `render` element like other Base UI composites. Layout and corners stay with the caller; shared state colors do not. Existing card and
 document surfaces retain their appearance unless a state needs better visibility. Actor cards
 use these shared selection states in both the Agents view and the addressee chooser.
 
@@ -2001,12 +2018,26 @@ there are no longer stylesheets with their own class contracts. `apps/web/src/ui
 the only token source: the shadcn variables (`--background`, `--card`, `--primary`,
 `--border`, `--radius`, and so on) and the additional host colors `shell`, `app`, `surface`,
 `border-soft`, `border-strong`, `hover`, `selected`, `success`, `warning`, `info`, `active`,
-their foreground, border, or soft counterparts, `teal`, `destructive-soft`, and
-the material colors `glass-*` are there once per mode, light and dark follow `data-theme`;
+their foreground, border, or soft counterparts, `teal`, `destructive-soft`, `popover`, the inline code colors `code-tint` and
+`code-foreground`, the code block colors `code` and `code-border`, the syntax colors `syn-*`, the diff fills `diff-*`, the table and group
+band `band`, and
+the material colors `glass-*` are there once per mode, light and dark follow `data-theme`, the palette `data-palette`;
 plus font, the compact spacing scale with `header`, `statusbar`, and `workspace-inset`,
 the card radius `rounded-panel`, the shadows `shadow-bar`, `shadow-status`, `shadow-pop`,
 `shadow-card`, `shadow-workspace`, `shadow-glass-icon`, and the animations `animate-fade-pulse`,
 `animate-working-pulse`, `animate-ring-pulse`, `animate-edge-flow`, `animate-progress-sweep`.
+`apps/web/src/ui/palettes.css` holds the palette values, generated from OKLCH seeds in `scripts/maintenance/palettes.ts` with
+`pnpm generate:palettes`; the generator fits every derived color to the surfaces it can sit on instead of to one
+reference surface: `border` (dividers, outlines) keeps 1.35:1 against every surface and 1.45:1 against `card`, `border-soft`
+1.2:1 against the content surfaces, `band` 1.2:1 (in dark 1.22:1) against `card`, `selected` 1.32:1 (in dark 1.35:1) against `card`,
+`code-tint` 1.18:1 (in dark 1.3:1), `code` and `code-border` 1.18:1 and 1.7:1 (in dark 1.35:1 and 2:1) against the content surfaces, and the `diff-*` fills 1.18:1
+(in dark 1.35:1), with the syntax colors, comments included, kept at AA on the code and line fills (3.2:1 on the word-level marks). It refuses a palette whose text pairs, control boundaries (3:1 against `background`, `card`, and `popover`),
+or these steps fall below their targets, and `apps/web/tests/palette.test.ts` compares the file with the generator. A palette may give
+the `active` tone its own hue when its accent is close to `info` (Midnight does, so that active and info chips stay apart).
+Surfaces rise `app`, `shell`, `background`, `card`, `secondary`; floating panels use `popover`. The density
+tokens `--grid-cell-x` and `--grid-cell-y` set the padding of table cells; rows keep a minimum height derived from them. The
+`selected:` variant covers pressed, selected, current, and checked states only; an expanded disclosure is not selected. The `open:`
+variant covers the native open states and the trigger of an open popup (`data-popup-open`, or `aria-haspopup` with `aria-expanded`).
 The text roles are utilities there too: `type-title` (page title), `type-label` (uppercase
 section label), `type-item` (item title), `type-body` (descriptions, notices, empty states),
 `type-meta` (time, address, route, counts), and `type-caption` (uppercase category and kind).
@@ -2048,8 +2079,11 @@ counters `Badge`, empty states `Empty`, messages `Alert`, surfaces `Card`, wait 
 `Spinner`. Context-dependent presentation runs through `data-*` attributes on the frame and
 `in-data-[...]` variants in the component. Own CSS remains only for markup generated by others
 with fixed classes: the token colors of highlight.js (`apps/web/src/highlighting.css`), the
-stylesheet of react-diff-view, and the edges of xyflow in the flow diagram
-(`client-ui/flow-diagram.css`). Tests select elements by roles, labels, text, or
+stylesheet of react-diff-view (its sticky gutters paint `--diff-surface`, which is `--background` unless a container sets it, as the
+mini-app frame does with `--card`), the Markdown of chat answers (rendered by quassel; `quassel.css` sets bold, heading steps,
+inline code, code blocks, tables, and quotes below the Markdown element of `[data-message="answer"]`, so attachments and message
+actions keep quassel's styles, and the chat font size and line height), and the
+edges of xyflow in the flow diagram (`client-ui/flow-diagram.css`). Tests select elements by roles, labels, text, or
 `data-*` states, never by classes.
 
 `Select` opens its list in a portal above the trigger or below it, depending on space,
@@ -2089,12 +2123,12 @@ Mini-apps use the same components with the same look; the mini-app runtime sets
 base dimensions. Details on forms, tables, theme bridge, and own app CSS are in actor-programs.md.
 
 The journal surface uses `PopoverContent`; header panels use `HeaderDropdown` with shared
-positioning and the same square corners as the other dropdown panels. `PopoverContent` keeps 8 pixels of distance to the
+positioning and square corners, because they hang from the header; the other dropdown panels are rounded. `PopoverContent` keeps 8 pixels of distance to the
 calling control by default. Dialogs and dimming popouts share
 `--backdrop` from the theme (black at 40 percent opacity in the light and 60 percent in the dark
 theme); individual surfaces define no dimming color of their own. `PopoverContent` with `dim`
 dims everything in the stacking context of its portal; `container` moves the portal into a given
-element, which lets a header button remain above its dropdown's dimming.
+element, and `backdropClassName` places the dimming surface (header dropdowns start it below their header).
 
 Settings and Help are icon buttons in the shared header. The run title opens metadata, start
 options, and contributed run controls. The logo at the left of the header is the button
@@ -2616,7 +2650,7 @@ are on one row. The button opens the history directly below itself, left-aligned
 square `HeaderDropdown` with `variant="chat"` in both browser and VS Code;
 `aria-expanded` and, while open, `aria-controls` point to the dropdown. The shared shell
 provides its labeled heading, close button, width and height limits, padding, and dimming;
-the button stays visible and clickable above the dimming. The panel uses at least 80 percent of
+the header with the button stays outside the dimming and clickable. The panel uses at least 80 percent of
 the viewport height when space permits, bounded by the available height in short windows.
 The chat fills the panel, with the normal card composer of the run chat at the bottom
 (`ChatPanel` with `ChatInputToolbar`); level of detail, attachment,
@@ -3147,10 +3181,15 @@ state in both the browser and VS Code, and an answer for a panel closed meanwhil
 Plugin `startSections` render directly below Continue with the complete server-listed visible
 run list and its metadata; the host adds no heading or wrapper for a section.
 
-**Runs** is the selected server's complete list: search over title, "Hide ended", and a
-selection mode with checkboxes. Search and the toolbar below it stay sticky while the list
-scrolls. Selection replaces "Hide ended" and "Select" with "Select all", the selected count,
-"Delete", and "Cancel" in that order, without a bottom bar. "Select all" toggles only visible
+**Runs** is the selected server's complete list in one `RunCard`: search over title, "Hide ended", and a
+selection mode with checkboxes. Search (the shared `SearchInput`, whose own clear button replaces the browser's) and the
+actions share one toolbar row at the top of the card (they wrap in a narrow panel); it sticks flush to the top of the page
+while the list scrolls and has the card's surface, so it never shows as a slab on the backdrop. Start's "Continue" list
+uses the same card without a toolbar, and rows are separated by `border` lines (1.35:1 against every surface). A row's
+hover fill spans the whole row including its actions, except for a locked run, whose row is dimmed
+without dimming its focus ring. Selection replaces "Hide ended" and "Select" with "Select all", the selected count,
+"Delete", and "Cancel" in that order (all outlined buttons, "Delete" destructive), without a bottom bar. Start tiles
+and the run card have a `border` frame and `shadow-card` so that they stand out from the backdrop in every palette. "Select all" toggles only visible
 deletable runs, including locked runs, and becomes "Select none" when all of them are selected;
 selections outside the current search remain unchanged. "Delete" is disabled at zero and deletes
 several runs after a confirmation question in the existing dialog. "Cancel" clears the selection

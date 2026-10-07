@@ -21,7 +21,7 @@ export function ToolbarCopy({ className, ...props }: ComponentProps<"span">) {
 }
 
 export function ToolbarLabel({ className, ...props }: ComponentProps<"span">) {
-  return <span className={cn("font-mono text-[0.58rem] font-medium uppercase tracking-[0.05em] text-muted-foreground", className)} {...props} />;
+  return <span className={cn("type-caption text-muted-foreground", className)} {...props} />;
 }
 
 export function ToolbarText({ className, ...props }: ComponentProps<"span">) {

@@ -3,6 +3,7 @@ import { cn } from "cn";
 import type { RunPreparationMessage } from "../../server/src/run-preparation-contract";
 import { Button } from "./ui";
 import { ChatInputToolbar, type ChatInputHandle, ChatMessages, ChatPanel, type ChatAttachmentInput, type Message } from "quassel";
+import { chatCodeBlocks } from "./chat/QuasselHost";
 import { useAttachmentCapabilities } from "./chat/useAttachmentCapabilities";
 import type { PluginRegistry, SessionContext, SkillStartEntry } from "./PluginRegistry";
 import { ChatViewSwitches, useChatViewSettings } from "./chat-view-settings";
@@ -120,7 +121,7 @@ export function RunPreparationChat({ initialPrompt, entry, registry, sessionRef 
       </div>
       <div aria-label="Start options" className="flex flex-wrap items-center gap-x-3 gap-y-2 empty:hidden"><StartOptionControls disabled={busy} fixed={fixed} registry={registry} /></div>
     </div>}>
-      {messages.length > 0 && <ChatMessages detailMode={chatView.detailMode} transcriptMode={chatView.transcriptMode} messages={messages} running={operation === "preparing"} showTimestamps={chatView.showTimestamps} stepsExpandable={chatView.stepsExpandable} />}
+      {messages.length > 0 && <ChatMessages codeBlockOptions={chatCodeBlocks} detailMode={chatView.detailMode} transcriptMode={chatView.transcriptMode} messages={messages} running={operation === "preparing"} showTimestamps={chatView.showTimestamps} stepsExpandable={chatView.stepsExpandable} />}
     </ChatPanel>
   </section>;
 }

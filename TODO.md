@@ -4,6 +4,15 @@ Inbox for everything; the owner and the AI write here. One line per entry, newes
 
 ## Open
 
+- Appearance options (07.10.2026): make inline code style, corner radius, table density, and further options (chat font size, band strength) stored user settings under Settings > Appearance, next to the palette, instead of fixed choices.
+- Backdrop glows (07.10.2026): in the light palettes `border` against the colored glows of the page backdrop is 1.15:1 to 1.24:1 at the strongest spots (Start tile and run card frames, disabled tiles in dark about 1.27:1); calm the glows or use a stronger frame token there.
+- Single-file diffs (07.10.2026): `DiffCode` shows the file header (status letter, old and new path, counts) only for two or more files, so a rename, add, or delete of one file shows no sign of it, and the mini-app viewers drop the file name whenever a title is set.
+- Icon tooltips (07.10.2026): icon-only buttons outside the dock rails carry only a native `title`; decide whether the styled tooltip becomes the rule.
+- Chat bubbles (07.10.2026): quassel's hover copy button covers the end of a user message; report upstream together with the code highlight hook.
+- Palette in VS Code (07.10.2026): the extension passes the color scheme but not the palette, so each webview keeps its own stored `ragents.palette` and the navigation panel always shows the default. Add a setting and a field in the theme command.
+- Chat code blocks (07.10.2026): quassel renders fenced code plain. Add a highlight hook to quassel's `CodeBlockOptions` and pass the host's highlight.js tokens; then the prose rules in `quassel.css` can move into quassel's own variables.
+- Homepage screenshots (07.10.2026): `docs/homepage/screenshots/*.webp` still show an older look; retake them from a showcase run with neutral data.
+- Header panels (07.10.2026): `HeaderDropdown` panels stay square while all other popups are rounded; decide whether they follow the radius.
 - Check live (06.10.2026): in a real VS Code window, "New chat" and a template while the workstation still fetches its host show the progress notification and then open the run on the workstation; without a folder, against a server without sign-in over the network, and against one that refuses the workstation, the error and the Start notice name the cause. Extension bundle, session, and run panel browser tests cover the parts.
 - Atomic host file access (05.10.2026): close parent-directory symlink races between canonical checks and host I/O, reproduced with neutral fixtures. Cover read/write/edit, seen/hash, files and bytes operations, and language-server annotation with descriptor-relative access or a dedicated filesystem worker whose read policy allows only the addressed roots.
 - Workstation host cache (05.10.2026): remove fetched versions under `<globalStorage>/hosts/<version>/` when no configured server or local profile uses them.

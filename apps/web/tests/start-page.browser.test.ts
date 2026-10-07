@@ -180,8 +180,9 @@ test("compact Start cards keep top-right actions visible and highlight hover and
           assert.ok(card.description.top >= card.title.bottom, "description is below the title row");
           assert.equal(card.clamp, "2");
           assert.ok(card.height < 100, `compact card: ${card.height}px`);
-          assert.equal(card.shadow, "none");
+          assert.notEqual(card.shadow, "none", "a resting tile lifts off the backdrop with the card shadow");
         }
+        assert.equal(new Set(cards.map((card) => card.shadow)).size, 1, "every resting tile has the same shadow");
         await page.screenshot({ animations: "disabled", path: join(shots, `start-compact-${view}-${theme}.png`) });
         const tile = templates.getByRole("button", { name: "Start Collection board", exact: true });
         const action = tile.locator('[data-slot="start-action"]');
@@ -291,7 +292,7 @@ for (const view of ["web", "start"] as const) {
           const grid = main.querySelector<HTMLElement>('ul[aria-label="Templates"]');
           const list = main.querySelector<HTMLElement>('ul[aria-label="Recent"], ul[aria-label="Runs"]')!;
           const search = main.querySelector<HTMLInputElement>('input[aria-label="Search runs"]');
-          const rect = list.getBoundingClientRect();
+          const rect = list.parentElement!.getBoundingClientRect();
           const sections = [...main.querySelectorAll(":scope > div > div > section")].map((section) => ({
             box: section.getBoundingClientRect(), heading: section.children[0]!.getBoundingClientRect(), content: section.children[1]!.getBoundingClientRect(),
           }));
@@ -337,7 +338,7 @@ for (const view of ["web", "start"] as const) {
         const runs = await measure();
         await page.screenshot({ path: join(shots, `panel-${view}-runs-${width}.png`) });
         checkColumn(runs);
-        assert.ok(Math.abs(runs.searchWidth! - runs.width) < 1, "search and rows use the same bounded column");
+        assert.ok(runs.searchWidth! > 0 && runs.searchWidth! <= runs.width, "search stays within the bounded column of the rows");
         assert.equal(runs.width, start.width);
         assert.ok(Math.abs(runs.top - start.top) < 1, `Runs begins at the height of Start: ${runs.top} and ${start.top}`);
         assert.equal(runs.back, true, "Runs leads back to Start next to its title, also below the browser's logo");

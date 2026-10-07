@@ -12,6 +12,7 @@ import { RunPanelApp, HostLogin } from "./run-panel/RunPanelApp";
 import { parseRunPanelLocation } from "./run-panel/run-panel-location";
 import { RunPanelHostProvider, createRunPanelHost } from "./run-panel/host";
 import { PageOpenerProvider } from "./page-opener";
+import { initializePalette } from "./palette";
 import { initializeTheme } from "./theme";
 import { initializeZoom } from "./zoom";
 import { installHostModules } from "./host-modules";
@@ -31,9 +32,10 @@ try {
     import.meta.hot?.dispose(disposeInput);
   }
   const theme = initializeTheme(window);
+  const palette = initializePalette(window);
   if (location.theme !== undefined) theme.setPreference(location.theme);
   host.onCommand((message) => { if (message.type === "theme") theme.setPreference(message.theme); });
-  import.meta.hot?.dispose(() => theme.dispose());
+  import.meta.hot?.dispose(() => { theme.dispose(); palette.dispose(); });
   if (location.host === "browser") {
     const zoom = initializeZoom(window);
     import.meta.hot?.dispose(() => zoom.dispose());

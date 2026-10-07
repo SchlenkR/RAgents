@@ -1,12 +1,13 @@
 import { PlayIcon, PlusIcon, SlidersHorizontalIcon } from "lucide-react";
 import type { ConnectionEntry } from "./panel/contract";
 import { Spinner } from "./ui";
+import { focusRing } from "./ui/interaction";
 
 const NEW_CHAT = { title: "New chat", description: "Empty run; the task takes shape in the chat." };
 
-const tileClass = "group/tile flex h-full w-full min-w-0 flex-col gap-1.5 rounded-[12px] border border-border-soft bg-card p-2.5 text-left"
-  + " enabled:hover:border-border enabled:hover:bg-accent/40 focus-visible:outline-1 focus-visible:-outline-offset-2 focus-visible:outline-ring disabled:not-aria-busy:opacity-60"
-  + " aria-busy:border-border aria-busy:bg-accent/40";
+const tileClass = `group/tile flex h-full w-full min-w-0 flex-col gap-1.5 rounded-xl border border-border bg-card p-2.5 text-left shadow-card ${focusRing}`
+  + " enabled:hover:border-border-strong enabled:hover:bg-[color-mix(in_srgb,var(--card),var(--foreground)_6%)] disabled:not-aria-busy:opacity-60"
+  + " aria-busy:border-border-strong aria-busy:bg-[color-mix(in_srgb,var(--card),var(--foreground)_6%)]";
 
 /** One Start page item: title, description and a top-right action; run scripts in a run use it too. */
 export function StartTile({ title, description, action, standard, disabled, starting = false, fill = false, onClick }: {

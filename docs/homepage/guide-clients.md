@@ -36,10 +36,13 @@ Longer lists show the filter name and the number of chosen values, or "All" when
 dropdown to search and check several values; "Clear" returns it to "All". A dot can identify a
 value's color, and a count shows its number of entries in either form.
 
-Large lists fill the available page width with flat rows. The page scrolls, and the column
-headers remain visible below a sticky toolbar. A list inside a bounded panel scrolls within
-that panel. Click a sortable column heading to change the row order; expandable group rows
-show their entry count. Use the arrow keys, Home, and End to move between rows, Enter or a
+Large lists fill the available page width as one framed card whose rows are separated by visible lines.
+The page scrolls, and the column headers remain visible below a sticky toolbar. A list inside a bounded
+panel scrolls within that panel; columns wider than the page scroll sideways with the frame. Click a sortable
+column heading to change the row order; expandable group rows show their entry count in a small outlined badge on a
+tinted band. Column headings use sentence case on a band of their own with a strong lower edge, and the
+sorted column is emphasized. Hovering a row tints it lightly, and a selected row is tinted and framed like every other
+selected item. Use the arrow keys, Home, and End to move between rows, Enter or a
 double-click to open an entry, and Space to select it when selection is offered or to toggle
 a group.
 Lists that load incrementally can request more entries near their end and show a loading
@@ -66,11 +69,11 @@ The browser docking layout and addressee are stored per run in the browser. Star
 a run focuses its visible chat input once it is ready, including a remembered chat partner.
 Clicking or typing elsewhere while it loads cancels that focus request.
 
-The run title opens "Run details". Its panel contains all run metadata, start option badges,
-and contributed detail controls in cells that wrap as the panel narrows. "Run details",
-"Run script", "Agents", and "Share" use the same square dropdown below the header, up to
-800 pixels wide with a small inset at the right. Each dims the application and keeps its content
-within the available width. The close button, Escape, or clicking outside closes it. Focus returns
+The run title opens "Run details". Its panel contains all run metadata, start option badges (an option
+that a metadata cell already shows appears once), and contributed detail controls in cells that wrap as the
+panel narrows. "Run details", "Run script", "Agents", and "Share" use the same square dropdown below the header,
+as wide as the header with a small inset (sharing stays up to 800 pixels wide). Each dims the page below the header and keeps
+its content within the available width. The close button, Escape, or clicking outside closes it. Focus returns
 to its button unless it has moved elsewhere.
 
 With write rights, the run header offers "Run script" right of the window buttons, behind a thin
@@ -361,7 +364,7 @@ Plugin sections appear directly below Continue when installed, for example a lis
 documents from all runs you can see. Clicking such an entry can open its run. Empty sections
 show no heading or gap.
 
-**Runs** shows this server's complete list in the same grid, with search, "Hide ended", and a
+**Runs** shows this server's complete list in the same card, with search, "Hide ended", and a
 selection mode that deletes several runs after a dialog confirmation. Checkboxes occupy an
 additional first column; row actions disappear during selection. A run the
 server has locked, for example because its journal uses an older format, shows a warning icon whose

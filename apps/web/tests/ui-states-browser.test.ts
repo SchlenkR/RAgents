@@ -36,7 +36,8 @@ const styleOf = (locator: Locator) => locator.evaluate(async (element) => {
   return { background: style.backgroundColor, surface: `rgb(${r}, ${g}, ${b})`, color: style.color, border: style.borderBottomColor,
     borderWidths: [style.borderTopWidth, style.borderRightWidth, style.borderBottomWidth, style.borderLeftWidth],
     radius: style.borderRadius, edge: getComputedStyle(element, "::after").content,
-    shadow: style.boxShadow, opacity: style.opacity, pointerEvents: style.pointerEvents, textDecoration: style.textDecorationLine };
+    shadow: style.boxShadow, outline: `${style.outlineStyle} ${style.outlineWidth} ${style.outlineColor}`, fontWeight: Number(style.fontWeight),
+    opacity: style.opacity, pointerEvents: style.pointerEvents, textDecoration: style.textDecorationLine };
 });
 
 test("shared controls retain readable states and status tones in both themes", {
@@ -79,15 +80,32 @@ test("shared controls retain readable states and status tones in both themes", {
       values["hover-surface"] = `rgb(${r}, ${g}, ${b})`;
       return values;
     });
+    const menuSlots = ["select-item", "dropdown-menu-checkbox-item", "dropdown-menu-radio-item"];
     const selected = async (control: Locator, label: string) => {
       await page.mouse.move(0, 0);
       const before = await styleOf(control);
+      const slot = await control.getAttribute("data-slot") ?? "";
+      if (menuSlots.includes(slot)) {
+        assert.equal(before.border, "rgba(0, 0, 0, 0)", `${label}: menu selection has no border`);
+        assert.ok(before.fontWeight >= 500, `${label}: menu selection is heavier than its neighbours`);
+        assert.ok(await control.locator("svg").count() >= 1, `${label}: menu selection shows its check`);
+        assert.equal(before.shadow, "none", `${label}: menu selection adds no shadow, ring, or bar`);
+        assert.ok(contrast(before.color, before.surface) >= 4.5, `${label}: selected text reaches AA`);
+        return;
+      }
       assert.ok([tokens.selected, tokens["selected-hover"]].includes(before.background), `${label}: selected background`);
       assert.equal(before.color, tokens["selected-foreground"], `${label}: selected foreground`);
-      assert.equal(before.shadow, "none", `${label}: selection adds no shadow or ring`);
-      if (await control.getAttribute("data-slot") === "toggle-group-item") {
+      const row = slot === "table-row";
+      if (row) {
+        assert.match(before.shadow, /inset/, `${label}: a selected row is framed inside its box`);
+        assert.ok(before.shadow.includes(tokens["selected-border"]), `${label}: the row frame uses the selection hue`);
+      } else assert.equal(before.shadow, "none", `${label}: selection adds no shadow, ring, or bar`);
+      if (slot === "toggle-group-item") {
         assert.deepEqual(before.borderWidths.slice(0, 3), ["0px", "0px", "0px"], `${label}: segments share their group's outer border`);
         assert.ok(["0px", "1px"].includes(before.borderWidths[3]), `${label}: only a divider may border the segment`);
+        assert.equal(before.outline, `solid 1px ${tokens["selected-border"]}`, `${label}: the selected segment is framed inside its box`);
+      } else if (row) {
+        assert.deepEqual(before.borderWidths, ["0px", "0px", "1px", "0px"], `${label}: a selected row keeps only its divider`);
       } else {
         assert.deepEqual(before.borderWidths, ["1px", "1px", "1px", "1px"], `${label}: selection has a uniform one-pixel border`);
         assert.equal(before.border, tokens["selected-border"], `${label}: selection border uses its hue`);
@@ -97,7 +115,7 @@ test("shared controls retain readable states and status tones in both themes", {
       const hovered = await styleOf(control);
       assert.notEqual(hovered.background, tokens.hover, `${label}: selection remains distinct from ordinary hover`);
       assert.equal(hovered.background, tokens["selected-hover"], `${label}: hover gently strengthens selection`);
-      assert.equal(hovered.shadow, "none", `${label}: selected hover stays flat`);
+      assert.equal(hovered.shadow, before.shadow, `${label}: selected hover stays flat`);
       assert.equal(hovered.color, before.color, `${label}: hover retains selected text`);
     };
     const hover = async (control: Locator, label: string) => {
@@ -114,7 +132,7 @@ test("shared controls retain readable states and status tones in both themes", {
     await context.test(`${theme}: selected controls survive hover`, async (state) => {
       const controls: readonly [Locator, string][] = [
         ...["default", "outline", "secondary", "ghost", "destructive", "link"].map((variant): [Locator, string] => [button(`Pressed ${variant}`), `pressed ${variant}`]),
-        [button("Expanded action"), "expanded action"], [button("Selected toggle"), "toggle"],
+        [button("Selected toggle"), "toggle"],
         [button("Selected outline toggle"), "outline toggle"], [button("Read option"), "multiple option"],
         [button("Write option"), "second multiple option"], [button("List mode"), "segmented option"],
         [page.getByRole("tab", { name: "Overview default", exact: true }), "default tab"],
@@ -123,12 +141,30 @@ test("shared controls retain readable states and status tones in both themes", {
         [page.getByRole("row", { name: "Selected row", exact: true }), "selected row"],
       ];
       for (const [control, label] of controls) await state.test(label, () => selected(control, label));
+      await state.test("expanded action", async () => {
+        await page.mouse.move(0, 0);
+        assert.notEqual((await styleOf(button("Expanded action"))).background, tokens.selected, "an expanded disclosure is not painted as selected");
+      });
     });
 
     await context.test(`${theme}: ordinary actions and rows share visible hover`, async () => {
-      for (const name of ["Action outline", "Action secondary", "Action ghost", "Action link", "Unselected toggle", "Share option", "Grid mode", "Other page", "Inactive item"]) await hover(button(name), name);
+      for (const name of ["Action outline", "Action ghost", "Action link", "Unselected toggle", "Share option", "Grid mode", "Other page", "Inactive item"]) await hover(button(name), name);
+      await page.mouse.move(0, 0);
+      const beforeSecondary = await styleOf(button("Action secondary"));
+      await button("Action secondary").hover();
+      const secondary = await styleOf(button("Action secondary"));
+      assert.notEqual(secondary.background, beforeSecondary.background, "secondary hover tints its own fill");
+      assert.ok(contrast(secondary.color, secondary.surface) >= 4.5, "secondary hover text reaches AA");
       for (const name of ["Details default", "Details line"]) await hover(page.getByRole("tab", { name, exact: true }), name);
-      await hover(page.getByRole("row", { name: "Unselected row", exact: true }), "unselected row");
+      await page.mouse.move(0, 0);
+      const row = page.getByRole("row", { name: "Unselected row", exact: true });
+      const rowBefore = await styleOf(row);
+      await row.hover();
+      const rowHovered = await styleOf(row);
+      const alpha = (color: string) => Number(color.match(/\/ ([\d.]+)\)$/)?.[1] ?? 1);
+      assert.notEqual(rowHovered.background, rowBefore.background, "unselected row: hover changes the surface");
+      assert.ok(Math.abs(alpha(rowHovered.background) - alpha(tokens.hover) / 2) < 0.005, "unselected row: a row hover is half as strong as a control hover, so it stays apart from group bands");
+      assert.ok(contrast(rowHovered.color, rowHovered.surface) >= 4.5, "unselected row: hover text reaches AA");
       await button("Action default").hover();
       const primary = await styleOf(button("Action default"));
       assert.equal(primary.background, tokens["primary-hover"]);
@@ -165,7 +201,7 @@ test("shared controls retain readable states and status tones in both themes", {
         const tab = page.getByRole("tab", { name: `Details ${variant}`, exact: true });
         await tab.click();
         const style = await styleOf(tab);
-        assert.equal(style.radius, "0px", "tabs have square corners");
+        assert.notEqual(style.radius, "0px", "tabs follow the shared radius");
         assert.equal(style.shadow, "none", "pointer selection has no focus ring");
         assert.equal(style.edge, "none", "tabs have no added indicator edge");
       }
@@ -182,8 +218,8 @@ test("shared controls retain readable states and status tones in both themes", {
         await icon.focus();
         const focused = await styleOf(icon);
         assert.deepEqual(focused.borderWidths, ["0px", "0px", "0px", "0px"], "icon keyboard focus stays borderless");
-        assert.equal(focused.shadow, "none", "icon keyboard focus has no ring");
-        assert.notEqual(focused.background, "rgba(0, 0, 0, 0)", "icon keyboard focus remains visible through its background");
+        assert.ok(focused.shadow.includes(tokens.ring), "icon keyboard focus shows the shared ring, not only the hover tint");
+        assert.notEqual(focused.background, "rgba(0, 0, 0, 0)", "icon keyboard focus also keeps its background tint");
       }
     });
 
@@ -205,7 +241,7 @@ test("shared controls retain readable states and status tones in both themes", {
         assert.equal(await control.evaluate((element) => element.matches(":focus-visible")), true);
         const style = await styleOf(control);
         assert.ok(style.shadow.includes(tokens.ring), `focus ring uses the theme token: ${style.shadow}`);
-        assert.match(style.shadow, /0px 0px 0px 2px/, "one-pixel focus ring surrounds a one-pixel offset");
+        assert.match(style.shadow, /0px 0px 0px [23]px/, "a two-pixel focus ring surrounds a one-pixel offset or sits inside a segment");
       }
       assert.ok(contrast(tokens.ring, tokens.background) >= 3, "focus ring reaches non-text contrast");
     });

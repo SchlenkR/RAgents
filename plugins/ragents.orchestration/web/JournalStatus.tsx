@@ -3,7 +3,7 @@ import { XIcon } from "lucide-react";
 import type { JournalEvent } from "@ragents/engine/src/domain/events";
 import type { SessionHeaderContext, WorkspaceTabContext } from "@ragents/web/PluginRegistry";
 import { SourceCode } from "@ragents/web/SourceCode";
-import { Badge, Button, Input, InteractiveItem, Popover, PopoverContent } from "@ragents/web/ui";
+import { Badge, Button, InteractiveItem, Popover, PopoverContent, SearchInput } from "@ragents/web/ui";
 import { runContracts } from "@ragents/engine/src/http/contracts";
 import { rpc } from "@ragents/web/rpc";
 import { actorAddress, runViewFrom } from "@ragents/web/run-view";
@@ -58,7 +58,7 @@ export function JournalStatus({ session, dockActive }: SessionHeaderContext & { 
         {dockActive === undefined && <Button aria-label="Close journal" onClick={() => close(true)} size="icon-sm" title="Close journal" variant="ghost"><XIcon /></Button>}
       </header>
       <div className="flex flex-none items-center gap-3 px-2.5 py-2">
-        <Input className="flex-1" aria-label="Search journal" onChange={(event) => { setQuery(event.target.value); setLimit(100); }} placeholder="Search event type, actor or content ..." ref={searchRef} type="search" value={query} />
+        <SearchInput className="flex-1" aria-label="Search journal" inputRef={searchRef} onValueChange={(value) => { setQuery(value); setLimit(100); }} placeholder="Search event type, actor or content ..." value={query} />
         <Badge className="flex-none" role="status" tone={loading ? "active" : "neutral"}>{loading ? "Loading ..." : `${filtered.length} events`}</Badge>
       </div>
       {error && <p className="flex-none px-2.5 pb-2 text-destructive" role="alert">{error}</p>}
@@ -70,7 +70,7 @@ export function JournalStatus({ session, dockActive }: SessionHeaderContext & { 
   </>;
   if (dockActive !== undefined) return <div className="flex min-h-0 flex-1 flex-col text-[0.76rem]">{content}</div>;
   return <div className="flex h-full min-w-0 items-stretch">
-    <InteractiveItem aria-controls={panelId} aria-expanded={open} className={statusControlClass} onClick={() => setOpen((value) => !value)} ref={buttonRef} type="button">
+    <InteractiveItem aria-controls={panelId} aria-expanded={open} aria-haspopup="dialog" className={statusControlClass} onClick={() => setOpen((value) => !value)} ref={buttonRef} type="button">
       Journal
     </InteractiveItem>
     <Popover open={open} onOpenChange={(next) => { if (!next) close(); }}>
@@ -91,6 +91,6 @@ function JournalEntry({ actor, event }: { actor: string | undefined; event: Jour
       <span className="truncate max-[550px]:col-start-2 max-[550px]:row-start-2" title={event.actorId}>{actor ? `@${actor}` : event.actorId}</span>
       <time className="text-muted-foreground tabular-nums max-[550px]:col-start-3 max-[550px]:row-start-1" dateTime={event.occurredAt}>{new Date(event.occurredAt).toLocaleTimeString()}</time>
     </InteractiveItem>
-    {expanded && <SourceCode className="m-0 mb-2 text-[0.68rem]" content={JSON.stringify(event, null, 2)} language="json" path="event.json" />}
+    {expanded && <SourceCode className="m-0 mb-2" content={JSON.stringify(event, null, 2)} language="json" path="event.json" />}
   </details>;
 }

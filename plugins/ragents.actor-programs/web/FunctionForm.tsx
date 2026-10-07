@@ -1,13 +1,13 @@
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { useAccess } from "@ragents/web/AccessContext";
-import { Badge, Button, cn, Input, Textarea } from "@ragents/web/ui";
+import { Badge, Button, cn, Input, Select, SelectContent, SelectItem, SelectTrigger, SelectValue, Textarea } from "@ragents/web/ui";
 import type { SessionContext } from "@ragents/web/PluginRegistry";
 import type { RunAppInvocation, RunScriptTool } from "./api";
 import { HostConfirmation, pendingConfirmationFor, useActorPrograms } from "./AppsPanel";
 import { invokeActorFunction } from "./function-call";
 import { actorFunctionInput } from "./function-input";
 
-const selectClass = "h-8 w-full min-w-0 rounded-lg border border-input bg-transparent px-2.5 py-1 text-base font-normal md:text-sm";
+const optionalBoolean = [{ value: "", label: "Not passed" }, { value: "true", label: "Yes" }, { value: "false", label: "No" }];
 
 export function FunctionForm({ session, tool, detail = false }: {
   session: SessionContext;
@@ -65,7 +65,10 @@ export function FunctionForm({ session, tool, detail = false }: {
             {parameter.type === "boolean" && parameter.required && <input aria-description={parameter.description} className="m-0 accent-primary" disabled={!writable || busy} name={parameter.name} type="checkbox" />}
             <span>{parameter.name}{parameter.required ? " *" : ""}{detail && <small className="ml-2">{parameter.type}{parameter.required ? "" : " (optional)"}</small>}</span>
             {parameter.type === "boolean"
-              ? !parameter.required && <select className={selectClass} disabled={!writable || busy} name={parameter.name} defaultValue=""><option value="">Not passed</option><option value="true">Yes</option><option value="false">No</option></select>
+              ? !parameter.required && <Select defaultValue="" disabled={!writable || busy} items={optionalBoolean} name={parameter.name}>
+                  <SelectTrigger aria-label={parameter.name} className="w-full font-normal"><SelectValue /></SelectTrigger>
+                  <SelectContent>{optionalBoolean.map((option) => <SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>)}</SelectContent>
+                </Select>
               : parameter.type === "json" || parameter.type === "string[]" || parameter.type === "number[]" || detail && parameter.type === "string"
                 ? <Textarea aria-description={parameter.description} className="min-h-8 resize-y font-normal" disabled={!writable || busy} name={parameter.name} placeholder={parameter.description} required={parameter.required} rows={2} />
                 : <Input

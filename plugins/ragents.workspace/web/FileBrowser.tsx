@@ -19,8 +19,8 @@ import { fetchBrowseListing, fetchBrowsePreview } from "./api";
 import { fileIconFor, fileToneClass } from "./file-icons";
 import { SourceCode } from "@ragents/web/SourceCode";
 
-const rowClass = "h-auto w-full justify-start gap-1.5 rounded-none py-[3px] pr-2.5 pl-(--row-indent) text-[0.7rem] font-normal";
-const previewSourceClass = "min-w-0 px-2.5 pt-0 pb-2.5 text-xs leading-[1.45] whitespace-pre-wrap break-words";
+const rowClass = "h-auto w-full justify-start gap-1.5 rounded-none py-1 pr-2.5 pl-(--row-indent) text-[0.78rem] font-normal";
+const previewSourceClass = "min-w-0 px-2.5 pt-0 pb-2.5 whitespace-pre-wrap break-words";
 const indent = (depth: number) => ({ "--row-indent": `${8 + depth * 12}px` }) as CSSProperties;
 
 const rootLabels: Readonly<Record<BrowseRoot, string>> = {

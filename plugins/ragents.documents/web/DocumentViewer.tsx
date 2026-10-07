@@ -28,7 +28,7 @@ export type DocumentFormat = "markdown" | "text" | "html" | "image" | "binary";
 const copyClass = "grid min-w-0 gap-px";
 const titleClass = "truncate text-[0.82rem] font-semibold";
 const metaClass = "text-[0.68rem] text-muted-foreground tabular-nums";
-const sourceClass = "min-w-0 p-0 text-[12px] whitespace-pre-wrap break-words";
+const sourceClass = "min-w-0 p-0 whitespace-pre-wrap break-words";
 const groupBadgeClass = "flex size-7 items-center justify-center rounded-[9px] text-[0.62rem] font-bold tracking-[0.02em]";
 
 export interface RunDocument {

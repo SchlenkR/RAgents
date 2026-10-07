@@ -16,7 +16,7 @@ import { createPortal } from "react-dom";
 import { ChatInputToolbar, ChatMessages, ChatPanel, type ChatAttachmentInput, type ChatEvent, type ToolInfo } from "quassel";
 import { primaryChatState, primaryIsProgram, programChatNotice, runIsWorking, runPausable } from "./chat/chat-target";
 import { PausedRunNotice } from "./chat/PausedRunNotice";
-import { RunUrls } from "./chat/QuasselHost";
+import { RunUrls, chatCodeBlocks } from "./chat/QuasselHost";
 import { StoppedActorNotice } from "./chat/StoppedActorNotice";
 import { ChatViewSwitches, useChatViewSettings } from "./chat-view-settings";
 import { useChat } from "./chat/useChat";
@@ -508,6 +508,7 @@ function ChatSurface({
       }
     >
       {options.notice ?? <ChatMessages
+        codeBlockOptions={chatCodeBlocks}
         detailMode={chatView.detailMode}
         transcriptMode={chatView.transcriptMode}
         messages={messages}

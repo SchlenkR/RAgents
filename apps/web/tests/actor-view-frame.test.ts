@@ -67,9 +67,11 @@ const openHostFrame = async (context: TestContext, frameResponse: FrameResponse)
       contents: `
         import { createRoot } from "react-dom/client";
         import { ActorViewFrame } from "./plugins/ragents.actor-programs/web/ActorViewFrame";
+        import { initializePalette } from "./apps/web/src/palette";
         import { initializeTheme } from "./apps/web/src/theme";
         import "./apps/web/src/ui/tailwind.css";
         initializeTheme(window);
+        initializePalette(window);
         const app = { id: "status-view", actorId: "worker", actorHandle: "worker", title: "Status check",
           revision: "installed-revision", actions: [{ id: "status", label: "Status", confirmation: null }],
           state: { version: 1, revision: 1, values: { phase: "working" } }, invocations: [] };

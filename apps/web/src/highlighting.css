@@ -3,72 +3,95 @@
 .hljs-keyword,
 .hljs-selector-tag,
 .hljs-doctag,
-.hljs-template-tag {
-  color: var(--primary);
+.hljs-template-tag,
+.hljs-bullet {
+  color: var(--syn-keyword);
 }
 
 .hljs-string,
 .hljs-regexp,
-.hljs-addition {
-  color: color-mix(in srgb, var(--success) 76%, var(--foreground));
-}
-
-.hljs-title,
-.hljs-name,
-.hljs-section,
-.hljs-selector-id,
-.hljs-selector-class {
-  color: var(--info);
-}
-
-.hljs-type,
-.hljs-title.class_,
-.hljs-built_in,
-.hljs-builtin-name,
-.hljs-symbol,
-.hljs-bullet {
-  color: var(--teal);
+.hljs-code,
+.hljs-char.escape_ {
+  color: var(--syn-string);
 }
 
 .hljs-number,
 .hljs-literal,
-.hljs-link {
-  color: var(--warning);
+.hljs-literal .hljs-keyword,
+.hljs-symbol,
+.hljs-variable.constant_ {
+  color: var(--syn-number);
 }
 
-.hljs-meta,
+.hljs-title,
+.hljs-title.function_,
+.hljs-section,
+.hljs-selector-id,
+.hljs-selector-class {
+  color: var(--syn-function);
+}
+
+.hljs-type,
+.hljs-title.class_,
+.hljs-title.class_.inherited__,
+.hljs-built_in,
+.hljs-builtin-name,
+.hljs-name {
+  color: var(--syn-type);
+}
+
 .hljs-attr,
 .hljs-attribute,
+.hljs-meta,
 .hljs-variable,
 .hljs-template-variable,
 .hljs-selector-attr,
-.hljs-selector-pseudo {
-  color: color-mix(in srgb, var(--primary) 70%, var(--foreground));
+.hljs-selector-pseudo,
+.hljs-link {
+  color: var(--syn-attribute);
+}
+
+.hljs-meta .hljs-keyword {
+  color: var(--syn-keyword);
+}
+
+.hljs-meta .hljs-string {
+  color: var(--syn-string);
 }
 
 .hljs-property,
 .hljs-params,
-.hljs-tag,
 .hljs-punctuation,
 .hljs-operator,
-.hljs-subst {
+.hljs-subst,
+.hljs-function,
+.hljs-class {
   color: inherit;
+}
+
+.hljs-tag {
+  color: var(--muted-foreground);
 }
 
 .hljs-comment,
 .hljs-quote {
-  color: var(--muted-foreground);
+  color: var(--syn-comment);
   font-style: italic;
 }
 
-.hljs-deletion {
-  color: var(--destructive);
+.hljs-section,
+.hljs-strong {
+  font-weight: 650;
 }
 
 .hljs-emphasis {
   font-style: italic;
 }
 
-.hljs-strong {
-  font-weight: 600;
+.hljs-addition {
+  color: var(--success);
+}
+
+.hljs-deletion {
+  color: var(--destructive);
 }

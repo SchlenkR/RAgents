@@ -796,6 +796,9 @@
     "@ragents/web/page-opener": [
       "useOptionalPageOpener"
     ],
+    "@ragents/web/product/ModelPickers": [
+      "ModelPickers"
+    ],
     "@ragents/web/product/ProductModelSettings": [
       "ProductModelSettings"
     ],
@@ -834,6 +837,7 @@
       "runViewFrom"
     ],
     "@ragents/web/theme": [
+      "usePalette",
       "useResolvedTheme"
     ],
     "@ragents/web/toolLine": [
@@ -846,6 +850,7 @@
       "Badge",
       "Button",
       "Card",
+      "Checkbox",
       "ChoiceSelect",
       "Combobox",
       "ComboboxContent",
@@ -884,6 +889,7 @@
       "PopoverContent",
       "PopoverTrigger",
       "RunStateIcon",
+      "SearchInput",
       "SectionLabel",
       "Select",
       "SelectContent",

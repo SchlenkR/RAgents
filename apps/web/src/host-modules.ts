@@ -25,6 +25,7 @@ import * as webLibHttp from "@ragents/web/lib/http";
 import * as webLibLabels from "@ragents/web/lib/labels";
 import * as webLibLocalStorageSetting from "@ragents/web/lib/local-storage-setting";
 import * as webPageOpener from "@ragents/web/page-opener";
+import * as webProductModelPickers from "@ragents/web/product/ModelPickers";
 import * as webProductProductModelSettings from "@ragents/web/product/ProductModelSettings";
 import * as webProductStartOptions from "@ragents/web/product/start-options";
 import * as webRpc from "@ragents/web/rpc";
@@ -71,6 +72,7 @@ export const hostModules: Readonly<Record<string, object>> = {
   "@ragents/web/lib/labels": webLibLabels,
   "@ragents/web/lib/local-storage-setting": webLibLocalStorageSetting,
   "@ragents/web/page-opener": webPageOpener,
+  "@ragents/web/product/ModelPickers": webProductModelPickers,
   "@ragents/web/product/ProductModelSettings": webProductProductModelSettings,
   "@ragents/web/product/start-options": webProductStartOptions,
   "@ragents/web/rpc": webRpc,

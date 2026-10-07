@@ -102,6 +102,7 @@ test("shared control sizes, searchable dropdowns and multi-value filters work in
         }
         for (const label of [`${size} view`, `${size} permissions`]) {
           const group = row.getByRole("group", { name: label, exact: true });
+          const buttonRadius = await row.getByRole("button", { name: `${size} button`, exact: true }).evaluate((element) => getComputedStyle(element).borderRadius);
           const geometry = await group.evaluate((element) => {
             const style = getComputedStyle(element);
             return { radius: style.borderRadius, gap: style.gap, borders: [style.borderTopWidth, style.borderRightWidth, style.borderBottomWidth, style.borderLeftWidth],
@@ -113,11 +114,15 @@ test("shared control sizes, searchable dropdowns and multi-value filters work in
                   borders: [segmentStyle.borderTopWidth, segmentStyle.borderRightWidth, segmentStyle.borderBottomWidth, segmentStyle.borderLeftWidth] };
               }) };
           });
-          assert.equal(geometry.radius, "0px", label);
+          assert.equal(geometry.radius, buttonRadius, `${label}: the group shares the button radius of its size`);
           assert.equal(geometry.gap, "0px", label);
           assert.deepEqual(geometry.borders, ["1px", "1px", "1px", "1px"], `${label}: one shared border`);
           for (const [index, segment] of geometry.segments.entries()) {
-            assert.equal(segment.radius, "0px", `${label}: square segment ${index}`);
+            const last = index === geometry.segments.length - 1;
+            if (geometry.segments.length === 1) assert.notEqual(segment.radius, "0px", `${label}: a single segment follows the group's corners`);
+            else if (index === 0) assert.match(segment.radius, /^[\d.]+px 0px 0px [\d.]+px$/, `${label}: the first segment follows the group's start corners`);
+            else if (last) assert.match(segment.radius, /^0px [\d.]+px [\d.]+px 0px$/, `${label}: the last segment follows the group's end corners`);
+            else assert.equal(segment.radius, "0px", `${label}: square segment ${index}`);
             assert.deepEqual(segment.borders, ["0px", "0px", "0px", index === 0 ? "0px" : "1px"], `${label}: only one divider`);
             assert.equal(segment.height, geometry.height - 2, `${label}: fills the group's inner height`);
             if (index > 0) assert.ok(Math.abs(segment.x - geometry.segments[index - 1].x - geometry.segments[index - 1].width) < 0.01, `${label}: no gap or overlapping borders`);
@@ -243,7 +248,7 @@ test("shared control sizes, searchable dropdowns and multi-value filters work in
       assert.ok(triggerBounds);
       assert.ok(popup.y >= triggerBounds.y + triggerBounds.height, `${label}: popup starts at ${popup.y}, trigger ends at ${triggerBounds.y + triggerBounds.height}`);
       assert.ok(popup.width >= triggerBounds.width, `${label}: popup width ${popup.width}px is at least trigger width ${triggerBounds.width}px`);
-      assert.equal(popup.radius, "0px", "Select uses square dropdown corners");
+      assert.notEqual(popup.radius, "0px", "Select uses the shared rounded panel corners");
       await close(selectPopup());
     }
     for (const label of ["Bottom select", "Bottom searchable select"]) {
@@ -400,7 +405,7 @@ test("shared control sizes, searchable dropdowns and multi-value filters work in
     assert.equal(await popup.getByRole("option").count(), 1);
     assert.equal(await beta.getAttribute("aria-selected"), "true", "filtering retains checked values");
     assert.match(await beta.innerText(), /7/, "option count remains visible");
-    assert.equal((await popupGeometry(popup)).radius, "0px");
+    assert.notEqual((await popupGeometry(popup)).radius, "0px");
     await page.screenshot({ path: join(shots, "shared-controls-filter-select.png") });
     await search.press("ArrowDown");
     await search.press("Enter");
@@ -431,21 +436,22 @@ test("shared control sizes, searchable dropdowns and multi-value filters work in
     await close(popup);
   });
 
-  await context.test("dropdown menus, context menus and popovers use the same square panel corners", async () => {
+  await context.test("dropdown menus, context menus and popovers use the same rounded panel corners", async () => {
     await reset();
     await page.getByRole("button", { name: "Actions", exact: true }).click();
     const menu = page.getByRole("menu");
     await menu.waitFor();
-    assert.equal((await popupGeometry(menu)).radius, "0px");
+    const radius = (await popupGeometry(menu)).radius;
+    assert.notEqual(radius, "0px");
     await close(menu);
     await page.getByRole("button", { name: "Details", exact: true }).click();
     const popover = page.getByLabel("Item details", { exact: true });
     await popover.waitFor();
-    assert.equal((await popupGeometry(popover)).radius, "0px");
+    assert.equal((await popupGeometry(popover)).radius, radius);
     await close(popover);
     await page.getByRole("button", { name: "Window actions", exact: true }).click({ button: "right" });
     await menu.waitFor();
-    assert.equal((await popupGeometry(menu)).radius, "0px");
+    assert.equal((await popupGeometry(menu)).radius, radius);
     await close(menu);
   });
   assert.deepEqual(errors, []);

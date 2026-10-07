@@ -6,7 +6,7 @@ import { Button } from "../ui";
 import { SectionHeading } from "../ui/SectionLabel";
 import type { PanelAction, PanelState } from "./contract";
 import type { PanelPageProps } from "./page-props";
-import { canDeleteRun, RunLine, RunList } from "./RunLine";
+import { canDeleteRun, RunCard, RunLine, RunList } from "./RunLine";
 
 const RECENT_RUNS = 5;
 
@@ -46,12 +46,14 @@ export function StartPage({ state, send, registry }: PanelPageProps) {
       </SectionHeading>
       {runs.length === 0
         ? <p className="type-body text-muted-foreground">No runs yet.</p>
-        : <RunList actions={actions} label="Recent">
-          {recent.map((run) => <RunLine actions={actions} key={run.id} onOpen={() => openRun(run.id)}
-            onDelete={canDeleteRun(connection, run) ? () => send({ action: "deleteRuns", name: connection.name, runIds: [run.id] }) : undefined}
-            onShare={run.canShare ? () => send(state.sharing?.runId === run.id ? { action: "closeSharing" } : { action: "openSharing", name: connection.name, runId: run.id }) : undefined}
-            run={run} sharingOpen={state.sharing?.runId === run.id} />)}
-        </RunList>}
+        : <RunCard>
+          <RunList actions={actions} label="Recent">
+            {recent.map((run) => <RunLine actions={actions} key={run.id} onOpen={() => openRun(run.id)}
+              onDelete={canDeleteRun(connection, run) ? () => send({ action: "deleteRuns", name: connection.name, runIds: [run.id] }) : undefined}
+              onShare={run.canShare ? () => send(state.sharing?.runId === run.id ? { action: "closeSharing" } : { action: "openSharing", name: connection.name, runId: run.id }) : undefined}
+              run={run} sharingOpen={state.sharing?.runId === run.id} />)}
+          </RunList>
+        </RunCard>}
     </section>
     {registry?.startSections.filter((section) => !section.readRight || access.can(section.readRight))
       .map(({ id, Section }) => <Section key={id} onOpenRun={openRun} runs={runs} />)}

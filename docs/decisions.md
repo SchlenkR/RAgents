@@ -1,5 +1,54 @@
 # Decisions
 
+## 2026-10-07: Readable by default - separated surfaces, palettes, one selection language
+
+Chapters: `spec/plugins.md` (Web as plugin host: Appearance, UI library, Runs page, header dropdowns),
+`spec/actor-programs.md` (theme bridge); usage: `usage.md` (Settings, Appearance, Selection controls and tables, chat,
+Runs, run header).
+
+The interface was hard to read although its text contrast was fine (6:1 and more). The causes were the steps between
+surfaces (1.1:1 to 1.2:1), borders (1.3:1 to 1.9:1), bold at weight 500, chat text at 13px, diff text at 10.5px, code in
+Courier (Chrome ignores `ui-monospace`, so the stack fell back to it), boxed controls with square toggle groups next to
+rounded buttons, and group rows of tables painted as selected, because the `selected:` variant included `aria-expanded`.
+A first round passed its numeric checks pair by pair and still looked wrong: derived colors (code chips, diff fills,
+borders, bands, selection) had each been fitted to one surface, so on another surface of the same palette they were tone on
+tone. Four independent reviewers then went through every screen in all eight palette and mode combinations; their findings,
+not the numbers, drove this round.
+
+The colors are generated palettes: `scripts/maintenance/palettes.ts` turns OKLCH seeds into every token (`palettes.css`, four
+palettes in light and dark, `data-palette`), and fits each derived token against all surfaces it can sit on instead of one
+reference surface (`border`, `border-soft`, `border-strong`, `band` 1.2:1, `selected` 1.32:1, `code`, `diff-*`, the syntax
+colors, comments included, and the primary and tone texts on selected rows). It refuses a palette that misses a target, and
+`palette.test.ts` compares the file. A palette may give the `active` tone its own hue (Midnight does, so that active and info
+chips stay apart).
+
+There is one selection language: a tinted fill plus a one-pixel frame in the selection hue for tabs, toggles, pressed buttons,
+table rows (inset frame) and segments (inset outline); menu options show a check and a heavier weight and no fill, so the
+keyboard highlight and the chosen option cannot be confused; cards keep their ring. No state adds a bar on one side. Hover is
+subtler, and a row hover is half as strong as a control hover. Keyboard focus is the two-pixel ring on every control, icon-only
+actions included (they showed only the hover tint before).
+
+Tables: `DataGrid` keeps the width of its parent and draws a frame as wide as its columns (a first version clipped columns without
+a scrollbar), the header has a strong lower edge, group rows are a stronger `band` with an outlined count badge, rows are
+separated by `border` lines, and the grid says "Loading ..." while it loads without rows. Secondary buttons and badges carry a
+`border` edge. Start tiles and the run card are framed and lifted off the backdrop (`border`, `shadow-card`), which departs from
+the earlier "only floating views keep a shadow". Runs and Start rows use the same dividers; the Runs toolbar sticks flush to the
+top and the empty status bar is gone outside a run. Settings pages share their page classes, `SearchInput` replaces the browser's
+search field (and its off-palette clear button), and the plugin overview is a framed list.
+
+Run page: one `ModelPickers` (composer or form look) serves the composer, the global coordinator, and both settings pages, and the
+composer menus open upwards. Header dropdowns align to the side of their trigger and dim only what lies below the header, so every
+header control stays bright and usable (the first idea, lifting only the open trigger, broke switching between dropdowns). Run
+details lists a start option once, the title and window buttons share one control height, the focused dock area alone tints its
+tab, rail buttons use the shared icon-only selection look, the addressee popout has a title bar and no dimming, and the sidebar
+flyout stays open while a modal dialog opened from its panel is open (the panel was paused and the dialog stayed empty). Chat code
+blocks wrap, and the tool call pop-out shows its arguments and result in code blocks.
+
+The temporary design lab is gone after the owner's choices: inline code is a tint (`code-tint`, fitted like every other
+surface), corners stay round, table spacing stays comfortable. Making these appearance options user settings is in `TODO.md`.
+Open: the border against the colored backdrop glows of the light palettes (1.15:1 to 1.24:1 at the strongest spots,
+`TODO.md`), plus the smaller items listed there.
+
 ## 2026-10-06: Reasoning is chosen from a menu again
 
 Chapter: `docs/usage.md` (clients). The joined segmented control had also replaced the reasoning

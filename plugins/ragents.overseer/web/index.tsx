@@ -1,5 +1,6 @@
 import { useAccess } from "@ragents/web/AccessContext";
-import { Button, Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, HeaderDropdown } from "@ragents/web/ui";
+import { RotateCcwIcon } from "lucide-react";
+import { Button, Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, HeaderDropdown, Spinner } from "@ragents/web/ui";
 import { RunModalContext } from "@ragents/web/ui/dialog";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ChatMessages, ChatInputToolbar, ChatPanel, type ChatInputHandle, type ChatEvent } from "quassel";
@@ -18,6 +19,7 @@ const toolbarClass = "flex h-header w-full min-w-0 flex-1 items-center px-2 py-1
 const triggerClass = "h-full min-w-0 flex-1 justify-start border-border-strong bg-background px-2 font-normal text-muted-foreground data-[working=true]:animate-working-pulse data-[working=true]:border-primary motion-reduce:data-[working=true]:animate-none";
 const noteClass = "text-[0.8rem] text-muted-foreground";
 const errorClass = "text-[0.8rem] text-destructive";
+const codeBlocks = { wrap: true } as const;
 
 /** Every user has their own coordinator; only the server knows its id. */
 function useCoordinator() {
@@ -147,13 +149,13 @@ function OverseerConversation({ open, onOpen, onClose, onBusy, userLocation, run
             texts={{ placeholder: writable ? "Ask the global coordinator" : "Read access to the global coordinator" }}
             toolbarLeft={<ChatViewSwitches className="max-md:[&>span]:hidden" settings={chatView} />}
             toolbarRight={<ModelSettings active={open} compact disabled={resetting} actions={
-              <Button aria-label="Reset conversation" aria-busy={resetting} disabled={!writable || resetting || !chat.connected} onClick={() => setConfirmReset(true)} size="sm" variant="outline">
-                {resetting ? "Resetting ..." : "Reset"}
+              <Button aria-label="Reset conversation" aria-busy={resetting} disabled={!writable || resetting || !chat.connected} onClick={() => setConfirmReset(true)} size="icon-sm" title="Reset conversation ..." variant="ghost">
+                {resetting ? <Spinner /> : <RotateCcwIcon />}
               </Button>
             } />}
           />
         </div>}>
-          <ChatMessages announce={false} className="min-h-16!" scrollerRef={setScroller}
+          <ChatMessages announce={false} className="min-h-16!" codeBlockOptions={codeBlocks} scrollerRef={setScroller}
             detailMode={chatView.detailMode} transcriptMode={chatView.transcriptMode}
             emptyState={<div className="m-auto max-w-[480px] p-8 text-[0.9rem] leading-[1.6] text-muted-foreground max-md:p-5"><strong className="text-foreground">One chat for the whole workshop</strong><p>Ask about your runs or give a task below. Answers about your runs and ongoing work appear here.</p></div>}
             messages={messages} running={chat.running} showTimestamps={chatView.showTimestamps} stepsExpandable={chatView.stepsExpandable}
