@@ -52,17 +52,17 @@ export function JournalStatus({ session, dockActive }: SessionHeaderContext & { 
   const actors = new Map(view?.actors.map((actor) => [actor.id, actorAddress(actor)]));
 
   const content = <>
-      <header className="flex flex-none items-center gap-2 border-b border-border-soft px-2.5 py-2">
-        <div className="flex min-w-0 flex-1 items-baseline gap-2.5 [&>span]:truncate"><strong>Journal</strong><span className="text-muted-foreground">{session.session.title || "Run"}</span></div>
+      <header className="flex flex-none items-center gap-2 border-b border-border-soft px-3 py-2">
+        <div className="flex min-w-0 flex-1 items-baseline gap-3 [&>span]:truncate"><strong>Journal</strong><span className="text-muted-foreground">{session.session.title || "Run"}</span></div>
         <Button onClick={() => setReload((value) => value + 1)} size="sm" variant="ghost">Refresh</Button>
         {dockActive === undefined && <Button aria-label="Close journal" onClick={() => close(true)} size="icon-sm" title="Close journal" variant="ghost"><XIcon /></Button>}
       </header>
-      <div className="flex flex-none items-center gap-3 px-2.5 py-2">
+      <div className="flex flex-none items-center gap-3 px-3 py-2">
         <SearchInput className="flex-1" aria-label="Search journal" inputRef={searchRef} onValueChange={(value) => { setQuery(value); setLimit(100); }} placeholder="Search event type, actor or content ..." value={query} />
         <Badge className="flex-none" role="status" tone={loading ? "active" : "neutral"}>{loading ? "Loading ..." : `${filtered.length} events`}</Badge>
       </div>
-      {error && <p className="flex-none px-2.5 pb-2 text-destructive" role="alert">{error}</p>}
-      <div aria-label="Journal events, newest first" className="min-h-0 flex-1 overflow-auto overscroll-contain px-2.5 pb-2.5">
+      {error && <p className="flex-none px-3 pb-2 text-destructive" role="alert">{error}</p>}
+      <div aria-label="Journal events, newest first" className="min-h-0 flex-1 overflow-auto overscroll-contain px-3 pb-3">
         {!loading && !error && filtered.length === 0 && <p className="text-muted-foreground">{query ? "No matching events." : "The journal contains no events yet."}</p>}
         {filtered.slice(0, limit).map((event) => <JournalEntry actor={actors.get(event.actorId)} event={event} key={event.eventId} />)}
         {filtered.length > limit && <Button onClick={() => setLimit((value) => value + 100)} size="sm" variant="outline">Show more events</Button>}

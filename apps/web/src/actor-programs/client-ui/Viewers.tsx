@@ -19,7 +19,7 @@ export function TaskProgress({ title = "Tasks", tasks, showProgress = true }: Ta
       <span>{completed} of {tasks.length} completed</span>
     </div>}
     {!tasks.length && <p>No tasks yet.</p>}
-    <ol className="divide-y">{tasks.map((task) => <li className="py-1.5" data-status={task.status} key={task.id}>
+    <ol className="divide-y">{tasks.map((task) => <li className="py-2" data-status={task.status} key={task.id}>
       <div className="flex justify-between gap-3"><strong>{task.label}</strong><Badge tone={taskTones[task.status]}>{taskLabels[task.status]}</Badge></div>
       {task.description && <p className="mt-1 text-muted-foreground">{task.description}</p>}
     </li>)}</ol>

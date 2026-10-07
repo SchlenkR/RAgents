@@ -17,7 +17,7 @@ export function RunPanelRail({ navigation, onClose, open, pendingTabIds, session
   session: SessionContext;
   tabs: readonly WorkspaceTabContribution[];
 }) {
-  return <TooltipProvider><nav aria-label="Sidebar tabs" className="flex w-9 flex-none flex-col items-center gap-1 border-l border-border bg-shell py-1.5">
+  return <TooltipProvider><nav aria-label="Sidebar tabs" className="flex w-9 flex-none flex-col items-center gap-1 border-l border-border bg-shell py-2">
     {tabs.map((tab) => {
       const active = open && tab.id === navigation.activeTabId;
       const pending = pendingTabIds.includes(tab.id);

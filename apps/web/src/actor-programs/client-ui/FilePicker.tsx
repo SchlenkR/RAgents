@@ -49,7 +49,7 @@ export function FilePicker({ label, files, onChange, disabled, showPreview = tru
   const add = (incoming: File[]) => change(() => fileSelection(files, incoming, options));
   const fileInput = useFileInput({ disabled: blocked, onFiles: add });
   return <section aria-busy={pending} aria-label={label} className="min-w-0 text-sm">
-    <div className={cn("grid gap-1.5 rounded-lg border border-dashed bg-muted/40 p-3", fileInput.dragging && "border-primary bg-background")} {...fileInput.dropProps}>
+    <div className={cn("grid gap-2 rounded-lg border border-dashed bg-muted/40 p-3", fileInput.dragging && "border-primary bg-background")} {...fileInput.dropProps}>
       <Label htmlFor={id}>{label}</Label>
       <input accept={options.accept} className="max-w-full min-w-0 text-sm file:mr-2 file:rounded-md file:border file:bg-background file:px-2 file:py-1 file:text-sm" disabled={blocked} id={id} multiple={options.multiple !== false} type="file" {...fileInput.inputProps} />
       <p className="text-xs text-muted-foreground">Select files, drag them here, or paste while the file picker is focused.</p>

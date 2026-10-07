@@ -56,7 +56,7 @@ export function RunsPage({ state, send }: PanelPageProps) {
     {state.problem && <p className="type-body text-destructive [overflow-wrap:anywhere]" role="alert">{state.problem}</p>}
     <RunCard toolbar={<div className="flex flex-wrap items-center gap-2">
       <SearchInput aria-label="Search runs" className="min-w-[min(12rem,100%)] flex-1" icon onValueChange={setQuery} placeholder="Search runs ..." size="sm" value={query} />
-      <div aria-label="Run actions" className="flex flex-wrap items-center gap-1.5" role="group">
+      <div aria-label="Run actions" className="flex flex-wrap items-center gap-2" role="group">
         {selecting ? <>
           <Button disabled={selectable.length === 0} onClick={toggleAll} size="sm" variant="outline">{allSelected ? "Select none" : "Select all"}</Button>
           <span className="type-body text-muted-foreground" role="status">{selectedRuns.length} selected</span>

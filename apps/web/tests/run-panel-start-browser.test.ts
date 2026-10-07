@@ -447,10 +447,10 @@ const dropdownBounds = async (page: Page, panel: Locator, trigger: Locator) => {
   const style = await panel.evaluate((element) => {
     const computed = getComputedStyle(element);
     return { corners: [computed.borderTopLeftRadius, computed.borderTopRightRadius, computed.borderBottomLeftRadius, computed.borderBottomRightRadius],
-      padding: [computed.paddingTop, computed.paddingRight, computed.paddingBottom, computed.paddingLeft], overflow: element.scrollWidth > element.clientWidth };
+      padding: [computed.paddingTop, computed.paddingRight, computed.paddingBottom, computed.paddingLeft], related: (() => { const probe = document.createElement("div"); probe.style.padding = "calc(var(--spacing) * 2)"; document.body.append(probe); const value = getComputedStyle(probe).paddingTop; probe.remove(); return value; })(), overflow: element.scrollWidth > element.clientWidth };
   });
   assert.deepEqual(style.corners, ["0px", "0px", "0px", "0px"], "Header dropdowns have square corners.");
-  assert.deepEqual(style.padding, ["8px", "8px", "8px", "8px"], "Header dropdowns share their padding.");
+  assert.deepEqual(style.padding, Array(4).fill(style.related), "Header dropdowns share their padding, one related step on every side.");
   assert.equal(style.overflow, false, "The panel never clips its content horizontally.");
   const dim = page.locator('[data-slot="popover-backdrop"]:visible');
   assert.equal(await dim.count(), 1, "One shared dimming surface belongs to the open dropdown.");

@@ -184,7 +184,7 @@ export function DocumentToolCall({ active, document, onOpen, status }: DocumentT
   return (
     <InteractiveItem
       aria-pressed={active}
-      className="group/call grid w-[min(100%,620px)] grid-cols-[42px_minmax(0,1fr)_auto] items-center gap-3 rounded-xl border border-border bg-[color-mix(in_srgb,var(--background)_95%,var(--primary))] px-3.5 py-3 text-left shadow-sm duration-100 data-[status=error]:border-destructive/45 max-[620px]:grid-cols-[38px_minmax(0,1fr)_auto] max-[620px]:gap-2.5 max-[620px]:px-2.5 max-[620px]:py-2.5"
+      className="group/call grid w-[min(100%,620px)] grid-cols-[42px_minmax(0,1fr)_auto] items-center gap-3 rounded-xl border border-border bg-[color-mix(in_srgb,var(--background)_95%,var(--primary))] px-4 py-3 text-left shadow-sm duration-100 data-[status=error]:border-destructive/45 max-[620px]:grid-cols-[38px_minmax(0,1fr)_auto] max-[620px]:gap-3 max-[620px]:px-3 max-[620px]:py-3"
       data-status={status}
       onClick={onOpen}
       type="button"
@@ -262,7 +262,7 @@ const keepUrl = (url: string): string => url;
 
 function ContentLoading() {
   return (
-    <div className="flex items-center justify-center gap-2.5 p-9 text-[0.76rem] text-muted-foreground">
+    <div className="flex items-center justify-center gap-3 p-8 text-[0.76rem] text-muted-foreground">
       <Spinner className="size-3" />
       <span>Loading</span>
     </div>
@@ -271,7 +271,7 @@ function ContentLoading() {
 
 function ContentFailure({ failure }: { failure: string }) {
   return (
-    <Empty className="min-h-30 gap-2 p-7">
+    <Empty className="min-h-30 gap-2 p-6">
       <EmptyHeader>
         <EmptyMedia><IconError /></EmptyMedia>
         <EmptyTitle>Content not readable</EmptyTitle>
@@ -304,7 +304,7 @@ function DocumentContent({ document, loaded }: { document: RunDocument; loaded: 
       return <ImagePreview className="block max-w-full border border-border" fileName={document.title} src={file.url} />;
     }
     return (
-      <Empty className="min-h-30 gap-2 p-7">
+      <Empty className="min-h-30 gap-2 p-6">
         <EmptyHeader>
           <EmptyMedia><IconDocument /></EmptyMedia>
           <EmptyTitle>No preview for this format</EmptyTitle>
@@ -357,7 +357,7 @@ export function DocumentModal({ document, onClose }: DocumentModalProps) {
   return (
     <Dialog open onOpenChange={(open) => { if (!open) onClose(); }}>
     <DialogContent className="w-[min(1080px,calc(100%-2*clamp(16px,calc(var(--ragents-viewport-width,100vw)*0.05),72px)))] gap-0 rounded-panel border border-border bg-card p-0 shadow-pop" scope="run" showCloseButton={false} size="full">
-      <header className="grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-3 border-b border-border px-3.5 py-3">
+      <header className="grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-3 border-b border-border px-4 py-3">
         <span className="flex size-8 items-center justify-center rounded-[10px] bg-[color-mix(in_srgb,var(--primary)_12%,var(--background))] text-primary"><IconDocument size={20} /></span>
         <DialogTitle className={copyClass} render={<span />}>
           <DocumentHead document={document} />
@@ -366,7 +366,7 @@ export function DocumentModal({ document, onClose }: DocumentModalProps) {
           <XIcon />
         </Button>
       </header>
-      <div className="min-h-0 flex-1 overflow-y-auto px-[clamp(18px,calc(var(--ragents-viewport-width,100vw)*0.04),54px)] pt-5 pb-10 text-[13.5px] leading-[1.65]">
+      <div className="min-h-0 flex-1 overflow-y-auto px-[clamp(18px,calc(var(--ragents-viewport-width,100vw)*0.04),54px)] pt-4 pb-8 text-[13.5px] leading-[1.65]">
         <DocumentContent document={document} loaded={loaded} />
       </div>
     </DialogContent>
@@ -402,7 +402,7 @@ export function DocumentPanel({ activeId, sections, truncated, onSelect }: Docum
 
   if (sections.every((section) => section.documents.length === 0)) {
     return (
-      <Empty className="h-full gap-2 p-7">
+      <Empty className="h-full gap-2 p-6">
         <EmptyHeader>
           <EmptyMedia><IconDocument /></EmptyMedia>
           <EmptyTitle>No documents yet</EmptyTitle>
@@ -414,14 +414,14 @@ export function DocumentPanel({ activeId, sections, truncated, onSelect }: Docum
 
   if (!active) {
     return (
-      <div className="flex h-full flex-col gap-3.5 overflow-y-auto px-workspace-inset pt-2.5 pb-4.5 [scrollbar-width:thin]">
+      <div className="flex h-full flex-col gap-4 overflow-y-auto px-workspace-inset pt-3 pb-4 [scrollbar-width:thin]">
         {sections.filter((section) => section.documents.length > 0).map((section) => {
           const open = !collapsed.has(section.id);
           return (
             <section key={section.id}>
               <button
                 aria-expanded={open}
-                className="grid w-full grid-cols-[14px_26px_minmax(0,1fr)_auto] items-center gap-2.5 rounded-lg px-2 py-2 text-left hover:bg-primary/7"
+                className="grid w-full grid-cols-[14px_26px_minmax(0,1fr)_auto] items-center gap-3 rounded-lg px-2 py-2 text-left hover:bg-primary/7"
                 onClick={() => toggle(section.id)}
                 type="button"
               >
@@ -435,12 +435,12 @@ export function DocumentPanel({ activeId, sections, truncated, onSelect }: Docum
                 <Badge className="tabular-nums" variant="secondary">{section.documents.length}</Badge>
               </button>
               {open && (
-                <div className="ml-[23px] border-l border-border-soft pl-2.5">
+                <div className="ml-[23px] border-l border-border-soft pl-3">
                   <ul className="mt-0.5 list-none">
                     {section.documents.map((document) => (
                       <li key={document.id}>
                         <button
-                          className="group/entry mt-1.5 grid w-full grid-cols-[24px_minmax(0,1fr)_auto] items-center gap-2.5 rounded-lg border border-border bg-card px-2.5 py-2.5 text-left transition-colors duration-100 hover:border-primary/55 hover:bg-[color-mix(in_srgb,var(--primary)_7%,var(--card))]"
+                          className="group/entry mt-2 grid w-full grid-cols-[24px_minmax(0,1fr)_auto] items-center gap-3 rounded-lg border border-border bg-card px-3 py-3 text-left transition-colors duration-100 hover:border-primary/55 hover:bg-[color-mix(in_srgb,var(--primary)_7%,var(--card))]"
                           onClick={() => onSelect(document.id)}
                           type="button"
                         >
@@ -473,7 +473,7 @@ export function DocumentPanel({ activeId, sections, truncated, onSelect }: Docum
 
   return (
     <div className="flex h-full min-h-0 flex-col">
-      <header className="grid shrink-0 grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2.5 border-b border-border-soft px-workspace-inset py-2.5">
+      <header className="grid shrink-0 grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-3 border-b border-border-soft px-workspace-inset py-3">
         <Button aria-label="Back to overview" onClick={() => onSelect(undefined)} size="icon-sm" title="Back to overview" variant="outline">
           <ArrowLeftIcon />
         </Button>

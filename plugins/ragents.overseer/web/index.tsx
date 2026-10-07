@@ -157,12 +157,12 @@ function OverseerConversation({ open, onOpen, onClose, onBusy, userLocation, run
         </div>}>
           <ChatMessages announce={false} className="min-h-16!" codeBlockOptions={codeBlocks} scrollerRef={setScroller}
             detailMode={chatView.detailMode} transcriptMode={chatView.transcriptMode}
-            emptyState={<div className="m-auto max-w-[480px] p-8 text-[0.9rem] leading-[1.6] text-muted-foreground max-md:p-5"><strong className="text-foreground">One chat for the whole workshop</strong><p>Ask about your runs or give a task below. Answers about your runs and ongoing work appear here.</p></div>}
+            emptyState={<div className="m-auto max-w-[480px] p-8 text-[0.9rem] leading-[1.6] text-muted-foreground max-md:p-4"><strong className="text-foreground">One chat for the whole workshop</strong><p>Ask about your runs or give a task below. Answers about your runs and ongoing work appear here.</p></div>}
             messages={messages} running={chat.running} showTimestamps={chatView.showTimestamps} stepsExpandable={chatView.stepsExpandable}
           />
         </ChatPanel>
     </HeaderDropdown>
-    <span className="flex min-w-0 flex-none items-center justify-end gap-1.5 empty:hidden" role="status" aria-live="polite">
+    <span className="flex min-w-0 flex-none items-center justify-end gap-2 empty:hidden" role="status" aria-live="polite">
       {chat.running && <span className="sr-only">Working</span>}
       {problem && <span className="text-[0.7rem] font-bold text-destructive" title={problem} aria-label={problem}>!</span>}
     </span>

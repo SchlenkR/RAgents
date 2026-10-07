@@ -23,7 +23,7 @@ const tabClass = "flex min-w-0 flex-1 items-center hover:bg-hover";
 const gripClass = "group/grip flex items-center justify-center text-muted-foreground/50 hover:text-muted-foreground focus-visible:text-primary data-[dragging=true]:text-primary";
 const resizeClass = `absolute z-30 touch-none outline-offset-[-2px] focus-visible:outline-2 focus-visible:outline-ring ${gripClass}`;
 function DockGrip({ horizontal = false }: { horizontal?: boolean }) {
-  return <span aria-hidden data-dock-grip className={cn("pointer-events-none flex gap-[2px] group-active/grip:text-primary", !horizontal && "flex-col")}>
+  return <span aria-hidden data-dock-grip className={cn("pointer-events-none flex gap-0.5 group-active/grip:text-primary", !horizontal && "flex-col")}>
     {[0, 1, 2].map((dot) => <span className="size-[2px] rounded-full bg-current" key={dot} />)}
   </span>;
 }
@@ -308,7 +308,7 @@ export function DockWorkspace({ apps, chat, chatIcon = <UsersIcon />, navigation
         <div aria-label="Area tabs" className={areaHeaderClass} data-dock-group={group.id} role="tablist" style={headerRect(rect)} onFocusCapture={() => { if (state.focused !== group.id || state.side.focused) update((current) => ({ ...current, focused: group.id, side: { ...current.side, focused: false } })); }}>
           {group.tabs.map((id) => <div className={cn(tabClass, id === group.active && (areaFocused(group.id) ? "bg-selected text-selected-foreground hover:bg-selected-hover" : group.tabs.length > 1 && "bg-band"))} key={id} role="presentation">
             {id === (group.active ?? group.tabs[0]) && <Button aria-label={`Move ${title(id)}`} className={cn(gripClass, "flex-none touch-none cursor-grab hover:bg-transparent active:cursor-grabbing")} onPointerDown={(event) => startDrag(event, [id])} size="icon-xs" title="Drag this window" variant="ghost"><DockGrip /></Button>}
-            <InteractiveItem id={`dock-tab-${encodeURIComponent(id)}`} aria-controls={`dock-panel-${encodeURIComponent(id)}`} aria-label={title(id)} aria-selected={id === group.active} className="flex h-7 min-w-0 flex-1 touch-none cursor-grab items-center gap-1.5 border-0 px-2 text-left text-xs text-muted-foreground hover:bg-transparent hover:text-foreground selected:border-0 selected:bg-transparent selected:text-selected-foreground selected:hover:bg-transparent [&>svg]:size-4 [&>svg]:shrink-0"
+            <InteractiveItem id={`dock-tab-${encodeURIComponent(id)}`} aria-controls={`dock-panel-${encodeURIComponent(id)}`} aria-label={title(id)} aria-selected={id === group.active} className="flex h-7 min-w-0 flex-1 touch-none cursor-grab items-center gap-2 border-0 px-2 text-left text-xs text-muted-foreground hover:bg-transparent hover:text-foreground selected:border-0 selected:bg-transparent selected:text-selected-foreground selected:hover:bg-transparent [&>svg]:size-4 [&>svg]:shrink-0"
               onClick={(event) => { if (event.detail === 0) select(id); }} onKeyDown={(event) => selectFromKeyboard(event, group, id)}
               onPointerDown={(event) => startDrag(event, [id], () => select(id))} role="tab" tabIndex={id === group.active ? 0 : -1} title={title(id)} type="button">{icon(id)}<span className="truncate">{title(id)}</span></InteractiveItem>
             {id === group.active && <>
@@ -340,7 +340,7 @@ export function DockWorkspace({ apps, chat, chatIcon = <UsersIcon />, navigation
           }, () => setResizing(undefined));
         }} ><DockGrip horizontal={split.axis === "vertical"} /></div>)}
       {panel("chat", chat)}
-      {emptyPanes.map((id) => panel(id, <p className="m-1.5 flex flex-1 items-center justify-center rounded-md border border-dashed border-border p-2 text-center text-xs text-muted-foreground">Drag an app or actor here</p>))}
+      {emptyPanes.map((id) => panel(id, <p className="m-2 flex flex-1 items-center justify-center rounded-md border border-dashed border-border p-2 text-center text-xs text-muted-foreground">Drag an app or actor here</p>))}
       {apps.filter((app) => visited.includes(appPanelId(app.layoutKey)) || visible.includes(appPanelId(app.layoutKey))).map((app) => panel(appPanelId(app.layoutKey), <RunAppView app={app} key={app.definition.id} navigation={navigation} session={session} />))}
       {tabs.map((tab) => [tab, workspaceTabPanelId(tab)] as const).filter(([, id]) => visited.includes(id) || visible.includes(id)).map(([tab, id]) => panel(id, <WorkspaceTabPanel Panel={tab.Panel} active={visible.includes(id)} navigation={navigation} selection={navigation.selectionFor(tab.id)} session={session} />))}
       {sideVisible && <>

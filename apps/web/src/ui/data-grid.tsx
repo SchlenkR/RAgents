@@ -274,7 +274,7 @@ function GridLayout<T>({ stored, onRetry, columns, rows, rowKey, grouping, ...pr
         </div>
         {visible.length === 0 && <p className="px-(--grid-cell-x) py-4 text-sm text-muted-foreground">{props.loading ? "Loading ..." : props.emptyText ?? "No entries."}</p>}
       </div>
-      {props.footer && <div data-slot="data-grid-footer" className="-mt-px border-t border-border px-(--grid-cell-x) py-2.5 text-sm text-muted-foreground">{props.footer}</div>}
+      {props.footer && <div data-slot="data-grid-footer" className="-mt-px border-t border-border px-(--grid-cell-x) py-3 text-sm text-muted-foreground">{props.footer}</div>}
     </div>
   </div>;
 }

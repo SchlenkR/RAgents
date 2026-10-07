@@ -48,7 +48,7 @@ function ConnectionRow({ connection, send, onEdit, onLogin, onRemove }: {
   const detail = stateDetail(connection) ?? connection.problem;
   const notice = connection.versionNotice;
   const profile = connection.kind === "profile";
-  return <li className="grid grid-cols-[auto_minmax(0,1fr)] items-center gap-x-2.5 gap-y-1.5 border-b border-border-soft px-1 py-2.5 last:border-b-0">
+  return <li className="grid grid-cols-[auto_minmax(0,1fr)] items-center gap-x-3 gap-y-2 border-b border-border-soft px-1 py-3 last:border-b-0">
     <span aria-hidden className="grid size-[26px] flex-none place-items-center rounded-md bg-secondary text-muted-foreground">
       {profile ? <FolderIcon className="size-3.5" /> : <ServerIcon className="size-3.5" />}
     </span>
@@ -63,7 +63,7 @@ function ConnectionRow({ connection, send, onEdit, onLogin, onRemove }: {
     {progress && <p className="col-span-2 type-body text-muted-foreground [overflow-wrap:anywhere]" role="status">{progress}</p>}
     {detail && <p className="col-span-2 type-body text-destructive [overflow-wrap:anywhere]" role="alert">{detail}</p>}
     {notice && <p className={cn("col-span-2 type-body [overflow-wrap:anywhere]", notice.level === "error" ? "text-destructive" : "text-warning")} data-notice={notice.level} role={notice.level === "error" ? "alert" : "status"}>{notice.text}</p>}
-    <span className="col-span-2 flex flex-wrap items-center gap-1.5">
+    <span className="col-span-2 flex flex-wrap items-center gap-2">
       <RowActions busy={busy} connection={connection} onLogin={onLogin} send={send} />
       {connection.savedLogin && <Button disabled={busy} onClick={() => send({ action: "logout", name: connection.name })} size="xs" variant="ghost">Sign out</Button>}
       <Button onClick={() => onEdit(connection.name)} size="xs" variant="ghost"><PencilIcon data-icon="inline-start" />Edit</Button>
@@ -80,7 +80,7 @@ function MissingSecrets({ names, send }: { names: readonly string[]; send: (acti
       These names from ragents.hostEnvironment have no value in the SecretStorage; a locally started host does not get the environment variable.
     </p>
     <ul className="grid grid-cols-1">
-      {names.map((name) => <li className="flex items-center gap-2 border-b border-border-soft px-1 py-2.5 last:border-b-0" key={name}>
+      {names.map((name) => <li className="flex items-center gap-2 border-b border-border-soft px-1 py-3 last:border-b-0" key={name}>
         <KeyIcon aria-hidden className="size-3.5 flex-none text-muted-foreground" />
         <span className="min-w-0 flex-1 truncate font-mono type-body" title={name}>{name}</span>
         <Button aria-label={`Set value for ${name}`} onClick={() => send({ action: "setSecret", name })} size="xs" variant="secondary">Set value</Button>
@@ -102,7 +102,7 @@ export function ConnectionsPage({ state, send }: PanelPageProps) {
     <div className="grid grid-cols-1 gap-3">
       <PanelHeader send={send} title="Server" />
       {state.problem && <p className="type-body text-destructive [overflow-wrap:anywhere]" role="alert">{state.problem}</p>}
-      <section className="grid grid-cols-1 gap-1.5">
+      <section className="grid grid-cols-1 gap-2">
         {state.connections.length === 0
           ? <p className="type-body text-muted-foreground">No server yet.</p>
           : <ul className="grid grid-cols-1">

@@ -50,7 +50,7 @@ export function ModelSettings({ active = true, compact = false, disabled = false
     <Button onClick={() => { void modelSettingsStore.load(); }} variant="outline">Reload</Button>
   </div>;
   if (!compact) return (
-    <section aria-label="Model of the global coordinator" className="grid min-w-0 gap-4.5">
+    <section aria-label="Model of the global coordinator" className="grid min-w-0 gap-4">
       {settings && model && <p className={formNoteClass} role="status">{saving ? "Saving ..." : "Applies from the next answer on. The conversation history is kept."}</p>}
       {pickers}
       {actions}

@@ -2,7 +2,7 @@ import { cn } from "cn";
 import { interactionStyle } from "./ui/interaction";
 import { createElement, type ComponentProps } from "react";
 
-const toolbarItemClass = "flex flex-none items-center gap-2 self-stretch min-h-header max-w-[220px] px-3 py-1.5 border-r border-border text-left text-[0.72rem] leading-tight text-foreground no-underline [&>svg]:flex-none";
+const toolbarItemClass = "flex flex-none items-center gap-2 self-stretch min-h-header max-w-[220px] px-3 py-2 border-r border-border text-left text-[0.72rem] leading-tight text-foreground no-underline [&>svg]:flex-none";
 const toolbarButtonClass = cn(interactionStyle, "cursor-pointer active:not-disabled:bg-hover disabled:cursor-not-allowed");
 
 interface ToolbarItemProps extends ComponentProps<"button"> {

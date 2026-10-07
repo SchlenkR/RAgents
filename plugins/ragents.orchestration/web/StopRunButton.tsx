@@ -40,7 +40,7 @@ function StopRunButton({ runId }: { runId: string }) {
   }
 
   return (
-    <span className="inline-flex items-center gap-1.5 whitespace-nowrap">
+    <span className="inline-flex items-center gap-2 whitespace-nowrap">
       <span className="text-[0.72rem] font-semibold text-destructive">Really stop everything?</span>
       <Button disabled={busy} onClick={() => void stop()} size="sm" variant="destructive">Yes</Button>
       <Button disabled={busy} onClick={() => setArmed(false)} size="sm" variant="outline">

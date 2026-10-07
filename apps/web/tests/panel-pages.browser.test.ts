@@ -453,10 +453,10 @@ for(const width of [1400,360,320]){
       const style=await panel.evaluate((element)=>{
         const computed=getComputedStyle(element);
         return{corners:[computed.borderTopLeftRadius,computed.borderTopRightRadius,computed.borderBottomLeftRadius,computed.borderBottomRightRadius],
-          padding:[computed.paddingTop,computed.paddingRight,computed.paddingBottom,computed.paddingLeft],overflow:element.scrollWidth>element.clientWidth};
+          padding:[computed.paddingTop,computed.paddingRight,computed.paddingBottom,computed.paddingLeft],related:(() => { const probe = document.createElement("div"); probe.style.padding = "calc(var(--spacing) * 2)"; document.body.append(probe); const value = getComputedStyle(probe).paddingTop; probe.remove(); return value; })(),overflow:element.scrollWidth>element.clientWidth};
       });
       assert.deepEqual(style.corners,['0px','0px','0px','0px']);
-      assert.deepEqual(style.padding,['8px','8px','8px','8px']);
+      assert.deepEqual(style.padding,Array(4).fill(style.related));
       assert.equal(style.overflow,false);
       assert.notEqual(await panel.getAttribute('aria-modal'),'true');
       assert.equal(await page.locator('[data-slot="popover-backdrop"]:visible').count(),1);

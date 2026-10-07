@@ -6,9 +6,9 @@ import { pendingInputCount } from "./run-panel-actors";
 import { addresseeNodeContains, addresseeStatus, addresseeStatusCounts, addresseeStatusWord, addresseeSummaries, addresseeTree, type AddresseeGroupNode, type AddresseeStatus } from "./addressee-tree";
 import { actorGraphLayout, actorTimings, clampGraphPan, formatDuration, GRAPH_CARD_HEIGHT, GRAPH_CARD_WIDTH, graphColumns, graphNodeStatus, graphPannable, graphPanTo, graphViewport, type ActorTiming, type GraphSize } from "./actor-graph";
 
-const cardClass = "flex size-full min-w-0 cursor-pointer flex-col justify-center gap-0.5 rounded-lg border border-border bg-card px-2.5 py-1.5 text-left text-[0.72rem] text-card-foreground shadow-xs";
+const cardClass = "flex size-full min-w-0 cursor-pointer flex-col justify-center gap-0.5 rounded-lg border border-border bg-card px-3 py-2 text-left text-[0.72rem] text-card-foreground shadow-xs";
 const stackClass = "shadow-[3px_3px_0_-1px_var(--color-card),3px_3px_0_0_var(--color-border)]";
-const lineClass = "flex min-w-0 items-center gap-1.5 text-[0.66rem]";
+const lineClass = "flex min-w-0 items-center gap-2 text-[0.66rem]";
 const iconClass: Readonly<Record<string, string>> = {
   agent: "bg-glass-agent",
   primary: "bg-glass-primary",
@@ -201,7 +201,7 @@ function ActorCard({ actor, current, onPick, summary, technical, timing, view }:
   const named = name !== "" && lower(name) !== lower(actor.handle) && name !== summary ? `, ${name}` : "";
   return <InteractiveItem aria-current={current || undefined} className={cardClass} data-actor-handle={actorAddress(actor)} onClick={() => onPick(actor)}
     title={`@${actorAddress(actor)}${named}, ${actorType(actor, technical)}, ${addresseeStatusWord(status)}. Address messages to @${actorAddress(actor)}`} type="button">
-    <span className="flex min-w-0 items-center gap-1.5">
+    <span className="flex min-w-0 items-center gap-2">
       <ActorIcon actor={actor} className="size-5" view={view} />
       <span className="min-w-0 flex-1 truncate font-semibold">@{actorAddress(actor)}</span>
       {pending > 0 && <Badge className="h-4 min-w-4 px-1 text-[0.6rem]" title={waitingInputs(pending)} tone="warning">{pending}</Badge>}
@@ -222,7 +222,7 @@ function GroupCard({ node, onToggle, open, view }: { node: AddresseeGroupNode; o
   const pending = actors.reduce((sum, actor) => sum + pendingInputCount(view, actor.id), 0);
   return <InteractiveItem aria-expanded={open} className={cn(cardClass, !open && stackClass)} data-addressee-group={node.label} onClick={() => onToggle(node.key)}
     title={`${node.label}: ${actors.length} similar actors, ${counts}. Click ${open ? "collapses the group" : "shows all"}`} type="button">
-    <span className="flex min-w-0 items-center gap-1.5">
+    <span className="flex min-w-0 items-center gap-2">
       <span className="grid size-5 flex-none place-items-center rounded-full bg-muted text-foreground [&>svg]:size-3">{running ? <Spinner aria-hidden className="size-3" /> : <UsersIcon />}</span>
       <span className="min-w-0 flex-1 truncate font-semibold">{node.label}</span>
       {pending > 0 && <Badge className="h-4 min-w-4 px-1 text-[0.6rem]" title={waitingInputs(pending)} tone="warning">{pending}</Badge>}

@@ -10,8 +10,8 @@ import { focusRing } from "./ui/interaction";
 import { getZoomStore, parseZoom, zoomSteps } from "./zoom";
 
 const noteClasses = "text-sm leading-[1.6] text-muted-foreground";
-const rowPanelClass = cn(settingsPanelClass, "flex-row flex-wrap items-center gap-5");
-const panelTitleClass = cn(settingsPanelTitleClass, "mb-1.5");
+const rowPanelClass = cn(settingsPanelClass, "flex-row flex-wrap items-center gap-4");
+const panelTitleClass = cn(settingsPanelTitleClass, "mb-2");
 
 export function ThemeSettings() {
   const access = useAccess();
@@ -78,10 +78,10 @@ function PaletteChoice({ appearance, description, label, palette }: PaletteChoic
     className={cn("flex cursor-pointer flex-col gap-3 rounded-xl border border-border bg-card p-3 text-left transition-colors hover:border-border-strong data-disabled:cursor-not-allowed data-disabled:opacity-60 selected:border-selected-border selected:ring-1 selected:ring-selected-border", focusRing)}>
     <span aria-hidden data-palette={palette} data-theme={appearance} className="flex h-[76px] overflow-hidden rounded-lg border border-border bg-background text-foreground">
       <span className="w-8 flex-none border-r border-border-soft bg-shell" />
-      <span className="flex min-w-0 flex-1 flex-col gap-2 p-2.5">
+      <span className="flex min-w-0 flex-1 flex-col gap-2 p-3">
         <span className="h-1.5 w-2/5 rounded-full bg-foreground" />
         <span className="h-1 w-full rounded-full bg-muted-foreground/60" />
-        <span className="flex items-center gap-1.5">
+        <span className="flex items-center gap-2">
           <span className="h-3 w-8 rounded-sm bg-primary" />
           <span className="h-3 w-10 rounded-sm border border-code-border bg-code" />
           <span className="h-3 w-5 rounded-full bg-success-soft" />

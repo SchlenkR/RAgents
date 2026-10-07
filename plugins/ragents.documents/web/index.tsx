@@ -213,7 +213,7 @@ const contribution = (routePrefix: string) => {
     return (
       <>
         {error && (
-          <Alert className="shrink-0 rounded-none border-x-0 border-t-0 border-b-border-soft bg-destructive/8 px-2.5 py-2 text-[0.68rem]" variant="destructive">
+          <Alert className="shrink-0 rounded-none border-x-0 border-t-0 border-b-border-soft bg-destructive/8 px-3 py-2 text-[0.68rem]" variant="destructive">
             {error}
           </Alert>
         )}

@@ -2080,6 +2080,18 @@ non-status labels. Plugins import `Badge` and `InteractiveItem` from `@ragents/w
 no separate status palette or per-screen interaction colors are allowed. Text on these
 surfaces meets WCAG AA contrast in both modes.
 
+**Spacing** follows one scale and one rule: the space between two things says how closely they belong together, so related things
+sit close and unrelated things far apart, and the space around a container is never smaller than the space inside it. The scale
+has seven steps, written as Tailwind numbers (one unit is `--spacing`, 4 px at 100 percent): 0.5 *hair* (lines of one text block),
+1 *tight* (parts of one compound element, such as icon and label), 2 *related* (siblings of one kind: controls of a group, chips,
+cards of a stack, rows of a list), 3 *group* (a heading and its content, the clusters inside one card, the padding of compact
+cards and tiles), 4 *gutter* (padding of panels and dialogs, gaps between tiles of a grid), 6 *section* (groups inside a section,
+a toolbar and the data it controls, story groups in a lane), and 8 *block* (independent sections of a page). A container pads
+all four sides equally, so a card never shows more space at its bottom than at its top: no empty trailing child, and a gap
+belongs to the parent instead of a margin on the first or last child. Controls take their paddings and heights from the control
+sizes instead; `apps/web/tests/spacing-scale.test.ts` scans the host and every plugin web part and rejects any other
+`gap`, `p*`, `m*`, or `space-*` value (the controls of `ui/`, the flow diagram, and the run header are listed there as pending).
+
 Tailwind applies to the whole interface. Host, plugins, mini-app building blocks, and the
 bundled mini-apps write their styling as utility classes directly on the elements;
 there are no longer stylesheets with their own class contracts. `apps/web/src/ui/theme.css` is

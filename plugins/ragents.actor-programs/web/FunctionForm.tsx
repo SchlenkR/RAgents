@@ -55,13 +55,13 @@ export function FunctionForm({ session, tool, detail = false }: {
   const failure = error ?? (invocation?.status === "failed" || invocation?.status === "cancelled" ? invocation.error : undefined);
 
   return (
-    <div className="grid min-w-0 gap-2.5">
-      <form aria-label={`Call ${tool.name}`} className={cn("grid", detail ? "gap-3.5" : "gap-2")} onSubmit={(event) => void submit(event)}>
+    <div className="grid min-w-0 gap-3">
+      <form aria-label={`Call ${tool.name}`} className={cn("grid", detail ? "gap-4" : "gap-2")} onSubmit={(event) => void submit(event)}>
         {tool.parameters.length === 0 && detail && <p>This function needs no parameters.</p>}
         {tool.parameters.map((parameter) => (
-          <label className={cn("grid gap-[3px] font-[650] text-foreground [&_small]:text-[0.61rem] [&_small]:font-normal [&_small]:text-muted-foreground",
+          <label className={cn("grid gap-1 font-[650] text-foreground [&_small]:text-[0.61rem] [&_small]:font-normal [&_small]:text-muted-foreground",
             detail ? "text-[0.8rem]" : "text-[0.68rem]",
-            parameter.type === "boolean" && parameter.required && "grid-cols-[auto_minmax(0,1fr)] items-center gap-x-1.5 [&_small]:col-start-2")} key={parameter.name}>
+            parameter.type === "boolean" && parameter.required && "grid-cols-[auto_minmax(0,1fr)] items-center gap-x-2 [&_small]:col-start-2")} key={parameter.name}>
             {parameter.type === "boolean" && parameter.required && <input aria-description={parameter.description} className="m-0 accent-primary" disabled={!writable || busy} name={parameter.name} type="checkbox" />}
             <span>{parameter.name}{parameter.required ? " *" : ""}{detail && <small className="ml-2">{parameter.type}{parameter.required ? "" : " (optional)"}</small>}</span>
             {parameter.type === "boolean"
@@ -97,7 +97,7 @@ export function FunctionForm({ session, tool, detail = false }: {
       {invocation?.status === "succeeded" && !error && (
         <section aria-label="Result" className="grid min-w-0 gap-2">
           <h3>Result</h3>
-          <pre className="max-h-[320px] overflow-auto rounded-md border border-border-soft bg-card p-2.5 text-[0.75rem] whitespace-pre-wrap text-foreground [overflow-wrap:anywhere]">{typeof invocation.result === "string" ? invocation.result : JSON.stringify(invocation.result, null, 2)}</pre>
+          <pre className="max-h-[320px] overflow-auto rounded-md border border-border-soft bg-card p-3 text-[0.75rem] whitespace-pre-wrap text-foreground [overflow-wrap:anywhere]">{typeof invocation.result === "string" ? invocation.result : JSON.stringify(invocation.result, null, 2)}</pre>
         </section>
       )}
     </div>

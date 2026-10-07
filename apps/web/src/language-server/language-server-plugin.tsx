@@ -216,7 +216,7 @@ function SolutionSelect({ choice, snapshot }: { choice: SolutionChoice; snapshot
   const { solutions } = choice;
   if (!solutions || !snapshot) return null;
   if (solutions.solutions.length === 0) {
-    return <p className="border-t border-border-soft px-2.5 py-2 text-xs text-muted-foreground">No solution in the workspace.</p>;
+    return <p className="border-t border-border-soft px-3 py-2 text-xs text-muted-foreground">No solution in the workspace.</p>;
   }
   const openRoots = new Set(snapshot.instances.map((instance) => instance.root));
   const items = [
@@ -230,7 +230,7 @@ function SolutionSelect({ choice, snapshot }: { choice: SolutionChoice; snapshot
   const instances = snapshot.instances.length;
 
   return (
-    <div className="flex items-center gap-2 border-t border-border-soft px-2.5 py-2">
+    <div className="flex items-center gap-2 border-t border-border-soft px-3 py-2">
       <span className="flex-none text-xs text-muted-foreground">Solution</span>
       <Select
         disabled={!choice.writable || choice.switching}
@@ -260,7 +260,7 @@ function LanguageServerInstanceView({ instance }: { instance: LanguageServerInst
 
   return (
     <section className="border-b border-border-soft last:border-b-0">
-      <div className="flex items-baseline gap-2 px-2.5 pt-2 pb-1">
+      <div className="flex items-baseline gap-2 px-3 pt-2 pb-1">
         <span className="min-w-0 flex-1 overflow-hidden text-ellipsis whitespace-nowrap font-mono text-[0.66rem] text-muted-foreground" title={instance.root}>{instance.root}</span>
         <span className="flex-none text-[0.64rem] uppercase tracking-[0.04em] text-muted-foreground">{stateLabel(instance.state)}</span>
       </div>
@@ -291,12 +291,12 @@ function LanguageServerInstanceView({ instance }: { instance: LanguageServerInst
       )}
       {rows.length > 0 && (
         <>
-          <div className="border-y border-border-soft px-2.5 py-1.5 text-xs text-muted-foreground">
+          <div className="border-y border-border-soft px-3 py-2 text-xs text-muted-foreground">
             {`${countLabel(errors, "error", "errors")}, ${countLabel(warnings, "warning", "warnings")} in ${countLabel(files.length, "file", "files")}`}
           </div>
-          <div className="px-1.5 pt-1 pb-2.5">
+          <div className="px-2 pt-1 pb-3">
             {rows.map((row, index) => (
-              <div className="grid grid-cols-[minmax(0,1fr)_auto] gap-x-2 gap-y-0.5 border-b border-border-soft px-2 py-1.5 text-[0.7rem]"
+              <div className="grid grid-cols-[minmax(0,1fr)_auto] gap-x-2 gap-y-0.5 border-b border-border-soft px-2 py-2 text-[0.7rem]"
                 data-severity={row.entry.severity} key={`${row.file}:${row.entry.line}:${row.entry.character}:${index}`}>
                 <span className="overflow-hidden text-ellipsis whitespace-nowrap font-mono text-muted-foreground">{`${row.file}:${row.entry.line}`}</span>
                 <span className={severityClass}>
@@ -324,7 +324,7 @@ export function LanguageServerPanelView({ settings, snapshot, error, pending, on
 
   return (
     <div className="flex h-full min-h-0 flex-col">
-      <header className="flex items-center gap-2 px-2.5 py-2">
+      <header className="flex items-center gap-2 px-3 py-2">
         <div className="flex min-w-0 flex-1 flex-col gap-0.5">
           <span className="text-[0.8rem] font-medium text-foreground">{settings.label}</span>
           <span className="text-xs text-muted-foreground">{headerLabel(snapshot)}</span>

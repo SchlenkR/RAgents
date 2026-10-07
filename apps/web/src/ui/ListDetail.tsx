@@ -36,7 +36,7 @@ const toneVariables = "[--tone:var(--muted-foreground)] [--tone-soft:var(--secon
   + "data-[tone=purple]:[--tone:var(--primary)] data-[tone=purple]:[--tone-soft:var(--accent)]";
 
 const itemClasses = cn(toneVariables, interactionStyle,
-  "group/item flex w-full min-w-0 items-center gap-2.5 rounded-lg border border-transparent px-2.5 py-3 text-left",
+  "group/item flex w-full min-w-0 items-center gap-3 rounded-lg border border-transparent px-3 py-3 text-left",
   "disabled:cursor-default disabled:opacity-55");
 
 const paneClasses = "min-h-0 min-w-0 flex-auto overflow-auto overscroll-contain [scrollbar-gutter:stable]";
@@ -105,13 +105,13 @@ export function ListDetail({ label, items, selectedId, onSelect, disabled = fals
 
   return <section aria-label={label} className={cn("group/list-detail @container/list-detail flex min-h-0 min-w-0 flex-auto flex-col", className)}
     data-detail={showNarrowDetail} ref={rootRef}>
-    {toolbar !== undefined && <div className="flex flex-none flex-wrap items-center gap-2.5 pb-4.5 @max-[900px]/list-detail:group-data-[detail=true]/list-detail:hidden">{toolbar}</div>}
+    {toolbar !== undefined && <div className="flex flex-none flex-wrap items-center gap-3 pb-4 @max-[900px]/list-detail:group-data-[detail=true]/list-detail:hidden">{toolbar}</div>}
     <div className="grid min-h-0 min-w-0 flex-auto grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)] grid-rows-[minmax(0,1fr)] gap-6 @max-[900px]/list-detail:grid-cols-[minmax(0,1fr)] @max-[900px]/list-detail:gap-0">
-      <div aria-label={label} className={cn(paneClasses, focusRing, "pt-0.5 pr-1.5 pb-3 @max-[900px]/list-detail:group-data-[detail=true]/list-detail:hidden")}
+      <div aria-label={label} className={cn(paneClasses, focusRing, "pt-0.5 pr-2 pb-3 @max-[900px]/list-detail:group-data-[detail=true]/list-detail:hidden")}
         ref={listRef} role="region" tabIndex={-1}>
         {items.length === 0 ? <div className="p-6 text-[0.8rem] leading-relaxed text-muted-foreground">{emptyState ?? <p>No entries available.</p>}</div>
-          : [...groups].map(([group, entries], groupIndex) => <section aria-labelledby={group ? `${prefix}-group-${groupIndex}` : undefined} className="not-first:mt-4.5" key={group}>
-            {group && <h3 className="mx-2 mb-2 flex items-center gap-2.5 text-[0.71rem] font-semibold tracking-[0.02em] text-muted-foreground" id={`${prefix}-group-${groupIndex}`}>
+          : [...groups].map(([group, entries], groupIndex) => <section aria-labelledby={group ? `${prefix}-group-${groupIndex}` : undefined} className="not-first:mt-4" key={group}>
+            {group && <h3 className="mx-2 mb-2 flex items-center gap-3 text-[0.71rem] font-semibold tracking-[0.02em] text-muted-foreground" id={`${prefix}-group-${groupIndex}`}>
               {group}<span className="font-normal tabular-nums" aria-label={`${entries.length} entries`}>{entries.length}</span>
             </h3>}
             <ul className="grid grid-cols-[minmax(0,1fr)] gap-1 *:min-w-0">
@@ -136,10 +136,10 @@ export function ListDetail({ label, items, selectedId, onSelect, disabled = fals
         data-tone={selected?.tone ?? "neutral"}
         id={`${prefix}-detail`} ref={detailRef} tabIndex={-1}>
         {selected ? <>
-          <div className="hidden flex-none border-b border-border-soft px-3.5 py-2.5 @max-[900px]/list-detail:flex"><Button aria-label="Back to selection" className="rounded-full" onClick={returnToList} size="icon" variant="outline"><ArrowLeftIcon /></Button></div>
-          {detailHeader !== undefined && <header className="flex-none border-b border-border-soft bg-(--tone-soft) px-6 py-6 [&>*:first-child]:mt-0 [&>*:last-child]:mb-0 @max-[900px]/list-detail:p-4.5">{detailHeader}</header>}
-          <div aria-label={`${detailLabel}: content`} className={cn(paneClasses, focusRing, "flex-1 px-6 py-6 text-[0.8rem] leading-[1.7] [overflow-wrap:anywhere] [&>*:first-child]:mt-0 [&>*:last-child]:mb-0 @max-[900px]/list-detail:p-4.5")} role="region" tabIndex={0}>{children}</div>
-          {detailFooter !== undefined && <footer className="flex flex-none flex-wrap items-center gap-2.5 border-t border-border-soft px-6 py-4 @max-[900px]/list-detail:px-4.5 @max-[900px]/list-detail:py-3.5">{detailFooter}</footer>}
+          <div className="hidden flex-none border-b border-border-soft px-4 py-3 @max-[900px]/list-detail:flex"><Button aria-label="Back to selection" className="rounded-full" onClick={returnToList} size="icon" variant="outline"><ArrowLeftIcon /></Button></div>
+          {detailHeader !== undefined && <header className="flex-none border-b border-border-soft bg-(--tone-soft) px-6 py-6 [&>*:first-child]:mt-0 [&>*:last-child]:mb-0 @max-[900px]/list-detail:p-4">{detailHeader}</header>}
+          <div aria-label={`${detailLabel}: content`} className={cn(paneClasses, focusRing, "flex-1 px-6 py-6 text-[0.8rem] leading-[1.7] [overflow-wrap:anywhere] [&>*:first-child]:mt-0 [&>*:last-child]:mb-0 @max-[900px]/list-detail:p-4")} role="region" tabIndex={0}>{children}</div>
+          {detailFooter !== undefined && <footer className="flex flex-none flex-wrap items-center gap-3 border-t border-border-soft px-6 py-4 @max-[900px]/list-detail:px-4 @max-[900px]/list-detail:py-4">{detailFooter}</footer>}
         </> : <div className="p-6 text-[0.8rem] leading-relaxed text-muted-foreground"><p>{items.length ? "Choose an entry to see the details." : "No selection available."}</p></div>}
       </section>
     </div>

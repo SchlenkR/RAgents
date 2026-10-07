@@ -78,7 +78,7 @@ export function ProductModelSettings({ pluginId }: { pluginId: string }) {
     } catch (cause) { setError(messageOf(cause)); }
     finally { saving.current = false; setPending(false); }
   };
-  return <form className="grid min-w-0 gap-4.5" aria-label="Model defaults for new runs and agents" onSubmit={(event) => {
+  return <form className="grid min-w-0 gap-4" aria-label="Model defaults for new runs and agents" onSubmit={(event) => {
     event.preventDefault();
     void save();
   }}>
@@ -110,7 +110,7 @@ export function ProductModelSettings({ pluginId }: { pluginId: string }) {
         </fieldset>;
       })}
     </div>
-    <div className="flex flex-wrap items-center gap-2.5">
+    <div className="flex flex-wrap items-center gap-3">
       <Button type="submit" disabled={!writable || pending || !dirty}>{pending ? "Saving ..." : "Save defaults"}</Button>
       {dirty && <Button disabled={pending} variant="outline" onClick={() => {
         setDraft(modelDraftOf(settings)); setError(undefined); setNotice(undefined);

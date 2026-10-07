@@ -98,8 +98,8 @@ export function ConnectionDialog({ state, connection, onClose, send }: {
         <ToggleGroupItem value="profile">Local profile</ToggleGroupItem>
       </ToggleGroup>
       {kind === "server"
-        ? <div className="grid gap-1.5"><Label htmlFor="connection-url">Address</Label><Input id="connection-url" onChange={(event) => setUrl(event.target.value)} placeholder="https://workshop.example.com" value={url} /></div>
-        : <div className="grid gap-1.5">
+        ? <div className="grid gap-2"><Label htmlFor="connection-url">Address</Label><Input id="connection-url" onChange={(event) => setUrl(event.target.value)} placeholder="https://workshop.example.com" value={url} /></div>
+        : <div className="grid gap-2">
           <Label htmlFor="connection-profile-file">Profile file</Label>
           <div className="flex items-center gap-2">
             <Input aria-label="Profile file" className="min-w-0 flex-1 font-mono text-xs" id="connection-profile-file" onChange={(event) => setProfileFile(event.target.value)} placeholder="~/repos/RAgents/ragents.config.core.ts" title={profileFile} value={profileFile} />
@@ -107,9 +107,9 @@ export function ConnectionDialog({ state, connection, onClose, send }: {
           </div>
           {state.profileSuggestions.length > 0 && <>
             <p className="type-body text-muted-foreground">Found in the host folder, click one to use it:</p>
-            <ul className="grid grid-cols-[repeat(auto-fill,minmax(160px,1fr))] gap-1.5">
+            <ul className="grid grid-cols-[repeat(auto-fill,minmax(160px,1fr))] gap-2">
               {state.profileSuggestions.map((file) => <li key={file}>
-                <InteractiveItem aria-pressed={profileFile === file} className="flex w-full min-w-0 flex-col gap-0.5 rounded-md border border-border-soft px-2.5 py-1.5 text-left" onClick={() => takeProfile(file)} type="button">
+                <InteractiveItem aria-pressed={profileFile === file} className="flex w-full min-w-0 flex-col gap-0.5 rounded-md border border-border-soft px-3 py-2 text-left" onClick={() => takeProfile(file)} type="button">
                   <strong className="truncate type-item">{profileNameOf(file)}</strong>
                   <span className="truncate font-mono type-meta text-muted-foreground" title={file}>{fileNameOf(file)}</span>
                 </InteractiveItem>
@@ -117,7 +117,7 @@ export function ConnectionDialog({ state, connection, onClose, send }: {
             </ul>
           </>}
         </div>}
-      <div className="grid gap-1.5">
+      <div className="grid gap-2">
         <Label htmlFor="connection-name">Name</Label>
         <Input id="connection-name" onChange={(event) => setName(event.target.value)} placeholder={kind === "server" ? "Workshop" : "core"} value={name} />
         {kind === "profile" && <span className="type-meta text-muted-foreground">taken from the file name, can be changed</span>}

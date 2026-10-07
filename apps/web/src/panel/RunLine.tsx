@@ -41,7 +41,7 @@ export function RunList({ label, selecting = false, actions = false, children }:
   actions?: boolean;
   children: ReactNode;
 }) {
-  return <ul aria-label={label} className={cn("grid min-w-0 gap-x-2 p-1.5", columnsOf(selecting, actions))}>{children}</ul>;
+  return <ul aria-label={label} className={cn("grid min-w-0 gap-x-2 p-2", columnsOf(selecting, actions))}>{children}</ul>;
 }
 
 /** Next to the title: a run the user shared, or one shared with the user and what that permits. */
@@ -90,13 +90,13 @@ export function RunLine({ run, selecting = false, selectable = true, selected, a
   // The hover fill belongs to the whole line with its actions; a locked line dims its content but keeps its focus ring.
   return <li className={cn("col-span-full grid grid-cols-subgrid items-center border-t border-border first:border-t-0", !disabled && "hover:bg-hover")}>
     {selecting && (selectable
-      ? <Checkbox aria-label={`Select ${run.title}`} checked={selected === true} className="mt-1.75 ml-1 self-start" onCheckedChange={() => onToggle?.()} />
+      ? <Checkbox aria-label={`Select ${run.title}`} checked={selected === true} className="mt-2 ml-1 self-start" onCheckedChange={() => onToggle?.()} />
       : <span aria-hidden />)}
     <InteractiveItem aria-pressed={toggling ? selected === true : undefined} aria-disabled={disabled}
       className={cn(lineClass, itemColumns(selecting, actions), "hover:bg-transparent aria-disabled:cursor-default aria-disabled:opacity-100 aria-disabled:*:opacity-50")}
       onClick={() => (toggling ? onToggle?.() : run.locked === undefined && onOpen())} title={run.title} type="button">
       <RunStateIcon notice={run.locked ? undefined : run.notice} open={run.pendingActions} state={run.state} />
-      <span className="flex min-w-0 items-center gap-1.5">
+      <span className="flex min-w-0 items-center gap-2">
         <span className="min-w-0 truncate type-item">{run.title}</span>
         {locked !== undefined && <span className="flex flex-none text-destructive" title={locked}><CircleAlertIcon aria-hidden className="size-3.5" /><span className="sr-only">{locked}</span></span>}
         <ShareMark run={run} />

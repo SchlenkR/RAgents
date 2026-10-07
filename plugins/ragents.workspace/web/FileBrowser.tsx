@@ -19,8 +19,8 @@ import { fetchBrowseListing, fetchBrowsePreview } from "./api";
 import { fileIconFor, fileToneClass } from "./file-icons";
 import { SourceCode } from "@ragents/web/SourceCode";
 
-const rowClass = "h-auto w-full justify-start gap-1.5 rounded-none py-1 pr-2.5 pl-(--row-indent) text-[0.78rem] font-normal";
-const previewSourceClass = "min-w-0 px-2.5 pt-0 pb-2.5 whitespace-pre-wrap break-words";
+const rowClass = "h-auto w-full justify-start gap-2 rounded-none py-1 pr-3 pl-(--row-indent) text-[0.78rem] font-normal";
+const previewSourceClass = "min-w-0 px-3 pt-0 pb-3 whitespace-pre-wrap break-words";
 const indent = (depth: number) => ({ "--row-indent": `${8 + depth * 12}px` }) as CSSProperties;
 
 const rootLabels: Readonly<Record<BrowseRoot, string>> = {
@@ -214,7 +214,7 @@ function RootBrowser({ active, runId, root, roots, setRoot, memory, showHidden, 
           );
         })}
         {listing.truncated && (
-          <div className="py-1 pr-2.5 pl-(--row-indent) text-[0.64rem] text-muted-foreground" style={indent(depth)}>
+          <div className="py-1 pr-3 pl-(--row-indent) text-[0.64rem] text-muted-foreground" style={indent(depth)}>
             Further entries are not listed.
           </div>
         )}
@@ -226,7 +226,7 @@ function RootBrowser({ active, runId, root, roots, setRoot, memory, showHidden, 
 
   return (
     <div className="flex h-full min-h-0 flex-col">
-      <header className="flex items-center gap-2 px-2.5 py-2">
+      <header className="flex items-center gap-2 px-3 py-2">
         <ToggleGroup aria-label="File root" className="mr-auto" size="sm" value={[root]} onValueChange={([value]) => { if (value) setRoot(value); }}>
           {roots.map((value) => (
             <ToggleGroupItem key={value} value={value}>
@@ -250,13 +250,13 @@ function RootBrowser({ active, runId, root, roots, setRoot, memory, showHidden, 
         </div>
       </header>
       {error && (
-        <Alert className="shrink-0 rounded-none border-x-0 border-t-0 border-b-border-soft bg-destructive/8 px-2.5 py-2 text-[0.68rem]" variant="destructive">
+        <Alert className="shrink-0 rounded-none border-x-0 border-t-0 border-b-border-soft bg-destructive/8 px-3 py-2 text-[0.68rem]" variant="destructive">
           {error}
         </Alert>
       )}
-      {rootListing && <div className="truncate px-2.5 pt-0.5 pb-1.5 font-mono text-[0.66rem] text-muted-foreground" title={rootListing.location}>{rootListing.location}</div>}
+      {rootListing && <div className="truncate px-3 pt-0.5 pb-2 font-mono text-[0.66rem] text-muted-foreground" title={rootListing.location}>{rootListing.location}</div>}
       {rootListing && rootListing.entries.length === 0 && (
-        <Empty className="min-h-30 flex-none gap-2 p-7">
+        <Empty className="min-h-30 flex-none gap-2 p-6">
           <EmptyHeader>
             <EmptyMedia><FolderOpen size={15} strokeWidth={1.7} /></EmptyMedia>
             <EmptyTitle>No files</EmptyTitle>
@@ -267,9 +267,9 @@ function RootBrowser({ active, runId, root, roots, setRoot, memory, showHidden, 
       <div className="min-h-0 flex-1 overflow-auto pb-2">{renderLevel("", 0)}</div>
       {selected && (
         <div className="flex min-h-0 flex-1 flex-col border-t border-border-soft">
-          <div className="truncate px-2.5 py-1.5 font-mono text-[0.66rem] text-muted-foreground" title={selected}>{selected}</div>
-          {previewPending && <div className="px-2.5 pb-2 text-[0.68rem] text-muted-foreground" role="status">Loading preview...</div>}
-          {preview && !preview.previewable && <div className="px-2.5 pb-2 text-[0.68rem] text-muted-foreground">{preview.reason}</div>}
+          <div className="truncate px-3 py-2 font-mono text-[0.66rem] text-muted-foreground" title={selected}>{selected}</div>
+          {previewPending && <div className="px-3 pb-2 text-[0.68rem] text-muted-foreground" role="status">Loading preview...</div>}
+          {preview && !preview.previewable && <div className="px-3 pb-2 text-[0.68rem] text-muted-foreground">{preview.reason}</div>}
           {preview && preview.previewable && (
             <div className="min-h-0 flex-1 overflow-auto">
               <SourceCode className={previewSourceClass} content={preview.content} path={selected} />

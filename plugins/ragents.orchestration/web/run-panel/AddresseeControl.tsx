@@ -7,9 +7,9 @@ import { pendingInputCount, selectedRunPanelActor } from "./run-panel-actors";
 import { ActorGraph, ActorIcon } from "./ActorGraph";
 
 const chipClass = "flex h-7 min-w-[70px] max-w-[220px] flex-[0_1_auto] items-center gap-0.5 rounded-md text-[0.8rem] font-medium text-muted-foreground";
-const pickClass = "flex h-full min-w-0 flex-1 cursor-pointer items-center gap-1.5 rounded-md pr-2 pl-1 aria-expanded:bg-hover aria-expanded:text-hover-foreground";
+const pickClass = "flex h-full min-w-0 flex-1 cursor-pointer items-center gap-2 rounded-md pr-2 pl-1 aria-expanded:bg-hover aria-expanded:text-hover-foreground";
 const backClass = "mr-1 grid size-5 flex-none cursor-pointer place-items-center rounded-full text-muted-foreground [&>svg]:size-3";
-const busyClass = "flex h-7 min-w-0 flex-[0_1_auto] cursor-pointer items-center gap-1.5 rounded-md px-1.5 text-[0.7rem] text-active";
+const busyClass = "flex h-7 min-w-0 flex-[0_1_auto] cursor-pointer items-center gap-2 rounded-md px-2 text-[0.7rem] text-active";
 
 /** The chat's addressee as a chip in the input bar; the pop-out shows the actors as a graph by creator, including stopped actors, and the x returns to the primary actor. */
 export function AddresseeControl({ actors, onSelect, selected, technical, view }: {

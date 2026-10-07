@@ -19,7 +19,7 @@ export function ActorProgramToolCardSection({ actor, session }: CardSectionConte
   const tools = listing?.tools.filter((tool) => tool.card && tool.actorId === owner.id) ?? [];
   if (tools.length === 0) return null;
   return (
-    <section className="grid min-w-0 gap-[9px]">
+    <section className="grid min-w-0 gap-2">
       {tools.map((tool) => (
         <article aria-label={tool.name} className="min-w-0" key={`${session.session.id}:${tool.actorId}:${tool.functionId}:${tool.revision}`}>
           <strong>{tool.name}</strong>

@@ -59,17 +59,17 @@ const capabilities = contributionFilters.filter(
 );
 
 const sectionCopyClass = "-mt-1 mb-0.5 text-[0.72rem] leading-normal text-muted-foreground";
-const settingsPanelsClass = "grid gap-5";
-const settingsAreaClass = "my-1.5 min-h-8 flex-none cursor-pointer rounded-md px-3 py-1.5 text-[0.8rem] max-md:px-2.5 max-md:text-[0.75rem]";
-const navigationItemClass = "flex min-h-[37px] w-full cursor-pointer items-center justify-between gap-2 rounded-lg px-2.5 py-1.5 text-left text-[0.75rem] max-md:w-auto max-md:min-h-8 max-md:flex-none max-md:whitespace-nowrap";
+const settingsPanelsClass = "grid gap-4";
+const settingsAreaClass = "my-2 min-h-8 flex-none cursor-pointer rounded-md px-3 py-2 text-[0.8rem] max-md:px-3 max-md:text-[0.75rem]";
+const navigationItemClass = "flex min-h-[37px] w-full cursor-pointer items-center justify-between gap-2 rounded-lg px-3 py-2 text-left text-[0.75rem] max-md:w-auto max-md:min-h-8 max-md:flex-none max-md:whitespace-nowrap";
 const navigationItemActiveClass = "font-semibold";
 const navigationItemQuietClass = "text-muted-foreground";
-const navigationCountClass = "min-w-5 flex-shrink-0 rounded-full bg-current/11 px-1.5 py-px text-center text-[0.63rem] tabular-nums";
+const navigationCountClass = "min-w-5 flex-shrink-0 rounded-full bg-current/11 px-2 py-px text-center text-[0.63rem] tabular-nums";
 const loadStateClass = "flex min-h-full items-center justify-center gap-2 p-8 text-[0.78rem] text-muted-foreground";
-const ownerLinkClass = `flex w-full min-w-0 cursor-pointer items-center justify-between gap-2.5 rounded-md text-left font-semibold text-foreground [overflow-wrap:anywhere] hover:text-primary ${focusRing}`;
+const ownerLinkClass = `flex w-full min-w-0 cursor-pointer items-center justify-between gap-3 rounded-md text-left font-semibold text-foreground [overflow-wrap:anywhere] hover:text-primary ${focusRing}`;
 const ownerLinkNoteClass = "flex-shrink-0 text-[0.7rem] font-normal text-primary";
 const cardListClass = "grid gap-2";
-const cardClass = "min-w-0 rounded-xl border border-border bg-background/76 px-3.5 py-3";
+const cardClass = "min-w-0 rounded-xl border border-border bg-background/76 px-4 py-3";
 const cardHeaderClass = "flex items-start justify-between gap-3";
 const cardCopyClass = "grid min-w-0 flex-1 gap-0.5";
 const cardTitleClass = "truncate text-[0.78rem] text-foreground";
@@ -78,7 +78,7 @@ const cardCopyTextClass = "my-2 text-[0.7rem] leading-normal text-muted-foregrou
 const insetClass = "rounded-lg border border-border bg-background/68";
 const statusListClass = "flex flex-wrap justify-end gap-1";
 const disclosureClass = "overflow-hidden rounded-xl border border-border bg-background/76";
-const summaryClass = `flex cursor-pointer list-none items-center justify-between gap-3 rounded-[inherit] px-3 py-2.5 text-foreground [&::-webkit-details-marker]:hidden ${focusRing} focus-visible:ring-inset`;
+const summaryClass = `flex cursor-pointer list-none items-center justify-between gap-3 rounded-[inherit] px-3 py-3 text-foreground [&::-webkit-details-marker]:hidden ${focusRing} focus-visible:ring-inset`;
 const preClass = "m-0 overflow-auto bg-foreground/4 font-mono text-[0.7rem] leading-[1.55] whitespace-pre-wrap text-foreground [overflow-wrap:anywhere]";
 const preFrameClass = "rounded-lg border border-code-border";
 const valueLabelClass = "text-[0.67rem] font-medium text-muted-foreground";
@@ -186,7 +186,7 @@ export function SettingsModal({ onClose, registry }: SettingsModalProps) {
   return (
     <Dialog open onOpenChange={(open) => { if (!open) onClose(); }}>
     <DialogContent className="mx-auto flex h-[calc(var(--ragents-viewport-height,100dvh)-2*clamp(14px,calc(var(--ragents-viewport-height,100dvh)*0.04),42px))] max-h-none w-[min(1220px,calc(var(--ragents-viewport-width,100vw)-2*clamp(14px,calc(var(--ragents-viewport-width,100vw)*0.04),58px)))] max-w-none min-h-0 min-w-0 flex-col gap-0 overflow-hidden rounded-xl bg-card p-0 shadow-pop max-md:h-[calc(var(--ragents-viewport-height,100dvh)-16px)] max-md:w-[calc(var(--ragents-viewport-width,100vw)-16px)]" initialFocus={closeRef} scope="page" showCloseButton={false} size="full">
-      <header className="grid flex-none grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-3 border-b border-border px-3.5 py-2.5">
+      <header className="grid flex-none grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-3 border-b border-border px-4 py-3">
         <span className="flex size-[34px] items-center justify-center rounded-[10px] bg-[color-mix(in_srgb,var(--primary)_12%,var(--background))] text-primary"><SettingsIcon size={18} /></span>
         <span className="grid min-w-0 gap-px">
           <DialogTitle render={<strong />}>Settings</DialogTitle>
@@ -196,7 +196,7 @@ export function SettingsModal({ onClose, registry }: SettingsModalProps) {
           <XIcon />
         </Button>
       </header>
-      <nav aria-label="Settings areas" className="flex flex-none gap-1 overflow-x-auto border-b border-border px-4.5 max-md:px-2">
+      <nav aria-label="Settings areas" className="flex flex-none gap-1 overflow-x-auto border-b border-border px-4 max-md:px-2">
         {settingsAreas.map((area) => <InteractiveItem
           aria-current={activeArea === area.id ? "page" : undefined}
           className={cn(settingsAreaClass, activeArea === area.id ? "font-bold" : "text-muted-foreground")}
@@ -205,7 +205,7 @@ export function SettingsModal({ onClose, registry }: SettingsModalProps) {
           type="button"
         >{area.label}</InteractiveItem>)}
       </nav>
-      {catalogVisible && <div className="flex flex-none gap-1 border-b border-border px-3.5 py-2.5">
+      {catalogVisible && <div className="flex flex-none gap-1 border-b border-border px-4 py-3">
         <ToggleGroup aria-label="Group plugins" size="sm" value={[axis]}
           onValueChange={([value]) => { if (value) changeAxis(value === "capability" ? "capability" : "plugin"); }}>
           <ToggleGroupItem value="plugin">By plugin</ToggleGroupItem>
@@ -213,7 +213,7 @@ export function SettingsModal({ onClose, registry }: SettingsModalProps) {
         </ToggleGroup>
       </div>}
       <div className={cn("grid min-h-0 flex-1", catalogVisible ? "grid-cols-[230px_minmax(0,1fr)] max-[900px]:grid-cols-[190px_minmax(0,1fr)] max-md:grid-cols-[minmax(0,1fr)] max-md:grid-rows-[auto_minmax(0,1fr)]" : "grid-cols-[minmax(0,1fr)]")}>
-        {catalogVisible && <nav aria-label="Browse plugins" className="flex min-w-0 flex-col gap-[3px] overflow-y-auto border-r border-border bg-background/72 px-2.5 py-4 max-md:flex-row max-md:overflow-x-auto max-md:border-r-0 max-md:border-b max-md:border-border max-md:p-2" ref={navigationRef}>
+        {catalogVisible && <nav aria-label="Browse plugins" className="flex min-w-0 flex-col gap-1 overflow-y-auto border-r border-border bg-background/72 px-3 py-4 max-md:flex-row max-md:overflow-x-auto max-md:border-r-0 max-md:border-b max-md:border-border max-md:p-2" ref={navigationRef}>
           {axis === "plugin" && filtered.map((group) => {
             const count = countContributions(group);
             const selected = selection.kind === "plugin" && selection.id === group.id;
@@ -265,7 +265,7 @@ export function SettingsModal({ onClose, registry }: SettingsModalProps) {
               <div className={settingsPanelsClass}><PluginSettings contributions={appearanceSettings} panel /></div>
             </div>}
           </div>}
-          {(catalogVisible || selection.kind === "runtime") && settings !== null && state.status !== "ready" && <p className="border-b border-border px-5 py-2.5 text-[0.72rem] text-muted-foreground" role={state.status === "failed" ? "alert" : "status"}>
+          {(catalogVisible || selection.kind === "runtime") && settings !== null && state.status !== "ready" && <p className="border-b border-border px-4 py-3 text-[0.72rem] text-muted-foreground" role={state.status === "failed" ? "alert" : "status"}>
             {state.status === "loading" ? "Refreshing catalog ..." : <>Could not refresh the catalog: {state.error} <Button onClick={() => setReload((value) => value + 1)} size="sm" variant="outline">Reload</Button></>}
           </p>}
           {(catalogVisible || selection.kind === "runtime") && settings === null && state.status === "loading" && (
@@ -279,14 +279,14 @@ export function SettingsModal({ onClose, registry }: SettingsModalProps) {
               <CircleAlertIcon size={14} />
               <strong className="text-[0.86rem] text-foreground">Catalog unreachable</strong>
               <span className="max-w-[560px]">{state.error}</span>
-              <Button className="mt-1.5" onClick={() => setReload((value) => value + 1)} size="sm" variant="outline">Reload</Button>
+              <Button className="mt-2" onClick={() => setReload((value) => value + 1)} size="sm" variant="outline">Reload</Button>
             </div>
           )}
           {settings !== null && selection.kind === "runtime" && <RuntimePage groups={groups} registry={registry} settings={settings} />}
           {settings !== null && selection.kind === "plugins" && <SettingsPage title="Plugins" description="Browse the installed contributions by plugin or capability. Choose a plugin for its details.">
-            <ul aria-label="Installed plugins" className="grid rounded-xl border border-border bg-background/76 p-1.5">
+            <ul aria-label="Installed plugins" className="grid rounded-xl border border-border bg-background/76 p-2">
               {groups.map((group) => <li className="border-t border-border first:border-t-0" key={group.id}>
-                <InteractiveItem className="flex w-full min-w-0 items-center gap-3 rounded-md px-2.5 py-2 text-left" onClick={() => openPlugin(group.id)}>
+                <InteractiveItem className="flex w-full min-w-0 items-center gap-3 rounded-md px-3 py-2 text-left" onClick={() => openPlugin(group.id)}>
                   <span className="min-w-0 flex-1 truncate text-[0.78rem] font-semibold text-foreground">{group.id}</span>
                   <Badge tone="neutral">{counted(countContributions(group), "contribution")}</Badge>
                   <ChevronRightIcon aria-hidden className="size-3.5 flex-none text-muted-foreground" />
@@ -329,9 +329,9 @@ function ContributionFilterBar({ filter, onFilter, onQuery, query, showKinds }: 
 }) {
   const searchId = useId();
   return (
-    <div className="sticky top-0 z-[2] grid gap-2.5 border-b border-border bg-app px-[clamp(20px,calc(var(--ragents-viewport-width,100vw)*0.04),46px)] py-3 max-md:px-3.5">
+    <div className="sticky top-0 z-[2] grid gap-3 border-b border-border bg-app px-[clamp(20px,calc(var(--ragents-viewport-width,100vw)*0.04),46px)] py-3 max-md:px-4">
       {showKinds && <ChoiceSelect label="Contribution kinds" size="sm" value={filter} onValueChange={onFilter} options={contributionFilters.map((option) => ({ value: option.id, label: option.label }))} />}
-      <div className="grid gap-1.5">
+      <div className="grid gap-2">
         <label className="text-[0.67rem] font-medium text-muted-foreground" htmlFor={searchId}>Search contributions</label>
         <SearchInput
           id={searchId}
@@ -358,7 +358,7 @@ function RuntimePage({ groups, registry, settings }: {
       description={`The values come from the currently running ${registry.brand.title} instance. The server does not deliver configuration values that contain secrets.`}
       title="Runtime"
     >
-      <div className="grid grid-cols-4 gap-2.5 max-[900px]:grid-cols-2 max-[520px]:grid-cols-1">
+      <div className="grid grid-cols-4 gap-3 max-[900px]:grid-cols-2 max-[520px]:grid-cols-1">
         <SettingsFact label="Product" value={settings.product.title} detail={settings.product.id} />
         <SettingsFact label="Profile" value={settings.runtime.profile} detail={settings.product.id} />
         <SettingsFact label="Workspace mode" value={settings.runtime.workspaceMode} detail="per run" />
@@ -392,7 +392,7 @@ function RuntimePage({ groups, registry, settings }: {
         <p className={sectionCopyClass}>
           Models are selectable runtime targets. Profiles bundle model, driver, thinking level and execution limits.
         </p>
-        <div className="grid grid-cols-2 gap-2.5 max-md:grid-cols-1">
+        <div className="grid grid-cols-2 gap-3 max-md:grid-cols-1">
           {settings.models.map((model) => <ModelCard key={modelKey(model)} model={model} />)}
         </div>
       </SettingsSection>
@@ -467,7 +467,7 @@ function PluginPage({ group, settings, onOpenPlugin }: {
   const contributions = settings.filter((contribution) => contribution.owner === group.id);
   const empty = contributions.length === 0 && countContributions(group) === 0 && group.web.state === "hidden";
   return (
-    <div className={onOpenPlugin ? "flex min-w-0 flex-col gap-4.5 border-t border-border pt-5.5" : settingsPageClass}>
+    <div className={onOpenPlugin ? "flex min-w-0 flex-col gap-4 border-t border-border pt-6" : settingsPageClass}>
       <header>
         <div className="flex items-center justify-between gap-3">
           {onOpenPlugin
@@ -526,7 +526,7 @@ function PluginPage({ group, settings, onOpenPlugin }: {
                 </header>
                 <p className={cardCopyTextClass}>{entry.description}</p>
                 {entry.action === "skill" && <p className={cardCopyTextClass}>Category: {entry.category}</p>}
-                {entry.action === "skill" && <pre className={cn(preClass, preFrameClass, "max-h-[180px] px-3 py-2.5")}>{entry.prompt}</pre>}
+                {entry.action === "skill" && <pre className={cn(preClass, preFrameClass, "max-h-[180px] px-3 py-3")}>{entry.prompt}</pre>}
                 {entry.action === "skill" && (
                   <p className={cardCopyTextClass}>
                     Skill <code>{entry.skill}</code>
@@ -563,7 +563,7 @@ function PluginPage({ group, settings, onOpenPlugin }: {
                     <StatusBadge active key={audience} label={skillAudienceLabel(audience)} />
                   ))}
                 </span>
-                <span className="grid min-w-0 gap-[3px]">
+                <span className="grid min-w-0 gap-1">
                   {skill.paths.map((path) => <code className="truncate font-mono text-[0.66rem] text-muted-foreground" key={path} title={path}>{path}</code>)}
                 </span>
                 <span aria-hidden className="absolute top-1/2 right-3 flex -translate-y-1/2 text-muted-foreground group-hover:text-primary group-focus-visible:text-primary"><ChevronRightIcon size={13} /></span>
@@ -588,11 +588,11 @@ function PluginPage({ group, settings, onOpenPlugin }: {
             never secret values.
           </p>
           {group.configuration.length > 0 && (
-            <div className={cn(insetClass, "grid gap-1.5 px-2.5 py-2")}>
+            <div className={cn(insetClass, "grid gap-2 px-3 py-2")}>
               <span className={valueLabelClass}>Configuration sources</span>
-              <div className="flex flex-wrap gap-1.5">
+              <div className="flex flex-wrap gap-2">
                 {group.configuration.map((entry) => (
-                  <Badge className="max-w-full gap-1.5" key={entry.key} tone="neutral">
+                  <Badge className="max-w-full gap-2" key={entry.key} tone="neutral">
                     <code className="min-w-0 truncate font-mono text-foreground" title={entry.key}>{entry.key}</code>
                     <small>{entry.secret ? `${entry.source} (secret)` : entry.source}</small>
                   </Badge>
@@ -613,15 +613,15 @@ function PluginPage({ group, settings, onOpenPlugin }: {
           {group.web.state === "none" && <SettingsEmpty>No web module</SettingsEmpty>}
           {group.web.state === "withoutContributions" && <SettingsEmpty>Web module without contributions</SettingsEmpty>}
           {group.web.state === "contributions" && (
-            <div className="grid gap-[7px]">
+            <div className="grid gap-2">
               {group.web.contributions.map((contribution) => (
-                <article className={cn(insetClass, "grid min-w-0 gap-1.5 px-3 py-2.5")} key={contribution.kind}>
-                  <header className="flex items-center justify-between gap-2.5">
+                <article className={cn(insetClass, "grid min-w-0 gap-2 px-3 py-3")} key={contribution.kind}>
+                  <header className="flex items-center justify-between gap-3">
                     <strong className="text-[0.73rem] text-foreground">{contribution.kind}</strong>
                     <Badge tone="neutral">{contribution.count}</Badge>
                   </header>
                   {contribution.details.length > 0 && (
-                    <span className="flex flex-wrap gap-1.5">
+                    <span className="flex flex-wrap gap-2">
                       {contribution.details.map((detail) => (
                         <Badge className="max-w-full" key={detail} tone="neutral"><code className="min-w-0 truncate font-mono text-foreground" title={detail}>{detail}</code></Badge>
                       ))}
@@ -665,7 +665,7 @@ function SkillDetail({ onBack, skill }: { onBack: () => void; skill: SettingsSki
 
   return (
     <div className={settingsPageClass}>
-      <header className="grid justify-items-start gap-2.5">
+      <header className="grid justify-items-start gap-3">
         <Button aria-label="Back to contributions" className="rounded-full" onClick={onBack} size="icon" variant="outline"><ArrowLeftIcon /></Button>
         <span className="grid gap-1">
           <h2 className={settingsPageTitleClass}>{skill.id}</h2>
@@ -705,7 +705,7 @@ function SkillDetail({ onBack, skill }: { onBack: () => void; skill: SettingsSki
 function SkillDocument({ file }: { file: SettingsSkillFile }) {
   return (
     <article className="min-w-0 rounded-xl border border-border bg-background/76">
-      <header className="flex items-center justify-between gap-3 border-b border-border px-3 py-2.5">
+      <header className="flex items-center justify-between gap-3 border-b border-border px-3 py-3">
         <span className={cardCopyClass}>
           <strong className={cardTitleClass}>{file.path}</strong>
           <small className="text-[0.63rem] text-muted-foreground">{formatBytes(file.bytes)}</small>
@@ -726,15 +726,15 @@ function SkillDocument({ file }: { file: SettingsSkillFile }) {
       {file.content === null
         ? <SettingsEmpty className="m-3">This file cannot be shown as text.</SettingsEmpty>
         : file.path.toLowerCase().endsWith(".md")
-          ? <div className="px-4.5 pt-4 pb-5 text-[0.79rem] leading-[1.62] text-foreground"><Markdown text={file.content} /></div>
-          : <div className="overflow-auto"><SourceCode className="px-4 pt-4 pb-5" content={file.content} path={file.path} /></div>}
+          ? <div className="px-4 pt-4 pb-4 text-[0.79rem] leading-[1.62] text-foreground"><Markdown text={file.content} /></div>
+          : <div className="overflow-auto"><SourceCode className="px-4 pt-4 pb-4" content={file.content} path={file.path} /></div>}
     </article>
   );
 }
 
 function ModelCard({ model }: { model: SettingsModel }) {
   return (
-    <article className={cn(cardClass, "grid gap-[3px] px-3.5 py-3")}>
+    <article className={cn(cardClass, "grid gap-1 px-4 py-3")}>
       <strong className="truncate text-[0.79rem]">{model.label}</strong>
       <span className="truncate text-[0.67rem] text-muted-foreground">{model.provider} / {model.model}</span>
       <small className="truncate text-[0.67rem] text-muted-foreground">Driver: {model.driver}</small>
@@ -760,7 +760,7 @@ function ProfileCard({ profile }: { profile: SettingsProfile }) {
         </span>
       </header>
       <p className={cardCopyTextClass}>{profile.description}</p>
-      <footer className="flex flex-wrap gap-x-3 gap-y-1.5 text-[0.64rem] text-muted-foreground">
+      <footer className="flex flex-wrap gap-x-3 gap-y-2 text-[0.64rem] text-muted-foreground">
         <span>{profile.turnTimeoutMs === null || profile.turnTimeoutMs === 0 ? "No turn inactivity limit" : `Turn inactivity limit ${formatDuration(profile.turnTimeoutMs)}`}</span>
         <span>{profile.isolateWorkspace ? "Own agent workspace" : "Shared run workspace"}</span>
       </footer>
@@ -793,7 +793,7 @@ function HookCard({ hook }: { hook: SettingsAgentHook }) {
 
 function ToolCard({ tool }: { tool: SettingsTool }) {
   return (
-    <article className={cn(cardClass, "grid gap-2.5")}>
+    <article className={cn(cardClass, "grid gap-3")}>
       <header className={cardHeaderClass}>
         <span className={cardCopyClass}>
           <strong className={cardTitleClass}>{tool.name}</strong>
@@ -806,9 +806,9 @@ function ToolCard({ tool }: { tool: SettingsTool }) {
         </span>
       </header>
       <p className={cn(cardCopyTextClass, "my-0")}>{tool.description}</p>
-      <dl className="grid grid-cols-2 gap-1.5 max-md:grid-cols-1">
+      <dl className="grid grid-cols-2 gap-2 max-md:grid-cols-1">
         {[["Owner", tool.owner], ["Source", tool.source], ["Scope", toolScopeLabel(tool.scope)], ["Availability", tool.availabilityDetail]].map(([label, value]) => (
-          <div className={cn(insetClass, "grid min-w-0 gap-0.5 px-2 py-1.5")} key={label}>
+          <div className={cn(insetClass, "grid min-w-0 gap-0.5 px-2 py-2")} key={label}>
             <dt className="text-[0.61rem] text-muted-foreground">{label}</dt>
             <dd className="min-w-0 text-[0.68rem] text-foreground [overflow-wrap:anywhere]">{value}</dd>
           </div>
@@ -841,12 +841,12 @@ function SettingsSection({ children, count, panel, title }: { children: ReactNod
     </>
   );
   if (panel) return <Card className={settingsPanelClass}>{body}</Card>;
-  return <section className="grid gap-2.5">{body}</section>;
+  return <section className="grid gap-3">{body}</section>;
 }
 
 function SettingsFact({ detail, label, value }: { detail: string; label: string; value: string }) {
   return (
-    <article className="grid min-w-0 gap-[3px] rounded-xl border border-border bg-background/78 px-3.5 py-3">
+    <article className="grid min-w-0 gap-1 rounded-xl border border-border bg-background/78 px-4 py-3">
       <span className="text-[0.62rem] text-muted-foreground uppercase">{label}</span>
       <strong className="truncate text-[0.91rem] text-foreground">{value}</strong>
       <small className="truncate text-[0.66rem] text-muted-foreground">{detail}</small>
@@ -856,7 +856,7 @@ function SettingsFact({ detail, label, value }: { detail: string; label: string;
 
 function SettingsValue({ copy = false, label, value }: { copy?: boolean; label: string; value: string }) {
   return (
-    <div className={cn(insetClass, "grid min-h-[38px] grid-cols-[12rem_minmax(0,1fr)_auto] items-center gap-2.5 px-2.5 py-1.5 max-[520px]:grid-cols-[minmax(0,1fr)_auto]")}>
+    <div className={cn(insetClass, "grid min-h-[38px] grid-cols-[12rem_minmax(0,1fr)_auto] items-center gap-3 px-3 py-2 max-[520px]:grid-cols-[minmax(0,1fr)_auto]")}>
       <span className={cn(valueLabelClass, "max-[520px]:col-span-full")}>{label}</span>
       <code className="min-w-0 truncate font-mono text-[0.7rem] text-foreground" title={value}>{value}</code>
       {copy && <CopyButton label={`Copy ${label}`} text={value} />}
@@ -869,7 +869,7 @@ function PromptCode({ content, copyLabel, embedded = false }: { content: string;
   return (
     <div className="relative min-w-0">
       <CopyButton className="absolute top-2 right-2 z-1" label={copyLabel} text={content} />
-      <pre className={cn(preClass, embedded ? "border-t border-border" : preFrameClass, "max-h-[520px] px-3 pt-11 pb-3")}>{content}</pre>
+      <pre className={cn(preClass, embedded ? "border-t border-border" : preFrameClass, "max-h-[520px] px-3 pt-8 pb-3")}>{content}</pre>
     </div>
   );
 }
@@ -911,11 +911,11 @@ function StatusBadge({ active, label }: { active: boolean; label: string }) {
 }
 
 function SettingsNote({ children }: { children: ReactNode }) {
-  return <p className="flex items-start gap-2 rounded-lg border border-[color-mix(in_srgb,var(--primary)_22%,var(--border))] bg-primary/6 px-3 py-2.5 text-[0.71rem] leading-normal text-muted-foreground [&>svg]:mt-px [&>svg]:flex-shrink-0 [&>svg]:text-primary"><InfoIcon size={15} />{children}</p>;
+  return <p className="flex items-start gap-2 rounded-lg border border-[color-mix(in_srgb,var(--primary)_22%,var(--border))] bg-primary/6 px-3 py-3 text-[0.71rem] leading-normal text-muted-foreground [&>svg]:mt-px [&>svg]:flex-shrink-0 [&>svg]:text-primary"><InfoIcon size={15} />{children}</p>;
 }
 
 function SettingsEmpty({ children, className }: { children: ReactNode; className?: string }) {
-  return <p className={cn("rounded-lg border border-dashed border-border p-4.5 text-center text-[0.72rem] text-muted-foreground", className)}>{children}</p>;
+  return <p className={cn("rounded-lg border border-dashed border-border p-4 text-center text-[0.72rem] text-muted-foreground", className)}>{children}</p>;
 }
 
 const modelKey = (model: SettingsModel) => `${model.driver}/${model.provider ?? ""}/${model.model ?? ""}`;

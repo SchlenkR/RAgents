@@ -307,10 +307,10 @@ test("the Agents header dropdown shares square responsive bounds and restores fo
       const style = await panel.evaluate((element) => {
         const computed = getComputedStyle(element);
         return { corners: [computed.borderTopLeftRadius, computed.borderTopRightRadius, computed.borderBottomLeftRadius, computed.borderBottomRightRadius],
-          padding: [computed.paddingTop, computed.paddingRight, computed.paddingBottom, computed.paddingLeft], focused: element.contains(document.activeElement) };
+          padding: [computed.paddingTop, computed.paddingRight, computed.paddingBottom, computed.paddingLeft], related: (() => { const probe = document.createElement("div"); probe.style.padding = "calc(var(--spacing) * 2)"; document.body.append(probe); const value = getComputedStyle(probe).paddingTop; probe.remove(); return value; })(), focused: element.contains(document.activeElement) };
       });
       assert.deepEqual(style.corners, ["0px", "0px", "0px", "0px"]);
-      assert.deepEqual(style.padding, ["8px", "8px", "8px", "8px"]);
+      assert.deepEqual(style.padding, Array(4).fill(style.related));
       assert.equal(style.focused, true);
       assert.equal(await page.locator('[data-slot="popover-backdrop"]:visible').count(), 1);
       await page.screenshot({ path: join(screenshots, `header-agents-${width}.png`) });

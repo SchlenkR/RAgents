@@ -468,7 +468,7 @@ function ChatSurface({
     <ChatPanel
       className={cn(chatElementClass, options.chatElementClassName)}
       composer={
-        primaryIsProgram(session.runView, session.session.id) ? <div className="flex min-w-0 flex-col gap-1.5">
+        primaryIsProgram(session.runView, session.session.id) ? <div className="flex min-w-0 flex-col gap-2">
           <PausedRunNotice runId={session.session.id} view={session.runView} />
           <p className="text-muted-foreground">{programChatNotice}</p>
           <div className="flex min-w-0 flex-wrap items-center gap-2">{options.toolbarLeft}<ChatViewSwitches settings={chatView} /></div>

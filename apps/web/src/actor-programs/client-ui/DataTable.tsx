@@ -26,9 +26,9 @@ export function DataTable<Row>(props: DataTableProps<Row>) {
     ...(actions.length > 0 ? [{ id: "actions", label: "Actions", width: 180, minWidth: 80, render: (row: Row) => {
       const key = rowKey(row);
       return <>
-        <div aria-busy={pending.has(key)} className="flex flex-wrap gap-1.5">{actions.map((action) => <Button disabled={loading || pending.has(key) || action.disabled?.(row)} key={action.id} onClick={() => void runAction(action, row, key)} size="sm" variant="secondary">{action.label}</Button>)}</div>
+        <div aria-busy={pending.has(key)} className="flex flex-wrap gap-2">{actions.map((action) => <Button disabled={loading || pending.has(key) || action.disabled?.(row)} key={action.id} onClick={() => void runAction(action, row, key)} size="sm" variant="secondary">{action.label}</Button>)}</div>
         {pending.has(key) && <Badge role="status" tone="active">Running...</Badge>}
-        {errors.has(key) && <p className="mt-1.5 text-sm text-destructive" role="alert">{errors.get(key)}</p>}
+        {errors.has(key) && <p className="mt-2 text-sm text-destructive" role="alert">{errors.get(key)}</p>}
       </>;
     } }] : []),
   ];

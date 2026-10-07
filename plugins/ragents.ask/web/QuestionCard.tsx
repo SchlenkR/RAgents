@@ -11,9 +11,9 @@ interface Draft {
   readonly text: string;
 }
 
-const cardClasses = "gap-3 bg-background px-3.5 text-sm";
-const groupClasses = "flex flex-col gap-1.5";
-const optionClasses = "h-auto w-full flex-col items-start gap-0.5 px-3 py-1.5 text-left text-sm font-normal whitespace-normal";
+const cardClasses = "gap-3 bg-background px-4 text-sm";
+const groupClasses = "flex flex-col gap-2";
+const optionClasses = "h-auto w-full flex-col items-start gap-0.5 px-3 py-2 text-left text-sm font-normal whitespace-normal";
 
 const answerOf = (draft: Draft): QuestionAnswer | undefined =>
   draft.text.trim() !== "" ? { text: draft.text.trim() } : draft.selected.length > 0 ? { selected: draft.selected } : undefined;
@@ -58,7 +58,7 @@ export function QuestionCard({
           <div aria-label={question.header} className={groupClasses} key={question.question} role="group">
             <QuestionHead question={question} />
             {"answers" in record && (
-              <div className="flex items-center gap-1.5 text-sm text-muted-foreground" data-question="answered">
+              <div className="flex items-center gap-2 text-sm text-muted-foreground" data-question="answered">
                 <CheckIcon className="flex-none text-success" size={12} />
                 {answerText(record.answers[index]!)}
               </div>

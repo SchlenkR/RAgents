@@ -51,16 +51,16 @@ function RunExecutionsPanel({ active, runId, view }: { active: boolean; runId: s
   }, [active, running]);
 
   return <section aria-label="TypeScript executions" className="flex h-full min-h-0 min-w-0 flex-col text-[0.78rem] text-foreground">
-    <header className="px-3.5 pt-3.5 pb-2.5"><h2 className="mb-1.5 text-[0.92rem]">Executions</h2><p className="leading-[1.5] text-muted-foreground">TypeScript snippets of all actors in this run.</p></header>
-    <div className="flex flex-wrap items-center gap-2 border-b border-border-soft px-3.5 pb-3">
+    <header className="px-4 pt-4 pb-3"><h2 className="mb-2 text-[0.92rem]">Executions</h2><p className="leading-[1.5] text-muted-foreground">TypeScript snippets of all actors in this run.</p></header>
+    <div className="flex flex-wrap items-center gap-2 border-b border-border-soft px-4 pb-3">
       <SearchInput className="min-w-0" size="sm" aria-label="Search executions" onValueChange={setQuery} placeholder="Search actor, code or result" value={query} />
       <FilterSelect label="Status" options={statusOptions.map((option) => ({ ...option, count: executions.filter((execution) => execution.status === option.value).length }))}
         size="sm" value={statuses} onValueChange={setStatuses} />
       <span className="self-center text-right text-[0.68rem] text-muted-foreground" role="status">{journal.loading ? (journal.loaded ? "Refreshing ..." : "Loading ...") : journal.loaded ? `${filtered.length} of ${executions.length} executions` : "Not loaded yet"}</span>
     </div>
-    {journal.error && <Alert className="mx-3.5 my-2 w-auto" variant="destructive"><AlertDescription className="whitespace-pre-wrap text-destructive [overflow-wrap:anywhere]">{journal.error}{journal.loaded ? " The last loaded state stays visible." : ""}</AlertDescription><Button disabled={!active || journal.loading} onClick={() => setReload((value) => value + 1)} size="sm" variant="ghost">Reload</Button></Alert>}
+    {journal.error && <Alert className="mx-4 my-2 w-auto" variant="destructive"><AlertDescription className="whitespace-pre-wrap text-destructive [overflow-wrap:anywhere]">{journal.error}{journal.loaded ? " The last loaded state stays visible." : ""}</AlertDescription><Button disabled={!active || journal.loading} onClick={() => setReload((value) => value + 1)} size="sm" variant="ghost">Reload</Button></Alert>}
     <div aria-label="Executions, newest first" className="min-h-0 flex-1 overflow-auto overscroll-contain px-3 pb-3">
-      {journal.loaded && !journal.loading && filtered.length === 0 && <p className="mx-0.5 my-4.5 leading-[1.6] text-muted-foreground">{executions.length === 0 ? "No TypeScript snippet has been executed in this run yet." : "No executions match this search."}</p>}
+      {journal.loaded && !journal.loading && filtered.length === 0 && <p className="mx-0.5 my-4 leading-[1.6] text-muted-foreground">{executions.length === 0 ? "No TypeScript snippet has been executed in this run yet." : "No executions match this search."}</p>}
       {filtered.map((execution) => <ExecutionEntry execution={execution} key={execution.key} now={now} />)}
     </div>
   </section>;
@@ -73,9 +73,9 @@ const statusTones: Readonly<Record<ExecutionStatus, BadgeTone>> = {
   interrupted: "warning",
 };
 
-const summaryClass = "relative grid cursor-pointer list-none grid-cols-[minmax(0,1fr)_auto] gap-x-2 gap-y-[7px] pt-3 pr-2.5 pb-2.5 pl-[25px] focus-visible:outline-2 focus-visible:outline-primary focus-visible:-outline-offset-2 [&::-webkit-details-marker]:hidden before:absolute before:top-[15px] before:left-2.5 before:size-[5px] before:rotate-[-45deg] before:border-r-[1.5px] before:border-b-[1.5px] before:border-solid before:border-current before:content-['']";
+const summaryClass = "relative grid cursor-pointer list-none grid-cols-[minmax(0,1fr)_auto] gap-x-2 gap-y-2 pt-3 pr-3 pb-3 pl-[25px] focus-visible:outline-2 focus-visible:outline-primary focus-visible:-outline-offset-2 [&::-webkit-details-marker]:hidden before:absolute before:top-[15px] before:left-2.5 before:size-[5px] before:rotate-[-45deg] before:border-r-[1.5px] before:border-b-[1.5px] before:border-solid before:border-current before:content-['']";
 
-const contentClass = "min-w-0 border-t border-border-soft px-2.5 pb-2.5 [&>h3]:mt-3 [&>h3]:mb-1.5 [&>h3]:text-[0.72rem] [&>h3]:font-[650]";
+const contentClass = "min-w-0 border-t border-border-soft px-3 pb-3 [&>h3]:mt-3 [&>h3]:mb-2 [&>h3]:text-[0.72rem] [&>h3]:font-[650]";
 
 const sourceClass = "m-0 max-h-[28rem] overflow-auto";
 
@@ -84,15 +84,15 @@ const logClass = "m-0 max-h-[24rem] overflow-auto rounded-sm border border-code-
 function ExecutionEntry({ execution, now }: { execution: TypeScriptExecution; now: number }) {
   const [expanded, setExpanded] = useState(false);
   const preview = execution.code?.trim().split("\n").find((line) => line.trim()) ?? execution.path ?? "TypeScript snippet";
-  return <details className="mt-2.5 overflow-hidden rounded-sm border border-border bg-card open:[&>summary]:before:rotate-45" onToggle={(event) => setExpanded(event.currentTarget.open)}>
+  return <details className="mt-3 overflow-hidden rounded-sm border border-border bg-card open:[&>summary]:before:rotate-45" onToggle={(event) => setExpanded(event.currentTarget.open)}>
     <summary className={summaryClass}>
       <span className="truncate font-[650]" title={`${execution.actorName} (${execution.actorId})`}>@{execution.actorHandle}</span>
       <Badge tone={statusTones[execution.status]}>{executionStatusLabel(execution.status)}</Badge>
       <span className="col-span-full truncate font-mono text-[0.75rem]" title={preview}>{preview}</span>
-      <span className="col-span-full flex flex-wrap justify-between gap-x-3 gap-y-1.5 text-xs tabular-nums text-muted-foreground"><time dateTime={execution.startedAt} title={new Date(execution.startedAt).toLocaleString()}>{new Date(execution.startedAt).toLocaleString(undefined, { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit", second: "2-digit" })}</time><span>{executionDuration(execution, now)}</span></span>
+      <span className="col-span-full flex flex-wrap justify-between gap-x-3 gap-y-2 text-xs tabular-nums text-muted-foreground"><time dateTime={execution.startedAt} title={new Date(execution.startedAt).toLocaleString()}>{new Date(execution.startedAt).toLocaleString(undefined, { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit", second: "2-digit" })}</time><span>{executionDuration(execution, now)}</span></span>
     </summary>
     {expanded && <div className={contentClass}>
-      {execution.path && <p className="mt-2.5 grid gap-1 text-[0.68rem] text-muted-foreground"><span>Path</span><code className="[overflow-wrap:anywhere]">{execution.path}</code></p>}
+      {execution.path && <p className="mt-3 grid gap-1 text-[0.68rem] text-muted-foreground"><span>Path</span><code className="[overflow-wrap:anywhere]">{execution.path}</code></p>}
       <h3>Code</h3>
       {execution.code !== null ? <SourceCode className={sourceClass} content={execution.code} language="typescript" path={execution.path ?? "snippet.ts"} /> : <p className="text-[0.72rem] leading-[1.5] text-muted-foreground">{execution.path ? "No historical code is stored for this path call." : "No historical code is stored for this call."}</p>}
       {execution.logs.length > 0 && <><h3>Logs</h3><pre className={logClass}>{execution.logs.join("\n")}</pre></>}

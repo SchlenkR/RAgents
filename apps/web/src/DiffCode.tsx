@@ -26,8 +26,8 @@ export function DiffCode({ content, emptyText = "No textual diff available.", la
 
   if (!entries.some((entry) => entry.file.hunks.length > 0 || noteOf(entry))) {
     return content
-      ? <pre className="m-0 min-h-full min-w-max bg-transparent px-3 py-2.5 font-mono text-[length:calc(var(--text-sm)*0.95)] leading-[1.55] text-foreground [tab-size:4]">{content}</pre>
-      : <Empty className="min-h-[100px] p-5 text-sm text-muted-foreground">{emptyText}</Empty>;
+      ? <pre className="m-0 min-h-full min-w-max bg-transparent px-3 py-3 font-mono text-[length:calc(var(--text-sm)*0.95)] leading-[1.55] text-foreground [tab-size:4]">{content}</pre>
+      : <Empty className="min-h-[100px] p-4 text-sm text-muted-foreground">{emptyText}</Empty>;
   }
 
   return (
@@ -88,8 +88,8 @@ function DiffFile({ emptyText, entry, language, path, showName }: DiffFileProps)
             </div>
           )
         : showName
-          ? <p className="m-0 px-3 py-2.5 text-sm text-muted-foreground">{note ?? emptyText}</p>
-          : <Empty className="min-h-[100px] p-5 text-sm text-muted-foreground">{note ?? emptyText}</Empty>}
+          ? <p className="m-0 px-3 py-3 text-sm text-muted-foreground">{note ?? emptyText}</p>
+          : <Empty className="min-h-[100px] p-4 text-sm text-muted-foreground">{note ?? emptyText}</Empty>}
     </section>
   );
 }
@@ -101,7 +101,7 @@ function FileHeader({ entry }: { entry: DiffEntry }) {
   const added = changes.filter(isInsert).length;
   const removed = changes.filter(isDelete).length;
   return (
-    <div className="sticky top-0 z-[2] flex min-h-9 min-w-0 items-center gap-2.5 border-y border-border bg-secondary px-3 py-1.5" data-status={status}>
+    <div className="sticky top-0 z-[2] flex min-h-9 min-w-0 items-center gap-3 border-y border-border bg-secondary px-3 py-2" data-status={status}>
       <span aria-label={statusLabels[status]} className={`inline-flex size-[1.2rem] shrink-0 items-center justify-center rounded-sm font-mono text-[0.74rem] font-bold ${statusClasses[status]}`} role="img" title={statusLabels[status]}>{status}</span>
       {status === "R" && (
         <>

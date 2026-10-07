@@ -36,6 +36,10 @@ the earlier "only floating views keep a shadow". Runs and Start rows use the sam
 top and the empty status bar is gone outside a run. Settings pages share their page classes, `SearchInput` replaces the browser's
 search field (and its off-palette clear button), and the plugin overview is a framed list.
 
+Spacing is one scale of seven steps (hair 0.5, tight 1, related 2, group 3, gutter 4, section 6, block 8) with one rule, proximity: related
+things sit close, the outside of a container is at least as large as its inside, and a container pads all sides equally. The first attempt
+fixed single screens and left every panel with its own half steps (1.5, 2.5, 3.5); a test now rejects any value off the scale.
+
 Run page: one `ModelPickers` (composer or form look) serves the composer, the global coordinator, and both settings pages, and the
 composer menus open upwards. Header dropdowns align to the side of their trigger and dim only what lies below the header, so every
 header control stays bright and usable (the first idea, lifting only the open trigger, broke switching between dropdowns). Run

@@ -5,7 +5,7 @@ import { focusRing } from "./ui/interaction";
 
 const NEW_CHAT = { title: "New chat", description: "Empty run; the task takes shape in the chat." };
 
-const tileClass = `group/tile flex h-full w-full min-w-0 flex-col gap-1.5 rounded-xl border border-border bg-card p-2.5 text-left shadow-card ${focusRing}`
+const tileClass = `group/tile flex h-full w-full min-w-0 flex-col gap-2 rounded-xl border border-border bg-card p-3 text-left shadow-card ${focusRing}`
   + " enabled:hover:border-border-strong enabled:hover:bg-[color-mix(in_srgb,var(--card),var(--foreground)_6%)] disabled:not-aria-busy:opacity-60"
   + " aria-busy:border-border-strong aria-busy:bg-[color-mix(in_srgb,var(--card),var(--foreground)_6%)]";
 

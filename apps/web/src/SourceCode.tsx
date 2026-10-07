@@ -2,7 +2,7 @@ import { cn } from "cn";
 import { useMemo, type CSSProperties } from "react";
 import { codeScrollbarClass, highlightLines, highlightSource } from "./highlighting";
 
-const sourceClasses = `m-0 min-h-full min-w-max bg-transparent px-3 py-2.5 font-mono text-[length:calc(var(--text-sm)*0.95)] leading-[1.55] text-foreground [tab-size:4] ${codeScrollbarClass}`;
+const sourceClasses = `m-0 min-h-full min-w-max bg-transparent px-3 py-3 font-mono text-[length:calc(var(--text-sm)*0.95)] leading-[1.55] text-foreground [tab-size:4] ${codeScrollbarClass}`;
 
 interface SourceCodeProps {
   className?: string;

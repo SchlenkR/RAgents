@@ -504,7 +504,7 @@ export function ActorViewFrame({
   return (
     <div className="flex min-h-0 flex-1 flex-col">
       <div aria-live="polite" role="status"
-        className={`order-1 grid min-w-0 grid-cols-[auto_minmax(0,1fr)] items-center gap-1.5 overflow-hidden px-workspace-inset text-xs text-muted-foreground ${visibleStatus ? "h-7 flex-[0_0_28px] py-1" : "h-0 flex-none"}`}>
+        className={`order-1 grid min-w-0 grid-cols-[auto_minmax(0,1fr)] items-center gap-2 overflow-hidden px-workspace-inset text-xs text-muted-foreground ${visibleStatus ? "h-7 flex-[0_0_28px] py-1" : "h-0 flex-none"}`}>
         {visibleStatus && <>
           <Badge tone={visibleStatus.tone === "error" ? "danger" : visibleStatus.tone === "confirm" ? "warning" : "neutral"}>{visibleStatus.title}</Badge>
           <span className="truncate" title={visibleStatus.detail}>{visibleStatus.detail}</span>
@@ -521,7 +521,7 @@ export function ActorViewFrame({
           title=""
         />
         <div aria-live="polite" role="status" className="pointer-events-none absolute right-2 bottom-2 left-2 flex justify-end">
-          {showRunning && running && <span className="flex max-w-full items-center gap-1.5 rounded-full border border-border-soft bg-background/90 py-0.5 pr-2.5 pl-1 text-xs text-muted-foreground shadow-sm">
+          {showRunning && running && <span className="flex max-w-full items-center gap-2 rounded-full border border-border-soft bg-background/90 py-0.5 pr-3 pl-1 text-xs text-muted-foreground shadow-sm">
             <Badge tone="active">{running.title}</Badge>
             <span className="truncate" title={running.detail}>{running.detail}</span>
           </span>}

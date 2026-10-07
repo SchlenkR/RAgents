@@ -91,7 +91,7 @@ function RunPanel({ autoFocusChat, onAutoFocusChatSettled, surfaceElements, card
   const appActions = elements.length > 0 && <DockWindowActions items={elements.map(({ definition }) => ({ id: definition.id, title: definition.title ?? definition.id, icon: <LayoutGridIcon /> }))}
     onOpen={(id) => host.openApp(runId, id, elements.find(({ definition }) => definition.id === id)?.definition.title ?? id)} />;
   return <div className="flex min-h-0 min-w-0 flex-1 flex-col bg-app" data-run-panel="run">
-    {toolbarContainer ? createPortal(appActions, toolbarContainer) : appActions && <nav aria-label="Mini-apps of the run" className="flex min-w-0 flex-none items-center border-b border-border bg-shell px-2 py-1.5">{appActions}</nav>}
+    {toolbarContainer ? createPortal(appActions, toolbarContainer) : appActions && <nav aria-label="Mini-apps of the run" className="flex min-w-0 flex-none items-center border-b border-border bg-shell px-2 py-2">{appActions}</nav>}
     {chat}
   </div>;
 }

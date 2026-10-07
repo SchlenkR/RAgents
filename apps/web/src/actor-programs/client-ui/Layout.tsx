@@ -2,7 +2,7 @@ import React, { useId } from "react";
 import { cn } from "../../ui";
 import type { AppLayoutProps, GridProps, LayoutGap, StackProps } from "./layout-contracts";
 
-const gaps: Record<LayoutGap, string> = { small: "gap-1.5", normal: "gap-3", large: "gap-5" };
+const gaps: Record<LayoutGap, string> = { small: "gap-2", normal: "gap-3", large: "gap-4" };
 
 export function AppLayout({ title, description, actions, children, fill = false }: AppLayoutProps) {
   const titleId = useId();

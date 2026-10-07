@@ -48,29 +48,29 @@ interface FlowInspectorProps {
 
 const inspectorClass = "flex h-full min-h-0 flex-col bg-inherit";
 
-const headClass = "flex flex-shrink-0 items-start gap-2.5 border-b border-border-soft px-workspace-inset pt-3 pb-2 [&_h2]:text-[0.95rem] [&_h2]:leading-[1.3]";
+const headClass = "flex flex-shrink-0 items-start gap-3 border-b border-border-soft px-workspace-inset pt-3 pb-2 [&_h2]:text-[0.95rem] [&_h2]:leading-[1.3]";
 
 const subtitleClass = "block truncate text-[0.72rem] text-muted-foreground";
 
-const statusClass = "flex flex-shrink-0 flex-wrap items-center gap-x-2.5 gap-y-0.5 border-b border-border-soft px-workspace-inset py-1.5 text-[0.72rem] text-muted-foreground";
+const statusClass = "flex flex-shrink-0 flex-wrap items-center gap-x-3 gap-y-0.5 border-b border-border-soft px-workspace-inset py-2 text-[0.72rem] text-muted-foreground";
 
-const scrollClass = "min-h-0 flex-1 overflow-y-auto px-workspace-inset py-2.5";
+const scrollClass = "min-h-0 flex-1 overflow-y-auto px-workspace-inset py-3";
 
-const sectionClass = "mb-4 [&>h3]:mb-1.5 [&>h3]:text-[0.72rem] [&>h3]:font-semibold [&>h3]:tracking-[0.05em] [&>h3]:uppercase [&>h3]:text-muted-foreground";
+const sectionClass = "mb-4 [&>h3]:mb-2 [&>h3]:text-[0.72rem] [&>h3]:font-semibold [&>h3]:tracking-[0.05em] [&>h3]:uppercase [&>h3]:text-muted-foreground";
 
-const rowsClass = "flex flex-col gap-1 py-1.5";
+const rowsClass = "flex flex-col gap-1 py-2";
 
-const rowClass = "flex cursor-pointer items-center gap-2 rounded-lg border border-border-soft px-2 py-1.5 text-left hover:border-[color-mix(in_srgb,var(--primary)_45%,var(--border))] hover:bg-primary/6 [&_strong]:truncate [&_strong]:text-[0.76rem] [&_small]:text-[0.66rem] [&_small]:text-muted-foreground";
+const rowClass = "flex cursor-pointer items-center gap-2 rounded-lg border border-border-soft px-2 py-2 text-left hover:border-[color-mix(in_srgb,var(--primary)_45%,var(--border))] hover:bg-primary/6 [&_strong]:truncate [&_strong]:text-[0.76rem] [&_small]:text-[0.66rem] [&_small]:text-muted-foreground";
 
 const rowCopyClass = "flex min-w-0 flex-1 flex-col";
 
 const mutedClass = "text-[0.74rem] text-muted-foreground";
 
-const errorClass = "my-1.5 text-[0.72rem] text-destructive";
+const errorClass = "my-2 text-[0.72rem] text-destructive";
 
-const propertiesClass = "my-1.5 grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 text-[0.74rem] [&_dt]:text-muted-foreground [&_dd]:[overflow-wrap:anywhere]";
+const propertiesClass = "my-2 grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 text-[0.74rem] [&_dt]:text-muted-foreground [&_dd]:[overflow-wrap:anywhere]";
 
-const textBlockClass = "my-1.5 rounded-lg bg-foreground/4 p-2 text-[0.72rem] whitespace-pre-wrap [overflow-wrap:anywhere]";
+const textBlockClass = "my-2 rounded-lg bg-foreground/4 p-2 text-[0.72rem] whitespace-pre-wrap [overflow-wrap:anywhere]";
 
 const linkClass = "cursor-pointer text-[0.74rem] text-primary underline";
 
@@ -263,7 +263,7 @@ function SectionTabs({ sections, children, toolbar }: { sections: SectionTab[]; 
           ))}
         </TabsList>
       </div>
-      {open && <TabsContent className="min-h-0 flex-1 overflow-y-auto border-b border-border-soft px-workspace-inset py-1.5 text-[0.76rem]" id={`${id}-details`} tabIndex={0} value={open.id}>{open.content}</TabsContent>}
+      {open && <TabsContent className="min-h-0 flex-1 overflow-y-auto border-b border-border-soft px-workspace-inset py-2 text-[0.76rem]" id={`${id}-details`} tabIndex={0} value={open.id}>{open.content}</TabsContent>}
       <TabsContent className="flex min-h-0 flex-1 flex-col" id={`${id}-chat`} keepMounted value="chat">{children}</TabsContent>
     </Tabs>
   );
@@ -272,7 +272,7 @@ function SectionTabs({ sections, children, toolbar }: { sections: SectionTab[]; 
 function CapabilityList({ grants }: { grants: RunCapabilityGrant[] }) {
   if (grants.length === 0) return <Badge className={pillClass}>No capabilities</Badge>;
   return (
-    <div className="flex flex-wrap gap-1 py-1.5">
+    <div className="flex flex-wrap gap-1 py-2">
       {grants.map((grant, position) => {
         const scope = grant.scope.kind === "workspace" ? grant.scope.path : "Run";
         const suffix = [
@@ -290,7 +290,7 @@ function CapabilityList({ grants }: { grants: RunCapabilityGrant[] }) {
   );
 }
 
-const actionClass = "my-1.5 rounded-lg border border-[color-mix(in_srgb,var(--primary)_35%,var(--border))] bg-primary/5 px-2.5 py-2 [&>p]:my-1 [&>p]:text-[0.72rem] [&>p]:text-muted-foreground";
+const actionClass = "my-2 rounded-lg border border-[color-mix(in_srgb,var(--primary)_35%,var(--border))] bg-primary/5 px-3 py-2 [&>p]:my-1 [&>p]:text-[0.72rem] [&>p]:text-muted-foreground";
 
 function ActionCard({ action, runId, onError }: { action: RunAction; runId: string; onError: (message: string) => void }) {
   const writable = useAccess().can("runs.write");
@@ -316,7 +316,7 @@ function ActionCard({ action, runId, onError }: { action: RunAction; runId: stri
       {action.owner && <p>waiting for input - {action.owner}</p>}
       {action.input && (
         <Input
-          className="my-1.5 text-[0.76rem]"
+          className="my-2 text-[0.76rem]"
           disabled={!writable}
           onChange={(event) => setResponse(event.target.value)}
           placeholder={action.input.placeholder ?? action.input.label}
@@ -324,7 +324,7 @@ function ActionCard({ action, runId, onError }: { action: RunAction; runId: stri
           value={response}
         />
       )}
-      <div className="mt-1 flex justify-end gap-1.5">
+      <div className="mt-1 flex justify-end gap-2">
         <Button disabled={!writable || busy} onClick={() => void resolve("dismissed", undefined)} size="sm" variant="outline">
           Dismiss
         </Button>
@@ -861,7 +861,7 @@ function ArtifactDiff({ artifact, index }: { artifact: RunArtifact; index: RunIn
   if (rows === "too large") return <p className={mutedClass}>Too large for the line comparison (more than {DIFF_LINE_LIMIT} lines).</p>;
   if (rows.every((entry) => entry.kind === "same")) return <p className={mutedClass}>Both versions have the same text.</p>;
   const marks = { same: " ", added: "+", removed: "-" };
-  return <pre className="my-1.5 overflow-x-auto rounded-lg bg-foreground/4 p-2 text-[0.7rem] [&>span]:block [&>span]:whitespace-pre [&>span[data-diff=added]]:bg-success-soft [&>span[data-diff=removed]]:bg-destructive-soft">{rows.map((entry, position) => <span data-diff={entry.kind} key={position}>{marks[entry.kind]} {entry.text}{"\n"}</span>)}</pre>;
+  return <pre className="my-2 overflow-x-auto rounded-lg bg-foreground/4 p-2 text-[0.7rem] [&>span]:block [&>span]:whitespace-pre [&>span[data-diff=added]]:bg-success-soft [&>span[data-diff=removed]]:bg-destructive-soft">{rows.map((entry, position) => <span data-diff={entry.kind} key={position}>{marks[entry.kind]} {entry.text}{"\n"}</span>)}</pre>;
 }
 
 function ArtifactView({ artifact, index, ...props }: FlowInspectorProps & { artifact: RunArtifact; index: RunIndex }) {
