@@ -183,7 +183,7 @@ test("a missing or invalid network policy never starts a browser proxy", async (
 });
 
 test("browser origin exceptions are profile configuration and older hosts fail explicitly", () => {
-  assert.deepEqual(browserConfigDescriptors, [{ key: "BROWSER_EXECUTABLE_PATH", source: "environment" }, { key: "BROWSER_ALLOWED_ORIGINS", source: "profile" }]);
+  assert.deepEqual(browserConfigDescriptors, [{ key: "BROWSER_EXECUTABLE_PATH", source: "environment" }, { key: "BROWSER_CHROMIUM_SANDBOX", source: "environment" }, { key: "BROWSER_ALLOWED_ORIGINS", source: "profile" }]);
   assert.deepEqual(browserAllowedOrigins('["https://EXAMPLE.COM:443", "https://example.com/", "http://localhost:4173"]'), ["https://example.com", "http://localhost:4173"]);
   assert.deepEqual(browserAllowedOrigins("[]"), []);
   for (const configured of ["not-json", '"https://example.com"', '["http://example.com/path"]', '["https://user:password@example.com"]', '["file:///tmp"]', "[12]"]) assert.throws(() => browserAllowedOrigins(configured));

@@ -6,16 +6,18 @@ import type { PluginModule } from "@ragents/host/plugin-support/plugin-module.js
 import { sandboxServicesToken } from "@ragents/host/plugin-support/workspace-sandbox-host.js";
 import { documentStoreToken } from "@ragents/host/ragents/document-store.js";
 import { hostAddressToken } from "@ragents/host/ragents/host-services.js";
-import { BROWSER_EXECUTABLE_VARIABLE } from "../executor/contract.js";
+import { BROWSER_CHROMIUM_SANDBOX_VARIABLE, BROWSER_EXECUTABLE_VARIABLE } from "../executor/contract.js";
 import { browserOrigin } from "../executor/network.js";
+import { chromiumSandbox } from "../executor/playwright.js";
 import { RunBrowser } from "./browser.js";
 import { browserRuntimeToken } from "./contract.js";
 import { createBrowserFunctions, createBrowserImageContribution } from "./tools.js";
 import { createViewSnapshotFunction } from "./view-snapshot.js";
 
-/** Browser executables belong to the machine; network exceptions belong to the server profile. */
+/** Browser executable and Chromium's sandbox belong to the machine; network exceptions belong to the server profile. */
 export const browserConfigDescriptors = [
   { key: BROWSER_EXECUTABLE_VARIABLE, source: "environment" },
+  { key: BROWSER_CHROMIUM_SANDBOX_VARIABLE, source: "environment" },
   { key: "BROWSER_ALLOWED_ORIGINS", source: "profile" },
 ] as const;
 
@@ -34,6 +36,7 @@ export const browserAllowedOrigins = (configured: string | undefined = process.e
 const browserPlugin: RAgentsPlugin = {
   manifest: { id: "ragents.browser" },
   register: (host) => {
+    if (!chromiumSandbox()) console.log(`Browser checks: Chromium starts without its own sandbox (${BROWSER_CHROMIUM_SANDBOX_VARIABLE} is false)`);
     const documents = host.service(documentStoreToken);
     const sandbox = host.service(sandboxServicesToken);
     if (sandbox.registerBrowserOrigins === undefined) throw new Error("The host does not support browser network policies; update the host before loading ragents.browser.");

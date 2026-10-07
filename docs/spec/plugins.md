@@ -4815,12 +4815,26 @@ contribution nor the VS Code extension's bundle contains it. If playwright-core 
 `browser_navigate` fails with exactly this cause. It reports input errors with the machine's `operationError`
 as `browser-input-invalid` (400); Chrome starts with the run's `WorkspaceProcessContext.env`,
 the safe server environment or the workstation's own environment, with Chromium's sandbox
-explicitly enabled.
+explicitly enabled unless `BROWSER_CHROMIUM_SANDBOX` turns it off on this machine.
 Chrome is the browser from `BROWSER_EXECUTABLE_PATH` in the environment of this machine, otherwise the Chromium that
 provisioning puts into Playwright's browser cache for the pinned playwright-core version;
 if both are missing, the error names the expected path and the command. On the server, the
 profile section `ragents.browser` sets the value in its environment. It does not travel to a workstation:
 there its own environment applies or the Chromium from `pnpm provision --workspace`.
+
+`BROWSER_CHROMIUM_SANDBOX` comes the same way from the environment of this machine, on the server
+from the profile section `ragents.browser`. Unset, empty, or `1` (`true` in the profile) keeps
+Chromium's sandbox; `0` (`false`) launches with `chromiumSandbox: false`, which Playwright passes
+on as `--no-sandbox`; any other value is an error, on the server already at startup, which also
+logs a line when the sandbox is off. It exists for a server in a hardened container, where
+Chromium cannot set up its namespace and chroot sandbox and aborts before the first page. Nothing
+turns it off by itself: if a launch with the sandbox fails and the browser log shows a sandbox
+failure (`No usable sandbox`, `sys_chroot`, the SUID sandbox, a failed namespace, or Playwright's
+`Chromium sandboxing failed`), the operation fails without a second attempt, with an error that
+names the logged line and the setting. Like `BROWSER_EXECUTABLE_PATH`, the server's value does not
+travel to a workstation: a workstation keeps the sandbox unless its own environment sets `0`, so a
+container server's exception never weakens a developer's machine, and a workstation that is itself
+a container can still use it.
 
 For a restricted run, `WorkspaceProcessContext.browserNetwork` carries the server's
 allowed origins; an operation cannot replace it through model input. The browser uses
@@ -4839,8 +4853,8 @@ HTTP(S) origins such as `http://127.0.0.1:8080`. An entry allows that scheme, ho
 and port, including internal addresses; paths, credentials, queries, and fragments are
 invalid. This allowance travels to a workstation through executor protocol 14. It is
 separate from `PROCESS_SANDBOX_NETWORK`. Administrators' unrestricted runs keep ordinary
-HTTP(S) browser access. Every browser still uses Chromium's sandbox and a fresh run
-context; no personal Chrome profile or sign-in is inherited.
+HTTP(S) browser access. Every browser uses Chromium's sandbox unless its machine turns it
+off, and a fresh run context; no personal Chrome profile or sign-in is inherited.
 Chrome thus starts with the safe environment of this machine, its `HOME`, and the run's marker,
 and the process display therefore attributes it to the run.
 
@@ -5216,7 +5230,8 @@ right) returns the archive; a different version is 404. The counterpart is `rage
   until then it may have kept running.
 - The server process sandbox (section Server process sandbox) has gaps that its
   tools dictate: the browser parent is outside that filesystem sandbox (its renderer uses
-  Chromium's sandbox and restricted runs get a separate network policy); on macOS a run reaches Unix sockets under `/tmp` and thus also
+  Chromium's sandbox, with `BROWSER_CHROMIUM_SANDBOX: false` in a container only the container's
+  confinement, and restricted runs get a separate network policy); on macOS a run reaches Unix sockets under `/tmp` and thus also
   build servers of other processes of the same account (a running `VBCSCompiler` or
   MSBuild nodes of an IDE), and `trustd` fetches revocation lists outside the sandbox, which is a
   side channel onto the network; on Linux all Unix sockets that are visible in the sandbox's

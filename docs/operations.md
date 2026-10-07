@@ -420,9 +420,17 @@ Playwright version and, on Linux, its system libraries; it ends up in Playwright
 cache, not in the tools folder. If `BROWSER_EXECUTABLE_PATH` points nowhere, provisioning reports
 this as a gap it must not close.
 
+Chromium starts with its own sandbox, which a hardened container (all capabilities dropped,
+`no-new-privileges`, a strict seccomp profile) does not permit: the browser check then fails with
+a cause that names `BROWSER_CHROMIUM_SANDBOX`. Only for a server in such an isolated container,
+`BROWSER_CHROMIUM_SANDBOX: false` in the same section starts Chromium with `--no-sandbox`; the pages
+it renders are then confined only by the container, because the browser runs outside the
+[server process sandbox](#server-process-sandbox), while restricted runs keep their browser network policy.
+
 A workstation gets none of this from the server's profile: it takes `BROWSER_EXECUTABLE_PATH`
 from its own environment, otherwise the Chromium that `pnpm provision --workspace` fetches when
-`pnpm workspace-client` and the VS Code extension start. What the agent does with the browser,
+`pnpm workspace-client` and the VS Code extension start, and it keeps Chromium's sandbox unless
+its own environment sets `BROWSER_CHROMIUM_SANDBOX=0`. What the agent does with the browser,
 where recordings are stored, and how long a check stays valid is in
 [plugins.md](spec/plugins.md) under "Browser checks".
 

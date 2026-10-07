@@ -1,5 +1,32 @@
 # Decisions
 
+## 2026-10-07: Chromium's sandbox can be turned off for a server in a hardened container
+
+Chapters: `spec/plugins.md` (Browser checks, Open limits); operations: `operations.md` (Provide a
+browser for browser checks).
+
+A server in a hardened container (all capabilities dropped, `no-new-privileges`, its own seccomp
+profile) could not start the run browser: the launch hard-coded `chromiumSandbox: true`, and
+Chromium aborted before the first page with `Check failed: sys_chroot("/proc/self/fdinfo/")` and
+SIGABRT, every time. `ragents.browser` now declares `BROWSER_CHROMIUM_SANDBOX` (environment key,
+default on). `false` in the profile, `0` in an environment, launches Chromium with
+`chromiumSandbox: false`; any other value is an error, on the server at startup. A launch with the
+sandbox that fails with a sandbox line in the browser log reports that line and the setting; it
+stays an error and never retries without the sandbox.
+
+The value takes the path of `BROWSER_EXECUTABLE_PATH`: the executor reads it from its machine's
+process environment, which on the server the profile section fills. The preferred variant, a
+workstation that always keeps the sandbox, would need the executor to know whether it is the
+server's, while every machine runs the same executor and contributions; it is therefore the same
+key in the workstation's own environment, default on, and the server's value never travels there.
+A container server's exception thus never weakens a developer's machine, and a workstation that is
+itself a container, such as a dev container, can use it. Rejected: turning the sandbox off
+automatically after a failed launch, because a misconfigured host would silently lose isolation;
+carrying the server's value to workstations with the browser network policy, because the reason is
+a property of the machine, not of the run. The trade-off is documented: without Chromium's sandbox
+the renderers are confined only by the container, because the browser parent runs outside the
+server process sandbox; restricted runs keep their browser network policy.
+
 ## 2026-10-07: Profile providers name their AI SDK package
 
 Chapters: `spec/profiles.md` (Profiles, paragraph on `MODEL_PROVIDERS`, Open limits),

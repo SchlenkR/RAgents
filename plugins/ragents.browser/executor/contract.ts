@@ -15,6 +15,9 @@ export const BROWSER_OPERATIONS = {
 /** Names a custom Chrome; on a server the profile section `ragents.browser` sets it, on a workspace its environment. */
 export const BROWSER_EXECUTABLE_VARIABLE = "BROWSER_EXECUTABLE_PATH";
 
+/** "0" starts Chromium without its own sandbox; like BROWSER_EXECUTABLE_PATH, a workspace takes it only from its own environment. */
+export const BROWSER_CHROMIUM_SANDBOX_VARIABLE = "BROWSER_CHROMIUM_SANDBOX";
+
 export interface BrowserTarget {
   role?: string;
   name?: string;
