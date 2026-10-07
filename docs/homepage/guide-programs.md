@@ -283,6 +283,11 @@ and late responses cannot replace newer state. `useAppState()` moves this data t
 into React without remounting the client, preserving local form drafts. Active browser calls also
 poll their status until completion.
 
+A failed listing read retries at most three times, after 500, 1500, and 4000 milliseconds.
+Connection changes, browser online events, and the visible Retry action start a fresh attempt.
+Run and API identities own pending reads and retries; disposal aborts reads, and obsolete
+responses cannot change the current listing. Function calls are never automatically retried.
+
 Functions on the same actor execute in order; different actors can work in parallel. Every call
 receives an abort signal. The native execution platform owns processes and stop boundaries for
 runs and instances. Stopping a run ends active work, while removing an actor program or
@@ -291,3 +296,8 @@ server restart, previously pending or active mini-app function calls are marked 
 are not retried automatically. Unclaimed ActorInputs behave differently: they remain queued for
 an actor that is still executable. A mini-app click and a message to an actor use separate
 execution paths. Deleting the run also removes its private app workspace.
+Invocation status writes belong to the background task's error handling. A failed write reports
+the run, actor, invocation, attempted status, and cause, releases active task tracking, and
+preserves the last committed journal state. A journal write failure locks only that run;
+unrelated runs and the server remain available. Failure to store an execution result is not
+reported as a successfully stored failed execution.

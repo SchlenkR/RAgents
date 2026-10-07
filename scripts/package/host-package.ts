@@ -83,7 +83,7 @@ export const installHostPackage = async (folder: string, specifier: string, envi
   const npm = findExecutable("npm", environment);
   if (!npm) {
     throw new Error("npm was not found in the PATH; without npm, the workstation cannot fetch the host. "
-      + "Install Node 22 with npm or set ragents.hostPath to a checkout or an installed package.");
+      + "Install Node 22 with npm.");
   }
   await mkdir(folder, { recursive: true });
   const args = ["install", "--prefix", folder, specifier];
@@ -159,6 +159,6 @@ const fetchHostPackage = async (folder: string, version: string, environment: No
 export const matchingHostVersion = (root: string, version: string): string => {
   const actual = readPackageVersion(root);
   if (actual !== version) throw new DomainError("workspace-executor-version", `The workstation host at ${root} has RAgents version ${actual}, the server requires ${version}. `
-    + `Use a matching ragents.hostPath checkout or install @schlenkr/ragents@${version}.`, 409);
+    + `Use a matching checkout or install @schlenkr/ragents@${version}.`, 409);
   return root;
 };

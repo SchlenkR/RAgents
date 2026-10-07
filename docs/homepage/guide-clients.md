@@ -96,7 +96,7 @@ Narrower workspaces use tabs in one area. The default adapts to width until you 
 yourself; saved custom layouts stay as you left them. The active tab is one square filled shape
 flush with the strip, without a border, holding its grip, maximize, and close buttons. The strip
 clips to the card's rounded top corners. Drag a tab to arrange windows, or drag
-the grip on the active tab to move all windows of its area together.
+the grip on the active tab to move only that window; the other tabs stay in their area.
 A compass appears over the area under the pointer: its four sides split that area in half,
 and its center merges windows as tabs. Dropping on a tab strip also merges. The four outer
 workspace guides dock along the whole edge. A translucent rectangle previews the result.
@@ -114,11 +114,11 @@ window, and every app as buttons with their existing icons, whether shown or not
 visible window appears pressed.
 Clicking a closed window opens it beside the current area in a wide browser workspace, or as a
 tab when narrow. Clicking a window that waits as a background tab brings that tab to the front.
-Clicking a visible window changes nothing. All window buttons, "Empty space", "Reset layout",
-bar contributions such as "Agents", "Share", "Run script", and the other header icons remain
-directly available in the browser and VS Code, regardless of width or window count. Whole
-buttons wrap onto further rows when needed, with labels visible within their available width.
-The title can shrink or occupy its own row. The header grows and pushes the workspace down;
+Clicking a visible window changes nothing. All window buttons, "Empty space", and "Reset layout" remain directly available. They fill
+the space between the fixed controls first, then continue across the full header width when
+needed. Adding apps keeps the title and actions such as "Agents", "Share", Stop, and Settings
+in place. The title and long button labels truncate; full labels remain available on hover.
+Narrow panels can also wrap fixed controls. The header grows and pushes the workspace down;
 its controls are never clipped, hidden in a window menu, or placed in a horizontal scroll area.
 Each window button has a grip at its left edge, shown on hover or focus and always on touch
 screens. Drag a button within the header to reorder the buttons across rows; a thin line marks
@@ -249,8 +249,7 @@ tools; the web interface comes finished with the host. With a checkout as host, 
 to start while its built-in bundles or its web interface are outdated and names the build
 command. If a server distributes a client profile, the extension
 fetches it after sign-in like `pnpm connect`, starts its host locally, and supplies the token as
-`RAGENTS_TOKEN`. For workstation registration without an explicit `ragents.hostPath`, the
-extension downloads the host itself:
+`RAGENTS_TOKEN`. For workstation registration, the extension downloads the host itself:
 `npm install --prefix <globalStorage>/hosts/<package-version> @schlenkr/ragents@<package-version>`,
 using the `npm` available on `PATH` and the configured process environment, including registry
 settings. If npm cannot provide that version and the server offers its own host package, the
@@ -263,9 +262,10 @@ for a local profile, the extension supplies its own `ragents.packageVersion` fro
 Different server versions get separate hosts; a cached version is reused across restarts.
 Workstation registration needs no previous local profile or distributing server. npm output
 appears in the `RAgents` output channel, fetching progress and failures with their cause in the
-server entry. A local profile therefore needs no checkout. `ragents.hostPath` remains an explicit
-override pointing to a checkout or installed package; its version and contribution states must
-match the server, or registration fails without fetching another host.
+server entry. A local profile therefore needs no checkout. There is no setting for the host: only
+an extension started from a checkout (`scripts/start-vscode.sh`) uses that checkout instead of the
+package; its version and contribution states must match the server, or registration fails without
+fetching another host.
 The status bar shows the number of connected servers and opens the start page when clicked. See
 the root `README.md` for details.
 
@@ -316,12 +316,11 @@ content at the same distance below the header, and on Start each section label s
 from the section above it. In both hosts, logo, global coordinator button, Settings, and Help share
 the header. The logo leads back to Start there, so the run header has no back arrow of its
 own; Runs keeps its back arrow ("Back to Start") next to its title in the browser as in VS Code. An open run places its layout actions in the run header, without a separate
-toolbar row. With an open run, the first header row holds the global controls (logo, global
-coordinator, Settings, Help) and the second the run's own (title, Agents, Share, Run script, and in
-the browser the window buttons); the coordinator stretches up to the controls at its right, so
-no row keeps empty gaps. A VS Code panel at least 1100 pixels wide shares one row. Narrower
-panels wrap whole controls onto further rows in either host. VS Code keeps its app editor tabs
-as a row of buttons below the header.
+toolbar row. With an open run, the logo, global coordinator, run title, run controls, and
+settings share one header row whenever they fit, in both the browser and VS Code. Mini-app
+buttons use the remaining width between the fixed controls, then continue over the full width
+in further rows. VS Code opens them in editor tabs; the browser opens them in its
+workspace. Narrow panels can also wrap fixed controls.
 
 **Start** arranges template cards in several columns when space allows, up to five at the
 maximum content width, and one in narrow panels. Cards stay between 240 and 320 pixels wide,
@@ -385,18 +384,22 @@ or the download's integrity differs, the entry shows the cause. Every registrati
 verifies the server's exact host version and provisions its tools, even if no executor
 contributions are requested.
 
-The extension compares its own RAgents version with the version each server reports. If they
-differ, the Server row, the status bar, and a notification show "RAgents
-version mismatch: extension 0.1.9, server 0.1.8 - ...", followed by
-what to update: the extension if it is older, the server if it is older, or the host in
-`ragents.hostPath` for a local profile. A server that reports no version counts as older. While the
-workstation stays registered, this is a warning and everything keeps working. When the server
-rejects the workstation for the same reason, because the workspace executor versions differ or the
-host the extension uses lacks a plugin bundle the server's executor carries, or carries it in
-another version, it is an error that also names the server's cause; the same error appears when
-both report the same version but their builds differ. The notification appears once per server
-and message; "Show extension" opens the extension page for the update, and
-"Show servers" opens the Server page.
+Extension and server do not need the same RAgents version: the interface comes from the server,
+and only a small contract between the two must match. The extension compares the number of that
+contract, its extension interface, with the number each server reports, not the release versions;
+while both numbers are equal, a different release shows nothing. A server that reports no number
+is older than this check and gets a warning: "RAgents server 0.1.8 predates the extension
+interface check - update the server to 0.1.9." A different number is an error: "RAgents extension
+interface does not match: extension 0.1.9 (interface 1), server 0.1.10 (interface 2) - update the
+RAgents extension to 0.1.10." The lower number decides what to update: the extension, the server,
+or for a local profile the local host ("bring the local host to 0.1.9"). The Server row, the
+status bar, and a notification show the notice. When the server rejects the workstation because
+the workspace executor versions differ or the host the extension uses lacks a plugin bundle the
+server's executor carries, or carries it in another version, it is an error that also names the
+server's cause: the notice continues with "The workspace is therefore not registered: ...", and
+with equal numbers it reads "RAgents revision does not match the server, the workspace is not
+registered: ...". The notification appears once per server and message; "Show extension" opens
+the extension page for the update, and "Show servers" opens the Server page.
 
 Every status uses a colored icon and a tooltip with the same vocabulary everywhere. A run is
 "running", "paused", "waiting for input" (with the number of open inputs),

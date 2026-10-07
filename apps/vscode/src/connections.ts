@@ -108,18 +108,8 @@ export const connectionsLocation = (inspected: { workspaceValue?: unknown; globa
     ? { scope: "workspace", entries: inspected.workspaceValue }
     : { scope: "global", entries: Array.isArray(inspected?.globalValue) ? inspected.globalValue : [] };
 
-/** The host from the setting or the repo of the extension; without either, it fetches the package @schlenkr/ragents itself. */
-export const resolveHostPath = (configured: unknown, extensionPath: string): string | undefined => {
-  if (configured !== undefined && configured !== "" && typeof configured !== "string") throw new Error("ragents.hostPath must be a path");
-  const setting = typeof configured === "string" ? configured.trim() : "";
-  if (!setting) {
-    const repository = path.resolve(extensionPath, "../..");
-    return isHostRoot(repository) ? repository : undefined;
-  }
-  const candidate = path.resolve(expandHome(setting));
-  if (!isHostRoot(candidate)) {
-    throw new Error(`${candidate} is not a RAgents host (package.json and apps/server/src/main.ts expected); `
-      + "set ragents.hostPath to a checkout or to the package @schlenkr/ragents");
-  }
-  return candidate;
+/** The checkout the extension runs from; without one, the extension fetches the package @schlenkr/ragents itself. */
+export const extensionCheckout = (extensionPath: string): string | undefined => {
+  const repository = path.resolve(extensionPath, "../..");
+  return isHostRoot(repository) ? repository : undefined;
 };

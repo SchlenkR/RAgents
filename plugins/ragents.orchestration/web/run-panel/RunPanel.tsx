@@ -1,6 +1,7 @@
 import { runApps } from "@ragents/web/run-apps";
 import { DockWindowActions, DockWorkspace, useDockActiveApp } from "@ragents/web/run-panel/DockWorkspace";
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
+import { createPortal } from "react-dom";
 import { LayoutGridIcon, SearchIcon } from "lucide-react";
 import { useAccess } from "@ragents/web/AccessContext";
 import { ChatPanel } from "quassel";
@@ -27,7 +28,7 @@ export function OrchestrationRunPanel(props: SurfaceCenterContext) {
   return <RunPanel key={props.session.session.id} {...props} />;
 }
 
-function RunPanel({ autoFocusChat, onAutoFocusChatSettled, surfaceElements, cardSections, navigation, renderChat, session }: SurfaceCenterContext) {
+function RunPanel({ autoFocusChat, onAutoFocusChatSettled, surfaceElements, cardSections, navigation, renderChat, session, toolbarContainer }: SurfaceCenterContext) {
   const runId = session.session.id;
   const surface = useSurfaceController();
   const inspect = useAccess().can("runs.inspect");
@@ -87,11 +88,10 @@ function RunPanel({ autoFocusChat, onAutoFocusChatSettled, surfaceElements, card
     </section>
   );
   if (host.kind === "browser") return <DockWorkspace apps={elements} chat={chat} chatIcon={view && selectedActor ? <ActorIcon actor={selectedActor} className="size-5" view={view} /> : undefined} navigation={navigation} session={session} />;
+  const appActions = elements.length > 0 && <DockWindowActions items={elements.map(({ definition }) => ({ id: definition.id, title: definition.title ?? definition.id, icon: <LayoutGridIcon /> }))}
+    onOpen={(id) => host.openApp(runId, id, elements.find(({ definition }) => definition.id === id)?.definition.title ?? id)} />;
   return <div className="flex min-h-0 min-w-0 flex-1 flex-col bg-app" data-run-panel="run">
-    {elements.length > 0 && <nav aria-label="Mini-apps of the run" className="flex min-w-0 flex-none items-center border-b border-border bg-shell px-2 py-1.5">
-      <DockWindowActions items={elements.map(({ definition }) => ({ id: definition.id, title: definition.title ?? definition.id, icon: <LayoutGridIcon /> }))}
-        onOpen={(id) => host.openApp(runId, id, elements.find(({ definition }) => definition.id === id)?.definition.title ?? id)} />
-    </nav>}
+    {toolbarContainer ? createPortal(appActions, toolbarContainer) : appActions && <nav aria-label="Mini-apps of the run" className="flex min-w-0 flex-none items-center border-b border-border bg-shell px-2 py-1.5">{appActions}</nav>}
     {chat}
   </div>;
 }

@@ -24,6 +24,15 @@ const rejectionOf = (cause: unknown): { status: number | undefined; code: string
   return { status: undefined, code: undefined };
 };
 
+/** The RAgents version of one side and the number of its interface between VS Code extension and server. */
+export interface Release {
+  readonly version: string;
+  readonly extensionApi: number;
+}
+
+/** A server older than the interface check names no number, one older still no version either. */
+export type ServerRelease = Release | { readonly version: string | null; readonly extensionApi: null };
+
 /** A template of the server as the Start page shows it. */
 export interface StartEntrySummary {
   id: string;
@@ -47,7 +56,7 @@ export class RunStore {
   #entries: StartEntrySummary[] = [];
   #defaultEntry: string | undefined;
   #product: string | undefined;
-  #serverVersion: string | null | undefined;
+  #release: ServerRelease | undefined;
   #sessions: readonly ListedSession[] = [];
   #listeners = new Set<() => void>();
   #watches = new Map<string, { count: number; unsubscribe: () => void; timer: ReturnType<typeof setTimeout> | undefined }>();
@@ -93,9 +102,9 @@ export class RunStore {
     return this.#product;
   }
 
-  /** The server's RAgents version from the bootstrap; null if it names none because it is older than this field, undefined as long as it has not answered. */
-  get serverVersion(): string | null | undefined {
-    return this.#serverVersion;
+  /** The server's RAgents version and extension interface from the bootstrap; undefined as long as it has not answered. */
+  get release(): ServerRelease | undefined {
+    return this.#release;
   }
 
   /** A new run is possible: either free or via at least one permitted template. */
@@ -156,7 +165,8 @@ export class RunStore {
         throw new Error(`The server names the default template ${defaultEntry} but does not deliver it as a template`);
       }
       this.#product = profile.product.title;
-      this.#serverVersion = typeof profile.version === "string" && profile.version ? profile.version : null;
+      const version = typeof profile.version === "string" && profile.version ? profile.version : null;
+      this.#release = version !== null && typeof profile.extensionApi === "number" ? { version, extensionApi: profile.extensionApi } : { version, extensionApi: null };
       this.#entries = profile.startEntries.map((entry: PublicStartEntry) => ({
         id: entry.id,
         title: entry.title,

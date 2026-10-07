@@ -3,6 +3,7 @@ import test from "node:test";
 import { createAccessContext, emptyUsage, PluginHost, unrestrictedAccess, type AccessContext, type PluginState, type RunView } from "@ragents/engine";
 import { coreContracts } from "../src/api/contracts.ts";
 import { coreMethods } from "../src/api/core-methods.ts";
+import { EXTENSION_API_VERSION } from "../src/extension-api.ts";
 import { accessibleActorConversations, accessibleChatEvent as projectedChatEvent, accessibleRunView as projectedRunView } from "../src/access-projection.ts";
 import { productStartOptions } from "../src/plugin-support/product-start-options.ts";
 import { actorProgramAccessProjections } from "../../../plugins/ragents.actor-programs/server/access-projections.ts";
@@ -108,11 +109,11 @@ test("bootstrap delivers only allowed scripts to restricted users", () => {
   assert.equal("defaultStartEntry" in host.publicProfile(unrestrictedAccess), false);
 });
 
-test("besides the profile, the bootstrap names the RAgents version of the server, against which a UI checks its own", async (t) => {
+test("besides the profile, the bootstrap names the RAgents version of the server and the number of its extension interface", async (t) => {
   const host = exampleHost();
   const server = await startRpcServer(t, { methods: coreMethods(coreSources({}, { plugins: host, version: "0.1.8" })), accessFor: () => operator, local: false });
   const reply = await server.call(coreContracts.plugins.bootstrap.id, {});
-  assert.deepEqual(reply.result, { ...host.publicProfile(operator), version: "0.1.8", hostPackage: null });
+  assert.deepEqual(reply.result, { ...host.publicProfile(operator), version: "0.1.8", extensionApi: EXTENSION_API_VERSION, hostPackage: null });
 });
 
 test("the default template appears in the bootstrap only if the user may start it; an unknown one breaks the start", () => {

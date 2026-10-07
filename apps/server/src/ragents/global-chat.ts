@@ -13,7 +13,7 @@ export interface GlobalChatPolicy {
   preparationPrompt?: string;
   toolNames: readonly string[];
   workspaceDirectory: (runId: string) => string;
-  prepareWorkspace?: (directory: string) => Promise<void>;
+  prepareWorkspace?: (directory: string, signal?: AbortSignal) => Promise<void>;
   /** One file <runId>.json per coordinator, as long as its conversation reset is not complete. */
   resetIntentDirectory?: string;
   inputContext?: (runtime: Orchestration, runId: string, value: unknown) => Promise<readonly string[]>;
@@ -47,9 +47,9 @@ export interface RunManagement {
   list: (access?: AccessContext) => Promise<SessionInfo[]>;
   view: (runId: string) => RunView;
   events: (runId: string) => readonly JournalEvent[];
-  create: (start: ManagedRunStart) => Promise<string>;
+  create: (start: ManagedRunStart, signal?: AbortSignal) => Promise<string>;
   /** A message operates the run; the host checks the same access for it as for the chat. */
-  send: (runId: string, message: string, access: AccessContext) => Promise<void>;
+  send: (runId: string, message: string, access: AccessContext, signal?: AbortSignal) => Promise<void>;
   /** With an access, the host checks the same access as for the chat's stop; without one it is the run's own stop. */
   stop: (runId: string, access?: AccessContext) => Promise<void>;
   resetGlobal: (runId: string) => Promise<void>;

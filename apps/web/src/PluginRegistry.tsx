@@ -9,6 +9,7 @@ import {
   type ReactNode,
 } from "react";
 import { useAccess } from "./AccessContext";
+import { RenderBoundary } from "./RenderBoundary";
 import { unrestrictedAccess, type AccessContext } from "../../../packages/ragents/src/access";
 import { DETAIL_MODES, type ChatAttachmentInput, type DetailMode, type Message, type PendingAction, type ToolInfo, type ChatStartupStatus } from "quassel";
 import type { SessionInfo } from "./api";
@@ -691,7 +692,17 @@ const ActionRendererContext = createContext<(action: PendingAction, text: string
 
 export const useActionRenderer = () => useContext(ActionRendererContext);
 
-export function PluginSessionProviders({
+export function PluginSessionProviders(props: PropsWithChildren<{
+  navigation: SessionNavigation;
+  registry: PluginRegistry;
+  session: SessionContext;
+}>) {
+  return <RenderBoundary resetKeys={[props.registry, props.session.session.id]} title="The run could not be displayed">
+    <SessionProviders {...props} />
+  </RenderBoundary>;
+}
+
+function SessionProviders({
   children,
   navigation,
   registry,
@@ -711,7 +722,9 @@ export function PluginSessionProviders({
   }, [registry, session]);
   const content = registry.activePlugins.reduceRight<ReactNode>((content, plugin) => {
     if (!plugin.SessionProvider) return content;
-    return createElement(plugin.SessionProvider, { key: plugin.id, navigation, session }, content);
+    return <RenderBoundary key={plugin.id} resetKeys={[plugin.SessionProvider, session.session.id]} title={`Plugin ${plugin.id} could not be displayed`}>
+      {createElement(plugin.SessionProvider, { navigation, session }, content)}
+    </RenderBoundary>;
   }, children);
   return (
     <ToolRendererContext.Provider value={renderTool}>

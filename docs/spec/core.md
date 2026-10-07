@@ -1353,6 +1353,9 @@ presentation, and leave the original files in place. A generic scheduler availab
 prevents turns and tool validation for these runs, including when a lock takes effect during
 asynchronous turn preparation. Other runs continue normally. Repair and restart retry workspace
 resolution; a workstation's ordinary disconnected state is not a workspace failure.
+Caller cancellation during preparation also creates no workspace lock: the shared preparation
+stops only when no callers remain, clears its pending cache after cleanup, and can be retried
+without a host restart. An input already accepted by the run keeps its own execution lifetime.
 
 The original files of a rejected run stay byte-identical. A torn last line is repaired only after
 all complete v4 records have been checked successfully. An empty or unrecognizable journal is not

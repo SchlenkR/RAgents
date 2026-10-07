@@ -58,6 +58,52 @@ const withPage = async (query: string, width: number, run: (page: Page) => Promi
   } finally { await browser.close(); }
 };
 
+/** Waits for the measured header layout, then checks the actual controls and occupied rows. */
+const checkHeader = async (page: Page, header: Locator) => {
+  await page.evaluate(() => new Promise<void>((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve()))));
+  const bounds = await header.boundingBox();
+  assert.ok(bounds);
+  const buttons = await header.getByRole("button").all();
+  const rows: { top: number; bottom: number }[] = [];
+  const boxes: { x: number; y: number; width: number; height: number }[] = [];
+  for (const button of buttons) {
+    const box = await button.boundingBox();
+    assert.ok(box);
+    assert.ok(box.x >= bounds.x - 0.5 && box.x + box.width <= bounds.x + bounds.width + 0.5
+      && box.y >= bounds.y - 0.5 && box.y + box.height <= bounds.y + bounds.height + 0.5,
+      `Every direct control fits the header: ${JSON.stringify({ box, bounds })}`);
+    assert.equal(await button.evaluate((element) => {
+      const rect = element.getBoundingClientRect();
+      return [[rect.left + 2, rect.top + rect.height / 2], [rect.right - 2, rect.top + rect.height / 2], [rect.left + rect.width / 2, rect.top + 2], [rect.left + rect.width / 2, rect.bottom - 2]]
+        .every(([x, y]) => element.contains(document.elementFromPoint(x!, y!)));
+    }), true, "Every edge of a direct control can receive a physical click.");
+    for (const other of boxes) {
+      const overlapWidth = Math.min(box.x + box.width, other.x + other.width) - Math.max(box.x, other.x);
+      const overlapHeight = Math.min(box.y + box.height, other.y + other.height) - Math.max(box.y, other.y);
+      assert.ok(overlapWidth <= 0.5 || overlapHeight <= 0.5, "Header controls do not overlap.");
+    }
+    boxes.push(box);
+  }
+  for (const box of boxes.sort((first, second) => first.y - second.y)) {
+    const last = rows.at(-1);
+    if (last && box.y < last.bottom) last.bottom = Math.max(last.bottom, box.y + box.height);
+    else rows.push({ top: box.y, bottom: box.y + box.height });
+  }
+  for (let index = 1; index < rows.length; index++) {
+    assert.ok(rows[index]!.top - rows[index - 1]!.bottom <= 8.5, "Continuation rows have no empty vertical gap.");
+  }
+  const fixedRows = await header.locator("[data-header-fixed]").evaluateAll((elements) => elements.map((element) => {
+    const rect = element.getBoundingClientRect();
+    return { top: rect.top, bottom: rect.bottom };
+  }));
+  const occupied = [...rows, ...fixedRows];
+  assert.ok(Math.min(...occupied.map((row) => row.top)) - bounds.y <= 8.5
+    && bounds.y + bounds.height - Math.max(...occupied.map((row) => row.bottom)) <= 8.5,
+    "Header height follows its occupied fixed groups and continuation rows without spare rows.");
+  assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), false, "The header creates no horizontal overflow.");
+  return bounds;
+};
+
 const openStartSelection = async (page: Page) => {
   const back = page.getByRole("button", { name: "Back to Start", exact: true });
   if (await back.isVisible()) await back.click();
@@ -368,8 +414,10 @@ for (const host of ["browser", "vscode"] as const) {
           assert.ok(field && panel && chat && composer);
           const left = Math.max(8, Math.min(field.x, viewport.width - panel.width - 8));
           assert.ok(Math.abs(panel.x - left) < 1, `The chat aligns with its field, shifted only for viewport padding: ${JSON.stringify({ field, panel })}`);
-          assert.ok(Math.abs(panel.y - field.y - field.height - 8) < 1, "The chat opens directly below its field, including in a two-row header.");
-          assert.ok(panel.height >= viewport.height * 0.8, `The chat uses at least 80 percent of the viewport height: ${panel.height}/${viewport.height}`);
+          assert.ok(Math.abs(panel.y - field.y - field.height - 8) < 1, "The chat opens directly below its field, including in a wrapping header.");
+          const availableHeight = viewport.height - panel.y - 8;
+          const minimumHeight = Math.min(viewport.height * 0.8, availableHeight);
+          assert.ok(panel.height >= minimumHeight - 0.5, `The chat uses 80 percent of the viewport when its anchored space permits: ${panel.height}/${minimumHeight}`);
           assert.ok(panel.x >= 8 && panel.x + panel.width <= viewport.width - 8 && panel.y + panel.height <= viewport.height - 8 + 1, `The whole chat respects viewport padding: ${JSON.stringify({ panel, viewport })}`);
           assert.ok(Math.abs(panel.width - Math.min(800, viewport.width - 16)) < 1, "The chat keeps a readable width when its field is narrow.");
           assert.ok(Math.abs(chat.y + chat.height - panel.y - panel.height + 8) < 1, "The chat fills the panel down to its bottom padding.");
@@ -420,8 +468,7 @@ for (const host of ["browser", "vscode"] as const) {
       await history.waitFor({ state: "hidden" });
       await page.waitForFunction(() => document.activeElement?.textContent === "Global coordinator", undefined, { timeout: 2000 });
       assert.equal(await header.count(), 1);
-      const rect = await header.boundingBox();
-      assert.ok(rect && rect.height < 50, "the global header occupies a single row");
+      await checkHeader(page, header);
       const shots = join(tmpdir(), "ragents-browser-shots");
       await mkdir(shots, { recursive: true });
       await page.screenshot({ path: join(shots, `header-${host}-start.png`) });
@@ -469,6 +516,7 @@ for (const host of ["browser", "vscode"] as const) {
         assert.equal(await openChat.getAttribute("aria-pressed"), "true", "A shown view stays listed as pressed.");
         await page.getByRole("button", { name: "Close Chat", exact: true }).click();
         await page.setViewportSize({ width: 520, height: 820 });
+        await checkHeader(page, header);
         await visibleAction(openChat);
         await visibleAction(reset);
         await visibleAction(header.getByRole("button", { name: "Empty space", exact: true }));
@@ -479,15 +527,19 @@ for (const host of ["browser", "vscode"] as const) {
         await page.getByRole("tab", { name: "Chat", exact: true }).waitFor();
         assert.equal(await openChat.getAttribute("aria-pressed"), "true", "A narrow direct button restores Chat.");
         await page.setViewportSize({ width: 1280, height: 820 });
+        await checkHeader(page, header);
         await openChat.waitFor();
       } else {
         assert.equal(await header.getByRole("button", { name: "Reset layout", exact: true }).count(), 0);
       }
-      const wideHeader = await header.boundingBox();
+      const wideHeader = await checkHeader(page, header);
+      await coordinator.focus();
+      const focusedCoordinator = await coordinator.elementHandle();
       for (const width of [520, 320, 200]) {
         await page.setViewportSize({ width, height: 820 });
-        const narrowHeader = await header.boundingBox();
-        assert.ok(wideHeader && narrowHeader && narrowHeader.height > wideHeader.height, "Both hosts grow the header when its controls wrap.");
+        const narrowHeader = await checkHeader(page, header);
+        assert.equal(await coordinator.evaluate((element, original) => element === original && document.activeElement === element, focusedCoordinator), true, "Resizing retains the focused coordinator control.");
+        assert.ok(narrowHeader.height > wideHeader.height, "Both hosts grow the header when its controls wrap.");
         for (const button of await header.getByRole("button").all()) await visibleAction(button);
         assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), false, "The panel has no horizontal scroll.");
         const content = await page.locator("main").boundingBox();
@@ -495,8 +547,13 @@ for (const host of ["browser", "vscode"] as const) {
         await page.screenshot({ path: join(shots, `header-${host}-wrapped-${width}.png`) });
       }
       await page.setViewportSize({ width: 1280, height: 820 });
+      const restoredHeader = await checkHeader(page, header);
+      assert.ok(Math.abs(restoredHeader.height - wideHeader.height) < 1, "Widening removes the continuation rows again.");
+      assert.equal(await coordinator.evaluate((element, original) => element === original && document.activeElement === element, focusedCoordinator), true);
       await coordinator.click();
       await history.waitFor();
+      assert.equal(await draft.evaluate((element, original) => element === original, input), true);
+      assert.equal(await draft.inputValue(), "Unsent coordinator draft", "Resizing retains the coordinator draft.");
       await page.screenshot({ path: join(shots, `header-${host}-run-coordinator.png`) });
       await page.keyboard.press("Escape");
       await history.waitFor({ state: "hidden" });
@@ -535,38 +592,34 @@ for (const host of ["browser", "vscode"] as const) {
   });
 }
 
-test("the VS Code run header packs the global and the run controls into at most two gapless rows", browserOnly, async () => {
-  await withPage("view=panel&host=vscode&windows=1&coordinator=1", 700, async (page) => {
+test("the VS Code run header adds occupied continuation rows and removes them when widened", browserOnly, async () => {
+  await withPage("view=panel&host=vscode&windows=1&coordinator=1", 1280, async (page) => {
     await page.getByRole("list", { name: "Templates", exact: true }).waitFor();
     await page.evaluate(() => {
       window.startPageFixture.views.add("existing");
       window.startPageFixture.command({ type: "selectRun", runId: "existing" });
     });
     const header = page.locator("header").filter({ has: page.locator('[data-slot="overseer-toolbar"]') });
-    const rect = async (name: string) => {
-      const box = await header.getByRole("button", { name, exact: true }).boundingBox();
-      assert.ok(box, name);
-      return box;
-    };
     await header.getByRole("button", { name: "Run script", exact: true }).waitFor();
-    const [coordinator, settings, agents, share, script] = await Promise.all(["Global coordinator", "Settings", "Agents", "Share", "Run script"].map(rect));
-    const headerBox = await header.boundingBox();
-    assert.ok(headerBox && headerBox.height < 100, `two rows at most: ${headerBox?.height}`);
-    assert.ok(Math.abs(coordinator!.y + coordinator!.height / 2 - (settings!.y + settings!.height / 2)) < 4, "the coordinator shares its row with the global actions");
-    assert.ok(Math.abs(agents!.y + agents!.height / 2 - (script!.y + script!.height / 2)) < 4 && Math.abs(share!.y + share!.height / 2 - (script!.y + script!.height / 2)) < 4, "Agents, Share, and Run script share one row");
-    assert.ok(script!.y > settings!.y + settings!.height / 2, "the run controls form their own row below the global ones");
-    const rowEnd = await header.locator('[data-slot="overseer-toolbar"]').evaluate((element) => {
-      const next = element.closest("header")!.querySelector('[aria-label="Environment local"], [title="Environment local"]');
-      return next ? next.getBoundingClientRect().left - element.getBoundingClientRect().right : -1;
-    });
-    assert.ok(rowEnd >= 0 && rowEnd < 24, `the coordinator grows up to the global actions: ${rowEnd}`);
-    await page.setViewportSize({ width: 1280, height: 820 });
-    const wide = await header.boundingBox();
-    assert.ok(wide && wide.height < 50, "a wide VS Code panel keeps one row");
-    for (const name of ["Global coordinator", "Settings", "Agents", "Share", "Run script"]) {
-      const box = await rect(name);
-      assert.ok(box.y >= wide.y && box.y + box.height <= wide.y + wide.height, `${name} fits the single row`);
+    const apps = header.getByRole("group", { name: "Layout actions", exact: true });
+    assert.equal(await apps.getByRole("button").count(), 6, "All mini-app controls remain direct.");
+    const wide = await checkHeader(page, header);
+    const settings = header.getByRole("button", { name: "Settings", exact: true });
+    await settings.focus();
+    const original = await settings.elementHandle();
+    for (const width of [700, 320, 200]) {
+      await page.setViewportSize({ width, height: 820 });
+      const narrow = await checkHeader(page, header);
+      assert.ok(narrow.height > wide.height, `The controls add continuation rows at ${width}px.`);
+      assert.equal(await settings.evaluate((element, previous) => element === previous && document.activeElement === element, original), true,
+        "Packing controls retains their DOM identity and keyboard focus.");
+      assert.equal(await apps.getByRole("button").count(), 6);
+      assert.equal(await header.getByRole("button", { name: /^All windows/ }).count(), 0);
     }
+    await page.setViewportSize({ width: 1280, height: 820 });
+    const restored = await checkHeader(page, header);
+    assert.ok(Math.abs(restored.height - wide.height) < 1, "A wider panel removes the extra rows.");
+    assert.equal(await settings.evaluate((element, previous) => element === previous && document.activeElement === element, original), true);
   });
 });
 
@@ -577,19 +630,21 @@ test("a narrow VS Code panel keeps more than five mini-app buttons direct and op
       window.startPageFixture.views.add("existing");
       window.startPageFixture.command({ type: "selectRun", runId: "existing" });
     });
-    const apps = page.getByRole("navigation", { name: "Mini-apps of the run" });
+    const apps = page.getByRole("group", { name: "Layout actions", exact: true });
     await apps.waitFor();
     assert.deepEqual(await apps.getByRole("button").evaluateAll((buttons) => buttons.map((button) => button.getAttribute("aria-label"))),
       ["Notes", "Board", "Plan", "Map", "Log", "Preview"]);
+    const header = page.locator("header");
     for (const width of [320, 200]) {
       await page.setViewportSize({ width, height: 820 });
+      await checkHeader(page, header);
       const bounds = await apps.boundingBox();
       assert.ok(bounds);
       for (const button of await apps.getByRole("button").all()) {
         assert.equal(await button.isVisible(), true);
         const rect = await button.boundingBox();
-        assert.ok(rect && rect.x >= bounds.x && rect.x + rect.width <= bounds.x + bounds.width);
-        assert.ok(rect.y >= bounds.y && rect.y + rect.height <= bounds.y + bounds.height);
+        assert.ok(rect && rect.x >= bounds.x - 0.5 && rect.x + rect.width <= bounds.x + bounds.width + 0.5);
+        assert.ok(rect.y >= bounds.y - 0.5 && rect.y + rect.height <= bounds.y + bounds.height + 0.5);
         await button.click();
       }
       assert.ok(new Set(await apps.getByRole("button").evaluateAll((buttons) => buttons.map((button) => button.getBoundingClientRect().top))).size > 1);

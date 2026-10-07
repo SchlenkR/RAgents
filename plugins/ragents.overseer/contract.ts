@@ -74,6 +74,7 @@ export const overseerContracts = {
   }),
   createRun: defineOperation({
     id: "ragents.overseer.createRun",
+    timeoutMs: 75 * 60_000,
     description: "Create a run with a server-side ID and title. Exactly one start form: message, installed script (id or unique title), or packageDirectory (existing local run script package). input is only allowed with script/packageDirectory. options selects start options such as ragents.startOptions.select, each only with its own rights. sharing shares the run before its start like ragents.runs.share: everyone and individual users, each with read or write. The result waits for preparation, check, test and installation; accepted does not yet confirm a finished model result.",
     rights: ["runs.read", "runs.write", "runs.create"],
     input: createInput,
@@ -100,6 +101,7 @@ export const overseerContracts = {
   }),
   sendMessage: defineOperation({
     id: "ragents.overseer.sendMessage",
+    timeoutMs: 75 * 60_000,
     description: "Enqueue a chat message for the primary LLM actor; TypeScript as primary is rejected with actor-chat-unsupported. The result only confirms the enqueueing, neither processing nor completion. A running turn is not replaced by it.",
     rights: ["runs.read", "runs.write"],
     input: object({ run, message: text() }),

@@ -1,0 +1,28 @@
+{
+  "version": 1,
+  "contracts": {
+    "ragents.plugins.bootstrap": "ad866404b2ae58e6f786482803fefb02247b2b454c3d4fbf479383e3869a09e6",
+    "ragents.runs.list": "8d1e3fe6a58d999ee3a568d660d0f7046eb85a463f9686817d6e06cc43c3b531",
+    "ragents.runs.delete": "93f11a4d57642caa220a0dda9f9a21a53278a8e2ad47a70e95c4f3fb42b4144b",
+    "ragents.runs.sharing": "c516a56442fd6dc91248e5bbca380e2dcb6fc03ad62ce0c0abbcd89947bc0429",
+    "ragents.runs.share": "2539945c107f64cd9aa228f6ae7130f6e152eec8d92eed685aa6f70ea21614a4",
+    "ragents.runs": "01725d466922dd53dc1a36392f4206e741571caae0c851e6eb495417339b6668",
+    "ragents.run": "229556caa73a6d99292ee8849d99df89d56cd7ed644095c1d97bac17291f97b0",
+    "ragents.runs.events": "5a7b921a4a22cccd245b224e9cfe21285b36edb2dbf03d70831edea99eb1d235",
+    "ragents.profile.describe": "7001d8acbd71ad00f563179c5d8261c4a53e167642fb77c35b74e26df56c9963",
+    "ragents.processes.tunnel": "ab163e605f58bb485705df86a9bf63cf652834ce470cb0ee24b19bc1593ef80d",
+    "ragents.workspace.clients.contributions": "2022e1412eee224d7767c5544dd0151eab9737e3fceafaf60feccca38f338c67",
+    "ragents.workspace.clients.register": "3e152c7ffa500d8fd1ee0b90edd63d9795bb6c5a29136632b564b757cb2ad7b2",
+    "ragents.workspace.clients.unregister": "53a6a81af0cee9f645ca1e75c593bda65a54198960bb7f2a5c5f1e897acf9b2b",
+    "ragents.workspace.client.execute": "362780674f8c1d90ff51adb5b2ab40c9ccf12a684592b91fb41281354920c19f"
+  },
+  "files": {
+    "apps/web/src/run-panel/host-contract.ts": "6457def2628e585238845bbd5226528ea344eaf244655d1cc16372c0001a67db",
+    "packages/ragents/src/rpc/protocol.ts": "82bbcb8181a2f90708dc607922fef4a9d472cd82d6dede09324df778773699a6",
+    "apps/server/src/rpc/http-transport.ts": "106da64289a5c90e59b483285347156ac9eb54a08a03427c8aafb0a408ef4c8c",
+    "apps/server/src/access-session.ts": "315452c735d674baf0ee22e41f73ac7019fa058d55a4386b110b8a7a4d08589c",
+    "packages/ragents/src/access.ts": "59fd8368e099e4318b1ed303bffefd2fe7c26d0cfc420a4ad9ac84f9bce4d3dd",
+    "apps/server/src/host-package.ts": "079886247234519e193ef41b0cd7a76ef76ce9db33896b76447a24e936169034",
+    "packages/workspace-executor/src/processes/tunnel.ts": "b33548190f115bf6d33788b6fbf94a0ac78dd2bb87a3e693e60151506990eab1"
+  }
+}

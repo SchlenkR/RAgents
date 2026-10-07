@@ -19,24 +19,25 @@ export interface LanguageServerMethodOptions {
 }
 
 export const createLanguageServerSnapshotMethod = (options: LanguageServerMethodOptions): MethodContribution =>
-  implement(languageServerSnapshotContract(options.pluginId), async ({ runId }, { access }) => {
+  implement(languageServerSnapshotContract(options.pluginId), async ({ runId }, { access, signal }) => {
     options.ensureWorkspaceAccess(access, runId);
-    return await options.sandbox.execute(runId, languageServerSnapshotOperation(options.adapterId), null) as LanguageServerSnapshot;
+    return await options.sandbox.execute(runId, languageServerSnapshotOperation(options.adapterId), null, { signal }) as LanguageServerSnapshot;
   });
 
 export const createLanguageServerSolutionMethods = (options: LanguageServerMethodOptions): MethodContribution[] => {
-  const solutions = async (runId: string): Promise<LanguageServerSolutions> =>
-    await options.sandbox.execute(runId, languageServerSolutionsOperation(options.adapterId), null) as LanguageServerSolutions;
+  const solutions = async (runId: string, signal: AbortSignal): Promise<LanguageServerSolutions> =>
+    await options.sandbox.execute(runId, languageServerSolutionsOperation(options.adapterId), null, { signal }) as LanguageServerSolutions;
   return [
-    implement(languageServerSolutionsContract(options.pluginId), async ({ runId }, { access }) => {
+    implement(languageServerSolutionsContract(options.pluginId), async ({ runId }, { access, signal }) => {
       options.ensureWorkspaceAccess(access, runId);
-      return await solutions(runId);
+      return await solutions(runId, signal);
     }),
-    implement(languageServerSwitchContract(options.pluginId), async ({ runId, root }, { access }) => {
+    implement(languageServerSwitchContract(options.pluginId), async ({ runId, root }, { access, signal }) => {
       options.ensureWorkspaceAccess(access, runId);
-      await options.sandbox.execute(runId, languageServerSwitchOperation(options.adapterId), { root });
+      await options.sandbox.execute(runId, languageServerSwitchOperation(options.adapterId), { root }, { signal });
+      signal.throwIfAborted();
       if (root !== null) options.opened(runId);
-      return await solutions(runId);
+      return await solutions(runId, signal);
     }),
   ];
 };

@@ -418,6 +418,9 @@ Drag a button between the sidebar rail and header to choose where it lives, or r
 and choose "Move to header" or "Move to sidebar". Shift+F10 opens the same menu from the keyboard.
 Moving a button keeps its panel's open state; "Reset layout" restores the plugin defaults.
 
+When step details are enabled, click a thinking or tool step to open its popup. Long traces
+scroll inside it; the heading and close button stay visible within the available screen space.
+
 In VS Code, clicking an app opens or focuses its editor tab. VS Code controls where that tab
 appears. Questions and news stay in chat. The selector below the input chooses the addressee;
 the run coordinator is selected by default.

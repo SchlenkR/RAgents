@@ -49,7 +49,7 @@ export const hostApi: { readonly server: HostApiModules; readonly web: HostApiMo
     "@ragents/host/plugin-support/actor-programs/tailwind": ["buildTailwind"],
     "@ragents/host/plugin-support/actor-programs/workflow/prompt-reader": ["createPromptReader"],
     "@ragents/host/plugin-support/agent-tool": ["toolDescriptorFrom"],
-    "@ragents/host/plugin-support/await-with-signal": ["awaitWithSignal"],
+    "@ragents/host/plugin-support/await-with-signal": ["awaitWithSignal", "sharedPreparation"],
     "@ragents/host/plugin-support/chat-display-policy": [
       "chatDisplayEnvDescriptors", "chatDisplayPolicyFromEnvironment",
     ],

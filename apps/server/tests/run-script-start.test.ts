@@ -45,9 +45,10 @@ const packageOf = (overrides: Partial<RunScriptPackage> = {}, entry: Partial<Run
 });
 
 const createFixture = (runId: string, packages: readonly RunScriptStart[], controls: {
-  prepare?: () => Promise<void>;
-  prepareWorkspace?: () => Promise<void>;
+  prepare?: (signal?: AbortSignal) => Promise<void>;
+  prepareWorkspace?: (signal?: AbortSignal) => Promise<void>;
   importPackage?: (signal?: AbortSignal) => Promise<void>;
+  started?: (signal?: AbortSignal) => Promise<void>;
 } = {}) => {
   const services = testServices();
   const journal = new Journal(":memory:", services);
@@ -106,11 +107,12 @@ const createFixture = (runId: string, packages: readonly RunScriptStart[], contr
     },
     prompt: () => "Coordinator prompt",
     assertUsable: () => undefined,
-    prepare: async () => controls.prepare?.(),
-    prepareWorkspace: async () => controls.prepareWorkspace?.(),
-    started: async (_id, entry) => {
+    prepare: async (_id, _emitSystem, signal) => controls.prepare?.(signal),
+    prepareWorkspace: async (_id, _emitSystem, signal) => controls.prepareWorkspace?.(signal),
+    started: async (_id, entry, signal) => {
       const state = journal.stateOf(runId);
       starts.push({entry, actors: [...state?.actors.values() ?? []].filter((actor) => actor.kind !== "human").length, inputs: state?.inputs.size ?? 0});
+      await controls.started?.(signal);
     },
     scriptEntryFor: (entryId) => packages.find((candidate) => candidate.entry.id === entryId),
     startEntryFor: () => undefined,
@@ -253,7 +255,7 @@ test("startup failures retain the actual cause for replay and retries replace th
 test("stop clears the loader while tracking unfinished preparation and never enqueues late inputs", async (t) => {
   for (const stage of ["prepare", "prepareWorkspace", "importPackage"] as const) await t.test(stage, async (t) => {
     const blocked = phase();
-    const f = createFixture(`startup-stop-${stage.toLowerCase()}`, [packageOf()], { [stage]: blocked.wait });
+    const f = createFixture(`startup-stop-${stage.toLowerCase()}`, [packageOf()], { [stage]: stage === "importPackage" ? blocked.wait : () => blocked.wait() });
     t.after(async () => { blocked.release(); await f.session.drain(); f.journal.close(); rmSync(f.files, { recursive: true, force: true }); });
     const pending = f.session.startAndWait("test.example", null);
     const rejected = assert.rejects(pending, /start was cancelled/);
@@ -284,7 +286,7 @@ test("stop clears the loader while tracking unfinished preparation and never enq
 test("dispose and history reset cancel preparation without replaying a stale startup", async (t) => {
   for (const reset of [false, true]) await t.test(reset ? "reset" : "dispose", async (t) => {
     const blocked = phase();
-    const f = createFixture(`startup-clear-${reset}`, [packageOf()], { prepare: blocked.wait });
+    const f = createFixture(`startup-clear-${reset}`, [packageOf()], { prepare: () => blocked.wait() });
     t.after(async () => { blocked.release(); await f.session.drain(); f.journal.close(); rmSync(f.files, { recursive: true, force: true }); });
     const rejected = assert.rejects(f.session.startAndWait("test.example", null), /deleted|reset/);
     await blocked.entered;
@@ -489,4 +491,141 @@ test("bundled actor packages go to the installation together with the setup befo
     assert.equal(fixture.runtime.view(runId).inputs.length, 1);
     assert.deepEqual(fixture.imports.map((entry) => [entry.name, entry.programs]), [["example", ["shared-list"]]]);
   } finally {fixture.journal.close(); rmSync(fixture.files, {recursive: true, force: true});}
+});
+
+for (const phaseName of ["prepare", "prepareWorkspace", "importPackage", "started"] as const) {
+  test(`RPC script starts cancel during ${phaseName} and can be retried without accepting input`, async (t) => {
+    const preparation = phase();
+    let pause = true;
+    let preparationSignal: AbortSignal | undefined;
+    const f = createFixture(`rpc-cancel-${phaseName.toLowerCase()}`, [packageOf({coordinator: false})], {
+      [phaseName]: (signal?: AbortSignal) => {
+        preparationSignal = signal;
+        return pause ? preparation.wait(signal) : Promise.resolve();
+      },
+    });
+    t.after(async () => { preparation.release(); await f.session.drain(); f.journal.close(); rmSync(f.files, {recursive: true, force: true}); });
+    const method = coreMethods(coreSources({get: async () => f.session})).find((entry) => entry.contract.id === coreContracts.runs.startScript.id)!;
+    const caller = new AbortController();
+    const pending = method.execute({runId: f.session.id, entry: "test.example", input: null}, {...methodContext(), signal: caller.signal});
+    const cancelled = assert.rejects(pending, /cancelled|disconnected/);
+    await preparation.entered;
+    assert.ok(preparationSignal);
+    caller.abort(new Error("Request disconnected"));
+    await cancelled;
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    assert.equal(preparationSignal.aborted, true);
+    assert.equal(f.journal.stateOf(f.session.id)?.inputs.size ?? 0, 0);
+    assert.equal(f.imports.length, phaseName === "started" ? 1 : 0);
+    if (phaseName === "started") {
+      assert.ok(f.runtime.view(f.session.id).primaryActorId, "the lifecycle hook sees the installed primary actor");
+      assert.equal(f.starts.length, 1);
+    }
+    pause = false;
+    await method.execute({runId: f.session.id, entry: "test.example", input: null}, methodContext());
+    assert.equal(f.journal.stateOf(f.session.id)?.inputs.size, 1);
+    assert.equal(f.imports.length, 1);
+    if (phaseName === "started") {
+      assert.equal(f.starts.length, 2, "the cancelled lifecycle must run again before accepting the retry");
+      assert.ok(f.starts.every((start) => start.inputs === 0));
+    }
+  });
+}
+
+for (const directed of [false, true]) test(`a ${directed ? "directed " : ""}chat retry completes cancelled initial lifecycle readiness before accepting input`, async (t) => {
+  const lifecycle = phase();
+  let pause = true;
+  const f = createFixture("cancelled-chat-lifecycle", [], {started: (signal) => pause ? lifecycle.wait(signal) : Promise.resolve()});
+  t.after(async () => { lifecycle.release(); await f.session.drain(); f.journal.close(); rmSync(f.files, {recursive: true, force: true}); });
+  const method = coreMethods(coreSources({get: async () => f.session})).find((entry) => entry.contract.id === coreContracts.chat.send.id)!;
+  const caller = new AbortController();
+  const pending = method.execute({runId: f.session.id, text: "Cancelled first message"}, {...methodContext(), signal: caller.signal});
+  const cancelled = assert.rejects(pending, /disconnected/);
+  await lifecycle.entered;
+  const primary = f.runtime.view(f.session.id).primaryActorId;
+  assert.ok(primary);
+  caller.abort(new Error("Request disconnected"));
+  await cancelled;
+  await new Promise((resolve) => setTimeout(resolve, 0));
+  assert.equal(f.runtime.view(f.session.id).inputs.length, 0);
+  pause = false;
+  if (directed) {
+    const directedMethod = coreMethods(coreSources({get: async () => f.session})).find((entry) => entry.contract.id === coreContracts.chat.sendToActor.id)!;
+    await directedMethod.execute({runId: f.session.id, actorId: primary, text: "Accepted retry"}, methodContext());
+  } else await method.execute({runId: f.session.id, text: "Accepted retry"}, methodContext());
+  assert.equal(f.starts.length, 2, "materializing a primary actor must not skip cancelled lifecycle work");
+  assert.ok(f.starts.every((start) => start.inputs === 0));
+  assert.equal(f.runtime.view(f.session.id).primaryActorId, primary);
+  assert.deepEqual(f.runtime.view(f.session.id).inputs.map((input) => input.content), ["Accepted retry"]);
+});
+
+test("a cancelled initial script never accepts setup input when a chat sender keeps lifecycle readiness alive", async (t) => {
+  const lifecycle = phase();
+  let lifecycleSignal: AbortSignal | undefined;
+  const f = createFixture("shared-script-lifecycle", [packageOf()], {started: (signal) => {
+    lifecycleSignal = signal;
+    return lifecycle.wait(signal);
+  }});
+  t.after(async () => { lifecycle.release(); await f.session.drain(); f.journal.close(); rmSync(f.files, {recursive: true, force: true}); });
+  const caller = new AbortController();
+  const first = f.session.startAndWait("test.example", {cancelled: true}, undefined, undefined, caller.signal);
+  const cancelled = assert.rejects(first, /disconnected/);
+  await lifecycle.entered;
+  const second = f.session.send("Accepted chat message");
+  await new Promise((resolve) => setTimeout(resolve, 0));
+  caller.abort(new Error("Request disconnected"));
+  await cancelled;
+  assert.equal(lifecycleSignal?.aborted, false);
+  lifecycle.release();
+  await second;
+  assert.deepEqual(f.runtime.view(f.session.id).inputs.map((input) => input.content), ["Accepted chat message"]);
+  assert.equal(f.starts.length, 1);
+});
+
+test("a cancelled chat sender leaves shared run readiness available to another sender", async (t) => {
+  const workspace = phase();
+  let workspaceSignal: AbortSignal | undefined;
+  const f = createFixture("shared-readiness", [], {prepareWorkspace: (signal) => { workspaceSignal = signal; return workspace.wait(signal); }});
+  t.after(async () => { workspace.release(); await f.session.drain(); f.journal.close(); rmSync(f.files, {recursive: true, force: true}); });
+  const method = coreMethods(coreSources({get: async () => f.session})).find((entry) => entry.contract.id === coreContracts.chat.send.id)!;
+  const caller = new AbortController();
+  const first = method.execute({runId: f.session.id, text: "Cancelled message"}, {...methodContext(), signal: caller.signal});
+  const cancelled = assert.rejects(first, /disconnected/);
+  await workspace.entered;
+  const second = method.execute({runId: f.session.id, text: "Accepted message"}, methodContext());
+  await new Promise((resolve) => setTimeout(resolve, 0));
+  caller.abort(new Error("Request disconnected"));
+  await cancelled;
+  assert.equal(workspaceSignal?.aborted, false, "the other sender still owns a readiness lease");
+  workspace.release();
+  await second;
+  assert.deepEqual([...f.journal.stateOf(f.session.id)!.inputs.values()].map((input) => input.content), ["Accepted message"]);
+  assert.equal(workspaceSignal?.aborted, false, "completed readiness belongs to the accepted run");
+});
+
+test("cancelled directed messages never enqueue after their workspace check completes", async (t) => {
+  const workspace = phase();
+  let pause = false;
+  let workspaceSignal: AbortSignal | undefined;
+  const f = createFixture("directed-readiness", [], {prepareWorkspace: (signal) => {
+    workspaceSignal = signal;
+    return pause ? workspace.wait(signal) : Promise.resolve();
+  }});
+  t.after(async () => { workspace.release(); await f.session.drain(); f.journal.close(); rmSync(f.files, {recursive: true, force: true}); });
+  await f.session.send("Accepted first message");
+  const actorId = f.runtime.view(f.session.id).primaryActorId!;
+  const method = coreMethods(coreSources({get: async () => f.session})).find((entry) => entry.contract.id === coreContracts.chat.sendToActor.id)!;
+  pause = true;
+  const caller = new AbortController();
+  const pending = method.execute({runId: f.session.id, actorId, text: "Cancelled directed message"}, {...methodContext(), signal: caller.signal});
+  const cancelled = assert.rejects(pending, /disconnected/);
+  await workspace.entered;
+  assert.equal(workspaceSignal, caller.signal);
+  caller.abort(new Error("Request disconnected"));
+  await cancelled;
+  workspace.release();
+  assert.deepEqual(f.runtime.view(f.session.id).inputs.map((input) => input.content), ["Accepted first message"]);
+  pause = false;
+  await method.execute({runId: f.session.id, actorId, text: "Accepted directed message"}, methodContext());
+  assert.equal(f.runtime.view(f.session.id).inputs.length, 2);
 });

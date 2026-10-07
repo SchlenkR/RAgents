@@ -57,62 +57,81 @@ export function FileBrowserPanel({ active, session }: WorkspaceTabContext) {
   const reachable = workspaceAccessible(session.session);
   const roots: readonly BrowseRoot[] = reachable ? BROWSE_ROOTS : ["files"];
   const [chosenRoot, setRoot] = useState<BrowseRoot>("workspace");
-  const root: BrowseRoot = reachable ? chosenRoot : "files";
-  const stateKey = `${runId}|${root}`;
-  const [listings, setListings] = useState<ReadonlyMap<string, BrowseListing>>(() => new Map());
-  const [expanded, setExpanded] = useState<ReadonlySet<string>>(() => new Set());
-  const [selected, setSelected] = useState<string | undefined>();
-  const [preview, setPreview] = useState<BrowsePreview>();
-  const [error, setError] = useState<string>();
-  const [pending, setPending] = useState(false);
-  const [reload, setReload] = useState(0);
   const [showHidden, setShowHidden] = useState(false);
+  const root: BrowseRoot = reachable ? chosenRoot : "files";
+  return <RootBrowser key={JSON.stringify([runId, root])} active={active} runId={runId} root={root}
+    roots={roots} setRoot={setRoot} memory={treeMemory.current} showHidden={showHidden} setShowHidden={setShowHidden} />;
+}
 
-  const expandedRef = useRef(expanded);
-  expandedRef.current = expanded;
+function RootBrowser({ active, runId, root, roots, setRoot, memory, showHidden, setShowHidden }: {
+  active: boolean;
+  runId: string;
+  root: BrowseRoot;
+  roots: readonly BrowseRoot[];
+  setRoot: (root: BrowseRoot) => void;
+  memory: Map<string, BrowserMemory>;
+  showHidden: boolean;
+  setShowHidden: (showHidden: boolean) => void;
+}) {
+  const stateKey = JSON.stringify([runId, root]);
+  const saved = memory.get(stateKey);
+  const [listings, setListings] = useState<ReadonlyMap<string, BrowseListing>>(() => new Map());
+  const [expanded, setExpanded] = useState<ReadonlySet<string>>(() => saved?.expanded ?? new Set());
+  const [selected, setSelected] = useState<string | undefined>(saved?.selected);
+  const [preview, setPreview] = useState<BrowsePreview>();
+  const [listingError, setListingError] = useState<string>();
+  const [previewError, setPreviewError] = useState<string>();
+  const [listingPending, setListingPending] = useState(false);
+  const [previewPending, setPreviewPending] = useState(false);
+  const [reload, setReload] = useState(0);
+  const pending = listingPending || previewPending;
+  const error = previewError ?? listingError;
 
-  const keyRef = useRef(stateKey);
   useEffect(() => {
-    if (keyRef.current === stateKey) return;
-    keyRef.current = stateKey;
-    const saved = treeMemory.current.get(stateKey);
-    setListings(new Map());
-    setExpanded(saved?.expanded ?? new Set());
-    setSelected(saved?.selected);
-    setPreview(undefined);
-    setError(undefined);
-  }, [stateKey]);
-
-  useEffect(() => {
-    treeMemory.current.set(stateKey, { expanded, selected });
-  }, [expanded, root, runId, selected, stateKey]);
+    memory.set(stateKey, { expanded, selected });
+  }, [expanded, memory, selected, stateKey]);
 
   useEffect(() => {
     if (!active || selected === undefined || preview !== undefined) return;
     let alive = true;
-    void fetchBrowsePreview(runId, root, selected)
-      .then((value) => alive && setPreview(value))
-      .catch(() => alive && setSelected(undefined));
+    const controller = new AbortController();
+    setPreviewPending(true);
+    setPreviewError(undefined);
+    void fetchBrowsePreview(runId, root, selected, controller.signal)
+      .then((value) => {
+        if (alive) {
+          setPreview(value);
+          setPreviewPending(false);
+        }
+      })
+      .catch((cause: unknown) => {
+        if (alive) {
+          setPreviewError(messageOf(cause));
+          setPreviewPending(false);
+        }
+      });
     return () => {
       alive = false;
+      controller.abort();
     };
-  }, [active, preview, root, runId, selected]);
+  }, [active, preview, reload, root, runId, selected]);
 
   useEffect(() => {
     if (!active) return;
     let alive = true;
+    const controller = new AbortController();
     let timer: number | undefined;
     let busy = false;
 
     const load = async (visible: boolean) => {
       if (busy) return;
       busy = true;
-      if (visible) setPending(true);
+      if (visible) setListingPending(true);
       try {
-        const targets = ["", ...expandedRef.current];
+        const targets = ["", ...expanded];
         const results = await Promise.all(targets.map(async (directory) => ({
           directory,
-          listing: await fetchBrowseListing(runId, root, directory).catch((cause: unknown) =>
+          listing: await fetchBrowseListing(runId, root, directory, controller.signal).catch((cause: unknown) =>
             directory === "" ? Promise.reject(cause) : null),
         })));
         if (!alive) return;
@@ -124,13 +143,13 @@ export function FileBrowserPanel({ active, session }: WorkspaceTabContext) {
           setExpanded((current) => new Set([...current].filter((directory) =>
             !gone.some((missing) => directory === missing || directory.startsWith(`${missing}/`)))));
         }
-        setError(undefined);
+        setListingError(undefined);
       } catch (cause) {
-        if (alive) setError(messageOf(cause));
+        if (alive) setListingError(messageOf(cause));
       } finally {
         busy = false;
         if (alive) {
-          if (visible) setPending(false);
+          if (visible) setListingPending(false);
           if (timer !== undefined) window.clearTimeout(timer);
           timer = window.setTimeout(() => void load(false), 30000);
         }
@@ -141,10 +160,11 @@ export function FileBrowserPanel({ active, session }: WorkspaceTabContext) {
     void load(true);
     return () => {
       alive = false;
+      controller.abort();
       unsubscribe();
       if (timer !== undefined) window.clearTimeout(timer);
     };
-  }, [active, reload, root, runId]);
+  }, [active, expanded, reload, root, runId]);
 
   const toggleDirectory = (directory: string) => {
     setExpanded((current) => {
@@ -153,28 +173,13 @@ export function FileBrowserPanel({ active, session }: WorkspaceTabContext) {
       else next.add(directory);
       return next;
     });
-    if (listings.has(directory)) return;
-    setPending(true);
-    void fetchBrowseListing(runId, root, directory)
-      .then((listing) => {
-        setListings((current) => new Map(current).set(directory, listing));
-        setError(undefined);
-      })
-      .catch((cause: unknown) => setError(messageOf(cause)))
-      .finally(() => setPending(false));
   };
 
   const openFile = (file: string) => {
+    if (selected === file) return;
     setSelected(file);
     setPreview(undefined);
-    setPending(true);
-    void fetchBrowsePreview(runId, root, file)
-      .then((value) => {
-        setPreview(value);
-        setError(undefined);
-      })
-      .catch((cause: unknown) => setError(messageOf(cause)))
-      .finally(() => setPending(false));
+    setPreviewError(undefined);
   };
 
   const renderLevel = (directory: string, depth: number): ReactNode => {
@@ -239,7 +244,7 @@ export function FileBrowserPanel({ active, session }: WorkspaceTabContext) {
           >
             {showHidden ? <Eye size={15} strokeWidth={1.8} /> : <EyeOff size={15} strokeWidth={1.8} />}
           </Toggle>
-          <Button aria-label="Refresh files" onClick={() => setReload((value) => value + 1)} size="icon" title="Refresh" variant="ghost">
+          <Button aria-label="Refresh files" onClick={() => { setPreview(undefined); setReload((value) => value + 1); }} size="icon" title="Refresh" variant="ghost">
             <RefreshCw className={pending ? "animate-spin" : undefined} size={15} strokeWidth={1.8} />
           </Button>
         </div>
@@ -263,6 +268,7 @@ export function FileBrowserPanel({ active, session }: WorkspaceTabContext) {
       {selected && (
         <div className="flex min-h-0 flex-1 flex-col border-t border-border-soft">
           <div className="truncate px-2.5 py-1.5 font-mono text-[0.66rem] text-muted-foreground" title={selected}>{selected}</div>
+          {previewPending && <div className="px-2.5 pb-2 text-[0.68rem] text-muted-foreground" role="status">Loading preview...</div>}
           {preview && !preview.previewable && <div className="px-2.5 pb-2 text-[0.68rem] text-muted-foreground">{preview.reason}</div>}
           {preview && preview.previewable && (
             <div className="min-h-0 flex-1 overflow-auto">

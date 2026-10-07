@@ -5,6 +5,7 @@ import path from "node:path";
 import test from "node:test";
 import { createAccessContext, DomainError, pluginStateKey, type MethodConnection, type Orchestration, type PluginContext, type RunState } from "@ragents/engine";
 import { WORKSPACE_EXECUTOR_VERSION } from "@ragents/workspace-executor";
+import { awaitWithSignal } from "../src/plugin-support/await-with-signal.ts";
 
 import { WORKSPACE_BINDING_OPTION_ID, type WorkspaceBinding } from "../../../plugins/ragents.workspace/contract.ts";
 import { workspaceBindingOption } from "../../../plugins/ragents.workspace/server/binding.ts";
@@ -30,7 +31,7 @@ interface WorkstationConnection extends MethodConnection {
   end: () => void;
 }
 
-type WorkstationAnswer = (call: WorkstationCall) => unknown;
+type WorkstationAnswer = (call: WorkstationCall, signal?: AbortSignal) => unknown;
 
 const toolAnswer: WorkstationAnswer = ({ operation }) => ({ content: [{ type: "text", text: `${operation} done` }] });
 
@@ -41,10 +42,10 @@ const workstationConnection = (calls: WorkstationCall[], userId: string | null =
     id: `connection-${userId}`,
     userId,
     streamless: false,
-    call: async (_contract: unknown, input: unknown) => {
+    call: async (_contract: unknown, input: unknown, options?: {signal?: AbortSignal}) => {
       const { operation, cwd, input: payload } = input as WorkstationCall;
       calls.push({ operation, cwd, ...(payload === undefined || payload === null ? {} : { input: payload }) });
-      return { value: await answer({ operation, cwd, input: payload }) };
+      return { value: await answer({ operation, cwd, input: payload }, options?.signal) };
     },
     onClose: (listener: () => void) => {
       listeners.add(listener);
@@ -823,3 +824,46 @@ const mkdtempInside = async (root: string, name: string): Promise<void> => {
   const { mkdir } = await import("node:fs/promises");
   await mkdir(path.join(root, name), { recursive: true });
 };
+
+test("workstation preparation forwards cancellation, cleans the fresh folder and lets a later request retry", async () => {
+  const calls: WorkstationCall[] = [];
+  const entered = Promise.withResolvers<void>();
+  const release = Promise.withResolvers<void>();
+  let preparationSignal: AbortSignal | undefined;
+  let pause = true;
+  const clients = new WorkspaceClientRegistry([]);
+  await clients.register(CLIENT, {label: "Laptop", hostname: "laptop", platform: "linux", folders: [], runsDirectory: RUNS, ripgrep: false},
+    WORKSPACE_EXECUTOR_VERSION, [], workstationConnection(calls, "example", (call, signal) => {
+      if (call.operation === "runFolder.create") return {created: true};
+      if (call.operation === "commands.run") {
+        preparationSignal = signal;
+        entered.resolve();
+        if (pause) return awaitWithSignal(release.promise, signal);
+      }
+      return toolAnswer(call);
+    }));
+  const resolver: WorkspaceResolver = {
+    kind: {id: "example.prepared", label: "Prepared folder", serverFolders: false},
+    workstation: {label: "Prepared folder", prepare: () => [{operation: "commands.run", input: {program: "git", args: ["status"], timeoutMs: 60_000}}]},
+    resolve: () => Promise.reject(new Error("Unexpected server preparation")),
+  };
+  const state = runStateWith(WORKSPACE_BINDING_OPTION_ID, onLaptop({path: `${RUNS}/remote`, fresh: true}), "example");
+  const {runtime, remove} = await fixture({clients, resolver: () => resolver, runState: () => state});
+  try {
+    const caller = new AbortController();
+    const pending = runtime.sandbox.execute("remote", "read", {file_path: "file.txt"}, {signal: caller.signal});
+    const cancelled = assert.rejects(pending, /disconnected/);
+    await entered.promise;
+    assert.ok(preparationSignal);
+    caller.abort(new Error("Request disconnected"));
+    await cancelled;
+    pause = false;
+    assert.equal(textOf(await runtime.sandbox.execute("remote", "read", {file_path: "file.txt"})), "read done");
+    assert.equal(preparationSignal.aborted, false, "the retry owns a fresh signal");
+    assert.deepEqual(calls.map((call) => call.operation), ["runFolder.create", "commands.run", "runFolder.remove", "runFolder.create", "commands.run", "read"]);
+  } finally {
+    release.resolve();
+    await runtime.shutdown();
+    await remove();
+  }
+});

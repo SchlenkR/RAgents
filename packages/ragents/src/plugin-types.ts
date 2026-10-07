@@ -349,6 +349,7 @@ export interface ActorRuntimeContribution {
 
 export interface SessionLifecycleContext {
   runId: string;
+  signal?: AbortSignal;
 }
 
 export interface SessionStopContext extends SessionLifecycleContext {

@@ -16,3 +16,25 @@ export const awaitWithSignal = <T>(operation: Promise<T>, signal?: AbortSignal):
     );
   });
 };
+
+export const sharedPreparation = <T>(work: (signal: AbortSignal) => Promise<T>) => {
+  const controller = new AbortController();
+  const waiters = new Set<symbol>();
+  let pending = true;
+  const promise = Promise.resolve().then(() => work(controller.signal)).finally(() => { pending = false; });
+  return {
+    promise,
+    signal: controller.signal,
+    async wait(signal?: AbortSignal): Promise<T> {
+      signal?.throwIfAborted();
+      const waiter = Symbol();
+      waiters.add(waiter);
+      try {
+        return await awaitWithSignal(promise, signal);
+      } finally {
+        waiters.delete(waiter);
+        if (pending && waiters.size === 0) controller.abort(new Error("The workspace preparation was cancelled."));
+      }
+    },
+  };
+};

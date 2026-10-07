@@ -45,6 +45,14 @@ interface ActorViewFrameProps {
   session: SessionContext;
 }
 
+interface FrameLifecycle {
+  frame: HTMLIFrameElement;
+  url: string;
+  resume: () => void;
+  suspend: () => void;
+  dispose: () => void;
+}
+
 const ACTIVE_STATUSES = new Set(["queued", "running"]);
 const REQUEST_ID_HISTORY_LIMIT = 512;
 const RUNNING_CHIP_DELAY_MS = 400;
@@ -80,11 +88,14 @@ export function ActorViewFrame({
   writableRef.current = access.can("runs.write");
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const portRef = useRef<MessagePort | undefined>(undefined);
+  const frameLifecycleRef = useRef<FrameLifecycle | undefined>(undefined);
   const bridgeGenerationRef = useRef(0);
   const bridgeConnectedRef = useRef(false);
   const appRef = useRef(app);
   const sessionRef = useRef(session);
   sessionRef.current = session;
+  const invokeRef = useRef(invoke);
+  invokeRef.current = invoke;
   const watchedChats = useRef(new Map<string, string>());
   const chatCapabilities = useRef(new Map<string, { result?: Pick<ChatSnapshot, "attachmentCapabilities" | "attachmentCapabilitiesError">; pending: Promise<Pick<ChatSnapshot, "attachmentCapabilities" | "attachmentCapabilitiesError">> }>());
   const recentRequestIdsRef = useRef(new Set<string>());
@@ -163,7 +174,7 @@ export function ActorViewFrame({
     setSubmitting((current) => [...current, request.requestId]);
     try {
       if (!writableRef.current) throw new Error("You have read-only access to this actor view.");
-      const invocation = await invoke(
+      const invocation = await invokeRef.current(
         installedApp.id,
         installedApp.revision,
         request.actionId,
@@ -188,7 +199,7 @@ export function ActorViewFrame({
         setSubmitting((current) => current.filter((requestId) => requestId !== request.requestId));
       }
     }
-  }, [invoke, postError]);
+  }, [postError]);
 
   const sendState = useCallback((port: MessagePort, requestId?: string) => {
     const current = appRef.current;
@@ -318,17 +329,39 @@ export function ActorViewFrame({
   useLayoutEffect(() => {
     const frame = iframeRef.current;
     if (!frame) return;
+    const retained = frameLifecycleRef.current;
+    if (retained?.frame === frame && retained.url === frameUrl) {
+      retained.resume();
+      return retained.suspend;
+    }
+    retained?.dispose();
     closeBridge();
     setActionError(undefined);
     setFrameError(undefined);
     const installedApp = appRef.current;
     let initialLoaded = false;
+    let disposed = false;
+    let active = true;
+    let navigated = false;
+    let timeout: number | undefined;
     let pendingPort: MessagePort | undefined;
+    const clearTimeout = () => {
+      window.clearTimeout(timeout);
+      timeout = undefined;
+    };
+    const awaitConnection = () => {
+      clearTimeout();
+      if (!active || !initialLoaded || navigated || bridgeConnectedRef.current) return;
+      timeout = window.setTimeout(() => {
+        if (!disposed && !bridgeConnectedRef.current) setFrameError("The app did not open a valid host bridge.");
+      }, 5_000);
+    };
     const connect = (port: MessagePort) => {
       if (initialLoaded) attachBridge(port, installedApp);
       else pendingPort = port;
     };
     const receiveReady = (event: MessageEvent<unknown>) => {
+      if (disposed || navigated) return;
       const data = event.data as { type?: unknown; version?: unknown; token?: unknown; keyboard?: unknown } | null;
       if (event.source === frame.contentWindow && event.origin === "null"
         && data?.type === "ragents.app.escape" && data.version === RUN_APP_BRIDGE_VERSION
@@ -349,6 +382,7 @@ export function ActorViewFrame({
       connect(event.ports[0]!);
     };
     const handleLoad = () => {
+      if (disposed) return;
       if (!initialLoaded) {
         initialLoaded = true;
         if (pendingPort) {
@@ -356,26 +390,45 @@ export function ActorViewFrame({
           pendingPort = undefined;
           attachBridge(port, installedApp);
         }
+        awaitConnection();
         return;
       }
+      navigated = true;
+      clearTimeout();
       pendingPort?.close();
       pendingPort = undefined;
       closeBridge();
       setFrameError("The app left its installed page and was disconnected.");
     };
+    const lifecycle = {
+      frame,
+      url: frameUrl,
+      resume: () => { active = true; awaitConnection(); },
+      suspend: () => {
+        active = false;
+        clearTimeout();
+      },
+      dispose: () => {
+        if (disposed) return;
+        disposed = true;
+        clearTimeout();
+        observer.disconnect();
+        window.removeEventListener("message", receiveReady);
+        frame.removeEventListener("load", handleLoad);
+        pendingPort?.close();
+        if (frameLifecycleRef.current === lifecycle) {
+          frameLifecycleRef.current = undefined;
+          closeBridge();
+        }
+      },
+    };
+    const observer = new MutationObserver(() => { if (!frame.isConnected) lifecycle.dispose(); });
+    observer.observe(frame.ownerDocument, { childList: true, subtree: true });
+    frameLifecycleRef.current = lifecycle;
     window.addEventListener("message", receiveReady);
     frame.addEventListener("load", handleLoad);
     frame.src = `${frameUrl}#ragentsBridge=${encodeURIComponent(bridgeToken)}`;
-    const timeout = window.setTimeout(() => {
-      if (!bridgeConnectedRef.current) setFrameError("The app did not open a valid host bridge.");
-    }, 5_000);
-    return () => {
-      window.clearTimeout(timeout);
-      window.removeEventListener("message", receiveReady);
-      frame.removeEventListener("load", handleLoad);
-      pendingPort?.close();
-      closeBridge();
-    };
+    return lifecycle.suspend;
   }, [attachBridge, bridgeToken, closeBridge, frameUrl]);
 
   useEffect(() => {

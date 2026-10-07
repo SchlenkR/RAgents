@@ -5,6 +5,7 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import test, { type TestContext } from "node:test";
 import { coreContracts, type HostBootstrap, type HostPackageDownload } from "../../apps/server/src/api/contracts.ts";
+import { EXTENSION_API_VERSION } from "../../apps/server/src/extension-api.ts";
 import { readPackageVersion } from "../../apps/server/src/host-version.ts";
 import { ServerClient } from "../../apps/web/src/server-client.ts";
 import { hostPackageFolder } from "../package/host-package.ts";
@@ -32,7 +33,7 @@ const server = (
   response: () => Response = () => { throw new Error("the server archive must not be requested"); },
 ): { transport: ServerClient; requests: string[] } => {
   const requests: string[] = [];
-  const bootstrap: HostBootstrap = { version, hostPackage, product: { id: "test", title: "Test" }, plugins: [], startEntries: [] };
+  const bootstrap: HostBootstrap = { version, extensionApi: EXTENSION_API_VERSION, hostPackage, product: { id: "test", title: "Test" }, plugins: [], startEntries: [] };
   const transport = new ServerClient("https://example.invalid", "workstation-session", async (input, init) => {
     const url = input instanceof Request ? input.url : String(input);
     const route = new URL(url).pathname;

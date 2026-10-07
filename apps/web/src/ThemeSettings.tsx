@@ -14,7 +14,7 @@ export function ThemeSettings() {
   const { preference, appearance, error } = useSyncExternalStore(store.subscribe, store.getSnapshot);
   const writable = access.can("settings.write");
   const host = useRunPanelHost();
-  return <div className="mx-auto flex max-w-[1020px] flex-col gap-6 px-[clamp(20px,4vw,46px)] pt-7 pb-12 max-sm:px-3.5 max-sm:pt-5 max-sm:pb-9">
+  return <div className="mx-auto flex max-w-[1020px] flex-col gap-6 px-[clamp(20px,calc(var(--ragents-viewport-width,100vw)*0.04),46px)] pt-7 pb-12 max-sm:px-3.5 max-sm:pt-5 max-sm:pb-9">
     <header>
       <h2 className="text-[1.08rem] text-foreground">Appearance</h2>
       <p className="mt-2 max-w-[780px] text-xs leading-[1.55] text-muted-foreground">Colors and size of the whole interface, the surface and the sidebar.</p>

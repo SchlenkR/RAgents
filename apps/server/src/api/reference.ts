@@ -1,5 +1,5 @@
 import type { TSchema } from "typebox";
-import { RPC_METHODS, type ChannelDescriptor, type MethodDescriptor, type PluginHost } from "@ragents/engine";
+import { RPC_METHODS, RPC_REQUEST_TIMEOUT_MS, type ChannelDescriptor, type MethodDescriptor, type PluginHost } from "@ragents/engine";
 
 export type ApiAuthentication = { kind: "open" } | { kind: "token" } | { kind: "users"; cookieName: string };
 
@@ -45,6 +45,7 @@ const methodSection = (method: MethodDescriptor): string[] => [
   method.description,
   "",
   `Owner: ${method.owner}. Rights: ${rights(method)}. Execution: ${method.implementedBy === "client" ? "the connected client" : "the server"}.`,
+  `Default client deadline: ${method.timeoutMs ?? RPC_REQUEST_TIMEOUT_MS} ms; callers may override it.`,
   "",
   "### Input",
   "",
@@ -133,6 +134,7 @@ export function openRpcDocument(host: PluginHost, authentication: ApiAuthenticat
       "x-owner": method.owner,
       "x-rights": [...method.rights],
       "x-implemented-by": method.implementedBy,
+      "x-timeout-ms": method.timeoutMs ?? RPC_REQUEST_TIMEOUT_MS,
     })),
     "x-channels": byId(host.channels.describe()).map((channel) => ({
       name: channel.id,

@@ -127,7 +127,8 @@
       "toolDescriptorFrom"
     ],
     "@ragents/host/plugin-support/await-with-signal": [
-      "awaitWithSignal"
+      "awaitWithSignal",
+      "sharedPreparation"
     ],
     "@ragents/host/plugin-support/chat-display-policy": [
       "chatDisplayEnvDescriptors",

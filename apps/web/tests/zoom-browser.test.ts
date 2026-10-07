@@ -40,7 +40,7 @@ test("the browser zoom scales the whole page while popups stay at their anchor a
   const groups = page.locator("[data-dock-group]");
   await tab("Chat").waitFor();
 
-  assert.equal(await page.evaluate(() => document.documentElement.style.zoom), String(zoom));
+  assert.equal(await page.evaluate(() => document.documentElement.style.transform), `scale(${zoom})`);
   const rootBox = await box(page.locator("#root"));
   near(rootBox.width, 1400, "the zoomed page fills the window width");
   near(rootBox.height, 900, "the zoomed page fills the window height");
@@ -92,9 +92,9 @@ test("the browser zoom scales the whole page while popups stay at their anchor a
   await mkdir(shots, { recursive: true });
   await page.screenshot({ path: join(shots, "zoom-settings-130.png") });
   await steps.getByRole("button", { name: "100%" }).click();
-  assert.deepEqual(await page.evaluate(() => [document.documentElement.style.zoom, localStorage.getItem("ragents.zoom")]), ["", "100"], "100 percent clears the zoom and is saved");
+  assert.deepEqual(await page.evaluate(() => [document.documentElement.style.transform, localStorage.getItem("ragents.zoom")]), ["", "100"], "100 percent clears the zoom and is saved");
   await steps.getByRole("button", { name: "150%" }).click();
-  assert.equal(await page.evaluate(() => document.documentElement.style.zoom), "1.5");
+  assert.equal(await page.evaluate(() => document.documentElement.style.transform), "scale(1.5)");
   await page.goto(`${fixture}?page=vscode-settings`);
   await page.getByText("In VS Code, the setting ragents.zoom scales the interface.").waitFor();
   assert.equal(await page.getByRole("group", { name: "Zoom" }).count(), 0, "VS Code keeps its own zoom setting");

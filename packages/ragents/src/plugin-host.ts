@@ -129,8 +129,8 @@ export class MethodContributionRegistry {
 
   describe(): readonly MethodDescriptor[] {
     return this.#methods.entries().map(({ owner, value }) => {
-      const { id, description, rights, input, result, implementedBy } = value.contribution.contract;
-      return Object.freeze({ owner, id, description, rights, input, result, implementedBy });
+      const { id, description, rights, input, result, implementedBy, timeoutMs } = value.contribution.contract;
+      return Object.freeze({ owner, id, description, rights, input, result, implementedBy, ...(timeoutMs === undefined ? {} : { timeoutMs }) });
     });
   }
 }
@@ -793,12 +793,20 @@ export class LifecycleContributionRegistry {
     for (const { value } of this.#lifecycle.entries()) await value.initialize?.();
   }
 
-  async prepareSession(runId: string): Promise<void> {
-    for (const { value } of this.#lifecycle.entries()) await value.prepareSession?.({ runId });
+  async prepareSession(runId: string, signal?: AbortSignal): Promise<void> {
+    for (const { value } of this.#lifecycle.entries()) {
+      signal?.throwIfAborted();
+      await value.prepareSession?.({ runId, ...(signal ? { signal } : {}) });
+    }
+    signal?.throwIfAborted();
   }
 
-  async sessionStarted(runId: string, startEntry: SessionStartedContext["startEntry"]): Promise<void> {
-    for (const { value } of this.#lifecycle.entries()) await value.sessionStarted?.({ runId, startEntry });
+  async sessionStarted(runId: string, startEntry: SessionStartedContext["startEntry"], signal?: AbortSignal): Promise<void> {
+    for (const { value } of this.#lifecycle.entries()) {
+      signal?.throwIfAborted();
+      await value.sessionStarted?.({ runId, startEntry, ...(signal ? { signal } : {}) });
+    }
+    signal?.throwIfAborted();
   }
 
   beginStopSession(runId: string): PluginStopOperation {

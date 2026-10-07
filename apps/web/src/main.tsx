@@ -15,6 +15,7 @@ import { PageOpenerProvider } from "./page-opener";
 import { initializeTheme } from "./theme";
 import { initializeZoom } from "./zoom";
 import { installHostModules } from "./host-modules";
+import { RenderBoundary } from "./RenderBoundary";
 
 installHostModules();
 const root = document.getElementById("root");
@@ -40,13 +41,15 @@ try {
   }
   reactRoot.render(
     <StrictMode>
-      <QuasselHost>
-        <RunPanelHostProvider value={host}>
-          <PageOpenerProvider value={location.host === "vscode" ? { open: host.openPage } : undefined}>
-            <AccessGate Login={location.host === "vscode" ? HostLogin : undefined}><RunPanelApp location={location} /></AccessGate>
-          </PageOpenerProvider>
-        </RunPanelHostProvider>
-      </QuasselHost>
+      <RenderBoundary resetKeys={[location.host]} title="The RAgents panel could not be displayed">
+        <QuasselHost>
+          <RunPanelHostProvider value={host}>
+            <PageOpenerProvider value={location.host === "vscode" ? { open: host.openPage } : undefined}>
+              <AccessGate Login={location.host === "vscode" ? HostLogin : undefined}><RunPanelApp location={location} /></AccessGate>
+            </PageOpenerProvider>
+          </RunPanelHostProvider>
+        </QuasselHost>
+      </RenderBoundary>
     </StrictMode>,
   );
 } catch (cause) {

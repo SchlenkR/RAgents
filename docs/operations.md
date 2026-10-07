@@ -502,11 +502,9 @@ identifies a checkout by `pnpm-workspace.yaml`, it should test for something the
 instead, such as `apps/server/src/main.ts` beside `package.json`. Start with `ragents start <path-to-profile>`;
 the symlink is used only by scripts and tsconfig files in the external repository.
 
-The VS Code extension starts the same profile from the same package. To override automatic host
-selection, set `ragents.hostPath` to a checkout or the package directory
-(`<npm-prefix>/lib/node_modules/@schlenkr/ragents`). For workstation registration without this
-override, it fetches the package in the server's version as described under Run panel and VS Code
-extension in [usage.md](usage.md).
+The VS Code extension starts the same profile from the same package, fetched in its own version.
+For workstation registration, it fetches the package in the server's version as described under
+Run panel and VS Code extension in [usage.md](usage.md).
 
 ## Deploy from a local build
 
@@ -559,7 +557,7 @@ access rules as workstation registration.
 The extension and CLI workstation first try npm for the server's exact version.
 If that fails, they download the retained archive from the server, verify its SHA-512 integrity,
 and install it into their per-version cache with npm. No manual host installation is required on the
-workstation; `ragents.hostPath` still overrides automatic selection in VS Code.
+workstation.
 
 ## Connect to a server
 
@@ -1015,12 +1013,12 @@ server's exact version from `ragents.plugins.bootstrap`, using npm first and the
 download when needed, and reuse cached installations. See [Run a CLI workstation](#run-a-cli-workstation)
 and [Run panel and VS Code extension](usage.md#run-panel-and-vs-code-extension) for the caches
 and progress. A machine that connects only to remote servers needs no local profile or
-distributing server. An explicit `ragents.hostPath` overrides fetching; a different package version,
-contribution state, or missing bundle fails registration with its cause. The VS Code extension shows such a
-rejection as the error "RAgents version mismatch" with its own version, the server's version, and
-the side to update, and a differing version with an accepted workstation as a warning
-([usage.md](usage.md), Run panel and VS Code extension); the server names the version in the
-bootstrap (`version` in `ragents.plugins.bootstrap`).
+distributing server. An extension started from a checkout uses that checkout instead; a different
+package version, contribution state, or missing bundle fails registration with its cause. The VS Code extension shows such a
+rejection as an error with the server's cause; a different release alone shows no notice, only a
+different extension interface does ([usage.md](usage.md), Run panel and VS Code extension). The
+server names its version and its interface number in the bootstrap (`version` and `extensionApi`
+in `ragents.plugins.bootstrap`); the workstation's host follows the version.
 The workstation reads the tools of these contributions from its own process environment, not from
 the server's profile: before registration it provisions with its selected host, stores Roslyn and fsautocomplete
 under `~/.local/share/ragents/workspace/tools/<plugin-id>/`, and fetches Chromium into

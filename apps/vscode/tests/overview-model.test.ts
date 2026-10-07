@@ -178,8 +178,8 @@ test("New run presets no start option that the selected template fixes", () => {
   assert.equal(preselectable(undefined, WORKSPACE_BINDING_OPTION_ID), true, "without a template, New run presets the folder");
 });
 
-test("a different version shows with level and text at the server; which side needs updating is only needed by the notification", () => {
-  const notice = { level: "warning" as const, text: "RAgents version does not match: extension 0.1.9, server 0.1.8 - update the server to 0.1.9.", update: "server" as const };
+test("a version notice shows with level and text at the server; which side needs updating is only needed by the notification", () => {
+  const notice = { level: "warning" as const, text: "RAgents server 0.1.8 predates the extension interface check - update the server to 0.1.9.", update: "server" as const };
   assert.deepEqual(connectionView(snapshot({ versionNotice: notice })).versionNotice, { level: "warning", text: notice.text });
   assert.equal("versionNotice" in connectionView(snapshot()), false);
 });

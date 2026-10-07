@@ -26,7 +26,7 @@ const resolve = async (context: ManagementContext, access: AccessContext, refere
   return context.directory.resolve(reference, runs);
 };
 
-const create = async (context: ManagementContext, body: CreateInput, access: AccessContext) => {
+const create = async (context: ManagementContext, body: CreateInput, access: AccessContext, signal: AbortSignal) => {
   for (const optionId of Object.keys(body.options ?? {})) context.root.startOptions.assertRights(optionId, access);
   const common = {
     title: body.title.trim(),
@@ -37,7 +37,7 @@ const create = async (context: ManagementContext, body: CreateInput, access: Acc
   const runId = await (async () => {
     if ("packageDirectory" in body) {
       if (!path.isAbsolute(body.packageDirectory)) throw new DomainError("invalid-package-directory", "packageDirectory must be an absolute server path", 400);
-      return context.management().create({ ...common, kind: "package", directory: body.packageDirectory, input: (body.input ?? null) as JsonValue, owner: OVERSEER_PLUGIN_ID });
+      return context.management().create({ ...common, kind: "package", directory: body.packageDirectory, input: (body.input ?? null) as JsonValue, owner: OVERSEER_PLUGIN_ID }, signal);
     }
     if ("script" in body) {
       const entries = context.root.startEntries.describe().filter((entry) => entry.action === "script");
@@ -45,9 +45,9 @@ const create = async (context: ManagementContext, body: CreateInput, access: Acc
       const direct = entries.find((entry) => entry.id === body.script.trim());
       const matching = direct ? [direct] : entries.filter((entry) => entry.title.toLocaleLowerCase("en-US") === wanted);
       if (matching.length !== 1) throw new DomainError("invalid-script", `The run script is unknown or ambiguous. Valid titles and ids: ${entries.map((entry) => `${entry.title} (${entry.id})`).join(", ") || "none"}`, 400);
-      return context.management().create({ ...common, kind: "script", entryId: matching[0].id, input: (body.input ?? null) as JsonValue });
+      return context.management().create({ ...common, kind: "script", entryId: matching[0].id, input: (body.input ?? null) as JsonValue }, signal);
     }
-    return context.management().create({ ...common, kind: "message", message: body.message.trim() });
+    return context.management().create({ ...common, kind: "message", message: body.message.trim() }, signal);
   })();
   const found = (await context.directory.describe(await context.management().list())).find((entry) => entry.id === runId);
   if (!found) throw new DomainError("run-unavailable", "The created run is no longer available", 409);
@@ -61,7 +61,7 @@ export function managementMethods(context: ManagementContext): MethodContributio
         const { createdAt, running, metadata } = entry as typeof entry & { running?: boolean; metadata?: Record<string, JsonValue> };
         return { ...identity(entry), updatedAt: entry.updatedAt, ...(createdAt !== undefined ? { createdAt } : {}), ...(running !== undefined ? { running } : {}), ...(metadata ? { metadata } : {}) };
       })),
-    implement(overseerContracts.createRun, (input, { access }) => create(context, input, access)),
+    implement(overseerContracts.createRun, (input, { access, signal }) => create(context, input, access, signal)),
     implement(overseerContracts.readRun, async ({ run }, { access }) => context.management().view((await resolve(context, access, run)).id)),
     implement(overseerContracts.readEvents, async ({ run, after, limit, type }, { access }) => {
       const found = await resolve(context, access, run);
@@ -69,9 +69,9 @@ export function managementMethods(context: ManagementContext): MethodContributio
       const selected = events.slice(0, limit ?? 50);
       return { ...identity(found), events: selected, nextAfter: selected.at(-1)?.sequence ?? after ?? 0, hasMore: events.length > selected.length };
     }),
-    implement(overseerContracts.sendMessage, async ({ run, message }, { access }) => {
+    implement(overseerContracts.sendMessage, async ({ run, message }, { access, signal }) => {
       const found = await resolve(context, access, run);
-      await context.management().send(found.id, message.trim(), access);
+      await context.management().send(found.id, message.trim(), access, signal);
       return { ...identity(found), accepted: true as const };
     }),
     implement(overseerContracts.stopRun, async ({ run }, { access }) => {

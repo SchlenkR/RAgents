@@ -16,7 +16,7 @@ export function StartupNotice({ children, className, state }: { children?: React
     {state.kind === "working" && <div aria-label={state.title} className="mx-auto mt-5 h-[5px] overflow-hidden rounded-[5px] bg-border" role="progressbar">
       <span className="block h-full w-[35%] rounded-[inherit] bg-primary animate-progress-sweep motion-reduce:animate-none motion-reduce:mx-auto" />
     </div>}
-    <p className="pointer-events-auto mt-3.5 max-h-[30vh] overflow-auto text-[0.82rem] leading-[1.6] text-muted-foreground [overflow-wrap:anywhere]">{state.detail}</p>
+    <p className="pointer-events-auto mt-3.5 max-h-[calc(var(--ragents-viewport-height,100dvh)*0.3)] overflow-auto text-[0.82rem] leading-[1.6] text-muted-foreground [overflow-wrap:anywhere]">{state.detail}</p>
     {children && <div className="pointer-events-auto mt-4 flex flex-wrap justify-center gap-2">{children}</div>}
   </div>;
 }

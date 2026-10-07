@@ -2656,7 +2656,7 @@ Source in the repository: apps/server/src/ragents/workspace-runtime.ts
 
 ```typescript
 export interface WorkspaceRuntime {
-  resolve: (runId: string, emitSystem: (text: string) => void) => Promise<SessionWorkspace>;
+  resolve: (runId: string, emitSystem: (text: string) => void, signal?: AbortSignal) => Promise<SessionWorkspace>;
   describe: () => WorkspaceRuntimeDescription;
   /** The one central place where a flow asks where and in which folder a run works. */
   placementOf: (runId: string) => WorkspacePlacement;

@@ -1,5 +1,5 @@
 import { useAccess } from "@ragents/web/AccessContext";
-import { Spinner } from "@ragents/web/ui";
+import { Button, Spinner } from "@ragents/web/ui";
 import { runActorFrom } from "@ragents/web/run-view";
 import type {
   SurfaceElementContext,
@@ -47,7 +47,7 @@ export const actorProgramSurfaceElements = (session: SessionContext): readonly S
   });
 
 export function ActorProgramSurfaceElement({ definition, session }: SurfaceElementContext) {
-  const { api, error, invoke, listing, runId } = useActorPrograms();
+  const { api, error, invoke, listing, refresh, runId } = useActorPrograms();
   const app = listing?.apps.find((candidate) => candidate.id === definition.id);
   const confirmation = app ? pendingConfirmationFor(session, app) : undefined;
   const title = definition.title ?? definition.id;
@@ -61,7 +61,10 @@ export function ActorProgramSurfaceElement({ definition, session }: SurfaceEleme
       session={session}
     />
   ) : error ? (
-    <p className="m-auto max-w-[60ch] p-4 text-[0.7rem] text-destructive" role="alert">{error}</p>
+    <div className="m-auto grid max-w-[60ch] justify-items-start gap-3 p-4">
+      <p className="text-[0.7rem] text-destructive" role="alert">{error}</p>
+      <Button onClick={() => void refresh()} variant="outline">Retry</Button>
+    </div>
   ) : (
     <div className="flex flex-1 items-center justify-center gap-2 text-[0.7rem] text-muted-foreground">
       <Spinner aria-hidden aria-label={undefined} role={undefined} />

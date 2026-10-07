@@ -4,6 +4,9 @@ settings:
   autoInstallPeers: true
   excludeLinksFromLockfile: false
 
+patchedDependencies:
+  quassel@0.4.5: 7a7bd3ddc0adff7d342a8215f16036da3d76e883beea91d4d4f642cdc24520cc
+
 importers:
 
   .:
@@ -67,7 +70,7 @@ importers:
         version: 1.61.1
       quassel:
         specifier: ^0.4.5
-        version: 0.4.5(@types/react@19.2.18)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
+        version: 0.4.5(patch_hash=7a7bd3ddc0adff7d342a8215f16036da3d76e883beea91d4d4f642cdc24520cc)(@types/react@19.2.18)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
       react:
         specifier: ^19.2.0
         version: 19.2.8
@@ -146,7 +149,7 @@ importers:
         version: 4.7.9
       quassel:
         specifier: ^0.4.5
-        version: 0.4.5(@types/react@19.2.18)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
+        version: 0.4.5(patch_hash=7a7bd3ddc0adff7d342a8215f16036da3d76e883beea91d4d4f642cdc24520cc)(@types/react@19.2.18)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
       tsx:
         specifier: ^4.20.0
         version: 4.23.12
@@ -213,7 +216,7 @@ importers:
         version: 1.46.0(react@19.2.8)
       quassel:
         specifier: ^0.4.5
-        version: 0.4.5(@types/react@19.2.18)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
+        version: 0.4.5(patch_hash=7a7bd3ddc0adff7d342a8215f16036da3d76e883beea91d4d4f642cdc24520cc)(@types/react@19.2.18)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
       react:
         specifier: ^19.2.0
         version: 19.2.8
@@ -4985,7 +4988,7 @@ snapshots:
       es-define-property: 1.0.1
       side-channel: 1.1.1
 
-  quassel@0.4.5(@types/react@19.2.18)(react-dom@19.2.8(react@19.2.8))(react@19.2.8):
+  quassel@0.4.5(patch_hash=7a7bd3ddc0adff7d342a8215f16036da3d76e883beea91d4d4f642cdc24520cc)(@types/react@19.2.18)(react-dom@19.2.8(react@19.2.8))(react@19.2.8):
     dependencies:
       '@base-ui/react': 1.8.0(@types/react@19.2.18)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
       class-variance-authority: 0.7.1

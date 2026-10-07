@@ -7,6 +7,7 @@ import type { RunPreparationResponse } from "../run-preparation-contract.js";
 import type { RunTransferExport, RunTransferImport } from "../run-transfer.js";
 import type { SettingsResponse, SettingsSkillDetail } from "../settings.js";
 import type { TitleModelSettings } from "../title-settings-contract.js";
+import { EXTENSION_API_VERSION } from "../extension-api.js";
 import { coreContracts, type HostPackageDownload, type RunSharingResult } from "./contracts.js";
 import { assertRunDeletable, assertRunReachable, assertRunRights, runListScope, runSharer, type GlobalRunPolicy, type RunAccessPolicy } from "./rights.js";
 
@@ -112,21 +113,21 @@ export const coreMethods = (sources: CoreMethodSources): MethodContribution[] =>
       sessions.markViewed(runId, revision, userIdOf(access));
       return null;
     }),
-    implement(coreContracts.chat.send, async ({ runId, text, attachments, userLocation, entry }, { access }) => {
+    implement(coreContracts.chat.send, async ({ runId, text, attachments, userLocation, entry }, { access, signal }) => {
       assertMaySend(access, runId);
       const located = locatedRun(userLocation);
       if (located !== undefined) assertRunReachable(access, located, policy);
       const current = await session(access, runId, "write");
       const message = messageOf(text, attachments);
-      await guardedForUser(access, async () => current.send(message.text, message.attachments, userLocation, userOf(access), entry));
+      await guardedForUser(access, async () => current.send(message.text, message.attachments, userLocation, userOf(access), entry, signal));
       return null;
     }),
-    implement(coreContracts.chat.sendToActor, async ({ runId, actorId, text, attachments }, { access }) => {
+    implement(coreContracts.chat.sendToActor, async ({ runId, actorId, text, attachments }, { access, signal }) => {
       assertMaySend(access, runId);
       const current = await session(access, runId, "write");
       if (!current.sendToActor) throw new DomainError("actor-send-unavailable", "Actor messages are not available", 404);
       const message = messageOf(text, attachments);
-      await guardedForUser(access, () => current.sendToActor!(actorId, message.text, message.attachments, userOf(access)));
+      await guardedForUser(access, () => current.sendToActor!(actorId, message.text, message.attachments, userOf(access), signal));
       return null;
     }),
     implement(coreContracts.chat.start, async ({ runId, entry, input }, { access }) => {
@@ -141,12 +142,12 @@ export const coreMethods = (sources: CoreMethodSources): MethodContribution[] =>
       if (!current.runScripts) throw new DomainError("script-start-unavailable", "This run cannot start run scripts.", 404);
       return current.runScripts(sources.plugins.startEntries.describe().filter((entry) => canStartEntry(access, entry.id)), userIdOf(access));
     }),
-    implement(coreContracts.runs.startScript, async ({ runId, entry, input }, { access }) => {
+    implement(coreContracts.runs.startScript, async ({ runId, entry, input }, { access, signal }) => {
       const trimmed = entry.trim();
       if (!canStartEntry(access, trimmed)) throw new DomainError("access-denied", "This setup is not enabled for this access.", 403);
       const current = await session(access, runId, "write");
       if (!current.startAndWait) throw new DomainError("script-start-unavailable", "This run cannot start run scripts.", 404);
-      return current.startAndWait(trimmed, input === undefined ? null : input, userOf(access));
+      return current.startAndWait(trimmed, input === undefined ? null : input, userOf(access), undefined, signal);
     }),
     implement(coreContracts.chat.stop, async ({ runId }, { access }) => {
       const current = await session(access, runId, "stop");
@@ -183,7 +184,7 @@ export const coreMethods = (sources: CoreMethodSources): MethodContribution[] =>
     implement(coreContracts.settings.titlesRead, (_input, { local }) => { assertSettingsReachable(local); return sessions.titleModelSettings(); }),
     implement(coreContracts.settings.titlesSave, ({ value }, { local }) => { assertSettingsReachable(local); return sessions.saveTitleModelSettings(value); }),
     implement(coreContracts.plugins.bootstrap, (_input, { access, local }) => ({
-      ...sources.plugins.publicProfile(access), version: sources.version,
+      ...sources.plugins.publicProfile(access), version: sources.version, extensionApi: EXTENSION_API_VERSION,
       hostPackage: access.can("runs.write") && hasWorkstationOwner(access, local) ? sources.hostPackage ?? null : null,
     })),
     implement(coreContracts.external.set, async ({ state }, { local }) => {

@@ -18,7 +18,8 @@ import {
 
 export interface RpcCallOptions {
   signal?: AbortSignal;
-  timeoutMs?: number;
+  /** null explicitly keeps a long-lived request open until cancellation. */
+  timeoutMs?: number | null;
   onProgress?: (value: unknown) => void;
 }
 
@@ -36,6 +37,7 @@ export type RpcFallbackHandler = (method: string, params: unknown, context: RpcH
 
 export interface RpcPeerOptions {
   send: (message: RpcMessage) => void | Promise<void>;
+  requestTimeoutMs?: number;
 }
 
 interface PendingCall {
@@ -44,6 +46,7 @@ interface PendingCall {
 }
 
 const CANCEL_GRACE_MS = 5_000;
+export const RPC_REQUEST_TIMEOUT_MS = 30_000;
 
 export const rpcFailureOf = (id: RpcId | null, error: unknown): RpcFailure => {
   if (error instanceof RpcError) return rpcFailure(id, error.code, error.message, error.data);
@@ -57,6 +60,7 @@ export const rpcErrorOf = (failure: RpcFailure): RpcError => new RpcError(failur
 /** One side of a JSON-RPC connection: sends and answers requests, knows cancellation and progress, without transport. */
 export class RpcPeer {
   readonly #send: RpcPeerOptions["send"];
+  readonly #requestTimeoutMs: number;
   readonly #pending = new Map<RpcId, PendingCall>();
   readonly #running = new Map<string, AbortController>();
   readonly #requestHandlers = new Map<string, RpcRequestHandler>();
@@ -67,6 +71,10 @@ export class RpcPeer {
 
   constructor(options: RpcPeerOptions) {
     this.#send = options.send;
+    this.#requestTimeoutMs = options.requestTimeoutMs ?? RPC_REQUEST_TIMEOUT_MS;
+    if (!Number.isSafeInteger(this.#requestTimeoutMs) || this.#requestTimeoutMs <= 0 || this.#requestTimeoutMs > 2_147_483_647) {
+      throw new Error("requestTimeoutMs must be a positive timer duration");
+    }
   }
 
   get closed(): boolean {
@@ -77,13 +85,22 @@ export class RpcPeer {
     if (this.#closed !== undefined) return Promise.reject(new RpcError(RPC_ERROR_CODES.connectionClosed, this.#closed));
     if (options.signal?.aborted) return Promise.reject(new RpcError(RPC_ERROR_CODES.cancelled, "Cancelled"));
     const id = this.#nextId++;
+    const timeoutMs = options.timeoutMs === undefined ? this.#requestTimeoutMs : options.timeoutMs;
+    if (timeoutMs !== null && (!Number.isSafeInteger(timeoutMs) || timeoutMs <= 0 || timeoutMs > 2_147_483_647)) {
+      return Promise.reject(new Error("timeoutMs must be a positive timer duration or null"));
+    }
     return new Promise((resolve, reject) => {
       let grace: ReturnType<typeof setTimeout> | undefined;
-      const timer = options.timeoutMs === undefined ? undefined : setTimeout(() => {
+      let dispatched = false;
+      const timer = timeoutMs === null ? undefined : setTimeout(() => {
         this.notify(RPC_METHODS.cancel, { id } satisfies RpcCancelParams);
-        settle({ error: new RpcError(RPC_ERROR_CODES.timeout, `No response to ${method} within ${options.timeoutMs} ms`) });
-      }, options.timeoutMs);
+        settle({ error: new RpcError(RPC_ERROR_CODES.timeout, `No response to ${method} within ${timeoutMs} ms`) });
+      }, timeoutMs);
       const cancel = () => {
+        if (!dispatched) {
+          settle({ error: new RpcError(RPC_ERROR_CODES.cancelled, "Cancelled") });
+          return;
+        }
         this.notify(RPC_METHODS.cancel, { id } satisfies RpcCancelParams);
         grace = setTimeout(() => settle({ error: new RpcError(RPC_ERROR_CODES.cancelled, "Cancelled") }), CANCEL_GRACE_MS);
       };
@@ -97,7 +114,11 @@ export class RpcPeer {
       };
       this.#pending.set(id, { settle, onProgress: options.onProgress });
       options.signal?.addEventListener("abort", cancel, { once: true });
-      void this.#deliver({ jsonrpc: "2.0", id, method, params }).catch((error: unknown) =>
+      void this.#deliver({ jsonrpc: "2.0", id, method, params }, () => {
+        if (!this.#pending.has(id)) return false;
+        dispatched = true;
+        return true;
+      }).catch((error: unknown) =>
         settle({ error: new RpcError(RPC_ERROR_CODES.connectionClosed, error instanceof Error ? error.message : String(error)) }));
     });
   }
@@ -125,7 +146,9 @@ export class RpcPeer {
   }
 
   call<C extends OperationContract>(contract: C, input: OperationInput<C>, options?: RpcCallOptions): Promise<OperationResult<C>> {
-    return this.request(contract.id, input, options) as Promise<OperationResult<C>>;
+    return this.request(contract.id, input, options?.timeoutMs !== undefined || contract.timeoutMs === undefined
+      ? options
+      : { ...options, timeoutMs: contract.timeoutMs }) as Promise<OperationResult<C>>;
   }
 
   handle<C extends OperationContract>(
@@ -136,6 +159,7 @@ export class RpcPeer {
   }
 
   receive(message: unknown): void {
+    if (this.#closed !== undefined) return;
     if (isRpcRequest(message)) {
       void this.#answer(message);
       return;
@@ -161,6 +185,13 @@ export class RpcPeer {
     this.#running.clear();
   }
 
+  cancelOutgoing(reason: string): void {
+    for (const [id, pending] of [...this.#pending]) {
+      this.notify(RPC_METHODS.cancel, { id } satisfies RpcCancelParams);
+      pending.settle({ error: new RpcError(RPC_ERROR_CODES.connectionClosed, reason) });
+    }
+  }
+
   close(reason: string): void {
     if (this.#closed !== undefined) return;
     this.#closed = reason;
@@ -170,8 +201,17 @@ export class RpcPeer {
     this.#pending.clear();
   }
 
-  #deliver(message: RpcMessage): Promise<void> {
-    return Promise.resolve().then(() => this.#send(message));
+  #deliver(message: RpcMessage, current?: () => boolean): Promise<void> {
+    return Promise.resolve().then(() => {
+      if (current && !current()) return;
+      if (isRpcRequest(message) && !this.#pending.has(message.id)) return;
+      return this.#send(message);
+    });
+  }
+
+  #observe(callback: () => unknown, label: string): void {
+    const report = (cause: unknown) => console.error(`${label}: ${cause instanceof Error ? cause.message : String(cause)}`);
+    try { void Promise.resolve(callback()).catch(report); } catch (cause) { report(cause); }
   }
 
   #notified(method: string, params: unknown): void {
@@ -182,20 +222,25 @@ export class RpcPeer {
     }
     if (method === RPC_METHODS.progress) {
       const { id, value } = (params ?? {}) as Partial<RpcProgressParams>;
-      if (id !== undefined) this.#pending.get(id)?.onProgress?.(value);
+      const callback = id === undefined ? undefined : this.#pending.get(id)?.onProgress;
+      if (callback) this.#observe(() => callback(value), `RPC progress callback for request ${id} failed`);
       return;
     }
-    this.#notificationHandlers.get(method)?.(params);
+    const callback = this.#notificationHandlers.get(method);
+    if (callback) this.#observe(() => callback(params), `RPC notification ${method} callback failed`);
   }
 
   async #answer(request: RpcRequest): Promise<void> {
     const key = String(request.id);
     const controller = new AbortController();
     this.#running.set(key, controller);
+    const current = () => this.#closed === undefined && this.#running.get(key) === controller;
     const context: RpcHandlerContext = {
       id: request.id,
       signal: controller.signal,
-      progress: (value) => this.notify(RPC_METHODS.progress, { id: request.id, value } satisfies RpcProgressParams),
+      progress: (value) => {
+        void this.#deliver({ jsonrpc: "2.0", method: RPC_METHODS.progress, params: { id: request.id, value } satisfies RpcProgressParams }, current).catch(() => undefined);
+      },
     };
     try {
       const handler = this.#requestHandlers.get(request.method);
@@ -204,11 +249,11 @@ export class RpcPeer {
         : this.#fallback
           ? await this.#fallback(request.method, request.params, context)
           : (() => { throw new RpcError(RPC_ERROR_CODES.methodNotFound, `Unknown method: ${request.method}`); })();
-      if (this.#closed === undefined) await this.#deliver({ jsonrpc: "2.0", id: request.id, result: result === undefined ? null : result });
+      if (current()) await this.#deliver({ jsonrpc: "2.0", id: request.id, result: result === undefined ? null : result }, current);
     } catch (error) {
-      if (this.#closed === undefined) await this.#deliver(rpcFailureOf(request.id, error)).catch(() => undefined);
+      if (current()) await this.#deliver(rpcFailureOf(request.id, error), current).catch(() => undefined);
     } finally {
-      this.#running.delete(key);
+      if (this.#running.get(key) === controller) this.#running.delete(key);
     }
   }
 }

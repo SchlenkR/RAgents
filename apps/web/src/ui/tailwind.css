@@ -14,7 +14,7 @@
         height: 100%;
     }
 
-    /* As offset parent of the popups, body lets Base UI measure a CSS zoom on the page. */
+    /* As offset parent of the popups, body keeps anchors in the scaled page. */
     body {
         position: relative;
         overflow: hidden;

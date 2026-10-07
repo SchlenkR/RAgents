@@ -5,7 +5,7 @@ import { errorFrom } from "./lib/http";
 import { ToolbarCopy, ToolbarItem, ToolbarLabel, ToolbarText } from "./Toolbar";
 import { Button, Card, cn, Input } from "./ui";
 
-const screenClasses = "grid min-h-dvh place-items-center p-6";
+const screenClasses = "grid min-h-[var(--ragents-viewport-height,100dvh)] place-items-center p-6";
 const cardWidthClasses = "w-[min(100%,380px)]";
 const cardClasses = "gap-0 p-8 shadow-pop max-sm:p-6";
 const fieldClasses = "mb-5 grid gap-2 text-[0.85rem] font-semibold";

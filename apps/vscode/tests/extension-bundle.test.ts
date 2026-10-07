@@ -23,7 +23,7 @@ before(() => {
 
 /** The .vsix brings no node_modules; the stub is everything the bundle finds when loading and activating. */
 const VSCODE_STUB = `const noop = () => undefined;
-const settings = { "ragents.connections": [], "ragents.hostPath": "", "ragents.theme": "auto", "ragents.zoom": 100 };
+const settings = { "ragents.connections": [], "ragents.theme": "auto", "ragents.zoom": 100 };
 const providers = new Map();
 const commandHandlers = new Map();
 const contextValues = new Map();
@@ -204,12 +204,12 @@ const checkPanelActions = async (api) => {
 
   // The suggestions of the dialog come from the host folder; without a host the list stays empty.
   assert.deepEqual(api.panel().profileSuggestions, []);
-  settings["ragents.hostPath"] = host;
+  context.globalState.get = () => host;
   assert.deepEqual(api.panel().profileSuggestions, [
     path.join(host, "ragents.config.core.ts"),
     path.join(host, "ragents.config.developer.ts"),
   ]);
-  settings["ragents.hostPath"] = "";
+  context.globalState.get = () => undefined;
 
   const development = api.panel().connections[1];
   assert.equal(development.kind, "profile");
@@ -669,7 +669,7 @@ test("the title bar selects one server for Start, Runs, plugin sources, and new-
 const CHECK_WORKSTATION_HOSTS = `${LOAD_EXTENSION}
 const configuration = JSON.parse(process.env.RAGENTS_TEST_WORKSTATIONS);
 settings["ragents.connections"] = configuration.connections;
-settings["ragents.hostPath"] = configuration.override ?? "";
+if (configuration.checkout) context.extensionPath = path.join(configuration.checkout, "apps/vscode");
 settings["ragents.hostEnvironment"] = ["NPM_CONFIG_REGISTRY"];
 secrets.set(configuration.registrySecret, "https://registry.example.com");
 vscode.workspace.workspaceFolders = [{ uri: vscode.Uri.file(path.join(process.cwd(), "workspace")) }];
@@ -764,7 +764,7 @@ require("node:fs").appendFileSync(process.env.RAGENTS_TEST_PROVISION_CALLS, JSON
     contributions,
     environment,
     calls: (): Array<{ args: string[]; registry: string }> => existsSync(calls) ? readFileSync(calls, "utf8").trim().split("\n").map((line) => JSON.parse(line)) : [],
-    run: async (configuration: { connections: Array<{ name: string; url: string }>; override?: string; restart?: boolean }) => {
+    run: async (configuration: { connections: Array<{ name: string; url: string }>; checkout?: string; restart?: boolean }) => {
       const result = await execute(process.execPath, ["check.cjs"], {
         cwd: directory, timeout: 60_000,
         env: { ...environment, RAGENTS_TEST_WORKSTATIONS: JSON.stringify({ ...configuration, registrySecret: hostEnvironmentSecretKey("NPM_CONFIG_REGISTRY") }) },
@@ -811,20 +811,25 @@ test("two servers select separate host versions instead of a remembered host", a
   assert.deepEqual(host.calls().map(({ args }) => path.basename(args[2]!)).sort(), ["0.1.8", "0.2.0"]);
 });
 
-test("hostPath overrides package fetching and mismatched versions or contribution states fail clearly", async (t) => {
-  const directory = mkdtempSync(path.join(tmpdir(), "ragents-workstation-override-"));
+test("the extension's checkout replaces package fetching and mismatched versions or contribution states fail clearly", async (t) => {
+  const directory = mkdtempSync(path.join(tmpdir(), "ragents-workstation-checkout-"));
   t.after(() => rmSync(directory, { recursive: true, force: true }));
   const host = workstationHosts(directory, ["0.1.8"]);
-  const override = path.join(directory, "packages/0.1.8");
+  const checkout = path.join(directory, "packages/0.1.8");
+  const stale = path.join(directory, "stale-host");
+  for (const root of [checkout, stale]) {
+    mkdirSync(path.join(root, "apps/vscode"), { recursive: true });
+    copyFileSync(path.join(extensionRoot, "package.json"), path.join(root, "apps/vscode/package.json"));
+  }
   const server = await startStubServer({ version: "0.1.8", contributions: host.contributions });
   t.after(() => server.close());
   const connections = [{ name: "remote", url: server.url }];
-  assert.deepEqual((await host.run({ connections, override })).workspaces, [{ kind: "registered" }]);
-  const mismatch = await host.run({ connections, override: path.join(directory, "stale-host") });
+  assert.deepEqual((await host.run({ connections, checkout })).workspaces, [{ kind: "registered" }]);
+  const mismatch = await host.run({ connections, checkout: stale });
   assert.equal(mismatch.workspaces[0]?.kind, "failed");
   assert.match(mismatch.first[0]!.versionNotice!.text, /host.*version 0\.0\.1, the server requires 0\.1\.8/);
-  writeFileSync(path.join(override, "bundles/acme.executor/executor/index.mjs"), "export const executor = () => ({});\n");
-  const drift = await host.run({ connections, override });
+  writeFileSync(path.join(checkout, "bundles/acme.executor/executor/index.mjs"), "export const executor = () => ({});\n");
+  const drift = await host.run({ connections, checkout });
   assert.equal(drift.workspaces[0]?.kind, "failed");
   assert.match(drift.first[0]!.versionNotice!.text, /acme\.executor.*has the version.*required is/);
   assert.equal(host.calls().length, 0);

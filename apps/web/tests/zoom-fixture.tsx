@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { createRoot } from "react-dom/client";
 import { ThemeSettings } from "../src/ThemeSettings";
 import { DockToolsContext, DockWorkspace } from "../src/run-panel/DockWorkspace";
@@ -5,7 +6,12 @@ import { createBrowserHost, RunPanelHostProvider } from "../src/run-panel/host";
 import type { RunApp } from "../src/run-apps";
 import { initializeTheme } from "../src/theme";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, Popover, PopoverContent, PopoverTrigger } from "../src/ui";
-import { initializeZoom } from "../src/zoom";
+import { initializeZoom, getZoomStore } from "../src/zoom";
+import { AccessContext, useAccess } from "../src/AccessContext";
+import { SettingsModal } from "../src/SettingsModal";
+import { PluginRegistry } from "../src/PluginRegistry";
+import { HeaderDropdown } from "../src/ui/HeaderDropdown";
+import { Button } from "../src/ui";
 import "../src/ui/tailwind.css";
 
 initializeTheme(window);
@@ -26,4 +32,20 @@ const workspace = <div className="flex h-full flex-col">
   </div>
 </div>;
 const host = { ...createBrowserHost(window), kind: page === "vscode-settings" ? "vscode" as const : "browser" as const };
-createRoot(document.getElementById("root")!).render(page === null ? workspace : <RunPanelHostProvider value={host}><ThemeSettings /></RunPanelHostProvider>);
+const registry = new PluginRegistry({ brand: { title: "Example" }, product: { id: "example", title: "Example" }, plugins: [], startEntries: [] });
+function Overlays() {
+  const access = useAccess();
+  const [settings, setSettings] = useState(false);
+  const [records, setRecords] = useState(false);
+  Reflect.set(window, "overlayZoom", (value: number) => getZoomStore().setZoom(value as Parameters<ReturnType<typeof getZoomStore>["setZoom"]>[0]));
+  return <AccessContext.Provider value={{ ...access, can: right => right !== "settings.read" && access.can(right) }}><div className="flex h-full flex-col">
+    <header className="flex h-14 items-center justify-end gap-2 px-4">
+      <Button onClick={() => setSettings(true)}>Open settings</Button>
+      <HeaderDropdown label="Records" onOpenChange={setRecords} open={records} trigger={<Button>Open records</Button>}>
+        {Array.from({ length: 80 }, (_, index) => <p key={index}>Record {index + 1}</p>)}
+      </HeaderDropdown>
+    </header>
+    {settings && <SettingsModal onClose={() => setSettings(false)} registry={registry} />}
+  </div></AccessContext.Provider>;
+}
+createRoot(document.getElementById("root")!).render(page === null ? workspace : <RunPanelHostProvider value={host}>{page === "overlays" ? <Overlays /> : <ThemeSettings />}</RunPanelHostProvider>);

@@ -37,8 +37,8 @@ export function HeaderDropdown({ open, onOpenChange, label, trigger, anchor, chi
     {trigger && <PopoverTrigger className="relative z-[110]" ref={setButton} render={trigger} />}
     <PopoverContent align={variant === "chat" ? "start" : "end"} alignOffset={variant === "chat" ? 0 : 8} anchor={boundary} aria-label={label}
       className={`@container/header-dropdown min-h-0 min-w-0 max-h-(--header-dropdown-height) gap-2 overflow-hidden rounded-none p-[8px] [--popout-body-width:100cqw] [--popout-body-height:calc(var(--header-dropdown-height)_-_3.25rem)] ${variant === "chat"
-        ? "h-(--header-dropdown-height) w-[min(800px,var(--available-width))] [--header-dropdown-height:min(max(80vh,320px),var(--available-height))]"
-        : "w-[min(800px,max(320px,calc(var(--anchor-width)-16px)),var(--available-width))] [--header-dropdown-height:min(70vh,560px,var(--available-height))]"}`}
+        ? "h-(--header-dropdown-height) w-[min(800px,var(--available-width))] [--header-dropdown-height:min(max(calc(var(--ragents-viewport-height,100dvh)*0.8),320px),var(--available-height))]"
+        : "w-[min(800px,max(320px,calc(var(--anchor-width)-16px)),var(--available-width))] [--header-dropdown-height:min(calc(var(--ragents-viewport-height,100dvh)*0.7),560px,var(--available-height))]"}`}
       collisionAvoidance={variant === "chat" ? { side: "none", align: "shift" } : undefined}
       collisionPadding={8} container={element()?.closest("header") ?? undefined} data-slot="header-dropdown" dim
       finalFocus={trigger ? undefined : () => element() ?? true}

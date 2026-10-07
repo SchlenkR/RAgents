@@ -226,7 +226,7 @@ test("for a test, a local .tgz takes the place of the published package", async 
 
 test("without npm and without a host in the result, fetching is a named error", async () => {
   const storage = mkdtempSync(path.join(tmpdir(), "ragents-storage-"));
-  await assert.rejects(() => ensureHostPackage(storage, "0.1.0", { PATH: "" }, () => undefined), /npm was not found in the PATH.*ragents\.hostPath/s);
+  await assert.rejects(() => ensureHostPackage(storage, "0.1.0", { PATH: "" }, () => undefined), /npm was not found in the PATH.*Install Node 22 with npm/s);
   const empty = fakeNpm(`
 require("node:fs").appendFileSync(process.env.RAGENTS_FAKE_NPM_CALLS, "empty\\n");
 `);

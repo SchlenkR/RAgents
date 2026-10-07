@@ -502,8 +502,9 @@ the bundle revision as `?v=`, so that no browser or proxy cache keeps an old web
 plus the templates (`startEntries`) and `defaultStartEntry` when the profile file names a
 default template and the user may start it (`profiles.md`); a script template carries
 only `action`, `coordinator`, and the display texts there, never its source. `version` names the
-server's RAgents version (the package version, `readPackageVersion` in `host-version.ts`); a
-surface with its own version, the VS Code extension, compares it with its own. The shared web entry point
+server's RAgents version (the package version, `readPackageVersion` in `host-version.ts`),
+`extensionApi` the number of its interface to the VS Code extension, which the extension compares
+with its own (section Web as plugin host, Extension interface). The shared web entry point
 (`main.tsx`) puts every module of the host API's web list into
 the registry `globalThis.__ragentsHostModules` (`apps/web/src/host-modules.ts`) before the first bundle; the bundles'
 shims read from it, so host and plugins share one React and every context. The web host loads
@@ -568,6 +569,14 @@ repeated after a failure calls it again; whoever may act only once keeps its
 marker in the journal. The global coordinator does not get it. The hook knows no tool; what
 a plugin does with it is its own business.
 
+Preparation hooks receive an optional `signal`, which they forward to cancellable work. A
+request's cancellation applies before its input or script start is accepted; accepted work
+belongs to the run and continues independently of that request.
+Within a live session, cancellation during `sessionStarted` retains unfinished readiness. A
+retry completes the hook before accepting input and reuses an installed script actor instead
+of installing it again. After a process restart, existing actors still count as a begun run;
+there is no persisted lifecycle-completion marker.
+
 A run whose journal could not be loaded receives no stop hooks during deletion because it has no
 live session. Every delete hook is still invoked; a `journal-unavailable` error from cleanup that
 requires its state is skipped only for such a run. Other deletion errors remain failures, all
@@ -601,7 +610,7 @@ mode. `ragents.workspace` reads the run's binding from the start option
 `ragents.workspace.binding` (section Workspace, sandbox tools, and processes). For a
 new folder per run on the server, it creates an empty directory per run under the
 run storage; optionally a plugin provides the content or a different `cwd` through
-`workspaceResolverToken` (`resolve({ runId, directory, choice, emitSystem })`). If the resolver reports
+`workspaceResolverToken` (`resolve({ runId, directory, choice, emitSystem, signal })`). If the resolver reports
 an `optionId`, `ragents.workspace` reads the user's choice from the journal and passes it on as
 `choice`.
 
@@ -1304,6 +1313,24 @@ in the description. The `context` of a method: `access`, `signal` (cancellation 
 or end of connection), `progress` (intermediate states as `rpc.progress`), `connection`, and
 `local` (call from the own machine: stdio or loopback).
 
+Outgoing calls have a 30-second deadline by default. An operation may declare `timeoutMs` in its
+contract, and an explicit call option takes precedence over that declaration. `timeoutMs: null`
+explicitly keeps a request open until cancellation; workspace observations use it with an abort
+signal. Preparation-bearing chat and script-start operations declare a 75-minute outer limit to
+cover a maximum-duration workspace command and its workstation allowance. Run discussion has
+125 seconds, including its 120-second server limit; language-server switching has 15 minutes and
+5 seconds. Custom preparations with several long steps can supply a larger caller deadline.
+Deadlines are included in method descriptions and the OpenRPC `x-timeout-ms` extension.
+
+Each HTTP request owns its handler until its response ends. Disconnecting that response cancels
+the handler even without an event stream. A stream also owns its outstanding HTTP requests;
+closing it cancels them, and an explicit `rpc.cancel` reaches the corresponding request peer.
+Explicit client close rejects all pending outgoing calls and aborts their fetches; later calls
+remain possible. Reconnecting cancels only calls attached to the lost stream. Cancellation never
+automatically repeats a mutation.
+Pending handlers belong to their connection generation: an old result, error, or progress message
+cannot answer a new request that reuses its ID, or remove that new request's cancellation handle.
+
 Channels are notifications: `rpc.subscribe { channel, params }` returns a
 subscription ID, after which `rpc.event { subscription, channel, message }` arrive until
 `rpc.unsubscribe`. A provider repeats its initial state on opening, because a client resubscribes after
@@ -1359,6 +1386,20 @@ Background: browsers allow only six simultaneous HTTP/1.1 connections per host;
 four own streams per page plus a second tab had used up the supply, so that no
 further request went out.
 
+Connecting has its own deadline, including waiting for HTTP headers and the `hello` message;
+its default is 45 seconds. After connecting, 45 seconds without stream data triggers a reconnect.
+A failed channel subscription retries on the same stream, every five seconds by default, without
+reopening healthy channels. Releasing a subscription cancels its pending bind and retry.
+Connected status includes `channelErrors` while a subscription has failed. Message, error,
+status, and connection callbacks have separate error handling, so a throwing consumer cannot
+interrupt other channels or prevent transport recovery.
+
+Workspace panels have React error boundaries with Retry and Reload. A required plugin provider
+failure blocks its dependent subtree and identifies the plugin; it never bypasses the provider.
+The run and application also have error boundaries. Switching the run or replacing the affected
+component resets its boundary; ordinary updates preserve the error until Retry. Independent
+panels and controls remain available when one panel fails.
+
 The shared run panel shows chat and mini-apps with the same semantic theme tokens as the
 inspection rail, header, status bar, and dialogs. Colors, fonts, radii, and shadows are defined
 in `apps/web/src/ui/theme.css`; mini-app controls share these tokens.
@@ -1378,10 +1419,13 @@ In the browser host, Settings, Appearance, Zoom scales the whole page in the ste
 120, 130, and 150 percent, default 100 (`apps/web/src/zoom.ts`). Like the appearance, the choice is
 stored in this browser per server address (`ragents.zoom`), synchronized with open tabs, and an
 invalid stored value or a storage error is shown explicitly; it needs no settings right, because it
-changes only the own display. The interface applies it before the first React render as CSS `zoom`
-on the root element, and mini-app frames scale along. `body` is `position: relative`, so it is the
-offset parent of the popups and Base UI measures the zoom there; menus, popovers, and selections stay at
-their anchor. Pointer events report zoomed client coordinates, the dock geometry is unzoomed: the dock
+changes only the own display. The interface applies a CSS transform to the root before the first
+React render, with inverse document dimensions so the page fills the viewport. Mini-app frames
+scale along while their internal viewport stays consistent, including live zoom changes in WebKit.
+Host dialogs and popups use `--ragents-viewport-width` and `--ragents-viewport-height` for their
+available layout space, with viewport-unit defaults when the browser zoom is absent. `body` is
+`position: relative`, so Base UI positions popups in the scaled document at their anchors.
+Pointer events report scaled client coordinates, the dock geometry is unscaled: the dock
 divides pointer movements by the ratio of rendered to layout width of its container, while reordering
 the header's window buttons compares client coordinates with client rectangles. The host
 `vscode` has no such setting, the shell's `ragents.zoom` applies there (`apps/web/tests/zoom.test.ts`,
@@ -1570,7 +1614,8 @@ Previously saved layouts without automatic placement retain their arrangement. C
 and inspection tools are equal windows in a user-controlled docking workspace (`DockWorkspace`
 in `apps/web/src/run-panel/`). Areas form a binary split tree with draggable dividers. Tabs share
 the strip width equally, truncate long titles, and each have a close button. Every area header
-has a grip for moving all its tabs. A populated area offers maximize/restore only when another
+has a grip beside its active tab for moving only that window. Empty areas have no drag grip.
+A populated area offers maximize/restore only when another
 area exists. The area controls (a tool's header contribution, return to sidebar, maximize/restore)
 sit in the active tab cell before its close button, so that cell ends with
 `[return to sidebar] [maximize/restore] [X]`. Only an empty area with a neighbour has a close-area
@@ -1630,7 +1675,7 @@ closed view; its drag drops a new pane on a docking guide, and a drop inside the
 nothing. Empty panes are panels with the ID `empty:<uuid>`, titled "Empty space": they live only
 in the tree and in `known`, never in `closed`, `bar`, or `order`; catalog reconciliation keeps them,
 and closing one removes it. Their content is the hint "Drag an app or actor here". A center drop
-(header button, tab, area grip, or rail tool) on an area whose active tab is an empty pane replaces
+(header button, tab, tab grip, or rail tool) on an area whose active tab is an empty pane replaces
 that pane in place; for such an area the whole content is a center target and the compass center
 reads "Replace empty pane". A background empty pane is merged beside like any tab.
 "Reset layout" uses the standard header icon button directly after the views and extra actions,
@@ -1781,6 +1826,11 @@ consecutive thinking and tool steps between two other messages into one
 collapsed row "N steps"; while the last step is running, the row names it and
 pulses. Expanded, the steps are below it as single-line rows as in `compact`, each
 openable individually through a popover given the expand permission. The collapse state lives only in the view.
+Thinking and tool detail popovers cap their height at 70 percent of the dynamic viewport,
+620 px, and the available space. Their body scrolls without moving the heading or close button;
+scroll chaining is contained within the popup. The click anchor stays inside the viewport
+when resizing an open popup. The Quassel source provides this behavior;
+the installed 0.4.5 package uses the same correction through a pnpm dependency patch.
 Accesses without `runs.inspect` receive, when step display is enabled, only this
 current, non-expandable status. Disabled steps stay hidden.
 The default of all chats is `grouped`; a product can use it without expanding or switching.
@@ -2838,23 +2888,26 @@ Its tab remains stored under `ragents.run-panel.workspace-tab:<runId>`; unavaila
 closed until available. The browser instead uses the docking state described above. The
 `app` layout never has an inspection rail in either host. The chat reports the active inspection
 tab through the existing navigation and user-location contract.
-The panel header (`RunPanelPage`) is one wrapping flex row of three groups: the global group (logo
-and coordinator, at most 25rem wide, otherwise growing), the actions group (environment pill, run
-state, Stop, Settings, Help, browser, sign-out; it shrinks and wraps inside itself), and, with a
-run, the run bar that receives `RunPanelHeader` through a portal. `order` puts the actions group
-before the run bar, and the run bar's `100%` basis gives it the whole second row, so the first row
-has no gap between the coordinator and the actions. From a viewport width of 1100 pixels the VS
-Code run bar moves before the actions group and shares the single row; the browser never does,
-because its window buttons need the width.
-The run panel's header (`RunPanelHeader`) grows to fit its controls in both browser and VS Code.
-The title shrinks within its row or moves to its own row; window buttons, bar contributions,
-Share, Run script, and the remaining header icons wrap as whole controls and stay directly
-reachable without clipping or horizontal scrolling. The header occupies its natural height in
-the panel layout, so the dock's measured workspace begins below it. The title shows a pulsing
+The panel header (`RunHeader` in `RunPanelPage`) keeps fixed controls in a leading group (logo,
+global coordinator, and run title) and a trailing group (bar contributions such as Agents,
+Share, Run script, environment, run state, Stop, Settings, Help, browser, and sign-out).
+The coordinator and title have bounded preferred widths; the title truncates. Fixed controls
+can wrap on narrow panels. `RunPanelHeader` supplies the title and portals its controls and
+window target to these shared slots.
+Both hosts put `DockWindowActions` in the same window slot; VS Code opens a mini-app in an editor
+when its button is clicked. The slot measures the fixed groups and actual button sizes, fills
+the remaining first-row gap in order, then uses the full width for continuation rows. Only
+necessary rows are reserved. Window positions update without movement animation; existing
+buttons stay mounted, preserving focus and drag state. Resize, changed labels, and newly
+created or removed apps recalculate positions. Window buttons cap their width at 16rem or the
+header width, truncating long labels while keeping their accessible names and tooltips. No window menu or horizontal scrolling
+hides controls.
+The header occupies its natural height in the panel layout, so the dock's measured workspace
+begins below it. The title shows a pulsing
 dot during processing, the attention badge, and a chevron; a click opens "Run details" in
 `HeaderDropdown`, with every metadata contribution, start option badge, and header contribution
 without bar placement in responsive cells. Cells and their content wrap without clipping.
-With `runs.write`, "Run script" (`RunScriptMenu`) follows the layout actions behind a
+With `runs.write`, "Run script" (`RunScriptMenu`) sits in the fixed trailing controls behind a
 thin divider: an outline button in the primary color whose pop-out lists the run scripts from
 `ragents.runs.scripts` as the Start page's compact `StartTile` items filling their grid cells,
 with title, two lines of description, and a play icon at the top right. Available ones come
@@ -2935,7 +2988,7 @@ makes the view as large as the layout up to that room; an axis that does not fit
 cards plus `GRAPH_PAN_MARGIN` (40 pixels) on each side, beyond the 16-pixel layout padding. The
 canvas stays a native scroll container with hidden scrollbars, so wheel, touch, and focus scrolling
 keep working within these limits. A left mouse or pen drag of at least 5 pixels pans from anywhere,
-cards included, with `clampGraphPan` and pointer deltas divided by the page's CSS zoom; the click
+cards included, with `clampGraphPan` and pointer deltas divided by the page's scale; the click
 that ends a drag is swallowed, a shorter press stays a click. On opening, the chosen actor is
 centered (`graphPanTo`) and stays centered while the room settles, until the first press, wheel, or
 key in the canvas. After a click on a group, the group card stays at its screen position as far as
@@ -3084,6 +3137,42 @@ message layer with the same client (`RpcClient` with its own `fetch` and bearer)
 own event stream, signs in itself with `POST /api/access/login`, and reads its
 templates from `ragents.plugins.bootstrap` of its server; operation and limits are in
 `docs/usage.md`.
+
+**Extension interface.** The extension's interface comes from the server; across releases only
+a small contract between extension and server must match. `EXTENSION_API_VERSION` in
+`apps/server/src/extension-api.ts` numbers it, and the server reports it as `extensionApi` in
+`ragents.plugins.bootstrap`. `scripts/vscode/extension-api.ts` lists the contract: every
+operation the extension and its workstation call or serve and every channel they subscribe to
+(bootstrap, run list, deleting and sharing runs, the run and run-list channels, journal events,
+`ragents.profile.describe`, `ragents.processes.tunnel`, which the run panel names at runtime, the
+workstation's contribution question, sign-in, and sign-out, and `ragents.workspace.client.execute`),
+and the source files of the frame protocol between server page and webview
+(`run-panel/host-contract.ts`: page address and query, panel and host messages, clipboard, and
+keyboard), of the message layer (`packages/ragents/src/rpc/protocol.ts`), and of the HTTP routes
+the extension uses directly: `/rpc` and `/rpc/stream` (`apps/server/src/rpc/http-transport.ts`),
+`/api/access` with sign-in, sign-out, and the access snapshot (`apps/server/src/access-session.ts`,
+`packages/ragents/src/access.ts`), `/api/host-package` (`apps/server/src/host-package.ts`), and
+the legs of a service tunnel (`packages/workspace-executor/src/processes/tunnel.ts`). The executor
+operations behind `ragents.workspace.client.execute` are versioned separately at sign-in by
+`WORKSPACE_EXECUTOR_VERSION` and the contribution revisions (section Contributions to the
+executor), the archive of a distributed profile by the host API. `apps/vscode/extension-api.json`
+records per contract a SHA-256 of its kind, `implementedBy`, its schemas without descriptions, and
+its TypeScript types as the extension's compiler resolves them, because an `openJson` schema has
+only its type, and per file a SHA-256 of its content. `pnpm update:extension-api`
+(`scripts/maintenance/update-extension-api.ts`) rewrites the record and prints what changed; it
+refuses a record with a higher number than the constant. `apps/vscode/tests/extension-api.test.ts`
+checks the build-only inventory and recorder under `scripts/vscode`; neither enters the extension
+bundle or adds plugin knowledge to the core. The test
+turns every deviation red and names it. Whoever gets there decides whether an older extension or
+an older server breaks with the change, raises `EXTENSION_API_VERSION` if so, and then runs the
+update; a compatible change, such as an added optional field or a comment in a listed file, keeps
+the number. A second test bundles the extension and checks that the list names exactly the
+contracts its sources pass to `rpc.call`, `rpc.subscribe`, and `rpc.handle`. The extension shows
+no notice while both numbers are equal, whatever the release versions; a server without
+`extensionApi` predates the check and is a warning, a different number an error, and the lower
+number names the side to update (`versionNotice` in `apps/vscode/src/sessions.ts`, texts in
+`docs/usage.md`). A workspace the server rejects for its revision stays an error with the server's
+cause.
 
 **One vocabulary for all pages.** Per state there is exactly one word and exactly one colored icon;
 in the panel the icon is shown, the word only in the `title`. The words are in
@@ -3430,6 +3519,14 @@ retains its files and ownership, and lets the other runs start. Locked runs rece
 scheduler execution or tool validation. Repairing the prerequisite and restarting retries
 resolution; an ordinarily disconnected workstation does not create this lock.
 
+Concurrent callers share a workspace preparation with separate cancellation lifetimes. One
+cancelled caller cannot enqueue its input; remaining callers keep the preparation running.
+Only the last waiting caller's cancellation aborts the preparation, through the resolver's
+`signal` or the workstation executor's operation signal. Resolvers must forward that signal to
+their processes. Cancellation removes the failed cache entry without locking the run, and a
+retry waits for the old preparation's cleanup before creating new work; that wait is also
+cancellable. Completed readiness remains cached. Accepted inputs and script starts are run-owned.
+
 Where and in what a run works is decided by its binding: the start option `ragents.workspace.binding`
 of `ragents.workspace` with two separate values, `{ machine, folder }`
 (`plugins/ragents.workspace/contract.ts`). `machine` is the machine, `"server"` or
@@ -3611,8 +3708,8 @@ missing question at the server, or a selected host package or bundle with a diff
 the client's status says so with `mismatch: true` (`WorkspaceClientStatus` in
 `plugins/ragents.workspace/client/workspace-client.ts`), every other failure with `false`; it
 reads the domain codes from the error itself, not from its class. The VS Code extension turns this into
-the version error and, independently of that, compares its RAgents version with `version` from
-`ragents.plugins.bootstrap` (`versionNotice` in `apps/vscode/src/sessions.ts`, operation in
+the version error and, independently of that, compares its extension interface with `extensionApi` from
+`ragents.plugins.bootstrap` (section Web as plugin host, Extension interface; operation in
 `docs/usage.md`).
 
 Exactly one operation goes to the workstation: `ragents.workspace.client.execute` with
@@ -4111,7 +4208,7 @@ installed packages are reused across sessions and restarts. The CLI reuses its l
 when its package version matches the server. The Servers entry reports fetching progress and
 failures with their cause.
 
-An explicit `ragents.hostPath` overrides fetching. Before loading, the selected host's package
+An extension started from a checkout uses that checkout instead of fetching. Before loading, the selected host's package
 version must match the server's RAgents version, and every requested contribution must match its
 SHA-256 state. A missing host, missing bundle, different package version, or different contribution
 state fails registration with the cause; no other host is used as a fallback. A rejected executor
@@ -4302,7 +4399,7 @@ TypeScript is not provisioned but lies in the host's `node_modules`; the adapter
 resolves `typescript-language-server` and `typescript` through the machine's `hostPackageFile` from the
 folder the run's context names as `hostRoot`. Every
 caller of the executor sets the value: the server its own root (`hostRoot()`), both workstation
-clients the host selected for this server: in VS Code the explicit `ragents.hostPath` or its
+clients the host selected for this server: in VS Code the extension's checkout or the
 package under `<globalStorage>/hosts/<server-version>/`, in the CLI its matching launching host
 or package in the user cache. No adapter
 and no module resolves anything, downloads anything, or checks anything on
@@ -4969,7 +5066,7 @@ right) returns the archive; a different version is 404. The counterpart is `rage
   Libraries bundled by several plugins exist several times in the browser. If someone rebuilds a bundle
   while a server is running from it, the server delivers the new web half and new assets with its
   old server code until it restarts; the host keeps no version per running server.
-- The browser zoom is CSS `zoom` on the root element, not the browser's page zoom: media queries keep
+- Browser scaling uses a root transform: media queries keep
   the window width, so breakpoints such as `max-md` switch by window width, container queries by the
   zoomed width.
 - The build tool does not see pure type imports, because they disappear in the bundle: a third-party
@@ -4984,6 +5081,10 @@ right) returns the archive; a different version is 404. The counterpart is `rage
   asks the executor without declaring that also reaches other users' `ownerOnly` workspaces. Until the
   run list has reported a run, web and VS Code show its workspace tabs; the server
   then rejects their accesses with `run-workspace-owner-only`.
+- Whether a change of the extension interface breaks an older extension or server is a decision,
+  not a check: the record turns every change of a listed contract or file red, compatible ones
+  included, and covers only what the list names; the client half of the message layer
+  (`apps/web/src/rpc/client.ts`) and behavior behind an unchanged contract are not part of it.
 - Read markers belong to a user, not to a person: without sign-in every access shares one read
   state, that of the configured anonymous user or otherwise of the null user, and an access token
   without users does too. Another host of the same user learns of a changed marker through the

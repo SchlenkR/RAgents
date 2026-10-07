@@ -5,7 +5,6 @@ import {
   useCallback,
   useEffect,
   useMemo,
-  useRef,
   useState,
   type PropsWithChildren,
 } from "react";
@@ -45,6 +44,16 @@ const sectionLabelClass = "mb-2 text-[0.66rem] tracking-[0.075em] text-muted-for
 
 const ACTIVE_STATUSES = new Set(["queued", "running"]);
 const POLL_INTERVAL = 700;
+const LIST_RETRY_DELAYS = [500, 1500, 4000];
+
+interface ListingScope {
+  readonly api: ActorProgramsApi;
+  readonly runId: string;
+  disposed: boolean;
+  revision: number;
+  timer?: number;
+  controller?: AbortController;
+}
 
 const replaceInvocation = (
   listing: ActorProgramsListing | undefined,
@@ -70,31 +79,49 @@ export function ActorProgramsProvider({
 }: PropsWithChildren<{ api: ActorProgramsApi; session: SessionContext }>) {
   const runId = session.session.id;
   const canInspect = useAccess().can("runs.inspect");
-  const [storedListing, setListing] = useState<ActorProgramsListing>();
+  const scope = useMemo<ListingScope>(() => ({ api, runId, disposed: false, revision: 0 }), [api, runId]);
+  const [loaded, setLoaded] = useState<{ scope: ListingScope; listing?: ActorProgramsListing; error?: string }>();
+  const storedListing = loaded?.scope === scope ? loaded.listing : undefined;
   const listing = useMemo(() => currentActorListing(storedListing, session.runView), [storedListing, session.runView]);
-  const [error, setError] = useState<string>();
-  const loadRevision = useRef(0);
+  const error = loaded?.scope === scope ? loaded.error : undefined;
 
   const refresh = useCallback(async () => {
-    const revision = ++loadRevision.current;
-    try {
-      const next = await api.list(runId);
-      if (revision !== loadRevision.current) return;
-      setListing(next);
-      setError(undefined);
-    } catch (caught) {
-      if (revision !== loadRevision.current) return;
-      setError(caught instanceof Error ? caught.message : String(caught));
-    }
-  }, [api, runId]);
+    let attempt = 0;
+    const load = async () => {
+      if (scope.disposed) return;
+      window.clearTimeout(scope.timer);
+      scope.controller?.abort();
+      const controller = new AbortController();
+      scope.controller = controller;
+      const revision = ++scope.revision;
+      try {
+        const next = await scope.api.list(scope.runId, controller.signal);
+        if (scope.disposed || revision !== scope.revision) return;
+        setLoaded({ scope, listing: next });
+      } catch (caught) {
+        if (scope.disposed || revision !== scope.revision) return;
+        setLoaded((current) => ({ scope, listing: current?.scope === scope ? current.listing : undefined,
+          error: caught instanceof Error ? caught.message : String(caught) }));
+        const delay = LIST_RETRY_DELAYS[attempt++];
+        if (delay !== undefined) scope.timer = window.setTimeout(() => void load(), delay);
+      }
+    };
+    await load();
+  }, [scope]);
 
   const moduleRevision = useMemo(() => actorProgramsRevision(session.runView), [session.runView]);
   useEffect(() => {
-    setListing(undefined);
-    setError(undefined);
-    return () => { loadRevision.current += 1; };
-  }, [runId]);
-  useEffect(() => { void refresh(); }, [moduleRevision, refresh]);
+    scope.disposed = false;
+    window.addEventListener("online", refresh);
+    return () => {
+      scope.disposed = true;
+      scope.revision += 1;
+      scope.controller?.abort();
+      window.clearTimeout(scope.timer);
+      window.removeEventListener("online", refresh);
+    };
+  }, [refresh, scope]);
+  useEffect(() => { void refresh(); }, [moduleRevision, refresh, session.connected]);
 
   const activeInvocations = useMemo(() => activeActorInvocations(listing?.apps ?? [], canInspect), [canInspect, listing]);
   const activeKey = activeInvocations.length > 0 ? JSON.stringify(activeInvocations) : "";
@@ -115,11 +142,11 @@ export function ActorProgramsProvider({
       if (disposed) return;
       const updates = results.flatMap((result) => result.status === "fulfilled" ? [result.value] : []);
       if (updates.length > 0) {
-        setListing((current) => updates.reduce((next, update) => replaceInvocation(next, update.invocation), current));
-        setError(undefined);
+        setLoaded((current) => ({ scope, listing: updates.reduce((next, update) => replaceInvocation(next, update.invocation), current?.scope === scope ? current.listing : undefined) }));
       }
       const failed = results.find((result): result is PromiseRejectedResult => result.status === "rejected");
-      if (failed) setError(failed.reason instanceof Error ? failed.reason.message : String(failed.reason));
+      if (failed) setLoaded((current) => ({ scope, listing: current?.scope === scope ? current.listing : undefined,
+        error: failed.reason instanceof Error ? failed.reason.message : String(failed.reason) }));
       const finished = updates.some((update) => !ACTIVE_STATUSES.has(update.invocation.status));
       if (finished) {
         await refresh();
@@ -135,7 +162,7 @@ export function ActorProgramsProvider({
       controller?.abort();
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps -- activeKey encodes activeInvocations; the poll uses the captured targets
-  }, [activeKey, api, refresh, runId]);
+  }, [activeKey, api, refresh, runId, scope]);
 
   const invoke = useCallback(async (
     appId: string,
@@ -144,12 +171,19 @@ export function ActorProgramsProvider({
     requestId: string,
     input: JsonValue,
   ) => {
-    loadRevision.current += 1;
-    const invocation = await api.invoke(runId, appId, revision, actionId, requestId, input);
-    loadRevision.current += 1;
-    setListing((current) => replaceInvocation(current, invocation));
-    return invocation;
-  }, [api, runId]);
+    if (scope.disposed) throw new Error("The actor program provider is no longer active.");
+    scope.revision += 1;
+    try {
+      const invocation = await api.invoke(runId, appId, revision, actionId, requestId, input);
+      if (scope.disposed) return invocation;
+      scope.revision += 1;
+      setLoaded((current) => ({ scope, listing: replaceInvocation(current?.scope === scope ? current.listing : undefined, invocation),
+        error: current?.scope === scope ? current.error : undefined }));
+      return invocation;
+    } finally {
+      if (!scope.disposed) void refresh();
+    }
+  }, [api, refresh, runId, scope]);
 
   const value = useMemo<ActorProgramsContextValue>(() => ({
     api,

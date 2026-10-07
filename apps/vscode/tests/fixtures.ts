@@ -15,6 +15,7 @@ import {
 import type { JournalEvent } from "../../../packages/ragents/src/domain/events";
 import type { RunSharing, RunView as JournalRunView } from "../../../packages/ragents/src/domain/model";
 import { coreContracts, type HostBootstrap, type RunSharingResult } from "../../server/src/api/contracts";
+import { EXTENSION_API_VERSION } from "../../server/src/extension-api";
 import { RpcDispatcher } from "../../server/src/rpc/dispatcher";
 import { RpcHttpTransport } from "../../server/src/rpc/http-transport";
 import { workspaceClientContracts, workspaceContracts, type WorkspaceClientDescription } from "../../../plugins/ragents.workspace/contract";
@@ -130,8 +131,10 @@ export const startStubServer = async (options: {
   profile?: PublicPluginProfile;
   /** What the stub's plugins contribute to the executor; a workspace must bring exactly that. */
   contributions?: readonly ExecutorContributionRevision[];
-  /** The RAgents version in the bootstrap; null omits it like a server that is older than this field. */
+  /** The RAgents version in the bootstrap; null omits it and the extension interface like a server that is older than both fields. */
   version?: string | null;
+  /** The extension interface in the bootstrap; null omits it like a server that is older than this field. */
+  extensionApi?: number | null;
   /** This is how the server rejects every registration of a workspace, e.g. with a different executor revision. */
   refuseRegistration?: { code: string; message: string };
   sharing?: {
@@ -168,7 +171,11 @@ export const startStubServer = async (options: {
       implement(coreContracts.runs.sharing, ({ runId }) => sharing.load(runId)),
       implement(coreContracts.runs.share, ({ runId, sharing: next }) => sharing.save(runId, next)),
     ] : []),
-    implement(coreContracts.plugins.bootstrap, () => options.version === null ? profile as HostBootstrap : { ...profile, version: options.version ?? STUB_VERSION, hostPackage: null }),
+    implement(coreContracts.plugins.bootstrap, () => {
+      if (options.version === null) return profile as HostBootstrap;
+      const reported = { ...profile, version: options.version ?? STUB_VERSION, hostPackage: null };
+      return options.extensionApi === null ? reported as HostBootstrap : { ...reported, extensionApi: options.extensionApi ?? EXTENSION_API_VERSION };
+    }),
     implement(runContracts.view, ({ runId }) => {
       viewRequests += 1;
       if (sessions.some((entry) => entry.id === runId && entry.locked !== undefined)) throw new DomainError("journal-unavailable", `Journal for run ${runId} is not available`, 409);

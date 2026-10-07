@@ -1,5 +1,105 @@
 # Decisions
 
+## 2026-10-07: Version the contract between VS Code extension and server
+
+Chapters: `spec/plugins.md` (Web halves at runtime, Web as plugin host, Workspace, sandbox tools,
+and processes, Open limits); usage: `usage.md` (Run panel and VS Code extension); operations:
+`operations.md`; development: `development.md`.
+
+The extension compared its release version with the server's and warned after every release,
+although it kept working: its interface comes from the server, and only a small contract between
+the two must match. That contract now has its own number, `EXTENSION_API_VERSION`, which the
+server reports as `extensionApi` in `ragents.plugins.bootstrap`. `scripts/vscode/extension-api.ts`
+lists it: the operations and channels the extension and its workstation use, the frame protocol,
+the message layer, and the HTTP routes the extension calls directly. `apps/vscode/extension-api.json`
+records hashes of their schemas, types, and files, and a test forces a decision about the number on
+every change, as `HOST_API_VERSION` does for plugins. Equal numbers show no notice whatever the
+releases; servers without the field predate the check and get a warning, a different number is an
+error that names the older side.
+The contract inventory and recorder stay with the build tools under `scripts/vscode`, outside the
+extension bundle and the neutral core; the core's plugin-boundary guard keeps its existing rules.
+
+## 2026-10-07: Give asynchronous failures an owner and a recovery path
+
+Chapters: `spec/plugins.md` (Lifecycle, Message layer, Web as plugin host, Workspace),
+`spec/actor-programs.md` (State and lifecycle), `spec/core.md` (Run isolation);
+usage: `usage.md` (Run chat and inspection).
+
+HTTP disconnects and client timeouts previously left server handlers running, channel opening
+failures stayed disconnected on healthy streams, and throwing consumers interrupted every live
+channel. Requests now have declared deadlines and cancellation lifetimes; channels retry locally
+and callback failures stay with their consumer. Long operations declare their own outer limits
+instead of inheriting an ordinary read deadline.
+Pending handlers retain their connection identity so an old response cannot answer a reused ID.
+Cancellation now reaches session preparation, workspace resolvers, and workstation processes;
+shared preparation stops only after its last waiting caller leaves. Cancellation is retryable
+after cleanup and leaves already accepted work with the run.
+An interrupted initial lifecycle stays retryable in its live session, using an already installed
+script actor; actor existence alone no longer skips an unfinished preparation.
+
+Actor invocation status writes are observed by their background task, including errors while
+recording another error. A failed journal remains unavailable only for its run. Listing reads
+have bounded retry, reconnect recovery, and an operator Retry action. React render failures have
+local and application recovery boundaries; a required provider is never silently bypassed.
+File previews have one request owner and discard obsolete responses. Browser zoom now uses a
+root transform with inverse document dimensions and shared viewport limits for host overlays.
+WebKit retained the previous effective CSS zoom inside loaded frames and clipped percentage-sized
+app roots and native scrollbars; scaling the host preserves each frame's internal viewport.
+
+## 2026-10-07: Remove the `ragents.hostPath` setting
+
+Chapter: `spec/plugins.md` (Contributions to the executor); usage: `usage.md` (Run panel and VS Code
+extension); operations: `operations.md`.
+
+The setting overrode the host for every server, including workstation registration. A checkout
+keeps the version of its last committed manifest, because the release never commits its version,
+so a checkout as host never matched a released server and every registration failed with a
+version mismatch. The extension now uses its own checkout when started from one
+(`scripts/start-vscode.sh`, the host tests) and otherwise fetches the package in the server's
+version, or in its own version for a local profile. Profile suggestions come from that checkout or
+the last started host.
+
+## 2026-10-06: Keep the app bridge with its retained frame document
+
+Chapter: `spec/actor-programs.md` (Host bridge).
+
+Hiding a tab paused its React effects and closed the app's MessagePort, but kept its document.
+Revealing assigned the same URL again without creating a fresh document, leaving the one-time
+handshake disconnected. The host now retains the connection with the document and closes it
+only on revision replacement, removal, or navigation. Host callback updates do not reconnect.
+The handshake timeout starts after loading and pauses for hidden panels, so a slow initial
+load is not reported as a broken connection.
+
+## 2026-10-06: Move only the window beside a tab grip
+
+Chapter: `spec/plugins.md` (Run panel); usage: `usage.md` (Browser docking).
+
+The grip inside the active tab cell dragged every tab in its area, although its position
+identified a single window. It now moves only that window, matching a tab-label drag. Splitting
+within the source area and docking beside another area leave the other tabs in place. Empty
+areas no longer expose an inert drag grip.
+
+## 2026-10-06: Keep long thinking traces inside the viewport
+
+Chapter: `spec/plugins.md` (Chat step details).
+
+Thinking popovers had no height limit and allowed their body to overflow, which placed the
+heading and close button outside the viewport for long traces. Thinking and tool details
+now share an available-space height cap and an internal scroll area. Their click anchor is
+clamped to the current viewport so resizing an open popup keeps it visible. Quassel carries the fix
+in its source; a pinned dependency patch applies it to the installed 0.4.5 without publishing.
+
+## 2026-10-06: Keep fixed header controls stable as mini-apps grow
+
+Chapter: `spec/plugins.md` (Run panel); usage: `usage.md` (Navigation, docking).
+
+Both hosts use the same header. The title and fixed actions keep their positions while window
+buttons fill the measured first-row gap and continue over the full width below it. Nested
+wrapping previously left free space unused; a reserved second row wasted height on wide views.
+Continuation rows now appear only when needed. Long labels truncate, position changes do not
+animate, and buttons stay mounted through growth and resizing so focus and dragging survive.
+VS Code mini-app buttons join the header and continue opening editor tabs.
+
 ## 2026-10-06: Keep dock places of briefly unavailable windows
 
 Chapters: `spec/plugins.md` (Ownership per facet: run metadata; Web as plugin host: run panel,
@@ -51,6 +151,7 @@ until a compaction; the skill classifier still sees only the input text. `Global
 replaces `contextPrompt` with `inputOrientation`, which gets the input instead of the actor: a
 person's message that joins a running turn now brings its own interface context, and inputs that
 no person sent get none. Older journals keep their inputs without these parts; nothing is migrated.
+
 
 ## 2026-10-06: Reasoning is chosen from a menu again
 

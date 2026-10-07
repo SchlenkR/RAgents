@@ -812,6 +812,11 @@ specifier is always `@schlenkr/ragents@<version>`. Without VS Code, `apps/vscode
 built `dist/extension.js` lies in an empty temp folder, and a child process calls `activate`
 with a stub `vscode`.
 
+The extension works with a server of another release as long as both speak the same extension
+interface (`EXTENSION_API_VERSION`, `docs/spec/plugins.md`, section Web as plugin host). If
+`apps/vscode/tests/extension-api.test.ts` reports a changed contract, decide whether an older
+extension or server breaks with it, raise the number if so, and run `pnpm update:extension-api`.
+
 ### Building and publishing the package
 
 The package is built from what the host actually loads; the build determines the dependencies

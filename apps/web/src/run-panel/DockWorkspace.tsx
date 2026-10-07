@@ -132,13 +132,14 @@ export function DockWorkspace({ apps, chat, chatIcon = <UsersIcon />, navigation
   };
   const marker = (tab: WorkspaceTabContribution, active: boolean) => pendingTabIds.includes(tab.id) && activeDockTool(state) !== tab.id ? <Badge tone="info">New activity</Badge>
     : tab.Badge && <tab.Badge active={active} navigation={navigation} selection={navigation.selectionFor(tab.id)} session={session} />;
-  // A CSS zoom on the page scales client coordinates, not the dock geometry.
+  // Page scaling affects client coordinates; dock geometry uses layout units.
   const pointerZoom = () => container.current!.getBoundingClientRect().width / container.current!.offsetWidth || 1;
   const localPoint = (point: DockPoint, rect: DOMRect, zoom: number): DockPoint => ({ x: (point.x - rect.left) / zoom, y: (point.y - rect.top) / zoom });
   // Client coordinates keep header insertion independent of page zoom.
   const headerSlot = (point: DockPoint, id: string): number | null | undefined => {
     const group = windowsRef.current;
     if (!group || !containsPoint(group.getBoundingClientRect(), point)) return undefined;
+    if (document.elementFromPoint(point.x, point.y)?.closest("[data-header-fixed]")) return undefined;
     const slot = [...group.querySelectorAll<HTMLElement>("[data-dock-window]")].filter((button) => {
       const rect = button.getBoundingClientRect();
       return rect.bottom <= point.y || (rect.top <= point.y && rect.left + rect.width / 2 < point.x);
@@ -286,7 +287,7 @@ export function DockWorkspace({ apps, chat, chatIcon = <UsersIcon />, navigation
         <div aria-hidden data-dock-card={group.id} className={cn(cardClass, "z-0", state.focused === group.id && !state.side.focused ? "border-primary/70" : "border-border")} style={rect} />
         <div aria-label="Area tabs" className={areaHeaderClass} data-dock-group={group.id} role="tablist" style={headerRect(rect)} onFocusCapture={() => { if (state.focused !== group.id || state.side.focused) update((current) => ({ ...current, focused: group.id, side: { ...current.side, focused: false } })); }}>
           {group.tabs.map((id) => <div className={cn(tabClass, id === group.active && "bg-selected text-selected-foreground hover:bg-selected-hover")} key={id} role="presentation">
-            {id === (group.active ?? group.tabs[0]) && <Button aria-label="Move area" className={cn(gripClass, "flex-none touch-none cursor-grab hover:bg-transparent active:cursor-grabbing")} onPointerDown={(event) => startDrag(event, group.tabs)} size="icon-xs" title="Drag all windows of this area" variant="ghost"><DockGrip /></Button>}
+            {id === (group.active ?? group.tabs[0]) && <Button aria-label={`Move ${title(id)}`} className={cn(gripClass, "flex-none touch-none cursor-grab hover:bg-transparent active:cursor-grabbing")} onPointerDown={(event) => startDrag(event, [id])} size="icon-xs" title="Drag this window" variant="ghost"><DockGrip /></Button>}
             <InteractiveItem id={`dock-tab-${encodeURIComponent(id)}`} aria-controls={`dock-panel-${encodeURIComponent(id)}`} aria-label={title(id)} aria-selected={id === group.active} className="flex h-7 min-w-0 flex-1 touch-none cursor-grab items-center gap-1.5 border-0 px-2 text-left text-xs text-muted-foreground hover:bg-transparent hover:text-foreground selected:border-0 selected:bg-transparent selected:text-selected-foreground selected:hover:bg-transparent [&>svg]:size-4 [&>svg]:shrink-0"
               onClick={(event) => { if (event.detail === 0) select(id); }} onKeyDown={(event) => selectFromKeyboard(event, group, id)}
               onPointerDown={(event) => startDrag(event, [id], () => select(id))} role="tab" tabIndex={id === group.active ? 0 : -1} title={title(id)} type="button">{icon(id)}<span className="truncate">{title(id)}</span></InteractiveItem>
@@ -297,7 +298,6 @@ export function DockWorkspace({ apps, chat, chatIcon = <UsersIcon />, navigation
             </>}
             <Button aria-label={`Close ${title(id)}`} className="flex-none" onClick={() => close([id])} size="icon-xs" variant="ghost"><XIcon /></Button>
           </div>)}
-          {group.tabs.length === 0 && <Button aria-label="Move area" className={cn(gripClass, "flex-none touch-none cursor-grab active:cursor-grabbing")} onPointerDown={(event) => startDrag(event, group.tabs)} size="icon-xs" title="Drag all windows of this area" variant="ghost"><DockGrip /></Button>}
           {group.tabs.length === 0 && <span className="min-w-0 flex-1 truncate px-1 text-xs text-muted-foreground">Empty area</span>}
           {group.tabs.length === 0 && dockGroups(state.root).length > 1 && <Button aria-label="Close area" onClick={() => close(dockGroups(reconciled.root).find((entry) => entry.id === group.id)?.tabs ?? [], group.id)} size="icon-xs" variant="ghost"><XIcon /></Button>}
         </div>

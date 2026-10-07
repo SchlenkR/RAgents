@@ -73,7 +73,7 @@ const packageOf = (specifier: string): string =>
 const hostPackageFile = (hostRoot: string | undefined, specifier: string): string => {
   if (!hostRoot) {
     throw new Error(`No host is known on this machine from which ${packageOf(specifier)} could be resolved. `
-      + "Use a host in the server's RAgents version, fetched by the extension, set through ragents.hostPath, or installed as @schlenkr/ragents.");
+      + "Use a host in the server's RAgents version, fetched by the extension or installed as @schlenkr/ragents.");
   }
   try {
     return createRequire(path.join(hostRoot, "package.json")).resolve(specifier);

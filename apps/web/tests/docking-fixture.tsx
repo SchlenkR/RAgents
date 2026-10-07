@@ -5,6 +5,7 @@ import { DockToolsContext, DockWorkspace } from "../src/run-panel/DockWorkspace"
 import { activeDockTool, selectDockPanel, workspaceTabPanelId } from "../src/run-panel/dock-state";
 import { useDockStorage } from "../src/run-panel/dock-storage";
 import { RunPanelHeader } from "../src/run-panel/RunPanelHeader";
+import { RunHeader } from "../src/run-panel/RunHeader";
 import { PluginRegistry, type SessionHeaderContribution, type WorkspaceTabContribution } from "../src/PluginRegistry";
 import type { RunApp } from "../src/run-apps";
 import { Badge, Button } from "../src/ui";
@@ -44,10 +45,11 @@ function Run({ run, appIds }: { run: string; appIds: readonly string[] }) {
   useEffect(() => { window.dockingFixture.openTab = navigation.openTab; });
   const workspace = <DockToolsContext.Provider value={{ tabs: tools, pendingTabIds: [], actionsContainer: withHeader ? actions : undefined }}><DockWorkspace apps={apps} chat={<textarea aria-label="Chat draft" className="h-full" />} navigation={navigation} session={session} /></DockToolsContext.Provider>;
   return withHeader ? <div className="flex min-w-0 flex-1 flex-col">
-    <header className="flex min-h-header flex-none items-center border-b border-border bg-shell px-2">
+    <RunHeader leading={
       <RunPanelHeader actionsRef={setActions} attention={undefined} contributions={headers} navigation={navigation} registry={registry} runError={undefined} session={session} working={false} />
-    </header>
+    }>
     {workspace}
+    </RunHeader>
   </div> : workspace;
 }
 function Fixture() {

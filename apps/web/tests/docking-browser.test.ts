@@ -66,7 +66,7 @@ test("browser docking preserves frames and drafts through split, merge, close, m
   assert.equal(await page.getByRole("button", { name: "Close Notes", exact: true }).count(), 1);
   assert.equal(await page.getByRole("button", { name: "Maximize area", exact: true }).count(), 2);
   assert.deepEqual(await groups.filter({ has: tab("Notes") }).getByRole("button").evaluateAll((buttons) => buttons.map((button) => button.getAttribute("aria-label"))),
-    ["Move area", "Maximize area", "Close Notes"], "maximize sits where the close button was, the close button is outermost");
+    ["Move Notes", "Maximize area", "Close Notes"], "maximize sits where the close button was, the close button is outermost");
   await page.evaluate(() => { document.getElementById("root")!.style.width = "900px"; });
   await page.waitForFunction(() => document.querySelectorAll("[data-dock-group]").length === 1);
   assert.equal(await page.getByRole("button", { name: "Maximize area", exact: true }).count(), 0);
@@ -172,7 +172,7 @@ test("browser docking preserves frames and drafts through split, merge, close, m
   const firstCard = await box(cards[0]);
   const secondCard = await box(cards[1]);
   assert.ok(Math.abs(secondCard.x - firstCard.x - firstCard.width - 6) < 1);
-  await startDrag(notesGroup.getByRole("button", { name: "Move area", exact: true }), groups.filter({ has: tab("Chat") }));
+  await startDrag(notesGroup.getByRole("button", { name: "Move Notes", exact: true }), groups.filter({ has: tab("Chat") }));
   await dropGuide("group-center");
   assert.equal(await groups.count(), 1);
   await startDrag(tab("Notes"), groups.first());
@@ -277,7 +277,7 @@ test("browser docking preserves frames and drafts through split, merge, close, m
   const filesGroup = groups.filter({ has: tab("Files") });
   assert.ok((await box(filesGroup)).x > (await box(groups.filter({ has: tab("Notes") }))).x, "the button places the window at the right edge");
   assert.deepEqual(await filesGroup.getByRole("button").evaluateAll((buttons) => buttons.map((button) => button.getAttribute("aria-label"))),
-    ["Move area", "Return Files to sidebar", "Maximize area", "Close Files"]);
+    ["Move Files", "Return Files to sidebar", "Maximize area", "Close Files"]);
   assert.equal(await page.getByRole("separator", { name: "Resize areas", exact: true }).count(), 1);
   await screenshot("moved-into-layout");
   await page.getByRole("button", { name: "Close Files", exact: true }).click();

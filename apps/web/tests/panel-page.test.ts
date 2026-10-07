@@ -248,9 +248,9 @@ test("the Server page lists the rows with their actions, without Start and Stop"
   assert.doesNotMatch(html, />Stop</);
   assert.doesNotMatch(html, /Really remove\?/, "removing asks for confirmation in the dialog");
   assert.doesNotMatch(html, /Server type/, "the dialog appears only after the click");
-  const failed = render(page({ page: "connections", connections: [connection({ kind: "profile", address: "/x/ragents.config.core.ts", route: { kind: "profile", profile: "core" }, state: { kind: "failed", message: "set ragents.hostPath to it" }, runs: [], entries: [] })] }));
+  const failed = render(page({ page: "connections", connections: [connection({ kind: "profile", address: "/x/ragents.config.core.ts", route: { kind: "profile", profile: "core" }, state: { kind: "failed", message: "install the host first" }, runs: [], entries: [] })] }));
   assert.match(failed, /title="failed"/);
-  assert.match(failed, /role="alert"[^>]*>set ragents.hostPath to it</);
+  assert.match(failed, /role="alert"[^>]*>install the host first</);
   assert.match(failed, />Retry</);
   const empty = render(page({ page: "connections", connections: [] }));
   assert.match(empty, />No server yet.</);
@@ -290,16 +290,16 @@ test("a server missing an environment variable explains the case and leads to th
   assert.doesNotMatch(without, />Set value</, "without a finding the previous reason stays");
 });
 
-test("server management reports differing RAgents versions with their severity", () => {
-  const warning = { level: "warning" as const, text: "RAgents version does not match: extension 0.1.9, server 0.1.8 - update the server to 0.1.9." };
-  const error = { level: "error" as const, text: "RAgents version does not match: extension 0.1.8, server 0.1.9 - update the RAgents extension to 0.1.9. The workspace is therefore not registered: executor 7 instead of 8." };
+test("server management reports a differing extension interface with its severity", () => {
+  const warning = { level: "warning" as const, text: "RAgents server 0.1.8 predates the extension interface check - update the server to 0.1.9." };
+  const error = { level: "error" as const, text: "RAgents extension interface does not match: extension 0.1.8 (interface 1), server 0.1.9 (interface 2) - update the RAgents extension to 0.1.9. The workspace is therefore not registered: executor 7 instead of 8." };
   const warningPage = render(page({ page: "connections", connections: [connection({ versionNotice: warning })] }));
-  assert.match(warningPage, /data-notice="warning" role="status">RAgents version does not match: extension 0\.1\.9, server 0\.1\.8 - update the server to 0\.1\.9\.<\/p>/);
+  assert.match(warningPage, /data-notice="warning" role="status">RAgents server 0\.1\.8 predates the extension interface check - update the server to 0\.1\.9\.<\/p>/);
   const failed = render(page({ page: "connections", connections: [connection({ versionNotice: error })] }));
-  assert.match(failed, /data-notice="error" role="alert">RAgents version does not match/);
-  assert.doesNotMatch(failed, /workshop: RAgents version/);
+  assert.match(failed, /data-notice="error" role="alert">RAgents extension interface does not match/);
+  assert.doesNotMatch(failed, /workshop: RAgents extension/);
   const servers = render(page({ page: "connections", connections: [connection({ versionNotice: error }), connection({ name: "second", address: "http://localhost:4727" })] }));
-  assert.match(servers, /data-notice="error" role="alert">RAgents version does not match: extension 0\.1\.8, server 0\.1\.9/);
+  assert.match(servers, /data-notice="error" role="alert">RAgents extension interface does not match: extension 0\.1\.8 \(interface 1\), server 0\.1\.9 \(interface 2\)/);
   assert.equal(servers.match(/data-notice=/g)?.length, 1);
   assert.doesNotMatch(render(page()), /data-notice=/);
 });
