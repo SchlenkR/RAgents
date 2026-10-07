@@ -160,6 +160,11 @@ export const coreMethods = (sources: CoreMethodSources): MethodContribution[] =>
       const capabilities = await current.capabilities(actor ?? "primary", userIdOf(access));
       return access.can("runs.inspect") ? capabilities : { ...capabilities, model: "" };
     }),
+    implement(coreContracts.chat.contextUsage, async ({ runId, actor }, { access }) => {
+      const current = await session(access, runId, "read");
+      if (!current.contextUsage) throw new DomainError("context-usage-unavailable", "Context usage is not available", 404);
+      return current.contextUsage(actor ?? "primary", userIdOf(access));
+    }),
     implement(coreContracts.chat.actorHistory, async ({ runId }, { access }) => {
       const current = await session(access, runId, "read");
       if (!current.actorConversations) throw new DomainError("actor-history-unavailable", "Actor histories are not available", 404);

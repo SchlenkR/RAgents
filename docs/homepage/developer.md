@@ -1948,6 +1948,8 @@ Generated automatically from the registered contracts; the host checks methods w
 
 | ragents.chat.capabilities | per run |
 
+| ragents.chat.contextUsage | per run |
+
 | ragents.chat.send | per run |
 
 | ragents.chat.sendToActor | per run |

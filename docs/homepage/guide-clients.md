@@ -14,6 +14,15 @@ server instructions and connection failures in their prompt. Configure servers i
 as described in [Connect MCP servers](guide-getting-started.html#connect-mcp-servers).
 Stopping or deleting the run closes its MCP connections.
 
+## Context usage
+
+The ring in the run coordinator, agent, and global coordinator chat fills as the active model
+context grows. Click it to see used tokens, the context window, and the token count above which
+automatic compaction starts. It also shows the remaining tokens to that threshold. Estimates are
+marked; after compaction the ring measures the summary and retained context. Near the threshold,
+the ring uses the warning color. Limits belong to the selected model and apply from the next turn.
+The control also works with read access; script and external runtimes have no built-in context ring.
+
 ## Selection controls and tables
 
 Short option groups form one square segmented control, with dividers between choices and a

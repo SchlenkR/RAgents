@@ -100,6 +100,10 @@ written by the model, and recent parts are kept. A compaction is recorded in the
 and the chat shows a short system note. When it starts, how much recent context stays verbatim,
 and how long the summary may be are values of the model; a profile sets them for each model alias.
 
+RAgents shows context usage as a ring in the built-in model chats. Its pop-out lists used tokens,
+the context window, and the compaction threshold. Estimates are marked; after compaction the
+ring measures the summary and retained context.
+
 ## Interrupting a turn, stopping an actor, stopping a run, and shutting down the server
 
 All stop paths follow the same principle: block new work first, then cancel, wait for running

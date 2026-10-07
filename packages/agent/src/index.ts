@@ -15,6 +15,7 @@ export {
 	compactionProblem,
 	type CompactionSource,
 	estimateContextTokens,
+	estimateContextUsage,
 	prepareCompaction,
 	shouldCompact,
 } from "./core/compaction/index.ts";

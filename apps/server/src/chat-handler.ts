@@ -1,6 +1,7 @@
 /** The contracts of the runs that core methods and delivery work against. */
 import type { ChatAttachment, ChatAttachmentInput, ChatEvent } from "quassel/events";
 import type { PublicStartEntry, RunListDetail, RunShareAccess } from "@ragents/engine";
+import type { ChatContextUsage } from "./api/contracts.js";
 import type { ActorConversations } from "./ragents/actor-chat-history.js";
 
 export interface SessionInfo {
@@ -74,6 +75,7 @@ export interface ChatSessionLike {
   send(text: string, attachments?: ChatAttachmentInput[], userLocation?: unknown, user?: ChatUser, entryId?: string, signal?: AbortSignal): void | Promise<void>;
   sendToActor?(actorId: string, text: string, attachments?: ChatAttachmentInput[], user?: ChatUser, signal?: AbortSignal): Promise<void>;
   actorConversations?(): ActorConversations;
+  contextUsage?(actor: string, userId: string | null): Promise<ChatContextUsage | null>;
   capabilities?(actor: string, userId: string | null): Promise<{ input: string[]; model: string }>;
   attachment?(artifactId: string): { attachment: ChatAttachment; content: Uint8Array };
   start(entryId: string, input: unknown, user?: ChatUser): void;

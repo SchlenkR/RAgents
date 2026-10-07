@@ -5,6 +5,7 @@ import { RunModalContext } from "@ragents/web/ui/dialog";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ChatMessages, ChatInputToolbar, ChatPanel, type ChatInputHandle, type ChatEvent } from "quassel";
 import { useChat } from "@ragents/web/chat/useChat";
+import { ChatContextUsage } from "@ragents/web/chat/ChatContextUsage";
 import { useAttachmentCapabilities } from "@ragents/web/chat/useAttachmentCapabilities";
 import { ChatStepsProvider, type OverviewPanelContext, type WebPlugin } from "@ragents/web/PluginRegistry";
 import { ChatViewSwitches, useChatViewSettings } from "@ragents/web/chat-view-settings";
@@ -148,11 +149,11 @@ function OverseerConversation({ open, onOpen, onClose, onBusy, userLocation, run
             running={chat.running}
             texts={{ placeholder: writable ? "Ask the global coordinator" : "Read access to the global coordinator" }}
             toolbarLeft={<ChatViewSwitches className="max-md:[&>span]:hidden" settings={chatView} />}
-            toolbarRight={<ModelSettings active={open} compact disabled={resetting} actions={
+            toolbarRight={<><ChatContextUsage runId={runId} revision={JSON.stringify([modelState.settings?.provider, modelState.settings?.model])} /><ModelSettings active={open} compact disabled={resetting} actions={
               <Button aria-label="Reset conversation" aria-busy={resetting} disabled={!writable || resetting || !chat.connected} onClick={() => setConfirmReset(true)} size="icon-sm" title="Reset conversation ..." variant="ghost">
                 {resetting ? <Spinner /> : <RotateCcwIcon />}
               </Button>
-            } />}
+            } /></>}
           />
         </div>}>
           <ChatMessages announce={false} className="min-h-16!" codeBlockOptions={codeBlocks} scrollerRef={setScroller}

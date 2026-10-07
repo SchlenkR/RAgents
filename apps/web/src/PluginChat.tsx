@@ -20,6 +20,7 @@ import { RunUrls, chatCodeBlocks } from "./chat/QuasselHost";
 import { StoppedActorNotice } from "./chat/StoppedActorNotice";
 import { ChatViewSwitches, useChatViewSettings } from "./chat-view-settings";
 import { useChat } from "./chat/useChat";
+import { ChatContextUsage } from "./chat/ChatContextUsage";
 import { runUserLocation, type ChatRunLocation } from "./chat/user-location";
 import { dismissAction, pauseRun, type SessionInfo } from "./api";
 import { useRunStore } from "./RunStore";
@@ -502,7 +503,7 @@ function ChatSurface({
                 <ChatViewSwitches settings={chatView} />
               </>
             }
-            toolbarRight={<StartOptionControls disabled={!session.connected || !writable} placement="composer" registry={registry} />}
+            toolbarRight={<><ChatContextUsage runId={session.session.id} revision={JSON.stringify(startOptions.options.map(({ id, value }) => [id, value]))} /><StartOptionControls disabled={!session.connected || !writable} placement="composer" registry={registry} /></>}
           />
         </div>
       }

@@ -1,5 +1,17 @@
 # Decisions
 
+## 2026-10-07: Context usage in the chat composer
+
+Chapters: `spec/core.md` (Model context across turns); usage: `usage.md` (Context usage).
+
+The run coordinator, agent, and global coordinator chats show a context ring with a pop-out of
+used tokens, the model window, and its automatic compaction threshold. RAgents owns both the
+metric and the control: Quassel already provides composer slots, while the model runtime owns
+the limits and the journal owns the active context. The control uses the existing Button and
+Popover, the same token estimate as compaction, and the page's shared run channel. Old usage
+before a compaction is excluded, estimates are marked, and a model choice refreshes the limits
+that apply from the next turn. No journal format change or model call is needed.
+
 ## 2026-10-07: Readable by default - separated surfaces, palettes, one selection language
 
 Chapters: `spec/plugins.md` (Web as plugin host: Appearance, UI library, Runs page, header dropdowns),

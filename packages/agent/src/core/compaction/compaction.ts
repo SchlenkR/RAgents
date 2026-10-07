@@ -3,7 +3,7 @@
 import type { AgentMessage, StreamFn, ThinkingLevel } from "../../loop/index.ts";
 import type { AssistantMessage, Context, Model, ModelCompaction, SimpleStreamOptions, Usage } from "@ragents/ai";
 import { completeSimple } from "@ragents/ai";
-import { type ContextCompaction, type ContextLogEntry, contextEntryMessages, contextMessages } from "../context-log.ts";
+import { type ContextCompaction, type ContextLogEntry, contextEntryMessages, contextMessages, latestCompaction } from "../context-log.ts";
 import { convertToLlm } from "../messages.ts";
 import {
 	computeFileLists,
@@ -176,6 +176,14 @@ export function estimateContextTokens(messages: AgentMessage[], usageStartIndex 
 		trailingTokens,
 		lastUsageIndex: usageInfo.index,
 	};
+}
+
+export function estimateContextUsage(entries: readonly ContextLogEntry[]): ContextUsageEstimate {
+	const messages = contextMessages(entries);
+	const compaction = latestCompaction(entries);
+	const compactionIndex = compaction ? entries.lastIndexOf(compaction) : -1;
+	const usageStartIndex = compactionIndex < 0 ? 0 : messages.length - (entries.length - compactionIndex - 1);
+	return estimateContextTokens(messages, usageStartIndex);
 }
 
 /** Whether a context of this size lies above the compaction threshold. */

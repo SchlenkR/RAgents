@@ -12,7 +12,7 @@ import {
     contextMessages,
     convertToLlm,
     EMPTY_RESPONSE_NUDGE,
-    estimateContextTokens,
+    estimateContextUsage,
     formatSkillsForPrompt,
     isRunFailure,
     type ModelRuntime,
@@ -676,9 +676,7 @@ export class AgentTurn {
             return this.#compact(true);
         }
 
-        const messages = contextMessages(log);
-        const usageStartIndex = compactionIndex < 0 ? 0 : messages.length - (log.length - compactionIndex - 1);
-        const contextTokens = estimateContextTokens(messages, usageStartIndex).tokens;
+        const contextTokens = estimateContextUsage(log).tokens;
         return shouldCompact(contextTokens, compactionOf(model).values) ? this.#compact(false) : false;
     }
 

@@ -1,4 +1,4 @@
-import { ModelRuntime } from "@ragents/agent";
+import { compactionOf, ModelRuntime } from "@ragents/agent";
 import { getSupportedThinkingLevels } from "@ragents/ai";
 
 import { thinkingLevels, type ThinkingLevel } from "../domain/driver.ts";
@@ -56,6 +56,12 @@ export class AgentLoopDriver implements AgentDriver<"agent"> {
         const model = (await this.#modelRuntime).getModel(provider, modelId);
         if (!model) throw new Error(`The model ${provider}/${modelId} is not configured.`);
         return model.input;
+    }
+
+    async contextLimits(provider: string, modelId: string) {
+        const model = (await this.#modelRuntime).getModel(provider, modelId);
+        if (!model) throw new Error(`The model ${provider}/${modelId} is not configured.`);
+        return { contextWindow: model.contextWindow, compactionThreshold: compactionOf(model).values.threshold };
     }
 
     async thinkingCapabilities(provider: string, modelId: string): Promise<readonly ThinkingLevel[]> {

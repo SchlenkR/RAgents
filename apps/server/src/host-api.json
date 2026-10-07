@@ -757,6 +757,9 @@
       "ChatViewSwitches",
       "useChatViewSettings"
     ],
+    "@ragents/web/chat/ChatContextUsage": [
+      "ChatContextUsage"
+    ],
     "@ragents/web/chat/PausedRunNotice": [
       "PausedRunNotice"
     ],

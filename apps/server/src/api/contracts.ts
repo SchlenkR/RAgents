@@ -62,6 +62,15 @@ export interface HostPackageDownload {
 /** The plugins' profile, server version, extension interface number and optional workstation host download. */
 export type HostBootstrap = PublicPluginProfile & { readonly version: string; readonly extensionApi: number; readonly hostPackage: HostPackageDownload | null };
 
+const chatContextUsage = Type.Object({
+  tokens: Type.Integer({ minimum: 0 }),
+  contextWindow: Type.Integer({ minimum: 1 }),
+  compactionThreshold: Type.Integer({ minimum: 1 }),
+  estimated: Type.Boolean(),
+}, { additionalProperties: false });
+
+export type ChatContextUsage = Static<typeof chatContextUsage>;
+
 export const coreContracts = {
   runs: {
     list: defineOperation({
@@ -155,6 +164,12 @@ export const coreContracts = {
       description: "Which attachments an actor's model accepts; the model name appears only with runs.inspect. Right: runs.read.",
       input: Type.Object({ runId, actor: Type.Optional(Type.String({ minLength: 1 })) }, { additionalProperties: false }),
       result: openJson<ChatAttachmentCapabilities>("ChatAttachmentCapabilities"),
+    }),
+    contextUsage: defineOperation({
+      id: "ragents.chat.contextUsage",
+      description: "The actor's active context token count, whether it is estimated, and the window and compaction threshold of its selected model. Limits apply from the next turn. Null for a runtime without a built-in model context. Right: runs.read.",
+      input: Type.Object({ runId, actor: Type.Optional(Type.String({ minLength: 1 })) }, { additionalProperties: false }),
+      result: Type.Union([chatContextUsage, Type.Null()]),
     }),
     actorHistory: defineOperation({
       id: "ragents.chat.actorHistory",

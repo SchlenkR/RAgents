@@ -140,6 +140,7 @@ export interface Engine {
   startOptions: StartOptionContributionRegistry;
   systemPromptFor: (runId: string) => string;
   inputCapabilities: (provider: string, model: string) => Promise<readonly string[]>;
+  contextLimits: (provider: string, model: string) => Promise<{ contextWindow: number; compactionThreshold: number }>;
   promptContributions: readonly PublicPromptContribution[];
   runtimeContracts: readonly RuntimeContract[];
   start: () => void;
@@ -443,6 +444,7 @@ export const createEngine = async (options: EngineOptions): Promise<Engine> => {
     startOptions: options.plugins.startOptions,
     systemPromptFor,
     inputCapabilities: (provider, model) => agentRuntime.inputCapabilities(provider, model),
+    contextLimits: (provider, model) => agentRuntime.contextLimits(provider, model),
     promptContributions: baseSnapshot.contributions,
     runtimeContracts: [
       {

@@ -3,6 +3,7 @@ import { useState, type ReactNode } from "react";
 import { pauseRun, sendActorMessage } from "@ragents/web/api";
 import { ChatViewSwitches, useChatViewSettings } from "@ragents/web/chat-view-settings";
 import { ChatInputToolbar } from "quassel";
+import { ChatContextUsage } from "@ragents/web/chat/ChatContextUsage";
 import { PausedRunNotice } from "@ragents/web/chat/PausedRunNotice";
 import { StoppedActorNotice } from "@ragents/web/chat/StoppedActorNotice";
 import { useAttachmentCapabilities } from "@ragents/web/chat/useAttachmentCapabilities";
@@ -61,7 +62,7 @@ export function ActorChatControls({ actor, autoFocus, onAutoFocusSettled, view, 
         {switches}
         {presentation === "inspector" && <span className="truncate text-[0.7rem] text-muted-foreground">to @{actorAddress(actor)}</span>}
       </>}
-      toolbarRight={toolbarRight}
+      toolbarRight={<><ChatContextUsage runId={view.id} actor={actor.id} revision={JSON.stringify(actor.execution?.driver.config)} />{toolbarRight}</>}
     />
     {stopError && <p className={noteClass} role="alert">{stopError}</p>}
     {disabledReason && presentation === "inspector" && <p className={noteClass}>{disabledReason}</p>}

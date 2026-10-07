@@ -35,6 +35,7 @@ Ids from results are reused programmatically, not copied by hand.
 | ragents.ask.answer | ragents.ask | runs.read, runs.write |
 | ragents.chat.actorHistory | host | no fixed rights |
 | ragents.chat.capabilities | host | no fixed rights |
+| ragents.chat.contextUsage | host | no fixed rights |
 | ragents.chat.send | host | no fixed rights |
 | ragents.chat.sendToActor | host | no fixed rights |
 | ragents.chat.start | host | no fixed rights |
@@ -622,6 +623,76 @@ Default client deadline: 30000 ms; callers may override it.
   "type": "object",
   "additionalProperties": true,
   "x-typescript-type": "ChatAttachmentCapabilities"
+}
+```
+
+## ragents.chat.contextUsage
+
+The actor's active context token count, whether it is estimated, and the window and compaction threshold of its selected model. Limits apply from the next turn. Null for a runtime without a built-in model context. Right: runs.read.
+
+Owner: host. Rights: no fixed rights. Execution: the server.
+Default client deadline: 30000 ms; callers may override it.
+
+### Input
+
+```json
+{
+  "type": "object",
+  "required": [
+    "runId"
+  ],
+  "properties": {
+    "runId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 64,
+      "description": "Id of the run"
+    },
+    "actor": {
+      "type": "string",
+      "minLength": 1
+    }
+  },
+  "additionalProperties": false
+}
+```
+
+### Result
+
+```json
+{
+  "anyOf": [
+    {
+      "type": "object",
+      "required": [
+        "tokens",
+        "contextWindow",
+        "compactionThreshold",
+        "estimated"
+      ],
+      "properties": {
+        "tokens": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "contextWindow": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "compactionThreshold": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "estimated": {
+          "type": "boolean"
+        }
+      },
+      "additionalProperties": false
+    },
+    {
+      "type": "null"
+    }
+  ]
 }
 ```
 

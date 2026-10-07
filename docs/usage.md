@@ -206,6 +206,18 @@ they are stored under `attachments/` in the run's workspace, so with a workstati
 on its machine; their further processing depends on these tools. On errors,
 the message and files stay in the composer. You can download sent attachments again from the history.
 
+<!-- guide:clients -->
+## Context usage
+
+The ring in the run coordinator, agent, and global coordinator chat fills as the active model
+context grows. Click it to see used tokens, the context window, and the token count above which
+automatic compaction starts. It also shows the remaining tokens to that threshold. Estimates are
+marked; after compaction the ring measures the summary and retained context. Near the threshold,
+the ring uses the warning color. Limits belong to the selected model and apply from the next turn.
+The control also works with read access; script and external runtimes have no built-in context ring.
+
+<!-- /guide:clients -->
+
 ## Selectable model
 
 If the product allows it (`MODEL_SELECTABLE`, preset to on in `core`) and the user's

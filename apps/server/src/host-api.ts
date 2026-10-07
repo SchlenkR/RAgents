@@ -137,6 +137,7 @@ export const hostApi: { readonly server: HostApiModules; readonly web: HostApiMo
     "@ragents/web/actor-programs/client-ui/contracts": [],
     "@ragents/web/api": ["interruptActorTurn", "pauseRun", "sendActorMessage"],
     "@ragents/web/chat-view-settings": ["ChatViewSwitches", "useChatViewSettings"],
+    "@ragents/web/chat/ChatContextUsage": ["ChatContextUsage"],
     "@ragents/web/chat/PausedRunNotice": ["PausedRunNotice"],
     "@ragents/web/chat/StoppedActorNotice": ["StoppedActorNotice"],
     "@ragents/web/chat/chat-target": ["programChatNotice", "runIsWorking", "runPausable"],
