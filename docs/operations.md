@@ -212,12 +212,17 @@ and the model's `compaction` values: the context size in tokens at which an agen
 `AGENT_PROVIDER: "alias"` makes the product use them. The interface, the chat, and the journal then
 show only the alias names.
 
-An alias can also point to a self-hosted OpenAI-compatible server. `MODEL_PROVIDERS` in the `host`
-section lists such servers with `id`, `baseUrl` (up to `/v1`), `apiKey: env("...")`, optional
-`compat`, and their `models` (`id`, `contextWindow`, `maxTokens`, `reasoning`, `input`, optional
-`thinkingLevelMap`); an alias then names `<id>/<model>`. For a Qwen chat template, as served by
-oMLX, set `compat: { thinkingFormat: "qwen-chat-template" }`, so the alias's thinking levels reach
-the server. Details and an example in `docs/spec/profiles.md`.
+An alias can also point to a provider of your own, such as a self-hosted server or Mistral's API.
+`MODEL_PROVIDERS` in the `host` section lists such providers with `id`, `sdk` (the AI SDK package
+that talks to it: `mistral` or `openai-compatible`), `baseUrl` (up to `/v1`; `mistral` has a
+default), `apiKey: env("...")`, optional `compat`, and their `models` (`id`, `contextWindow`,
+`maxTokens`, `reasoning`, `input`, optional `thinkingLevelMap` and `cost`); an alias then names
+`<id>/<model>`. Mistral receives the chosen level as `reasoning_effort`. For a Qwen chat template, as
+served by oMLX, set `sdk: "openai-compatible"` and `compat: { thinkingFormat: "qwen-chat-template" }`,
+so the alias's thinking levels reach the server. `cost` gives the model's prices in USD per million
+tokens, for example `{ input: 1.4, cacheRead: 0.14, output: 4.4 }`; without it, runs on that model
+show cost 0, while the token counts, including cached tokens, stay complete. An entry without `sdk`
+keeps working as before. Details and an example in `docs/spec/profiles.md`.
 
 Alternatively, a profile can obtain its models from another RAgents server running the
 `ragents.model-relay` plugin, which offers that server's `MODEL_ALIASES` with their thinking levels

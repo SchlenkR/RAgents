@@ -10,6 +10,7 @@ import type {
 	Context,
 	Model,
 	ModelCostRates,
+	ModelSdk,
 	ModelThinkingLevel,
 	ProviderHeaders,
 	ProviderStreams,
@@ -302,6 +303,18 @@ export function calculateCost<TApi extends Api>(model: Model<TApi>, usage: Usage
 	usage.cost.cacheWrite = (rates.cacheWrite * shortWrite + rates.input * 2 * longWrite) / 1000000;
 	usage.cost.total = usage.cost.input + usage.cost.output + usage.cost.cacheRead + usage.cost.cacheWrite;
 	return usage.cost;
+}
+
+/** The AI SDK provider packages a configured provider can name, each with the address it uses when the provider names none. */
+export const MODEL_SDK_BASE_URLS: Readonly<Record<ModelSdk, string | undefined>> = {
+	mistral: "https://api.mistral.ai/v1",
+	"openai-compatible": undefined,
+};
+
+export const MODEL_SDKS: readonly ModelSdk[] = Object.keys(MODEL_SDK_BASE_URLS) as ModelSdk[];
+
+export function isModelSdk(value: unknown): value is ModelSdk {
+	return typeof value === "string" && Object.hasOwn(MODEL_SDK_BASE_URLS, value);
 }
 
 export const EXTENDED_THINKING_LEVELS: readonly ModelThinkingLevel[] = ["off", "minimal", "low", "medium", "high", "xhigh", "max"];

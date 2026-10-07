@@ -1,7 +1,7 @@
 {
 	"name": "@ragents/ai",
 	"version": "0.80.10",
-	"description": "The LLM access of RAgents: the OpenRouter provider over AI SDK Core, its model catalog and streaming",
+	"description": "The LLM access of RAgents: OpenRouter and the AI SDK packages of profile providers over AI SDK Core, the model catalog and streaming",
 	"type": "module",
 	"main": "./src/index.ts",
 	"types": "./dist/index.d.ts",
@@ -27,6 +27,8 @@
 		"test": "node --test tests/*.test.ts"
 	},
 	"dependencies": {
+		"@ai-sdk/mistral": "4.0.43",
+		"@ai-sdk/openai-compatible": "3.0.48",
 		"@openrouter/ai-sdk-provider": "^3.0.0",
 		"ai": "^7.0.99",
 		"eventsource-parser": "3.1.1",

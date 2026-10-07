@@ -326,12 +326,17 @@ and the model&#39;s <code>compaction</code> values: the context size in tokens a
 (<code>summaryTokens</code>).
 <code>AGENT_PROVIDER: &quot;alias&quot;</code> makes the product use them. The interface, the chat, and the journal then
 show only the alias names.</p>
-<p>An alias can also point to a self-hosted OpenAI-compatible server. <code>MODEL_PROVIDERS</code> in the <code>host</code>
-section lists such servers with <code>id</code>, <code>baseUrl</code> (up to <code>/v1</code>), <code>apiKey: env(&quot;...&quot;)</code>, optional
-<code>compat</code>, and their <code>models</code> (<code>id</code>, <code>contextWindow</code>, <code>maxTokens</code>, <code>reasoning</code>, <code>input</code>, optional
-<code>thinkingLevelMap</code>); an alias then names <code>&lt;id&gt;/&lt;model&gt;</code>. For a Qwen chat template, as served by
-oMLX, set <code>compat: { thinkingFormat: &quot;qwen-chat-template&quot; }</code>, so the alias&#39;s thinking levels reach
-the server. Details and an example in <code>docs/spec/profiles.md</code>.</p>
+<p>An alias can also point to a provider of your own, such as a self-hosted server or Mistral&#39;s API.
+<code>MODEL_PROVIDERS</code> in the <code>host</code> section lists such providers with <code>id</code>, <code>sdk</code> (the AI SDK package
+that talks to it: <code>mistral</code> or <code>openai-compatible</code>), <code>baseUrl</code> (up to <code>/v1</code>; <code>mistral</code> has a
+default), <code>apiKey: env(&quot;...&quot;)</code>, optional <code>compat</code>, and their <code>models</code> (<code>id</code>, <code>contextWindow</code>,
+<code>maxTokens</code>, <code>reasoning</code>, <code>input</code>, optional <code>thinkingLevelMap</code> and <code>cost</code>); an alias then names
+<code>&lt;id&gt;/&lt;model&gt;</code>. Mistral receives the chosen level as <code>reasoning_effort</code>. For a Qwen chat template, as
+served by oMLX, set <code>sdk: &quot;openai-compatible&quot;</code> and <code>compat: { thinkingFormat: &quot;qwen-chat-template&quot; }</code>,
+so the alias&#39;s thinking levels reach the server. <code>cost</code> gives the model&#39;s prices in USD per million
+tokens, for example <code>{ input: 1.4, cacheRead: 0.14, output: 4.4 }</code>; without it, runs on that model
+show cost 0, while the token counts, including cached tokens, stay complete. An entry without <code>sdk</code>
+keeps working as before. Details and an example in <code>docs/spec/profiles.md</code>.</p>
 <p>Alternatively, a profile can obtain its models from another RAgents server running the
 <code>ragents.model-relay</code> plugin, which offers that server&#39;s <code>MODEL_ALIASES</code> with their thinking levels
 and compaction values: set <code>AGENT_PROVIDER: &quot;relay&quot;</code>, point <code>RELAY_URL</code> to that server, use

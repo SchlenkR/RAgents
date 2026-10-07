@@ -26,6 +26,7 @@ export interface ProviderConfigInput {
 		name: string;
 		api?: Api;
 		baseUrl?: string;
+		sdk?: Model<Api>["sdk"];
 		reasoning: boolean;
 		thinkingLevelMap?: Model<Api>["thinkingLevelMap"];
 		input: InputModality[];

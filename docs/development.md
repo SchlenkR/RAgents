@@ -119,7 +119,7 @@ from plugins.
 | `packages/ragents`    | the engine: journal, actors, turns, events, scheduler, TypeScript platform                           |
 | `packages/agent`      | the agent runtime: agent loop, compaction, tools (read, write, edit, bash)                           |
 | `packages/workspace-executor` | the workstation executor made of modules: sandbox tools, language server client, files, processes, commands; plugins bring language servers and the browser as a contribution to the executor; with the same contributions in the server as on the workstation |
-| `packages/ai`         | the LLM integration (openrouter)                                                                     |
+| `packages/ai`         | the LLM integration (OpenRouter, AI SDK packages of profile providers)                               |
 | `apps/server`         | Node backend, plugin discovery, profile composition; `plugin-support/` are host building blocks, not plugins |
 | `apps/web`            | Shared browser and VS Code panel; chat binding to quassel in `src/chat`, navigation in `src/panel`, run UI in `src/run-panel` |
 | `apps/vscode`         | VS Code extension: environment selection and connection management, server interface and mini-apps as webviews, workstation for runs |

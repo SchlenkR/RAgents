@@ -1,5 +1,37 @@
 # Decisions
 
+## 2026-10-07: Profile providers name their AI SDK package
+
+Chapters: `spec/profiles.md` (Profiles, paragraph on `MODEL_PROVIDERS`, Open limits),
+`spec/plugins.md` (Model relay); operations: `operations.md` (Configure model access and start).
+
+Every provider of `MODEL_PROVIDERS` went through the OpenRouter provider of the AI SDK, so a
+custom endpoint received OpenRouter's fields, among them `reasoning: { effort }`. Mistral's API
+rejects unknown fields with 422, so a model there failed as soon as a thinking level was set; the
+only escape was the Qwen chat template branch for one local server. An entry now names `sdk`, which
+selects the provider package from a fixed registry in `packages/ai`: `mistral` (`@ai-sdk/mistral`)
+and `openai-compatible` (`@ai-sdk/openai-compatible`), each pinned to the version that shares
+`@ai-sdk/provider` and `@ai-sdk/provider-utils` with the installed `ai`. One stream loop and one
+usage and cost mapping serve all routes; per sdk the request carries only what package and provider
+accept. `@ai-sdk/mistral` (4.0.43, and the newest 4.0.59 alike) offers `reasoningEffort` only as
+`high` or `none` and sends it only for model ids on its own list, which lacks `zai-glm-5-3`; the
+transport therefore writes the mapped `reasoning_effort` into the Mistral request body itself, and
+`off` without a value of its own sends nothing rather than a guess.
+
+A model can be priced with `cost` in USD per million tokens. Usage carries cache reads, cache writes,
+and reasoning tokens from the packages and, where a package drops a reported count (Mistral's
+reasoning tokens, cache writes in both), from the provider's raw usage, so `model.step.completed`
+shows real cost instead of 0. The relay catalog names the sdk, so a client speaks the package's wire
+format through the relay, which keeps passing bodies through unchanged.
+
+`sdk` is optional: an entry without it keeps the OpenRouter-shaped route unchanged, so existing
+profiles start as before; moving them, and then OpenRouter itself, onto the registry is in
+`TODO.md`. Rejected: a hand-written request shape per vendor in the transport, because the packages
+already own message format, usage, and error bodies; clamping efforts to a package's enum, because
+the profile maps levels to what the model accepts. Verified live against Mistral with `zai-glm-5-3`:
+effort `low` with a tool definition (200, streamed tool call, usage), and the same long prompt twice
+(the second call read 5184 of 5303 input tokens from the cache and was priced at the cache rate).
+
 ## 2026-10-07: Version the contract between VS Code extension and server
 
 Chapters: `spec/plugins.md` (Web halves at runtime, Web as plugin host, Workspace, sandbox tools,

@@ -66,13 +66,13 @@ const fakeUpstream = async (t: TestContext, calls: UpstreamCall[]) => {
   return listen(t, server);
 };
 
-const relayServer = async (t: TestContext, upstreamUrl: string, access: (request: { headers: Record<string, unknown> }) => AccessContext, extra: Record<string, unknown> = {}) => {
+const relayServer = async (t: TestContext, upstreamUrl: string, access: (request: { headers: Record<string, unknown> }) => AccessContext, extra: Record<string, unknown> = {}, target: Model<Api> = secretModel) => {
   const directory = await mkdtemp(path.join(tmpdir(), "ragents-relay-"));
   t.after(() => rm(directory, { recursive: true, force: true }));
   const host = new PluginHost({ product: { id: "test", title: "Test" }, dataDirectory: directory });
-  const upstream: ModelUpstream = { id: "openrouter", baseUrl: `${upstreamUrl}/api/v1`, apiKey: "sk-upstream-secret", models: [secretModel] };
+  const upstream: ModelUpstream = { id: target.provider, baseUrl: `${upstreamUrl}/api/v1`, apiKey: "sk-upstream-secret", models: [target] };
   host.register({ manifest: { id: "test.product" }, register: (registration) => registration.provide(modelUpstreamsToken, () => [upstream]) });
-  process.env.MODEL_ALIASES = JSON.stringify([aliasEntry("workshop-coordinator", "openrouter/vendor/secret-model-9", extra)]);
+  process.env.MODEL_ALIASES = JSON.stringify([aliasEntry("workshop-coordinator", `${target.provider}/${target.id}`, extra)]);
   t.after(() => { delete process.env.MODEL_ALIASES; });
   host.register(relayModule.create(host));
   host.seal();
@@ -223,4 +223,46 @@ test("a relay catalog without valid compaction values fails the client start", a
     /offers a without valid compaction values: compaction needs threshold, keepRecentTokens and summaryTokens/);
   await assert.rejects(() => createRelayCatalog({ url: "http://relay.invalid", token: "t" }, served({ ...compaction, threshold: 190_000 })).load(),
     /offers a without valid compaction values: compaction: threshold plus summaryTokens \(206000\) must stay below the context window \(200000\)/);
+});
+
+test("a Mistral alias reaches the client with its sdk, and the client's effort and the provider's usage cross the relay unchanged", async (t) => {
+  const mistralModel: Model<Api> = {
+    id: "zai-glm-5-3", name: "zai-glm-5-3", api: "openai-completions", provider: "example-mistral", baseUrl: "https://api.mistral.ai/v1",
+    sdk: "mistral", reasoning: true, thinkingLevelMap: { low: "low", high: "high", max: "max" }, input: ["text"],
+    cost: { input: 1.4, output: 4.4, cacheRead: 0.14, cacheWrite: 0 }, contextWindow: 1_048_576, maxTokens: 131_072,
+  };
+  const calls: UpstreamCall[] = [];
+  const upstreamUrl = await listen(t, createServer(async (request, response) => {
+    const body = JSON.parse(await readBody(request)) as Record<string, unknown>;
+    calls.push({ headers: request.headers, body });
+    const chunk = { id: "m", model: body.model, choices: [{ index: 0, delta: { role: "assistant", content: "Hallo" }, finish_reason: "stop" }],
+      usage: { prompt_tokens: 12, completion_tokens: 3, total_tokens: 15, num_cached_tokens: 8 } };
+    response.writeHead(200, { "Content-Type": "text/event-stream" });
+    response.end(`data: ${JSON.stringify(chunk)}\n\ndata: [DONE]\n\n`);
+  }));
+  const relay = await relayServer(t, upstreamUrl, () => withRight, {}, mistralModel);
+  const listed = await (await fetch(`${relay.url}/relay/v1/models`)).json() as { data: Array<{ catalog: { sdk?: string } }> };
+  assert.equal(listed.data[0]!.catalog.sdk, "mistral");
+  assert.equal(JSON.stringify(listed).includes("zai-glm"), false);
+  const registration = await createRelayCatalog({ url: relay.url, token: "personal-token" }).registration();
+  assert.deepEqual(registration.config.models?.map((entry) => entry.sdk), ["mistral"]);
+  const models = ModelRuntime.create();
+  models.registerProvider(registration.id, registration.config);
+  const model = models.getModel(registration.id, "workshop-coordinator")!;
+  const result = await models.completeSimple(model, { messages: [{ role: "user", content: "Hi", timestamp: 1 }] }, { reasoning: "low", maxRetries: 0 });
+  assert.equal(result.errorMessage, undefined);
+  assert.deepEqual(result.content, [{ type: "text", text: "Hallo" }]);
+  assert.deepEqual([result.usage.input, result.usage.cacheRead, result.usage.output, result.usage.cost.total], [4, 8, 3, 0]);
+  assert.equal(calls.length, 1);
+  assert.deepEqual([calls[0]!.body.model, calls[0]!.body.reasoning_effort, "reasoning" in calls[0]!.body], ["zai-glm-5-3", "low", false]);
+  assert.equal(calls[0]!.headers.authorization, "Bearer sk-upstream-secret");
+});
+
+test("a relay catalog naming an sdk this host does not know fails the client start", async () => {
+  const served = async () => new Response(JSON.stringify({ object: "list", data: [{
+    id: "a", object: "model", owned_by: "relay",
+    catalog: { reasoning: false, input: ["text"], contextWindow: 200_000, maxTokens: 32_000, compaction, sdk: "future-sdk" },
+  }] }), { headers: { "content-type": "application/json" } });
+  await assert.rejects(() => createRelayCatalog({ url: "http://relay.invalid", token: "t" }, served).load(),
+    /offers a over the sdk "future-sdk", which this host does not know \(supported: mistral, openai-compatible\)/);
 });

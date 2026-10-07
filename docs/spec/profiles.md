@@ -217,50 +217,86 @@ journal stores the alias and `alias`. A role thinking level (`AGENT_THINKING`,
 thinking level applies, and back on the coordinator model, the coordinator's. If the target of an
 alias changes, existing runs continue under the same name with the new target.
 
-An alias can also point to an OpenAI-compatible server of the profile's own, for instance a
-self-hosted one: `MODEL_PROVIDERS` in the `host` section is a list of providers
+An alias can also point to a provider of the profile's own, a self-hosted server or a vendor API:
+`MODEL_PROVIDERS` in the `host` section is a list of providers
 (`plugin-support/model-providers.ts`, type `ProfileModelProvider` in `config-definition.ts`):
 
 ```typescript
 MODEL_PROVIDERS: [
-  { id: "local", baseUrl: "http://localhost:8000/v1", apiKey: env("EXAMPLE_API_KEY"),
+  { id: "example-mistral", sdk: "mistral", apiKey: env("EXAMPLE_MISTRAL_KEY"),
+    models: [{ id: "zai-glm-5-3", contextWindow: 1_048_576, maxTokens: 131_072, reasoning: true,
+      input: ["text"], thinkingLevelMap: { minimal: null, medium: null, low: "low", high: "high", max: "max" },
+      cost: { input: 1.4, cacheRead: 0.14, output: 4.4 } }] },
+  { id: "local", sdk: "openai-compatible", baseUrl: "http://localhost:8000/v1", apiKey: env("EXAMPLE_API_KEY"),
     compat: { thinkingFormat: "qwen-chat-template" },
     models: [{ id: "example-model", contextWindow: 131_072, maxTokens: 16_384, reasoning: true,
       input: ["text"], thinkingLevelMap: { xhigh: "xhigh" } }] },
 ],
 MODEL_ALIASES: [
+  { alias: "team-mistral", model: "example-mistral/zai-glm-5-3", thinking: "low",
+    thinkingLevels: { off: "low", low: "low", high: "high", max: "max" },
+    compaction: { threshold: 400_000, keepRecentTokens: 32_000, summaryTokens: 16_000 } },
   { alias: "team-local", model: "local/example-model", thinking: "medium",
     thinkingLevels: { off: "off", low: "low", medium: "medium", xhigh: "xhigh" },
     compaction: { threshold: 100_000, keepRecentTokens: 16_000, summaryTokens: 8_000 } },
 ],
 ```
 
-`id` is the provider name in `provider/model` and must not be a built-in provider or `relay`;
-`baseUrl` is the address up to `/v1` without a trailing slash; `apiKey` is only allowed as
-`env("NAME")`, and the start aborts if the variable is not set. A model names `id` as the server
-knows it, `contextWindow`, `maxTokens`, `reasoning`, `input` (with `text`) and optionally
-`thinkingLevelMap`, what the server receives per level: `null` removes a level, and `xhigh` or `max`
-exist only when named. `compat` optionally knows `requiresReasoningContentOnAssistantMessages` and
-`thinkingFormat: "qwen-chat-template"`: then the request carries no `reasoning` field, thinking is
-switched with `chat_template_kwargs.enable_thinking` (false for `off`) plus `preserve_thinking`,
-the level goes out verbatim as `reasoning_effort` after the alias's mapping and the model's
-`thinkingLevelMap`, and earlier thinking goes back as `reasoning_content` on the assistant messages
-(`applyQwenChatTemplate` in `packages/ai`). Without `thinkingFormat` the request is shaped as for
-OpenRouter. An unknown key, a missing or invalid value, and a duplicate provider or model are start
-errors. The server registers the providers in the one model runtime before the aliases, all with the
-OpenAI-compatible transport and cost 0; the relay offers aliases on them like any other.
+`id` is the provider name in `provider/model` and must not be a built-in provider or `relay`.
+`sdk` names the AI SDK provider package that serves the provider's models, from a fixed registry in
+`packages/ai` (`MODEL_SDKS`, `createChatModel`): `mistral` uses `@ai-sdk/mistral`,
+`openai-compatible` uses `@ai-sdk/openai-compatible`; any other value is a start error that lists
+the supported ones. `baseUrl` is the address up to `/v1` without a trailing slash; `mistral` uses
+`https://api.mistral.ai/v1` when it names none, every other provider needs one. `apiKey` is only
+allowed as `env("NAME")`, and the start aborts if the variable is not set. A model names `id` as the
+server knows it, `contextWindow`, `maxTokens`, `reasoning`, `input` (with `text`) and optionally
+`thinkingLevelMap`, what the server receives per level: `null` removes a level, `xhigh` and `max`
+exist only when named, and any other level goes out under its own name. `cost` optionally prices the
+model in USD per million tokens: `input` and `output`, optionally `cacheRead` and `cacheWrite`, all
+non-negative numbers. Without `cost` the model costs 0, and a cache rate left out counts those
+tokens at 0; nothing is estimated. Every response carries the input, output, cache read, cache
+write, and reasoning tokens the provider reports, and their cost at these rates (`calculateCost`).
 
-Custom endpoints support OpenAI-compatible responses that send `null` for optional message and
-delta fields: `content`, `reasoning`, `reasoning_content`, `reasoning_text`, `reasoning_details`,
-`tool_calls`, `refusal`, `audio`, `function_call`, `images`, and `annotations`, plus `role` in a delta
-and `arguments` in a tool's `function` object.
+Per `sdk`, a request carries only what the package and the provider accept:
+
+- `mistral`: the level, after the alias's mapping and the model's `thinkingLevelMap`, goes out as
+  `reasoning_effort`. The transport writes it into the request body, because `@ai-sdk/mistral`
+  accepts its option only as `high` or `none` and only for the models on its own list. `off` sends
+  the value of `thinkingLevelMap.off`; without one the request carries no `reasoning_effort`, and the
+  provider's default applies. With cache retention other than `none`, a request with a session id
+  carries it as `prompt_cache_key`. Earlier thinking goes back as thinking content of the assistant
+  message. `compat` is not allowed.
+- `openai-compatible`: the level goes out as `reasoning_effort` (the package's option
+  `reasoningEffort`), `off` as for `mistral`, and the stream asks for usage. Earlier thinking goes
+  back as `reasoning_content`. `compat` optionally knows `requiresReasoningContentOnAssistantMessages`
+  (every assistant message carries `reasoning_content`, empty without thinking) and
+  `thinkingFormat: "qwen-chat-template"`: thinking is switched with
+  `chat_template_kwargs.enable_thinking` (false for `off`) plus `preserve_thinking`, and the level
+  goes out verbatim as `reasoning_effort` (`applyQwenChatTemplate` in `packages/ai`).
+- Without `sdk`, an entry keeps the route over the OpenRouter provider: the request has OpenRouter's
+  shape (`reasoning: { effort }`, for `off` without its own value `enabled: false`), and `compat`
+  works as for `openai-compatible`, where `qwen-chat-template` also drops the `reasoning` field.
+  This route stays only until existing entries name an `sdk`.
+
+The `sdk` routes send none of OpenRouter's fields (`reasoning`, `usage`, `provider`, `plugins`,
+cache marks) and no `x-session-id` header. An unknown key, a missing or invalid value, and a
+duplicate provider or model are start errors. The server registers the providers in the one model
+runtime before the aliases; the relay offers aliases on them like any other and names their `sdk`
+in its catalog ([plugins.md](plugins.md), Model relay).
+
+On the route without `sdk`, custom endpoints support OpenAI-compatible responses that send `null`
+for optional message and delta fields: `content`, `reasoning`, `reasoning_content`,
+`reasoning_text`, `reasoning_details`, `tool_calls`, `refusal`, `audio`, `function_call`, `images`,
+and `annotations`, plus `role` in a delta and `arguments` in a tool's `function` object.
 The transport treats these nulls as absent in SSE events and JSON responses before SDK validation.
 Tool calls in deltas and JSON messages may omit `type` or send it as null; a present `function`
 object identifies the type. Tool arguments remain intact across chunks. Incoming `reasoning_content`
 remains thinking, including with `qwen-chat-template`; JSON messages map it to reasoning when that
 field is absent. Other required fields, non-null invalid values, and malformed JSON still fail
 validation or parsing.
-Responses from the real OpenRouter endpoint are unchanged.
+Responses from the real OpenRouter endpoint are unchanged. With `sdk: "openai-compatible"`, the
+package's own schemas accept these nulls and missing tool types, and thinking comes from
+`reasoning_content`, `reasoning`, or thinking content parts.
 
 The preparation chat, product model catalog, and coordinator settings take the thinking levels
 from the capabilities of the respective provider model in the built-in runtime catalog, for an
@@ -843,3 +879,7 @@ use the set allowed for this actor.
   correct.
 - Of the `thinkingFormat` values in `packages/ai`, a provider in `MODEL_PROVIDERS` supports only
   `qwen-chat-template`; the transport does not implement the others, `chat-template` included.
+- The sdk registry knows only `mistral` and `openai-compatible`; another provider package needs an
+  entry there. On the `mistral` route the transport sends the mapped `reasoning_effort` without
+  checking it against the model, so a value the model does not know fails at the request with the
+  provider's error, not at the start.

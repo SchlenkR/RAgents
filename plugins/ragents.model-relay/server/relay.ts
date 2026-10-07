@@ -48,6 +48,7 @@ export const catalogEntryOf = (resolved: ResolvedAlias) => ({
     maxTokens: resolved.offered.maxTokens,
     compaction: resolved.offered.compaction,
     ...(resolved.offered.compat ? { compat: resolved.offered.compat } : {}),
+    ...(resolved.offered.sdk ? { sdk: resolved.offered.sdk } : {}),
   },
 });
 

@@ -4992,9 +4992,10 @@ is not declared a second time.
 Two delivery routes under `/relay/v1`, both with the right `models.use`:
 `GET /models` returns the aliases in the OpenAI list format with a `catalog` block per entry
 (reasoning, the alias's thinking levels with what goes to the target per level, input types,
-context size, output limit, the alias's compaction values as `compaction`, and `compat` for
-the wire), without names, providers, or costs; a client thus offers the same levels, sends
-the same as the server, and compacts with the same values. `POST /chat/completions` reads the request body, replaces
+context size, output limit, the alias's compaction values as `compaction`, and `compat` and
+`sdk` for the wire), without names, providers, or costs; a client thus offers the same levels, sends
+the same as the server, speaks the wire format of the provider's sdk package, and compacts with the
+same values. A catalog naming an sdk the client does not know fails the client's start. `POST /chat/completions` reads the request body, replaces
 the alias with the real model, sets the server key, and passes through the request together with the
 response stream; other headers of the client (such as session affinity) go along,
 `Authorization`, `Cookie`, and `Host` do not. An unknown alias is 404, a dead provider
@@ -5008,8 +5009,9 @@ call, user, alias, real target, status, and token count are written to
 whoever has the token has the relay's model access.
 
 On the consumer side the relay is simply the provider `relay` (see [profiles.md](profiles.md),
-`AGENT_PROVIDER: "relay"`); between two RAgents servers nothing runs but the
-OpenAI-compatible wire. The relay carries no run membership and does not depend on the engine.
+`AGENT_PROVIDER: "relay"`); between two RAgents servers nothing runs but the provider's wire:
+the OpenAI-compatible one, or for an alias on a provider with `sdk` that package's format, for
+instance Mistral's. The relay carries no run membership and does not depend on the engine.
 
 ## Profile distribution
 

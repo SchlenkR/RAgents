@@ -4,6 +4,9 @@ Inbox for everything; the owner and the AI write here. One line per entry, newes
 
 ## Open
 
+- Move OpenRouter onto the sdk registry (07.10.2026): step 2 of profile providers on AI SDK packages. Register `@openrouter/ai-sdk-provider` as sdk `openrouter`, let the built-in catalog's models name it, and move the OpenRouter-only parts of the stream loop (raw tool and reasoning fragments, cache marks, `reasoning_details`, PDF plugin, routing) into that entry.
+- `MODEL_PROVIDERS` entries without `sdk` (07.10.2026): move existing profiles to `sdk: "openai-compatible"`, then make `sdk` required and remove the OpenRouter-shaped route for custom endpoints together with `normalizeOpenAiResponse`.
+- Check live (07.10.2026): a Mistral alias in a real run over several turns, with earlier thinking replayed as thinking content, a tool round trip, compaction, and the relay; unit tests cover the request shapes, and one live request plus a cache hit passed.
 - Check live (06.10.2026): in a browser run with a window tab, Chat, and a mini-app side by side, a slow run metadata contribution, a server restart, and a second start of the same run script leave the areas in place; dock, session-list, and run-app unit tests and the docking browser fixtures cover the parts.
 - Run list lines of a slow contribution (06.10.2026): a contribution that misses the metadata timeout loses its `listDetails` line for one refresh, so run rows flicker; the lines carry no contribution ID yet, which keeping them like metadata needs.
 - Withdrawn share check (06.10.2026): the run panel leaves a shared run with the revoked notice as soon as one list response misses it, also during a reconnect; it should wait for a confirmed absence.

@@ -1,5 +1,5 @@
 import { compactionProblem } from "@ragents/agent";
-import type { Api, Model, ModelCompaction } from "@ragents/ai";
+import { isModelSdk, MODEL_SDKS, type Api, type Model, type ModelCompaction, type ModelSdk } from "@ragents/ai";
 import type { ModelProviderRegistration } from "@ragents/engine";
 
 export const RELAY_PROVIDER = "relay";
@@ -22,6 +22,7 @@ export interface RelayCatalogEntry {
     readonly maxTokens: number;
     readonly compaction: ModelCompaction;
     readonly compat?: Model<Api>["compat"];
+    readonly sdk?: ModelSdk;
   };
 }
 
@@ -65,6 +66,7 @@ const modelOf = (entry: RelayCatalogEntry, baseUrl: string): Model<"openai-compl
   maxTokens: entry.catalog.maxTokens,
   compaction: entry.catalog.compaction,
   ...(entry.catalog.compat ? { compat: entry.catalog.compat as Model<"openai-completions">["compat"] } : {}),
+  ...(entry.catalog.sdk ? { sdk: entry.catalog.sdk } : {}),
 });
 
 /** Fetches the relay's alias catalog exactly once; without a reachable relay the start is an error with address and cause. */
@@ -89,6 +91,9 @@ export const createRelayCatalog = (connection: RelayConnection, fetchImpl: typeo
     for (const entry of body.data) {
       const problem = compactionProblem(entry.catalog.compaction, entry.catalog);
       if (problem) throw new Error(`The model relay ${address} offers ${entry.id} without valid compaction values: ${problem}`);
+      if (entry.catalog.sdk !== undefined && !isModelSdk(entry.catalog.sdk)) {
+        throw new Error(`The model relay ${address} offers ${entry.id} over the sdk "${String(entry.catalog.sdk)}", which this host does not know (supported: ${MODEL_SDKS.join(", ")})`);
+      }
     }
     loaded = body.data.map((entry) => modelOf(entry, baseUrl));
     return loaded;
@@ -119,6 +124,7 @@ export const createRelayCatalog = (connection: RelayConnection, fetchImpl: typeo
           maxTokens: model.maxTokens,
           ...(model.compaction ? { compaction: model.compaction } : {}),
           ...(model.compat ? { compat: model.compat } : {}),
+          ...(model.sdk ? { sdk: model.sdk } : {}),
         })),
       },
     }),
