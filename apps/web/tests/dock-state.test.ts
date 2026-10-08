@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { activateAvailableDockTabs, activeDockTool, addDockEmptyPane, closeDockPanels, dockButtonPlacement, dockGroups, dockWindowOrder, emptyPanelId, focusedDockWindow, initialDockState, moveDockButton, moveDockPanels, moveDockWindow, parseDockState, persistentDockState, reconcileDockState, resizeDockSplit, revealDockPanel, transitionDockSide, returnDockTool, selectDockPanel, visibleDockState, workspaceTabPanelId, type DockState, type DockTarget } from "../src/run-panel/dock-state";
+import { activateAvailableDockTabs, activeDockTool, addDockEmptyPane, addDockView, closeDockPanels, dockButtonPlacement, dockGroups, dockWindowOrder, emptyPanelId, focusedDockWindow, initialDockState, moveDockButton, moveDockPanels, moveDockWindow, parseDockState, persistentDockState, reconcileDockState, resizeDockSplit, revealDockPanel, transitionDockSide, returnDockTool, selectDockPanel, viewPanelId, visibleDockState, workspaceTabPanelId, type DockState, type DockTarget } from "../src/run-panel/dock-state";
 import { dockGeometry, dockHitTest, dockPreview, dockingGuides } from "../src/run-panel/dock-geometry";
 import { dockStorageKey } from "../src/run-panel/dock-storage";
 
@@ -8,6 +8,41 @@ const initial = () => initialDockState(["chat", "app:notes", "app:board"], ["too
 let serial = 0;
 const move = (state: DockState, ids: readonly string[], target: DockTarget) => moveDockPanels(state, ids, target, () => `node-${++serial}`);
 const roundtrip = (state: DockState) => assert.deepEqual(parseDockState(JSON.stringify(state)), state);
+
+test("a dragged view joins only on a valid drop and keeps one window across moves and reopening", () => {
+  const state = initialDockState();
+  const id = viewPanelId("actor:worker");
+  const add = (current: DockState, target: DockTarget) => addDockView(current, id, target, () => `node-${++serial}`);
+  assert.equal(add(state, { kind: "group", group: "missing", side: "center" }), state);
+  assert.equal(add(state, { kind: "bar" }), state);
+  const split = add(state, { kind: "group", group: "main", side: "right" });
+  assert.deepEqual(split.known, ["chat", id]);
+  assert.deepEqual(dockGroups(split.root).map((entry) => entry.tabs), [["chat"], [id]]);
+  roundtrip(split);
+  const merged = add(split, { kind: "group", group: "main", side: "center" });
+  assert.deepEqual(dockGroups(merged.root).map((entry) => entry.tabs), [["chat", id]]);
+  assert.deepEqual(merged.known, ["chat", id]);
+  const closed = closeDockPanels(merged, [id]);
+  assert.deepEqual(closed.closed, [id]);
+  roundtrip(closed);
+  const reopened = add(closed, { kind: "edge", side: "bottom" });
+  assert.deepEqual(reopened.closed, []);
+  assert.equal(dockGroups(reopened.root).filter((entry) => entry.tabs.includes(id)).length, 1);
+  roundtrip(reopened);
+});
+
+test("a dragged view replaces an empty pane and keeps its location while unavailable", () => {
+  const empty = emptyPanelId("placeholder");
+  const state = addDockEmptyPane(initialDockState(), empty, undefined, true, () => `node-${++serial}`);
+  const area = dockGroups(state.root).find((entry) => entry.active === empty)!;
+  const id = viewPanelId("actor:worker");
+  const added = addDockView(state, id, { kind: "group", group: area.id, side: "center" }, () => `node-${++serial}`);
+  assert.equal(added.known.includes(empty), false);
+  assert.deepEqual(dockGroups(added.root).find((entry) => entry.id === area.id)?.tabs, [id]);
+  assert.equal(dockGroups(visibleDockState(added, ["chat"], true).root).length, 1);
+  assert.deepEqual(dockGroups(reconcileDockState(added, ["chat", id], [], true).root).find((entry) => entry.id === area.id)?.tabs, [id]);
+  roundtrip(added);
+});
 
 test("automatic layouts split the first app beside chat and adapt to available width", () => {
   const panels = ["chat", "app:notes"];

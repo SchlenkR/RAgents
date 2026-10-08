@@ -5,11 +5,15 @@ import type {
   ModelCallContext,
   ToolCallOutcome,
   ToolResultReplacement,
+  CompactionCallContext,
+  CompactionContribution,
 } from "../plugin-types.ts";
 
 /** A hook of a plugin, bound to one agent; the agent driver calls it directly. */
 export interface AgentHook {
   readonly id: string;
+  readonly beforeCompaction?: (call: CompactionCallContext) =>
+    CompactionContribution | undefined | Promise<CompactionContribution | undefined>;
   readonly beforeModelCall?: (call: ModelCallContext) => string | undefined | Promise<string | undefined>;
   readonly afterToolCall?: (outcome: ToolCallOutcome, call: AgentHookContext) =>
     ToolResultReplacement | undefined | Promise<ToolResultReplacement | undefined>;
@@ -17,10 +21,11 @@ export interface AgentHook {
 
 /** The one place that binds the hooks of a plugin to an agent; plugins never see the agent runtime. */
 export const agentHookOf = (contribution: AgentContribution, agent: AgentContributionContext): AgentHook => {
-  const { id, beforeModelCall, afterToolCall } = contribution;
+  const { id, beforeModelCall, afterToolCall, beforeCompaction } = contribution;
 
   return {
     id,
+    ...(beforeCompaction ? { beforeCompaction: (call: CompactionCallContext) => beforeCompaction(agent, call) } : {}),
     ...(beforeModelCall ? { beforeModelCall: (call: ModelCallContext) => beforeModelCall(agent, call) } : {}),
     ...(afterToolCall ? { afterToolCall: (outcome: ToolCallOutcome, call: AgentHookContext) => afterToolCall(agent, outcome, call) } : {}),
   };

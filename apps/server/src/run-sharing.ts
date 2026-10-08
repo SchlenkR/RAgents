@@ -1,5 +1,12 @@
 import { checkedSharing, DomainError, type RunSharing } from "@ragents/engine";
-import type { RunSharingResult } from "./api/contracts.js";
+import type { RunShareTarget, RunSharingResult } from "./api/contracts.js";
+
+export const revokedSharing = (sharing: RunSharing, target: RunShareTarget): RunSharing => ({
+  everyone: target.kind === "all" || target.kind === "everyone" ? null : sharing.everyone,
+  users: target.kind === "all" ? [] : sharing.users
+    .filter((user) => target.kind !== "user" || user.userId !== target.userId)
+    .map(({ userId, access }) => ({ userId, access })),
+});
 
 /** A user of the profile as the sharing names them. */
 export interface ShareableUser {

@@ -4,6 +4,7 @@ import { useRunPanelHost } from "./run-panel/host";
 import { getThemeStore, parseThemePreference, themeOptions } from "./theme";
 import { Card, ToggleGroup, ToggleGroupItem } from "./ui";
 import { getZoomStore, parseZoom, zoomSteps } from "./zoom";
+import { densityOptions, parseTableDensity } from "./table-density";
 
 const noteClasses = "text-sm leading-[1.6] text-muted-foreground";
 const swatchClasses = "h-9 w-[14px] rounded-sm border border-border";
@@ -11,7 +12,7 @@ const swatchClasses = "h-9 w-[14px] rounded-sm border border-border";
 export function ThemeSettings() {
   const access = useAccess();
   const store = getThemeStore();
-  const { preference, appearance, error } = useSyncExternalStore(store.subscribe, store.getSnapshot);
+  const { preference, appearance, density, error } = useSyncExternalStore(store.subscribe, store.getSnapshot);
   const writable = access.can("settings.write");
   const host = useRunPanelHost();
   return <div className="mx-auto flex max-w-[1020px] flex-col gap-6 px-[clamp(20px,calc(var(--ragents-viewport-width,100vw)*0.04),46px)] pt-7 pb-12 max-sm:px-3.5 max-sm:pt-5 max-sm:pb-9">
@@ -37,13 +38,30 @@ export function ThemeSettings() {
         </ToggleGroup>
       </Card>
     </section>
+    <section aria-labelledby="density-settings-title">
+      <Card className="flex-row flex-wrap items-center gap-4 p-4">
+        <div className="min-w-0 flex-1">
+          <h3 className="type-label text-muted-foreground" id="density-settings-title">Table spacing</h3>
+          <p className="type-body mt-2 text-muted-foreground">Row padding in tables and data grids.</p>
+        </div>
+        <ToggleGroup aria-label="Table spacing" disabled={!writable} size="sm" value={[density]}
+          onValueChange={([value]) => {
+            if (!value || !writable) return;
+            const next = parseTableDensity(value);
+            store.setDensity(next);
+            if (host.kind === "vscode") host.notify({ type: "densityChanged", density: next });
+          }}>
+          {densityOptions.map((option) => <ToggleGroupItem key={option.value} value={option.value}>{option.label}</ToggleGroupItem>)}
+        </ToggleGroup>
+      </Card>
+    </section>
     <p className={noteClasses} role="status">
       {preference === "system"
         ? `Follows the system setting. Schichtwerk ${appearance === "dark" ? "Dark" : "Light"} is currently active.`
         : `Schichtwerk ${appearance === "dark" ? "Dark" : "Light"} is active.`}
-      {" "}Changes apply immediately and are saved in this browser.
+      {" "}Changes apply immediately. {host.kind === "vscode" ? "Table spacing is saved in VS Code." : "Appearance settings are saved in this browser."}
     </p>
-    {!writable && <p className={noteClasses}>With your permissions, the color scheme is read-only.</p>}
+    {!writable && <p className={noteClasses}>With your permissions, appearance settings are read-only.</p>}
     {error && <p className="text-sm leading-[1.6] text-destructive" role="alert">{error}</p>}
     {host.kind === "browser" ? <ZoomSettings /> : <p className={noteClasses}>In VS Code, the setting ragents.zoom scales the interface.</p>}
   </div>;

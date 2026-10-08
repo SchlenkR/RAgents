@@ -3,6 +3,8 @@
 
 :root {
     --qsl-chat-content-max-width: var(--chat-max-width);
+    --qsl-chat-font-size: var(--text-prose);
+    --qsl-chat-line-height: var(--text-prose--line-height);
     --qsl-color-scheme: light;
     --qsl-font: --theme(--font-sans);
     --qsl-mono: --theme(--font-mono);
@@ -39,4 +41,22 @@
 
 :root[data-theme="dark"] {
     --qsl-color-scheme: dark;
+}
+
+[data-quassel-transcript] {
+    scrollbar-width: thin;
+    scrollbar-color: var(--border-strong) transparent;
+    scrollbar-gutter: stable;
+
+    &::-webkit-scrollbar { display: block; width: var(--spacing-scrollbar); }
+    &::-webkit-scrollbar-track { background: transparent; }
+    &::-webkit-scrollbar-thumb { border-radius: var(--spacing-scrollbar); background: var(--border-strong); }
+    &::-webkit-scrollbar-thumb:hover { background: var(--muted-foreground); }
+}
+
+[data-quassel] :is([data-message="answer"], [data-message="user"], [data-message="bubble"]) {
+    & h1 { font-size: var(--text-prose-h1); line-height: var(--text-prose-h1--line-height); font-weight: 650; }
+    & h2 { font-size: var(--text-prose-h2); line-height: var(--text-prose-h2--line-height); font-weight: 600; }
+    & h3 { font-size: var(--text-prose-h3); line-height: var(--text-prose-h3--line-height); font-weight: 600; }
+    & :is(h4, h5, h6) { font-size: var(--text-prose-h4); line-height: var(--text-prose-h4--line-height); font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; }
 }

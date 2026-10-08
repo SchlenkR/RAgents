@@ -14,6 +14,25 @@ server instructions and connection failures in their prompt. Configure servers i
 as described in [Connect MCP servers](guide-getting-started.html#connect-mcp-servers).
 Stopping or deleting the run closes its MCP connections.
 
+## Keep and restore context
+
+Long conversations summarize older work automatically. With the bundled context plugin, recent
+file excerpts can remain verbatim alongside the summary. An agent can keep important results
+explicitly and retrieve earlier originals even after they leave its active context:
+
+| Function | Use |
+| --- | --- |
+| `context_list({ query: "src/example.ts" })` | Find earlier results by path, tool name, or text, with short references and previews. |
+| `context_recall({ reference: "result-3" })` | Restore the original text; use the returned character offset for another page. Native calls also restore images. |
+| `context_keep({ references: ["result-3"] })` | Keep an important result verbatim through future compactions. |
+| `context_keep({ references: ["result-3"], keep: false })` | Release a previously kept result. |
+
+The retained set has a token budget; oversized results remain available through paged recall.
+Keeping results requires `plugin.state.write`; searching and restoring do not. References belong
+to this agent's conversation, including context inherited by a fork, and survive a server
+restart. A restored file excerpt is a historical snapshot. Read the file again for its current
+contents. An incomplete summary leaves the original active context intact.
+
 ## Selection controls and tables
 
 Short option groups form one square segmented control, with dividers between choices and a
@@ -117,7 +136,8 @@ tab when narrow. Clicking a window that waits as a background tab brings that ta
 Clicking a visible window changes nothing. All window buttons, "Empty space", and "Reset layout" remain directly available. They fill
 the space between the fixed controls first, then continue across the full header width when
 needed. Adding apps keeps the title and actions such as "Agents", "Share", Stop, and Settings
-in place. The title and long button labels truncate; full labels remain available on hover.
+in place. The title shrinks before the fixed actions wrap on desktop widths. The title and
+long button labels truncate; full labels remain available on hover.
 Narrow panels can also wrap fixed controls. The header grows and pushes the workspace down;
 its controls are never clipped, hidden in a window menu, or placed in a horizontal scroll area.
 Each window button has a grip at its left edge, shown on hover or focus and always on touch
@@ -202,6 +222,8 @@ Inspection views that retain their state pause background refreshes while the po
 and resume with current run data on reopening.
 
 The chip at the left of the chat input names the addressee, the actor your messages go to.
+Beside it, a spinner and count show how many subagents are working, excluding the coordinator.
+The count stays the same when you choose another addressee; click it to open the graph.
 An actor in a room, such as one a run script started, appears with its address `room.handle`;
 the actors of the main room appear with their handle alone.
 While it names another actor than the run's first chat partner, usually the coordinator, an x
@@ -221,7 +243,7 @@ and a count per state; click it to show the members in a frame below it, click a
 them. A group that contains the current addressee opens by itself. More children than fit side
 by side wrap into further rows. The pop-out has no title and grows with the graph, upward to the
 top of the window and across its width; a small graph keeps it compact. A larger graph pans:
-drag with the left mouse button anywhere, also on a card, or scroll with the mouse wheel, the
+drag the background or a group card with the left mouse button, or scroll with the mouse wheel, the
 trackpad, or a finger. Panning stops 40 pixels beyond the outermost cards, and a short press on
 a card still picks it. The graph opens with the current addressee centered and highlighted.
 Clicking an actor makes it the addressee and closes the graph; Tab moves through the cards and
@@ -233,6 +255,14 @@ TypeScript actors require inspection rights.
 dropdown as soon as the run has an actor besides you; the graph pans within the panel. Clicking an
 actor there also makes it the chat's addressee. Its labeled button wraps with the other header
 actions when space is short.
+
+In the browser, drag an actor from either graph or the addressee chip
+onto the workspace's docking guides to open a separate chat addressed to that actor. Drop on
+an empty pane to replace it. The main chat keeps its addressee. Actor windows can be moved,
+closed, and reopened from their header buttons, and their positions survive a page reload.
+Dropping the same actor again moves its existing window. Escape or a drop outside a target
+cancels; Reset layout removes the separate actor windows. In VS Code, dragging any graph card
+continues to pan the graph.
 
 
 The extension lives under `apps/vscode`. All configured **servers** can remain connected at the
@@ -355,7 +385,7 @@ the user may not create runs, the panel explains why and offers "Back to Start".
 For a new run, the visible chat input receives focus as
 soon as it becomes writable. Opening an existing run does the same for its selected chat partner.
 
-**Continue** follows with this server's five most recent runs in a fixed-column
+**Continue** follows with this server's fifteen most recent runs in a fixed-column
 grid with status, title, and right-aligned time. Rows are
 the same as in the browser: below the title the owner and short details such as the workspace,
 the whole row is clickable, and a dot in the status icon marks activity you have not viewed in
@@ -367,11 +397,13 @@ Plugin sections appear directly below Continue when installed, for example a lis
 documents from all runs you can see. Clicking such an entry can open its run. Empty sections
 show no heading or gap.
 
-**Runs** shows this server's complete list in the same grid, with search, "Hide ended", and a
+**Runs**, "All runs", shows this server's complete list in the same grid, with search, "Hide ended", and a
 selection mode that deletes several runs after a dialog confirmation. Checkboxes occupy an
 additional first column; row actions disappear during selection. A run the
 server has locked, for example because its journal uses an older format, shows a warning icon whose
 tooltip names the cause; it does not open, but the selection mode deletes it.
+"Shared by me" shows your outgoing shares, recipient access, and direct revocation; the same
+tabs and actions are available in the browser.
 
 **Server** is the configuration page. You can add, edit, sign in, sign out, connect,
 disconnect, and remove servers with confirmation, then open `settings.json` from the link
@@ -478,6 +510,14 @@ server refuses, the reason appears inline and the choices return to the server's
 There is no Save or Cancel. Escape or clicking outside closes the dropdown. The panel is the
 same in the browser and in VS Code; the labeled header button wraps with the other actions when
 space is short.
+
+To inspect your outgoing shares together, open All runs, then "Shared by me". It lists your
+shared runs with Everyone and the individual recipients, each marked View or Operate. Search
+matches run titles and recipients. "Revoke" removes that recipient's grant; "Revoke all"
+removes all sharing of that run. Removing an individual grant keeps access granted through
+Everyone. Changes affect the current server state and preserve other recipients' shares.
+While a request is pending the revoke buttons are disabled; a refusal stays inline for retry.
+You can see your own shares with read-only access, but changing them requires sharing rights.
 
 "View" shows the run, its chat, apps, and journal as far as your own permissions go, but
 operates nothing: the run header shows "View only", the chat input is disabled with "Shared with

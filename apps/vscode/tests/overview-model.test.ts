@@ -71,6 +71,16 @@ test("the panel carries the sharing panel and the Start notice the extension kee
   assert.equal("sharing" in plain || "notice" in plain, false, "without a dialog or notice the state names neither");
 });
 
+test("local panel state carries the shared table spacing independently of theme", () => {
+  const base = { theme: "dark" as const, page: "connections" as const, connections: [], profileSuggestions: [], missingSecrets: [], problem: undefined, pickedProfileFile: undefined };
+  assert.equal(Object.hasOwn(panelState(base), "density"), false);
+  for (const density of ["compact", "comfortable", "spacious"] as const) {
+    const state = panelState({ ...base, density });
+    assert.equal(state.density, density);
+    assert.equal(state.theme, "dark");
+  }
+});
+
 test("the target line knows the local profile, the host of the server, and the server whose profile runs locally", () => {
   assert.deepEqual(connectionView(local()).route, { kind: "profile", profile: "core" });
   assert.deepEqual(connectionView(snapshot()).route, { kind: "server", host: "localhost:4710", localHost: false });

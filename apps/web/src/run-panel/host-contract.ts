@@ -13,6 +13,7 @@ export interface RunPanelPageQuery {
   /** The selected environment; the header shows it on Start, Runs, and the run. */
   connection?: string;
   theme?: RunPanelTheme;
+  density?: string;
   access?: string;
 }
 
@@ -47,6 +48,7 @@ export type RunPanelHostMessage =
   | { type: "ready" }
   | { type: "runChanged"; runId: string | null }
   | { type: "pageChanged"; page: "start" | "runs" }
+  | { type: "densityChanged"; density: string }
   | { type: "newRun"; entryId?: string }
   /** With notice, Start shows it, such as for a run that is no longer shared with the user. */
   | { type: "showStart"; notice?: string }
@@ -96,7 +98,8 @@ export type HostRunPanelMessage =
   | { type: "selectRun"; runId: string | null }
   | { type: "showPage"; page: "start" | "runs"; notice?: string }
   | { type: "newRun"; startOptions?: Record<string, unknown>; entryId?: string }
-  | { type: "theme"; theme: RunPanelTheme };
+  | { type: "theme"; theme: RunPanelTheme }
+  | { type: "density"; density: string };
 
 const isObject = (value: unknown): value is Record<string, unknown> => typeof value === "object" && value !== null;
 const isText = (value: unknown): value is string => typeof value === "string" && value.length > 0;
@@ -117,6 +120,8 @@ export const isRunPanelHostMessage = (value: unknown): value is RunPanelHostMess
       return value.runId === null || isText(value.runId);
     case "pageChanged":
       return value.page === "start" || value.page === "runs";
+    case "densityChanged":
+      return isText(value.density);
     case "newRun":
       return value.entryId === undefined || isText(value.entryId);
     case "openInCenter":
@@ -151,6 +156,8 @@ export const isHostRunPanelMessage = (value: unknown): value is HostRunPanelMess
         && (value.entryId === undefined || isText(value.entryId));
     case "theme":
       return isRunPanelTheme(value.theme);
+    case "density":
+      return isText(value.density);
     default:
       return false;
   }

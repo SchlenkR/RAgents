@@ -1,9 +1,10 @@
 import { useCallback, useId, useMemo, useRef, useState } from "react";
 import { ChevronDownIcon, XIcon } from "lucide-react";
-import { Badge, cn, InteractiveItem, Spinner } from "@ragents/web/ui";
+import { cn, InteractiveItem, Spinner } from "@ragents/web/ui";
 import { ActorPopout } from "../ActorPopout";
 import { actorAddress, type RunActor, type RunView } from "@ragents/web/run-view";
-import { pendingInputCount, selectedRunPanelActor } from "./run-panel-actors";
+import { useDockPanelDrag } from "@ragents/web/run-panel/DockWorkspace";
+import { selectedRunPanelActor } from "./run-panel-actors";
 import { ActorGraph, ActorIcon } from "./ActorGraph";
 
 const chipClass = "flex h-7 min-w-[70px] max-w-[220px] flex-[0_1_auto] items-center rounded-full border border-border bg-background text-[0.72rem] font-semibold text-foreground";
@@ -19,6 +20,7 @@ export function AddresseeControl({ actors, onSelect, selected, technical, view }
   technical: boolean;
   view: RunView;
 }) {
+  const drag = useDockPanelDrag();
   const [open, setOpen] = useState(false);
   const buttonRef = useRef<HTMLButtonElement>(null);
   const panelId = useId();
@@ -28,31 +30,32 @@ export function AddresseeControl({ actors, onSelect, selected, technical, view }
   }, []);
   const primary = selectedRunPanelActor(view, actors, null);
   const back = primary && primary.id !== selected.id ? primary : undefined;
-  const working = useMemo(() => actors.filter((actor) => actor.lifecycle?.kind === "running" && actor.id !== selected.id), [actors, selected.id]);
+  const working = useMemo(() => actors.filter((actor) => actor.lifecycle?.kind === "running" && actor.id !== primary?.id), [actors, primary?.id]);
   const pick = (actor: RunActor) => {
     onSelect(actor);
     close(true);
   };
-  const busyTitle = working.map((actor) => `@${actorAddress(actor)} is working`).join(", ");
-  const busyPending = working.length > 0 ? pendingInputCount(view, working[0].id) : 0;
+  const busyTitle = `${working.length} ${working.length === 1 ? "subagent" : "subagents"} working. Click to show agents`;
 
   return <>
     <span className={chipClass}>
-      <InteractiveItem aria-controls={open ? panelId : undefined} aria-expanded={open} aria-haspopup="dialog" className={cn(pickClass, back && "pr-1")} onClick={() => setOpen(!open)} ref={buttonRef} title={`Addressee: @${actorAddress(selected)}. Click to choose another actor`} type="button">
+      <InteractiveItem aria-controls={open ? panelId : undefined} aria-expanded={open} aria-haspopup="dialog" className={cn(pickClass, back && "pr-1", drag && "touch-none cursor-grab active:cursor-grabbing")}
+        onClick={(event) => { if (!drag || event.detail === 0) setOpen(!open); }}
+        onPointerDown={drag && ((event) => drag(event, `actor:${selected.id}`, () => setOpen(!open), () => close()))}
+        ref={buttonRef} title={`Addressee: @${actorAddress(selected)}. Click to choose another actor`} type="button">
         <ActorIcon actor={selected} className="size-5" view={view} />
         <span className="truncate">@{actorAddress(selected)}</span>
         <ChevronDownIcon aria-hidden className="size-3 flex-none text-muted-foreground" />
       </InteractiveItem>
       {back && <InteractiveItem aria-label={`Back to @${actorAddress(back)}`} className={backClass} onClick={() => onSelect(back)} title={`Back to @${actorAddress(back)}`} type="button"><XIcon aria-hidden /></InteractiveItem>}
     </span>
-    {working.length > 0 && <InteractiveItem className={busyClass} onClick={() => setOpen(!open)} title={busyTitle} type="button">
+    {working.length > 0 && <InteractiveItem aria-label={busyTitle} aria-controls={open ? panelId : undefined} aria-expanded={open} aria-haspopup="dialog" className={busyClass}
+      onClick={() => setOpen(!open)} title={busyTitle} type="button">
       <Spinner aria-hidden className="size-3 flex-none" />
-      <span className="truncate in-data-[compact=true]:hidden">@{actorAddress(working[0])}</span>
-      {busyPending > 0 && <Badge className="h-4 min-w-4 px-1 text-[0.6rem]" tone="warning">{busyPending}</Badge>}
-      {working.length > 1 && <span className="flex-none">+{working.length - 1}</span>}
+      <span className="tabular-nums">{working.length}</span>
     </InteractiveItem>}
     {open && <ActorPopout buttonRef={buttonRef} closeLabel="Close addressee" id={panelId} label="Addressee" onClose={close} open placement="top" role="dialog" showLabel={false}>
-      <ActorGraph actors={actors} onPick={pick} selectedId={selected.id} technical={technical} view={view} />
+      <ActorGraph actors={actors} onDragStart={() => close()} onPick={pick} selectedId={selected.id} technical={technical} view={view} />
     </ActorPopout>}
   </>;
 }

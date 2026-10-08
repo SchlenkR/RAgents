@@ -61,6 +61,38 @@ test("jump resumes immediately and includes all bottom padding", () => {
   assert.deepEqual(changes, [false, true]);
 });
 
+test("native scrollbar movement pauses without a pointer or wheel event", () => {
+  const changes: boolean[] = [];
+  const scroll = createChatScroll((value) => changes.push(value));
+  const viewport = { scrollTop: 0, scrollHeight: 1800, clientHeight: 400 };
+  scroll.layout(viewport);
+  viewport.scrollTop = 700;
+  scroll.scroll(viewport);
+  viewport.scrollHeight += 200;
+  scroll.layout(viewport);
+  assert.equal(viewport.scrollTop, 700);
+  viewport.scrollTop = 1600;
+  scroll.scroll(viewport);
+  viewport.scrollHeight += 200;
+  scroll.layout(viewport);
+  assert.equal(viewport.scrollTop, 1800);
+  assert.deepEqual(changes, [false, true]);
+});
+
+test("layout preserves native scrollbar movement before its queued scroll event", () => {
+  const changes: boolean[] = [];
+  const scroll = createChatScroll((value) => changes.push(value));
+  const viewport = { scrollTop: 0, scrollHeight: 1800, clientHeight: 400 };
+  scroll.layout(viewport);
+  viewport.scrollTop = 700;
+  scroll.layout(viewport);
+  scroll.scroll(viewport);
+  viewport.scrollHeight += 200;
+  scroll.layout(viewport);
+  assert.equal(viewport.scrollTop, 700);
+  assert.deepEqual(changes, [false]);
+});
+
 test("a user scroll before its queued event is preserved during a concurrent message render", () => {
   const changes: boolean[] = [];
   const scroll = createChatScroll((value) => changes.push(value));

@@ -374,7 +374,7 @@ its optional agent hooks hook precisely into the agents' model calls.
 ### Agent hooks
 
 `host.agentRuntime(...contributions)` takes contributions with an ID and at least one of
-two hooks; one without a hook is a registration error. Both first receive the agent
+three hooks; one without a hook is a registration error. All first receive the agent
 (`AgentContributionContext`: run, agent, audience, working directory) and run for every
 agent, including the global coordinator:
 
@@ -385,18 +385,56 @@ agent, including the global coordinator:
   also after a host restart: it is in the journal as `plugin.state-replaced` with actor scope under
   the contribution's ID; the model never sees it. After the end of the turn,
   `call.keep` fails.
+- `beforeCompaction(agent, call)` before the runtime summarizes old context. It returns
+  `toolResultIds` and optional `contextNotes`. IDs refer to original tool results in this actor's
+  complete context log; the runtime keeps archived results verbatim and avoids duplicating
+  results already in the recent tail. `call.retentionTokens` is half the model's
+  `keepRecentTokens`, `firstKeptEventId` the initial cut before retention. This hook also has
+  `kept` and `keep`. Its failure aborts the compaction and preserves the original context.
 - `afterToolCall(agent, outcome, call)` after every tool call, with its name and whether it
   failed. A returned result made of text and image parts replaces what the model sees of
   the call; `isError` marks it as an error. Optional `outcome.toolCallId` identifies the
   completed call, so a plugin can take its stored image result by run and call ID even
   when several calls run in parallel.
 
-Both see `call.signal` of the running call and `call.modelReadsImages`. The users are the
+All see `call.signal` of the running call and `call.modelReadsImages`. Before-model and
+before-compaction calls also name the actual native `toolNames` and the retention budget.
+The users are context retention, the
 project check of the actor programs (a note on new or fixed errors, state in
 `call.kept`), image reads, and the browser's image display (replaces the result of
 `browser_view_screenshot` with the capture). A contribution registers no tools; those come through `host.functions`.
 The engine binds every contribution to the agent and calls it directly
 (`packages/ragents/src/drivers/agent-hooks.ts`); the settings show it under its ID.
+
+### Context retention and recovery
+
+`ragents.compaction` adds a bounded working set and the functions `context_list`,
+`context_recall`, and `context_keep`. It is included in `core`, `showcase`, and `developer` and
+has no web half or storage outside the journal. The engine supplies only the generic compaction
+hook, retained-result projection, and `contextToolResults` index; selection and tools belong to
+the plugin.
+
+Explicit pins have priority. The remaining budget keeps the newest successful `read` results,
+deduplicated by `file_path` and starting line. A successful `write` or `edit` invalidates earlier
+automatic excerpts of the same path; an explicit pin remains a historical snapshot. Results too
+large for the working set remain recoverable from the journal. The working set uses at most
+half of `keepRecentTokens`; short recovery notes use at most another quarter. Pins that no
+longer fit after a model change fail compaction with an instruction to release them.
+
+The complete actor log assigns stable ordinal references such as `result-3`, including inherited
+context. `context_list` searches full original text, tool names, and file paths, returning bounded
+previews, pagination, and explicit-pin status; it omits the context tools' own results.
+`context_recall` restores exact text in character pages and, for a native call at offset zero,
+the original images. A model without image input receives an error instead of image bytes.
+TypeScript calls receive text. Both functions read only the caller's own log and need no state
+write grant. `context_keep` pins or releases references in actor-scoped journal state and requires
+`plugin.state.write`. Tool selection and availability apply to all three functions.
+
+Recovery notes name only selected recovery functions. Original results, short references, and
+pins survive restart and run fork; an actor fork inherits original results from the source's
+finished context but has its own pin state. The tools read historical results, never current
+files. Removing this plugin removes its functions and automatic selection; existing retained
+checkpoints still replay through the generic engine projection.
 
 <!-- guide:plugins -->
 ## Provide functions
@@ -1394,6 +1432,12 @@ Connected status includes `channelErrors` while a subscription has failed. Messa
 status, and connection callbacks have separate error handling, so a throwing consumer cannot
 interrupt other channels or prevent transport recovery.
 
+The chat stages history from `reset` through `replay-end` and publishes messages, status, and
+plugin events together. Reconnecting retains the last complete history while the new replay
+arrives; interrupted replays are discarded. An explicit `conversation-reset` clears immediately.
+Live events after replay keep streaming. Scrolling up pauses transcript following even when the
+browser scrolls before the input handler; an unchanged queued scroll event cannot resume it.
+
 Workspace panels have React error boundaries with Retry and Reload. A required plugin provider
 failure blocks its dependent subtree and identifies the plugin; it never bypasses the provider.
 The run and application also have error boundaries. Switching the run or replacing the affected
@@ -1414,6 +1458,14 @@ neither mounted views nor input drafts. Invalid stored values
 and storage errors are shown explicitly. The appearance is a fixed host area
 and stays reachable independently of contribution filters and the loading of the plugin settings.
 Mini-app frames receive the resolved appearance through their existing bridge (see actor-programs.md).
+
+Appearance also offers "Table spacing": Compact, Comfortable (default), and Spacious.
+The same `--spacing-table-cell-x`, `--spacing-table-cell-y`, and `--spacing-table-row` tokens
+control `Table` and `DataGrid`, including their use in mini-apps. The `ragents.density` choice
+is stored and synchronized through the existing theme store, independently of color scheme.
+In VS Code it comes from the `ragents.density` setting; changing the panel control updates that
+setting. Page queries, panel state, and the mini-app bridge propagate changes without reloading
+views or drafts. Invalid values and storage failures remain visible like appearance errors.
 
 In the browser host, Settings, Appearance, Zoom scales the whole page in the steps 80, 90, 100, 110,
 120, 130, and 150 percent, default 100 (`apps/web/src/zoom.ts`). Like the appearance, the choice is
@@ -1548,8 +1600,8 @@ Instead, plugins fill typed slots for:
 The shared `main.tsx` bootstrap renders `RunPanelApp` for either host. The browser and the VS Code
 iframe use the same `PanelPage`, `StartPage`, and `RunsPage` with one current-server adapter.
 In the browser the address selects that server; in VS Code the selected environment does.
-Start shows permitted templates under "New", then the five recent runs under "Continue", then
-plugin sections; Runs adds search and deletion with confirmation.
+Start shows permitted templates under "New", then the fifteen recent runs under "Continue", then
+plugin sections; Runs adds search, deletion with confirmation, and the "Shared by me" tab.
 Neither page combines servers, and Start contains no server chips.
 Free creation, template access, reading, and deletion retain their independent rights.
 Both hosts draw run rows from the same mapping of `ragents.runs.list` (`connectionRunOf` in
@@ -1621,6 +1673,13 @@ sit in the active tab cell before its close button, so that cell ends with
 `[return to sidebar] [maximize/restore] [X]`. Only an empty area with a neighbour has a close-area
 button; populated areas use the individual tab close buttons. Tabs use the existing actor,
 mini-app, and inspection icons.
+
+`DockWorkspace` also accepts optional `panels` with an ID, title, icon, and content. They are
+registered as `view:<id>` only on a valid drop through `useDockPanelDrag`; cancelling or dropping
+outside a target changes nothing. `DockToolsContext` shares the drag controller with the run
+header and chat. Pointer capture belongs to the workspace so a source popup can close when the
+drag starts. Registered views use the same placement, retention, close/reopen, and storage as
+other windows; Reset layout removes them. `useDockActivePanel` reports the focused panel.
 
 Dock areas (including empty ones), the inspection rail, and the flyout have a 1 px token
 border, `rounded-lg` corners, and `bg-card` surfaces over the `bg-app` workspace. The focused
@@ -1982,10 +2041,13 @@ The required props are a stable, non-empty `id`, an `aria-label`, `rows`, `colum
 `rowKey`. Row keys and column IDs must be unique and non-empty. By default the grid fills its
 parent directly on the page canvas, without a frame or an inner scroll container. Its
 virtualizer follows the window or the nearest ancestor that actually scrolls; only the visible
-rows and a small overscan are mounted. Non-scrolling overflow wrappers retain page virtualization
+rows and a small overscan are mounted. Virtualization starts after locating the actual scroll
+container and measuring the grid's offset, with that container's current scroll position.
+Mounting or remounting a grid, including switching between a list and lanes, therefore preserves
+the outer page position. Non-scrolling overflow wrappers retain page virtualization
 and header positioning. The header stays sticky at `stickyOffset` pixels, so a caller
 can leave room for a sticky toolbar. Supplying `height` chooses a bounded panel with its own
-scrolling area. Rows use compact spacing, subtle dividers, and the shared hover, selection,
+scrolling area. Rows use the shared table density, subtle dividers, and the shared hover, selection,
 focus, and label styles in both themes and the VS Code panel.
 
 Each `DataGridColumn<Row>` has `id` and `label`; `value` supplies the sortable, groupable,
@@ -2083,8 +2145,12 @@ Each sets size in `rem`, line height, weight, and letter spacing; `leading-*`, `
 `text-<name>` for a text color and drops it next to `text-muted-foreground` or `text-destructive`.
 Text on Start, Runs, Server, in their dialogs, on the template tiles, and in the run header uses
 these roles; controls such as buttons, inputs, and dialog titles keep the library's size scale.
-`type-prose` styles rendered Markdown that a plugin draws itself: headings in four clearly
-distinct steps, lists, tables with a muted first column, code, quotes, and framed images.
+`type-prose` is the common reading role for rendered Markdown, including Topic: its size and
+line height come from `--text-prose` (0.825rem) and `--text-prose--line-height` (1.55).
+The same tokens supply quassel's message and composer text. Markdown headings in both renderers
+use the shared `--text-prose-h1` through `--text-prose-h4` scale relative to this reading role.
+Controls, item titles, and metadata retain their own roles. `type-prose` also styles lists,
+tables with a muted first column, code, quotes, and framed images.
 `tailwind.css` is the host entry point with preflight; `frame.css` the entry point of the mini-app frames.
 Both include `quassel.css` after the host's utilities: the precompiled stylesheet
 of the chat building blocks `quassel/chat.css` (classes with prefix `qsl:`, variables `--qsl-*`) and the
@@ -2390,6 +2456,9 @@ this way shows this text instead of "Dismissed by the user without an answer." S
 `afterStopSession`) withdraw the open questions agents asked for themselves; questions of the
 owner stay with their callers.
 
+Every chat history shows a thin, theme-colored native scrollbar when its content overflows,
+with a stable gutter and transparent track. This applies to main, actor, preparation, inspection,
+and global coordinator chats through the shared quassel transcript styling.
 Every chat history reserves two normal text lines of free scroll space below the last contribution,
 at least the 40 pixels of the bottom fade zone. A visible input box
 additionally reserves its measured height. The spacing belongs to the content padding of the
@@ -2401,7 +2470,8 @@ content loaded later then hold the actual scroll boundary including the footer s
 scrolling up pauses following. The jump-to-end button enables it explicitly.
 Size changes alone do not switch following off and do not move outer dialogs.
 Only an actual upward movement with mouse, touch, keyboard, or scrollbar pauses
-following. Scroll positions limited by the browser through content or size changes
+following. Native scrollbar movement also pauses without a pointer or wheel event, including
+when a layout render precedes the queued scroll event. Scroll positions limited by the browser through content or size changes
 do not count as manual reading back. Hidden views keep their follow state.
 The end button appears only at more than 120 pixels of distance to the end. `jumpToEndThreshold`
 adjusts this visibility from outside, independently of pausing and resuming
@@ -2891,8 +2961,9 @@ tab through the existing navigation and user-location contract.
 The panel header (`RunHeader` in `RunPanelPage`) keeps fixed controls in a leading group (logo,
 global coordinator, and run title) and a trailing group (bar contributions such as Agents,
 Share, Run script, environment, run state, Stop, Settings, Help, browser, and sign-out).
-The coordinator and title have bounded preferred widths; the title truncates. Fixed controls
-can wrap on narrow panels. `RunPanelHeader` supplies the title and portals its controls and
+The coordinator and title have bounded preferred widths; the title truncates. At header widths
+of at least 768px, the title shrinks to keep the fixed groups on one row. Fixed controls
+can wrap on narrower panels. `RunPanelHeader` supplies the title and portals its controls and
 window target to these shared slots.
 Both hosts put `DockWindowActions` in the same window slot; VS Code opens a mini-app in an editor
 when its button is clicked. The slot measures the fixed groups and actual button sizes, fills
@@ -2972,7 +3043,8 @@ creation order; from four of the same kind (the same kind and the same handle st
 of the handle without a counter suffix, such as `review-*`) the tree combines them into a group with the shared
 prefix, count, and state count. A group is collapsed unless it contains the chosen
 actor; a click reverses that until the graph closes. `actorGraphLayout` (`web/run-panel/actor-graph.ts`)
-lays the tree out deterministically, without a layout library: cards of fixed size, every creator
+lays the tree out deterministically, without a layout library: cards of fixed width and a shared
+height measured in rem, every creator
 centered above the first row of its children, at most as many children per row as cards fit into
 the largest canvas width the popout allows (`graphColumns`); further rows hang on a line in a gutter left of them, so no
 edge crosses a card. Edges run orthogonally with rounded corners from the bottom of the creator
@@ -2988,7 +3060,7 @@ makes the view as large as the layout up to that room; an axis that does not fit
 cards plus `GRAPH_PAN_MARGIN` (40 pixels) on each side, beyond the 16-pixel layout padding. The
 canvas stays a native scroll container with hidden scrollbars, so wheel, touch, and focus scrolling
 keep working within these limits. A left mouse or pen drag of at least 5 pixels pans from anywhere,
-cards included, with `clampGraphPan` and pointer deltas divided by the page's scale; the click
+group cards included, with `clampGraphPan` and pointer deltas divided by the page's scale; the click
 that ends a drag is swallowed, a shorter press stays a click. On opening, the chosen actor is
 centered (`graphPanTo`) and stays centered while the room settles, until the first press, wheel, or
 key in the canvas. After a click on a group, the group card stays at its screen position as far as
@@ -3004,10 +3076,20 @@ otherwise a differing display name), and the number of pending inputs. The time 
 actor counts every second from `startedAt` of its running lifecycle, that is, the start of its
 current turn; otherwise it is "last turn" with `finishedAt - startedAt` of its last finished turn
 in `RunView.turns`, and without one there is none (`actorTimings`). A click chooses the recipient.
+The three text rows do not shrink; their card height follows root font changes through a rem
+probe and the same layout calculation, keeping task text inside the card.
+In browser runs, dragging an actor card in either graph or the addressee chip
+opens or moves that actor's separate chat window through `useDockPanelDrag`. These gestures
+use the dock's threshold, guides, and cancellation. Graph background and group-card drags still
+pan; VS Code retains panning on every card. A separate chat is permanently addressed to its actor
+and leaves the main chat's recipient unchanged. Its history, sections, and composer use
+`ActorRunPanelChat`, and surface selection follows the focused actor window.
 While the recipient is not the actor chosen without a stored choice (`selectedRunPanelActor` with
 `null`, the primary chat actor), the chip carries a separate button "Back to @<handle>" that
 chooses that actor directly without opening the popout.
-Next to it the bar names the first working other actor with a spinner and waiting inputs. The
+Next to it the bar shows only a spinner and the number of currently working subagents,
+excluding the primary chat actor. The count is independent of the selected addressee and
+opens the graph on click; the accessible label names the count and action. The
 header contribution `ragents.orchestration.agents` (`placement: "bar"`, `AgentsHeader.tsx`) shows
 "Agents" while the run lists at least one actor besides humans and opens the same graph in
 the shared `HeaderDropdown`; a click there stores the chosen actor the same way, and the run
@@ -3019,10 +3101,10 @@ navigation values are a hard error.
 The run panel talks to its host through `apps/web/src/run-panel/host.ts`. The host `browser`
 (default) opens links itself, navigates apps locally, and offers only the server for new runs; the host `vscode` (`?host=vscode`, only
 embedded) sends `ready`, `runChanged`, `showStart`, `openInCenter`, `login`, `logout`,
-`openExternal`, `openPage`, and `openService` (a service of a run, section Workspace, sandbox tools,
+`openExternal`, `openPage`, `densityChanged`, and `openService` (a service of a run, section Workspace, sandbox tools,
 and processes) through `postMessage` to the surrounding window and receives from there `selectRun`, `newRun`
 (with preset start options and optionally the ID of a template, which the start selection then
-opens right away), and `theme`; the
+opens right away), `theme`, and `density`; the
 import-free contract is in `run-panel/host-contract.ts`. Starting or opening a run in either host
 requests focus once for its visible writable chat input, including a remembered nonprimary
 addressee. This includes direct run URLs and `selectRun`. The request waits for the chat
@@ -3220,7 +3302,7 @@ width and would become a list with a detail page at 420 pixels (decisions of 09/
 the browser's start selection.
 
 **Continue** follows with the selected server's last
-five runs in `RunList` (`panel/RunLine.tsx`): a CSS grid with the columns state, title, and time,
+fifteen runs in `RunList` (`panel/RunLine.tsx`): a CSS grid with the columns state, title, and time,
 in selection mode the checkbox in front; every row and its
 button are `grid-cols-subgrid`, so that the columns stand at the same edge in all rows, and
 "All N runs" leads to the Runs page. Below the title, inside the same button, a second line
@@ -3255,6 +3337,17 @@ saved sharing. Escape and outside presses send `closeSharing` without changing t
 the server interface keeps the panel in React
 state in both the browser and VS Code, and an answer for a panel closed meanwhile is dropped.
 `PanelState.notice` is a short message on Start, such as the one for a share taken back.
+
+`RunsPage` has "All runs" and "Shared by me" tabs. The latter uses only the run list's
+owner-specific `sharing` summaries and lists each run's recipients with View or Operate access.
+Search matches the title, recipient names, and Everyone. `SharedRuns` opens a run and offers
+"Revoke" per recipient and "Revoke all" per run. `revokeShare` sends a target to
+`ragents.runs.revoke`, which changes the current server sharing rather than replacing it from
+the displayed snapshot. `PanelState.revoking` holds pending state and inline errors; both hosts
+use `revokeSharing` and refresh after success. Revocation requires `canShare`; a read-only owner
+can still inspect their outgoing shares. Revoking an individual share leaves Everyone access
+intact and names that effect. All-runs selection and deletion stay in their own tab.
+
 Plugin `startSections` render directly below Continue with the complete server-listed visible
 run list and its metadata; the host adds no heading or wrapper for a section.
 

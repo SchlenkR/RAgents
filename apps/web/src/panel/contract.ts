@@ -1,7 +1,8 @@
 import type { RunShareAccess, RunSharing } from "@ragents/engine/src/domain/model";
 import type { RunListDetail } from "@ragents/engine/src/plugin-types";
-import type { RunSharingResult } from "@ragents/host/api/contracts";
+import type { RunShareTarget, RunSharingResult } from "@ragents/host/api/contracts";
 import type { RunPanelTheme } from "../run-panel/host-contract";
+import type { TableDensity } from "../table-density";
 
 /** A server of the extension: a RAgents server by address or a local profile that the extension starts itself. */
 export type ConnectionKind = "server" | "profile";
@@ -43,6 +44,8 @@ export interface ConnectionRun {
   readonly canShare?: true;
   /** For a user who may change it: the run is shared with anyone. */
   readonly shared?: true;
+  /** Active recipients with display names, only for runs owned by the signed-in user. */
+  readonly sharing?: RunSharingResult["sharing"];
   /** For a user who sees the run only through a share: what it permits; such a row is never deleted. */
   readonly sharedAccess?: RunShareAccess;
 }
@@ -117,6 +120,7 @@ export const PANEL_PAGES = ["start", "runs", "connections"] as const;
 
 export interface PanelState {
   readonly theme: RunPanelTheme;
+  readonly density?: TableDensity;
   readonly page: PanelPage;
   readonly connections: readonly ConnectionView[];
   /** The profile files in the host folder; the dialog offers them, without a host the list stays empty. */
@@ -129,6 +133,7 @@ export interface PanelState {
   readonly missingSecrets?: readonly string[];
   /** The open sharing panel; without it, none is open. */
   readonly sharing?: PanelSharing;
+  readonly revoking?: PanelSharing;
   /** A short message on Start, such as for a run that left the list because it is no longer shared with the user. */
   readonly notice?: string;
 }
@@ -163,6 +168,7 @@ export type PanelAction =
   | { readonly action: "openSharing"; readonly name: string; readonly runId: string }
   /** Replaces the whole sharing and keeps the saved state or refusal in the open panel. */
   | { readonly action: "share"; readonly name: string; readonly runId: string; readonly sharing: RunSharing }
+  | { readonly action: "revokeShare"; readonly name: string; readonly runId: string; readonly target: RunShareTarget }
   | { readonly action: "closeSharing" };
 
 export type PanelActionMessage = PanelAction & { readonly type: "ragents.panel" };
@@ -199,6 +205,11 @@ export const isPanelActionMessage = (value: unknown): value is PanelActionMessag
     case "newRun": return text(value, "name") && ((value as { entryId?: unknown }).entryId === undefined || text(value, "entryId"));
     case "openSharing": return text(value, "name") && text(value, "runId");
     case "share": return text(value, "name") && text(value, "runId") && isSharing((value as { sharing?: unknown }).sharing);
+    case "revokeShare": {
+      const target = (value as { target?: unknown }).target;
+      return text(value, "name") && text(value, "runId") && typeof target === "object" && target !== null
+        && ("kind" in target && (target.kind === "all" || target.kind === "everyone" || target.kind === "user" && text(target, "userId")));
+    }
     case "closeSharing": return true;
     default: return false;
   }

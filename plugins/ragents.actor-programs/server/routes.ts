@@ -18,9 +18,11 @@ const escapeForwarder = `
   });`;
 
 const themeReceiver = `
-  const applyHostTheme = (theme) => {
+  const applyHostTheme = (theme, density = "comfortable") => {
     if (theme !== "light" && theme !== "dark") throw new Error("The host theme must be light or dark.");
+    if (!["compact", "comfortable", "spacious"].includes(density)) throw new Error("The host table spacing must be compact, comfortable, or spacious.");
     document.documentElement.dataset.theme = theme;
+    document.documentElement.dataset.density = density;
   };`;
 
 // The ancestors cover the browser and the VS Code webviews (desktop: vscode-file and vscode-cdn.net, older versions: vscode-webview).
@@ -73,7 +75,7 @@ globalThis.__ragentsAppContext = (() => {
   port.onmessage = ({ data }) => {
     if (data?.version !== 1) return;
     if (data.type === "ragents.app.ready") {
-      applyHostTheme(data.theme);
+      applyHostTheme(data.theme, data.density);
       if (data.hostInput === true) {
         const disposeInput = ragentsInputBridge.installFrameInputBridge(window, port);
         window.addEventListener("pagehide", disposeInput, { once: true });
@@ -84,7 +86,7 @@ globalThis.__ragentsAppContext = (() => {
       readyResolve();
       port.postMessage({ type: "ragents.app.connected", version: 1 });
     } else if (data.type === "ragents.app.theme") {
-      applyHostTheme(data.theme);
+      applyHostTheme(data.theme, data.density);
     } else if (data.type === "ragents.app.state") {
       currentState = stateValue(data.state);
       const waiter = data.requestId ? pending.get(data.requestId) : undefined;

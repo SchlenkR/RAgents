@@ -16,6 +16,7 @@ import type {
 import { addressOf, sharesNames } from "./actor-reference.ts";
 import { eventSubjectOf, isPendingActorInput, actorStatePluginId } from "./model.ts";
 import { isObservableEventType } from "./vocabulary.ts";
+import { belongsToModelContext } from "./model-context-boundary.ts";
 
 export type EventSemanticContext = {
     events: Map<string, JournalEvent>;
@@ -545,9 +546,23 @@ export const assertEventSemantics = (
             const turn = runningTurnOf(state, event.payload.turnId);
             assertTurnAuthor(turn, event);
             const firstKept = context.events.get(event.payload.firstKeptEventId);
+            const events = [...context.events.values()];
 
             if (!firstKept || !modelContextEventTypes.has(firstKept.type))
                 throw new Error(`Compaction keeps from ${event.payload.firstKeptEventId}, which is no model context event.`);
+            if (!belongsToModelContext(events, turn.actorId, firstKept))
+                throw new Error(`Compaction keeps from ${firstKept.eventId}, which is outside this actor's context.`);
+
+            const retained = event.payload.retainedToolResultIds ?? [];
+            if (new Set(retained).size !== retained.length)
+                throw new Error("Compaction repeats a retained tool result.");
+            for (const id of retained) {
+                const result = context.events.get(id);
+                if (!result || result.type !== "model.tool-result.presented" || result.sequence >= firstKept.sequence)
+                    throw new Error(`Compaction retains ${id}, which is not an archived tool result.`);
+                if (!belongsToModelContext(events, turn.actorId, result))
+                    throw new Error(`Compaction retains ${id}, which is outside this actor's context.`);
+            }
             break;
         }
 

@@ -36,6 +36,14 @@ const runSharing = Type.Object({
   }, { additionalProperties: false }), { description: "Individual users with their own access; a user gets the higher of everyone's and their own" }),
 }, { additionalProperties: false });
 
+const runShareTarget = Type.Union([
+  Type.Object({ kind: Type.Literal("all") }, { additionalProperties: false }),
+  Type.Object({ kind: Type.Literal("everyone") }, { additionalProperties: false }),
+  Type.Object({ kind: Type.Literal("user"), userId: Type.String({ minLength: 1 }) }, { additionalProperties: false }),
+]);
+
+export type RunShareTarget = Static<typeof runShareTarget>;
+
 const runSharingResult = Type.Object({
   sharing: Type.Object({
     everyone: Type.Union([shareAccess, Type.Null()]),
@@ -66,7 +74,7 @@ export const coreContracts = {
   runs: {
     list: defineOperation({
       id: "ragents.runs.list",
-      description: "All runs of the profile the caller sees, its own and those shared with it, with title, times, state (paused, running, waiting, idle, ended), pending actions, the caller's own seenRevision, whether the caller operates it (operable), its sharing for the caller (canShare and shared for whoever may change it, sharedAccess for whoever sees it only through a share), metadata and its list lines. Right: runs.read.",
+      description: "All runs of the profile the caller sees, its own and those shared with it, with title, times, state (paused, running, waiting, idle, ended), pending actions, the caller's own seenRevision, whether the caller operates it (operable), its sharing for the caller (canShare and shared for whoever may change it, sharing with recipient labels only for the signed-in owner, sharedAccess for whoever sees it only through a share), metadata and its list lines. Right: runs.read.",
       rights: ["runs.read"],
       input: Type.Object({}, { additionalProperties: false }),
       result: Type.Array(listedSession),
@@ -95,6 +103,12 @@ export const coreContracts = {
       id: "ragents.runs.share",
       description: "Replace whom a run is shared with: every user of the profile (everyone) and individual users, each with read (sees the run, operates nothing) or write (operates it as far as the user's own rights go); a user gets the higher of both. Before the start the choice waits for the run's creation by the caller, afterwards it is written to the journal; an unchanged sharing writes nothing. A user unknown to the profile (share-user-unknown), the owner (share-owner) and a user named twice (share-user-duplicate) are refused. Result as ragents.runs.sharing. Rights as for ragents.runs.sharing.",
       input: Type.Object({ runId, sharing: runSharing }, { additionalProperties: false }),
+      result: runSharingResult,
+    }),
+    revoke: defineOperation({
+      id: "ragents.runs.revoke",
+      description: "Revoke a run's sharing with everyone, one individual user, or all recipients. Applies to the current journal state and keeps other shares; removing an individual share does not remove access granted to everyone. Result and rights as for ragents.runs.sharing.",
+      input: Type.Object({ runId, target: runShareTarget }, { additionalProperties: false }),
       result: runSharingResult,
     }),
     scripts: defineOperation({

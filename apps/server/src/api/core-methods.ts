@@ -8,6 +8,7 @@ import type { RunTransferExport, RunTransferImport } from "../run-transfer.js";
 import type { SettingsResponse, SettingsSkillDetail } from "../settings.js";
 import type { TitleModelSettings } from "../title-settings-contract.js";
 import { EXTENSION_API_VERSION } from "../extension-api.js";
+import { revokedSharing } from "../run-sharing.js";
 import { coreContracts, type HostPackageDownload, type RunSharingResult } from "./contracts.js";
 import { assertRunDeletable, assertRunReachable, assertRunRights, runListScope, runSharer, type GlobalRunPolicy, type RunAccessPolicy } from "./rights.js";
 
@@ -108,6 +109,11 @@ export const coreMethods = (sources: CoreMethodSources): MethodContribution[] =>
     }),
     implement(coreContracts.runs.sharing, ({ runId }, { access }) => sessions.sharing(runId, runSharer(access, runId, policy))),
     implement(coreContracts.runs.share, ({ runId, sharing }, { access }) => sessions.share(runId, sharing, runSharer(access, runId, policy))),
+    implement(coreContracts.runs.revoke, ({ runId, target }, { access }) => {
+      const userId = runSharer(access, runId, policy);
+      const { sharing } = sessions.sharing(runId, userId);
+      return sessions.share(runId, revokedSharing(sharing, target), userId);
+    }),
     implement(coreContracts.runs.markViewed, ({ runId, revision }, { access }) => {
       assertRunRights(access, runId, "read", policy);
       sessions.markViewed(runId, revision, userIdOf(access));

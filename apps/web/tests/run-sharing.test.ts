@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import type { PanelSharing } from "../src/panel/contract";
 import {
-  listedUsers, openSharing, readOnlyReason, saveSharing, sharedWithYouLabel, sharingChanged, sharingOf, withEveryone, withoutUser, withUser,
+  listedUsers, openSharing, readOnlyReason, revokeSharing, saveSharing, sharedWithYouLabel, sharingChanged, sharingOf, withEveryone, withoutUser, withUser,
   type RunSharing, type RunSharingResult, type SharingClient, type SharingStore,
 } from "../src/run-sharing";
 
@@ -141,4 +141,43 @@ test("saving without an open panel of the run hands a refusal to the caller and 
   assert.equal(store.get(), other);
   await saveSharing("workshop", "run-a", { everyone: null, users: [] }, { load: async () => loaded, save: async () => loaded }, store);
   assert.equal(store.get(), other);
+});
+
+test("a direct revoke sends only its target, blocks overlapping requests and keeps the actual response", async () => {
+  const store = memoryStore();
+  const reply = Promise.withResolvers<RunSharingResult>();
+  const calls: Array<[string, unknown]> = [];
+  const revoke = (runId: string, target: unknown) => { calls.push([runId, target]); return reply.promise; };
+  const removing = revokeSharing("workshop", "run-a", { kind: "user", userId: "bob" }, revoke, store);
+  assert.deepEqual(store.get(), { connection: "workshop", runId: "run-a", pending: true });
+  await revokeSharing("workshop", "run-b", { kind: "all" }, revoke, store);
+  assert.deepEqual(calls, [["run-a", { kind: "user", userId: "bob" }]], "no stale recipient list is sent, and a pending action cannot be overwritten");
+  const current = result({ everyone: "read", users: [{ userId: "carol", label: "Carol", access: "write" }] });
+  reply.resolve(current);
+  await removing;
+  assert.deepEqual(store.history, [{ connection: "workshop", runId: "run-a", pending: true }, { connection: "workshop", runId: "run-a", result: current }]);
+});
+
+test("a direct revoke exposes its refusal and can be retried", async () => {
+  const store = memoryStore();
+  await revokeSharing("workshop", "run-a", { kind: "everyone" }, async () => { throw new Error("Only the owner changes sharing."); }, store);
+  assert.deepEqual(store.get(), { connection: "workshop", runId: "run-a", error: "Only the owner changes sharing." });
+  const saved = result({ everyone: null, users: [] });
+  await revokeSharing("workshop", "run-a", { kind: "all" }, async () => saved, store);
+  assert.deepEqual(store.get(), { connection: "workshop", runId: "run-a", result: saved });
+  assert.deepEqual(store.history.at(-2), { connection: "workshop", runId: "run-a", pending: true }, "retry removes the stale refusal while pending");
+});
+
+test("a late direct revoke cannot replace a dismissed or reopened revocation state", async () => {
+  for (const refused of [false, true]) for (const reopened of [false, true]) {
+    const store = memoryStore();
+    const reply = Promise.withResolvers<RunSharingResult>();
+    const removing = revokeSharing("workshop", "run-a", { kind: "all" }, () => reply.promise, store);
+    const replacement = reopened ? { connection: "other", runId: "run-b", error: "Current action" } : undefined;
+    store.set(replacement);
+    if (refused) reply.reject(new Error("Late refusal"));
+    else reply.resolve(result({ everyone: null, users: [] }));
+    await removing;
+    assert.equal(store.get(), replacement, `${refused ? "refusal" : "success"} leaves ${reopened ? "a newer action" : "the dismissed state"} alone`);
+  }
 });

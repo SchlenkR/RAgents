@@ -1,6 +1,7 @@
 <!doctype html>
 <html lang="en" data-theme="light"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="description" content="Web and editors: public documentation for RAgents."><title>Web and editors - RAgents</title><link rel="alternate" type="text/markdown" href="guide-clients.md"><style>/*! tailwindcss v4.3.3 | MIT License | https://tailwindcss.com */
 :root, :host {
+  --spacing: 0.235rem;
   --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
 }
 :root {
@@ -73,6 +74,14 @@
   --card-shadow: 0 12px 22px #49384e2c;
   --workspace-shadow: -2px 0 5px #49384e14, -8px 0 20px #49384e1f;
   --glass-icon-shadow: 1px 2px 4px #51465725;
+}
+:root[data-density="compact"] {
+  --spacing-table-cell-x: calc(var(--spacing) * 2);
+  --spacing-table-cell-y: var(--spacing);
+}
+:root[data-density="spacious"] {
+  --spacing-table-cell-x: calc(var(--spacing) * 4);
+  --spacing-table-cell-y: calc(var(--spacing) * 4);
 }
 :root[data-theme="dark"] {
   color-scheme: dark;
@@ -165,7 +174,7 @@
       <a class="nav-github" href="https://github.com/SchlenkR/RAgents" aria-label="GitHub"><svg class="gh-icon" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M12 2a10 10 0 0 0-3.2 19.5c.5.1.7-.2.7-.5v-1.7c-2.8.6-3.4-1.3-3.4-1.3-.5-1.2-1.1-1.5-1.1-1.5-.9-.6.1-.6.1-.6 1 .1 1.5 1 1.5 1 .9 1.6 2.4 1.1 3 .9.1-.7.4-1.1.6-1.4-2.2-.3-4.6-1.1-4.6-5 0-1.1.4-2 1-2.7-.1-.3-.4-1.3.1-2.7 0 0 .8-.3 2.8 1a9.6 9.6 0 0 1 5 0c1.9-1.3 2.8-1 2.8-1 .5 1.4.2 2.4.1 2.7.6.7 1 1.6 1 2.7 0 3.9-2.4 4.7-4.6 5 .4.3.7.9.7 1.9V21c0 .3.2.6.7.5A10 10 0 0 0 12 2Z"/></svg><span class="gh-label">GitHub</span></a>
     </nav>
     <button class="nav-menu" type="button" aria-expanded="false" aria-controls="main-navigation"><span data-menu-label>Menu</span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></button>
-  </header><main class="shell" id="main"><div class="guide-layout"><aside class="guide-sidebar"><nav class="guide-chapters" aria-label="Guide navigation"><a href="guide.html">Overview</a><div class="guide-nav-group"><p>Understand</p><a href="guide-ideas.html">Core ideas</a><a href="guide-runtime.html">Actors and messages</a></div><div class="guide-nav-group"><p>Use</p><a href="guide-getting-started.html">Get started</a><a href="guide-clients.html" aria-current="page">Web and editors</a><a href="guide-distributed.html">Distributed work</a></div><div class="guide-nav-group"><p>Build</p><a href="guide-functions.html">Work with TypeScript</a><a href="guide-programs.html">Build mini-apps</a><a href="guide-plugins.html">Plugins and skills</a></div><div class="guide-nav-group"><p>Access</p><a href="guide-access.html">Assign permissions</a></div></nav></aside><details class="guide-mobile-nav"><summary>Guide: Web and editors</summary><nav class="guide-chapters" aria-label="Guide navigation"><a href="guide.html">Overview</a><div class="guide-nav-group"><p>Understand</p><a href="guide-ideas.html">Core ideas</a><a href="guide-runtime.html">Actors and messages</a></div><div class="guide-nav-group"><p>Use</p><a href="guide-getting-started.html">Get started</a><a href="guide-clients.html" aria-current="page">Web and editors</a><a href="guide-distributed.html">Distributed work</a></div><div class="guide-nav-group"><p>Build</p><a href="guide-functions.html">Work with TypeScript</a><a href="guide-programs.html">Build mini-apps</a><a href="guide-plugins.html">Plugins and skills</a></div><div class="guide-nav-group"><p>Access</p><a href="guide-access.html">Assign permissions</a></div></nav></details><article class="guide-body"><header class="guide-title"><p class="eyebrow"><a href="guide.html">Guide</a></p><h1>Web and editors</h1><p>Use the same runs in the browser, VS Code, and ACP editors; automate them through the API and command-line tools.</p></header><details class="guide-page-nav"><summary>On this page</summary><nav aria-label="On this page"><a href="#mcp-server-status">MCP server status</a><a href="#selection-controls-and-tables">Selection controls and tables</a><a href="#run-panel-and-vs-code-extension">Run panel and VS Code extension</a><a href="#share-runs">Share runs</a><a href="#connect-an-editor-over-acp">Connect an editor over ACP</a><a href="#run-external-acp-actors">Run external ACP actors</a><a href="#control-ragents-as-an-agent">Control RAgents as an agent</a><a href="#drive-runs-from-external-clients">Drive runs from external clients</a></nav></details><h2 id="mcp-server-status">MCP server status</h2>
+  </header><main class="shell" id="main"><div class="guide-layout"><aside class="guide-sidebar"><nav class="guide-chapters" aria-label="Guide navigation"><a href="guide.html">Overview</a><div class="guide-nav-group"><p>Understand</p><a href="guide-ideas.html">Core ideas</a><a href="guide-runtime.html">Actors and messages</a></div><div class="guide-nav-group"><p>Use</p><a href="guide-getting-started.html">Get started</a><a href="guide-clients.html" aria-current="page">Web and editors</a><a href="guide-distributed.html">Distributed work</a></div><div class="guide-nav-group"><p>Build</p><a href="guide-functions.html">Work with TypeScript</a><a href="guide-programs.html">Build mini-apps</a><a href="guide-plugins.html">Plugins and skills</a></div><div class="guide-nav-group"><p>Access</p><a href="guide-access.html">Assign permissions</a></div></nav></aside><details class="guide-mobile-nav"><summary>Guide: Web and editors</summary><nav class="guide-chapters" aria-label="Guide navigation"><a href="guide.html">Overview</a><div class="guide-nav-group"><p>Understand</p><a href="guide-ideas.html">Core ideas</a><a href="guide-runtime.html">Actors and messages</a></div><div class="guide-nav-group"><p>Use</p><a href="guide-getting-started.html">Get started</a><a href="guide-clients.html" aria-current="page">Web and editors</a><a href="guide-distributed.html">Distributed work</a></div><div class="guide-nav-group"><p>Build</p><a href="guide-functions.html">Work with TypeScript</a><a href="guide-programs.html">Build mini-apps</a><a href="guide-plugins.html">Plugins and skills</a></div><div class="guide-nav-group"><p>Access</p><a href="guide-access.html">Assign permissions</a></div></nav></details><article class="guide-body"><header class="guide-title"><p class="eyebrow"><a href="guide.html">Guide</a></p><h1>Web and editors</h1><p>Use the same runs in the browser, VS Code, and ACP editors; automate them through the API and command-line tools.</p></header><details class="guide-page-nav"><summary>On this page</summary><nav aria-label="On this page"><a href="#mcp-server-status">MCP server status</a><a href="#keep-and-restore-context">Keep and restore context</a><a href="#selection-controls-and-tables">Selection controls and tables</a><a href="#run-panel-and-vs-code-extension">Run panel and VS Code extension</a><a href="#share-runs">Share runs</a><a href="#connect-an-editor-over-acp">Connect an editor over ACP</a><a href="#run-external-acp-actors">Run external ACP actors</a><a href="#control-ragents-as-an-agent">Control RAgents as an agent</a><a href="#drive-runs-from-external-clients">Drive runs from external clients</a></nav></details><h2 id="mcp-server-status">MCP server status</h2>
 <p>When a run has configured MCP servers, &quot;MCP servers&quot; shows each server&#39;s transport, negotiated
 protocol, state, error, and tool count. Connections open when an agent first resolves its tools.
 Errors stay visible; a call to a disconnected server&#39;s known tool reports its cause and starts
@@ -174,6 +183,39 @@ reconnection. Tool-list changes appear for agents at their next model step.</p>
 server instructions and connection failures in their prompt. Configure servers in the profile
 as described in <a href="guide-getting-started.html#connect-mcp-servers">Connect MCP servers</a>.
 Stopping or deleting the run closes its MCP connections.</p>
+<h2 id="keep-and-restore-context">Keep and restore context</h2>
+<p>Long conversations summarize older work automatically. With the bundled context plugin, recent
+file excerpts can remain verbatim alongside the summary. An agent can keep important results
+explicitly and retrieve earlier originals even after they leave its active context:</p>
+<table>
+<thead>
+<tr>
+<th>Function</th>
+<th>Use</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>context_list({ query: &quot;src/example.ts&quot; })</code></td>
+<td>Find earlier results by path, tool name, or text, with short references and previews.</td>
+</tr>
+<tr>
+<td><code>context_recall({ reference: &quot;result-3&quot; })</code></td>
+<td>Restore the original text; use the returned character offset for another page. Native calls also restore images.</td>
+</tr>
+<tr>
+<td><code>context_keep({ references: [&quot;result-3&quot;] })</code></td>
+<td>Keep an important result verbatim through future compactions.</td>
+</tr>
+<tr>
+<td><code>context_keep({ references: [&quot;result-3&quot;], keep: false })</code></td>
+<td>Release a previously kept result.</td>
+</tr>
+</tbody></table>
+<p>The retained set has a token budget; oversized results remain available through paged recall.
+Keeping results requires <code>plugin.state.write</code>; searching and restoring do not. References belong
+to this agent&#39;s conversation, including context inherited by a fork, and survive a server
+restart. A restored file excerpt is a historical snapshot. Read the file again for its current
+contents. An incomplete summary leaves the original active context intact.</p>
 <h2 id="selection-controls-and-tables">Selection controls and tables</h2>
 <p>Short option groups form one square segmented control, with dividers between choices and a
 tinted fill on selected segments. A group chooses one value, or several independently when
@@ -266,7 +308,8 @@ tab when narrow. Clicking a window that waits as a background tab brings that ta
 Clicking a visible window changes nothing. All window buttons, &quot;Empty space&quot;, and &quot;Reset layout&quot; remain directly available. They fill
 the space between the fixed controls first, then continue across the full header width when
 needed. Adding apps keeps the title and actions such as &quot;Agents&quot;, &quot;Share&quot;, Stop, and Settings
-in place. The title and long button labels truncate; full labels remain available on hover.
+in place. The title shrinks before the fixed actions wrap on desktop widths. The title and
+long button labels truncate; full labels remain available on hover.
 Narrow panels can also wrap fixed controls. The header grows and pushes the workspace down;
 its controls are never clipped, hidden in a window menu, or placed in a horizontal scroll area.
 Each window button has a grip at its left edge, shown on hover or focus and always on touch
@@ -341,6 +384,8 @@ and news stay in the chat, and unsent drafts stay with their addressee when you 
 Inspection views that retain their state pause background refreshes while the popout is hidden
 and resume with current run data on reopening.</p>
 <p>The chip at the left of the chat input names the addressee, the actor your messages go to.
+Beside it, a spinner and count show how many subagents are working, excluding the coordinator.
+The count stays the same when you choose another addressee; click it to open the graph.
 An actor in a room, such as one a run script started, appears with its address <code>room.handle</code>;
 the actors of the main room appear with their handle alone.
 While it names another actor than the run&#39;s first chat partner, usually the coordinator, an x
@@ -360,7 +405,7 @@ and a count per state; click it to show the members in a frame below it, click a
 them. A group that contains the current addressee opens by itself. More children than fit side
 by side wrap into further rows. The pop-out has no title and grows with the graph, upward to the
 top of the window and across its width; a small graph keeps it compact. A larger graph pans:
-drag with the left mouse button anywhere, also on a card, or scroll with the mouse wheel, the
+drag the background or a group card with the left mouse button, or scroll with the mouse wheel, the
 trackpad, or a finger. Panning stops 40 pixels beyond the outermost cards, and a short press on
 a card still picks it. The graph opens with the current addressee centered and highlighted.
 Clicking an actor makes it the addressee and closes the graph; Tab moves through the cards and
@@ -371,6 +416,13 @@ TypeScript actors require inspection rights.</p>
 dropdown as soon as the run has an actor besides you; the graph pans within the panel. Clicking an
 actor there also makes it the chat&#39;s addressee. Its labeled button wraps with the other header
 actions when space is short.</p>
+<p>In the browser, drag an actor from either graph or the addressee chip
+onto the workspace&#39;s docking guides to open a separate chat addressed to that actor. Drop on
+an empty pane to replace it. The main chat keeps its addressee. Actor windows can be moved,
+closed, and reopened from their header buttons, and their positions survive a page reload.
+Dropping the same actor again moves its existing window. Escape or a drop outside a target
+cancels; Reset layout removes the separate actor windows. In VS Code, dragging any graph card
+continues to pan the graph.</p>
 <p>The extension lives under <code>apps/vscode</code>. All configured <strong>servers</strong> can remain connected at the
 same time, while one selected <strong>environment</strong> supplies the visible Start page, Runs, templates,
 and plugin interface. A server in the <code>ragents.connections</code> setting is
@@ -483,7 +535,7 @@ empty chat without a template does not show it. If a run cannot be started, for 
 the user may not create runs, the panel explains why and offers &quot;Back to Start&quot;.
 For a new run, the visible chat input receives focus as
 soon as it becomes writable. Opening an existing run does the same for its selected chat partner.</p>
-<p><strong>Continue</strong> follows with this server&#39;s five most recent runs in a fixed-column
+<p><strong>Continue</strong> follows with this server&#39;s fifteen most recent runs in a fixed-column
 grid with status, title, and right-aligned time. Rows are
 the same as in the browser: below the title the owner and short details such as the workspace,
 the whole row is clickable, and a dot in the status icon marks activity you have not viewed in
@@ -494,11 +546,13 @@ confirmation. Runs shared with you have no delete button.
 Plugin sections appear directly below Continue when installed, for example a list of work
 documents from all runs you can see. Clicking such an entry can open its run. Empty sections
 show no heading or gap.</p>
-<p><strong>Runs</strong> shows this server&#39;s complete list in the same grid, with search, &quot;Hide ended&quot;, and a
+<p><strong>Runs</strong>, &quot;All runs&quot;, shows this server&#39;s complete list in the same grid, with search, &quot;Hide ended&quot;, and a
 selection mode that deletes several runs after a dialog confirmation. Checkboxes occupy an
 additional first column; row actions disappear during selection. A run the
 server has locked, for example because its journal uses an older format, shows a warning icon whose
-tooltip names the cause; it does not open, but the selection mode deletes it.</p>
+tooltip names the cause; it does not open, but the selection mode deletes it.
+&quot;Shared by me&quot; shows your outgoing shares, recipient access, and direct revocation; the same
+tabs and actions are available in the browser.</p>
 <p><strong>Server</strong> is the configuration page. You can add, edit, sign in, sign out, connect,
 disconnect, and remove servers with confirmation, then open <code>settings.json</code> from the link
 at the bottom. If a connected server does not accept this window&#39;s folders as a workstation, its
@@ -595,6 +649,13 @@ server refuses, the reason appears inline and the choices return to the server&#
 There is no Save or Cancel. Escape or clicking outside closes the dropdown. The panel is the
 same in the browser and in VS Code; the labeled header button wraps with the other actions when
 space is short.</p>
+<p>To inspect your outgoing shares together, open All runs, then &quot;Shared by me&quot;. It lists your
+shared runs with Everyone and the individual recipients, each marked View or Operate. Search
+matches run titles and recipients. &quot;Revoke&quot; removes that recipient&#39;s grant; &quot;Revoke all&quot;
+removes all sharing of that run. Removing an individual grant keeps access granted through
+Everyone. Changes affect the current server state and preserve other recipients&#39; shares.
+While a request is pending the revoke buttons are disabled; a refusal stays inline for retry.
+You can see your own shares with read-only access, but changing them requires sharing rights.</p>
 <p>&quot;View&quot; shows the run, its chat, apps, and journal as far as your own permissions go, but
 operates nothing: the run header shows &quot;View only&quot;, the chat input is disabled with &quot;Shared with
 you for viewing only&quot;, and &quot;Stop run&quot;, &quot;Run script&quot;, answers to questions, and app actions are

@@ -243,7 +243,8 @@ payloads are in `domain/events.ts`):
 - `context.compacted`: a compaction with summary, the first kept context event
   (`firstKeptEventId`), `tokensBefore`, the model used, and the files read and changed, from file
   format 9 also the model's threshold and its origin (`threshold` with `tokens` and `source`:
-  `model` for own values, `catalog` for the catalog default).
+  `model` for own values, `catalog` for the catalog default), from format 14 optionally
+  `retainedToolResultIds`, the original tool results kept verbatim alongside the summary.
 
 A model step is context only once its command is written. The agent loop gets the context anew from
 the projection before every model request (`transformContext`), not from its own memory; if writing
@@ -262,8 +263,12 @@ decision checks the same condition as the projection: if the source has no finis
 spawn that presented an input to the model (`RunState.contextTurns`), and is not itself a fork,
 `agent_spawn` rejects the fork with `fork-without-turn` (409); a turn that failed or was aborted
 before the first model request does not count. Later turns of the source do not belong to the
-fork. After that, the last compaction applies: its summary, the entries from the first kept one,
-and everything after (`packages/agent/src/core/context-log.ts`). The rules for steps with an error
+fork. After that, the last compaction applies: its summary, its explicitly retained original tool
+results, the entries from the first kept one, and everything after
+(`packages/agent/src/core/context-log.ts`). Retained results come from the archived part of this
+actor's log, including inherited context, and become independent user messages with their source
+and a historical-snapshot notice. Their text and image parts stay unchanged; an archived tool
+result never appears without its call as an orphan tool message. The rules for steps with an error
 or abort, for tool calls without a result (a synthetic error result), and for replaying reasoning
 with the same model stay in `packages/ai/src/api/transform-messages.ts`. Model choice and thinking
 level are not context: every step names its model itself. The runtime adds to what the projection
@@ -383,15 +388,28 @@ plus cache-read tokens at least 98 percent of its window, compacts and retries t
 A second overflow or an unavailable or failed recovery ends the turn as `failed`, never as a silent
 completion. Roughly `keepRecentTokens` of the most recent entries are kept, never starting from a
 tool result; an oversized trailing tool result keeps its preceding call. If that cuts into the middle of a turn, a second call
-summarizes that turn's beginning separately. The summary may be `summaryTokens` long, the one of the
-turn beginning five eighths of that, the ratio of the two budgets in the forked runtime; both are
-limited by the model's output limit. An existing summary is continued, not created anew. Whether a
+summarizes that turn's beginning separately. Both calls share `summaryTokens`: five eighths for
+the turn beginning and the rest for history, each limited by the model's output limit. If there
+is only an existing checkpoint plus a new turn prefix, one call updates that checkpoint within
+the whole budget; a one-token budget also uses one call. The existing checkpoint reaches this
+call even when there is no additional history. Tool-result text reaches the summarizer in full,
+and tool images accompany it as image input. Only a normally completed, non-empty text summary
+can replace context; a `length` stop, error, abort, or reasoning-only answer leaves the original
+context in place. Deterministic file inventories and plugin recovery notes accompany the summary.
+Whether a
 response lies before the last compaction is decided by its position in the journal. A retry and
 the continuation after a compaction start behind all error steps and truncated overflow responses
 at the end of the context, because the journal keeps every one of them unchanged. A failed proactive
 compaction is in the server log; the turn continues without it. A failed overflow compaction also
-reports its cause as the turn's failure. Summaries use the existing `context.compacted` event and
-replay without a journal format change or migration.
+reports its cause as the turn's failure. Summaries use `context.compacted`; the journal preserves
+all original events for replay and recovery.
+
+Before compaction, plugins can contribute retained tool-result IDs and bounded context notes
+through `beforeCompaction` (`plugins.md`). Retained results and notes consume part of
+`keepRecentTokens`; the cut uses the remaining recent-message budget. Unknown result IDs or an
+exhausted budget fail the compaction without writing a checkpoint. The optional
+`ragents.compaction` plugin selects the working set and provides recovery tools; removing it
+leaves the runtime's ordinary summary and recent-message compaction intact.
 
 A model gets its own values through an alias of the profile (`MODEL_ALIASES`,
 [profiles.md](profiles.md)), on a client through the relay, which passes on the values of its
@@ -411,7 +429,7 @@ check before the first step measures the existing context against the new model'
 
 ### Hooks and skills
 
-The runtime calls the plugins' hooks (`beforeModelCall`, `afterToolCall`, `plugins.md`) directly
+The runtime calls the plugins' hooks (`beforeModelCall`, `beforeCompaction`, `afterToolCall`, `plugins.md`) directly
 (`AgentHook`, `drivers/agent-hooks.ts`). It attaches the notes of `beforeModelCall` only to the one
 request; they are not context. What a hook keeps with `call.keep` is stored in the journal as
 `plugin.state-replaced` with actor scope under the identifier of the contribution and comes back as
@@ -1270,7 +1288,7 @@ every LLM agent is part of the journal as well; working files are stored separat
 
 ### File format, write boundaries, and replay
 
-Every run has a readable `journal.jsonl` in file format 13 and, for large contents, a neighboring
+Every run has a readable `journal.jsonl` in file format 14 and, for large contents, a neighboring
 folder `payloads/`. A line contains one command with all the events that resulted from it. Format
 version, run ID, command, and timestamp are stored once in the shared envelope; actor and command
 ID as well as the internal event schema version are added when reading. The command holds
@@ -1313,7 +1331,7 @@ already have been written. The restart reads complete lines and discards an inco
 Other runs stay writable. Errors when preparing a content file before the journal append, in
 contrast, allow an immediate retry.
 
-The journal writes file format 13 and reads formats 7 to 13, all with internal event schema 3. Format
+The journal writes file format 14 and reads formats 7 to 14, all with internal event schema 3. Format
 7 brings the model context (`model.input.presented`, `model.step.completed`,
 `model.tool-result.presented`, `context.compacted`); older journals carry none and are rejected with
 this cause, without migration, for the affected run. Format 8 brings `origin` on
@@ -1321,9 +1339,10 @@ this cause, without migration, for the affected run. Format 8 brings `origin` on
 (section Retries and compaction), format 10 the event `run.sharing-changed` (`profiles.md`, Sharing
 in detail), format 11 the events `run.paused` and `run.resumed` (section Pausing a run), format 12
 the event `room.opened` and `room` on `agent.spawned` and `script.created` (section Rooms), format
-13 the external execution kind and standalone output observations (section External runtimes). A
+13 the external execution kind and standalone output observations (section External runtimes),
+format 14 retained tool-result IDs on `context.compacted` (section Projection). A
 line of an older format never carries the respective addition and therefore stays readable; a
-format after 13 is rejected. The encoding has been unchanged since
+format after 14 is rejected. The encoding has been unchanged since
 4; the number increases as soon as an older version would reject newly written lines, so that it
 fails at the first such line with the format version instead of at a semantic contradiction. Every
 run is first completely checked and projected before its events, identifiers, and states are taken

@@ -37,6 +37,8 @@ export interface DockState {
 }
 
 export const appPanelId = (id: string) => `app:${id}`;
+export const viewPanelId = (id: string) => `view:${id}`;
+const isViewPanel = (id: string) => id.startsWith("view:");
 export const toolPanelId = (id: string) => `tool:${id}`;
 export const isToolPanel = (id: string) => id.startsWith("tool:");
 export const emptyPanelId = (id: string) => `empty:${id}`;
@@ -169,6 +171,13 @@ export function addDockEmptyPane(state: DockState, id: string, target: DockTarge
   return dockGroups(next.root).some((g) => g.tabs.includes(id)) ? next : state;
 }
 
+export function addDockView(state: DockState, id: string, target: DockTarget, newId: () => string): DockState {
+  if (!isViewPanel(id)) return state;
+  const registered = state.known.includes(id) ? state : { ...state, known: [...state.known, id], closed: [...state.closed, id] };
+  const next = moveDockPanels(registered, [id], target, newId);
+  return dockGroups(next.root).some((entry) => entry.tabs.includes(id)) ? next : state;
+}
+
 export function closeDockPanels(state: DockState, ids: readonly string[], area?: string): DockState {
   const root = filterPanels(state.root, (id) => !ids.includes(id));
   return normalize({ ...state,
@@ -263,7 +272,7 @@ export function parseDockState(raw: string | null): DockState {
   const uniquePanels = (ids: readonly string[]) => ids.every((id) => {
     if (panels.has(id)) return false;
     panels.add(id);
-    return id === "chat" || id.startsWith("app:") || isToolPanel(id) || isTabWindow(id) || isEmptyPanel(id);
+    return id === "chat" || id.startsWith("app:") || isViewPanel(id) || isToolPanel(id) || isTabWindow(id) || isEmptyPanel(id);
   });
   const validNode = (node: DockNode, depth = 0): boolean => {
     if (!node || depth > 64 || typeof node.id !== "string" || nodes.has(node.id)) return false;

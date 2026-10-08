@@ -24,6 +24,7 @@ function App() {
     return () => window.removeEventListener("message", listener);
   }, []);
   useEffect(() => theme.setPreference(state.theme), [state.theme]);
+  useEffect(() => { if (state.density !== undefined) theme.setDensity(state.density); }, [state.density]);
   const send = (action: PanelAction) => vscode.postMessage({ type: "ragents.panel", ...action });
   return <PanelPage send={send} state={state} />;
 }

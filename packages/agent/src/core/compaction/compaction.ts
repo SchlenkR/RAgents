@@ -5,6 +5,7 @@ import type { AssistantMessage, Context, Model, ModelCompaction, SimpleStreamOpt
 import { completeSimple } from "@ragents/ai";
 import { type ContextCompaction, type ContextLogEntry, contextEntryMessages, contextMessages } from "../context-log.ts";
 import { convertToLlm } from "../messages.ts";
+import { contextToolResults, retainedToolResultMessage } from "../tool-results.ts";
 import {
 	computeFileLists,
 	createFileOps,
@@ -39,6 +40,7 @@ export interface CompactionResult {
 	estimatedTokensAfter?: number;
 	readFiles: string[];
 	modifiedFiles: string[];
+	retainedToolResultIds?: string[];
 }
 
 // ============================================================================
@@ -512,16 +514,16 @@ export async function generateSummary(
 		streamFn,
 	);
 
-	if (response.stopReason === "error") {
-		throw new Error(`Summarization failed: ${response.errorMessage || "Unknown error"}`);
+	return completedSummary(response, "Summarization");
+}
+
+function completedSummary(response: AssistantMessage, name: string): string {
+	if (response.stopReason !== "stop") {
+		throw new Error(`${name} failed: ${response.errorMessage || `incomplete response (${response.stopReason})`}`);
 	}
-
-	const textContent = response.content
-		.filter((c): c is { type: "text"; text: string } => c.type === "text")
-		.map((c) => c.text)
-		.join("\n");
-
-	return textContent;
+	const text = response.content.filter((part) => part.type === "text").map((part) => part.text).join("\n");
+	if (!text.trim()) throw new Error(`${name} failed: the model returned an empty summary.`);
+	return text;
 }
 
 // ============================================================================
@@ -543,12 +545,20 @@ export interface CompactionPreparation {
 	/** File operations extracted from messagesToSummarize */
 	fileOps: FileOperations;
 	compaction: ModelCompaction;
+	retainedToolResultIds: string[];
+	contextNotes?: string;
+}
+
+export interface CompactionRetention {
+	toolResultIds: readonly string[];
+	contextNotes?: string;
 }
 
 /** Prepares a compaction of the whole context log; undefined when there is nothing to summarize. */
 export function prepareCompaction(
 	entries: ContextLogEntry[],
 	compaction: ModelCompaction,
+	retention?: CompactionRetention,
 ): CompactionPreparation | undefined {
 	if (entries.length > 0 && entries[entries.length - 1].kind === "compaction") {
 		return undefined;
@@ -574,7 +584,15 @@ export function prepareCompaction(
 	const usageStartIndex = previous ? messages.length - (entries.length - prevCompactionIndex - 1) : 0;
 	const tokensBefore = estimateContextTokens(messages, usageStartIndex).tokens;
 
-	const cutPoint = findCutPoint(entries, boundaryStart, boundaryEnd, compaction.keepRecentTokens);
+	const retainedIds = new Set(retention?.toolResultIds ?? []);
+	const results = contextToolResults(entries);
+	const retainedResults = results.filter((result) => retainedIds.has(result.entryId));
+	if (retainedResults.length !== retainedIds.size) throw new Error("Compaction retention names an unknown tool result.");
+	const retentionTokens = retainedResults.reduce((sum, result) => sum + estimateTokens(retainedToolResultMessage(result)), 0);
+	const notesTokens = Math.ceil((retention?.contextNotes?.length ?? 0) / 4);
+	const recentBudget = compaction.keepRecentTokens - retentionTokens - notesTokens;
+	if (recentBudget < 1) throw new Error("Retained tool results and recovery notes exceed the recent context budget.");
+	const cutPoint = findCutPoint(entries, boundaryStart, boundaryEnd, recentBudget);
 	const firstKeptEntry = entries[cutPoint.firstKeptEntryIndex];
 	if (!firstKeptEntry) {
 		return undefined;
@@ -616,6 +634,8 @@ export function prepareCompaction(
 		previousSummary: previous?.summary,
 		fileOps,
 		compaction,
+		retainedToolResultIds: retainedResults.filter((result) => entries.findIndex((entry) => entry.id === result.entryId) < cutPoint.firstKeptEntryIndex).map((result) => result.entryId),
+		...(retention?.contextNotes ? { contextNotes: retention.contextNotes } : {}),
 	};
 }
 
@@ -664,13 +684,13 @@ export async function compact(
 	// Generate summaries and merge into one
 	let summary: string;
 
-	if (isSplitTurn && turnPrefixMessages.length > 0) {
+	if (isSplitTurn && turnPrefixMessages.length > 0 && compaction.summaryTokens > 1 && !(previousSummary && messagesToSummarize.length === 0)) {
 		const historyResult =
 			messagesToSummarize.length > 0
 				? await generateSummary(
 						messagesToSummarize,
 						model,
-						compaction.summaryTokens,
+						compaction.summaryTokens - turnPrefixTokens(compaction.summaryTokens),
 						apiKey,
 						headers,
 						signal,
@@ -680,7 +700,7 @@ export async function compact(
 						streamFn,
 						env,
 					)
-				: "No prior history.";
+				: previousSummary ?? "No prior history.";
 		const turnPrefixResult = await generateTurnPrefixSummary(
 			turnPrefixMessages,
 			model,
@@ -697,7 +717,7 @@ export async function compact(
 	} else {
 		// Just generate history summary
 		summary = await generateSummary(
-			messagesToSummarize,
+			[...messagesToSummarize, ...turnPrefixMessages],
 			model,
 			compaction.summaryTokens,
 			apiKey,
@@ -713,8 +733,16 @@ export async function compact(
 
 	const { readFiles, modifiedFiles } = computeFileLists(fileOps);
 	summary += formatFileOperations(readFiles, modifiedFiles);
+	if (preparation.contextNotes) summary += `\n\n${preparation.contextNotes}`;
 
-	return { summary, firstKeptId, tokensBefore, readFiles, modifiedFiles };
+	return {
+		summary,
+		firstKeptId,
+		tokensBefore,
+		readFiles,
+		modifiedFiles,
+		...(preparation.retainedToolResultIds.length > 0 ? { retainedToolResultIds: preparation.retainedToolResultIds } : {}),
+	};
 }
 
 /**
@@ -750,12 +778,5 @@ async function generateTurnPrefixSummary(
 		streamFn,
 	);
 
-	if (response.stopReason === "error") {
-		throw new Error(`Turn prefix summarization failed: ${response.errorMessage || "Unknown error"}`);
-	}
-
-	return response.content
-		.filter((c): c is { type: "text"; text: string } => c.type === "text")
-		.map((c) => c.text)
-		.join("\n");
+	return completedSummary(response, "Turn prefix summarization");
 }

@@ -1,6 +1,7 @@
 <!doctype html>
 <html lang="en" data-theme="light"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="description" content="Guide: public documentation for RAgents."><title>Guide - RAgents</title><link rel="alternate" type="text/markdown" href="guide.md"><style>/*! tailwindcss v4.3.3 | MIT License | https://tailwindcss.com */
 :root, :host {
+  --spacing: 0.235rem;
   --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
 }
 :root {
@@ -73,6 +74,14 @@
   --card-shadow: 0 12px 22px #49384e2c;
   --workspace-shadow: -2px 0 5px #49384e14, -8px 0 20px #49384e1f;
   --glass-icon-shadow: 1px 2px 4px #51465725;
+}
+:root[data-density="compact"] {
+  --spacing-table-cell-x: calc(var(--spacing) * 2);
+  --spacing-table-cell-y: var(--spacing);
+}
+:root[data-density="spacious"] {
+  --spacing-table-cell-x: calc(var(--spacing) * 4);
+  --spacing-table-cell-y: calc(var(--spacing) * 4);
 }
 :root[data-theme="dark"] {
   color-scheme: dark;

@@ -1,17 +1,19 @@
 import { CheckSquareIcon, SearchIcon, Trash2Icon } from "lucide-react";
 import { useState } from "react";
-import { Button, Input, Toggle } from "../ui";
+import { Button, Input, Tabs, TabsContent, TabsList, TabsTrigger, Toggle } from "../ui";
 import type { ConnectionRun } from "./contract";
 import type { PanelPageProps } from "./page-props";
 import { ConfirmDialog } from "./PanelDialogs";
 import { PanelHeader } from "./PanelHeader";
 import { canDeleteRun, RunLine, RunList } from "./RunLine";
+import { SharedRuns } from "./SharedRuns";
 
 const matches = (run: ConnectionRun, query: string): boolean => run.title.toLocaleLowerCase("en-US").includes(query);
 
 /** The current server's runs with search, hide ended, and a multi-selection for deleting. */
 export function RunsPage({ state, send }: PanelPageProps) {
   const [query, setQuery] = useState("");
+  const [tab, setTab] = useState("all");
   const [hideEnded, setHideEnded] = useState(false);
   const [selecting, setSelecting] = useState(false);
   const [selected, setSelected] = useState<ReadonlySet<string>>(new Set());
@@ -23,6 +25,10 @@ export function RunsPage({ state, send }: PanelPageProps) {
   const shown = all
     .filter((run) => !hideEnded || run.state !== "ended")
     .filter((run) => needle === "" || matches(run, needle));
+  const shared = all.filter((run) => run.sharing !== undefined && (run.sharing.everyone !== null || run.sharing.users.length > 0));
+  const sharedShown = shared.filter((run) => needle === "" || matches(run, needle)
+    || run.sharing!.users.some((user) => user.label.toLocaleLowerCase("en-US").includes(needle))
+    || run.sharing!.everyone !== null && "everyone".includes(needle));
   const selectable = shown.filter((run) => canDeleteRun(connection, run));
   const allSelected = selectable.length > 0 && selectable.every((run) => selected.has(run.id));
   const selectedRuns = connection.runs.filter((run) => canDeleteRun(connection, run) && selected.has(run.id));
@@ -53,13 +59,18 @@ export function RunsPage({ state, send }: PanelPageProps) {
   return <div className="grid grid-cols-1 gap-3">
     <PanelHeader send={send} title="Runs" />
     {state.problem && <p className="type-body text-destructive [overflow-wrap:anywhere]" role="alert">{state.problem}</p>}
+    <Tabs value={tab} onValueChange={(next) => { setTab(next); leaveSelection(); }}>
     <div className="sticky top-0 z-10 grid gap-3 bg-background pb-2">
+      <TabsList aria-label="Run views" variant="line">
+        <TabsTrigger value="all">All runs</TabsTrigger>
+        <TabsTrigger value="shared">Shared by me {shared.length}</TabsTrigger>
+      </TabsList>
       <div className="relative">
         <SearchIcon aria-hidden className="pointer-events-none absolute top-1/2 left-2.5 size-3.5 -translate-y-1/2 text-muted-foreground" />
         <Input aria-label="Search runs" className="pl-8" size="sm" onChange={(event) => setQuery(event.target.value)}
           placeholder="Search runs ..." type="search" value={query} />
       </div>
-      <div aria-label="Run actions" className="flex flex-wrap items-center gap-1.5" role="group">
+      {tab === "all" && <div aria-label="Run actions" className="flex flex-wrap items-center gap-1.5" role="group">
         {selecting ? <>
           <Button disabled={selectable.length === 0} onClick={toggleAll} size="sm" variant="ghost">{allSelected ? "Select none" : "Select all"}</Button>
           <span className="type-body text-muted-foreground" role="status">{selectedRuns.length} selected</span>
@@ -71,8 +82,9 @@ export function RunsPage({ state, send }: PanelPageProps) {
             <CheckSquareIcon data-icon="inline-start" />Select
           </Toggle>}
         </>}
-      </div>
+      </div>}
     </div>
+    <TabsContent value="all">
     {shown.length === 0
       ? <p className="type-body text-muted-foreground" role="status">{all.length === 0 ? "No runs yet." : "No matching run."}</p>
       : <RunList actions={actions} label="Runs" selecting={selecting}>
@@ -83,6 +95,15 @@ export function RunsPage({ state, send }: PanelPageProps) {
           sharingOpen={state.sharing?.runId === run.id}
           onToggle={() => toggle(run.id)} run={run} selectable={canDeleteRun(connection, run)} selected={selected.has(run.id)} selecting={selecting} />)}
       </RunList>}
+    </TabsContent>
+    <TabsContent value="shared">
+      {sharedShown.length === 0
+        ? <p className="type-body text-muted-foreground" role="status">{shared.length === 0 ? "You have not shared any runs." : "No matching shared run."}</p>
+        : <SharedRuns runs={sharedShown} revoking={state.revoking}
+          onOpen={(runId) => send({ action: "openRun", name: connection.name, runId })}
+          onRevoke={(runId, target) => send({ action: "revokeShare", name: connection.name, runId, target })} />}
+    </TabsContent>
+    </Tabs>
     {confirming && <ConfirmDialog
       confirmLabel="Delete"
       onClose={() => setConfirming(false)}

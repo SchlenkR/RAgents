@@ -179,7 +179,7 @@ function TableHead({ className, children, columnId, ref, title, ...props }: Reac
       ref={head}
       data-slot="table-head"
       className={cn(
-        "relative h-10 px-2 text-left align-middle font-medium whitespace-nowrap text-foreground [&:has([role=checkbox])]:pr-0",
+        "relative h-table-row px-table-cell-x py-table-cell-y text-left align-middle font-medium whitespace-nowrap text-foreground [&:has([role=checkbox])]:pr-0",
         resize && "overflow-hidden",
         className
       )}
@@ -268,7 +268,7 @@ function TableCell({ className, children, title, ...props }: React.ComponentProp
     <td
       data-slot="table-cell"
       className={cn(
-        "p-2 align-middle whitespace-nowrap [&:has([role=checkbox])]:pr-0",
+        "px-table-cell-x py-table-cell-y align-middle whitespace-nowrap [&:has([role=checkbox])]:pr-0",
         resizing && "overflow-hidden",
         className
       )}

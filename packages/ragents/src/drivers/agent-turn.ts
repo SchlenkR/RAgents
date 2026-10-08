@@ -358,6 +358,8 @@ export class AgentTurn {
                 const note = await this.#options.track(hook.beforeModelCall({
                     signal,
                     modelReadsImages: this.#options.model.input.includes("image"),
+                    retentionTokens: Math.floor(compactionOf(this.#options.model).values.keepRecentTokens / 2),
+                    toolNames: this.#agent?.state.tools.map((tool) => tool.name) ?? [],
                     kept: this.#request.hookState.kept(hook.id),
                     keep: (value) => {
                         if (!this.#active)
@@ -685,9 +687,10 @@ export class AgentTurn {
     async #compact(retry: boolean): Promise<boolean> {
         const { model, modelRuntime, thinkingLevel } = this.#options;
         const compaction = compactionOf(model);
-        const preparation = prepareCompaction([...this.#request.modelContext().entries], compaction.values);
+        const entries = [...this.#request.modelContext().entries];
+        const initial = prepareCompaction(entries, compaction.values);
 
-        if (!preparation) {
+        if (!initial) {
             if (retry)
                 this.#modelFailure = "Context overflow recovery failed: there is no context to compact.";
             return false;
@@ -697,6 +700,29 @@ export class AgentTurn {
         this.#compactionAbort = abort;
 
         try {
+            const retained = new Set<string>();
+            const notes: string[] = [];
+            for (const hook of this.#options.hooks) {
+                const contribution = await this.#options.track(hook.beforeCompaction?.({
+                    signal: AbortSignal.any([abort.signal, this.#options.signal]),
+                    modelReadsImages: model.input.includes("image"),
+                    retentionTokens: Math.floor(compaction.values.keepRecentTokens / 2),
+                    firstKeptEventId: initial.firstKeptId,
+                    toolNames: this.#agent?.state.tools.map((tool) => tool.name) ?? [],
+                    kept: this.#request.hookState.kept(hook.id),
+                    keep: (value) => {
+                        if (!this.#active) throw new Error(`The hook ${hook.id} is stale: its agent turn has ended.`);
+                        this.#request.hookState.keep(hook.id, value);
+                    },
+                }));
+                for (const id of contribution?.toolResultIds ?? []) retained.add(id);
+                if (contribution?.contextNotes) notes.push(contribution.contextNotes);
+            }
+            const preparation = prepareCompaction(entries, compaction.values, {
+                toolResultIds: [...retained],
+                ...(notes.length > 0 ? { contextNotes: notes.join("\n\n") } : {}),
+            });
+            if (!preparation) throw new Error("The compaction has no history after retaining tool results.");
             const auth = await modelRuntime.getAuth(model).catch(() => undefined);
             const headers = auth?.auth.headers
                 ? Object.fromEntries(Object.entries(auth.auth.headers).filter((entry): entry is [string, string] => entry[1] !== null))
@@ -733,6 +759,7 @@ export class AgentTurn {
                     model: model.id,
                     readFiles: result.readFiles,
                     modifiedFiles: result.modifiedFiles,
+                    ...(result.retainedToolResultIds ? { retainedToolResultIds: result.retainedToolResultIds } : {}),
                     threshold: { tokens: compaction.values.threshold, source: compaction.source },
                 },
             });

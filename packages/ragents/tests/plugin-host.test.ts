@@ -553,6 +553,19 @@ test("agent hooks reach the driver bound to their agent: they keep data, add not
     assert.deepEqual(seen, [{ agent: "loud", kept: 3, images: true }, { agent: "quiet", kept: 3, images: false }]);
 });
 
+test("a contribution with only a compaction hook is registered and bound to its actor", async () => {
+    const registry = new AgentContributionRegistry();
+    registry.register("test.plugin", [{
+        id: "test.retention",
+        beforeCompaction: (agent, call) => ({ toolResultIds: [agent.agentId], contextNotes: `Budget: ${call.retentionTokens}` }),
+    }]);
+    const hook = registry.resolve({ runId: "run", agentId: "worker", audience: "agent", workspace: "." })[0]!;
+    assert.deepEqual(await hook.beforeCompaction!({
+        signal: undefined, modelReadsImages: true, kept: undefined, keep: () => {},
+        retentionTokens: 100, firstKeptEventId: "recent", toolNames: [],
+    }), { toolResultIds: ["worker"], contextNotes: "Budget: 100" });
+});
+
 test("a run condition takes prompts, skills and agent hooks of its plugin out of the runs it does not apply to", async () => {
     const host = new PluginHost({
         product: { id: "test", title: "Test" },

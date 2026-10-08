@@ -52,6 +52,7 @@ export const connectionView = (snapshot: ConnectionSnapshot): ConnectionView => 
 
 export interface PanelInput {
   theme: RunPanelTheme;
+  density?: PanelState["density"];
   page: PanelPage;
   connections: readonly ConnectionSnapshot[];
   profileSuggestions: readonly string[];
@@ -61,6 +62,7 @@ export interface PanelInput {
   pickedProfileFile: string | undefined;
   /** The open sharing panel of a run, with what the server returned or refused. */
   sharing?: PanelSharing;
+  revoking?: PanelSharing;
   /** A short message on Start, such as for a run that is no longer shared with the user. */
   notice?: string;
 }
@@ -68,6 +70,7 @@ export interface PanelInput {
 /** The whole state of the panel page; it draws Start, Runs, or Server from it. */
 export const panelState = (input: PanelInput): PanelState => ({
   theme: input.theme,
+  ...(input.density !== undefined ? { density: input.density } : {}),
   page: input.page,
   connections: input.connections.map(connectionView),
   profileSuggestions: [...input.profileSuggestions],
@@ -75,6 +78,7 @@ export const panelState = (input: PanelInput): PanelState => ({
   ...(input.problem !== undefined ? { problem: input.problem } : {}),
   ...(input.pickedProfileFile !== undefined ? { pickedProfileFile: input.pickedProfileFile } : {}),
   ...(input.sharing !== undefined ? { sharing: input.sharing } : {}),
+  ...(input.revoking !== undefined ? { revoking: input.revoking } : {}),
   ...(input.notice !== undefined ? { notice: input.notice } : {}),
 });
 

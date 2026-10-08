@@ -2607,6 +2607,199 @@ Available in every model turn.
 }
 ```
 
+### context_keep
+
+Keep Tool Results in Context
+
+Keep important original tool results verbatim through future compactions, or release previously kept results. The retained working set is bounded.
+
+Owner: ragents.compaction. Scope: per-turn. Native model tool: yes. Availability: conditional.
+
+Only for LLM actors with plugin.state.write, for their own model context.
+
+#### Input
+
+```json
+{
+  "type": "object",
+  "required": [
+    "references"
+  ],
+  "properties": {
+    "references": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "description": "A short tool-result reference from context_list or the compaction checkpoint, such as result-3"
+      },
+      "minItems": 1,
+      "maxItems": 50,
+      "uniqueItems": true
+    },
+    "keep": {
+      "type": "boolean",
+      "description": "true keeps these results, false releases them; defaults to true"
+    }
+  },
+  "additionalProperties": false
+}
+```
+
+#### Result
+
+```json
+{
+  "type": "object",
+  "required": [
+    "keptCount"
+  ],
+  "properties": {
+    "keptCount": {
+      "type": "integer",
+      "minimum": 0
+    }
+  },
+  "additionalProperties": false
+}
+```
+
+### context_list
+
+Find Earlier Tool Results
+
+Find original tool results in your own conversation, including results removed from active context by compaction.
+
+Owner: ragents.compaction. Scope: per-turn. Native model tool: yes. Availability: conditional.
+
+Only for an LLM actor's own model context, including its inherited context.
+
+#### Input
+
+```json
+{
+  "type": "object",
+  "properties": {
+    "query": {
+      "type": "string",
+      "description": "Search tool names, file paths, and full original result text"
+    },
+    "before": {
+      "type": "string",
+      "description": "The next reference from a previous page; list results older than this one"
+    },
+    "limit": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 50,
+      "description": "At most this many results, newest first; defaults to 20"
+    }
+  },
+  "additionalProperties": false
+}
+```
+
+#### Result
+
+```json
+{
+  "type": "object",
+  "required": [
+    "results"
+  ],
+  "properties": {
+    "results": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "reference",
+          "tool",
+          "preview",
+          "kept",
+          "isError"
+        ],
+        "properties": {
+          "reference": {
+            "type": "string"
+          },
+          "tool": {
+            "type": "string"
+          },
+          "file": {
+            "type": "string"
+          },
+          "preview": {
+            "type": "string"
+          },
+          "kept": {
+            "type": "boolean"
+          },
+          "isError": {
+            "type": "boolean"
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    "next": {
+      "type": "string"
+    }
+  },
+  "additionalProperties": false
+}
+```
+
+### context_recall
+
+Restore Earlier Tool Result
+
+Read an original tool result by reference. Restore exact text after compaction; native calls also restore its images.
+
+Use context_list to find references. Text is paged by zero-based character offset; a continuation names the next offset. This restores a historical result, not the current contents of a file. Read the file again when its current version matters. Use context_keep to preserve an important result through future compactions. TypeScript callers receive the text only.
+
+Owner: ragents.compaction. Scope: per-turn. Native model tool: yes. Availability: conditional.
+
+Only for an LLM actor's own model context, including its inherited context.
+
+#### Input
+
+```json
+{
+  "type": "object",
+  "required": [
+    "reference"
+  ],
+  "properties": {
+    "reference": {
+      "type": "string",
+      "minLength": 1,
+      "description": "A short tool-result reference from context_list or the compaction checkpoint, such as result-3"
+    },
+    "offset": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "Character offset in the original text, zero-based; defaults to 0"
+    },
+    "limit": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 16000,
+      "description": "At most this many text characters; defaults to 8000"
+    }
+  },
+  "additionalProperties": false
+}
+```
+
+#### Result
+
+```json
+{
+  "type": "string"
+}
+```
+
 ### copy
 
 Copy
@@ -8760,6 +8953,10 @@ Complete package sources are in [run-setup.md](run-setup.md).
   },
   {
     "id": "ragents.workspace",
+    "requires": []
+  },
+  {
+    "id": "ragents.compaction",
     "requires": []
   },
   {

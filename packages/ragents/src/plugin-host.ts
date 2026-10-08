@@ -269,7 +269,7 @@ export class AgentContributionRegistry {
 
   register(owner: string, contributions: readonly AgentContribution[]): void {
     for (const contribution of contributions) {
-      if (!contribution.beforeModelCall && !contribution.afterToolCall) {
+      if (!contribution.beforeModelCall && !contribution.afterToolCall && !contribution.beforeCompaction) {
         throw new Error(`Agent contribution ${contribution.id} has no hook`);
       }
     }

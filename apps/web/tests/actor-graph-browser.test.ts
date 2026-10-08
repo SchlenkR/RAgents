@@ -32,7 +32,7 @@ const buildFixture = async (directory: string): Promise<string> => {
 };
 
 const openPage = async (url: string, errors: string[], viewport: { width: number; height: number }): Promise<Page> => {
-  const browser = await chromium.launch({ headless: true, executablePath: process.env.BROWSER_EXECUTABLE_PATH });
+  const browser = await chromium.launch({ headless: true, executablePath: process.env.BROWSER_EXECUTABLE_PATH ?? "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome" });
   const page = await browser.newPage({ viewport, reducedMotion: "reduce" });
   page.on("close", () => void browser.close());
   page.setDefaultTimeout(8000);
@@ -73,6 +73,53 @@ const drag = async (page: Page, from: { x: number; y: number }, dx: number, dy: 
   await page.mouse.down();
   await page.mouse.move(from.x + dx, from.y + dy, { steps: 8 });
   await page.mouse.up();
+};
+
+const settlePopouts = (page: Page) => page.evaluate(async () => {
+  await Promise.all(document.getAnimations().filter((animation) => animation.effect?.getComputedTiming().iterations !== Infinity)
+    .map((animation) => animation.finished.catch(() => undefined)));
+  await new Promise<void>((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve())));
+});
+
+const replayChat = (page: Page) => page.evaluate(() => {
+  window.actorGraphFixture.chat("demo", { kind: "status", running: false });
+  window.actorGraphFixture.chat("demo", { kind: "user", text: "The coordinator's conversation.", at: new Date().toISOString() });
+  window.actorGraphFixture.chat("demo", { kind: "replay-end", conversationId: null });
+});
+
+const savedDockLayout = (page: Page) => page.evaluate(() => Object.entries(localStorage).find(([key]) => key.startsWith("ragents.docking:"))?.[1]);
+
+const assertCardRowsFit = async (dialog: Locator, label: string) => {
+  const cards = await dialog.locator("button[data-actor-handle], button[data-addressee-group]").evaluateAll((buttons) => buttons.map((button) => {
+    const bounds = button.getBoundingClientRect();
+    return {
+      handle: button.getAttribute("data-actor-handle") ?? button.getAttribute("data-addressee-group"),
+      top: bounds.top,
+      bottom: bounds.bottom,
+      rows: [...button.children].filter((child) => child.tagName === "SPAN").map((row) => {
+        const bounds = row.getBoundingClientRect();
+        const textBounds: { top: number; bottom: number }[] = [];
+        const walker = document.createTreeWalker(row, NodeFilter.SHOW_TEXT);
+        while (walker.nextNode()) {
+          if (!walker.currentNode.textContent?.trim()) continue;
+          const range = document.createRange();
+          range.selectNodeContents(walker.currentNode);
+          for (const rect of range.getClientRects()) textBounds.push({ top: rect.top, bottom: rect.bottom });
+        }
+        return { top: bounds.top, bottom: bounds.bottom, textBounds };
+      }),
+    };
+  }));
+  assert.ok(cards.length > 0, `${label} contains graph cards.`);
+  for (const card of cards) {
+    assert.equal(card.rows.length, 3, `${label} @${card.handle} shows its handle, status, and summary.`);
+    for (const [index, row] of card.rows.entries()) {
+      assert.ok(row.top >= card.top - 1 && row.bottom <= card.bottom + 1,
+        `${label} @${card.handle} row ${index + 1} stays inside its card (${row.top}..${row.bottom}, card ${card.top}..${card.bottom}).`);
+      for (const text of row.textBounds) assert.ok(text.top >= card.top - 1 && text.bottom <= card.bottom + 1,
+        `${label} @${card.handle} row ${index + 1} contains the full text height (${text.top}..${text.bottom}, card ${card.top}..${card.bottom}).`);
+    }
+  }
 };
 
 test("the addressee pop-out and the header's agents view show who created whom as a graph and pick the addressee", {
@@ -145,7 +192,7 @@ test("the addressee pop-out and the header's agents view show who created whom a
   await settle();
   const compact = await box(dialog);
   const fits = await canvasOf(dialog);
-  assert.ok(compact.width < 1000 && compact.height < 360, `a small graph keeps the pop-out compact (${compact.width} x ${compact.height})`);
+  assert.ok(compact.width < 1000 && compact.height < 430, `a small graph fits into half the viewport height (${compact.width} x ${compact.height})`);
   assert.deepEqual([fits.maxLeft, fits.maxTop], [0, 0], "a graph that fits does not pan");
   assert.notEqual(fits.cursor, "grab");
 
@@ -324,4 +371,222 @@ test("the Agents header dropdown shares square responsive bounds and restores fo
       assert.deepEqual(errors, []);
     } finally { await page.close(); }
   }
+});
+
+test("graph cards contain all three text rows at larger root fonts and page zoom in both hosts", {
+  skip: process.env.RAGENTS_BROWSER_TESTS !== "1", timeout: 120_000,
+}, async (context) => {
+  const directory = await mkdtemp(join(tmpdir(), "ragents-actor-graph-"));
+  context.after(() => rm(directory, { recursive: true, force: true }));
+  const url = await buildFixture(directory);
+  const screenshots = join(tmpdir(), "ragents-browser-shots");
+  await mkdir(screenshots, { recursive: true });
+  for (const host of ["vscode", "browser"]) {
+    const errors: string[] = [];
+    const page = await openPage(`${url}?host=${host}`, errors, { width: 1280, height: 900 });
+    try {
+      await page.locator("[data-chat=composer]").waitFor();
+      await replayChat(page);
+      for (const { fontSize, zoom } of [{ fontSize: 16, zoom: 1 }, { fontSize: 20, zoom: 1 }, { fontSize: 16, zoom: 1.25 }, { fontSize: 20, zoom: 1.25 }]) {
+        await page.evaluate(({ fontSize, zoom }) => {
+          document.documentElement.style.fontSize = `${fontSize}px`;
+          document.documentElement.style.zoom = String(zoom);
+        }, { fontSize, zoom });
+        const label = `${host}, ${fontSize}px, ${zoom * 100}%`;
+        await page.getByRole("button", { name: "Agents", exact: true }).click();
+        const header = page.getByRole("dialog", { name: "Agents", exact: true });
+        await header.locator('button[data-actor-handle="coordinator"]').waitFor();
+        await settlePopouts(page);
+        await assertCardRowsFit(header, `${label}, Agents`);
+        await header.locator('button[data-addressee-group="@review-*"]').click();
+        await header.locator('button[data-actor-handle="review-visibility"]').waitFor();
+        await settlePopouts(page);
+        await assertCardRowsFit(header, `${label}, expanded Agents`);
+        await page.keyboard.press("Escape");
+        await header.waitFor({ state: "detached" });
+        await page.locator('button[title^="Addressee: @coordinator"]:visible').click();
+        const picker = page.getByRole("dialog", { name: "Addressee", exact: true });
+        await picker.locator('button[data-actor-handle="implementer"]').waitFor();
+        await settlePopouts(page);
+        await assertCardRowsFit(picker, `${label}, Addressee`);
+        await page.screenshot({ path: join(screenshots, `actor-card-rows-${host}-${fontSize}-${zoom}.png`) });
+        await page.keyboard.press("Escape");
+        await picker.waitFor({ state: "detached" });
+      }
+      assert.deepEqual(errors, []);
+      assert.deepEqual(await page.evaluate(() => window.actorGraphFixture.unexpected), []);
+    } finally { await page.close(); }
+  }
+});
+
+test("actors dragged from either graph or the addressee chip open bound chats and preserve drafts, layout, and recipient selection", {
+  skip: process.env.RAGENTS_BROWSER_TESTS !== "1", timeout: 180_000,
+}, async (context) => {
+  const directory = await mkdtemp(join(tmpdir(), "ragents-actor-docking-"));
+  context.after(() => rm(directory, { recursive: true, force: true }));
+  const url = await buildFixture(directory);
+  const screenshots = join(tmpdir(), "ragents-browser-shots");
+  await mkdir(screenshots, { recursive: true });
+  const errors: string[] = [];
+  const page = await openPage(`${url}?host=browser`, errors, { width: 1280, height: 900 });
+  context.after(() => page.close());
+  const primary = page.locator('[data-dock-panel="chat"]');
+  const panel = (id: string) => page.locator(`[data-dock-panel="view:actor:${id}"]`);
+  const tab = (id: string) => page.getByRole("tab", { name: `@${id}`, exact: true });
+  const groups = page.locator("[data-dock-group]");
+  const chip = () => primary.locator('button[title^="Addressee: @coordinator"]:visible');
+  const headerGraph = async () => {
+    await page.getByRole("button", { name: "Agents", exact: true }).click();
+    const graph = page.getByRole("dialog", { name: "Agents", exact: true });
+    await graph.locator('button[data-actor-handle="coordinator"]').waitFor();
+    await settlePopouts(page);
+    return graph;
+  };
+  const startDrag = async (source: Locator, target: Locator) => {
+    await source.scrollIntoViewIfNeeded();
+    const from = center(await box(source));
+    const to = center(await box(target));
+    await page.mouse.move(from.x, from.y);
+    await page.mouse.down();
+    await page.mouse.move(to.x, to.y, { steps: 8 });
+    await page.locator('[data-dock-guide="group-center"]').waitFor();
+  };
+  const dropGuide = async (guide: string) => {
+    const target = center(await box(page.locator(`[data-dock-guide="${guide}"]`)));
+    await page.mouse.move(target.x, target.y);
+    await page.locator("[data-dock-preview]").waitFor();
+    await page.mouse.up();
+    await page.getByLabel("Docking guides", { exact: true }).waitFor({ state: "hidden" });
+  };
+  const assertActorChat = async (id: string) => {
+    await panel(id).waitFor({ state: "visible" });
+    await panel(id).getByRole("textbox", { name: `Message to @${id} ...`, exact: true }).waitFor();
+    await panel(id).getByText(`Please check the status, @${id}.`, { exact: true }).waitFor();
+    assert.equal(await panel(id).getByText("The coordinator's conversation.", { exact: true }).count(), 0);
+  };
+  await primary.locator("[data-chat=composer]").waitFor();
+  await replayChat(page);
+  await primary.getByText("The coordinator's conversation.", { exact: true }).waitFor();
+  await chip().waitFor();
+  assert.equal(await groups.count(), 1);
+  assert.equal(await page.getByRole("tab").count(), 1, "Unopened actors do not fill the window catalog.");
+
+  let graph = await headerGraph();
+  await graph.locator('button[data-actor-handle="test-writer"]').scrollIntoViewIfNeeded();
+  const click = center(await box(graph.locator('button[data-actor-handle="test-writer"]')));
+  await page.mouse.move(click.x, click.y);
+  await page.mouse.down();
+  await page.mouse.move(click.x + 3, click.y + 2);
+  await page.mouse.up();
+  await primary.getByRole("textbox", { name: "Message to @test-writer ...", exact: true }).waitFor();
+  assert.equal(await tab("test-writer").count(), 0, "A short press still chooses the main chat's addressee.");
+  await primary.getByRole("button", { name: "Back to @coordinator", exact: true }).click();
+  await chip().waitFor();
+
+  graph = await headerGraph();
+  const beforeCancel = await savedDockLayout(page);
+  await startDrag(graph.locator('button[data-actor-handle="implementer"]'), primary);
+  await page.keyboard.press("Escape");
+  await page.mouse.up();
+  assert.equal(await savedDockLayout(page), beforeCancel, "Escape neither registers nor opens the dragged actor.");
+  assert.equal(await tab("implementer").count(), 0);
+  await chip().waitFor();
+
+  graph = await headerGraph();
+  const beforeOutside = await savedDockLayout(page);
+  await startDrag(graph.locator('button[data-actor-handle="implementer"]'), primary);
+  await page.mouse.move(2, 2, { steps: 4 });
+  await page.mouse.up();
+  assert.equal(await savedDockLayout(page), beforeOutside, "Dropping outside the workspace leaves its layout unchanged.");
+  assert.equal(await tab("implementer").count(), 0);
+  await chip().waitFor();
+
+  await primary.getByRole("textbox").fill("Primary draft");
+  const primaryDraft = await primary.getByRole("textbox").elementHandle();
+  graph = await headerGraph();
+  await startDrag(graph.locator('button[data-actor-handle="implementer"]'), primary);
+  await dropGuide("group-right");
+  await assertActorChat("implementer");
+  assert.equal(await groups.count(), 2, "The header graph can create a new chat beside the main chat.");
+  await chip().waitFor();
+  assert.equal(await primary.getByRole("textbox").inputValue(), "Primary draft");
+  const actorComposer = panel("implementer").getByRole("textbox", { name: "Message to @implementer ...", exact: true });
+  await actorComposer.fill("A direct message for the implementer");
+  await panel("implementer").getByRole("button", { name: "Send", exact: true }).click();
+  await page.waitForFunction(() => window.actorGraphFixture.sent.length === 1);
+  assert.deepEqual(await page.evaluate(() => window.actorGraphFixture.sent), [
+    { runId: "demo", actorId: "implementer", text: "A direct message for the implementer" },
+  ]);
+  await actorComposer.fill("Actor draft");
+  const actorDraft = await actorComposer.elementHandle();
+
+  await chip().click();
+  const picker = page.getByRole("dialog", { name: "Addressee", exact: true });
+  await picker.locator('button[data-actor-handle="summary"]').click();
+  await primary.getByRole("textbox", { name: "Message to @summary ...", exact: true }).waitFor();
+  assert.equal(await actorComposer.inputValue(), "Actor draft", "Changing the main recipient leaves a bound actor chat on its own actor.");
+  await primary.getByRole("button", { name: "Back to @coordinator", exact: true }).click();
+  await chip().waitFor();
+  assert.equal(await primary.getByRole("textbox").inputValue(), "Primary draft");
+
+  await startDrag(tab("implementer"), primary);
+  await dropGuide("group-center");
+  assert.equal(await groups.count(), 1);
+  assert.equal(await actorComposer.inputValue(), "Actor draft");
+  assert.equal(await actorComposer.evaluate((element, original) => element === original, actorDraft), true, "Moving a chat keeps its composer mounted.");
+  await page.getByRole("button", { name: "Close @implementer", exact: true }).click();
+  await panel("implementer").waitFor({ state: "hidden" });
+  graph = await headerGraph();
+  await startDrag(graph.locator('button[data-actor-handle="implementer"]'), primary);
+  await dropGuide("group-right");
+  await assertActorChat("implementer");
+  assert.equal(await actorComposer.inputValue(), "Actor draft");
+  assert.equal(await actorComposer.evaluate((element, original) => element === original, actorDraft), true, "Closing and dragging the actor back retains the same draft and composer.");
+  assert.equal(await primary.getByRole("textbox").evaluate((element, original) => element === original, primaryDraft), true);
+
+  await chip().click();
+  await picker.locator('button[data-actor-handle="test-writer"]').waitFor();
+  await startDrag(picker.locator('button[data-actor-handle="test-writer"]'), panel("implementer"));
+  await dropGuide("group-center");
+  await assertActorChat("test-writer");
+  assert.equal(await groups.count(), 2, "The addressee graph can add a bound chat as a tab in an existing area.");
+  const actorGroup = groups.filter({ has: tab("test-writer") });
+  assert.equal(await actorGroup.getByRole("tab", { name: "@implementer", exact: true }).count(), 1);
+  await chip().waitFor();
+  await page.getByRole("group", { name: "Layout actions", exact: true }).getByRole("button", { name: "Empty space", exact: true }).click();
+  const empty = page.locator('[data-dock-panel^="empty:"]:visible');
+  await empty.waitFor();
+  const beforeReplace = await groups.count();
+  await startDrag(chip(), empty);
+  await dropGuide("group-center");
+  await panel("coordinator").waitFor({ state: "visible" });
+  await panel("coordinator").getByText("The coordinator's conversation.", { exact: true }).waitFor();
+  assert.equal(await groups.count(), beforeReplace, "Dropping the addressee chip replaces the empty pane.");
+  assert.equal(await page.locator('[data-dock-panel^="empty:"]').count(), 0);
+  assert.equal(await page.getByRole("tab", { name: "Empty space", exact: true }).count(), 0);
+  await chip().waitFor();
+  await panel("coordinator").getByRole("textbox", { name: "Message to @coordinator ...", exact: true }).fill("A direct message for the coordinator");
+  await panel("coordinator").getByRole("button", { name: "Send", exact: true }).click();
+  await page.waitForFunction(() => window.actorGraphFixture.sent.length === 2);
+  assert.deepEqual(await page.evaluate(() => window.actorGraphFixture.sent[1]),
+    { runId: "demo", actorId: "coordinator", text: "A direct message for the coordinator" });
+  await page.screenshot({ path: join(screenshots, "actor-docking-bound-chats.png") });
+
+  const layout = JSON.parse((await savedDockLayout(page))!);
+  assert.ok(layout.known.includes("view:actor:coordinator") && layout.known.includes("view:actor:implementer") && layout.known.includes("view:actor:test-writer"));
+  await page.reload();
+  await primary.locator("[data-chat=composer]").waitFor();
+  await replayChat(page);
+  await panel("coordinator").getByText("The coordinator's conversation.", { exact: true }).waitFor();
+  await assertActorChat("test-writer");
+  assert.equal(await groups.count(), beforeReplace);
+  assert.equal(await tab("implementer").count(), 1);
+  const restored = JSON.parse((await savedDockLayout(page))!);
+  assert.deepEqual(restored.root, layout.root, "Reload restores the actor tabs, their active chats, and split geometry.");
+  assert.deepEqual(restored.known, layout.known);
+  assert.deepEqual(restored.closed, layout.closed);
+  await chip().waitFor();
+  await page.screenshot({ path: join(screenshots, "actor-docking-restored.png") });
+  assert.deepEqual(errors, []);
+  assert.deepEqual(await page.evaluate(() => window.actorGraphFixture.unexpected), []);
 });

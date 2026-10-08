@@ -870,12 +870,20 @@ does not go through `bash`, but through a plugin workflow with its own time limi
 ## Compaction of the model context
 
 An agent's model context is stored in the journal (`docs/spec/core.md`, Model context and agent
-runtime). When it grows too large, the agent runtime compacts it: after a response whose context
-is above the model's threshold, and after an overflow error from the provider. Roughly
+runtime). When it grows too large, the agent runtime compacts it: before each model request,
+including requests within a turn, after a final response above the model's threshold, and after
+an overflow error from the provider. Roughly
 `keepRecentTokens` of the most recent entries are kept; the rest becomes a summary of at most
 `summaryTokens`. Every compaction is recorded as `context.compacted` in the journal, with the
 threshold that applied and its origin (`model` or `catalog`); the chat shows a system line,
 `pnpm driver journal <runId>` shows both.
+
+`core`, `showcase`, and `developer` include `ragents.compaction`. It spends up to half of
+`keepRecentTokens` on pinned results and recent file excerpts, with bounded recovery notes and
+the remaining budget for recent messages. Original results stay in the journal; the recovery
+functions are described in [usage.md](usage.md#keep-and-restore-context). A failed or truncated
+summary writes no checkpoint. Removing the plugin from `host.PLUGINS` removes its retention
+policy and tools while ordinary compaction and existing checkpoints keep working.
 
 The three values belong to the model; there is no host-wide setting. A profile sets them per
 alias in `MODEL_ALIASES` in the `host` section (rules in `docs/spec/profiles.md`); a relay client
@@ -920,7 +928,7 @@ Plugin storage is pure convention and cannot be declared: `host.storage` provide
 
 ```
 ${DATA_DIR}/
-  runs/<runId>/journal.jsonl      compact engine journal v7 with commands and events, including
+  runs/<runId>/journal.jsonl      compact engine journal v14 with commands and events, including
                                   the agents' model contexts
   runs/<runId>/payloads/          immutable large JSON contents, one file per SHA-256
   artifacts/<sha256>              immutable artifact contents, including the media of the model contexts

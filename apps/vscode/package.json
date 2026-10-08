@@ -253,6 +253,12 @@
           "maximum": 200,
           "description": "Size of the entire RAgents interface in percent, including chat and mini-apps. Changes apply immediately."
         },
+        "ragents.density": {
+          "type": "string",
+          "enum": ["compact", "comfortable", "spacious"],
+          "default": "comfortable",
+          "description": "Row padding in RAgents tables and data grids. Changes apply immediately."
+        },
         "ragents.theme": {
           "type": "string",
           "enum": [

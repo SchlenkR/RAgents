@@ -7,6 +7,7 @@ import { errorHtml, frameHtml, panelHtml } from "./webview-html";
 export interface FrameSettings {
   serverUrl: string;
   theme: RunPanelTheme;
+  density?: string;
   accessToken: string | undefined;
 }
 
@@ -88,7 +89,7 @@ export class PanelView implements vscode.WebviewViewProvider {
     this.#frameKey = key;
     view.webview.html = frameHtml({
       serverUrl: frame.serverUrl,
-      query: { run: selection.runId, host: "vscode", connection: selection.connection, theme: frame.theme, access: frame.accessToken },
+      query: { run: selection.runId, host: "vscode", connection: selection.connection, theme: frame.theme, density: frame.density, access: frame.accessToken },
       nonce: nonce(),
       title: PANEL_TITLE,
       zoom: zoom.zoom,
@@ -204,7 +205,7 @@ export class AppPanels {
     }
     entry.panel.webview.html = frameHtml({
       serverUrl: frame.serverUrl,
-      query: { layout: "app", run: entry.runId, element: entry.elementId, host: "vscode", connection: entry.connection, theme: frame.theme, access: frame.accessToken },
+      query: { layout: "app", run: entry.runId, element: entry.elementId, host: "vscode", connection: entry.connection, theme: frame.theme, density: frame.density, access: frame.accessToken },
       nonce: nonce(),
       title: entry.title,
       zoom: zoom.zoom,

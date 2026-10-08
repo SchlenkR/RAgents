@@ -23,7 +23,8 @@ before(() => {
 
 /** The .vsix brings no node_modules; the stub is everything the bundle finds when loading and activating. */
 const VSCODE_STUB = `const noop = () => undefined;
-const settings = { "ragents.connections": [], "ragents.theme": "auto", "ragents.zoom": 100 };
+const settings = { "ragents.connections": [], "ragents.theme": "auto", "ragents.zoom": 100, "ragents.density": "comfortable" };
+const configurationWrites = [];
 const providers = new Map();
 const commandHandlers = new Map();
 const contextValues = new Map();
@@ -49,6 +50,7 @@ module.exports = {
   contextValues,
   quickPicks,
   notifications,
+  configurationWrites,
   ThemeIcon: class { constructor(id) { this.id = id; } },
   ThemeColor: class { constructor(id) { this.id = id; } },
   Disposable: class { constructor(dispose) { this.dispose = dispose ?? noop; } },
@@ -95,7 +97,8 @@ module.exports = {
     getConfiguration: (section) => ({
       get: (key) => settings[section + "." + key],
       inspect: (key) => ({ globalValue: settings[section + "." + key] }),
-      update: (key, value) => {
+      update: (key, value, target) => {
+        configurationWrites.push({ key: section + "." + key, value, target });
         settings[section + "." + key] = value;
         const changed = { affectsConfiguration: (id) => id === section || id === section + "." + key };
         for (const listener of configurationListeners) listener(changed);
@@ -313,6 +316,7 @@ check().then(() => process.exit(0), (cause) => { console.error(cause.stack ?? ca
 const CHECK_ENVIRONMENTS = `${LOAD_EXTENSION}
 const configuration = JSON.parse(process.env.RAGENTS_TEST_ENVIRONMENTS);
 settings["ragents.connections"] = configuration.connections;
+settings["ragents.density"] = "compact";
 secrets.set("ragents.token:" + configuration.connections[1].url, configuration.token);
 const folder = path.join(process.cwd(), "workspace");
 const otherFolder = path.join(process.cwd(), "other-workspace");
@@ -348,7 +352,8 @@ vscode.window.createWebviewPanel = (type, title, column, options) => {
     type, title, column, options,
     webview: { html: "",
       onDidReceiveMessage: (listener) => { listeners.add(listener); return { dispose: () => listeners.delete(listener) }; },
-      postMessage: () => Promise.resolve(true) },
+      postMessage: (message) => { app.posted.push(message); return Promise.resolve(true); } },
+    posted: [],
     onDidDispose: (listener) => { disposals.add(listener); return { dispose: () => disposals.delete(listener) }; },
     receive: (message) => { for (const listener of listeners) listener(message); },
     reveal() {},
@@ -384,7 +389,9 @@ const check = async () => {
     && api.session(name)?.workspaceClient?.status.kind === "registered"));
   resolveView();
   assert.equal(api.panel().page, "connections", "the bundled local page is only connection management");
+  assert.equal(api.panel().density, "compact");
   assert.equal(assertEnvironment(api, "first").searchParams.has("run"), false);
+  assert.equal(framedUrl().searchParams.get("density"), "compact");
   assert.deepEqual(ready(), [{ type: "showPage", page: "start" }]);
   assert.equal(vscode.contextValues.get("ragents.canCreate"), true);
   await vscode.commands.executeCommand("ragents.showStart");
@@ -395,6 +402,30 @@ const check = async () => {
   for (const name of ["first", "second"]) {
     await vscode.commands.executeCommand("ragents.openAppInCenter", name, "run-a", "board--main", "Collection board");
   }
+  for (const app of appPanels) {
+    const source = app.webview.html.match(/<iframe[^>]+src="([^"]+)"/);
+    const url = new URL(source[1].replaceAll("&amp;", "&"));
+    assert.equal(url.searchParams.get("density"), "compact", "new app frames inherit the editor setting");
+  }
+  const panelHtmlBeforeSpacing = view.webview.html;
+  const appHtmlBeforeSpacing = appPanels.map((app) => app.webview.html);
+  const applyDensity = async (density, action) => {
+    posted.length = 0;
+    for (const app of appPanels) app.posted.length = 0;
+    await action();
+    await waitFor(() => api.panel().density === density);
+    assert.deepEqual(posted.filter((message) => message.type === "density"), [{ type: "density", density }]);
+    for (const app of appPanels) assert.deepEqual(app.posted.filter((message) => message.type === "density"), [{ type: "density", density }]);
+    assert.equal(view.webview.html, panelHtmlBeforeSpacing, "spacing updates preserve the run panel document");
+    assert.deepEqual(appPanels.map((app) => app.webview.html), appHtmlBeforeSpacing, "spacing updates preserve open app documents");
+    assert.equal(api.panel().theme, "dark", "table spacing keeps the editor's color choice");
+  };
+  await applyDensity("spacious", () => receive({ type: "densityChanged", density: "spacious" }));
+  assert.deepEqual(vscode.configurationWrites.at(-1), { key: "ragents.density", value: "spacious", target: vscode.ConfigurationTarget.Global });
+  await applyDensity("comfortable", () => appPanels[1].receive({ type: "densityChanged", density: "comfortable" }));
+  assert.deepEqual(vscode.configurationWrites.at(-1), { key: "ragents.density", value: "comfortable", target: vscode.ConfigurationTarget.Global });
+  await applyDensity("compact", () => vscode.workspace.getConfiguration("ragents").update("density", "compact", vscode.ConfigurationTarget.Global));
+  posted.length = 0;
   const assertAppReadiness = () => {
     const before = posted.length;
     observed.length = 0;

@@ -377,7 +377,7 @@ the same website under `docs/homepage/dist`.
 
 ## Create your first run
 
-Start shows one server's permitted templates under "New", then its five recent runs under
+Start shows one server's permitted templates under "New", then its fifteen recent runs under
 "Continue", then any plugin sections, in both the browser and VS Code. Templates begin with
 "New chat" or the server's default template, then skill templates with a prepared task and script
 templates with programmed setups. "New chat" opens an empty run whose task you write in its chat;

@@ -2,7 +2,7 @@ import type { RunView } from "@ragents/web/run-view";
 import { addresseeStatus, type AddresseeGroupNode, type AddresseeNode, type AddresseeStatus } from "./addressee-tree";
 
 export const GRAPH_CARD_WIDTH = 216;
-export const GRAPH_CARD_HEIGHT = 70;
+export const GRAPH_CARD_HEIGHT = 88;
 const GAP_X = 16;
 /** Room between a card and the row of its children; the connecting bus runs in the middle. */
 const GAP_Y = 36;
@@ -178,33 +178,33 @@ const extent = (rows: readonly (readonly Slot[])[]) => ({
 const cardCenter = (slot: Slot) => slot.left + slot.tree.cardLeft + GRAPH_CARD_WIDTH / 2;
 const centered = (middle: number, width: number) => Math.round(Math.min(Math.max(middle - GRAPH_CARD_WIDTH / 2, 0), width - GRAPH_CARD_WIDTH));
 
-const measure = (node: AddresseeNode, open: (group: AddresseeGroupNode) => boolean, columns: number): Subtree => {
+const measure = (node: AddresseeNode, open: (group: AddresseeGroupNode) => boolean, columns: number, cardHeight: number): Subtree => {
   const key = graphNodeKey(node);
   if (node.kind === "group" && open(node)) {
-    const frameTop = GRAPH_CARD_HEIGHT + GAP_Y;
-    const rows = arrange(node.members.map((member) => measure(member, open, columns)), columns, FRAME_PADDING, frameTop + FRAME_PADDING, FRAME_ROW_GAP);
+    const frameTop = cardHeight + GAP_Y;
+    const rows = arrange(node.members.map((member) => measure(member, open, columns, cardHeight)), columns, FRAME_PADDING, frameTop + FRAME_PADDING, FRAME_ROW_GAP);
     const size = extent(rows);
     const frame = { x: 0, y: frameTop, width: size.width + FRAME_PADDING, height: size.height - frameTop + FRAME_PADDING };
     const width = Math.max(GRAPH_CARD_WIDTH, frame.width);
     return { key, node, width, height: frame.y + frame.height, cardLeft: centered(frame.width / 2, width), rows, frame };
   }
   const children = node.kind === "actor" ? node.children : [];
-  const trees = children.map((child) => measure(child, open, columns));
-  const rows = arrange(trees, columns, trees.length > columns ? GUTTER : 0, GRAPH_CARD_HEIGHT + GAP_Y, GAP_Y);
+  const trees = children.map((child) => measure(child, open, columns, cardHeight));
+  const rows = arrange(trees, columns, trees.length > columns ? GUTTER : 0, cardHeight + GAP_Y, GAP_Y);
   const size = extent(rows);
   const width = Math.max(GRAPH_CARD_WIDTH, size.width);
   const first = rows[0] ?? [];
   const middle = first.length > 0 ? (cardCenter(first[0]) + cardCenter(first[first.length - 1])) / 2 : GRAPH_CARD_WIDTH / 2;
-  return { key, node, width, height: Math.max(GRAPH_CARD_HEIGHT, size.height), cardLeft: centered(middle, width), rows };
+  return { key, node, width, height: Math.max(cardHeight, size.height), cardLeft: centered(middle, width), rows };
 };
 
-const place = (tree: Subtree, x: number, y: number, parentKey: string | null): Omit<GraphLayout, "width" | "height"> => {
+const place = (tree: Subtree, x: number, y: number, parentKey: string | null, cardHeight: number): Omit<GraphLayout, "width" | "height"> => {
   const card: GraphCard = { key: tree.key, node: tree.node, parentKey, x: x + tree.cardLeft, y };
-  const start: Point = [card.x + GRAPH_CARD_WIDTH / 2, y + GRAPH_CARD_HEIGHT];
-  const firstBus = y + GRAPH_CARD_HEIGHT + GAP_Y / 2;
+  const start: Point = [card.x + GRAPH_CARD_WIDTH / 2, y + cardHeight];
+  const firstBus = y + cardHeight + GAP_Y / 2;
   const gutter = x + GUTTER / 2;
   const branches = tree.rows.flatMap((row, index) => row.map((slot) => {
-    const child = place(slot.tree, x + slot.left, y + slot.top, tree.key);
+    const child = place(slot.tree, x + slot.left, y + slot.top, tree.key, cardHeight);
     if (tree.frame) return child;
     const end: Point = [x + cardCenter(slot), y + slot.top];
     const bus = end[1] - GAP_Y / 2;
@@ -223,9 +223,9 @@ const place = (tree: Subtree, x: number, y: number, parentKey: string | null): O
 };
 
 /** Top-down tree: each creator above its children, at most `columns` per row; wrapped rows hang on a gutter line, open groups frame their members. */
-export const actorGraphLayout = (nodes: readonly AddresseeNode[], open: (group: AddresseeGroupNode) => boolean, columns: number): GraphLayout => {
-  const rows = arrange(nodes.map((node) => measure(node, open, columns)), columns, 0, 0, GAP_Y);
-  const placed = rows.flatMap((row) => row.map((slot) => place(slot.tree, PADDING + slot.left, PADDING + slot.top, null)));
+export const actorGraphLayout = (nodes: readonly AddresseeNode[], open: (group: AddresseeGroupNode) => boolean, columns: number, cardHeight = GRAPH_CARD_HEIGHT): GraphLayout => {
+  const rows = arrange(nodes.map((node) => measure(node, open, columns, cardHeight)), columns, 0, 0, GAP_Y);
+  const placed = rows.flatMap((row) => row.map((slot) => place(slot.tree, PADDING + slot.left, PADDING + slot.top, null, cardHeight)));
   const size = extent(rows);
   return {
     width: size.width + 2 * PADDING,

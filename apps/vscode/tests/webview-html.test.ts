@@ -69,6 +69,20 @@ test("run panel urls skip undefined parameters and support the app layout", () =
   assert.equal(runPanelPageUrl("http://localhost:4710", { run: undefined }), "http://localhost:4710/run-panel.html");
 });
 
+test("both framed layouts carry table spacing while old URLs leave the saved value alone", () => {
+  for (const layout of ["panel", "app"] as const) {
+    const query = { layout, host: "vscode" as const, run: "run-a", ...(layout === "app" ? { element: "board--main" } : {}) };
+    for (const density of ["compact", "comfortable", "spacious", undefined] as const) {
+      const html = frameHtml({ serverUrl: "http://localhost:4710/", query: { ...query, density }, nonce: "spacing", title: "Board" });
+      const url = new URL(html.match(/<iframe[^>]+src="([^"]+)"/)![1]!.replaceAll("&amp;", "&"));
+      assert.equal(url.searchParams.get("density"), density ?? null);
+      assert.equal(url.searchParams.get("layout"), layout);
+      assert.equal(url.searchParams.get("run"), "run-a");
+      assert.equal(url.searchParams.has("element"), layout === "app");
+    }
+  }
+});
+
 test("a server Start frame relays page and new-run actions only to its selected origin", () => {
   const origins = ["https://first.example", "https://second.example"];
   for (const origin of origins) {
@@ -90,6 +104,15 @@ test("a server Start frame relays page and new-run actions only to its selected 
       listener({ source: frame.contentWindow, origin, data: start });
     }
     assert.deepEqual(incoming, [start], "events from another environment never cross the frame bridge");
+    const density = { type: "density", density: "compact" };
+    for (const listener of listeners) listener({ origin: browser.origin, data: density });
+    assert.deepEqual(outgoing.at(-1), { message: density, target: origin });
+    const changed = { type: "densityChanged", density: "spacious" };
+    for (const listener of listeners) {
+      listener({ source: frame.contentWindow, origin: origins.find((candidate) => candidate !== origin), data: changed });
+      listener({ source: frame.contentWindow, origin, data: changed });
+    }
+    assert.deepEqual(incoming, [start, changed], "spacing changes from another server are ignored too");
     assert.equal(new URL(html.match(/<iframe[^>]+src="([^"]+)"/)![1]!.replaceAll("&amp;", "&")).searchParams.has("run"), false);
   }
 });

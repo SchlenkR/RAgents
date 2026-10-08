@@ -427,8 +427,9 @@ const manualRun = () => {
                 runtime.completeToolCall(context(), run.id, actorId, { turnId, toolCallId, name: "lookup", output });
                 runtime.presentToolResult(context(), run.id, actorId, { turnId, toolCallId, toolName: "lookup", isError: false, content: [{ type: "text", text: typeof output === "string" ? output : JSON.stringify(output) }] });
             },
-            compact: (firstKeptEventId: string) => runtime.compactContext(context(), run.id, actorId, {
+            compact: (firstKeptEventId: string, retainedToolResultIds?: string[]) => runtime.compactContext(context(), run.id, actorId, {
                 turnId, summary: "## Goal\nShort.", firstKeptEventId, tokensBefore: 10, provider: "faux", model: "manual", readFiles: [], modifiedFiles: [],
+                ...(retainedToolResultIds ? { retainedToolResultIds } : {}),
             }),
             finish: () => runtime.finishTurn(context(), run.id, actorId, { turnId, outcome: "completed" }),
         };
@@ -437,6 +438,41 @@ const manualRun = () => {
 
     return { runtime, journal, run, spawn, turn, contextOf };
 };
+
+test("compaction retains only the actor's own or inherited finished tool results", () => {
+    const setup = manualRun();
+    try {
+        const source = setup.spawn("source");
+        const other = setup.spawn("other");
+        const first = setup.turn(source, "First task.");
+        first.step([fauxToolCall("lookup", {}, { id: "first" })], "toolUse");
+        first.call("first", "Exact inherited result.");
+        first.finish();
+        const firstId = setup.runtime.events(setup.run.id).filter((event) => event.type === "model.tool-result.presented").at(-1)!.eventId;
+        const unrelated = setup.turn(other, "Other task.");
+        unrelated.step([fauxToolCall("lookup", {}, { id: "other" })], "toolUse");
+        unrelated.call("other", "Other actor's result.");
+        unrelated.finish();
+        const otherId = setup.runtime.events(setup.run.id).filter((event) => event.type === "model.tool-result.presented").at(-1)!.eventId;
+        const running = setup.turn(source, "Still running at the fork.");
+        running.step([fauxToolCall("lookup", {}, { id: "late" })], "toolUse");
+        running.call("late", "Excluded source result.");
+        const lateId = setup.runtime.events(setup.run.id).filter((event) => event.type === "model.tool-result.presented").at(-1)!.eventId;
+        const fork = setup.spawn("fork", source);
+        running.finish();
+        const active = setup.turn(fork, "Continue.");
+        const kept = setup.runtime.events(setup.run.id).filter((event) => event.type === "model.input.presented").at(-1)!.eventId;
+        assert.throws(() => active.compact(kept, [otherId]), /outside this actor's context/);
+        assert.throws(() => active.compact(kept, [lateId]), /outside this actor's context/);
+        assert.throws(() => active.compact(kept, [firstId, firstId]), /repeats a retained/);
+        active.compact(kept, [firstId]);
+        active.finish();
+        assert.match(JSON.stringify(setup.contextOf(fork).messages), /Exact inherited result/);
+        assert.doesNotMatch(JSON.stringify(setup.contextOf(fork).messages), /Other actor's result|Excluded source result/);
+    } finally {
+        setup.journal.close();
+    }
+});
 
 test("model context: a fork spawned in the running turn of its source takes the finished turns only, nothing of the running one", () => {
     const setup = manualRun();

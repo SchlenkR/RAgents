@@ -4,11 +4,11 @@ import type { DockPoint } from "./dock-geometry";
 export function useDockPointer() {
   const cleanup = useRef<(() => void) | undefined>(undefined);
   useEffect(() => () => cleanup.current?.(), []);
-  return (event: ReactPointerEvent<HTMLElement>, move: (point: DockPoint) => void, finish: (point: DockPoint | null) => void) => {
+  return (event: ReactPointerEvent<HTMLElement>, move: (point: DockPoint) => void, finish: (point: DockPoint | null) => void, captureElement = event.currentTarget) => {
     if (event.button !== 0) return;
     cleanup.current?.();
     if (event.currentTarget.tagName !== "BUTTON") event.preventDefault();
-    const element = event.currentTarget;
+    const element = captureElement;
     const pointerId = event.pointerId;
     element.setPointerCapture(pointerId);
     const onMove = (next: PointerEvent) => { if (next.pointerId === pointerId) move({ x: next.clientX, y: next.clientY }); };

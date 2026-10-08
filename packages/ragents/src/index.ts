@@ -1,4 +1,5 @@
 export * from "./access.ts";
+export { contextToolResults, type ContextToolResult } from "@ragents/agent";
 export {
     builtinProfiles,
     resolveExecution,

@@ -451,7 +451,7 @@ Contract fields: host.operation, host.invokeOperation.
 
 ### Intervene in an agent's model calls
 
-Every AI agent calls its model several times within a turn, and its tools run in between. An agent contribution hooks in between with two hooks: before every model call it can give the model a hidden note, after every tool call it can replace the tool's result. The plugin never sees the agent runtime behind it.
+Every AI agent calls its model several times within a turn, and its tools run in between. An agent contribution can give the model a hidden note, retain original results during compaction, or replace a tool's result. The plugin never sees the agent runtime behind it.
 
 Place of use: register(host); the note does not appear in the chat.
 
@@ -471,13 +471,47 @@ host.agentRuntime({
 });
 ```
 
-Both hooks run per agent; the first parameter names run, agent, audience, and working directory. call.kept and call.keep hold a JSON value in the agent's conversation history, even across a restart; the model never sees it.
+All hooks run per agent; the first parameter names run, agent, audience, and working directory. Before-model and before-compaction calls expose call.kept and call.keep for actor-scoped journal state across restarts, plus the actual native toolNames and retentionTokens, half the model's recent-context budget. signal and modelReadsImages describe the running call.
 
 afterToolCall receives ToolCallOutcome with toolName, isError, and optional toolCallId. A tool can keep image results by run and call ID; the hook takes and removes the result for outcome.toolCallId. This binds each image to its own result even when tools run in parallel. Without an ID, return no replacement rather than guessing by tool name.
 
 A contribution registers no tools; tools come through host.functions. A returned note applies only to the next model call and does not end up in the journal.
 
-Contract fields: host.agentRuntime, toolOutcome.toolName, toolOutcome.isError, toolOutcome.toolCallId.
+Contract fields: host.agentRuntime, toolOutcome.toolName, toolOutcome.isError, toolOutcome.toolCallId, agentContribution.id, agentContribution.beforeModelCall, agentContribution.afterToolCall, modelCall.signal, modelCall.modelReadsImages, modelCall.kept, modelCall.keep, modelCall.retentionTokens, modelCall.toolNames.
+
+### Retain originals during compaction
+
+A plugin can keep exact tool results alongside a checkpoint. The runtime reserves their tokens from the recent-context budget and restores them as independent historical messages.
+
+Place of use: Inside register(host).
+
+```typescript
+import { contextToolResults } from "@ragents/engine";
+import { runtimeProviderToken } from "@ragents/host/ragents/host-services.js";
+
+const runtime = host.service(runtimeProviderToken);
+host.agentRuntime({
+  id: "ragents.example.context",
+  beforeCompaction: (agent, call) => {
+    call.signal?.throwIfAborted();
+    const results = contextToolResults(runtime().modelContext(agent.runId, agent.agentId).entries);
+    const latest = results.filter((result) => result.message.toolName === "read"
+      && !result.message.isError && result.tokens <= call.retentionTokens).at(-1);
+    return {
+      toolResultIds: latest ? [latest.entryId] : [],
+      contextNotes: latest ? "The retained excerpt is a historical snapshot." : "",
+    };
+  },
+});
+```
+
+firstKeptEventId is the initial cut before retention. Returned IDs must belong to original results in this actor's complete context, including inherited context; results already in the recent tail are not duplicated.
+
+Result tokens and context notes count against keepRecentTokens. An invalid ID, exhausted budget, or hook error leaves the original context intact. Existing checkpoints replay even without the selecting plugin.
+
+The bundled ragents.compaction plugin implements bounded file selection, explicit pins, and search and recall tools through this contract.
+
+Contract fields: agentContribution.beforeCompaction, compactionCall.signal, compactionCall.modelReadsImages, compactionCall.kept, compactionCall.keep, compactionCall.retentionTokens, compactionCall.toolNames, compactionCall.firstKeptEventId, compactionResult.toolResultIds, compactionResult.contextNotes.
 
 ### Models and roles
 
@@ -1986,6 +2020,8 @@ Generated automatically from the registered contracts; the host checks methods w
 
 | ragents.runs.resume | per run |
 
+| ragents.runs.revoke | per run |
+
 | ragents.runs.scripts | per run |
 
 | ragents.runs.share | per run |
@@ -2192,6 +2228,87 @@ export interface ToolCallOutcome {
   readonly toolName: string;
   readonly isError: boolean;
   readonly toolCallId?: string;
+}
+```
+
+### AgentContribution
+
+Source in the repository: packages/ragents/src/plugin-types.ts
+
+```typescript
+export interface AgentContribution {
+  readonly id: string;
+  readonly beforeCompaction?: (
+    agent: AgentContributionContext,
+    call: CompactionCallContext,
+  ) => CompactionContribution | undefined | Promise<CompactionContribution | undefined>;
+  /** Before each model call of a turn; a returned text reaches the model as a hidden note after the conversation. */
+  readonly beforeModelCall?: (
+    agent: AgentContributionContext,
+    call: ModelCallContext,
+  ) => string | undefined | Promise<string | undefined>;
+  /** After each tool call; a returned result replaces what the model sees of it. */
+  readonly afterToolCall?: (
+    agent: AgentContributionContext,
+    outcome: ToolCallOutcome,
+    call: AgentHookContext,
+  ) => ToolResultReplacement | undefined | Promise<ToolResultReplacement | undefined>;
+}
+```
+
+### ModelCallContext
+
+Source in the repository: packages/ragents/src/plugin-types.ts
+
+```typescript
+export interface AgentHookContext {
+  readonly signal: AbortSignal | undefined;
+  readonly modelReadsImages: boolean;
+}
+
+export interface ModelCallContext extends AgentHookContext {
+  readonly retentionTokens?: number;
+  readonly toolNames?: readonly string[];
+  /** What this contribution kept last in the agent's conversation, also after a restart of the host. */
+  readonly kept: JsonValue | undefined;
+  /** Keeps a value in the agent's conversation for later calls; the model never sees it. */
+  readonly keep: (value: JsonValue) => void;
+}
+```
+
+### CompactionCallContext
+
+Source in the repository: packages/ragents/src/plugin-types.ts
+
+```typescript
+export interface AgentHookContext {
+  readonly signal: AbortSignal | undefined;
+  readonly modelReadsImages: boolean;
+}
+
+export interface ModelCallContext extends AgentHookContext {
+  readonly retentionTokens?: number;
+  readonly toolNames?: readonly string[];
+  /** What this contribution kept last in the agent's conversation, also after a restart of the host. */
+  readonly kept: JsonValue | undefined;
+  /** Keeps a value in the agent's conversation for later calls; the model never sees it. */
+  readonly keep: (value: JsonValue) => void;
+}
+
+export interface CompactionCallContext extends ModelCallContext {
+  readonly retentionTokens: number;
+  readonly firstKeptEventId: string;
+}
+```
+
+### CompactionContribution
+
+Source in the repository: packages/ragents/src/plugin-types.ts
+
+```typescript
+export interface CompactionContribution {
+  readonly toolResultIds: readonly string[];
+  readonly contextNotes?: string;
 }
 ```
 

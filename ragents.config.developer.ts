@@ -16,6 +16,7 @@ export const config = {
     PLUGINS: [
       "ragents.orchestration",
       "ragents.workspace",
+      "ragents.compaction",
       "ragents.product",
       "ragents.documents",
       "ragents.browser",

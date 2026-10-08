@@ -8,7 +8,7 @@ import type { PanelAction, PanelState } from "./contract";
 import type { PanelPageProps } from "./page-props";
 import { canDeleteRun, RunLine, RunList } from "./RunLine";
 
-const RECENT_RUNS = 5;
+const RECENT_RUNS = 15;
 
 type NewRun = Extract<PanelAction, { action: "newRun" }>;
 

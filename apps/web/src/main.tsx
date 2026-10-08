@@ -13,6 +13,7 @@ import { parseRunPanelLocation } from "./run-panel/run-panel-location";
 import { RunPanelHostProvider, createRunPanelHost } from "./run-panel/host";
 import { PageOpenerProvider } from "./page-opener";
 import { initializeTheme } from "./theme";
+import { parseTableDensity } from "./table-density";
 import { initializeZoom } from "./zoom";
 import { installHostModules } from "./host-modules";
 import { RenderBoundary } from "./RenderBoundary";
@@ -33,7 +34,11 @@ try {
   }
   const theme = initializeTheme(window);
   if (location.theme !== undefined) theme.setPreference(location.theme);
-  host.onCommand((message) => { if (message.type === "theme") theme.setPreference(message.theme); });
+  if (location.density !== undefined) theme.setDensity(location.density);
+  host.onCommand((message) => {
+    if (message.type === "theme") theme.setPreference(message.theme);
+    if (message.type === "density") theme.setDensity(parseTableDensity(message.density));
+  });
   import.meta.hot?.dispose(() => theme.dispose());
   if (location.host === "browser") {
     const zoom = initializeZoom(window);

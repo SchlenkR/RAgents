@@ -38,7 +38,7 @@ export function extractFileOpsFromMessage(message: AgentMessage, fileOps: FileOp
 		const args = block.arguments as Record<string, unknown> | undefined;
 		if (!args) continue;
 
-		const path = typeof args.path === "string" ? args.path : undefined;
+		const path = typeof args.file_path === "string" ? args.file_path : undefined;
 		if (!path) continue;
 
 		switch (block.name) {
@@ -85,27 +85,7 @@ export function formatFileOperations(readFiles: string[], modifiedFiles: string[
 // Message Serialization
 // ============================================================================
 
-/** Maximum characters for a tool result in serialized summaries. */
-const TOOL_RESULT_MAX_CHARS = 2000;
-
-/**
- * Truncate text to a maximum character length for summarization.
- * Keeps the beginning and appends a truncation marker.
- */
-function truncateForSummary(text: string, maxChars: number): string {
-	if (text.length <= maxChars) return text;
-	const truncatedChars = text.length - maxChars;
-	return `${text.slice(0, maxChars)}\n\n[... ${truncatedChars} more characters truncated]`;
-}
-
-/**
- * Serialize LLM messages to text for summarization.
- * This prevents the model from treating it as a conversation to continue.
- * Call convertToLlm() first to handle custom message types.
- *
- * Tool results are truncated to keep the summarization request within
- * reasonable token budgets. Full content is not needed for summarization.
- */
+/** Serializes complete text for summarization; convert custom messages with convertToLlm first. */
 export function serializeConversation(messages: Message[]): string {
 	const parts: string[] = [];
 
@@ -152,7 +132,7 @@ export function serializeConversation(messages: Message[]): string {
 				.map((c) => c.text)
 				.join("");
 			if (content) {
-				parts.push(`[Tool result]: ${truncateForSummary(content, TOOL_RESULT_MAX_CHARS)}`);
+				parts.push(`[Tool result ${msg.toolName}]: ${content}`);
 			}
 		}
 	}
@@ -161,8 +141,12 @@ export function serializeConversation(messages: Message[]): string {
 }
 
 export function collectUserAttachments(messages: Message[]): UserAttachment[] {
-	return messages.flatMap((message) => message.role === "user" && Array.isArray(message.content)
-		? message.content.filter((part): part is UserAttachment => part.type !== "text") : []);
+	return messages.flatMap((message): UserAttachment[] => {
+		if (message.role === "user" && Array.isArray(message.content)) {
+			return message.content.filter((part): part is UserAttachment => part.type !== "text");
+		}
+		return message.role === "toolResult" ? message.content.filter((part) => part.type === "image") : [];
+	});
 }
 
 // ============================================================================

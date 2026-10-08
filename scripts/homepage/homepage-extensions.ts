@@ -52,6 +52,10 @@ const contracts: Contract[] = [
   { id: "module", file: "apps/server/src/plugin-support/plugin-module.ts", name: "PluginModule" },
   { id: "manifest", file: "packages/ragents/src/plugin-types.ts", name: "PluginManifest" },
   { id: "toolOutcome", file: "packages/ragents/src/plugin-types.ts", name: "ToolCallOutcome" },
+  { id: "agentContribution", file: "packages/ragents/src/plugin-types.ts", name: "AgentContribution" },
+  { id: "modelCall", file: "packages/ragents/src/plugin-types.ts", name: "ModelCallContext" },
+  { id: "compactionCall", file: "packages/ragents/src/plugin-types.ts", name: "CompactionCallContext" },
+  { id: "compactionResult", file: "packages/ragents/src/plugin-types.ts", name: "CompactionContribution" },
   { id: "plugin", file: "packages/ragents/src/plugin-types.ts", name: "RAgentsPlugin" },
   { id: "host", file: "packages/ragents/src/plugin-types.ts", name: "PluginRegistration" },
   { id: "storage", file: "packages/ragents/src/plugin-types.ts", name: "PluginStorage" },
@@ -357,7 +361,7 @@ const result = await host.invokeOperation(
     "operationContext carries runId, invocationId, signal, and an agent or operator principal. The implementation must not take over a foreign identity from browser input.",
     "The confirmation of an operator call must come from the intended confirmation path; a self-invented proof is no substitute.",
   ]),
-  entry("agent-runtime", "Server contributions", "Intervene in an agent's model calls", "Every AI agent calls its model several times within a turn, and its tools run in between. An agent contribution hooks in between with two hooks: before every model call it can give the model a hidden note, after every tool call it can replace the tool's result. The plugin never sees the agent runtime behind it.", "register(host); the note does not appear in the chat.", `
+  entry("agent-runtime", "Server contributions", "Intervene in an agent's model calls", "Every AI agent calls its model several times within a turn, and its tools run in between. An agent contribution can give the model a hidden note, retain original results during compaction, or replace a tool's result. The plugin never sees the agent runtime behind it.", "register(host); the note does not appear in the chat.", `
 host.agentRuntime({
   id: "ragents.example.reminder",
   beforeModelCall: (agent, call) => {
@@ -370,10 +374,32 @@ host.agentRuntime({
   afterToolCall: (_agent, outcome) => outcome.toolName === "example_probe" && outcome.isError
     ? { content: [{ type: "text", text: "The probe failed; do not retry." }], isError: true }
     : undefined,
-});`, ["host.agentRuntime", "toolOutcome.toolName", "toolOutcome.isError", "toolOutcome.toolCallId"], [
-    "Both hooks run per agent; the first parameter names run, agent, audience, and working directory. call.kept and call.keep hold a JSON value in the agent's conversation history, even across a restart; the model never sees it.",
+});`, ["host.agentRuntime", "toolOutcome.toolName", "toolOutcome.isError", "toolOutcome.toolCallId", "agentContribution.id", "agentContribution.beforeModelCall", "agentContribution.afterToolCall", "modelCall.signal", "modelCall.modelReadsImages", "modelCall.kept", "modelCall.keep", "modelCall.retentionTokens", "modelCall.toolNames"], [
+    "All hooks run per agent; the first parameter names run, agent, audience, and working directory. Before-model and before-compaction calls expose call.kept and call.keep for actor-scoped journal state across restarts, plus the actual native toolNames and retentionTokens, half the model's recent-context budget. signal and modelReadsImages describe the running call.",
     "afterToolCall receives ToolCallOutcome with toolName, isError, and optional toolCallId. A tool can keep image results by run and call ID; the hook takes and removes the result for outcome.toolCallId. This binds each image to its own result even when tools run in parallel. Without an ID, return no replacement rather than guessing by tool name.",
     "A contribution registers no tools; tools come through host.functions. A returned note applies only to the next model call and does not end up in the journal.",
+  ]),
+  entry("agent-compaction", "Server contributions", "Retain originals during compaction", "A plugin can keep exact tool results alongside a checkpoint. The runtime reserves their tokens from the recent-context budget and restores them as independent historical messages.", "Inside register(host).", `
+import { contextToolResults } from "@ragents/engine";
+import { runtimeProviderToken } from "@ragents/host/ragents/host-services.js";
+
+const runtime = host.service(runtimeProviderToken);
+host.agentRuntime({
+  id: "ragents.example.context",
+  beforeCompaction: (agent, call) => {
+    call.signal?.throwIfAborted();
+    const results = contextToolResults(runtime().modelContext(agent.runId, agent.agentId).entries);
+    const latest = results.filter((result) => result.message.toolName === "read"
+      && !result.message.isError && result.tokens <= call.retentionTokens).at(-1);
+    return {
+      toolResultIds: latest ? [latest.entryId] : [],
+      contextNotes: latest ? "The retained excerpt is a historical snapshot." : "",
+    };
+  },
+});`, ["agentContribution.beforeCompaction", "compactionCall.signal", "compactionCall.modelReadsImages", "compactionCall.kept", "compactionCall.keep", "compactionCall.retentionTokens", "compactionCall.toolNames", "compactionCall.firstKeptEventId", "compactionResult.toolResultIds", "compactionResult.contextNotes"], [
+    "firstKeptEventId is the initial cut before retention. Returned IDs must belong to original results in this actor's complete context, including inherited context; results already in the recent tail are not duplicated.",
+    "Result tokens and context notes count against keepRecentTokens. An invalid ID, exhausted budget, or hook error leaves the original context intact. Existing checkpoints replay even without the selecting plugin.",
+    "The bundled ragents.compaction plugin implements bounded file selection, explicit pins, and search and recall tools through this contract.",
   ]),
   entry("models", "Server contributions", "Models and roles", "The model catalog names the AI models that can be selected for agents. A role combines a model with settings such as thinking depth and execution limits. Such roles describe individual agents; the profile assembles the entire installation.", "register(host); modelId is a previously checked, configured OpenRouter model identifier.", `
 host.profiles({

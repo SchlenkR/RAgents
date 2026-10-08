@@ -13,11 +13,11 @@ import { connectedCount, connectionView, newRunChoices, panelState, pendingActio
 import type { ServerClient } from "./server-client";
 import { ServiceTunnels, serviceOnThisMachine } from "./service-tunnels";
 import { ConnectionSession, type ConnectionSnapshot, type LaunchedConnection, type SessionServices } from "./sessions";
-import { hostEnvironmentSecretKey, isEnvironmentName, missingHostEnvironmentSecrets, parseHostEnvironment, parseThemeSetting, parseZoomSetting, provideMissingSecret, resolveTheme, withHostEnvironmentSecrets, withRelaySession } from "./settings";
+import { hostEnvironmentSecretKey, isEnvironmentName, missingHostEnvironmentSecrets, parseHostEnvironment, parseTableDensity, parseThemeSetting, parseZoomSetting, provideMissingSecret, resolveTheme, withHostEnvironmentSecrets, withRelaySession } from "./settings";
 import { connectionState, kindLabel } from "../../web/src/panel/connection-state";
 import { connectionStateWord } from "../../web/src/ui/state-vocabulary";
 import type { PanelAction, PanelActionMessage, PanelPage, PanelSharing, PanelState } from "../../web/src/panel/contract";
-import { openSharing, saveSharing, type SharingClient, type SharingStore } from "../../web/src/run-sharing";
+import { openSharing, revokeSharing, saveSharing, type SharingClient, type SharingStore } from "../../web/src/run-sharing";
 import { profileDistributionContracts, type ClientProfileDescription } from "../../../plugins/ragents.profile-distribution/contract";
 import { AppPanels, PanelView, type FrameSettings, type PanelRendering } from "./webviews";
 import { windowClientId } from "./workspace-identity";
@@ -67,6 +67,7 @@ const configuredConnections = (): Connection[] => parseConnections(vscode.worksp
 const configuredZoom = () => parseZoomSetting(vscode.workspace.getConfiguration("ragents").get("zoom", 100));
 
 const configuredTheme = () => parseThemeSetting(vscode.workspace.getConfiguration("ragents").get("theme"));
+const configuredDensity = () => parseTableDensity(vscode.workspace.getConfiguration("ragents").get("density"));
 
 const sameConnection = (left: Connection, right: Connection): boolean =>
   left.kind === right.kind && (left.kind === "server"
@@ -90,6 +91,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<RAgent
   let pickedProfileFile: string | undefined;
   let missingSecrets: readonly string[] = [];
   let sharing: PanelSharing | undefined;
+  let revoking: PanelSharing | undefined;
   let startNotice: string | undefined;
   const pendingNewRun = new Map<string, Extract<HostRunPanelMessage, { type: "newRun" }>>();
   const identity = () => ({
@@ -107,7 +109,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<RAgent
   const frameFor = (connection: string): FrameSettings | undefined => {
     const session = sessions.get(connection);
     if (!session?.client || session.status.kind !== "connected") return undefined;
-    return { serverUrl: session.client.baseUrl, theme: resolveTheme(configuredTheme(), editorTheme()), accessToken: session.client.accessToken };
+    return { serverUrl: session.client.baseUrl, theme: resolveTheme(configuredTheme(), editorTheme()), density: configuredDensity(), accessToken: session.client.accessToken };
   };
 
   const bridge = {
@@ -116,6 +118,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<RAgent
     selection: () => page === "connections" ? undefined : selection,
     panel: () => panelState({
       theme: resolveTheme(configuredTheme(), editorTheme()),
+      density: configuredDensity(),
       page: "connections",
       connections: snapshots().filter((snapshot) => page === "connections" || selection === undefined || snapshot.connection.name === selection.connection),
       profileSuggestions: profileFilesIn(knownHost()),
@@ -123,6 +126,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<RAgent
       problem: configProblem,
       pickedProfileFile,
       sharing,
+      revoking,
       notice: startNotice,
     }),
     handle: (connection: string, incoming: RunPanelHostMessage, source: "panel" | "app") => {
@@ -204,6 +208,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<RAgent
     page = runId === undefined ? "start" : "run";
     startNotice = undefined;
     sharing = undefined;
+    revoking = undefined;
     void context.workspaceState.update(ENVIRONMENT_KEY, connection);
     if (runId !== undefined) watching = session.store?.watch(runId);
     const rendering = panel.render();
@@ -220,6 +225,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<RAgent
     page = next;
     startNotice = next === "start" ? notice : undefined;
     sharing = undefined;
+    revoking = undefined;
     if (next !== "connections" && selection) {
       const name = selection.connection;
       clearSelection();
@@ -586,6 +592,11 @@ export async function activate(context: vscode.ExtensionContext): Promise<RAgent
         await saveSharing(incoming.name, incoming.runId, incoming.sharing, sharingClient(incoming.name), sharingStore);
         await sessions.get(incoming.name)?.store?.refresh();
         return;
+      case "revokeShare":
+        await revokeSharing(incoming.name, incoming.runId, incoming.target,
+          (runId, target) => requireClient(incoming.name).rpc.call(coreContracts.runs.revoke, { runId, target }), revokingStore);
+        await sessions.get(incoming.name)?.store?.refresh();
+        return;
       case "closeSharing": sharingStore.set(undefined); return;
     }
   };
@@ -691,6 +702,14 @@ export async function activate(context: vscode.ExtensionContext): Promise<RAgent
     get: () => sharing,
     set: (next) => {
       sharing = next;
+      panel.render();
+    },
+  };
+
+  const revokingStore: SharingStore = {
+    get: () => revoking,
+    set: (next) => {
+      revoking = next;
       panel.render();
     },
   };
@@ -822,7 +841,12 @@ export async function activate(context: vscode.ExtensionContext): Promise<RAgent
         page = incoming.page;
         startNotice = undefined;
         sharing = undefined;
+        revoking = undefined;
         syncContext();
+        return;
+      case "densityChanged":
+        void vscode.workspace.getConfiguration("ragents").update("density", parseTableDensity(incoming.density), vscode.ConfigurationTarget.Global)
+          .then(undefined, (cause: unknown) => vscode.window.showErrorMessage(`RAgents: ${message(cause)}`));
         return;
       case "newRun":
         void newRun(connection, incoming.entryId).catch(reportNewRunFailure);
@@ -886,6 +910,12 @@ export async function activate(context: vscode.ExtensionContext): Promise<RAgent
         panels.zoomChanged();
       }
       if (event.affectsConfiguration("ragents.theme")) rerender();
+      if (event.affectsConfiguration("ragents.density")) {
+        const density = configuredDensity();
+        panel.post({ type: "density", density });
+        panels.post({ type: "density", density });
+        panel.render();
+      }
       if (event.affectsConfiguration("ragents.connections")) void syncConnections();
       if (event.affectsConfiguration("ragents.hostEnvironment")) {
         void refreshMissingSecrets();

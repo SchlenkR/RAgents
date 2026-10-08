@@ -10,6 +10,10 @@
     --spacing-header: 45px;
     --spacing-statusbar: 28px;
     --spacing-workspace-inset: 18px;
+    --spacing-scrollbar: calc(var(--spacing) * 2);
+    --spacing-table-cell-x: calc(var(--spacing) * 3);
+    --spacing-table-cell-y: calc(var(--spacing) * 2);
+    --spacing-table-row: calc(var(--text-sm) * var(--text-sm--line-height) + var(--spacing-table-cell-y) * 2 + 1px);
     --text-xs: 0.68rem;
     --text-xs--line-height: 1.45;
     --text-sm: 0.78rem;
@@ -20,6 +24,16 @@
     --text-lg--line-height: 1.45;
     --text-xl: 1.15rem;
     --text-xl--line-height: 1.35;
+    --text-prose: 0.825rem;
+    --text-prose--line-height: 1.55;
+    --text-prose-h1: 1.5em;
+    --text-prose-h1--line-height: 1.3;
+    --text-prose-h2: 1.25em;
+    --text-prose-h2--line-height: 1.35;
+    --text-prose-h3: 1.1em;
+    --text-prose-h3--line-height: 1.4;
+    --text-prose-h4: 0.825em;
+    --text-prose-h4--line-height: 1.5;
     --radius-panel: 17px;
     --container-composer: 880px;
     --animate-fade-pulse: fade-pulse 1.9s cubic-bezier(0.2, 0.6, 0.35, 1) infinite;
@@ -200,6 +214,16 @@
     --card-shadow: 0 12px 22px #49384e2c;
     --workspace-shadow: -2px 0 5px #49384e14, -8px 0 20px #49384e1f;
     --glass-icon-shadow: 1px 2px 4px #51465725;
+}
+
+:root[data-density="compact"] {
+    --spacing-table-cell-x: calc(var(--spacing) * 2);
+    --spacing-table-cell-y: var(--spacing);
+}
+
+:root[data-density="spacious"] {
+    --spacing-table-cell-x: calc(var(--spacing) * 4);
+    --spacing-table-cell-y: calc(var(--spacing) * 4);
 }
 
 :root[data-theme="dark"] {
@@ -400,16 +424,16 @@
 
 /* Rendered Markdown with a visible heading hierarchy, for documents and plugin views alike. */
 @utility type-prose {
-    font-size: 0.85rem;
-    line-height: 1.6;
+    font-size: var(--text-prose);
+    line-height: var(--text-prose--line-height);
     color: var(--foreground);
     overflow-wrap: anywhere;
 
     & > :first-child { margin-top: 0; }
-    & h1 { margin: 1.4em 0 0.5em; font-size: 1.3rem; line-height: 1.3; font-weight: 650; }
-    & h2 { margin: 1.8em 0 0.6em; padding-bottom: 0.3em; border-bottom: 1px solid var(--border); font-size: 1.08rem; line-height: 1.35; font-weight: 600; }
-    & h3 { margin: 1.4em 0 0.4em; font-size: 0.94rem; line-height: 1.4; font-weight: 600; }
-    & :is(h4, h5, h6) { margin: 1.2em 0 0.3em; font-size: 0.7rem; line-height: 1.5; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted-foreground); }
+    & h1 { margin: 1.4em 0 0.5em; font-size: var(--text-prose-h1); line-height: var(--text-prose-h1--line-height); font-weight: 650; }
+    & h2 { margin: 1.8em 0 0.6em; padding-bottom: 0.3em; border-bottom: 1px solid var(--border); font-size: var(--text-prose-h2); line-height: var(--text-prose-h2--line-height); font-weight: 600; }
+    & h3 { margin: 1.4em 0 0.4em; font-size: var(--text-prose-h3); line-height: var(--text-prose-h3--line-height); font-weight: 600; }
+    & :is(h4, h5, h6) { margin: 1.2em 0 0.3em; font-size: var(--text-prose-h4); line-height: var(--text-prose-h4--line-height); font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted-foreground); }
     & p { margin: 0.6em 0; }
     & strong { font-weight: 600; }
     & a { color: var(--primary); text-decoration: underline; text-underline-offset: 2px; }

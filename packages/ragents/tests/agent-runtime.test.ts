@@ -6,20 +6,17 @@ import test from "node:test";
 import { Type } from "typebox";
 
 import { convertToLlm, ModelRuntime } from "@ragents/agent";
-import { createAssistantMessageEventStream, fauxAssistantMessage, fauxText, fauxThinking, fauxToolCall, registerFauxProvider, type AssistantMessage, type Context, type InputModality } from "@ragents/ai";
+import { createAssistantMessageEventStream, fauxAssistantMessage, fauxText, fauxThinking, fauxToolCall, registerFauxProvider, type Context } from "@ragents/ai";
 
-import { modelContextOf, turnModelContext } from "../src/agents/model-context.ts";
+import { modelContextOf } from "../src/agents/model-context.ts";
 import { defineRunFunction, type RunFunction } from "../src/agents/tools.ts";
-import { claimTurn } from "../src/agents/turn.ts";
-import type { JsonValue } from "../src/domain/json.ts";
-import { agentHookOf, type AgentHook } from "../src/drivers/agent-hooks.ts";
 import { createTurnAbortLatch, AgentRuntimeManager } from "../src/drivers/agent-runtime.ts";
 import { AgentLoopDriver } from "../src/drivers/agent.ts";
-import type { LiveEvent, TurnRequest, TurnResult } from "../src/drivers/types.ts";
 import type { AgentContribution } from "../src/plugin-types.ts";
 import { Journal } from "../src/runtime/journal.ts";
 import { Orchestration } from "../src/runtime/orchestration.ts";
 import { deferred, executionFor, testServices } from "./support.ts";
+import { fauxModelRuntime, journalHarness, harnessOver, turnOf, nativeTool, hooksOf, scriptedRuntime, withTokens, isSummary, type TurnOverrides } from "./agent-runtime-fixture.ts";
 
 const within = async <T>(operation: Promise<T>, timeoutMs = 3_000): Promise<T> => {
     let timer: ReturnType<typeof setTimeout> | undefined;
@@ -36,185 +33,6 @@ const within = async <T>(operation: Promise<T>, timeoutMs = 3_000): Promise<T> =
             clearTimeout(timer);
     }
 };
-
-const fauxModelRuntime = (id: string, input?: InputModality[], tokensPerSecond = 100_000) => {
-    const faux = registerFauxProvider({ models: [{ id, reasoning: false, ...(input ? { input } : {}) }], tokensPerSecond });
-    const modelRuntime = ModelRuntime.create();
-    const model = faux.getModel();
-    modelRuntime.registerProvider(model.provider, {
-        baseUrl: model.baseUrl,
-        apiKey: "faux-key",
-        api: faux.api,
-        models: faux.models.map((entry) => ({
-            id: entry.id, name: entry.name, api: entry.api, reasoning: entry.reasoning, input: entry.input,
-            cost: entry.cost, contextWindow: entry.contextWindow, maxTokens: entry.maxTokens, baseUrl: entry.baseUrl,
-        })),
-    });
-
-    return { faux, modelRuntime, selection: { provider: model.provider, model: model.id } };
-};
-
-type TurnOverrides = Partial<Omit<TurnRequest<"agent">, "invoke">> & {
-    invoke?: (toolCallId: string, name: string, input: JsonValue) => Promise<JsonValue>;
-};
-
-/** A run with one agent in a journal; each turn is claimed, handed to the driver and ended like the scheduler does. */
-const journalHarness = (selection: { provider: string; model: string }, directory = ":memory:") => {
-    const services = testServices();
-    const journal = new Journal(directory, services);
-    const runtime = new Orchestration(journal, services);
-    const run = runtime.createRun({ commandId: "create" }, { title: "Driver", ownerHandle: "owner", ownerDisplayName: "Owner" });
-    const agentId = runtime.spawnAgent({ actorId: run.ownerId, commandId: "spawn" }, run.id, {
-        handle: "agent", displayName: "Agent", prompt: "Work.",
-        execution: executionFor("agent", { profile: "agent", isolateWorkspace: false }), grants: [], toolNames: null,
-    }).actors.find((actor) => actor.kind === "agent")!.id;
-
-    return harnessOver(selection, journal, runtime, run.id, agentId);
-};
-
-const harnessOver = (
-    selection: { provider: string; model: string },
-    journal: Journal,
-    runtime: Orchestration,
-    runId: string,
-    agentId: string,
-    prefix = "",
-) => {
-    const run = { id: runId, ownerId: runtime.view(runId).ownerId };
-    let posts = 0;
-    const published: LiveEvent[] = [];
-
-    const request = (prompt: string, overrides: TurnOverrides = {}): TurnRequest<"agent"> => {
-        const inputId = runtime.enqueueInput({ actorId: run.ownerId, commandId: `${prefix}post-${++posts}` }, run.id, { actorId: agentId, content: prompt })
-            .inputs.at(-1)!.id;
-        const turn = claimTurn(runtime, run.id, agentId, inputId, `${prefix}claim-${posts}`);
-        let emitted = 0;
-        const command = (kind: string) => ({ actorId: agentId, commandId: `${turn.turnId}:${kind}:${emitted++}`, turnId: turn.turnId });
-        const invoke = overrides.invoke ?? (async () => null);
-
-        return {
-            driverKind: "agent",
-            runId: run.id,
-            agentId,
-            turnId: turn.turnId,
-            startedAt: turn.startedAt,
-            input: turn.input,
-            prompt,
-            selection,
-            orientation: "",
-            systemPrompt: "System contract.",
-            workspace: process.cwd(),
-            storeAttachment: () => Promise.reject(new Error("The test stores no attachments.")),
-            tools: [],
-            allowedToolNames: null,
-            claimSteering: () => [],
-            emit: (event) => {
-                if (event.kind === "assistant-interrupted")
-                    runtime.appendInterruptedModelOutput(command("interrupted"), run.id, agentId, { turnId: turn.turnId, text: event.text });
-            },
-            recordTool: (event) => {
-                if (event.kind === "started")
-                    runtime.startToolCall(command("tool"), run.id, agentId, { turnId: turn.turnId, toolCallId: event.id, name: event.name, input: event.input });
-                else if (event.kind === "failed")
-                    runtime.failToolCall(command("tool"), run.id, agentId, { turnId: turn.turnId, toolCallId: event.id, name: event.name, error: event.error });
-                else
-                    runtime.completeToolCall(command("tool"), run.id, agentId, { turnId: turn.turnId, toolCallId: event.id, name: event.name, output: event.output });
-            },
-            publish: (event) => { published.push(event); },
-            ...turnModelContext(runtime, turn, () => emitted++),
-            ...overrides,
-            invoke: async (toolCallId, name, input) => {
-                runtime.startToolCall(command("tool"), run.id, agentId, { turnId: turn.turnId, toolCallId, name, input });
-                try {
-                    const output = await invoke(toolCallId, name, input);
-                    runtime.completeToolCall(command("tool"), run.id, agentId, { turnId: turn.turnId, toolCallId, name, output });
-                    return { output, ignoredFields: [], endsTurn: false };
-                } catch (error) {
-                    runtime.failToolCall(command("tool"), run.id, agentId, { turnId: turn.turnId, toolCallId, name, error: error instanceof Error ? error.message : String(error) });
-                    throw error;
-                }
-            },
-        };
-    };
-
-    /** Ends the turn in the journal the way the scheduler does after the driver returned. */
-    const finish = (request: TurnRequest<"agent">, result: TurnResult, aborted = false) => {
-        const context = { actorId: agentId, commandId: `${request.turnId}:end`, turnId: request.turnId };
-        const running = runtime.state(run.id).actors.get(agentId);
-
-        if (running?.kind === "human" || running?.lifecycle.kind !== "running")
-            return result;
-
-        if (aborted)
-            runtime.interruptTurn(context, run.id, agentId, { turnId: request.turnId, reason: "Test" });
-        else
-            runtime.finishTurn(context, run.id, agentId, result.failure
-                ? { turnId: request.turnId, outcome: "failed", reason: result.failure }
-                : { turnId: request.turnId, outcome: "completed" });
-
-        return result;
-    };
-
-    const outputsOf = (turnId: string) => runtime.events(run.id).flatMap((event) => {
-        if ((event.type === "model.output.completed" || event.type === "model.reasoning.completed" || event.type === "model.output.interrupted")
-            && event.payload.turnId === turnId)
-            return [`${event.type}: ${event.payload.text}`];
-        return [];
-    });
-
-    return { journal, runtime, runId: run.id, agentId, request, finish, outputsOf, published };
-};
-
-const turnOf = async (
-    harness: ReturnType<typeof journalHarness>,
-    manager: AgentRuntimeManager,
-    prompt: string,
-    overrides: TurnOverrides = {},
-    signal = new AbortController().signal,
-) => {
-    const request = harness.request(prompt, overrides);
-    const result = await manager.runTurn(request, signal);
-
-    return { request, result: harness.finish(request, result, signal.aborted) };
-};
-
-const nativeTool = (name: string, description = `Execute ${name}.`): RunFunction => defineRunFunction({
-    name, label: name, description, nativeTool: true,
-    schema: Type.Object({}, { additionalProperties: false }), resultSchema: Type.Null(),
-    available: () => true, run: () => null,
-}) as RunFunction;
-
-const hooksOf = (...contributions: AgentContribution[]) => (context: { runId: string; agentId: string; workspace: string }): AgentHook[] =>
-    contributions.map((contribution) => agentHookOf(contribution, { ...context, audience: "agent" }));
-
-const scriptedRuntime = (id: string, respond: (context: Context) => AssistantMessage) => {
-    const setup = fauxModelRuntime(id);
-    const model = setup.faux.getModel();
-    setup.modelRuntime.registerProvider(model.provider, {
-        baseUrl: model.baseUrl, apiKey: "faux-key", api: setup.faux.api,
-        models: [{
-            id, name: id, reasoning: false, input: model.input, cost: model.cost, maxTokens: model.maxTokens, contextWindow: 4_000,
-            compaction: { threshold: 3_000, keepRecentTokens: 200, summaryTokens: 800 },
-        }],
-    });
-    setup.modelRuntime.streamSimple = (requestModel, context) => {
-        const stream = createAssistantMessageEventStream();
-        const message = { ...respond(context), api: requestModel.api, provider: requestModel.provider, model: requestModel.id };
-        stream.push(message.stopReason === "error" || message.stopReason === "aborted"
-            ? { type: "error", reason: message.stopReason, error: message }
-            : { type: "done", reason: message.stopReason, message });
-        stream.end(message);
-        return stream;
-    };
-    return setup;
-};
-
-const withTokens = (message: AssistantMessage, input: number, output = 1): AssistantMessage => ({
-    ...message,
-    usage: { ...message.usage, input, output, totalTokens: input + output },
-});
-
-const isSummary = (context: Context) => context.systemPrompt?.startsWith("You are a context summarization assistant");
 
 const userTextsOf = (message: Context["messages"][number] | undefined): string[] =>
     message?.role !== "user" ? []
@@ -315,7 +133,8 @@ test("the context threshold crossed by a tool result compacts before the next re
     }
 });
 
-for (const outcome of ["success", "overflow", "compaction-error"] as const) {
+
+for (const outcome of ["success", "overflow", "compaction-error", "compaction-truncated", "compaction-empty"] as const) {
     test(`a length stop near the context limit compacts and retries once: ${outcome}`, async () => {
         const requests: Context[] = [];
         let summaries = 0;
@@ -324,6 +143,10 @@ for (const outcome of ["success", "overflow", "compaction-error"] as const) {
                 summaries++;
                 return outcome === "compaction-error"
                     ? fauxAssistantMessage([], { stopReason: "error", errorMessage: "Summary unavailable." })
+                    : outcome === "compaction-truncated"
+                    ? fauxAssistantMessage("Incomplete checkpoint.", { stopReason: "length" })
+                    : outcome === "compaction-empty"
+                    ? fauxAssistantMessage([])
                     : withTokens(fauxAssistantMessage("## Goal\nContinue the task."), 100);
             }
             requests.push({ ...(context.systemPrompt === undefined ? {} : { systemPrompt: context.systemPrompt }), messages: structuredClone(context.messages) });
@@ -338,21 +161,29 @@ for (const outcome of ["success", "overflow", "compaction-error"] as const) {
             await turnOf(harness, manager, "First task.");
             const { request, result } = await turnOf(harness, manager, "Continue. ".repeat(200));
             assert.equal(summaries, 1);
-            assert.equal(requests.length, outcome === "compaction-error" ? 2 : 3);
+            const summaryFailed = outcome.startsWith("compaction-");
+            assert.equal(requests.length, summaryFailed ? 2 : 3);
             if (outcome === "success") {
                 assert.equal(result.failure, null);
                 assert.ok(harness.outputsOf(request.turnId).includes("model.output.completed: Recovered answer."));
             } else {
-                assert.match(result.failure!, outcome === "overflow" ? /overflowed again.*one retry/ : /recovery failed.*Summary unavailable/);
+                const failure = outcome === "overflow" ? /overflowed again.*one retry/
+                    : outcome === "compaction-truncated" ? /recovery failed.*incomplete response \(length\)/
+                    : outcome === "compaction-empty" ? /recovery failed.*empty summary/
+                    : /recovery failed.*Summary unavailable/;
+                assert.match(result.failure!, failure);
             }
             const events = harness.runtime.events(harness.runId);
             const steps = events.flatMap((event) => event.type === "model.step.completed" && event.payload.turnId === request.turnId ? [event.payload] : []);
             assert.equal(steps[0]!.stopReason, "length");
             assert.equal(steps[0]!.usage.output, 1);
             assert.equal(harness.runtime.view(harness.runId).turns.at(-1)!.status, outcome === "success" ? "completed" : "failed");
-            if (outcome !== "compaction-error") {
+            if (!summaryFailed) {
                 assert.match(JSON.stringify(requests[2]!.messages), /Continue the task/);
                 assert.equal(requests[2]!.messages.some((message) => message.role === "assistant" && message.stopReason === "length"), false);
+            } else {
+                assert.equal(events.some((event) => event.type === "context.compacted"), false);
+                assert.match(JSON.stringify(harness.runtime.modelContext(harness.runId, harness.agentId).messages), /First task/);
             }
             assert.deepEqual(harness.runtime.modelContext(harness.runId, harness.agentId), modelContextOf(events, harness.agentId, (hash) => harness.runtime.mediaContent(hash)));
         } finally {

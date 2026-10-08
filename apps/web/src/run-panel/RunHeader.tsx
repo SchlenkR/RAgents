@@ -38,11 +38,11 @@ export function RunHeader({ leading, trailing, children }: { leading: ReactNode;
     return () => observer.disconnect();
   }, [fixed, start, end]);
   return <RunHeaderContext.Provider value={{ controls, windows, bounds, onWindowsHeight: setWindowsHeight }}>
-    <header className="relative z-[80] min-h-header flex-none border-b border-border bg-shell px-2 py-1 shadow-bar">
-      <div className="flex min-h-[30px] min-w-0 flex-wrap items-center gap-1" ref={setFixed}>
-        <div className="flex min-w-0 max-w-full flex-[0_1_auto] flex-wrap items-center gap-1" data-header-fixed ref={setStart}>{leading}</div>
+    <header className="relative z-[80] min-h-header flex-none border-b border-border bg-shell px-2 py-1 shadow-bar @container/run-header">
+      <div className="flex min-h-[30px] min-w-0 flex-wrap items-center gap-1 @min-[768px]/run-header:flex-nowrap" ref={setFixed}>
+        <div className="flex min-w-0 max-w-full flex-[0_1_auto] flex-wrap items-center gap-1 @min-[768px]/run-header:flex-nowrap" data-header-fixed ref={setStart}>{leading}</div>
         <div className="pointer-events-none absolute inset-x-2 top-1 min-w-0" ref={setWindows} />
-        <div className="ml-auto flex min-w-0 max-w-full flex-wrap items-center justify-end gap-1" data-header-fixed ref={setEnd}>
+        <div className="ml-auto flex min-w-0 max-w-full flex-wrap items-center justify-end gap-1 @min-[768px]/run-header:flex-none" data-header-fixed ref={setEnd}>
           <div className="flex min-w-0 max-w-full flex-wrap items-center justify-end gap-1 empty:hidden" ref={setControls} />
           {trailing}
         </div>

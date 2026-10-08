@@ -2,11 +2,12 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, typ
 import { ChevronDownIcon, CodeIcon, SparklesIcon, UsersIcon } from "lucide-react";
 import { Badge, cn, InteractiveItem, Spinner, SvgEdge, type SvgEdgeProps } from "@ragents/web/ui";
 import { actorAddress, actorTone, type RunActor, type RunView } from "@ragents/web/run-view";
+import { useDockPanelDrag } from "@ragents/web/run-panel/DockWorkspace";
 import { pendingInputCount } from "./run-panel-actors";
 import { addresseeNodeContains, addresseeStatus, addresseeStatusCounts, addresseeStatusWord, addresseeSummaries, addresseeTree, type AddresseeGroupNode, type AddresseeStatus } from "./addressee-tree";
 import { actorGraphLayout, actorTimings, clampGraphPan, formatDuration, GRAPH_CARD_HEIGHT, GRAPH_CARD_WIDTH, graphColumns, graphNodeStatus, graphPannable, graphPanTo, graphViewport, type ActorTiming, type GraphSize } from "./actor-graph";
 
-const cardClass = "flex size-full min-w-0 cursor-pointer flex-col justify-center gap-0.5 rounded-lg border border-border bg-card px-2.5 py-1.5 text-left text-[0.72rem] text-card-foreground shadow-xs";
+const cardClass = "flex size-full min-w-0 cursor-pointer flex-col justify-center gap-1 rounded-lg border border-border bg-card px-3 py-2 text-left text-[0.72rem] leading-normal text-card-foreground shadow-xs [&>span]:shrink-0";
 const stackClass = "shadow-[3px_3px_0_-1px_var(--color-card),3px_3px_0_0_var(--color-border)]";
 const lineClass = "flex min-w-0 items-center gap-1.5 text-[0.66rem]";
 const iconClass: Readonly<Record<string, string>> = {
@@ -54,8 +55,9 @@ export function ActorIcon({ actor, className, view }: { actor: RunActor; classNa
 }
 
 /** The actors of a run top-down by creator, as cards with state, running time and task; as large as the graph up to the pop-out's room, panned by dragging beyond. */
-export function ActorGraph({ actors, onPick, selectedId, technical, view }: {
+export function ActorGraph({ actors, onDragStart, onPick, selectedId, technical, view }: {
   actors: readonly RunActor[];
+  onDragStart?: () => void;
   onPick: (actor: RunActor) => void;
   selectedId: string;
   technical: boolean;
@@ -63,6 +65,8 @@ export function ActorGraph({ actors, onPick, selectedId, technical, view }: {
 }) {
   const scroller = useRef<HTMLDivElement>(null);
   const probe = useRef<HTMLDivElement>(null);
+  const cardProbe = useRef<HTMLDivElement>(null);
+  const [cardHeight, setCardHeight] = useState(GRAPH_CARD_HEIGHT);
   const [room, setRoom] = useState<GraphSize>();
   const [toggled, setToggled] = useState<ReadonlySet<string>>(() => new Set());
   const [scrollTarget, setScrollTarget] = useState<ScrollTarget | undefined>({ kind: "selected" });
@@ -72,7 +76,7 @@ export function ActorGraph({ actors, onPick, selectedId, technical, view }: {
   const tree = useMemo(() => addresseeTree(view, actors), [actors, view]);
   const open = useCallback((group: AddresseeGroupNode) => addresseeNodeContains(group, selectedId) !== toggled.has(group.key), [selectedId, toggled]);
   const columns = room === undefined ? undefined : graphColumns(room.width);
-  const layout = useMemo(() => columns === undefined ? undefined : actorGraphLayout(tree, open, columns), [columns, open, tree]);
+  const layout = useMemo(() => columns === undefined ? undefined : actorGraphLayout(tree, open, columns, cardHeight), [cardHeight, columns, open, tree]);
   const viewport = useMemo(() => layout && room && graphViewport(layout, room), [layout, room]);
   const pannable = viewport !== undefined && graphPannable(viewport);
   const statuses = useMemo(() => new Map(layout?.cards.map((card) => [card.key, graphNodeStatus(view, card.node)] as const)), [layout, view]);
@@ -130,10 +134,14 @@ export function ActorGraph({ actors, onPick, selectedId, technical, view }: {
   useLayoutEffect(() => {
     const element = probe.current;
     if (!element) return;
-    const measure = () => setRoom((current) => current?.width === element.offsetWidth && current.height === element.offsetHeight ? current : { width: element.offsetWidth, height: element.offsetHeight });
+    const measure = () => {
+      setRoom((current) => current?.width === element.offsetWidth && current.height === element.offsetHeight ? current : { width: element.offsetWidth, height: element.offsetHeight });
+      if (cardProbe.current) setCardHeight(cardProbe.current.offsetHeight);
+    };
     measure();
     const observer = new ResizeObserver(measure);
     observer.observe(element);
+    if (cardProbe.current) observer.observe(cardProbe.current);
     return () => observer.disconnect();
   }, []);
   useLayoutEffect(() => {
@@ -141,7 +149,7 @@ export function ActorGraph({ actors, onPick, selectedId, technical, view }: {
     if (!scrollTarget || !layout || !viewport || !element) return;
     if (scrollTarget.kind === "selected") {
       const card = layout.cards.find((entry) => entry.node.kind === "actor" && entry.node.actor.id === selectedId);
-      if (card) element.scrollTo(graphPanTo(viewport, card.x + GRAPH_CARD_WIDTH / 2, card.y + GRAPH_CARD_HEIGHT / 2, viewport.width / 2, viewport.height / 2));
+      if (card) element.scrollTo(graphPanTo(viewport, card.x + GRAPH_CARD_WIDTH / 2, card.y + cardHeight / 2, viewport.width / 2, viewport.height / 2));
       return;
     }
     const card = layout.cards.find((entry) => entry.key === scrollTarget.key);
@@ -159,12 +167,13 @@ export function ActorGraph({ actors, onPick, selectedId, technical, view }: {
       settled.observe(element);
     }
     setScrollTarget(undefined);
-  }, [layout, scrollTarget, selectedId, viewport]);
+  }, [cardHeight, layout, scrollTarget, selectedId, viewport]);
 
   return <div className={cn("no-scrollbar relative min-h-0 min-w-0 flex-none overflow-auto overscroll-contain select-none", pannable && "cursor-grab", panning && "cursor-grabbing **:cursor-grabbing")}
     onKeyDown={stopCentering} onPointerDown={pan} onWheel={stopCentering} ref={scroller} style={viewport && { width: viewport.width, height: viewport.height }}>
     <div aria-hidden className="pointer-events-none invisible absolute top-0 left-0 size-0 overflow-hidden">
       <div className="h-(--popout-body-height) w-(--popout-body-width)" ref={probe} />
+      <div ref={cardProbe} style={{ height: `${GRAPH_CARD_HEIGHT / 16}rem` }} />
     </div>
     {layout && viewport && <div className="relative" style={{ width: viewport.scrollWidth, height: viewport.scrollHeight }}>
       <div className="absolute" style={{ left: viewport.left, top: viewport.top, width: layout.width, height: layout.height }}>
@@ -175,9 +184,9 @@ export function ActorGraph({ actors, onPick, selectedId, technical, view }: {
         </svg>
         <ul aria-label="Actors by creator" className="list-none">
           {layout.cards.map((card) => <li className="absolute" data-graph-node={card.key} data-graph-parent={card.parentKey ?? undefined} key={card.key}
-            style={{ left: card.x, top: card.y, width: GRAPH_CARD_WIDTH, height: GRAPH_CARD_HEIGHT }}>
+            style={{ left: card.x, top: card.y, width: GRAPH_CARD_WIDTH, height: cardHeight }}>
             {card.node.kind === "actor"
-              ? <ActorCard actor={card.node.actor} current={card.node.actor.id === selectedId} onPick={onPick} summary={summary(card.node.actor)} technical={technical} timing={timing(card.node.actor.id)} view={view} />
+              ? <ActorCard actor={card.node.actor} current={card.node.actor.id === selectedId} onDragStart={onDragStart} onPick={onPick} summary={summary(card.node.actor)} technical={technical} timing={timing(card.node.actor.id)} view={view} />
               : <GroupCard node={card.node} onToggle={toggle} open={open(card.node)} view={view} />}
           </li>)}
         </ul>
@@ -186,20 +195,24 @@ export function ActorGraph({ actors, onPick, selectedId, technical, view }: {
   </div>;
 }
 
-function ActorCard({ actor, current, onPick, summary, technical, timing, view }: {
+function ActorCard({ actor, current, onDragStart, onPick, summary, technical, timing, view }: {
   actor: RunActor;
   current: boolean;
+  onDragStart?: () => void;
   onPick: (actor: RunActor) => void;
   summary: string | undefined;
   technical: boolean;
   timing: ActorTiming | undefined;
   view: RunView;
 }) {
+  const drag = useDockPanelDrag();
   const pending = pendingInputCount(view, actor.id);
   const status = addresseeStatus(view, actor);
   const name = actor.displayName.trim();
   const named = name !== "" && lower(name) !== lower(actor.handle) && name !== summary ? `, ${name}` : "";
-  return <InteractiveItem aria-current={current || undefined} className={cardClass} data-actor-handle={actorAddress(actor)} onClick={() => onPick(actor)}
+  return <InteractiveItem aria-current={current || undefined} className={cn(cardClass, drag && "touch-none cursor-grab active:cursor-grabbing")} data-actor-handle={actorAddress(actor)}
+    onClick={(event) => { if (!drag || event.detail === 0) onPick(actor); }}
+    onPointerDown={drag && ((event) => { event.stopPropagation(); drag(event, `actor:${actor.id}`, () => onPick(actor), onDragStart); })}
     title={`@${actorAddress(actor)}${named}, ${actorType(actor, technical)}, ${addresseeStatusWord(status)}. Address messages to @${actorAddress(actor)}`} type="button">
     <span className="flex min-w-0 items-center gap-1.5">
       <ActorIcon actor={actor} className="size-5" view={view} />

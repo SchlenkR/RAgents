@@ -107,9 +107,9 @@ mandatory contracts `ProductRuntime` and `WorkspaceRuntime`. A profile with its 
 workspace does not replace `ragents.workspace` but contributes it through `workspaceResolverToken`
 (section Ownership per facet in `plugins.md`); the workspace thus still has exactly one owner.
 
-Plugin list of `core` in order: `ragents.orchestration`, `ragents.workspace`, `ragents.product`,
+Plugin list of `core` in order: `ragents.orchestration`, `ragents.workspace`, `ragents.compaction`, `ragents.product`,
 `ragents.overseer`, `ragents.activity`, `ragents.processes`, `ragents.documents`,
-`ragents.browser`, `ragents.ask`, `ragents.todo`, `ragents.watch`,
+`ragents.browser`, `ragents.mcp`, `ragents.ask`, `ragents.acp`, `ragents.todo`, `ragents.watch`,
 `ragents.actor-programs`, `ragents.lsp-roslyn`, `ragents.lsp-fsharp`, `ragents.lsp-typescript`,
 `ragents.model-relay`, `ragents.profile-distribution`.
 
@@ -122,7 +122,7 @@ generated reference and the built-in help are generated from `showcase`
 examples.
 
 The `developer` profile (product ID `ragents-developer`, port 4715) is the smaller selection for
-working on a project: `ragents.orchestration`, `ragents.workspace`, `ragents.product`,
+working on a project: `ragents.orchestration`, `ragents.workspace`, `ragents.compaction`, `ragents.product`,
 `ragents.documents`, `ragents.browser`, `ragents.ask`, `ragents.todo`, `ragents.watch`,
 `ragents.activity`, `ragents.processes`, `ragents.lsp-roslyn`, `ragents.lsp-fsharp`,
 `ragents.lsp-typescript`. `ROSLYN_SOLUTION_ON_START` is `on`, so C# diagnostics start with the run
@@ -745,6 +745,13 @@ sign-in (no `users`, also with `anonymousUser`) has no sharing (`sharing-unavail
 names the users to share with), the owner (`share-owner`), and a user named twice
 (`share-user-duplicate`) are refused with status 400. A user the profile no longer has keeps their
 entry until the next change and may stay in a replacement; their label is then their identifier.
+
+`ragents.runs.revoke` accepts `runId` and a target: `{ kind: "all" }`, `{ kind: "everyone" }`,
+or `{ kind: "user", userId }`. It has the same sharing rights and returns the same result.
+It removes only that target from the current server state, preserving concurrent changes to
+other recipients. Repeating an already applied revocation makes no journal change. Removing
+an individual grant does not remove access inherited from Everyone.
+
 Sharing a run that only its owner operates is allowed; it gives sharees no operating and no
 workspace.
 
@@ -775,8 +782,11 @@ Deleting refuses a user who sees the run only through a share with `run-delete-d
 
 `ragents.runs.list` tells each caller `operable` (false in a run shared with it for reading and in
 someone else's run that only its owner operates), `canShare` and `shared` for whoever may change
-the sharing, and `sharedAccess` for whoever sees the run only through a share. Every change of a
-sharing reaches the listeners of `ragents.runs`, so a new sharee sees the run without reloading and
+the sharing, and `sharedAccess` for whoever sees the run only through a share. For the signed-in
+owner of an actively shared run it also includes `sharing: { everyone, users: [{ userId, label,
+access }] }`, even with read-only permissions. Administrators inspecting a foreign run and
+sharees receive no such recipient summary. Every change of a sharing reaches the listeners
+of `ragents.runs`, so a new sharee sees the run without reloading and
 a former one loses it. The dispatcher also ends every channel of a run, of the host and of
 plugins, as soon as its caller no longer sees the run after a sharing change; the client learns it
 from the run list and from `run-not-found` on its next request.

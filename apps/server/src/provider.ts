@@ -359,6 +359,8 @@ export class RunSessionProvider implements ChatSessionProvider {
         workspaceAccessible: workspace,
         operable: operable(runId),
         ...scope?.sharing(runId),
+        ...(scope?.userId && scope.userId === state.ownerUserId && (state.sharing.everyone !== null || state.sharing.users.length > 0)
+          ? { sharing: sharingResultOf(state.sharing, state.ownerUserId, this.shareableUsers()).sharing } : {}),
         ...(state.ownerUserId !== null ? { ownerLabel: userLabels.get(state.ownerUserId) ?? state.ownerUserId } : {}),
         ...(seenRevision !== undefined ? { seenRevision } : {}),
         metadata: metadata.values,

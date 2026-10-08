@@ -2,6 +2,7 @@
 import type { ChatAttachment, ChatAttachmentInput, ChatEvent } from "quassel/events";
 import type { PublicStartEntry, RunListDetail, RunShareAccess } from "@ragents/engine";
 import type { ActorConversations } from "./ragents/actor-chat-history.js";
+import type { RunSharingResult } from "./api/contracts.js";
 
 export interface SessionInfo {
   id: string;
@@ -38,6 +39,8 @@ export interface ListedSession extends SessionInfo, ListedSharing {
   operable: boolean;
   /** Display name of the user who created the run; missing for a run created without sign-in. */
   ownerLabel?: string;
+  /** Active recipients with display names, only for the signed-in owner. */
+  sharing?: RunSharingResult["sharing"];
   /** The highest revision the caller has viewed; missing until the caller views the run. */
   seenRevision?: number;
   metadata?: Readonly<Record<string, unknown>>;

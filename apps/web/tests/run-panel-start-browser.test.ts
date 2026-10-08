@@ -61,10 +61,10 @@ for (const host of ["browser", "vscode"] as const) {
       const section = page.getByRole("region", { name: "Work documents", exact: true });
       await section.waitFor();
       assert.deepEqual(await page.locator("main[data-page=start] h2").allTextContents(), ["New4", "Continue", "Work documents"]);
-      assert.equal(await page.getByRole("list", { name: "Recent", exact: true }).getByRole("listitem").count(), 5);
+      assert.equal(await page.getByRole("list", { name: "Recent", exact: true }).getByRole("listitem").count(), 7);
       assert.equal(await page.getByRole("button", { name: /^All 7 runs/ }).count(), 1);
       assert.deepEqual(await section.getByRole("button").allTextContents(), Array.from({ length: 6 }, (_, index) => `Work note ${index} - Document run ${index}`));
-      assert.equal(await page.getByRole("list", { name: "Recent", exact: true }).getByText("Document run 5").count(), 0);
+      assert.equal(await page.getByRole("list", { name: "Recent", exact: true }).getByText("Document run 5").count(), 1);
       await section.getByRole("button", { name: "Work note 5 - Document run 5", exact: true }).click();
       await page.waitForFunction(() => window.runStartFixture.activeRun() === "document-run-5");
       assert.equal(await section.count(), 0, "opening a document uses the run navigation and leaves Start");
@@ -505,7 +505,7 @@ const growingAppTitles = [
 ];
 
 for (const host of ["browser", "vscode"] as const) {
-  for (const width of [1800, 420]) {
+  for (const width of [1800, 920, 420]) {
     test(`the growing run header packs apps across its full width and keeps controls stable at ${width}px in ${host}`, browserOnly, async () => {
       const url = await (fixtureUrl ??= buildFixture());
       const browser = await launchBrowser();
@@ -560,10 +560,18 @@ for (const host of ["browser", "vscode"] as const) {
         await settleHeader(page);
         const initial = await headerGeometry(header);
         const initialFixed = await fixedBounds();
+        if (width >= 920) {
+          const centers = initialFixed.map((box) => box.y + box.height / 2);
+          assert.ok(Math.max(...centers) - Math.min(...centers) < 2,
+            "The run title shrinks before fixed controls wrap to another row.");
+        }
         if (width === 1800) {
           assert.ok(Math.max(...initial.boxes.map((box) => box.center)) - Math.min(...initial.boxes.map((box) => box.center)) < 2,
             "A small app list uses one header row in either host.");
         }
+        const shots = join(tmpdir(), "ragents-browser-shots");
+        await mkdir(shots, { recursive: true });
+        await page.screenshot({ path: join(shots, `header-compact-${width}-${host}.png`) });
         await notes.focus();
         await setApps(growingAppTitles);
         const grown = await headerGeometry(header);
@@ -580,14 +588,17 @@ for (const host of ["browser", "vscode"] as const) {
           "A long app label truncates instead of taking most of the wide header.");
         assert.equal(await longApp.getAttribute("aria-label"), longAppTitle, "The complete app label remains its accessible name.");
         assert.ok((await longApp.getAttribute("title"))?.includes(longAppTitle), "The complete app label remains available in its tooltip.");
-        const shots = join(tmpdir(), "ragents-browser-shots");
-        await mkdir(shots, { recursive: true });
         await page.screenshot({ path: join(shots, `header-growing-${width}-${host}.png`) });
 
-        for (const nextWidth of width === 1800 ? [420, 320, 1800] : [320, 1800, 420]) {
+        for (const nextWidth of width === 1800 ? [800, 920, 420, 320, 1800] : [320, 1800, width]) {
           await page.setViewportSize({ width: nextWidth, height: 1200 });
           await settleHeader(page);
           const resized = await headerGeometry(header);
+          if (nextWidth >= 800) {
+            const centers = (await fixedBounds()).map((box) => box.y + box.height / 2);
+            assert.ok(Math.max(...centers) - Math.min(...centers) < 2,
+              "Resizing a desktop header keeps fixed controls on one row.");
+          }
           assert.equal(await notes.evaluate((element, original) => element === original && element === document.activeElement, originalNotes), true,
             "Resizing retains the same focused app button.");
           assert.equal(await page.locator('section[data-view="chat"]').evaluate((element, original) => element === original, chat), true,

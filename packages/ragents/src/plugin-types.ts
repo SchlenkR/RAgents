@@ -194,10 +194,22 @@ export interface AgentHookContext {
 }
 
 export interface ModelCallContext extends AgentHookContext {
+  readonly retentionTokens?: number;
+  readonly toolNames?: readonly string[];
   /** What this contribution kept last in the agent's conversation, also after a restart of the host. */
   readonly kept: JsonValue | undefined;
   /** Keeps a value in the agent's conversation for later calls; the model never sees it. */
   readonly keep: (value: JsonValue) => void;
+}
+
+export interface CompactionCallContext extends ModelCallContext {
+  readonly retentionTokens: number;
+  readonly firstKeptEventId: string;
+}
+
+export interface CompactionContribution {
+  readonly toolResultIds: readonly string[];
+  readonly contextNotes?: string;
 }
 
 export interface ToolCallOutcome {
@@ -218,6 +230,10 @@ export interface ToolResultReplacement {
 /** Hooks into the model calls of every agent; the host resolves them per agent and knows nothing of the agent runtime behind them. */
 export interface AgentContribution {
   readonly id: string;
+  readonly beforeCompaction?: (
+    agent: AgentContributionContext,
+    call: CompactionCallContext,
+  ) => CompactionContribution | undefined | Promise<CompactionContribution | undefined>;
   /** Before each model call of a turn; a returned text reaches the model as a hidden note after the conversation. */
   readonly beforeModelCall?: (
     agent: AgentContributionContext,

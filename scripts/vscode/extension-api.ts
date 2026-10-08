@@ -13,6 +13,7 @@ export const extensionApi = {
     coreContracts.runs.delete,
     coreContracts.runs.sharing,
     coreContracts.runs.share,
+    coreContracts.runs.revoke,
     coreContracts.channels.runs,
     coreContracts.channels.run,
     runContracts.events,

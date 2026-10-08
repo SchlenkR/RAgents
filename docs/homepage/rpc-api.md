@@ -81,6 +81,7 @@ Ids from results are reused programmatically, not copied by hand.
 | ragents.runs.resolveAction | host | no fixed rights |
 | ragents.runs.restartActor | host | no fixed rights |
 | ragents.runs.resume | host | no fixed rights |
+| ragents.runs.revoke | host | no fixed rights |
 | ragents.runs.scripts | host | no fixed rights |
 | ragents.runs.share | host | no fixed rights |
 | ragents.runs.sharing | host | no fixed rights |
@@ -3364,7 +3365,7 @@ Default client deadline: 30000 ms; callers may override it.
 
 ## ragents.runs.list
 
-All runs of the profile the caller sees, its own and those shared with it, with title, times, state (paused, running, waiting, idle, ended), pending actions, the caller's own seenRevision, whether the caller operates it (operable), its sharing for the caller (canShare and shared for whoever may change it, sharedAccess for whoever sees it only through a share), metadata and its list lines. Right: runs.read.
+All runs of the profile the caller sees, its own and those shared with it, with title, times, state (paused, running, waiting, idle, ended), pending actions, the caller's own seenRevision, whether the caller operates it (operable), its sharing for the caller (canShare and shared for whoever may change it, sharing with recipient labels only for the signed-in owner, sharedAccess for whoever sees it only through a share), metadata and its list lines. Right: runs.read.
 
 Owner: host. Rights: runs.read. Execution: the server.
 Default client deadline: 30000 ms; callers may override it.
@@ -3709,6 +3710,181 @@ Default client deadline: 30000 ms; callers may override it.
   "type": "object",
   "additionalProperties": true,
   "x-typescript-type": "RunView"
+}
+```
+
+## ragents.runs.revoke
+
+Revoke a run's sharing with everyone, one individual user, or all recipients. Applies to the current journal state and keeps other shares; removing an individual share does not remove access granted to everyone. Result and rights as for ragents.runs.sharing.
+
+Owner: host. Rights: no fixed rights. Execution: the server.
+Default client deadline: 30000 ms; callers may override it.
+
+### Input
+
+```json
+{
+  "type": "object",
+  "required": [
+    "runId",
+    "target"
+  ],
+  "properties": {
+    "runId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 64,
+      "description": "Id of the run"
+    },
+    "target": {
+      "anyOf": [
+        {
+          "type": "object",
+          "required": [
+            "kind"
+          ],
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "all"
+            }
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": [
+            "kind"
+          ],
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "everyone"
+            }
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": [
+            "kind",
+            "userId"
+          ],
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "user"
+            },
+            "userId": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "additionalProperties": false
+        }
+      ]
+    }
+  },
+  "additionalProperties": false
+}
+```
+
+### Result
+
+```json
+{
+  "type": "object",
+  "required": [
+    "sharing",
+    "users"
+  ],
+  "properties": {
+    "sharing": {
+      "type": "object",
+      "required": [
+        "everyone",
+        "users"
+      ],
+      "properties": {
+        "everyone": {
+          "anyOf": [
+            {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "const": "read"
+                },
+                {
+                  "type": "string",
+                  "const": "write"
+                }
+              ],
+              "description": "read sees the run and operates nothing; write also operates it as far as the user's own rights go"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "users": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": [
+              "userId",
+              "label",
+              "access"
+            ],
+            "properties": {
+              "userId": {
+                "type": "string"
+              },
+              "label": {
+                "type": "string",
+                "description": "Display name; the id for a user the profile no longer has"
+              },
+              "access": {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "const": "read"
+                  },
+                  {
+                    "type": "string",
+                    "const": "write"
+                  }
+                ],
+                "description": "read sees the run and operates nothing; write also operates it as far as the user's own rights go"
+              }
+            },
+            "additionalProperties": false
+          }
+        }
+      },
+      "additionalProperties": false
+    },
+    "users": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "id",
+          "label"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "label": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
+      },
+      "description": "The users of the profile the run can be shared with, without its owner"
+    }
+  },
+  "additionalProperties": false
 }
 ```
 

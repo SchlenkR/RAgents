@@ -1,9 +1,10 @@
 import { ACCESS_TOKEN_QUERY } from "../../../../packages/ragents/src/access";
 import { isRunPanelTheme, type RunPanelTheme } from "./host-contract";
+import { parseTableDensity, type TableDensity } from "../table-density";
 
 export type RunPanelLocation =
-  | { layout: "panel"; runId: string | undefined; host: RunPanelHostKind; connection: string | undefined; theme: RunPanelTheme | undefined; access: string | undefined }
-  | { layout: "app"; runId: string; elementId: string; host: RunPanelHostKind; connection: string | undefined; theme: RunPanelTheme | undefined; access: string | undefined };
+  | { layout: "panel"; runId: string | undefined; host: RunPanelHostKind; connection: string | undefined; theme: RunPanelTheme | undefined; density?: TableDensity; access: string | undefined }
+  | { layout: "app"; runId: string; elementId: string; host: RunPanelHostKind; connection: string | undefined; theme: RunPanelTheme | undefined; density?: TableDensity; access: string | undefined };
 
 export type RunPanelHostKind = "browser" | "vscode";
 
@@ -25,6 +26,7 @@ export function parseRunPanelLocation(search: string): RunPanelLocation {
     host: hostKind(text(query.get("host")) ?? "browser"),
     connection: text(query.get("connection")),
     theme: themeValue,
+    ...(query.has("density") ? { density: parseTableDensity(query.get("density")) } : {}),
     access: text(query.get(ACCESS_TOKEN_QUERY)),
   };
   const runId = text(query.get("run"));

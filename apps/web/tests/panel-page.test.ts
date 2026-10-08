@@ -53,7 +53,7 @@ const registryWith = (plugins: WebPlugin[]) => new PluginRegistry({
 });
 
 test("Start sections receive all listed runs with metadata and open through the current server", () => {
-  const runs = Array.from({ length: 7 }, (_, index) => ({
+  const runs = Array.from({ length: 17 }, (_, index) => ({
     id: `run-${index}`, title: `Run ${index}`, state: "idle" as const, pendingActions: 0, updatedAt: index,
     metadata: { "test.documents": [{ title: `Document ${index}` }] },
   }));
@@ -67,7 +67,7 @@ test("Start sections receive all listed runs with metadata and open through the 
   assert.ok(html.indexOf('>Continue<') < html.indexOf('>Work documents<'));
   assert.doesNotMatch(html, />Run 0</, "the oldest run is outside Continue");
   assert.deepEqual(contexts[0]!.runs, [...runs].reverse(), "the section receives the complete list, newest first, with unchanged metadata");
-  assert.deepEqual(runs.map((run) => run.id), Array.from({ length: 7 }, (_, index) => `run-${index}`), "rendering does not reorder the source list");
+  assert.deepEqual(runs.map((run) => run.id), Array.from({ length: 17 }, (_, index) => `run-${index}`), "rendering does not reorder the source list");
   contexts[0]!.onOpenRun("run-0");
   assert.deepEqual(actions, [{ action: "openRun", name: "workshop", runId: "run-0" }]);
   contexts.length = 0;
@@ -162,14 +162,14 @@ test("a run line names the cause of a locked run with a warning icon and opens n
   assert.match(html, /<button\b(?=[^>]*aria-disabled="true")(?=[^>]*title="Night bus round")[^>]*>/);
 });
 
-test("Start shows at most five runs and leads to the full list", () => {
-  const runs = Array.from({ length: 7 }, (unused, index) => ({
+test("Start shows at most fifteen runs and leads to the full list", () => {
+  const runs = Array.from({ length: 17 }, (unused, index) => ({
     id: `run-${index}`, title: `Run ${index}`, state: "idle" as const, pendingActions: 0, updatedAt: Date.now() - index * 60_000,
   }));
   const html = render(page({ connections: [connection({ runs })] }));
-  assert.match(html, />All 7 runs</);
-  assert.match(html, />Run 4</);
-  assert.doesNotMatch(html, />Run 5</, "after five lines the Continue block ends");
+  assert.match(html, />All 17 runs</);
+  assert.match(html, />Run 14</);
+  assert.doesNotMatch(html, />Run 15</, "after fifteen lines the Continue block ends");
 });
 
 test("a template with a guide is called Set up as in the web app, otherwise Start", () => {

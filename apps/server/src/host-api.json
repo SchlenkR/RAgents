@@ -18,6 +18,7 @@
       "builtinProfiles",
       "canonicalHash",
       "compileVirtualTypeScriptAsync",
+      "contextToolResults",
       "defineRunFunction",
       "defineToolAvailability",
       "emptyUsage",
@@ -819,7 +820,9 @@
     "@ragents/web/run-panel/DockWorkspace": [
       "DockWindowActions",
       "DockWorkspace",
-      "useDockActiveApp"
+      "useDockActiveApp",
+      "useDockActivePanel",
+      "useDockPanelDrag"
     ],
     "@ragents/web/run-panel/host": [
       "useRunPanelHost"
@@ -835,7 +838,8 @@
       "runViewFrom"
     ],
     "@ragents/web/theme": [
-      "useResolvedTheme"
+      "useResolvedTheme",
+      "useTableDensity"
     ],
     "@ragents/web/toolLine": [
       "withToolSummaries"

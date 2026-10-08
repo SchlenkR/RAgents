@@ -125,3 +125,14 @@ test("zoom accepts percentages between 50 and 200 and rejects invalid settings",
   for (const zoom of [50, 90, 100, 112.5, 125, 200]) assert.equal(parseZoomSetting(zoom), zoom);
   for (const zoom of [undefined, null, "100", false, 49, 201, NaN, Infinity]) assert.throws(() => parseZoomSetting(zoom), /ragents\.zoom/);
 });
+
+test("the VS Code table spacing setting names the shared values and defaults to comfortable", async () => {
+  const { parseTableDensity } = await import("../src/settings");
+  const { readFileSync } = await import("node:fs");
+  const schema = JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8")).contributes.configuration.properties["ragents.density"];
+  assert.deepEqual(schema.enum, ["compact", "comfortable", "spacious"]);
+  assert.equal(schema.default, "comfortable");
+  assert.equal(parseTableDensity(undefined), "comfortable");
+  for (const density of schema.enum) assert.equal(parseTableDensity(density), density);
+  for (const density of ["", "auto", "Compact", "3"]) assert.throws(() => parseTableDensity(density), /ragents\.density/);
+});

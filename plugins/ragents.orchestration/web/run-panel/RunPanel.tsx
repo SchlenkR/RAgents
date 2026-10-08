@@ -1,5 +1,5 @@
 import { runApps } from "@ragents/web/run-apps";
-import { DockWindowActions, DockWorkspace, useDockActiveApp } from "@ragents/web/run-panel/DockWorkspace";
+import { DockWindowActions, DockWorkspace, useDockActivePanel } from "@ragents/web/run-panel/DockWorkspace";
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { LayoutGridIcon, SearchIcon } from "lucide-react";
@@ -37,7 +37,8 @@ function RunPanel({ autoFocusChat, onAutoFocusChatSettled, surfaceElements, card
   const stored = useRunPanelState(runId);
   const save = useCallback((patch: Partial<RunPanelState>) => saveRunPanelState(runId, { ...stored, ...patch }), [runId, stored]);
   const elements = useMemo(() => runApps(session, surfaceElements), [surfaceElements, session]);
-  const activeApp = useDockActiveApp(runId);
+  const activePanel = useDockActivePanel(runId);
+  const activeApp = activePanel?.startsWith("app:") ? activePanel.slice(4) : undefined;
   const selectedElement = host.kind === "browser" ? elements.find((app) => app.layoutKey === activeApp) : undefined;
   const startup = useRunPanelStartup(
     surfaceStartupState({ view, startup: session.startup, connected: session.connected, running: session.running, error: session.conversationError }),
@@ -48,6 +49,7 @@ function RunPanel({ autoFocusChat, onAutoFocusChatSettled, surfaceElements, card
   const actors = useMemo(() => view ? runPanelActors(view, inspect) : [], [inspect, view]);
   const primaryId = view ? chatPrimaryId(view) : undefined;
   const selectedActor = view ? selectedRunPanelActor(view, actors, stored.actor) : undefined;
+  const focusedActor = host.kind === "browser" ? actors.find((actor) => `view:actor:${actor.id}` === activePanel) ?? selectedActor : selectedActor;
   const selectedId = selectedActor?.id;
   const [visitedActors, setVisitedActors] = useState<ReadonlySet<string>>(() => new Set(stored.actor ? [stored.actor] : []));
   // The header's agents view chooses the addressee through the stored state; its chat then stays mounted too.
@@ -63,9 +65,9 @@ function RunPanel({ autoFocusChat, onAutoFocusChatSettled, surfaceElements, card
   const primarySelected = selectedActor === undefined || selectedActor.id === primaryId;
   useEffect(() => {
     const selection = selectedElement ? { type: "run-app", id: selectedElement.definition.id }
-      : selectedActor ? { type: "actor", id: selectedActor.id } : undefined;
+      : focusedActor ? { type: "actor", id: focusedActor.id } : undefined;
     if (surface?.selection?.type !== selection?.type || surface?.selection?.id !== selection?.id) surface?.acceptSelection(selection);
-  }, [selectedActor, selectedElement, surface]);
+  }, [focusedActor, selectedElement, surface]);
   const addressee = view && selectedActor && <><AddresseeControl
     actors={actors}
     onSelect={selectActor}
@@ -87,7 +89,13 @@ function RunPanel({ autoFocusChat, onAutoFocusChatSettled, surfaceElements, card
       })}
     </section>
   );
-  if (host.kind === "browser") return <DockWorkspace apps={elements} chat={chat} chatIcon={view && selectedActor ? <ActorIcon actor={selectedActor} className="size-5" view={view} /> : undefined} navigation={navigation} session={session} />;
+  if (host.kind === "browser") return <DockWorkspace apps={elements} chat={chat} chatIcon={view && selectedActor ? <ActorIcon actor={selectedActor} className="size-5" view={view} /> : undefined}
+    navigation={navigation} session={session} panels={view ? actors.map((actor) => ({
+      id: `actor:${actor.id}`,
+      title: `@${actorAddress(actor)}`,
+      icon: <ActorIcon actor={actor} className="size-5" view={view} />,
+      content: <ActorRunPanelChat actor={actor} cardSections={cardSections} navigation={navigation} notice={notice} onNavigate={navigate} session={session} view={view} />,
+    })) : []} />;
   const appActions = elements.length > 0 && <DockWindowActions items={elements.map(({ definition }) => ({ id: definition.id, title: definition.title ?? definition.id, icon: <LayoutGridIcon /> }))}
     onOpen={(id) => host.openApp(runId, id, elements.find(({ definition }) => definition.id === id)?.definition.title ?? id)} />;
   return <div className="flex min-h-0 min-w-0 flex-1 flex-col bg-app" data-run-panel="run">

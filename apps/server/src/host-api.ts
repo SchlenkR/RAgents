@@ -12,7 +12,7 @@ export const hostApi: { readonly server: HostApiModules; readonly web: HostApiMo
     "@ragents/engine": [
       "DomainError", "RPC_ERROR_CODES", "RpcError", "ScriptDriver", "ToolRegistry", "actorByHandle",
       "actorByReference", "actorDescriptionMaxLength", "actorInputSchema", "addressFrom", "addressOf", "agentTools", "assertJsonValue", "builtinProfiles", "canonicalHash",
-      "compileVirtualTypeScriptAsync", "defineRunFunction", "defineToolAvailability", "emptyUsage",
+      "compileVirtualTypeScriptAsync", "contextToolResults", "defineRunFunction", "defineToolAvailability", "emptyUsage",
       "enqueueActorInput", "eventResultSchemaOf", "freeRoomName", "handleKey", "holdsUsable", "implement", "implementChannel", "inheritedGrants",
       "isRunId", "isThinkingLevel", "hasWorkstationOwner", "modelToolDescriptors", "pluginStateAt", "runCapabilityBindingHash",
       "runCapabilityContractHash", "schemaComplaints", "scriptInputOf", "serviceToken",
@@ -154,13 +154,13 @@ export const hostApi: { readonly server: HostApiModules; readonly web: HostApiMo
     "@ragents/web/rpc": ["rpc"],
     "@ragents/web/run-panel/input-bridge": ["hostInputEnabled", "isRunPanelKeyboardMessage", "relayFrameInput"],
     "@ragents/web/run-apps": ["runApps", "selectedRunApp", "RunAppView"],
-    "@ragents/web/run-panel/DockWorkspace": ["DockWindowActions", "DockWorkspace", "useDockActiveApp"],
+    "@ragents/web/run-panel/DockWorkspace": ["DockWindowActions", "DockWorkspace", "useDockActiveApp", "useDockActivePanel", "useDockPanelDrag"],
     "@ragents/web/run-panel/host": ["useRunPanelHost"],
     "@ragents/web/run-view": [
       "actorAddress", "actorPluginState", "actorTone", "chatPrimaryId", "isPendingRunActorInput", "runActorFrom",
       "runArtifactContentUrl", "runViewFrom",
     ],
-    "@ragents/web/theme": ["useResolvedTheme"],
+    "@ragents/web/theme": ["useResolvedTheme", "useTableDensity"],
     "@ragents/web/toolLine": ["withToolSummaries"],
     "@ragents/web/ui": [
       "Alert", "AlertDescription", "AlertTitle", "Badge", "Button", "Card", "ChoiceSelect", "Combobox", "ComboboxContent",

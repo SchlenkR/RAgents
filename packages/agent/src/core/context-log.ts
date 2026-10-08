@@ -1,5 +1,6 @@
 import type { AgentMessage } from "../loop/index.ts";
 import { createCompactionSummaryMessage } from "./messages.ts";
+import { contextToolResults, retainedToolResultMessage } from "./tool-results.ts";
 
 /** A compaction replaces every entry before its first kept entry with its summary. */
 export interface ContextCompaction {
@@ -11,6 +12,7 @@ export interface ContextCompaction {
 	timestamp: number;
 	readFiles: string[];
 	modifiedFiles: string[];
+	retainedToolResultIds?: string[];
 }
 
 /** One entry of an agent's model context in the order the conversation produced it. */
@@ -30,8 +32,13 @@ export function activeContextEntries(entries: readonly ContextLogEntry[]): Conte
 	if (!compaction) return [...entries];
 	const compactionIndex = entries.indexOf(compaction);
 	const firstKeptIndex = entries.findIndex((entry, index) => index < compactionIndex && entry.id === compaction.firstKeptId);
+	const retained = new Set(compaction.retainedToolResultIds ?? []);
+	const results = retained.size === 0 ? [] : contextToolResults(entries.slice(0, firstKeptIndex < 0 ? compactionIndex : firstKeptIndex));
+	const preserved = results.filter((result) => retained.has(result.entryId));
+	if (preserved.length !== retained.size) throw new Error("Compaction names a retained tool result outside its archived context.");
 	return [
 		compaction,
+		...preserved.map((result): ContextLogEntry => ({ kind: "message", id: result.entryId, message: retainedToolResultMessage(result) })),
 		...(firstKeptIndex < 0 ? [] : entries.slice(firstKeptIndex, compactionIndex)),
 		...entries.slice(compactionIndex + 1),
 	];

@@ -1,10 +1,10 @@
-import { createContext, useCallback, useContext, useEffect, useLayoutEffect, useRef, useState, type PointerEvent, type ReactNode } from "react";
+import { createContext, useCallback, useContext, useEffect, useLayoutEffect, useRef, useState, type PointerEvent, type ReactNode, type RefObject } from "react";
 import { createPortal } from "react-dom";
 import { ArrowDownIcon, ArrowLeftIcon, ArrowRightIcon, ArrowUpIcon, LayoutGridIcon, MaximizeIcon, MinimizeIcon, PanelRightCloseIcon, PanelRightOpenIcon, SquareDashedIcon, SquareIcon, UsersIcon, XIcon } from "lucide-react";
 import type { SessionContext, SessionNavigation, WorkspaceTabContribution } from "../PluginRegistry";
 import { RunAppView, type RunApp } from "../run-apps";
 import { Badge, InteractiveItem, BadgeDisplayProvider, Button, cn, Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "../ui";
-import { activateAvailableDockTabs, activeDockTool, addDockEmptyPane, appPanelId, closeDockPanels, dockButtonPlacement, dockGroups, dockWindowOrder, emptyPanelId, focusedDockWindow, initialDockState, isEmptyPanel, isToolPanel, moveDockButton, moveDockPanels, moveDockWindow, reconcileDockState, resizeDockSplit, returnDockTool, revealDockPanel, transitionDockSide, selectDockPanel, tabWindowId, toolPanelId, visibleDockState, workspaceTabPanelId, type DockGroup, type DockButtonPlacement, type DockState } from "./dock-state";
+import { activateAvailableDockTabs, activeDockTool, addDockEmptyPane, addDockView, appPanelId, closeDockPanels, dockButtonPlacement, dockGroups, dockWindowOrder, emptyPanelId, focusedDockWindow, initialDockState, isEmptyPanel, isToolPanel, moveDockButton, moveDockPanels, moveDockWindow, reconcileDockState, resizeDockSplit, returnDockTool, revealDockPanel, transitionDockSide, selectDockPanel, tabWindowId, toolPanelId, viewPanelId, visibleDockState, workspaceTabPanelId, type DockGroup, type DockButtonPlacement, type DockState } from "./dock-state";
 import { DOCK_DIVIDER_SIZE, DOCK_HEADER_HEIGHT, containsPoint, dockGeometry, dockHitTest, type DockPoint, type DockRect } from "./dock-geometry";
 import { useDockPointer } from "./dock-pointer";
 import { useDockStorage } from "./dock-storage";
@@ -15,7 +15,20 @@ import { WorkspaceTabPanel } from "./WorkspaceTabPanel";
 
 export { DockWindowActions } from "./DockWindowActions";
 
-export const DockToolsContext = createContext<{ tabs: readonly WorkspaceTabContribution[]; pendingTabIds: readonly string[]; actionsContainer?: HTMLElement | null }>({ tabs: [], pendingTabIds: [] });
+export type DockPanelDrag = (event: PointerEvent<HTMLElement>, id: string, click: () => void, onStart?: () => void) => void;
+export interface DockPanel {
+  readonly id: string;
+  readonly title: string;
+  readonly icon?: ReactNode;
+  readonly content: ReactNode;
+}
+export const DockToolsContext = createContext<{ tabs: readonly WorkspaceTabContribution[]; pendingTabIds: readonly string[]; actionsContainer?: HTMLElement | null; panelDrag?: RefObject<DockPanelDrag | undefined> }>({ tabs: [], pendingTabIds: [] });
+
+export function useDockPanelDrag(): DockPanelDrag | undefined {
+  const { panelDrag } = useContext(DockToolsContext);
+  const start = useCallback<DockPanelDrag>((event, id, click, onStart) => panelDrag?.current?.(event, id, click, onStart), [panelDrag]);
+  return panelDrag ? start : undefined;
+}
 const areaHeaderClass = "absolute z-20 flex min-w-0 items-stretch overflow-hidden rounded-t-lg border-b border-border bg-card";
 const cardClass = "pointer-events-none absolute rounded-lg border bg-card";
 const tabClass = "flex min-w-0 flex-1 items-center hover:bg-hover";
@@ -35,25 +48,31 @@ const newId = () => crypto.randomUUID();
 const EMPTY_PANE_ENTRY = "empty";
 const EMPTY_PANE_TITLE = "Empty space";
 
+export function useDockActivePanel(runId: string): string | undefined {
+  const { state } = useDockStorage(runId);
+  return (state.side.focused ? state.side.tab : focusedDockWindow(state)) ?? undefined;
+}
+
 /** The layout key (`RunApp.layoutKey`) of the app in the focused area or the focused sidebar. */
 export function useDockActiveApp(runId: string): string | undefined {
-  const { state } = useDockStorage(runId);
-  const active = state.side.focused ? state.side.tab : focusedDockWindow(state);
+  const active = useDockActivePanel(runId);
   return active?.startsWith("app:") ? active.slice(4) : undefined;
 }
 
-export function DockWorkspace({ apps, chat, chatIcon = <UsersIcon />, navigation, session }: {
+export function DockWorkspace({ apps, chat, chatIcon = <UsersIcon />, navigation, panels = [], session }: {
   apps: readonly RunApp[];
   chat: ReactNode;
   chatIcon?: ReactNode;
   navigation: SessionNavigation;
+  panels?: readonly DockPanel[];
   session: SessionContext;
 }) {
-  const { tabs, pendingTabIds, actionsContainer } = useContext(DockToolsContext);
+  const { tabs, pendingTabIds, actionsContainer, panelDrag } = useContext(DockToolsContext);
   const { state: stored, error, update } = useDockStorage(session.session.id);
   const [size, setSize] = useState({ width: 0, height: 0 });
   const splitApps = size.width >= 1000;
-  const panelIds = ["chat", ...tabs.filter((tab) => tab.placement === "window").map((tab) => tabWindowId(tab.id)), ...apps.map((app) => appPanelId(app.layoutKey))];
+  const defaultPanels = ["chat", ...tabs.filter((tab) => tab.placement === "window").map((tab) => tabWindowId(tab.id)), ...apps.map((app) => appPanelId(app.layoutKey))];
+  const panelIds = [...defaultPanels, ...panels.map(({ id }) => viewPanelId(id)).filter((id) => stored.known.includes(id))];
   const toolIds = tabs.filter((tab) => tab.placement !== "window").map((tab) => toolPanelId(tab.id));
   const catalog = [...panelIds, ...toolIds];
   const catalogKey = JSON.stringify([panelIds, toolIds]);
@@ -122,13 +141,13 @@ export function DockWorkspace({ apps, chat, chatIcon = <UsersIcon />, navigation
     return () => window.removeEventListener("keydown", escape);
   }, [stored.maximized, stored.side.tab, update]);
   const emptyPanes = state.known.filter(isEmptyPanel);
-  const labels = new Map<string, string>([["chat", "Chat"], ...apps.map((app) => [appPanelId(app.layoutKey), app.definition.title ?? app.definition.id] as const), ...tabs.map((tab) => [workspaceTabPanelId(tab), tab.label] as const),
+  const labels = new Map<string, string>([["chat", "Chat"], ...panels.map((panel) => [viewPanelId(panel.id), panel.title] as const), ...apps.map((app) => [appPanelId(app.layoutKey), app.definition.title ?? app.definition.id] as const), ...tabs.map((tab) => [workspaceTabPanelId(tab), tab.label] as const),
     [EMPTY_PANE_ENTRY, EMPTY_PANE_TITLE], ...emptyPanes.map((id) => [id, EMPTY_PANE_TITLE] as const)]);
   const title = (id: string) => labels.get(id) ?? id;
   const tabFor = (id: string | null) => tabs.find((tab) => workspaceTabPanelId(tab) === id);
   const icon = (id: string) => {
     const ToolIcon = tabFor(id)?.Icon;
-    return id === "chat" ? chatIcon : ToolIcon ? <ToolIcon /> : id === EMPTY_PANE_ENTRY || isEmptyPanel(id) ? <SquareDashedIcon /> : <LayoutGridIcon />;
+    return id === "chat" ? chatIcon : panels.find((panel) => viewPanelId(panel.id) === id)?.icon ?? (ToolIcon ? <ToolIcon /> : id === EMPTY_PANE_ENTRY || isEmptyPanel(id) ? <SquareDashedIcon /> : <LayoutGridIcon />);
   };
   const marker = (tab: WorkspaceTabContribution, active: boolean) => pendingTabIds.includes(tab.id) && activeDockTool(state) !== tab.id ? <Badge tone="info">New activity</Badge>
     : tab.Badge && <tab.Badge active={active} navigation={navigation} selection={navigation.selectionFor(tab.id)} session={session} />;
@@ -147,7 +166,7 @@ export function DockWorkspace({ apps, chat, chatIcon = <UsersIcon />, navigation
     const from = windows.indexOf(id);
     return id === EMPTY_PANE_ENTRY || (from >= 0 && (slot === from || slot === from + 1)) ? null : slot;
   };
-  const startDrag = (event: PointerEvent<HTMLElement>, ids: readonly string[], click?: () => void, header = false) => {
+  const startDrag = (event: PointerEvent<HTMLElement>, ids: readonly string[], click?: () => void, header = false, onStart?: () => void, captureElement = event.currentTarget) => {
     if (ids.length === 0 || event.button !== 0) return;
     holdSide();
     sidePressed.current = true;
@@ -157,7 +176,7 @@ export function DockWorkspace({ apps, chat, chatIcon = <UsersIcon />, navigation
     let started = false;
     pointer(event, (point) => {
       if (!started && Math.hypot(point.x - start.x, point.y - start.y) < 6) return;
-      started = true;
+      if (!started) { started = true; onStart?.(); }
       setDrag({ ids, point: localPoint(point, bounds, zoom), header, slot: header ? headerSlot(point, ids[0]) : undefined });
     }, (point) => {
       setDrag(undefined);
@@ -174,9 +193,17 @@ export function DockWorkspace({ apps, chat, chatIcon = <UsersIcon />, navigation
         return;
       }
       const hit = dockHitTest(localPoint(point, bounds, zoom), workspace, geometry.groups, barRect, ids.every(isToolPanel));
-      if (hit.target) update((current) => ids[0] === EMPTY_PANE_ENTRY ? addDockEmptyPane(current, emptyPanelId(newId()), hit.target, splitApps, newId) : moveDockPanels(current, ids, hit.target!, newId));
-    });
+      if (hit.target) update((current) => ids[0] === EMPTY_PANE_ENTRY ? addDockEmptyPane(current, emptyPanelId(newId()), hit.target, splitApps, newId)
+        : panels.some((panel) => viewPanelId(panel.id) === ids[0]) ? addDockView(current, ids[0], hit.target!, newId) : moveDockPanels(current, ids, hit.target!, newId));
+    }, captureElement);
   };
+  useLayoutEffect(() => {
+    if (!panelDrag) return;
+    panelDrag.current = (event, id, click, onStart) => {
+      if (panels.some((panel) => panel.id === id)) startDrag(event, [viewPanelId(id)], click, false, onStart, container.current!);
+    };
+    return () => { panelDrag.current = undefined; };
+  });
   const moveWindow = (id: string, offset: -1 | 1) => {
     const target = windows.indexOf(id) + offset;
     if (target >= 0 && target < windows.length) update((current) => moveDockWindow(current, id, windows[offset < 0 ? target : target + 1] ?? null));
@@ -277,7 +304,7 @@ export function DockWorkspace({ apps, chat, chatIcon = <UsersIcon />, navigation
     onMove={moveWindow}
     onOpen={reveal}
     onMoveToSidebar={(id) => moveButton(id, "sidebar")}
-    onReset={() => update(() => reconcileDockState(initialDockState(panelIds, toolIds), panelIds, toolIds, splitApps), true)}
+    onReset={() => update(() => reconcileDockState(initialDockState(defaultPanels, toolIds), defaultPanels, toolIds, splitApps), true)}
   />;
   return <div className="flex min-h-0 min-w-0 flex-1 flex-col bg-app" data-docking="workspace">
     {actionsContainer ? createPortal(actions, actionsContainer) : actions}
@@ -320,6 +347,7 @@ export function DockWorkspace({ apps, chat, chatIcon = <UsersIcon />, navigation
           }, () => setResizing(undefined));
         }} ><DockGrip horizontal={split.axis === "vertical"} /></div>)}
       {panel("chat", chat)}
+      {panels.filter(({ id }) => catalog.includes(viewPanelId(id)) && (visited.includes(viewPanelId(id)) || visible.includes(viewPanelId(id)))).map(({ id, content }) => panel(viewPanelId(id), content))}
       {emptyPanes.map((id) => panel(id, <p className="m-1.5 flex flex-1 items-center justify-center rounded-md border border-dashed border-border p-2 text-center text-xs text-muted-foreground">Drag an app or actor here</p>))}
       {apps.filter((app) => visited.includes(appPanelId(app.layoutKey)) || visible.includes(appPanelId(app.layoutKey))).map((app) => panel(appPanelId(app.layoutKey), <RunAppView app={app} key={app.definition.id} navigation={navigation} session={session} />))}
       {tabs.map((tab) => [tab, workspaceTabPanelId(tab)] as const).filter(([, id]) => visited.includes(id) || visible.includes(id)).map(([tab, id]) => panel(id, <WorkspaceTabPanel Panel={tab.Panel} active={visible.includes(id)} navigation={navigation} selection={navigation.selectionFor(tab.id)} session={session} />))}

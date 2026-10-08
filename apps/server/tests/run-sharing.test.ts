@@ -27,7 +27,7 @@ import { runContracts } from "@ragents/engine/src/http/contracts";
 import { plugin } from "../../../plugins/ragents.overseer/server/index.ts";
 import { overseerContracts } from "../../../plugins/ragents.overseer/contract.ts";
 import { coordinatorRunId, isCoordinatorRunId } from "../../../plugins/ragents.overseer/server/coordinator.ts";
-import { coreContracts } from "../src/api/contracts.ts";
+import { coreContracts, type RunSharingResult } from "../src/api/contracts.ts";
 import { coreChannels, coreMethods } from "../src/api/core-methods.ts";
 import {
   assertRunAccess,
@@ -325,7 +325,7 @@ const signedIn = (userId: string): AccessContext => {
   return createAccessContext({ enabled: true, user: { id, label, rights } });
 };
 
-type Listed = { id: string; operable: boolean; canShare?: true; shared?: true; sharedAccess?: string };
+type Listed = { id: string; operable: boolean; canShare?: true; shared?: true; sharing?: RunSharingResult["sharing"]; sharedAccess?: string };
 
 test("sharing before the start, at creation, after it, in the run list, in the channels and from the global coordinator", async (t) => {
   const { provider, management, call, connectionOf } = await startServer();
@@ -359,9 +359,17 @@ test("sharing before the start, at creation, after it, in the run list, in the c
   await t.test("each caller sees its own part of the sharing in the list, and a read share operates nothing", async () => {
     assert.deepEqual(await listed(owner), { ...await listed(owner), operable: true, canShare: true, shared: true });
     assert.equal((await listed(owner))?.sharedAccess, undefined);
+    const recipients = { everyone: null, users: [{ userId: "bob", label: "Bob", access: "read" }] };
+    assert.deepEqual((await listed(owner))?.sharing, recipients, "only the signed-in owner receives named recipients");
+    const readonlyOwner = await listed(user("alice", ["runs.read"]));
+    assert.deepEqual(readonlyOwner?.sharing, recipients, "an owner can see whom they shared with even without write rights");
+    assert.equal(readonlyOwner?.canShare, undefined, "seeing recipients grants no right to revoke");
     assert.deepEqual(await listed(administrator), { ...await listed(administrator), canShare: true, shared: true });
+    assert.equal((await listed(administrator))?.sharing, undefined, "administrative visibility does not put another owner's run in Shared by me");
+    assert.equal((await listed(anonymous))?.sharing, undefined, "unsigned access does not receive personal sharing details");
     const bob = await listed(sharee);
     assert.deepEqual([bob?.operable, bob?.sharedAccess, bob?.canShare], [false, "read", undefined]);
+    assert.equal(bob?.sharing, undefined, "a recipient does not receive the owner's recipient list");
     assert.equal(await listed(other), undefined, "carol does not see the run");
     await assert.rejects(call(other, runContracts.view.id, { runId: RUN }), code("run-not-found", 404));
     assert.ok(await call(sharee, runContracts.view.id, { runId: RUN }));
@@ -370,6 +378,9 @@ test("sharing before the start, at creation, after it, in the run list, in the c
     await assert.rejects(call(sharee, overseerContracts.stopRun.id, { run: RUN }), code("run-read-only", 403));
     await assert.rejects(call(sharee, coreContracts.runs.delete.id, { runId: RUN }), code("run-delete-denied", 403));
     await assert.rejects(call(sharee, coreContracts.runs.sharing.id, { runId: RUN }), code("run-sharing-denied", 403));
+    await assert.rejects(call(sharee, coreContracts.runs.revoke.id, { runId: RUN, target: { kind: "all" } }), code("run-sharing-denied", 403));
+    await assert.rejects(call(user("alice", ["runs.read"]), coreContracts.runs.revoke.id, { runId: RUN, target: { kind: "all" } }), code("access-denied", 403));
+    await assert.rejects(call(anonymous, coreContracts.runs.revoke.id, { runId: RUN, target: { kind: "all" } }), code("sharing-unavailable", 409));
     assert.ok(!management.view(RUN).inputs.some((input) => input.content === "Mine now"));
   });
 
@@ -427,6 +438,48 @@ test("sharing before the start, at creation, after it, in the run list, in the c
     await call(other, coreContracts.chat.send.id, { runId: FOREIGN, text: "Mine" });
     assert.equal(provider.runOwner(FOREIGN), "carol");
     assert.deepEqual(provider.runSharing(FOREIGN), notShared());
+  });
+
+  await t.test("targeted revokes keep current recipients, everyone access and other subscribers; repeated revokes write nothing", async () => {
+    const REVOCABLE = "revocable-run";
+    const initial: RunSharing = { everyone: "read", users: [{ userId: "bob", access: "write" }, { userId: "carol", access: "write" }] };
+    await call(owner, coreContracts.chat.send.id, { runId: REVOCABLE, text: "Review the draft" });
+    await share(owner, REVOCABLE, initial);
+    const bobConnection = connectionOf(sharee);
+    const carolConnection = connectionOf(other);
+    t.after(() => { bobConnection.close("Test complete"); carolConnection.close("Test complete"); });
+    for (const [access, connection] of [[sharee, bobConnection], [other, carolConnection]] as const) {
+      await call(access, RPC_METHODS.subscribe, { channel: coreContracts.channels.run.id, params: { runId: REVOCABLE } }, connection);
+    }
+    const changed: number[] = [];
+    const unsubscribe = provider.subscribeList(() => changed.push(management.view(REVOCABLE).revision), null);
+    t.after(unsubscribe);
+    const removedBob = await call(owner, coreContracts.runs.revoke.id, { runId: REVOCABLE, target: { kind: "user", userId: "bob" } }) as RunSharingResult;
+    assert.deepEqual(removedBob.sharing, { everyone: "read", users: [{ userId: "carol", label: "Carol", access: "write" }] });
+    assert.deepEqual(provider.runSharing(REVOCABLE), { everyone: "read", users: [{ userId: "carol", access: "write" }] });
+    assert.deepEqual([bobConnection.subscriptions.size, carolConnection.subscriptions.size], [1, 1], "everyone's access keeps bob's subscription alive");
+    await assert.rejects(call(sharee, coreContracts.chat.send.id, { runId: REVOCABLE, text: "Update" }), code("run-read-only", 403), "the individual write is gone but everyone still reads");
+    const revision = management.view(REVOCABLE).revision;
+    const notifications = changed.length;
+    await call(owner, coreContracts.runs.revoke.id, { runId: REVOCABLE, target: { kind: "user", userId: "bob" } });
+    assert.equal(management.view(REVOCABLE).revision, revision, "revoking the same recipient twice adds no journal entry");
+    assert.equal(changed.length, notifications, "an unchanged revoke does not notify the run list");
+    await call(owner, coreContracts.runs.revoke.id, { runId: REVOCABLE, target: { kind: "everyone" } });
+    assert.deepEqual(provider.runSharing(REVOCABLE), { everyone: null, users: [{ userId: "carol", access: "write" }] });
+    assert.deepEqual([bobConnection.subscriptions.size, carolConnection.subscriptions.size], [0, 1], "only the user who lost their last grant is disconnected");
+
+    await share(owner, REVOCABLE, initial);
+    await Promise.all([
+      call(owner, coreContracts.runs.revoke.id, { runId: REVOCABLE, target: { kind: "user", userId: "bob" } }),
+      call(owner, coreContracts.runs.revoke.id, { runId: REVOCABLE, target: { kind: "everyone" } }),
+    ]);
+    assert.deepEqual(provider.runSharing(REVOCABLE), { everyone: null, users: [{ userId: "carol", access: "write" }] }, "simultaneous revokes apply to current state without restoring a revoked grant");
+    const lastChange = management.events(REVOCABLE).filter((event) => event.type === "run.sharing-changed").at(-1)!;
+    assert.equal(lastChange.payload.changedBy, "alice");
+    const removedAll = await call(administrator, coreContracts.runs.revoke.id, { runId: REVOCABLE, target: { kind: "all" } }) as RunSharingResult;
+    assert.deepEqual(removedAll.sharing, notShared(), "an administrator can revoke all under the same sharing policy");
+    assert.deepEqual([bobConnection.subscriptions.size, carolConnection.subscriptions.size], [0, 0]);
+    assert.equal((await call(owner, coreContracts.runs.list.id, {}) as Listed[]).find((entry) => entry.id === REVOCABLE)?.sharing, undefined, "an unshared run leaves the owner's shared overview");
   });
 
   await t.test("the global coordinator shares a run it creates from the start", async () => {

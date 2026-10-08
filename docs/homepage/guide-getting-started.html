@@ -1,6 +1,7 @@
 <!doctype html>
 <html lang="en" data-theme="light"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="description" content="Get started: public documentation for RAgents."><title>Get started - RAgents</title><link rel="alternate" type="text/markdown" href="guide-getting-started.md"><style>/*! tailwindcss v4.3.3 | MIT License | https://tailwindcss.com */
 :root, :host {
+  --spacing: 0.235rem;
   --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
 }
 :root {
@@ -73,6 +74,14 @@
   --card-shadow: 0 12px 22px #49384e2c;
   --workspace-shadow: -2px 0 5px #49384e14, -8px 0 20px #49384e1f;
   --glass-icon-shadow: 1px 2px 4px #51465725;
+}
+:root[data-density="compact"] {
+  --spacing-table-cell-x: calc(var(--spacing) * 2);
+  --spacing-table-cell-y: var(--spacing);
+}
+:root[data-density="spacious"] {
+  --spacing-table-cell-x: calc(var(--spacing) * 4);
+  --spacing-table-cell-y: calc(var(--spacing) * 4);
 }
 :root[data-theme="dark"] {
   color-scheme: dark;
@@ -488,7 +497,7 @@ bundles or an outdated interface and names <code>pnpm build:plugins</code> or <c
 Settings opens the included help. For separate static hosting, <code>pnpm generate:homepage</code> creates
 the same website under <code>docs/homepage/dist</code>.</p>
 <h2 id="create-your-first-run">Create your first run</h2>
-<p>Start shows one server&#39;s permitted templates under &quot;New&quot;, then its five recent runs under
+<p>Start shows one server&#39;s permitted templates under &quot;New&quot;, then its fifteen recent runs under
 &quot;Continue&quot;, then any plugin sections, in both the browser and VS Code. Templates begin with
 &quot;New chat&quot; or the server&#39;s default template, then skill templates with a prepared task and script
 templates with programmed setups. &quot;New chat&quot; opens an empty run whose task you write in its chat;

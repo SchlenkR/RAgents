@@ -15,6 +15,7 @@ export const config = {
     PLUGINS: [
       "ragents.orchestration",
       "ragents.workspace",
+      "ragents.compaction",
       "ragents.product",
       "ragents.overseer",
       "ragents.activity",

@@ -16,3 +16,16 @@ test("unknown layouts, hosts and themes and an app page without element are hard
   assert.throws(() => parseRunPanelLocation("?theme=blue"), /light and dark/);
   assert.throws(() => parseRunPanelLocation("?layout=app&run=run-a"), /run and element/);
 });
+
+test("run panel and app frames accept each table spacing and reject invalid query values", () => {
+  for (const layout of ["", "layout=app&run=run-a&element=board--main&"]) {
+    const base = parseRunPanelLocation(`?${layout}host=vscode`);
+    assert.equal(Object.hasOwn(base, "density"), false, "an old frame URL keeps the saved table spacing");
+    for (const density of ["compact", "comfortable", "spacious"] as const) {
+      assert.deepEqual(parseRunPanelLocation(`?${layout}host=vscode&density=${density}`), { ...base, density });
+    }
+    for (const density of ["", "auto", "Compact", "3"]) {
+      assert.throws(() => parseRunPanelLocation(`?${layout}host=vscode&density=${density}`), /Invalid table spacing.*ragents\.density/);
+    }
+  }
+});

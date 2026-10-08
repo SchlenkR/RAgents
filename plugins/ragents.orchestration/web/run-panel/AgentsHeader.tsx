@@ -27,6 +27,6 @@ export function AgentsHeader({ session }: SessionHeaderContext) {
     trigger={<Button aria-label="Agents" className="flex-none self-center" size="lg" title="Show the agents of this run" variant="ghost">
       <NetworkIcon /><span>Agents</span>
     </Button>}>
-      <ActorGraph actors={actors} onPick={pick} selectedId={selected.id} technical={inspect} view={view} />
+      <ActorGraph actors={actors} onDragStart={() => setOpen(false)} onPick={pick} selectedId={selected.id} technical={inspect} view={view} />
   </HeaderDropdown>;
 }

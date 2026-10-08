@@ -607,9 +607,11 @@ const payloadOf = (type: EventType, value: unknown, path: string) => {
                 "model",
                 "readFiles",
                 "modifiedFiles",
-            ], ["threshold"]);
+            ], ["threshold", "retainedToolResultIds"]);
             stringOf(payload.turnId, `${path}.turnId`);
             nonEmptyStringOf(payload.summary, `${path}.summary`);
+            if (Object.hasOwn(payload, "retainedToolResultIds"))
+                arrayOf(payload.retainedToolResultIds, `${path}.retainedToolResultIds`, nonEmptyStringOf);
             nonEmptyStringOf(payload.firstKeptEventId, `${path}.firstKeptEventId`);
             nonNegativeIntegerOf(payload.tokensBefore, `${path}.tokensBefore`);
             nonEmptyStringOf(payload.provider, `${path}.provider`);

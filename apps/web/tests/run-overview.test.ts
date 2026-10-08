@@ -50,6 +50,19 @@ test("a row carries the caller's sharing: who may share and whether it is shared
   assert.equal("operable" in connectionRunOf({ ...run("foreign", 3), operable: false }), false, "the row draws nothing from operable; the run panel reads it from the list");
 });
 
+test("the shared overview receives named recipients from the list without inventing them for administrators or sharees", () => {
+  const sharing = { everyone: "read" as const, users: [{ userId: "bob", label: "Bob", access: "write" as const }] };
+  const owner = connectionRunOf({ ...run("owned", 1), canShare: true, shared: true, sharing });
+  assert.deepEqual(owner.sharing, sharing);
+  assert.equal(owner.sharing, sharing, "every host carries the authoritative list's current recipients");
+  const readonlyOwner = connectionRunOf({ ...run("owned", 1), operable: false, sharing });
+  assert.deepEqual(readonlyOwner.sharing, sharing);
+  assert.equal(readonlyOwner.canShare, undefined);
+  assert.equal("sharing" in connectionRunOf({ ...run("admin-view", 2), canShare: true, shared: true }), false, "administrative sharing controls do not imply personal ownership");
+  assert.equal("sharing" in connectionRunOf({ ...run("received", 3), sharedAccess: "write" }), false);
+  assert.equal("sharing" in connectionRunOf(run("private", 4)), false);
+});
+
 test("viewed revisions go out one request per run at a time, the newest one follows, nothing lower or equal twice", async () => {
   const sent: Array<[string, number]> = [];
   const pending: Array<PromiseWithResolvers<void>> = [];

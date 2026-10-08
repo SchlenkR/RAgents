@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { canStartEntry, type AccessContext } from "../../../../packages/ragents/src/access";
-import { deleteSession, getStartOptions, markRunViewed, setStartOption, stopRun } from "../api";
+import { deleteSession, getStartOptions, markRunViewed, revokeRunShare, setStartOption, stopRun } from "../api";
 import { startEntryDirectly } from "../chat/requests";
 import { initialStartOptionUpdates, withoutFixedStartOptions } from "../StartOptions";
 import { AccessScreen, useAccess } from "../AccessContext";
@@ -10,7 +10,7 @@ import type { PluginRegistry } from "../PluginRegistry";
 import { usePluginActivation } from "../PluginActivation";
 import { PluginFailureNotice } from "../PluginFailureNotice";
 import { connectionRunOf } from "../run-overview";
-import { openSharing, REVOKED_SHARE_NOTICE, saveSharing } from "../run-sharing";
+import { openSharing, REVOKED_SHARE_NOTICE, revokeSharing, saveSharing } from "../run-sharing";
 import { PanelPage } from "../panel/PanelPage";
 import type { PanelAction, PanelState } from "../panel/contract";
 import { useSharingStore } from "../panel/SharePanel";
@@ -30,7 +30,7 @@ import { BrandLogo } from "../ui/brand-logo";
 import { RunHeader } from "./RunHeader";
 
 const headerClass = "relative z-[80] flex min-h-header flex-none flex-wrap items-center border-b border-border bg-shell shadow-bar";
-const globalBarClass = "flex max-w-[18rem] min-w-0 flex-[0_1_auto] items-center gap-1";
+const globalBarClass = "flex max-w-[18rem] min-w-0 flex-[0_1_auto] items-center gap-1 @min-[768px]/run-header:flex-none";
 const runBarClass = "flex min-w-0 max-w-[22rem] flex-[0_1_auto] items-stretch";
 const actionsBarClass = "ml-auto flex max-w-full min-w-0 flex-wrap items-center justify-end gap-1";
 const connectionClass = "max-w-[120px] self-center truncate rounded-full bg-secondary px-2 py-0.5 type-meta font-semibold text-muted-foreground";
@@ -80,6 +80,7 @@ function RunPanelPage({ connection, initialRunId, registry }: { connection: stri
   const [navigationError, setNavigationError] = useState<string>();
   const [navigationNotice, setNavigationNotice] = useState<string>();
   const [sharing, sharingStore] = useSharingStore();
+  const [revoking, revokingStore] = useSharingStore();
   /** A run this panel opened under a fresh id; before its first message the user may already choose whom it is shared with. */
   const [freshRunId, setFreshRunId] = useState<string>();
   /** The open run while it is shared with the viewer; if it then leaves the list, the share was taken back. */
@@ -258,6 +259,7 @@ function RunPanelPage({ connection, initialRunId, registry }: { connection: stri
       problem: navigationError,
       notice: navigationNotice,
       sharing,
+      revoking,
       connections: [{
         name: connectionName,
         kind: "server",
@@ -311,6 +313,10 @@ function RunPanelPage({ connection, initialRunId, registry }: { connection: stri
         case "openSharing": void openSharing(action.name, action.runId, SERVER_SHARING, sharingStore); return;
         case "share":
           void saveSharing(action.name, action.runId, action.sharing, SERVER_SHARING, sharingStore).then(refresh,
+            (cause: unknown) => setNavigationError(cause instanceof Error ? cause.message : String(cause)));
+          return;
+        case "revokeShare":
+          void revokeSharing(action.name, action.runId, action.target, revokeRunShare, revokingStore).then(refresh,
             (cause: unknown) => setNavigationError(cause instanceof Error ? cause.message : String(cause)));
           return;
         case "closeSharing": sharingStore.set(undefined); return;

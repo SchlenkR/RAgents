@@ -5,6 +5,8 @@ import type { ChatUserLocation } from "../../../server/src/chat-context";
 import { rpc } from "../rpc";
 import { sendChatMessage, startChatEntry, startSkillEntry } from "./requests";
 
+const applyEvents = (messages: Message[], events: ChatEvent[]) => events.reduce(applyEvent, messages);
+
 export function useChat(sessionId: string, onEvent?: (event: ChatEvent) => void, enabled = true): {
   messages: Message[];
   running: boolean;
@@ -14,7 +16,7 @@ export function useChat(sessionId: string, onEvent?: (event: ChatEvent) => void,
   startSkill: (entryId: string, text: string, attachments?: ChatAttachmentInput[]) => Promise<void>;
   start: (entryId: string, input: unknown) => Promise<void>;
 } {
-  const [messages, dispatch] = useReducer(applyEvent, [] as Message[]);
+  const [messages, dispatch] = useReducer(applyEvents, [] as Message[]);
   const [running, setRunning] = useState(false);
   const [connected, setConnected] = useState(false);
   const [startup, setStartup] = useState<ChatStartupStatus>();
@@ -24,15 +26,40 @@ export function useChat(sessionId: string, onEvent?: (event: ChatEvent) => void,
   useEffect(() => {
     setConnected(false);
     if (!enabled) return;
-    return rpc.subscribe(coreContracts.channels.chat, { runId: sessionId }, (event) => {
-      if (event.kind === "replay-end") setConnected(true);
-      if (event.kind === "status") {
-        setRunning(event.running);
-        setStartup(event.startup);
+    let replay: ChatEvent[] | undefined;
+    let disposed = false;
+    const publish = (events: ChatEvent[]) => {
+      for (const event of events) {
+        if (event.kind === "replay-end") setConnected(true);
+        if (event.kind === "status") {
+          setRunning(event.running);
+          setStartup(event.startup);
+        }
+        observer.current?.(event);
       }
-      observer.current?.(event);
-      dispatch(event);
-    }, () => setConnected(false));
+      dispatch(events);
+    };
+    const unsubscribe = rpc.subscribe(coreContracts.channels.chat, { runId: sessionId }, (event) => {
+      if (disposed) return;
+      if (event.kind === "reset") {
+        setConnected(false);
+        replay = event.reason === "conversation-reset" ? [] : [event];
+        if (event.reason === "conversation-reset") publish([event]);
+        return;
+      }
+      if (replay !== undefined) {
+        replay.push(event);
+        if (event.kind !== "replay-end") return;
+        const events = replay;
+        replay = undefined;
+        publish(events);
+      } else publish([event]);
+    }, () => {
+      if (disposed) return;
+      replay = undefined;
+      setConnected(false);
+    });
+    return () => { disposed = true; unsubscribe(); };
   }, [sessionId, enabled]);
 
   const send = useCallback((text: string, attachments?: ChatAttachmentInput[], userLocation?: ChatUserLocation) =>

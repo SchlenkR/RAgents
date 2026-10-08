@@ -1,6 +1,6 @@
 import { runContracts } from "@ragents/engine/src/http/contracts";
 import type { RunShareAccess, RunSharing } from "@ragents/engine/src/domain/model";
-import { coreContracts, type RunSharingResult } from "@ragents/host/api/contracts";
+import { coreContracts, type RunShareTarget, type RunSharingResult } from "@ragents/host/api/contracts";
 import { hasExactKeys, isRecord } from "./lib/guards";
 import { rpc } from "./rpc";
 import type { RpcClient } from "./rpc/client";
@@ -78,6 +78,9 @@ export const getRunSharing = (runId: string, client: RpcClient = rpc): Promise<R
 /** Replaces the whole sharing of a run; before the first message it waits for the run's creation. */
 export const shareRun = (runId: string, sharing: RunSharing, client: RpcClient = rpc): Promise<RunSharingResult> =>
   client.call(coreContracts.runs.share, { runId, sharing });
+
+export const revokeRunShare = (runId: string, target: RunShareTarget, client: RpcClient = rpc): Promise<RunSharingResult> =>
+  client.call(coreContracts.runs.revoke, { runId, target });
 
 /** Only a higher revision counts; the server keeps it per user, so every device and host of that user sees the run as read. */
 export const markRunViewed = async (runId: string, revision: number, client: RpcClient = rpc): Promise<void> => {

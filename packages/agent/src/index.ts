@@ -19,6 +19,7 @@ export {
 	shouldCompact,
 } from "./core/compaction/index.ts";
 export { convertToLlm } from "./core/messages.ts";
+export { contextToolResults, retainedToolResultMessage, type ContextToolResult } from "./core/tool-results.ts";
 export { formatSkillsForPrompt, type Skill } from "./core/skills.ts";
 export { defineTool, type ToolDefinition } from "./core/tool-definition.ts";
 export {

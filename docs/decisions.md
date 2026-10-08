@@ -1,5 +1,116 @@
 # Decisions
 
+## 2026-10-08: Preserve exact working excerpts and recover original results after compaction
+
+Chapters: `spec/core.md` (Model context, Retries and compaction, Journal), `spec/plugins.md`
+(Agent hooks, Context retention and recovery), `spec/profiles.md` (Profiles); usage and
+operations: context retention and compaction.
+
+Compaction discarded the previous checkpoint when cutting another prefix from the same turn,
+silently cut every tool result at 2000 characters before summarizing it, read obsolete `path`
+arguments for file inventories, and accepted truncated or empty checkpoints. The runtime now
+updates the previous checkpoint even without new history, summarizes complete results with tool
+images, uses `file_path`, and commits only normally completed, non-empty text. Split summaries
+share their configured output budget; repeated prefixes update the existing checkpoint in one
+call instead of accumulating separate summaries.
+
+The optional `ragents.compaction` plugin keeps a bounded set of exact file excerpts and explicit
+pins. It adds search, paged recall, and pin/release functions over the caller's original journal
+context. Selection is a plugin concern; the engine gets a generic `beforeCompaction` hook and
+retained-result projection. Retained results become independent historical user messages, so no
+orphan tool-result pairing is introduced. Whole results that exceed the working-set budget stay
+recoverable instead of being silently truncated. Pinning follows the existing
+`plugin.state.write` grant; reading originals needs no state mutation.
+
+Journal format 14 adds retained-result IDs while reading formats 7 through 13 unchanged. The
+extension interface stays at version 1: the event field is optional and existing consumers ignore
+it; its contract snapshot is updated. Run
+forks rewrite these IDs along with other event references. Restart, actor and run forks,
+repeated compaction, paging, image restoration, budgets, and summary failures are covered by
+deterministic tests. Core profiles include the plugin; removing it preserves ordinary runtime
+compaction and replay of existing checkpoints.
+
+## 2026-10-07: Preserve page position when a virtual grid mounts
+
+Chapter: `spec/plugins.md` (Web as plugin host); usage: `usage.md` (Settings).
+
+Switching a lower page section from lanes to its list reset the shared element virtualizer
+to offset zero; window virtualization could also compensate for a still-unmeasured grid offset.
+`DataGrid` now starts with the actual scroll container's position after measuring its geometry.
+Its initial extent keeps scroll-container discovery stable. The fix belongs to the common grid,
+so mount, remount, grouping, sorting, and loading preserve page position in both hosts.
+
+## 2026-10-07: One reading role and three table densities
+
+Chapters: `spec/plugins.md` (Web as plugin host), `spec/actor-programs.md` (Mini-apps);
+usage: `usage.md` (Settings, Run chat and inspection).
+
+Chat and Topic now draw reading text and Markdown heading sizes from one scale in `theme.css`.
+The smaller reading role leaves controls and metadata at their existing sizes. Table spacing
+uses the same central tokens in `Table` and `DataGrid`: Compact, Comfortable, and Spacious.
+The existing theme store retains the choice independently of light/dark appearance; VS Code
+and mini-app frames forward it without replacing their content.
+
+`HOST_API_VERSION` and `EXTENSION_API_VERSION` stay unchanged: the density hook and optional
+query/message fields are additive. Existing frames ignore the extra fields and keep Comfortable
+spacing; their existing calls retain their shape.
+
+## 2026-10-07: Inspect and revoke outgoing shares from Runs
+
+Chapters: `spec/profiles.md` (Sharing in detail), `spec/plugins.md` (Web as plugin host);
+usage: `usage.md` (Switch runs, Share runs).
+
+The new "Shared by me" tab lists an owner's shared runs and their recipients in both hosts.
+Only that owner receives recipient summaries in the run list. Selective revocation removes
+a target from the current server state, preserving other shares rather than sending a stale
+replacement. The Start page also shows fifteen recent runs by default.
+
+The extension contract records the new revoke operation and optional recipient summary without
+raising `EXTENSION_API_VERSION`: existing operations are unchanged, and older server pages do
+not offer the new revoke action. The shared server page performs revocation against its own server.
+
+## 2026-10-07: Visible chat scrollbars and a subagent count
+
+Chapter: `spec/plugins.md` (Web as plugin host, Run panel);
+usage: `usage.md` (Run chat and inspection).
+
+Every shared chat transcript has a slim native scrollbar using the host colors. Quassel now
+recognizes upward native scrollbar movement without relying on pointer events, preserving
+manual reading while content streams. The composer shows a spinner with only the number of
+working subagents instead of one actor's name; the count opens the existing agent graph.
+
+## 2026-10-07: Drag actors into separate chat windows and fit graph card text
+
+Chapter: `spec/plugins.md` (Web as plugin host, Run panel); usage: `usage.md` (Run chat and inspection).
+
+Actor cards clipped their task row because their pixel height stayed fixed as text grew.
+Their shared height now follows the root font, and text rows retain their height. Browser
+actor cards and composer chips use the existing dock gestures to create an actor-bound chat
+without changing the main chat's addressee. Optional dock views are registered only on a
+valid drop, retain their instance and layout like other windows, and disappear on layout reset.
+Workspace capture lets a source popup close during dragging without ending the gesture.
+
+## 2026-10-07: Publish chat replay together and preserve upward scrolling
+
+Chapter: `spec/plugins.md` (Web as plugin host); usage: `usage.md` (Run chat and inspection).
+
+Each replay first cleared the visible transcript and then rendered partial history, making
+messages disappear and moving readers back to the end. `useChat` now stages replay until its end,
+including status and plugin events, while keeping the previous transcript during reconnects.
+The existing quassel patch also pauses following when native scrolling reaches the top before
+the wheel handler and prevents a queued scroll at the old position from resuming it. Browser
+regressions cover opening, reconnecting while reading, interrupted replay, explicit reset, and
+the queued scroll event.
+
+## 2026-10-07: Shrink the run title before wrapping desktop header actions
+
+Chapter: `spec/plugins.md` (Web as plugin host); usage: `usage.md` (Run chat and inspection).
+
+A long title pushed the fixed actions onto a second row at medium desktop widths, leaving
+window buttons on a third row. Header container queries keep the fixed groups on one row
+from 768px and let the title shrink; narrower panels retain wrapping. Browser regressions
+cover the failing 920px width in both hosts, app growth, and resizing across the breakpoint.
+
 ## 2026-10-07: Chromium's sandbox can be turned off for a server in a hardened container
 
 Chapters: `spec/plugins.md` (Browser checks, Open limits); operations: `operations.md` (Provide a

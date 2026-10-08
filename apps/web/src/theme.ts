@@ -1,5 +1,6 @@
 import { useSyncExternalStore } from "react";
 import { subscribeStorageChanges } from "./lib/local-storage-setting";
+import { DENSITY_STORAGE_KEY, parseTableDensity, type TableDensity } from "./table-density";
 
 export const THEME_STORAGE_KEY = "ragents.theme";
 export type ThemePreference = "light" | "dark" | "system";
@@ -14,6 +15,7 @@ export const themeOptions = [
 interface ThemeSnapshot {
   preference: ThemePreference;
   appearance: ResolvedTheme;
+  density: TableDensity;
   error: string | null;
 }
 
@@ -28,15 +30,17 @@ const errorMessage = (cause: unknown) => cause instanceof Error ? cause.message 
 export function createThemeStore(browser: Window) {
   let storage: Storage;
   let preference: ThemePreference;
+  let density: TableDensity;
   try {
     storage = browser.localStorage;
     preference = parseThemePreference(storage.getItem(THEME_STORAGE_KEY));
+    density = parseTableDensity(storage.getItem(DENSITY_STORAGE_KEY));
   } catch (cause) {
     throw new Error(`The saved theme could not be loaded. ${errorMessage(cause)}`);
   }
   const media = browser.matchMedia("(prefers-color-scheme: dark)");
   const appearanceOf = (value: ThemePreference): ResolvedTheme => value === "system" ? media.matches ? "dark" : "light" : value;
-  let snapshot: ThemeSnapshot = { preference, appearance: appearanceOf(preference), error: null };
+  let snapshot: ThemeSnapshot = { preference, appearance: appearanceOf(preference), density, error: null };
   const listeners = new Set<() => void>();
   let watchingSystem = false;
   let disposed = false;
@@ -64,7 +68,7 @@ export function createThemeStore(browser: Window) {
     const appearance = appearanceOf(next);
     browser.document.documentElement.dataset.theme = appearance;
     if (snapshot.preference === next && snapshot.appearance === appearance && snapshot.error === null) return;
-    snapshot = { preference: next, appearance, error: null };
+    snapshot = { ...snapshot, preference: next, appearance, error: null };
     notify();
   }
 
@@ -73,17 +77,26 @@ export function createThemeStore(browser: Window) {
     notify();
   }
 
+  function applyDensity(next: TableDensity) {
+    browser.document.documentElement.dataset.density = next;
+    if (snapshot.density === next && snapshot.error === null) return;
+    snapshot = { ...snapshot, density: next, error: null };
+    notify();
+  }
+
   function storageChanged(event: StorageEvent) {
     if (event.storageArea !== storage) return;
     try {
       apply(parseThemePreference(storage.getItem(THEME_STORAGE_KEY)));
+      applyDensity(parseTableDensity(storage.getItem(DENSITY_STORAGE_KEY)));
     } catch (cause) {
       reportError(`The theme from another browser tab could not be applied. ${errorMessage(cause)}`);
     }
   }
 
   apply(preference);
-  const unsubscribeStorage = subscribeStorageChanges(browser, (key) => key === THEME_STORAGE_KEY, storageChanged);
+  applyDensity(density);
+  const unsubscribeStorage = subscribeStorageChanges(browser, (key) => key === THEME_STORAGE_KEY || key === DENSITY_STORAGE_KEY, storageChanged);
 
   return {
     getSnapshot: () => snapshot,
@@ -100,6 +113,16 @@ export function createThemeStore(browser: Window) {
         apply(next);
       } catch (cause) {
         reportError(`The theme could not be saved. ${errorMessage(cause)}`);
+      }
+    },
+    setDensity(next: TableDensity) {
+      if (disposed) throw new Error("The theme has already been disposed.");
+      try {
+        parseTableDensity(next);
+        storage.setItem(DENSITY_STORAGE_KEY, next);
+        applyDensity(next);
+      } catch (cause) {
+        reportError(`The table spacing could not be saved. ${errorMessage(cause)}`);
       }
     },
     dispose() {
@@ -132,4 +155,9 @@ export function getResolvedTheme(): ResolvedTheme {
 
 export function useResolvedTheme(): ResolvedTheme {
   return useSyncExternalStore(getThemeStore().subscribe, getResolvedTheme);
+}
+
+export function useTableDensity(): TableDensity {
+  const store = getThemeStore();
+  return useSyncExternalStore(store.subscribe, () => store.getSnapshot().density);
 }

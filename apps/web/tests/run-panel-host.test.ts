@@ -75,6 +75,28 @@ test("server page commands accept Start and Runs with a notice, and a start requ
   assert.equal(isRunPanelHostMessage({ type: "pageChanged", page: undefined }), false);
 });
 
+test("table spacing crosses the VS Code host in both directions only as a valid parent command", () => {
+  const { browser, parent, posted, receive } = fakeWindow();
+  const host = createVsCodeHost(browser);
+  const commands: HostRunPanelMessage[] = [];
+  host.onCommand((message) => commands.push(message));
+  for (const density of ["compact", "comfortable", "spacious"] as const) {
+    const command = { type: "density" as const, density };
+    assert.equal(isHostRunPanelMessage(command), true);
+    assert.equal(isRunPanelHostMessage({ type: "densityChanged", density }), true);
+    receive({}, command);
+    receive(parent, command);
+    host.notify({ type: "densityChanged", density });
+  }
+  for (const density of [undefined, null, "", 3, {}]) {
+    assert.equal(isHostRunPanelMessage({ type: "density", density }), false);
+    assert.equal(isRunPanelHostMessage({ type: "densityChanged", density }), false);
+    receive(parent, { type: "density", density });
+  }
+  assert.deepEqual(commands, ["compact", "comfortable", "spacious"].map((density) => ({ type: "density", density })));
+  assert.deepEqual(posted, ["compact", "comfortable", "spacious"].map((density) => ({ message: { type: "densityChanged", density }, origin: "*" })));
+});
+
 test("a vscode host without an embedding page is an error", () => {
   const browser = { parent: undefined as unknown } as unknown as Window;
   (browser as unknown as { parent: unknown }).parent = browser;

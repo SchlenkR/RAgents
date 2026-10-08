@@ -81,8 +81,9 @@ const registry = new PluginRegistry({
 const fixture = {
   activation: { status: "ready", registry, failures: [] } as PluginActivationState,
   unexpected: [] as string[],
+  sent: [] as { runId: string; actorId: string; text: string }[],
   chat(runId: string, event: unknown) { subscriptions.forEach((entry) => { if (entry.id === "ragents.chat" && entry.runId === runId) entry.message(event); }); },
-  async call(contract: { id: string }, params: { runId?: string }) {
+  async call(contract: { id: string }, params: { runId?: string; actorId?: string; text?: string }) {
     switch (contract.id) {
       case "ragents.runs.view": return params.runId === "demo" ? view : null;
       case "ragents.runs.list": return [{ id: "demo", title: "Rule review", updatedAt: 0, running: false, state: "idle", pendingActions: 0, workspaceAccessible: true }];
@@ -90,6 +91,11 @@ const fixture = {
       case "ragents.startOptions.list": return [];
       case "ragents.chat.actorHistory": return { actors: conversations };
       case "ragents.chat.capabilities": return { input: ["text"], model: "demo-model" };
+      case "ragents.chat.sendToActor": {
+        if (!params.runId || !params.actorId || !params.text) throw new Error("An actor message requires a run, actor, and text.");
+        fixture.sent.push({ runId: params.runId, actorId: params.actorId, text: params.text });
+        return null;
+      }
       default: fixture.unexpected.push(contract.id); return null;
     }
   },
@@ -103,8 +109,9 @@ const fixture = {
 declare global { interface Window { actorGraphFixture: typeof fixture } }
 window.actorGraphFixture = fixture;
 
+const hostKind = new URLSearchParams(location.search).get("host") === "browser" ? "browser" : "vscode";
 const host: RunPanelHost = {
-  kind: "vscode", machines: "all",
+  kind: hostKind, machines: hostKind === "browser" ? "server" : "all",
   openApp() {}, requestLogin() {}, requestLogout() {}, openExternal() {}, openPage() {}, openService() {},
   onCommand: () => () => {}, notify() {},
 };
@@ -112,6 +119,6 @@ const access = createAccessContext({ enabled: true, user: { id: "tester", label:
 
 createRoot(document.getElementById("root")!).render(<QuasselHost><AccessContext.Provider value={{ ...access, logout: async () => {} }}>
   <RunPanelHostProvider value={host}>
-    <RunPanelApp location={{ layout: "panel", runId: "demo", host: "vscode", connection: "lokal", theme: undefined, access: undefined }} />
+    <RunPanelApp location={{ layout: "panel", runId: "demo", host: hostKind, connection: "local", theme: undefined, access: undefined }} />
   </RunPanelHostProvider>
 </AccessContext.Provider></QuasselHost>);

@@ -24,6 +24,7 @@ export const connectionRunOf = (session: ListedSession): ConnectionRun => {
     ...(session.locked !== undefined ? { locked: session.locked } : {}),
     ...(session.canShare ? { canShare: true } : {}),
     ...(session.shared ? { shared: true } : {}),
+    ...(session.sharing !== undefined ? { sharing: session.sharing } : {}),
     ...(session.sharedAccess !== undefined ? { sharedAccess: session.sharedAccess } : {}),
   };
 };

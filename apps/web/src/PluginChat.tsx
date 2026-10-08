@@ -29,7 +29,7 @@ import { useAttachmentCapabilities } from "./chat/useAttachmentCapabilities";
 import { StartSelection } from "./StartSelection";
 import { StatusGroup } from "./StatusGroup";
 import { RunPanelHeader } from "./run-panel/RunPanelHeader";
-import { DockToolsContext, DockWorkspace } from "./run-panel/DockWorkspace";
+import { DockToolsContext, DockWorkspace, type DockPanelDrag } from "./run-panel/DockWorkspace";
 import { activeDockTool, selectDockPanel, workspaceTabPanelId } from "./run-panel/dock-state";
 import { useDockStorage } from "./run-panel/dock-storage";
 import { useRunPanelHost } from "./run-panel/host";
@@ -317,7 +317,9 @@ function ChatWorkspace({
 }: ChatWorkspaceProps) {
   const access = useAccess();
   const [dockActionsContainer, setDockActionsContainer] = useState<HTMLDivElement | null>(null);
-  const dockTools = useMemo(() => ({ tabs, pendingTabIds, actionsContainer: dockActionsContainer }), [tabs, pendingTabIds, dockActionsContainer]);
+  const host = useRunPanelHost();
+  const panelDrag = useRef<DockPanelDrag | undefined>(undefined);
+  const dockTools = useMemo(() => ({ tabs, pendingTabIds, actionsContainer: dockActionsContainer, panelDrag: host.kind === "browser" && typeof layout !== "object" ? panelDrag : undefined }), [tabs, pendingTabIds, dockActionsContainer, host.kind, layout]);
   const headerContributions = registry.headersFor(session, access);
   const startSession = useMemo<SessionContext>(() => {
     const attempt = async (work: () => Promise<void>) => {
@@ -342,7 +344,6 @@ function ChatWorkspace({
       document.title = previous;
     };
   }, [attentionActive]);
-  const host = useRunPanelHost();
   const hasWorkspace = host.kind === "vscode" && !startDialog && tabs.length > 0;
   const SurfaceRunPanel = registry.surface?.RunPanel;
   const bindCompactContainers = useCallback((element: HTMLDivElement | null) => {
@@ -377,36 +378,38 @@ function ChatWorkspace({
     <RunPanelHeader actionsRef={setDockActionsContainer} attention={attention} contributions={headerContributions} navigation={navigation} registry={registry} runError={runError} session={session} working={session.running} />, headerContainer);
 
   return (
-    <div className="flex min-h-0 min-w-0 flex-1 flex-col">
-      {status}
-      {header}
-      <div className="relative isolate flex min-h-0 min-w-0 flex-1" ref={bindCompactContainers}>
-        {typeof layout === "object"
-          ? <SurfaceElementView elementId={layout.element} navigation={navigation} registry={registry} session={session} />
-          : <DockToolsContext.Provider value={dockTools}>
-            <div className="relative flex min-h-0 min-w-0 flex-1 flex-col">
-              {SurfaceRunPanel
-                ? <SurfaceRunPanel
-                  autoFocusChat={autoFocusChat}
-                  onAutoFocusChatSettled={onAutoFocusChatSettled}
-                  toolbarContainer={dockActionsContainer ?? toolbarContainer}
-                  statusContainer={statusContainer}
-                  cardSections={registry.cardSections}
-                  surfaceElements={registry.surfaceElements}
-                  navigation={navigation}
-                  renderChat={renderChat}
-                  session={session}
-                  tabIds={tabs.map((tab) => tab.id)}
-                />
-                : host.kind === "browser"
-                  ? <DockWorkspace apps={runApps(session, registry.surfaceElements)} chat={renderChat()} navigation={navigation} session={session} />
-                  : <DefaultCenter renderChat={renderChat} />}
-              {hasWorkspace && <RunPanelWorkspace navigation={navigation} onClose={onTogglePanel} open={panelState === "expanded"} session={session} tabs={tabs} />}
-            </div>
-            {hasWorkspace && <RunPanelRail navigation={navigation} onClose={onTogglePanel} open={panelState === "expanded"} pendingTabIds={pendingTabIds} session={session} tabs={tabs} />}
-          </DockToolsContext.Provider>}
+    <DockToolsContext.Provider value={dockTools}>
+      <div className="flex min-h-0 min-w-0 flex-1 flex-col">
+        {status}
+        {header}
+        <div className="relative isolate flex min-h-0 min-w-0 flex-1" ref={bindCompactContainers}>
+          {typeof layout === "object"
+            ? <SurfaceElementView elementId={layout.element} navigation={navigation} registry={registry} session={session} />
+            : <>
+              <div className="relative flex min-h-0 min-w-0 flex-1 flex-col">
+                {SurfaceRunPanel
+                  ? <SurfaceRunPanel
+                    autoFocusChat={autoFocusChat}
+                    onAutoFocusChatSettled={onAutoFocusChatSettled}
+                    toolbarContainer={dockActionsContainer ?? toolbarContainer}
+                    statusContainer={statusContainer}
+                    cardSections={registry.cardSections}
+                    surfaceElements={registry.surfaceElements}
+                    navigation={navigation}
+                    renderChat={renderChat}
+                    session={session}
+                    tabIds={tabs.map((tab) => tab.id)}
+                  />
+                  : host.kind === "browser"
+                    ? <DockWorkspace apps={runApps(session, registry.surfaceElements)} chat={renderChat()} navigation={navigation} session={session} />
+                    : <DefaultCenter renderChat={renderChat} />}
+                {hasWorkspace && <RunPanelWorkspace navigation={navigation} onClose={onTogglePanel} open={panelState === "expanded"} session={session} tabs={tabs} />}
+              </div>
+              {hasWorkspace && <RunPanelRail navigation={navigation} onClose={onTogglePanel} open={panelState === "expanded"} pendingTabIds={pendingTabIds} session={session} tabs={tabs} />}
+            </>}
+        </div>
       </div>
-    </div>
+    </DockToolsContext.Provider>
   );
 }
 

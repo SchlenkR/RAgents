@@ -9,6 +9,7 @@ import type { AssistantMessage, ImageContent, TextContent, ToolResultMessage, Us
 import type { EventPayloads, JournalEvent, ModelInputContent, ModelToolResultPart } from "../domain/events.ts";
 import type { JsonValue } from "../domain/json.ts";
 import { pluginStateKey } from "../domain/model.ts";
+import { forkContextCut } from "../domain/model-context-boundary.ts";
 import { derivedToolResultText } from "../domain/tool-result-text.ts";
 import type { ModelContextRecord, TurnRequest } from "../drivers/types.ts";
 import type { Orchestration } from "../runtime/orchestration.ts";
@@ -132,6 +133,7 @@ class OwnContextLog {
                     timestamp: timeOf(event),
                     readFiles: [...event.payload.readFiles],
                     modifiedFiles: [...event.payload.modifiedFiles],
+                    ...(event.payload.retainedToolResultIds ? { retainedToolResultIds: [...event.payload.retainedToolResultIds] } : {}),
                 });
                 return true;
 
@@ -179,23 +181,6 @@ const toolResultMessageOf = (
     };
 };
 
-/** Where a fork cuts its source: before the source's turn that was still running at the spawn, else at the spawn. */
-const forkCut = (events: readonly JournalEvent[], source: string, spawnSequence: number): number => {
-    const running = new Map<string, number>();
-
-    for (const event of events) {
-        if (event.sequence >= spawnSequence)
-            break;
-
-        if (event.type === "turn.started" && event.actorId === source)
-            running.set(event.payload.turnId, event.sequence);
-        else if (event.type === "turn.finished" || event.type === "turn.interrupted")
-            running.delete(event.payload.turnId);
-    }
-
-    return Math.min(spawnSequence, ...running.values());
-};
-
 /** What a fork took over from its source: an unchanged copy of the context of the source's finished turns. */
 const inheritedEntries = (events: readonly JournalEvent[], actorId: string, media: MediaSource): ContextLogEntry[] => {
     const spawn = events.find((event): event is Extract<JournalEvent, { type: "agent.spawned" }> =>
@@ -205,7 +190,7 @@ const inheritedEntries = (events: readonly JournalEvent[], actorId: string, medi
     if (!source)
         return [];
 
-    const cut = forkCut(events, source, spawn.sequence);
+    const cut = forkContextCut(events, source, spawn.sequence);
     const inherited = modelContextLog(events.filter((event) => event.sequence < cut), source, media);
 
     if (inherited.length === 0)

@@ -1,9 +1,9 @@
 import { sameSharing, type RunShareAccess, type RunSharing } from "@ragents/engine/src/domain/model";
-import type { RunSharingResult } from "@ragents/host/api/contracts";
+import type { RunShareTarget, RunSharingResult } from "@ragents/host/api/contracts";
 import type { SessionInfo } from "./api";
 import type { PanelSharing } from "./panel/contract";
 
-export type { RunShareAccess, RunSharing, RunSharingResult };
+export type { RunShareAccess, RunShareTarget, RunSharing, RunSharingResult };
 
 export const SHARE_ACCESS_LABELS: Readonly<Record<RunShareAccess, string>> = { read: "View", write: "Operate" };
 
@@ -66,6 +66,19 @@ const messageOf = (cause: unknown): string => cause instanceof Error ? cause.mes
 
 const isPanelOf = (sharing: PanelSharing | undefined, connection: string, runId: string): sharing is PanelSharing =>
   sharing?.connection === connection && sharing.runId === runId;
+
+export const revokeSharing = async (connection: string, runId: string, target: RunShareTarget,
+  revoke: (runId: string, target: RunShareTarget) => Promise<RunSharingResult>, store: SharingStore): Promise<void> => {
+  if (store.get()?.pending) return;
+  const pending: PanelSharing = { connection, runId, pending: true };
+  store.set(pending);
+  try {
+    const result = await revoke(runId, target);
+    if (store.get() === pending) store.set({ connection, runId, result });
+  } catch (cause) {
+    if (store.get() === pending) store.set({ connection, runId, error: messageOf(cause) });
+  }
+};
 
 /** Opens the panel and loads the sharing; an answer for a panel closed or replaced meanwhile is dropped. */
 export const openSharing = async (connection: string, runId: string, client: SharingClient, store: SharingStore): Promise<void> => {

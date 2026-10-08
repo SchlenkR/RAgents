@@ -332,7 +332,11 @@ export class Orchestration {
                 return {
                     ...entry,
                     ...identities,
-                    payload: { ...entry.payload, firstKeptEventId: rewriteEventId(entry.payload.firstKeptEventId) },
+                    payload: {
+                        ...entry.payload,
+                        firstKeptEventId: rewriteEventId(entry.payload.firstKeptEventId),
+                        ...(entry.payload.retainedToolResultIds ? { retainedToolResultIds: entry.payload.retainedToolResultIds.map(rewriteEventId) } : {}),
+                    },
                 };
             }
 

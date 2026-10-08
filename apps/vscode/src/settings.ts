@@ -1,4 +1,5 @@
 import type { RunPanelTheme } from "../../web/src/run-panel/host-contract";
+export { parseTableDensity } from "../../web/src/table-density";
 
 export type ThemeSetting = "auto" | "light" | "dark";
 
