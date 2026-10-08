@@ -115,7 +115,7 @@ test("data grids scroll with the page, retain adjustable columns, virtualize mea
   const toolbarBox = (await toolbar.boundingBox())!;
   assert.ok(Math.abs(headerBox.y - toolbarBox.y - toolbarBox.height) < 1, "the header sticks immediately below the caller's toolbar");
   assert.notEqual(await header.evaluate((element) => getComputedStyle(element).backgroundColor), "rgba(0, 0, 0, 0)", "the sticky header has an opaque token background");
-  assert.equal(await grid.getByRole("columnheader", { name: /^Name/ }).getByRole("button").evaluate((element) => getComputedStyle(element).textTransform), "uppercase", "sortable headers retain the shared label style");
+  assert.deepEqual(await grid.getByRole("columnheader", { name: /^Name/ }).getByRole("button").evaluate((element) => [getComputedStyle(element).textTransform, getComputedStyle(element).fontWeight]), ["none", "600"], "sortable headers keep the sentence-case header style");
   assert.equal(await page.evaluate(() => window.dataGridFixture.endCalls), 0);
   checkpoint = "incremental loading";
   await page.evaluate(() => {
@@ -147,9 +147,15 @@ test("data grids scroll with the page, retain adjustable columns, virtualize mea
       await page.setViewportSize({ width, height: 900 });
       await page.evaluate((value) => { document.documentElement.dataset.theme = value; window.scrollTo({ top: 400, behavior: "instant" }); }, theme);
       await page.waitForTimeout(80);
-      const currentGrid = await grid.evaluate((element) => element.parentElement!.getBoundingClientRect().width);
+      const currentGrid = await grid.evaluate((element) => element.closest('[data-slot="data-grid-root"]')!.getBoundingClientRect().width);
       const currentToolbar = (await toolbar.boundingBox())!;
       assert.ok(Math.abs(currentGrid - currentToolbar.width) < 1, "the grid uses the parent width at every screenshot size");
+      const frame = await grid.evaluate((element) => {
+        const box = element.closest('[data-slot="data-grid-frame"]')!;
+        return { right: box.getBoundingClientRect().right + window.scrollX, scrollWidth: document.documentElement.scrollWidth, ring: getComputedStyle(box, "::after").boxShadow };
+      });
+      assert.ok(frame.scrollWidth >= frame.right - 1, `columns beyond the viewport stay reachable by scrolling at ${width}`);
+      assert.notEqual(frame.ring, "none", "the grid has a visible frame");
       if (width >= 900) await checkFullWidth();
       await page.screenshot({ path: join(shots, `data-grid-${theme}-${width}.png`) });
     }
@@ -160,16 +166,16 @@ test("data grids scroll with the page, retain adjustable columns, virtualize mea
   const bounded = page.getByRole("grid", { name: "Panel work items" });
   await bounded.locator(rowSelector).first().waitFor();
   assert.ok(await bounded.locator(rowSelector).count() < 100);
-  const boundedHeight = await bounded.evaluate((element) => element.parentElement!.getBoundingClientRect().height);
+  const boundedHeight = await bounded.evaluate((element) => element.closest('[data-slot="data-grid-root"]')!.getBoundingClientRect().height);
   assert.ok(Math.abs(boundedHeight - 360) < 1, "bounded mode fills its given height");
-  const scrollPanel = await bounded.evaluateHandle((element) => [element.parentElement!, element, ...element.querySelectorAll<HTMLElement>("*")].find((candidate) => {
+  const scrollPanel = await bounded.evaluateHandle((element) => [element.closest('[data-slot="data-grid-root"]')!, element, ...element.querySelectorAll<HTMLElement>("*")].find((candidate) => {
     const overflow = getComputedStyle(candidate).overflowY;
     return /auto|scroll/.test(overflow) && candidate.scrollHeight > candidate.clientHeight;
   })!);
   await scrollPanel.evaluate((element) => { element.scrollTop = 18_000; });
   await page.waitForFunction(() => Number(document.querySelector('[data-slot="data-grid-row"][data-row-id]')?.getAttribute("aria-rowindex")) > 100);
   assert.equal(await page.evaluate(() => window.scrollY), 0, "panel scrolling does not move the page");
-  const scrollBounds = await scrollPanel.evaluate((element) => ({ top: element.getBoundingClientRect().top, height: element.clientHeight }));
+  const scrollBounds = await scrollPanel.evaluate((element) => ({ top: element.getBoundingClientRect().top + element.clientTop, height: element.clientHeight }));
   const boundedHeader = (await bounded.locator(headerSelector).boundingBox())!;
   assert.ok(Math.abs(boundedHeader.y - scrollBounds.top) < 1, "a bounded header sticks to its panel");
   await bounded.locator(rowSelector).first().focus();
@@ -216,6 +222,44 @@ test("data grids scroll with the page, retain adjustable columns, virtualize mea
   assert.equal(await group.getAttribute("aria-expanded"), "false", "group headers collapse their child rows");
   await toggle.click();
   assert.equal(await group.getAttribute("aria-expanded"), "true");
+  checkpoint = "rows are told apart";
+  const toldApart = `(([nextPalette, nextTheme]) => {
+    document.documentElement.dataset.palette = nextPalette;
+    document.documentElement.dataset.theme = nextTheme;
+    const canvas = document.createElement("canvas").getContext("2d", { willReadFrequently: true });
+    const parse = (color) => {
+      canvas.clearRect(0, 0, 1, 1);
+      canvas.fillStyle = color;
+      canvas.fillRect(0, 0, 1, 1);
+      const [r, g, b, a] = canvas.getImageData(0, 0, 1, 1).data;
+      return { r, g, b, a: a / 255 };
+    };
+    const channel = (value) => { const unit = value / 255; return unit <= 0.03928 ? unit / 12.92 : ((unit + 0.055) / 1.055) ** 2.4; };
+    const luminance = (color) => { const { r, g, b } = parse(color); return 0.2126 * channel(r) + 0.7152 * channel(g) + 0.0722 * channel(b); };
+    const ratio = (first, second) => { const [high, low] = [luminance(first), luminance(second)].sort((left, right) => right - left); return (high + 0.05) / (low + 0.05); };
+    const surface = (element) => {
+      for (let node = element; node; node = node.parentElement) {
+        const color = getComputedStyle(node).backgroundColor;
+        if (parse(color).a > 0.99) return color;
+      }
+      return "rgb(255, 255, 255)";
+    };
+    const item = document.querySelector('[role="grid"] [data-slot="data-grid-row"][data-row-id]:not([aria-expanded])');
+    const bandRow = document.querySelector('[role="grid"] [data-slot="data-grid-row"][aria-expanded]');
+    const head = document.querySelector('[data-slot="data-grid-header"]');
+    const rowSurface = surface(item);
+    return { divider: ratio(getComputedStyle(item).borderBottomColor, rowSurface), group: ratio(surface(bandRow), rowSurface), header: ratio(surface(head), rowSurface), edge: ratio(getComputedStyle(head).borderBottomColor, surface(head)) };
+  })`;
+  for (const palette of ["schichtwerk", "graphite", "midnight", "black"]) {
+    for (const theme of ["light", "dark"]) {
+      const told = await page.evaluate<{ divider: number; group: number; header: number; edge: number }>(`${toldApart}(${JSON.stringify([palette, theme])})`);
+      assert.ok(told.divider >= 1.3, `${palette} ${theme}: the dividers between rows are visible (${told.divider.toFixed(2)}:1)`);
+      assert.ok(told.group >= 1.18, `${palette} ${theme}: group rows differ from item rows (${told.group.toFixed(2)}:1)`);
+      assert.ok(told.header >= 1.1, `${palette} ${theme}: the header differs from item rows (${told.header.toFixed(2)}:1)`);
+      assert.ok(told.edge >= 2.2, `${palette} ${theme}: the header edge separates it from the first group row (${told.edge.toFixed(2)}:1)`);
+    }
+  }
+  await page.evaluate("delete document.documentElement.dataset.palette; delete document.documentElement.dataset.theme;");
   const interactiveRow = grouped.locator('[data-slot="data-grid-row"][data-row-id="item-0"]');
   checkpoint = "row navigation and selection";
   await interactiveRow.click();
@@ -228,6 +272,20 @@ test("data grids scroll with the page, retain adjustable columns, virtualize mea
   await page.keyboard.press("Space");
   assert.deepEqual(await page.evaluate(() => window.dataGridFixture.selected), ["item-2"]);
   assert.equal(await grouped.locator('[data-row-id="item-2"]').getAttribute("aria-selected"), "true");
+  const selectedLook = await page.evaluate(() => {
+    const row = document.querySelector('[data-row-id="item-2"]')!;
+    const probe = document.createElement("span");
+    probe.style.color = "var(--selected-border)";
+    document.body.append(probe);
+    const frame = getComputedStyle(probe).color;
+    probe.remove();
+    return { fill: getComputedStyle(row).backgroundColor, base: getComputedStyle(row.closest('[data-slot="data-grid-frame"]')!).backgroundColor, shadow: getComputedStyle(row).boxShadow, frame };
+  });
+  const channels = (color: string) => color.match(/[\d.]+/g)!.slice(0, 3).map((value) => { const unit = Number(value) / 255; return unit <= 0.03928 ? unit / 12.92 : ((unit + 0.055) / 1.055) ** 2.4; });
+  const luminanceOf = (color: string) => { const [r, g, b] = channels(color); return 0.2126 * r + 0.7152 * g + 0.0722 * b; };
+  const ratioOf = (first: string, second: string) => { const [high, low] = [luminanceOf(first), luminanceOf(second)].sort((left, right) => right - left); return (high + 0.05) / (low + 0.05); };
+  assert.ok(ratioOf(selectedLook.fill, selectedLook.base) >= 1.3, "a selected row differs clearly from the grid surface");
+  assert.ok(selectedLook.shadow.includes(selectedLook.frame), "a selected row carries the selection frame");
   await page.keyboard.press("Enter");
   assert.equal(await page.evaluate(() => window.dataGridFixture.opened), "item-2", "Enter opens the focused item");
   assert.equal(await grouped.getByRole("gridcell").filter({ hasText: /^Ready$/ }).first().locator('[data-slot="badge"]').count(), 1, "custom renderers are used for ordinary cells");

@@ -1,7 +1,6 @@
 import { strict as assert } from "node:assert";
 import { test } from "node:test";
 import { createThemeStore, parseThemePreference, THEME_STORAGE_KEY } from "../src/theme";
-import { DENSITY_STORAGE_KEY } from "../src/table-density";
 
 class TrackedEvents extends EventTarget {
   readonly handlers = new Map<string, Set<EventListenerOrEventListenerObject>>();
@@ -27,9 +26,9 @@ function browserFixture(stored: string | null = null, dark = false) {
   let readError: Error | undefined;
   const storage = {
     getItem: (key: string) => {
-      assert.ok(key === THEME_STORAGE_KEY || key === DENSITY_STORAGE_KEY);
+      assert.equal(key, THEME_STORAGE_KEY);
       if (readError) throw readError;
-      return key === THEME_STORAGE_KEY ? value : null;
+      return value;
     },
     setItem: (key: string, next: string) => {
       assert.equal(key, THEME_STORAGE_KEY);
@@ -72,7 +71,7 @@ function browserFixture(stored: string | null = null, dark = false) {
 test("the interface starts dark without changing the system preference or the browser storage", () => {
   const fixture = browserFixture(null, false);
   const store = createThemeStore(fixture.browser);
-  assert.deepEqual(store.getSnapshot(), { preference: "dark", appearance: "dark", density: "comfortable", error: null });
+  assert.deepEqual(store.getSnapshot(), { preference: "dark", appearance: "dark", error: null });
   assert.equal(fixture.applied(), "dark");
   assert.equal(fixture.stored(), null);
   assert.equal(fixture.writes(), 0);
@@ -86,7 +85,7 @@ test("the saved theme is applied right at bootstrap", () => {
   ] as const) {
     const fixture = browserFixture(preference, systemDark);
     const store = createThemeStore(fixture.browser);
-    assert.deepEqual(store.getSnapshot(), { preference, appearance, density: "comfortable", error: null });
+    assert.deepEqual(store.getSnapshot(), { preference, appearance, error: null });
     assert.equal(fixture.applied(), appearance);
     store.dispose();
   }

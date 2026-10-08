@@ -7,6 +7,13 @@ export const controlMetrics = {
   lg: "[--control-height:var(--spacing-control-lg)] [--control-line-height:1.25rem] text-sm leading-(--control-line-height)",
 } satisfies Record<ControlSize, string>;
 
+export const controlRadius = {
+  xs: "[--control-radius:min(var(--radius-md),10px)] rounded-(--control-radius)",
+  sm: "[--control-radius:min(var(--radius-md),12px)] rounded-(--control-radius)",
+  default: "[--control-radius:var(--radius-lg)] rounded-(--control-radius)",
+  lg: "[--control-radius:var(--radius-lg)] rounded-(--control-radius)",
+} satisfies Record<ControlSize, string>;
+
 export const controlSizes = {
   xs: `${controlMetrics.xs} h-(--control-height)`,
   sm: `${controlMetrics.sm} h-(--control-height)`,

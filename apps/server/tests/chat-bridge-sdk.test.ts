@@ -80,6 +80,14 @@ for (const platformVersion of [2] as const) {
       assert.throws(() => receive({ type: "ragents.app.theme", theme }), /light or dark/);
       assert.equal(dataset.theme, "dark");
     }
+    receive({ type: "ragents.app.theme", theme: "dark", palette: "midnight", looks: { codeStyle: "outlined", corners: "tight", density: "spacious" } });
+    assert.deepEqual([dataset.theme, dataset.palette, dataset.codeStyle, dataset.corners, dataset.density], ["dark", "midnight", "outlined", "tight", "spacious"]);
+    for (const looks of [null, "tight", { corners: 3 }, { density: "Spacious" }, { codeStyle: "" }]) {
+      assert.throws(() => receive({ type: "ragents.app.theme", theme: "dark", looks }), /host looks|host look /);
+    }
+    assert.equal(dataset.corners, "tight");
+    receive({ type: "ragents.app.theme", theme: "dark", looks: { corners: "round" } });
+    assert.deepEqual([dataset.corners, dataset.density], ["round", "spacious"]);
     receive({ type: "ragents.app.theme", theme: "light", version: 2 });
     assert.equal(dataset.theme, "dark");
     assert.equal(readState(), state);

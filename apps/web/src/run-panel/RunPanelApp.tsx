@@ -30,8 +30,9 @@ import { BrandLogo } from "../ui/brand-logo";
 import { RunHeader } from "./RunHeader";
 
 const headerClass = "relative z-[80] flex min-h-header flex-none flex-wrap items-center border-b border-border bg-shell shadow-bar";
-const globalBarClass = "flex max-w-[18rem] min-w-0 flex-[0_1_auto] items-center gap-1 @min-[768px]/run-header:flex-none";
-const runBarClass = "flex min-w-0 max-w-[22rem] flex-[0_1_auto] items-stretch";
+const globalBarClass = "flex max-w-[18rem] min-w-0 flex-[0_1_auto] items-center gap-1";
+// From 768px the run title shrinks first down to its chevron; only then the global bar shrinks instead of overlapping the actions.
+const runBarClass = "flex min-w-0 max-w-[22rem] flex-[0_1_auto] items-stretch @min-[768px]/run-header:min-w-8 @min-[768px]/run-header:shrink-[1000]";
 const actionsBarClass = "ml-auto flex max-w-full min-w-0 flex-wrap items-center justify-end gap-1";
 const connectionClass = "max-w-[120px] self-center truncate rounded-full bg-secondary px-2 py-0.5 type-meta font-semibold text-muted-foreground";
 const pendingTitleClass = "min-w-0 flex-1 self-center truncate px-1.5 type-item";
@@ -344,6 +345,7 @@ function RunPanelPage({ connection, initialRunId, registry }: { connection: stri
                   viewing={!draft && !settingsOpen && !helpOpen}
                 />
               </main>
+              <footer aria-label="Run status bar" className={statusBarClass} ref={setStatusContainer} />
             </>
           )
           : (
@@ -354,7 +356,6 @@ function RunPanelPage({ connection, initialRunId, registry }: { connection: stri
               </div>
             </>
           )}
-        <footer aria-label="Run status bar" className={statusBarClass} ref={setStatusContainer} />
         {settings}
         {draftChat}
       </div>

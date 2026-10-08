@@ -91,6 +91,7 @@ const fixture = {
       case "ragents.startOptions.list": return [];
       case "ragents.chat.actorHistory": return { actors: conversations };
       case "ragents.chat.capabilities": return { input: ["text"], model: "demo-model" };
+      case "ragents.chat.contextUsage": return null;
       case "ragents.chat.sendToActor": {
         if (!params.runId || !params.actorId || !params.text) throw new Error("An actor message requires a run, actor, and text.");
         fixture.sent.push({ runId: params.runId, actorId: params.actorId, text: params.text });

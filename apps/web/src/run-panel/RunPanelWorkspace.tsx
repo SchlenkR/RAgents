@@ -42,7 +42,7 @@ export function RunPanelWorkspace({ navigation, onClose, open, session, tabs }: 
       ref={sectionRef}
       tabIndex={-1}
     >
-      <header className="flex h-8 flex-none items-center gap-2 border-b border-border px-2.5">
+      <header className="flex h-8 flex-none items-center gap-2 border-b border-border px-3">
         <h2 className="min-w-0 flex-1 truncate text-[0.76rem] font-semibold">{activeTab?.label}</h2>
         {activeTab?.Header && <activeTab.Header active navigation={navigation} selection={navigation.selectionFor(activeTab.id)} session={session} />}
         <Button aria-label="Close sidebar" onClick={onClose} size="icon-xs" title="Close sidebar" variant="ghost"><XIcon /></Button>

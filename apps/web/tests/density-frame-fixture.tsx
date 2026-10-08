@@ -3,14 +3,20 @@ import { createRoot } from "react-dom/client";
 import type { SessionContext } from "../src/PluginRegistry";
 import { ThemeSettings } from "../src/ThemeSettings";
 import { PanelActivity } from "../src/run-panel/PanelActivity";
+import { initializeAppearance } from "../src/appearance";
 import { createVsCodeHost, RunPanelHostProvider } from "../src/run-panel/host";
-import { initializeTheme } from "../src/theme";
+import { bindHostAppearance } from "../src/run-panel/host-appearance";
+import { parseRunPanelLocation } from "../src/run-panel/run-panel-location";
+import { createEditorSystemScheme, initializeTheme } from "../src/theme";
 import { ActorViewFrame } from "../../../plugins/ragents.actor-programs/web/ActorViewFrame";
 import type { RunApp } from "../../../plugins/ragents.actor-programs/web/api";
 import "../src/ui/tailwind.css";
 
-const store = initializeTheme(window);
+const editor = createEditorSystemScheme("dark");
+const store = initializeTheme(window, editor);
+initializeAppearance(window);
 const host = createVsCodeHost(window);
+bindHostAppearance({ host, location: parseRunPanelLocation("?host=vscode"), theme: store, editor });
 const app: RunApp = {
   id: "notes--main", actorId: "worker", actorHandle: "worker", title: "Notes", revision: "installed",
   actions: [], state: { version: 1, revision: 1, values: { phase: "ready" } }, invocations: [],

@@ -2,11 +2,11 @@ import { useState } from "react";
 import type { EntryGuideContext } from "@ragents/web/PluginRegistry";
 import { Button, Card, Input, Textarea } from "@ragents/web/ui";
 
-const formClass = "grid gap-5.5 mx-auto max-w-[820px] p-6 text-foreground max-sm:p-4.5";
+const formClass = "grid gap-6 mx-auto max-w-[820px] p-6 text-foreground max-sm:p-4";
 const introClass = "leading-[1.6] text-muted-foreground";
-const fieldClass = "grid min-w-0 gap-2.5 [&>span]:font-semibold";
+const fieldClass = "grid min-w-0 gap-3 [&>span]:font-semibold";
 const hintClass = "leading-[1.5] text-muted-foreground";
-const actionsClass = "flex flex-wrap justify-end gap-2.5 pt-2";
+const actionsClass = "flex flex-wrap justify-end gap-3 pt-2";
 
 export function ConversationGuide({ onCancel, onComplete }: EntryGuideContext) {
   const [topic, setTopic] = useState("Should city centers become car-free?");
@@ -24,13 +24,13 @@ export function ConversationGuide({ onCancel, onComplete }: EntryGuideContext) {
         <span>What should the round talk about?</span>
         <Textarea autoFocus maxLength={160} onChange={(event) => setTopic(event.target.value)} required rows={3} value={topic} />
       </label>
-      <div aria-label="Conversation partners" className="grid grid-cols-3 gap-3.5 max-sm:grid-cols-1 max-sm:gap-2">
+      <div aria-label="Conversation partners" className="grid grid-cols-3 gap-4 max-sm:grid-cols-1 max-sm:gap-2">
         {[
           { name: "Mira", role: "Asks curious questions" },
           { name: "Jon", role: "Politely disagrees" },
           { name: "Ada", role: "Looks for common ground" },
         ].map((partner) => (
-          <div className="grid gap-[7px] rounded-lg bg-secondary p-3.5" key={partner.name}>
+          <div className="grid gap-2 rounded-lg bg-secondary p-4" key={partner.name}>
             <strong>{partner.name}</strong>
             <span className="text-[0.85rem] leading-[1.4] text-muted-foreground">{partner.role}</span>
           </div>
@@ -61,7 +61,7 @@ export function SharedBoardGuide({ onCancel, onComplete }: EntryGuideContext) {
     }}>
       <p className={introClass}>Collects ideas, questions, or tasks in one place. You add to the list in its view, the list helper through its tool.</p>
       <div className="grid grid-cols-2 gap-6 max-sm:grid-cols-1">
-        <div className="grid min-w-0 gap-5.5">
+        <div className="grid min-w-0 gap-6">
           <label className={fieldClass}>
             <span>What do you want to collect?</span>
             <Input autoFocus maxLength={160} onChange={(event) => setTitle(event.target.value)} required value={title} />
@@ -72,11 +72,11 @@ export function SharedBoardGuide({ onCancel, onComplete }: EntryGuideContext) {
           </label>
         </div>
         <aside aria-label="Collection board preview">
-          <Card className="h-full gap-0 bg-secondary p-5 [overflow-wrap:anywhere]">
+          <Card className="h-full gap-0 bg-secondary p-4 [overflow-wrap:anywhere]">
             <small className={hintClass}>This is how your collection starts</small>
-            <h3 className="mt-3 mb-4.5 text-[1.05rem]">{title.trim() || "Collection title"}</h3>
-            <ol className="list-decimal pl-5.5 leading-[1.6] whitespace-pre-wrap"><li>{firstEntry.trim() || "Your first entry"}</li></ol>
-            <p className="mt-5.5 text-[0.85rem] leading-[1.5] text-muted-foreground">The list helper adds this entry after the start. After that, both of you can add more.</p>
+            <h3 className="mt-3 mb-4 text-[1.05rem]">{title.trim() || "Collection title"}</h3>
+            <ol className="list-decimal pl-6 leading-[1.6] whitespace-pre-wrap"><li>{firstEntry.trim() || "Your first entry"}</li></ol>
+            <p className="mt-6 text-[0.85rem] leading-[1.5] text-muted-foreground">The list helper adds this entry after the start. After that, both of you can add more.</p>
           </Card>
         </aside>
       </div>

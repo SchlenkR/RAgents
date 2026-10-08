@@ -75,7 +75,7 @@ export function StartSelection({ registry, session, initialEntryId, onOpen, onCa
     open(initialEntryId);
   }, [disabled, initialEntryId, open]);
 
-  return <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-auto px-10 pt-6 pb-5 max-md:px-3 max-md:pt-11 max-md:pb-4">
+  return <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-auto px-8 pt-6 pb-4 max-md:px-3 max-md:pt-8 max-md:pb-4">
     <section aria-label="Start selection" className="mx-auto grid w-full max-w-composer grid-cols-1 gap-3">
       <SectionHeading count={startTileCount(tiles, defaultEntry, free)} title="New" />
       {error && <p className="type-body text-destructive" role="alert">{error}</p>}

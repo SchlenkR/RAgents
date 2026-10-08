@@ -8,6 +8,7 @@ import { runContracts } from "../../../../packages/ragents/src/http/contracts";
 import type { JournalEvent } from "../../../../packages/ragents/src/domain/events";
 import { WORKSPACE_BINDING_OPTION_ID, workspaceContracts } from "../../../../plugins/ragents.workspace/contract";
 import { actorProgramViews } from "../../../../plugins/ragents.actor-programs/web/program-state";
+import { defaultAppearance } from "../../../web/src/appearance-options";
 import { panelState } from "../../src/overview-model";
 import type { ConnectionSession } from "../../src/sessions";
 import type { RAgentsApi } from "../../src/extension";
@@ -275,7 +276,7 @@ const checkTwoConnections = async (api: RAgentsApi, first: string, second: strin
   // The client profile per server brings product and templates; the developer profile itself brings no templates.
   await waitFor(() => [first, second].every((name) => parts(api, name).store.product !== undefined), 60_000, "both servers have loaded their profile");
   checks.products = Object.fromEntries([first, second].map((name) => [name, { product: parts(api, name).store.product, entries: parts(api, name).store.startEntries.length }]));
-  const overview = panelState({ theme: "dark", page: "connections", connections: api.snapshots(), profileSuggestions: [], missingSecrets: [], problem: undefined, pickedProfileFile: undefined });
+  const overview = panelState({ theme: "dark", looks: defaultAppearance, page: "connections", connections: api.snapshots(), profileSuggestions: [], missingSecrets: [], problem: undefined, pickedProfileFile: undefined });
   checks.overview = overview.connections.map((connection) => ({
     name: connection.name, kind: connection.kind, state: connection.state.kind, runs: connection.runs.length, entries: connection.entries.length, canCreate: connection.canCreate,
   }));

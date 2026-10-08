@@ -1,11 +1,12 @@
-import { CheckSquareIcon, SearchIcon, Trash2Icon } from "lucide-react";
+import { CheckSquareIcon, Trash2Icon } from "lucide-react";
 import { useState } from "react";
-import { Button, Input, Tabs, TabsContent, TabsList, TabsTrigger, Toggle } from "../ui";
+import { Button, Tabs, TabsContent, TabsList, TabsTrigger, Toggle } from "../ui";
+import { SearchInput } from "../ui/search-input";
 import type { ConnectionRun } from "./contract";
 import type { PanelPageProps } from "./page-props";
 import { ConfirmDialog } from "./PanelDialogs";
 import { PanelHeader } from "./PanelHeader";
-import { canDeleteRun, RunLine, RunList } from "./RunLine";
+import { canDeleteRun, RunCard, RunLine, RunList } from "./RunLine";
 import { SharedRuns } from "./SharedRuns";
 
 const matches = (run: ConnectionRun, query: string): boolean => run.title.toLocaleLowerCase("en-US").includes(query);
@@ -50,6 +51,7 @@ export function RunsPage({ state, send }: PanelPageProps) {
     }
     return next;
   });
+  const search = <SearchInput aria-label="Search runs" className="min-w-[min(12rem,100%)] flex-1" icon onValueChange={setQuery} placeholder="Search runs ..." size="sm" value={query} />;
   const remove = () => {
     const runIds = selectedRuns.map((run) => run.id);
     if (runIds.length > 0) send({ action: "deleteRuns", name: connection.name, runIds });
@@ -60,49 +62,48 @@ export function RunsPage({ state, send }: PanelPageProps) {
     <PanelHeader send={send} title="Runs" />
     {state.problem && <p className="type-body text-destructive [overflow-wrap:anywhere]" role="alert">{state.problem}</p>}
     <Tabs value={tab} onValueChange={(next) => { setTab(next); leaveSelection(); }}>
-    <div className="sticky top-0 z-10 grid gap-3 bg-background pb-2">
       <TabsList aria-label="Run views" variant="line">
         <TabsTrigger value="all">All runs</TabsTrigger>
         <TabsTrigger value="shared">Shared by me {shared.length}</TabsTrigger>
       </TabsList>
-      <div className="relative">
-        <SearchIcon aria-hidden className="pointer-events-none absolute top-1/2 left-2.5 size-3.5 -translate-y-1/2 text-muted-foreground" />
-        <Input aria-label="Search runs" className="pl-8" size="sm" onChange={(event) => setQuery(event.target.value)}
-          placeholder="Search runs ..." type="search" value={query} />
-      </div>
-      {tab === "all" && <div aria-label="Run actions" className="flex flex-wrap items-center gap-1.5" role="group">
-        {selecting ? <>
-          <Button disabled={selectable.length === 0} onClick={toggleAll} size="sm" variant="ghost">{allSelected ? "Select none" : "Select all"}</Button>
-          <span className="type-body text-muted-foreground" role="status">{selectedRuns.length} selected</span>
-          <Button disabled={selectedRuns.length === 0} onClick={() => setConfirming(true)} size="sm" variant="destructive"><Trash2Icon data-icon="inline-start" />Delete</Button>
-          <Button onClick={leaveSelection} size="sm" variant="ghost">Cancel</Button>
-        </> : <>
-          <Toggle onPressedChange={setHideEnded} pressed={hideEnded} size="sm" variant="outline">Hide ended</Toggle>
-          {connection.canDelete !== false && <Toggle onPressedChange={setSelecting} pressed={selecting} size="sm" variant="outline">
-            <CheckSquareIcon data-icon="inline-start" />Select
-          </Toggle>}
-        </>}
-      </div>}
-    </div>
-    <TabsContent value="all">
-    {shown.length === 0
-      ? <p className="type-body text-muted-foreground" role="status">{all.length === 0 ? "No runs yet." : "No matching run."}</p>
-      : <RunList actions={actions} label="Runs" selecting={selecting}>
-        {shown.map((run) => <RunLine actions={actions} key={run.id}
-          onDelete={!selecting && canDeleteRun(connection, run) ? () => send({ action: "deleteRuns", name: connection.name, runIds: [run.id] }) : undefined}
-          onOpen={() => send({ action: "openRun", name: connection.name, runId: run.id })}
-          onShare={run.canShare ? () => send(state.sharing?.runId === run.id ? { action: "closeSharing" } : { action: "openSharing", name: connection.name, runId: run.id }) : undefined}
-          sharingOpen={state.sharing?.runId === run.id}
-          onToggle={() => toggle(run.id)} run={run} selectable={canDeleteRun(connection, run)} selected={selected.has(run.id)} selecting={selecting} />)}
-      </RunList>}
-    </TabsContent>
-    <TabsContent value="shared">
-      {sharedShown.length === 0
-        ? <p className="type-body text-muted-foreground" role="status">{shared.length === 0 ? "You have not shared any runs." : "No matching shared run."}</p>
-        : <SharedRuns runs={sharedShown} revoking={state.revoking}
-          onOpen={(runId) => send({ action: "openRun", name: connection.name, runId })}
-          onRevoke={(runId, target) => send({ action: "revokeShare", name: connection.name, runId, target })} />}
-    </TabsContent>
+      <TabsContent value="all">
+        <RunCard toolbar={<div className="flex flex-wrap items-center gap-2">
+          {search}
+          <div aria-label="Run actions" className="flex flex-wrap items-center gap-2" role="group">
+            {selecting ? <>
+              <Button disabled={selectable.length === 0} onClick={toggleAll} size="sm" variant="outline">{allSelected ? "Select none" : "Select all"}</Button>
+              <span className="type-body text-muted-foreground" role="status">{selectedRuns.length} selected</span>
+              <Button disabled={selectedRuns.length === 0} onClick={() => setConfirming(true)} size="sm" variant="destructive"><Trash2Icon data-icon="inline-start" />Delete</Button>
+              <Button onClick={leaveSelection} size="sm" variant="outline">Cancel</Button>
+            </> : <>
+              <Toggle onPressedChange={setHideEnded} pressed={hideEnded} size="sm" variant="outline">Hide ended</Toggle>
+              {connection.canDelete !== false && <Toggle onPressedChange={setSelecting} pressed={selecting} size="sm" variant="outline">
+                <CheckSquareIcon data-icon="inline-start" />Select
+              </Toggle>}
+            </>}
+          </div>
+        </div>}>
+          {shown.length === 0
+            ? <p className="type-body px-3 py-4 text-muted-foreground" role="status">{all.length === 0 ? "No runs yet." : "No matching run."}</p>
+            : <RunList actions={actions} label="Runs" selecting={selecting}>
+              {shown.map((run) => <RunLine actions={actions} key={run.id}
+                onDelete={!selecting && canDeleteRun(connection, run) ? () => send({ action: "deleteRuns", name: connection.name, runIds: [run.id] }) : undefined}
+                onOpen={() => send({ action: "openRun", name: connection.name, runId: run.id })}
+                onShare={run.canShare ? () => send(state.sharing?.runId === run.id ? { action: "closeSharing" } : { action: "openSharing", name: connection.name, runId: run.id }) : undefined}
+                sharingOpen={state.sharing?.runId === run.id}
+                onToggle={() => toggle(run.id)} run={run} selectable={canDeleteRun(connection, run)} selected={selected.has(run.id)} selecting={selecting} />)}
+            </RunList>}
+        </RunCard>
+      </TabsContent>
+      <TabsContent value="shared">
+        <RunCard toolbar={<div className="flex flex-wrap items-center gap-2">{search}</div>}>
+          {sharedShown.length === 0
+            ? <p className="type-body px-3 py-4 text-muted-foreground" role="status">{shared.length === 0 ? "You have not shared any runs." : "No matching shared run."}</p>
+            : <SharedRuns runs={sharedShown} revoking={state.revoking}
+              onOpen={(runId) => send({ action: "openRun", name: connection.name, runId })}
+              onRevoke={(runId, target) => send({ action: "revokeShare", name: connection.name, runId, target })} />}
+        </RunCard>
+      </TabsContent>
     </Tabs>
     {confirming && <ConfirmDialog
       confirmLabel="Delete"

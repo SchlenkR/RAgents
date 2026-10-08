@@ -76,7 +76,7 @@ const dropdownPlugin: WebPlugin = {
 const growingHeaderPlugin: WebPlugin = {
   id: "start.growing-header",
   overviewPanels: [{ id: "start.growing-header.coordinator", order: 0, placement: "toolbar",
-    Panel: () => <Button aria-label="Global coordinator" className="min-w-0 max-w-48" variant="outline"><span className="truncate">Global coordinator</span></Button> }],
+    Panel: () => <Button aria-label="Global coordinator" className="min-w-0 max-w-48" style={{ flexShrink: 1 }} variant="outline"><span className="truncate">Global coordinator</span></Button> }],
   sessionHeaders: [{ id: "start.growing-header.actors", order: 0, placement: "bar",
     Header: () => <Button aria-label="Actors" className="flex-none" variant="ghost">Actors</Button> }],
 };

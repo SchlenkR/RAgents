@@ -14,6 +14,15 @@ server instructions and connection failures in their prompt. Configure servers i
 as described in [Connect MCP servers](guide-getting-started.html#connect-mcp-servers).
 Stopping or deleting the run closes its MCP connections.
 
+## Context usage
+
+The ring in the run coordinator, agent, and global coordinator chat fills as the active model
+context grows. Click it to see used tokens, the context window, and the token count above which
+automatic compaction starts. It also shows the remaining tokens to that threshold. Estimates are
+marked; after compaction the ring measures the summary and retained context. Near the threshold,
+the ring uses the warning color. Limits belong to the selected model and apply from the next turn.
+The control also works with read access; script and external runtimes have no built-in context ring.
+
 ## Keep and restore context
 
 Long conversations summarize older work automatically. With the bundled context plugin, recent
@@ -55,10 +64,13 @@ Longer lists show the filter name and the number of chosen values, or "All" when
 dropdown to search and check several values; "Clear" returns it to "All". A dot can identify a
 value's color, and a count shows its number of entries in either form.
 
-Large lists fill the available page width with flat rows. The page scrolls, and the column
-headers remain visible below a sticky toolbar. A list inside a bounded panel scrolls within
-that panel. Click a sortable column heading to change the row order; expandable group rows
-show their entry count. Use the arrow keys, Home, and End to move between rows, Enter or a
+Large lists fill the available page width as one framed card whose rows are separated by visible lines.
+The page scrolls, and the column headers remain visible below a sticky toolbar. A list inside a bounded
+panel scrolls within that panel; columns wider than the page scroll sideways with the frame. Click a sortable
+column heading to change the row order; expandable group rows show their entry count in a small outlined badge on a
+tinted band. Column headings use sentence case on a band of their own with a strong lower edge, and the
+sorted column is emphasized. Hovering a row tints it lightly, and a selected row is tinted and framed like every other
+selected item. Use the arrow keys, Home, and End to move between rows, Enter or a
 double-click to open an entry, and Space to select it when selection is offered or to toggle
 a group.
 Lists that load incrementally can request more entries near their end and show a loading
@@ -85,11 +97,11 @@ The browser docking layout and addressee are stored per run in the browser. Star
 a run focuses its visible chat input once it is ready, including a remembered chat partner.
 Clicking or typing elsewhere while it loads cancels that focus request.
 
-The run title opens "Run details". Its panel contains all run metadata, start option badges,
-and contributed detail controls in cells that wrap as the panel narrows. "Run details",
-"Run script", "Agents", and "Share" use the same square dropdown below the header, up to
-800 pixels wide with a small inset at the right. Each dims the application and keeps its content
-within the available width. The close button, Escape, or clicking outside closes it. Focus returns
+The run title opens "Run details". Its panel contains all run metadata, start option badges (an option
+that a metadata cell already shows appears once), and contributed detail controls in cells that wrap as the
+panel narrows. "Run details", "Run script", "Agents", and "Share" use the same square dropdown below the header,
+up to 800 pixels wide with a small inset on the side of their button. Each dims the page below the header and keeps
+its content within the available width. The close button, Escape, or clicking outside closes it. Focus returns
 to its button unless it has moved elsewhere.
 
 With write rights, the run header offers "Run script" right of the window buttons, behind a thin
@@ -136,8 +148,8 @@ tab when narrow. Clicking a window that waits as a background tab brings that ta
 Clicking a visible window changes nothing. All window buttons, "Empty space", and "Reset layout" remain directly available. They fill
 the space between the fixed controls first, then continue across the full header width when
 needed. Adding apps keeps the title and actions such as "Agents", "Share", Stop, and Settings
-in place. The title shrinks before the fixed actions wrap on desktop widths. The title and
-long button labels truncate; full labels remain available on hover.
+in place. The title, and after it the global coordinator, shrinks before the fixed actions wrap on
+desktop widths. The title and long button labels truncate; full labels remain available on hover.
 Narrow panels can also wrap fixed controls. The header grows and pushes the workspace down;
 its controls are never clipped, hidden in a window menu, or placed in a horizontal scroll area.
 Each window button has a grip at its left edge, shown on hover or focus and always on touch
@@ -397,7 +409,7 @@ Plugin sections appear directly below Continue when installed, for example a lis
 documents from all runs you can see. Clicking such an entry can open its run. Empty sections
 show no heading or gap.
 
-**Runs**, "All runs", shows this server's complete list in the same grid, with search, "Hide ended", and a
+**Runs**, "All runs", shows this server's complete list in the same card, with search, "Hide ended", and a
 selection mode that deletes several runs after a dialog confirmation. Checkboxes occupy an
 additional first column; row actions disappear during selection. A run the
 server has locked, for example because its journal uses an older format, shows a warning icon whose

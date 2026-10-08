@@ -50,12 +50,12 @@ test("table spacing changes Table and DataGrid together, retains color choice, a
     await settle(page);
     const spacing = page.getByRole("group", { name: "Table spacing", exact: true });
     assert.equal(await spacing.getByRole("button", { name: "Comfortable", exact: true }).getAttribute("aria-pressed"), "true");
-    await page.getByRole("group", { name: "Schichtwerk color scheme" }).getByRole("button", { name: "Light", exact: true }).click();
+    await page.getByRole("group", { name: "Color scheme", exact: true }).getByRole("button", { name: "Light", exact: true }).click();
     const measured: Record<string, Awaited<ReturnType<typeof rowMetrics>>> = {};
     for (const { value, label, x, y } of [
       { value: "compact", label: "Compact", x: 2, y: 1 },
-      { value: "comfortable", label: "Comfortable", x: 3, y: 2 },
-      { value: "spacious", label: "Spacious", x: 4, y: 4 },
+      { value: "comfortable", label: "Comfortable", x: 3, y: 2.5 },
+      { value: "spacious", label: "Spacious", x: 3.5, y: 3.5 },
     ]) {
       await spacing.getByRole("button", { name: label, exact: true }).click();
       await page.waitForFunction((value) => document.documentElement.dataset.density === value, value);

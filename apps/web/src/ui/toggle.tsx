@@ -1,7 +1,7 @@
 import { Toggle as TogglePrimitive } from "@base-ui/react/toggle"
 import { cva, type VariantProps } from "class-variance-authority"
 import { cn } from "cn"
-import { iconOnlyStyle, interactionStyle } from "./interaction"
+import { iconOnlyStyle, interactionStyle, outlinedControl } from "./interaction"
 import { controlSizes } from "./control-size"
 
 const toggleVariants = cva(
@@ -10,10 +10,10 @@ const toggleVariants = cva(
     variants: {
       variant: {
         default: "bg-transparent",
-        outline: "border border-input bg-transparent selected:border-selected-border",
+        outline: `${outlinedControl}`,
       },
       size: {
-        xs: controlSizes.xs + " min-w-(--control-height) px-2 [&_svg:not([class*='size-'])]:size-3",
+        xs: controlSizes.xs + " min-w-(--control-height) rounded-[min(var(--radius-md),10px)] px-2 [&_svg:not([class*='size-'])]:size-3",
         default:
           controlSizes.default + " min-w-8 px-2.5 has-data-[icon=inline-end]:pr-2 has-data-[icon=inline-start]:pl-2",
         sm: controlSizes.sm + " min-w-7 rounded-[min(var(--radius-md),12px)] px-2.5 has-data-[icon=inline-end]:pr-1.5 has-data-[icon=inline-start]:pl-1.5 [&_svg:not([class*='size-'])]:size-3.5",

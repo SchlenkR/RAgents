@@ -60,10 +60,10 @@ export function ProgramSource({ api, moduleId, runId, revision, expandedByDefaul
           )}
           {state.kind === "error" && <Alert className="w-full" variant="destructive">{state.message}</Alert>}
           {state.kind === "ready" && (
-            <div className="flex flex-wrap gap-1.5">
+            <div className="flex flex-wrap gap-2">
               {state.files.map((file) => (
                 <button
-                  className={cn("max-w-full cursor-pointer rounded-lg border border-border-soft bg-background/70 px-[9px] py-1 text-left font-mono text-[0.66rem] text-muted-foreground [overflow-wrap:anywhere]",
+                  className={cn("max-w-full cursor-pointer rounded-lg border border-border-soft bg-background/70 px-2 py-1 text-left font-mono text-[0.66rem] text-muted-foreground [overflow-wrap:anywhere]",
                     file.path === active?.path && "border-[color-mix(in_srgb,var(--primary)_48%,var(--border))] bg-primary/9 text-foreground")}
                   key={file.path}
                   onClick={() => setActivePath(file.path)}

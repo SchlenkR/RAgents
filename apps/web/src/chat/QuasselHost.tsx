@@ -1,9 +1,17 @@
 import { useMemo, type ReactNode } from "react";
-import { QuasselProvider, type QuasselComponents } from "quassel";
+import { QuasselProvider, type QuasselComponents, type QuasselPopoverContentProps } from "quassel";
 import type { RunUrlResolver } from "../PluginRegistry";
 import { Button, Card, ImagePreviewGroup, Popover, PopoverContent, StopButton, Toggle } from "../ui";
 
-const components: QuasselComponents = { Button, Toggle, Card, StopButton, Popover, PopoverContent };
+/** quassel's pop-outs (tool call details) keep its own marker, so ui/quassel.css can style their contents. */
+function QuasselPopoverContent({ portalContainer, ...props }: QuasselPopoverContentProps) {
+  return <PopoverContent container={portalContainer} data-quassel-popover="" {...props} />;
+}
+
+const components: QuasselComponents = { Button, Toggle, Card, StopButton, Popover, PopoverContent: QuasselPopoverContent };
+
+/** Long code lines wrap in every chat; a narrow chat would otherwise cut them off without a visible scrollbar. */
+export const chatCodeBlocks = { wrap: true } as const;
 
 const allowRunLinks = (url: string): boolean => /^flow:(actor|input|turn|subscription|action|artifact)\/.+/.test(url);
 

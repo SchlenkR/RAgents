@@ -52,7 +52,7 @@ export function RunStateIcon({ state, open = 0, notice, className }: { state: Ru
       <Icon className={cn("size-3.5", mark.spinning && "animate-spin motion-reduce:animate-none")} />
       {notice && <span aria-hidden className="absolute inset-0 m-auto size-1.5 rounded-full bg-info" />}
     </span>
-    {state === "waiting" && open > 0 && <span aria-hidden className="font-mono text-[0.62rem] font-semibold leading-none">{open}</span>}
+    {state === "waiting" && open > 0 && <span aria-hidden className="text-[0.68rem] font-semibold leading-none tabular-nums">{open}</span>}
     <span className="sr-only">{word}</span>
   </span>;
 }

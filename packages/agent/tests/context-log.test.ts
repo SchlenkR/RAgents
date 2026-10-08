@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { activeContextEntries, type ContextLogEntry, contextMessages } from "../src/core/context-log.ts";
-import { estimateContextTokens, prepareCompaction } from "../src/core/compaction/compaction.ts";
+import { estimateContextUsage, prepareCompaction } from "../src/core/compaction/compaction.ts";
 import { fauxAssistantMessage, fauxToolCall } from "../../ai/src/providers/faux.ts";
 
 const message = (id: string, text: string): ContextLogEntry => ({ kind: "message", id, message: { role: "user", content: text, timestamp: 1 } });
@@ -36,16 +36,15 @@ test("context estimates ignore retained usage from before compaction and include
 		compaction("c", "b", "Summary."),
 		message("d", "New input."),
 	];
-	const projected = contextMessages(log);
-	const estimate = estimateContextTokens(projected, 2);
+	const estimate = estimateContextUsage(log);
 	assert.equal(estimate.lastUsageIndex, null);
 	assert.ok(estimate.tokens < 100);
 	const response = fauxAssistantMessage("Next.");
 	response.usage = { ...response.usage, input: 100, output: 2, totalTokens: 102 };
-	const withResult = estimateContextTokens([
-		...projected, response,
-		{ role: "toolResult", toolCallId: "call", toolName: "lookup", content: [{ type: "text", text: "x".repeat(800) }], isError: false, timestamp: 3 },
-	], 2);
+	const withResult = estimateContextUsage([
+		...log, { kind: "message", id: "response", message: response },
+		{ kind: "message", id: "result", message: { role: "toolResult", toolCallId: "call", toolName: "lookup", content: [{ type: "text", text: "x".repeat(800) }], isError: false, timestamp: 3 } },
+	]);
 	assert.equal(withResult.lastUsageIndex, 3);
 	assert.equal(withResult.usageTokens, 102);
 	assert.ok(withResult.tokens >= 302);

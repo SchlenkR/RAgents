@@ -438,16 +438,19 @@ const dropdownBounds = async (page: Page, panel: Locator, trigger: Locator) => {
   const bounds = await panel.boundingBox();
   assert.ok(header && bounds, "The header and dropdown are visible.");
   assert.ok(Math.abs(bounds.y - header.y - header.height - 8) < 1, "Every dropdown opens below the complete wrapping header.");
-  assert.ok(Math.abs(bounds.x + bounds.width - header.x - header.width + 8) < 1, "Every dropdown ends at the same header gutter.");
+  const origin = await trigger.boundingBox();
+  assert.ok(origin, "The trigger is visible.");
+  if (origin.x + origin.width / 2 < header.x + header.width / 2) assert.ok(Math.abs(bounds.x - header.x - 8) < 1, "A dropdown of a trigger in the left half starts at the header gutter.");
+  else assert.ok(Math.abs(bounds.x + bounds.width - header.x - header.width + 8) < 1, "A dropdown of a trigger in the right half ends at the header gutter.");
   assert.ok(Math.abs(bounds.width - Math.min(800, header.width - 16)) < 1, "Every dropdown shares the same responsive width.");
   assert.notEqual(await panel.getAttribute("aria-modal"), "true", "Header dropdowns keep the header available.");
   const style = await panel.evaluate((element) => {
     const computed = getComputedStyle(element);
     return { corners: [computed.borderTopLeftRadius, computed.borderTopRightRadius, computed.borderBottomLeftRadius, computed.borderBottomRightRadius],
-      padding: [computed.paddingTop, computed.paddingRight, computed.paddingBottom, computed.paddingLeft], overflow: element.scrollWidth > element.clientWidth };
+      padding: [computed.paddingTop, computed.paddingRight, computed.paddingBottom, computed.paddingLeft], related: (() => { const probe = document.createElement("div"); probe.style.padding = "calc(var(--spacing) * 2)"; document.body.append(probe); const value = getComputedStyle(probe).paddingTop; probe.remove(); return value; })(), overflow: element.scrollWidth > element.clientWidth };
   });
   assert.deepEqual(style.corners, ["0px", "0px", "0px", "0px"], "Header dropdowns have square corners.");
-  assert.deepEqual(style.padding, ["8px", "8px", "8px", "8px"], "Header dropdowns share their padding.");
+  assert.deepEqual(style.padding, Array(4).fill(style.related), "Header dropdowns share their padding, one related step on every side.");
   assert.equal(style.overflow, false, "The panel never clips its content horizontally.");
   const dim = page.locator('[data-slot="popover-backdrop"]:visible');
   assert.equal(await dim.count(), 1, "One shared dimming surface belongs to the open dropdown.");
@@ -701,7 +704,7 @@ for (const { host, width } of [{ host: "browser", width: 1400 }, { host: "vscode
       await scriptButton.click();
       await scripts.getByRole("list", { name: "Run scripts" }).waitFor();
       const scriptBounds = await dropdownBounds(page, scripts, scriptButton);
-      assert.deepEqual({ x: scriptBounds.x, y: scriptBounds.y, width: scriptBounds.width }, { x: detailBounds.x, y: detailBounds.y, width: detailBounds.width });
+      assert.deepEqual({ y: scriptBounds.y, width: scriptBounds.width }, { y: detailBounds.y, width: detailBounds.width });
       const review = await scripts.locator('button[data-tile="Review"]').boundingBox();
       const strict = await scripts.locator('button[data-tile="Strict review"]').boundingBox();
       assert.ok(review && strict);
@@ -717,7 +720,7 @@ for (const { host, width } of [{ host: "browser", width: 1400 }, { host: "vscode
       await shareButton.click();
       await share.getByRole("status").filter({ hasText: "Loading ..." }).waitFor();
       const shareBounds = await dropdownBounds(page, share, shareButton);
-      assert.deepEqual({ x: shareBounds.x, y: shareBounds.y, width: shareBounds.width }, { x: detailBounds.x, y: detailBounds.y, width: detailBounds.width });
+      assert.deepEqual({ y: shareBounds.y, width: shareBounds.width }, { y: detailBounds.y, width: detailBounds.width });
       await page.evaluate(() => { window.runStartFixture.holdSharing = false; window.runStartFixture.releaseSharing(); });
       await share.getByRole("list", { name: "Shared with", exact: true }).waitFor();
       assert.equal(await share.getByRole("button", { name: /^(Save|Cancel)$/ }).count(), 0, "Access changes need no confirmation.");

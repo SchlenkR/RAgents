@@ -8,7 +8,7 @@ import { StartTile } from "../StartTiles";
 import { Button, HeaderDropdown, Separator } from "../ui";
 
 const messageOf = (cause: unknown): string => cause instanceof Error ? cause.message : String(cause);
-const noticeClass = "px-1 py-1.5 type-body text-muted-foreground";
+const noticeClass = "px-1 py-2 type-body text-muted-foreground";
 
 type Scripts = { readonly kind: "loading" } | { readonly kind: "ready"; readonly scripts: readonly RunScriptListing[] };
 
@@ -35,10 +35,10 @@ export function RunScriptMenu({ runId }: { runId: string }) {
       .catch((cause: unknown) => setError(messageOf(cause))).finally(() => setStarting(undefined));
   };
   return <div className="ml-1 flex flex-none items-center gap-2">
-    <Separator className="my-2.5" orientation="vertical" />
+    <Separator className="my-3" orientation="vertical" />
     <HeaderDropdown label="Run script" onOpenChange={(next) => { if (next) listScripts(); else close(); }} open={open}
-      trigger={<Button aria-label="Run script" className="border-primary/40 text-primary" size="lg" title="Run script" variant="outline">
-        <WandSparklesIcon /><span>Run script</span>
+      trigger={<Button aria-label="Run script" className="flex-none self-center" size="lg" title="Run script" variant="ghost">
+        <WandSparklesIcon className="text-primary" /><span>Run script</span>
       </Button>}>
         {scripts?.kind === "loading" && <p className={noticeClass}>Loading run scripts ...</p>}
         {scripts?.kind === "ready" && scripts.scripts.length === 0 && !error && <p className={noticeClass}>This profile has no run scripts for you.</p>}

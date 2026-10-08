@@ -1,5 +1,27 @@
 # Decisions
 
+## 2026-10-08: One appearance mechanism after merging the readability work
+
+Chapters: `spec/plugins.md` (Web as plugin host: Appearance, UI library, Data grid, run panel header and host messages),
+`spec/actor-programs.md` (Mini-apps); usage: `usage.md` (Run chat and inspection, Switch runs, Settings, VS Code settings).
+
+Main and the readability branch had each added table spacing and a reading scale. Table spacing now exists once,
+as the `density` look of the appearance stores (`appearance-options.ts`, `appearance.ts`), with Compact, Comfortable,
+and Spacious. VS Code keeps it in `ragents.density` through the `appearance` and `appearanceChanged` messages, and
+mini-app frames receive it in `looks`. The density in the theme store, its `density` and `densityChanged` messages,
+`table-density.ts`, and the host export `useTableDensity` are gone; plugins read the looks with `useLooks`. `Table`
+and `DataGrid` keep the `--grid-cell-x` and `--grid-cell-y` tokens and their shared minimum row height (Compact 2 and
+1 units, Comfortable 3 and 2.5, Spacious 3.5). The reading role keeps the `--text-prose` and `--text-prose-h1` to
+`--text-prose-h4` tokens with the readable values of the branch: 0.875rem at line height 1.65 and headings at weight
+700, identical in chat answers, user messages, bubbles, and documents. Runs shows its two tabs above one run card per
+tab. The header gained the Appearance button, so from 768px the run title now shrinks first down to its chevron and
+then the global coordinator shrinks, instead of the groups covering one another. The tests of both sides moved onto
+the one mechanism.
+
+`HOST_API_VERSION` stays 12 and `EXTENSION_API_VERSION` stays 1: release 0.1.52 already shipped the appearance
+messages and `useLooks`, while `useTableDensity` and the density messages were never released, so the merged
+contracts only add to the last release.
+
 ## 2026-10-08: Preserve exact working excerpts and recover original results after compaction
 
 Chapters: `spec/core.md` (Model context, Retries and compaction, Journal), `spec/plugins.md`
@@ -110,6 +132,87 @@ A long title pushed the fixed actions onto a second row at medium desktop widths
 window buttons on a third row. Header container queries keep the fixed groups on one row
 from 768px and let the title shrink; narrower panels retain wrapping. Browser regressions
 cover the failing 920px width in both hosts, app growth, and resizing across the breakpoint.
+
+## 2026-10-07: Appearance switch in the header and in VS Code settings
+
+Chapters: `spec/plugins.md` (Appearance), `spec/actor-programs.md` (mini-app theme bridge); usage: `usage.md`
+(Appearance, VS Code settings).
+
+The design-lab choices (palette, color scheme, corners, inline code, table spacing) became real, switchable
+options instead of fixed values: one import-free definition (`appearance-options.ts`) and one generic store per
+choice (`appearance.ts`) replace the palette-only store, the CSS reacts to root attributes, and one set of controls
+serves Settings, Appearance and a quick switch next to Settings in the header. Defaults are the lab's choices, the
+alternatives stay available. In VS Code the settings (`ragents.theme`, `ragents.palette`, `ragents.corners`,
+`ragents.codeStyle`, `ragents.density`) are the truth and the panel's browser storage only a cache; a switch in the
+panel writes the user setting through an `appearanceChanged` message, and every webview and mini-app frame follows a
+settings change without reloading (the frame address no longer includes the theme, so a change does not rebuild it).
+The change to the extension interface is additive (new messages and address parameters, an older panel ignores
+them, and the legacy `theme` message is still sent), so `EXTENSION_API_VERSION` stays.
+
+## 2026-10-07: Context usage in the chat composer
+
+Chapters: `spec/core.md` (Model context across turns); usage: `usage.md` (Context usage).
+
+The run coordinator, agent, and global coordinator chats show a context ring with a pop-out of
+used tokens, the model window, and its automatic compaction threshold. RAgents owns both the
+metric and the control: Quassel already provides composer slots, while the model runtime owns
+the limits and the journal owns the active context. The control uses the existing Button and
+Popover, the same token estimate as compaction, and the page's shared run channel. Old usage
+before a compaction is excluded, estimates are marked, and a model choice refreshes the limits
+that apply from the next turn. No journal format change or model call is needed.
+
+## 2026-10-07: Readable by default - separated surfaces, palettes, one selection language
+
+Chapters: `spec/plugins.md` (Web as plugin host: Appearance, UI library, Runs page, header dropdowns),
+`spec/actor-programs.md` (theme bridge); usage: `usage.md` (Settings, Appearance, Selection controls and tables, chat,
+Runs, run header).
+
+The interface was hard to read although its text contrast was fine (6:1 and more). The causes were the steps between
+surfaces (1.1:1 to 1.2:1), borders (1.3:1 to 1.9:1), bold at weight 500, chat text at 13px, diff text at 10.5px, code in
+Courier (Chrome ignores `ui-monospace`, so the stack fell back to it), boxed controls with square toggle groups next to
+rounded buttons, and group rows of tables painted as selected, because the `selected:` variant included `aria-expanded`.
+A first round passed its numeric checks pair by pair and still looked wrong: derived colors (code chips, diff fills,
+borders, bands, selection) had each been fitted to one surface, so on another surface of the same palette they were tone on
+tone. Four independent reviewers then went through every screen in all eight palette and mode combinations; their findings,
+not the numbers, drove this round.
+
+The colors are generated palettes: `scripts/maintenance/palettes.ts` turns OKLCH seeds into every token (`palettes.css`, four
+palettes in light and dark, `data-palette`), and fits each derived token against all surfaces it can sit on instead of one
+reference surface (`border`, `border-soft`, `border-strong`, `band` 1.2:1, `selected` 1.32:1, `code`, `diff-*`, the syntax
+colors, comments included, and the primary and tone texts on selected rows). It refuses a palette that misses a target, and
+`palette.test.ts` compares the file. A palette may give the `active` tone its own hue (Midnight does, so that active and info
+chips stay apart).
+
+There is one selection language: a tinted fill plus a one-pixel frame in the selection hue for tabs, toggles, pressed buttons,
+table rows (inset frame) and segments (inset outline); menu options show a check and a heavier weight and no fill, so the
+keyboard highlight and the chosen option cannot be confused; cards keep their ring. No state adds a bar on one side. Hover is
+subtler, and a row hover is half as strong as a control hover. Keyboard focus is the two-pixel ring on every control, icon-only
+actions included (they showed only the hover tint before).
+
+Tables: `DataGrid` keeps the width of its parent and draws a frame as wide as its columns (a first version clipped columns without
+a scrollbar), the header has a strong lower edge, group rows are a stronger `band` with an outlined count badge, rows are
+separated by `border` lines, and the grid says "Loading ..." while it loads without rows. Secondary buttons and badges carry a
+`border` edge. Start tiles and the run card are framed and lifted off the backdrop (`border`, `shadow-card`), which departs from
+the earlier "only floating views keep a shadow". Runs and Start rows use the same dividers; the Runs toolbar sticks flush to the
+top and the empty status bar is gone outside a run. Settings pages share their page classes, `SearchInput` replaces the browser's
+search field (and its off-palette clear button), and the plugin overview is a framed list.
+
+Spacing is one scale of seven steps (hair 0.5, tight 1, related 2, group 3, gutter 4, section 6, block 8) with one rule, proximity: related
+things sit close, the outside of a container is at least as large as its inside, and a container pads all sides equally. The first attempt
+fixed single screens and left every panel with its own half steps (1.5, 2.5, 3.5); a test now rejects any value off the scale.
+
+Run page: one `ModelPickers` (composer or form look) serves the composer, the global coordinator, and both settings pages, and the
+composer menus open upwards. Header dropdowns align to the side of their trigger and dim only what lies below the header, so every
+header control stays bright and usable (the first idea, lifting only the open trigger, broke switching between dropdowns). Run
+details lists a start option once, the title and window buttons share one control height, the focused dock area alone tints its
+tab, rail buttons use the shared icon-only selection look, the addressee popout has a title bar and no dimming, and the sidebar
+flyout stays open while a modal dialog opened from its panel is open (the panel was paused and the dialog stayed empty). Chat code
+blocks wrap, and the tool call pop-out shows its arguments and result in code blocks.
+
+The temporary design lab is gone after the owner's choices: inline code is a tint (`code-tint`, fitted like every other
+surface), corners stay round, table spacing stays comfortable. Making these appearance options user settings is in `TODO.md`.
+Open: the border against the colored backdrop glows of the light palettes (1.15:1 to 1.24:1 at the strongest spots,
+`TODO.md`), plus the smaller items listed there.
 
 ## 2026-10-07: Chromium's sandbox can be turned off for a server in a hardened container
 

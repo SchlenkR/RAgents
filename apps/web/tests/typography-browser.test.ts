@@ -13,9 +13,9 @@ const defaultHeadings = [
   { size: 1.5, lineHeight: 1.3 },
   { size: 1.25, lineHeight: 1.35 },
   { size: 1.1, lineHeight: 1.4 },
-  { size: 0.825, lineHeight: 1.5 },
-  { size: 0.825, lineHeight: 1.5 },
-  { size: 0.825, lineHeight: 1.5 },
+  { size: 0.8, lineHeight: 1.5 },
+  { size: 0.8, lineHeight: 1.5 },
+  { size: 0.8, lineHeight: 1.5 },
 ];
 const changedHeadings = [
   { size: 1.75, lineHeight: 1.2 },
@@ -128,14 +128,14 @@ test("reading text and headings share tokens across chat and documents without c
       await settle(page);
       assert.equal(await page.evaluate(() => document.documentElement.dataset.host), host);
       const label = `${host}, ${theme}, root ${rootSize}px`;
-      await assertReadingRole(page, rootSize * 0.825, 1.55, label);
-      await assertHeadingRoles(page, rootSize * 0.825, defaultHeadings, label);
+      await assertReadingRole(page, rootSize * 0.875, 1.65, label);
+      await assertHeadingRoles(page, rootSize * 0.875, defaultHeadings, label);
       const unchanged = await controlRoles(page);
       near(unchanged[0].fontSize, rootSize * 0.78, `${label}, button font`);
-      near(unchanged[1].fontSize, rootSize * 0.72, `${label}, body control font`);
-      near(unchanged[2].fontSize, rootSize * 0.66, `${label}, metadata font`);
-      near(unchanged[1].lineHeight, rootSize * 0.72 * 1.5, `${label}, body control line height`);
-      near(unchanged[2].lineHeight, rootSize * 0.66 * 1.5, `${label}, metadata line height`);
+      near(unchanged[1].fontSize, rootSize * 0.8, `${label}, body control font`);
+      near(unchanged[2].fontSize, rootSize * 0.72, `${label}, metadata font`);
+      near(unchanged[1].lineHeight, rootSize * 0.8 * 1.55, `${label}, body control line height`);
+      near(unchanged[2].lineHeight, rootSize * 0.72 * 1.5, `${label}, metadata line height`);
       await page.locator("[data-quassel-transcript]").hover();
       await page.mouse.wheel(0, -100_000);
       await page.waitForFunction(() => document.querySelector<HTMLElement>("[data-quassel-transcript]")!.scrollTop === 0);
@@ -248,7 +248,8 @@ test("chat transcripts reserve a narrow visible scrollbar and keep wheel, track,
 
       const thumb = await transcript.evaluate((node) => ({ height: node.clientHeight, content: node.scrollHeight, top: node.scrollTop }));
       const thumbHeight = Math.max(24, thumb.height * thumb.height / thumb.content);
-      const thumbY = track.y + thumb.height - thumbHeight / 2;
+      // Grab the thumb near its top, because the floating composer covers the lower end of the track.
+      const thumbY = track.y + thumb.height - thumbHeight + 8;
       await page.mouse.move(trackX, thumbY);
       await page.mouse.down();
       await page.mouse.move(trackX, thumbY - 180, { steps: 8 });

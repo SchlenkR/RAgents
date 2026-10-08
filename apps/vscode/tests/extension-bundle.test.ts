@@ -23,7 +23,7 @@ before(() => {
 
 /** The .vsix brings no node_modules; the stub is everything the bundle finds when loading and activating. */
 const VSCODE_STUB = `const noop = () => undefined;
-const settings = { "ragents.connections": [], "ragents.theme": "auto", "ragents.zoom": 100, "ragents.density": "comfortable" };
+const settings = { "ragents.connections": [], "ragents.theme": "auto", "ragents.zoom": 100, "ragents.palette": "schichtwerk", "ragents.codeStyle": "tint", "ragents.corners": "round", "ragents.density": "comfortable" };
 const configurationWrites = [];
 const providers = new Map();
 const commandHandlers = new Map();
@@ -389,7 +389,7 @@ const check = async () => {
     && api.session(name)?.workspaceClient?.status.kind === "registered"));
   resolveView();
   assert.equal(api.panel().page, "connections", "the bundled local page is only connection management");
-  assert.equal(api.panel().density, "compact");
+  assert.equal(api.panel().looks.density, "compact");
   assert.equal(assertEnvironment(api, "first").searchParams.has("run"), false);
   assert.equal(framedUrl().searchParams.get("density"), "compact");
   assert.deepEqual(ready(), [{ type: "showPage", page: "start" }]);
@@ -413,18 +413,19 @@ const check = async () => {
     posted.length = 0;
     for (const app of appPanels) app.posted.length = 0;
     await action();
-    await waitFor(() => api.panel().density === density);
-    assert.deepEqual(posted.filter((message) => message.type === "density"), [{ type: "density", density }]);
-    for (const app of appPanels) assert.deepEqual(app.posted.filter((message) => message.type === "density"), [{ type: "density", density }]);
+    await waitFor(() => api.panel().looks.density === density);
+    const appearance = { type: "appearance", scheme: "auto", theme: "dark", palette: "schichtwerk", codeStyle: "tint", corners: "round", density };
+    assert.deepEqual(posted.filter((message) => message.type === "appearance"), [appearance]);
+    for (const app of appPanels) assert.deepEqual(app.posted.filter((message) => message.type === "appearance"), [appearance]);
     assert.equal(view.webview.html, panelHtmlBeforeSpacing, "spacing updates preserve the run panel document");
     assert.deepEqual(appPanels.map((app) => app.webview.html), appHtmlBeforeSpacing, "spacing updates preserve open app documents");
     assert.equal(api.panel().theme, "dark", "table spacing keeps the editor's color choice");
   };
-  await applyDensity("spacious", () => receive({ type: "densityChanged", density: "spacious" }));
+  await applyDensity("spacious", () => receive({ type: "appearanceChanged", density: "spacious" }));
   assert.deepEqual(vscode.configurationWrites.at(-1), { key: "ragents.density", value: "spacious", target: vscode.ConfigurationTarget.Global });
-  await applyDensity("comfortable", () => appPanels[1].receive({ type: "densityChanged", density: "comfortable" }));
-  assert.deepEqual(vscode.configurationWrites.at(-1), { key: "ragents.density", value: "comfortable", target: vscode.ConfigurationTarget.Global });
-  await applyDensity("compact", () => vscode.workspace.getConfiguration("ragents").update("density", "compact", vscode.ConfigurationTarget.Global));
+  await applyDensity("compact", () => appPanels[1].receive({ type: "appearanceChanged", density: "compact" }));
+  assert.deepEqual(vscode.configurationWrites.at(-1), { key: "ragents.density", value: "compact", target: vscode.ConfigurationTarget.Global });
+  await applyDensity("comfortable", () => vscode.workspace.getConfiguration("ragents").update("density", "comfortable", vscode.ConfigurationTarget.Global));
   posted.length = 0;
   const assertAppReadiness = () => {
     const before = posted.length;
@@ -517,6 +518,24 @@ const check = async () => {
   assert.equal(view.webview.html, secondFrame);
   assert.deepEqual(posted, [], "a server page change is observed without a navigation echo");
   assert.deepEqual(ready(), [{ type: "showPage", page: "start" }], "frame readiness restores the page selected in the server interface");
+  const configured = (key) => vscode.workspace.getConfiguration("ragents").get(key);
+  posted.length = 0;
+  receive({ type: "appearanceChanged", scheme: "dark", palette: "midnight", corners: "tight" });
+  await waitFor(() => configured("palette") === "midnight" && configured("corners") === "tight" && configured("theme") === "dark");
+  assert.deepEqual([configured("codeStyle"), configured("density")], ["tint", "comfortable"], "only the changed looks reach the settings");
+  assert.equal(view.webview.html, secondFrame, "a change made in the panel does not reload its frame");
+  assert.deepEqual(posted.filter((message) => message.type === "appearance").at(-1),
+    { type: "appearance", scheme: "dark", theme: "dark", palette: "midnight", codeStyle: "tint", corners: "tight", density: "comfortable" });
+  assert.ok(posted.some((message) => message.type === "theme" && message.theme === "dark"), "servers that only know the theme message still follow");
+  posted.length = 0;
+  receive({ type: "appearanceChanged", palette: "midnight", scheme: "dark" });
+  await new Promise((resolve) => setTimeout(resolve, 20));
+  assert.deepEqual(posted, [], "values that match the settings are neither written nor echoed");
+  receive({ type: "appearanceChanged", palette: "sepia" });
+  await waitFor(() => vscode.notifications.some((text) => text.includes("ragents.palette must be schichtwerk, graphite, midnight, or black")));
+  assert.equal(configured("palette"), "midnight");
+  receive({ type: "appearanceChanged", scheme: "auto", palette: "schichtwerk", corners: "round" });
+  await waitFor(() => configured("palette") === "schichtwerk" && configured("corners") === "round" && configured("theme") === "auto");
   receive({ type: "pageChanged", page: "runs" });
   appPanels[0].receive({ type: "pageChanged", page: "start" });
   assert.deepEqual(ready(), [{ type: "showPage", page: "runs" }], "another environment cannot change the selected server page");

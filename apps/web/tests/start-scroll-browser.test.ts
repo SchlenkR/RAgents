@@ -8,7 +8,7 @@ import { build } from "esbuild";
 import { chromium, type Page } from "playwright-core";
 import { tailwindPlugin } from "./tailwind-plugin";
 import type {} from "./start-scroll-fixture";
-import type { TableDensity } from "../src/table-density";
+import type { AppearanceValue } from "../src/appearance-options";
 
 interface ScrollWrite {
   target: string;
@@ -46,7 +46,7 @@ const scrollToBoard = async (page: Page) => {
   await page.evaluate(() => { window.startScrollWrites = []; });
 };
 
-const withPage = async (mode: "panel" | "window", initial: "list" | "lanes", run: (page: Page) => Promise<void>, density: TableDensity = "comfortable") => {
+const withPage = async (mode: "panel" | "window", initial: "list" | "lanes", run: (page: Page) => Promise<void>, density: AppearanceValue<"density"> = "comfortable") => {
   const directory = await mkdtemp(join(tmpdir(), "ragents-start-scroll-"));
   const source = fileURLToPath(new URL("../src", import.meta.url));
   await build({

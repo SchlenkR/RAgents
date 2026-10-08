@@ -165,7 +165,7 @@ const page = view === "start"
   ? <PanelFixture />
   : view === "panel"
     ? <RunPanelHostProvider value={query.get("host") === "vscode" ? vsCodeHost : createBrowserHost(window)}>
-      <RunPanelApp location={{ layout: "panel", runId: undefined, host: query.get("host") === "vscode" ? "vscode" : "browser", connection: "local", theme: undefined, access: undefined }} />
+      <RunPanelApp location={{ layout: "panel", runId: undefined, host: query.get("host") === "vscode" ? "vscode" : "browser", connection: "local", theme: undefined, scheme: undefined, looks: {}, access: undefined }} />
     </RunPanelHostProvider>
     : <RunPanelHostProvider value={createBrowserHost(window)}><RunPanelApp location={parseRunPanelLocation(location.search)} /></RunPanelHostProvider>;
 createRoot(document.getElementById("root")!).render(<AccessContext.Provider value={{ ...access, logout: async () => {} }}>{page}</AccessContext.Provider>);

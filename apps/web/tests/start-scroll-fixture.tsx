@@ -5,8 +5,9 @@ import { PanelPage } from "../src/panel/PanelPage";
 import type { ConnectionView, PanelState } from "../src/panel/contract";
 import { DataGrid, type DataGridColumn } from "../src/ui/data-grid";
 import { Button } from "../src/ui/button";
+import { initializeAppearance } from "../src/appearance";
+import { appearanceChoices } from "../src/appearance-options";
 import { initializeTheme } from "../src/theme";
-import { DENSITY_STORAGE_KEY } from "../src/table-density";
 import "../src/ui/tailwind.css";
 
 interface WorkItem {
@@ -18,8 +19,9 @@ interface WorkItem {
 type Layout = "list" | "lanes";
 const query = new URLSearchParams(location.search);
 const density = query.get("density");
-if (density) localStorage.setItem(DENSITY_STORAGE_KEY, density);
+if (density) localStorage.setItem(appearanceChoices.density.storageKey, density);
 initializeTheme(window);
+initializeAppearance(window);
 const statuses = ["Ready", "In progress", "Complete"];
 const columns: readonly DataGridColumn<WorkItem>[] = [
   { id: "title", label: "Title", value: (row) => row.title, width: 480, minWidth: 100, sortable: true, flex: true },

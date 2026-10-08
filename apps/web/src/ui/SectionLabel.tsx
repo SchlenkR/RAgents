@@ -9,7 +9,7 @@ export function SectionLabel({ className, ...props }: ComponentProps<"div">) {
 /** A page section's heading in the same label style: the count next to the title, an action at the opposite end. */
 export function SectionHeading({ title, count, children }: { title: string; count?: number; children?: ReactNode }) {
   return <div className="flex items-baseline justify-between gap-2">
-    <h2 className="flex items-baseline gap-2 type-label text-muted-foreground">{title}{count !== undefined && <span className="font-mono type-meta opacity-80">{count}</span>}</h2>
+    <h2 className="flex items-baseline gap-2 type-label text-muted-foreground">{title}{count !== undefined && <span className="type-meta tabular-nums">{count}</span>}</h2>
     {children}
   </div>;
 }

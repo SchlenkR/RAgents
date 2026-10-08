@@ -9,7 +9,8 @@ import { RunScriptMenu } from "./RunScriptMenu";
 import { RunShareButton } from "./RunShareButton";
 import { useRunHeader } from "./RunHeader";
 
-const titleClass = "flex h-[30px] min-w-0 max-w-full flex-1 cursor-pointer items-center gap-2 self-center rounded-md px-1.5 text-left";
+const titleClass = "flex h-[30px] min-w-0 max-w-full flex-1 cursor-pointer items-center gap-2 self-center rounded-md px-2 text-left";
+const detailsClass = "grid grid-cols-1 gap-2 @[480px]/header-dropdown:grid-cols-2 @[720px]/header-dropdown:grid-cols-3 [&>*]:min-w-0 [&>*]:max-w-full [&>*]:items-start [&>*]:rounded-[12px] [&>*]:border [&>*]:border-border [&>*]:bg-card [&>*]:p-3 [&_*]:max-w-full [&_*]:whitespace-normal [&>*]:[overflow-wrap:break-word] [&_span]:[-webkit-line-clamp:unset]";
 
 /** The wrapping panel header keeps bar actions direct and run details behind the title. */
 export function RunPanelHeader({ actionsRef, attention, contributions, navigation, registry, runError, session, working }: {
@@ -41,9 +42,9 @@ export function RunPanelHeader({ actionsRef, attention, contributions, navigatio
       {sharedAccess && <Badge className="flex-none" title={sharedWithYouLabel(sharedAccess)} variant="secondary">{sharedAccess === "read" ? "View only" : "Shared"}</Badge>}
       <ChevronDownIcon aria-hidden className="size-3.5 flex-none text-muted-foreground" />
     </InteractiveItem>}>
-      <div className="grid grid-cols-1 gap-2 @[480px]/header-dropdown:grid-cols-2 [&>*]:min-w-0 [&>*]:max-w-full [&>*]:flex-wrap [&>*]:rounded-[12px] [&>*]:border [&>*]:border-border-soft [&>*]:bg-card [&>*]:p-3 [&_*]:max-w-full [&_*]:whitespace-normal [&_*]:[overflow-wrap:anywhere] [&_span]:line-clamp-none">
+      <div className={detailsClass}>
         {registry.sessionMetadata.map(({ id, Metadata }) => <Metadata key={id} session={session.session} />)}
-        <StartOptionBadges registry={registry} session={session} />
+        <StartOptionBadges covered={new Set(registry.sessionMetadata.map(({ id }) => id))} registry={registry} session={session} />
         {contributions.filter((entry) => entry.placement !== "bar").map(({ id, Header }) => <Header key={id} navigation={navigation} session={session} />)}
       </div>
     </HeaderDropdown>

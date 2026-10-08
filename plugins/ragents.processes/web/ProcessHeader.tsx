@@ -15,10 +15,10 @@ interface ProcessWatchState {
 
 const idle: ProcessWatchState = { snapshot: undefined, error: undefined };
 
-const pillClass = "inline-flex h-6 min-w-0 items-center gap-1.5 whitespace-nowrap rounded-full border border-border-soft bg-card/78 pl-2.5 pr-0.5 text-xs font-medium text-muted-foreground data-[origin=background]:border-dashed [&>svg]:flex-none";
-const portLabelClass = "flex-none rounded-full bg-primary/14 px-1.5 py-px text-foreground tabular-nums";
+const pillClass = "inline-flex h-6 min-w-0 items-center gap-2 whitespace-nowrap rounded-full border border-border-soft bg-card/78 pl-3 pr-0.5 text-xs font-medium text-muted-foreground data-[origin=background]:border-dashed [&>svg]:flex-none";
+const portLabelClass = "flex-none rounded-full bg-primary/14 px-2 py-px text-foreground tabular-nums";
 const portClass = `${portLabelClass} cursor-pointer underline underline-offset-2 hover:bg-primary/28 focus-visible:bg-primary/28`;
-const stopClass = "size-5 min-w-5 rounded-full p-0.75 [&_svg]:size-2.5";
+const stopClass = "size-5 min-w-5 rounded-full p-1 [&_svg]:size-2.5";
 
 const useRunProcesses = (runId: string, active: boolean): ProcessWatchState => {
   const [state, setState] = useState<ProcessWatchState>(idle);

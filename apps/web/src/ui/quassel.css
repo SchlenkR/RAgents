@@ -5,6 +5,9 @@
     --qsl-chat-content-max-width: var(--chat-max-width);
     --qsl-chat-font-size: var(--text-prose);
     --qsl-chat-line-height: var(--text-prose--line-height);
+    --qsl-chat-message-gap: 22px;
+    --qsl-text-meta: 0.7rem;
+    --qsl-text-trace: 0.72rem;
     --qsl-color-scheme: light;
     --qsl-font: --theme(--font-sans);
     --qsl-mono: --theme(--font-mono);
@@ -55,8 +58,49 @@
 }
 
 [data-quassel] :is([data-message="answer"], [data-message="user"], [data-message="bubble"]) {
-    & h1 { font-size: var(--text-prose-h1); line-height: var(--text-prose-h1--line-height); font-weight: 650; }
-    & h2 { font-size: var(--text-prose-h2); line-height: var(--text-prose-h2--line-height); font-weight: 600; }
-    & h3 { font-size: var(--text-prose-h3); line-height: var(--text-prose-h3--line-height); font-weight: 600; }
-    & :is(h4, h5, h6) { font-size: var(--text-prose-h4); line-height: var(--text-prose-h4--line-height); font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; }
+    & :is(h1, h2, h3, h4, h5, h6) { font-weight: 700; }
+    & h1 { font-size: var(--text-prose-h1); line-height: var(--text-prose-h1--line-height); letter-spacing: -0.01em; }
+    & h2 { font-size: var(--text-prose-h2); line-height: var(--text-prose-h2--line-height); }
+    & h3 { font-size: var(--text-prose-h3); line-height: var(--text-prose-h3--line-height); }
+    & :is(h4, h5, h6) { font-size: var(--text-prose-h4); line-height: var(--text-prose-h4--line-height); letter-spacing: 0.05em; text-transform: uppercase; }
+}
+
+/* Rendered Markdown of an answer (the first div; attachments and actions follow it): quassel's own classes keep bold at weight 500. */
+[data-quassel] [data-message="answer"] > div:first-of-type {
+  :is(strong, b) { font-weight: 700; }
+  :is(em, i) { font-style: italic; }
+  :is(h1, h2, h3, h4, h5, h6) { color: var(--foreground); }
+  h1 { margin-block: 1.5em 0.5em; }
+  h2 { margin-block: 1.5em 0.45em; }
+  h3 { margin-block: 1.35em 0.4em; }
+  :is(h4, h5, h6) { margin-block: 1.2em 0.3em; color: var(--muted-foreground); }
+  :is(h1, h2, h3, h4, h5, h6):first-child { margin-top: 0; }
+  :is(p, ul, ol, blockquote, table) { margin-block: 0.75em; }
+  li { margin-block: 0.3em; }
+  li > :is(ul, ol) { margin-block: 0.25em 0; }
+  li > p { margin-block: 0; }
+  :not(pre) > code { padding: 0.12em 0.4em; border-radius: 0.38em; background: var(--inline-code); box-shadow: inset 0 0 0 1px var(--inline-code-edge); color: var(--code-foreground); font-size: 0.88em; }
+  pre { margin-block: 0.9em; padding: 0.85em 1.05em; border: 1px solid var(--code-border); border-radius: 0.7em; background: var(--code); font-size: 0.88em; line-height: 1.6; }
+  a { text-decoration: underline; text-decoration-thickness: 1px; text-underline-offset: 3px; }
+  a:hover { text-decoration-thickness: 2px; }
+  blockquote { padding: 0.55em 1em; border-left: 3px solid var(--selected-border); border-radius: 0 0.5em 0.5em 0; background: color-mix(in srgb, var(--selected) 40%, transparent); color: var(--foreground); }
+  th { padding: 0.5em 0.85em; background: var(--secondary); font-weight: 700; }
+  td { padding: 0.5em 0.85em; }
+  tbody tr:nth-child(even) td { background: color-mix(in srgb, var(--foreground) 3.5%, transparent); }
+  hr { margin-block: 1.6em; }
+}
+
+/* Arguments and result of a tool call read as code blocks, like code in an answer (the marker comes from chat/QuasselHost.tsx). */
+[data-quassel-popover] pre {
+  border: 1px solid var(--code-border);
+  background: var(--code);
+}
+
+/* Step icons at the full muted text strength, and the shared hover fill on step rows. */
+[data-quassel] [data-step] svg {
+  opacity: 1;
+}
+
+[data-quassel] :is(button[data-step], [data-step] > button):is(:hover, :focus-visible) {
+  background-color: var(--hover);
 }

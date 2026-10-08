@@ -16,7 +16,7 @@ export function DocumentsSection({ actor, navigation, session }: CardSectionCont
   if (documents.length === 0) return null;
 
   return (
-    <section className="grid gap-1.5">
+    <section className="grid gap-2">
       <SectionLabel>
         <span>Documents</span>
         <small>{documents.length}</small>
@@ -24,7 +24,7 @@ export function DocumentsSection({ actor, navigation, session }: CardSectionCont
       <ul className="grid list-none gap-1">
         {documents.map((artifact) => (
           <li key={artifact.id}>
-            <button className="grid w-full cursor-pointer rounded-lg border border-border-soft px-2 py-1.5 text-left hover:border-[color-mix(in_srgb,var(--primary)_45%,var(--border))] hover:bg-primary/6"
+            <button className="grid w-full cursor-pointer rounded-lg border border-border-soft px-2 py-2 text-left hover:border-[color-mix(in_srgb,var(--primary)_45%,var(--border))] hover:bg-primary/6"
               onClick={() => openDocument(navigation, artifact)} type="button">
               <strong className="truncate text-[0.74rem]" title={artifact.title}>{artifact.title}</strong>
               <small className="text-[0.64rem] text-muted-foreground">{formatBytes(artifact.size)} - {artifact.mediaType}</small>

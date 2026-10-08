@@ -13,6 +13,7 @@ import * as webAccessToken from "@ragents/web/access-token";
 import * as webActorConversation from "@ragents/web/actor-conversation";
 import * as webApi from "@ragents/web/api";
 import * as webChatViewSettings from "@ragents/web/chat-view-settings";
+import * as webChatContextUsage from "@ragents/web/chat/ChatContextUsage";
 import * as webChatPausedRunNotice from "@ragents/web/chat/PausedRunNotice";
 import * as webChatStoppedActorNotice from "@ragents/web/chat/StoppedActorNotice";
 import * as webChatChatTarget from "@ragents/web/chat/chat-target";
@@ -25,6 +26,7 @@ import * as webLibHttp from "@ragents/web/lib/http";
 import * as webLibLabels from "@ragents/web/lib/labels";
 import * as webLibLocalStorageSetting from "@ragents/web/lib/local-storage-setting";
 import * as webPageOpener from "@ragents/web/page-opener";
+import * as webProductModelPickers from "@ragents/web/product/ModelPickers";
 import * as webProductProductModelSettings from "@ragents/web/product/ProductModelSettings";
 import * as webProductStartOptions from "@ragents/web/product/start-options";
 import * as webRpc from "@ragents/web/rpc";
@@ -59,6 +61,7 @@ export const hostModules: Readonly<Record<string, object>> = {
   "@ragents/web/actor-conversation": webActorConversation,
   "@ragents/web/api": webApi,
   "@ragents/web/chat-view-settings": webChatViewSettings,
+  "@ragents/web/chat/ChatContextUsage": webChatContextUsage,
   "@ragents/web/chat/PausedRunNotice": webChatPausedRunNotice,
   "@ragents/web/chat/StoppedActorNotice": webChatStoppedActorNotice,
   "@ragents/web/chat/chat-target": webChatChatTarget,
@@ -71,6 +74,7 @@ export const hostModules: Readonly<Record<string, object>> = {
   "@ragents/web/lib/labels": webLibLabels,
   "@ragents/web/lib/local-storage-setting": webLibLocalStorageSetting,
   "@ragents/web/page-opener": webPageOpener,
+  "@ragents/web/product/ModelPickers": webProductModelPickers,
   "@ragents/web/product/ProductModelSettings": webProductProductModelSettings,
   "@ragents/web/product/start-options": webProductStartOptions,
   "@ragents/web/rpc": webRpc,

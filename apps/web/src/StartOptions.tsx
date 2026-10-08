@@ -300,13 +300,14 @@ export function StartOptionControls({ disabled, registry, placement = "page", fi
   );
 }
 
-export function StartOptionBadges({ registry, session }: { registry: PluginRegistry; session: SessionContext }) {
+/** The badges of the run's start options; an option named in `covered` already has a run metadata cell of the same id. */
+export function StartOptionBadges({ covered, registry, session }: { covered: ReadonlySet<string>; registry: PluginRegistry; session: SessionContext }) {
   const control = useStartOptions();
   return (
     <>
       {control.options.map((option) => {
         const Badge = registry.startOptions.get(option.id)?.Badge;
-        return Badge ? <Badge key={option.id} option={option} session={session} /> : null;
+        return Badge && !covered.has(option.id) ? <Badge key={option.id} option={option} session={session} /> : null;
       })}
     </>
   );

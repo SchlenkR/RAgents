@@ -164,6 +164,9 @@ const ALIASES: Record<string, string> = {
   zsh: "bash",
 };
 
+/** Code views show a slim horizontal scrollbar; the app hides all others. */
+export const codeScrollbarClass = "[&::-webkit-scrollbar]:block [&::-webkit-scrollbar]:h-2.5 [&::-webkit-scrollbar]:w-0 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:border-2 [&::-webkit-scrollbar-thumb]:border-solid [&::-webkit-scrollbar-thumb]:border-transparent [&::-webkit-scrollbar-thumb]:bg-border-strong [&::-webkit-scrollbar-thumb]:bg-clip-padding";
+
 export interface HighlightedSource {
   html: string;
   language: string;

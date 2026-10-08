@@ -80,21 +80,22 @@ test("table spacing crosses the VS Code host in both directions only as a valid 
   const host = createVsCodeHost(browser);
   const commands: HostRunPanelMessage[] = [];
   host.onCommand((message) => commands.push(message));
+  const appearance = (density: unknown) => ({ type: "appearance", scheme: "auto", theme: "dark", palette: "schichtwerk", codeStyle: "tint", corners: "round", density });
   for (const density of ["compact", "comfortable", "spacious"] as const) {
-    const command = { type: "density" as const, density };
+    const command = appearance(density);
     assert.equal(isHostRunPanelMessage(command), true);
-    assert.equal(isRunPanelHostMessage({ type: "densityChanged", density }), true);
+    assert.equal(isRunPanelHostMessage({ type: "appearanceChanged", density }), true);
     receive({}, command);
     receive(parent, command);
-    host.notify({ type: "densityChanged", density });
+    host.notify({ type: "appearanceChanged", density });
   }
   for (const density of [undefined, null, "", 3, {}]) {
-    assert.equal(isHostRunPanelMessage({ type: "density", density }), false);
-    assert.equal(isRunPanelHostMessage({ type: "densityChanged", density }), false);
-    receive(parent, { type: "density", density });
+    assert.equal(isHostRunPanelMessage(appearance(density)), false);
+    if (density !== undefined) assert.equal(isRunPanelHostMessage({ type: "appearanceChanged", density }), false);
+    receive(parent, appearance(density));
   }
-  assert.deepEqual(commands, ["compact", "comfortable", "spacious"].map((density) => ({ type: "density", density })));
-  assert.deepEqual(posted, ["compact", "comfortable", "spacious"].map((density) => ({ message: { type: "densityChanged", density }, origin: "*" })));
+  assert.deepEqual(commands, ["compact", "comfortable", "spacious"].map(appearance));
+  assert.deepEqual(posted, ["compact", "comfortable", "spacious"].map((density) => ({ message: { type: "appearanceChanged", density }, origin: "*" })));
 });
 
 test("a vscode host without an embedding page is an error", () => {

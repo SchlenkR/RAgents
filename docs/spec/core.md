@@ -193,7 +193,18 @@ When the context grows too large, the agent compacts it: older parts are replace
 written by the model, and recent parts are kept. A compaction is recorded in the journal as well,
 and the chat shows a short system note. When it starts, how much recent context stays verbatim,
 and how long the summary may be are values of the model; a profile sets them for each model alias.
+
+RAgents shows context usage as a ring in the built-in model chats. Its pop-out lists used tokens,
+the context window, and the compaction threshold. Estimates are marked; after compaction the
+ring measures the summary and retained context.
 <!-- /guide:runtime -->
+
+The read-only `ragents.chat.contextUsage` operation uses the same active-context estimate as
+compaction, including cache tokens and new inputs or tool results and excluding usage before the
+latest compaction. The limits describe the selected model, which applies from the next turn.
+Script and external runtimes return no built-in context metric. The existing run channel updates
+the display; Quassel hosts the control through its generic composer slots, with the host's Button
+and Popover. Reading an idle actor's context does not keep it in the runtime's turn cache.
 
 ## Model context and agent runtime
 

@@ -1,7 +1,7 @@
 import { Button as ButtonPrimitive } from "@base-ui/react/button"
 import { cva, type VariantProps } from "class-variance-authority"
 import { cn } from "cn"
-import { iconOnlyStyle, interactionStyle } from "./interaction"
+import { filledHover, iconOnlyStyle, interactionStyle, outlinedControl } from "./interaction"
 import { controlSizes } from "./control-size"
 
 const buttonVariants = cva(
@@ -9,15 +9,15 @@ const buttonVariants = cva(
   {
     variants: {
       variant: {
-        default: "bg-primary text-primary-foreground hover:bg-primary-hover hover:text-primary-foreground",
+        default: "bg-primary text-primary-foreground hover:bg-primary-hover hover:text-primary-foreground open:bg-primary-hover open:text-primary-foreground",
         outline:
-          "border-border bg-background dark:border-input dark:bg-input/30 selected:border-selected-border",
+          `${outlinedControl}`,
         secondary:
-          "bg-secondary text-secondary-foreground",
+          `border-border bg-secondary text-secondary-foreground ${filledHover}`,
         ghost:
           "",
         destructive:
-          "bg-destructive-soft text-destructive hover:bg-destructive-hover hover:text-destructive",
+          "bg-destructive-soft text-destructive hover:bg-destructive-hover hover:text-destructive open:bg-destructive-hover open:text-destructive",
         link: "text-primary underline-offset-4 hover:underline",
       },
       size: {

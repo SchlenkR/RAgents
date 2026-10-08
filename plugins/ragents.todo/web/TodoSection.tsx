@@ -20,14 +20,14 @@ export function TodoSection({ actor, session }: CardSectionContext) {
   const done = todos.filter((todo) => todo.status === "completed").length;
 
   return (
-    <section className="grid gap-1.5">
+    <section className="grid gap-2">
       <SectionLabel>
         <span>To-do</span>
         <small>{done}/{todos.length}</small>
       </SectionLabel>
       <ul className="grid list-none">
         {todos.slice(0, MAX_ITEMS).map((todo, index) => (
-          <li className="grid grid-cols-[15px_minmax(0,1fr)] items-start gap-2 border-t border-border-soft py-1.5 text-[0.74rem] leading-[1.35] first:border-t-0 first:pt-0 last:pb-0"
+          <li className="grid grid-cols-[15px_minmax(0,1fr)] items-start gap-2 border-t border-border-soft py-2 text-[0.74rem] leading-[1.35] first:border-t-0 first:pt-0 last:pb-0"
             data-status={markerOf(todo)} key={`${index}:${todo.content}`}>
             <i aria-hidden className={markerClass}>{todo.status === "completed" && <IconCheck />}</i>
             <span className="overflow-hidden text-ellipsis in-data-[status=completed]:opacity-75" title={todo.content}>{textOf(todo)}</span>

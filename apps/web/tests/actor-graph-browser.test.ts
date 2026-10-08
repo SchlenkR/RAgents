@@ -159,8 +159,11 @@ test("the addressee pop-out and the header's agents view show who created whom a
   await card("coordinator").waitFor();
   assert.equal(await card("coordinator").getAttribute("aria-current"), "true");
   assert.equal(await dialog.getByRole("searchbox").count(), 0, "the picker has no search");
-  assert.equal(await dialog.getByText("Addressee", { exact: true }).count(), 0, "the pop-out shows the graph without a title");
-  await dialog.getByRole("button", { name: "Close addressee" }).waitFor();
+  await dialog.getByText("Addressee", { exact: true }).waitFor();
+  const closeBox = await dialog.getByRole("button", { name: "Close addressee" }).boundingBox();
+  const firstCard = await card("coordinator").boundingBox();
+  assert.ok(closeBox && firstCard && closeBox.y + closeBox.height <= firstCard.y, "the close button sits in the pop-out's title bar, clear of the actor cards");
+  assert.equal(await page.locator('[data-slot="popover-backdrop"]:visible').count(), 0, "the addressee pop-out leaves the page undimmed, like the model menus");
   assert.equal(await node("actor:implementer").getAttribute("data-graph-parent"), "actor:coordinator");
   assert.equal(await node("actor:test-writer").getAttribute("data-graph-parent"), "actor:implementer");
   assert.equal(await node("actor:formatter").getAttribute("data-graph-parent"), "actor:implementer", "the TypeScript actor hangs below its creator");
@@ -191,8 +194,9 @@ test("the addressee pop-out and the header's agents view show who created whom a
   await shoot("actor-graph-picker");
   await settle();
   const compact = await box(dialog);
+  const titleBar = await box(dialog.locator("header"));
   const fits = await canvasOf(dialog);
-  assert.ok(compact.width < 1000 && compact.height < 430, `a small graph fits into half the viewport height (${compact.width} x ${compact.height})`);
+  assert.ok(compact.width < 1000 && compact.height - titleBar.height < 430, `a small graph fits into half the viewport height below its title bar (${compact.width} x ${compact.height})`);
   assert.deepEqual([fits.maxLeft, fits.maxTop], [0, 0], "a graph that fits does not pan");
   assert.notEqual(fits.cursor, "grab");
 
@@ -222,7 +226,8 @@ test("the addressee pop-out and the header's agents view show who created whom a
   const first = await canvasOf(dialog);
   assert.deepEqual([first.left, first.top], [0, 0]);
   assert.ok(near((await box(card("test-writer"))).x, grown.x + 40), "panning stops 40 pixels left of the leftmost card");
-  assert.ok(near((await box(card("coordinator"))).y, grown.y + 40), "panning stops 40 pixels above the top card");
+  const grownTitle = await box(dialog.locator("header"));
+  assert.ok(near((await box(card("coordinator"))).y, grownTitle.y + grownTitle.height + 40), "panning stops 40 pixels above the top card, below the title bar");
   await drag(page, { x: grown.x + grown.width - 60, y: grown.y + grown.height - 60 }, -1100, -700);
   assert.equal(await dialog.count(), 1, "a drag that starts on a card pans instead of picking it");
   const last = await canvasOf(dialog);
@@ -349,10 +354,10 @@ test("the Agents header dropdown shares square responsive bounds and restores fo
       const style = await panel.evaluate((element) => {
         const computed = getComputedStyle(element);
         return { corners: [computed.borderTopLeftRadius, computed.borderTopRightRadius, computed.borderBottomLeftRadius, computed.borderBottomRightRadius],
-          padding: [computed.paddingTop, computed.paddingRight, computed.paddingBottom, computed.paddingLeft], focused: element.contains(document.activeElement) };
+          padding: [computed.paddingTop, computed.paddingRight, computed.paddingBottom, computed.paddingLeft], related: (() => { const probe = document.createElement("div"); probe.style.padding = "calc(var(--spacing) * 2)"; document.body.append(probe); const value = getComputedStyle(probe).paddingTop; probe.remove(); return value; })(), focused: element.contains(document.activeElement) };
       });
       assert.deepEqual(style.corners, ["0px", "0px", "0px", "0px"]);
-      assert.deepEqual(style.padding, ["8px", "8px", "8px", "8px"]);
+      assert.deepEqual(style.padding, Array(4).fill(style.related));
       assert.equal(style.focused, true);
       assert.equal(await page.locator('[data-slot="popover-backdrop"]:visible').count(), 1);
       await page.screenshot({ path: join(screenshots, `header-agents-${width}.png`) });

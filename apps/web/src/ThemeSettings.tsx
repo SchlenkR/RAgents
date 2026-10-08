@@ -1,79 +1,88 @@
 import { useSyncExternalStore } from "react";
 import { useAccess } from "./AccessContext";
+import { ChoiceToggle, PaletteChoices, SchemeToggle } from "./AppearanceControls";
+import { useChoice } from "./appearance";
+import { appearanceChoices } from "./appearance-options";
 import { useRunPanelHost } from "./run-panel/host";
-import { getThemeStore, parseThemePreference, themeOptions } from "./theme";
-import { Card, ToggleGroup, ToggleGroupItem } from "./ui";
+import { settingsPageClass, settingsPageLeadClass, settingsPageTitleClass, settingsPanelClass, settingsPanelTitleClass } from "./settings-page";
+import { getThemeStore, type ResolvedTheme } from "./theme";
+import { Card, ToggleGroup, ToggleGroupItem, cn } from "./ui";
 import { getZoomStore, parseZoom, zoomSteps } from "./zoom";
-import { densityOptions, parseTableDensity } from "./table-density";
 
 const noteClasses = "text-sm leading-[1.6] text-muted-foreground";
-const swatchClasses = "h-9 w-[14px] rounded-sm border border-border";
+const rowPanelClass = cn(settingsPanelClass, "flex-row flex-wrap items-center gap-4");
+const panelTitleClass = cn(settingsPanelTitleClass, "mb-2");
+const choiceRows = [
+  { id: "corners", description: "Corner radius of controls, cards and panels." },
+  { id: "codeStyle", description: "Code inside a sentence, on a tinted background or as an outlined chip." },
+  { id: "density", description: "Padding of the rows in tables and lists." },
+] as const;
 
 export function ThemeSettings() {
   const access = useAccess();
   const store = getThemeStore();
-  const { preference, appearance, density, error } = useSyncExternalStore(store.subscribe, store.getSnapshot);
+  const { preference, appearance, error } = useSyncExternalStore(store.subscribe, store.getSnapshot);
   const writable = access.can("settings.write");
   const host = useRunPanelHost();
-  return <div className="mx-auto flex max-w-[1020px] flex-col gap-6 px-[clamp(20px,calc(var(--ragents-viewport-width,100vw)*0.04),46px)] pt-7 pb-12 max-sm:px-3.5 max-sm:pt-5 max-sm:pb-9">
+  const shapeErrors = [useChoice("codeStyle").error, useChoice("corners").error, useChoice("density").error].filter((message) => message !== null);
+  return <div className={settingsPageClass}>
     <header>
-      <h2 className="text-[1.08rem] text-foreground">Appearance</h2>
-      <p className="mt-2 max-w-[780px] text-xs leading-[1.55] text-muted-foreground">Colors and size of the whole interface, the surface and the sidebar.</p>
+      <h2 className={settingsPageTitleClass}>Appearance</h2>
+      <p className={settingsPageLeadClass}>Palette, color scheme, shapes and size of the whole interface, the surface and the sidebar.</p>
     </header>
+    <PaletteSettings appearance={appearance} writable={writable} />
     <section aria-labelledby="theme-settings-title">
-      <Card className="flex-row flex-wrap items-center gap-5 p-6 max-sm:p-4">
-        <div className="flex gap-1 rounded-lg border border-border bg-app p-2" aria-hidden="true">
-          <span className={`${swatchClasses} bg-card`} />
-          <span className={`${swatchClasses} bg-accent`} />
-          <span className={`${swatchClasses} bg-primary`} />
-        </div>
+      <Card className={rowPanelClass}>
         <div className="flex-[1_1_220px]">
-          <h3 className="mb-1.5 text-lg font-semibold" id="theme-settings-title">Schichtwerk</h3>
-          <p className={noteClasses}>Matte surfaces and drawn outlines.</p>
+          <h3 className={panelTitleClass} id="theme-settings-title">Color scheme</h3>
+          <p className={noteClasses}>{host.kind === "vscode" ? "Light, dark, or the color theme of VS Code." : "Light, dark, or the setting of your system."}</p>
         </div>
-        <ToggleGroup aria-label="Schichtwerk color scheme" className="flex-none max-sm:w-full" disabled={!writable} size="sm"
-          value={[preference]}
-          onValueChange={([value]) => { if (value && writable) store.setPreference(parseThemePreference(value)); }}>
-          {themeOptions.map((option) => <ToggleGroupItem key={option.value} value={option.value}>{option.label}</ToggleGroupItem>)}
-        </ToggleGroup>
+        <SchemeToggle className="flex-none max-sm:w-full" writable={writable} />
       </Card>
     </section>
-    <section aria-labelledby="density-settings-title">
-      <Card className="flex-row flex-wrap items-center gap-4 p-4">
-        <div className="min-w-0 flex-1">
-          <h3 className="type-label text-muted-foreground" id="density-settings-title">Table spacing</h3>
-          <p className="type-body mt-2 text-muted-foreground">Row padding in tables and data grids.</p>
-        </div>
-        <ToggleGroup aria-label="Table spacing" disabled={!writable} size="sm" value={[density]}
-          onValueChange={([value]) => {
-            if (!value || !writable) return;
-            const next = parseTableDensity(value);
-            store.setDensity(next);
-            if (host.kind === "vscode") host.notify({ type: "densityChanged", density: next });
-          }}>
-          {densityOptions.map((option) => <ToggleGroupItem key={option.value} value={option.value}>{option.label}</ToggleGroupItem>)}
-        </ToggleGroup>
+    <section aria-labelledby="shape-settings-title">
+      <Card className={settingsPanelClass}>
+        <h3 className={panelTitleClass} id="shape-settings-title">Shape and spacing</h3>
+        {choiceRows.map((row) => <div className="flex flex-wrap items-center gap-4" key={row.id}>
+          <div className="flex-[1_1_220px]">
+            <h4 className="type-item">{appearanceChoices[row.id].label}</h4>
+            <p className={noteClasses}>{row.description}</p>
+          </div>
+          <ChoiceToggle className="flex-none max-sm:w-full" id={row.id} writable={writable} />
+        </div>)}
       </Card>
     </section>
     <p className={noteClasses} role="status">
-      {preference === "system"
-        ? `Follows the system setting. Schichtwerk ${appearance === "dark" ? "Dark" : "Light"} is currently active.`
-        : `Schichtwerk ${appearance === "dark" ? "Dark" : "Light"} is active.`}
-      {" "}Changes apply immediately. {host.kind === "vscode" ? "Table spacing is saved in VS Code." : "Appearance settings are saved in this browser."}
+      {preference === "system" ? `Follows ${host.kind === "vscode" ? "VS Code" : "the system setting"}, which is currently ${appearance}.` : `The ${appearance} scheme is active.`}
+      {" "}Changes apply immediately and are saved {host.kind === "vscode" ? "in the VS Code settings ragents.theme, ragents.palette, ragents.codeStyle, ragents.corners and ragents.density" : "in this browser"}.
     </p>
-    {!writable && <p className={noteClasses}>With your permissions, appearance settings are read-only.</p>}
-    {error && <p className="text-sm leading-[1.6] text-destructive" role="alert">{error}</p>}
+    {!writable && <p className={noteClasses}>With your permissions, the appearance is read-only.</p>}
+    {[error, ...shapeErrors].map((message) => message && <p className="text-sm leading-[1.6] text-destructive" key={message} role="alert">{message}</p>)}
     {host.kind === "browser" ? <ZoomSettings /> : <p className={noteClasses}>In VS Code, the setting ragents.zoom scales the interface.</p>}
   </div>;
+}
+
+function PaletteSettings({ appearance, writable }: { appearance: ResolvedTheme; writable: boolean }) {
+  const { error } = useChoice("palette");
+  return <section aria-labelledby="palette-settings-title">
+    <Card className={settingsPanelClass}>
+      <div>
+        <h3 className={panelTitleClass} id="palette-settings-title">Palette</h3>
+        <p className={noteClasses}>Colors of every surface, control and text.</p>
+      </div>
+      <PaletteChoices labelledBy="palette-settings-title" scheme={appearance} writable={writable} />
+      {error && <p className="text-sm leading-[1.6] text-destructive" role="alert">{error}</p>}
+    </Card>
+  </section>;
 }
 
 function ZoomSettings() {
   const store = getZoomStore();
   const { zoom, error } = useSyncExternalStore(store.subscribe, store.getSnapshot);
   return <section aria-labelledby="zoom-settings-title" className="flex flex-col gap-3">
-    <Card className="flex-row flex-wrap items-center gap-5 p-6 max-sm:p-4">
+    <Card className={rowPanelClass}>
       <div className="flex-[1_1_220px]">
-        <h3 className="mb-1.5 text-lg font-semibold" id="zoom-settings-title">Zoom</h3>
+        <h3 className={panelTitleClass} id="zoom-settings-title">Zoom</h3>
         <p className={noteClasses}>Scales text, controls, and spacing of the whole interface including mini-apps. Saved in this browser.</p>
       </div>
       <ToggleGroup aria-label="Zoom" className="flex-none max-sm:w-full" size="sm" value={[String(zoom)]}

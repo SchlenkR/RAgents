@@ -1,5 +1,6 @@
 import { createRoot } from "react-dom/client";
 import { ThemeSettings } from "../src/ThemeSettings";
+import { initializeAppearance } from "../src/appearance";
 import { getThemeStore, initializeTheme } from "../src/theme";
 import { initializeZoom } from "../src/zoom";
 import { createBrowserHost, RunPanelHostProvider } from "../src/run-panel/host";
@@ -20,6 +21,7 @@ const columns: readonly DataGridColumn<Item>[] = [
 ];
 
 initializeTheme(window);
+initializeAppearance(window);
 initializeZoom(window);
 declare global { interface Window { densityFixture: { store: ReturnType<typeof getThemeStore> } } }
 window.densityFixture = { store: getThemeStore() };

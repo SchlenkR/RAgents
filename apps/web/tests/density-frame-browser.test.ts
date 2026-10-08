@@ -50,7 +50,7 @@ const openShell = async (context: TestContext, path: string) => {
       html = `<!doctype html><html><body style="margin:0"><iframe title="RAgents host" src="${path.replaceAll("&", "&amp;")}" style="border:0;width:100vw;height:100vh"></iframe><script>window.hostMessages=[];window.addEventListener("message", event => { if(event.source===document.querySelector("iframe").contentWindow) window.hostMessages.push(event.data); });</script></body></html>`;
     } else {
       const entry = url.pathname === "/management.html" ? "panel" : url.pathname === "/mini-app-host.html" ? "frame" : "main";
-      const state = entry === "panel" ? '<script type="application/json" id="state">{"theme":"dark","density":"compact","page":"connections","connections":[],"profileSuggestions":[]}</script><script>window.acquireVsCodeApi=()=>({postMessage:message=>parent.postMessage(message,"*")});</script>' : "";
+      const state = entry === "panel" ? '<script type="application/json" id="state">{"theme":"dark","looks":{"density":"compact"},"page":"connections","connections":[],"profileSuggestions":[]}</script><script>window.acquireVsCodeApi=()=>({postMessage:message=>parent.postMessage(message,"*")});</script>' : "";
       html = `<!doctype html><html><head><link rel="icon" href="data:,"><link rel="stylesheet" href="/${entry}.css"></head><body style="margin:0"><div id="root"></div>${state}<script type="module" src="/${entry}.js"></script></body></html>`;
     }
     await route.fulfill({ body: html, contentType: "text/html" });
@@ -65,6 +65,7 @@ const openShell = async (context: TestContext, path: string) => {
 };
 
 const waitDensity = (frame: Frame, density: string) => frame.waitForFunction((value) => document.documentElement.dataset.density === value, density);
+const appearance = (density: string) => ({ type: "appearance", scheme: "dark", theme: "dark", palette: "schichtwerk", codeStyle: "tint", corners: "round", density });
 const settle = (frame: Frame) => frame.evaluate(async () => {
   for (let index = 0; index < 4; index++) await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
 });
@@ -77,11 +78,11 @@ for (const layout of ["panel", "app"] as const) {
     await frame.getByRole("button", { name: "Sign in with VS Code", exact: true }).waitFor();
     await waitDensity(frame, "spacious");
     const identity = await frame.evaluate(() => Reflect.get(window, "documentIdentity"));
-    await frame.evaluate(() => window.dispatchEvent(new MessageEvent("message", { source: window, data: { type: "density", density: "compact" } })));
+    await frame.evaluate((data) => window.dispatchEvent(new MessageEvent("message", { source: window, data })), appearance("compact"));
     await settle(frame);
     assert.equal(await frame.evaluate(() => document.documentElement.dataset.density), "spacious", "only the parent may change the framed entry's setting");
     for (const density of ["compact", "comfortable", "spacious"]) {
-      await page.evaluate((value) => document.querySelector("iframe")!.contentWindow!.postMessage({ type: "density", density: value }, location.origin), density);
+      await page.evaluate((data) => document.querySelector("iframe")!.contentWindow!.postMessage(data, location.origin), appearance(density));
       await waitDensity(frame, density);
       assert.equal(await frame.evaluate(() => localStorage.getItem("ragents.density")), density);
       assert.equal(await frame.evaluate(() => document.documentElement.dataset.theme), "dark");
@@ -99,7 +100,7 @@ test("the real local connection page takes table spacing from initial and update
   const identity = await frame.evaluate(() => Reflect.get(window, "documentIdentity"));
   for (const density of ["spacious", "comfortable", "compact"]) {
     await page.evaluate((value) => document.querySelector("iframe")!.contentWindow!.postMessage({ type: "ragents.panel.state", state: {
-      theme: "dark", density: value, page: "connections", connections: [], profileSuggestions: [],
+      theme: "dark", looks: { density: value }, page: "connections", connections: [], profileSuggestions: [],
     } }, location.origin), density);
     await waitDensity(frame, density);
     assert.equal(await frame.evaluate(() => localStorage.getItem("ragents.density")), density);
@@ -150,7 +151,7 @@ test("a mini-app receives the latest table spacing at connection, updates live a
   assert.equal(await app.getByRole("textbox", { name: "Frame draft" }).inputValue(), "Keep these notes");
   assert.equal(await app.evaluate(() => Reflect.get(window, "documentIdentity")), identity);
   assert.equal(loads, 1, "spacing and Activity changes retain the connected app document");
-  assert.deepEqual(await page.evaluate(() => Reflect.get(window, "hostMessages").filter((message: { type: string }) => message.type === "densityChanged")),
-    ["spacious", "compact", "comfortable", "spacious", "compact"].map((density) => ({ type: "densityChanged", density })));
+  assert.deepEqual(await page.evaluate(() => Reflect.get(window, "hostMessages").filter((message: { type: string }) => message.type === "appearanceChanged")),
+    ["spacious", "compact", "comfortable", "spacious", "compact"].map((density) => ({ type: "appearanceChanged", density })));
   assert.deepEqual(errors, []);
 });

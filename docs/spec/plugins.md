@@ -1448,10 +1448,21 @@ The shared run panel shows chat and mini-apps with the same semantic theme token
 inspection rail, header, status bar, and dialogs. Colors, fonts, radii, and shadows are defined
 in `apps/web/src/ui/theme.css`; mini-app controls share these tokens.
 
-Under Settings, Appearance, the interface can be shown light, dark, or according to the system setting.
-Without a stored choice, the interface starts dark. The choice applies immediately to
-all runs and open tabs of the same server address in this browser; it is not a profile value
-and is not stored on the server. Changing it requires settings write rights.
+Under Settings, Appearance, the interface offers a palette (`ragents.palette`: `schichtwerk`, `graphite`,
+`midnight`, or `black`; default `schichtwerk`), a color scheme (light, dark, or according to the system setting), and
+three looks: corners (`ragents.corners`: `round` or `tight`, the radius token 0.5 or 0.375 rem), inline code
+(`ragents.codeStyle`: `tint`, a tinted background, or `outlined`, a chip with an outline) and table spacing
+(`ragents.density`: `compact`, `comfortable`, or `spacious`, the padding tokens of table and grid cells). Without a stored choice,
+the interface starts dark with the defaults above. Each choice is an attribute on the root element next to
+`data-theme` (`data-palette`, `data-corners`, `data-code-style`, `data-density`); the selectors in `palettes.css` work
+on any element, so the previews in the settings carry their own palette. The options, storage keys, and attribute
+names are defined once, import-free, in `apps/web/src/appearance-options.ts`; `appearance.ts` holds one store per
+choice (`createChoiceStore`), stored and synchronized like the color scheme. The choices apply immediately to
+all runs and open tabs of the same server address in this browser; they are not a profile value
+and are not stored on the server. Changing them requires settings write rights.
+The same controls (`AppearanceControls.tsx`) sit in Settings, Appearance, and in a quick switch: the palette
+button in the header, before Settings, opens a pop-out with the palette, color scheme, corners, inline code,
+and table spacing, so the look changes without leaving the run.
 The interface applies the stored appearance before the first React render. Only with the
 system choice does it follow later changes of the system setting. Theme switches change
 neither mounted views nor input drafts. Invalid stored values
@@ -1459,13 +1470,22 @@ and storage errors are shown explicitly. The appearance is a fixed host area
 and stays reachable independently of contribution filters and the loading of the plugin settings.
 Mini-app frames receive the resolved appearance through their existing bridge (see actor-programs.md).
 
-Appearance also offers "Table spacing": Compact, Comfortable (default), and Spacious.
-The same `--spacing-table-cell-x`, `--spacing-table-cell-y`, and `--spacing-table-row` tokens
-control `Table` and `DataGrid`, including their use in mini-apps. The `ragents.density` choice
-is stored and synchronized through the existing theme store, independently of color scheme.
-In VS Code it comes from the `ragents.density` setting; changing the panel control updates that
-setting. Page queries, panel state, and the mini-app bridge propagate changes without reloading
-views or drafts. Invalid values and storage failures remain visible like appearance errors.
+Table spacing is one choice for `Table` and `DataGrid`, including their use in mini-apps: the same
+`--grid-cell-x` and `--grid-cell-y` tokens pad their cells, and both derive the same minimum row height from them, so
+both kinds of table keep equal rows in every spacing. Page queries, panel state, and the mini-app bridge propagate it
+like the other looks, without reloading views or drafts.
+In VS Code, the extension keeps the choices as the settings `ragents.theme` (`auto` follows the color theme of
+VS Code, which then also sets "System" in the panel), `ragents.palette`, `ragents.corners`,
+`ragents.codeStyle`, and `ragents.density`; the browser storage inside the panel is only a cache. The address
+of a frame carries the resolved scheme (`theme`), the setting (`scheme`), and the four looks, so the first paint
+is right; later changes of a setting or of the editor's color theme reach every webview (the sidebar panel, the
+navigation page, mini-app tabs) as an `appearance` message without reloading, together with the older `theme`
+message for servers that only know that one (the panel ignores it once it has received the settings). A change
+the user makes in the panel is reported as `appearanceChanged` with only the changed values; the extension
+writes the differing ones into the user settings and a setting that a workspace overrides is sent back, so the
+panel never shows a look that VS Code does not keep (`apps/vscode/src/extension.ts`,
+`apps/web/src/run-panel/host-appearance.ts`, `apps/vscode/tests/extension-bundle.test.ts`). An unknown look in an
+address or a message is a hard error instead of a silent default.
 
 In the browser host, Settings, Appearance, Zoom scales the whole page in the steps 80, 90, 100, 110,
 120, 130, and 150 percent, default 100 (`apps/web/src/zoom.ts`). Like the appearance, the choice is
@@ -1488,15 +1508,18 @@ and `Select` from the UI library. Base UI follows their anchors, scrolling, and 
 Header dropdowns share `HeaderDropdown`, exported through `@ragents/web/ui`: Run details,
 Run script, Agents, Share, and the global coordinator use the same square panel, labeled
 heading, close button, 8 px padding, and theme dimming. By default, the panel opens below the nearest
-header, inset 8 px from its right edge; outside a header it follows the calling row or action.
+header, inset 8 px from the header edge on the side of its trigger (the left edge for a trigger in the left half,
+otherwise the right edge); outside a header it follows the calling row or action.
 Its width is `min(800px, max(320px, anchor width - 16px), available width)`, so narrow action
-anchors still give a readable panel and the viewport always limits its width. Height is limited
+anchors still give a readable panel and the viewport always limits its width; the tiles of Run details flow into
+two or three columns as the panel widens. Height is limited
 to 70 percent of the viewport, 560 px, and the available space. With `variant="chat"`, it opens
 directly below the calling field, aligned with its left edge and with 8 px collision padding.
 Its width is `min(800px, available width)` and its height is
 `min(max(80vh, 320px), available height)`; the body fills the panel and keeps the composer at
-the bottom. The portal sits within the nearest header by default, keeping the trigger above
-dimming. The nonmodal Base UI popover
+the bottom. The portal sits within the nearest header by default, and the dimming starts below
+that header: every header control stays bright and usable, and the open trigger keeps its normal open
+fill. The nonmodal Base UI popover
 closes on Escape or an outside press and restores focus unless it has moved elsewhere.
 The global conversation uses region semantics, keeps its history mounted, and initially
 focuses its composer.
@@ -1993,7 +2016,7 @@ as its single-line minimum and grows for additional lines. Size is a component p
 toolbar chooses one step instead of overriding individual heights.
 
 `ToggleGroup` is the shared segmented control for single and multiple selection. Its items
-join without gaps or rounding inside one square border, with a single divider between
+join without gaps inside one rounded outline that clips the segments, with a single divider between
 neighbors. Selected segments use the shared selection tint; adjacent selected segments
 keep their divider. The group owns this treatment, so callers set its size and selection
 instead of individual spacing, borders, or variants. Settings theme and zoom, sharing access,
@@ -2012,7 +2035,8 @@ receive the same control through `@ragents/web/ui` and `UI.ChoiceSelect`.
 
 `SelectContent` opens outside its trigger, below by default and above when space requires it,
 with at least the trigger's width. It never aligns an option over the trigger. Select,
-dropdown menu, context menu, and popover panels share the square corners of `HeaderDropdown`.
+dropdown menu, context menu, and popover panels share one rounded shell (`dropdown-panel.ts`: `bg-popover`, a one-pixel
+ring, `shadow-pop`); the large panels of `HeaderDropdown` hang from the header and stay square.
 Selects with more than eight options show a search field at the top; `searchable` on `Select`
 enables or disables it explicitly. Search matches option labels without case sensitivity. Arrow keys
 move through the filtered options, Enter selects, and Escape closes the popup; no matches
@@ -2047,7 +2071,7 @@ Mounting or remounting a grid, including switching between a list and lanes, the
 the outer page position. Non-scrolling overflow wrappers retain page virtualization
 and header positioning. The header stays sticky at `stickyOffset` pixels, so a caller
 can leave room for a sticky toolbar. Supplying `height` chooses a bounded panel with its own
-scrolling area. Rows use the shared table density, subtle dividers, and the shared hover, selection,
+scrolling area. Rows use the shared table spacing, subtle dividers, and the shared hover, selection,
 focus, and label styles in both themes and the VS Code panel.
 
 Each `DataGridColumn<Row>` has `id` and `label`; `value` supplies the sortable, groupable,
@@ -2078,7 +2102,14 @@ their own interactions.
 sets `loading` while a request is pending. Each row-count/last-key boundary signals once, so
 row measurement cannot repeat a request. `footer` hosts a loading status or a "Load more"
 action; `emptyText` supplies the empty-state message, and `className` adjusts the outer
-layout. The grid neither fetches data nor limits the complete data set to a client page.
+layout. The grid neither fetches data nor limits the complete data set to a client page. It
+paints its own surface so that it reads the same on every page: a `card` frame with a one-pixel
+inset ring drawn above the content (it adds no layout width), the header on the `band` surface with a
+`border-strong` lower edge, the group rows on the `band` surface with their count in an outlined badge, and
+`border` lines between rows. The grid keeps the width of its parent; its frame grows to the column
+widths, so the surrounding scroller reaches every column. A row hover is half as strong as a control hover
+and a selected row carries the selection frame (see the states below), so hover, group band, and selection stay
+three distinct levels. While loading without rows the grid shows "Loading ...".
 
 `Table` and its parts remain for simple static tables. The existing optional column sizing
 uses `id` and `columns`. Each `TableColumnDefinition` has
@@ -2097,19 +2128,22 @@ Plugins import these controls and table parts from `@ragents/web/ui`.
 
 Interaction states use the shared `hover`/`hover-foreground`,
 `selected`/`selected-foreground`/`selected-border`, and `ring` tokens in both themes.
-Selected cards, rows, options, navigation items, and tabs use a clearly tinted surface and a
-uniform one-pixel border in the selection hue on all four sides. Hover remains subtler than
-selection; hovering a selected item gently strengthens its tint. Selection adds no shadows,
-rings, inset edges, bevels, or asymmetric borders. Tabs have square corners, selection-colored
-text, and no bottom indicator. Icon-only action toggles remain borderless and ringless in every
-state; their selection-colored or filled icon sits on a subtler `selected-icon` surface.
-Keyboard focus uses a solid one-pixel ring on `:focus-visible`, except for icon-only actions,
-where the background marks focus. Text and secondary labels reach AA in both themes.
+Selected cards, rows, navigation items, and tabs use a clearly tinted surface (`selected` keeps 1.32:1, in dark 1.35:1,
+against `card` and 1.2:1 against the other content surfaces, and the primary and tone text colors stay AA on it), and every
+selection adds a one-pixel frame in the selection hue: a border on outlined controls, tabs, and pressed buttons, an inset
+frame on table rows, an inset outline on the selected segment of a segmented control. Menu items and options show selection
+by a check mark and a heavier weight and never by a fill, so the keyboard highlight and the chosen option cannot be
+confused. No state adds a bar or ring on one side. Hover remains subtler than selection (a row hover is half as strong as a
+control hover); hovering a selected item gently strengthens its tint. Tabs are rounded like the other controls,
+with selection-colored text and no bottom indicator. Icon-only action toggles remain borderless; their selection-colored or
+filled icon sits on a subtler `selected-icon` surface. Keyboard focus uses a solid two-pixel ring on `:focus-visible`
+for every control, icon-only actions included. Text and secondary labels reach AA in both themes.
+Secondary buttons and badges carry a `border` edge, so they stay visible on `card` and `popover`.
 `Button`, `Toggle`, `ToggleGroup`, `Tabs`, `Select`, menu items, selectable field labels,
 and table rows apply these states themselves. `InteractiveItem` supplies the same behavior
 for clickable rows, tiles, and navigation, including `aria-current="page"` or `"true"`,
-`aria-pressed`, `aria-selected`, and expanded states. It accepts a `render` element like
-other Base UI composites. Layout and corners stay with the caller; shared state colors do not. Existing card and
+`aria-pressed`, and `aria-selected`; the trigger of an open popup (`aria-haspopup` with `aria-expanded`) shows the
+light open fill instead. It accepts a `render` element like other Base UI composites. Layout and corners stay with the caller; shared state colors do not. Existing card and
 document surfaces retain their appearance unless a state needs better visibility. Actor cards
 use these shared selection states in both the Agents view and the addressee chooser.
 
@@ -2125,18 +2159,44 @@ non-status labels. Plugins import `Badge` and `InteractiveItem` from `@ragents/w
 no separate status palette or per-screen interaction colors are allowed. Text on these
 surfaces meets WCAG AA contrast in both modes.
 
+**Spacing** follows one scale and one rule: the space between two things says how closely they belong together, so related things
+sit close and unrelated things far apart, and the space around a container is never smaller than the space inside it. The scale
+has seven steps, written as Tailwind numbers (one unit is `--spacing`, 4 px at 100 percent): 0.5 *hair* (lines of one text block),
+1 *tight* (parts of one compound element, such as icon and label), 2 *related* (siblings of one kind: controls of a group, chips,
+cards of a stack, rows of a list), 3 *group* (a heading and its content, the clusters inside one card, the padding of compact
+cards and tiles), 4 *gutter* (padding of panels and dialogs, gaps between tiles of a grid), 6 *section* (groups inside a section,
+a toolbar and the data it controls, story groups in a lane), and 8 *block* (independent sections of a page). A container pads
+all four sides equally, so a card never shows more space at its bottom than at its top: no empty trailing child, and a gap
+belongs to the parent instead of a margin on the first or last child. Controls take their paddings and heights from the control
+sizes instead; `apps/web/tests/spacing-scale.test.ts` scans the host and every plugin web part and rejects any other
+`gap`, `p*`, `m*`, or `space-*` value (the controls of `ui/`, the flow diagram, and the run header are listed there as pending).
+
 Tailwind applies to the whole interface. Host, plugins, mini-app building blocks, and the
 bundled mini-apps write their styling as utility classes directly on the elements;
 there are no longer stylesheets with their own class contracts. `apps/web/src/ui/theme.css` is
 the only token source: the shadcn variables (`--background`, `--card`, `--primary`,
 `--border`, `--radius`, and so on) and the additional host colors `shell`, `app`, `surface`,
 `border-soft`, `border-strong`, `hover`, `selected`, `success`, `warning`, `info`, `active`,
-their foreground, border, or soft counterparts, `teal`, `destructive-soft`, and
-the material colors `glass-*` are there once per mode, light and dark follow `data-theme`;
+their foreground, border, or soft counterparts, `teal`, `destructive-soft`, `popover`, the inline code colors `code-tint` and
+`code-foreground`, the code block colors `code` and `code-border`, the syntax colors `syn-*`, the diff fills `diff-*`, the table and group
+band `band`, and
+the material colors `glass-*` are there once per mode, light and dark follow `data-theme`, the palette `data-palette`;
 plus font, the compact spacing scale with `header`, `statusbar`, and `workspace-inset`,
 the card radius `rounded-panel`, the shadows `shadow-bar`, `shadow-status`, `shadow-pop`,
 `shadow-card`, `shadow-workspace`, `shadow-glass-icon`, and the animations `animate-fade-pulse`,
 `animate-working-pulse`, `animate-ring-pulse`, `animate-edge-flow`, `animate-progress-sweep`.
+`apps/web/src/ui/palettes.css` holds the palette values, generated from OKLCH seeds in `scripts/maintenance/palettes.ts` with
+`pnpm generate:palettes`; the generator fits every derived color to the surfaces it can sit on instead of to one
+reference surface: `border` (dividers, outlines) keeps 1.35:1 against every surface and 1.45:1 against `card`, `border-soft`
+1.2:1 against the content surfaces, `band` 1.2:1 (in dark 1.22:1) against `card`, `selected` 1.32:1 (in dark 1.35:1) against `card`,
+`code-tint` 1.18:1 (in dark 1.3:1), `code` and `code-border` 1.18:1 and 1.7:1 (in dark 1.35:1 and 2:1) against the content surfaces, and the `diff-*` fills 1.18:1
+(in dark 1.35:1), with the syntax colors, comments included, kept at AA on the code and line fills (3.2:1 on the word-level marks). It refuses a palette whose text pairs, control boundaries (3:1 against `background`, `card`, and `popover`),
+or these steps fall below their targets, and `apps/web/tests/palette.test.ts` compares the file with the generator. A palette may give
+the `active` tone its own hue when its accent is close to `info` (Midnight does, so that active and info chips stay apart).
+Surfaces rise `app`, `shell`, `background`, `card`, `secondary`; floating panels use `popover`. The density
+tokens `--grid-cell-x` and `--grid-cell-y` set the padding of table and grid cells per table spacing; rows keep a minimum height derived from them. The
+`selected:` variant covers pressed, selected, current, and checked states only; an expanded disclosure is not selected. The `open:`
+variant covers the native open states and the trigger of an open popup (`data-popup-open`, or `aria-haspopup` with `aria-expanded`).
 The text roles are utilities there too: `type-title` (page title), `type-label` (uppercase
 section label), `type-item` (item title), `type-body` (descriptions, notices, empty states),
 `type-meta` (time, address, route, counts), and `type-caption` (uppercase category and kind).
@@ -2146,9 +2206,10 @@ Each sets size in `rem`, line height, weight, and letter spacing; `leading-*`, `
 Text on Start, Runs, Server, in their dialogs, on the template tiles, and in the run header uses
 these roles; controls such as buttons, inputs, and dialog titles keep the library's size scale.
 `type-prose` is the common reading role for rendered Markdown, including Topic: its size and
-line height come from `--text-prose` (0.825rem) and `--text-prose--line-height` (1.55).
+line height come from `--text-prose` (0.875rem) and `--text-prose--line-height` (1.65).
 The same tokens supply quassel's message and composer text. Markdown headings in both renderers
-use the shared `--text-prose-h1` through `--text-prose-h4` scale relative to this reading role.
+(answers, user messages, and bubbles in the chat) use the shared `--text-prose-h1` through `--text-prose-h4`
+scale relative to this reading role, with the same weight and letter spacing.
 Controls, item titles, and metadata retain their own roles. `type-prose` also styles lists,
 tables with a muted first column, code, quotes, and framed images.
 `tailwind.css` is the host entry point with preflight; `frame.css` the entry point of the mini-app frames.
@@ -2182,8 +2243,12 @@ counters `Badge`, empty states `Empty`, messages `Alert`, surfaces `Card`, wait 
 `Spinner`. Context-dependent presentation runs through `data-*` attributes on the frame and
 `in-data-[...]` variants in the component. Own CSS remains only for markup generated by others
 with fixed classes: the token colors of highlight.js (`apps/web/src/highlighting.css`), the
-stylesheet of react-diff-view, and the edges of xyflow in the flow diagram
-(`client-ui/flow-diagram.css`). Tests select elements by roles, labels, text, or
+stylesheet of react-diff-view (its sticky gutters paint `--diff-surface`, which is `--background` unless a container sets it, as the
+mini-app frame does with `--card`), the Markdown of chat messages (rendered by quassel; `quassel.css` takes the heading steps of
+answers, user messages, and bubbles from the reading tokens and sets bold, heading margins, inline code, code blocks, tables, and
+quotes below the Markdown element of `[data-message="answer"]`, so attachments and message actions keep quassel's styles, and the
+chat font size and line height), and the
+edges of xyflow in the flow diagram (`client-ui/flow-diagram.css`). Tests select elements by roles, labels, text, or
 `data-*` states, never by classes.
 
 `Select` opens its list in a portal above the trigger or below it, depending on space,
@@ -2223,12 +2288,12 @@ Mini-apps use the same components with the same look; the mini-app runtime sets
 base dimensions. Details on forms, tables, theme bridge, and own app CSS are in actor-programs.md.
 
 The journal surface uses `PopoverContent`; header panels use `HeaderDropdown` with shared
-positioning and the same square corners as the other dropdown panels. `PopoverContent` keeps 8 pixels of distance to the
+positioning and square corners, because they hang from the header; the other dropdown panels are rounded. `PopoverContent` keeps 8 pixels of distance to the
 calling control by default. Dialogs and dimming popouts share
 `--backdrop` from the theme (black at 40 percent opacity in the light and 60 percent in the dark
 theme); individual surfaces define no dimming color of their own. `PopoverContent` with `dim`
 dims everything in the stacking context of its portal; `container` moves the portal into a given
-element, which lets a header button remain above its dropdown's dimming.
+element, and `backdropClassName` places the dimming surface (header dropdowns start it below their header).
 
 Settings and Help are icon buttons in the shared header. The run title opens metadata, start
 options, and contributed run controls. The logo at the left of the header is the button
@@ -2754,7 +2819,7 @@ are on one row. The button opens the history directly below itself, left-aligned
 square `HeaderDropdown` with `variant="chat"` in both browser and VS Code;
 `aria-expanded` and, while open, `aria-controls` point to the dropdown. The shared shell
 provides its labeled heading, close button, width and height limits, padding, and dimming;
-the button stays visible and clickable above the dimming. The panel uses at least 80 percent of
+the header with the button stays outside the dimming and clickable. The panel uses at least 80 percent of
 the viewport height when space permits, bounded by the available height in short windows.
 The chat fills the panel, with the normal card composer of the run chat at the bottom
 (`ChatPanel` with `ChatInputToolbar`); level of detail, attachment,
@@ -2960,9 +3025,10 @@ closed until available. The browser instead uses the docking state described abo
 tab through the existing navigation and user-location contract.
 The panel header (`RunHeader` in `RunPanelPage`) keeps fixed controls in a leading group (logo,
 global coordinator, and run title) and a trailing group (bar contributions such as Agents,
-Share, Run script, environment, run state, Stop, Settings, Help, browser, and sign-out).
+Share, Run script, environment, run state, Stop, Appearance, Settings, Help, browser, and sign-out).
 The coordinator and title have bounded preferred widths; the title truncates. At header widths
-of at least 768px, the title shrinks to keep the fixed groups on one row. Fixed controls
+of at least 768px, the title shrinks first, down to its chevron, and then the global coordinator,
+to keep the fixed groups on one row without covering one another. Fixed controls
 can wrap on narrower panels. `RunPanelHeader` supplies the title and portals its controls and
 window target to these shared slots.
 Both hosts put `DockWindowActions` in the same window slot; VS Code opens a mini-app in an editor
@@ -3101,10 +3167,10 @@ navigation values are a hard error.
 The run panel talks to its host through `apps/web/src/run-panel/host.ts`. The host `browser`
 (default) opens links itself, navigates apps locally, and offers only the server for new runs; the host `vscode` (`?host=vscode`, only
 embedded) sends `ready`, `runChanged`, `showStart`, `openInCenter`, `login`, `logout`,
-`openExternal`, `openPage`, `densityChanged`, and `openService` (a service of a run, section Workspace, sandbox tools,
+`openExternal`, `openPage`, `appearanceChanged`, and `openService` (a service of a run, section Workspace, sandbox tools,
 and processes) through `postMessage` to the surrounding window and receives from there `selectRun`, `newRun`
 (with preset start options and optionally the ID of a template, which the start selection then
-opens right away), `theme`, and `density`; the
+opens right away), `theme`, and `appearance`; the
 import-free contract is in `run-panel/host-contract.ts`. Starting or opening a run in either host
 requests focus once for its visible writable chat input, including a remembered nonprimary
 addressee. This includes direct run URLs and `selectRun`. The request waits for the chat
@@ -3351,10 +3417,15 @@ intact and names that effect. All-runs selection and deletion stay in their own 
 Plugin `startSections` render directly below Continue with the complete server-listed visible
 run list and its metadata; the host adds no heading or wrapper for a section.
 
-**Runs** is the selected server's complete list: search over title, "Hide ended", and a
-selection mode with checkboxes. Search and the toolbar below it stay sticky while the list
-scrolls. Selection replaces "Hide ended" and "Select" with "Select all", the selected count,
-"Delete", and "Cancel" in that order, without a bottom bar. "Select all" toggles only visible
+**Runs** is the selected server's complete list in one `RunCard`: search over title, "Hide ended", and a
+selection mode with checkboxes. Search (the shared `SearchInput`, whose own clear button replaces the browser's) and the
+actions share one toolbar row at the top of the card (they wrap in a narrow panel); it sticks flush to the top of the page
+while the list scrolls and has the card's surface, so it never shows as a slab on the backdrop. Start's "Continue" list
+uses the same card without a toolbar, and rows are separated by `border` lines (1.35:1 against every surface). A row's
+hover fill spans the whole row including its actions, except for a locked run, whose row is dimmed
+without dimming its focus ring. Selection replaces "Hide ended" and "Select" with "Select all", the selected count,
+"Delete", and "Cancel" in that order (all outlined buttons, "Delete" destructive), without a bottom bar. Start tiles
+and the run card have a `border` frame and `shadow-card` so that they stand out from the backdrop in every palette. "Select all" toggles only visible
 deletable runs, including locked runs, and becomes "Select none" when all of them are selected;
 selections outside the current search remain unchanged. "Delete" is disabled at zero and deletes
 several runs after a confirmation question in the existing dialog. "Cancel" clears the selection

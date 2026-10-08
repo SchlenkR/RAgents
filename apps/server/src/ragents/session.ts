@@ -1,7 +1,9 @@
 import { randomUUID } from "node:crypto";
 import { isDeepStrictEqual } from "node:util";
 import { parseChatAttachments, type ChatAttachment, type ChatAttachmentInput, type ChatEvent, type ChatStartupStatus } from "quassel/events";
-import { attachmentContentPath } from "../api/contracts.js";
+import { estimateContextUsage } from "@ragents/agent";
+import { modelContextOf } from "@ragents/engine/src/agents/model-context";
+import { attachmentContentPath, type ChatContextUsage } from "../api/contracts.js";
 import type { ChatSessionLike, ChatUser, RunScriptListing, StartedScript } from "../chat-handler.js";
 import {
   addressOf,
@@ -329,6 +331,23 @@ export class RunChatSession implements ChatSessionLike {
     this.#assertUsable(this.id);
     if (!this.#engine.journal.stateOf(this.id)) throw new DomainError("run-not-found", "The run does not exist.", 404);
     return actorChatHistoryOf(this.#engine.runtime.view(this.id), this.#engine.runtime.events(this.id));
+  }
+
+  async contextUsage(reference: string, userId: string | null): Promise<ChatContextUsage | null> {
+    this.#assertUsable(this.id);
+    const execution = this.#executionFor(reference, freeChoice(userId));
+    if (execution.driver.kind !== "agent") return null;
+    const { provider, model } = execution.driver.config;
+    const state = this.#engine.journal.stateOf(this.id);
+    const actorId = reference === "primary" ? state?.primaryActorId : this.#targetActor(reference).id;
+    const actor = actorId ? state?.actors.get(actorId) : undefined;
+    const entries = !actorId ? []
+      : actor?.kind !== "human" && actor?.lifecycle.kind === "running"
+        ? this.#engine.runtime.modelContext(this.id, actorId).entries
+        : modelContextOf(this.#engine.runtime.events(this.id), actorId, (hash) => this.#engine.runtime.mediaContent(hash)).entries;
+    const usage = estimateContextUsage(entries);
+    const limits = await this.#engine.contextLimits(provider, model);
+    return { ...limits, tokens: usage.tokens, estimated: usage.lastUsageIndex === null || usage.trailingTokens > 0 };
   }
 
   capabilities(actor: string, userId: string | null): Promise<{ input: string[]; model: string }> {

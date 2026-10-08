@@ -9,12 +9,12 @@ export function SharedRuns({ runs, revoking, onOpen, onRevoke }: {
   onOpen: (runId: string) => void;
   onRevoke: (runId: string, target: RunShareTarget) => void;
 }) {
-  return <ul aria-label="Runs shared by me" className="grid min-w-0 gap-3">
+  return <ul aria-label="Runs shared by me" className="grid min-w-0 p-2">
     {runs.map((run) => {
       const sharing = run.sharing!;
       const disabled = !run.canShare || revoking?.pending === true;
       const pending = revoking?.runId === run.id && revoking.pending;
-      return <li className="min-w-0 rounded-panel border border-border bg-card p-4" key={run.id}>
+      return <li className="min-w-0 border-t border-border p-2 first:border-t-0" key={run.id}>
         <div className="mb-3 flex min-w-0 flex-wrap items-center justify-between gap-3">
           <Button className="type-item h-auto min-w-0 justify-start whitespace-normal p-0 text-left [overflow-wrap:anywhere]" disabled={run.locked !== undefined}
             onClick={() => onOpen(run.id)} variant="link">{run.title}</Button>

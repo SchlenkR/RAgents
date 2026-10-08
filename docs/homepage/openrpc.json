@@ -559,6 +559,77 @@
       "x-timeout-ms": 30000
     },
     {
+      "name": "ragents.chat.contextUsage",
+      "description": "The actor's active context token count, whether it is estimated, and the window and compaction threshold of its selected model. Limits apply from the next turn. Null for a runtime without a built-in model context. Right: runs.read.",
+      "params": [
+        {
+          "name": "input",
+          "required": true,
+          "schema": {
+            "type": "object",
+            "required": [
+              "runId"
+            ],
+            "properties": {
+              "runId": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 64,
+                "description": "Id of the run"
+              },
+              "actor": {
+                "type": "string",
+                "minLength": 1
+              }
+            },
+            "additionalProperties": false
+          }
+        }
+      ],
+      "paramStructure": "by-name",
+      "result": {
+        "name": "result",
+        "schema": {
+          "anyOf": [
+            {
+              "type": "object",
+              "required": [
+                "tokens",
+                "contextWindow",
+                "compactionThreshold",
+                "estimated"
+              ],
+              "properties": {
+                "tokens": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "contextWindow": {
+                  "type": "integer",
+                  "minimum": 1
+                },
+                "compactionThreshold": {
+                  "type": "integer",
+                  "minimum": 1
+                },
+                "estimated": {
+                  "type": "boolean"
+                }
+              },
+              "additionalProperties": false
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "x-owner": "host",
+      "x-rights": [],
+      "x-implemented-by": "server",
+      "x-timeout-ms": 30000
+    },
+    {
       "name": "ragents.chat.send",
       "description": "A message to the run's coordinator; starts a new run or cuts into a running one. With entry, it starts the run through this skill template and the start options it fixes. Rights: runs.read and runs.write, for a new run runs.create; for the global chat its rights.",
       "params": [

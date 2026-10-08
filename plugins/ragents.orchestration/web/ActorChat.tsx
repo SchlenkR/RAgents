@@ -9,6 +9,7 @@ import type { FlowSelection } from "./FlowInspector";
 import type { RunActor, RunView } from "@ragents/web/run-view";
 
 const emptyMessages: readonly Message[] = [];
+const codeBlocks = { wrap: true } as const;
 
 export function ActorChat({ actor, view, presentation, display = presentation, primaryMessages = emptyMessages, conversation, historyError, running = false, className, onNavigate, scrollerRef }: {
   actor: RunActor;
@@ -39,10 +40,11 @@ export function ActorChat({ actor, view, presentation, display = presentation, p
     return true;
   }, [inspect, onNavigate]);
   return <>
-    {historyError && <p className="my-1.5 text-[0.72rem] text-destructive" role="alert">{historyError}</p>}
+    {historyError && <p className="my-2 text-[0.72rem] text-destructive" role="alert">{historyError}</p>}
     <ChatMessages
     className={presentation === "inspector" ? `${className ?? ""} [&_time]:w-7 [&_time]:text-[10px]` : className}
     horizontalPadding={presentation === "inspector" && display !== "panel" ? 8 : undefined}
+    codeBlockOptions={codeBlocks}
     detailMode={detailMode}
     transcriptMode={chatView.transcriptMode}
     emptyState={<Empty><EmptyHeader><EmptyTitle>{actor.kind === "script" ? "No history yet" : "No conversation yet"}</EmptyTitle><EmptyDescription>{actor.kind === "script" ? "Program inputs and their processing appear here." : "Write a message to start the conversation."}</EmptyDescription></EmptyHeader></Empty>}

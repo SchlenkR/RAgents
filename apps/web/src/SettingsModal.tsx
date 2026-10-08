@@ -1,12 +1,15 @@
 import { useAccess } from "./AccessContext";
 import { ArrowLeftIcon, CheckIcon, ChevronRightIcon, CircleAlertIcon, CopyIcon, InfoIcon, SettingsIcon, XIcon } from "lucide-react";
 import { cn } from "cn";
-import { Badge, Button, InteractiveItem, Card, ChoiceSelect, Dialog, DialogContent, DialogTitle, Input, Spinner, ToggleGroup, ToggleGroupItem } from "./ui";
-import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { Badge, Button, InteractiveItem, Card, ChoiceSelect, Dialog, DialogContent, DialogTitle, Spinner, ToggleGroup, ToggleGroupItem } from "./ui";
+import { useEffect, useId, useMemo, useRef, useState, type ReactNode } from "react";
 import { Markdown } from "quassel";
 import { SourceCode } from "./SourceCode";
 import { formatBytes } from "./lib/format";
+import { settingsPageClass, settingsPageLeadClass, settingsPageTitleClass, settingsPanelClass, settingsPanelTitleClass } from "./settings-page";
 import { ThemeSettings } from "./ThemeSettings";
+import { focusRing } from "./ui/interaction";
+import { SearchInput } from "./ui/search-input";
 import { TitleModelSettings } from "./TitleModelSettings";
 import { modelDefaultsChangedEvent } from "./model-settings-events";
 import {
@@ -55,33 +58,29 @@ const capabilities = contributionFilters.filter(
   (option): option is { id: ContributionKind; label: string } => option.id !== "all",
 );
 
-export const settingsPageClass = "mx-auto flex max-w-[1020px] flex-col gap-6 px-[clamp(20px,calc(var(--ragents-viewport-width,100vw)*0.04),46px)] pt-7 pb-12 max-sm:px-3.5 max-sm:pt-5 max-sm:pb-9";
-const pageTitleClass = "min-w-0 text-[1.08rem] font-semibold text-foreground";
-const pageLeadClass = "mt-1.5 max-w-[780px] text-[0.76rem] leading-[1.55] text-muted-foreground";
 const sectionCopyClass = "-mt-1 mb-0.5 text-[0.72rem] leading-normal text-muted-foreground";
-const settingsPanelsClass = "grid gap-5";
-const panelSectionClass = "gap-4 p-5.5 max-md:p-4";
-const settingsAreaClass = "min-h-11 flex-none cursor-pointer px-3.5 py-2.5 text-[0.8rem] max-md:px-2.5 max-md:text-[0.75rem]";
-const navigationItemClass = "flex min-h-[37px] w-full cursor-pointer items-center justify-between gap-2 rounded-lg px-2.5 py-1.5 text-left text-[0.75rem] max-md:w-auto max-md:min-h-8 max-md:flex-none max-md:whitespace-nowrap";
+const settingsPanelsClass = "grid gap-4";
+const settingsAreaClass = "my-2 min-h-8 flex-none cursor-pointer rounded-md px-3 py-2 text-[0.8rem] max-md:px-3 max-md:text-[0.75rem]";
+const navigationItemClass = "flex min-h-[37px] w-full cursor-pointer items-center justify-between gap-2 rounded-lg px-3 py-2 text-left text-[0.75rem] max-md:w-auto max-md:min-h-8 max-md:flex-none max-md:whitespace-nowrap";
 const navigationItemActiveClass = "font-semibold";
 const navigationItemQuietClass = "text-muted-foreground";
-const navigationCountClass = "min-w-5 flex-shrink-0 rounded-full bg-current/11 px-1.5 py-px text-center text-[0.63rem] tabular-nums";
+const navigationCountClass = "min-w-5 flex-shrink-0 rounded-full bg-current/11 px-2 py-px text-center text-[0.63rem] tabular-nums";
 const loadStateClass = "flex min-h-full items-center justify-center gap-2 p-8 text-[0.78rem] text-muted-foreground";
-const ownerLinkClass = "flex w-full min-w-0 cursor-pointer items-center justify-between gap-2.5 text-left font-semibold text-foreground [overflow-wrap:anywhere] hover:text-primary focus-visible:outline-1 focus-visible:outline-primary focus-visible:outline-offset-2";
+const ownerLinkClass = `flex w-full min-w-0 cursor-pointer items-center justify-between gap-3 rounded-md text-left font-semibold text-foreground [overflow-wrap:anywhere] hover:text-primary ${focusRing}`;
 const ownerLinkNoteClass = "flex-shrink-0 text-[0.7rem] font-normal text-primary";
 const cardListClass = "grid gap-2";
-const cardClass = "min-w-0 rounded-xl border border-border-soft bg-background/76 px-3.5 py-3";
+const cardClass = "min-w-0 rounded-xl border border-border bg-background/76 px-4 py-3";
 const cardHeaderClass = "flex items-start justify-between gap-3";
-const cardCopyClass = "grid min-w-0 gap-0.5";
+const cardCopyClass = "grid min-w-0 flex-1 gap-0.5";
 const cardTitleClass = "truncate text-[0.78rem] text-foreground";
 const cardNoteClass = "truncate text-[0.64rem] text-muted-foreground";
 const cardCopyTextClass = "my-2 text-[0.7rem] leading-normal text-muted-foreground";
-const chipClass = "flex-shrink-0 rounded-full bg-foreground/7 px-1.5 py-0.5 text-[0.62rem] font-medium text-muted-foreground";
-const tagClass = "inline-flex items-center gap-1.5 rounded-full bg-foreground/7 px-1.5 py-0.5 text-[0.62rem] text-foreground";
+const insetClass = "rounded-lg border border-border bg-background/68";
 const statusListClass = "flex flex-wrap justify-end gap-1";
-const disclosureClass = "overflow-hidden rounded-xl border border-border-soft bg-background/76 open:[&>summary]:border-b open:[&>summary]:border-border-soft";
-const summaryClass = "flex cursor-pointer list-none items-center justify-between gap-3 px-3 py-2.5 text-foreground [&::-webkit-details-marker]:hidden";
-const preClass = "m-0 overflow-auto rounded-lg border border-border-soft bg-foreground/4 font-mono text-[0.7rem] leading-[1.55] whitespace-pre-wrap text-foreground [overflow-wrap:anywhere]";
+const disclosureClass = "overflow-hidden rounded-xl border border-border bg-background/76";
+const summaryClass = `flex cursor-pointer list-none items-center justify-between gap-3 rounded-[inherit] px-3 py-3 text-foreground [&::-webkit-details-marker]:hidden ${focusRing} focus-visible:ring-inset`;
+const preClass = "m-0 overflow-auto bg-foreground/4 font-mono text-[0.7rem] leading-[1.55] whitespace-pre-wrap text-foreground [overflow-wrap:anywhere]";
+const preFrameClass = "rounded-lg border border-code-border";
 const valueLabelClass = "text-[0.67rem] font-medium text-muted-foreground";
 
 interface SettingsModalProps {
@@ -187,7 +186,7 @@ export function SettingsModal({ onClose, registry }: SettingsModalProps) {
   return (
     <Dialog open onOpenChange={(open) => { if (!open) onClose(); }}>
     <DialogContent className="mx-auto flex h-[calc(var(--ragents-viewport-height,100dvh)-2*clamp(14px,calc(var(--ragents-viewport-height,100dvh)*0.04),42px))] max-h-none w-[min(1220px,calc(var(--ragents-viewport-width,100vw)-2*clamp(14px,calc(var(--ragents-viewport-width,100vw)*0.04),58px)))] max-w-none min-h-0 min-w-0 flex-col gap-0 overflow-hidden rounded-xl bg-card p-0 shadow-pop max-md:h-[calc(var(--ragents-viewport-height,100dvh)-16px)] max-md:w-[calc(var(--ragents-viewport-width,100vw)-16px)]" initialFocus={closeRef} scope="page" showCloseButton={false} size="full">
-      <header className="grid flex-none grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-3 border-b border-border px-3.5 py-2.5">
+      <header className="grid flex-none grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-3 border-b border-border px-4 py-3">
         <span className="flex size-[34px] items-center justify-center rounded-[10px] bg-[color-mix(in_srgb,var(--primary)_12%,var(--background))] text-primary"><SettingsIcon size={18} /></span>
         <span className="grid min-w-0 gap-px">
           <DialogTitle render={<strong />}>Settings</DialogTitle>
@@ -197,7 +196,7 @@ export function SettingsModal({ onClose, registry }: SettingsModalProps) {
           <XIcon />
         </Button>
       </header>
-      <nav aria-label="Settings areas" className="flex flex-none gap-1 overflow-x-auto border-b border-border px-4.5 max-md:px-2">
+      <nav aria-label="Settings areas" className="flex flex-none gap-1 overflow-x-auto border-b border-border px-4 max-md:px-2">
         {settingsAreas.map((area) => <InteractiveItem
           aria-current={activeArea === area.id ? "page" : undefined}
           className={cn(settingsAreaClass, activeArea === area.id ? "font-bold" : "text-muted-foreground")}
@@ -206,7 +205,7 @@ export function SettingsModal({ onClose, registry }: SettingsModalProps) {
           type="button"
         >{area.label}</InteractiveItem>)}
       </nav>
-      {catalogVisible && <div className="flex flex-none gap-1 border-b border-border-soft px-3.5 py-2.5">
+      {catalogVisible && <div className="flex flex-none gap-1 border-b border-border px-4 py-3">
         <ToggleGroup aria-label="Group plugins" size="sm" value={[axis]}
           onValueChange={([value]) => { if (value) changeAxis(value === "capability" ? "capability" : "plugin"); }}>
           <ToggleGroupItem value="plugin">By plugin</ToggleGroupItem>
@@ -214,7 +213,7 @@ export function SettingsModal({ onClose, registry }: SettingsModalProps) {
         </ToggleGroup>
       </div>}
       <div className={cn("grid min-h-0 flex-1", catalogVisible ? "grid-cols-[230px_minmax(0,1fr)] max-[900px]:grid-cols-[190px_minmax(0,1fr)] max-md:grid-cols-[minmax(0,1fr)] max-md:grid-rows-[auto_minmax(0,1fr)]" : "grid-cols-[minmax(0,1fr)]")}>
-        {catalogVisible && <nav aria-label="Browse plugins" className="flex min-w-0 flex-col gap-[3px] overflow-y-auto border-r border-border-soft bg-background/72 px-2.5 py-4 max-md:flex-row max-md:overflow-x-auto max-md:border-r-0 max-md:border-b max-md:border-border-soft max-md:p-2" ref={navigationRef}>
+        {catalogVisible && <nav aria-label="Browse plugins" className="flex min-w-0 flex-col gap-1 overflow-y-auto border-r border-border bg-background/72 px-3 py-4 max-md:flex-row max-md:overflow-x-auto max-md:border-r-0 max-md:border-b max-md:border-border max-md:p-2" ref={navigationRef}>
           {axis === "plugin" && filtered.map((group) => {
             const count = countContributions(group);
             const selected = selection.kind === "plugin" && selection.id === group.id;
@@ -266,7 +265,7 @@ export function SettingsModal({ onClose, registry }: SettingsModalProps) {
               <div className={settingsPanelsClass}><PluginSettings contributions={appearanceSettings} panel /></div>
             </div>}
           </div>}
-          {(catalogVisible || selection.kind === "runtime") && settings !== null && state.status !== "ready" && <p className="border-b border-border-soft px-5 py-2.5 text-[0.72rem] text-muted-foreground" role={state.status === "failed" ? "alert" : "status"}>
+          {(catalogVisible || selection.kind === "runtime") && settings !== null && state.status !== "ready" && <p className="border-b border-border px-4 py-3 text-[0.72rem] text-muted-foreground" role={state.status === "failed" ? "alert" : "status"}>
             {state.status === "loading" ? "Refreshing catalog ..." : <>Could not refresh the catalog: {state.error} <Button onClick={() => setReload((value) => value + 1)} size="sm" variant="outline">Reload</Button></>}
           </p>}
           {(catalogVisible || selection.kind === "runtime") && settings === null && state.status === "loading" && (
@@ -280,14 +279,20 @@ export function SettingsModal({ onClose, registry }: SettingsModalProps) {
               <CircleAlertIcon size={14} />
               <strong className="text-[0.86rem] text-foreground">Catalog unreachable</strong>
               <span className="max-w-[560px]">{state.error}</span>
-              <Button className="mt-1.5" onClick={() => setReload((value) => value + 1)} size="sm" variant="outline">Reload</Button>
+              <Button className="mt-2" onClick={() => setReload((value) => value + 1)} size="sm" variant="outline">Reload</Button>
             </div>
           )}
           {settings !== null && selection.kind === "runtime" && <RuntimePage groups={groups} registry={registry} settings={settings} />}
           {settings !== null && selection.kind === "plugins" && <SettingsPage title="Plugins" description="Browse the installed contributions by plugin or capability. Choose a plugin for its details.">
-            <div className="grid gap-4">{groups.map((group) => <button className={ownerLinkClass} key={group.id} onClick={() => openPlugin(group.id)} type="button">
-              {group.id}<span className={ownerLinkNoteClass}>{countContributions(group)} contributions</span>
-            </button>)}</div>
+            <ul aria-label="Installed plugins" className="grid rounded-xl border border-border bg-background/76 p-2">
+              {groups.map((group) => <li className="border-t border-border first:border-t-0" key={group.id}>
+                <InteractiveItem className="flex w-full min-w-0 items-center gap-3 rounded-md px-3 py-2 text-left" onClick={() => openPlugin(group.id)}>
+                  <span className="min-w-0 flex-1 truncate text-[0.78rem] font-semibold text-foreground">{group.id}</span>
+                  <Badge tone="neutral">{counted(countContributions(group), "contribution")}</Badge>
+                  <ChevronRightIcon aria-hidden className="size-3.5 flex-none text-muted-foreground" />
+                </InteractiveItem>
+              </li>)}
+            </ul>
           </SettingsPage>}
           {settings !== null && (selection.kind === "plugin" || selection.kind === "capability") && (
             <ContributionFilterBar filter={filter} onFilter={setFilter} onQuery={setQuery} query={query} showKinds={selection.kind === "plugin"} />
@@ -298,7 +303,7 @@ export function SettingsModal({ onClose, registry }: SettingsModalProps) {
               : <PluginPage group={active} key={active.id} settings={registry.settings} />
           )}
           {settings !== null && activeCapability !== undefined && (
-            <SettingsPage title={activeCapability.label} description={`${activeCapability.groups.length} plugins provide matching contributions. Open a plugin for its full details.`}>
+            <SettingsPage title={activeCapability.label} description={`${counted(activeCapability.groups.length, "plugin")} ${activeCapability.groups.length === 1 ? "provides" : "provide"} matching contributions. Open a plugin for its full details.`}>
               {activeCapability.groups.length === 0 && <SettingsEmpty>No contributions found. Choose another capability or change the search.</SettingsEmpty>}
               {activeCapability.groups.map((group) => (
                 <PluginPage
@@ -322,19 +327,20 @@ function ContributionFilterBar({ filter, onFilter, onQuery, query, showKinds }: 
   onQuery: (query: string) => void;
   query: string;
 }) {
+  const searchId = useId();
   return (
-    <div className="sticky top-0 z-[2] grid gap-2.5 border-b border-border-soft bg-background/92 px-[clamp(20px,calc(var(--ragents-viewport-width,100vw)*0.04),46px)] py-3 backdrop-blur-[6px] max-md:px-3.5">
+    <div className="sticky top-0 z-[2] grid gap-3 border-b border-border bg-app px-[clamp(20px,calc(var(--ragents-viewport-width,100vw)*0.04),46px)] py-3 max-md:px-4">
       {showKinds && <ChoiceSelect label="Contribution kinds" size="sm" value={filter} onValueChange={onFilter} options={contributionFilters.map((option) => ({ value: option.id, label: option.label }))} />}
-      <label className="grid gap-1.5">
-        <span className="text-[0.67rem] font-medium text-muted-foreground">Search contributions</span>
-        <Input
-          onChange={(event) => onQuery(event.target.value)}
+      <div className="grid gap-2">
+        <label className="text-[0.67rem] font-medium text-muted-foreground" htmlFor={searchId}>Search contributions</label>
+        <SearchInput
+          id={searchId}
+          onValueChange={onQuery}
           placeholder="ID, name, title or description"
           size="sm"
-          type="search"
           value={query}
         />
-      </label>
+      </div>
     </div>
   );
 }
@@ -352,7 +358,7 @@ function RuntimePage({ groups, registry, settings }: {
       description={`The values come from the currently running ${registry.brand.title} instance. The server does not deliver configuration values that contain secrets.`}
       title="Runtime"
     >
-      <div className="grid grid-cols-4 gap-2.5 max-[900px]:grid-cols-2 max-[520px]:grid-cols-1">
+      <div className="grid grid-cols-4 gap-3 max-[900px]:grid-cols-2 max-[520px]:grid-cols-1">
         <SettingsFact label="Product" value={settings.product.title} detail={settings.product.id} />
         <SettingsFact label="Profile" value={settings.runtime.profile} detail={settings.product.id} />
         <SettingsFact label="Workspace mode" value={settings.runtime.workspaceMode} detail="per run" />
@@ -386,7 +392,7 @@ function RuntimePage({ groups, registry, settings }: {
         <p className={sectionCopyClass}>
           Models are selectable runtime targets. Profiles bundle model, driver, thinking level and execution limits.
         </p>
-        <div className="grid grid-cols-2 gap-2.5 max-md:grid-cols-1">
+        <div className="grid grid-cols-2 gap-3 max-md:grid-cols-1">
           {settings.models.map((model) => <ModelCard key={modelKey(model)} model={model} />)}
         </div>
       </SettingsSection>
@@ -461,18 +467,18 @@ function PluginPage({ group, settings, onOpenPlugin }: {
   const contributions = settings.filter((contribution) => contribution.owner === group.id);
   const empty = contributions.length === 0 && countContributions(group) === 0 && group.web.state === "hidden";
   return (
-    <div className={onOpenPlugin ? "flex min-w-0 flex-col gap-4.5 border-t border-border pt-5.5" : settingsPageClass}>
+    <div className={onOpenPlugin ? "flex min-w-0 flex-col gap-4 border-t border-border pt-6" : settingsPageClass}>
       <header>
         <div className="flex items-center justify-between gap-3">
           {onOpenPlugin
             ? <button className={ownerLinkClass} onClick={onOpenPlugin} type="button">{group.id}<span className={ownerLinkNoteClass}>Open plugin</span></button>
-            : <h2 className={`${pageTitleClass} truncate font-mono`}>{group.id}</h2>}
+            : <h2 className={`${settingsPageTitleClass} truncate font-mono`}>{group.id}</h2>}
           {!onOpenPlugin && <span className={statusListClass}>
             <Badge tone={group.serverRegistered ? "success" : "warning"}>{group.serverRegistered ? "Server registered" : "Server unknown"}</Badge>
             <Badge tone={group.webActive ? "success" : "neutral"}>{group.webActive ? "Web active" : "Web inactive"}</Badge>
           </span>}
         </div>
-        {!onOpenPlugin && <p className={pageLeadClass}>Dependencies: {group.requires.length === 0 ? "none" : group.requires.join(", ")}</p>}
+        {!onOpenPlugin && <p className={settingsPageLeadClass}>Dependencies: {group.requires.length === 0 ? "none" : group.requires.join(", ")}</p>}
       </header>
       <PluginSettings contributions={contributions} />
       {group.tools.length > 0 && (
@@ -492,9 +498,9 @@ function PluginPage({ group, settings, onOpenPlugin }: {
                     <strong className={cardTitleClass}>{contribution.id}</strong>
                     <small className={cardNoteClass}>{contribution.owner}</small>
                   </span>
-                  <span className={chipClass}>Order {contribution.order}</span>
+                  <Badge tone="neutral">Order {contribution.order}</Badge>
                 </summary>
-                <PromptCode content={contribution.content} copyLabel={`Copy ${contribution.id}`} />
+                <PromptCode content={contribution.content} copyLabel={`Copy ${contribution.id}`} embedded />
               </details>
             ))}
           </div>
@@ -515,12 +521,12 @@ function PluginPage({ group, settings, onOpenPlugin }: {
                     <strong className={cardTitleClass}>{entry.title}</strong>
                     <small className={cardNoteClass}>{entry.owner} / {entry.id}</small>
                   </span>
-                  <span className={chipClass}>{entryActionLabel(entry)}</span>
+                  <Badge tone="neutral">{entryActionLabel(entry)}</Badge>
                   {entry.action === "skill" && <CopyButton label={`Copy ${entry.title}`} text={entry.prompt} />}
                 </header>
                 <p className={cardCopyTextClass}>{entry.description}</p>
                 {entry.action === "skill" && <p className={cardCopyTextClass}>Category: {entry.category}</p>}
-                {entry.action === "skill" && <pre className={`${preClass} max-h-[180px] px-3 py-2.5`}>{entry.prompt}</pre>}
+                {entry.action === "skill" && <pre className={cn(preClass, preFrameClass, "max-h-[180px] px-3 py-3")}>{entry.prompt}</pre>}
                 {entry.action === "skill" && (
                   <p className={cardCopyTextClass}>
                     Skill <code>{entry.skill}</code>
@@ -543,7 +549,7 @@ function PluginPage({ group, settings, onOpenPlugin }: {
           <div className={cardListClass}>
             {group.skills.map((skill) => (
               <button
-                className={cn(cardClass, "group relative grid w-full cursor-pointer gap-2 pr-[34px] text-left hover:border-[color-mix(in_srgb,var(--primary)_45%,var(--border))] hover:bg-[color-mix(in_srgb,var(--primary)_6%,var(--background))] focus-visible:border-[color-mix(in_srgb,var(--primary)_45%,var(--border))] focus-visible:bg-[color-mix(in_srgb,var(--primary)_6%,var(--background))]")}
+                className={cn(cardClass, "group relative grid w-full cursor-pointer gap-2 pr-[34px] text-left hover:border-[color-mix(in_srgb,var(--primary)_45%,var(--border))] hover:bg-[color-mix(in_srgb,var(--primary)_6%,var(--background))]", focusRing)}
                 key={skill.id}
                 onClick={() => setSelectedSkill(skill)}
                 type="button"
@@ -557,7 +563,7 @@ function PluginPage({ group, settings, onOpenPlugin }: {
                     <StatusBadge active key={audience} label={skillAudienceLabel(audience)} />
                   ))}
                 </span>
-                <span className="grid min-w-0 gap-[3px]">
+                <span className="grid min-w-0 gap-1">
                   {skill.paths.map((path) => <code className="truncate font-mono text-[0.66rem] text-muted-foreground" key={path} title={path}>{path}</code>)}
                 </span>
                 <span aria-hidden className="absolute top-1/2 right-3 flex -translate-y-1/2 text-muted-foreground group-hover:text-primary group-focus-visible:text-primary"><ChevronRightIcon size={13} /></span>
@@ -582,14 +588,14 @@ function PluginPage({ group, settings, onOpenPlugin }: {
             never secret values.
           </p>
           {group.configuration.length > 0 && (
-            <div className="grid gap-1.5 rounded-lg border border-border-soft bg-background/68 px-2.5 py-2">
+            <div className={cn(insetClass, "grid gap-2 px-3 py-2")}>
               <span className={valueLabelClass}>Configuration sources</span>
-              <div className="flex flex-wrap gap-1.5">
+              <div className="flex flex-wrap gap-2">
                 {group.configuration.map((entry) => (
-                  <span className={tagClass} key={entry.key}>
-                    <code className="font-mono">{entry.key}</code>
-                    <small className="text-[0.59rem] text-muted-foreground">{entry.secret ? `${entry.source} (secret)` : entry.source}</small>
-                  </span>
+                  <Badge className="max-w-full gap-2" key={entry.key} tone="neutral">
+                    <code className="min-w-0 truncate font-mono text-foreground" title={entry.key}>{entry.key}</code>
+                    <small>{entry.secret ? `${entry.source} (secret)` : entry.source}</small>
+                  </Badge>
                 ))}
               </div>
             </div>
@@ -607,17 +613,17 @@ function PluginPage({ group, settings, onOpenPlugin }: {
           {group.web.state === "none" && <SettingsEmpty>No web module</SettingsEmpty>}
           {group.web.state === "withoutContributions" && <SettingsEmpty>Web module without contributions</SettingsEmpty>}
           {group.web.state === "contributions" && (
-            <div className="grid gap-[7px]">
+            <div className="grid gap-2">
               {group.web.contributions.map((contribution) => (
-                <article className="grid min-w-0 gap-1.5 rounded-lg border border-border-soft bg-background/68 px-3 py-2.5" key={contribution.kind}>
-                  <header className="flex items-center justify-between gap-2.5">
+                <article className={cn(insetClass, "grid min-w-0 gap-2 px-3 py-3")} key={contribution.kind}>
+                  <header className="flex items-center justify-between gap-3">
                     <strong className="text-[0.73rem] text-foreground">{contribution.kind}</strong>
-                    <span className={chipClass}>{contribution.count}</span>
+                    <Badge tone="neutral">{contribution.count}</Badge>
                   </header>
                   {contribution.details.length > 0 && (
-                    <span className="flex flex-wrap gap-1.5">
+                    <span className="flex flex-wrap gap-2">
                       {contribution.details.map((detail) => (
-                        <span className={tagClass} key={detail}><code className="font-mono">{detail}</code></span>
+                        <Badge className="max-w-full" key={detail} tone="neutral"><code className="min-w-0 truncate font-mono text-foreground" title={detail}>{detail}</code></Badge>
                       ))}
                     </span>
                   )}
@@ -659,10 +665,10 @@ function SkillDetail({ onBack, skill }: { onBack: () => void; skill: SettingsSki
 
   return (
     <div className={settingsPageClass}>
-      <header className="grid justify-items-start gap-2.5">
+      <header className="grid justify-items-start gap-3">
         <Button aria-label="Back to contributions" className="rounded-full" onClick={onBack} size="icon" variant="outline"><ArrowLeftIcon /></Button>
         <span className="grid gap-1">
-          <h2 className={pageTitleClass}>{skill.id}</h2>
+          <h2 className={settingsPageTitleClass}>{skill.id}</h2>
           <p className="text-[0.73rem] text-muted-foreground">{skill.owner}{files.length > 0 && ` / ${files.length} ${files.length === 1 ? "file" : "files"}`}</p>
         </span>
       </header>
@@ -698,8 +704,8 @@ function SkillDetail({ onBack, skill }: { onBack: () => void; skill: SettingsSki
 
 function SkillDocument({ file }: { file: SettingsSkillFile }) {
   return (
-    <article className="min-w-0 rounded-xl border border-border-soft bg-background/76">
-      <header className="flex items-center justify-between gap-3 border-b border-border-soft px-3 py-2.5">
+    <article className="min-w-0 rounded-xl border border-border bg-background/76">
+      <header className="flex items-center justify-between gap-3 border-b border-border px-3 py-3">
         <span className={cardCopyClass}>
           <strong className={cardTitleClass}>{file.path}</strong>
           <small className="text-[0.63rem] text-muted-foreground">{formatBytes(file.bytes)}</small>
@@ -714,21 +720,21 @@ function SkillDocument({ file }: { file: SettingsSkillFile }) {
               <small className={cardNoteClass}>Header data the agent runtime reads from the file</small>
             </span>
           </summary>
-          <PromptCode content={file.frontMatter} copyLabel="Copy frontmatter" />
+          <PromptCode content={file.frontMatter} copyLabel="Copy frontmatter" embedded />
         </details>
       )}
       {file.content === null
         ? <SettingsEmpty className="m-3">This file cannot be shown as text.</SettingsEmpty>
         : file.path.toLowerCase().endsWith(".md")
-          ? <div className="px-4.5 pt-4 pb-5 text-[0.79rem] leading-[1.62] text-foreground"><Markdown text={file.content} /></div>
-          : <div className="overflow-auto"><SourceCode className="px-4 pt-4 pb-5 text-[0.7rem] leading-[1.55]" content={file.content} path={file.path} /></div>}
+          ? <div className="px-4 pt-4 pb-4 text-[0.79rem] leading-[1.62] text-foreground"><Markdown text={file.content} /></div>
+          : <div className="overflow-auto"><SourceCode className="px-4 pt-4 pb-4" content={file.content} path={file.path} /></div>}
     </article>
   );
 }
 
 function ModelCard({ model }: { model: SettingsModel }) {
   return (
-    <article className={cn(cardClass, "grid gap-[3px] px-3.5 py-3")}>
+    <article className={cn(cardClass, "grid gap-1 px-4 py-3")}>
       <strong className="truncate text-[0.79rem]">{model.label}</strong>
       <span className="truncate text-[0.67rem] text-muted-foreground">{model.provider} / {model.model}</span>
       <small className="truncate text-[0.67rem] text-muted-foreground">Driver: {model.driver}</small>
@@ -754,7 +760,7 @@ function ProfileCard({ profile }: { profile: SettingsProfile }) {
         </span>
       </header>
       <p className={cardCopyTextClass}>{profile.description}</p>
-      <footer className="flex flex-wrap gap-x-3 gap-y-1.5 text-[0.64rem] text-muted-foreground">
+      <footer className="flex flex-wrap gap-x-3 gap-y-2 text-[0.64rem] text-muted-foreground">
         <span>{profile.turnTimeoutMs === null || profile.turnTimeoutMs === 0 ? "No turn inactivity limit" : `Turn inactivity limit ${formatDuration(profile.turnTimeoutMs)}`}</span>
         <span>{profile.isolateWorkspace ? "Own agent workspace" : "Shared run workspace"}</span>
       </footer>
@@ -787,22 +793,22 @@ function HookCard({ hook }: { hook: SettingsAgentHook }) {
 
 function ToolCard({ tool }: { tool: SettingsTool }) {
   return (
-    <article className={cn(cardClass, "grid gap-2.5")}>
+    <article className={cn(cardClass, "grid gap-3")}>
       <header className={cardHeaderClass}>
         <span className={cardCopyClass}>
           <strong className={cardTitleClass}>{tool.name}</strong>
           <small className={cardNoteClass}>{tool.id}</small>
         </span>
         <span className={statusListClass}>
-          <span className={cn(chipClass, "bg-primary/12 text-primary")}>{toolKindLabel(tool.kind)}</span>
-          <span className={chipClass}>{toolAvailabilityLabel(tool.availability)}</span>
-          <span className={chipClass}>{functionSurfaceLabel(tool.nativeTool)}</span>
+          <Badge tone="info">{toolKindLabel(tool.kind)}</Badge>
+          <Badge tone="neutral">{toolAvailabilityLabel(tool.availability)}</Badge>
+          <Badge tone="neutral">{functionSurfaceLabel(tool.nativeTool)}</Badge>
         </span>
       </header>
       <p className={cn(cardCopyTextClass, "my-0")}>{tool.description}</p>
-      <dl className="grid grid-cols-2 gap-1.5 max-md:grid-cols-1">
+      <dl className="grid grid-cols-2 gap-2 max-md:grid-cols-1">
         {[["Owner", tool.owner], ["Source", tool.source], ["Scope", toolScopeLabel(tool.scope)], ["Availability", tool.availabilityDetail]].map(([label, value]) => (
-          <div className="grid min-w-0 gap-0.5 rounded-lg border border-border-soft bg-background/68 px-2 py-1.5" key={label}>
+          <div className={cn(insetClass, "grid min-w-0 gap-0.5 px-2 py-2")} key={label}>
             <dt className="text-[0.61rem] text-muted-foreground">{label}</dt>
             <dd className="min-w-0 text-[0.68rem] text-foreground [overflow-wrap:anywhere]">{value}</dd>
           </div>
@@ -816,8 +822,8 @@ function SettingsPage({ children, description, title }: { children: ReactNode; d
   return (
     <div className={settingsPageClass}>
       <header>
-        <h2 className={pageTitleClass}>{title}</h2>
-        <p className={pageLeadClass}>{description}</p>
+        <h2 className={settingsPageTitleClass}>{title}</h2>
+        <p className={settingsPageLeadClass}>{description}</p>
       </header>
       {children}
     </div>
@@ -828,19 +834,19 @@ function SettingsSection({ children, count, panel, title }: { children: ReactNod
   const body = (
     <>
       <header className="flex min-h-6 items-center gap-2">
-        <h3 className={cn("text-[0.79rem] font-bold tracking-[0.015em] text-foreground", panel && "text-[0.94rem]")}>{title}</h3>
-        {count !== undefined && <span className="min-w-5 rounded-full bg-foreground/7 px-1.5 py-px text-center text-[0.62rem] text-muted-foreground">{count}</span>}
+        <h3 className={panel ? settingsPanelTitleClass : "text-[0.79rem] font-bold tracking-[0.015em] text-foreground"}>{title}</h3>
+        {count !== undefined && <Badge tone="neutral">{count}</Badge>}
       </header>
       {children}
     </>
   );
-  if (panel) return <Card className={panelSectionClass}>{body}</Card>;
-  return <section className="grid gap-2.5">{body}</section>;
+  if (panel) return <Card className={settingsPanelClass}>{body}</Card>;
+  return <section className="grid gap-3">{body}</section>;
 }
 
 function SettingsFact({ detail, label, value }: { detail: string; label: string; value: string }) {
   return (
-    <article className="grid min-w-0 gap-[3px] rounded-xl border border-border-soft bg-background/78 px-3.5 py-3">
+    <article className="grid min-w-0 gap-1 rounded-xl border border-border bg-background/78 px-4 py-3">
       <span className="text-[0.62rem] text-muted-foreground uppercase">{label}</span>
       <strong className="truncate text-[0.91rem] text-foreground">{value}</strong>
       <small className="truncate text-[0.66rem] text-muted-foreground">{detail}</small>
@@ -850,7 +856,7 @@ function SettingsFact({ detail, label, value }: { detail: string; label: string;
 
 function SettingsValue({ copy = false, label, value }: { copy?: boolean; label: string; value: string }) {
   return (
-    <div className="grid min-h-[38px] grid-cols-[minmax(130px,0.28fr)_minmax(0,1fr)_auto] items-center gap-2.5 rounded-lg border border-border-soft bg-background/68 px-2.5 py-1.5 max-[520px]:grid-cols-[minmax(0,1fr)_auto]">
+    <div className={cn(insetClass, "grid min-h-[38px] grid-cols-[12rem_minmax(0,1fr)_auto] items-center gap-3 px-3 py-2 max-[520px]:grid-cols-[minmax(0,1fr)_auto]")}>
       <span className={cn(valueLabelClass, "max-[520px]:col-span-full")}>{label}</span>
       <code className="min-w-0 truncate font-mono text-[0.7rem] text-foreground" title={value}>{value}</code>
       {copy && <CopyButton label={`Copy ${label}`} text={value} />}
@@ -858,11 +864,12 @@ function SettingsValue({ copy = false, label, value }: { copy?: boolean; label: 
   );
 }
 
-function PromptCode({ content, copyLabel }: { content: string; copyLabel: string }) {
+/** A code block with its copy button; embedded inside a disclosure it drops its own frame for a divider. */
+function PromptCode({ content, copyLabel, embedded = false }: { content: string; copyLabel: string; embedded?: boolean }) {
   return (
     <div className="relative min-w-0">
       <CopyButton className="absolute top-2 right-2 z-1" label={copyLabel} text={content} />
-      <pre className={`${preClass} max-h-[520px] px-3 pt-11 pb-3`}>{content}</pre>
+      <pre className={cn(preClass, embedded ? "border-t border-border" : preFrameClass, "max-h-[520px] px-3 pt-8 pb-3")}>{content}</pre>
     </div>
   );
 }
@@ -904,16 +911,18 @@ function StatusBadge({ active, label }: { active: boolean; label: string }) {
 }
 
 function SettingsNote({ children }: { children: ReactNode }) {
-  return <p className="flex items-start gap-2 rounded-lg border border-[color-mix(in_srgb,var(--primary)_22%,var(--border))] bg-primary/6 px-3 py-2.5 text-[0.71rem] leading-normal text-muted-foreground [&>svg]:mt-px [&>svg]:flex-shrink-0 [&>svg]:text-primary"><InfoIcon size={15} />{children}</p>;
+  return <p className="flex items-start gap-2 rounded-lg border border-[color-mix(in_srgb,var(--primary)_22%,var(--border))] bg-primary/6 px-3 py-3 text-[0.71rem] leading-normal text-muted-foreground [&>svg]:mt-px [&>svg]:flex-shrink-0 [&>svg]:text-primary"><InfoIcon size={15} />{children}</p>;
 }
 
 function SettingsEmpty({ children, className }: { children: ReactNode; className?: string }) {
-  return <p className={cn("rounded-lg border border-dashed border-border p-4.5 text-center text-[0.72rem] text-muted-foreground", className)}>{children}</p>;
+  return <p className={cn("rounded-lg border border-dashed border-border p-4 text-center text-[0.72rem] text-muted-foreground", className)}>{children}</p>;
 }
 
 const modelKey = (model: SettingsModel) => `${model.driver}/${model.provider ?? ""}/${model.model ?? ""}`;
 
 const skillFileKey = (file: SettingsSkillFile) => `${file.root}/${file.path}`;
+
+const counted = (count: number, noun: string) => `${count} ${count === 1 ? noun : `${noun}s`}`;
 
 const skillFileText = (file: SettingsSkillFile) =>
   file.frontMatter === null ? file.content ?? "" : `---\n${file.frontMatter}\n---\n\n${file.content ?? ""}`;

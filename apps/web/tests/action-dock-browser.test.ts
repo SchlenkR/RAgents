@@ -19,7 +19,7 @@ const buildFixture = async (): Promise<string> => {
     define: { "process.env.NODE_ENV": '"production"' },
     plugins: [
       { name: "action-dock-rpc", setup(builder) {
-        builder.onLoad({ filter: /\/src\/rpc\.ts$/ }, () => ({ contents: "export const rpc = { call: async (contract, input) => { window.dockFixture.calls.push([contract.id, input]); return null; }, subscribe: () => () => {} };" }));
+        builder.onLoad({ filter: /\/src\/rpc\.ts$/ }, () => ({ contents: "export const rpc = { call: async (contract, input) => { if (contract.id !== 'ragents.chat.contextUsage') window.dockFixture.calls.push([contract.id, input]); return null; }, subscribe: () => () => {} };" }));
       } },
       tailwindPlugin([`${root}apps/web/src`, `${root}plugins/ragents.orchestration/web`, `${root}plugins/ragents.ask/web`]),
     ], logLevel: "silent",

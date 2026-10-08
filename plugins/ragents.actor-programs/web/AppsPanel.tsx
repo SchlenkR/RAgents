@@ -39,7 +39,7 @@ export { useActorPrograms, type ActorProgramsContextValue } from "./context";
 export const RUN_TOOLS_TAB_ID = "ragents.actor-programs.tools";
 
 const entryIconClass = "flex size-[34px] items-center justify-center rounded-[10px] bg-[color-mix(in_srgb,var(--primary)_12%,var(--background))] text-primary";
-const headClass = "grid flex-none grid-cols-[auto_minmax(0,1fr)] items-center gap-2.5 border-b border-border-soft px-workspace-inset py-[9px]";
+const headClass = "grid flex-none grid-cols-[auto_minmax(0,1fr)] items-center gap-3 border-b border-border-soft px-workspace-inset py-2";
 const sectionLabelClass = "mb-2 text-[0.66rem] tracking-[0.075em] text-muted-foreground uppercase";
 
 const ACTIVE_STATUSES = new Set(["queued", "running"]);
@@ -238,7 +238,7 @@ export function HostConfirmation({ action, session }: { action: RunAction; sessi
   };
 
   return (
-    <section aria-label="Host confirmation" className="grid flex-none gap-2 border-b border-border-soft bg-warning-soft px-workspace-inset py-2.5" data-slot="host-confirmation">
+    <section aria-label="Host confirmation" className="grid flex-none gap-2 border-b border-border-soft bg-warning-soft px-workspace-inset py-3" data-slot="host-confirmation">
       <header className="grid gap-0.5">
         <strong className="text-[0.72rem] text-foreground">Confirmation in the host</strong>
         <span className="text-xs text-muted-foreground">The app cannot answer this decision itself.</span>
@@ -266,7 +266,7 @@ export function ToolsPanel({ active, navigation, selection, session }: Workspace
 
   if (!listing && !error) {
     return (
-      <div className="flex h-full items-center justify-center gap-2.5 text-sm text-muted-foreground">
+      <div className="flex h-full items-center justify-center gap-3 text-sm text-muted-foreground">
         <Spinner aria-hidden aria-label={undefined} role={undefined} />
         <span>Loading functions</span>
       </div>
@@ -314,7 +314,7 @@ export function ToolsPanel({ active, navigation, selection, session }: Workspace
             <small className="truncate text-xs text-muted-foreground">Function of @{selected.actorHandle}</small>
           </span>
         </header>
-        <div className="flex min-h-0 flex-col gap-[22px] overflow-y-auto px-workspace-inset pt-[18px] pb-7">
+        <div className="flex min-h-0 flex-col gap-6 overflow-y-auto px-workspace-inset pt-4 pb-6">
           <div className="grid grid-cols-[42px_minmax(0,1fr)] items-start gap-3">
             <span className={cn(entryIconClass, "size-[42px] bg-accent")}><IconTools size={22} /></span>
             <div>
@@ -324,7 +324,7 @@ export function ToolsPanel({ active, navigation, selection, session }: Workspace
           </div>
           <section>
             <h3 className={sectionLabelClass}>Available to</h3>
-            <div className="flex flex-wrap gap-1.5">
+            <div className="flex flex-wrap gap-2">
               {selected.targets.map((target) => <span className="rounded-full bg-primary/9 px-2 py-1 text-xs text-foreground" key={target.actorId}>{targetLabel(target)}</span>)}
             </div>
           </section>
@@ -336,7 +336,7 @@ export function ToolsPanel({ active, navigation, selection, session }: Workspace
           <dl className="grid grid-cols-2 gap-2">
             {[{ label: "Program", value: selected.moduleId, title: undefined },
               { label: "Source hash", value: selected.sourceHash.slice(0, 12), title: selected.sourceHash }].map((fact) => (
-              <div className="grid gap-[3px] rounded-lg bg-foreground/4 px-2.5 py-2" key={fact.label}>
+              <div className="grid gap-1 rounded-lg bg-foreground/4 px-3 py-2" key={fact.label}>
                 <dt className="text-[0.61rem] text-muted-foreground uppercase">{fact.label}</dt>
                 <dd className="truncate font-mono text-xs text-foreground" title={fact.title}>{fact.value}</dd>
               </div>
@@ -359,11 +359,11 @@ export function ToolsPanel({ active, navigation, selection, session }: Workspace
   }
 
   return (
-    <div className="@container flex h-full min-h-0 flex-col gap-2 overflow-y-auto px-workspace-inset pt-3 pb-5 [scrollbar-width:thin]">
+    <div className="@container flex h-full min-h-0 flex-col gap-2 overflow-y-auto px-workspace-inset pt-3 pb-4 [scrollbar-width:thin]">
       {error && <Alert className="mb-1" role="status" variant="destructive">{error}</Alert>}
       {listing.tools.map((tool) => (
         <button
-          className="grid w-full cursor-pointer grid-cols-[34px_minmax(0,1fr)_auto_14px] items-center gap-2.5 rounded-lg border border-border bg-card px-[11px] py-2.5 text-left text-foreground transition-[background-color,border-color] hover:border-[color-mix(in_srgb,var(--primary)_52%,var(--border))] hover:bg-[color-mix(in_srgb,var(--primary)_7%,var(--card))] focus-visible:border-[color-mix(in_srgb,var(--primary)_52%,var(--border))] focus-visible:bg-[color-mix(in_srgb,var(--primary)_7%,var(--card))] focus-visible:outline-1 focus-visible:outline-offset-2 focus-visible:outline-ring @max-[470px]:grid-cols-[34px_minmax(0,1fr)_14px]"
+          className="grid w-full cursor-pointer grid-cols-[34px_minmax(0,1fr)_auto_14px] items-center gap-3 rounded-lg border border-border bg-card px-3 py-3 text-left text-foreground transition-[background-color,border-color] hover:border-[color-mix(in_srgb,var(--primary)_52%,var(--border))] hover:bg-[color-mix(in_srgb,var(--primary)_7%,var(--card))] focus-visible:border-[color-mix(in_srgb,var(--primary)_52%,var(--border))] focus-visible:bg-[color-mix(in_srgb,var(--primary)_7%,var(--card))] focus-visible:outline-1 focus-visible:outline-offset-2 focus-visible:outline-ring @max-[470px]:grid-cols-[34px_minmax(0,1fr)_14px]"
           key={toolKeyOf(tool)}
           onClick={() => navigation.openTab(RUN_TOOLS_TAB_ID, toolKeyOf(tool))}
           type="button"

@@ -1,7 +1,10 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import { createChoiceStore, parseAppearanceValue } from "../src/appearance";
+import { appearanceChoices, type AppearanceValue } from "../src/appearance-options";
 import { createThemeStore, THEME_STORAGE_KEY } from "../src/theme";
-import { DENSITY_STORAGE_KEY, parseTableDensity, type TableDensity } from "../src/table-density";
+
+const DENSITY_STORAGE_KEY = appearanceChoices.density.storageKey;
 
 function browserFixture(saved?: string) {
   const values = new Map<string, string>(saved === undefined ? [] : [[DENSITY_STORAGE_KEY, saved]]);
@@ -33,9 +36,9 @@ function browserFixture(saved?: string) {
 test("table spacing starts comfortable and applies every saved choice without writing at bootstrap", () => {
   for (const saved of [undefined, "compact", "comfortable", "spacious"]) {
     const fixture = browserFixture(saved);
-    const store = createThemeStore(fixture.browser);
+    const store = createChoiceStore(fixture.browser, "density");
     const density = saved ?? "comfortable";
-    assert.equal(store.getSnapshot().density, density);
+    assert.equal(store.getSnapshot().value, density);
     assert.equal(fixture.target.document.documentElement.dataset.density, density);
     assert.equal(fixture.values.get(DENSITY_STORAGE_KEY), saved);
     assert.deepEqual(fixture.writes, []);
@@ -45,74 +48,78 @@ test("table spacing starts comfortable and applies every saved choice without wr
 
 test("table spacing is saved independently of the color scheme and survives reinitialization", () => {
   const fixture = browserFixture();
-  const store = createThemeStore(fixture.browser);
-  store.setPreference("light");
+  const theme = createThemeStore(fixture.browser);
+  const store = createChoiceStore(fixture.browser, "density");
+  theme.setPreference("light");
   for (const density of ["compact", "spacious", "comfortable"] as const) {
-    store.setDensity(density);
-    assert.equal(store.getSnapshot().density, density);
-    assert.equal(store.getSnapshot().appearance, "light");
+    store.set(density);
+    assert.equal(store.getSnapshot().value, density);
+    assert.equal(theme.getSnapshot().appearance, "light");
     assert.equal(fixture.values.get(DENSITY_STORAGE_KEY), density);
     assert.equal(fixture.values.get(THEME_STORAGE_KEY), "light");
     assert.equal(fixture.target.document.documentElement.dataset.density, density);
   }
-  store.setDensity("spacious");
+  store.set("spacious");
   store.dispose();
-  const restored = createThemeStore(fixture.browser);
-  assert.equal(restored.getSnapshot().density, "spacious");
-  assert.equal(restored.getSnapshot().appearance, "light");
+  theme.dispose();
+  const restored = createChoiceStore(fixture.browser, "density");
+  const restoredTheme = createThemeStore(fixture.browser);
+  assert.equal(restored.getSnapshot().value, "spacious");
+  assert.equal(restoredTheme.getSnapshot().appearance, "light");
   restored.dispose();
+  restoredTheme.dispose();
 });
 
 test("table spacing follows other tabs and deleted settings without writing back", () => {
   const fixture = browserFixture("compact");
-  const store = createThemeStore(fixture.browser);
+  const store = createChoiceStore(fixture.browser, "density");
   fixture.otherTab("spacious");
-  assert.equal(store.getSnapshot().density, "spacious");
+  assert.equal(store.getSnapshot().value, "spacious");
   fixture.otherTab(null);
-  assert.equal(store.getSnapshot().density, "comfortable");
+  assert.equal(store.getSnapshot().value, "comfortable");
   fixture.otherTab("compact");
   fixture.otherTab(null, null);
-  assert.equal(store.getSnapshot().density, "comfortable");
+  assert.equal(store.getSnapshot().value, "comfortable");
   fixture.otherTab("compact", "another.setting");
   fixture.otherTab("spacious", DENSITY_STORAGE_KEY, {});
-  assert.equal(store.getSnapshot().density, "comfortable");
+  assert.equal(store.getSnapshot().value, "comfortable");
   assert.deepEqual(fixture.writes, []);
   store.dispose();
 });
 
 test("invalid saved table spacing aborts bootstrap; an invalid external choice preserves the active density", () => {
   for (const value of ["", "Compact", "large", "null"]) {
-    assert.throws(() => parseTableDensity(value), /Allowed are compact, comfortable, and spacious/);
-    assert.throws(() => createThemeStore(browserFixture(value).browser), /saved theme.*Invalid table spacing/);
+    assert.throws(() => parseAppearanceValue("density", value), /Allowed are compact, comfortable, spacious/);
+    assert.throws(() => createChoiceStore(browserFixture(value).browser, "density"), /saved table spacing.*Invalid table spacing/);
   }
   const fixture = browserFixture("compact");
-  const store = createThemeStore(fixture.browser);
+  const store = createChoiceStore(fixture.browser, "density");
   fixture.otherTab("invalid");
-  assert.equal(store.getSnapshot().density, "compact");
+  assert.equal(store.getSnapshot().value, "compact");
   assert.equal(fixture.target.document.documentElement.dataset.density, "compact");
   assert.match(store.getSnapshot().error!, /another browser tab.*Invalid table spacing/);
   fixture.otherTab("spacious");
-  assert.equal(store.getSnapshot().density, "spacious");
+  assert.equal(store.getSnapshot().value, "spacious");
   assert.equal(store.getSnapshot().error, null);
   store.dispose();
 });
 
 test("a refused table spacing write preserves the saved choice and a retry clears the error", () => {
   const fixture = browserFixture("comfortable");
-  const store = createThemeStore(fixture.browser);
+  const store = createChoiceStore(fixture.browser, "density");
   fixture.denyWrites(true);
-  store.setDensity("compact");
-  assert.equal(store.getSnapshot().density, "comfortable");
+  store.set("compact");
+  assert.equal(store.getSnapshot().value, "comfortable");
   assert.equal(fixture.values.get(DENSITY_STORAGE_KEY), "comfortable");
   assert.equal(fixture.target.document.documentElement.dataset.density, "comfortable");
   assert.match(store.getSnapshot().error!, /table spacing could not be saved.*Storage is full/);
   fixture.denyWrites(false);
-  store.setDensity("compact");
-  assert.equal(store.getSnapshot().density, "compact");
+  store.set("compact");
+  assert.equal(store.getSnapshot().value, "compact");
   assert.equal(store.getSnapshot().error, null);
-  store.setDensity("invalid" as TableDensity);
-  assert.equal(store.getSnapshot().density, "compact");
+  store.set("invalid" as AppearanceValue<"density">);
+  assert.equal(store.getSnapshot().value, "compact");
   assert.equal(fixture.values.get(DENSITY_STORAGE_KEY), "compact");
   store.dispose();
-  assert.throws(() => store.setDensity("spacious"), /already been disposed/);
+  assert.throws(() => store.set("spacious"), /already been disposed/);
 });

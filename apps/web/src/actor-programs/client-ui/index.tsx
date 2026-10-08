@@ -1,7 +1,7 @@
 import { useCallback, useSyncExternalStore, type ComponentProps } from "react";
 import { cn } from "../../ui";
 import { ChatPanel, ChatMessages as QuasselChatMessages, ChatInputToolbar, Markdown as QuasselMarkdown } from "quassel";
-import { QuasselHost } from "../../chat/QuasselHost";
+import { QuasselHost, chatCodeBlocks } from "../../chat/QuasselHost";
 import type { ActorChatProps, ChatAttachmentInput, ChatConnection, ChatInputProps, ChatProps, ControlledChatProps } from "./contracts";
 
 export * from "../../ui";
@@ -25,7 +25,7 @@ const emptyMessages: never[] = [];
 const chatDisplay = "flex h-full min-h-0 w-full min-w-0 flex-col text-foreground";
 
 function ChatMessages(props: ComponentProps<typeof QuasselChatMessages>) {
-  return <QuasselHost><QuasselChatMessages {...props} /></QuasselHost>;
+  return <QuasselHost><QuasselChatMessages codeBlockOptions={chatCodeBlocks} {...props} /></QuasselHost>;
 }
 
 function Markdown(props: ComponentProps<typeof QuasselMarkdown>) {
@@ -55,7 +55,7 @@ function ChatView({ title, showInput = true, onSend, placeholder, rows = 2, maxR
         rows={rows}
         running={messages.running}
       /> : undefined}>
-        <QuasselChatMessages {...messages} />
+        <QuasselChatMessages codeBlockOptions={chatCodeBlocks} {...messages} />
       </ChatPanel></QuasselHost>
     </section>
   );

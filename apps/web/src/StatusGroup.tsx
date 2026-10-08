@@ -9,7 +9,7 @@ export function StatusGroup({ children, container, label, order }: PropsWithChil
   return container ? createPortal(
     <div
       aria-label={label}
-      className="relative z-[70] flex h-full min-w-0 flex-none items-stretch after:pointer-events-none after:absolute after:top-1.5 after:right-0 after:bottom-1.5 after:w-px after:bg-muted-foreground after:opacity-45 after:content-['']"
+      className="relative z-[70] flex h-full min-w-0 flex-none items-stretch after:pointer-events-none after:absolute after:top-1.5 after:right-0 after:bottom-1.5 after:w-px after:bg-muted-foreground after:opacity-45 after:content-[''] last:after:hidden"
       role="group"
       style={{ order }}
     >{children}</div>,

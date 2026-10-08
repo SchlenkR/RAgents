@@ -23,6 +23,7 @@ function PopoverContent({
   container,
   keepMounted,
   dim = false,
+  backdropClassName,
   ...props
 }: PopoverPrimitive.Popup.Props &
   Pick<
@@ -31,12 +32,14 @@ function PopoverContent({
   > & Pick<PopoverPrimitive.Portal.Props, "container" | "keepMounted"> & {
     /** Dims the rest of the page so the pop-out stands out; a click outside closes it. */
     dim?: boolean
+    /** Places the dimming surface, for example only below the container the pop-out belongs to. */
+    backdropClassName?: string
   }) {
   return (
     <PopoverPrimitive.Portal container={container} keepMounted={keepMounted}>
       {dim && (
         <PopoverPrimitive.Backdrop
-          className="fixed inset-0 z-[105] bg-backdrop transition-opacity duration-200 data-open:animate-in data-open:fade-in-0 data-closed:animate-out data-closed:fade-out-0"
+          className={cn("fixed inset-0 z-[105] bg-backdrop transition-opacity duration-200 data-open:animate-in data-open:fade-in-0 data-closed:animate-out data-closed:fade-out-0", backdropClassName)}
           data-slot="popover-backdrop"
         />
       )}
@@ -54,7 +57,7 @@ function PopoverContent({
           data-slot="popover-content"
           className={cn(
             dropdownPanelStyle,
-            "z-[110] flex w-72 origin-(--transform-origin) flex-col gap-2.5 p-2.5 text-sm outline-hidden duration-100 data-[side=bottom]:slide-in-from-top-2 data-[side=inline-end]:slide-in-from-left-2 data-[side=inline-start]:slide-in-from-right-2 data-[side=left]:slide-in-from-right-2 data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2 data-open:animate-in data-open:fade-in-0 data-open:zoom-in-95 data-closed:animate-out data-closed:fade-out-0 data-closed:zoom-out-95",
+            "z-[110] flex w-72 origin-(--transform-origin) flex-col gap-3 p-3 text-sm outline-hidden duration-100 data-[side=bottom]:slide-in-from-top-2 data-[side=inline-end]:slide-in-from-left-2 data-[side=inline-start]:slide-in-from-right-2 data-[side=left]:slide-in-from-right-2 data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2 data-open:animate-in data-open:fade-in-0 data-open:zoom-in-95 data-closed:animate-out data-closed:fade-out-0 data-closed:zoom-out-95",
             className
           )}
           {...props}
@@ -78,7 +81,7 @@ function PopoverTitle({ className, ...props }: PopoverPrimitive.Title.Props) {
   return (
     <PopoverPrimitive.Title
       data-slot="popover-title"
-      className={cn("font-medium", className)}
+      className={cn("font-semibold", className)}
       {...props}
     />
   )

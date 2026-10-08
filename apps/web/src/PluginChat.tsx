@@ -16,10 +16,11 @@ import { createPortal } from "react-dom";
 import { ChatInputToolbar, ChatMessages, ChatPanel, type ChatAttachmentInput, type ChatEvent, type ToolInfo } from "quassel";
 import { primaryChatState, primaryIsProgram, programChatNotice, runIsWorking, runPausable } from "./chat/chat-target";
 import { PausedRunNotice } from "./chat/PausedRunNotice";
-import { RunUrls } from "./chat/QuasselHost";
+import { RunUrls, chatCodeBlocks } from "./chat/QuasselHost";
 import { StoppedActorNotice } from "./chat/StoppedActorNotice";
 import { ChatViewSwitches, useChatViewSettings } from "./chat-view-settings";
 import { useChat } from "./chat/useChat";
+import { ChatContextUsage } from "./chat/ChatContextUsage";
 import { runUserLocation, type ChatRunLocation } from "./chat/user-location";
 import { dismissAction, pauseRun, type SessionInfo } from "./api";
 import { useRunStore } from "./RunStore";
@@ -471,7 +472,7 @@ function ChatSurface({
     <ChatPanel
       className={cn(chatElementClass, options.chatElementClassName)}
       composer={
-        primaryIsProgram(session.runView, session.session.id) ? <div className="flex min-w-0 flex-col gap-1.5">
+        primaryIsProgram(session.runView, session.session.id) ? <div className="flex min-w-0 flex-col gap-2">
           <PausedRunNotice runId={session.session.id} view={session.runView} />
           <p className="text-muted-foreground">{programChatNotice}</p>
           <div className="flex min-w-0 flex-wrap items-center gap-2">{options.toolbarLeft}<ChatViewSwitches settings={chatView} /></div>
@@ -505,12 +506,13 @@ function ChatSurface({
                 <ChatViewSwitches settings={chatView} />
               </>
             }
-            toolbarRight={<StartOptionControls disabled={!session.connected || !writable} placement="composer" registry={registry} />}
+            toolbarRight={<><ChatContextUsage runId={session.session.id} revision={JSON.stringify(startOptions.options.map(({ id, value }) => [id, value]))} /><StartOptionControls disabled={!session.connected || !writable} placement="composer" registry={registry} /></>}
           />
         </div>
       }
     >
       {options.notice ?? <ChatMessages
+        codeBlockOptions={chatCodeBlocks}
         detailMode={chatView.detailMode}
         transcriptMode={chatView.transcriptMode}
         messages={messages}

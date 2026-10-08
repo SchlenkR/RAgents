@@ -758,6 +758,9 @@
       "ChatViewSwitches",
       "useChatViewSettings"
     ],
+    "@ragents/web/chat/ChatContextUsage": [
+      "ChatContextUsage"
+    ],
     "@ragents/web/chat/PausedRunNotice": [
       "PausedRunNotice"
     ],
@@ -797,6 +800,9 @@
     ],
     "@ragents/web/page-opener": [
       "useOptionalPageOpener"
+    ],
+    "@ragents/web/product/ModelPickers": [
+      "ModelPickers"
     ],
     "@ragents/web/product/ProductModelSettings": [
       "ProductModelSettings"
@@ -838,8 +844,9 @@
       "runViewFrom"
     ],
     "@ragents/web/theme": [
-      "useResolvedTheme",
-      "useTableDensity"
+      "useLooks",
+      "usePalette",
+      "useResolvedTheme"
     ],
     "@ragents/web/toolLine": [
       "withToolSummaries"
@@ -851,6 +858,7 @@
       "Badge",
       "Button",
       "Card",
+      "Checkbox",
       "ChoiceSelect",
       "Combobox",
       "ComboboxContent",
@@ -889,6 +897,7 @@
       "PopoverContent",
       "PopoverTrigger",
       "RunStateIcon",
+      "SearchInput",
       "SectionLabel",
       "Select",
       "SelectContent",

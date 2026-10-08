@@ -4,6 +4,15 @@ Inbox for everything; the owner and the AI write here. One line per entry, newes
 
 ## Open
 
+- Chat column and scrollbar gutter (08.10.2026): the stable gutter of chat transcripts narrows the message column and moves it half a gutter left of the composer, so `chat-view-switches-browser.test.ts` ("chat columns stay centered ...") fails with 441 vs 452 at 500px, already on main before the readability merge; decide whether the composer follows the column or the test measures the scroller's client width.
+- Appearance options (07.10.2026): further options (chat font size, band strength) next to the palette, corners, inline code, and table spacing under Settings > Appearance, kept in the same stores and VS Code settings.
+- Backdrop glows (07.10.2026): in the light palettes `border` against the colored glows of the page backdrop is 1.15:1 to 1.24:1 at the strongest spots (Start tile and run card frames, disabled tiles in dark about 1.27:1); calm the glows or use a stronger frame token there.
+- Single-file diffs (07.10.2026): `DiffCode` shows the file header (status letter, old and new path, counts) only for two or more files, so a rename, add, or delete of one file shows no sign of it, and the mini-app viewers drop the file name whenever a title is set.
+- Icon tooltips (07.10.2026): icon-only buttons outside the dock rails carry only a native `title`; decide whether the styled tooltip becomes the rule.
+- Chat bubbles (07.10.2026): quassel's hover copy button covers the end of a user message; report upstream together with the code highlight hook.
+- Chat code blocks (07.10.2026): quassel renders fenced code plain. Add a highlight hook to quassel's `CodeBlockOptions` and pass the host's highlight.js tokens; then the prose rules in `quassel.css` can move into quassel's own variables.
+- Homepage screenshots (07.10.2026): `docs/homepage/screenshots/*.webp` still show an older look; retake them from a showcase run with neutral data.
+- Header panels (07.10.2026): `HeaderDropdown` panels stay square while all other popups are rounded; decide whether they follow the radius.
 - Check live (07.10.2026): a server in the hardened container with `BROWSER_CHROMIUM_SANDBOX: false` opens a page in a restricted run through the browser network policy, and with the default the browser check reports the sandbox line and the setting; unit tests with a stubbed Playwright cover the launch options and the error, with the log line from the production report.
 - Move OpenRouter onto the sdk registry (07.10.2026): step 2 of profile providers on AI SDK packages. Register `@openrouter/ai-sdk-provider` as sdk `openrouter`, let the built-in catalog's models name it, and move the OpenRouter-only parts of the stream loop (raw tool and reasoning fragments, cache marks, `reasoning_details`, PDF plugin, routing) into that entry.
 - `MODEL_PROVIDERS` entries without `sdk` (07.10.2026): move existing profiles to `sdk: "openai-compatible"`, then make `sdk` required and remove the OpenRouter-shaped route for custom endpoints together with `normalizeOpenAiResponse`.
