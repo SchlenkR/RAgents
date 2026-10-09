@@ -1,5 +1,31 @@
 # Decisions
 
+## 2026-10-09: Arrange Start in place: size, order, and hiding per widget
+
+Chapters: `spec/plugins.md` (Web as plugin host: slot list `startSections`, Shared page width, Arranging Start);
+usage: `usage.md` (Start).
+
+Start's widgets had fixed sizes and places, so a viewer for whom Continue was too wide could not change it. Every
+framed widget now has a "..." menu in its title row with Size (the four existing spans, the current one checked and
+the default marked), Move earlier, Move later, and Hide; "Customize" after the grid, or at the end of the tab strip,
+shows hidden widgets again and resets the layout. There is no settings page for it. Sizes stay the semantic spans, so
+the responsive tiers and the narrow tabs work on the arranged list without a second set of rules.
+
+The preferences (`dashboard-preferences.ts`) refer to widgets by ID and work for any ID, including widgets that only
+some users have: `start.new`, `start.continue`, and a start section's `id` (formerly `new`, `continue`, and
+`section:<id>`; a tab remembered under an old key falls back to the first widget once). IDs of absent widgets are
+ignored, and the order places only the widgets it names, so a new widget appears where its contribution puts it.
+Moving to the default order or choosing the default span stores nothing. The server has no per-user preference store:
+`ragents.settings.*` holds profile-wide settings, and the appearance lives in browser storage and VS Code settings.
+The layout is therefore kept like the remembered tab in the browser storage of the page that shows Start, per server
+origin and signed-in user; the browser and VS Code keep separate copies (`TODO.md`). A stored layout that cannot be
+read is shown with its cause and "Reset layout" instead of being dropped silently.
+
+Moving focus after hiding a widget scrolled the whole document by about a hundred pixels,
+header included: visually hidden labels of the run rows escaped the page scroller, because it was not their
+containing block. The scroller of Start, Runs, and Server is now positioned. `HOST_API_VERSION` and
+`EXTENSION_API_VERSION` stay; no contract changed.
+
 ## 2026-10-09: The Start dashboard uses the full width
 
 Chapter: `spec/plugins.md` (Shared page width), `docs/usage.md`. The dashboard kept the 1280-pixel

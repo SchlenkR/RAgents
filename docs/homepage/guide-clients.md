@@ -379,6 +379,15 @@ alone in its row fills it. Below 700 pixels Start shows one widget at a time wit
 the chosen tab is remembered for this server address. A plugin section without a title follows
 below the tabs, and a widget with nothing to show has neither a place nor a tab.
 
+Arrange Start where it is. The "..." button at the end of a widget's title row sets its size
+(Narrow, Half, Wide, or Full; "Default" marks the size the widget comes with), moves it earlier or
+later, or hides it. A narrower Continue, for example, gives the widgets beside it more room. The
+sizes follow the same rules as above, so they still halve at medium widths, and in a narrow panel the
+tabs follow your order and leave out hidden widgets. "Customize" below the widgets, or the icon at the
+end of the tabs, lists the hidden widgets with "Show" and offers "Reset layout". Start remembers the
+arrangement per server address and user in this browser or VS Code panel; the browser and VS Code
+each keep their own. A widget added later appears at its usual place.
+
 Each widget arranges its content for its own width. Template cards stand in several columns when
 the widget is wide enough, between 240 and 320 pixels wide; in a widget narrower than about 450
 pixels they become compact rows across its width with one line of description, as in the New

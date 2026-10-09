@@ -1573,7 +1573,9 @@ Instead, plugins fill typed slots for:
   its heading and spacing, fills a whole row, and stays below the tabs on a narrow dashboard.
   `span` without `title`, a blank `title`, and an unknown `span` are registry errors. Widgets follow
   "New" and "Continue", sorted by `order` and then `id`; the contract keeps its name `startSections`,
-  so existing contributions load unchanged. The context
+  so existing contributions load unchanged. The `id` is also the widget's ID in the viewer's Start
+  layout, so it stays the same across releases; `title` and `span` are the defaults that the
+  viewer's arrangement starts from. The context
   carries every run the server lists for the viewer, sorted by update time, through readonly
   `ConnectionRun` values including `id`, `title`, `updatedAt`, and optional `metadata` keyed by
   server-side `sessionMetadata` contribution ID. `connectionRunOf` preserves `ListedSession.metadata`;
@@ -3353,7 +3355,9 @@ work".
 **Shared page width.** `PanelPage` owns the content column with side padding: the Start dashboard
 uses the full width with a wider outer margin on desktop widths, Runs and Server in VS Code one centered column of at most 1280 pixels, in both hosts. The browser
 page host adds no second padding; the outer header remains full width. The Runs search field
-and run rows use the same bounded column.
+and run rows use the same bounded column. The page scroller (`main[data-page]`) is the containing
+block of its content, so visually hidden labels further down cannot extend the document and moving
+focus scrolls only the page, never the header with it.
 
 **Start** is a dashboard of widgets (`panel/StartDashboard.tsx`): the built-in "New" (`span`
 `narrow`) and "Continue" (`wide`), then the plugin widgets. Its layout follows the width of the
@@ -3372,6 +3376,33 @@ another tab is active or while its content renders nothing (`hidden`), so its st
 switching and a widget that later shows content reappears; a `MutationObserver` keeps cells and tabs
 in step with empty bodies. The page's scroller reserves its scrollbar gutter, so the measured width
 does not flip at the limits when a scrollbar appears.
+
+**Arranging Start.** The viewer arranges the dashboard in place. Every framed widget ends its title
+row with a "..." button (`Arrange <title>`), a `DropdownMenu` like the overflow menu of the tabs:
+"Size" with the radio items Narrow, Half, Wide, and Full (the current one checked, the default from
+the contribution marked "Default"), "Move earlier" and "Move later" (disabled at the ends), and
+"Hide". Sizes stay `StartWidgetSpan` values, so `dashboardLayout` applies its tiers to them unchanged,
+and the tabs below 700 pixels follow the arranged order without hidden widgets. "Customize" follows
+the grid as a text button and ends the tab strip as an icon button; its menu lists the hidden
+widgets as "Show <title>" and offers "Reset layout", disabled while no arrangement is stored. After
+"Hide" focus moves to the menu button of the next visible widget, at the end to the previous one,
+and to Customize when neither is visible, as usually in tabs; after "Show" and "Reset layout" it
+returns to Customize. The model is
+`panel/dashboard-preferences.ts`: `DashboardPreferences` holds `order`, `spans`, and `hidden`, each by
+widget ID, so any ID works, also one of a widget that only some users have. Widget IDs are
+`start.new`, `start.continue`, and the `id` of a start section; two widgets with the same ID are an
+error. `arrangeWidgets` puts the framed widgets that `order` names into their slots in that order,
+while sections without a title and widgets that `order` does not name keep their default place, so a
+new widget appears where its contribution puts it; spans and hiding apply only to framed widgets,
+and IDs of widgets that are not there are ignored. Moving swaps a widget with its visible neighbor
+in the order of all framed widgets, hidden ones included; the default order and a span equal to the
+default store nothing. The server has no per-user preference store (`ragents.settings.*` keeps
+profile-wide settings, the appearance lives in browser storage and VS Code settings), so the layout
+is kept like the remembered tab in the browser storage of the page that shows Start, per server
+origin and signed-in user under `ragents.start.layout:<encoded-origin>` or
+`ragents.start.layout:<encoded-origin>:<encoded-user>`, as JSON with `version` 1, `order`, `spans`, and
+`hidden`; the browser and VS Code each keep their own. A stored value that cannot be read leaves
+the default layout and shows its cause above the dashboard with "Reset layout".
 
 **Start** has no page header or server block. **New** appears first as soon as the selected server
 allows new runs. First is its default template from `ConnectionView.defaultEntry` with the marker

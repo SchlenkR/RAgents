@@ -103,12 +103,14 @@ test("a Start section with a title becomes a framed widget with its span; withou
     { id: "plain", order: 30, Section: () => createElement("section", null, "Plain section") },
   ] }]);
   const html = renderToStaticMarkup(createElement(PanelPage, { registry, state: page(), send: () => {} }));
-  assert.match(html, /<section aria-label="Work board"[^>]*><div[^>]*><h2[^>]*>Work board<\/h2><\/div><div[^>]*data-start-widget-body="section:board"><p>Board content<\/p>/, "the host draws the title row above the content");
-  assert.match(html, /data-start-widget="section:board" style="grid-column:span 12 \/ span 12"/, "a widget without span fills a row");
-  assert.match(html, /data-start-widget="section:auto" style="grid-column:span 12 \/ span 12"/, "a narrow widget alone in its row fills it");
-  assert.match(html, /data-start-widget="new" style="grid-column:span 4 \/ span 4"/);
-  assert.match(html, /data-start-widget="continue" style="grid-column:span 8 \/ span 8"/);
+  assert.match(html, /<section aria-label="Work board"[^>]*><div[^>]*><h2[^>]*>Work board<\/h2><div[^>]*><button[^>]*aria-label="Arrange Work board"[^>]*>.*?<\/button><\/div><\/div><div[^>]*data-start-widget-body="board"><p>Board content<\/p>/,
+    "the host draws the title row with the widget's menu above the content");
+  assert.match(html, /data-start-widget="board" style="grid-column:span 12 \/ span 12"/, "a widget without span fills a row and is known by its contribution ID");
+  assert.match(html, /data-start-widget="auto" style="grid-column:span 12 \/ span 12"/, "a narrow widget alone in its row fills it");
+  assert.match(html, /data-start-widget="start.new" style="grid-column:span 4 \/ span 4"/);
+  assert.match(html, /data-start-widget="start.continue" style="grid-column:span 8 \/ span 8"/);
   assert.match(html, /<\/div><section>Plain section<\/section><\/div>/, "a section without a title is rendered without a frame");
+  assert.match(html, /<section>Plain section<\/section><\/div><div[^>]*><button[^>]*>.*?Customize<\/button><\/div>/, "Customize follows the grid");
   assert.ok(html.indexOf(">Work board<") < html.indexOf(">Auto items<") && html.indexOf(">Auto items<") < html.indexOf(">Plain section<"));
 });
 

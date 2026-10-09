@@ -194,3 +194,144 @@ test("narrow run rows drop their detail line but keep title, state, and time", b
     assert.deepEqual(await noHorizontalScroll(page), { page: 0, main: 0 });
   });
 });
+
+const focused = (page: Page) => page.evaluate(() => document.activeElement?.getAttribute("aria-label") ?? document.activeElement?.textContent ?? "");
+
+const arrange = async (page: Page, title: string, item: string | RegExp, role: "menuitem" | "menuitemradio" = "menuitem") => {
+  await page.getByRole("button", { name: `Arrange ${title}`, exact: true }).click();
+  const menu = page.getByRole("menu");
+  await menu.getByRole(role, { name: item }).click();
+  await menu.waitFor({ state: "detached" });
+};
+
+const customize = async (page: Page, item: string) => {
+  await page.getByRole("button", { name: "Customize", exact: true }).click();
+  const menu = page.getByRole("menu");
+  await menu.getByRole("menuitem", { name: item, exact: true }).click();
+  await menu.waitFor({ state: "detached" });
+};
+
+const regions = (page: Page) => page.locator("[data-start-widget]:not([hidden]) > section").evaluateAll((sections) => sections.map((section) => {
+  const bounds = section.getBoundingClientRect();
+  const top = section.closest("[data-dashboard]")!.getBoundingClientRect().top;
+  return { name: section.getAttribute("aria-label"), x: Math.round(bounds.x), y: Math.round(bounds.y - top), width: Math.round(bounds.width) };
+}));
+
+const tabNames = async (page: Page) => {
+  const shown = await page.getByRole("tablist", { name: "Start widgets" }).getByRole("tab").allTextContents();
+  const more = page.getByRole("button", { name: "More tabs" });
+  if (await more.count() === 0) return shown;
+  await more.click();
+  await page.getByRole("menu").getByRole("menuitemradio").first().waitFor();
+  const hidden = (await page.getByRole("menu").getByRole("menuitemradio").allTextContents()).map((text) => text.replace(/(\D)(\d+)$/, "$1 $2"));
+  await page.keyboard.press("Escape");
+  await page.getByRole("menu").waitFor({ state: "detached" });
+  return [...shown, ...hidden];
+};
+
+test("each widget's menu changes its size and place and hides it; Customize shows it again and the layout survives a reload and narrow tabs", browserOnly, async () => {
+  await withPage(1280, "", async (page) => {
+    const wide = await box(page, "Continue");
+    const trigger = page.getByRole("button", { name: "Arrange Continue", exact: true });
+    await trigger.focus();
+    await page.keyboard.press("Enter");
+    const menu = page.getByRole("menu");
+    await menu.waitFor();
+    const sizes = menu.getByRole("menuitemradio");
+    assert.deepEqual(await sizes.allTextContents(), ["Narrow", "Half", "WideDefault", "Full"], "the four sizes, the default marked");
+    assert.equal(await menu.getByRole("menuitemradio", { name: /^Wide/, checked: true }).count(), 1, "the current size is checked");
+    assert.deepEqual(await menu.getByRole("menuitem").allTextContents(), ["Move earlier", "Move later", "Hide"]);
+    assert.equal(await menu.getByRole("menuitem", { name: "Move earlier" }).getAttribute("aria-disabled"), null, "Continue can move before New");
+    await page.keyboard.press("Enter");
+    await menu.waitFor({ state: "detached" });
+    assert.equal(await focused(page), "Arrange Continue", "focus returns to the menu button");
+    const [start, narrow] = [await box(page, "New"), await box(page, "Continue")];
+    assert.ok(narrow.width < wide.width - 100 && Math.abs(narrow.width - start.width) < 1 && Math.abs(narrow.y - start.y) < 1, "a narrow Continue shares its row evenly with New");
+
+    await arrange(page, "Continue", "Move earlier");
+    assert.equal(await focused(page), "Arrange Continue");
+    const [moved, after] = [await box(page, "Continue"), await box(page, "New")];
+    assert.ok(moved.x < after.x && Math.abs(moved.y - after.y) < 1, "Continue now stands before New");
+    await page.getByRole("button", { name: "Arrange Continue", exact: true }).click();
+    await page.getByRole("menu").waitFor();
+    assert.equal(await page.getByRole("menu").getByRole("menuitem", { name: "Move earlier" }).getAttribute("aria-disabled"), "true", "the first widget cannot move earlier");
+    await page.keyboard.press("Escape");
+    await page.getByRole("menu").waitFor({ state: "detached" });
+
+    await arrange(page, "Work board", "Hide");
+    assert.equal(await page.getByRole("region", { name: "Work board", exact: true }).count(), 0, "a hidden widget leaves the dashboard");
+    assert.equal(await focused(page), "Arrange New auto items", "focus moves to the widget that took the place");
+    assert.equal(await page.evaluate(() => document.scrollingElement!.scrollTop), 0, "the page itself never scrolls, only its scroller");
+    const more = page.getByRole("button", { name: "Customize", exact: true });
+    await more.focus();
+    await page.keyboard.press("Enter");
+    const options = page.getByRole("menu");
+    await options.waitFor();
+    assert.deepEqual(await options.getByRole("menuitem").allTextContents(), ["Show Work board", "Reset layout"]);
+    await settled(page);
+    await mkdir(shots, { recursive: true });
+    await page.screenshot({ path: join(shots, "start-dashboard-customize-1280.png") });
+    await page.keyboard.press("Escape");
+    await options.waitFor({ state: "detached" });
+    await customize(page, "Show Work board");
+    assert.equal(await page.getByRole("region", { name: "Work board", exact: true }).isVisible(), true, "Show brings the widget back at its place");
+
+    await arrange(page, "Model usage", "Hide");
+    const before = await regions(page);
+    await page.reload();
+    await page.locator("[data-dashboard]").waitFor();
+    assert.deepEqual(await regions(page), before, "a reload keeps size, order, and hidden widgets");
+    assert.equal(before.map((region) => region.name).join(", "), "Continue, New, Work board, New auto items, Shared with the team");
+    await mkdir(shots, { recursive: true });
+    await page.screenshot({ path: join(shots, "start-dashboard-arranged-1280.png") });
+
+    await page.setViewportSize({ width: 560, height: 900 });
+    await page.getByRole("tablist", { name: "Start widgets" }).waitFor();
+    assert.deepEqual(await tabNames(page), ["Continue", "New 5", "Work board", "New auto items", "Shared with the team"], "tabs follow the order and leave out hidden widgets");
+    await page.getByRole("button", { name: "Customize", exact: true }).click();
+    await page.getByRole("menu").waitFor();
+    assert.deepEqual(await page.getByRole("menu").getByRole("menuitem").allTextContents(), ["Show Model usage", "Reset layout"], "Customize sits at the end of the tab strip");
+    await settled(page);
+    await page.screenshot({ path: join(shots, "start-dashboard-customize-560.png") });
+    await page.getByRole("menu").getByRole("menuitem", { name: "Reset layout" }).click();
+    await page.getByRole("menu").waitFor({ state: "detached" });
+    assert.equal(await focused(page), "Customize");
+    assert.deepEqual((await tabNames(page)).slice(0, 2), ["New 5", "Continue"], "Reset layout restores the default order");
+    assert.ok((await tabNames(page)).includes("Model usage"), "and shows hidden widgets again");
+    assert.deepEqual(await noHorizontalScroll(page), { page: 0, main: 0 });
+    assert.deepEqual(await page.evaluate(() => [document.scrollingElement!.scrollTop, document.scrollingElement!.scrollHeight - innerHeight]), [0, 0]);
+  });
+});
+
+test("the widget menu opens without moving the layout, in light and dark and every palette", browserOnly, async () => {
+  await withPage(1280, "", async (page) => {
+    for (const theme of ["light", "dark"] as const) {
+      for (const palette of ["schichtwerk", "graphite", "midnight", "black"]) {
+        await page.evaluate(([mode, colors]) => {
+          document.documentElement.setAttribute("data-theme", mode!);
+          document.documentElement.setAttribute("data-palette", colors!);
+        }, [theme, palette]);
+        const before = await regions(page);
+        const scroll = await page.locator("main[data-page]").evaluate((element) => ({ top: element.scrollTop, width: element.clientWidth }));
+        const trigger = page.getByRole("button", { name: "Arrange New", exact: true });
+        await trigger.click();
+        const menu = page.getByRole("menu");
+        await menu.waitFor();
+        await settled(page);
+        assert.deepEqual(await regions(page), before, `no widget moves while the menu is open (${theme}, ${palette})`);
+        assert.deepEqual(await page.locator("main[data-page]").evaluate((element) => ({ top: element.scrollTop, width: element.clientWidth })), scroll);
+        const surface = await menu.evaluate((element) => getComputedStyle(element).backgroundColor);
+        assert.doesNotMatch(surface, /rgba\(0, 0, 0, 0\)|transparent/, "the menu has an opaque surface");
+        const check = await menu.getByRole("menuitemradio", { checked: true }).locator("svg").evaluate((element) => getComputedStyle(element).color);
+        assert.notEqual(check, surface, "the check of the current size stands out");
+        if (palette === "schichtwerk") {
+          await mkdir(shots, { recursive: true });
+          await page.screenshot({ path: join(shots, `start-dashboard-widget-menu-${theme}.png`) });
+        }
+        await page.keyboard.press("Escape");
+        await menu.waitFor({ state: "detached" });
+        assert.equal(await focused(page), "Arrange New");
+      }
+    }
+  });
+});
