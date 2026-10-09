@@ -3350,8 +3350,8 @@ and `RunPanelApp`, `ChatInputToolbar`, `ragents.processes`, and the menu entry "
 the whole run is called "Stop run" everywhere, interrupting the running turn in the chat "Stop
 work".
 
-**Shared page width.** `PanelPage` owns one centered content column of at most 1280 pixels,
-with side padding, for Start and Runs in both hosts and for Server in VS Code. The browser
+**Shared page width.** `PanelPage` owns the content column with side padding: the Start dashboard
+uses the full width, Runs and Server in VS Code one centered column of at most 1280 pixels, in both hosts. The browser
 page host adds no second padding; the outer header remains full width. The Runs search field
 and run rows use the same bounded column.
 

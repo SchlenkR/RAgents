@@ -1,5 +1,11 @@
 # Decisions
 
+## 2026-10-09: The Start dashboard uses the full width
+
+Chapter: `spec/plugins.md` (Shared page width), `docs/usage.md`. The dashboard kept the 1280-pixel
+column of the former Start list, so wide screens showed empty margins although widgets could stand
+side by side. Start now fills the width; Runs and Server keep the centered column for readable lists.
+
 ## 2026-10-09: Start becomes a responsive dashboard, and tab rows move what does not fit into a menu
 
 Chapters: `spec/plugins.md` (Web as plugin host: slot list `startSections`, UI library `OverflowTabs`, Start, Continue,

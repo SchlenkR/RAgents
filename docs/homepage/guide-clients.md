@@ -371,7 +371,7 @@ buttons use the remaining width between the fixed controls, then continue over t
 in further rows. VS Code opens them in editor tabs; the browser opens them in its
 workspace. Narrow panels can also wrap fixed controls.
 
-**Start** is a dashboard of widgets: **New**, **Continue**, and those that plugins add. What fits
+**Start** is a dashboard of widgets over the full width of the window: **New**, **Continue**, and those that plugins add. What fits
 depends on the width of Start itself, not of the window, so a narrow VS Code panel behaves like a
 narrow window. From 1100 pixels the widgets stand side by side in their preferred widths, New in a
 third and Continue in two thirds of the row; from 700 pixels narrow widgets take half a row; a widget

@@ -235,7 +235,7 @@ test("compact Start cards keep top-right actions visible and highlight hover and
   await mkdir(shots, { recursive: true });
   for (const view of ["web", "start"] as const) {
     for (const theme of ["light", "dark"] as const) {
-      await withPage(`view=${view}`, 1600, async (page) => {
+      await withPage(`view=${view}`, 1280, async (page) => {
         const templates = page.getByRole("list", { name: "Templates", exact: true });
         await templates.waitFor();
         await page.evaluate((value) => document.documentElement.setAttribute("data-theme", value), theme);
@@ -392,21 +392,21 @@ for (const view of ["web", "start"] as const) {
             overflow: main.scrollWidth > main.clientWidth || document.documentElement.scrollWidth > innerWidth,
           };
         });
-        const checkColumn = (metrics: Awaited<ReturnType<typeof measure>>) => {
-          assert.ok(metrics.width > 0 && metrics.width <= 1280, JSON.stringify(metrics));
+        const checkColumn = (metrics: Awaited<ReturnType<typeof measure>>, bounded: boolean) => {
+          assert.ok(metrics.width > 0 && (bounded ? metrics.width <= 1280 : metrics.width >= metrics.hostWidth - 32), JSON.stringify(metrics));
           assert.ok(Math.abs(metrics.left - metrics.hostLeft - (metrics.hostWidth - metrics.width) / 2) < 2, "content is centered in its host");
           assert.ok(metrics.rows.every((row) => row <= metrics.width + 1));
           assert.equal(metrics.overflow, false, JSON.stringify(metrics));
         };
         const start = await measure();
         await page.screenshot({ path: join(shots, `panel-${view}-start-${width}.png`) });
-        checkColumn(start);
+        checkColumn(start, false);
         assert.equal(await page.getByRole("list", { name: "Server", exact: true }).count(), 0);
         assert.equal(start.tabs, width < 700, "a narrow Start shows its widgets as tabs");
         assert.ok(Math.abs(start.gridWidth! - start.widgetWidth!) < 1, "the templates fill their widget");
         const compact = start.widgetWidth! < 448;
         assert.equal(start.columns, compact ? 1 : Math.floor((start.widgetWidth! + 8) / 248));
-        assert.equal(start.cards.filter((card) => card.top === start.cards[0]!.top).length, start.columns, "cards occupy each column");
+        assert.equal(start.cards.filter((card) => card.top === start.cards[0]!.top).length, Math.min(start.columns!, start.cards.length), "cards occupy each column");
         assert.ok(start.cards.every((card) => compact ? Math.abs(card.width - start.gridWidth!) < 1 : card.width <= 320 && card.width >= 240), "narrow widgets list compact rows");
         assert.equal(start.back, false, "Start has no back arrow");
         if (!start.tabs) {
@@ -428,9 +428,9 @@ for (const view of ["web", "start"] as const) {
         await page.getByRole("searchbox", { name: "Search runs" }).waitFor();
         const runs = await measure();
         await page.screenshot({ path: join(shots, `panel-${view}-runs-${width}.png`) });
-        checkColumn(runs);
+        checkColumn(runs, true);
         assert.ok(runs.searchWidth! > 0 && runs.searchWidth! <= runs.width, "search stays within the bounded column of the rows");
-        assert.equal(runs.width, start.width);
+        assert.ok(runs.width <= start.width, "Runs keeps its bounded column inside the full-width Start");
         assert.ok(Math.abs(runs.top - start.top) < 1, `Runs begins at the height of Start: ${runs.top} and ${start.top}`);
         assert.equal(runs.back, true, "Runs leads back to Start next to its title, also below the browser's logo");
         await page.locator("main").getByRole("button", { name: "Back to Start", exact: true }).click();
