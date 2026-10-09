@@ -1562,15 +1562,25 @@ Instead, plugins fill typed slots for:
   but activate their own connections only on use and keep them afterwards across run switches.
   In both browser and VS Code, only the selected server supplies these contributions, including
   on Start before a run is opened. Contributions from different environments are never merged.
-- Start sections (`startSections`): `StartSectionContribution` declares `id`, `order`, optional
-  `readRight`, and `Section`, a component receiving `StartSectionContext` with `runs` and
-  `onOpenRun(runId)`. Sections follow "Continue", sorted by `order` and then `id`. The context
+- Start widgets (`startSections`): `StartSectionContribution` declares `id`, `order`, optional
+  `readRight`, optional `title` and `span`, and `Section`, a component receiving `StartSectionContext`
+  with `runs` and `onOpenRun(runId)`. With `title` the section is a widget of the Start dashboard: the
+  host draws its frame, a `SectionHeading` title row above the content, and gives it a tab on a narrow
+  dashboard. `span` (`StartWidgetSpan`: `narrow`, `half`, `wide`, or `full`, by default `full`) is its
+  preferred width on a wide dashboard. The widget's body is a size container named `widget`, so the
+  content adapts to the widget's own width with Tailwind's `@container` variants (`@md/widget:`, or
+  plain `@md:` for the nearest container). Without `title` a section keeps its earlier form: it owns
+  its heading and spacing, fills a whole row, and stays below the tabs on a narrow dashboard.
+  `span` without `title`, a blank `title`, and an unknown `span` are registry errors. Widgets follow
+  "New" and "Continue", sorted by `order` and then `id`; the contract keeps its name `startSections`,
+  so existing contributions load unchanged. The context
   carries every run the server lists for the viewer, sorted by update time, through readonly
   `ConnectionRun` values including `id`, `title`, `updatedAt`, and optional `metadata` keyed by
   server-side `sessionMetadata` contribution ID. `connectionRunOf` preserves `ListedSession.metadata`;
   row detail lines still come from `listDetail`. `onOpenRun` uses the same navigation as a run
   row. The slot performs no additional run access checks; `readRight` only gates the section.
-  A section owns its heading and spacing and may return `null`, leaving no empty wrapper or gap.
+  A widget or section may return `null`; it then takes no cell, no tab, and no gap. A widget that
+  throws shows its error and "Retry" in its own place (`RenderBoundary`) while Start stays usable.
   `RunPanelApp` passes its registry to `PanelPage` for both browser and VS Code server frames;
   the local VS Code shell has no registry and shows no sections. `PanelPage` also works without a registry.
 - workspace tabs and badges (`workspaceTabs`, `workspaceTabsFor`): the toolbar at the right edge
@@ -1624,7 +1634,7 @@ The shared `main.tsx` bootstrap renders `RunPanelApp` for either host. The brows
 iframe use the same `PanelPage`, `StartPage`, and `RunsPage` with one current-server adapter.
 In the browser the address selects that server; in VS Code the selected environment does.
 Start shows permitted templates under "New", then the fifteen recent runs under "Continue", then
-plugin sections; Runs adds search, deletion with confirmation, and the "Shared by me" tab.
+plugin widgets, as one dashboard; Runs adds search, deletion with confirmation, and the "Shared by me" tab.
 Neither page combines servers, and Start contains no server chips.
 Free creation, template access, reading, and deletion retain their independent rights.
 Both hosts draw run rows from the same mapping of `ragents.runs.list` (`connectionRunOf` in
@@ -1971,8 +1981,8 @@ copied into the source tree by CLI and styled with Tailwind: `Button`, `Badge`, 
 `Progress`, `Separator`, `Skeleton`, `Spinner`, `Empty` with their parts (`SelectTrigger`,
 `DialogContent`, `TabsList`, and so on), plus `cn` and icons from `lucide-react`. Props, variants, and
 composition follow shadcn; `Badge` additionally accepts semantic `tone` (see below).
-The host's own building blocks on top are `DataGrid`, `InteractiveItem`, `ListDetail`, `SectionLabel`,
-`SvgEdge`, `HeaderDropdown`, and, only in the host, the page `Modal` in `modal.tsx`.
+The host's own building blocks on top are `DataGrid`, `InteractiveItem`, `ListDetail`, `OverflowTabs`,
+`SectionLabel`, `SvgEdge`, `HeaderDropdown`, and, only in the host, the page `Modal` in `modal.tsx`.
 The choice follows the role, not taste:
 
 - `Button` without a variant (`default`): the ONE main action of a surface or dialog
@@ -1991,7 +2001,7 @@ The choice follows the role, not taste:
   `multiple` for several selected values; `ChoiceSelect` for one required choice with
   automatic presentation by list length; `Select` for one or several (`multiple`) of many,
   with `items` for the labels; `FilterSelect` for a multi-value toolbar filter; `Tabs` for
-  navigating between the views of a surface; a count
+  navigating between the views of a surface, `OverflowTabs` when its tabs may not fit; a count
   per tab is a `Badge` (`destructive` for items that need the user, otherwise
   `secondary`). A value is not a tab: `ToggleGroup` chooses an option, `Tabs` switches
   the view.
@@ -2032,6 +2042,24 @@ both modes; `multiple` permits independent selections.
 cannot be deselected. Start options, contribution kinds, machine, file and folder choices, and reasoning
 levels use this component instead of choosing their presentation per view. Plugins and mini-apps
 receive the same control through `@ragents/web/ui` and `UI.ChoiceSelect`.
+
+A horizontal list of equal items with a limited width, such as a tab strip, never clips its
+items or wraps them uncontrolled: what does not fit moves into a trailing "..." menu. `OverflowTabs`
+(`ui/overflow-tabs.tsx`) is this building block for tabs. It wraps `Tabs` with controlled `value` and
+`onValueChange`; its `OverflowTabsList` takes `items` (`OverflowTabItem`: `value`, `label`, optional
+`count`, `icon`, and, for panels the caller renders itself instead of `TabsContent`, the tab's `id`
+and the `controls` panel ID), an `aria-label`, and optionally `iconOnly`, where the label becomes
+the accessible name and tooltip. A hidden ruler renders every tab and the "More tabs" button
+(`EllipsisIcon`) with the same classes, and a `ResizeObserver` on the strip and the ruler measures
+them; `splitOverflow` (`ui/overflow-split.ts`) then keeps the leading tabs that fit beside the button,
+always including the active one, which displaces the last of them and alone may truncate. The
+button opens a `DropdownMenu` with exactly the hidden tabs as radio items, which marks the active
+value; choosing one selects it, and it takes its place at the end of the strip. Arrow keys move
+between the visible tabs, Tab reaches the button, and the menu works with arrows, Enter, and
+Escape. Start's widget tabs, the Runs tabs, the Settings areas, and the actor views of the
+inspector use it; plugins receive it through `@ragents/web/ui`. Segmented `ToggleGroup` choices and
+equal-item toolbars do not use it yet (`TODO.md`); the dock's area tabs shrink with truncated titles
+and the run header continues mini-app buttons in further rows by design.
 
 `SelectContent` opens outside its trigger, below by default and above when space requires it,
 with at least the trigger's width. It never aligns an option over the trigger. Select,
@@ -3327,6 +3355,24 @@ with side padding, for Start and Runs in both hosts and for Server in VS Code. T
 page host adds no second padding; the outer header remains full width. The Runs search field
 and run rows use the same bounded column.
 
+**Start** is a dashboard of widgets (`panel/StartDashboard.tsx`): the built-in "New" (`span`
+`narrow`) and "Continue" (`wide`), then the plugin widgets. Its layout follows the width of the
+dashboard's own container, measured with a `ResizeObserver`, not the window, because a VS Code panel is
+often narrow on a wide screen. `dashboardLayout` in `panel/dashboard-layout.ts` decides it: from
+1100 pixels (`DASHBOARD_WIDE_FROM`) the widgets take their spans of a twelve-column grid (`narrow`
+4, `half` 6, `wide` 8, `full` 12 columns); from 700 pixels (`DASHBOARD_TABS_BELOW`) `narrow`, `half`,
+and `wide` take 6 columns and `full` keeps 12; widgets fill rows in order, and a row with space left
+widens its widgets in proportion up to the right edge. Below 700 pixels, with at least two framed
+widgets, the dashboard becomes tabs ("Start widgets", `OverflowTabsList` with the widget title and
+count): the active widget fills the width, and its frame keeps only the action of its title row,
+because the tab names it. The choice is stored per server origin under
+`ragents.start.widget:<encoded-origin>` and falls back to the first widget while the stored one is
+missing or empty. Sections without a title follow the tabs. Every widget stays mounted while
+another tab is active or while its content renders nothing (`hidden`), so its state survives
+switching and a widget that later shows content reappears; a `MutationObserver` keeps cells and tabs
+in step with empty bodies. The page's scroller reserves its scrollbar gutter, so the measured width
+does not flip at the limits when a scrollbar appears.
+
 **Start** has no page header or server block. **New** appears first as soon as the selected server
 allows new runs. First is its default template from `ConnectionView.defaultEntry` with the marker
 "Default" in the title row, or the entry "New chat" (plus icon, `newRun`
@@ -3340,8 +3386,10 @@ emphasize the action. The whole card is one button, with accessible name "New ch
 the action position. There is no category row or bottom action bar, and no skill/run-script
 shape or color badge. Category metadata stays intact. Cards use the shared typography;
 the grid is `repeat(auto-fill, minmax(240px, 1fr))`, with cards capped at 320 pixels.
-`StartTiles` measures its own container: below 240 pixels it uses one shrinking
-column, without horizontal overflow. At the maximum content width the grid has five columns.
+`StartTiles` measures its own container (`@container/templates`): below 240 pixels it uses one shrinking
+column, without horizontal overflow, and below 448 pixels the cards become compact full-width rows
+with smaller padding and one line of description. On a wide dashboard the New widget is narrow and
+therefore lists compact rows; a narrow dashboard shows New across its width as cards.
 There is no search here, and `ListDetail` does not fit, because it measures itself by its own
 width and would become a list with a detail page at 420 pixels (decisions of 09/19 and
 09/21/2026). The tiles are the building block `StartTiles`; the run script list of an open run
@@ -3354,7 +3402,9 @@ button are `grid-cols-subgrid`, so that the columns stand at the same edge in al
 "All N runs" leads to the Runs page. Below the title, inside the same button, a second line
 names the owner (`ConnectionRun.owner`) and then the metadata lines (`ConnectionRun.details`), each
 with its icon (`FolderIcon`, `GitBranchIcon`) and the tooltip "label: text"; hover, focus, and click
-cover the whole item, in selection mode the click toggles it. The gap to the second line is
+cover the whole item, in selection mode the click toggles it. `RunCard` is a size container
+(`@container/runs`): in a card narrower than 360 pixels the second line drops, below 280 pixels the
+time as well, on Start and on Runs. The gap to the second line is
 smaller than the gap between items. State and pending actions come from `ragents.runs.list`, which
 derives them from the journal: running while an actor has a running turn or the session works,
 otherwise waiting with pending actions, ended when every non-human actor has stopped, otherwise
@@ -3384,7 +3434,7 @@ the server interface keeps the panel in React
 state in both the browser and VS Code, and an answer for a panel closed meanwhile is dropped.
 `PanelState.notice` is a short message on Start, such as the one for a share taken back.
 
-`RunsPage` has "All runs" and "Shared by me" tabs. The latter uses only the run list's
+`RunsPage` has "All runs" and "Shared by me" tabs (`OverflowTabs`). The latter uses only the run list's
 owner-specific `sharing` summaries and lists each run's recipients with View or Operate access.
 Search matches the title, recipient names, and Everyone. `SharedRuns` opens a run and offers
 "Revoke" per recipient and "Revoke all" per run. `revokeShare` sends a target to
@@ -3394,8 +3444,9 @@ use `revokeSharing` and refresh after success. Revocation requires `canShare`; a
 can still inspect their outgoing shares. Revoking an individual share leaves Everyone access
 intact and names that effect. All-runs selection and deletion stay in their own tab.
 
-Plugin `startSections` render directly below Continue with the complete server-listed visible
-run list and its metadata; the host adds no heading or wrapper for a section.
+Plugin `startSections` follow Continue with the complete server-listed visible run list and its
+metadata; the host frames a section with a `title` as a widget and adds no heading or wrapper to one
+without.
 
 **Runs** is the selected server's complete list in one `RunCard`: search over title, "Hide ended", and a
 selection mode with checkboxes. Search (the shared `SearchInput`, whose own clear button replaces the browser's) and the

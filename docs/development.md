@@ -307,8 +307,10 @@ sidebar behavior, persistence, and iframe/draft identity with `RAGENTS_BROWSER_T
 `startOptions` provides, per server-side start option, its own control component and a badge
 for the header of the running run; without a component, the host draws a selection menu from the
 option's presentation.
-`startSections` adds sections below Start's "New" templates and "Continue" recent runs, with
-all server-listed visible runs, their metadata, and run navigation.
+`startSections` adds widgets to the Start dashboard after "New" templates and "Continue" recent runs,
+with all server-listed visible runs, their metadata, and run navigation; `title` and `span` make a
+section a framed widget with a preferred width, and below 700 pixels of Start's own width the
+widgets become tabs.
 
 A domain plugin owns its prompt parts, skills, server API, web components, CSS, configuration,
 and storage itself. If you remove it from the profile, prompt,

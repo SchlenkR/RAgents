@@ -1,6 +1,6 @@
 import { CheckSquareIcon, Trash2Icon } from "lucide-react";
 import { useState } from "react";
-import { Button, Tabs, TabsContent, TabsList, TabsTrigger, Toggle } from "../ui";
+import { Button, OverflowTabs, OverflowTabsList, TabsContent, Toggle } from "../ui";
 import { SearchInput } from "../ui/search-input";
 import type { ConnectionRun } from "./contract";
 import type { PanelPageProps } from "./page-props";
@@ -61,11 +61,8 @@ export function RunsPage({ state, send }: PanelPageProps) {
   return <div className="grid grid-cols-1 gap-3">
     <PanelHeader send={send} title="Runs" />
     {state.problem && <p className="type-body text-destructive [overflow-wrap:anywhere]" role="alert">{state.problem}</p>}
-    <Tabs value={tab} onValueChange={(next) => { setTab(next); leaveSelection(); }}>
-      <TabsList aria-label="Run views" variant="line">
-        <TabsTrigger value="all">All runs</TabsTrigger>
-        <TabsTrigger value="shared">Shared by me {shared.length}</TabsTrigger>
-      </TabsList>
+    <OverflowTabs value={tab} onValueChange={(next) => { setTab(next); leaveSelection(); }}>
+      <OverflowTabsList aria-label="Run views" items={[{ value: "all", label: "All runs" }, { value: "shared", label: "Shared by me", count: shared.length }]} />
       <TabsContent value="all">
         <RunCard toolbar={<div className="flex flex-wrap items-center gap-2">
           {search}
@@ -104,7 +101,7 @@ export function RunsPage({ state, send }: PanelPageProps) {
               onRevoke={(runId, target) => send({ action: "revokeShare", name: connection.name, runId, target })} />}
         </RunCard>
       </TabsContent>
-    </Tabs>
+    </OverflowTabs>
     {confirming && <ConfirmDialog
       confirmLabel="Delete"
       onClose={() => setConfirming(false)}

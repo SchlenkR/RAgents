@@ -25,9 +25,9 @@ const columnsOf = (selecting: boolean, actions: boolean): string => {
 const itemColumns = (selecting: boolean, actions: boolean): string =>
   selecting ? (actions ? "col-[2/-2]" : "col-[2/-1]") : (actions ? "col-[1/-2]" : "col-span-full");
 
-/** The surface of a run list: one card; its toolbar sticks to the top of the page while the lines scroll beneath it. */
+/** The surface of a run list: one card; its toolbar sticks to the top of the page while the lines scroll beneath it, and narrow cards drop the detail line and then the time. */
 export function RunCard({ toolbar, children }: { toolbar?: ReactNode; children: ReactNode }) {
-  return <div className="min-w-0 rounded-xl border border-border bg-card shadow-card">
+  return <div className="@container/runs min-w-0 rounded-xl border border-border bg-card shadow-card">
     {toolbar && <div className="sticky top-0 z-10 rounded-t-xl border-b border-border bg-card p-2">{toolbar}</div>}
     {children}
   </div>;
@@ -55,7 +55,7 @@ function ShareMark({ run }: { run: ConnectionRun }) {
 /** Owner and the metadata lines below the title; part of the clickable item. */
 function RunDetails({ run }: { run: ConnectionRun }) {
   if (run.owner === undefined && (run.details ?? []).length === 0) return null;
-  return <span className="col-[2/-1] flex min-w-0 flex-wrap gap-x-3 type-meta text-muted-foreground">
+  return <span className="col-[2/-1] flex min-w-0 flex-wrap gap-x-3 type-meta text-muted-foreground @max-[360px]/runs:hidden">
     {run.owner !== undefined && <span className="min-w-0 truncate" title={`Owner: ${run.owner}`}>{run.owner}</span>}
     {run.details?.map((detail, index) => {
       const Icon = detail.icon === undefined ? undefined : DETAIL_ICONS[detail.icon];
@@ -101,7 +101,7 @@ export function RunLine({ run, selecting = false, selectable = true, selected, a
         {locked !== undefined && <span className="flex flex-none text-destructive" title={locked}><CircleAlertIcon aria-hidden className="size-3.5" /><span className="sr-only">{locked}</span></span>}
         <ShareMark run={run} />
       </span>
-      <span className="w-[42px] text-right font-mono type-meta text-muted-foreground" data-cell="time" title={longTime(run.updatedAt)}>{time}</span>
+      <span className="w-[42px] text-right font-mono type-meta text-muted-foreground @max-[280px]/runs:hidden" data-cell="time" title={longTime(run.updatedAt)}>{time}</span>
       <RunDetails run={run} />
     </InteractiveItem>
     {actions && <span className="mt-0.5 flex self-start" data-cell="share">

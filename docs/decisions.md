@@ -1,5 +1,36 @@
 # Decisions
 
+## 2026-10-09: Start becomes a responsive dashboard, and tab rows move what does not fit into a menu
+
+Chapters: `spec/plugins.md` (Web as plugin host: slot list `startSections`, UI library `OverflowTabs`, Start, Continue,
+Runs); usage: `usage.md` (Create your first run, Selection controls and tables, Start); `development.md` (Extension
+points in the web).
+
+Start stacked New, Continue, and plugin sections at full width, which wasted wide screens, while a narrow VS Code
+panel had to scroll through every section to reach the one it needed. Start is now one dashboard of widgets in a
+twelve-column grid (`StartDashboard`, `dashboardLayout`). New is `narrow` and Continue `wide`; plugin sections become
+widgets through two optional, additive fields of `StartSectionContribution`: `title`, with which the host draws the
+same frame as for New and Continue and a tab in the narrow layout, and `span` (`narrow`, `half`, `wide`, `full`).
+The contract keeps the name `startSections`, and a section without `title` keeps its earlier form (own heading,
+full row, below the tabs), so existing plugins load and look as before; a `span` without `title` is an error,
+because it would have no effect. The layout follows the width of the dashboard's own container rather than the
+window, so a narrow VS Code panel on a wide screen counts as narrow: from 1100 pixels the spans apply, from 700
+pixels they halve, below 700 pixels the widgets become tabs whose choice is remembered per server origin. Rows with
+space left widen their widgets, empty widgets take neither cell nor tab, and widgets stay mounted while hidden so
+their state survives. Every widget's body is a size container; the template tiles become compact rows below 448
+pixels and run rows drop the detail line below 360 and the time below 280 pixels, also on Runs. The page scroller
+reserves its scrollbar gutter so that a scrollbar cannot flip the layout at a limit. Failing widgets stay contained
+in a `RenderBoundary`.
+
+The owner's rule for horizontal rows of equal items with a limited width is now a building block: `OverflowTabs` and
+`OverflowTabsList` measure the strip and a hidden ruler with a `ResizeObserver`, keep the leading tabs that fit and
+always the active one (`splitOverflow`), and list exactly the hidden tabs in a trailing "..." menu. Start's widget
+tabs, the Runs tabs, the Settings areas (now standard tabs instead of a scrolling navigation), and the inspector's
+actor views use it; the actor views make it a real plugin user, so `@ragents/web/ui` exports `OverflowTabs` and
+`OverflowTabsList` additively and `HOST_API_VERSION` stays 12. The dock's area tabs (drag targets that already
+shrink and truncate) and the run header's continuation rows keep their own behavior; segmented choices and
+toolbars follow later (`TODO.md`).
+
 ## 2026-10-09: A guided template opens only its guide, never a dialog with start tiles
 
 Chapters: `spec/plugins.md` (Web as plugin host: dialogs and `Modal`, start dialog and preparation, run panel host

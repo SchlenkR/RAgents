@@ -120,6 +120,13 @@ const offeredMachines = async (page: Page) => {
   return machines.getByRole("button").allTextContents();
 };
 
+/** On a narrow Start the recent runs are one of the widget tabs. */
+const recentRuns = async (page: Page) => {
+  await page.locator("[data-dashboard]").waitFor();
+  if (await page.locator('[data-dashboard="tabs"]').count() > 0) await page.getByRole("tab", { name: "Continue", exact: true }).click();
+  return page.getByRole("list", { name: "Recent", exact: true });
+};
+
 const calls = (page: Page, id: string) => page.evaluate((method) => window.startPageFixture.calls.filter((call) => call.id === method).map((call) => call.params), id);
 
 test("the browser offers only the server for new runs, the run panel in VS Code also the workstation", browserOnly, async () => {
@@ -250,8 +257,8 @@ test("compact Start cards keep top-right actions visible and highlight hover and
           assert.doesNotMatch(card.text ?? "", /No template|Mini-apps|\bDiscuss\b|Moderation|Run scripts|Set up|Start/);
           assert.ok(Math.abs(card.icon.top - card.title.top) < 1 && card.icon.left >= card.title.right, "action sits to the right of the title");
           assert.ok(card.description.top >= card.title.bottom, "description is below the title row");
-          assert.equal(card.clamp, "2");
-          assert.ok(card.height < 100, `compact card: ${card.height}px`);
+          assert.equal(card.clamp, "1", "the narrow New widget lists compact rows with one line of description");
+          assert.ok(card.height < 72, `compact row: ${card.height}px`);
           assert.notEqual(card.shadow, "none", "a resting tile lifts off the backdrop with the card shadow");
         }
         assert.equal(new Set(cards.map((card) => card.shadow)).size, 1, "every resting tile has the same shadow");
@@ -364,17 +371,20 @@ for (const view of ["web", "start"] as const) {
           const grid = main.querySelector<HTMLElement>('ul[aria-label="Templates"]');
           const list = main.querySelector<HTMLElement>('ul[aria-label="Recent"], ul[aria-label="Runs"]')!;
           const search = main.querySelector<HTMLInputElement>('input[aria-label="Search runs"]');
-          const rect = list.parentElement!.getBoundingClientRect();
-          const sections = [...main.querySelectorAll(":scope > div > div > section")].map((section) => ({
+          const rect = (main.querySelector<HTMLElement>("[data-dashboard]") ?? list.parentElement!).getBoundingClientRect();
+          const sections = [...main.querySelectorAll("[data-start-widget]:not([hidden]) > section")].map((section) => ({
             box: section.getBoundingClientRect(), heading: section.children[0]!.getBoundingClientRect(), content: section.children[1]!.getBoundingClientRect(),
           }));
+          const [first, second] = sections;
           return {
             top: main.querySelector(":scope > div > div > :first-child")!.getBoundingClientRect().top - main.getBoundingClientRect().top,
-            headingGap: sections.length > 1 ? sections[0]!.content.top - sections[0]!.heading.bottom : undefined,
-            sectionGap: sections.length > 1 ? sections[1]!.box.top - sections[0]!.box.bottom : undefined,
+            headingGap: first ? first.content.top - first.heading.bottom : undefined,
+            sectionGap: first && second ? Math.abs(second.box.top - first.box.top) < 1 ? second.box.left - first.box.right : second.box.top - first.box.bottom : undefined,
+            tabs: main.querySelector('[data-dashboard="tabs"]') !== null,
             back: main.querySelector('button[aria-label="Back to Start"]') !== null,
             left: rect.left, width: rect.width, hostWidth: main.clientWidth, hostLeft: main.getBoundingClientRect().left,
             gridWidth: grid?.getBoundingClientRect().width,
+            widgetWidth: grid?.closest("[data-start-widget-body]")?.getBoundingClientRect().width,
             columns: grid ? getComputedStyle(grid).gridTemplateColumns.split(" ").length : undefined,
             searchWidth: search?.getBoundingClientRect().width,
             rows: [...list.children].map((row) => row.getBoundingClientRect().width),
@@ -392,19 +402,28 @@ for (const view of ["web", "start"] as const) {
         await page.screenshot({ path: join(shots, `panel-${view}-start-${width}.png`) });
         checkColumn(start);
         assert.equal(await page.getByRole("list", { name: "Server", exact: true }).count(), 0);
-        assert.ok(Math.abs(start.gridWidth! - start.width) < 1);
-        assert.equal(start.columns, width < 900 ? 1 : width === 900 ? 3 : 5);
+        assert.equal(start.tabs, width < 700, "a narrow Start shows its widgets as tabs");
+        assert.ok(Math.abs(start.gridWidth! - start.widgetWidth!) < 1, "the templates fill their widget");
+        const compact = start.widgetWidth! < 448;
+        assert.equal(start.columns, compact ? 1 : Math.floor((start.widgetWidth! + 8) / 248));
         assert.equal(start.cards.filter((card) => card.top === start.cards[0]!.top).length, start.columns, "cards occupy each column");
-        assert.ok(start.cards.every((card) => card.width <= 320 && card.width >= Math.min(240, start.gridWidth!)));
+        assert.ok(start.cards.every((card) => compact ? Math.abs(card.width - start.gridWidth!) < 1 : card.width <= 320 && card.width >= 240), "narrow widgets list compact rows");
         assert.equal(start.back, false, "Start has no back arrow");
-        assert.ok(start.headingGap! >= 8 && start.sectionGap! >= 2 * start.headingGap!, `sections are set apart more than a heading from its content: ${JSON.stringify(start)}`);
+        if (!start.tabs) {
+          assert.ok(start.headingGap! >= 8, `a heading stands apart from its content: ${JSON.stringify(start)}`);
+          assert.ok(start.sectionGap! >= 2 * start.headingGap!, `widgets are set apart more than a heading from its content: ${JSON.stringify(start)}`);
+        }
         if (width === 2600) {
           await page.evaluate(() => { document.getElementById("root")!.style.width = "220px"; });
+          await page.locator('[data-dashboard="tabs"]').waitFor();
           const narrow = await measure();
           assert.equal(narrow.columns, 1, "container width controls the grid, even in a wide window");
+          assert.equal(narrow.tabs, true, "and the dashboard turns into tabs");
           assert.equal(narrow.overflow, false);
           await page.evaluate(() => { document.getElementById("root")!.style.width = ""; });
+          await page.locator('[data-dashboard="grid"]').waitFor();
         }
+        await recentRuns(page);
         await page.getByRole("button", { name: /All .* runs/ }).click();
         await page.getByRole("searchbox", { name: "Search runs" }).waitFor();
         const runs = await measure();
@@ -457,7 +476,7 @@ for (const host of ["browser", "vscode"] as const) {
         await page.keyboard.press("Escape");
         await history.waitFor({ state: "hidden" });
         if (host === "browser") {
-          await page.getByRole("list", { name: "Recent", exact: true }).getByRole("button").first().click();
+          await (await recentRuns(page)).getByRole("button").first().click();
         } else {
           await page.evaluate(() => window.startPageFixture.command({ type: "selectRun", runId: "existing" }));
         }

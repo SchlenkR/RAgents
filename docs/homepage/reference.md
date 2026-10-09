@@ -6928,6 +6928,7 @@ export { DropdownMenu, DropdownMenuCheckboxItem, DropdownMenuContent, DropdownMe
 export { Empty, EmptyContent, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from "./empty";
 export { Field, FieldContent, FieldDescription, FieldError, FieldGroup, FieldLabel, FieldLegend, FieldSeparator, FieldSet, FieldTitle, } from "./field";
 export { Input } from "./input";
+export { OverflowTabs, OverflowTabsList, type OverflowTabItem, type OverflowTabsListProps, type OverflowTabsProps } from "./overflow-tabs";
 export { HeaderDropdown } from "./HeaderDropdown";
 export { ImagePreview, ImageViewer, type ImagePreviewProps, type ImageViewerProps } from "./image-viewer";
 export { ImagePreviewGroup } from "./image-preview-group";
@@ -7016,6 +7017,43 @@ export interface ListDetailProps {
 export declare function ListDetail({ label, items, selectedId, onSelect, disabled, toolbar, detailHeader, children, detailFooter, emptyState, detailLabel, className }: ListDetailProps): import("react").JSX.Element;
 ```
 
+#### apps/web/src/ui/overflow-tabs.d.ts
+
+```typescript
+import type { Tabs as TabsPrimitive } from "@base-ui/react/tabs";
+import { type ReactNode } from "react";
+/** One tab of a strip that moves the tabs that do not fit into a trailing "..." menu. */
+export interface OverflowTabItem {
+    readonly value: string;
+    /** The visible text, the accessible name, and the menu entry. */
+    readonly label: string;
+    readonly count?: number;
+    readonly icon?: ReactNode;
+    /** The tab's own element ID, for panels the caller renders without TabsContent. */
+    readonly id?: string;
+    /** The element ID of the panel this tab controls, for panels the caller renders without TabsContent. */
+    readonly controls?: string;
+}
+export interface OverflowTabsProps extends Omit<TabsPrimitive.Root.Props, "value" | "defaultValue" | "onValueChange"> {
+    value: string;
+    onValueChange: (value: string) => void;
+}
+export interface OverflowTabsListProps {
+    items: readonly OverflowTabItem[];
+    "aria-label": string;
+    /** Every tab shows only its icon; the label stays its accessible name and tooltip. */
+    iconOnly?: boolean;
+    className?: string;
+    listClassName?: string;
+    triggerClassName?: string;
+}
+/** Tabs with an OverflowTabsList; the panels are TabsContent or the caller's own elements. */
+declare function OverflowTabs({ value, onValueChange, ...props }: OverflowTabsProps): import("react").JSX.Element;
+/** A tab list that keeps the active tab visible and moves the tabs that do not fit into a trailing "..." menu instead of clipping or wrapping them. */
+declare function OverflowTabsList({ items, iconOnly, className, listClassName, triggerClassName, "aria-label": label }: OverflowTabsListProps): import("react").JSX.Element;
+export { OverflowTabs, OverflowTabsList };
+```
+
 #### apps/web/src/ui/popover.d.ts
 
 ```typescript
@@ -7088,10 +7126,12 @@ export declare function SearchInput({ className, icon, inputRef, onValueChange, 
 import type { ComponentProps, ReactNode } from "react";
 /** The small uppercase group label above a section; extra content is pushed to the opposite end. */
 export declare function SectionLabel({ className, ...props }: ComponentProps<"div">): import("react").JSX.Element;
-/** A page section's heading in the same label style: the count next to the title, an action at the opposite end. */
-export declare function SectionHeading({ title, count, children }: {
+/** A page section's heading in the same label style: the count next to the title, an action at the opposite end; a hidden title stays for screen readers. */
+export declare function SectionHeading({ title, count, titleHidden, className, children }: {
     title: string;
     count?: number;
+    titleHidden?: boolean;
+    className?: string;
     children?: ReactNode;
 }): import("react").JSX.Element;
 ```
@@ -7285,9 +7325,10 @@ declare const tabsListVariants: (props?: ({
     variant?: "default" | "line" | null | undefined;
 } & import("class-variance-authority/types").ClassProp) | undefined) => string;
 declare function TabsList({ className, variant, ...props }: TabsPrimitive.List.Props & VariantProps<typeof tabsListVariants>): import("react").JSX.Element;
+declare const tabsTriggerClass: string;
 declare function TabsTrigger({ className, ...props }: TabsPrimitive.Tab.Props): import("react").JSX.Element;
 declare function TabsContent({ className, ...props }: TabsPrimitive.Panel.Props): import("react").JSX.Element;
-export { Tabs, TabsList, TabsTrigger, TabsContent, tabsListVariants };
+export { Tabs, TabsList, TabsTrigger, TabsContent, tabsListVariants, tabsTriggerClass };
 ```
 
 #### apps/web/src/ui/textarea.d.ts

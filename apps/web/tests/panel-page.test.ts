@@ -96,6 +96,30 @@ test("Start sections retain contribution order and empty sections add no markup"
   assert.throws(() => registryWith([{ id: "test.empty", startSections: [section("", 0)] }]), /Start section without ID/);
 });
 
+test("a Start section with a title becomes a framed widget with its span; without one it keeps a full row of its own", () => {
+  const registry = registryWith([{ id: "test.widgets", startSections: [
+    { id: "board", order: 10, title: "Work board", Section: () => createElement("p", null, "Board content") },
+    { id: "auto", order: 20, title: "Auto items", span: "narrow", Section: () => createElement("p", null, "Auto content") },
+    { id: "plain", order: 30, Section: () => createElement("section", null, "Plain section") },
+  ] }]);
+  const html = renderToStaticMarkup(createElement(PanelPage, { registry, state: page(), send: () => {} }));
+  assert.match(html, /<section aria-label="Work board"[^>]*><div[^>]*><h2[^>]*>Work board<\/h2><\/div><div[^>]*data-start-widget-body="section:board"><p>Board content<\/p>/, "the host draws the title row above the content");
+  assert.match(html, /data-start-widget="section:board" style="grid-column:span 12 \/ span 12"/, "a widget without span fills a row");
+  assert.match(html, /data-start-widget="section:auto" style="grid-column:span 12 \/ span 12"/, "a narrow widget alone in its row fills it");
+  assert.match(html, /data-start-widget="new" style="grid-column:span 4 \/ span 4"/);
+  assert.match(html, /data-start-widget="continue" style="grid-column:span 8 \/ span 8"/);
+  assert.match(html, /<\/div><section>Plain section<\/section><\/div>/, "a section without a title is rendered without a frame");
+  assert.ok(html.indexOf(">Work board<") < html.indexOf(">Auto items<") && html.indexOf(">Auto items<") < html.indexOf(">Plain section<"));
+});
+
+test("Start widgets reject a span without a title, an empty title, and an unknown span", () => {
+  const section = (extra: Record<string, unknown>) => registryWith([{ id: "test.widget", startSections: [{ id: "widget", order: 0, Section: () => null, ...extra }] }]);
+  assert.throws(() => section({ span: "half" }), /Start section widget declares a span without a title/);
+  assert.throws(() => section({ title: " " }), /Start section widget has an empty title/);
+  assert.throws(() => section({ title: "Widget", span: "third" }), /Start section widget has the span third; allowed are narrow, half, wide, full/);
+  assert.deepEqual(section({ title: "Widget", span: "wide" }).startSections.map(({ title, span }) => ({ title, span })), [{ title: "Widget", span: "wide" }]);
+});
+
 test("a Start section with a read right mounts only when the viewer has that right", () => {
   const state = page({ connections: [connection({ canCreate: false, runs: [] })] });
   const registry = registryWith([{ id: "test.guarded", startSections: [{

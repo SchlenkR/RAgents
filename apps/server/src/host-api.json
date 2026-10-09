@@ -893,6 +893,8 @@
       "Input",
       "InteractiveItem",
       "Label",
+      "OverflowTabs",
+      "OverflowTabsList",
       "Popover",
       "PopoverContent",
       "PopoverTrigger",

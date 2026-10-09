@@ -4,6 +4,9 @@ Inbox for everything; the owner and the AI write here. One line per entry, newes
 
 ## Open
 
+- Overflow beyond tab rows (09.10.2026): apply `splitOverflow` to segmented `ToggleGroup` and `ChoiceSelect` choices and to toolbars of equal items, which still clip in narrow panels, and to the Settings plugin navigation, which scrolls sideways in narrow dialogs.
+- Check live (09.10.2026): Start in a real VS Code panel resized across 700 pixels and in the browser at 360 pixels with a plugin that contributes several titled widgets, including the remembered tab after a reload and a widget that turns empty; browser fixtures cover the parts.
+
 - Chat column and scrollbar gutter (08.10.2026): the stable gutter of chat transcripts narrows the message column and moves it half a gutter left of the composer, so `chat-view-switches-browser.test.ts` ("chat columns stay centered ...") fails with 441 vs 452 at 500px, already on main before the readability merge; decide whether the composer follows the column or the test measures the scroller's client width.
 - Appearance options (07.10.2026): further options (chat font size, band strength) next to the palette, corners, inline code, and table spacing under Settings > Appearance, kept in the same stores and VS Code settings.
 - Backdrop glows (07.10.2026): in the light palettes `border` against the colored glows of the page backdrop is 1.15:1 to 1.24:1 at the strongest spots (Start tile and run card frames, disabled tiles in dark about 1.27:1); calm the glows or use a stronger frame token there.
@@ -183,6 +186,7 @@ Inbox for everything; the owner and the AI write here. One line per entry, newes
 
 ## Ideas
 
+- Start widgets (09.10.2026): let users hide and reorder widgets, place plugin widgets before New and Continue, pack short widgets into gaps of the grid, and let a widget report a count for its title row and tab.
 - Actor roster per turn (06.10.2026): it now stands at the head of every turn's input; a run with many actors and many short turns could present it only when it differs from the last roster still in the actor's context (after a compaction always).
 - quassel re-resolution (04.10.2026): quassel 0.4.5 resolves a Markdown address only when the Markdown mounts, so the documents plugin holds a run until its grants have settled and mounts the Documents view's Markdown again on every grant change; a quassel whose Markdown resolves again when `resolveUrl` changes would make both unnecessary and let older chat messages follow a renewed grant.
 - Plugin client modules for mini-apps (02.10.2026): a view can only import its own package files, the fixed `runtime-libraries.ts` list, and `@ragents/client(/ui)`, so a plugin cannot ship a reusable React component; today it must be copied into every package (not under `dist/`, passing the strict client typecheck, assets inline because of the CSP). A registration point such as `clientModules` would install a named module in `installClientSdk`, add its sources to the Tailwind scan, expose its props through the controls tool, and bind its prompt with `requiresTools`.

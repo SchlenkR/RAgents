@@ -855,6 +855,53 @@ Select, filters, dropdown menus, context menus, and popovers share square panel 
 
 Contract fields: choiceSelect.label, choiceSelect.options, choiceSelect.value, choiceSelect.onValueChange, choiceSelect.size, choiceSelect.disabled, choiceSelect.className, filterSelect.label, filterSelect.options, filterSelect.value, filterSelect.onValueChange, filterSelect.size, filterSelect.searchable, filterSelect.disabled, filterSelect.className, filterOption.value, filterOption.label, filterOption.color, filterOption.count, filterOption.disabled.
 
+### Tabs that never clip
+
+A row of tabs with a limited width moves the tabs that do not fit into a trailing menu instead of cutting them off or wrapping them. The active tab always stays in the row.
+
+Place of use: A React component in a plugin's web half.
+
+```tsx
+import { useState } from "react";
+import { FolderIcon, MessageSquareIcon } from "lucide-react";
+import { OverflowTabs, OverflowTabsList, TabsContent } from "@ragents/web/ui";
+
+const views = [
+  { value: "open", label: "Open items", count: 12 },
+  { value: "review", label: "In review", count: 3 },
+  { value: "done", label: "Done" },
+  { value: "archive", label: "Archive" },
+];
+
+export function ExampleViews() {
+  const [view, setView] = useState("open");
+  return <OverflowTabs value={view} onValueChange={setView}>
+    <OverflowTabsList aria-label="Item views" items={views} />
+    {views.map((item) => <TabsContent key={item.value} value={item.value}>{item.label}</TabsContent>)}
+  </OverflowTabs>;
+}
+
+export function ExampleTools() {
+  const [tool, setTool] = useState("chat");
+  const tools = [
+    { value: "chat", label: "Show chat", icon: <MessageSquareIcon />, id: "tool-chat", controls: "tool-panel" },
+    { value: "files", label: "Files", icon: <FolderIcon />, id: "tool-files", controls: "tool-panel" },
+  ];
+  return <OverflowTabs value={tool} onValueChange={setTool}>
+    <OverflowTabsList aria-label="Tools" iconOnly items={tools} />
+    <section aria-labelledby={`tool-${tool}`} id="tool-panel" role="tabpanel">{tool}</section>
+  </OverflowTabs>;
+}
+```
+
+OverflowTabs takes the controlled value and onValueChange; OverflowTabsList measures its own width, keeps the leading tabs that fit beside the More tabs button, and lists exactly the others in its menu.
+
+Choosing a hidden tab selects it and moves it to the end of the row. Arrow keys move between the visible tabs, Tab reaches the button, and the menu works with arrows, Enter, and Escape.
+
+iconOnly shows only each tab's icon and uses its label as accessible name and tooltip. id and controls link tabs to panels that are not TabsContent.
+
+Contract fields: overflowTab.value, overflowTab.label, overflowTab.count, overflowTab.icon, overflowTab.id, overflowTab.controls.
+
 ### Virtualized lists on the page
 
 DataGrid fills the page canvas and keeps its header visible as the page scrolls. The shared implementation supplies adjustable columns, sorting, expandable groups, optional selection, and measured row virtualization.
@@ -1086,7 +1133,7 @@ Contract fields: web.cardSections.
 
 ### Work documents across runs on Start
 
-A plugin can add a section directly below Continue on Start. It receives all runs the viewer can see, including their metadata, and can open an entry's run through the host navigation.
+A plugin can add a widget to the Start dashboard after New and Continue. It receives all runs the viewer can see, including their metadata, and can open an entry's run through the host navigation.
 
 Place of use: Properties of a WebPlugin; Type comes from typebox. The server metadata contribution ragents.example.documents returns documents with id and title.
 
@@ -1098,6 +1145,7 @@ const startUi = {
   id: "ragents.example",
   startSections: [{
     id: "ragents.example.documents", order: 100, readRight: "ragents.example.read",
+    title: "Work documents", span: "half",
     Section: ({ runs, onOpenRun }) => {
       const documents = runs.flatMap((run) => {
         const value = run.metadata?.["ragents.example.documents"];
@@ -1106,26 +1154,25 @@ const startUi = {
         return value.map((document) => ({ ...document, runId: run.id, runTitle: run.title }));
       });
       if (documents.length === 0) return null;
-      return <section aria-label="Work documents">
-        <h2>Work documents</h2>
-        <ul>{documents.map((document) => <li key={document.runId + ":" + document.id}>
-          <button onClick={() => onOpenRun(document.runId)}>{document.title} ({document.runTitle})</button>
-        </li>)}</ul>
-      </section>;
+      return <ul className="grid gap-2 @md/widget:grid-cols-2">{documents.map((document) => <li key={document.runId + ":" + document.id}>
+        <button onClick={() => onOpenRun(document.runId)}>{document.title} ({document.runTitle})</button>
+      </li>)}</ul>;
     },
   }],
 } satisfies WebPlugin;
 ```
 
-Start shows New templates, then Continue with the five recent runs, then plugin sections sorted by order and id. The context contains every server-listed visible run, sorted by updatedAt, with id, title, updatedAt, and optional metadata keyed by contribution ID.
+Start shows New templates, then Continue with the fifteen recent runs, then plugin widgets sorted by order and id. The context contains every server-listed visible run, sorted by updatedAt, with id, title, updatedAt, and optional metadata keyed by contribution ID.
+
+title makes the section a widget: the host draws its title row and, below 700 pixels of Start's own width, its tab. span chooses its preferred width on a wide dashboard: narrow (a third), half, wide (two thirds), or full, the default. Its body is a size container named widget, so @container variants such as @md/widget: follow the widget's width.
 
 The server filters the run list for the viewer; the slot performs no additional run access checks. readRight hides the entire section without the named permission.
 
 onOpenRun uses the same navigation as a run row in both browser and VS Code server frames. The local VS Code shell has no plugin registry and contributes no sections.
 
-Sections own their heading and spacing. Returning null leaves no empty wrapper or gap.
+Returning null leaves no cell, tab, or gap. A section without title keeps its own heading and spacing and fills a row; span requires a title.
 
-Contract fields: web.startSections, startSection.id, startSection.order, startSection.readRight, startSection.Section, startSectionContext.runs, startSectionContext.onOpenRun.
+Contract fields: web.startSections, startSection.id, startSection.order, startSection.readRight, startSection.title, startSection.span, startSection.Section, startSectionContext.runs, startSectionContext.onOpenRun.
 
 ### Run data and React context
 
@@ -2485,6 +2532,10 @@ export interface StartSectionContribution {
   id: string;
   order: number;
   readRight?: string;
+  /** Makes the section a widget: the host draws its title row and, on a narrow dashboard, its tab; without it the section owns its heading and fills a row. */
+  title?: string;
+  /** The preferred width of a widget with a title, by default the whole row. */
+  span?: StartWidgetSpan;
   Section: ComponentType<StartSectionContext>;
 }
 ```
@@ -2534,6 +2585,24 @@ export interface ChoiceSelectProps<Value extends string = string> {
   readonly size?: ControlSize
   readonly disabled?: boolean
   readonly className?: string
+}
+```
+
+### OverflowTabItem
+
+Source in the repository: apps/web/src/ui/overflow-tabs.tsx
+
+```typescript
+export interface OverflowTabItem {
+  readonly value: string
+  /** The visible text, the accessible name, and the menu entry. */
+  readonly label: string
+  readonly count?: number
+  readonly icon?: ReactNode
+  /** The tab's own element ID, for panels the caller renders without TabsContent. */
+  readonly id?: string
+  /** The element ID of the panel this tab controls, for panels the caller renders without TabsContent. */
+  readonly controls?: string
 }
 ```
 

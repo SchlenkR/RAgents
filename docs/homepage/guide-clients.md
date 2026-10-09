@@ -58,6 +58,13 @@ as wide as it. Selectors with more than eight choices show a search field. Type 
 to narrow the list; matching ignores case. Use the arrow keys to move through the results,
 Enter to choose, and Escape to close. "No matching options." means no choice matches the search.
 
+A row of tabs that does not fit its width never cuts a tab off or wraps it into a second row.
+The active tab and the tabs before it stay; the rest move into "More tabs" (...) at the end of the
+row. Its menu lists exactly the hidden tabs; choosing one shows it and puts its tab at the end of the
+row. Use the arrow keys between the visible tabs, Tab to reach "More tabs", and Enter, the arrow keys,
+and Escape in its menu. Start's widgets in a narrow panel, the two Runs tabs, the Settings areas, and
+the views of an inspected actor work this way.
+
 Toolbar filters with up to five values show their choices as multiple-selection segments.
 Select several values together; "Clear" or deselecting them all removes the restriction.
 Longer lists show the filter name and the number of chosen values, or "All" when unrestricted. Open the
@@ -354,8 +361,8 @@ The gear opens connection and profile management for all configured environments
 Start and Runs in both hosts, and Server in VS Code, share a centered content area up to
 1280 pixels wide, with side padding. The Runs search field and rows stay within this area,
 including on ultrawide displays. The outer header remains full width. All three pages begin their
-content at the same distance below the header, and on Start each section label stands well apart
-from the section above it. In both hosts, logo, global coordinator button, Settings, and Help share
+content at the same distance below the header, and on Start every widget stands well apart from
+its neighbors. In both hosts, logo, global coordinator button, Settings, and Help share
 the header. The logo leads back to Start there, so the run header has no back arrow of its
 own; Runs keeps its back arrow ("Back to Start") next to its title in the browser as in VS Code. An open run places its layout actions in the run header, without a separate
 toolbar row. With an open run, the logo, global coordinator, run title, run controls, and
@@ -364,9 +371,18 @@ buttons use the remaining width between the fixed controls, then continue over t
 in further rows. VS Code opens them in editor tabs; the browser opens them in its
 workspace. Narrow panels can also wrap fixed controls.
 
-**Start** arranges template cards in several columns when space allows, up to five at the
-maximum content width, and one in narrow panels. Cards stay between 240 and 320 pixels wide,
-shrinking only when the panel is narrower.
+**Start** is a dashboard of widgets: **New**, **Continue**, and those that plugins add. What fits
+depends on the width of Start itself, not of the window, so a narrow VS Code panel behaves like a
+narrow window. From 1100 pixels the widgets stand side by side in their preferred widths, New in a
+third and Continue in two thirds of the row; from 700 pixels narrow widgets take half a row; a widget
+alone in its row fills it. Below 700 pixels Start shows one widget at a time with tabs at the top;
+the chosen tab is remembered for this server address. A plugin section without a title follows
+below the tabs, and a widget with nothing to show has neither a place nor a tab.
+
+Each widget arranges its content for its own width. Template cards stand in several columns when
+the widget is wide enough, between 240 and 320 pixels wide; in a widget narrower than about 450
+pixels they become compact rows across its width with one line of description, as in the New
+widget beside Continue.
 It has no server block. **New** comes first when the selected server permits new runs. The first
 entry is its default template, marked "Default" in the title row, or "New chat". Remaining
 templates follow without duplicating the default. Each flat card shows a title and two lines
@@ -402,12 +418,15 @@ grid with status, title, and right-aligned time. Rows are
 the same as in the browser: below the title the owner and short details such as the workspace,
 the whole row is clickable, and a dot in the status icon marks activity you have not viewed in
 any host yet. Shared runs carry their sharing icon next to the title, and runs you may share
-end with "Share ..." (see [Share runs](#share-runs)). "All N runs" opens this server's Runs page.
+end with "Share ..." (see [Share runs](#share-runs)). In a list narrower than 360 pixels the line
+with owner and details is left out, below 280 pixels also the time; this applies on Runs too.
+"All N runs" opens this server's Runs page.
 The trash button ("Delete run ...") beside a run on Start and Runs opens its deletion
 confirmation. Runs shared with you have no delete button.
-Plugin sections appear directly below Continue when installed, for example a list of work
-documents from all runs you can see. Clicking such an entry can open its run. Empty sections
-show no heading or gap.
+Plugin widgets follow Continue when installed, for example a list of work documents from all
+runs you can see, with the same title row as New and Continue. Clicking such an entry can open its
+run. Empty widgets show no heading or gap. If a widget fails, it shows its error and "Retry" in its
+own place, and the rest of Start keeps working.
 
 **Runs**, "All runs", shows this server's complete list in the same card, with search, "Hide ended", and a
 selection mode that deletes several runs after a dialog confirmation. Checkboxes occupy an

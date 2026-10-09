@@ -68,6 +68,7 @@ const contracts: Contract[] = [
   { id: "startSectionContext", file: "apps/web/src/PluginRegistry.tsx", name: "StartSectionContext" },
   { id: "surfaceElement", file: "apps/web/src/PluginRegistry.tsx", name: "SurfaceElementDefinition" },
   { id: "choiceSelect", file: "apps/web/src/ui/choice-select.tsx", name: "ChoiceSelectProps" },
+  { id: "overflowTab", file: "apps/web/src/ui/overflow-tabs.tsx", name: "OverflowTabItem" },
   { id: "filterSelect", file: "apps/web/src/ui/filter-select.tsx", name: "FilterSelectProps" },
   { id: "filterOption", file: "apps/web/src/ui/filter-select.tsx", name: "FilterSelectOption" },
   { id: "tableColumn", file: "apps/web/src/ui/table-widths.ts", name: "TableColumnDefinition" },
@@ -586,6 +587,41 @@ export function ExampleToolbar() {
     "FilterSelect uses the same multiple-selection segments for one to five options, with Clear beside the group. Longer lists search by default, show the label and chosen count or All, and provide checkbox options and Clear. Color, count, and disabled are optional per option; an empty value array means unrestricted.",
     "Select, filters, dropdown menus, context menus, and popovers share square panel corners. Select opens outside the trigger and stays at least as wide as it.",
   ], "tsx"),
+  entry("web-ui-overflow-tabs", "Web contributions", "Tabs that never clip", "A row of tabs with a limited width moves the tabs that do not fit into a trailing menu instead of cutting them off or wrapping them. The active tab always stays in the row.", "A React component in a plugin's web half.", `
+import { useState } from "react";
+import { FolderIcon, MessageSquareIcon } from "lucide-react";
+import { OverflowTabs, OverflowTabsList, TabsContent } from "@ragents/web/ui";
+
+const views = [
+  { value: "open", label: "Open items", count: 12 },
+  { value: "review", label: "In review", count: 3 },
+  { value: "done", label: "Done" },
+  { value: "archive", label: "Archive" },
+];
+
+export function ExampleViews() {
+  const [view, setView] = useState("open");
+  return <OverflowTabs value={view} onValueChange={setView}>
+    <OverflowTabsList aria-label="Item views" items={views} />
+    {views.map((item) => <TabsContent key={item.value} value={item.value}>{item.label}</TabsContent>)}
+  </OverflowTabs>;
+}
+
+export function ExampleTools() {
+  const [tool, setTool] = useState("chat");
+  const tools = [
+    { value: "chat", label: "Show chat", icon: <MessageSquareIcon />, id: "tool-chat", controls: "tool-panel" },
+    { value: "files", label: "Files", icon: <FolderIcon />, id: "tool-files", controls: "tool-panel" },
+  ];
+  return <OverflowTabs value={tool} onValueChange={setTool}>
+    <OverflowTabsList aria-label="Tools" iconOnly items={tools} />
+    <section aria-labelledby={\`tool-\${tool}\`} id="tool-panel" role="tabpanel">{tool}</section>
+  </OverflowTabs>;
+}`, ["overflowTab.value", "overflowTab.label", "overflowTab.count", "overflowTab.icon", "overflowTab.id", "overflowTab.controls"], [
+    "OverflowTabs takes the controlled value and onValueChange; OverflowTabsList measures its own width, keeps the leading tabs that fit beside the More tabs button, and lists exactly the others in its menu.",
+    "Choosing a hidden tab selects it and moves it to the end of the row. Arrow keys move between the visible tabs, Tab reaches the button, and the menu works with arrows, Enter, and Escape.",
+    "iconOnly shows only each tab's icon and uses its label as accessible name and tooltip. id and controls link tabs to panels that are not TabsContent.",
+  ], "tsx"),
   entry("web-ui-data-grid", "Web contributions", "Virtualized lists on the page", "DataGrid fills the page canvas and keeps its header visible as the page scrolls. The shared implementation supplies adjustable columns, sorting, expandable groups, optional selection, and measured row virtualization.", "A React component in a plugin's web half; the grid ID and row keys stay stable across renders.", `
 import { useState } from "react";
 import { Badge, DataGrid, type DataGridColumn, type DataGridSort } from "@ragents/web/ui";
@@ -709,7 +745,7 @@ const cards = {
   cardSections: [{ id: "ragents.example.note", order: 100,
     Section: () => <p>Additional card content</p> }],
 } satisfies WebPlugin;`, ["web.cardSections"], ["actor is unknown at this boundary. Anyone using actor fields must check them with the contract of the responsible plugin. An empty contribution can render null."], "tsx"),
-  entry("web-start-sections", "Web contributions", "Work documents across runs on Start", "A plugin can add a section directly below Continue on Start. It receives all runs the viewer can see, including their metadata, and can open an entry's run through the host navigation.", "Properties of a WebPlugin; Type comes from typebox. The server metadata contribution ragents.example.documents returns documents with id and title.", `
+  entry("web-start-sections", "Web contributions", "Work documents across runs on Start", "A plugin can add a widget to the Start dashboard after New and Continue. It receives all runs the viewer can see, including their metadata, and can open an entry's run through the host navigation.", "Properties of a WebPlugin; Type comes from typebox. The server metadata contribution ragents.example.documents returns documents with id and title.", `
 import { Value } from "typebox/value";
 
 const documentsSchema = Type.Array(Type.Object({ id: Type.String(), title: Type.String() }));
@@ -717,6 +753,7 @@ const startUi = {
   id: "ragents.example",
   startSections: [{
     id: "ragents.example.documents", order: 100, readRight: "ragents.example.read",
+    title: "Work documents", span: "half",
     Section: ({ runs, onOpenRun }) => {
       const documents = runs.flatMap((run) => {
         const value = run.metadata?.["ragents.example.documents"];
@@ -725,19 +762,17 @@ const startUi = {
         return value.map((document) => ({ ...document, runId: run.id, runTitle: run.title }));
       });
       if (documents.length === 0) return null;
-      return <section aria-label="Work documents">
-        <h2>Work documents</h2>
-        <ul>{documents.map((document) => <li key={document.runId + ":" + document.id}>
-          <button onClick={() => onOpenRun(document.runId)}>{document.title} ({document.runTitle})</button>
-        </li>)}</ul>
-      </section>;
+      return <ul className="grid gap-2 @md/widget:grid-cols-2">{documents.map((document) => <li key={document.runId + ":" + document.id}>
+        <button onClick={() => onOpenRun(document.runId)}>{document.title} ({document.runTitle})</button>
+      </li>)}</ul>;
     },
   }],
-} satisfies WebPlugin;`, ["web.startSections", "startSection.id", "startSection.order", "startSection.readRight", "startSection.Section", "startSectionContext.runs", "startSectionContext.onOpenRun"], [
-    "Start shows New templates, then Continue with the five recent runs, then plugin sections sorted by order and id. The context contains every server-listed visible run, sorted by updatedAt, with id, title, updatedAt, and optional metadata keyed by contribution ID.",
+} satisfies WebPlugin;`, ["web.startSections", "startSection.id", "startSection.order", "startSection.readRight", "startSection.title", "startSection.span", "startSection.Section", "startSectionContext.runs", "startSectionContext.onOpenRun"], [
+    "Start shows New templates, then Continue with the fifteen recent runs, then plugin widgets sorted by order and id. The context contains every server-listed visible run, sorted by updatedAt, with id, title, updatedAt, and optional metadata keyed by contribution ID.",
+    "title makes the section a widget: the host draws its title row and, below 700 pixels of Start's own width, its tab. span chooses its preferred width on a wide dashboard: narrow (a third), half, wide (two thirds), or full, the default. Its body is a size container named widget, so @container variants such as @md/widget: follow the widget's width.",
     "The server filters the run list for the viewer; the slot performs no additional run access checks. readRight hides the entire section without the named permission.",
     "onOpenRun uses the same navigation as a run row in both browser and VS Code server frames. The local VS Code shell has no plugin registry and contributes no sections.",
-    "Sections own their heading and spacing. Returning null leaves no empty wrapper or gap.",
+    "Returning null leaves no cell, tab, or gap. A section without title keeps its own heading and spacing and fills a row; span requires a title.",
   ], "tsx"),
   entry("web-context", "Web contributions", "Run data and React context", "Several interface contributions of a plugin can need shared data about the open run. A SessionProvider passes this data on through React context. With needsRunView, the plugin additionally requests the run state provided by the server.", "Properties of a WebPlugin; the provider can use its own Context.Provider here.", `
 const sessionUi = {
