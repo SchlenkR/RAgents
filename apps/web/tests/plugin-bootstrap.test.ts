@@ -86,7 +86,7 @@ test("activation loads web halves by address with their stylesheet and leaves pl
   assert.deepEqual(active.skillEntries.map((entry) => entry.id), ["ragents.reference.demo"]);
   assert.deepEqual(active.scriptEntries.map((entry) => entry.id), ["ragents.reference.setup"]);
   const withDefault = (await activatePlugins(pluginBootstrapFrom({ ...withReference, defaultStartEntry: "ragents.reference.setup" }), loader)).registry;
-  assert.equal(withDefault.defaultStartEntry, "ragents.reference.setup", "the start selection shows the server's default template first");
+  assert.equal(withDefault.defaultStartEntry, "ragents.reference.setup", "Start shows the server's default template first");
   await assert.rejects(activatePlugins(pluginBootstrapFrom({ ...withProduct, defaultStartEntry: "ragents.reference.setup" }), loader), /default template ragents.reference.setup/);
 });
 

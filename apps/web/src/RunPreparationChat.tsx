@@ -97,7 +97,7 @@ export function RunPreparationChat({ initialPrompt, entry, registry, sessionRef 
     for (const option of conflicts) await options.set(option.id, fixed?.[option.id]);
   };
 
-  return <section aria-label="Discuss task" className={cn(composerPlacement, messages.length === 0 && emptyComposerPlacement)} data-preparation={messages.length === 0 ? "empty" : "active"}>
+  return <section aria-label="Discuss task" className={cn(composerPlacement, messages.length === 0 && emptyComposerPlacement)}>
     <ChatPanel composer={<div>
       <ChatInputToolbar {...attachments} disabled={operation === "starting"} sendDisabled={busy}
         initialValue={initialPrompt} onDraftChange={setDraft} onAttachmentsChange={(active) => {

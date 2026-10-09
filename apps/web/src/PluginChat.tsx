@@ -27,7 +27,7 @@ import { useRunStore } from "./RunStore";
 import { withToolSummaries } from "./toolLine";
 import { StartOptionControls, StartOptionPresetErrors, StartOptionsProvider, useStartOptions } from "./StartOptions";
 import { useAttachmentCapabilities } from "./chat/useAttachmentCapabilities";
-import { StartSelection } from "./StartSelection";
+import { StartEntryDialog } from "./StartEntryDialog";
 import { StatusGroup } from "./StatusGroup";
 import { RunPanelHeader } from "./run-panel/RunPanelHeader";
 import { DockToolsContext, DockWorkspace, type DockPanelDrag } from "./run-panel/DockWorkspace";
@@ -37,9 +37,8 @@ import { useRunPanelHost } from "./run-panel/host";
 import { RunPanelRail } from "./run-panel/RunPanelRail";
 import { RunPanelWorkspace } from "./run-panel/RunPanelWorkspace";
 import { activeWorkspaceTab, saveRunPanelWorkspaceState, useRunPanelWorkspaceState } from "./run-panel/workspace-state";
-import { cn, DialogTitle } from "./ui";
+import { cn } from "./ui";
 import { SurfaceModalContext, RunModalContext } from "./ui/dialog";
-import { Modal } from "./ui/modal";
 import {
   ChatStepsProvider,
   PluginSessionProviders,
@@ -48,10 +47,12 @@ import {
   primaryChatActor,
   useSurfaceController,
   type ChatDisplayOptions,
+  type EntryGuideContribution,
   type PluginEvent,
   type PluginRegistry,
   type SessionContext,
   type SessionNavigation,
+  type StartEntry,
   type WorkspaceTabContribution,
 } from "./PluginRegistry";
 
@@ -61,6 +62,13 @@ const chatElementClass = "flex h-full min-h-0 w-full min-w-0 flex-1 flex-col ove
 /** The shared run panel or one mini-app in an editor. */
 export type ChatLayout = "panel" | { element: string };
 
+/** A draft that shows only the guide of its template until the run starts. */
+export interface StartDialog {
+  readonly entry: StartEntry;
+  readonly guide: EntryGuideContribution;
+  readonly onClose: () => void;
+}
+
 interface PluginChatProps {
   autoFocusChat?: boolean;
   onAutoFocusChatSettled?: () => void;
@@ -68,7 +76,7 @@ interface PluginChatProps {
   toolbarContainer?: HTMLElement | null;
   statusContainer?: HTMLElement | null;
   headerContainer?: HTMLElement | null;
-  startDialog?: { onClose: () => void; initialEntryId?: string };
+  startDialog?: StartDialog;
   initialStartOptions?: Readonly<Record<string, unknown>>;
   onStarted?: () => void;
   onLocationChange?: (location: ChatRunLocation) => void;
@@ -87,7 +95,7 @@ interface ChatWorkspaceProps {
   panelState: "expanded" | "collapsed";
   onTogglePanel: () => void;
   headerContainer?: HTMLElement | null;
-  startDialog?: { onClose: () => void; initialEntryId?: string };
+  startDialog?: StartDialog;
   onStarted: () => void;
   onModalContainer: (element: HTMLDivElement | null) => void;
   onSurfaceModalContainer: (element: HTMLDivElement | null) => void;
@@ -365,12 +373,7 @@ function ChatWorkspace({
     />
   );
 
-  if (startDialog) return (
-    <Modal className="gap-0 p-0 [&_[data-slot=dialog-body]:has([data-preparation])]:overflow-hidden" nextBehavior="push" onClose={startDialog.onClose} scope="page" showCloseButton size="full">
-      <DialogTitle className="sr-only">New run</DialogTitle>
-      <StartSelection registry={registry} session={startSession} initialEntryId={startDialog.initialEntryId} onCancel={startDialog.onClose} onOpen={onStarted} />
-    </Modal>
-  );
+  if (startDialog) return <StartEntryDialog entry={startDialog.entry} guide={startDialog.guide} onClose={startDialog.onClose} onStarted={onStarted} registry={registry} session={startSession} />;
 
   const status = registry.sessionStatus.filter((entry) => !entry.readRight || access.can(entry.readRight)).map(({ id, order, Status }) => <StatusGroup container={statusContainer} key={id} label="Run actions" order={order}>
     <Status navigation={navigation} session={session} />

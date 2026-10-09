@@ -104,13 +104,12 @@ const checkHeader = async (page: Page, header: Locator) => {
   return bounds;
 };
 
-const openStartSelection = async (page: Page) => {
+const openStart = async (page: Page) => {
   const back = page.getByRole("button", { name: "Back to Start", exact: true });
   if (await back.isVisible()) await back.click();
   const templates = page.getByRole("list", { name: "Templates", exact: true });
   await templates.waitFor();
   return page;
-
 };
 
 /** Goes through the guide of the skill template and reads the offered machines in the preparation chat. */
@@ -125,10 +124,10 @@ const calls = (page: Page, id: string) => page.evaluate((method) => window.start
 
 test("the browser offers only the server for new runs, the run panel in VS Code also the workstation", browserOnly, async () => {
   await withPage("view=web", 1280, async (page) => {
-    const dialog = await openStartSelection(page);
-    assert.equal(await dialog.locator("textarea").count(), 0, "the start selection has no task input");
-    assert.equal(await dialog.getByRole("combobox").count(), 0, "and no start options");
-    await dialog.getByRole("button", { name: /Clarify decision/ }).click();
+    const start = await openStart(page);
+    assert.equal(await start.locator("textarea").count(), 0, "Start has no task input");
+    assert.equal(await start.getByRole("combobox").count(), 0, "and no start options");
+    await start.getByRole("button", { name: /Clarify decision/ }).click();
     assert.deepEqual(await offeredMachines(page), ["Server"]);
   });
   await withPage("view=panel&host=browser", 520, async (page) => {
@@ -142,31 +141,58 @@ test("the browser offers only the server for new runs, the run panel in VS Code 
   });
 });
 
-test("the start selection in the browser shows the tiles of Start in VS Code and starts like there", browserOnly, async () => {
+test("Start in the browser shows the tiles of Start in VS Code and starts like there", browserOnly, async () => {
   await withPage("view=web", 1280, async (page) => {
-    let dialog = await openStartSelection(page);
-    const tiles = await dialog.getByRole("list", { name: "Templates" }).getByRole("button").evaluateAll((buttons) => buttons.map((button) => button.getAttribute("data-tile")));
+    let start = await openStart(page);
+    const tiles = await start.getByRole("list", { name: "Templates" }).getByRole("button").evaluateAll((buttons) => buttons.map((button) => button.getAttribute("data-tile")));
     assert.deepEqual(tiles, ["New chat", "Collection board", "Clarify decision", "Discussion circle", "Word game"]);
-    await dialog.getByRole("list", { name: "Templates", exact: true }).getByRole("button", { name: /New chat/ }).click();
+    await start.getByRole("list", { name: "Templates", exact: true }).getByRole("button", { name: /New chat/ }).click();
     await page.getByRole("list", { name: "Templates", exact: true }).waitFor({ state: "detached" });
     await page.locator("textarea").waitFor();
     assert.deepEqual(await calls(page, "ragents.chat.send"), [], "New chat opens the empty run, its task takes shape in the chat");
     assert.deepEqual(await calls(page, "ragents.startOptions.select"), [], "nothing is preset, the run starts on the server");
 
-    dialog = await openStartSelection(page);
-    await dialog.getByRole("button", { name: /Discussion circle/ }).click();
+    start = await openStart(page);
+    await start.getByRole("button", { name: /Discussion circle/ }).click();
     await page.getByRole("list", { name: "Templates", exact: true }).waitFor({ state: "detached" });
     const [script] = await calls(page, "ragents.chat.start");
     assert.deepEqual({ entry: script?.entry, input: script?.input }, { entry: "demo.circle", input: null });
 
-    dialog = await openStartSelection(page);
-    await dialog.getByRole("button", { name: /Collection board/ }).click();
+    start = await openStart(page);
+    await start.getByRole("button", { name: /Collection board/ }).click();
     await page.getByRole("list", { name: "Templates", exact: true }).waitFor({ state: "detached" });
     const [skill] = await calls(page, "ragents.chat.send");
     assert.equal(skill?.entry, "demo.board");
     assert.match(String(skill?.text), /Use the skill board[\s\S]*Build a board for groceries\./, "a skill starts as in VS Code with its task");
   });
 });
+
+for (const [query, width] of [["view=web", 1280], ["view=panel&host=vscode", 520]] as const) {
+  test(`a guided skill opens only its guide over Start and then its preparation chat in the same dialog (${query})`, browserOnly, async () => {
+    await withPage(query, width, async (page) => {
+      const templates = page.getByRole("list", { name: "Templates", exact: true });
+      const dialog = page.getByRole("dialog");
+      for (const way of ["Close", "Escape"] as const) {
+        await templates.locator('button[data-tile="Clarify decision"]').click();
+        await dialog.getByRole("button", { name: "Use topic", exact: true }).waitFor();
+        assert.equal(await dialog.count(), 1, "the guide is the only dialog");
+        assert.equal(await dialog.locator("[data-tile]").count(), 0, "the guide dialog shows no start tile");
+        await dialog.getByRole("button", { name: "Use topic", exact: true }).click();
+        await dialog.getByRole("region", { name: "Discuss task", exact: true }).waitFor();
+        assert.equal(await page.getByRole("dialog").count(), 1, "the preparation chat follows in the same dialog");
+        assert.equal(await dialog.getByRole("heading", { name: "Prepare task", exact: true }).count(), 1);
+        assert.equal(await dialog.getByRole("button", { name: "Back", exact: true }).count(), 0, "there is no way back to a selection");
+        assert.equal(await dialog.locator("[data-tile]").count(), 0);
+        if (way === "Close") await dialog.getByRole("button", { name: "Close", exact: true }).click();
+        else await page.keyboard.press("Escape");
+        await page.locator('[data-slot="dialog-content"]').waitFor({ state: "detached" });
+        await templates.waitFor();
+        assert.equal(await page.locator('[role="dialog"], [data-slot="dialog-overlay"]').count(), 0, `${way} leaves nothing open`);
+        assert.deepEqual(await calls(page, "ragents.chat.send"), [], "closing the preparation starts no run");
+      }
+    });
+  });
+}
 
 test("Start marks the clicked template as starting until its next state", browserOnly, async () => {
   await withPage("view=start", 1280, async (page) => {
@@ -273,8 +299,8 @@ test("a template clicked on VS Code Start asks the host and retains its workstat
 /** In the empty run after New chat: the chat input that shows model and thinking level when the right allows it. */
 const openNewChat = async (page: Page, view: "web" | "panel") => {
   if (view === "web") {
-    const dialog = await openStartSelection(page);
-    await dialog.getByRole("list", { name: "Templates", exact: true }).getByRole("button", { name: /New chat/ }).click();
+    const start = await openStart(page);
+    await start.getByRole("list", { name: "Templates", exact: true }).getByRole("button", { name: /New chat/ }).click();
     await page.getByRole("list", { name: "Templates", exact: true }).waitFor({ state: "detached" });
   } else {
     await page.waitForTimeout(200);
@@ -330,7 +356,7 @@ for (const view of ["web", "start"] as const) {
   for (const width of [220, 380, 900, 1600, 2600, 6000]) {
     test(`panel content stays bounded at ${width}px (${view})`, browserOnly, async (context) => {
       await withPage(`view=${view}`, width, async (page) => {
-        await openStartSelection(page);
+        await openStart(page);
         const shots = join(tmpdir(), "ragents-browser-shots");
         await mkdir(shots, { recursive: true });
         const measure = () => page.evaluate(() => {

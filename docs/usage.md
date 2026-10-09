@@ -103,8 +103,8 @@ The global coordinator remains in the header with its own conversation, draft, a
 In VS Code, Home and Runs stay within the selected environment; "Switch environment" in the
 view title bar chooses another server or local profile.
 Settings and Help are buttons at the top right, shown according to your permissions; next to
-them, Sign out names your account in its tooltip, and VS Code adds Open in browser. A guided template uses
-the preparation dialog and chat before starting.
+them, Sign out names your account in its tooltip, and VS Code adds Open in browser. A guided template opens
+only its guide as a dialog over Start; closing it leaves Start as it was.
 
 ## Run chat and inspection
 
@@ -340,9 +340,9 @@ refuses such a run at its start, because the server hands files to that account 
 storage. A system prompt of the same name in the plugin folder and in
 `SYSTEM_PROMPTS_DIR` is a hard error.
 
-## Skill templates in the start selection
+## Skill templates on Start
 
-The start selection shows the same compact cards as Start in VS Code: a title, two lines of
+Start shows the same compact cards in the browser and in VS Code: a title, two lines of
 description, and an always-visible action icon at the top right. Hover or keyboard focus
 emphasizes the icon; clicking anywhere on the card performs its action. Cards share the same
 flat appearance, with no category row or bottom action bar. Categories remain freely chosen
@@ -354,12 +354,14 @@ ragents.reference", the templates and building blocks of the actor programs in
 [actor-programs.md](spec/actor-programs.md).
 
 The play icon starts the run immediately with the skill's task. The sliders icon ("Set up")
-first opens the guide; after that it leads into the preparation chat in the next dialog step. There the
+first opens only the guide as a dialog over Start; its answer moves the same dialog on to the
+preparation chat ("Prepare task"). There the
 task can be discussed with a separate coordinator instance, and model, thinking level,
 system prompts, and workspace are available for selection. After your explicit go-ahead in any wording, it starts
 the run; no fixed sentence is needed. "Create run" starts directly. Both paths take over
-conversation, skill, and attachments; the button also takes the last unsent addition. Back
-discards the local preparation history and leads to the start selection. At startup, the
+conversation, skill, and attachments; the button also takes the last unsent addition. The X and
+Escape close the dialog completely in either step, as does the guide's Cancel; this discards the
+local preparation history and leaves Start as it was. At startup, the
 skill is taken over with the task; the edited task takes precedence over example text in the skill.
 As the machine, the workspace in the browser offers only the server, in the VS Code run panel also
 the connected workstations. An existing server folder is available only to administrators;
@@ -369,9 +371,11 @@ for longer lists.
 
 ## Start run scripts
 
-The homepage samples are available in the start selection as run scripts: collection board,
+The homepage samples are available on Start as run scripts: collection board,
 balcony wizard, study afternoon, and word game. In the built-in help, "Start sample" selects
-the matching template directly. An existing setup dialog still comes first.
+the matching template directly. A template's guide still comes first. After its answer the guide
+dialog shows "Starting run" until the run opens; if the server refuses the start, the guide stays
+open with its entries and names the reason.
 Word game and study afternoon first set up their participants and mini-app without a model call;
 the work begins with the start button in the app. Their homepage previews use
 the same interfaces with labeled example data and do not call any models.

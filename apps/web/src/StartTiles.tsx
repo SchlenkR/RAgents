@@ -1,5 +1,7 @@
 import { PlayIcon, PlusIcon, SlidersHorizontalIcon } from "lucide-react";
+import { canStartEntry, type AccessContext } from "../../../packages/ragents/src/access";
 import type { ConnectionEntry } from "./panel/contract";
+import type { PluginRegistry } from "./PluginRegistry";
 import { Spinner } from "./ui";
 import { focusRing } from "./ui/interaction";
 
@@ -43,11 +45,19 @@ export function StartTile({ title, description, action, standard, disabled, star
   </li>;
 }
 
+/** The templates this user may start, as Start shows them in the browser and in the VS Code panel. */
+export const connectionEntriesOf = (registry: PluginRegistry, access: AccessContext): ConnectionEntry[] => registry.startEntries
+  .filter((entry) => canStartEntry(access, entry.id))
+  .map((entry) => ({
+    id: entry.id, title: entry.title, description: entry.description, kind: entry.action,
+    category: entry.category ?? (access.can("runs.inspect") ? "Run scripts" : "Workflows"), guided: registry.guideFor(entry) !== undefined,
+  }));
+
 /** How many tiles StartTiles shows: the templates, plus New chat when there is no default template. */
 export const startTileCount = (entries: readonly ConnectionEntry[], defaultEntry: string | undefined, newChat: boolean): number =>
   entries.length + (defaultEntry === undefined && newChat ? 1 : 0);
 
-/** A server's templates as tiles, the default template or New chat first: Start in VS Code and the start selection in the browser. */
+/** A server's templates as tiles on Start, the default template or New chat first, in the browser and in VS Code. */
 export function StartTiles({ entries, defaultEntry, label, disabled = false, starting, onNewChat, onStart }: {
   entries: readonly ConnectionEntry[];
   defaultEntry?: string;

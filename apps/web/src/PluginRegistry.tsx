@@ -384,7 +384,7 @@ export interface ProductProfile {
   plugins: WebPlugin[];
   product: ProductDescriptor;
   startEntries: readonly StartEntry[];
-  /** The template the start selection shows first instead of New chat; the server names it only if it also delivers it. */
+  /** The template Start shows first instead of New chat; the server names it only if it also delivers it. */
   defaultStartEntry?: string;
 }
 

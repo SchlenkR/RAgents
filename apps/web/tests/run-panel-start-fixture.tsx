@@ -121,6 +121,7 @@ const fixture = {
     })) : []),
   ] as ListedSession[],
   holdStart: false,
+  startError: undefined as string | undefined,
   activate() { fixture.activation = { status: "ready", registry, failures: [] } as PluginActivationState; activationListeners.forEach((listener) => listener(fixture.activation)); },
   onActivation(listener: (state: PluginActivationState) => void) { activationListeners.add(listener); return () => { activationListeners.delete(listener); }; },
   command(message: HostRunPanelMessage) { commands.forEach((listener) => listener(message)); },
@@ -159,6 +160,7 @@ const fixture = {
       case "ragents.chat.start": {
         const runId = params.runId!;
         fixture.starts.push({ runId, entry: params.entry!, input: params.input });
+        if (fixture.startError !== undefined) throw new Error(fixture.startError);
         return fixture.holdStart ? new Promise<null>((resolve) => { heldStarts.set(runId, () => resolve(null)); }) : null;
       }
       case "ragents.runs.scripts": return [

@@ -5,11 +5,13 @@ import { startEntryDirectly } from "../chat/requests";
 import { initialStartOptionUpdates, withoutFixedStartOptions } from "../StartOptions";
 import { AccessScreen, useAccess } from "../AccessContext";
 import type { SessionInfo } from "../api";
-import { PluginChat } from "../PluginChat";
+import { PluginChat, type StartDialog } from "../PluginChat";
 import type { PluginRegistry } from "../PluginRegistry";
 import { usePluginActivation } from "../PluginActivation";
 import { PluginFailureNotice } from "../PluginFailureNotice";
 import { connectionRunOf } from "../run-overview";
+import { connectionEntriesOf } from "../StartTiles";
+import { templateStarting } from "../StartEntryDialog";
 import { openSharing, REVOKED_SHARE_NOTICE, revokeSharing, saveSharing } from "../run-sharing";
 import { PanelPage } from "../panel/PanelPage";
 import type { PanelAction, PanelState } from "../panel/contract";
@@ -43,7 +45,6 @@ const noticeClass = "m-auto max-w-[420px] p-6 text-center text-muted-foreground"
 const newDraft = (): SessionInfo => ({ id: crypto.randomUUID(), title: NEW_RUN_TITLE, updatedAt: Date.now() });
 const placeholderSession = (id: string, title = "Run"): SessionInfo => ({ id, title, updatedAt: Date.now() });
 const profileLoading: StartupNoticeState = { kind: "working", title: "Loading profile", detail: "Loading the server's interface." };
-const launchStarting: StartupNoticeState = { kind: "working", title: "Starting run", detail: "Starting the template." };
 
 /** The run panel: a run with chat and mini-apps, without a run the shared Start page; layout=app shows one mini-app. */
 export function RunPanelApp({ location }: { location: RunPanelLocation }) {
@@ -94,7 +95,7 @@ function RunPanelPage({ connection, initialRunId, registry }: { connection: stri
   const [focusRunId, setFocusRunId] = useState(initialRunId);
   const settleAutoFocus = useCallback(() => setFocusRunId((pending) => pending === runId ? undefined : pending), [runId]);
   const [runStartOptions, setRunStartOptions] = useState<Readonly<Record<string, unknown>>>();
-  const [draft, setDraft] = useState<{ session: SessionInfo; startOptions?: Readonly<Record<string, unknown>>; entryId?: string }>();
+  const [draft, setDraft] = useState<Omit<StartDialog, "onClose"> & { readonly session: SessionInfo; readonly startOptions?: Readonly<Record<string, unknown>> }>();
   const [launch, setLaunch] = useState<Launch>();
   /** The run whose start still counts; a later click, another run, or going back replaces it. */
   const launching = useRef<string>(undefined);
@@ -107,10 +108,6 @@ function RunPanelPage({ connection, initialRunId, registry }: { connection: stri
   const openSettings = useCallback(() => setSettingsOpen(true), []);
   const { sessions, unreachable, refresh } = useSessionList(readRuns && !draft && !launch);
   const [headerContainer, setHeaderContainer] = useState<HTMLDivElement | null>(null);
-  const startDraft = useCallback((startOptions?: Readonly<Record<string, unknown>>, entryId?: string) => {
-    const fixed = registry.startEntries.find((entry) => entry.id === entryId)?.fixedStartOptions;
-    setDraft({ session: newDraft(), startOptions: startOptions && withoutFixedStartOptions(startOptions, fixed), entryId });
-  }, [registry]);
   const openRun = useCallback((id: string, startOptions?: Readonly<Record<string, unknown>>) => {
     setDraft(undefined);
     replaceLaunch(undefined);
@@ -132,6 +129,20 @@ function RunPanelPage({ connection, initialRunId, registry }: { connection: stri
       (cause: unknown) => { if (launching.current === next.runId) setLaunch({ ...next, error: cause instanceof Error ? cause.message : String(cause) }); },
     );
   }, [access, openRun, registry, replaceLaunch]);
+  /** New chat opens a fresh run, a template with a guide only its guide over the current page, every other template starts right away. */
+  const startNew = useCallback((entryId: string | undefined, startOptions?: Readonly<Record<string, unknown>>) => {
+    const entry = registry.startEntries.find((candidate) => candidate.id === entryId);
+    const guide = entry && registry.guideFor(entry);
+    setRunTitle(entry?.title ?? NEW_RUN_TITLE);
+    if (entryId === undefined) openFreshRun(startOptions);
+    else if (entry !== undefined && guide !== undefined) {
+      replaceLaunch(undefined);
+      setDraft({ session: newDraft(), entry, guide, startOptions: startOptions && withoutFixedStartOptions(startOptions, entry.fixedStartOptions) });
+    } else startLaunch({ runId: crypto.randomUUID(), entryId, startOptions });
+  }, [openFreshRun, registry, replaceLaunch, startLaunch]);
+  const newRunRefusal = useCallback((entryId: string | undefined): string | undefined => !canCreate ? "New runs are not enabled for this user account."
+    : entryId === undefined ? canCreateFree ? undefined : "Free runs are not enabled for this user account."
+      : canStartEntry(access, entryId) ? undefined : "This template is not enabled for this user account.", [access, canCreate, canCreateFree]);
   /** Return to this server's Start page and tell the host which run is open. */
   const leaveToStart = useCallback((notice: string | undefined) => {
     setFocusRunId(undefined);
@@ -177,28 +188,10 @@ function RunPanelPage({ connection, initialRunId, registry }: { connection: stri
       setHelpOpen(false);
     }
     if (message.type !== "newRun") return;
-    if (host.kind !== "vscode") {
-      if (canCreate) startDraft(message.startOptions, message.entryId);
-      return;
-    }
-    // In the panel a click is a click: only a guide asks questions first as in the web app, the free task is formed in the chat.
-    const refused = !canCreate ? "New runs are not enabled for this user account."
-      : message.entryId === undefined && !canCreateFree ? "Free runs are not enabled for this user account." : undefined;
+    const refused = newRunRefusal(message.entryId);
     setNavigationError(refused);
-    if (refused !== undefined) return;
-    const entry = registry.startEntries.find((candidate) => candidate.id === message.entryId);
-    setRunTitle(entry?.title ?? NEW_RUN_TITLE);
-    if (message.entryId === undefined) {
-      openFreshRun(message.startOptions);
-      return;
-    }
-    if (entry !== undefined && registry.guideFor(entry) !== undefined) {
-      replaceLaunch(undefined);
-      startDraft(message.startOptions, entry.id);
-      return;
-    }
-    startLaunch({ runId: crypto.randomUUID(), entryId: message.entryId, startOptions: message.startOptions });
-  }), [canCreate, canCreateFree, host, openFreshRun, registry, replaceLaunch, startDraft, startLaunch]);
+    if (refused === undefined) startNew(message.entryId, message.startOptions);
+  }), [host, newRunRefusal, replaceLaunch, startNew]);
   useEffect(() => { host.notify({ type: "ready" }); }, [host]);
   useEffect(() => { host.notify({ type: "runChanged", runId: runId ?? null }); }, [host, runId]);
 
@@ -209,7 +202,7 @@ function RunPanelPage({ connection, initialRunId, registry }: { connection: stri
       onStartSample={(entryId) => {
         if (!canStartEntry(access, entryId)) return;
         setHelpOpen(false);
-        startDraft(undefined, entryId);
+        startNew(entryId);
       }} />}
   </>;
   const toStart = <Button onClick={showStart} size="sm" variant="outline">Back to Start</Button>;
@@ -219,9 +212,9 @@ function RunPanelPage({ connection, initialRunId, registry }: { connection: stri
     onStarted={() => { openRun(draft.session.id); setRunTitle((title) => title ?? NEW_RUN_TITLE); void refresh(); }}
     registry={registry}
     session={draft.session}
-    startDialog={{ onClose: host.kind === "vscode" ? showStart : () => setDraft(undefined), initialEntryId: draft.entryId }}
+    startDialog={{ entry: draft.entry, guide: draft.guide, onClose: () => setDraft(undefined) }}
   />;
-  const hasRunTitle = readRuns && Boolean(runId || launch || draft);
+  const hasRunTitle = readRuns && Boolean(runId || launch);
   const listed = sessions.find((entry) => entry.id === runId);
   const session = useRetainedSession(sessions, runId);
   const shareableBeforeStart = access.enabled && access.user !== null && writeRuns && runId !== undefined && runId === freshRunId;
@@ -243,13 +236,8 @@ function RunPanelPage({ connection, initialRunId, registry }: { connection: stri
   const content = () => {
     if (launch) return <>
       {launch.error === undefined
-        ? <PendingPanel bar headless state={launchStarting} />
+        ? <PendingPanel bar headless state={templateStarting} />
         : <PendingPanel bar headless state={{ kind: "error", title: "The run could not be started", detail: launch.error }}>{toStart}</PendingPanel>}
-      {settings}
-    </>;
-    if (host.kind === "vscode" && draft) return <>
-      <PendingPanel bar headless state={launchStarting} />
-      {draftChat}
       {settings}
     </>;
     const connectionName = connection ?? registry.brand.title;
@@ -271,10 +259,7 @@ function RunPanelPage({ connection, initialRunId, registry }: { connection: stri
         canCreateFree,
         canDelete: access.can("runs.delete"),
         defaultEntry: registry.startEntries.some((entry) => entry.id === registry.defaultStartEntry && canStartEntry(access, entry.id)) ? registry.defaultStartEntry : undefined,
-        entries: registry.startEntries.filter((entry) => canStartEntry(access, entry.id)).map((entry) => ({
-          id: entry.id, title: entry.title, description: entry.description, kind: entry.action,
-          category: entry.category ?? (access.can("runs.inspect") ? "Run scripts" : "Workflows"), guided: registry.guideFor(entry) !== undefined,
-        })),
+        entries: connectionEntriesOf(registry, access),
         runs: readRuns ? sessions.map(connectionRunOf) : [],
       }],
     };
@@ -293,13 +278,9 @@ function RunPanelPage({ connection, initialRunId, registry }: { connection: stri
             host.notify({ type: "newRun", ...(action.entryId === undefined ? {} : { entryId: action.entryId }) });
             return;
           }
-          if (!canCreate || action.entryId === undefined && !canCreateFree) throw new Error("New runs are not enabled.");
-          if (action.entryId && !canStartEntry(access, action.entryId)) throw new Error("This template is not enabled.");
-          const entry = registry.startEntries.find((entry) => entry.id === action.entryId);
-          setRunTitle(entry?.title ?? NEW_RUN_TITLE);
-          if (entry && registry.guideFor(entry)) startDraft(undefined, entry.id);
-          else if (action.entryId) startLaunch({ runId: crypto.randomUUID(), entryId: action.entryId });
-          else openFreshRun();
+          const refused = newRunRefusal(action.entryId);
+          if (refused !== undefined) throw new Error(refused);
+          startNew(action.entryId);
           return;
         }
         case "deleteRuns":
@@ -372,7 +353,7 @@ function RunPanelPage({ connection, initialRunId, registry }: { connection: stri
         </div>
       </div>
       {hasRunTitle && <div className={runBarClass}>
-        {launch || draft ? <div aria-label="Run title bar" className="flex min-w-0 flex-1 items-stretch" role="region"><h1 className={pendingTitleClass}>{runTitle ?? NEW_RUN_TITLE}</h1></div>
+        {launch ? <div aria-label="Run title bar" className="flex min-w-0 flex-1 items-stretch" role="region"><h1 className={pendingTitleClass}>{runTitle ?? NEW_RUN_TITLE}</h1></div>
           : <div aria-label="Run title bar" className="flex min-w-0 flex-1 items-stretch" ref={setHeaderContainer} role="region" />}
       </div>}
     </>} trailing={<div className={actionsBarClass}>

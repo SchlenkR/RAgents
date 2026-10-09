@@ -247,17 +247,61 @@ const activeRun = (page: Page) => page.evaluate(() => window.runStartFixture.act
 const pause = (page: Page) => page.evaluate(() => new Promise<void>((resolve) => setTimeout(resolve, 300)));
 const browserOnly = { skip: process.env.RAGENTS_BROWSER_TESTS !== "1", timeout: 90_000 };
 
-test("a cancelled guide returns to the same server's Start page in VS Code", browserOnly, () => withPanel(async (page) => {
-  const templates = page.getByRole("list", { name: "Templates", exact: true });
-  await templates.locator('button[data-tile="Round with a guide"]').click();
-  await page.getByRole("button", { name: "Cancel guide", exact: true }).click();
-  await templates.waitFor();
-  await page.getByRole("list", { name: "Recent", exact: true }).getByRole("button", { name: /Existing run/ }).waitFor();
-  assert.deepEqual(await starts(page), [], "Cancelling the guide creates no run.");
-  assert.equal(await activeRun(page), undefined);
-  assert.equal(await page.locator("[data-startup]").count(), 0);
-  assert.ok((await page.evaluate(() => window.runStartFixture.notifications)).some((message) => message.type === "showStart"));
-}));
+for (const host of ["browser", "vscode"] as const) {
+  test(`a guided template opens only its guide over Start, which closes completely and starts with its answer, in ${host}`, browserOnly, () => withPanel(async (page) => {
+    const templates = page.getByRole("list", { name: "Templates", exact: true });
+    const dialog = page.getByRole("dialog");
+    const apply = dialog.getByRole("button", { name: "Apply topic", exact: true });
+    const openGuide = async () => {
+      await templates.locator('button[data-tile="Round with a guide"]').click();
+      await apply.waitFor();
+      assert.equal(await dialog.count(), 1, "The guide is the only dialog.");
+      assert.equal(await dialog.getByRole("heading", { name: "Round with a guide", exact: true }).count(), 1);
+      assert.equal(await dialog.locator("[data-tile]").count(), 0, "The guide dialog shows no start tile.");
+    };
+    const closed = async (way: string) => {
+      await page.locator('[data-slot="dialog-content"]').waitFor({ state: "detached" });
+      await page.getByRole("list", { name: "Recent", exact: true }).getByRole("button", { name: /Existing run/ }).waitFor();
+      assert.equal(await page.locator('[role="dialog"], [data-slot="dialog-overlay"]').count(), 0, `${way} leaves no dialog in the page.`);
+      assert.equal(await templates.getByRole("button", { disabled: true }).count(), 0, `${way} leaves Start as it was.`);
+      assert.equal(await page.locator("[data-startup]").count(), 0);
+      assert.deepEqual(await starts(page), [], `${way} creates no run.`);
+      assert.equal(await activeRun(page), undefined);
+    };
+    await openGuide();
+    await dialog.getByRole("button", { name: "Close", exact: true }).click();
+    await closed("The X");
+    await openGuide();
+    await page.keyboard.press("Escape");
+    await closed("Escape");
+    await openGuide();
+    await dialog.getByRole("button", { name: "Cancel guide", exact: true }).click();
+    await closed("Cancel");
+
+    await page.evaluate(() => { window.runStartFixture.startError = "The template is busy."; });
+    await openGuide();
+    await apply.click();
+    await dialog.getByRole("alert").filter({ hasText: "The run could not be started: The template is busy." }).waitFor();
+    assert.equal(await apply.isVisible(), true, "A refused start keeps the guide open with its reason.");
+    assert.equal(await activeRun(page), undefined);
+
+    await page.evaluate(() => { window.runStartFixture.startError = undefined; window.runStartFixture.holdStart = true; });
+    await apply.click();
+    await page.waitForFunction(() => window.runStartFixture.starts.length === 2);
+    const progress = dialog.locator('[data-startup="working"]');
+    await progress.waitFor();
+    assert.equal(await progress.locator("strong").textContent(), "Starting run");
+    assert.equal(await progress.getByRole("progressbar").count(), 1, "The dialog shows the start in place.");
+    assert.equal(await apply.isVisible(), false, "The guide waits behind the progress, so it cannot answer twice.");
+    assert.equal(await dialog.locator("[data-tile]").count(), 0);
+    const [, started] = await starts(page);
+    assert.deepEqual({ entry: started!.entry, input: started!.input }, { entry: "start.guided", input: "Night bus" }, "The guide supplies the start value.");
+    await page.evaluate((runId) => window.runStartFixture.releaseStart(runId), started!.runId);
+    await page.waitForFunction((runId) => window.runStartFixture.activeRun() === runId, started!.runId);
+    await page.locator('[data-slot="dialog-content"]').waitFor({ state: "detached" });
+    assert.equal(await page.getByRole("dialog").count(), 0, "The started run opens without a dialog.");
+  }, host === "browser" ? "?host=browser" : ""));
+}
 
 test("host navigation switches Start and Runs within the selected server and selectRun null returns to Start", browserOnly, () => withPanel(async (page) => {
   await page.evaluate(() => window.runStartFixture.command({ type: "showPage", page: "runs" }));
@@ -300,7 +344,7 @@ test("a preset start option the server refuses keeps a new run from starting and
   await refusal.waitFor();
   await pause(page);
   assert.equal(await page.getByRole("button", { name: "Apply topic" }).count(), 0, "The guide does not open with a refused preset.");
-  assert.equal(await page.getByRole("list", { name: "Templates", exact: true }).getByRole("button", { disabled: false }).count(), 0, "No template starts with the default instead.");
+  assert.equal(await page.getByRole("dialog").locator("[data-tile]").count(), 0, "The dialog offers no template instead.");
   assert.deepEqual(await starts(page), []);
 }, "?preset"));
 
@@ -314,25 +358,6 @@ test("a template with a guide asks first in VS Code, like in the web app, and st
   await page.waitForFunction((runId) => window.runStartFixture.activeRun() === runId, guided!.runId);
   const notifications = await page.evaluate(() => window.runStartFixture.notifications);
   assert.ok(notifications.some((message) => message.type === "runChanged" && message.runId === guided!.runId), "The extension learns the new run.");
-}));
-
-test("after its guide a template shows in the start selection that it is starting until the run opens", browserOnly, () => withPanel(async (page) => {
-  await page.evaluate(() => {
-    window.runStartFixture.holdStart = true;
-    window.runStartFixture.command({ type: "newRun", entryId: "start.guided" });
-  });
-  await page.getByRole("button", { name: "Apply topic" }).click();
-  await page.waitForFunction(() => window.runStartFixture.starts.length === 1);
-  const templates = page.getByRole("list", { name: "Templates", exact: true });
-  const tile = templates.locator('button[data-tile="Round with a guide"]');
-  await tile.waitFor();
-  assert.equal(await tile.getAttribute("aria-busy"), "true", "The answered template shows that it is starting.");
-  assert.equal(await tile.locator('[data-slot="start-action"]').textContent(), "Starting ...");
-  assert.equal(await tile.getAttribute("aria-label"), "Set up Round with a guide");
-  assert.equal(await templates.getByRole("button", { disabled: false }).count(), 0, "No other template starts meanwhile.");
-  const [guided] = await starts(page);
-  await page.evaluate((runId) => window.runStartFixture.releaseStart(runId), guided!.runId);
-  await page.waitForFunction((runId) => window.runStartFixture.activeRun() === runId, guided!.runId);
 }));
 
 test("in the browser a template on Start shows the start progress at once", browserOnly, async () => {

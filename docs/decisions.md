@@ -1,5 +1,23 @@
 # Decisions
 
+## 2026-10-09: A guided template opens only its guide, never a dialog with start tiles
+
+Chapters: `spec/plugins.md` (Web as plugin host: dialogs and `Modal`, start dialog and preparation, run panel host
+messages, Start, New runs in VS Code); usage: `usage.md` (Skill templates on Start, Start run scripts).
+
+Clicking a guided template on Start opened a page-wide dialog whose first page was the start selection with every
+start tile, and pushed the guide on top of it. X, Escape, and Cancel only popped the guide, so the dialog with the
+cards remained, and a `newRun` without a template in the browser opened that card dialog directly. A dialog never
+shows start tiles now: they exist only on Start and, as single items, in the run script list of an open run.
+`StartSelection` and `openStartEntry` are replaced by `StartEntryDialog`, which shows the guide as the only dialog
+over the page; X, Escape, the backdrop, and the guide's Cancel close it completely, in VS Code without the former
+`showStart` round trip. A run script then starts with the guide value and shows "Starting run" in place, an error
+keeps the guide with its entries; a skill moves on to the preparation chat in the same dialog without a way back.
+`RunPanelApp` handles Start clicks, host `newRun` messages, and Help samples in one path (`startNew`), so a
+`newRun` without a template opens the fresh run as New chat does, in both hosts. The page history of `Modal`
+(`modal-controller.ts`, `nextBehavior`, Back) lost its only user and is removed, as are the `data-preparation`
+marker and the `--container-composer` token. `HOST_API_VERSION` and `EXTENSION_API_VERSION` stay unchanged.
+
 ## 2026-10-08: One appearance mechanism after merging the readability work
 
 Chapters: `spec/plugins.md` (Web as plugin host: Appearance, UI library, Data grid, run panel header and host messages),

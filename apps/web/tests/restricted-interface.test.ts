@@ -8,9 +8,8 @@ import type { SessionInfo } from "../src/api";
 import { RunPanelHeader } from "../src/run-panel/RunPanelHeader";
 import { ChatStepsProvider, PluginRegistry, useChatSteps, type SessionContext } from "../src/PluginRegistry";
 import { ChatMessages, type Message, attachmentCapabilityError } from "quassel";
-import { StartSelection } from "../src/StartSelection";
-import { StartOptionsProvider } from "../src/StartOptions";
-import { createModalController, ModalControllerContext } from "../src/ui/modal-controller";
+import { PanelPage } from "../src/panel/PanelPage";
+import { connectionEntriesOf } from "../src/StartTiles";
 import { FlowInspector } from "../../../plugins/ragents.orchestration/web/FlowInspector";
 import { ActorChat } from "../../../plugins/ragents.orchestration/web/ActorChat";
 import type { RunActor, RunView } from "../src/run-view";
@@ -22,7 +21,7 @@ const renderRestricted = (children: ReactNode) => renderToStaticMarkup(createEle
   value: { ...operator, logout: async () => {} }, children,
 }));
 
-test("restricted launch shows only the allowed setup without free chat, composer or technical metadata", () => {
+test("restricted Start shows only the allowed setup without free chat, composer or technical metadata", () => {
   const registry = new PluginRegistry({
     brand: { title: "Example" }, product: { id: "example", title: "Example" }, plugins: [{ id: "example" }],
     startEntries: [
@@ -31,10 +30,10 @@ test("restricted launch shows only the allowed setup without free chat, composer
       { id: "example.skill", owner: "example", action: "skill", skill: "skill", category: "Free", title: "Free task", description: "Start freely", prompt: "Private start task" },
     ],
   });
-  const session = { session: { id: "run", title: "Run", updatedAt: 0 }, send: async () => {}, start: async () => {} } as unknown as SessionContext;
-  const modal = createModalController({ nextBehavior: () => "push", onClose: () => {} });
-  const html = renderRestricted(createElement(ModalControllerContext.Provider, { value: modal },
-    createElement(StartOptionsProvider, { connected: true, messageCount: 0, sessionId: "run" }, createElement(StartSelection, { registry, session, onOpen: () => {} }))));
+  const html = renderRestricted(createElement(PanelPage, { registry, send: () => {}, state: { theme: "dark", page: "start", profileSuggestions: [], connections: [{
+    name: "example", kind: "server", address: "http://localhost:4710", route: { kind: "server", host: "localhost:4710", localHost: false }, state: { kind: "connected" },
+    runs: [], entries: connectionEntriesOf(registry, operator), canCreate: true, canCreateFree: operator.can("runs.create"),
+  }] } }));
   assert.match(html, /Sync/);
   assert.doesNotMatch(html, />Workflows</);
   assert.match(html, /aria-label="Start Sync"/);

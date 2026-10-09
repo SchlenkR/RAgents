@@ -1643,7 +1643,7 @@ unrelated parent renders do not notify context consumers. Real chat, run-view, o
 still update the context.
 Global coordinator and other toolbar contributions stay mounted across run switches and starts;
 overview contributions retain their slot. Settings and Help are header buttons.
-Guided templates still use the existing preparation dialog and chat. Browser runs use the server.
+A guided template opens only its guide as a dialog over Start. Browser runs use the server.
 The journal remains in the shared bottom status bar and is also a dockable browser tool.
 
 The shared panel defaults to the primary chat actor. The addressee selector below the input
@@ -2317,27 +2317,15 @@ inert; bars outside stay operable; a click there does not close the dialog
 (`disablePointerDismissal`; a backdrop click still closes). Specifically provided local
 containers remain possible, such as for the reset confirmation over the global chat. The
 overview corner opens `workspace`; Settings and Help use `page`. Keyboard focus
-stays in the topmost dialog (`page` modal, otherwise `trap-focus`); Escape handles only its
-current step. Native controls such as `<select>` have no place in the interface.
+stays in the topmost dialog (`page` modal, otherwise `trap-focus`); Escape closes only the
+topmost one. Native controls such as `<select>` have no place in the interface.
 
-The page `Modal` in `apps/web/src/ui/modal.tsx` provides its content with a typed
-dialog controller. `useModalController()` requires such a host; outside one the
-call is an error.
-The contracts for pages and control are in `apps/web/src/ui/modal-controller.ts`.
-With `nextBehavior`, the host determines how a further step uses the same frame:
-`push` is the default and keeps the previous page with a way back; `replace` removes the
-current page and creates no additional way back. Already existing earlier steps
-are kept even when this host default changes. A new page provides its title,
-optionally a subtitle and initial focus target, as well as its content as a render function with the controller.
-
-The navigation uses one frame and one backdrop. Retained pages stay
-mounted but are hidden and inert. Back, Escape, and background click lead to the previous step
-when there is history; without history, Escape and background click request
-closing. The X and `controller.close()` request closing the whole dialog
-regardless of the history. All closing paths use the host's `onClose`; until
-it changes its props, a locked or asynchronously closing dialog stays.
-Back returns focus to the triggering element of the previous step. `open={false}`
-resets the navigation and keeps the root content mounted but hidden.
+The host's `Modal` in `apps/web/src/ui/modal.tsx` is one dialog frame with one backdrop and
+no page history. The X, Escape, and a background click all request closing through the
+host's `onClose`; until it changes its props, a locked or asynchronously closing dialog stays.
+A dialog with several steps, such as the start dialog of a guided template, swaps its own
+content and offers no way back. `open={false}` with `keepMounted` keeps the content
+mounted but hidden.
 On closing, the modal restores the previous focus only if it is still in the
 modal or on the document body. A deliberate switch from a run dialog into
 the toolbar input, which stays operable, is kept.
@@ -2593,42 +2581,37 @@ OCR fallback processing. TypeScript actors receive files as referenced artifacts
 The composer slot `toolbarLeft` is reachable only for the owner of the surface; the host deliberately offers no general
 composer toolbar slot.
 
-Guided templates and Help samples use a draft in a page-wide dialog named "New run".
-Closing discards the local draft without creating a run. The journal is created only when the run
-starts. The dialog uses the run, start-option, and plugin providers for preparation.
-Direct Start entries without a guide create an empty chat or launch the template immediately.
+Start tiles exist only on Start (`panel/StartPage.tsx` with the building block `StartTiles` in
+`apps/web/src/StartTiles.tsx`) and as single `StartTile` items in the run script list of an open
+run (`RunScriptMenu`); no dialog shows them. One path in `RunPanelApp` (`startNew`) handles a click
+on Start, a `newRun` from the host, and a Help sample, in the browser and in the VS Code panel alike.
+"New chat" and a `newRun` without a template open a fresh empty run whose task is created in the
+chat, only with `runs.create`. A template without a guide starts right away (`startLaunch` with
+`startEntryDirectly` from `apps/web/src/chat/requests.ts`): a run script through `ragents.chat.start`
+with the start value `null`, a skill through `ragents.chat.send` with its prepared task and the
+template as `entry`. A refused start names its reason on Start instead ("New runs are not enabled
+for this user account.", "Free runs are not enabled for this user account.", or "This template is
+not enabled for this user account."). New browser runs use the server workspace.
 
-The start selection looks like Start in VS Code and consists of the same building block
-`StartTiles` (`apps/web/src/StartTiles.tsx`) that `panel/StartPage.tsx` also uses: under the
-heading "New" with the number of entries, first the server's default template
-(`defaultStartEntry` from `ragents.plugins.bootstrap`, marker "Default") or, without one,
-"New chat", then the other templates in the server's order. Each card shows its title,
-two lines of description, and an always-visible action icon at the top right: plus for
-"New chat", play for a direct start, and sliders for a guide ("Set up"). Hover and keyboard
-focus emphasize the icon. There is no category row or bottom action bar, and skill and
-run script cards share the same flat appearance. Category metadata remains available;
-the start selection's width token limits them to 880 pixels. Task input, start options,
-search, and preview do not exist
-there. "New chat" is there only with `runs.create` and turns the draft into the open run without a request to the
-server, whose task is created in the chat; a skill is there only with `runs.create`.
-A template without a guide starts on click as in VS Code (`startEntryDirectly` in
-`apps/web/src/chat/requests.ts`, the same call as `startLaunch` in the run panel): a run script
-through `ragents.chat.start` with the start value `null`, a skill through `ragents.chat.send` with its
-prepared task and the template as `entry`. The browser uses the same Start page with one
-server. Guided starts use the preparation dialog. New browser runs use the server workspace.
-While start options are loading or being saved, such as the preset from VS Code, and
-as long as a start is running, the tiles are locked. A preset that does not apply keeps them
-locked and names its cause above them (`presetErrors`, described with the run panel's host below),
-so the template's guide does not open either. The tile of the running start (`StartTiles`
-prop `starting`, an `entryId` or none for New chat) keeps full opacity, carries `aria-busy`, and
-shows a `Spinner` with "Starting ..." in the top-right action position (`StartTile` prop `starting`).
+A template with a guide opens only that guide as the one page-wide dialog over the current page
+(`StartEntryDialog` in `apps/web/src/StartEntryDialog.tsx`), titled with the template and its
+description. It belongs to a local draft (`PluginChat` prop `startDialog`) that provides the run,
+start-option, and plugin providers; the journal is created only when the run starts. The X,
+Escape, a background click, and the guide's `onCancel` close the dialog completely and discard
+the draft without creating a run; the page below stays as it was, in VS Code without a message to
+the extension. While start options are loading or being saved, such as the preset from VS Code,
+the dialog shows "Opening template" instead of the guide; a preset that does not apply names its
+cause there (`presetErrors`, described with the run panel's host below), and the guide does not open.
+The tile of a running start (`StartTiles` prop `starting`, an `entryId` or none for New chat)
+keeps full opacity, carries `aria-busy`, and shows a `Spinner` with "Starting ..." in the
+top-right action position (`StartTile` prop `starting`); meanwhile every tile is locked.
 During the start dialog, the live stream and periodic query of the hidden run list pause.
 After closing, they resume with an immediate refresh.
 The draft subscribes only to the run stream to detect the start. Only the started run
 opens a chat stream.
 
-The guide of a skill template leads with its result into the next step in the same
-modal. There a preparation chat begins with the editable prompt in the original quassel control, initially centered, after
+The guide of a skill template leads with its result into the preparation chat in the same
+dialog, titled "Prepare task", without a way back to the guide. The preparation chat begins with the editable prompt in the original quassel control, initially centered, after
 the first message below the history. `ChatPanel`, `ChatMessages`, and `ChatInputToolbar` as well as
 the same start options provide presentation, model choice, thinking level, and attachments. Sending discusses
 the task with a separate preparation instance of the coordinator. It uses the
@@ -2640,8 +2623,7 @@ ask. The separate button "Create run" still starts directly, both through
 `ragents.chat.send` with the template's ID as `entry`. Both paths take over the discussed
 history, skill, and attachments as the first run task; the button also takes along the last unsent
 addition. Model responses are explicitly suggestions here. Errors keep the input;
-"Stop discussion" cancels the request. Back keeps the start selection; the local
-preparation history is discarded when leaving its step.
+"Stop discussion" cancels the request. Closing the dialog discards the local preparation history.
 
 `ragents.runs.prepare` receives `RunPreparationRequest` and returns `RunPreparationResponse`;
 the contract is in `apps/server/src/run-preparation-contract.ts`. The host uses the same
@@ -2663,20 +2645,19 @@ responses start no run.
 
 When the run is created, the selected skill stays linked to the task and is loaded for
 its first turn. The current, edited task takes precedence over a
-default or example task in the skill. Back returns to the start selection within preparation;
-cancelling the dialog returns to this server's Start page.
-A run script opens its guide or starts directly;
-as long as the start request is running, further starts are locked. Errors appear in the start selection.
-A run script calls `ragents.chat.start { runId, entry, input }` with the guide result
-as `input`. A workflow without a coordinator says so. After `send` or `start` is accepted, the start dialog closes
+default or example task in the skill.
+After its guide, a run script calls `ragents.chat.start { runId, entry, input }` with the guide result
+as `input`. Meanwhile the dialog shows "Starting run" with the progress bar in place of the hidden
+guide, which cannot answer a second time. A rejected request shows the guide again with its
+entries and names the reason above it ("The run could not be started: <reason>"). A workflow
+without a coordinator says so. After `send` or `start` is accepted, the start dialog closes
 and opens the new run. In addition, the draft observes the existing run stream: as soon as
 the server delivers a run, the interface switches into this run even while the start response is still pending.
 The transition is reported only once. During a running
 run query, further stream updates are combined into one follow-up query;
 slow responses therefore stay visible even with continuous events. A run switch
 or unmount discards late responses. An already closed start dialog cannot close a new draft through
-its old start response. A rejected request without a created
-run stays visible as an error in the dialog. The
+its old start response. The
 run list is called "Runs", the default title is "New run"; a run script gives the run its
 title.
 As long as the surface has no visible content yet, it shows an animated progress bar
@@ -2769,8 +2750,7 @@ five-second fetch remains for further metadata. The actual model response has
 no guaranteed immediate running time. Titles from `run_configure` or a prepared setup
 still take precedence; stored automatic titles are kept when the model changes.
 
-"New run" is the only main action of the run list: the first card of the list (with zero
-runs the only one), as in the run panel, and it switches to the start dialog. Single and multiple deletion with All/None, confirmation, and
+The run list offers no new run; new runs start from the tiles on Start. Single and multiple deletion with All/None, confirmation, and
 visible errors are kept; the profile rights determine whether opening, creating, or
 deleting is offered. Without a run read right and without a visible contribution there is no corner.
 The global header stays in one bar: the brand logo on the left, the global coordinator button beside
@@ -3169,22 +3149,22 @@ The run panel talks to its host through `apps/web/src/run-panel/host.ts`. The ho
 embedded) sends `ready`, `runChanged`, `showStart`, `openInCenter`, `login`, `logout`,
 `openExternal`, `openPage`, `appearanceChanged`, and `openService` (a service of a run, section Workspace, sandbox tools,
 and processes) through `postMessage` to the surrounding window and receives from there `selectRun`, `newRun`
-(with preset start options and optionally the ID of a template, which the start selection then
-opens right away), `theme`, and `appearance`; the
+(with preset start options and optionally the ID of a template, which then starts right away or
+opens its guide), `theme`, and `appearance`; the
 import-free contract is in `run-panel/host-contract.ts`. Starting or opening a run in either host
 requests focus once for its visible writable chat input, including a remembered nonprimary
 addressee. This includes direct run URLs and `selectRun`. The request waits for the chat
 connection and remembered addressee; explicit user interaction or another dialog cancels it.
 Pure mini-apps receive no chat focus; reconnections or messages do not bring it back.
-If the panel cannot execute a `newRun` because the right to new runs is missing or a free run is requested
-without `runs.create`, it shows the reason and "Back to Start" (`showStart`) instead of the loading state.
+If the panel cannot execute a `newRun` because the right to new runs is missing, a free run is requested
+without `runs.create`, or the template is not enabled for the user, it shows the reason and "Back to Start" (`showStart`) instead of the loading state.
 The preset start options of a `newRun` are the provider's `initialValues` (`StartOptionsProvider` in
 `apps/web/src/StartOptions.tsx`); they apply once the run's options have loaded and no reload is under
 way, only to options the run lets you choose (`initialStartOptionUpdates`). Until then the chat input
 of the empty run does not send (`applyingPresets`). If the server refuses a preset, the options do not
 load, or the user lacks `runs.create`, `presetErrors` names the cause: the chat input and the start
-selection show "The run cannot start as prepared: <cause>", the input does not send, and no template
-starts, until the refused option is set successfully or a later load applies the waiting presets.
+dialog show "The run cannot start as prepared: <cause>", the input does not send, and the guide does
+not open, until the refused option is set successfully or a later load applies the waiting presets.
 The run thus never starts with the defaults instead of the preset.
 `?theme=light|dark` sets the appearance
 on loading. If the page runs without a sign-in cookie, it carries the access token from `?access=`:
@@ -3364,8 +3344,8 @@ the grid is `repeat(auto-fill, minmax(240px, 1fr))`, with cards capped at 320 pi
 column, without horizontal overflow. At the maximum content width the grid has five columns.
 There is no search here, and `ListDetail` does not fit, because it measures itself by its own
 width and would become a list with a detail page at 420 pixels (decisions of 09/19 and
-09/21/2026). The tiles including the heading are the building block `StartTiles`, the same as in
-the browser's start selection.
+09/21/2026). The tiles are the building block `StartTiles`; the run script list of an open run
+shows the same single `StartTile`.
 
 **Continue** follows with the selected server's last
 fifteen runs in `RunList` (`panel/RunLine.tsx`): a CSS grid with the columns state, title, and time,
@@ -3447,8 +3427,8 @@ Start ("Workstation not registered: <message>" for a failure). While the worksta
 registering, it waits for the registration (`ConnectionSession.registeredWorkspaceClient`) and shows
 its current preparation step in a progress notification. The run panel applies only start options the
 template does not fix (`withoutFixedStartOptions`). Direct templates use `startLaunch`, guided
-ones the shared preparation dialog and chat. Cancelling a guide returns to this server's Start
-page. A cancelled folder choice or failed start releases the pending tile; an environment
+ones open only their guide over Start, as in the browser. Closing the guide leaves this server's
+Start page as it was. A cancelled folder choice or failed start releases the pending tile; an environment
 switch or newer navigation prevents a late start result from reopening the old environment.
 An already created run remains on its server.
 The default template comes from `defaultStartEntry` in `ragents.plugins.bootstrap`; `RunStore`
@@ -4738,7 +4718,7 @@ one example. Its single category is in `category`, independent of concept tags.
 The `description` of every demo template names its demonstration purpose in short prose:
 which concepts work together and what is meant to become observable. This applies to skills and
 run scripts; for similar cases it names the difference. The text is directly in the
-existing description field and appears in the start selection and the reference.
+existing description field and appears on Start and in the reference.
 The host has no fixed list of permitted categories. The reference templates use, among
 others, Mini-apps, TypeScript without UI, Collaboration, and Code and diagnostics. The
 mini-app group contains pure views, shared functions, LLM views, several views

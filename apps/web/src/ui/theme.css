@@ -34,7 +34,6 @@
     --text-prose-h4: 0.8em;
     --text-prose-h4--line-height: 1.5;
     --radius-panel: calc(var(--radius) * 2);
-    --container-composer: 880px;
     --animate-fade-pulse: fade-pulse 1.9s cubic-bezier(0.2, 0.6, 0.35, 1) infinite;
     --animate-working-pulse: working-pulse 1.6s ease-in-out infinite;
     --animate-ring-pulse: ring-pulse 1.6s ease-in-out infinite;

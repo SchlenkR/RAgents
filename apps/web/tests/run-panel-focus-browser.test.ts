@@ -78,10 +78,10 @@ test("opening runs focuses the visible chat once in browser and VS Code without 
     await ready();
     assert.equal(await focused(), true, "Browser run URLs focus the composer too.");
     await page.evaluate(() => window.runFocusFixture.command({ type: "newRun" }));
-    await page.getByRole("button", { name: /New chat/ }).click();
     await page.waitForFunction(() => window.runFocusFixture.activeRun() !== undefined && window.runFocusFixture.activeRun() !== "existing");
+    assert.equal(await page.locator("[data-tile]").count(), 0, "A new browser run without a template opens directly, without start tiles.");
     await ready();
-    assert.equal(await focused(), true, "A new browser run focuses its composer after the start dialog closes.");
+    assert.equal(await focused(), true, "A new browser run focuses its composer.");
     await page.locator("#outside").click();
     await page.evaluate(() => window.runFocusFixture.command({ type: "selectRun", runId: "existing" }));
     await page.waitForFunction(() => window.runFocusFixture.activeRun() === "existing");
