@@ -3351,7 +3351,7 @@ the whole run is called "Stop run" everywhere, interrupting the running turn in 
 work".
 
 **Shared page width.** `PanelPage` owns the content column with side padding: the Start dashboard
-uses the full width, Runs and Server in VS Code one centered column of at most 1280 pixels, in both hosts. The browser
+uses the full width with a wider outer margin on desktop widths, Runs and Server in VS Code one centered column of at most 1280 pixels, in both hosts. The browser
 page host adds no second padding; the outer header remains full width. The Runs search field
 and run rows use the same bounded column.
 

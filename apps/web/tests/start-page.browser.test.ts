@@ -393,7 +393,7 @@ for (const view of ["web", "start"] as const) {
           };
         });
         const checkColumn = (metrics: Awaited<ReturnType<typeof measure>>, bounded: boolean) => {
-          assert.ok(metrics.width > 0 && (bounded ? metrics.width <= 1280 : metrics.width >= metrics.hostWidth - 32), JSON.stringify(metrics));
+          assert.ok(metrics.width > 0 && (bounded ? metrics.width <= 1280 : metrics.width >= metrics.hostWidth - 96), JSON.stringify(metrics));
           assert.ok(Math.abs(metrics.left - metrics.hostLeft - (metrics.hostWidth - metrics.width) / 2) < 2, "content is centered in its host");
           assert.ok(metrics.rows.every((row) => row <= metrics.width + 1));
           assert.equal(metrics.overflow, false, JSON.stringify(metrics));
@@ -407,7 +407,7 @@ for (const view of ["web", "start"] as const) {
         const compact = start.widgetWidth! < 448;
         assert.equal(start.columns, compact ? 1 : Math.floor((start.widgetWidth! + 8) / 248));
         assert.equal(start.cards.filter((card) => card.top === start.cards[0]!.top).length, Math.min(start.columns!, start.cards.length), "cards occupy each column");
-        assert.ok(start.cards.every((card) => compact ? Math.abs(card.width - start.gridWidth!) < 1 : card.width <= 320 && card.width >= 240), "narrow widgets list compact rows");
+        assert.ok(start.cards.every((card) => compact || start.columns === 1 ? Math.abs(card.width - start.gridWidth!) < 1 : card.width <= 320 && card.width >= 240), "narrow widgets list compact rows, a single column fills its widget");
         assert.equal(start.back, false, "Start has no back arrow");
         if (!start.tabs) {
           assert.ok(start.headingGap! >= 8, `a heading stands apart from its content: ${JSON.stringify(start)}`);

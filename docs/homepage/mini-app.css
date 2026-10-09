@@ -3800,6 +3800,14 @@
       text-wrap: pretty;
     }
   }
+  @media (width >= 64rem) {
+    .lg\:px-8 {
+      padding-inline: calc(var(--spacing) * 8);
+    }
+    .lg\:pt-8 {
+      padding-top: calc(var(--spacing) * 8);
+    }
+  }
   @container list-detail (width < 900px) {
     .\@max-\[900px\]\/list-detail\:flex {
       display: flex;
