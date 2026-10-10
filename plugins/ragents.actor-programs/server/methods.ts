@@ -31,10 +31,10 @@ export const createActorProgramMethods = (options: ActorProgramMethodOptions): M
   const session = (runId: string, code: string, status: number): void =>
     guarded(code, status, () => options.ensureSession(runId));
   return [
-    implement(actorProgramContracts.apps, ({ runId }, { access }) => {
+    implement(actorProgramContracts.apps, ({ runId, actorId }, { access }) => {
       session(runId, "run-unavailable", 400);
       return {
-        apps: options.runtime.apps(runId),
+        apps: options.runtime.apps(runId, actorId),
         tools: access.can("runs.inspect") ? options.runtime.runLocalTools(runId) : [],
       };
     }),

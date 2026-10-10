@@ -48,6 +48,7 @@ export interface RunManagement {
   view: (runId: string) => RunView;
   events: (runId: string) => readonly JournalEvent[];
   create: (start: ManagedRunStart, signal?: AbortSignal) => Promise<string>;
+  globalSpace: (access: AccessContext, signal?: AbortSignal) => Promise<string>;
   /** A message operates the run; the host checks the same access for it as for the chat. */
   send: (runId: string, message: string, access: AccessContext, signal?: AbortSignal) => Promise<void>;
   /** With an access, the host checks the same access as for the chat's stop; without one it is the run's own stop. */

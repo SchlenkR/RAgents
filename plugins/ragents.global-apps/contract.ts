@@ -45,6 +45,15 @@ export const appTriggersSchema = object({
   interval: Type.Optional(object({
     everySeconds: Type.Integer({ minimum: 60, maximum: 604800 }),
   })),
+  daily: Type.Optional(object({
+    at: Type.String({ pattern: "^(?:[01][0-9]|2[0-3]):[0-5][0-9]$" }),
+    timeZone: Type.Optional(Type.String({ minLength: 1, maxLength: 128 })),
+  })),
+  weekly: Type.Optional(object({
+    at: Type.String({ pattern: "^(?:[01][0-9]|2[0-3]):[0-5][0-9]$" }),
+    days: Type.Array(Type.Union([Type.Literal("mon"), Type.Literal("tue"), Type.Literal("wed"), Type.Literal("thu"), Type.Literal("fri"), Type.Literal("sat"), Type.Literal("sun")]), { minItems: 1, maxItems: 7, uniqueItems: true }),
+    timeZone: Type.Optional(Type.String({ minLength: 1, maxLength: 128 })),
+  })),
   fileChange: Type.Optional(object({ folders: names() })),
 });
 
@@ -88,7 +97,8 @@ export const appPauseSchema = object({
 export const appTriggerSchema = object({
   key: Type.String(),
   scheduledAt: Type.String(),
-  reason: Type.Union([Type.Literal("interval"), Type.Literal("manual"), Type.Literal("file-change")]),
+  reason: Type.Union([Type.Literal("interval"), Type.Literal("daily"), Type.Literal("weekly"), Type.Literal("manual"), Type.Literal("file-change")]),
+  timeZone: Type.String(),
 });
 export const appResultSchema = object({
   outcome: Type.Union([Type.Literal("completed"), Type.Literal("failed"), Type.Literal("interrupted"), Type.Literal("timeout")]),
@@ -97,6 +107,7 @@ export const appResultSchema = object({
 });
 export const appSummarySchema = object({
   name,
+  actorId: Type.Union([Type.String(), Type.Null()]),
   description: Type.String(),
   triggers: appTriggersSchema,
   views: Type.Array(object({ id: Type.String(), title: Type.String(), revision: Type.String() })),
@@ -177,13 +188,6 @@ export type GlobalAppsSnapshot = Static<typeof globalAppsSnapshotSchema>;
 export type GlobalAppHttpRequest = Static<typeof appHttpSchema>;
 
 export const globalAppsContracts = {
-  view: defineOperation({
-    id: "ragents.global-apps.view",
-    description: "Read one view of your registered global app.",
-    rights: ["ragents.global-apps.read", "runs.read"],
-    input: object({ name, viewId: Type.String() }),
-    result: Type.Unknown(),
-  }),
   register: defineOperation({
     id: "ragents.global-apps.register",
     description: "Copy, check and register an owned actor package as a paused global app.",

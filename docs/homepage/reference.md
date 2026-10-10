@@ -3928,6 +3928,7 @@ With the run owner's global apps read permission.
         "type": "object",
         "required": [
           "name",
+          "actorId",
           "description",
           "triggers",
           "views",
@@ -3943,6 +3944,16 @@ With the run owner's global apps read permission.
             "type": "string",
             "pattern": "^[a-z][a-z0-9-]{0,63}$",
             "description": "Your chosen app name."
+          },
+          "actorId": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "description": {
             "type": "string"
@@ -3960,6 +3971,81 @@ With the run owner's global apps read permission.
                     "type": "integer",
                     "minimum": 60,
                     "maximum": 604800
+                  }
+                },
+                "additionalProperties": false
+              },
+              "daily": {
+                "type": "object",
+                "required": [
+                  "at"
+                ],
+                "properties": {
+                  "at": {
+                    "type": "string",
+                    "pattern": "^(?:[01][0-9]|2[0-3]):[0-5][0-9]$"
+                  },
+                  "timeZone": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 128
+                  }
+                },
+                "additionalProperties": false
+              },
+              "weekly": {
+                "type": "object",
+                "required": [
+                  "at",
+                  "days"
+                ],
+                "properties": {
+                  "at": {
+                    "type": "string",
+                    "pattern": "^(?:[01][0-9]|2[0-3]):[0-5][0-9]$"
+                  },
+                  "days": {
+                    "type": "array",
+                    "items": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "const": "mon"
+                        },
+                        {
+                          "type": "string",
+                          "const": "tue"
+                        },
+                        {
+                          "type": "string",
+                          "const": "wed"
+                        },
+                        {
+                          "type": "string",
+                          "const": "thu"
+                        },
+                        {
+                          "type": "string",
+                          "const": "fri"
+                        },
+                        {
+                          "type": "string",
+                          "const": "sat"
+                        },
+                        {
+                          "type": "string",
+                          "const": "sun"
+                        }
+                      ]
+                    },
+                    "minItems": 1,
+                    "maxItems": 7,
+                    "uniqueItems": true
+                  },
+                  "timeZone": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 128
                   }
                 },
                 "additionalProperties": false
@@ -4250,6 +4336,7 @@ With the run owner's global apps read permission.
       "type": "object",
       "required": [
         "name",
+        "actorId",
         "description",
         "triggers",
         "views",
@@ -4265,6 +4352,16 @@ With the run owner's global apps read permission.
           "type": "string",
           "pattern": "^[a-z][a-z0-9-]{0,63}$",
           "description": "Your chosen app name."
+        },
+        "actorId": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
         },
         "description": {
           "type": "string"
@@ -4282,6 +4379,81 @@ With the run owner's global apps read permission.
                   "type": "integer",
                   "minimum": 60,
                   "maximum": 604800
+                }
+              },
+              "additionalProperties": false
+            },
+            "daily": {
+              "type": "object",
+              "required": [
+                "at"
+              ],
+              "properties": {
+                "at": {
+                  "type": "string",
+                  "pattern": "^(?:[01][0-9]|2[0-3]):[0-5][0-9]$"
+                },
+                "timeZone": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 128
+                }
+              },
+              "additionalProperties": false
+            },
+            "weekly": {
+              "type": "object",
+              "required": [
+                "at",
+                "days"
+              ],
+              "properties": {
+                "at": {
+                  "type": "string",
+                  "pattern": "^(?:[01][0-9]|2[0-3]):[0-5][0-9]$"
+                },
+                "days": {
+                  "type": "array",
+                  "items": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "const": "mon"
+                      },
+                      {
+                        "type": "string",
+                        "const": "tue"
+                      },
+                      {
+                        "type": "string",
+                        "const": "wed"
+                      },
+                      {
+                        "type": "string",
+                        "const": "thu"
+                      },
+                      {
+                        "type": "string",
+                        "const": "fri"
+                      },
+                      {
+                        "type": "string",
+                        "const": "sat"
+                      },
+                      {
+                        "type": "string",
+                        "const": "sun"
+                      }
+                    ]
+                  },
+                  "minItems": 1,
+                  "maxItems": 7,
+                  "uniqueItems": true
+                },
+                "timeZone": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 128
                 }
               },
               "additionalProperties": false
@@ -4473,6 +4645,81 @@ With the run owner's global apps read permission.
                   "type": "integer",
                   "minimum": 60,
                   "maximum": 604800
+                }
+              },
+              "additionalProperties": false
+            },
+            "daily": {
+              "type": "object",
+              "required": [
+                "at"
+              ],
+              "properties": {
+                "at": {
+                  "type": "string",
+                  "pattern": "^(?:[01][0-9]|2[0-3]):[0-5][0-9]$"
+                },
+                "timeZone": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 128
+                }
+              },
+              "additionalProperties": false
+            },
+            "weekly": {
+              "type": "object",
+              "required": [
+                "at",
+                "days"
+              ],
+              "properties": {
+                "at": {
+                  "type": "string",
+                  "pattern": "^(?:[01][0-9]|2[0-3]):[0-5][0-9]$"
+                },
+                "days": {
+                  "type": "array",
+                  "items": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "const": "mon"
+                      },
+                      {
+                        "type": "string",
+                        "const": "tue"
+                      },
+                      {
+                        "type": "string",
+                        "const": "wed"
+                      },
+                      {
+                        "type": "string",
+                        "const": "thu"
+                      },
+                      {
+                        "type": "string",
+                        "const": "fri"
+                      },
+                      {
+                        "type": "string",
+                        "const": "sat"
+                      },
+                      {
+                        "type": "string",
+                        "const": "sun"
+                      }
+                    ]
+                  },
+                  "minItems": 1,
+                  "maxItems": 7,
+                  "uniqueItems": true
+                },
+                "timeZone": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 128
                 }
               },
               "additionalProperties": false
@@ -4746,6 +4993,81 @@ With agent.spawn, plugin.state.write and the run owner's global apps write permi
           },
           "additionalProperties": false
         },
+        "daily": {
+          "type": "object",
+          "required": [
+            "at"
+          ],
+          "properties": {
+            "at": {
+              "type": "string",
+              "pattern": "^(?:[01][0-9]|2[0-3]):[0-5][0-9]$"
+            },
+            "timeZone": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            }
+          },
+          "additionalProperties": false
+        },
+        "weekly": {
+          "type": "object",
+          "required": [
+            "at",
+            "days"
+          ],
+          "properties": {
+            "at": {
+              "type": "string",
+              "pattern": "^(?:[01][0-9]|2[0-3]):[0-5][0-9]$"
+            },
+            "days": {
+              "type": "array",
+              "items": {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "const": "mon"
+                  },
+                  {
+                    "type": "string",
+                    "const": "tue"
+                  },
+                  {
+                    "type": "string",
+                    "const": "wed"
+                  },
+                  {
+                    "type": "string",
+                    "const": "thu"
+                  },
+                  {
+                    "type": "string",
+                    "const": "fri"
+                  },
+                  {
+                    "type": "string",
+                    "const": "sat"
+                  },
+                  {
+                    "type": "string",
+                    "const": "sun"
+                  }
+                ]
+              },
+              "minItems": 1,
+              "maxItems": 7,
+              "uniqueItems": true
+            },
+            "timeZone": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            }
+          },
+          "additionalProperties": false
+        },
         "fileChange": {
           "type": "object",
           "required": [
@@ -4975,7 +5297,8 @@ Snippet-only contracts for authoring; calls require an accepted app input.
   "required": [
     "key",
     "scheduledAt",
-    "reason"
+    "reason",
+    "timeZone"
   ],
   "properties": {
     "key": {
@@ -4992,6 +5315,14 @@ Snippet-only contracts for authoring; calls require an accepted app input.
         },
         {
           "type": "string",
+          "const": "daily"
+        },
+        {
+          "type": "string",
+          "const": "weekly"
+        },
+        {
+          "type": "string",
           "const": "manual"
         },
         {
@@ -4999,6 +5330,9 @@ Snippet-only contracts for authoring; calls require an accepted app input.
           "const": "file-change"
         }
       ]
+    },
+    "timeZone": {
+      "type": "string"
     }
   },
   "additionalProperties": false
@@ -5251,6 +5585,54 @@ Only with the capability agent.spawn.
         },
         "additionalProperties": false
       }
+    }
+  },
+  "additionalProperties": false
+}
+```
+
+### overseer_notify
+
+Notify global coordinator
+
+Send a short result to the current coordinator conversation from an actor in your global space. May trigger a coordinator reply. Requires an explicit app function permission.
+
+Owner: ragents.overseer. Scope: per-turn. Native model tool: no. Availability: conditional.
+
+With actor.input and the run owner's global coordinator write permission.
+
+#### Input
+
+```json
+{
+  "type": "object",
+  "required": [
+    "message"
+  ],
+  "properties": {
+    "message": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 1000,
+      "pattern": "\\S"
+    }
+  },
+  "additionalProperties": false
+}
+```
+
+#### Result
+
+```json
+{
+  "type": "object",
+  "required": [
+    "sent"
+  ],
+  "properties": {
+    "sent": {
+      "type": "boolean",
+      "const": true
     }
   },
   "additionalProperties": false
@@ -10429,7 +10811,8 @@ Complete package sources are in [run-setup.md](run-setup.md).
     "requires": [
       "ragents.orchestration",
       "ragents.workspace",
-      "ragents.actor-programs"
+      "ragents.actor-programs",
+      "ragents.overseer"
     ]
   },
   {

@@ -5,7 +5,7 @@ import path from "node:path";
 import { isDeepStrictEqual } from "node:util";
 import { Type, type TSchema } from "typebox";
 import { Value } from "typebox/value";
-import { actorByHandle, actorDescriptionMaxLength, addressFrom, addressOf, agentTools, assertJsonValue, canonicalHash, defineRunFunction, defineToolAvailability, emptyUsage, freeRoomName, handleKey, inheritedGrants, runCapabilityContractHash, scriptInputOf, schemaComplaints, type Actor, type ActorProgramExecutor, type RunFunction, type CommandContext, type ExecutableActor, type JsonValue, type Orchestration, type PluginContext, type RunCapabilityDescriptor, type RunView, type TurnRequest, type TurnResult, } from "@ragents/engine";
+import { actorByHandle, actorDescriptionMaxLength, addressFrom, addressOf, agentTools, assertJsonValue, canonicalHash, defineRunFunction, defineToolAvailability, emptyUsage, freeRoomName, handleKey, inheritedGrants, runCapabilityContractHash, scriptInputOf, schemaComplaints, type Actor, type ActorProgramExecutor, type RunFunction, type CommandContext, type ExecutableActor, type JsonValue, type OperationContext, type Orchestration, type PluginContext, type RunCapabilityDescriptor, type RunView, type TurnRequest, type TurnResult, } from "@ragents/engine";
 import { ACTOR_PROGRAMS_STATE_ID, ACTOR_INVOCATIONS_STATE_ID, ACTOR_SCRIPT_STATE_ID, ACTOR_STATE_ID, relativeName, resolveActorView, type ActorDataState, type ActorFunctionDefinition, type ActorFunctionInvocation, type ActorPackageOrigin, type ActorProgramDefinition, type ActorProgramIdentity, type ActorProgramState, type ActorScriptDelivery, type ActorScriptPackage, type ActorScriptState, type ActorViewListing, } from "@ragents/host/plugin-support/actor-programs/contract.js";
 import type { ActivatedActorProgram, ActorProgramSource, ActorProgramsService, ActorViewReference, RunScriptSources, RunScriptStartInput } from "@ragents/host/plugin-support/actor-programs/service.js";
 import { jsonValue, jsonBytes, MAX_INVOCATIONS_STATE_BYTES } from "./limits.js";
@@ -452,17 +452,21 @@ export class ActorProgramRuntime implements ActorProgramsService, ActorProgramEx
         const key = await this.#packageKey(source.runId, source.actorId, source.name);
         const sourceDirectory = path.join(await this.workspaceDirectory(source.runId), key);
         const files = await this.#withPackages(source.runId, [key], () => projectSourceFiles(sourceDirectory));
-        return this.#withPackages(target.runId, [target.name], async () => {
+        const targetKey = keyOf(target.room?.name ?? null, target.name);
+        this.#assertKey(targetKey);
+        const placement: ActorPlacement | undefined = target.room && !this.view(target.runId).rooms.some((room) => room.name === target.room!.name)
+            ? { kind: "open", ...target.room } : undefined;
+        return this.#withPackages(target.runId, [targetKey], async () => {
             this.#assertName(target.name);
             const root = await this.workspaceDirectory(target.runId);
-            const directory = path.join(root, target.name);
+            const directory = path.join(root, targetKey);
             const backup = path.join(path.dirname(root), `.copy-${randomUUID()}`);
             const exists = occupied(directory);
             if (exists) renameSync(directory, backup);
             try {
                 await this.#writeSources(directory, files);
-                await this.#activate(this.operatorContext(target.runId, "copy"), target.runId, target.name, { idle: true, signal, policy: target });
-                return this.#activated(target.runId, target.name);
+                await this.#activate(this.operatorContext(target.runId, "copy"), target.runId, targetKey, { idle: true, signal, policy: target, placement });
+                return this.#activated(target.runId, targetKey);
             } catch (error) {
                 await rm(directory, { recursive: true, force: true });
                 if (exists) renameSync(backup, directory);
@@ -760,15 +764,9 @@ export class ActorProgramRuntime implements ActorProgramsService, ActorProgramEx
         const backend = pkg.backend ? await compileAppBackend({ directory, backend: pkg.backend, runId, executor: this.runtime().nativeTypeScriptExecutor, signal, ...(isolated ? { isolated: true } : {}) }) : undefined;
         const contract: AppContract = backend?.contract ?? { state: objectSchema, functions: {} };
         if (policy) {
-            if (policy.inputOnly && (!contract.input || Object.keys(contract.functions).length || pkg.views?.length))
-                throw new Error("This package needs only an input handler, without functions or views.");
             if (!contract.input)
                 throw new Error("This package needs an input handler for its triggers.");
             const capabilities = [...contract.input.capabilities ?? [], ...Object.values(contract.functions).flatMap((fn) => fn.capabilities ?? [])];
-            if (Object.values(contract.functions).some((fn) => fn.tool))
-                throw new Error("Global app functions must not publish tools to other actors.");
-            if (Object.values(contract.functions).some((fn) => fn.capabilities?.length))
-                throw new Error("Global app view actions change state; external capabilities belong in the input handler.");
             const missing = policy.requiredCapabilities.filter((id) => !contract.input?.capabilities?.includes(id));
             const denied = capabilities.filter((id) => !policy.capabilities.includes(id));
             if (missing.length) throw new Error(`Missing input capabilities: ${missing.join(", ")}.`);
@@ -832,7 +830,7 @@ export class ActorProgramRuntime implements ActorProgramsService, ActorProgramEx
         const revision = canonicalHash({ files, backend: backend?.javaScript ?? null, clients });
         const definition: ActorProgramDefinition = { name, title: pkg.title, description: pkg.description ?? "", actorId, actorHandle, revision, installedBy: previous?.installedBy ?? callerId, targetRoom,
             directory: path.join(this.#options.directoryFor(runId), "actor-builds", name, revision), sourceDirectory: directory,
-            ...(backend ? { backendFile: "server.mjs" } : {}), ...(isolated ? { isolated: true } : {}), stateSchema: contract.state, stylesFile: "frame.css", functions, views,
+            ...(backend ? { backendFile: "server.mjs" } : {}), ...(isolated ? { isolated: true } : {}), ...(policy || previous?.capabilitiesAsActor ? { capabilitiesAsActor: true } : {}), stateSchema: contract.state, stylesFile: "frame.css", functions, views,
             ...(contract.input ? { input: { capabilityIds: inputCapabilities, capabilityContractHash: runCapabilityContractHash(inputDescriptors) } } : {}) };
         return { directory, files, definition, clients, frameStyles, createActor: !owner, ...(backend ? { backendJavaScript: backend.javaScript } : {}) };
     }
@@ -1126,6 +1124,8 @@ export class ActorProgramRuntime implements ActorProgramsService, ActorProgramEx
             return fn;
         };
         return this.#serial(runId, bound.actorId, signal, async () => {
+            if (bound.capabilitiesAsActor && binding.kind === "tool" && binding.principal.id !== bound.actorId && declared.capabilityIds.length)
+                throw new Error("This function's external capabilities require the app actor. Trigger its input instead.");
             const { program, contract: fn, descriptors } = await this.#bound(runId, bound.actorId, bound.revision, signal, functionOf, binding.descriptorsFor);
             const value = checked(fn.inputSchema, input, `Input ${fn.id}`);
             const result = await this.#backend(runId, program, { kind: "function", functionId: fn.id, input: value }, binding, descriptors, signal);
@@ -1210,14 +1210,23 @@ export class ActorProgramRuntime implements ActorProgramsService, ActorProgramEx
             try {
                 if (fn.confirmation && !await this.#confirm(runId, invocation, fn.confirmation, controller.signal))
                     throw new Error("The function was not confirmed.");
-                const descriptorsFor = (capabilityIds: readonly string[]) => operatorCapabilityBinding(this.ownerId(runId), this.#options.operations.list(), capabilityIds).descriptors;
-                result = await this.#executeFunction(runId, program, fn, input, { output, id: invocation.id, kind: "app-action", principal: { id: this.ownerId(runId), kind: "operator" }, descriptorsFor, call: async (name, value, index) => {
+                const capabilityActor = program.capabilitiesAsActor ? this.actor(runId, program.actorId) : undefined;
+                const tools = capabilityActor ? await this.#options.agentToolsFor(runId, capabilityActor.id) : [];
+                const descriptorsFor = (capabilityIds: readonly string[]) => {
+                    if (capabilityActor) agentCapabilityBinding(capabilityActor, tools, capabilityIds, new Set());
+                    return operatorCapabilityBinding(capabilityActor?.id ?? this.ownerId(runId), this.#options.operations.list(), capabilityIds).descriptors;
+                };
+                const principal = capabilityActor ? { id: capabilityActor.id, kind: "script" as const } : { id: this.ownerId(runId), kind: "operator" as const };
+                result = await this.#executeFunction(runId, program, fn, input, { output, id: invocation.id, kind: "app-action", principal, descriptorsFor, call: async (name, value, index) => {
                         const operation = this.#options.operations.operation(name)!;
                         const id = `${invocation.id}:capability:${index}`;
                         const confirmation = operation.operator === "confirm" ? await this.#confirm(runId, invocation, `Run ${operation.label}?`, controller.signal, value) : true;
                         if (!confirmation)
                             throw new Error("The action was not confirmed.");
-                        return this.#options.operations.invoke(name, { runId, invocationId: id, principal: { kind: "operator", actorId: this.ownerId(runId) }, signal: controller.signal, ...(operation.operator === "confirm" ? { operatorConfirmation: { operationId: name, invocationId: id, inputHash: canonicalHash(value) } } : {}) }, value);
+                        const operationContext: OperationContext = capabilityActor
+                            ? { runId, invocationId: id, principal: { kind: "agent", actorId: capabilityActor.id, turnId: null }, signal: controller.signal }
+                            : { runId, invocationId: id, principal: { kind: "operator", actorId: this.ownerId(runId) }, signal: controller.signal, ...(operation.operator === "confirm" ? { operatorConfirmation: { operationId: name, invocationId: id, inputHash: canonicalHash(value) } } : {}) };
+                        return this.#options.operations.invoke(name, operationContext, value);
                     } }, controller.signal);
             }
             catch (error) {

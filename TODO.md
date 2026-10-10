@@ -4,6 +4,7 @@ Inbox for everything; the owner and the AI write here. One line per entry, newes
 
 ## Open
 
+- Check live (10.10.2026): daily and selected-weekday global apps across a server restart, spring clock gap and autumn repeat; reset the coordinator during app work and verify preserved rooms, state, logs, deadlines, and explicit notifications in the browser and VS Code.
 - Start layout on the server (09.10.2026): keep the arrangement of Start per user on the server, so that the browser and VS Code share it; today each keeps its own copy in browser storage (`ragents.start.layout:<origin>:<user>`), because the host has no per-user preference store.
 - Check live (09.10.2026): arrange Start in a real VS Code panel and in the browser (Size, Move earlier and later, Hide, Customize, Reset layout, reload) with a plugin that contributes several titled widgets; the browser fixture covers the parts.
 

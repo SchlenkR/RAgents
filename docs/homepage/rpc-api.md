@@ -49,7 +49,6 @@ Ids from results are reused programmatically, not copied by hand.
 | ragents.global-apps.register | ragents.global-apps | ragents.global-apps.write, runs.write |
 | ragents.global-apps.remove | ragents.global-apps | ragents.global-apps.write, runs.write |
 | ragents.global-apps.run | ragents.global-apps | ragents.global-apps.write, runs.write |
-| ragents.global-apps.view | ragents.global-apps | ragents.global-apps.read, runs.read |
 | ragents.lsp-fsharp.snapshot | ragents.lsp-fsharp | runs.read, ragents.lsp-fsharp.read |
 | ragents.lsp-roslyn.snapshot | ragents.lsp-roslyn | runs.read, ragents.lsp-roslyn.read |
 | ragents.lsp-roslyn.solutions | ragents.lsp-roslyn | runs.read, ragents.lsp-roslyn.read |
@@ -207,6 +206,10 @@ Default client deadline: 30000 ms; callers may override it.
       "type": "string",
       "pattern": "^[A-Za-z0-9_-]{1,64}$",
       "description": "Identifier of the run"
+    },
+    "actorId": {
+      "type": "string",
+      "minLength": 1
     }
   },
   "additionalProperties": false
@@ -1179,6 +1182,7 @@ Default client deadline: 30000 ms; callers may override it.
         "type": "object",
         "required": [
           "name",
+          "actorId",
           "description",
           "triggers",
           "views",
@@ -1194,6 +1198,16 @@ Default client deadline: 30000 ms; callers may override it.
             "type": "string",
             "pattern": "^[a-z][a-z0-9-]{0,63}$",
             "description": "Your chosen app name."
+          },
+          "actorId": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "description": {
             "type": "string"
@@ -1211,6 +1225,81 @@ Default client deadline: 30000 ms; callers may override it.
                     "type": "integer",
                     "minimum": 60,
                     "maximum": 604800
+                  }
+                },
+                "additionalProperties": false
+              },
+              "daily": {
+                "type": "object",
+                "required": [
+                  "at"
+                ],
+                "properties": {
+                  "at": {
+                    "type": "string",
+                    "pattern": "^(?:[01][0-9]|2[0-3]):[0-5][0-9]$"
+                  },
+                  "timeZone": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 128
+                  }
+                },
+                "additionalProperties": false
+              },
+              "weekly": {
+                "type": "object",
+                "required": [
+                  "at",
+                  "days"
+                ],
+                "properties": {
+                  "at": {
+                    "type": "string",
+                    "pattern": "^(?:[01][0-9]|2[0-3]):[0-5][0-9]$"
+                  },
+                  "days": {
+                    "type": "array",
+                    "items": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "const": "mon"
+                        },
+                        {
+                          "type": "string",
+                          "const": "tue"
+                        },
+                        {
+                          "type": "string",
+                          "const": "wed"
+                        },
+                        {
+                          "type": "string",
+                          "const": "thu"
+                        },
+                        {
+                          "type": "string",
+                          "const": "fri"
+                        },
+                        {
+                          "type": "string",
+                          "const": "sat"
+                        },
+                        {
+                          "type": "string",
+                          "const": "sun"
+                        }
+                      ]
+                    },
+                    "minItems": 1,
+                    "maxItems": 7,
+                    "uniqueItems": true
+                  },
+                  "timeZone": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 128
                   }
                 },
                 "additionalProperties": false
@@ -1495,6 +1584,7 @@ Default client deadline: 30000 ms; callers may override it.
       "type": "object",
       "required": [
         "name",
+        "actorId",
         "description",
         "triggers",
         "views",
@@ -1510,6 +1600,16 @@ Default client deadline: 30000 ms; callers may override it.
           "type": "string",
           "pattern": "^[a-z][a-z0-9-]{0,63}$",
           "description": "Your chosen app name."
+        },
+        "actorId": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
         },
         "description": {
           "type": "string"
@@ -1527,6 +1627,81 @@ Default client deadline: 30000 ms; callers may override it.
                   "type": "integer",
                   "minimum": 60,
                   "maximum": 604800
+                }
+              },
+              "additionalProperties": false
+            },
+            "daily": {
+              "type": "object",
+              "required": [
+                "at"
+              ],
+              "properties": {
+                "at": {
+                  "type": "string",
+                  "pattern": "^(?:[01][0-9]|2[0-3]):[0-5][0-9]$"
+                },
+                "timeZone": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 128
+                }
+              },
+              "additionalProperties": false
+            },
+            "weekly": {
+              "type": "object",
+              "required": [
+                "at",
+                "days"
+              ],
+              "properties": {
+                "at": {
+                  "type": "string",
+                  "pattern": "^(?:[01][0-9]|2[0-3]):[0-5][0-9]$"
+                },
+                "days": {
+                  "type": "array",
+                  "items": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "const": "mon"
+                      },
+                      {
+                        "type": "string",
+                        "const": "tue"
+                      },
+                      {
+                        "type": "string",
+                        "const": "wed"
+                      },
+                      {
+                        "type": "string",
+                        "const": "thu"
+                      },
+                      {
+                        "type": "string",
+                        "const": "fri"
+                      },
+                      {
+                        "type": "string",
+                        "const": "sat"
+                      },
+                      {
+                        "type": "string",
+                        "const": "sun"
+                      }
+                    ]
+                  },
+                  "minItems": 1,
+                  "maxItems": 7,
+                  "uniqueItems": true
+                },
+                "timeZone": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 128
                 }
               },
               "additionalProperties": false
@@ -1718,6 +1893,81 @@ Default client deadline: 30000 ms; callers may override it.
                   "type": "integer",
                   "minimum": 60,
                   "maximum": 604800
+                }
+              },
+              "additionalProperties": false
+            },
+            "daily": {
+              "type": "object",
+              "required": [
+                "at"
+              ],
+              "properties": {
+                "at": {
+                  "type": "string",
+                  "pattern": "^(?:[01][0-9]|2[0-3]):[0-5][0-9]$"
+                },
+                "timeZone": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 128
+                }
+              },
+              "additionalProperties": false
+            },
+            "weekly": {
+              "type": "object",
+              "required": [
+                "at",
+                "days"
+              ],
+              "properties": {
+                "at": {
+                  "type": "string",
+                  "pattern": "^(?:[01][0-9]|2[0-3]):[0-5][0-9]$"
+                },
+                "days": {
+                  "type": "array",
+                  "items": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "const": "mon"
+                      },
+                      {
+                        "type": "string",
+                        "const": "tue"
+                      },
+                      {
+                        "type": "string",
+                        "const": "wed"
+                      },
+                      {
+                        "type": "string",
+                        "const": "thu"
+                      },
+                      {
+                        "type": "string",
+                        "const": "fri"
+                      },
+                      {
+                        "type": "string",
+                        "const": "sat"
+                      },
+                      {
+                        "type": "string",
+                        "const": "sun"
+                      }
+                    ]
+                  },
+                  "minItems": 1,
+                  "maxItems": 7,
+                  "uniqueItems": true
+                },
+                "timeZone": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 128
                 }
               },
               "additionalProperties": false
@@ -1989,6 +2239,81 @@ Default client deadline: 120000 ms; callers may override it.
           },
           "additionalProperties": false
         },
+        "daily": {
+          "type": "object",
+          "required": [
+            "at"
+          ],
+          "properties": {
+            "at": {
+              "type": "string",
+              "pattern": "^(?:[01][0-9]|2[0-3]):[0-5][0-9]$"
+            },
+            "timeZone": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            }
+          },
+          "additionalProperties": false
+        },
+        "weekly": {
+          "type": "object",
+          "required": [
+            "at",
+            "days"
+          ],
+          "properties": {
+            "at": {
+              "type": "string",
+              "pattern": "^(?:[01][0-9]|2[0-3]):[0-5][0-9]$"
+            },
+            "days": {
+              "type": "array",
+              "items": {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "const": "mon"
+                  },
+                  {
+                    "type": "string",
+                    "const": "tue"
+                  },
+                  {
+                    "type": "string",
+                    "const": "wed"
+                  },
+                  {
+                    "type": "string",
+                    "const": "thu"
+                  },
+                  {
+                    "type": "string",
+                    "const": "fri"
+                  },
+                  {
+                    "type": "string",
+                    "const": "sat"
+                  },
+                  {
+                    "type": "string",
+                    "const": "sun"
+                  }
+                ]
+              },
+              "minItems": 1,
+              "maxItems": 7,
+              "uniqueItems": true
+            },
+            "timeZone": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            }
+          },
+          "additionalProperties": false
+        },
         "fileChange": {
           "type": "object",
           "required": [
@@ -2186,42 +2511,6 @@ Default client deadline: 30000 ms; callers may override it.
   },
   "additionalProperties": false
 }
-```
-
-## ragents.global-apps.view
-
-Read one view of your registered global app.
-
-Owner: ragents.global-apps. Rights: ragents.global-apps.read, runs.read. Execution: the server.
-Default client deadline: 30000 ms; callers may override it.
-
-### Input
-
-```json
-{
-  "type": "object",
-  "required": [
-    "name",
-    "viewId"
-  ],
-  "properties": {
-    "name": {
-      "type": "string",
-      "pattern": "^[a-z][a-z0-9-]{0,63}$",
-      "description": "Your chosen app name."
-    },
-    "viewId": {
-      "type": "string"
-    }
-  },
-  "additionalProperties": false
-}
-```
-
-### Result
-
-```json
-{}
 ```
 
 ## ragents.lsp-fsharp.snapshot
@@ -6437,6 +6726,7 @@ Owner: ragents.global-apps. Rights: ragents.global-apps.read.
         "type": "object",
         "required": [
           "name",
+          "actorId",
           "description",
           "triggers",
           "views",
@@ -6452,6 +6742,16 @@ Owner: ragents.global-apps. Rights: ragents.global-apps.read.
             "type": "string",
             "pattern": "^[a-z][a-z0-9-]{0,63}$",
             "description": "Your chosen app name."
+          },
+          "actorId": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "description": {
             "type": "string"
@@ -6469,6 +6769,81 @@ Owner: ragents.global-apps. Rights: ragents.global-apps.read.
                     "type": "integer",
                     "minimum": 60,
                     "maximum": 604800
+                  }
+                },
+                "additionalProperties": false
+              },
+              "daily": {
+                "type": "object",
+                "required": [
+                  "at"
+                ],
+                "properties": {
+                  "at": {
+                    "type": "string",
+                    "pattern": "^(?:[01][0-9]|2[0-3]):[0-5][0-9]$"
+                  },
+                  "timeZone": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 128
+                  }
+                },
+                "additionalProperties": false
+              },
+              "weekly": {
+                "type": "object",
+                "required": [
+                  "at",
+                  "days"
+                ],
+                "properties": {
+                  "at": {
+                    "type": "string",
+                    "pattern": "^(?:[01][0-9]|2[0-3]):[0-5][0-9]$"
+                  },
+                  "days": {
+                    "type": "array",
+                    "items": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "const": "mon"
+                        },
+                        {
+                          "type": "string",
+                          "const": "tue"
+                        },
+                        {
+                          "type": "string",
+                          "const": "wed"
+                        },
+                        {
+                          "type": "string",
+                          "const": "thu"
+                        },
+                        {
+                          "type": "string",
+                          "const": "fri"
+                        },
+                        {
+                          "type": "string",
+                          "const": "sat"
+                        },
+                        {
+                          "type": "string",
+                          "const": "sun"
+                        }
+                      ]
+                    },
+                    "minItems": 1,
+                    "maxItems": 7,
+                    "uniqueItems": true
+                  },
+                  "timeZone": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 128
                   }
                 },
                 "additionalProperties": false

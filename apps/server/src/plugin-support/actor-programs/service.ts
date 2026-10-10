@@ -41,11 +41,11 @@ export interface ActorProgramsService extends ActorProgramExecutor {
     }, target: {
         readonly runId: string;
         readonly name: string;
+        readonly room?: { readonly name: string; readonly origin: string | null };
         readonly capabilities: readonly string[];
         readonly grants: readonly CapabilityGrant[];
         readonly requiredCapabilities: readonly string[];
         readonly isolated: boolean;
-        readonly inputOnly: boolean;
     }, signal?: AbortSignal): Promise<ActivatedActorProgram>;
     remove(context: CommandContext, runId: string, name: string): Promise<{ removed: string }>;
     /** Installs a run script with its bundled programs in a new room opened from `origin`, shared packages in the main room; a failure leaves the run unchanged. */

@@ -4,7 +4,7 @@ import { actorProgramsToken } from "@ragents/host/plugin-support/actor-programs/
 import { sandboxServicesToken } from "@ragents/host/plugin-support/workspace-sandbox-host.js";
 import { boundToTools, handlebarsPrompt } from "@ragents/host/plugin-support/prompt.js";
 import { pluginAsset } from "@ragents/host/plugin-support/plugin-folder.js";
-import { runManagementToken } from "@ragents/host/ragents/global-chat.js";
+import { globalChatToken, runManagementToken } from "@ragents/host/ragents/global-chat.js";
 import {
   runGuardToken,
   runtimeProviderToken,
@@ -20,7 +20,7 @@ import { globalAppsFunctions, appManagementToolNames } from "./functions.js";
 import { GlobalAppsService } from "./service.js";
 
 export const plugin: PluginModule = {
-  requires: ["ragents.orchestration", "ragents.workspace", "ragents.actor-programs"],
+  requires: ["ragents.orchestration", "ragents.workspace", "ragents.actor-programs", "ragents.overseer"],
   create: (root) => ({
     manifest: { id: GLOBAL_APPS_PLUGIN_ID },
     register: (host) => {
@@ -30,11 +30,15 @@ export const plugin: PluginModule = {
       const workspace = host.service(runWorkspaceProviderToken);
       const ownerAccess = host.service(runOwnerAccessToken);
       const agentFunctions = agentToolsFrom(root);
+      const global = host.service(globalChatToken);
       const service = new GlobalAppsService({
         runtime,
         programs,
         userAccess: host.service(userAccessToken),
         ensureRun: host.service(runGuardToken),
+        globalRunIdFor: global.runIdFor,
+        isGlobalRun: global.isCoordinator,
+        ensureGlobalRun: (access, signal) => host.service(runManagementToken)().globalSpace(access, signal),
         prepareRun: async (runId) => {
           await workspace(runId);
         },
@@ -65,7 +69,6 @@ export const plugin: PluginModule = {
         delivery: "initial",
       }, ...appManagementToolNames));
       host.methods(
-        implement(globalAppsContracts.view, (input, context) => service.view(context.access, input.name, input.viewId)),
         implement(globalAppsContracts.register, async ({ sourceRunId, ...input }, context) => {
           host.service(workspaceGuardToken)(context.access, sourceRunId);
           const view = runtime().view(sourceRunId);
@@ -89,10 +92,6 @@ export const plugin: PluginModule = {
         stopSession: ({ runId }) => service.stop(runId),
         deleteSession: ({ runId }) => service.forget(runId),
         shutdown: () => service.shutdown(),
-      });
-      host.sessionMetadata({
-        id: GLOBAL_APPS_PLUGIN_ID,
-        describe: ({ runId }) => runId.startsWith("global-apps-") ? { kind: "global-apps" } : undefined,
       });
       host.accessProjections({
         id: GLOBAL_APPS_PLUGIN_ID,

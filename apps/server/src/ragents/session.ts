@@ -456,30 +456,37 @@ export class RunChatSession implements ChatSessionLike {
     this.#emit({ kind: "plugin", ...event });
   }
 
-  resetHistory(): void {
-    if (this.#engine.journal.stateOf(this.id)) throw new Error("The old journal must be removed before the conversation reset");
-    this.#startCancellation?.abort(new Error("The start preparation was reset."));
-    this.#startCancellation = undefined;
-    for (const controller of this.#scriptStarts) controller.abort(new Error("The start preparation was reset."));
-    this.#startup = undefined;
-    this.#initialStartup = undefined;
-    this.#unsubscribeJournal?.();
-    this.#unsubscribeLive?.();
-    this.#unsubscribeJournal = undefined;
-    this.#unsubscribeLive = undefined;
-    this.#primaryActorId = undefined;
-    this.#liveTurns.clear();
-    this.#journalFinishedTurns.clear();
-    this.#activeLiveTurnId = undefined;
-    this.#startValues.clear();
-    this.#pendingSharing.clear();
-    this.#events.length = 0;
-    this.#textPositions = new ChatTextPositions();
-    this.#pluginStates = new PluginStateProjection();
-    this.#running = false;
-    this.#fanout({ kind: "reset", reason: "conversation-reset", conversationId: null });
-    this.#fanout(this.#statusEvent());
-    this.#fanout({ kind: "replay-end", conversationId: null });
+  ensureStarted(user?: ChatUser, signal?: AbortSignal): Promise<string> {
+    return this.#track(() => this.#ensureRun(user, freeChoice(userIdOf(user)), signal), false);
+  }
+
+  async resetConversation(key: string, oldActorId: string | null): Promise<void> {
+    const runtime = this.#engine.runtime;
+    const state = runtime.state(this.id);
+    const context = (step: string) => ({ actorId: state.ownerId, commandId: `conversation-reset:${key}:${step}` });
+    const oldActor = oldActorId ? state.actors.get(oldActorId) : undefined;
+    const interruption = oldActorId ? this.#engine.scheduler.interruptTurn(this.id, oldActorId, {
+      context: context("interrupt"), reason: "Coordinator conversation reset.",
+    }) : Promise.resolve();
+    if (oldActor && oldActor.kind !== "human" && oldActor.lifecycle.kind !== "stopped")
+      runtime.stopActors(context("stop"), this.id, [oldActor.id], "Coordinator conversation reset.");
+    await interruption;
+    if (oldActorId && this.#engine.scheduler.isRunning(this.id, oldActorId)) throw new DomainError("turn-cleanup-pending", "The interrupted turn is still cleaning up.", 409);
+    await this.settle();
+    const spawnId = context("spawn").commandId;
+    const spawned = () => runtime.events(this.id).find((event) => event.type === "agent.spawned" && event.commandId === spawnId);
+    if (!spawned()) runtime.spawnAgent(context("spawn"), this.id, {
+      handle: this.#coordinator.handle,
+      displayName: this.#coordinator.displayName,
+      prompt: this.#prompt(),
+      execution: this.#coordinatorExecution(freeChoice(state.ownerUserId)),
+      grants: coordinatorGrants(),
+      toolNames: this.#toolNames === null ? null : [...this.#toolNames],
+    });
+    const event = spawned();
+    if (event?.type !== "agent.spawned") throw new Error("The replacement coordinator is missing.");
+    runtime.selectPrimaryActor(context("primary"), this.id, event.payload.agentId);
+    this.#bind(event.payload.agentId);
   }
 
   dispose(): void {
@@ -955,13 +962,15 @@ export class RunChatSession implements ChatSessionLike {
     }
 
     this.#events.length = 0;
-    this.#textPositions = new ChatTextPositions();
+    this.#textPositions = new ChatTextPositions(scope.conversationId);
     this.#pluginStates = new PluginStateProjection();
-    this.#events.push(...chatHistoryOf(this.#engine.runtime.events(this.id), scope, this.#textPositions, this.#pluginStates));
+    const start = this.#conversationStart(primaryActorId);
+    for (const event of this.#engine.runtime.events(this.id).filter((event) => event.sequence < start.sequence)) this.#pluginStates.observe(event);
+    this.#events.push(...chatHistoryOf(this.#engine.runtime.events(this.id).filter((event) => event.sequence >= start.sequence), scope, this.#textPositions, this.#pluginStates));
     this.#running = this.#engine.scheduler.isRunning(this.id, primaryActorId);
     this.#subscribeJournal();
     if (this.#listeners.size > 0) {
-      this.#fanout({ kind: "reset", conversationId: this.#textPositions.conversationId });
+      this.#fanout({ kind: "reset", ...start.commandId?.startsWith("conversation-reset:") ? { reason: "conversation-reset" as const } : {}, conversationId: this.#textPositions.conversationId });
       for (const event of this.#events) this.#fanout(event);
       this.#fanout(this.#statusEvent());
       this.#fanout({ kind: "replay-end", conversationId: this.#textPositions.conversationId });
@@ -1014,7 +1023,7 @@ export class RunChatSession implements ChatSessionLike {
       for (const event of events) {
         if (event.runId !== this.id) continue;
         const live = this.#isLive(event);
-        const cursor = this.#textPositions.observe(event);
+        const cursor = event.actorId !== this.#primaryActorId && (event.type === "model.output.completed" || event.type === "model.output.interrupted") ? undefined : this.#textPositions.observe(event);
         const primaryActorId = this.#primaryActorId;
         if (!primaryActorId) continue;
         if ((event.type === "turn.finished" || event.type === "turn.interrupted")
@@ -1059,9 +1068,14 @@ export class RunChatSession implements ChatSessionLike {
     this.#fanout(this.#statusEvent());
   }
 
+  #conversationStart(primaryActorId: string): JournalEvent {
+    const events = this.#engine.runtime.events(this.id);
+    return events.find((event) => event.type === "agent.spawned" && event.payload.agentId === primaryActorId && event.commandId?.startsWith("conversation-reset:")) ?? events[0]!;
+  }
+
   #scope(primaryActorId: string): ChatProjectionScope {
     return {
-      conversationId: this.#engine.runtime.events(this.id)[0].eventId,
+      conversationId: this.#conversationStart(primaryActorId).eventId,
       primaryActorId,
       ownerId: this.#engine.runtime.state(this.id).ownerId,
       labelOf: (actorId) => this.#engine.runtime.state(this.id).actors.get(actorId)?.displayName,

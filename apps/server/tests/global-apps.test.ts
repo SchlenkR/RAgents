@@ -6,13 +6,15 @@ import path from "node:path";
 import test, { type TestContext } from "node:test";
 import { Type } from "typebox";
 import { Value } from "typebox/value";
-import { agentTools, createAccessContext, defineRunFunction, defineToolAvailability, holdsUsable, Orchestration, ScriptDriver, ToolRegistry, TurnScheduler, type AccessContext, type Actor, type CapabilityGrant, type JsonValue, type RunFunction } from "@ragents/engine";
+import { agentTools, createAccessContext, defineRunFunction, defineToolAvailability, holdsUsable, OperationContributionRegistry, Orchestration, ScriptDriver, ToolRegistry, TurnScheduler, type AccessContext, type Actor, type CapabilityGrant, type JsonValue, type RunFunction } from "@ragents/engine";
 import { toolDescriptorFrom } from "../src/plugin-support/agent-tool.ts";
 import { allGrants, catalog, setupRun } from "../../../packages/ragents/tests/support.ts";
 import { globalAppsFunctions } from "../../../plugins/ragents.global-apps/server/functions.ts";
-import { GlobalAppsService, globalAppsRunId, type GlobalAppsServiceOptions } from "../../../plugins/ragents.global-apps/server/service.ts";
+import { GlobalAppsService, type GlobalAppsServiceOptions } from "../../../plugins/ragents.global-apps/server/service.ts";
+import { coordinatorRunId, isCoordinatorRunId } from "../../../plugins/ragents.overseer/server/coordinator.ts";
+import { coordinatorNotifications } from "../../../plugins/ragents.overseer/server/notify.ts";
 import { appDetailsSchema, type GlobalAppPermissions, type GlobalAppRegister } from "../../../plugins/ragents.global-apps/contract.ts";
-import { runtimeFor, writeAppFiles } from "./actor-runtime-fixture.ts";
+import { invocationResult, runtimeFor, writeAppFiles } from "./actor-runtime-fixture.ts";
 
 const access = createAccessContext({ enabled: false, user: null });
 const until = async (condition: () => boolean): Promise<void> => {
@@ -37,7 +39,7 @@ export default defineActor({
 });
 const count = 'context.state.replace({ count: (context.state.read().count ?? 0) + 1, pid: process.pid, key: tick.key }); context.log(tick.reason);';
 
-const fixture = async (t: TestContext, extraTools: readonly RunFunction[] = [], grants: CapabilityGrant[] = allGrants(), overrides: Pick<GlobalAppsServiceOptions, "watch"> = {}) => {
+const fixture = async (t: TestContext, extraTools: readonly RunFunction[] = [], grants: CapabilityGrant[] = allGrants(), overrides: Pick<GlobalAppsServiceOptions, "watch"> & { readonly operations?: OperationContributionRegistry } = {}) => {
   const directory = await mkdtemp(path.join(tmpdir(), "ragents-global-apps-"));
   const setup = setupRun({ grants });
   let time = Date.parse("2026-08-16T12:00:00.000Z");
@@ -45,7 +47,7 @@ const fixture = async (t: TestContext, extraTools: readonly RunFunction[] = [], 
   const directoryFor = (runId: string) => path.join(directory, runId);
   let service: GlobalAppsService;
   const contributed = () => [...globalAppsFunctions(service, () => access).tools({} as never) as RunFunction[], ...extraTools];
-  const programs = runtimeFor(setup, directory, undefined, undefined, undefined, contributed, undefined, directoryFor);
+  const programs = runtimeFor(setup, directory, overrides.operations, undefined, undefined, contributed, undefined, directoryFor);
   const registry = new ToolRegistry();
   registry.register({ name: "test.apps", descriptors: contributed().map((fn) => toolDescriptorFrom(fn, fn.available)), tools: contributed });
   const scheduler = new TurnScheduler(setup.runtime, setup.journal, { catalog, registry, drivers: { script: new ScriptDriver({ runtime: setup.runtime }) } });
@@ -53,6 +55,17 @@ const fixture = async (t: TestContext, extraTools: readonly RunFunction[] = [], 
   let ownerAccess: AccessContext = access;
   const options = {
     runtime: () => setup.runtime, programs, userAccess: () => ownerAccess,
+    globalRunIdFor: coordinatorRunId,
+    isGlobalRun: isCoordinatorRunId,
+    ensureGlobalRun: async (userAccess: AccessContext) => {
+      const runId = coordinatorRunId(userAccess.user?.id ?? null);
+      if (!setup.runtime.listRuns().some((run) => run.id === runId)) {
+        const view = setup.runtime.createRun({ commandId: `global-space:${runId}` }, { runId, title: "Global coordinator", ownerHandle: "owner", ownerDisplayName: "Owner" });
+        const created = setup.runtime.spawnAgent({ actorId: view.ownerId, commandId: "global-coordinator" }, runId, { handle: "coordinator", displayName: "Coordinator", prompt: "Coordinate", execution: setup.agent.execution, grants: allGrants(), toolNames: null });
+        setup.runtime.selectPrimaryActor({ actorId: view.ownerId, commandId: "global-primary" }, runId, created.actors.find((actor) => actor.kind === "agent")!.id);
+      }
+      return runId;
+    },
     ensureRun: (runId: string) => { setup.runtime.state(runId); },
     prepareRun: async (runId: string) => { await programs.workspaceDirectory(runId); },
     interrupt: async (runId: string, actorId: string, reason: string) => {
@@ -99,8 +112,14 @@ test("registration is paused; checks use an independent Node process and private
   const f = await fixture(t);
   assert.deepEqual(await f.register(), { registered: true, paused: true });
   assert.doesNotThrow(() => f.service.forget("unavailable-ordinary-run"));
-  const runId = globalAppsRunId(null);
-  assert.equal(f.setup.runtime.view(runId).primaryActorId, f.programs.programs(runId)[0]!.actorId);
+  const runId = coordinatorRunId(null);
+  const global = f.setup.runtime.view(runId);
+  assert.equal(global.actors.find((actor) => actor.id === global.primaryActorId)?.kind, "agent");
+  const appActor = global.actors.find((actor) => actor.id === f.programs.programs(runId)[0]!.actorId)!;
+  assert.equal(appActor.room, "check");
+  assert.equal(global.rooms[0]?.origin, null);
+  assert.equal(f.programs.programs(runId)[0]!.name, "check.check");
+  assert.equal(f.setup.runtime.listRuns().length, 2, "source and coordinator are the only runs");
   assert.equal(f.service.read(access, "check").app.status, "paused");
   await f.service.run(access, "check");
   await assert.rejects(f.service.run(access, "check"), /already has accepted/);
@@ -128,7 +147,7 @@ test("one overdue check after restart uses fixed delay; pause finishes accepted 
   f.advance(600000);
   await f.restart();
   assert.equal(f.service.read(access, "check").app.status, "queued");
-  assert.equal(f.setup.runtime.view(globalAppsRunId(null)).inputs.length, 1);
+  assert.equal(f.setup.runtime.view(coordinatorRunId(null)).inputs.length, 1);
   f.scheduler.start();
   await f.settled();
   assert.equal((f.service.read(access, "check").state as { count: number }).count, 1);
@@ -140,8 +159,90 @@ test("one overdue check after restart uses fixed delay; pause finishes accepted 
   assert.equal((f.service.read(access, "check").state as { count: number }).count, 2);
   await f.service.remove(access, "check");
   assert.deepEqual(f.service.list(access), { apps: [], errors: [], hasMore: false });
-  assert.deepEqual(f.programs.programs(globalAppsRunId(null)), []);
-  assert.ok(f.setup.runtime.events(globalAppsRunId(null)).length > 0);
+  assert.deepEqual(f.programs.programs(coordinatorRunId(null)), []);
+  assert.ok(f.setup.runtime.events(coordinatorRunId(null)).length > 0);
+});
+
+test("daily and weekday occurrences persist their zone and recover one overdue occurrence without a catch-up burst", { timeout: 60000 }, async (t) => {
+  const f = await fixture(t);
+  const body = count + ' context.log(`${tick.scheduledAt} ${tick.timeZone}`);';
+  await f.register(body, {}, ["global_app_trigger"], "", "daily", { daily: { at: "08:00", timeZone: "Europe/Berlin" } });
+  await f.register(body, {}, ["global_app_trigger"], "", "weekly", { weekly: { at: "08:00", days: ["mon"], timeZone: "Asia/Tokyo" } });
+  const before = f.setup.runtime.view(coordinatorRunId(null));
+  assert.equal(new Set(before.actors.filter((actor) => actor.kind === "script").map((actor) => actor.room)).size, 2);
+  assert.equal(before.actors.find((actor) => actor.id === before.primaryActorId)?.room, null);
+  await f.service.run(access, "daily");
+  f.scheduler.start();
+  await f.settled("completed", "daily");
+  assert.equal(f.service.read(access, "daily").app.nextRunAt, null);
+  await f.service.pause(access, "daily", false);
+  await f.service.pause(access, "weekly", false);
+  assert.equal(f.service.read(access, "daily").app.nextRunAt, "2026-08-17T06:00:00.000Z");
+  assert.equal(f.service.read(access, "weekly").app.nextRunAt, "2026-08-16T23:00:00.000Z");
+  await f.service.shutdown();
+  f.advance(9 * 86400000);
+  await f.restart();
+  await until(() => (f.service.read(access, "daily").state as { count?: number }).count === 2 && (f.service.read(access, "weekly").state as { count?: number }).count === 1);
+  await f.settled("completed", "daily");
+  await f.settled("completed", "weekly");
+  assert.equal(f.service.read(access, "daily").app.nextRunAt, "2026-08-26T06:00:00.000Z");
+  assert.equal(f.service.read(access, "weekly").app.nextRunAt, "2026-08-30T23:00:00.000Z");
+  assert.equal(f.service.read(access, "daily").log.at(-1)?.text, "2026-08-17T06:00:00.000Z Europe/Berlin");
+  assert.equal(f.service.read(access, "weekly").log.at(-1)?.text, "2026-08-16T23:00:00.000Z Asia/Tokyo");
+  assert.equal(f.setup.runtime.view(coordinatorRunId(null)).inputs.length, 3);
+});
+
+test("an explicitly granted notification reaches the current coordinator after its replacement", { timeout: 60000 }, async (t) => {
+  let f: Awaited<ReturnType<typeof fixture>>;
+  const contribution = coordinatorNotifications(() => f.setup.runtime, () => access);
+  const notifications = contribution.tools({} as never) as RunFunction[];
+  f = await fixture(t, notifications);
+  await assert.rejects(f.register(count, {}, ["global_app_trigger", "overseer_notify"]), /not permitted/);
+  await f.register(count + ' await context.functions.overseer_notify({ message: "Today is the test date." });', { functions: ["overseer_notify"] }, ["global_app_trigger", "overseer_notify"]);
+  const runId = coordinatorRunId(null);
+  const before = f.setup.runtime.view(runId);
+  f.setup.runtime.stopActors({ actorId: before.ownerId, commandId: "stop-old-coordinator" }, runId, [before.primaryActorId!], "Reset");
+  const spawned = f.setup.runtime.spawnAgent({ actorId: before.ownerId, commandId: "new-coordinator" }, runId, { handle: "coordinator", displayName: "Coordinator", prompt: "Fresh", execution: f.setup.agent.execution, grants: allGrants(), toolNames: null });
+  const replacement = spawned.actors.find((actor) => actor.kind === "agent" && actor.lifecycle.kind !== "stopped")!;
+  f.setup.runtime.selectPrimaryActor({ actorId: before.ownerId, commandId: "new-primary" }, runId, replacement.id);
+  await f.service.run(access, "check");
+  f.scheduler.start();
+  await f.settled();
+  const notification = f.setup.runtime.view(runId).inputs.find((input) => input.content === "Today is the test date.");
+  assert.equal(notification?.actorId, replacement.id);
+  assert.equal(notification?.enqueuedBy, f.service.read(access, "check").app.actorId);
+  assert.equal(f.service.read(access, "check").permissions.functions?.[0], "overseer_notify");
+});
+
+test("copied view actions use the app's grants and capability-bearing tools cannot borrow a different actor", { timeout: 60000 }, async (t) => {
+  const schema = Type.Object({});
+  const tool = defineRunFunction({ name: "test_action", label: "Test action", description: "Test an app action.", schema, resultSchema: Type.String(), available: defineToolAvailability({ availability: "always", availabilityDetail: "Always available." }, () => true), run: () => "unused" });
+  const operations = new OperationContributionRegistry();
+  const principals: string[] = [];
+  operations.register("test", [{ id: tool.name, label: tool.label, description: tool.description, schema, resultSchema: Type.String(), operator: "direct", execute: async (context) => {
+    assert.equal(context.principal.kind, "agent");
+    principals.push(context.principal.actorId);
+    return "App action";
+  } }]);
+  const f = await fixture(t, [tool], allGrants(), { operations });
+  const sources = files(count, ["global_app_trigger"]);
+  const fn = 'action: { label: "Action", input: Type.Object({}), output: Type.String(), capabilities: ["test_action"], tool: { name: "app_action", targets: ["@coordinator"] } }';
+  const implementation = 'action: async (_input, context) => context.functions.test_action({})';
+  const server = sources["src/server.ts"].replace('functions: {}, input:', `functions: { ${fn} }, input:`).replace('functions: {}, onInput:', `functions: { ${implementation} }, onInput:`);
+  await writeAppFiles(path.join(f.directory, f.caller.runId), "source", { ...sources, "src/server.ts": server });
+  await f.service.register(access, f.caller, { name: "check", description: "An action", program: "source", permissions: { functions: ["test_action"] } });
+  const runId = coordinatorRunId(null);
+  const app = f.programs.programs(runId)[0]!;
+  assert.equal(app.capabilitiesAsActor, true);
+  const started = f.programs.startFunctionInvocation(runId, app.actorHandle, app.revision, "action", "action-1", {});
+  const completed = await invocationResult(f.programs, runId, app.actorHandle, started.id);
+  assert.equal(completed.status, "succeeded", JSON.stringify(completed));
+  assert.deepEqual(principals, [app.actorId]);
+  const view = f.setup.runtime.view(runId);
+  const actor = view.actors.find((entry) => entry.id === view.primaryActorId)!;
+  const published = f.programs.installedTools({ runId, view, actorId: actor.id, actor } as never).find((entry) => entry.name === "app_action")!;
+  assert.ok(published);
+  await assert.rejects(published.run({ caller: { runId, actorId: actor.id, turnId: null }, signal: undefined } as never, "foreign-call", {}), /require the app actor/);
 });
 
 test("failed checks retain logs but discard staged state; the log ring and registration errors stay bounded", { timeout: 60000 }, async (t) => {
@@ -220,10 +321,11 @@ test("current owner rights and delegable grants bound app functions; ordinary in
   await f.settled();
   assert.equal(f.service.read(access, "check").log.at(-1)?.text, "notification");
   await assert.rejects(f.register(count, { functions: ["typescript_eval"] }), /not available and delegable/);
+  await assert.rejects(f.register(count, { functions: ["read"] }), /not available and delegable/);
   const limited = createAccessContext({ enabled: false, user: { id: "guest", label: "Guest", rights: ["runs.read", "ragents.global-apps.read"] } });
   await assert.rejects(f.service.run(limited, "check"), /Missing permission/);
   assert.deepEqual(f.service.list(limited), { apps: [], errors: [], hasMore: false });
-  assert.throws(() => f.service.trigger(f.caller), /not an accepted app occurrence/);
+  assert.throws(() => f.service.trigger(f.caller), /not a registered global app/);
   f.setAccess(createAccessContext({ enabled: false, user: { id: "limited", label: "Limited", rights: ["runs.read"] } }));
   await assert.rejects(f.service.run(access, "check"), /Missing permission/);
   const registration: GlobalAppRegister = { name: "foreign", description: "Foreign package", program: "source", triggers: { interval: { everySeconds: 60 } }, permissions: {} };
@@ -237,7 +339,7 @@ test("current owner rights and delegable grants bound app functions; ordinary in
     { capability: "workspace.use", scope: { kind: "workspace", path: "/home/user/allowed" }, usable: true, delegable: true },
   ]);
   await scoped.register();
-  const appActor = scoped.setup.runtime.view(globalAppsRunId(null)).actors.find((actor) => actor.kind === "script")!;
+  const appActor = scoped.setup.runtime.view(coordinatorRunId(null)).actors.find((actor) => actor.kind === "script")!;
   const workspaceGrants = appActor.grants.filter((grant) => grant.capability === "workspace.use");
   assert.equal(workspaceGrants.length, 1);
   assert.deepEqual(workspaceGrants[0]!.scope, { kind: "workspace", path: "/home/user/allowed" });
@@ -247,12 +349,12 @@ test("accepted work recovers its missing enqueue exactly once before the schedul
   const f = await fixture(t);
   await f.register();
   await f.service.shutdown();
-  const runId = globalAppsRunId(null);
+  const runId = coordinatorRunId(null);
   const state = f.setup.runtime.view(runId).pluginStates.find((entry) => entry.pluginId === "ragents.global-apps" && entry.scope.kind === "actor")!;
   const key = `${runId}:check:1`;
   f.setup.runtime.replacePluginState({ actorId: f.setup.runtime.state(runId).ownerId, commandId: "accepted-before-crash" }, runId, {
     pluginId: state.pluginId, scope: state.scope,
-    state: { ...state.state as Record<string, JsonValue>, occurrence: 1, phase: { kind: "accepted", tick: { number: 1, key, commandId: `global-apps-input:${key}`, scheduledAt: f.setup.services.now(), reason: "manual" } } },
+    state: { ...state.state as Record<string, JsonValue>, occurrence: 1, phase: { kind: "accepted", tick: { number: 1, key, commandId: `global-apps-input:${key}`, scheduledAt: f.setup.services.now(), reason: "manual", timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone } } },
   });
   await f.restart();
   await f.restart();
@@ -267,7 +369,7 @@ test("engine restart interrupts a claimed check and global apps finalize its jou
   await f.register();
   await f.service.run(access, "check");
   await f.service.shutdown();
-  const runId = globalAppsRunId(null);
+  const runId = coordinatorRunId(null);
   const input = f.setup.runtime.view(runId).inputs[0]!;
   const actorId = input.actorId;
   f.setup.runtime.startTurn({ actorId, commandId: "started-before-crash" }, runId, actorId, input.id);
@@ -294,7 +396,7 @@ test("a deadline kills a stuck Node process without committing its state or over
   await f.register('context.log("Before timeout"); context.state.replace({ count: 99 }); for (;;) {}');
   f.scheduler.start();
   await f.service.run(access, "check");
-  const runId = globalAppsRunId(null);
+  const runId = coordinatorRunId(null);
   await until(() => f.setup.runtime.events(runId).some((event) => event.type === "tool.call.completed" && event.payload.name === "global_app_trigger"));
   f.advance(31000);
   await f.settled("timeout");
@@ -325,7 +427,7 @@ test("manual-only apps have no timer and file triggers cannot exceed their folde
   await f.service.pause(access, "manual", false);
   f.advance(600000);
   assert.equal(f.service.read(access, "manual").app.nextRunAt, null);
-  assert.equal(f.setup.runtime.view(globalAppsRunId(null)).inputs.length, 0);
+  assert.equal(f.setup.runtime.view(coordinatorRunId(null)).inputs.length, 0);
   await assert.rejects(f.register(count, {}, ["global_app_trigger"], "", "denied-watch", { fileChange: { folders: [f.directory] } }), /outside the working directory/);
   f.scheduler.start();
   await f.service.run(access, "manual");
@@ -353,12 +455,12 @@ test("file triggers combine with intervals, coalesce during work and stop on pau
   listener.onChange();
   listener.onChange();
   listener.onChange();
-  await until(() => f.setup.runtime.view(globalAppsRunId(null)).inputs.length === 1);
+  await until(() => f.setup.runtime.view(coordinatorRunId(null)).inputs.length === 1);
   await new Promise((resolve) => setTimeout(resolve, 20));
   f.scheduler.start();
   await until(() => (f.service.read(access, "check").state as { count?: number }).count === 2);
   await f.settled();
-  assert.equal(f.setup.runtime.view(globalAppsRunId(null)).inputs.length, 2, "one occurrence and one pending occurrence");
+  assert.equal(f.setup.runtime.view(coordinatorRunId(null)).inputs.length, 2, "one occurrence and one pending occurrence");
   assert.equal(f.service.read(access, "check").log.at(-1)?.text, "file-change");
   assert.equal(f.service.read(access, "check").app.nextRunAt, new Date(Date.parse(f.setup.services.now()) + 60000).toISOString());
   f.advance(60000);
@@ -369,7 +471,7 @@ test("file triggers combine with intervals, coalesce during work and stop on pau
   assert.equal(listeners.size, 0);
   listener.onChange();
   await new Promise((resolve) => setTimeout(resolve, 20));
-  assert.equal(f.setup.runtime.view(globalAppsRunId(null)).inputs.length, 3);
+  assert.equal(f.setup.runtime.view(coordinatorRunId(null)).inputs.length, 3);
   await f.service.pause(access, "check", false);
   await f.service.remove(access, "check");
   assert.equal(listeners.size, 0);
@@ -415,7 +517,7 @@ test("damaged definitions are skipped with an error while healthy apps still rec
   const f = await fixture(t);
   await f.register(count, {}, ["global_app_trigger"], "", "broken", {});
   await f.register(count, {}, ["global_app_trigger"], "", "healthy", {});
-  const runId = globalAppsRunId(null);
+  const runId = coordinatorRunId(null);
   const stored = f.setup.runtime.view(runId).pluginStates.find((entry) => entry.pluginId === "ragents.global-apps" && entry.scope.kind === "actor" && (entry.state as { definition?: { name?: string } }).definition?.name === "broken")!;
   f.setup.runtime.replacePluginState({ actorId: f.setup.runtime.state(runId).ownerId, commandId: "damage-app-definition" }, runId, {
     pluginId: stored.pluginId, scope: stored.scope, state: { definition: { name: "broken" }, version: 99 },
@@ -458,19 +560,20 @@ test("view packages are copied globally; a missing frame stays local to its app"
   const viewed = { ...files(count), "package.json": JSON.stringify({ name: "source", private: true, type: "module", ragents: { title: "Global counter", backend: "src/server.ts", views: [{ id: "main", client: "src/client.tsx" }] } }), "src/client.tsx": client };
   await writeAppFiles(path.join(f.directory, f.caller.runId), "source", viewed);
   for (const name of ["broken-view", "healthy-view"]) await f.service.register(access, f.caller, { name, description: "A global view", program: "source", permissions: {} });
-  const runId = globalAppsRunId(null);
+  const runId = coordinatorRunId(null);
   const broken = f.service.read(access, "broken-view").app.views[0]!;
   const healthy = f.service.read(access, "healthy-view").app.views[0]!;
-  assert.equal(f.service.view(access, "healthy-view", healthy.id).id, healthy.id);
-  assert.throws(() => f.service.view(access, "healthy-view", broken.id), /does not belong/);
-  const brokenProgram = f.programs.programs(runId).find((program) => program.name === "broken-view")!;
+  const healthyActorId = f.service.read(access, "healthy-view").app.actorId!;
+  assert.equal(f.programs.apps(runId, healthyActorId)[0]!.id, healthy.id);
+  assert.equal(f.programs.apps(runId, healthyActorId).some((app) => app.id === broken.id), false);
+  const brokenProgram = f.programs.programs(runId).find((program) => program.name === "broken-view.broken-view")!;
   await rm(path.join(brokenProgram.directory, brokenProgram.views[0]!.clientFile));
   await f.restart();
-  assert.throws(() => f.service.view(access, "broken-view", broken.id), /ENOENT/);
-  assert.equal(f.service.view(access, "healthy-view", healthy.id).id, healthy.id);
+  assert.throws(() => f.programs.frame(runId, broken.id, broken.revision), /ENOENT/);
+  assert.equal(f.programs.apps(runId, healthyActorId)[0]!.id, healthy.id);
   assert.equal(f.service.snapshot(access).problem, null);
   f.scheduler.start();
   await f.service.run(access, "healthy-view");
   await f.settled("completed", "healthy-view");
-  assert.equal((f.service.view(access, "healthy-view", healthy.id).state.values as { count: number }).count, 1);
+  assert.equal((f.programs.apps(runId, healthyActorId)[0]!.state.values as { count: number }).count, 1);
 });

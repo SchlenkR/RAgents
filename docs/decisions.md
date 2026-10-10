@@ -1,5 +1,54 @@
 # Decisions
 
+## 2026-10-10: Global apps share the coordinator run and its reset preserves their rooms
+
+Chapters: `spec/core.md` (global coordinator and conversation reset), `spec/plugins.md`
+(global mini-apps), `spec/actor-programs.md` (package installation), and
+`spec/typescript-platform.md` (actor execution). Usage and operations: global coordinator,
+global mini-apps, and their guide chapters. Homepage: global mini-apps.
+
+A separate app run duplicated the owner's global working context and bootstrap. Apps now use
+the existing hidden global coordinator run, with one room per app beside `main`. Packages,
+verification, activation, actor state, views, and execution logs follow the ordinary mini-app
+paths. App registration, explicit permissions, trigger dispatch, and Start widgets remain the
+plugin's concern. The former separate app run and its bootstrap are removed without migration.
+Recent logs are a bounded projection of ordinary runtime output and turn-failure events,
+matched by occurrence command IDs; scheduler metadata stores no duplicate log or dropped count.
+Ordinary function tools, operator policies, and view actions remain available with explicitly
+permitted capabilities and the same per-app grants. The copied package persists
+`capabilitiesAsActor`: registered view operations run under the app actor after checking its
+currently available capabilities, instead of widening to the run owner's grants. Capability-bearing
+published functions reject calls from other actors and direct them to trigger the input;
+state-only tools stay available. No additional delegated tool dispatcher is introduced.
+Only occurrence metadata requires an accepted app input; file and HTTP helpers authorize
+registered app actor execution.
+Generic file and execution tools cannot be delegated through function permissions, preserving
+the folder allow lists and managed execution boundary.
+The small shared seams are global-space preparation, room-aware package copy, filtered app
+listing, and the copied package's capability identity. Reset reuses the existing exact
+`Orchestration.stopActors` and scoped scheduler interruption. Bundles require `HOST_API_VERSION` 16.
+
+Resetting a conversation must not delete apps that share its journal. A durable reset intent
+therefore drives a journal-preserving reset of the coordinator actor and model conversation.
+The run and other rooms remain, including app state, recent logs, and schedule progress. The
+intent key and old coordinator actor ID make retries and startup completion idempotent.
+The old coordinator is stopped before awaiting cleanup so another turn cannot start;
+descendants and sibling rooms continue. The new coordinator's
+spawn event supplies the new chat identity, so reconnecting clients detect a reset despite the
+unchanged run journal. A locked global journal requires explicit recovery and is not deleted
+by conversation reset.
+
+Daily and weekday schedules express a local `HH:MM` in an IANA time zone, defaulting to the
+server's zone. They complement manual execution, fixed-delay intervals, and file changes without
+introducing general cron configuration. Registration stores the resolved zone; spring gaps
+are skipped and autumn repeats use the first occurrence. Each accepted occurrence records its
+zone on the server, so date formatting does not depend on the isolated process's default.
+Restart keeps one overdue occurrence instead of a catch-up queue. Optional `overseer_notify`
+delivers an ordinary input to the current coordinator, bounded by explicit function permission,
+delegable `actor.input`, and
+the user's `ragents.overseer.write`; this permission may cause a coordinator response.
+Cross-run actor-event triggers remain the short idea in `TODO.md`.
+
 ## 2026-10-09: Global mini-apps reuse actor packages with explicit capabilities and paused verification
 
 Chapters: `spec/core.md` (Global coordinator), `spec/plugins.md` (Global mini-apps and dynamic

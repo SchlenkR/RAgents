@@ -15,6 +15,8 @@ import { managementMethods } from "./api.js";
 import { overseerOrientation } from "./orientation.js";
 import { coordinatorPrompt, preparationPrompt } from "./coordinator-prompt.js";
 import { createUserLocationContext } from "./user-location.js";
+import { runOwnerAccessToken, runtimeProviderToken } from "@ragents/host/ragents/host-services.js";
+import { coordinatorNotifications } from "./notify.js";
 
 /** With users the coordinator has no host shell; it would run as a server process and read the files of all users. */
 const promptFor = (shell: boolean): string => `${coordinatorPrompt}
@@ -55,6 +57,7 @@ export const plugin: PluginModule = {
       const management = host.service(runManagementToken);
       const directory = new RunDirectory(host.storage.root("run-references.json"));
       const model = new OverseerModelSettings(host.storage.root("settings.json"));
+      host.functions(coordinatorNotifications(() => host.service(runtimeProviderToken)(), (runId) => host.service(runOwnerAccessToken)(runId)));
       host.methods(...createSettingsMethods(model), createResetMethod((runId) => management().resetGlobal(runId)),
         ...managementMethods({ root, management, directory, authentication }));
       host.provide(globalChatToken, {
@@ -65,7 +68,7 @@ export const plugin: PluginModule = {
         preparationPrompt,
         get prompt() { return `${promptFor(!users)}\n\n${users ? journalsThroughMethods : journalsOnDisk}\n\n${overseerOrientation(root, !users)}`; },
         get toolNames() { return [...users ? ["read", "write", "edit"] : ["read", "write", "edit", "bash"],
-          ...root.tools.describe().map((tool) => tool.name).filter((name) => name === "actor_program_create" || name === "actor_program_diagnostics" || name.startsWith("global_app_") || name.startsWith("typescript_") || name.startsWith("lsp_typescript_"))]; },
+          ...root.tools.describe().map((tool) => tool.name).filter((name) => name === "actor_program_create" || name === "actor_program_diagnostics" || name === "overseer_notify" || name.startsWith("global_app_") || name.startsWith("typescript_") || name.startsWith("lsp_typescript_"))]; },
         workspaceDirectory: (runId) => host.storage.session(runId, "workspace"),
         prepareWorkspace: async (directory) => {
           await writeFile(path.join(directory, "rpc-reference.md"), methodReference(root, authentication), { mode: 0o600 });

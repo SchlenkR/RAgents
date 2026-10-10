@@ -842,9 +842,10 @@ keep ordinary browser network access.
 ## Operate global mini-apps
 
 `ragents.global-apps` is included in `core`, `showcase`, and `developer`. Backends execute on
-the server, each in its own managed Node process, in one ordinary "Global apps" run per user.
+the server, each in its own managed Node process, in its own room beside `main` in the owner's
+hidden global coordinator run.
 The authoring chat, browser, VS Code window, and workstation can disconnect without stopping
-interval or file triggers. Creating and verifying apps is described in
+interval, daily, weekday, or file triggers. Creating and verifying apps is described in
 [usage.md](usage.md#global-mini-apps-on-start).
 
 The package sandbox denies direct networking and limits writes to package, build, and temporary
@@ -868,9 +869,17 @@ An upgrade that changes the global coordinator's fixed tool inventory triggers t
 once to use the new authoring and global app tools. This existing upgrade mechanism does not
 reset normal runs or registered apps.
 
+"Reset conversation" resets only the coordinator's model conversation. Its shared global run,
+journal, app rooms, state, logs, and schedules remain. The durable reset intent completes a
+started reset after a server restart; it does not delete the app workspace.
+
 Registration and replacement leave the app paused. Enable automatic triggers after a manual
-input and inspection of its result and log. Intervals use fixed delay from completion, with one
-overdue occurrence after restart. Server file watches reuse `watchDirectory` with its
+input and inspection of its result and log. Intervals use fixed delay from completion. Daily
+and weekly schedules use local `HH:MM` and an IANA zone, explicitly resolved and stored at
+registration; moving the server or changing its zone does not change an app's stored schedule
+zone. Missing spring local times are skipped; repeated autumn local times use the first
+occurrence. Restart accepts one overdue occurrence and continues with future deadlines.
+Server file watches reuse `watchDirectory` with its
 150-millisecond debounce and coalesce changes while an app is busy. They resume after restoration
 without a client opening the run; they provide no history of changes while observation was stopped.
 Watch failures and damaged definitions stay visible for the affected app, with "Retry" and
@@ -878,16 +887,27 @@ Watch failures and damaged definitions stay visible for the affected app, with "
 
 Existing engine recovery interrupts open turns during restoration. The registrar finalizes
 their recorded journal result without repeating the accepted occurrence, using no additional
-recovery step. Pause or stop of the Global apps run holds its automatic triggers, and the
+recovery step. Pause or stop of the global run holds its automatic triggers, and the
 plugin never undoes a deliberate operator stop. Shutdown clears timers and file watches and
 cancels managed work through the existing execution lifecycle.
 
-Back up the whole Global apps run, including its journal, payloads, working files, and actor
+Back up the whole global coordinator run, including its journal, payloads, working files, and actor
 programs, using [Data storage and logs](#data-storage-and-logs). Definitions, trigger progress,
-results, and recent logs are journaled; domain state belongs to each app actor. The bounded log
-ring limits current state and display, not the append-only journal. External writes, webhooks,
-and completed function calls cannot be rolled back if a later step fails. Interrupted inputs
+and results are journaled; domain state belongs to each app actor. The bounded recent-log
+projection reads ordinary runtime output and turn-failure journal events by occurrence command
+ID, without duplicate scheduler log state. Its limits apply to returned data and display, not
+the append-only journal. External writes, webhooks, and completed function calls cannot be
+rolled back if a later step fails. Interrupted inputs
 are not automatically replayed; use the occurrence key for external idempotency when possible.
+
+Global app rooms use the normal actor-program view, state, and execution-log paths. Registered
+operator operations from a view execute under its own current grants, without
+inheriting broader run-owner grants. Published functions with external capabilities reject
+another actor's call; trigger the app input for that work. An app can notify the current
+coordinator only with an explicit `overseer_notify` grant, bounded by
+`actor.input` delegation and the user's `ragents.overseer.write`; the delivered input may trigger a
+model response. Conversation reset preserves app grants and their stored state. Former
+separate app runs are not migrated into the global coordinator run.
 
 ## Time limit of `bash`
 
@@ -1029,9 +1049,9 @@ automatically migrated, moved, or deleted; only an explicit deletion moves them 
 the archive. Pending delete intents are retried at startup and shutdown. A failed deletion keeps
 its intent and remaining files, logs the cause, and shows the run as locked; it does not prevent
 server start or shutdown. The run's delete action can retry the cleanup.
-An old journal of the global coordinator does not prevent the server start either;
-its explicitly confirmed conversation reset then starts a new conversation. For other runs, a
-deliberate repair followed by a restart can make the existing storage usable again.
+An old or damaged journal of the global coordinator does not prevent server start either.
+Its conversation reset preserves the shared journal and cannot unlock it. A deliberate journal
+repair followed by a restart can make the existing storage usable again.
 A completely fresh data set is not required.
 
 Workspace resolution failures at startup or on first use also lock only the affected run with their cause.

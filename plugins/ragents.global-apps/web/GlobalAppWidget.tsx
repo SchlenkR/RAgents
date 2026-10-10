@@ -4,7 +4,7 @@ import { RenderBoundary } from "@ragents/web/RenderBoundary";
 import { Badge, Button, Card, CardContent, ChoiceSelect, Spinner } from "@ragents/web/ui";
 import { rpc } from "@ragents/web/rpc";
 import { ActorViewFrame } from "@ragents/plugins/ragents.actor-programs/web/ActorViewFrame";
-import { createActorProgramsApi, runAppFrom, type RunApp } from "@ragents/plugins/ragents.actor-programs/web/api";
+import { createActorProgramsApi, type RunApp } from "@ragents/plugins/ragents.actor-programs/web/api";
 import { globalAppsContracts, type GlobalAppSummary } from "../contract";
 import { GlobalAppDetails } from "./GlobalAppDetails";
 
@@ -19,15 +19,17 @@ export function GlobalAppError({ problem, onRetry, onDetails }: { problem: strin
   </div>;
 }
 
-function GlobalView({ name, runId, view, revision, onFailure }: { name: string; runId: string; view: GlobalAppSummary["views"][number]; revision: number; onFailure: (cause: string) => void }) {
+function GlobalView({ actorId, runId, view, revision, onFailure }: { actorId: string; runId: string; view: GlobalAppSummary["views"][number]; revision: number; onFailure: (cause: string) => void }) {
   const [app, setApp] = useState<RunApp>();
   useEffect(() => {
     const controller = new AbortController();
-    void rpc.call(globalAppsContracts.view, { name, viewId: view.id }, { signal: controller.signal }).then((value) => {
-      if (!controller.signal.aborted) setApp(runAppFrom(value));
+    void api.list(runId, controller.signal, actorId).then((value) => {
+      const loaded = value.apps.find((app) => app.id === view.id);
+      if (!loaded) throw new Error("The app view is unavailable.");
+      if (!controller.signal.aborted) setApp(loaded);
     }).catch((cause) => { if (!controller.signal.aborted) onFailure(errorText(cause)); });
     return () => controller.abort();
-  }, [name, view.id, view.revision, revision, onFailure]);
+  }, [actorId, runId, view.id, view.revision, revision, onFailure]);
   const invoke = useCallback(async (appId: string, appRevision: string, actionId: string, requestId: string, input: Parameters<typeof api.invoke>[5]) => {
     const started = await api.invoke(runId, appId, appRevision, actionId, requestId, input);
     return started;
@@ -68,8 +70,9 @@ export function GlobalAppWidget({ app, runId, revision }: { app: GlobalAppSummar
       }} /> : view ? <RenderBoundary resetKeys={[generation, view.id, view.revision]} title="The global app could not be rendered"
         fallback={(cause, reset) => <GlobalAppError problem={cause.message} onDetails={openDetails} onRetry={() => { reset(); retry(); }} />}>
         {app.views.length > 1 && <ChoiceSelect label="View" value={view.id} onValueChange={setSelected} options={app.views.map((entry) => ({ value: entry.id, label: entry.title }))} />}
-        <GlobalView key={`${view.id}:${generation}`} name={app.name} runId={runId} view={view} revision={revision} onFailure={failed} />
-      </RenderBoundary> : <dl className="grid gap-1 text-xs text-muted-foreground"><div><dt>Last run</dt><dd>{time(app.lastRunAt)}</dd></div><div><dt>Next run</dt><dd>{time(app.nextRunAt)}</dd></div><div><dt>Last result</dt><dd className="break-words">{app.lastResult ? `${app.lastResult.outcome}: ${app.lastResult.summary}` : "No runs yet."}</dd></div></dl>}
+        <GlobalView key={`${view.id}:${generation}`} actorId={app.actorId!} runId={runId} view={view} revision={revision} onFailure={failed} />
+      </RenderBoundary> : null}
+      <dl className="grid gap-1 text-xs text-muted-foreground"><div><dt>Last run</dt><dd>{time(app.lastRunAt)}</dd></div><div><dt>Next run</dt><dd>{time(app.nextRunAt)}</dd></div><div><dt>Last result</dt><dd className="break-words">{app.lastResult ? `${app.lastResult.outcome}: ${app.lastResult.summary}` : "No runs yet."}</dd></div></dl>
       {writable && <div className="flex flex-wrap gap-2">
         <Button size="sm" variant="outline" disabled={pending || ["running", "queued", "blocked"].includes(app.status)} onClick={() => { void act(() => rpc.call(globalAppsContracts.run, { name: app.name })); }}>{pending && <Spinner />}Run now</Button>
         <Button size="sm" variant="outline" disabled={pending} onClick={() => { void act(() => rpc.call(globalAppsContracts.pause, { name: app.name, paused: !app.paused })); }}>{app.paused ? "Resume" : "Pause"}</Button>

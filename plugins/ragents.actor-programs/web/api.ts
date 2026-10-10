@@ -88,7 +88,7 @@ export interface ActorProgramsListing {
 }
 
 export interface ActorProgramsApi {
-  list: (runId: string, signal?: AbortSignal) => Promise<ActorProgramsListing>;
+  list: (runId: string, signal?: AbortSignal, actorId?: string) => Promise<ActorProgramsListing>;
   source: (runId: string, moduleId: string, signal?: AbortSignal) => Promise<ActorProgramSourceFile[]>;
   frameUrl: (runId: string, appId: string, revision: string) => string;
   invoke: (
@@ -317,8 +317,8 @@ const frameBase = (routePrefix: string, runId: string): string =>
   `${routePrefix}/runs/${segment(runId)}/apps`;
 
 export const createActorProgramsApi = (routePrefix: string): ActorProgramsApi => ({
-  list: async (runId, signal) =>
-    actorProgramsListingFrom(await rpc.call(actorProgramContracts.apps, { runId }, { signal })),
+  list: async (runId, signal, actorId) =>
+    actorProgramsListingFrom(await rpc.call(actorProgramContracts.apps, { runId, ...actorId ? { actorId } : {} }, { signal })),
   source: async (runId, moduleId, signal) =>
     actorProgramSourceFrom(await rpc.call(actorProgramContracts.source, { runId, moduleId }, { signal })),
   frameUrl: (runId, appId, revision) =>

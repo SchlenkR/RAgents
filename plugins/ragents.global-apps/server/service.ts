@@ -1,14 +1,16 @@
-import { createHash, randomUUID } from "node:crypto";
-import { constants } from "node:fs";
+import { randomUUID } from "node:crypto";
+import { constants, existsSync } from "node:fs";
 import { open, realpath, stat } from "node:fs/promises";
 import path from "node:path";
 import { Type } from "typebox";
 import { Value } from "typebox/value";
-import { DomainError, hasCapability, inheritedGrants, type AccessContext, type Actor, type ExecutableActor, type JsonValue, type Orchestration, type RunFunction, type RunView, type ToolCaller } from "@ragents/engine";
+import { DomainError, freeRoomName, hasCapability, inheritedGrants, type AccessContext, type Actor, type ExecutableActor, type JsonValue, type Orchestration, type RunFunction, type RunView, type ToolCaller } from "@ragents/engine";
 import { allowedWorkspacePath, containsWorkspacePath, resolvedWorkspacePath, watchDirectory } from "@ragents/workspace-executor";
 import type { ActorProgramsService } from "@ragents/host/plugin-support/actor-programs/service.js";
 import { ACTOR_STATE_ID } from "@ragents/host/plugin-support/actor-programs/contract.js";
-import { GLOBAL_APPS_PLUGIN_ID, appLogSchema, appRegisterSchema, appResultSchema, appTriggerSchema, type GlobalAppDetails, type GlobalAppHttpRequest, type GlobalAppLog, type GlobalAppPermissions, type GlobalAppRegister, type GlobalAppResult, type GlobalAppSummary, type GlobalAppTrigger, type GlobalAppsSnapshot } from "../contract.js";
+import { GLOBAL_APPS_PLUGIN_ID, appRegisterSchema, appResultSchema, appTriggerSchema, type GlobalAppDetails, type GlobalAppHttpRequest, type GlobalAppLog, type GlobalAppPermissions, type GlobalAppRegister, type GlobalAppResult, type GlobalAppSummary, type GlobalAppTrigger, type GlobalAppsSnapshot } from "../contract.js";
+
+import { nextScheduledOccurrence, normalizeTriggers, serverTimeZone, type ScheduledReason } from "./schedule.js";
 
 interface Occurrence extends GlobalAppTrigger {
   readonly number: number;
@@ -22,13 +24,12 @@ interface StoredGlobalApp {
   readonly sandbox: "process" | "disabled";
   readonly paused: boolean;
   readonly nextDueAt: string | null;
+  readonly nextDueReason: ScheduledReason | null;
   readonly occurrence: number;
   readonly phase: { readonly kind: "idle" } | { readonly kind: "accepted"; readonly tick: Occurrence } | { readonly kind: "removed" };
   readonly lastRunAt: string | null;
   readonly lastResult: GlobalAppResult | null;
   readonly problem: string | null;
-  readonly log: readonly GlobalAppLog[];
-  readonly droppedLogLines: number;
   readonly filePending: boolean;
 }
 interface RegistrationFailure {
@@ -50,6 +51,7 @@ const storedGlobalAppSchema = Type.Object({
   sandbox: Type.Union([Type.Literal("process"), Type.Literal("disabled")]),
   paused: Type.Boolean(),
   nextDueAt: nullableText,
+  nextDueReason: Type.Union([Type.Literal("interval"), Type.Literal("daily"), Type.Literal("weekly"), Type.Null()]),
   occurrence: Type.Integer({ minimum: 0 }),
   phase: Type.Union([
     Type.Object({ kind: Type.Literal("idle") }, { additionalProperties: false }),
@@ -66,11 +68,9 @@ const storedGlobalAppSchema = Type.Object({
   lastRunAt: nullableText,
   lastResult: Type.Union([appResultSchema, Type.Null()]),
   problem: nullableText,
-  log: Type.Array(appLogSchema, { maxItems: 100 }),
-  droppedLogLines: Type.Integer({ minimum: 0 }),
   filePending: Type.Boolean(),
 }, { additionalProperties: false });
-const executionTools = new Set(["bash", "typescript_eval", "agent_spawn", "actor_program_activate", "actor_program_import", "actor_program_ensure", "plugin_state_write"]);
+const executionTools = new Set(["read", "write", "edit", "bash", "typescript_eval", "agent_spawn", "actor_program_activate", "actor_program_import", "actor_program_ensure", "plugin_state_write"]);
 const registrationFailureSchema = Type.Object({
   definition: appRegisterSchema,
   source: storedGlobalAppSchema.properties.source,
@@ -88,6 +88,9 @@ export interface GlobalAppsServiceOptions {
   readonly programs: ActorProgramsService;
   readonly userAccess: (userId: string | null) => AccessContext;
   readonly ensureRun: (runId: string) => void;
+  readonly globalRunIdFor: (userId: string | null) => string;
+  readonly isGlobalRun: (runId: string) => boolean;
+  readonly ensureGlobalRun: (access: AccessContext, signal?: AbortSignal) => Promise<string>;
   readonly prepareRun: (runId: string) => Promise<void>;
   readonly interrupt: (runId: string, actorId: string, reason: string) => Promise<void>;
   readonly sourceRoots: (runId: string) => Promise<{ read: readonly string[]; write: readonly string[] }>;
@@ -100,7 +103,6 @@ export interface GlobalAppsServiceOptions {
 
 const errorText = (error: unknown): string => error instanceof Error ? error.message : String(error);
 const fail = (code: string, message: string, status = 409): never => { throw new DomainError(code, message, status); };
-export const globalAppsRunId = (userId: string | null): string => `global-apps-${createHash("sha256").update(JSON.stringify(userId)).digest("hex").slice(0, 24)}`;
 const ownerOf = (access: AccessContext): string | null => {
   if (access.enabled && !access.user) return fail("login-required", "Please sign in.", 401);
   return access.user?.id ?? null;
@@ -111,7 +113,13 @@ const rights = (access: AccessContext, ...required: readonly string[]): void => 
 const validApp = (state: unknown, actorId: string): state is StoredGlobalApp => {
   if (!Value.Check(storedGlobalAppSchema, state)) return false;
   const app = state as StoredGlobalApp;
-  return app.actorId === actorId && [app.nextDueAt, app.lastRunAt, app.lastResult?.at, ...app.phase.kind === "accepted" ? [app.phase.tick.scheduledAt] : []]
+  try {
+    for (const calendar of [app.definition.triggers?.daily, app.definition.triggers?.weekly]) {
+      if (calendar && (!calendar.timeZone || new Intl.DateTimeFormat("en", { timeZone: calendar.timeZone }).resolvedOptions().timeZone !== calendar.timeZone)) return false;
+    }
+  } catch { return false; }
+  if (app.nextDueReason && !app.definition.triggers?.[app.nextDueReason]) return false;
+  return app.actorId === actorId && ((app.nextDueAt === null) === (app.nextDueReason === null)) && [app.nextDueAt, app.lastRunAt, app.lastResult?.at, ...app.phase.kind === "accepted" ? [app.phase.tick.scheduledAt] : []]
     .every((at) => at === null || at === undefined || Number.isFinite(Date.parse(at)));
 };
 const globalAppsOf = (view: RunView): StoredGlobalApp[] => view.pluginStates.flatMap((entry) => {
@@ -141,7 +149,7 @@ const turnFor = (runtime: Orchestration, runId: string, tick: Occurrence) => {
   return lifecycle?.kind === "claimed" ? runtime.view(runId).turns.find((turn) => turn.id === lifecycle.turnId) : undefined;
 };
 const actorOf = (view: RunView, app: StoredGlobalApp) => view.actors.find((actor): actor is ExecutableActor => actor.id === app.actorId && actor.kind !== "human");
-const problemOf = (view: RunView, app: StoredGlobalApp): string | null => app.problem ?? (view.pause ? "The global apps run is paused." : actorOf(view, app)?.lifecycle.kind === "stopped" ? "The app actor is stopped." : null);
+const problemOf = (view: RunView, app: StoredGlobalApp): string | null => app.problem ?? (view.pause ? "The global space is paused." : actorOf(view, app)?.lifecycle.kind === "stopped" ? "The app actor is stopped." : null);
 const summaryOf = (runtime: Orchestration, view: RunView, app: StoredGlobalApp, programs: ActorProgramsService): GlobalAppSummary => {
   const turn = app.phase.kind === "accepted" ? turnFor(runtime, view.id, app.phase.tick) : undefined;
   const loaded = (() => {
@@ -155,6 +163,7 @@ const summaryOf = (runtime: Orchestration, view: RunView, app: StoredGlobalApp, 
   const problem = problemOf(view, app) ?? loaded.problem;
   return {
     name: app.definition.name,
+    actorId: app.actorId,
     description: app.definition.description,
     triggers: app.definition.triggers ?? {},
     views: loaded.views,
@@ -166,9 +175,24 @@ const summaryOf = (runtime: Orchestration, view: RunView, app: StoredGlobalApp, 
     problem,
   };
 };
-const boundedLog = (app: StoredGlobalApp, lines: readonly GlobalAppLog[]) => {
-  const log = [...app.log, ...lines];
-  return { log: log.slice(-100), droppedLogLines: app.droppedLogLines + Math.max(0, log.length - 100) };
+const outputLines = (text: string, at: string, occurrence: number): GlobalAppLog[] => text.split(/\r?\n/).map((line) => ({ at, occurrence, level: "info", text: line.slice(0, 1000) }));
+const recentLog = (runtime: Orchestration, runId: string, app: StoredGlobalApp, limit: number) => {
+  const events = runtime.events(runId);
+  const prefix = `global-apps-input:${runId}:${app.definition.name}:`;
+  const occurrences = new Map(events.flatMap((event) => event.type === "actor.input.enqueued" && event.payload.actorId === app.actorId && event.commandId.startsWith(prefix)
+    ? [[event.payload.inputId, Number(event.commandId.slice(prefix.length))] as const] : []));
+  const turns = new Map(runtime.view(runId).turns.filter((turn) => turn.actorId === app.actorId && occurrences.has(turn.inputId)).map((turn) => [turn.id, occurrences.get(turn.inputId)!] as const));
+  return events.reduce((ring, event) => {
+    if (event.type !== "runtime.output.recorded" && event.type !== "turn.finished" && event.type !== "turn.interrupted") return ring;
+    const occurrence = turns.get(event.payload.turnId);
+    if (occurrence === undefined) return ring;
+    const reason = event.type === "turn.interrupted" ? event.payload.reason : event.type === "turn.finished" && event.payload.outcome === "failed" ? event.payload.reason : null;
+    const added: GlobalAppLog[] = event.type === "runtime.output.recorded" ? outputLines(event.payload.text, event.occurredAt, occurrence)
+      : reason === null ? [] : [{ at: event.occurredAt, occurrence, level: "error", text: reason.slice(0, 1000) }];
+    if (added.length === 0) return ring;
+    const log = [...ring.log, ...added];
+    return { log: log.slice(-limit), droppedLogLines: ring.droppedLogLines + Math.max(0, log.length - limit) };
+  }, { log: [] as GlobalAppLog[], droppedLogLines: 0 });
 };
 
 export class GlobalAppsService {
@@ -197,11 +221,10 @@ export class GlobalAppsService {
       }
     });
     for (const run of this.#runtime().listRuns()) {
-      if (!run.id.startsWith("global-apps-")) continue;
+      if (!this.#options.isGlobalRun(run.id)) continue;
       try {
         const view = this.#runtime().view(run.id);
-        const marker = view.pluginStates.find((entry) => entry.pluginId === GLOBAL_APPS_PLUGIN_ID && entry.scope.kind === "run");
-        if (!marker) continue;
+        if (!view.pluginStates.some((entry) => entry.pluginId === GLOBAL_APPS_PLUGIN_ID)) continue;
         this.#assertGlobalAppsRun(run.id);
         this.#runs.add(run.id);
         await this.#options.prepareRun(run.id);
@@ -214,12 +237,11 @@ export class GlobalAppsService {
   #assertGlobalAppsRun(runId: string): void {
     this.#options.ensureRun(runId);
     const state = this.#runtime().state(runId);
-    const marker = this.#runtime().view(runId).pluginStates.find((entry) => entry.pluginId === GLOBAL_APPS_PLUGIN_ID && entry.scope.kind === "run")?.state as { version?: number; ownerUserId?: string | null } | undefined;
-    if (!marker || marker.version !== 1 || marker.ownerUserId !== state.ownerUserId || runId !== globalAppsRunId(state.ownerUserId)) fail("global-apps-run-invalid", "The global apps run does not match its owner.");
+    if (!this.#options.isGlobalRun(runId) || runId !== this.#options.globalRunIdFor(state.ownerUserId)) fail("global-apps-run-invalid", "The global space does not match its owner.");
   }
 
   #run(access: AccessContext): string | undefined {
-    const runId = globalAppsRunId(ownerOf(access));
+    const runId = this.#options.globalRunIdFor(ownerOf(access));
     if (!this.#runtime().listRuns().some((run) => run.id === runId)) {
       if (this.#failures.has(runId)) fail("global-apps-run-unavailable", this.#failures.get(runId)!);
       return undefined;
@@ -228,17 +250,9 @@ export class GlobalAppsService {
     return runId;
   }
 
-  async #ensure(access: AccessContext): Promise<string> {
-    const existing = this.#run(access);
-    if (existing) return existing;
-    rights(access, "runs.create");
-    const owner = ownerOf(access);
-    const runId = globalAppsRunId(owner);
-    this.#runtime().createRun({ commandId: `global-apps-create:${runId}` }, {
-      runId, title: "Global apps", ownerHandle: owner ?? "owner", ownerDisplayName: access.user?.label ?? "Owner",
-      ...(owner === null ? {} : { ownerUserId: owner }),
-      initialPluginStates: [{ pluginId: GLOBAL_APPS_PLUGIN_ID, state: { version: 1, ownerUserId: owner } }],
-    });
+  async #ensure(access: AccessContext, signal?: AbortSignal): Promise<string> {
+    const runId = await this.#options.ensureGlobalRun(access, signal);
+    this.#assertGlobalAppsRun(runId);
     this.#runs.add(runId);
     await this.#options.prepareRun(runId);
     return runId;
@@ -267,15 +281,18 @@ export class GlobalAppsService {
       await allowedWorkspacePath(directory, [...permissions.files?.read ?? [], ...permissions.files?.write ?? []]);
       return directory;
     }));
-    const triggers = { ...input.triggers, ...input.triggers?.fileChange ? { fileChange: { folders: watchedFolders } } : {} };
-    const runId = await this.#ensure(access);
+    const triggers = normalizeTriggers({ ...input.triggers, ...input.triggers?.fileChange ? { fileChange: { folders: watchedFolders } } : {} });
+    const runId = await this.#ensure(access, signal);
     return this.#serial(runId, async () => {
       signal?.throwIfAborted();
       const view = this.#runtime().view(runId);
-      if (view.pause || this.#stopped.has(runId)) fail("global-apps-run-paused", "Resume the global apps run before registering a package.");
+      if (view.pause || this.#stopped.has(runId)) fail("global-apps-run-paused", "Resume the global space before registering a package.");
       const old = globalAppsOf(view).find((app) => app.definition.name === input.name);
       if (old && old.phase.kind !== "removed" && (!old.paused || old.phase.kind !== "idle")) fail("app-update-requires-pause", "Pause the app and wait for its current check before replacing it.");
       if ((!old || old.phase.kind === "removed") && liveGlobalApps(view).length >= 50) fail("app-limit", "A user may have at most 50 global apps.");
+      const priorActor = old && old.phase.kind !== "removed" ? view.actors.find((actor) => actor.id === old.actorId) : undefined;
+      const root = await this.#options.programs.workspaceDirectory(runId);
+      const room = priorActor?.room ?? freeRoomName(view, input.name, (name) => existsSync(path.join(root, `${name}.${input.name}`)));
       const capabilities = ["global_app_trigger", ...permissions.files?.read?.length ? ["global_app_file_read"] : [], ...permissions.files?.write?.length ? ["global_app_file_write"] : [], ...permissions.http?.length ? ["global_app_http_request"] : [], ...permissions.functions ?? []];
       const actorGrants = old ? this.#runtime().view(runId).actors.find((candidate) => candidate.id === old.actorId)?.grants : grants;
       if (!actorGrants) return fail("app-actor-missing", "The app actor is missing.");
@@ -283,7 +300,7 @@ export class GlobalAppsService {
       const prepared = await (async () => {
         const sandbox = await this.#options.sandboxFor(runId) ? "process" as const : "disabled" as const;
         const activated = await this.#options.programs.copyPackage({ runId: caller.runId, actorId: caller.actorId, name: input.program }, {
-          runId, name: input.name, capabilities, grants: delegatedGrants, requiredCapabilities: ["global_app_trigger"], inputOnly: false, isolated: true,
+          runId, name: input.name, room: { name: room, origin: null }, capabilities, grants: delegatedGrants, requiredCapabilities: ["global_app_trigger"], isolated: true,
         }, signal);
         return { sandbox, activated };
       })().catch((error) => {
@@ -293,11 +310,10 @@ export class GlobalAppsService {
       const definition = { ...input, triggers, permissions, timeoutSeconds: input.timeoutSeconds ?? 30 };
       this.#write(runId, {
         version: 1, definition, actorId: prepared.activated.actorId, source: { runId: caller.runId, program: input.program }, sandbox: prepared.sandbox,
-        paused: true, nextDueAt: null, occurrence: old?.occurrence ?? 0, phase: { kind: "idle" },
+        paused: true, nextDueAt: null, nextDueReason: null, occurrence: old?.occurrence ?? 0, phase: { kind: "idle" },
         lastRunAt: old?.lastRunAt ?? null, lastResult: old?.lastResult ?? null, problem: null,
-        log: old?.log ?? [], droppedLogLines: old?.droppedLogLines ?? 0, filePending: false,
+        filePending: false,
       });
-      if (!this.#runtime().view(runId).primaryActorId) this.#runtime().selectPrimaryActor(this.#context(runId), runId, prepared.activated.actorId);
       this.#failures.delete(runId);
       this.#registrationFailure(runId, input.name);
       await this.#syncWatches(runId);
@@ -346,14 +362,14 @@ export class GlobalAppsService {
     const app = liveGlobalApps(view).find((entry) => entry.definition.name === name);
     const failure = registrationFailures(view).find((entry) => entry.definition.name === name);
     if (!app && failure) return {
-      app: { name, description: failure.definition.description, triggers: failure.definition.triggers ?? {}, views: [], paused: true, status: "blocked", lastRunAt: null, nextRunAt: null, lastResult: null, problem: failure.problem },
+      app: { name, actorId: null, description: failure.definition.description, triggers: failure.definition.triggers ?? {}, views: [], paused: true, status: "blocked", lastRunAt: null, nextRunAt: null, lastResult: null, problem: failure.problem },
       definition: structuredClone(failure.definition), timeoutSeconds: failure.definition.timeoutSeconds ?? 30, permissions: structuredClone(failure.definition.permissions), sandbox: "unavailable",
       source: { ...failure.source }, state: {}, log: [{ at: failure.at, occurrence: 0, level: "error", text: failure.problem }], droppedLogLines: 0,
     };
     if (!app) return missingApp(view, name);
     const state = view.pluginStates.find((entry) => entry.pluginId === ACTOR_STATE_ID && entry.scope.kind === "actor" && entry.scope.actorId === app.actorId)?.state;
     return { app: summaryOf(this.#runtime(), view, app, this.#options.programs), definition: structuredClone(app.definition), timeoutSeconds: app.definition.timeoutSeconds, permissions: structuredClone(app.definition.permissions), sandbox: app.sandbox,
-      source: { ...app.source }, state: structuredClone(state ?? {}), log: app.log.slice(-logLimit), droppedLogLines: app.droppedLogLines + Math.max(0, app.log.length - logLimit) };
+      source: { ...app.source }, state: structuredClone(state ?? {}), ...recentLog(this.#runtime(), runId, app, logLimit) };
   }
 
   snapshot(access: AccessContext): GlobalAppsSnapshot {
@@ -362,7 +378,7 @@ export class GlobalAppsService {
       const runId = this.#run(access);
       const listed = this.list(access, 50);
       return { runId: runId ?? null, revision: runId ? this.#runtime().view(runId).revision : 0, apps: listed.apps, errors: listed.errors, problem: runId ? this.#failures.get(runId) ?? null : null };
-    } catch (error) { return { runId: globalAppsRunId(ownerOf(access)), revision: 0, apps: [], errors: [], problem: errorText(error) }; }
+    } catch (error) { return { runId: this.#options.globalRunIdFor(ownerOf(access)), revision: 0, apps: [], errors: [], problem: errorText(error) }; }
   }
 
   subscribe(access: AccessContext, receive: (snapshot: GlobalAppsSnapshot) => void): () => void {
@@ -382,15 +398,6 @@ export class GlobalAppsService {
     for (const listener of this.#listeners) listener(owner);
   }
 
-  view(access: AccessContext, name: string, viewId: string) {
-    rights(access, "ragents.global-apps.read", "runs.read");
-    const runId = this.#run(access) ?? fail("app-not-found", "The global app does not exist.", 404);
-    const app = byName(this.#runtime().view(runId), name);
-    const view = this.#options.programs.apps(runId, app.actorId).find((view) => view.id === viewId) ?? fail("app-view-not-found", "This view does not belong to the global app.", 404);
-    this.#options.programs.frame(runId, view.id, view.revision);
-    return view;
-  }
-
   async run(access: AccessContext, name: string): Promise<{ accepted: true }> {
     rights(access, "ragents.global-apps.write", "runs.write");
     const runId = this.#run(access) ?? fail("app-not-found", `App ${name} does not exist.`, 404);
@@ -408,8 +415,8 @@ export class GlobalAppsService {
     return this.#serial(runId, async () => {
       const app = byName(this.#runtime().view(runId), name);
       const changed = app.paused !== paused || app.problem !== null;
-      const interval = app.definition.triggers?.interval;
-      if (changed) this.#write(runId, { ...app, paused, problem: null, filePending: false, nextDueAt: paused || !interval ? null : new Date(this.#now() + interval.everySeconds * 1000).toISOString() });
+      const next = paused ? null : nextScheduledOccurrence(app.definition.triggers ?? {}, this.#now());
+      if (changed) this.#write(runId, { ...app, paused, problem: null, filePending: false, nextDueAt: next?.at ?? null, nextDueReason: next?.reason ?? null });
       await this.#syncWatches(runId);
       this.#arm();
       return { changed };
@@ -423,7 +430,8 @@ export class GlobalAppsService {
       const damaged = invalidApps(this.#runtime().view(runId)).find((app) => app.name === name);
       if (damaged) {
         await this.#options.interrupt(runId, damaged.actorId, "Damaged global app removed.");
-        await this.#options.programs.remove(this.#context(runId), runId, name);
+        const program = this.#options.programs.programOf(runId, damaged.actorId);
+        if (program) await this.#options.programs.remove(this.#context(runId), runId, program.name);
         this.#runtime().replacePluginState(this.#context(runId), runId, { pluginId: GLOBAL_APPS_PLUGIN_ID, scope: { kind: "actor", actorId: damaged.actorId }, state: null });
         this.#registrationFailure(runId, name);
         await this.#syncWatches(runId);
@@ -435,13 +443,14 @@ export class GlobalAppsService {
         return { removed: true };
       }
       const app = byName(this.#runtime().view(runId), name);
-      this.#write(runId, { ...app, paused: true, nextDueAt: null, problem: "Removing app." });
+      this.#write(runId, { ...app, paused: true, nextDueAt: null, nextDueReason: null, problem: "Removing app." });
       try {
         await this.#options.interrupt(runId, app.actorId, "Global app removed.");
-        if (this.#options.programs.programOf(runId, app.actorId)) await this.#options.programs.remove(this.#context(runId), runId, name);
-        this.#write(runId, { ...app, paused: true, nextDueAt: null, problem: null, phase: { kind: "removed" } });
+        const program = this.#options.programs.programOf(runId, app.actorId);
+        if (program) await this.#options.programs.remove(this.#context(runId), runId, program.name);
+        this.#write(runId, { ...app, paused: true, nextDueAt: null, nextDueReason: null, problem: null, phase: { kind: "removed" } });
       } catch (error) {
-        this.#write(runId, { ...app, paused: true, nextDueAt: null, problem: errorText(error) });
+        this.#write(runId, { ...app, paused: true, nextDueAt: null, nextDueReason: null, problem: errorText(error) });
         throw error;
       }
       this.#arm();
@@ -453,18 +462,24 @@ export class GlobalAppsService {
   trigger(caller: ToolCaller): GlobalAppTrigger {
     const app = this.#runningGlobalApp(caller);
     if (app.phase.kind !== "accepted") return fail("app-tick-invalid", "This input has no accepted app occurrence.");
-    return { key: app.phase.tick.key, scheduledAt: app.phase.tick.scheduledAt, reason: app.phase.tick.reason };
+    return { key: app.phase.tick.key, scheduledAt: app.phase.tick.scheduledAt, reason: app.phase.tick.reason, timeZone: app.phase.tick.timeZone };
   }
 
-  #runningGlobalApp(caller: ToolCaller): StoredGlobalApp {
+  #globalApp(caller: ToolCaller): StoredGlobalApp {
     const app = liveGlobalApps(this.#runtime().view(caller.runId)).find((entry) => entry.actorId === caller.actorId);
-    if (!app || app.phase.kind !== "accepted" || turnFor(this.#runtime(), caller.runId, app.phase.tick)?.id !== caller.turnId) return fail("app-tick-invalid", "This input is not an accepted app occurrence.");
+    if (!app) return fail("app-tick-invalid", "This actor is not a registered global app.");
     rights(this.#options.userAccess(this.#runtime().state(caller.runId).ownerUserId), "ragents.global-apps.write", "runs.write");
     return app;
   }
 
+  #runningGlobalApp(caller: ToolCaller): StoredGlobalApp {
+    const app = this.#globalApp(caller);
+    if (app.phase.kind !== "accepted" || turnFor(this.#runtime(), caller.runId, app.phase.tick)?.id !== caller.turnId) return fail("app-tick-invalid", "This input is not an accepted app occurrence.");
+    return app;
+  }
+
   async fileRead(caller: ToolCaller, filename: string): Promise<string> {
-    const app = this.#runningGlobalApp(caller);
+    const app = this.#globalApp(caller);
     const target = await this.#file(app, filename, "read");
     const file = await open(target, constants.O_RDONLY | constants.O_NOFOLLOW | constants.O_NONBLOCK);
     try {
@@ -477,7 +492,7 @@ export class GlobalAppsService {
   }
 
   async fileWrite(caller: ToolCaller, filename: string, content: string): Promise<{ written: true }> {
-    const app = this.#runningGlobalApp(caller);
+    const app = this.#globalApp(caller);
     if (Buffer.byteLength(content) > 250000) fail("app-file-limit", "An app writes at most 250000 bytes.");
     const target = await this.#file(app, filename, "write");
     const file = await open(target, constants.O_WRONLY | constants.O_CREAT | constants.O_NOFOLLOW | constants.O_NONBLOCK, 0o600);
@@ -498,7 +513,7 @@ export class GlobalAppsService {
   }
 
   async httpRequest(caller: ToolCaller, input: GlobalAppHttpRequest, signal?: AbortSignal): Promise<{ status: number; body: string }> {
-    const app = this.#runningGlobalApp(caller);
+    const app = this.#globalApp(caller);
     const url = new URL(input.url);
     const permitted = (app.definition.permissions.http ?? []).some((host) => {
       const target = new URL(`https://${host}`);
@@ -535,7 +550,7 @@ export class GlobalAppsService {
     const view = this.#runtime().view(runId);
     const app = liveGlobalApps(view).find((entry) => entry.definition.name === name);
     if (app && failure) this.#write(runId, { ...app, problem: failure.problem });
-    const marker = view.pluginStates.find((entry) => entry.pluginId === GLOBAL_APPS_PLUGIN_ID && entry.scope.kind === "run")!.state;
+    const marker = view.pluginStates.find((entry) => entry.pluginId === GLOBAL_APPS_PLUGIN_ID && entry.scope.kind === "run")?.state ?? {};
     const failures = registrationFailures(view).filter((entry) => entry.definition.name !== name);
     this.#runtime().replacePluginState(this.#context(runId), runId, {
       pluginId: GLOBAL_APPS_PLUGIN_ID,
@@ -546,14 +561,16 @@ export class GlobalAppsService {
 
   #accept(runId: string, app: StoredGlobalApp, reason: GlobalAppTrigger["reason"]): void {
     const view = this.#runtime().view(runId);
-    if (this.#closed || this.#stopped.has(runId) || problemOf(view, app)) fail("app-blocked", problemOf(view, app) ?? "The global apps run is stopped.");
+    if (this.#closed || this.#stopped.has(runId) || problemOf(view, app)) fail("app-blocked", problemOf(view, app) ?? "The global space is stopped.");
     rights(this.#options.userAccess(this.#runtime().state(runId).ownerUserId), "ragents.global-apps.write", "runs.write");
     if (app.phase.kind !== "idle" || view.inputs.some((input) => input.actorId === app.actorId && input.lifecycle.kind === "pending") || actorOf(view, app)?.lifecycle.kind !== "idle") fail("app-busy", "The app already has accepted or running work.");
     if (liveGlobalApps(view).filter((entry) => entry.phase.kind === "accepted").length >= 4) fail("global-apps-busy", "Four global apps are already active for this user.");
     const number = app.occurrence + 1;
     const key = `${runId}:${app.definition.name}:${number}`;
-    const tick = { number, key, commandId: `global-apps-input:${key}`, reason, scheduledAt: reason === "interval" ? app.nextDueAt! : this.#at() };
-    const accepted: StoredGlobalApp = { ...app, occurrence: number, phase: { kind: "accepted", tick }, lastRunAt: this.#at(), nextDueAt: null, filePending: reason === "file-change" ? false : app.filePending };
+    const calendar = reason === "daily" ? app.definition.triggers?.daily : reason === "weekly" ? app.definition.triggers?.weekly : undefined;
+    const scheduled = ["interval", "daily", "weekly"].includes(reason);
+    const tick = { number, key, commandId: `global-apps-input:${key}`, reason, scheduledAt: scheduled ? app.nextDueAt! : this.#at(), timeZone: calendar?.timeZone ?? serverTimeZone() };
+    const accepted: StoredGlobalApp = { ...app, occurrence: number, phase: { kind: "accepted", tick }, lastRunAt: this.#at(), nextDueAt: null, nextDueReason: null, filePending: reason === "file-change" ? false : app.filePending };
     this.#write(runId, accepted);
     this.#enqueue(runId, accepted, tick);
   }
@@ -582,13 +599,13 @@ export class GlobalAppsService {
       }
       const finished = turnFor(runtime, runId, app.phase.tick)!;
       const output = runtime.events(runId).filter((event) => event.type === "runtime.output.recorded" && event.payload.turnId === finished.id);
-      const lines: GlobalAppLog[] = output.flatMap((event) => event.type === "runtime.output.recorded" ? event.payload.text.split(/\r?\n/).map((text) => ({ at: event.occurredAt, occurrence: app.occurrence, level: "info" as const, text: text.slice(0, 1000) })) : []);
+      const lines = output.flatMap((event) => event.type === "runtime.output.recorded" ? outputLines(event.payload.text, event.occurredAt, app.occurrence) : []);
       const outcome = finished.reason === "Global app deadline expired." ? "timeout" : finished.status === "completed" ? "completed" : finished.status === "interrupted" ? "interrupted" : "failed";
       const result: GlobalAppResult = { outcome, at: finished.finishedAt ?? this.#at(), summary: (outcome === "completed" ? lines.at(-1)?.text ?? "Completed." : finished.reason ?? "The app failed.").slice(0, 1000) };
       const current = byName(runtime.view(runId), app.definition.name);
+      const next = current.paused ? null : nextScheduledOccurrence(current.definition.triggers ?? {}, Math.max(Date.parse(result.at), this.#now()));
       this.#write(runId, { ...current, phase: { kind: "idle" }, lastResult: result,
-        nextDueAt: current.paused || !app.definition.triggers?.interval ? null : new Date(Date.parse(result.at) + app.definition.triggers.interval.everySeconds * 1000).toISOString(),
-        ...boundedLog(current, [...lines, ...outcome === "completed" ? [] : [{ at: result.at, occurrence: app.occurrence, level: "error" as const, text: result.summary }]]),
+        nextDueAt: next?.at ?? null, nextDueReason: next?.reason ?? null,
       });
       } catch (error) { this.#write(runId, { ...app, problem: errorText(error) }); }
     }
@@ -598,7 +615,7 @@ export class GlobalAppsService {
       .sort((a, b) => (Date.parse(a.nextDueAt ?? this.#at()) - Date.parse(b.nextDueAt ?? this.#at())) || a.definition.name.localeCompare(b.definition.name));
     for (const app of due) {
       if (liveGlobalApps(runtime.view(runId)).filter((entry) => entry.phase.kind === "accepted").length >= 4) break;
-      try { this.#accept(runId, app, app.filePending ? "file-change" : "interval"); }
+      try { this.#accept(runId, app, app.filePending ? "file-change" : app.nextDueReason!); }
       catch (error) { this.#write(runId, { ...app, problem: errorText(error) }); }
     }
     await this.#syncWatches(runId);

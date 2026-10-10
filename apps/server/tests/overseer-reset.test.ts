@@ -6,7 +6,7 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import test from "node:test";
 import { fauxAssistantMessage, fauxToolCall, registerFauxProvider } from "@ragents/ai";
-import { DomainError, PluginHost, unrestrictedAccess } from "@ragents/engine";
+import { PluginHost, ScriptDriver, unrestrictedAccess } from "@ragents/engine";
 import { deferred } from "../../../packages/ragents/tests/support.ts";
 import { plugin } from "../../../plugins/ragents.overseer/server/index.ts";
 import { overseerContracts } from "../../../plugins/ragents.overseer/contract.ts";
@@ -15,6 +15,12 @@ import { coreContracts } from "../src/api/contracts.ts";
 import { coreChannels, coreMethods } from "../src/api/core-methods.ts";
 import { coreSources, dispatchMethod, methodContext } from "./rpc-fixture.ts";
 import { WorkspaceSandboxHost, sandboxServicesToken } from "../src/plugin-support/workspace-sandbox-host.ts";
+import { plugin as actorProgramsPlugin } from "../../../plugins/ragents.actor-programs/server/index.ts";
+import { plugin as globalAppsPlugin } from "../../../plugins/ragents.global-apps/server/index.ts";
+import { globalAppsContracts } from "../../../plugins/ragents.global-apps/contract.ts";
+import { actorProgramsToken } from "../src/plugin-support/actor-programs/service.ts";
+import { runOwnerAccessToken, runtimeProviderToken, runGuardToken, runWorkspaceProviderToken, workspaceGuardToken, userAccessToken } from "../src/ragents/host-services.ts";
+import { writeAppFiles } from "./actor-runtime-fixture.ts";
 import { globalChatToken, runManagementToken, type RunManagement } from "../src/ragents/global-chat.ts";
 import { productRuntimeToken } from "../src/ragents/product-runtime.ts";
 import { workspaceRuntimeToken } from "../src/ragents/workspace-runtime.ts";
@@ -42,7 +48,7 @@ const until = async (condition: () => boolean) => {
   }
 };
 
-test("confirmed reset recovers durably and isolates unavailable journals across server restarts", { timeout: 30000 }, async () => {
+test("confirmed reset preserves global apps and recovers durably across server restarts", { timeout: 60000 }, async () => {
   const faux = registerFauxProvider({ models: [{ id: "reset-model", reasoning: true }] });
   const model = faux.getModel();
   let management: RunManagement;
@@ -51,9 +57,16 @@ test("confirmed reset recovers durably and isolates unavailable journals across 
     management = bridges.sessions!();
     const host = new PluginHost({ product: { id: "test", title: "Test" }, dataDirectory: directory });
     host.provideHost(runManagementToken, () => management);
+    host.provideHost(runtimeProviderToken, bridges.runtime!);
+    host.provideHost(runOwnerAccessToken, () => unrestrictedAccess);
+    host.provideHost(userAccessToken, () => unrestrictedAccess);
+    host.provideHost(runGuardToken, bridges.ensureSession!);
+    host.provideHost(runWorkspaceProviderToken, (runId) => bridges.sessionWorkspaceFor!(runId));
+    host.provideHost(workspaceGuardToken, bridges.ensureWorkspaceAccess!);
     const sandbox = new WorkspaceSandboxHost({ contributorName: "test.workspace", contributions: [], workspaceFor: bridges.sessionWorkspaceFor,
       identFor: async () => undefined, homeFor: async () => ({ home: directory }), skillPaths: async () => [] });
     host.register({ manifest: { id: "test.product" }, register: (registration) => {
+      registration.script({ id: "typescript", create: (context) => ({ driver: new ScriptDriver({ runtime: context.runtime }) }) });
       registration.provide(sandboxServicesToken, sandbox);
       registration.functions(sandbox.workspaceTools());
       registration.lifecycle({ id: "test.sandbox", shutdown: () => sandbox.shutdownAll() });
@@ -73,7 +86,9 @@ test("confirmed reset recovers durably and isolates unavailable journals across 
         providers: () => [{ id: model.provider, config: { api: faux.api, baseUrl: model.baseUrl, apiKey: "faux-test-key", models: faux.models } }],
         profiles: () => [{ name: "coordinator", description: "Coordinator", driver: "agent", provider: model.provider, model: model.id, thinking: "off", turnTimeoutMs: null, isolateWorkspace: false }] });
     } });
+    host.register(actorProgramsPlugin.create(host));
     host.register(plugin.create(host));
+    host.register(globalAppsPlugin.create(host));
     registerTypeScriptFunctions(host);
     host.seal();
     return host;
@@ -91,7 +106,10 @@ test("confirmed reset recovers durably and isolates unavailable journals across 
   const freshContexts: string[] = [];
   faux.setResponses([
     (context) => {
-      assert.deepEqual(context.tools?.map((tool) => tool.name).sort(), ["bash", "edit", "read", "typescript_api", "typescript_eval", "write"]);
+      const selected = context.tools?.map((tool) => tool.name) ?? [];
+      for (const name of ["actor_program_create", "actor_program_diagnostics", "global_app_register", "global_app_list", "global_app_read", "global_app_run", "global_app_pause", "global_app_remove", "write", "edit", "read", "typescript_api", "typescript_eval"]) assert.ok(selected.includes(name), name);
+      assert.match(context.systemPrompt ?? "", /Build a global mini-app/);
+      assert.match(context.systemPrompt ?? "", /daily: \{at: "08:00"\}/);
       assert.doesNotMatch(context.systemPrompt ?? "", /reset-test-only-token/);
       return fauxAssistantMessage([fauxToolCall("typescript_eval", { code: `return await context.functions.write(${JSON.stringify({ file_path: "request.json", content: '{"title":"Test"}' })});` }, { id: "global-write" })]);
     },
@@ -128,12 +146,26 @@ test("confirmed reset recovers durably and isolates unavailable journals across 
     assert.equal(provider.hasRun(G), true);
     const selection = { provider: model.provider, model: model.id, thinking: "high" };
     const settingsBefore = await overseerCall(overseerContracts.settings.save, selection);
-    const normalId = await management!.create({ title: "Normal stays", userId: null, kind: "message", message: "Normal running task" });
+    const normalId = await management!.create({ title: "Normal stays", user: null, kind: "message", message: "Normal running task" });
     await normalStarted.promise;
     const normalBefore = management!.view(normalId);
     await global.send("Global running task " + "with many details. ".repeat(300));
     await globalStarted.promise;
     assert.ok((await readdir(path.join(directory, "runs", G, "payloads"))).length > 0);
+    const programs = provider.plugins.service(actorProgramsToken);
+    const sources = {
+      "package.json": JSON.stringify({ name: "date", private: true, type: "module", ragents: { title: "Daily date", backend: "src/server.ts" } }),
+      "src/server.ts": 'import { Type } from "typebox"; import { defineActor } from "@ragents/server"; export default defineActor({ state: Type.Object({ count: Type.Optional(Type.Integer()) }), functions: {}, input: { capabilities: ["global_app_trigger"] } }, { functions: {}, onInput: async (_input, context) => { await context.functions.global_app_trigger({}); context.state.replace({ count: (context.state.read().count ?? 0) + 1 }); context.log("Daily date result"); } });',
+    };
+    await writeAppFiles(path.join(directory, "sessions", G, "plugins", "ragents.actor-programs", "programs"), "date", sources);
+    const appCall = (contract: { id: string }, input: unknown) => dispatchMethod(provider.plugins.methods, contract.id, input);
+    await appCall(globalAppsContracts.register, { sourceRunId: G, name: "daily-date", description: "The daily date", program: "date", triggers: { daily: { at: "08:00", timeZone: "Europe/Berlin" } }, permissions: {} });
+    await appCall(globalAppsContracts.run, { name: "daily-date" });
+    await until(() => management!.view(G).turns.some((turn) => turn.status !== "running" && turn.actorId !== management!.view(G).primaryActorId));
+    assert.equal(management!.view(G).turns.find((turn) => turn.actorId !== management!.view(G).primaryActorId)?.status, "completed", JSON.stringify(await appCall(globalAppsContracts.read, { name: "daily-date" })));
+    await appCall(globalAppsContracts.pause, { name: "daily-date", paused: false });
+    const appBefore = await appCall(globalAppsContracts.read, { name: "daily-date" });
+    const roomsBefore = management!.view(G).rooms;
     const oldActor = management!.view(G).primaryActorId;
     assert.ok(oldActor);
     assert.match(await readFile(path.join(directory, "runs", G, "journal.jsonl"), "utf8"), /"model\.input\.presented"/, "the model context is in the journal");
@@ -142,29 +174,35 @@ test("confirmed reset recovers durably and isolates unavailable journals across 
     await assert.rejects(provider.get(G), /is being reset/);
     await assert.rejects(async () => global.send("Concurrent message"), /is being reset/);
     await globalAborted.promise;
+    assert.equal(management!.view(G).actors.find((actor) => actor.id === oldActor)?.lifecycle.kind, "stopped");
+    await appCall(globalAppsContracts.run, { name: "daily-date" });
+    await until(() => management!.view(G).turns.filter((turn) => turn.actorId === (appBefore as { app: { actorId: string } }).app.actorId && turn.status === "completed").length === 2);
+    const appWhileReset = await appCall(globalAppsContracts.read, { name: "daily-date" });
     let finished = false;
     void reset.then(() => { finished = true; });
     await new Promise<void>((resolve) => setImmediate(resolve));
     assert.equal(finished, false);
     assert.deepEqual(management!.view(normalId), normalBefore);
-    await assert.rejects(chatMethod(coreContracts.chat.actorHistory).execute({ runId: G } as never, methodContext()),
-      (error: unknown) => error instanceof DomainError && error.status === 409);
+    assert.ok(management!.view(G).rooms.length > 0, "app rooms remain accessible while the conversation resets");
     releaseGlobal.resolve();
     await reset;
-    assert.equal(provider.hasRun(G), false);
-    assert.equal(existsSync(path.join(directory, "sessions", G)), false);
-    assert.equal(existsSync(path.join(directory, "runs", G)), false);
+    assert.equal(provider.hasRun(G), true);
+    assert.equal(existsSync(path.join(directory, "sessions", G)), true);
+    assert.equal(existsSync(path.join(directory, "runs", G)), true);
     assert.deepEqual(management!.view(normalId), normalBefore);
     assert.deepEqual(await overseerCall(overseerContracts.settings.read, {}), settingsBefore);
     assert.equal(observed.filter((event) => event.kind === "reset" && event.reason === "conversation-reset").length, 1);
     assert.equal(await provider.get(G), global);
     const replay: ChatEvent[] = [];
     global.subscribe((event) => replay.push(event))();
-    assert.deepEqual(replay, [{ kind: "reset", conversationId: null }, { kind: "status", running: false }, { kind: "replay-end", conversationId: null }]);
+    const resetId = management!.events(G).find((event) => event.type === "agent.spawned" && event.commandId.startsWith("conversation-reset:"))!.eventId;
+    assert.deepEqual(replay, [{ kind: "reset", conversationId: resetId }, { kind: "status", running: false }, { kind: "replay-end", conversationId: resetId }]);
+    assert.deepEqual(await appCall(globalAppsContracts.read, { name: "daily-date" }), appWhileReset);
+    assert.deepEqual(management!.view(G).rooms, roomsBefore);
     const workspace = provider.plugins.service(globalChatToken).workspaceDirectory(G);
-    assert.equal(existsSync(path.join(workspace, "rpc-reference.md")), false);
+    assert.equal(existsSync(path.join(workspace, "rpc-reference.md")), true);
     await global.send("New question");
-    await until(() => management!.view(G).turns[0]?.status === "completed");
+    await until(() => management!.view(G).turns.some((turn) => turn.actorId === management!.view(G).primaryActorId && turn.status === "completed"));
     assert.notEqual(management!.view(G).primaryActorId, oldActor);
     assert.match(await readFile(path.join(workspace, "rpc-reference.md"), "utf8"), new RegExp(overseerContracts.listRuns.id));
     assert.ok(JSON.parse(await readFile(path.join(workspace, "openrpc.json"), "utf8")).methods.length > 0);
@@ -176,16 +214,32 @@ test("confirmed reset recovers durably and isolates unavailable journals across 
     unsubscribe();
     const intents = provider.plugins.service(globalChatToken).resetIntentDirectory!;
     const intent = path.join(intents, `${G}.json`);
+    const previousPrimary = management!.view(G).primaryActorId;
+    const completedReset = management!.events(G).find((event) => event.eventId === resetId)!;
+    const completedKey = completedReset.commandId.slice("conversation-reset:".length, -":spawn".length);
+    const spawnCount = management!.events(G).filter((event) => event.type === "agent.spawned").length;
     await provider.shutdown();
-    await writeFile(intent, JSON.stringify({ version: 1, runId: G }));
+    await writeFile(intent, JSON.stringify({ version: 1, runId: G, key: completedKey, oldActorId: oldActor }));
     provider = createProvider();
     await provider.init();
-    assert.equal(provider.hasRun(G), false);
     assert.equal(existsSync(intent), false);
+    assert.equal(management!.view(G).primaryActorId, previousPrimary);
+    assert.equal(management!.events(G).filter((event) => event.type === "agent.spawned").length, spawnCount, "recovery after coordinator creation must reuse the durable replacement");
+    assert.deepEqual(await appCall(globalAppsContracts.read, { name: "daily-date" }), appWhileReset);
+    assert.deepEqual(management!.view(G).rooms, roomsBefore);
+    await provider.shutdown();
+    await writeFile(intent, JSON.stringify({ version: 1, runId: G, key: randomUUID(), oldActorId: previousPrimary }));
+    provider = createProvider();
+    await provider.init();
+    assert.equal(provider.hasRun(G), true);
+    assert.equal(existsSync(intent), false);
+    assert.notEqual(management!.view(G).primaryActorId, previousPrimary);
+    assert.deepEqual(await appCall(globalAppsContracts.read, { name: "daily-date" }), appWhileReset);
+    assert.deepEqual(management!.view(G).rooms, roomsBefore);
     assert.ok(provider.hasRun(normalId));
     assert.deepEqual(await overseerCall(overseerContracts.settings.read, {}), settingsBefore);
     await (await provider.get(G)).send("After the restart");
-    await until(() => management!.view(G).turns[0]?.status === "completed");
+    await until(() => management!.view(G).turns.some((turn) => turn.actorId === management!.view(G).primaryActorId && turn.status === "completed"));
     assert.doesNotMatch(freshContexts[1], /New question|Fresh start|Old conversation/);
     const current = await provider.get(G);
     const policy = provider.plugins.service(globalChatToken);
@@ -197,17 +251,17 @@ test("confirmed reset recovers durably and isolates unavailable journals across 
     assert.equal(provider.hasRun(G), true);
     policy.resetIntentDirectory = intents;
     const engine = (provider as unknown as { engine: Engine }).engine;
-    const halt = engine.scheduler.haltRun.bind(engine.scheduler);
-    engine.scheduler.haltRun = async () => { throw new Error("Test: the runtime cannot be stopped yet"); };
+    const interrupt = engine.scheduler.interruptTurn.bind(engine.scheduler);
+    engine.scheduler.interruptTurn = async () => { throw new Error("Test: the runtime cannot be stopped yet"); };
     await assert.rejects(overseerCall(overseerContracts.reset, { confirm: true }), /cannot be stopped yet/);
     assert.equal(provider.hasRun(G), true);
     assert.ok(existsSync(intent));
     assert.ok(provider.hasRun(normalId));
     await assert.rejects(provider.get(G), /repeat the reset/);
     await assert.rejects(async () => current.send("After a failed reset"), /is being reset/);
-    engine.scheduler.haltRun = halt;
+    engine.scheduler.interruptTurn = interrupt;
     assert.equal(await overseerCall(overseerContracts.reset, { confirm: true }), null);
-    assert.equal(provider.hasRun(G), false);
+    assert.equal(provider.hasRun(G), true);
     assert.ok((await readFile(path.join(directory, "runs", normalId, "journal.jsonl"), "utf8")).includes("Normal running task"));
     await provider.shutdown();
     const firstRecord = JSON.parse((await readFile(path.join(directory, "runs", normalId, "journal.jsonl"), "utf8")).split("\n")[0]);
@@ -270,11 +324,10 @@ test("confirmed reset recovers durably and isolates unavailable journals across 
     ]);
     await (await provider.get(normalId)).send("Continue existing run");
     await until(() => management!.view(normalId).turns.length === 2 && management!.view(normalId).turns.every((turn) => turn.status === "completed"));
-    const freshId = await management!.create({ title: "New healthy run", userId: null, kind: "message", message: "Start despite old journals" });
+    const freshId = await management!.create({ title: "New healthy run", user: null, kind: "message", message: "Start despite old journals" });
     await until(() => management!.view(freshId).turns[0]?.status === "completed");
-    assert.equal(await overseerCall(overseerContracts.reset, { confirm: true }), null);
-    await (await provider.get(G)).send("After reset of the old journal");
-    await until(() => management!.view(G).turns[0]?.status === "completed");
+    await assert.rejects(overseerCall(overseerContracts.reset, { confirm: true }), { code: "journal-unavailable", status: 409 });
+    assert.equal(await readFile(path.join(directory, "runs", G, "journal.jsonl"), "utf8"), unavailable.get(G));
     assert.equal(provider.hasRun(normalId), true);
     assert.equal(provider.hasRun(freshId), true);
     for (const [id, content] of unavailable) {

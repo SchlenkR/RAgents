@@ -42,7 +42,7 @@ import { actorProgramsToken } from "./plugin-support/actor-programs/service.js";
 import { productRuntimeToken } from "./ragents/product-runtime.js";
 import { runOwnerOf, runOwnerOnly, runSharingOf } from "./ragents/run-owner.js";
 import { RunChatSession } from "./ragents/session.js";
-import { globalChatToken, globalRunPolicyOf, type GlobalChatPolicy, type ManagedRunStart, type RunManagement } from "./ragents/global-chat.js";
+import { globalChatToken, globalRunPolicyOf, type ManagedRunStart, type RunManagement } from "./ragents/global-chat.js";
 import { workspaceRuntimeToken, type SessionWorkspace, type WorkspaceTransfer } from "./ragents/workspace-runtime.js";
 import { settingsResponse, skillDetailResponse, type SettingsResponse, type SettingsSkillDetail } from "./settings.js";
 import { createTitleCompactor, MAX_TITLE_CHARS } from "./title-compactor.js";
@@ -151,17 +151,6 @@ export class RunSessionProvider implements ChatSessionProvider {
     this.requireContract(productRuntimeToken);
     this.requireContract(workspaceRuntimeToken);
     const globalChat = this.plugins.optionalService(globalChatToken);
-    if (globalChat?.resetIntentDirectory && existsSync(globalChat.resetIntentDirectory)) {
-      for (const entry of await readdir(globalChat.resetIntentDirectory)) {
-        if (!entry.endsWith(".json")) continue;
-        const intentFile = path.join(globalChat.resetIntentDirectory, entry);
-        const runId = entry.slice(0, -5);
-        await this.validateGlobalResetIntent(intentFile, runId);
-        await this.removeGlobalConversation(runId);
-        await rm(intentFile);
-        await this.syncDirectory(globalChat.resetIntentDirectory);
-      }
-    }
     this.engine = await createEngine({
       plugins: this.plugins,
       workspaces: this.workspaces,
@@ -169,6 +158,15 @@ export class RunSessionProvider implements ChatSessionProvider {
       assertAvailable: () => this.ensureAvailable(),
       assertRunUsable: (runId) => this.ensureUsable(runId),
     });
+    if (globalChat?.resetIntentDirectory && existsSync(globalChat.resetIntentDirectory)) {
+      for (const entry of await readdir(globalChat.resetIntentDirectory)) {
+        if (!entry.endsWith(".json")) continue;
+        const runId = entry.slice(0, -5);
+        await this.validateGlobalResetIntent(path.join(globalChat.resetIntentDirectory, entry), runId);
+        try { await this.resetGlobalConversation(runId); }
+        catch (error) { if (!(error instanceof DomainError) || error.code !== "journal-unavailable") throw error; }
+      }
+    }
     // A changed sharing changes whose list shows the run.
     this.engine.journal.subscribe((events) => {
       if (events.some((event) => event.type === "run.sharing-changed")) this.notifyList();
@@ -244,12 +242,13 @@ export class RunSessionProvider implements ChatSessionProvider {
   }
 
   async get(id: string): Promise<ChatSessionLike> {
-    this.ensureUsable(id);
+    this.ensureConversationUsable(id);
     return this.openSession(id);
   }
 
-  private openSession(id: string, initialTitle?: string): RunChatSession {
-    this.ensureUsable(id);
+  private openSession(id: string, initialTitle?: string, resetting = false): RunChatSession {
+    if (resetting) this.ensureUsable(id);
+    else this.ensureConversationUsable(id);
     const existing = this.sessions.get(id);
     if (existing) return existing;
     const engine = this.requireEngine();
@@ -266,7 +265,7 @@ export class RunSessionProvider implements ChatSessionProvider {
       ...(globalPolicy?.inputContext ? { inputContext: globalPolicy.inputContext } : {}),
       prompt: () => engine.systemPromptFor(id),
       assertUsable: (runId) => {
-        this.ensureUsable(runId);
+        this.ensureConversationUsable(runId);
         if (!globalPolicy || !engine.journal.stateOf(runId)) return;
         const view = engine.runtime.view(runId);
         const primary = view.actors.find((actor) => actor.id === view.primaryActorId);
@@ -411,6 +410,15 @@ export class RunSessionProvider implements ChatSessionProvider {
         return this.requireEngine().runtime.publicEvents(runId);
       },
       create: (start, signal) => this.createManagedRun(start, signal),
+      globalSpace: async (access, signal) => {
+        const policy = this.plugins.optionalService(globalChatToken);
+        if (!policy) throw new DomainError("global-space-unavailable", "This profile has no global space.", 404);
+        const runId = policy.runIdFor(access.user?.id ?? null);
+        assertRunRights(access, runId, "write", this.runAccess());
+        await this.globalResets.get(runId);
+        await this.openSession(runId).ensureStarted(access.user ? { id: access.user.id, label: access.user.label } : undefined, signal);
+        return runId;
+      },
       send: (runId, message, access, signal) => {
         assertRunRights(access, runId, "write", this.runAccess());
         return this.openSession(runId).sendAndWait(message, access.user ? { id: access.user.id, label: access.user.label } : undefined, signal);
@@ -597,9 +605,6 @@ export class RunSessionProvider implements ChatSessionProvider {
   private ensureUsable(id: string, options: { deleting?: boolean } = {}): void {
     if (!isRunId(id)) throw new DomainError("invalid-run", `Invalid run id: ${id}`, 400);
     this.ensureAvailable();
-    if (this.globalResetsRequested.has(id)) {
-      throw new DomainError("conversation-resetting", "The global conversation is being reset. Please wait a moment or repeat the reset after an error.", 409);
-    }
     const deleteFailure = this.deleteFailures.get(id);
     if (deleteFailure) throw new DomainError("run-delete-failed", deleteFailure.message, 409);
     if (this.deleteRequested.has(id) && !options.deleting) throw new DomainError("run-deleting", "The run is being deleted", 409);
@@ -607,6 +612,11 @@ export class RunSessionProvider implements ChatSessionProvider {
     this.engine?.journal.assertRunAvailable(id);
     const workspaceFailure = this.workspaceFailures.get(id);
     if (workspaceFailure) throw new DomainError("workspace-unavailable", workspaceFailure.message, 409);
+  }
+
+  private ensureConversationUsable(id: string): void {
+    this.ensureUsable(id);
+    if (this.globalResetsRequested.has(id)) throw new DomainError("conversation-resetting", "The global conversation is being reset. Please wait a moment or repeat the reset after an error.", 409);
   }
 
   private ensureAvailable(): void {
@@ -790,7 +800,7 @@ export class RunSessionProvider implements ChatSessionProvider {
     if (!policy.isCoordinator(id)) return Promise.reject(new DomainError("conversation-reset-unavailable", `${id} is not a global coordinator.`, 404));
     const intentFile = path.join(policy.resetIntentDirectory, `${id}.json`);
     this.globalResetsRequested.add(id);
-    const operation = this.resetGlobalInner(id, intentFile, policy).catch((error: unknown) => {
+    const operation = this.resetGlobalInner(id, intentFile).catch((error: unknown) => {
       if (!existsSync(intentFile)) this.globalResetsRequested.delete(id);
       throw error;
     }).finally(() => {
@@ -800,52 +810,39 @@ export class RunSessionProvider implements ChatSessionProvider {
     return operation;
   }
 
-  private async resetGlobalInner(id: string, intentFile: string, policy: GlobalChatPolicy): Promise<void> {
+  private async resetGlobalInner(id: string, intentFile: string): Promise<void> {
+    this.ensureUsable(id);
+    const engine = this.requireEngine();
     if (!existsSync(intentFile)) {
       await mkdir(path.dirname(intentFile), { recursive: true });
       const temporary = `${intentFile}.tmp-${randomUUID()}`;
       try {
         const marker = await open(temporary, "wx", 0o600);
-        try { await marker.writeFile(JSON.stringify({ version: 1, runId: id })); await marker.sync(); }
-        finally { await marker.close(); }
+        try {
+          await marker.writeFile(JSON.stringify({ version: 1, runId: id, key: randomUUID(), oldActorId: engine.journal.stateOf(id)?.primaryActorId ?? null }));
+          await marker.sync();
+        } finally { await marker.close(); }
         await rename(temporary, intentFile);
         await this.syncDirectory(path.dirname(intentFile));
       } finally { await rm(temporary, { force: true }); }
     }
-    await this.validateGlobalResetIntent(intentFile, id);
-    const session = this.sessions.get(id);
-    await session?.settle();
-    await this.sessionWorkspaces.get(id)?.promise.catch(() => undefined);
-    const engine = this.requireEngine();
-    await engine.scheduler.haltRun(id, async (stopped, settled) => {
-      await stopped;
-      await settled;
-      await this.plugins.optionalService(sandboxServicesToken)?.shutdown(id);
-      await this.removeGlobalConversation(id, policy);
-      engine.runtime.forgetRun(id);
-      this.sessionWorkspaces.delete(id);
-      this.workspaceFailures.delete(id);
-      this.workspaces.forget(id);
-    });
+    const intent = await this.validateGlobalResetIntent(intentFile, id);
+    await this.sessions.get(id)?.settle();
+    if (engine.journal.stateOf(id)) {
+      const session = this.openSession(id, undefined, true);
+      await session.resetConversation(intent.key, intent.oldActorId);
+    }
     await rm(intentFile);
     await this.syncDirectory(path.dirname(intentFile));
     this.globalResetsRequested.delete(id);
-    session?.resetHistory();
   }
 
-  private async validateGlobalResetIntent(file: string, id: string): Promise<void> {
-    const marker: unknown = JSON.parse(await readFile(file, "utf8"));
-    if (!isRunId(id) || !marker || typeof marker !== "object" || !("version" in marker) || marker.version !== 1 || !("runId" in marker) || marker.runId !== id) {
+  private async validateGlobalResetIntent(file: string, id: string): Promise<{ key: string; oldActorId: string | null }> {
+    const marker = JSON.parse(await readFile(file, "utf8")) as { version?: unknown; runId?: unknown; key?: unknown; oldActorId?: unknown } | null;
+    if (!isRunId(id) || !marker || marker.version !== 1 || marker.runId !== id || typeof marker.key !== "string" || !marker.key || !(marker.oldActorId === null || typeof marker.oldActorId === "string")) {
       throw new Error("The conversation reset marker is invalid");
     }
-  }
-
-  private async removeGlobalConversation(id: string, policy = this.plugins.service(globalChatToken)): Promise<void> {
-    const directories = [layout.sessionDir(id), path.join(layout.runsDir, id), layout.recoverySessionDir(id), policy.workspaceDirectory(id)];
-    for (const directory of directories) await rm(directory, { recursive: true, force: true });
-    for (const parent of new Set(directories.map((directory) => path.dirname(directory)))) {
-      if (existsSync(parent)) await this.syncDirectory(parent);
-    }
+    return { key: marker.key, oldActorId: marker.oldActorId };
   }
 
   /** Who owns a coordinator: the user whose id it carries, without sign-in the one access; otherwise nobody. */

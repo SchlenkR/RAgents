@@ -1,22 +1,22 @@
 ## Build a global mini-app
 
-When asked to build a global mini-app, write its TypeScript package in your own run, then register it for the user's Start dashboard. Never ask the user to write the code. It has an onInput backend, actor state and optional React views. Registration copies, typechecks, builds and tests the package in the user's global run, initially paused. Fix the reported source errors and register again; later source edits need registration too.
+When asked for a global mini-app, a job or a recurring task, build and verify it yourself. Do not ask technical questions or ask the user to write code. Your hidden coordinator run is the user's global space: registration installs each normal actor package in its own room beside your main room and shows its optional React view on Start. Use the existing file, editing and TypeScript tools in your own run.
 
-One complete example: an HTTP status widget with one permission. Use native tools in this order:
-1. actor_program_create({name: "page-status", template: "headless"}). Use the returned directory for every file, including its room prefix.
+One complete example: "Run every day at 8 and tell me the current date", with state, a small view and one explicit function permission. Use the server's time zone unless the user names another:
+1. actor_program_create({name: "daily-date", template: "headless"}). Use its returned directory for every file, including any room prefix.
 2. Write package.json, src/server.ts and src/client.tsx there with the complete contents below.
-3. global_app_register({name: "page-status", description: "Check the example website", program: "page-status", triggers: {interval: {everySeconds: 300}}, permissions: {http: ["example.com"]}}).
-4. global_app_run({name: "page-status"}), then global_app_read({name: "page-status"}). If queued/running, read again in a later step. Check the result, state and log; fix the source, register while paused and idle, and verify again.
-5. After a completed check, global_app_pause({name: "page-status", paused: false}).
+3. global_app_register({name: "daily-date", description: "Tell me today's date at 8", program: "daily-date", triggers: {daily: {at: "08:00"}}, permissions: {functions: ["overseer_notify"]}}). Registration copies, typechecks, builds and tests the normal mini-app package; it starts paused.
+4. global_app_run({name: "daily-date"}), then global_app_read({name: "daily-date"}). If queued/running, read again in a later step. Check the completed result, state and log. Fix reported source errors, register again while paused and idle, and repeat the verification.
+5. After a completed check, global_app_pause({name: "daily-date", paused: false}). Finish the requested task by enabling its schedule, without asking for technical confirmation.
 
 package.json:
 ```json
 {
-  "name": "page-status",
+  "name": "daily-date",
   "private": true,
   "type": "module",
   "ragents": {
-    "title": "Page status",
+    "title": "Today's date",
     "backend": "src/server.ts",
     "views": [{ "id": "main", "client": "src/client.tsx" }]
   }
@@ -31,18 +31,21 @@ import { Type } from "typebox";
 export default defineActor({
   state: Type.Object({
     checks: Type.Optional(Type.Integer()),
-    status: Type.Optional(Type.Integer()),
+    date: Type.Optional(Type.String()),
   }),
   functions: {},
-  input: { capabilities: ["global_app_trigger", "global_app_http_request"] },
+  input: { capabilities: ["global_app_trigger", "overseer_notify"] },
 }, {
   functions: {},
   onInput: async (_input, context) => {
     const trigger = await context.functions.global_app_trigger({});
-    const response = await context.functions.global_app_http_request({ url: "https://example.com" });
+    const timeZone = trigger.timeZone;
+    const date = new Intl.DateTimeFormat("en-GB", { dateStyle: "full", timeZone }).format(new Date());
     const checks = (context.state.read().checks ?? 0) + 1;
-    context.state.replace({ checks, status: response.status });
-    context.log(`${trigger.reason}: check ${checks}, HTTP ${response.status}`);
+    const message = `Today is ${date}.`;
+    context.state.replace({ checks, date });
+    context.log(message);
+    await context.functions.overseer_notify({ message });
   },
 });
 ```
@@ -54,7 +57,7 @@ import { useAppState } from "@ragents/client";
 
 function App() {
   const state = useAppState();
-  return <main><h1>Page status</h1><p>{state.checks ?? 0} checks, HTTP {state.status ?? "pending"}</p></main>;
+  return <main><h1>Today's date</h1><p>{state.date ?? "Not checked yet"}</p><p>{state.checks ?? 0} checks</p></main>;
 }
 
 const root = document.getElementById("root");
@@ -62,6 +65,8 @@ if (!root) throw new Error("The #root element is missing.");
 createRoot(root).render(<App />);
 ```
 
-Use global_app_list, global_app_read, global_app_run, global_app_pause and global_app_remove by your chosen app name. Manual triggering is always possible, even while paused. Optional triggers combine interval.everySeconds (60..604800) and fileChange.folders (existing absolute server folders within permissions.files.read or write). Intervals use fixed delay with no overlap and one overdue occurrence after restart; file changes debounce and coalesce. Agent-event triggers are planned. timeoutSeconds defaults to 30 (1..300). Every backend needs global_app_trigger in its input capabilities; the occurrence key helps external idempotency. Logs survive failures; failed state changes do not commit. Views use the same isolated frames as run mini-apps and may call state-only backend functions without external capabilities; use Run now for external work.
+Use global_app_list/read/run/pause/remove by the chosen app name. Manual triggering always works while paused. Optional triggers combine interval.everySeconds (60..604800), daily.at (HH:MM), weekly.at with days (mon..sun), and fileChange.folders (existing absolute server folders within files.read/write permissions). daily/weekly accept timeZone (IANA); registration persists the resolved server default when omitted. Missing DST wall times are skipped; repeated times use only the first occurrence. Calendar schedules and intervals accept one overdue occurrence after restart, without overlap; intervals use fixed delay. File changes debounce and coalesce. Agent events are planned. timeoutSeconds defaults to 30 (1..300).
 
-Permissions are explicit: files.read/write name existing absolute server folders; http names exact lowercase hosts (optional port); functions names functions you may delegate. Declare matching global_app_file_read, global_app_file_write, global_app_http_request or named functions in input capabilities. TypeScript API gives their exact types. These capabilities enforce the allow lists on the server; process protection blocks direct node:fs outside the package and direct network access. Inspect permissions and sandbox in global_app_read; disabled protection allows direct Node access. Keep credentials out of code, state and logs. A failed widget shows its cause with Retry and Open details; repair and verify the package before resuming.
+Every backend declares global_app_trigger in its input capabilities. It returns key, scheduledAt, reason, and timeZone: the selected calendar zone for daily/weekly, the server zone for manual/interval/file-change. The key helps external idempotency. State, view actions, frame loading and runtime output use the ordinary mini-app mechanisms. Every widget shows the last result; context.log supplies its text. overseer_notify posts a short input into the current coordinator conversation and may trigger a reply: relay that app result briefly to the user, without treating it as a new request to build another app.
+
+Permissions are explicit: files.read/write name existing absolute server folders; http names exact lowercase hosts (optional port); functions names functions you may delegate, such as overseer_notify. Declare global_app_file_read/write/http_request and snippet-only functions in the input capabilities. View actions use registered operator operations under the app's current grants. The helpers enforce allow lists on the server. With process protection enabled, direct network access is blocked and writes are confined to package, build and temporary folders; runtime, dependencies and explicit system paths remain readable. Disabled protection permits direct Node access. Inspect permissions and sandbox in global_app_read. Keep credentials out of code, state and logs. Failed widgets show their cause with Retry and Open details; repair and verify before resuming.

@@ -18,8 +18,9 @@ subset or interpreter rules.
 The context of a call provides run, actor, call identity, state, declared capabilities, logging,
 and an abort signal. `context.actor` is always present: for programs it identifies the owner, for
 snippets the acting caller. Its `handle` is the address as the acting principal's room writes it
-(`core.md`, Rooms): in `onInput` the program's own handle, in a function called from a view the
-address from the main room, in a function called as a tool the address from the caller's room, so
+(`core.md`, Rooms): in `onInput` the program's own handle, in an ordinary view function the
+address from the main room, and in a copied package's view with `capabilitiesAsActor` the address
+from the app actor's room. A tool function uses the address from the caller's room, so
 that the program can pass it to the functions it calls as that principal. `context.state.read()` reads the context state,
 `context.state.replace(value)` stages the next value. Programs use their actor state; snippets
 start with `{}` and discard that state at the end. The function returns its domain result; the
@@ -83,6 +84,11 @@ folder. Native execution is not an additional language sandbox against arbitrary
 For nonadministrator owners, or when requested for the run or forced by the server, these
 processes use the operating system sandbox described in `plugins.md` (Server process sandbox).
 
+The existing `Orchestration.stopActors` stops exactly the requested actors, without stopping
+their descendants or sibling rooms. Global conversation reset combines it with scoped scheduler
+interruption and awaits cleanup before replacing the coordinator. Global app actors retain the
+same managed execution, state commits, and log paths as ordinary actor programs.
+
 An optional `isolated` execution request narrows the process policy to the package, build, and
 temporary folders. `ragents.global-apps` requests it for every backend. It uses the existing
 process-sandbox runtime's operating system wrapper with direct networking denied, no network
@@ -100,8 +106,13 @@ provide explicitly granted external access. File helpers reuse the existing cano
 path checks and final-component `O_NOFOLLOW` protection. The known parent-directory replacement
 race remains: host I/O after a path check is not atomic for the entire path, as described under
 [Workspace, sandbox tools, and processes](plugins.md#workspace-sandbox-tools-and-processes).
-App functions exposed to views declare no external capabilities; external app access belongs in
-an accepted input handler.
+App functions exposed to views use ordinary actor contracts and their explicit per-app grants.
+The persisted `capabilitiesAsActor` package flag keeps registered operator operations under the
+app actor's currently available grants. View actions use the existing operator binding and
+invocation path, not arbitrary run functions; external-capability tool calls from another actor
+reject and direct it to trigger the app's input instead.
+File and HTTP helpers authorize registered app actor execution, while `global_app_trigger`
+requires an accepted app input.
 
 Apps request process protection even for administrators in `auto` mode. An administrator's
 explicitly configured `PROCESS_SANDBOX: "off"` retains capability allow lists but leaves direct
