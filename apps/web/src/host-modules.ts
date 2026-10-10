@@ -6,6 +6,7 @@ import * as hostPluginSupportActorProgramsContract from "@ragents/host/plugin-su
 import * as webAccessContext from "@ragents/web/AccessContext";
 import * as webDiffCode from "@ragents/web/DiffCode";
 import * as webPluginRegistry from "@ragents/web/PluginRegistry";
+import * as webRenderBoundary from "@ragents/web/RenderBoundary";
 import * as webSourceCode from "@ragents/web/SourceCode";
 import * as webStatusGroup from "@ragents/web/StatusGroup";
 import * as webToolbar from "@ragents/web/Toolbar";
@@ -54,6 +55,7 @@ export const hostModules: Readonly<Record<string, object>> = {
   "@ragents/web/AccessContext": webAccessContext,
   "@ragents/web/DiffCode": webDiffCode,
   "@ragents/web/PluginRegistry": webPluginRegistry,
+  "@ragents/web/RenderBoundary": webRenderBoundary,
   "@ragents/web/SourceCode": webSourceCode,
   "@ragents/web/StatusGroup": webStatusGroup,
   "@ragents/web/Toolbar": webToolbar,

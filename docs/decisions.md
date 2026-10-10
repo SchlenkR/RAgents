@@ -1,5 +1,125 @@
 # Decisions
 
+## 2026-10-09: Global mini-apps reuse actor packages with explicit capabilities and paused verification
+
+Chapters: `spec/core.md` (Global coordinator), `spec/plugins.md` (Global mini-apps and dynamic
+Start widgets), `spec/actor-programs.md` (package copy), `spec/typescript-platform.md` (process
+isolation, interruption, and failure logs), `spec/profiles.md`, and `spec/overview.md`.
+Usage and operations: global mini-apps. Homepage: a core feature section and its guide chapter.
+
+Small user-owned apps need a persistent backend, optional React views, and simple triggers.
+`ragents.global-apps` therefore copies actor packages into one ordinary Global apps run per
+user. It reuses the compiler, package tests, managed Node processes, journal, state commits,
+and actor view frames. Manual execution remains available while automatic triggers are paused;
+optional intervals use fixed delay, and file triggers reuse `watchDirectory` with its
+150-millisecond debounce. No overlap, bounded coalescing, one overdue interval after restart,
+and a bounded recent log keep the mechanism small. Cross-run actor-event triggers remain an
+idea in `TODO.md` until owner checks and cursor-based delivery are defined.
+
+Registration and replacement stay paused. Compact source diagnostics and retained failure logs
+let the model verify, inspect, repair, and register the app before resuming. The global
+coordinator gets the same package, file/edit, and TypeScript authoring tools as ordinary run
+agents, with one complete example bound to its `global_app_*` tools through `requiresTools`.
+The existing pinned tool inventory requires a conversation reset after an upgrade that changes
+it; no separate upgrade mechanism is introduced. The `headless` template supplies the smallest
+input-only starting point, and normal actor-package metadata adds views when required.
+
+App permissions name files, HTTP hosts, and RAgents functions explicitly, checked on the server
+and bounded by the registering user's rights and actor's usable, delegable grants. View actions
+publish no tools and request no external capabilities; the input handler performs external work
+through accepted app occurrences. Function permissions exclude `global_app_*` and generic
+execution tools, preventing delegation through an unprotected execution boundary. HTTP rejects
+credentials, redirects, and Host header overrides and restricts the exact effective host/port.
+
+Package-isolated Node execution uses the operating system sandbox without network proxy or
+Unix socket allowances. Writes stay inside package, build, and temporary folders; read-only
+dependencies, the real Node binary, and the explicit system paths in the TypeScript platform
+remain readable. Explicitly disabled process protection stays visible and permits direct Node
+access, while helper allow lists remain enforced. File helpers reuse canonical workspace path
+checks and `O_NOFOLLOW` but retain the known parent-directory replacement race; this change
+adds no atomic protection across the whole path.
+
+The generic additions are awaited `serverReady`, `ActorProgramsService.copyPackage`, exposure
+of the scheduler's existing per-actor interruption through `RunManagement`, optional package
+isolation, and failure log retention. Existing engine recovery interrupts open turns when
+`Orchestration` is rebuilt; the registrar finalizes their journal result without replaying the
+accepted occurrence, with no additional recovery seam.
+
+The additive `startWidgetsFor` web slot supplies dynamic contributions with stable IDs and
+`content: ReactNode`, live `update` snapshots, and an abort signal. It leaves `startSections`
+unchanged and uses the existing RPC/SSE connection. Stable React types preserve local state
+and frames. Each global app has its own widget, defaulting wide for views and narrow for
+headless backends. The dashboard's existing size, order, and visibility preferences apply through
+its stable `ragents.global-apps:<name>` ID. Independent failures remain visible with "Retry"
+and "Open details".
+The plugin ships in `core`, `showcase`, and `developer`. `HOST_API_VERSION` is 15 for the
+updated host contracts, and all bundles are rebuilt.
+
+## 2026-10-09: Arrange Start in place: size, order, and hiding per widget
+
+Chapters: `spec/plugins.md` (Web as plugin host: slot list `startSections`, Shared page width, Arranging Start);
+usage: `usage.md` (Start).
+
+Start's widgets had fixed sizes and places, so a viewer for whom Continue was too wide could not change it. Every
+framed widget now has a "..." menu in its title row with Size (the four existing spans, the current one checked and
+the default marked), Move earlier, Move later, and Hide; "Customize" after the grid, or at the end of the tab strip,
+shows hidden widgets again and resets the layout. There is no settings page for it. Sizes stay the semantic spans, so
+the responsive tiers and the narrow tabs work on the arranged list without a second set of rules.
+
+The preferences (`dashboard-preferences.ts`) refer to widgets by ID and work for any ID, including widgets that only
+some users have: `start.new`, `start.continue`, and a start section's `id` (formerly `new`, `continue`, and
+`section:<id>`; a tab remembered under an old key falls back to the first widget once). IDs of absent widgets are
+ignored, and the order places only the widgets it names, so a new widget appears where its contribution puts it.
+Moving to the default order or choosing the default span stores nothing. The server has no per-user preference store:
+`ragents.settings.*` holds profile-wide settings, and the appearance lives in browser storage and VS Code settings.
+The layout is therefore kept like the remembered tab in the browser storage of the page that shows Start, per server
+origin and signed-in user; the browser and VS Code keep separate copies (`TODO.md`). A stored layout that cannot be
+read is shown with its cause and "Reset layout" instead of being dropped silently.
+
+Moving focus after hiding a widget scrolled the whole document by about a hundred pixels,
+header included: visually hidden labels of the run rows escaped the page scroller, because it was not their
+containing block. The scroller of Start, Runs, and Server is now positioned. `HOST_API_VERSION` and
+`EXTENSION_API_VERSION` stay; no contract changed.
+
+## 2026-10-09: The Start dashboard uses the full width
+
+Chapter: `spec/plugins.md` (Shared page width), `docs/usage.md`. The dashboard kept the 1280-pixel
+column of the former Start list, so wide screens showed empty margins although widgets could stand
+side by side. Start now fills the width; Runs and Server keep the centered column for readable lists.
+Start has wider side padding at desktop widths, and every panel page has more space below
+the header there.
+
+## 2026-10-09: Start becomes a responsive dashboard, and tab rows move what does not fit into a menu
+
+Chapters: `spec/plugins.md` (Web as plugin host: slot list `startSections`, UI library `OverflowTabs`, Start, Continue,
+Runs); usage: `usage.md` (Create your first run, Selection controls and tables, Start); `development.md` (Extension
+points in the web).
+
+Start stacked New, Continue, and plugin sections at full width, which wasted wide screens, while a narrow VS Code
+panel had to scroll through every section to reach the one it needed. Start is now one dashboard of widgets in a
+twelve-column grid (`StartDashboard`, `dashboardLayout`). New is `narrow` and Continue `wide`; plugin sections become
+widgets through two optional, additive fields of `StartSectionContribution`: `title`, with which the host draws the
+same frame as for New and Continue and a tab in the narrow layout, and `span` (`narrow`, `half`, `wide`, `full`).
+The contract keeps the name `startSections`, and a section without `title` keeps its earlier form (own heading,
+full row, below the tabs), so existing plugins load and look as before; a `span` without `title` is an error,
+because it would have no effect. The layout follows the width of the dashboard's own container rather than the
+window, so a narrow VS Code panel on a wide screen counts as narrow: from 1100 pixels the spans apply, from 700
+pixels they halve, below 700 pixels the widgets become tabs whose choice is remembered per server origin. Rows with
+space left widen their widgets, empty widgets take neither cell nor tab, and widgets stay mounted while hidden so
+their state survives. Every widget's body is a size container; the template tiles become compact rows below 448
+pixels and run rows drop the detail line below 360 and the time below 280 pixels, also on Runs. The page scroller
+reserves its scrollbar gutter so that a scrollbar cannot flip the layout at a limit. Failing widgets stay contained
+in a `RenderBoundary`.
+
+The owner's rule for horizontal rows of equal items with a limited width is now a building block: `OverflowTabs` and
+`OverflowTabsList` measure the strip and a hidden ruler with a `ResizeObserver`, keep the leading tabs that fit and
+always the active one (`splitOverflow`), and list exactly the hidden tabs in a trailing "..." menu. Start's widget
+tabs, the Runs tabs, the Settings areas (now standard tabs instead of a scrolling navigation), and the inspector's
+actor views use it; the actor views make it a real plugin user, so `@ragents/web/ui` exports `OverflowTabs` and
+`OverflowTabsList` additively and `HOST_API_VERSION` stays 12. The dock's area tabs (drag targets that already
+shrink and truncate) and the run header's continuation rows keep their own behavior; segmented choices and
+toolbars follow later (`TODO.md`).
+
 ## 2026-10-09: A guided template opens only its guide, never a dialog with start tiles
 
 Chapters: `spec/plugins.md` (Web as plugin host: dialogs and `Modal`, start dialog and preparation, run panel host

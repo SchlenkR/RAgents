@@ -41,7 +41,7 @@ function App(){const[view,setView]=useState('runs');const now=new Date();const[s
     assert.deepEqual((await page.evaluate(()=>(window as any).fixture.calls)).at(-1),{action:'deleteRuns',name:'demo',runIds:['running','old','locked']});
     await page.screenshot({path:`${directory}/desktop.png`,fullPage:true});
     await page.setViewportSize({width:390,height:844});await page.screenshot({path:`${directory}/mobile.png`,fullPage:true});assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true);context.diagnostic(`Screenshots: ${directory}`);
-    await page.evaluate(()=>(window as any).fixture.setView('start'));
+    await page.setViewportSize({width:1200,height:900});await page.evaluate(()=>(window as any).fixture.setView('start'));
     await page.getByRole('heading',{name:'Continue',exact:true}).waitFor();
     assert.deepEqual(await page.getByRole('heading',{level:2}).allTextContents(),['New1','Continue'],'Start puts templates before the same run rows');
     assert.equal(await page.getByRole('list',{name:'Recent',exact:true}).getByTitle('Workspace: /home/user/project').count(),1,'Start retains the row details');

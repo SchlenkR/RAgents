@@ -83,6 +83,37 @@ folder. Native execution is not an additional language sandbox against arbitrary
 For nonadministrator owners, or when requested for the run or forced by the server, these
 processes use the operating system sandbox described in `plugins.md` (Server process sandbox).
 
+An optional `isolated` execution request narrows the process policy to the package, build, and
+temporary folders. `ragents.global-apps` requests it for every backend. It uses the existing
+process-sandbox runtime's operating system wrapper with direct networking denied, no network
+proxy, and no Unix socket allowances. Linux also uses separate network and PID namespaces.
+Only the package, build, and temporary folders are writable. Reads are allowed from those
+folders, read-only dependencies, the real Node binary, and these operating-system paths:
+
+- macOS: `/System/Library`, `/usr/lib`, `/usr/bin/env`, `/bin/sh`, `/bin/bash`, `/dev/null`,
+  `/dev/urandom`, `/dev/random`, and `/private/etc/localtime`.
+- Linux: `/usr/lib`, `/lib`, `/lib64`, `/proc`, `/etc/ld.so.cache`, `/usr/bin/env`, `/bin/sh`,
+  and `/bin/bash`.
+
+Server-checked `global_app_file_read`, `global_app_file_write`, and `global_app_http_request`
+provide explicitly granted external access. File helpers reuse the existing canonical workspace
+path checks and final-component `O_NOFOLLOW` protection. The known parent-directory replacement
+race remains: host I/O after a path check is not atomic for the entire path, as described under
+[Workspace, sandbox tools, and processes](plugins.md#workspace-sandbox-tools-and-processes).
+App functions exposed to views declare no external capabilities; external app access belongs in
+an accepted input handler.
+
+Apps request process protection even for administrators in `auto` mode. An administrator's
+explicitly configured `PROCESS_SANDBOX: "off"` retains capability allow lists but leaves direct
+Node file and network access without an operating system boundary. `global_app_read.sandbox`
+reports `process`, `disabled`, or `unavailable` before activation; details name the active or
+disabled mode. Missing prerequisites fail execution without an unprotected fallback.
+
+Actor input execution retains its bounded log buffer on failure as well as success and records
+it before the terminal turn result. Staged state is still discarded on failure or cancellation.
+`RunManagement.interruptTurn` exposes the existing scheduler interruption for one actor and
+settles its managed execution; an app's wall-time deadline uses it without stopping other apps.
+
 ## TypeScript actors
 
 Actor packages can use `@ragents/workflow` for a shared workflow definition. It provides the same
@@ -476,8 +507,9 @@ runtime.
 - Intermediate states of a function that is still running are not journaled automatically.
 - A failed reactivation after contract drift is retried on every further call; the host does not
   remember the failure.
-- Native Node execution uses the permissions and environment of the run's server context and
-  guarantees no additional isolation against intentionally malicious backend code.
+- Native Node execution has no language sandbox. Ordinary programs use the run's server
+  context; package-isolated programs still read their dependencies, Node binary, and the explicit
+  operating-system paths above. Server file helpers retain the parent-directory replacement race.
 - A run script keeps at most 50 open starts per package; a result for an older one can no longer be
   delivered. A result whose starter is stopped is reported as runtime output of the script instead.
 - A server restart between recording a start and queueing its input leaves a record without input;

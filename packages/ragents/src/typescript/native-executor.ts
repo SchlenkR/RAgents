@@ -19,6 +19,7 @@ export interface NativeTypeScriptRequest {
     readonly std?: { readonly now: string; readonly idPrefix: string };
     readonly cwd?: string;
     readonly instanceId?: string;
+    readonly isolated?: boolean;
 }
 
 export interface NativeTypeScriptBinding {

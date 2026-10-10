@@ -1212,10 +1212,15 @@ scheduled regularly again.
 
 The product host binds the global chat contract delivered by the plugin: its own prompt, tool
 selection, and a small working directory in the plugin storage. The global coordinator initially
-uses the profile's default model, but no product prompts, product skills, hooks, or preparation of
-a product working directory. Its native interface contains `typescript_api`, `typescript_eval`, and
-the allowed file tools `read`, `write`, and `edit`; without sign-in, the host shell `bash` is
-added. With users, it has none, because as a server process it could read the files of all users;
+uses the profile's default model. Initial contributions whose `requiresTools` match its selected
+tools reach its turns, including the global app authoring instructions. Ordinary product
+prompts, product skills, hooks, and preparation of a product working directory remain excluded.
+Its native interface contains `typescript_api`, `typescript_eval`, and the allowed file tools
+`read`, `write`, and `edit`. Installed plugins also contribute `actor_program_create`,
+`actor_program_diagnostics`, the TypeScript and TypeScript language-server tools, and the
+`global_app_*` tools. The coordinator authors and checks global app packages in its own working
+directory with the same package, file/edit, and TypeScript flow as a normal run agent. Without sign-in, the host shell
+`bash` is added. With users, it has none, because as a server process it could read the files of all users;
 it then sends its JSON-RPC calls from snippets with `fetch`. Individual work actions run directly;
 compound calls use the same `context.functions` API as normal runs. The two TypeScript tools are
 part of the server's basic equipment and need no actor program plugin. Without sign-in, only its

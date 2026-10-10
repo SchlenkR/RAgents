@@ -1,5 +1,5 @@
 /** The number of the host API a plugin is built against; it changes with every incompatible change of a list, a listed name or a library. */
-export const HOST_API_VERSION = 12;
+export const HOST_API_VERSION = 15;
 
 /** A library the host shares whole, as its installed version exports it; host code instead names each value it offers. */
 export const LIBRARY = "library";
@@ -13,7 +13,7 @@ export const hostApi: { readonly server: HostApiModules; readonly web: HostApiMo
       "DomainError", "RPC_ERROR_CODES", "RpcError", "ScriptDriver", "ToolRegistry", "actorByHandle",
       "actorByReference", "actorDescriptionMaxLength", "actorInputSchema", "addressFrom", "addressOf", "agentTools", "assertJsonValue", "builtinProfiles", "canonicalHash",
       "compileVirtualTypeScriptAsync", "contextToolResults", "defineRunFunction", "defineToolAvailability", "emptyUsage",
-      "enqueueActorInput", "eventResultSchemaOf", "freeRoomName", "handleKey", "holdsUsable", "implement", "implementChannel", "inheritedGrants",
+      "enqueueActorInput", "eventResultSchemaOf", "freeRoomName", "handleKey", "hasCapability", "holdsUsable", "implement", "implementChannel", "inheritedGrants",
       "isRunId", "isThinkingLevel", "hasWorkstationOwner", "modelToolDescriptors", "pluginStateAt", "runCapabilityBindingHash",
       "runCapabilityContractHash", "schemaComplaints", "scriptInputOf", "serviceToken",
     ],
@@ -103,7 +103,7 @@ export const hostApi: { readonly server: HostApiModules; readonly web: HostApiMo
     "@ragents/workflow": ["defineWorkflow", "workflowInstructions"],
     "@ragents/workspace-executor": [
       "BYTE_OPERATIONS", "COMMAND_OPERATIONS", "FILE_BYTES_LIMIT", "FILE_COUNT_LIMIT", "FILE_OPERATIONS", "PROCESS_OPERATIONS", "RUN_FOLDER_OPERATIONS", "RUN_MARKER_ENV", "TUNNEL_PING_INTERVAL_MS", "WORKSPACE_EXECUTOR_VERSION",
-      "allowedWorkspacePath", "bytesOf", "languageServerOpenOperation", "languageServerSolutionsOperation", "listDirectory", "readTextFile", "ripgrepAvailable", "runManagedProcess", "safeProcessEnvironment", "sandboxRunEnvironment", "sandboxedLaunch",
+      "allowedWorkspacePath", "bytesOf", "containsWorkspacePath", "languageServerOpenOperation", "languageServerSolutionsOperation", "listDirectory", "readTextFile", "resolvedWorkspacePath", "ripgrepAvailable", "runManagedProcess", "safeProcessEnvironment", "sandboxRunEnvironment", "sandboxedLaunch",
       "shellPlatformText", "startManagedService", "tunnelCloseReason", "watchDirectory",
     ],
     "@ragents/workspace-executor/src/git-config-environment": ["withGitConfigPairs"],
@@ -129,6 +129,7 @@ export const hostApi: { readonly server: HostApiModules; readonly web: HostApiMo
       "SurfaceControllerProvider", "ChatStepsProvider", "chatDisplayPolicyFrom", "pluginRoutePrefixFrom",
       "useActionRenderer", "useSurfaceController", "useChatSteps", "useToolRenderer", "workspaceAccessible",
     ],
+    "@ragents/web/RenderBoundary": ["RenderBoundary"],
     "@ragents/web/SourceCode": ["SourceCode"],
     "@ragents/web/StatusGroup": ["StatusGroup"],
     "@ragents/web/Toolbar": ["ToolbarCopy", "ToolbarItem", "ToolbarLabel", "ToolbarText"],
@@ -165,11 +166,11 @@ export const hostApi: { readonly server: HostApiModules; readonly web: HostApiMo
     "@ragents/web/theme": ["useLooks", "usePalette", "useResolvedTheme"],
     "@ragents/web/toolLine": ["withToolSummaries"],
     "@ragents/web/ui": [
-      "Alert", "AlertDescription", "AlertTitle", "Badge", "Button", "Card", "Checkbox", "ChoiceSelect", "Combobox", "ComboboxContent",
+      "Alert", "AlertDescription", "AlertTitle", "Badge", "Button", "Card", "CardContent", "Checkbox", "ChoiceSelect", "Combobox", "ComboboxContent",
       "ComboboxGroup", "ComboboxItem", "ComboboxLabel", "ComboboxSeparator", "ComboboxTrigger", "ComboboxValue", "Dialog", "DialogBody", "DialogContent",
       "DialogDescription", "DialogFooter", "DialogHeader", "DialogTitle", "Empty", "EmptyContent", "EmptyDescription",
       "DataGrid", "EmptyHeader", "EmptyMedia", "EmptyTitle", "Field", "FieldDescription", "FieldTitle", "FilterSelect", "HeaderDropdown", "ImagePreview", "ImagePreviewGroup", "ImageViewer", "Input", "InteractiveItem", "Label",
-      "Popover", "PopoverContent", "PopoverTrigger", "RunStateIcon", "SearchInput", "SectionLabel", "Select", "SelectContent", "SelectItem", "SelectTrigger",
+      "OverflowTabs", "OverflowTabsList", "Popover", "PopoverContent", "PopoverTrigger", "RunStateIcon", "SearchInput", "SectionLabel", "Select", "SelectContent", "SelectItem", "SelectTrigger",
       "SelectValue", "Spinner", "StartupNotice", "StopButton", "StopGlyph", "SvgEdge", "Switch", "Table", "TableBody",
       "TableCaption", "TableCell", "TableFooter", "TableHead", "TableHeader", "TableRow", "Tabs", "TabsContent",
       "TabsList", "TabsTrigger", "Textarea", "Toggle", "ToggleGroup", "ToggleGroupItem", "buttonVariants", "cn",

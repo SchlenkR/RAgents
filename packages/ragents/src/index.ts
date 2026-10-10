@@ -131,7 +131,7 @@ export { capabilityNames, firstHandCapabilities, isCapabilityName, type Capabili
 export { DirectoryArtifactContents, MemoryArtifactContents, type ArtifactContents } from "./runtime/artifacts.ts";
 export type { CommandContext } from "./runtime/command.ts";
 export { DomainError } from "./runtime/domain-error.ts";
-export { checkedSharing, inheritedGrants } from "./runtime/guards.ts";
+export { checkedSharing, hasCapability, inheritedGrants } from "./runtime/guards.ts";
 export { throwFailures, throwRejected } from "./runtime/failures.ts";
 export type { JournalEvent } from "./domain/events.ts";
 export { Journal, journalFormatVersion, type CommandRecord, type JournalLoadFailure } from "./runtime/journal.ts";

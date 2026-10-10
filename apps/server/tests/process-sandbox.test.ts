@@ -9,13 +9,65 @@ import type { NativeTypeScriptRequest, PluginContext, ToolScope } from "@ragents
 import { COMMAND_OPERATIONS, WORKSPACE_EXECUTOR_VERSION, type CommandResult, type WorkspaceExecutor } from "@ragents/workspace-executor";
 import { scriptProgram } from "../../../packages/ragents/tests/native-executor.ts";
 import { NodeTypeScriptExecutor } from "../src/plugin-support/native-typescript-executor.ts";
-import { PROCESS_SANDBOX_DEFAULT_NETWORK, ServerProcessSandbox } from "../src/plugin-support/process-sandbox.ts";
+import { PROCESS_SANDBOX_DEFAULT_NETWORK, ServerProcessSandbox, type RunSandboxFolders } from "../src/plugin-support/process-sandbox.ts";
+import { projectSourceFiles } from "../src/plugin-support/actor-programs/app-project.ts";
 import { WorkspaceSandboxHost } from "../src/plugin-support/workspace-sandbox-host.ts";
 import type { SandboxFolder, SessionWorkspace } from "../src/ragents/workspace-runtime.ts";
 
 const supported = process.platform === "darwin" || process.platform === "linux";
 
 const SANDBOX_OFF = 'SANDBOX: "off" in the section acme.workspace';
+
+test("an isolated process has no proxy escape and exposes only runtime paths outside its own package", async () => {
+  const sandbox = new ServerProcessSandbox({ network: ["*"], serverAddress: "http://127.0.0.1:8080", dataDirectory: tmpdir(), disableSetting: SANDBOX_OFF, platform: "darwin" });
+  const wrapped = await sandbox.forRun({ isolated: true, writable: ["/tmp/job"], readable: ["/tmp/runtime-libraries"], temporary: "/tmp/job/.tmp" })
+    .wrap({ command: process.execPath, args: ["/tmp/job/server.mjs"] });
+  const profile = wrapped.args.join(" ");
+  assert.match(profile, /deny file-read\*/);
+  assert.match(profile, /System\/Library/);
+  assert.doesNotMatch(profile, /subpath "\/System"|subpath "\/usr"|subpath "\/private\/etc"/);
+  assert.doesNotMatch(profile, /allow network-outbound|HTTP_PROXY=|HTTPS_PROXY=/);
+  assert.match(profile, /job\/server.mjs/);
+});
+
+test("job process context grants only its package and build and keeps temporary files out of source snapshots", async () => {
+  const root = await mkdtemp(path.join(tmpdir(), "ragents-job-context-"));
+  const own = path.join(root, "package");
+  const build = path.join(root, "build");
+  const libraries = path.join(root, "libraries");
+  await Promise.all([own, build, libraries].map((directory) => mkdir(directory)));
+  let policy: RunSandboxFolders | undefined;
+  const workspace: SessionWorkspace = {
+    cwd: root,
+    hostSandbox: { home: root, readOnlyRoots: [] },
+    currentRoot: async () => root,
+    runOperation: (work) => work(),
+  };
+  const unused = async (): Promise<never> => { throw new Error("The fixture provides its workspace."); };
+  const host = new WorkspaceSandboxHost({
+    contributorName: "test.workspace",
+    contributions: [],
+    workspaceFor: async () => workspace,
+    identFor: unused,
+    homeFor: unused,
+    skillPaths: unused,
+    isolatedProcessSandboxFor: async () => ({ forRun: (folders) => {
+      policy = folders;
+      return { wrap: async (launch) => launch };
+    } }),
+  });
+  try {
+    const context = await host.isolatedProcessContextFor("job", [own, build], [libraries]);
+    assert.deepEqual(policy?.writable, [own, build]);
+    assert.deepEqual(policy?.readable, [libraries]);
+    assert.equal(policy?.isolated, true);
+    assert.equal(context.home, own);
+    assert.equal(context.env.TMPDIR, path.join(own, ".build", "tmp"));
+    assert.equal(context.env.RAGENTS_API_TOKEN, undefined);
+    await writeFile(path.join(context.env.TMPDIR!, "cache.txt"), "temporary data");
+    assert.deepEqual(await projectSourceFiles(own), []);
+  } finally { await host.shutdownAll(); await rm(root, { recursive: true, force: true }); }
+});
 
 test("a platform without a sandbox aborts with the setting that the owning plugin names for turning it off", () => {
   for (const platform of ["win32", "freebsd"] as const) {
@@ -49,7 +101,12 @@ const coordinatorFixture = async (network: readonly string[] = PROCESS_SANDBOX_D
   const allowed = await listening("own server");
   const forbidden = await listening("foreign service");
   const processSandbox = new ServerProcessSandbox({ network, serverAddress: allowed.address, dataDirectory: data, disableSetting: SANDBOX_OFF });
-  await processSandbox.start();
+  try { await processSandbox.start(); }
+  catch (error) {
+    await Promise.all([closed(allowed.server), closed(forbidden.server)]);
+    await rm(data, { recursive: true, force: true });
+    throw error;
+  }
   const workspace: SessionWorkspace = {
     cwd,
     hostSandbox: { home: cwd, readOnlyRoots: [] },
@@ -69,6 +126,7 @@ const coordinatorFixture = async (network: readonly string[] = PROCESS_SANDBOX_D
   const native = new NodeTypeScriptExecutor({
     directoryFor: (runId) => path.join(storage(runId), "native-programs"),
     serverProcessContextFor: (runId) => host.serverProcessContextFor(runId),
+    isolatedProcessContextFor: (runId, directories, readable) => host.isolatedProcessContextFor(runId, directories, readable),
   });
   const tools = await host.workspaceTools().tools({ runId: "coordinator" } as PluginContext);
   const bash = async (command: string): Promise<string> => {
@@ -76,10 +134,11 @@ const coordinatorFixture = async (network: readonly string[] = PROCESS_SANDBOX_D
     assert.ok(tool);
     return String(await tool.run({ signal: new AbortController().signal } as ToolScope, "test-bash", { command, timeout: 30_000 } as never));
   };
-  const snippet = async (source: string): Promise<unknown> => {
+  const snippet = async (source: string, isolatedDirectory?: string): Promise<unknown> => {
     const request: NativeTypeScriptRequest = {
       program: scriptProgram(source),
       input: {},
+      ...(isolatedDirectory ? { isolated: true, cwd: isolatedDirectory } : {}),
       context: { runId: "coordinator", invocationId: "sandbox", invocationKind: "tool", principal: { id: "coordinator", kind: "agent" }, capabilities: [] },
     };
     const outcome = await native.execute(request, { call: async () => { throw new Error("no capability"); }, log: () => undefined });
@@ -96,6 +155,25 @@ const coordinatorFixture = async (network: readonly string[] = PROCESS_SANDBOX_D
     },
   };
 };
+
+test("an isolated job process cannot directly reach another package, a journal or even the allowed host", { skip: !supported, timeout: 60000 }, async () => {
+  const f = await coordinatorFixture();
+  try {
+    const own = path.join(f.cwd, "job");
+    const neighbor = path.join(f.cwd, "neighbor.txt");
+    await mkdir(own);
+    await writeFile(neighbor, "another package");
+    const result = await f.snippet(`import { readFile, writeFile } from "node:fs/promises";
+export const handle = async () => {
+  await writeFile(${JSON.stringify(path.join(own, "output.txt"))}, "own package");
+  const forbidden = await Promise.all(${JSON.stringify([f.foreignJournal, neighbor])}.map((file) => readFile(file, "utf8").then(() => "reached", () => "denied")));
+  const network = await fetch(${JSON.stringify(f.allowed.address)}, { signal: AbortSignal.timeout(1000) }).then(() => "reached", () => "denied");
+  return { forbidden, network, token: process.env.RAGENTS_API_TOKEN ?? null };
+};`, own);
+    assert.deepEqual(result, { forbidden: ["denied", "denied"], network: "denied", token: null });
+    assert.equal(await readFile(path.join(own, "output.txt"), "utf8"), "own package");
+  } finally { await f.close(); }
+});
 
 test("bash of the global coordinator cannot read a foreign journal but writes its own workspace", { skip: !supported, timeout: 60_000 }, async () => {
   const f = await coordinatorFixture();

@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, statSync } from "node:fs";
+import { mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import test, { after } from "node:test";
@@ -7,6 +7,8 @@ import { agentTools, compileTypeScriptSnippet, Journal, Orchestration, TypeScrip
 import { testServices } from "../../../packages/ragents/tests/support.ts";
 import { pluginsRoot } from "../src/plugin-support/plugins-root.ts";
 import { nativeExecutorFixture } from "./native-executor-fixture.ts";
+import { compileAppBackend, installServerSdk, prepareAppProject, typecheckServerProject } from "../src/plugin-support/actor-programs/app-project.ts";
+import { compileClientProject, installClientSdk } from "../src/plugin-support/actor-programs/client-compiler.ts";
 import { compositionEnvironment, showcaseFixture, type CompositionFixture } from "./fixtures/profile-composition/profiles.ts";
 
 const temporaryDirectory = mkdtempSync(path.join(tmpdir(), "ragents-prompt-snippets-"));
@@ -196,7 +198,18 @@ test("every TypeScript example in plugin prompts, skills and run-script prompts 
   assert.ok(files.length >= 20, `Only ${files.length} prompt files found; the search no longer works`);
   for (const file of files) {
     for (const snippet of promptSnippetsOf(path.relative(pluginsRoot, file), readFileSync(file, "utf8"))) {
-      try { await compileTypeScriptSnippet({ code: snippet.code, capabilities }); }
+      try {
+        if (/^export default /m.test(snippet.code)) {
+          const directory = mkdtempSync(path.join(temporaryDirectory, "actor-example-"));
+          mkdirSync(path.join(directory, "src"));
+          writeFileSync(path.join(directory, "package.json"), JSON.stringify({ name: "prompt-example", private: true, type: "module", ragents: { title: "Prompt example", backend: "src/server.ts" } }));
+          writeFileSync(path.join(directory, "src/server.ts"), snippet.code);
+          await prepareAppProject(directory);
+          await installServerSdk(directory, capabilities);
+          assert.deepEqual(typecheckServerProject(directory, "src/server.ts"), []);
+          await compileAppBackend({ directory, backend: "src/server.ts", runId: "prompt-example", executor: native.executor });
+        } else await compileTypeScriptSnippet({ code: snippet.code, capabilities });
+      }
       catch (error) {
         const message = error instanceof TypeScriptSnippetCompilationError ? error.message : `Unexpected error: ${error instanceof Error ? error.message : String(error)}`;
         failures.push(`${snippet.file}:${snippet.line} (${showcaseFixture.product.id}, ${snippet.kind})\n${snippet.code}\n${message}`);
@@ -207,4 +220,26 @@ test("every TypeScript example in plugin prompts, skills and run-script prompts 
     .filter((pluginId) => !covered.has(pluginId) && promptFilesOf(path.join(pluginsRoot, pluginId)).some((file) => promptSnippetsOf(file, readFileSync(file, "utf8")).length > 0));
   assert.deepEqual(uncovered, [], "plugins with TypeScript examples belong in the profile fixture");
   assert.deepEqual(failures, [], `TypeScript examples in prompts do not match the contract:\n\n${failures.join("\n\n")}`);
+});
+
+test("the complete global mini-app prompt builds its backend and React view together", async () => {
+  const source = readFileSync(path.join(pluginsRoot, "ragents.global-apps/prompt.hbs"), "utf8");
+  const code = (language: string) => {
+    const match = source.match(new RegExp("```" + language + "\\n([\\s\\S]*?)\\n```"));
+    assert.ok(match, `${language} source is present`);
+    return match[1]!;
+  };
+  const directory = mkdtempSync(path.join(temporaryDirectory, "global-app-example-"));
+  mkdirSync(path.join(directory, "src"));
+  writeFileSync(path.join(directory, "package.json"), code("json"));
+  writeFileSync(path.join(directory, "src/server.ts"), code("ts"));
+  writeFileSync(path.join(directory, "src/client.tsx"), code("tsx"));
+  await prepareAppProject(directory);
+  await installServerSdk(directory, await capabilitiesOf(showcaseFixture));
+  assert.deepEqual(typecheckServerProject(directory, "src/server.ts"), []);
+  const backend = await compileAppBackend({ directory, backend: "src/server.ts", runId: "global-app-example", executor: native.executor });
+  const contracts = { stateSchema: backend.contract.state, actions: [] };
+  await installClientSdk(directory, contracts);
+  const client = await compileClientProject({ directory, entryPoint: "src/client.tsx", ...contracts });
+  assert.equal(client.valid, true, JSON.stringify(client.diagnostics));
 });

@@ -1,3 +1,7 @@
 {
-  "id": "ragents.actor-programs"
+  "id": "ragents.actor-programs",
+  "exports": {
+    "server": ["server/agent-tools"],
+    "web": ["web/api", "web/ActorViewFrame"]
+  }
 }

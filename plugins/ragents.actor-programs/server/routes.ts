@@ -56,6 +56,10 @@ globalThis.__ragentsAppContext = (() => {
     return value;
   };
   const bridgeToken = new URLSearchParams(location.hash.slice(1)).get("ragentsBridge");
+  const reportFailure = (cause) => parent.postMessage({ type: "ragents.app.failed", version: 1, token: bridgeToken,
+    message: String(cause?.message || cause || "The app failed to render.").slice(0, 1000) }, "*");
+  window.addEventListener("error", (event) => reportFailure(event.error || event.message));
+  window.addEventListener("unhandledrejection", (event) => reportFailure(event.reason));
   ${escapeForwarder}
   ${themeReceiver}
   const channel = new MessageChannel();

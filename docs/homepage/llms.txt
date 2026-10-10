@@ -12,6 +12,7 @@ This reference describes the existing public building blocks of the showcase pro
 - [Actors and messages](guide-runtime.md)
 - [Get started](guide-getting-started.md)
 - [Web and editors](guide-clients.md)
+- [Global mini-apps](guide-global-apps.md)
 - [Distributed work](guide-distributed.md)
 - [Work with TypeScript](guide-functions.md)
 - [Build mini-apps](guide-programs.md)

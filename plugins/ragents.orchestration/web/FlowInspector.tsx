@@ -1,6 +1,6 @@
 import { ArrowLeftIcon, WrenchIcon } from "lucide-react";
 import { useAccess } from "@ragents/web/AccessContext";
-import { Badge, Button, Empty, EmptyDescription, EmptyHeader, EmptyTitle, Input, Tabs, TabsContent, TabsList, TabsTrigger } from "@ragents/web/ui";
+import { Badge, Button, Empty, EmptyDescription, EmptyHeader, EmptyTitle, Input, OverflowTabs, OverflowTabsList, TabsContent } from "@ragents/web/ui";
 import { useEffect, useId, useMemo, useRef, useState, type ReactNode } from "react";
 import { ActorChat } from "./ActorChat";
 import { ChatViewSwitches, useChatViewSettings } from "@ragents/web/chat-view-settings";
@@ -242,30 +242,17 @@ function SectionTabs({ sections, children, toolbar }: { sections: SectionTab[]; 
   if (sections.length === 0) return <><div className="flex h-8 flex-none items-center gap-1 overflow-x-auto border-b border-border-soft px-1">{toolbar}</div>{children}</>;
 
   return (
-    <Tabs className="contents" onValueChange={(value) => setOpenId(value === "chat" ? null : String(value))} value={open?.id ?? "chat"}>
+    <OverflowTabs className="contents" onValueChange={(value) => setOpenId(value === "chat" ? null : value)} value={open?.id ?? "chat"}>
       <div aria-label="Actor toolbar" className="flex h-8 flex-none items-center gap-1 overflow-x-auto border-b border-border-soft px-1">
         {toolbar}
-        <TabsList aria-label="Actor views" className="flex h-7 w-auto flex-none flex-nowrap justify-start gap-0 rounded-none p-0" variant="line">
-          <TabsTrigger aria-label="Show chat" className={tabClass} id={`${id}-chat-tab`} title="Show chat" value="chat">
-            <SectionIcon kind="chat" />
-          </TabsTrigger>
-          {sections.map((section) => (
-            <TabsTrigger
-              aria-label={section.count === undefined ? section.label : `${section.label} (${section.count})`}
-              className={tabClass}
-              id={`${id}-${section.id}-tab`}
-              key={section.id}
-              title={section.count === undefined ? section.label : `${section.label} (${section.count})`}
-              value={section.id}
-            >
-              {section.icon}
-            </TabsTrigger>
-          ))}
-        </TabsList>
+        <OverflowTabsList aria-label="Actor views" className="w-auto flex-1" iconOnly listClassName="h-7 gap-0 rounded-none p-0" triggerClassName={tabClass}
+          items={[{ value: "chat", label: "Show chat", icon: <SectionIcon kind="chat" />, id: `${id}-chat-tab` }, ...sections.map((section) => ({
+            value: section.id, label: section.count === undefined ? section.label : `${section.label} (${section.count})`, icon: section.icon, id: `${id}-${section.id}-tab`,
+          }))]} />
       </div>
       {open && <TabsContent className="min-h-0 flex-1 overflow-y-auto border-b border-border-soft px-workspace-inset py-2 text-[0.76rem]" id={`${id}-details`} tabIndex={0} value={open.id}>{open.content}</TabsContent>}
       <TabsContent className="flex min-h-0 flex-1 flex-col" id={`${id}-chat`} keepMounted value="chat">{children}</TabsContent>
-    </Tabs>
+    </OverflowTabs>
   );
 }
 

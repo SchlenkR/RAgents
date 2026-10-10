@@ -196,11 +196,33 @@ export interface StartSectionContext {
   onOpenRun: (runId: string) => void;
 }
 
+/** The preferred width of a Start widget on a wide dashboard: a third, half, two thirds, or the whole row. */
+export const START_WIDGET_SPANS = ["narrow", "half", "wide", "full"] as const;
+export type StartWidgetSpan = typeof START_WIDGET_SPANS[number];
+
 export interface StartSectionContribution {
   id: string;
   order: number;
   readRight?: string;
+  /** Makes the section a widget: the host draws its title row and, on a narrow dashboard, its tab; without it the section owns its heading and fills a row. */
+  title?: string;
+  /** The preferred width of a widget with a title, by default the whole row. */
+  span?: StartWidgetSpan;
   Section: ComponentType<StartSectionContext>;
+}
+
+export interface StartWidgetContribution {
+  readonly id: string;
+  readonly title: string;
+  readonly span?: StartWidgetSpan;
+  readonly order?: number;
+  readonly readRight?: string;
+  readonly content: ReactNode;
+}
+
+export interface StartWidgetsContext extends StartSectionContext {
+  readonly signal: AbortSignal;
+  readonly update: (widgets: readonly StartWidgetContribution[]) => void;
 }
 
 export interface WorkspaceTabContext {
@@ -350,6 +372,7 @@ export interface WebPlugin extends WebPluginDescriptor {
   surfaceElements?: SurfaceElementContribution[];
   cardSections?: CardSectionContribution[];
   startSections?: StartSectionContribution[];
+  startWidgetsFor?: (context: StartWidgetsContext) => readonly StartWidgetContribution[] | Promise<readonly StartWidgetContribution[]>;
   chatDisplayPolicy?: ChatDisplayPolicy;
   resolveRunUrl?: RunUrlResolver;
   startOptions?: StartOptionContribution[];
@@ -397,6 +420,7 @@ export class PluginRegistry {
   readonly surfaceElements: readonly SurfaceElementContribution[];
   readonly cardSections: readonly CardSectionContribution[];
   readonly startSections: readonly StartSectionContribution[];
+  readonly startWidgetFactories: readonly { readonly id: string; readonly create: NonNullable<WebPlugin["startWidgetsFor"]> }[];
   readonly chatDisplayPolicy: ChatDisplayPolicy;
   readonly resolveRunUrl: RunUrlResolver | undefined;
   readonly startOptions: ReadonlyMap<string, StartOptionContribution>;
@@ -458,6 +482,14 @@ export class PluginRegistry {
       .flatMap((plugin) => plugin.startSections ?? [])
       .sort((left, right) => left.order - right.order || left.id.localeCompare(right.id));
     assertUnique(this.startSections, (section) => section.id, "Start section");
+    this.startWidgetFactories = this.activePlugins.flatMap((plugin) => plugin.startWidgetsFor ? [{ id: plugin.id, create: plugin.startWidgetsFor }] : []);
+    for (const section of this.startSections) {
+      if (section.title !== undefined && section.title.trim() === "") throw new Error(`Start section ${section.id} has an empty title`);
+      if (section.span !== undefined && section.title === undefined) throw new Error(`Start section ${section.id} declares a span without a title`);
+      if (section.span !== undefined && !START_WIDGET_SPANS.includes(section.span)) {
+        throw new Error(`Start section ${section.id} has the span ${String(section.span)}; allowed are ${START_WIDGET_SPANS.join(", ")}`);
+      }
+    }
     this.needsRunView = this.activePlugins.some((plugin) => plugin.needsRunView);
     const chatPolicies = this.activePlugins.flatMap((plugin) => plugin.chatDisplayPolicy ? [plugin.chatDisplayPolicy] : []);
     if (chatPolicies.length > 1) throw new Error(`Multiple chat display policies registered: ${chatPolicies.length}`);

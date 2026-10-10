@@ -52,6 +52,7 @@ export interface RunManagement {
   send: (runId: string, message: string, access: AccessContext, signal?: AbortSignal) => Promise<void>;
   /** With an access, the host checks the same access as for the chat's stop; without one it is the run's own stop. */
   stop: (runId: string, access?: AccessContext) => Promise<void>;
+  interruptTurn: (runId: string, actorId: string, reason: string) => Promise<void>;
   resetGlobal: (runId: string) => Promise<void>;
   /** The run scripts the run's owner may start, and whether each can start in the run now. */
   scripts: (runId: string) => readonly RunScriptListing[];

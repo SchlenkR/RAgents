@@ -61,7 +61,7 @@ test("Start shows only one server's recent runs and templates and sends each act
   const url=await preparePage({theme:"dark",page:"start",profileSuggestions:[],connections:[workshop]});
   const browser=await launch();
   try{
-    const page=await browser.newPage({viewport:{width:420,height:1100}});await page.goto(url);
+    const page=await browser.newPage({viewport:{width:900,height:1100}});await page.goto(url);
     await page.getByRole('heading',{name:'Continue'}).waitFor();
     assert.deepEqual(await page.getByRole('heading',{level:2}).allTextContents(),['New5','Continue'],'templates appear before recent runs');
     assert.equal(await page.getByRole('heading',{level:1}).count(),0,'Start has no header of its own');
@@ -77,7 +77,7 @@ test("Start shows only one server's recent runs and templates and sends each act
     assert.deepEqual(await templates.getByRole('button').evaluateAll((items)=>items.map((item)=>item.getAttribute('data-tile'))),
       ['New chat','Collection board','Notes board','Discussion circle','Word game']);
     await mkdir(shots,{recursive:true});
-    await shoot(page,`${shots}start-420.png`);
+    await shoot(page,`${shots}start-900.png`);
     assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true);
 
     await tile('Discussion circle').click();
@@ -297,22 +297,26 @@ test("a long run title stays within the panel width and the page scrolls vertica
   const browser=await launch();
   try{
     const browserContext=await browser.newContext({viewport:{width:420,height:380}});const page=await browserContext.newPage();await page.goto(url);
-    await page.getByRole('heading',{name:'Continue'}).waitFor();
     await page.locator('button[data-tile="Word game"]').waitFor();
-
-    const metrics=await page.evaluate((title)=>{
+    const templates=await page.evaluate(()=>{
       const main=document.querySelector('main')!;
-      const tiles=document.querySelector('ul[aria-label="Templates"]')!;
-      const span=[...document.querySelectorAll(`button[title="${title}"] span`)].find((item)=>item.childElementCount===0&&item.textContent===title)!;
       main.scrollTop=100;
       return {
-        documentOverflow:document.documentElement.scrollWidth-document.documentElement.clientWidth,
-        tilesOverflow:tiles.getBoundingClientRect().width-main.getBoundingClientRect().width,
-        titleClipped:span.scrollWidth-span.clientWidth,
+        tilesOverflow:document.querySelector('ul[aria-label="Templates"]')!.getBoundingClientRect().width-main.getBoundingClientRect().width,
         scrollRoom:main.scrollHeight-main.clientHeight,
         scrollTop:main.scrollTop,
       };
-    },longTitle);
+    });
+    await page.getByRole('tab',{name:'Continue'}).click();
+    await page.getByRole('heading',{name:'Continue'}).waitFor();
+
+    const metrics={...templates,...await page.evaluate((title)=>{
+      const span=[...document.querySelectorAll(`button[title="${title}"] span`)].find((item)=>item.childElementCount===0&&item.textContent===title)!;
+      return {
+        documentOverflow:document.documentElement.scrollWidth-document.documentElement.clientWidth,
+        titleClipped:span.scrollWidth-span.clientWidth,
+      };
+    },longTitle)};
     assert.ok(metrics.documentOverflow<=0,`the page overflows ${metrics.documentOverflow}px to the right`);
     assert.ok(metrics.tilesOverflow<=0,`the template grid is ${metrics.tilesOverflow}px wider than the panel`);
     assert.ok(metrics.titleClipped>0,'the long run title is cut off with an ellipsis');

@@ -349,7 +349,9 @@ The server-side `PluginHost` has registries for:
   title, actor, revision, and per view ID, key, title, and visibility remain;
   of the call state only `{ version: 1, revision: updatedAt }`, and their chat events are dropped
   entirely
-- initialization, run preparation, stop, deletion, and shutdown
+- initialization, server readiness, run preparation, stop, deletion, and shutdown. The awaited
+  `serverReady` lifecycle runs after engine and workspace restoration and before the scheduler
+  starts; a plugin can restore background work without a client first opening a run
 
 A plugin implements only the facets it needs:
 
@@ -1127,7 +1129,7 @@ build does not see its names.
    module.
 5. An entry without users drops out at the next version jump, as does a name.
 
-**Version contract.** `HOST_API_VERSION` is 12 for the external driver and updated host contracts. It increases with every incompatible change of a
+**Version contract.** `HOST_API_VERSION` is 15 for the updated host contracts and global app execution. It increases with every incompatible change of a
 list entry, a listed name, or a fully allowed library, not with every
 package version; whatever else a host module exports changes without a new number. The manifest names it
 in `api`; the host requires equality and otherwise aborts with a cause and the command to rebuild;
@@ -1562,17 +1564,41 @@ Instead, plugins fill typed slots for:
   but activate their own connections only on use and keep them afterwards across run switches.
   In both browser and VS Code, only the selected server supplies these contributions, including
   on Start before a run is opened. Contributions from different environments are never merged.
-- Start sections (`startSections`): `StartSectionContribution` declares `id`, `order`, optional
-  `readRight`, and `Section`, a component receiving `StartSectionContext` with `runs` and
-  `onOpenRun(runId)`. Sections follow "Continue", sorted by `order` and then `id`. The context
+- Start widgets (`startSections`): `StartSectionContribution` declares `id`, `order`, optional
+  `readRight`, optional `title` and `span`, and `Section`, a component receiving `StartSectionContext`
+  with `runs` and `onOpenRun(runId)`. With `title` the section is a widget of the Start dashboard: the
+  host draws its frame, a `SectionHeading` title row above the content, and gives it a tab on a narrow
+  dashboard. `span` (`StartWidgetSpan`: `narrow`, `half`, `wide`, or `full`, by default `full`) is its
+  preferred width on a wide dashboard. The widget's body is a size container named `widget`, so the
+  content adapts to the widget's own width with Tailwind's `@container` variants (`@md/widget:`, or
+  plain `@md:` for the nearest container). Without `title` a section keeps its earlier form: it owns
+  its heading and spacing, fills a whole row, and stays below the tabs on a narrow dashboard.
+  `span` without `title`, a blank `title`, and an unknown `span` are registry errors. Widgets follow
+  "New" and "Continue", sorted by `order` and then `id`; the contract keeps its name `startSections`,
+  so existing contributions load unchanged. The `id` is also the widget's ID in the viewer's Start
+  layout, so it stays the same across releases; `title` and `span` are the defaults that the
+  viewer's arrangement starts from. The context
   carries every run the server lists for the viewer, sorted by update time, through readonly
   `ConnectionRun` values including `id`, `title`, `updatedAt`, and optional `metadata` keyed by
   server-side `sessionMetadata` contribution ID. `connectionRunOf` preserves `ListedSession.metadata`;
   row detail lines still come from `listDetail`. `onOpenRun` uses the same navigation as a run
   row. The slot performs no additional run access checks; `readRight` only gates the section.
-  A section owns its heading and spacing and may return `null`, leaving no empty wrapper or gap.
+  A widget or section may return `null`; it then takes no cell, no tab, and no gap. A widget that
+  throws shows its error and "Retry" in its own place (`RenderBoundary`) while Start stays usable.
   `RunPanelApp` passes its registry to `PanelPage` for both browser and VS Code server frames;
   the local VS Code shell has no registry and shows no sections. `PanelPage` also works without a registry.
+- Dynamic Start widgets (`startWidgetsFor`): a factory receives `StartWidgetsContext`, with the
+  same `runs` and `onOpenRun` as a section, an `AbortSignal`, and `update(widgets)` for later
+  snapshots. It returns readonly `StartWidgetContribution` values, synchronously or as a promise.
+  Each contribution contains a stable `id`, non-empty `title`, optional `span`, `order`, and
+  `readRight`, and `content: ReactNode`. The content uses a stable React component type and the
+  same widget ID across updates so its state and mounted frames survive snapshots. The host
+  draws the title, frame, and narrow-dashboard tab and sorts it alongside titled sections.
+  The stable ID also names the viewer's size, order, and visibility preferences; the contribution's
+  span and order provide defaults. A factory releases its subscriptions when `signal` aborts;
+  live changes can use the existing RPC/SSE connection. This additive slot leaves `startSections`
+  unchanged. A factory failure
+  stays visible in its own widget with "Retry" while other contributions remain usable.
 - workspace tabs and badges (`workspaceTabs`, `workspaceTabsFor`): the toolbar at the right edge
   with the tab area as a popout over the selected content view; the same contribution, the same visibility (`readRight`, `requiresWorkspace`, `available`);
   `placement: "window"` (default `"sidebar"`) lists a tab in the browser among the run's windows in the
@@ -1624,7 +1650,7 @@ The shared `main.tsx` bootstrap renders `RunPanelApp` for either host. The brows
 iframe use the same `PanelPage`, `StartPage`, and `RunsPage` with one current-server adapter.
 In the browser the address selects that server; in VS Code the selected environment does.
 Start shows permitted templates under "New", then the fifteen recent runs under "Continue", then
-plugin sections; Runs adds search, deletion with confirmation, and the "Shared by me" tab.
+plugin widgets, as one dashboard; Runs adds search, deletion with confirmation, and the "Shared by me" tab.
 Neither page combines servers, and Start contains no server chips.
 Free creation, template access, reading, and deletion retain their independent rights.
 Both hosts draw run rows from the same mapping of `ragents.runs.list` (`connectionRunOf` in
@@ -1971,8 +1997,8 @@ copied into the source tree by CLI and styled with Tailwind: `Button`, `Badge`, 
 `Progress`, `Separator`, `Skeleton`, `Spinner`, `Empty` with their parts (`SelectTrigger`,
 `DialogContent`, `TabsList`, and so on), plus `cn` and icons from `lucide-react`. Props, variants, and
 composition follow shadcn; `Badge` additionally accepts semantic `tone` (see below).
-The host's own building blocks on top are `DataGrid`, `InteractiveItem`, `ListDetail`, `SectionLabel`,
-`SvgEdge`, `HeaderDropdown`, and, only in the host, the page `Modal` in `modal.tsx`.
+The host's own building blocks on top are `DataGrid`, `InteractiveItem`, `ListDetail`, `OverflowTabs`,
+`SectionLabel`, `SvgEdge`, `HeaderDropdown`, and, only in the host, the page `Modal` in `modal.tsx`.
 The choice follows the role, not taste:
 
 - `Button` without a variant (`default`): the ONE main action of a surface or dialog
@@ -1991,7 +2017,7 @@ The choice follows the role, not taste:
   `multiple` for several selected values; `ChoiceSelect` for one required choice with
   automatic presentation by list length; `Select` for one or several (`multiple`) of many,
   with `items` for the labels; `FilterSelect` for a multi-value toolbar filter; `Tabs` for
-  navigating between the views of a surface; a count
+  navigating between the views of a surface, `OverflowTabs` when its tabs may not fit; a count
   per tab is a `Badge` (`destructive` for items that need the user, otherwise
   `secondary`). A value is not a tab: `ToggleGroup` chooses an option, `Tabs` switches
   the view.
@@ -2032,6 +2058,24 @@ both modes; `multiple` permits independent selections.
 cannot be deselected. Start options, contribution kinds, machine, file and folder choices, and reasoning
 levels use this component instead of choosing their presentation per view. Plugins and mini-apps
 receive the same control through `@ragents/web/ui` and `UI.ChoiceSelect`.
+
+A horizontal list of equal items with a limited width, such as a tab strip, never clips its
+items or wraps them uncontrolled: what does not fit moves into a trailing "..." menu. `OverflowTabs`
+(`ui/overflow-tabs.tsx`) is this building block for tabs. It wraps `Tabs` with controlled `value` and
+`onValueChange`; its `OverflowTabsList` takes `items` (`OverflowTabItem`: `value`, `label`, optional
+`count`, `icon`, and, for panels the caller renders itself instead of `TabsContent`, the tab's `id`
+and the `controls` panel ID), an `aria-label`, and optionally `iconOnly`, where the label becomes
+the accessible name and tooltip. A hidden ruler renders every tab and the "More tabs" button
+(`EllipsisIcon`) with the same classes, and a `ResizeObserver` on the strip and the ruler measures
+them; `splitOverflow` (`ui/overflow-split.ts`) then keeps the leading tabs that fit beside the button,
+always including the active one, which displaces the last of them and alone may truncate. The
+button opens a `DropdownMenu` with exactly the hidden tabs as radio items, which marks the active
+value; choosing one selects it, and it takes its place at the end of the strip. Arrow keys move
+between the visible tabs, Tab reaches the button, and the menu works with arrows, Enter, and
+Escape. Start's widget tabs, the Runs tabs, the Settings areas, and the actor views of the
+inspector use it; plugins receive it through `@ragents/web/ui`. Segmented `ToggleGroup` choices and
+equal-item toolbars do not use it yet (`TODO.md`); the dock's area tabs shrink with truncated titles
+and the run header continues mini-app buttons in further rows by design.
 
 `SelectContent` opens outside its trigger, below by default and above when space requires it,
 with at least the trigger's width. It never aligns an option over the trigger. Select,
@@ -3322,10 +3366,59 @@ and `RunPanelApp`, `ChatInputToolbar`, `ragents.processes`, and the menu entry "
 the whole run is called "Stop run" everywhere, interrupting the running turn in the chat "Stop
 work".
 
-**Shared page width.** `PanelPage` owns one centered content column of at most 1280 pixels,
-with side padding, for Start and Runs in both hosts and for Server in VS Code. The browser
+**Shared page width.** `PanelPage` owns the content column with side padding. The Start dashboard
+uses the full available width in both hosts, with wider side padding at desktop widths. Runs
+in both hosts and Server in VS Code use a centered column of at most 1280 pixels. All panel
+pages have more top padding at desktop widths. The browser
 page host adds no second padding; the outer header remains full width. The Runs search field
-and run rows use the same bounded column.
+and run rows use the same bounded column. The page scroller (`main[data-page]`) is the containing
+block of its content, so visually hidden labels further down cannot extend the document and moving
+focus scrolls only the page, never the header with it.
+
+**Start** is a dashboard of widgets (`panel/StartDashboard.tsx`): the built-in "New" (`span`
+`narrow`) and "Continue" (`wide`), then the plugin widgets. Its layout follows the width of the
+dashboard's own container, measured with a `ResizeObserver`, not the window, because a VS Code panel is
+often narrow on a wide screen. `dashboardLayout` in `panel/dashboard-layout.ts` decides it: from
+1100 pixels (`DASHBOARD_WIDE_FROM`) the widgets take their spans of a twelve-column grid (`narrow`
+4, `half` 6, `wide` 8, `full` 12 columns); from 700 pixels (`DASHBOARD_TABS_BELOW`) `narrow`, `half`,
+and `wide` take 6 columns and `full` keeps 12; widgets fill rows in order, and a row with space left
+widens its widgets in proportion up to the right edge. Below 700 pixels, with at least two framed
+widgets, the dashboard becomes tabs ("Start widgets", `OverflowTabsList` with the widget title and
+count): the active widget fills the width, and its frame keeps only the action of its title row,
+because the tab names it. The choice is stored per server origin under
+`ragents.start.widget:<encoded-origin>` and falls back to the first widget while the stored one is
+missing or empty. Sections without a title follow the tabs. Every widget stays mounted while
+another tab is active or while its content renders nothing (`hidden`), so its state survives
+switching and a widget that later shows content reappears; a `MutationObserver` keeps cells and tabs
+in step with empty bodies. The page's scroller reserves its scrollbar gutter, so the measured width
+does not flip at the limits when a scrollbar appears.
+
+**Arranging Start.** The viewer arranges the dashboard in place. Every framed widget ends its title
+row with a "..." button (`Arrange <title>`), a `DropdownMenu` like the overflow menu of the tabs:
+"Size" with the radio items Narrow, Half, Wide, and Full (the current one checked, the default from
+the contribution marked "Default"), "Move earlier" and "Move later" (disabled at the ends), and
+"Hide". Sizes stay `StartWidgetSpan` values, so `dashboardLayout` applies its tiers to them unchanged,
+and the tabs below 700 pixels follow the arranged order without hidden widgets. "Customize" follows
+the grid as a text button and ends the tab strip as an icon button; its menu lists the hidden
+widgets as "Show <title>" and offers "Reset layout", disabled while no arrangement is stored. After
+"Hide" focus moves to the menu button of the next visible widget, at the end to the previous one,
+and to Customize when neither is visible, as usually in tabs; after "Show" and "Reset layout" it
+returns to Customize. The model is
+`panel/dashboard-preferences.ts`: `DashboardPreferences` holds `order`, `spans`, and `hidden`, each by
+widget ID, so any ID works, also one of a widget that only some users have. Widget IDs are
+`start.new`, `start.continue`, the `id` of a start section, or a dynamic widget's stable `id`;
+two widgets with the same ID are an error. `arrangeWidgets` puts the framed widgets that `order` names into their slots in that order,
+while sections without a title and widgets that `order` does not name keep their default place, so a
+new widget appears where its contribution puts it; spans and hiding apply only to framed widgets,
+and IDs of widgets that are not there are ignored. Moving swaps a widget with its visible neighbor
+in the order of all framed widgets, hidden ones included; the default order and a span equal to the
+default store nothing. The server has no per-user preference store (`ragents.settings.*` keeps
+profile-wide settings, the appearance lives in browser storage and VS Code settings), so the layout
+is kept like the remembered tab in the browser storage of the page that shows Start, per server
+origin and signed-in user under `ragents.start.layout:<encoded-origin>` or
+`ragents.start.layout:<encoded-origin>:<encoded-user>`, as JSON with `version` 1, `order`, `spans`, and
+`hidden`; the browser and VS Code each keep their own. A stored value that cannot be read leaves
+the default layout and shows its cause above the dashboard with "Reset layout".
 
 **Start** has no page header or server block. **New** appears first as soon as the selected server
 allows new runs. First is its default template from `ConnectionView.defaultEntry` with the marker
@@ -3340,8 +3433,10 @@ emphasize the action. The whole card is one button, with accessible name "New ch
 the action position. There is no category row or bottom action bar, and no skill/run-script
 shape or color badge. Category metadata stays intact. Cards use the shared typography;
 the grid is `repeat(auto-fill, minmax(240px, 1fr))`, with cards capped at 320 pixels.
-`StartTiles` measures its own container: below 240 pixels it uses one shrinking
-column, without horizontal overflow. At the maximum content width the grid has five columns.
+`StartTiles` measures its own container (`@container/templates`): below 240 pixels it uses one shrinking
+column, without horizontal overflow, and below 448 pixels the cards become compact full-width rows
+with smaller padding and one line of description. On a wide dashboard the New widget is narrow and
+therefore lists compact rows; a narrow dashboard shows New across its width as cards.
 There is no search here, and `ListDetail` does not fit, because it measures itself by its own
 width and would become a list with a detail page at 420 pixels (decisions of 09/19 and
 09/21/2026). The tiles are the building block `StartTiles`; the run script list of an open run
@@ -3354,7 +3449,9 @@ button are `grid-cols-subgrid`, so that the columns stand at the same edge in al
 "All N runs" leads to the Runs page. Below the title, inside the same button, a second line
 names the owner (`ConnectionRun.owner`) and then the metadata lines (`ConnectionRun.details`), each
 with its icon (`FolderIcon`, `GitBranchIcon`) and the tooltip "label: text"; hover, focus, and click
-cover the whole item, in selection mode the click toggles it. The gap to the second line is
+cover the whole item, in selection mode the click toggles it. `RunCard` is a size container
+(`@container/runs`): in a card narrower than 360 pixels the second line drops, below 280 pixels the
+time as well, on Start and on Runs. The gap to the second line is
 smaller than the gap between items. State and pending actions come from `ragents.runs.list`, which
 derives them from the journal: running while an actor has a running turn or the session works,
 otherwise waiting with pending actions, ended when every non-human actor has stopped, otherwise
@@ -3384,7 +3481,7 @@ the server interface keeps the panel in React
 state in both the browser and VS Code, and an answer for a panel closed meanwhile is dropped.
 `PanelState.notice` is a short message on Start, such as the one for a share taken back.
 
-`RunsPage` has "All runs" and "Shared by me" tabs. The latter uses only the run list's
+`RunsPage` has "All runs" and "Shared by me" tabs (`OverflowTabs`). The latter uses only the run list's
 owner-specific `sharing` summaries and lists each run's recipients with View or Operate access.
 Search matches the title, recipient names, and Everyone. `SharedRuns` opens a run and offers
 "Revoke" per recipient and "Revoke all" per run. `revokeShare` sends a target to
@@ -3394,8 +3491,9 @@ use `revokeSharing` and refresh after success. Revocation requires `canShare`; a
 can still inspect their outgoing shares. Revoking an individual share leaves Everyone access
 intact and names that effect. All-runs selection and deletion stay in their own tab.
 
-Plugin `startSections` render directly below Continue with the complete server-listed visible
-run list and its metadata; the host adds no heading or wrapper for a section.
+Plugin `startSections` and `startWidgetsFor` follow Continue with the complete server-listed
+visible run list and its metadata. The host frames a titled section or a dynamic widget; a
+section without a title keeps its own heading and spacing.
 
 **Runs** is the selected server's complete list in one `RunCard`: search over title, "Hide ended", and a
 selection mode with checkboxes. Search (the shared `SearchInput`, whose own clear button replaces the browser's) and the
@@ -5132,6 +5230,119 @@ shutdown end the observation.
 
 The watcher starts no work itself and knows no domain logic.
 
+## Global mini-apps
+
+`ragents.global-apps` runs small TypeScript actor packages with a backend and optional React
+views. It ships in `core`, `showcase`, and `developer`, depends on workspace, orchestration,
+and actor-program plugins, and starts no model work of its own. The global coordinator and
+normal run agents create a private package through `actor_program_create` and the ordinary
+file/edit and TypeScript tools. A short `requiresTools` prompt contribution teaches authoring
+and verification to agents with the `global_app_*` management tools. App code is authored by
+an agent; users describe the behavior they want.
+
+Every user has one ordinary "Global apps" run on the server, created on first registration.
+It has a fresh server workspace and one TypeScript actor and copied package per app. Apps
+inherit no authoring workstation or conversation. Definitions, trigger progress, and results
+are journaled plugin state; domain data stays in the app actor's intrinsic state. The run
+remains available for inspection and operator stop boundaries. Removing the plugin starts no
+triggers and preserves stored history.
+
+Registration resolves the source program in the registering actor's room, copies its current
+sources, and uses the existing type-check, build, test, and activation pipeline. A registered
+package needs an input handler and state that accepts `{}`. It may have state functions and
+views. App functions publish no tools and declare no external capabilities: external app access
+belongs in `onInput`, invoked through an accepted app occurrence. A view can call the app's
+state functions; its surrounding "Run now" control starts an input with the explicitly granted
+external capabilities. The model receives compact diagnostics naming the source locations to
+fix. New and replaced apps stay paused for `global_app_run`, `global_app_read`, repairs, and
+verification before resuming. Replacement requires a paused, idle app, retains its state and
+history, and leaves the previous active package in place if verification fails. Later source
+edits require registration again.
+
+Manual execution is always available while the app is paused, subject to permissions, the
+run's stop/pause boundary, and no overlap. Automatic triggers are optional:
+
+- `triggers.interval.everySeconds` is an integer from 60 to 604800. The next occurrence uses
+  fixed delay from completion; resume starts the interval from now. Restart restores the
+  deadline without a client opening the run; an overdue enabled app receives one occurrence,
+  with no catch-up backlog.
+- `triggers.fileChange.folders` names canonical, absolute, existing server folders covered by
+  the app's file read or write permissions. The server reuses `watchDirectory` with its
+  150-millisecond debounce. Changes coalesce into one pending occurrence while the app is
+  busy. It watches only while automatic execution is enabled; it does not reconstruct file
+  changes that happened while observation was stopped. A watch failure blocks that app and
+  exposes the cause instead of silently disabling the trigger.
+
+With no `triggers`, the app is manual only. Interval and file triggers can be combined.
+An app has at most one accepted occurrence, including queued work. At most 50 apps and four
+simultaneous occurrences belong to one user. The wall-time limit defaults to 30 seconds,
+configurable from 1 to 300 seconds. Pause prevents new automatic acceptance and lets accepted
+work finish; removal interrupts accepted work and removes its active program. Pause, stop,
+and deletion of the ordinary run take precedence over its app triggers.
+
+Existing engine recovery interrupts open turns when `Orchestration` is rebuilt. The registrar
+reads their terminal result from the journal and finalizes the accepted occurrence without
+repeating it; no additional recovery seam is needed.
+
+Every backend declares `global_app_trigger` among its input capabilities. This snippet-only
+function verifies that the actor and turn belong to an accepted app occurrence and returns
+its scheduled time, reason (`manual`, `interval`, or `file-change`), and stable occurrence key.
+Code can use the key for external idempotency. The backend uses ordinary `onInput`,
+`context.state`, `context.log`, `context.signal`, and declared `context.functions`; it needs no
+separate app SDK. Successful inputs commit staged state. Failures and cancellation retain the
+last successful state, while completed external calls remain effective.
+
+The required `permissions` object may be empty. Optional `files.read` and `files.write` name
+canonical, absolute, existing server folders; `http` names exact lowercase hosts with an
+optional port; `functions` names RAgents functions. Details and `global_app_read` display the
+grants. Validation uses the registering user's permissions and the registering actor's usable,
+delegable grants. File roots reuse source-workspace sandbox path checks; a user with `*` may
+authorize an outside folder while the actor still needs a usable, delegable workspace grant.
+Functions must be available to that actor and delegable. `permissions.functions` excludes all
+`global_app_*` names and `bash`, `typescript_eval`, `agent_spawn`, `actor_program_activate`,
+`actor_program_import`, `actor_program_ensure`, and `plugin_state_write` to prevent another
+execution boundary bypassing app protection.
+
+File and HTTP calls use server-checked `global_app_file_read`, `global_app_file_write`, and
+`global_app_http_request` capabilities declared in the input contract. File calls recheck the
+canonical allow list and protect the final path component with `O_NOFOLLOW`; they reuse the
+existing [workspace path protection](#workspace-sandbox-tools-and-processes), whose known parent-directory
+replacement race remains. They do not provide atomic access through the entire path. HTTP
+accepts HTTP(S), rejects URL credentials, redirects, and Host header overrides, and checks the
+exact host allow list. A host without a port permits only default HTTP/HTTPS ports; an explicit
+port requires that effective request port, including 80 and 443.
+
+Each backend executes in its own managed Node process on the actor-program platform. Package
+isolation denies direct network access and confines writes to package, build, and temporary
+folders. Read-only dependencies, the real Node binary, and explicit system paths remain
+readable. The exact operating-system boundary and disabled mode are in
+[TypeScript platform](typescript-platform.md#build-and-process-lifecycle).
+
+The web plugin supplies dynamic `startWidgetsFor` contributions with stable IDs
+`ragents.global-apps:<name>`, `order: 200`, and `readRight: "ragents.global-apps.read"`.
+An app with a view defaults to `span: "wide"`; a headless app defaults to `span: "narrow"`.
+The existing per-user dashboard arrangement overrides size, order, and visibility by this stable
+ID. Hiding the widget does not pause its backend triggers. The dashboard owns the frame and title. A widget embeds the existing actor view frame, or
+shows last run, next run, and last result for a headless backend. Every app has status,
+description, "Run now", "Pause"/"Resume", and "Open details". Details show triggers,
+permissions, state, and a bounded recent log and offer "Remove". Container queries adapt the
+content to its own width. Multiple views can be selected within the same app widget.
+
+Definitions that fail independently remain visible as individual error widgets with "Retry"
+and "Open details". One damaged package, failed registration, view load/render error, or
+trigger failure does not hide other apps. Live snapshots use the existing RPC/SSE stream and
+stable React content types instead of mounting a new component type on every update.
+Server access resolves only the caller's own apps. Reading and live updates require
+`ragents.global-apps.read`; view loading also requires `runs.read`. Management requires
+`ragents.global-apps.write` and `runs.write`, and first registration also needs `runs.create`.
+Source import verifies ownership of the authoring run and ordinary package access. Read-only
+viewers get no app-management controls.
+
+The recent log ring keeps 100 lines, each at most 1000 characters, with dropped-line information.
+`global_app_read` returns 20 lines by default, at most 100; `global_app_list` returns 20 apps by
+default, at most 50. The ring bounds current state and the UI; append-only journals keep their
+recorded history. Buffered output survives failed as well as successful inputs.
+
 ## Model relay
 
 `ragents.model-relay` makes this server's models usable for other RAgents servers without
@@ -5213,6 +5424,13 @@ right) returns the archive; a different version is 404. The counterpart is `rage
 
 ## Open limits
 
+- Global app intervals have no cron expressions, time zones, calendar alignment, or catch-up
+  queue. File triggers coalesce changes and provide no durable change history while offline.
+  Global apps provide no high availability or exactly-once external effects.
+- Global app capabilities enforce their allow lists on the server. Explicitly disabled process
+  protection permits direct Node access. Enabled protection retains read access to the explicit
+  runtime and system paths documented in the TypeScript platform; host file helpers retain the
+  existing parent-directory replacement race.
 - Plugins are not installed. At runtime the server loads only the bundles the profile
   names: built-in ones under `bundles/` or bundle folders at a fixed place on disk.
   Loading a plugin at runtime from a foreign source is NOT intended - no

@@ -839,6 +839,56 @@ keep ordinary browser network access.
 
 <!-- /guide:distributed -->
 
+## Operate global mini-apps
+
+`ragents.global-apps` is included in `core`, `showcase`, and `developer`. Backends execute on
+the server, each in its own managed Node process, in one ordinary "Global apps" run per user.
+The authoring chat, browser, VS Code window, and workstation can disconnect without stopping
+interval or file triggers. Creating and verifying apps is described in
+[usage.md](usage.md#global-mini-apps-on-start).
+
+The package sandbox denies direct networking and limits writes to package, build, and temporary
+folders. It permits reads from dependencies, the real Node binary, and the explicit system
+paths listed in [TypeScript platform](spec/typescript-platform.md#build-and-process-lifecycle).
+External file and HTTP access uses server-checked capability functions with explicit allow lists,
+bounded by the registering user's rights and the agent's usable, delegable grants. The file
+helpers reuse workspace path protection and retain its known parent-directory replacement race;
+they do not offer atomic protection for the whole path.
+
+Apps request package protection even for administrators with `PROCESS_SANDBOX: "auto"`.
+Only an administrator's explicitly configured `PROCESS_SANDBOX: "off"` permits unrestricted
+direct Node access. Capability allow lists still apply, and `global_app_read.sandbox` reports
+`process`, `disabled`, or `unavailable` for a package that has not activated. Details name
+active or disabled protection. Missing prerequisites fail execution without an unprotected
+fallback. Protected apps require macOS or Linux with the prerequisites under
+[Server process sandbox](#server-process-sandbox).
+
+An upgrade that changes the global coordinator's fixed tool inventory triggers the existing
+`global-tools-changed` check on its next send. After restarting, confirm "Reset conversation"
+once to use the new authoring and global app tools. This existing upgrade mechanism does not
+reset normal runs or registered apps.
+
+Registration and replacement leave the app paused. Enable automatic triggers after a manual
+input and inspection of its result and log. Intervals use fixed delay from completion, with one
+overdue occurrence after restart. Server file watches reuse `watchDirectory` with its
+150-millisecond debounce and coalesce changes while an app is busy. They resume after restoration
+without a client opening the run; they provide no history of changes while observation was stopped.
+Watch failures and damaged definitions stay visible for the affected app, with "Retry" and
+"Open details", while healthy apps continue.
+
+Existing engine recovery interrupts open turns during restoration. The registrar finalizes
+their recorded journal result without repeating the accepted occurrence, using no additional
+recovery step. Pause or stop of the Global apps run holds its automatic triggers, and the
+plugin never undoes a deliberate operator stop. Shutdown clears timers and file watches and
+cancels managed work through the existing execution lifecycle.
+
+Back up the whole Global apps run, including its journal, payloads, working files, and actor
+programs, using [Data storage and logs](#data-storage-and-logs). Definitions, trigger progress,
+results, and recent logs are journaled; domain state belongs to each app actor. The bounded log
+ring limits current state and display, not the append-only journal. External writes, webhooks,
+and completed function calls cannot be rolled back if a later step fails. Interrupted inputs
+are not automatically replayed; use the occurrence key for external idempotency when possible.
+
 ## Time limit of `bash`
 
 A command of the `bash` tool ends after 120 seconds if the call names no `timeout`; a call may

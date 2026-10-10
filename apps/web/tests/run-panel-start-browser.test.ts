@@ -93,7 +93,7 @@ test("the VS Code panel starts on the server's Start page and keeps one loading 
     const waitForTitle = (title: string) => page.waitForFunction((expected) => document.querySelector("[data-startup] strong")?.textContent === expected, title);
     const settle = () => page.evaluate(() => new Promise<void>((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve()))));
     const chat = (event: unknown) => page.evaluate((payload) => window.runStartFixture.chat(payload), event);
-    const startPage = page.getByRole("list", { name: "Recent", exact: true });
+    const startPage = page.locator('main[data-page="start"]');
 
     await page.goto(`${url}?profile=pending`);
     await notice.waitFor();
@@ -101,7 +101,7 @@ test("the VS Code panel starts on the server's Start page and keeps one loading 
     assert.equal(await notice.getAttribute("data-startup"), "working");
     assert.equal(await notice.locator("[role=progressbar]").count(), 1, "Loading the profile shows the same progress as the run.");
     await page.evaluate(() => window.runStartFixture.activate());
-    await startPage.getByRole("button", { name: /Existing run/ }).waitFor();
+    await startPage.getByRole("list", { name: "Templates", exact: true }).waitFor();
     assert.equal(await notice.count(), 0, "Without a run, VS Code shows the server's Start page immediately.");
     assert.ok((await page.evaluate(() => window.runStartFixture.notifications)).some((message) => message.type === "ready"));
 
@@ -221,6 +221,7 @@ test("the VS Code panel starts on the server's Start page and keeps one loading 
     assert.equal(await startPage.isVisible(), true);
 
     await page.goto(`${url}?host=browser`);
+    await startPage.getByRole("tab", { name: "Continue", exact: true }).click();
     await page.getByText("Existing run").waitFor();
     assert.equal(await notice.count(), 0, "The browser shows the same Start page without a run.");
     assert.deepEqual(errors, []);
@@ -261,7 +262,7 @@ for (const host of ["browser", "vscode"] as const) {
     };
     const closed = async (way: string) => {
       await page.locator('[data-slot="dialog-content"]').waitFor({ state: "detached" });
-      await page.getByRole("list", { name: "Recent", exact: true }).getByRole("button", { name: /Existing run/ }).waitFor();
+      await templates.waitFor();
       assert.equal(await page.locator('[role="dialog"], [data-slot="dialog-overlay"]').count(), 0, `${way} leaves no dialog in the page.`);
       assert.equal(await templates.getByRole("button", { disabled: true }).count(), 0, `${way} leaves Start as it was.`);
       assert.equal(await page.locator("[data-startup]").count(), 0);
@@ -543,7 +544,7 @@ for (const host of ["browser", "vscode"] as const) {
         const errors: string[] = [];
         page.on("pageerror", (error) => errors.push(error.message));
         await page.goto(`${url}?host=${host}&growing-header&rights=runs.read,runs.write,runs.create,runs.inspect,settings.read`);
-        await page.getByRole("list", { name: "Recent", exact: true }).waitFor();
+        await page.locator("[data-dashboard]").waitFor();
         await page.evaluate(() => {
           window.runStartFixture.views.add("existing");
           window.runStartFixture.command({ type: "selectRun", runId: "existing" });
@@ -671,7 +672,7 @@ for (const { host, width } of [{ host: "browser", width: 1400 }, { host: "vscode
       const errors: string[] = [];
       page.on("pageerror", (error) => errors.push(error.message));
       await page.goto(`${url}?host=${host}&dropdowns`);
-      await page.getByRole("list", { name: "Recent", exact: true }).waitFor();
+      await page.locator("[data-dashboard]").waitFor();
       await page.evaluate(() => {
         window.runStartFixture.views.add("existing");
         window.runStartFixture.command({ type: "selectRun", runId: "existing" });

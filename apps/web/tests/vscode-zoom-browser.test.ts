@@ -144,12 +144,13 @@ test("panel text and spacing follow ragents.zoom alone, not VS Code's font setti
     const measured: Record<string, { heading: number; title: number; body: string; start: number; runs: number; overflow: number }> = {};
     for (const font of ["13px", "20px"]) {
       await page.goto(`${hull}/host?font=${font}`);
-      await hosted.getByRole("heading", { name: "Continue" }).waitFor();
+      await hosted.getByRole("tab", { name: "Continue" }).click();
+      await hosted.getByText("Night bus round").waitFor();
       for (const zoom of [100, 125, 200]) {
         await post({ type: "ragents.zoom", zoom });
         await page.waitForFunction((expected) => getComputedStyle((document.getElementById("host") as HTMLIFrameElement).contentDocument!.body).zoom === String(expected / 100), zoom);
         const start = await firstBlock();
-        const heading = (await hosted.getByRole("heading", { name: "Continue" }).boundingBox())!.height;
+        const heading = (await hosted.getByRole("tab", { name: "Continue" }).boundingBox())!.height;
         const title = (await hosted.getByText("Night bus round").boundingBox())!.height;
         const body = await hosted.locator("body").evaluate((element) => getComputedStyle(element).fontSize);
         const overflow = await hosted.locator("main").evaluate((element) => element.scrollWidth - element.clientWidth);
@@ -157,7 +158,7 @@ test("panel text and spacing follow ragents.zoom alone, not VS Code's font setti
         await hosted.getByRole("button", { name: "Back to Start" }).waitFor();
         const runs = await firstBlock();
         await post({ type: "ragents.panel.state", state: filled });
-        await hosted.getByRole("heading", { name: "Continue" }).waitFor();
+        await hosted.getByText("Night bus round").waitFor();
         measured[`${font}@${zoom}`] = { heading, title, body, start, runs, overflow };
       }
     }
@@ -166,7 +167,7 @@ test("panel text and spacing follow ragents.zoom alone, not VS Code's font setti
     for (const [key, value] of Object.entries(measured)) {
       const zoom = Number(key.split("@")[1]) / 100;
       assert.equal(value.body, "14px", `${key}: the theme's body rule outranks VS Code's default layer`);
-      near(value.heading, base.heading * zoom, `${key}: section heading scales with the zoom`);
+      near(value.heading, base.heading * zoom, `${key}: the widget tab scales with the zoom`);
       near(value.title, base.title * zoom, `${key}: run title scales with the zoom`);
       near(value.start, base.start * zoom, `${key}: the top offset scales with the zoom`);
       near(value.runs, value.start, `${key}: Runs starts at the same height as Start`);

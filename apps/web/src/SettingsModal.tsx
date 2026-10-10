@@ -1,7 +1,7 @@
 import { useAccess } from "./AccessContext";
 import { ArrowLeftIcon, CheckIcon, ChevronRightIcon, CircleAlertIcon, CopyIcon, InfoIcon, SettingsIcon, XIcon } from "lucide-react";
 import { cn } from "cn";
-import { Badge, Button, InteractiveItem, Card, ChoiceSelect, Dialog, DialogContent, DialogTitle, Spinner, ToggleGroup, ToggleGroupItem } from "./ui";
+import { Badge, Button, InteractiveItem, Card, ChoiceSelect, Dialog, DialogContent, DialogTitle, OverflowTabs, OverflowTabsList, Spinner, TabsContent, ToggleGroup, ToggleGroupItem } from "./ui";
 import { useEffect, useId, useMemo, useRef, useState, type ReactNode } from "react";
 import { Markdown } from "quassel";
 import { SourceCode } from "./SourceCode";
@@ -60,7 +60,6 @@ const capabilities = contributionFilters.filter(
 
 const sectionCopyClass = "-mt-1 mb-0.5 text-[0.72rem] leading-normal text-muted-foreground";
 const settingsPanelsClass = "grid gap-4";
-const settingsAreaClass = "my-2 min-h-8 flex-none cursor-pointer rounded-md px-3 py-2 text-[0.8rem] max-md:px-3 max-md:text-[0.75rem]";
 const navigationItemClass = "flex min-h-[37px] w-full cursor-pointer items-center justify-between gap-2 rounded-lg px-3 py-2 text-left text-[0.75rem] max-md:w-auto max-md:min-h-8 max-md:flex-none max-md:whitespace-nowrap";
 const navigationItemActiveClass = "font-semibold";
 const navigationItemQuietClass = "text-muted-foreground";
@@ -176,6 +175,13 @@ export function SettingsModal({ onClose, registry }: SettingsModalProps) {
     setSelection({ kind: "plugin", id });
   }
 
+  function openArea(value: string) {
+    const area = settingsAreas.find((entry) => entry.id === value);
+    if (!area) throw new Error(`Unknown settings area: ${value}`);
+    if (area.id === "plugins") changeAxis(axis);
+    else setSelection({ kind: area.id });
+  }
+
   function changeAxis(next: "plugin" | "capability") {
     setAxis(next);
     setSelection(next === "capability"
@@ -196,15 +202,9 @@ export function SettingsModal({ onClose, registry }: SettingsModalProps) {
           <XIcon />
         </Button>
       </header>
-      <nav aria-label="Settings areas" className="flex flex-none gap-1 overflow-x-auto border-b border-border px-4 max-md:px-2">
-        {settingsAreas.map((area) => <InteractiveItem
-          aria-current={activeArea === area.id ? "page" : undefined}
-          className={cn(settingsAreaClass, activeArea === area.id ? "font-bold" : "text-muted-foreground")}
-          key={area.id}
-          onClick={() => area.id === "plugins" ? changeAxis(axis) : setSelection({ kind: area.id })}
-          type="button"
-        >{area.label}</InteractiveItem>)}
-      </nav>
+      <OverflowTabs className="contents" onValueChange={openArea} value={activeArea}>
+      <OverflowTabsList aria-label="Settings areas" className="flex-none border-b border-border px-4 py-1 max-md:px-2"
+        items={settingsAreas.map((area) => ({ value: area.id, label: area.label }))} />
       {catalogVisible && <div className="flex flex-none gap-1 border-b border-border px-4 py-3">
         <ToggleGroup aria-label="Group plugins" size="sm" value={[axis]}
           onValueChange={([value]) => { if (value) changeAxis(value === "capability" ? "capability" : "plugin"); }}>
@@ -212,7 +212,7 @@ export function SettingsModal({ onClose, registry }: SettingsModalProps) {
           <ToggleGroupItem value="capability">By capability</ToggleGroupItem>
         </ToggleGroup>
       </div>}
-      <div className={cn("grid min-h-0 flex-1", catalogVisible ? "grid-cols-[230px_minmax(0,1fr)] max-[900px]:grid-cols-[190px_minmax(0,1fr)] max-md:grid-cols-[minmax(0,1fr)] max-md:grid-rows-[auto_minmax(0,1fr)]" : "grid-cols-[minmax(0,1fr)]")}>
+      <TabsContent className={cn("grid min-h-0 flex-1 text-[length:inherit]", catalogVisible ? "grid-cols-[230px_minmax(0,1fr)] max-[900px]:grid-cols-[190px_minmax(0,1fr)] max-md:grid-cols-[minmax(0,1fr)] max-md:grid-rows-[auto_minmax(0,1fr)]" : "grid-cols-[minmax(0,1fr)]")} value={activeArea}>
         {catalogVisible && <nav aria-label="Browse plugins" className="flex min-w-0 flex-col gap-1 overflow-y-auto border-r border-border bg-background/72 px-3 py-4 max-md:flex-row max-md:overflow-x-auto max-md:border-r-0 max-md:border-b max-md:border-border max-md:p-2" ref={navigationRef}>
           {axis === "plugin" && filtered.map((group) => {
             const count = countContributions(group);
@@ -314,7 +314,8 @@ export function SettingsModal({ onClose, registry }: SettingsModalProps) {
             </SettingsPage>
           )}
         </div>
-      </div>
+      </TabsContent>
+      </OverflowTabs>
     </DialogContent>
     </Dialog>
   );

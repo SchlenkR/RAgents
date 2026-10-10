@@ -337,7 +337,7 @@ Contract fields: host.methods, host.channels.
 
 ### Startup, run end, and shutdown
 
-A plugin can run its own functions at application startup, when a run is stopped or deleted, and at shutdown. This lets its background services and resources start and clean up at the right time.
+A plugin can run its own functions at application startup, after restoration, when a run is stopped or deleted, and at shutdown. This lets its background services and resources start and clean up at the right time.
 
 Place of use: register(host); service is a previously created service with the methods shown here.
 
@@ -345,6 +345,7 @@ Place of use: register(host); service is a previously created service with the m
 host.lifecycle({
   id: "ragents.example.lifecycle",
   initialize: () => service.initialize(),
+  serverReady: () => service.resumeBackgroundWork(),
   prepareSession: ({ runId }) => service.prepare(runId),
   sessionStarted: ({ runId, startEntry }) => service.started(runId, startEntry),
   stopSession: ({ runId, signal }) => service.stop(runId, signal),
@@ -360,9 +361,11 @@ afterStopSession runs after execution has come to a standstill and also cleans u
 
 Initialization and preparation follow the plugin order. Teardown respects the reverse order; stopping and deleting are different operations.
 
+serverReady is awaited after engine and workspace restoration and before the scheduler starts, so background work resumes without a client opening a run.
+
 sessionStarted arrives when a start has provided the workspace and built the first actor, before an actor receives input. startEntry names the template with id and action (skill or script) or is null; after a host restart, the hook does not arrive again.
 
-Contract fields: host.lifecycle, lifecycle.id, lifecycle.initialize, lifecycle.prepareSession, lifecycle.sessionStarted, lifecycle.stopSession, lifecycle.afterStopSession, lifecycle.deleteSession, lifecycle.shutdown.
+Contract fields: host.lifecycle, lifecycle.id, lifecycle.initialize, lifecycle.serverReady, lifecycle.prepareSession, lifecycle.sessionStarted, lifecycle.stopSession, lifecycle.afterStopSession, lifecycle.deleteSession, lifecycle.shutdown.
 
 ### A typed run function
 
@@ -855,6 +858,53 @@ Select, filters, dropdown menus, context menus, and popovers share square panel 
 
 Contract fields: choiceSelect.label, choiceSelect.options, choiceSelect.value, choiceSelect.onValueChange, choiceSelect.size, choiceSelect.disabled, choiceSelect.className, filterSelect.label, filterSelect.options, filterSelect.value, filterSelect.onValueChange, filterSelect.size, filterSelect.searchable, filterSelect.disabled, filterSelect.className, filterOption.value, filterOption.label, filterOption.color, filterOption.count, filterOption.disabled.
 
+### Tabs that never clip
+
+A row of tabs with a limited width moves the tabs that do not fit into a trailing menu instead of cutting them off or wrapping them. The active tab always stays in the row.
+
+Place of use: A React component in a plugin's web half.
+
+```tsx
+import { useState } from "react";
+import { FolderIcon, MessageSquareIcon } from "lucide-react";
+import { OverflowTabs, OverflowTabsList, TabsContent } from "@ragents/web/ui";
+
+const views = [
+  { value: "open", label: "Open items", count: 12 },
+  { value: "review", label: "In review", count: 3 },
+  { value: "done", label: "Done" },
+  { value: "archive", label: "Archive" },
+];
+
+export function ExampleViews() {
+  const [view, setView] = useState("open");
+  return <OverflowTabs value={view} onValueChange={setView}>
+    <OverflowTabsList aria-label="Item views" items={views} />
+    {views.map((item) => <TabsContent key={item.value} value={item.value}>{item.label}</TabsContent>)}
+  </OverflowTabs>;
+}
+
+export function ExampleTools() {
+  const [tool, setTool] = useState("chat");
+  const tools = [
+    { value: "chat", label: "Show chat", icon: <MessageSquareIcon />, id: "tool-chat", controls: "tool-panel" },
+    { value: "files", label: "Files", icon: <FolderIcon />, id: "tool-files", controls: "tool-panel" },
+  ];
+  return <OverflowTabs value={tool} onValueChange={setTool}>
+    <OverflowTabsList aria-label="Tools" iconOnly items={tools} />
+    <section aria-labelledby={`tool-${tool}`} id="tool-panel" role="tabpanel">{tool}</section>
+  </OverflowTabs>;
+}
+```
+
+OverflowTabs takes the controlled value and onValueChange; OverflowTabsList measures its own width, keeps the leading tabs that fit beside the More tabs button, and lists exactly the others in its menu.
+
+Choosing a hidden tab selects it and moves it to the end of the row. Arrow keys move between the visible tabs, Tab reaches the button, and the menu works with arrows, Enter, and Escape.
+
+iconOnly shows only each tab's icon and uses its label as accessible name and tooltip. id and controls link tabs to panels that are not TabsContent.
+
+Contract fields: overflowTab.value, overflowTab.label, overflowTab.count, overflowTab.icon, overflowTab.id, overflowTab.controls.
+
 ### Virtualized lists on the page
 
 DataGrid fills the page canvas and keeps its header visible as the page scrolls. The shared implementation supplies adjustable columns, sorting, expandable groups, optional selection, and measured row virtualization.
@@ -1086,7 +1136,7 @@ Contract fields: web.cardSections.
 
 ### Work documents across runs on Start
 
-A plugin can add a section directly below Continue on Start. It receives all runs the viewer can see, including their metadata, and can open an entry's run through the host navigation.
+A plugin can add a widget to the Start dashboard after New and Continue. It receives all runs the viewer can see, including their metadata, and can open an entry's run through the host navigation.
 
 Place of use: Properties of a WebPlugin; Type comes from typebox. The server metadata contribution ragents.example.documents returns documents with id and title.
 
@@ -1098,6 +1148,7 @@ const startUi = {
   id: "ragents.example",
   startSections: [{
     id: "ragents.example.documents", order: 100, readRight: "ragents.example.read",
+    title: "Work documents", span: "half",
     Section: ({ runs, onOpenRun }) => {
       const documents = runs.flatMap((run) => {
         const value = run.metadata?.["ragents.example.documents"];
@@ -1106,26 +1157,90 @@ const startUi = {
         return value.map((document) => ({ ...document, runId: run.id, runTitle: run.title }));
       });
       if (documents.length === 0) return null;
-      return <section aria-label="Work documents">
-        <h2>Work documents</h2>
-        <ul>{documents.map((document) => <li key={document.runId + ":" + document.id}>
-          <button onClick={() => onOpenRun(document.runId)}>{document.title} ({document.runTitle})</button>
-        </li>)}</ul>
-      </section>;
+      return <ul className="grid gap-2 @md/widget:grid-cols-2">{documents.map((document) => <li key={document.runId + ":" + document.id}>
+        <button onClick={() => onOpenRun(document.runId)}>{document.title} ({document.runTitle})</button>
+      </li>)}</ul>;
     },
   }],
 } satisfies WebPlugin;
 ```
 
-Start shows New templates, then Continue with the five recent runs, then plugin sections sorted by order and id. The context contains every server-listed visible run, sorted by updatedAt, with id, title, updatedAt, and optional metadata keyed by contribution ID.
+Start shows New templates, then Continue with the fifteen recent runs, then plugin widgets sorted by order and id. The context contains every server-listed visible run, sorted by updatedAt, with id, title, updatedAt, and optional metadata keyed by contribution ID.
+
+title makes the section a widget: the host draws its title row and, below 700 pixels of Start's own width, its tab. span chooses its preferred width on a wide dashboard: narrow (a third), half, wide (two thirds), or full, the default. Its body is a size container named widget, so @container variants such as @md/widget: follow the widget's width.
 
 The server filters the run list for the viewer; the slot performs no additional run access checks. readRight hides the entire section without the named permission.
 
 onOpenRun uses the same navigation as a run row in both browser and VS Code server frames. The local VS Code shell has no plugin registry and contributes no sections.
 
-Sections own their heading and spacing. Returning null leaves no empty wrapper or gap.
+Returning null leaves no cell, tab, or gap. A section without title keeps its own heading and spacing and fills a row; span requires a title.
 
-Contract fields: web.startSections, startSection.id, startSection.order, startSection.readRight, startSection.Section, startSectionContext.runs, startSectionContext.onOpenRun.
+Contract fields: web.startSections, startSection.id, startSection.order, startSection.readRight, startSection.title, startSection.span, startSection.Section, startSectionContext.runs, startSectionContext.onOpenRun.
+
+### Publish dynamic Start widgets
+
+A plugin can publish a changing list of Start widgets through the existing RPC connection. Stable identifiers and React component types preserve their local state as snapshots change.
+
+Place of use: Properties of a WebPlugin; Type and defineChannel describe the shared channel contract. The server emits only widgets the viewer may read.
+
+```tsx
+import { rpc } from "@ragents/web/rpc";
+import type { StartWidgetContribution } from "@ragents/web/PluginRegistry";
+
+const widgetSnapshots = defineChannel({
+  id: "ragents.example.widgets.changed",
+  description: "Reports the viewer's current widgets.",
+  rights: ["ragents.example.read"],
+  params: Type.Object({}, { additionalProperties: false }),
+  message: Type.Object({ widgets: Type.Array(Type.Object({
+    name: Type.String(),
+    title: Type.String(),
+    runId: Type.String(),
+  })) }),
+});
+
+function WorkWidget({ runId, onOpenRun }: Readonly<{ runId: string; onOpenRun: (runId: string) => void }>) {
+  return <button onClick={() => onOpenRun(runId)}>Open run</button>;
+}
+
+const dynamicStartUi = {
+  id: "ragents.example",
+  startWidgetsFor: ({ onOpenRun, signal, update }) => {
+    const unsubscribe = rpc.subscribe(widgetSnapshots, {}, ({ widgets }) => {
+      if (signal.aborted) return;
+      update(widgets.map((widget): StartWidgetContribution => ({
+        id: "ragents.example:" + widget.name,
+        title: widget.title,
+        span: "wide",
+        order: 200,
+        readRight: "ragents.example.read",
+        content: <WorkWidget runId={widget.runId} onOpenRun={onOpenRun} />,
+      })));
+    }, (problem) => {
+      if (!signal.aborted) update([{
+        id: "ragents.example:unavailable",
+        title: "Work widgets unavailable",
+        span: "narrow",
+        content: <p role="alert">{problem}</p>,
+      }]);
+    });
+    signal.addEventListener("abort", unsubscribe, { once: true });
+    return [];
+  },
+} satisfies WebPlugin;
+```
+
+startWidgetsFor returns readonly contributions synchronously or as a promise. Each contribution has id, title, and content: ReactNode, with optional span, order, and readRight. It joins the existing Start dashboard without changing startSections.
+
+The context also includes every server-listed visible run in runs, just like StartSectionContext. update replaces this factory's current widget snapshot, and signal aborts when its context is released; the factory then unsubscribes from live channels.
+
+Keep the same widget id and define the content component outside the factory. A new component type on every snapshot would remount its state and frames.
+
+The host draws the title, frame, and narrow-dashboard tab and adapts layout to its own width. The factory may return an empty list until its first snapshot; errors must stay visible rather than silently removing affected widgets.
+
+The viewer can override size, order, and visibility through the dashboard's existing widget menu. Keep the id stable across releases; span and order are defaults, and hiding a widget does not stop its server-side work.
+
+Contract fields: web.startWidgetsFor, startWidget.id, startWidget.title, startWidget.span, startWidget.order, startWidget.readRight, startWidget.content, startWidgetsContext.runs, startWidgetsContext.onOpenRun, startWidgetsContext.signal, startWidgetsContext.update.
 
 ### Run data and React context
 
@@ -2384,6 +2499,7 @@ Source in the repository: packages/ragents/src/plugin-types.ts
 export interface SessionLifecycleContribution {
   id: string;
   initialize?: () => void | Promise<void>;
+  serverReady?: () => void | Promise<void>;
   prepareSession?: (context: SessionLifecycleContext) => void | Promise<void>;
   /** After a start has prepared the workspace and set up the run's first actor, before any actor got input; never after a restart of the host. */
   sessionStarted?: (context: SessionStartedContext) => void | Promise<void>;
@@ -2446,6 +2562,7 @@ export interface WebPlugin extends WebPluginDescriptor {
   surfaceElements?: SurfaceElementContribution[];
   cardSections?: CardSectionContribution[];
   startSections?: StartSectionContribution[];
+  startWidgetsFor?: (context: StartWidgetsContext) => readonly StartWidgetContribution[] | Promise<readonly StartWidgetContribution[]>;
   chatDisplayPolicy?: ChatDisplayPolicy;
   resolveRunUrl?: RunUrlResolver;
   startOptions?: StartOptionContribution[];
@@ -2485,6 +2602,10 @@ export interface StartSectionContribution {
   id: string;
   order: number;
   readRight?: string;
+  /** Makes the section a widget: the host draws its title row and, on a narrow dashboard, its tab; without it the section owns its heading and fills a row. */
+  title?: string;
+  /** The preferred width of a widget with a title, by default the whole row. */
+  span?: StartWidgetSpan;
   Section: ComponentType<StartSectionContext>;
 }
 ```
@@ -2497,6 +2618,37 @@ Source in the repository: apps/web/src/PluginRegistry.tsx
 export interface StartSectionContext {
   runs: readonly ConnectionRun[];
   onOpenRun: (runId: string) => void;
+}
+```
+
+### StartWidgetContribution
+
+Source in the repository: apps/web/src/PluginRegistry.tsx
+
+```typescript
+export interface StartWidgetContribution {
+  readonly id: string;
+  readonly title: string;
+  readonly span?: StartWidgetSpan;
+  readonly order?: number;
+  readonly readRight?: string;
+  readonly content: ReactNode;
+}
+```
+
+### StartWidgetsContext
+
+Source in the repository: apps/web/src/PluginRegistry.tsx
+
+```typescript
+export interface StartSectionContext {
+  runs: readonly ConnectionRun[];
+  onOpenRun: (runId: string) => void;
+}
+
+export interface StartWidgetsContext extends StartSectionContext {
+  readonly signal: AbortSignal;
+  readonly update: (widgets: readonly StartWidgetContribution[]) => void;
 }
 ```
 
@@ -2534,6 +2686,24 @@ export interface ChoiceSelectProps<Value extends string = string> {
   readonly size?: ControlSize
   readonly disabled?: boolean
   readonly className?: string
+}
+```
+
+### OverflowTabItem
+
+Source in the repository: apps/web/src/ui/overflow-tabs.tsx
+
+```typescript
+export interface OverflowTabItem {
+  readonly value: string
+  /** The visible text, the accessible name, and the menu entry. */
+  readonly label: string
+  readonly count?: number
+  readonly icon?: ReactNode
+  /** The tab's own element ID, for panels the caller renders without TabsContent. */
+  readonly id?: string
+  /** The element ID of the panel this tab controls, for panels the caller renders without TabsContent. */
+  readonly controls?: string
 }
 ```
 

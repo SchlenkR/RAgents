@@ -188,6 +188,7 @@ export class RunSessionProvider implements ChatSessionProvider {
     for (const [index, result] of workspaces.entries()) {
       if (result.status === "fulfilled") this.openSession(runIds[index]!);
     }
+    await this.plugins.lifecycle.serverReady();
     this.engine.start();
   }
 
@@ -417,6 +418,13 @@ export class RunSessionProvider implements ChatSessionProvider {
       stop: (runId, access) => {
         if (access) assertRunRights(access, runId, "stop", this.runAccess());
         return this.openSession(runId).stop();
+      },
+      interruptTurn: async (runId, actorId, reason) => {
+        const engine = this.requireEngine();
+        await engine.scheduler.interruptTurn(runId, actorId, {
+          context: { actorId: engine.runtime.state(runId).ownerId, commandId: `managed-interrupt:${randomUUID()}` }, reason,
+        });
+        if (engine.scheduler.isRunning(runId, actorId)) throw new DomainError("turn-cleanup-pending", "The interrupted turn is still cleaning up.", 409);
       },
       resetGlobal: (runId) => this.resetGlobalConversation(runId),
       scripts: (runId) => {

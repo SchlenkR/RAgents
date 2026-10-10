@@ -7,7 +7,7 @@ import { focusRing } from "./ui/interaction";
 
 const NEW_CHAT = { title: "New chat", description: "Empty run; the task takes shape in the chat." };
 
-const tileClass = `group/tile flex h-full w-full min-w-0 flex-col gap-2 rounded-xl border border-border bg-card p-3 text-left shadow-card ${focusRing}`
+const tileClass = `group/tile flex h-full w-full min-w-0 flex-col gap-2 rounded-xl border border-border bg-card p-3 text-left shadow-card @max-md/templates:gap-0.5 @max-md/templates:p-2 ${focusRing}`
   + " enabled:hover:border-border-strong enabled:hover:bg-[color-mix(in_srgb,var(--card),var(--foreground)_6%)] disabled:not-aria-busy:opacity-60"
   + " aria-busy:border-border-strong aria-busy:bg-[color-mix(in_srgb,var(--card),var(--foreground)_6%)]";
 
@@ -25,7 +25,7 @@ export function StartTile({ title, description, action, standard, disabled, star
   fill?: boolean;
   onClick: () => void;
 }) {
-  return <li className={fill ? "w-full min-w-0" : "w-full max-w-[320px] min-w-0"}>
+  return <li className={fill ? "w-full min-w-0" : "w-full max-w-[320px] min-w-0 @max-md/templates:max-w-none"}>
     <button aria-busy={starting || undefined} aria-label={action === "chat" ? "New chat" : `${action === "setup" ? "Set up" : "Start"} ${title}`}
       className={tileClass} disabled={disabled || starting} data-tile={title} onClick={onClick} type="button">
       <span className="flex min-w-0 items-start gap-2">
@@ -40,7 +40,7 @@ export function StartTile({ title, description, action, standard, disabled, star
                 : <PlayIcon aria-hidden className="size-3.5" />}
         </span>
       </span>
-      <span className="line-clamp-2 type-body text-muted-foreground" data-slot="start-description">{description}</span>
+      <span className="line-clamp-2 type-body text-muted-foreground @max-md/templates:line-clamp-1" data-slot="start-description">{description}</span>
     </button>
   </li>;
 }
@@ -57,7 +57,7 @@ export const connectionEntriesOf = (registry: PluginRegistry, access: AccessCont
 export const startTileCount = (entries: readonly ConnectionEntry[], defaultEntry: string | undefined, newChat: boolean): number =>
   entries.length + (defaultEntry === undefined && newChat ? 1 : 0);
 
-/** A server's templates as tiles on Start, the default template or New chat first, in the browser and in VS Code. */
+/** A server's templates as tiles on Start, the default template or New chat first, in the browser and in VS Code; a narrow container lists them as compact rows. */
 export function StartTiles({ entries, defaultEntry, label, disabled = false, starting, onNewChat, onStart }: {
   entries: readonly ConnectionEntry[];
   defaultEntry?: string;

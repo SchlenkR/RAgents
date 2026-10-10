@@ -38,6 +38,8 @@ async function contractFixture() {
 for (const mutation of [
   { file: "packages/ragents/src/plugin-types.ts", declaration: "export interface PluginRegistration {", key: "host.homepageTestContribution" },
   { file: "apps/web/src/PluginRegistry.tsx", declaration: "export interface WebPlugin extends WebPluginDescriptor {", key: "web.homepageTestContribution" },
+  { file: "apps/web/src/PluginRegistry.tsx", declaration: "export interface StartWidgetContribution {", key: "startWidget.homepageTestContribution" },
+  { file: "apps/web/src/PluginRegistry.tsx", declaration: "export interface StartWidgetsContext extends StartSectionContext {", key: "startWidgetsContext.homepageTestContribution" },
   { file: "apps/server/src/config-definition.ts", declaration: "export interface ProfileAnonymousUser {", key: "profileUser.homepageTestContribution" },
 ]) {
   test(`undocumented contribution ${mutation.key} stops the generation`, async () => {
@@ -147,6 +149,7 @@ declare const answerQuestion: (id: string, callId: string, payload: unknown) => 
 declare const grants: { accessFor(runId: string, grant: string): import("../../packages/ragents/src/access.ts").AccessContext };
 declare const service: {
   initialize(): Promise<void>; prepare(runId: string): Promise<void>;
+  resumeBackgroundWork(): Promise<void>;
   started(runId: string, startEntry: { id: string; action: "skill" | "script" } | null): Promise<void>;
   stop(runId: string, signal: AbortSignal): Promise<void>;
   remove(runId: string): Promise<void>; shutdown(): Promise<void>;

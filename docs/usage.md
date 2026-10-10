@@ -10,8 +10,9 @@ in `docs/spec/`, the why in `docs/decisions.md`.
 <!-- guide:getting-started -->
 ## Create your first run
 
-Start shows one server's permitted templates under "New", then its fifteen recent runs under
-"Continue", then any plugin sections, in both the browser and VS Code. Templates begin with
+Start shows one server's permitted templates under "New", its fifteen recent runs under
+"Continue", and any plugin widgets, in both the browser and VS Code: side by side on a wide screen,
+one at a time behind tabs in a narrow window or panel. Templates begin with
 "New chat" or the server's default template, then skill templates with a prepared task and script
 templates with programmed setups. "New chat" opens an empty run whose task you write in its chat;
 a template starts with one click. Some templates collect values in a setup dialog first ("Set up"); a skill template then
@@ -403,6 +404,13 @@ as wide as it. Selectors with more than eight choices show a search field. Type 
 to narrow the list; matching ignores case. Use the arrow keys to move through the results,
 Enter to choose, and Escape to close. "No matching options." means no choice matches the search.
 
+A row of tabs that does not fit its width never cuts a tab off or wraps it into a second row.
+The active tab and the tabs before it stay; the rest move into "More tabs" (...) at the end of the
+row. Its menu lists exactly the hidden tabs; choosing one shows it and puts its tab at the end of the
+row. Use the arrow keys between the visible tabs, Tab to reach "More tabs", and Enter, the arrow keys,
+and Escape in its menu. Start's widgets in a narrow panel, the two Runs tabs, the Settings areas, and
+the views of an inspected actor work this way.
+
 Toolbar filters with up to five values show their choices as multiple-selection segments.
 Select several values together; "Clear" or deselecting them all removes the restriction.
 Longer lists show the filter name and the number of chosen values, or "All" when unrestricted. Open the
@@ -609,6 +617,143 @@ the new prompt instruction; an existing conversation is not adjusted automatical
 
 Tools, management methods, journal access, and access of the global coordinator
 are in [core.md](spec/core.md) under "Global coordinator".
+
+<!-- guide:global-apps -->
+## Global mini-apps on Start
+
+Ask the global coordinator to build a mini-app for the Start dashboard. The agent writes a
+small TypeScript backend with persistent state, an optional React view, and the permissions
+it needs. It verifies the app before enabling automatic execution. Normal run agents can do
+the same with `ragents.global-apps`, included in `core`, `showcase`, and `developer`. Execution
+runs on the server without further model calls, an open chat, or a connected workstation.
+
+Each app appears as its own Start widget. Its "..." menu changes size and order or hides it;
+"Customize" can show it again. Hiding the widget leaves its backend triggers running. Apps with
+views start wide and headless apps start narrow; your arrangement overrides these defaults.
+A view displays the app's state and calls its state
+functions; a headless app shows last run, next run, and last result. A view can have several
+pages selected within the same widget. "Run now" starts a backend input even while automatic
+execution is paused. "Pause" stops new automatic inputs; "Resume" enables the configured
+triggers. Accepted work can finish, and an app never overlaps itself.
+
+"Open details" shows the app's triggers, explicit permissions, persistent state, and recent
+log and offers "Remove". Details name active process protection, explicitly disabled protection,
+or a package that has not yet activated. Permissions name server folders for reading or writing,
+HTTP hosts, and RAgents functions. An empty `permissions` object grants no external access.
+Apps belong to the registering user; another user's apps do not appear in these widgets.
+Read-only access omits the app-management controls.
+
+An app may be manual only, use an interval, watch server folders, or combine interval and file
+triggers. Intervals use fixed delay from the end of an input, with one overdue occurrence after
+a restart. File changes coalesce while the app is busy and are observed only while its triggers
+are enabled. A failure stays visible in the affected widget, with "Retry" and "Open details";
+other apps remain usable. Successful inputs commit domain state, while completed external
+file writes or HTTP calls cannot be rolled back by a later failure.
+
+## Let an agent write and verify an app
+
+The global coordinator has package, file/edit, TypeScript, and `global_app_*` tools in its own
+run, just like a normal run agent. It calls `actor_program_create`, writes the package sources
+through the normal file tools, and uses `global_app_register`. Registration copies, checks
+types, builds the backend and any views, and runs package tests. Errors name the locations
+to fix. Editing the source package afterwards requires registration again.
+
+New and replaced apps are paused. The agent calls `global_app_run`, then `global_app_read`
+after the input finishes to inspect the outcome, state, and log. If necessary it fixes the
+source and registers the paused, idle app again. It resumes a verified app with
+`global_app_pause({ name, paused: false })`. `global_app_list` discovers apps;
+`global_app_remove` stops and removes one without discarding journal history.
+
+For a headless counter, the agent creates `checks` with the `headless` template and writes
+this complete `src/server.ts` in the returned `directory`, including any room prefix:
+
+```ts
+import { defineActor } from "@ragents/server";
+import { Type } from "typebox";
+
+export default defineActor({
+  state: Type.Object({ checks: Type.Optional(Type.Integer({ minimum: 0 })) }),
+  functions: {},
+  input: { capabilities: ["global_app_trigger"] },
+}, {
+  functions: {},
+  onInput: async (_input, context) => {
+    const trigger = await context.functions.global_app_trigger({});
+    const checks = (context.state.read().checks ?? 0) + 1;
+    context.log(`Check ${checks} (${trigger.reason})`);
+    context.state.replace({ checks });
+  },
+});
+```
+
+The agent writes `tests/program.test.ts` with an explicit trigger mock:
+
+```ts
+import assert from "node:assert/strict";
+import test from "node:test";
+import { createTestContext } from "@ragents/server/testing";
+import program from "../src/server.ts";
+
+test("retains the number of successful checks", async () => {
+  const context = createTestContext<{ checks?: number }>({
+    state: { checks: 2 },
+    functions: {
+      global_app_trigger: () => ({
+        key: "manual:1",
+        scheduledAt: "2026-10-09T10:00:00.000Z",
+        reason: "manual",
+      }),
+    },
+  });
+  await program.onInput!({
+    id: "check",
+    content: "Check",
+    artifactIds: [],
+    sourceEventIds: [],
+    subscriptionId: null,
+    event: null,
+  }, context);
+  assert.deepEqual(context.state.read(), { checks: 3 });
+});
+```
+
+It registers the copied package and starts manual verification:
+
+```ts
+await context.functions.global_app_register({
+  name: "checks",
+  description: "Count checks every five minutes.",
+  program: "checks",
+  triggers: { interval: { everySeconds: 300 } },
+  permissions: {},
+});
+await context.functions.global_app_run({ name: "checks" });
+```
+
+`global_app_run` returns when the input is accepted. A later
+`global_app_read({ name: "checks" })` shows its outcome, `{ checks: 1 }`, and "Check 1 (manual)"
+in the log. If it failed, the agent fixes the sources, registers again, and repeats verification.
+`global_app_pause({ name: "checks", paused: false })` then enables the interval. Omitting
+`triggers` makes the same app manual only; `triggers.fileChange.folders` adds watched folders
+covered by its file permissions.
+
+For a widget with a view, the agent adds a normal React client and view metadata to the same
+package, as described in [Build mini-apps](homepage/guide-programs.html). `useAppState()` reads
+its shared actor state, and the view calls declared backend state functions. Those functions
+publish no actor tools and request no external capabilities. External access belongs in the
+input handler, which Start's "Run now" invokes with the app's explicit permissions.
+
+An app that needs files or HTTP declares `global_app_file_read`, `global_app_file_write`, or
+`global_app_http_request` in `input.capabilities` and requests only the necessary folders,
+exact hosts, and additional function names in `permissions`. Registration rejects access the
+user or agent cannot grant. A host without a port permits only default HTTP/HTTPS ports;
+an explicit port permits only that effective request port, including 80 and 443.
+`permissions.functions` excludes all `global_app_*` names and `bash`, `typescript_eval`,
+`agent_spawn`, `actor_program_activate`, `actor_program_import`, `actor_program_ensure`, and
+`plugin_state_write`. These capabilities are checked on the server; when process protection is
+explicitly disabled, direct Node file and network access remains unrestricted.
+
+<!-- /guide:global-apps -->
 
 ## Open and stop services and background processes
 
@@ -956,11 +1101,13 @@ needs sign-in, is starting, or cannot be reached, the local shell shows its stat
 appropriate sign-in, connect, or retry action on a Server page showing only this environment.
 The gear opens connection and profile management for all configured environments.
 
-Start and Runs in both hosts, and Server in VS Code, share a centered content area up to
-1280 pixels wide, with side padding. The Runs search field and rows stay within this area,
-including on ultrawide displays. The outer header remains full width. All three pages begin their
-content at the same distance below the header, and on Start each section label stands well apart
-from the section above it. In both hosts, logo, global coordinator button, Settings, and Help share
+Start uses the full available width with wider side padding at desktop widths. Runs in both hosts and Server in
+VS Code share a centered content area up to 1280 pixels wide. The Runs search field and rows
+stay within this area, including on ultrawide displays. The outer header remains full width.
+All three pages begin their content at the same distance below the header, with more space at
+desktop widths, and on Start every
+widget stands well apart from
+its neighbors. In both hosts, logo, global coordinator button, Settings, and Help share
 the header. The logo leads back to Start there, so the run header has no back arrow of its
 own; Runs keeps its back arrow ("Back to Start") next to its title in the browser as in VS Code. An open run places its layout actions in the run header, without a separate
 toolbar row. With an open run, the logo, global coordinator, run title, run controls, and
@@ -969,9 +1116,27 @@ buttons use the remaining width between the fixed controls, then continue over t
 in further rows. VS Code opens them in editor tabs; the browser opens them in its
 workspace. Narrow panels can also wrap fixed controls.
 
-**Start** arranges template cards in several columns when space allows, up to five at the
-maximum content width, and one in narrow panels. Cards stay between 240 and 320 pixels wide,
-shrinking only when the panel is narrower.
+**Start** is a dashboard of widgets over the full width of the window: **New**, **Continue**, and those that plugins add. What fits
+depends on the width of Start itself, not of the window, so a narrow VS Code panel behaves like a
+narrow window. From 1100 pixels the widgets stand side by side in their preferred widths, New in a
+third and Continue in two thirds of the row; from 700 pixels narrow widgets take half a row; a widget
+alone in its row fills it. Below 700 pixels Start shows one widget at a time with tabs at the top;
+the chosen tab is remembered for this server address. A plugin section without a title follows
+below the tabs, and a widget with nothing to show has neither a place nor a tab.
+
+Arrange Start where it is. The "..." button at the end of a widget's title row sets its size
+(Narrow, Half, Wide, or Full; "Default" marks the size the widget comes with), moves it earlier or
+later, or hides it. A narrower Continue, for example, gives the widgets beside it more room. The
+sizes follow the same rules as above, so they still halve at medium widths, and in a narrow panel the
+tabs follow your order and leave out hidden widgets. "Customize" below the widgets, or the icon at the
+end of the tabs, lists the hidden widgets with "Show" and offers "Reset layout". Start remembers the
+arrangement per server address and user in this browser or VS Code panel; the browser and VS Code
+each keep their own. A widget added later appears at its usual place.
+
+Each widget arranges its content for its own width. Template cards stand in several columns when
+the widget is wide enough, between 240 and 320 pixels wide; in a widget narrower than about 450
+pixels they become compact rows across its width with one line of description, as in the New
+widget beside Continue.
 It has no server block. **New** comes first when the selected server permits new runs. The first
 entry is its default template, marked "Default" in the title row, or "New chat". Remaining
 templates follow without duplicating the default. Each flat card shows a title and two lines
@@ -1007,12 +1172,15 @@ grid with status, title, and right-aligned time. Rows are
 the same as in the browser: below the title the owner and short details such as the workspace,
 the whole row is clickable, and a dot in the status icon marks activity you have not viewed in
 any host yet. Shared runs carry their sharing icon next to the title, and runs you may share
-end with "Share ..." (see [Share runs](#share-runs)). "All N runs" opens this server's Runs page.
+end with "Share ..." (see [Share runs](#share-runs)). In a list narrower than 360 pixels the line
+with owner and details is left out, below 280 pixels also the time; this applies on Runs too.
+"All N runs" opens this server's Runs page.
 The trash button ("Delete run ...") beside a run on Start and Runs opens its deletion
 confirmation. Runs shared with you have no delete button.
-Plugin sections appear directly below Continue when installed, for example a list of work
-documents from all runs you can see. Clicking such an entry can open its run. Empty sections
-show no heading or gap.
+Plugin widgets follow Continue when installed, for example a list of work documents from all
+runs you can see, with the same title row as New and Continue. Clicking such an entry can open its
+run. Empty widgets show no heading or gap. If a widget fails, it shows its error and "Retry" in its
+own place, and the rest of Start keeps working.
 
 **Runs**, "All runs", shows this server's complete list in the same card, with search, "Hide ended", and a
 selection mode that deletes several runs after a dialog confirmation. Checkboxes occupy an

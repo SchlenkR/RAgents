@@ -43,6 +43,7 @@ export interface ActorProgramDefinition {
   directory: string;
   sourceDirectory: string;
   backendFile?: string;
+  readonly isolated?: boolean;
   stateSchema: object;
   stylesFile: string;
   functions: ActorFunctionDefinition[];

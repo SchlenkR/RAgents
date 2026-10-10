@@ -64,7 +64,8 @@ export const plugin: PluginModule = {
         title: "Global coordinator",
         preparationPrompt,
         get prompt() { return `${promptFor(!users)}\n\n${users ? journalsThroughMethods : journalsOnDisk}\n\n${overseerOrientation(root, !users)}`; },
-        toolNames: users ? ["read", "write", "edit"] : ["read", "write", "edit", "bash"],
+        get toolNames() { return [...users ? ["read", "write", "edit"] : ["read", "write", "edit", "bash"],
+          ...root.tools.describe().map((tool) => tool.name).filter((name) => name === "actor_program_create" || name === "actor_program_diagnostics" || name.startsWith("global_app_") || name.startsWith("typescript_") || name.startsWith("lsp_typescript_"))]; },
         workspaceDirectory: (runId) => host.storage.session(runId, "workspace"),
         prepareWorkspace: async (directory) => {
           await writeFile(path.join(directory, "rpc-reference.md"), methodReference(root, authentication), { mode: 0o600 });

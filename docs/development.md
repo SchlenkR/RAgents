@@ -226,7 +226,7 @@ class list. There is no
 compiled catalog and no loading from a foreign source: what exists as a bundle and is listed in
 the profile can be composed, nothing more.
 
-Plugins are NOT npm packages. Currently there are 20, 15 of them with a web part. The five packages under
+Plugins are NOT npm packages. Currently there are 22, 16 of them with a web part. The five packages under
 `packages/` are libraries that plugins are built against - not plugins.
 
 Even things that seem deeply embedded are plugins: the three language servers (`ragents.lsp-roslyn`,
@@ -280,7 +280,7 @@ to the plugin (`packages/ragents/src/plugin-types.ts`):
 ### Extension points in the web
 
 A web plugin fills slots in the frontend (`WebPlugin` in `apps/web/src/PluginRegistry.tsx`):
-`brand`, `surface` (one `RunPanel`), `surfaceElements`, `cardSections`, `chatDisplayPolicy`, `resolveRunUrl`, `startOptions`, `startSections`,
+`brand`, `surface` (one `RunPanel`), `surfaceElements`, `cardSections`, `chatDisplayPolicy`, `resolveRunUrl`, `startOptions`, `startSections`, `startWidgetsFor`,
 `needsRunView`, `SessionProvider`, `sessionHeaders`, `sessionStatus`, `overviewPanels`,
 `settings`, `workspaceTabs`, `workspaceTabsFor`, `toolPresenters`, `entityPresenters`, `guides`,
 `sessionMetadata`, `actionViews`, `attention`; plus `activate` and `enabled`. `actionViews`
@@ -307,8 +307,14 @@ sidebar behavior, persistence, and iframe/draft identity with `RAGENTS_BROWSER_T
 `startOptions` provides, per server-side start option, its own control component and a badge
 for the header of the running run; without a component, the host draws a selection menu from the
 option's presentation.
-`startSections` adds sections below Start's "New" templates and "Continue" recent runs, with
-all server-listed visible runs, their metadata, and run navigation.
+`startSections` adds widgets to the Start dashboard after "New" templates and "Continue" recent runs,
+with all server-listed visible runs, their metadata, and run navigation; `title` and `span` make a
+section a framed widget with a preferred width, and below 700 pixels of Start's own width the
+widgets become tabs.
+`startWidgetsFor(context)` adds a dynamic list of widgets alongside those sections. Each value
+has a stable `id`, `title`, optional `span`, `order`, and `readRight`, and `content: ReactNode`.
+The context supplies `signal` for cleanup and `update` for live snapshots using the existing
+RPC connection; stable content component types preserve local state and frames through updates.
 
 A domain plugin owns its prompt parts, skills, server API, web components, CSS, configuration,
 and storage itself. If you remove it from the profile, prompt,

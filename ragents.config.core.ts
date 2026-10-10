@@ -28,6 +28,7 @@ export const config = {
       "ragents.todo",
       "ragents.watch",
       "ragents.actor-programs",
+      "ragents.global-apps",
       "ragents.lsp-roslyn",
       "ragents.lsp-fsharp",
       "ragents.lsp-typescript",

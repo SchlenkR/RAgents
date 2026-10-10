@@ -118,11 +118,11 @@ test("confirmed reset recovers durably and isolates unavailable journals across 
     await global.send("Old conversation");
     await until(() => management!.view(G).turns[0]?.status === "completed");
     const toolPolicy = provider.plugins.service(globalChatToken);
-    const currentTools = toolPolicy.toolNames;
-    toolPolicy.toolNames = ["legacy-management-tool"];
+    const currentTools = Object.getOwnPropertyDescriptor(toolPolicy, "toolNames")!;
+    Object.defineProperty(toolPolicy, "toolNames", { configurable: true, value: ["legacy-management-tool"] });
     assert.equal(await provider.get(G), global);
     await assert.rejects(async () => global.send("Stale tool selection"), /tools.*Reset/);
-    toolPolicy.toolNames = currentTools;
+    Object.defineProperty(toolPolicy, "toolNames", currentTools);
     await assert.rejects(overseerCall(overseerContracts.reset, { confirm: false }), /Invalid input/);
     await assert.rejects(overseerCall(overseerContracts.reset, {}), /Invalid input/);
     assert.equal(provider.hasRun(G), true);

@@ -7,7 +7,7 @@ import { fileURLToPath } from "node:url";
 import test, { type TestContext } from "node:test";
 import { build } from "esbuild";
 import { chromium, type Page } from "playwright-core";
-import { frameContentSecurityPolicy } from "../../../plugins/ragents.actor-programs/server/routes.ts";
+import { frameContentSecurityPolicy, frameHtml as isolatedFrameHtml } from "../../../plugins/ragents.actor-programs/server/routes.ts";
 import { tailwindPlugin } from "./tailwind-plugin";
 
 const bridgeScript = `
@@ -64,7 +64,7 @@ type ProbeWindow = Window & {
   };
 };
 
-type FrameResponse = { html: string; headers?: Record<string, string>; delayMs?: number };
+type FrameResponse = { html: string; headers?: Record<string, string>; delayMs?: number; dashboard?: boolean };
 
 const openHostFrame = async (context: TestContext, frameResponse: FrameResponse) => {
   const scratch = path.join(tmpdir(), "ragents-frame-request-window");
@@ -105,9 +105,20 @@ const openHostFrame = async (context: TestContext, frameResponse: FrameResponse)
           const [active, setActive] = useState(true);
           const [revision, setRevision] = useState(app.revision);
           const [invokeVersion, setInvokeVersion] = useState(0);
+          const [failure, setFailure] = useState();
+          const [generation, setGeneration] = useState(0);
+          const [details, setDetails] = useState(false);
           window.frameRevision = revision;
           window.frameFixture = { setActive, setRevision, changeInvoke: () => setInvokeVersion(value => value + 1), unmount: () => root.unmount() };
           const currentInvoke = invokeVersion === 0 ? invoke : async (...args) => ({ ...(await invoke(...args)), result: "updated callback" });
+          if (${Boolean(frameResponse.dashboard)}) return <div>
+            <section aria-label="Broken global app" style={{ height: 180 }}>
+              {failure ? <><p role="alert">{failure}</p><button onClick={() => { setFailure(undefined); setGeneration(value => value + 1); }}>Retry</button><button onClick={() => setDetails(true)}>Open details</button></>
+                : <ActorViewFrame key={generation} api={api} app={app} invoke={invoke} runId="frame-test" onFailure={setFailure} />}
+              {details && <p>App details are open</p>}
+            </section>
+            <section aria-label="Healthy global app" style={{ height: 180 }}><ActorViewFrame api={{ frameUrl: () => "/healthy-frame" }} app={{ ...app, id: "healthy-view" }} invoke={invoke} runId="frame-test" /></section>
+          </div>;
           return <PanelActivity active={active}><ActorViewFrame api={api} app={{ ...app, revision }}
             invoke={currentInvoke} runId="frame-test" session={{ session: { id: "frame-test" } }} /></PanelActivity>;
         }
@@ -127,6 +138,7 @@ const openHostFrame = async (context: TestContext, frameResponse: FrameResponse)
   const server = createServer((request, response) => {
     if (request.url === "/fixture.js") { response.setHeader("Content-Type", "text/javascript"); response.end(script); return; }
     if (request.url === "/fixture.css") { response.setHeader("Content-Type", "text/css"); response.end(styles); return; }
+    if (request.url === "/healthy-frame") { response.setHeader("Content-Type", "text/html"); response.end(frameHtml); return; }
     if (request.url?.startsWith("/frame")) {
       frameLoads += 1;
       const respond = () => {
@@ -356,3 +368,33 @@ test("a form in the host frame submits under the frame sandbox and CSP while nat
   await blocked;
   assert.equal(new URL((await contentFrame(page)).url()).pathname, "/frame");
 });
+
+for (const failure of ["load", "render"] as const) {
+  test(`a global app ${failure} failure leaves the dashboard and another isolated view usable`, {
+    skip: process.env.RAGENTS_BROWSER_TESTS !== "1", timeout: 30_000,
+  }, async (context) => {
+    const nonce = "global-failure";
+    const cause = failure === "load" ? "Global app load failed." : "Global app render failed.";
+    const client = failure === "load" ? `throw new Error(${JSON.stringify(cause)});` : (await build({
+      stdin: { contents: `import { createRoot } from "react-dom/client"; function Broken() { throw new Error(${JSON.stringify(cause)}); } createRoot(document.getElementById("root")).render(<Broken />);`,
+        resolveDir: fileURLToPath(new URL("../", import.meta.url)), sourcefile: "render-failure.tsx", loader: "tsx" },
+      bundle: true, write: false, format: "esm", platform: "browser", jsx: "automatic", logLevel: "silent",
+      define: { "process.env.NODE_ENV": '"development"' },
+    })).outputFiles[0]!.text;
+    const { page } = await openHostFrame(context, {
+      html: isolatedFrameHtml({ html: '<html><head></head><body><div id="root"></div></body></html>', styles: "", clientJavaScript: client, platformVersion: 2 }, nonce),
+      headers: { "Content-Security-Policy": frameContentSecurityPolicy(nonce) }, dashboard: true,
+    });
+    const broken = page.getByRole("region", { name: "Broken global app" });
+    await broken.getByRole("alert").filter({ hasText: cause }).waitFor();
+    await broken.getByRole("button", { name: "Open details" }).click();
+    await broken.getByText("App details are open").waitFor();
+    const healthy = page.getByRole("region", { name: "Healthy global app" });
+    await healthy.frameLocator("iframe").getByRole("textbox", { name: "Frame draft" }).fill("Still usable");
+    const identity = await healthy.frameLocator("iframe").locator("body").evaluate(() => (window as Window & { documentIdentity: number }).documentIdentity);
+    await broken.getByRole("button", { name: "Retry" }).click();
+    await broken.getByRole("alert").filter({ hasText: cause }).waitFor();
+    assert.equal(await healthy.frameLocator("iframe").getByRole("textbox", { name: "Frame draft" }).inputValue(), "Still usable");
+    assert.equal(await healthy.frameLocator("iframe").locator("body").evaluate(() => (window as Window & { documentIdentity: number }).documentIdentity), identity);
+  });
+}

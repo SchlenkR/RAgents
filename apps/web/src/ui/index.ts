@@ -25,6 +25,7 @@ export {
   Field, FieldContent, FieldDescription, FieldError, FieldGroup, FieldLabel, FieldLegend, FieldSeparator, FieldSet, FieldTitle,
 } from "./field";
 export { Input } from "./input";
+export { OverflowTabs, OverflowTabsList, type OverflowTabItem, type OverflowTabsListProps, type OverflowTabsProps } from "./overflow-tabs";
 export { HeaderDropdown } from "./HeaderDropdown";
 export { ImagePreview, ImageViewer, type ImagePreviewProps, type ImageViewerProps } from "./image-viewer";
 export { ImagePreviewGroup } from "./image-preview-group";

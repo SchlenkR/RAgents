@@ -1,0 +1,67 @@
+## Build a global mini-app
+
+When asked to build a global mini-app, write its TypeScript package in your own run, then register it for the user's Start dashboard. Never ask the user to write the code. It has an onInput backend, actor state and optional React views. Registration copies, typechecks, builds and tests the package in the user's global run, initially paused. Fix the reported source errors and register again; later source edits need registration too.
+
+One complete example: an HTTP status widget with one permission. Use native tools in this order:
+1. actor_program_create({name: "page-status", template: "headless"}). Use the returned directory for every file, including its room prefix.
+2. Write package.json, src/server.ts and src/client.tsx there with the complete contents below.
+3. global_app_register({name: "page-status", description: "Check the example website", program: "page-status", triggers: {interval: {everySeconds: 300}}, permissions: {http: ["example.com"]}}).
+4. global_app_run({name: "page-status"}), then global_app_read({name: "page-status"}). If queued/running, read again in a later step. Check the result, state and log; fix the source, register while paused and idle, and verify again.
+5. After a completed check, global_app_pause({name: "page-status", paused: false}).
+
+package.json:
+```json
+{
+  "name": "page-status",
+  "private": true,
+  "type": "module",
+  "ragents": {
+    "title": "Page status",
+    "backend": "src/server.ts",
+    "views": [{ "id": "main", "client": "src/client.tsx" }]
+  }
+}
+```
+
+src/server.ts:
+```ts
+import { defineActor } from "@ragents/server";
+import { Type } from "typebox";
+
+export default defineActor({
+  state: Type.Object({
+    checks: Type.Optional(Type.Integer()),
+    status: Type.Optional(Type.Integer()),
+  }),
+  functions: {},
+  input: { capabilities: ["global_app_trigger", "global_app_http_request"] },
+}, {
+  functions: {},
+  onInput: async (_input, context) => {
+    const trigger = await context.functions.global_app_trigger({});
+    const response = await context.functions.global_app_http_request({ url: "https://example.com" });
+    const checks = (context.state.read().checks ?? 0) + 1;
+    context.state.replace({ checks, status: response.status });
+    context.log(`${trigger.reason}: check ${checks}, HTTP ${response.status}`);
+  },
+});
+```
+
+src/client.tsx:
+```tsx
+import { createRoot } from "react-dom/client";
+import { useAppState } from "@ragents/client";
+
+function App() {
+  const state = useAppState();
+  return <main><h1>Page status</h1><p>{state.checks ?? 0} checks, HTTP {state.status ?? "pending"}</p></main>;
+}
+
+const root = document.getElementById("root");
+if (!root) throw new Error("The #root element is missing.");
+createRoot(root).render(<App />);
+```
+
+Use global_app_list, global_app_read, global_app_run, global_app_pause and global_app_remove by your chosen app name. Manual triggering is always possible, even while paused. Optional triggers combine interval.everySeconds (60..604800) and fileChange.folders (existing absolute server folders within permissions.files.read or write). Intervals use fixed delay with no overlap and one overdue occurrence after restart; file changes debounce and coalesce. Agent-event triggers are planned. timeoutSeconds defaults to 30 (1..300). Every backend needs global_app_trigger in its input capabilities; the occurrence key helps external idempotency. Logs survive failures; failed state changes do not commit. Views use the same isolated frames as run mini-apps and may call state-only backend functions without external capabilities; use Run now for external work.
+
+Permissions are explicit: files.read/write name existing absolute server folders; http names exact lowercase hosts (optional port); functions names functions you may delegate. Declare matching global_app_file_read, global_app_file_write, global_app_http_request or named functions in input capabilities. TypeScript API gives their exact types. These capabilities enforce the allow lists on the server; process protection blocks direct node:fs outside the package and direct network access. Inspect permissions and sandbox in global_app_read; disabled protection allows direct Node access. Keep credentials out of code, state and logs. A failed widget shows its cause with Retry and Open details; repair and verify the package before resuming.

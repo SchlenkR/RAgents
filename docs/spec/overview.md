@@ -162,9 +162,9 @@ generation composes the plugins in isolation with existing public catalog models
 and model calls are blocked during that. Private profiles, configuration values, and runtime data
 do not belong on these pages.
 
-`guide.html` opens up nine connected chapters: core ideas, runtime, getting started, the three
-access points web, VS Code, and console, distributed work, TypeScript functions, actor programs
-and mini-apps, plugins and skills, and access. The chapters exist as `guide-<id>.html` and as
+`guide.html` opens up ten connected chapters: core ideas, runtime, getting started, the three
+access points web, VS Code, and console, global mini-apps, distributed work, TypeScript functions,
+actor programs and mini-apps, plugins and skills, and access. The chapters exist as `guide-<id>.html` and as
 Markdown. Their texts come directly from sections of the spec, `docs/usage.md`, and
 `docs/operations.md` explicitly marked with `<!-- guide:<id> -->` and `<!-- /guide:<id> -->`;
 several blocks of a chapter are joined in document order, with several source files in their
@@ -359,7 +359,7 @@ migrations; the plugin contract still calls a run `Session` in type names (`Sess
 ```text
 Profile, for example core
   |
-  +-- ordered list of plugins (19 in core)
+  +-- ordered list of plugins (21 in core)
   |
   +-- RAgents Core
   |     +-- run, journal, actors, inputs, turns, events, subscriptions, and artifacts
@@ -391,6 +391,7 @@ Profile, for example core
         +-- activity              +-- processes
         +-- questions             +-- to-do
         +-- watch                 +-- actor programs and views
+        +-- global mini-apps
         +-- model relay           +-- profile distribution
         +-- MCP tools             +-- external ACP agents
         +-- language servers: Roslyn, FSAC, TypeScript
