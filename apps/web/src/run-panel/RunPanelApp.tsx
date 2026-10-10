@@ -14,6 +14,7 @@ import { connectionEntriesOf } from "../StartTiles";
 import { templateStarting } from "../StartEntryDialog";
 import { openSharing, REVOKED_SHARE_NOTICE, revokeSharing, saveSharing } from "../run-sharing";
 import { PanelPage } from "../panel/PanelPage";
+import { SERVER_PREFERENCES } from "../preferences";
 import type { PanelAction, PanelState } from "../panel/contract";
 import { useSharingStore } from "../panel/SharePanel";
 import { HelpDialog } from "../HelpDialog";
@@ -333,7 +334,7 @@ function RunPanelPage({ connection, initialRunId, registry }: { connection: stri
             <>
               <div className="min-h-0 min-w-0 flex-1 overflow-auto">
                 {unreachable && <Alert className="mb-3" variant="destructive">The server is unreachable.</Alert>}
-                <PanelPage registry={registry} send={navigate} state={navigationState} />
+                <PanelPage preferences={SERVER_PREFERENCES} registry={registry} send={navigate} state={navigationState} />
               </div>
             </>
           )}

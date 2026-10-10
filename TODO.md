@@ -4,8 +4,7 @@ Inbox for everything; the owner and the AI write here. One line per entry, newes
 
 ## Open
 
-- Start layout on the server (09.10.2026): keep the arrangement of Start per user on the server, so that the browser and VS Code share it; today each keeps its own copy in browser storage (`ragents.start.layout:<origin>:<user>`), because the host has no per-user preference store.
-- Check live (09.10.2026): arrange Start in a real VS Code panel and in the browser (Size, Move earlier and later, Hide, Customize, Reset layout, reload) with a plugin that contributes several titled widgets; the browser fixture covers the parts.
+- Check live (10.10.2026): Start's edit mode in a real VS Code panel and in the browser against one server with a plugin that contributes several titled widgets (drag, resize by the edge, remove, Add widget, keyboard, Done, Cancel), then the saved layout in the other host after reopening Start, with and without sign-in; the browser fixture and the store tests cover the parts.
 - Overflow beyond tab rows (09.10.2026): apply `splitOverflow` to segmented `ToggleGroup` and `ChoiceSelect` choices and to toolbars of equal items, which still clip in narrow panels, and to the Settings plugin navigation, which scrolls sideways in narrow dialogs.
 - Check live (09.10.2026): Start in a real VS Code panel resized across 700 pixels and in the browser at 360 pixels with a plugin that contributes several titled widgets, including the remembered tab after a reload and a widget that turns empty; browser fixtures cover the parts.
 

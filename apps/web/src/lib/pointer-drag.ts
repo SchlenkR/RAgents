@@ -1,10 +1,12 @@
 import { useEffect, useRef, type PointerEvent as ReactPointerEvent } from "react";
-import type { DockPoint } from "./dock-geometry";
 
-export function useDockPointer() {
+export interface PointerPoint { readonly x: number; readonly y: number }
+
+/** One pointer drag at a time with pointer capture; release finishes with the point, Escape, cancel, and leaving the window finish with null. */
+export function usePointerDrag() {
   const cleanup = useRef<(() => void) | undefined>(undefined);
   useEffect(() => () => cleanup.current?.(), []);
-  return (event: ReactPointerEvent<HTMLElement>, move: (point: DockPoint) => void, finish: (point: DockPoint | null) => void, captureElement = event.currentTarget) => {
+  return (event: ReactPointerEvent<HTMLElement>, move: (point: PointerPoint) => void, finish: (point: PointerPoint | null) => void, captureElement = event.currentTarget) => {
     if (event.button !== 0) return;
     cleanup.current?.();
     if (event.currentTarget.tagName !== "BUTTON") event.preventDefault();

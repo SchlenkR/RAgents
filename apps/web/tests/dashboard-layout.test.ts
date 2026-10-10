@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { DASHBOARD_TABS_BELOW, DASHBOARD_WIDE_FROM, dashboardLayout, type DashboardItem } from "../src/panel/dashboard-layout";
+import { START_WIDGET_SPANS } from "../src/PluginRegistry";
+import { adjacentSpan, DASHBOARD_TABS_BELOW, DASHBOARD_WIDE_FROM, dashboardLayout, nearestSpan, wideColumns, type DashboardItem } from "../src/panel/dashboard-layout";
 
 const widget = (key: string, span: DashboardItem["span"], framed = true): DashboardItem => ({ key, span, framed });
 const start = [widget("new", "narrow"), widget("continue", "wide")];
@@ -34,4 +35,20 @@ test("below the narrow limit several framed widgets become tabs, a single one fi
   assert.deepEqual(dashboardLayout(start, DASHBOARD_TABS_BELOW - 1), { mode: "tabs" });
   assert.deepEqual(dashboardLayout([...start, widget("legacy", "full", false)], 360), { mode: "tabs" });
   assert.deepEqual(columns([widget("continue", "wide"), widget("legacy", "full", false)], 360), [12, 12]);
+});
+
+test("resizing snaps to the closest size the widget offers, and steps go to the next offered size", () => {
+  assert.equal(nearestSpan(4, START_WIDGET_SPANS), "narrow");
+  assert.equal(nearestSpan(5, START_WIDGET_SPANS), "narrow", "the smaller size wins a tie");
+  assert.equal(nearestSpan(5.2, START_WIDGET_SPANS), "half");
+  assert.equal(nearestSpan(9.9, START_WIDGET_SPANS), "wide");
+  assert.equal(nearestSpan(30, START_WIDGET_SPANS), "full");
+  assert.equal(nearestSpan(-3, ["half", "full"]), "half", "only offered sizes count");
+  assert.throws(() => nearestSpan(4, []), /needs at least one size/);
+  assert.equal(adjacentSpan("narrow", START_WIDGET_SPANS, 1), "half");
+  assert.equal(adjacentSpan("narrow", ["narrow", "full"], 1), "full");
+  assert.equal(adjacentSpan("full", START_WIDGET_SPANS, 1), undefined);
+  assert.equal(adjacentSpan("wide", ["narrow", "wide"], -1), "narrow");
+  assert.equal(adjacentSpan("narrow", START_WIDGET_SPANS, -1), undefined);
+  assert.deepEqual(START_WIDGET_SPANS.map(wideColumns), [4, 6, 8, 12]);
 });

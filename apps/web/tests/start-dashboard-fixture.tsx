@@ -2,6 +2,7 @@ import { createRoot } from "react-dom/client";
 import { PluginRegistry, type StartSectionContext, type StartSectionContribution } from "../src/PluginRegistry";
 import { PanelPage } from "../src/panel/PanelPage";
 import type { ConnectionView, PanelState } from "../src/panel/contract";
+import type { PreferenceStore } from "../src/preferences";
 import { initializeAppearance } from "../src/appearance";
 import { initializeTheme } from "../src/theme";
 import "../src/ui/tailwind.css";
@@ -52,14 +53,14 @@ const list = (label: string) => function List() {
   </ul>;
 };
 
-const widget = (id: string, order: number, title: string, span?: StartSectionContribution["span"]): StartSectionContribution =>
-  ({ id, order, title, ...(span ? { span } : {}), Section: list(`${title} entries`) });
+const widget = (id: string, order: number, title: string, span?: StartSectionContribution["span"], extra: Partial<StartSectionContribution> = {}): StartSectionContribution =>
+  ({ id, order, title, ...(span ? { span } : {}), Section: list(`${title} entries`), ...extra });
 
 const sections: StartSectionContribution[] = [
-  { id: "demo.board", order: 10, title: "Work board", Section: WorkBoard },
+  { id: "demo.board", order: 10, title: "Work board", description: "Runs in three lanes by their state.", Section: WorkBoard },
   widget("demo.auto", 20, "New auto items", "narrow"),
   widget("demo.shared", 30, "Shared with the team", "narrow"),
-  widget("demo.usage", 40, "Model usage", "narrow"),
+  widget("demo.usage", 40, "Model usage", "narrow", { description: "Tokens and cost of the last runs.", sizes: ["narrow", "half"] }),
   { id: "demo.empty", order: 50, title: "Nothing to show", span: "narrow", Section: () => null },
   { id: "demo.legacy", order: 60, Section: () => <section aria-label="Legacy notes" className="grid gap-3"><h2 className="type-label">Legacy notes</h2><p className="type-body">A section without a title keeps its own heading.</p></section> },
   ...(query.get("widgets") === "many" ? [
@@ -78,7 +79,26 @@ const registry = new PluginRegistry({
 
 const state: PanelState = { theme: "dark", page: "start", connections: [connection], profileSuggestions: [] };
 
+/** Stands in for the server's preference store and keeps the values across reloads; ?preferences=fail lets reading fail, failWrites saving. */
+const stored = (key: string) => `start-dashboard-fixture:${key}`;
+const fixture = { writes: [] as unknown[], failWrites: false };
+declare global { interface Window { dashboardFixture: typeof fixture } }
+window.dashboardFixture = fixture;
+const preferences: PreferenceStore = {
+  read: async (key) => {
+    if (query.get("preferences") === "fail") throw new Error("The server is unreachable.");
+    const raw = localStorage.getItem(stored(key));
+    return raw === null ? null : JSON.parse(raw);
+  },
+  write: async (key, value) => {
+    if (fixture.failWrites) throw new Error("The disk is full.");
+    fixture.writes.push(value);
+    if (value === null) localStorage.removeItem(stored(key));
+    else localStorage.setItem(stored(key), JSON.stringify(value));
+  },
+};
+
 createRoot(document.getElementById("root")!).render(<div className="flex h-full min-h-0 flex-col bg-app">
   <header className="flex h-12 flex-none items-center border-b border-border p-3">Start dashboard check</header>
-  <div className="min-h-0 min-w-0 flex-1"><PanelPage registry={registry} send={() => {}} state={state} /></div>
+  <div className="min-h-0 min-w-0 flex-1"><PanelPage preferences={preferences} registry={registry} send={() => {}} state={state} /></div>
 </div>);

@@ -1,5 +1,40 @@
 # Decisions
 
+## 2026-10-10: Start gets an edit mode, and the host a per-user preference store
+
+Chapters: `spec/plugins.md` (Web as plugin host: slot list `startSections`, Arranging Start, core contracts),
+`spec/profiles.md` (User preferences, Open limits); usage: `usage.md` (Start); operations: `operations.md`
+(data storage); `development.md` (docking modules).
+
+The "..." menu in every widget's title row and "Customize" were hard to find and to use: sizes were
+radio items without a preview, moving went one step per menu round trip, and hidden widgets lived in a
+second menu. Following iOS widgets, Azure DevOps, Grafana, Home Assistant sections, and Backstage, Start
+now has a separate edit mode with direct manipulation and no arrangement controls outside it. "Edit"
+stands at the top right above the first widget row, or at the end of the tab strip in a narrow panel.
+Edit mode works on a draft that "Done" saves and "Cancel" or Escape discards: each widget gets a dashed
+frame, a drag handle with a live reflow and a drop indicator, a resize handle on its right edge that
+snaps to the sizes the widget offers and shows the target size, and "x"; "Add widget" opens a gallery of
+the widgets that are not on Start. The handle also takes the keyboard (arrow keys move, Shift with the
+arrow keys sizes, Delete removes) and a live region announces each change. Narrow panels edit a vertical
+list without sizes. Pointer handling reuses the dock's capture and cancel hook, which moved to
+`lib/pointer-drag.ts` now that it has two users; no drag library was added.
+
+`StartSectionContribution` gains optional `description` (for the gallery) and `sizes` (the offered sizes,
+by default all, including the span); both are additive, so external plugins load unchanged and
+`HOST_API_VERSION` stays. The layout model now keeps `removed` instead of `hidden`, turns an edited draft
+back into preferences that store nothing for the default order and sizes, works for any widget ID
+(also per-user widgets such as `ragents.global-apps:<name>`), keeps the removal and size of a widget that
+is absent for a while, and follows widgets that disappear or arrive while editing.
+
+The layout moved from browser storage to the server, so the browser and VS Code show the same Start.
+The host had no per-user store, so it gets a small generic one: `ragents.preferences.read` and
+`ragents.preferences.write` with a closed list of keys (`start.layout` so far), JSON values of at most
+32 KiB, one file per user under `${DATA_DIR}/preferences/` named by the hex of the user ID (IDs that
+differ only in case stay apart), and `anonymous.json` without sign-in. The methods name no user, so a
+caller reaches only its own preferences; a damaged file fails only its user's requests and stays as it
+is. The old `ragents.start.layout:*` browser values are dropped without migration. The chosen tab of a
+narrow Start stays in browser storage, because it belongs to the device rather than to the user.
+
 ## 2026-10-09: Arrange Start in place: size, order, and hiding per widget
 
 Chapters: `spec/plugins.md` (Web as plugin host: slot list `startSections`, Shared page width, Arranging Start);

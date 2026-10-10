@@ -1,6 +1,7 @@
 import { ChevronRightIcon } from "lucide-react";
 import { useState } from "react";
 import { useAccess } from "../AccessContext";
+import { START_WIDGET_SPANS } from "../PluginRegistry";
 import { StartTiles, startTileCount } from "../StartTiles";
 import { Button } from "../ui";
 import type { PanelAction, PanelState } from "./contract";
@@ -17,7 +18,7 @@ interface PendingStart {
   readonly state: PanelState;
 }
 
-export function StartPage({ state, send, registry }: PanelPageProps) {
+export function StartPage({ state, send, registry, preferences }: PanelPageProps) {
   const access = useAccess();
   const [start, setStart] = useState<PendingStart>();
   const starting = start?.state === state ? start.action : undefined;
@@ -34,13 +35,13 @@ export function StartPage({ state, send, registry }: PanelPageProps) {
   const sections = registry?.startSections.filter((section) => !section.readRight || access.can(section.readRight)) ?? [];
   const widgets: readonly StartWidget[] = [
     ...(connection.canCreate ? [{
-      key: "start.new", title: "New", count: tiles, span: "narrow" as const,
+      key: "start.new", title: "New", description: "Start a run from a template of this server or as a new chat.", count: tiles, span: "narrow" as const, sizes: START_WIDGET_SPANS,
       content: <StartTiles defaultEntry={connection.defaultEntry} disabled={starting !== undefined} entries={connection.entries} label="Templates"
         onNewChat={connection.canCreateFree === false ? undefined : () => startRun({ action: "newRun", name: connection.name })}
         onStart={(entryId) => startRun({ action: "newRun", name: connection.name, entryId })} starting={starting} />,
     }] : []),
     {
-      key: "start.continue", title: "Continue", span: "wide",
+      key: "start.continue", title: "Continue", description: "Your most recent runs, with the way to all of them.", span: "wide", sizes: START_WIDGET_SPANS,
       action: runs.length > 0 ? <Button onClick={() => send({ action: "page", page: "runs" })} size="xs" variant="ghost">All {runs.length} runs<ChevronRightIcon data-icon="inline-end" /></Button> : undefined,
       content: runs.length === 0
         ? <p className="type-body text-muted-foreground">No runs yet.</p>
@@ -53,13 +54,13 @@ export function StartPage({ state, send, registry }: PanelPageProps) {
           </RunList>
         </RunCard>,
     },
-    ...sections.map(({ id, title, span, Section }) => ({
-      key: id, title, span: span ?? "full", content: <Section onOpenRun={openRun} runs={runs} />,
+    ...sections.map(({ id, title, description, span, sizes, Section }) => ({
+      key: id, title, description, span: span ?? "full", sizes: sizes ?? START_WIDGET_SPANS, content: <Section onOpenRun={openRun} runs={runs} />,
     })),
   ];
   return <div className="grid min-w-0 grid-cols-1 gap-8">
     {state.problem && <p className="type-body text-destructive [overflow-wrap:anywhere]" role="alert">{state.problem}</p>}
     {state.notice && <p className="type-body text-muted-foreground [overflow-wrap:anywhere]" role="status">{state.notice}</p>}
-    <StartDashboard widgets={widgets} />
+    <StartDashboard preferences={preferences} widgets={widgets} />
   </div>;
 }

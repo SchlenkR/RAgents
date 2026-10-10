@@ -15,7 +15,7 @@ test("VS Code hull zoom fills the viewport once across nested frames and changes
   const root = fileURLToPath(new URL("../../../", import.meta.url));
   const panel = await build({
     stdin: { contents: `import { createRoot } from "react-dom/client"; import { PanelPage } from "./apps/web/src/panel/PanelPage"; import "./apps/web/src/ui/tailwind.css";
-      createRoot(document.getElementById("root")).render(<PanelPage state={${JSON.stringify(state)}} send={()=>{}}/>);`, resolveDir: root, loader: "tsx" },
+      createRoot(document.getElementById("root")).render(<PanelPage preferences={{read:async()=>null,write:async()=>{}}} state={${JSON.stringify(state)}} send={()=>{}}/>);`, resolveDir: root, loader: "tsx" },
     bundle: true, platform: "browser", format: "iife", jsx: "automatic", write: false, outfile: "/tmp/zoom-panel.js",
     plugins: [tailwindPlugin([`${root}apps/web/src`])], logLevel: "silent",
   });

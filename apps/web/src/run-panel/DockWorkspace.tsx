@@ -6,7 +6,7 @@ import { RunAppView, type RunApp } from "../run-apps";
 import { Badge, InteractiveItem, Button, cn, Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "../ui";
 import { activateAvailableDockTabs, activeDockTool, addDockEmptyPane, addDockView, appPanelId, closeDockPanels, dockButtonPlacement, dockGroups, dockWindowOrder, emptyPanelId, focusedDockWindow, initialDockState, isEmptyPanel, isToolPanel, moveDockButton, moveDockPanels, moveDockWindow, reconcileDockState, resizeDockSplit, returnDockTool, revealDockPanel, transitionDockSide, selectDockPanel, tabWindowId, toolPanelId, viewPanelId, visibleDockState, workspaceTabPanelId, type DockGroup, type DockButtonPlacement, type DockState } from "./dock-state";
 import { DOCK_DIVIDER_SIZE, DOCK_HEADER_HEIGHT, containsPoint, dockGeometry, dockHitTest, type DockPoint, type DockRect } from "./dock-geometry";
-import { useDockPointer } from "./dock-pointer";
+import { usePointerDrag } from "../lib/pointer-drag";
 import { useDockStorage } from "./dock-storage";
 import { DockWindowActions } from "./DockWindowActions";
 import { DockButtonMenu } from "./DockButtonMenu";
@@ -101,7 +101,7 @@ export function DockWorkspace({ apps, chat, chatIcon = <UsersIcon />, navigation
   const [visited, setVisited] = useState<readonly string[]>(["chat"]);
   const [drag, setDrag] = useState<{ ids: readonly string[]; point: DockPoint; header?: boolean; slot?: number | null }>();
   const [resizing, setResizing] = useState<string>();
-  const pointer = useDockPointer();
+  const pointer = usePointerDrag();
   const leaveTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   useEffect(() => () => clearTimeout(leaveTimer.current), []);
   useLayoutEffect(() => {

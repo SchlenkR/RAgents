@@ -289,7 +289,8 @@ tabs per run from the running state. Visible mini-apps enter `apps/web/src/run-a
 Browser runs arrange Chat, apps, and inspection tools through `run-panel/DockWorkspace.tsx`;
 `PluginChat` supplies `DockToolsContext`, and the surface contribution supplies its chat and apps.
 `dock-state.ts` owns immutable tree operations, `dock-geometry.ts` rectangles and docking targets,
-`dock-pointer.ts` pointer capture/cancellation, and `dock-storage.ts` per-origin/run persistence.
+`lib/pointer-drag.ts` pointer capture/cancellation (shared with Start's edit mode), and
+`dock-storage.ts` per-origin/run persistence.
 All panel containers stay at stable DOM positions during moves. Hidden visited panels retain
 their parent-fed props inside React `Activity`, preserving state and frames while pausing effects;
 reveal supplies current props and resumes effects. The shared run-list hook structurally shares

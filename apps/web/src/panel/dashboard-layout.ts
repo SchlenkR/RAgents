@@ -1,4 +1,4 @@
-import type { StartWidgetSpan } from "../PluginRegistry";
+import { START_WIDGET_SPANS, type StartWidgetSpan } from "../PluginRegistry";
 
 /** Below this width of the dashboard, measured on its own container, several framed widgets become tabs. */
 export const DASHBOARD_TABS_BELOW = 700;
@@ -35,6 +35,24 @@ const filled = (row: readonly number[]): readonly number[] => {
   const rest = DASHBOARD_COLUMNS - sum(scaled);
   return scaled.map((span, index) => index === scaled.length - 1 ? span + rest : span);
 };
+
+/** The allowed size whose width on a wide dashboard comes closest to the given number of columns; the smaller one wins a tie. */
+export function nearestSpan(columns: number, sizes: readonly StartWidgetSpan[]): StartWidgetSpan {
+  const distance = (span: StartWidgetSpan) => Math.abs(SPAN_COLUMNS.wide[span] - columns);
+  const allowed = START_WIDGET_SPANS.filter((span) => sizes.includes(span));
+  if (allowed.length === 0) throw new Error("A Start widget needs at least one size.");
+  return allowed.reduce((best, span) => distance(span) < distance(best) ? span : best);
+}
+
+/** The next larger or smaller allowed size, or undefined at the end. */
+export const adjacentSpan = (span: StartWidgetSpan, sizes: readonly StartWidgetSpan[], step: -1 | 1): StartWidgetSpan | undefined => {
+  const allowed = START_WIDGET_SPANS.filter((entry) => sizes.includes(entry));
+  return step > 0 ? allowed.find((entry) => SPAN_COLUMNS.wide[entry] > SPAN_COLUMNS.wide[span])
+    : allowed.findLast((entry) => SPAN_COLUMNS.wide[entry] < SPAN_COLUMNS.wide[span]);
+};
+
+/** The columns of a size on a wide dashboard, which resizing measures against at every width. */
+export const wideColumns = (span: StartWidgetSpan): number => SPAN_COLUMNS.wide[span];
 
 /** How Start arranges its widgets at a container width; without a measured width it assumes a wide screen. */
 export function dashboardLayout(items: readonly DashboardItem[], width: number | undefined): DashboardLayout {

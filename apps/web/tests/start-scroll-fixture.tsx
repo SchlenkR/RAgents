@@ -112,7 +112,7 @@ function Fixture() {
     <header className="flex h-12 flex-none items-center border-b border-border p-3">Start scroll check</header>
     <div aria-label="Start viewport" className="min-h-0 min-w-0 flex-1 overflow-auto">
       {notice && <p className="type-body min-h-12 p-3" role="status">{notice}</p>}
-      <PanelPage registry={registry} send={() => {}} state={state} />
+      <PanelPage preferences={{ read: async () => null, write: async () => {} }} registry={registry} send={() => {}} state={state} />
     </div>
     <footer className="h-6 flex-none border-t border-border" aria-label="Run status bar" />
   </div>;

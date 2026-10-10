@@ -753,7 +753,7 @@ const startUi = {
   id: "ragents.example",
   startSections: [{
     id: "ragents.example.documents", order: 100, readRight: "ragents.example.read",
-    title: "Work documents", span: "half",
+    title: "Work documents", description: "Documents of all runs, newest first.", span: "half", sizes: ["half", "wide", "full"],
     Section: ({ runs, onOpenRun }) => {
       const documents = runs.flatMap((run) => {
         const value = run.metadata?.["ragents.example.documents"];
@@ -767,9 +767,10 @@ const startUi = {
       </li>)}</ul>;
     },
   }],
-} satisfies WebPlugin;`, ["web.startSections", "startSection.id", "startSection.order", "startSection.readRight", "startSection.title", "startSection.span", "startSection.Section", "startSectionContext.runs", "startSectionContext.onOpenRun"], [
+} satisfies WebPlugin;`, ["web.startSections", "startSection.id", "startSection.order", "startSection.readRight", "startSection.title", "startSection.description", "startSection.span", "startSection.sizes", "startSection.Section", "startSectionContext.runs", "startSectionContext.onOpenRun"], [
     "Start shows New templates, then Continue with the fifteen recent runs, then plugin widgets sorted by order and id. The context contains every server-listed visible run, sorted by updatedAt, with id, title, updatedAt, and optional metadata keyed by contribution ID.",
     "title makes the section a widget: the host draws its title row and, below 700 pixels of Start's own width, its tab. span chooses its preferred width on a wide dashboard: narrow (a third), half, wide (two thirds), or full, the default. Its body is a size container named widget, so @container variants such as @md/widget: follow the widget's width.",
+    "In Start's edit mode the viewer moves, resizes, removes, and adds widgets. description is the sentence the widget gallery shows; sizes limits the sizes the viewer may choose, by default all four, and must include span. The id is the widget's ID in the viewer's saved layout, so it stays the same across releases.",
     "The server filters the run list for the viewer; the slot performs no additional run access checks. readRight hides the entire section without the named permission.",
     "onOpenRun uses the same navigation as a run row in both browser and VS Code server frames. The local VS Code shell has no plugin registry and contributes no sections.",
     "Returning null leaves no cell, tab, or gap. A section without title keeps its own heading and spacing and fills a row; span requires a title.",

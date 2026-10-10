@@ -1,71 +1,72 @@
+import type { JsonValue } from "@ragents/engine/src/domain/json";
 import { START_WIDGET_SPANS, type StartWidgetSpan } from "../PluginRegistry";
 import type { DashboardItem } from "./dashboard-layout";
 
-/** How a viewer arranged Start: the order of the framed widgets, their chosen spans, and the hidden ones, each by widget ID. */
+/** How a viewer arranged Start: the order of the framed widgets on it, their chosen sizes, and the removed ones, each by widget ID. */
 export interface DashboardPreferences {
   readonly order: readonly string[];
   readonly spans: ReadonlyMap<string, StartWidgetSpan>;
-  readonly hidden: readonly string[];
+  readonly removed: readonly string[];
 }
 
 export interface StoredDashboardLayout {
   readonly preferences: DashboardPreferences;
-  /** Why the stored layout could not be read; Start then shows the default layout and offers the reset. */
+  /** Why the stored layout could not be read; Start then shows the default layout until the next save replaces it. */
   readonly problem?: string;
 }
 
-export interface ArrangedWidgets<W extends DashboardItem> {
-  /** The widgets to place, in order; framed ones carry their chosen span. */
-  readonly shown: readonly W[];
-  /** The framed widgets the viewer hid, in the same order. */
-  readonly hidden: readonly W[];
+/** A widget as Start arranges it; a framed one offers the viewer these sizes. */
+export interface ArrangeableItem extends DashboardItem {
+  readonly sizes: readonly StartWidgetSpan[];
 }
 
+export interface ArrangedWidgets<W extends ArrangeableItem> {
+  /** The widgets to place, in order; framed ones carry their chosen span. */
+  readonly shown: readonly W[];
+  /** The framed widgets that are not on the dashboard, in their default order and size. */
+  readonly removed: readonly W[];
+}
+
+/** A framed widget on the dashboard while Start is edited; its place is its index in the draft. */
+export interface PlacedWidget {
+  readonly key: string;
+  readonly span: StartWidgetSpan;
+}
+
+export type DashboardDraft = readonly PlacedWidget[];
+
 const FORMAT_VERSION = 1;
-const FIELDS = ["hidden", "order", "spans", "version"];
+const FIELDS = ["order", "removed", "spans", "version"];
 
-export const DEFAULT_DASHBOARD_PREFERENCES: DashboardPreferences = { order: [], spans: new Map(), hidden: [] };
-
-/** Per server origin and signed-in user, in the storage of the browser or VS Code panel that shows Start. */
-export const startLayoutStorageKey = (origin: string, user: string | null): string =>
-  `ragents.start.layout:${encodeURIComponent(origin)}${user === null ? "" : `:${encodeURIComponent(user)}`}`;
+export const DEFAULT_DASHBOARD_PREFERENCES: DashboardPreferences = { order: [], spans: new Map(), removed: [] };
 
 export const isDefaultLayout = (preferences: DashboardPreferences): boolean =>
-  preferences.order.length === 0 && preferences.spans.size === 0 && preferences.hidden.length === 0;
+  preferences.order.length === 0 && preferences.spans.size === 0 && preferences.removed.length === 0;
 
 const isSpan = (value: unknown): value is StartWidgetSpan => START_WIDGET_SPANS.some((span) => span === value);
+
+const isRecord = (value: unknown): value is Readonly<Record<string, unknown>> => typeof value === "object" && value !== null && !Array.isArray(value);
 
 const isIdList = (value: unknown): value is readonly string[] =>
   Array.isArray(value) && value.every((entry) => typeof entry === "string" && entry !== "") && new Set(value).size === value.length;
 
-const parsedJson = (raw: string): { readonly value: unknown } | { readonly error: string } => {
-  try {
-    return { value: JSON.parse(raw) as unknown };
-  } catch (cause) {
-    return { error: cause instanceof Error ? cause.message : String(cause) };
-  }
-};
-
-export function readDashboardLayout(raw: string | null): StoredDashboardLayout {
-  if (raw === null) return { preferences: DEFAULT_DASHBOARD_PREFERENCES };
+/** Reads the value of the preference start.layout; null is the default layout. */
+export function readDashboardLayout(value: JsonValue | null): StoredDashboardLayout {
+  if (value === null) return { preferences: DEFAULT_DASHBOARD_PREFERENCES };
   const unreadable = (cause: string): StoredDashboardLayout => ({ preferences: DEFAULT_DASHBOARD_PREFERENCES, problem: `The saved Start layout could not be read: ${cause}.` });
-  const parsed = parsedJson(raw);
-  if ("error" in parsed) return unreadable(parsed.error);
-  const record = parsed.value;
-  if (typeof record !== "object" || record === null || Array.isArray(record)) return unreadable("expected an object");
-  const fields = Object.keys(record).sort();
+  if (!isRecord(value)) return unreadable("expected an object");
+  const fields = Object.keys(value).sort();
   if (fields.join(",") !== FIELDS.join(",")) return unreadable(`expected the fields ${FIELDS.join(", ")}, found ${fields.join(", ") || "none"}`);
-  const { version, order, spans, hidden } = record as Record<string, unknown>;
+  const { version, order, spans, removed } = value;
   if (version !== FORMAT_VERSION) return unreadable(`expected version ${FORMAT_VERSION}, found ${JSON.stringify(version)}`);
-  if (!isIdList(order) || !isIdList(hidden)) return unreadable("order and hidden must list distinct widget IDs");
-  if (typeof spans !== "object" || spans === null || Array.isArray(spans) || !Object.values(spans).every(isSpan)) {
-    return unreadable(`spans must map widget IDs to ${START_WIDGET_SPANS.join(", ")}`);
-  }
-  return { preferences: { order, spans: new Map(Object.entries(spans as Record<string, StartWidgetSpan>)), hidden } };
+  if (!isIdList(order) || !isIdList(removed)) return unreadable("order and removed must list distinct widget IDs");
+  if (!isRecord(spans) || !Object.values(spans).every(isSpan)) return unreadable(`spans must map widget IDs to ${START_WIDGET_SPANS.join(", ")}`);
+  return { preferences: { order, spans: new Map(Object.entries(spans as Record<string, StartWidgetSpan>)), removed } };
 }
 
-export const writeDashboardLayout = (preferences: DashboardPreferences): string =>
-  JSON.stringify({ version: FORMAT_VERSION, order: preferences.order, spans: Object.fromEntries(preferences.spans), hidden: preferences.hidden });
+/** The default layout stores nothing, so Start follows its contributions again. */
+export const writeDashboardLayout = (preferences: DashboardPreferences): JsonValue | null => isDefaultLayout(preferences) ? null
+  : { version: FORMAT_VERSION, order: [...preferences.order], spans: Object.fromEntries(preferences.spans), removed: [...preferences.removed] };
 
 /** The framed widgets that the order names take their slots in that order; every other widget keeps its default place. */
 const ordered = <W extends Pick<DashboardItem, "key" | "framed">>(widgets: readonly W[], order: readonly string[]): readonly W[] => {
@@ -77,36 +78,87 @@ const ordered = <W extends Pick<DashboardItem, "key" | "framed">>(widgets: reado
     : { taken: state.taken, widgets: [...state.widgets, widget] }, { taken: 0, widgets: [] }).widgets;
 };
 
-/** Applies order, spans, and hiding to Start's widgets in their default order; IDs of widgets that are not there are ignored. */
-export function arrangeWidgets<W extends DashboardItem>(widgets: readonly W[], preferences: DashboardPreferences): ArrangedWidgets<W> {
+/** Applies order, sizes, and removals to Start's widgets in their default order; IDs of widgets that are not there and sizes a widget does not offer are ignored. */
+export function arrangeWidgets<W extends ArrangeableItem>(widgets: readonly W[], preferences: DashboardPreferences): ArrangedWidgets<W> {
   const keys = widgets.map((widget) => widget.key);
   const twice = keys.find((key, index) => keys.indexOf(key) !== index);
   if (twice !== undefined) throw new Error(`Start has two widgets with the ID ${twice}.`);
-  const hidden = new Set(preferences.hidden);
-  const arranged = ordered(widgets, preferences.order)
-    .map((widget) => widget.framed ? { ...widget, span: preferences.spans.get(widget.key) ?? widget.span } : widget);
+  const removed = new Set(preferences.removed);
+  const chosen = (widget: W): StartWidgetSpan => {
+    const span = preferences.spans.get(widget.key);
+    return span !== undefined && widget.sizes.includes(span) ? span : widget.span;
+  };
+  const arranged = ordered(widgets, preferences.order).map((widget) => widget.framed ? { ...widget, span: chosen(widget) } : widget);
   return {
-    shown: arranged.filter((widget) => !widget.framed || !hidden.has(widget.key)),
-    hidden: arranged.filter((widget) => widget.framed && hidden.has(widget.key)),
+    shown: arranged.filter((widget) => !widget.framed || !removed.has(widget.key)),
+    removed: widgets.filter((widget) => widget.framed && removed.has(widget.key)),
   };
 }
 
-/** The default span stores no choice, so a widget follows its contribution again. */
-export function withSpan(preferences: DashboardPreferences, key: string, span: StartWidgetSpan, fallback: StartWidgetSpan): DashboardPreferences {
-  const others = [...preferences.spans].filter(([id]) => id !== key);
-  return { ...preferences, spans: new Map(span === fallback ? others : [...others, [key, span]]) };
+/** The framed widgets on the dashboard as edit mode starts from them. */
+export const draftOf = (shown: readonly ArrangeableItem[]): DashboardDraft =>
+  shown.filter((widget) => widget.framed).map(({ key, span }) => ({ key, span }));
+
+const placeOf = (draft: DashboardDraft, key: string): number => {
+  const index = draft.findIndex((widget) => widget.key === key);
+  if (index < 0) throw new Error(`Start has no widget ${key} on the dashboard.`);
+  return index;
+};
+
+/** Moves a widget to a place among the widgets on the dashboard, counted after taking it out. */
+export function moveWidget(draft: DashboardDraft, key: string, to: number): DashboardDraft {
+  const from = placeOf(draft, key);
+  const others = draft.filter((_, index) => index !== from);
+  if (!Number.isInteger(to) || to < 0 || to > others.length) throw new Error(`Start cannot move ${key} to place ${to} of ${draft.length}.`);
+  return [...others.slice(0, to), draft[from]!, ...others.slice(to)];
 }
 
-/** Swaps a widget with a neighbor in the order of all framed widgets, hidden ones included; the default order stores no order, so later widgets keep their default place. */
-export function withSwap(preferences: DashboardPreferences, framed: readonly string[], key: string, neighbor: string): DashboardPreferences {
-  const missing = [key, neighbor].find((id) => !framed.includes(id));
-  if (missing !== undefined) throw new Error(`Start has no widget ${missing} to move.`);
-  const current = ordered(framed.map((id) => ({ key: id, framed: true })), preferences.order).map((widget) => widget.key);
-  const swapped = current.map((id) => id === key ? neighbor : id === neighbor ? key : id);
-  return { ...preferences, order: swapped.every((id, index) => id === framed[index]) ? [] : swapped };
+export function resizeWidget(draft: DashboardDraft, key: string, span: StartWidgetSpan, sizes: readonly StartWidgetSpan[]): DashboardDraft {
+  if (!sizes.includes(span)) throw new Error(`Start widget ${key} offers no size ${span}.`);
+  placeOf(draft, key);
+  return draft.map((widget) => widget.key === key ? { key, span } : widget);
 }
 
-export function withHidden(preferences: DashboardPreferences, key: string, hide: boolean): DashboardPreferences {
-  const others = preferences.hidden.filter((id) => id !== key);
-  return { ...preferences, hidden: hide ? [...others, key] : others };
+export function removeWidget(draft: DashboardDraft, key: string): DashboardDraft {
+  placeOf(draft, key);
+  return draft.filter((widget) => widget.key !== key);
+}
+
+/** A widget from the gallery joins at the end in its default size. */
+export function addWidget(draft: DashboardDraft, widget: Pick<ArrangeableItem, "key" | "span">): DashboardDraft {
+  if (draft.some((entry) => entry.key === widget.key)) throw new Error(`Start widget ${widget.key} is already on the dashboard.`);
+  return [...draft, { key: widget.key, span: widget.span }];
+}
+
+/** Keeps a draft in step with widgets that change while Start is edited: one that disappears leaves it, one that was not there when editing began joins at the end. */
+export function reconcileDraft(draft: DashboardDraft, widgets: readonly ArrangeableItem[], known: ReadonlySet<string>): DashboardDraft {
+  const framed = new Map(widgets.filter((widget) => widget.framed).map((widget) => [widget.key, widget]));
+  const kept = draft.flatMap((widget) => {
+    const current = framed.get(widget.key);
+    return current === undefined ? [] : [current.sizes.includes(widget.span) ? widget : { key: widget.key, span: current.span }];
+  });
+  const placed = new Set(kept.map((widget) => widget.key));
+  const arrived = [...framed.values()].filter((widget) => !known.has(widget.key) && !placed.has(widget.key)).map(({ key, span }) => ({ key, span }));
+  return arrived.length === 0 && kept.length === draft.length && kept.every((widget, index) => widget === draft[index]) ? draft : [...kept, ...arrived];
+}
+
+/** The preferences that show the draft; the default order and default sizes store nothing, and widgets that are not there now keep their removal and size while their place falls back to the default. */
+export function preferencesOf(draft: DashboardDraft, widgets: readonly ArrangeableItem[], previous: DashboardPreferences): DashboardPreferences {
+  const framed = widgets.filter((widget) => widget.framed);
+  const present = new Set(widgets.map((widget) => widget.key));
+  const placed = new Set(draft.map((widget) => widget.key));
+  if (placed.size !== draft.length) throw new Error("A Start widget is placed twice.");
+  const defaults = new Map(framed.map((widget) => [widget.key, widget]));
+  const stranger = draft.find((widget) => !defaults.has(widget.key));
+  if (stranger !== undefined) throw new Error(`Start has no widget ${stranger.key} to place.`);
+  const unsized = draft.find((widget) => !defaults.get(widget.key)!.sizes.includes(widget.span));
+  if (unsized !== undefined) throw new Error(`Start widget ${unsized.key} offers no size ${unsized.span}.`);
+  const inDefaultOrder = framed.filter((widget) => placed.has(widget.key)).map((widget) => widget.key);
+  const order = draft.map((widget) => widget.key);
+  const chosen = draft.filter((widget) => widget.span !== defaults.get(widget.key)!.span).map((widget): [string, StartWidgetSpan] => [widget.key, widget.span]);
+  return {
+    order: order.every((key, index) => key === inDefaultOrder[index]) ? [] : order,
+    spans: new Map([...[...previous.spans].filter(([key]) => !present.has(key)), ...chosen]),
+    removed: [...previous.removed.filter((key) => !present.has(key)), ...framed.filter((widget) => !placed.has(widget.key)).map((widget) => widget.key)],
+  };
 }

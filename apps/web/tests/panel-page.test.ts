@@ -8,8 +8,12 @@ import { PluginRegistry, type StartSectionContext, type WebPlugin } from "../src
 import { PanelPage } from "../src/panel/PanelPage";
 import { canDeleteRun, RunLine, RunList } from "../src/panel/RunLine";
 import { isPanelActionMessage, isPanelStateMessage, type PanelAction, type PanelState, type ConnectionView } from "../src/panel/contract";
+import type { PreferenceStore } from "../src/preferences";
 
-const render = (state: PanelState) => renderToStaticMarkup(createElement(PanelPage, { state, send: () => {} }));
+/** Start reads its layout from the server; these renders never get past loading, so the store only has to exist. */
+const preferences: PreferenceStore = { read: async () => null, write: async () => {} };
+
+const render = (state: PanelState) => renderToStaticMarkup(createElement(PanelPage, { preferences, state, send: () => {} }));
 
 const connection = (overrides: Partial<ConnectionView> = {}): ConnectionView => ({
   name: "workshop",
@@ -63,7 +67,7 @@ test("Start sections receive all listed runs with metadata and open through the 
     contexts.push(context);
     return createElement("section", null, createElement("h2", null, "Work documents"));
   } }] }]);
-  const html = renderToStaticMarkup(createElement(PanelPage, { registry, state: page({ connections: [connection({ runs })] }), send: (action) => actions.push(action) }));
+  const html = renderToStaticMarkup(createElement(PanelPage, { preferences, registry, state: page({ connections: [connection({ runs })] }), send: (action) => actions.push(action) }));
   assert.ok(html.indexOf('>Continue<') < html.indexOf('>Work documents<'));
   assert.doesNotMatch(html, />Run 0</, "the oldest run is outside Continue");
   assert.deepEqual(contexts[0]!.runs, [...runs].reverse(), "the section receives the complete list, newest first, with unchanged metadata");
@@ -72,15 +76,18 @@ test("Start sections receive all listed runs with metadata and open through the 
   assert.deepEqual(actions, [{ action: "openRun", name: "workshop", runId: "run-0" }]);
   contexts.length = 0;
   for (const current of ["runs", "connections"] as const) {
-    renderToStaticMarkup(createElement(PanelPage, { registry, state: page({ page: current }), send: () => {} }));
+    renderToStaticMarkup(createElement(PanelPage, { preferences, registry, state: page({ page: current }), send: () => {} }));
   }
   assert.equal(contexts.length, 0, "only Start mounts the sections");
 });
 
-test("Start sections retain contribution order and empty sections add no markup", () => {
+test("Start sections retain contribution order and empty sections add nothing but a wrapper without a box", () => {
   const state = page();
   const empty = registryWith([{ id: "test.empty", startSections: [{ id: "empty", order: 0, Section: () => null }] }]);
-  assert.equal(renderToStaticMarkup(createElement(PanelPage, { registry: empty, state, send: () => {} })), render(state));
+  const wrapper = '<div class="contents" data-start-section="empty"></div>';
+  const withEmpty = renderToStaticMarkup(createElement(PanelPage, { preferences, registry: empty, state, send: () => {} }));
+  assert.ok(withEmpty.includes(wrapper));
+  assert.equal(withEmpty.replace(wrapper, ""), render(state));
   const section = (id: string, order: number) => ({ id, order, Section: () => createElement("section", null, id) });
   const registry = registryWith([
     { id: "test.first", startSections: [section("later", 200), section("second", 100)] },
@@ -88,8 +95,8 @@ test("Start sections retain contribution order and empty sections add no markup"
     { id: "test.disabled", enabled: () => false, startSections: [section("hidden", 0)] },
   ]);
   assert.deepEqual(registry.startSections.map((section) => section.id), ["first", "second", "later"]);
-  const html = renderToStaticMarkup(createElement(PanelPage, { registry, state, send: () => {} }));
-  assert.match(html, /<section>first<\/section><section>second<\/section><section>later<\/section>/);
+  const html = renderToStaticMarkup(createElement(PanelPage, { preferences, registry, state, send: () => {} }));
+  assert.match(html, /<section>first<\/section><\/div><div[^>]*><section>second<\/section><\/div><div[^>]*><section>later<\/section>/);
   assert.doesNotMatch(html, />hidden</);
   assert.deepEqual(registryWith([]).startSections, []);
   assert.throws(() => registryWith([{ id: "test.duplicate", startSections: [section("same", 0), section("same", 1)] }]), /Start section registered twice: same/);
@@ -102,24 +109,43 @@ test("a Start section with a title becomes a framed widget with its span; withou
     { id: "auto", order: 20, title: "Auto items", span: "narrow", Section: () => createElement("p", null, "Auto content") },
     { id: "plain", order: 30, Section: () => createElement("section", null, "Plain section") },
   ] }]);
-  const html = renderToStaticMarkup(createElement(PanelPage, { registry, state: page(), send: () => {} }));
-  assert.match(html, /<section aria-label="Work board"[^>]*><div[^>]*><h2[^>]*>Work board<\/h2><div[^>]*><button[^>]*aria-label="Arrange Work board"[^>]*>.*?<\/button><\/div><\/div><div[^>]*data-start-widget-body="board"><p>Board content<\/p>/,
-    "the host draws the title row with the widget's menu above the content");
+  const html = renderToStaticMarkup(createElement(PanelPage, { preferences, registry, state: page(), send: () => {} }));
+  assert.match(html, /<section aria-label="Work board"[^>]*><div[^>]*><h2[^>]*>Work board<\/h2><\/div><div[^>]*data-start-widget-body="board"><p>Board content<\/p>/,
+    "the host draws the title row above the content");
   assert.match(html, /data-start-widget="board" style="grid-column:span 12 \/ span 12"/, "a widget without span fills a row and is known by its contribution ID");
   assert.match(html, /data-start-widget="auto" style="grid-column:span 12 \/ span 12"/, "a narrow widget alone in its row fills it");
   assert.match(html, /data-start-widget="start.new" style="grid-column:span 4 \/ span 4"/);
   assert.match(html, /data-start-widget="start.continue" style="grid-column:span 8 \/ span 8"/);
-  assert.match(html, /<\/div><section>Plain section<\/section><\/div>/, "a section without a title is rendered without a frame");
-  assert.match(html, /<section>Plain section<\/section><\/div><div[^>]*><button[^>]*>.*?Customize<\/button><\/div>/, "Customize follows the grid");
+  assert.match(html, /<div class="contents" data-start-section="plain"><section>Plain section<\/section><\/div>/, "a section without a title is rendered without a frame or a box of its own");
   assert.ok(html.indexOf(">Work board<") < html.indexOf(">Auto items<") && html.indexOf(">Auto items<") < html.indexOf(">Plain section<"));
 });
 
-test("Start widgets reject a span without a title, an empty title, and an unknown span", () => {
+test("Start shows no arrangement controls outside edit mode, only Edit before the widgets, which waits for the stored layout", () => {
+  const registry = registryWith([{ id: "test.widgets", startSections: [{ id: "board", order: 10, title: "Work board", Section: () => createElement("p", null, "Board content") }] }]);
+  const html = renderToStaticMarkup(createElement(PanelPage, { preferences, registry, state: page(), send: () => {} }));
+  assert.match(html, /<button(?=[^>]*data-edit-start="true")(?=[^>]*disabled="")[^>]*>.*?Edit<\/button>/, "Edit is there and waits until the layout is read");
+  assert.ok(html.indexOf("data-edit-start") < html.indexOf("data-dashboard"), "Edit stands above the first widget row");
+  assert.match(html, /data-dashboard="grid"[^>]*aria-busy="true"|aria-busy="true"[^>]*data-dashboard="grid"/);
+  assert.doesNotMatch(html, /Arrange|Customize|Move |Remove |Add widget|data-resize-handle|data-control/);
+  const without = renderToStaticMarkup(createElement(PanelPage, { registry, state: page(), send: () => {} }));
+  assert.doesNotMatch(without, /data-edit-start|aria-busy="true"/, "without a preference store, as in the local VS Code shell, Start shows its default layout and no Edit");
+  assert.match(without, /data-start-widget="board"/);
+});
+
+test("Start widgets reject a span, sizes, or a description without a title, empty texts, and unknown or incomplete sizes", () => {
   const section = (extra: Record<string, unknown>) => registryWith([{ id: "test.widget", startSections: [{ id: "widget", order: 0, Section: () => null, ...extra }] }]);
   assert.throws(() => section({ span: "half" }), /Start section widget declares a span without a title/);
   assert.throws(() => section({ title: " " }), /Start section widget has an empty title/);
   assert.throws(() => section({ title: "Widget", span: "third" }), /Start section widget has the span third; allowed are narrow, half, wide, full/);
-  assert.deepEqual(section({ title: "Widget", span: "wide" }).startSections.map(({ title, span }) => ({ title, span })), [{ title: "Widget", span: "wide" }]);
+  assert.throws(() => section({ description: "Shows things" }), /Start section widget declares a description without a title/);
+  assert.throws(() => section({ title: "Widget", description: " " }), /Start section widget has an empty description/);
+  assert.throws(() => section({ sizes: ["full"] }), /Start section widget declares sizes without a title/);
+  assert.throws(() => section({ title: "Widget", sizes: ["third", "full"] }), /Start section widget has the size third; allowed are narrow, half, wide, full/);
+  assert.throws(() => section({ title: "Widget", sizes: ["full", "full"] }), /Start section widget names a size twice/);
+  assert.throws(() => section({ title: "Widget", sizes: ["narrow", "half"] }), /Start section widget declares sizes without its span full/);
+  assert.throws(() => section({ title: "Widget", span: "wide", sizes: [] }), /Start section widget declares sizes without its span wide/);
+  assert.deepEqual(section({ title: "Widget", span: "wide", description: "Shows things", sizes: ["half", "wide"] }).startSections.map(({ title, span, description, sizes }) => ({ title, span, description, sizes })),
+    [{ title: "Widget", span: "wide", description: "Shows things", sizes: ["half", "wide"] }]);
 });
 
 test("a Start section with a read right mounts only when the viewer has that right", () => {
@@ -129,7 +155,7 @@ test("a Start section with a read right mounts only when the viewer has that rig
   }] }]);
   const renderWithRights = (rights: string[]) => renderToStaticMarkup(createElement(AccessContext.Provider, {
     value: { ...createAccessContext({ enabled: true, user: { id: "alice", label: "Alice", rights, startEntries: [] } }), logout: async () => {} },
-  }, createElement(PanelPage, { registry, state, send: () => {} })));
+  }, createElement(PanelPage, { preferences, registry, state, send: () => {} })));
   assert.doesNotMatch(renderWithRights([]), /Work documents/);
   assert.match(renderWithRights(["test.read"]), /Work documents/);
 });

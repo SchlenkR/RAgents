@@ -1390,8 +1390,8 @@ Sign-in is a transport matter: HTTP with cookie, bearer, or `?access=` as before
 
 Core contracts: `ragents.chat.*`, `ragents.runs.*` (run list and read markers, run view, journal,
 queues, stop, and questions from the engine), `ragents.startOptions.*`,
-`ragents.runs.prepare`, `ragents.settings.*`, `ragents.plugins.bootstrap`, `ragents.external.set`,
-and the channels `ragents.runs`, `ragents.run`, and `ragents.chat`
+`ragents.runs.prepare`, `ragents.settings.*`, `ragents.preferences.*`, `ragents.plugins.bootstrap`,
+`ragents.external.set`, and the channels `ragents.runs`, `ragents.run`, and `ragents.chat`
 (`apps/server/src/api/contracts.ts`, `packages/ragents/src/http/contracts.ts`). Whatever is not a
 JSON message remains delivery through `host.http`: static interface, mini-app frames,
 artifact and attachment content under `/files/runs/<run>/artifacts/<id>` and
@@ -1563,7 +1563,7 @@ Instead, plugins fill typed slots for:
   In both browser and VS Code, only the selected server supplies these contributions, including
   on Start before a run is opened. Contributions from different environments are never merged.
 - Start widgets (`startSections`): `StartSectionContribution` declares `id`, `order`, optional
-  `readRight`, optional `title` and `span`, and `Section`, a component receiving `StartSectionContext`
+  `readRight`, optional `title`, `description`, `span`, and `sizes`, and `Section`, a component receiving `StartSectionContext`
   with `runs` and `onOpenRun(runId)`. With `title` the section is a widget of the Start dashboard: the
   host draws its frame, a `SectionHeading` title row above the content, and gives it a tab on a narrow
   dashboard. `span` (`StartWidgetSpan`: `narrow`, `half`, `wide`, or `full`, by default `full`) is its
@@ -1571,11 +1571,15 @@ Instead, plugins fill typed slots for:
   content adapts to the widget's own width with Tailwind's `@container` variants (`@md/widget:`, or
   plain `@md:` for the nearest container). Without `title` a section keeps its earlier form: it owns
   its heading and spacing, fills a whole row, and stays below the tabs on a narrow dashboard.
-  `span` without `title`, a blank `title`, and an unknown `span` are registry errors. Widgets follow
+  `description` is one sentence for the widget gallery of Start's edit mode. `sizes` lists the
+  sizes the viewer may choose there, by default all four; it must include `span` (or `full` without
+  one), and the resize handle and the keyboard offer only these. `span`, `description`, or `sizes`
+  without `title`, a blank `title` or `description`, an unknown `span` or size, a size named twice,
+  and `sizes` without the widget's span are registry errors. Widgets follow
   "New" and "Continue", sorted by `order` and then `id`; the contract keeps its name `startSections`,
-  so existing contributions load unchanged. The `id` is also the widget's ID in the viewer's Start
-  layout, so it stays the same across releases; `title` and `span` are the defaults that the
-  viewer's arrangement starts from. The context
+  and both new fields are optional, so existing contributions load unchanged. The `id` is also the
+  widget's ID in the viewer's Start layout, so it stays the same across releases; `title` and `span`
+  are the defaults that the viewer's arrangement starts from. The context
   carries every run the server lists for the viewer, sorted by update time, through readonly
   `ConnectionRun` values including `id`, `title`, `updatedAt`, and optional `metadata` keyed by
   server-side `sessionMetadata` contribution ID. `connectionRunOf` preserves `ListedSession.metadata`;
@@ -3377,32 +3381,57 @@ switching and a widget that later shows content reappears; a `MutationObserver` 
 in step with empty bodies. The page's scroller reserves its scrollbar gutter, so the measured width
 does not flip at the limits when a scrollbar appears.
 
-**Arranging Start.** The viewer arranges the dashboard in place. Every framed widget ends its title
-row with a "..." button (`Arrange <title>`), a `DropdownMenu` like the overflow menu of the tabs:
-"Size" with the radio items Narrow, Half, Wide, and Full (the current one checked, the default from
-the contribution marked "Default"), "Move earlier" and "Move later" (disabled at the ends), and
-"Hide". Sizes stay `StartWidgetSpan` values, so `dashboardLayout` applies its tiers to them unchanged,
-and the tabs below 700 pixels follow the arranged order without hidden widgets. "Customize" follows
-the grid as a text button and ends the tab strip as an icon button; its menu lists the hidden
-widgets as "Show <title>" and offers "Reset layout", disabled while no arrangement is stored. After
-"Hide" focus moves to the menu button of the next visible widget, at the end to the previous one,
-and to Customize when neither is visible, as usually in tabs; after "Show" and "Reset layout" it
-returns to Customize. The model is
-`panel/dashboard-preferences.ts`: `DashboardPreferences` holds `order`, `spans`, and `hidden`, each by
-widget ID, so any ID works, also one of a widget that only some users have. Widget IDs are
-`start.new`, `start.continue`, and the `id` of a start section; two widgets with the same ID are an
-error. `arrangeWidgets` puts the framed widgets that `order` names into their slots in that order,
-while sections without a title and widgets that `order` does not name keep their default place, so a
-new widget appears where its contribution puts it; spans and hiding apply only to framed widgets,
-and IDs of widgets that are not there are ignored. Moving swaps a widget with its visible neighbor
-in the order of all framed widgets, hidden ones included; the default order and a span equal to the
-default store nothing. The server has no per-user preference store (`ragents.settings.*` keeps
-profile-wide settings, the appearance lives in browser storage and VS Code settings), so the layout
-is kept like the remembered tab in the browser storage of the page that shows Start, per server
-origin and signed-in user under `ragents.start.layout:<encoded-origin>` or
-`ragents.start.layout:<encoded-origin>:<encoded-user>`, as JSON with `version` 1, `order`, `spans`, and
-`hidden`; the browser and VS Code each keep their own. A stored value that cannot be read leaves
-the default layout and shows its cause above the dashboard with "Reset layout".
+**Arranging Start.** View mode has no arrangement controls. "Edit" (`data-edit-start`) stands at
+the top right above the first widget row, or as a pencil icon (`Edit`) at the end of the tab strip,
+where `OverflowTabsList` leaves it its room; it waits until the stored layout is read. Edit mode
+works on a draft: the mode indicator (group "Edit Start" with "Editing Start", a hint line, "Reset
+layout", "Cancel", and "Done") replaces the Edit row; "Done" saves, "Cancel" and Escape (outside a
+dialog or a running drag) discard the draft, and focus returns to Edit. At 700 pixels and more the
+grid stays and every framed widget gets a dashed outline that leaves its geometry unchanged, a title
+row with the drag handle (`Move <title>`), its current size, and "x" (`Remove <title>`), and a resize
+handle on its right edge when it offers more than one size; its body stays mounted but is `inert` and
+dimmed, and a widget with nothing to show appears with "Nothing to show right now.". Dragging the
+handle moves the widget live: the others reflow as the pointer passes the middle of a widget in
+reading order, the dragged widget marks its new place with a primary outline and a drop indicator at
+its leading edge, and a label with its title follows the pointer. Dragging the right edge measures the
+distance in columns of the twelve-column grid and snaps to the nearest offered size by its wide
+columns (`nearestSpan`), shows that size in the title row, and reflows live. Pointer handling is the
+shared `usePointerDrag` (`lib/pointer-drag.ts`, also used by the dock): pointer capture on the grid,
+Escape, `pointercancel`, and leaving the window end a drag and restore the draft from its start.
+"Add widget" follows the widgets as a dashed tile of a narrow width; its dialog (`Add widget`) lists
+every framed widget that is not on the dashboard as `Add <title>` with its description and sizes,
+the usual size marked; choosing one adds it at the end in its default size. The drag handle also
+takes the keyboard (described by a hidden hint): the arrow keys move the widget one place in reading
+order, Shift with the arrow keys steps to the next larger (right, up) or smaller (left, down)
+offered size (`adjacentSpan`), and Delete or Backspace removes it; a polite live region announces
+each change, the ends, and saving, and focus follows the moved widget or, after a removal, the next
+handle. Below 700 pixels edit mode is a vertical list of rows with handle, title, "Move <title> up",
+"Move <title> down", and "x", without sizes and with the bodies and the sections without a title
+hidden; dragging there compares only the vertical middle of each row.
+
+The model is `panel/dashboard-preferences.ts`: `DashboardPreferences` holds `order`, `spans`, and
+`removed`, each by widget ID, so any ID works, also one of a widget that only some users have or
+that a plugin adds per user (`ragents.global-apps:<name>`). Widget IDs are `start.new`,
+`start.continue`, and the `id` of a start section; two widgets with the same ID are an error.
+`arrangeWidgets` puts the framed widgets that `order` names into their slots in that order, while
+sections without a title and widgets that `order` does not name keep their default place, so a new
+widget appears where its contribution puts it; sizes and removal apply only to framed widgets, and
+IDs of widgets that are not there and sizes a widget does not offer are ignored. A draft
+(`DashboardDraft`) is the list of framed widgets on the dashboard with their sizes; `moveWidget`,
+`resizeWidget` (only offered sizes), `removeWidget`, and `addWidget` change it, `reconcileDraft`
+drops widgets that disappear while editing and appends those that arrive, and `preferencesOf` turns
+it back into preferences: the default order and default sizes store nothing, and widgets that are
+not there keep their removal and size while their place falls back to the default. Built-in New and
+Continue offer all four sizes. The layout is the preference `start.layout` of the server's per-user
+preference store (`spec/profiles.md`, User preferences), read whenever Start opens and written on
+"Done", so the browser and VS Code show the same layout: JSON with `version` 1, `order`, `spans`,
+and `removed`, or `null` for the default layout. `PanelPage` passes the store from `RunPanelApp`
+(`SERVER_PREFERENCES` in `preferences.ts`) to Start; the local VS Code shell has none, so a Start
+rendered there shows the default layout without Edit. While
+the layout loads, the widgets are mounted but invisible; a failed read shows its cause with "Retry"
+and the default layout, with Edit disabled, and a stored value that cannot be read shows its cause
+with the default layout until "Done" replaces it. A failed save keeps edit mode and the draft with
+its cause. The chosen tab of a narrow Start belongs to the device and stays in browser storage.
 
 **Start** has no page header or server block. **New** appears first as soon as the selected server
 allows new runs. First is its default template from `ConnectionView.defaultEntry` with the marker

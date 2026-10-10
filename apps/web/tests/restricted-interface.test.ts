@@ -30,14 +30,14 @@ test("restricted Start shows only the allowed setup without free chat, composer 
       { id: "example.skill", owner: "example", action: "skill", skill: "skill", category: "Free", title: "Free task", description: "Start freely", prompt: "Private start task" },
     ],
   });
-  const html = renderRestricted(createElement(PanelPage, { registry, send: () => {}, state: { theme: "dark", page: "start", profileSuggestions: [], connections: [{
+  const html = renderRestricted(createElement(PanelPage, { preferences: { read: async () => null, write: async () => {} }, registry, send: () => {}, state: { theme: "dark", page: "start", profileSuggestions: [], connections: [{
     name: "example", kind: "server", address: "http://localhost:4710", route: { kind: "server", host: "localhost:4710", localHost: false }, state: { kind: "connected" },
     runs: [], entries: connectionEntriesOf(registry, operator), canCreate: true, canCreateFree: operator.can("runs.create"),
   }] } }));
   assert.match(html, /Sync/);
   assert.doesNotMatch(html, />Workflows</);
   assert.match(html, /aria-label="Start Sync"/);
-  assert.doesNotMatch(html, /<button[^>]*disabled=""/);
+  assert.doesNotMatch(html.slice(html.indexOf('aria-label="Templates"')), /<button[^>]*disabled=""/, "the allowed template can start");
   assert.doesNotMatch(html, /textarea|New chat|Other workflow|Free task|Private start task|Run script|start-source|[Ss]tart options/);
 });
 

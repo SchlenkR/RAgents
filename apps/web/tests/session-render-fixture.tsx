@@ -56,6 +56,7 @@ const fixture = {
     switch (contract.id) {
       case "ragents.runs.list": fixture.polls += 1; return structuredClone(fixture.runs);
       case "ragents.runs.markViewed": return null;
+      case "ragents.preferences.read": return null;
       case "ragents.startOptions.list": return [];
       case "ragents.runs.view": return structuredClone(view);
       case "ragents.chat.actorHistory": return { revision: view.revision, actors: {} };

@@ -1058,14 +1058,24 @@ third and Continue in two thirds of the row; from 700 pixels narrow widgets take
 alone in its row fills it. Below 700 pixels Start shows one widget at a time with tabs at the top;
 the chosen tab is remembered for this server address. A plugin section without a title follows
 below the tabs, and a widget with nothing to show has neither a place nor a tab.</p>
-<p>Arrange Start where it is. The &quot;...&quot; button at the end of a widget&#39;s title row sets its size
-(Narrow, Half, Wide, or Full; &quot;Default&quot; marks the size the widget comes with), moves it earlier or
-later, or hides it. A narrower Continue, for example, gives the widgets beside it more room. The
-sizes follow the same rules as above, so they still halve at medium widths, and in a narrow panel the
-tabs follow your order and leave out hidden widgets. &quot;Customize&quot; below the widgets, or the icon at the
-end of the tabs, lists the hidden widgets with &quot;Show&quot; and offers &quot;Reset layout&quot;. Start remembers the
-arrangement per server address and user in this browser or VS Code panel; the browser and VS Code
-each keep their own. A widget added later appears at its usual place.</p>
+<p>Arrange Start in its edit mode. &quot;Edit&quot; at the top right of Start, or the pencil at the end of the
+tabs in a narrow panel, switches to it; &quot;Editing Start&quot; above the widgets shows the mode until
+&quot;Done&quot; saves the layout. &quot;Cancel&quot; or Escape discards every change. While you edit, every widget
+gets a dashed frame and its content rests: drag a widget by the handle before its title to another
+place, and the other widgets make room as you drag; drag its right edge to change its size, which
+snaps to Narrow, Half, Wide, or Full as far as the widget offers them and shows the size in its
+title row; &quot;x&quot; removes it from Start. &quot;Add widget&quot; after the widgets opens a gallery of every widget
+that is not on Start, each with a short description and its sizes; choosing one adds it at the end
+in its usual size. &quot;Reset layout&quot; goes back to the order and sizes Start comes with. With the
+keyboard, focus a widget&#39;s handle: the arrow keys move it, Shift with the arrow keys changes its
+size, and Delete removes it; a screen reader hears every change. In a narrow panel the edit mode
+lists the widgets as rows with a handle, up and down buttons, and &quot;x&quot;; sizes are chosen on a wider
+Start. Sizes follow the same rules as above, so they still halve at medium widths, and the tabs of a
+narrow panel follow your order.</p>
+<p>Start keeps the layout on the server for your user, so the browser and VS Code show the same
+arrangement; without sign-in there is one layout for the server. The chosen tab of a narrow panel
+stays with this browser or VS Code panel. A widget added to the server later appears at its usual
+place, and a widget you removed stays removed, also after it was unavailable for a while.</p>
 <p>Each widget arranges its content for its own width. Template cards stand in several columns when
 the widget is wide enough, between 240 and 320 pixels wide; in a widget narrower than about 450
 pixels they become compact rows across its width with one line of description, as in the New

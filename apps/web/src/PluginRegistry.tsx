@@ -206,8 +206,12 @@ export interface StartSectionContribution {
   readRight?: string;
   /** Makes the section a widget: the host draws its title row and, on a narrow dashboard, its tab; without it the section owns its heading and fills a row. */
   title?: string;
+  /** One sentence about the widget for the gallery of Start's edit mode; requires a title. */
+  description?: string;
   /** The preferred width of a widget with a title, by default the whole row. */
   span?: StartWidgetSpan;
+  /** The sizes the viewer may give the widget in edit mode, by default all; they include its span. */
+  sizes?: StartWidgetSpan[];
   Section: ComponentType<StartSectionContext>;
 }
 
@@ -471,6 +475,16 @@ export class PluginRegistry {
       if (section.span !== undefined && section.title === undefined) throw new Error(`Start section ${section.id} declares a span without a title`);
       if (section.span !== undefined && !START_WIDGET_SPANS.includes(section.span)) {
         throw new Error(`Start section ${section.id} has the span ${String(section.span)}; allowed are ${START_WIDGET_SPANS.join(", ")}`);
+      }
+      if (section.description !== undefined && section.title === undefined) throw new Error(`Start section ${section.id} declares a description without a title`);
+      if (section.description !== undefined && section.description.trim() === "") throw new Error(`Start section ${section.id} has an empty description`);
+      if (section.sizes !== undefined) {
+        if (section.title === undefined) throw new Error(`Start section ${section.id} declares sizes without a title`);
+        const unknown = section.sizes.find((size) => !START_WIDGET_SPANS.includes(size));
+        if (unknown !== undefined) throw new Error(`Start section ${section.id} has the size ${String(unknown)}; allowed are ${START_WIDGET_SPANS.join(", ")}`);
+        if (new Set(section.sizes).size !== section.sizes.length) throw new Error(`Start section ${section.id} names a size twice`);
+        const span = section.span ?? "full";
+        if (!section.sizes.includes(span)) throw new Error(`Start section ${section.id} declares sizes without its span ${span}`);
       }
     }
     this.needsRunView = this.activePlugins.some((plugin) => plugin.needsRunView);

@@ -1145,7 +1145,7 @@ const startUi = {
   id: "ragents.example",
   startSections: [{
     id: "ragents.example.documents", order: 100, readRight: "ragents.example.read",
-    title: "Work documents", span: "half",
+    title: "Work documents", description: "Documents of all runs, newest first.", span: "half", sizes: ["half", "wide", "full"],
     Section: ({ runs, onOpenRun }) => {
       const documents = runs.flatMap((run) => {
         const value = run.metadata?.["ragents.example.documents"];
@@ -1166,13 +1166,15 @@ Start shows New templates, then Continue with the fifteen recent runs, then plug
 
 title makes the section a widget: the host draws its title row and, below 700 pixels of Start's own width, its tab. span chooses its preferred width on a wide dashboard: narrow (a third), half, wide (two thirds), or full, the default. Its body is a size container named widget, so @container variants such as @md/widget: follow the widget's width.
 
+In Start's edit mode the viewer moves, resizes, removes, and adds widgets. description is the sentence the widget gallery shows; sizes limits the sizes the viewer may choose, by default all four, and must include span. The id is the widget's ID in the viewer's saved layout, so it stays the same across releases.
+
 The server filters the run list for the viewer; the slot performs no additional run access checks. readRight hides the entire section without the named permission.
 
 onOpenRun uses the same navigation as a run row in both browser and VS Code server frames. The local VS Code shell has no plugin registry and contributes no sections.
 
 Returning null leaves no cell, tab, or gap. A section without title keeps its own heading and spacing and fills a row; span requires a title.
 
-Contract fields: web.startSections, startSection.id, startSection.order, startSection.readRight, startSection.title, startSection.span, startSection.Section, startSectionContext.runs, startSectionContext.onOpenRun.
+Contract fields: web.startSections, startSection.id, startSection.order, startSection.readRight, startSection.title, startSection.description, startSection.span, startSection.sizes, startSection.Section, startSectionContext.runs, startSectionContext.onOpenRun.
 
 ### Run data and React context
 
@@ -2043,6 +2045,10 @@ Generated automatically from the registered contracts; the host checks methods w
 
 | ragents.plugins.bootstrap | per run |
 
+| ragents.preferences.read | per run |
+
+| ragents.preferences.write | per run |
+
 | ragents.runs.delete | runs.read, runs.delete |
 
 | ragents.runs.enqueueInput | per run |
@@ -2534,8 +2540,12 @@ export interface StartSectionContribution {
   readRight?: string;
   /** Makes the section a widget: the host draws its title row and, on a narrow dashboard, its tab; without it the section owns its heading and fills a row. */
   title?: string;
+  /** One sentence about the widget for the gallery of Start's edit mode; requires a title. */
+  description?: string;
   /** The preferred width of a widget with a title, by default the whole row. */
   span?: StartWidgetSpan;
+  /** The sizes the viewer may give the widget in edit mode, by default all; they include its span. */
+  sizes?: StartWidgetSpan[];
   Section: ComponentType<StartSectionContext>;
 }
 ```
