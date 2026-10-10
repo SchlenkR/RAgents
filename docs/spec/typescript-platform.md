@@ -18,8 +18,9 @@ subset or interpreter rules.
 The context of a call provides run, actor, call identity, state, declared capabilities, logging,
 and an abort signal. `context.actor` is always present: for programs it identifies the owner, for
 snippets the acting caller. Its `handle` is the address as the acting principal's room writes it
-(`core.md`, Rooms): in `onInput` the program's own handle, in a function called from a view the
-address from the main room, in a function called as a tool the address from the caller's room, so
+(`core.md`, Rooms): in `onInput` the program's own handle, in an ordinary view function the
+address from the main room, and in a copied package's view with `capabilitiesAsActor` the address
+from the app actor's room. A tool function uses the address from the caller's room, so
 that the program can pass it to the functions it calls as that principal. `context.state.read()` reads the context state,
 `context.state.replace(value)` stages the next value. Programs use their actor state; snippets
 start with `{}` and discard that state at the end. The function returns its domain result; the
@@ -82,6 +83,47 @@ a workstation from a dedicated folder of the run on the server, never from the w
 folder. Native execution is not an additional language sandbox against arbitrary backend code.
 For nonadministrator owners, or when requested for the run or forced by the server, these
 processes use the operating system sandbox described in `plugins.md` (Server process sandbox).
+
+The existing `Orchestration.stopActors` stops exactly the requested actors, without stopping
+their descendants or sibling rooms. Global conversation reset combines it with scoped scheduler
+interruption and awaits cleanup before replacing the coordinator. Global app actors retain the
+same managed execution, state commits, and log paths as ordinary actor programs.
+
+An optional `isolated` execution request narrows the process policy to the package, build, and
+temporary folders. `ragents.global-apps` requests it for every backend. It uses the existing
+process-sandbox runtime's operating system wrapper with direct networking denied, no network
+proxy, and no Unix socket allowances. Linux also uses separate network and PID namespaces.
+Only the package, build, and temporary folders are writable. Reads are allowed from those
+folders, read-only dependencies, the real Node binary, and these operating-system paths:
+
+- macOS: `/System/Library`, `/usr/lib`, `/usr/bin/env`, `/bin/sh`, `/bin/bash`, `/dev/null`,
+  `/dev/urandom`, `/dev/random`, and `/private/etc/localtime`.
+- Linux: `/usr/lib`, `/lib`, `/lib64`, `/proc`, `/etc/ld.so.cache`, `/usr/bin/env`, `/bin/sh`,
+  and `/bin/bash`.
+
+Server-checked `global_app_file_read`, `global_app_file_write`, and `global_app_http_request`
+provide explicitly granted external access. File helpers reuse the existing canonical workspace
+path checks and final-component `O_NOFOLLOW` protection. The known parent-directory replacement
+race remains: host I/O after a path check is not atomic for the entire path, as described under
+[Workspace, sandbox tools, and processes](plugins.md#workspace-sandbox-tools-and-processes).
+App functions exposed to views use ordinary actor contracts and their explicit per-app grants.
+The persisted `capabilitiesAsActor` package flag keeps registered operator operations under the
+app actor's currently available grants. View actions use the existing operator binding and
+invocation path, not arbitrary run functions; external-capability tool calls from another actor
+reject and direct it to trigger the app's input instead.
+File and HTTP helpers authorize registered app actor execution, while `global_app_trigger`
+requires an accepted app input.
+
+Apps request process protection even for administrators in `auto` mode. An administrator's
+explicitly configured `PROCESS_SANDBOX: "off"` retains capability allow lists but leaves direct
+Node file and network access without an operating system boundary. `global_app_read.sandbox`
+reports `process`, `disabled`, or `unavailable` before activation; details name the active or
+disabled mode. Missing prerequisites fail execution without an unprotected fallback.
+
+Actor input execution retains its bounded log buffer on failure as well as success and records
+it before the terminal turn result. Staged state is still discarded on failure or cancellation.
+`RunManagement.interruptTurn` exposes the existing scheduler interruption for one actor and
+settles its managed execution; an app's wall-time deadline uses it without stopping other apps.
 
 ## TypeScript actors
 
@@ -476,8 +518,9 @@ runtime.
 - Intermediate states of a function that is still running are not journaled automatically.
 - A failed reactivation after contract drift is retried on every further call; the host does not
   remember the failure.
-- Native Node execution uses the permissions and environment of the run's server context and
-  guarantees no additional isolation against intentionally malicious backend code.
+- Native Node execution has no language sandbox. Ordinary programs use the run's server
+  context; package-isolated programs still read their dependencies, Node binary, and the explicit
+  operating-system paths above. Server file helpers retain the parent-directory replacement race.
 - A run script keeps at most 50 open starts per package; a result for an older one can no longer be
   delivered. A result whose starter is stopped is reported as runtime output of the script instead.
 - A server restart between recording a start and queueing its input leaves a record without input;

@@ -341,7 +341,24 @@ test("adds entries without losing existing entries", async () => {
   },
 };
 
-export const runModuleTemplates = [blank, chat, controlsTemplate, textAnalysis, headlessCounter, sharedList] as const;
+const headless: ActorProgramTemplate = {
+  id: "headless",
+  title: "Headless actor",
+  description: "An input handler with empty state and no functions, views or example tests.",
+  ragents: { title: "Headless actor", backend: "src/server.ts" },
+  files: {
+    "src/server.ts": `import { Type } from "typebox";
+import { defineActor } from "@ragents/server";
+
+export default defineActor({ state: Type.Object({}), functions: {}, input: { capabilities: [] } }, {
+  functions: {},
+  onInput: (_input, _context) => {},
+});
+`,
+  },
+};
+
+export const runModuleTemplates = [blank, chat, controlsTemplate, textAnalysis, headlessCounter, sharedList, headless] as const;
 
 export const templateFiles = (template: ActorProgramTemplate, name: string): Readonly<Record<string, string>> => ({
   "package.json": `${JSON.stringify({ name, private: true, type: "module", ragents: template.ragents }, null, 2)}\n`,

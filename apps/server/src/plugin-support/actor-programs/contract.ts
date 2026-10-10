@@ -43,6 +43,8 @@ export interface ActorProgramDefinition {
   directory: string;
   sourceDirectory: string;
   backendFile?: string;
+  readonly isolated?: boolean;
+  readonly capabilitiesAsActor?: boolean;
   stateSchema: object;
   stylesFile: string;
   functions: ActorFunctionDefinition[];
@@ -166,7 +168,7 @@ export const actorProgramContracts = {
     id: "ragents.actor-programs.apps",
     description: "The actor views of a run with state and calls; the tool list stays empty without runs.inspect.",
     rights: ["runs.read"],
-    input: Type.Object({ runId }, { additionalProperties: false }),
+    input: Type.Object({ runId, actorId: Type.Optional(Type.String({ minLength: 1 })) }, { additionalProperties: false }),
     result: Type.Object({
       apps: Type.Array(openJson<ActorViewListing>("ActorViewListing")),
       tools: Type.Array(openJson<ActorLocalTool>("ActorLocalTool")),

@@ -215,6 +215,28 @@ export interface StartSectionContribution {
   Section: ComponentType<StartSectionContext>;
 }
 
+/** A widget that a plugin publishes per viewer; Start arranges it like a start section with a title. */
+export interface StartWidgetContribution {
+  /** Starts with the plugin ID and a colon and stays the same across snapshots and releases, because the viewer's layout refers to it. */
+  readonly id: string;
+  readonly title: string;
+  /** One sentence about the widget for the gallery of Start's edit mode. */
+  readonly description?: string;
+  /** The preferred width, by default the whole row. */
+  readonly span?: StartWidgetSpan;
+  /** The sizes the viewer may give the widget in edit mode, by default all; they include its span. */
+  readonly sizes?: readonly StartWidgetSpan[];
+  /** Its place among the start sections, by default 200. */
+  readonly order?: number;
+  readonly readRight?: string;
+  readonly content: ReactNode;
+}
+
+export interface StartWidgetsContext extends StartSectionContext {
+  readonly signal: AbortSignal;
+  readonly update: (widgets: readonly StartWidgetContribution[]) => void;
+}
+
 export interface WorkspaceTabContext {
   active: boolean;
   navigation: SessionNavigation;
@@ -362,6 +384,7 @@ export interface WebPlugin extends WebPluginDescriptor {
   surfaceElements?: SurfaceElementContribution[];
   cardSections?: CardSectionContribution[];
   startSections?: StartSectionContribution[];
+  startWidgetsFor?: (context: StartWidgetsContext) => readonly StartWidgetContribution[] | Promise<readonly StartWidgetContribution[]>;
   chatDisplayPolicy?: ChatDisplayPolicy;
   resolveRunUrl?: RunUrlResolver;
   startOptions?: StartOptionContribution[];
@@ -409,6 +432,7 @@ export class PluginRegistry {
   readonly surfaceElements: readonly SurfaceElementContribution[];
   readonly cardSections: readonly CardSectionContribution[];
   readonly startSections: readonly StartSectionContribution[];
+  readonly startWidgetFactories: readonly { readonly id: string; readonly create: NonNullable<WebPlugin["startWidgetsFor"]> }[];
   readonly chatDisplayPolicy: ChatDisplayPolicy;
   readonly resolveRunUrl: RunUrlResolver | undefined;
   readonly startOptions: ReadonlyMap<string, StartOptionContribution>;
@@ -470,7 +494,10 @@ export class PluginRegistry {
       .flatMap((plugin) => plugin.startSections ?? [])
       .sort((left, right) => left.order - right.order || left.id.localeCompare(right.id));
     assertUnique(this.startSections, (section) => section.id, "Start section");
+    this.startWidgetFactories = this.activePlugins.flatMap((plugin) => plugin.startWidgetsFor ? [{ id: plugin.id, create: plugin.startWidgetsFor }] : []);
     for (const section of this.startSections) {
+      const publisher = this.startWidgetFactories.find((factory) => section.id.startsWith(`${factory.id}:`));
+      if (publisher !== undefined) throw new Error(`Start section ${section.id} uses the widget ID prefix of ${publisher.id}, which publishes dynamic Start widgets`);
       if (section.title !== undefined && section.title.trim() === "") throw new Error(`Start section ${section.id} has an empty title`);
       if (section.span !== undefined && section.title === undefined) throw new Error(`Start section ${section.id} declares a span without a title`);
       if (section.span !== undefined && !START_WIDGET_SPANS.includes(section.span)) {

@@ -100,4 +100,4 @@ export const chatEventsOf = (event: JournalEvent, scope: ChatProjectionScope, cu
 };
 
 export const chatHistoryOf = (events: readonly JournalEvent[], scope: ChatProjectionScope, positions = new ChatTextPositions(), pluginStates = new PluginStateProjection()): ChatEvent[] =>
-  events.flatMap((event) => chatEventsOf(event, scope, positions.observe(event), pluginStates));
+  events.flatMap((event) => chatEventsOf(event, scope, event.actorId !== scope.primaryActorId && (event.type === "model.output.completed" || event.type === "model.output.interrupted") ? undefined : positions.observe(event), pluginStates));

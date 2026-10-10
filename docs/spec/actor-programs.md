@@ -134,7 +134,7 @@ values before the transfer from the native process.
 `actor_program_create` creates a package from a template completely or not at all. The host
 builds it outside `@actors/` and moves it to `@actors/<name>` only after every step has succeeded,
 so a failed attempt leaves nothing behind and the name stays free. An existing folder of that
-name, even an empty one, is rejected. The six templates in `server/templates.ts` and
+name, even an empty one, is rejected. The seven templates in `server/templates.ts` and
 `controls-template.ts` demonstrate different forms:
 
 - `blank`: a static view on an existing actor.
@@ -143,6 +143,7 @@ name, even an empty one, is rejected. The six templates in `server/templates.ts`
 - `headless-counter`: a TypeScript actor with input handler, functions, and state but no view.
 - `text-analysis`: a TypeScript function with a shared counter and React view.
 - `shared-list`: the same list function for the view and an agent tool.
+- `headless`: an input-only backend with empty state and no functions, views, or example tests.
 
 `actor_program_activate` checks types, builds the backend and views, runs the package tests, and
 only then activates the verified version. Errors identify the location to fix.
@@ -197,6 +198,20 @@ No generated package knows its own folder. `@ragents/workflow/prompts` finds its
 its own module address (`import.meta.url`, three levels above `node_modules/@ragents/workflow`),
 all other absolute references point to libraries of the host. A package thus stays valid after
 renaming and as a copy in the build folder of the activation.
+
+Trusted plugins copy a private package between runs or rooms through `ActorProgramsService.copyPackage`.
+The service resolves the source name in its author's room, collects the normal package sources,
+and reuses verified activation for the target actor. It can require named input capabilities,
+limit declared capabilities, and bind explicit delegated grants and package isolation. A target
+room uses the same room-opening mechanism as run scripts; its package key and address become
+`room.name`.
+The target owns its sources and state independently. Replacement validates the existing actor
+state and preserves the previous active package if verification fails; global apps use this path
+to install and update paused packages in app rooms of the owner's global coordinator run, with
+optional views. Their functions, tool publication, operator policies, and view calls follow the
+ordinary actor contract, with external capabilities bounded by the app's explicit permissions.
+The copied definition persists `capabilitiesAsActor` so operator actions retain the app actor's
+grants, as described under [Capabilities and identity](#capabilities-and-identity).
 
 ### Diagnostics, type check, and domain tests
 
@@ -269,6 +284,15 @@ and cancellation at the actual call boundary. Native Node execution is not an ad
 against arbitrary backend code; file permissions and execution environment belong to the run
 workspace.
 
+Copied packages with `capabilitiesAsActor` keep the existing operator binding and invocation
+path, but execute registered operations under the app actor after checking its currently
+available capabilities. They do not inherit the run owner's broader grants. View actions use
+registered operator operations; declaring an arbitrary run function does not make it available
+to a view. A published function with capabilities rejects calls from another actor with
+"Trigger its input instead." Functions without external capabilities remain callable as tools.
+The input handler uses the app actor's explicitly permitted run functions through the ordinary
+actor input path.
+
 ## App host and functions tab
 
 Views belong to their program actor through `actorId`; their persisted definitions and API listings
@@ -276,6 +300,10 @@ carry no host placement metadata. Journals with the removed placement field or l
 lock only the affected run before replay, without changing its files.
 
 The shared app host renders the selected mini-app through `RunAppView`.
+
+`ragents.actor-programs.apps` can limit its view listing to one `actorId`. Global app widgets
+use this ordinary listing and the shared frame, state, calls, and execution-log paths for their
+app actor. A failed package in another room does not block the widget's view loading.
 
 The functions tab shows programs, owner
 actors, functions, and installed sources. It identifies a function by its package and function ID,

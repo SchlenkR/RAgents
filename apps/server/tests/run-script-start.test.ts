@@ -283,26 +283,23 @@ test("stop clears the loader while tracking unfinished preparation and never enq
   });
 });
 
-test("dispose and history reset cancel preparation without replaying a stale startup", async (t) => {
-  for (const reset of [false, true]) await t.test(reset ? "reset" : "dispose", async (t) => {
-    const blocked = phase();
-    const f = createFixture(`startup-clear-${reset}`, [packageOf()], { prepare: () => blocked.wait() });
-    t.after(async () => { blocked.release(); await f.session.drain(); f.journal.close(); rmSync(f.files, { recursive: true, force: true }); });
-    const rejected = assert.rejects(f.session.startAndWait("test.example", null), /deleted|reset/);
-    await blocked.entered;
-    if (reset) f.session.resetHistory();
-    else f.session.dispose();
-    assert.equal(replayStatus(f.session).startup, undefined);
-    let settled = false;
-    const draining = f.session.settle().then(() => { settled = true; });
-    await new Promise((resolve) => setImmediate(resolve));
-    assert.equal(settled, false);
-    blocked.release();
-    await rejected;
-    await draining;
-    assert.equal(f.journal.stateOf(f.session.id), null);
-    assert.equal(replayStatus(f.session).startup, undefined);
-  });
+test("dispose cancels preparation without replaying a stale startup", async (t) => {
+  const blocked = phase();
+  const f = createFixture("startup-clear", [packageOf()], { prepare: () => blocked.wait() });
+  t.after(async () => { blocked.release(); await f.session.drain(); f.journal.close(); rmSync(f.files, { recursive: true, force: true }); });
+  const rejected = assert.rejects(f.session.startAndWait("test.example", null), /deleted/);
+  await blocked.entered;
+  f.session.dispose();
+  assert.equal(replayStatus(f.session).startup, undefined);
+  let settled = false;
+  const draining = f.session.settle().then(() => { settled = true; });
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.equal(settled, false);
+  blocked.release();
+  await rejected;
+  await draining;
+  assert.equal(f.journal.stateOf(f.session.id), null);
+  assert.equal(replayStatus(f.session).startup, undefined);
 });
 
 test("a local package transports all sources and node tests through the common import path", async () => {

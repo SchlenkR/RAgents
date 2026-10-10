@@ -89,6 +89,7 @@ const ragentsWorkspacePlugin = (skillPaths: () => Promise<readonly string[]>): R
       clients,
       contributions: contributions.map((contribution) => contribution.parts),
       processSandboxFor: (runId) => securityFor(runId).restricted ? startSandbox() : Promise.resolve(undefined),
+      isolatedProcessSandboxFor: (runId) => sandboxSetting.mode === "off" && ownerAccess(runId).can("*") ? Promise.resolve(undefined) : startSandbox(),
       restrictedFor: (runId) => securityFor(runId).restricted,
       ...(bash === undefined ? {} : { bash }),
       ...(rg === undefined ? {} : { rg }),

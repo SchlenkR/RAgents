@@ -380,6 +380,7 @@ export interface SessionStartedContext extends SessionLifecycleContext {
 export interface SessionLifecycleContribution {
   id: string;
   initialize?: () => void | Promise<void>;
+  serverReady?: () => void | Promise<void>;
   prepareSession?: (context: SessionLifecycleContext) => void | Promise<void>;
   /** After a start has prepared the workspace and set up the run's first actor, before any actor got input; never after a restart of the host. */
   sessionStarted?: (context: SessionStartedContext) => void | Promise<void>;

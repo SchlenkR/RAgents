@@ -3,7 +3,7 @@ import test from "node:test";
 import { START_WIDGET_SPANS, type StartWidgetSpan } from "../src/PluginRegistry";
 import { dashboardLayout } from "../src/panel/dashboard-layout";
 import {
-  addWidget, arrangeWidgets, DEFAULT_DASHBOARD_PREFERENCES, draftOf, isDefaultLayout, moveWidget, preferencesOf, readDashboardLayout, reconcileDraft, removeWidget,
+  addWidget, arrangeWidgets, DEFAULT_DASHBOARD_PREFERENCES, draftOf, isDefaultLayout, moveWidget, preferencesOf, readDashboardLayout, removeWidget,
   resizeWidget, writeDashboardLayout, type ArrangeableItem, type DashboardPreferences,
 } from "../src/panel/dashboard-preferences";
 
@@ -100,18 +100,24 @@ test("widgets that are not there keep their removal and size, while their place 
   assert.deepEqual(keys(back.removed), ["ragents.global-apps:notes"]);
 });
 
-test("a draft follows widgets that disappear or arrive while Start is edited", () => {
-  const known = new Set(keys(start));
-  const without = start.filter((item) => item.key !== "demo.board");
-  assert.deepEqual(keys(reconcileDraft(initial, without, known)), ["start.new", "start.continue", "demo.usage"]);
-  assert.equal(reconcileDraft(initial, start, known), initial, "an unchanged draft stays the same value");
-  const removed = removeWidget(initial, "demo.usage");
-  assert.deepEqual(keys(reconcileDraft(removed, start, known)), ["start.new", "start.continue", "demo.board"], "a widget removed in the draft stays removed");
-  const arrived = [...start, widget("ragents.global-apps:planner", "half")];
-  assert.deepEqual(reconcileDraft(removed, arrived, known).at(-1), { key: "ragents.global-apps:planner", span: "half" }, "a widget that arrives joins at the end");
+test("edit mode keeps preferences, so a widget that disappears leaves the draft and one that arrives takes its stored place and size or stays removed", () => {
+  const planner = widget("ragents.global-apps:planner", "half");
+  const notes = widget("ragents.global-apps:notes", "narrow");
+  const stored = preferences({ order: ["ragents.global-apps:planner", "start.new"], spans: new Map([["ragents.global-apps:planner", "full"]]), removed: ["ragents.global-apps:notes"] });
+  const draftWith = (items: readonly ArrangeableItem[], prefs: DashboardPreferences) => draftOf(arrangeWidgets(items, prefs).shown);
+  assert.deepEqual(keys(draftWith(start, stored)), ["start.new", "start.continue", "demo.board", "demo.usage"], "before the dynamic widgets arrive");
+  const later = [...start, planner, notes];
+  assert.deepEqual(draftWith(later, stored), [
+    { key: "ragents.global-apps:planner", span: "full" }, { key: "start.continue", span: "wide" }, { key: "demo.board", span: "full" }, { key: "demo.usage", span: "narrow" }, { key: "start.new", span: "narrow" },
+  ], "an arriving widget takes its stored place and size, and a removed one stays removed");
+  const edited = preferencesOf(removeWidget(draftWith(later, stored), "demo.board"), later, stored);
+  assert.deepEqual(keys(draftWith(start, edited)), ["start.continue", "demo.usage", "start.new"], "a widget that disappears leaves the draft");
+  const moved = preferencesOf(moveWidget(draftWith(start, edited), "start.new", 0), start, edited);
+  assert.deepEqual([...moved.spans], [["ragents.global-apps:planner", "full"]], "an absent widget keeps its size through changes made without it");
+  assert.deepEqual(moved.removed, ["ragents.global-apps:notes", "demo.board"]);
+  assert.deepEqual(keys(draftWith(later, moved)), ["start.new", "start.continue", "demo.usage", "ragents.global-apps:planner"], "and returns at its default place, not removed");
   const shrunk = start.map((item) => item.key === "start.continue" ? { ...item, sizes: ["narrow", "half"] as const } : item);
-  assert.deepEqual(reconcileDraft(resizeWidget(initial, "start.continue", "full", START_WIDGET_SPANS), shrunk, known)[1], { key: "start.continue", span: "wide" },
-    "a size the widget no longer offers falls back to its default");
+  assert.equal(draftWith(shrunk, preferences({ spans: new Map([["start.continue", "full"]]) }))[1]!.span, "wide", "a size the widget no longer offers falls back to its default");
 });
 
 test("two widgets with the same ID are an error", () => {

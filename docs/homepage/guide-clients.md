@@ -358,10 +358,12 @@ needs sign-in, is starting, or cannot be reached, the local shell shows its stat
 appropriate sign-in, connect, or retry action on a Server page showing only this environment.
 The gear opens connection and profile management for all configured environments.
 
-Start and Runs in both hosts, and Server in VS Code, share a centered content area up to
-1280 pixels wide, with side padding. The Runs search field and rows stay within this area,
-including on ultrawide displays. The outer header remains full width. All three pages begin their
-content at the same distance below the header, and on Start every widget stands well apart from
+Start uses the full available width with wider side padding at desktop widths. Runs in both hosts and Server in
+VS Code share a centered content area up to 1280 pixels wide. The Runs search field and rows
+stay within this area, including on ultrawide displays. The outer header remains full width.
+All three pages begin their content at the same distance below the header, with more space at
+desktop widths, and on Start every
+widget stands well apart from
 its neighbors. In both hosts, logo, global coordinator button, Settings, and Help share
 the header. The logo leads back to Start there, so the run header has no back arrow of its
 own; Runs keeps its back arrow ("Back to Start") next to its title in the browser as in VS Code. An open run places its layout actions in the run header, without a separate
@@ -397,7 +399,9 @@ narrow panel follow your order.
 Start keeps the layout on the server for your user, so the browser and VS Code show the same
 arrangement; without sign-in there is one layout for the server. The chosen tab of a narrow panel
 stays with this browser or VS Code panel. A widget added to the server later appears at its usual
-place, and a widget you removed stays removed, also after it was unavailable for a while.
+place, and a widget you removed stays removed, also after it was unavailable for a while. A widget
+that a plugin delivers only after Start opened, such as a global mini-app, takes its saved place and
+size, also when it arrives while you edit, and a widget that cannot load shows why in its own place.
 
 Each widget arranges its content for its own width. Template cards stand in several columns when
 the widget is wide enough, between 240 and 320 pixels wide; in a widget narrower than about 450

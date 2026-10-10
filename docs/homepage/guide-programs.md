@@ -113,7 +113,7 @@ React render.
 `actor_program_create` creates a package from a template completely or not at all. The host
 builds it outside `@actors/` and moves it to `@actors/<name>` only after every step has succeeded,
 so a failed attempt leaves nothing behind and the name stays free. An existing folder of that
-name, even an empty one, is rejected. The six templates in `server/templates.ts` and
+name, even an empty one, is rejected. The seven templates in `server/templates.ts` and
 `controls-template.ts` demonstrate different forms:
 
 - `blank`: a static view on an existing actor.
@@ -122,6 +122,7 @@ name, even an empty one, is rejected. The six templates in `server/templates.ts`
 - `headless-counter`: a TypeScript actor with input handler, functions, and state but no view.
 - `text-analysis`: a TypeScript function with a shared counter and React view.
 - `shared-list`: the same list function for the view and an agent tool.
+- `headless`: an input-only backend with empty state and no functions, views, or example tests.
 
 `actor_program_activate` checks types, builds the backend and views, runs the package tests, and
 only then activates the verified version. Errors identify the location to fix.

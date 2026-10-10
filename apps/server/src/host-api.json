@@ -1,5 +1,5 @@
 {
-  "version": 12,
+  "version": 16,
   "server": {
     "@ragents/engine": [
       "DomainError",
@@ -26,6 +26,7 @@
       "eventResultSchemaOf",
       "freeRoomName",
       "handleKey",
+      "hasCapability",
       "hasWorkstationOwner",
       "holdsUsable",
       "implement",
@@ -296,10 +297,12 @@
       "WORKSPACE_EXECUTOR_VERSION",
       "allowedWorkspacePath",
       "bytesOf",
+      "containsWorkspacePath",
       "languageServerOpenOperation",
       "languageServerSolutionsOperation",
       "listDirectory",
       "readTextFile",
+      "resolvedWorkspacePath",
       "ripgrepAvailable",
       "runManagedProcess",
       "safeProcessEnvironment",
@@ -728,6 +731,9 @@
       "useToolRenderer",
       "workspaceAccessible"
     ],
+    "@ragents/web/RenderBoundary": [
+      "RenderBoundary"
+    ],
     "@ragents/web/SourceCode": [
       "SourceCode"
     ],
@@ -858,6 +864,7 @@
       "Badge",
       "Button",
       "Card",
+      "CardContent",
       "Checkbox",
       "ChoiceSelect",
       "Combobox",

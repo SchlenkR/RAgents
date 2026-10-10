@@ -528,3 +528,72 @@ test("a layout that cannot be loaded keeps the default layout and offers Retry; 
     assert.deepEqual(await writes(page), [{ version: 1, order: [], spans: {}, removed: ["demo.board"] }]);
   });
 });
+
+const setApps = (page: Page, names: readonly string[]) => page.evaluate((list) => window.dashboardFixture.setApps!(list), names);
+
+test("dynamic widgets are moved, resized, removed, and added back like start sections, survive disappearing while Start is edited, and a failing one keeps its error in its own cell", browserOnly, async () => {
+  await withPage(1280, "dynamic=1", async (page) => {
+    await page.getByRole("region", { name: "Planner", exact: true }).waitFor();
+    const broken = page.locator('[data-start-widget="demo.apps:broken"]');
+    assert.equal(await broken.getByRole("alert").textContent(), "The app view failed to load.", "a widget that throws shows its cause in its own cell");
+    assert.equal(await broken.getByRole("button", { name: "Retry" }).count(), 1);
+    const failing = page.locator('[data-start-widget="demo.failing:unavailable"]');
+    assert.equal(await failing.getByRole("alert").textContent(), "The app catalog is unreachable.", "a failing factory shows its cause in a widget of its own");
+    assert.equal(await page.getByRole("list", { name: "Recent" }).isVisible(), true, "the other widgets stay usable");
+    assert.deepEqual((await order(page)).slice(-3), ["demo.apps:broken", "demo.apps:planner", "demo.failing:unavailable"], "dynamic widgets follow the start sections by order and ID");
+
+    await edit(page);
+    assert.equal(await broken.getByRole("alert").isVisible(), true, "the error stays in its cell while editing");
+    const target = await page.getByRole("region", { name: "New", exact: true }).boundingBox();
+    await drag(page, await center(page, page.getByRole("button", { name: "Move Planner", exact: true })), { x: target!.x + 24, y: target!.y + 48 });
+    assert.equal((await order(page))[0], "demo.apps:planner");
+    await setApps(page, ["broken"]);
+    await page.getByRole("region", { name: "Planner", exact: true }).waitFor({ state: "detached" });
+    assert.equal(await page.getByRole("group", { name: "Edit Start" }).isVisible(), true, "a widget that disappears leaves edit mode working");
+    await setApps(page, ["broken", "planner"]);
+    await page.getByRole("region", { name: "Planner", exact: true }).waitFor();
+    assert.equal((await order(page))[0], "demo.apps:planner", "and returns to its place in the draft");
+
+    await page.getByRole("button", { name: "Remove Planner", exact: true }).click();
+    assert.equal(await page.getByRole("region", { name: "Planner", exact: true }).count(), 0);
+    await page.getByRole("button", { name: "Add widget", exact: true }).click();
+    const gallery = page.getByRole("dialog", { name: "Add widget" });
+    const offer = gallery.getByRole("button", { name: "Add Planner" });
+    assert.equal(await offer.evaluate((button) => document.getElementById(button.getAttribute("aria-describedby")!)!.textContent), "Plans the week from your runs.Sizes: Narrow, Half (usual), Wide");
+    await offer.click();
+    await gallery.waitFor({ state: "detached" });
+    assert.equal((await order(page)).at(-1), "demo.apps:planner", "an added dynamic widget joins at the end");
+    assert.equal(await size(page, "demo.apps:planner"), "Half");
+    await page.keyboard.press("Shift+ArrowRight");
+    assert.equal(await size(page, "demo.apps:planner"), "Wide");
+    await page.keyboard.press("Shift+ArrowRight");
+    assert.equal(await announced(page), "Planner is already at its largest size.", "only the sizes the widget offers");
+    await page.getByRole("button", { name: "Remove Broken app", exact: true }).click();
+    await page.getByRole("button", { name: "Done", exact: true }).click();
+    await page.getByRole("group", { name: "Edit Start" }).waitFor({ state: "detached" });
+    assert.deepEqual(await writes(page), [{
+      version: 1, order: ["start.new", "start.continue", "demo.board", "demo.auto", "demo.shared", "demo.usage", "demo.empty", "demo.failing:unavailable", "demo.apps:planner"],
+      spans: { "demo.apps:planner": "wide" }, removed: ["demo.apps:broken"],
+    }]);
+    await mkdir(shots, { recursive: true });
+    await page.screenshot({ path: join(shots, "start-dashboard-dynamic-1280.png"), fullPage: true });
+
+    await page.reload();
+    await loaded(page);
+    await page.getByRole("region", { name: "Planner", exact: true }).waitFor();
+    assert.equal((await order(page)).at(-1), "demo.apps:planner", "a reload keeps the place of a dynamic widget");
+    assert.equal(await broken.count(), 0, "and its removal");
+    const [planner, more] = [await box(page, "Planner"), await box(page, "Continue")];
+    assert.ok(Math.abs(planner.width - more.width) < 1, "and its size");
+    await setApps(page, []);
+    await page.getByRole("region", { name: "Planner", exact: true }).waitFor({ state: "detached" });
+    await edit(page);
+    await setApps(page, ["broken", "planner"]);
+    await page.getByRole("region", { name: "Planner", exact: true }).waitFor();
+    assert.equal((await order(page)).at(-1), "demo.apps:planner", "a widget that arrives while Start is edited takes its saved place");
+    assert.equal(await size(page, "demo.apps:planner"), "Wide", "and its saved size");
+    assert.equal(await broken.count(), 0, "a removed one stays removed");
+    await page.getByRole("button", { name: "Cancel", exact: true }).click();
+    await page.getByRole("group", { name: "Edit Start" }).waitFor({ state: "detached" });
+  }, 2400);
+});

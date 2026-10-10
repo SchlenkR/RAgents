@@ -25,6 +25,8 @@ export const config = {
       "ragents.acp",
       "ragents.todo",
       "ragents.watch",
+      "ragents.actor-programs",
+      "ragents.global-apps",
       "ragents.activity",
       "ragents.processes",
       "ragents.lsp-roslyn",

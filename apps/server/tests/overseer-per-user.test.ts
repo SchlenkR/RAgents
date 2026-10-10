@@ -139,7 +139,7 @@ test("every user has their own coordinator whose tools act only with that user's
     return createAccessContext(sessions.coordinatorSnapshot(user.userId));
   };
   const policy = provider.plugins.service(globalChatToken);
-  assert.deepEqual(policy.toolNames, ["read", "write", "edit"], "with users the coordinator has no host shell");
+  assert.deepEqual(policy.toolNames, ["read", "write", "edit", "overseer_notify"], "with users the coordinator has no host shell");
   assert.match(policy.prompt, /you have no shell/);
   assert.match(policy.prompt, /JSON-RPC calls via fetch in a snippet/);
   assert.doesNotMatch(policy.prompt, /read, write, edit and bash|bash function|bash and curl/);
@@ -169,8 +169,10 @@ test("every user has their own coordinator whose tools act only with that user's
   assert.ok(await call(signedIn("alice"), runContracts.view.id, { runId: aliceCoordinator }));
 
   const bobConversation = management.view(bobCoordinator).inputs.length;
+  const aliceBefore = management.view(aliceCoordinator);
   assert.equal(await call(signedIn("alice"), overseerContracts.reset.id, { confirm: true }), null);
-  assert.equal(provider.hasRun(aliceCoordinator), false, "the reset hits the own coordinator");
+  assert.equal(provider.hasRun(aliceCoordinator), true, "reset preserves the global run");
+  assert.notEqual(management.view(aliceCoordinator).primaryActorId, aliceBefore.primaryActorId, "reset replaces only the own coordinator");
   assert.equal(management.view(bobCoordinator).inputs.length, bobConversation, "and not that of another user");
   assert.ok(provider.hasRun(own.runId));
 

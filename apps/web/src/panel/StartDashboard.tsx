@@ -11,7 +11,7 @@ import { OverflowTabs, OverflowTabsList } from "../ui/overflow-tabs";
 import { SectionHeading } from "../ui/SectionLabel";
 import { adjacentSpan, DASHBOARD_COLUMNS, DASHBOARD_TABS_BELOW, DASHBOARD_WIDE_FROM, dashboardLayout, nearestSpan, wideColumns } from "./dashboard-layout";
 import {
-  addWidget, arrangeWidgets, DEFAULT_DASHBOARD_PREFERENCES, draftOf, isDefaultLayout, moveWidget, preferencesOf, readDashboardLayout, reconcileDraft, removeWidget,
+  addWidget, arrangeWidgets, DEFAULT_DASHBOARD_PREFERENCES, draftOf, isDefaultLayout, moveWidget, preferencesOf, readDashboardLayout, removeWidget,
   resizeWidget, writeDashboardLayout, type DashboardDraft, type DashboardPreferences, type StoredDashboardLayout,
 } from "./dashboard-preferences";
 
@@ -41,13 +41,6 @@ type LayoutState =
   | { readonly kind: "loading" }
   | { readonly kind: "ready"; readonly stored: StoredDashboardLayout }
   | { readonly kind: "failed"; readonly message: string };
-
-/** Edit mode: the draft, the preferences it started from, and the widgets there were, so that one arriving meanwhile does not count as removed. */
-interface Edit {
-  readonly draft: DashboardDraft;
-  readonly base: DashboardPreferences;
-  readonly known: ReadonlySet<string>;
-}
 
 type Gesture =
   | { readonly kind: "move"; readonly key: string; readonly point: PointerPoint }
@@ -235,7 +228,8 @@ export function StartDashboard({ widgets, preferences }: { widgets: readonly Sta
   const { state, retry, settle } = useStoredLayout(preferences);
   const [root, setRoot] = useState<HTMLDivElement | null>(null);
   const [element, setElement] = useState<HTMLDivElement | null>(null);
-  const [edit, setEdit] = useState<Edit>();
+  // Edit mode keeps the edited layout as preferences, so a widget that arrives meanwhile takes its place and size there or stays removed.
+  const [edited, setEdited] = useState<DashboardPreferences>();
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string>();
   const [galleryOpen, setGalleryOpen] = useState(false);
@@ -253,10 +247,10 @@ export function StartDashboard({ widgets, preferences }: { widgets: readonly Sta
   const items: readonly Item[] = widgets.map((widget) => ({ ...widget, framed: widget.title !== undefined }));
   const itemOf = new Map(items.map((item) => [item.key, item]));
   const titleOf = (key: string) => itemOf.get(key)?.title ?? key;
-  const draft = edit === undefined ? undefined : reconcileDraft(edit.draft, items, edit.known);
-  const editing = edit !== undefined && draft !== undefined;
-  const effective = editing ? preferencesOf(draft, items, edit.base) : stored.preferences;
+  const effective = edited ?? stored.preferences;
   const { shown, removed } = arrangeWidgets(items, effective);
+  const draft = edited === undefined ? undefined : draftOf(shown);
+  const editing = draft !== undefined;
   const empty = useEmptyWidgets(element, shown.map((widget) => widget.key).join("\u0000"));
   const narrow = width !== undefined && width < DASHBOARD_TABS_BELOW;
   const placed = editing ? shown : shown.filter((widget) => !empty.has(widget.key));
@@ -270,7 +264,7 @@ export function StartDashboard({ widgets, preferences }: { widgets: readonly Sta
   const addColumns = width === undefined || width >= DASHBOARD_WIDE_FROM ? 4 : 6;
 
   const leave = useCallback((message: string) => {
-    setEdit(undefined);
+    setEdited(undefined);
     setGesture(undefined);
     setGalleryOpen(false);
     setSaveError(undefined);
@@ -304,13 +298,13 @@ export function StartDashboard({ widgets, preferences }: { widgets: readonly Sta
   const startEditing = () => {
     if (state.kind !== "ready") return;
     const initial = draftOf(arrangeWidgets(items, stored.preferences).shown);
-    setEdit({ draft: initial, base: stored.preferences, known: new Set(items.map((item) => item.key)) });
+    setEdited(stored.preferences);
     setSaveError(undefined);
     setAnnouncement("Editing Start. Done saves the layout, Cancel or Escape discards the changes.");
     setFocusTarget(initial[0] === undefined ? { kind: "add" } : { kind: "control", key: initial[0].key, control: "handle" });
   };
   const change = (next: DashboardDraft, message: string, focus?: FocusTarget) => {
-    setEdit((current) => current && { ...current, draft: next });
+    setEdited((current) => current && preferencesOf(next, items, current));
     setAnnouncement(message);
     if (focus !== undefined) setFocusTarget(focus);
   };
@@ -344,12 +338,12 @@ export function StartDashboard({ widgets, preferences }: { widgets: readonly Sta
     change(addWidget(draft, itemOf.get(key)!), `${titleOf(key)} added at the end.`, { kind: "control", key, control: "handle" });
   };
   const reset = () => {
-    setEdit((current) => current && { ...current, draft: draftOf(arrangeWidgets(items, DEFAULT_DASHBOARD_PREFERENCES).shown), base: DEFAULT_DASHBOARD_PREFERENCES });
+    setEdited((current) => current && DEFAULT_DASHBOARD_PREFERENCES);
     setAnnouncement("Start shows its default layout again; Done saves it.");
   };
   const done = () => {
     if (!editing || preferences === undefined) return;
-    const next = preferencesOf(draft, items, edit.base);
+    const next = preferencesOf(draft, items, effective);
     setSaving(true);
     setSaveError(undefined);
     preferences.write("start.layout", writeDashboardLayout(next)).then(() => {
@@ -376,19 +370,21 @@ export function StartDashboard({ widgets, preferences }: { widgets: readonly Sta
   const startMove = (event: PointerEvent<HTMLElement>, key: string) => {
     if (draft === undefined || element === null || event.button !== 0) return;
     const start = draft;
+    const known = items;
+    const base = effective;
     const vertical = mode === "list";
     const from = start.findIndex((widget) => widget.key === key);
-    const target = (point: PointerPoint) => [...element.querySelectorAll<HTMLElement>(":scope > [data-start-widget]")]
-      .filter((cell) => cell.dataset.startWidget !== key && precedes(cell.getBoundingClientRect(), point, vertical)).length;
+    const target = (point: PointerPoint) => Math.min(start.length - 1, [...element.querySelectorAll<HTMLElement>(":scope > [data-start-widget]")]
+      .filter((cell) => cell.dataset.startWidget !== key && precedes(cell.getBoundingClientRect(), point, vertical)).length);
+    const place = (to: number) => setEdited((current) => current && preferencesOf(moveWidget(start, key, to), known, base));
     setGesture({ kind: "move", key, point: { x: event.clientX, y: event.clientY } });
     pointer(event, (point) => {
-      const to = target(point);
-      setEdit((current) => current && { ...current, draft: moveWidget(start, key, to) });
+      place(target(point));
       setGesture({ kind: "move", key, point });
     }, (point) => {
       const to = point === null ? from : target(point);
       setGesture(undefined);
-      setEdit((current) => current && { ...current, draft: moveWidget(start, key, to) });
+      place(to);
       if (point === null) setAnnouncement(`Moving ${titleOf(key)} was cancelled.`);
       else if (to !== from) setAnnouncement(`${titleOf(key)} moved to place ${to + 1} of ${start.length}.`);
       setFocusTarget({ kind: "control", key, control: "handle" });
@@ -397,20 +393,23 @@ export function StartDashboard({ widgets, preferences }: { widgets: readonly Sta
   const startResize = (event: PointerEvent<HTMLElement>, key: string) => {
     if (draft === undefined || element === null || event.button !== 0) return;
     const start = draft;
+    const known = items;
+    const base = effective;
     const { sizes } = itemOf.get(key)!;
     const from = start.find((widget) => widget.key === key)!.span;
     const startX = event.clientX;
     const column = (element.clientWidth + (parseFloat(getComputedStyle(element).columnGap) || 0)) / DASHBOARD_COLUMNS;
     const spanAt = (point: PointerPoint) => nearestSpan(wideColumns(from) + (point.x - startX) / column, sizes);
+    const size = (span: StartWidgetSpan) => setEdited((current) => current && preferencesOf(resizeWidget(start, key, span, sizes), known, base));
     setGesture({ kind: "resize", key, span: from });
     pointer(event, (point) => {
       const span = spanAt(point);
-      setEdit((current) => current && { ...current, draft: resizeWidget(start, key, span, sizes) });
+      size(span);
       setGesture({ kind: "resize", key, span });
     }, (point) => {
       const span = point === null ? from : spanAt(point);
       setGesture(undefined);
-      setEdit((current) => current && { ...current, draft: resizeWidget(start, key, span, sizes) });
+      size(span);
       setAnnouncement(point === null ? `Resizing ${titleOf(key)} was cancelled.` : `${titleOf(key)} is now ${SPAN_LABELS[span]}.`);
     }, element);
   };

@@ -37,6 +37,9 @@ test("global orientation reflects installed descriptors without resolving tools 
     assert.match(updated, /actor_program_controls: Read Mini-App control contracts or the actor-program authoring guide/);
     assert.doesNotMatch(updated, /INTERNAL_OPERATION_SECRET|CLIENT_CONFIG_SECRET|test.internal|resultSchema/);
     assert.match(updated, /public help describes core/);
+    const tools = host.service(globalChatToken).toolNames;
+    assert.ok(tools.includes("actor_program_create"));
+    assert.ok(tools.includes("actor_program_diagnostics"));
   } finally { await rm(directory, { recursive: true, force: true }); }
 });
 
@@ -47,14 +50,17 @@ test("global system prompt includes later plugin registrations", async () => {
     host.provideHost(runManagementToken, () => { throw new Error("Orientation must not start or read a run"); });
     host.register(plugin.create(host));
     const policy = host.service(globalChatToken);
-    assert.deepEqual(policy.toolNames, ["read", "write", "edit", "bash"]);
+    assert.deepEqual(policy.toolNames, ["read", "write", "edit", "bash", "overseer_notify"]);
     assert.match(policy.prompt, /Your tools include read, write, edit and bash\. Call your tools directly/);
     assert.match(policy.prompt, /A multi-part setup does not require its own setup package/);
     assert.match(policy.prompt, /The task describes the desired outcome/);
     assert.doesNotMatch(policy.prompt, /setup handler must|run builder can use the direct setup tools/i);
     assert.doesNotMatch(policy.prompt, /late_public_tool/);
     host.register({ manifest: { id: "test.later" }, register: (registration) => {
-      registration.functions({ name: "test.later.tools", descriptors: [{ name: "late_public_tool", description: "A later registered capability. " + "Detailed contract text. ".repeat(100), scope: "per-agent", availability: "conditional", availabilityDetail: "Only in applicable runs" }], tools: () => { throw new Error("Must not execute a tool factory"); } });
+      registration.functions({ name: "test.later.tools", descriptors: [
+        { name: "late_public_tool", description: "A later registered capability. " + "Detailed contract text. ".repeat(100), scope: "per-agent", availability: "conditional", availabilityDetail: "Only in applicable runs" },
+        ...["global_app_register", "global_app_list", "global_app_read", "global_app_run", "global_app_pause", "global_app_remove", "typescript_api", "lsp_typescript_hover"].map((name) => ({ name, description: "Author a global app.", scope: "per-agent" as const, availability: "conditional" as const, availabilityDetail: "With the actor's grants" })),
+      ], tools: () => { throw new Error("Must not execute a tool factory"); } });
     } });
     const prompt = policy.prompt;
     assert.match(prompt, /late_public_tool: A later registered capability\. \[context-dependent\]/);
@@ -63,5 +69,7 @@ test("global system prompt includes later plugin registrations", async () => {
     assert.match(prompt, /POST \$RAGENTS_API_BASE_URL\/rpc/);
     assert.match(prompt, /rpc-reference.md/);
     assert.deepEqual(policy.access, { read: "ragents.overseer.read", write: "ragents.overseer.write" });
+    for (const name of ["read", "write", "edit", "global_app_register", "global_app_list", "global_app_read", "global_app_run", "global_app_pause", "global_app_remove", "typescript_api", "lsp_typescript_hover"]) assert.ok(policy.toolNames.includes(name), name);
+    assert.equal(policy.toolNames.includes("late_public_tool"), false);
   } finally { await rm(directory, { recursive: true, force: true }); }
 });

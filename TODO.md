@@ -4,7 +4,9 @@ Inbox for everything; the owner and the AI write here. One line per entry, newes
 
 ## Open
 
-- Check live (10.10.2026): Start's edit mode in a real VS Code panel and in the browser against one server with a plugin that contributes several titled widgets (drag, resize by the edge, remove, Add widget, keyboard, Done, Cancel), then the saved layout in the other host after reopening Start, with and without sign-in; the browser fixture and the store tests cover the parts.
+- Check live (10.10.2026): Start's edit mode in a real VS Code panel and in the browser against one server with a plugin that contributes several titled widgets and with global mini-apps (drag, resize by the edge, remove, Add widget, keyboard, Done, Cancel), then the saved layout in the other host after reopening Start, with and without sign-in; the browser fixture and the store tests cover the parts, including dynamic widgets that arrive, disappear, or fail while Start is edited.
+- Check live (10.10.2026): daily and selected-weekday global apps across a server restart, spring clock gap and autumn repeat; reset the coordinator during app work and verify preserved rooms, state, logs, deadlines, and explicit notifications in the browser and VS Code.
+- Check live (09.10.2026): create and repair global mini-apps through the global coordinator, verify macOS/Linux process isolation against direct file/network access, and resize headless and React Start widgets and details dialogs; the restricted development environment blocks OS sandbox and browser launches.
 - Overflow beyond tab rows (09.10.2026): apply `splitOverflow` to segmented `ToggleGroup` and `ChoiceSelect` choices and to toolbars of equal items, which still clip in narrow panels, and to the Settings plugin navigation, which scrolls sideways in narrow dialogs.
 - Check live (09.10.2026): Start in a real VS Code panel resized across 700 pixels and in the browser at 360 pixels with a plugin that contributes several titled widgets, including the remembered tab after a reload and a widget that turns empty; browser fixtures cover the parts.
 
@@ -187,6 +189,8 @@ Inbox for everything; the owner and the AI write here. One line per entry, newes
 
 ## Ideas
 
+- Global app actor-event triggers (09.10.2026): reuse the global journal-batch observer with explicit sourceRunId/actorId filters, recheck source ownership and observable-event rights on every delivery, and persist a journal cursor. Coalesce pending events into bounded, non-overlapping inputs and define restart delivery before extending the trigger contract.
+
 - Start widgets (09.10.2026): pack short widgets into gaps of the grid, and let a widget report a count for its title row and tab.
 - Actor roster per turn (06.10.2026): it now stands at the head of every turn's input; a run with many actors and many short turns could present it only when it differs from the last roster still in the actor's context (after a compaction always).
 - quassel re-resolution (04.10.2026): quassel 0.4.5 resolves a Markdown address only when the Markdown mounts, so the documents plugin holds a run until its grants have settled and mounts the Documents view's Markdown again on every grant change; a quassel whose Markdown resolves again when `resolveUrl` changes would make both unnecessary and let older chat messages follow a renewed grant.
@@ -210,5 +214,3 @@ Inbox for everything; the owner and the AI write here. One line per entry, newes
 - Context compression: here we have to look at what already exists. For example, in terms of ideas. We can of course implement it ourselves, or we use an open source tool for it. There is Headroom maybe, that is pretty cool. But we have to see; in general we need it, of course. And of course we don't want to compress the context completely, but also, let's say, still make it accessible in case it is needed again. That is actually the modern idea. With this feature we also have to look at what the modern idea is for how we compress context.
 
 - validateConfigFileSections checks keys of inactive plugins only with a log hint instead of hard - decide whether this should also become a hard error.
-
-- Schedule triggers following the trigger principle: time as a subscribable event that creates an ActorInput - NOT as waiting/timer in the script (the turn model never waits).

@@ -337,7 +337,7 @@ Contract fields: host.methods, host.channels.
 
 ### Startup, run end, and shutdown
 
-A plugin can run its own functions at application startup, when a run is stopped or deleted, and at shutdown. This lets its background services and resources start and clean up at the right time.
+A plugin can run its own functions at application startup, after restoration, when a run is stopped or deleted, and at shutdown. This lets its background services and resources start and clean up at the right time.
 
 Place of use: register(host); service is a previously created service with the methods shown here.
 
@@ -345,6 +345,7 @@ Place of use: register(host); service is a previously created service with the m
 host.lifecycle({
   id: "ragents.example.lifecycle",
   initialize: () => service.initialize(),
+  serverReady: () => service.resumeBackgroundWork(),
   prepareSession: ({ runId }) => service.prepare(runId),
   sessionStarted: ({ runId, startEntry }) => service.started(runId, startEntry),
   stopSession: ({ runId, signal }) => service.stop(runId, signal),
@@ -360,9 +361,11 @@ afterStopSession runs after execution has come to a standstill and also cleans u
 
 Initialization and preparation follow the plugin order. Teardown respects the reverse order; stopping and deleting are different operations.
 
+serverReady is awaited after engine and workspace restoration and before the scheduler starts, so background work resumes without a client opening a run.
+
 sessionStarted arrives when a start has provided the workspace and built the first actor, before an actor receives input. startEntry names the template with id and action (skill or script) or is null; after a host restart, the hook does not arrive again.
 
-Contract fields: host.lifecycle, lifecycle.id, lifecycle.initialize, lifecycle.prepareSession, lifecycle.sessionStarted, lifecycle.stopSession, lifecycle.afterStopSession, lifecycle.deleteSession, lifecycle.shutdown.
+Contract fields: host.lifecycle, lifecycle.id, lifecycle.initialize, lifecycle.serverReady, lifecycle.prepareSession, lifecycle.sessionStarted, lifecycle.stopSession, lifecycle.afterStopSession, lifecycle.deleteSession, lifecycle.shutdown.
 
 ### A typed run function
 
@@ -1175,6 +1178,74 @@ onOpenRun uses the same navigation as a run row in both browser and VS Code serv
 Returning null leaves no cell, tab, or gap. A section without title keeps its own heading and spacing and fills a row; span requires a title.
 
 Contract fields: web.startSections, startSection.id, startSection.order, startSection.readRight, startSection.title, startSection.description, startSection.span, startSection.sizes, startSection.Section, startSectionContext.runs, startSectionContext.onOpenRun.
+
+### Publish dynamic Start widgets
+
+A plugin can publish a changing list of Start widgets through the existing RPC connection. Stable identifiers and React component types preserve their local state as snapshots change.
+
+Place of use: Properties of a WebPlugin; Type and defineChannel describe the shared channel contract. The server emits only widgets the viewer may read.
+
+```tsx
+import { rpc } from "@ragents/web/rpc";
+import type { StartWidgetContribution } from "@ragents/web/PluginRegistry";
+
+const widgetSnapshots = defineChannel({
+  id: "ragents.example.widgets.changed",
+  description: "Reports the viewer's current widgets.",
+  rights: ["ragents.example.read"],
+  params: Type.Object({}, { additionalProperties: false }),
+  message: Type.Object({ widgets: Type.Array(Type.Object({
+    name: Type.String(),
+    title: Type.String(),
+    runId: Type.String(),
+  })) }),
+});
+
+function WorkWidget({ runId, onOpenRun }: Readonly<{ runId: string; onOpenRun: (runId: string) => void }>) {
+  return <button onClick={() => onOpenRun(runId)}>Open run</button>;
+}
+
+const dynamicStartUi = {
+  id: "ragents.example",
+  startWidgetsFor: ({ onOpenRun, signal, update }) => new Promise<readonly StartWidgetContribution[]>((resolve) => {
+    const publish = (widgets: readonly StartWidgetContribution[]) => {
+      if (signal.aborted) return;
+      update(widgets);
+      resolve(widgets);
+    };
+    const unsubscribe = rpc.subscribe(widgetSnapshots, {}, ({ widgets }) => publish(widgets.map((widget): StartWidgetContribution => ({
+      id: "ragents.example:" + widget.name,
+      title: widget.title,
+      description: "Opens the run behind this piece of work.",
+      span: "wide",
+      sizes: ["half", "wide", "full"],
+      order: 200,
+      readRight: "ragents.example.read",
+      content: <WorkWidget runId={widget.runId} onOpenRun={onOpenRun} />,
+    }))), (problem) => publish([{
+      id: "ragents.example:problem",
+      title: "Work widgets unavailable",
+      span: "narrow",
+      content: <p role="alert">{problem}</p>,
+    }]));
+    signal.addEventListener("abort", unsubscribe, { once: true });
+  }),
+} satisfies WebPlugin;
+```
+
+startWidgetsFor returns readonly contributions synchronously or as a promise. Each contribution has id, title, and content: ReactNode, with optional description, span, sizes, order (by default 200), and readRight. It joins the existing Start dashboard without changing startSections.
+
+Every id starts with the plugin's id and a colon and stays the same across snapshots and releases, because the viewer's saved Start layout refers to it. In Start's edit mode the viewer moves, resizes, removes, and adds back these widgets like start sections; description and sizes follow the same rules, and span and order are defaults.
+
+The context also includes every server-listed visible run in runs, just like StartSectionContext. update replaces this factory's current widget snapshot, and signal aborts when its context is released; the factory then unsubscribes from live channels.
+
+The host calls the factory again when the run list changes and keeps its previous widgets until the new call delivers a snapshot. A factory that waits for a live channel therefore returns a promise of its first snapshot, as here, rather than an empty list.
+
+Keep the same widget id and define the content component outside the factory. A new component type on every snapshot would remount its state and frames.
+
+The host draws the title, frame, and narrow-dashboard tab and adapts layout to its own width. Errors must stay visible rather than silently removing affected widgets; a factory that fails shows its cause in a widget of its own, and removing a widget from Start does not stop its server-side work.
+
+Contract fields: web.startWidgetsFor, startWidget.id, startWidget.title, startWidget.description, startWidget.span, startWidget.sizes, startWidget.order, startWidget.readRight, startWidget.content, startWidgetsContext.runs, startWidgetsContext.onOpenRun, startWidgetsContext.signal, startWidgetsContext.update.
 
 ### Run data and React context
 
@@ -2437,6 +2508,7 @@ Source in the repository: packages/ragents/src/plugin-types.ts
 export interface SessionLifecycleContribution {
   id: string;
   initialize?: () => void | Promise<void>;
+  serverReady?: () => void | Promise<void>;
   prepareSession?: (context: SessionLifecycleContext) => void | Promise<void>;
   /** After a start has prepared the workspace and set up the run's first actor, before any actor got input; never after a restart of the host. */
   sessionStarted?: (context: SessionStartedContext) => void | Promise<void>;
@@ -2499,6 +2571,7 @@ export interface WebPlugin extends WebPluginDescriptor {
   surfaceElements?: SurfaceElementContribution[];
   cardSections?: CardSectionContribution[];
   startSections?: StartSectionContribution[];
+  startWidgetsFor?: (context: StartWidgetsContext) => readonly StartWidgetContribution[] | Promise<readonly StartWidgetContribution[]>;
   chatDisplayPolicy?: ChatDisplayPolicy;
   resolveRunUrl?: RunUrlResolver;
   startOptions?: StartOptionContribution[];
@@ -2558,6 +2631,44 @@ Source in the repository: apps/web/src/PluginRegistry.tsx
 export interface StartSectionContext {
   runs: readonly ConnectionRun[];
   onOpenRun: (runId: string) => void;
+}
+```
+
+### StartWidgetContribution
+
+Source in the repository: apps/web/src/PluginRegistry.tsx
+
+```typescript
+export interface StartWidgetContribution {
+  /** Starts with the plugin ID and a colon and stays the same across snapshots and releases, because the viewer's layout refers to it. */
+  readonly id: string;
+  readonly title: string;
+  /** One sentence about the widget for the gallery of Start's edit mode. */
+  readonly description?: string;
+  /** The preferred width, by default the whole row. */
+  readonly span?: StartWidgetSpan;
+  /** The sizes the viewer may give the widget in edit mode, by default all; they include its span. */
+  readonly sizes?: readonly StartWidgetSpan[];
+  /** Its place among the start sections, by default 200. */
+  readonly order?: number;
+  readonly readRight?: string;
+  readonly content: ReactNode;
+}
+```
+
+### StartWidgetsContext
+
+Source in the repository: apps/web/src/PluginRegistry.tsx
+
+```typescript
+export interface StartSectionContext {
+  runs: readonly ConnectionRun[];
+  onOpenRun: (runId: string) => void;
+}
+
+export interface StartWidgetsContext extends StartSectionContext {
+  readonly signal: AbortSignal;
+  readonly update: (widgets: readonly StartWidgetContribution[]) => void;
 }
 ```
 

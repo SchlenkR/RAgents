@@ -12,11 +12,12 @@ export const workspaceConfigDescriptors = [
 const env = declaredEnvironment(workspaceConfigDescriptors);
 
 export interface ProcessSandboxSetting {
+  readonly mode: "on" | "auto" | "off";
   readonly enabled: boolean;
   readonly network: readonly string[];
 }
 
-export const PROCESS_SANDBOX_OFF = 'PROCESS_SANDBOX: "auto" in the ragents.workspace section (administrator runs only)';
+export const PROCESS_SANDBOX_OFF = 'PROCESS_SANDBOX: "off" in the ragents.workspace section (administrator runs only)';
 
 export const processSandboxSetting = (): ProcessSandboxSetting => {
   const mode = env.optional("PROCESS_SANDBOX") ?? "auto";
@@ -26,7 +27,7 @@ export const processSandboxSetting = (): ProcessSandboxSetting => {
   const network = env.optional("PROCESS_SANDBOX_NETWORK") === undefined
     ? PROCESS_SANDBOX_DEFAULT_NETWORK
     : env.list("PROCESS_SANDBOX_NETWORK");
-  return { enabled: mode === "on", network };
+  return { mode, enabled: mode === "on", network };
 };
 
 /** The bash with which the executor of this server starts the bash tool; on Windows the VS Code extension sets it for its local host. */

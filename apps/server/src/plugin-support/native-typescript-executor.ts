@@ -12,6 +12,7 @@ interface ExecutorOptions {
   directoryFor(runId: string): string;
   /** Node execution always runs on the server, even for a workspace on a workstation. */
   serverProcessContextFor(runId: string): Promise<WorkspaceProcessContext>;
+  isolatedProcessContextFor?(runId: string, directories: readonly string[], readable: readonly string[]): Promise<WorkspaceProcessContext>;
 }
 interface Backend {
   runId: string;
@@ -54,7 +55,7 @@ export class NodeTypeScriptExecutor implements NativeTypeScriptExecutor {
     if (this.#closed || this.#stopping.has(request.context.runId)) throw new Error("Node execution is shutting down.");
     const instanceId = request.instanceId ?? `invocation-${randomUUID()}`;
     const key = `${request.context.runId}\0${instanceId}`;
-    const fingerprint = createHash("sha256").update(JSON.stringify({ entry: request.program.entry, files: request.program.files })).digest("hex");
+    const fingerprint = createHash("sha256").update(JSON.stringify({ entry: request.program.entry, files: request.program.files, cwd: request.cwd, isolated: request.isolated === true })).digest("hex");
     let slot = this.#backends.get(key);
     if (!slot) {
       const controller = new AbortController();
@@ -76,9 +77,18 @@ export class NodeTypeScriptExecutor implements NativeTypeScriptExecutor {
 
   async #start(request: NativeTypeScriptRequest, instanceId: string, fingerprint: string, controller: AbortController, callerSignal?: AbortSignal): Promise<Backend> {
     const signal = callerSignal ? AbortSignal.any([controller.signal, callerSignal]) : controller.signal;
-    const processContext = await this.#options.serverProcessContextFor(request.context.runId);
     signal.throwIfAborted();
     const directory = path.join(this.#options.directoryFor(request.context.runId), createHash("sha256").update(instanceId).digest("hex"), fingerprint);
+    const toolkit = fileURLToPath(new URL("../../../../node_modules", import.meta.url));
+    const resolvedDependencies = request.cwd ? await realpath(path.join(request.cwd, "node_modules")).catch((error: NodeJS.ErrnoException) => {
+      if (error.code !== "ENOENT") throw error;
+      return realpath(toolkit);
+    }) : await realpath(toolkit);
+    if (request.isolated && !this.#options.isolatedProcessContextFor) throw new Error("Isolated Node execution is not configured.");
+    const processContext = request.isolated
+      ? await this.#options.isolatedProcessContextFor!(request.context.runId, [request.cwd ?? directory, directory], [resolvedDependencies, await realpath(toolkit)])
+      : await this.#options.serverProcessContextFor(request.context.runId);
+    signal.throwIfAborted();
     await mkdir(directory, { recursive: true });
     for (const file of request.program.files) {
       const target = path.resolve(directory, file.fileName);
@@ -91,11 +101,6 @@ export class NodeTypeScriptExecutor implements NativeTypeScriptExecutor {
       throw new Error("The built backend entry is missing.");
     await writeFile(path.join(directory, "package.json"), JSON.stringify({ type: "module" }));
     await writeFile(path.join(directory, "__runner.mjs"), await runner());
-    const toolkit = fileURLToPath(new URL("../../../../node_modules", import.meta.url));
-    const resolvedDependencies = request.cwd ? await realpath(path.join(request.cwd, "node_modules")).catch((error: NodeJS.ErrnoException) => {
-      if (error.code !== "ENOENT") throw error;
-      return realpath(toolkit);
-    }) : await realpath(toolkit);
     await symlink(resolvedDependencies, path.join(directory, "node_modules")).catch((error: NodeJS.ErrnoException) => {
       if (error.code !== "EEXIST") throw error;
     });

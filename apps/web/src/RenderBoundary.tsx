@@ -5,6 +5,7 @@ interface RenderBoundaryProps {
   children: ReactNode;
   title: string;
   resetKeys: readonly unknown[];
+  fallback?: (cause: Error, retry: () => void) => ReactNode;
 }
 
 interface RenderBoundaryState {
@@ -31,6 +32,7 @@ export class RenderBoundary extends Component<RenderBoundaryProps, RenderBoundar
 
   render() {
     if (!this.state.error) return this.props.children;
+    if (this.props.fallback) return this.props.fallback(this.state.error, () => this.setState({ error: undefined }));
     return <div className="flex min-h-0 flex-1 flex-col items-start gap-3 overflow-auto p-workspace-inset">
       <h2 className="text-sm font-medium">{this.props.title}</h2>
       <p className="text-sm text-destructive" role="alert">{this.state.error.message}</p>

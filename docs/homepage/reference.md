@@ -437,6 +437,11 @@ For executable actors with agent.spawn and plugin.state.write.
           "type": "string",
           "const": "shared-list",
           "description": "An actor owns a function and a React view for the same list state."
+        },
+        {
+          "type": "string",
+          "const": "headless",
+          "description": "An input handler with empty state and no functions, views or example tests."
         }
       ],
       "description": "Template for the first files"
@@ -3707,6 +3712,1633 @@ Available in every model turn.
 }
 ```
 
+### global_app_file_read
+
+Read app file
+
+Read a bounded UTF-8 file within this app's explicitly permitted server folders.
+
+Owner: ragents.global-apps. Scope: per-turn. Native model tool: no. Availability: conditional.
+
+Snippet-only contracts for authoring; calls require an accepted app input.
+
+#### Input
+
+```json
+{
+  "type": "object",
+  "required": [
+    "path"
+  ],
+  "properties": {
+    "path": {
+      "type": "string",
+      "minLength": 1
+    }
+  },
+  "additionalProperties": false
+}
+```
+
+#### Result
+
+```json
+{
+  "type": "string"
+}
+```
+
+### global_app_file_write
+
+Write app file
+
+Write a UTF-8 file within this app's explicitly permitted server folders. The parent must exist.
+
+Owner: ragents.global-apps. Scope: per-turn. Native model tool: no. Availability: conditional.
+
+Snippet-only contracts for authoring; calls require an accepted app input.
+
+#### Input
+
+```json
+{
+  "type": "object",
+  "required": [
+    "path",
+    "content"
+  ],
+  "properties": {
+    "path": {
+      "type": "string",
+      "minLength": 1
+    },
+    "content": {
+      "type": "string",
+      "maxLength": 250000
+    }
+  },
+  "additionalProperties": false
+}
+```
+
+#### Result
+
+```json
+{
+  "type": "object",
+  "required": [
+    "written"
+  ],
+  "properties": {
+    "written": {
+      "type": "boolean",
+      "const": true
+    }
+  },
+  "additionalProperties": false
+}
+```
+
+### global_app_http_request
+
+Global app HTTP request
+
+Make a bounded HTTP(S) request to an explicitly permitted host, without following redirects.
+
+Owner: ragents.global-apps. Scope: per-turn. Native model tool: no. Availability: conditional.
+
+Snippet-only contracts for authoring; calls require an accepted app input.
+
+#### Input
+
+```json
+{
+  "type": "object",
+  "required": [
+    "url"
+  ],
+  "properties": {
+    "url": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 4096
+    },
+    "method": {
+      "anyOf": [
+        {
+          "type": "string",
+          "const": "GET"
+        },
+        {
+          "type": "string",
+          "const": "POST"
+        },
+        {
+          "type": "string",
+          "const": "PUT"
+        },
+        {
+          "type": "string",
+          "const": "PATCH"
+        },
+        {
+          "type": "string",
+          "const": "DELETE"
+        }
+      ]
+    },
+    "headers": {
+      "type": "object",
+      "patternProperties": {
+        "^.*$": {
+          "type": "string"
+        }
+      }
+    },
+    "body": {
+      "type": "string",
+      "maxLength": 250000
+    }
+  },
+  "additionalProperties": false
+}
+```
+
+#### Result
+
+```json
+{
+  "type": "object",
+  "required": [
+    "status",
+    "body"
+  ],
+  "properties": {
+    "status": {
+      "type": "integer"
+    },
+    "body": {
+      "type": "string"
+    }
+  },
+  "additionalProperties": false
+}
+```
+
+### global_app_list
+
+List global apps
+
+List your global apps and their last results.
+
+Owner: ragents.global-apps. Scope: per-turn. Native model tool: yes. Availability: conditional.
+
+With the run owner's global apps read permission.
+
+#### Input
+
+```json
+{
+  "type": "object",
+  "properties": {
+    "limit": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 50
+    }
+  },
+  "additionalProperties": false
+}
+```
+
+#### Result
+
+```json
+{
+  "type": "object",
+  "required": [
+    "apps",
+    "errors",
+    "hasMore"
+  ],
+  "properties": {
+    "apps": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "name",
+          "actorId",
+          "description",
+          "triggers",
+          "views",
+          "paused",
+          "status",
+          "lastRunAt",
+          "nextRunAt",
+          "lastResult",
+          "problem"
+        ],
+        "properties": {
+          "name": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9-]{0,63}$",
+            "description": "Your chosen app name."
+          },
+          "actorId": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "description": {
+            "type": "string"
+          },
+          "triggers": {
+            "type": "object",
+            "properties": {
+              "interval": {
+                "type": "object",
+                "required": [
+                  "everySeconds"
+                ],
+                "properties": {
+                  "everySeconds": {
+                    "type": "integer",
+                    "minimum": 60,
+                    "maximum": 604800
+                  }
+                },
+                "additionalProperties": false
+              },
+              "daily": {
+                "type": "object",
+                "required": [
+                  "at"
+                ],
+                "properties": {
+                  "at": {
+                    "type": "string",
+                    "pattern": "^(?:[01][0-9]|2[0-3]):[0-5][0-9]$"
+                  },
+                  "timeZone": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 128
+                  }
+                },
+                "additionalProperties": false
+              },
+              "weekly": {
+                "type": "object",
+                "required": [
+                  "at",
+                  "days"
+                ],
+                "properties": {
+                  "at": {
+                    "type": "string",
+                    "pattern": "^(?:[01][0-9]|2[0-3]):[0-5][0-9]$"
+                  },
+                  "days": {
+                    "type": "array",
+                    "items": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "const": "mon"
+                        },
+                        {
+                          "type": "string",
+                          "const": "tue"
+                        },
+                        {
+                          "type": "string",
+                          "const": "wed"
+                        },
+                        {
+                          "type": "string",
+                          "const": "thu"
+                        },
+                        {
+                          "type": "string",
+                          "const": "fri"
+                        },
+                        {
+                          "type": "string",
+                          "const": "sat"
+                        },
+                        {
+                          "type": "string",
+                          "const": "sun"
+                        }
+                      ]
+                    },
+                    "minItems": 1,
+                    "maxItems": 7,
+                    "uniqueItems": true
+                  },
+                  "timeZone": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 128
+                  }
+                },
+                "additionalProperties": false
+              },
+              "fileChange": {
+                "type": "object",
+                "required": [
+                  "folders"
+                ],
+                "properties": {
+                  "folders": {
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 512
+                    },
+                    "maxItems": 16,
+                    "uniqueItems": true
+                  }
+                },
+                "additionalProperties": false
+              }
+            },
+            "additionalProperties": false
+          },
+          "views": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": [
+                "id",
+                "title",
+                "revision"
+              ],
+              "properties": {
+                "id": {
+                  "type": "string"
+                },
+                "title": {
+                  "type": "string"
+                },
+                "revision": {
+                  "type": "string"
+                }
+              },
+              "additionalProperties": false
+            }
+          },
+          "paused": {
+            "type": "boolean"
+          },
+          "status": {
+            "anyOf": [
+              {
+                "type": "string",
+                "const": "ready"
+              },
+              {
+                "type": "string",
+                "const": "queued"
+              },
+              {
+                "type": "string",
+                "const": "running"
+              },
+              {
+                "type": "string",
+                "const": "paused"
+              },
+              {
+                "type": "string",
+                "const": "blocked"
+              }
+            ]
+          },
+          "lastRunAt": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "nextRunAt": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "lastResult": {
+            "anyOf": [
+              {
+                "type": "object",
+                "required": [
+                  "outcome",
+                  "at",
+                  "summary"
+                ],
+                "properties": {
+                  "outcome": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "const": "completed"
+                      },
+                      {
+                        "type": "string",
+                        "const": "failed"
+                      },
+                      {
+                        "type": "string",
+                        "const": "interrupted"
+                      },
+                      {
+                        "type": "string",
+                        "const": "timeout"
+                      }
+                    ]
+                  },
+                  "at": {
+                    "type": "string"
+                  },
+                  "summary": {
+                    "type": "string"
+                  }
+                },
+                "additionalProperties": false
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "problem": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    "errors": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "id",
+          "name",
+          "problem"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "problem": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    "hasMore": {
+      "type": "boolean"
+    }
+  },
+  "additionalProperties": false
+}
+```
+
+### global_app_pause
+
+Pause or resume app
+
+Pause new checks or resume with the next interval starting now.
+
+Owner: ragents.global-apps. Scope: per-turn. Native model tool: yes. Availability: conditional.
+
+With agent.spawn, plugin.state.write and the run owner's global apps write permission.
+
+#### Input
+
+```json
+{
+  "type": "object",
+  "required": [
+    "name",
+    "paused"
+  ],
+  "properties": {
+    "name": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9-]{0,63}$",
+      "description": "Your chosen app name."
+    },
+    "paused": {
+      "type": "boolean"
+    }
+  },
+  "additionalProperties": false
+}
+```
+
+#### Result
+
+```json
+{
+  "type": "object",
+  "required": [
+    "changed"
+  ],
+  "properties": {
+    "changed": {
+      "type": "boolean"
+    }
+  },
+  "additionalProperties": false
+}
+```
+
+### global_app_read
+
+Read app
+
+Read an app's permissions, state and recent bounded log to verify or fix it.
+
+Owner: ragents.global-apps. Scope: per-turn. Native model tool: yes. Availability: conditional.
+
+With the run owner's global apps read permission.
+
+#### Input
+
+```json
+{
+  "type": "object",
+  "required": [
+    "name"
+  ],
+  "properties": {
+    "name": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9-]{0,63}$",
+      "description": "Your chosen app name."
+    },
+    "logLimit": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 100
+    }
+  },
+  "additionalProperties": false
+}
+```
+
+#### Result
+
+```json
+{
+  "type": "object",
+  "required": [
+    "app",
+    "definition",
+    "timeoutSeconds",
+    "permissions",
+    "sandbox",
+    "source",
+    "state",
+    "log",
+    "droppedLogLines"
+  ],
+  "properties": {
+    "app": {
+      "type": "object",
+      "required": [
+        "name",
+        "actorId",
+        "description",
+        "triggers",
+        "views",
+        "paused",
+        "status",
+        "lastRunAt",
+        "nextRunAt",
+        "lastResult",
+        "problem"
+      ],
+      "properties": {
+        "name": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9-]{0,63}$",
+          "description": "Your chosen app name."
+        },
+        "actorId": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "description": {
+          "type": "string"
+        },
+        "triggers": {
+          "type": "object",
+          "properties": {
+            "interval": {
+              "type": "object",
+              "required": [
+                "everySeconds"
+              ],
+              "properties": {
+                "everySeconds": {
+                  "type": "integer",
+                  "minimum": 60,
+                  "maximum": 604800
+                }
+              },
+              "additionalProperties": false
+            },
+            "daily": {
+              "type": "object",
+              "required": [
+                "at"
+              ],
+              "properties": {
+                "at": {
+                  "type": "string",
+                  "pattern": "^(?:[01][0-9]|2[0-3]):[0-5][0-9]$"
+                },
+                "timeZone": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 128
+                }
+              },
+              "additionalProperties": false
+            },
+            "weekly": {
+              "type": "object",
+              "required": [
+                "at",
+                "days"
+              ],
+              "properties": {
+                "at": {
+                  "type": "string",
+                  "pattern": "^(?:[01][0-9]|2[0-3]):[0-5][0-9]$"
+                },
+                "days": {
+                  "type": "array",
+                  "items": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "const": "mon"
+                      },
+                      {
+                        "type": "string",
+                        "const": "tue"
+                      },
+                      {
+                        "type": "string",
+                        "const": "wed"
+                      },
+                      {
+                        "type": "string",
+                        "const": "thu"
+                      },
+                      {
+                        "type": "string",
+                        "const": "fri"
+                      },
+                      {
+                        "type": "string",
+                        "const": "sat"
+                      },
+                      {
+                        "type": "string",
+                        "const": "sun"
+                      }
+                    ]
+                  },
+                  "minItems": 1,
+                  "maxItems": 7,
+                  "uniqueItems": true
+                },
+                "timeZone": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 128
+                }
+              },
+              "additionalProperties": false
+            },
+            "fileChange": {
+              "type": "object",
+              "required": [
+                "folders"
+              ],
+              "properties": {
+                "folders": {
+                  "type": "array",
+                  "items": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 512
+                  },
+                  "maxItems": 16,
+                  "uniqueItems": true
+                }
+              },
+              "additionalProperties": false
+            }
+          },
+          "additionalProperties": false
+        },
+        "views": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": [
+              "id",
+              "title",
+              "revision"
+            ],
+            "properties": {
+              "id": {
+                "type": "string"
+              },
+              "title": {
+                "type": "string"
+              },
+              "revision": {
+                "type": "string"
+              }
+            },
+            "additionalProperties": false
+          }
+        },
+        "paused": {
+          "type": "boolean"
+        },
+        "status": {
+          "anyOf": [
+            {
+              "type": "string",
+              "const": "ready"
+            },
+            {
+              "type": "string",
+              "const": "queued"
+            },
+            {
+              "type": "string",
+              "const": "running"
+            },
+            {
+              "type": "string",
+              "const": "paused"
+            },
+            {
+              "type": "string",
+              "const": "blocked"
+            }
+          ]
+        },
+        "lastRunAt": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "nextRunAt": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "lastResult": {
+          "anyOf": [
+            {
+              "type": "object",
+              "required": [
+                "outcome",
+                "at",
+                "summary"
+              ],
+              "properties": {
+                "outcome": {
+                  "anyOf": [
+                    {
+                      "type": "string",
+                      "const": "completed"
+                    },
+                    {
+                      "type": "string",
+                      "const": "failed"
+                    },
+                    {
+                      "type": "string",
+                      "const": "interrupted"
+                    },
+                    {
+                      "type": "string",
+                      "const": "timeout"
+                    }
+                  ]
+                },
+                "at": {
+                  "type": "string"
+                },
+                "summary": {
+                  "type": "string"
+                }
+              },
+              "additionalProperties": false
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "problem": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "additionalProperties": false
+    },
+    "definition": {
+      "type": "object",
+      "required": [
+        "name",
+        "description",
+        "program",
+        "permissions"
+      ],
+      "properties": {
+        "name": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9-]{0,63}$",
+          "description": "Your chosen app name."
+        },
+        "description": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 1000,
+          "pattern": "\\S"
+        },
+        "program": {
+          "type": "string",
+          "pattern": "^(?:[a-z][a-z0-9-]{0,63}\\.)?[a-z][a-z0-9-]{0,63}$",
+          "description": "Private actor package in your run, relative to your room."
+        },
+        "triggers": {
+          "type": "object",
+          "properties": {
+            "interval": {
+              "type": "object",
+              "required": [
+                "everySeconds"
+              ],
+              "properties": {
+                "everySeconds": {
+                  "type": "integer",
+                  "minimum": 60,
+                  "maximum": 604800
+                }
+              },
+              "additionalProperties": false
+            },
+            "daily": {
+              "type": "object",
+              "required": [
+                "at"
+              ],
+              "properties": {
+                "at": {
+                  "type": "string",
+                  "pattern": "^(?:[01][0-9]|2[0-3]):[0-5][0-9]$"
+                },
+                "timeZone": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 128
+                }
+              },
+              "additionalProperties": false
+            },
+            "weekly": {
+              "type": "object",
+              "required": [
+                "at",
+                "days"
+              ],
+              "properties": {
+                "at": {
+                  "type": "string",
+                  "pattern": "^(?:[01][0-9]|2[0-3]):[0-5][0-9]$"
+                },
+                "days": {
+                  "type": "array",
+                  "items": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "const": "mon"
+                      },
+                      {
+                        "type": "string",
+                        "const": "tue"
+                      },
+                      {
+                        "type": "string",
+                        "const": "wed"
+                      },
+                      {
+                        "type": "string",
+                        "const": "thu"
+                      },
+                      {
+                        "type": "string",
+                        "const": "fri"
+                      },
+                      {
+                        "type": "string",
+                        "const": "sat"
+                      },
+                      {
+                        "type": "string",
+                        "const": "sun"
+                      }
+                    ]
+                  },
+                  "minItems": 1,
+                  "maxItems": 7,
+                  "uniqueItems": true
+                },
+                "timeZone": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 128
+                }
+              },
+              "additionalProperties": false
+            },
+            "fileChange": {
+              "type": "object",
+              "required": [
+                "folders"
+              ],
+              "properties": {
+                "folders": {
+                  "type": "array",
+                  "items": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 512
+                  },
+                  "maxItems": 16,
+                  "uniqueItems": true
+                }
+              },
+              "additionalProperties": false
+            }
+          },
+          "additionalProperties": false
+        },
+        "timeoutSeconds": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 300
+        },
+        "permissions": {
+          "type": "object",
+          "properties": {
+            "files": {
+              "type": "object",
+              "properties": {
+                "read": {
+                  "type": "array",
+                  "items": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 512
+                  },
+                  "maxItems": 16,
+                  "uniqueItems": true
+                },
+                "write": {
+                  "type": "array",
+                  "items": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 512
+                  },
+                  "maxItems": 16,
+                  "uniqueItems": true
+                }
+              },
+              "additionalProperties": false
+            },
+            "http": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 512
+              },
+              "maxItems": 16,
+              "uniqueItems": true
+            },
+            "functions": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 128
+              },
+              "maxItems": 32,
+              "uniqueItems": true
+            }
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
+    },
+    "timeoutSeconds": {
+      "type": "integer"
+    },
+    "permissions": {
+      "type": "object",
+      "properties": {
+        "files": {
+          "type": "object",
+          "properties": {
+            "read": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 512
+              },
+              "maxItems": 16,
+              "uniqueItems": true
+            },
+            "write": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 512
+              },
+              "maxItems": 16,
+              "uniqueItems": true
+            }
+          },
+          "additionalProperties": false
+        },
+        "http": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 512
+          },
+          "maxItems": 16,
+          "uniqueItems": true
+        },
+        "functions": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "maxItems": 32,
+          "uniqueItems": true
+        }
+      },
+      "additionalProperties": false
+    },
+    "sandbox": {
+      "anyOf": [
+        {
+          "type": "string",
+          "const": "process"
+        },
+        {
+          "type": "string",
+          "const": "disabled"
+        },
+        {
+          "type": "string",
+          "const": "unavailable"
+        }
+      ]
+    },
+    "source": {
+      "type": "object",
+      "required": [
+        "runId",
+        "program"
+      ],
+      "properties": {
+        "runId": {
+          "type": "string"
+        },
+        "program": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false
+    },
+    "state": {},
+    "log": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "at",
+          "occurrence",
+          "level",
+          "text"
+        ],
+        "properties": {
+          "at": {
+            "type": "string"
+          },
+          "occurrence": {
+            "type": "integer"
+          },
+          "level": {
+            "anyOf": [
+              {
+                "type": "string",
+                "const": "info"
+              },
+              {
+                "type": "string",
+                "const": "error"
+              }
+            ]
+          },
+          "text": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    "droppedLogLines": {
+      "type": "integer"
+    }
+  },
+  "additionalProperties": false
+}
+```
+
+### global_app_register
+
+Register app
+
+Copy, typecheck, build and test a private actor package as a paused global app.
+
+Owner: ragents.global-apps. Scope: per-turn. Native model tool: yes. Availability: conditional.
+
+With agent.spawn, plugin.state.write and the run owner's global apps write permission.
+
+#### Input
+
+```json
+{
+  "type": "object",
+  "required": [
+    "name",
+    "description",
+    "program",
+    "permissions"
+  ],
+  "properties": {
+    "name": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9-]{0,63}$",
+      "description": "Your chosen app name."
+    },
+    "description": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 1000,
+      "pattern": "\\S"
+    },
+    "program": {
+      "type": "string",
+      "pattern": "^(?:[a-z][a-z0-9-]{0,63}\\.)?[a-z][a-z0-9-]{0,63}$",
+      "description": "Private actor package in your run, relative to your room."
+    },
+    "triggers": {
+      "type": "object",
+      "properties": {
+        "interval": {
+          "type": "object",
+          "required": [
+            "everySeconds"
+          ],
+          "properties": {
+            "everySeconds": {
+              "type": "integer",
+              "minimum": 60,
+              "maximum": 604800
+            }
+          },
+          "additionalProperties": false
+        },
+        "daily": {
+          "type": "object",
+          "required": [
+            "at"
+          ],
+          "properties": {
+            "at": {
+              "type": "string",
+              "pattern": "^(?:[01][0-9]|2[0-3]):[0-5][0-9]$"
+            },
+            "timeZone": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            }
+          },
+          "additionalProperties": false
+        },
+        "weekly": {
+          "type": "object",
+          "required": [
+            "at",
+            "days"
+          ],
+          "properties": {
+            "at": {
+              "type": "string",
+              "pattern": "^(?:[01][0-9]|2[0-3]):[0-5][0-9]$"
+            },
+            "days": {
+              "type": "array",
+              "items": {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "const": "mon"
+                  },
+                  {
+                    "type": "string",
+                    "const": "tue"
+                  },
+                  {
+                    "type": "string",
+                    "const": "wed"
+                  },
+                  {
+                    "type": "string",
+                    "const": "thu"
+                  },
+                  {
+                    "type": "string",
+                    "const": "fri"
+                  },
+                  {
+                    "type": "string",
+                    "const": "sat"
+                  },
+                  {
+                    "type": "string",
+                    "const": "sun"
+                  }
+                ]
+              },
+              "minItems": 1,
+              "maxItems": 7,
+              "uniqueItems": true
+            },
+            "timeZone": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            }
+          },
+          "additionalProperties": false
+        },
+        "fileChange": {
+          "type": "object",
+          "required": [
+            "folders"
+          ],
+          "properties": {
+            "folders": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 512
+              },
+              "maxItems": 16,
+              "uniqueItems": true
+            }
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
+    },
+    "timeoutSeconds": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 300
+    },
+    "permissions": {
+      "type": "object",
+      "properties": {
+        "files": {
+          "type": "object",
+          "properties": {
+            "read": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 512
+              },
+              "maxItems": 16,
+              "uniqueItems": true
+            },
+            "write": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 512
+              },
+              "maxItems": 16,
+              "uniqueItems": true
+            }
+          },
+          "additionalProperties": false
+        },
+        "http": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 512
+          },
+          "maxItems": 16,
+          "uniqueItems": true
+        },
+        "functions": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "maxItems": 32,
+          "uniqueItems": true
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  "additionalProperties": false
+}
+```
+
+#### Result
+
+```json
+{
+  "type": "object",
+  "required": [
+    "registered",
+    "paused"
+  ],
+  "properties": {
+    "registered": {
+      "type": "boolean",
+      "const": true
+    },
+    "paused": {
+      "type": "boolean",
+      "const": true
+    }
+  },
+  "additionalProperties": false
+}
+```
+
+### global_app_remove
+
+Remove app
+
+Abort current work and remove the app's package binding, retaining journal history.
+
+Owner: ragents.global-apps. Scope: per-turn. Native model tool: yes. Availability: conditional.
+
+With agent.spawn, plugin.state.write and the run owner's global apps write permission.
+
+#### Input
+
+```json
+{
+  "type": "object",
+  "required": [
+    "name"
+  ],
+  "properties": {
+    "name": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9-]{0,63}$",
+      "description": "Your chosen app name."
+    }
+  },
+  "additionalProperties": false
+}
+```
+
+#### Result
+
+```json
+{
+  "type": "object",
+  "required": [
+    "removed"
+  ],
+  "properties": {
+    "removed": {
+      "type": "boolean",
+      "const": true
+    }
+  },
+  "additionalProperties": false
+}
+```
+
+### global_app_run
+
+Run app now
+
+Queue one immediate check, including while paused. Read its result with global_app_read.
+
+Owner: ragents.global-apps. Scope: per-turn. Native model tool: yes. Availability: conditional.
+
+With agent.spawn, plugin.state.write and the run owner's global apps write permission.
+
+#### Input
+
+```json
+{
+  "type": "object",
+  "required": [
+    "name"
+  ],
+  "properties": {
+    "name": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9-]{0,63}$",
+      "description": "Your chosen app name."
+    }
+  },
+  "additionalProperties": false
+}
+```
+
+#### Result
+
+```json
+{
+  "type": "object",
+  "required": [
+    "accepted"
+  ],
+  "properties": {
+    "accepted": {
+      "type": "boolean",
+      "const": true
+    }
+  },
+  "additionalProperties": false
+}
+```
+
+### global_app_trigger
+
+App trigger
+
+Read the accepted occurrence key, planned time and trigger reason. Required in every app's input capabilities.
+
+Owner: ragents.global-apps. Scope: per-turn. Native model tool: no. Availability: conditional.
+
+Snippet-only contracts for authoring; calls require an accepted app input.
+
+#### Input
+
+```json
+{
+  "type": "object",
+  "properties": {},
+  "additionalProperties": false
+}
+```
+
+#### Result
+
+```json
+{
+  "type": "object",
+  "required": [
+    "key",
+    "scheduledAt",
+    "reason",
+    "timeZone"
+  ],
+  "properties": {
+    "key": {
+      "type": "string"
+    },
+    "scheduledAt": {
+      "type": "string"
+    },
+    "reason": {
+      "anyOf": [
+        {
+          "type": "string",
+          "const": "interval"
+        },
+        {
+          "type": "string",
+          "const": "daily"
+        },
+        {
+          "type": "string",
+          "const": "weekly"
+        },
+        {
+          "type": "string",
+          "const": "manual"
+        },
+        {
+          "type": "string",
+          "const": "file-change"
+        }
+      ]
+    },
+    "timeZone": {
+      "type": "string"
+    }
+  },
+  "additionalProperties": false
+}
+```
+
 ### model_list
 
 List Models and Profiles
@@ -3953,6 +5585,54 @@ Only with the capability agent.spawn.
         },
         "additionalProperties": false
       }
+    }
+  },
+  "additionalProperties": false
+}
+```
+
+### overseer_notify
+
+Notify global coordinator
+
+Send a short result to the current coordinator conversation from an actor in your global space. May trigger a coordinator reply. Requires an explicit app function permission.
+
+Owner: ragents.overseer. Scope: per-turn. Native model tool: no. Availability: conditional.
+
+With actor.input and the run owner's global coordinator write permission.
+
+#### Input
+
+```json
+{
+  "type": "object",
+  "required": [
+    "message"
+  ],
+  "properties": {
+    "message": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 1000,
+      "pattern": "\\S"
+    }
+  },
+  "additionalProperties": false
+}
+```
+
+#### Result
+
+```json
+{
+  "type": "object",
+  "required": [
+    "sent"
+  ],
+  "properties": {
+    "sent": {
+      "type": "boolean",
+      "const": true
     }
   },
   "additionalProperties": false
@@ -5788,6 +7468,36 @@ test("adds entries without losing existing entries", async () => {
   assert.deepEqual(await program.functions.append({"text": "  First entry  "}, context), {"text": "First entry", "entries": ["First entry"]});
   assert.deepEqual(await program.functions.append({"text": "Second entry"}, context), {"text": "Second entry", "entries": ["First entry", "Second entry"]});
   assert.deepEqual(context.state.read(), {"entries": ["First entry", "Second entry"]});
+});
+```
+
+### headless: Headless actor
+
+An input handler with empty state and no functions, views or example tests.
+
+#### package.json
+
+```json
+{
+  "name": "headless",
+  "private": true,
+  "type": "module",
+  "ragents": {
+    "title": "Headless actor",
+    "backend": "src/server.ts"
+  }
+}
+```
+
+#### src/server.ts
+
+```typescript
+import { Type } from "typebox";
+import { defineActor } from "@ragents/server";
+
+export default defineActor({ state: Type.Object({}), functions: {}, input: { capabilities: [] } }, {
+  functions: {},
+  onInput: (_input, _context) => {},
 });
 ```
 
@@ -9094,6 +10804,15 @@ Complete package sources are in [run-setup.md](run-setup.md).
     "requires": [
       "ragents.orchestration",
       "ragents.ask"
+    ]
+  },
+  {
+    "id": "ragents.global-apps",
+    "requires": [
+      "ragents.orchestration",
+      "ragents.workspace",
+      "ragents.actor-programs",
+      "ragents.overseer"
     ]
   },
   {

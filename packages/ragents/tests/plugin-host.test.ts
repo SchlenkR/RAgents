@@ -170,6 +170,46 @@ test("operation results are validated at the host boundary", async () => {
     );
 });
 
+test("server-ready hooks wait for initialization and finish before the next contribution", async () => {
+    const calls: string[] = [];
+    const lifecycle = new LifecycleContributionRegistry();
+    let release = () => {};
+    const waiting = new Promise<void>((resolve) => { release = resolve; });
+    lifecycle.register("first-plugin", [{
+        id: "first.lifecycle",
+        initialize: () => { calls.push("initialize"); },
+        serverReady: async () => {
+            calls.push("first-ready");
+            await waiting;
+            calls.push("first-finished");
+        },
+    }]);
+    lifecycle.register("second-plugin", [{
+        id: "second.lifecycle",
+        serverReady: () => { calls.push("second-ready"); },
+    }]);
+    await lifecycle.initialize();
+    assert.deepEqual(calls, ["initialize"]);
+    const ready = lifecycle.serverReady();
+    assert.deepEqual(calls, ["initialize", "first-ready"]);
+    release();
+    await ready;
+    assert.deepEqual(calls, ["initialize", "first-ready", "first-finished", "second-ready"]);
+});
+
+test("a failed server-ready prerequisite stops later contributions", async () => {
+    const lifecycle = new LifecycleContributionRegistry();
+    lifecycle.register("first-plugin", [{
+        id: "first.lifecycle",
+        serverReady: () => { throw new Error("Restored runs are unavailable."); },
+    }]);
+    lifecycle.register("second-plugin", [{
+        id: "second.lifecycle",
+        serverReady: () => { assert.fail("A failed prerequisite must abort startup."); },
+    }]);
+    await assert.rejects(lifecycle.serverReady(), /Restored runs are unavailable/);
+});
+
 test("session stop starts every plugin in reverse registration order and aggregates failures", async () => {
     const calls: string[] = [];
     const lifecycle = new LifecycleContributionRegistry();

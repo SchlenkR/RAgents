@@ -1,5 +1,5 @@
 import { ChevronRightIcon } from "lucide-react";
-import { useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { useAccess } from "../AccessContext";
 import { START_WIDGET_SPANS } from "../PluginRegistry";
 import { StartTiles, startTileCount } from "../StartTiles";
@@ -8,6 +8,7 @@ import type { PanelAction, PanelState } from "./contract";
 import type { PanelPageProps } from "./page-props";
 import { canDeleteRun, RunCard, RunLine, RunList } from "./RunLine";
 import { StartDashboard, type StartWidget } from "./StartDashboard";
+import { useStartWidgets } from "./start-widgets";
 
 const RECENT_RUNS = 15;
 
@@ -27,11 +28,12 @@ export function StartPage({ state, send, registry, preferences }: PanelPageProps
     setStart({ action, state });
   };
   const connection = state.connections[0]!;
-  const runs = [...connection.runs].sort((left, right) => right.updatedAt - left.updatedAt);
+  const runs = useMemo(() => [...connection.runs].sort((left, right) => right.updatedAt - left.updatedAt), [connection.runs]);
   const recent = runs.slice(0, RECENT_RUNS);
   const actions = recent.some((run) => run.canShare === true || canDeleteRun(connection, run));
   const tiles = startTileCount(connection.entries, connection.defaultEntry, connection.canCreateFree !== false);
-  const openRun = (runId: string) => send({ action: "openRun", name: connection.name, runId });
+  const openRun = useCallback((runId: string) => send({ action: "openRun", name: connection.name, runId }), [connection.name, send]);
+  const dynamic = useStartWidgets(registry, { runs, onOpenRun: openRun }).filter((widget) => !widget.readRight || access.can(widget.readRight));
   const sections = registry?.startSections.filter((section) => !section.readRight || access.can(section.readRight)) ?? [];
   const widgets: readonly StartWidget[] = [
     ...(connection.canCreate ? [{
@@ -54,9 +56,11 @@ export function StartPage({ state, send, registry, preferences }: PanelPageProps
           </RunList>
         </RunCard>,
     },
-    ...sections.map(({ id, title, description, span, sizes, Section }) => ({
-      key: id, title, description, span: span ?? "full", sizes: sizes ?? START_WIDGET_SPANS, content: <Section onOpenRun={openRun} runs={runs} />,
-    })),
+    ...[...sections.map(({ id, title, description, span, sizes, order, Section }) => ({
+      key: id, title, description, span: span ?? "full", sizes: sizes ?? START_WIDGET_SPANS, order, content: <Section onOpenRun={openRun} runs={runs} />,
+    })), ...dynamic.map(({ id, title, description, span, sizes, order, content }) => ({
+      key: id, title, description, span: span ?? "full", sizes: sizes ?? START_WIDGET_SPANS, order: order ?? 200, content,
+    }))].sort((a, b) => a.order - b.order || a.key.localeCompare(b.key)),
   ];
   return <div className="grid min-w-0 grid-cols-1 gap-8">
     {state.problem && <p className="type-body text-destructive [overflow-wrap:anywhere]" role="alert">{state.problem}</p>}

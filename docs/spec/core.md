@@ -302,8 +302,9 @@ only during a turn: when the actor's turn ends (`turn.finished` or `turn.interru
 releases it, and the next turn builds it once from the journal on first access. This way idle runs
 occupy no memory, not even with the media of their contexts, which are stored as bytes in the held
 state. It is also rebuilt after a server start and when the run has a different first event than at
-the last access. Deletion and conversation reset discard it together with the journal
-(`forgetRun`); a locked run delivers no context but `journal-unavailable`. The delivered context is
+the last access. Run deletion discards it together with the journal (`forgetRun`). A global
+conversation reset replaces only the coordinator actor and its model context; other actors and
+the shared journal remain. A locked run delivers no context but `journal-unavailable`. The delivered context is
 frozen. `Orchestration.heldModelContexts` names the number of held states.
 
 ### Turns of an agent
@@ -1128,7 +1129,9 @@ other user, not even with `runs.read.all`, and a coordinator identifier that is 
 belong to whoever names it first but answers everyone else with `run-not-found`. The permissions
 stay those of the plugin (`ragents.overseer.read` and `.write`); the first message does not need
 free runs (`runs.create`). The run uses the same chat routes, agent runtime, journal, and stop
-boundaries as other runs. Only the first message creates the run; after a restart, chat and model
+boundaries as other runs. The first message or global app registration prepares the run through
+the same global session path; app registration starts no model turn. The coordinator occupies
+`main`, and every global app has a sibling room. After a restart, chat, app state, and model
 context are preserved. The normal run list hides all coordinators; a deletion or move is rejected
 with `global-chat-protected` (status 409), an import under a coordinator identifier with
 `run-transfer-exists`. Like all runs, the storage belongs to the data directory of the started
@@ -1172,7 +1175,10 @@ completion close the open block regardless of its position; text from different 
 turns is separated by the cursor.
 
 The chat projection delivers every visible assistant text with a mandatory stable cursor. The
-conversation identity is the event ID of `run.created`; the position within the conversation uses
+conversation identity is normally the event ID of `run.created`. After an explicit global
+conversation reset, it is the new coordinator's `agent.spawned` event ID, written with command
+`conversation-reset:<key>:spawn`; that coordinator's chat projection begins at the spawn.
+The position within the conversation uses
 the journal sequence of `turn.started` and an offset in the accumulated turn text. The offset
 counts UTF-16 units without whitespace, so that live chunks and reloaded journal blocks yield the
 same position even if a block carries whitespace at its edges. Tool and reasoning events do not
@@ -1197,25 +1203,34 @@ An ordinary replay does not clear the input draft. This information enables a st
 projection in the browser without executing events again or using timestamps and text comparisons
 as identity.
 
-The plugin `ragents.overseer` offers an explicitly confirmed conversation reset. Meanwhile, the host
-blocks new global inputs, ends the global run, and waits for its actual runtime cleanup, including
-a stop cleanup already begun. Then it removes only its journal together with the model context and
-working storage. The existing chat session object reports the reset to its streams; the next
-message starts a fresh run under the same identifier. The reset affects only the caller's
-coordinator; model selection, run references, the coordinators of other users, and all other runs
-are preserved. A reset marker stored durably before the deletion (per coordinator
-`reset-intents/<runId>.json` in the plugin storage) lets a reset that was begun complete at the next
-start after a process abort. Until completion or a successful retry, new global inputs stay
-blocked. There is no automatic context-dependent reset. A trailing scheduler scan skips a journal
-removed in the meantime. If the run is created anew under the same identifier, its new work is
-scheduled regularly again.
+The plugin `ragents.overseer` offers an explicitly confirmed conversation reset. The host blocks
+new coordinator inputs, starts interruption of its current turn, and stops the old coordinator
+before awaiting actual runtime cleanup. This prevents another turn from starting during cleanup.
+The existing `Orchestration.stopActors` targets exactly that actor; it does not include
+descendants or other rooms. Reset replaces the coordinator actor and
+model context in `main`, preserving the global run, journal, workspace, and app rooms with their
+state, recent logs, and schedule progress. The existing chat session reports the reset to its
+streams; the next message starts a fresh coordinator conversation. Model selection, run
+references, the coordinators of other users, and normal runs remain.
+
+A durable reset intent records its operation key and old coordinator actor ID before the actor
+replacement. Retries and startup recovery use them to complete a begun reset once, without
+replacing a coordinator that has already been replaced. Until completion or a successful retry,
+new coordinator inputs stay blocked. There is no automatic context-dependent reset. A locked
+or corrupt global journal remains locked: conversation reset neither deletes it nor releases
+its identifier; normal explicit journal recovery is required.
 
 The product host binds the global chat contract delivered by the plugin: its own prompt, tool
 selection, and a small working directory in the plugin storage. The global coordinator initially
-uses the profile's default model, but no product prompts, product skills, hooks, or preparation of
-a product working directory. Its native interface contains `typescript_api`, `typescript_eval`, and
-the allowed file tools `read`, `write`, and `edit`; without sign-in, the host shell `bash` is
-added. With users, it has none, because as a server process it could read the files of all users;
+uses the profile's default model. Initial contributions whose `requiresTools` match its selected
+tools reach its turns, including the global app authoring instructions. Ordinary product
+prompts, product skills, hooks, and preparation of a product working directory remain excluded.
+Its native interface contains `typescript_api`, `typescript_eval`, and the allowed file tools
+`read`, `write`, and `edit`. Installed plugins also contribute `actor_program_create`,
+`actor_program_diagnostics`, the TypeScript and TypeScript language-server tools, and the
+`global_app_*` tools. The coordinator authors and checks global app packages in its own working
+directory with the same package, file/edit, and TypeScript flow as a normal run agent. Without sign-in, the host shell
+`bash` is added. With users, it has none, because as a server process it could read the files of all users;
 it then sends its JSON-RPC calls from snippets with `fetch`. Individual work actions run directly;
 compound calls use the same `context.functions` API as normal runs. The two TypeScript tools are
 part of the server's basic equipment and need no actor program plugin. Without sign-in, only its
@@ -1375,7 +1390,8 @@ records when they are appended or adopted.
 Isolated runs receive no working directories or scheduler
 execution and cannot accidentally be created anew under the same ID. `Journal.unavailableRuns`
 names all locked runs, including those after a write error. This also applies to the global
-coordinator. Its explicit conversation reset can release the locked ID after removing the old files.
+coordinator. Its conversation reset preserves the journal and cannot release a locked ID;
+explicit journal recovery is required.
 
 The host also isolates workspace resolution failures per run, at startup or on first use. These locks retain
 the loaded journal and its ownership, report the workspace cause through the same run-list

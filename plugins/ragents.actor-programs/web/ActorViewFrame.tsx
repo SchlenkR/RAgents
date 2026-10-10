@@ -42,7 +42,8 @@ interface ActorViewFrameProps {
   ) => Promise<RunAppInvocation>;
   pendingConfirmationInvocationId?: string;
   runId: string;
-  session: SessionContext;
+  session?: SessionContext;
+  onFailure?: (cause: string) => void;
 }
 
 interface FrameLifecycle {
@@ -79,6 +80,7 @@ export function ActorViewFrame({
   pendingConfirmationInvocationId,
   runId,
   session,
+  onFailure,
 }: ActorViewFrameProps) {
   const access = useAccess();
   const theme = useResolvedTheme();
@@ -110,6 +112,7 @@ export function ActorViewFrame({
   const [bridgeReady, setBridgeReady] = useState(false);
   const [frameError, setFrameError] = useState<string>();
   const [actionError, setActionError] = useState<string>();
+  useEffect(() => { if (frameError) onFailure?.(frameError); }, [frameError, onFailure]);
   const [submitting, setSubmitting] = useState<string[]>([]);
   appRef.current = app;
   const frameUrl = useMemo(() => api.frameUrl(runId, app.id, app.revision), [api, app.id, app.revision, runId]);
@@ -128,10 +131,15 @@ export function ActorViewFrame({
   }, []);
 
   const sendChatState = useCallback((port: MessagePort, actor: string, requestId?: string) => {
+    const current = sessionRef.current;
+    if (!current) {
+      port.postMessage({ type: RUN_APP_ERROR, version: RUN_APP_BRIDGE_VERSION, requestId, message: "This dashboard view has no chat session." });
+      return;
+    }
     const generation = bridgeGenerationRef.current;
     const publish = (capabilities: Pick<ChatSnapshot, "attachmentCapabilities" | "attachmentCapabilitiesError">) => {
       if (generation !== bridgeGenerationRef.current || port !== portRef.current || !watchedChats.current.has(actor)) return;
-      const chat = chatSnapshotOf(sessionRef.current, actor);
+      const chat = chatSnapshotOf(current, actor);
       const snapshot = { ...chat, ...capabilities, readOnly: chat.readOnly === true || !writableRef.current };
       const signature = JSON.stringify(snapshot);
       if (requestId === undefined && watchedChats.current.get(actor) === signature) return;
@@ -139,7 +147,6 @@ export function ActorViewFrame({
       port.postMessage({ type: RUN_APP_CHAT_STATE, version: RUN_APP_BRIDGE_VERSION, actor, snapshot, ...(requestId ? { requestId } : {}) });
     };
     try {
-      const current = sessionRef.current;
       const target = resolveChatActor(current, actor).actor;
       const key = JSON.stringify([current.session.id, target.id, target.execution?.driver]);
       let entry = chatCapabilities.current.get(key);
@@ -264,6 +271,7 @@ export function ActorViewFrame({
         try {
           if (!writableRef.current) throw new Error("You have read-only access to this chat.");
           const current = sessionRef.current;
+          if (!current) throw new Error("This dashboard view has no chat session.");
           const snapshot = chatSnapshotOf(current, request.actor);
           if (snapshot.error) throw new Error(snapshot.error);
           const { actor } = resolveChatActor(current, request.actor);
@@ -371,6 +379,11 @@ export function ActorViewFrame({
     const receiveReady = (event: MessageEvent<unknown>) => {
       if (disposed || navigated) return;
       const data = event.data as { type?: unknown; version?: unknown; token?: unknown; keyboard?: unknown } | null;
+      if (event.source === frame.contentWindow && event.origin === "null" && data?.type === "ragents.app.failed"
+        && data.version === RUN_APP_BRIDGE_VERSION && data.token === bridgeToken && typeof (data as { message?: unknown }).message === "string") {
+        setFrameError((data as { message: string }).message.slice(0, 1000));
+        return;
+      }
       if (event.source === frame.contentWindow && event.origin === "null"
         && data?.type === "ragents.app.escape" && data.version === RUN_APP_BRIDGE_VERSION
         && data.token === bridgeToken) {

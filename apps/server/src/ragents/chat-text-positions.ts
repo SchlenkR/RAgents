@@ -7,6 +7,8 @@ export class ChatTextPositions {
   #conversationId: string | null = null;
   readonly #turns = new Map<string, { sequence: number; committed: number; live: number }>();
 
+  constructor(conversationId: string | null = null) { this.#conversationId = conversationId; }
+
   get conversationId(): string | null { return this.#conversationId; }
 
   covers(turnId: string, text: string): boolean {

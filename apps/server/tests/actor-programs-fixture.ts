@@ -10,6 +10,8 @@ export const unavailableActorPrograms: ActorProgramsService = {
   async runInput() { throw new Error("Actor programs are not configured in this fixture."); },
   async workspaceDirectory() { throw new Error("Actor programs are not configured in this fixture."); },
   async importPackage() { throw new Error("Actor programs are not configured in this fixture."); },
+  async copyPackage() { throw new Error("Actor programs are not configured in this fixture."); },
+  async remove() { throw new Error("Actor programs are not configured in this fixture."); },
   async installScript() { throw new Error("Actor programs are not configured in this fixture."); },
   enqueueStart() { throw new Error("Actor programs are not configured in this fixture."); },
   isScriptActor: () => false,

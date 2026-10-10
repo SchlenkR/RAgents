@@ -1,8 +1,8 @@
 import { unavailableActorPrograms } from "./actor-programs-fixture.ts";
 import assert from "node:assert/strict";
 import test from "node:test";
-import { Journal, LiveBus, Orchestration } from "@ragents/engine";
-import { manualExecution, testServices, textStep } from "../../../packages/ragents/tests/support.ts";
+import { Journal, LiveBus, Orchestration, StartOptionContributionRegistry } from "@ragents/engine";
+import { catalog, manualExecution, testServices, textStep } from "../../../packages/ragents/tests/support.ts";
 import { applyEvent, type ChatEvent, type Message } from "quassel/events";
 import type { Engine } from "../src/ragents/engine.ts";
 import { RunChatSession } from "../src/ragents/session.ts";
@@ -12,7 +12,7 @@ const fixture = () => {
   const journal = new Journal(":memory:", services);
   const runtime = new Orchestration(journal, services);
   const live = new LiveBus();
-  const engine = { journal, runtime, live, scheduler: { isRunning: () => false } } as unknown as Engine;
+  const engine = { journal, runtime, live, catalog, startOptions: new StartOptionContributionRegistry(), scheduler: { isRunning: () => false, interruptTurn: async () => {} } } as unknown as Engine;
   const createRun = () => {
     let view = runtime.createRun({ commandId: services.newId("command") }, {
       runId: "cursor-run", title: "Cursor", ownerHandle: "owner", ownerDisplayName: "Owner",
@@ -27,7 +27,7 @@ const fixture = () => {
   const run = createRun();
   const session = () => new RunChatSession({
     engine, id: run.runId,
-    coordinator: { handle: "coordinator", displayName: "Coordinator", profile: "coordinator", runTitle: "Cursor", ownerHandle: "owner", ownerDisplayName: "Owner" },
+    coordinator: { handle: "coordinator", displayName: "Coordinator", profile: "manual", runTitle: "Cursor", ownerHandle: "owner", ownerDisplayName: "Owner" },
     prompt: () => "", assertUsable: () => {}, prepare: async () => {}, prepareWorkspace: async () => {}, started: async () => {},
     scriptEntryFor: () => undefined, startEntryFor: () => undefined, actorPrograms: unavailableActorPrograms,
   });
@@ -106,7 +106,7 @@ test("journal-only text advances the same cursor before live text and subsequent
   } finally { session.dispose(); data.journal.close(); }
 });
 
-test("conversation reset has an explicit empty replay boundary and a recreated run changes identity", () => {
+test("conversation reset has an empty replay boundary and a durable new identity in the same journal", async () => {
   const data = fixture();
   const session = data.session();
   try {
@@ -115,20 +115,24 @@ test("conversation reset has an explicit empty replay boundary and a recreated r
     session.subscribe((event) => events.push(event));
     const before = events[0];
     assert.ok(before.kind === "reset" && before.conversationId);
-    data.journal.forget(data.runId);
-    session.resetHistory();
+    await session.resetConversation("cursor-reset", data.actorId);
+    const replacement = data.runtime.events(data.runId).find((event) => event.type === "agent.spawned" && event.commandId === "conversation-reset:cursor-reset:spawn")!;
     assert.deepEqual(events.slice(-3), [
-      { kind: "reset", reason: "conversation-reset", conversationId: null },
+      { kind: "reset", reason: "conversation-reset", conversationId: replacement.eventId },
       { kind: "status", running: false },
-      { kind: "replay-end", conversationId: null },
+      { kind: "replay-end", conversationId: replacement.eventId },
     ]);
-    data.createRun();
-    session.attach();
+    assert.equal(data.runtime.events(data.runId)[0].eventId, before.conversationId);
+    assert.equal(data.runtime.view(data.runId).actors.find((actor) => actor.id === data.actorId)?.lifecycle.kind, "stopped");
+    const reloaded = data.session();
+    reloaded.attach();
     const reconnect: ChatEvent[] = [];
-    session.subscribe((event) => reconnect.push(event))();
+    reloaded.subscribe((event) => reconnect.push(event))();
+    reloaded.dispose();
     const after = reconnect[0];
     assert.ok(after.kind === "reset" && after.conversationId);
     assert.notEqual(after.conversationId, before.conversationId);
+    assert.equal(after.conversationId, replacement.eventId);
     assert.deepEqual(reconnect.at(-1), { kind: "replay-end", conversationId: after.conversationId });
   } finally { session.dispose(); data.journal.close(); }
 });

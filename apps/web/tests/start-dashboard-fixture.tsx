@@ -1,5 +1,5 @@
 import { createRoot } from "react-dom/client";
-import { PluginRegistry, type StartSectionContext, type StartSectionContribution } from "../src/PluginRegistry";
+import { PluginRegistry, type StartSectionContext, type StartSectionContribution, type StartWidgetContribution, type WebPlugin } from "../src/PluginRegistry";
 import { PanelPage } from "../src/panel/PanelPage";
 import type { ConnectionView, PanelState } from "../src/panel/contract";
 import type { PreferenceStore } from "../src/preferences";
@@ -70,10 +70,28 @@ const sections: StartSectionContribution[] = [
   ] : []),
 ];
 
+function BrokenApp(): never {
+  throw new Error("The app view failed to load.");
+}
+
+const apps: Readonly<Record<string, StartWidgetContribution>> = {
+  planner: { id: "demo.apps:planner", title: "Planner", description: "Plans the week from your runs.", span: "half", sizes: ["narrow", "half", "wide"], content: <ul aria-label="Planner entries" className="grid gap-2 rounded-xl border border-border bg-card p-3"><li className="type-body">Review on Monday</li></ul> },
+  broken: { id: "demo.apps:broken", title: "Broken app", span: "narrow", content: <BrokenApp /> },
+};
+
+/** ?dynamic=1 adds two plugins that publish widgets per viewer: one whose widgets the test can change through setApps, one whose factory fails. */
+const dynamic: WebPlugin[] = query.get("dynamic") === "1" ? [
+  { id: "demo.apps", startWidgetsFor: ({ update }) => {
+    fixture.setApps = (names) => update(names.map((name) => apps[name]!));
+    return [apps.broken!, apps.planner!];
+  } },
+  { id: "demo.failing", startWidgetsFor: async () => { throw new Error("The app catalog is unreachable."); } },
+] : [];
+
 const registry = new PluginRegistry({
   brand: { title: "Start dashboard check" },
   product: { id: "demo", title: "Start dashboard check" },
-  plugins: [{ id: "demo.widgets", startSections: sections }],
+  plugins: [{ id: "demo.widgets", startSections: sections }, ...dynamic],
   startEntries: [],
 });
 
@@ -81,7 +99,7 @@ const state: PanelState = { theme: "dark", page: "start", connections: [connecti
 
 /** Stands in for the server's preference store and keeps the values across reloads; ?preferences=fail lets reading fail, failWrites saving. */
 const stored = (key: string) => `start-dashboard-fixture:${key}`;
-const fixture = { writes: [] as unknown[], failWrites: false };
+const fixture = { writes: [] as unknown[], failWrites: false, setApps: undefined as ((names: readonly string[]) => void) | undefined };
 declare global { interface Window { dashboardFixture: typeof fixture } }
 window.dashboardFixture = fixture;
 const preferences: PreferenceStore = {

@@ -793,6 +793,10 @@ export class LifecycleContributionRegistry {
     for (const { value } of this.#lifecycle.entries()) await value.initialize?.();
   }
 
+  async serverReady(): Promise<void> {
+    for (const { value } of this.#lifecycle.entries()) await value.serverReady?.();
+  }
+
   async prepareSession(runId: string, signal?: AbortSignal): Promise<void> {
     for (const { value } of this.#lifecycle.entries()) {
       signal?.throwIfAborted();

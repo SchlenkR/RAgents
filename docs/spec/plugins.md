@@ -349,7 +349,9 @@ The server-side `PluginHost` has registries for:
   title, actor, revision, and per view ID, key, title, and visibility remain;
   of the call state only `{ version: 1, revision: updatedAt }`, and their chat events are dropped
   entirely
-- initialization, run preparation, stop, deletion, and shutdown
+- initialization, server readiness, run preparation, stop, deletion, and shutdown. The awaited
+  `serverReady` lifecycle runs after engine and workspace restoration and before the scheduler
+  starts; a plugin can restore background work without a client first opening a run
 
 A plugin implements only the facets it needs:
 
@@ -1127,7 +1129,7 @@ build does not see its names.
    module.
 5. An entry without users drops out at the next version jump, as does a name.
 
-**Version contract.** `HOST_API_VERSION` is 12 for the external driver and updated host contracts. It increases with every incompatible change of a
+**Version contract.** `HOST_API_VERSION` is 16 for the shared global space, room-aware package copy, and filtered app listing. It increases with every incompatible change of a
 list entry, a listed name, or a fully allowed library, not with every
 package version; whatever else a host module exports changes without a new number. The manifest names it
 in `api`; the host requires equality and otherwise aborts with a cause and the command to rebuild;
@@ -1589,6 +1591,27 @@ Instead, plugins fill typed slots for:
   throws shows its error and "Retry" in its own place (`RenderBoundary`) while Start stays usable.
   `RunPanelApp` passes its registry to `PanelPage` for both browser and VS Code server frames;
   the local VS Code shell has no registry and shows no sections. `PanelPage` also works without a registry.
+- Dynamic Start widgets (`startWidgetsFor`): a factory receives `StartWidgetsContext`, with the
+  same `runs` and `onOpenRun` as a section, an `AbortSignal`, and `update(widgets)` for later
+  snapshots. It returns readonly `StartWidgetContribution` values, synchronously or as a promise.
+  Each contribution contains a stable `id` that starts with the plugin's ID and a colon
+  (`ragents.global-apps:<name>`), a non-empty `title`, optional `description`, `span`, `sizes`,
+  `order` (by default 200), and `readRight`, and `content: ReactNode`; `description` and `sizes`
+  follow the rules of a start section. The content uses a stable React component type and the
+  same widget ID across updates so its state and mounted frames survive snapshots. The host
+  draws the title, frame, and narrow-dashboard tab and sorts the widget among the start sections
+  by `order` and then `id`. In Start's edit mode it is moved, resized, removed, and added back like
+  a section with a title, and its ID names its place, size, and removal in the viewer's
+  `start.layout`; `span` and `order` are the defaults. The returned value is the factory's first
+  snapshot unless `update` came first. The host calls the factory again when the run list changes
+  and keeps its previous widgets until the new call delivers a snapshot, so a factory that waits for
+  a live channel returns a promise of its first snapshot rather than an empty list. A factory
+  releases its subscriptions when `signal` aborts; live changes can use the existing RPC/SSE
+  connection. This additive slot leaves `startSections` unchanged; a start section may not use the
+  ID prefix of a plugin that publishes dynamic widgets (a registry error). A factory that fails, or
+  whose snapshot breaks these rules, shows its cause with "Retry" in its own widget
+  (`<plugin id>:unavailable`) while other contributions remain usable, and a widget whose content
+  throws keeps its error in its own cell.
 - workspace tabs and badges (`workspaceTabs`, `workspaceTabsFor`): the toolbar at the right edge
   with the tab area as a popout over the selected content view; the same contribution, the same visibility (`readRight`, `requiresWorkspace`, `available`);
   `placement: "window"` (default `"sidebar"`) lists a tab in the browser among the run's windows in the
@@ -2897,8 +2920,9 @@ available space. Created runs appear in the shared run list.
 The existing modal host limits backdrop and blurred background to the global chat;
 its remaining content is inert in the meantime. Focus starts on Cancel. During a
 running reset, the confirmation cannot be closed. After confirmation, the
-plugin route clears the global history and model context; running global work is
-stopped beforehand. Input and model choice are locked during the reset. A successful reset discards
+plugin route clears the coordinator's visible history and model context; its running turn is
+stopped beforehand. The global run, journal, and app rooms stay, including app state, logs, and
+schedule progress. Input and model choice are locked during the reset. A successful reset discards
 draft and attachments, also in other already connected views. An ordinary
 stream rebuild discards no draft. Model/reasoning choice and normal runs are kept.
 Errors stay visible and allow a retry; the reset issues no task.
@@ -3356,8 +3380,10 @@ and `RunPanelApp`, `ChatInputToolbar`, `ragents.processes`, and the menu entry "
 the whole run is called "Stop run" everywhere, interrupting the running turn in the chat "Stop
 work".
 
-**Shared page width.** `PanelPage` owns the content column with side padding: the Start dashboard
-uses the full width with a wider outer margin on desktop widths, Runs and Server in VS Code one centered column of at most 1280 pixels, in both hosts. The browser
+**Shared page width.** `PanelPage` owns the content column with side padding. The Start dashboard
+uses the full available width in both hosts, with wider side padding at desktop widths. Runs
+in both hosts and Server in VS Code use a centered column of at most 1280 pixels. All panel
+pages have more top padding at desktop widths. The browser
 page host adds no second padding; the outer header remains full width. The Runs search field
 and run rows use the same bounded column. The page scroller (`main[data-page]`) is the containing
 block of its content, so visually hidden labels further down cannot extend the document and moving
@@ -3412,20 +3438,24 @@ hidden; dragging there compares only the vertical middle of each row.
 The model is `panel/dashboard-preferences.ts`: `DashboardPreferences` holds `order`, `spans`, and
 `removed`, each by widget ID, so any ID works, also one of a widget that only some users have or
 that a plugin adds per user (`ragents.global-apps:<name>`). Widget IDs are `start.new`,
-`start.continue`, and the `id` of a start section; two widgets with the same ID are an error.
+`start.continue`, the `id` of a start section, and the stable `id` of a dynamic widget; two widgets
+with the same ID are an error, which the prefix rule of dynamic widgets rules out between plugins.
 `arrangeWidgets` puts the framed widgets that `order` names into their slots in that order, while
 sections without a title and widgets that `order` does not name keep their default place, so a new
 widget appears where its contribution puts it; sizes and removal apply only to framed widgets, and
-IDs of widgets that are not there and sizes a widget does not offer are ignored. A draft
-(`DashboardDraft`) is the list of framed widgets on the dashboard with their sizes; `moveWidget`,
-`resizeWidget` (only offered sizes), `removeWidget`, and `addWidget` change it, `reconcileDraft`
-drops widgets that disappear while editing and appends those that arrive, and `preferencesOf` turns
-it back into preferences: the default order and default sizes store nothing, and widgets that are
-not there keep their removal and size while their place falls back to the default. Built-in New and
-Continue offer all four sizes. The layout is the preference `start.layout` of the server's per-user
-preference store (`spec/profiles.md`, User preferences), read whenever Start opens and written on
-"Done", so the browser and VS Code show the same layout: JSON with `version` 1, `order`, `spans`,
-and `removed`, or `null` for the default layout. `PanelPage` passes the store from `RunPanelApp`
+IDs of widgets that are not there and sizes a widget does not offer are ignored. Edit mode keeps the
+edited layout as preferences; its draft (`DashboardDraft`, from `draftOf`) is the list of framed
+widgets that these preferences put on the dashboard, with their sizes. `moveWidget`, `resizeWidget`
+(only offered sizes), `removeWidget`, and `addWidget` change the draft, and `preferencesOf` turns it
+back into preferences: the default order and default sizes store nothing, and widgets that are not
+there keep their removal and size while their place falls back to the default. So a widget that
+arrives while Start is edited, such as a dynamic widget whose plugin answers late, takes its saved
+place and size or stays removed, and one that disappears for a moment returns to its place unless the
+layout changed while it was gone. Built-in New and Continue offer all four sizes. The layout is the
+preference `start.layout` of the server's per-user preference store (`spec/profiles.md`, User
+preferences), read whenever Start opens and written on "Done", so the browser and VS Code show the
+same layout: JSON with `version` 1, `order`, `spans`, and `removed`, or `null` for the default
+layout. `PanelPage` passes the store from `RunPanelApp`
 (`SERVER_PREFERENCES` in `preferences.ts`) to Start; the local VS Code shell has none, so a Start
 rendered there shows the default layout without Edit. While
 the layout loads, the widgets are mounted but invisible; a failed read shows its cause with "Retry"
@@ -3504,9 +3534,9 @@ use `revokeSharing` and refresh after success. Revocation requires `canShare`; a
 can still inspect their outgoing shares. Revoking an individual share leaves Everyone access
 intact and names that effect. All-runs selection and deletion stay in their own tab.
 
-Plugin `startSections` follow Continue with the complete server-listed visible run list and its
-metadata; the host frames a section with a `title` as a widget and adds no heading or wrapper to one
-without.
+Plugin `startSections` and `startWidgetsFor` follow Continue with the complete server-listed
+visible run list and its metadata. The host frames a titled section or a dynamic widget; a
+section without a title keeps its own heading and spacing.
 
 **Runs** is the selected server's complete list in one `RunCard`: search over title, "Hide ended", and a
 selection mode with checkboxes. Search (the shared `SearchInput`, whose own clear button replaces the browser's) and the
@@ -4181,8 +4211,8 @@ its log with the outcome: stopped and its output removed, its stop pending while
 the workstation (delivered at the next sign-in or retried as above), or the cause of a failed stop.
 A run counts as absent only if the journal has no run with that ID
 (`RunWorkspaceRuntimeOptions.runState` returns `null`, from `run-not-found`): the journal loads every
-run of the data folder at startup and forgets a run only when it deletes it or resets a global
-conversation, whose coordinator starts no background command, so the run was deleted or never
+run of the data folder at startup and forgets a run only when it deletes it. A global
+conversation reset preserves its run and app rooms. An absent run was deleted or never
 existed in this data folder, which includes a server that answers at the address of an earlier one
 with another data folder. Whatever the server cannot answer keeps the command and goes to the log:
 a run whose journal is locked (`journal-unavailable`), a server whose engine has not started, any
@@ -5243,6 +5273,158 @@ shutdown end the observation.
 
 The watcher starts no work itself and knows no domain logic.
 
+## Global mini-apps
+
+`ragents.global-apps` runs small TypeScript actor packages with a backend and optional React
+views. It ships in `core`, `showcase`, and `developer`, depends on workspace, orchestration,
+actor-program, and overseer plugins, and starts no model work of its own. The global coordinator and
+normal run agents create a private package through `actor_program_create` and the ordinary
+file/edit and TypeScript tools. A short `requiresTools` prompt contribution teaches authoring
+and verification to agents with the `global_app_*` management tools. App code is authored by
+an agent; users describe the behavior they want.
+
+Apps live in their owner's hidden global coordinator run on the server. The coordinator stays
+in `main`; each app has its own room, TypeScript actor, and package beside it. Apps inherit no
+authoring workstation or model conversation. Definitions, trigger progress, and results are
+journaled plugin state; domain data stays in the app actor's intrinsic state. The global run
+uses ordinary journal and working storage. Removing the plugin starts no triggers and
+preserves stored history.
+
+Registration resolves the source program in the registering actor's room, copies its current
+sources, and uses the existing type-check, build, test, and activation pipeline. A registered
+package needs an input handler and state that accepts `{}`. It may have functions and views.
+Functions, optional function tools, and view actions use ordinary actor-program contracts and
+operator policies. Registered view operations execute under the app actor's currently available
+capabilities and delegated grants, using the persisted `capabilitiesAsActor` package flag; they
+do not inherit the run owner's grants. View actions cannot invoke arbitrary run functions.
+Calls from another actor to a published function with capabilities reject and direct the caller
+to trigger its input instead. State functions without capabilities remain available as tools.
+A view can call the app's functions; its surrounding "Run now" control starts a backend input. The model
+receives compact diagnostics naming the source locations to fix. New and replaced apps stay
+paused for `global_app_run`, `global_app_read`, repairs, and
+verification before resuming. Replacement requires a paused, idle app, retains its state and
+history, and leaves the previous active package in place if verification fails. Later source
+edits require registration again.
+
+Global apps share the ordinary mini-app package, source collection, type-check, build, test,
+activation, actor state, view frame, and execution-log paths. The bounded recent-log projection
+reads ordinary journal output and failure events; plugin state stores no duplicate log. The
+plugin adds registration, explicit permissions, trigger dispatch, recent occurrence summaries,
+and Start widgets; it introduces no separate app runtime or package format.
+
+Manual execution is always available while the app is paused, subject to permissions, the
+run's stop/pause boundary, and no overlap. Automatic triggers are optional:
+
+- `triggers.interval.everySeconds` is an integer from 60 to 604800. The next occurrence uses
+  fixed delay from completion; resume starts the interval from now. Restart restores the
+  deadline without a client opening the run; an overdue enabled app receives one occurrence,
+  with no catch-up backlog.
+- `triggers.daily` names `at` as a local 24-hour `HH:MM` and an optional IANA `timeZone`.
+  `triggers.weekly` adds a nonempty, unique `days` list drawn from `mon`, `tue`, `wed`, `thu`,
+  `fri`, `sat`, and `sun`. Registration resolves an omitted zone to the server's IANA zone
+  and stores it explicitly. A local time skipped by the spring daylight-saving transition
+  has no occurrence; a repeated autumn time uses only its first occurrence. An overdue
+  deadline produces one occurrence after restart, followed by the next future scheduled time.
+- `triggers.fileChange.folders` names canonical, absolute, existing server folders covered by
+  the app's file read or write permissions. The server reuses `watchDirectory` with its
+  150-millisecond debounce. Changes coalesce into one pending occurrence while the app is
+  busy. It watches only while automatic execution is enabled; it does not reconstruct file
+  changes that happened while observation was stopped. A watch failure blocks that app and
+  exposes the cause instead of silently disabling the trigger.
+
+With no `triggers`, the app is manual only. All trigger kinds can be combined.
+An app has at most one accepted occurrence, including queued work. At most 50 apps and four
+simultaneous occurrences belong to one user. The wall-time limit defaults to 30 seconds,
+configurable from 1 to 300 seconds. Pause prevents new automatic acceptance and lets accepted
+work finish; removal interrupts accepted work and removes its active program. Pause, stop,
+and deletion of the global run take precedence over its app triggers.
+
+Existing engine recovery interrupts open turns when `Orchestration` is rebuilt. The registrar
+reads their terminal result from the journal and finalizes the accepted occurrence without
+repeating it; no additional recovery seam is needed.
+
+Every backend declares `global_app_trigger` among its input capabilities. This snippet-only
+function verifies that the actor and turn belong to an accepted app occurrence and returns
+its scheduled time, reason (`manual`, `interval`, `daily`, `weekly`, or `file-change`), and stable
+occurrence key. Every accepted occurrence persists and returns `timeZone`: daily and weekly
+occurrences use the selected schedule's stored IANA zone; manual, interval, and file occurrences
+use the server's Intl default at acceptance. Combined calendar schedules choose no implicit
+zone precedence.
+Code can use the key for external idempotency. The backend uses ordinary `onInput`,
+`context.state`, `context.log`, `context.signal`, and declared `context.functions`; it needs no
+separate app SDK. Successful inputs commit staged state. Failures and cancellation retain the
+last successful state, while completed external calls remain effective.
+
+The required `permissions` object may be empty. Optional `files.read` and `files.write` name
+canonical, absolute, existing server folders; `http` names exact lowercase hosts with an
+optional port; `functions` names RAgents functions. Details and `global_app_read` display the
+grants. Validation uses the registering user's permissions and the registering actor's usable,
+delegable grants. File roots reuse source-workspace sandbox path checks; a user with `*` may
+authorize an outside folder while the actor still needs a usable, delegable workspace grant.
+Functions must be available to that actor and delegable. `permissions.functions` excludes all
+`global_app_*` names and `read`, `write`, `edit`, `bash`, `typescript_eval`, `agent_spawn`,
+`actor_program_activate`, `actor_program_import`, `actor_program_ensure`, and `plugin_state_write`
+to prevent generic file tools or another execution boundary bypassing app protection.
+
+An app may explicitly request `permissions.functions: ["overseer_notify"]` and declare that
+capability in its input contract. The helper queues a short message for the owner's current
+coordinator through ordinary actor input; a reset does not leave it bound to the previous
+coordinator actor. Granting it requires usable, delegable `actor.input` and the user's
+`ragents.overseer.write`. Delivery may start a coordinator response, so this permission explicitly
+allows model work in addition to the app's TypeScript input.
+
+File and HTTP calls use server-checked `global_app_file_read`, `global_app_file_write`, and
+`global_app_http_request` capabilities declared in the input or function contract. They authorize
+registered app actor execution against the same per-app grants.
+Only registered operator operations are available to views; snippet-only helpers belong in the
+input handler.
+Only `global_app_trigger` requires an accepted scheduled or manual input. File calls recheck the
+canonical allow list and protect the final path component with `O_NOFOLLOW`; they reuse the
+existing [workspace path protection](#workspace-sandbox-tools-and-processes), whose known parent-directory
+replacement race remains. They do not provide atomic access through the entire path. HTTP
+accepts HTTP(S), rejects URL credentials, redirects, and Host header overrides, and checks the
+exact host allow list. A host without a port permits only default HTTP/HTTPS ports; an explicit
+port requires that effective request port, including 80 and 443.
+
+Each backend executes in its own managed Node process on the actor-program platform. Package
+isolation denies direct network access and confines writes to package, build, and temporary
+folders. Read-only dependencies, the real Node binary, and explicit system paths remain
+readable. The exact operating-system boundary and disabled mode are in
+[TypeScript platform](typescript-platform.md#build-and-process-lifecycle).
+
+The web plugin supplies dynamic `startWidgetsFor` contributions with stable IDs
+`ragents.global-apps:<name>`, `order: 200`, `readRight: "ragents.global-apps.read"`, and the
+app's description for the widget gallery. It returns a promise of the first snapshot of its live
+channel. An app with a view defaults to `span: "wide"`; a headless app defaults to `span: "narrow"`.
+The viewer's Start layout overrides place and size and removes the widget by this stable ID.
+Removing the widget from Start does not pause its backend triggers. The dashboard owns the frame and title.
+A widget embeds the ordinary actor-program view frame and uses its shared state, calls, and
+execution logs, or shows last run and next run for a headless backend. Every widget, including
+one with a view, shows the last output or result. Every app has status,
+description, "Run now", "Pause"/"Resume", and "Open details". Details show triggers,
+permissions, state, and a bounded recent log and offer "Remove". Container queries adapt the
+content to its own width. Multiple views can be selected within the same app widget.
+
+Definitions that fail independently remain visible as individual error widgets with "Retry"
+and "Open details". One damaged package, failed registration, view load/render error, or
+trigger failure does not hide other apps. Live snapshots use the existing RPC/SSE stream and
+stable React content types instead of mounting a new component type on every update.
+Server access resolves only the caller's own apps. Reading and live updates require
+`ragents.global-apps.read`; ordinary view loading also checks `runs.read` and access to the global
+coordinator run. Management requires `ragents.global-apps.write` and `runs.write`. Registration
+also requires `ragents.overseer.write` to prepare the shared global space; it creates no ordinary
+run and requires no `runs.create`.
+Source import verifies ownership of the authoring run and ordinary package access. Read-only
+viewers get no app-management controls.
+
+The recent-log projection derives at most 100 lines, each at most 1000 characters, with
+dropped-line information from ordinary `runtime.output.recorded`, `turn.failed`, and
+`turn.interrupted` journal events, matched through occurrence input command IDs. It stores no
+second copy in scheduler metadata.
+`global_app_read` returns 20 lines by default, at most 100; `global_app_list` returns 20 apps by
+default, at most 50. These limits bound the returned projection and UI; append-only journals
+keep their recorded history. Buffered output survives failed as well as successful inputs.
+
 ## Model relay
 
 `ragents.model-relay` makes this server's models usable for other RAgents servers without
@@ -5324,6 +5506,14 @@ right) returns the archive; a different version is 404. The counterpart is `rage
 
 ## Open limits
 
+- Global app schedules support intervals, daily local times, and selected weekdays, without
+  arbitrary cron expressions or a catch-up queue. File triggers coalesce changes and provide
+  no durable change history while offline.
+  Global apps provide no high availability or exactly-once external effects.
+- Global app capabilities enforce their allow lists on the server. Explicitly disabled process
+  protection permits direct Node access. Enabled protection retains read access to the explicit
+  runtime and system paths documented in the TypeScript platform; host file helpers retain the
+  existing parent-directory replacement race.
 - Plugins are not installed. At runtime the server loads only the bundles the profile
   names: built-in ones under `bundles/` or bundle folders at a fixed place on disk.
   Loading a plugin at runtime from a foreign source is NOT intended - no

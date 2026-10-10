@@ -130,18 +130,6 @@ export function addWidget(draft: DashboardDraft, widget: Pick<ArrangeableItem, "
   return [...draft, { key: widget.key, span: widget.span }];
 }
 
-/** Keeps a draft in step with widgets that change while Start is edited: one that disappears leaves it, one that was not there when editing began joins at the end. */
-export function reconcileDraft(draft: DashboardDraft, widgets: readonly ArrangeableItem[], known: ReadonlySet<string>): DashboardDraft {
-  const framed = new Map(widgets.filter((widget) => widget.framed).map((widget) => [widget.key, widget]));
-  const kept = draft.flatMap((widget) => {
-    const current = framed.get(widget.key);
-    return current === undefined ? [] : [current.sizes.includes(widget.span) ? widget : { key: widget.key, span: current.span }];
-  });
-  const placed = new Set(kept.map((widget) => widget.key));
-  const arrived = [...framed.values()].filter((widget) => !known.has(widget.key) && !placed.has(widget.key)).map(({ key, span }) => ({ key, span }));
-  return arrived.length === 0 && kept.length === draft.length && kept.every((widget, index) => widget === draft[index]) ? draft : [...kept, ...arrived];
-}
-
 /** The preferences that show the draft; the default order and default sizes store nothing, and widgets that are not there now keep their removal and size while their place falls back to the default. */
 export function preferencesOf(draft: DashboardDraft, widgets: readonly ArrangeableItem[], previous: DashboardPreferences): DashboardPreferences {
   const framed = widgets.filter((widget) => widget.framed);

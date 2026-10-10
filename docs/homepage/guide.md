@@ -6,6 +6,7 @@ Getting started, workflows, and development based on the current specification a
 - [Actors and messages](guide-runtime.md): Runs, actors, messages, turns, and the journal form the shared runtime.
 - [Get started](guide-getting-started.md): Install RAgents, start a profile, and create your first run.
 - [Web and editors](guide-clients.md): Use the same runs in the browser, VS Code, and ACP editors; automate them through the API and command-line tools.
+- [Global mini-apps](guide-global-apps.md): Ask an agent to build an app beside the global coordinator, verify it, and enable interval, daily, weekday, or file triggers with explicit permissions.
 - [Distributed work](guide-distributed.md): Run the host locally or remotely, keep tools beside the project, and move runs between servers.
 - [Work with TypeScript](guide-functions.md): Combine functions, program deterministic workflows, and involve models where needed.
 - [Build mini-apps](guide-programs.md): Expose actor state and functions through interactive React views.

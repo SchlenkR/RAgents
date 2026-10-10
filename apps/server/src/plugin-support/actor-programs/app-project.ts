@@ -287,7 +287,7 @@ export const typecheckServerProject = (directory: string, backend?: string): str
 };
 
 export const compileAppBackend = async (options: {
-  directory: string; backend: string; runId: string; executor: NativeTypeScriptExecutor; signal?: AbortSignal;
+  directory: string; backend: string; runId: string; executor: NativeTypeScriptExecutor; signal?: AbortSignal; isolated?: boolean;
 }): Promise<{ contract: AppContract; javaScript: string; hash: string }> => {
   const signal = AbortSignal.any([...(options.signal ? [options.signal] : []), AbortSignal.timeout(15_000)]);
   const entry = path.resolve(options.directory, options.backend);
@@ -319,13 +319,13 @@ export const handle = async (request, context) => {
   else await actor.onInput(request.input, handlerContext);
   return { finishes };
 };`, resolveDir: options.directory, sourcefile: "actor-entry.ts", loader: "ts" },
-    absWorkingDir: options.directory, platform: "node", format: "esm", target: "node22", bundle: true, packages: "external", write: false,
+    absWorkingDir: options.directory, platform: "node", format: "esm", target: "node22", bundle: true, packages: "external", write: false, logLevel: "silent",
   });
   options.signal?.throwIfAborted();
   const javaScript = result.outputFiles![0]!.text;
   const described = await options.executor.execute({
     program: { entry: "server.mjs", files: [{ fileName: "server.mjs", text: javaScript }], exportName: "describe" },
-    input: {}, state: {}, cwd: options.directory,
+    input: {}, state: {}, cwd: options.directory, ...(options.isolated ? { isolated: true } : {}),
     context: { runId: options.runId, invocationId: "app-contract", invocationKind: "tool", principal: { id: "app-build", kind: "service" }, capabilities: [] },
   }, { signal, call: async () => { throw new Error("Run calls are not available while loading the app contract."); }, log: () => undefined });
   if (!Value.Check(appContractSchema, described.result)) throw new Error(`The backend export needs defineActor({state, functions, input?}, {functions, onInput?}) with valid action contracts: ${schemaComplaints(appContractSchema, described.result, "contract")}`);

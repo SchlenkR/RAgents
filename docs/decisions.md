@@ -1,5 +1,78 @@
 # Decisions
 
+## 2026-10-10: Dynamic Start widgets take part in Start's edit mode
+
+Chapters: `spec/plugins.md` (Web as plugin host: slot list `startWidgetsFor`, Arranging Start, Global
+mini-apps); usage: `usage.md` (Global mini-apps on Start); `development.md` (Extension points in the web).
+
+Global mini-apps and Start's edit mode were built at the same time: the app widgets relied on the "..."
+menu with Hide and Customize that edit mode replaced. A widget from `startWidgetsFor` now takes part in
+edit mode like a start section with a title: its stable ID names its place, size, and removal in the
+`start.layout` preference on the server, and `StartWidgetContribution` gains the optional `description`
+for the widget gallery and `sizes`, checked by the same rules as for sections. It sorts among the
+sections by `order`, by default 200. A global app's widget takes the app's description.
+
+Dynamic widgets arrive after Start opens and can vanish and return, for example when an app is
+repaired. Edit mode therefore keeps the edited layout as preferences instead of a draft plus the list of
+widgets that were there when editing began: a widget that arrives while Start is edited takes its saved
+place and size or stays removed instead of joining at the end and undoing a removal on "Done", and one
+that disappears for a moment comes back where it was. `reconcileDraft` is gone. A plugin's widget IDs
+start with its plugin ID and a colon, and a start section may not use that prefix of a plugin that
+publishes dynamic widgets, so no two widgets share an ID and break the whole dashboard; a violation
+shows in the plugin's own error widget. A factory that runs again because the run list changed keeps
+its previous widgets until it delivers new ones, so `ragents.global-apps` returns a promise of its first
+snapshot instead of an empty list; before, every app widget vanished for a moment on each run list
+change. `HOST_API_VERSION` stays 16, because no listed name changed.
+
+## 2026-10-10: Global apps share the coordinator run and its reset preserves their rooms
+
+Chapters: `spec/core.md` (global coordinator and conversation reset), `spec/plugins.md`
+(global mini-apps), `spec/actor-programs.md` (package installation), and
+`spec/typescript-platform.md` (actor execution). Usage and operations: global coordinator,
+global mini-apps, and their guide chapters. Homepage: global mini-apps.
+
+A separate app run duplicated the owner's global working context and bootstrap. Apps now use
+the existing hidden global coordinator run, with one room per app beside `main`. Packages,
+verification, activation, actor state, views, and execution logs follow the ordinary mini-app
+paths. App registration, explicit permissions, trigger dispatch, and Start widgets remain the
+plugin's concern. The former separate app run and its bootstrap are removed without migration.
+Recent logs are a bounded projection of ordinary runtime output and turn-failure events,
+matched by occurrence command IDs; scheduler metadata stores no duplicate log or dropped count.
+Ordinary function tools, operator policies, and view actions remain available with explicitly
+permitted capabilities and the same per-app grants. The copied package persists
+`capabilitiesAsActor`: registered view operations run under the app actor after checking its
+currently available capabilities, instead of widening to the run owner's grants. Capability-bearing
+published functions reject calls from other actors and direct them to trigger the input;
+state-only tools stay available. No additional delegated tool dispatcher is introduced.
+Only occurrence metadata requires an accepted app input; file and HTTP helpers authorize
+registered app actor execution.
+Generic file and execution tools cannot be delegated through function permissions, preserving
+the folder allow lists and managed execution boundary.
+The small shared seams are global-space preparation, room-aware package copy, filtered app
+listing, and the copied package's capability identity. Reset reuses the existing exact
+`Orchestration.stopActors` and scoped scheduler interruption. Bundles require `HOST_API_VERSION` 16.
+
+Resetting a conversation must not delete apps that share its journal. A durable reset intent
+therefore drives a journal-preserving reset of the coordinator actor and model conversation.
+The run and other rooms remain, including app state, recent logs, and schedule progress. The
+intent key and old coordinator actor ID make retries and startup completion idempotent.
+The old coordinator is stopped before awaiting cleanup so another turn cannot start;
+descendants and sibling rooms continue. The new coordinator's
+spawn event supplies the new chat identity, so reconnecting clients detect a reset despite the
+unchanged run journal. A locked global journal requires explicit recovery and is not deleted
+by conversation reset.
+
+Daily and weekday schedules express a local `HH:MM` in an IANA time zone, defaulting to the
+server's zone. They complement manual execution, fixed-delay intervals, and file changes without
+introducing general cron configuration. Registration stores the resolved zone; spring gaps
+are skipped and autumn repeats use the first occurrence. Each accepted occurrence records its
+zone on the server, so date formatting does not depend on the isolated process's default.
+Restart keeps one overdue occurrence instead of a catch-up queue. Optional `overseer_notify`
+delivers an ordinary input to the current coordinator, bounded by explicit function permission,
+delegable `actor.input`, and
+the user's `ragents.overseer.write`; this permission may cause a coordinator response.
+Cross-run actor-event triggers remain the short idea in `TODO.md`.
+
 ## 2026-10-10: Start gets an edit mode, and the host a per-user preference store
 
 Chapters: `spec/plugins.md` (Web as plugin host: slot list `startSections`, Arranging Start, core contracts),
@@ -35,6 +108,61 @@ caller reaches only its own preferences; a damaged file fails only its user's re
 is. The old `ragents.start.layout:*` browser values are dropped without migration. The chosen tab of a
 narrow Start stays in browser storage, because it belongs to the device rather than to the user.
 
+## 2026-10-09: Global mini-apps reuse actor packages with explicit capabilities and paused verification
+
+Chapters: `spec/core.md` (Global coordinator), `spec/plugins.md` (Global mini-apps and dynamic
+Start widgets), `spec/actor-programs.md` (package copy), `spec/typescript-platform.md` (process
+isolation, interruption, and failure logs), `spec/profiles.md`, and `spec/overview.md`.
+Usage and operations: global mini-apps. Homepage: a core feature section and its guide chapter.
+
+Small user-owned apps need a persistent backend, optional React views, and simple triggers.
+`ragents.global-apps` therefore copies actor packages into one ordinary Global apps run per
+user. It reuses the compiler, package tests, managed Node processes, journal, state commits,
+and actor view frames. Manual execution remains available while automatic triggers are paused;
+optional intervals use fixed delay, and file triggers reuse `watchDirectory` with its
+150-millisecond debounce. No overlap, bounded coalescing, one overdue interval after restart,
+and a bounded recent log keep the mechanism small. Cross-run actor-event triggers remain an
+idea in `TODO.md` until owner checks and cursor-based delivery are defined.
+
+Registration and replacement stay paused. Compact source diagnostics and retained failure logs
+let the model verify, inspect, repair, and register the app before resuming. The global
+coordinator gets the same package, file/edit, and TypeScript authoring tools as ordinary run
+agents, with one complete example bound to its `global_app_*` tools through `requiresTools`.
+The existing pinned tool inventory requires a conversation reset after an upgrade that changes
+it; no separate upgrade mechanism is introduced. The `headless` template supplies the smallest
+input-only starting point, and normal actor-package metadata adds views when required.
+
+App permissions name files, HTTP hosts, and RAgents functions explicitly, checked on the server
+and bounded by the registering user's rights and actor's usable, delegable grants. View actions
+publish no tools and request no external capabilities; the input handler performs external work
+through accepted app occurrences. Function permissions exclude `global_app_*` and generic
+execution tools, preventing delegation through an unprotected execution boundary. HTTP rejects
+credentials, redirects, and Host header overrides and restricts the exact effective host/port.
+
+Package-isolated Node execution uses the operating system sandbox without network proxy or
+Unix socket allowances. Writes stay inside package, build, and temporary folders; read-only
+dependencies, the real Node binary, and the explicit system paths in the TypeScript platform
+remain readable. Explicitly disabled process protection stays visible and permits direct Node
+access, while helper allow lists remain enforced. File helpers reuse canonical workspace path
+checks and `O_NOFOLLOW` but retain the known parent-directory replacement race; this change
+adds no atomic protection across the whole path.
+
+The generic additions are awaited `serverReady`, `ActorProgramsService.copyPackage`, exposure
+of the scheduler's existing per-actor interruption through `RunManagement`, optional package
+isolation, and failure log retention. Existing engine recovery interrupts open turns when
+`Orchestration` is rebuilt; the registrar finalizes their journal result without replaying the
+accepted occurrence, with no additional recovery seam.
+
+The additive `startWidgetsFor` web slot supplies dynamic contributions with stable IDs and
+`content: ReactNode`, live `update` snapshots, and an abort signal. It leaves `startSections`
+unchanged and uses the existing RPC/SSE connection. Stable React types preserve local state
+and frames. Each global app has its own widget, defaulting wide for views and narrow for
+headless backends. The dashboard's existing size, order, and visibility preferences apply through
+its stable `ragents.global-apps:<name>` ID. Independent failures remain visible with "Retry"
+and "Open details".
+The plugin ships in `core`, `showcase`, and `developer`. `HOST_API_VERSION` is 15 for the
+updated host contracts, and all bundles are rebuilt.
+
 ## 2026-10-09: Arrange Start in place: size, order, and hiding per widget
 
 Chapters: `spec/plugins.md` (Web as plugin host: slot list `startSections`, Shared page width, Arranging Start);
@@ -66,6 +194,8 @@ containing block. The scroller of Start, Runs, and Server is now positioned. `HO
 Chapter: `spec/plugins.md` (Shared page width), `docs/usage.md`. The dashboard kept the 1280-pixel
 column of the former Start list, so wide screens showed empty margins although widgets could stand
 side by side. Start now fills the width; Runs and Server keep the centered column for readable lists.
+Start has wider side padding at desktop widths, and every panel page has more space below
+the header there.
 
 ## 2026-10-09: Start becomes a responsive dashboard, and tab rows move what does not fit into a menu
 

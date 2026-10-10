@@ -1,5 +1,5 @@
-import { serviceToken, type ActorProgramExecutor, type CommandContext } from "@ragents/engine";
-import type { ActorProgramIdentity } from "./contract.js";
+import { serviceToken, type ActorProgramExecutor, type CapabilityGrant, type CommandContext } from "@ragents/engine";
+import type { ActorProgramIdentity, ActorViewListing } from "./contract.js";
 export interface ActorProgramSource {
     path: string;
     content: string;
@@ -31,7 +31,23 @@ export interface ActorViewReference {
 }
 export interface ActorProgramsService extends ActorProgramExecutor {
     workspaceDirectory(runId: string): Promise<string>;
+    apps(runId: string, actorId?: string): ActorViewListing[];
+    frame(runId: string, viewId: string, revision: string): { readonly clientJavaScript: string; readonly styles: string };
     importPackage(context: CommandContext, runId: string, name: string, files: readonly ActorProgramSource[], signal?: AbortSignal): Promise<ActivatedActorProgram>;
+    copyPackage(source: {
+        readonly runId: string;
+        readonly actorId: string;
+        readonly name: string;
+    }, target: {
+        readonly runId: string;
+        readonly name: string;
+        readonly room?: { readonly name: string; readonly origin: string | null };
+        readonly capabilities: readonly string[];
+        readonly grants: readonly CapabilityGrant[];
+        readonly requiredCapabilities: readonly string[];
+        readonly isolated: boolean;
+    }, signal?: AbortSignal): Promise<ActivatedActorProgram>;
+    remove(context: CommandContext, runId: string, name: string): Promise<{ removed: string }>;
     /** Installs a run script with its bundled programs in a new room opened from `origin`, shared packages in the main room; a failure leaves the run unchanged. */
     installScript(context: CommandContext, runId: string, script: RunScriptSources, origin: string | null, signal?: AbortSignal): Promise<ActivatedActorProgram>;
     /** Queues a start input for the installed script, named by its package key, so that its program recognizes it as a start. */

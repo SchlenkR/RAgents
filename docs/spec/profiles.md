@@ -110,11 +110,11 @@ workspace does not replace `ragents.workspace` but contributes it through `works
 Plugin list of `core` in order: `ragents.orchestration`, `ragents.workspace`, `ragents.compaction`, `ragents.product`,
 `ragents.overseer`, `ragents.activity`, `ragents.processes`, `ragents.documents`,
 `ragents.browser`, `ragents.mcp`, `ragents.ask`, `ragents.acp`, `ragents.todo`, `ragents.watch`,
-`ragents.actor-programs`, `ragents.lsp-roslyn`, `ragents.lsp-fsharp`, `ragents.lsp-typescript`,
+`ragents.actor-programs`, `ragents.global-apps`, `ragents.lsp-roslyn`, `ragents.lsp-fsharp`, `ragents.lsp-typescript`,
 `ragents.model-relay`, `ragents.profile-distribution`.
 
 The `showcase` profile (product ID `ragents-showcase`, port 4713) is the same setup plus
-`ragents.reference` after `ragents.actor-programs`; sign-in, models, and language servers match
+`ragents.reference` after `ragents.global-apps`; sign-in, models, and language servers match
 `core`. This keeps `core` the template for a real profile, while the bundled examples stay in the
 repository as teaching material and are available with `./start.sh showcase`. The internally
 generated reference and the built-in help are generated from `showcase`
@@ -123,8 +123,8 @@ examples.
 
 The `developer` profile (product ID `ragents-developer`, port 4715) is the smaller selection for
 working on a project: `ragents.orchestration`, `ragents.workspace`, `ragents.compaction`, `ragents.product`,
-`ragents.documents`, `ragents.browser`, `ragents.ask`, `ragents.todo`, `ragents.watch`,
-`ragents.activity`, `ragents.processes`, `ragents.lsp-roslyn`, `ragents.lsp-fsharp`,
+`ragents.documents`, `ragents.browser`, `ragents.mcp`, `ragents.ask`, `ragents.acp`, `ragents.todo`, `ragents.watch`,
+`ragents.actor-programs`, `ragents.global-apps`, `ragents.activity`, `ragents.processes`, `ragents.lsp-roslyn`, `ragents.lsp-fsharp`,
 `ragents.lsp-typescript`. `ROSLYN_SOLUTION_ON_START` is `on`, so C# diagnostics start with the run
 (one solution loads directly, several are offered as a question). It has no `users` but an
 `anonymousUser` with all permissions, because it runs on your own machine, and gets its models

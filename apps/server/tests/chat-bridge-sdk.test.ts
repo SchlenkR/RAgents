@@ -205,3 +205,29 @@ test("the delivered chat SDK shares subscriptions, retains stable snapshots and 
   await tick();
   assert.equal(sent.some((message) => message.actor === "@reviewer" && message.type === "ragents.app.chat-watch"), false);
 });
+
+test("frame load and render errors report a bounded cause with their frame token", () => {
+  const sent: Record<string, unknown>[] = [];
+  const listeners = new Map<string, (event: { error?: unknown; message?: string; reason?: unknown }) => void>();
+  const scope = vm.createContext({
+    URLSearchParams, structuredClone, atob, crypto: { randomUUID },
+    location: { hash: "#ragentsBridge=isolated-token" },
+    document: { documentElement: { dataset: {} }, createElement: () => ({ setAttribute() {}, textContent: "" }), head: { prepend() {} } },
+    MessageChannel: class { port1 = { start() {} }; port2 = {}; },
+    parent: { postMessage(message: Record<string, unknown>) { sent.push(message); } },
+    window: { addEventListener(type: string, listener: (event: { error?: unknown }) => void) { listeners.set(type, listener); } },
+  });
+  const html = frameHtml({ html: "<html><head></head><body></body></html>", styles: "", clientJavaScript: "", platformVersion: 2 }, "nonce");
+  const script = html.match(/<script nonce="nonce">([\s\S]*?)<\/script>/)?.[1];
+  assert.ok(script);
+  vm.runInContext(script, scope);
+  listeners.get("error")!({ error: new Error("React render failed.") });
+  listeners.get("unhandledrejection")!({ reason: new Error("App load failed.") });
+  listeners.get("error")!({ message: "x".repeat(1100) });
+  const failures = sent.filter((message) => message.type === "ragents.app.failed");
+  assert.deepEqual(failures.slice(0, 2).map((message) => JSON.parse(JSON.stringify(message))), [
+    { type: "ragents.app.failed", version: 1, token: "isolated-token", message: "React render failed." },
+    { type: "ragents.app.failed", version: 1, token: "isolated-token", message: "App load failed." },
+  ]);
+  assert.equal((failures[2]!.message as string).length, 1000);
+});

@@ -195,6 +195,7 @@ export const createEngine = async (options: EngineOptions): Promise<Engine> => {
   const nativeTypeScriptExecutor = new NodeTypeScriptExecutor({
     directoryFor: (runId) => path.join(layout.sessionDir(runId), "native-programs"),
     serverProcessContextFor: (runId) => options.plugins.service(sandboxServicesToken).serverProcessContextFor(runId),
+    isolatedProcessContextFor: (runId, directories, readable) => options.plugins.service(sandboxServicesToken).isolatedProcessContextFor(runId, directories, readable),
   });
   const actorPrograms = options.plugins.optionalService(actorProgramsToken);
   const services = { ...runtimeServices, nativeTypeScriptExecutor, ...(actorPrograms ? {actorPrograms} : {}) };
@@ -322,7 +323,9 @@ export const createEngine = async (options: EngineOptions): Promise<Engine> => {
     selectedSystemPrompts(promptCatalog, promptCatalog.defaultIds).map((option) => optionTexts.get(option.id) ?? ""),
     null);
   const basePromptFor = (runId: string, actor: ExecutableActor, toolNames: readonly string[]): string => {
-    if (globalChat?.isCoordinator(runId)) return [globalChat.prompt, outputContractFor("primary")].filter(Boolean).join("\n\n");
+    if (globalChat?.isCoordinator(runId)) return [globalChat.prompt,
+      ...baseSnapshot.contributions.filter((entry) => entry.delivery === "initial" && boundToTools(entry, toolNames)).map(contentFor(runId, () => [])),
+      outputContractFor("primary")].filter(Boolean).join("\n\n");
     const role = roleFor(runId, actor);
     const prompt = isRunCoordinator(runtime, runId, actor.id)
       ? coordinatorPromptFor(runId, toolNames)

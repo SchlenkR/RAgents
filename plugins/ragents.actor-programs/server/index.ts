@@ -20,6 +20,7 @@ const actorProgramsPlugin = (pluginHost: PluginHost): RAgentsPlugin => ({
         const runtime = new ActorProgramRuntime({
             runtime: host.service(runtimeProviderToken), agentToolsFor: agentToolsFrom(pluginHost), askService: () => host.service(askServiceToken), reservedToolNames: () => pluginHost.tools.describe().map((entry) => entry.name),
             serverProcessContextFor: (runId) => host.service(sandboxServicesToken).serverProcessContextFor(runId),
+            isolatedProcessContextFor: (runId, directories, readable) => host.service(sandboxServicesToken).isolatedProcessContextFor(runId, directories, readable),
             operations: { operation: (id) => host.operation(id), invoke: (id, context, input) => host.invokeOperation(id, context, input), list: () => pluginHost.operations.describe() },
             directoryFor: (runId) => host.storage.session(runId, "programs"),
             scriptSources: (entryId, name) => {

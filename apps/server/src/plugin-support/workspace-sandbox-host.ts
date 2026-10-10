@@ -30,6 +30,7 @@ import {
   WorkspaceOperationExecutor,
   containsWorkspacePath,
   resolvedWorkspacePath,
+  safeProcessEnvironment,
   sandboxRunEnvironment,
   workspaceExecutorModules,
   workspaceProcessContext,
@@ -72,6 +73,7 @@ export interface SandboxServices {
   execute: (runId: string, operation: string, input: unknown, options?: WorkspaceExecuteOptions) => Promise<unknown>;
   /** The context for work that runs on the server (TypeScript platform, actor programs); never the folder of a workstation. */
   serverProcessContextFor: (runId: string) => Promise<WorkspaceProcessContext>;
+  isolatedProcessContextFor: (runId: string, directories: readonly string[], readable: readonly string[]) => Promise<WorkspaceProcessContext>;
   /** Bootstrap a contributed server workspace without recursively resolving it or caching its temporary roots. */
   serverProcessContextForWorkspace?: (runId: string, workspace: SessionWorkspace) => Promise<WorkspaceProcessContext>;
   registerWorkspaceRoot: (root: RegisteredWorkspaceRoot) => void;
@@ -101,6 +103,7 @@ export interface WorkspaceSandboxHostOptions {
   /** The process sandbox in which every process of this server's executor starts; without it processes run without one. */
   processSandbox?: RunProcessSandboxes;
   processSandboxFor?: (runId: string) => Promise<RunProcessSandboxes | undefined>;
+  isolatedProcessSandboxFor?: (runId: string) => Promise<RunProcessSandboxes | undefined>;
   restrictedFor?: (runId: string) => boolean;
   /** The bash of this server's executor; required on Windows, otherwise the system's when not set. */
   bash?: string;
@@ -322,6 +325,21 @@ export class WorkspaceSandboxHost implements SandboxServices {
   async serverProcessContextFor(runId: string): Promise<WorkspaceProcessContext> {
     if (!await this.#options.executorFor?.(runId)) return this.#contextFor(runId);
     return this.#contextFor(runId, await this.#serverDirectory(runId, "does not work on the server"));
+  }
+
+  async isolatedProcessContextFor(runId: string, directories: readonly string[], readable: readonly string[]): Promise<WorkspaceProcessContext> {
+    const context = await this.serverProcessContextFor(runId);
+    const processSandbox = this.#options.isolatedProcessSandboxFor
+      ? await this.#options.isolatedProcessSandboxFor(runId)
+      : this.#options.processSandboxFor ? await this.#options.processSandboxFor(runId) : this.#options.processSandbox;
+    const temporary = path.join(directories[0]!, ".build", "tmp");
+    await mkdir(temporary, { recursive: true });
+    const sandbox = processSandbox?.forRun({ writable: directories, readable, temporary, isolated: true });
+    return {
+      ...context, cwd: directories[0]!, root: directories[0]!, home: directories[0]!,
+      env: { ...safeProcessEnvironment(context.env), HOME: directories[0]!, TMPDIR: temporary, TMP: temporary, TEMP: temporary },
+      sandbox,
+    };
   }
 
   async serverProcessContextForWorkspace(runId: string, workspace: SessionWorkspace): Promise<WorkspaceProcessContext> {

@@ -4,6 +4,8 @@ import { isIP } from "node:net";
 import os from "node:os";
 import path from "node:path";
 import { SandboxManager, type SandboxRuntimeConfig } from "@anthropic-ai/sandbox-runtime";
+import { wrapCommandWithSandboxMacOS } from "@anthropic-ai/sandbox-runtime/dist/sandbox/macos-sandbox-utils.js";
+import { wrapCommandWithSandboxLinux } from "@anthropic-ai/sandbox-runtime/dist/sandbox/linux-sandbox-utils.js";
 import { containsWorkspacePath, type ProcessLaunch, type ProcessSandbox } from "@ragents/workspace-executor";
 import { hostRoot } from "../host-version.js";
 
@@ -25,6 +27,7 @@ export interface RunSandboxFolders {
   readonly readable: readonly string[];
   /** The run's own temp folder; it is writable and set in TMPDIR. */
   readonly temporary: string;
+  readonly isolated?: boolean;
 }
 
 /** What the sandbox host needs from the process sandbox per run. */
@@ -297,6 +300,26 @@ export class ServerProcessSandbox implements RunProcessSandboxes {
   }
 
   forRun(folders: RunSandboxFolders): ProcessSandbox {
+    if (folders.isolated) return {
+      wrap: async (launch) => {
+        const readable = [
+          ...folders.readable, ...folders.writable, folders.temporary,
+          realpathSync(process.execPath),
+          ...this.#platform === "darwin"
+            ? ["/System/Library", "/usr/lib", "/usr/bin/env", "/bin/sh", "/bin/bash", "/dev/null", "/dev/urandom", "/dev/random", "/private/etc/localtime"]
+            : ["/usr/lib", "/usr/bin/env", "/bin/sh", "/bin/bash", "/lib", "/lib64", "/proc", "/etc/ld.so.cache"],
+        ].map(realOrGiven);
+        const parameters = {
+          command: shellCommand(["env", ...insideEnvironment(folders.temporary, this.#searchPath, this.#platform), launch.command, ...launch.args]),
+          needsNetworkRestriction: true,
+          readConfig: { denyOnly: ["/"], allowWithinDeny: readable },
+          writeConfig: { allowOnly: [...folders.writable, folders.temporary].map(realOrGiven), denyWithinAllow: [] },
+          allowAllUnixSockets: false,
+        };
+        const wrapped = this.#platform === "darwin" ? wrapCommandWithSandboxMacOS(parameters) : await wrapCommandWithSandboxLinux(parameters);
+        return { command: "/bin/sh", args: ["-c", wrapped] };
+      },
+    };
     const bridges = [SandboxManager.getLinuxHttpSocketPath(), SandboxManager.getLinuxSocksSocketPath()]
       .filter((socket): socket is string => socket !== undefined);
     const environment = insideEnvironment(folders.temporary, this.#searchPath, this.#platform);
