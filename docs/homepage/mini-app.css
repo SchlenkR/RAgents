@@ -733,6 +733,9 @@
   .h-\(--header-dropdown-height\) {
     height: var(--header-dropdown-height);
   }
+  .h-0 {
+    height: 0px;
+  }
   .h-1 {
     height: var(--spacing);
   }
@@ -1387,6 +1390,9 @@
   .gap-px {
     gap: 1px;
   }
+  .gap-x-\(--start-gap-x\) {
+    column-gap: var(--start-gap-x);
+  }
   .gap-x-2 {
     column-gap: calc(var(--spacing) * 2);
   }
@@ -1395,9 +1401,6 @@
   }
   .gap-x-4 {
     column-gap: calc(var(--spacing) * 4);
-  }
-  .gap-x-6 {
-    column-gap: calc(var(--spacing) * 6);
   }
   .gap-y-0\.5 {
     row-gap: calc(var(--spacing) * 0.5);
@@ -2666,6 +2669,9 @@
   }
   .\[--qsl-input-card-radius\:var\(--radius-lg\)\] {
     --qsl-input-card-radius: var(--radius-lg);
+  }
+  .\[--start-gap-x\:--spacing\(6\)\] {
+    --start-gap-x: calc(var(--spacing) * 6);
   }
   .\[--tone-soft\:var\(--secondary\)\] {
     --tone-soft: var(--secondary);
@@ -4500,9 +4506,6 @@
   }
   .\[\&\>\[data-start-section\]\>\*\]\:order-1 > [data-start-section] > * {
     order: 1;
-  }
-  .\[\&\>\[data-start-section\]\>\*\]\:col-span-full > [data-start-section] > * {
-    grid-column: 1 / -1;
   }
   .has-\[\>\[data-slot\=field-content\]\]\:\[\&\>\[role\=checkbox\]\,\[role\=radio\]\]\:mt-px:has( > [data-slot=field-content]) > [role=checkbox], .has-\[\>\[data-slot\=field-content\]\]\:\[\&\>\[role\=checkbox\]\,\[role\=radio\]\]\:mt-px:has( > [data-slot=field-content]) [role=radio] {
     margin-top: 1px;

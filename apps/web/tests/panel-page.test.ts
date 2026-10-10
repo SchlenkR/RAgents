@@ -81,12 +81,12 @@ test("Start sections receive all listed runs with metadata and open through the 
   assert.equal(contexts.length, 0, "only Start mounts the sections");
 });
 
-test("Start sections retain contribution order and empty sections add nothing but a wrapper without a box", () => {
+test("Start sections retain contribution order and empty sections add nothing but an empty wrapper", () => {
   const state = page();
   const empty = registryWith([{ id: "test.empty", startSections: [{ id: "empty", order: 0, Section: () => null }] }]);
-  const wrapper = '<div class="contents" data-start-section="empty"></div>';
   const withEmpty = renderToStaticMarkup(createElement(PanelPage, { preferences, registry: empty, state, send: () => {} }));
-  assert.ok(withEmpty.includes(wrapper));
+  const wrapper = withEmpty.match(/<div[^>]*data-start-section="empty"[^>]*><\/div>/)?.[0];
+  assert.ok(wrapper, "the wrapper stays mounted, so the section can show content later; without height it takes no place in the packing");
   assert.equal(withEmpty.replace(wrapper, ""), render(state));
   const section = (id: string, order: number) => ({ id, order, Section: () => createElement("section", null, id) });
   const registry = registryWith([
@@ -103,7 +103,7 @@ test("Start sections retain contribution order and empty sections add nothing bu
   assert.throws(() => registryWith([{ id: "test.empty", startSections: [section("", 0)] }]), /Start section without ID/);
 });
 
-test("a Start section with a title becomes a framed widget with its columns; without one it keeps a full row of its own", () => {
+test("a Start section with a title becomes a framed widget with its columns; without one it takes the whole width", () => {
   const registry = registryWith([{ id: "test.widgets", startSections: [
     { id: "board", order: 10, title: "Work board", Section: () => createElement("p", null, "Board content") },
     { id: "auto", order: 20, title: "Auto items", columns: 2, Section: () => createElement("p", null, "Auto content") },
@@ -112,12 +112,13 @@ test("a Start section with a title becomes a framed widget with its columns; wit
   const html = renderToStaticMarkup(createElement(PanelPage, { preferences, registry, state: page(), send: () => {} }));
   assert.match(html, /<section aria-label="Work board"[^>]*><div[^>]*><h2[^>]*>Work board<\/h2><\/div><div[^>]*data-start-widget-body="board"><p>Board content<\/p>/,
     "the host draws the title row above the content");
-  assert.match(html, /data-start-widget="board" style="grid-column:span 6 \/ span 6"/, "a widget without columns fills a row and is known by its contribution ID");
-  assert.match(html, /data-start-widget="auto" style="grid-column:span 2 \/ span 2"/, "a widget alone in its row keeps its columns");
-  assert.match(html, /data-start-widget="start.new" style="grid-column:span 2 \/ span 2"/);
-  assert.match(html, /data-start-widget="start.continue" style="grid-column:span 4 \/ span 4"/);
-  assert.match(html, /class="[^"]*grid-cols-6[^"]*"[^>]*data-dashboard="grid"/, "the grid has six columns");
-  assert.match(html, /<div class="contents" data-start-section="plain"><section>Plain section<\/section><\/div>/, "a section without a title is rendered without a frame or a box of its own");
+  assert.match(html, /data-columns="6" data-pack="board" data-start-widget="board"/, "a widget without columns takes all six and is known by its contribution ID");
+  assert.match(html, /data-columns="2" data-pack="auto" data-start-widget="auto"/, "a widget alone in its row keeps its columns");
+  assert.match(html, /data-columns="2" data-pack="start.new" data-start-widget="start.new"/);
+  assert.match(html, /data-columns="4" data-pack="start.continue" data-start-widget="start.continue"/);
+  assert.match(html, /data-dashboard="grid"[^>]*data-grid="6"/, "the grid has six columns");
+  assert.match(html, /<div class="absolute" data-columns="6" data-pack="plain" data-start-section="plain" style="[^"]*"><section>Plain section<\/section><\/div>/,
+    "a section without a title has no frame of its own and takes the whole width");
   assert.ok(html.indexOf(">Work board<") < html.indexOf(">Auto items<") && html.indexOf(">Auto items<") < html.indexOf(">Plain section<"));
 });
 

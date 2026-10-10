@@ -1,7 +1,8 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import {
-  DASHBOARD_TABS_BELOW, DASHBOARD_WIDE_FROM, dashboardLayout, draggedColumns, gridColumnsAt, resizedColumns, shownColumns, widgetWidth, widthProblem, type DashboardItem,
+  DASHBOARD_TABS_BELOW, DASHBOARD_WIDE_FROM, dashboardLayout, draggedColumns, dropPlace, gridColumnsAt, packWidgets, resizedColumns, shownColumns, widgetWidth, widthProblem,
+  type DashboardItem, type PackItem, type WidgetBox,
 } from "../src/panel/dashboard-layout";
 
 const widget = (key: string, columns: number, framed = true): DashboardItem => ({ key, columns, framed });
@@ -77,4 +78,74 @@ test("keyboard steps change the width by one shown column and stop at the range"
   const step = (columns: number, by: number, grid: number, range = { minColumns: 2, maxColumns: 6 }) => resizedColumns({ columns, ...range }, shownColumns(columns, grid) + by, grid);
   assert.deepEqual([step(4, -1, 6), step(4, 1, 6), step(2, -1, 6), step(6, 1, 6)], [3, 5, 2, 6]);
   assert.deepEqual([step(2, 1, 3), step(4, 1, 3), step(4, -1, 3), step(3, 1, 3, { minColumns: 1, maxColumns: 6 })], [4, 6, 2, 6]);
+});
+
+const item = (key: string, columns: number, height: number): PackItem => ({ key, columns, height });
+const GAP = 30;
+const places = (items: readonly PackItem[], grid = 6) => packWidgets(items, grid, GAP).widgets.map(({ key, column, top }) => `${key}@${column},${top}`);
+
+test("packing puts a widget under a short one beside a tall one instead of below the whole row", () => {
+  const owner = [item("new", 3, 200), item("topics", 3, 500), item("continue", 3, 300)];
+  assert.deepEqual(places(owner), ["new@0,0", "topics@3,0", "continue@0,230"], "Continue moves up under New, one gap below it");
+  assert.equal(packWidgets(owner, 6, GAP).height, 530, "the grid ends at the lowest bottom, without a gap after it");
+  assert.deepEqual(places([item("new", 3, 500), item("topics", 3, 200), item("continue", 3, 300)]), ["new@0,0", "topics@3,0", "continue@3,230"], "and under Topics when that is the shorter one");
+});
+
+test("packing breaks ties to the left and ignores differences below half a pixel", () => {
+  assert.deepEqual(places([item("a", 2, 100), item("b", 2, 100), item("c", 2, 100), item("d", 2, 100)]), ["a@0,0", "b@2,0", "c@4,0", "d@0,130"], "equal heights fill rows from the left");
+  assert.deepEqual(places([item("a", 3, 100.3), item("b", 3, 100), item("c", 3, 50)]), ["a@0,0", "b@3,0", "c@0,130.3"], "a fraction of a pixel does not move a widget to the right");
+  assert.deepEqual(places([item("a", 3, 101), item("b", 3, 100), item("c", 3, 50)]), ["a@0,0", "b@3,0", "c@3,130"], "a whole pixel does");
+});
+
+test("a wide widget goes below every column it spans, and a narrower one after it may fill the room beside an earlier one", () => {
+  assert.deepEqual(places([item("new", 2, 100), item("continue", 4, 300), item("board", 6, 200)]), ["new@0,0", "continue@2,0", "board@0,330"]);
+  assert.deepEqual(places([item("a", 4, 200), item("b", 4, 50), item("c", 2, 50)]), ["a@0,0", "b@0,230", "c@4,0"], "the leftmost highest place that fits");
+  assert.deepEqual(places([item("a", 3, 100), item("b", 6, 50), item("c", 3, 50)]), ["a@0,0", "b@0,130", "c@0,210"], "the room beside a narrower widget above a full row stays free");
+  assert.deepEqual(places([item("new", 1, 100), item("continue", 2, 300), item("board", 3, 200)], 3), ["new@0,0", "continue@1,0", "board@0,330"], "the same at three columns");
+});
+
+test("packing keeps the order of the widgets, skips those without height, and gives the same result for the same input", () => {
+  const items = [item("a", 2, 120), item("empty", 2, 0), item("b", 4, 80), item("c", 1, 40), item("d", 5, 60)];
+  const first = packWidgets(items, 6, GAP);
+  assert.deepEqual(first.widgets.map((widget) => widget.key), ["a", "b", "c", "d"], "a widget without height takes no place and no gap");
+  assert.deepEqual(packWidgets(items, 6, GAP), first);
+  assert.deepEqual(packWidgets([], 6, GAP), { widgets: [], height: 0 });
+  const single = packWidgets([item("one", 1, 50), item("two", 1, 70)], 1, GAP);
+  assert.deepEqual(single, { widgets: [{ key: "one", column: 0, columns: 1, top: 0 }, { key: "two", column: 0, columns: 1, top: 80 }], height: 150 }, "one column stacks the widgets");
+  assert.throws(() => packWidgets([item("wide", 4, 10)], 3, GAP), /Start widget wide cannot take 4 of 3 columns/);
+});
+
+const boxes: readonly WidgetBox[] = [
+  { key: "new", left: 0, top: 0, width: 590, height: 200 },
+  { key: "topics", left: 610, top: 0, width: 590, height: 500 },
+  { key: "continue", left: 0, top: 230, width: 590, height: 300 },
+];
+
+test("a dragged widget goes before or after the widget under the pointer by its middle and keeps its place elsewhere", () => {
+  assert.equal(dropPlace(boxes, "continue", { x: 100, y: 100 }, 1200), 0, "the left half of New puts Continue before it");
+  assert.equal(dropPlace(boxes, "continue", { x: 400, y: 100 }, 1200), 1, "the right half after it");
+  assert.equal(dropPlace(boxes, "continue", { x: 1000, y: 400 }, 1200), 2, "the right half of Topics after it");
+  assert.equal(dropPlace(boxes, "continue", { x: 100, y: 300 }, 1200), undefined, "over its own place it stays");
+  assert.equal(dropPlace(boxes, "continue", { x: 600, y: 100 }, 1200), undefined, "in a gap it stays");
+  assert.equal(dropPlace(boxes, "new", { x: 400, y: 515 }, 1200), 2, "the right half of the place below counts as well");
+  assert.equal(dropPlace(boxes, "new", { x: 300, y: 600 }, 1200), 2, "below every widget it goes to the end");
+  assert.equal(dropPlace(boxes, "new", { x: 100, y: 515 }, 1200, { key: "", left: 610, top: 530, width: 390, height: 96 }), 1, "the end tile changes nothing over a widget");
+  assert.equal(dropPlace(boxes, "new", { x: 700, y: 560 }, 1200, { key: "", left: 610, top: 530, width: 390, height: 96 }), 2, "over the end tile it goes to the end");
+});
+
+test("over a widget as wide as the grid and in the narrow list only the vertical middle counts", () => {
+  const rows: readonly WidgetBox[] = [{ key: "board", left: 0, top: 0, width: 1200, height: 400 }, { key: "new", left: 0, top: 430, width: 590, height: 100 }];
+  assert.equal(dropPlace(rows, "new", { x: 1100, y: 100 }, 1200), 0, "the upper half of a full row puts it before");
+  assert.equal(dropPlace(rows, "new", { x: 10, y: 300 }, 1200), 1, "the lower half after");
+  const list: readonly WidgetBox[] = ["a", "b", "c"].map((key, index) => ({ key, left: 0, top: index * 50, width: 500, height: 40 }));
+  assert.equal(dropPlace(list, "c", { x: 490, y: 10 }, 500), 0);
+  assert.equal(dropPlace(list, "a", { x: 10, y: 85 }, 500), 1);
+  assert.equal(dropPlace(list, "a", { x: 10, y: 125 }, 500), 2);
+});
+
+test("once a dragged widget takes the place under the pointer the pointer is over its own box, so the place holds", () => {
+  const moved = packWidgets([item("continue", 3, 300), item("new", 3, 200), item("topics", 3, 500)], 6, GAP).widgets;
+  assert.deepEqual(moved.map(({ key, column, top }) => `${key}@${column},${top}`), ["continue@0,0", "new@3,0", "topics@3,230"]);
+  const after: readonly WidgetBox[] = moved.map(({ key, column, top }) => ({ key, left: column * 610, top, width: 590, height: key === "continue" ? 300 : key === "new" ? 200 : 500 }));
+  assert.equal(dropPlace(after, "continue", { x: 100, y: 100 }, 1200), undefined);
 });

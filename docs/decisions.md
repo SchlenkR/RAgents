@@ -1,5 +1,31 @@
 # Decisions
 
+## 2026-10-10: Start packs its widgets without holes and moving follows the packed layout
+
+Chapters: `spec/plugins.md` (Start, Arranging Start, Open limits); usage: `usage.md` (Start).
+
+On a wide screen with New and a tall widget three columns wide each, Continue after them started
+below the taller one, because widgets in a CSS grid row share the row's height; a large hole stayed
+below New. Widgets now keep their own content heights and are packed in order: each goes to the lowest
+top any range of its columns offers below the widgets before it, leftmost among equal tops
+(`packWidgets`), at six and at three columns; tabs below 700 pixels stay. A skyline keeps the order
+readable and moving predictable; filling every hole, also below a narrower widget that a wider one
+spans, would pull later widgets above earlier full-width ones. The cells are absolutely positioned
+in their order, so the focus order stays the widget order. Packing reads the rendered cells and writes
+their places after every render and from a `ResizeObserver` on the cells, so content that grows pushes
+the widgets below before the next paint. The observer writes the places itself instead of rendering:
+`flushSync` there also flushed the stored layout arriving at the same time, which changed cell sizes
+inside the callback and raised the observer loop error in WebKit. The dashboard's width is measured on
+a probe without height for the same reason.
+
+Moving had compared the pointer with every widget in reading order, which packed columns no longer
+have. `dropPlace` now takes the widget under the pointer and puts the dragged one before or after it by
+its middle, vertically for a widget across the grid and in the narrow list, the end below all widgets
+or over "Add widget", and keeps the place anywhere else; each new place renders at once, so the
+pointer then lies over the dragged widget's own box and the place holds. A changed arrangement slides
+the cells that move (200 milliseconds), never on the first paint, on a new width, for growing content,
+or with reduced motion.
+
 ## 2026-10-10: Start has six columns, widgets choose a width of 1 to 6, and resizing follows the pointer
 
 Chapters: `spec/plugins.md` (Web as plugin host: slots `startSections` and `startWidgetsFor`; Start,

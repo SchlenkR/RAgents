@@ -1,3 +1,4 @@
+import { useSyncExternalStore } from "react";
 import { createRoot } from "react-dom/client";
 import { PluginRegistry, type StartSectionContext, type StartSectionContribution, type StartWidgetContribution, type WebPlugin } from "../src/PluginRegistry";
 import { PanelPage } from "../src/panel/PanelPage";
@@ -38,13 +39,29 @@ const connection: ConnectionView = {
   canCreate: true,
 };
 
+/** How many runs each lane of the work board lists; grow() adds more, like a list that finishes loading. */
+const lanes = { rows: 2, listeners: new Set<() => void>() };
+
 function WorkBoard({ runs }: StartSectionContext) {
+  const rows = useSyncExternalStore((listener) => {
+    lanes.listeners.add(listener);
+    return () => lanes.listeners.delete(listener);
+  }, () => lanes.rows);
   return <div aria-label="Work lanes" className="grid grid-cols-1 gap-3 @lg/widget:grid-cols-3" role="group">
     {["Ready", "Active", "Done"].map((lane, index) => <section aria-label={lane} className="grid content-start gap-2 rounded-xl border border-border bg-card p-3" key={lane}>
       <h3 className="type-label">{lane}</h3>
-      {runs.slice(index * 2, index * 2 + 2).map((run) => <p className="type-body truncate" key={run.id}>{run.title}</p>)}
+      {runs.slice(index * rows, index * rows + rows).map((run) => <p className="type-body truncate" key={run.id}>{run.title}</p>)}
     </section>)}
   </div>;
+}
+
+function TopicCards() {
+  return <ul aria-label="Topics entries" className="grid grid-cols-2 gap-3">
+    {Array.from({ length: 10 }, (_, index) => <li className="grid gap-1 rounded-xl border border-border bg-card p-3" key={index}>
+      <span className="type-item">Topic {index + 1}</span>
+      <span className="type-body text-muted-foreground">Open questions and the runs that answer them.</span>
+    </li>)}
+  </ul>;
 }
 
 const list = (label: string) => function List() {
@@ -56,7 +73,12 @@ const list = (label: string) => function List() {
 const widget = (id: string, order: number, title: string, columns?: number, extra: Partial<StartSectionContribution> = {}): StartSectionContribution =>
   ({ id, order, title, ...(columns ? { columns } : {}), Section: list(`${title} entries`), ...extra });
 
-const sections: StartSectionContribution[] = [
+/** ?case=owner is the wide screen with New and Topics three columns wide and Continue after them; Topics is much taller than New. */
+const owner = query.get("case") === "owner";
+
+const sections: StartSectionContribution[] = owner ? [
+  { id: "demo.topics", order: 10, title: "Topics", columns: 3, minColumns: 2, Section: TopicCards },
+] : [
   { id: "demo.board", order: 10, title: "Work board", description: "Runs in three lanes by their state.", Section: WorkBoard },
   widget("demo.auto", 20, "New auto items", 2),
   widget("demo.shared", 30, "Shared with the team", 2),
@@ -99,9 +121,20 @@ const state: PanelState = { theme: "dark", page: "start", connections: [connecti
 
 /** Stands in for the server's preference store and keeps the values across reloads; ?preferences=fail lets reading fail, failWrites saving. */
 const stored = (key: string) => `start-dashboard-fixture:${key}`;
-const fixture = { writes: [] as unknown[], failWrites: false, setApps: undefined as ((names: readonly string[]) => void) | undefined };
+const fixture = {
+  writes: [] as unknown[],
+  failWrites: false,
+  setApps: undefined as ((names: readonly string[]) => void) | undefined,
+  grow: () => {
+    lanes.rows += 4;
+    for (const listener of lanes.listeners) listener();
+  },
+};
 declare global { interface Window { dashboardFixture: typeof fixture } }
 window.dashboardFixture = fixture;
+if (owner && localStorage.getItem(stored("start.layout")) === null) {
+  localStorage.setItem(stored("start.layout"), JSON.stringify({ version: 2, order: ["start.new", "demo.topics", "start.continue"], columns: { "start.new": 3, "start.continue": 3 }, removed: [] }));
+}
 const preferences: PreferenceStore = {
   read: async (key) => {
     if (query.get("preferences") === "fail") throw new Error("The server is unreachable.");

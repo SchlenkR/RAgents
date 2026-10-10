@@ -33,11 +33,11 @@ type Engine = "chromium" | "webkit";
 const launch = (engine: Engine) => engine === "webkit" ? webkit.launch({ headless: true })
   : chromium.launch({ headless: true, executablePath: process.env.BROWSER_EXECUTABLE_PATH ?? "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome" });
 
-const withPage = async (width: number, query: string, run: (page: Page, browser: Browser) => Promise<void>, height = 900, engine: Engine = "chromium") => {
+const withPage = async (width: number, query: string, run: (page: Page, browser: Browser) => Promise<void>, height = 900, engine: Engine = "chromium", motion: "reduce" | "no-preference" = "reduce") => {
   const url = await (fixture ??= buildFixture());
   const browser = await launch(engine);
   try {
-    const page = await browser.newPage({ viewport: { width, height }, reducedMotion: "reduce" });
+    const page = await browser.newPage({ viewport: { width, height }, reducedMotion: motion });
     page.setDefaultTimeout(6000);
     const errors: string[] = [];
     page.on("pageerror", (error) => errors.push(error.message));
@@ -71,6 +71,58 @@ const gridOf = (page: Page) => page.locator("[data-dashboard]").evaluate((elemen
 const spanWidth = (grid: { column: number; gap: number }, columns: number) => columns * grid.column + (columns - 1) * grid.gap;
 
 const settled = (page: Page) => page.evaluate(() => Promise.all(document.getAnimations().map((animation) => animation.finished.catch(() => undefined))));
+
+/** The packed cells of the grid in their order, with boxes relative to the grid and the grid's columns and gaps. */
+const packedCells = (page: Page) => page.locator("[data-dashboard]").evaluate((grid) => {
+  const bounds = grid.getBoundingClientRect();
+  const style = getComputedStyle(grid);
+  const columns = Number((grid as HTMLElement).dataset.grid);
+  const gapX = parseFloat(style.columnGap);
+  const gapY = parseFloat(style.rowGap);
+  const column = (bounds.width - (columns - 1) * gapX) / columns;
+  const cells = [...grid.querySelectorAll<HTMLElement>(":scope > [data-pack]")].map((cell) => ({ key: cell.dataset.pack!, box: cell.getBoundingClientRect() }))
+    .filter(({ box }) => box.height > 0).map(({ key, box }) => ({ key, left: box.left - bounds.left, top: box.top - bounds.top, width: box.width, height: box.height }));
+  return { columns, gapX, gapY, column, pitch: column + gapX, height: bounds.height, cells };
+});
+
+type Packed = Awaited<ReturnType<typeof packedCells>>;
+
+/** Every cell stands on whole columns, rests one gap below the cells before it in its columns, has no higher place where its columns fit, and overlaps no other cell; the grid ends at its lowest cell. */
+const checkPacked = (packed: Packed, label: string) => {
+  const cells = packed.cells.map((cell) => {
+    const column = Math.round(cell.left / packed.pitch);
+    const columns = Math.round((cell.width + packed.gapX) / packed.pitch);
+    assert.ok(Math.abs(cell.left - column * packed.pitch) < 1 && Math.abs(cell.width - (columns * packed.column + (columns - 1) * packed.gapX)) < 1, `${cell.key} stands on whole columns (${label})`);
+    return { ...cell, column, columns };
+  });
+  cells.forEach((cell, index) => {
+    const before = cells.slice(0, index);
+    const lowest = (from: number) => Math.max(0, ...before.filter((other) => other.column < from + cell.columns && from < other.column + other.columns).map((other) => other.top + other.height + packed.gapY));
+    const best = Math.min(...Array.from({ length: packed.columns - cell.columns + 1 }, (_, from) => lowest(from)));
+    assert.ok(Math.abs(cell.top - lowest(cell.column)) < 1, `${cell.key} rests one gap below the widgets above it, at ${cell.top} instead of ${lowest(cell.column)} (${label})`);
+    assert.ok(cell.top <= best + 1, `${cell.key} has no higher place where its columns fit: ${cell.top} against ${best} (${label})`);
+    const overlapping = before.filter((other) => other.left < cell.left + cell.width - 0.5 && cell.left < other.left + other.width - 0.5 && other.top < cell.top + cell.height - 0.5 && cell.top < other.top + other.height - 0.5);
+    assert.deepEqual(overlapping.map((other) => other.key), [], `${cell.key} overlaps no other widget (${label})`);
+  });
+  assert.ok(Math.abs(packed.height - Math.max(0, ...cells.map((cell) => cell.top + cell.height))) < 1, `the grid ends at its lowest widget (${label})`);
+};
+
+const placeOf = (packed: Packed, key: string) => {
+  const cell = packed.cells.find((entry) => entry.key === key);
+  assert.ok(cell, `${key} is packed`);
+  return { column: Math.round(cell.left / packed.pitch), top: cell.top, bottom: cell.top + cell.height };
+};
+
+const slides = (page: Page) => page.evaluate(() => document.getAnimations().filter((animation) => animation.id === "start-repack").length);
+
+/** Waits for the slides of re-packing only, because a running run's spinner never ends. */
+const slid = (page: Page) => page.evaluate(async () => {
+  for (;;) {
+    const running = document.getAnimations().filter((animation) => animation.id === "start-repack");
+    if (running.length === 0) return;
+    await Promise.all(running.map((animation) => animation.finished.catch(() => undefined)));
+  }
+});
 
 const noHorizontalScroll = (page: Page) => page.evaluate(() => {
   const main = document.querySelector<HTMLElement>("main[data-page]")!;
@@ -468,6 +520,7 @@ test("from 360 to 2560 pixels widgets never overlap and the page never scrolls s
         assert.deepEqual(await overlaps(), [], `no overlap at ${width} pixels${editing ? " while editing" : ""}`);
         assert.deepEqual(await outside(), [], `every widget stays inside the grid at ${width} pixels`);
         assert.deepEqual(await noHorizontalScroll(page), { page: 0, main: 0 }, `no horizontal scroll at ${width} pixels${editing ? " while editing" : ""}`);
+        if (width >= 700) checkPacked(await packedCells(page), `${width} pixels${editing ? " while editing" : ""}`);
         await mkdir(shots, { recursive: true });
         await page.screenshot({ path: join(shots, `start-dashboard-${editing ? "edit" : "view"}-${width}.png`), fullPage: true });
       }
@@ -755,4 +808,145 @@ test("dynamic widgets are moved, resized, removed, and added back like start sec
     await page.getByRole("button", { name: "Cancel", exact: true }).click();
     await page.getByRole("group", { name: "Edit Start" }).waitFor({ state: "detached" });
   }, 2400);
+});
+
+test("the owner's case: Continue moves up under the short New beside the tall Topics, from 800 to 2560 pixels, without holes, overlap, or sideways scrolling", browserOnly, async () => {
+  for (const width of [800, 1280, 1920, 2560]) {
+    await withPage(width, "case=owner", async (page) => {
+      await page.getByRole("list", { name: "Topics entries" }).waitFor();
+      const packed = await packedCells(page);
+      checkPacked(packed, `${width} pixels`);
+      assert.deepEqual(packed.cells.map((cell) => cell.key), ["start.new", "demo.topics", "start.continue"]);
+      const [start, topics, more] = ["start.new", "demo.topics", "start.continue"].map((key) => placeOf(packed, key));
+      if (width >= 1100) {
+        assert.equal(packed.columns, 6);
+        assert.ok(start.column === 0 && topics.column === 3 && start.top === 0 && topics.top === 0, "New and Topics share the first row");
+        assert.ok(topics.bottom > start.bottom + 100, "Topics is much taller than New");
+        assert.equal(more.column, 0, "Continue stands under New");
+        assert.ok(Math.abs(more.top - (start.bottom + packed.gapY)) < 1 && more.top < topics.bottom, "one gap below New, beside Topics instead of below it");
+      } else assert.equal(packed.columns, 3);
+      assert.deepEqual(await noHorizontalScroll(page), { page: 0, main: 0 });
+      await mkdir(shots, { recursive: true });
+      await page.screenshot({ path: join(shots, `start-dashboard-owner-${width}.png`), fullPage: true });
+    });
+  }
+});
+
+test("in the owner's case the mouse moves Continue before New and back, resizing New re-packs live, the keyboard moves Continue, and a reload keeps the packed layout", browserOnly, async () => {
+  await withPage(1280, "case=owner", async (page) => {
+    await page.getByRole("list", { name: "Topics entries" }).waitFor();
+    await edit(page);
+    const start = await page.getByRole("region", { name: "New", exact: true }).boundingBox();
+    await drag(page, await center(page, page.getByRole("button", { name: "Move Continue", exact: true })), { x: start!.x + 24, y: start!.y + 48 }, async () => {
+      assert.deepEqual(await order(page), ["start.continue", "start.new", "demo.topics"], "the grid follows the pointer before the drop");
+      checkPacked(await packedCells(page), "while dragging Continue before New");
+    });
+    assert.deepEqual(await order(page), ["start.continue", "start.new", "demo.topics"]);
+    assert.equal(await announced(page), "Continue moved to place 1 of 3.");
+    const before = await packedCells(page);
+    checkPacked(before, "Continue before New");
+    assert.equal(await page.locator("[data-pack]").evaluateAll((cells) => cells.filter((cell) => cell.getAnimations().length > 0).length), 0, "with reduced motion nothing slides or transitions");
+    assert.deepEqual([placeOf(before, "start.continue"), placeOf(before, "start.new")].map(({ column, top }) => [column, top]), [[0, 0], [3, 0]], "Continue takes the first place, New the one beside it");
+    await mkdir(shots, { recursive: true });
+    await page.screenshot({ path: join(shots, "start-dashboard-owner-moved.png"), fullPage: true });
+
+    const grid = await page.locator("[data-dashboard]").boundingBox();
+    const handle = await center(page, page.getByRole("button", { name: "Move Continue", exact: true }));
+    await drag(page, handle, { x: handle.x, y: grid!.y + grid!.height + 24 });
+    assert.deepEqual(await order(page), ["start.new", "demo.topics", "start.continue"], "below every widget the pointer puts Continue back at the end");
+    const back = await packedCells(page);
+    checkPacked(back, "Continue back at the end");
+    assert.deepEqual([placeOf(back, "start.continue").column, placeOf(back, "demo.topics").column], [0, 3], "and under New again");
+
+    const edge = await center(page, grip(page, "start.new"));
+    await drag(page, edge, { x: edge.x + back.pitch, y: edge.y }, async () => {
+      assert.equal(await size(page, "start.new"), 4);
+      const live = await packedCells(page);
+      checkPacked(live, "while New grows");
+      assert.deepEqual([placeOf(live, "demo.topics").column, placeOf(live, "start.continue").column], [0, 3], "Topics no longer fits beside New and Continue fills the room beside Topics");
+      await page.screenshot({ path: join(shots, "start-dashboard-owner-resize.png"), fullPage: true });
+    });
+    assert.equal(await announced(page), "New is now 4 of 6 columns wide.");
+    const wider = await grip(page, "start.new").boundingBox();
+    await drag(page, { x: wider!.x + wider!.width / 2, y: wider!.y + wider!.height / 2 }, { x: wider!.x + wider!.width / 2 - back.pitch, y: wider!.y + wider!.height / 2 });
+    assert.equal(await size(page, "start.new"), 3);
+    assert.deepEqual((await packedCells(page)).cells.map(({ key, left, top }) => ({ key, left, top })), back.cells.map(({ key, left, top }) => ({ key, left, top })), "the former width brings back the former places");
+
+    await page.getByRole("button", { name: "Move Continue", exact: true }).focus();
+    await page.keyboard.press("ArrowUp");
+    assert.equal(await announced(page), "Continue moved to place 2 of 3.");
+    assert.equal(await slides(page), 0, "with reduced motion nothing slides");
+    const keyed = await packedCells(page);
+    checkPacked(keyed, "after ArrowUp");
+    assert.deepEqual(["start.new", "start.continue", "demo.topics"].map((key) => [placeOf(keyed, key).column, Math.round(placeOf(keyed, key).top)]),
+      [[0, 0], [3, 0], [0, Math.round(placeOf(keyed, "start.new").bottom + keyed.gapY)]], "Continue moves beside New and Topics under the shorter New");
+    await page.keyboard.press("ArrowDown");
+    assert.deepEqual(await order(page), ["start.new", "demo.topics", "start.continue"]);
+    assert.equal(await focused(page), "Move Continue");
+    await page.keyboard.press("ArrowUp");
+
+    await page.getByRole("button", { name: "Done", exact: true }).click();
+    await page.getByRole("group", { name: "Edit Start" }).waitFor({ state: "detached" });
+    assert.deepEqual(await writes(page), [{ version: 2, order: [], columns: { "start.new": 3, "start.continue": 3 }, removed: [] }]);
+    const saved = await packedCells(page);
+    checkPacked(saved, "after Done");
+    await page.reload();
+    await loaded(page);
+    await page.getByRole("list", { name: "Topics entries" }).waitFor();
+    assert.deepEqual(await packedCells(page), saved, "a reload keeps order, widths, and places");
+  }, 1500);
+});
+
+test("a widget whose content grows pushes the widgets below it before the next paint", browserOnly, async () => {
+  await withPage(1280, "", async (page) => {
+    const before = await packedCells(page);
+    const result = await page.evaluate(() => new Promise<{ grown: number; problems: string[] }>((resolve) => {
+      const grid = document.querySelector<HTMLElement>("[data-dashboard]")!;
+      const board = grid.querySelector<HTMLElement>('[data-start-widget="demo.board"]')!;
+      const gap = parseFloat(getComputedStyle(grid).rowGap);
+      const height = board.getBoundingClientRect().height;
+      const problems: string[] = [];
+      // An observer made after Start's own one runs after it in the same frame, right before the paint.
+      const observer = new ResizeObserver(() => {
+        const bottom = board.getBoundingClientRect().bottom;
+        for (const key of ["demo.auto", "demo.shared", "demo.usage"]) {
+          const top = grid.querySelector(`[data-start-widget="${key}"]`)!.getBoundingClientRect().top;
+          if (top < bottom + gap - 0.5) problems.push(`${key} at ${top} overlaps the board ending at ${bottom}`);
+        }
+        observer.disconnect();
+        resolve({ grown: board.getBoundingClientRect().height - height, problems });
+      });
+      observer.observe(board);
+      window.dashboardFixture.grow();
+    }));
+    assert.ok(result.grown > 100, `the board grew by ${result.grown} pixels`);
+    assert.deepEqual(result.problems, []);
+    const after = await packedCells(page);
+    checkPacked(after, "after the board grew");
+    const moved = (key: string) => placeOf(after, key).top - placeOf(before, key).top;
+    assert.ok(["demo.auto", "demo.shared", "demo.usage"].every((key) => Math.abs(moved(key) - result.grown) < 1), "the widgets below move down by exactly the growth");
+    assert.equal(moved("start.continue"), 0, "the widgets above stay");
+  });
+});
+
+test("re-packing slides the widgets that move unless reduced motion is preferred, and the first paint slides nothing", browserOnly, async () => {
+  await withPage(1280, "case=owner", async (page) => {
+    await page.getByRole("list", { name: "Topics entries" }).waitFor();
+    assert.equal(await slides(page), 0, "the first paint slides nothing");
+    await edit(page);
+    await slid(page);
+    await page.getByRole("button", { name: "Move Continue", exact: true }).focus();
+    await page.keyboard.press("ArrowUp");
+    assert.ok(await slides(page) > 0, "the widgets that move slide to their new places");
+    await slid(page);
+    assert.equal(await slides(page), 0);
+    checkPacked(await packedCells(page), "after the slides");
+    const start = await page.getByRole("region", { name: "New", exact: true }).boundingBox();
+    await drag(page, await center(page, page.getByRole("button", { name: "Move Continue", exact: true })), { x: start!.x + 24, y: start!.y + 48 }, async () => {
+      assert.ok(await slides(page) > 0, "the grid slides while the pointer moves");
+    });
+    assert.deepEqual(await order(page), ["start.continue", "start.new", "demo.topics"], "the drop target follows the packed places, not the slides");
+    await slid(page);
+    checkPacked(await packedCells(page), "after dragging with slides");
+  }, 1200, "chromium", "no-preference");
 });

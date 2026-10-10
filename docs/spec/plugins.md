@@ -3396,9 +3396,27 @@ dashboard's own container, measured with a `ResizeObserver`, not the window, bec
 often narrow on a wide screen. `dashboardLayout` in `panel/dashboard-layout.ts` decides it: from
 1100 pixels (`DASHBOARD_WIDE_FROM`) the grid has six columns (`DASHBOARD_COLUMNS`) and every widget
 takes exactly its columns; from 700 pixels (`DASHBOARD_TABS_BELOW`) the grid has three columns and a
-widget takes half its columns, rounded up (`shownColumns`); a section without a title always fills its
-row. Widgets fill rows in order with CSS grid placement: a widget that does not fit in the rest of a
-row starts the next one, a row with space left keeps it, and widgets in one row share the row's height.
+widget takes half its columns, rounded up (`shownColumns`); a section without a title always takes all
+columns. Widgets keep their own content heights and are packed without holes (`packWidgets`): in their
+order, each goes to the lowest top that any range of its columns offers below the widgets placed
+before it, one row gap lower, and to the leftmost range among equal tops (tops within half a pixel
+count as equal). So a short widget beside a tall one leaves no hole below it: with New and a tall
+plugin widget three columns wide each, Continue after them stands one gap below New instead of below
+the taller widget. Room below a narrower widget that a wider one following it spans stays free. A
+widget without height, such as an empty section, takes no place. `packCells` reads the cells as rendered, in order with their
+columns (`data-columns`) and heights, and writes each cell's `left` and `top` and the grid's height;
+the cells are absolutely positioned in the grid, their width is a share of its width less the column gaps
+(`--start-gap-x`), and their DOM order stays the widget order, which is also the focus order. Packing runs
+after every render of the dashboard and from a `ResizeObserver` on the cells, both before the browser
+paints, so content that grows, such as a list that loads, pushes the widgets below it without a frame of
+overlap. The observer callback writes the places directly and renders nothing, because a React render
+there would also flush unrelated pending updates that change cell sizes inside the callback; the
+dashboard's own width is measured on a probe of no height in the grid, so packing that changes the
+grid's height never notifies that observer. When the arrangement changes (order, widths, the widgets
+on the dashboard) at the same grid, the cells that move slide from their former place to the new one
+(`transform`, 200 milliseconds); a slide still running follows the place that settling heights give,
+while growing content, a new width or column count, the first paint, and reduced motion
+(`prefers-reduced-motion`) slide nothing.
 Below 700 pixels, with at least two framed
 widgets, the dashboard becomes tabs ("Start widgets", `OverflowTabsList` with the widget title and
 count): the active widget fills the width, and its frame keeps only the action of its title row,
@@ -3421,15 +3439,22 @@ row with the drag handle (`Move <title>`), its width as shown columns of the gri
 and "x" (`Remove <title>`), and a resize handle on its right edge when the grid can show it in more
 than one width; its body stays mounted but is `inert` and
 dimmed, and a widget with nothing to show appears with "Nothing to show right now.". Dragging the
-handle moves the widget live: the others reflow as the pointer passes the middle of a widget in
-reading order, the dragged widget marks its new place with a primary outline and a drop indicator at
-its leading edge, and a label with its title follows the pointer. The resize handle
+handle moves the widget live (`dropPlace` in `panel/dashboard-layout.ts`): over another widget the
+dragged one goes before it or after it by that widget's middle, horizontally, or vertically for a widget
+as wide as the grid and in the narrow list; below every widget or over "Add widget" it goes to the end;
+over its own place, a gap, or free room it stays. The boxes are the packed layout boxes of the cells
+(`offsetLeft`, `offsetTop`), not a slide in progress, and each new place renders at once
+(`flushSync`), so the next pointer event measures the grid that shows it; once the dragged widget takes
+the place under the pointer, the pointer is over its own box and the place holds. The dragged widget is
+its own placeholder at its new place, with a primary outline and a drop indicator at its leading edge,
+the others re-pack around it, and a label with its title follows the pointer. The resize handle
 (`data-resize-handle`) covers the whole right edge in a 20-pixel strip that ends before the title row's
 "x" and carries a grip on the outline; hovering the widget or the edge colors them. Dragging it shows
 the grid's columns as guides (`data-column-guides`) and a label with the target width
 ("4 of 6 columns") at the pointer, adds the columns the pointer moved to the width at the start of the
 drag, snaps at the middle of each column within `minColumns` and `maxColumns` (`draggedColumns`), and
-reflows live; a widget that no longer fits its row moves to the next one. At three columns the edge
+re-packs live; a widget that no longer fits beside its neighbors moves to the lowest place where its
+columns fit. At three columns the edge
 snaps to the columns shown and stores the most of the six columns that show that width, or keeps the
 stored columns when they already do (`resizedColumns`), so every step is visible. Release commits the
 width to the draft. Pointer handling is the
@@ -3440,8 +3465,8 @@ a pointer.
 "Add widget" follows the widgets as a dashed tile two columns wide (one at three columns); its dialog (`Add widget`) lists
 every framed widget that is not on the dashboard as `Add <title>` with its description and width
 ("Width: 2 of 6 columns, adjustable from 1 to 3"); choosing one adds it at the end in its default width. The drag handle also
-takes the keyboard (described by a hidden hint): the arrow keys move the widget one place in reading
-order, also with Shift and Up or Down, Shift with Left or Right changes the width by one column of the grid shown
+takes the keyboard (described by a hidden hint): the arrow keys move the widget one place in the widget
+order (the grid re-packs), also with Shift and Up or Down, Shift with Left or Right changes the width by one column of the grid shown
 (`resizedColumns`), and Delete or Backspace removes it; a polite live region announces
 each change, the ends ("already at its widest"), and saving, and focus follows the moved widget or, after a removal, the next
 handle. Below 700 pixels edit mode is a vertical list of rows with handle, title, "Move <title> up",
@@ -5593,6 +5618,10 @@ right) returns the archive; a different version is 404. The counterpart is `rage
   absence from a final one. An actor program view finds its place by the room name without a
   trailing `-<number>`, so the first start of a run script whose name itself ends that way has a
   place of its own.
+- Start's packing follows the widget order: a later widget that fills the room beside a tall one can
+  stand above an earlier, wider one, and the focus order stays the widget order there; room below a
+  narrower widget that a following wider one spans stays free. Moving a widget in the order reorders
+  the cells in the DOM, so a frame inside a moved cell, such as a global app's view, can load again.
 - Hidden `Activity` boundaries pause React effects and retain parent-fed panel props. They do not
   suspend scripts inside an iframe; independent context or state updates can still render a
   hidden React subtree at lower priority.

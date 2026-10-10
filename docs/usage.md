@@ -1152,17 +1152,21 @@ workspace. Narrow panels can also wrap fixed controls.
 **Start** is a dashboard of widgets over the full width of the window: **New**, **Continue**, and those that plugins add. What fits
 depends on the width of Start itself, not of the window, so a narrow VS Code panel behaves like a
 narrow window. From 1100 pixels Start has six columns and every widget is as many of them wide as
-it is set to, New two and Continue four; a widget that does not fit in a row starts the next one. From
+it is set to, New two and Continue four. Every widget is as tall as its content and moves up as far as
+its columns are free, in its order from the top left, so a short widget leaves no gap below it next to
+a tall one: when New and a tall widget stand side by side, the next widget follows right below New. From
 700 pixels Start has three columns and every widget takes half its columns, rounded up, so New and
-Continue still share a row. Below 700 pixels Start shows one widget at a time with tabs at the top;
+Continue still share a row. When a widget's content grows, the widgets below it move down with it. Below 700 pixels Start shows one widget at a time with tabs at the top;
 the chosen tab is remembered for this server address. A plugin section without a title follows
 below the tabs, and a widget with nothing to show has neither a place nor a tab.
 
 Arrange Start in its edit mode. "Edit" at the top right of Start, or the pencil at the end of the
 tabs in a narrow panel, switches to it; "Editing Start" above the widgets shows the mode until
 "Done" saves the layout. "Cancel" or Escape discards every change. While you edit, every widget
-gets a dashed frame and its content rests: drag a widget by the handle before its title to another
-place, and the other widgets make room as you drag; drag its right edge, anywhere along it, to
+gets a dashed frame and its content rests: drag a widget by the handle before its title onto another
+widget, before it on its left half and after it on its right half (on the upper or lower half of a widget
+across the whole width), or below all widgets to move it to the end; the other widgets slide out of the
+way as you drag, without sliding when your system reduces motion; drag its right edge, anywhere along it, to
 change its width: the columns of Start appear as guides, a label at the pointer shows the width
 ("4 of 6 columns"), and the width snaps to each column between the narrowest and widest the widget
 allows, while the other widgets reflow; Escape during the drag puts the width back. The title row

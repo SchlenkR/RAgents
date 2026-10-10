@@ -1,6 +1,7 @@
 import { cn } from "cn";
 import { ArrowDownIcon, ArrowUpIcon, GripVerticalIcon, PencilIcon, PlusIcon, RotateCcwIcon, XIcon } from "lucide-react";
-import { useCallback, useEffect, useId, useLayoutEffect, useState, type KeyboardEvent, type PointerEvent, type ReactNode } from "react";
+import { useCallback, useEffect, useId, useLayoutEffect, useRef, useState, type CSSProperties, type KeyboardEvent, type PointerEvent, type ReactNode } from "react";
+import { flushSync } from "react-dom";
 import { createLocalStorageSetting } from "../lib/local-storage-setting";
 import { usePointerDrag, type PointerPoint } from "../lib/pointer-drag";
 import type { PreferenceStore } from "../preferences";
@@ -8,7 +9,9 @@ import { RenderBoundary } from "../RenderBoundary";
 import { Button, Dialog, DialogBody, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "../ui";
 import { OverflowTabs, OverflowTabsList } from "../ui/overflow-tabs";
 import { SectionHeading } from "../ui/SectionLabel";
-import { DASHBOARD_COLUMNS, DASHBOARD_TABS_BELOW, dashboardLayout, draggedColumns, resizedColumns, shownColumns, type WidgetWidth } from "./dashboard-layout";
+import {
+  DASHBOARD_COLUMNS, DASHBOARD_TABS_BELOW, dashboardLayout, draggedColumns, dropPlace, packWidgets, resizedColumns, shownColumns, type WidgetBox, type WidgetWidth,
+} from "./dashboard-layout";
 import {
   addWidget, arrangeWidgets, DEFAULT_DASHBOARD_PREFERENCES, draftOf, isDefaultLayout, moveWidget, preferencesOf, readDashboardLayout, removeWidget,
   resizeWidget, writeDashboardLayout, type DashboardDraft, type DashboardPreferences, type StoredDashboardLayout,
@@ -58,6 +61,62 @@ const gridClass = (grid: number): string => {
 
 const messageOf = (cause: unknown): string => cause instanceof Error ? cause.message : String(cause);
 
+/** The key under which the "Add widget" tile packs after the widgets; widget IDs are never empty. */
+const ADD_TILE = "";
+
+const REPACK_MOTION = "start-repack";
+
+/** A length of whole columns of the grid: shares of its width less its gaps, plus the gaps between them. */
+const columnLength = (grid: number, columns: number, gaps: number): string =>
+  `calc((100% - ${grid - 1} * var(--start-gap-x)) / ${grid} * ${columns} + ${gaps} * var(--start-gap-x))`;
+
+/** A packed cell's width in the grid shown; its place comes from packCells. */
+const cellWidth = (grid: number, columns: number): CSSProperties => ({ width: columnLength(grid, columns, columns - 1) });
+
+type Motion = "none" | "running" | "rearranged";
+
+/** Packs the cells of a dashboard in grid mode as they are rendered now, in their order with their columns and heights, writes their places and the grid's height, and slides cells that were placed before: all of them after a new arrangement, only those still sliding when heights settle. */
+function packCells(element: HTMLElement, motion: Motion) {
+  const grid = Number(element.dataset.grid);
+  const gap = parseFloat(getComputedStyle(element).rowGap);
+  if (!Number.isInteger(grid) || !Number.isFinite(gap)) throw new Error("Start's grid has no columns or row gap to pack its widgets in.");
+  const cells = [...element.querySelectorAll<HTMLElement>(":scope > [data-pack]")];
+  const before = cells.map((cell) => cell.style.top === "" || cell.offsetParent === null ? undefined : { x: cell.offsetLeft, y: cell.offsetTop });
+  const packing = packWidgets(cells.map((cell) => {
+    const height = parseFloat(getComputedStyle(cell).height);
+    // A cell that is not rendered has no height and takes no place.
+    return { key: cell.dataset.pack!, columns: Number(cell.dataset.columns), height: Number.isFinite(height) ? height : 0 };
+  }), grid, gap);
+  const placed = new Map(packing.widgets.map((widget) => [widget.key, widget]));
+  for (const cell of cells) {
+    const at = placed.get(cell.dataset.pack!);
+    cell.style.left = columnLength(grid, at?.column ?? 0, at?.column ?? 0);
+    cell.style.top = `${at?.top ?? 0}px`;
+  }
+  element.style.height = `${packing.height}px`;
+  if (motion === "none" || window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+  cells.forEach((cell, index) => {
+    const from = before[index];
+    if (from === undefined || (from.x === cell.offsetLeft && from.y === cell.offsetTop)) return;
+    const running = cell.getAnimations().filter((animation) => animation.id === REPACK_MOTION);
+    if (motion === "running" && running.length === 0) return;
+    const shown = new DOMMatrixReadOnly(getComputedStyle(cell).transform);
+    for (const animation of running) animation.cancel();
+    cell.animate([{ transform: `translate(${from.x + shown.m41 - cell.offsetLeft}px, ${from.y + shown.m42 - cell.offsetTop}px)` }, { transform: "none" }],
+      { id: REPACK_MOTION, duration: 200, easing: "cubic-bezier(0.2, 0, 0, 1)" });
+  });
+}
+
+/** Tabs and the narrow list lay their cells out in flow again. */
+function unpackCells(element: HTMLElement) {
+  element.style.removeProperty("height");
+  for (const cell of element.querySelectorAll<HTMLElement>(":scope > [data-pack]")) {
+    cell.style.removeProperty("left");
+    cell.style.removeProperty("top");
+    for (const animation of cell.getAnimations().filter((running) => running.id === REPACK_MOTION)) animation.cancel();
+  }
+}
+
 export const startWidgetStorageKey = (origin: string) => `ragents.start.widget:${encodeURIComponent(origin)}`;
 
 /** The tab chosen in a narrow Start belongs to this device, so it stays in the browser storage of the page. */
@@ -71,7 +130,7 @@ const chosenWidget = createLocalStorageSetting<string | undefined>({
   },
 });
 
-/** The width of the dashboard itself, so that a narrow VS Code panel counts as narrow on a wide screen. */
+/** The width of the dashboard itself, so that a narrow VS Code panel counts as narrow on a wide screen; measured on a probe without height, so packing that changes the dashboard's height inside a ResizeObserver callback never notifies this one. */
 function useInlineSize(element: HTMLElement | null): number | undefined {
   const [width, setWidth] = useState<number>();
   useLayoutEffect(() => {
@@ -104,6 +163,24 @@ function useEmptyWidgets(element: HTMLElement | null, keys: string): ReadonlySet
   return empty;
 }
 
+/** Packs the grid after every render and whenever a cell changes its size on its own, both before the browser paints, so a growing widget pushes the ones below without a frame of overlap; the places go straight to the cells, so a ResizeObserver callback renders nothing. */
+function usePacking(element: HTMLElement | null, frame: string | undefined, arrangement: string) {
+  const packed = useRef<{ readonly frame: string; readonly arrangement: string } | undefined>(undefined);
+  useLayoutEffect(() => {
+    if (!element) return;
+    const before = packed.current;
+    packed.current = frame === undefined ? undefined : { frame, arrangement };
+    if (frame === undefined) unpackCells(element);
+    else packCells(element, before?.frame !== frame ? "none" : before.arrangement !== arrangement ? "rearranged" : "running");
+  });
+  useLayoutEffect(() => {
+    if (!element || frame === undefined) return;
+    const observer = new ResizeObserver(() => packCells(element, "running"));
+    for (const cell of element.querySelectorAll<HTMLElement>(":scope > [data-pack]")) observer.observe(cell);
+    return () => observer.disconnect();
+  }, [element, frame, arrangement]);
+}
+
 /** The viewer's layout from the server's preference store, read whenever Start opens; without a store Start keeps its default layout. */
 function useStoredLayout(preferences: PreferenceStore | undefined) {
   const [state, setState] = useState<LayoutState>(preferences === undefined ? { kind: "ready", stored: { preferences: DEFAULT_DASHBOARD_PREFERENCES } } : { kind: "loading" });
@@ -123,11 +200,6 @@ function useStoredLayout(preferences: PreferenceStore | undefined) {
   }, []);
   return { state, retry, settle: setState };
 }
-
-/** Whether a widget comes before the pointer in reading order; in the narrow list only the vertical middle counts. */
-const precedes = (bounds: DOMRect, point: PointerPoint, vertical: boolean): boolean => vertical
-  ? point.y > bounds.top + bounds.height / 2
-  : point.y > bounds.bottom || (point.y >= bounds.top && point.x > bounds.left + bounds.width / 2);
 
 /** The mode indicator above the widgets while Start is edited. */
 function EditBar({ list, saving, canReset, onReset, onCancel, onDone }: {
@@ -237,6 +309,7 @@ export function StartDashboard({ widgets, preferences }: { widgets: readonly Sta
   const { state, retry, settle } = useStoredLayout(preferences);
   const [root, setRoot] = useState<HTMLDivElement | null>(null);
   const [element, setElement] = useState<HTMLDivElement | null>(null);
+  const [probe, setProbe] = useState<HTMLDivElement | null>(null);
   // Edit mode keeps the edited layout as preferences, so a widget that arrives meanwhile takes its place and width there or stays removed.
   const [edited, setEdited] = useState<DashboardPreferences>();
   const [saving, setSaving] = useState(false);
@@ -246,7 +319,7 @@ export function StartDashboard({ widgets, preferences }: { widgets: readonly Sta
   const [announcement, setAnnouncement] = useState("");
   const [focusTarget, setFocusTarget] = useState<FocusTarget>();
   const pointer = usePointerDrag();
-  const width = useInlineSize(element);
+  const width = useInlineSize(probe);
   const origin = typeof window === "undefined" ? "" : window.location.origin;
   const storageKey = startWidgetStorageKey(origin);
   const remembered = chosenWidget.useValue(storageKey);
@@ -272,6 +345,9 @@ export function StartDashboard({ widgets, preferences }: { widgets: readonly Sta
   const panelId = (key: string) => `${prefix}-panel-${encodeURIComponent(key)}`;
   const span = (key: string) => layout.mode === "grid" ? layout.columns.get(key) ?? grid : grid;
   const widthText = (columns: number) => `${shownColumns(columns, grid)} of ${grid} columns`;
+  const arrangement = [...placed.map((widget) => `${widget.key}:${span(widget.key)}`), ...editing ? [`${ADD_TILE}:${shownColumns(2, grid)}`] : []].join("\u0000");
+  usePacking(element, mode === "grid" ? `${state.kind}:${grid}` : undefined, arrangement);
+  const cellStyle = (key: string): CSSProperties | undefined => mode === "grid" ? cellWidth(grid, span(key)) : undefined;
 
   const leave = useCallback((message: string) => {
     setEdited(undefined);
@@ -383,16 +459,30 @@ export function StartDashboard({ widgets, preferences }: { widgets: readonly Sta
     const start = draft;
     const known = items;
     const base = effective;
-    const vertical = mode === "list";
     const from = start.findIndex((widget) => widget.key === key);
-    const target = (point: PointerPoint) => Math.min(start.length - 1, [...element.querySelectorAll<HTMLElement>(":scope > [data-start-widget]")]
-      .filter((cell) => cell.dataset.startWidget !== key && precedes(cell.getBoundingClientRect(), point, vertical)).length);
-    const place = (to: number) => setEdited((current) => current && preferencesOf(moveWidget(start, key, to), known, base));
+    const cells = () => [...element.querySelectorAll<HTMLElement>(":scope > [data-start-widget]")];
+    const boxOf = (cell: HTMLElement, box: string): WidgetBox => ({ key: box, left: cell.offsetLeft, top: cell.offsetTop, width: cell.offsetWidth, height: cell.offsetHeight });
+    const target = (point: PointerPoint) => {
+      const bounds = element.getBoundingClientRect();
+      // Pointer positions are in the page's zoomed pixels, the boxes of the cells in CSS pixels of the grid without a slide in progress.
+      const zoom = bounds.width / element.offsetWidth || 1;
+      const add = element.querySelector<HTMLElement>(":scope > [data-add-widget]");
+      return dropPlace(cells().map((cell) => boxOf(cell, cell.dataset.startWidget!)), key, { x: (point.x - bounds.left) / zoom, y: (point.y - bounds.top) / zoom },
+        element.clientWidth, add === null ? undefined : boxOf(add, ADD_TILE));
+    };
+    const current = () => cells().findIndex((cell) => cell.dataset.startWidget === key);
+    const place = (to: number) => setEdited((preferences) => preferences && preferencesOf(moveWidget(start, key, to), known, base));
+    // Each new place renders at once, so the next pointer event measures the grid that shows it.
+    const follow = (point: PointerPoint) => {
+      const to = target(point);
+      if (to !== undefined && to !== current()) flushSync(() => place(to));
+    };
     pointer(event, (point) => {
-      place(target(point));
+      follow(point);
       setGesture({ kind: "move", key, point });
     }, (point) => {
-      const to = point === null ? from : target(point);
+      if (point !== null) follow(point);
+      const to = point === null ? from : current();
       setGesture(undefined);
       place(to);
       if (point === null) setAnnouncement(`Moving ${titleOf(key)} was cancelled.`);
@@ -454,14 +544,16 @@ export function StartDashboard({ widgets, preferences }: { widgets: readonly Sta
     {toolbar}
     {saveError !== undefined && <p className="type-body text-destructive [overflow-wrap:anywhere]" role="alert">{saveError}</p>}
     <div aria-busy={state.kind === "loading" || undefined}
-      className={cn("relative grid min-w-0", mode === "list" ? "gap-3" : "gap-x-6 gap-y-8", mode === "grid" ? cn(gridClass(grid), "[&>[data-start-section]>*]:col-span-full") : "grid-cols-1 [&>[data-start-section]>*]:order-1",
+      className={cn("relative grid min-w-0 [--start-gap-x:--spacing(6)]", mode === "list" ? "gap-3" : "gap-x-(--start-gap-x) gap-y-8", mode !== "grid" && "grid-cols-1 [&>[data-start-section]>*]:order-1",
         editing && "select-none", gesture?.kind === "resize" && "cursor-ew-resize", gesture?.kind === "move" && "cursor-grabbing", state.kind === "loading" && "invisible")}
       data-dashboard={mode} data-editing={editing || undefined} data-grid={mode === "grid" ? grid : undefined} inert={saving} ref={setElement}>
-      {gesture?.kind === "resize" && <div aria-hidden className={cn("pointer-events-none absolute inset-0 grid gap-x-6", gridClass(grid))} data-column-guides>
+      <div aria-hidden className="pointer-events-none absolute inset-x-0 top-0 h-0" ref={setProbe} />
+      {gesture?.kind === "resize" && <div aria-hidden className={cn("pointer-events-none absolute inset-0 grid gap-x-(--start-gap-x)", gridClass(grid))} data-column-guides>
         {Array.from({ length: grid }, (_, index) => <div className="rounded-xl border border-dashed border-primary/50 bg-primary/5" key={index} />)}
       </div>}
       {shown.map((widget) => {
-        if (!isFramed(widget)) return <div className={cn("contents", editing && "[&>*]:opacity-60")} data-start-section={widget.key} hidden={mode === "list"} inert={editing} key={widget.key}>
+        if (!isFramed(widget)) return <div className={cn(mode === "grid" ? "absolute" : "contents", editing && "[&>*]:opacity-60")} data-columns={mode === "grid" ? grid : undefined} data-pack={widget.key}
+          data-start-section={widget.key} hidden={mode === "list"} inert={editing} key={widget.key} style={cellStyle(widget.key)}>
           <RenderBoundary resetKeys={[]} title="A Start section could not be displayed">{widget.content}</RenderBoundary>
         </div>;
         const place = draft?.findIndex((entry) => entry.key === widget.key) ?? -1;
@@ -475,12 +567,12 @@ export function StartDashboard({ widgets, preferences }: { widgets: readonly Sta
             {widget.action !== undefined && <div className="flex flex-none items-center gap-1">{widget.action}</div>}
           </SectionHeading>;
         return <div aria-labelledby={mode === "tabs" ? tabId(widget.key) : undefined}
-          className={cn("group/cell min-w-0", editing && "relative rounded-xl",
+          className={cn("group/cell min-w-0", mode === "grid" ? "absolute" : editing && "relative", editing && "rounded-xl",
             editing && mode === "grid" && cn("outline-2 outline-offset-4", dragging === undefined ? "outline-dashed outline-border-strong" : "bg-primary/5 outline-primary"),
             mode === "list" && cn("border bg-card px-3 py-2", dragging === "move" ? "border-primary" : "border-dashed border-border-strong"))}
-          data-dragging={dragging} data-start-widget={widget.key} hidden={!editing && (empty.has(widget.key) || (mode === "tabs" && widget.key !== active))}
-          id={mode === "tabs" ? panelId(widget.key) : undefined} key={widget.key} role={mode === "tabs" ? "tabpanel" : undefined}
-          style={mode === "grid" ? { gridColumn: `span ${span(widget.key)} / span ${span(widget.key)}` } : undefined}>
+          data-columns={mode === "grid" ? span(widget.key) : undefined} data-dragging={dragging} data-pack={widget.key} data-start-widget={widget.key}
+          hidden={!editing && (empty.has(widget.key) || (mode === "tabs" && widget.key !== active))} id={mode === "tabs" ? panelId(widget.key) : undefined} key={widget.key}
+          role={mode === "tabs" ? "tabpanel" : undefined} style={cellStyle(widget.key)}>
           <WidgetFrame editing={editing} empty={empty.has(widget.key)} list={mode === "list"} titleRow={titleRow} widget={widget} />
           {editing && mode === "grid" && resizable && <div aria-hidden className="group/resize absolute inset-y-0 -right-3 z-10 w-5 cursor-ew-resize touch-none"
             data-resize-handle onPointerDown={(event) => startResize(event, widget.key)} title="Drag to resize">
@@ -491,8 +583,8 @@ export function StartDashboard({ widgets, preferences }: { widgets: readonly Sta
           {dragging === "move" && <div aria-hidden className={cn("absolute rounded-full bg-primary", mode === "list" ? "inset-x-0 -top-2 h-1" : "inset-y-0 -left-3.5 w-1")} data-drop-indicator />}
         </div>;
       })}
-      {editing && <Button className={cn("w-full rounded-xl border-dashed text-muted-foreground", mode === "grid" && "h-24")} data-add-widget onClick={() => setGalleryOpen(true)}
-        style={mode === "grid" ? { gridColumn: `span ${shownColumns(2, grid)} / span ${shownColumns(2, grid)}` } : undefined} variant="outline"><PlusIcon data-icon="inline-start" />Add widget</Button>}
+      {editing && <Button className={cn("w-full rounded-xl border-dashed text-muted-foreground", mode === "grid" && "absolute h-24 transition-colors")} data-add-widget
+        data-columns={mode === "grid" ? shownColumns(2, grid) : undefined} data-pack={ADD_TILE} onClick={() => setGalleryOpen(true)} style={mode === "grid" ? cellWidth(grid, shownColumns(2, grid)) : undefined} variant="outline"><PlusIcon data-icon="inline-start" />Add widget</Button>}
     </div>
     <p aria-live="polite" className="sr-only" role="status">{announcement}</p>
     {editing && <p className="sr-only" id={hint}>{mode === "list"
