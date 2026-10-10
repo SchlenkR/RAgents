@@ -1,5 +1,44 @@
 # Decisions
 
+## 2026-10-10: New and Continue are ordinary Start widgets, and widgets can be configured
+
+Chapters: `spec/plugins.md` (Web as plugin host: slots `startSections` and `startWidgetsFor`, the
+building block `SectionHeading`; Start, Arranging Start), `spec/profiles.md` (User preferences); usage:
+`usage.md` (Create your first run, Start); `development.md` (Extension points in the web); homepage
+feature text and reference examples.
+
+`StartPage` assembled New and Continue itself, always before every plugin widget, with a count in the
+title row and tab and an action at its end that no contribution could set. The run list should be just
+a widget, and widgets should be configurable, such as the number of runs in the run list. New and
+Continue are now start sections that the registry adds before the plugins' (`HOST_START_SECTIONS`,
+`order` -20 and -10); their components read the server, its actions, and the start under way from a
+host-internal context of the Start page. `StartPage` turns every section and dynamic widget into the
+same widget, and the dashboard, its layout, packing, edit mode, gallery, and preferences name none of
+them; a test checks their sources. The count and the action were dropped instead of becoming
+contract fields, because no plugin widget had one; New shows no template count, "All N runs" stands
+below Continue's list, and the idea stays in `TODO.md`. New renders nothing for a viewer who may not
+create runs instead of being left out, so it behaves like any empty widget. `SectionHeading` lost its
+count, action, and hidden title, and `startTileCount` its last user.
+
+A widget declares `settings`, a closed list of four field types (number with range and step, boolean,
+choice, one line of text) with labels, descriptions, and defaults, rather than a TypeBox schema: the
+dialog needs labels, descriptions, option labels, and steps, which a schema would carry as loose
+annotations, and a closed list keeps the form and the checks exhaustive. A section types its props as
+`StartSectionProps<typeof settings>`; the contribution's `Section` is typed with `never` settings, as
+`RunFunction.run` takes `never` input, so a section typed by its own settings fits the list without a
+helper function, which would have been a new host API name without a user. A dynamic widget with
+settings gets their values through a content function, so the mechanism also serves global apps
+later. Configure exists only in edit mode, one place to change Start, and applies to the draft that
+Done saves and Cancel discards.
+
+Stored values follow one rule: a missing value is the default; a value its setting rejects is reported
+in the widget and in its dialog and renders as the default, without being converted, rounded, or
+clamped, and stays stored until the widget is configured or the layout reset; keys a widget does not
+declare are ignored. Apply stores only values that differ from their defaults. The settings live in the
+same preference `start.layout`, now `version` 3 with `settings` per widget ID; layouts of versions 1 and
+2 are ignored without migration, because edit mode has not been released. `HOST_API_VERSION` stays 16:
+no value name changed, and a bundle built earlier still loads, its section ignoring the new prop.
+
 ## 2026-10-10: Start packs its widgets without holes and moving follows the packed layout
 
 Chapters: `spec/plugins.md` (Start, Arranging Start, Open limits); usage: `usage.md` (Start).

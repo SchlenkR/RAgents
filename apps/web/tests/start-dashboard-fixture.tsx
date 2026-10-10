@@ -1,6 +1,9 @@
 import { useSyncExternalStore } from "react";
 import { createRoot } from "react-dom/client";
-import { PluginRegistry, type StartSectionContext, type StartSectionContribution, type StartWidgetContribution, type WebPlugin } from "../src/PluginRegistry";
+import {
+  PluginRegistry, type StartSectionContext, type StartSectionContribution, type StartSectionProps, type StartWidgetContribution, type StartWidgetSettings, type StartWidgetSettingValues,
+  type WebPlugin,
+} from "../src/PluginRegistry";
 import { PanelPage } from "../src/panel/PanelPage";
 import type { ConnectionView, PanelState } from "../src/panel/contract";
 import type { PreferenceStore } from "../src/preferences";
@@ -73,6 +76,17 @@ const list = (label: string) => function List() {
 const widget = (id: string, order: number, title: string, columns?: number, extra: Partial<StartSectionContribution> = {}): StartSectionContribution =>
   ({ id, order, title, ...(columns ? { columns } : {}), Section: list(`${title} entries`), ...extra });
 
+/** A plugin widget with a setting, configured through the same edit mode as Continue. */
+const usageSettings = {
+  entries: { type: "number", label: "Entries", description: "How many entries Model usage lists.", default: 3, min: 1, max: 3 },
+} as const satisfies StartWidgetSettings;
+
+function UsageList({ settings }: StartSectionProps<typeof usageSettings>) {
+  return <ul aria-label="Model usage entries" className="grid gap-2 rounded-xl border border-border bg-card p-3">
+    {["First entry", "Second entry", "Third entry"].slice(0, settings.entries).map((entry) => <li className="type-body" key={entry}>{entry}</li>)}
+  </ul>;
+}
+
 /** ?case=owner is the wide screen with New and Topics three columns wide and Continue after them; Topics is much taller than New. */
 const owner = query.get("case") === "owner";
 
@@ -82,7 +96,7 @@ const sections: StartSectionContribution[] = owner ? [
   { id: "demo.board", order: 10, title: "Work board", description: "Runs in three lanes by their state.", Section: WorkBoard },
   widget("demo.auto", 20, "New auto items", 2),
   widget("demo.shared", 30, "Shared with the team", 2),
-  widget("demo.usage", 40, "Model usage", 2, { description: "Tokens and cost of the last runs.", minColumns: 1, maxColumns: 3 }),
+  widget("demo.usage", 40, "Model usage", 2, { description: "Tokens and cost of the last runs.", minColumns: 1, maxColumns: 3, settings: usageSettings, Section: UsageList }),
   { id: "demo.empty", order: 50, title: "Nothing to show", columns: 2, Section: () => null },
   { id: "demo.legacy", order: 60, Section: () => <section aria-label="Legacy notes" className="grid gap-3"><h2 className="type-label">Legacy notes</h2><p className="type-body">A section without a title keeps its own heading.</p></section> },
   ...(query.get("widgets") === "many" ? [
@@ -96,8 +110,19 @@ function BrokenApp(): never {
   throw new Error("The app view failed to load.");
 }
 
+const plannerSettings = { days: { type: "number", label: "Days", default: 1, min: 1, max: 5 } } as const satisfies StartWidgetSettings;
+
+function PlannerDays({ days }: { days: number }) {
+  return <ul aria-label="Planner entries" className="grid gap-2 rounded-xl border border-border bg-card p-3">
+    {["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"].slice(0, days).map((day) => <li className="type-body" key={day}>Review on {day}</li>)}
+  </ul>;
+}
+
 const apps: Readonly<Record<string, StartWidgetContribution>> = {
-  planner: { id: "demo.apps:planner", title: "Planner", description: "Plans the week from your runs.", columns: 3, minColumns: 2, maxColumns: 4, content: <ul aria-label="Planner entries" className="grid gap-2 rounded-xl border border-border bg-card p-3"><li className="type-body">Review on Monday</li></ul> },
+  planner: {
+    id: "demo.apps:planner", title: "Planner", description: "Plans the week from your runs.", columns: 3, minColumns: 2, maxColumns: 4, settings: plannerSettings,
+    content: (values: StartWidgetSettingValues<typeof plannerSettings>) => <PlannerDays days={values.days} />,
+  },
   broken: { id: "demo.apps:broken", title: "Broken app", columns: 2, content: <BrokenApp /> },
 };
 
@@ -133,7 +158,7 @@ const fixture = {
 declare global { interface Window { dashboardFixture: typeof fixture } }
 window.dashboardFixture = fixture;
 if (owner && localStorage.getItem(stored("start.layout")) === null) {
-  localStorage.setItem(stored("start.layout"), JSON.stringify({ version: 2, order: ["start.new", "demo.topics", "start.continue"], columns: { "start.new": 3, "start.continue": 3 }, removed: [] }));
+  localStorage.setItem(stored("start.layout"), JSON.stringify({ version: 3, order: ["start.new", "demo.topics", "start.continue"], columns: { "start.new": 3, "start.continue": 3 }, removed: [], settings: {} }));
 }
 const preferences: PreferenceStore = {
   read: async (key) => {

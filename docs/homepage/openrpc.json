@@ -4393,7 +4393,7 @@
                   "start.layout"
                 ],
                 "x-typescript-type": "PreferenceKey",
-                "description": "start.layout: the arrangement of Start"
+                "description": "start.layout: the arrangement and widget settings of Start"
               }
             },
             "additionalProperties": false
@@ -4433,7 +4433,7 @@
                   "start.layout"
                 ],
                 "x-typescript-type": "PreferenceKey",
-                "description": "start.layout: the arrangement of Start"
+                "description": "start.layout: the arrangement and widget settings of Start"
               },
               "value": {
                 "x-typescript-type": "JsonValue",

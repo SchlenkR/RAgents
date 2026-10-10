@@ -1565,8 +1565,9 @@ Instead, plugins fill typed slots for:
   In both browser and VS Code, only the selected server supplies these contributions, including
   on Start before a run is opened. Contributions from different environments are never merged.
 - Start widgets (`startSections`): `StartSectionContribution` declares `id`, `order`, optional
-  `readRight`, optional `title`, `description`, `columns`, `minColumns`, and `maxColumns`, and `Section`, a component receiving `StartSectionContext`
-  with `runs` and `onOpenRun(runId)`. With `title` the section is a widget of the Start dashboard: the
+  `readRight`, optional `title`, `description`, `columns`, `minColumns`, `maxColumns`, and `settings`, and `Section`, a component receiving
+  `StartSectionProps`: the `StartSectionContext` with `runs` and `onOpenRun(runId)`, plus `settings`, the values of
+  the section's settings by key. With `title` the section is a widget of the Start dashboard: the
   host draws its frame, a `SectionHeading` title row above the content, and gives it a tab on a narrow
   dashboard. `columns` is its width in columns of Start's six-column grid, a whole number from 1 to 6,
   by default 6. The widget's body is a size container named `widget`, so the
@@ -1578,9 +1579,25 @@ Instead, plugins fill typed slots for:
   and the keyboard offer only these. A width field or `description` without `title`, a blank `title`
   or `description`, a width that is not a whole number from 1 to 6, and `columns` outside
   `minColumns` to `maxColumns` (the default 6 included) are registry errors; `widthProblem` in
-  `panel/dashboard-layout.ts` names the cause for sections and dynamic widgets alike. Widgets follow
-  "New" and "Continue", sorted by `order` and then `id`; the contract keeps its name `startSections`.
-  The `id` is also the
+  `panel/dashboard-layout.ts` names the cause for sections and dynamic widgets alike. Start's own widgets
+  "New" and "Continue" are start sections of this kind, which the registry adds before the plugins'
+  (`HOST_START_SECTIONS` in `panel/host-start-sections.tsx`, `order` -20 and -10); every section
+  sorts by `order` and then `id`, so sections with an order of 0 or more follow them, and a section
+  with the ID `start.new` or `start.continue` is registered twice. The contract keeps its name `startSections`.
+  `settings` (only with `title`) declares what the viewer may change with "Configure" in Start's edit
+  mode: settings by key, a key being letters and digits that starts with a letter, each with `type`,
+  `label`, optional `description`, and `default`. The types are `number` with `min`, `max`, and optional
+  `step` (by default 1, counted from `min`), `boolean`, `choice` with `options` of `value` and `label`,
+  and `text`, one line of at most 200 characters (`StartWidgetNumberSetting`,
+  `StartWidgetBooleanSetting`, `StartWidgetChoiceSetting`, `StartWidgetTextSetting`). An empty
+  `settings`, a key, `label`, or `description` that does not fit, a range with `min` above `max`, a step
+  that is not above 0, a choice without options or with empty or repeated values or empty labels, and a
+  `default` that its own setting rejects are registry errors; `settingsProblem` in
+  `panel/widget-settings.ts` names the cause for sections and dynamic widgets alike. `Section` is typed
+  `ComponentType<StartSectionProps<never>>`, so a section types its props by its own settings as
+  `StartSectionProps<typeof settings>` (declared `as const satisfies StartWidgetSettings`) and gets
+  `number`, `boolean`, the choice's values, or `string` per key (`StartWidgetSettingValues`); the
+  host passes values it checked against those settings (Arranging Start). The `id` is also the
   widget's ID in the viewer's Start layout, so it stays the same across releases; `title` and `columns`
   are the defaults that the viewer's arrangement starts from. The context
   carries every run the server lists for the viewer, sorted by update time, through readonly
@@ -1590,19 +1607,23 @@ Instead, plugins fill typed slots for:
   row. The slot performs no additional run access checks; `readRight` only gates the section.
   A widget or section may return `null`; it then takes no cell, no tab, and no gap. A widget that
   throws shows its error and "Retry" in its own place (`RenderBoundary`) while Start stays usable.
-  `RunPanelApp` passes its registry to `PanelPage` for both browser and VS Code server frames;
-  the local VS Code shell has no registry and shows no sections. `PanelPage` also works without a registry.
+  `RunPanelApp` passes its registry to `PanelPage` for both browser and VS Code server frames.
+  `PanelPage` also works without a registry; Start then shows only its own sections, which tests use.
 - Dynamic Start widgets (`startWidgetsFor`): a factory receives `StartWidgetsContext`, with the
   same `runs` and `onOpenRun` as a section, an `AbortSignal`, and `update(widgets)` for later
   snapshots. It returns readonly `StartWidgetContribution` values, synchronously or as a promise.
   Each contribution contains a stable `id` that starts with the plugin's ID and a colon
   (`ragents.global-apps:<name>`), a non-empty `title`, optional `description`, `columns`,
-  `minColumns`, `maxColumns`, `order` (by default 200), and `readRight`, and `content: ReactNode`;
-  `description` and the width follow the rules of a start section. The content uses a stable React component type and the
+  `minColumns`, `maxColumns`, `order` (by default 200), `readRight`, and `settings`, and `content`;
+  `description`, the width, and `settings` follow the rules of a start section. `content` is a
+  `ReactNode`, or a function that receives the values of the widget's settings (typed
+  `(settings: never) => ReactNode` in the contract, so a function typed
+  `(values: StartWidgetSettingValues<typeof settings>)` fits); a widget with `settings` and plain content is
+  an error. The content uses a stable React component type and the
   same widget ID across updates so its state and mounted frames survive snapshots. The host
   draws the title, frame, and narrow-dashboard tab and sorts the widget among the start sections
-  by `order` and then `id`. In Start's edit mode it is moved, resized, removed, and added back like
-  a section with a title, and its ID names its place, size, and removal in the viewer's
+  by `order` and then `id`. In Start's edit mode it is moved, resized, configured, removed, and added
+  back like a section with a title, and its ID names its place, size, settings, and removal in the viewer's
   `start.layout`; `columns` and `order` are the defaults. The returned value is the factory's first
   snapshot unless `update` came first. The host calls the factory again when the run list changes
   and keeps its previous widgets until the new call delivers a snapshot, so a factory that waits for
@@ -1663,8 +1684,8 @@ Instead, plugins fill typed slots for:
 The shared `main.tsx` bootstrap renders `RunPanelApp` for either host. The browser and the VS Code
 iframe use the same `PanelPage`, `StartPage`, and `RunsPage` with one current-server adapter.
 In the browser the address selects that server; in VS Code the selected environment does.
-Start shows permitted templates under "New", then the fifteen recent runs under "Continue", then
-plugin widgets, as one dashboard; Runs adds search, deletion with confirmation, and the "Shared by me" tab.
+Start shows permitted templates under "New", then the most recent runs under "Continue" (fifteen
+unless the viewer configures another number), then plugin widgets, as one dashboard; Runs adds search, deletion with confirmation, and the "Shared by me" tab.
 Neither page combines servers, and Start contains no server chips.
 Free creation, template access, reading, and deletion retain their independent rights.
 Both hosts draw run rows from the same mapping of `ragents.runs.list` (`connectionRunOf` in
@@ -2043,8 +2064,7 @@ The choice follows the role, not taste:
 - `SectionLabel` is the small uppercase group label above a section;
   a count next to it moves to the other end. Labels that are a heading or
   a `dt` stay that element. The host's page sections use its heading form
-  `SectionHeading` from the same file (an `h2` with the count beside the title and an
-  action at the other end); it is not part of the plugin API.
+  `SectionHeading` from the same file (an `h2` in the label style); it is not part of the plugin API.
 - There are no longer native `<select>`, custom buttons, or class contracts; the built-in
   plugins bring no CSS of their own.
 
@@ -3390,8 +3410,12 @@ and run rows use the same bounded column. The page scroller (`main[data-page]`) 
 block of its content, so visually hidden labels further down cannot extend the document and moving
 focus scrolls only the page, never the header with it.
 
-**Start** is a dashboard of widgets (`panel/StartDashboard.tsx`): the built-in "New" (2 columns,
-`minColumns` 2) and "Continue" (4 columns, `minColumns` 2), then the plugin widgets. Its layout follows the width of the
+**Start** is a dashboard of widgets (`panel/StartDashboard.tsx`): Start's own "New" (2 columns,
+`minColumns` 2) and "Continue" (4 columns, `minColumns` 2), then the plugin widgets. New and Continue
+are ordinary start sections (Web as plugin host): `StartPage` turns every start section and dynamic
+widget into the same widget with a key, title, description, width, settings, and a content function,
+and the dashboard, its layout, packing, edit mode, gallery, and stored preferences treat each one alike
+and name none of them. Its layout follows the width of the
 dashboard's own container, measured with a `ResizeObserver`, not the window, because a VS Code panel is
 often narrow on a wide screen. `dashboardLayout` in `panel/dashboard-layout.ts` decides it: from
 1100 pixels (`DASHBOARD_WIDE_FROM`) the grid has six columns (`DASHBOARD_COLUMNS`) and every widget
@@ -3418,9 +3442,8 @@ on the dashboard) at the same grid, the cells that move slide from their former 
 while growing content, a new width or column count, the first paint, and reduced motion
 (`prefers-reduced-motion`) slide nothing.
 Below 700 pixels, with at least two framed
-widgets, the dashboard becomes tabs ("Start widgets", `OverflowTabsList` with the widget title and
-count): the active widget fills the width, and its frame keeps only the action of its title row,
-because the tab names it. The choice is stored per server origin under
+widgets, the dashboard becomes tabs ("Start widgets", `OverflowTabsList` with the widget title): the
+active widget fills the width, and its frame hides its title row, because the tab names it. The choice is stored per server origin under
 `ragents.start.widget:<encoded-origin>` and falls back to the first widget while the stored one is
 missing or empty. Sections without a title follow the tabs. Every widget stays mounted while
 another tab is active or while its content renders nothing (`hidden`), so its state survives
@@ -3473,10 +3496,37 @@ handle. Below 700 pixels edit mode is a vertical list of rows with handle, title
 "Move <title> down", and "x", without widths and with the bodies and the sections without a title
 hidden; dragging there compares only the vertical middle of each row.
 
-The model is `panel/dashboard-preferences.ts`: `DashboardPreferences` holds `order`, `columns`, and
-`removed`, each by widget ID, so any ID works, also one of a widget that only some users have or
-that a plugin adds per user (`ragents.global-apps:<name>`). Widget IDs are `start.new`,
-`start.continue`, the `id` of a start section, and the stable `id` of a dynamic widget; two widgets
+A widget that declares settings gets "Configure <title>" (a gear, `data-control="configure"`) before
+"x" in its edit title row, in the grid and in the narrow list; outside edit mode nothing configures a
+widget, so Start has one place where it changes. It opens the dialog "Configure <title>"
+(`panel/WidgetSettingsDialog.tsx`) with one field per setting in the declared order, each with its
+label and description: a number field with the setting's `min`, `max`, and `step`, a switch, a
+`ChoiceSelect` for a choice, or a text field of at most 200 characters. The form starts from the values
+the widget shows. A value its setting rejects shows "This value <reason>." below its field, such as
+"This value is above the maximum 100.", and "Apply" then focuses that field instead of applying. "Apply"
+puts the values into the edited layout (`configureWidget`), storing only those that differ from their
+defaults (`storedSettingsOf`), so the widget shows them at once; it announces "<title> settings
+applied; Done saves them." and focus returns to Configure. "Cancel", the close button, and Escape
+close the dialog without a change, and Escape there leaves edit mode open. "Done" saves the settings
+with the layout, "Cancel" of edit mode discards them with the draft, and "Reset layout" also resets
+every widget's settings ("Start shows its default layout and settings again; Done saves them.").
+
+A widget renders with the values `widgetSettingsOf` (`panel/widget-settings.ts`) gives for its settings
+and its stored values: a stored value that its setting accepts; the default where nothing is stored;
+and the default for a stored value that its setting rejects, such as one of another type, outside the
+range, off the step, not among the options, or longer than 200 characters or with a line break. Such a
+value is reported above the widget's body, one sentence each ("Number of runs: the saved value 500 is
+above the maximum 100, so the default 15 applies.", `data-settings-problem`), and the Configure dialog
+repeats it with "Apply replaces the saved values."; it stays stored until the widget is configured or
+the layout reset. No stored value is converted, rounded, or clamped. Stored keys the widget does not
+declare are ignored and kept the same way. The values keep their identity for the same settings and
+stored values, so a widget's effects do not run again on every render of Start.
+
+The model is `panel/dashboard-preferences.ts`: `DashboardPreferences` holds `order`, `columns`,
+`removed`, and `settings` (the stored values of each widget's settings by setting key, as saved), each
+by widget ID, so any ID works, also one of a widget that only some users have or
+that a plugin adds per user (`ragents.global-apps:<name>`). Widget IDs are the `id` of a start
+section, Start's own `start.new` and `start.continue` included, and the stable `id` of a dynamic widget; two widgets
 with the same ID are an error, which the prefix rule of dynamic widgets rules out between plugins.
 `arrangeWidgets` puts the framed widgets that `order` names into their slots in that order, while
 sections without a title and widgets that `order` does not name keep their default place, so a new
@@ -3485,16 +3535,18 @@ IDs of widgets that are not there and widths outside a widget's range are ignore
 edited layout as preferences; its draft (`DashboardDraft`, from `draftOf`) is the list of framed
 widgets that these preferences put on the dashboard, with their columns. `moveWidget`, `resizeWidget`
 (only widths within the range), `removeWidget`, and `addWidget` change the draft, and `preferencesOf` turns it
-back into preferences: the default order and default widths store nothing, and widgets that are not
-there keep their removal and width while their place falls back to the default. So a widget that
+back into preferences: the default order and default widths store nothing, widgets that are not
+there keep their removal and width while their place falls back to the default, and every widget
+keeps its settings, also a removed or absent one. So a widget that
 arrives while Start is edited, such as a dynamic widget whose plugin answers late, takes its saved
 place and width or stays removed, and one that disappears for a moment returns to its place unless the
 layout changed while it was gone. The layout is the
 preference `start.layout` of the server's per-user preference store (`spec/profiles.md`, User
 preferences), read whenever Start opens and written on "Done", so the browser and VS Code show the
-same layout: JSON with `version` 2, `order`, `columns` (widget ID to a whole number from 1 to 6), and
-`removed`, or `null` for the default layout. A layout of the former format (`version` 1 with named
-sizes) is ignored without migration: Start shows its default layout and the next "Done" replaces it. `PanelPage` passes the store from `RunPanelApp`
+same layout: JSON with `version` 3, `order`, `columns` (widget ID to a whole number from 1 to 6),
+`removed`, and `settings` (widget ID to an object of setting values), or `null` for the default layout
+and settings. A layout of a former format (`version` 1 with named sizes, `version` 2 without settings)
+is ignored without migration: Start shows its default layout and the next "Done" replaces it. `PanelPage` passes the store from `RunPanelApp`
 (`SERVER_PREFERENCES` in `preferences.ts`) to Start; the local VS Code shell has none, so a Start
 rendered there shows the default layout without Edit. While
 the layout loads, the widgets are mounted but invisible; a failed read shows its cause with "Retry"
@@ -3502,11 +3554,12 @@ and the default layout, with Edit disabled, and a stored value that cannot be re
 with the default layout until "Done" replaces it. A failed save keeps edit mode and the draft with
 its cause. The chosen tab of a narrow Start belongs to the device and stays in browser storage.
 
-**Start** has no page header or server block. **New** appears first as soon as the selected server
-allows new runs. First is its default template from `ConnectionView.defaultEntry` with the marker
-"Default" in the title row, or the entry "New chat" (plus icon, `newRun`
-without `entryId`). Then follow the selected server's other templates, the default not a second
-time; the count in the heading counts all entries. Each compact, flat card shows only its title
+**Start** has no page header or server block. **New** comes first; while the selected server does
+not allow new runs it renders nothing, so like any empty widget it takes no cell and no tab and appears
+only in edit mode, as "Nothing to show right now.". First is its default template from
+`ConnectionView.defaultEntry` with the marker "Default" in the title row, or the entry "New chat"
+(plus icon, `newRun` without `entryId`). Then follow the selected server's other templates, the
+default not a second time; the title row has no count. Each compact, flat card shows only its title
 and two lines of description, with an always-visible action icon at the top right of the title
 row: plus for "New chat", play for a direct start, and sliders for a template with a guide
 ("Set up", `ConnectionEntry.guided` from the template's `guide`). Hover and keyboard focus
@@ -3522,13 +3575,14 @@ therefore lists compact rows; a narrow dashboard shows New across its width as c
 There is no search here, and `ListDetail` does not fit, because it measures itself by its own
 width and would become a list with a detail page at 420 pixels (decisions of 09/19 and
 09/21/2026). The tiles are the building block `StartTiles`; the run script list of an open run
-shows the same single `StartTile`.
+shows the same single `StartTile`. New's setting "Show descriptions" (on by default) leaves the
+description line out of every card when it is off (`StartTiles` with `descriptions`).
 
-**Continue** follows with the selected server's last
-fifteen runs in `RunList` (`panel/RunLine.tsx`): a CSS grid with the columns state, title, and time,
-in selection mode the checkbox in front; every row and its
+**Continue** follows with the selected server's most recent runs, as many as its setting "Number of
+runs" says (15 by default, 3 to 100), in `RunList` (`panel/RunLine.tsx`): a CSS grid with the columns
+state, title, and time, in selection mode the checkbox in front; every row and its
 button are `grid-cols-subgrid`, so that the columns stand at the same edge in all rows, and
-"All N runs" leads to the Runs page. Below the title, inside the same button, a second line
+"All N runs" below the list, at its end, leads to the Runs page. Below the title, inside the same button, a second line
 names the owner (`ConnectionRun.owner`) and then the metadata lines (`ConnectionRun.details`), each
 with its icon (`FolderIcon`, `GitBranchIcon`) and the tooltip "label: text"; hover, focus, and click
 cover the whole item, in selection mode the click toggles it. `RunCard` is a size container

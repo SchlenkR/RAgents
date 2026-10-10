@@ -1,10 +1,12 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { createElement } from "react";
+import { readFile } from "node:fs/promises";
 import { renderToStaticMarkup } from "react-dom/server";
 import { createAccessContext } from "../../../packages/ragents/src/access";
 import { AccessContext } from "../src/AccessContext";
-import { PluginRegistry, type StartSectionContext, type WebPlugin } from "../src/PluginRegistry";
+import { PluginRegistry, type StartSectionContext, type StartSectionContribution, type WebPlugin } from "../src/PluginRegistry";
+import { HOST_START_SECTIONS, StartPageContext, type StartPageHost } from "../src/panel/host-start-sections";
 import { PanelPage } from "../src/panel/PanelPage";
 import { canDeleteRun, RunLine, RunList } from "../src/panel/RunLine";
 import { isPanelActionMessage, isPanelStateMessage, type PanelAction, type PanelState, type ConnectionView } from "../src/panel/contract";
@@ -94,12 +96,15 @@ test("Start sections retain contribution order and empty sections add nothing bu
     { id: "test.second", startSections: [section("first", 100)] },
     { id: "test.disabled", enabled: () => false, startSections: [section("hidden", 0)] },
   ]);
-  assert.deepEqual(registry.startSections.map((section) => section.id), ["first", "second", "later"]);
+  assert.deepEqual(registry.startSections.map((section) => section.id), ["start.new", "start.continue", "first", "second", "later"], "Start's own sections come first by their order");
   const html = renderToStaticMarkup(createElement(PanelPage, { preferences, registry, state, send: () => {} }));
   assert.match(html, /<section>first<\/section><\/div><div[^>]*><section>second<\/section><\/div><div[^>]*><section>later<\/section>/);
   assert.doesNotMatch(html, />hidden</);
-  assert.deepEqual(registryWith([]).startSections, []);
+  assert.deepEqual(registryWith([]).startSections, HOST_START_SECTIONS);
   assert.throws(() => registryWith([{ id: "test.duplicate", startSections: [section("same", 0), section("same", 1)] }]), /Start section registered twice: same/);
+  assert.throws(() => registryWith([{ id: "test.taken", startSections: [section("start.continue", 0)] }]), /Start section registered twice: start.continue/, "Start's own IDs are taken like a plugin's");
+  const early = registryWith([{ id: "test.early", startSections: [section("early", -100)] }]);
+  assert.deepEqual(early.startSections.map((entry) => entry.id), ["early", "start.new", "start.continue"], "a lower order puts a plugin section before New, as for any other section");
   assert.throws(() => registryWith([{ id: "test.empty", startSections: [section("", 0)] }]), /Start section without ID/);
 });
 
@@ -145,9 +150,14 @@ test("Start widgets reject a width or a description without a title, empty texts
   assert.throws(() => section({ title: "Widget", minColumns: 0 }), /Start section widget has minColumns 0; allowed are whole numbers from 1 to 6/);
   assert.throws(() => section({ title: "Widget", maxColumns: 3 }), /Start section widget has 6 columns outside its range from minColumns 1 to maxColumns 3/, "the default width is the whole row");
   assert.throws(() => section({ title: "Widget", columns: 2, minColumns: 3, maxColumns: 4 }), /Start section widget has 2 columns outside its range from minColumns 3 to maxColumns 4/);
-  assert.deepEqual(section({ title: "Widget", columns: 4, description: "Shows things", minColumns: 3, maxColumns: 5 }).startSections
+  assert.deepEqual(section({ title: "Widget", columns: 4, description: "Shows things", minColumns: 3, maxColumns: 5 }).startSections.filter((entry) => entry.id === "widget")
     .map(({ title, columns, description, minColumns, maxColumns }) => ({ title, columns, description, minColumns, maxColumns })),
   [{ title: "Widget", columns: 4, description: "Shows things", minColumns: 3, maxColumns: 5 }]);
+  const limit = { limit: { type: "number", label: "Limit", default: 5, min: 1, max: 9 } };
+  assert.throws(() => section({ settings: limit }), /Start section widget declares settings without a title/);
+  assert.throws(() => section({ title: "Widget", settings: {} }), /Start section widget declares settings without any setting/);
+  assert.throws(() => section({ title: "Widget", settings: { limit: { ...limit.limit, default: 10 } } }), /Start section widget has the setting limit whose default 10 is above the maximum 9/);
+  assert.equal(section({ title: "Widget", settings: limit }).startSections.find((entry) => entry.id === "widget")?.settings, limit);
 });
 
 test("a Start section with a read right mounts only when the viewer has that right", () => {
@@ -176,7 +186,7 @@ test("Start and Runs require exactly one server, while server management accepts
 
 test("New starts with the marked default template, otherwise with New chat", () => {
   const chat = render(page());
-  assert.match(chat, />New<span[^>]*>3</, "the New chat template is counted");
+  assert.match(chat, /<h2[^>]*>New<\/h2>/, "the title row names the widget without a count");
   assert.match(chat, /<ul aria-label="Templates"[^>]*><li[^>]*><button[^>]*data-tile="New chat"/, "New chat is the first template");
   assert.match(chat, /aria-label="New chat"/);
   assert.doesNotMatch(chat, />No template</);
@@ -184,13 +194,45 @@ test("New starts with the marked default template, otherwise with New chat", () 
   assert.match(chat, />Empty run; the task takes shape in the chat\.</);
   assert.doesNotMatch(chat, />Default</);
   const standard = render(page({ connections: [connection({ defaultEntry: "ragents.reference.circle" })] }));
-  assert.match(standard, />New<span[^>]*>2</, "the default does not appear a second time");
   assert.match(standard, /<ul aria-label="Templates"[^>]*><li[^>]*><button[^>]*data-tile="Discussion circle"/, "the default template comes first");
   assert.match(standard, />Default</);
   assert.equal(standard.match(/>Discussion circle</g)?.length, 1);
   assert.doesNotMatch(standard, />New chat</);
   const none = render(page({ connections: [connection({ state: { kind: "stopped" }, runs: [], canCreate: false })] }));
-  assert.doesNotMatch(none, />New</, "without a reachable server there is no New section");
+  assert.match(none, /data-start-widget-body="start.new"><\/div>/, "without the right to create runs New renders nothing, so Start leaves it out like any empty widget");
+  assert.doesNotMatch(none, /aria-label="Templates"|New chat/);
+});
+
+test("New and Continue are ordinary start sections whose settings change what they show", () => {
+  const runs = Array.from({ length: 17 }, (unused, index) => ({
+    id: `run-${index}`, title: `Run ${index}`, state: "idle" as const, pendingActions: 0, updatedAt: Date.now() - index * 60_000,
+  }));
+  const host: StartPageHost = { connection: connection({ runs }), sharing: undefined, send: () => {}, starting: undefined, startRun: () => {} };
+  const [create, more] = HOST_START_SECTIONS;
+  assert.deepEqual(HOST_START_SECTIONS.map(({ id, order, title, columns, minColumns }) => ({ id, order, title, columns, minColumns })), [
+    { id: "start.new", order: -20, title: "New", columns: 2, minColumns: 2 },
+    { id: "start.continue", order: -10, title: "Continue", columns: 4, minColumns: 2 },
+  ]);
+  assert.deepEqual(more!.settings, { runs: { type: "number", label: "Number of runs", description: "How many of the most recent runs Continue lists.", default: 15, min: 3, max: 100 } });
+  assert.deepEqual(Object.keys(create!.settings!), ["descriptions"]);
+  const show = (section: StartSectionContribution, settings: Record<string, unknown>) => renderToStaticMarkup(createElement(StartPageContext.Provider, { value: host },
+    createElement(section.Section, { runs, onOpenRun: () => {}, settings: settings as never })));
+  const five = show(more!, { runs: 5 });
+  assert.equal(five.match(/<li /g)?.length, 5, "Continue lists as many runs as its setting says");
+  assert.match(five, />Run 4</);
+  assert.doesNotMatch(five, />Run 5</);
+  assert.match(five, />All 17 runs</, "the way to all runs follows the list");
+  assert.equal(show(more!, { runs: 100 }).match(/<li /g)?.length, 17);
+  assert.match(show(create!, { descriptions: true }), /data-slot="start-description"/);
+  assert.doesNotMatch(show(create!, { descriptions: false }), /data-slot="start-description"/, "New can show its templates without descriptions");
+});
+
+test("the dashboard and its layout code name none of Start's own widgets", async () => {
+  const files = ["StartDashboard.tsx", "dashboard-layout.ts", "dashboard-preferences.ts", "widget-settings.ts", "WidgetSettingsDialog.tsx", "StartPage.tsx", "start-widgets.tsx"];
+  for (const file of files) {
+    const source = await readFile(new URL(`../src/panel/${file}`, import.meta.url), "utf8");
+    assert.doesNotMatch(source, /start\.new|start\.continue|"New"|"Continue"|Templates|RunList|StartTiles/, `${file} treats New and Continue like any widget`);
+  }
 });
 
 test("server management retains sign-in, retry, and connect actions with the error cause", () => {

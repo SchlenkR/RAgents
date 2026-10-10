@@ -308,14 +308,18 @@ sidebar behavior, persistence, and iframe/draft identity with `RAGENTS_BROWSER_T
 `startOptions` provides, per server-side start option, its own control component and a badge
 for the header of the running run; without a component, the host draws a selection menu from the
 option's presentation.
-`startSections` adds widgets to the Start dashboard after "New" templates and "Continue" recent runs,
-with all server-listed visible runs, their metadata, and run navigation; `title` makes a
+`startSections` adds widgets to the Start dashboard beside "New" templates and "Continue" recent runs,
+which are start sections of the host's own (`panel/host-start-sections.tsx`), with all server-listed
+visible runs, their metadata, and run navigation; `title` makes a
 section a framed widget, `columns` (1 to 6 of Start's six-column grid, by default 6) sets its width
-and `minColumns` and `maxColumns` the range the viewer may choose, and below 700 pixels of Start's own
+and `minColumns` and `maxColumns` the range the viewer may choose, `settings` declares numbers,
+switches, choices, and short texts the viewer configures in Start's edit mode, which the section
+receives as typed `settings` (`StartSectionProps<typeof settings>`), and below 700 pixels of Start's own
 width the widgets become tabs.
 `startWidgetsFor(context)` adds a dynamic list of widgets alongside those sections. Each value
 has a stable `id` under the plugin's ID (`<plugin id>:<name>`), `title`, optional `description`,
-`columns`, `minColumns`, `maxColumns`, `order`, and `readRight`, and `content: ReactNode`; Start's edit mode arranges
+`columns`, `minColumns`, `maxColumns`, `order`, `readRight`, and `settings`, and `content`, a `ReactNode` or,
+with settings, a function of their values; Start's edit mode arranges and configures
 these widgets like sections with a title. The context supplies `signal` for cleanup and `update`
 for live snapshots using the existing RPC connection; a factory that waits for its first snapshot
 returns a promise of it, and stable content component types preserve local state and frames

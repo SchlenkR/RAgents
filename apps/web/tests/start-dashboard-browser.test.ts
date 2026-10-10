@@ -179,13 +179,13 @@ test("a narrow dashboard shows one widget at a time in tabs and remembers the ch
     const tabs = page.getByRole("tablist", { name: "Start widgets" });
     await tabs.waitFor();
     const names = await tabs.getByRole("tab").allTextContents();
-    assert.equal(names[0], "New 5");
+    assert.equal(names[0], "New", "a tab names its widget without a count");
     assert.equal(names.includes("Nothing to show"), false, "an empty widget has no tab");
     assert.equal(await page.getByRole("tabpanel").getByRole("heading", { name: /^New/ }).evaluate((element) => element.getBoundingClientRect().width <= 1), true, "the tab names the widget, its frame repeats no visible title");
     await mkdir(shots, { recursive: true });
     await page.screenshot({ path: join(shots, "start-dashboard-560.png") });
     assert.equal(await page.getByRole("tabpanel").count(), 1, "only the active widget is shown");
-    assert.equal(await page.getByRole("tab", { name: "New 5" }).getAttribute("aria-selected"), "true");
+    assert.equal(await page.getByRole("tab", { name: "New", exact: true }).getAttribute("aria-selected"), "true");
     const panel = await page.getByRole("tabpanel").boundingBox();
     const main = await page.locator("main[data-page]").evaluate((element) => element.querySelector("[data-dashboard]")!.getBoundingClientRect().width);
     assert.ok(panel && Math.abs(panel.width - main) < 1, "the active widget fills the width");
@@ -217,7 +217,7 @@ test("tabs that do not fit move into a menu that lists exactly the hidden ones",
       await page.evaluate((value) => document.documentElement.setAttribute("data-theme", value), theme);
       const tabs = page.getByRole("tablist", { name: "Start widgets" });
       await tabs.waitFor();
-      const all = ["New 5", "Continue", "Work board", "New auto items", "Shared with the team", "Model usage", "Topics in review", "Upcoming releases", "Open incidents this week"];
+      const all = ["New", "Continue", "Work board", "New auto items", "Shared with the team", "Model usage", "Topics in review", "Upcoming releases", "Open incidents this week"];
       const shown = await tabs.getByRole("tab").allTextContents();
       assert.ok(shown.length >= 1 && shown.length < all.length, `some tabs fit, the rest are hidden: ${shown.join(", ")}`);
       assert.deepEqual(shown, all.slice(0, shown.length), "the leading tabs stay in their order");
@@ -393,7 +393,7 @@ test("edit mode moves a widget by dragging, resizes Continue by its edge, remove
     assert.equal(await focused(page), "Edit");
     assert.deepEqual(await controlNames(page), []);
     assert.deepEqual(await writes(page), [{
-      version: 2, order: ["demo.board", "start.new", "start.continue", "demo.auto", "demo.shared", "demo.empty", "demo.usage"], columns: { "start.continue": 2 }, removed: [],
+      version: 3, order: ["demo.board", "start.new", "start.continue", "demo.auto", "demo.shared", "demo.empty", "demo.usage"], columns: { "start.continue": 2 }, removed: [], settings: {},
     }]);
     const before = await regions(page);
     assert.equal(before.map((region) => region.name).join(", "), "Work board, New, Continue, New auto items, Shared with the team, Model usage");
@@ -467,7 +467,7 @@ for (const engine of ["chromium", "webkit"] as const) {
       await page.getByRole("button", { name: "Done", exact: true }).click();
       await page.getByRole("group", { name: "Edit Start" }).waitFor({ state: "detached" });
       assert.deepEqual(await writes(page), [{
-        version: 2, order: ["start.continue", "start.new", "demo.board", "demo.auto", "demo.shared", "demo.usage", "demo.empty"], columns: { "start.continue": 6, "start.new": 3 }, removed: [],
+        version: 3, order: ["start.continue", "start.new", "demo.board", "demo.auto", "demo.shared", "demo.usage", "demo.empty"], columns: { "start.continue": 6, "start.new": 3 }, removed: [], settings: {},
       }]);
       const before = await regions(page);
       await page.reload();
@@ -607,7 +607,7 @@ test("the keyboard moves a widget with the arrow keys, sizes it with Shift and t
     await page.getByRole("button", { name: "Done", exact: true }).click();
     await page.getByRole("group", { name: "Edit Start" }).waitFor({ state: "detached" });
     assert.deepEqual(await writes(page), [{
-      version: 2, order: ["start.new", "demo.board", "demo.auto", "demo.shared", "demo.empty", "demo.usage"], columns: { "demo.usage": 3 }, removed: ["start.continue"],
+      version: 3, order: ["start.new", "demo.board", "demo.auto", "demo.shared", "demo.empty", "demo.usage"], columns: { "demo.usage": 3 }, removed: ["start.continue"], settings: {},
     }]);
     assert.equal(await announced(page), "Start layout saved.");
   }, 1500);
@@ -645,7 +645,7 @@ test("a narrow Start edits a vertical list with handles, up and down, remove, an
     assert.deepEqual(await noHorizontalScroll(page), { page: 0, main: 0 });
     await page.getByRole("button", { name: "Done", exact: true }).click();
     await page.getByRole("tablist", { name: "Start widgets" }).waitFor();
-    assert.deepEqual((await tabNames(page)).slice(0, 3), ["Model usage", "Continue", "New 5"], "the tabs follow the saved order");
+    assert.deepEqual((await tabNames(page)).slice(0, 3), ["Model usage", "Continue", "New"], "the tabs follow the saved order");
     assert.equal((await tabNames(page)).at(-1), "New auto items");
   });
   await withPage(360, "widgets=many", async (page) => {
@@ -723,10 +723,16 @@ test("a layout that cannot be loaded keeps the default layout and offers Retry; 
     await loaded(page);
     assert.equal(await page.getByRole("alert").count(), 0, "a layout with the former named sizes is ignored without a problem");
     assert.deepEqual((await order(page)).slice(0, 3), ["start.new", "start.continue", "demo.board"], "and Start shows its default layout");
-    await page.evaluate(() => localStorage.setItem("start-dashboard-fixture:start.layout", JSON.stringify({ version: 2, order: [], columns: {}, hidden: [] })));
+    await page.evaluate(() => localStorage.setItem("start-dashboard-fixture:start.layout", JSON.stringify({ version: 2, order: ["demo.board"], columns: {}, removed: [] })));
     await page.reload();
     await loaded(page);
-    assert.match((await page.getByRole("alert").textContent())!, /^The saved Start layout could not be read: expected the fields columns, order, removed, version, found columns, hidden, order, version\. Saving a layout in Edit replaces it\.$/);
+    assert.equal(await page.getByRole("alert").count(), 0, "a layout from before widget settings is ignored without a problem");
+    assert.deepEqual((await order(page)).slice(0, 3), ["start.new", "start.continue", "demo.board"]);
+    await page.evaluate(() => localStorage.setItem("start-dashboard-fixture:start.layout", JSON.stringify({ version: 3, order: [], columns: {}, hidden: [], settings: {} })));
+    await page.reload();
+    await loaded(page);
+    assert.match((await page.getByRole("alert").textContent())!,
+      /^The saved Start layout could not be read: expected the fields columns, order, removed, settings, version, found columns, hidden, order, settings, version\. Saving a layout in Edit replaces it\.$/);
     await edit(page);
     await page.evaluate(() => { window.dashboardFixture.failWrites = true; });
     await page.getByRole("button", { name: "Remove Work board", exact: true }).click();
@@ -737,7 +743,7 @@ test("a layout that cannot be loaded keeps the default layout and offers Retry; 
     await page.getByRole("button", { name: "Done", exact: true }).click();
     await page.getByRole("group", { name: "Edit Start" }).waitFor({ state: "detached" });
     assert.equal(await page.getByRole("alert").count(), 0, "saving replaced the unreadable layout");
-    assert.deepEqual(await writes(page), [{ version: 2, order: [], columns: {}, removed: ["demo.board"] }]);
+    assert.deepEqual(await writes(page), [{ version: 3, order: [], columns: {}, removed: ["demo.board"], settings: {} }]);
   });
 });
 
@@ -784,8 +790,8 @@ test("dynamic widgets are moved, resized, removed, and added back like start sec
     await page.getByRole("button", { name: "Done", exact: true }).click();
     await page.getByRole("group", { name: "Edit Start" }).waitFor({ state: "detached" });
     assert.deepEqual(await writes(page), [{
-      version: 2, order: ["start.new", "start.continue", "demo.board", "demo.auto", "demo.shared", "demo.usage", "demo.empty", "demo.failing:unavailable", "demo.apps:planner"],
-      columns: { "demo.apps:planner": 4 }, removed: ["demo.apps:broken"],
+      version: 3, order: ["start.new", "start.continue", "demo.board", "demo.auto", "demo.shared", "demo.usage", "demo.empty", "demo.failing:unavailable", "demo.apps:planner"],
+      columns: { "demo.apps:planner": 4 }, removed: ["demo.apps:broken"], settings: {},
     }]);
     await mkdir(shots, { recursive: true });
     await page.screenshot({ path: join(shots, "start-dashboard-dynamic-1280.png"), fullPage: true });
@@ -887,7 +893,7 @@ test("in the owner's case the mouse moves Continue before New and back, resizing
 
     await page.getByRole("button", { name: "Done", exact: true }).click();
     await page.getByRole("group", { name: "Edit Start" }).waitFor({ state: "detached" });
-    assert.deepEqual(await writes(page), [{ version: 2, order: [], columns: { "start.new": 3, "start.continue": 3 }, removed: [] }]);
+    assert.deepEqual(await writes(page), [{ version: 3, order: [], columns: { "start.new": 3, "start.continue": 3 }, removed: [], settings: {} }]);
     const saved = await packedCells(page);
     checkPacked(saved, "after Done");
     await page.reload();
@@ -949,4 +955,166 @@ test("re-packing slides the widgets that move unless reduced motion is preferred
     await slid(page);
     checkPacked(await packedCells(page), "after dragging with slides");
   }, 1200, "chromium", "no-preference");
+});
+
+/** The rows a list renders, also while edit mode makes the widget's content inert. */
+const rows = (page: Page, list: string) => page.locator(`ul[aria-label="${list}"] > li`).count();
+
+const configureNames = (page: Page) => page.getByRole("button", { name: /^Configure / }).evaluateAll((buttons) => buttons.map((button) => button.getAttribute("aria-label")));
+
+const click = async (page: Page, locator: ReturnType<Page["locator"]>) => {
+  const point = await center(page, locator);
+  await page.mouse.click(point.x, point.y);
+};
+
+/** Opens a widget's Configure dialog with the mouse, types a number into its field, and applies it. */
+const configureNumber = async (page: Page, title: string, label: string, value: string) => {
+  await click(page, page.getByRole("button", { name: `Configure ${title}`, exact: true }));
+  const dialog = page.getByRole("dialog", { name: `Configure ${title}` });
+  await dialog.waitFor();
+  await dialog.getByLabel(label, { exact: true }).fill(value);
+  await click(page, dialog.getByRole("button", { name: "Apply", exact: true }));
+  await dialog.waitFor({ state: "detached" });
+};
+
+test("Configure in edit mode sets Continue to five runs with the mouse, Done keeps it across a reload, and Cancel discards a change", browserOnly, async () => {
+  await withPage(1280, "", async (page) => {
+    assert.equal(await rows(page, "Recent"), 15, "Continue lists fifteen runs by default");
+    assert.deepEqual(await configureNames(page), [], "Configure belongs to edit mode only");
+    await edit(page);
+    assert.deepEqual(await configureNames(page), ["Configure New", "Configure Continue", "Configure Model usage"], "only widgets with settings offer Configure");
+
+    await click(page, page.getByRole("button", { name: "Configure Continue", exact: true }));
+    const dialog = page.getByRole("dialog", { name: "Configure Continue" });
+    await dialog.waitFor();
+    const field = dialog.getByLabel("Number of runs", { exact: true });
+    assert.equal(await field.inputValue(), "15");
+    assert.equal(await dialog.getByText("How many of the most recent runs Continue lists.").isVisible(), true);
+    assert.equal(await dialog.evaluate((element) => element.contains(document.activeElement)), true, "the dialog takes focus");
+    await field.fill("500");
+    assert.equal(await dialog.getByRole("alert").textContent(), "This value is above the maximum 100.");
+    await click(page, dialog.getByRole("button", { name: "Apply", exact: true }));
+    assert.equal(await dialog.isVisible(), true, "an invalid value is not applied");
+    assert.equal(await field.evaluate((input) => input === document.activeElement), true, "focus goes to the invalid field");
+    await field.fill("5");
+    assert.equal(await dialog.getByRole("alert").count(), 0);
+    await mkdir(shots, { recursive: true });
+    await settled(page);
+    await page.screenshot({ path: join(shots, "start-dashboard-configure-1280.png") });
+    await click(page, dialog.getByRole("button", { name: "Apply", exact: true }));
+    await dialog.waitFor({ state: "detached" });
+    assert.equal(await announced(page), "Continue settings applied; Done saves them.");
+    assert.equal(await focused(page), "Configure Continue", "focus returns to Configure");
+    assert.equal(await rows(page, "Recent"), 5, "the draft shows the new value at once");
+    assert.deepEqual(await writes(page), [], "nothing is saved before Done");
+
+    await click(page, page.getByRole("button", { name: "Done", exact: true }));
+    await page.getByRole("group", { name: "Edit Start" }).waitFor({ state: "detached" });
+    assert.deepEqual(await writes(page), [{ version: 3, order: [], columns: {}, removed: [], settings: { "start.continue": { runs: 5 } } }]);
+    assert.equal(await rows(page, "Recent"), 5);
+    assert.equal(await page.getByRole("button", { name: /^All 18 runs/ }).isVisible(), true, "the way to every run follows the shorter list");
+    await page.reload();
+    await loaded(page);
+    assert.equal(await rows(page, "Recent"), 5, "a reload keeps the setting");
+
+    await edit(page);
+    await configureNumber(page, "Continue", "Number of runs", "8");
+    assert.equal(await rows(page, "Recent"), 8);
+    await click(page, page.getByRole("button", { name: "Cancel", exact: true }));
+    await page.getByRole("group", { name: "Edit Start" }).waitFor({ state: "detached" });
+    assert.equal(await rows(page, "Recent"), 5, "Cancel discards the applied setting");
+
+    await edit(page);
+    await click(page, page.getByRole("button", { name: "Configure Continue", exact: true }));
+    await dialog.waitFor();
+    assert.equal(await field.inputValue(), "5", "the dialog starts from the saved value");
+    await field.fill("9");
+    await click(page, dialog.getByRole("button", { name: "Cancel", exact: true }));
+    await dialog.waitFor({ state: "detached" });
+    assert.equal(await focused(page), "Configure Continue");
+    await click(page, page.getByRole("button", { name: "Configure Continue", exact: true }));
+    await dialog.waitFor();
+    await field.fill("9");
+    await page.keyboard.press("Escape");
+    await dialog.waitFor({ state: "detached" });
+    assert.equal(await page.getByRole("group", { name: "Edit Start" }).isVisible(), true, "Escape closes only the dialog");
+    assert.equal(await rows(page, "Recent"), 5, "a dialog closed without Apply changes nothing");
+
+    await click(page, page.getByRole("button", { name: "Configure New", exact: true }));
+    const create = page.getByRole("dialog", { name: "Configure New" });
+    await create.getByRole("switch", { name: "Show descriptions" }).click();
+    await click(page, create.getByRole("button", { name: "Apply", exact: true }));
+    await create.waitFor({ state: "detached" });
+    assert.equal(await page.locator('ul[aria-label="Templates"] [data-slot="start-description"]').count(), 0, "New shows its templates without descriptions");
+    await click(page, page.getByRole("button", { name: "Reset layout", exact: true }));
+    assert.equal(await announced(page), "Start shows its default layout and settings again; Done saves them.");
+    assert.equal(await rows(page, "Recent"), 15, "Reset layout also resets the settings");
+    assert.equal(await page.locator('ul[aria-label="Templates"] [data-slot="start-description"]').count(), 5);
+    await click(page, page.getByRole("button", { name: "Done", exact: true }));
+    await page.getByRole("group", { name: "Edit Start" }).waitFor({ state: "detached" });
+    assert.deepEqual((await writes(page)).at(-1), null, "the default layout and settings store nothing");
+  }, 1500);
+});
+
+test("a plugin's start section and a dynamic widget are configured exactly like Continue, also in the narrow list", browserOnly, async () => {
+  await withPage(1280, "dynamic=1", async (page) => {
+    await page.getByRole("region", { name: "Planner", exact: true }).waitFor();
+    assert.equal(await rows(page, "Model usage entries"), 3);
+    assert.equal(await rows(page, "Planner entries"), 1);
+    await edit(page);
+    assert.deepEqual(await configureNames(page), ["Configure New", "Configure Continue", "Configure Model usage", "Configure Planner"]);
+    await configureNumber(page, "Continue", "Number of runs", "4");
+    await configureNumber(page, "Model usage", "Entries", "2");
+    await configureNumber(page, "Planner", "Days", "3");
+    assert.deepEqual([await rows(page, "Recent"), await rows(page, "Model usage entries"), await rows(page, "Planner entries")], [4, 2, 3], "each widget renders its applied value");
+    await click(page, page.getByRole("button", { name: "Done", exact: true }));
+    await page.getByRole("group", { name: "Edit Start" }).waitFor({ state: "detached" });
+    assert.deepEqual(await writes(page), [{
+      version: 3, order: [], columns: {}, removed: [], settings: { "start.continue": { runs: 4 }, "demo.usage": { entries: 2 }, "demo.apps:planner": { days: 3 } },
+    }]);
+    await page.reload();
+    await loaded(page);
+    await page.getByRole("region", { name: "Planner", exact: true }).waitFor();
+    assert.deepEqual([await rows(page, "Recent"), await rows(page, "Model usage entries"), await rows(page, "Planner entries")], [4, 2, 3], "a reload keeps every widget's setting");
+  }, 1500);
+  await withPage(560, "", async (page) => {
+    await page.getByRole("button", { name: "Edit", exact: true }).click();
+    await page.getByRole("group", { name: "Edit Start" }).waitFor();
+    assert.deepEqual(await configureNames(page), ["Configure New", "Configure Continue", "Configure Model usage"], "the narrow list offers Configure as well");
+    await configureNumber(page, "Model usage", "Entries", "1");
+    await configureNumber(page, "Continue", "Number of runs", "3");
+    await click(page, page.getByRole("button", { name: "Done", exact: true }));
+    await page.getByRole("group", { name: "Edit Start" }).waitFor({ state: "detached" });
+    assert.deepEqual(await writes(page), [{ version: 3, order: [], columns: {}, removed: [], settings: { "demo.usage": { entries: 1 }, "start.continue": { runs: 3 } } }]);
+    await page.getByRole("tab", { name: "Continue" }).click();
+    assert.equal(await rows(page, "Recent"), 3);
+  });
+});
+
+test("a saved value a widget rejects is reported in that widget, which shows its default, the same for Continue and a plugin's widget", browserOnly, async () => {
+  await withPage(1280, "", async (page) => {
+    await page.evaluate(() => localStorage.setItem("start-dashboard-fixture:start.layout", JSON.stringify({
+      version: 3, order: [], columns: {}, removed: [], settings: { "start.continue": { runs: 500 }, "demo.usage": { entries: "all", former: true } },
+    })));
+    await page.reload();
+    await loaded(page);
+    const problem = (key: string) => page.locator(`[data-start-widget="${key}"] [data-settings-problem]`).textContent();
+    assert.equal(await problem("start.continue"), "Number of runs: the saved value 500 is above the maximum 100, so the default 15 applies.");
+    assert.equal(await problem("demo.usage"), "Entries: the saved value \"all\" is not a number, so the default 3 applies.", "a key the widget does not declare is ignored");
+    assert.equal(await rows(page, "Recent"), 15);
+    assert.equal(await rows(page, "Model usage entries"), 3);
+    await edit(page);
+    await click(page, page.getByRole("button", { name: "Configure Continue", exact: true }));
+    const dialog = page.getByRole("dialog", { name: "Configure Continue" });
+    await dialog.waitFor();
+    assert.equal(await dialog.getByRole("alert").textContent(), "Number of runs: the saved value 500 is above the maximum 100, so the default 15 applies. Apply replaces the saved values.");
+    assert.equal(await dialog.getByLabel("Number of runs", { exact: true }).inputValue(), "15", "the form starts from the value the widget shows");
+    await click(page, dialog.getByRole("button", { name: "Apply", exact: true }));
+    await dialog.waitFor({ state: "detached" });
+    assert.equal(await page.locator('[data-start-widget="start.continue"] [data-settings-problem]').count(), 0, "applying replaces the rejected value");
+    await click(page, page.getByRole("button", { name: "Done", exact: true }));
+    await page.getByRole("group", { name: "Edit Start" }).waitFor({ state: "detached" });
+    assert.deepEqual(await writes(page), [{ version: 3, order: [], columns: {}, removed: [], settings: { "demo.usage": { entries: "all", former: true } } }],
+      "a widget that was not configured keeps its saved values as they are");
+  });
 });

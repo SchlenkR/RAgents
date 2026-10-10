@@ -1,16 +1,12 @@
-import { ChevronRightIcon } from "lucide-react";
 import { useCallback, useMemo, useState } from "react";
 import { useAccess } from "../AccessContext";
-import { StartTiles, startTileCount } from "../StartTiles";
-import { Button } from "../ui";
+import type { StartWidgetSettingValues } from "../PluginRegistry";
 import type { PanelAction, PanelState } from "./contract";
 import { widgetWidth } from "./dashboard-layout";
+import { HOST_START_SECTIONS, StartPageContext, type StartPageHost } from "./host-start-sections";
 import type { PanelPageProps } from "./page-props";
-import { canDeleteRun, RunCard, RunLine, RunList } from "./RunLine";
 import { StartDashboard, type StartWidget } from "./StartDashboard";
 import { useStartWidgets } from "./start-widgets";
-
-const RECENT_RUNS = 15;
 
 type NewRun = Extract<PanelAction, { action: "newRun" }>;
 
@@ -19,52 +15,39 @@ interface PendingStart {
   readonly state: PanelState;
 }
 
+/** Start's widgets, its own and the plugins', as start sections and dynamic widgets alike; without a registry only its own. */
 export function StartPage({ state, send, registry, preferences }: PanelPageProps) {
   const access = useAccess();
   const [start, setStart] = useState<PendingStart>();
   const starting = start?.state === state ? start.action : undefined;
-  const startRun = (action: NewRun) => {
+  const connection = state.connections[0]!;
+  const startRun = useCallback((entryId?: string) => {
+    const action: NewRun = entryId === undefined ? { action: "newRun", name: connection.name } : { action: "newRun", name: connection.name, entryId };
     send(action);
     setStart({ action, state });
-  };
-  const connection = state.connections[0]!;
+  }, [connection.name, send, state]);
+  const host = useMemo<StartPageHost>(() => ({ connection, sharing: state.sharing, send, starting, startRun }), [connection, send, startRun, starting, state.sharing]);
   const runs = useMemo(() => [...connection.runs].sort((left, right) => right.updatedAt - left.updatedAt), [connection.runs]);
-  const recent = runs.slice(0, RECENT_RUNS);
-  const actions = recent.some((run) => run.canShare === true || canDeleteRun(connection, run));
-  const tiles = startTileCount(connection.entries, connection.defaultEntry, connection.canCreateFree !== false);
   const openRun = useCallback((runId: string) => send({ action: "openRun", name: connection.name, runId }), [connection.name, send]);
-  const dynamic = useStartWidgets(registry, { runs, onOpenRun: openRun }).filter((widget) => !widget.readRight || access.can(widget.readRight));
-  const sections = registry?.startSections.filter((section) => !section.readRight || access.can(section.readRight)) ?? [];
+  const visible = (right: string | undefined) => !right || access.can(right);
+  const sections = (registry?.startSections ?? HOST_START_SECTIONS).filter((section) => visible(section.readRight));
+  const dynamic = useStartWidgets(registry, { runs, onOpenRun: openRun }).filter((widget) => visible(widget.readRight));
   const widgets: readonly StartWidget[] = [
-    ...(connection.canCreate ? [{
-      key: "start.new", title: "New", description: "Start a run from a template of this server or as a new chat.", count: tiles, ...widgetWidth({ columns: 2, minColumns: 2 }),
-      content: <StartTiles defaultEntry={connection.defaultEntry} disabled={starting !== undefined} entries={connection.entries} label="Templates"
-        onNewChat={connection.canCreateFree === false ? undefined : () => startRun({ action: "newRun", name: connection.name })}
-        onStart={(entryId) => startRun({ action: "newRun", name: connection.name, entryId })} starting={starting} />,
-    }] : []),
-    {
-      key: "start.continue", title: "Continue", description: "Your most recent runs, with the way to all of them.", ...widgetWidth({ columns: 4, minColumns: 2 }),
-      action: runs.length > 0 ? <Button onClick={() => send({ action: "page", page: "runs" })} size="xs" variant="ghost">All {runs.length} runs<ChevronRightIcon data-icon="inline-end" /></Button> : undefined,
-      content: runs.length === 0
-        ? <p className="type-body text-muted-foreground">No runs yet.</p>
-        : <RunCard>
-          <RunList actions={actions} label="Recent">
-            {recent.map((run) => <RunLine actions={actions} key={run.id} onOpen={() => openRun(run.id)}
-              onDelete={canDeleteRun(connection, run) ? () => send({ action: "deleteRuns", name: connection.name, runIds: [run.id] }) : undefined}
-              onShare={run.canShare ? () => send(state.sharing?.runId === run.id ? { action: "closeSharing" } : { action: "openSharing", name: connection.name, runId: run.id }) : undefined}
-              run={run} sharingOpen={state.sharing?.runId === run.id} />)}
-          </RunList>
-        </RunCard>,
-    },
-    ...[...sections.map(({ id, title, description, columns, minColumns, maxColumns, order, Section }) => ({
-      key: id, title, description, ...widgetWidth({ columns, minColumns, maxColumns }), order, content: <Section onOpenRun={openRun} runs={runs} />,
-    })), ...dynamic.map(({ id, title, description, columns, minColumns, maxColumns, order, content }) => ({
-      key: id, title, description, ...widgetWidth({ columns, minColumns, maxColumns }), order: order ?? 200, content,
-    }))].sort((a, b) => a.order - b.order || a.key.localeCompare(b.key)),
-  ];
+    ...sections.map(({ id, title, description, columns, minColumns, maxColumns, order, settings, Section }) => ({
+      key: id, title, description, settings, ...widgetWidth({ columns, minColumns, maxColumns }), order,
+      // The dashboard checked the values against the section's own settings.
+      content: (values: StartWidgetSettingValues) => <Section onOpenRun={openRun} runs={runs} settings={values as never} />,
+    })),
+    ...dynamic.map(({ id, title, description, columns, minColumns, maxColumns, order, settings, content }) => ({
+      key: id, title, description, settings, ...widgetWidth({ columns, minColumns, maxColumns }), order: order ?? 200,
+      content: (values: StartWidgetSettingValues) => typeof content === "function" ? content(values as never) : content,
+    })),
+  ].sort((a, b) => a.order - b.order || a.key.localeCompare(b.key));
   return <div className="grid min-w-0 grid-cols-1 gap-8">
     {state.problem && <p className="type-body text-destructive [overflow-wrap:anywhere]" role="alert">{state.problem}</p>}
     {state.notice && <p className="type-body text-muted-foreground [overflow-wrap:anywhere]" role="status">{state.notice}</p>}
-    <StartDashboard preferences={preferences} widgets={widgets} />
+    <StartPageContext.Provider value={host}>
+      <StartDashboard preferences={preferences} widgets={widgets} />
+    </StartPageContext.Provider>
   </div>;
 }

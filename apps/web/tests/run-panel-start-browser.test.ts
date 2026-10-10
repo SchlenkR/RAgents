@@ -60,7 +60,7 @@ for (const host of ["browser", "vscode"] as const) {
       await page.goto(`${url}?host=${host}&documents`);
       const section = page.getByRole("region", { name: "Work documents", exact: true });
       await section.waitFor();
-      assert.deepEqual(await page.locator("main[data-page=start] h2").allTextContents(), ["New4", "Continue", "Work documents"]);
+      assert.deepEqual(await page.locator("main[data-page=start] h2").allTextContents(), ["New", "Continue", "Work documents"]);
       assert.equal(await page.getByRole("list", { name: "Recent", exact: true }).getByRole("listitem").count(), 7);
       assert.equal(await page.getByRole("button", { name: /^All 7 runs/ }).count(), 1);
       assert.deepEqual(await section.getByRole("button").allTextContents(), Array.from({ length: 6 }, (_, index) => `Work note ${index} - Document run ${index}`));

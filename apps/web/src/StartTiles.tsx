@@ -14,7 +14,8 @@ const tileClass = `group/tile flex h-full w-full min-w-0 flex-col gap-2 rounded-
 /** One Start page item: title, description and a top-right action; run scripts in a run use it too. */
 export function StartTile({ title, description, action, standard, disabled, starting = false, fill = false, onClick }: {
   title: string;
-  description: string;
+  /** Without it the tile shows only its title row. */
+  description?: string;
   action: "chat" | "start" | "setup";
   /** The template is its server's default. */
   standard?: boolean;
@@ -40,7 +41,7 @@ export function StartTile({ title, description, action, standard, disabled, star
                 : <PlayIcon aria-hidden className="size-3.5" />}
         </span>
       </span>
-      <span className="line-clamp-2 type-body text-muted-foreground @max-md/templates:line-clamp-1" data-slot="start-description">{description}</span>
+      {description !== undefined && <span className="line-clamp-2 type-body text-muted-foreground @max-md/templates:line-clamp-1" data-slot="start-description">{description}</span>}
     </button>
   </li>;
 }
@@ -53,15 +54,13 @@ export const connectionEntriesOf = (registry: PluginRegistry, access: AccessCont
     category: entry.category ?? (access.can("runs.inspect") ? "Run scripts" : "Workflows"), guided: registry.guideFor(entry) !== undefined,
   }));
 
-/** How many tiles StartTiles shows: the templates, plus New chat when there is no default template. */
-export const startTileCount = (entries: readonly ConnectionEntry[], defaultEntry: string | undefined, newChat: boolean): number =>
-  entries.length + (defaultEntry === undefined && newChat ? 1 : 0);
-
 /** A server's templates as tiles on Start, the default template or New chat first, in the browser and in VS Code; a narrow container lists them as compact rows. */
-export function StartTiles({ entries, defaultEntry, label, disabled = false, starting, onNewChat, onStart }: {
+export function StartTiles({ entries, defaultEntry, label, descriptions = true, disabled = false, starting, onNewChat, onStart }: {
   entries: readonly ConnectionEntry[];
   defaultEntry?: string;
   label: string;
+  /** Without them every tile shows only its title row. */
+  descriptions?: boolean;
   disabled?: boolean;
   /** The start under way in this list, New chat without entryId; it locks every tile. */
   starting?: { readonly entryId?: string };
@@ -72,14 +71,15 @@ export function StartTiles({ entries, defaultEntry, label, disabled = false, sta
   const standard = entries.find((entry) => entry.id === defaultEntry);
   const others = entries.filter((entry) => entry.id !== defaultEntry);
   const locked = disabled || starting !== undefined;
+  const shown = (description: string) => descriptions ? description : undefined;
   return <div className="@container/templates min-w-0">
     <ul aria-label={label} className="grid grid-cols-1 gap-2 @[240px]/templates:grid-cols-[repeat(auto-fill,minmax(240px,1fr))]">
       {standard
-        ? <StartTile action={standard.guided ? "setup" : "start"} description={standard.description} disabled={locked} onClick={() => onStart(standard.id)} standard
+        ? <StartTile action={standard.guided ? "setup" : "start"} description={shown(standard.description)} disabled={locked} onClick={() => onStart(standard.id)} standard
           starting={starting?.entryId === standard.id} title={standard.title} />
-        : onNewChat && <StartTile {...NEW_CHAT} action="chat" disabled={locked} onClick={onNewChat}
-          starting={starting !== undefined && starting.entryId === undefined} />}
-      {others.map((entry) => <StartTile action={entry.guided ? "setup" : "start"} description={entry.description} disabled={locked} key={entry.id}
+        : onNewChat && <StartTile action="chat" description={shown(NEW_CHAT.description)} disabled={locked} onClick={onNewChat}
+          starting={starting !== undefined && starting.entryId === undefined} title={NEW_CHAT.title} />}
+      {others.map((entry) => <StartTile action={entry.guided ? "setup" : "start"} description={shown(entry.description)} disabled={locked} key={entry.id}
         onClick={() => onStart(entry.id)} starting={starting?.entryId === entry.id} title={entry.title} />)}
     </ul>
   </div>;

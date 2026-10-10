@@ -4355,7 +4355,7 @@ Default client deadline: 30000 ms; callers may override it.
         "start.layout"
       ],
       "x-typescript-type": "PreferenceKey",
-      "description": "start.layout: the arrangement of Start"
+      "description": "start.layout: the arrangement and widget settings of Start"
     }
   },
   "additionalProperties": false
@@ -4394,7 +4394,7 @@ Default client deadline: 30000 ms; callers may override it.
         "start.layout"
       ],
       "x-typescript-type": "PreferenceKey",
-      "description": "start.layout: the arrangement of Start"
+      "description": "start.layout: the arrangement and widget settings of Start"
     },
     "value": {
       "x-typescript-type": "JsonValue",

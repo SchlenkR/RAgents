@@ -15,6 +15,8 @@ import { DETAIL_MODES, type ChatAttachmentInput, type DetailMode, type Message, 
 import type { SessionInfo } from "./api";
 import type { ConnectionRun } from "./panel/contract";
 import { widthProblem } from "./panel/dashboard-layout";
+import { HOST_START_SECTIONS } from "./panel/host-start-sections";
+import { settingsProblem } from "./panel/widget-settings";
 import type { ChatUserLocation } from "../../server/src/chat-context";
 import { CHAT_STEP_SCOPES, type ChatStepScope } from "../../server/src/plugin-support/chat-display-contract";
 import type { StartOptionState } from "../../server/src/plugin-support/start-options-contract";
@@ -197,6 +199,62 @@ export interface StartSectionContext {
   onOpenRun: (runId: string) => void;
 }
 
+interface StartWidgetSettingBase {
+  /** The field's label in the widget's Configure dialog. */
+  readonly label: string;
+  /** One sentence below the field. */
+  readonly description?: string;
+}
+
+/** A number from min to max in steps of step counted from min, by default 1. */
+export interface StartWidgetNumberSetting extends StartWidgetSettingBase {
+  readonly type: "number";
+  readonly default: number;
+  readonly min: number;
+  readonly max: number;
+  readonly step?: number;
+}
+
+export interface StartWidgetBooleanSetting extends StartWidgetSettingBase {
+  readonly type: "boolean";
+  readonly default: boolean;
+}
+
+export interface StartWidgetSettingOption {
+  readonly value: string;
+  readonly label: string;
+}
+
+export interface StartWidgetChoiceSetting extends StartWidgetSettingBase {
+  readonly type: "choice";
+  readonly default: string;
+  readonly options: readonly StartWidgetSettingOption[];
+}
+
+/** One line of at most 200 characters. */
+export interface StartWidgetTextSetting extends StartWidgetSettingBase {
+  readonly type: "text";
+  readonly default: string;
+}
+
+export type StartWidgetSetting = StartWidgetNumberSetting | StartWidgetBooleanSetting | StartWidgetChoiceSetting | StartWidgetTextSetting;
+
+/** What a widget lets the viewer configure in Start's edit mode, by key; the viewer's layout stores the values under these keys, so they stay the same across releases. */
+export type StartWidgetSettings = Readonly<Record<string, StartWidgetSetting>>;
+
+export type StartWidgetSettingValue<Setting extends StartWidgetSetting> = Setting extends StartWidgetNumberSetting ? number
+  : Setting extends StartWidgetBooleanSetting ? boolean
+    : Setting extends { readonly options: readonly { readonly value: infer Value }[] } ? Value : string;
+
+/** The values of a widget's settings by key, as the widget receives them. */
+export type StartWidgetSettingValues<Settings extends StartWidgetSettings = StartWidgetSettings> = { readonly [Key in keyof Settings]: StartWidgetSettingValue<Settings[Key]> };
+
+/** What a start section's component receives; a section with settings types its props as StartSectionProps<typeof settings>. */
+export interface StartSectionProps<Settings extends StartWidgetSettings = StartWidgetSettings> extends StartSectionContext {
+  /** The viewer's values, checked against the declared settings; a value that is not stored or not valid is the setting's default. */
+  readonly settings: StartWidgetSettingValues<Settings>;
+}
+
 export interface StartSectionContribution {
   id: string;
   order: number;
@@ -211,7 +269,10 @@ export interface StartSectionContribution {
   minColumns?: number;
   /** The widest width the viewer may give the widget in edit mode, by default 6. */
   maxColumns?: number;
-  Section: ComponentType<StartSectionContext>;
+  /** What the viewer may change with "Configure" in Start's edit mode; requires a title. */
+  settings?: StartWidgetSettings;
+  /** Receives StartSectionProps typed by the section's own settings, which the host checks against them. */
+  Section: ComponentType<StartSectionProps<never>>;
 }
 
 /** A widget that a plugin publishes per viewer; Start arranges it like a start section with a title. */
@@ -230,7 +291,10 @@ export interface StartWidgetContribution {
   /** Its place among the start sections, by default 200. */
   readonly order?: number;
   readonly readRight?: string;
-  readonly content: ReactNode;
+  /** What the viewer may change with "Configure" in Start's edit mode; the content is then a function of their values. */
+  readonly settings?: StartWidgetSettings;
+  /** The widget's content, or a function that receives the values of its settings, typed as StartWidgetSettingValues<typeof settings>. */
+  readonly content: ReactNode | ((settings: never) => ReactNode);
 }
 
 export interface StartWidgetsContext extends StartSectionContext {
@@ -491,8 +555,7 @@ export class PluginRegistry {
       .flatMap((plugin) => plugin.cardSections ?? [])
       .sort((left, right) => left.order - right.order || left.id.localeCompare(right.id));
     assertUnique(this.cardSections, (section) => section.id, "Card section");
-    this.startSections = this.activePlugins
-      .flatMap((plugin) => plugin.startSections ?? [])
+    this.startSections = [...HOST_START_SECTIONS, ...this.activePlugins.flatMap((plugin) => plugin.startSections ?? [])]
       .sort((left, right) => left.order - right.order || left.id.localeCompare(right.id));
     assertUnique(this.startSections, (section) => section.id, "Start section");
     this.startWidgetFactories = this.activePlugins.flatMap((plugin) => plugin.startWidgetsFor ? [{ id: plugin.id, create: plugin.startWidgetsFor }] : []);
@@ -506,6 +569,9 @@ export class PluginRegistry {
       if (width !== undefined) throw new Error(`Start section ${section.id} ${width}`);
       if (section.description !== undefined && section.title === undefined) throw new Error(`Start section ${section.id} declares a description without a title`);
       if (section.description !== undefined && section.description.trim() === "") throw new Error(`Start section ${section.id} has an empty description`);
+      if (section.settings !== undefined && section.title === undefined) throw new Error(`Start section ${section.id} declares settings without a title`);
+      const settings = section.settings === undefined ? undefined : settingsProblem(section.settings);
+      if (settings !== undefined) throw new Error(`Start section ${section.id} ${settings}`);
     }
     this.needsRunView = this.activePlugins.some((plugin) => plugin.needsRunView);
     const chatPolicies = this.activePlugins.flatMap((plugin) => plugin.chatDisplayPolicy ? [plugin.chatDisplayPolicy] : []);

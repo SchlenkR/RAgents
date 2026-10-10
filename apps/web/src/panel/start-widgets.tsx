@@ -3,6 +3,7 @@ import { useAccess } from "../AccessContext";
 import type { PluginRegistry, StartSectionContext, StartWidgetContribution, StartWidgetsContext } from "../PluginRegistry";
 import { Button } from "../ui";
 import { widthProblem } from "./dashboard-layout";
+import { settingsProblem } from "./widget-settings";
 
 type StartWidgetFactory = PluginRegistry["startWidgetFactories"][number];
 
@@ -20,6 +21,11 @@ export const checkedStartWidgets = (pluginId: string, widgets: readonly StartWid
     const width = widthProblem(widget);
     if (width !== undefined) throw new Error(`Start widget ${widget.id} ${width}.`);
     if (widget.order !== undefined && !Number.isFinite(widget.order)) throw new Error(`Start widget ${widget.id} has an invalid order.`);
+    if (widget.settings !== undefined) {
+      const settings = settingsProblem(widget.settings);
+      if (settings !== undefined) throw new Error(`Start widget ${widget.id} ${settings}.`);
+      if (typeof widget.content !== "function") throw new Error(`Start widget ${widget.id} declares settings, so its content is a function of their values.`);
+    }
     return widget;
   });
 };

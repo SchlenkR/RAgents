@@ -8833,16 +8833,13 @@ export declare function SearchInput({ className, icon, inputRef, onValueChange, 
 #### apps/web/src/ui/SectionLabel.d.ts
 
 ```typescript
-import type { ComponentProps, ReactNode } from "react";
+import type { ComponentProps } from "react";
 /** The small uppercase group label above a section; extra content is pushed to the opposite end. */
 export declare function SectionLabel({ className, ...props }: ComponentProps<"div">): import("react").JSX.Element;
-/** A page section's heading in the same label style: the count next to the title, an action at the opposite end; a hidden title stays for screen readers. */
-export declare function SectionHeading({ title, count, titleHidden, className, children }: {
+/** A page section's heading in the same label style. */
+export declare function SectionHeading({ title, className }: {
     title: string;
-    count?: number;
-    titleHidden?: boolean;
     className?: string;
-    children?: ReactNode;
 }): import("react").JSX.Element;
 ```
 

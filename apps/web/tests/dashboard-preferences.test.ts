@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { dashboardLayout } from "../src/panel/dashboard-layout";
 import {
-  addWidget, arrangeWidgets, DEFAULT_DASHBOARD_PREFERENCES, draftOf, isDefaultLayout, moveWidget, preferencesOf, readDashboardLayout, removeWidget,
+  addWidget, arrangeWidgets, configureWidget, DEFAULT_DASHBOARD_PREFERENCES, draftOf, isDefaultLayout, moveWidget, preferencesOf, readDashboardLayout, removeWidget,
   resizeWidget, writeDashboardLayout, type ArrangeableItem, type DashboardPreferences,
 } from "../src/panel/dashboard-preferences";
 
@@ -125,27 +125,51 @@ test("two widgets with the same ID are an error", () => {
   assert.throws(() => arrangeWidgets([widget("start.new", 2), widget("start.new", 6)], DEFAULT_DASHBOARD_PREFERENCES), /Start has two widgets with the ID start.new/);
 });
 
-test("the stored layout round-trips as the JSON value of start.layout, the default stores nothing, the former format is ignored, and an unreadable one names its cause", () => {
-  const changed = preferences({ order: ["start.continue", "start.new"], columns: new Map([["start.continue", 2]]), removed: ["demo.board"] });
-  assert.deepEqual(writeDashboardLayout(changed), { version: 2, order: ["start.continue", "start.new"], columns: { "start.continue": 2 }, removed: ["demo.board"] });
+test("the stored layout round-trips as the JSON value of start.layout, the default stores nothing, former formats are ignored, and an unreadable one names its cause", () => {
+  const changed = preferences({ order: ["start.continue", "start.new"], columns: new Map([["start.continue", 2]]), removed: ["demo.board"], settings: new Map([["start.continue", { runs: 5 }]]) });
+  assert.deepEqual(writeDashboardLayout(changed), {
+    version: 3, order: ["start.continue", "start.new"], columns: { "start.continue": 2 }, removed: ["demo.board"], settings: { "start.continue": { runs: 5 } },
+  });
   assert.deepEqual(readDashboardLayout(writeDashboardLayout(changed)), { preferences: changed });
   assert.equal(writeDashboardLayout(DEFAULT_DASHBOARD_PREFERENCES), null);
   assert.deepEqual(readDashboardLayout(null), { preferences: DEFAULT_DASHBOARD_PREFERENCES });
   assert.deepEqual(readDashboardLayout({ version: 1, order: ["start.continue"], spans: { "start.continue": "narrow" }, removed: ["demo.board"] }), { preferences: DEFAULT_DASHBOARD_PREFERENCES },
     "a layout with the former named sizes is ignored without a problem");
+  assert.deepEqual(readDashboardLayout({ version: 2, order: ["start.continue"], columns: { "start.continue": 2 }, removed: [] }), { preferences: DEFAULT_DASHBOARD_PREFERENCES },
+    "a layout from before widget settings is ignored without a problem");
   assert.equal(isDefaultLayout(changed), false);
+  assert.equal(isDefaultLayout(preferences({ settings: new Map([["start.continue", { runs: 5 }]]) })), false, "stored settings alone are a layout of their own");
+  assert.deepEqual(readDashboardLayout({ version: 3, order: [], columns: {}, removed: [], settings: { "start.continue": { runs: "many", gone: true } } }).preferences.settings,
+    new Map([["start.continue", { runs: "many", gone: true }]]), "values are read as saved; the widget checks them when it renders");
   const problem = (value: Parameters<typeof readDashboardLayout>[0]) => {
     const read = readDashboardLayout(value);
     assert.deepEqual(read.preferences, DEFAULT_DASHBOARD_PREFERENCES);
     return read.problem;
   };
+  const valid = { version: 3, order: [], columns: {}, removed: [], settings: {} };
   assert.match(problem([])!, /^The saved Start layout could not be read: expected an object\.$/);
-  assert.match(problem({ version: 3, order: [], columns: {}, removed: [] })!, /expected version 2, found 3/);
-  assert.match(problem({ version: 2, order: [], columns: {}, hidden: [] })!, /expected the fields columns, order, removed, version, found columns, hidden, order, version/);
-  assert.match(problem({ version: 2, order: ["a", "a"], columns: {}, removed: [] })!, /order and removed must list distinct widget IDs/);
+  assert.match(problem({ ...valid, version: 4 })!, /expected version 3, found 4/);
+  assert.match(problem({ version: 3, order: [], columns: {}, hidden: [], settings: {} })!, /expected the fields columns, order, removed, settings, version, found columns, hidden, order, settings, version/);
+  assert.match(problem({ version: 3, order: [], columns: {}, removed: [] })!, /expected the fields columns, order, removed, settings, version, found columns, order, removed, version/);
+  assert.match(problem({ ...valid, order: ["a", "a"] })!, /order and removed must list distinct widget IDs/);
   for (const width of [0, 7, 2.5, "half"]) {
-    assert.match(problem({ version: 2, order: [], columns: { a: width }, removed: [] })!, /columns must map widget IDs to whole numbers from 1 to 6/);
+    assert.match(problem({ ...valid, columns: { a: width } })!, /columns must map widget IDs to whole numbers from 1 to 6/);
   }
+  for (const settings of [[], { "start.continue": 5 }, { "start.continue": [5] }, { "start.continue": null }]) {
+    assert.match(problem({ ...valid, settings })!, /settings must map widget IDs to objects of setting values/);
+  }
+});
+
+test("configuring a widget replaces only its stored settings, changes to the draft keep them, and storing none removes the entry", () => {
+  const stored = preferences({ settings: new Map([["start.new", { descriptions: false }], ["ragents.global-apps:planner", { lanes: 2 }]]) });
+  const configured = configureWidget(stored, "start.continue", { runs: 5 });
+  assert.deepEqual(configured.settings, new Map([["start.new", { descriptions: false }], ["ragents.global-apps:planner", { lanes: 2 }], ["start.continue", { runs: 5 }]]));
+  assert.deepEqual(configureWidget(configured, "start.continue", { runs: 8 }).settings.get("start.continue"), { runs: 8 });
+  assert.deepEqual([...configureWidget(configured, "start.new", undefined).settings.keys()], ["ragents.global-apps:planner", "start.continue"]);
+  assert.deepEqual(stored.settings.size, 2, "the earlier preferences stay as they were");
+  const moved = preferencesOf(moveWidget(removeWidget(draftOf(shownWith(configured)), "start.continue"), "demo.usage", 0), start, configured);
+  assert.equal(moved.settings, configured.settings, "moving and removing keep every widget's settings, also those of a removed or absent widget");
+  assert.deepEqual(configureWidget(configureWidget(DEFAULT_DASHBOARD_PREFERENCES, "start.continue", { runs: 5 }), "start.continue", undefined), DEFAULT_DASHBOARD_PREFERENCES);
 });
 
 test("the layout applies the chosen widths and order with the same responsive rules", () => {

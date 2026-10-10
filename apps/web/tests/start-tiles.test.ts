@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
-import { StartTiles, startTileCount } from "../src/StartTiles.tsx";
+import { StartTiles } from "../src/StartTiles.tsx";
 import type { ConnectionEntry } from "../src/panel/contract.ts";
 
 const entry = (id: string, kind: "skill" | "script", category: string, guided = false): ConnectionEntry =>
@@ -18,20 +18,17 @@ test("without a default template New chat comes first, then the templates in the
   assert.deepEqual(titles(html), ["New chat", "board", "decision", "word"]);
   assert.match(html, /aria-label="New chat"/);
   assert.doesNotMatch(html, /No template/);
-  assert.equal(startTileCount(entries, undefined, true), 4);
 });
 
 test("the default template replaces New chat and comes first, only once and marked", () => {
   const html = render({ defaultEntry: "word" });
   assert.deepEqual(titles(html), ["word", "board", "decision"]);
   assert.match(html, /Default/);
-  assert.equal(startTileCount(entries, "word", true), 3);
 });
 
 test("without the right to free runs New chat is missing, a template with a guide is called Set up", () => {
   const html = render({ onNewChat: undefined });
   assert.deepEqual(titles(html), ["board", "decision", "word"]);
-  assert.equal(startTileCount(entries, undefined, false), 3);
   assert.match(html, /aria-label="Set up decision"/);
   assert.equal((html.match(/aria-label="Start [^"]+"/g) ?? []).length, 2);
 });
@@ -43,6 +40,13 @@ test("compact tiles contain a title, description and action, without categories 
   assert.equal((html.match(/data-slot="start-title"/g) ?? []).length, 4);
   assert.equal((html.match(/data-slot="start-description"/g) ?? []).length, 4);
   assert.equal((html.match(/data-slot="start-action"/g) ?? []).length, 4);
+});
+
+test("without descriptions every tile keeps only its title row", () => {
+  const html = render({ descriptions: false });
+  assert.equal((html.match(/data-slot="start-title"/g) ?? []).length, 4);
+  assert.equal((html.match(/data-slot="start-action"/g) ?? []).length, 4);
+  assert.doesNotMatch(html, /data-slot="start-description"|Description board|Empty run/);
 });
 
 test("while a start is running, all tiles are locked", () => {

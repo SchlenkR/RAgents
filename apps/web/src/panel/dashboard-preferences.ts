@@ -1,11 +1,14 @@
 import type { JsonValue } from "@ragents/engine/src/domain/json";
 import { DASHBOARD_COLUMNS, type DashboardItem, type WidgetWidth } from "./dashboard-layout";
+import type { StoredWidgetSettings } from "./widget-settings";
 
-/** How a viewer arranged Start: the order of the framed widgets on it, their chosen widths in columns, and the removed ones, each by widget ID. */
+/** How a viewer arranged Start: the order of the framed widgets on it, their chosen widths in columns, the removed ones, and the values of their settings, each by widget ID. */
 export interface DashboardPreferences {
   readonly order: readonly string[];
   readonly columns: ReadonlyMap<string, number>;
   readonly removed: readonly string[];
+  /** As saved; a widget checks them against its settings when it renders. */
+  readonly settings: ReadonlyMap<string, StoredWidgetSettings>;
 }
 
 export interface StoredDashboardLayout {
@@ -32,15 +35,15 @@ export interface PlacedWidget {
 
 export type DashboardDraft = readonly PlacedWidget[];
 
-const FORMAT_VERSION = 2;
-/** The format with the named sizes narrow, half, wide, and full; Start ignores such a layout. */
-const FORMER_VERSION = 1;
-const FIELDS = ["columns", "order", "removed", "version"];
+const FORMAT_VERSION = 3;
+/** The formats with named sizes (1) and without settings (2); Start ignores such a layout. */
+const FORMER_VERSIONS: readonly unknown[] = [1, 2];
+const FIELDS = ["columns", "order", "removed", "settings", "version"];
 
-export const DEFAULT_DASHBOARD_PREFERENCES: DashboardPreferences = { order: [], columns: new Map(), removed: [] };
+export const DEFAULT_DASHBOARD_PREFERENCES: DashboardPreferences = { order: [], columns: new Map(), removed: [], settings: new Map() };
 
 export const isDefaultLayout = (preferences: DashboardPreferences): boolean =>
-  preferences.order.length === 0 && preferences.columns.size === 0 && preferences.removed.length === 0;
+  preferences.order.length === 0 && preferences.columns.size === 0 && preferences.removed.length === 0 && preferences.settings.size === 0;
 
 const isColumns = (value: unknown): value is number => Number.isInteger(value) && (value as number) >= 1 && (value as number) <= DASHBOARD_COLUMNS;
 
@@ -49,24 +52,29 @@ const isRecord = (value: unknown): value is Readonly<Record<string, unknown>> =>
 const isIdList = (value: unknown): value is readonly string[] =>
   Array.isArray(value) && value.every((entry) => typeof entry === "string" && entry !== "") && new Set(value).size === value.length;
 
-/** Reads the value of the preference start.layout; null and a layout of the former format are the default layout. */
+/** Reads the value of the preference start.layout; null and a layout of a former format are the default layout. */
 export function readDashboardLayout(value: JsonValue | null): StoredDashboardLayout {
   if (value === null) return { preferences: DEFAULT_DASHBOARD_PREFERENCES };
   const unreadable = (cause: string): StoredDashboardLayout => ({ preferences: DEFAULT_DASHBOARD_PREFERENCES, problem: `The saved Start layout could not be read: ${cause}.` });
   if (!isRecord(value)) return unreadable("expected an object");
-  if (value.version === FORMER_VERSION) return { preferences: DEFAULT_DASHBOARD_PREFERENCES };
+  if (FORMER_VERSIONS.includes(value.version)) return { preferences: DEFAULT_DASHBOARD_PREFERENCES };
   const fields = Object.keys(value).sort();
   if (fields.join(",") !== FIELDS.join(",")) return unreadable(`expected the fields ${FIELDS.join(", ")}, found ${fields.join(", ") || "none"}`);
-  const { version, order, columns, removed } = value;
+  const { version, order, columns, removed, settings } = value;
   if (version !== FORMAT_VERSION) return unreadable(`expected version ${FORMAT_VERSION}, found ${JSON.stringify(version)}`);
   if (!isIdList(order) || !isIdList(removed)) return unreadable("order and removed must list distinct widget IDs");
   if (!isRecord(columns) || !Object.values(columns).every(isColumns)) return unreadable(`columns must map widget IDs to whole numbers from 1 to ${DASHBOARD_COLUMNS}`);
-  return { preferences: { order, columns: new Map(Object.entries(columns as Record<string, number>)), removed } };
+  if (!isRecord(settings) || !Object.values(settings).every(isRecord)) return unreadable("settings must map widget IDs to objects of setting values");
+  return { preferences: {
+    order, columns: new Map(Object.entries(columns as Record<string, number>)), removed, settings: new Map(Object.entries(settings as Record<string, StoredWidgetSettings>)),
+  } };
 }
 
 /** The default layout stores nothing, so Start follows its contributions again. */
-export const writeDashboardLayout = (preferences: DashboardPreferences): JsonValue | null => isDefaultLayout(preferences) ? null
-  : { version: FORMAT_VERSION, order: [...preferences.order], columns: Object.fromEntries(preferences.columns), removed: [...preferences.removed] };
+export const writeDashboardLayout = (preferences: DashboardPreferences): JsonValue | null => isDefaultLayout(preferences) ? null : {
+  version: FORMAT_VERSION, order: [...preferences.order], columns: Object.fromEntries(preferences.columns), removed: [...preferences.removed],
+  settings: Object.fromEntries(preferences.settings),
+};
 
 /** The framed widgets that the order names take their slots in that order; every other widget keeps its default place. */
 const ordered = <W extends Pick<DashboardItem, "key" | "framed">>(widgets: readonly W[], order: readonly string[]): readonly W[] => {
@@ -133,7 +141,7 @@ export function addWidget(draft: DashboardDraft, widget: Pick<ArrangeableItem, "
   return [...draft, { key: widget.key, columns: widget.columns }];
 }
 
-/** The preferences that show the draft; the default order and default widths store nothing, and widgets that are not there now keep their removal and width while their place falls back to the default. */
+/** The preferences that show the draft; the default order and default widths store nothing, widgets that are not there now keep their removal and width while their place falls back to the default, and settings stay as they are. */
 export function preferencesOf(draft: DashboardDraft, widgets: readonly ArrangeableItem[], previous: DashboardPreferences): DashboardPreferences {
   const framed = widgets.filter((widget) => widget.framed);
   const present = new Set(widgets.map((widget) => widget.key));
@@ -151,5 +159,12 @@ export function preferencesOf(draft: DashboardDraft, widgets: readonly Arrangeab
     order: order.every((key, index) => key === inDefaultOrder[index]) ? [] : order,
     columns: new Map([...[...previous.columns].filter(([key]) => !present.has(key)), ...chosen]),
     removed: [...previous.removed.filter((key) => !present.has(key)), ...framed.filter((widget) => !placed.has(widget.key)).map((widget) => widget.key)],
+    settings: previous.settings,
   };
 }
+
+/** The preferences with a widget's stored settings replaced, or removed when it stores none. */
+export const configureWidget = (preferences: DashboardPreferences, key: string, stored: StoredWidgetSettings | undefined): DashboardPreferences => ({
+  ...preferences,
+  settings: new Map([...[...preferences.settings].filter(([widget]) => widget !== key), ...stored === undefined ? [] : [[key, stored] as const]]),
+});

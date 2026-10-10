@@ -81,7 +81,7 @@ const chatContextUsage = Type.Object({
 
 export type ChatContextUsage = Static<typeof chatContextUsage>;
 
-const preferenceKey = Type.Unsafe<PreferenceKey>({ type: "string", enum: [...PREFERENCE_KEYS], "x-typescript-type": "PreferenceKey", description: "start.layout: the arrangement of Start" });
+const preferenceKey = Type.Unsafe<PreferenceKey>({ type: "string", enum: [...PREFERENCE_KEYS], "x-typescript-type": "PreferenceKey", description: "start.layout: the arrangement and widget settings of Start" });
 
 const preferenceValue = Type.Unsafe<JsonValue>({ "x-typescript-type": "JsonValue", description: `A JSON value of at most ${PREFERENCE_VALUE_LIMIT} bytes; null when nothing is stored` });
 

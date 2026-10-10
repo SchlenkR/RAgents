@@ -1053,7 +1053,8 @@ settings share one header row whenever they fit, in both the browser and VS Code
 buttons use the remaining width between the fixed controls, then continue over the full width
 in further rows. VS Code opens them in editor tabs; the browser opens them in its
 workspace. Narrow panels can also wrap fixed controls.</p>
-<p><strong>Start</strong> is a dashboard of widgets over the full width of the window: <strong>New</strong>, <strong>Continue</strong>, and those that plugins add. What fits
+<p><strong>Start</strong> is a dashboard of widgets over the full width of the window: <strong>New</strong>, <strong>Continue</strong>, and those that plugins add,
+all of them widgets of the same kind. What fits
 depends on the width of Start itself, not of the window, so a narrow VS Code panel behaves like a
 narrow window. From 1100 pixels Start has six columns and every widget is as many of them wide as
 it is set to, New two and Continue four. Every widget is as tall as its content and moves up as far as
@@ -1075,15 +1076,25 @@ change its width: the columns of Start appear as guides, a label at the pointer 
 allows, while the other widgets reflow; Escape during the drag puts the width back. The title row
 shows the width, such as &quot;2 of 6&quot;; &quot;x&quot; removes the widget from Start. &quot;Add widget&quot; after the widgets opens a gallery of every widget
 that is not on Start, each with a short description and its width; choosing one adds it at the end
-in its usual width. &quot;Reset layout&quot; goes back to the order and widths Start comes with. With the
+in its usual width. &quot;Reset layout&quot; goes back to the order, widths, and settings Start comes with. With the
 keyboard, focus a widget&#39;s handle: the arrow keys move it, Shift with Left or Right makes it one
 column narrower or wider, and Delete removes it; a screen reader hears every change. In a narrow panel the edit mode
 lists the widgets as rows with a handle, up and down buttons, and &quot;x&quot;; widths are chosen on a wider
 Start. At medium widths the edge and the keys move by the three columns shown, and the tabs of a
-narrow panel follow your order. A layout saved before Start had six columns is not taken over; Start
+narrow panel follow your order. A layout saved before widgets had settings is not taken over; Start
 shows its usual layout until you save a new one.</p>
-<p>Start keeps the layout on the server for your user, so the browser and VS Code show the same
-arrangement; without sign-in there is one layout for the server. The chosen tab of a narrow panel
+<p>Some widgets can be configured. In edit mode they have a gear, &quot;Configure&quot;, before &quot;x&quot; in their title
+row, also in a narrow panel&#39;s list. It opens a small dialog with the widget&#39;s settings, such as
+&quot;Number of runs&quot; for Continue (15 by default, from 3 to 100) and &quot;Show descriptions&quot; for New. A value
+the setting does not allow is named below its field, for example &quot;This value is above the maximum
+100.&quot;, and &quot;Apply&quot; then keeps the dialog open. &quot;Apply&quot; shows the change on the widget at once, &quot;Done&quot;
+saves it with your layout, and &quot;Cancel&quot; discards it together with the other changes; &quot;Cancel&quot; or
+Escape in the dialog closes only the dialog. Configure exists only in edit mode, so Start changes in
+one place. If a saved value no longer fits a widget, for example after a plugin narrowed a range, the
+widget says so in a line above its content, such as &quot;Number of runs: the saved value 500 is above the
+maximum 100, so the default 15 applies.&quot;, and uses the default until you configure it again.</p>
+<p>Start keeps the layout and the widgets&#39; settings on the server for your user, so the browser and VS
+Code show the same arrangement; without sign-in there is one layout for the server. The chosen tab of a narrow panel
 stays with this browser or VS Code panel. A widget added to the server later appears at its usual
 place, and a widget you removed stays removed, also after it was unavailable for a while. A widget
 that a plugin delivers only after Start opened, such as a global mini-app, takes its saved place and
@@ -1092,7 +1103,8 @@ width, also when it arrives while you edit, and a widget that cannot load shows 
 the widget is wide enough, between 240 and 320 pixels wide; in a widget narrower than about 450
 pixels they become compact rows across its width with one line of description, as in the New
 widget beside Continue.
-It has no server block. <strong>New</strong> comes first when the selected server permits new runs. The first
+It has no server block. <strong>New</strong> comes first; it stays empty, and so out of sight, when the selected
+server does not permit you new runs. With &quot;Show descriptions&quot; off, every card shows only its title. The first
 entry is its default template, marked &quot;Default&quot; in the title row, or &quot;New chat&quot;. Remaining
 templates follow without duplicating the default. Each flat card shows a title and two lines
 of description, with an always-visible action icon at the top right: plus for &quot;New chat&quot;,
@@ -1119,14 +1131,14 @@ empty chat without a template does not show it. If a run cannot be started, for 
 the user may not create runs, the panel explains why and offers &quot;Back to Start&quot;.
 For a new run, the visible chat input receives focus as
 soon as it becomes writable. Opening an existing run does the same for its selected chat partner.</p>
-<p><strong>Continue</strong> follows with this server&#39;s fifteen most recent runs in a fixed-column
-grid with status, title, and right-aligned time. Rows are
+<p><strong>Continue</strong> follows with this server&#39;s most recent runs, fifteen unless you configured another
+number, in a fixed-column grid with status, title, and right-aligned time. Rows are
 the same as in the browser: below the title the owner and short details such as the workspace,
 the whole row is clickable, and a dot in the status icon marks activity you have not viewed in
 any host yet. Shared runs carry their sharing icon next to the title, and runs you may share
 end with &quot;Share ...&quot; (see <a href="#share-runs">Share runs</a>). In a list narrower than 360 pixels the line
 with owner and details is left out, below 280 pixels also the time; this applies on Runs too.
-&quot;All N runs&quot; opens this server&#39;s Runs page.
+&quot;All N runs&quot; below the list opens this server&#39;s Runs page.
 The trash button (&quot;Delete run ...&quot;) beside a run on Start and Runs opens its deletion
 confirmation. Runs shared with you have no delete button.
 Plugin widgets follow Continue when installed, for example a list of work documents from all

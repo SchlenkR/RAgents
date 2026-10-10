@@ -558,7 +558,7 @@ The host keeps small per-user preferences on the server, so that the browser and
 same arrangement for a user (`apps/server/src/user-preferences.ts`). `ragents.preferences.read`
 returns the caller's stored JSON value for a key or `null`, and `ragents.preferences.write` stores
 one, `null` removes it. The keys are a closed list in `preferences-contract.ts`, so far only
-`start.layout`, Start's layout (`spec/plugins.md`, Arranging Start); a key outside it is refused by
+`start.layout`, Start's layout and widget settings (`spec/plugins.md`, Arranging Start); a key outside it is refused by
 the contract. The methods name no user and need no right: a caller reaches only the preferences of
 its own user, administrators included; without sign-in all callers share the one user of the
 access, which is the configured anonymous user or nobody, and a request without a user in a profile

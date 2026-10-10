@@ -373,7 +373,8 @@ buttons use the remaining width between the fixed controls, then continue over t
 in further rows. VS Code opens them in editor tabs; the browser opens them in its
 workspace. Narrow panels can also wrap fixed controls.
 
-**Start** is a dashboard of widgets over the full width of the window: **New**, **Continue**, and those that plugins add. What fits
+**Start** is a dashboard of widgets over the full width of the window: **New**, **Continue**, and those that plugins add,
+all of them widgets of the same kind. What fits
 depends on the width of Start itself, not of the window, so a narrow VS Code panel behaves like a
 narrow window. From 1100 pixels Start has six columns and every widget is as many of them wide as
 it is set to, New two and Continue four. Every widget is as tall as its content and moves up as far as
@@ -396,16 +397,27 @@ change its width: the columns of Start appear as guides, a label at the pointer 
 allows, while the other widgets reflow; Escape during the drag puts the width back. The title row
 shows the width, such as "2 of 6"; "x" removes the widget from Start. "Add widget" after the widgets opens a gallery of every widget
 that is not on Start, each with a short description and its width; choosing one adds it at the end
-in its usual width. "Reset layout" goes back to the order and widths Start comes with. With the
+in its usual width. "Reset layout" goes back to the order, widths, and settings Start comes with. With the
 keyboard, focus a widget's handle: the arrow keys move it, Shift with Left or Right makes it one
 column narrower or wider, and Delete removes it; a screen reader hears every change. In a narrow panel the edit mode
 lists the widgets as rows with a handle, up and down buttons, and "x"; widths are chosen on a wider
 Start. At medium widths the edge and the keys move by the three columns shown, and the tabs of a
-narrow panel follow your order. A layout saved before Start had six columns is not taken over; Start
+narrow panel follow your order. A layout saved before widgets had settings is not taken over; Start
 shows its usual layout until you save a new one.
 
-Start keeps the layout on the server for your user, so the browser and VS Code show the same
-arrangement; without sign-in there is one layout for the server. The chosen tab of a narrow panel
+Some widgets can be configured. In edit mode they have a gear, "Configure", before "x" in their title
+row, also in a narrow panel's list. It opens a small dialog with the widget's settings, such as
+"Number of runs" for Continue (15 by default, from 3 to 100) and "Show descriptions" for New. A value
+the setting does not allow is named below its field, for example "This value is above the maximum
+100.", and "Apply" then keeps the dialog open. "Apply" shows the change on the widget at once, "Done"
+saves it with your layout, and "Cancel" discards it together with the other changes; "Cancel" or
+Escape in the dialog closes only the dialog. Configure exists only in edit mode, so Start changes in
+one place. If a saved value no longer fits a widget, for example after a plugin narrowed a range, the
+widget says so in a line above its content, such as "Number of runs: the saved value 500 is above the
+maximum 100, so the default 15 applies.", and uses the default until you configure it again.
+
+Start keeps the layout and the widgets' settings on the server for your user, so the browser and VS
+Code show the same arrangement; without sign-in there is one layout for the server. The chosen tab of a narrow panel
 stays with this browser or VS Code panel. A widget added to the server later appears at its usual
 place, and a widget you removed stays removed, also after it was unavailable for a while. A widget
 that a plugin delivers only after Start opened, such as a global mini-app, takes its saved place and
@@ -415,7 +427,8 @@ Each widget arranges its content for its own width. Template cards stand in seve
 the widget is wide enough, between 240 and 320 pixels wide; in a widget narrower than about 450
 pixels they become compact rows across its width with one line of description, as in the New
 widget beside Continue.
-It has no server block. **New** comes first when the selected server permits new runs. The first
+It has no server block. **New** comes first; it stays empty, and so out of sight, when the selected
+server does not permit you new runs. With "Show descriptions" off, every card shows only its title. The first
 entry is its default template, marked "Default" in the title row, or "New chat". Remaining
 templates follow without duplicating the default. Each flat card shows a title and two lines
 of description, with an always-visible action icon at the top right: plus for "New chat",
@@ -445,14 +458,14 @@ the user may not create runs, the panel explains why and offers "Back to Start".
 For a new run, the visible chat input receives focus as
 soon as it becomes writable. Opening an existing run does the same for its selected chat partner.
 
-**Continue** follows with this server's fifteen most recent runs in a fixed-column
-grid with status, title, and right-aligned time. Rows are
+**Continue** follows with this server's most recent runs, fifteen unless you configured another
+number, in a fixed-column grid with status, title, and right-aligned time. Rows are
 the same as in the browser: below the title the owner and short details such as the workspace,
 the whole row is clickable, and a dot in the status icon marks activity you have not viewed in
 any host yet. Shared runs carry their sharing icon next to the title, and runs you may share
 end with "Share ..." (see [Share runs](#share-runs)). In a list narrower than 360 pixels the line
 with owner and details is left out, below 280 pixels also the time; this applies on Runs too.
-"All N runs" opens this server's Runs page.
+"All N runs" below the list opens this server's Runs page.
 The trash button ("Delete run ...") beside a run on Start and Runs opens its deletion
 confirmation. Runs shared with you have no delete button.
 Plugin widgets follow Continue when installed, for example a list of work documents from all
