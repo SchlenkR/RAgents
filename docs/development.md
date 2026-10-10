@@ -309,12 +309,13 @@ sidebar behavior, persistence, and iframe/draft identity with `RAGENTS_BROWSER_T
 for the header of the running run; without a component, the host draws a selection menu from the
 option's presentation.
 `startSections` adds widgets to the Start dashboard after "New" templates and "Continue" recent runs,
-with all server-listed visible runs, their metadata, and run navigation; `title` and `span` make a
-section a framed widget with a preferred width, and below 700 pixels of Start's own width the
-widgets become tabs.
+with all server-listed visible runs, their metadata, and run navigation; `title` makes a
+section a framed widget, `columns` (1 to 6 of Start's six-column grid, by default 6) sets its width
+and `minColumns` and `maxColumns` the range the viewer may choose, and below 700 pixels of Start's own
+width the widgets become tabs.
 `startWidgetsFor(context)` adds a dynamic list of widgets alongside those sections. Each value
 has a stable `id` under the plugin's ID (`<plugin id>:<name>`), `title`, optional `description`,
-`span`, `sizes`, `order`, and `readRight`, and `content: ReactNode`; Start's edit mode arranges
+`columns`, `minColumns`, `maxColumns`, `order`, and `readRight`, and `content: ReactNode`; Start's edit mode arranges
 these widgets like sections with a title. The context supplies `signal` for cleanup and `update`
 for live snapshots using the existing RPC connection; a factory that waits for its first snapshot
 returns a promise of it, and stable content component types preserve local state and frames

@@ -18,8 +18,8 @@ state, logs, and schedules.
 
 Each app appears as its own Start widget. In Start's edit mode you move it, resize it, or remove it
 like any other widget; "Add widget" lists a removed app with its description and brings it back.
-Removing the widget leaves its backend triggers running. Apps with views start wide and headless
-apps start narrow; your layout overrides these defaults.
+Removing the widget leaves its backend triggers running. Apps with views start four columns wide
+and headless apps two; your layout overrides these defaults.
 A view displays the app's state and calls its functions; a headless app shows last run and next
 run. Every widget shows its last output or result, including apps with views. A view can have
 several pages selected within the same widget. "Run now" starts a backend input even while automatic

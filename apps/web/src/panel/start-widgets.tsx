@@ -1,7 +1,8 @@
 import { useEffect, useState } from "react";
 import { useAccess } from "../AccessContext";
-import { START_WIDGET_SPANS, type PluginRegistry, type StartSectionContext, type StartWidgetContribution, type StartWidgetsContext } from "../PluginRegistry";
+import type { PluginRegistry, StartSectionContext, StartWidgetContribution, StartWidgetsContext } from "../PluginRegistry";
 import { Button } from "../ui";
+import { widthProblem } from "./dashboard-layout";
 
 type StartWidgetFactory = PluginRegistry["startWidgetFactories"][number];
 
@@ -16,9 +17,8 @@ export const checkedStartWidgets = (pluginId: string, widgets: readonly StartWid
     if (!widget.id.startsWith(`${pluginId}:`) || widget.id.length === pluginId.length + 1) throw new Error(`Start widget ${widget.id} needs an ID that starts with ${pluginId}:.`);
     if (!widget.title?.trim() || widget.content === undefined) throw new Error(`Start widget ${widget.id} has no title or content.`);
     if (widget.description !== undefined && !widget.description.trim()) throw new Error(`Start widget ${widget.id} has an empty description.`);
-    if (widget.span !== undefined && !START_WIDGET_SPANS.includes(widget.span)) throw new Error(`Start widget ${widget.id} has an invalid span.`);
-    if (widget.sizes !== undefined && (widget.sizes.some((size) => !START_WIDGET_SPANS.includes(size)) || new Set(widget.sizes).size !== widget.sizes.length
-      || !widget.sizes.includes(widget.span ?? "full"))) throw new Error(`Start widget ${widget.id} needs distinct valid sizes that include its span.`);
+    const width = widthProblem(widget);
+    if (width !== undefined) throw new Error(`Start widget ${widget.id} ${width}.`);
     if (widget.order !== undefined && !Number.isFinite(widget.order)) throw new Error(`Start widget ${widget.id} has an invalid order.`);
     return widget;
   });
@@ -53,7 +53,7 @@ export function useStartWidgets(registry: PluginRegistry | undefined, { runs, on
       const failed = (cause: unknown) => publish(factory.id, [{
         id: `${factory.id}:unavailable`,
         title: "Widgets unavailable",
-        span: "narrow",
+        columns: 2,
         content: <div className="grid gap-2"><p role="alert" className="text-sm text-destructive">{errorText(cause)}</p><Button onClick={() => setRetry((value) => value + 1)} size="sm" variant="outline">Retry</Button></div>,
       }]);
       const update = (widgets: readonly StartWidgetContribution[]) => {

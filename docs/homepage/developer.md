@@ -1148,7 +1148,7 @@ const startUi = {
   id: "ragents.example",
   startSections: [{
     id: "ragents.example.documents", order: 100, readRight: "ragents.example.read",
-    title: "Work documents", description: "Documents of all runs, newest first.", span: "half", sizes: ["half", "wide", "full"],
+    title: "Work documents", description: "Documents of all runs, newest first.", columns: 3, minColumns: 2,
     Section: ({ runs, onOpenRun }) => {
       const documents = runs.flatMap((run) => {
         const value = run.metadata?.["ragents.example.documents"];
@@ -1167,17 +1167,17 @@ const startUi = {
 
 Start shows New templates, then Continue with the fifteen recent runs, then plugin widgets sorted by order and id. The context contains every server-listed visible run, sorted by updatedAt, with id, title, updatedAt, and optional metadata keyed by contribution ID.
 
-title makes the section a widget: the host draws its title row and, below 700 pixels of Start's own width, its tab. span chooses its preferred width on a wide dashboard: narrow (a third), half, wide (two thirds), or full, the default. Its body is a size container named widget, so @container variants such as @md/widget: follow the widget's width.
+title makes the section a widget: the host draws its title row and, below 700 pixels of Start's own width, its tab. columns is its width in columns of Start's six-column grid, 1 to 6, by default 6; from 700 pixels the grid has three columns and the widget takes half its columns, rounded up. Its body is a size container named widget, so @container variants such as @md/widget: follow the widget's width.
 
-In Start's edit mode the viewer moves, resizes, removes, and adds widgets. description is the sentence the widget gallery shows; sizes limits the sizes the viewer may choose, by default all four, and must include span. The id is the widget's ID in the viewer's saved layout, so it stays the same across releases.
+In Start's edit mode the viewer moves, resizes, removes, and adds widgets. description is the sentence the widget gallery shows; minColumns and maxColumns limit the widths the viewer may choose, by default 1 to 6, and must include columns. The id is the widget's ID in the viewer's saved layout, so it stays the same across releases.
 
 The server filters the run list for the viewer; the slot performs no additional run access checks. readRight hides the entire section without the named permission.
 
 onOpenRun uses the same navigation as a run row in both browser and VS Code server frames. The local VS Code shell has no plugin registry and contributes no sections.
 
-Returning null leaves no cell, tab, or gap. A section without title keeps its own heading and spacing and fills a row; span requires a title.
+Returning null leaves no cell, tab, or gap. A section without title keeps its own heading and spacing and fills a row; columns, minColumns, and maxColumns require a title.
 
-Contract fields: web.startSections, startSection.id, startSection.order, startSection.readRight, startSection.title, startSection.description, startSection.span, startSection.sizes, startSection.Section, startSectionContext.runs, startSectionContext.onOpenRun.
+Contract fields: web.startSections, startSection.id, startSection.order, startSection.readRight, startSection.title, startSection.description, startSection.columns, startSection.minColumns, startSection.maxColumns, startSection.Section, startSectionContext.runs, startSectionContext.onOpenRun.
 
 ### Publish dynamic Start widgets
 
@@ -1217,15 +1217,15 @@ const dynamicStartUi = {
       id: "ragents.example:" + widget.name,
       title: widget.title,
       description: "Opens the run behind this piece of work.",
-      span: "wide",
-      sizes: ["half", "wide", "full"],
+      columns: 4,
+      minColumns: 3,
       order: 200,
       readRight: "ragents.example.read",
       content: <WorkWidget runId={widget.runId} onOpenRun={onOpenRun} />,
     }))), (problem) => publish([{
       id: "ragents.example:problem",
       title: "Work widgets unavailable",
-      span: "narrow",
+      columns: 2,
       content: <p role="alert">{problem}</p>,
     }]));
     signal.addEventListener("abort", unsubscribe, { once: true });
@@ -1233,9 +1233,9 @@ const dynamicStartUi = {
 } satisfies WebPlugin;
 ```
 
-startWidgetsFor returns readonly contributions synchronously or as a promise. Each contribution has id, title, and content: ReactNode, with optional description, span, sizes, order (by default 200), and readRight. It joins the existing Start dashboard without changing startSections.
+startWidgetsFor returns readonly contributions synchronously or as a promise. Each contribution has id, title, and content: ReactNode, with optional description, columns, minColumns, maxColumns, order (by default 200), and readRight. It joins the existing Start dashboard without changing startSections.
 
-Every id starts with the plugin's id and a colon and stays the same across snapshots and releases, because the viewer's saved Start layout refers to it. In Start's edit mode the viewer moves, resizes, removes, and adds back these widgets like start sections; description and sizes follow the same rules, and span and order are defaults.
+Every id starts with the plugin's id and a colon and stays the same across snapshots and releases, because the viewer's saved Start layout refers to it. In Start's edit mode the viewer moves, resizes, removes, and adds back these widgets like start sections; description and the width follow the same rules, and columns and order are defaults.
 
 The context also includes every server-listed visible run in runs, just like StartSectionContext. update replaces this factory's current widget snapshot, and signal aborts when its context is released; the factory then unsubscribes from live channels.
 
@@ -1245,7 +1245,7 @@ Keep the same widget id and define the content component outside the factory. A 
 
 The host draws the title, frame, and narrow-dashboard tab and adapts layout to its own width. Errors must stay visible rather than silently removing affected widgets; a factory that fails shows its cause in a widget of its own, and removing a widget from Start does not stop its server-side work.
 
-Contract fields: web.startWidgetsFor, startWidget.id, startWidget.title, startWidget.description, startWidget.span, startWidget.sizes, startWidget.order, startWidget.readRight, startWidget.content, startWidgetsContext.runs, startWidgetsContext.onOpenRun, startWidgetsContext.signal, startWidgetsContext.update.
+Contract fields: web.startWidgetsFor, startWidget.id, startWidget.title, startWidget.description, startWidget.columns, startWidget.minColumns, startWidget.maxColumns, startWidget.order, startWidget.readRight, startWidget.content, startWidgetsContext.runs, startWidgetsContext.onOpenRun, startWidgetsContext.signal, startWidgetsContext.update.
 
 ### Run data and React context
 
@@ -2615,10 +2615,12 @@ export interface StartSectionContribution {
   title?: string;
   /** One sentence about the widget for the gallery of Start's edit mode; requires a title. */
   description?: string;
-  /** The preferred width of a widget with a title, by default the whole row. */
-  span?: StartWidgetSpan;
-  /** The sizes the viewer may give the widget in edit mode, by default all; they include its span. */
-  sizes?: StartWidgetSpan[];
+  /** The width of a widget with a title in columns of Start's six-column grid, 1 to 6, by default 6. */
+  columns?: number;
+  /** The narrowest width the viewer may give the widget in edit mode, by default 1. */
+  minColumns?: number;
+  /** The widest width the viewer may give the widget in edit mode, by default 6. */
+  maxColumns?: number;
   Section: ComponentType<StartSectionContext>;
 }
 ```
@@ -2645,10 +2647,12 @@ export interface StartWidgetContribution {
   readonly title: string;
   /** One sentence about the widget for the gallery of Start's edit mode. */
   readonly description?: string;
-  /** The preferred width, by default the whole row. */
-  readonly span?: StartWidgetSpan;
-  /** The sizes the viewer may give the widget in edit mode, by default all; they include its span. */
-  readonly sizes?: readonly StartWidgetSpan[];
+  /** The width in columns of Start's six-column grid, 1 to 6, by default 6. */
+  readonly columns?: number;
+  /** The narrowest width the viewer may give the widget in edit mode, by default 1. */
+  readonly minColumns?: number;
+  /** The widest width the viewer may give the widget in edit mode, by default 6. */
+  readonly maxColumns?: number;
   /** Its place among the start sections, by default 200. */
   readonly order?: number;
   readonly readRight?: string;

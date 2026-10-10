@@ -42,6 +42,6 @@ test("dynamic app widget IDs stay stable when view titles and revisions change, 
   assert.doesNotThrow(() => checkedStartWidgets("ragents.global-apps", failing), "app, error, and system widgets meet the host's rules");
   const viewed = { ...app, views: [{ id: "date.main", title: "Date", revision: "new" }] };
   assert.equal(widgets(viewed)[0]?.id, widgets(app)[0]?.id);
-  assert.equal(widgets(viewed)[0]?.span, "wide");
-  assert.equal(widgets(app)[0]?.span, "narrow");
+  assert.equal(widgets(viewed)[0]?.columns, 4);
+  assert.equal(widgets(app)[0]?.columns, 2);
 });

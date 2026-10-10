@@ -14,6 +14,7 @@ import { unrestrictedAccess, type AccessContext } from "../../../packages/ragent
 import { DETAIL_MODES, type ChatAttachmentInput, type DetailMode, type Message, type PendingAction, type ToolInfo, type ChatStartupStatus } from "quassel";
 import type { SessionInfo } from "./api";
 import type { ConnectionRun } from "./panel/contract";
+import { widthProblem } from "./panel/dashboard-layout";
 import type { ChatUserLocation } from "../../server/src/chat-context";
 import { CHAT_STEP_SCOPES, type ChatStepScope } from "../../server/src/plugin-support/chat-display-contract";
 import type { StartOptionState } from "../../server/src/plugin-support/start-options-contract";
@@ -196,10 +197,6 @@ export interface StartSectionContext {
   onOpenRun: (runId: string) => void;
 }
 
-/** The preferred width of a Start widget on a wide dashboard: a third, half, two thirds, or the whole row. */
-export const START_WIDGET_SPANS = ["narrow", "half", "wide", "full"] as const;
-export type StartWidgetSpan = typeof START_WIDGET_SPANS[number];
-
 export interface StartSectionContribution {
   id: string;
   order: number;
@@ -208,10 +205,12 @@ export interface StartSectionContribution {
   title?: string;
   /** One sentence about the widget for the gallery of Start's edit mode; requires a title. */
   description?: string;
-  /** The preferred width of a widget with a title, by default the whole row. */
-  span?: StartWidgetSpan;
-  /** The sizes the viewer may give the widget in edit mode, by default all; they include its span. */
-  sizes?: StartWidgetSpan[];
+  /** The width of a widget with a title in columns of Start's six-column grid, 1 to 6, by default 6. */
+  columns?: number;
+  /** The narrowest width the viewer may give the widget in edit mode, by default 1. */
+  minColumns?: number;
+  /** The widest width the viewer may give the widget in edit mode, by default 6. */
+  maxColumns?: number;
   Section: ComponentType<StartSectionContext>;
 }
 
@@ -222,10 +221,12 @@ export interface StartWidgetContribution {
   readonly title: string;
   /** One sentence about the widget for the gallery of Start's edit mode. */
   readonly description?: string;
-  /** The preferred width, by default the whole row. */
-  readonly span?: StartWidgetSpan;
-  /** The sizes the viewer may give the widget in edit mode, by default all; they include its span. */
-  readonly sizes?: readonly StartWidgetSpan[];
+  /** The width in columns of Start's six-column grid, 1 to 6, by default 6. */
+  readonly columns?: number;
+  /** The narrowest width the viewer may give the widget in edit mode, by default 1. */
+  readonly minColumns?: number;
+  /** The widest width the viewer may give the widget in edit mode, by default 6. */
+  readonly maxColumns?: number;
   /** Its place among the start sections, by default 200. */
   readonly order?: number;
   readonly readRight?: string;
@@ -499,20 +500,12 @@ export class PluginRegistry {
       const publisher = this.startWidgetFactories.find((factory) => section.id.startsWith(`${factory.id}:`));
       if (publisher !== undefined) throw new Error(`Start section ${section.id} uses the widget ID prefix of ${publisher.id}, which publishes dynamic Start widgets`);
       if (section.title !== undefined && section.title.trim() === "") throw new Error(`Start section ${section.id} has an empty title`);
-      if (section.span !== undefined && section.title === undefined) throw new Error(`Start section ${section.id} declares a span without a title`);
-      if (section.span !== undefined && !START_WIDGET_SPANS.includes(section.span)) {
-        throw new Error(`Start section ${section.id} has the span ${String(section.span)}; allowed are ${START_WIDGET_SPANS.join(", ")}`);
-      }
+      const declaresWidth = section.columns !== undefined || section.minColumns !== undefined || section.maxColumns !== undefined;
+      if (declaresWidth && section.title === undefined) throw new Error(`Start section ${section.id} declares a width without a title`);
+      const width = widthProblem(section);
+      if (width !== undefined) throw new Error(`Start section ${section.id} ${width}`);
       if (section.description !== undefined && section.title === undefined) throw new Error(`Start section ${section.id} declares a description without a title`);
       if (section.description !== undefined && section.description.trim() === "") throw new Error(`Start section ${section.id} has an empty description`);
-      if (section.sizes !== undefined) {
-        if (section.title === undefined) throw new Error(`Start section ${section.id} declares sizes without a title`);
-        const unknown = section.sizes.find((size) => !START_WIDGET_SPANS.includes(size));
-        if (unknown !== undefined) throw new Error(`Start section ${section.id} has the size ${String(unknown)}; allowed are ${START_WIDGET_SPANS.join(", ")}`);
-        if (new Set(section.sizes).size !== section.sizes.length) throw new Error(`Start section ${section.id} names a size twice`);
-        const span = section.span ?? "full";
-        if (!section.sizes.includes(span)) throw new Error(`Start section ${section.id} declares sizes without its span ${span}`);
-      }
     }
     this.needsRunView = this.activePlugins.some((plugin) => plugin.needsRunView);
     const chatPolicies = this.activePlugins.flatMap((plugin) => plugin.chatDisplayPolicy ? [plugin.chatDisplayPolicy] : []);

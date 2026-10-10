@@ -1,5 +1,38 @@
 # Decisions
 
+## 2026-10-10: Start has six columns, widgets choose a width of 1 to 6, and resizing follows the pointer
+
+Chapters: `spec/plugins.md` (Web as plugin host: slots `startSections` and `startWidgetsFor`; Start,
+Arranging Start, Global mini-apps); usage: `usage.md` (Start, Global mini-apps); `development.md`
+(Extension points in the web); homepage reference examples.
+
+Resizing a widget in Start's edit mode looked broken although the pointer worked: a real mouse drag in
+Chromium and WebKit captured the pointer and changed the stored size, but the grid did not show it.
+Rows with space left widened their widgets in proportion, so a widget alone in its row filled it and
+"Half" next to "Narrow" became 7 and 5 of 12 columns; at medium widths `narrow`, `half`, and `wide`
+were all half a row, so dragging changed only the label; and the drag measured from the nominal
+twelve-column width of the size while its handle sat at the rendered edge, so growing New one size
+pushed Continue into the next row and stretched New over the whole row. The four named sizes were
+also too coarse.
+
+Start now has a six-column grid. A widget is a whole number of columns wide, and the contract is
+`columns` (by default 6) with optional `minColumns` and `maxColumns` instead of `span` and `sizes`;
+`StartWidgetSpan` and `START_WIDGET_SPANS` are gone. Every widget takes exactly its columns, also alone
+in a row, so the rendered width is the chosen one; a widget that does not fit starts the next row.
+From 700 pixels the grid has three columns and a widget takes half its columns, rounded up; resizing
+there moves by the columns shown and stores the most columns that show the width, so each step is
+visible. New is 2 and Continue 4 columns wide, both at least 2; global apps are 4 with a view and 2
+without. Widgets in a row keep sharing its height, as before. The drag adds the columns the pointer
+moved to the width at its start, snaps at the middle of each column, shows the grid's columns as guides
+and the target width at the pointer, and Escape puts the width back; the handle covers the whole right
+edge, leaves the title row's "x" free, and colors on hover. Shift with Left or Right steps one column;
+Shift with Up or Down now moves like Up or Down. `usePointerDrag` ends a running drag as cancelled
+when a second pointer starts one, so moving and resizing never share a pointer and leave no stale
+gesture behind. The stored layout becomes `version` 2 with `columns`; a version 1 layout with named
+sizes is ignored without migration, because there are no released users. `HOST_API_VERSION` stays
+16, because no listed value name changed; a bundle built earlier that sets `span` still loads with the
+default width, and rebuilding it reports `span` as an unknown property.
+
 ## 2026-10-10: Dynamic Start widgets take part in Start's edit mode
 
 Chapters: `spec/plugins.md` (Web as plugin host: slot list `startWidgetsFor`, Arranging Start, Global

@@ -9,7 +9,7 @@ export const globalAppWidgets = (snapshot: GlobalAppsSnapshot, retry: () => void
     id: `ragents.global-apps:${app.name}`,
     title: app.views[0]?.title ?? app.name,
     description: app.description.trim() ? app.description : undefined,
-    span: app.views.length ? "wide" : "narrow",
+    columns: app.views.length ? 4 : 2,
     order: 200,
     readRight: "ragents.global-apps.read",
     content: <GlobalAppWidget app={app} runId={snapshot.runId!} revision={snapshot.revision} />,
@@ -18,13 +18,13 @@ export const globalAppWidgets = (snapshot: GlobalAppsSnapshot, retry: () => void
     id: `ragents.global-apps:${error.id}`,
     title: error.name,
     description: "A global mini-app that needs repair.",
-    span: "narrow",
+    columns: 2,
     order: 200,
     readRight: "ragents.global-apps.read",
     content: <UnavailableGlobalApp name={error.name} problem={error.problem} revision={snapshot.revision} onRetry={retry} />,
   }));
   return [...apps, ...errors, ...snapshot.problem ? [{
-    id: "ragents.global-apps:system:unavailable", title: "Global apps unavailable", description: "Why your global mini-apps cannot be shown.", span: "narrow" as const, order: 200,
+    id: "ragents.global-apps:system:unavailable", title: "Global apps unavailable", description: "Why your global mini-apps cannot be shown.", columns: 2, order: 200,
     readRight: "ragents.global-apps.read", content: <UnavailableGlobalApp name="Global apps" problem={snapshot.problem!} revision={snapshot.revision} onRetry={retry} />,
   }] : []];
 };
@@ -35,7 +35,7 @@ function EmptyGlobalApps() {
 
 const emptyWidget: StartWidgetContribution = {
   id: "ragents.global-apps:system:empty", title: "Global mini-apps", description: "Where the global mini-apps that the global coordinator builds for you appear.",
-  span: "narrow", order: 200, readRight: "ragents.global-apps.read", content: <EmptyGlobalApps />,
+  columns: 2, order: 200, readRight: "ragents.global-apps.read", content: <EmptyGlobalApps />,
 };
 
 export const webPlugin: WebPlugin = {

@@ -21,7 +21,7 @@ const store = async () => {
 };
 
 const KEY: PreferenceKey = "start.layout";
-const layout = { version: 1, order: ["start.continue", "start.new"], spans: { "start.continue": "narrow" }, removed: [] };
+const layout = { version: 2, order: ["start.continue", "start.new"], columns: { "start.continue": 2 }, removed: [] };
 
 const domainError = (code: string, status: number, message?: RegExp) => (error: unknown) =>
   error instanceof DomainError && error.code === code && error.status === status && (message === undefined || message.test(error.message));
@@ -29,11 +29,11 @@ const domainError = (code: string, status: number, message?: RegExp) => (error: 
 test("each user reads only their own values, the user without sign-in included, and IDs that differ in case stay apart", async () => {
   const { directory, preferences } = await store();
   await preferences.write("alice", KEY, layout);
-  await preferences.write(null, KEY, { version: 1, order: [], spans: {}, removed: ["start.new"] });
+  await preferences.write(null, KEY, { version: 2, order: [], columns: {}, removed: ["start.new"] });
   assert.deepEqual(await preferences.read("alice", KEY), layout);
   assert.equal(await preferences.read("bob", KEY), null, "another user has nothing stored");
   assert.equal(await preferences.read("Alice", KEY), null, "a user ID that differs only in case is another user");
-  assert.deepEqual(await preferences.read(null, KEY), { version: 1, order: [], spans: {}, removed: ["start.new"] });
+  assert.deepEqual(await preferences.read(null, KEY), { version: 2, order: [], columns: {}, removed: ["start.new"] });
   assert.deepEqual((await readdir(directory)).sort(), ["anonymous.json", preferenceFileName("alice")].sort());
   assert.equal(preferenceFileName("alice"), "user-616c696365.json");
   assert.notEqual(preferenceFileName("Alice"), preferenceFileName("alice"));
@@ -103,7 +103,7 @@ test("the methods reach only the caller's own preferences, need no right, and ch
   assert.equal(await read(user("bob")), null);
   assert.equal(await read(user("admin", ["*"])), null, "administrators also reach only their own");
   assert.equal(await read(unrestrictedAccess), null, "the access without sign-in has its own user");
-  await write(unrestrictedAccess, { version: 1, order: [], spans: {}, removed: [] });
+  await write(unrestrictedAccess, { version: 2, order: [], columns: {}, removed: [] });
   assert.deepEqual(await read(createAccessContext({ enabled: false, user: { id: "alice", label: "Alice", rights: [] } })), layout, "the configured user without sign-in is the user it names");
   await assert.rejects(read(createAccessContext({ enabled: true, user: null })), domainError("login-required", 401));
   await assert.rejects(dispatchMethod(methods, coreContracts.preferences.read.id, { key: "start.other" }, user("alice")),

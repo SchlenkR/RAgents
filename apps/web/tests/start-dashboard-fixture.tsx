@@ -53,20 +53,20 @@ const list = (label: string) => function List() {
   </ul>;
 };
 
-const widget = (id: string, order: number, title: string, span?: StartSectionContribution["span"], extra: Partial<StartSectionContribution> = {}): StartSectionContribution =>
-  ({ id, order, title, ...(span ? { span } : {}), Section: list(`${title} entries`), ...extra });
+const widget = (id: string, order: number, title: string, columns?: number, extra: Partial<StartSectionContribution> = {}): StartSectionContribution =>
+  ({ id, order, title, ...(columns ? { columns } : {}), Section: list(`${title} entries`), ...extra });
 
 const sections: StartSectionContribution[] = [
   { id: "demo.board", order: 10, title: "Work board", description: "Runs in three lanes by their state.", Section: WorkBoard },
-  widget("demo.auto", 20, "New auto items", "narrow"),
-  widget("demo.shared", 30, "Shared with the team", "narrow"),
-  widget("demo.usage", 40, "Model usage", "narrow", { description: "Tokens and cost of the last runs.", sizes: ["narrow", "half"] }),
-  { id: "demo.empty", order: 50, title: "Nothing to show", span: "narrow", Section: () => null },
+  widget("demo.auto", 20, "New auto items", 2),
+  widget("demo.shared", 30, "Shared with the team", 2),
+  widget("demo.usage", 40, "Model usage", 2, { description: "Tokens and cost of the last runs.", minColumns: 1, maxColumns: 3 }),
+  { id: "demo.empty", order: 50, title: "Nothing to show", columns: 2, Section: () => null },
   { id: "demo.legacy", order: 60, Section: () => <section aria-label="Legacy notes" className="grid gap-3"><h2 className="type-label">Legacy notes</h2><p className="type-body">A section without a title keeps its own heading.</p></section> },
   ...(query.get("widgets") === "many" ? [
-    widget("demo.topics", 70, "Topics in review", "half"),
-    widget("demo.releases", 80, "Upcoming releases", "half"),
-    widget("demo.incidents", 90, "Open incidents this week", "narrow"),
+    widget("demo.topics", 70, "Topics in review", 3),
+    widget("demo.releases", 80, "Upcoming releases", 3),
+    widget("demo.incidents", 90, "Open incidents this week", 2),
   ] : []),
 ];
 
@@ -75,8 +75,8 @@ function BrokenApp(): never {
 }
 
 const apps: Readonly<Record<string, StartWidgetContribution>> = {
-  planner: { id: "demo.apps:planner", title: "Planner", description: "Plans the week from your runs.", span: "half", sizes: ["narrow", "half", "wide"], content: <ul aria-label="Planner entries" className="grid gap-2 rounded-xl border border-border bg-card p-3"><li className="type-body">Review on Monday</li></ul> },
-  broken: { id: "demo.apps:broken", title: "Broken app", span: "narrow", content: <BrokenApp /> },
+  planner: { id: "demo.apps:planner", title: "Planner", description: "Plans the week from your runs.", columns: 3, minColumns: 2, maxColumns: 4, content: <ul aria-label="Planner entries" className="grid gap-2 rounded-xl border border-border bg-card p-3"><li className="type-body">Review on Monday</li></ul> },
+  broken: { id: "demo.apps:broken", title: "Broken app", columns: 2, content: <BrokenApp /> },
 };
 
 /** ?dynamic=1 adds two plugins that publish widgets per viewer: one whose widgets the test can change through setApps, one whose factory fails. */

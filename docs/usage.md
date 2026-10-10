@@ -636,8 +636,8 @@ state, logs, and schedules.
 
 Each app appears as its own Start widget. In Start's edit mode you move it, resize it, or remove it
 like any other widget; "Add widget" lists a removed app with its description and brings it back.
-Removing the widget leaves its backend triggers running. Apps with views start wide and headless
-apps start narrow; your layout overrides these defaults.
+Removing the widget leaves its backend triggers running. Apps with views start four columns wide
+and headless apps two; your layout overrides these defaults.
 A view displays the app's state and calls its functions; a headless app shows last run and next
 run. Every widget shows its last output or result, including apps with views. A view can have
 several pages selected within the same widget. "Run now" starts a backend input even while automatic
@@ -1151,9 +1151,10 @@ workspace. Narrow panels can also wrap fixed controls.
 
 **Start** is a dashboard of widgets over the full width of the window: **New**, **Continue**, and those that plugins add. What fits
 depends on the width of Start itself, not of the window, so a narrow VS Code panel behaves like a
-narrow window. From 1100 pixels the widgets stand side by side in their preferred widths, New in a
-third and Continue in two thirds of the row; from 700 pixels narrow widgets take half a row; a widget
-alone in its row fills it. Below 700 pixels Start shows one widget at a time with tabs at the top;
+narrow window. From 1100 pixels Start has six columns and every widget is as many of them wide as
+it is set to, New two and Continue four; a widget that does not fit in a row starts the next one. From
+700 pixels Start has three columns and every widget takes half its columns, rounded up, so New and
+Continue still share a row. Below 700 pixels Start shows one widget at a time with tabs at the top;
 the chosen tab is remembered for this server address. A plugin section without a title follows
 below the tabs, and a widget with nothing to show has neither a place nor a tab.
 
@@ -1161,23 +1162,26 @@ Arrange Start in its edit mode. "Edit" at the top right of Start, or the pencil 
 tabs in a narrow panel, switches to it; "Editing Start" above the widgets shows the mode until
 "Done" saves the layout. "Cancel" or Escape discards every change. While you edit, every widget
 gets a dashed frame and its content rests: drag a widget by the handle before its title to another
-place, and the other widgets make room as you drag; drag its right edge to change its size, which
-snaps to Narrow, Half, Wide, or Full as far as the widget offers them and shows the size in its
-title row; "x" removes it from Start. "Add widget" after the widgets opens a gallery of every widget
-that is not on Start, each with a short description and its sizes; choosing one adds it at the end
-in its usual size. "Reset layout" goes back to the order and sizes Start comes with. With the
-keyboard, focus a widget's handle: the arrow keys move it, Shift with the arrow keys changes its
-size, and Delete removes it; a screen reader hears every change. In a narrow panel the edit mode
-lists the widgets as rows with a handle, up and down buttons, and "x"; sizes are chosen on a wider
-Start. Sizes follow the same rules as above, so they still halve at medium widths, and the tabs of a
-narrow panel follow your order.
+place, and the other widgets make room as you drag; drag its right edge, anywhere along it, to
+change its width: the columns of Start appear as guides, a label at the pointer shows the width
+("4 of 6 columns"), and the width snaps to each column between the narrowest and widest the widget
+allows, while the other widgets reflow; Escape during the drag puts the width back. The title row
+shows the width, such as "2 of 6"; "x" removes the widget from Start. "Add widget" after the widgets opens a gallery of every widget
+that is not on Start, each with a short description and its width; choosing one adds it at the end
+in its usual width. "Reset layout" goes back to the order and widths Start comes with. With the
+keyboard, focus a widget's handle: the arrow keys move it, Shift with Left or Right makes it one
+column narrower or wider, and Delete removes it; a screen reader hears every change. In a narrow panel the edit mode
+lists the widgets as rows with a handle, up and down buttons, and "x"; widths are chosen on a wider
+Start. At medium widths the edge and the keys move by the three columns shown, and the tabs of a
+narrow panel follow your order. A layout saved before Start had six columns is not taken over; Start
+shows its usual layout until you save a new one.
 
 Start keeps the layout on the server for your user, so the browser and VS Code show the same
 arrangement; without sign-in there is one layout for the server. The chosen tab of a narrow panel
 stays with this browser or VS Code panel. A widget added to the server later appears at its usual
 place, and a widget you removed stays removed, also after it was unavailable for a while. A widget
 that a plugin delivers only after Start opened, such as a global mini-app, takes its saved place and
-size, also when it arrives while you edit, and a widget that cannot load shows why in its own place.
+width, also when it arrives while you edit, and a widget that cannot load shows why in its own place.
 
 Each widget arranges its content for its own width. Template cards stand in several columns when
 the widget is wide enough, between 240 and 320 pixels wide; in a widget narrower than about 450

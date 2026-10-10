@@ -5,7 +5,7 @@ import { PluginRegistry, type StartWidgetContribution, type StartWidgetsContext 
 import { checkedStartWidgets, loadStartWidgets } from "../src/panel/start-widgets";
 
 const context = (): StartWidgetsContext => ({ runs: [], onOpenRun: () => {}, signal: new AbortController().signal, update: () => {} });
-const healthy: StartWidgetContribution = { id: "healthy:counter", title: "Counter", span: "half", content: createElement("p", {}, "Ready") };
+const healthy: StartWidgetContribution = { id: "healthy:counter", title: "Counter", columns: 3, content: createElement("p", {}, "Ready") };
 
 test("dynamic widgets are loaded per context and a failed factory does not affect other contributions", async () => {
   const registry = new PluginRegistry({
@@ -28,14 +28,15 @@ test("invalid widget IDs, layout hints, gallery details and missing content repo
   assert.throws(() => check({ ...healthy, id: "other:counter" }), /needs an ID that starts with healthy:/, "a plugin cannot take another plugin's widget IDs");
   assert.throws(() => check({ ...healthy, id: "healthy:" }), /needs an ID that starts with healthy:/);
   assert.throws(() => check({ ...healthy, title: " " }), /no title/);
-  assert.throws(() => check({ ...healthy, span: "huge" as never }), /invalid span/);
+  assert.throws(() => check({ ...healthy, columns: 7 }), /Start widget healthy:counter has columns 7; allowed are whole numbers from 1 to 6\./);
+  assert.throws(() => check({ ...healthy, columns: 1.5 }), /has columns 1.5/);
   assert.throws(() => check({ ...healthy, order: NaN }), /invalid order/);
   assert.throws(() => check({ ...healthy, content: undefined }), /no title or content/);
   assert.throws(() => check({ ...healthy, description: " " }), /empty description/);
-  assert.throws(() => check({ ...healthy, sizes: ["narrow", "wide"] }), /sizes that include its span/);
-  assert.throws(() => check({ ...healthy, sizes: ["half", "half"] }), /distinct valid sizes/);
-  assert.throws(() => check({ ...healthy, span: undefined, sizes: ["narrow", "half"] }), /include its span/, "the default span is the whole row");
-  const described = { ...healthy, description: "Counts what happened today.", sizes: ["narrow", "half"] as const };
+  assert.throws(() => check({ ...healthy, minColumns: 4 }), /has 3 columns outside its range from minColumns 4 to maxColumns 6/);
+  assert.throws(() => check({ ...healthy, maxColumns: 0 }), /has maxColumns 0/);
+  assert.throws(() => check({ ...healthy, columns: undefined, maxColumns: 4 }), /has 6 columns outside its range/, "the default width is the whole row");
+  const described = { ...healthy, description: "Counts what happened today.", minColumns: 2, maxColumns: 4 };
   assert.deepEqual(check(described), [described]);
 });
 

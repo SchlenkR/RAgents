@@ -1,10 +1,10 @@
 import { ChevronRightIcon } from "lucide-react";
 import { useCallback, useMemo, useState } from "react";
 import { useAccess } from "../AccessContext";
-import { START_WIDGET_SPANS } from "../PluginRegistry";
 import { StartTiles, startTileCount } from "../StartTiles";
 import { Button } from "../ui";
 import type { PanelAction, PanelState } from "./contract";
+import { widgetWidth } from "./dashboard-layout";
 import type { PanelPageProps } from "./page-props";
 import { canDeleteRun, RunCard, RunLine, RunList } from "./RunLine";
 import { StartDashboard, type StartWidget } from "./StartDashboard";
@@ -37,13 +37,13 @@ export function StartPage({ state, send, registry, preferences }: PanelPageProps
   const sections = registry?.startSections.filter((section) => !section.readRight || access.can(section.readRight)) ?? [];
   const widgets: readonly StartWidget[] = [
     ...(connection.canCreate ? [{
-      key: "start.new", title: "New", description: "Start a run from a template of this server or as a new chat.", count: tiles, span: "narrow" as const, sizes: START_WIDGET_SPANS,
+      key: "start.new", title: "New", description: "Start a run from a template of this server or as a new chat.", count: tiles, ...widgetWidth({ columns: 2, minColumns: 2 }),
       content: <StartTiles defaultEntry={connection.defaultEntry} disabled={starting !== undefined} entries={connection.entries} label="Templates"
         onNewChat={connection.canCreateFree === false ? undefined : () => startRun({ action: "newRun", name: connection.name })}
         onStart={(entryId) => startRun({ action: "newRun", name: connection.name, entryId })} starting={starting} />,
     }] : []),
     {
-      key: "start.continue", title: "Continue", description: "Your most recent runs, with the way to all of them.", span: "wide", sizes: START_WIDGET_SPANS,
+      key: "start.continue", title: "Continue", description: "Your most recent runs, with the way to all of them.", ...widgetWidth({ columns: 4, minColumns: 2 }),
       action: runs.length > 0 ? <Button onClick={() => send({ action: "page", page: "runs" })} size="xs" variant="ghost">All {runs.length} runs<ChevronRightIcon data-icon="inline-end" /></Button> : undefined,
       content: runs.length === 0
         ? <p className="type-body text-muted-foreground">No runs yet.</p>
@@ -56,10 +56,10 @@ export function StartPage({ state, send, registry, preferences }: PanelPageProps
           </RunList>
         </RunCard>,
     },
-    ...[...sections.map(({ id, title, description, span, sizes, order, Section }) => ({
-      key: id, title, description, span: span ?? "full", sizes: sizes ?? START_WIDGET_SPANS, order, content: <Section onOpenRun={openRun} runs={runs} />,
-    })), ...dynamic.map(({ id, title, description, span, sizes, order, content }) => ({
-      key: id, title, description, span: span ?? "full", sizes: sizes ?? START_WIDGET_SPANS, order: order ?? 200, content,
+    ...[...sections.map(({ id, title, description, columns, minColumns, maxColumns, order, Section }) => ({
+      key: id, title, description, ...widgetWidth({ columns, minColumns, maxColumns }), order, content: <Section onOpenRun={openRun} runs={runs} />,
+    })), ...dynamic.map(({ id, title, description, columns, minColumns, maxColumns, order, content }) => ({
+      key: id, title, description, ...widgetWidth({ columns, minColumns, maxColumns }), order: order ?? 200, content,
     }))].sort((a, b) => a.order - b.order || a.key.localeCompare(b.key)),
   ];
   return <div className="grid min-w-0 grid-cols-1 gap-8">

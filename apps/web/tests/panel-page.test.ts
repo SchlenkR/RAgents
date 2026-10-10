@@ -103,19 +103,20 @@ test("Start sections retain contribution order and empty sections add nothing bu
   assert.throws(() => registryWith([{ id: "test.empty", startSections: [section("", 0)] }]), /Start section without ID/);
 });
 
-test("a Start section with a title becomes a framed widget with its span; without one it keeps a full row of its own", () => {
+test("a Start section with a title becomes a framed widget with its columns; without one it keeps a full row of its own", () => {
   const registry = registryWith([{ id: "test.widgets", startSections: [
     { id: "board", order: 10, title: "Work board", Section: () => createElement("p", null, "Board content") },
-    { id: "auto", order: 20, title: "Auto items", span: "narrow", Section: () => createElement("p", null, "Auto content") },
+    { id: "auto", order: 20, title: "Auto items", columns: 2, Section: () => createElement("p", null, "Auto content") },
     { id: "plain", order: 30, Section: () => createElement("section", null, "Plain section") },
   ] }]);
   const html = renderToStaticMarkup(createElement(PanelPage, { preferences, registry, state: page(), send: () => {} }));
   assert.match(html, /<section aria-label="Work board"[^>]*><div[^>]*><h2[^>]*>Work board<\/h2><\/div><div[^>]*data-start-widget-body="board"><p>Board content<\/p>/,
     "the host draws the title row above the content");
-  assert.match(html, /data-start-widget="board" style="grid-column:span 12 \/ span 12"/, "a widget without span fills a row and is known by its contribution ID");
-  assert.match(html, /data-start-widget="auto" style="grid-column:span 12 \/ span 12"/, "a narrow widget alone in its row fills it");
-  assert.match(html, /data-start-widget="start.new" style="grid-column:span 4 \/ span 4"/);
-  assert.match(html, /data-start-widget="start.continue" style="grid-column:span 8 \/ span 8"/);
+  assert.match(html, /data-start-widget="board" style="grid-column:span 6 \/ span 6"/, "a widget without columns fills a row and is known by its contribution ID");
+  assert.match(html, /data-start-widget="auto" style="grid-column:span 2 \/ span 2"/, "a widget alone in its row keeps its columns");
+  assert.match(html, /data-start-widget="start.new" style="grid-column:span 2 \/ span 2"/);
+  assert.match(html, /data-start-widget="start.continue" style="grid-column:span 4 \/ span 4"/);
+  assert.match(html, /class="[^"]*grid-cols-6[^"]*"[^>]*data-dashboard="grid"/, "the grid has six columns");
   assert.match(html, /<div class="contents" data-start-section="plain"><section>Plain section<\/section><\/div>/, "a section without a title is rendered without a frame or a box of its own");
   assert.ok(html.indexOf(">Work board<") < html.indexOf(">Auto items<") && html.indexOf(">Auto items<") < html.indexOf(">Plain section<"));
 });
@@ -132,20 +133,20 @@ test("Start shows no arrangement controls outside edit mode, only Edit before th
   assert.match(without, /data-start-widget="board"/);
 });
 
-test("Start widgets reject a span, sizes, or a description without a title, empty texts, and unknown or incomplete sizes", () => {
+test("Start widgets reject a width or a description without a title, empty texts, and widths outside one to six columns or their range", () => {
   const section = (extra: Record<string, unknown>) => registryWith([{ id: "test.widget", startSections: [{ id: "widget", order: 0, Section: () => null, ...extra }] }]);
-  assert.throws(() => section({ span: "half" }), /Start section widget declares a span without a title/);
+  assert.throws(() => section({ columns: 3 }), /Start section widget declares a width without a title/);
+  assert.throws(() => section({ maxColumns: 4 }), /Start section widget declares a width without a title/);
   assert.throws(() => section({ title: " " }), /Start section widget has an empty title/);
-  assert.throws(() => section({ title: "Widget", span: "third" }), /Start section widget has the span third; allowed are narrow, half, wide, full/);
+  assert.throws(() => section({ title: "Widget", columns: 12 }), /Start section widget has columns 12; allowed are whole numbers from 1 to 6/);
   assert.throws(() => section({ description: "Shows things" }), /Start section widget declares a description without a title/);
   assert.throws(() => section({ title: "Widget", description: " " }), /Start section widget has an empty description/);
-  assert.throws(() => section({ sizes: ["full"] }), /Start section widget declares sizes without a title/);
-  assert.throws(() => section({ title: "Widget", sizes: ["third", "full"] }), /Start section widget has the size third; allowed are narrow, half, wide, full/);
-  assert.throws(() => section({ title: "Widget", sizes: ["full", "full"] }), /Start section widget names a size twice/);
-  assert.throws(() => section({ title: "Widget", sizes: ["narrow", "half"] }), /Start section widget declares sizes without its span full/);
-  assert.throws(() => section({ title: "Widget", span: "wide", sizes: [] }), /Start section widget declares sizes without its span wide/);
-  assert.deepEqual(section({ title: "Widget", span: "wide", description: "Shows things", sizes: ["half", "wide"] }).startSections.map(({ title, span, description, sizes }) => ({ title, span, description, sizes })),
-    [{ title: "Widget", span: "wide", description: "Shows things", sizes: ["half", "wide"] }]);
+  assert.throws(() => section({ title: "Widget", minColumns: 0 }), /Start section widget has minColumns 0; allowed are whole numbers from 1 to 6/);
+  assert.throws(() => section({ title: "Widget", maxColumns: 3 }), /Start section widget has 6 columns outside its range from minColumns 1 to maxColumns 3/, "the default width is the whole row");
+  assert.throws(() => section({ title: "Widget", columns: 2, minColumns: 3, maxColumns: 4 }), /Start section widget has 2 columns outside its range from minColumns 3 to maxColumns 4/);
+  assert.deepEqual(section({ title: "Widget", columns: 4, description: "Shows things", minColumns: 3, maxColumns: 5 }).startSections
+    .map(({ title, columns, description, minColumns, maxColumns }) => ({ title, columns, description, minColumns, maxColumns })),
+  [{ title: "Widget", columns: 4, description: "Shows things", minColumns: 3, maxColumns: 5 }]);
 });
 
 test("a Start section with a read right mounts only when the viewer has that right", () => {

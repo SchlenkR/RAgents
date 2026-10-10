@@ -1565,22 +1565,23 @@ Instead, plugins fill typed slots for:
   In both browser and VS Code, only the selected server supplies these contributions, including
   on Start before a run is opened. Contributions from different environments are never merged.
 - Start widgets (`startSections`): `StartSectionContribution` declares `id`, `order`, optional
-  `readRight`, optional `title`, `description`, `span`, and `sizes`, and `Section`, a component receiving `StartSectionContext`
+  `readRight`, optional `title`, `description`, `columns`, `minColumns`, and `maxColumns`, and `Section`, a component receiving `StartSectionContext`
   with `runs` and `onOpenRun(runId)`. With `title` the section is a widget of the Start dashboard: the
   host draws its frame, a `SectionHeading` title row above the content, and gives it a tab on a narrow
-  dashboard. `span` (`StartWidgetSpan`: `narrow`, `half`, `wide`, or `full`, by default `full`) is its
-  preferred width on a wide dashboard. The widget's body is a size container named `widget`, so the
+  dashboard. `columns` is its width in columns of Start's six-column grid, a whole number from 1 to 6,
+  by default 6. The widget's body is a size container named `widget`, so the
   content adapts to the widget's own width with Tailwind's `@container` variants (`@md/widget:`, or
   plain `@md:` for the nearest container). Without `title` a section keeps its earlier form: it owns
   its heading and spacing, fills a whole row, and stays below the tabs on a narrow dashboard.
-  `description` is one sentence for the widget gallery of Start's edit mode. `sizes` lists the
-  sizes the viewer may choose there, by default all four; it must include `span` (or `full` without
-  one), and the resize handle and the keyboard offer only these. `span`, `description`, or `sizes`
-  without `title`, a blank `title` or `description`, an unknown `span` or size, a size named twice,
-  and `sizes` without the widget's span are registry errors. Widgets follow
-  "New" and "Continue", sorted by `order` and then `id`; the contract keeps its name `startSections`,
-  and both new fields are optional, so existing contributions load unchanged. The `id` is also the
-  widget's ID in the viewer's Start layout, so it stays the same across releases; `title` and `span`
+  `description` is one sentence for the widget gallery of Start's edit mode. `minColumns` and
+  `maxColumns` (by default 1 and 6) bound the widths the viewer may choose there; the resize handle
+  and the keyboard offer only these. A width field or `description` without `title`, a blank `title`
+  or `description`, a width that is not a whole number from 1 to 6, and `columns` outside
+  `minColumns` to `maxColumns` (the default 6 included) are registry errors; `widthProblem` in
+  `panel/dashboard-layout.ts` names the cause for sections and dynamic widgets alike. Widgets follow
+  "New" and "Continue", sorted by `order` and then `id`; the contract keeps its name `startSections`.
+  The `id` is also the
+  widget's ID in the viewer's Start layout, so it stays the same across releases; `title` and `columns`
   are the defaults that the viewer's arrangement starts from. The context
   carries every run the server lists for the viewer, sorted by update time, through readonly
   `ConnectionRun` values including `id`, `title`, `updatedAt`, and optional `metadata` keyed by
@@ -1595,14 +1596,14 @@ Instead, plugins fill typed slots for:
   same `runs` and `onOpenRun` as a section, an `AbortSignal`, and `update(widgets)` for later
   snapshots. It returns readonly `StartWidgetContribution` values, synchronously or as a promise.
   Each contribution contains a stable `id` that starts with the plugin's ID and a colon
-  (`ragents.global-apps:<name>`), a non-empty `title`, optional `description`, `span`, `sizes`,
-  `order` (by default 200), and `readRight`, and `content: ReactNode`; `description` and `sizes`
-  follow the rules of a start section. The content uses a stable React component type and the
+  (`ragents.global-apps:<name>`), a non-empty `title`, optional `description`, `columns`,
+  `minColumns`, `maxColumns`, `order` (by default 200), and `readRight`, and `content: ReactNode`;
+  `description` and the width follow the rules of a start section. The content uses a stable React component type and the
   same widget ID across updates so its state and mounted frames survive snapshots. The host
   draws the title, frame, and narrow-dashboard tab and sorts the widget among the start sections
   by `order` and then `id`. In Start's edit mode it is moved, resized, removed, and added back like
   a section with a title, and its ID names its place, size, and removal in the viewer's
-  `start.layout`; `span` and `order` are the defaults. The returned value is the factory's first
+  `start.layout`; `columns` and `order` are the defaults. The returned value is the factory's first
   snapshot unless `update` came first. The host calls the factory again when the run list changes
   and keeps its previous widgets until the new call delivers a snapshot, so a factory that waits for
   a live channel returns a promise of its first snapshot rather than an empty list. A factory
@@ -3389,14 +3390,16 @@ and run rows use the same bounded column. The page scroller (`main[data-page]`) 
 block of its content, so visually hidden labels further down cannot extend the document and moving
 focus scrolls only the page, never the header with it.
 
-**Start** is a dashboard of widgets (`panel/StartDashboard.tsx`): the built-in "New" (`span`
-`narrow`) and "Continue" (`wide`), then the plugin widgets. Its layout follows the width of the
+**Start** is a dashboard of widgets (`panel/StartDashboard.tsx`): the built-in "New" (2 columns,
+`minColumns` 2) and "Continue" (4 columns, `minColumns` 2), then the plugin widgets. Its layout follows the width of the
 dashboard's own container, measured with a `ResizeObserver`, not the window, because a VS Code panel is
 often narrow on a wide screen. `dashboardLayout` in `panel/dashboard-layout.ts` decides it: from
-1100 pixels (`DASHBOARD_WIDE_FROM`) the widgets take their spans of a twelve-column grid (`narrow`
-4, `half` 6, `wide` 8, `full` 12 columns); from 700 pixels (`DASHBOARD_TABS_BELOW`) `narrow`, `half`,
-and `wide` take 6 columns and `full` keeps 12; widgets fill rows in order, and a row with space left
-widens its widgets in proportion up to the right edge. Below 700 pixels, with at least two framed
+1100 pixels (`DASHBOARD_WIDE_FROM`) the grid has six columns (`DASHBOARD_COLUMNS`) and every widget
+takes exactly its columns; from 700 pixels (`DASHBOARD_TABS_BELOW`) the grid has three columns and a
+widget takes half its columns, rounded up (`shownColumns`); a section without a title always fills its
+row. Widgets fill rows in order with CSS grid placement: a widget that does not fit in the rest of a
+row starts the next one, a row with space left keeps it, and widgets in one row share the row's height.
+Below 700 pixels, with at least two framed
 widgets, the dashboard becomes tabs ("Start widgets", `OverflowTabsList` with the widget title and
 count): the active widget fills the width, and its frame keeps only the action of its title row,
 because the tab names it. The choice is stored per server origin under
@@ -3414,48 +3417,59 @@ works on a draft: the mode indicator (group "Edit Start" with "Editing Start", a
 layout", "Cancel", and "Done") replaces the Edit row; "Done" saves, "Cancel" and Escape (outside a
 dialog or a running drag) discard the draft, and focus returns to Edit. At 700 pixels and more the
 grid stays and every framed widget gets a dashed outline that leaves its geometry unchanged, a title
-row with the drag handle (`Move <title>`), its current size, and "x" (`Remove <title>`), and a resize
-handle on its right edge when it offers more than one size; its body stays mounted but is `inert` and
+row with the drag handle (`Move <title>`), its width as shown columns of the grid ("2 of 6", "1 of 3"),
+and "x" (`Remove <title>`), and a resize handle on its right edge when the grid can show it in more
+than one width; its body stays mounted but is `inert` and
 dimmed, and a widget with nothing to show appears with "Nothing to show right now.". Dragging the
 handle moves the widget live: the others reflow as the pointer passes the middle of a widget in
 reading order, the dragged widget marks its new place with a primary outline and a drop indicator at
-its leading edge, and a label with its title follows the pointer. Dragging the right edge measures the
-distance in columns of the twelve-column grid and snaps to the nearest offered size by its wide
-columns (`nearestSpan`), shows that size in the title row, and reflows live. Pointer handling is the
+its leading edge, and a label with its title follows the pointer. The resize handle
+(`data-resize-handle`) covers the whole right edge in a 20-pixel strip that ends before the title row's
+"x" and carries a grip on the outline; hovering the widget or the edge colors them. Dragging it shows
+the grid's columns as guides (`data-column-guides`) and a label with the target width
+("4 of 6 columns") at the pointer, adds the columns the pointer moved to the width at the start of the
+drag, snaps at the middle of each column within `minColumns` and `maxColumns` (`draggedColumns`), and
+reflows live; a widget that no longer fits its row moves to the next one. At three columns the edge
+snaps to the columns shown and stores the most of the six columns that show that width, or keeps the
+stored columns when they already do (`resizedColumns`), so every step is visible. Release commits the
+width to the draft. Pointer handling is the
 shared `usePointerDrag` (`lib/pointer-drag.ts`, also used by the dock): pointer capture on the grid,
-Escape, `pointercancel`, and leaving the window end a drag and restore the draft from its start.
-"Add widget" follows the widgets as a dashed tile of a narrow width; its dialog (`Add widget`) lists
-every framed widget that is not on the dashboard as `Add <title>` with its description and sizes,
-the usual size marked; choosing one adds it at the end in its default size. The drag handle also
+Escape, `pointercancel`, and leaving the window end a drag and restore the draft from its start, and a
+drag that a second pointer starts ends the running one the same way, so moving and resizing never share
+a pointer.
+"Add widget" follows the widgets as a dashed tile two columns wide (one at three columns); its dialog (`Add widget`) lists
+every framed widget that is not on the dashboard as `Add <title>` with its description and width
+("Width: 2 of 6 columns, adjustable from 1 to 3"); choosing one adds it at the end in its default width. The drag handle also
 takes the keyboard (described by a hidden hint): the arrow keys move the widget one place in reading
-order, Shift with the arrow keys steps to the next larger (right, up) or smaller (left, down)
-offered size (`adjacentSpan`), and Delete or Backspace removes it; a polite live region announces
-each change, the ends, and saving, and focus follows the moved widget or, after a removal, the next
+order, also with Shift and Up or Down, Shift with Left or Right changes the width by one column of the grid shown
+(`resizedColumns`), and Delete or Backspace removes it; a polite live region announces
+each change, the ends ("already at its widest"), and saving, and focus follows the moved widget or, after a removal, the next
 handle. Below 700 pixels edit mode is a vertical list of rows with handle, title, "Move <title> up",
-"Move <title> down", and "x", without sizes and with the bodies and the sections without a title
+"Move <title> down", and "x", without widths and with the bodies and the sections without a title
 hidden; dragging there compares only the vertical middle of each row.
 
-The model is `panel/dashboard-preferences.ts`: `DashboardPreferences` holds `order`, `spans`, and
+The model is `panel/dashboard-preferences.ts`: `DashboardPreferences` holds `order`, `columns`, and
 `removed`, each by widget ID, so any ID works, also one of a widget that only some users have or
 that a plugin adds per user (`ragents.global-apps:<name>`). Widget IDs are `start.new`,
 `start.continue`, the `id` of a start section, and the stable `id` of a dynamic widget; two widgets
 with the same ID are an error, which the prefix rule of dynamic widgets rules out between plugins.
 `arrangeWidgets` puts the framed widgets that `order` names into their slots in that order, while
 sections without a title and widgets that `order` does not name keep their default place, so a new
-widget appears where its contribution puts it; sizes and removal apply only to framed widgets, and
-IDs of widgets that are not there and sizes a widget does not offer are ignored. Edit mode keeps the
+widget appears where its contribution puts it; widths and removal apply only to framed widgets, and
+IDs of widgets that are not there and widths outside a widget's range are ignored. Edit mode keeps the
 edited layout as preferences; its draft (`DashboardDraft`, from `draftOf`) is the list of framed
-widgets that these preferences put on the dashboard, with their sizes. `moveWidget`, `resizeWidget`
-(only offered sizes), `removeWidget`, and `addWidget` change the draft, and `preferencesOf` turns it
-back into preferences: the default order and default sizes store nothing, and widgets that are not
-there keep their removal and size while their place falls back to the default. So a widget that
+widgets that these preferences put on the dashboard, with their columns. `moveWidget`, `resizeWidget`
+(only widths within the range), `removeWidget`, and `addWidget` change the draft, and `preferencesOf` turns it
+back into preferences: the default order and default widths store nothing, and widgets that are not
+there keep their removal and width while their place falls back to the default. So a widget that
 arrives while Start is edited, such as a dynamic widget whose plugin answers late, takes its saved
-place and size or stays removed, and one that disappears for a moment returns to its place unless the
-layout changed while it was gone. Built-in New and Continue offer all four sizes. The layout is the
+place and width or stays removed, and one that disappears for a moment returns to its place unless the
+layout changed while it was gone. The layout is the
 preference `start.layout` of the server's per-user preference store (`spec/profiles.md`, User
 preferences), read whenever Start opens and written on "Done", so the browser and VS Code show the
-same layout: JSON with `version` 1, `order`, `spans`, and `removed`, or `null` for the default
-layout. `PanelPage` passes the store from `RunPanelApp`
+same layout: JSON with `version` 2, `order`, `columns` (widget ID to a whole number from 1 to 6), and
+`removed`, or `null` for the default layout. A layout of the former format (`version` 1 with named
+sizes) is ignored without migration: Start shows its default layout and the next "Done" replaces it. `PanelPage` passes the store from `RunPanelApp`
 (`SERVER_PREFERENCES` in `preferences.ts`) to Start; the local VS Code shell has none, so a Start
 rendered there shows the default layout without Edit. While
 the layout loads, the widgets are mounted but invisible; a failed read shows its cause with "Retry"
@@ -5395,8 +5409,9 @@ readable. The exact operating-system boundary and disabled mode are in
 The web plugin supplies dynamic `startWidgetsFor` contributions with stable IDs
 `ragents.global-apps:<name>`, `order: 200`, `readRight: "ragents.global-apps.read"`, and the
 app's description for the widget gallery. It returns a promise of the first snapshot of its live
-channel. An app with a view defaults to `span: "wide"`; a headless app defaults to `span: "narrow"`.
-The viewer's Start layout overrides place and size and removes the widget by this stable ID.
+channel. An app with a view defaults to `columns: 4`; a headless app, an app that needs repair, and the
+system widgets default to `columns: 2`.
+The viewer's Start layout overrides place and width and removes the widget by this stable ID.
 Removing the widget from Start does not pause its backend triggers. The dashboard owns the frame and title.
 A widget embeds the ordinary actor-program view frame and uses its shared state, calls, and
 execution logs, or shows last run and next run for a headless backend. Every widget, including

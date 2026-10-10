@@ -3,20 +3,19 @@ import { ArrowDownIcon, ArrowUpIcon, GripVerticalIcon, PencilIcon, PlusIcon, Rot
 import { useCallback, useEffect, useId, useLayoutEffect, useState, type KeyboardEvent, type PointerEvent, type ReactNode } from "react";
 import { createLocalStorageSetting } from "../lib/local-storage-setting";
 import { usePointerDrag, type PointerPoint } from "../lib/pointer-drag";
-import type { StartWidgetSpan } from "../PluginRegistry";
 import type { PreferenceStore } from "../preferences";
 import { RenderBoundary } from "../RenderBoundary";
 import { Button, Dialog, DialogBody, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "../ui";
 import { OverflowTabs, OverflowTabsList } from "../ui/overflow-tabs";
 import { SectionHeading } from "../ui/SectionLabel";
-import { adjacentSpan, DASHBOARD_COLUMNS, DASHBOARD_TABS_BELOW, DASHBOARD_WIDE_FROM, dashboardLayout, nearestSpan, wideColumns } from "./dashboard-layout";
+import { DASHBOARD_COLUMNS, DASHBOARD_TABS_BELOW, dashboardLayout, draggedColumns, resizedColumns, shownColumns, type WidgetWidth } from "./dashboard-layout";
 import {
   addWidget, arrangeWidgets, DEFAULT_DASHBOARD_PREFERENCES, draftOf, isDefaultLayout, moveWidget, preferencesOf, readDashboardLayout, removeWidget,
   resizeWidget, writeDashboardLayout, type DashboardDraft, type DashboardPreferences, type StoredDashboardLayout,
 } from "./dashboard-preferences";
 
-/** One area of Start: the built-in New and Continue or a plugin's start section. */
-export interface StartWidget {
+/** One area of Start: the built-in New and Continue or a plugin's start section; its width counts columns of the six-column grid, and edit mode offers the range. */
+export interface StartWidget extends WidgetWidth {
   /** Stable across sessions, because the viewer's layout refers to it. */
   readonly key: string;
   /** Without a title the content owns its heading, fills a row, stays below the tabs, and cannot be arranged. */
@@ -24,9 +23,6 @@ export interface StartWidget {
   /** One sentence for the widget gallery of edit mode. */
   readonly description?: string;
   readonly count?: number;
-  readonly span: StartWidgetSpan;
-  /** The sizes edit mode offers; they include the span. */
-  readonly sizes: readonly StartWidgetSpan[];
   /** At the end of the title row, such as "All N runs". */
   readonly action?: ReactNode;
   readonly content: ReactNode;
@@ -44,14 +40,21 @@ type LayoutState =
 
 type Gesture =
   | { readonly kind: "move"; readonly key: string; readonly point: PointerPoint }
-  | { readonly kind: "resize"; readonly key: string; readonly span: StartWidgetSpan };
+  | { readonly kind: "resize"; readonly key: string; readonly columns: number; readonly point: PointerPoint };
 
 /** Where focus goes after the next commit, because moving, removing, and switching modes replace or move the focused control. */
 type FocusTarget = { readonly kind: "control"; readonly key: string; readonly control: Control } | { readonly kind: "add" } | { readonly kind: "edit" };
 
 const isFramed = (widget: Item): widget is FramedItem => widget.framed;
 
-const SPAN_LABELS = { narrow: "Narrow", half: "Half", wide: "Wide", full: "Full" } as const satisfies Record<StartWidgetSpan, string>;
+/** The grid classes by its number of columns, written out so that Tailwind finds them. */
+const GRID_CLASSES: Readonly<Record<number, string>> = { 1: "grid-cols-1", 3: "grid-cols-3", 6: "grid-cols-6" };
+
+const gridClass = (grid: number): string => {
+  const name = GRID_CLASSES[grid];
+  if (name === undefined) throw new Error(`Start has no grid of ${grid} columns.`);
+  return name;
+};
 
 const messageOf = (cause: unknown): string => cause instanceof Error ? cause.message : String(cause);
 
@@ -151,10 +154,11 @@ function EditBar({ list, saving, canReset, onReset, onCancel, onDone }: {
   </div>;
 }
 
-/** The title row in edit mode: the drag handle, the title, the size or the move buttons, and remove. */
-function EditTitleRow({ widget, span, list, first, last, resizing, hint, onHandleKey, onHandlePointer, onMove, onRemove }: {
+/** The title row in edit mode: the drag handle, the title, the width or the move buttons, and remove. */
+function EditTitleRow({ widget, columns, grid, list, first, last, resizing, hint, onHandleKey, onHandlePointer, onMove, onRemove }: {
   widget: FramedItem;
-  span: StartWidgetSpan;
+  columns: number;
+  grid: number;
   list: boolean;
   first: boolean;
   last: boolean;
@@ -165,7 +169,7 @@ function EditTitleRow({ widget, span, list, first, last, resizing, hint, onHandl
   onMove: (step: -1 | 1) => void;
   onRemove: () => void;
 }) {
-  return <div className="flex min-h-control-xs min-w-0 items-center gap-1">
+  return <div className={cn("flex min-h-control-xs min-w-0 items-center gap-1", !list && "pr-2")}>
     <Button aria-describedby={hint} aria-label={`Move ${widget.title}`} className="flex-none cursor-grab touch-none text-muted-foreground active:cursor-grabbing" data-control="handle"
       onKeyDown={onHandleKey} onPointerDown={onHandlePointer} size="icon-xs" title="Drag to move" variant="ghost"><GripVerticalIcon /></Button>
     <h2 className="min-w-0 flex-1 truncate type-label text-muted-foreground">{widget.title}{widget.count !== undefined && <span className="ml-2 type-meta tabular-nums">{widget.count}</span>}</h2>
@@ -174,7 +178,8 @@ function EditTitleRow({ widget, span, list, first, last, resizing, hint, onHandl
         <Button aria-label={`Move ${widget.title} up`} className="flex-none text-muted-foreground" data-control="up" disabled={first} onClick={() => onMove(-1)} size="icon-xs" title="Move up" variant="ghost"><ArrowUpIcon /></Button>
         <Button aria-label={`Move ${widget.title} down`} className="flex-none text-muted-foreground" data-control="down" disabled={last} onClick={() => onMove(1)} size="icon-xs" title="Move down" variant="ghost"><ArrowDownIcon /></Button>
       </>
-      : <span className={cn("flex-none type-meta", resizing ? "font-semibold text-primary" : "text-muted-foreground")} data-widget-size={span}>{SPAN_LABELS[span]}</span>}
+      : <span className={cn("flex-none type-meta tabular-nums", resizing ? "font-semibold text-primary" : "text-muted-foreground")} data-widget-columns={columns}
+        title={`${shownColumns(columns, grid)} of ${grid} columns`}>{shownColumns(columns, grid)} of {grid}</span>}
     <Button aria-label={`Remove ${widget.title}`} className="flex-none text-muted-foreground" onClick={onRemove} size="icon-xs" title="Remove from Start" variant="ghost"><XIcon /></Button>
   </div>;
 }
@@ -190,14 +195,18 @@ function WidgetFrame({ widget, titleRow, editing, list, empty }: { widget: Frame
   </section>;
 }
 
-/** Every widget that is not on Start, with what it shows and its sizes; choosing one adds it at the end. */
+/** The usual width of a widget and the range the viewer may choose from, for the gallery. */
+const widthDescription = ({ columns, minColumns, maxColumns }: WidgetWidth): string =>
+  `Width: ${columns} of ${DASHBOARD_COLUMNS} columns${minColumns < maxColumns ? `, adjustable from ${minColumns} to ${maxColumns}` : ""}`;
+
+/** Every widget that is not on Start, with what it shows and its widths; choosing one adds it at the end. */
 function WidgetGallery({ widgets, onAdd, onClose }: { widgets: readonly FramedItem[]; onAdd: (key: string) => void; onClose: () => void }) {
   const prefix = useId();
   return <Dialog onOpenChange={(open) => { if (!open) onClose(); }} open>
     <DialogContent className="gap-3" finalFocus={false} scope="page" size="medium">
       <DialogHeader>
         <DialogTitle>Add widget</DialogTitle>
-        <DialogDescription>A widget joins Start at the end in its usual size.</DialogDescription>
+        <DialogDescription>A widget joins Start at the end in its usual width.</DialogDescription>
       </DialogHeader>
       <DialogBody>
         {widgets.length === 0
@@ -213,7 +222,7 @@ function WidgetGallery({ widgets, onAdd, onClose }: { widgets: readonly FramedIt
                 </span>
                 <span className="grid gap-0.5" id={`${prefix}-${widget.key}`}>
                   {widget.description !== undefined && <span className="type-body text-muted-foreground">{widget.description}</span>}
-                  <span className="type-meta text-muted-foreground">Sizes: {widget.sizes.map((size) => size === widget.span ? `${SPAN_LABELS[size]} (usual)` : SPAN_LABELS[size]).join(", ")}</span>
+                  <span className="type-meta text-muted-foreground">{widthDescription(widget)}</span>
                 </span>
               </button>
             </li>)}
@@ -223,12 +232,12 @@ function WidgetGallery({ widgets, onAdd, onClose }: { widgets: readonly FramedIt
   </Dialog>;
 }
 
-/** Start's widgets in a twelve-column grid by their spans and the viewer's layout, below the narrow limit of its own width as tabs; Edit arranges them in place and saves the layout on the server. */
+/** Start's widgets in a six-column grid by their widths and the viewer's layout, three columns at medium widths and tabs below the narrow limit of its own width; Edit arranges them in place and saves the layout on the server. */
 export function StartDashboard({ widgets, preferences }: { widgets: readonly StartWidget[]; preferences: PreferenceStore | undefined }) {
   const { state, retry, settle } = useStoredLayout(preferences);
   const [root, setRoot] = useState<HTMLDivElement | null>(null);
   const [element, setElement] = useState<HTMLDivElement | null>(null);
-  // Edit mode keeps the edited layout as preferences, so a widget that arrives meanwhile takes its place and size there or stays removed.
+  // Edit mode keeps the edited layout as preferences, so a widget that arrives meanwhile takes its place and width there or stays removed.
   const [edited, setEdited] = useState<DashboardPreferences>();
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string>();
@@ -255,13 +264,14 @@ export function StartDashboard({ widgets, preferences }: { widgets: readonly Sta
   const narrow = width !== undefined && width < DASHBOARD_TABS_BELOW;
   const placed = editing ? shown : shown.filter((widget) => !empty.has(widget.key));
   const framed = placed.filter(isFramed);
-  const layout = dashboardLayout(placed.map(({ key, span, framed: titled }) => ({ key, span: titled ? span : "full", framed: titled })), width);
+  const layout = dashboardLayout(placed, width);
   const mode: Mode = editing ? narrow ? "list" : "grid" : layout.mode;
+  const grid = mode === "grid" && layout.mode === "grid" ? layout.grid : 1;
   const active = framed.find((widget) => widget.key === remembered)?.key ?? framed[0]?.key ?? "";
   const tabId = (key: string) => `${prefix}-tab-${encodeURIComponent(key)}`;
   const panelId = (key: string) => `${prefix}-panel-${encodeURIComponent(key)}`;
-  const columns = (key: string) => mode === "grid" && layout.mode === "grid" ? layout.columns.get(key) ?? DASHBOARD_COLUMNS : DASHBOARD_COLUMNS;
-  const addColumns = width === undefined || width >= DASHBOARD_WIDE_FROM ? 4 : 6;
+  const span = (key: string) => layout.mode === "grid" ? layout.columns.get(key) ?? grid : grid;
+  const widthText = (columns: number) => `${shownColumns(columns, grid)} of ${grid} columns`;
 
   const leave = useCallback((message: string) => {
     setEdited(undefined);
@@ -317,13 +327,14 @@ export function StartDashboard({ widgets, preferences }: { widgets: readonly Sta
   const resize = (key: string, step: -1 | 1) => {
     if (draft === undefined) return;
     if (mode === "list") {
-      setAnnouncement("Sizes are chosen on a wider Start.");
+      setAnnouncement("Widths are chosen on a wider Start.");
       return;
     }
-    const { sizes } = itemOf.get(key)!;
-    const next = adjacentSpan(draft.find((widget) => widget.key === key)!.span, sizes, step);
-    if (next === undefined) setAnnouncement(`${titleOf(key)} is already at its ${step > 0 ? "largest" : "smallest"} size.`);
-    else change(resizeWidget(draft, key, next, sizes), `${titleOf(key)} is now ${SPAN_LABELS[next]}.`, { kind: "control", key, control: "handle" });
+    const item = itemOf.get(key)!;
+    const current = draft.find((widget) => widget.key === key)!.columns;
+    const next = resizedColumns({ ...item, columns: current }, shownColumns(current, grid) + step, grid);
+    if (next === current) setAnnouncement(`${titleOf(key)} is already at its ${step > 0 ? "widest" : "narrowest"}.`);
+    else change(resizeWidget(draft, key, next, item), `${titleOf(key)} is now ${widthText(next)} wide.`, { kind: "control", key, control: "handle" });
   };
   const remove = (key: string) => {
     if (draft === undefined) return;
@@ -361,11 +372,11 @@ export function StartDashboard({ widgets, preferences }: { widgets: readonly Sta
       remove(key);
       return;
     }
-    const larger = event.key === "ArrowRight" || event.key === "ArrowUp";
-    if (!larger && event.key !== "ArrowLeft" && event.key !== "ArrowDown") return;
+    if (!["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown"].includes(event.key)) return;
     event.preventDefault();
-    if (event.shiftKey) resize(key, larger ? 1 : -1);
-    else move(key, event.key === "ArrowRight" || event.key === "ArrowDown" ? 1 : -1, "handle");
+    const later = event.key === "ArrowRight" || event.key === "ArrowDown";
+    if (event.shiftKey && (event.key === "ArrowLeft" || event.key === "ArrowRight")) resize(key, later ? 1 : -1);
+    else move(key, later ? 1 : -1, "handle");
   };
   const startMove = (event: PointerEvent<HTMLElement>, key: string) => {
     if (draft === undefined || element === null || event.button !== 0) return;
@@ -377,7 +388,6 @@ export function StartDashboard({ widgets, preferences }: { widgets: readonly Sta
     const target = (point: PointerPoint) => Math.min(start.length - 1, [...element.querySelectorAll<HTMLElement>(":scope > [data-start-widget]")]
       .filter((cell) => cell.dataset.startWidget !== key && precedes(cell.getBoundingClientRect(), point, vertical)).length);
     const place = (to: number) => setEdited((current) => current && preferencesOf(moveWidget(start, key, to), known, base));
-    setGesture({ kind: "move", key, point: { x: event.clientX, y: event.clientY } });
     pointer(event, (point) => {
       place(target(point));
       setGesture({ kind: "move", key, point });
@@ -389,29 +399,33 @@ export function StartDashboard({ widgets, preferences }: { widgets: readonly Sta
       else if (to !== from) setAnnouncement(`${titleOf(key)} moved to place ${to + 1} of ${start.length}.`);
       setFocusTarget({ kind: "control", key, control: "handle" });
     }, element);
+    setGesture({ kind: "move", key, point: { x: event.clientX, y: event.clientY } });
   };
   const startResize = (event: PointerEvent<HTMLElement>, key: string) => {
     if (draft === undefined || element === null || event.button !== 0) return;
     const start = draft;
     const known = items;
     const base = effective;
-    const { sizes } = itemOf.get(key)!;
-    const from = start.find((widget) => widget.key === key)!.span;
+    const item = itemOf.get(key)!;
+    const from = start.find((widget) => widget.key === key)!.columns;
     const startX = event.clientX;
-    const column = (element.clientWidth + (parseFloat(getComputedStyle(element).columnGap) || 0)) / DASHBOARD_COLUMNS;
-    const spanAt = (point: PointerPoint) => nearestSpan(wideColumns(from) + (point.x - startX) / column, sizes);
-    const size = (span: StartWidgetSpan) => setEdited((current) => current && preferencesOf(resizeWidget(start, key, span, sizes), known, base));
-    setGesture({ kind: "resize", key, span: from });
+    const bounds = element.getBoundingClientRect();
+    // Pointer positions and the grid's box are both in the page's zoomed pixels, its gap in CSS pixels.
+    const zoom = bounds.width / element.offsetWidth || 1;
+    const pitch = (bounds.width + parseFloat(getComputedStyle(element).columnGap) * zoom) / grid;
+    const columnsAt = (point: PointerPoint) => draggedColumns({ ...item, columns: from }, grid, point.x - startX, pitch);
+    const size = (columns: number) => setEdited((current) => current && preferencesOf(resizeWidget(start, key, columns, item), known, base));
     pointer(event, (point) => {
-      const span = spanAt(point);
-      size(span);
-      setGesture({ kind: "resize", key, span });
+      const columns = columnsAt(point);
+      size(columns);
+      setGesture({ kind: "resize", key, columns, point });
     }, (point) => {
-      const span = point === null ? from : spanAt(point);
+      const columns = point === null ? from : columnsAt(point);
       setGesture(undefined);
-      size(span);
-      setAnnouncement(point === null ? `Resizing ${titleOf(key)} was cancelled.` : `${titleOf(key)} is now ${SPAN_LABELS[span]}.`);
+      size(columns);
+      setAnnouncement(point === null ? `Resizing ${titleOf(key)} was cancelled.` : `${titleOf(key)} is now ${widthText(columns)} wide.`);
     }, element);
+    setGesture({ kind: "resize", key, columns: from, point: { x: event.clientX, y: event.clientY } });
   };
 
   const editButton = (compact: boolean) => <Button aria-label={compact ? "Edit" : undefined} className="flex-none text-muted-foreground" data-edit-start disabled={state.kind !== "ready"}
@@ -440,46 +454,54 @@ export function StartDashboard({ widgets, preferences }: { widgets: readonly Sta
     {toolbar}
     {saveError !== undefined && <p className="type-body text-destructive [overflow-wrap:anywhere]" role="alert">{saveError}</p>}
     <div aria-busy={state.kind === "loading" || undefined}
-      className={cn("grid min-w-0", mode === "list" ? "gap-3" : "gap-x-6 gap-y-8", mode === "grid" ? "grid-cols-12 [&>[data-start-section]>*]:col-span-full" : "grid-cols-1 [&>[data-start-section]>*]:order-1",
-        editing && "select-none", state.kind === "loading" && "invisible")}
-      data-dashboard={mode} data-editing={editing || undefined} inert={saving} ref={setElement}>
+      className={cn("relative grid min-w-0", mode === "list" ? "gap-3" : "gap-x-6 gap-y-8", mode === "grid" ? cn(gridClass(grid), "[&>[data-start-section]>*]:col-span-full") : "grid-cols-1 [&>[data-start-section]>*]:order-1",
+        editing && "select-none", gesture?.kind === "resize" && "cursor-ew-resize", gesture?.kind === "move" && "cursor-grabbing", state.kind === "loading" && "invisible")}
+      data-dashboard={mode} data-editing={editing || undefined} data-grid={mode === "grid" ? grid : undefined} inert={saving} ref={setElement}>
+      {gesture?.kind === "resize" && <div aria-hidden className={cn("pointer-events-none absolute inset-0 grid gap-x-6", gridClass(grid))} data-column-guides>
+        {Array.from({ length: grid }, (_, index) => <div className="rounded-xl border border-dashed border-primary/50 bg-primary/5" key={index} />)}
+      </div>}
       {shown.map((widget) => {
         if (!isFramed(widget)) return <div className={cn("contents", editing && "[&>*]:opacity-60")} data-start-section={widget.key} hidden={mode === "list"} inert={editing} key={widget.key}>
           <RenderBoundary resetKeys={[]} title="A Start section could not be displayed">{widget.content}</RenderBoundary>
         </div>;
         const place = draft?.findIndex((entry) => entry.key === widget.key) ?? -1;
         const dragging = gesture?.key === widget.key ? gesture.kind : undefined;
+        const resizable = shownColumns(widget.minColumns, grid) < shownColumns(widget.maxColumns, grid);
         const titleRow = editing
-          ? <EditTitleRow first={place === 0} hint={hint} last={place === draft.length - 1} list={mode === "list"} onHandleKey={(event) => onHandleKey(event, widget.key)}
+          ? <EditTitleRow columns={widget.columns} first={place === 0} grid={grid} hint={hint} last={place === draft.length - 1} list={mode === "list"} onHandleKey={(event) => onHandleKey(event, widget.key)}
             onHandlePointer={(event) => startMove(event, widget.key)} onMove={(step) => move(widget.key, step, step < 0 ? "up" : "down")} onRemove={() => remove(widget.key)}
-            resizing={dragging === "resize"} span={widget.span} widget={widget} />
+            resizing={dragging === "resize"} widget={widget} />
           : <SectionHeading className={cn("min-h-control-xs items-center", mode === "tabs" && widget.action === undefined && "sr-only")} count={widget.count} title={widget.title} titleHidden={mode === "tabs"}>
             {widget.action !== undefined && <div className="flex flex-none items-center gap-1">{widget.action}</div>}
           </SectionHeading>;
         return <div aria-labelledby={mode === "tabs" ? tabId(widget.key) : undefined}
-          className={cn("min-w-0", editing && "relative rounded-xl",
-            editing && mode === "grid" && cn("outline-2 outline-offset-4", dragging === "move" ? "bg-primary/5 outline-primary" : "outline-dashed outline-border-strong"),
+          className={cn("group/cell min-w-0", editing && "relative rounded-xl",
+            editing && mode === "grid" && cn("outline-2 outline-offset-4", dragging === undefined ? "outline-dashed outline-border-strong" : "bg-primary/5 outline-primary"),
             mode === "list" && cn("border bg-card px-3 py-2", dragging === "move" ? "border-primary" : "border-dashed border-border-strong"))}
           data-dragging={dragging} data-start-widget={widget.key} hidden={!editing && (empty.has(widget.key) || (mode === "tabs" && widget.key !== active))}
           id={mode === "tabs" ? panelId(widget.key) : undefined} key={widget.key} role={mode === "tabs" ? "tabpanel" : undefined}
-          style={mode === "grid" ? { gridColumn: `span ${columns(widget.key)} / span ${columns(widget.key)}` } : undefined}>
+          style={mode === "grid" ? { gridColumn: `span ${span(widget.key)} / span ${span(widget.key)}` } : undefined}>
           <WidgetFrame editing={editing} empty={empty.has(widget.key)} list={mode === "list"} titleRow={titleRow} widget={widget} />
-          {editing && mode === "grid" && widget.sizes.length > 1 && <div aria-hidden className="absolute inset-y-0 -right-2 w-4 cursor-ew-resize touch-none"
+          {editing && mode === "grid" && resizable && <div aria-hidden className="group/resize absolute inset-y-0 -right-3 z-10 w-5 cursor-ew-resize touch-none"
             data-resize-handle onPointerDown={(event) => startResize(event, widget.key)} title="Drag to resize">
-            <span className={cn("absolute top-[min(3rem,calc(50%-1.25rem))] left-1/2 h-10 w-1.5 -translate-x-1/2 rounded-full", dragging === "resize" ? "bg-primary" : "bg-border-strong")} />
+            <span className={cn("absolute inset-y-0 left-[calc(50%+3px)] w-0.5 -translate-x-1/2 rounded-full", dragging === "resize" ? "bg-primary" : "group-hover/resize:bg-primary")} />
+            <span className={cn("absolute top-[min(2.5rem,calc(50%-1.5rem))] left-[calc(50%+3px)] h-12 w-2 -translate-x-1/2 rounded-full shadow-card",
+              dragging === "resize" ? "bg-primary" : "bg-border-strong group-hover/cell:bg-primary/70 group-hover/resize:bg-primary")} data-resize-grip />
           </div>}
           {dragging === "move" && <div aria-hidden className={cn("absolute rounded-full bg-primary", mode === "list" ? "inset-x-0 -top-2 h-1" : "inset-y-0 -left-3.5 w-1")} data-drop-indicator />}
         </div>;
       })}
       {editing && <Button className={cn("w-full rounded-xl border-dashed text-muted-foreground", mode === "grid" && "h-24")} data-add-widget onClick={() => setGalleryOpen(true)}
-        style={mode === "grid" ? { gridColumn: `span ${addColumns} / span ${addColumns}` } : undefined} variant="outline"><PlusIcon data-icon="inline-start" />Add widget</Button>}
+        style={mode === "grid" ? { gridColumn: `span ${shownColumns(2, grid)} / span ${shownColumns(2, grid)}` } : undefined} variant="outline"><PlusIcon data-icon="inline-start" />Add widget</Button>}
     </div>
     <p aria-live="polite" className="sr-only" role="status">{announcement}</p>
     {editing && <p className="sr-only" id={hint}>{mode === "list"
       ? "Arrow keys move the widget, Delete removes it."
-      : "Arrow keys move the widget, Shift with the arrow keys changes its size, Delete removes it."}</p>}
+      : "Arrow keys move the widget, Shift with Left or Right changes its width by one column, Delete removes it."}</p>}
     {gesture?.kind === "move" && <div aria-hidden className="pointer-events-none fixed z-50 flex items-center gap-1 rounded-lg border border-border-strong bg-popover px-2 py-1 type-item text-popover-foreground shadow-pop"
       style={{ left: gesture.point.x + 12, top: gesture.point.y + 12 }}><GripVerticalIcon className="size-3.5" />{titleOf(gesture.key)}</div>}
+    {gesture?.kind === "resize" && <div aria-hidden className="pointer-events-none fixed z-50 rounded-lg border border-primary bg-popover px-2 py-1 type-item text-popover-foreground tabular-nums shadow-pop"
+      data-resize-label style={{ left: gesture.point.x + 12, top: gesture.point.y + 12 }}>{widthText(gesture.columns)}</div>}
     {editing && galleryOpen && <WidgetGallery onAdd={add} onClose={() => { setGalleryOpen(false); setFocusTarget({ kind: "add" }); }} widgets={removed.filter(isFramed)} />}
   </OverflowTabs>;
 }
