@@ -52,6 +52,8 @@ export interface ActorFunctionDefinition {
   capabilityContractHash: string;
   confirmation: string | null;
   tool?: { name: string; targets: string[] | null; card: boolean };
+  /** A message of a state-aware program: the host delivers its input to a waiting ctx.receive instead of running code. */
+  message?: true;
 }
 /** name is the package key and actorHandle the actor's address, both as the main room writes them: room.name in a room. */
 export interface ActorProgramDefinition {
@@ -69,6 +71,8 @@ export interface ActorProgramDefinition {
   backendFile?: string;
   readonly isolated?: boolean;
   readonly capabilitiesAsActor?: boolean;
+  /** A defineProgram backend: every wake evaluates its body against the slot tree in the actor state. */
+  readonly stateAware?: true;
   /** Canonical, with explicit time zones and real folder paths, as activation granted them. */
   readonly triggers?: AppTriggers;
   readonly permissions?: AppPermissions;
@@ -85,10 +89,11 @@ export interface ActorScriptOpenStart { readonly count: number; readonly started
 export type ActorPackageOrigin = { readonly kind: "script"; readonly entryId: string } | { readonly kind: "shared"; readonly pluginId: string };
 /** identity is the packageIdentity of the sources the host installed; a program whose sources differ is no longer this origin's. */
 export interface ActorScriptPackage { readonly origin: ActorPackageOrigin; readonly identity: string; readonly count: number; readonly open: readonly ActorScriptOpenStart[]; }
-/** An input the host queues for a program to recognize, keyed by the command that queues it: a start, or the result of a start for its starter. */
+/** An input the host queues for a program to recognize, keyed by the command that queues it: a start, the result of a start for its starter, or a message for a state-aware program. */
 export type ActorScriptDelivery = { readonly commandId: string; readonly actorId: string } & (
   | { readonly kind: "start"; readonly name: string; readonly count: number; readonly embedded: boolean; readonly startedBy: string }
-  | { readonly kind: "result" });
+  | { readonly kind: "result" }
+  | { readonly kind: "message"; readonly name: string });
 /** Who an active program is, for plugins that authorize by it: a shared package, a run script's package, or a package created in the run. */
 export type ActorProgramOrigin = ActorPackageOrigin | { readonly kind: "run"; readonly installedBy: string };
 export interface ActorProgramIdentity { readonly name: string; readonly actorId: string; readonly revision: string; readonly origin: ActorProgramOrigin; }
@@ -157,7 +162,8 @@ export interface ActorViewListing {
   invocations: ActorFunctionInvocation[];
 }
 
-export type ActorTriggerReason = "manual" | "interval" | "daily" | "weekly" | "file-change";
+/** wake is the time a state-aware program waits for. */
+export type ActorTriggerReason = "manual" | "interval" | "daily" | "weekly" | "file-change" | "wake";
 export type ActorTriggerResult = { readonly outcome: "completed" | "failed" | "interrupted" | "timeout"; readonly at: string; readonly summary: string };
 /** Where a program's triggers stand; blocked names its problem. */
 export type ActorTriggerProgress = {

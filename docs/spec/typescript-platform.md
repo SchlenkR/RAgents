@@ -49,7 +49,10 @@ uses. Before model requests, a runtime contribution checks changed packages and 
 difference from the last diagnostics state. The type check always includes the entry point
 declared under `package.json.ragents.backend`, even if the author configuration does not cover it
 in `tsconfig.include`. Existing tsconfig files are kept; the host explicitly adds the entry point
-for the check.
+for the check. The same TypeScript program, with its type checker, runs the guards of state-aware
+programs (`program-guards.ts`), and the client build lints the view sources with ESLint's
+`react-hooks` rules in memory, without network; both report `RAG` lines beside the `TS` lines
+([Actor programs](actor-programs.md#guards)).
 
 An activated build binds sources, additional modules, generated types, capability contracts, and
 the compiler environment. Changes to working files do not activate themselves; the host uses the
@@ -159,6 +162,19 @@ export default defineActor({
   },
 });
 ```
+
+`@ragents/server` is bundled from the host sources (`server-sdk.ts`) into each package, so its
+`defineActor` and `defineProgram` run in the package's own Node process. A `defineProgram` backend
+declares input and has no `onInput`: for every input the host sends `{ kind: "evaluate", world }`
+instead, where `world` holds the turn's start time, the server's time zone, the program revision,
+a message recognized for the input, and the content hashes of the file the program waits on. The
+runner in the SDK (`program-runner.ts`) evaluates the body against the slot tree from the actor
+state; a waiting primitive throws a private suspension signal that the runner catches, and every
+primitive call after it throws the same signal. The runner replaces the state only when it differs,
+and returns the status, whether it consumed the message, and the files whose hash it lacks. For
+those the host computes the hashes within the program's read permissions and evaluates again with
+the state of the previous round, at most three rounds in one turn, then commits once. A failed or
+blocked evaluation commits its state and then fails the turn with its cause.
 
 A direct task delivers normal text in `input.content`. For a subscription, `input.event`
 additionally contains the structured source event; otherwise it is `null`. The source carries
@@ -519,7 +535,8 @@ runtime.
 ## Open limits
 
 - Domain tests and type checks do not replace an actual check of a view in the browser.
-- Intermediate states of a function that is still running are not journaled automatically.
+- Intermediate states of a function that is still running are not journaled automatically; a
+  state-aware program commits its steps at the end of each evaluation, not after each step.
 - A failed reactivation after contract drift is retried on every further call; the host does not
   remember the failure.
 - Native Node execution has no language sandbox. Ordinary programs use the run's server

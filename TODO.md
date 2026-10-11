@@ -4,6 +4,7 @@ Inbox for everything; the owner and the AI write here. One line per entry, newes
 
 ## Open
 
+- Check live (11.10.2026): a state-aware program on a real server with a real model: the global coordinator builds the daily draft app from its prompt, the Start widget approves and rejects, a restart before and after 08:00 in the process sandbox on macOS and Linux keeps the wait and the server zone, a watched file in a permitted folder wakes it, and RAG lines reach the model as project errors before its next request.
 - Check live (10.10.2026): Start widget settings in a real VS Code panel and the browser against one server: Configure Continue to five runs and New without descriptions, Done, then reopen Start in the other host, with and without sign-in, and Configure in the narrow list; the browser fixture covers Chromium with a real mouse.
 - Check live (10.10.2026): Start's packing in a real VS Code panel and in Safari with global apps whose views load late: no hole below a short widget beside a tall one, no overlap while content grows, slides when moving, none with reduced motion, and moving onto the packed widgets with a real mouse and a touch screen; browser fixtures cover Chromium (moving, resizing, keyboard, growth, slides) and WebKit (resizing).
 - Check live (10.10.2026): Start's edit mode in a real VS Code panel against one server with a plugin that contributes several titled widgets and with global mini-apps (drag, resize by the edge in six and three columns, remove, Add widget, keyboard, Done, Cancel), then the saved layout in the browser after reopening Start, with and without sign-in, and with a touch screen or pen; resizing and moving with a real mouse passed in Chromium and WebKit against a throwaway showcase server and in the browser fixture.
@@ -191,6 +192,10 @@ Inbox for everything; the owner and the AI write here. One line per entry, newes
 
 ## Ideas
 
+- `race` and `together` for state-aware programs (11.10.2026): wait for the first of several primitives or run branches side by side; needs several simultaneous waits in the slot tree, in `waiting`, and in the wake planning.
+- Source lines for state-aware positions (11.10.2026): name the line of a slot next to its structural position (`#2 forEach [...] > #1 receive`), from a source map of the bundled backend.
+- Reset a blocked state-aware program (11.10.2026): a confirmed action that discards the recorded slot tree instead of activating the program under a new name.
+- RAG codes in the editor (11.10.2026): report the program guards and the hook rules through the TypeScript language server as well, not only in activation and the project check.
 - Cross-run event triggers for actor programs (11.10.2026): a program in the global space reacting to events of another run; reuse the global journal-batch observer with explicit sourceRunId/actorId filters, recheck source ownership and observable-event rights on every delivery, and persist a journal cursor. Coalesce pending events into bounded, non-overlapping inputs and define restart delivery before extending `ragents.triggers`; within a run, subscriptions already deliver events.
 
 - Start widgets (10.10.2026): let any widget put a count and an action in its title row and tab; New lost its template count and Continue's "All N runs" moved below its list when both became ordinary widgets.

@@ -238,7 +238,7 @@ test("the complete global mini-app prompt builds its backend and React view toge
   await installServerSdk(directory, await capabilitiesOf(showcaseFixture));
   assert.deepEqual(typecheckServerProject(directory, "src/server.ts"), []);
   const backend = await compileAppBackend({ directory, backend: "src/server.ts", runId: "global-app-example", executor: native.executor });
-  const contracts = { stateSchema: backend.contract.state, actions: [] };
+  const contracts = { stateSchema: backend.contract.state, actions: Object.entries(backend.contract.functions).map(([id, fn]) => ({ id, inputSchema: fn.input, resultSchema: fn.output })) };
   await installClientSdk(directory, contracts);
   const client = await compileClientProject({ directory, entryPoint: "src/client.tsx", ...contracts });
   assert.equal(client.valid, true, JSON.stringify(client.diagnostics));

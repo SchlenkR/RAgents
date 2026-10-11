@@ -63,7 +63,9 @@ scroll inside it; the heading and close button stay visible within the available
 
 A mini-app can also start on its own: ask the agent for a timer, a daily or weekday time, or a
 reaction to file changes in a server folder, and it declares these triggers and the folders or
-hosts the app may use in its package. Triggers keep working while the run is closed.
+hosts the app may use in its package. Triggers keep working while the run is closed. A mini-app can
+also wait, for a time, your answer in its view, or a changed file, and continue where it stopped,
+also after a server restart.
 
 In VS Code, clicking an app opens or focuses its editor tab. VS Code controls where that tab
 appears. Questions and news stay in chat. The selector below the input chooses the addressee;
@@ -662,6 +664,14 @@ changes, as described for every mini-app under [Triggers](homepage/guide-program
 runs one overdue occurrence and continues with future times. Failures delay the next automatic run,
 and "Resume" clears that delay. Successful inputs commit domain state, while completed external
 file writes or HTTP calls cannot be rolled back by a later failure.
+
+An app that waits, such as a daily draft that waits for your approval, is a
+[state-aware program](homepage/guide-programs.html#state-aware-programs). Its widget shows the next
+wake as next run, and its view offers the answer while the program waits for it, for example
+"Approve" and "Reject"; an answer while nothing waits is refused. Every completed step runs only
+once, also across restarts. If a changed app no longer fits what it recorded, its widget shows it
+blocked with the position and cause; the agent restores the code or creates the app under a new
+name.
 
 ## Let an agent write and verify an app
 

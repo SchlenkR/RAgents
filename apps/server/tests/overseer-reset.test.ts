@@ -111,7 +111,7 @@ test("confirmed reset preserves global apps and recovers durably across server r
       for (const name of ["actor_program_create", "actor_program_diagnostics", "actor_program_trigger", "actor_program_pause", "actor_program_status", "global_app_create", "global_app_list", "global_app_remove", "write", "edit", "read", "typescript_api", "typescript_eval"]) assert.ok(selected.includes(name), name);
       assert.ok(!selected.includes("actor_program_activate"), "the coordinator activates apps only in their own rooms");
       assert.match(context.systemPrompt ?? "", /Build a global mini-app/);
-      assert.match(context.systemPrompt ?? "", /"daily": \{ "at": "08:00" \}/);
+      assert.match(context.systemPrompt ?? "", /ctx\.waitUntil\(\{ daily: "08:00" \}\)/);
       assert.doesNotMatch(context.systemPrompt ?? "", /reset-test-only-token/);
       return fauxAssistantMessage([fauxToolCall("typescript_eval", { code: `return await context.functions.write(${JSON.stringify({ file_path: "request.json", content: '{"title":"Test"}' })});` }, { id: "global-write" })]);
     },

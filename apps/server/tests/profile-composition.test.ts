@@ -82,7 +82,7 @@ test("actor-program prompt composition keeps the full guide exclusively in the r
   const functions = host.tools.describe();
   assert.ok(summary.requiresTools.some((tool) => functions.some((entry) => entry.name === tool)));
   assert.match(summary.content, /topic.*guide/);
-  assert.ok(summary.content.length < 1500);
+  assert.ok(summary.content.length < 1600);
   assert.doesNotMatch(summary.content, /stateSchema|mockCapabilities|additionalProperties/);
   assert.ok(summary.requiresTools.includes("actor_program_create"));
   const minimal = await composed(minimalFixture);

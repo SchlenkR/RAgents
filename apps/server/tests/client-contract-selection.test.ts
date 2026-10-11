@@ -56,7 +56,7 @@ test("actor-program reference queries load the shared guide without expanding co
   assert.match(rendered, /@ragents\/server/);
   assert.deepEqual(contracts.package, appPackageSchema);
   assert.deepEqual(contracts.backend, appContractSchema);
-  assert.ok(rendered.length < 6_000);
+  assert.ok(rendered.length < 6_100);
   assert.ok(!rendered.includes(JSON.stringify(appContractSchema, null, 2)));
   assert.ok(!rendered.includes(contracts.client));
   assert.doesNotMatch(rendered, /mini_app_|script_actor_|script_tool_/);

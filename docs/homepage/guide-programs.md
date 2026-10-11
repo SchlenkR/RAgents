@@ -1,6 +1,6 @@
 # Build mini-apps
 
-Expose actor state and functions through interactive React views, and start programs on times or file changes.
+Expose actor state and functions through interactive React views, start programs on times or file changes, and write programs that wait and continue.
 
 ## Programs and mini-apps
 
@@ -65,7 +65,8 @@ views.
 ## Backend and client
 
 The backend entry point exports `defineActor(contract, implementation)` from `@ragents/server`
-as its default export. The TypeBox contract describes `state`, `functions`, and optional `input`.
+as its default export, or `defineProgram(contract, body)` for a program that waits and continues
+(below, "State-aware programs"). The TypeBox contract of `defineActor` describes `state`, `functions`, and optional `input`.
 
 State must accept the initial value `{}`. Each function declares its input and output, with
 optional granted capabilities, confirmation, and publication as a tool. The implementation
@@ -302,7 +303,8 @@ occurrence, and a reactivation with changed triggers plans anew.
 `file-change`), `scheduledAt`, `timeZone` (the stored zone for daily and weekly occurrences, the
 server's zone otherwise), and `key`, the same for one occurrence, for external idempotency. The host
 recognizes the occurrence by the command that queued the input, so other inputs have no `trigger`
-and cannot claim one.
+and cannot claim one. A state-aware program's own wakes are occurrences of the same kind with the
+reason `wake` (below, "State-aware programs").
 
 A program has at most one accepted trigger occurrence, queued or running, so it never overlaps
 itself; a run has at most four at once. Next due time, the accepted occurrence, last result,
@@ -352,11 +354,138 @@ effective port. Bodies have at most 250000 bytes and a request at most 30 second
 Run functions such as `overseer_notify` are granted the ordinary way, by declaring them within the
 actor's grants.
 
+## State-aware programs
+
+A program that waits for a time, a message, or a file and then continues is one function:
+`defineProgram(contract, async (ctx) => { ... })` from `@ragents/server`, the default export of the
+backend. The host evaluates the body completely on every wake. Every state-bearing primitive gets
+its own slot by its position in the code, so the state is a tree that mirrors the code. It is the
+actor state and commits once at the end of an evaluation by the ordinary commit rules. A waiting
+primitive ends the evaluation. A wake carries no value: it only causes the next evaluation, in
+which the waiting primitive decides from its slot and the world whether it is done. An evaluation
+that ends in the same wait writes nothing. `defineActor` programs work unchanged; a package is one
+or the other.
+
+The contract names `capabilities`, the run functions its steps call, and `messages`, each with a
+`label`, an `input` schema, and optional `description`, `confirmation`, and `tool` as for functions.
+The primitives:
+
+- `ctx.useState(initial, name?)` and `ctx.useStateWith(create, name?)` return a cell with `value`
+  and `set(value)`; `create` runs only when the cell is created. Values are JSON. A cell keeps its
+  first value and every assignment. An evaluation replays them, and one that assigns another value
+  than recorded stops (below, "Guards"). A named cell appears with its current value under `values`.
+- `await ctx.step(effect)` runs the effect once and stores its JSON result, which later evaluations
+  return. Run functions (`ctx.functions`) are called only inside steps. A failed step ends the
+  evaluation as `failed` with its position; the progress before it commits, and the host tries the
+  step again with the trigger backoff.
+- `await ctx.waitUntil(wait)` with `{ at }` (an ISO time), `{ afterMs }` (counted from the evaluation
+  that first reached it), `{ daily: "HH:MM", timeZone? }`, or `{ weekly: "HH:MM", days, timeZone? }`
+  returns `{ at }`. A daily or weekly wait waits for the first occurrence after it was reached, then
+  returns the latest occurrence and wakes the program at every next one; without `timeZone` it
+  stores the server's zone. `ctx.forEach([today], (day) => day.at, ...)` thus gives every occurrence
+  its own slots.
+- `await ctx.receive(name, { timeoutMs? })` waits for the declared message and returns
+  `{ kind: "message", value }`, or `{ kind: "timeout" }` once the timeout after its first evaluation
+  has passed.
+- `await ctx.watch(path)` waits until the SHA-256 of an absolute file within the program's
+  `permissions.files.read` differs from its hash when the watch was first reached, and returns
+  `{ hash }`, null for a missing file.
+- `await ctx.when(condition, body, ctx.elsePreserve | ctx.elseForget)` runs `body` while the
+  condition holds; the third argument decides whether the branch's slots survive a false condition
+  (`elsePreserve`) or are dropped (`elseForget`).
+- `await ctx.forEach(items, key, body)` runs `body` for each item in list order, with the slots of
+  its string key; a key that disappears is forgotten.
+
+Evaluation is sequential: every primitive is awaited before the next one starts, and the first
+waiting primitive ends the evaluation. A program therefore waits for one thing at a time, while the
+daily or weekly waits it passed also wake it. Assignments that a forgotten branch or key made to
+cells outside it stay in effect: the dropping `when` or `forEach` keeps the latest one per cell and
+applies it whenever an evaluation passes there.
+
+This program prepares a draft every day at 08:00, waits up to 24 hours for an approval, counts the
+approvals, and publishes an approved draft. The forEach over the latest day gives each day its own
+slots; yesterday's are forgotten while `approvals` keeps counting. The package grants
+`files.read` for `/srv/notes` and `files.write` for `/srv/published`:
+
+```ts
+import { defineProgram } from "@ragents/server";
+import { Type } from "typebox";
+
+export default defineProgram({
+  capabilities: ["program_file_read", "program_file_write"],
+  messages: {
+    approval: { label: "Approve the draft", input: Type.Object({ approved: Type.Boolean() }), tool: { name: "approve_draft" } },
+  },
+}, async (ctx) => {
+  const approvals = ctx.useState(0, "approvals");
+  const today = await ctx.waitUntil({ daily: "08:00", timeZone: "Europe/Berlin" });
+  await ctx.forEach([today], (day) => day.at, async (day) => {
+    const draft = await ctx.step(() => ctx.functions.program_file_read({ path: "/srv/notes/today.md" }));
+    const answer = await ctx.receive("approval", { timeoutMs: 24 * 60 * 60 * 1000 });
+    await ctx.when(answer.kind === "message" && answer.value.approved, async () => {
+      approvals.set(approvals.value + 1);
+      await ctx.step(() => ctx.functions.program_file_write({ path: `/srv/published/${day.at.slice(0, 10)}.md`, content: draft }));
+    }, ctx.elseForget);
+  });
+});
+```
+
+Every message is a function of the program with the result `{ queued: true }`: a view calls it with
+`context.capabilities.call`, an agent through its `tool`. The host accepts it only while a receive of
+that name waits and no other message to the program is on its way, and queues it as an ActorInput
+to the program's own actor, recognized by the command that queued it as a start is. The evaluation
+it causes hands it to the waiting receive; a message that finds no waiting receive by then is
+dropped with a runtime line.
+
+The host wakes the program through its triggers ([Triggers](#triggers)): at `wakeAt`, the earliest
+of its waiting time, a receive's timeout, the next recurring occurrence, and a retry after a
+failure; at once for a revision it has not evaluated yet; and when a watched file changes, which it
+recognizes by the file's hash, so that a change elsewhere in the folder writes nothing. Such an
+occurrence has the reason `wake` or `file-change`. `ragents.triggers.timeoutSeconds` limits each
+evaluation, and pause, backoff, and the run's four occurrences apply as to every trigger. A new
+revision plans anew and ends a backoff.
+
+The actor state holds `status` (`waiting`, `done`, `failed`, or `blocked`), `waiting` (position,
+kind, message, until, and file), `wakeAt`, `error`, the body's `result` once done, `values`, the slot
+tree under `root`, and the revision it was evaluated with. Views and `actor_program_status` read it.
+
+### Guards
+
+At run time every slot records its kind, branch path, and key. An evaluation whose structure
+differs from the recorded one stops with "This program cannot be continued", naming the position
+and both kinds: another kind or key at a position, a missing or extra slot, or an assignment that
+differs from the recorded history. The program is shown blocked with that cause in its state and
+its trigger progress. Its recorded state stays as it was, and only a new revision evaluates it
+again: the code that recorded the state continues it, a program under a new name starts over.
+
+The type check of every activation, the project check before model requests, and
+`actor_program_diagnostics` report these rules like TypeScript errors, as `file:line:column
+RAG100x: message` (`apps/server/src/plugin-support/actor-programs/program-guards.ts`):
+
+- RAG1001: a state-bearing primitive outside the top level of the program body or of a `when` or
+  `forEach` callback: inside `if`, `switch`, conditional expressions, `&&`, `||`, `??`, loops, `try`,
+  or another function or callback, or not awaited.
+- RAG1002: `Date.now()`, `new Date()` without argument, `Math.random()`, `crypto.random*`,
+  `performance.now()`, timers, `fetch`, values from `node:fs`, `node:net`, `node:http`,
+  `node:child_process`, and related modules, or `ctx.functions` in the program body outside a
+  `ctx.step` callback.
+- RAG1003: a module-level `let` or `var`, or a change of a module-level object, in the files of a
+  state-aware program; tests are exempt.
+- RAG1004 and RAG1005: in the views of every actor program, the rules of hooks and missing effect
+  dependencies (`react-hooks/rules-of-hooks` and `react-hooks/exhaustive-deps`), checked during the
+  client build.
+
+`createProgramTest(program, { functions, now, timeZone })` from `@ragents/server/testing` evaluates a
+program in a domain test as the host does: `evaluate({ now, message, files })` runs one wake and
+returns the outcome with the state.
+
 ## State and lifecycle
 
 The backend context reads a snapshot of shared actor state. `context.state.replace` stages
 changes. Only successful completion with a valid result and state commits them to the journal;
-errors and cancellation discard staged state changes. File operations and calls to other
+errors and cancellation discard staged state changes. A state-aware program's evaluation always
+ends with a result, also when a step failed, so its slot tree commits with the completed steps;
+only an interrupted, cancelled, or crashed evaluation discards it. File operations and calls to other
 functions that already ran remain effective. An actor function is not a transaction across
 those side effects, so a retry must account for the state already reached.
 

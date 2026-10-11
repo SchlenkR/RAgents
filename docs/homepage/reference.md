@@ -291,7 +291,7 @@ Look up actor program guide and controls
 
 Read Mini-App control contracts or the actor-program authoring guide.
 
-With topic: guide, explain the TypeScript package workflow through actor_program_activate. Otherwise list control names, or select one component (for example Form) for only its TypeScript props and supporting types. Import controls from @ragents/client/ui and use these exact props.
+With topic: guide, explain the TypeScript package workflow through actor_program_activate; with topic: state-aware, explain defineProgram for work that waits for a time, a message or a file. Otherwise list control names, or select one component (for example Form) for only its TypeScript props and supporting types. Import controls from @ragents/client/ui and use these exact props.
 
 Owner: ragents.actor-programs. Scope: per-turn. Native model tool: yes. Availability: always.
 
@@ -312,9 +312,13 @@ Typed UI reference of the installed actor program plugin.
         {
           "type": "string",
           "const": "guide"
+        },
+        {
+          "type": "string",
+          "const": "state-aware"
         }
       ],
-      "description": "Default controls: query component names or types. Guide: read the short package workflow without component."
+      "description": "Default controls: query component names or types. Guide: read the short package workflow without component. State-aware: read how a defineProgram waits and continues, with its guards and an example."
     },
     "component": {
       "type": "string",
@@ -7435,6 +7439,10 @@ actor_program_create creates a package with fixed local dependencies and returns
                 }
               },
               "additionalProperties": false
+            },
+            "message": {
+              "type": "boolean",
+              "const": true
             }
           },
           "additionalProperties": false
@@ -7453,6 +7461,10 @@ actor_program_create creates a package with fixed local dependencies and returns
         }
       },
       "additionalProperties": false
+    },
+    "program": {
+      "type": "boolean",
+      "const": true
     }
   },
   "additionalProperties": false

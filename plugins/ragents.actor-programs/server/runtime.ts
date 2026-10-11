@@ -21,8 +21,10 @@ import { createTestReport, testReporterArgument } from "./test-report.js";
 import { FRAME_BODY_CLASS, FRAME_DOCUMENT_CLASS, FRAME_ROOT_CLASS } from "@ragents/host/plugin-support/actor-programs/client-runtime.js";
 import { buildTailwind } from "@ragents/host/plugin-support/actor-programs/tailwind.js";
 import type { AskService } from "@ragents/plugins/ragents.ask/server/contract.js";
-import { grantedPermissions, ungrantedHelpers, watchedFolders } from "./permissions.js";
-import { normalizeTriggers } from "./schedule.js";
+import { grantedPermissions, permittedFileHash, ungrantedHelpers, watchedFolders } from "./permissions.js";
+import { programSummaryOf } from "./program-state.js";
+import type { ProgramFile, ProgramOutcome, ProgramWorld } from "@ragents/host/plugin-support/actor-programs/program-runner.js";
+import { normalizeTriggers, serverTimeZone } from "./schedule.js";
 import { acceptedTriggerOf, ProgramTriggers, type ProgramTriggerOptions } from "./triggers.js";
 import { actorProgramManagementToolNames } from "./tool-contributor.js";
 const NAME = /^[a-z][a-z0-9-]{0,63}$/;
@@ -191,7 +193,16 @@ export interface ActorProgramRuntimeOptions {
     workspaceRoots: (runId: string) => Promise<{ read: readonly string[]; write: readonly string[] }>;
     triggers: Pick<ProgramTriggerOptions, "prepareRun" | "interrupt" | "watch" | "now" | "wake">;
 }
-type Recognized = { start: JsonValue } | { result: JsonValue };
+type Recognized = { start: JsonValue } | { result: JsonValue } | { message: { name: string; value: JsonValue } };
+const isRecord = (value: unknown): value is Record<string, unknown> => typeof value === "object" && value !== null && !Array.isArray(value);
+/** What a state-aware program's evaluation returned to the host. */
+const outcomeOf = (value: unknown): ProgramOutcome => {
+    const statuses: readonly unknown[] = ["waiting", "done", "failed", "blocked"];
+    if (!isRecord(value) || !statuses.includes(value.status) || typeof value.consumed !== "boolean" || !Array.isArray(value.needs) || !value.needs.every((entry) => typeof entry === "string")
+        || !(value.error === null || typeof value.error === "string"))
+        throw new Error("The program returned an invalid evaluation result.");
+    return value as unknown as ProgramOutcome;
+};
 export class ActorProgramRuntime implements ActorProgramsService, ActorProgramExecutor {
     readonly #options: ActorProgramRuntimeOptions;
     readonly #queues = new Map<string, Promise<void>>();
@@ -628,6 +639,10 @@ export class ActorProgramRuntime implements ActorProgramsService, ActorProgramEx
         if (!delivery)
             return undefined;
         const deliveries = state.deliveries.filter((entry) => entry !== delivery);
+        if (delivery.kind === "message") {
+            this.#writeScript(runId, { ...state, deliveries });
+            return { message: { name: delivery.name, value: (JSON.parse(input.content) as { value: JsonValue }).value } };
+        }
         if (delivery.kind === "result") {
             this.#writeScript(runId, { ...state, deliveries });
             return { result: JSON.parse(input.content) as JsonValue };
@@ -790,6 +805,13 @@ export class ActorProgramRuntime implements ActorProgramsService, ActorProgramEx
         const isolated = policy?.isolated ?? previous?.isolated;
         const backend = pkg.backend ? await compileAppBackend({ directory, backend: pkg.backend, runId, executor: this.runtime().nativeTypeScriptExecutor, signal, ...(isolated ? { isolated: true } : {}) }) : undefined;
         const contract: AppContract = backend?.contract ?? { state: objectSchema, functions: {} };
+        const stateAware = contract.program === true;
+        for (const [id, fn] of Object.entries(contract.functions)) {
+            if (Boolean(fn.message) !== stateAware)
+                throw new Error(stateAware ? `${id} is a function of a state-aware program; declare it under messages.` : `${id} is a message, which only defineProgram declares.`);
+            if (fn.message && fn.capabilities?.length)
+                throw new Error(`The message ${id} runs no code and declares no capabilities; declare them in defineProgram's capabilities.`);
+        }
         const declared = [...new Set([...contract.input?.capabilities ?? [], ...Object.values(contract.functions).flatMap((fn) => fn.capabilities ?? [])])];
         const breaking = isolated ? declared.filter((id) => isolationBreaking.has(id)) : [];
         if (breaking.length)
@@ -802,7 +824,7 @@ export class ActorProgramRuntime implements ActorProgramsService, ActorProgramEx
             throw new Error(`${ungranted.join("; ")}.`);
         const triggers = pkg.triggers ? normalizeTriggers({ ...pkg.triggers, ...pkg.triggers.fileChange ? { fileChange: { folders: await watchedFolders(pkg.triggers.fileChange.folders, permissions) } } : {} }) : undefined;
         if (contract.input && owner?.kind === "agent")
-            throw new Error("An LLM actor processes inputs with its agent driver; onInput is only allowed for TypeScript actors.");
+            throw new Error("An LLM actor processes inputs with its agent driver; onInput and defineProgram are only allowed for TypeScript actors.");
         if (contract.state.type !== "object")
             throw new Error("Actor state must be an object schema.");
         const state = owner ? this.data(runId, owner.id).values : {};
@@ -822,7 +844,7 @@ export class ActorProgramRuntime implements ActorProgramsService, ActorProgramEx
                 return entry;
             });
             return { id, label: fn.label, description: fn.description ?? fn.label, inputSchema: fn.input, resultSchema: fn.output, capabilityIds: capabilities, capabilityContractHash: runCapabilityContractHash(selected), confirmation: fn.confirmation ?? null,
-                ...(fn.tool ? { tool: { name: fn.tool.name, targets: fn.tool.targets ? fn.tool.targets.map((target) => target === "self" ? actorId : this.#actorFrom(runId, targetRoom, target).id) : null, card: fn.tool.card ?? true } } : {}) };
+                ...(fn.message ? { message: true as const } : {}), ...(fn.tool ? { tool: { name: fn.tool.name, targets: fn.tool.targets ? fn.tool.targets.map((target) => target === "self" ? actorId : this.#actorFrom(runId, targetRoom, target).id) : null, card: fn.tool.card ?? true } } : {}) };
         });
         const inputCapabilities = contract.input?.capabilities ?? [];
         const inputDescriptors = inputCapabilities.map((id) => {
@@ -860,7 +882,7 @@ export class ActorProgramRuntime implements ActorProgramsService, ActorProgramEx
         const definition: ActorProgramDefinition = { name, title: pkg.title, description: pkg.description ?? "", actorId, actorHandle, revision, installedBy: previous?.installedBy ?? callerId, targetRoom,
             directory: path.join(this.#options.directoryFor(runId), "actor-builds", name, revision), sourceDirectory: directory,
             ...(backend ? { backendFile: "server.mjs" } : {}), ...(isolated ? { isolated: true } : {}), ...(policy || previous?.capabilitiesAsActor ? { capabilitiesAsActor: true } : {}),
-            ...(triggers ? { triggers } : {}), ...(Object.keys(permissions).length ? { permissions } : {}), stateSchema: contract.state, stylesFile: "frame.css", functions, views,
+            ...(stateAware ? { stateAware: true as const } : {}), ...(triggers ? { triggers } : {}), ...(Object.keys(permissions).length ? { permissions } : {}), stateSchema: contract.state, stylesFile: "frame.css", functions, views,
             ...(contract.input ? { input: { capabilityIds: inputCapabilities, capabilityContractHash: runCapabilityContractHash(inputDescriptors) } } : {}) };
         return { directory, files, definition, clients, frameStyles, createActor: !owner, ...(backend ? { backendJavaScript: backend.javaScript } : {}) };
     }
@@ -1114,7 +1136,8 @@ export class ActorProgramRuntime implements ActorProgramsService, ActorProgramEx
                 this.#queues.delete(key);
         }
     }
-    async #backend(runId: string, program: ActorProgramDefinition, input: unknown, binding: BackendBinding, descriptors: readonly RunCapabilityDescriptor[], signal: AbortSignal): Promise<{
+    /** state replaces the committed actor state as the starting point, for a later round of the same evaluation. */
+    async #backend(runId: string, program: ActorProgramDefinition, input: unknown, binding: BackendBinding, descriptors: readonly RunCapabilityDescriptor[], signal: AbortSignal, state?: JsonValue): Promise<{
         result: unknown;
         logs: string[];
         state: JsonValue;
@@ -1130,7 +1153,7 @@ export class ActorProgramRuntime implements ActorProgramsService, ActorProgramEx
         const initial = this.data(runId, program.actorId);
         const result = await this.runtime().nativeTypeScriptExecutor.execute({
             program: { entry: program.backendFile, files: [{ fileName: program.backendFile, text: await readFile(path.join(program.directory, program.backendFile), "utf8") }], exportName: "handle" },
-            instanceId: this.#instance(program), cwd: program.directory, input, state: initial.values, ...(program.isolated ? { isolated: true } : {}),
+            instanceId: this.#instance(program), cwd: program.directory, input, state: state ?? initial.values, ...(program.isolated ? { isolated: true } : {}),
             std: { now: new Date().toISOString(), idPrefix: binding.id }, context: { runId, actor: { id: program.actorId, handle: addressFrom(this.actor(runId, program.actorId), this.#roomOf(runId, binding.principal.id)) }, invocationId: binding.id, invocationKind: binding.kind, principal: binding.principal, capabilities: descriptors },
         }, { signal, log: (value) => { if (logs.length < 100)
                 logs.push((typeof value === "string" ? value : JSON.stringify(value)).slice(0, 2000)); }, call: async (name, value) => {
@@ -1147,8 +1170,52 @@ export class ActorProgramRuntime implements ActorProgramsService, ActorProgramEx
             } });
         signal.throwIfAborted();
         this.actor(runId, program.actorId);
-        const state = checked(program.stateSchema, result.state, "Actor state");
-        return { result: result.result, logs, state, initial };
+        return { result: result.result, logs, state: checked(program.stateSchema, result.state, "Actor state"), initial };
+    }
+    /** One evaluation of a state-aware program: rounds only add the hashes of files it first watches, and the state commits once at the end. */
+    async #evaluate(request: TurnRequest<"script">, program: ActorProgramDefinition, binding: BackendBinding, descriptors: readonly RunCapabilityDescriptor[], signal: AbortSignal, message: { name: string; value: JsonValue } | null): Promise<void> {
+        const committed = this.data(request.runId, program.actorId);
+        const watched = programSummaryOf(committed.values)?.waiting?.file?.path;
+        let world: ProgramWorld = { now: request.startedAt, timeZone: serverTimeZone(), revision: program.revision, message, files: watched ? await this.#fileStates(program, [watched]) : {} };
+        let state = committed.values as JsonValue;
+        let outcome: ProgramOutcome;
+        for (let round = 1; ; round += 1) {
+            const result = await this.#backend(request.runId, program, { kind: "evaluate", world }, binding, descriptors, signal, state);
+            state = result.state;
+            outcome = outcomeOf(result.result);
+            if (outcome.needs.length === 0 || round === 3)
+                break;
+            world = { ...world, files: { ...world.files, ...await this.#fileStates(program, outcome.needs) } };
+        }
+        this.#commitState(request.runId, program.actorId, state, committed);
+        if (message && !outcome.consumed)
+            binding.output?.push(`No receive waits for ${message.name}; the message was dropped.`);
+        if (outcome.status === "failed" || outcome.status === "blocked")
+            throw new Error(outcome.error ?? `The program is ${outcome.status}.`);
+    }
+    async #fileStates(program: ActorProgramDefinition, files: readonly string[]): Promise<Record<string, ProgramFile>> {
+        return Object.fromEntries(await Promise.all(files.map(async (file) => [file, await permittedFileHash(program.permissions ?? {}, file).then((hash): ProgramFile => ({ hash }), (error: unknown): ProgramFile => ({ error: errorText(error) }))] as const)));
+    }
+    /** A message goes as an ActorInput to the program's own actor, and only while a receive of that name waits. */
+    #deliverMessage(runId: string, program: ActorProgramDefinition, name: string, value: JsonValue): JsonValue {
+        const waiting = programSummaryOf(this.data(runId, program.actorId).values)?.waiting;
+        if (waiting?.message !== name)
+            throw new Error(`@${program.actorHandle} does not wait for ${name} now${waiting ? `; it waits at ${waiting.position}` : ""}.`);
+        const state = this.#script(runId);
+        const live = this.#liveCommands(runId, new Set([program.actorId]));
+        if (state.deliveries.some((delivery) => delivery.kind === "message" && delivery.actorId === program.actorId && live.has(delivery.commandId)))
+            throw new Error(`A message to @${program.actorHandle} is still on its way; send again once it has arrived.`);
+        const commandId = `actor-program-message:${randomUUID()}`;
+        this.#writeScript(runId, { ...state, deliveries: [...state.deliveries, { commandId, actorId: program.actorId, kind: "message", name }] }, commandId);
+        try {
+            this.runtime().enqueueInput({ actorId: this.ownerId(runId), commandId }, runId, { actorId: program.actorId, presentation: "background", content: JSON.stringify({ message: name, value }) });
+        }
+        catch (error) {
+            const current = this.#script(runId);
+            this.#writeScript(runId, { ...current, deliveries: current.deliveries.filter((entry) => entry.commandId !== commandId) });
+            throw error;
+        }
+        return { queued: true };
     }
     #commitState(runId: string, actorId: string, state: JsonValue, initial: ActorDataState): void {
         if (canonicalHash(state) === canonicalHash(initial.values))
@@ -1169,6 +1236,8 @@ export class ActorProgramRuntime implements ActorProgramsService, ActorProgramEx
                 throw new Error("This function's external capabilities require the app actor. Trigger its input instead.");
             const { program, contract: fn, descriptors } = await this.#bound(runId, bound.actorId, bound.revision, signal, functionOf, binding.descriptorsFor);
             const value = checked(fn.inputSchema, input, `Input ${fn.id}`);
+            if (fn.message)
+                return checked(fn.resultSchema, this.#deliverMessage(runId, program, fn.id, value), `Result ${fn.id}`);
             const result = await this.#backend(runId, program, { kind: "function", functionId: fn.id, input: value }, binding, descriptors, signal);
             const output = checked(fn.resultSchema, result.result, `Result ${fn.id}`);
             this.#commitState(runId, program.actorId, result.state, result.initial);
@@ -1189,6 +1258,8 @@ export class ActorProgramRuntime implements ActorProgramsService, ActorProgramEx
                 const { program, descriptors } = await this.#bound(request.runId, request.agentId, undefined, signal, inputOf, descriptorsFor);
                 const binding: BackendBinding = { id: request.turnId, kind: "input", principal: { id: request.agentId, kind: "script" }, descriptorsFor, output, call: (name, input, index) => request.invoke(`${request.turnId}:capability:${index}`, name, input) };
                 const recognized = this.#recognize(request.runId, request.agentId, request.input);
+                if (program.stateAware)
+                    return this.#evaluate(request, program, binding, descriptors, signal, recognized && "message" in recognized ? recognized.message : null);
                 const trigger = this.#triggerOf(request.runId, request.agentId, request.input.sequence);
                 const result = await this.#backend(request.runId, program, { kind: "input", input: { ...scriptInputOf(request.input), ...trigger ? { trigger } : {} }, ...recognized }, binding, descriptors, signal);
                 const finishes = this.#finishesOf(request.runId, program, result.result);

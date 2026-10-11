@@ -2609,7 +2609,7 @@ import type { Static, TSchema } from 'typebox';
 export interface CapabilityContracts { "actor_input": { input: { /** Artifacts to attach; the sender must be able to read them, and the recipient may read them afterwards */ "artifactIds"?: Array<string>; /** Plain text the recipient receives as it is, without your context */ "message": string; /** Recipient: the @handle or ID of an actor of this run, as actor_list or agent_spawn name it; an address is room.name, a bare name means your room, otherwise the main room */ "to": string; }; output: Array<{ "payload": { /** ID of the receiving actor */ "actorId": string; /** ID of the enqueued input */ "inputId": string; }; "type": "actor.input.enqueued"; }> };
 "actor_list": { input: { /** Also list the tool names of each actor with a fixed selection. */ "toolNames"?: boolean; }; output: Array<{ "createdBy": (null) | (string); "description": (null) | (string); "displayName": string; /** The actor's address from your room: its handle, prefixed with room. when it stands in another room than yours and not in the main room */ "handle": string; "id": string; "kind": ("agent") | ("external") | ("human") | ("script"); "lifecycle": string; /** Number of selected tools; 0 is a plain LLM, null an open, dynamically resolved toolset. */ "toolCount": (null) | (number); /** Only with toolNames: true, for a fixed selection. */ "toolNames"?: Array<string>; }> };
 "actor_program_activate": { input: { /** self or @handle of an existing actor that takes the package; an activated package keeps its actor */ "actor"?: string; /** Package under @actors/ to check, build, test and activate; a bare name means your room's package, otherwise the main room's, room.name another room's */ "name": string; }; output: { "active": true; /** @handle of the actor that holds the package */ "actor": string; "name": string; /** Number of activated views */ "views": number; } };
-"actor_program_controls": { input: { /** Optional control name from the catalog, without UI. prefix. Only valid when topic is controls or omitted. */ "component"?: string; /** Default controls: query component names or types. Guide: read the short package workflow without component. */ "topic"?: ("controls") | ("guide"); }; output: ({ "components": Array<string>; }) | ({ "files": { [key: string]: unknown }; }) | ({ "guide": string; }) };
+"actor_program_controls": { input: { /** Optional control name from the catalog, without UI. prefix. Only valid when topic is controls or omitted. */ "component"?: string; /** Default controls: query component names or types. Guide: read the short package workflow without component. State-aware: read how a defineProgram waits and continues, with its guards and an example. */ "topic"?: ("controls") | ("guide") | ("state-aware"); }; output: ({ "components": Array<string>; }) | ({ "files": { [key: string]: unknown }; }) | ({ "guide": string; }) };
 "actor_program_create": { input: { /** Name of the new package in your room: lowercase letters, digits and hyphens; its files go to the returned directory */ "name": string; /** Template for the first files */ "template": ("blank") | ("chat") | ("controls") | ("headless") | ("headless-counter") | ("shared-list") | ("text-analysis"); }; output: { /** Package folder for the file tools and as bash cwd */ "directory": string; /** Created files relative to the package folder */ "files": Array<string>; "name": string; } };
 "actor_program_diagnostics": { input: { /** Only this package; omitted, every package checked for this actor; a bare name means your room's package, otherwise the main room's, room.name another room's */ "name"?: string; }; output: string };
 "actor_program_ensure": { input: { /** Package of this run or a shared actor package of the profile, which lives in the main room; a bare name means your room's package, otherwise the main room's, room.name another room's */ "name": string; }; output: { "actorId": string; "handle": string; /** active: already active, unchanged; restarted: its stopped actor was restarted; activated: built and activated from this run's package folder; installed: the shared package was installed */ "status": ("activated") | ("active") | ("installed") | ("restarted"); } };
@@ -2756,4 +2756,61 @@ export interface ActorContract { state: TSchema; functions: Readonly<Record<stri
 export type ActorFunctions<C extends ActorContract> = { [K in keyof C['functions']]: (input: Static<C['functions'][K]['input']>, context: RunContext<Static<C['state']>>) => Static<C['functions'][K]['output']> | Promise<Static<C['functions'][K]['output']>> };
 export type ActorImplementation<C extends ActorContract> = {functions: ActorFunctions<C>} & (C extends {input: unknown} ? {onInput: (input: ActorInput, context: RunContext<Static<C['state']>>) => void | Promise<void>; onStart?: (start: ActorStart, context: RunContext<Static<C['state']>>) => void | Promise<void>; onResult?: (result: ActorResult, context: RunContext<Static<C['state']>>) => void | Promise<void>} : {onInput?: never; onStart?: never; onResult?: never});
 export declare function defineActor<const C extends ActorContract>(contract: C, implementation: ActorImplementation<C>): {contract:C} & ActorImplementation<C>;
+export type ProgramWeekday = 'mon' | 'tue' | 'wed' | 'thu' | 'fri' | 'sat' | 'sun';
+/** An absolute ISO time, a duration after the program first reached the wait, or the latest daily or weekday wall time since then. */
+export type ProgramWait =
+  | { readonly at: string }
+  | { readonly afterMs: number }
+  | { readonly daily: string; readonly timeZone?: string }
+  | { readonly weekly: string; readonly days: readonly ProgramWeekday[]; readonly timeZone?: string };
+/** A state cell: value is what this evaluation has assigned so far, set records the next assignment. */
+export interface ProgramCell<T> { readonly value: T; set(value: T): void }
+export interface ProgramElse { readonly else: 'preserve' | 'forget' }
+/** A message the program receives; the host publishes it as a function that delivers its input to a waiting ctx.receive. */
+export interface ProgramMessage { label: string; description?: string; input: TSchema; tool?: { name: string; targets?: readonly string[]; card?: boolean }; confirmation?: string }
+export interface ProgramContract { capabilities?: readonly string[]; messages?: Readonly<Record<string, ProgramMessage>> }
+type ProgramMessageName<C extends ProgramContract> = C extends { messages: infer M } ? keyof M & string : never;
+type ProgramMessageValue<C extends ProgramContract, N> = C extends { messages: infer M } ? N extends keyof M ? M[N] extends { input: infer S extends TSchema } ? Static<S> : never : never : never;
+export type ProgramReceived<T> = { readonly kind: 'message'; readonly value: T } | { readonly kind: 'timeout' };
+export interface ProgramContext<C extends ProgramContract = ProgramContract> {
+  readonly run: { readonly id: string };
+  readonly actor: { readonly id: string; readonly handle: string };
+  readonly signal: AbortSignal;
+  /** The declared run functions; call them only inside ctx.step. */
+  readonly functions: RunContext<{}>['functions'];
+  log(value: unknown): void;
+  throwIfAborted(): void;
+  /** A cell at this position; name shows its current value under values in the actor state. */
+  useState<T>(initial: T, name?: string): ProgramCell<T>;
+  /** Like useState; create runs only when the cell is first reached. */
+  useStateWith<T>(create: () => T, name?: string): ProgramCell<T>;
+  /** Runs effect once; later evaluations return its stored JSON result. */
+  step<T>(effect: () => T | Promise<T>): Promise<T>;
+  waitUntil(wait: ProgramWait): Promise<{ readonly at: string }>;
+  /** Waits for the message addressed to this receive; with timeoutMs it ends as timeout after that time. */
+  receive<N extends ProgramMessageName<C>>(name: N): Promise<{ readonly kind: 'message'; readonly value: ProgramMessageValue<C, N> }>;
+  receive<N extends ProgramMessageName<C>>(name: N, options: { readonly timeoutMs: number }): Promise<ProgramReceived<ProgramMessageValue<C, N>>>;
+  /** Waits until the content hash of an absolute file within the read permissions differs from the one when the watch was first reached; null for a missing file. */
+  watch(path: string): Promise<{ readonly hash: string | null }>;
+  /** Runs body while condition holds; otherwise decides whether the branch keeps its state while the condition is false. */
+  when<T>(condition: boolean, body: () => T | Promise<T>, otherwise: ProgramElse): Promise<Awaited<T> | undefined>;
+  /** Runs body for every item, one after another; each key keeps its own state and a key that disappears forgets it. */
+  forEach<I, T>(items: readonly I[], key: (item: I) => string, body: (item: I) => T | Promise<T>): Promise<Awaited<T>[]>;
+  readonly elsePreserve: ProgramElse;
+  readonly elseForget: ProgramElse;
+}
+export interface ProgramWaiting {
+  readonly position: string; readonly kind: 'waitUntil' | 'receive' | 'watch';
+  readonly message: string | null; readonly until: string | null; readonly file: { readonly path: string; readonly hash: string | null } | null;
+}
+/** The actor state of a state-aware program; root holds the slot tree. */
+export interface ProgramState {
+  readonly version?: 1; readonly revision?: string; readonly status?: 'waiting' | 'done' | 'failed' | 'blocked';
+  readonly waiting?: ProgramWaiting | null; readonly wakeAt?: string | null; readonly error?: string | null;
+  readonly result?: unknown; readonly values?: Readonly<Record<string, unknown>>; readonly root?: unknown; readonly next?: number;
+}
+export interface ProgramOutcome { readonly status: 'waiting' | 'done' | 'failed' | 'blocked'; readonly consumed: boolean; readonly needs: readonly string[]; readonly error: string | null }
+export interface StateAwareProgram<C extends ProgramContract> { readonly contract: ActorContract; readonly messages?: C['messages']; evaluate(world: unknown, context: unknown): Promise<ProgramOutcome> }
+/** A state-aware program: the host evaluates body completely on every wake against the state recorded per position. */
+export declare function defineProgram<const C extends ProgramContract>(contract: C, body: (ctx: ProgramContext<C>) => unknown): StateAwareProgram<C>;
 ```

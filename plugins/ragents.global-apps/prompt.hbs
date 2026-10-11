@@ -2,61 +2,67 @@
 
 When asked for a global mini-app, a job or a recurring task, build and verify it yourself. Do not ask technical questions or ask the user to write code. Your hidden coordinator run is the user's global space: global_app_create copies a normal actor package into its own room beside your main room, activates it there and shows its optional React view on Start. Triggers and permissions belong to the package, as for every actor program. Use the existing file, editing and TypeScript tools in your own run.
 
-One complete example: "Run every day at 8 and tell me the current date", with state, a small view, a daily trigger and one granted function, the notification to you. Use the server's time zone unless the user names another:
-1. actor_program_create({name: "daily-date", template: "headless"}). Use its returned directory for every file, including any room prefix.
+A job that waits for a time, an answer or a file and then continues is a state-aware program (defineProgram, see actor_program_controls with topic guide): the host evaluates its body on every wake, a step runs once, and a waiting primitive keeps its place until the time, a message or a file change arrives. One complete example: "Every day at 8 prepare a draft, wait up to a day for my approval, count approvals and send me approved drafts", with a small view that approves or rejects and one granted function, the notification to you. A daily wait without timeZone uses the server's zone; pass the user's zone when they name one:
+1. actor_program_create({name: "daily-draft", template: "headless"}). Use its returned directory for every file, including any room prefix.
 2. Write package.json, src/server.ts and src/client.tsx there with the complete contents below.
-3. global_app_create({name: "daily-date", program: "daily-date"}). It copies, typechecks, builds and tests the package and activates it with its triggers. It returns the app's program name, here "daily-date.daily-date".
-4. actor_program_trigger({name: "daily-date.daily-date"}), then actor_program_status({name: "daily-date.daily-date"}). If queued or running, read again in a later step. Check lastResult, state and log. Fix reported source errors in your package, call global_app_create again with the same name, and repeat the verification. Finish the task without asking for technical confirmation.
+3. global_app_create({name: "daily-draft", program: "daily-draft"}). It copies, typechecks, builds and tests the package and activates it; the host evaluates it at once. It returns the app's program name, here "daily-draft.daily-draft".
+4. actor_program_status({name: "daily-draft.daily-draft"}). If queued or running, read again in a later step. state.status is waiting, state.waiting names the 08:00 wait and state.wakeAt its time. Fix reported source errors (TS and RAG codes alike) in your package, call global_app_create again with the same name, and repeat the verification. Finish the task without asking for technical confirmation.
 
 package.json:
 ```json
 {
-  "name": "daily-date",
+  "name": "daily-draft",
   "private": true,
   "type": "module",
   "ragents": {
-    "title": "Today's date",
+    "title": "Daily draft",
     "backend": "src/server.ts",
-    "views": [{ "id": "main", "client": "src/client.tsx" }],
-    "triggers": { "daily": { "at": "08:00" } }
+    "views": [{ "id": "main", "client": "src/client.tsx" }]
   }
 }
 ```
 
 src/server.ts:
 ```ts
-import { defineActor } from "@ragents/server";
+import { defineProgram } from "@ragents/server";
 import { Type } from "typebox";
 
-export default defineActor({
-  state: Type.Object({
-    checks: Type.Optional(Type.Integer()),
-    date: Type.Optional(Type.String()),
-  }),
-  functions: {},
-  input: { capabilities: ["overseer_notify"] },
-}, {
-  functions: {},
-  onInput: async (input, context) => {
-    const timeZone = input.trigger?.timeZone;
-    const date = new Intl.DateTimeFormat("en-GB", { dateStyle: "full", timeZone }).format(new Date());
-    const checks = (context.state.read().checks ?? 0) + 1;
-    const message = `Today is ${date}.`;
-    context.state.replace({ checks, date });
-    context.log(message);
-    await context.functions.overseer_notify({ message });
+export default defineProgram({
+  capabilities: ["overseer_notify"],
+  messages: {
+    approval: { label: "Approve or reject today's draft", input: Type.Object({ approved: Type.Boolean() }) },
   },
+}, async (ctx) => {
+  const approvals = ctx.useState(0, "approvals");
+  const today = await ctx.waitUntil({ daily: "08:00" });
+  await ctx.forEach([today], (day) => day.at, async (day) => {
+    const draft = await ctx.step(() => `Daily note for ${day.at.slice(0, 10)}`);
+    const answer = await ctx.receive("approval", { timeoutMs: 24 * 60 * 60 * 1000 });
+    await ctx.when(answer.kind === "message" && answer.value.approved, async () => {
+      approvals.set(approvals.value + 1);
+      await ctx.step(() => ctx.functions.overseer_notify({ message: `Approved and sent: ${draft}` }));
+    }, ctx.elseForget);
+  });
 });
 ```
 
 src/client.tsx:
 ```tsx
 import { createRoot } from "react-dom/client";
-import { useAppState } from "@ragents/client";
+import { context, useAppState } from "@ragents/client";
+import { Button } from "@ragents/client/ui";
 
 function App() {
   const state = useAppState();
-  return <main><h1>Today's date</h1><p>{state.date ?? "Not checked yet"}</p><p>{state.checks ?? 0} checks</p></main>;
+  const waiting = state.waiting?.message === "approval";
+  const answer = (approved: boolean) => context.capabilities.call("approval", { approved });
+  return <main>
+    <h1>Daily draft</h1>
+    <p>{waiting ? "Today's draft waits for your approval." : `Next draft: ${state.wakeAt ?? "not planned"}`}</p>
+    <p>{String(state.values?.approvals ?? 0)} approved</p>
+    <Button disabled={!waiting} onClick={() => answer(true)}>Approve</Button>
+    <Button variant="outline" disabled={!waiting} onClick={() => answer(false)}>Reject</Button>
+  </main>;
 }
 
 const root = document.getElementById("root");
@@ -64,8 +70,10 @@ if (!root) throw new Error("The #root element is missing.");
 createRoot(root).render(<App />);
 ```
 
-global_app_list shows every app with its program name, trigger progress and last result; global_app_remove removes one by app name. actor_program_pause pauses or resumes an app's automatic triggers; a manual trigger always works while paused. `ragents.triggers` in package.json combines interval.everySeconds (60..604800), daily.at (HH:MM), weekly.at with days (mon..sun), fileChange.folders (existing absolute server folders within the file permissions) and timeoutSeconds (1..300, default 30). daily and weekly accept timeZone (IANA); activation stores the server zone when it is omitted. Missing DST wall times are skipped; repeated times use only the first occurrence. After a restart an overdue trigger runs once, without overlap; intervals use fixed delay; failures back off. Without triggers the app runs only manually.
+The waiting receive takes one approval; a message while nothing waits for it is refused. The forEach over the latest day gives every day its own draft and wait, the 24-hour wait ends with the next day, and approvals outside it keeps counting. Keep every primitive at the top level of the body or of a when or forEach callback and every clock, random value or function call inside ctx.step: activation reports violations as RAG1001 to RAG1003, and a changed structure blocks the app with the position instead of resetting it.
 
-onInput reads why it runs from input.trigger: reason (manual, interval, daily, weekly or file-change), scheduledAt, timeZone and a key for external idempotency; other inputs have no trigger. State, view actions, frame loading and runtime output use the ordinary mini-app mechanisms. Every widget shows the last result; context.log supplies its text. overseer_notify posts a short input into the current coordinator conversation and may trigger a reply: relay that app result briefly to the user, without treating it as a new request to build another app.
+global_app_list shows every app with its program name, trigger progress and last result; global_app_remove removes one by app name. actor_program_pause pauses or resumes an app's automatic wakes and triggers; a manual actor_program_trigger always works while paused. An app that only reacts on a schedule can instead be a defineActor with `ragents.triggers` in package.json: interval.everySeconds (60..604800), daily.at (HH:MM), weekly.at with days (mon..sun), fileChange.folders (existing absolute server folders within the file permissions) and timeoutSeconds (1..300, default 30, which also limits each wake of a state-aware app). daily and weekly accept timeZone (IANA); activation stores the server zone when it is omitted. Missing DST wall times are skipped; repeated times use only the first occurrence. After a restart an overdue trigger runs once, without overlap; intervals use fixed delay; failures back off.
 
-`ragents.permissions` in package.json grants external access: files.read and files.write name existing absolute server folders, http names exact lowercase hosts with an optional port. Declare program_file_read, program_file_write or program_http_request in the capabilities that use them. The server checks every call against these lists; global apps run with process protection, which blocks direct network access and confines writes to package, build and temporary folders. Runtime functions such as overseer_notify are granted by declaring them, within your own grants; an app cannot declare file, shell, TypeScript evaluation or package tools. Keep credentials out of code, state and logs.
+Such an onInput reads why it runs from input.trigger: reason (manual, interval, daily, weekly or file-change), scheduledAt, timeZone and a key for external idempotency; other inputs have no trigger. State, view actions, frame loading and runtime output use the ordinary mini-app mechanisms. Every widget shows the last result; context.log supplies its text. overseer_notify posts a short input into the current coordinator conversation and may trigger a reply: relay that app result briefly to the user, without treating it as a new request to build another app.
+
+`ragents.permissions` in package.json grants external access: files.read and files.write name existing absolute server folders, http names exact lowercase hosts with an optional port. Declare program_file_read, program_file_write or program_http_request in the capabilities that use them; ctx.watch needs files.read for the watched file. The server checks every call against these lists; global apps run with process protection, which blocks direct network access and confines writes to package, build and temporary folders. Runtime functions such as overseer_notify are granted by declaring them, within your own grants; an app cannot declare file, shell, TypeScript evaluation or package tools. Keep credentials out of code, state and logs.

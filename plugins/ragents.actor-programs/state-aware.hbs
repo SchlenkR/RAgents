@@ -1,0 +1,72 @@
+## State-aware programs
+
+Work that waits for a time, a message or a file and then continues is a `defineProgram` from
+`@ragents/server`; `defineActor` stays for functions that views and tools call and for inputs
+handled at once. The host evaluates the program body completely on every wake. Every primitive
+keeps its state in a slot at its position in the code, so the state mirrors the code. A step runs
+once and later returns its stored result. A waiting primitive ends the evaluation; the time, a
+message or a file change wakes it, and an evaluation that ends in the same wait changes nothing.
+
+- `ctx.useState(initial, name?)` and `ctx.useStateWith(create, name?)`: JSON cells; `.value`,
+  `.set(value)`; a named cell shows under `values` in the state.
+- `await ctx.step(() => ...)`: effects and `ctx.functions` calls, run once; the result is JSON.
+- `await ctx.waitUntil({ at } | { afterMs } | { daily: "HH:MM", timeZone? } | { weekly, days, timeZone? })`:
+  a daily or weekly wait returns the latest occurrence and wakes again at the next one.
+- `await ctx.receive(name, { timeoutMs? })`: a message declared under `messages` in the contract;
+  callers send it as the function `name` (a view with `context.capabilities.call`, agents through
+  its `tool`) while the receive waits. Result `{ kind: "message", value }` or `{ kind: "timeout" }`.
+- `await ctx.watch(path)`: waits for a content change of a file within `permissions.files.read`.
+- `await ctx.when(condition, () => ..., ctx.elsePreserve | ctx.elseForget)`: a branch; the third
+  argument decides whether its state survives while the condition is false.
+- `await ctx.forEach(items, (item) => key, (item) => ...)`: state per key, one item after another;
+  a key that disappears is forgotten. Cells outside keep what forgotten branches assigned.
+
+Activation checks, reported like type errors: primitives only at the top level of the body or of
+a `when`/`forEach` callback, each awaited, never in `if`, ternaries, `&&`, loops, `try` or other
+callbacks (RAG1001); clock, randomness, timers, `fetch`, file, network or process modules and
+`ctx.functions` only inside `ctx.step` (RAG1002); no module-level `let` or changed module objects
+(RAG1003). Views follow the rules of hooks (RAG1004) and list every effect dependency (RAG1005).
+Code that no longer matches the recorded slots blocks the program ("cannot be continued", with
+the position): restore that code or activate it under a new name. `actor_program_status` shows
+`status`, `waiting`, `wakeAt`, `error` and `values`. Tests use `createProgramTest(program, { functions })`
+from `@ragents/server/testing`; `evaluate({ now, message, files })` runs one wake.
+
+Every day at 08:00 this prepares a draft, waits up to 24 hours for an approval, counts approvals
+and publishes approved drafts. The forEach over the latest day gives each day its own slots;
+yesterday's are forgotten while `approvals` keeps counting.
+
+```json
+{
+  "name": "daily-draft",
+  "private": true,
+  "type": "module",
+  "ragents": {
+    "title": "Daily draft",
+    "backend": "src/server.ts",
+    "permissions": { "files": { "read": ["/srv/notes"], "write": ["/srv/published"] } }
+  }
+}
+```
+
+```ts
+import { defineProgram } from "@ragents/server";
+import { Type } from "typebox";
+
+export default defineProgram({
+  capabilities: ["program_file_read", "program_file_write"],
+  messages: {
+    approval: { label: "Approve the draft", input: Type.Object({ approved: Type.Boolean() }), tool: { name: "approve_draft" } },
+  },
+}, async (ctx) => {
+  const approvals = ctx.useState(0, "approvals");
+  const today = await ctx.waitUntil({ daily: "08:00", timeZone: "Europe/Berlin" });
+  await ctx.forEach([today], (day) => day.at, async (day) => {
+    const draft = await ctx.step(() => ctx.functions.program_file_read({ path: "/srv/notes/today.md" }));
+    const answer = await ctx.receive("approval", { timeoutMs: 24 * 60 * 60 * 1000 });
+    await ctx.when(answer.kind === "message" && answer.value.approved, async () => {
+      approvals.set(approvals.value + 1);
+      await ctx.step(() => ctx.functions.program_file_write({ path: `/srv/published/${day.at.slice(0, 10)}.md`, content: draft }));
+    }, ctx.elseForget);
+  });
+});
+```
