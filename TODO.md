@@ -4,7 +4,6 @@ Inbox for everything; the owner and the AI write here. One line per entry, newes
 
 ## Open
 
-- quassel time column (11.10.2026): `patches/quassel@0.4.5.patch` replaces the fixed `w-[34px]` of the timestamp with `min-w-[5ch]` and `whitespace-nowrap`; take this into quassel's `ChatMessages.tsx` with the next release and drop it from the patch.
 - App displays for agents beyond named apps (11.10.2026): `app_display_add` addresses global apps by name; an app of another run has no human-readable, unambiguous address a model could use without copying an ID, so only "Show app..." offers it. Decide whether runs get such an address before extending the tool.
 - Check live (11.10.2026): read-only app displays against a real server with sign-in, in the browser and in a VS Code editor tab: a global app and an app of another run follow their state live while they work, every call is refused, "Remove" takes the window away, a second user reading the shared run sees "This app is not available to you." until the source run is shared too, and deleting the source run turns the window into a removal message; server, unit, and browser fixtures cover the parts.
 - Check live (11.10.2026): a state-aware program on a real server with a real model: the global coordinator builds the daily draft app from its prompt, the Start widget approves and rejects, a restart before and after 08:00 in the process sandbox on macOS and Linux keeps the wait and the server zone, a watched file in a permitted folder wakes it, and RAG lines reach the model as project errors before its next request.

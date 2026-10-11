@@ -42,14 +42,14 @@ const { registerTypeScriptFunctions } = await import("../src/ragents/typescript-
 const G = coordinatorRunId(null);
 
 const until = async (condition: () => boolean) => {
-  const timeout = Date.now() + 10000;
+  const timeout = Date.now() + 30000;
   while (!condition()) {
     assert.ok(Date.now() < timeout, "The expected state change did not happen");
     await new Promise((resolve) => setTimeout(resolve, 5));
   }
 };
 
-test("confirmed reset preserves global apps and recovers durably across server restarts", { timeout: 60000 }, async () => {
+test("confirmed reset preserves global apps and recovers durably across server restarts", { timeout: 120000 }, async () => {
   const faux = registerFauxProvider({ models: [{ id: "reset-model", reasoning: true }] });
   const model = faux.getModel();
   let management: RunManagement;

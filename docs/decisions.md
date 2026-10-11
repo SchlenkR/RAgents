@@ -2,13 +2,18 @@
 
 ## 2026-10-11: Chat timestamps never wrap
 
-Chapter: none; the quassel patch (`patches/quassel@0.4.5.patch`) changes only the presentation.
+Chapter: `spec/plugins.md` (Web as plugin host: chat building blocks); `development.md` (quassel
+version).
 
 quassel gave the time column of a chat with timestamps a fixed width of 34 pixels while its text
 uses `--qsl-text-meta` (0.7rem). Since the interface became 10 percent larger through the root font
-size, a time such as "17:11" no longer fit and broke into two lines. The column now has a minimum
-width of five digit widths (`5ch`) and does not wrap, so it follows the font size and a longer
-format widens it instead of breaking it.
+size, a time such as "17:11" no longer fit and broke into two lines. The fix belongs in quassel, not
+in a host patch: quassel 0.4.6 gives the column a minimum of five digit widths (`5ch`) without
+wrapping, so it follows the font size and a longer format widens it instead of breaking it. The
+same release carries the step popover bounds and the paused following on a native upward scroll
+that RAgents had patched into 0.4.5, plus inline and block code at the surrounding text size, so
+`patches/quassel@0.4.5.patch` and `patchedDependencies` are gone. The typography browser test
+checks that every timestamp stays on one line.
 
 ## 2026-10-11: A run shows apps of other runs as read-only displays
 

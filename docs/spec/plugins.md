@@ -1974,8 +1974,7 @@ openable individually through a popover given the expand permission. The collaps
 Thinking and tool detail popovers cap their height at 70 percent of the dynamic viewport,
 620 px, and the available space. Their body scrolls without moving the heading or close button;
 scroll chaining is contained within the popup. The click anchor stays inside the viewport
-when resizing an open popup. The Quassel source provides this behavior;
-the installed 0.4.5 package uses the same correction through a pnpm dependency patch.
+when resizing an open popup; quassel provides this behavior from 0.4.6 on.
 Accesses without `runs.inspect` receive, when step display is enabled, only this
 current, non-expandable status. Disabled steps stay hidden.
 The default of all chats is `grouped`; a product can use it without expanding or switching.

@@ -10,5 +10,3 @@ allowBuilds:
   protobufjs: false
 minimumReleaseAgeExclude:
   - quassel
-patchedDependencies:
-  quassel@0.4.5: patches/quassel@0.4.5.patch

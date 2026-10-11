@@ -5720,9 +5720,6 @@
   .qsl\:w-\[15rem\] {
     width: 15rem;
   }
-  .qsl\:w-\[34px\] {
-    width: 34px;
-  }
   .qsl\:w-\[190px\] {
     width: 190px;
   }
@@ -5759,9 +5756,6 @@
   .qsl\:min-w-0 {
     min-width: 0px;
   }
-  .qsl\:min-w-\[5ch\] {
-    min-width: 5ch;
-  }
   .qsl\:min-w-7 {
     min-width: calc(var(--qsl-spacing) * 7);
   }
@@ -5770,6 +5764,9 @@
   }
   .qsl\:min-w-9 {
     min-width: calc(var(--qsl-spacing) * 9);
+  }
+  .qsl\:min-w-\[5ch\] {
+    min-width: 5ch;
   }
   .qsl\:min-w-full {
     min-width: 100%;
@@ -6184,6 +6181,9 @@
   }
   .qsl\:text-\[15px\] {
     font-size: 15px;
+  }
+  .qsl\:text-\[length\:1em\] {
+    font-size: 1em;
   }
   .qsl\:text-\[length\:var\(--qsl-chat-font-size\,13px\)\] {
     font-size: var(--qsl-chat-font-size,13px);
