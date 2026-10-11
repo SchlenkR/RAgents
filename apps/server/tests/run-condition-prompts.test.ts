@@ -48,7 +48,7 @@ test("a plugin's run condition and a per-run override leave out its prompts, cha
     return { failure: null, usage: noUsage() };
   });
   const promptFile = path.join(directory, "domain.md");
-  await writeFile(promptFile, "# Domain\nDomain system prompt.");
+  await writeFile(promptFile, '# Domain\nDomain system prompt.{{#if (available "domain_probe")}} Call domain_probe.{{/if}}');
   const catalog: SystemPromptCatalog = {
     mode: "selectable",
     options: [{ id: "domain", label: "Domain", file: promptFile, text: "# Domain\nDomain system prompt." }],
@@ -127,11 +127,13 @@ test("a plugin's run condition and a per-run override leave out its prompts, cha
 
     const ownWorker = await own("worker", "work");
     assert.match(ownWorker.systemPrompt, /Domain system prompt\.[\s\S]*Own worker prompt\.[\s\S]*Domain hint for agents\./);
+    assert.doesNotMatch(ownWorker.systemPrompt, /Call domain_probe/);
     const otherWorker = await other("worker", "work");
     assert.match(otherWorker.systemPrompt, /Own worker prompt\./);
     assert.doesNotMatch(otherWorker.systemPrompt, /Domain/);
 
-    await own("primary", "listing");
+    const ownPrimary = await own("primary", "listing");
+    assert.match(ownPrimary.systemPrompt, /Call domain_probe/);
     await other("primary", "listing");
     const names = (runId: string) => (results.get(`${runId}:listing`) as { functions: { name: string }[] }).functions.map((entry) => entry.name);
     assert.ok(names("own").includes("domain_probe"));

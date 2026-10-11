@@ -521,14 +521,17 @@ of the reading actor:
 whether a contribution arrives at all; `available` decides each sentence inside it, because a
 contribution bound to any of several functions reaches readers with only some of them. Where a text
 must say what the reader lacks, it describes it without the name, such as "activation" for a reader
-without `actor_program_activate`. Without a known set, for the product prompt in the settings and the
-prompt stored with the coordinator, every function counts as available. A name in a capability
-declaration (`capabilities: [...]`) is what a program may call, not a function offered to the
-reader. The guides that `actor_program_controls` returns are rendered for the caller's functions
+without `actor_program_activate`. Catalogs, including the product prompt in settings and the
+prompt stored with the coordinator, explicitly pass `functions: "all"`; calling `available` without
+a function set is an error. Selected system prompts are also rendered for each reader, including
+workers that share them. Function names in capability declarations follow the same rule; a prompt
+can refer to the authoring guide for helpers only the resulting package will have.
+The guides that `actor_program_controls` returns are rendered for the caller's functions
 too. `apps/server/tests/prompt-function-fit.test.ts` composes the `core` profile, renders the
 complete system prompts of the run coordinator, of an agent with a restricted selection, and of the
-global coordinator, and checks every registered function name in them against the reader's
-functions; it also checks that every name a template asks for is registered.
+global coordinator, and checks every registered function name in them, including capability
+declarations, against the reader's functions. It covers a shared selectable prompt and checks that
+every name a template asks for is registered.
 Whatever reads differently or is missing per run (`renderForRun`, the plugin's run condition) applies
 equally to every delivery: in the coordinator's system prompt, in the workers' bound initial notes,
 in the chapters on demand, and for the prompt part of the selected system prompts, whose
@@ -5441,6 +5444,8 @@ package in its own run before creating the app. An app that shows runs declares 
 `run_list` (core.md, Global coordinator), which exists only in the global space; the tested example
 "always show the latest run" is a `defineActor` with an interval trigger whose `onInput` stores the
 newest entry in its state and a view that renders it (`apps/server/tests/global-apps.test.ts`).
+The interval refreshes the summary even while the coordinator is idle; an empty list clears the
+previous summary. This example displays the latest activity rather than opening the run.
 
 The web plugin publishes its Start widgets through a `startWidgets` factory, with stable IDs
 `ragents.global-apps:<name>`, `order: 200`, `readRight: "ragents.global-apps.read"`, and the

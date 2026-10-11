@@ -5652,7 +5652,9 @@ In the global space of a user with runs.read.
         ],
         "properties": {
           "title": {
-            "type": "string"
+            "type": "string",
+            "maxLength": 200,
+            "description": "One line, shortened with ... beyond 200 characters"
           },
           "status": {
             "anyOf": [
@@ -5689,7 +5691,8 @@ In the global space of a user with runs.read.
           }
         },
         "additionalProperties": false
-      }
+      },
+      "maxItems": 20
     },
     "hasMore": {
       "type": "boolean",

@@ -1266,10 +1266,11 @@ The server generates new run IDs. Archived and deleted runs are not part of this
 Within the global space, the run function `run_list({ limit? })` gives the coordinator and the
 programs of its app rooms the run list of the space's owner, exactly as the owner's interface shows
 it (own runs, runs shared with the owner, all runs with `runs.read.all`, never a global
-coordinator), newest first: at most `limit` runs, 5 by default and at most 20, each with `title`,
+coordinator), newest first by last activity: at most `limit` runs, 5 by default and at most 20,
+each with `title` on one line, shortened with `...` beyond 200 characters,
 `status` (`paused`, `running`, `waiting`, `idle`, `ended`, or `locked` for an unreadable journal),
-and `lastActivity` as ISO time, plus `hasMore`. The result names no run ID, because nothing a model
-or a view could do with one needs it. It is available only to executable actors in a global
+and `lastActivity` as ISO time, plus `hasMore`. The result contains summaries without identifiers;
+it provides no navigation contract. It is available only to executable actors in a global
 coordinator run whose owner has `runs.read` and checks both again on every call with the owner's
 current access; a program in the global space gets it like every other function by declaring it in
 its capabilities, and since it reads only what the owner may read, no grant widens it. It exists so

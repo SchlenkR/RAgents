@@ -10,6 +10,7 @@ import {
 import { runContracts } from "@ragents/engine/src/http/contracts";
 import { manualExecution, testServices } from "@ragents/engine/tests/support.ts";
 import { plugin } from "../../../plugins/ragents.overseer/server/index.ts";
+import { runListing } from "../../../plugins/ragents.overseer/server/run-list.ts";
 import { overseerContracts } from "../../../plugins/ragents.overseer/contract.ts";
 import { coordinatorRunId, SHARED_OVERSEER_RUN_ID } from "../../../plugins/ragents.overseer/server/coordinator.ts";
 import { coordinatorRequestUser } from "../src/access-service.ts";
@@ -164,6 +165,15 @@ test("every user has their own coordinator whose tools act only with that user's
   assert.deepEqual(await titles(aliceCoordinator), ["From Alice's coordinator"], "run_list shows a coordinator only its user's runs");
   assert.deepEqual(await titles(bobCoordinator), ["From Bob's coordinator"]);
   await assert.rejects(titles(own.runId), /only in your own global space/);
+  let currentAccess = createAccessContext({ enabled: true, user: { id: "alice", label: "alice", rights: [...operator, "runs.read.all"] } });
+  const [allRuns] = await runListing(() => management, () => currentAccess).tools({} as never);
+  const listAsOwner = () => allRuns!.run({ caller: { runId: aliceCoordinator, actorId: "coordinator", turnId: null } } as never, "list-all", {} as never);
+  const allTitles = (await listAsOwner() as { runs: Array<{ title: string }> }).runs.map((run) => run.title).sort();
+  assert.deepEqual(allTitles, ["From Alice's coordinator", "From Bob's coordinator"], "runs.read.all matches the interface and still omits coordinators");
+  currentAccess = createAccessContext({ enabled: true, user: { id: "alice", label: "alice", rights: [] } });
+  const coordinatorActor = management.view(aliceCoordinator).actors.find((actor) => actor.kind === "agent")!;
+  assert.equal(allRuns!.available(coordinatorActor, management.view(aliceCoordinator)), false);
+  await assert.rejects(listAsOwner(), (error: unknown) => error instanceof DomainError && error.code === "run-list-denied", "access is rechecked on each call");
   for (const reference of [foreign.runId, "From Bob's coordinator"]) {
     await assert.rejects(call(aliceTools, overseerContracts.readRun.id, { run: reference }), /unknown/i, reference);
     await assert.rejects(call(aliceTools, overseerContracts.sendMessage.id, { run: reference, message: "Foreign task" }), /unknown/i, reference);

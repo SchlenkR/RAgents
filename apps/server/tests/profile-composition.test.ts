@@ -74,7 +74,7 @@ const programState: PluginState = {
 
 test("actor-program prompt composition keeps the full guide exclusively in the reference query", async () => {
   const host = await composed(showcaseFixture);
-  const snapshot = await host.prompts.snapshot({});
+  const snapshot = await host.prompts.snapshot({ functions: "all" });
   const prompts = snapshot.contributions.filter((entry) => entry.id.startsWith("ragents.actor-programs."));
   const summary = prompts.find((entry) => entry.id === "ragents.actor-programs.summary");
   assert.ok(summary);
@@ -86,18 +86,18 @@ test("actor-program prompt composition keeps the full guide exclusively in the r
   assert.doesNotMatch(summary.content, /stateSchema|mockCapabilities|additionalProperties/);
   assert.ok(summary.requiresTools.includes("actor_program_create"));
   const minimal = await composed(minimalFixture);
-  assert.equal((await minimal.prompts.snapshot({})).contributions.some((entry) => entry.id.startsWith("ragents.actor-programs.")), false);
+  assert.equal((await minimal.prompts.snapshot({ functions: "all" })).contributions.some((entry) => entry.id.startsWith("ragents.actor-programs.")), false);
 });
 
 test("the workspace rules hang on its tools and stay in the system prompt", async () => {
   const host = await composed(minimalFixture);
-  const rules = (await host.prompts.snapshot({})).contributions.find((entry) => entry.id === "ragents.workspace.prompt");
+  const rules = (await host.prompts.snapshot({ functions: "all" })).contributions.find((entry) => entry.id === "ragents.workspace.prompt");
   assert.ok(rules);
   assert.equal(rules.delivery, "initial");
   assert.deepEqual([...rules.requiresTools].sort(), ["bash", "copy", "edit", "read", "task_output", "task_stop", "write"]);
   const native = host.tools.describe().filter((entry) => entry.nativeTool).map((entry) => entry.name);
   assert.ok(rules.requiresTools.every((tool) => native.includes(tool)));
-  const chapters = await host.prompts.describe({}, { delivery: "on-demand", toolNames: rules.requiresTools });
+  const chapters = await host.prompts.describe({ functions: "all" }, { delivery: "on-demand", toolNames: rules.requiresTools });
   assert.equal(chapters.some((entry) => entry.id === rules.id), false);
 });
 
@@ -215,13 +215,13 @@ test("no prompt contribution and no tool description names the variable of a ser
   const host = await composed(showcaseFixture);
   const toolNames = host.tools.describe().map((tool) => tool.name);
   const prompts = [
-    ...(await host.prompts.snapshot({})).contributions,
-    ...await host.prompts.describe({}, { delivery: "on-demand", toolNames }),
+    ...(await host.prompts.snapshot({ functions: "all" })).contributions,
+    ...await host.prompts.describe({ functions: "all" }, { delivery: "on-demand", toolNames }),
   ].map((entry) => [entry.id, entry.content] as const);
   const functions = (await Promise.all(host.tools.entries().map((contributor) => contributor.tools(toolResolutionContext)))).flat()
     .map((fn) => [fn.name, [fn.description, fn.longDescription ?? "", JSON.stringify(fn.schema)].join("\n")] as const);
   const { actorProgramGuide } = await import("../../../plugins/ragents.actor-programs/server/prompts.ts");
-  for (const [id, text] of [...prompts, ...functions, ["actor_program_controls guide", await actorProgramGuide.render({})] as const]) {
+  for (const [id, text] of [...prompts, ...functions, ["actor_program_controls guide", await actorProgramGuide.render({ functions: "all" })] as const]) {
     assert.doesNotMatch(text, /RAGENTS_[A-Z_]+_DIR/, id);
   }
   assert.match(prompts.find(([id]) => id === "ragents.actor-programs.summary")?.[1] ?? "", /cwd: "@actors\/<name>"/);
@@ -232,8 +232,8 @@ test("the document store is @documents: no tool, prompt or skill names document_
   const toolNames = host.tools.describe().map((tool) => tool.name);
   assert.equal(toolNames.includes("document_write"), false);
   const prompts = [
-    ...(await host.prompts.snapshot({})).contributions,
-    ...await host.prompts.describe({}, { delivery: "on-demand", toolNames }),
+    ...(await host.prompts.snapshot({ functions: "all" })).contributions,
+    ...await host.prompts.describe({ functions: "all" }, { delivery: "on-demand", toolNames }),
   ];
   const functions = (await Promise.all(host.tools.entries().map((contributor) => contributor.tools(toolResolutionContext)))).flat();
   const { readFileSync } = await import("node:fs");

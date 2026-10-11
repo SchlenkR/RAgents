@@ -187,6 +187,32 @@ test("a global app that always shows the latest run reads run_list on its interv
   assert.deepEqual(result, { runs: [{ title: "Release", status: "waiting", lastActivity: "2026-08-16T12:00:30.000Z" }, { title: "Report", status: "running", lastActivity: "2026-08-16T11:00:00.000Z" }], hasMore: true });
   assert.doesNotMatch(JSON.stringify(result), /run-[abc]/, "no identifier for a model to copy");
   await assert.rejects(runList!.run({ caller: { runId: f.runId, actorId: f.setup.agent.id, turnId: null } } as never, "list", {} as never), /only in your own global space/);
+  runs = [];
+  f.advance(60000);
+  await until(() => latest() === null);
+  assert.equal(f.programs.apps(G, f.actorOf(app("latest-run"), G)).length, 1, "the built React view belongs to the app actor");
+});
+
+test("run_list bounds its results, reports locked journals and returns no server details", async () => {
+  const runs = Array.from({ length: 21 }, (_, index) => listed(`run-${index}`, `Run ${index}`, Date.parse("2026-08-16T11:00:00.000Z") - index, "idle"));
+  runs[0] = { ...runs[0]!, title: `Long\n${"x".repeat(400)}`, locked: "Unreadable journal details" };
+  const management = { list: async () => runs } as Pick<RunManagement, "list"> as RunManagement;
+  const [fn] = await runListing(() => management, () => openAccess).tools({} as never);
+  const scope = { caller: { runId: G, actorId: "coordinator", turnId: null } };
+  const result = await fn!.run(scope as never, "list", {} as never) as { runs: Array<{ title: string; status: string; lastActivity: string }>; hasMore: boolean };
+  assert.equal(result.runs.length, 5);
+  assert.equal(result.hasMore, true);
+  assert.equal(result.runs[0]!.status, "locked");
+  assert.equal(result.runs[0]!.title.length, 200);
+  assert.match(result.runs[0]!.title, /^Long x+\.\.\.$/);
+  assert.deepEqual(Object.keys(result.runs[0]!), ["title", "status", "lastActivity"]);
+  assert.equal(Value.Check(fn!.resultSchema, result), true);
+  const maximum = await fn!.run(scope as never, "list-maximum", { limit: 20 } as never) as typeof result;
+  assert.equal(maximum.runs.length, 20);
+  assert.equal(maximum.hasMore, true);
+  for (const limit of [0, 21, 1.5]) assert.equal(Value.Check(fn!.schema, { limit }), false, `limit ${limit} is invalid`);
+  runs.length = 0;
+  assert.deepEqual(await fn!.run(scope as never, "list-empty", {} as never), { runs: [], hasMore: false });
 });
 
 test("an app may not declare isolation-breaking tools, and the global app tools stay with agents", { timeout: 60000 }, async (t) => {

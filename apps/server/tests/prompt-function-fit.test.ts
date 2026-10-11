@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
-import { readdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
+import { mkdirSync, readdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
@@ -13,7 +13,11 @@ import { compositionEnvironment } from "./fixtures/profile-composition/profiles.
 import type { Engine } from "../src/ragents/engine.ts";
 
 const directory = await mkdtemp(path.join(tmpdir(), "ragents-prompt-function-fit-"));
+const selectableDirectory = path.join(directory, "prompts");
+mkdirSync(selectableDirectory);
+writeFileSync(path.join(selectableDirectory, "reader.hbs"), 'Reader-specific rules.{{#if (available "event_query")}} Use event_query for history.{{/if}}');
 for (const [key, value] of Object.entries({ ...compositionEnvironment, DATA_DIR: directory, PROCESS_SANDBOX: "off", MCP_SERVERS: "{}", ACP_AGENTS: "{}",
+  SYSTEM_PROMPTS_DIR: selectableDirectory, SYSTEM_PROMPT_DEFAULT: "reader", SYSTEM_PROMPT_SHARE_DEFAULT: "1",
   MODEL_ALIASES: JSON.stringify(coreConfig.host.MODEL_ALIASES) })) {
   if (value === undefined) delete process.env[key];
   else process.env[key] = value;
@@ -39,15 +43,11 @@ const registered = [...new Set([...agentTools.map((tool) => tool.name), ...provi
 
 const workerTools = ["read", "write", "edit", "bash", "actor_program_create", "actor_program_diagnostics"];
 
-/** A capability list declares what a program may call, not a function offered to the reader. */
-const withoutDeclarations = (text: string): string => text.replace(/capabilities:\s*\[[^\]]*\]/g, "");
-
 /** Names with an underscore count wherever they stand; a plain word such as read only in code form. */
 const mentioned = (prompt: string): string[] => {
-  const text = withoutDeclarations(prompt);
   return registered.filter((name) => name.includes("_")
-    ? new RegExp(`(?<![A-Za-z0-9_])${name}(?![A-Za-z0-9_])`).test(text)
-    : new RegExp(`\`${name}\`|functions\\.${name}(?![A-Za-z0-9_])|(?<![A-Za-z0-9_.])${name}\\(`).test(text));
+    ? new RegExp(`(?<![A-Za-z0-9_])${name}(?![A-Za-z0-9_])`).test(prompt)
+    : new RegExp(`\`${name}\`|"${name}"|functions\\.${name}(?![A-Za-z0-9_])|(?<![A-Za-z0-9_.])${name}\\(`).test(prompt));
 };
 
 const templatesOf = (pluginDirectory: string): string[] => readdirSync(pluginDirectory, { recursive: true, encoding: "utf8" })
@@ -88,20 +88,31 @@ test("the system prompts of the core coordinator, an ordinary agent and the glob
   const worker = cases[1]!.request!;
   assert.deepEqual(worker.functionNames.filter((name) => !name.startsWith("typescript_")).sort(), [...workerTools].sort());
   assert.match(worker.systemPrompt, /## Actor programs/);
+  assert.match(worker.systemPrompt, /Reader-specific rules/);
+  assert.doesNotMatch(worker.systemPrompt, /event_query/);
+  assert.match(cases[0]!.request!.systemPrompt, /Use event_query for history/);
   const coordinator = cases[2]!.request!;
   assert.ok(coordinator.functionNames.includes("actor_program_controls"), "the global coordinator reads the authoring guide");
   assert.equal(coordinator.functionNames.includes("actor_program_activate"), false, "it activates through global_app_create");
   assert.match(coordinator.systemPrompt, /You activate a package only through global_app_create/);
   assert.match(coordinator.systemPrompt, /see actor_program_controls with topic guide/);
+  assert.match(coordinator.systemPrompt, /an app that always shows the latest run[^\n]*run_list\(\{ limit: 1 \}\)[^\n]*capabilities: \["run_list"\]/);
 });
 
-test("available holds when the reader has every named function, and without a known set for all", async () => {
+test("the guard includes capability declarations and exact function references", () => {
+  assert.deepEqual(mentioned('input: { capabilities: ["program_file_read", "run_list"] }').sort(), ["program_file_read", "run_list"]);
+  assert.deepEqual(mentioned('context.functions.read({}); `bash`; "copy"; write({}); bread; run_list_extra').sort(), ["bash", "copy", "read", "write"]);
+});
+
+test("available requires the reader's functions or an explicit catalog", async () => {
   const file = path.join(directory, "available.hbs");
   writeFileSync(file, '{{#if (available "read" "bash")}}both{{else}}not both{{/if}}');
   const prompt = handlebarsPrompt("test.available", 0, file);
   assert.equal(await prompt.render({ functions: ["read", "bash"] }), "both");
   assert.equal(await prompt.render({ functions: ["read"] }), "not both");
-  assert.equal(await prompt.render({}), "both");
+  assert.equal(await prompt.render({ functions: [] }), "not both");
+  assert.equal(await prompt.render({ functions: "all" }), "both");
+  await assert.rejects(prompt.render({}), /requires the reader's functions/);
   const misuse = path.join(directory, "misuse.hbs");
   writeFileSync(misuse, "{{#if (available)}}x{{/if}}");
   await assert.rejects(handlebarsPrompt("test.misuse", 0, misuse).render({}), /takes one or more function names/);

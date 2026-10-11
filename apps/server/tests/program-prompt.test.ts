@@ -27,11 +27,11 @@ const helpers = (programPermissionFunctions({ permissionsOf: () => undefined, ow
 
 test("the state-aware guide explains the principle, its guards, and one complete example that activates", async () => {
   const [tool] = await createControlsToolContributor().tools({} as never);
-  const section = await stateAwareProgramGuide.render({});
+  const section = await stateAwareProgramGuide.render({ functions: "all" });
   const scope = { availableFunctions: () => [{ name: "actor_program_controls" }, { name: "actor_program_status" }] };
   assert.deepEqual(await tool!.run(scope as never, "reference", { topic: "state-aware" } as never), { guide: section });
   assert.ok(section.length < 6_000, "the topic stays a short read");
-  assert.match(await actorProgramGuide.render({}), /`defineProgram`: read `topic: "state-aware"`/);
+  assert.match(await actorProgramGuide.render({ functions: "all" }), /`defineProgram`: read `topic: "state-aware"`/);
   for (const expected of [
     "`defineProgram`", "`defineActor` stays for functions", "evaluates the program body completely on every wake", "slot at its position",
     "ends in the same wait changes nothing", "ctx.useState(initial, name?)", "ctx.useStateWith(create, name?)", "await ctx.step(",

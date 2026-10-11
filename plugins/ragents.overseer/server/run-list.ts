@@ -21,10 +21,10 @@ export const runListing = (management: () => RunManagement, accessFor: (runId: s
     }, { additionalProperties: false }),
     resultSchema: Type.Object({
       runs: Type.Array(Type.Object({
-        title: Type.String(),
+        title: Type.String({ maxLength: 200, description: "One line, shortened with ... beyond 200 characters" }),
         status,
         lastActivity: Type.String({ description: "ISO time of the run's last change" }),
-      }, { additionalProperties: false })),
+      }, { additionalProperties: false }), { maxItems: 20 }),
       hasMore: Type.Boolean({ description: "Whether older runs follow" }),
     }, { additionalProperties: false }),
     available,
@@ -36,7 +36,11 @@ export const runListing = (management: () => RunManagement, accessFor: (runId: s
       const runs = await management().list(access);
       const shown = runs.slice(0, limit ?? 5);
       return {
-        runs: shown.map((run) => ({ title: run.title, status: run.locked === undefined ? run.state : "locked" as const, lastActivity: new Date(run.updatedAt).toISOString() })),
+        runs: shown.map((run) => {
+          const title = run.title.replace(/\s+/g, " ").trim();
+          return { title: title.length > 200 ? `${title.slice(0, 197)}...` : title,
+            status: run.locked === undefined ? run.state : "locked" as const, lastActivity: new Date(run.updatedAt).toISOString() };
+        }),
         hasMore: runs.length > shown.length,
       };
     },

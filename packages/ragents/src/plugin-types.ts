@@ -311,8 +311,8 @@ export interface SkillContribution {
 
 export interface PromptRenderContext {
   systemPromptIds?: readonly string[];
-  /** The functions of the actor that reads the text, native and snippet-only; without it every function counts as available. */
-  functions?: readonly string[];
+  /** The reader's native and snippet-only functions; "all" explicitly renders a catalog. */
+  functions?: readonly string[] | "all";
 }
 
 export interface PromptContribution {

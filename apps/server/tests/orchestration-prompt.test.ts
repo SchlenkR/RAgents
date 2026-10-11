@@ -8,7 +8,7 @@ import { handlebarsPrompt } from "../src/plugin-support/prompt.ts";
 const promptFile = fileURLToPath(
   new URL("../../../plugins/ragents.orchestration/orchestration.hbs", import.meta.url));
 
-const orchestrationPrompt = () => handlebarsPrompt("test.orchestration", 0, promptFile).render({});
+const orchestrationPrompt = () => handlebarsPrompt("test.orchestration", 0, promptFile).render({ functions: "all" });
 
 test("the orchestration prompt waits through subscriptions without polling", async () => {
   const prompt = await orchestrationPrompt();

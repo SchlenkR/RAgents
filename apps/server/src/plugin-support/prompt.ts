@@ -11,7 +11,9 @@ const renderOptions = (context: PromptRenderContext): Handlebars.RuntimeOptions 
       if (names.length === 0 || !names.every((name): name is string => typeof name === "string" && name.length > 0)) {
         throw new Error("The prompt helper available takes one or more function names");
       }
-      return context.functions === undefined || names.every((name) => context.functions!.includes(name));
+      const functions = context.functions;
+      if (functions === undefined) throw new Error("The prompt helper available requires the reader's functions or an explicit all catalog");
+      return functions === "all" || names.every((name) => functions.includes(name));
     },
   },
 });

@@ -1,5 +1,23 @@
 # Decisions
 
+## 2026-10-11: Verify prompt selections and the latest-run app without exemptions
+
+Chapters: `spec/plugins.md` (Prompt contributions and orchestration guidance, Global mini-apps),
+`spec/core.md` (Global coordinator); usage: `usage.md` (Let an agent write and verify an app).
+
+The prompt guard excluded capability declarations, hiding permission-helper names that its
+reader could not call. It now includes those declarations, and the global-app prompt points to
+the authoring guide for package-only helpers. Catalog rendering explicitly asks for all
+functions; missing reader context is an error. Selected system prompts are rendered for the
+reader on every model request instead of reusing their unfiltered startup text, including when
+shared with an ordinary agent. The guard covers that distinction and the latest-run instruction.
+
+The existing unknown-tool errors, conditional templates, guide access, activation through
+`global_app_create`, language rule, and owner-scoped `run_list` remain. The run summaries bound
+titles to one line and 200 characters. Tests check owner isolation, `runs.read.all`, revoked
+read access, limits, locked journals, and a real global program with a built React view whose
+interval updates the latest summary and clears it when the list becomes empty.
+
 ## 2026-10-11: Global apps and the global coordinator list runs through run_list
 
 Chapters: `spec/core.md` (Global coordinator), `spec/plugins.md` (Global mini-apps); usage:
