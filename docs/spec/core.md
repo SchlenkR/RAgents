@@ -1235,7 +1235,7 @@ Its native interface contains `typescript_api`, `typescript_eval`, and the allow
 `actor_program_controls` for the authoring guide and the control contracts,
 `actor_program_diagnostics`, the TypeScript and TypeScript language-server tools, and the
 `global_app_*` tools together with `actor_program_trigger`, `actor_program_pause`, and
-`actor_program_status`, but not `actor_program_activate`: the coordinator activates a package only
+`actor_program_status`, and `run_list` (below), but not `actor_program_activate`: the coordinator activates a package only
 through `global_app_create`, and its prompt says so without naming the excluded tool. The
 coordinator authors global app packages in its own working
 directory with the same package, file/edit, and TypeScript flow as a normal run agent. Without sign-in, the host shell
@@ -1262,6 +1262,19 @@ primary actor, stop them, and create new runs. Unique titles, run IDs, and short
 `Run 1` are resolved on the server. A separate index in the plugin storage keeps the references
 even after sorting, deletion, and restart. Ambiguous titles are rejected with the valid references.
 The server generates new run IDs. Archived and deleted runs are not part of this access.
+
+Within the global space, the run function `run_list({ limit? })` gives the coordinator and the
+programs of its app rooms the run list of the space's owner, exactly as the owner's interface shows
+it (own runs, runs shared with the owner, all runs with `runs.read.all`, never a global
+coordinator), newest first: at most `limit` runs, 5 by default and at most 20, each with `title`,
+`status` (`paused`, `running`, `waiting`, `idle`, `ended`, or `locked` for an unreadable journal),
+and `lastActivity` as ISO time, plus `hasMore`. The result names no run ID, because nothing a model
+or a view could do with one needs it. It is available only to executable actors in a global
+coordinator run whose owner has `runs.read` and checks both again on every call with the owner's
+current access; a program in the global space gets it like every other function by declaring it in
+its capabilities, and since it reads only what the owner may read, no grant widens it. It exists so
+that a global app such as "always show the latest run" can read runs, which a sandboxed program
+cannot reach through the JSON-RPC method `ragents.overseer.listRuns`.
 
 New runs start with a message, an installed run script, or a local run script package through its
 absolute server file path. Local packages use the same format and the same loader as installed

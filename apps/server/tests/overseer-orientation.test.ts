@@ -52,7 +52,7 @@ test("the global system prompt names no function of regular runs, and their cata
     host.provideHost(runManagementToken, () => { throw new Error("Orientation must not start or read a run"); });
     host.register(plugin.create(host));
     const policy = host.service(globalChatToken);
-    assert.deepEqual(policy.toolNames, ["read", "write", "edit", "bash", "overseer_notify"]);
+    assert.deepEqual(policy.toolNames, ["read", "write", "edit", "bash", "overseer_notify", "run_list"]);
     assert.match(policy.prompt, /Your tools include read, write, edit and bash\. Call your tools directly/);
     assert.match(policy.prompt, /A multi-part setup does not require its own setup package/);
     assert.match(policy.prompt, /The task describes the desired outcome/);

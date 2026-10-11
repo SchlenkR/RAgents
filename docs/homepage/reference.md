@@ -5604,6 +5604,102 @@ Only with the capability run.configure.
 }
 ```
 
+### run_list
+
+List runs
+
+List the runs of your user as the run list shows them, newest first, with title, status and last activity.
+
+Owner: ragents.overseer. Scope: per-turn. Native model tool: yes. Availability: conditional.
+
+In the global space of a user with runs.read.
+
+#### Input
+
+```json
+{
+  "type": "object",
+  "properties": {
+    "limit": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 20,
+      "description": "How many of the newest runs; 5 when omitted"
+    }
+  },
+  "additionalProperties": false
+}
+```
+
+#### Result
+
+```json
+{
+  "type": "object",
+  "required": [
+    "runs",
+    "hasMore"
+  ],
+  "properties": {
+    "runs": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "title",
+          "status",
+          "lastActivity"
+        ],
+        "properties": {
+          "title": {
+            "type": "string"
+          },
+          "status": {
+            "anyOf": [
+              {
+                "type": "string",
+                "const": "paused"
+              },
+              {
+                "type": "string",
+                "const": "running"
+              },
+              {
+                "type": "string",
+                "const": "waiting"
+              },
+              {
+                "type": "string",
+                "const": "idle"
+              },
+              {
+                "type": "string",
+                "const": "ended"
+              },
+              {
+                "type": "string",
+                "const": "locked"
+              }
+            ],
+            "description": "As the run list shows it; locked for a run whose journal cannot be read"
+          },
+          "lastActivity": {
+            "type": "string",
+            "description": "ISO time of the run's last change"
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    "hasMore": {
+      "type": "boolean",
+      "description": "Whether older runs follow"
+    }
+  },
+  "additionalProperties": false
+}
+```
+
 ### run_script_list
 
 List run scripts

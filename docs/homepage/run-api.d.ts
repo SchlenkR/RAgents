@@ -59,6 +59,7 @@ export interface CapabilityContracts { "actor_input": { input: { /** Artifacts t
 "roslyn_open": { input: ({ /** the .sln file (or a single .csproj), relative to the workspace root */ "root": string; }) & ({ [key: string]: unknown }); output: string };
 "roslyn_solutions": { input: { [key: string]: unknown }; output: string };
 "run_configure": { input: { /** Handle or ID of the actor the user's chat talks to */ "primaryActor"?: string; /** New title of the run */ "title"?: string; }; output: null };
+"run_list": { input: { /** How many of the newest runs; 5 when omitted */ "limit"?: number; }; output: { /** Whether older runs follow */ "hasMore": boolean; "runs": Array<{ /** ISO time of the run's last change */ "lastActivity": string; /** As the run list shows it; locked for a run whose journal cannot be read */ "status": ("ended") | ("idle") | ("locked") | ("paused") | ("running") | ("waiting"); "title": string; }>; } };
 "run_script_list": { input: { [key: string]: never }; output: Array<{ "available": boolean; "description": string; "entry": string; "reason"?: string; "title": string; }> };
 "run_script_start": { input: { /** The entry from run_script_list */ "entry": string; /** Start value of the script; omit it for none */ "input"?: unknown; }; output: { "count": number; "handle": string; } };
 "run_stop": { input: { [key: string]: never }; output: { "requested": true; } };

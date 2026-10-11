@@ -11,6 +11,9 @@ import { GlobalAppsService } from "../../../plugins/ragents.global-apps/server/s
 import { globalAppsSnapshotSchema } from "../../../plugins/ragents.global-apps/contract.ts";
 import { coordinatorRunId, isCoordinatorRunId } from "../../../plugins/ragents.overseer/server/coordinator.ts";
 import { coordinatorNotifications } from "../../../plugins/ragents.overseer/server/notify.ts";
+import { runListing } from "../../../plugins/ragents.overseer/server/run-list.ts";
+import type { ListedSession } from "../src/chat-handler.ts";
+import type { RunManagement } from "../src/ragents/global-chat.ts";
 import { invocationResult } from "./actor-runtime-fixture.ts";
 import { count, openAccess, programFiles, triggerFixture, until, type TriggerFixtureOptions } from "./program-triggers-fixture.ts";
 
@@ -121,6 +124,69 @@ test("an explicitly declared notification reaches the current coordinator after 
   assert.equal(notification?.enqueuedBy, f.actorOf(app(), G));
   const restricted = await globalFixture(t, { extraTools: notifications, grants: allGrants().map((grant) => grant.capability === "actor.input" ? { ...grant, delegable: false } : grant) });
   await assert.rejects(restricted.create(count, {}, ["overseer_notify"]), /capability overseer_notify is not available/i);
+});
+
+const listed = (id: string, title: string, updatedAt: number, state: ListedSession["state"]): ListedSession =>
+  ({ id, title, updatedAt, state, running: state === "running", pendingActions: 0, workspaceAccessible: true, operable: true });
+
+const latestRunApp = {
+  "package.json": JSON.stringify({ name: "source", private: true, type: "module", ragents: {
+    title: "Latest run", backend: "src/server.ts", views: [{ id: "main", client: "src/client.tsx" }], triggers: { interval: { everySeconds: 60 } },
+  } }),
+  "src/server.ts": `import { Type } from "typebox";
+import { defineActor } from "@ragents/server";
+
+const run = Type.Object({ title: Type.String(), status: Type.String(), lastActivity: Type.String() });
+
+export default defineActor({
+  state: Type.Object({ latest: Type.Optional(Type.Union([run, Type.Null()])) }),
+  functions: {},
+  input: { capabilities: ["run_list"] },
+}, {
+  functions: {},
+  onInput: async (_input, context) => {
+    const { runs } = await context.functions.run_list({ limit: 1 });
+    context.state.replace({ latest: runs[0] ?? null });
+  },
+});`,
+  "src/client.tsx": `import { createRoot } from "react-dom/client";
+import { useAppState } from "@ragents/client";
+
+function App() {
+  const { latest } = useAppState();
+  return <main>{latest ? <p>{latest.title}: {latest.status} since {latest.lastActivity}</p> : <p>No run yet.</p>}</main>;
+}
+
+const root = document.getElementById("root");
+if (!root) throw new Error("The #root element is missing.");
+createRoot(root).render(<App />);`,
+};
+
+test("a global app that always shows the latest run reads run_list on its interval", { timeout: 60000 }, async (t) => {
+  let runs = [listed("run-b", "Report", Date.parse("2026-08-16T11:00:00.000Z"), "running"), listed("run-a", "Notes", Date.parse("2026-08-16T10:00:00.000Z"), "idle")];
+  const askedWith: AccessContext[] = [];
+  const management = { list: async (access?: AccessContext) => { askedWith.push(access!); return runs; } } as Pick<RunManagement, "list"> as RunManagement;
+  const tools = (access: () => AccessContext) => runListing(() => management, () => access()).tools({} as never) as RunFunction[];
+  const f = await globalFixture(t, { extraTools: tools });
+  await f.write("source", latestRunApp);
+  assert.deepEqual(await f.service.create(openAccess, f.caller, { name: "latest-run", program: "source" }), { program: app("latest-run") });
+  const latest = () => (f.programs.data(G, f.actorOf(app("latest-run"), G)).values as { latest?: unknown }).latest;
+  f.scheduler.start();
+  await f.trigger(app("latest-run"), G);
+  await f.settled(app("latest-run"), "completed", G);
+  assert.deepEqual(latest(), { title: "Report", status: "running", lastActivity: "2026-08-16T11:00:00.000Z" });
+  runs = [listed("run-c", "Release", Date.parse("2026-08-16T12:00:30.000Z"), "waiting"), ...runs];
+  f.advance(60000);
+  await until(() => (latest() as { title?: string } | null)?.title === "Release");
+  assert.ok(askedWith.length >= 2 && askedWith.every((access) => access === openAccess), "the list is always the one of the global space's owner");
+  const [runList] = tools(() => openAccess);
+  const coordinator = f.setup.runtime.view(G).actors.find((actor) => actor.kind === "agent")!;
+  assert.equal(runList!.available(coordinator, f.setup.runtime.view(G)), true);
+  assert.equal(runList!.available(f.setup.view.actors.find((actor) => actor.id === f.setup.agent.id)!, f.setup.runtime.view(f.runId)), false, "not in an ordinary run");
+  const result = await runList!.run({ caller: { runId: G, actorId: coordinator.id, turnId: null } } as never, "list", { limit: 2 } as never);
+  assert.deepEqual(result, { runs: [{ title: "Release", status: "waiting", lastActivity: "2026-08-16T12:00:30.000Z" }, { title: "Report", status: "running", lastActivity: "2026-08-16T11:00:00.000Z" }], hasMore: true });
+  assert.doesNotMatch(JSON.stringify(result), /run-[abc]/, "no identifier for a model to copy");
+  await assert.rejects(runList!.run({ caller: { runId: f.runId, actorId: f.setup.agent.id, turnId: null } } as never, "list", {} as never), /only in your own global space/);
 });
 
 test("an app may not declare isolation-breaking tools, and the global app tools stay with agents", { timeout: 60000 }, async (t) => {

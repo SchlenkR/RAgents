@@ -1,6 +1,6 @@
 import { serviceToken, type AccessContext, type CatalogModel, type DeliveredInput, type JournalEvent, type JsonValue, type ModelSelection, type Orchestration, type RunSharing, type RunView } from "@ragents/engine";
 import type { GlobalRunPolicy } from "../api/rights.js";
-import type { ChatUser, RunScriptListing, SessionInfo, StartedScript } from "../chat-handler.js";
+import type { ChatUser, ListedSession, RunScriptListing, StartedScript } from "../chat-handler.js";
 
 export interface GlobalChatPolicy {
   /** A user's coordinator; without sign-in (null) there is exactly one. */
@@ -43,8 +43,8 @@ export type ManagedRunStart = {
   });
 
 export interface RunManagement {
-  /** With an access, only its own runs remain; without one it is the server's list. */
-  list: (access?: AccessContext) => Promise<SessionInfo[]>;
+  /** With an access, the run list as its interface shows it, newest first; without one it is the server's list. */
+  list: (access?: AccessContext) => Promise<ListedSession[]>;
   view: (runId: string) => RunView;
   events: (runId: string) => readonly JournalEvent[];
   create: (start: ManagedRunStart, signal?: AbortSignal) => Promise<string>;

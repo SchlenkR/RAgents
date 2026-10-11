@@ -5437,7 +5437,10 @@ TypeScript actors, with `agent.spawn`, `plugin.state.write`, and the owner's rig
 The coordinator verifies an app with the generic `actor_program_trigger` and
 `actor_program_status` under the returned program name and pauses or resumes it with
 `actor_program_pause`; it activates nothing in its own room. A normal run agent verifies its
-package in its own run before creating the app.
+package in its own run before creating the app. An app that shows runs declares the overseer's
+`run_list` (core.md, Global coordinator), which exists only in the global space; the tested example
+"always show the latest run" is a `defineActor` with an interval trigger whose `onInput` stores the
+newest entry in its state and a view that renders it (`apps/server/tests/global-apps.test.ts`).
 
 The web plugin publishes its Start widgets through a `startWidgets` factory, with stable IDs
 `ragents.global-apps:<name>`, `order: 200`, `readRight: "ragents.global-apps.read"`, and the

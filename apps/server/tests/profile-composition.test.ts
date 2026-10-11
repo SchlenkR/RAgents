@@ -120,7 +120,7 @@ test("the neutral showcase fixture composes real plugins and folder contribution
     "app_display_add", "app_display_remove",
     "program_file_read", "program_file_write", "program_http_request",
     "browser_navigate", "browser_snapshot", "browser_click", "browser_type", "browser_select_option", "browser_press_key", "browser_check", "browser_resize", "browser_take_screenshot", "browser_view_screenshot", "browser_close",
-    "read", "roslyn_close", "roslyn_diagnostics", "roslyn_open", "roslyn_solutions", "run_script_list", "run_script_start", "run_stop",
+    "read", "roslyn_close", "roslyn_diagnostics", "roslyn_open", "roslyn_solutions", "run_list", "run_script_list", "run_script_start", "run_stop",
     "show_document", "task_output", "task_stop", "todo_write",
     "typescript_api", "typescript_close", "typescript_eval", "typescript_diagnostics", "typescript_open", "watch_create", "watch_list", "watch_remove", "write",
   ].sort());

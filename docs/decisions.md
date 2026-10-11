@@ -1,5 +1,25 @@
 # Decisions
 
+## 2026-10-11: Global apps and the global coordinator list runs through run_list
+
+Chapters: `spec/core.md` (Global coordinator), `spec/plugins.md` (Global mini-apps); usage:
+`usage.md` (Let an agent write and verify an app).
+
+A user asked the global coordinator for a global mini-app that always shows the latest run. No run
+function listed runs, only the JSON-RPC method `ragents.overseer.listRuns`, which a sandboxed
+program cannot reach, so the model guessed names in four failed calls and gave up. `ragents.overseer`
+now registers `run_list({ limit? })`, the newest runs of the global space's owner with title, status,
+and last activity, 5 by default and at most 20, plus `hasMore`. It reads the same list as the run
+list of the owner's interface (`RunManagement.list`, now typed as the listed runs it returns), so
+access cannot drift from it: own runs, runs shared with the owner, and all runs only with
+`runs.read.all`. The result carries no run ID, because neither a model nor a view can do anything
+with one yet; a view that opens a run would need a host navigation contract first. The function
+exists only in a global coordinator run, for the coordinator, which gets it in its fixed selection,
+and for the programs of its app rooms, which declare it like any other function: in an ordinary run
+it would show the owner's run titles to everyone who operates a shared run. A server test builds the
+example with a real program, an interval trigger, and a view, and the global-apps prompt names it in
+one line for readers that have `run_list`.
+
 ## 2026-10-11: The user's own words decide the reply language
 
 Chapter: `spec/plugins.md` (Web as plugin host: the global chat's interface context).

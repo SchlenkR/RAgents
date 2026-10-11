@@ -21,6 +21,8 @@ import { globalChatToken, runManagementToken, type RunManagement } from "../src/
 import { productRuntimeToken } from "../src/ragents/product-runtime.ts";
 import { workspaceRuntimeToken, type SessionWorkspace } from "../src/ragents/workspace-runtime.ts";
 import { sandboxServicesToken } from "../src/plugin-support/workspace-sandbox-host.ts";
+import { runOwnerAccessToken } from "../src/ragents/host-services.ts";
+import { profileAccessFor } from "../src/ragents/profile-access.ts";
 
 const root = await mkdtemp(path.join(tmpdir(), "ragents-overseer-users-"));
 const dataDirectory = path.join(root, "data");
@@ -69,6 +71,7 @@ test("every user has their own coordinator whose tools act only with that user's
     workspaceFor = bridges.sessionWorkspaceFor;
     const host = new PluginHost({ product: { id: "test", title: "Test" }, dataDirectory });
     host.provideHost(runManagementToken, () => management);
+    host.provideHost(runOwnerAccessToken, (runId) => profileAccessFor(bridges.runtime().state(runId).ownerUserId));
     host.register({
       manifest: { id: "test.product" },
       register: (registration) => {
@@ -139,7 +142,7 @@ test("every user has their own coordinator whose tools act only with that user's
     return createAccessContext(sessions.coordinatorSnapshot(user.userId));
   };
   const policy = provider.plugins.service(globalChatToken);
-  assert.deepEqual(policy.toolNames, ["read", "write", "edit", "overseer_notify"], "with users the coordinator has no host shell");
+  assert.deepEqual(policy.toolNames, ["read", "write", "edit", "overseer_notify", "run_list"], "with users the coordinator has no host shell");
   assert.match(policy.prompt, /you have no shell/);
   assert.match(policy.prompt, /JSON-RPC calls via fetch in a snippet/);
   assert.doesNotMatch(policy.prompt, /read, write, edit and bash|bash function|bash and curl/);
@@ -156,6 +159,11 @@ test("every user has their own coordinator whose tools act only with that user's
   const listed = async (access: AccessContext) => (await call(access, overseerContracts.listRuns.id, {}) as Array<{ runId: string }>).map((entry) => entry.runId);
   assert.deepEqual(await listed(aliceTools), [own.runId]);
   assert.deepEqual(await listed(bobTools), [foreign.runId]);
+  const [runList] = await provider.plugins.tools.entries().find((entry) => entry.name === "ragents.overseer.runs")!.tools({} as never);
+  const titles = async (runId: string) => ((await runList!.run({ caller: { runId, actorId: "coordinator", turnId: null } } as never, "list", {} as never)) as { runs: Array<{ title: string }> }).runs.map((run) => run.title);
+  assert.deepEqual(await titles(aliceCoordinator), ["From Alice's coordinator"], "run_list shows a coordinator only its user's runs");
+  assert.deepEqual(await titles(bobCoordinator), ["From Bob's coordinator"]);
+  await assert.rejects(titles(own.runId), /only in your own global space/);
   for (const reference of [foreign.runId, "From Bob's coordinator"]) {
     await assert.rejects(call(aliceTools, overseerContracts.readRun.id, { run: reference }), /unknown/i, reference);
     await assert.rejects(call(aliceTools, overseerContracts.sendMessage.id, { run: reference, message: "Foreign task" }), /unknown/i, reference);

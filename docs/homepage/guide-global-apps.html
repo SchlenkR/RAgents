@@ -746,7 +746,9 @@ name.</p>
 <h2 id="let-an-agent-write-and-verify-an-app">Let an agent write and verify an app</h2>
 <p>The global coordinator has package, file/edit, TypeScript, <code>global_app_*</code>, and the trigger tools
 <code>actor_program_trigger</code>, <code>actor_program_pause</code>, and <code>actor_program_status</code> in its own run, and reads
-the authoring guide with <code>actor_program_controls</code>. It calls
+the authoring guide with <code>actor_program_controls</code>. <code>run_list</code> gives it, and every app that declares
+it, your runs as the run list shows them, with title, status, and last activity, so &quot;a mini-app
+that always shows my latest run&quot; is an app with an interval trigger. It calls
 <code>actor_program_create</code>, writes the package sources through the normal file tools, and calls
 <code>global_app_create</code>, which copies the package into the app&#39;s room, checks types, builds the
 backend and any views, runs package tests, and activates it with its triggers. Errors name the

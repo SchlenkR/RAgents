@@ -52,7 +52,9 @@ name.
 
 The global coordinator has package, file/edit, TypeScript, `global_app_*`, and the trigger tools
 `actor_program_trigger`, `actor_program_pause`, and `actor_program_status` in its own run, and reads
-the authoring guide with `actor_program_controls`. It calls
+the authoring guide with `actor_program_controls`. `run_list` gives it, and every app that declares
+it, your runs as the run list shows them, with title, status, and last activity, so "a mini-app
+that always shows my latest run" is an app with an interval trigger. It calls
 `actor_program_create`, writes the package sources through the normal file tools, and calls
 `global_app_create`, which copies the package into the app's room, checks types, builds the
 backend and any views, runs package tests, and activates it with its triggers. Errors name the
