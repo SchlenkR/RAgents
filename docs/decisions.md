@@ -1,5 +1,11 @@
 # Decisions
 
+## 2026-10-11: Global apps add no placeholder widget
+
+Chapter: `spec/plugins.md` (Global apps). Without any global app, `ragents.global-apps` contributed a
+"Global mini-apps" widget that only said to ask the global coordinator. A global app is just a widget;
+the plugin now contributes exactly one widget per app (or per broken app) and nothing otherwise.
+
 ## 2026-10-11: Triggers and permissions belong to every actor program; global apps keep only their rooms, list, and widgets
 
 Chapters: `spec/actor-programs.md` (Packages and actor binding, Templates and creation, Triggers,

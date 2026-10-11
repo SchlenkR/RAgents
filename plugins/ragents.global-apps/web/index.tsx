@@ -1,5 +1,4 @@
 import type { StartWidgetContribution, WebPlugin } from "@ragents/web/PluginRegistry";
-import { Empty, EmptyDescription } from "@ragents/web/ui";
 import { rpc } from "@ragents/web/rpc";
 import { globalAppsContracts, type GlobalAppsSnapshot } from "../contract";
 import { GlobalAppWidget, UnavailableGlobalApp } from "./GlobalAppWidget";
@@ -29,15 +28,6 @@ export const globalAppWidgets = (snapshot: GlobalAppsSnapshot, retry: () => void
   }] : []];
 };
 
-function EmptyGlobalApps() {
-  return <Empty><EmptyDescription>Ask the global coordinator to build a global mini-app for your Start dashboard.</EmptyDescription></Empty>;
-}
-
-const emptyWidget: StartWidgetContribution = {
-  id: "ragents.global-apps:system:empty", title: "Global mini-apps", description: "Where the global mini-apps that the global coordinator builds for you appear.",
-  columns: 2, order: 200, readRight: "ragents.global-apps.read", content: <EmptyGlobalApps />,
-};
-
 export const webPlugin: WebPlugin = {
   id: "ragents.global-apps",
   // The first snapshot settles the promise, so a factory that runs again keeps the previous widgets until then.
@@ -53,7 +43,7 @@ export const webPlugin: WebPlugin = {
       if (signal.aborted) return;
       unsubscribe = rpc.subscribe(globalAppsContracts.changed, {}, (snapshot) => {
         const widgets = globalAppWidgets(snapshot, subscribe);
-        publish(widgets.length ? widgets : [emptyWidget]);
+        publish(widgets);
       }, (problem) => publish(globalAppWidgets({ runId: null, revision: 0, apps: [], errors: [], problem }, subscribe)));
     };
     signal.addEventListener("abort", () => unsubscribe?.(), { once: true });
