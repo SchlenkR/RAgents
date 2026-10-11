@@ -29,7 +29,7 @@ function ChatMessages(props: ComponentProps<typeof QuasselChatMessages>) {
 }
 
 function Markdown(props: ComponentProps<typeof QuasselMarkdown>) {
-  return <QuasselHost><QuasselMarkdown {...props} /></QuasselHost>;
+  return <QuasselHost><div className="type-prose"><QuasselMarkdown {...props} /></div></QuasselHost>;
 }
 
 function ChatInput({ onSend, placeholder, ...props }: ChatInputProps) {

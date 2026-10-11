@@ -727,7 +727,7 @@ function SkillDocument({ file }: { file: SettingsSkillFile }) {
       {file.content === null
         ? <SettingsEmpty className="m-3">This file cannot be shown as text.</SettingsEmpty>
         : file.path.toLowerCase().endsWith(".md")
-          ? <div className="px-4 pt-4 pb-4 text-[0.79rem] leading-[1.62] text-foreground"><Markdown text={file.content} /></div>
+          ? <div className="px-4 pt-4 pb-4 type-prose"><Markdown text={file.content} /></div>
           : <div className="overflow-auto"><SourceCode className="px-4 pt-4 pb-4" content={file.content} path={file.path} /></div>}
     </article>
   );

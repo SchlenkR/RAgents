@@ -128,8 +128,8 @@ test("reading text and headings share tokens across chat and documents without c
       await settle(page);
       assert.equal(await page.evaluate(() => document.documentElement.dataset.host), host);
       const label = `${host}, ${theme}, root ${rootSize}px`;
-      await assertReadingRole(page, rootSize * 0.875, 1.65, label);
-      await assertHeadingRoles(page, rootSize * 0.875, defaultHeadings, label);
+      await assertReadingRole(page, rootSize * 0.8, 1.6, label);
+      await assertHeadingRoles(page, rootSize * 0.8, defaultHeadings, label);
       const unchanged = await controlRoles(page);
       near(unchanged[0].fontSize, rootSize * 0.78, `${label}, button font`);
       near(unchanged[1].fontSize, rootSize * 0.8, `${label}, body control font`);
