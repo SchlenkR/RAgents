@@ -93,6 +93,9 @@ test("global coordinator persists separately and manages ordinary runs through t
           directoryFor: (runId) => path.join(dataDirectory, "programs", runId),
           scriptSources: () => undefined,
           sharedPackage: () => undefined,
+          ownerAccess: () => createAccessContext({enabled: false, user: null}),
+          workspaceRoots: async () => ({read: [dataDirectory], write: [dataDirectory]}),
+          triggers: {prepareRun: async () => undefined, interrupt: async () => {throw new Error("Unexpected trigger interrupt");}},
         }));
         registration.script({id: "test.script", create: ({runtime}) => ({driver: new ScriptDriver({runtime})})});
         registration.profiles({

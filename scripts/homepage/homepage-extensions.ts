@@ -1074,6 +1074,26 @@ test("remembers separate inputs", async () => {
     "actor_program_create creates the package with fixed local dependencies and returns its directory: @actors/<name>/, in a room @actors/<room>.<name>/. File tools and language servers use this directory, Bash uses it as cwd.",
     "Changed project errors appear as short deltas before model requests. actor_program_diagnostics returns the complete state, actor_program_activate checks and activates.",
   ], "json"),
+  entry("app-triggers", "Actor programs", "Triggers and permissions of a program", "A program with an input handler declares when the host queues inputs for it and which server folders and hosts it may use. onInput reads why it runs from input.trigger.", "package.json of a program that reads a folder every morning and after every change.", `
+{
+  "name": "inbox-digest",
+  "private": true,
+  "type": "module",
+  "ragents": {
+    "title": "Inbox digest",
+    "backend": "src/server.ts",
+    "triggers": {
+      "daily": { "at": "08:00", "timeZone": "Europe/Berlin" },
+      "fileChange": { "folders": ["/srv/inbox"] },
+      "timeoutSeconds": 60
+    },
+    "permissions": { "files": { "read": ["/srv/inbox"] }, "http": ["api.example.com"] }
+  }
+}`, ["appPackage.triggers", "appPackage.permissions"], [
+    "interval.everySeconds (60 to 604800), daily and weekly times with an IANA time zone, file changes in permitted folders, and timeoutSeconds (1 to 300, default 30) combine. A program never has two trigger inputs at once; a run has at most four.",
+    "input.trigger carries reason, scheduledAt, timeZone, and a stable key; other inputs have none. actor_program_trigger queues a manual trigger, actor_program_pause pauses or resumes, actor_program_status shows progress, state, and log.",
+    "program_file_read, program_file_write, and program_http_request use the permissions. Activation grants only what the activating actor may delegate and the run owner may do.",
+  ], "json"),
   entry("app-contract", "Actor programs", "A contract for actor state and functions", "The TypeBox contract describes an actor's data and the inputs and outputs of its functions. A function can be called in the view and can additionally be offered in the shared TypeScript API with the same implementation. The SDK types are generated from it automatically.", "src/contract.ts; shared contract for the following backend function.", `
 import { Type } from "typebox";
 

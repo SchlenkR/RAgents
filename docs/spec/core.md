@@ -1129,8 +1129,8 @@ other user, not even with `runs.read.all`, and a coordinator identifier that is 
 belong to whoever names it first but answers everyone else with `run-not-found`. The permissions
 stay those of the plugin (`ragents.overseer.read` and `.write`); the first message does not need
 free runs (`runs.create`). The run uses the same chat routes, agent runtime, journal, and stop
-boundaries as other runs. The first message or global app registration prepares the run through
-the same global session path; app registration starts no model turn. The coordinator occupies
+boundaries as other runs. The first message or the creation of a global app prepares the run through
+the same global session path; app creation starts no model turn. The coordinator occupies
 `main`, and every global app has a sibling room. After a restart, chat, app state, and model
 context are preserved. The normal run list hides all coordinators; a deletion or move is rejected
 with `global-chat-protected` (status 409), an import under a coordinator identifier with
@@ -1228,7 +1228,9 @@ prompts, product skills, hooks, and preparation of a product working directory r
 Its native interface contains `typescript_api`, `typescript_eval`, and the allowed file tools
 `read`, `write`, and `edit`. Installed plugins also contribute `actor_program_create`,
 `actor_program_diagnostics`, the TypeScript and TypeScript language-server tools, and the
-`global_app_*` tools. The coordinator authors and checks global app packages in its own working
+`global_app_*` tools together with `actor_program_trigger`, `actor_program_pause`, and
+`actor_program_status`, but not `actor_program_activate`. The coordinator authors global app
+packages in its own working
 directory with the same package, file/edit, and TypeScript flow as a normal run agent. Without sign-in, the host shell
 `bash` is added. With users, it has none, because as a server process it could read the files of all users;
 it then sends its JSON-RPC calls from snippets with `fetch`. Individual work actions run directly;

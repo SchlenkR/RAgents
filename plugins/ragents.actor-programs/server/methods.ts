@@ -68,5 +68,17 @@ export const createActorProgramMethods = (options: ActorProgramMethodOptions): M
       session(runId, "run-unavailable", 404);
       return guarded("invocation-unknown", 404, () => options.runtime.invocation(runId, actorHandle, invocationId));
     }),
+    implement(actorProgramContracts.trigger, ({ runId, actorId }) => {
+      session(runId, "run-unavailable", 400);
+      return options.runtime.triggers.trigger(runId, actorId);
+    }),
+    implement(actorProgramContracts.pause, ({ runId, actorId, paused }) => {
+      session(runId, "run-unavailable", 400);
+      return options.runtime.triggers.pause(runId, actorId, paused);
+    }),
+    implement(actorProgramContracts.status, ({ runId, actorId, logLimit }) => {
+      session(runId, "run-unavailable", 404);
+      return options.runtime.triggers.status(runId, actorId, logLimit);
+    }),
   ];
 };

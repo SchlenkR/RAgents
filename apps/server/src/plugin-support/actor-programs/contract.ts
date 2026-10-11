@@ -1,11 +1,35 @@
-import { Type } from "typebox";
+import { Type, type Static } from "typebox";
 import { defineOperation } from "@ragents/engine/src/rpc/contract";
 import { actorAddressPattern, openJson } from "@ragents/engine/src/http/contracts";
+import type { JsonValue } from "@ragents/engine/src/domain/json";
 
 export const ACTOR_PROGRAMS_STATE_ID = "ragents.actor-programs";
 export const ACTOR_INVOCATIONS_STATE_ID = "ragents.actor-programs.invocations";
 export const ACTOR_SCRIPT_STATE_ID = "ragents.actor-programs.script";
+export const ACTOR_TRIGGERS_STATE_ID = "ragents.actor-programs.triggers";
 export const ACTOR_STATE_ID = "ragents.actor-state";
+
+const clockTime = Type.String({ pattern: "^(?:[01][0-9]|2[0-3]):[0-5][0-9]$" });
+const timeZone = Type.Optional(Type.String({ minLength: 1, maxLength: 128 }));
+const serverFolders = Type.Array(Type.String({ minLength: 1, maxLength: 512 }), { maxItems: 16, uniqueItems: true });
+export const appTriggersSchema = Type.Object({
+  interval: Type.Optional(Type.Object({ everySeconds: Type.Integer({ minimum: 60, maximum: 604800 }) }, { additionalProperties: false })),
+  daily: Type.Optional(Type.Object({ at: clockTime, timeZone }, { additionalProperties: false })),
+  weekly: Type.Optional(Type.Object({
+    at: clockTime,
+    days: Type.Array(Type.Union([Type.Literal("mon"), Type.Literal("tue"), Type.Literal("wed"), Type.Literal("thu"), Type.Literal("fri"), Type.Literal("sat"), Type.Literal("sun")]), { minItems: 1, maxItems: 7, uniqueItems: true }),
+    timeZone,
+  }, { additionalProperties: false })),
+  fileChange: Type.Optional(Type.Object({ folders: serverFolders }, { additionalProperties: false })),
+  timeoutSeconds: Type.Optional(Type.Integer({ minimum: 1, maximum: 300 })),
+}, { additionalProperties: false });
+export type AppTriggers = Static<typeof appTriggersSchema>;
+export const appPermissionsSchema = Type.Object({
+  files: Type.Optional(Type.Object({ read: Type.Optional(serverFolders), write: Type.Optional(serverFolders) }, { additionalProperties: false })),
+  http: Type.Optional(Type.Array(Type.String({ minLength: 1, maxLength: 512 }), { maxItems: 16, uniqueItems: true })),
+}, { additionalProperties: false });
+export type AppPermissions = Static<typeof appPermissionsSchema>;
+
 /** A view ID is room.package--view, three names of at most 64 characters each. */
 export const ACTOR_VIEW_ID_MAX_LENGTH = 195;
 
@@ -45,6 +69,9 @@ export interface ActorProgramDefinition {
   backendFile?: string;
   readonly isolated?: boolean;
   readonly capabilitiesAsActor?: boolean;
+  /** Canonical, with explicit time zones and real folder paths, as activation granted them. */
+  readonly triggers?: AppTriggers;
+  readonly permissions?: AppPermissions;
   stateSchema: object;
   stylesFile: string;
   functions: ActorFunctionDefinition[];
@@ -130,6 +157,28 @@ export interface ActorViewListing {
   invocations: ActorFunctionInvocation[];
 }
 
+export type ActorTriggerReason = "manual" | "interval" | "daily" | "weekly" | "file-change";
+export type ActorTriggerResult = { readonly outcome: "completed" | "failed" | "interrupted" | "timeout"; readonly at: string; readonly summary: string };
+/** Where a program's triggers stand; blocked names its problem. */
+export type ActorTriggerProgress = {
+  readonly paused: boolean;
+  readonly status: "ready" | "queued" | "running" | "paused" | "blocked";
+  readonly lastRunAt: string | null;
+  readonly nextRunAt: string | null;
+  readonly lastResult: ActorTriggerResult | null;
+  readonly problem: string | null;
+};
+export type ActorProgramLogLine = { readonly at: string; readonly level: "info" | "error"; readonly text: string };
+/** sandbox is null for a program without package isolation. */
+export type ActorProgramStatus = ActorTriggerProgress & {
+  readonly triggers: AppTriggers;
+  readonly permissions: AppPermissions;
+  readonly sandbox: "process" | "disabled" | null;
+  readonly state: JsonValue;
+  readonly log: ActorProgramLogLine[];
+  readonly droppedLogLines: number;
+};
+
 export interface ActorLocalToolParameter {
   name: string;
   type: string;
@@ -210,5 +259,26 @@ export const actorProgramContracts = {
     rights: ["runs.read", "runs.inspect"],
     input: Type.Object({ runId, actorHandle, invocationId }, { additionalProperties: false }),
     result: invocationSchema,
+  }),
+  trigger: defineOperation({
+    id: "ragents.actor-programs.trigger",
+    description: "Queue one manual trigger input for an actor's program, also while its triggers are paused.",
+    rights: ["runs.read", "runs.write"],
+    input: Type.Object({ runId, actorId: Type.String({ minLength: 1 }) }, { additionalProperties: false }),
+    result: Type.Object({ accepted: Type.Literal(true) }, { additionalProperties: false }),
+  }),
+  pause: defineOperation({
+    id: "ragents.actor-programs.pause",
+    description: "Pause or resume a program's automatic triggers; resuming also clears a problem that blocks them.",
+    rights: ["runs.read", "runs.write"],
+    input: Type.Object({ runId, actorId: Type.String({ minLength: 1 }), paused: Type.Boolean() }, { additionalProperties: false }),
+    result: Type.Object({ nextRunAt: Type.Union([Type.String(), Type.Null()]) }, { additionalProperties: false }),
+  }),
+  status: defineOperation({
+    id: "ragents.actor-programs.status",
+    description: "A program's triggers, permissions, trigger progress, state and recent input log.",
+    rights: ["runs.read"],
+    input: Type.Object({ runId, actorId: Type.String({ minLength: 1 }), logLimit: Type.Optional(Type.Integer({ minimum: 1, maximum: 100 })) }, { additionalProperties: false }),
+    result: openJson<ActorProgramStatus>("ActorProgramStatus"),
   }),
 } as const;

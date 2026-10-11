@@ -5,7 +5,7 @@ import path from "node:path";
 import test, { type TestContext } from "node:test";
 import { Type } from "typebox";
 import {
-    claimTurn, defineRunFunction, FixedWorkspaces, ScriptDriver, ToolRegistry, TurnScheduler, TurnToolset, type JsonValue,
+    claimTurn, createAccessContext, defineRunFunction, FixedWorkspaces, ScriptDriver, ToolRegistry, TurnScheduler, TurnToolset, type JsonValue,
 } from "@ragents/engine";
 import { allGrants, catalog, postTo, setupRun } from "../../../packages/ragents/tests/support.ts";
 import { ActorProgramRuntime } from "../../../plugins/ragents.actor-programs/server/runtime.ts";
@@ -56,6 +56,9 @@ const workflow = async (t: TestContext) => {
         directoryFor: () => directory,
         scriptSources: () => undefined,
         sharedPackage: () => undefined,
+        ownerAccess: () => createAccessContext({ enabled: false, user: null }),
+        workspaceRoots: async () => ({ read: [directory], write: [directory] }),
+        triggers: { prepareRun: async () => undefined, interrupt: async () => { throw new Error("Unexpected trigger interrupt."); } },
     });
     setup.services.actorPrograms = runtime;
     sandbox.registerWorkspaceRoot({ id: "actor-programs", alias: "@actors", directoryFor: (runId) => runtime.workspaceDirectory(runId) });

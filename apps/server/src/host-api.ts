@@ -1,5 +1,5 @@
 /** The number of the host API a plugin is built against; it changes with every incompatible change of a list, a listed name or a library. */
-export const HOST_API_VERSION = 16;
+export const HOST_API_VERSION = 17;
 
 /** A library the host shares whole, as its installed version exports it; host code instead names each value it offers. */
 export const LIBRARY = "library";
@@ -42,8 +42,8 @@ export const hostApi: { readonly server: HostApiModules; readonly web: HostApiMo
       "FRAME_BODY_CLASS", "FRAME_DOCUMENT_CLASS", "FRAME_ROOT_CLASS", "browserInputRuntime", "browserRuntimeStyles",
     ],
     "@ragents/host/plugin-support/actor-programs/contract": [
-      "ACTOR_INVOCATIONS_STATE_ID", "ACTOR_PROGRAMS_STATE_ID", "ACTOR_SCRIPT_STATE_ID", "ACTOR_STATE_ID",
-      "ACTOR_VIEW_ID_MAX_LENGTH", "actorProgramContracts", "relativeName", "resolveActorView",
+      "ACTOR_INVOCATIONS_STATE_ID", "ACTOR_PROGRAMS_STATE_ID", "ACTOR_SCRIPT_STATE_ID", "ACTOR_STATE_ID", "ACTOR_TRIGGERS_STATE_ID",
+      "ACTOR_VIEW_ID_MAX_LENGTH", "actorProgramContracts", "appPermissionsSchema", "appTriggersSchema", "relativeName", "resolveActorView",
     ],
     "@ragents/host/plugin-support/actor-programs/service": ["actorProgramsToken"],
     "@ragents/host/plugin-support/actor-programs/tailwind": ["buildTailwind"],
@@ -121,7 +121,7 @@ export const hostApi: { readonly server: HostApiModules; readonly web: HostApiMo
     "@ragents/engine/src/http/contracts": ["actorByHandle", "addressOf", "handleKey", "isActorAddress", "openJson", "runContracts"],
     "@ragents/engine/src/rpc/contract": ["defineChannel", "defineOperation"],
     "@ragents/host/plugin-support/actor-programs/contract": [
-      "ACTOR_INVOCATIONS_STATE_ID", "ACTOR_PROGRAMS_STATE_ID", "ACTOR_STATE_ID", "ACTOR_VIEW_ID_MAX_LENGTH", "actorProgramContracts",
+      "ACTOR_INVOCATIONS_STATE_ID", "ACTOR_PROGRAMS_STATE_ID", "ACTOR_STATE_ID", "ACTOR_VIEW_ID_MAX_LENGTH", "actorProgramContracts", "appTriggersSchema",
     ],
     "@ragents/web/AccessContext": ["useAccess"],
     "@ragents/web/DiffCode": ["DiffCode"],

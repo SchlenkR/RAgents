@@ -5,7 +5,7 @@ import { mkdir, mkdtemp, readdir, readFile, realpath, rm, stat, writeFile } from
 import { tmpdir } from "node:os";
 import path from "node:path";
 import test, { type TestContext } from "node:test";
-import { claimTurn, DomainError, pluginStateKey, ToolRegistry, TurnToolset, type RunState, type ToolScope } from "@ragents/engine";
+import { claimTurn, createAccessContext, DomainError, pluginStateKey, ToolRegistry, TurnToolset, type RunState, type ToolScope } from "@ragents/engine";
 import {
   BYTE_OPERATIONS,
   FILE_OPERATIONS,
@@ -602,6 +602,9 @@ test("an actor program is created, edited with the file tools and activated in a
     directoryFor: (runId) => path.join(server.root, "server", "programs", runId),
     scriptSources: () => undefined,
     sharedPackage: () => undefined,
+    ownerAccess: () => createAccessContext({ enabled: false, user: null }),
+    workspaceRoots: async () => ({ read: [offered], write: [offered] }),
+    triggers: { prepareRun: async () => undefined, interrupt: async () => { throw new Error("The test expects no trigger interrupt"); } },
   });
   setup.services.actorPrograms = programs;
   t.after(async () => {

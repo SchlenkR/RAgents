@@ -1,5 +1,5 @@
 {
-  "version": 16,
+  "version": 17,
   "server": {
     "@ragents/engine": [
       "DomainError",
@@ -111,8 +111,11 @@
       "ACTOR_PROGRAMS_STATE_ID",
       "ACTOR_SCRIPT_STATE_ID",
       "ACTOR_STATE_ID",
+      "ACTOR_TRIGGERS_STATE_ID",
       "ACTOR_VIEW_ID_MAX_LENGTH",
       "actorProgramContracts",
+      "appPermissionsSchema",
+      "appTriggersSchema",
       "relativeName",
       "resolveActorView"
     ],
@@ -712,7 +715,8 @@
       "ACTOR_PROGRAMS_STATE_ID",
       "ACTOR_STATE_ID",
       "ACTOR_VIEW_ID_MAX_LENGTH",
-      "actorProgramContracts"
+      "actorProgramContracts",
+      "appTriggersSchema"
     ],
     "@ragents/web/AccessContext": [
       "useAccess"

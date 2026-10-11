@@ -5,6 +5,7 @@ import { Badge, Button, Card, CardContent, ChoiceSelect, Spinner } from "@ragent
 import { rpc } from "@ragents/web/rpc";
 import { ActorViewFrame } from "@ragents/plugins/ragents.actor-programs/web/ActorViewFrame";
 import { createActorProgramsApi, type RunApp } from "@ragents/plugins/ragents.actor-programs/web/api";
+import { actorProgramContracts } from "@ragents/host/plugin-support/actor-programs/contract";
 import { globalAppsContracts, type GlobalAppSummary } from "../contract";
 import { GlobalAppDetails } from "./GlobalAppDetails";
 
@@ -12,10 +13,10 @@ const api = createActorProgramsApi("/api/plugins/ragents.actor-programs");
 const errorText = (cause: unknown): string => cause instanceof Error ? cause.message : String(cause);
 const time = (at: string | null): string => at === null ? "None" : new Date(at).toLocaleString();
 
-export function GlobalAppError({ problem, onRetry, onDetails }: { problem: string; onRetry: () => void; onDetails: () => void }) {
+export function GlobalAppError({ problem, onRetry, details }: { problem: string; onRetry: () => void; details: { label: string; act: () => void } | null }) {
   return <div className="grid min-w-0 gap-3">
     <p role="alert" className="break-words text-sm text-destructive">{problem}</p>
-    <div className="flex flex-wrap gap-2"><Button size="sm" variant="outline" onClick={onRetry}>Retry</Button><Button size="sm" variant="ghost" onClick={onDetails}>Open details</Button></div>
+    <div className="flex flex-wrap gap-2"><Button size="sm" variant="outline" onClick={onRetry}>Retry</Button>{details && <Button size="sm" variant="ghost" onClick={details.act}>{details.label}</Button>}</div>
   </div>;
 }
 
@@ -56,6 +57,8 @@ export function GlobalAppWidget({ app, runId, revision }: { app: GlobalAppSummar
   const view = app.views.find((entry) => entry.id === selected) ?? app.views[0];
   const failedRun = app.lastResult !== null && app.lastResult.outcome !== "completed" && !["running", "queued"].includes(app.status);
   const problem = error ?? app.problem ?? (failedRun ? app.lastResult!.summary : undefined);
+  const program = { runId, actorId: app.actorId };
+  const opened = { label: "Open details", act: openDetails };
   return <div className="@container/global-app min-w-0">
     <Card><CardContent className="grid min-w-0 gap-3">
       <div className="flex min-w-0 flex-wrap items-center justify-between gap-2">
@@ -63,29 +66,30 @@ export function GlobalAppWidget({ app, runId, revision }: { app: GlobalAppSummar
         <Button size="xs" variant="ghost" onClick={openDetails}>Open details</Button>
       </div>
       <p className="break-words text-sm text-muted-foreground">{app.description}</p>
-      {problem ? <GlobalAppError problem={problem} onDetails={openDetails} onRetry={() => {
-        if (app.problem && writable) void act(() => rpc.call(globalAppsContracts.pause, { name: app.name, paused: app.paused }));
-        else if (failedRun && writable) void act(() => rpc.call(globalAppsContracts.run, { name: app.name }));
+      {problem ? <GlobalAppError problem={problem} details={opened} onRetry={() => {
+        if (app.problem && writable && app.input) void act(() => rpc.call(actorProgramContracts.pause, { ...program, paused: app.paused }));
+        else if (failedRun && writable && app.input) void act(() => rpc.call(actorProgramContracts.trigger, program));
         else retry();
       }} /> : view ? <RenderBoundary resetKeys={[generation, view.id, view.revision]} title="The global app could not be rendered"
-        fallback={(cause, reset) => <GlobalAppError problem={cause.message} onDetails={openDetails} onRetry={() => { reset(); retry(); }} />}>
+        fallback={(cause, reset) => <GlobalAppError problem={cause.message} details={opened} onRetry={() => { reset(); retry(); }} />}>
         {app.views.length > 1 && <ChoiceSelect label="View" value={view.id} onValueChange={setSelected} options={app.views.map((entry) => ({ value: entry.id, label: entry.title }))} />}
-        <GlobalView key={`${view.id}:${generation}`} actorId={app.actorId!} runId={runId} view={view} revision={revision} onFailure={failed} />
+        <GlobalView key={`${view.id}:${generation}`} actorId={app.actorId} runId={runId} view={view} revision={revision} onFailure={failed} />
       </RenderBoundary> : null}
       <dl className="grid gap-1 text-xs text-muted-foreground"><div><dt>Last run</dt><dd>{time(app.lastRunAt)}</dd></div><div><dt>Next run</dt><dd>{time(app.nextRunAt)}</dd></div><div><dt>Last result</dt><dd className="break-words">{app.lastResult ? `${app.lastResult.outcome}: ${app.lastResult.summary}` : "No runs yet."}</dd></div></dl>
-      {writable && <div className="flex flex-wrap gap-2">
-        <Button size="sm" variant="outline" disabled={pending || ["running", "queued", "blocked"].includes(app.status)} onClick={() => { void act(() => rpc.call(globalAppsContracts.run, { name: app.name })); }}>{pending && <Spinner />}Run now</Button>
-        <Button size="sm" variant="outline" disabled={pending} onClick={() => { void act(() => rpc.call(globalAppsContracts.pause, { name: app.name, paused: !app.paused })); }}>{app.paused ? "Resume" : "Pause"}</Button>
+      {writable && app.input && <div className="flex flex-wrap gap-2">
+        <Button size="sm" variant="outline" disabled={pending || ["running", "queued", "blocked"].includes(app.status)} onClick={() => { void act(() => rpc.call(actorProgramContracts.trigger, program)); }}>{pending && <Spinner />}Run now</Button>
+        <Button size="sm" variant="outline" disabled={pending} onClick={() => { void act(() => rpc.call(actorProgramContracts.pause, { ...program, paused: !app.paused })); }}>{app.paused ? "Resume" : "Pause"}</Button>
       </div>}
     </CardContent></Card>
-    {details && <GlobalAppDetails name={app.name} revision={revision} writable={writable} onClose={() => setDetails(false)} />}
+    {details && <GlobalAppDetails app={app} runId={runId} revision={revision} writable={writable} onClose={() => setDetails(false)} />}
   </div>;
 }
 
-export function UnavailableGlobalApp({ name, problem, revision, onRetry }: { name: string; problem: string; revision: number; onRetry: () => void }) {
+/** An app without an active program offers removal instead of details. */
+export function UnavailableGlobalApp({ name, problem, removable, onRetry }: { name: string; problem: string; removable: boolean; onRetry: () => void }) {
   const access = useAccess();
   const writable = access.can("ragents.global-apps.write") && access.can("runs.write");
-  const [details, setDetails] = useState(false);
-  return <><Card><CardContent><GlobalAppError problem={problem} onRetry={onRetry} onDetails={() => setDetails(true)} /></CardContent></Card>
-    {details && <GlobalAppDetails name={name} revision={revision} writable={writable} onClose={() => setDetails(false)} />}</>;
+  const [error, setError] = useState<string>();
+  const remove = () => { void rpc.call(globalAppsContracts.remove, { name }).then(onRetry, (cause) => setError(errorText(cause))); };
+  return <Card><CardContent><GlobalAppError problem={error ?? problem} onRetry={onRetry} details={writable && removable ? { label: "Remove", act: remove } : null} /></CardContent></Card>;
 }

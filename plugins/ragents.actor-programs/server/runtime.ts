@@ -5,8 +5,8 @@ import path from "node:path";
 import { isDeepStrictEqual } from "node:util";
 import { Type, type TSchema } from "typebox";
 import { Value } from "typebox/value";
-import { actorByHandle, actorDescriptionMaxLength, addressFrom, addressOf, agentTools, assertJsonValue, canonicalHash, defineRunFunction, defineToolAvailability, emptyUsage, freeRoomName, handleKey, inheritedGrants, runCapabilityContractHash, scriptInputOf, schemaComplaints, type Actor, type ActorProgramExecutor, type RunFunction, type CommandContext, type ExecutableActor, type JsonValue, type OperationContext, type Orchestration, type PluginContext, type RunCapabilityDescriptor, type RunView, type TurnRequest, type TurnResult, } from "@ragents/engine";
-import { ACTOR_PROGRAMS_STATE_ID, ACTOR_INVOCATIONS_STATE_ID, ACTOR_SCRIPT_STATE_ID, ACTOR_STATE_ID, relativeName, resolveActorView, type ActorDataState, type ActorFunctionDefinition, type ActorFunctionInvocation, type ActorPackageOrigin, type ActorProgramDefinition, type ActorProgramIdentity, type ActorProgramState, type ActorScriptDelivery, type ActorScriptPackage, type ActorScriptState, type ActorViewListing, } from "@ragents/host/plugin-support/actor-programs/contract.js";
+import { actorByHandle, actorDescriptionMaxLength, addressFrom, addressOf, agentTools, assertJsonValue, canonicalHash, defineRunFunction, defineToolAvailability, emptyUsage, freeRoomName, handleKey, inheritedGrants, runCapabilityContractHash, scriptInputOf, schemaComplaints, type AccessContext, type Actor, type ActorProgramExecutor, type RunFunction, type CommandContext, type ExecutableActor, type JsonValue, type OperationContext, type Orchestration, type PluginContext, type RunCapabilityDescriptor, type RunView, type TurnRequest, type TurnResult, } from "@ragents/engine";
+import { ACTOR_PROGRAMS_STATE_ID, ACTOR_INVOCATIONS_STATE_ID, ACTOR_SCRIPT_STATE_ID, ACTOR_STATE_ID, relativeName, resolveActorView, type ActorDataState, type ActorFunctionDefinition, type ActorFunctionInvocation, type ActorPackageOrigin, type ActorProgramDefinition, type ActorProgramIdentity, type ActorProgramState, type ActorScriptDelivery, type ActorScriptPackage, type ActorScriptState, type ActorTriggerProgress, type ActorViewListing, } from "@ragents/host/plugin-support/actor-programs/contract.js";
 import type { ActivatedActorProgram, ActorProgramSource, ActorProgramsService, ActorViewReference, RunScriptSources, RunScriptStartInput } from "@ragents/host/plugin-support/actor-programs/service.js";
 import { jsonValue, jsonBytes, MAX_INVOCATIONS_STATE_BYTES } from "./limits.js";
 import { agentResultText, finishesOf, MAX_OPEN_STARTS, scriptResultContent, scriptStateOf, type ScriptFinish } from "./script-state.js";
@@ -21,6 +21,10 @@ import { createTestReport, testReporterArgument } from "./test-report.js";
 import { FRAME_BODY_CLASS, FRAME_DOCUMENT_CLASS, FRAME_ROOT_CLASS } from "@ragents/host/plugin-support/actor-programs/client-runtime.js";
 import { buildTailwind } from "@ragents/host/plugin-support/actor-programs/tailwind.js";
 import type { AskService } from "@ragents/plugins/ragents.ask/server/contract.js";
+import { grantedPermissions, ungrantedHelpers, watchedFolders } from "./permissions.js";
+import { normalizeTriggers } from "./schedule.js";
+import { acceptedTriggerOf, ProgramTriggers, type ProgramTriggerOptions } from "./triggers.js";
+import { actorProgramManagementToolNames } from "./tool-contributor.js";
 const NAME = /^[a-z][a-z0-9-]{0,63}$/;
 /** A package key names its room like an address does: room.name in a room, the bare name in the main room. */
 const KEY = /^(?:[a-z][a-z0-9-]{0,63}\.)?[a-z][a-z0-9-]{0,63}$/;
@@ -49,6 +53,8 @@ const actorDescriptionOf = (text: string | undefined): string | undefined => {
     const line = (text ?? "").replace(/\s+/g, " ").trim();
     return line.length <= actorDescriptionMaxLength ? line || undefined : `${line.slice(0, actorDescriptionMaxLength - 3).trimEnd()}...`;
 };
+/** What an isolated package may not declare: tools that run code or reach files beside its own boundary. */
+const isolationBreaking = new Set(["read", "write", "edit", "bash", "typescript_eval", "agent_spawn", "plugin_state_write", ...actorProgramManagementToolNames]);
 const exposed = defineToolAvailability({ availability: "conditional", availabilityDetail: "Published function of an active actor in the run." }, () => true);
 const objectSchema = { type: "object", additionalProperties: true };
 const checked = (schema: object, value: unknown, label: string): JsonValue => {
@@ -105,9 +111,11 @@ const originText = (origin: ActorPackageOrigin | undefined): string =>
 interface OriginPackage { name: string; files: readonly ActorProgramSource[]; origin: ActorPackageOrigin }
 /** The room a run script's setup actor opens with its creation. */
 interface ActorPlacement { kind: "open"; name: string; origin: string | null }
-/** How an activation runs: idle wants a quiet actor, reference names the actor to bind, placement opens a script's room, and targetRoom keeps the room the declared targets resolve from instead of the caller's. */
-interface Activation { readonly idle: boolean; readonly signal?: AbortSignal | undefined; readonly reference?: string | undefined; readonly placement?: ActorPlacement | undefined; readonly targetRoom?: string | null | undefined; readonly policy?: PackagePolicy }
+/** How an activation runs: idle wants a quiet actor, reference names the actor to bind, placement opens a script's room, targetRoom keeps the room the declared targets resolve from instead of the caller's, and grantor gives the permissions instead of the caller. */
+interface Activation { readonly idle: boolean; readonly signal?: AbortSignal | undefined; readonly reference?: string | undefined; readonly placement?: ActorPlacement | undefined; readonly targetRoom?: string | null | undefined; readonly policy?: PackagePolicy; readonly grantor?: Grantor }
 type PackagePolicy = Parameters<ActorProgramsService["copyPackage"]>[1];
+/** The actor that grants a package its permissions, in its own run. */
+interface Grantor { readonly runId: string; readonly actorId: string }
 /** What a claim wrote for a name and what it replaced; a release restores only a record nobody changed since. */
 interface Claim { name: string; claimed: ActorScriptPackage; previous: ActorScriptPackage | undefined }
 /** A name reserved by a shared package that the run holds for something else. */
@@ -177,6 +185,11 @@ export interface ActorProgramRuntimeOptions {
     scriptSources: (entryId: string, name: string) => readonly ActorProgramSource[] | undefined;
     /** A shared actor package of the profile, by name. */
     sharedPackage: (name: string) => { pluginId: string; files: readonly ActorProgramSource[] } | undefined;
+    /** The current rights of the run's owner; permissions a program gets never exceed them. */
+    ownerAccess: (runId: string) => AccessContext;
+    /** The server folders of the run's workspace that file permissions may name without full rights. */
+    workspaceRoots: (runId: string) => Promise<{ read: readonly string[]; write: readonly string[] }>;
+    triggers: Pick<ProgramTriggerOptions, "prepareRun" | "interrupt" | "watch" | "now" | "wake">;
 }
 type Recognized = { start: JsonValue } | { result: JsonValue };
 export class ActorProgramRuntime implements ActorProgramsService, ActorProgramExecutor {
@@ -198,8 +211,13 @@ export class ActorProgramRuntime implements ActorProgramsService, ActorProgramEx
     readonly #identities = new Map<string, string>();
     readonly #epochs = new Map<string, number>();
     readonly #stopping = new Set<string>();
+    readonly triggers: ProgramTriggers;
     #shuttingDown = false;
-    constructor(options: ActorProgramRuntimeOptions) { this.#options = options; }
+    constructor(options: ActorProgramRuntimeOptions) {
+        this.#options = options;
+        this.triggers = new ProgramTriggers({ ...options.triggers, runtime: options.runtime, programsOf: (view) => this.programsOf(view),
+            sandboxFor: async (runId, program) => Boolean(options.isolatedProcessContextFor && (await options.isolatedProcessContextFor(runId, [program.directory], [])).sandbox) });
+    }
     runtime(): Orchestration { return this.#options.runtime(); }
     view(runId: string): RunView { return this.runtime().view(runId); }
     ownerId(runId: string): string { return this.runtime().state(runId).ownerId; }
@@ -215,6 +233,7 @@ export class ActorProgramRuntime implements ActorProgramsService, ActorProgramEx
         });
     }
     programs(runId: string): ActorProgramDefinition[] { return this.runtime().listRuns().some(run => run.id === runId) ? this.programsOf(this.view(runId)) : []; }
+    triggerProgress(runId: string, actorId: string): ActorTriggerProgress { return this.triggers.progress(runId, actorId); }
     actor(runId: string, actorId: string): ExecutableActor {
         const actor = this.view(runId).actors.find((candidate) => candidate.id === actorId);
         if (!actor || actor.kind === "human" || actor.lifecycle.kind === "stopped")
@@ -465,7 +484,7 @@ export class ActorProgramRuntime implements ActorProgramsService, ActorProgramEx
             if (exists) renameSync(directory, backup);
             try {
                 await this.#writeSources(directory, files);
-                await this.#activate(this.operatorContext(target.runId, "copy"), target.runId, targetKey, { idle: true, signal, policy: target, placement });
+                await this.#activate(this.operatorContext(target.runId, "copy"), target.runId, targetKey, { idle: true, signal, policy: target, placement, grantor: { runId: source.runId, actorId: source.actorId } });
                 return this.#activated(target.runId, targetKey);
             } catch (error) {
                 await rm(directory, { recursive: true, force: true });
@@ -619,6 +638,14 @@ export class ActorProgramRuntime implements ActorProgramsService, ActorProgramEx
         const { input: value, options } = JSON.parse(input.content) as { input: JsonValue; options: Record<string, JsonValue> };
         return { start: { input: value, options, embedded: delivery.embedded, startedBy: delivery.startedBy, count: delivery.count, room: roomOfKey(delivery.name) } };
     }
+    /** The trigger occurrence the host accepted for this input, recognized by the command that queued it. */
+    #triggerOf(runId: string, actorId: string, sequence: number) {
+        const accepted = acceptedTriggerOf(this.view(runId), actorId);
+        if (!accepted || accepted.commandId !== this.#commandOf(runId, sequence))
+            return undefined;
+        const { reason, key, scheduledAt, timeZone } = accepted;
+        return { reason, key, scheduledAt, timeZone };
+    }
     /** Checked before the state commits: every finish ends a different open start of this package. */
     #finishesOf(runId: string, program: ActorProgramDefinition, value: unknown): readonly ScriptFinish[] {
         const finishes = finishesOf(value);
@@ -737,7 +764,7 @@ export class ActorProgramRuntime implements ActorProgramsService, ActorProgramEx
         return outcome("installed");
     }
     /** Declared tool targets resolve from `targetRoom`, by default the caller's room. */
-    async check(runId: string, name: string, callerId: string, signal?: AbortSignal, reference?: string, targetRoom: string | null = this.#roomOf(runId, callerId), policy?: PackagePolicy): Promise<CompiledProgram> {
+    async check(runId: string, name: string, callerId: string, signal?: AbortSignal, reference?: string, targetRoom: string | null = this.#roomOf(runId, callerId), policy?: PackagePolicy, grantor: Grantor = { runId, actorId: callerId }): Promise<CompiledProgram> {
         this.#assertKey(name);
         const directory = path.join(await this.workspaceDirectory(runId), name);
         if ((await lstat(directory)).isSymbolicLink())
@@ -763,15 +790,17 @@ export class ActorProgramRuntime implements ActorProgramsService, ActorProgramEx
         const isolated = policy?.isolated ?? previous?.isolated;
         const backend = pkg.backend ? await compileAppBackend({ directory, backend: pkg.backend, runId, executor: this.runtime().nativeTypeScriptExecutor, signal, ...(isolated ? { isolated: true } : {}) }) : undefined;
         const contract: AppContract = backend?.contract ?? { state: objectSchema, functions: {} };
-        if (policy) {
-            if (!contract.input)
-                throw new Error("This package needs an input handler for its triggers.");
-            const capabilities = [...contract.input.capabilities ?? [], ...Object.values(contract.functions).flatMap((fn) => fn.capabilities ?? [])];
-            const missing = policy.requiredCapabilities.filter((id) => !contract.input?.capabilities?.includes(id));
-            const denied = capabilities.filter((id) => !policy.capabilities.includes(id));
-            if (missing.length) throw new Error(`Missing input capabilities: ${missing.join(", ")}.`);
-            if (denied.length) throw new Error(`Input capabilities are not permitted: ${denied.join(", ")}.`);
-        }
+        const declared = [...new Set([...contract.input?.capabilities ?? [], ...Object.values(contract.functions).flatMap((fn) => fn.capabilities ?? [])])];
+        const breaking = isolated ? declared.filter((id) => isolationBreaking.has(id)) : [];
+        if (breaking.length)
+            throw new Error(`An isolated package may not declare ${breaking.join(", ")}.`);
+        if (pkg.triggers && !contract.input)
+            throw new Error("Triggers deliver inputs: declare input in the contract and an onInput handler.");
+        const permissions = pkg.permissions ? await grantedPermissions(pkg.permissions, await this.#grantor(grantor)) : {};
+        const ungranted = ungrantedHelpers(declared, permissions);
+        if (ungranted.length)
+            throw new Error(`${ungranted.join("; ")}.`);
+        const triggers = pkg.triggers ? normalizeTriggers({ ...pkg.triggers, ...pkg.triggers.fileChange ? { fileChange: { folders: await watchedFolders(pkg.triggers.fileChange.folders, permissions) } } : {} }) : undefined;
         if (contract.input && owner?.kind === "agent")
             throw new Error("An LLM actor processes inputs with its agent driver; onInput is only allowed for TypeScript actors.");
         if (contract.state.type !== "object")
@@ -830,9 +859,16 @@ export class ActorProgramRuntime implements ActorProgramsService, ActorProgramEx
         const revision = canonicalHash({ files, backend: backend?.javaScript ?? null, clients });
         const definition: ActorProgramDefinition = { name, title: pkg.title, description: pkg.description ?? "", actorId, actorHandle, revision, installedBy: previous?.installedBy ?? callerId, targetRoom,
             directory: path.join(this.#options.directoryFor(runId), "actor-builds", name, revision), sourceDirectory: directory,
-            ...(backend ? { backendFile: "server.mjs" } : {}), ...(isolated ? { isolated: true } : {}), ...(policy || previous?.capabilitiesAsActor ? { capabilitiesAsActor: true } : {}), stateSchema: contract.state, stylesFile: "frame.css", functions, views,
+            ...(backend ? { backendFile: "server.mjs" } : {}), ...(isolated ? { isolated: true } : {}), ...(policy || previous?.capabilitiesAsActor ? { capabilitiesAsActor: true } : {}),
+            ...(triggers ? { triggers } : {}), ...(Object.keys(permissions).length ? { permissions } : {}), stateSchema: contract.state, stylesFile: "frame.css", functions, views,
             ...(contract.input ? { input: { capabilityIds: inputCapabilities, capabilityContractHash: runCapabilityContractHash(inputDescriptors) } } : {}) };
         return { directory, files, definition, clients, frameStyles, createActor: !owner, ...(backend ? { backendJavaScript: backend.javaScript } : {}) };
+    }
+    async #grantor({ runId, actorId }: Grantor) {
+        const actor = this.view(runId).actors.find((candidate) => candidate.id === actorId);
+        if (!actor)
+            throw new Error("The actor granting the permissions is missing.");
+        return { actor, access: this.#options.ownerAccess(runId), roots: () => this.#options.workspaceRoots(runId) };
     }
     /** The check of the background diagnostics: targets resolve from the room an active package was activated from, for a new package from its own room; the recipient only lends its identity to a package nobody activated yet. */
     diagnose(runId: string, name: string, recipientId: string, signal?: AbortSignal): Promise<CompiledProgram> {
@@ -861,7 +897,7 @@ export class ActorProgramRuntime implements ActorProgramsService, ActorProgramEx
         let compiled: CompiledProgram | undefined;
         let published = false;
         try {
-            compiled = await this.check(runId, name, context.actorId, signal, reference, activation.targetRoom, activation.policy);
+            compiled = await this.check(runId, name, context.actorId, signal, reference, activation.targetRoom, activation.policy, activation.grantor);
             const definition = compiled.definition;
             const tests = compiled.files.filter((file) => /^tests\/.*\.test\.tsx?$/.test(file.path));
             if (tests.length) {
@@ -973,12 +1009,17 @@ export class ActorProgramRuntime implements ActorProgramsService, ActorProgramEx
                 throw new Error(`Tool name ${tool.name} ${taken}: the package ${clash.program} publishes it for an actor this tool reaches too.`);
         }
     }
+    /** The active program of a package name as the caller's room writes it. */
+    async activeProgram(runId: string, callerId: string, name: string): Promise<ActorProgramDefinition> {
+        return this.#program(runId, await this.#packageKey(runId, callerId, name));
+    }
     /** Names, actors and view references as the caller's room writes them. */
     list(runId: string, callerId: string) {
         const room = this.#roomOf(runId, callerId);
         return this.programs(runId).map((program) => {
             const name = relativeName(program.name, room);
-            return { name, actor: `@${this.#actorAddress(runId, program, room)}`, functions: program.functions.map((fn) => fn.id), views: program.views.map((view) => ({ name: view.key, ref: `${name}/${view.key}`, title: view.title, visible: view.visible })) };
+            return { name, actor: `@${this.#actorAddress(runId, program, room)}`, functions: program.functions.map((fn) => fn.id), views: program.views.map((view) => ({ name: view.key, ref: `${name}/${view.key}`, title: view.title, visible: view.visible })),
+                ...program.triggers ? { triggers: program.triggers } : {}, ...program.permissions ? { permissions: program.permissions } : {} };
         });
     }
     async remove(context: CommandContext, runId: string, name: string) {
@@ -1148,7 +1189,8 @@ export class ActorProgramRuntime implements ActorProgramsService, ActorProgramEx
                 const { program, descriptors } = await this.#bound(request.runId, request.agentId, undefined, signal, inputOf, descriptorsFor);
                 const binding: BackendBinding = { id: request.turnId, kind: "input", principal: { id: request.agentId, kind: "script" }, descriptorsFor, output, call: (name, input, index) => request.invoke(`${request.turnId}:capability:${index}`, name, input) };
                 const recognized = this.#recognize(request.runId, request.agentId, request.input);
-                const result = await this.#backend(request.runId, program, { kind: "input", input: scriptInputOf(request.input), ...recognized }, binding, descriptors, signal);
+                const trigger = this.#triggerOf(request.runId, request.agentId, request.input.sequence);
+                const result = await this.#backend(request.runId, program, { kind: "input", input: { ...scriptInputOf(request.input), ...trigger ? { trigger } : {} }, ...recognized }, binding, descriptors, signal);
                 const finishes = this.#finishesOf(request.runId, program, result.result);
                 this.#commitState(request.runId, request.agentId, result.state, result.initial);
                 this.#deliverResults(request, program, finishes);
@@ -1324,9 +1366,10 @@ export class ActorProgramRuntime implements ActorProgramsService, ActorProgramEx
             if ((invocation.status === "queued" || invocation.status === "running") && !this.#active.has(invocation.id))
                 this.#replaceInvocation(runId, { ...invocation, status: "cancelled", error: "The server was stopped during the call.", finishedAt: new Date().toISOString() });
     }
-    async stopSession(runId: string, _signal?: AbortSignal): Promise<void> { await this.stopRun(runId); }
+    async stopSession(runId: string, _signal?: AbortSignal): Promise<void> { this.triggers.stop(runId); await this.stopRun(runId); }
     async disposeRun(runId: string): Promise<void> { await this.stopRun(runId); }
     async deleteSession(runId: string): Promise<void> {
+        this.triggers.forget(runId);
         await this.stopRun(runId);
         this.#recovered.delete(runId);
         for (const directory of this.#identities.keys())
@@ -1334,5 +1377,9 @@ export class ActorProgramRuntime implements ActorProgramsService, ActorProgramEx
                 this.#identities.delete(directory);
         await rm(this.#options.directoryFor(runId), { recursive: true, force: true });
     }
-    async shutdown(): Promise<void> { this.#shuttingDown = true; await Promise.allSettled([...this.#knownRuns].map((runId) => this.stopRun(runId))); }
+    async shutdown(): Promise<void> {
+        await this.triggers.shutdown();
+        this.#shuttingDown = true;
+        await Promise.allSettled([...this.#knownRuns].map((runId) => this.stopRun(runId)));
+    }
 }

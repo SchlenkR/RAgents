@@ -1,6 +1,6 @@
 # Build mini-apps
 
-Expose actor state and functions through interactive React views.
+Expose actor state and functions through interactive React views, and start programs on times or file changes.
 
 ## Programs and mini-apps
 
@@ -41,8 +41,9 @@ include local modules, while fixed local dependencies come from the host install
 ```
 
 `package.json` contains `name`, `private: true`, `type: "module"`, and `ragents` metadata with a
-title, optional description, optional backend, and optional named views. Each view has an ID and
-client entry point; its title and stylesheet are optional. A view declares no size; the host sizes
+title, optional description, optional backend, optional named views, and optional triggers and
+permissions (below, "Triggers" and "Permissions"). Each view has an ID and client entry point; its
+title and stylesheet are optional. A view declares no size; the host sizes
 its tab. At least one backend or view must exist. The host supplies HTML with a `root` element
 for each view. The authoritative schemas are in
 `apps/server/src/plugin-support/actor-programs/app-project.ts`; a violation names each path and
@@ -264,6 +265,92 @@ Invalid IDs or connections appear as errors on the graph. All libraries are bund
 with no external diagram service or mini-app installation. Domain actions remain normal controls
 beside the diagram. The controls template and the building-block reference include a locally
 switchable status example.
+
+## Triggers
+
+A program with an input handler can declare triggers in `package.json` under `ragents.triggers`.
+The host turns each due trigger into an ordinary ActorInput for the program's actor, in a normal
+run as in the global space, without a client that has the run open:
+
+```json
+"triggers": {
+  "interval": { "everySeconds": 300 },
+  "daily": { "at": "08:00", "timeZone": "Europe/Berlin" },
+  "weekly": { "at": "08:00", "days": ["mon", "wed", "fri"] },
+  "fileChange": { "folders": ["/srv/inbox"] },
+  "timeoutSeconds": 30
+}
+```
+
+- `interval.everySeconds` is 60 to 604800. The next occurrence uses fixed delay from the end of the
+  previous trigger input.
+- `daily.at` and `weekly.at` are local 24-hour `HH:MM` times; `weekly.days` is a nonempty, unique
+  list of `mon` to `sun`. Activation resolves an omitted `timeZone` to the server's IANA zone and
+  stores it, so moving the server does not change it. A local time skipped by the spring
+  daylight-saving change has no occurrence; a repeated autumn time uses only its first occurrence.
+- `fileChange.folders` names existing absolute server folders within the program's file
+  permissions. The host reuses `watchDirectory` with its 150-millisecond debounce; changes
+  coalesce into one pending occurrence while the program is busy.
+- `timeoutSeconds`, 1 to 300 and by default 30, limits each trigger input; a running input past it
+  is interrupted and ends as `timeout`, without committing its state.
+
+All kinds combine; without automatic kinds a program runs only manually. `actor_program_trigger`
+queues one manual occurrence, also while the triggers are paused. Activation plans the next
+occurrence, and a reactivation with changed triggers plans anew.
+
+`input.trigger` tells `onInput` why it runs: `reason` (`manual`, `interval`, `daily`, `weekly`, or
+`file-change`), `scheduledAt`, `timeZone` (the stored zone for daily and weekly occurrences, the
+server's zone otherwise), and `key`, the same for one occurrence, for external idempotency. The host
+recognizes the occurrence by the command that queued the input, so other inputs have no `trigger`
+and cannot claim one.
+
+A program has at most one accepted trigger occurrence, queued or running, so it never overlaps
+itself; a run has at most four at once. Next due time, the accepted occurrence, last result,
+failures, and pause are journaled per actor as plugin state `ragents.actor-programs.triggers`. A
+restart continues without a client: an overdue trigger produces one occurrence and then the next
+future time, without a catch-up backlog, and an occurrence that was accepted but not yet queued is
+queued once. A failed, interrupted, or timed-out input backs off the next automatic occurrence by 60
+seconds, doubling with every further failure up to one hour; a completed input ends the backoff.
+`actor_program_pause` pauses the automatic triggers and lets accepted work finish; resuming plans
+the next occurrence from now and clears the backoff and a problem, such as a failed folder watch,
+that blocked the triggers. Pausing or stopping the run holds them, and removing the program ends
+them.
+
+`actor_program_status` returns the triggers, permissions, process protection, progress (status,
+last and next run, last result, problem), the committed state, and a recent log of at most 100
+lines of 1000 characters. The log comes from the ordinary output and failure events of the actor's
+inputs; nothing is stored twice.
+
+## Permissions
+
+`ragents.permissions` grants a program bounded external access:
+
+```json
+"permissions": {
+  "files": { "read": ["/srv/inbox"], "write": ["/srv/reports"] },
+  "http": ["api.example.com", "localhost:8080"]
+}
+```
+
+`files.read` and `files.write` name existing absolute server folders, `http` exact lowercase hosts
+with an optional port. The program uses them through the snippet-only functions
+`program_file_read`, `program_file_write`, and `program_http_request`, declared in its
+capabilities like any function; declaring one without its permission fails activation.
+Activation grants only what the activating actor and the run owner can give: a folder needs a
+usable, delegable `workspace.use` grant of that actor covering it, the owner's `runs.read` or
+`runs.write`, and, unless the owner has `*`, a place within the run's workspace folders. The
+definition stores the canonical folders; `actor_program_list` and `actor_program_status` show them.
+
+Every call checks the permissions of the caller's own active program and the owner's current
+rights. File calls recheck the canonical allow list and protect the final path component with
+`O_NOFOLLOW`; they reuse the [workspace path protection](../spec/plugins.md#workspace-sandbox-tools-and-processes).
+Reads and writes are UTF-8 of at most 250000 bytes, and a write needs an existing parent. HTTP
+accepts HTTP(S), rejects URL credentials, redirects, and Host header overrides, and checks the
+exact host list: a host without a port permits only the default ports, an explicit port only that
+effective port. Bodies have at most 250000 bytes and a request at most 30 seconds.
+
+Run functions such as `overseer_notify` are granted the ordinary way, by declaring them within the
+actor's grants.
 
 ## State and lifecycle
 

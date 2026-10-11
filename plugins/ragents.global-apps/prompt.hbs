@@ -1,13 +1,12 @@
 ## Build a global mini-app
 
-When asked for a global mini-app, a job or a recurring task, build and verify it yourself. Do not ask technical questions or ask the user to write code. Your hidden coordinator run is the user's global space: registration installs each normal actor package in its own room beside your main room and shows its optional React view on Start. Use the existing file, editing and TypeScript tools in your own run.
+When asked for a global mini-app, a job or a recurring task, build and verify it yourself. Do not ask technical questions or ask the user to write code. Your hidden coordinator run is the user's global space: global_app_create copies a normal actor package into its own room beside your main room, activates it there and shows its optional React view on Start. Triggers and permissions belong to the package, as for every actor program. Use the existing file, editing and TypeScript tools in your own run.
 
-One complete example: "Run every day at 8 and tell me the current date", with state, a small view and one explicit function permission. Use the server's time zone unless the user names another:
+One complete example: "Run every day at 8 and tell me the current date", with state, a small view, a daily trigger and one granted function, the notification to you. Use the server's time zone unless the user names another:
 1. actor_program_create({name: "daily-date", template: "headless"}). Use its returned directory for every file, including any room prefix.
 2. Write package.json, src/server.ts and src/client.tsx there with the complete contents below.
-3. global_app_register({name: "daily-date", description: "Tell me today's date at 8", program: "daily-date", triggers: {daily: {at: "08:00"}}, permissions: {functions: ["overseer_notify"]}}). Registration copies, typechecks, builds and tests the normal mini-app package; it starts paused.
-4. global_app_run({name: "daily-date"}), then global_app_read({name: "daily-date"}). If queued/running, read again in a later step. Check the completed result, state and log. Fix reported source errors, register again while paused and idle, and repeat the verification.
-5. After a completed check, global_app_pause({name: "daily-date", paused: false}). Finish the requested task by enabling its schedule, without asking for technical confirmation.
+3. global_app_create({name: "daily-date", program: "daily-date"}). It copies, typechecks, builds and tests the package and activates it with its triggers. It returns the app's program name, here "daily-date.daily-date".
+4. actor_program_trigger({name: "daily-date.daily-date"}), then actor_program_status({name: "daily-date.daily-date"}). If queued or running, read again in a later step. Check lastResult, state and log. Fix reported source errors in your package, call global_app_create again with the same name, and repeat the verification. Finish the task without asking for technical confirmation.
 
 package.json:
 ```json
@@ -18,7 +17,8 @@ package.json:
   "ragents": {
     "title": "Today's date",
     "backend": "src/server.ts",
-    "views": [{ "id": "main", "client": "src/client.tsx" }]
+    "views": [{ "id": "main", "client": "src/client.tsx" }],
+    "triggers": { "daily": { "at": "08:00" } }
   }
 }
 ```
@@ -34,12 +34,11 @@ export default defineActor({
     date: Type.Optional(Type.String()),
   }),
   functions: {},
-  input: { capabilities: ["global_app_trigger", "overseer_notify"] },
+  input: { capabilities: ["overseer_notify"] },
 }, {
   functions: {},
-  onInput: async (_input, context) => {
-    const trigger = await context.functions.global_app_trigger({});
-    const timeZone = trigger.timeZone;
+  onInput: async (input, context) => {
+    const timeZone = input.trigger?.timeZone;
     const date = new Intl.DateTimeFormat("en-GB", { dateStyle: "full", timeZone }).format(new Date());
     const checks = (context.state.read().checks ?? 0) + 1;
     const message = `Today is ${date}.`;
@@ -65,8 +64,8 @@ if (!root) throw new Error("The #root element is missing.");
 createRoot(root).render(<App />);
 ```
 
-Use global_app_list/read/run/pause/remove by the chosen app name. Manual triggering always works while paused. Optional triggers combine interval.everySeconds (60..604800), daily.at (HH:MM), weekly.at with days (mon..sun), and fileChange.folders (existing absolute server folders within files.read/write permissions). daily/weekly accept timeZone (IANA); registration persists the resolved server default when omitted. Missing DST wall times are skipped; repeated times use only the first occurrence. Calendar schedules and intervals accept one overdue occurrence after restart, without overlap; intervals use fixed delay. File changes debounce and coalesce. Agent events are planned. timeoutSeconds defaults to 30 (1..300).
+global_app_list shows every app with its program name, trigger progress and last result; global_app_remove removes one by app name. actor_program_pause pauses or resumes an app's automatic triggers; a manual trigger always works while paused. `ragents.triggers` in package.json combines interval.everySeconds (60..604800), daily.at (HH:MM), weekly.at with days (mon..sun), fileChange.folders (existing absolute server folders within the file permissions) and timeoutSeconds (1..300, default 30). daily and weekly accept timeZone (IANA); activation stores the server zone when it is omitted. Missing DST wall times are skipped; repeated times use only the first occurrence. After a restart an overdue trigger runs once, without overlap; intervals use fixed delay; failures back off. Without triggers the app runs only manually.
 
-Every backend declares global_app_trigger in its input capabilities. It returns key, scheduledAt, reason, and timeZone: the selected calendar zone for daily/weekly, the server zone for manual/interval/file-change. The key helps external idempotency. State, view actions, frame loading and runtime output use the ordinary mini-app mechanisms. Every widget shows the last result; context.log supplies its text. overseer_notify posts a short input into the current coordinator conversation and may trigger a reply: relay that app result briefly to the user, without treating it as a new request to build another app.
+onInput reads why it runs from input.trigger: reason (manual, interval, daily, weekly or file-change), scheduledAt, timeZone and a key for external idempotency; other inputs have no trigger. State, view actions, frame loading and runtime output use the ordinary mini-app mechanisms. Every widget shows the last result; context.log supplies its text. overseer_notify posts a short input into the current coordinator conversation and may trigger a reply: relay that app result briefly to the user, without treating it as a new request to build another app.
 
-Permissions are explicit: files.read/write name existing absolute server folders; http names exact lowercase hosts (optional port); functions names functions you may delegate, such as overseer_notify. Declare global_app_file_read/write/http_request and snippet-only functions in the input capabilities. View actions use registered operator operations under the app's current grants. The helpers enforce allow lists on the server. With process protection enabled, direct network access is blocked and writes are confined to package, build and temporary folders; runtime, dependencies and explicit system paths remain readable. Disabled protection permits direct Node access. Inspect permissions and sandbox in global_app_read. Keep credentials out of code, state and logs. Failed widgets show their cause with Retry and Open details; repair and verify before resuming.
+`ragents.permissions` in package.json grants external access: files.read and files.write name existing absolute server folders, http names exact lowercase hosts with an optional port. Declare program_file_read, program_file_write or program_http_request in the capabilities that use them. The server checks every call against these lists; global apps run with process protection, which blocks direct network access and confines writes to package, build and temporary folders. Runtime functions such as overseer_notify are granted by declaring them, within your own grants; an app cannot declare file, shell, TypeScript evaluation or package tools. Keep credentials out of code, state and logs.

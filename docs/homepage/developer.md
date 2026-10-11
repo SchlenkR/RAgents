@@ -1672,6 +1672,38 @@ Changed project errors appear as short deltas before model requests. actor_progr
 
 Contract fields: appPackage.title, appPackage.description, appPackage.backend, appPackage.views.
 
+### Triggers and permissions of a program
+
+A program with an input handler declares when the host queues inputs for it and which server folders and hosts it may use. onInput reads why it runs from input.trigger.
+
+Place of use: package.json of a program that reads a folder every morning and after every change.
+
+```json
+{
+  "name": "inbox-digest",
+  "private": true,
+  "type": "module",
+  "ragents": {
+    "title": "Inbox digest",
+    "backend": "src/server.ts",
+    "triggers": {
+      "daily": { "at": "08:00", "timeZone": "Europe/Berlin" },
+      "fileChange": { "folders": ["/srv/inbox"] },
+      "timeoutSeconds": 60
+    },
+    "permissions": { "files": { "read": ["/srv/inbox"] }, "http": ["api.example.com"] }
+  }
+}
+```
+
+interval.everySeconds (60 to 604800), daily and weekly times with an IANA time zone, file changes in permitted folders, and timeoutSeconds (1 to 300, default 30) combine. A program never has two trigger inputs at once; a run has at most four.
+
+input.trigger carries reason, scheduledAt, timeZone, and a stable key; other inputs have none. actor_program_trigger queues a manual trigger, actor_program_pause pauses or resumes, actor_program_status shows progress, state, and log.
+
+program_file_read, program_file_write, and program_http_request use the permissions. Activation grants only what the activating actor may delegate and the run owner may do.
+
+Contract fields: appPackage.triggers, appPackage.permissions.
+
 ### A contract for actor state and functions
 
 The TypeBox contract describes an actor's data and the inputs and outputs of its functions. A function can be called in the view and can additionally be offered in the shared TypeScript API with the same implementation. The SDK types are generated from it automatically.
@@ -3049,6 +3081,8 @@ Source in the repository: apps/server/src/plugin-support/actor-programs/app-proj
     id: Type.String({ pattern: "^[a-z][a-z0-9-]{0,63}$" }), title: Type.Optional(Type.String({ minLength: 1 })),
     client: Type.String({ minLength: 1 }), styles: Type.Optional(Type.String()),
   }, { additionalProperties: false }))),
+  triggers: Type.Optional(appTriggersSchema),
+  permissions: Type.Optional(appPermissionsSchema),
 }
 ```
 

@@ -9,6 +9,7 @@ import { Type, type Static } from "typebox";
 import { Value } from "typebox/value";
 import { canonicalHash, schemaComplaints, typeScriptTypesFromSchema, type NativeTypeScriptExecutor, type RunCapabilityDescriptor, scriptStdDeclarations } from "@ragents/engine";
 import { runtimeLibraries, webRuntimeLibraries } from "./runtime-libraries.js";
+import { appPermissionsSchema, appTriggersSchema } from "./contract.js";
 
 const webRequire = createRequire(new URL("../../../../web/package.json", import.meta.url));
 const rootRequire = createRequire(new URL("../../../../../package.json", import.meta.url));
@@ -83,6 +84,8 @@ export const appPackageSchema = Type.Object({
     id: Type.String({ pattern: "^[a-z][a-z0-9-]{0,63}$" }), title: Type.Optional(Type.String({ minLength: 1 })),
     client: Type.String({ minLength: 1 }), styles: Type.Optional(Type.String()),
   }, { additionalProperties: false }))),
+  triggers: Type.Optional(appTriggersSchema),
+  permissions: Type.Optional(appPermissionsSchema),
 }, { additionalProperties: false });
 export type AppPackage = Static<typeof appPackageSchema>;
 
@@ -144,11 +147,17 @@ export interface RunContext<State> {
   finish(result: unknown, options?: { readonly summary?: string; readonly start?: number }): void;
 }
 ${scriptStdDeclarations}
+/** Why the host queued an input for one of the program's triggers; key stays the same for one occurrence. */
+export interface ActorTrigger {
+  readonly reason: 'manual' | 'interval' | 'daily' | 'weekly' | 'file-change';
+  readonly key: string; readonly scheduledAt: string; readonly timeZone: string;
+}
 export interface ActorInput {
   readonly id: string; readonly content: string; readonly artifactIds: readonly string[];
   readonly sourceEventIds: readonly string[]; readonly subscriptionId: string | null;
   readonly event: { readonly type: string; readonly eventId: string; readonly sequence: number; readonly occurredAt: string;
     readonly sourceActorId: string | null; readonly sourceActorHandle: string | null; readonly payload: {readonly text?:string; readonly [key:string]:unknown} } | null;
+  readonly trigger?: ActorTrigger;
 }
 export interface ActorStart {
   readonly input: unknown; readonly options: Readonly<Record<string, unknown>>;

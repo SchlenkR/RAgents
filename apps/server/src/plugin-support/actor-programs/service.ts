@@ -1,5 +1,5 @@
 import { serviceToken, type ActorProgramExecutor, type CapabilityGrant, type CommandContext } from "@ragents/engine";
-import type { ActorProgramIdentity, ActorViewListing } from "./contract.js";
+import type { ActorProgramDefinition, ActorProgramIdentity, ActorTriggerProgress, ActorViewListing } from "./contract.js";
 export interface ActorProgramSource {
     path: string;
     content: string;
@@ -31,6 +31,9 @@ export interface ActorViewReference {
 }
 export interface ActorProgramsService extends ActorProgramExecutor {
     workspaceDirectory(runId: string): Promise<string>;
+    /** The active programs of a run, with the triggers and permissions their activation granted. */
+    programs(runId: string): ActorProgramDefinition[];
+    triggerProgress(runId: string, actorId: string): ActorTriggerProgress;
     apps(runId: string, actorId?: string): ActorViewListing[];
     frame(runId: string, viewId: string, revision: string): { readonly clientJavaScript: string; readonly styles: string };
     importPackage(context: CommandContext, runId: string, name: string, files: readonly ActorProgramSource[], signal?: AbortSignal): Promise<ActivatedActorProgram>;
@@ -42,9 +45,7 @@ export interface ActorProgramsService extends ActorProgramExecutor {
         readonly runId: string;
         readonly name: string;
         readonly room?: { readonly name: string; readonly origin: string | null };
-        readonly capabilities: readonly string[];
         readonly grants: readonly CapabilityGrant[];
-        readonly requiredCapabilities: readonly string[];
         readonly isolated: boolean;
     }, signal?: AbortSignal): Promise<ActivatedActorProgram>;
     remove(context: CommandContext, runId: string, name: string): Promise<{ removed: string }>;

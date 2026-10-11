@@ -1,5 +1,59 @@
 # Decisions
 
+## 2026-10-11: Triggers and permissions belong to every actor program; global apps keep only their rooms, list, and widgets
+
+Chapters: `spec/actor-programs.md` (Packages and actor binding, Templates and creation, Triggers,
+Permissions, Open limits), `spec/typescript-platform.md` (Build and process lifecycle, TypeScript
+actors), `spec/plugins.md` (Global mini-apps, Bundle, build tool, and host API, Open limits),
+`spec/core.md` (Global coordinator); usage: `usage.md` (Use chat and mini-apps, Global mini-apps on
+Start), `operations.md` (Operate global mini-apps); homepage feature texts.
+
+`ragents.global-apps` had built a second path beside actor programs: its own scheduler with
+intervals, daily and weekday times, one overdue occurrence, and no overlap, a file trigger, a
+registry with its own state, permissions with server-checked helpers, and `global_app_trigger`.
+Actor programs woke only on messages and subscribed events. A global app is now a mini-app that
+lives in the global space; everything that is not specific to that space belongs to actor programs.
+
+A package declares `ragents.triggers` and `ragents.permissions` in `package.json`, not in its
+TypeBox contract: they name server folders and hosts, are known before the backend builds, and the
+manifest schema already checks the package at activation. Triggers need an input handler.
+`ProgramTriggers` in `ragents.actor-programs` turns each due trigger into an ordinary ActorInput,
+in normal runs as in the global run, with the global scheduler's rules: journaled due time and
+accepted occurrence per actor, one occurrence per program and four per run, one overdue occurrence
+after downtime, fixed delay, pause and resume, and a time limit through
+`RunManagement.interruptTurn`. The limit stays in the trigger scheduler rather than the engine's
+`turnTimeoutMs`, which measures inactivity and is fixed when the actor is created. New is a
+backoff after failed, interrupted, or timed-out inputs, 60 seconds doubling up to one hour, so a
+broken program no longer runs at full rate; resuming clears it. At startup only runs whose
+programs declare triggers or keep trigger state are watched. `onInput` reads why it runs from
+`input.trigger`, recognized by the command that queued the input like a run script's start, so no
+function call is needed and no other input can claim a trigger.
+
+Permissions are granted at activation, bounded by the activating actor's usable, delegable
+`workspace.use` grants and the run owner's rights, for a copied package by the copying actor in its
+own run. `program_file_read`, `program_file_write`, and `program_http_request` replace the
+`global_app_*` helpers and authorize by the caller's own program. The explicit list of permitted
+functions is gone: a run function such as `overseer_notify` is granted by declaring it within the
+actor's grants, as for every program. What kept apps from declaring code-running tools is now a rule
+of isolated packages in `copyPackage`, whose `capabilities` and `requiredCapabilities` disappear;
+`HOST_API_VERSION` becomes 17 because the contract of the listed `actorProgramsToken` changed
+incompatibly. `actor_program_trigger`, `actor_program_pause`, and `actor_program_status` and their
+RPC methods serve every program; `actor_program_list` shows triggers and permissions.
+
+`ragents.global-apps` keeps `global_app_create`, `global_app_list`, and `global_app_remove`, a
+record `{ app }` per app actor, the Start widgets, which call the actor-program methods, and its
+prompt. Its service shrank from 728 to 169 lines and the plugin from 1559 to 692; the scheduler, watches, helpers,
+registration failures, and the log projection went to actor programs or away. A failed creation
+leaves no record: the creating agent gets the diagnostics, as for any activation. The coordinator
+gets the three trigger tools but not `actor_program_activate`, so its own room activates nothing
+outside the isolation. Records of apps registered before this change appear as damaged apps with
+"Remove", without migration.
+
+The shortest interval stays 60 seconds. Every occurrence writes several journal entries
+(acceptance, input, turn with its events, result) into an append-only journal that every server
+start replays; ten seconds would add tens of thousands of entries a day per program. The input
+path is not cheap enough for shorter periods.
+
 ## 2026-10-10: New and Continue are ordinary Start widgets, and widgets can be configured
 
 Chapters: `spec/plugins.md` (Web as plugin host: slots `startSections` and `startWidgetsFor`, the

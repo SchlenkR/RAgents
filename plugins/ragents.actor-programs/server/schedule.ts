@@ -1,7 +1,6 @@
 import { DomainError } from "@ragents/engine";
-import type { GlobalAppRegister } from "../contract.js";
+import type { AppTriggers } from "@ragents/host/plugin-support/actor-programs/contract.js";
 
-type Triggers = NonNullable<GlobalAppRegister["triggers"]>;
 export type ScheduledReason = "interval" | "daily" | "weekly";
 export interface ScheduledOccurrence {
   readonly at: string;
@@ -13,10 +12,10 @@ const timeZoneOf = (timeZone?: string): string => {
   try {
     if (/^[+-]/.test(zone)) throw new Error("Offset zones are not IANA zones.");
     return new Intl.DateTimeFormat("en", { timeZone: zone }).resolvedOptions().timeZone;
-  } catch { throw new DomainError("app-time-zone-invalid", `Time zone ${zone} is not an IANA time zone.`, 400); }
+  } catch { throw new DomainError("trigger-time-zone-invalid", `Time zone ${zone} is not an IANA time zone.`, 400); }
 };
 export const serverTimeZone = (): string => timeZoneOf();
-export const normalizeTriggers = (triggers: Triggers): Triggers => ({
+export const normalizeTriggers = (triggers: AppTriggers): AppTriggers => ({
   ...triggers,
   ...triggers.daily ? { daily: { ...triggers.daily, timeZone: timeZoneOf(triggers.daily.timeZone) } } : {},
   ...triggers.weekly ? { weekly: { ...triggers.weekly, timeZone: timeZoneOf(triggers.weekly.timeZone) } } : {},
@@ -25,7 +24,7 @@ const wallTime = (format: Intl.DateTimeFormat, instant: number): number => {
   const parts = Object.fromEntries(format.formatToParts(instant).map((part) => [part.type, part.value]));
   return Date.UTC(Number(parts.year), Number(parts.month) - 1, Number(parts.day), Number(parts.hour), Number(parts.minute));
 };
-export const nextCalendarOccurrence = (schedule: NonNullable<Triggers["daily"]> & { readonly days?: NonNullable<Triggers["weekly"]>["days"] }, after: number): string => {
+export const nextCalendarOccurrence = (schedule: NonNullable<AppTriggers["daily"]> & { readonly days?: NonNullable<AppTriggers["weekly"]>["days"] }, after: number): string => {
   const format = new Intl.DateTimeFormat("en-CA", { timeZone: timeZoneOf(schedule.timeZone), year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", hourCycle: "h23" });
   const local = new Date(wallTime(format, after));
   const [hour, minute] = schedule.at.split(":").map(Number);
@@ -38,9 +37,9 @@ export const nextCalendarOccurrence = (schedule: NonNullable<Triggers["daily"]> 
     const first = matches[0];
     if (first !== undefined && first > after) return new Date(first).toISOString();
   }
-  throw new DomainError("app-schedule-invalid", "No calendar occurrence exists in the next sixteen days.", 400);
+  throw new DomainError("trigger-schedule-invalid", "No calendar occurrence exists in the next sixteen days.", 400);
 };
-export const nextScheduledOccurrence = (triggers: Triggers, after: number): ScheduledOccurrence | null => {
+export const nextScheduledOccurrence = (triggers: AppTriggers, after: number): ScheduledOccurrence | null => {
   const occurrences: readonly ScheduledOccurrence[] = [
     ...triggers.interval ? [{ at: new Date(after + triggers.interval.everySeconds * 1000).toISOString(), reason: "interval" as const }] : [],
     ...triggers.daily ? [{ at: nextCalendarOccurrence(triggers.daily, after), reason: "daily" as const }] : [],

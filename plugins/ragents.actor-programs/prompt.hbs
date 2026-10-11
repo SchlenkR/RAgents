@@ -15,15 +15,11 @@ from a view executes that function directly and does not start a model turn.
 3. Adapt meaningful `node:test` cases in `tests/**/*.test.ts`. Query `actor_program_controls`
    for unclear props. Templates demonstrate controls; pure views need no server function.
 4. `actor_program_activate` typechecks, builds, tests and activates. Fix errors and reactivate.
-   List, removal and visibility have separate functions.
 
-Published functions enter the shared API in the same turn. Reactivation updates the contract;
-removal withdraws it.
-Native tool exposure is optional and explicit.
+Published functions enter the shared API in the same turn; reactivation updates, removal withdraws them.
 
 Use `actor: "self"` or `actor: "@handle"` to bind to an existing actor. Without a binding, a
 backend creates a TypeScript actor with the program name; a pure view uses the calling actor.
-Reactivation preserves the existing binding. Do not create a dummy actor for a pure view.
 An LLM actor cannot receive an `onInput` backend; its inputs remain model work. Each actor owns
 one active program package; add further functions and views to that package.
 
@@ -45,6 +41,11 @@ functions it needs. An `onInput` acts as its actor. A function owns that actor's
 as its caller, from a view the clicking human. So a subscription belongs to the caller; the
 actor's own event handling, or a message to another actor in its name, goes as an ActorInput to
 the actor, whose `onInput` handles it. Snippets act as their caller.
+
+`ragents.triggers` in `package.json` (`interval`, `daily`/`weekly` with `timeZone`, `fileChange`,
+`timeoutSeconds`) queues inputs; `onInput` reads `input.trigger`. `ragents.permissions` (`files.read`/`write`
+folders, `http` hosts) enables `program_file_read`/`write` and `program_http_request`. Verify with
+`actor_program_trigger` and `actor_program_status`.
 
 Import React and `createRoot` normally. Import `context` and `useAppState` from `@ragents/client`
 and controls from `@ragents/client/ui`: shadcn/ui components (`Button`, `Select`, `Tabs`, `Dialog`,
@@ -69,12 +70,9 @@ The actor enforces completion and extensions; see learning-afternoon.
 Use `FlowDiagram` for other graphs (star layout, fit, actions). Keep local IDs stable.
 See `controls`. For custom SVG use `SvgEdge`, Tailwind utilities, responsive `viewBox` and
 accessible descriptions.
-Address view visibility with `package-name/view-key`, `@handle/view-key` or a unique title.
+`actor_view_set_visibility` addresses a view by `package-name/view-key`, `@handle/view-key` or a unique title.
 Visible apps enter the catalog automatically: browser tabs beside Chat, editor tabs in VS Code.
-The host sizes each view. Use the addressee selector to inspect an app's owner.
-`actor_view_set_visibility` controls whether a view is available.
 
 Tests call `program.functions.<name>(input, context)` or `program.onInput(input, context)`.
 `createTestContext` from `@ragents/server/testing` supplies state and explicit typed `functions` mocks.
-Inspect results and `context.state.read()` separately. Subscription delivery is an ActorInput;
-`onInput` uses the same state and function API as the actor's functions.
+Inspect results and `context.state.read()` separately. Subscription and trigger deliveries are ActorInputs.

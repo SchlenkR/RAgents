@@ -21,11 +21,11 @@ export const globalAppWidgets = (snapshot: GlobalAppsSnapshot, retry: () => void
     columns: 2,
     order: 200,
     readRight: "ragents.global-apps.read",
-    content: <UnavailableGlobalApp name={error.name} problem={error.problem} revision={snapshot.revision} onRetry={retry} />,
+    content: <UnavailableGlobalApp name={error.name} problem={error.problem} removable onRetry={retry} />,
   }));
   return [...apps, ...errors, ...snapshot.problem ? [{
     id: "ragents.global-apps:system:unavailable", title: "Global apps unavailable", description: "Why your global mini-apps cannot be shown.", columns: 2, order: 200,
-    readRight: "ragents.global-apps.read", content: <UnavailableGlobalApp name="Global apps" problem={snapshot.problem!} revision={snapshot.revision} onRetry={retry} />,
+    readRight: "ragents.global-apps.read", content: <UnavailableGlobalApp name="Global apps" problem={snapshot.problem!} removable={false} onRetry={retry} />,
   }] : []];
 };
 

@@ -595,7 +595,7 @@ For executable actors with agent.spawn and plugin.state.write.
 
 List Actor Programs
 
-List active actor packages, functions and views.
+List active actor packages, functions, views, triggers and permissions.
 
 A visible view is already open as a tab for the user. A view's ref is the package-name/view-key reference that view functions accept.
 
@@ -664,9 +664,231 @@ For executable actors with agent.spawn and plugin.state.write.
             }
           }
         }
+      },
+      "triggers": {
+        "type": "object",
+        "properties": {
+          "interval": {
+            "type": "object",
+            "required": [
+              "everySeconds"
+            ],
+            "properties": {
+              "everySeconds": {
+                "type": "integer",
+                "minimum": 60,
+                "maximum": 604800
+              }
+            },
+            "additionalProperties": false
+          },
+          "daily": {
+            "type": "object",
+            "required": [
+              "at"
+            ],
+            "properties": {
+              "at": {
+                "type": "string",
+                "pattern": "^(?:[01][0-9]|2[0-3]):[0-5][0-9]$"
+              },
+              "timeZone": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 128
+              }
+            },
+            "additionalProperties": false
+          },
+          "weekly": {
+            "type": "object",
+            "required": [
+              "at",
+              "days"
+            ],
+            "properties": {
+              "at": {
+                "type": "string",
+                "pattern": "^(?:[01][0-9]|2[0-3]):[0-5][0-9]$"
+              },
+              "days": {
+                "type": "array",
+                "items": {
+                  "anyOf": [
+                    {
+                      "type": "string",
+                      "const": "mon"
+                    },
+                    {
+                      "type": "string",
+                      "const": "tue"
+                    },
+                    {
+                      "type": "string",
+                      "const": "wed"
+                    },
+                    {
+                      "type": "string",
+                      "const": "thu"
+                    },
+                    {
+                      "type": "string",
+                      "const": "fri"
+                    },
+                    {
+                      "type": "string",
+                      "const": "sat"
+                    },
+                    {
+                      "type": "string",
+                      "const": "sun"
+                    }
+                  ]
+                },
+                "minItems": 1,
+                "maxItems": 7,
+                "uniqueItems": true
+              },
+              "timeZone": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 128
+              }
+            },
+            "additionalProperties": false
+          },
+          "fileChange": {
+            "type": "object",
+            "required": [
+              "folders"
+            ],
+            "properties": {
+              "folders": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 512
+                },
+                "maxItems": 16,
+                "uniqueItems": true
+              }
+            },
+            "additionalProperties": false
+          },
+          "timeoutSeconds": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 300
+          }
+        },
+        "additionalProperties": false
+      },
+      "permissions": {
+        "type": "object",
+        "properties": {
+          "files": {
+            "type": "object",
+            "properties": {
+              "read": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 512
+                },
+                "maxItems": 16,
+                "uniqueItems": true
+              },
+              "write": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 512
+                },
+                "maxItems": 16,
+                "uniqueItems": true
+              }
+            },
+            "additionalProperties": false
+          },
+          "http": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 512
+            },
+            "maxItems": 16,
+            "uniqueItems": true
+          }
+        },
+        "additionalProperties": false
       }
     }
   }
+}
+```
+
+### actor_program_pause
+
+Pause Actor Program Triggers
+
+Pause or resume a program's automatic triggers.
+
+Pausing lets an accepted input finish. Resuming plans the next occurrence from now and clears a problem or failure backoff that held the triggers.
+
+Owner: ragents.actor-programs. Scope: per-turn. Native model tool: yes. Availability: conditional.
+
+For executable actors with agent.spawn and plugin.state.write.
+
+#### Input
+
+```json
+{
+  "type": "object",
+  "required": [
+    "name",
+    "paused"
+  ],
+  "properties": {
+    "name": {
+      "type": "string",
+      "pattern": "^(?:[a-z][a-z0-9-]{0,63}\\.)?[a-z][a-z0-9-]{0,63}$",
+      "description": "Name of the active package; a bare name means your room's package, otherwise the main room's, room.name another room's"
+    },
+    "paused": {
+      "type": "boolean",
+      "description": "true pauses the automatic triggers, false resumes them"
+    }
+  },
+  "additionalProperties": false
+}
+```
+
+#### Result
+
+```json
+{
+  "type": "object",
+  "required": [
+    "nextRunAt"
+  ],
+  "properties": {
+    "nextRunAt": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "description": "When the next automatic trigger input is due; null while paused or without a time trigger"
+    }
+  },
+  "additionalProperties": false
 }
 ```
 
@@ -715,6 +937,422 @@ For executable actors with agent.spawn and plugin.state.write.
     }
   },
   "additionalProperties": false
+}
+```
+
+### actor_program_status
+
+Actor Program Status
+
+Read a program's triggers, permissions, trigger progress, state and recent input log.
+
+Use it to verify a program after a manual trigger: lastResult, state and log show what its input did.
+
+Owner: ragents.actor-programs. Scope: per-turn. Native model tool: yes. Availability: conditional.
+
+For executable actors with agent.spawn and plugin.state.write.
+
+#### Input
+
+```json
+{
+  "type": "object",
+  "required": [
+    "name"
+  ],
+  "properties": {
+    "name": {
+      "type": "string",
+      "pattern": "^(?:[a-z][a-z0-9-]{0,63}\\.)?[a-z][a-z0-9-]{0,63}$",
+      "description": "Name of the active package; a bare name means your room's package, otherwise the main room's, room.name another room's"
+    },
+    "logLimit": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 100,
+      "description": "Log lines to return; defaults to 20"
+    }
+  },
+  "additionalProperties": false
+}
+```
+
+#### Result
+
+```json
+{
+  "type": "object",
+  "required": [
+    "triggers",
+    "permissions",
+    "sandbox",
+    "paused",
+    "status",
+    "lastRunAt",
+    "nextRunAt",
+    "lastResult",
+    "problem",
+    "state",
+    "log",
+    "droppedLogLines"
+  ],
+  "properties": {
+    "triggers": {
+      "type": "object",
+      "properties": {
+        "interval": {
+          "type": "object",
+          "required": [
+            "everySeconds"
+          ],
+          "properties": {
+            "everySeconds": {
+              "type": "integer",
+              "minimum": 60,
+              "maximum": 604800
+            }
+          },
+          "additionalProperties": false
+        },
+        "daily": {
+          "type": "object",
+          "required": [
+            "at"
+          ],
+          "properties": {
+            "at": {
+              "type": "string",
+              "pattern": "^(?:[01][0-9]|2[0-3]):[0-5][0-9]$"
+            },
+            "timeZone": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            }
+          },
+          "additionalProperties": false
+        },
+        "weekly": {
+          "type": "object",
+          "required": [
+            "at",
+            "days"
+          ],
+          "properties": {
+            "at": {
+              "type": "string",
+              "pattern": "^(?:[01][0-9]|2[0-3]):[0-5][0-9]$"
+            },
+            "days": {
+              "type": "array",
+              "items": {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "const": "mon"
+                  },
+                  {
+                    "type": "string",
+                    "const": "tue"
+                  },
+                  {
+                    "type": "string",
+                    "const": "wed"
+                  },
+                  {
+                    "type": "string",
+                    "const": "thu"
+                  },
+                  {
+                    "type": "string",
+                    "const": "fri"
+                  },
+                  {
+                    "type": "string",
+                    "const": "sat"
+                  },
+                  {
+                    "type": "string",
+                    "const": "sun"
+                  }
+                ]
+              },
+              "minItems": 1,
+              "maxItems": 7,
+              "uniqueItems": true
+            },
+            "timeZone": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            }
+          },
+          "additionalProperties": false
+        },
+        "fileChange": {
+          "type": "object",
+          "required": [
+            "folders"
+          ],
+          "properties": {
+            "folders": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 512
+              },
+              "maxItems": 16,
+              "uniqueItems": true
+            }
+          },
+          "additionalProperties": false
+        },
+        "timeoutSeconds": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 300
+        }
+      },
+      "additionalProperties": false
+    },
+    "permissions": {
+      "type": "object",
+      "properties": {
+        "files": {
+          "type": "object",
+          "properties": {
+            "read": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 512
+              },
+              "maxItems": 16,
+              "uniqueItems": true
+            },
+            "write": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 512
+              },
+              "maxItems": 16,
+              "uniqueItems": true
+            }
+          },
+          "additionalProperties": false
+        },
+        "http": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 512
+          },
+          "maxItems": 16,
+          "uniqueItems": true
+        }
+      },
+      "additionalProperties": false
+    },
+    "sandbox": {
+      "anyOf": [
+        {
+          "type": "string",
+          "const": "process"
+        },
+        {
+          "type": "string",
+          "const": "disabled"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "description": "Operating system protection of an isolated package; null without isolation"
+    },
+    "paused": {
+      "type": "boolean"
+    },
+    "status": {
+      "anyOf": [
+        {
+          "type": "string",
+          "const": "ready"
+        },
+        {
+          "type": "string",
+          "const": "queued"
+        },
+        {
+          "type": "string",
+          "const": "running"
+        },
+        {
+          "type": "string",
+          "const": "paused"
+        },
+        {
+          "type": "string",
+          "const": "blocked"
+        }
+      ]
+    },
+    "lastRunAt": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "nextRunAt": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "lastResult": {
+      "anyOf": [
+        {
+          "type": "object",
+          "required": [
+            "outcome",
+            "at",
+            "summary"
+          ],
+          "properties": {
+            "outcome": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "const": "completed"
+                },
+                {
+                  "type": "string",
+                  "const": "failed"
+                },
+                {
+                  "type": "string",
+                  "const": "interrupted"
+                },
+                {
+                  "type": "string",
+                  "const": "timeout"
+                }
+              ]
+            },
+            "at": {
+              "type": "string"
+            },
+            "summary": {
+              "type": "string"
+            }
+          }
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "problem": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "state": {
+      "description": "The actor's committed state"
+    },
+    "log": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "at",
+          "level",
+          "text"
+        ],
+        "properties": {
+          "at": {
+            "type": "string"
+          },
+          "level": {
+            "anyOf": [
+              {
+                "type": "string",
+                "const": "info"
+              },
+              {
+                "type": "string",
+                "const": "error"
+              }
+            ]
+          },
+          "text": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "droppedLogLines": {
+      "type": "integer"
+    }
+  },
+  "additionalProperties": false
+}
+```
+
+### actor_program_trigger
+
+Trigger Actor Program
+
+Queue one manual trigger input for a program's onInput, also while its triggers are paused.
+
+The input carries trigger.reason manual. A program never has two accepted trigger inputs at once. actor_program_status shows the outcome once the input finished.
+
+Owner: ragents.actor-programs. Scope: per-turn. Native model tool: yes. Availability: conditional.
+
+For executable actors with agent.spawn and plugin.state.write.
+
+#### Input
+
+```json
+{
+  "type": "object",
+  "required": [
+    "name"
+  ],
+  "properties": {
+    "name": {
+      "type": "string",
+      "pattern": "^(?:[a-z][a-z0-9-]{0,63}\\.)?[a-z][a-z0-9-]{0,63}$",
+      "description": "Name of the active package; a bare name means your room's package, otherwise the main room's, room.name another room's"
+    }
+  },
+  "additionalProperties": false
+}
+```
+
+#### Result
+
+```json
+{
+  "type": "null",
+  "description": "Queued; an error throws."
 }
 ```
 
@@ -3712,51 +4350,17 @@ Available in every model turn.
 }
 ```
 
-### global_app_file_read
+### global_app_create
 
-Read app file
+Create global app
 
-Read a bounded UTF-8 file within this app's explicitly permitted server folders.
+Copy a package of your run into its own room of the global space, then typecheck, build, test and activate it there with the triggers and permissions of its package.json.
 
-Owner: ragents.global-apps. Scope: per-turn. Native model tool: no. Availability: conditional.
+The same name replaces the app's package and keeps its state. Verify it with actor_program_trigger and actor_program_status under the returned program name when the global space is your run.
 
-Snippet-only contracts for authoring; calls require an accepted app input.
+Owner: ragents.global-apps. Scope: per-turn. Native model tool: yes. Availability: conditional.
 
-#### Input
-
-```json
-{
-  "type": "object",
-  "required": [
-    "path"
-  ],
-  "properties": {
-    "path": {
-      "type": "string",
-      "minLength": 1
-    }
-  },
-  "additionalProperties": false
-}
-```
-
-#### Result
-
-```json
-{
-  "type": "string"
-}
-```
-
-### global_app_file_write
-
-Write app file
-
-Write a UTF-8 file within this app's explicitly permitted server folders. The parent must exist.
-
-Owner: ragents.global-apps. Scope: per-turn. Native model tool: no. Availability: conditional.
-
-Snippet-only contracts for authoring; calls require an accepted app input.
+For agents with agent.spawn, plugin.state.write and the run owner's global apps write permission.
 
 #### Input
 
@@ -3764,17 +4368,19 @@ Snippet-only contracts for authoring; calls require an accepted app input.
 {
   "type": "object",
   "required": [
-    "path",
-    "content"
+    "name",
+    "program"
   ],
   "properties": {
-    "path": {
+    "name": {
       "type": "string",
-      "minLength": 1
+      "pattern": "^[a-z][a-z0-9-]{0,63}$",
+      "description": "Your chosen app name; it names the app's room and package."
     },
-    "content": {
+    "program": {
       "type": "string",
-      "maxLength": 250000
+      "pattern": "^(?:[a-z][a-z0-9-]{0,63}\\.)?[a-z][a-z0-9-]{0,63}$",
+      "description": "Package in your run to copy, relative to your room; its package.json declares triggers and permissions."
     }
   },
   "additionalProperties": false
@@ -3787,98 +4393,12 @@ Snippet-only contracts for authoring; calls require an accepted app input.
 {
   "type": "object",
   "required": [
-    "written"
+    "program"
   ],
   "properties": {
-    "written": {
-      "type": "boolean",
-      "const": true
-    }
-  },
-  "additionalProperties": false
-}
-```
-
-### global_app_http_request
-
-Global app HTTP request
-
-Make a bounded HTTP(S) request to an explicitly permitted host, without following redirects.
-
-Owner: ragents.global-apps. Scope: per-turn. Native model tool: no. Availability: conditional.
-
-Snippet-only contracts for authoring; calls require an accepted app input.
-
-#### Input
-
-```json
-{
-  "type": "object",
-  "required": [
-    "url"
-  ],
-  "properties": {
-    "url": {
+    "program": {
       "type": "string",
-      "minLength": 1,
-      "maxLength": 4096
-    },
-    "method": {
-      "anyOf": [
-        {
-          "type": "string",
-          "const": "GET"
-        },
-        {
-          "type": "string",
-          "const": "POST"
-        },
-        {
-          "type": "string",
-          "const": "PUT"
-        },
-        {
-          "type": "string",
-          "const": "PATCH"
-        },
-        {
-          "type": "string",
-          "const": "DELETE"
-        }
-      ]
-    },
-    "headers": {
-      "type": "object",
-      "patternProperties": {
-        "^.*$": {
-          "type": "string"
-        }
-      }
-    },
-    "body": {
-      "type": "string",
-      "maxLength": 250000
-    }
-  },
-  "additionalProperties": false
-}
-```
-
-#### Result
-
-```json
-{
-  "type": "object",
-  "required": [
-    "status",
-    "body"
-  ],
-  "properties": {
-    "status": {
-      "type": "integer"
-    },
-    "body": {
-      "type": "string"
+      "description": "The app's package as the global coordinator's main room names it."
     }
   },
   "additionalProperties": false
@@ -3889,7 +4409,7 @@ Snippet-only contracts for authoring; calls require an accepted app input.
 
 List global apps
 
-List your global apps and their last results.
+List your global apps with their trigger progress and last results.
 
 Owner: ragents.global-apps. Scope: per-turn. Native model tool: yes. Availability: conditional.
 
@@ -3929,7 +4449,9 @@ With the run owner's global apps read permission.
         "required": [
           "name",
           "actorId",
+          "program",
           "description",
+          "input",
           "triggers",
           "views",
           "paused",
@@ -3943,20 +4465,20 @@ With the run owner's global apps read permission.
           "name": {
             "type": "string",
             "pattern": "^[a-z][a-z0-9-]{0,63}$",
-            "description": "Your chosen app name."
+            "description": "Your chosen app name; it names the app's room and package."
           },
           "actorId": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ]
+            "type": "string"
+          },
+          "program": {
+            "type": "string"
           },
           "description": {
             "type": "string"
+          },
+          "input": {
+            "type": "boolean",
+            "description": "Whether the app has an onInput handler that triggers reach."
           },
           "triggers": {
             "type": "object",
@@ -4068,6 +4590,11 @@ With the run owner's global apps read permission.
                   }
                 },
                 "additionalProperties": false
+              },
+              "timeoutSeconds": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 300
               }
             },
             "additionalProperties": false
@@ -4231,959 +4758,15 @@ With the run owner's global apps read permission.
 }
 ```
 
-### global_app_pause
-
-Pause or resume app
-
-Pause new checks or resume with the next interval starting now.
-
-Owner: ragents.global-apps. Scope: per-turn. Native model tool: yes. Availability: conditional.
-
-With agent.spawn, plugin.state.write and the run owner's global apps write permission.
-
-#### Input
-
-```json
-{
-  "type": "object",
-  "required": [
-    "name",
-    "paused"
-  ],
-  "properties": {
-    "name": {
-      "type": "string",
-      "pattern": "^[a-z][a-z0-9-]{0,63}$",
-      "description": "Your chosen app name."
-    },
-    "paused": {
-      "type": "boolean"
-    }
-  },
-  "additionalProperties": false
-}
-```
-
-#### Result
-
-```json
-{
-  "type": "object",
-  "required": [
-    "changed"
-  ],
-  "properties": {
-    "changed": {
-      "type": "boolean"
-    }
-  },
-  "additionalProperties": false
-}
-```
-
-### global_app_read
-
-Read app
-
-Read an app's permissions, state and recent bounded log to verify or fix it.
-
-Owner: ragents.global-apps. Scope: per-turn. Native model tool: yes. Availability: conditional.
-
-With the run owner's global apps read permission.
-
-#### Input
-
-```json
-{
-  "type": "object",
-  "required": [
-    "name"
-  ],
-  "properties": {
-    "name": {
-      "type": "string",
-      "pattern": "^[a-z][a-z0-9-]{0,63}$",
-      "description": "Your chosen app name."
-    },
-    "logLimit": {
-      "type": "integer",
-      "minimum": 1,
-      "maximum": 100
-    }
-  },
-  "additionalProperties": false
-}
-```
-
-#### Result
-
-```json
-{
-  "type": "object",
-  "required": [
-    "app",
-    "definition",
-    "timeoutSeconds",
-    "permissions",
-    "sandbox",
-    "source",
-    "state",
-    "log",
-    "droppedLogLines"
-  ],
-  "properties": {
-    "app": {
-      "type": "object",
-      "required": [
-        "name",
-        "actorId",
-        "description",
-        "triggers",
-        "views",
-        "paused",
-        "status",
-        "lastRunAt",
-        "nextRunAt",
-        "lastResult",
-        "problem"
-      ],
-      "properties": {
-        "name": {
-          "type": "string",
-          "pattern": "^[a-z][a-z0-9-]{0,63}$",
-          "description": "Your chosen app name."
-        },
-        "actorId": {
-          "anyOf": [
-            {
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ]
-        },
-        "description": {
-          "type": "string"
-        },
-        "triggers": {
-          "type": "object",
-          "properties": {
-            "interval": {
-              "type": "object",
-              "required": [
-                "everySeconds"
-              ],
-              "properties": {
-                "everySeconds": {
-                  "type": "integer",
-                  "minimum": 60,
-                  "maximum": 604800
-                }
-              },
-              "additionalProperties": false
-            },
-            "daily": {
-              "type": "object",
-              "required": [
-                "at"
-              ],
-              "properties": {
-                "at": {
-                  "type": "string",
-                  "pattern": "^(?:[01][0-9]|2[0-3]):[0-5][0-9]$"
-                },
-                "timeZone": {
-                  "type": "string",
-                  "minLength": 1,
-                  "maxLength": 128
-                }
-              },
-              "additionalProperties": false
-            },
-            "weekly": {
-              "type": "object",
-              "required": [
-                "at",
-                "days"
-              ],
-              "properties": {
-                "at": {
-                  "type": "string",
-                  "pattern": "^(?:[01][0-9]|2[0-3]):[0-5][0-9]$"
-                },
-                "days": {
-                  "type": "array",
-                  "items": {
-                    "anyOf": [
-                      {
-                        "type": "string",
-                        "const": "mon"
-                      },
-                      {
-                        "type": "string",
-                        "const": "tue"
-                      },
-                      {
-                        "type": "string",
-                        "const": "wed"
-                      },
-                      {
-                        "type": "string",
-                        "const": "thu"
-                      },
-                      {
-                        "type": "string",
-                        "const": "fri"
-                      },
-                      {
-                        "type": "string",
-                        "const": "sat"
-                      },
-                      {
-                        "type": "string",
-                        "const": "sun"
-                      }
-                    ]
-                  },
-                  "minItems": 1,
-                  "maxItems": 7,
-                  "uniqueItems": true
-                },
-                "timeZone": {
-                  "type": "string",
-                  "minLength": 1,
-                  "maxLength": 128
-                }
-              },
-              "additionalProperties": false
-            },
-            "fileChange": {
-              "type": "object",
-              "required": [
-                "folders"
-              ],
-              "properties": {
-                "folders": {
-                  "type": "array",
-                  "items": {
-                    "type": "string",
-                    "minLength": 1,
-                    "maxLength": 512
-                  },
-                  "maxItems": 16,
-                  "uniqueItems": true
-                }
-              },
-              "additionalProperties": false
-            }
-          },
-          "additionalProperties": false
-        },
-        "views": {
-          "type": "array",
-          "items": {
-            "type": "object",
-            "required": [
-              "id",
-              "title",
-              "revision"
-            ],
-            "properties": {
-              "id": {
-                "type": "string"
-              },
-              "title": {
-                "type": "string"
-              },
-              "revision": {
-                "type": "string"
-              }
-            },
-            "additionalProperties": false
-          }
-        },
-        "paused": {
-          "type": "boolean"
-        },
-        "status": {
-          "anyOf": [
-            {
-              "type": "string",
-              "const": "ready"
-            },
-            {
-              "type": "string",
-              "const": "queued"
-            },
-            {
-              "type": "string",
-              "const": "running"
-            },
-            {
-              "type": "string",
-              "const": "paused"
-            },
-            {
-              "type": "string",
-              "const": "blocked"
-            }
-          ]
-        },
-        "lastRunAt": {
-          "anyOf": [
-            {
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ]
-        },
-        "nextRunAt": {
-          "anyOf": [
-            {
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ]
-        },
-        "lastResult": {
-          "anyOf": [
-            {
-              "type": "object",
-              "required": [
-                "outcome",
-                "at",
-                "summary"
-              ],
-              "properties": {
-                "outcome": {
-                  "anyOf": [
-                    {
-                      "type": "string",
-                      "const": "completed"
-                    },
-                    {
-                      "type": "string",
-                      "const": "failed"
-                    },
-                    {
-                      "type": "string",
-                      "const": "interrupted"
-                    },
-                    {
-                      "type": "string",
-                      "const": "timeout"
-                    }
-                  ]
-                },
-                "at": {
-                  "type": "string"
-                },
-                "summary": {
-                  "type": "string"
-                }
-              },
-              "additionalProperties": false
-            },
-            {
-              "type": "null"
-            }
-          ]
-        },
-        "problem": {
-          "anyOf": [
-            {
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ]
-        }
-      },
-      "additionalProperties": false
-    },
-    "definition": {
-      "type": "object",
-      "required": [
-        "name",
-        "description",
-        "program",
-        "permissions"
-      ],
-      "properties": {
-        "name": {
-          "type": "string",
-          "pattern": "^[a-z][a-z0-9-]{0,63}$",
-          "description": "Your chosen app name."
-        },
-        "description": {
-          "type": "string",
-          "minLength": 1,
-          "maxLength": 1000,
-          "pattern": "\\S"
-        },
-        "program": {
-          "type": "string",
-          "pattern": "^(?:[a-z][a-z0-9-]{0,63}\\.)?[a-z][a-z0-9-]{0,63}$",
-          "description": "Private actor package in your run, relative to your room."
-        },
-        "triggers": {
-          "type": "object",
-          "properties": {
-            "interval": {
-              "type": "object",
-              "required": [
-                "everySeconds"
-              ],
-              "properties": {
-                "everySeconds": {
-                  "type": "integer",
-                  "minimum": 60,
-                  "maximum": 604800
-                }
-              },
-              "additionalProperties": false
-            },
-            "daily": {
-              "type": "object",
-              "required": [
-                "at"
-              ],
-              "properties": {
-                "at": {
-                  "type": "string",
-                  "pattern": "^(?:[01][0-9]|2[0-3]):[0-5][0-9]$"
-                },
-                "timeZone": {
-                  "type": "string",
-                  "minLength": 1,
-                  "maxLength": 128
-                }
-              },
-              "additionalProperties": false
-            },
-            "weekly": {
-              "type": "object",
-              "required": [
-                "at",
-                "days"
-              ],
-              "properties": {
-                "at": {
-                  "type": "string",
-                  "pattern": "^(?:[01][0-9]|2[0-3]):[0-5][0-9]$"
-                },
-                "days": {
-                  "type": "array",
-                  "items": {
-                    "anyOf": [
-                      {
-                        "type": "string",
-                        "const": "mon"
-                      },
-                      {
-                        "type": "string",
-                        "const": "tue"
-                      },
-                      {
-                        "type": "string",
-                        "const": "wed"
-                      },
-                      {
-                        "type": "string",
-                        "const": "thu"
-                      },
-                      {
-                        "type": "string",
-                        "const": "fri"
-                      },
-                      {
-                        "type": "string",
-                        "const": "sat"
-                      },
-                      {
-                        "type": "string",
-                        "const": "sun"
-                      }
-                    ]
-                  },
-                  "minItems": 1,
-                  "maxItems": 7,
-                  "uniqueItems": true
-                },
-                "timeZone": {
-                  "type": "string",
-                  "minLength": 1,
-                  "maxLength": 128
-                }
-              },
-              "additionalProperties": false
-            },
-            "fileChange": {
-              "type": "object",
-              "required": [
-                "folders"
-              ],
-              "properties": {
-                "folders": {
-                  "type": "array",
-                  "items": {
-                    "type": "string",
-                    "minLength": 1,
-                    "maxLength": 512
-                  },
-                  "maxItems": 16,
-                  "uniqueItems": true
-                }
-              },
-              "additionalProperties": false
-            }
-          },
-          "additionalProperties": false
-        },
-        "timeoutSeconds": {
-          "type": "integer",
-          "minimum": 1,
-          "maximum": 300
-        },
-        "permissions": {
-          "type": "object",
-          "properties": {
-            "files": {
-              "type": "object",
-              "properties": {
-                "read": {
-                  "type": "array",
-                  "items": {
-                    "type": "string",
-                    "minLength": 1,
-                    "maxLength": 512
-                  },
-                  "maxItems": 16,
-                  "uniqueItems": true
-                },
-                "write": {
-                  "type": "array",
-                  "items": {
-                    "type": "string",
-                    "minLength": 1,
-                    "maxLength": 512
-                  },
-                  "maxItems": 16,
-                  "uniqueItems": true
-                }
-              },
-              "additionalProperties": false
-            },
-            "http": {
-              "type": "array",
-              "items": {
-                "type": "string",
-                "minLength": 1,
-                "maxLength": 512
-              },
-              "maxItems": 16,
-              "uniqueItems": true
-            },
-            "functions": {
-              "type": "array",
-              "items": {
-                "type": "string",
-                "minLength": 1,
-                "maxLength": 128
-              },
-              "maxItems": 32,
-              "uniqueItems": true
-            }
-          },
-          "additionalProperties": false
-        }
-      },
-      "additionalProperties": false
-    },
-    "timeoutSeconds": {
-      "type": "integer"
-    },
-    "permissions": {
-      "type": "object",
-      "properties": {
-        "files": {
-          "type": "object",
-          "properties": {
-            "read": {
-              "type": "array",
-              "items": {
-                "type": "string",
-                "minLength": 1,
-                "maxLength": 512
-              },
-              "maxItems": 16,
-              "uniqueItems": true
-            },
-            "write": {
-              "type": "array",
-              "items": {
-                "type": "string",
-                "minLength": 1,
-                "maxLength": 512
-              },
-              "maxItems": 16,
-              "uniqueItems": true
-            }
-          },
-          "additionalProperties": false
-        },
-        "http": {
-          "type": "array",
-          "items": {
-            "type": "string",
-            "minLength": 1,
-            "maxLength": 512
-          },
-          "maxItems": 16,
-          "uniqueItems": true
-        },
-        "functions": {
-          "type": "array",
-          "items": {
-            "type": "string",
-            "minLength": 1,
-            "maxLength": 128
-          },
-          "maxItems": 32,
-          "uniqueItems": true
-        }
-      },
-      "additionalProperties": false
-    },
-    "sandbox": {
-      "anyOf": [
-        {
-          "type": "string",
-          "const": "process"
-        },
-        {
-          "type": "string",
-          "const": "disabled"
-        },
-        {
-          "type": "string",
-          "const": "unavailable"
-        }
-      ]
-    },
-    "source": {
-      "type": "object",
-      "required": [
-        "runId",
-        "program"
-      ],
-      "properties": {
-        "runId": {
-          "type": "string"
-        },
-        "program": {
-          "type": "string"
-        }
-      },
-      "additionalProperties": false
-    },
-    "state": {},
-    "log": {
-      "type": "array",
-      "items": {
-        "type": "object",
-        "required": [
-          "at",
-          "occurrence",
-          "level",
-          "text"
-        ],
-        "properties": {
-          "at": {
-            "type": "string"
-          },
-          "occurrence": {
-            "type": "integer"
-          },
-          "level": {
-            "anyOf": [
-              {
-                "type": "string",
-                "const": "info"
-              },
-              {
-                "type": "string",
-                "const": "error"
-              }
-            ]
-          },
-          "text": {
-            "type": "string"
-          }
-        },
-        "additionalProperties": false
-      }
-    },
-    "droppedLogLines": {
-      "type": "integer"
-    }
-  },
-  "additionalProperties": false
-}
-```
-
-### global_app_register
-
-Register app
-
-Copy, typecheck, build and test a private actor package as a paused global app.
-
-Owner: ragents.global-apps. Scope: per-turn. Native model tool: yes. Availability: conditional.
-
-With agent.spawn, plugin.state.write and the run owner's global apps write permission.
-
-#### Input
-
-```json
-{
-  "type": "object",
-  "required": [
-    "name",
-    "description",
-    "program",
-    "permissions"
-  ],
-  "properties": {
-    "name": {
-      "type": "string",
-      "pattern": "^[a-z][a-z0-9-]{0,63}$",
-      "description": "Your chosen app name."
-    },
-    "description": {
-      "type": "string",
-      "minLength": 1,
-      "maxLength": 1000,
-      "pattern": "\\S"
-    },
-    "program": {
-      "type": "string",
-      "pattern": "^(?:[a-z][a-z0-9-]{0,63}\\.)?[a-z][a-z0-9-]{0,63}$",
-      "description": "Private actor package in your run, relative to your room."
-    },
-    "triggers": {
-      "type": "object",
-      "properties": {
-        "interval": {
-          "type": "object",
-          "required": [
-            "everySeconds"
-          ],
-          "properties": {
-            "everySeconds": {
-              "type": "integer",
-              "minimum": 60,
-              "maximum": 604800
-            }
-          },
-          "additionalProperties": false
-        },
-        "daily": {
-          "type": "object",
-          "required": [
-            "at"
-          ],
-          "properties": {
-            "at": {
-              "type": "string",
-              "pattern": "^(?:[01][0-9]|2[0-3]):[0-5][0-9]$"
-            },
-            "timeZone": {
-              "type": "string",
-              "minLength": 1,
-              "maxLength": 128
-            }
-          },
-          "additionalProperties": false
-        },
-        "weekly": {
-          "type": "object",
-          "required": [
-            "at",
-            "days"
-          ],
-          "properties": {
-            "at": {
-              "type": "string",
-              "pattern": "^(?:[01][0-9]|2[0-3]):[0-5][0-9]$"
-            },
-            "days": {
-              "type": "array",
-              "items": {
-                "anyOf": [
-                  {
-                    "type": "string",
-                    "const": "mon"
-                  },
-                  {
-                    "type": "string",
-                    "const": "tue"
-                  },
-                  {
-                    "type": "string",
-                    "const": "wed"
-                  },
-                  {
-                    "type": "string",
-                    "const": "thu"
-                  },
-                  {
-                    "type": "string",
-                    "const": "fri"
-                  },
-                  {
-                    "type": "string",
-                    "const": "sat"
-                  },
-                  {
-                    "type": "string",
-                    "const": "sun"
-                  }
-                ]
-              },
-              "minItems": 1,
-              "maxItems": 7,
-              "uniqueItems": true
-            },
-            "timeZone": {
-              "type": "string",
-              "minLength": 1,
-              "maxLength": 128
-            }
-          },
-          "additionalProperties": false
-        },
-        "fileChange": {
-          "type": "object",
-          "required": [
-            "folders"
-          ],
-          "properties": {
-            "folders": {
-              "type": "array",
-              "items": {
-                "type": "string",
-                "minLength": 1,
-                "maxLength": 512
-              },
-              "maxItems": 16,
-              "uniqueItems": true
-            }
-          },
-          "additionalProperties": false
-        }
-      },
-      "additionalProperties": false
-    },
-    "timeoutSeconds": {
-      "type": "integer",
-      "minimum": 1,
-      "maximum": 300
-    },
-    "permissions": {
-      "type": "object",
-      "properties": {
-        "files": {
-          "type": "object",
-          "properties": {
-            "read": {
-              "type": "array",
-              "items": {
-                "type": "string",
-                "minLength": 1,
-                "maxLength": 512
-              },
-              "maxItems": 16,
-              "uniqueItems": true
-            },
-            "write": {
-              "type": "array",
-              "items": {
-                "type": "string",
-                "minLength": 1,
-                "maxLength": 512
-              },
-              "maxItems": 16,
-              "uniqueItems": true
-            }
-          },
-          "additionalProperties": false
-        },
-        "http": {
-          "type": "array",
-          "items": {
-            "type": "string",
-            "minLength": 1,
-            "maxLength": 512
-          },
-          "maxItems": 16,
-          "uniqueItems": true
-        },
-        "functions": {
-          "type": "array",
-          "items": {
-            "type": "string",
-            "minLength": 1,
-            "maxLength": 128
-          },
-          "maxItems": 32,
-          "uniqueItems": true
-        }
-      },
-      "additionalProperties": false
-    }
-  },
-  "additionalProperties": false
-}
-```
-
-#### Result
-
-```json
-{
-  "type": "object",
-  "required": [
-    "registered",
-    "paused"
-  ],
-  "properties": {
-    "registered": {
-      "type": "boolean",
-      "const": true
-    },
-    "paused": {
-      "type": "boolean",
-      "const": true
-    }
-  },
-  "additionalProperties": false
-}
-```
-
 ### global_app_remove
 
-Remove app
+Remove global app
 
-Abort current work and remove the app's package binding, retaining journal history.
+Abort current work and remove the app's program, retaining journal history.
 
 Owner: ragents.global-apps. Scope: per-turn. Native model tool: yes. Availability: conditional.
 
-With agent.spawn, plugin.state.write and the run owner's global apps write permission.
+For agents with agent.spawn, plugin.state.write and the run owner's global apps write permission.
 
 #### Input
 
@@ -5197,7 +4780,7 @@ With agent.spawn, plugin.state.write and the run owner's global apps write permi
     "name": {
       "type": "string",
       "pattern": "^[a-z][a-z0-9-]{0,63}$",
-      "description": "Your chosen app name."
+      "description": "Your chosen app name; it names the app's room and package."
     }
   },
   "additionalProperties": false
@@ -5216,123 +4799,6 @@ With agent.spawn, plugin.state.write and the run owner's global apps write permi
     "removed": {
       "type": "boolean",
       "const": true
-    }
-  },
-  "additionalProperties": false
-}
-```
-
-### global_app_run
-
-Run app now
-
-Queue one immediate check, including while paused. Read its result with global_app_read.
-
-Owner: ragents.global-apps. Scope: per-turn. Native model tool: yes. Availability: conditional.
-
-With agent.spawn, plugin.state.write and the run owner's global apps write permission.
-
-#### Input
-
-```json
-{
-  "type": "object",
-  "required": [
-    "name"
-  ],
-  "properties": {
-    "name": {
-      "type": "string",
-      "pattern": "^[a-z][a-z0-9-]{0,63}$",
-      "description": "Your chosen app name."
-    }
-  },
-  "additionalProperties": false
-}
-```
-
-#### Result
-
-```json
-{
-  "type": "object",
-  "required": [
-    "accepted"
-  ],
-  "properties": {
-    "accepted": {
-      "type": "boolean",
-      "const": true
-    }
-  },
-  "additionalProperties": false
-}
-```
-
-### global_app_trigger
-
-App trigger
-
-Read the accepted occurrence key, planned time and trigger reason. Required in every app's input capabilities.
-
-Owner: ragents.global-apps. Scope: per-turn. Native model tool: no. Availability: conditional.
-
-Snippet-only contracts for authoring; calls require an accepted app input.
-
-#### Input
-
-```json
-{
-  "type": "object",
-  "properties": {},
-  "additionalProperties": false
-}
-```
-
-#### Result
-
-```json
-{
-  "type": "object",
-  "required": [
-    "key",
-    "scheduledAt",
-    "reason",
-    "timeZone"
-  ],
-  "properties": {
-    "key": {
-      "type": "string"
-    },
-    "scheduledAt": {
-      "type": "string"
-    },
-    "reason": {
-      "anyOf": [
-        {
-          "type": "string",
-          "const": "interval"
-        },
-        {
-          "type": "string",
-          "const": "daily"
-        },
-        {
-          "type": "string",
-          "const": "weekly"
-        },
-        {
-          "type": "string",
-          "const": "manual"
-        },
-        {
-          "type": "string",
-          "const": "file-change"
-        }
-      ]
-    },
-    "timeZone": {
-      "type": "string"
     }
   },
   "additionalProperties": false
@@ -5633,6 +5099,181 @@ With actor.input and the run owner's global coordinator write permission.
     "sent": {
       "type": "boolean",
       "const": true
+    }
+  },
+  "additionalProperties": false
+}
+```
+
+### program_file_read
+
+Read program file
+
+Read a UTF-8 file of at most 250000 bytes within the program's permitted server folders.
+
+Owner: ragents.actor-programs. Scope: per-turn. Native model tool: no. Availability: conditional.
+
+Snippet-only for actor programs; a call needs the matching permission of the caller's own program.
+
+#### Input
+
+```json
+{
+  "type": "object",
+  "required": [
+    "path"
+  ],
+  "properties": {
+    "path": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Absolute path within a permitted server folder"
+    }
+  },
+  "additionalProperties": false
+}
+```
+
+#### Result
+
+```json
+{
+  "type": "string"
+}
+```
+
+### program_file_write
+
+Write program file
+
+Write a UTF-8 file within the program's permitted server folders. The parent must exist.
+
+Owner: ragents.actor-programs. Scope: per-turn. Native model tool: no. Availability: conditional.
+
+Snippet-only for actor programs; a call needs the matching permission of the caller's own program.
+
+#### Input
+
+```json
+{
+  "type": "object",
+  "required": [
+    "path",
+    "content"
+  ],
+  "properties": {
+    "path": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Absolute path within a permitted server folder"
+    },
+    "content": {
+      "type": "string",
+      "maxLength": 250000
+    }
+  },
+  "additionalProperties": false
+}
+```
+
+#### Result
+
+```json
+{
+  "type": "object",
+  "required": [
+    "written"
+  ],
+  "properties": {
+    "written": {
+      "type": "boolean",
+      "const": true
+    }
+  },
+  "additionalProperties": false
+}
+```
+
+### program_http_request
+
+Program HTTP request
+
+Make an HTTP(S) request to a host the program's permissions name, without following redirects; bodies of at most 250000 bytes.
+
+Owner: ragents.actor-programs. Scope: per-turn. Native model tool: no. Availability: conditional.
+
+Snippet-only for actor programs; a call needs the matching permission of the caller's own program.
+
+#### Input
+
+```json
+{
+  "type": "object",
+  "required": [
+    "url"
+  ],
+  "properties": {
+    "url": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 4096
+    },
+    "method": {
+      "anyOf": [
+        {
+          "type": "string",
+          "const": "GET"
+        },
+        {
+          "type": "string",
+          "const": "POST"
+        },
+        {
+          "type": "string",
+          "const": "PUT"
+        },
+        {
+          "type": "string",
+          "const": "PATCH"
+        },
+        {
+          "type": "string",
+          "const": "DELETE"
+        }
+      ]
+    },
+    "headers": {
+      "type": "object",
+      "patternProperties": {
+        "^.*$": {
+          "type": "string"
+        }
+      }
+    },
+    "body": {
+      "type": "string",
+      "maxLength": 250000
+    }
+  },
+  "additionalProperties": false
+}
+```
+
+#### Result
+
+```json
+{
+  "type": "object",
+  "required": [
+    "status",
+    "body"
+  ],
+  "properties": {
+    "status": {
+      "type": "integer"
+    },
+    "body": {
+      "type": "string"
     }
   },
   "additionalProperties": false
@@ -7550,6 +7191,167 @@ actor_program_create creates a package with fixed local dependencies and returns
         },
         "additionalProperties": false
       }
+    },
+    "triggers": {
+      "type": "object",
+      "properties": {
+        "interval": {
+          "type": "object",
+          "required": [
+            "everySeconds"
+          ],
+          "properties": {
+            "everySeconds": {
+              "type": "integer",
+              "minimum": 60,
+              "maximum": 604800
+            }
+          },
+          "additionalProperties": false
+        },
+        "daily": {
+          "type": "object",
+          "required": [
+            "at"
+          ],
+          "properties": {
+            "at": {
+              "type": "string",
+              "pattern": "^(?:[01][0-9]|2[0-3]):[0-5][0-9]$"
+            },
+            "timeZone": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            }
+          },
+          "additionalProperties": false
+        },
+        "weekly": {
+          "type": "object",
+          "required": [
+            "at",
+            "days"
+          ],
+          "properties": {
+            "at": {
+              "type": "string",
+              "pattern": "^(?:[01][0-9]|2[0-3]):[0-5][0-9]$"
+            },
+            "days": {
+              "type": "array",
+              "items": {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "const": "mon"
+                  },
+                  {
+                    "type": "string",
+                    "const": "tue"
+                  },
+                  {
+                    "type": "string",
+                    "const": "wed"
+                  },
+                  {
+                    "type": "string",
+                    "const": "thu"
+                  },
+                  {
+                    "type": "string",
+                    "const": "fri"
+                  },
+                  {
+                    "type": "string",
+                    "const": "sat"
+                  },
+                  {
+                    "type": "string",
+                    "const": "sun"
+                  }
+                ]
+              },
+              "minItems": 1,
+              "maxItems": 7,
+              "uniqueItems": true
+            },
+            "timeZone": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            }
+          },
+          "additionalProperties": false
+        },
+        "fileChange": {
+          "type": "object",
+          "required": [
+            "folders"
+          ],
+          "properties": {
+            "folders": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 512
+              },
+              "maxItems": 16,
+              "uniqueItems": true
+            }
+          },
+          "additionalProperties": false
+        },
+        "timeoutSeconds": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 300
+        }
+      },
+      "additionalProperties": false
+    },
+    "permissions": {
+      "type": "object",
+      "properties": {
+        "files": {
+          "type": "object",
+          "properties": {
+            "read": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 512
+              },
+              "maxItems": 16,
+              "uniqueItems": true
+            },
+            "write": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 512
+              },
+              "maxItems": 16,
+              "uniqueItems": true
+            }
+          },
+          "additionalProperties": false
+        },
+        "http": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 512
+          },
+          "maxItems": 16,
+          "uniqueItems": true
+        }
+      },
+      "additionalProperties": false
     }
   },
   "additionalProperties": false
@@ -10807,7 +10609,6 @@ Complete package sources are in [run-setup.md](run-setup.md).
     "id": "ragents.global-apps",
     "requires": [
       "ragents.orchestration",
-      "ragents.workspace",
       "ragents.actor-programs",
       "ragents.overseer"
     ]

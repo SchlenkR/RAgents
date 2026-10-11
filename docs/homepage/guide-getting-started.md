@@ -428,6 +428,10 @@ Moving a button keeps its panel's open state; "Reset layout" restores the plugin
 When step details are enabled, click a thinking or tool step to open its popup. Long traces
 scroll inside it; the heading and close button stay visible within the available screen space.
 
+A mini-app can also start on its own: ask the agent for a timer, a daily or weekday time, or a
+reaction to file changes in a server folder, and it declares these triggers and the folders or
+hosts the app may use in its package. Triggers keep working while the run is closed.
+
 In VS Code, clicking an app opens or focuses its editor tab. VS Code controls where that tab
 appears. Questions and news stay in chat. The selector below the input chooses the addressee;
 the run coordinator is selected by default.

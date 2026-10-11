@@ -1129,7 +1129,7 @@ build does not see its names.
    module.
 5. An entry without users drops out at the next version jump, as does a name.
 
-**Version contract.** `HOST_API_VERSION` is 16 for the shared global space, room-aware package copy, and filtered app listing. It increases with every incompatible change of a
+**Version contract.** `HOST_API_VERSION` is 17 for package copies without capability allow lists, now that triggers and permissions belong to every actor program. It increases with every incompatible change of a
 list entry, a listed name, or a fully allowed library, not with every
 package version; whatever else a host module exports changes without a new number. The manifest names it
 in `api`; the host requires equality and otherwise aborts with a cause and the command to rebuild;
@@ -5368,122 +5368,41 @@ The watcher starts no work itself and knows no domain logic.
 
 ## Global mini-apps
 
-`ragents.global-apps` runs small TypeScript actor packages with a backend and optional React
-views. It ships in `core`, `showcase`, and `developer`, depends on workspace, orchestration,
-actor-program, and overseer plugins, and starts no model work of its own. The global coordinator and
-normal run agents create a private package through `actor_program_create` and the ordinary
-file/edit and TypeScript tools. A short `requiresTools` prompt contribution teaches authoring
-and verification to agents with the `global_app_*` management tools. App code is authored by
-an agent; users describe the behavior they want.
+`ragents.global-apps` places ordinary actor programs in the global space. It ships in `core`,
+`showcase`, and `developer`, depends on the orchestration, actor-program, and overseer plugins,
+and starts no model work of its own. An app is an actor program like any other: its package
+declares the backend, optional React views, triggers, and permissions
+([Actor programs](actor-programs.md#triggers)), and the actor-program plugin runs its triggers,
+checks its permissions, and keeps its state and log. The plugin adds only what belongs to the
+global space: creating an app in its own room of the owner's hidden global coordinator run,
+listing and removing apps, Start widgets, and a short `requiresTools` prompt contribution that
+teaches authoring and verification to agents with its tools. App code is authored by an agent;
+users describe the behavior they want.
 
-Apps live in their owner's hidden global coordinator run on the server. The coordinator stays
-in `main`; each app has its own room, TypeScript actor, and package beside it. Apps inherit no
-authoring workstation or model conversation. Definitions, trigger progress, and results are
-journaled plugin state; domain data stays in the app actor's intrinsic state. The global run
-uses ordinary journal and working storage. Removing the plugin starts no triggers and
-preserves stored history.
+Apps live in their owner's global coordinator run on the server. The coordinator stays in
+`main`; each app has its own room, TypeScript actor, and package beside it. Apps inherit no
+authoring workstation or model conversation. Each app actor carries one journaled record
+`{ app: <name> }` under the plugin's ID; everything else belongs to the actor program. Without the
+plugin the programs stay where they are and keep their triggers; only the tools and widgets are
+missing.
 
-Registration resolves the source program in the registering actor's room, copies its current
-sources, and uses the existing type-check, build, test, and activation pipeline. A registered
-package needs an input handler and state that accepts `{}`. It may have functions and views.
-Functions, optional function tools, and view actions use ordinary actor-program contracts and
-operator policies. Registered view operations execute under the app actor's currently available
-capabilities and delegated grants, using the persisted `capabilitiesAsActor` package flag; they
-do not inherit the run owner's grants. View actions cannot invoke arbitrary run functions.
-Calls from another actor to a published function with capabilities reject and direct the caller
-to trigger its input instead. State functions without capabilities remain available as tools.
-A view can call the app's functions; its surrounding "Run now" control starts a backend input. The model
-receives compact diagnostics naming the source locations to fix. New and replaced apps stay
-paused for `global_app_run`, `global_app_read`, repairs, and
-verification before resuming. Replacement requires a paused, idle app, retains its state and
-history, and leaves the previous active package in place if verification fails. Later source
-edits require registration again.
+`global_app_create({ name, program })` resolves the source package in the calling agent's room,
+copies its current sources with `ActorProgramsService.copyPackage`, and activates the copy in the
+app's room through the ordinary type-check, build, test, and activation pipeline. The copy is an
+isolated package; its actor gets the usable, delegable grants of the creating agent, which also
+grants the package's permissions in its own run. The result names the program as the
+coordinator's main room addresses it, `<room>.<name>`. The same name replaces the package of an
+existing app in its room, keeps its actor state and trigger progress, and leaves the previous
+package active if verification fails. A user has at most 50 apps. `global_app_list` returns the
+apps with their declared triggers, trigger progress, and last result, 20 by default and at most 50;
+`global_app_remove` interrupts current work and removes the app's program and record while the
+journal keeps its history. Creating and removing are available to agents, not to TypeScript
+actors, with `agent.spawn`, `plugin.state.write`, and the owner's rights.
 
-Global apps share the ordinary mini-app package, source collection, type-check, build, test,
-activation, actor state, view frame, and execution-log paths. The bounded recent-log projection
-reads ordinary journal output and failure events; plugin state stores no duplicate log. The
-plugin adds registration, explicit permissions, trigger dispatch, recent occurrence summaries,
-and Start widgets; it introduces no separate app runtime or package format.
-
-Manual execution is always available while the app is paused, subject to permissions, the
-run's stop/pause boundary, and no overlap. Automatic triggers are optional:
-
-- `triggers.interval.everySeconds` is an integer from 60 to 604800. The next occurrence uses
-  fixed delay from completion; resume starts the interval from now. Restart restores the
-  deadline without a client opening the run; an overdue enabled app receives one occurrence,
-  with no catch-up backlog.
-- `triggers.daily` names `at` as a local 24-hour `HH:MM` and an optional IANA `timeZone`.
-  `triggers.weekly` adds a nonempty, unique `days` list drawn from `mon`, `tue`, `wed`, `thu`,
-  `fri`, `sat`, and `sun`. Registration resolves an omitted zone to the server's IANA zone
-  and stores it explicitly. A local time skipped by the spring daylight-saving transition
-  has no occurrence; a repeated autumn time uses only its first occurrence. An overdue
-  deadline produces one occurrence after restart, followed by the next future scheduled time.
-- `triggers.fileChange.folders` names canonical, absolute, existing server folders covered by
-  the app's file read or write permissions. The server reuses `watchDirectory` with its
-  150-millisecond debounce. Changes coalesce into one pending occurrence while the app is
-  busy. It watches only while automatic execution is enabled; it does not reconstruct file
-  changes that happened while observation was stopped. A watch failure blocks that app and
-  exposes the cause instead of silently disabling the trigger.
-
-With no `triggers`, the app is manual only. All trigger kinds can be combined.
-An app has at most one accepted occurrence, including queued work. At most 50 apps and four
-simultaneous occurrences belong to one user. The wall-time limit defaults to 30 seconds,
-configurable from 1 to 300 seconds. Pause prevents new automatic acceptance and lets accepted
-work finish; removal interrupts accepted work and removes its active program. Pause, stop,
-and deletion of the global run take precedence over its app triggers.
-
-Existing engine recovery interrupts open turns when `Orchestration` is rebuilt. The registrar
-reads their terminal result from the journal and finalizes the accepted occurrence without
-repeating it; no additional recovery seam is needed.
-
-Every backend declares `global_app_trigger` among its input capabilities. This snippet-only
-function verifies that the actor and turn belong to an accepted app occurrence and returns
-its scheduled time, reason (`manual`, `interval`, `daily`, `weekly`, or `file-change`), and stable
-occurrence key. Every accepted occurrence persists and returns `timeZone`: daily and weekly
-occurrences use the selected schedule's stored IANA zone; manual, interval, and file occurrences
-use the server's Intl default at acceptance. Combined calendar schedules choose no implicit
-zone precedence.
-Code can use the key for external idempotency. The backend uses ordinary `onInput`,
-`context.state`, `context.log`, `context.signal`, and declared `context.functions`; it needs no
-separate app SDK. Successful inputs commit staged state. Failures and cancellation retain the
-last successful state, while completed external calls remain effective.
-
-The required `permissions` object may be empty. Optional `files.read` and `files.write` name
-canonical, absolute, existing server folders; `http` names exact lowercase hosts with an
-optional port; `functions` names RAgents functions. Details and `global_app_read` display the
-grants. Validation uses the registering user's permissions and the registering actor's usable,
-delegable grants. File roots reuse source-workspace sandbox path checks; a user with `*` may
-authorize an outside folder while the actor still needs a usable, delegable workspace grant.
-Functions must be available to that actor and delegable. `permissions.functions` excludes all
-`global_app_*` names and `read`, `write`, `edit`, `bash`, `typescript_eval`, `agent_spawn`,
-`actor_program_activate`, `actor_program_import`, `actor_program_ensure`, and `plugin_state_write`
-to prevent generic file tools or another execution boundary bypassing app protection.
-
-An app may explicitly request `permissions.functions: ["overseer_notify"]` and declare that
-capability in its input contract. The helper queues a short message for the owner's current
-coordinator through ordinary actor input; a reset does not leave it bound to the previous
-coordinator actor. Granting it requires usable, delegable `actor.input` and the user's
-`ragents.overseer.write`. Delivery may start a coordinator response, so this permission explicitly
-allows model work in addition to the app's TypeScript input.
-
-File and HTTP calls use server-checked `global_app_file_read`, `global_app_file_write`, and
-`global_app_http_request` capabilities declared in the input or function contract. They authorize
-registered app actor execution against the same per-app grants.
-Only registered operator operations are available to views; snippet-only helpers belong in the
-input handler.
-Only `global_app_trigger` requires an accepted scheduled or manual input. File calls recheck the
-canonical allow list and protect the final path component with `O_NOFOLLOW`; they reuse the
-existing [workspace path protection](#workspace-sandbox-tools-and-processes), whose known parent-directory
-replacement race remains. They do not provide atomic access through the entire path. HTTP
-accepts HTTP(S), rejects URL credentials, redirects, and Host header overrides, and checks the
-exact host allow list. A host without a port permits only default HTTP/HTTPS ports; an explicit
-port requires that effective request port, including 80 and 443.
-
-Each backend executes in its own managed Node process on the actor-program platform. Package
-isolation denies direct network access and confines writes to package, build, and temporary
-folders. Read-only dependencies, the real Node binary, and explicit system paths remain
-readable. The exact operating-system boundary and disabled mode are in
-[TypeScript platform](typescript-platform.md#build-and-process-lifecycle).
+The coordinator verifies an app with the generic `actor_program_trigger` and
+`actor_program_status` under the returned program name and pauses or resumes it with
+`actor_program_pause`; it activates nothing in its own room. A normal run agent verifies its
+package in its own run before creating the app.
 
 The web plugin supplies dynamic `startWidgetsFor` contributions with stable IDs
 `ragents.global-apps:<name>`, `order: 200`, `readRight: "ragents.global-apps.read"`, and the
@@ -5491,33 +5410,27 @@ app's description for the widget gallery. It returns a promise of the first snap
 channel. An app with a view defaults to `columns: 4`; a headless app, an app that needs repair, and the
 system widgets default to `columns: 2`.
 The viewer's Start layout overrides place and width and removes the widget by this stable ID.
-Removing the widget from Start does not pause its backend triggers. The dashboard owns the frame and title.
+Removing the widget from Start does not pause its triggers. The dashboard owns the frame and title.
 A widget embeds the ordinary actor-program view frame and uses its shared state, calls, and
 execution logs, or shows last run and next run for a headless backend. Every widget, including
-one with a view, shows the last output or result. Every app has status,
-description, "Run now", "Pause"/"Resume", and "Open details". Details show triggers,
-permissions, state, and a bounded recent log and offer "Remove". Container queries adapt the
-content to its own width. Multiple views can be selected within the same app widget.
+one with a view, shows the last output or result. Every app has status, description, and "Open
+details"; an app with an input handler also has "Run now" and "Pause"/"Resume", which call the
+actor-program methods `ragents.actor-programs.trigger` and `ragents.actor-programs.pause`.
+Details read `ragents.actor-programs.status` for triggers, permissions, process protection, state,
+and the recent log, and offer "Remove". Container queries adapt the content to its own width.
+Multiple views can be selected within the same app widget.
 
-Definitions that fail independently remain visible as individual error widgets with "Retry"
-and "Open details". One damaged package, failed registration, view load/render error, or
-trigger failure does not hide other apps. Live snapshots use the existing RPC/SSE stream and
-stable React content types instead of mounting a new component type on every update.
+A damaged app record and an app whose program is no longer active remain visible as individual
+error widgets with "Retry" and "Remove". One damaged record, failed creation, view load or render
+error, or trigger failure does not hide other apps. Live snapshots use the existing RPC/SSE stream
+and stable React content types instead of mounting a new component type on every update.
 Server access resolves only the caller's own apps. Reading and live updates require
-`ragents.global-apps.read`; ordinary view loading also checks `runs.read` and access to the global
-coordinator run. Management requires `ragents.global-apps.write` and `runs.write`. Registration
-also requires `ragents.overseer.write` to prepare the shared global space; it creates no ordinary
-run and requires no `runs.create`.
-Source import verifies ownership of the authoring run and ordinary package access. Read-only
-viewers get no app-management controls.
-
-The recent-log projection derives at most 100 lines, each at most 1000 characters, with
-dropped-line information from ordinary `runtime.output.recorded`, `turn.failed`, and
-`turn.interrupted` journal events, matched through occurrence input command IDs. It stores no
-second copy in scheduler metadata.
-`global_app_read` returns 20 lines by default, at most 100; `global_app_list` returns 20 apps by
-default, at most 50. These limits bound the returned projection and UI; append-only journals
-keep their recorded history. Buffered output survives failed as well as successful inputs.
+`ragents.global-apps.read`; view loading and the actor-program methods also check `runs.read` or
+`runs.write` and access to the global coordinator run. Management requires
+`ragents.global-apps.write` and `runs.write`. Creation also requires `ragents.overseer.write` to
+prepare the shared global space; it creates no ordinary run and requires no `runs.create`. Source
+import verifies ownership of the authoring run and ordinary package access. Read-only viewers get
+no app-management controls.
 
 ## Model relay
 
@@ -5600,14 +5513,10 @@ right) returns the archive; a different version is 404. The counterpart is `rage
 
 ## Open limits
 
-- Global app schedules support intervals, daily local times, and selected weekdays, without
-  arbitrary cron expressions or a catch-up queue. File triggers coalesce changes and provide
-  no durable change history while offline.
-  Global apps provide no high availability or exactly-once external effects.
-- Global app capabilities enforce their allow lists on the server. Explicitly disabled process
-  protection permits direct Node access. Enabled protection retains read access to the explicit
-  runtime and system paths documented in the TypeScript platform; host file helpers retain the
-  existing parent-directory replacement race.
+- Global apps provide no high availability; their triggers and permissions have the limits of
+  actor programs ([Actor programs](actor-programs.md#open-limits)). Enabled process protection
+  retains read access to the explicit runtime and system paths documented in the TypeScript
+  platform.
 - Plugins are not installed. At runtime the server loads only the bundles the profile
   names: built-in ones under `bundles/` or bundle folders at a fixed place on disk.
   Loading a plugin at runtime from a foreign source is NOT intended - no

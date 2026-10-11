@@ -1,7 +1,9 @@
 import path from "node:path";
 import type { PluginHost, RAgentsPlugin } from "@ragents/engine";
 import type { PluginModule } from "@ragents/host/plugin-support/plugin-module.js";
-import { runtimeProviderToken, runGuardToken } from "@ragents/host/ragents/host-services.js";
+import { runtimeProviderToken, runGuardToken, runOwnerAccessToken, runWorkspaceProviderToken } from "@ragents/host/ragents/host-services.js";
+import { runManagementToken } from "@ragents/host/ragents/global-chat.js";
+import { workspaceRuntimeToken } from "@ragents/host/ragents/workspace-runtime.js";
 import { askServiceToken } from "@ragents/plugins/ragents.ask/server/contract.js";
 import { agentToolsFrom } from "./agent-tools.js";
 import { createActorProgramMethods } from "./methods.js";
@@ -14,10 +16,11 @@ import { sandboxServicesToken } from "@ragents/host/plugin-support/workspace-san
 import { actorProgramsToken } from "@ragents/host/plugin-support/actor-programs/service.js";
 import { createProjectDiagnostics } from "./project-diagnostics.js";
 import { actorProgramAccessProjections } from "./access-projections.js";
+import { programPermissionFunctions } from "./permissions.js";
 const actorProgramsPlugin = (pluginHost: PluginHost): RAgentsPlugin => ({
     manifest: { id: "ragents.actor-programs" },
     register: (host) => {
-        const runtime = new ActorProgramRuntime({
+        const runtime: ActorProgramRuntime = new ActorProgramRuntime({
             runtime: host.service(runtimeProviderToken), agentToolsFor: agentToolsFrom(pluginHost), askService: () => host.service(askServiceToken), reservedToolNames: () => pluginHost.tools.describe().map((entry) => entry.name),
             serverProcessContextFor: (runId) => host.service(sandboxServicesToken).serverProcessContextFor(runId),
             isolatedProcessContextFor: (runId, directories, readable) => host.service(sandboxServicesToken).isolatedProcessContextFor(runId, directories, readable),
@@ -28,6 +31,22 @@ const actorProgramsPlugin = (pluginHost: PluginHost): RAgentsPlugin => ({
                 return !script ? undefined : script.handle === name ? script.files : script.programs.find((program) => program.name === name)?.files;
             },
             sharedPackage: (name) => pluginHost.actorPackages.get(name),
+            ownerAccess: (runId) => host.service(runOwnerAccessToken)(runId),
+            workspaceRoots: async (runId) => {
+                const directory = await runtime.workspaceDirectory(runId);
+                if (host.service(workspaceRuntimeToken).placementOf(runId).machine !== "server")
+                    return { read: [directory], write: [directory] };
+                const workspace = await host.service(runWorkspaceProviderToken)(runId);
+                const current = await workspace.currentRoot();
+                return {
+                    read: [current, directory, ...workspace.sandboxFolders?.map((folder) => folder.directory) ?? []],
+                    write: [current, directory, ...workspace.sandboxFolders?.filter((folder) => folder.access === "write").map((folder) => folder.directory) ?? []],
+                };
+            },
+            triggers: {
+                prepareRun: async (runId) => { await host.service(runWorkspaceProviderToken)(runId); },
+                interrupt: (runId, actorId, reason) => host.service(runManagementToken)().interruptTurn(runId, actorId, reason),
+            },
         });
         host.provide(actorProgramsToken, runtime);
         const diagnostics = createProjectDiagnostics({
@@ -45,12 +64,19 @@ const actorProgramsPlugin = (pluginHost: PluginHost): RAgentsPlugin => ({
         host.http(...createMiniAppFrameRoutes({ ensureSession: host.service(runGuardToken), runtime }));
         host.lifecycle({ id: "ragents.actor-programs.lifecycle",
             initialize: () => host.service(sandboxServicesToken).registerWorkspaceRoot({ id: "ragents.actor-programs", alias: "@actors", environmentVariable: "RAGENTS_ACTORS_DIR", directoryFor: (runId) => runtime.workspaceDirectory(runId), ownershipDirectoryFor: async (runId) => path.dirname(await runtime.workspaceDirectory(runId)) }),
+            serverReady: () => runtime.triggers.ready(),
             prepareSession: ({ runId }) => runtime.prepareSession(runId), stopSession: ({ runId, signal }) => runtime.stopSession(runId, signal),
             deleteSession: async ({ runId }) => { diagnostics.forget(runId); await runtime.deleteSession(runId); }, shutdown: () => runtime.shutdown(),
         });
         host.prompts(actorProgramSummary);
         host.accessProjections(...actorProgramAccessProjections);
-        host.functions(createControlsToolContributor(), ...createActorProgramToolContributors(runtime, diagnostics));
+        host.functions(createControlsToolContributor(), ...createActorProgramToolContributors(runtime, diagnostics), programPermissionFunctions({
+            permissionsOf: (runId, actorId) => {
+                const program = runtime.programsOf(host.service(runtimeProviderToken)().view(runId)).find((entry) => entry.actorId === actorId);
+                return program ? program.permissions ?? {} : undefined;
+            },
+            ownerAccess: (runId) => host.service(runOwnerAccessToken)(runId),
+        }));
     },
 });
 export const plugin: PluginModule = { requires: ["ragents.orchestration", "ragents.ask"], create: actorProgramsPlugin };

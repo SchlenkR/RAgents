@@ -18,6 +18,7 @@ import { WorkspaceSandboxHost, sandboxServicesToken } from "../src/plugin-suppor
 import { plugin as actorProgramsPlugin } from "../../../plugins/ragents.actor-programs/server/index.ts";
 import { plugin as globalAppsPlugin } from "../../../plugins/ragents.global-apps/server/index.ts";
 import { globalAppsContracts } from "../../../plugins/ragents.global-apps/contract.ts";
+import { actorProgramContracts } from "../src/plugin-support/actor-programs/contract.ts";
 import { actorProgramsToken } from "../src/plugin-support/actor-programs/service.ts";
 import { runOwnerAccessToken, runtimeProviderToken, runGuardToken, runWorkspaceProviderToken, workspaceGuardToken, userAccessToken } from "../src/ragents/host-services.ts";
 import { writeAppFiles } from "./actor-runtime-fixture.ts";
@@ -107,9 +108,10 @@ test("confirmed reset preserves global apps and recovers durably across server r
   faux.setResponses([
     (context) => {
       const selected = context.tools?.map((tool) => tool.name) ?? [];
-      for (const name of ["actor_program_create", "actor_program_diagnostics", "global_app_register", "global_app_list", "global_app_read", "global_app_run", "global_app_pause", "global_app_remove", "write", "edit", "read", "typescript_api", "typescript_eval"]) assert.ok(selected.includes(name), name);
+      for (const name of ["actor_program_create", "actor_program_diagnostics", "actor_program_trigger", "actor_program_pause", "actor_program_status", "global_app_create", "global_app_list", "global_app_remove", "write", "edit", "read", "typescript_api", "typescript_eval"]) assert.ok(selected.includes(name), name);
+      assert.ok(!selected.includes("actor_program_activate"), "the coordinator activates apps only in their own rooms");
       assert.match(context.systemPrompt ?? "", /Build a global mini-app/);
-      assert.match(context.systemPrompt ?? "", /daily: \{at: "08:00"\}/);
+      assert.match(context.systemPrompt ?? "", /"daily": \{ "at": "08:00" \}/);
       assert.doesNotMatch(context.systemPrompt ?? "", /reset-test-only-token/);
       return fauxAssistantMessage([fauxToolCall("typescript_eval", { code: `return await context.functions.write(${JSON.stringify({ file_path: "request.json", content: '{"title":"Test"}' })});` }, { id: "global-write" })]);
     },
@@ -154,17 +156,26 @@ test("confirmed reset preserves global apps and recovers durably across server r
     assert.ok((await readdir(path.join(directory, "runs", G, "payloads"))).length > 0);
     const programs = provider.plugins.service(actorProgramsToken);
     const sources = {
-      "package.json": JSON.stringify({ name: "date", private: true, type: "module", ragents: { title: "Daily date", backend: "src/server.ts" } }),
-      "src/server.ts": 'import { Type } from "typebox"; import { defineActor } from "@ragents/server"; export default defineActor({ state: Type.Object({ count: Type.Optional(Type.Integer()) }), functions: {}, input: { capabilities: ["global_app_trigger"] } }, { functions: {}, onInput: async (_input, context) => { await context.functions.global_app_trigger({}); context.state.replace({ count: (context.state.read().count ?? 0) + 1 }); context.log("Daily date result"); } });',
+      "package.json": JSON.stringify({ name: "date", private: true, type: "module", ragents: { title: "Daily date", backend: "src/server.ts", triggers: { daily: { at: "08:00", timeZone: "Europe/Berlin" } } } }),
+      "src/server.ts": 'import { Type } from "typebox"; import { defineActor } from "@ragents/server"; export default defineActor({ state: Type.Object({ count: Type.Optional(Type.Integer()) }), functions: {}, input: { capabilities: [] } }, { functions: {}, onInput: async (input, context) => { if (!input.trigger) throw new Error("Not a trigger input."); context.state.replace({ count: (context.state.read().count ?? 0) + 1 }); context.log("Daily date result"); } });',
     };
     await writeAppFiles(path.join(directory, "sessions", G, "plugins", "ragents.actor-programs", "programs"), "date", sources);
     const appCall = (contract: { id: string }, input: unknown) => dispatchMethod(provider.plugins.methods, contract.id, input);
-    await appCall(globalAppsContracts.register, { sourceRunId: G, name: "daily-date", description: "The daily date", program: "date", triggers: { daily: { at: "08:00", timeZone: "Europe/Berlin" } }, permissions: {} });
-    await appCall(globalAppsContracts.run, { name: "daily-date" });
-    await until(() => management!.view(G).turns.some((turn) => turn.status !== "running" && turn.actorId !== management!.view(G).primaryActorId));
-    assert.equal(management!.view(G).turns.find((turn) => turn.actorId !== management!.view(G).primaryActorId)?.status, "completed", JSON.stringify(await appCall(globalAppsContracts.read, { name: "daily-date" })));
-    await appCall(globalAppsContracts.pause, { name: "daily-date", paused: false });
-    const appBefore = await appCall(globalAppsContracts.read, { name: "daily-date" });
+    assert.deepEqual(await appCall(globalAppsContracts.create, { sourceRunId: G, name: "daily-date", program: "date" }), { program: "daily-date.daily-date" });
+    const appActorId = ((await appCall(globalAppsContracts.list, {})) as { apps: { actorId: string }[] }).apps[0]!.actorId;
+    const appStatus = () => appCall(actorProgramContracts.status, { runId: G, actorId: appActorId });
+    const settledStatus = async () => {
+      for (;;) {
+        const status = await appStatus() as { status: string };
+        if (!["queued", "running"].includes(status.status)) return status;
+        await new Promise((resolve) => setTimeout(resolve, 5));
+      }
+    };
+    await appCall(actorProgramContracts.trigger, { runId: G, actorId: appActorId });
+    await until(() => management!.view(G).turns.some((turn) => turn.status !== "running" && turn.actorId === appActorId));
+    assert.equal(management!.view(G).turns.find((turn) => turn.actorId === appActorId)?.status, "completed", JSON.stringify(await appStatus()));
+    const appBefore = await settledStatus();
+    assert.notEqual((appBefore as { nextRunAt: string | null }).nextRunAt, null, "the daily trigger is planned from its package");
     const roomsBefore = management!.view(G).rooms;
     const oldActor = management!.view(G).primaryActorId;
     assert.ok(oldActor);
@@ -175,9 +186,9 @@ test("confirmed reset preserves global apps and recovers durably across server r
     await assert.rejects(async () => global.send("Concurrent message"), /is being reset/);
     await globalAborted.promise;
     assert.equal(management!.view(G).actors.find((actor) => actor.id === oldActor)?.lifecycle.kind, "stopped");
-    await appCall(globalAppsContracts.run, { name: "daily-date" });
-    await until(() => management!.view(G).turns.filter((turn) => turn.actorId === (appBefore as { app: { actorId: string } }).app.actorId && turn.status === "completed").length === 2);
-    const appWhileReset = await appCall(globalAppsContracts.read, { name: "daily-date" });
+    await appCall(actorProgramContracts.trigger, { runId: G, actorId: appActorId });
+    await until(() => management!.view(G).turns.filter((turn) => turn.actorId === appActorId && turn.status === "completed").length === 2);
+    const appWhileReset = await settledStatus();
     let finished = false;
     void reset.then(() => { finished = true; });
     await new Promise<void>((resolve) => setImmediate(resolve));
@@ -197,7 +208,7 @@ test("confirmed reset preserves global apps and recovers durably across server r
     global.subscribe((event) => replay.push(event))();
     const resetId = management!.events(G).find((event) => event.type === "agent.spawned" && event.commandId.startsWith("conversation-reset:"))!.eventId;
     assert.deepEqual(replay, [{ kind: "reset", conversationId: resetId }, { kind: "status", running: false }, { kind: "replay-end", conversationId: resetId }]);
-    assert.deepEqual(await appCall(globalAppsContracts.read, { name: "daily-date" }), appWhileReset);
+    assert.deepEqual(await appStatus(), appWhileReset);
     assert.deepEqual(management!.view(G).rooms, roomsBefore);
     const workspace = provider.plugins.service(globalChatToken).workspaceDirectory(G);
     assert.equal(existsSync(path.join(workspace, "rpc-reference.md")), true);
@@ -225,7 +236,7 @@ test("confirmed reset preserves global apps and recovers durably across server r
     assert.equal(existsSync(intent), false);
     assert.equal(management!.view(G).primaryActorId, previousPrimary);
     assert.equal(management!.events(G).filter((event) => event.type === "agent.spawned").length, spawnCount, "recovery after coordinator creation must reuse the durable replacement");
-    assert.deepEqual(await appCall(globalAppsContracts.read, { name: "daily-date" }), appWhileReset);
+    assert.deepEqual(await appStatus(), appWhileReset);
     assert.deepEqual(management!.view(G).rooms, roomsBefore);
     await provider.shutdown();
     await writeFile(intent, JSON.stringify({ version: 1, runId: G, key: randomUUID(), oldActorId: previousPrimary }));
@@ -234,7 +245,7 @@ test("confirmed reset preserves global apps and recovers durably across server r
     assert.equal(provider.hasRun(G), true);
     assert.equal(existsSync(intent), false);
     assert.notEqual(management!.view(G).primaryActorId, previousPrimary);
-    assert.deepEqual(await appCall(globalAppsContracts.read, { name: "daily-date" }), appWhileReset);
+    assert.deepEqual(await appStatus(), appWhileReset);
     assert.deepEqual(management!.view(G).rooms, roomsBefore);
     assert.ok(provider.hasRun(normalId));
     assert.deepEqual(await overseerCall(overseerContracts.settings.read, {}), settingsBefore);

@@ -86,11 +86,12 @@ processes use the operating system sandbox described in `plugins.md` (Server pro
 
 The existing `Orchestration.stopActors` stops exactly the requested actors, without stopping
 their descendants or sibling rooms. Global conversation reset combines it with scoped scheduler
-interruption and awaits cleanup before replacing the coordinator. Global app actors retain the
-same managed execution, state commits, and log paths as ordinary actor programs.
+interruption and awaits cleanup before replacing the coordinator. Global app actors are
+ordinary actor programs with the same managed execution, state commits, and log paths.
 
 An optional `isolated` execution request narrows the process policy to the package, build, and
-temporary folders. `ragents.global-apps` requests it for every backend. It uses the existing
+temporary folders. A package copied with `isolated` requests it for every execution; global apps
+copy every app this way. It uses the existing
 process-sandbox runtime's operating system wrapper with direct networking denied, no network
 proxy, and no Unix socket allowances. Linux also uses separate network and PID namespaces.
 Only the package, build, and temporary folders are writable. Reads are allowed from those
@@ -101,29 +102,30 @@ folders, read-only dependencies, the real Node binary, and these operating-syste
 - Linux: `/usr/lib`, `/lib`, `/lib64`, `/proc`, `/etc/ld.so.cache`, `/usr/bin/env`, `/bin/sh`,
   and `/bin/bash`.
 
-Server-checked `global_app_file_read`, `global_app_file_write`, and `global_app_http_request`
-provide explicitly granted external access. File helpers reuse the existing canonical workspace
-path checks and final-component `O_NOFOLLOW` protection. The known parent-directory replacement
-race remains: host I/O after a path check is not atomic for the entire path, as described under
+The server-checked permission functions `program_file_read`, `program_file_write`, and
+`program_http_request` provide explicitly granted external access ([Actor programs](actor-programs.md#permissions));
+they authorize by the permissions of the calling actor's own active program. File helpers reuse
+the existing canonical workspace path checks and final-component `O_NOFOLLOW` protection. The
+known parent-directory replacement race remains: host I/O after a path check is not atomic for the
+entire path, as described under
 [Workspace, sandbox tools, and processes](plugins.md#workspace-sandbox-tools-and-processes).
-App functions exposed to views use ordinary actor contracts and their explicit per-app grants.
+An isolated package may not declare tools that run code or reach files beside the isolation.
 The persisted `capabilitiesAsActor` package flag keeps registered operator operations under the
 app actor's currently available grants. View actions use the existing operator binding and
 invocation path, not arbitrary run functions; external-capability tool calls from another actor
 reject and direct it to trigger the app's input instead.
-File and HTTP helpers authorize registered app actor execution, while `global_app_trigger`
-requires an accepted app input.
 
-Apps request process protection even for administrators in `auto` mode. An administrator's
-explicitly configured `PROCESS_SANDBOX: "off"` retains capability allow lists but leaves direct
-Node file and network access without an operating system boundary. `global_app_read.sandbox`
-reports `process`, `disabled`, or `unavailable` before activation; details name the active or
-disabled mode. Missing prerequisites fail execution without an unprotected fallback.
+Isolated packages request process protection even for administrators in `auto` mode. An
+administrator's explicitly configured `PROCESS_SANDBOX: "off"` keeps the permission checks but
+leaves direct Node file and network access without an operating system boundary.
+`actor_program_status` reports `sandbox` as `process` or `disabled` for an isolated package and
+`null` without isolation. Missing prerequisites fail execution without an unprotected fallback.
 
 Actor input execution retains its bounded log buffer on failure as well as success and records
 it before the terminal turn result. Staged state is still discarded on failure or cancellation.
 `RunManagement.interruptTurn` exposes the existing scheduler interruption for one actor and
-settles its managed execution; an app's wall-time deadline uses it without stopping other apps.
+settles its managed execution; the time limit of a trigger input uses it without stopping other
+programs.
 
 ## TypeScript actors
 
@@ -161,7 +163,9 @@ export default defineActor({
 A direct task delivers normal text in `input.content`. For a subscription, `input.event`
 additionally contains the structured source event; otherwise it is `null`. The source carries
 identity, type, timestamp, and payload. A mediator decides by source and event type instead of
-guessing technical information from the text.
+guessing technical information from the text. An input the host queued for one of the program's
+triggers carries `input.trigger` with its reason, planned time, time zone, and occurrence key
+([Actor programs](actor-programs.md#triggers)); other inputs have none.
 
 The actor completes its task and ends the turn. Further inputs or subscriptions start later turns;
 a turn does not wait for future model responses. Functions and input processing access the same

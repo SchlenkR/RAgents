@@ -1,6 +1,6 @@
 import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
-import { agentTools, OperationContributionRegistry, type RunFunction } from "@ragents/engine";
+import { agentTools, createAccessContext, OperationContributionRegistry, type RunFunction } from "@ragents/engine";
 import { setupRun } from "../../../packages/ragents/tests/support.ts";
 import type { AskService } from "../../../plugins/ragents.ask/server/contract.ts";
 import { ActorProgramRuntime, type ActorProgramRuntimeOptions } from "../../../plugins/ragents.actor-programs/server/runtime.ts";
@@ -12,7 +12,9 @@ export const runtimeFor = (setup: ReturnType<typeof setupRun>, directory: string
   scriptSources: ActorProgramRuntimeOptions["scriptSources"] = () => undefined,
   hostTools: () => readonly RunFunction[] = () => [],
   sharedPackage: ActorProgramRuntimeOptions["sharedPackage"] = () => undefined,
-  directoryFor: (runId: string) => string = () => directory) => {
+  directoryFor: (runId: string) => string = () => directory,
+  triggers: ActorProgramRuntimeOptions["triggers"] = { prepareRun: async () => undefined, interrupt: async () => { throw new Error("Unexpected trigger interrupt"); } },
+  ownerAccess: ActorProgramRuntimeOptions["ownerAccess"] = () => createAccessContext({enabled: false, user: null})) => {
   const serverProcessContextFor = async (runId: string) => ({runId, cwd: directoryFor(runId), root: directoryFor(runId), home: directoryFor(runId),
     logDirectory: directoryFor(runId), hostRoot: undefined, env: {PATH: process.env.PATH, HOME: directoryFor(runId), RAGENTS_RUN_ID: runId, NO_COLOR: "1"}});
   setup.services.nativeTypeScriptExecutor = new NodeTypeScriptExecutor({directoryFor: (runId) => path.join(directoryFor(runId), "native-programs"), serverProcessContextFor, isolatedProcessContextFor: serverProcessContextFor});
@@ -29,6 +31,9 @@ export const runtimeFor = (setup: ReturnType<typeof setupRun>, directory: string
     directoryFor,
     scriptSources,
     sharedPackage,
+    ownerAccess,
+    workspaceRoots: async (runId) => ({read: [directoryFor(runId)], write: [directoryFor(runId)]}),
+    triggers,
   });
   setup.services.actorPrograms = runtime;
   return runtime;
