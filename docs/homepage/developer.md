@@ -1142,7 +1142,7 @@ Place of use: Properties of a WebPlugin; Type comes from typebox. The server met
 
 ```tsx
 import { Value } from "typebox/value";
-import type { StartSectionProps, StartWidgetSettings } from "@ragents/web/PluginRegistry";
+import type { StartWidgetProps, StartWidgetSettings } from "@ragents/web/PluginRegistry";
 
 const documentsSchema = Type.Array(Type.Object({ id: Type.String(), title: Type.String() }));
 const documentSettings = {
@@ -1152,7 +1152,7 @@ const documentSettings = {
   note: { type: "text", label: "Note", description: "One line above the list.", default: "" },
 } as const satisfies StartWidgetSettings;
 
-function WorkDocuments({ runs, onOpenRun, settings }: StartSectionProps<typeof documentSettings>) {
+function WorkDocuments({ runs, onOpenRun, settings }: StartWidgetProps<typeof documentSettings>) {
   const documents = runs.flatMap((run) => {
     const value = run.metadata?.["ragents.example.documents"];
     if (value === undefined) return [];
@@ -1171,31 +1171,33 @@ function WorkDocuments({ runs, onOpenRun, settings }: StartSectionProps<typeof d
 
 const startUi = {
   id: "ragents.example",
-  startSections: [{
+  startWidgets: [{
     id: "ragents.example.documents", order: 100, readRight: "ragents.example.read",
     title: "Work documents", description: "Documents of all runs, newest first.", columns: 3, minColumns: 2,
-    settings: documentSettings, Section: WorkDocuments,
+    settings: documentSettings, render: (props) => <WorkDocuments {...props} />,
   }],
 } satisfies WebPlugin;
 ```
 
-New and Continue are the host's own start sections with order -20 and -10, so plugin widgets with an order of 0 or more follow them, sorted by order and id. The context contains every server-listed visible run, sorted by updatedAt, with id, title, updatedAt, and optional metadata keyed by contribution ID.
+startWidgets is a list of widgets, as here, or a factory that publishes them per viewer (next example); both kinds have the same fields and are the same on Start. New and Continue are the host's own widgets with order -20 and -10, so plugin widgets with an order of 0 or more follow them, sorted by order and id. The props contain every server-listed visible run, sorted by updatedAt, with id, title, updatedAt, and optional metadata keyed by contribution ID.
 
-settings makes the widget configurable with Configure in Start's edit mode: per key a number with min, max, and step (by default 1, counted from min), a boolean, a choice among options, or one line of text of at most 200 characters, each with label, optional description, and default. Section receives the values as settings; typed as StartSectionProps<typeof settings>, they are number, boolean, the choice's values, and string. A stored value its setting rejects is reported in the widget, and the widget gets the default instead; nothing is converted or clamped.
+render returns the widget's content from its props. Put state and effects into a component it renders, as WorkDocuments here; that component keeps its state while Start renders again.
 
-title makes the section a widget: the host draws its title row and, below 700 pixels of Start's own width, its tab. columns is its width in columns of Start's six-column grid, 1 to 6, by default 6; from 700 pixels the grid has three columns and the widget takes half its columns, rounded up. Its body is a size container named widget, so @container variants such as @md/widget: follow the widget's width.
+settings makes the widget configurable with Configure in Start's edit mode: per key a number with min, max, and step (by default 1, counted from min), a boolean, a choice among options, or one line of text of at most 200 characters, each with label, optional description, and default. render receives the values as settings; typed as StartWidgetProps<typeof settings>, they are number, boolean, the choice's values, and string. A stored value its setting rejects is reported in the widget, and the widget gets the default instead; nothing is converted or clamped.
+
+title gives the widget the host's title row and, below 700 pixels of Start's own width, its tab. columns is its width in columns of Start's six-column grid, 1 to 6, by default 6; from 700 pixels the grid has three columns and the widget takes half its columns, rounded up. Its body is a size container named widget, so @container variants such as @md/widget: follow the widget's width.
 
 In Start's edit mode the viewer moves, resizes, removes, and adds widgets. description is the sentence the widget gallery shows; minColumns and maxColumns limit the widths the viewer may choose, by default 1 to 6, and must include columns. The id is the widget's ID in the viewer's saved layout, so it stays the same across releases.
 
-The server filters the run list for the viewer; the slot performs no additional run access checks. readRight hides the entire section without the named permission.
+The server filters the run list for the viewer; the slot performs no additional run access checks. readRight hides the entire widget without the named permission.
 
-onOpenRun uses the same navigation as a run row in both browser and VS Code server frames. The local VS Code shell has no plugin registry and contributes no sections.
+onOpenRun uses the same navigation as a run row in both browser and VS Code server frames. The local VS Code shell has no plugin registry and contributes no widgets.
 
-Returning null leaves no cell, tab, or gap. A section without title keeps its own heading and spacing and fills a row; columns, minColumns, and maxColumns require a title.
+Returning null leaves no cell, tab, or gap. A widget without title keeps its own heading and spacing, fills a row, and cannot be arranged; description, settings, columns, minColumns, and maxColumns require a title.
 
-Contract fields: web.startSections, startSection.id, startSection.order, startSection.readRight, startSection.title, startSection.description, startSection.columns, startSection.minColumns, startSection.maxColumns, startSection.settings, startSection.Section, startSectionContext.runs, startSectionContext.onOpenRun, startSectionProps.runs, startSectionProps.onOpenRun, startSectionProps.settings, numberSetting.type, numberSetting.label, numberSetting.description, numberSetting.default, numberSetting.min, numberSetting.max, numberSetting.step, booleanSetting.type, booleanSetting.label, booleanSetting.description, booleanSetting.default, choiceSetting.type, choiceSetting.label, choiceSetting.description, choiceSetting.default, choiceSetting.options, settingOption.value, settingOption.label, textSetting.type, textSetting.label, textSetting.description, textSetting.default.
+Contract fields: web.startWidgets, startWidget.id, startWidget.order, startWidget.readRight, startWidget.title, startWidget.description, startWidget.columns, startWidget.minColumns, startWidget.maxColumns, startWidget.settings, startWidget.render, startWidgetContext.runs, startWidgetContext.onOpenRun, startWidgetProps.runs, startWidgetProps.onOpenRun, startWidgetProps.settings, numberSetting.type, numberSetting.label, numberSetting.description, numberSetting.default, numberSetting.min, numberSetting.max, numberSetting.step, booleanSetting.type, booleanSetting.label, booleanSetting.description, booleanSetting.default, choiceSetting.type, choiceSetting.label, choiceSetting.description, choiceSetting.default, choiceSetting.options, settingOption.value, settingOption.label, textSetting.type, textSetting.label, textSetting.description, textSetting.default.
 
-### Publish dynamic Start widgets
+### Publish Start widgets per viewer
 
 A plugin can publish a changing list of Start widgets through the existing RPC connection. Stable identifiers and React component types preserve their local state as snapshots change.
 
@@ -1203,7 +1205,7 @@ Place of use: Properties of a WebPlugin; Type and defineChannel describe the sha
 
 ```tsx
 import { rpc } from "@ragents/web/rpc";
-import type { StartWidgetContribution, StartWidgetSettings, StartWidgetSettingValues } from "@ragents/web/PluginRegistry";
+import type { StartWidget, StartWidgetProps, StartWidgetSettings } from "@ragents/web/PluginRegistry";
 
 const widgetSnapshots = defineChannel({
   id: "ragents.example.widgets.changed",
@@ -1225,13 +1227,13 @@ function WorkWidget({ runId, label, onOpenRun }: Readonly<{ runId: string; label
 
 const dynamicStartUi = {
   id: "ragents.example",
-  startWidgetsFor: ({ onOpenRun, signal, update }) => new Promise<readonly StartWidgetContribution[]>((resolve) => {
-    const publish = (widgets: readonly StartWidgetContribution[]) => {
+  startWidgets: ({ signal, update }) => new Promise<readonly StartWidget[]>((resolve) => {
+    const publish = (widgets: readonly StartWidget[]) => {
       if (signal.aborted) return;
       update(widgets);
       resolve(widgets);
     };
-    const unsubscribe = rpc.subscribe(widgetSnapshots, {}, ({ widgets }) => publish(widgets.map((widget): StartWidgetContribution => ({
+    const unsubscribe = rpc.subscribe(widgetSnapshots, {}, ({ widgets }) => publish(widgets.map((widget): StartWidget => ({
       id: "ragents.example:" + widget.name,
       title: widget.title,
       description: "Opens the run behind this piece of work.",
@@ -1240,31 +1242,32 @@ const dynamicStartUi = {
       order: 200,
       readRight: "ragents.example.read",
       settings: workSettings,
-      content: (values: StartWidgetSettingValues<typeof workSettings>) => <WorkWidget label={values.label} runId={widget.runId} onOpenRun={onOpenRun} />,
+      render: ({ onOpenRun, settings }: StartWidgetProps<typeof workSettings>) => <WorkWidget label={settings.label} runId={widget.runId} onOpenRun={onOpenRun} />,
     }))), (problem) => publish([{
       id: "ragents.example:problem",
       title: "Work widgets unavailable",
       columns: 2,
-      content: <p role="alert">{problem}</p>,
+      order: 200,
+      render: () => <p role="alert">{problem}</p>,
     }]));
     signal.addEventListener("abort", unsubscribe, { once: true });
   }),
 } satisfies WebPlugin;
 ```
 
-startWidgetsFor returns readonly contributions synchronously or as a promise. Each contribution has id, title, and content, with optional description, columns, minColumns, maxColumns, order (by default 200), readRight, and settings. content is a ReactNode, or with settings a function that receives their values, as here. It joins the existing Start dashboard without changing startSections.
+A factory returns readonly widgets synchronously or as a promise. Its widgets have the same fields as a listed widget and follow the same rules; in Start's edit mode the viewer moves, resizes, configures, removes, and adds them back like any other widget, and columns and order are defaults.
 
-Every id starts with the plugin's id and a colon and stays the same across snapshots and releases, because the viewer's saved Start layout refers to it. In Start's edit mode the viewer moves, resizes, configures, removes, and adds back these widgets like start sections; description, the width, and settings follow the same rules, and columns and order are defaults.
+Every id starts with the plugin's id and a colon and stays the same across snapshots and releases, because the viewer's saved Start layout refers to it. A listed widget may not use that prefix.
 
-The context also includes every server-listed visible run in runs, just like StartSectionContext. update replaces this factory's current widget snapshot, and signal aborts when its context is released; the factory then unsubscribes from live channels.
+The context includes every server-listed visible run in runs and onOpenRun, like the props of a widget. update replaces this factory's current widget snapshot, and signal aborts when its context is released; the factory then unsubscribes from live channels.
 
 The host calls the factory again when the run list changes and keeps its previous widgets until the new call delivers a snapshot. A factory that waits for a live channel therefore returns a promise of its first snapshot, as here, rather than an empty list.
 
-Keep the same widget id and define the content component outside the factory. A new component type on every snapshot would remount its state and frames.
+Keep the same widget id and let render return a component defined outside the factory, such as WorkWidget, with the snapshot's data as props. The component type stays the same across snapshots, so its state and frames survive them; a component created per snapshot would remount.
 
 The host draws the title, frame, and narrow-dashboard tab and adapts layout to its own width. Errors must stay visible rather than silently removing affected widgets; a factory that fails shows its cause in a widget of its own, and removing a widget from Start does not stop its server-side work.
 
-Contract fields: web.startWidgetsFor, startWidget.id, startWidget.title, startWidget.description, startWidget.columns, startWidget.minColumns, startWidget.maxColumns, startWidget.order, startWidget.readRight, startWidget.settings, startWidget.content, startWidgetsContext.runs, startWidgetsContext.onOpenRun, startWidgetsContext.signal, startWidgetsContext.update.
+Contract fields: web.startWidgets, startWidgetFactoryContext.runs, startWidgetFactoryContext.onOpenRun, startWidgetFactoryContext.signal, startWidgetFactoryContext.update.
 
 ### Run data and React context
 
@@ -2621,8 +2624,8 @@ export interface WebPlugin extends WebPluginDescriptor {
   surface?: SurfaceContribution;
   surfaceElements?: SurfaceElementContribution[];
   cardSections?: CardSectionContribution[];
-  startSections?: StartSectionContribution[];
-  startWidgetsFor?: (context: StartWidgetsContext) => readonly StartWidgetContribution[] | Promise<readonly StartWidgetContribution[]>;
+  /** A fixed list, or a factory that publishes the widgets per viewer and with update as they change. */
+  startWidgets?: readonly StartWidget[] | ((context: StartWidgetFactoryContext) => readonly StartWidget[] | Promise<readonly StartWidget[]>);
   chatDisplayPolicy?: ChatDisplayPolicy;
   resolveRunUrl?: RunUrlResolver;
   startOptions?: StartOptionContribution[];
@@ -2653,56 +2656,74 @@ export interface WebPluginDescriptor {
 }
 ```
 
-### StartSectionContribution
+### StartWidget
 
 Source in the repository: apps/web/src/PluginRegistry.tsx
 
 ```typescript
-export interface StartSectionContribution {
-  id: string;
-  order: number;
-  readRight?: string;
-  /** Makes the section a widget: the host draws its title row and, on a narrow dashboard, its tab; without it the section owns its heading and fills a row. */
-  title?: string;
+export interface StartWidget {
+  /** The widget's ID in the viewer's Start layout, so it stays the same across snapshots and releases; a factory's IDs start with its plugin ID and a colon. */
+  readonly id: string;
+  /** The host draws its title row and, on a narrow dashboard, its tab; without it the widget owns its heading, fills a row, and cannot be arranged. */
+  readonly title?: string;
   /** One sentence about the widget for the gallery of Start's edit mode; requires a title. */
-  description?: string;
-  /** The width of a widget with a title in columns of Start's six-column grid, 1 to 6, by default 6. */
-  columns?: number;
+  readonly description?: string;
+  /** The width in columns of Start's six-column grid, 1 to 6, by default 6; requires a title. */
+  readonly columns?: number;
   /** The narrowest width the viewer may give the widget in edit mode, by default 1. */
-  minColumns?: number;
+  readonly minColumns?: number;
   /** The widest width the viewer may give the widget in edit mode, by default 6. */
-  maxColumns?: number;
+  readonly maxColumns?: number;
+  /** Its place on Start: widgets sort by order and then ID, and New and Continue have -20 and -10. */
+  readonly order: number;
+  readonly readRight?: string;
   /** What the viewer may change with "Configure" in Start's edit mode; requires a title. */
-  settings?: StartWidgetSettings;
-  /** Receives StartSectionProps typed by the section's own settings, which the host checks against them. */
-  Section: ComponentType<StartSectionProps<never>>;
+  readonly settings?: StartWidgetSettings;
+  /** Returns the content for the props, typed as StartWidgetProps<typeof settings>; components it renders keep their state across snapshots. */
+  readonly render: (props: StartWidgetProps<never>) => ReactNode;
 }
 ```
 
-### StartSectionContext
+### StartWidgetContext
 
 Source in the repository: apps/web/src/PluginRegistry.tsx
 
 ```typescript
-export interface StartSectionContext {
-  runs: readonly ConnectionRun[];
-  onOpenRun: (runId: string) => void;
+export interface StartWidgetContext {
+  readonly runs: readonly ConnectionRun[];
+  readonly onOpenRun: (runId: string) => void;
 }
 ```
 
-### StartSectionProps
+### StartWidgetProps
 
 Source in the repository: apps/web/src/PluginRegistry.tsx
 
 ```typescript
-export interface StartSectionContext {
-  runs: readonly ConnectionRun[];
-  onOpenRun: (runId: string) => void;
+export interface StartWidgetContext {
+  readonly runs: readonly ConnectionRun[];
+  readonly onOpenRun: (runId: string) => void;
 }
 
-export interface StartSectionProps<Settings extends StartWidgetSettings = StartWidgetSettings> extends StartSectionContext {
+export interface StartWidgetProps<Settings extends StartWidgetSettings = StartWidgetSettings> extends StartWidgetContext {
   /** The viewer's values, checked against the declared settings; a value that is not stored or not valid is the setting's default. */
   readonly settings: StartWidgetSettingValues<Settings>;
+}
+```
+
+### StartWidgetFactoryContext
+
+Source in the repository: apps/web/src/PluginRegistry.tsx
+
+```typescript
+export interface StartWidgetContext {
+  readonly runs: readonly ConnectionRun[];
+  readonly onOpenRun: (runId: string) => void;
+}
+
+export interface StartWidgetFactoryContext extends StartWidgetContext {
+  readonly signal: AbortSignal;
+  readonly update: (widgets: readonly StartWidget[]) => void;
 }
 ```
 
@@ -2790,49 +2811,6 @@ interface StartWidgetSettingBase {
 export interface StartWidgetTextSetting extends StartWidgetSettingBase {
   readonly type: "text";
   readonly default: string;
-}
-```
-
-### StartWidgetContribution
-
-Source in the repository: apps/web/src/PluginRegistry.tsx
-
-```typescript
-export interface StartWidgetContribution {
-  /** Starts with the plugin ID and a colon and stays the same across snapshots and releases, because the viewer's layout refers to it. */
-  readonly id: string;
-  readonly title: string;
-  /** One sentence about the widget for the gallery of Start's edit mode. */
-  readonly description?: string;
-  /** The width in columns of Start's six-column grid, 1 to 6, by default 6. */
-  readonly columns?: number;
-  /** The narrowest width the viewer may give the widget in edit mode, by default 1. */
-  readonly minColumns?: number;
-  /** The widest width the viewer may give the widget in edit mode, by default 6. */
-  readonly maxColumns?: number;
-  /** Its place among the start sections, by default 200. */
-  readonly order?: number;
-  readonly readRight?: string;
-  /** What the viewer may change with "Configure" in Start's edit mode; the content is then a function of their values. */
-  readonly settings?: StartWidgetSettings;
-  /** The widget's content, or a function that receives the values of its settings, typed as StartWidgetSettingValues<typeof settings>. */
-  readonly content: ReactNode | ((settings: never) => ReactNode);
-}
-```
-
-### StartWidgetsContext
-
-Source in the repository: apps/web/src/PluginRegistry.tsx
-
-```typescript
-export interface StartSectionContext {
-  runs: readonly ConnectionRun[];
-  onOpenRun: (runId: string) => void;
-}
-
-export interface StartWidgetsContext extends StartSectionContext {
-  readonly signal: AbortSignal;
-  readonly update: (widgets: readonly StartWidgetContribution[]) => void;
 }
 ```
 

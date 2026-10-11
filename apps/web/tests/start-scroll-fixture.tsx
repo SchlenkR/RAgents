@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { createRoot } from "react-dom/client";
-import { PluginRegistry, type StartSectionContext } from "../src/PluginRegistry";
+import { PluginRegistry, type StartWidgetContext } from "../src/PluginRegistry";
 import { PanelPage } from "../src/panel/PanelPage";
 import type { ConnectionView, PanelState } from "../src/panel/contract";
 import { DataGrid, type DataGridColumn } from "../src/ui/data-grid";
@@ -63,7 +63,7 @@ declare global {
   }
 }
 
-function BoardSection({ runs }: StartSectionContext) {
+function BoardSection({ runs }: StartWidgetContext) {
   const [layout, setLayout] = useState<Layout>(query.get("layout") === "list" ? "list" : "lanes");
   const [loading, setLoading] = useState(false);
   const [grouped, setGrouping] = useState(false);
@@ -96,7 +96,7 @@ function BoardSection({ runs }: StartSectionContext) {
 const registry = new PluginRegistry({
   brand: { title: "Start scroll check" },
   product: { id: "demo", title: "Start scroll check" },
-  plugins: [{ id: "demo.board", startSections: [{ id: "demo.work-board", order: 0, Section: BoardSection }] }],
+  plugins: [{ id: "demo.board", startWidgets: [{ id: "demo.work-board", order: 0, render: (props) => <BoardSection {...props} /> }] }],
   startEntries: [],
 });
 

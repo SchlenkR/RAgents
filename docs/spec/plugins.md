@@ -1564,26 +1564,32 @@ Instead, plugins fill typed slots for:
   but activate their own connections only on use and keep them afterwards across run switches.
   In both browser and VS Code, only the selected server supplies these contributions, including
   on Start before a run is opened. Contributions from different environments are never merged.
-- Start widgets (`startSections`): `StartSectionContribution` declares `id`, `order`, optional
-  `readRight`, optional `title`, `description`, `columns`, `minColumns`, `maxColumns`, and `settings`, and `Section`, a component receiving
-  `StartSectionProps`: the `StartSectionContext` with `runs` and `onOpenRun(runId)`, plus `settings`, the values of
-  the section's settings by key. With `title` the section is a widget of the Start dashboard: the
-  host draws its frame, a `SectionHeading` title row above the content, and gives it a tab on a narrow
-  dashboard. `columns` is its width in columns of Start's six-column grid, a whole number from 1 to 6,
-  by default 6. The widget's body is a size container named `widget`, so the
-  content adapts to the widget's own width with Tailwind's `@container` variants (`@md/widget:`, or
-  plain `@md:` for the nearest container). Without `title` a section keeps its earlier form: it owns
-  its heading and spacing, fills a whole row, and stays below the tabs on a narrow dashboard.
-  `description` is one sentence for the widget gallery of Start's edit mode. `minColumns` and
-  `maxColumns` (by default 1 and 6) bound the widths the viewer may choose there; the resize handle
-  and the keyboard offer only these. A width field or `description` without `title`, a blank `title`
-  or `description`, a width that is not a whole number from 1 to 6, and `columns` outside
-  `minColumns` to `maxColumns` (the default 6 included) are registry errors; `widthProblem` in
-  `panel/dashboard-layout.ts` names the cause for sections and dynamic widgets alike. Start's own widgets
-  "New" and "Continue" are start sections of this kind, which the registry adds before the plugins'
-  (`HOST_START_SECTIONS` in `panel/host-start-sections.tsx`, `order` -20 and -10); every section
-  sorts by `order` and then `id`, so sections with an order of 0 or more follow them, and a section
-  with the ID `start.new` or `start.continue` is registered twice. The contract keeps its name `startSections`.
+- Start widgets (`startWidgets`): a plugin contributes `StartWidget` values either as a readonly list
+  or as a factory that publishes them per viewer. Both are the same widgets; Start, its layout, edit
+  mode, gallery, and settings make no difference between them. A widget declares `id`, `order`, optional
+  `readRight`, optional `title`, `description`, `columns`, `minColumns`, `maxColumns`, and `settings`, and
+  `render`, which returns the widget's content from `StartWidgetProps`: the `StartWidgetContext` with
+  `runs` and `onOpenRun(runId)`, plus `settings`, the values of the widget's settings by key. The host
+  calls `render` inside a component of its own, so `render` returns elements and leaves state and effects
+  to the components it renders, whose types stay the same across renders and snapshots. With `title` the
+  host draws the widget's frame, a `SectionHeading` title row above the content, and gives it a tab on a
+  narrow dashboard. `columns` is its width in columns of Start's six-column grid, a whole number from 1
+  to 6, by default 6. The widget's body is a size container named `widget`, so the content adapts to
+  the widget's own width with Tailwind's `@container` variants (`@md/widget:`, or plain `@md:` for the
+  nearest container). Without `title` a widget owns its heading and spacing, fills a whole row, stays
+  below the tabs on a narrow dashboard, and is not arranged in edit mode. `description` is one sentence
+  for the widget gallery of Start's edit mode. `minColumns` and `maxColumns` (by default 1 and 6) bound
+  the widths the viewer may choose there; the resize handle and the keyboard offer only these. A width
+  field, `description`, or `settings` without `title`, a blank `title` or `description`, an `order` that
+  is not a finite number, a missing `render`, a width that is not a whole number from 1 to 6, and
+  `columns` outside `minColumns` to `maxColumns` (the default 6 included) break the rules that
+  `checkedStartWidget` in `panel/start-widgets.tsx` checks for every widget alike, with `widthProblem`
+  in `panel/dashboard-layout.ts` and `settingsProblem` in `panel/widget-settings.ts`, and names as
+  "Start widget <id> <cause>."; for a listed widget that is a registry error. Start's own widgets "New"
+  and "Continue" are listed widgets, which the registry adds before the plugins'
+  (`HOST_START_WIDGETS` in `panel/host-start-widgets.tsx`, `order` -20 and -10); every widget sorts by
+  `order` and then `id`, so widgets with an order of 0 or more follow them, and a widget with the ID
+  `start.new` or `start.continue` is registered twice.
   `settings` (only with `title`) declares what the viewer may change with "Configure" in Start's edit
   mode: settings by key, a key being letters and digits that starts with a letter, each with `type`,
   `label`, optional `description`, and `default`. The types are `number` with `min`, `max`, and optional
@@ -1592,48 +1598,37 @@ Instead, plugins fill typed slots for:
   `StartWidgetBooleanSetting`, `StartWidgetChoiceSetting`, `StartWidgetTextSetting`). An empty
   `settings`, a key, `label`, or `description` that does not fit, a range with `min` above `max`, a step
   that is not above 0, a choice without options or with empty or repeated values or empty labels, and a
-  `default` that its own setting rejects are registry errors; `settingsProblem` in
-  `panel/widget-settings.ts` names the cause for sections and dynamic widgets alike. `Section` is typed
-  `ComponentType<StartSectionProps<never>>`, so a section types its props by its own settings as
-  `StartSectionProps<typeof settings>` (declared `as const satisfies StartWidgetSettings`) and gets
+  `default` that its own setting rejects break the same rules. `render` is typed
+  `(props: StartWidgetProps<never>) => ReactNode`, so a widget types its props by its own settings as
+  `StartWidgetProps<typeof settings>` (declared `as const satisfies StartWidgetSettings`) and gets
   `number`, `boolean`, the choice's values, or `string` per key (`StartWidgetSettingValues`); the
   host passes values it checked against those settings (Arranging Start). The `id` is also the
-  widget's ID in the viewer's Start layout, so it stays the same across releases; `title` and `columns`
-  are the defaults that the viewer's arrangement starts from. The context
-  carries every run the server lists for the viewer, sorted by update time, through readonly
+  widget's ID in the viewer's Start layout, so it stays the same across snapshots and releases; `title`,
+  `columns`, and `order` are the defaults that the viewer's arrangement starts from. The props
+  carry every run the server lists for the viewer, sorted by update time, through readonly
   `ConnectionRun` values including `id`, `title`, `updatedAt`, and optional `metadata` keyed by
   server-side `sessionMetadata` contribution ID. `connectionRunOf` preserves `ListedSession.metadata`;
   row detail lines still come from `listDetail`. `onOpenRun` uses the same navigation as a run
-  row. The slot performs no additional run access checks; `readRight` only gates the section.
-  A widget or section may return `null`; it then takes no cell, no tab, and no gap. A widget that
+  row. The slot performs no additional run access checks; `readRight` only gates the widget.
+  A widget may return `null`; it then takes no cell, no tab, and no gap. A widget that
   throws shows its error and "Retry" in its own place (`RenderBoundary`) while Start stays usable.
   `RunPanelApp` passes its registry to `PanelPage` for both browser and VS Code server frames.
-  `PanelPage` also works without a registry; Start then shows only its own sections, which tests use.
-- Dynamic Start widgets (`startWidgetsFor`): a factory receives `StartWidgetsContext`, with the
-  same `runs` and `onOpenRun` as a section, an `AbortSignal`, and `update(widgets)` for later
-  snapshots. It returns readonly `StartWidgetContribution` values, synchronously or as a promise.
-  Each contribution contains a stable `id` that starts with the plugin's ID and a colon
-  (`ragents.global-apps:<name>`), a non-empty `title`, optional `description`, `columns`,
-  `minColumns`, `maxColumns`, `order` (by default 200), `readRight`, and `settings`, and `content`;
-  `description`, the width, and `settings` follow the rules of a start section. `content` is a
-  `ReactNode`, or a function that receives the values of the widget's settings (typed
-  `(settings: never) => ReactNode` in the contract, so a function typed
-  `(values: StartWidgetSettingValues<typeof settings>)` fits); a widget with `settings` and plain content is
-  an error. The content uses a stable React component type and the
-  same widget ID across updates so its state and mounted frames survive snapshots. The host
-  draws the title, frame, and narrow-dashboard tab and sorts the widget among the start sections
-  by `order` and then `id`. In Start's edit mode it is moved, resized, configured, removed, and added
-  back like a section with a title, and its ID names its place, size, settings, and removal in the viewer's
-  `start.layout`; `columns` and `order` are the defaults. The returned value is the factory's first
-  snapshot unless `update` came first. The host calls the factory again when the run list changes
-  and keeps its previous widgets until the new call delivers a snapshot, so a factory that waits for
-  a live channel returns a promise of its first snapshot rather than an empty list. A factory
-  releases its subscriptions when `signal` aborts; live changes can use the existing RPC/SSE
-  connection. This additive slot leaves `startSections` unchanged; a start section may not use the
-  ID prefix of a plugin that publishes dynamic widgets (a registry error). A factory that fails, or
-  whose snapshot breaks these rules, shows its cause with "Retry" in its own widget
-  (`<plugin id>:unavailable`) while other contributions remain usable, and a widget whose content
-  throws keeps its error in its own cell.
+  `PanelPage` also works without a registry; Start then shows only its own widgets, which tests use.
+  A factory receives `StartWidgetFactoryContext`, with the same `runs` and `onOpenRun` as a widget's
+  props, an `AbortSignal`, and `update(widgets)` for later snapshots, and returns its readonly widgets,
+  synchronously or as a promise. Their IDs start with the plugin's ID and a colon
+  (`ragents.global-apps:<name>`) and are unique within a snapshot; a listed widget may not use the ID
+  prefix of a plugin with a factory (a registry error), so no two widgets share an ID. The returned value
+  is the factory's first snapshot unless `update` came first. The host calls the factory again when the
+  run list changes and keeps its previous widgets until the new call delivers a snapshot, so a factory
+  that waits for a live channel returns a promise of its first snapshot rather than an empty list. A
+  factory releases its subscriptions when `signal` aborts; live changes can use the existing RPC/SSE
+  connection. Its `render` returns components defined outside the factory with the snapshot's data as
+  props and keeps the widget ID across updates, so their state and mounted frames survive snapshots; a
+  component created per snapshot would remount. A factory that fails, or whose snapshot breaks the
+  rules, shows its cause with "Retry" in its own widget (`<plugin id>:unavailable`, two columns,
+  `order` 200) while other contributions remain usable, and a widget whose content throws keeps its
+  error in its own cell.
 - workspace tabs and badges (`workspaceTabs`, `workspaceTabsFor`): the toolbar at the right edge
   with the tab area as a popout over the selected content view; the same contribution, the same visibility (`readRight`, `requiresWorkspace`, `available`);
   `placement: "window"` (default `"sidebar"`) lists a tab in the browser among the run's windows in the
@@ -3412,15 +3407,15 @@ focus scrolls only the page, never the header with it.
 
 **Start** is a dashboard of widgets (`panel/StartDashboard.tsx`): Start's own "New" (2 columns,
 `minColumns` 2) and "Continue" (4 columns, `minColumns` 2), then the plugin widgets. New and Continue
-are ordinary start sections (Web as plugin host): `StartPage` turns every start section and dynamic
-widget into the same widget with a key, title, description, width, settings, and a content function,
+are ordinary listed Start widgets (Web as plugin host): `StartPage` turns every listed and published
+widget into the same `DashboardWidget` with a key, title, description, width, settings, and a content function,
 and the dashboard, its layout, packing, edit mode, gallery, and stored preferences treat each one alike
 and name none of them. Its layout follows the width of the
 dashboard's own container, measured with a `ResizeObserver`, not the window, because a VS Code panel is
 often narrow on a wide screen. `dashboardLayout` in `panel/dashboard-layout.ts` decides it: from
 1100 pixels (`DASHBOARD_WIDE_FROM`) the grid has six columns (`DASHBOARD_COLUMNS`) and every widget
 takes exactly its columns; from 700 pixels (`DASHBOARD_TABS_BELOW`) the grid has three columns and a
-widget takes half its columns, rounded up (`shownColumns`); a section without a title always takes all
+widget takes half its columns, rounded up (`shownColumns`); a widget without a title always takes all
 columns. Widgets keep their own content heights and are packed without holes (`packWidgets`): in their
 order, each goes to the lowest top that any range of its columns offers below the widgets placed
 before it, one row gap lower, and to the leftmost range among equal tops (tops within half a pixel
@@ -3445,7 +3440,7 @@ Below 700 pixels, with at least two framed
 widgets, the dashboard becomes tabs ("Start widgets", `OverflowTabsList` with the widget title): the
 active widget fills the width, and its frame hides its title row, because the tab names it. The choice is stored per server origin under
 `ragents.start.widget:<encoded-origin>` and falls back to the first widget while the stored one is
-missing or empty. Sections without a title follow the tabs. Every widget stays mounted while
+missing or empty. Widgets without a title follow the tabs. Every widget stays mounted while
 another tab is active or while its content renders nothing (`hidden`), so its state survives
 switching and a widget that later shows content reappears; a `MutationObserver` keeps cells and tabs
 in step with empty bodies. The page's scroller reserves its scrollbar gutter, so the measured width
@@ -3493,7 +3488,7 @@ order (the grid re-packs), also with Shift and Up or Down, Shift with Left or Ri
 (`resizedColumns`), and Delete or Backspace removes it; a polite live region announces
 each change, the ends ("already at its widest"), and saving, and focus follows the moved widget or, after a removal, the next
 handle. Below 700 pixels edit mode is a vertical list of rows with handle, title, "Move <title> up",
-"Move <title> down", and "x", without widths and with the bodies and the sections without a title
+"Move <title> down", and "x", without widths and with the bodies and the widgets without a title
 hidden; dragging there compares only the vertical middle of each row.
 
 A widget that declares settings gets "Configure <title>" (a gear, `data-control="configure"`) before
@@ -3525,11 +3520,11 @@ stored values, so a widget's effects do not run again on every render of Start.
 The model is `panel/dashboard-preferences.ts`: `DashboardPreferences` holds `order`, `columns`,
 `removed`, and `settings` (the stored values of each widget's settings by setting key, as saved), each
 by widget ID, so any ID works, also one of a widget that only some users have or
-that a plugin adds per user (`ragents.global-apps:<name>`). Widget IDs are the `id` of a start
-section, Start's own `start.new` and `start.continue` included, and the stable `id` of a dynamic widget; two widgets
-with the same ID are an error, which the prefix rule of dynamic widgets rules out between plugins.
+that a plugin adds per user (`ragents.global-apps:<name>`). Widget IDs are the `id` of a Start
+widget, Start's own `start.new` and `start.continue` included; two widgets
+with the same ID are an error, which the prefix rule of a factory's widgets rules out between plugins.
 `arrangeWidgets` puts the framed widgets that `order` names into their slots in that order, while
-sections without a title and widgets that `order` does not name keep their default place, so a new
+widgets without a title and widgets that `order` does not name keep their default place, so a new
 widget appears where its contribution puts it; widths and removal apply only to framed widgets, and
 IDs of widgets that are not there and widths outside a widget's range are ignored. Edit mode keeps the
 edited layout as preferences; its draft (`DashboardDraft`, from `draftOf`) is the list of framed
@@ -3538,7 +3533,7 @@ widgets that these preferences put on the dashboard, with their columns. `moveWi
 back into preferences: the default order and default widths store nothing, widgets that are not
 there keep their removal and width while their place falls back to the default, and every widget
 keeps its settings, also a removed or absent one. So a widget that
-arrives while Start is edited, such as a dynamic widget whose plugin answers late, takes its saved
+arrives while Start is edited, such as a published widget whose plugin answers late, takes its saved
 place and width or stays removed, and one that disappears for a moment returns to its place unless the
 layout changed while it was gone. The layout is the
 preference `start.layout` of the server's per-user preference store (`spec/profiles.md`, User
@@ -3627,9 +3622,9 @@ use `revokeSharing` and refresh after success. Revocation requires `canShare`; a
 can still inspect their outgoing shares. Revoking an individual share leaves Everyone access
 intact and names that effect. All-runs selection and deletion stay in their own tab.
 
-Plugin `startSections` and `startWidgetsFor` follow Continue with the complete server-listed
-visible run list and its metadata. The host frames a titled section or a dynamic widget; a
-section without a title keeps its own heading and spacing.
+Plugin `startWidgets` follow Continue with the complete server-listed visible run list and its
+metadata. The host frames every widget with a title; a widget without a title keeps its own heading
+and spacing.
 
 **Runs** is the selected server's complete list in one `RunCard`: search over title, "Hide ended", and a
 selection mode with checkboxes. Search (the shared `SearchInput`, whose own clear button replaces the browser's) and the
@@ -5404,7 +5399,7 @@ The coordinator verifies an app with the generic `actor_program_trigger` and
 `actor_program_pause`; it activates nothing in its own room. A normal run agent verifies its
 package in its own run before creating the app.
 
-The web plugin supplies dynamic `startWidgetsFor` contributions with stable IDs
+The web plugin publishes its Start widgets through a `startWidgets` factory, with stable IDs
 `ragents.global-apps:<name>`, `order: 200`, `readRight: "ragents.global-apps.read"`, and the
 app's description for the widget gallery. It returns a promise of the first snapshot of its live
 channel. An app with a view defaults to `columns: 4`; a headless app, an app that needs repair, and the

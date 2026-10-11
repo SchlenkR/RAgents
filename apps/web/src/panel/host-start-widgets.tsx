@@ -1,12 +1,12 @@
 import { ChevronRightIcon } from "lucide-react";
 import { createContext, useContext } from "react";
-import type { StartSectionContribution, StartSectionProps, StartWidgetSettings } from "../PluginRegistry";
+import type { StartWidget, StartWidgetProps, StartWidgetSettings } from "../PluginRegistry";
 import { StartTiles } from "../StartTiles";
 import { Button } from "../ui";
 import type { ConnectionView, PanelAction, PanelSharing } from "./contract";
 import { canDeleteRun, RunCard, RunLine, RunList } from "./RunLine";
 
-/** What Start's own widgets need from the page besides a section's context: the server, its actions, and the start under way. */
+/** What Start's own widgets need from the page besides their props: the server, its actions, and the start under way. */
 export interface StartPageHost {
   readonly connection: ConnectionView;
   readonly sharing: PanelSharing | undefined;
@@ -30,7 +30,7 @@ const newSettings = {
 } as const satisfies StartWidgetSettings;
 
 /** The templates the viewer may start; nothing for a viewer who may not create runs. */
-function NewWidget({ settings }: StartSectionProps<typeof newSettings>) {
+function NewWidget({ settings }: StartWidgetProps<typeof newSettings>) {
   const { connection, starting, startRun } = useStartPage();
   if (!connection.canCreate) return null;
   return <StartTiles defaultEntry={connection.defaultEntry} descriptions={settings.descriptions} disabled={starting !== undefined} entries={connection.entries} label="Templates"
@@ -42,7 +42,7 @@ const continueSettings = {
 } as const satisfies StartWidgetSettings;
 
 /** The most recent runs and the way to all of them. */
-function ContinueWidget({ runs, onOpenRun, settings }: StartSectionProps<typeof continueSettings>) {
+function ContinueWidget({ runs, onOpenRun, settings }: StartWidgetProps<typeof continueSettings>) {
   const { connection, sharing, send } = useStartPage();
   if (runs.length === 0) return <p className="type-body text-muted-foreground">No runs yet.</p>;
   const recent = runs.slice(0, settings.runs);
@@ -60,14 +60,14 @@ function ContinueWidget({ runs, onOpenRun, settings }: StartSectionProps<typeof 
   </div>;
 }
 
-/** Start's own widgets; the registry adds them to the plugins' start sections, and their order puts them first. */
-export const HOST_START_SECTIONS: readonly StartSectionContribution[] = [
+/** Start's own widgets; the registry adds them to the plugins' widgets, and their order puts them first. */
+export const HOST_START_WIDGETS: readonly StartWidget[] = [
   {
     id: "start.new", order: -20, title: "New", description: "Start a run from a template of this server or as a new chat.", columns: 2, minColumns: 2,
-    settings: newSettings, Section: NewWidget,
+    settings: newSettings, render: (props) => <NewWidget {...props} />,
   },
   {
     id: "start.continue", order: -10, title: "Continue", description: "Your most recent runs, with the way to all of them.", columns: 4, minColumns: 2,
-    settings: continueSettings, Section: ContinueWidget,
+    settings: continueSettings, render: (props) => <ContinueWidget {...props} />,
   },
 ];

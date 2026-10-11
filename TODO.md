@@ -191,6 +191,8 @@ Inbox for everything; the owner and the AI write here. One line per entry, newes
 
 ## Ideas
 
+- Workspace tabs (11.10.2026): `workspaceTabs` and `workspaceTabsFor` are two slots for one kind of tab, as `startSections` and `startWidgetsFor` were for Start widgets; the same unification could apply there, one slot taking a list or a factory of the same `WorkspaceTabContribution`.
+
 - Cross-run event triggers for actor programs (11.10.2026): a program in the global space reacting to events of another run; reuse the global journal-batch observer with explicit sourceRunId/actorId filters, recheck source ownership and observable-event rights on every delivery, and persist a journal cursor. Coalesce pending events into bounded, non-overlapping inputs and define restart delivery before extending `ragents.triggers`; within a run, subscriptions already deliver events.
 
 - Start widgets (10.10.2026): let any widget put a count and an action in its title row and tab; New lost its template count and Continue's "All N runs" moved below its list when both became ordinary widgets.

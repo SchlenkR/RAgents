@@ -38,8 +38,8 @@ async function contractFixture() {
 for (const mutation of [
   { file: "packages/ragents/src/plugin-types.ts", declaration: "export interface PluginRegistration {", key: "host.homepageTestContribution" },
   { file: "apps/web/src/PluginRegistry.tsx", declaration: "export interface WebPlugin extends WebPluginDescriptor {", key: "web.homepageTestContribution" },
-  { file: "apps/web/src/PluginRegistry.tsx", declaration: "export interface StartWidgetContribution {", key: "startWidget.homepageTestContribution" },
-  { file: "apps/web/src/PluginRegistry.tsx", declaration: "export interface StartWidgetsContext extends StartSectionContext {", key: "startWidgetsContext.homepageTestContribution" },
+  { file: "apps/web/src/PluginRegistry.tsx", declaration: "export interface StartWidget {", key: "startWidget.homepageTestContribution" },
+  { file: "apps/web/src/PluginRegistry.tsx", declaration: "export interface StartWidgetFactoryContext extends StartWidgetContext {", key: "startWidgetFactoryContext.homepageTestContribution" },
   { file: "apps/server/src/config-definition.ts", declaration: "export interface ProfileAnonymousUser {", key: "profileUser.homepageTestContribution" },
 ]) {
   test(`undocumented contribution ${mutation.key} stops the generation`, async () => {

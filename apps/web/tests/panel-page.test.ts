@@ -5,8 +5,8 @@ import { readFile } from "node:fs/promises";
 import { renderToStaticMarkup } from "react-dom/server";
 import { createAccessContext } from "../../../packages/ragents/src/access";
 import { AccessContext } from "../src/AccessContext";
-import { PluginRegistry, type StartSectionContext, type StartSectionContribution, type WebPlugin } from "../src/PluginRegistry";
-import { HOST_START_SECTIONS, StartPageContext, type StartPageHost } from "../src/panel/host-start-sections";
+import { PluginRegistry, type StartWidget, type StartWidgetContext, type WebPlugin } from "../src/PluginRegistry";
+import { HOST_START_WIDGETS, StartPageContext, type StartPageHost } from "../src/panel/host-start-widgets";
 import { PanelPage } from "../src/panel/PanelPage";
 import { canDeleteRun, RunLine, RunList } from "../src/panel/RunLine";
 import { isPanelActionMessage, isPanelStateMessage, type PanelAction, type PanelState, type ConnectionView } from "../src/panel/contract";
@@ -58,21 +58,21 @@ const registryWith = (plugins: WebPlugin[]) => new PluginRegistry({
   brand: { title: "Workshop" }, product: { id: "workshop", title: "Workshop" }, plugins, startEntries: [],
 });
 
-test("Start sections receive all listed runs with metadata and open through the current server", () => {
+test("Start widgets receive all listed runs with metadata and open through the current server", () => {
   const runs = Array.from({ length: 17 }, (_, index) => ({
     id: `run-${index}`, title: `Run ${index}`, state: "idle" as const, pendingActions: 0, updatedAt: index,
     metadata: { "test.documents": [{ title: `Document ${index}` }] },
   }));
-  const contexts: StartSectionContext[] = [];
+  const contexts: StartWidgetContext[] = [];
   const actions: PanelAction[] = [];
-  const registry = registryWith([{ id: "test.documents", startSections: [{ id: "documents", order: 100, Section: (context) => {
+  const registry = registryWith([{ id: "test.documents", startWidgets: [{ id: "documents", order: 100, render: (context) => {
     contexts.push(context);
     return createElement("section", null, createElement("h2", null, "Work documents"));
   } }] }]);
   const html = renderToStaticMarkup(createElement(PanelPage, { preferences, registry, state: page({ connections: [connection({ runs })] }), send: (action) => actions.push(action) }));
   assert.ok(html.indexOf('>Continue<') < html.indexOf('>Work documents<'));
   assert.doesNotMatch(html, />Run 0</, "the oldest run is outside Continue");
-  assert.deepEqual(contexts[0]!.runs, [...runs].reverse(), "the section receives the complete list, newest first, with unchanged metadata");
+  assert.deepEqual(contexts[0]!.runs, [...runs].reverse(), "the widget receives the complete list, newest first, with unchanged metadata");
   assert.deepEqual(runs.map((run) => run.id), Array.from({ length: 17 }, (_, index) => `run-${index}`), "rendering does not reorder the source list");
   contexts[0]!.onOpenRun("run-0");
   assert.deepEqual(actions, [{ action: "openRun", name: "workshop", runId: "run-0" }]);
@@ -80,39 +80,39 @@ test("Start sections receive all listed runs with metadata and open through the 
   for (const current of ["runs", "connections"] as const) {
     renderToStaticMarkup(createElement(PanelPage, { preferences, registry, state: page({ page: current }), send: () => {} }));
   }
-  assert.equal(contexts.length, 0, "only Start mounts the sections");
+  assert.equal(contexts.length, 0, "only Start renders the widgets");
 });
 
-test("Start sections retain contribution order and empty sections add nothing but an empty wrapper", () => {
+test("Start widgets retain contribution order and empty widgets add nothing but an empty wrapper", () => {
   const state = page();
-  const empty = registryWith([{ id: "test.empty", startSections: [{ id: "empty", order: 0, Section: () => null }] }]);
+  const empty = registryWith([{ id: "test.empty", startWidgets: [{ id: "empty", order: 0, render: () => null }] }]);
   const withEmpty = renderToStaticMarkup(createElement(PanelPage, { preferences, registry: empty, state, send: () => {} }));
   const wrapper = withEmpty.match(/<div[^>]*data-start-section="empty"[^>]*><\/div>/)?.[0];
-  assert.ok(wrapper, "the wrapper stays mounted, so the section can show content later; without height it takes no place in the packing");
+  assert.ok(wrapper, "the wrapper stays mounted, so the widget can show content later; without height it takes no place in the packing");
   assert.equal(withEmpty.replace(wrapper, ""), render(state));
-  const section = (id: string, order: number) => ({ id, order, Section: () => createElement("section", null, id) });
+  const plain = (id: string, order: number): StartWidget => ({ id, order, render: () => createElement("section", null, id) });
   const registry = registryWith([
-    { id: "test.first", startSections: [section("later", 200), section("second", 100)] },
-    { id: "test.second", startSections: [section("first", 100)] },
-    { id: "test.disabled", enabled: () => false, startSections: [section("hidden", 0)] },
+    { id: "test.first", startWidgets: [plain("later", 200), plain("second", 100)] },
+    { id: "test.second", startWidgets: [plain("first", 100)] },
+    { id: "test.disabled", enabled: () => false, startWidgets: [plain("hidden", 0)] },
   ]);
-  assert.deepEqual(registry.startSections.map((section) => section.id), ["start.new", "start.continue", "first", "second", "later"], "Start's own sections come first by their order");
+  assert.deepEqual(registry.startWidgets.map((widget) => widget.id), ["start.new", "start.continue", "first", "second", "later"], "Start's own widgets come first by their order");
   const html = renderToStaticMarkup(createElement(PanelPage, { preferences, registry, state, send: () => {} }));
   assert.match(html, /<section>first<\/section><\/div><div[^>]*><section>second<\/section><\/div><div[^>]*><section>later<\/section>/);
   assert.doesNotMatch(html, />hidden</);
-  assert.deepEqual(registryWith([]).startSections, HOST_START_SECTIONS);
-  assert.throws(() => registryWith([{ id: "test.duplicate", startSections: [section("same", 0), section("same", 1)] }]), /Start section registered twice: same/);
-  assert.throws(() => registryWith([{ id: "test.taken", startSections: [section("start.continue", 0)] }]), /Start section registered twice: start.continue/, "Start's own IDs are taken like a plugin's");
-  const early = registryWith([{ id: "test.early", startSections: [section("early", -100)] }]);
-  assert.deepEqual(early.startSections.map((entry) => entry.id), ["early", "start.new", "start.continue"], "a lower order puts a plugin section before New, as for any other section");
-  assert.throws(() => registryWith([{ id: "test.empty", startSections: [section("", 0)] }]), /Start section without ID/);
+  assert.deepEqual(registryWith([]).startWidgets, HOST_START_WIDGETS);
+  assert.throws(() => registryWith([{ id: "test.duplicate", startWidgets: [plain("same", 0), plain("same", 1)] }]), /Start widget registered twice: same/);
+  assert.throws(() => registryWith([{ id: "test.taken", startWidgets: [plain("start.continue", 0)] }]), /Start widget registered twice: start.continue/, "Start's own IDs are taken like a plugin's");
+  const early = registryWith([{ id: "test.early", startWidgets: [plain("early", -100)] }]);
+  assert.deepEqual(early.startWidgets.map((entry) => entry.id), ["early", "start.new", "start.continue"], "a lower order puts a plugin widget before New, as for any other widget");
+  assert.throws(() => registryWith([{ id: "test.empty", startWidgets: [plain("", 0)] }]), /Start widget without ID/);
 });
 
-test("a Start section with a title becomes a framed widget with its columns; without one it takes the whole width", () => {
-  const registry = registryWith([{ id: "test.widgets", startSections: [
-    { id: "board", order: 10, title: "Work board", Section: () => createElement("p", null, "Board content") },
-    { id: "auto", order: 20, title: "Auto items", columns: 2, Section: () => createElement("p", null, "Auto content") },
-    { id: "plain", order: 30, Section: () => createElement("section", null, "Plain section") },
+test("a Start widget with a title gets a frame and its columns; without one it takes the whole width", () => {
+  const registry = registryWith([{ id: "test.widgets", startWidgets: [
+    { id: "board", order: 10, title: "Work board", render: () => createElement("p", null, "Board content") },
+    { id: "auto", order: 20, title: "Auto items", columns: 2, render: () => createElement("p", null, "Auto content") },
+    { id: "plain", order: 30, render: () => createElement("section", null, "Plain section") },
   ] }]);
   const html = renderToStaticMarkup(createElement(PanelPage, { preferences, registry, state: page(), send: () => {} }));
   assert.match(html, /<section aria-label="Work board"[^>]*><div[^>]*><h2[^>]*>Work board<\/h2><\/div><div[^>]*data-start-widget-body="board"><p>Board content<\/p>/,
@@ -123,12 +123,12 @@ test("a Start section with a title becomes a framed widget with its columns; wit
   assert.match(html, /data-columns="4" data-pack="start.continue" data-start-widget="start.continue"/);
   assert.match(html, /data-dashboard="grid"[^>]*data-grid="6"/, "the grid has six columns");
   assert.match(html, /<div class="absolute" data-columns="6" data-pack="plain" data-start-section="plain" style="[^"]*"><section>Plain section<\/section><\/div>/,
-    "a section without a title has no frame of its own and takes the whole width");
+    "a widget without a title has no frame of its own and takes the whole width");
   assert.ok(html.indexOf(">Work board<") < html.indexOf(">Auto items<") && html.indexOf(">Auto items<") < html.indexOf(">Plain section<"));
 });
 
 test("Start shows no arrangement controls outside edit mode, only Edit before the widgets, which waits for the stored layout", () => {
-  const registry = registryWith([{ id: "test.widgets", startSections: [{ id: "board", order: 10, title: "Work board", Section: () => createElement("p", null, "Board content") }] }]);
+  const registry = registryWith([{ id: "test.widgets", startWidgets: [{ id: "board", order: 10, title: "Work board", render: () => createElement("p", null, "Board content") }] }]);
   const html = renderToStaticMarkup(createElement(PanelPage, { preferences, registry, state: page(), send: () => {} }));
   assert.match(html, /<button(?=[^>]*data-edit-start="true")(?=[^>]*disabled="")[^>]*>.*?Edit<\/button>/, "Edit is there and waits until the layout is read");
   assert.ok(html.indexOf("data-edit-start") < html.indexOf("data-dashboard"), "Edit stands above the first widget row");
@@ -139,31 +139,10 @@ test("Start shows no arrangement controls outside edit mode, only Edit before th
   assert.match(without, /data-start-widget="board"/);
 });
 
-test("Start widgets reject a width or a description without a title, empty texts, and widths outside one to six columns or their range", () => {
-  const section = (extra: Record<string, unknown>) => registryWith([{ id: "test.widget", startSections: [{ id: "widget", order: 0, Section: () => null, ...extra }] }]);
-  assert.throws(() => section({ columns: 3 }), /Start section widget declares a width without a title/);
-  assert.throws(() => section({ maxColumns: 4 }), /Start section widget declares a width without a title/);
-  assert.throws(() => section({ title: " " }), /Start section widget has an empty title/);
-  assert.throws(() => section({ title: "Widget", columns: 12 }), /Start section widget has columns 12; allowed are whole numbers from 1 to 6/);
-  assert.throws(() => section({ description: "Shows things" }), /Start section widget declares a description without a title/);
-  assert.throws(() => section({ title: "Widget", description: " " }), /Start section widget has an empty description/);
-  assert.throws(() => section({ title: "Widget", minColumns: 0 }), /Start section widget has minColumns 0; allowed are whole numbers from 1 to 6/);
-  assert.throws(() => section({ title: "Widget", maxColumns: 3 }), /Start section widget has 6 columns outside its range from minColumns 1 to maxColumns 3/, "the default width is the whole row");
-  assert.throws(() => section({ title: "Widget", columns: 2, minColumns: 3, maxColumns: 4 }), /Start section widget has 2 columns outside its range from minColumns 3 to maxColumns 4/);
-  assert.deepEqual(section({ title: "Widget", columns: 4, description: "Shows things", minColumns: 3, maxColumns: 5 }).startSections.filter((entry) => entry.id === "widget")
-    .map(({ title, columns, description, minColumns, maxColumns }) => ({ title, columns, description, minColumns, maxColumns })),
-  [{ title: "Widget", columns: 4, description: "Shows things", minColumns: 3, maxColumns: 5 }]);
-  const limit = { limit: { type: "number", label: "Limit", default: 5, min: 1, max: 9 } };
-  assert.throws(() => section({ settings: limit }), /Start section widget declares settings without a title/);
-  assert.throws(() => section({ title: "Widget", settings: {} }), /Start section widget declares settings without any setting/);
-  assert.throws(() => section({ title: "Widget", settings: { limit: { ...limit.limit, default: 10 } } }), /Start section widget has the setting limit whose default 10 is above the maximum 9/);
-  assert.equal(section({ title: "Widget", settings: limit }).startSections.find((entry) => entry.id === "widget")?.settings, limit);
-});
-
-test("a Start section with a read right mounts only when the viewer has that right", () => {
+test("a Start widget with a read right mounts only when the viewer has that right", () => {
   const state = page({ connections: [connection({ canCreate: false, runs: [] })] });
-  const registry = registryWith([{ id: "test.guarded", startSections: [{
-    id: "guarded", order: 0, readRight: "test.read", Section: () => createElement("section", null, "Work documents"),
+  const registry = registryWith([{ id: "test.guarded", startWidgets: [{
+    id: "guarded", order: 0, readRight: "test.read", render: () => createElement("section", null, "Work documents"),
   }] }]);
   const renderWithRights = (rights: string[]) => renderToStaticMarkup(createElement(AccessContext.Provider, {
     value: { ...createAccessContext({ enabled: true, user: { id: "alice", label: "Alice", rights, startEntries: [] } }), logout: async () => {} },
@@ -203,20 +182,20 @@ test("New starts with the marked default template, otherwise with New chat", () 
   assert.doesNotMatch(none, /aria-label="Templates"|New chat/);
 });
 
-test("New and Continue are ordinary start sections whose settings change what they show", () => {
+test("New and Continue are ordinary Start widgets whose settings change what they show", () => {
   const runs = Array.from({ length: 17 }, (unused, index) => ({
     id: `run-${index}`, title: `Run ${index}`, state: "idle" as const, pendingActions: 0, updatedAt: Date.now() - index * 60_000,
   }));
   const host: StartPageHost = { connection: connection({ runs }), sharing: undefined, send: () => {}, starting: undefined, startRun: () => {} };
-  const [create, more] = HOST_START_SECTIONS;
-  assert.deepEqual(HOST_START_SECTIONS.map(({ id, order, title, columns, minColumns }) => ({ id, order, title, columns, minColumns })), [
+  const [create, more] = HOST_START_WIDGETS;
+  assert.deepEqual(HOST_START_WIDGETS.map(({ id, order, title, columns, minColumns }) => ({ id, order, title, columns, minColumns })), [
     { id: "start.new", order: -20, title: "New", columns: 2, minColumns: 2 },
     { id: "start.continue", order: -10, title: "Continue", columns: 4, minColumns: 2 },
   ]);
   assert.deepEqual(more!.settings, { runs: { type: "number", label: "Number of runs", description: "How many of the most recent runs Continue lists.", default: 15, min: 3, max: 100 } });
   assert.deepEqual(Object.keys(create!.settings!), ["descriptions"]);
-  const show = (section: StartSectionContribution, settings: Record<string, unknown>) => renderToStaticMarkup(createElement(StartPageContext.Provider, { value: host },
-    createElement(section.Section, { runs, onOpenRun: () => {}, settings: settings as never })));
+  const show = (widget: StartWidget, settings: Record<string, unknown>) => renderToStaticMarkup(createElement(StartPageContext.Provider, { value: host },
+    widget.render({ runs, onOpenRun: () => {}, settings: settings as never })));
   const five = show(more!, { runs: 5 });
   assert.equal(five.match(/<li /g)?.length, 5, "Continue lists as many runs as its setting says");
   assert.match(five, />Run 4</);

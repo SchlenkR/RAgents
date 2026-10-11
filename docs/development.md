@@ -280,7 +280,7 @@ to the plugin (`packages/ragents/src/plugin-types.ts`):
 ### Extension points in the web
 
 A web plugin fills slots in the frontend (`WebPlugin` in `apps/web/src/PluginRegistry.tsx`):
-`brand`, `surface` (one `RunPanel`), `surfaceElements`, `cardSections`, `chatDisplayPolicy`, `resolveRunUrl`, `startOptions`, `startSections`, `startWidgetsFor`,
+`brand`, `surface` (one `RunPanel`), `surfaceElements`, `cardSections`, `chatDisplayPolicy`, `resolveRunUrl`, `startOptions`, `startWidgets`,
 `needsRunView`, `SessionProvider`, `sessionHeaders`, `sessionStatus`, `overviewPanels`,
 `settings`, `workspaceTabs`, `workspaceTabsFor`, `toolPresenters`, `entityPresenters`, `guides`,
 `sessionMetadata`, `actionViews`, `attention`; plus `activate` and `enabled`. `actionViews`
@@ -308,22 +308,20 @@ sidebar behavior, persistence, and iframe/draft identity with `RAGENTS_BROWSER_T
 `startOptions` provides, per server-side start option, its own control component and a badge
 for the header of the running run; without a component, the host draws a selection menu from the
 option's presentation.
-`startSections` adds widgets to the Start dashboard beside "New" templates and "Continue" recent runs,
-which are start sections of the host's own (`panel/host-start-sections.tsx`), with all server-listed
-visible runs, their metadata, and run navigation; `title` makes a
-section a framed widget, `columns` (1 to 6 of Start's six-column grid, by default 6) sets its width
-and `minColumns` and `maxColumns` the range the viewer may choose, `settings` declares numbers,
-switches, choices, and short texts the viewer configures in Start's edit mode, which the section
-receives as typed `settings` (`StartSectionProps<typeof settings>`), and below 700 pixels of Start's own
-width the widgets become tabs.
-`startWidgetsFor(context)` adds a dynamic list of widgets alongside those sections. Each value
-has a stable `id` under the plugin's ID (`<plugin id>:<name>`), `title`, optional `description`,
-`columns`, `minColumns`, `maxColumns`, `order`, `readRight`, and `settings`, and `content`, a `ReactNode` or,
-with settings, a function of their values; Start's edit mode arranges and configures
-these widgets like sections with a title. The context supplies `signal` for cleanup and `update`
-for live snapshots using the existing RPC connection; a factory that waits for its first snapshot
-returns a promise of it, and stable content component types preserve local state and frames
-through updates.
+`startWidgets` adds widgets to the Start dashboard beside "New" templates and "Continue" recent runs,
+which are widgets of the host's own (`panel/host-start-widgets.tsx`), as a list or as a factory
+`(context) => widgets` that publishes them per viewer; both give the same `StartWidget` with `id`,
+`order`, optional `title`, `description`, `columns`, `minColumns`, `maxColumns`, `readRight`, and
+`settings`, and `render(props)`, which receives all server-listed visible runs with their metadata, run
+navigation, and the typed `settings` (`StartWidgetProps<typeof settings>`) and returns the content.
+`title` makes it a framed widget, `columns` (1 to 6 of Start's six-column grid, by default 6) sets its
+width and `minColumns` and `maxColumns` the range the viewer may choose, `settings` declares numbers,
+switches, choices, and short texts the viewer configures in Start's edit mode, and below 700 pixels of
+Start's own width the widgets become tabs. A factory's IDs start with its plugin's ID
+(`<plugin id>:<name>`); its context supplies `signal` for cleanup and `update` for live snapshots using
+the existing RPC connection, a factory that waits for its first snapshot returns a promise of it, and
+`render` returning components defined outside the factory preserves local state and frames through
+updates.
 
 A domain plugin owns its prompt parts, skills, server API, web components, CSS, configuration,
 and storage itself. If you remove it from the profile, prompt,

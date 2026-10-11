@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { createElement } from "react";
+import { createElement, isValidElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import test from "node:test";
 import type { GlobalAppSummary } from "../../../plugins/ragents.global-apps/contract.ts";
@@ -51,4 +51,10 @@ test("dynamic app widget IDs stay stable when view titles and revisions change, 
   assert.equal(widgets(viewed)[0]?.id, widgets(app)[0]?.id);
   assert.equal(widgets(viewed)[0]?.columns, 4);
   assert.equal(widgets(app)[0]?.columns, 2);
+  const typeOf = (value: GlobalAppSummary) => {
+    const element = widgets(value)[0]!.render({ runs: [], onOpenRun: () => {}, settings: {} as never });
+    return isValidElement(element) ? element.type : undefined;
+  };
+  assert.equal(typeOf(app), GlobalAppWidget);
+  assert.equal(typeOf(viewed), typeOf(app), "a new snapshot renders the same component type, so the widget keeps its state and frames");
 });

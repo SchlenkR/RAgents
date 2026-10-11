@@ -14,9 +14,8 @@ import { unrestrictedAccess, type AccessContext } from "../../../packages/ragent
 import { DETAIL_MODES, type ChatAttachmentInput, type DetailMode, type Message, type PendingAction, type ToolInfo, type ChatStartupStatus } from "quassel";
 import type { SessionInfo } from "./api";
 import type { ConnectionRun } from "./panel/contract";
-import { widthProblem } from "./panel/dashboard-layout";
-import { HOST_START_SECTIONS } from "./panel/host-start-sections";
-import { settingsProblem } from "./panel/widget-settings";
+import { HOST_START_WIDGETS } from "./panel/host-start-widgets";
+import { byWidgetOrder, checkedStartWidget } from "./panel/start-widgets";
 import type { ChatUserLocation } from "../../server/src/chat-context";
 import { CHAT_STEP_SCOPES, type ChatStepScope } from "../../server/src/plugin-support/chat-display-contract";
 import type { StartOptionState } from "../../server/src/plugin-support/start-options-contract";
@@ -194,9 +193,10 @@ export interface CardSectionContribution {
   Section: ComponentType<CardSectionContext>;
 }
 
-export interface StartSectionContext {
-  runs: readonly ConnectionRun[];
-  onOpenRun: (runId: string) => void;
+/** What Start gives every widget and widget factory: the runs the server lists for the viewer, newest first, and the way to open one. */
+export interface StartWidgetContext {
+  readonly runs: readonly ConnectionRun[];
+  readonly onOpenRun: (runId: string) => void;
 }
 
 interface StartWidgetSettingBase {
@@ -249,57 +249,38 @@ export type StartWidgetSettingValue<Setting extends StartWidgetSetting> = Settin
 /** The values of a widget's settings by key, as the widget receives them. */
 export type StartWidgetSettingValues<Settings extends StartWidgetSettings = StartWidgetSettings> = { readonly [Key in keyof Settings]: StartWidgetSettingValue<Settings[Key]> };
 
-/** What a start section's component receives; a section with settings types its props as StartSectionProps<typeof settings>. */
-export interface StartSectionProps<Settings extends StartWidgetSettings = StartWidgetSettings> extends StartSectionContext {
+/** What a widget's render receives; a widget with settings types it as StartWidgetProps<typeof settings>. */
+export interface StartWidgetProps<Settings extends StartWidgetSettings = StartWidgetSettings> extends StartWidgetContext {
   /** The viewer's values, checked against the declared settings; a value that is not stored or not valid is the setting's default. */
   readonly settings: StartWidgetSettingValues<Settings>;
 }
 
-export interface StartSectionContribution {
-  id: string;
-  order: number;
-  readRight?: string;
-  /** Makes the section a widget: the host draws its title row and, on a narrow dashboard, its tab; without it the section owns its heading and fills a row. */
-  title?: string;
-  /** One sentence about the widget for the gallery of Start's edit mode; requires a title. */
-  description?: string;
-  /** The width of a widget with a title in columns of Start's six-column grid, 1 to 6, by default 6. */
-  columns?: number;
-  /** The narrowest width the viewer may give the widget in edit mode, by default 1. */
-  minColumns?: number;
-  /** The widest width the viewer may give the widget in edit mode, by default 6. */
-  maxColumns?: number;
-  /** What the viewer may change with "Configure" in Start's edit mode; requires a title. */
-  settings?: StartWidgetSettings;
-  /** Receives StartSectionProps typed by the section's own settings, which the host checks against them. */
-  Section: ComponentType<StartSectionProps<never>>;
-}
-
-/** A widget that a plugin publishes per viewer; Start arranges it like a start section with a title. */
-export interface StartWidgetContribution {
-  /** Starts with the plugin ID and a colon and stays the same across snapshots and releases, because the viewer's layout refers to it. */
+/** One widget of the Start dashboard, from a plugin's list or from its factory alike. */
+export interface StartWidget {
+  /** The widget's ID in the viewer's Start layout, so it stays the same across snapshots and releases; a factory's IDs start with its plugin ID and a colon. */
   readonly id: string;
-  readonly title: string;
-  /** One sentence about the widget for the gallery of Start's edit mode. */
+  /** The host draws its title row and, on a narrow dashboard, its tab; without it the widget owns its heading, fills a row, and cannot be arranged. */
+  readonly title?: string;
+  /** One sentence about the widget for the gallery of Start's edit mode; requires a title. */
   readonly description?: string;
-  /** The width in columns of Start's six-column grid, 1 to 6, by default 6. */
+  /** The width in columns of Start's six-column grid, 1 to 6, by default 6; requires a title. */
   readonly columns?: number;
   /** The narrowest width the viewer may give the widget in edit mode, by default 1. */
   readonly minColumns?: number;
   /** The widest width the viewer may give the widget in edit mode, by default 6. */
   readonly maxColumns?: number;
-  /** Its place among the start sections, by default 200. */
-  readonly order?: number;
+  /** Its place on Start: widgets sort by order and then ID, and New and Continue have -20 and -10. */
+  readonly order: number;
   readonly readRight?: string;
-  /** What the viewer may change with "Configure" in Start's edit mode; the content is then a function of their values. */
+  /** What the viewer may change with "Configure" in Start's edit mode; requires a title. */
   readonly settings?: StartWidgetSettings;
-  /** The widget's content, or a function that receives the values of its settings, typed as StartWidgetSettingValues<typeof settings>. */
-  readonly content: ReactNode | ((settings: never) => ReactNode);
+  /** Returns the content for the props, typed as StartWidgetProps<typeof settings>; components it renders keep their state across snapshots. */
+  readonly render: (props: StartWidgetProps<never>) => ReactNode;
 }
 
-export interface StartWidgetsContext extends StartSectionContext {
+export interface StartWidgetFactoryContext extends StartWidgetContext {
   readonly signal: AbortSignal;
-  readonly update: (widgets: readonly StartWidgetContribution[]) => void;
+  readonly update: (widgets: readonly StartWidget[]) => void;
 }
 
 export interface WorkspaceTabContext {
@@ -448,8 +429,8 @@ export interface WebPlugin extends WebPluginDescriptor {
   surface?: SurfaceContribution;
   surfaceElements?: SurfaceElementContribution[];
   cardSections?: CardSectionContribution[];
-  startSections?: StartSectionContribution[];
-  startWidgetsFor?: (context: StartWidgetsContext) => readonly StartWidgetContribution[] | Promise<readonly StartWidgetContribution[]>;
+  /** A fixed list, or a factory that publishes the widgets per viewer and with update as they change. */
+  startWidgets?: readonly StartWidget[] | ((context: StartWidgetFactoryContext) => readonly StartWidget[] | Promise<readonly StartWidget[]>);
   chatDisplayPolicy?: ChatDisplayPolicy;
   resolveRunUrl?: RunUrlResolver;
   startOptions?: StartOptionContribution[];
@@ -496,8 +477,8 @@ export class PluginRegistry {
   readonly surface: SurfaceContribution | undefined;
   readonly surfaceElements: readonly SurfaceElementContribution[];
   readonly cardSections: readonly CardSectionContribution[];
-  readonly startSections: readonly StartSectionContribution[];
-  readonly startWidgetFactories: readonly { readonly id: string; readonly create: NonNullable<WebPlugin["startWidgetsFor"]> }[];
+  readonly startWidgets: readonly StartWidget[];
+  readonly startWidgetFactories: readonly { readonly id: string; readonly create: Exclude<NonNullable<WebPlugin["startWidgets"]>, readonly StartWidget[]> }[];
   readonly chatDisplayPolicy: ChatDisplayPolicy;
   readonly resolveRunUrl: RunUrlResolver | undefined;
   readonly startOptions: ReadonlyMap<string, StartOptionContribution>;
@@ -555,23 +536,14 @@ export class PluginRegistry {
       .flatMap((plugin) => plugin.cardSections ?? [])
       .sort((left, right) => left.order - right.order || left.id.localeCompare(right.id));
     assertUnique(this.cardSections, (section) => section.id, "Card section");
-    this.startSections = [...HOST_START_SECTIONS, ...this.activePlugins.flatMap((plugin) => plugin.startSections ?? [])]
-      .sort((left, right) => left.order - right.order || left.id.localeCompare(right.id));
-    assertUnique(this.startSections, (section) => section.id, "Start section");
-    this.startWidgetFactories = this.activePlugins.flatMap((plugin) => plugin.startWidgetsFor ? [{ id: plugin.id, create: plugin.startWidgetsFor }] : []);
-    for (const section of this.startSections) {
-      const publisher = this.startWidgetFactories.find((factory) => section.id.startsWith(`${factory.id}:`));
-      if (publisher !== undefined) throw new Error(`Start section ${section.id} uses the widget ID prefix of ${publisher.id}, which publishes dynamic Start widgets`);
-      if (section.title !== undefined && section.title.trim() === "") throw new Error(`Start section ${section.id} has an empty title`);
-      const declaresWidth = section.columns !== undefined || section.minColumns !== undefined || section.maxColumns !== undefined;
-      if (declaresWidth && section.title === undefined) throw new Error(`Start section ${section.id} declares a width without a title`);
-      const width = widthProblem(section);
-      if (width !== undefined) throw new Error(`Start section ${section.id} ${width}`);
-      if (section.description !== undefined && section.title === undefined) throw new Error(`Start section ${section.id} declares a description without a title`);
-      if (section.description !== undefined && section.description.trim() === "") throw new Error(`Start section ${section.id} has an empty description`);
-      if (section.settings !== undefined && section.title === undefined) throw new Error(`Start section ${section.id} declares settings without a title`);
-      const settings = section.settings === undefined ? undefined : settingsProblem(section.settings);
-      if (settings !== undefined) throw new Error(`Start section ${section.id} ${settings}`);
+    this.startWidgetFactories = this.activePlugins.flatMap((plugin) => typeof plugin.startWidgets === "function" ? [{ id: plugin.id, create: plugin.startWidgets }] : []);
+    this.startWidgets = [...HOST_START_WIDGETS, ...this.activePlugins.flatMap((plugin) => typeof plugin.startWidgets === "function" ? [] : plugin.startWidgets ?? [])]
+      .sort(byWidgetOrder);
+    assertUnique(this.startWidgets, (widget) => widget.id, "Start widget");
+    for (const widget of this.startWidgets) {
+      const publisher = this.startWidgetFactories.find((factory) => widget.id.startsWith(`${factory.id}:`));
+      if (publisher !== undefined) throw new Error(`Start widget ${widget.id} uses the widget ID prefix of ${publisher.id}, whose factory publishes its widgets`);
+      checkedStartWidget(widget);
     }
     this.needsRunView = this.activePlugins.some((plugin) => plugin.needsRunView);
     const chatPolicies = this.activePlugins.flatMap((plugin) => plugin.chatDisplayPolicy ? [plugin.chatDisplayPolicy] : []);

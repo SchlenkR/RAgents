@@ -1122,7 +1122,7 @@ its columns are free, in its order from the top left, so a short widget leaves n
 a tall one: when New and a tall widget stand side by side, the next widget follows right below New. From
 700 pixels Start has three columns and every widget takes half its columns, rounded up, so New and
 Continue still share a row. When a widget's content grows, the widgets below it move down with it. Below 700 pixels Start shows one widget at a time with tabs at the top;
-the chosen tab is remembered for this server address. A plugin section without a title follows
+the chosen tab is remembered for this server address. A plugin widget without a title follows
 below the tabs, and a widget with nothing to show has neither a place nor a tab.
 
 Arrange Start in its edit mode. "Edit" at the top right of Start, or the pencil at the end of the

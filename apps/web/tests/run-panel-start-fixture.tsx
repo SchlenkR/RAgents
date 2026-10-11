@@ -3,7 +3,7 @@ import { createAccessContext } from "../../../packages/ragents/src/access";
 import { OrchestrationRunPanel } from "../../../plugins/ragents.orchestration/web/run-panel/RunPanel";
 import { AccessContext } from "../src/AccessContext";
 import type { PluginActivationState } from "../src/PluginActivation";
-import { PluginRegistry, type SurfaceElementDefinition, type EntryGuideContext, type StartSectionContext, type WebPlugin } from "../src/PluginRegistry";
+import { PluginRegistry, type SurfaceElementDefinition, type EntryGuideContext, type StartWidgetProps, type WebPlugin } from "../src/PluginRegistry";
 import type { ListedSession } from "../src/api";
 import { ToolbarCopy, ToolbarItem, ToolbarLabel, ToolbarText } from "../src/Toolbar";
 import { Button } from "../src/ui";
@@ -41,7 +41,7 @@ function TopicGuide({ onCancel, onComplete }: EntryGuideContext) {
     <button onClick={onCancel} type="button">Cancel guide</button>
   </div>;
 }
-function WorkDocuments({ runs, onOpenRun }: StartSectionContext) {
+function WorkDocuments({ runs, onOpenRun }: StartWidgetProps) {
   const documents = runs.flatMap((run) => {
     const titles = run.metadata?.["start.documents"];
     if (titles === undefined) return [];
@@ -57,7 +57,7 @@ function WorkDocuments({ runs, onOpenRun }: StartSectionContext) {
   </section>;
 }
 const documentPlugin: WebPlugin = {
-  id: "start.documents", startSections: [{ id: "start.documents", order: 100, Section: WorkDocuments }],
+  id: "start.documents", startWidgets: [{ id: "start.documents", order: 100, render: (props) => <WorkDocuments {...props} /> }],
 };
 const metadataTexts = {
   workspace: "/home/user/project/packages/an-example-package-with-a-long-name/src/features/shared-header-panels/complete-session-metadata.ts",

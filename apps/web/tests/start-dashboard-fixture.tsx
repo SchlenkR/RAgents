@@ -1,9 +1,6 @@
 import { useSyncExternalStore } from "react";
 import { createRoot } from "react-dom/client";
-import {
-  PluginRegistry, type StartSectionContext, type StartSectionContribution, type StartSectionProps, type StartWidgetContribution, type StartWidgetSettings, type StartWidgetSettingValues,
-  type WebPlugin,
-} from "../src/PluginRegistry";
+import { PluginRegistry, type StartWidget, type StartWidgetProps, type StartWidgetSettings, type WebPlugin } from "../src/PluginRegistry";
 import { PanelPage } from "../src/panel/PanelPage";
 import type { ConnectionView, PanelState } from "../src/panel/contract";
 import type { PreferenceStore } from "../src/preferences";
@@ -45,7 +42,7 @@ const connection: ConnectionView = {
 /** How many runs each lane of the work board lists; grow() adds more, like a list that finishes loading. */
 const lanes = { rows: 2, listeners: new Set<() => void>() };
 
-function WorkBoard({ runs }: StartSectionContext) {
+function WorkBoard({ runs }: StartWidgetProps) {
   const rows = useSyncExternalStore((listener) => {
     lanes.listeners.add(listener);
     return () => lanes.listeners.delete(listener);
@@ -67,21 +64,21 @@ function TopicCards() {
   </ul>;
 }
 
-const list = (label: string) => function List() {
+function EntryList({ label }: { label: string }) {
   return <ul aria-label={label} className="grid gap-2 rounded-xl border border-border bg-card p-3">
     {["First entry", "Second entry", "Third entry"].map((entry) => <li className="type-body" key={entry}>{entry}</li>)}
   </ul>;
-};
+}
 
-const widget = (id: string, order: number, title: string, columns?: number, extra: Partial<StartSectionContribution> = {}): StartSectionContribution =>
-  ({ id, order, title, ...(columns ? { columns } : {}), Section: list(`${title} entries`), ...extra });
+const widget = (id: string, order: number, title: string, columns?: number, extra: Partial<StartWidget> = {}): StartWidget =>
+  ({ id, order, title, ...(columns ? { columns } : {}), render: () => <EntryList label={`${title} entries`} />, ...extra });
 
 /** A plugin widget with a setting, configured through the same edit mode as Continue. */
 const usageSettings = {
   entries: { type: "number", label: "Entries", description: "How many entries Model usage lists.", default: 3, min: 1, max: 3 },
 } as const satisfies StartWidgetSettings;
 
-function UsageList({ settings }: StartSectionProps<typeof usageSettings>) {
+function UsageList({ settings }: StartWidgetProps<typeof usageSettings>) {
   return <ul aria-label="Model usage entries" className="grid gap-2 rounded-xl border border-border bg-card p-3">
     {["First entry", "Second entry", "Third entry"].slice(0, settings.entries).map((entry) => <li className="type-body" key={entry}>{entry}</li>)}
   </ul>;
@@ -90,15 +87,31 @@ function UsageList({ settings }: StartSectionProps<typeof usageSettings>) {
 /** ?case=owner is the wide screen with New and Topics three columns wide and Continue after them; Topics is much taller than New. */
 const owner = query.get("case") === "owner";
 
-const sections: StartSectionContribution[] = owner ? [
-  { id: "demo.topics", order: 10, title: "Topics", columns: 3, minColumns: 2, Section: TopicCards },
-] : [
-  { id: "demo.board", order: 10, title: "Work board", description: "Runs in three lanes by their state.", Section: WorkBoard },
+/** ?case=twins lists one widget and publishes its twin through a factory, with the same fields apart from ID and title. */
+const twins = query.get("case") === "twins";
+
+const twinSettings = { rows: { type: "number", label: "Rows", default: 1, min: 1, max: 3 } } as const satisfies StartWidgetSettings;
+
+function TwinRows({ title, rows }: { title: string; rows: number }) {
+  return <ul aria-label={`${title} rows`} className="grid gap-2 rounded-xl border border-border bg-card p-3">
+    {["First row", "Second row", "Third row"].slice(0, rows).map((row) => <li className="type-body" key={row}>{row}</li>)}
+  </ul>;
+}
+
+const twin = (id: string, title: string): StartWidget => ({
+  id, title, description: "Shows as many rows as its setting says.", columns: 2, minColumns: 1, maxColumns: 3, order: 70, settings: twinSettings,
+  render: ({ settings }: StartWidgetProps<typeof twinSettings>) => <TwinRows rows={settings.rows} title={title} />,
+});
+
+const listed: StartWidget[] = owner ? [
+  { id: "demo.topics", order: 10, title: "Topics", columns: 3, minColumns: 2, render: () => <TopicCards /> },
+] : twins ? [twin("demo.twin", "Listed twin")] : [
+  { id: "demo.board", order: 10, title: "Work board", description: "Runs in three lanes by their state.", render: (props) => <WorkBoard {...props} /> },
   widget("demo.auto", 20, "New auto items", 2),
   widget("demo.shared", 30, "Shared with the team", 2),
-  widget("demo.usage", 40, "Model usage", 2, { description: "Tokens and cost of the last runs.", minColumns: 1, maxColumns: 3, settings: usageSettings, Section: UsageList }),
-  { id: "demo.empty", order: 50, title: "Nothing to show", columns: 2, Section: () => null },
-  { id: "demo.legacy", order: 60, Section: () => <section aria-label="Legacy notes" className="grid gap-3"><h2 className="type-label">Legacy notes</h2><p className="type-body">A section without a title keeps its own heading.</p></section> },
+  widget("demo.usage", 40, "Model usage", 2, { description: "Tokens and cost of the last runs.", minColumns: 1, maxColumns: 3, settings: usageSettings, render: (props) => <UsageList {...props} /> }),
+  { id: "demo.empty", order: 50, title: "Nothing to show", columns: 2, render: () => null },
+  { id: "demo.legacy", order: 60, render: () => <section aria-label="Legacy notes" className="grid gap-3"><h2 className="type-label">Legacy notes</h2><p className="type-body">A widget without a title keeps its own heading.</p></section> },
   ...(query.get("widgets") === "many" ? [
     widget("demo.topics", 70, "Topics in review", 3),
     widget("demo.releases", 80, "Upcoming releases", 3),
@@ -118,27 +131,27 @@ function PlannerDays({ days }: { days: number }) {
   </ul>;
 }
 
-const apps: Readonly<Record<string, StartWidgetContribution>> = {
+const apps: Readonly<Record<string, StartWidget>> = {
   planner: {
-    id: "demo.apps:planner", title: "Planner", description: "Plans the week from your runs.", columns: 3, minColumns: 2, maxColumns: 4, settings: plannerSettings,
-    content: (values: StartWidgetSettingValues<typeof plannerSettings>) => <PlannerDays days={values.days} />,
+    id: "demo.apps:planner", title: "Planner", description: "Plans the week from your runs.", columns: 3, minColumns: 2, maxColumns: 4, order: 200, settings: plannerSettings,
+    render: ({ settings }: StartWidgetProps<typeof plannerSettings>) => <PlannerDays days={settings.days} />,
   },
-  broken: { id: "demo.apps:broken", title: "Broken app", columns: 2, content: <BrokenApp /> },
+  broken: { id: "demo.apps:broken", title: "Broken app", columns: 2, order: 200, render: () => <BrokenApp /> },
 };
 
 /** ?dynamic=1 adds two plugins that publish widgets per viewer: one whose widgets the test can change through setApps, one whose factory fails. */
 const dynamic: WebPlugin[] = query.get("dynamic") === "1" ? [
-  { id: "demo.apps", startWidgetsFor: ({ update }) => {
+  { id: "demo.apps", startWidgets: ({ update }) => {
     fixture.setApps = (names) => update(names.map((name) => apps[name]!));
     return [apps.broken!, apps.planner!];
   } },
-  { id: "demo.failing", startWidgetsFor: async () => { throw new Error("The app catalog is unreachable."); } },
-] : [];
+  { id: "demo.failing", startWidgets: async () => { throw new Error("The app catalog is unreachable."); } },
+] : twins ? [{ id: "demo.twins", startWidgets: async () => [twin("demo.twins:twin", "Published twin")] }] : [];
 
 const registry = new PluginRegistry({
   brand: { title: "Start dashboard check" },
   product: { id: "demo", title: "Start dashboard check" },
-  plugins: [{ id: "demo.widgets", startSections: sections }, ...dynamic],
+  plugins: [{ id: "demo.widgets", startWidgets: listed }, ...dynamic],
   startEntries: [],
 });
 

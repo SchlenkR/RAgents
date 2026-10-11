@@ -1,5 +1,33 @@
 # Decisions
 
+## 2026-10-11: Start widgets have one slot and one type
+
+Chapters: `spec/plugins.md` (Web as plugin host: slot `startWidgets`; Start, Arranging Start, Global
+mini-apps); usage: `usage.md` (Start); `development.md` (Extension points in the web); homepage
+reference examples.
+
+Start widgets came in two ways: `startSections` with `StartSectionContribution` and a `Section`
+component, and `startWidgetsFor` with `StartWidgetContribution` and `content`, a node or a function of
+the settings, with defaults of its own (`order` 200, a required title). Since edit mode the dashboard
+treated both alike; only the contract still told them apart. `startWidgets` now takes a readonly list
+or a factory, and both give the same `StartWidget` with the same fields, checked by one function
+(`checkedStartWidget`), so a listed and a published widget fail with the same cause; New and Continue are
+listed widgets (`HOST_START_WIDGETS`). `startSections`, `StartSectionContribution`, `StartSectionContext`,
+`StartSectionProps`, `startWidgetsFor`, `StartWidgetContribution`, and `StartWidgetsContext` are gone
+without aliases; plugins outside the repository rebuild against `StartWidget`, `StartWidgetProps`,
+`StartWidgetContext`, and `StartWidgetFactoryContext`.
+
+A widget renders through `render(props)`, a function of the runs, `onOpenRun`, and the settings, rather
+than a component: a factory's widgets carry the data of their snapshot, and a component made per
+snapshot would be a new type on every update and remount its state and frames, as the global apps'
+would. `render` returns components defined once with that data as props, so their types stay. `order`
+is required for every widget, because the default of 200 existed only for published ones; the title
+stays optional for both, so a published widget may also own its heading. The ID rules and the failure
+isolation stay: a factory's IDs start with its plugin ID and a colon, a listed widget may not take that
+prefix, and a failing factory or widget shows its cause in its own cell. `HOST_API_VERSION` stays 17,
+because no listed value name changed; a bundle built earlier still loads, but Start ignores its
+`startSections` or `startWidgetsFor` until it is rebuilt.
+
 ## 2026-10-11: Global apps add no placeholder widget
 
 Chapter: `spec/plugins.md` (Global apps). Without any global app, `ragents.global-apps` contributed a

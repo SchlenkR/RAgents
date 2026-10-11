@@ -749,7 +749,7 @@ test("a layout that cannot be loaded keeps the default layout and offers Retry; 
 
 const setApps = (page: Page, names: readonly string[]) => page.evaluate((list) => window.dashboardFixture.setApps!(list), names);
 
-test("dynamic widgets are moved, resized, removed, and added back like start sections, survive disappearing while Start is edited, and a failing one keeps its error in its own cell", browserOnly, async () => {
+test("published widgets are moved, resized, removed, and added back like listed ones, survive disappearing while Start is edited, and a failing one keeps its error in its own cell", browserOnly, async () => {
   await withPage(1280, "dynamic=1", async (page) => {
     await page.getByRole("region", { name: "Planner", exact: true }).waitFor();
     const broken = page.locator('[data-start-widget="demo.apps:broken"]');
@@ -758,7 +758,7 @@ test("dynamic widgets are moved, resized, removed, and added back like start sec
     const failing = page.locator('[data-start-widget="demo.failing:unavailable"]');
     assert.equal(await failing.getByRole("alert").textContent(), "The app catalog is unreachable.", "a failing factory shows its cause in a widget of its own");
     assert.equal(await page.getByRole("list", { name: "Recent" }).isVisible(), true, "the other widgets stay usable");
-    assert.deepEqual((await order(page)).slice(-3), ["demo.apps:broken", "demo.apps:planner", "demo.failing:unavailable"], "dynamic widgets follow the start sections by order and ID");
+    assert.deepEqual((await order(page)).slice(-3), ["demo.apps:broken", "demo.apps:planner", "demo.failing:unavailable"], "published widgets follow the listed ones by order and ID");
 
     await edit(page);
     assert.equal(await broken.getByRole("alert").isVisible(), true, "the error stays in its cell while editing");
@@ -813,6 +813,55 @@ test("dynamic widgets are moved, resized, removed, and added back like start sec
     assert.equal(await broken.count(), 0, "a removed one stays removed");
     await page.getByRole("button", { name: "Cancel", exact: true }).click();
     await page.getByRole("group", { name: "Edit Start" }).waitFor({ state: "detached" });
+  }, 2400);
+});
+
+/** A widget's cell without its place and with its own ID and title neutralized, so two cells compare by everything else. */
+const cellMarkup = (page: Page, key: string, title: string) => page.locator(`[data-start-widget="${key}"]`).evaluate((cell, [id, name]) =>
+  cell.outerHTML.replace(/ style="[^"]*"/g, "").replaceAll(id, "ID").replaceAll(name, "TITLE"), [key, title] as const);
+
+test("a listed and a published widget with the same fields behave identically in layout, edit mode, and settings", browserOnly, async () => {
+  await withPage(1280, "case=twins", async (page) => {
+    await page.getByRole("region", { name: "Published twin", exact: true }).waitFor();
+    const twins = [["demo.twin", "Listed twin"], ["demo.twins:twin", "Published twin"]] as const;
+    const same = async (label: string) => {
+      const [listed, published] = await Promise.all(twins.map(([key, title]) => cellMarkup(page, key, title)));
+      assert.equal(published, listed, label);
+    };
+    assert.deepEqual(await order(page), ["start.new", "start.continue", "demo.twin", "demo.twins:twin"], "both sort among Start's widgets by order and then ID");
+    const [listed, published] = [await box(page, "Listed twin"), await box(page, "Published twin")];
+    const grid = await gridOf(page);
+    assert.ok(Math.abs(listed.width - spanWidth(grid, 2)) < 0.5 && Math.abs(published.width - listed.width) < 0.5, "both take their two columns");
+    assert.ok(Math.abs(listed.height - published.height) < 1, "both have the same height");
+    checkPacked(await packedCells(page), "listed and published twins");
+    await same("the same frame and content in view mode");
+
+    await edit(page);
+    await same("the same controls in edit mode");
+    for (const [key, title] of twins) {
+      await page.getByRole("button", { name: `Move ${title}`, exact: true }).focus();
+      await page.keyboard.press("Shift+ArrowRight");
+      assert.equal(await announced(page), `${title} is now 3 of 6 columns wide.`);
+      await page.keyboard.press("Shift+ArrowRight");
+      assert.equal(await announced(page), `${title} is already at its widest.`, "both offer the same widths");
+      assert.equal(await size(page, key), 3);
+      await configureNumber(page, title, "Rows", "3");
+      assert.equal(await rows(page, `${title} rows`), 3);
+    }
+    await same("the same width and settings after the same changes");
+    await click(page, page.getByRole("button", { name: "Done", exact: true }));
+    await page.getByRole("group", { name: "Edit Start" }).waitFor({ state: "detached" });
+    const [saved] = await writes(page) as { columns: unknown; settings: unknown }[];
+    assert.deepEqual([saved?.columns, saved?.settings], [{ "demo.twin": 3, "demo.twins:twin": 3 }, { "demo.twin": { rows: 3 }, "demo.twins:twin": { rows: 3 } }]);
+
+    await edit(page);
+    for (const [, title] of twins) await page.getByRole("button", { name: `Remove ${title}`, exact: true }).click();
+    await page.getByRole("button", { name: "Add widget", exact: true }).click();
+    const gallery = page.getByRole("dialog", { name: "Add widget" });
+    const offers = await Promise.all(twins.map(([, title]) => gallery.getByRole("button", { name: `Add ${title}` })
+      .evaluate((button) => document.getElementById(button.getAttribute("aria-describedby")!)!.textContent)));
+    assert.match(offers[0] ?? "", /^Shows as many rows as its setting says\.Width: \d of 6 columns, adjustable from 1 to 3$/);
+    assert.equal(offers[1], offers[0], "the gallery offers both alike");
   }, 2400);
 });
 
@@ -1056,7 +1105,7 @@ test("Configure in edit mode sets Continue to five runs with the mouse, Done kee
   }, 1500);
 });
 
-test("a plugin's start section and a dynamic widget are configured exactly like Continue, also in the narrow list", browserOnly, async () => {
+test("a plugin's listed and published widgets are configured exactly like Continue, also in the narrow list", browserOnly, async () => {
   await withPage(1280, "dynamic=1", async (page) => {
     await page.getByRole("region", { name: "Planner", exact: true }).waitFor();
     assert.equal(await rows(page, "Model usage entries"), 3);

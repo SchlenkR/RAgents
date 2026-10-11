@@ -21,8 +21,8 @@ import {
 import { NO_SETTINGS, storedSettingsOf, widgetSettingsOf, type ResolvedWidgetSettings } from "./widget-settings";
 import { WidgetSettingsDialog } from "./WidgetSettingsDialog";
 
-/** One area of Start, from a start section or a dynamic widget; its width counts columns of the six-column grid, and edit mode offers the range. */
-export interface StartWidget extends WidgetWidth {
+/** One area of Start, from any Start widget; its width counts columns of the six-column grid, and edit mode offers the range. */
+export interface DashboardWidget extends WidgetWidth {
   /** Stable across sessions, because the viewer's layout refers to it. */
   readonly key: string;
   /** Without a title the content owns its heading, fills a row, stays below the tabs, and cannot be arranged. */
@@ -34,7 +34,7 @@ export interface StartWidget extends WidgetWidth {
   readonly content: (settings: StartWidgetSettingValues) => ReactNode;
 }
 
-type Item = StartWidget & { readonly framed: boolean };
+type Item = DashboardWidget & { readonly framed: boolean };
 type FramedItem = Item & { readonly title: string };
 type Mode = "grid" | "tabs" | "list";
 type Control = "handle" | "up" | "down" | "configure";
@@ -263,7 +263,7 @@ function EditTitleRow({ widget, columns, grid, list, first, last, resizing, hint
 }
 
 /** Calls a widget's content inside its own RenderBoundary, so a content function that throws stays in its cell. */
-function WidgetContent({ content, settings }: { content: StartWidget["content"]; settings: StartWidgetSettingValues }) {
+function WidgetContent({ content, settings }: { content: DashboardWidget["content"]; settings: StartWidgetSettingValues }) {
   return content(settings);
 }
 
@@ -324,7 +324,7 @@ function WidgetGallery({ widgets, onAdd, onClose }: { widgets: readonly FramedIt
 }
 
 /** Start's widgets in a six-column grid by their widths and the viewer's layout, three columns at medium widths and tabs below the narrow limit of its own width; Edit arranges them in place and saves the layout on the server. */
-export function StartDashboard({ widgets, preferences }: { widgets: readonly StartWidget[]; preferences: PreferenceStore | undefined }) {
+export function StartDashboard({ widgets, preferences }: { widgets: readonly DashboardWidget[]; preferences: PreferenceStore | undefined }) {
   const { state, retry, settle } = useStoredLayout(preferences);
   const [root, setRoot] = useState<HTMLDivElement | null>(null);
   const [element, setElement] = useState<HTMLDivElement | null>(null);
@@ -585,7 +585,7 @@ export function StartDashboard({ widgets, preferences }: { widgets: readonly Sta
       {shown.map((widget) => {
         if (!isFramed(widget)) return <div className={cn(mode === "grid" ? "absolute" : "contents", editing && "[&>*]:opacity-60")} data-columns={mode === "grid" ? grid : undefined} data-pack={widget.key}
           data-start-section={widget.key} hidden={mode === "list"} inert={editing} key={widget.key} style={cellStyle(widget.key)}>
-          <RenderBoundary resetKeys={[]} title="A Start section could not be displayed"><WidgetContent content={widget.content} settings={settingsOf(widget).values} /></RenderBoundary>
+          <RenderBoundary resetKeys={[]} title="A Start widget could not be displayed"><WidgetContent content={widget.content} settings={settingsOf(widget).values} /></RenderBoundary>
         </div>;
         const place = draft?.findIndex((entry) => entry.key === widget.key) ?? -1;
         const dragging = gesture?.key === widget.key ? gesture.kind : undefined;
