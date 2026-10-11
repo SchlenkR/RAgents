@@ -1,5 +1,19 @@
 # Decisions
 
+## 2026-10-11: The reading role shrinks to the body size and covers every rendered Markdown
+
+Chapter: `spec/plugins.md` (Web as plugin host: UI library, text roles).
+
+The chat read larger than the rest of the interface. Two enlargements had stacked: the 110 percent root
+size raised everything, and the reading role then moved the chat from quassel's 13px to 0.875rem with
+line height 1.65, so chat text stood about 18 percent above its old size while descriptions and item
+titles rose by 10 percent. Rendered Markdown elsewhere did not use the reading role at all: documents
+were fixed at 13px and 13.5px, Markdown files in Settings at 0.79rem, and the mini-app viewers inherited
+whatever surrounded them; `type-prose` had no consumer outside its test. `--text-prose` is now 0.8rem,
+the size of `type-body`, at line height 1.6, the chat's message gap drops from 22px to 18px, and the
+document panel and dialog, Settings, and the mini-app `Markdown` and `DocumentViewer` wrap their
+Markdown in `type-prose`. The global coordinator's empty state used its own 0.9rem and a heading that
+called the product a workshop; it is now one `type-body` sentence about what the coordinator does.
 ## 2026-10-11: Start widgets have one slot and one type
 
 Chapters: `spec/plugins.md` (Web as plugin host: slot `startWidgets`; Start, Arranging Start, Global

@@ -29,7 +29,7 @@ export function TaskProgress({ title = "Tasks", tasks, showProgress = true }: Ta
 export function DocumentViewer({ title, content, format = "text", language, filename }: DocumentViewerProps) {
   return <section aria-label={title ?? filename ?? "Document"} className="min-w-0 text-sm">
     {(title || filename) && <h3 className="mb-2 text-[15px] font-semibold">{title ?? filename}</h3>}
-    {format === "markdown" ? <QuasselHost><Markdown text={content} /></QuasselHost>
+    {format === "markdown" ? <QuasselHost><div className="type-prose"><Markdown text={content} /></div></QuasselHost>
       : format === "code" ? <div className={`max-w-full overflow-auto rounded-lg border border-border bg-background ${codeScrollbarClass}`}><SourceCode content={content} language={language} path={filename ?? ""} /></div>
         : <pre className="m-0 font-[inherit] break-words whitespace-pre-wrap">{content}</pre>}
   </section>;

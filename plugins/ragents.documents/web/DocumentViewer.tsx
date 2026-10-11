@@ -327,7 +327,7 @@ function DocumentContent({ document, loaded }: { document: RunDocument; loaded: 
     return <SourceCode className={sourceClass} content={loaded.text} path={document.title} />;
   }
   // quassel resolves an address only when its Markdown mounts, so a changed grant mounts it again.
-  return <ImagePreviewGroup><QuasselProvider resolveUrl={resolveUrl}><Markdown key={grants?.revision} text={loaded.text} /></QuasselProvider></ImagePreviewGroup>;
+  return <ImagePreviewGroup><QuasselProvider resolveUrl={resolveUrl}><div className="type-prose"><Markdown key={grants?.revision} text={loaded.text} /></div></QuasselProvider></ImagePreviewGroup>;
 }
 
 function DocumentHead({ document }: { document: RunDocument }) {
@@ -366,7 +366,7 @@ export function DocumentModal({ document, onClose }: DocumentModalProps) {
           <XIcon />
         </Button>
       </header>
-      <div className="min-h-0 flex-1 overflow-y-auto px-[clamp(18px,calc(var(--ragents-viewport-width,100vw)*0.04),54px)] pt-4 pb-8 text-[13.5px] leading-[1.65]">
+      <div className="min-h-0 flex-1 overflow-y-auto px-[clamp(18px,calc(var(--ragents-viewport-width,100vw)*0.04),54px)] pt-4 pb-8">
         <DocumentContent document={document} loaded={loaded} />
       </div>
     </DialogContent>
@@ -482,7 +482,7 @@ export function DocumentPanel({ activeId, sections, truncated, onSelect }: Docum
         </span>
         {active.format !== "image" && <Button onClick={() => setModalOpen(true)} size="sm" variant="outline">Expand document</Button>}
       </header>
-      <div className="min-h-0 flex-1 overflow-y-auto px-workspace-inset py-4 text-[13px] leading-[1.6]">
+      <div className="min-h-0 flex-1 overflow-y-auto px-workspace-inset py-4">
         <DocumentContent document={active} loaded={loaded} />
       </div>
       {modalOpen && <DocumentModal document={active} onClose={() => setModalOpen(false)} />}

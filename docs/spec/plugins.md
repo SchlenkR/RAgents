@@ -2278,9 +2278,11 @@ Each sets size in `rem`, line height, weight, and letter spacing; `leading-*`, `
 `text-<name>` for a text color and drops it next to `text-muted-foreground` or `text-destructive`.
 Text on Start, Runs, Server, in their dialogs, on the template tiles, and in the run header uses
 these roles; controls such as buttons, inputs, and dialog titles keep the library's size scale.
-`type-prose` is the common reading role for rendered Markdown, including Topic: its size and
-line height come from `--text-prose` (0.875rem) and `--text-prose--line-height` (1.65).
-The same tokens supply quassel's message and composer text. Markdown headings in both renderers
+`type-prose` is the common reading role for rendered Markdown, including Topic, documents in
+the panel and dialog, Markdown files in Settings, and the mini-app building blocks `Markdown` and
+`DocumentViewer`: its size and line height come from `--text-prose` (0.8rem, the size of
+`type-body`) and `--text-prose--line-height` (1.6), so reading text does not stand above the
+rest of the interface. The same tokens supply quassel's message and composer text. Markdown headings in both renderers
 (answers, user messages, and bubbles in the chat) use the shared `--text-prose-h1` through `--text-prose-h4`
 scale relative to this reading role, with the same weight and letter spacing.
 Controls, item titles, and metadata retain their own roles. `type-prose` also styles lists,

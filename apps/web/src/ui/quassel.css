@@ -5,7 +5,7 @@
     --qsl-chat-content-max-width: var(--chat-max-width);
     --qsl-chat-font-size: var(--text-prose);
     --qsl-chat-line-height: var(--text-prose--line-height);
-    --qsl-chat-message-gap: 22px;
+    --qsl-chat-message-gap: 18px;
     --qsl-text-meta: 0.7rem;
     --qsl-text-trace: 0.72rem;
     --qsl-color-scheme: light;
