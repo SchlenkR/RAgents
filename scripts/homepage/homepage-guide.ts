@@ -18,7 +18,7 @@ export const guideChapters = [
   },
   { id: "distributed", title: "Distributed work", description: "Run the host locally or remotely, keep tools beside the project, and move runs between servers.", sources: ["docs/operations.md"], next: "guide-access.html", nextLabel: "Assign tokens and permissions" },
   { id: "functions", title: "Work with TypeScript", description: "Combine functions, program deterministic workflows, and involve models where needed.", sources: ["docs/spec/typescript-platform.md"], next: "guide-programs.html", nextLabel: "Build mini-apps" },
-  { id: "programs", title: "Build mini-apps", description: "Expose actor state and functions through interactive React views, and start programs on times or file changes.", sources: ["docs/spec/actor-programs.md"], next: "guide-plugins.html", nextLabel: "Choose a plugin form" },
+  { id: "programs", title: "Build mini-apps", description: "Expose actor state and functions through interactive React views, start programs on times or file changes, and write programs that wait and continue.", sources: ["docs/spec/actor-programs.md"], next: "guide-plugins.html", nextLabel: "Choose a plugin form" },
   { id: "plugins", title: "Plugins and skills", description: "Choose the right plugin form, connect contracts and prompts, and verify lifecycle and UI behavior.", sources: ["docs/spec/plugins.md"], next: "guide-access.html", nextLabel: "Assign permissions" },
   { id: "access", title: "Assign permissions", description: "Distinguish user permissions, actor grants, and the capabilities given to a subagent.", sources: ["docs/spec/profiles.md"], next: "guide.html", nextLabel: "Back to the guide" },
 ] as const;

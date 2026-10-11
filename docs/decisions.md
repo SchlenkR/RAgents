@@ -33,6 +33,72 @@ because no listed value name changed; a bundle built earlier still loads, but St
 Chapter: `spec/plugins.md` (Global apps). Without any global app, `ragents.global-apps` contributed a
 "Global mini-apps" widget that only said to ask the global coordinator. A global app is just a widget;
 the plugin now contributes exactly one widget per app (or per broken app) and nothing otherwise.
+## 2026-10-11: State-aware actor programs: defineProgram evaluates its body on every wake against slots by position
+
+Chapters: `spec/actor-programs.md` (Backend and client, Diagnostics, type check, and domain tests,
+Triggers, State-aware programs, Guards, Frame, layout, forms, and chat building blocks, State and
+lifecycle, Open limits), `spec/typescript-platform.md` (Build and process lifecycle, TypeScript
+actors, Open limits); usage: `usage.md` (Use chat and mini-apps, Global mini-apps on Start);
+`development.md` (Actors with functions and views); homepage section "Programs That Wait".
+
+Work that waits for a time, an answer, or a file and then continues had to be written as an
+`onInput` handler that keeps its own progress in state and guesses from every input where it
+stands. The principle of the owner's F# library Vide fits it better: a state-aware function maps
+the previous state and a context to a value and the next state and is evaluated completely on every
+wake. `defineProgram(contract, async (ctx) => ...)` brings it to TypeScript actor programs. Every
+primitive (`useState`, `useStateWith`, `step`, `waitUntil`, `receive`, `watch`, `when`, `forEach`)
+gets a slot by its position, so the state is a tree that mirrors the code and is the actor state.
+A waiting primitive throws a private suspension signal that the SDK's runner catches; a wake carries
+no value, and the waiting primitive decides from its slot and the world whether it is done. The
+runner replaces the state only when it changed, so an evaluation that ends in the same wait writes
+nothing, and it commits once per evaluation, also one that ends `failed`, so a completed step stays
+done. `defineActor` is unchanged.
+
+Recurrence needs no loop primitive: a daily or weekly `waitUntil` returns the latest occurrence and
+wakes the program at the next, and `forEach([today], (day) => day.at, ...)` gives each occurrence its
+own slots, which a new day forgets. A rejected alternative restarted the body as rounds and carried
+top-level cells along, a rule of its own; the keyed scope is the Vide way. Because forgetting must
+not undo what a forgotten scope assigned to cells outside it (a count of approvals), assignments are
+numbered across the program and a cell reads the latest one the evaluation has passed; the dropping
+`when` or `forEach` keeps the latest per cell and applies it whenever an evaluation passes there.
+An evaluation replays a cell's recorded assignments, and one that assigns another value stops: this
+is deliberate, as are the other structure checks (kind, key, missing or extra slot), which block the
+program with the position and both kinds and reset nothing. Evaluation is sequential and waits for
+one thing at a time; `race` and `together` would need several simultaneous waits and stay in
+`TODO.md`.
+
+Messages are declared in the contract and become functions with the result `{ queued: true }`,
+callable from views and, with `tool`, by agents. The host accepts one only while a receive of that
+name waits, because a message is addressed to that wait and an inbox would deliver yesterday's
+approval to today's draft, and queues it as an ActorInput of the program's actor, recognized by the
+command like starts and results. Wakes go through the generic triggers: `ProgramTriggers` derives a
+state-aware program's next wake from `wakeAt` in its actor state instead of storing it twice, uses
+the reason `wake`, evaluates a revision it has not evaluated at once, and plans anew on every new
+revision, which also ends a backoff of the previous code. A file wake compares the content hash of
+the watched file with the one the program waits on before it queues anything, so a change elsewhere
+in the folder writes nothing; the host hashes files within the program's read permissions, because
+an isolated program cannot read them, and evaluates again with the hash when a watch is reached for
+the first time. A program state change written as a patch now also wakes the trigger pump; it used to
+react only to replaced program definitions. The world carries the server's time zone, since an
+isolated process on Linux may not read it.
+
+The rules that keep a program replayable are checked like type errors, where the model already
+reads them: `program-guards.ts` runs on the TypeScript program of every server type check (RAG1001
+placement, RAG1002 nondeterminism outside steps, RAG1003 module state), and the client build lints
+every view with ESLint's `react-hooks/rules-of-hooks` and `exhaustive-deps` (RAG1004, RAG1005)
+in memory. Reimplementing the dependency analysis of `exhaustive-deps` on the compiler API would
+duplicate a maintained rule, so the host now loads ESLint, `eslint-plugin-react-hooks`, and
+`typescript-eslint`, which the package build picks up as dependencies; all bundled views already
+pass. The calendar arithmetic of the daily and weekly triggers moved to the host module
+`calendar.ts`, shared by the trigger schedule and the runner, and joined the host API as a new
+module without a new `HOST_API_VERSION`; `program-runner` is listed for its types.
+
+The authoring text is its own `actor_program_controls` topic `state-aware` with the principle, the
+primitives, the guards, and one example (a daily draft that waits up to 24 hours for an approval,
+counts approvals, and publishes); the guide and the initial summary point to it, and their size
+budgets in the tests grew to 6100 and 1600 characters for that pointer. The global apps prompt uses
+the same example with a view that approves or rejects. `createProgramTest` in
+`@ragents/server/testing` evaluates a program in domain tests as the host does.
 
 ## 2026-10-11: Triggers and permissions belong to every actor program; global apps keep only their rooms, list, and widgets
 

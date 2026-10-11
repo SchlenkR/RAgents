@@ -9,6 +9,6 @@ Getting started, workflows, and development based on the current specification a
 - [Global mini-apps](guide-global-apps.md): Ask an agent to build a mini-app in your global space, with its own triggers and explicit permissions, and verify it with a manual run.
 - [Distributed work](guide-distributed.md): Run the host locally or remotely, keep tools beside the project, and move runs between servers.
 - [Work with TypeScript](guide-functions.md): Combine functions, program deterministic workflows, and involve models where needed.
-- [Build mini-apps](guide-programs.md): Expose actor state and functions through interactive React views, and start programs on times or file changes.
+- [Build mini-apps](guide-programs.md): Expose actor state and functions through interactive React views, start programs on times or file changes, and write programs that wait and continue.
 - [Plugins and skills](guide-plugins.md): Choose the right plugin form, connect contracts and prompts, and verify lifecycle and UI behavior.
 - [Assign permissions](guide-access.md): Distinguish user permissions, actor grants, and the capabilities given to a subagent.

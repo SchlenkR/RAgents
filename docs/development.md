@@ -200,6 +200,13 @@ The host runs them in managed Node processes and applies successful
 state changes to the journal. Package structure and examples are in
 [Actor programs](spec/actor-programs.md) and [TypeScript platform](spec/typescript-platform.md).
 
+Work that waits for a time, a message, or a file and then continues is a state-aware program,
+`defineProgram(contract, async (ctx) => ...)`: the host evaluates its body on every wake, every
+primitive keeps its state in a slot by its position, and a step runs once. The runner lives in
+`apps/server/src/plugin-support/actor-programs/program-runner.ts` and is bundled into each
+package's `@ragents/server`; `program-guards.ts` adds the `RAG` checks to the type check, and
+`view-hooks.ts` lints views with the installed ESLint and `react-hooks` rules during their build.
+
 ## What plugins can do
 
 A plugin is ONE source folder - both halves together; the built-in ones are under

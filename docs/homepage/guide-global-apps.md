@@ -40,6 +40,14 @@ runs one overdue occurrence and continues with future times. Failures delay the 
 and "Resume" clears that delay. Successful inputs commit domain state, while completed external
 file writes or HTTP calls cannot be rolled back by a later failure.
 
+An app that waits, such as a daily draft that waits for your approval, is a
+[state-aware program](guide-programs.html#state-aware-programs). Its widget shows the next
+wake as next run, and its view offers the answer while the program waits for it, for example
+"Approve" and "Reject"; an answer while nothing waits is refused. Every completed step runs only
+once, also across restarts. If a changed app no longer fits what it recorded, its widget shows it
+blocked with the position and cause; the agent restores the code or creates the app under a new
+name.
+
 ## Let an agent write and verify an app
 
 The global coordinator has package, file/edit, TypeScript, `global_app_*`, and the trigger tools

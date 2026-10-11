@@ -14,6 +14,10 @@ export const actorProgramGuide = handlebarsPrompt(
   "ragents.actor-programs.prompt", 750, pluginAsset("ragents.actor-programs", "prompt.hbs"),
 );
 
+export const stateAwareProgramGuide = handlebarsPrompt(
+  "ragents.actor-programs.state-aware", 751, pluginAsset("ragents.actor-programs", "state-aware.hbs"),
+);
+
 export const actorProgramSummary = boundToTools(
   { ...handlebarsPrompt("ragents.actor-programs.summary", 749, pluginAsset("ragents.actor-programs", "summary.hbs")), delivery: "initial" },
   "actor_program_controls",

@@ -10,6 +10,7 @@ import { Value } from "typebox/value";
 import { canonicalHash, schemaComplaints, typeScriptTypesFromSchema, type NativeTypeScriptExecutor, type RunCapabilityDescriptor, scriptStdDeclarations } from "@ragents/engine";
 import { runtimeLibraries, webRuntimeLibraries } from "./runtime-libraries.js";
 import { appPermissionsSchema, appTriggersSchema } from "./contract.js";
+import { programGuardDiagnostics } from "./program-guards.js";
 
 const webRequire = createRequire(new URL("../../../../web/package.json", import.meta.url));
 const rootRequire = createRequire(new URL("../../../../../package.json", import.meta.url));
@@ -72,10 +73,12 @@ const actionSchema = Type.Object({
   capabilities: Type.Optional(Type.Array(Type.String(), { uniqueItems: true })),
   confirmation: Type.Optional(Type.String()),
   tool: Type.Optional(Type.Object({ name: Type.String(), targets: Type.Optional(Type.Array(Type.String(), { minItems: 1 })), card: Type.Optional(Type.Boolean()) }, { additionalProperties: false })),
+  message: Type.Optional(Type.Literal(true)),
 }, { additionalProperties: false });
 export const appContractSchema = Type.Object({
   state: schema, functions: Type.Record(Type.String(), actionSchema),
   input: Type.Optional(Type.Object({ capabilities: Type.Optional(Type.Array(Type.String(), { uniqueItems: true })) }, { additionalProperties: false })),
+  program: Type.Optional(Type.Literal(true)),
 }, { additionalProperties: false });
 export type AppContract = Static<typeof appContractSchema>;
 export const appPackageSchema = Type.Object({
@@ -89,7 +92,11 @@ export const appPackageSchema = Type.Object({
 }, { additionalProperties: false });
 export type AppPackage = Static<typeof appPackageSchema>;
 
-const sdkRuntime = `export const defineActor = (contract, implementation) => ({ contract, ...implementation });\n`;
+let serverBundle: Promise<string> | undefined;
+const serverRuntime = (): Promise<string> => serverBundle ??= build({
+  entryPoints: [fileURLToPath(new URL("./server-sdk.ts", import.meta.url))],
+  bundle: true, platform: "node", format: "esm", target: "node22", write: false, logLevel: "silent",
+}).then((result) => result.outputFiles[0]!.text);
 let testingBundle: Promise<string> | undefined;
 const testingRuntime = (): Promise<string> => testingBundle ??= build({
   stdin: {contents: `
@@ -118,6 +125,22 @@ export function createTestContextWithContracts(options, contracts) {
   return {...createRunContext({runId:"test",invocationId:"test",invocationKind:"tool",principal:{id:"test",kind:"service"},state:statePort,capabilities,log:()=>{},signal:controller.signal}),
     actor:{id:"test-actor",handle:"test"},std:createScriptStd({turnStartedAt:"2026-01-01T00:00:00.000Z",idPrefix:"test",state:statePort,capabilities}),
     finished,finish:(result,options={})=>{assertJsonValue(result===undefined?null:result,"Test finish result");finished.push({result:result===undefined?null:result,...options});}};
+}
+export function createProgramTestWithContracts(program, options, contracts) {
+  if (typeof program?.evaluate !== "function") throw new Error("createProgramTest needs the default export of defineProgram.");
+  let state = {};
+  let now = options.now ?? "2026-01-01T00:00:00.000Z";
+  return {
+    get state() { return structuredClone(state); },
+    async evaluate(world = {}) {
+      const context = createTestContextWithContracts({ state, functions: options.functions }, contracts);
+      now = world.now ?? now;
+      const files = Object.fromEntries(Object.entries(world.files ?? {}).map(([file, hash]) => [file, { hash }]));
+      const outcome = await program.evaluate({ now, timeZone: options.timeZone ?? Intl.DateTimeFormat().resolvedOptions().timeZone, revision: "test", message: world.message ?? null, files }, context);
+      state = context.state.read();
+      return { ...outcome, state: structuredClone(state) };
+    },
+  };
 }`, resolveDir:process.cwd(),sourcefile:"actor-testing.ts",loader:"ts"},
   bundle:true,platform:"node",format:"esm",target:"node22",packages:"external",write:false,
 }).then(result=>result.outputFiles![0]!.text);
@@ -171,6 +194,63 @@ export interface ActorContract { state: TSchema; functions: Readonly<Record<stri
 export type ActorFunctions<C extends ActorContract> = { [K in keyof C['functions']]: (input: Static<C['functions'][K]['input']>, context: RunContext<Static<C['state']>>) => Static<C['functions'][K]['output']> | Promise<Static<C['functions'][K]['output']>> };
 export type ActorImplementation<C extends ActorContract> = {functions: ActorFunctions<C>} & (C extends {input: unknown} ? {onInput: (input: ActorInput, context: RunContext<Static<C['state']>>) => void | Promise<void>; onStart?: (start: ActorStart, context: RunContext<Static<C['state']>>) => void | Promise<void>; onResult?: (result: ActorResult, context: RunContext<Static<C['state']>>) => void | Promise<void>} : {onInput?: never; onStart?: never; onResult?: never});
 export declare function defineActor<const C extends ActorContract>(contract: C, implementation: ActorImplementation<C>): {contract:C} & ActorImplementation<C>;
+export type ProgramWeekday = 'mon' | 'tue' | 'wed' | 'thu' | 'fri' | 'sat' | 'sun';
+/** An absolute ISO time, a duration after the program first reached the wait, or the latest daily or weekday wall time since then. */
+export type ProgramWait =
+  | { readonly at: string }
+  | { readonly afterMs: number }
+  | { readonly daily: string; readonly timeZone?: string }
+  | { readonly weekly: string; readonly days: readonly ProgramWeekday[]; readonly timeZone?: string };
+/** A state cell: value is what this evaluation has assigned so far, set records the next assignment. */
+export interface ProgramCell<T> { readonly value: T; set(value: T): void }
+export interface ProgramElse { readonly else: 'preserve' | 'forget' }
+/** A message the program receives; the host publishes it as a function that delivers its input to a waiting ctx.receive. */
+export interface ProgramMessage { label: string; description?: string; input: TSchema; tool?: { name: string; targets?: readonly string[]; card?: boolean }; confirmation?: string }
+export interface ProgramContract { capabilities?: readonly string[]; messages?: Readonly<Record<string, ProgramMessage>> }
+type ProgramMessageName<C extends ProgramContract> = C extends { messages: infer M } ? keyof M & string : never;
+type ProgramMessageValue<C extends ProgramContract, N> = C extends { messages: infer M } ? N extends keyof M ? M[N] extends { input: infer S extends TSchema } ? Static<S> : never : never : never;
+export type ProgramReceived<T> = { readonly kind: 'message'; readonly value: T } | { readonly kind: 'timeout' };
+export interface ProgramContext<C extends ProgramContract = ProgramContract> {
+  readonly run: { readonly id: string };
+  readonly actor: { readonly id: string; readonly handle: string };
+  readonly signal: AbortSignal;
+  /** The declared run functions; call them only inside ctx.step. */
+  readonly functions: RunContext<{}>['functions'];
+  log(value: unknown): void;
+  throwIfAborted(): void;
+  /** A cell at this position; name shows its current value under values in the actor state. */
+  useState<T>(initial: T, name?: string): ProgramCell<T>;
+  /** Like useState; create runs only when the cell is first reached. */
+  useStateWith<T>(create: () => T, name?: string): ProgramCell<T>;
+  /** Runs effect once; later evaluations return its stored JSON result. */
+  step<T>(effect: () => T | Promise<T>): Promise<T>;
+  waitUntil(wait: ProgramWait): Promise<{ readonly at: string }>;
+  /** Waits for the message addressed to this receive; with timeoutMs it ends as timeout after that time. */
+  receive<N extends ProgramMessageName<C>>(name: N): Promise<{ readonly kind: 'message'; readonly value: ProgramMessageValue<C, N> }>;
+  receive<N extends ProgramMessageName<C>>(name: N, options: { readonly timeoutMs: number }): Promise<ProgramReceived<ProgramMessageValue<C, N>>>;
+  /** Waits until the content hash of an absolute file within the read permissions differs from the one when the watch was first reached; null for a missing file. */
+  watch(path: string): Promise<{ readonly hash: string | null }>;
+  /** Runs body while condition holds; otherwise decides whether the branch keeps its state while the condition is false. */
+  when<T>(condition: boolean, body: () => T | Promise<T>, otherwise: ProgramElse): Promise<Awaited<T> | undefined>;
+  /** Runs body for every item, one after another; each key keeps its own state and a key that disappears forgets it. */
+  forEach<I, T>(items: readonly I[], key: (item: I) => string, body: (item: I) => T | Promise<T>): Promise<Awaited<T>[]>;
+  readonly elsePreserve: ProgramElse;
+  readonly elseForget: ProgramElse;
+}
+export interface ProgramWaiting {
+  readonly position: string; readonly kind: 'waitUntil' | 'receive' | 'watch';
+  readonly message: string | null; readonly until: string | null; readonly file: { readonly path: string; readonly hash: string | null } | null;
+}
+/** The actor state of a state-aware program; root holds the slot tree. */
+export interface ProgramState {
+  readonly version?: 1; readonly revision?: string; readonly status?: 'waiting' | 'done' | 'failed' | 'blocked';
+  readonly waiting?: ProgramWaiting | null; readonly wakeAt?: string | null; readonly error?: string | null;
+  readonly result?: unknown; readonly values?: Readonly<Record<string, unknown>>; readonly root?: unknown; readonly next?: number;
+}
+export interface ProgramOutcome { readonly status: 'waiting' | 'done' | 'failed' | 'blocked'; readonly consumed: boolean; readonly needs: readonly string[]; readonly error: string | null }
+export interface StateAwareProgram<C extends ProgramContract> { readonly contract: ActorContract; readonly messages?: C['messages']; evaluate(world: unknown, context: unknown): Promise<ProgramOutcome> }
+/** A state-aware program: the host evaluates body completely on every wake against the state recorded per position. */
+export declare function defineProgram<const C extends ProgramContract>(contract: C, body: (ctx: ProgramContext<C>) => unknown): StateAwareProgram<C>;
 `;
 };
 
@@ -214,11 +294,25 @@ export const installServerSdk = async (directory: string, capabilities: readonly
   await writeFile(path.join(sdk, "package.json"), json({ name: "@ragents/server", private: true, type: "module", exports: {
     ".": { types: "./index.d.ts", default: "./index.js" }, "./testing": { types: "./testing.d.ts", default: "./testing.js" },
   } }));
-  await writeFile(path.join(sdk, "index.js"), sdkRuntime);
+  await writeFile(path.join(sdk, "index.js"), await serverRuntime());
   await writeFile(path.join(sdk, "index.d.ts"), declarations);
-  await writeFile(path.join(sdk, "testing.js"), (await testingRuntime()) + `\nexport function createTestContext(options) { return createTestContextWithContracts(options, ${JSON.stringify(capabilities)}); }\n`);
-  await writeFile(path.join(sdk, "testing.d.ts"), "import type { RunContext, CapabilityContracts } from './index.js';\ntype Mocks = {[Name in keyof CapabilityContracts]?: (input: CapabilityContracts[Name]['input']) => CapabilityContracts[Name]['output'] | Promise<CapabilityContracts[Name]['output']>};\ntype Finished = {readonly result: unknown; readonly summary?: string; readonly start?: number};\nexport declare function createTestContext<State>(options: {state: State; functions?: Mocks}): RunContext<State> & {readonly finished: readonly Finished[]};\n");
+  await writeFile(path.join(sdk, "testing.js"), `${await testingRuntime()}
+export function createTestContext(options) { return createTestContextWithContracts(options, ${JSON.stringify(capabilities)}); }
+export function createProgramTest(program, options = {}) { return createProgramTestWithContracts(program, options, ${JSON.stringify(capabilities)}); }
+`);
+  await writeFile(path.join(sdk, "testing.d.ts"), testingDeclarations);
 };
+
+const testingDeclarations = `import type { RunContext, CapabilityContracts, ProgramOutcome, ProgramState, StateAwareProgram } from './index.js';
+type Mocks = {[Name in keyof CapabilityContracts]?: (input: CapabilityContracts[Name]['input']) => CapabilityContracts[Name]['output'] | Promise<CapabilityContracts[Name]['output']>};
+type Finished = {readonly result: unknown; readonly summary?: string; readonly start?: number};
+export declare function createTestContext<State>(options: {state: State; functions?: Mocks}): RunContext<State> & {readonly finished: readonly Finished[]};
+/** One wake of a state-aware program: the time, an optional message for a waiting receive, and the content hashes of watched files (null for a missing file). */
+export interface ProgramTestWorld { readonly now?: string; readonly message?: { readonly name: string; readonly value: unknown }; readonly files?: Readonly<Record<string, string | null>> }
+export interface ProgramTest { readonly state: ProgramState; evaluate(world?: ProgramTestWorld): Promise<ProgramOutcome & { readonly state: ProgramState }> }
+/** Evaluates a state-aware program like the host does, keeping its state between evaluations; now stays until a world names another. */
+export declare function createProgramTest(program: StateAwareProgram<any>, options?: { functions?: Mocks; now?: string; timeZone?: string }): ProgramTest;
+`;
 
 /** The tsconfig files the host writes into a package that brings none of its own. */
 const generatedConfigs = (pkg: Pick<AppPackage, "backend" | "views">): Readonly<Record<string, string>> => ({
@@ -289,10 +383,10 @@ export const typecheckServerProject = (directory: string, backend?: string): str
   const rootNames = [...new Set([...parsed.fileNames, ...(backend ? [path.resolve(directory, backend)] : [])])];
   const program = ts.createProgram(rootNames, parsed.options);
   const configErrors = parsed.errors.filter((diagnostic) => !(backend && diagnostic.code === 18003));
-  return [...(config.error ? [config.error] : []), ...configErrors, ...ts.getPreEmitDiagnostics(program)].map((diagnostic) => {
+  return [...[...(config.error ? [config.error] : []), ...configErrors, ...ts.getPreEmitDiagnostics(program)].map((diagnostic) => {
     const start = diagnostic.file && diagnostic.start !== undefined ? diagnostic.file.getLineAndCharacterOfPosition(diagnostic.start) : undefined;
     return `${diagnostic.file ? path.relative(directory, diagnostic.file.fileName) : "tsconfig.server.json"}${start ? `:${start.line + 1}:${start.character + 1}` : ""} TS${diagnostic.code}: ${ts.flattenDiagnosticMessageText(diagnostic.messageText, " ")}`;
-  });
+  }), ...programGuardDiagnostics(program, directory)];
 };
 
 export const compileAppBackend = async (options: {
@@ -310,6 +404,10 @@ export const describe = () => {
   return JSON.parse(JSON.stringify(actor.contract));
 };
 export const handle = async (request, context) => {
+  if (request.kind === 'evaluate') {
+    if (typeof actor.evaluate !== 'function') throw new Error('This actor is not a state-aware program.');
+    return actor.evaluate(request.world, context);
+  }
   if (request.kind !== 'input') {
     const handler = actor.functions[request.functionId];
     if (typeof handler !== 'function') throw new Error('Unknown actor function ' + request.functionId);

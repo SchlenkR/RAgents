@@ -8,6 +8,7 @@ import ts from "typescript";
 import { canonicalTypeScriptBuildContract, typeScriptTypeFromSchema, type VirtualTypeScriptDiagnostic } from "@ragents/engine";
 import { installWorkflowSdk } from "./app-project.js";
 import { readClientUiContractFiles } from "./client-contracts.js";
+import { viewHookDiagnostics } from "./view-hooks.js";
 
 export interface ClientActionContract {
   id: string;
@@ -144,6 +145,8 @@ export const compileClientProject = async (request: ClientProjectRequest, signal
   const program = ts.createProgram({ rootNames: [...new Set([path.resolve(directory, request.entryPoint), ...config.fileNames])], options: config.options });
   const diagnostics = [...config.errors, ...ts.getPreEmitDiagnostics(program)]
     .map((diagnostic) => diagnosticFrom(diagnostic, directory));
+  const ownSources = program.getSourceFiles().filter((file) => !file.isDeclarationFile && !file.fileName.split(path.sep).includes("node_modules") && file.fileName.startsWith(`${directory}${path.sep}`));
+  diagnostics.push(...await viewHookDiagnostics(ownSources.map((file) => ({ fileName: path.relative(directory, file.fileName).replaceAll(path.sep, "/"), text: file.text }))));
   signal?.throwIfAborted();
   let javaScript = "";
   if (!diagnostics.some((diagnostic) => diagnostic.category === "error")) {

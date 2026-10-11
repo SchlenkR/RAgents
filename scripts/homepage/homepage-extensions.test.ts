@@ -13,7 +13,9 @@ import { coreContracts } from "../../apps/server/src/api/contracts.ts";
 import ts from "typescript";
 import { Value } from "typebox/value";
 import { agentTools } from "../../packages/ragents/src/agents/tools.ts";
-import { appPackageSchema, prepareAppProject, typecheckServerProject } from "../../apps/server/src/plugin-support/actor-programs/app-project.ts";
+import { appPackageSchema, installServerSdk, prepareAppProject, typecheckServerProject } from "../../apps/server/src/plugin-support/actor-programs/app-project.ts";
+import { programPermissionFunctions } from "../../plugins/ragents.actor-programs/server/permissions.ts";
+import type { RunFunction } from "../../packages/ragents/src/agents/tools.ts";
 import { compileClientProject, installClientSdk } from "../../apps/server/src/plugin-support/actor-programs/client-compiler.ts";
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
@@ -232,6 +234,31 @@ test("permission examples run profile resolution and plugin checks with real con
   let body = "";
   route.handle({ access: createAccessContext({ enabled: true, user: users[0]! }), response: { setHeader() {}, end(value: string) { body = value; } } });
   assert.deepEqual(JSON.parse(body), { editable: false });
+});
+
+test("the state-aware program example passes its type check, guards, and domain test", async () => {
+  const { extensions } = await buildHomepageExtensions(repoRoot);
+  const source = (id: string): string => extensions.find((entry) => entry.id === id)!.example;
+  const directory = await mkdtemp(path.join(os.tmpdir(), "homepage-state-aware-"));
+  try {
+    const files = {
+      "package.json": JSON.stringify({ name: "daily-draft", private: true, type: "module", ragents: { title: "Daily draft", backend: "src/server.ts" } }),
+      "src/server.ts": source("app-program"),
+      "tests/program.test.ts": source("app-program-tests"),
+    };
+    for (const [name, text] of Object.entries(files)) {
+      await mkdir(path.dirname(path.join(directory, name)), { recursive: true });
+      await writeFile(path.join(directory, name), text);
+    }
+    const helpers = (programPermissionFunctions({ permissionsOf: () => undefined, ownerAccess: () => { throw new Error("unused"); } }).tools({} as never) as RunFunction[])
+      .map((fn) => ({ id: fn.name, label: fn.label, description: fn.description, schema: fn.schema, resultSchema: fn.resultSchema }));
+    await prepareAppProject(directory);
+    await installServerSdk(directory, helpers);
+    assert.deepEqual(typecheckServerProject(directory), []);
+    await promisify(execFile)(process.execPath, ["--import", "tsx", "--test", "tests/program.test.ts"], { cwd: directory });
+  } finally {
+    await rm(directory, { recursive: true, force: true });
+  }
 });
 
 test("native actor program examples build with the SDK and pass their domain tests", async () => {

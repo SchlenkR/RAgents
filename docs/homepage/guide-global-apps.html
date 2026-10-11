@@ -736,6 +736,13 @@ changes, as described for every mini-app under <a href="guide-programs.html#trig
 runs one overdue occurrence and continues with future times. Failures delay the next automatic run,
 and &quot;Resume&quot; clears that delay. Successful inputs commit domain state, while completed external
 file writes or HTTP calls cannot be rolled back by a later failure.</p>
+<p>An app that waits, such as a daily draft that waits for your approval, is a
+<a href="guide-programs.html#state-aware-programs">state-aware program</a>. Its widget shows the next
+wake as next run, and its view offers the answer while the program waits for it, for example
+&quot;Approve&quot; and &quot;Reject&quot;; an answer while nothing waits is refused. Every completed step runs only
+once, also across restarts. If a changed app no longer fits what it recorded, its widget shows it
+blocked with the position and cause; the agent restores the code or creates the app under a new
+name.</p>
 <h2 id="let-an-agent-write-and-verify-an-app">Let an agent write and verify an app</h2>
 <p>The global coordinator has package, file/edit, TypeScript, <code>global_app_*</code>, and the trigger tools
 <code>actor_program_trigger</code>, <code>actor_program_pause</code>, and <code>actor_program_status</code> in its own run. It calls

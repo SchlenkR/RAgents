@@ -4,9 +4,9 @@ import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import type { TestContext } from "node:test";
-import { createAccessContext, OperationContributionRegistry, ScriptDriver, ToolRegistry, TurnScheduler, type AccessContext, type CapabilityGrant, type RunFunction } from "@ragents/engine";
+import { createAccessContext, Journal, OperationContributionRegistry, Orchestration, ScriptDriver, ToolRegistry, TurnScheduler, type AccessContext, type CapabilityGrant, type RunFunction } from "@ragents/engine";
 import { toolDescriptorFrom } from "../src/plugin-support/agent-tool.ts";
-import { allGrants, catalog, setupRun } from "../../../packages/ragents/tests/support.ts";
+import { allGrants, catalog, setupRun, testServices } from "../../../packages/ragents/tests/support.ts";
 import { programPermissionFunctions } from "../../../plugins/ragents.actor-programs/server/permissions.ts";
 import type { ActorProgramRuntime } from "../../../plugins/ragents.actor-programs/server/runtime.ts";
 import type { ProgramTriggerOptions } from "../../../plugins/ragents.actor-programs/server/triggers.ts";
@@ -43,11 +43,23 @@ export interface TriggerFixtureOptions {
   readonly grants?: CapabilityGrant[];
   readonly operations?: OperationContributionRegistry;
   readonly watch?: ProgramTriggerOptions["watch"];
+  /** Keeps the journal in a folder, so that reopen reads it back like a server restart. */
+  readonly persistent?: boolean;
 }
+
+/** A run whose journal lives in a folder; IDs stay unique across reopening it. */
+const persistentRun = (journalDirectory: string): ReturnType<typeof setupRun> => {
+  const services = { ...testServices(), newId: (kind: string) => `${kind}-${randomUUID()}` };
+  const journal = new Journal(journalDirectory, services);
+  const runtime = new Orchestration(journal, services);
+  const view = runtime.createRun({ commandId: "create-run" }, { title: "Scheduler", ownerHandle: "owner", ownerDisplayName: "Owner" });
+  return { services, journal, runtime, view, agent: view.actors.find((actor) => actor.kind === "human")! } as unknown as ReturnType<typeof setupRun>;
+};
 
 export const triggerFixture = async (t: TestContext, options: TriggerFixtureOptions = {}) => {
   const directory = await mkdtemp(path.join(tmpdir(), "ragents-program-triggers-"));
-  const setup = setupRun({ grants: options.grants ?? allGrants() });
+  const journalDirectory = path.join(directory, "journal");
+  const setup = options.persistent ? persistentRun(journalDirectory) : setupRun({ grants: options.grants ?? allGrants() });
   let time = Date.parse("2026-08-16T12:00:00.000Z");
   setup.services.now = () => new Date(time).toISOString();
   let wake: (() => void) | undefined;
@@ -77,7 +89,8 @@ export const triggerFixture = async (t: TestContext, options: TriggerFixtureOpti
   programs = create();
   const registry = new ToolRegistry();
   registry.register({ name: "test.programs", descriptors: contributed().map((fn) => toolDescriptorFrom(fn, fn.available)), tools: contributed });
-  scheduler = new TurnScheduler(setup.runtime, setup.journal, { catalog, registry, drivers: { script: new ScriptDriver({ runtime: setup.runtime }) } });
+  const schedulerFor = () => new TurnScheduler(setup.runtime, setup.journal, { catalog, registry, drivers: { script: new ScriptDriver({ runtime: setup.runtime }) } });
+  scheduler = schedulerFor();
   await programs.triggers.ready();
   const runId = setup.view.id;
   const ownerContext = (target = runId) => ({ actorId: setup.runtime.state(target).ownerId, commandId: `test:${randomUUID()}` });
@@ -97,13 +110,25 @@ export const triggerFixture = async (t: TestContext, options: TriggerFixtureOpti
     return program.actorId;
   };
   const fixture = {
-    directory, setup, runId, scheduler, directoryFor, ownerContext, interrupt: triggers.interrupt,
+    directory, setup, runId, directoryFor, ownerContext, interrupt: triggers.interrupt,
+    get scheduler() { return scheduler; },
     get programs() { return programs; },
     get time() { return time; },
     setOwnerAccess: (value: AccessContext) => { ownerAccess = value; },
     advance: (milliseconds: number) => { time += milliseconds; const callback = wake; wake = undefined; callback?.(); },
     /** A server restart of the programs: shutdown, then a new runtime that reads the same journal. */
     restart: async () => { await stopPrograms(); programs = create(); await programs.triggers.ready(); },
+    /** A whole server restart: programs, scheduler and journal stop, and a new journal reads the folder back. */
+    reopen: async () => {
+      await stopPrograms();
+      await scheduler.stop();
+      setup.journal.close();
+      setup.journal = new Journal(journalDirectory, setup.services);
+      setup.runtime = new Orchestration(setup.journal, setup.services);
+      programs = create();
+      scheduler = schedulerFor();
+      await programs.triggers.ready();
+    },
     write: (name: string, files: Record<string, string>, target = runId) => writeAppFiles(directoryFor(target), name, files),
     activate: async (name: string, files: Record<string, string>, target = runId) => {
       await writeAppFiles(directoryFor(target), name, files);

@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { constants } from "node:fs";
 import { open, realpath, stat } from "node:fs/promises";
 import path from "node:path";
@@ -75,6 +76,38 @@ export const ungrantedHelpers = (capabilities: readonly string[], permissions: A
   return helper && !helper.granted(permissions) ? [`${id} needs permissions.${helper.label} in package.json`] : [];
 });
 
+/** The canonical path of a file within the program's permitted folders for this mode; anything else is an error. */
+export const permittedFile = async (permissions: AppPermissions, filename: string, mode: "read" | "write"): Promise<string> => {
+  if (!path.isAbsolute(filename)) fail("program-file-invalid", "Program file paths must be absolute.", 400);
+  const roots = permissions.files?.[mode] ?? [];
+  if (roots.length === 0) fail("program-file-denied", `This program has no file ${mode} permission.`, 403);
+  for (const root of roots) if (await realpath(root) !== root) fail("program-folder-changed", "A permitted folder changed its target.");
+  return allowedWorkspacePath(await resolvedWorkspacePath(filename), roots);
+};
+
+/** The SHA-256 of a permitted file's content, null while it does not exist; content changes count, not modification times. */
+export const permittedFileHash = async (permissions: AppPermissions, filename: string): Promise<string | null> => {
+  const target = await permittedFile(permissions, filename, "read");
+  const handle = await open(target, constants.O_RDONLY | constants.O_NOFOLLOW | constants.O_NONBLOCK).catch((error: NodeJS.ErrnoException) => {
+    if (error.code === "ENOENT") return null;
+    throw error;
+  });
+  if (!handle) return null;
+  try {
+    if (!(await handle.stat()).isFile()) fail("program-file-invalid", `A watched path must be a regular file: ${filename}.`, 400);
+    const hash = createHash("sha256");
+    for await (const chunk of handle.createReadStream({ autoClose: false })) hash.update(chunk as Buffer);
+    return hash.digest("hex");
+  } finally { await handle.close(); }
+};
+
+/** The permitted read folder a watched file lies in, for the folder watch that wakes its program. */
+export const watchedFolderOf = async (permissions: AppPermissions, filename: string): Promise<string> => {
+  const target = await permittedFile(permissions, filename, "read");
+  const roots = await Promise.all((permissions.files?.read ?? []).map(resolvedWorkspacePath));
+  return roots.find((root) => containsWorkspacePath(root, target)) ?? fail("program-file-denied", `${filename} is outside the program's read permissions.`, 403);
+};
+
 export interface PermissionFunctionOptions {
   /** The permissions of the caller's own active program; undefined without one. */
   readonly permissionsOf: (runId: string, actorId: string) => AppPermissions | undefined;
@@ -101,13 +134,6 @@ export const programPermissionFunctions = (options: PermissionFunctionOptions): 
     if (!options.ownerAccess(runId).can(right)) fail("access-denied", `The run owner lacks ${right}.`, 403);
     return permissions;
   };
-  const file = async (permissions: AppPermissions, filename: string, mode: "read" | "write"): Promise<string> => {
-    if (!path.isAbsolute(filename)) fail("program-file-invalid", "Program file paths must be absolute.", 400);
-    const roots = permissions.files?.[mode] ?? [];
-    if (roots.length === 0) fail("program-file-denied", `This program has no file ${mode} permission.`, 403);
-    for (const root of roots) if (await realpath(root) !== root) fail("program-folder-changed", "A permitted folder changed its target.");
-    return allowedWorkspacePath(await resolvedWorkspacePath(filename), roots);
-  };
   const functions: RunFunction[] = [
     defineRunFunction({
       name: "program_file_read",
@@ -118,7 +144,7 @@ export const programPermissionFunctions = (options: PermissionFunctionOptions): 
       available,
       nativeTool: false,
       run: async ({ caller }, _id, input) => {
-        const target = await file(permitted(caller.runId, caller.actorId, "runs.read"), input.path, "read");
+        const target = await permittedFile(permitted(caller.runId, caller.actorId, "runs.read"), input.path, "read");
         const handle = await open(target, constants.O_RDONLY | constants.O_NOFOLLOW | constants.O_NONBLOCK);
         try {
           const info = await handle.stat();
@@ -139,7 +165,7 @@ export const programPermissionFunctions = (options: PermissionFunctionOptions): 
       nativeTool: false,
       run: async ({ caller }, _id, input) => {
         if (Buffer.byteLength(input.content) > MAX_BYTES) fail("program-file-limit", `A program writes at most ${MAX_BYTES} bytes.`);
-        const target = await file(permitted(caller.runId, caller.actorId, "runs.write"), input.path, "write");
+        const target = await permittedFile(permitted(caller.runId, caller.actorId, "runs.write"), input.path, "write");
         const handle = await open(target, constants.O_WRONLY | constants.O_CREAT | constants.O_NOFOLLOW | constants.O_NONBLOCK, 0o600);
         try {
           if (!(await handle.stat()).isFile()) fail("program-file-limit", "A program writes only regular files.");

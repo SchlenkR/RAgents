@@ -91,6 +91,10 @@
       "readAppPackage",
       "typecheckServerProject"
     ],
+    "@ragents/host/plugin-support/actor-programs/calendar": [
+      "calendarTimeZone",
+      "nextCalendarOccurrence"
+    ],
     "@ragents/host/plugin-support/actor-programs/client-compiler": [
       "compileClientProject",
       "installClientSdk"
@@ -119,6 +123,7 @@
       "relativeName",
       "resolveActorView"
     ],
+    "@ragents/host/plugin-support/actor-programs/program-runner": [],
     "@ragents/host/plugin-support/actor-programs/service": [
       "actorProgramsToken"
     ],

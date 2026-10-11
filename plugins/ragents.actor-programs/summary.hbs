@@ -11,7 +11,8 @@ actor; a pure view binds to the calling actor. UI functions never require a mode
 Changed project errors arrive automatically; `actor_program_diagnostics` gives full diagnostics.
 A visible view is already open as a tab beside Chat; it needs no address or browser.
 `actor_view_set_visibility` hides or shows it by its `ref`; hiding keeps state.
-Query `actor_program_controls` when specific props are unclear, or `topic: "guide"` for the workflow.
+Query `actor_program_controls` when specific props are unclear, `topic: "guide"` for the workflow,
+`topic: "state-aware"` for a `defineProgram` that waits for a time, a message or a file.
 Controls are shadcn/ui components with their usual props, icons from `lucide-react`, Tailwind for layout.
 Build views with `AppLayout`, `Stack` and responsive `Grid`; the host supplies base typography.
 Use `Form` for labeled inputs, including `type: "textarea"`; do not rebuild field wrappers with custom CSS.

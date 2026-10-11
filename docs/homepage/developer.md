@@ -1797,6 +1797,76 @@ A domain test checks the shared function. A real browser check must additionally
 
 Contract fields: .
 
+### A program that waits and continues
+
+A state-aware program is one function that the host evaluates completely on every wake. Every primitive keeps its state in a slot by its position, a step runs once, and a waiting primitive ends the evaluation until a time, a message, or a file change arrives.
+
+Place of use: src/server.ts of a package whose package.json grants files.read for /srv/notes and files.write for /srv/published.
+
+```typescript
+import { defineProgram } from "@ragents/server";
+import { Type } from "typebox";
+
+export default defineProgram({
+  capabilities: ["program_file_read", "program_file_write"],
+  messages: {
+    approval: { label: "Approve the draft", input: Type.Object({ approved: Type.Boolean() }), tool: { name: "approve_draft" } },
+  },
+}, async (ctx) => {
+  const approvals = ctx.useState(0, "approvals");
+  const today = await ctx.waitUntil({ daily: "08:00", timeZone: "Europe/Berlin" });
+  await ctx.forEach([today], (day) => day.at, async (day) => {
+    const draft = await ctx.step(() => ctx.functions.program_file_read({ path: "/srv/notes/today.md" }));
+    const answer = await ctx.receive("approval", { timeoutMs: 24 * 60 * 60 * 1000 });
+    await ctx.when(answer.kind === "message" && answer.value.approved, async () => {
+      approvals.set(approvals.value + 1);
+      await ctx.step(() => ctx.functions.program_file_write({ path: `/srv/published/${day.at.slice(0, 10)}.md`, content: draft }));
+    }, ctx.elseForget);
+  });
+});
+```
+
+defineProgram produces the contract: program: true, the declared capabilities as input capabilities, and one function per message with message: true and the result { queued: true }. A view sends a message with context.capabilities.call, an agent through its tool, only while a receive of that name waits.
+
+A daily wait returns the latest occurrence and wakes the program at the next one, so the forEach over it gives every day its own slots; yesterday's are forgotten while approvals keeps counting.
+
+Activation reports RAG1001 for primitives outside the top level of the body or a when or forEach callback, RAG1002 for clocks, randomness, timers, network or file modules, and run functions outside steps, and RAG1003 for module state. A structure that no longer matches the recorded slots blocks the program with the position.
+
+Contract fields: appContract.program, appAction.message.
+
+### Evaluate a waiting program in a domain test
+
+createProgramTest evaluates the program as the host does and keeps its state between evaluations, so a test walks through the times and messages of a workflow.
+
+Place of use: tests/program.test.ts for the previous program.
+
+```typescript
+import assert from "node:assert/strict";
+import test from "node:test";
+import { createProgramTest } from "@ragents/server/testing";
+import program from "../src/server.ts";
+
+test("publishes an approved draft once and counts it", async () => {
+  const written: string[] = [];
+  const run = createProgramTest(program, { now: "2026-10-12T12:00:00.000Z", functions: {
+    program_file_read: () => "Notes of the day",
+    program_file_write: ({ path }) => { written.push(path); return { written: true }; },
+  } });
+  assert.equal((await run.evaluate()).state.wakeAt, "2026-10-13T06:00:00.000Z");
+  await run.evaluate({ now: "2026-10-13T06:00:00.000Z" });
+  await run.evaluate({ now: "2026-10-13T07:00:00.000Z", message: { name: "approval", value: { approved: true } } });
+  await run.evaluate({ now: "2026-10-13T08:00:00.000Z" });
+  assert.deepEqual(written, ["/srv/published/2026-10-13.md"]);
+  assert.deepEqual(run.state.values, { approvals: 1 });
+});
+```
+
+evaluate takes now, a message for a waiting receive, and the content hashes of watched files as files; now stays until a later evaluation names another.
+
+The function mocks are checked against their contracts like those of createTestContext.
+
+Contract fields: .
+
 ### Views as app tabs
 
 An activated visible view enters the shared app catalog and belongs to its actor. Several views can show the same actor state.
@@ -3072,6 +3142,7 @@ Source in the repository: apps/server/src/plugin-support/actor-programs/app-proj
 {
   state: schema, functions: Type.Record(Type.String(), actionSchema),
   input: Type.Optional(Type.Object({ capabilities: Type.Optional(Type.Array(Type.String(), { uniqueItems: true })) }, { additionalProperties: false })),
+  program: Type.Optional(Type.Literal(true)),
 }
 ```
 
@@ -3086,6 +3157,7 @@ Source in the repository: apps/server/src/plugin-support/actor-programs/app-proj
   capabilities: Type.Optional(Type.Array(Type.String(), { uniqueItems: true })),
   confirmation: Type.Optional(Type.String()),
   tool: Type.Optional(Type.Object({ name: Type.String(), targets: Type.Optional(Type.Array(Type.String(), { minItems: 1 })), card: Type.Optional(Type.Boolean()) }, { additionalProperties: false })),
+  message: Type.Optional(Type.Literal(true)),
 }
 ```
 

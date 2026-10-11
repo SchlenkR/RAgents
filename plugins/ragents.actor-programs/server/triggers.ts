@@ -5,6 +5,8 @@ import { Value } from "typebox/value";
 import { canonicalHash, DomainError, type JsonValue, type Orchestration, type RunView } from "@ragents/engine";
 import { watchDirectory } from "@ragents/workspace-executor";
 import { ACTOR_PROGRAMS_STATE_ID, ACTOR_STATE_ID, ACTOR_TRIGGERS_STATE_ID, type ActorProgramDefinition, type ActorProgramLogLine, type ActorProgramStatus, type ActorTriggerProgress, type ActorTriggerReason, type ActorTriggerResult } from "@ragents/host/plugin-support/actor-programs/contract.js";
+import { permittedFileHash, watchedFolderOf } from "./permissions.js";
+import { programSummaryOf, programValuesOf, programWakeOf } from "./program-state.js";
 import { nextScheduledOccurrence, serverTimeZone } from "./schedule.js";
 
 const MAX_ACTIVE = 4;
@@ -18,7 +20,7 @@ const occurrenceSchema = Type.Object({
   number: Type.Integer({ minimum: 1 }),
   key: Type.String(),
   commandId: Type.String(),
-  reason: Type.Union([Type.Literal("manual"), Type.Literal("interval"), Type.Literal("daily"), Type.Literal("weekly"), Type.Literal("file-change")]),
+  reason: Type.Union([Type.Literal("manual"), Type.Literal("interval"), Type.Literal("daily"), Type.Literal("weekly"), Type.Literal("file-change"), Type.Literal("wake")]),
   scheduledAt: Type.String(),
   timeZone: Type.String(),
 }, { additionalProperties: false });
@@ -58,7 +60,8 @@ const storedOf = (view: RunView, actorId: string): Stored => {
   if (!entry || entry.state === null) return { kind: "none" };
   return validState(entry.state) ? { kind: "valid", state: entry.state } : { kind: "damaged" };
 };
-const scheduleOf = (program: ActorProgramDefinition): string => canonicalHash((program.triggers ?? {}) as JsonValue);
+/** A new revision of a state-aware program plans anew, which ends a backoff its previous code caused. */
+const scheduleOf = (program: ActorProgramDefinition): string => canonicalHash((program.stateAware ? { triggers: program.triggers ?? {}, revision: program.revision } : program.triggers ?? {}) as JsonValue);
 const timeoutOf = (program: ActorProgramDefinition): number => (program.triggers?.timeoutSeconds ?? DEFAULT_TIMEOUT_SECONDS) * 1000;
 const inputFor = (runtime: Orchestration, view: RunView, commandId: string) => {
   for (const event of runtime.recentEvents(view.id)) {
@@ -71,7 +74,12 @@ const turnFor = (runtime: Orchestration, view: RunView, commandId: string) => {
   return lifecycle?.kind === "claimed" ? view.turns.find((turn) => turn.id === lifecycle.turnId) : undefined;
 };
 const declaresTriggers = (state: JsonValue): boolean => typeof state === "object" && state !== null && !Array.isArray(state)
-  && typeof state.program === "object" && state.program !== null && !Array.isArray(state.program) && state.program.triggers !== undefined;
+  && typeof state.program === "object" && state.program !== null && !Array.isArray(state.program) && (state.program.triggers !== undefined || state.program.stateAware !== undefined);
+/** The time a state-aware program wants its next evaluation, now for a revision it has not evaluated. */
+const wakeTimeOf = (view: RunView, program: ActorProgramDefinition | undefined, now: number): number | null => {
+  const wake = program ? programWakeOf(view, program) : null;
+  return wake === null ? null : wake.kind === "start" ? now : Date.parse(wake.at);
+};
 const lastOutput = (runtime: Orchestration, runId: string, turnId: string): string | undefined => {
   for (const event of runtime.recentEvents(runId)) {
     if (event.type === "runtime.output.recorded" && event.payload.turnId === turnId) return event.payload.text.split(/\r?\n/).at(-1);
@@ -86,13 +94,17 @@ export const acceptedTriggerOf = (view: RunView, actorId: string): Occurrence | 
   return stored.kind === "valid" ? stored.state.accepted ?? undefined : undefined;
 };
 
-export const triggerProgressOf = (runtime: Orchestration, view: RunView, actorId: string, runProblem: string | null = null): ActorTriggerProgress => {
+/** program adds a state-aware program's wake and its blocking divergence. */
+export const triggerProgressOf = (runtime: Orchestration, view: RunView, actorId: string, runProblem: string | null, program: ActorProgramDefinition | undefined, now: number): ActorTriggerProgress => {
   const stored = storedOf(view, actorId);
   if (stored.kind === "damaged") return { paused: false, status: "blocked", lastRunAt: null, nextRunAt: null, lastResult: null, problem: "The trigger state is damaged. Resume the triggers to plan them again." };
   const state = stored.kind === "valid" ? stored.state : undefined;
-  const problem = state?.problem ?? runProblem ?? (view.pause ? "The run is paused." : null);
+  const summary = program?.stateAware ? programSummaryOf(programValuesOf(view, actorId)) : undefined;
+  const programProblem = summary?.status === "blocked" ? summary.error : null;
+  const problem = state?.problem ?? programProblem ?? runProblem ?? (view.pause ? "The run is paused." : null);
   const running = state?.accepted ? turnFor(runtime, view, state.accepted.commandId)?.status === "running" : false;
-  const next = state?.nextDueAt ? Math.max(Date.parse(state.nextDueAt), state.backoffUntil ? Date.parse(state.backoffUntil) : 0) : null;
+  const times = [state?.nextDueAt ? Date.parse(state.nextDueAt) : null, wakeTimeOf(view, program, now)].filter((time): time is number => time !== null);
+  const next = times.length > 0 ? Math.max(Math.min(...times), state?.backoffUntil ? Date.parse(state.backoffUntil) : 0) : null;
   return {
     paused: state?.paused ?? false,
     status: problem ? "blocked" : state?.accepted ? running ? "running" : "queued" : state?.paused ? "paused" : "ready",
@@ -160,7 +172,7 @@ export class ProgramTriggers {
     this.#unsubscribe ??= this.#runtime().subscribe((events) => {
       const runs = new Set<string>();
       for (const event of events) {
-        const programChanged = event.type === "plugin.state-replaced" && event.payload.pluginId === ACTOR_PROGRAMS_STATE_ID;
+        const programChanged = (event.type === "plugin.state-replaced" || event.type === "plugin.state-patched") && event.payload.pluginId === ACTOR_PROGRAMS_STATE_ID;
         if (programChanged && !this.#runs.has(event.runId) && this.#triggered(event.runId)) this.#runs.add(event.runId);
         if ((programChanged || pumpEvents.has(event.type)) && this.#runs.has(event.runId)) runs.add(event.runId);
       }
@@ -181,7 +193,8 @@ export class ProgramTriggers {
   }
 
   progress(runId: string, actorId: string): ActorTriggerProgress {
-    return triggerProgressOf(this.#runtime(), this.#view(runId), actorId, this.#failures.get(runId) ?? null);
+    const view = this.#view(runId);
+    return triggerProgressOf(this.#runtime(), view, actorId, this.#failures.get(runId) ?? null, this.#options.programsOf(view).find((program) => program.actorId === actorId), this.#now());
   }
 
   async status(runId: string, actorId: string, logLimit = 20): Promise<ActorProgramStatus> {
@@ -201,7 +214,7 @@ export class ProgramTriggers {
       const program = this.#program(view, actorId);
       const stored = storedOf(view, actorId);
       if (stored.kind === "damaged") fail("trigger-state-damaged", "The trigger state is damaged. Resume the triggers to plan them again.");
-      await this.#accept(runId, program, stored.kind === "valid" ? stored.state : this.#planned(program, undefined), "manual");
+      await this.#accept(runId, program, stored.kind === "valid" ? stored.state : this.#planned(program, undefined), "manual", this.#at());
       this.#arm();
       return { accepted: true as const };
     });
@@ -246,7 +259,7 @@ export class ProgramTriggers {
     return this.#options.programsOf(view).filter((program) => acceptedTriggerOf(view, program.actorId)).length;
   }
 
-  async #accept(runId: string, program: ActorProgramDefinition, state: TriggerState, reason: ActorTriggerReason): Promise<void> {
+  async #accept(runId: string, program: ActorProgramDefinition, state: TriggerState, reason: ActorTriggerReason, scheduledAt: string): Promise<void> {
     const view = this.#view(runId);
     if (this.#closed || this.#stopped.has(runId) || view.pause) fail("trigger-blocked", "The run is paused or stopped.");
     if (!program.input) fail("trigger-without-input", "This program has no onInput handler for trigger inputs.");
@@ -255,9 +268,8 @@ export class ProgramTriggers {
     await this.#options.prepareRun(runId);
     const number = state.occurrence + 1;
     const key = `${runId}:${program.actorId}:${number}`;
-    const scheduled = reason === "interval" || reason === "daily" || reason === "weekly";
     const calendar = reason === "daily" ? program.triggers?.daily : reason === "weekly" ? program.triggers?.weekly : undefined;
-    const accepted: Occurrence = { number, key, commandId: `actor-program-trigger:${key}:${randomUUID()}`, reason, scheduledAt: scheduled && state.nextDueAt ? state.nextDueAt : this.#at(), timeZone: calendar?.timeZone ?? serverTimeZone() };
+    const accepted: Occurrence = { number, key, commandId: `actor-program-trigger:${key}:${randomUUID()}`, reason, scheduledAt, timeZone: calendar?.timeZone ?? serverTimeZone() };
     this.#write(runId, program.actorId, { ...state, occurrence: number, accepted, lastRunAt: this.#at(), nextDueAt: null, nextDueReason: null, filePending: reason === "file-change" ? false : state.filePending });
     this.#enqueue(runId, program.actorId, accepted);
   }
@@ -305,11 +317,20 @@ export class ProgramTriggers {
     if (current) this.#write(runId, actorId, { ...current, problem: errorText(error).slice(0, 1000) });
   }
 
-  #due(state: TriggerState): number | null {
+  #due(view: RunView, program: ActorProgramDefinition, state: TriggerState): number | null {
     if (state.paused || state.accepted || state.problem) return null;
     const backoff = state.backoffUntil ? Date.parse(state.backoffUntil) : 0;
     if (state.filePending) return Math.max(this.#now(), backoff);
-    return state.nextDueAt === null ? null : Math.max(Date.parse(state.nextDueAt), backoff);
+    const times = [state.nextDueAt === null ? null : Date.parse(state.nextDueAt), wakeTimeOf(view, program, this.#now())].filter((time): time is number => time !== null);
+    return times.length === 0 ? null : Math.max(Math.min(...times), backoff);
+  }
+
+  /** Why a due occurrence runs: a file change, the program's own wake when it comes first, otherwise the planned trigger. */
+  #reasonOf(view: RunView, program: ActorProgramDefinition, state: TriggerState): { reason: ActorTriggerReason; scheduledAt: string } {
+    if (state.filePending) return { reason: "file-change", scheduledAt: this.#at() };
+    const wake = wakeTimeOf(view, program, this.#now());
+    if (wake !== null && (state.nextDueAt === null || wake <= Date.parse(state.nextDueAt))) return { reason: "wake", scheduledAt: new Date(wake).toISOString() };
+    return { reason: state.nextDueReason!, scheduledAt: state.nextDueAt! };
   }
 
   async #pump(runId: string): Promise<void> {
@@ -323,19 +344,22 @@ export class ProgramTriggers {
     }
     for (const program of programs) {
       const stored = storedOf(this.#view(runId), program.actorId);
-      if (stored.kind === "damaged" || (stored.kind === "none" ? !program.triggers : stored.state.schedule === scheduleOf(program))) continue;
+      if (stored.kind === "damaged" || (stored.kind === "none" ? !program.triggers && !program.stateAware : stored.state.schedule === scheduleOf(program))) continue;
       this.#write(runId, program.actorId, this.#planned(program, stored.kind === "valid" ? stored.state : undefined));
     }
     const view = this.#view(runId);
     if (!view.pause) {
       const due = programs.flatMap((program) => {
         const stored = storedOf(view, program.actorId);
-        const at = stored.kind === "valid" ? this.#due(stored.state) : null;
+        const at = stored.kind === "valid" ? this.#due(view, program, stored.state) : null;
         return stored.kind === "valid" && at !== null && at <= this.#now() ? [{ program, state: stored.state, at }] : [];
       }).sort((left, right) => left.at - right.at || left.program.name.localeCompare(right.program.name));
       for (const { program, state } of due) {
         if (this.#activeCount(this.#view(runId)) >= MAX_ACTIVE) break;
-        try { await this.#accept(runId, program, state, state.filePending ? "file-change" : state.nextDueReason!); }
+        try {
+          const { reason, scheduledAt } = this.#reasonOf(this.#view(runId), program, state);
+          await this.#accept(runId, program, state, reason, scheduledAt);
+        }
         catch (error) { this.#failed(runId, program.actorId, error); }
       }
     }
@@ -349,13 +373,27 @@ export class ProgramTriggers {
       const stored = storedOf(view, program.actorId);
       return stored.kind === "valid" && !stored.state.paused && !stored.state.problem;
     });
-    const desired = enabled.flatMap((program) => (program.triggers?.fileChange?.folders ?? []).map((folder) => ({ actorId: program.actorId, folder, key: `${runId}\0${program.actorId}\0${folder}` })));
+    const folders = enabled.flatMap((program) => (program.triggers?.fileChange?.folders ?? []).map((folder) => ({ actorId: program.actorId, folder, file: null as string | null, key: `${runId}\0${program.actorId}\0${folder}\0` })));
+    const files = enabled.flatMap((program) => {
+      const waiting = program.stateAware ? programSummaryOf(programValuesOf(view, program.actorId))?.waiting?.file : undefined;
+      return waiting ? [{ program, file: waiting.path }] : [];
+    });
+    const watchedFiles = files.length === 0 ? [] : (await Promise.all(files.map(async ({ program, file }) => {
+      try {
+        const folder = await watchedFolderOf(program.permissions ?? {}, file);
+        return [{ actorId: program.actorId, folder, file: file as string | null, key: `${runId}\0${program.actorId}\0${folder}\0${file}` }];
+      } catch (error) {
+        this.#blocked(runId, program.actorId, error);
+        return [];
+      }
+    }))).flat();
+    const desired = [...folders, ...watchedFiles];
     for (const [key, stop] of this.#watches) {
       if (!key.startsWith(`${runId}\0`) || desired.some((entry) => entry.key === key)) continue;
       stop();
       this.#watches.delete(key);
     }
-    for (const { actorId, folder, key } of desired) {
+    for (const { actorId, folder, file, key } of desired) {
       if (this.#watches.has(key)) continue;
       const blocked = (error: Error) => {
         void this.#serial(runId, async () => {
@@ -370,6 +408,7 @@ export class ProgramTriggers {
             void this.#serial(runId, async () => {
               const current = this.#current(runId, actorId);
               if (this.#closed || this.#stopped.has(runId) || this.#view(runId).pause || !current || current.paused || current.problem) return;
+              if (file !== null && !await this.#fileChanged(runId, actorId, file)) return;
               this.#write(runId, actorId, { ...current, filePending: true });
               await this.#pump(runId);
             }).catch((cause) => blocked(cause instanceof Error ? cause : new Error(errorText(cause)))).finally(() => this.#arm());
@@ -382,6 +421,15 @@ export class ProgramTriggers {
         for (const [owned, stop] of this.#watches) if (owned.startsWith(`${runId}\0${actorId}\0`)) { stop(); this.#watches.delete(owned); }
       }
     }
+  }
+
+  /** Whether the file a state-aware program watches no longer has the hash it waits on; a change elsewhere in the folder writes nothing. */
+  async #fileChanged(runId: string, actorId: string, file: string): Promise<boolean> {
+    const view = this.#view(runId);
+    const program = this.#options.programsOf(view).find((entry) => entry.actorId === actorId);
+    const waiting = programSummaryOf(programValuesOf(view, actorId))?.waiting?.file;
+    if (!program || waiting?.path !== file) return false;
+    return permittedFileHash(program.permissions ?? {}, file).then((hash) => hash !== waiting.hash, () => true);
   }
 
   #serial<T>(runId: string, work: () => Promise<T>): Promise<T> {
@@ -413,7 +461,7 @@ export class ProgramTriggers {
             const turn = turnFor(this.#runtime(), view, stored.state.accepted.commandId);
             return turn?.status === "running" && !stored.state.problem ? [Date.parse(turn.startedAt) + timeoutOf(program)] : [];
           }
-          const due = full || view.pause ? null : this.#due(stored.state);
+          const due = full || view.pause ? null : this.#due(view, program, stored.state);
           return due === null ? [] : [due];
         });
       } catch (error) { this.#failures.set(runId, errorText(error)); return []; }

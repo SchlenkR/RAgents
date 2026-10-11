@@ -34,6 +34,7 @@ export const hostApi: { readonly server: HostApiModules; readonly web: HostApiMo
       "compileAppBackend", "installServerSdk", "packageIdentity", "prepareAppProject", "prepareAppWorkspace", "projectSourceFiles",
       "readAppPackage", "typecheckServerProject",
     ],
+    "@ragents/host/plugin-support/actor-programs/calendar": ["calendarTimeZone", "nextCalendarOccurrence"],
     "@ragents/host/plugin-support/actor-programs/client-compiler": ["compileClientProject", "installClientSdk"],
     "@ragents/host/plugin-support/actor-programs/client-contracts": [
       "readClientUiComponentContracts", "readClientUiComponentNames",
@@ -45,6 +46,7 @@ export const hostApi: { readonly server: HostApiModules; readonly web: HostApiMo
       "ACTOR_INVOCATIONS_STATE_ID", "ACTOR_PROGRAMS_STATE_ID", "ACTOR_SCRIPT_STATE_ID", "ACTOR_STATE_ID", "ACTOR_TRIGGERS_STATE_ID",
       "ACTOR_VIEW_ID_MAX_LENGTH", "actorProgramContracts", "appPermissionsSchema", "appTriggersSchema", "relativeName", "resolveActorView",
     ],
+    "@ragents/host/plugin-support/actor-programs/program-runner": [],
     "@ragents/host/plugin-support/actor-programs/service": ["actorProgramsToken"],
     "@ragents/host/plugin-support/actor-programs/tailwind": ["buildTailwind"],
     "@ragents/host/plugin-support/actor-programs/workflow/prompt-reader": ["createPromptReader"],
