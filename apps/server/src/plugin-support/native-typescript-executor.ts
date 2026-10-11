@@ -5,7 +5,7 @@ import { fileURLToPath } from "node:url";
 import { build } from "esbuild";
 import type { NativeTypeScriptBinding, NativeTypeScriptExecutor, NativeTypeScriptRequest, NativeTypeScriptResult } from "@ragents/engine";
 import type { JsonValue } from "@ragents/engine";
-import { sandboxedLaunch, startManagedService, type ManagedService, type WorkspaceProcessContext } from "@ragents/workspace-executor";
+import { resolvedWorkspacePath, sandboxedLaunch, startManagedService, type ManagedService, type WorkspaceProcessContext } from "@ragents/workspace-executor";
 import { syncWorkspaceOwnership } from "./workspace-ownership.js";
 
 interface ExecutorOptions {
@@ -78,15 +78,16 @@ export class NodeTypeScriptExecutor implements NativeTypeScriptExecutor {
   async #start(request: NativeTypeScriptRequest, instanceId: string, fingerprint: string, controller: AbortController, callerSignal?: AbortSignal): Promise<Backend> {
     const signal = callerSignal ? AbortSignal.any([controller.signal, callerSignal]) : controller.signal;
     signal.throwIfAborted();
-    const directory = path.join(this.#options.directoryFor(request.context.runId), createHash("sha256").update(instanceId).digest("hex"), fingerprint);
+    const directory = await resolvedWorkspacePath(path.join(this.#options.directoryFor(request.context.runId), createHash("sha256").update(instanceId).digest("hex"), fingerprint));
+    const cwd = request.cwd === undefined ? undefined : await realpath(request.cwd);
     const toolkit = fileURLToPath(new URL("../../../../node_modules", import.meta.url));
-    const resolvedDependencies = request.cwd ? await realpath(path.join(request.cwd, "node_modules")).catch((error: NodeJS.ErrnoException) => {
+    const resolvedDependencies = cwd ? await realpath(path.join(cwd, "node_modules")).catch((error: NodeJS.ErrnoException) => {
       if (error.code !== "ENOENT") throw error;
       return realpath(toolkit);
     }) : await realpath(toolkit);
     if (request.isolated && !this.#options.isolatedProcessContextFor) throw new Error("Isolated Node execution is not configured.");
     const processContext = request.isolated
-      ? await this.#options.isolatedProcessContextFor!(request.context.runId, [request.cwd ?? directory, directory], [resolvedDependencies, await realpath(toolkit)])
+      ? await this.#options.isolatedProcessContextFor!(request.context.runId, [cwd ?? directory, directory], [resolvedDependencies, await realpath(toolkit)])
       : await this.#options.serverProcessContextFor(request.context.runId);
     signal.throwIfAborted();
     await mkdir(directory, { recursive: true });
@@ -127,12 +128,12 @@ export class NodeTypeScriptExecutor implements NativeTypeScriptExecutor {
       backend.reject(error);
       backend.service.kill("SIGKILL");
     };
-    const launch = await sandboxedLaunch(processContext, { command: process.execPath, args: [path.join(directory, "__runner.mjs")] });
+    const launch = await sandboxedLaunch(processContext, { command: await realpath(process.execPath), args: [path.join(directory, "__runner.mjs")] });
     signal.throwIfAborted();
     backend.service = startManagedService({
       command: launch.command,
       args: [...launch.args],
-      cwd: request.cwd ?? processContext.cwd,
+      cwd: cwd ?? await realpath(processContext.cwd),
       env: { ...processContext.env, RAGENTS_RUN_ID: request.context.runId },
       uid: processContext.uid, gid: processContext.gid,
       ipc: true, label: `TypeScript ${instanceId}`,

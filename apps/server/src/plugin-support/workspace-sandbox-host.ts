@@ -332,12 +332,16 @@ export class WorkspaceSandboxHost implements SandboxServices {
     const processSandbox = this.#options.isolatedProcessSandboxFor
       ? await this.#options.isolatedProcessSandboxFor(runId)
       : this.#options.processSandboxFor ? await this.#options.processSandboxFor(runId) : this.#options.processSandbox;
-    const temporary = path.join(directories[0]!, ".build", "tmp");
-    await mkdir(temporary, { recursive: true });
-    const sandbox = processSandbox?.forRun({ writable: directories, readable, temporary, isolated: true });
+    const writable = await Promise.all(directories.map(resolvedWorkspacePath));
+    const dependencies = await Promise.all(readable.map(resolvedWorkspacePath));
+    const own = writable[0]!;
+    const temporaryDirectory = path.join(own, ".build", "tmp");
+    await mkdir(temporaryDirectory, { recursive: true });
+    const temporary = await realpath(temporaryDirectory);
+    const sandbox = processSandbox?.forRun({ writable, readable: dependencies, temporary, isolated: true });
     return {
-      ...context, cwd: directories[0]!, root: directories[0]!, home: directories[0]!,
-      env: { ...safeProcessEnvironment(context.env), HOME: directories[0]!, TMPDIR: temporary, TMP: temporary, TEMP: temporary },
+      ...context, cwd: own, root: own, home: own,
+      env: { ...safeProcessEnvironment(context.env), HOME: own, USERPROFILE: own, TMPDIR: temporary, TMP: temporary, TEMP: temporary, CLAUDE_CODE_TMPDIR: temporary },
       sandbox,
     };
   }
@@ -360,12 +364,20 @@ export class WorkspaceSandboxHost implements SandboxServices {
   /** The context of this server's executor; without its own folder the workspace itself, which must then lie on the server. */
   async #contextFor(runId: string, serverDirectory?: string, suppliedWorkspace?: SessionWorkspace): Promise<WorkspaceProcessContext> {
     const workspace = suppliedWorkspace ?? await this.#options.workspaceFor(runId);
-    const { ident, home, readOnlyRoots, temporary } = suppliedWorkspace
+    const { ident, home: suppliedHome, readOnlyRoots, temporary } = suppliedWorkspace
       ? await this.#resolveStableParts(runId, workspace)
       : await this.#stableParts(runId, workspace);
-    const root = serverDirectory ?? await workspace.currentRoot();
+    const root = await resolvedWorkspacePath(serverDirectory ?? await workspace.currentRoot());
+    const cwd = await resolvedWorkspacePath(serverDirectory ?? workspace.cwd);
+    const home = {
+      home: await resolvedWorkspacePath(suppliedHome.home),
+      ...(suppliedHome.nugetPackages ? { nugetPackages: await resolvedWorkspacePath(suppliedHome.nugetPackages) } : {}),
+    };
     const additionalRoots = suppliedWorkspace ? [] : await this.#additionalRoots(runId, ident);
     const folders = workspace.sandboxFolders ?? [];
+    const writableFolders = await Promise.all(sandboxFoldersWith(folders, "write").map(resolvedWorkspacePath));
+    const readableFolders = await Promise.all(sandboxFoldersWith(folders, "read").map(resolvedWorkspacePath));
+    const storageRoot = this.#options.storageRootFor ? await resolvedWorkspacePath(this.#options.storageRootFor(runId)) : undefined;
     const processSandbox = this.#options.processSandboxFor
       ? await this.#options.processSandboxFor(runId)
       : this.#options.processSandbox;
@@ -373,26 +385,29 @@ export class WorkspaceSandboxHost implements SandboxServices {
       ? processSandbox.forRun({
         writable: [
           root, ...additionalRoots.map((entry) => entry.directory), home.home, ...home.nugetPackages ? [home.nugetPackages] : [],
-          ...sandboxFoldersWith(folders, "write"),
+          ...writableFolders,
         ],
         readable: [
-          ...readOnlyRoots.map((entry) => entry.directory), ...this.#options.storageRootFor ? [this.#options.storageRootFor(runId)] : [],
-          ...sandboxFoldersWith(folders, "read"),
+          ...readOnlyRoots.map((entry) => entry.directory), ...storageRoot ? [storageRoot] : [],
+          ...readableFolders,
         ],
         temporary,
       })
       : undefined;
     return workspaceProcessContext({
       runId,
-      cwd: serverDirectory ?? workspace.cwd,
+      cwd,
       root,
       home,
       logDirectory: home.home,
-      hostRoot: hostRoot(),
+      hostRoot: await resolvedWorkspacePath(hostRoot()),
       ...(ident ? { ident } : {}),
       additionalRoots,
       readOnlyRoots,
-      additions: sandboxRunEnvironment(runId, workspace),
+      additions: {
+        ...sandboxRunEnvironment(runId, workspace),
+        ...(sandbox ? { TMPDIR: temporary!, TMP: temporary!, TEMP: temporary!, CLAUDE_CODE_TMPDIR: temporary! } : {}),
+      },
       runOperation: workspace.runOperation,
       ...(sandbox ? { sandbox } : {}),
       browserNetwork: this.browserNetworkFor(runId),

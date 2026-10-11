@@ -994,7 +994,10 @@ capabilities like any function; declaring one without its permission fails activ
 Activation grants only what the activating actor and the run owner can give: a folder needs a
 usable, delegable <code>workspace.use</code> grant of that actor covering it, the owner&#39;s <code>runs.read</code> or
 <code>runs.write</code>, and, unless the owner has <code>*</code>, a place within the run&#39;s workspace folders. The
-definition stores the canonical folders; <code>actor_program_list</code> and <code>actor_program_status</code> show them.</p>
+definition stores the canonical folders; <code>actor_program_list</code> and <code>actor_program_status</code> show them.
+Folder grants and requested permissions are compared by their real paths, so a grant through a
+symlink covers the same folder. File triggers and state-aware file watches observe the canonical
+permitted folder while retaining the requested file reference in program state.</p>
 <p>Every call checks the permissions of the caller&#39;s own active program and the owner&#39;s current
 rights. File calls recheck the canonical allow list and protect the final path component with
 <code>O_NOFOLLOW</code>; they reuse the <a href="../spec/plugins.md#workspace-sandbox-tools-and-processes">workspace path protection</a>.

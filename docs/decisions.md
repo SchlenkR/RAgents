@@ -1,5 +1,18 @@
 # Decisions
 
+## 2026-10-11: Sandboxed processes launch with canonical folder paths
+
+Chapters: `spec/typescript-platform.md` (Build and process lifecycle), `spec/plugins.md`
+(Server process sandbox), `spec/actor-programs.md` (Permissions).
+
+An isolated global app could not load its runner when the data folder was a symlink: the sandbox
+allowed the real build folder while Node received the symlink path through a blocked parent.
+Managed execution now resolves its build, entry, executable, and working directory before launch.
+Workspace contexts, temporary environment, actor tests, and permitted-folder grants use matching
+canonical paths. Spaces remain literal arguments. Broken links and cycles fail explicitly.
+Regression coverage starts real isolated and ordinary processes through linked data and package
+folders with spaces, checks folder policies and permissions, and exercises both forms of file watch.
+
 ## 2026-10-11: Verify prompt selections and the latest-run app without exemptions
 
 Chapters: `spec/plugins.md` (Prompt contributions and orchestration guidance, Global mini-apps),

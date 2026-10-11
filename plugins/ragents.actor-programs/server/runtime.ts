@@ -926,15 +926,16 @@ export class ActorProgramRuntime implements ActorProgramsService, ActorProgramEx
             const definition = compiled.definition;
             const tests = compiled.files.filter((file) => /^tests\/.*\.test\.tsx?$/.test(file.path));
             if (tests.length) {
+                const directory = await realpath(compiled.directory);
                 if (definition.isolated && !this.#options.isolatedProcessContextFor)
                     throw new Error("Isolated actor tests are not configured.");
                 const processContext = definition.isolated
-                    ? await this.#options.isolatedProcessContextFor!(runId, [compiled.directory], [await realpath(path.join(compiled.directory, "node_modules"))])
+                    ? await this.#options.isolatedProcessContextFor!(runId, [directory], [await realpath(path.join(directory, "node_modules"))])
                     : await this.#options.serverProcessContextFor(runId);
                 const report = await createTestReport(compiled.directory);
                 let stderr = "";
-                const launch = await sandboxedLaunch(processContext, { command: process.execPath, args: ["--import", "tsx", "--test", testReporterArgument, ...tests.map((file) => file.path)] });
-                const result = await runManagedProcess({ command: launch.command, args: [...launch.args], cwd: compiled.directory,
+                const launch = await sandboxedLaunch(processContext, { command: await realpath(process.execPath), args: ["--import", "tsx", "--test", testReporterArgument, ...tests.map((file) => file.path)] });
+                const result = await runManagedProcess({ command: launch.command, args: [...launch.args], cwd: directory,
                     env: processContext.env, uid: processContext.uid, gid: processContext.gid, label: `Tests ${name}`, signal, timeoutMs: 60000,
                     onStdout: (chunk) => report.stdout(chunk.toString()), onStderr: (chunk) => { stderr = (stderr + chunk.toString()).slice(-12000); } });
                 if (result.code !== 0 || result.timedOut)

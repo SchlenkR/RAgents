@@ -87,6 +87,14 @@ folder. Native execution is not an additional language sandbox against arbitrary
 For nonadministrator owners, or when requested for the run or forced by the server, these
 processes use the operating system sandbox described in `plugins.md` (Server process sandbox).
 
+Managed Node execution resolves build folders, package working directories, runner and entry
+modules, and the Node executable to their real paths before launch. Process contexts use the same
+paths for their folder rules, home, caches, registered roots, and temporary environment. A data or
+package folder reached through a symlink therefore works with both ordinary and isolated
+execution, including when its target contains spaces; launch arguments stay individually quoted.
+Missing descendants resolve through their nearest existing ancestor, while broken symlinks,
+cycles, and other resolution errors fail execution.
+
 The existing `Orchestration.stopActors` stops exactly the requested actors, without stopping
 their descendants or sibling rooms. Global conversation reset combines it with scoped scheduler
 interruption and awaits cleanup before replacing the coordinator. Global app actors are

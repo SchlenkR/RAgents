@@ -11,6 +11,50 @@ import {
   type ResolvedWorkspaceRoot,
 } from "@ragents/workspace-executor";
 import { WorkspaceSandboxHost } from "../src/plugin-support/workspace-sandbox-host.ts";
+import type { RunSandboxFolders } from "../src/plugin-support/process-sandbox.ts";
+
+test("server process contexts and sandbox allowances share canonical workspace, home, cache and registered roots", async (t) => {
+  const base = await realpath(await mkdtemp(path.join(os.tmpdir(), "ragents-context-paths-")));
+  const target = path.join(base, "storage with spaces");
+  const alias = path.join(base, "data-link");
+  await mkdir(target);
+  await symlink(target, alias, "junction");
+  const root = path.join(alias, "workspace");
+  const home = path.join(alias, "home");
+  const apps = path.join(alias, "apps");
+  const readable = path.join(alias, "read-only");
+  const writable = path.join(alias, "extra-write");
+  await Promise.all([root, home, apps, readable, writable].map((directory) => mkdir(directory)));
+  let policy: RunSandboxFolders | undefined;
+  const host = new WorkspaceSandboxHost({
+    contributorName: "test", contributions: [],
+    workspaceFor: async () => ({ cwd: root, currentRoot: async () => root, runOperation: (operation) => operation(),
+      sandboxFolders: [{ directory: readable, access: "read" }, { directory: writable, access: "write" }] }),
+    identFor: async () => undefined, skillPaths: async () => [],
+    homeFor: async () => ({ home, nugetPackages: path.join(home, "new-cache") }),
+    storageRootFor: () => alias,
+    processSandbox: { forRun: (folders) => { policy = folders; return { wrap: async (launch) => launch }; } },
+  });
+  t.after(async () => { await host.shutdownAll(); await rm(base, { recursive: true, force: true }); });
+  host.registerWorkspaceRoot({ id: "apps", alias: "@apps", environmentVariable: "RAGENTS_APPS_DIR", directoryFor: () => apps });
+  const context = await host.serverProcessContextFor("run");
+  assert.equal(context.cwd, path.join(target, "workspace"));
+  assert.equal(context.root, context.cwd);
+  assert.equal(context.home, path.join(target, "home"));
+  assert.equal(context.logDirectory, context.home);
+  assert.equal(context.env.HOME, context.home);
+  assert.equal(context.env.USERPROFILE, context.home);
+  assert.equal(context.env.NUGET_PACKAGES, path.join(target, "home", "new-cache"));
+  assert.equal(context.env.RAGENTS_APPS_DIR, path.join(target, "apps"));
+  assert.deepEqual(context.workspaceAliases, { "@apps": path.join(target, "apps") });
+  assert.deepEqual(policy?.writable, [context.root, path.join(target, "apps"), context.home, context.env.NUGET_PACKAGES, path.join(target, "extra-write")]);
+  assert.deepEqual(policy?.readable, [target, path.join(target, "read-only")]);
+  assert.equal(context.env.TMPDIR, path.join(target, "tmp"));
+  assert.equal(context.env.TMP, context.env.TMPDIR);
+  assert.equal(context.env.TEMP, context.env.TMPDIR);
+  assert.equal(context.env.CLAUDE_CODE_TMPDIR, context.env.TMPDIR);
+  assert.equal(policy?.temporary, context.env.TMPDIR);
+});
 
 test("registered private roots provide file aliases and Bash variables without exposing another run", async () => {
   const directory = await realpath(await mkdtemp(path.join(os.tmpdir(), "ragents-workspace-roots-")));

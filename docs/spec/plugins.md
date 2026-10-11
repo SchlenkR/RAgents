@@ -4678,6 +4678,11 @@ is not writable; the library additionally blocks writing `.git/hooks`, `.vscode`
 secrets in the home; on macOS such an access fails with
 `Operation not permitted`, on Linux the blocked folder is empty. Because `PATH` entries are often
 symlinks into blocked folders (such as fnm), `PATH` in the sandbox names their targets. An allowed
+executable given by absolute path also launches by its real path. The server's process context
+resolves the workspace, working directory, home, caches, registered roots, extra permitted folders,
+and temporary directory consistently with the sandbox rules; environment variables name these
+same paths. Symlinked data and program folders work on macOS and Linux, also with spaces in their
+targets, without granting access to the symlink's parent. An allowed
 folder that contains a blocked or a writable one is decomposed into its other entries at the start of every process,
 so that neither the block nor the write access within it is lost;
 what is created next to it afterwards is seen only by the next process.

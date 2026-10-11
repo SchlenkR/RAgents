@@ -1,5 +1,5 @@
 import { spawn } from "node:child_process";
-import { existsSync, readdirSync, realpathSync } from "node:fs";
+import { existsSync, lstatSync, readdirSync, realpathSync } from "node:fs";
 import { isIP } from "node:net";
 import os from "node:os";
 import path from "node:path";
@@ -88,7 +88,18 @@ const homeRoots = (platform: NodeJS.Platform): readonly string[] =>
 const realOrGiven = (entry: string): string => {
   try {
     return realpathSync(entry);
-  } catch {
+  } catch (error) {
+    const code = (error as NodeJS.ErrnoException).code;
+    if (code !== "ENOENT" && code !== "ENOTDIR") throw error;
+    const info = (() => {
+      try { return lstatSync(entry); }
+      catch (cause) {
+        const code = (cause as NodeJS.ErrnoException).code;
+        if (code !== "ENOENT" && code !== "ENOTDIR") throw cause;
+        return undefined;
+      }
+    })();
+    if (info?.isSymbolicLink()) throw error;
     const parent = path.dirname(entry);
     return parent === entry ? entry : path.join(realOrGiven(parent), path.basename(entry));
   }
@@ -300,20 +311,22 @@ export class ServerProcessSandbox implements RunProcessSandboxes {
   }
 
   forRun(folders: RunSandboxFolders): ProcessSandbox {
+    const temporary = realOrGiven(folders.temporary);
+    const commandFor = (launch: ProcessLaunch): string => path.isAbsolute(launch.command) ? realOrGiven(launch.command) : launch.command;
     if (folders.isolated) return {
       wrap: async (launch) => {
         const readable = [
-          ...folders.readable, ...folders.writable, folders.temporary,
+          ...folders.readable, ...folders.writable, temporary,
           realpathSync(process.execPath),
           ...this.#platform === "darwin"
             ? ["/System/Library", "/usr/lib", "/usr/bin/env", "/bin/sh", "/bin/bash", "/dev/null", "/dev/urandom", "/dev/random", "/private/etc/localtime"]
             : ["/usr/lib", "/usr/bin/env", "/bin/sh", "/bin/bash", "/lib", "/lib64", "/proc", "/etc/ld.so.cache"],
         ].map(realOrGiven);
         const parameters = {
-          command: shellCommand(["env", ...insideEnvironment(folders.temporary, this.#searchPath, this.#platform), launch.command, ...launch.args]),
+          command: shellCommand(["env", ...insideEnvironment(temporary, this.#searchPath, this.#platform), commandFor(launch), ...launch.args]),
           needsNetworkRestriction: true,
           readConfig: { denyOnly: ["/"], allowWithinDeny: readable },
-          writeConfig: { allowOnly: [...folders.writable, folders.temporary].map(realOrGiven), denyWithinAllow: [] },
+          writeConfig: { allowOnly: [...folders.writable, temporary].map(realOrGiven), denyWithinAllow: [] },
           allowAllUnixSockets: false,
         };
         const wrapped = this.#platform === "darwin" ? wrapCommandWithSandboxMacOS(parameters) : await wrapCommandWithSandboxLinux(parameters);
@@ -322,12 +335,12 @@ export class ServerProcessSandbox implements RunProcessSandboxes {
     };
     const bridges = [SandboxManager.getLinuxHttpSocketPath(), SandboxManager.getLinuxSocksSocketPath()]
       .filter((socket): socket is string => socket !== undefined);
-    const environment = insideEnvironment(folders.temporary, this.#searchPath, this.#platform);
+    const environment = insideEnvironment(temporary, this.#searchPath, this.#platform);
     const allowed = (entries: readonly string[]): readonly string[] => entries.map(realOrGiven)
       .flatMap((entry) => besideProtected(entry, this.#protected.filter((root) => !isInside(root, entry))));
     return {
       wrap: async (launch) => {
-        const writable = allowed([...folders.writable, folders.temporary, ...sharedWritable(this.#platform)]);
+        const writable = allowed([...folders.writable, temporary, ...sharedWritable(this.#platform)]);
         const readable = allowed([...this.#readable, ...folders.readable]).flatMap((entry) => readableBeside(entry, writable));
         const filesystem = {
           denyRead: [...this.#protected],
@@ -335,7 +348,7 @@ export class ServerProcessSandbox implements RunProcessSandboxes {
           allowWrite: [...writable],
           denyWrite: [],
         };
-        const inner = shellCommand(["env", ...environment, launch.command, ...launch.args]);
+        const inner = shellCommand(["env", ...environment, commandFor(launch), ...launch.args]);
         const wrapped = await SandboxManager.wrapWithSandbox(inner, undefined, { filesystem });
         return { command: "/bin/sh", args: ["-c", wrapped] };
       },

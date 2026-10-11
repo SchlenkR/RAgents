@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
-import { mkdir, realpath, writeFile } from "node:fs/promises";
+import { mkdir, realpath, symlink, writeFile } from "node:fs/promises";
 import path from "node:path";
 import test from "node:test";
 import { Type } from "typebox";
@@ -153,8 +153,10 @@ test("a watched file wakes its program only when its content hash changes", { ti
   const record = recorder();
   const watch = watcher();
   const f = await triggerFixture(t, { tools: record.tools, watch: watch.watch });
-  const folder = await realpath(await mkdir(path.join(f.directory, "inbox"), { recursive: true }).then(() => path.join(f.directory, "inbox")));
-  const file = path.join(folder, "report.txt");
+  const folder = await realpath(await mkdir(path.join(f.directory, "inbox with spaces"), { recursive: true }).then(() => path.join(f.directory, "inbox with spaces")));
+  const alias = path.join(f.directory, "inbox-link");
+  await symlink(folder, alias, "junction");
+  const file = path.join(alias, "report.txt");
   await writeFile(file, "first");
   const state = () => f.programs.data(f.runId, f.actorOf("watcher")).values as ProgramState;
   await f.activate("watcher", packageFiles(`import { defineProgram } from "@ragents/server";
@@ -162,7 +164,7 @@ export default defineProgram({ capabilities: ["publish_draft"] }, async (ctx) =>
   const changed = await ctx.watch(${JSON.stringify(file)});
   await ctx.step(() => ctx.functions.publish_draft({ text: changed.hash ?? "missing" }));
 });
-`, { permissions: { files: { read: [folder] } } }));
+`, { permissions: { files: { read: [alias] } } }));
   f.scheduler.start();
   await until(() => state().status === "waiting" && watch.listeners.has(folder));
   const sha = (text: string) => createHash("sha256").update(text).digest("hex");

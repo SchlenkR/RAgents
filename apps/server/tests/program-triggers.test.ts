@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { mkdir, realpath } from "node:fs/promises";
+import { mkdir, realpath, symlink } from "node:fs/promises";
 import path from "node:path";
 import test from "node:test";
 import { Orchestration, type JsonValue } from "@ragents/engine";
@@ -120,9 +120,11 @@ test("a program without time triggers has no timer, and file triggers cannot exc
 test("a mini-app with a view in a normal run receives interval and file triggers", { timeout: 60000 }, async (t) => {
   const watch = watcher();
   const f = await triggerFixture(t, { watch: watch.watch });
-  const folder = await realpath(await mkdir(path.join(f.directory, "inbox"), { recursive: true }).then(() => path.join(f.directory, "inbox")));
+  const folder = await realpath(await mkdir(path.join(f.directory, "inbox with spaces"), { recursive: true }).then(() => path.join(f.directory, "inbox with spaces")));
+  const alias = path.join(f.directory, "inbox-link");
+  await symlink(folder, alias, "junction");
   const client = 'import { createRoot } from "react-dom/client"; import { useAppState } from "@ragents/client"; function App() { const state = useAppState(); return <p>{(state.reasons ?? []).join(", ")}</p>; } createRoot(document.getElementById("root")!).render(<App />);';
-  await f.activate("board", { ...programFiles(count, { views: [{ id: "main", client: "src/client.tsx" }], permissions: { files: { read: [folder] } }, triggers: { interval: { everySeconds: 300 }, fileChange: { folders: [folder] } } }), "src/client.tsx": client });
+  await f.activate("board", { ...programFiles(count, { views: [{ id: "main", client: "src/client.tsx" }], permissions: { files: { read: [alias] } }, triggers: { interval: { everySeconds: 300 }, fileChange: { folders: [alias] } } }), "src/client.tsx": client });
   await until(() => watch.listeners.has(folder) && f.progress("board").nextRunAt !== null);
   f.scheduler.start();
   f.advance(300000);

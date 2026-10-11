@@ -3,7 +3,7 @@ import { constants } from "node:fs";
 import { open, realpath, stat } from "node:fs/promises";
 import path from "node:path";
 import { Type } from "typebox";
-import { defineRunFunction, defineToolAvailability, DomainError, hasCapability, type AccessContext, type Actor, type RunFunction, type ToolContributor } from "@ragents/engine";
+import { defineRunFunction, defineToolAvailability, DomainError, type AccessContext, type Actor, type RunFunction, type ToolContributor } from "@ragents/engine";
 import { allowedWorkspacePath, containsWorkspacePath, resolvedWorkspacePath } from "@ragents/workspace-executor";
 import { toolDescriptorFrom } from "@ragents/host/plugin-support/agent-tool.js";
 import type { AppPermissions } from "@ragents/host/plugin-support/actor-programs/contract.js";
@@ -29,9 +29,10 @@ const grantedFolder = async (grantor: PermissionGrantor, folder: string, mode: "
   const right = mode === "write" ? "runs.write" : "runs.read";
   if (!grantor.access.can(right)) fail("access-denied", `Missing permission ${right}.`, 403);
   const directory = await existingFolder(folder, "File permissions");
-  const delegable = grantor.actor.grants.some((grant) => grant.capability === "workspace.use" && grant.usable !== false && grant.delegable
-    && (grant.scope.kind === "run" || containsWorkspacePath(grant.scope.path, directory)));
-  if (!hasCapability(grantor.actor, "workspace.use", { kind: "workspace", path: directory }) || !delegable)
+  const candidates = grantor.actor.grants.filter((grant) => grant.capability === "workspace.use" && grant.usable !== false && grant.delegable);
+  const delegable = (await Promise.all(candidates.map(async (grant) => grant.scope.kind === "run"
+    || containsWorkspacePath(await resolvedWorkspacePath(grant.scope.path), directory)))).some(Boolean);
+  if (!delegable)
     fail("program-folder-denied", `The activating actor cannot delegate access to ${directory}.`, 403);
   if (!grantor.access.can("*")) await allowedWorkspacePath(directory, (await grantor.roots())[mode]);
   return directory;

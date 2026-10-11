@@ -1,13 +1,34 @@
 import assert from "node:assert/strict";
-import { mkdir, readFile, realpath, symlink, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, realpath, rm, symlink, writeFile } from "node:fs/promises";
 import { createServer } from "node:http";
+import { tmpdir } from "node:os";
 import path from "node:path";
 import test from "node:test";
 import { createAccessContext } from "@ragents/engine";
-import { allGrants } from "../../../packages/ragents/tests/support.ts";
+import { allGrants, setupRun } from "../../../packages/ragents/tests/support.ts";
+import { grantedPermissions, permittedFile, watchedFolderOf, watchedFolders } from "../../../plugins/ragents.actor-programs/server/permissions.ts";
 import { count, programFiles, triggerFixture } from "./program-triggers-fixture.ts";
 
 const helpers = ["program_file_read", "program_file_write", "program_http_request"];
+
+test("file permissions and watches compare symlinked grants and folders by their real paths", async (t) => {
+  const base = await realpath(await mkdtemp(path.join(tmpdir(), "ragents-permission-paths-")));
+  t.after(() => rm(base, { recursive: true, force: true }));
+  const target = path.join(base, "permitted folder");
+  const alias = path.join(base, "folder-link");
+  await mkdir(target);
+  await symlink(target, alias, "junction");
+  await writeFile(path.join(target, "input.txt"), "permitted input");
+  const actor = { ...setupRun().agent, grants: [{ capability: "workspace.use" as const, scope: { kind: "workspace" as const, path: alias }, usable: true, delegable: true }] };
+  const grantor = { actor, access: createAccessContext({ enabled: true, user: { id: "alice", label: "Alice", rights: ["runs.read", "runs.write"] } }), roots: async () => ({ read: [alias], write: [alias] }) };
+  const permissions = await grantedPermissions({ files: { read: [alias, target], write: [alias] } }, grantor);
+  assert.deepEqual(permissions, { files: { read: [target], write: [target] } });
+  assert.deepEqual(await watchedFolders([alias], permissions), [target]);
+  assert.equal(await watchedFolderOf(permissions, path.join(alias, "input.txt")), target);
+  assert.equal(await permittedFile(permissions, path.join(alias, "new", "output.txt"), "write"), path.join(target, "new", "output.txt"));
+  await assert.rejects(permittedFile(permissions, path.join(base, "outside.txt"), "read"), /outside the working directory/);
+  await assert.rejects(grantedPermissions({ files: { read: [alias] } }, { ...grantor, actor: { ...actor, grants: actor.grants.map((grant) => ({ ...grant, delegable: false })) } }), /cannot delegate access/);
+});
 
 test("file and HTTP permissions enforce declared folders, symlinks, hosts and redirects outside the program code", { timeout: 90000 }, async (t) => {
   const f = await triggerFixture(t);

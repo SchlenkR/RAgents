@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
-import { mkdir, mkdtemp, readFile, realpath, rm, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, realpath, rm, symlink, writeFile } from "node:fs/promises";
 import { createServer, type Server } from "node:http";
 import { homedir, tmpdir } from "node:os";
 import path from "node:path";
@@ -31,7 +31,11 @@ test("an isolated process has no proxy escape and exposes only runtime paths out
 });
 
 test("job process context grants only its package and build and keeps temporary files out of source snapshots", async () => {
-  const root = await mkdtemp(path.join(tmpdir(), "ragents-job-context-"));
+  const base = await mkdtemp(path.join(tmpdir(), "ragents-job-context-"));
+  const target = path.join(base, "storage with spaces");
+  const root = path.join(base, "data-link");
+  await mkdir(target);
+  await symlink(target, root, "junction");
   const own = path.join(root, "package");
   const build = path.join(root, "build");
   const libraries = path.join(root, "libraries");
@@ -58,15 +62,48 @@ test("job process context grants only its package and build and keeps temporary 
   });
   try {
     const context = await host.isolatedProcessContextFor("job", [own, build], [libraries]);
-    assert.deepEqual(policy?.writable, [own, build]);
-    assert.deepEqual(policy?.readable, [libraries]);
+    assert.deepEqual(policy?.writable, await Promise.all([own, build].map((entry) => realpath(entry))));
+    assert.deepEqual(policy?.readable, [await realpath(libraries)]);
     assert.equal(policy?.isolated, true);
-    assert.equal(context.home, own);
-    assert.equal(context.env.TMPDIR, path.join(own, ".build", "tmp"));
+    assert.equal(context.cwd, await realpath(own));
+    assert.equal(context.root, context.cwd);
+    assert.equal(context.home, context.cwd);
+    assert.equal(context.env.HOME, context.cwd);
+    assert.equal(context.env.USERPROFILE, context.cwd);
+    assert.equal(context.env.TMPDIR, await realpath(path.join(own, ".build", "tmp")));
+    assert.equal(context.env.TMP, context.env.TMPDIR);
+    assert.equal(context.env.TEMP, context.env.TMPDIR);
+    assert.equal(context.env.CLAUDE_CODE_TMPDIR, context.env.TMPDIR);
     assert.equal(context.env.RAGENTS_API_TOKEN, undefined);
     await writeFile(path.join(context.env.TMPDIR!, "cache.txt"), "temporary data");
     assert.deepEqual(await projectSourceFiles(own), []);
-  } finally { await host.shutdownAll(); await rm(root, { recursive: true, force: true }); }
+  } finally { await host.shutdownAll(); await rm(base, { recursive: true, force: true }); }
+});
+
+test("sandbox policies resolve executable and temporary symlinks and reject broken targets", { skip: !supported }, async () => {
+  const base = await realpath(await mkdtemp(path.join(tmpdir(), "ragents-sandbox-paths-")));
+  const target = path.join(base, "package with spaces");
+  const alias = path.join(base, "package-link");
+  const executable = path.join(base, "node-link");
+  await mkdir(target);
+  await symlink(target, alias, "dir");
+  await symlink(process.execPath, executable);
+  const sandbox = new ServerProcessSandbox({ network: [], serverAddress: undefined, dataDirectory: alias, disableSetting: SANDBOX_OFF, platform: "darwin" });
+  try {
+    const launch = await sandbox.forRun({ isolated: true, writable: [alias], readable: [], temporary: path.join(alias, "new", "tmp") })
+      .wrap({ command: executable, args: [path.join(target, "server.mjs"), "literal argument with spaces"] });
+    assert.ok(launch.args[1]!.includes(`TMPDIR=${path.join(target, "new", "tmp")}`));
+    assert.ok(launch.args[1]!.includes(await realpath(process.execPath)));
+    assert.ok(launch.args[1]!.includes("'literal argument with spaces'"));
+    assert.ok(!launch.args[1]!.includes(alias));
+    assert.ok(!launch.args[1]!.includes(executable));
+    const broken = path.join(base, "broken");
+    await symlink(path.join(base, "missing"), broken);
+    assert.throws(() => sandbox.forRun({ writable: [], readable: [], temporary: path.join(broken, "tmp") }), /ENOENT/);
+    const loop = path.join(base, "loop");
+    await symlink(loop, loop);
+    assert.throws(() => sandbox.forRun({ writable: [], readable: [], temporary: path.join(loop, "tmp") }), /ELOOP/);
+  } finally { await sandbox.stop(); await rm(base, { recursive: true, force: true }); }
 });
 
 test("a platform without a sandbox aborts with the setting that the owning plugin names for turning it off", () => {
@@ -90,8 +127,14 @@ const closed = (server: Server): Promise<void> => new Promise((resolve) => {
 });
 
 /** A data folder like that of a server with users: a user's global coordinator and the journal of a foreign run. */
-const coordinatorFixture = async (network: readonly string[] = PROCESS_SANDBOX_DEFAULT_NETWORK) => {
-  const data = await realpath(await mkdtemp(path.join(tmpdir(), "ragents-process-sandbox-")));
+const coordinatorFixture = async (network: readonly string[] = PROCESS_SANDBOX_DEFAULT_NETWORK, linked = false) => {
+  const base = await realpath(await mkdtemp(path.join(tmpdir(), "ragents-process-sandbox-")));
+  const data = linked ? path.join(base, "data-link") : base;
+  if (linked) {
+    const target = path.join(base, "data with spaces");
+    await mkdir(target);
+    await symlink(target, data, "dir");
+  }
   const foreignJournal = path.join(data, "runs", "foreign-run", "journal.jsonl");
   await mkdir(path.dirname(foreignJournal), { recursive: true });
   await writeFile(foreignJournal, '{"secret":"foreign history"}\n');
@@ -104,7 +147,7 @@ const coordinatorFixture = async (network: readonly string[] = PROCESS_SANDBOX_D
   try { await processSandbox.start(); }
   catch (error) {
     await Promise.all([closed(allowed.server), closed(forbidden.server)]);
-    await rm(data, { recursive: true, force: true });
+    await rm(base, { recursive: true, force: true });
     throw error;
   }
   const workspace: SessionWorkspace = {
@@ -134,11 +177,11 @@ const coordinatorFixture = async (network: readonly string[] = PROCESS_SANDBOX_D
     assert.ok(tool);
     return String(await tool.run({ signal: new AbortController().signal } as ToolScope, "test-bash", { command, timeout: 30_000 } as never));
   };
-  const snippet = async (source: string, isolatedDirectory?: string): Promise<unknown> => {
+  const snippet = async (source: string, directory?: string, isolated = true): Promise<unknown> => {
     const request: NativeTypeScriptRequest = {
       program: scriptProgram(source),
       input: {},
-      ...(isolatedDirectory ? { isolated: true, cwd: isolatedDirectory } : {}),
+      ...(directory ? { cwd: directory, ...(isolated ? { isolated: true } : {}) } : {}),
       context: { runId: "coordinator", invocationId: "sandbox", invocationKind: "tool", principal: { id: "coordinator", kind: "agent" }, capabilities: [] },
     };
     const outcome = await native.execute(request, { call: async () => { throw new Error("no capability"); }, log: () => undefined });
@@ -151,10 +194,39 @@ const coordinatorFixture = async (network: readonly string[] = PROCESS_SANDBOX_D
       await host.shutdownAll();
       await processSandbox.stop();
       await Promise.all([closed(allowed.server), closed(forbidden.server)]);
-      await rm(data, { recursive: true, force: true });
+      await rm(base, { recursive: true, force: true });
     },
   };
 };
+
+test("isolated and ordinary managed programs use real paths through linked data and package folders with spaces", { skip: !supported, timeout: 60000 }, async () => {
+  const f = await coordinatorFixture([], true);
+  try {
+    const own = path.join(f.cwd, "package with spaces");
+    const alias = path.join(f.cwd, "package-link");
+    await mkdir(own);
+    await symlink(own, alias, "dir");
+    const source = `import { readFile, writeFile } from "node:fs/promises";
+import path from "node:path";
+export const handle = async () => {
+  const temporary = path.join(process.env.TMPDIR, "probe.txt");
+  await writeFile(temporary, "temporary data");
+  await writeFile("output.txt", "package data");
+  return { cwd: process.cwd(), temporary: process.env.TMPDIR, runner: process.argv[1], module: import.meta.url, text: await readFile(temporary, "utf8") };
+};`;
+    for (const isolated of [true, false]) {
+      const result = await f.snippet(source, alias, isolated) as { cwd: string; temporary: string; runner: string; module: string; text: string };
+      assert.equal(result.cwd, await realpath(own));
+      assert.equal(result.temporary, await realpath(isolated ? path.join(own, ".build", "tmp") : path.join(f.data, "sessions", "coordinator", "tmp")));
+      assert.equal(result.runner, await realpath(result.runner));
+      assert.ok(result.runner.startsWith(`${await realpath(f.data)}${path.sep}`));
+      assert.match(result.module, /data%20with%20spaces/);
+      assert.equal(result.text, "temporary data");
+      assert.equal(await readFile(path.join(own, "output.txt"), "utf8"), "package data");
+    }
+    assert.match(await f.bash('printf "%s\\n" "$HOME" "$TMPDIR"; echo workspace-ok'), /data with spaces[\s\S]*workspace-ok/);
+  } finally { await f.close(); }
+});
 
 test("an isolated job process cannot directly reach another package, a journal or even the allowed host", { skip: !supported, timeout: 60000 }, async () => {
   const f = await coordinatorFixture();

@@ -342,6 +342,9 @@ Activation grants only what the activating actor and the run owner can give: a f
 usable, delegable `workspace.use` grant of that actor covering it, the owner's `runs.read` or
 `runs.write`, and, unless the owner has `*`, a place within the run's workspace folders. The
 definition stores the canonical folders; `actor_program_list` and `actor_program_status` show them.
+Folder grants and requested permissions are compared by their real paths, so a grant through a
+symlink covers the same folder. File triggers and state-aware file watches observe the canonical
+permitted folder while retaining the requested file reference in program state.
 
 Every call checks the permissions of the caller's own active program and the owner's current
 rights. File calls recheck the canonical allow list and protect the final path component with
