@@ -112,12 +112,12 @@ const openHostFrame = async (context: TestContext, frameResponse: FrameResponse)
           window.frameFixture = { setActive, setRevision, changeInvoke: () => setInvokeVersion(value => value + 1), unmount: () => root.unmount() };
           const currentInvoke = invokeVersion === 0 ? invoke : async (...args) => ({ ...(await invoke(...args)), result: "updated callback" });
           if (${Boolean(frameResponse.dashboard)}) return <div>
-            <section aria-label="Broken global app" style={{ height: 180 }}>
+            <section aria-label="Broken global app" style={{ height: 180, display: "flex" }}>
               {failure ? <><p role="alert">{failure}</p><button onClick={() => { setFailure(undefined); setGeneration(value => value + 1); }}>Retry</button><button onClick={() => setDetails(true)}>Open details</button></>
                 : <ActorViewFrame key={generation} api={api} app={app} invoke={invoke} runId="frame-test" onFailure={setFailure} />}
               {details && <p>App details are open</p>}
             </section>
-            <section aria-label="Healthy global app" style={{ height: 180 }}><ActorViewFrame api={{ frameUrl: () => "/healthy-frame" }} app={{ ...app, id: "healthy-view" }} invoke={invoke} runId="frame-test" /></section>
+            <section aria-label="Healthy global app" style={{ height: 180, display: "flex" }}><ActorViewFrame api={{ frameUrl: () => "/healthy-frame" }} app={{ ...app, id: "healthy-view" }} invoke={invoke} runId="frame-test" /></section>
           </div>;
           return <PanelActivity active={active}><ActorViewFrame api={api} app={{ ...app, revision }}
             invoke={currentInvoke} runId="frame-test" session={{ session: { id: "frame-test" } }} /></PanelActivity>;
@@ -169,7 +169,7 @@ const openHostFrame = async (context: TestContext, frameResponse: FrameResponse)
   const consoleErrors: string[] = [];
   page.on("console", (message) => { if (message.type() === "error") consoleErrors.push(message.text()); });
   await page.goto(`http://127.0.0.1:${address.port}`, { waitUntil: "domcontentloaded" });
-  await page.locator("iframe").waitFor();
+  await page.locator("iframe").first().waitFor();
   context.diagnostic(`Isolated host frame fixture: ${directory}`);
   return { page, errors, consoleErrors, frameLoads: () => frameLoads };
 };
