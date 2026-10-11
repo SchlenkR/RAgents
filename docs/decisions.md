@@ -1,5 +1,19 @@
 # Decisions
 
+## 2026-10-11: The user's own words decide the reply language
+
+Chapter: `spec/plugins.md` (Web as plugin host: the global chat's interface context).
+
+A user wrote German and the global coordinator answered mostly in English with a German last
+paragraph. Every message reached the model behind an English "[Interface context of this message
+at the time of sending]" block, the tool results were English, messages such as "mach" or "2" were
+too short to tell, and the prompt only said "Answer in the user's language". The global
+coordinator's prompt and the product preamble of `core` now say in one sentence each that the
+language of the user's own words decides, never that of the interface context, tool results, or the
+English instructions, and that a message too short to tell keeps the language of the conversation
+so far. A prompt content test checks both and the preparation role, which shares the coordinator
+prompt.
+
 ## 2026-10-11: The global coordinator reads the authoring guide
 
 Chapters: `spec/core.md` (global coordinator: tools), usage: `usage.md` (Let an agent write and

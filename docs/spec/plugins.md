@@ -2951,6 +2951,11 @@ send nothing to a model. The snapshot includes no screenshots, DOM or
 form content, and no complete run state. The coordinator reads domain details
 through its existing tools when needed; the orientation grants no rights.
 
+The block, the tool results, and the prompts are English, so none of them decides the reply
+language. The global coordinator's prompt, shared with the preparation role, and the preamble of
+`ragents.product` let the language of the user's own words decide; a message too short to tell,
+such as "go" or "2", keeps the language of the conversation so far.
+
 The dropdown keeps the role `region` with the name "Global coordinator", has no combobox
 semantics, and no focus trap. A click, Enter, or Space on the button opens it, and its
 composer input gets the focus at once; with read access only, the history gets it. Escape
