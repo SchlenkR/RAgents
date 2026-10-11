@@ -14,7 +14,8 @@ export const modelProviderEnvDescriptors = [
 const PROVIDER_ID = /^[a-z0-9][a-z0-9._-]{0,63}$/;
 const ENVIRONMENT_NAME = /^[A-Za-z_][A-Za-z0-9_]*$/;
 const PROVIDER_KEYS: readonly string[] = ["id", "sdk", "baseUrl", "apiKey", "compat", "models"];
-const COMPAT_KEYS: readonly string[] = ["thinkingFormat", "requiresReasoningContentOnAssistantMessages"];
+const COMPAT_KEYS: readonly string[] = ["thinkingFormat", "requiresReasoningContentOnAssistantMessages", "openRouterRouting"];
+const ROUTING_KEYS: readonly string[] = ["zdr"];
 const THINKING_FORMATS: readonly string[] = ["qwen-chat-template"];
 const MODEL_KEYS: readonly string[] = ["id", "contextWindow", "maxTokens", "reasoning", "input", "thinkingLevelMap", "cost"];
 const COST_KEYS: readonly string[] = ["input", "output", "cacheRead", "cacheWrite"];
@@ -77,6 +78,12 @@ const compatOf = (value: unknown, sdk: ModelSdk | undefined, location: string): 
   const reasoningContent = entry.requiresReasoningContentOnAssistantMessages;
   if (reasoningContent !== undefined && typeof reasoningContent !== "boolean") {
     throw new Error(`${location}.compat.requiresReasoningContentOnAssistantMessages must be true or false`);
+  }
+  if (entry.openRouterRouting !== undefined) {
+    if (sdk !== undefined) throw new Error(`${location}.compat.openRouterRouting applies only without sdk, where requests take the OpenRouter shape`);
+    const routing = objectAt(entry.openRouterRouting, `${location}.compat.openRouterRouting`, ROUTING_KEYS.join(", "));
+    onlyKeys(routing, ROUTING_KEYS, `${location}.compat.openRouterRouting`);
+    if (typeof routing.zdr !== "boolean") throw new Error(`${location}.compat.openRouterRouting.zdr must be true or false`);
   }
   return entry as Model<Api>["compat"];
 };

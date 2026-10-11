@@ -91,6 +91,8 @@ export interface ProfileOpenAiCompatibleProvider extends ProfileModelProviderBas
     /** "qwen-chat-template" switches thinking with chat_template_kwargs.enable_thinking and sends the effort as reasoning_effort. */
     thinkingFormat?: "qwen-chat-template";
     requiresReasoningContentOnAssistantMessages?: boolean;
+    /** Without sdk only: zdr true restricts every request to zero data retention endpoints. */
+    openRouterRouting?: Readonly<{ zdr: boolean }>;
   }>;
 }
 

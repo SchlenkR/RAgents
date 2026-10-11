@@ -1,5 +1,16 @@
 # Decisions
 
+## 2026-10-11: A profile provider can require zero data retention on the OpenRouter route
+
+Chapter: `spec/profiles.md` (Model aliases and profile providers).
+
+A profile needed its standard alias on a model that the built-in catalog does not know yet and only
+on endpoints that keep no data. A provider entry without `sdk` already sends OpenRouter's request
+shape, and the transport already forwarded `compat.openRouterRouting` as the `provider` field, but
+the profile validation rejected the key. `compat.openRouterRouting` now accepts exactly `zdr` there;
+other routing keys stay rejected until a profile needs them, and an `sdk` route, which sends no
+OpenRouter fields, refuses it at start.
+
 ## 2026-10-11: Chat timestamps never wrap
 
 Chapter: `spec/plugins.md` (Web as plugin host: chat building blocks); `development.md` (quassel

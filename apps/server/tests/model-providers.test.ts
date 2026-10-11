@@ -60,6 +60,10 @@ test("MODEL_PROVIDERS accepts OpenAI-compatible servers only with an env key and
   assert.throws(() => parse(provider({ apiKey: { kind: "environment", name: "UNSET_EXAMPLE_KEY" } })), /env\("UNSET_EXAMPLE_KEY"\) to an environment variable that is not set/);
   assert.throws(() => parse(provider({ compat: { thinkingFormat: "chat-template" } })), /thinkingFormat "chat-template" is not supported; supported are qwen-chat-template/);
   assert.throws(() => parse(provider({ compat: { supportsStore: true } })), /compat\.supportsStore is not supported/);
+  assert.deepEqual(parse(provider({ compat: { openRouterRouting: { zdr: true } } }))[0]!.models[0]!.compat, { openRouterRouting: { zdr: true } });
+  assert.throws(() => parse(provider({ compat: { openRouterRouting: { zdr: "yes" } } })), /compat\.openRouterRouting\.zdr must be true or false/);
+  assert.throws(() => parse(provider({ compat: { openRouterRouting: { zdr: true, sort: "price" } } })), /compat\.openRouterRouting\.sort is not supported; allowed are zdr/);
+  assert.throws(() => parse(provider({ sdk: "openai-compatible", compat: { openRouterRouting: { zdr: true } } })), /compat\.openRouterRouting applies only without sdk/);
   assert.throws(() => parse(provider({ models: [] })), /models needs at least one model/);
   assert.throws(() => parse(provider({ models: [{ ...exampleModel, contextWindow: 0 }] })), /models\[0\]\.contextWindow must be a positive integer/);
   assert.throws(() => parse(provider({ models: [{ ...exampleModel, maxTokens: 200_000 }] })), /maxTokens \(200000\) exceeds the contextWindow \(131072\)/);
@@ -104,6 +108,20 @@ test("an alias names a model of a profile provider and its thinking levels reach
     Array(2).fill(["http://localhost:8000/v1/chat/completions", "Bearer example-key", "example-model"]));
   assert.deepEqual(requests.map((request) => [request.body.chat_template_kwargs.enable_thinking, request.body.reasoning_effort, "reasoning" in request.body]),
     [[false, undefined, false], [true, "xhigh", false]]);
+});
+
+test("a provider on the OpenRouter route restricts its requests to zero data retention endpoints", async (t) => {
+  withProfile(t, [provider({ compat: { openRouterRouting: { zdr: true } } })]);
+  const runtime = runtimeOf();
+  const bodies: Record<string, any>[] = [];
+  t.mock.method(globalThis, "fetch", async (_input: unknown, init?: RequestInit) => {
+    bodies.push(JSON.parse(String(init?.body)));
+    const chunk = { id: "fixture", object: "chat.completion.chunk", created: 1, model: "example-model", choices: [{ index: 0, delta: { content: "ok" }, finish_reason: "stop" }] };
+    return new Response(`data: ${JSON.stringify(chunk)}\n\ndata: [DONE]\n\n`, { headers: { "content-type": "text/event-stream" } });
+  });
+  const result = await runtime.completeSimple(runtime.getModel(ALIAS_PROVIDER, "local-model")!, { messages: [{ role: "user", content: "Hello", timestamp: 1 }] }, { reasoning: "medium" });
+  assert.equal(result.errorMessage, undefined);
+  assert.deepEqual(bodies.map((body) => body.provider), [{ zdr: true }]);
 });
 
 test("plugins complete over a profile alias with its offered levels; the relay forwards to the profile provider", async (t) => {

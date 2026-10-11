@@ -276,6 +276,9 @@ Per `sdk`, a request carries only what the package and the provider accept:
 - Without `sdk`, an entry keeps the route over the OpenRouter provider: the request has OpenRouter's
   shape (`reasoning: { effort }`, for `off` without its own value `enabled: false`), and `compat`
   works as for `openai-compatible`, where `qwen-chat-template` also drops the `reasoning` field.
+  Only here `compat` also knows `openRouterRouting: { zdr: true }`, which goes out as OpenRouter's
+  `provider` field and restricts every request to zero data retention endpoints; with an `sdk` it is
+  a start error.
   This route stays only until existing entries name an `sdk`.
 
 The `sdk` routes send none of OpenRouter's fields (`reasoning`, `usage`, `provider`, `plugins`,
