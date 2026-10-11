@@ -1,8 +1,8 @@
 import { createContext, useCallback, useContext, useEffect, useLayoutEffect, useRef, useState, type PointerEvent, type ReactNode, type RefObject } from "react";
 import { createPortal } from "react-dom";
-import { ArrowDownIcon, ArrowLeftIcon, ArrowRightIcon, ArrowUpIcon, LayoutGridIcon, MaximizeIcon, MinimizeIcon, PanelRightCloseIcon, PanelRightOpenIcon, SquareDashedIcon, SquareIcon, UsersIcon, XIcon } from "lucide-react";
+import { ArrowDownIcon, ArrowLeftIcon, ArrowRightIcon, ArrowUpIcon, LayoutGridIcon, MaximizeIcon, MinimizeIcon, PanelRightCloseIcon, PanelRightOpenIcon, PlusIcon, SquareDashedIcon, SquareIcon, UsersIcon, XIcon } from "lucide-react";
 import type { SessionContext, SessionNavigation, WorkspaceTabContribution } from "../PluginRegistry";
-import { RunAppView, type RunApp } from "../run-apps";
+import { RunAppView, useRunAppAddition, type RunApp, type RunAppAddition } from "../run-apps";
 import { Badge, InteractiveItem, Button, cn, Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "../ui";
 import { activateAvailableDockTabs, activeDockTool, addDockEmptyPane, addDockView, appPanelId, closeDockPanels, dockButtonPlacement, dockGroups, dockWindowOrder, emptyPanelId, focusedDockWindow, initialDockState, isEmptyPanel, isToolPanel, moveDockButton, moveDockPanels, moveDockWindow, reconcileDockState, resizeDockSplit, returnDockTool, revealDockPanel, transitionDockSide, selectDockPanel, tabWindowId, toolPanelId, viewPanelId, visibleDockState, workspaceTabPanelId, type DockGroup, type DockButtonPlacement, type DockState } from "./dock-state";
 import { DOCK_DIVIDER_SIZE, DOCK_HEADER_HEIGHT, containsPoint, dockGeometry, dockHitTest, type DockPoint, type DockRect } from "./dock-geometry";
@@ -62,7 +62,9 @@ export function useDockActiveApp(runId: string): string | undefined {
   return active?.startsWith("app:") ? active.slice(4) : undefined;
 }
 
-export function DockWorkspace({ apps, chat, chatIcon = <UsersIcon />, navigation, panels = [], session }: {
+export function DockWorkspace({ additions = [], apps, chat, chatIcon = <UsersIcon />, navigation, panels = [], session }: {
+  /** Actions such as "Show app..." after "Empty space"; an element one adds opens once the run lists it. */
+  additions?: readonly RunAppAddition[];
   apps: readonly RunApp[];
   chat: ReactNode;
   chatIcon?: ReactNode;
@@ -85,6 +87,7 @@ export function DockWorkspace({ apps, chat, chatIcon = <UsersIcon />, navigation
     const next = reconcileDockState(current, panels, tools, splitApps);
     return loaded ? activateAvailableDockTabs(next, [...panels, ...tools]) : next;
   }, [loaded, splitApps]);
+  const addition = useRunAppAddition(apps, session, (app) => update((current) => revealDockPanel(reconcile(current, panelIds, toolIds), appPanelId(app.layoutKey), splitApps, newId)));
   const reconciled = error ? stored : reconcile(stored, panelIds, toolIds);
   const state = visibleDockState(reconciled, catalog, loaded);
   useEffect(() => {
@@ -314,7 +317,8 @@ export function DockWorkspace({ apps, chat, chatIcon = <UsersIcon />, navigation
   const actions = <DockWindowActions
     dragging={drag?.header ? drag.ids[0] : undefined}
     dropIndex={drag?.slot ?? undefined}
-    extra={{ id: EMPTY_PANE_ENTRY, title: EMPTY_PANE_TITLE, icon: icon(EMPTY_PANE_ENTRY), hint: "Add an empty pane" }}
+    extras={[{ id: EMPTY_PANE_ENTRY, title: EMPTY_PANE_TITLE, icon: icon(EMPTY_PANE_ENTRY), hint: "Add an empty pane" },
+      ...additions.map((entry) => ({ id: entry.id, title: entry.label, icon: <PlusIcon />, hint: entry.label, draggable: false }))]}
     groupRef={windowsRef}
     items={windows.map((id) => {
       const tab = tabFor(id);
@@ -322,12 +326,17 @@ export function DockWorkspace({ apps, chat, chatIcon = <UsersIcon />, navigation
     })}
     onDragStart={(event, id) => startDrag(event, [id], () => reveal(id), true)}
     onMove={moveWindow}
-    onOpen={reveal}
+    onOpen={(id) => {
+      const entry = additions.find((candidate) => candidate.id === id);
+      if (entry) addition.start(entry);
+      else reveal(id);
+    }}
     onMoveToSidebar={(id) => moveButton(id, "sidebar")}
     onReset={() => update(() => reconcileDockState(initialDockState(defaultPanels, toolIds), defaultPanels, toolIds, splitApps), true)}
   />;
   return <div className="flex min-h-0 min-w-0 flex-1 flex-col bg-app" data-docking="workspace">
     {actionsContainer ? createPortal(actions, actionsContainer) : actions}
+    {addition.dialog}
     {error && <p className="p-2 text-xs text-destructive" role="alert">{error}</p>}
     <div className="relative min-h-0 min-w-0 flex-1 overflow-hidden" ref={container}>
       {geometry.groups.map(({ group, rect }) => <div className="contents" key={group.id}>

@@ -4,7 +4,7 @@ import path from "node:path";
 import { Type } from "typebox";
 import { Value } from "typebox/value";
 import { DomainError, freeRoomName, hasCapability, inheritedGrants, type AccessContext, type Orchestration, type RunView, type ToolCaller } from "@ragents/engine";
-import type { ActorProgramsService } from "@ragents/host/plugin-support/actor-programs/service.js";
+import type { ActorProgramsService, NamedApp } from "@ragents/host/plugin-support/actor-programs/service.js";
 import { GLOBAL_APPS_PLUGIN_ID, appCreateSchema, type GlobalAppCreate, type GlobalAppSummary, type GlobalAppsSnapshot } from "../contract.js";
 
 const MAX_APPS = 50;
@@ -111,6 +111,13 @@ export class GlobalAppsService {
     const errors = markers.flatMap((marker) => !marker.valid ? [{ id: `invalid:${marker.actorId}`, name: marker.name, problem: "The app record is damaged. Remove the app and create it again." }]
       : programs.some((entry) => entry.actorId === marker.actorId) ? [] : [{ id: marker.name, name: marker.name, problem: "The app's program is not active. Create the app again or remove it." }]);
     return { apps: apps.slice(0, limit), errors, hasMore: apps.length > limit };
+  }
+
+  /** The access's apps by name for read-only displays in its runs; none without the read right or a user. */
+  named(access: AccessContext): readonly NamedApp[] {
+    if (!access.can("ragents.global-apps.read") || (access.enabled && !access.user)) return [];
+    const runId = this.#run(access);
+    return runId ? this.list(access, MAX_APPS).apps.map((app) => ({ name: app.name, runId, actorId: app.actorId })) : [];
   }
 
   snapshot(access: AccessContext): GlobalAppsSnapshot {

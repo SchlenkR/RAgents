@@ -14,6 +14,7 @@ import {
   hostAddressToken,
   runtimeProviderToken,
   runOwnerAccessToken,
+  runReadGuardToken,
   userAccessToken,
   secretEnvNamesToken,
   runGuardToken,
@@ -49,6 +50,10 @@ export const composeProfile = (options: ProfileComposition, bridges: HostBridges
   });
   host.provideHost(runGuardToken, (runId) => bridges.ensureSession(runId));
   host.provideHost(workspaceGuardToken, bridges.ensureWorkspaceAccess);
+  host.provideHost(runReadGuardToken, (access, runId) => {
+    if (!bridges.ensureRunReadable) throw new Error("The host provides no read check for runs");
+    bridges.ensureRunReadable(access, runId);
+  });
   host.provideHost(runWorkspaceProviderToken, bridges.sessionWorkspaceFor);
   host.provideHost(runtimeProviderToken, bridges.runtime);
   host.provideHost(userAccessToken, profileAccessFor);

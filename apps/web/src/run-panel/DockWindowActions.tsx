@@ -14,13 +14,15 @@ export interface DockWindowItem {
   readonly hint?: string;
   /** A marker such as a workspace tab's Badge, drawn as a dot like on a rail button. */
   readonly badge?: ReactNode;
+  /** false keeps an action such as "Show app..." a plain button among draggable windows. */
+  readonly draggable?: boolean;
 }
 
-/** Direct window buttons wrap, with `extra` and reset after them outside the order. */
-export function DockWindowActions({ dragging, dropIndex, extra, groupRef, items, onDragStart, onMove, onOpen, onReset, onMoveToSidebar }: {
+/** Direct window buttons wrap, with `extras` and reset after them outside the order. */
+export function DockWindowActions({ dragging, dropIndex, extras = [], groupRef, items, onDragStart, onMove, onOpen, onReset, onMoveToSidebar }: {
   dragging?: string;
   dropIndex?: number;
-  extra?: DockWindowItem;
+  extras?: readonly DockWindowItem[];
   groupRef?: Ref<HTMLDivElement>;
   items: readonly DockWindowItem[];
   onDragStart?: (event: PointerEvent<HTMLElement>, id: string) => void;
@@ -31,7 +33,7 @@ export function DockWindowActions({ dragging, dropIndex, extra, groupRef, items,
 }) {
   const header = useRunHeader();
   const [group, setGroup] = useState<HTMLDivElement | null>(null);
-  const entries = useMemo(() => [...items.map((item) => item.id), ...(extra ? [extra.id] : []), ...(onReset ? ["reset"] : [])], [items, extra, onReset]);
+  const entries = useMemo(() => [...items.map((item) => item.id), ...extras.map((item) => item.id), ...(onReset ? ["reset"] : [])], [items, extras, onReset]);
   const layout = useHeaderWindows(group, entries);
   const bindGroup = useCallback((element: HTMLDivElement | null) => {
     setGroup(element);
@@ -49,23 +51,26 @@ export function DockWindowActions({ dragging, dropIndex, extra, groupRef, items,
     // Reordering moves the focused button in the DOM, which drops its focus.
     requestAnimationFrame(() => button.focus());
   };
-  const windowButton = (item: DockWindowItem, index?: number) => <Button aria-keyshortcuts={onMove && index !== undefined ? "Alt+ArrowLeft Alt+ArrowRight" : undefined} aria-label={item.title} aria-pressed={item.visible}
-    className={cn("min-w-11 max-w-full flex-none", header && "pointer-events-auto w-max max-w-[min(16rem,100%)] transition-colors", (onDragStart || item.badge !== undefined) && "relative", onDragStart && "touch-none data-[dragging=true]:opacity-60")}
-    data-header-window style={position(index ?? items.length)}
-    data-dock-window={onDragStart && index !== undefined ? item.id : undefined} data-dragging={onDragStart ? dragging === item.id : undefined} key={item.id}
-    onClick={(event) => { if (!onDragStart || event.detail === 0) onOpen(item.id); }} onKeyDown={index === undefined ? undefined : (event) => moveFromKeyboard(event, item.id)}
-    onPointerDown={onDragStart && ((event) => onDragStart(event, item.id))} title={item.hint ?? (item.visible ? item.title : `Show ${item.title}`)} variant="ghost">
-    {onDragStart && <span aria-hidden className={gripClass} data-dock-window-grip title={index === undefined ? "Drag to dock" : "Drag to reorder or dock"}><GripVerticalIcon className="size-2.5" strokeWidth={3} /></span>}
-    {content(item)}
-    {item.badge !== undefined && dot(item.badge, "absolute top-0.5 right-0.5")}
-    {index !== undefined && dropIndex === index && <span aria-hidden className={cn(dropClass, "-left-1")} data-dock-window-drop />}
-    {index !== undefined && dropIndex === items.length && index === items.length - 1 && <span aria-hidden className={cn(dropClass, "-right-1")} data-dock-window-drop />}
-  </Button>;
+  const windowButton = (item: DockWindowItem, index?: number, slot = index ?? items.length) => {
+    const drag = item.draggable === false ? undefined : onDragStart;
+    return <Button aria-keyshortcuts={onMove && index !== undefined ? "Alt+ArrowLeft Alt+ArrowRight" : undefined} aria-label={item.title} aria-pressed={item.visible}
+      className={cn("min-w-11 max-w-full flex-none", header && "pointer-events-auto w-max max-w-[min(16rem,100%)] transition-colors", (drag || item.badge !== undefined) && "relative", drag && "touch-none data-[dragging=true]:opacity-60")}
+      data-header-window style={position(slot)}
+      data-dock-window={drag && index !== undefined ? item.id : undefined} data-dragging={drag ? dragging === item.id : undefined} key={item.id}
+      onClick={(event) => { if (!drag || event.detail === 0) onOpen(item.id); }} onKeyDown={index === undefined ? undefined : (event) => moveFromKeyboard(event, item.id)}
+      onPointerDown={drag && ((event) => drag(event, item.id))} title={item.hint ?? (item.visible ? item.title : `Show ${item.title}`)} variant="ghost">
+      {drag && <span aria-hidden className={gripClass} data-dock-window-grip title={index === undefined ? "Drag to dock" : "Drag to reorder or dock"}><GripVerticalIcon className="size-2.5" strokeWidth={3} /></span>}
+      {content(item)}
+      {item.badge !== undefined && dot(item.badge, "absolute top-0.5 right-0.5")}
+      {index !== undefined && dropIndex === index && <span aria-hidden className={cn(dropClass, "-left-1")} data-dock-window-drop />}
+      {index !== undefined && dropIndex === items.length && index === items.length - 1 && <span aria-hidden className={cn(dropClass, "-right-1")} data-dock-window-drop />}
+    </Button>;
+  };
   return <div aria-label="Layout actions" className={header ? "pointer-events-none relative w-full min-w-0" : "flex min-w-0 max-w-full flex-wrap items-center gap-1"} ref={bindGroup} role="group" style={header ? { height: layout?.height ?? header.bounds.height } : undefined}>
     {items.map((item, index) => onMoveToSidebar
       ? <DockButtonMenu destination="sidebar" key={item.id} onMove={() => onMoveToSidebar(item.id)}>{windowButton(item, index)}</DockButtonMenu>
       : windowButton(item, index))}
-    {extra && windowButton(extra)}
-    {onReset && <Button aria-label="Reset layout" className={header ? "pointer-events-auto transition-colors" : undefined} data-header-window onClick={onReset} size="icon-lg" style={position(items.length + (extra ? 1 : 0))} title="Reset layout" variant="ghost"><RotateCcwIcon /></Button>}
+    {extras.map((item, index) => windowButton(item, undefined, items.length + index))}
+    {onReset && <Button aria-label="Reset layout" className={header ? "pointer-events-auto transition-colors" : undefined} data-header-window onClick={onReset} size="icon-lg" style={position(items.length + extras.length)} title="Reset layout" variant="ghost"><RotateCcwIcon /></Button>}
   </div>;
 }

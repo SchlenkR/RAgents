@@ -17,8 +17,8 @@ Apps live in separate rooms beside the coordinator's `main` room in your hidden 
 "Reset conversation" starts a fresh coordinator conversation and keeps the apps and their
 state, logs, and triggers.
 
-Each app appears as its own Start widget. In Start's edit mode you move it, resize it, or remove it
-like any other widget; "Add widget" lists a removed app with its description and brings it back.
+Each app appears as its own Start widget, and "Show app..." in any of your runs shows it there as a
+read-only window. In Start's edit mode you move it, resize it, or remove it like any other widget; "Add widget" lists a removed app with its description and brings it back.
 Removing the widget leaves its triggers running. Apps with views start four columns wide
 and headless apps two; your layout overrides these defaults.
 A view displays the app's state and calls its functions; a headless app shows last run and next

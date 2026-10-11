@@ -1,5 +1,49 @@
 # Decisions
 
+## 2026-10-11: A run shows apps of other runs as read-only displays
+
+Chapters: `spec/actor-programs.md` (Read-only displays of apps from other runs, Open limits),
+`spec/plugins.md` (Web as plugin host: dock and shared mini-app catalog; Rights in server and web
+contributions; Global mini-apps); usage: `usage.md` (Use chat and mini-apps, Global mini-apps on Start,
+Run panel and VS Code extension); `development.md` (Extension points in the web); homepage section
+"Agents with Their Own UI"; reference example of `surfaceElements`.
+
+A workflow run should show a mini-app that lives elsewhere, a global app or an app of another run,
+only as a display. A run could open only its own apps, and the Start dashboard's global widgets
+embed the frame of the global run directly. A display is now run state of `ragents.actor-programs`
+in the displaying run: replacing it journals adding and removing, replay restores it, and the app's
+run is never written. It refers to the source by run, actor, and view key, which the server
+resolves; a model never handles them. Agents name a global app as `global_app_list` shows it
+(`app_display_add`, `app_display_remove`, both returning null). An app of another run has no
+human-readable, unambiguous address yet, so only the "Show app..." picker offers it.
+
+`ragents.global-apps` depends on `ragents.actor-programs`, not the other way round, so the actor
+programs service takes named apps from plugins (`addNamedApps`) instead of knowing global apps; the
+picker groups them under the plugin's label before the viewer's other runs. A display reads its app
+through one channel per window, whose snapshot drops the app's functions and calls and is sent again
+after every change of either run that can alter it, so the window follows the app live without
+polling and without the browser subscribing to the whole source run. Letting the browser call the
+generic app listing and actions of the source run instead was rejected: the server could not tell a
+display from the app itself, every reader of the displaying run would learn the source, and nothing
+would update live.
+
+The message layer checks only a contract's own `runId`, here the displaying run. Reading another
+run's content needs the same check against that run for the viewer, so the host offers it as
+`runReadGuardToken` (rights, ownership or share, a usable run; a foreign run is `run-not-found` like
+a missing one). The channel applies it on every subscription and every snapshot, so a share taken
+back, a deletion, or another viewer of a shared run turns the window into "This app is not available
+to you." or a removal message; the frame keeps the source run's ordinary route, which the host checks
+per load. Read-only holds in four places: no method of the displaying run reaches the source, the
+snapshot has no functions, `ActorViewFrame` without `invoke` refuses every call of the frame before
+its action lookup, and the bridge marks the app `readOnly` for `context.capabilities.call`.
+
+The run's window list offers additions of surface contributions (`add` on
+`SurfaceElementContribution`, `runAppAdditions`, `useRunAppAddition`): the browser dock shows them
+after "Empty space" as plain buttons (`DockWindowActions` takes `extras` instead of one `extra`, and
+`draggable: false`), VS Code after its app buttons, and both open the element the dialog added. The
+host API keeps number 17, because `runReadGuardToken`, `runAppAdditions`, and `useRunAppAddition`
+are new names; `EXTENSION_API_VERSION` is unchanged.
+
 ## 2026-10-11: Start widgets have one slot and one type
 
 Chapters: `spec/plugins.md` (Web as plugin host: slot `startWidgets`; Start, Arranging Start, Global

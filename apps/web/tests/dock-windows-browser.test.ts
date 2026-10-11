@@ -104,6 +104,22 @@ async function prepare(context: TestContext, search = "") {
   };
 }
 
+test("an addition such as Show app... sits after Empty space as a plain button, opens its dialog, and reveals the window it added", options, async (context) => {
+  const { page, actions, view, tab, panel, errors } = await prepare(context, "?add");
+  const show = view("Show app...");
+  assert.equal(await show.locator("[data-dock-window-grip]").count(), 0, "an addition is no window and cannot be dragged");
+  const labels = await actions.getByRole("button").evaluateAll((buttons) => buttons.map((button) => button.getAttribute("aria-label")));
+  assert.deepEqual(labels.slice(-3), ["Empty space", "Show app...", "Reset layout"]);
+  await show.click();
+  const dialog = page.getByRole("dialog", { name: "Show app" });
+  await dialog.getByRole("button", { name: "Show chart", exact: true }).click();
+  await dialog.waitFor({ state: "hidden" });
+  await tab("Chart").waitFor();
+  assert.equal(await panel("Chart").isVisible(), true, "the window the dialog added opens");
+  assert.equal(await actions.locator('[data-dock-window="add:example"]').count(), 0, "the action never joins the window order");
+  assert.deepEqual(errors, []);
+});
+
 test("browser header window buttons show grips, reorder by drag and keyboard, dock onto guides, still open on click, and persist", options, async (context) => {
   const { browser, errors, open, page, actions, view, drop, box, press, moveTo, dockOnto: dockFrom, tab, panel, groups, savedLayout } = await prepare(context);
   const order = () => actions.locator("[data-dock-window]").evaluateAll((buttons) => buttons.map((button) => button.getAttribute("aria-label")));

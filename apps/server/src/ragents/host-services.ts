@@ -15,6 +15,9 @@ export const runGuardToken: ServiceToken<(runId: string) => void> = serviceToken
 /** Every path from outside into a run's workspace (files, processes, language servers) checks run and access with this: a run that only its owner operates shows its workspace only to that owner. */
 export const workspaceGuardToken: ServiceToken<(access: AccessContext, runId: string) => void> = serviceToken("host.workspace-guard");
 
+/** Every path that shows a run's content inside another run, such as a display of its app, checks access with this as the message layer checks reading: rights, ownership or a share, and a usable run; a foreign run fails like a nonexistent one. */
+export const runReadGuardToken: ServiceToken<(access: AccessContext, runId: string) => void> = serviceToken("host.run-read-guard");
+
 export const runWorkspaceProviderToken: ServiceToken<(runId: string) => Promise<SessionWorkspace>> =
   serviceToken("host.run-workspaces");
 
@@ -36,6 +39,7 @@ export interface HostBridges {
   /** `deleting` lets a run pass that is being deleted, for the lookups its delete hooks still need. */
   ensureSession: (runId: string, options?: { deleting?: boolean }) => void;
   ensureWorkspaceAccess: (access: AccessContext, runId: string) => void;
+  ensureRunReadable?: (access: AccessContext, runId: string) => void;
   runtime: () => Orchestration;
   sessionWorkspaceFor: (runId: string, signal?: AbortSignal) => Promise<SessionWorkspace>;
   sessions?: () => RunManagement;

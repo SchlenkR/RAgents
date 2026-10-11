@@ -345,6 +345,48 @@ running action ("Starting action", "Action running") never changes the size of t
 and disappears when the action ends, so an app's own background calls stay invisible unless one
 takes longer.
 
+## Read-only displays of apps from other runs
+
+A run can show the view of an app that lives in another run as a read-only display. The display is
+run state of `ragents.actor-programs` (`ragents.actor-programs.displays`, at most 24 per run): an ID,
+the view's title, where the app lives (`from`), the source as run, actor, and view key, and for a
+named app its `name`. Adding and removing replace this state in the displaying run's journal, so
+replay restores both; the app's own run is not written. Showing the same view again returns its
+display, and a run never displays its own apps.
+
+"Show app..." beside the run's windows in the browser and beside the app buttons in VS Code opens a
+picker of what the viewer may show (`ragents.actor-programs.display-sources`): named apps under the
+label of the plugin that names them, then the apps of the viewer's other runs grouped by run title,
+each visible view once, a view the run already shows marked "Shown". Choosing one calls
+`ragents.actor-programs.display-add` with the source run and view ID, and the host opens the new window
+once the run lists it. A plugin names apps with `ActorProgramsService.addNamedApps({ label,
+apps(access) })`; `ragents.global-apps` names the caller's global apps under "Global apps". Agents
+call `app_display_add({ app, view? })` and `app_display_remove({ app, view? })` with such a name, for
+a global app as `global_app_list` shows it: the server resolves run, actor, and view, `view` (key or
+title) is needed only for an app with several views, and both return null. The tools are available
+to executable actors with `plugin.state.write` while a plugin names apps. An app of another run has
+no name a model could use without copying an ID, so only the picker offers it.
+
+A display is the surface element `display-<id>`, titled with the view's title and "(read-only)". Its
+window starts with a "Read-only" badge and "From <where>", then shows the app's frame, and offers
+"Remove" (`ragents.actor-programs.display-remove`) to viewers who may operate the run. The channel
+`ragents.actor-programs.display` sends the display's snapshot: `ready` with the source run and the
+view's listing without functions and calls, or `denied`, `removed`, or `failed` with a message. It
+checks the viewer against the source run with the host service `runReadGuardToken` on every
+subscription and again after every change of either run that can alter the snapshot, a change of
+sharing and a deletion included; a viewer who may not read the source run gets only "This app is not
+available to you." and not where the app lives. The frame loads through the ordinary frame route of
+the source run, which checks the viewer against that run on every load. Without `runs.inspect` the
+run state shows only each display's ID and title.
+
+A display runs nothing. Its listing has no functions; `ActorViewFrame` without `invoke` answers every
+call of the frame with "This app is shown read-only; it calls no functions here." before it looks at
+the actions, its bridge marks the app `readOnly` so that `context.capabilities.call` refuses the same,
+it has no chat, and no method of the displaying run reaches the source's functions, triggers,
+inputs, or state. A removed source app or view, a deleted source run, damaged display state, and a
+failing frame stay inside the window as calm messages; the displaying run, its own apps, and the chat
+are not affected.
+
 ## Reusable UI building blocks
 
 The host exports reusable controls under `@ragents/client/ui` (sources under
@@ -1012,6 +1054,8 @@ reported as a successfully stored failed execution.
 - The background project check keeps a result while the package's sources and context stay the
   same; a target actor that appears later clears an "unknown actor" error only with the next
   change of either or with an activation, which always checks anew.
+- A read-only display shows a view's state, not its running calls or confirmations, and the app's
+  own controls stay visible although every call is refused.
 - Browser CSP and run file permissions do not replace a separate trust boundary for foreign code.
 - Between the last check and the renaming of a new package, only a foreign process, such as a shell
   of the run, can still create an empty folder of the same name; `rename` then replaces it. Node

@@ -1,7 +1,7 @@
 import path from "node:path";
 import type { PluginHost, RAgentsPlugin } from "@ragents/engine";
 import type { PluginModule } from "@ragents/host/plugin-support/plugin-module.js";
-import { runtimeProviderToken, runGuardToken, runOwnerAccessToken, runWorkspaceProviderToken } from "@ragents/host/ragents/host-services.js";
+import { runtimeProviderToken, runGuardToken, runOwnerAccessToken, runReadGuardToken, runWorkspaceProviderToken } from "@ragents/host/ragents/host-services.js";
 import { runManagementToken } from "@ragents/host/ragents/global-chat.js";
 import { workspaceRuntimeToken } from "@ragents/host/ragents/workspace-runtime.js";
 import { askServiceToken } from "@ragents/plugins/ragents.ask/server/contract.js";
@@ -17,6 +17,7 @@ import { actorProgramsToken } from "@ragents/host/plugin-support/actor-programs/
 import { createProjectDiagnostics } from "./project-diagnostics.js";
 import { actorProgramAccessProjections } from "./access-projections.js";
 import { programPermissionFunctions } from "./permissions.js";
+import { AppDisplays, appDisplaysProjection, createAppDisplayChannel, createAppDisplayMethods, createAppDisplayTools } from "./displays.js";
 const actorProgramsPlugin = (pluginHost: PluginHost): RAgentsPlugin => ({
     manifest: { id: "ragents.actor-programs" },
     register: (host) => {
@@ -49,6 +50,10 @@ const actorProgramsPlugin = (pluginHost: PluginHost): RAgentsPlugin => ({
             },
         });
         host.provide(actorProgramsToken, runtime);
+        const displays = new AppDisplays({
+            runtime: host.service(runtimeProviderToken), programs: runtime, readable: (access, runId) => host.service(runReadGuardToken)(access, runId),
+            runs: (access) => host.service(runManagementToken)().list(access), ownerAccess: (runId) => host.service(runOwnerAccessToken)(runId),
+        });
         const diagnostics = createProjectDiagnostics({
             workspaceFor: (runId) => runtime.workspaceDirectory(runId), check: (runId, name, recipientId, signal) => runtime.diagnose(runId, name, recipientId, signal),
             context: (runId, name) => runtime.diagnosisContext(runId, name),
@@ -60,17 +65,19 @@ const actorProgramsPlugin = (pluginHost: PluginHost): RAgentsPlugin => ({
         });
         host.agentRuntime(diagnostics.contribution);
         host.clientConfig({ routePrefix: miniAppsApiPrefix });
-        host.methods(...createActorProgramMethods({ ensureSession: host.service(runGuardToken), runtime }));
+        host.methods(...createActorProgramMethods({ ensureSession: host.service(runGuardToken), runtime }), ...createAppDisplayMethods(displays));
+        host.channels(createAppDisplayChannel(displays));
         host.http(...createMiniAppFrameRoutes({ ensureSession: host.service(runGuardToken), runtime }));
         host.lifecycle({ id: "ragents.actor-programs.lifecycle",
             initialize: () => host.service(sandboxServicesToken).registerWorkspaceRoot({ id: "ragents.actor-programs", alias: "@actors", environmentVariable: "RAGENTS_ACTORS_DIR", directoryFor: (runId) => runtime.workspaceDirectory(runId), ownershipDirectoryFor: async (runId) => path.dirname(await runtime.workspaceDirectory(runId)) }),
             serverReady: () => runtime.triggers.ready(),
             prepareSession: ({ runId }) => runtime.prepareSession(runId), stopSession: ({ runId, signal }) => runtime.stopSession(runId, signal),
-            deleteSession: async ({ runId }) => { diagnostics.forget(runId); await runtime.deleteSession(runId); }, shutdown: () => runtime.shutdown(),
+            deleteSession: async ({ runId }) => { diagnostics.forget(runId); displays.deleted(runId); await runtime.deleteSession(runId); },
+            shutdown: () => { displays.shutdown(); return runtime.shutdown(); },
         });
         host.prompts(actorProgramSummary);
-        host.accessProjections(...actorProgramAccessProjections);
-        host.functions(createControlsToolContributor(), ...createActorProgramToolContributors(runtime, diagnostics), programPermissionFunctions({
+        host.accessProjections(...actorProgramAccessProjections, appDisplaysProjection);
+        host.functions(createControlsToolContributor(), ...createActorProgramToolContributors(runtime, diagnostics), createAppDisplayTools(displays, () => runtime.namedAppSources().length > 0), programPermissionFunctions({
             permissionsOf: (runId, actorId) => {
                 const program = runtime.programsOf(host.service(runtimeProviderToken)().view(runId)).find((entry) => entry.actorId === actorId);
                 return program ? program.permissions ?? {} : undefined;

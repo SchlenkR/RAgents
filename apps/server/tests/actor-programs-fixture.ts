@@ -19,6 +19,7 @@ export const unavailableActorPrograms: ActorProgramsService = {
   isScriptActor: () => false,
   programOf: () => undefined,
   resolveView() { throw new Error("Actor programs are not configured in this fixture."); },
+  addNamedApps() { throw new Error("Actor programs are not configured in this fixture."); },
 };
 
 export const actorProgramFixture = async (t: TestContext) => {

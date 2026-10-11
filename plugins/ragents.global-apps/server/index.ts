@@ -27,6 +27,7 @@ export const plugin: PluginModule = {
         interrupt: (runId, actorId, reason) => host.service(runManagementToken)().interruptTurn(runId, actorId, reason),
       });
       host.functions(globalAppsFunctions(service, host.service(runOwnerAccessToken)));
+      host.service(actorProgramsToken).addNamedApps({ label: "Global apps", apps: (access) => service.named(access) });
       host.prompts(boundToTools({
         ...handlebarsPrompt("ragents.global-apps.prompt", 120, pluginAsset(GLOBAL_APPS_PLUGIN_ID, "prompt.hbs")),
         delivery: "initial",

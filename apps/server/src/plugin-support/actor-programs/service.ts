@@ -1,4 +1,4 @@
-import { serviceToken, type ActorProgramExecutor, type CapabilityGrant, type CommandContext } from "@ragents/engine";
+import { serviceToken, type AccessContext, type ActorProgramExecutor, type CapabilityGrant, type CommandContext } from "@ragents/engine";
 import type { ActorProgramDefinition, ActorProgramIdentity, ActorTriggerProgress, ActorViewListing } from "./contract.js";
 export interface ActorProgramSource {
     path: string;
@@ -28,6 +28,17 @@ export interface ActorViewReference {
     reference: string;
     elementId: string;
     visible: boolean;
+}
+/** An app a plugin names for a user, such as a global app: the active program of an actor in a run that user may read. */
+export interface NamedApp {
+    readonly name: string;
+    readonly runId: string;
+    readonly actorId: string;
+}
+/** Apps a plugin names, such as global apps; the display picker lists them under the label, and app_display_add addresses them by name. */
+export interface NamedAppSource {
+    readonly label: string;
+    apps(access: AccessContext): readonly NamedApp[];
 }
 export interface ActorProgramsService extends ActorProgramExecutor {
     workspaceDirectory(runId: string): Promise<string>;
@@ -59,5 +70,7 @@ export interface ActorProgramsService extends ActorProgramExecutor {
     programOf(runId: string, actorId: string): ActorProgramIdentity | undefined;
     /** Resolves package-name/view-key, @handle/view-key or a unique title, as written from the room of `callerId`; an unknown or ambiguous reference is an error that names the candidates. */
     resolveView(runId: string, reference: string, callerId?: string): ActorViewReference;
+    /** Offers a plugin's named apps for read-only displays in other runs. */
+    addNamedApps(source: NamedAppSource): void;
 }
 export const actorProgramsToken = serviceToken<ActorProgramsService>("ragents.actor-programs.runtime");

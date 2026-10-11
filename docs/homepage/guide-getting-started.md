@@ -419,8 +419,12 @@ for a while keeps its place and returns to it; the app of a later start of the s
 takes over the area of the earlier one. Close windows with X. Each window keeps a button in the
 header or sidebar rail; a pressed button is visible, and clicking another one shows that window. Drag a header button by its grip to
 reorder the buttons, or onto the docking guides to place that window. "Empty space" in the
-header adds an empty pane that holds a place until you drop a window onto it. Every button stays
-directly available; a narrow header wraps onto further rows and pushes the workspace down.
+header adds an empty pane that holds a place until you drop a window onto it. "Show app..." beside
+it shows a mini-app that lives elsewhere, one of your global apps or an app of another of your runs,
+as a read-only window of this run: it always shows the app's current state, runs nothing, and
+"Remove" in the window takes it away again. You can also ask the agent to show a global app by its
+name. Every button stays directly available; a narrow header wraps onto further rows and pushes the
+workspace down.
 Drag a button between the sidebar rail and header to choose where it lives, or right-click it
 and choose "Move to header" or "Move to sidebar". Shift+F10 opens the same menu from the keyboard.
 Moving a button keeps its panel's open state; "Reset layout" restores the plugin defaults.

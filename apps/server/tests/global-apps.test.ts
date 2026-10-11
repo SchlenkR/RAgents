@@ -67,6 +67,8 @@ test("creation copies the package into its own room of the global run, where a m
   const listed = f.service.list(openAccess);
   assert.deepEqual(listed.apps.map(({ name, program, input, status }) => ({ name, program, input, status })), [{ name: "check", program: app(), input: true, status: "ready" }]);
   assert.equal(Value.Check(globalAppsSnapshotSchema, f.service.snapshot(openAccess)), true);
+  assert.deepEqual(f.service.named(openAccess), [{ name: "check", runId: G, actorId }], "displays in runs address the app by its name");
+  assert.deepEqual(f.service.named(createAccessContext({ enabled: true, user: { id: "reader", label: "Reader", rights: ["runs.read"] } })), [], "without the read right no app is named");
   await f.trigger(app(), G);
   await assert.rejects(f.trigger(app(), G), /already has an accepted/);
   f.scheduler.start();

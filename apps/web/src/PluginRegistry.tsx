@@ -162,11 +162,26 @@ export interface SurfaceElementContext {
   session: SessionContext;
 }
 
+/** What the host gives an addition's dialog: the run, and the way to close it, with the ID of an added element to open it once the run lists it. */
+export interface SurfaceElementAdditionContext {
+  session: SessionContext;
+  onClose: (elementId?: string) => void;
+}
+
+/** Lets the viewer add an element of this contribution, such as a display of another run's app; the host offers it beside the run's apps. */
+export interface SurfaceElementAddition {
+  label: string;
+  /** Without this right the host does not offer the addition. */
+  right?: string;
+  Dialog: ComponentType<SurfaceElementAdditionContext>;
+}
+
 export interface SurfaceElementContribution {
   id: string;
   order: number;
   select: (session: SessionContext) => readonly SurfaceElementDefinition[];
   Element: ComponentType<SurfaceElementContext>;
+  add?: SurfaceElementAddition;
 }
 
 export interface NavigationTarget {

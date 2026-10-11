@@ -1297,6 +1297,10 @@ or ending a single process; `ragents.chat.stop` and `ragents.runs.stopAll` stop 
 `ragents.runs.pause` pauses it, and `ragents.runs.interruptTurn` interrupts an actor's running
 turn. `ragents.runs.resume` operates the run and therefore needs `runs.write`. A channel with `runId` ends as
 soon as its caller no longer sees the run because a share was taken back.
+A contribution that shows one run's content inside another run, such as the read-only display of an
+app, checks the viewer against the other run itself with the host service `runReadGuardToken`: the
+same rights and membership as reading that run through the dispatcher, and a usable run; a foreign
+run fails as `run-not-found` like a missing one. It checks on every load and every change it sends.
 
 In the browser, `useAccess` provides the same access context and `logout`.
 `accessMode` distinguishes hidden, read-only, and editable. Workspace tabs, run header, and status contributions can require their own
@@ -1806,8 +1810,8 @@ cancels. Alt+ArrowLeft and Alt+ArrowRight move a focused button by one place and
 The header slot compares client coordinates with the buttons' client rectangles, so the page zoom
 cancels out there.
 
-After the views, the browser always offers "Empty space" (`extra` of `DockWindowActions`,
-`SquareDashedIcon`, no pressed state, not part of `order`), as a direct button.
+After the views, the browser always offers "Empty space" (the first of the `extras` of
+`DockWindowActions`, `SquareDashedIcon`, no pressed state, not part of `order`), as a direct button.
 Its click adds an empty pane through `addDockEmptyPane` the same way `revealDockPanel` opens a
 closed view; its drag drops a new pane on a docking guide, and a drop inside the header changes
 nothing. Empty panes are panels with the ID `empty:<uuid>`, titled "Empty space": they live only
@@ -1816,6 +1820,9 @@ and closing one removes it. Their content is the hint "Drag an app or actor here
 (header button, tab, tab grip, or rail tool) on an area whose active tab is an empty pane replaces
 that pane in place; for such an area the whole content is a center target and the compass center
 reads "Replace empty pane". A background empty pane is merged beside like any tab.
+The additions of surface contributions follow "Empty space" (`additions` of `DockWorkspace`, such
+as "Show app..."): plain buttons with `PlusIcon` and `draggable: false`, without grip and outside
+`order`, whose click opens the contribution's dialog.
 "Reset layout" uses the standard header icon button directly after the views and extra actions,
 and restores the automatic layout, default button positions and order, and the inspection rail,
 and removes empty panes. Arrow keys, Home, and End select tabs; focused dividers resize with arrow keys.
@@ -1994,8 +2001,12 @@ The inspector shows TypeScript actor history and read-only program sources.
 Missing source text is reported explicitly.
 
 `apps/web/src/run-apps.ts` builds the shared mini-app catalog from surface contributions
-for the shared panel and the standalone app route. Entries retain the run ID,
-plugin definition (ID, title, ownership, and data), and renderer; `visible: false` entries
+for the shared panel and the standalone app route. A contribution can also let the viewer add an
+element of its own (`add`: `label`, optional `right`, and a `Dialog` that receives the session and
+`onClose(elementId?)`); `runAppAdditions` lists the additions the viewer's access allows, and
+`useRunAppAddition` holds the open dialog and hands the element it reports to the host once the
+catalog lists it: the browser dock reveals its window, VS Code opens its editor tab. Entries retain
+the run ID, plugin definition (ID, title, ownership, and data), and renderer; `visible: false` entries
 are excluded and duplicate IDs within a run are errors. Each entry also has a `layoutKey`, the
 definition's `layoutKey` or else its ID, under which the browser dock keeps its place
 (`app:<layout key>`): a later app with the same key takes over the area of an earlier one, and
@@ -2008,7 +2019,9 @@ an entry from another run. `RunAppNavigation.openApp` is the host navigation con
 the VS Code adapter sends the editor open/focus message. Host API 10 requires the single
 `surface.RunPanel` contract and removes the surface header placement; older bundles must be rebuilt.
 
-`ragents.actor-programs` contributes the Functions tab, typed tool cards, and mini-app rendering.
+`ragents.actor-programs` contributes the Functions tab, typed tool cards, mini-app rendering, and
+read-only displays of apps from other runs with their "Show app..." addition
+([actor-programs.md](actor-programs.md#read-only-displays-of-apps-from-other-runs)).
 Installed visible apps appear automatically in the shared catalog. `actor_view_set_visibility`
 changes journaled visibility while preserving installation and state. The app frame occupies
 the selected view without another title bar. Necessary host status messages reserve 28 pixels
@@ -5391,8 +5404,10 @@ existing app in its room, keeps its actor state and trigger progress, and leaves
 package active if verification fails. A user has at most 50 apps. `global_app_list` returns the
 apps with their declared triggers, trigger progress, and last result, 20 by default and at most 50;
 `global_app_remove` interrupts current work and removes the app's program and record while the
-journal keeps its history. Creating and removing are available to agents, not to TypeScript
-actors, with `agent.spawn`, `plugin.state.write`, and the owner's rights.
+journal keeps its history. The plugin names each app for read-only displays in the owner's runs
+(`ActorProgramsService.addNamedApps`, label "Global apps"), where "Show app..." and
+`app_display_add` address it by its name. Creating and removing are available to agents, not to
+TypeScript actors, with `agent.spawn`, `plugin.state.write`, and the owner's rights.
 
 The coordinator verifies an app with the generic `actor_program_trigger` and
 `actor_program_status` under the returned program name and pauses or resumes it with

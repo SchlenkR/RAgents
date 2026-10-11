@@ -1106,6 +1106,8 @@ const elements = {
     id: "ragents.example.note", order: 100,
     select: () => [{ id: "example-note", title: "Note", visible: true }],
     Element: ({ definition }) => <p>{definition.title}</p>,
+    add: { label: "Add note...", right: "runs.write",
+      Dialog: ({ onClose }) => <button onClick={() => onClose("example-note")} type="button">Add the note</button> },
   }],
 } satisfies WebPlugin;
 ```
@@ -1113,6 +1115,8 @@ const elements = {
 Definitions require an id; title is optional. visible: false removes an entry from the catalog. The host determines its size. anchorActorId, entity, and custom data are optional. New apps do not steal focus. Visited browser views stay mounted while hidden; unavailable selections return to Chat.
 
 An unavailable app keeps its place in the browser dock. layoutKey, by default the id, names that place: a later app with the same key, such as the view of a later start of a run script, takes over the area of an earlier one.
+
+add offers the viewer an action beside the run's apps, after Empty space in the browser and after the app buttons in VS Code, as ragents.actor-programs offers Show app... Its Dialog closes with the id of an element it added, which the host opens once the catalog lists it; without the right named in right the action is missing.
 
 Contract fields: web.surfaceElements, surfaceElement.id, surfaceElement.visible, surfaceElement.title, surfaceElement.layoutKey, surfaceElement.anchorActorId, surfaceElement.entity, surfaceElement.data.
 

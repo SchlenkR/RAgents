@@ -150,6 +150,229 @@
       "x-timeout-ms": 30000
     },
     {
+      "name": "ragents.actor-programs.display-add",
+      "description": "Show an app of another run read-only in this run; showing the same view again returns its display.",
+      "params": [
+        {
+          "name": "input",
+          "required": true,
+          "schema": {
+            "type": "object",
+            "required": [
+              "runId",
+              "source"
+            ],
+            "properties": {
+              "runId": {
+                "type": "string",
+                "pattern": "^[A-Za-z0-9_-]{1,64}$",
+                "description": "Identifier of the run"
+              },
+              "source": {
+                "type": "object",
+                "required": [
+                  "runId",
+                  "view"
+                ],
+                "properties": {
+                  "runId": {
+                    "type": "string",
+                    "pattern": "^[A-Za-z0-9_-]{1,64}$",
+                    "description": "Identifier of the run"
+                  },
+                  "view": {
+                    "type": "string",
+                    "pattern": "^[a-z][a-z0-9_.-]{0,194}$",
+                    "description": "Identifier of the actor view"
+                  }
+                },
+                "additionalProperties": false
+              }
+            },
+            "additionalProperties": false
+          }
+        }
+      ],
+      "paramStructure": "by-name",
+      "result": {
+        "name": "result",
+        "schema": {
+          "type": "object",
+          "required": [
+            "elementId"
+          ],
+          "properties": {
+            "elementId": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "additionalProperties": false
+        }
+      },
+      "x-owner": "ragents.actor-programs",
+      "x-rights": [
+        "runs.read",
+        "runs.write"
+      ],
+      "x-implemented-by": "server",
+      "x-timeout-ms": 30000
+    },
+    {
+      "name": "ragents.actor-programs.display-remove",
+      "description": "Remove a display from this run; the app in its own run stays as it is.",
+      "params": [
+        {
+          "name": "input",
+          "required": true,
+          "schema": {
+            "type": "object",
+            "required": [
+              "runId",
+              "display"
+            ],
+            "properties": {
+              "runId": {
+                "type": "string",
+                "pattern": "^[A-Za-z0-9_-]{1,64}$",
+                "description": "Identifier of the run"
+              },
+              "display": {
+                "type": "string",
+                "pattern": "^[a-f0-9]{12}$",
+                "description": "Identifier of the display in its run"
+              }
+            },
+            "additionalProperties": false
+          }
+        }
+      ],
+      "paramStructure": "by-name",
+      "result": {
+        "name": "result",
+        "schema": {
+          "type": "object",
+          "properties": {},
+          "additionalProperties": false
+        }
+      },
+      "x-owner": "ragents.actor-programs",
+      "x-rights": [
+        "runs.read",
+        "runs.write"
+      ],
+      "x-implemented-by": "server",
+      "x-timeout-ms": 30000
+    },
+    {
+      "name": "ragents.actor-programs.display-sources",
+      "description": "The apps you can show read-only in this run: named apps such as global apps, and the apps of your other runs grouped by run title.",
+      "params": [
+        {
+          "name": "input",
+          "required": true,
+          "schema": {
+            "type": "object",
+            "required": [
+              "runId"
+            ],
+            "properties": {
+              "runId": {
+                "type": "string",
+                "pattern": "^[A-Za-z0-9_-]{1,64}$",
+                "description": "Identifier of the run"
+              }
+            },
+            "additionalProperties": false
+          }
+        }
+      ],
+      "paramStructure": "by-name",
+      "result": {
+        "name": "result",
+        "schema": {
+          "type": "object",
+          "required": [
+            "groups"
+          ],
+          "properties": {
+            "groups": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "required": [
+                  "label",
+                  "apps"
+                ],
+                "properties": {
+                  "label": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 300
+                  },
+                  "apps": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "required": [
+                        "title",
+                        "detail",
+                        "runId",
+                        "view",
+                        "shown"
+                      ],
+                      "properties": {
+                        "title": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 300
+                        },
+                        "detail": {
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 300
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "runId": {
+                          "type": "string",
+                          "pattern": "^[A-Za-z0-9_-]{1,64}$",
+                          "description": "Identifier of the run"
+                        },
+                        "view": {
+                          "type": "string",
+                          "pattern": "^[a-z][a-z0-9_.-]{0,194}$",
+                          "description": "Identifier of the actor view"
+                        },
+                        "shown": {
+                          "type": "boolean",
+                          "description": "This run already shows the view"
+                        }
+                      },
+                      "additionalProperties": false
+                    }
+                  }
+                },
+                "additionalProperties": false
+              }
+            }
+          },
+          "additionalProperties": false
+        }
+      },
+      "x-owner": "ragents.actor-programs",
+      "x-rights": [
+        "runs.read"
+      ],
+      "x-implemented-by": "server",
+      "x-timeout-ms": 30000
+    },
+    {
       "name": "ragents.actor-programs.function",
       "description": "Start a function of an actor independently of its views.",
       "params": [
@@ -6100,6 +6323,186 @@
     }
   ],
   "x-channels": [
+    {
+      "name": "ragents.actor-programs.display",
+      "description": "The current state of a display's app after every change, checked against your access to the app's run.",
+      "params": {
+        "type": "object",
+        "required": [
+          "runId",
+          "display"
+        ],
+        "properties": {
+          "runId": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9_-]{1,64}$",
+            "description": "Identifier of the run"
+          },
+          "display": {
+            "type": "string",
+            "pattern": "^[a-f0-9]{12}$",
+            "description": "Identifier of the display in its run"
+          }
+        },
+        "additionalProperties": false
+      },
+      "message": {
+        "anyOf": [
+          {
+            "type": "object",
+            "required": [
+              "status",
+              "title",
+              "from",
+              "runId",
+              "app"
+            ],
+            "properties": {
+              "status": {
+                "type": "string",
+                "const": "ready"
+              },
+              "title": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 300
+              },
+              "from": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 300
+              },
+              "runId": {
+                "type": "string",
+                "pattern": "^[A-Za-z0-9_-]{1,64}$",
+                "description": "Identifier of the run"
+              },
+              "app": {
+                "type": "object",
+                "additionalProperties": true,
+                "x-typescript-type": "ActorViewListing"
+              }
+            },
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "required": [
+              "status",
+              "title",
+              "from",
+              "message"
+            ],
+            "properties": {
+              "status": {
+                "type": "string",
+                "const": "denied"
+              },
+              "title": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 300
+              },
+              "from": {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 300
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "message": {
+                "type": "string",
+                "minLength": 1
+              }
+            },
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "required": [
+              "status",
+              "title",
+              "from",
+              "message"
+            ],
+            "properties": {
+              "status": {
+                "type": "string",
+                "const": "removed"
+              },
+              "title": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 300
+              },
+              "from": {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 300
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "message": {
+                "type": "string",
+                "minLength": 1
+              }
+            },
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "required": [
+              "status",
+              "title",
+              "from",
+              "message"
+            ],
+            "properties": {
+              "status": {
+                "type": "string",
+                "const": "failed"
+              },
+              "title": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 300
+              },
+              "from": {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 300
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "message": {
+                "type": "string",
+                "minLength": 1
+              }
+            },
+            "additionalProperties": false
+          }
+        ]
+      },
+      "x-owner": "ragents.actor-programs",
+      "x-rights": [
+        "runs.read"
+      ]
+    },
     {
       "name": "ragents.chat",
       "description": "The coordinator's chat history: first the stored history, then live. Rights as for reading the run; it ends as soon as the caller no longer sees the run because a share was taken back.",

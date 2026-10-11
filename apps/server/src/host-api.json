@@ -267,6 +267,7 @@
       "hostAddressToken",
       "runGuardToken",
       "runOwnerAccessToken",
+      "runReadGuardToken",
       "runWorkspaceProviderToken",
       "runtimeProviderToken",
       "secretEnvNamesToken",
@@ -835,8 +836,10 @@
     ],
     "@ragents/web/run-apps": [
       "RunAppView",
+      "runAppAdditions",
       "runApps",
-      "selectedRunApp"
+      "selectedRunApp",
+      "useRunAppAddition"
     ],
     "@ragents/web/run-panel/DockWorkspace": [
       "DockWindowActions",

@@ -1,4 +1,4 @@
-import { runApps, selectedRunApp, RunAppView } from "./run-apps";
+import { runAppAdditions, runApps, selectedRunApp, RunAppView } from "./run-apps";
 import { isRecord } from "./lib/guards";
 import { canStopRun, RunAccessScope, useAccess } from "./AccessContext";
 import { readOnlyReason } from "./run-sharing";
@@ -405,7 +405,7 @@ function ChatWorkspace({
                     tabIds={tabs.map((tab) => tab.id)}
                   />
                   : host.kind === "browser"
-                    ? <DockWorkspace apps={runApps(session, registry.surfaceElements)} chat={renderChat()} navigation={navigation} session={session} />
+                    ? <DockWorkspace additions={runAppAdditions(registry.surfaceElements, access)} apps={runApps(session, registry.surfaceElements)} chat={renderChat()} navigation={navigation} session={session} />
                     : <DefaultCenter renderChat={renderChat} />}
                 {hasWorkspace && <RunPanelWorkspace navigation={navigation} onClose={onTogglePanel} open={panelState === "expanded"} session={session} tabs={tabs} />}
               </div>

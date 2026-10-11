@@ -94,7 +94,7 @@ export const hostApi: { readonly server: HostApiModules; readonly web: HostApiMo
     "@ragents/host/ragents/global-chat": ["globalChatToken", "runManagementToken"],
     "@ragents/host/ragents/host-services": [
       "executorContributionsToken", "hostAddressToken", "runtimeProviderToken", "runOwnerAccessToken", "userAccessToken", "secretEnvNamesToken", "runGuardToken", "runWorkspaceProviderToken",
-      "workspaceGuardToken",
+      "runReadGuardToken", "workspaceGuardToken",
     ],
     "@ragents/host/ragents/product-runtime": ["productRuntimeToken"],
     "@ragents/host/ragents/runtime-bridge": ["runtimeBridgeToken"],
@@ -158,7 +158,7 @@ export const hostApi: { readonly server: HostApiModules; readonly web: HostApiMo
     "@ragents/web/product/start-options": ["productStartOptions"],
     "@ragents/web/rpc": ["rpc"],
     "@ragents/web/run-panel/input-bridge": ["hostInputEnabled", "isRunPanelKeyboardMessage", "relayFrameInput"],
-    "@ragents/web/run-apps": ["runApps", "selectedRunApp", "RunAppView"],
+    "@ragents/web/run-apps": ["runAppAdditions", "runApps", "selectedRunApp", "RunAppView", "useRunAppAddition"],
     "@ragents/web/run-panel/DockWorkspace": ["DockWindowActions", "DockWorkspace", "useDockActiveApp", "useDockActivePanel", "useDockPanelDrag"],
     "@ragents/web/run-panel/host": ["useRunPanelHost"],
     "@ragents/web/run-view": [

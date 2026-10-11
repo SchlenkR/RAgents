@@ -16,6 +16,7 @@ import {
   ActorProgramToolCardSection,
   actorProgramSurfaceElements,
 } from "./EmbeddedApps";
+import { AppDisplayElement, AppDisplayPicker, appDisplaySurfaceElements } from "./AppDisplays";
 
 export const ACTOR_PROGRAMS_PLUGIN_ID = "ragents.actor-programs";
 
@@ -54,6 +55,12 @@ const configuredPlugin = (descriptor: WebPluginDescriptor, routePrefix: string):
       order: 400,
       select: actorProgramSurfaceElements,
       Element: ActorProgramSurfaceElement,
+    }, {
+      id: "ragents.actor-programs.displays",
+      order: 410,
+      select: appDisplaySurfaceElements,
+      Element: AppDisplayElement,
+      add: { label: "Show app...", right: "runs.write", Dialog: AppDisplayPicker },
     }],
     workspaceTabs: [
       {

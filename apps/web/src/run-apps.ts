@@ -1,5 +1,6 @@
-import { createElement } from "react";
-import type { SessionContext, SessionNavigation, SurfaceElementContribution, SurfaceElementDefinition } from "./PluginRegistry";
+import { createElement, useCallback, useEffect, useState, type ReactNode } from "react";
+import type { AccessContext } from "../../../packages/ragents/src/access";
+import type { SessionContext, SessionNavigation, SurfaceElementAddition, SurfaceElementContribution, SurfaceElementDefinition } from "./PluginRegistry";
 
 export interface RunApp {
   readonly runId: string;
@@ -40,4 +41,33 @@ export function RunAppView({ app, navigation, session }: {
 }) {
   if (app.runId !== session.session.id) throw new Error("The mini-app belongs to another run.");
   return createElement(app.Element, { definition: app.definition, navigation, session });
+}
+
+/** An addition a surface contribution offers beside the run's apps, such as "Show app...". */
+export interface RunAppAddition {
+  readonly id: string;
+  readonly label: string;
+  readonly Dialog: SurfaceElementAddition["Dialog"];
+}
+
+export function runAppAdditions(contributions: readonly SurfaceElementContribution[], access: Pick<AccessContext, "can">): readonly RunAppAddition[] {
+  return contributions.flatMap(({ id, add }) => add && (add.right === undefined || access.can(add.right))
+    ? [{ id: `add:${id}`, label: add.label, Dialog: add.Dialog }] : []);
+}
+
+/** The open addition dialog; an element it added goes to `open` once the run lists it. */
+export function useRunAppAddition(apps: readonly RunApp[], session: SessionContext, open: (app: RunApp) => void): { start: (addition: RunAppAddition) => void; dialog: ReactNode } {
+  const [adding, setAdding] = useState<RunAppAddition>();
+  const [added, setAdded] = useState<string>();
+  const target = added === undefined ? undefined : selectedRunApp(apps, added);
+  useEffect(() => {
+    if (!target) return;
+    setAdded(undefined);
+    open(target);
+  }, [open, target]);
+  const close = useCallback((elementId?: string) => {
+    setAdding(undefined);
+    setAdded(elementId);
+  }, []);
+  return { start: setAdding, dialog: adding ? createElement(adding.Dialog, { session, onClose: close }) : null };
 }

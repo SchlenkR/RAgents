@@ -108,6 +108,10 @@ export class RunSessionProvider implements ChatSessionProvider {
         this.ensureUsable(runId);
         assertRunWorkspaceAccess(access, runId, this.runAccess());
       },
+      ensureRunReadable: (access, runId) => {
+        assertRunRights(access, runId, "read", this.runAccess());
+        this.ensureUsable(runId);
+      },
       runtime: () => this.requireEngine().runtime,
       sessionWorkspaceFor: (runId, signal) => this.sessionWorkspace(runId, () => {}, signal),
       sessions: () => this.sessionManagement(),

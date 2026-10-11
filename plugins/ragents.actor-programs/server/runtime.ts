@@ -7,7 +7,7 @@ import { Type, type TSchema } from "typebox";
 import { Value } from "typebox/value";
 import { actorByHandle, actorDescriptionMaxLength, addressFrom, addressOf, agentTools, assertJsonValue, canonicalHash, defineRunFunction, defineToolAvailability, emptyUsage, freeRoomName, handleKey, inheritedGrants, runCapabilityContractHash, scriptInputOf, schemaComplaints, type AccessContext, type Actor, type ActorProgramExecutor, type RunFunction, type CommandContext, type ExecutableActor, type JsonValue, type OperationContext, type Orchestration, type PluginContext, type RunCapabilityDescriptor, type RunView, type TurnRequest, type TurnResult, } from "@ragents/engine";
 import { ACTOR_PROGRAMS_STATE_ID, ACTOR_INVOCATIONS_STATE_ID, ACTOR_SCRIPT_STATE_ID, ACTOR_STATE_ID, relativeName, resolveActorView, type ActorDataState, type ActorFunctionDefinition, type ActorFunctionInvocation, type ActorPackageOrigin, type ActorProgramDefinition, type ActorProgramIdentity, type ActorProgramState, type ActorScriptDelivery, type ActorScriptPackage, type ActorScriptState, type ActorTriggerProgress, type ActorViewListing, } from "@ragents/host/plugin-support/actor-programs/contract.js";
-import type { ActivatedActorProgram, ActorProgramSource, ActorProgramsService, ActorViewReference, RunScriptSources, RunScriptStartInput } from "@ragents/host/plugin-support/actor-programs/service.js";
+import type { ActivatedActorProgram, ActorProgramSource, ActorProgramsService, ActorViewReference, NamedAppSource, RunScriptSources, RunScriptStartInput } from "@ragents/host/plugin-support/actor-programs/service.js";
 import { jsonValue, jsonBytes, MAX_INVOCATIONS_STATE_BYTES } from "./limits.js";
 import { agentResultText, finishesOf, MAX_OPEN_STARTS, scriptResultContent, scriptStateOf, type ScriptFinish } from "./script-state.js";
 import { agentCapabilityBinding, operatorCapabilityBinding } from "./capability-resolver.js";
@@ -222,6 +222,7 @@ export class ActorProgramRuntime implements ActorProgramsService, ActorProgramEx
     readonly #identities = new Map<string, string>();
     readonly #epochs = new Map<string, number>();
     readonly #stopping = new Set<string>();
+    readonly #namedApps: NamedAppSource[] = [];
     readonly triggers: ProgramTriggers;
     #shuttingDown = false;
     constructor(options: ActorProgramRuntimeOptions) {
@@ -721,6 +722,8 @@ export class ActorProgramRuntime implements ActorProgramsService, ActorProgramEx
         const origin = record && this.#identityOf(program) === record.identity ? record.origin : { kind: "run" as const, installedBy: program.installedBy };
         return { name: program.name, actorId, revision: program.revision, origin };
     }
+    addNamedApps(source: NamedAppSource): void { this.#namedApps.push(source); }
+    namedAppSources(): readonly NamedAppSource[] { return this.#namedApps; }
     resolveView(runId: string, reference: string, callerId?: string): ActorViewReference {
         const room = callerId === undefined ? null : this.#roomOf(runId, callerId);
         const { program, view } = resolveActorView(this.programs(runId), reference, room);

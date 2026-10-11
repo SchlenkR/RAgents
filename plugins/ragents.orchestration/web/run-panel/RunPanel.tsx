@@ -1,8 +1,8 @@
-import { runApps } from "@ragents/web/run-apps";
+import { runAppAdditions, runApps, useRunAppAddition } from "@ragents/web/run-apps";
 import { DockWindowActions, DockWorkspace, useDockActivePanel } from "@ragents/web/run-panel/DockWorkspace";
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
-import { LayoutGridIcon, SearchIcon } from "lucide-react";
+import { LayoutGridIcon, PlusIcon, SearchIcon } from "lucide-react";
 import { useAccess } from "@ragents/web/AccessContext";
 import { ChatPanel } from "quassel";
 import { useRunPanelHost } from "@ragents/web/run-panel/host";
@@ -31,12 +31,15 @@ export function OrchestrationRunPanel(props: SurfaceCenterContext) {
 function RunPanel({ autoFocusChat, onAutoFocusChatSettled, surfaceElements, cardSections, navigation, renderChat, session, toolbarContainer }: SurfaceCenterContext) {
   const runId = session.session.id;
   const surface = useSurfaceController();
-  const inspect = useAccess().can("runs.inspect");
+  const access = useAccess();
+  const inspect = access.can("runs.inspect");
   const host = useRunPanelHost();
   const view = runViewFrom(session.runView);
   const stored = useRunPanelState(runId);
   const save = useCallback((patch: Partial<RunPanelState>) => saveRunPanelState(runId, { ...stored, ...patch }), [runId, stored]);
   const elements = useMemo(() => runApps(session, surfaceElements), [surfaceElements, session]);
+  const additions = useMemo(() => runAppAdditions(surfaceElements, access), [access, surfaceElements]);
+  const addition = useRunAppAddition(elements, session, (app) => host.openApp(runId, app.definition.id, app.definition.title ?? app.definition.id));
   const activePanel = useDockActivePanel(runId);
   const activeApp = activePanel?.startsWith("app:") ? activePanel.slice(4) : undefined;
   const selectedElement = host.kind === "browser" ? elements.find((app) => app.layoutKey === activeApp) : undefined;
@@ -89,16 +92,22 @@ function RunPanel({ autoFocusChat, onAutoFocusChatSettled, surfaceElements, card
       })}
     </section>
   );
-  if (host.kind === "browser") return <DockWorkspace apps={elements} chat={chat} chatIcon={view && selectedActor ? <ActorIcon actor={selectedActor} className="size-5" view={view} /> : undefined}
+  if (host.kind === "browser") return <DockWorkspace additions={additions} apps={elements} chat={chat} chatIcon={view && selectedActor ? <ActorIcon actor={selectedActor} className="size-5" view={view} /> : undefined}
     navigation={navigation} session={session} panels={view ? actors.map((actor) => ({
       id: `actor:${actor.id}`,
       title: `@${actorAddress(actor)}`,
       icon: <ActorIcon actor={actor} className="size-5" view={view} />,
       content: <ActorRunPanelChat actor={actor} cardSections={cardSections} navigation={navigation} notice={notice} onNavigate={navigate} session={session} view={view} />,
     })) : []} />;
-  const appActions = elements.length > 0 && <DockWindowActions items={elements.map(({ definition }) => ({ id: definition.id, title: definition.title ?? definition.id, icon: <LayoutGridIcon /> }))}
-    onOpen={(id) => host.openApp(runId, id, elements.find(({ definition }) => definition.id === id)?.definition.title ?? id)} />;
+  const appActions = (elements.length > 0 || additions.length > 0) && <DockWindowActions items={elements.map(({ definition }) => ({ id: definition.id, title: definition.title ?? definition.id, icon: <LayoutGridIcon /> }))}
+    extras={additions.map((entry) => ({ id: entry.id, title: entry.label, icon: <PlusIcon />, hint: entry.label }))}
+    onOpen={(id) => {
+      const entry = additions.find((candidate) => candidate.id === id);
+      if (entry) addition.start(entry);
+      else host.openApp(runId, id, elements.find(({ definition }) => definition.id === id)?.definition.title ?? id);
+    }} />;
   return <div className="flex min-h-0 min-w-0 flex-1 flex-col bg-app" data-run-panel="run">
+    {addition.dialog}
     {toolbarContainer ? createPortal(appActions, toolbarContainer) : appActions && <nav aria-label="Mini-apps of the run" className="flex min-w-0 flex-none items-center border-b border-border bg-shell px-2 py-2">{appActions}</nav>}
     {chat}
   </div>;

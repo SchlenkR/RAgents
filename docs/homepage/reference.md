@@ -1943,6 +1943,100 @@ Only with the capability agent.spawn.
 }
 ```
 
+### app_display_add
+
+Show App Read-only
+
+Show a named app, such as a global app, read-only as a window of this run.
+
+The window always shows the app's current state; it calls no functions and starts nothing. Showing the same view again changes nothing. The user shows apps of other runs through Show app...
+
+Owner: ragents.actor-programs. Scope: per-turn. Native model tool: yes. Availability: conditional.
+
+For executable actors with plugin.state.write while a plugin offers named apps, such as global apps.
+
+#### Input
+
+```json
+{
+  "type": "object",
+  "required": [
+    "app"
+  ],
+  "properties": {
+    "app": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 64,
+      "description": "The app's name, for a global app as global_app_list shows it"
+    },
+    "view": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 200,
+      "description": "View key or title; only needed when the app has several views"
+    }
+  },
+  "additionalProperties": false
+}
+```
+
+#### Result
+
+```json
+{
+  "type": "null",
+  "description": "Shown; an error throws."
+}
+```
+
+### app_display_remove
+
+Remove App Display
+
+Remove this run's read-only display of a named app; the app itself stays as it is.
+
+Without view, every shown view of the app is removed.
+
+Owner: ragents.actor-programs. Scope: per-turn. Native model tool: yes. Availability: conditional.
+
+For executable actors with plugin.state.write while a plugin offers named apps, such as global apps.
+
+#### Input
+
+```json
+{
+  "type": "object",
+  "required": [
+    "app"
+  ],
+  "properties": {
+    "app": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 64,
+      "description": "The app's name, for a global app as global_app_list shows it"
+    },
+    "view": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 200,
+      "description": "View key or title; only needed when the app has several views"
+    }
+  },
+  "additionalProperties": false
+}
+```
+
+#### Result
+
+```json
+{
+  "type": "null",
+  "description": "Removed; an error throws."
+}
+```
+
 ### artifact_publish
 
 Publish Artifact

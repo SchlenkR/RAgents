@@ -28,6 +28,9 @@ Ids from results are reused programmatically, not copied by hand.
 | --- | --- | --- |
 | ragents.actor-programs.action | ragents.actor-programs | runs.read, runs.write |
 | ragents.actor-programs.apps | ragents.actor-programs | runs.read |
+| ragents.actor-programs.display-add | ragents.actor-programs | runs.read, runs.write |
+| ragents.actor-programs.display-remove | ragents.actor-programs | runs.read, runs.write |
+| ragents.actor-programs.display-sources | ragents.actor-programs | runs.read |
 | ragents.actor-programs.function | ragents.actor-programs | runs.read, runs.write, runs.inspect |
 | ragents.actor-programs.function-invocation | ragents.actor-programs | runs.read, runs.inspect |
 | ragents.actor-programs.invocation | ragents.actor-programs | runs.read |
@@ -115,6 +118,7 @@ Ids from results are reused programmatically, not copied by hand.
 
 | Channel | Owner | Rights |
 | --- | --- | --- |
+| ragents.actor-programs.display | ragents.actor-programs | runs.read |
 | ragents.chat | host | no fixed rights |
 | ragents.global-apps.changed | ragents.global-apps | ragents.global-apps.read |
 | ragents.mcp.status | ragents.mcp | runs.read, ragents.mcp.read |
@@ -242,6 +246,218 @@ Default client deadline: 30000 ms; callers may override it.
         "type": "object",
         "additionalProperties": true,
         "x-typescript-type": "ActorLocalTool"
+      }
+    }
+  },
+  "additionalProperties": false
+}
+```
+
+## ragents.actor-programs.display-add
+
+Show an app of another run read-only in this run; showing the same view again returns its display.
+
+Owner: ragents.actor-programs. Rights: runs.read, runs.write. Execution: the server.
+Default client deadline: 30000 ms; callers may override it.
+
+### Input
+
+```json
+{
+  "type": "object",
+  "required": [
+    "runId",
+    "source"
+  ],
+  "properties": {
+    "runId": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9_-]{1,64}$",
+      "description": "Identifier of the run"
+    },
+    "source": {
+      "type": "object",
+      "required": [
+        "runId",
+        "view"
+      ],
+      "properties": {
+        "runId": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9_-]{1,64}$",
+          "description": "Identifier of the run"
+        },
+        "view": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9_.-]{0,194}$",
+          "description": "Identifier of the actor view"
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  "additionalProperties": false
+}
+```
+
+### Result
+
+```json
+{
+  "type": "object",
+  "required": [
+    "elementId"
+  ],
+  "properties": {
+    "elementId": {
+      "type": "string",
+      "minLength": 1
+    }
+  },
+  "additionalProperties": false
+}
+```
+
+## ragents.actor-programs.display-remove
+
+Remove a display from this run; the app in its own run stays as it is.
+
+Owner: ragents.actor-programs. Rights: runs.read, runs.write. Execution: the server.
+Default client deadline: 30000 ms; callers may override it.
+
+### Input
+
+```json
+{
+  "type": "object",
+  "required": [
+    "runId",
+    "display"
+  ],
+  "properties": {
+    "runId": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9_-]{1,64}$",
+      "description": "Identifier of the run"
+    },
+    "display": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{12}$",
+      "description": "Identifier of the display in its run"
+    }
+  },
+  "additionalProperties": false
+}
+```
+
+### Result
+
+```json
+{
+  "type": "object",
+  "properties": {},
+  "additionalProperties": false
+}
+```
+
+## ragents.actor-programs.display-sources
+
+The apps you can show read-only in this run: named apps such as global apps, and the apps of your other runs grouped by run title.
+
+Owner: ragents.actor-programs. Rights: runs.read. Execution: the server.
+Default client deadline: 30000 ms; callers may override it.
+
+### Input
+
+```json
+{
+  "type": "object",
+  "required": [
+    "runId"
+  ],
+  "properties": {
+    "runId": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9_-]{1,64}$",
+      "description": "Identifier of the run"
+    }
+  },
+  "additionalProperties": false
+}
+```
+
+### Result
+
+```json
+{
+  "type": "object",
+  "required": [
+    "groups"
+  ],
+  "properties": {
+    "groups": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "label",
+          "apps"
+        ],
+        "properties": {
+          "label": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 300
+          },
+          "apps": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": [
+                "title",
+                "detail",
+                "runId",
+                "view",
+                "shown"
+              ],
+              "properties": {
+                "title": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 300
+                },
+                "detail": {
+                  "anyOf": [
+                    {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 300
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "runId": {
+                  "type": "string",
+                  "pattern": "^[A-Za-z0-9_-]{1,64}$",
+                  "description": "Identifier of the run"
+                },
+                "view": {
+                  "type": "string",
+                  "pattern": "^[a-z][a-z0-9_.-]{0,194}$",
+                  "description": "Identifier of the actor view"
+                },
+                "shown": {
+                  "type": "boolean",
+                  "description": "This run already shows the view"
+                }
+              },
+              "additionalProperties": false
+            }
+          }
+        },
+        "additionalProperties": false
       }
     }
   },
@@ -5953,6 +6169,194 @@ Default client deadline: 30000 ms; callers may override it.
 ```json
 {
   "type": "null"
+}
+```
+
+## Channel ragents.actor-programs.display
+
+The current state of a display's app after every change, checked against your access to the app's run.
+
+Owner: ragents.actor-programs. Rights: runs.read.
+
+### Parameter
+
+```json
+{
+  "type": "object",
+  "required": [
+    "runId",
+    "display"
+  ],
+  "properties": {
+    "runId": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9_-]{1,64}$",
+      "description": "Identifier of the run"
+    },
+    "display": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{12}$",
+      "description": "Identifier of the display in its run"
+    }
+  },
+  "additionalProperties": false
+}
+```
+
+### Message
+
+```json
+{
+  "anyOf": [
+    {
+      "type": "object",
+      "required": [
+        "status",
+        "title",
+        "from",
+        "runId",
+        "app"
+      ],
+      "properties": {
+        "status": {
+          "type": "string",
+          "const": "ready"
+        },
+        "title": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 300
+        },
+        "from": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 300
+        },
+        "runId": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9_-]{1,64}$",
+          "description": "Identifier of the run"
+        },
+        "app": {
+          "type": "object",
+          "additionalProperties": true,
+          "x-typescript-type": "ActorViewListing"
+        }
+      },
+      "additionalProperties": false
+    },
+    {
+      "type": "object",
+      "required": [
+        "status",
+        "title",
+        "from",
+        "message"
+      ],
+      "properties": {
+        "status": {
+          "type": "string",
+          "const": "denied"
+        },
+        "title": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 300
+        },
+        "from": {
+          "anyOf": [
+            {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 300
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "message": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false
+    },
+    {
+      "type": "object",
+      "required": [
+        "status",
+        "title",
+        "from",
+        "message"
+      ],
+      "properties": {
+        "status": {
+          "type": "string",
+          "const": "removed"
+        },
+        "title": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 300
+        },
+        "from": {
+          "anyOf": [
+            {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 300
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "message": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false
+    },
+    {
+      "type": "object",
+      "required": [
+        "status",
+        "title",
+        "from",
+        "message"
+      ],
+      "properties": {
+        "status": {
+          "type": "string",
+          "const": "failed"
+        },
+        "title": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 300
+        },
+        "from": {
+          "anyOf": [
+            {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 300
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "message": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false
+    }
+  ]
 }
 ```
 

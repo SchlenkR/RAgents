@@ -182,6 +182,16 @@ close it with X, which removes it. It shows "Drag an app or actor here". Droppin
 button or a tab anywhere on a shown empty pane, or on the compass center labeled "Replace empty
 pane", puts that window in its place. Empty panes survive reload.
 
+"Show app..." follows "Empty space" if you may work in the run; in VS Code it sits after the app
+buttons. It lists the mini-apps you may show here: your global apps under "Global apps", then the
+apps of your other runs under each run's title, and marks a view the run already shows as "Shown".
+Choosing one adds a window titled with the app's name and "(read-only)" and opens it, in VS Code as
+an editor tab. The window says "Read-only" and where the app lives, follows the app's state live,
+and refuses every action of the app; "Remove" takes the window out of the run for everyone. Another
+viewer of a shared run who may not read the app's run sees "This app is not available to you." in
+that window, and a removed app or run is reported there the same calm way. The rest of the run
+stays as it is.
+
 The "Reset layout" icon after the window buttons and "Empty space"
 restores the automatic layout, default button positions and order, and the inspection rail,
 and removes empty panes. Maximize appears only with multiple areas, in the active tab just

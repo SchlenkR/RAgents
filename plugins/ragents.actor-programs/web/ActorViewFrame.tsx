@@ -33,7 +33,8 @@ import {
 interface ActorViewFrameProps {
   api: ActorProgramsApi;
   app: RunApp;
-  invoke: (
+  /** Without it the view is a read-only display that calls no functions. */
+  invoke?: (
     appId: string,
     revision: string,
     actionId: string,
@@ -55,6 +56,7 @@ interface FrameLifecycle {
 }
 
 const ACTIVE_STATUSES = new Set(["queued", "running"]);
+const READ_ONLY_DISPLAY = "This app is shown read-only; it calls no functions here.";
 const REQUEST_ID_HISTORY_LIMIT = 512;
 const RUNNING_CHIP_DELAY_MS = 400;
 
@@ -92,8 +94,8 @@ export function ActorViewFrame({
   const looks = useLooks();
   const looksRef = useRef(looks);
   looksRef.current = looks;
-  const writableRef = useRef(access.can("runs.write"));
-  writableRef.current = access.can("runs.write");
+  const writableRef = useRef(invoke !== undefined && access.can("runs.write"));
+  writableRef.current = invoke !== undefined && access.can("runs.write");
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const portRef = useRef<MessagePort | undefined>(undefined);
   const frameLifecycleRef = useRef<FrameLifecycle | undefined>(undefined);
@@ -186,8 +188,10 @@ export function ActorViewFrame({
     setActionError(undefined);
     setSubmitting((current) => [...current, request.requestId]);
     try {
+      const run = invokeRef.current;
+      if (!run) throw new Error(READ_ONLY_DISPLAY);
       if (!writableRef.current) throw new Error("You have read-only access to this actor view.");
-      const invocation = await invokeRef.current(
+      const invocation = await run(
         installedApp.id,
         installedApp.revision,
         request.actionId,
@@ -291,6 +295,10 @@ export function ActorViewFrame({
       sendState(port, request.requestId);
       return;
     }
+    if (!invokeRef.current) {
+      postError(port, request.requestId, READ_ONLY_DISPLAY);
+      return;
+    }
     const action = installedApp.actions.find((entry) => entry.id === request.actionId);
     if (!action) {
       postError(port, request.requestId, "The requested app action is not installed");
@@ -334,6 +342,7 @@ export function ActorViewFrame({
         title: installedApp.title,
         description: installedApp.description,
         actions: installedApp.actions,
+        ...invokeRef.current ? {} : { readOnly: true },
       },
       actor: { id: installedApp.actorId, handle: installedApp.actorHandle },
       state: installedApp.state ?? null,

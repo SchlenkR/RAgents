@@ -6,8 +6,8 @@ import { activeDockTool, selectDockPanel, workspaceTabPanelId } from "../src/run
 import { useDockStorage } from "../src/run-panel/dock-storage";
 import { RunPanelHeader } from "../src/run-panel/RunPanelHeader";
 import { RunHeader } from "../src/run-panel/RunHeader";
-import { PluginRegistry, type SessionHeaderContribution, type WorkspaceTabContribution } from "../src/PluginRegistry";
-import type { RunApp } from "../src/run-apps";
+import { PluginRegistry, type SessionHeaderContribution, type SurfaceElementAdditionContext, type WorkspaceTabContribution } from "../src/PluginRegistry";
+import type { RunApp, RunAppAddition } from "../src/run-apps";
 import { Badge, Button, Dialog, DialogContent, DialogTitle } from "../src/ui";
 import "../src/ui/tailwind.css";
 
@@ -15,6 +15,8 @@ import "../src/ui/tailwind.css";
 const withHeader = new URLSearchParams(location.search).has("header");
 // With "?window" a workspace tab placed as a window joins the header windows.
 const withWindowTab = new URLSearchParams(location.search).has("window");
+// With "?add" a surface addition offers "Show app...", whose dialog adds a Chart app.
+const withAddition = new URLSearchParams(location.search).has("add");
 const registry = new PluginRegistry({ brand: { title: "Example" }, product: { id: "example", title: "Example" }, plugins: [{ id: "example" }], startEntries: [] });
 const headers: readonly SessionHeaderContribution[] = [{ id: "example.agents", placement: "bar", order: 0, Header: () => <Button aria-label="Agents" className="flex-none self-center" size="lg" variant="ghost">
   <NetworkIcon /><span>Agents</span>
@@ -53,6 +55,12 @@ const tools: readonly WorkspaceTabContribution[] = [...["Files", "Journal"].map(
       {label === "Journal" && <JournalDialog />}</>;
   },
 })), ...(withWindowTab ? [preview] : [])];
+function AddDialog({ onClose }: SurfaceElementAdditionContext) {
+  return <Dialog onOpenChange={(open) => { if (!open) onClose(); }} open><DialogContent><DialogTitle>Show app</DialogTitle>
+    <button onClick={() => { window.dockingFixture.setApps(["notes", "board", "chart"]); onClose("chart"); }} type="button">Show chart</button>
+  </DialogContent></Dialog>;
+}
+const additions: readonly RunAppAddition[] = withAddition ? [{ id: "add:example", label: "Show app...", Dialog: AddDialog }] : [];
 function Run({ run, appIds }: { run: string; appIds: readonly string[] }) {
   const { state, update } = useDockStorage(run);
   const [actions, setActions] = useState<HTMLDivElement | null>(null);
@@ -60,7 +68,7 @@ function Run({ run, appIds }: { run: string; appIds: readonly string[] }) {
   const apps: readonly RunApp[] = appIds.map((id) => ({ runId: run, definition: { id, title: id[0].toUpperCase() + id.slice(1) }, Element: App, layoutKey: id }));
   const navigation = { activeTabId: activeDockTool(state), openTab: (id: string) => update((current) => selectDockPanel(current, workspaceTabPanelId(tools.find((tool) => tool.id === id)!))), revealEntity: () => false, selectionFor: () => undefined };
   useEffect(() => { window.dockingFixture.openTab = navigation.openTab; });
-  const workspace = <DockToolsContext.Provider value={{ tabs: tools, pendingTabIds: [], actionsContainer: withHeader ? actions : undefined }}><DockWorkspace apps={apps} chat={<><button onClick={() => navigation.openTab("files")}>Reveal Files from chat</button><textarea aria-label="Chat draft" className="h-full" /></>} navigation={navigation} session={session} /></DockToolsContext.Provider>;
+  const workspace = <DockToolsContext.Provider value={{ tabs: tools, pendingTabIds: [], actionsContainer: withHeader ? actions : undefined }}><DockWorkspace additions={additions} apps={apps} chat={<><button onClick={() => navigation.openTab("files")}>Reveal Files from chat</button><textarea aria-label="Chat draft" className="h-full" /></>} navigation={navigation} session={session} /></DockToolsContext.Provider>;
   return withHeader ? <div className="flex min-w-0 flex-1 flex-col">
     <RunHeader leading={
       <RunPanelHeader actionsRef={setActions} attention={undefined} contributions={headers} navigation={navigation} registry={registry} runError={undefined} session={session} working={false} />

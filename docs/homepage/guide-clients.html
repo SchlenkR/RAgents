@@ -878,6 +878,15 @@ pane is a window like any other: move it, split beside it, merge it as a tab, ma
 close it with X, which removes it. It shows &quot;Drag an app or actor here&quot;. Dropping a header
 button or a tab anywhere on a shown empty pane, or on the compass center labeled &quot;Replace empty
 pane&quot;, puts that window in its place. Empty panes survive reload.</p>
+<p>&quot;Show app...&quot; follows &quot;Empty space&quot; if you may work in the run; in VS Code it sits after the app
+buttons. It lists the mini-apps you may show here: your global apps under &quot;Global apps&quot;, then the
+apps of your other runs under each run&#39;s title, and marks a view the run already shows as &quot;Shown&quot;.
+Choosing one adds a window titled with the app&#39;s name and &quot;(read-only)&quot; and opens it, in VS Code as
+an editor tab. The window says &quot;Read-only&quot; and where the app lives, follows the app&#39;s state live,
+and refuses every action of the app; &quot;Remove&quot; takes the window out of the run for everyone. Another
+viewer of a shared run who may not read the app&#39;s run sees &quot;This app is not available to you.&quot; in
+that window, and a removed app or run is reported there the same calm way. The rest of the run
+stays as it is.</p>
 <p>The &quot;Reset layout&quot; icon after the window buttons and &quot;Empty space&quot;
 restores the automatic layout, default button positions and order, and the inspection rail,
 and removes empty panes. Maximize appears only with multiple areas, in the active tab just

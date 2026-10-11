@@ -186,6 +186,7 @@ globalThis.__ragentsAppContext = (() => {
       list: () => (currentApp?.actions ?? []).map((action) => action.id),
       call: async (actionId, input = {}) => {
         await ready;
+        if (currentApp?.readOnly === true) throw new Error("This app is shown read-only; it calls no functions here.");
         if (!(currentApp?.actions ?? []).some((action) => action.id === actionId)) {
           throw new Error("The requested app action is not installed.");
         }

@@ -117,6 +117,7 @@ test("the neutral showcase fixture composes real plugins and folder contribution
     "global_app_create", "global_app_list", "global_app_remove",
     "overseer_notify",
     "actor_program_activate", "actor_program_controls", "actor_program_create", "actor_program_diagnostics", "actor_program_ensure", "actor_program_list", "actor_program_pause", "actor_program_remove", "actor_program_status", "actor_program_trigger", "actor_view_set_visibility", "actor_view_snapshot",
+    "app_display_add", "app_display_remove",
     "program_file_read", "program_file_write", "program_http_request",
     "browser_navigate", "browser_snapshot", "browser_click", "browser_type", "browser_select_option", "browser_press_key", "browser_check", "browser_resize", "browser_take_screenshot", "browser_view_screenshot", "browser_close",
     "read", "roslyn_close", "roslyn_diagnostics", "roslyn_open", "roslyn_solutions", "run_script_list", "run_script_start", "run_stop",

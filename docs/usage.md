@@ -52,8 +52,12 @@ for a while keeps its place and returns to it; the app of a later start of the s
 takes over the area of the earlier one. Close windows with X. Each window keeps a button in the
 header or sidebar rail; a pressed button is visible, and clicking another one shows that window. Drag a header button by its grip to
 reorder the buttons, or onto the docking guides to place that window. "Empty space" in the
-header adds an empty pane that holds a place until you drop a window onto it. Every button stays
-directly available; a narrow header wraps onto further rows and pushes the workspace down.
+header adds an empty pane that holds a place until you drop a window onto it. "Show app..." beside
+it shows a mini-app that lives elsewhere, one of your global apps or an app of another of your runs,
+as a read-only window of this run: it always shows the app's current state, runs nothing, and
+"Remove" in the window takes it away again. You can also ask the agent to show a global app by its
+name. Every button stays directly available; a narrow header wraps onto further rows and pushes the
+workspace down.
 Drag a button between the sidebar rail and header to choose where it lives, or right-click it
 and choose "Move to header" or "Move to sidebar". Shift+F10 opens the same menu from the keyboard.
 Moving a button keeps its panel's open state; "Reset layout" restores the plugin defaults.
@@ -642,8 +646,8 @@ Apps live in separate rooms beside the coordinator's `main` room in your hidden 
 "Reset conversation" starts a fresh coordinator conversation and keeps the apps and their
 state, logs, and triggers.
 
-Each app appears as its own Start widget. In Start's edit mode you move it, resize it, or remove it
-like any other widget; "Add widget" lists a removed app with its description and brings it back.
+Each app appears as its own Start widget, and "Show app..." in any of your runs shows it there as a
+read-only window. In Start's edit mode you move it, resize it, or remove it like any other widget; "Add widget" lists a removed app with its description and brings it back.
 Removing the widget leaves its triggers running. Apps with views start four columns wide
 and headless apps two; your layout overrides these defaults.
 A view displays the app's state and calls its functions; a headless app shows last run and next
@@ -931,6 +935,16 @@ pane is a window like any other: move it, split beside it, merge it as a tab, ma
 close it with X, which removes it. It shows "Drag an app or actor here". Dropping a header
 button or a tab anywhere on a shown empty pane, or on the compass center labeled "Replace empty
 pane", puts that window in its place. Empty panes survive reload.
+
+"Show app..." follows "Empty space" if you may work in the run; in VS Code it sits after the app
+buttons. It lists the mini-apps you may show here: your global apps under "Global apps", then the
+apps of your other runs under each run's title, and marks a view the run already shows as "Shown".
+Choosing one adds a window titled with the app's name and "(read-only)" and opens it, in VS Code as
+an editor tab. The window says "Read-only" and where the app lives, follows the app's state live,
+and refuses every action of the app; "Remove" takes the window out of the run for everyone. Another
+viewer of a shared run who may not read the app's run sees "This app is not available to you." in
+that window, and a removed app or run is reported there the same calm way. The rest of the run
+stays as it is.
 
 The "Reset layout" icon after the window buttons and "Empty space"
 restores the automatic layout, default button positions and order, and the inspection rail,
