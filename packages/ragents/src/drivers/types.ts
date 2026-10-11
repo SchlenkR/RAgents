@@ -36,6 +36,8 @@ type TurnDriverFacts = {
     agent: {
         driverKind: "agent";
         selection: ModelSelection;
+        /** Every function of the actor by name, native tools and those only reachable through context.functions. */
+        functionNames: readonly string[];
         /** What the model reads before the prompt of the input that starts the turn: the actor roster as of turn start and the input's own context; never part of the system prompt. */
         orientation: string;
         /** `modelContext` names the model context the result enters, see `ToolScope.modelContext`; without it file tools track no seen state. */
@@ -93,7 +95,7 @@ export type TurnRequest<Kind extends AutomatedDriverKind = AutomatedDriverKind> 
     storeAttachment: (name: string, content: Uint8Array) => Promise<string>;
     tools: readonly RunFunction[];
     allowedToolNames: readonly string[] | null;
-    refreshTools?: () => Promise<{ tools: readonly RunFunction[]; systemPrompt: string }>;
+    refreshTools?: () => Promise<{ tools: readonly RunFunction[]; functionNames: readonly string[]; systemPrompt: string }>;
     emit: (event: DriverEvent) => void;
     recordTool?: (event: DriverToolEvent) => void;
     publish: (event: LiveEvent) => void;

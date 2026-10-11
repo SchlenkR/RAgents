@@ -803,6 +803,11 @@ the full error text. The record applies only within a turn; in the chat, the fai
 like any other failed call. `tool.call.failed` always carries a non-empty `error`: the error's
 message, otherwise the text of its cause (`cause`), otherwise "Error without a cause". A failed
 call is never in the journal without a cause, even if the tool or the model delivered no text.
+A native call by an unknown name gets an error that tells the truth about the actor's functions:
+for a snippet-only function the actor has, that it is not a native tool and is called in
+`typescript_eval` through `context.functions` after looking up its contract with `typescript_api`;
+for any other name, "No function <name> is available to you", followed, when the actor has
+`typescript_api`, by the hint that `typescript_api` without names lists the available ones.
 
 A tool result never repeats what the model wrote itself. The one redaction point is
 `toolResultEventOf` in `packages/ragents/src/agents/actor-input.ts`: from every event payload on

@@ -83,6 +83,7 @@ export const harnessOver = (
             workspace: process.cwd(),
             storeAttachment: () => Promise.reject(new Error("The test stores no attachments.")),
             tools: [],
+            functionNames: [],
             allowedToolNames: null,
             claimSteering: () => [],
             emit: (event) => {

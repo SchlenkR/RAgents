@@ -984,6 +984,7 @@ export class TurnScheduler {
                     await toolset.refresh();
                     return {
                         tools: toolset.tools,
+                        functionNames: toolset.functions.map((tool) => tool.name),
                         systemPrompt: systemPromptFor(
                             runId, actor,
                             toolset.functions.map((tool) => tool.name),
@@ -1012,6 +1013,7 @@ export class TurnScheduler {
                         ...request,
                         driverKind: "agent",
                         selection: selection!,
+                        functionNames: toolset.functions.map((tool) => tool.name),
                         orientation: [
                             actor.kind === "agent" && toolset.functions.some((tool) => tool.name === "actor_list")
                                 ? actorRosterText(startView, actorId)

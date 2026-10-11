@@ -221,12 +221,12 @@ test("model context: steering after a tool result and the nudge after an empty a
     }
 });
 
-test("model context: an unknown tool and a schema violation fail before running and stay in the context", async () => {
-    const setup = harness("rejected", { tools: [tool("lookup")] });
+test("model context: an unknown tool, a snippet-only function and a schema violation fail before running and stay in the context", async () => {
+    const setup = harness("rejected", { tools: [tool("lookup"), tool("typescript_api"), { ...tool("snippet_lookup"), nativeTool: false }] });
     try {
         const worker = setup.spawn("worker");
         await run(setup, [
-            fauxAssistantMessage([fauxToolCall("missing_tool", {}, { id: "unknown" }), fauxToolCall("lookup", { value: 3 }, { id: "invalid" })], { stopReason: "toolUse" }),
+            fauxAssistantMessage([fauxToolCall("missing_tool", {}, { id: "unknown" }), fauxToolCall("snippet_lookup", {}, { id: "snippet" }), fauxToolCall("lookup", { value: 3 }, { id: "invalid" })], { stopReason: "toolUse" }),
             fauxAssistantMessage([fauxText("Corrected.")]),
         ], async () => setup.post(worker, "Go."));
         assertGolden(setup, worker);

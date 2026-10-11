@@ -198,6 +198,12 @@
         },
         {
           "type": "toolCall",
+          "id": "snippet",
+          "name": "snippet_lookup",
+          "arguments": {}
+        },
+        {
+          "type": "toolCall",
           "id": "invalid",
           "name": "lookup",
           "arguments": {
@@ -217,7 +223,19 @@
       "content": [
         {
           "type": "text",
-          "text": "The function missing_tool is not a native tool. Look up its contract with typescript_api and call it in typescript_eval through context.functions."
+          "text": "No function missing_tool is available to you. typescript_api without names lists the available ones."
+        }
+      ],
+      "isError": true
+    },
+    {
+      "role": "toolResult",
+      "toolCallId": "snippet",
+      "toolName": "snippet_lookup",
+      "content": [
+        {
+          "type": "text",
+          "text": "The function snippet_lookup is not a native tool. Look up its contract with typescript_api and call it in typescript_eval through context.functions."
         }
       ],
       "isError": true

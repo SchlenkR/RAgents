@@ -254,7 +254,7 @@ for (const selectionKind of ["open", "selected"] as const) {
             const { result } = await turnOf(harness, manager, "Go.", {
                 tools: [tools[0]!],
                 allowedToolNames: selectionKind === "open" ? null : tools.map((tool) => tool.name),
-                refreshTools: async () => ({ tools: tools.slice(revision, revision + 1), systemPrompt: `Revision ${revision}.` }),
+                refreshTools: async () => ({ tools: tools.slice(revision, revision + 1), functionNames: tools.slice(revision, revision + 1).map((tool) => tool.name), systemPrompt: `Revision ${revision}.` }),
                 invoke: async (_id, name) => {
                     calls.push(name);
                     revision++;
@@ -292,7 +292,7 @@ test("selected functions retain both TypeScript infrastructure tools through ref
                 tools: tools(),
                 refreshTools: async () => {
                     refreshes++;
-                    return { tools: tools(), systemPrompt: `Revision ${refreshes}.` };
+                    return { tools: tools(), functionNames: names, systemPrompt: `Revision ${refreshes}.` };
                 },
                 invoke: async (_id, name) => {
                     calls.push(name);
@@ -525,7 +525,7 @@ test("A loop failure without a model call fails the turn but writes no model ste
                 refreshes += 1;
                 if (refreshes > 1)
                     throw new Error("The tools are not readable.");
-                return { tools: [], systemPrompt: "System contract." };
+                return { tools: [], functionNames: [], systemPrompt: "System contract." };
             },
         });
         assert.equal(result.failure, "The tools are not readable.");

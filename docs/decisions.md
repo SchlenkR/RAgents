@@ -1,5 +1,18 @@
 # Decisions
 
+## 2026-10-11: The unknown-tool error tells the truth about the actor's functions
+
+Chapter: `spec/core.md` (Automatic notices and rejected calls).
+
+A native call by a name the agent loop does not know always answered "is not a native tool. Look up
+its contract with typescript_api and call it in typescript_eval", also when the actor had no such
+function at all. A model that called a function its prompt wrongly named then tried it through
+`context.functions`, got a type error, and wasted another call. The agent turn now receives every
+function name of the actor (`functionNames`, native and snippet-only, updated with the tools). A
+snippet-only function the actor has keeps the old text; any other name gets "No function <name> is
+available to you", with the hint that `typescript_api` without names lists the available ones when
+the actor has `typescript_api`.
+
 ## 2026-10-11: A profile provider can require zero data retention on the OpenRouter route
 
 Chapter: `spec/profiles.md` (Model aliases and profile providers).

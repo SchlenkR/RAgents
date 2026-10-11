@@ -246,14 +246,23 @@ export class AgentTurn {
                 return { context: { ...turn.context, systemPrompt: this.#systemPrompt, tools: agent.state.tools.slice() } };
             },
             steeringSource: () => this.#steering(),
-            formatUnknownToolError: (name) => this.#active && !this.#options.signal.aborted
-                ? `The function ${name} is not a native tool. Look up its contract with typescript_api and call it in typescript_eval through context.functions.`
-                : undefined,
+            formatUnknownToolError: (name) => this.#active && !this.#options.signal.aborted ? this.#unknownToolError(name) : undefined,
             maxRetryDelayMs: settings.providerRequest.maxRetryDelayMs,
         });
         agent.subscribe((event: AgentEvent) => this.#handleEvent(event));
 
         return agent;
+    }
+
+    #unknownToolError(name: string): string {
+        const functions = this.#request.functionNames;
+
+        if (functions.includes(name))
+            return `The function ${name} is not a native tool. Look up its contract with typescript_api and call it in typescript_eval through context.functions.`;
+
+        return functions.includes("typescript_api")
+            ? `No function ${name} is available to you. typescript_api without names lists the available ones.`
+            : `No function ${name} is available to you.`;
     }
 
     #setSystemPrompt(prompt: string, tools: readonly AgentTool[]) {
