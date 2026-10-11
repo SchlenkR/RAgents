@@ -1232,10 +1232,12 @@ tools reach its turns, including the global app authoring instructions. Ordinary
 prompts, product skills, hooks, and preparation of a product working directory remain excluded.
 Its native interface contains `typescript_api`, `typescript_eval`, and the allowed file tools
 `read`, `write`, and `edit`. Installed plugins also contribute `actor_program_create`,
+`actor_program_controls` for the authoring guide and the control contracts,
 `actor_program_diagnostics`, the TypeScript and TypeScript language-server tools, and the
 `global_app_*` tools together with `actor_program_trigger`, `actor_program_pause`, and
-`actor_program_status`, but not `actor_program_activate`. The coordinator authors global app
-packages in its own working
+`actor_program_status`, but not `actor_program_activate`: the coordinator activates a package only
+through `global_app_create`, and its prompt says so without naming the excluded tool. The
+coordinator authors global app packages in its own working
 directory with the same package, file/edit, and TypeScript flow as a normal run agent. Without sign-in, the host shell
 `bash` is added. With users, it has none, because as a server process it could read the files of all users;
 it then sends its JSON-RPC calls from snippets with `fetch`. Individual work actions run directly;

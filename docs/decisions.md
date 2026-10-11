@@ -1,5 +1,20 @@
 # Decisions
 
+## 2026-10-11: The global coordinator reads the authoring guide
+
+Chapters: `spec/core.md` (global coordinator: tools), usage: `usage.md` (Let an agent write and
+verify an app).
+
+The global coordinator authors app packages but could not read the guide its prompt pointed to:
+`actor_program_controls` was missing from its fixed selection. It now has it. It keeps its deliberate
+exclusion of `actor_program_activate`, because it activates a package only through
+`global_app_create` in the app's own room and its own run activates nothing; the global-apps prompt
+says so for every reader without `actor_program_activate`, without naming the excluded tool, the
+guide reads "Activation" for that reader, and the description of `actor_program_controls` no longer
+names the tool. Since the selection belongs to the journaled actor identity, an existing global
+conversation reports `global-tools-changed` until the user resets it, as for every change of the
+selection.
+
 ## 2026-10-11: Prompts name only functions their reader has
 
 Chapters: `spec/plugins.md` (Plugin guide: Compose prompts by responsibility; Prompt contributions

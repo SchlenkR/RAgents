@@ -61,7 +61,7 @@ test("the global system prompt names no function of regular runs, and their cata
     host.register({ manifest: { id: "test.later" }, register: (registration) => {
       registration.functions({ name: "test.later.tools", descriptors: [
         { name: "late_public_tool", description: "A later registered capability. " + "Detailed contract text. ".repeat(100), scope: "per-agent", availability: "conditional", availabilityDetail: "Only in applicable runs" },
-        ...["global_app_create", "global_app_list", "global_app_remove", "actor_program_trigger", "actor_program_pause", "actor_program_status", "actor_program_activate", "typescript_api", "lsp_typescript_hover"].map((name) => ({ name, description: "Author a global app.", scope: "per-agent" as const, availability: "conditional" as const, availabilityDetail: "With the actor's grants" })),
+        ...["global_app_create", "global_app_list", "global_app_remove", "actor_program_controls", "actor_program_trigger", "actor_program_pause", "actor_program_status", "actor_program_activate", "typescript_api", "lsp_typescript_hover"].map((name) => ({ name, description: "Author a global app.", scope: "per-agent" as const, availability: "conditional" as const, availabilityDetail: "With the actor's grants" })),
       ], tools: () => { throw new Error("Must not execute a tool factory"); } });
     } });
     const prompt = policy.prompt;
@@ -72,7 +72,7 @@ test("the global system prompt names no function of regular runs, and their cata
     assert.match(prompt, /POST \$RAGENTS_API_BASE_URL\/rpc/);
     assert.match(prompt, /rpc-reference.md/);
     assert.deepEqual(policy.access, { read: "ragents.overseer.read", write: "ragents.overseer.write" });
-    for (const name of ["read", "write", "edit", "global_app_create", "global_app_list", "global_app_remove", "actor_program_trigger", "actor_program_pause", "actor_program_status", "typescript_api", "lsp_typescript_hover"]) assert.ok(policy.toolNames.includes(name), name);
+    for (const name of ["read", "write", "edit", "global_app_create", "global_app_list", "global_app_remove", "actor_program_controls", "actor_program_trigger", "actor_program_pause", "actor_program_status", "typescript_api", "lsp_typescript_hover"]) assert.ok(policy.toolNames.includes(name), name);
     assert.equal(policy.toolNames.includes("late_public_tool"), false);
     assert.equal(policy.toolNames.includes("actor_program_activate"), false);
   } finally { await rm(directory, { recursive: true, force: true }); }

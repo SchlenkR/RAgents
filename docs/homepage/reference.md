@@ -291,7 +291,7 @@ Look up actor program guide and controls
 
 Read Mini-App control contracts or the actor-program authoring guide.
 
-With topic: guide, explain the TypeScript package workflow through actor_program_activate; with topic: state-aware, explain defineProgram for work that waits for a time, a message or a file. Otherwise list control names, or select one component (for example Form) for only its TypeScript props and supporting types. Import controls from @ragents/client/ui and use these exact props.
+With topic: guide, explain the TypeScript package workflow from the template to activation; with topic: state-aware, explain defineProgram for work that waits for a time, a message or a file. Otherwise list control names, or select one component (for example Form) for only its TypeScript props and supporting types. Import controls from @ragents/client/ui and use these exact props.
 
 Owner: ragents.actor-programs. Scope: per-turn. Native model tool: yes. Availability: always.
 

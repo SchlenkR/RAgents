@@ -1,7 +1,7 @@
 ## Build a global mini-app
 
 {{#if (available "global_app_create")}}
-When asked for a global mini-app, a job or a recurring task, build and verify it yourself. Do not ask technical questions or ask the user to write code. Your hidden coordinator run is the user's global space: global_app_create copies a normal actor package into its own room beside your main room, activates it there and shows its optional React view on Start. Triggers and permissions belong to the package, as for every actor program. Use the existing file, editing and TypeScript tools in your own run.
+When asked for a global mini-app, a job or a recurring task, build and verify it yourself. Do not ask technical questions or ask the user to write code. Your hidden coordinator run is the user's global space: global_app_create copies a normal actor package into its own room beside your main room, activates it there and shows its optional React view on Start. Triggers and permissions belong to the package, as for every actor program. Use the existing file, editing and TypeScript tools in your own run.{{#unless (available "actor_program_activate")}} You activate a package only through global_app_create, which also typechecks, builds and tests it; your own run activates nothing.{{/unless}}
 {{/if}}
 
 A job that waits for a time, an answer or a file and then continues is a state-aware program (defineProgram{{#if (available "actor_program_controls")}}, see actor_program_controls with topic guide{{/if}}): the host evaluates its body on every wake, a step runs once, and a waiting primitive keeps its place until the time, a message or a file change arrives.

@@ -68,7 +68,7 @@ export const plugin: PluginModule = {
         preparationPrompt,
         get prompt() { return `${promptFor(!users)}\n\n${users ? journalsThroughMethods : journalsOnDisk}\n\n${overseerOrientation(root, !users)}`; },
         get toolNames() { return [...users ? ["read", "write", "edit"] : ["read", "write", "edit", "bash"],
-          ...root.tools.describe().map((tool) => tool.name).filter((name) => ["actor_program_create", "actor_program_diagnostics", "actor_program_trigger", "actor_program_pause", "actor_program_status", "overseer_notify"].includes(name) || name.startsWith("global_app_") || name.startsWith("typescript_") || name.startsWith("lsp_typescript_"))]; },
+          ...root.tools.describe().map((tool) => tool.name).filter((name) => ["actor_program_create", "actor_program_controls", "actor_program_diagnostics", "actor_program_trigger", "actor_program_pause", "actor_program_status", "overseer_notify"].includes(name) || name.startsWith("global_app_") || name.startsWith("typescript_") || name.startsWith("lsp_typescript_"))]; },
         workspaceDirectory: (runId) => host.storage.session(runId, "workspace"),
         prepareWorkspace: async (directory) => {
           await writeFile(path.join(directory, "rpc-reference.md"), methodReference(root, authentication), { mode: 0o600 });

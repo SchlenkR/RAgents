@@ -88,6 +88,11 @@ test("the system prompts of the core coordinator, an ordinary agent and the glob
   const worker = cases[1]!.request!;
   assert.deepEqual(worker.functionNames.filter((name) => !name.startsWith("typescript_")).sort(), [...workerTools].sort());
   assert.match(worker.systemPrompt, /## Actor programs/);
+  const coordinator = cases[2]!.request!;
+  assert.ok(coordinator.functionNames.includes("actor_program_controls"), "the global coordinator reads the authoring guide");
+  assert.equal(coordinator.functionNames.includes("actor_program_activate"), false, "it activates through global_app_create");
+  assert.match(coordinator.systemPrompt, /You activate a package only through global_app_create/);
+  assert.match(coordinator.systemPrompt, /see actor_program_controls with topic guide/);
 });
 
 test("available holds when the reader has every named function, and without a known set for all", async () => {
