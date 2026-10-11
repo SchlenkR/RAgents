@@ -130,6 +130,9 @@ test("reading text and headings share tokens across chat and documents without c
       const label = `${host}, ${theme}, root ${rootSize}px`;
       await assertReadingRole(page, rootSize * 0.8, 1.6, label);
       await assertHeadingRoles(page, rootSize * 0.8, defaultHeadings, label);
+      const times = await page.locator("[data-quassel-transcript] time").evaluateAll((elements) => elements.map((element) => ({
+        text: element.textContent, nowrap: getComputedStyle(element).whiteSpace === "nowrap", fits: element.scrollWidth <= element.clientWidth })));
+      assert.ok(times.length > 0 && times.every((time) => time.nowrap && time.fits), `${label}: timestamps stay on one line: ${JSON.stringify(times)}`);
       const unchanged = await controlRoles(page);
       near(unchanged[0].fontSize, rootSize * 0.78, `${label}, button font`);
       near(unchanged[1].fontSize, rootSize * 0.8, `${label}, body control font`);

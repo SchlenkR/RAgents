@@ -1,5 +1,15 @@
 # Decisions
 
+## 2026-10-11: Chat timestamps never wrap
+
+Chapter: none; the quassel patch (`patches/quassel@0.4.5.patch`) changes only the presentation.
+
+quassel gave the time column of a chat with timestamps a fixed width of 34 pixels while its text
+uses `--qsl-text-meta` (0.7rem). Since the interface became 10 percent larger through the root font
+size, a time such as "17:11" no longer fit and broke into two lines. The column now has a minimum
+width of five digit widths (`5ch`) and does not wrap, so it follows the font size and a longer
+format widens it instead of breaking it.
+
 ## 2026-10-11: A run shows apps of other runs as read-only displays
 
 Chapters: `spec/actor-programs.md` (Read-only displays of apps from other runs, Open limits),
