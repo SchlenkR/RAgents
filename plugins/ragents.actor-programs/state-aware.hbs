@@ -27,8 +27,8 @@ callbacks (RAG1001); clock, randomness, timers, `fetch`, file, network or proces
 `ctx.functions` only inside `ctx.step` (RAG1002); no module-level `let` or changed module objects
 (RAG1003). Views follow the rules of hooks (RAG1004) and list every effect dependency (RAG1005).
 Code that no longer matches the recorded slots blocks the program ("cannot be continued", with
-the position): restore that code or activate it under a new name. `actor_program_status` shows
-`status`, `waiting`, `wakeAt`, `error` and `values`. Tests use `createProgramTest(program, { functions })`
+the position): restore that code or activate it under a new name.{{#if (available "actor_program_status")}} `actor_program_status` shows
+`status`, `waiting`, `wakeAt`, `error` and `values`.{{/if}} Tests use `createProgramTest(program, { functions })`
 from `@ragents/server/testing`; `evaluate({ now, message, files })` runs one wake.
 
 Every day at 08:00 this prepares a draft, waits up to 24 hours for an approval, counts approvals

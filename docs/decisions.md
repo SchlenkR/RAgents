@@ -1,5 +1,38 @@
 # Decisions
 
+## 2026-10-11: Prompts name only functions their reader has
+
+Chapters: `spec/plugins.md` (Plugin guide: Compose prompts by responsibility; Prompt contributions
+and orchestration guidance), `spec/core.md` (global coordinator: generated reference and catalog).
+
+In a real journal the global coordinator called `actor_program_controls` and
+`actor_program_activate`, which its fixed selection lacks, because the actor-programs summary,
+bound to any of the building tools, and the global-apps prompt told it to. A binding only decides
+whether a contribution arrives; it cannot keep a sentence about a function the reader lacks out of
+it. Prompt contributions are therefore rendered per model request for the reading actor's
+functions (`PromptRenderContext.functions`, native and snippet-only), and templates ask with one
+Handlebars helper, `{{#if (available "name" ...)}}`, before they name a function. A `tools` map in
+the render context was the alternative; the helper won because it can throw on misuse, takes several
+names, and needs no lookup object that would have to answer for every name when the set is unknown.
+Rendering moved from one snapshot at startup to every model request; it renders only the initial
+contributions, which is cheap, and the startup snapshot stays for the settings and the stored
+coordinator prompt, where every function counts as available.
+
+A guard test composes the `core` profile and renders the complete system prompts of the run
+coordinator, of an agent with `read`, `write`, `edit`, `bash`, `actor_program_create`, and
+`actor_program_diagnostics`, and of the global coordinator. It found: the workspace rules
+(`task_output`, `task_stop`), the document note (`copy`, `show_document`), and the actor-programs
+summary (`actor_program_controls`, `actor_program_activate`, `actor_view_set_visibility`) for the
+agent, and for the global coordinator the same plus the whole run function catalog in its prompt,
+the method description of `ragents.ask.answer` (`ask_user`), and the permission helpers in the
+global-apps prompt. The templates now ask before they name a function, the orchestration, ask, and
+view-snapshot prompts and the guides of `actor_program_controls` too; the background-process rule
+needs `task_output` and `task_stop`, since `run_in_background` does. The catalog of run functions
+moved from the global coordinator's prompt into `run-functions.md` next to `rpc-reference.md`, and
+the prompt points to it. Names in a capability declaration `capabilities: [...]` stay allowed: they
+are what a program may call, and the global coordinator must write them into packages. Tool
+descriptions are not rendered per actor yet; that stays a line in `TODO.md`.
+
 ## 2026-10-11: The unknown-tool error tells the truth about the actor's functions
 
 Chapter: `spec/core.md` (Automatic notices and rejected calls).

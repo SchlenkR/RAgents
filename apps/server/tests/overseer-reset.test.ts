@@ -217,6 +217,7 @@ test("confirmed reset preserves global apps and recovers durably across server r
     assert.notEqual(management!.view(G).primaryActorId, oldActor);
     assert.match(await readFile(path.join(workspace, "rpc-reference.md"), "utf8"), new RegExp(overseerContracts.listRuns.id));
     assert.ok(JSON.parse(await readFile(path.join(workspace, "openrpc.json"), "utf8")).methods.length > 0);
+    assert.match(await readFile(path.join(workspace, "run-functions.md"), "utf8"), /^# Functions of regular runs/);
     assert.ok(observed.some((event) => event.kind === "text" && event.delta.includes("Fresh")));
     assert.ok(freshContexts[0].includes("New question"));
     assert.doesNotMatch(freshContexts[0], /Old conversation|Old answer|Global running task|Stale late answer/);

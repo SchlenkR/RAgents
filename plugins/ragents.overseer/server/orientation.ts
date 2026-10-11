@@ -7,12 +7,9 @@ const summary = (text: string): string => {
   return sentence.length > 200 ? `${sentence.slice(0, 197).trimEnd()}...` : sentence;
 };
 
+export const RUN_FUNCTIONS_FILE = "run-functions.md";
+
 export function overseerOrientation(host: PluginHost, shell: boolean): string {
-  const tools = [
-    ...modelToolDescriptors.map((tool) => ({ ...tool, owner: "engine" })),
-    ...host.tools.describe(),
-  ];
-  const owners = [...new Set(tools.map((tool) => tool.owner))].sort();
   const methods = [...host.methods.describe()].sort((left, right) => left.id.localeCompare(right.id, "en"));
   return [
     "[Capability overview from the registered contracts]",
@@ -21,12 +18,27 @@ export function overseerOrientation(host: PluginHost, shell: boolean): string {
     "The rights in brackets apply to signed-in users. This coordinator calls the methods with its user's access and thus has exactly their rights.",
     "",
     "[Building blocks of regular runs]",
-    "This is the catalog of the engine and the currently installed plugins, not an additional tool list of this chat. Use these building blocks for run tasks or your own run setups via the JSON-RPC API. Availability and callability still depend on actor, grants, declared script subset and run context; a catalog entry grants no rights.",
-    "Details and examples: $RAGENTS_API_BASE_URL/help/llms.txt. The public help describes core; the following inventory comes from this running profile. For additional profile-dependent contributions, look up the actually registered plugin contracts.",
+    `${RUN_FUNCTIONS_FILE} in your working directory lists the functions of the engine and the installed plugins of this profile that actors of regular runs can be equipped with; they are not your tools. Read it when you set up runs through the JSON-RPC API. Details and examples: $RAGENTS_API_BASE_URL/help/llms.txt; the public help describes core.`,
+  ].join("\n");
+}
+
+/** The catalog of run functions, kept in a file so that the prompt names only the coordinator's own functions. */
+export function runFunctionCatalog(host: PluginHost): string {
+  const tools = [
+    ...modelToolDescriptors.map((tool) => ({ ...tool, owner: "engine" })),
+    ...host.tools.describe(),
+  ];
+  const owners = [...new Set(tools.map((tool) => tool.owner))].sort();
+  return [
+    "# Functions of regular runs",
+    "",
+    "This is the catalog of the engine and the currently installed plugins of this running profile, not a list of the global coordinator's tools. Availability and callability depend on actor, grants, declared script subset and run context; a catalog entry grants no rights.",
     ...owners.flatMap((owner) => [
-      `${owner}:`,
+      "",
+      `## ${owner}`,
+      "",
       ...tools.filter((tool) => tool.owner === owner).sort((a, b) => a.name.localeCompare(b.name, "en"))
         .map((tool) => `- ${tool.name}: ${summary(tool.description)}${tool.availability === "conditional" ? " [context-dependent]" : ""}`),
     ]),
-  ].join("\n");
+  ].join("\n") + "\n";
 }

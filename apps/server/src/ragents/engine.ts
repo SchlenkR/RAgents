@@ -291,26 +291,30 @@ export const createEngine = async (options: EngineOptions): Promise<Engine> => {
     return (entry) => overrides?.get(entry.id)
       ?? (systemPromptSelectionPromptIds.has(entry.id) ? texts().join("\n\n") : entry.content);
   };
-  const composeWith = (runId: string | null, texts: readonly string[], toolNames: readonly string[] | null): string => {
+  const composeWith = (
+    runId: string | null,
+    contributions: readonly PublicPromptContribution[],
+    texts: readonly string[],
+    toolNames: readonly string[] | null,
+  ): string => {
     const content = contentFor(runId, () => texts);
-    return baseSnapshot
-      .contributions
+    return contributions
       .filter((entry) => entry.delivery === "initial")
       .filter((entry) => toolNames === null || entry.requiresTools.length === 0 || boundToTools(entry, toolNames))
       .map(content)
       .filter(Boolean)
       .join("\n\n");
   };
-  const chaptersFor = async (runId: string, toolNames: readonly string[]): Promise<string> => {
-    const chapters = await options.plugins.prompts.describe({
-    }, { delivery: "on-demand", toolNames });
+  /** Rendered for the functions of the actor that reads them, so a text names only functions it has. */
+  const initialFor = (toolNames: readonly string[]): Promise<readonly PublicPromptContribution[]> =>
+    options.plugins.prompts.describe({ functions: toolNames }, { delivery: "initial" });
+  const chaptersFor = async (runId: string, toolNames: readonly string[], functions: readonly string[]): Promise<string> => {
+    const chapters = await options.plugins.prompts.describe({ functions }, { delivery: "on-demand", toolNames });
     const content = contentFor(runId, () => []);
     return chapters.map(content).filter(Boolean).join("\n\n");
   };
   const systemPromptFor = (runId: string): string => globalChat?.isCoordinator(runId)
-    ? globalChat.prompt : composeWith(runId, textsFor(runId), null);
-  const coordinatorPromptFor = (runId: string, toolNames: readonly string[]): string =>
-    composeWith(runId, textsFor(runId), toolNames);
+    ? globalChat.prompt : composeWith(runId, baseSnapshot.contributions, textsFor(runId), null);
   const selectionPrompts = baseSnapshot.contributions.filter((entry) => systemPromptSelectionPromptIds.has(entry.id));
   const agentPromptFor = (runId: string): string => {
     if (!storedSystemPrompt(journal.stateOf(runId)).shareWithAgents) return "";
@@ -320,19 +324,19 @@ export const createEngine = async (options: EngineOptions): Promise<Engine> => {
   };
   const systemPrompt = composeWith(
     null,
+    baseSnapshot.contributions,
     selectedSystemPrompts(promptCatalog, promptCatalog.defaultIds).map((option) => optionTexts.get(option.id) ?? ""),
     null);
-  const basePromptFor = (runId: string, actor: ExecutableActor, toolNames: readonly string[]): string => {
+  const basePromptFor = async (runId: string, actor: ExecutableActor, toolNames: readonly string[]): Promise<string> => {
+    const contributions = await initialFor(toolNames);
     if (globalChat?.isCoordinator(runId)) return [globalChat.prompt,
-      ...baseSnapshot.contributions.filter((entry) => entry.delivery === "initial" && boundToTools(entry, toolNames)).map(contentFor(runId, () => [])),
+      ...contributions.filter((entry) => boundToTools(entry, toolNames)).map(contentFor(runId, () => [])),
       outputContractFor("primary")].filter(Boolean).join("\n\n");
     const role = roleFor(runId, actor);
     const prompt = isRunCoordinator(runtime, runId, actor.id)
-      ? coordinatorPromptFor(runId, toolNames)
+      ? composeWith(runId, contributions, textsFor(runId), toolNames)
       : [agentPromptFor(runId), actor.kind === "agent" ? actor.prompt : "",
-          ...baseSnapshot.contributions
-            .filter((entry) => entry.delivery === "initial" && boundToTools(entry, toolNames))
-            .map(contentFor(runId, () => textsFor(runId))),
+          ...contributions.filter((entry) => boundToTools(entry, toolNames)).map(contentFor(runId, () => textsFor(runId))),
         ].filter(Boolean).join("\n\n");
     return [prompt, productRuntime.contract(role), outputContractFor(role)]
       .filter(Boolean)
@@ -362,7 +366,7 @@ export const createEngine = async (options: EngineOptions): Promise<Engine> => {
     ...(workspaceToolNaming ? { workspaceToolNaming } : {}),
     basePrompt: basePromptFor,
     contract: (actor) => coreContractFor(actor),
-    toolChapters: (runId, _actor, toolNames) => chaptersFor(runId, toolNames),
+    toolChapters: (runId, _actor, toolNames, availableTools) => chaptersFor(runId, toolNames, availableTools.map((tool) => tool.name)),
     inputOrientation: (runId, input) => globalChat?.inputOrientation && globalChat.isCoordinator(runId)
       ? globalChat.inputOrientation(runtime, runId, input) : "",
     onError: (error) => console.error(`Turn failed: ${error instanceof Error ? error.stack ?? error.message : String(error)}`),

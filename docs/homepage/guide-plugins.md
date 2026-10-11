@@ -80,7 +80,8 @@ high reasoning.
 ### 4. Compose prompts by responsibility
 
 A role prompt defines the goal, responsibility, handoffs, and completion criteria. Capability
-rules belong to the providing plugin and bind to its actual functions. Short introductory notes
+rules belong to the providing plugin and bind to its actual functions; a prompt names only
+functions its reader has, and a template asks with `available` before it names one. Short introductory notes
 can load initially; detailed contracts and chapters are fetched through `typescript_api` when
 needed. Duplicated domain chapters drift and enlarge every turn. Verify composed instructions for
 every role, including scripted coordinators and workers. A path in a prompt grants neither read

@@ -373,13 +373,14 @@ export class PromptContributionRegistry {
     };
   }
 
+  /** Without toolNames the selection keeps every contribution of its delivery, bound or not. */
   async describe(context: PromptRenderContext, selection?: {
     delivery: "initial" | "on-demand";
-    toolNames: readonly string[];
+    toolNames?: readonly string[];
   }): Promise<readonly PublicPromptContribution[]> {
     const entries = [...this.#prompts.entries()]
       .filter(({ value }) => !selection || (value.delivery ?? "initial") === selection.delivery
-        && (value.requiresTools?.some((name) => selection.toolNames.includes(name)) ?? false))
+        && (selection.toolNames === undefined || (value.requiresTools?.some((name) => selection.toolNames!.includes(name)) ?? false)))
       .sort((left, right) => left.value.order - right.value.order || left.value.id.localeCompare(right.value.id));
     return Promise.all(entries.map(async ({ owner, value }) => ({
       id: value.id,
@@ -398,10 +399,6 @@ export class PromptContributionRegistry {
       const text = value.renderForRun?.(runId);
       return text === undefined ? [] : [[value.id, text.trim()] as const];
     }));
-  }
-
-  static handlebarsContext(context: PromptRenderContext): Record<string, unknown> {
-    return {};
   }
 }
 

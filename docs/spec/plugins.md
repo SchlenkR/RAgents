@@ -81,7 +81,8 @@ high reasoning.
 ### 4. Compose prompts by responsibility
 
 A role prompt defines the goal, responsibility, handoffs, and completion criteria. Capability
-rules belong to the providing plugin and bind to its actual functions. Short introductory notes
+rules belong to the providing plugin and bind to its actual functions; a prompt names only
+functions its reader has, and a template asks with `available` before it names one. Short introductory notes
 can load initially; detailed contracts and chapters are fetched through `typescript_api` when
 needed. Duplicated domain chapters drift and enlarge every turn. Verify composed instructions for
 every role, including scripted coordinators and workers. A path in a prompt grants neither read
@@ -510,6 +511,24 @@ Prompt contributions distinguish between `initial` and `on-demand` through `deli
 default. Short notes can explicitly stay initial, such as the mini-app introduction,
 the document note, and the workspace rules. The binding checks the functions actually available. Workers also receive matching bound initial notes.
 Long detail chapters are rendered only on demand and are not carried into later system prompts.
+
+A prompt never names a function its reader does not have. The system prompt of every model
+request renders the initial contributions, and a chapter request its chapters, for the functions
+of the reading actor:
+`PromptRenderContext.functions` names them, native and snippet-only, and a template of
+`handlebarsPrompt` (and a selectable system prompt) asks with the helper
+`{{#if (available "name" ...)}}` whether the reader has every named function. A binding decides
+whether a contribution arrives at all; `available` decides each sentence inside it, because a
+contribution bound to any of several functions reaches readers with only some of them. Where a text
+must say what the reader lacks, it describes it without the name, such as "activation" for a reader
+without `actor_program_activate`. Without a known set, for the product prompt in the settings and the
+prompt stored with the coordinator, every function counts as available. A name in a capability
+declaration (`capabilities: [...]`) is what a program may call, not a function offered to the
+reader. The guides that `actor_program_controls` returns are rendered for the caller's functions
+too. `apps/server/tests/prompt-function-fit.test.ts` composes the `core` profile, renders the
+complete system prompts of the run coordinator, of an agent with a restricted selection, and of the
+global coordinator, and checks every registered function name in them against the reader's
+functions; it also checks that every name a template asks for is registered.
 Whatever reads differently or is missing per run (`renderForRun`, the plugin's run condition) applies
 equally to every delivery: in the coordinator's system prompt, in the workers' bound initial notes,
 in the chapters on demand, and for the prompt part of the selected system prompts, whose

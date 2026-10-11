@@ -782,7 +782,7 @@
     },
     {
       "name": "ragents.ask.answer",
-      "description": "Answer or dismiss the questions of one ask_user call. Rights: runs.read and runs.write.",
+      "description": "Answer or dismiss the questions of one pending question action of an agent. Rights: runs.read and runs.write.",
       "params": [
         {
           "name": "input",

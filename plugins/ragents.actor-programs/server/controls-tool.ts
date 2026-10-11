@@ -34,10 +34,11 @@ export const createControlsToolContributor = (): ToolContributor => ({
       Type.Object({ components: Type.Array(Type.String()) }, { additionalProperties: false }),
       Type.Object({ files: Type.Record(Type.String(), Type.String()) }, { additionalProperties: false }),
     ]),
-    run: async (_scope, _call, input) => {
+    run: async (scope, _call, input) => {
       if (input.topic === "guide" || input.topic === "state-aware") {
         if (input.component !== undefined) throw new Error(`component is only allowed with topic: controls or without topic; for topic: ${input.topic}, omit component.`);
-        return { guide: await (input.topic === "guide" ? actorProgramGuide : stateAwareProgramGuide).render({}) };
+        const functions = scope.availableFunctions().map((fn) => fn.name);
+        return { guide: await (input.topic === "guide" ? actorProgramGuide : stateAwareProgramGuide).render({ functions }) };
       }
       return describeClientControls(input.component);
     },

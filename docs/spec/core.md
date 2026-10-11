@@ -1276,16 +1276,17 @@ describes the installed templates and valid start options of the profile actuall
 Request validation, dispatch, OpenRPC, and the Markdown reference use the same executable contracts
 of the message layer. The reference is generated from the code when the global workspace is
 prepared and provided again after a conversation reset. The system prompt contains a compact, also
-generated overview of these methods including their user permissions. In addition, there are names
-and short descriptions of regular run building blocks from the engine descriptors and the public
-tool descriptors of the plugins and hooks actually registered. This makes, for example, the
-installed plugin and actor program capabilities known before the first access to the reference. The
-prompt is assembled only when read, from the complete registration state; generation triggers no
-tool factories and reads neither configuration values nor internal service operations. This
-catalog does not extend the fixed tool selection of the global chat and grants no permissions: run
-calls stay bound to actor, grants, declared script subset, and run context. The coordinator loads
-exact schemas and code examples from the reference when needed. The public help describes
-showcase; the prompt marks the difference to the active profile's set. Shell and snippets receive
+generated overview of these methods including their user permissions. The names and short
+descriptions of regular run building blocks, from the engine descriptors and the public tool
+descriptors of the plugins and hooks actually registered, go with the reference into
+`run-functions.md` in the same working directory; the prompt only points to the file, because a
+prompt names no function its reader does not have. Overview and catalog are assembled from the
+complete registration state; generation triggers no tool factories and reads neither configuration
+values nor internal service operations. The catalog does not extend the fixed tool selection of the
+global chat and grants no permissions: run calls stay bound to actor, grants, declared script
+subset, and run context. The coordinator loads exact schemas and code examples from the reference
+when needed. The public help describes showcase; the prompt marks the difference to the active
+profile's set. Shell and snippets receive
 the host origin, without sign-in the journal folder, and with access protection enabled the bearer
 token as environment variables; the token value appears neither in the prompt nor in the
 reference. `RAGENTS_API_BASE_URL` names the local host with the port it actually listens on, also
@@ -1300,8 +1301,8 @@ user is not signed in); with `anonymousUser`, likewise a token for the anonymous
 `ACCESS_TOKEN`, that token; when open, none. The coordinator's tools thus see and operate exactly
 what its user may, and runs they create belong to that user. There is no separate service identity
 with further permissions. The generated reference is stored as `rpc-reference.md` and
-`openrpc.json` in its own working directory; the same API is available to external clients with the
-normal host access.
+`openrpc.json` in its own working directory, next to `run-functions.md`; the same API is available
+to external clients with the normal host access.
 
 The tool selection belongs to the journaled actor identity. An existing global run with a tool
 selection that differs from the current plugin is rejected on sending with `global-tools-changed`.

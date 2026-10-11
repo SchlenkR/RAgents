@@ -8,14 +8,23 @@ Actors can own TypeScript functions, journaled state and React views. An LLM act
 its model for ActorInputs; a TypeScript actor can handle them with `onInput`. Calling a function
 from a view executes that function directly and does not start a model turn.
 
+{{#if (available "actor_program_create")}}
 1. Create the closest template with `actor_program_create`; read and reuse its package, contract,
    implementation, view and tests in the returned `directory`, the path for file tools, language
-   servers and `bash` (as `cwd`).
+   servers{{#if (available "bash")}} and `bash` (as `cwd`){{/if}}.
+{{else}}
+1. Read and reuse the package, contract, implementation, view and tests in the package
+   directory, the path for file tools, language servers{{#if (available "bash")}} and `bash` (as `cwd`){{/if}}.
+{{/if}}
 2. Edit with ordinary file tools; preserve imports and structure. Changed errors arrive before
-   model requests; `actor_program_diagnostics` returns the full last check.
+   model requests{{#if (available "actor_program_diagnostics")}}; `actor_program_diagnostics` returns the full last check{{/if}}.
 3. Adapt meaningful `node:test` cases in `tests/**/*.test.ts`. Query `actor_program_controls`
    for unclear props. Templates demonstrate controls; pure views need no server function.
+{{#if (available "actor_program_activate")}}
 4. `actor_program_activate` typechecks, builds, tests and activates. Fix errors and reactivate.
+{{else}}
+4. Activation typechecks, builds, tests and activates. Fix errors and activate again.
+{{/if}}
 
 Published functions enter the shared API in the same turn; reactivation updates, removal withdraws them.
 
@@ -45,8 +54,9 @@ the actor, whose `onInput` handles it. Snippets act as their caller.
 
 `ragents.triggers` in `package.json` (`interval`, `daily`/`weekly` with `timeZone`, `fileChange`,
 `timeoutSeconds`) queues inputs; `onInput` reads `input.trigger`. `ragents.permissions` (`files.read`/`write`
-folders, `http` hosts) enables `program_file_read`/`write` and `program_http_request`. Verify with
-`actor_program_trigger` and `actor_program_status`.
+folders, `http` hosts) enables one helper each, which the program declares in the order
+`capabilities: ["program_file_read", "program_file_write", "program_http_request"]`.{{#if (available "actor_program_trigger" "actor_program_status")}} Verify with
+`actor_program_trigger` and `actor_program_status`.{{/if}}
 
 Import React and `createRoot` normally. Import `context` and `useAppState` from `@ragents/client`
 and controls from `@ragents/client/ui`: shadcn/ui components (`Button`, `Select`, `Tabs`, `Dialog`,
@@ -71,7 +81,9 @@ The actor enforces completion and extensions; see learning-afternoon.
 Use `FlowDiagram` for other graphs (star layout, fit, actions). Keep local IDs stable.
 See `controls`. For custom SVG use `SvgEdge`, Tailwind utilities, responsive `viewBox` and
 accessible descriptions.
+{{#if (available "actor_view_set_visibility")}}
 `actor_view_set_visibility` addresses a view by `package-name/view-key`, `@handle/view-key` or a unique title.
+{{/if}}
 Visible apps enter the catalog automatically: browser tabs beside Chat, editor tabs in VS Code.
 
 Tests call `program.functions.<name>(input, context)` or `program.onInput(input, context)`.

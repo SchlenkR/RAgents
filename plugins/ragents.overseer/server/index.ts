@@ -12,7 +12,7 @@ import { OverseerModelSettings } from "./settings.js";
 import { createSettingsMethods } from "./settings-method.js";
 import { createResetMethod } from "./reset-method.js";
 import { managementMethods } from "./api.js";
-import { overseerOrientation } from "./orientation.js";
+import { overseerOrientation, runFunctionCatalog, RUN_FUNCTIONS_FILE } from "./orientation.js";
 import { coordinatorPrompt, preparationPrompt } from "./coordinator-prompt.js";
 import { createUserLocationContext } from "./user-location.js";
 import { runOwnerAccessToken, runtimeProviderToken } from "@ragents/host/ragents/host-services.js";
@@ -73,6 +73,7 @@ export const plugin: PluginModule = {
         prepareWorkspace: async (directory) => {
           await writeFile(path.join(directory, "rpc-reference.md"), methodReference(root, authentication), { mode: 0o600 });
           await writeFile(path.join(directory, "openrpc.json"), JSON.stringify(openRpcDocument(root, authentication), null, 2), { mode: 0o600 });
+          await writeFile(path.join(directory, RUN_FUNCTIONS_FILE), runFunctionCatalog(root), { mode: 0o600 });
         },
         resetIntentDirectory: host.storage.root("reset-intents"),
         model,

@@ -811,7 +811,8 @@ against the runtime catalog; reusable workflows should not hard-code model names
 high reasoning.</p>
 <h3 id="4-compose-prompts-by-responsibility">4. Compose prompts by responsibility</h3>
 <p>A role prompt defines the goal, responsibility, handoffs, and completion criteria. Capability
-rules belong to the providing plugin and bind to its actual functions. Short introductory notes
+rules belong to the providing plugin and bind to its actual functions; a prompt names only
+functions its reader has, and a template asks with <code>available</code> before it names one. Short introductory notes
 can load initially; detailed contracts and chapters are fetched through <code>typescript_api</code> when
 needed. Duplicated domain chapters drift and enlarge every turn. Verify composed instructions for
 every role, including scripted coordinators and workers. A path in a prompt grants neither read

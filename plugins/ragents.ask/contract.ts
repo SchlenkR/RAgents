@@ -13,7 +13,7 @@ const answerSchema = Type.Union([
 export const askContracts = {
   answer: defineOperation({
     id: "ragents.ask.answer",
-    description: "Answer or dismiss the questions of one ask_user call. Rights: runs.read and runs.write.",
+    description: "Answer or dismiss the questions of one pending question action of an agent. Rights: runs.read and runs.write.",
     rights: ["runs.read", "runs.write"],
     input: Type.Object({
       runId: Type.String({ minLength: 1, maxLength: 64, description: "Run id" }),

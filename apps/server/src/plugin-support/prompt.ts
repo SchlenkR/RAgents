@@ -1,11 +1,20 @@
 import { readFile } from "node:fs/promises";
 import Handlebars from "handlebars";
-import {
-  PromptContributionRegistry,
-  type PromptContribution,
-  type PromptRenderContext,
-} from "@ragents/engine";
+import type { PromptContribution, PromptRenderContext } from "@ragents/engine";
 import { selectedSystemPrompts, type SystemPromptCatalog } from "./system-prompts.js";
+
+/** `{{#if (available "name" ...)}}` holds when the reading actor has every named function. */
+const renderOptions = (context: PromptRenderContext): Handlebars.RuntimeOptions => ({
+  helpers: {
+    available: (...args: unknown[]) => {
+      const names = args.slice(0, -1);
+      if (names.length === 0 || !names.every((name): name is string => typeof name === "string" && name.length > 0)) {
+        throw new Error("The prompt helper available takes one or more function names");
+      }
+      return context.functions === undefined || names.every((name) => context.functions!.includes(name));
+    },
+  },
+});
 
 export const handlebarsPrompt = (
   id: string,
@@ -19,7 +28,7 @@ export const handlebarsPrompt = (
     order,
     render: async (context) => {
       template ??= readFile(file, "utf8").then((source) => Handlebars.compile(source));
-      return (await template)({ ...PromptContributionRegistry.handlebarsContext(context), ...values });
+      return (await template)({ ...values }, renderOptions(context));
     },
   };
 };
@@ -40,7 +49,7 @@ const renderOption = async (file: string, context: PromptRenderContext): Promise
   const cached = optionTemplates.get(file)
     ?? readFile(file, "utf8").then((source) => Handlebars.compile(source));
   optionTemplates.set(file, cached);
-  return (await cached)(PromptContributionRegistry.handlebarsContext(context));
+  return (await cached)({}, renderOptions(context));
 };
 
 export const renderSystemPromptOption = async (

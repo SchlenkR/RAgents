@@ -38,7 +38,8 @@ export type TurnSchedulerOptions = {
     registry?: ToolProvider | undefined;
     live?: LiveBus | undefined;
     workspaceToolNaming?: WorkspaceToolNaming | undefined;
-    basePrompt?: (runId: string, actor: ExecutableActor, toolNames: readonly string[]) => string;
+    /** The prompt of the actor before its contract; toolNames are its functions, native and snippet-only. */
+    basePrompt?: (runId: string, actor: ExecutableActor, toolNames: readonly string[]) => string | Promise<string>;
     contract?: (actor: ExecutableActor) => string;
     toolChapters?: (runId: string, actor: ExecutableActor, toolNames: readonly string[], availableTools: readonly RunFunction[]) => string | Promise<string>;
     /** What a model reads before one of its inputs, such as the interface context of a message; journaled with the input, never in the system prompt. */
@@ -142,17 +143,17 @@ const turnProgressEvents = new Set<JournalEvent["type"]>([
     "context.compacted",
 ]);
 
-const systemPromptFor = (
+const systemPromptFor = async (
     runId: string,
     actor: ExecutableActor,
     toolNames: readonly string[],
-    basePrompt: (runId: string, actor: ExecutableActor, toolNames: readonly string[]) => string,
+    basePrompt: (runId: string, actor: ExecutableActor, toolNames: readonly string[]) => string | Promise<string>,
     contract: (actor: ExecutableActor) => string,
     orientation: string,
     workspace: string,
 ) => actor.kind === "agent" && actor.toolNames?.length === 0
     ? actor.prompt.trim()
-    : [basePrompt(runId, actor, toolNames).trim(), contract(actor).trim(), orientation, workspace]
+    : [(await basePrompt(runId, actor, toolNames)).trim(), contract(actor).trim(), orientation, workspace]
         .filter(Boolean)
         .join("\n\n");
 
@@ -167,7 +168,7 @@ export class TurnScheduler {
     readonly #registry: ToolProvider | undefined;
     readonly #live: LiveBus | undefined;
     readonly #workspaceToolNaming: WorkspaceToolNaming | undefined;
-    readonly #basePrompt: (runId: string, actor: ExecutableActor, toolNames: readonly string[]) => string;
+    readonly #basePrompt: (runId: string, actor: ExecutableActor, toolNames: readonly string[]) => string | Promise<string>;
     readonly #contract: (actor: ExecutableActor) => string;
     readonly #toolChapters: (
         runId: string,
@@ -967,7 +968,7 @@ export class TurnScheduler {
                 input: turn.input,
                 attachments: this.#attachmentsOf(runId, actorId, turn.input.artifactIds),
                 prompt: renderedPromptFor(startView, actorId, turn.input),
-                systemPrompt: systemPromptFor(
+                systemPrompt: await systemPromptFor(
                     runId,
                     actor,
                     [...resolvedToolNames],
@@ -985,7 +986,7 @@ export class TurnScheduler {
                     return {
                         tools: toolset.tools,
                         functionNames: toolset.functions.map((tool) => tool.name),
-                        systemPrompt: systemPromptFor(
+                        systemPrompt: await systemPromptFor(
                             runId, actor,
                             toolset.functions.map((tool) => tool.name),
                             this.#basePrompt, this.#contract,

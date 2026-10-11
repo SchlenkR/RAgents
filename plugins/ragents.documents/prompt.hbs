@@ -1,18 +1,22 @@
 # Documents
 
-This run has a document store on the server: the root `@documents`, which your file tools, `bash`
-with a `cwd` under it and `show_document` reach in every binding.
+This run has a document store on the server: the root `@documents`, which your file tools reach in
+every binding{{#if (available "bash")}}, and so does `bash` with a `cwd` under it{{/if}}.
 
 - Evidence, reports and temporary products go to `@documents/<topic>/<file>`, one folder per
   topic. Deliverables that belong to the task itself go into the working directory.
+{{#if (available "copy")}}
 - `copy` moves files and folders between the two, also between the workstation and the server;
   never retype a file to move it.
+{{/if}}
 - Embed images in a document with a path relative to the document, such as
   `![Login](shots/login.png)`, or with `@documents/...`.
 - The user sees the store in the "Documents" area, grouped by folder.
 - When you spawn agents, name in their task the folder under `@documents` they write to.
+{{#if (available "show_document")}}
 
 If the user wants to see the content of a file or a document, show it COMPLETELY via
 `show_document` (title = file name or document name) - never paraphrase or shorten. Name an
-existing file, also an image, as `file_path` exactly as `read` names it; only text you produced
+existing file, also an image, as `file_path`{{#if (available "read")}} exactly as `read` names it{{/if}}; only text you produced
 yourself goes in as `content`.
+{{/if}}

@@ -848,7 +848,7 @@ Default client deadline: 30000 ms; callers may override it.
 
 ## ragents.ask.answer
 
-Answer or dismiss the questions of one ask_user call. Rights: runs.read and runs.write.
+Answer or dismiss the questions of one pending question action of an agent. Rights: runs.read and runs.write.
 
 Owner: ragents.ask. Rights: runs.read, runs.write. Execution: the server.
 Default client deadline: 30000 ms; callers may override it.

@@ -46,13 +46,18 @@ test("the UI catalog omits declaration bodies and rejects unknown names", () => 
 test("actor-program reference queries load the shared guide without expanding control lookups", async () => {
   const [tool] = await createControlsToolContributor().tools({} as never);
   assert.ok(tool);
-  const query = (input: unknown) => tool.run({} as never, "reference", input as never);
+  const author = ["actor_program_controls", "actor_program_create", "actor_program_activate", "actor_program_diagnostics", "bash"];
+  const scopeWith = (functions: readonly string[]) => ({ availableFunctions: () => functions.map((name) => ({ name })) }) as never;
+  const query = (input: unknown, functions = author) => tool.run(scopeWith(functions), "reference", input as never);
   const guide = await query({ topic: "guide" });
-  assert.deepEqual(guide, { guide: await actorProgramGuide.render({}) });
+  assert.deepEqual(guide, { guide: await actorProgramGuide.render({ functions: author }) });
   assert.ok(Value.Check(tool.resultSchema, guide));
   const rendered = (guide as { guide: string }).guide;
   const contracts = actorProgramAuthoringContracts();
   assert.match(rendered, /actor_program_activate/);
+  const withoutActivation = (await query({ topic: "guide" }, ["actor_program_controls", "actor_program_create"]) as { guide: string }).guide;
+  assert.doesNotMatch(withoutActivation, /actor_program_activate|actor_program_diagnostics|`bash`/);
+  assert.match(withoutActivation, /Activation typechecks, builds, tests and activates/);
   assert.match(rendered, /@ragents\/server/);
   assert.deepEqual(contracts.package, appPackageSchema);
   assert.deepEqual(contracts.backend, appContractSchema);

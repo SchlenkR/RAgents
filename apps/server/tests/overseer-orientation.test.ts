@@ -7,7 +7,7 @@ import { Type } from "typebox";
 import { PluginHost } from "@ragents/engine";
 import { plugin } from "../../../plugins/ragents.overseer/server/index.ts";
 import { overseerContracts } from "../../../plugins/ragents.overseer/contract.ts";
-import { overseerOrientation } from "../../../plugins/ragents.overseer/server/orientation.ts";
+import { overseerOrientation, runFunctionCatalog } from "../../../plugins/ragents.overseer/server/orientation.ts";
 import { createActorProgramToolContributors } from "../../../plugins/ragents.actor-programs/server/tool-contributor.ts";
 import { createControlsToolContributor } from "../../../plugins/ragents.actor-programs/server/controls-tool.ts";
 import type { ActorProgramRuntime } from "../../../plugins/ragents.actor-programs/server/runtime.ts";
@@ -24,18 +24,20 @@ test("global orientation reflects installed descriptors without resolving tools 
     for (const method of host.methods.describe()) assert.ok(initial.includes(`- ${method.id}: `), method.id);
     assert.ok(initial.includes(`- ${overseerContracts.createRun.id}: `));
     assert.match(initial, /runs.read, runs.write, runs.create/);
-    assert.match(initial, /not an additional tool list of this chat/);
-    assert.match(initial, /actor, grants, declared script subset/);
+    assert.match(initial, /run-functions.md in your working directory lists the functions .* they are not your tools/);
+    assert.match(runFunctionCatalog(host), /not a list of the global coordinator's tools.*actor, grants, declared script subset/);
     host.register({ manifest: { id: "ragents.actor-programs" }, register: (registration) => {
       registration.functions(...createActorProgramToolContributors({} as ActorProgramRuntime, {} as never), createControlsToolContributor());
       registration.operations({ id: "test.internal", label: "Internal", description: "INTERNAL_OPERATION_SECRET", operator: "unavailable", schema: Type.Object({}), resultSchema: Type.Null(), execute: async () => null });
       registration.clientConfig({ privateValue: "CLIENT_CONFIG_SECRET" });
     } });
     const updated = overseerOrientation(host, true);
-    assert.match(updated, /actor_program_create: Create a private TypeScript package with fixed libraries/);
-    assert.match(updated, /actor_view_set_visibility: Set surface visibility/);
-    assert.match(updated, /actor_program_controls: Read Mini-App control contracts or the actor-program authoring guide/);
-    assert.doesNotMatch(updated, /INTERNAL_OPERATION_SECRET|CLIENT_CONFIG_SECRET|test.internal|resultSchema/);
+    assert.doesNotMatch(updated, /actor_program_|actor_view_/, "the prompt names no function of regular runs");
+    const catalog = runFunctionCatalog(host);
+    assert.match(catalog, /actor_program_create: Create a private TypeScript package with fixed libraries/);
+    assert.match(catalog, /actor_view_set_visibility: Set surface visibility/);
+    assert.match(catalog, /actor_program_controls: Read Mini-App control contracts or the actor-program authoring guide/);
+    for (const text of [updated, catalog]) assert.doesNotMatch(text, /INTERNAL_OPERATION_SECRET|CLIENT_CONFIG_SECRET|test.internal|resultSchema/);
     assert.match(updated, /public help describes core/);
     const tools = host.service(globalChatToken).toolNames;
     assert.ok(tools.includes("actor_program_create"));
@@ -43,7 +45,7 @@ test("global orientation reflects installed descriptors without resolving tools 
   } finally { await rm(directory, { recursive: true, force: true }); }
 });
 
-test("global system prompt includes later plugin registrations", async () => {
+test("the global system prompt names no function of regular runs, and their catalog includes later plugin registrations", async () => {
   const directory = await mkdtemp(path.join(tmpdir(), "ragents-overseer-policy-"));
   try {
     const host = new PluginHost({ product: { id: "test", title: "Test" }, dataDirectory: directory });
@@ -63,8 +65,9 @@ test("global system prompt includes later plugin registrations", async () => {
       ], tools: () => { throw new Error("Must not execute a tool factory"); } });
     } });
     const prompt = policy.prompt;
-    assert.match(prompt, /late_public_tool: A later registered capability\. \[context-dependent\]/);
-    assert.doesNotMatch(prompt, /Detailed contract text/);
+    assert.doesNotMatch(prompt, /late_public_tool/);
+    assert.match(runFunctionCatalog(host), /late_public_tool: A later registered capability\. \[context-dependent\]/);
+    assert.doesNotMatch(runFunctionCatalog(host), /Detailed contract text/);
     assert.match(prompt, new RegExp(`- ${overseerContracts.createRun.id}: `));
     assert.match(prompt, /POST \$RAGENTS_API_BASE_URL\/rpc/);
     assert.match(prompt, /rpc-reference.md/);
