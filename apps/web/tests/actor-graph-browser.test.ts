@@ -378,7 +378,7 @@ test("the Agents header dropdown shares square responsive bounds and restores fo
   }
 });
 
-test("graph cards contain all three text rows at larger root fonts and page zoom in both hosts", {
+test("graph cards fit their text and the working subagent count keeps tight spacing at larger root fonts and page zoom in both hosts", {
   skip: process.env.RAGENTS_BROWSER_TESTS !== "1", timeout: 120_000,
 }, async (context) => {
   const directory = await mkdtemp(join(tmpdir(), "ragents-actor-graph-"));
@@ -398,6 +398,19 @@ test("graph cards contain all three text rows at larger root fonts and page zoom
           document.documentElement.style.zoom = String(zoom);
         }, { fontSize, zoom });
         const label = `${host}, ${fontSize}px, ${zoom * 100}%`;
+        const working = page.getByRole("button", { name: "5 subagents working. Click to show agents", exact: true });
+        assert.equal(await working.textContent(), "5", `${label}, the count excludes the primary actor.`);
+        const spacing = await working.evaluate((element) => {
+          const probe = document.createElement("span");
+          probe.style.columnGap = "var(--spacing)";
+          element.append(probe);
+          const tight = parseFloat(getComputedStyle(probe).columnGap);
+          probe.remove();
+          const style = getComputedStyle(element);
+          return { gap: parseFloat(style.columnGap), padding: parseFloat(style.paddingLeft), tight };
+        });
+        assert.ok(Math.abs(spacing.gap - spacing.tight) < 0.01, `${label}, the spinner and count use the tight step.`);
+        assert.ok(spacing.padding >= spacing.gap, `${label}, outer spacing is at least the inner gap.`);
         await page.getByRole("button", { name: "Agents", exact: true }).click();
         const header = page.getByRole("dialog", { name: "Agents", exact: true });
         await header.locator('button[data-actor-handle="coordinator"]').waitFor();

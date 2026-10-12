@@ -3261,8 +3261,9 @@ While the recipient is not the actor chosen without a stored choice (`selectedRu
 `null`, the primary chat actor), the chip carries a separate button "Back to @<handle>" that
 chooses that actor directly without opening the popout.
 Next to it the bar shows only a spinner and the number of currently working subagents,
-excluding the primary chat actor. The count is independent of the selected addressee and
-opens the graph on click; the accessible label names the count and action. The
+excluding the primary chat actor. The spinner and count use the scale's tight gap as one
+compound element. The count is independent of the selected addressee and opens the graph on
+click; the accessible label names the count and action. The
 header contribution `ragents.orchestration.agents` (`placement: "bar"`, `AgentsHeader.tsx`) shows
 "Agents" while the run lists at least one actor besides humans and opens the same graph in
 the shared `HeaderDropdown`; a click there stores the chosen actor the same way, and the run

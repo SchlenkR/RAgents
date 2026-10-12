@@ -1,5 +1,14 @@
 # Decisions
 
+## 2026-10-12: Working subagent count uses tight spacing
+
+Chapter: `spec/plugins.md` (Run panel, Spacing).
+
+The spinner and working-subagent count looked detached with related spacing (2 units).
+The shared addressee control now uses tight spacing (1 unit) in both hosts, keeping its
+accessible count and action. Browser coverage measures the gap and outer spacing at larger
+root fonts and page zoom without adding a spacing exception.
+
 ## 2026-10-12: Page spacing separates independent dashboard regions
 
 Chapter: `spec/plugins.md` (Spacing, Shared page width, Start); usage: `usage.md` (Shared panel pages).
