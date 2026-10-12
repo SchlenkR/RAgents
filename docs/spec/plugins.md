@@ -2322,6 +2322,15 @@ scale relative to this reading role, with the same weight and letter spacing.
 Controls, item titles, and metadata retain their own roles. `type-prose` also styles lists,
 tables with a muted first column, code, quotes, and framed images.
 `tailwind.css` is the host entry point with preflight; `frame.css` the entry point of the mini-app frames.
+The frame puts preflight in a lower base sublayer and restores semantic HTML defaults with
+zero-specificity `:where(...)` selectors: shared heading roles, related block spacing (2 units),
+group spacing before headings and sections (3), list markers and indentation, and table cell padding.
+Component styles and Tailwind utilities override them. Mini-app layouts own their gaps and clear
+direct child margins: `AppLayout` uses 3 units for content rhythm and nested padding, `Stack`
+defaults to 2, responsive `Grid` to 3. Cards retain equal padding and gaps (4, or 3 with `size="sm"`)
+and `Badge` remains compact and inline. Authoring guidance uses the existing wrapping
+`Stack direction="row"` for a title and badge, one muted metadata line for related facts, and no
+heading that repeats the widget or tab title. No additional layout component is needed.
 Both include `quassel.css` after the host's utilities: the precompiled stylesheet
 of the chat building blocks `quassel/chat.css` (classes with prefix `qsl:`, variables `--qsl-*`) and the
 mapping of every quassel variable to the tokens from `theme.css` (colors, fonts, radius,

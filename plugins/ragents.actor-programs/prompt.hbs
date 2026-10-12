@@ -26,7 +26,7 @@ from a view executes that function directly and does not start a model turn.
 4. Activation typechecks, builds, tests and activates. Fix errors and activate again.
 {{/if}}
 
-Published functions enter the shared API in the same turn; reactivation updates, removal withdraws them.
+Functions enter the API this turn; reactivation updates them, removal withdraws them.
 
 Use `actor: "self"` or `actor: "@handle"` to bind to an existing actor. Without a binding, a
 backend creates a TypeScript actor with the program name; a pure view uses the calling actor.
@@ -58,18 +58,18 @@ folders, `http` hosts) enables one helper each, which the program declares in th
 `capabilities: ["program_file_read", "program_file_write", "program_http_request"]`.{{#if (available "actor_program_trigger" "actor_program_status")}} Verify with
 `actor_program_trigger` and `actor_program_status`.{{/if}}
 
-Import React and `createRoot` normally. Import `context` and `useAppState` from `@ragents/client`
-and controls from `@ragents/client/ui`: shadcn/ui components (`Button`, `Select`, `Tabs`, `Dialog`,
-`Badge`, `Input`, `Table`, ...) with their usual props, plus `Form`, `DataTable`, `FilePicker`,
+Import React and `createRoot` normally, `context` and `useAppState` from `@ragents/client`,
+controls from `@ragents/client/ui`: shadcn/ui props plus `Form`, `DataTable`, `FilePicker`,
 `AppLayout`, `Stack`, `Grid` and chat. Icons: `lucide-react`; Tailwind works.
-The hook reads actor state; `context.capabilities.call`
-calls its declared functions. Local drafts remain React state. A real chat binds to the owning
-actor through `context.actor.handle`; sending a chat message deliberately starts its next turn.
-Use `AppLayout` for title, description, content and actions, `Stack` for spacing or rows,
-and `Grid` for columns responsive to frame width. `AppLayout fill` needs a height-constrained
-parent: content scrolls while header and actions remain visible. Mount in the supplied `#root`.
-The host supplies fonts, box sizing, page size, scrolling and outer padding. Do not reset
-`html`, `body` or `#root`, or add outer padding; style only content.
+`useAppState` reads actor state; `context.capabilities.call` calls declared functions. Drafts stay
+in React state. Chat binds through `context.actor.handle`; sending starts its next model turn.
+Use `AppLayout` for title, description, content and actions, `Stack` for spacing and wrapping rows,
+`Grid` for responsive columns. `AppLayout fill` needs a bounded height: content scrolls, header
+and actions stay visible. Mount in the supplied `#root`.
+Omit headings that repeat the widget or tab title. Put item title and `Badge` in a wrapping
+`Stack direction="row"`; combine related facts in one muted `type-meta` line, not one paragraph per fact.
+The host owns fonts, sizing, scrolling and outer padding. Do not reset `html`, `body` or `#root`
+or add outer padding; style only content.
 Use `Form` for labeled inputs and interview steps, `type: "textarea"` for long answers.
 It handles layout, validation and async `onSubmit`. Keep progression in app state; avoid fixed
 field heights and absolute form layouts. Where Form does not fit, use `Input`, `Textarea`,
@@ -86,6 +86,6 @@ accessible descriptions.
 {{/if}}
 Visible apps enter the catalog automatically: browser tabs beside Chat, editor tabs in VS Code.
 
-Tests call `program.functions.<name>(input, context)` or `program.onInput(input, context)`.
-`createTestContext` from `@ragents/server/testing` supplies state and explicit typed `functions` mocks.
-Inspect results and `context.state.read()` separately. Subscription and trigger deliveries are ActorInputs.
+Test `program.functions.<name>(input, context)` or `program.onInput(input, context)` with
+`createTestContext` from `@ragents/server/testing`: state and typed `functions` mocks.
+Check results and `context.state.read()` separately. Subscriptions and triggers deliver ActorInputs.

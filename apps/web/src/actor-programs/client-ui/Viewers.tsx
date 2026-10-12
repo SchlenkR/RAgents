@@ -18,8 +18,8 @@ export function TaskProgress({ title = "Tasks", tasks, showProgress = true }: Ta
       <Progress aria-label={title} className="min-w-20 flex-1" max={tasks.length} value={completed} />
       <span>{completed} of {tasks.length} completed</span>
     </div>}
-    {!tasks.length && <p>No tasks yet.</p>}
-    <ol className="divide-y">{tasks.map((task) => <li className="py-2" data-status={task.status} key={task.id}>
+    {!tasks.length && <p className="mt-0">No tasks yet.</p>}
+    <ol className="mt-0 list-none divide-y p-0 *:m-0">{tasks.map((task) => <li className="py-2" data-status={task.status} key={task.id}>
       <div className="flex justify-between gap-3"><strong>{task.label}</strong><Badge tone={taskTones[task.status]}>{taskLabels[task.status]}</Badge></div>
       {task.description && <p className="mt-1 text-muted-foreground">{task.description}</p>}
     </li>)}</ol>
@@ -38,6 +38,6 @@ export function DocumentViewer({ title, content, format = "text", language, file
 export function DiffViewer({ title = "Changes", patch, emptyText = "No changes.", language, filename }: DiffViewerProps) {
   return <section aria-label={title} className="min-w-0 text-sm">
     <h3 className="mb-2 text-[15px] font-semibold">{title}</h3>
-    {!patch ? <p>{emptyText}</p> : <div className="max-w-full overflow-auto rounded-lg border border-border bg-background"><DiffCode content={patch} emptyText={emptyText} language={language} path={filename} /></div>}
+    {!patch ? <p className="mt-0">{emptyText}</p> : <div className="max-w-full overflow-auto rounded-lg border border-border bg-background"><DiffCode content={patch} emptyText={emptyText} language={language} path={filename} /></div>}
   </section>;
 }

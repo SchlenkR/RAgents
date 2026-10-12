@@ -404,6 +404,31 @@ controls it needs from this package; the regular build bundles them with the app
 type-checked during the TypeScript check of the mini-app. The building blocks work in the browser and
 in the VS Code editor.
 
+The frame restores compact defaults for plain semantic HTML after preflight: `h1` and `h2`
+use `type-title`, lower headings use `type-item` with semibold weight. Following paragraphs,
+lists, tables and other blocks have related spacing (2 units); headings and sections have group
+spacing (3 units). Lists retain markers and indentation, and table cells have token-based padding.
+These base selectors use `:where(...)` with zero specificity. Preflight occupies a lower base
+sublayer, so the defaults apply while component styles and Tailwind utilities always win.
+
+`AppLayout` separates its header, content blocks and actions by 3 units and uses the same inset
+when nested; the frame supplies its root inset. `Stack` defaults to a 2-unit gap, `Grid` to 3;
+`gap="normal"` is 3 and `gap="large"` is 4. Layouts clear direct child margins to avoid adding
+semantic spacing to their gaps. Cards keep matching padding and gaps of 4 units, or 3 with
+`size="sm"`; `Badge` stays inline and compact. No layout props are needed for a usable rhythm.
+Structured control lists retain marker-free rows; form hints, loading messages and diagram nodes
+keep their own utility spacing and type instead of inheriting semantic defaults.
+
+Use these layouts for views instead of one paragraph per fact. Omit a heading that repeats the
+widget or tab title; put the actual item title and status `Badge` in the existing
+`Stack direction="row"`, which wraps when needed. Combine related facts in one
+`type-meta text-muted-foreground` line. The authoring prompt, summary and global-app example
+teach this pattern. `view-defaults-browser.test.ts`, enabled with `RAGENTS_BROWSER_TESTS=1`, builds
+plain and compact views through the client compiler and real frame bridge, checks their computed
+spacing and visual line counts, and writes screenshots only to the system temp directory.
+`RAGENTS_VIEW_SAMPLE` optionally supplies an unchanged external source for the plain view;
+without it the test uses the production sample's semantic structure with neutral English text.
+
 The UI contract collector produces the same component names and declaration files in a checkout
 and in an installed npm package. Its TypeScript compiler host presents the package through a
 virtual source root outside `node_modules`, resolving dependencies from the physical package. Local

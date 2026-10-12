@@ -32,6 +32,21 @@ interpret or send it, and omission retains the existing behavior. The `ragents.r
 contract record is refreshed with `EXTENSION_API_VERSION` unchanged at 1; host API exports and
 version stay unchanged.
 
+## 2026-10-12: Mini-app frames provide semantic defaults and compact fact rows
+
+Chapters: `spec/actor-programs.md` (Reusable UI building blocks), `spec/plugins.md` (UI library);
+usage: `usage.md` (Global mini-apps on Start).
+
+Generated views used plain headings and paragraphs whose sizes and margins preflight erased.
+The frame now restores token-based typography, block rhythm, lists and table padding with
+zero-specificity selectors above preflight and below component and utility styles. Layouts own
+their gaps without adding semantic margins: AppLayout uses group spacing and Stack defaults to
+related spacing. Cards and badges retain their existing compact sizes. The existing wrapping
+Stack row puts a title beside its badge; authoring guidance and the global-app example combine
+small facts in one muted metadata line and avoid repeating the widget title. Browser coverage
+builds the plain sample and a compact view in the real frame, verifies spacing, overrides and
+line counts, and keeps screenshots in system temp.
+
 ## 2026-10-12: Start fills free rectangles above lower widgets
 
 Chapter: `spec/plugins.md` (Start, Arranging Start, Open limits); usage: `usage.md` (Start dashboard).
