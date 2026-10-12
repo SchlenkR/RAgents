@@ -1003,7 +1003,7 @@ export class TurnScheduler {
                     workspaceChapter,
                 ),
                 workspace,
-                storeAttachment: (name: string, content: Uint8Array) => this.#workspaces.storeAttachment(runId, name, content),
+                storeAttachment: (name: string, content: Uint8Array, reuseIdentical?: boolean) => this.#workspaces.storeAttachment(runId, name, content, reuseIdentical),
                 tools: driverRef.kind === "script" ? toolset.functions : toolset.tools,
                 allowedToolNames: actor.toolNames,
                 refreshTools: async () => {

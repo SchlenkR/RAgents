@@ -9,6 +9,8 @@ import { processExists } from "../../../packages/workspace-executor/src/managed-
 import { parseAcpAgents, type AcpAgentDefinition } from "../../../plugins/ragents.acp/config.ts";
 import { ACP_OPERATIONS, type AcpOpened, type AcpProgress } from "../../../plugins/ragents.acp/executor/contract.ts";
 import { acpModule } from "../../../plugins/ragents.acp/executor/module.ts";
+import { AcpWorkspace } from "../../../plugins/ragents.acp/executor/workspace.ts";
+import { TOOL_RESULT_MAX_BYTES } from "../../../packages/agent/src/core/tool-result-limit.ts";
 
 const adapter = path.resolve(import.meta.dirname, "fixtures/acp/agent.mjs");
 const until = async (condition: () => boolean | Promise<boolean>, label: string): Promise<void> => {
@@ -44,6 +46,29 @@ const fixture = async (t: TestContext, env: Record<string, string> = {}) => {
   const close = () => executor.execute("run-one", ACP_OPERATIONS.close, { actorId: "coder" });
   return { directory, workspace, logFile, executor, launches, open, prompt, answer, close, events: () => eventsOf(logFile) };
 };
+
+test("external runtime workspace reads and terminal output share the host result cap", { timeout: 20_000 }, async (t) => {
+  const fixtureHost = await fixture(t);
+  const context = await workspaceProcessContext({ runId: "run-one", cwd: fixtureHost.workspace, root: fixtureHost.workspace,
+    home: { home: fixtureHost.workspace }, logDirectory: fixtureHost.directory, hostRoot: undefined });
+  const workspace = new AcpWorkspace(executorMachine(fixtureHost.directory), {
+    contextFor: async () => context, annotate: async () => undefined, backgroundGroups: () => new Set(),
+    execute: async () => ({ previewable: true, content: "generated conflict\n".repeat(200_000) }),
+  }, context, () => {}, {});
+  t.after(() => workspace.close());
+  const callbacks = workspace.callbacks();
+  const content = (await callbacks.readTextFile!({ sessionId: "test", path: path.join(fixtureHost.workspace, "conflict.txt") })).content;
+  assert.ok(Buffer.byteLength(content) <= TOOL_RESULT_MAX_BYTES);
+  assert.match(content, /Tool result truncated.*line\/limit/);
+  assert.equal((await callbacks.readTextFile!({ sessionId: "test", path: path.join(fixtureHost.workspace, "conflict.txt"), line: 2, limit: 1 })).content, "generated conflict");
+  const terminal = await callbacks.createTerminal!({ sessionId: "test", command: process.execPath,
+    args: ["-e", "process.stdout.write('x'.repeat(3500000))"], outputByteLimit: 262144 });
+  await callbacks.waitForTerminalExit!({ sessionId: "test", terminalId: terminal.terminalId });
+  const output = await callbacks.terminalOutput!({ sessionId: "test", terminalId: terminal.terminalId });
+  assert.ok(Buffer.byteLength(output.output) <= TOOL_RESULT_MAX_BYTES);
+  assert.equal(output.truncated, true);
+  assert.match(output.output, /Tool result truncated.*workspace file/);
+});
 
 test("ACP agent server configuration validates editor entries and copies their environment and arguments", () => {
   assert.deepEqual(parseAcpAgents(undefined), {});

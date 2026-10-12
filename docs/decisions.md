@@ -1,5 +1,23 @@
 # Decisions
 
+## 2026-10-12: Bound tool-result projections and overflow summarization
+
+Chapters: `spec/core.md` (Model context and agent runtime, Retries and compaction),
+`spec/plugins.md` (Lean results, External ACP actors); usage: `usage.md` (Keep and restore context);
+operations: `operations.md` (Compaction of the model context).
+
+A multi-megabyte result could fill the context and then overflow the summarizer as well.
+The host now bounds complete tool results at the model boundary, including hooks and replay,
+while retaining the originals in the journal and providing a workspace file for paged reads.
+The cap is 32 KiB, reduced to one eighth of the actor's context window with conservative byte
+accounting. ACP workspace callbacks share the absolute cap through the machine contract;
+executor version 15 rejects workstations without it. Both summary paths process bounded
+chunks with room for instructions, prior checkpoints and output; oversized messages and media
+omissions are explicit. Oversized recent entries can move into the summary at a later valid cut.
+Recovery failures give a short notice while preserving diagnostics and an actor that accepts
+the next input. Tests cover multi-MB results, errors, hooks, replay, external callbacks, a
+window-enforcing fake summarizer and recovery after failure.
+
 ## 2026-10-12: Virtual grid measurements do not force nested Start updates
 
 Chapter: `spec/plugins.md` (DataGrid, Start).

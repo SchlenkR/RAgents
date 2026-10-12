@@ -4,7 +4,7 @@ export interface Workspaces {
     /** How the run's workspace is described to a model; undefined when nothing describes it. */
     description(runId: string): string | undefined;
     /** Stores an attached file under attachments/ of the workspace, on the machine where the workspace lies; returns its name there. */
-    storeAttachment(runId: string, name: string, content: Uint8Array): Promise<string>;
+    storeAttachment(runId: string, name: string, content: Uint8Array, reuseIdentical?: boolean): Promise<string>;
 }
 
 export class FixedWorkspaces implements Workspaces {

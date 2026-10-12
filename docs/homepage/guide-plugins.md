@@ -155,6 +155,11 @@ to read more. Reading unchanged content again returns a short notice instead of 
 Measure result sizes in real runs; a result that regularly exceeds a few kilobytes needs a
 narrower contract.
 
+The host independently bounds every result before model input, after hooks and on replay
+(`core.md`, Model context and agent runtime). An oversized result becomes an excerpt with a
+notice and a workspace file for reading its full text in parts. This guard covers all blocks of
+one result and does not replace a function's own pagination or per-line limits.
+
 ## Implementation sequence
 
 1. Identify the owner, domain state, and required decisions; inspect existing functions and

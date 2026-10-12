@@ -18,9 +18,12 @@ export {
 	estimateContextUsage,
 	prepareCompaction,
 	shouldCompact,
+	SUMMARIZATION_WINDOW_FRACTION,
+	SUMMARIZATION_REQUEST_RESERVE_TOKENS,
 } from "./core/compaction/index.ts";
 export { convertToLlm } from "./core/messages.ts";
 export { contextToolResults, retainedToolResultMessage, type ContextToolResult } from "./core/tool-results.ts";
+export { boundedText, boundedToolResult, textPrefix, toolResultLimit, TOOL_RESULT_MAX_BYTES, TOOL_RESULT_CONTEXT_FRACTION } from "./core/tool-result-limit.ts";
 export { formatSkillsForPrompt, type Skill } from "./core/skills.ts";
 export { defineTool, type ToolDefinition } from "./core/tool-definition.ts";
 export {

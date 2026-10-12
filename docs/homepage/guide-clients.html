@@ -753,6 +753,9 @@ Keeping results requires <code>plugin.state.write</code>; searching and restorin
 to this agent&#39;s conversation, including context inherited by a fork, and survive a server
 restart. A restored file excerpt is a historical snapshot. Read the file again for its current
 contents. An incomplete summary leaves the original active context intact.</p>
+<p>Oversized tool results carry a truncation notice and a workspace file containing the full text.
+The agent reads that file in parts. This also applies to old results after restart. If context
+recovery cannot finish a summary, the chat reports a short failure; send another message to retry.</p>
 <h2 id="selection-controls-and-tables">Selection controls and tables</h2>
 <p>Short option groups form one square segmented control, with dividers between choices and a
 tinted fill on selected segments. A group chooses one value, or several independently when

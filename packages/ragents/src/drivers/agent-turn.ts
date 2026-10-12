@@ -1,7 +1,10 @@
 import { setTimeout as sleep } from "node:timers/promises";
+import { createHash } from "node:crypto";
 
 import {
+    activeContextEntries,
     Agent,
+    boundedToolResult,
     type AgentEvent,
     type AgentLoopTurnUpdate,
     type AgentMessage,
@@ -122,6 +125,7 @@ export class AgentTurn {
     readonly #inputIds = new WeakMap<object, string | null>();
     readonly #unexecutedManagedCalls = new Map<string, { name: string; input: JsonValue }>();
     readonly #directToolCalls = new Map<string, { name: string; input: unknown }>();
+    readonly #toolResultFiles = new Map<string, Promise<string>>();
     #activeManagedNames = new Set<string>();
     #agent: Agent | null = null;
     #active = true;
@@ -385,11 +389,26 @@ export class AgentTurn {
             }
         }
 
+        const activeIds = new Set(activeContextEntries(context.entries).map((entry) => entry.id));
+        const entries = await Promise.all(context.entries.map(async (entry) => activeIds.has(entry.id) && entry.kind === "message" && entry.message.role === "toolResult"
+            ? { ...entry, message: { ...entry.message, content: await this.#boundedResult(entry.message.content) } }
+            : entry));
+        const projected = contextMessages(entries, this.#options.model.contextWindow);
         const messages = this.#overflowRecoveryAttempted || this.#retryAttempt > 0
-            ? withoutTrailingFailures(context.messages, this.#options.model.contextWindow)
-            : context.messages;
+            ? withoutTrailingFailures(projected, this.#options.model.contextWindow)
+            : projected;
 
         return [...messages, ...notes];
+    }
+
+    async #boundedResult(content: readonly (TextContent | ImageContent)[]): Promise<(TextContent | ImageContent)[]> {
+        const bounded = boundedToolResult(content, this.#options.model.contextWindow);
+        if (bounded.length === content.length && bounded.every((part, index) => part === content[index])) return bounded;
+        const text = content.filter((part) => part.type === "text").map((part) => part.text).join("\n");
+        const hash = createHash("sha256").update(text).digest("hex");
+        const file = this.#toolResultFiles.get(hash) ?? this.#request.storeAttachment(`tool-result-${hash.slice(0, 24)}.txt`, Buffer.from(text), true);
+        this.#toolResultFiles.set(hash, file);
+        return boundedToolResult(content, this.#options.model.contextWindow, `Full text: attachments/${await file}. Read in parts; use shell byte ranges for long lines.`);
     }
 
     async #afterToolCall(toolCallId: string, toolName: string, original: (TextContent | ImageContent)[], isError: boolean) {
@@ -679,7 +698,7 @@ export class AgentTurn {
                 return this.#compact(false);
 
             if (this.#overflowRecoveryAttempted) {
-                this.#modelFailure = "The model context overflowed again after compaction and one retry.";
+                this.#modelFailure = "The model context overflowed again after compaction and one retry. Send another message to continue.";
                 return false;
             }
 
@@ -699,7 +718,7 @@ export class AgentTurn {
 
         if (!initial) {
             if (retry)
-                this.#modelFailure = "Context overflow recovery failed: there is no context to compact.";
+                this.#modelFailure = "Context overflow recovery failed: there is no context to compact. Send another message to continue.";
             return false;
         }
 
@@ -783,7 +802,7 @@ export class AgentTurn {
             if (!abort.signal.aborted && !this.#options.signal.aborted) {
                 this.#options.onDiagnostic(`Compaction of the model context failed: ${errorMessage(error)}`);
                 if (retry)
-                    this.#modelFailure = `Context overflow recovery failed: compaction failed: ${errorMessage(error)}`;
+                    this.#modelFailure = "Context overflow recovery failed: the summary could not be completed. Send another message to try again.";
             }
             return false;
         } finally {

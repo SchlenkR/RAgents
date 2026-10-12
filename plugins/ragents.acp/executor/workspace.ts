@@ -53,7 +53,9 @@ export class AcpWorkspace {
         const result = await this.#host.execute(this.#context.runId, "files.text", { path: file }) as { previewable: boolean; content?: string; reason?: string };
         if (!result.previewable || typeof result.content !== "string") throw new Error(`ACP read failed: ${result.reason ?? "not a text file"}`);
         const start = (line ?? 1) - 1;
-        return { content: line == null && limit == null ? result.content : result.content.split("\n").slice(start, limit == null ? undefined : start + limit).join("\n") };
+        const content = line == null && limit == null ? result.content : result.content.split("\n").slice(start, limit == null ? undefined : start + limit).join("\n");
+        return { content: this.#machine.boundToolResult(content,
+          `Tool result truncated at ${this.#machine.toolResultMaxBytes} bytes. Read more with readTextFile line/limit; for a long line use a terminal command reading byte ranges.`) };
       },
       writeTextFile: async ({ sessionId, path: requested, content }) => {
         this.#check(sessionId);
@@ -117,7 +119,7 @@ export class AcpWorkspace {
       onError: (error) => { this.#terminal(id).error = error; },
       onExit: (code) => { this.#terminal(id).status = { exitCode: code }; },
     });
-    this.#terminals.set(id, { child, limit, output: Buffer.alloc(0), truncated: false });
+    this.#terminals.set(id, { child, limit: Math.min(limit, this.#machine.toolResultMaxBytes), output: Buffer.alloc(0), truncated: false });
     void child.finished.catch((error: unknown) => { const terminal = this.#terminals.get(id); if (terminal) terminal.error = error instanceof Error ? error : new Error(String(error)); });
     return { terminalId: id };
   }
@@ -125,7 +127,10 @@ export class AcpWorkspace {
   #output(id: string): TerminalOutputResponse {
     const terminal = this.#terminal(id);
     if (terminal.error) throw terminal.error;
-    return { output: terminal.output.toString("utf8"), truncated: terminal.truncated, ...(terminal.status ? { exitStatus: terminal.status } : {}) };
+    const text = terminal.output.toString("utf8");
+    const note = "Tool result truncated. Redirect command output to a workspace file and read it in parts.";
+    const output = terminal.truncated ? this.#machine.boundToolResult(`${text}\n\n[${note}]`, note) : text;
+    return { output, truncated: terminal.truncated, ...(terminal.status ? { exitStatus: terminal.status } : {}) };
   }
 
   async #stop(terminal: Terminal): Promise<void> {

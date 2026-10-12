@@ -135,3 +135,44 @@ test("split-turn summaries share the configured output budget", async (t) => {
 	await compact(tiny, modelFor(t), "faux-key", undefined, undefined, undefined, undefined, streamFor(fauxAssistantMessage("Summary."), [], tinyBudgets));
 	assert.deepEqual(tinyBudgets, [1]);
 });
+
+test("an overfull history and a multi-MB message compact through requests below the model window", async (t) => {
+	const model = { ...modelFor(t), contextWindow: 8_000, maxTokens: 800 };
+	const huge = result("huge", "lookup", "generated conflict\n".repeat(200_000));
+	const entries = [user("task", "Inspect."), huge, ...Array.from({ length: 60 }, (_, index) => user(`part-${index}`, `marker-${index} ${"x".repeat(1000)}`)), user("recent", "Continue.")];
+	const prepared = prepareCompaction(entries, { threshold: 6000, keepRecentTokens: 10, summaryTokens: 800 })!;
+	assert.ok(prepared.tokensBefore > model.contextWindow);
+	const requests: Context[] = [];
+	const budgets: number[] = [];
+	const stream = (_model: unknown, context: Context, options?: { maxTokens?: number }) => {
+		const input = Buffer.byteLength(context.systemPrompt ?? "") + Buffer.byteLength(serializeConversation(context.messages));
+		assert.ok(input + (options?.maxTokens ?? 0) < model.contextWindow, "fake provider rejects any request above its window");
+		return streamFor(fauxAssistantMessage(`Checkpoint ${requests.length + 1}.`), requests, budgets)(_model, context, options);
+	};
+	const compacted = await compact(prepared, model, "faux-key", undefined, undefined, undefined, undefined, stream);
+	assert.ok(requests.length > 2);
+	assert.match(JSON.stringify(requests), /Message truncated for summarization/);
+	assert.match(JSON.stringify(requests.at(-1)), /marker-59/);
+	assert.match(JSON.stringify(requests.at(-1)), /<previous-summary>/);
+	assert.equal(compacted.summary, `Checkpoint ${requests.length}.`);
+	assert.equal(compacted.firstKeptId, "recent");
+});
+
+test("a multi-MB turn prefix and previous checkpoint fit the summarizer, with explicit media omissions", async (t) => {
+	const model = { ...modelFor(t), contextWindow: 8_000, maxTokens: 800 };
+	const entry = result("huge-result", "read-1", "x".repeat(3_500_000));
+	if (entry.kind !== "message" || entry.message.role !== "toolResult") throw new Error("Invalid test fixture.");
+	entry.message.content.push(...Array.from({ length: 20 }, () => ({ type: "image" as const, mimeType: "image/png", data: "aW1hZ2U=" })));
+	const requests: Context[] = [];
+	const stream = (_model: unknown, context: Context, options?: { maxTokens?: number }) => {
+		assert.ok(Buffer.byteLength(context.systemPrompt ?? "") + Buffer.byteLength(serializeConversation(context.messages)) + (options?.maxTokens ?? 0) < model.contextWindow);
+		return streamFor(fauxAssistantMessage("Small checkpoint."), requests)(_model, context, options);
+	};
+	await generateSummary([entry.message], model, 800, "faux-key", undefined, undefined, undefined, "Previous requirement. ".repeat(200_000), undefined, stream);
+	assert.match(JSON.stringify(requests[0]), /Previous summary truncated/);
+	const prepared = prepareCompaction([user("task", "Inspect."), entry,
+		assistant("call", fauxAssistantMessage([fauxToolCall("read", {}, { id: "read-2" })])), result("last", "read-2", "Done.")], { ...values, keepRecentTokens: 1 })!;
+	await compact(prepared, model, "faux-key", undefined, undefined, undefined, undefined, stream);
+	assert.ok(requests.some((request) => JSON.stringify(request).includes("PREFIX of a turn")));
+	assert.deepEqual(collectUserAttachments(requests[0]!.messages), []);
+});

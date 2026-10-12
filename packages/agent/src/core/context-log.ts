@@ -1,6 +1,7 @@
 import type { AgentMessage } from "../loop/index.ts";
 import { createCompactionSummaryMessage } from "./messages.ts";
 import { contextToolResults, retainedToolResultMessage } from "./tool-results.ts";
+import { boundedToolResult } from "./tool-result-limit.ts";
 
 /** A compaction replaces every entry before its first kept entry with its summary. */
 export interface ContextCompaction {
@@ -27,7 +28,7 @@ export function latestCompaction(entries: readonly ContextLogEntry[]): ContextCo
 }
 
 /** The entries the model sees: the latest compaction, the entries it keeps, and everything after it. */
-export function activeContextEntries(entries: readonly ContextLogEntry[]): ContextLogEntry[] {
+export function activeContextEntries(entries: readonly ContextLogEntry[], contextWindow?: number): ContextLogEntry[] {
 	const compaction = latestCompaction(entries);
 	if (!compaction) return [...entries];
 	const compactionIndex = entries.indexOf(compaction);
@@ -38,7 +39,10 @@ export function activeContextEntries(entries: readonly ContextLogEntry[]): Conte
 	if (preserved.length !== retained.size) throw new Error("Compaction names a retained tool result outside its archived context.");
 	return [
 		compaction,
-		...preserved.map((result): ContextLogEntry => ({ kind: "message", id: result.entryId, message: retainedToolResultMessage(result) })),
+		...preserved.map((result): ContextLogEntry => {
+			const message = retainedToolResultMessage(result);
+			return { kind: "message", id: result.entryId, message: { ...message, content: boundedToolResult(message.content, contextWindow) } };
+		}),
 		...(firstKeptIndex < 0 ? [] : entries.slice(firstKeptIndex, compactionIndex)),
 		...entries.slice(compactionIndex + 1),
 	];
@@ -51,6 +55,8 @@ export function contextEntryMessages(entry: ContextLogEntry): AgentMessage[] {
 }
 
 /** The messages of the model context, compaction-aware; the order is the order of the log. */
-export function contextMessages(entries: readonly ContextLogEntry[]): AgentMessage[] {
-	return activeContextEntries(entries).flatMap(contextEntryMessages);
+export function contextMessages(entries: readonly ContextLogEntry[], contextWindow?: number): AgentMessage[] {
+	return activeContextEntries(entries, contextWindow).flatMap(contextEntryMessages).map((message) => message.role === "toolResult"
+		? { ...message, content: boundedToolResult(message.content, contextWindow) }
+		: message);
 }

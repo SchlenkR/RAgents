@@ -2121,13 +2121,15 @@ solutionExtensions is optional and names the extensions of the solutions, such a
 
 executor is a function of the machine and returns languageServers and modules; modules are further modules with their own operations, such as the browser of ragents.browser. The machine provides the plugin's tool folder (toolsDirectory), files from the host's packages (hostPackageFile), the checked root resolution (resolveRootFile, resolveRootDirectory), domain errors (operationError), and the environment of its own processes (processEnvironment).
 
+machine.toolResultMaxBytes names the shared 32 KiB result cap. machine.boundToolResult(text, notice) returns an unchanged small result or a bounded excerpt with the supplied notice; external runtime callbacks use it to explain truncation and how to read more without importing host code.
+
 The build tool turns executor.ts into a self-contained file executor/index.mjs; importing a host module or another plugin there is a build error. Server and workstations load the same file, a workstation from the bundles of its own host. The server half imports the description relatively from executor.ts.
 
 The required server programs come through the plugin's provisioning or from the host's packages. A missing program is reported as an error; no substitute process is started silently.
 
 Required imports: path from node:path, pathToFileURL from node:url, the types LanguageServerDescription and WorkspaceExecutorContribution from @ragents/workspace-executor, and in the server half createLanguageServerPlugin as well as PluginModule. The host handles the LSP initialization; open afterwards adds only server-specific steps.
 
-Contract fields: lsp.id, lsp.label, lsp.languages, lsp.rootDescription, lsp.solutionExtensions, lsp.resolveRoot, lsp.rootDirectory, lsp.launch, lsp.open, executorParts.languageServers, executorParts.modules, executorMachine.toolsDirectory, executorMachine.hostPackageFile, executorMachine.resolveRootFile, executorMachine.resolveRootDirectory, executorMachine.resolveRootPath, executorMachine.operationError, executorMachine.processEnvironment.
+Contract fields: lsp.id, lsp.label, lsp.languages, lsp.rootDescription, lsp.solutionExtensions, lsp.resolveRoot, lsp.rootDirectory, lsp.launch, lsp.open, executorParts.languageServers, executorParts.modules, executorMachine.toolsDirectory, executorMachine.hostPackageFile, executorMachine.resolveRootFile, executorMachine.resolveRootDirectory, executorMachine.resolveRootPath, executorMachine.operationError, executorMachine.processEnvironment, executorMachine.toolResultMaxBytes, executorMachine.boundToolResult.
 
 ### Run a managed service
 
@@ -3301,6 +3303,8 @@ Source in the repository: packages/workspace-executor/src/contributions.ts
 export interface WorkspaceExecutorMachine {
   /** The tools folder of the plugin on this machine, where its provisioning downloads to. */
   readonly toolsDirectory: string;
+  readonly toolResultMaxBytes: number;
+  readonly boundToolResult: (text: string, notice: string) => string;
   /** A file from a package in the node_modules of the host of this machine; without a host or package the call fails with a cause. */
   readonly hostPackageFile: (hostRoot: string | undefined, specifier: string) => string;
   /** A file with one of the extensions in the workspace, resolved and checked. */

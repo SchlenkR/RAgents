@@ -92,7 +92,7 @@ export type TurnRequest<Kind extends AutomatedDriverKind = AutomatedDriverKind> 
     /** The working directory of the workspace tools, as the model sees it; it may lie on another machine. */
     workspace: string;
     /** Stores an attached file under attachments/ of the workspace, where the workspace tools read it; returns its name there. */
-    storeAttachment: (name: string, content: Uint8Array) => Promise<string>;
+    storeAttachment: (name: string, content: Uint8Array, reuseIdentical?: boolean) => Promise<string>;
     tools: readonly RunFunction[];
     allowedToolNames: readonly string[] | null;
     refreshTools?: () => Promise<{ tools: readonly RunFunction[]; functionNames: readonly string[]; systemPrompt: string }>;

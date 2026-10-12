@@ -4,7 +4,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
 import { Type } from "typebox";
-import { contextToolResults } from "@ragents/agent";
+import { contextToolResults, toolResultLimit } from "@ragents/agent";
 import { fauxAssistantMessage, fauxToolCall, type Context } from "@ragents/ai";
 import { AgentRuntimeManager, Journal, Orchestration, defineRunFunction, type ToolScope } from "@ragents/engine";
 import { journalHarness, turnOf, nativeTool, hooksOf, scriptedRuntime, withTokens, isSummary } from "../../../packages/ragents/tests/agent-runtime-fixture.ts";
@@ -67,11 +67,18 @@ test("file excerpts, pins, and recoverable originals survive compaction, restart
         assert.equal(compacted.length, 1);
         assert.equal(compacted[0]!.payload.retainedToolResultIds?.length, 1);
         const keptFile = requests[2]!.messages.filter((message) => message.role === "user" && Array.isArray(message.content));
-        assert.ok(keptFile.some((message) => Array.isArray(message.content) && message.content.some((part) => part.type === "text" && part.text === original)));
+        const retained = keptFile.flatMap((message) => Array.isArray(message.content)
+            ? [message.content.filter((part) => part.type === "text").map((part) => part.text).join("")] : [])
+            .find((text) => text.includes("Retained original tool result result-1"));
+        assert.ok(retained);
+        assert.match(retained, /Tool result truncated/);
+        assert.ok(Buffer.byteLength(retained) <= toolResultLimit(8000));
         assert.deepEqual(requests.at(-1)!.messages.filter((message) => message.role === "toolResult" && message.isError), []);
         assert.match(JSON.stringify(requests.at(-1)!.messages), /Original result-1/);
         assert.match(JSON.stringify(requests.at(-1)!.messages), /Critical exact file detail/);
         const beforeRestart = harness.runtime.modelContext(harness.runId, harness.agentId);
+        const indexedOriginal = contextToolResults(beforeRestart.entries)[0]!.message.content[0]!;
+        assert.equal(indexedOriginal.type === "text" ? indexedOriginal.text : null, original);
         assert.deepEqual(contextToolResults(beforeRestart.entries).map((entry) => entry.reference), ["result-1", "result-2", "result-3", "result-4", "result-5"]);
         const pins = harness.runtime.view(harness.runId).pluginStates.find((entry) => entry.pluginId === "ragents.compaction")!;
         assert.deepEqual((pins.state as { kept: string[] }).kept, ["result-1"]);

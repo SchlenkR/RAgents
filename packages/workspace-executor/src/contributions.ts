@@ -12,6 +12,7 @@ import { startManagedService, type ManagedService, type ManagedServiceOptions } 
 import { RUN_MARKER_ENV } from "./run-marker.js";
 import { safeProcessEnvironment, withoutPrivateEnvironment } from "./safe-environment.js";
 import { allowedWorkspacePath } from "./paths.js";
+import { boundedText, TOOL_RESULT_MAX_BYTES } from "@ragents/agent";
 
 /** Where a bundle carries its contribution to the executor: a self-contained file that every Node process loads without host resolution. */
 export const EXECUTOR_CONTRIBUTION_FILE = "executor/index.mjs";
@@ -20,6 +21,8 @@ export const EXECUTOR_CONTRIBUTION_FILE = "executor/index.mjs";
 export interface WorkspaceExecutorMachine {
   /** The tools folder of the plugin on this machine, where its provisioning downloads to. */
   readonly toolsDirectory: string;
+  readonly toolResultMaxBytes: number;
+  readonly boundToolResult: (text: string, notice: string) => string;
   /** A file from a package in the node_modules of the host of this machine; without a host or package the call fails with a cause. */
   readonly hostPackageFile: (hostRoot: string | undefined, specifier: string) => string;
   /** A file with one of the extensions in the workspace, resolved and checked. */
@@ -84,6 +87,8 @@ const hostPackageFile = (hostRoot: string | undefined, specifier: string): strin
 
 export const executorMachine = (toolsDirectory: string): WorkspaceExecutorMachine => ({
   toolsDirectory,
+  toolResultMaxBytes: TOOL_RESULT_MAX_BYTES,
+  boundToolResult: (text, notice) => boundedText(text, TOOL_RESULT_MAX_BYTES, notice),
   hostPackageFile,
   resolveRootFile,
   resolveRootDirectory,

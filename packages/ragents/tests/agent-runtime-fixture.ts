@@ -81,7 +81,7 @@ export const harnessOver = (
             orientation: "",
             systemPrompt: "System contract.",
             workspace: process.cwd(),
-            storeAttachment: () => Promise.reject(new Error("The test stores no attachments.")),
+            storeAttachment: async (name) => name,
             tools: [],
             functionNames: [],
             allowedToolNames: null,

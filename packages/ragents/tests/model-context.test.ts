@@ -365,7 +365,7 @@ test("model context: compaction on the model's threshold and after a context ove
         });
         const compactions = setup.runtime.events(setup.runId).filter((event) => event.type === "context.compacted");
         assert.equal(answers.length, 0);
-        assert.deepEqual(summaries, ["initial", "update", "initial", "update"]);
+        assert.deepEqual(summaries, ["initial", "update", "update", "update", "initial"]);
         assert.equal(compactions.length, 3);
         for (const compaction of compactions)
             assert.deepEqual(compaction.type === "context.compacted" && compaction.payload.threshold, { tokens: 3_000, source: "model" });

@@ -1,5 +1,5 @@
-import { watch } from "node:fs";
-import { lstat, mkdir, readdir, readFile, realpath, writeFile } from "node:fs/promises";
+import { constants, watch } from "node:fs";
+import { lstat, mkdir, open, readdir, readFile, realpath, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { WorkspaceOperationError } from "./errors.js";
 import type { WorkspaceProcessContext } from "./context.js";
@@ -179,8 +179,8 @@ export const readToolTextFile = async (context: WorkspaceProcessContext, request
   }
 };
 
-/** Stores an attached file under a free name in `attachments` below the root, never over an existing one. */
-export const storeAttachment = async (root: string, original: string, content: Uint8Array): Promise<string> => {
+/** Stores an attachment without overwriting files; optionally reuses an identical regular file. */
+export const storeAttachment = async (root: string, original: string, content: Uint8Array, reuseIdentical = false): Promise<string> => {
   const directory = path.join(await realRoot(root), ATTACHMENT_DIRECTORY);
   await mkdir(directory, { recursive: true, mode: 0o755 });
   if (!(await lstat(directory)).isDirectory()) throw invalid("The attachments directory is not a regular directory.");
@@ -192,6 +192,12 @@ export const storeAttachment = async (root: string, original: string, content: U
       return candidate;
     } catch (error) {
       if ((error as NodeJS.ErrnoException).code !== "EEXIST") throw error;
+      if (reuseIdentical && (await lstat(path.join(directory, candidate))).isFile()) {
+        const file = await open(path.join(directory, candidate), constants.O_RDONLY | constants.O_NOFOLLOW);
+        try {
+          if ((await file.readFile()).equals(Buffer.from(content))) return candidate;
+        } finally { await file.close(); }
+      }
     }
   }
   throw invalid("The attachments directory has too many files with the same name.");
@@ -279,9 +285,10 @@ export const fileModule: WorkspaceModuleFactory = (host) => {
     return listDirectory(root, requested);
   };
   const attach: WorkspaceOperation = async ({ runId, input }) => {
-    const { name, content } = (input ?? {}) as { name?: unknown; content?: unknown };
+    const { name, content, reuseIdentical } = (input ?? {}) as { name?: unknown; content?: unknown; reuseIdentical?: unknown };
     if (typeof name !== "string" || typeof content !== "string") throw invalid("An attachment needs name and content (Base64) as text");
-    return { name: await storeAttachment((await host.contextFor(runId)).root, name, Buffer.from(content, "base64")) };
+    if (reuseIdentical !== undefined && typeof reuseIdentical !== "boolean") throw invalid("reuseIdentical must be a boolean");
+    return { name: await storeAttachment((await host.contextFor(runId)).root, name, Buffer.from(content, "base64"), reuseIdentical === true) };
   };
   const read: WorkspaceOperation = async ({ runId, input }) => {
     const { root, path: requested } = await locate(runId, input);

@@ -126,7 +126,9 @@ Each LLM actor has its own conversation context, which persists across turns. A 
 to that conversation. The context is part of the run's journal: every input as the model received
 it, every completed model step, every tool result as the model saw it, and every compaction are
 recorded there, and the context is read back from those records before each model request. After
-a restart the actor therefore continues with exactly the same context. A new actor starts with its
+a restart the actor therefore continues with the same bounded projection. Oversized tool results
+become excerpts with a truncation notice and a workspace file for reading the full text in parts.
+A new actor starts with its
 own context or, when spawned with `forkOf`, with an unchanged copy of the context another LLM actor
 of the same run had at the end of its last finished turn before the spawn. Updating the system
 prompt does not replace the existing conversation history. The system prompt stays the same from

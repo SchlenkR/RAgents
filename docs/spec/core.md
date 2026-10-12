@@ -220,7 +220,9 @@ Each LLM actor has its own conversation context, which persists across turns. A 
 to that conversation. The context is part of the run's journal: every input as the model received
 it, every completed model step, every tool result as the model saw it, and every compaction are
 recorded there, and the context is read back from those records before each model request. After
-a restart the actor therefore continues with exactly the same context. A new actor starts with its
+a restart the actor therefore continues with the same bounded projection. Oversized tool results
+become excerpts with a truncation notice and a workspace file for reading the full text in parts.
+A new actor starts with its
 own context or, when spawned with `forkOf`, with an unchanged copy of the context another LLM actor
 of the same run had at the end of its last finished turn before the spawn. Updating the system
 prompt does not replace the existing conversation history. The system prompt stays the same from
@@ -257,7 +259,22 @@ and Popover. Reading an idle actor's context does not keep it in the runtime's t
 The journal alone holds the model context of an LLM actor. It is lossless for everything the model
 sees; the context is a pure, deterministic projection of it (`modelContextOf` in
 `packages/ragents/src/agents/model-context.ts`). The projection never re-renders; it reads stored
-forms. There is no private session file of the runtime.
+forms and applies the host's tool-result limit. There is no private session file of the runtime.
+
+Every tool result, including errors, native tools, `typescript_eval`, plugin functions and MCP
+results, is bounded after hook replacement and before a model request. The whole result shares
+one budget, including all text blocks and an image allowance of 4800 per image. The named constants
+`TOOL_RESULT_MAX_BYTES = 32768` and `TOOL_RESULT_CONTEXT_FRACTION = 1/8` in the agent runtime
+limit UTF-8 text to the smaller of 32 KiB and one eighth of the actor's context window, treating
+one byte as a conservative token allowance. The notice counts toward the limit. Projection
+without a selected model applies the absolute cap; the driver also applies the relative limit.
+Original journal entries stay unchanged, including legacy oversized results, inherited contexts,
+interrupted-call repairs and retained results. The driver stores oversized full text under
+`attachments/tool-result-<content-reference>.txt` in the actual run workspace and names it in the
+excerpt. A failed file write is a hard error. Tool-result attachment writes explicitly reuse
+identical regular files without overwriting a changed file or following a link; ordinary
+attachments still receive a free name. Replay uses the same result file and bounded model
+projection without executing the tool.
 
 The system prompt holds only what stays the same for an actor in its run: base prompt, role and
 output contracts, the tool orientation, the skill catalog, and the workspace chapter. It changes
@@ -292,8 +309,8 @@ payloads are in `domain/events.ts`):
   unabridged; the step itself does not repeat this text, and a block without its own text field
   takes the next text of its kind from its command. A step that the provider ends with an error is
   written, an aborted one never.
-- `model.tool-result.presented`: what the model saw of a tool call, after replacement by
-  `afterToolCall`, with `isError`, images as a hash. If it is exactly the text of the
+- `model.tool-result.presented`: the original result of a tool call, after replacement by
+  `afterToolCall` and before the bounded projection, with `isError`, images as a hash. If it is exactly the text of the
   `tool.call.completed` (output as text or JSON) or `tool.call.failed` of the same call, `content`
   is omitted (`domain/tool-result-text.ts`); it becomes necessary through a notice about ignored
   fields, through `recordOutput`, or through a hook.
@@ -331,7 +348,8 @@ fork. After that, the last compaction applies: its summary, its explicitly retai
 results, the entries from the first kept one, and everything after
 (`packages/agent/src/core/context-log.ts`). Retained results come from the archived part of this
 actor's log, including inherited context, and become independent user messages with their source
-and a historical-snapshot notice. Their text and image parts stay unchanged; an archived tool
+and a historical-snapshot notice. The same host result limit applies to their text and image
+parts; the archived original stays unchanged. An archived tool
 result never appears without its call as an orphan tool message. The rules for steps with an error
 or abort, for tool calls without a result (a synthetic error result), and for replaying reasoning
 with the same model stay in `packages/ai/src/api/transform-messages.ts`. Model choice and thinking
@@ -451,22 +469,32 @@ until a new response reports usage, the runtime estimates the active summary and
 An overflow error of the same model, or a `length` stop with at most eight output tokens and input
 plus cache-read tokens at least 98 percent of its window, compacts and retries that request once.
 A second overflow or an unavailable or failed recovery ends the turn as `failed`, never as a silent
-completion. Roughly `keepRecentTokens` of the most recent entries are kept, never starting from a
-tool result; an oversized trailing tool result keeps its preceding call. If that cuts into the middle of a turn, a second call
+completion. The failure gives a short notice and invites another message; provider details stay
+in the journal and server diagnostic. A failed recovery does not retire the actor, and the next
+input can compact the preserved history again. Roughly `keepRecentTokens` of the most recent entries
+are kept, never starting from a tool result. An oversized entry is summarized when a later valid
+cut exists; a trailing tool result keeps its preceding call and reaches the model bounded.
+If that cuts into the middle of a turn, a second summary
 summarizes that turn's beginning separately. Both calls share `summaryTokens`: five eighths for
 the turn beginning and the rest for history, each limited by the model's output limit. If there
 is only an existing checkpoint plus a new turn prefix, one call updates that checkpoint within
 the whole budget; a one-token budget also uses one call. The existing checkpoint reaches this
-call even when there is no additional history. Tool-result text reaches the summarizer in full,
-and tool images accompany it as image input. Only a normally completed, non-empty text summary
+call even when there is no additional history. Both summary paths use bounded chronological chunks
+and merge each completed checkpoint into the next request. Oversized single messages and previous
+checkpoints become explicitly marked excerpts; attachments that cannot fit are explicitly omitted.
+`SUMMARIZATION_WINDOW_FRACTION = 0.9` and `SUMMARIZATION_REQUEST_RESERVE_TOKENS = 256`
+bound each request to 90 percent of the model window minus its output budget and a 256-token
+reserve, including instructions, wrappers, the previous checkpoint and media allowances. UTF-8
+text bytes count conservatively as tokens, with attachments charged at least 4800 and otherwise
+their encoded size. A request is checked before dispatch. Only a normally completed, non-empty text summary
 can replace context; a `length` stop, error, abort, or reasoning-only answer leaves the original
 context in place. Deterministic file inventories and plugin recovery notes accompany the summary.
 Whether a
 response lies before the last compaction is decided by its position in the journal. A retry and
 the continuation after a compaction start behind all error steps and truncated overflow responses
 at the end of the context, because the journal keeps every one of them unchanged. A failed proactive
-compaction is in the server log; the turn continues without it. A failed overflow compaction also
-reports its cause as the turn's failure. Summaries use `context.compacted`; the journal preserves
+compaction is in the server log; the turn continues without it. A failed overflow compaction
+reports a short summary-failure notice as the turn's failure. Summaries use `context.compacted`; the journal preserves
 all original events for replay and recovery.
 
 Before compaction, plugins can contribute retained tool-result IDs and bounded context notes

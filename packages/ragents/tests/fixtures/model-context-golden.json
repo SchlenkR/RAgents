@@ -394,17 +394,8 @@
   "compaction/worker": [
     {
       "role": "compactionSummary",
-      "summary": "## Goal\nRunning summary 4.",
-      "tokensBefore": 798
-    },
-    {
-      "role": "user",
-      "content": [
-        {
-          "type": "text",
-          "text": "Task three, now. Task three, now. Task three, now. Task three, now. Task three, now. Task three, now. Task three, now. Task three, now. Task three, now. Task three, now. Task three, now. Task three, now. Task three, now. Task three, now. Task three, now. Task three, now. Task three, now. Task three, now. Task three, now. Task three, now. Task three, now. Task three, now. Task three, now. Task three, now. Task three, now. Task three, now. Task three, now. Task three, now. Task three, now. Task three, now. Task three, now. Task three, now. Task three, now. Task three, now. Task three, now. Task three, now. Task three, now. Task three, now. Task three, now. Task three, now. Task three, now. Task three, now. Task three, now. Task three, now. Task three, now. Task three, now. Task three, now. Task three, now. Task three, now. Task three, now. Task three, now. Task three, now. Task three, now. Task three, now. Task three, now. Task three, now. Task three, now. Task three, now. Task three, now. Task three, now. Task three, now. Task three, now. Task three, now. Task three, now. Task three, now. Task three, now. Task three, now. Task three, now. Task three, now. Task three, now. Task three, now. Task three, now. Task three, now. Task three, now. Task three, now. Task three, now. Task three, now. Task three, now. Task three, now. Task three, now. Task three, now. Task three, now. Task three, now. Task three, now. Task three, now. Task three, now. Task three, now. Task three, now. Task three, now. Task three, now. Task three, now. Task three, now. Task three, now. Task three, now. Task three, now. Task three, now. Task three, now. Task three, now. Task three, now. Task three, now."
-        }
-      ]
+      "summary": "## Goal\nRunning summary 4.\n\n---\n\n**Turn Context (split turn):**\n\n## Goal\nRunning summary 5.",
+      "tokensBefore": 860
     },
     {
       "role": "assistant",
