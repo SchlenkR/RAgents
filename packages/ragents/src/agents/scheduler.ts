@@ -56,6 +56,7 @@ export type TurnSchedulerOptions = {
 export type TurnInterruption = {
     context: CommandContext;
     reason: string;
+    cause?: "server-stop";
 };
 
 /** Who pauses a run and why; userId is the signed-in user, missing without sign-in. */
@@ -295,7 +296,8 @@ export class TurnScheduler {
         if (this.#runningTurnId(runId, actorId) !== turnId)
             return;
 
-        this.#runtime.interruptTurn(interruption.context, runId, actorId, { turnId, reason: interruption.reason });
+        this.#runtime.interruptTurn(interruption.context, runId, actorId, { turnId, reason: interruption.reason,
+            ...(interruption.cause ? { cause: interruption.cause } : {}) });
 
         if (active)
             this.#live?.publish(runId, actorId, { kind: "turn-finished", turnId, outcome: "abandoned" });
@@ -520,8 +522,17 @@ export class TurnScheduler {
             this.#unsubscribe?.();
             this.#unsubscribe = null;
 
-            for (const entry of this.#active.values())
+            for (const entry of this.#active.values()) {
+                const turnId = this.#runningTurnId(entry.runId, entry.actorId);
+                if (turnId && !this.#interruptions.has(keyOf(entry.runId, entry.actorId)) && this.#acceptsShutdownRecovery(entry.runId, entry.actorId))
+                    this.#interruptions.set(keyOf(entry.runId, entry.actorId), {
+                        turnId,
+                        context: { actorId: entry.actorId, commandId: `scheduler:${turnId}:shutdown` },
+                        reason: "The turn was interrupted because the server stopped.",
+                        cause: "server-stop",
+                    });
                 entry.controller.abort();
+            }
         }
 
         await this.waitForIdle();
@@ -546,6 +557,12 @@ export class TurnScheduler {
             throw new AggregateError(failures, "Scheduler shutdown failed.");
 
         this.#throwPendingAgentDisposals();
+    }
+
+    #acceptsShutdownRecovery(runId: string, actorId: string): boolean {
+        const actor = this.#actor(runId, actorId);
+        return !this.#runState(runId).stopping && actor?.lifecycle.kind === "running"
+            && !this.#runtime.view(runId).pause && !this.#active.get(keyOf(runId, actorId))?.controller.signal.aborted;
     }
 
     async #waitForRunQuarantines() {
@@ -756,7 +773,8 @@ export class TurnScheduler {
         for (const actor of view.actors) {
             const input = view.inputs
                 .filter((entry) => entry.actorId === actor.id && isPendingActorInput(entry))
-                .sort((left, right) => left.sequence - right.sequence)[0];
+                .sort((left, right) => Number(typeof right.origin === "object") - Number(typeof left.origin === "object")
+                    || left.sequence - right.sequence)[0];
 
             if (
                 actor.kind !== "human" &&
@@ -925,6 +943,13 @@ export class TurnScheduler {
                     `Driver ${driverRef.kind} cannot guarantee a plain LLM without intrinsic tools.`,
                 );
 
+            if (typeof turn.input.origin === "object") {
+                if (timeout) clearTimeout(timeout);
+                timeout = null;
+                await this.#workspaces.waitUntilReady?.(runId, controller.signal);
+                controller.signal.throwIfAborted();
+                progress();
+            }
             const workspace = this.#workspaces.ensure(runId, actor.execution.workspacePath);
             const toolset = await TurnToolset.create({
                 runtime: this.#runtime,
@@ -1293,7 +1318,8 @@ export class TurnScheduler {
                 interruption.context,
                 turn.runId,
                 turn.actorId,
-                { turnId: turn.turnId, reason: interruption.reason },
+                { turnId: turn.turnId, reason: interruption.reason,
+                    ...(interruption.cause ? { cause: interruption.cause } : {}) },
             );
             this.#live?.publish(turn.runId, turn.actorId, {
                 kind: "turn-finished",

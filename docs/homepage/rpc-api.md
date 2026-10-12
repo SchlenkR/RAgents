@@ -2840,6 +2840,10 @@ Default client deadline: 30000 ms; callers may override it.
         },
         {
           "type": "string",
+          "const": "turn.restart-recovered"
+        },
+        {
+          "type": "string",
           "const": "model.input.presented"
         },
         {
@@ -3082,6 +3086,10 @@ Default client deadline: 30000 ms; callers may override it.
               {
                 "type": "string",
                 "const": "turn.interrupted"
+              },
+              {
+                "type": "string",
+                "const": "turn.restart-recovered"
               },
               {
                 "type": "string",

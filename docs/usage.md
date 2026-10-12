@@ -23,6 +23,10 @@ anything. In the browser a new run always works on the server; only VS Code and 
 bind a run to a workstation. VS Code binds every new run to an open folder of its window unless
 the template sets its own workspace.
 
+Before starting, "After restart" defaults to "Continue": actors that were working when the
+server stopped receive a continuation on its next start. Choose "Stay interrupted" to turn
+this off for the run. A profile can disable continuation for all its runs.
+
 Before starting, "Sandbox protection" lets administrators restrict the run's server-side
 code execution. For other users, or when the server requires it, the switch is on and locked.
 The choice cannot change after the run starts. Workstation tools use that workstation's
@@ -41,6 +45,25 @@ Inside the run, the coordinator processes the task. Additional agents and mini-a
 the surface when the workflow creates them. The global coordinator in the header has its own
 conversation and can oversee several runs. The journal and "Executions" tab make events and
 TypeScript calls traceable.
+
+## Continue after a server restart
+
+An agent that was working when the server stopped continues in a new turn. Its chat shows
+"Server restarted. Continuing the interrupted task." It checks unfinished work before continuing,
+including missing tool results, partially written files, and processes that ended. Completed
+work stays recorded. Queued messages retain their order and reach the continuation through
+normal steering.
+
+Your "Stop work", "Stop run", or individual turn interruption does not trigger this recovery.
+Failures and turn timeouts do not either. A continuation interrupted again within 60 seconds
+of starting stays interrupted, with the reason shown in chat. External runtime actors also stay
+interrupted; TypeScript actors re-evaluate their original input from saved state.
+
+For a run on a workstation, continuation waits for the same workstation to reconnect and for
+its folder to be accessible. After the existing 15-minute timeout, a failed turn shows the
+cause. Reconnect the workstation before sending a new message if the wait has expired.
+
+See [Restart the server](operations.md#restart-the-server) for the profile setting.
 
 ## Use chat and mini-apps
 
@@ -1494,9 +1517,10 @@ until answered; dismissing it or interrupting the turn cancels the request. Turn
 also cancels the adapter's prompt and keeps its partial reply visible. Stopping the actor or
 run closes its adapter and terminals.
 
-The actor keeps one external session between turns. After a server restart it continues only
-when the adapter advertises session loading and can load that session. Otherwise it reports a
-blocking cause; no empty conversation silently replaces it. Text is always supported; images
+The actor keeps one external session between turns. Server restart recovery leaves its active
+turn interrupted without sending a replacement task. On your next message, its session can
+continue only when the adapter advertises session loading and can load it. Otherwise it reports
+a blocking cause; no empty conversation silently replaces it. Text is always supported; images
 and embedded resources require the adapter's advertised capabilities. Missing installation,
 sign-in, unsupported content, and workspace refusals show their causes in the actor's history.
 

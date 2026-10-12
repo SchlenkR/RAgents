@@ -30,6 +30,28 @@ const scenario = (directory = ":memory:") => {
     return { services, journal, runtime, view, actor };
 };
 
+test("an external turn interrupted by a server restart stays interrupted without a fabricated continuation", () => {
+    const directory = mkdtempSync(join(tmpdir(), "ragents-external-restart-"));
+    const setup = scenario(directory);
+    let reopened: Journal | undefined;
+    try {
+        const queued = setup.runtime.enqueueInput({ actorId: setup.view.ownerId, commandId: "task" }, setup.view.id,
+            { actorId: setup.actor.id, content: "Finish the task" }).inputs.at(-1)!;
+        setup.runtime.startTurn({ actorId: setup.actor.id, commandId: "working" }, setup.view.id, setup.actor.id, queued.id);
+        setup.journal.close();
+        reopened = new Journal(directory, setup.services);
+        const restarted = new Orchestration(reopened, setup.services);
+        const view = restarted.view(setup.view.id);
+        assert.equal(view.turns[0]?.status, "interrupted");
+        assert.equal(view.turns[0]?.restartRecovery?.outcome, "unsupported");
+        assert.equal(view.inputs.length, 1);
+    } finally {
+        setup.journal.close();
+        reopened?.close();
+        rmSync(directory, { recursive: true, force: true });
+    }
+});
+
 test("external selections require a configured runtime and reject host model settings", () => {
     assert.equal(resolveExecution(catalog, { runtime: "acme.coder" }, "coder").driver.kind, "external");
     for (const selection of [{ runtime: "unknown" }, { driver: "external" as const }, { runtime: "acme.coder", model: "host-model" }, { driver: "manual" as const, runtime: "acme.coder" }])

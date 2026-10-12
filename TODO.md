@@ -4,6 +4,7 @@ Inbox for everything; the owner and the AI write here. One line per entry, newes
 
 ## Open
 
+- Check live (12.10.2026): restart a working run with a real model on the server and on a disconnected workstation, verify the restart note and unfinished-effect checks, the short chat line, queued steering, the 60-second repeated-restart guard, and profile/run opt-outs; engine and server journal tests cover deterministic recovery.
 - Actor backend idle lifecycle (12.10.2026): add configurable idle shutdown and restart on the next input without losing committed actor state; make `/health` report process and memory pressure or resource exhaustion.
 - Session cookies behind a TLS proxy (12.10.2026): add explicit trusted-proxy configuration and set `Secure` from the trusted forwarded protocol; reject untrusted forwarded headers.
 - Prompt cache boundaries (12.10.2026): keep per-run prompt contributions stable and define separate cache boundaries for static and changing content so a changed prompt fragment does not invalidate the whole conversation cache.

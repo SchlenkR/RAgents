@@ -699,9 +699,10 @@ until answered; dismissing it or interrupting the turn cancels the request. Turn
 also cancels the adapter's prompt and keeps its partial reply visible. Stopping the actor or
 run closes its adapter and terminals.
 
-The actor keeps one external session between turns. After a server restart it continues only
-when the adapter advertises session loading and can load that session. Otherwise it reports a
-blocking cause; no empty conversation silently replaces it. Text is always supported; images
+The actor keeps one external session between turns. Server restart recovery leaves its active
+turn interrupted without sending a replacement task. On your next message, its session can
+continue only when the adapter advertises session loading and can load it. Otherwise it reports
+a blocking cause; no empty conversation silently replaces it. Text is always supported; images
 and embedded resources require the adapter's advertised capabilities. Missing installation,
 sign-in, unsupported content, and workspace refusals show their causes in the actor's history.
 

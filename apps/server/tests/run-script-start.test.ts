@@ -364,7 +364,8 @@ test("a run script starts over HTTP with coordinator primary and the selected st
     assert.equal(view.inputs[0]?.actorId, script.id);
     const content = JSON.parse(view.inputs[0]!.content);
     assert.deepEqual(content.input, {topic: "Test topic"});
-    assert.deepEqual(Object.keys(content.options).sort(), ["ragents.model", "ragents.system-prompt"]);
+    assert.deepEqual(Object.keys(content.options).sort(), ["ragents.model", "ragents.resume-after-restart", "ragents.system-prompt"]);
+    assert.equal(content.options["ragents.resume-after-restart"], "on");
     assert.ok(fixture.systemTexts().some((text) => text.includes('The run script "Example run" runs as @example')));
   } finally {fixture.journal.close(); rmSync(fixture.files, {recursive: true, force: true});}
 });

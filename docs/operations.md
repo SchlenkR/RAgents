@@ -253,6 +253,30 @@ startup fails. The address stays fixed and a running instance is not terminated.
 set `PORT` must be between 1 and 65535; 0 is invalid. The final server message displays the URL.
 A warning about JavaScript bundle size does not prevent startup.
 
+## Restart the server
+
+Stop the server normally, then start the same profile. By default, actors that were working
+continue automatically in new turns. The journal preserves completed steps, and agents receive
+a restart note asking them to check unfinished work before continuing. Existing queued inputs
+keep their order. User stops, failures, timeouts, paused runs, and deleted runs do not resume.
+External runtime actors stay interrupted; TypeScript actors re-evaluate from journaled state.
+
+Set `host.RESUME_AFTER_RESTART: false` in the profile, or `RESUME_AFTER_RESTART=false` in the
+environment, to disable continuation for every run. The default is `true`; environment values
+must be exactly `true` or `false`. A run started with "After restart" set to "Stay interrupted"
+also remains interrupted. Changing either setting later does not revive a turn already
+processed by recovery.
+
+Each interrupted turn is recovered at most once. If its continuation is interrupted again
+within 60 seconds of starting, it stays interrupted and shows the guard's reason. For a hard
+stop the interval ends when the next startup detects it. A workstation continuation waits up
+to the existing 15-minute timeout for the run's workstation and owner, then checks the workspace
+there before starting model or tool work. A timeout or inaccessible folder fails visibly.
+The host never substitutes a folder on the server.
+
+The journaled interruption and continuation boundaries are in
+[core.md](spec/core.md#continue-after-a-server-restart).
+
 ## Connect MCP servers
 
 The neutral profiles include `ragents.mcp` with an empty `MCP_SERVERS` map. In your profile,
@@ -903,11 +927,11 @@ while a program is busy; they provide no history of changes while observation wa
 Failures back off the next automatic occurrence up to one hour. Watch failures and damaged app
 records stay visible for the affected app, with "Retry" and "Remove", while healthy apps continue.
 
-Existing engine recovery interrupts open turns during restoration. The triggers finalize their
-recorded journal result without repeating the accepted occurrence, using no additional recovery
-step. Pause or stop of a run holds its automatic triggers, and the host never undoes a deliberate
-operator stop. Shutdown clears timers and file watches and cancels managed work through the
-existing execution lifecycle.
+Engine restart recovery interrupts open turns and can re-evaluate a TypeScript actor's original
+input in a new turn, preserving completed journaled program steps. Triggers finalize their
+recorded journal result without queuing the accepted occurrence again. Pause or stop of a run
+holds its automatic triggers, and the host never undoes a deliberate operator stop. Shutdown
+clears timers and file watches and cancels managed work through the existing execution lifecycle.
 
 Back up the whole global coordinator run, including its journal, payloads, working files, and actor
 programs, using [Data storage and logs](#data-storage-and-logs). Program definitions, trigger
@@ -915,8 +939,8 @@ progress, and results are journaled; domain state belongs to each app actor. The
 projection reads ordinary runtime output and turn-failure journal events of the actor's inputs,
 without a duplicate log state. Its limits apply to returned data and display, not the append-only
 journal. External writes, webhooks, and completed function calls cannot be rolled back if a later
-step fails. Interrupted inputs are not automatically replayed; use the trigger's occurrence key
-for external idempotency when possible.
+step fails. Restart continuation does not make arbitrary external writes exactly-once; use the
+trigger's occurrence key for external idempotency when possible.
 
 Global app rooms use the normal actor-program view, state, and execution-log paths. Registered
 operator operations from a view execute under the app actor's current grants, without

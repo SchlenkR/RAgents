@@ -101,7 +101,7 @@ test("the chat chooses model and thinking with runs.inspect only: before the fir
   };
   engine.start();
   try {
-    assert.deepEqual((await list(developer)).map((option) => option.id), [], "no model choice without runs.inspect");
+    assert.equal((await list(developer)).some((option) => option.id === modelStartOptionId), false, "no model choice without runs.inspect");
     await assert.rejects(select(developer, { model: "deep", thinking: "high" }), denied);
 
     const offered = (await list(inspector)).find((option) => option.id === modelStartOptionId);

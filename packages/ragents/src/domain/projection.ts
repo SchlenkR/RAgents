@@ -361,11 +361,17 @@ export function applyEvent(
             current.status = "interrupted";
             current.finishedAt = event.occurredAt;
             current.reason = event.payload.reason;
+            if (event.payload.cause) current.interruptionCause = event.payload.cause;
             interruptOpenToolCalls(current, event.occurredAt);
 
             if (target.lifecycle.kind === "running" && target.lifecycle.turnId === current.id)
                 target.lifecycle = { kind: "idle", since: event.occurredAt };
 
+            break;
+        }
+
+        case "turn.restart-recovered": {
+            turn(state, event.payload.turnId).restartRecovery = { outcome: event.payload.outcome, reason: event.payload.reason };
             break;
         }
 

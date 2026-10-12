@@ -1,5 +1,29 @@
 # Decisions
 
+## 2026-10-12: Working actors continue after a server restart
+
+Chapters: `spec/core.md` (Scheduler and turns, stop paths, journal replay, Open limits),
+`spec/profiles.md` (Profiles), `spec/actor-programs.md` (Triggers, State-aware programs);
+usage: `usage.md` (Create your first run, Continue after a server
+restart); operations: `operations.md` (Restart the server, Global mini-apps).
+
+A server stop consumed working inputs without helping their actors continue. Startup now makes
+one atomic recovery decision per affected turn, including a permanent outcome for suppressed
+continuations. Built-in agents receive a new input to inspect unfinished effects before continuing;
+TypeScript actors re-evaluate their original input from journaled state, while external runtimes
+stay interrupted. Continuations take priority without changing the order of queued inputs. A
+60-second guard prevents a rapidly interrupted continuation from producing another one.
+Actor programs recover the original delivery metadata through continuation ancestry and a
+historical journal projection, preserving typed messages without repeating start bookkeeping.
+Trigger tracking follows the resumed turn chain and settles its outcome.
+
+Profile and existing run start options can disable recovery. Workstation continuations wait
+for their own connection and verify the folder before model or tool work. Explicit operator
+stops remain final. Journal format 15 records the server-stop cause, restart input origin, and
+recovery outcome; the chat shows a short system line instead of the internal recovery task.
+The additive run-event contract refreshes `extension-api.json` without changing extension
+interface version 1.
+
 ## 2026-10-12: Page spacing separates independent dashboard regions
 
 Chapter: `spec/plugins.md` (Spacing, Shared page width, Start); usage: `usage.md` (Shared panel pages).

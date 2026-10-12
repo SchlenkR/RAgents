@@ -50,7 +50,8 @@ import { checkedThinkingLevel } from "../plugin-support/thinking-level.js";
 import { skillOfDirectory } from "../plugin-support/skills.js";
 import { selectedSystemPrompts } from "../plugin-support/system-prompts.js";
 import { productRuntimeToken, type ActorRole, type ProductActor } from "./product-runtime.js";
-import { storedSystemPrompt } from "./start-option-state.js";
+import { storedStartOption, storedSystemPrompt } from "./start-option-state.js";
+import { restartStartOptionId } from "../plugin-support/start-options-contract.js";
 import { coordinatorSelection, isRunCoordinator, storedModelChoice } from "./coordinator.js";
 import { runtimeBridgeToken } from "./runtime-bridge.js";
 import { workspaceRuntimeToken } from "./workspace-runtime.js";
@@ -68,11 +69,15 @@ type RememberedWorkspace = {
 export class SessionWorkspaces implements Workspaces {
   readonly #roots = new Map<string, RememberedWorkspace>();
   readonly #sandbox: () => Pick<SandboxServices, "execute" | "serverProcessContextFor">;
+  readonly #ready: (runId: string, signal: AbortSignal) => Promise<void>;
 
   /** The access to the runs' workspace; through it, attachments lie where the tools work, and the runtime gets its server folder. */
-  constructor(sandbox: () => Pick<SandboxServices, "execute" | "serverProcessContextFor">) {
+  constructor(sandbox: () => Pick<SandboxServices, "execute" | "serverProcessContextFor">, ready: (runId: string, signal: AbortSignal) => Promise<void> = async () => {}) {
     this.#sandbox = sandbox;
+    this.#ready = ready;
   }
+
+  waitUntilReady(runId: string, signal: AbortSignal): Promise<void> { return this.#ready(runId, signal); }
 
   remember(runId: string, cwd: string, description?: string): void {
     this.#roots.set(runId, { cwd, ...(description ? { description } : {}) });
@@ -205,7 +210,20 @@ export const createEngine = async (options: EngineOptions): Promise<Engine> => {
       assertCurrentQuestionShape(record);
     },
   });
-  const runtime = new Orchestration(journal, services, new DirectoryArtifactContents(layout.artifactsDir), (event) => options.plugins.accessProjections.eventVisible(event));
+  const runtime = new Orchestration(journal, services, new DirectoryArtifactContents(layout.artifactsDir), (event) => options.plugins.accessProjections.eventVisible(event), {
+    enabled: (state) => {
+      const value = storedStartOption(state, restartStartOptionId);
+      if (value !== undefined && value !== "on" && value !== "off") throw new Error("The stored restart option must be on or off");
+      return config.resumeAfterRestart && value !== "off";
+    },
+    available: (runId) => {
+      try { options.assertRunUsable(runId); return true; }
+      catch (error) {
+        if (error instanceof DomainError) return false;
+        throw error;
+      }
+    },
+  });
   const productRuntime = options.plugins.service(productRuntimeToken);
   const globalChat = options.plugins.optionalService(globalChatToken);
   const roleFor = (runId: string, actor: ProductActor): ActorRole =>

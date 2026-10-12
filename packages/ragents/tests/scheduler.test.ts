@@ -559,7 +559,7 @@ for (const stopActor of [false, true]) {
     });
 }
 
-test("runtime restart interrupts an open turn and never resubmits its input", async () => {
+test("runtime restart interrupts an open turn and continues through a new input", async () => {
     const setup = setupRun();
     const queued = postTo(setup.runtime, setup.view, setup.agent.id, "crash-input", "Started before crash");
     const input = queued.inputs.find((entry) => entry.actorId === setup.agent.id && entry.lifecycle.kind === "pending");
@@ -584,7 +584,9 @@ test("runtime restart interrupts an open turn and never resubmits its input", as
         const view = restarted.view(setup.view.id);
         assert.equal(view.turns[0]?.status, "interrupted");
         assert.equal(view.inputs[0]?.lifecycle.kind, "claimed");
-        assert.equal(driver.requests.length, 0);
+        assert.equal(driver.requests.length, 1);
+        assert.match(driver.requests[0]!.input.content, /server was restarted while you were working/);
+        assert.notEqual(driver.requests[0]!.input.id, input.id);
     } finally {
         await scheduler.stop();
         setup.journal.close();

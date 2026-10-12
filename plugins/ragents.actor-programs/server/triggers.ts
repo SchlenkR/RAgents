@@ -70,8 +70,17 @@ const inputFor = (runtime: Orchestration, view: RunView, commandId: string) => {
   return undefined;
 };
 const turnFor = (runtime: Orchestration, view: RunView, commandId: string) => {
-  const lifecycle = inputFor(runtime, view, commandId)?.lifecycle;
-  return lifecycle?.kind === "claimed" ? view.turns.find((turn) => turn.id === lifecycle.turnId) : undefined;
+  const latest = (input: RunView["inputs"][number]): RunView["turns"][number] | undefined => {
+    const lifecycle = input.lifecycle;
+    if (lifecycle.kind !== "claimed") return undefined;
+    const turn = view.turns.find((entry) => entry.id === lifecycle.turnId);
+    if (turn?.restartRecovery?.outcome !== "continued") return turn;
+    const continuation = view.inputs.find((entry) => typeof entry.origin === "object" && entry.origin.turnId === turn.id);
+    if (!continuation) throw new Error(`Turn ${turn.id} has no journaled restart continuation.`);
+    return continuation.lifecycle.kind === "discarded" ? turn : latest(continuation);
+  };
+  const input = inputFor(runtime, view, commandId);
+  return input ? latest(input) : undefined;
 };
 const declaresTriggers = (state: JsonValue): boolean => typeof state === "object" && state !== null && !Array.isArray(state)
   && typeof state.program === "object" && state.program !== null && !Array.isArray(state.program) && (state.program.triggers !== undefined || state.program.stateAware !== undefined);

@@ -172,6 +172,7 @@ const assertCardStarted = (
     [
       { pluginId: systemPromptStartOptionId, scope: { kind: "run" } },
       { pluginId: modelStartOptionId, scope: { kind: "run" } },
+      { pluginId: "ragents.resume-after-restart", scope: { kind: "run" } },
     ],
   );
 };
@@ -187,14 +188,14 @@ const assertAtomicStartup = (
   assert.equal(creation.command.id, `run:${runId}`);
   assert.deepEqual(
     creation.events.map((event) => event.type),
-    ["run.created", "plugin.state-replaced", "plugin.state-replaced"],
+    ["run.created", "plugin.state-replaced", "plugin.state-replaced", "plugin.state-replaced"],
   );
   assert.deepEqual([...new Set(creation.events.map((event) => event.commandId))], [`run:${runId}`]);
   assert.deepEqual(
     creation.events
       .filter((event) => event.type === "plugin.state-replaced")
       .map((event) => ({ pluginId: event.payload.pluginId, state: event.payload.state })),
-    expected,
+    [...expected, { pluginId: "ragents.resume-after-restart", state: "on" }],
   );
 };
 
@@ -241,7 +242,7 @@ test("the first reference skill completes a run left at run.created", async () =
         .flatMap((record) => record.events)
         .filter((event) => event.type === "plugin.state-replaced")
         .map((event) => event.commandId),
-      [`start-option:${systemPromptStartOptionId}:${runId}`, `start-option:${modelStartOptionId}:${runId}`],
+      [`start-option:${systemPromptStartOptionId}:${runId}`, `start-option:${modelStartOptionId}:${runId}`, `start-option:ragents.resume-after-restart:${runId}`],
     );
   } finally {
     fixture.journal.close();

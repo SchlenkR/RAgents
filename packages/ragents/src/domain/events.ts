@@ -12,6 +12,7 @@ import type {
     PluginStateScope,
     RunId,
     RunSharing,
+    RestartRecoveryOutcome,
     SubscriptionId,
     TurnId,
     TurnUsage,
@@ -118,7 +119,7 @@ export type EventPayloads = {
         actorId: ActorId;
         artifactIds: string[];
         presentation?: "background";
-        origin?: "human";
+        origin?: "human" | { kind: "restart"; turnId: TurnId };
     } & (
         | { subscriptionId: null; sourceEventIds: string[]; content: string }
         | { subscriptionId: SubscriptionId; sourceEventIds: [string]; content?: never }
@@ -137,6 +138,12 @@ export type EventPayloads = {
     } & ({ outcome: "completed" } | { outcome: "failed"; reason: string });
     "turn.interrupted": {
         turnId: TurnId;
+        reason: string;
+        cause?: "server-stop";
+    };
+    "turn.restart-recovered": {
+        turnId: TurnId;
+        outcome: RestartRecoveryOutcome;
         reason: string;
     };
     "model.input.presented": {
@@ -299,6 +306,7 @@ export const eventTypeMap: Record<EventType, true> = {
     "turn.input-steered": true,
     "turn.finished": true,
     "turn.interrupted": true,
+    "turn.restart-recovered": true,
     "model.input.presented": true,
     "model.step.completed": true,
     "model.tool-result.presented": true,

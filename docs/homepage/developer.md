@@ -1988,6 +1988,8 @@ host.provide(workspaceResolverToken, {
 
 resolve of the complete WorkspaceRuntime returns a SessionWorkspace with cwd, currentRoot, and runOperation; optionally gitEnv, gitConfig, and extraEnv are added. describe returns mode and directory pattern; placementOf states separately whether a run works on the server or on a workstation, the latter with its ID and current label, and whether in a new or existing folder, plus the kind of a contributed folder, and toolNaming can name the existing file tools.
 
+Optional waitUntilReady(runId, signal) gates restart continuation before model or tool work. The workstation runtime waits for the run's owner and workstation to reconnect, checks its folder, and honors cancellation and the existing connection timeout.
+
 A resolver receives runId, directory, choice, and emitSystem. optionId connects the selection with a registered start option. kind describes identifier, label, server folder, and display pattern of the contributed workspace on the server. workstation provides the new folder on a workstation: label and steps from operations of the executor there, which run after creation (prepare) and before removal (release); without workstation, a resolver offers no new folder there. The resolver shown keeps the run directory prepared by the host.
 
 stopSession and deleteSession optionally add the lifecycle boundaries of the contributed workspace. On stop, the resolver also receives the teardown of the host sandbox; deletion follows only afterwards.
@@ -1996,7 +1998,7 @@ transfer handles moving a run to another server: boundDirectory names an existin
 
 File and process work happens through the existing workspace boundary. A plugin does not change the server's global working directory on its own.
 
-Contract fields: workspace.resolve, workspace.describe, workspace.placementOf, workspace.toolNaming, workspace.transfer, resolver.optionId, resolver.kind, resolver.workstation, resolver.resolve, resolver.stopSession, resolver.deleteSession.
+Contract fields: workspace.resolve, workspace.waitUntilReady, workspace.describe, workspace.placementOf, workspace.toolNaming, workspace.transfer, resolver.optionId, resolver.kind, resolver.workstation, resolver.resolve, resolver.stopSession, resolver.deleteSession.
 
 ### Document storage and Git views
 
@@ -3186,6 +3188,7 @@ Source in the repository: apps/server/src/ragents/workspace-runtime.ts
 ```typescript
 export interface WorkspaceRuntime {
   resolve: (runId: string, emitSystem: (text: string) => void, signal?: AbortSignal) => Promise<SessionWorkspace>;
+  waitUntilReady?: (runId: string, signal: AbortSignal) => Promise<void>;
   describe: () => WorkspaceRuntimeDescription;
   /** The one central place where a flow asks where and in which folder a run works. */
   placementOf: (runId: string) => WorkspacePlacement;

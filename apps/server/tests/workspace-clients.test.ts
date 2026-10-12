@@ -13,7 +13,7 @@ import { assertMayRegister, clientMethods, WorkspaceClientRegistry, type Worksta
 import { coreContracts } from "../src/api/contracts.ts";
 import { coreMethods } from "../src/api/core-methods.ts";
 import { productStartOptions } from "../src/plugin-support/product-start-options.ts";
-import { modelStartOptionId, systemPromptStartOptionId } from "../src/plugin-support/start-options-contract.ts";
+import { modelStartOptionId, systemPromptStartOptionId, restartStartOptionId } from "../src/plugin-support/start-options-contract.ts";
 import { coreSources, dispatchMethod, startRpcServer } from "./rpc-fixture.ts";
 
 const CLIENT = "client-00000001";
@@ -428,7 +428,9 @@ test("without runs.inspect the user binds folder and workstation but neither see
     dispatchMethod(methods, coreContracts.startOptions.select.id, { runId: "draft-run", optionId, value }, access);
 
   const offered = await list(developer);
-  assert.deepEqual(offered.map((option) => option.id), [WORKSPACE_BINDING_OPTION_ID]);
+  assert.deepEqual(offered.map((option) => option.id), [WORKSPACE_BINDING_OPTION_ID, restartStartOptionId]);
+  await select(restartStartOptionId, "off", developer);
+  assert.equal(chosen.get(restartStartOptionId), "off");
   assert.doesNotMatch(JSON.stringify(offered), /private-model|private-provider|Private prompt/);
   await assert.rejects(select(WORKSPACE_BINDING_OPTION_ID, onServer({ path: tmpdir() }), developer), (error: unknown) =>
     error instanceof DomainError && error.code === "workspace-server-folder-admin" && error.status === 403);
@@ -441,7 +443,7 @@ test("without runs.inspect the user binds folder and workstation but neither see
     assert.equal(chosen.has(optionId), false);
   }
 
-  assert.deepEqual((await list(inspector)).map((option) => option.id), [WORKSPACE_BINDING_OPTION_ID, systemPromptStartOptionId, modelStartOptionId]);
+  assert.deepEqual((await list(inspector)).map((option) => option.id), [WORKSPACE_BINDING_OPTION_ID, systemPromptStartOptionId, modelStartOptionId, restartStartOptionId]);
   await select(modelStartOptionId, { model: "private-model" }, inspector);
   assert.deepEqual(chosen.get(modelStartOptionId), { model: "private-model", thinking: "off" });
 });

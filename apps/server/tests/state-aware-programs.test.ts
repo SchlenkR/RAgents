@@ -10,6 +10,7 @@ import type { ProgramState } from "../src/plugin-support/actor-programs/program-
 import type { ProgramTriggerOptions } from "../../../plugins/ragents.actor-programs/server/triggers.ts";
 import { invocationResult } from "./actor-runtime-fixture.ts";
 import { triggerFixture, until } from "./program-triggers-fixture.ts";
+import { deferred } from "../../../packages/ragents/tests/support.ts";
 
 const always = defineToolAvailability({ availability: "always", availabilityDetail: "Test function." }, () => true);
 const recorder = () => {
@@ -56,6 +57,53 @@ const watcher = () => {
   return { listeners, watch };
 };
 const pause = (milliseconds = 100) => new Promise((resolve) => setTimeout(resolve, milliseconds));
+
+test("a restarted working program restores a consumed message and keeps completed steps", { timeout: 60000 }, async (t) => {
+  const entered = deferred();
+  let prepared = 0;
+  let attempts = 0;
+  let finished = 0;
+  const f = await triggerFixture(t, { persistent: true, tools: () => [
+    defineRunFunction({ name: "prepare_task", label: "Prepare", description: "Prepare once.", schema: Type.Object({}), resultSchema: Type.Null(), available: always,
+      run: async () => { prepared++; return null; } }),
+    defineRunFunction({ name: "finish_task", label: "Finish", description: "Finish the task.", schema: Type.Object({}), resultSchema: Type.Null(), available: always,
+      run: async (scope) => {
+        attempts++;
+        if (attempts === 1) {
+          entered.resolve();
+          await new Promise<void>((_resolve, reject) => scope.signal!.addEventListener("abort", () => reject(new Error("Server stopped")), { once: true }));
+        }
+        finished++;
+        return null;
+      } }),
+  ] });
+  await f.activate("restart-task", packageFiles(`import { defineProgram } from "@ragents/server";
+import { Type } from "typebox";
+export default defineProgram({ capabilities: ["prepare_task", "finish_task"], messages: { go: { label: "Go", input: Type.Object({}) } } }, async (ctx) => {
+  await ctx.step(async () => { await ctx.functions.prepare_task(); });
+  await ctx.receive("go");
+  await ctx.step(async () => { await ctx.functions.finish_task(); });
+});`));
+  const actorId = f.actorOf("restart-task");
+  const state = () => f.programs.data(f.runId, actorId).values as ProgramState;
+  f.scheduler.start();
+  await until(() => state().waiting?.message === "go");
+  await f.scheduler.waitForIdle();
+  const program = f.programs.programs(f.runId).find((entry) => entry.actorId === actorId)!;
+  const invocation = f.programs.startFunctionInvocation(f.runId, program.actorHandle, program.revision, "go", "go", {});
+  assert.equal((await invocationResult(f.programs, f.runId, program.actorHandle, invocation.id)).status, "succeeded");
+  await entered.promise;
+  await f.scheduler.stop();
+  const interrupted = f.setup.runtime.view(f.runId).turns.at(-1)!;
+  assert.equal(interrupted.interruptionCause, "server-stop");
+  await f.reopen();
+  f.scheduler.start();
+  await until(() => state().status === "done");
+  await f.scheduler.waitForIdle();
+  assert.equal(prepared, 1);
+  assert.equal(attempts, 2);
+  assert.equal(finished, 1);
+});
 
 test("the daily draft program waits for 08:00 across a reopened journal, publishes an approval exactly once and starts over the next day", { timeout: 180000 }, async (t) => {
   const record = recorder();

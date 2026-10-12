@@ -30,6 +30,7 @@ const byUser = (userId: string | undefined): string => userId === undefined ? ""
 const triggerOf = (inputId: string, scope: ChatProjectionScope): string | undefined => {
   const input = scope.inputOf(inputId);
   if (input.origin === "human") return undefined;
+  if (typeof input.origin === "object") return undefined;
   const [sourceEventId] = input.sourceEventIds;
   if (sourceEventId !== undefined) {
     const source = scope.sourceOf(sourceEventId);
@@ -71,7 +72,7 @@ export const chatEventsOf = (event: JournalEvent, scope: ChatProjectionScope, cu
       ? journalChatEventsOf(event, cursor, interruptedIn(scope))
       : [];
 
-  if (event.type === "turn.interrupted")
+  if (event.type === "turn.interrupted" || event.type === "turn.restart-recovered")
     return scope.turnOf(event.payload.turnId).actorId === scope.primaryActorId ? journalChatEventsOf(event, cursor, interruptedIn(scope)) : [];
 
   if (event.type === "run.paused") return [{ kind: "system", text: `Run paused${byUser(event.payload.userId)}`, at }];
