@@ -223,3 +223,28 @@ test("a tab placed as a window joins the browser's header windows instead of the
   assert.match(browser.match(/data-dock-window="tab:preview"[\s\S]*?<\/button>/)?.[0] ?? "", /<span class="sr-only">2 checks<\/span>/, "the header button carries the badge as a dot");
   assert.deepEqual(attribute(rail(renderToStaticMarkup(inVsCode(content))), "aria-label"), ["Sidebar tabs", "Files", "Preview", "Report"], "VS Code keeps every tab in its rail");
 });
+
+test("orchestration registers Agents as a persistent window in the browser and a run tool in VS Code", async (context) => {
+  fakeWindow(context);
+  const { webPlugin } = await import("../../../plugins/ragents.orchestration/web/index.tsx");
+  const { AGENTS_TAB_ID, AgentsPanel } = await import("../../../plugins/ragents.orchestration/web/run-panel/AgentsPanel.tsx");
+  const { PluginRegistry } = await import("../src/PluginRegistry.tsx");
+  const { workspaceTabPanelId } = await import("../src/run-panel/dock-state.ts");
+  const registry = new PluginRegistry({ brand: { title: "Example" }, product: { id: "example", title: "Example" }, startEntries: [], plugins: [webPlugin] });
+  const agents = registry.registeredTabs(session).find((tab) => tab.id === AGENTS_TAB_ID)!;
+  assert.equal(agents.Panel, AgentsPanel);
+  assert.equal(agents.placement, "window");
+  assert.equal(agents.keepMounted, true);
+  assert.equal(agents.readRight, undefined);
+  assert.equal(workspaceTabPanelId(agents), `tab:${AGENTS_TAB_ID}`);
+  assert.equal(registry.availableTabs(session).some((tab) => tab.id === AGENTS_TAB_ID), false);
+  const loaded = { ...session, runView: { id: "run-a", ownerId: "owner", primaryActorId: null, actors: [], turns: [], inputs: [], subscriptions: [], pluginStates: [], actions: [], artifacts: [] } };
+  assert.equal(registry.availableTabs(loaded).filter((tab) => tab.id === AGENTS_TAB_ID).length, 1);
+  assert.equal(registry.sessionHeaders.some((header) => header.id === AGENTS_TAB_ID), false);
+  const html = renderToStaticMarkup(inVsCode(createElement(RunPanelRail, { navigation: navigationFor(AGENTS_TAB_ID), onClose: () => {}, open: true, pendingTabIds: [], session: loaded, tabs: [agents] })));
+  assert.match(html, /aria-label="Agents" aria-pressed="true"/);
+  assert.match(html, /aria-controls="run-panel-workspace"/);
+  const popout = renderToStaticMarkup(inVsCode(createElement(RunPanelWorkspace, { navigation: navigationFor(AGENTS_TAB_ID), onClose: () => {}, open: true, session: loaded, tabs: [agents] })));
+  assert.match(popout, /<h2[^>]*>Agents<\/h2>/);
+  assert.doesNotMatch(popout, /data-slot="popover|data-docking=/);
+});

@@ -121,14 +121,17 @@ test("outer guides wrap the entire workspace at 35 percent and retain a sole emp
   roundtrip(nested);
 });
 
-test("revealing a view opens a closed one, activates a background tab and leaves a visible one untouched", () => {
+test("revealing a view opens a closed one, activates a background tab and focuses its existing area", () => {
   const split = move(initial(), ["app:notes"], { kind: "group", group: "main", side: "right" });
   const notes = dockGroups(split.root).find((g) => g.tabs.includes("app:notes"))!.id;
   const reveal = (state: DockState, id: string, wide = true) => revealDockPanel(state, id, wide, () => `node-${++serial}`);
-  assert.equal(reveal(split, "chat"), split);
+  const focusedChat = reveal(split, "chat");
+  assert.equal(focusedChat.focused, "main");
+  assert.deepEqual(focusedChat.root, split.root);
+  assert.equal(reveal(focusedChat, "chat"), focusedChat);
   assert.equal(reveal(split, "app:notes"), split);
   const maximized = { ...split, maximized: "main" };
-  assert.equal(reveal(maximized, "chat"), maximized);
+  assert.equal(reveal(maximized, "chat").focused, "main");
 
   const background = reveal(split, "app:board");
   assert.deepEqual(dockGroups(background.root).map((g) => g.tabs), dockGroups(split.root).map((g) => g.tabs));
@@ -729,4 +732,28 @@ test("layout storage accepts old layouts and rejects invalid placement overrides
   assert.throws(() => parseDockState(JSON.stringify({ ...empty, placements: { "empty:one": "sidebar" } })), /invalid/);
   const sidebar = moveDockButton(initial(), "chat", "sidebar");
   assert.throws(() => parseDockState(JSON.stringify({ ...sidebar, order: ["chat"] })), /invalid/);
+});
+
+test("the Agents window opens, focuses the same area, reveals hidden tabs and reopens once after closing", () => {
+  const id = workspaceTabPanelId({ id: "ragents.orchestration.agents", placement: "window" });
+  const reveal = (state: DockState) => revealDockPanel(state, id, true, () => `node-${++serial}`);
+  const initial = reconcileDockState(initialDockState(), ["chat", id], [], true);
+  const opened = reveal(initial);
+  const area = dockGroups(opened.root).find((entry) => entry.tabs.includes(id))!;
+  assert.equal(opened.focused, area.id);
+  assert.equal(reveal(opened), opened);
+  const chatFocused = selectDockPanel(opened, "chat");
+  assert.equal(reveal(chatFocused).focused, area.id);
+  assert.deepEqual(reveal(chatFocused).root, opened.root);
+  const maximizedChat = { ...chatFocused, maximized: "main" };
+  assert.equal(reveal(maximizedChat).maximized, area.id);
+  const merged = move(opened, [id], { kind: "group", group: "main", side: "center" });
+  const hidden = selectDockPanel(merged, "chat");
+  assert.equal(dockGroups(reveal(hidden).root)[0].active, id);
+  const closed = closeDockPanels(opened, [id]);
+  const reopened = reveal(closed);
+  assert.equal(reopened.closed.includes(id), false);
+  assert.equal(dockGroups(reopened.root).flatMap((entry) => entry.tabs).filter((entry) => entry === id).length, 1);
+  assert.equal(reveal(reopened), reopened);
+  roundtrip(reopened);
 });

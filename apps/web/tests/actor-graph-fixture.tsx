@@ -1,6 +1,7 @@
 import { createRoot } from "react-dom/client";
 import { createAccessContext } from "../../../packages/ragents/src/access";
-import { AgentsHeader } from "../../../plugins/ragents.orchestration/web/run-panel/AgentsHeader";
+import { webPlugin } from "../../../plugins/ragents.orchestration/web/index";
+import { AGENTS_TAB_ID } from "../../../plugins/ragents.orchestration/web/run-panel/AgentsPanel";
 import { OrchestrationRunPanel } from "../../../plugins/ragents.orchestration/web/run-panel/RunPanel";
 import { AccessContext } from "../src/AccessContext";
 import type { PluginActivationState } from "../src/PluginActivation";
@@ -73,7 +74,7 @@ const registry = new PluginRegistry({
   brand: { title: "Agents" }, product: { id: "agents", title: "Agents" },
   plugins: [{
     id: "agents", needsRunView: true, surface: { RunPanel: OrchestrationRunPanel },
-    sessionHeaders: [{ id: "agents.graph", placement: "bar", order: 10, Header: AgentsHeader }],
+    workspaceTabs: webPlugin.workspaceTabs!.filter((tab) => tab.id === AGENTS_TAB_ID),
   }],
   startEntries: [],
 });

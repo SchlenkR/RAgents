@@ -71,7 +71,7 @@ Activated visible mini-apps become available automatically, including those from
 Programs cannot arrange the host interface. Runs saved with removed layout functions or placements
 are locked with an explanation; their original files are kept. Start a new run with updated programs.
 
-Wide browser runs start with Chat beside the mini-apps; narrow ones use one tab group. Drag tabs
+Wide browser runs start with Chat beside the other windows; narrow ones use one tab group. Drag tabs
 onto the docking guides to arrange areas or merge them. Chat and visited apps keep their input
 through switches and moves. New apps appear without taking focus. A window that is unavailable
 for a while keeps its place and returns to it; the app of a later start of the same run script
@@ -87,6 +87,8 @@ workspace down.
 Drag a button between the sidebar rail and header to choose where it lives, or right-click it
 and choose "Move to header" or "Move to sidebar". Shift+F10 opens the same menu from the keyboard.
 Moving a button keeps its panel's open state; "Reset layout" restores the plugin defaults.
+"Agents" shows or focuses the live actor graph in its own window. Pick an actor to address its
+chat, or drag it onto the docking guides to open a separate chat for that actor.
 
 When step details are enabled, click a thinking or tool step to open its popup. Long traces
 scroll inside it; the heading and close button stay visible within the available screen space.
@@ -99,7 +101,8 @@ also after a server restart.
 
 In VS Code, clicking an app opens or focuses its editor tab. VS Code controls where that tab
 appears. Questions and news stay in chat. The selector below the input chooses the addressee;
-the run coordinator is selected by default.
+the run coordinator is selected by default. "Agents" in the inspection rail shows the same graph
+in the run's tool popout.
 
 <!-- /guide:getting-started -->
 
@@ -157,6 +160,12 @@ The shared panel initially addresses the coordinator. Use the addressee selector
 of the input to choose another conversation from the graph of all actors. Visited chats keep separate drafts.
 Sending requires write permission and a running actor. A stopped actor shows its reason and
 Restart; TypeScript actors are operated through mini-apps or functions.
+
+"Agents" in the browser run header opens, reveals, or focuses its single graph window. Move,
+dock, resize, or close it like an app; the run remembers its layout. Picking an actor addresses
+the main chat, and dragging an actor onto a docking guide opens its own chat. States update live.
+In VS Code, "Agents" is a tool in the inspection rail and opens the existing tool popout.
+The small graph opened from the chat input's addressee selector or working-agent count stays there.
 
 With technical read permission, Inspect actor opens details and installed program sources.
 The right-hand inspection rail also provides Documents, Files, Functions, Executions, and other
@@ -894,7 +903,7 @@ Clicking or typing elsewhere while it loads cancels that focus request.
 
 The run title opens "Run details". Its panel contains all run metadata, start option badges (an option
 that a metadata cell already shows appears once), and contributed detail controls in cells that wrap as the
-panel narrows. "Run details", "Run script", "Agents", and "Share" use the same square dropdown below the header,
+panel narrows. "Run details", "Run script", and "Share" use the same square dropdown below the header,
 up to 800 pixels wide with a small inset on the side of their button. Each dims the page below the header and keeps
 its content within the available width. The close button, Escape, or clicking outside closes it. Focus returns
 to its button unless it has moved elsewhere.
@@ -940,9 +949,9 @@ window, and every app as buttons with their existing icons, whether shown or not
 visible window appears pressed.
 Clicking a closed window opens it beside the current area in a wide browser workspace, or as a
 tab when narrow. Clicking a window that waits as a background tab brings that tab to the front.
-Clicking a visible window changes nothing. All window buttons, "Empty space", and "Reset layout" remain directly available. They fill
+Clicking a visible window focuses its area. All window buttons, "Empty space", and "Reset layout" remain directly available. They fill
 the space between the fixed controls first, then continue across the full header width when
-needed. Adding apps keeps the title and actions such as "Agents", "Share", Stop, and Settings
+needed. Adding apps keeps the title and actions such as "Share", Stop, and Settings
 in place. The title, and after it the global coordinator, shrinks before the fixed actions wrap on
 desktop widths. The title and long button labels truncate; full labels remain available on hover.
 Narrow panels can also wrap fixed controls. The header grows and pushes the workspace down;
@@ -1068,10 +1077,13 @@ brings a hidden card into view, and Escape, a click outside, or the x in the top
 closes. All actors permitted by your access rights are available, including stopped actors.
 TypeScript actors require inspection rights.
 
-"Agents" in the run header opens the same graph with the title "Agents" in the shared header
-dropdown as soon as the run has an actor besides you; the graph pans within the panel. Clicking an
-actor there also makes it the chat's addressee. Its labeled button wraps with the other header
-actions when space is short.
+"Agents" is an ordinary run window once the run state is available. Its browser
+header button opens or focuses the same window, revealing it when it is hidden behind another tab
+or maximized area. Move, dock, resize, close, and reopen it like a mini-app; its place is remembered
+with the run's layout. The graph pans within the window and follows live actor states. Picking an
+actor makes it the main chat's addressee while the graph stays open. Its button can move to the
+sidebar like any window button. In VS Code, "Agents" in the inspection rail opens the same graph
+in the existing tool popout.
 
 In the browser, drag an actor from either graph or the addressee chip
 onto the workspace's docking guides to open a separate chat addressed to that actor. Drop on

@@ -104,7 +104,7 @@ export function ListDetail({ label, items, selectedId, onSelect, disabled = fals
   };
 
   return <section aria-label={label} className={cn("group/list-detail @container/list-detail flex min-h-0 min-w-0 flex-auto flex-col", className)}
-    data-detail={showNarrowDetail} ref={rootRef}>
+    data-detail={showNarrowDetail} data-slot="list-detail" ref={rootRef}>
     {toolbar !== undefined && <div className="flex flex-none flex-wrap items-center gap-3 pb-4 @max-[900px]/list-detail:group-data-[detail=true]/list-detail:hidden">{toolbar}</div>}
     <div className="grid min-h-0 min-w-0 flex-auto grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)] grid-rows-[minmax(0,1fr)] gap-6 @max-[900px]/list-detail:grid-cols-[minmax(0,1fr)] @max-[900px]/list-detail:gap-0">
       <div aria-label={label} className={cn(paneClasses, focusRing, "pt-0.5 pr-2 pb-3 @max-[900px]/list-detail:group-data-[detail=true]/list-detail:hidden")}

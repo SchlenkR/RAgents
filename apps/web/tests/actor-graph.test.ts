@@ -136,6 +136,9 @@ test("the column count follows the canvas width and never drops below one", () =
 
 test("the view grows with the layout up to its room and stays compact for a small graph", () => {
   const room = { width: 1200, height: 800 };
+  const filled = graphViewport({ width: 500, height: 300 }, room, true);
+  assert.deepEqual(filled, { width: room.width, height: room.height, scrollWidth: room.width, scrollHeight: room.height, left: (room.width - 500) / 2, top: (room.height - 300) / 2 });
+  assert.equal(graphPannable(filled), false);
   const small = graphViewport({ width: 500, height: 300 }, room);
   assert.deepEqual(small, { width: 500, height: 300, scrollWidth: 500, scrollHeight: 300, left: 0, top: 0 });
   assert.equal(graphPannable(small), false);

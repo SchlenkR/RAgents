@@ -24,6 +24,38 @@ recovery outcome; the chat shows a short system line instead of the internal rec
 The additive run-event contract refreshes `extension-api.json` without changing extension
 interface version 1.
 
+## 2026-10-12: Frame defaults stop at library component boundaries
+
+Chapters: `spec/actor-programs.md` (Reusable UI building blocks), `spec/plugins.md` (UI library).
+
+The shared Card's child margin reset erased the host sign-in page's explicit spacing. Frame
+semantic defaults now exclude library roots marked with `data-slot` or `data-chat` and their
+descendants. Mini-app building blocks carry the same root marker as host controls. The compensating
+margin, list and typography resets are removed from cards, fields and mini-app controls; compact
+layout gaps remain. Browser coverage checks sign-in spacing, plain HTML rhythm, component interiors
+and explicit child margins, with screenshots kept in the system temp directory.
+
+## 2026-10-12: Working subagent count uses tight spacing
+
+Chapter: `spec/plugins.md` (Run panel, Spacing).
+
+The spinner and working-subagent count looked detached with related spacing (2 units).
+The shared addressee control now uses tight spacing (1 unit) in both hosts, keeping its
+accessible count and action. Browser coverage measures the gap and outer spacing at larger
+root fonts and page zoom without adding a spacing exception.
+
+## 2026-10-12: Agents joins the run's workspace tools
+
+Chapter: `spec/plugins.md` (Web as plugin host, docking workspace, run panel); usage: `usage.md`
+(Run chat and inspection, Run panel and VS Code extension); homepage: agent graph.
+
+The header dropdown kept the actor graph outside the workspace. Agents now uses the existing
+workspace-tab contribution with window placement, so the browser opens or focuses one movable,
+dockable, resizable graph and remembers its layout. Window buttons also focus a visible window
+in another area. Actor selection, actor-bound chat drags, and live state use the shared graph.
+VS Code keeps this contribution in its existing inspection rail and tool popout, consistent with
+other run tools. The small composer graph remains unchanged; the unused header contribution is removed.
+
 ## 2026-10-12: Page spacing separates independent dashboard regions
 
 Chapter: `spec/plugins.md` (Spacing, Shared page width, Start); usage: `usage.md` (Shared panel pages).
