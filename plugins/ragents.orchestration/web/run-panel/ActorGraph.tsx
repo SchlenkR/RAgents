@@ -1,6 +1,6 @@
 import { useCallback, useLayoutEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
-import { ChevronDownIcon, CodeIcon, SparklesIcon, UsersIcon } from "lucide-react";
-import { Badge, cn, InteractiveItem, RunStateIcon, Spinner, SvgEdge, type SvgEdgeProps } from "@ragents/web/ui";
+import { ChevronDownIcon, CodeIcon, UsersIcon } from "lucide-react";
+import { Badge, cn, InteractiveItem, RobotHeadIcon, RunStateIcon, Spinner, SvgEdge, type SvgEdgeProps } from "@ragents/web/ui";
 import { actorAddress, actorTone, type RunActor, type RunView } from "@ragents/web/run-view";
 import { useDockPanelDrag } from "@ragents/web/run-panel/DockWorkspace";
 import { pendingInputCount } from "./run-panel-actors";
@@ -42,7 +42,7 @@ const waitingInputs = (count: number) => count === 1 ? "1 waiting input" : `${co
 export function ActorIcon({ actor, className, view }: { actor: RunActor; className?: string; view: RunView }) {
   const tone = actorTone(view, actor);
   return <span className={cn("grid flex-none place-items-center rounded-full text-foreground [&>svg]:size-3", iconClass[tone], className)}>
-    {actor.lifecycle?.kind === "running" ? <Spinner aria-hidden className="size-3" /> : tone === "primary" ? <SparklesIcon /> : actor.kind === "script" ? <CodeIcon /> : <UsersIcon />}
+    {actor.lifecycle?.kind === "running" ? <Spinner aria-hidden className="size-3" /> : tone === "primary" ? <RobotHeadIcon /> : actor.kind === "script" ? <CodeIcon /> : <UsersIcon />}
   </span>;
 }
 

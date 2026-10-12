@@ -2063,7 +2063,8 @@ copied into the source tree by CLI and styled with Tailwind: `Button`, `Badge`, 
 `DialogContent`, `TabsList`, and so on), plus `cn` and icons from `lucide-react`. Props, variants, and
 composition follow shadcn; `Badge` additionally accepts semantic `tone` (see below).
 The host's own building blocks on top are `DataGrid`, `InteractiveItem`, `ListDetail`, `OverflowTabs`,
-`SectionLabel`, `SvgEdge`, `HeaderDropdown`, and, only in the host, the page `Modal` in `modal.tsx`.
+`SectionLabel`, `SvgEdge`, `HeaderDropdown`, `RobotHeadIcon` (the filled robot head that marks an LLM agent,
+reduced from the product logo, 24 px grid, text color), and, only in the host, the page `Modal` in `modal.tsx`.
 The choice follows the role, not taste:
 
 - `Button` without a variant (`default`): the ONE main action of a surface or dialog

@@ -1,5 +1,16 @@
 # Decisions
 
+## 2026-10-12: LLM agents carry a robot head instead of Sparkles
+
+Chapter: `spec/plugins.md` (UI library).
+
+The generic sparkle icon marks "AI" in every product and says nothing about this one. The actor icon
+of the primary LLM agent is now `RobotHeadIcon`, a filled head with sunglasses reduced from the
+product logo; the line logo itself turns to mud below about 20 px. The run script menu trigger shows
+the code icon, the same one a script actor has, instead of the wand with sparkles. The robot head is
+the first custom icon of the UI library and lives in `apps/web/src/ui` so plugins import it from
+`@ragents/web/ui`.
+
 ## 2026-10-12: Actor graph cards give their space to the task
 
 Chapter: `spec/plugins.md` (Run panel); usage: `usage.md` (Run panel and VS Code extension).

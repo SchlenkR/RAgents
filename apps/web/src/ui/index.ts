@@ -37,6 +37,7 @@ export { RadioGroup, RadioGroupItem } from "./radio-group";
 export {
   Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectScrollDownButton, SelectScrollUpButton, SelectSeparator, SelectTrigger, SelectValue,
 } from "./select";
+export { RobotHeadIcon } from "./robot-head-icon";
 export { Separator } from "./separator";
 export { Skeleton } from "./skeleton";
 export { Spinner } from "./spinner";

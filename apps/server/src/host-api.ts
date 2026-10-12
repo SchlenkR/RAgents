@@ -172,7 +172,7 @@ export const hostApi: { readonly server: HostApiModules; readonly web: HostApiMo
       "ComboboxGroup", "ComboboxItem", "ComboboxLabel", "ComboboxSeparator", "ComboboxTrigger", "ComboboxValue", "Dialog", "DialogBody", "DialogContent",
       "DialogDescription", "DialogFooter", "DialogHeader", "DialogTitle", "Empty", "EmptyContent", "EmptyDescription",
       "DataGrid", "EmptyHeader", "EmptyMedia", "EmptyTitle", "Field", "FieldDescription", "FieldTitle", "FilterSelect", "HeaderDropdown", "ImagePreview", "ImagePreviewGroup", "ImageViewer", "Input", "InteractiveItem", "Label",
-      "OverflowTabs", "OverflowTabsList", "Popover", "PopoverContent", "PopoverTrigger", "RunStateIcon", "SearchInput", "SectionLabel", "Select", "SelectContent", "SelectItem", "SelectTrigger",
+      "OverflowTabs", "OverflowTabsList", "Popover", "PopoverContent", "PopoverTrigger", "RobotHeadIcon", "RunStateIcon", "SearchInput", "SectionLabel", "Select", "SelectContent", "SelectItem", "SelectTrigger",
       "SelectValue", "Spinner", "StartupNotice", "StopButton", "StopGlyph", "SvgEdge", "Switch", "Table", "TableBody",
       "TableCaption", "TableCell", "TableFooter", "TableHead", "TableHeader", "TableRow", "Tabs", "TabsContent",
       "TabsList", "TabsTrigger", "Textarea", "Toggle", "ToggleGroup", "ToggleGroupItem", "buttonVariants", "cn",
