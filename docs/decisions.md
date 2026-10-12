@@ -1,5 +1,12 @@
 # Decisions
 
+## 2026-10-12: Table headers pad like their rows
+
+Chapter: `spec/plugins.md` (Theme tokens).
+
+Table and grid headers used four fifths of the cell padding and looked flat next to their rows.
+They now use the same `--grid-cell-y` padding as body cells in every table spacing.
+
 ## 2026-10-12: Start widgets fill adjacent free columns
 
 Chapter: `spec/plugins.md` (Start widgets, Start, Arranging Start); usage: `usage.md` (Shared panel pages).

@@ -2147,9 +2147,6 @@
   .py-\[calc\(\(var\(--control-height\)-var\(--control-line-height\)-2px\)\/2\)\] {
     padding-block: calc((var(--control-height) - var(--control-line-height) - 2px) / 2);
   }
-  .py-\[calc\(var\(--grid-cell-y\)\*0\.8\)\] {
-    padding-block: calc(var(--grid-cell-y) * 0.8);
-  }
   .py-px {
     padding-block: 1px;
   }

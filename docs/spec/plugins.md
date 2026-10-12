@@ -2316,7 +2316,7 @@ reference surface: `border` (dividers, outlines) keeps 1.35:1 against every surf
 or these steps fall below their targets, and `apps/web/tests/palette.test.ts` compares the file with the generator. A palette may give
 the `active` tone its own hue when its accent is close to `info` (Midnight does, so that active and info chips stay apart).
 Surfaces rise `app`, `shell`, `background`, `card`, `secondary`; floating panels use `popover`. The density
-tokens `--grid-cell-x` and `--grid-cell-y` set the padding of table and grid cells per table spacing; rows keep a minimum height derived from them. The
+tokens `--grid-cell-x` and `--grid-cell-y` set the padding of table and grid cells per table spacing, header cells included; rows keep a minimum height derived from them. The
 `selected:` variant covers pressed, selected, current, and checked states only; an expanded disclosure is not selected. The `open:`
 variant covers the native open states and the trigger of an open popup (`data-popup-open`, or `aria-haspopup` with `aria-expanded`).
 The text roles are utilities there too: `type-title` (page title), `type-label` (uppercase

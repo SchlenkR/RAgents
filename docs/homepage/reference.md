@@ -9026,7 +9026,7 @@ export type TableProps = React.ComponentProps<"table"> & {
     columns?: readonly TableColumnDefinition[];
 };
 export declare const tableRowMin = "[--grid-row-min:calc(var(--spacing)_*_5.5_+_var(--grid-cell-y)_*_2_+_1px)]";
-export declare const tableHeadStyle = "px-(--grid-cell-x) py-[calc(var(--grid-cell-y)*0.8)] text-[0.71rem] leading-snug font-semibold text-muted-foreground aria-[sort=ascending]:text-foreground aria-[sort=descending]:text-foreground";
+export declare const tableHeadStyle = "px-(--grid-cell-x) py-(--grid-cell-y) text-[0.71rem] leading-snug font-semibold text-muted-foreground aria-[sort=ascending]:text-foreground aria-[sort=descending]:text-foreground";
 export declare const tableRowStyle = "border-b border-border outline-none hover:bg-hover/50 hover:text-hover-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset selected:bg-selected selected:text-selected-foreground selected:shadow-[inset_0_0_0_1px_var(--selected-border)] selected:hover:bg-selected-hover selected:hover:text-selected-foreground aria-disabled:pointer-events-none aria-disabled:opacity-50";
 export declare const tableResizeStyle = "absolute inset-y-0 right-0 z-10 w-2 cursor-col-resize touch-none outline-none after:absolute after:inset-y-[28%] after:right-0 after:w-px after:bg-border group-last/column:not-hover:not-focus-visible:after:bg-transparent hover:after:inset-y-1 hover:after:w-0.5 hover:after:bg-ring focus-visible:after:inset-y-1 focus-visible:after:w-0.5 focus-visible:after:bg-ring";
 declare function Table({ columns, ...props }: TableProps): React.JSX.Element;

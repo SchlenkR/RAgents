@@ -24,7 +24,7 @@ const widthSetting = createLocalStorageSetting<WidthSetting>({
 
 export const tableRowMin = "[--grid-row-min:calc(var(--spacing)_*_5.5_+_var(--grid-cell-y)_*_2_+_1px)]";
 
-export const tableHeadStyle = "px-(--grid-cell-x) py-[calc(var(--grid-cell-y)*0.8)] text-[0.71rem] leading-snug font-semibold text-muted-foreground aria-[sort=ascending]:text-foreground aria-[sort=descending]:text-foreground"
+export const tableHeadStyle = "px-(--grid-cell-x) py-(--grid-cell-y) text-[0.71rem] leading-snug font-semibold text-muted-foreground aria-[sort=ascending]:text-foreground aria-[sort=descending]:text-foreground"
 
 export const tableRowStyle = "border-b border-border outline-none hover:bg-hover/50 hover:text-hover-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset selected:bg-selected selected:text-selected-foreground selected:shadow-[inset_0_0_0_1px_var(--selected-border)] selected:hover:bg-selected-hover selected:hover:text-selected-foreground aria-disabled:pointer-events-none aria-disabled:opacity-50"
 
