@@ -1,5 +1,17 @@
 # Decisions
 
+## 2026-10-12: Actor graph cards give their space to the task
+
+Chapter: `spec/plugins.md` (Run panel); usage: `usage.md` (Run panel and VS Code extension).
+
+Kind icons, state words, turn times, and input counts left only one truncated task line.
+Actor cards now pair the existing run state ring with the handle and use related padding
+for up to three task lines within their unchanged dimensions. The full description or first
+assignment stays available as a tooltip; the ring names its state accessibly. Group controls,
+selection, picking, dragging, and edges retain their behavior. Unit coverage checks state
+mapping and full tasks; browser coverage checks both hosts, the Agents view and chooser,
+larger root fonts, and page zoom.
+
 ## 2026-10-12: Working subagent count uses tight spacing
 
 Chapter: `spec/plugins.md` (Run panel, Spacing).

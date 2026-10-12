@@ -49,11 +49,11 @@ const view: RunView = {
     actor("test-writer", "agent", "implementer", { displayName: "Test writer" }),
     actor("formatter", "script", "implementer", { displayName: "Formatter", description: "formats changed files after every step" }),
     ...reviewers,
-    actor("summary", "agent", "coordinator", { displayName: "Summary" }),
+    actor("summary", "agent", "coordinator", { displayName: "Summary", description: "Summarize the findings of all reviewers, explain the remaining risks, and include the verification results with enough detail for the next person to continue the work." }),
   ],
   inputs: [
     assignment("coordinator", 1, "Rebuild the addressee list as a graph and have all rules checked."),
-    assignment("implementer", 3, "Rebuild the chat's addressee list into a graph.\nDetails are in the task."),
+    assignment("implementer", 3, "Rebuild the chat's addressee list into a graph.\nDetails are in the task.\nKeep the creator relationships and all graph interactions intact.\nVerify the result in both hosts."),
     assignment("test-writer", 4, "Write tests for laying out the graph from the journal."),
     assignment("test-writer", 6, "Also cover wrapped rows.", true),
     assignment("summary", 5, "Summarize the findings of all reviewers once they are done."),
@@ -61,7 +61,7 @@ const view: RunView = {
   turns: [
     finished("test-writer", 400, 42),
     finished("formatter", 200, 3),
-    ...reviewers.filter((reviewer) => reviewer.lifecycle?.kind !== "running").map((reviewer, index) => finished(reviewer.id, 500 - index, 25 + (index * 7) % 90)),
+    ...reviewers.filter((reviewer) => reviewer.lifecycle?.kind !== "running").map((reviewer, index) => ({ ...finished(reviewer.id, 500 - index, 25 + (index * 7) % 90), status: reviewer.handle === "review-errors" ? "failed" as const : "completed" as const })),
   ],
   subscriptions: [], pluginStates: [], actions: [question("review-dates")], artifacts: [],
 };

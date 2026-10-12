@@ -2,12 +2,11 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import {
   actorGraphLayout,
-  actorTimings,
   clampGraphPan,
-  formatDuration,
   GRAPH_CARD_HEIGHT,
   GRAPH_CARD_WIDTH,
   GRAPH_PAN_MARGIN,
+  graphActorState,
   graphColumns,
   graphNodeStatus,
   graphPannable,
@@ -180,26 +179,30 @@ test("routes become paths with rounded corners; straight and repeated points dro
   assert.equal(roundedPath([[0, 0], [0, 4], [30, 4]], 6), "M 0 0 L 0 2 Q 0 4 2 4 L 30 4", "a short leg limits the radius");
 });
 
-test("durations read as seconds, minutes, hours or days", () => {
-  assert.deepEqual([0, 999, 59_999, 72_000, 3_600_000, 7_500_000, 187_200_000, -5_000].map(formatDuration),
-    ["0s", "0s", "59s", "1m 12s", "1h 0m", "2h 5m", "2d 4h", "0s"]);
-});
-
-test("a working actor counts from the start of its turn, the others show their last finished turn", () => {
-  const view = viewOf([actor("worker", "coordinator", { lifecycle: running }), actor("done", "coordinator"), actor("fresh", "coordinator")], {
+test("actor cards use the existing run states for work, questions, idle, pauses, stops, and failed turns", () => {
+  const view = viewOf([
+    actor("worker", "coordinator", { lifecycle: running }), actor("done", "coordinator"), actor("fresh", "coordinator"),
+    actor("stopped", "coordinator", { lifecycle: stopped }), actor("failed", "coordinator"), actor("interrupted", "coordinator"),
+    actor("held", "coordinator", { held: true }), actor("asking", "coordinator", { lifecycle: running }),
+  ], {
     turns: [
-      turn("done", "2026-10-02T10:00:00.000Z", "2026-10-02T10:00:42.000Z"),
+      { ...turn("done", at, at), status: "failed" },
       turn("done", "2026-10-02T10:01:00.000Z", "2026-10-02T10:02:12.500Z"),
-      turn("worker", "2026-10-02T09:00:00.000Z", "2026-10-02T09:00:05.000Z"),
+      { ...turn("worker", at, at), status: "failed" },
       turn("worker", running.startedAt, null),
-      turn("fresh", "2026-10-02T10:03:00.000Z", null),
+      { ...turn("failed", at, at), status: "failed" },
+      { ...turn("interrupted", at, at), status: "interrupted" },
     ],
+    actions: [{ id: "q", askedBy: "asking", owner: "ragents.ask", payload: null, title: "?", description: null, parameters: {}, input: null, status: "pending", proposedAt: at, resolvedAt: null, resolvedBy: null, result: null }],
   });
-  const timing = actorTimings(view);
-  assert.deepEqual(timing("worker"), { kind: "running", since: Date.parse(running.startedAt) });
-  assert.deepEqual(timing("done"), { kind: "finished", milliseconds: 72_500 });
-  assert.equal(timing("fresh"), undefined, "a turn without an end and without a running lifecycle shows nothing");
-  assert.equal(timing("coordinator"), undefined);
+  const state = (id: string, current = view) => graphActorState(current, current.actors.find((actor) => actor.id === id)!);
+  assert.deepEqual(["worker", "done", "fresh", "stopped", "failed", "interrupted", "held", "asking"].map((id) => state(id)),
+    ["running", "idle", "idle", "cancelled", "failed", "cancelled", "paused", "waiting"]);
+  const paused = { ...view, pause: { pausedAt: at, userId: "owner", reason: "Pause work" } };
+  assert.equal(state("fresh", paused), "paused");
+  assert.equal(state("worker", paused), "running", "a turn still stopping keeps its spinner");
+  assert.equal(state("stopped", paused), "cancelled", "stopped actors keep their state during a pause");
+  assert.equal(state("asking", paused), "waiting", "an open question retains its attention state");
 });
 
 test("a group works as soon as one member works and is stopped only when all members are", () => {

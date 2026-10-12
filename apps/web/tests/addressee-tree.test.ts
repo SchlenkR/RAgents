@@ -99,14 +99,13 @@ test("similar siblings group from the threshold on, per kind and creator, and ke
   assert.equal(mixedGroup?.kind === "group" && mixedGroup.label, "@review-*");
 });
 
-test("the short description comes from the spawn, else the first assignment shortened, else a differing display name", () => {
+test("the full description comes from the spawn, else the first assignment, else a differing display name", () => {
   const summary = addresseeSummaries(view);
   const byId = (id: string) => view.actors.find((entry) => entry.id === id)!;
   assert.equal(summary(byId("reviewer-5")), "checks rule 5");
   assert.equal(summary(byId("formatter")), "formats changed files");
-  assert.equal(summary(byId("implementer")), "Rebuild the addressee list as a tree.");
-  const shortened = summary(byId("test-a"));
-  assert.ok(shortened && shortened.length <= 90 && shortened.endsWith("..."), shortened);
+  assert.equal(summary(byId("implementer")), "Rebuild the   addressee list as a tree.\nDetails follow.");
+  assert.equal(summary(byId("test-a")), `Write tests for ${"very ".repeat(30)}many cases`);
   assert.equal(summary(byId("test-b")), undefined, "background inputs and equal display names give no description");
   assert.equal(summary(byId("coordinator")), "Run coordinator");
 });

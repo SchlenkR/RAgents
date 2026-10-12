@@ -1,13 +1,13 @@
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
+import { useCallback, useLayoutEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
 import { ChevronDownIcon, CodeIcon, SparklesIcon, UsersIcon } from "lucide-react";
-import { Badge, cn, InteractiveItem, Spinner, SvgEdge, type SvgEdgeProps } from "@ragents/web/ui";
+import { Badge, cn, InteractiveItem, RunStateIcon, Spinner, SvgEdge, type SvgEdgeProps } from "@ragents/web/ui";
 import { actorAddress, actorTone, type RunActor, type RunView } from "@ragents/web/run-view";
 import { useDockPanelDrag } from "@ragents/web/run-panel/DockWorkspace";
 import { pendingInputCount } from "./run-panel-actors";
-import { addresseeNodeContains, addresseeStatus, addresseeStatusCounts, addresseeStatusWord, addresseeSummaries, addresseeTree, type AddresseeGroupNode, type AddresseeStatus } from "./addressee-tree";
-import { actorGraphLayout, actorTimings, clampGraphPan, formatDuration, GRAPH_CARD_HEIGHT, GRAPH_CARD_WIDTH, graphColumns, graphNodeStatus, graphPannable, graphPanTo, graphViewport, type ActorTiming, type GraphSize } from "./actor-graph";
+import { addresseeNodeContains, addresseeStatusCounts, addresseeSummaries, addresseeTree, type AddresseeGroupNode, type AddresseeStatus } from "./addressee-tree";
+import { actorGraphLayout, clampGraphPan, GRAPH_CARD_HEIGHT, GRAPH_CARD_WIDTH, graphActorState, graphColumns, graphNodeStatus, graphPannable, graphPanTo, graphViewport, type GraphSize } from "./actor-graph";
 
-const cardClass = "flex size-full min-w-0 cursor-pointer flex-col justify-center gap-1 rounded-lg border border-border bg-card px-3 py-2 text-left text-[0.72rem] leading-normal text-card-foreground shadow-xs [&>span]:shrink-0";
+const cardClass = "flex size-full min-w-0 cursor-pointer flex-col justify-center gap-1 rounded-lg border border-border bg-card text-left text-[0.72rem] leading-normal text-card-foreground shadow-xs [&>span]:shrink-0";
 const stackClass = "shadow-[3px_3px_0_-1px_var(--color-card),3px_3px_0_0_var(--color-border)]";
 const lineClass = "flex min-w-0 items-center gap-2 text-[0.66rem]";
 const iconClass: Readonly<Record<string, string>> = {
@@ -15,12 +15,6 @@ const iconClass: Readonly<Record<string, string>> = {
   primary: "bg-glass-primary",
   script: "bg-glass-script",
   app: "bg-glass-app",
-};
-const statusClass: Readonly<Record<AddresseeStatus, string>> = {
-  running: "text-active",
-  input: "text-warning",
-  waiting: "text-warning",
-  stopped: "text-muted-foreground",
 };
 const edgeStyle: Readonly<Record<AddresseeStatus, Pick<SvgEdgeProps, "active" | "tone">>> = {
   running: { tone: "accent", active: true },
@@ -43,8 +37,6 @@ const clientFrame = (element: HTMLElement) => {
   return { bounds, zoom: bounds.width / element.offsetWidth || 1 };
 };
 
-const actorType = (actor: RunActor, technical: boolean) => !technical ? "Agent" : actor.kind === "agent" ? "LLM agent" : actor.kind === "external" ? "External agent" : "TypeScript actor";
-const lower = (text: string) => text.toLocaleLowerCase("en-US");
 const waitingInputs = (count: number) => count === 1 ? "1 waiting input" : `${count} waiting inputs`;
 
 export function ActorIcon({ actor, className, view }: { actor: RunActor; className?: string; view: RunView }) {
@@ -55,13 +47,12 @@ export function ActorIcon({ actor, className, view }: { actor: RunActor; classNa
 }
 
 /** Actors by creator, filling a panel or growing within a pop-out, with panning when the cards exceed the available room. */
-export function ActorGraph({ actors, fill = false, onDragStart, onPick, selectedId, technical, view }: {
+export function ActorGraph({ actors, fill = false, onDragStart, onPick, selectedId, view }: {
   actors: readonly RunActor[];
   fill?: boolean;
   onDragStart?: () => void;
   onPick: (actor: RunActor) => void;
   selectedId: string;
-  technical: boolean;
   view: RunView;
 }) {
   const scroller = useRef<HTMLDivElement>(null);
@@ -73,7 +64,6 @@ export function ActorGraph({ actors, fill = false, onDragStart, onPick, selected
   const [scrollTarget, setScrollTarget] = useState<ScrollTarget | undefined>({ kind: "selected" });
   const [panning, setPanning] = useState(false);
   const summary = useMemo(() => addresseeSummaries(view), [view]);
-  const timing = useMemo(() => actorTimings(view), [view]);
   const tree = useMemo(() => addresseeTree(view, actors), [actors, view]);
   const open = useCallback((group: AddresseeGroupNode) => addresseeNodeContains(group, selectedId) !== toggled.has(group.key), [selectedId, toggled]);
   const columns = room === undefined ? undefined : graphColumns(room.width);
@@ -187,7 +177,7 @@ export function ActorGraph({ actors, fill = false, onDragStart, onPick, selected
           {layout.cards.map((card) => <li className="absolute" data-graph-node={card.key} data-graph-parent={card.parentKey ?? undefined} key={card.key}
             style={{ left: card.x, top: card.y, width: GRAPH_CARD_WIDTH, height: cardHeight }}>
             {card.node.kind === "actor"
-              ? <ActorCard actor={card.node.actor} current={card.node.actor.id === selectedId} onDragStart={onDragStart} onPick={onPick} summary={summary(card.node.actor)} technical={technical} timing={timing(card.node.actor.id)} view={view} />
+              ? <ActorCard actor={card.node.actor} current={card.node.actor.id === selectedId} onDragStart={onDragStart} onPick={onPick} summary={summary(card.node.actor)} view={view} />
               : <GroupCard node={card.node} onToggle={toggle} open={open(card.node)} view={view} />}
           </li>)}
         </ul>
@@ -196,36 +186,28 @@ export function ActorGraph({ actors, fill = false, onDragStart, onPick, selected
   </div>;
 }
 
-function ActorCard({ actor, current, onDragStart, onPick, summary, technical, timing, view }: {
+function ActorCard({ actor, current, onDragStart, onPick, summary, view }: {
   actor: RunActor;
   current: boolean;
   onDragStart?: () => void;
   onPick: (actor: RunActor) => void;
   summary: string | undefined;
-  technical: boolean;
-  timing: ActorTiming | undefined;
   view: RunView;
 }) {
   const drag = useDockPanelDrag();
-  const pending = pendingInputCount(view, actor.id);
-  const status = addresseeStatus(view, actor);
-  const name = actor.displayName.trim();
-  const named = name !== "" && lower(name) !== lower(actor.handle) && name !== summary ? `, ${name}` : "";
-  return <InteractiveItem aria-current={current || undefined} className={cn(cardClass, drag && "touch-none cursor-grab active:cursor-grabbing")} data-actor-handle={actorAddress(actor)}
+  const state = graphActorState(view, actor);
+  const label = actor.lifecycle?.kind === "stopped" ? "stopped" : state === "waiting" ? "waiting for input" : state;
+  return <InteractiveItem aria-current={current || undefined} className={cn(cardClass, "p-2", drag && "touch-none cursor-grab active:cursor-grabbing")} data-actor-handle={actorAddress(actor)}
     onClick={(event) => { if (!drag || event.detail === 0) onPick(actor); }}
     onPointerDown={drag && ((event) => { event.stopPropagation(); drag(event, `actor:${actor.id}`, () => onPick(actor), onDragStart); })}
-    title={`@${actorAddress(actor)}${named}, ${actorType(actor, technical)}, ${addresseeStatusWord(status)}. Address messages to @${actorAddress(actor)}`} type="button">
+    title={`Address messages to @${actorAddress(actor)}`} type="button">
     <span className="flex min-w-0 items-center gap-2">
-      <ActorIcon actor={actor} className="size-5" view={view} />
+      <span aria-label={label} data-actor-state={state} role="img" title={label}>
+        <span aria-hidden><RunStateIcon className="pointer-events-none" state={state} /></span>
+      </span>
       <span className="min-w-0 flex-1 truncate font-semibold">@{actorAddress(actor)}</span>
-      {pending > 0 && <Badge className="h-4 min-w-4 px-1 text-[0.6rem]" title={waitingInputs(pending)} tone="warning">{pending}</Badge>}
     </span>
-    <span className={lineClass}>
-      <span className={cn("min-w-0 truncate", statusClass[status])} data-addressee-status={status}>{addresseeStatusWord(status)}</span>
-      {timing?.kind === "running" && <span className="ml-auto flex-none text-active tabular-nums" data-actor-duration="running" title="Running time of the current turn"><Elapsed since={timing.since} /></span>}
-      {timing?.kind === "finished" && <span className="ml-auto flex-none text-muted-foreground tabular-nums" data-actor-duration="finished" title="Duration of the last turn">last turn {formatDuration(timing.milliseconds)}</span>}
-    </span>
-    <span className="min-w-0 truncate text-[0.66rem] text-muted-foreground">{summary}</span>
+    {summary && <span className="line-clamp-3 min-w-0 text-[0.66rem] wrap-anywhere whitespace-pre-line text-muted-foreground" data-actor-description title={summary}>{summary}</span>}
   </InteractiveItem>;
 }
 
@@ -234,7 +216,7 @@ function GroupCard({ node, onToggle, open, view }: { node: AddresseeGroupNode; o
   const counts = addresseeStatusCounts(view, actors);
   const running = actors.some((actor) => actor.lifecycle?.kind === "running");
   const pending = actors.reduce((sum, actor) => sum + pendingInputCount(view, actor.id), 0);
-  return <InteractiveItem aria-expanded={open} className={cn(cardClass, !open && stackClass)} data-addressee-group={node.label} onClick={() => onToggle(node.key)}
+  return <InteractiveItem aria-expanded={open} className={cn(cardClass, "px-3 py-2", !open && stackClass)} data-addressee-group={node.label} onClick={() => onToggle(node.key)}
     title={`${node.label}: ${actors.length} similar actors, ${counts}. Click ${open ? "collapses the group" : "shows all"}`} type="button">
     <span className="flex min-w-0 items-center gap-2">
       <span className="grid size-5 flex-none place-items-center rounded-full bg-muted text-foreground [&>svg]:size-3">{running ? <Spinner aria-hidden className="size-3" /> : <UsersIcon />}</span>
@@ -245,13 +227,4 @@ function GroupCard({ node, onToggle, open, view }: { node: AddresseeGroupNode; o
     <span className={cn(lineClass, "text-muted-foreground")}>{actors.length} actors</span>
     <span className="min-w-0 truncate text-[0.66rem] text-muted-foreground">{counts}</span>
   </InteractiveItem>;
-}
-
-function Elapsed({ since }: { since: number }) {
-  const [now, setNow] = useState(() => Date.now());
-  useEffect(() => {
-    const timer = window.setInterval(() => setNow(Date.now()), 1000);
-    return () => window.clearInterval(timer);
-  }, []);
-  return formatDuration(now - since);
 }

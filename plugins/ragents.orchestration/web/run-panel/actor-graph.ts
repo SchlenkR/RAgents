@@ -1,4 +1,5 @@
-import type { RunView } from "@ragents/web/run-view";
+import type { RunActor, RunView } from "@ragents/web/run-view";
+import type { RunStateName } from "@ragents/web/ui";
 import { addresseeStatus, type AddresseeGroupNode, type AddresseeNode, type AddresseeStatus } from "./addressee-tree";
 
 export const GRAPH_CARD_WIDTH = 216;
@@ -89,10 +90,6 @@ export interface GraphPan {
   top: number;
 }
 
-export type ActorTiming =
-  | { kind: "running"; since: number }
-  | { kind: "finished"; milliseconds: number };
-
 export const graphNodeKey = (node: AddresseeNode): string => node.kind === "actor" ? `actor:${node.actor.id}` : `group:${node.key}`;
 
 /** How many cards fit side by side in a canvas of this width, including the gutter of wrapped rows. */
@@ -124,38 +121,21 @@ export const clampGraphPan = (viewport: GraphViewport, pan: GraphPan): GraphPan 
 export const graphPanTo = (viewport: GraphViewport, layoutX: number, layoutY: number, viewX: number, viewY: number): GraphPan =>
   clampGraphPan(viewport, { left: viewport.left + layoutX - viewX, top: viewport.top + layoutY - viewY });
 
-/** The state an edge and a card show: a group works as soon as one member works and is stopped only when all are. */
+/** An edge's state: a group works as soon as one member works and is stopped only when all are. */
 export const graphNodeStatus = (view: RunView, node: AddresseeNode): AddresseeStatus => {
   if (node.kind === "actor") return addresseeStatus(view, node.actor);
   const statuses = new Set(node.members.map((member) => addresseeStatus(view, member.actor)));
   return statuses.has("running") ? "running" : statuses.has("input") ? "input" : statuses.size === 1 && statuses.has("stopped") ? "stopped" : "waiting";
 };
 
-/** "12s", "1m 12s", "2h 5m", "3d 4h". */
-export const formatDuration = (milliseconds: number): string => {
-  const seconds = Math.max(0, Math.floor(milliseconds / 1000));
-  if (seconds < 60) return `${seconds}s`;
-  const minutes = Math.floor(seconds / 60);
-  if (minutes < 60) return `${minutes}m ${seconds % 60}s`;
-  const hours = Math.floor(minutes / 60);
-  if (hours < 24) return `${hours}h ${minutes % 60}m`;
-  return `${Math.floor(hours / 24)}d ${hours % 24}h`;
-};
-
-/** Per actor the start of its running turn, otherwise the duration of its last finished turn; nothing if it never finished one. */
-export const actorTimings = (view: RunView): ((actorId: string) => ActorTiming | undefined) => {
-  const finished = new Map<string, number>();
-  for (const turn of view.turns) {
-    const duration = turn.finishedAt === null ? Number.NaN : Date.parse(turn.finishedAt) - Date.parse(turn.startedAt);
-    if (!Number.isNaN(duration)) finished.set(turn.actorId, duration);
-  }
-  const running = new Map(view.actors.flatMap((actor) => actor.lifecycle?.kind === "running" ? [[actor.id, Date.parse(actor.lifecycle.startedAt)] as const] : []));
-  return (actorId) => {
-    const since = running.get(actorId);
-    if (since !== undefined && !Number.isNaN(since)) return { kind: "running", since };
-    const milliseconds = finished.get(actorId);
-    return milliseconds === undefined ? undefined : { kind: "finished", milliseconds };
-  };
+export const graphActorState = (view: RunView, actor: RunActor): RunStateName => {
+  const status = addresseeStatus(view, actor);
+  if (status === "stopped") return "cancelled";
+  if (status === "input") return "waiting";
+  if (status === "running") return "running";
+  if (view.pause || actor.held) return "paused";
+  const last = view.turns.findLast((turn) => turn.actorId === actor.id);
+  return last?.status === "failed" ? "failed" : last?.status === "interrupted" ? "cancelled" : "idle";
 };
 
 const chunks = <T>(items: readonly T[], size: number): T[][] =>

@@ -3242,16 +3242,19 @@ the pan limits allow; the position is applied again on the first resize notifica
 popout has moved to fit its new size. `ActorGraph` (`ActorGraph.tsx`) is the only renderer, used by
 the recipient popout without a header (its label only names the dialog, the close button sits in
 the top right corner) and by the "Agents" workspace tab. The workspace graph measures its
-panel's available body dimensions and pans within them. Per
-card there are the handle, the state (`working` with a spinner, `waiting for input` for an open
-action of the actor, `waiting`, or `stopped`), a time, the short description (the actor's
-`description`, otherwise the first line of its first own input, shortened to 90 characters,
-otherwise a differing display name), and the number of pending inputs. The time of a running
-actor counts every second from `startedAt` of its running lifecycle, that is, the start of its
-current turn; otherwise it is "last turn" with `finishedAt - startedAt` of its last finished turn
-in `RunView.turns`, and without one there is none (`actorTimings`). A click chooses the recipient.
-The three text rows do not shrink; their card height follows root font changes through a rem
-probe and the same layout calculation, keeping task text inside the card.
+panel's available body dimensions and pans within them. Actor cards show only the shared
+`RunStateIcon` beside `@handle`, then the description. `graphActorState` maps working actors to
+`running`, open actions to `waiting`, otherwise waiting actors to `idle`, held or paused actors
+to `paused`, stopped actors to `cancelled`, and the latest failed or interrupted turn to `failed`
+or `cancelled`. Current work and open actions take precedence over old turn results; stopped
+actors retain their state during a pause. The ring's accessible label and tooltip name the state,
+with "stopped" for a stopped actor. Kind icons, status rows, times, and pending-input badges do
+not occupy actor cards; group cards retain their existing counts and controls. The description
+is the actor's `description`, otherwise its full first own input, otherwise a differing display
+name. Related padding (2 units) replaces the former 3-unit horizontal padding; three whole
+description lines fit inside the unchanged 216-pixel width and 5.5rem height, with the full text
+as a tooltip. The height still follows root font changes through the same rem probe and layout
+calculation. A click chooses the recipient.
 In browser runs, dragging an actor card in either graph or the addressee chip
 opens or moves that actor's separate chat window through `useDockPanelDrag`. These gestures
 use the dock's threshold, guides, and cancellation. Graph background and group-card drags still

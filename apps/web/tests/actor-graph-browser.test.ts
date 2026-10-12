@@ -92,8 +92,25 @@ const savedDockLayout = (page: Page) => page.evaluate(() => Object.entries(local
 const assertCardRowsFit = async (dialog: Locator, label: string) => {
   const cards = await dialog.locator("button[data-actor-handle], button[data-addressee-group]").evaluateAll((buttons) => buttons.map((button) => {
     const bounds = button.getBoundingClientRect();
+    const style = getComputedStyle(button);
+    const root = document.documentElement;
+    const description = button.querySelector<HTMLElement>("[data-actor-description]");
     return {
       handle: button.getAttribute("data-actor-handle") ?? button.getAttribute("data-addressee-group"),
+      group: button.hasAttribute("data-addressee-group"),
+      width: bounds.width,
+      height: bounds.height,
+      fontSize: parseFloat(getComputedStyle(root).fontSize),
+      zoom: parseFloat(getComputedStyle(root).zoom),
+      padding: [style.paddingTop, style.paddingRight, style.paddingBottom, style.paddingLeft].map(parseFloat),
+      description: description && {
+        text: description.textContent,
+        title: description.title,
+        clamp: getComputedStyle(description).webkitLineClamp,
+        height: description.getBoundingClientRect().height,
+        lineHeight: parseFloat(getComputedStyle(description).lineHeight),
+        clipped: description.scrollHeight > description.clientHeight,
+      },
       top: bounds.top,
       bottom: bounds.bottom,
       rows: [...button.children].filter((child) => child.tagName === "SPAN").map((row) => {
@@ -102,9 +119,12 @@ const assertCardRowsFit = async (dialog: Locator, label: string) => {
         const walker = document.createTreeWalker(row, NodeFilter.SHOW_TEXT);
         while (walker.nextNode()) {
           if (!walker.currentNode.textContent?.trim()) continue;
+          if (walker.currentNode.parentElement?.closest('[aria-hidden="true"]')) continue;
           const range = document.createRange();
           range.selectNodeContents(walker.currentNode);
-          for (const rect of range.getClientRects()) textBounds.push({ top: rect.top, bottom: rect.bottom });
+          for (const rect of range.getClientRects()) {
+            if (rect.top < bounds.bottom - 1 && rect.bottom > bounds.top + 1) textBounds.push({ top: rect.top, bottom: rect.bottom });
+          }
         }
         return { top: bounds.top, bottom: bounds.bottom, textBounds };
       }),
@@ -112,7 +132,23 @@ const assertCardRowsFit = async (dialog: Locator, label: string) => {
   }));
   assert.ok(cards.length > 0, `${label} contains graph cards.`);
   for (const card of cards) {
-    assert.equal(card.rows.length, 3, `${label} @${card.handle} shows its handle, status, and summary.`);
+    assert.equal(card.rows.length, card.group ? 3 : card.description ? 2 : 1, `${label} @${card.handle} shows only its state ring, handle, and available description.`);
+    assert.ok(near(card.width, 216 * card.zoom), `${label} @${card.handle} keeps its card width.`);
+    assert.ok(near(card.height, 88 / 16 * card.fontSize * card.zoom), `${label} @${card.handle} keeps its root-scaled card height.`);
+    if (!card.group) {
+      assert.ok(card.padding.every((padding) => Math.abs(padding - 2 * 0.235 * card.fontSize) < 0.01), `${label} @${card.handle} uses related padding on every side.`);
+      if (card.description) {
+        assert.equal(card.description.title, card.description.text, `${label} @${card.handle} exposes its full description as a tooltip.`);
+        assert.equal(card.description.clamp, "3");
+        const lines = card.description.height / (card.description.lineHeight * card.zoom);
+        assert.ok(Math.abs(lines - Math.round(lines)) < 0.05 && lines >= 0.95 && lines <= 3.05, `${label} @${card.handle} fits whole description lines (${lines}).`);
+        if (card.handle === "summary" || card.handle === "implementer") {
+          assert.ok(card.description.clipped, `${label} @${card.handle} exercises the line clamp with a full task.`);
+          assert.ok(Math.abs(lines - 3) < 0.05, `${label} @${card.handle} uses all three available description lines.`);
+          assert.ok(card.description.text!.length > 90, `${label} @${card.handle} retains text beyond the former summary limit.`);
+        }
+      }
+    }
     for (const [index, row] of card.rows.entries()) {
       assert.ok(row.top >= card.top - 1 && row.bottom <= card.bottom + 1,
         `${label} @${card.handle} row ${index + 1} stays inside its card (${row.top}..${row.bottom}, card ${card.top}..${card.bottom}).`);
@@ -174,18 +210,14 @@ test("the addressee pop-out and the agents tool show who created whom as a graph
   assert.equal(await dialog.locator("g[data-tone]").count(), 5, "one edge per created card");
   assert.equal(await dialog.locator("g[data-active=true]").count(), 2, "edges into working actors and groups move");
 
-  await dialog.getByText("Rebuild the chat's addressee list into a graph.", { exact: true }).waitFor();
+  await card("implementer").getByText(/^Rebuild the chat's addressee list into a graph\./).waitFor();
   await dialog.getByText("formats changed files after every step", { exact: true }).waitFor();
-  assert.equal(await card("implementer").locator("[data-addressee-status]").textContent(), "working");
-  assert.equal(await card("test-writer").locator("[data-addressee-status]").textContent(), "waiting");
-  assert.equal(await card("test-writer").locator("[data-actor-duration=finished]").textContent(), "last turn 42s");
-  assert.equal(await card("test-writer").getByText("1", { exact: true }).count(), 1, "the waiting input shows as a badge");
-  assert.equal(await card("summary").locator("[data-actor-duration]").count(), 0, "an actor that never finished a turn shows no duration");
-  const elapsed = card("coordinator").locator("[data-actor-duration=running]");
-  const before = await elapsed.textContent();
-  assert.match(before ?? "", /^1m 1\ds$/);
-  await page.waitForTimeout(1200);
-  assert.notEqual(await elapsed.textContent(), before, "the running time ticks");
+  assert.equal(await card("implementer").getByRole("img", { name: "running", exact: true }).getAttribute("title"), "running");
+  assert.equal(await card("test-writer").getByRole("img", { name: "idle", exact: true }).getAttribute("title"), "idle");
+  assert.equal(await dialog.locator("[data-actor-duration], [data-addressee-status]").count(), 0, "actor cards have no state or timing row");
+  assert.equal(await card("test-writer").getByText("1", { exact: true }).count(), 0, "actor cards contain only a ring, handle, and description");
+  assert.equal(await card("implementer").locator("[data-actor-description]").getAttribute("title"),
+    "Rebuild the chat's addressee list into a graph.\nDetails are in the task.\nKeep the creator relationships and all graph interactions intact.\nVerify the result in both hosts.");
 
   assert.equal(await group.getAttribute("aria-expanded"), "false");
   await group.getByText("37 actors", { exact: true }).waitFor();
@@ -212,8 +244,10 @@ test("the addressee pop-out and the agents tool show who created whom as a graph
   assert.equal(await members.count(), 37);
   assert.equal(await dialog.locator(`[data-graph-frame="${reviewGroup}"]`).count(), 1, "the members stand in a frame below the group");
   assert.equal(await node("actor:review-visibility").getAttribute("data-graph-parent"), reviewGroup);
-  assert.equal(await card("review-visibility").locator("[data-addressee-status]").textContent(), "stopped");
-  assert.equal(await card("review-dates").locator("[data-addressee-status]").textContent(), "waiting for input");
+  assert.equal(await card("review-visibility").getByRole("img", { name: "stopped", exact: true }).getAttribute("title"), "stopped");
+  assert.equal(await card("review-visibility").locator("[data-actor-state]").getAttribute("data-actor-state"), "cancelled");
+  assert.equal(await card("review-dates").getByRole("img", { name: "waiting for input", exact: true }).getAttribute("title"), "waiting for input");
+  assert.equal(await card("review-errors").getByRole("img", { name: "failed", exact: true }).getAttribute("title"), "failed");
   const rows = new Set(await members.evaluateAll((buttons) => buttons.map((button) => Math.round(button.getBoundingClientRect().top))));
   assert.ok(rows.size > 1, "37 members wrap into rows");
   await shoot("actor-graph-group-open");

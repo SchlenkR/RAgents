@@ -1033,14 +1033,13 @@ While it names another actor than the run's first chat partner, usually the coor
 next to the name ("Back to @coordinator") returns to that actor at once without opening anything.
 Clicking the chip opens a graph of who created whom drawn from top to bottom, like the
 agent view of a coding assistant: the coordinator at the top, one level below and connected by
-lines the executable actors it started, below those their own subagents. Each card
-shows the handle, the state ("working" with a spinner, "waiting for input" when the actor waits
-for your answer, "waiting", or "stopped"), a time, and the task. A working actor shows how long
-its current turn has been running and counts up every second; the others show "last turn" with
-the duration of their last finished turn, or no time if they never finished one. The task is the
-description given when the actor was created, otherwise the first line of its first assignment,
-otherwise its display name. A badge counts the inputs waiting for the actor, and lines into
-working actors are highlighted. Four or more similar siblings, such as 37 rule reviewers named
+lines the executable actors it started, below those their own subagents. Each card shows a
+state ring beside `@handle`, followed by up to three lines of its task in the same card size.
+The ring spins while the actor works and also shows idle, waiting for your input, paused,
+stopped, or failed work; its tooltip and accessible label name the state. The task is the
+description given when the actor was created, otherwise its full first assignment, otherwise
+its display name. Hover over it to read the full text. Lines into working actors are highlighted.
+The same cards appear in the Agents window, this chooser, and VS Code. Four or more similar siblings, such as 37 rule reviewers named
 `review-...`, appear as one stacked group card with their shared handle prefix, their number,
 and a count per state; click it to show the members in a frame below it, click again to hide
 them. A group that contains the current addressee opens by itself. More children than fit side
