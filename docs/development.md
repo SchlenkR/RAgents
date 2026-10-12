@@ -33,14 +33,14 @@ The terms are described in more detail in `docs/spec/overview.md`.
 
 One line of JSON per command decision, append-only. The line contains the command, its time,
 and an array of its events. `sequence` counts up over all events of the run without gaps.
-The following example shows a line as it is stored in `journal.jsonl` on disk (file format 14),
+The following example shows a line as it is stored in `journal.jsonl` on disk (file format 15),
 indented for reading; IDs, hash, and usage numbers are shortened. It is a completed model step:
 the text as an observable `model.output.completed`, followed by the step itself, which does not
 repeat the text:
 
 ```json
 {
-  "formatVersion": 14,
+  "formatVersion": 15,
   "runId": "example-run",
   "command": {
     "id": "scheduler:review-turn:context:step:4",

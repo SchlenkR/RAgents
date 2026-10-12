@@ -496,10 +496,13 @@ const payloadOf = (type: EventType, value: unknown, path: string) => {
             ], ["presentation", "origin"]);
             if (payload.presentation !== undefined && payload.presentation !== "background")
                 fail(`${path}.presentation`, "must be background");
-            if (payload.origin !== undefined && payload.origin !== "human")
-                fail(`${path}.origin`, "must be human");
-            if (subscriptionInput && Object.hasOwn(payload, "origin"))
-                fail(`${path}.origin`, "is not supported for a subscription input");
+            if (payload.origin !== undefined && payload.origin !== "human") {
+                const origin = exactObject(payload.origin, `${path}.origin`, ["kind", "turnId"]);
+                if (origin.kind !== "restart") fail(`${path}.origin.kind`, "must be restart");
+                stringOf(origin.turnId, `${path}.origin.turnId`);
+            }
+            if (subscriptionInput && payload.origin === "human")
+                fail(`${path}.origin`, "human origin is not supported for a subscription input");
             stringOf(payload.inputId, `${path}.inputId`);
             actorIdOf(payload.actorId, `${path}.actorId`);
             stringArrayOf(payload.artifactIds, `${path}.artifactIds`);
@@ -543,9 +546,19 @@ const payloadOf = (type: EventType, value: unknown, path: string) => {
         }
 
         case "turn.interrupted": {
-            const payload = exactObject(value, path, ["turnId", "reason"]);
+            const payload = exactObject(value, path, ["turnId", "reason"], ["cause"]);
             stringOf(payload.turnId, `${path}.turnId`);
             stringOf(payload.reason, `${path}.reason`);
+            if (payload.cause !== undefined && payload.cause !== "server-stop") fail(`${path}.cause`, "must be server-stop");
+            return;
+        }
+
+        case "turn.restart-recovered": {
+            const payload = exactObject(value, path, ["turnId", "outcome", "reason"]);
+            stringOf(payload.turnId, `${path}.turnId`);
+            if (!["continued", "disabled", "guarded", "unsupported", "paused", "unavailable"].includes(String(payload.outcome)))
+                fail(`${path}.outcome`, "must be continued, disabled, guarded, unsupported, paused or unavailable");
+            nonEmptyStringOf(payload.reason, `${path}.reason`);
             return;
         }
 

@@ -55,6 +55,7 @@ export type WorkspacePlacement = WorkspacePlacementFolder & (
 
 export interface WorkspaceRuntime {
   resolve: (runId: string, emitSystem: (text: string) => void, signal?: AbortSignal) => Promise<SessionWorkspace>;
+  waitUntilReady?: (runId: string, signal: AbortSignal) => Promise<void>;
   describe: () => WorkspaceRuntimeDescription;
   /** The one central place where a flow asks where and in which folder a run works. */
   placementOf: (runId: string) => WorkspacePlacement;

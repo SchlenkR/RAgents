@@ -227,7 +227,7 @@ export function FlowDiagram(props: FlowDiagramProps) {
   const error = prepared.error ?? active?.error;
   const cards = active?.nodes.map((node, index) => ({ ...node, data: { ...graph!.cards[index]!.data, onAction: props.onAction } })) ?? [];
   const viewport = props.viewport ?? "interactive";
-  return <section aria-label={props.label} className={cn(flowSurface, props.className)} data-viewport={viewport} style={{ height: viewport !== "interactive" ? undefined : Number.isFinite(props.height) && props.height! > 0 ? props.height : 360 }}>
+  return <section aria-label={props.label} className={cn(flowSurface, props.className)} data-slot="flow-diagram" data-viewport={viewport} style={{ height: viewport !== "interactive" ? undefined : Number.isFinite(props.height) && props.height! > 0 ? props.height : 360 }}>
     {error ? <p role="alert">The diagram could not be displayed: {error}</p>
       : graph?.cards.length === 0 ? <p role="status">No nodes available.</p>
         : !active ? <p role="status">Loading diagram ...</p>

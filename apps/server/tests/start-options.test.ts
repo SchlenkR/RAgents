@@ -134,7 +134,8 @@ test("the empty chat sees every option with its default, presentation and select
   }));
   try {
     const options = session.startOptions(null);
-    assert.deepEqual(options.map((option) => option.id), [systemPromptStartOptionId, modelStartOptionId]);
+    assert.deepEqual(options.map((option) => option.id), [systemPromptStartOptionId, modelStartOptionId, "ragents.resume-after-restart"]);
+    assert.equal(options[2].value, "on");
     assert.deepEqual(options[0], {
       id: systemPromptStartOptionId,
       owner: "test.product",

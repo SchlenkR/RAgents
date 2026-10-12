@@ -2,6 +2,8 @@ export const systemPromptStartOptionId = "ragents.system-prompt";
 
 export const modelStartOptionId = "ragents.model";
 
+export const restartStartOptionId = "ragents.resume-after-restart";
+
 export interface StartOptionState {
   id: string;
   owner: string;

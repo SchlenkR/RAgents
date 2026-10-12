@@ -83,6 +83,7 @@ export function actorChatHistoryOf(view: RunView, events: readonly JournalEvent[
       case "runtime.output.recorded":
       case "context.compacted":
       case "turn.finished":
+      case "turn.restart-recovered":
       case "turn.interrupted": {
         const actorId = turnActorOf(event.payload.turnId);
         for (const mapped of journalChatEventsOf(event, cursor, interrupted, actorToolId)) append(actorId, mapped, event);

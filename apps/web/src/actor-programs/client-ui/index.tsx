@@ -22,14 +22,14 @@ const appChat = (): ChatConnection => {
 
 const emptyMessages: never[] = [];
 
-const chatDisplay = "flex h-full min-h-0 w-full min-w-0 flex-col text-foreground *:m-0";
+const chatDisplay = "flex h-full min-h-0 w-full min-w-0 flex-col text-foreground";
 
 function ChatMessages(props: ComponentProps<typeof QuasselChatMessages>) {
   return <QuasselHost><QuasselChatMessages codeBlockOptions={chatCodeBlocks} {...props} /></QuasselHost>;
 }
 
 function Markdown(props: ComponentProps<typeof QuasselMarkdown>) {
-  return <QuasselHost><div className="type-prose"><QuasselMarkdown {...props} /></div></QuasselHost>;
+  return <QuasselHost><div className="type-prose" data-slot="markdown"><QuasselMarkdown {...props} /></div></QuasselHost>;
 }
 
 function ChatInput({ onSend, placeholder, ...props }: ChatInputProps) {
@@ -42,7 +42,7 @@ function ChatInput({ onSend, placeholder, ...props }: ChatInputProps) {
 function ChatView({ title, showInput = true, onSend, placeholder, rows = 2, maxRows = 6,
   className, error, disabled, attachmentCapabilities, attachmentCapabilitiesError, ...messages }: ControlledChatProps & { error?: string; disabled?: boolean }) {
   return (
-    <section aria-label={title ?? "Chat"} className={cn(chatDisplay, "[&_[data-chat=composer]]:px-3 [&_[data-chat=composer]]:pb-3", className)}>
+    <section aria-label={title ?? "Chat"} className={cn(chatDisplay, "[&_[data-chat=composer]]:px-3 [&_[data-chat=composer]]:pb-3", className)} data-slot="chat">
       {title && <h2 className="px-4 pt-3 pb-1 text-[14px] font-semibold">{title}</h2>}
       {error && <p className="px-4 py-3 text-[13px] text-destructive" role="alert">{error}</p>}
       <QuasselHost><ChatPanel className="flex-1" composer={showInput && onSend ? <ChatInput

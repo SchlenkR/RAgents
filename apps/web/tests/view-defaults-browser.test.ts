@@ -16,7 +16,7 @@ import { tailwindPlugin } from "./tailwind-plugin";
 const imports = `
 import { createRoot } from "react-dom/client";
 import { useAppState } from "@ragents/client";
-import { AppLayout, Badge, Card, CardContent, CardHeader, CardTitle, DataTable, FilePicker, Form, Grid, Stack, TaskProgress } from "@ragents/client/ui";
+import { AppLayout, Badge, Card, CardContent, CardHeader, CardTitle, DataTable, Field, FieldDescription, FieldError, FilePicker, Form, Grid, Stack, TaskProgress } from "@ragents/client/ui";
 type LatestRun = { title?: string; status?: string; lastActivity?: string; checkedAt?: string; error?: string };
 `;
 const mount = `
@@ -76,6 +76,24 @@ function App() {
       <DataTable title="Records" rows={[]} columns={[{id:"name",label:"Name",value:(row: {name: string}) => row.name}]} rowKey={row => row.name} loading />
       <Form title="Read-only fields" readOnly fields={[{id:"choice",label:"Choice",type:"select",options:[{value:"ready",label:"Ready"}],hint:"Field hint"}]}
         values={{choice:"ready"}} onChange={() => {}} />
+    </section>
+    <section aria-label="Component boundaries">
+      <Card>
+        <h2>Component heading</h2><p>Component paragraph</p>
+        <section><h3>Nested heading</h3><p>Nested paragraph</p></section>
+        <ul><li>First component item</li><li>Second component item</li></ul>
+        <table><tbody><tr><td>Component cell</td></tr></tbody></table>
+      </Card>
+      <Field><span>Field label</span><FieldDescription>Default hint</FieldDescription><span>Field detail</span>
+        <FieldError errors={[{message:"First error"},{message:"Second error"}]} /></Field>
+      <div data-chat="messages"><span>Chat label</span><p>Chat paragraph</p></div>
+    </section>
+    <section aria-label="Explicit component spacing">
+      <Card><p className="mt-4 mb-2">Card margin</p></Card>
+      <AppLayout><p className="mt-4 mb-2">Layout margin</p></AppLayout>
+      <Stack><p className="mt-4 mb-2">Stack margin</p></Stack>
+      <Grid><p className="mt-4 mb-2">Grid margin</p></Grid>
+      <Field><FieldDescription className="mt-4 mb-2">Hint margin</FieldDescription><span>First detail</span><span>Second detail</span></Field>
     </section>
   </>;
 }
@@ -280,5 +298,22 @@ test("semantic views have frame defaults and library rows keep related facts com
   for (const paragraph of [controls.getByText("Loading...", { exact: true }), controls.getByText("Ready", { exact: true }), controls.getByText("Field hint", { exact: true }), controls.getByText("Select files, drag them here, or paste while the file picker is focused.", { exact: true })]) {
     assert.equal(await paragraph.evaluate(element => getComputedStyle(element).marginTop), "0px", "control gaps own paragraph spacing");
   }
+  const boundaries = probeFrame.getByRole("region", { name: "Component boundaries" });
+  for (const text of ["Component heading", "Component paragraph", "Nested heading", "Nested paragraph", "Second component item", "Default hint", "Chat paragraph"]) {
+    assert.equal(await boundaries.getByText(text, { exact: true }).evaluate(element => getComputedStyle(element).marginTop), "0px", "semantic margins stop at component roots and descendants");
+  }
+  assert.equal(await boundaries.getByText("Component heading", { exact: true }).evaluate(element => getComputedStyle(element).fontSize), await boundaries.getByText("Component paragraph", { exact: true }).evaluate(element => getComputedStyle(element).fontSize), "unstyled component headings retain inherited type");
+  const componentLists = await boundaries.getByRole("list").evaluateAll(elements => elements.map(element => ({
+    style: getComputedStyle(element).listStyleType, padding: getComputedStyle(element).paddingLeft,
+    margins: [...element.children].map(child => getComputedStyle(child).marginTop),
+  })));
+  assert.deepEqual(componentLists.map(list => list.style), ["none", "disc"], "plain component lists keep preflight while field errors keep their own markers");
+  assert.ok(componentLists.every(list => list.padding === "0px" && list.margins.every(margin => margin === "0px")));
+  assert.equal(await boundaries.getByRole("cell").evaluate(element => getComputedStyle(element).paddingTop), "0px", "semantic cell padding stays outside components");
+  const explicit = await probeFrame.getByRole("region", { name: "Explicit component spacing" }).locator("p").evaluateAll(elements => elements.map(element => ({
+    top: parseFloat(getComputedStyle(element).marginTop), bottom: parseFloat(getComputedStyle(element).marginBottom),
+  })));
+  assert.equal(explicit.length, 5);
+  for (const margins of explicit) { near(margins.top, library.unit * 4); near(margins.bottom, library.unit * 2); }
   assert.deepEqual(errors, []);
 });

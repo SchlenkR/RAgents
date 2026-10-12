@@ -249,6 +249,30 @@ startup fails. The address stays fixed and a running instance is not terminated.
 set `PORT` must be between 1 and 65535; 0 is invalid. The final server message displays the URL.
 A warning about JavaScript bundle size does not prevent startup.
 
+## Restart the server
+
+Stop the server normally, then start the same profile. By default, actors that were working
+continue automatically in new turns. The journal preserves completed steps, and agents receive
+a restart note asking them to check unfinished work before continuing. Existing queued inputs
+keep their order. User stops, failures, timeouts, paused runs, and deleted runs do not resume.
+External runtime actors stay interrupted; TypeScript actors re-evaluate from journaled state.
+
+Set `host.RESUME_AFTER_RESTART: false` in the profile, or `RESUME_AFTER_RESTART=false` in the
+environment, to disable continuation for every run. The default is `true`; environment values
+must be exactly `true` or `false`. A run started with "After restart" set to "Stay interrupted"
+also remains interrupted. Changing either setting later does not revive a turn already
+processed by recovery.
+
+Each interrupted turn is recovered at most once. If its continuation is interrupted again
+within 60 seconds of starting, it stays interrupted and shows the guard's reason. For a hard
+stop the interval ends when the next startup detects it. A workstation continuation waits up
+to the existing 15-minute timeout for the run's workstation and owner, then checks the workspace
+there before starting model or tool work. A timeout or inaccessible folder fails visibly.
+The host never substitutes a folder on the server.
+
+The journaled interruption and continuation boundaries are in
+[core.md](../spec/core.md#continue-after-a-server-restart).
+
 ## Connect MCP servers
 
 The neutral profiles include `ragents.mcp` with an empty `MCP_SERVERS` map. In your profile,
@@ -390,6 +414,10 @@ anything. In the browser a new run always works on the server; only VS Code and 
 bind a run to a workstation. VS Code binds every new run to an open folder of its window unless
 the template sets its own workspace.
 
+Before starting, "After restart" defaults to "Continue": actors that were working when the
+server stopped receive a continuation on its next start. Choose "Stay interrupted" to turn
+this off for the run. A profile can disable continuation for all its runs.
+
 Before starting, "Sandbox protection" lets administrators restrict the run's server-side
 code execution. For other users, or when the server requires it, the switch is on and locked.
 The choice cannot change after the run starts. Workstation tools use that workstation's
@@ -408,6 +436,25 @@ Inside the run, the coordinator processes the task. Additional agents and mini-a
 the surface when the workflow creates them. The global coordinator in the header has its own
 conversation and can oversee several runs. The journal and "Executions" tab make events and
 TypeScript calls traceable.
+
+## Continue after a server restart
+
+An agent that was working when the server stopped continues in a new turn. Its chat shows
+"Server restarted. Continuing the interrupted task." It checks unfinished work before continuing,
+including missing tool results, partially written files, and processes that ended. Completed
+work stays recorded. Queued messages retain their order and reach the continuation through
+normal steering.
+
+Your "Stop work", "Stop run", or individual turn interruption does not trigger this recovery.
+Failures and turn timeouts do not either. A continuation interrupted again within 60 seconds
+of starting stays interrupted, with the reason shown in chat. External runtime actors also stay
+interrupted; TypeScript actors re-evaluate their original input from saved state.
+
+For a run on a workstation, continuation waits for the same workstation to reconnect and for
+its folder to be accessible. After the existing 15-minute timeout, a failed turn shows the
+cause. Reconnect the workstation before sending a new message if the wait has expired.
+
+See [Restart the server](../operations.md#restart-the-server) for the profile setting.
 
 ## Use chat and mini-apps
 

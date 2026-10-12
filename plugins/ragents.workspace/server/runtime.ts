@@ -4,6 +4,7 @@ import type { JsonValue, Orchestration, RunState, WorkspaceToolNaming } from "@r
 import { DomainError } from "@ragents/engine";
 import {
   RUN_FOLDER_OPERATIONS,
+  FILE_OPERATIONS,
   type RunFolderCreated,
   type SandboxHomeEnvironment,
   type WorkspaceExecuteOptions,
@@ -324,6 +325,17 @@ export class RunWorkspaceRuntime implements WorkspaceRuntime {
     const resolved = await this.#withRoots(workspace, onWorkstation);
     signal?.throwIfAborted();
     return resolved;
+  }
+
+  async waitUntilReady(runId: string, signal: AbortSignal): Promise<void> {
+    const state = this.#options.runState(runId);
+    const binding = bindingOf(state);
+    if (!isWorkstationBinding(binding)) return;
+    const { machine, folder } = binding;
+    await this.#options.clients.waitUntilConnected(workspaceOwnerOf(state), machine.client, machine.label, signal);
+    signal.throwIfAborted();
+    const executor = this.#options.clients.executorFor(workspaceOwnerOf(state), machine.client, machine.label, folder.path);
+    await executor.execute(runId, FILE_OPERATIONS.list, { path: "" }, { signal });
   }
 
   /** What the prompt says about roots depends on the run's machine: only a bash on the server knows their variables. */

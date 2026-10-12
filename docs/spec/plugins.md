@@ -2329,8 +2329,10 @@ tables with a muted first column, code, quotes, and framed images.
 The frame puts preflight in a lower base sublayer and restores semantic HTML defaults with
 zero-specificity `:where(...)` selectors: shared heading roles, related block spacing (2 units),
 group spacing before headings and sections (3), list markers and indentation, and table cell padding.
-Component styles and Tailwind utilities override them. Mini-app layouts own their gaps and clear
-direct child margins: `AppLayout` uses 3 units for content rhythm and nested padding, `Stack`
+The defaults exclude library roots with `data-slot` or `data-chat` and their descendants; mini-app
+building blocks use `data-slot` like the shared host controls. Component styles and Tailwind utilities
+override the defaults on plain view content. Layouts and cards preserve explicit child margins while
+owning their gaps: `AppLayout` uses 3 units for content rhythm and nested padding, `Stack`
 defaults to 2, responsive `Grid` to 3. Cards retain equal padding and gaps (4, or 3 with `size="sm"`)
 and `Badge` remains compact and inline. Authoring guidance uses the existing wrapping
 `Stack direction="row"` for a title and badge, one muted metadata line for related facts, and no

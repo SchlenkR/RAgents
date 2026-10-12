@@ -2848,6 +2848,10 @@
                   },
                   {
                     "type": "string",
+                    "const": "turn.restart-recovered"
+                  },
+                  {
+                    "type": "string",
                     "const": "model.input.presented"
                   },
                   {
@@ -3090,6 +3094,10 @@
                       {
                         "type": "string",
                         "const": "turn.interrupted"
+                      },
+                      {
+                        "type": "string",
+                        "const": "turn.restart-recovered"
                       },
                       {
                         "type": "string",

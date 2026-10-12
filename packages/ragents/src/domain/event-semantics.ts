@@ -15,6 +15,7 @@ import type {
 } from "./model.ts";
 import { addressOf, sharesNames } from "./actor-reference.ts";
 import { eventSubjectOf, isPendingActorInput, actorStatePluginId } from "./model.ts";
+import { modelContextLog } from "../agents/model-context.ts";
 import { isObservableEventType } from "./vocabulary.ts";
 import { belongsToModelContext } from "./model-context-boundary.ts";
 
@@ -424,13 +425,26 @@ export const assertEventSemantics = (
             if (event.payload.origin === "human" && existingActorOf(state, event.actorId).kind !== "human")
                 throw new Error(`Input ${event.payload.inputId} of human origin was not enqueued by a human actor.`);
 
+            if (typeof event.payload.origin === "object") {
+                const previous = state.turns.get(event.payload.origin.turnId);
+                if (!previous || previous.actorId !== target.id || previous.restartRecovery?.outcome !== "continued")
+                    throw new Error(`Restart input ${event.payload.inputId} has no continued interrupted turn of actor ${target.id}.`);
+                if ([...state.inputs.values()].some((input) => typeof input.origin === "object" && input.origin.turnId === previous.id))
+                    throw new Error(`Turn ${previous.id} already has a restart input.`);
+                const original = state.inputs.get(previous.inputId)!;
+                if (target.kind === "script" && (event.payload.subscriptionId !== original.subscriptionId
+                    || JSON.stringify(event.payload.sourceEventIds) !== JSON.stringify(original.sourceEventIds)
+                    || (original.subscriptionId === null && event.payload.content !== original.content)))
+                    throw new Error(`Restart input ${event.payload.inputId} changes the original TypeScript input.`);
+            }
+
             if (event.payload.subscriptionId) {
                 const subscription = state.subscriptions.get(event.payload.subscriptionId);
 
                 if (!subscription)
                     throw new Error(`Subscription ${event.payload.subscriptionId} does not exist.`);
 
-                if (subscription.status !== "active")
+                if (subscription.status !== "active" && typeof event.payload.origin !== "object")
                     throw new Error(`Subscription ${subscription.id} is not active.`);
 
                 if (subscription.subscriberId !== target.id || event.actorId !== target.id)
@@ -515,6 +529,15 @@ export const assertEventSemantics = (
             break;
         }
 
+        case "turn.restart-recovered": {
+            const turn = state.turns.get(event.payload.turnId);
+            if (!turn || turn.status !== "interrupted" || turn.restartRecovery)
+                throw new Error(`Turn ${event.payload.turnId} is not an unrecovered interrupted turn.`);
+            if (event.actorId !== state.ownerId && event.actorId !== turn.actorId)
+                throw new Error(`Actor ${event.actorId} cannot recover turn ${turn.id}.`);
+            break;
+        }
+
         case "model.input.presented": {
             const turn = runningTurnOf(state, event.payload.turnId);
             assertTurnAuthor(turn, event);
@@ -556,14 +579,18 @@ export const assertEventSemantics = (
                 throw new Error(`Compaction keeps from ${firstKept.eventId}, which is outside this actor's context.`);
 
             const retained = event.payload.retainedToolResultIds ?? [];
+            const entries = retained.length > 0 ? modelContextLog(events, turn.actorId, (hash) => hash) : [];
+            const firstKeptIndex = entries.findIndex((entry) => entry.id === firstKept.eventId);
             if (new Set(retained).size !== retained.length)
                 throw new Error("Compaction repeats a retained tool result.");
             for (const id of retained) {
                 const result = context.events.get(id);
-                if (!result || result.type !== "model.tool-result.presented" || result.sequence >= firstKept.sequence)
-                    throw new Error(`Compaction retains ${id}, which is not an archived tool result.`);
-                if (!belongsToModelContext(events, turn.actorId, result))
+                if (result?.type === "model.tool-result.presented" && result.sequence < firstKept.sequence
+                    && !belongsToModelContext(events, turn.actorId, result))
                     throw new Error(`Compaction retains ${id}, which is outside this actor's context.`);
+                const index = entries.findIndex((entry) => entry.id === id && entry.kind === "message" && entry.message.role === "toolResult");
+                if (index < 0 || index >= firstKeptIndex)
+                    throw new Error(`Compaction retains ${id}, which is not an archived tool result.`);
             }
             break;
         }

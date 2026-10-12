@@ -236,7 +236,7 @@ test("an accepted occurrence recovers its missing input exactly once before the 
   assert.equal(f.state("check").key, key);
 });
 
-test("an engine restart interrupts a claimed trigger input and the triggers finalize it without replay", { timeout: 60000 }, async (t) => {
+test("an engine restart continues a claimed trigger input once and the triggers settle its new turn", { timeout: 60000 }, async (t) => {
   const f = await triggerFixture(t);
   await f.activate("check", programFiles(count));
   await f.trigger("check");
@@ -248,19 +248,18 @@ test("an engine restart interrupts a claimed trigger input and the triggers fina
   f.setup.runtime.appendRuntimeOutput({ actorId, turnId: turn.id, commandId: "output-before-crash" }, f.runId, actorId, { turnId: turn.id, text: "Before restart" });
   f.setup.runtime = new Orchestration(f.setup.journal, f.setup.services);
   await f.restart();
-  await until(() => f.progress("check").lastResult !== null);
+  assert.equal(f.progress("check").lastResult, null);
+  f.scheduler.start();
+  await f.settled("check");
   const interrupted = await f.status("check");
-  assert.equal(interrupted.lastResult?.outcome, "interrupted");
-  assert.match(interrupted.lastResult!.summary, /restart of the runtime/);
-  assert.deepEqual(interrupted.state, {});
+  assert.equal(interrupted.lastResult?.outcome, "completed");
+  assert.equal(interrupted.state.count, 1);
+  assert.deepEqual(interrupted.state.reasons, ["manual"]);
   assert.ok(interrupted.log.some((line) => line.text === "Before restart"));
   await f.restart();
   await new Promise((resolve) => setTimeout(resolve, 50));
   assert.deepEqual(await f.status("check"), interrupted);
-  assert.equal(f.inputs(), 1);
-  await f.trigger("check");
-  f.scheduler.start();
-  await f.settled("check");
+  assert.equal(f.inputs(), 2);
   assert.equal(f.state("check").count, 1);
 });
 

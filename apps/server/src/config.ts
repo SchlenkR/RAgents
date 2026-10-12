@@ -22,6 +22,7 @@ export const hostConfigDescriptors = [
   { key: "PRODUCT_ID", source: "environment" },
   { key: "PRODUCT_TITLE", source: "environment" },
   { key: "RAGENTS_BASH_TIMEOUT_SECONDS", source: "environment" },
+  { key: "RESUME_AFTER_RESTART", source: "environment" },
   { key: "ACCESS_TOKEN", source: "environment", secret: true },
 ] as const;
 
@@ -32,6 +33,10 @@ export const HOST_SECRET_ENV_NAMES: readonly string[] = hostConfigDescriptors
   .map((descriptor) => descriptor.key);
 
 const env = declaredEnvironment(hostConfigDescriptors);
+
+const resumeAfterRestart = env.value("RESUME_AFTER_RESTART", "true");
+if (resumeAfterRestart !== "true" && resumeAfterRestart !== "false")
+  throw new Error("RESUME_AFTER_RESTART must be true or false");
 
 export const config = Object.freeze({
   port: Number(env.value("PORT", "4710")),
@@ -45,6 +50,7 @@ export const config = Object.freeze({
   productId: env.required("PRODUCT_ID"),
   productTitle: env.required("PRODUCT_TITLE"),
   plugins: env.list("PLUGINS"),
+  resumeAfterRestart: resumeAfterRestart === "true",
 });
 
 export type Config = typeof config;

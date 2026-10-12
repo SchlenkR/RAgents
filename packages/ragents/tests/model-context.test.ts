@@ -267,7 +267,7 @@ test("model context: a provider error the runtime retries and an interrupted tur
     }
 });
 
-test("model context: an abort in the middle of a parallel tool batch keeps the presented results and leaves the rest to the request's synthetic results", async () => {
+test("model context: an aborted parallel tool batch keeps presented results and closes missing results from the journal", async () => {
     let abort: (() => void) | undefined;
     const slow = defineRunFunction({
         name: "slow", label: "slow", description: "Tool slow.", nativeTool: true,
@@ -295,7 +295,10 @@ test("model context: an abort in the middle of a parallel tool batch keeps the p
         assert.ok(presented.includes("call-fast") && !presented.includes("call-slow"), `partially presented: ${presented.join(", ")}`);
         const roles = seen!.messages.map((message) => message.role);
         const results = seen!.messages.flatMap((message) => message.role === "toolResult" ? [message.toolCallId] : []);
-        assert.deepEqual(results, presented, "the model context holds exactly the presented results; transform-messages answers the others");
+        assert.deepEqual(results, ["call-fast", "call-slow", "call-quick"]);
+        assert.ok(presented.every((id) => results.includes(id)));
+        const missing = seen!.messages.find((message) => message.role === "toolResult" && message.toolCallId === "call-slow");
+        assert.equal(missing?.role === "toolResult" && missing.isError, true);
         assert.deepEqual(roles.slice(-2 - results.length), ["assistant", ...results.map(() => "toolResult"), "user"]);
         const full = modelContextOf(setup.runtime.events(setup.runId), worker, (hash) => setup.runtime.mediaContent(hash));
         assert.equal(JSON.stringify(setup.runtime.modelContext(setup.runId, worker)), JSON.stringify(full));

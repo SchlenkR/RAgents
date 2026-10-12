@@ -22,6 +22,15 @@ before the start. The server checks it again after loading the configuration, be
 initializes plugins. A port in use is a clear start error; neither is another address chosen nor
 is a running instance terminated. The start message names the fixed URL and storage location.
 
+`host.RESUME_AFTER_RESTART` is a boolean, default `true`. Only `true` and `false` are valid
+environment values. Setting it to `false` prevents automatic continuation of turns interrupted
+by a server stop for every run in the profile. The existing run start option
+`ragents.resume-after-restart` accepts `"on"` or `"off"`, default `"on"`; its interface label is
+"After restart", with "Continue" and "Stay interrupted" choices. A run cannot override a
+profile-level `false`. Startup records the disabled outcome once for each affected turn rather
+than reviving it if the setting changes later. The recovery boundary and crash-loop guard are
+in [core.md](core.md#continue-after-a-server-restart).
+
 With `--dev`, the backend port stays the same. Vite always uses the backend port plus 1000, so
 5710 for `core`, with `strictPort`; `API_TARGET` points to the configured backend. Both ports are
 checked beforehand and must differ. A standalone `pnpm dev:web` uses port 5710 and

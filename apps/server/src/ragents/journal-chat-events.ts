@@ -60,6 +60,8 @@ export const journalChatEventsOf = (
         { kind: "system", text: event.payload.reason, at },
         { kind: "turn-done" },
       ];
+    case "turn.restart-recovered":
+      return [{ kind: "system", text: event.payload.reason, at }];
     case "actor.stopped":
       return [{ kind: "system", text: event.payload.reason, at }];
     case "context.compacted":

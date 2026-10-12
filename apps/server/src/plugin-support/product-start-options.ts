@@ -4,6 +4,7 @@ import { displayProvider } from "./model-aliases.js";
 import type { ModelChoice } from "./model-choice.js";
 import type { SystemPromptCatalog } from "./system-prompts.js";
 import { modelStartOptionId, systemPromptStartOptionId } from "../ragents/start-option-state.js";
+import { restartStartOptionId } from "./start-options-contract.js";
 
 export interface ModelStartOptionValue {
   model: string;
@@ -106,4 +107,16 @@ export interface ProductStartOptionSources {
 export const productStartOptions = (sources: ProductStartOptionSources): StartOptionContribution[] => [
   ...(sources.systemPrompts().options.length > 0 ? [systemPromptStartOption(sources.systemPrompts)] : []),
   modelStartOption(sources.modelChoice, sources.coordinatorThinking),
+  {
+    id: restartStartOptionId,
+    schema: Type.Union([Type.Literal("on"), Type.Literal("off")]),
+    selectable: () => true,
+    changeable: true,
+    defaultValue: () => "on",
+    accept: (value) => value,
+    describe: () => ({ kind: "choice", label: "After restart", options: [
+      { value: "on", label: "Continue" },
+      { value: "off", label: "Stay interrupted" },
+    ] }),
+  },
 ];

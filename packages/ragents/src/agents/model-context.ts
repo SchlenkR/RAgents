@@ -83,6 +83,7 @@ class OwnContextLog {
     readonly #media: MediaSource;
     readonly #toolResults = new Map<string, ToolEvent>();
     readonly #observedByCommand = new Map<string, JournalEvent[]>();
+    readonly #pendingTools = new Map<string, { turnId: string; id: string; name: string }>();
 
     constructor(actorId: string, media: MediaSource) {
         this.#actorId = actorId;
@@ -91,6 +92,8 @@ class OwnContextLog {
 
     /** Takes one event of the run; true when the context of the actor changed. */
     apply(event: JournalEvent): boolean {
+        if (event.type === "turn.interrupted" || (event.type === "turn.finished" && event.payload.outcome === "failed"))
+            return this.#closeTools(event);
         if (event.actorId !== this.#actorId)
             return false;
 
@@ -112,6 +115,9 @@ class OwnContextLog {
             }
 
             case "model.step.completed":
+                for (const block of event.payload.content)
+                    if (block.type === "toolCall")
+                        this.#pendingTools.set(`${event.payload.turnId}\0${block.id}`, { turnId: event.payload.turnId, id: block.id, name: block.name });
                 this.entries.push({ kind: "message", id: event.eventId, message: assistantMessageOf(event, this.#observedByCommand.get(event.commandId) ?? []) });
                 this.#observedByCommand.delete(event.commandId);
                 return true;
@@ -120,6 +126,7 @@ class OwnContextLog {
                 const key = `${event.payload.turnId}\0${event.payload.toolCallId}`;
                 this.entries.push({ kind: "message", id: event.eventId, message: toolResultMessageOf(event, this.#toolResults, this.#media) });
                 this.#toolResults.delete(key);
+                this.#pendingTools.delete(key);
                 return true;
             }
 
@@ -140,6 +147,23 @@ class OwnContextLog {
             default:
                 return false;
         }
+    }
+
+    #closeTools(event: Extract<JournalEvent, { type: "turn.interrupted" | "turn.finished" }>): boolean {
+        const pending = [...this.#pendingTools.entries()].filter(([, call]) => call.turnId === event.payload.turnId);
+        for (const [key, call] of pending) {
+            const result = this.#toolResults.get(key);
+            const reason = "reason" in event.payload ? event.payload.reason : "The turn ended.";
+            this.entries.push({ kind: "message", id: `${event.eventId}:tool:${call.id}`, message: {
+                role: "toolResult", toolCallId: call.id, toolName: call.name, timestamp: timeOf(event),
+                isError: result?.type !== "tool.call.completed",
+                content: [{ type: "text", text: result ? derivedToolResultText(result)
+                    : `The tool call was interrupted: ${reason} Its effects may have happened; check the state before retrying.` }],
+            } });
+            this.#pendingTools.delete(key);
+            this.#toolResults.delete(key);
+        }
+        return pending.length > 0;
     }
 }
 

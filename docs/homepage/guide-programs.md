@@ -313,6 +313,8 @@ restart continues without a client: an overdue trigger produces one occurrence a
 future time, without a catch-up backlog, and an occurrence that was accepted but not yet queued is
 queued once. A failed, interrupted, or timed-out input backs off the next automatic occurrence by 60
 seconds, doubling with every further failure up to one hour; a completed input ends the backoff.
+When engine recovery creates a restart continuation, trigger tracking follows its turn chain
+and settles the resumed outcome instead of finalizing the interrupted source turn.
 `actor_program_pause` pauses the automatic triggers and lets accepted work finish; resuming plans
 the next occurrence from now and clears the backoff and a problem, such as a failed folder watch,
 that blocked the triggers. Pausing or stopping the run holds them, and removing the program ends
@@ -447,6 +449,11 @@ that name waits and no other message to the program is on its way, and queues it
 to the program's own actor, recognized by the command that queued it as a start is. The evaluation
 it causes hands it to the waiting receive; a message that finds no waiting receive by then is
 dropped with a runtime line.
+
+A restart continuation follows its input ancestry to recover the original typed message,
+start, result, or trigger metadata. If its delivery envelope was already consumed, the host
+reads it from the historical journal projection without consuming it or recording the start
+again. Evaluation resumes from committed slots, preserving completed journaled steps.
 
 The host wakes the program through its triggers ([Triggers](#triggers)): at `wakeAt`, the earliest
 of its waiting time, a receive's timeout, the next recurring occurrence, and a retry after a

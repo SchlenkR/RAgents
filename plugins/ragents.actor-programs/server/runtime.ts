@@ -5,7 +5,7 @@ import path from "node:path";
 import { isDeepStrictEqual } from "node:util";
 import { Type, type TSchema } from "typebox";
 import { Value } from "typebox/value";
-import { actorByHandle, actorDescriptionMaxLength, addressFrom, addressOf, agentTools, assertJsonValue, canonicalHash, defineRunFunction, defineToolAvailability, emptyUsage, freeRoomName, handleKey, inheritedGrants, runCapabilityContractHash, scriptInputOf, schemaComplaints, type AccessContext, type Actor, type ActorProgramExecutor, type RunFunction, type CommandContext, type ExecutableActor, type JsonValue, type OperationContext, type Orchestration, type PluginContext, type RunCapabilityDescriptor, type RunView, type TurnRequest, type TurnResult, } from "@ragents/engine";
+import { actorByHandle, actorDescriptionMaxLength, addressFrom, addressOf, agentTools, assertJsonValue, canonicalHash, defineRunFunction, defineToolAvailability, emptyUsage, freeRoomName, handleKey, inheritedGrants, runCapabilityContractHash, scriptInputOf, schemaComplaints, type AccessContext, type Actor, type ActorInput, type ActorProgramExecutor, type RunFunction, type CommandContext, type ExecutableActor, type JsonValue, type OperationContext, type Orchestration, type PluginContext, type RunCapabilityDescriptor, type RunView, type TurnRequest, type TurnResult, } from "@ragents/engine";
 import { ACTOR_PROGRAMS_STATE_ID, ACTOR_INVOCATIONS_STATE_ID, ACTOR_SCRIPT_STATE_ID, ACTOR_STATE_ID, relativeName, resolveActorView, type ActorDataState, type ActorFunctionDefinition, type ActorFunctionInvocation, type ActorPackageOrigin, type ActorProgramDefinition, type ActorProgramIdentity, type ActorProgramState, type ActorScriptDelivery, type ActorScriptPackage, type ActorScriptState, type ActorTriggerProgress, type ActorViewListing, } from "@ragents/host/plugin-support/actor-programs/contract.js";
 import type { ActivatedActorProgram, ActorProgramSource, ActorProgramsService, ActorViewReference, NamedAppSource, RunScriptSources, RunScriptStartInput } from "@ragents/host/plugin-support/actor-programs/service.js";
 import { jsonValue, jsonBytes, MAX_INVOCATIONS_STATE_BYTES } from "./limits.js";
@@ -309,7 +309,7 @@ export class ActorProgramRuntime implements ActorProgramsService, ActorProgramEx
         const view = this.view(runId);
         const running = new Set(view.turns.filter((turn) => turn.status === "running").map((turn) => turn.id));
         const sequences = new Set(view.inputs.filter((input) => actorIds.has(input.actorId)
-            && (input.lifecycle.kind === "pending" || input.lifecycle.kind === "claimed" && running.has(input.lifecycle.turnId))).map((input) => input.sequence));
+            && (input.lifecycle.kind === "pending" || input.lifecycle.kind === "claimed" && running.has(input.lifecycle.turnId))).map((input) => this.#originalInput(view, input).sequence));
         const commands = new Set<string>();
         if (sequences.size === 0)
             return commands;
@@ -630,27 +630,36 @@ export class ActorProgramRuntime implements ActorProgramsService, ActorProgramEx
         }
         return { count };
     }
-    /** A start or result the host queued for this actor, recognized by the command that queued the input; it is consumed here. */
-    #recognize(runId: string, actorId: string, input: { sequence: number; content: string }): Recognized | undefined {
+    #originalInput(view: RunView, input: ActorInput): ActorInput {
+        const origin = input.origin;
+        if (typeof origin !== "object") return input;
+        const turn = view.turns.find((entry) => entry.id === origin.turnId);
+        const original = turn && view.inputs.find((entry) => entry.id === turn.inputId);
+        if (!original) throw new Error(`The original input of restart continuation ${input.id} is missing.`);
+        return this.#originalInput(view, original);
+    }
+    /** A start or result the host queued for this actor, recognized by its original command; a consumed delivery is not consumed again. */
+    #recognize(runId: string, actorId: string, input: { sequence: number; content: string }, restarted = false): Recognized | undefined {
         const state = this.#script(runId);
-        if (!state.deliveries.some((delivery) => delivery.actorId === actorId))
-            return undefined;
         const commandId = this.#commandOf(runId, input.sequence);
-        const delivery = state.deliveries.find((entry) => entry.commandId === commandId && entry.actorId === actorId);
+        const pending = state.deliveries.find((entry) => entry.commandId === commandId && entry.actorId === actorId);
+        const before = restarted && !pending ? scriptStateOf(this.runtime().viewAt(runId, input.sequence).pluginStates
+            .find((entry) => entry.pluginId === ACTOR_SCRIPT_STATE_ID && entry.scope.kind === "run")?.state) : state;
+        const delivery = pending ?? before.deliveries.find((entry) => entry.commandId === commandId && entry.actorId === actorId);
         if (!delivery)
             return undefined;
         const deliveries = state.deliveries.filter((entry) => entry !== delivery);
         if (delivery.kind === "message") {
-            this.#writeScript(runId, { ...state, deliveries });
+            if (pending) this.#writeScript(runId, { ...state, deliveries });
             return { message: { name: delivery.name, value: (JSON.parse(input.content) as { value: JsonValue }).value } };
         }
         if (delivery.kind === "result") {
-            this.#writeScript(runId, { ...state, deliveries });
+            if (pending) this.#writeScript(runId, { ...state, deliveries });
             return { result: JSON.parse(input.content) as JsonValue };
         }
         const record = state.packages[delivery.name];
         const packages = record ? { ...state.packages, [delivery.name]: { ...record, open: [...record.open, { count: delivery.count, startedBy: delivery.startedBy }].slice(-MAX_OPEN_STARTS) } } : state.packages;
-        this.#writeScript(runId, { ...state, packages, deliveries });
+        if (pending) this.#writeScript(runId, { ...state, packages, deliveries });
         const { input: value, options } = JSON.parse(input.content) as { input: JsonValue; options: Record<string, JsonValue> };
         return { start: { input: value, options, embedded: delivery.embedded, startedBy: delivery.startedBy, count: delivery.count, room: roomOfKey(delivery.name) } };
     }
@@ -1261,10 +1270,11 @@ export class ActorProgramRuntime implements ActorProgramsService, ActorProgramEx
             await this.#serial(request.runId, request.agentId, signal, async () => {
                 const { program, descriptors } = await this.#bound(request.runId, request.agentId, undefined, signal, inputOf, descriptorsFor);
                 const binding: BackendBinding = { id: request.turnId, kind: "input", principal: { id: request.agentId, kind: "script" }, descriptorsFor, output, call: (name, input, index) => request.invoke(`${request.turnId}:capability:${index}`, name, input) };
-                const recognized = this.#recognize(request.runId, request.agentId, request.input);
+                const original = this.#originalInput(this.view(request.runId), request.input);
+                const recognized = this.#recognize(request.runId, request.agentId, original, original.id !== request.input.id);
                 if (program.stateAware)
                     return this.#evaluate(request, program, binding, descriptors, signal, recognized && "message" in recognized ? recognized.message : null);
-                const trigger = this.#triggerOf(request.runId, request.agentId, request.input.sequence);
+                const trigger = this.#triggerOf(request.runId, request.agentId, original.sequence);
                 const result = await this.#backend(request.runId, program, { kind: "input", input: { ...scriptInputOf(request.input), ...trigger ? { trigger } : {} }, ...recognized }, binding, descriptors, signal);
                 const finishes = this.#finishesOf(request.runId, program, result.result);
                 this.#commitState(request.runId, request.agentId, result.state, result.initial);

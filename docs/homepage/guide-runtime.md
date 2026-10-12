@@ -60,12 +60,12 @@ contribution adds it before each model request without ending the turn. This is 
 actor-program project diagnostics work for actors equipped with actor-program tools, and how a
 product plugin can provide progress reminders.
 
-A failed turn, or one interrupted by a server restart, is not queued or executed again
-automatically. ActorInputs that were already queued but not yet claimed remain waiting. After
-startup they can be processed if their actor is still executable. Anything a function call has
-recorded in the journal remains valid; a later failure in the same turn does not invalidate it.
-A service waiting for a submitted result therefore does not tie that result's validity to the
-turn outcome.
+A failed turn is not queued or executed again automatically. A server restart can create a new
+continuation input, as described below; the interrupted turn and its claimed input keep their
+recorded outcome. ActorInputs that were already queued but not yet claimed remain waiting in
+their original order. Anything a function call has recorded in the journal remains valid; a
+later interruption or failure in the same turn does not invalidate it. A service waiting for a
+submitted result therefore does not tie that result's validity to the turn outcome.
 
 For an LLM, one turn can include several model requests and TypeScript snippets. `return` ends
 the current snippet and gives its findings to the model. The model can then decide what to do
@@ -73,6 +73,52 @@ and execute another snippet within the same turn. A snippet does not wait for la
 responses or events: a subscription creates a new ActorInput, which reaches the model at the
 earliest after the snippet, as steering or in a later turn. The programming language needs no
 additional decision point for this.
+
+### Continue after a server restart
+
+Startup recognizes work lost to a server stop in two ways: a turn still recorded as running,
+or a `turn.interrupted` carrying `cause: "server-stop"` from orderly shutdown. A user
+interruption, actor or run stop, pause, emergency stop, failure, inactivity timeout, or deletion
+does not request continuation. A paused run stays paused.
+
+For each affected turn, the atomic `recover:<turnId>` command interrupts it if still running,
+records `turn.restart-recovered`, and queues a new input only when continuation is allowed.
+The recovery outcome and reason remain in the journal, including disabled, guarded,
+unsupported, paused, and unavailable outcomes. Each turn is recovered at most once; a later
+startup or settings change cannot revive a suppressed turn.
+
+For a built-in agent, the new input explains that the server restarted while it was working.
+It asks the agent to inspect missing tool results, partially written files, and ended processes,
+then continue its task while preserving completed work and avoiding blind repetition.
+The continuation also carries claimed or steered inputs, with their attachments, that had not
+yet been presented to the model, in their original order, so a stop before its first request
+loses no task. The input's origin is `{ kind: "restart", turnId }`, referring to the interrupted
+turn. The chat
+shows "Server restarted. Continuing the interrupted task." or the suppression reason.
+Completed model and tool steps stay in the projected context; an open tool call appears to the
+model as interrupted. Recovery never executes that call itself.
+
+A TypeScript actor receives its original input in a new turn and re-evaluates its handler from
+journaled state. State-aware actor programs retain their completed journaled steps. Arbitrary external
+side effects outside these journaled steps still need application-level idempotency. External
+actors stay interrupted: the host cannot synthesize a continuation for a plugin runtime that
+owns its task and model context.
+
+The continuation input is claimed before previously queued inputs; those inputs keep their
+relative order and join a built-in agent through normal steering. If a turn that claimed or
+steered a restart input is interrupted again within 60,000 milliseconds of its start, recovery
+records a guarded outcome and queues no further continuation. For an orderly shutdown, this
+uses the interruption time; after a hard stop, it uses the next startup's detection time.
+
+`host.RESUME_AFTER_RESTART` defaults to `true`. The existing run start option
+`ragents.resume-after-restart` accepts `"on"` or `"off"`, defaulting to `"on"`; a profile-level
+`false` disables continuation for every run. A stopped or held actor and an unavailable run
+are not resumed by recovery.
+
+A continuation bound to a workstation waits before model calls and tools for that run's
+workstation and owner to reconnect. It uses the existing 15-minute workstation timeout and
+checks that the workspace is accessible there. A timeout or missing workspace fails the turn
+visibly; the host never substitutes a server folder. The wait observes cancellation.
 
 ## Model context across turns
 
@@ -148,8 +194,10 @@ in effect.
 - Run deletion: The scheduler stops the run. Its agent runtimes are then disposed and plugin
   deletion hooks run. The chat, recovery data, and journal are archived; run-bound plugin
   data, including its logs, is removed afterward.
-- Server shutdown: The scheduler interrupts running work and waits for it to finish. It then
-  shuts down all agent runtimes and plugin services. Persisted run data remains intact.
+- Server shutdown: The scheduler interrupts running work with `cause: "server-stop"` and waits
+  for it to finish. It then shuts down all agent runtimes and plugin services. Persisted run
+  data remains intact; the next startup applies restart recovery (section Continue after a
+  server restart).
 
 After active actor work ends and the first plugin cleanup completes, the host releases remaining
 resources. The run stays locked until this cleanup finishes, even if the stop request has already
