@@ -105,12 +105,12 @@ contribution adds it before each model request without ending the turn. This is 
 actor-program project diagnostics work for actors equipped with actor-program tools, and how a
 product plugin can provide progress reminders.
 
-A failed turn, or one interrupted by a server restart, is not queued or executed again
-automatically. ActorInputs that were already queued but not yet claimed remain waiting. After
-startup they can be processed if their actor is still executable. Anything a function call has
-recorded in the journal remains valid; a later failure in the same turn does not invalidate it.
-A service waiting for a submitted result therefore does not tie that result's validity to the
-turn outcome.
+A failed turn is not queued or executed again automatically. A server restart can create a new
+continuation input, as described below; the interrupted turn and its claimed input keep their
+recorded outcome. ActorInputs that were already queued but not yet claimed remain waiting in
+their original order. Anything a function call has recorded in the journal remains valid; a
+later interruption or failure in the same turn does not invalidate it. A service waiting for a
+submitted result therefore does not tie that result's validity to the turn outcome.
 
 For an LLM, one turn can include several model requests and TypeScript snippets. `return` ends
 the current snippet and gives its findings to the model. The model can then decide what to do
@@ -118,6 +118,52 @@ and execute another snippet within the same turn. A snippet does not wait for la
 responses or events: a subscription creates a new ActorInput, which reaches the model at the
 earliest after the snippet, as steering or in a later turn. The programming language needs no
 additional decision point for this.
+
+### Continue after a server restart
+
+Startup recognizes work lost to a server stop in two ways: a turn still recorded as running,
+or a `turn.interrupted` carrying `cause: "server-stop"` from orderly shutdown. A user
+interruption, actor or run stop, pause, emergency stop, failure, inactivity timeout, or deletion
+does not request continuation. A paused run stays paused.
+
+For each affected turn, the atomic `recover:<turnId>` command interrupts it if still running,
+records `turn.restart-recovered`, and queues a new input only when continuation is allowed.
+The recovery outcome and reason remain in the journal, including disabled, guarded,
+unsupported, paused, and unavailable outcomes. Each turn is recovered at most once; a later
+startup or settings change cannot revive a suppressed turn.
+
+For a built-in agent, the new input explains that the server restarted while it was working.
+It asks the agent to inspect missing tool results, partially written files, and ended processes,
+then continue its task while preserving completed work and avoiding blind repetition.
+The continuation also carries claimed or steered inputs, with their attachments, that had not
+yet been presented to the model, in their original order, so a stop before its first request
+loses no task. The input's origin is `{ kind: "restart", turnId }`, referring to the interrupted
+turn. The chat
+shows "Server restarted. Continuing the interrupted task." or the suppression reason.
+Completed model and tool steps stay in the projected context; an open tool call appears to the
+model as interrupted. Recovery never executes that call itself.
+
+A TypeScript actor receives its original input in a new turn and re-evaluates its handler from
+journaled state. State-aware actor programs retain their completed journaled steps. Arbitrary external
+side effects outside these journaled steps still need application-level idempotency. External
+actors stay interrupted: the host cannot synthesize a continuation for a plugin runtime that
+owns its task and model context.
+
+The continuation input is claimed before previously queued inputs; those inputs keep their
+relative order and join a built-in agent through normal steering. If a turn that claimed or
+steered a restart input is interrupted again within 60,000 milliseconds of its start, recovery
+records a guarded outcome and queues no further continuation. For an orderly shutdown, this
+uses the interruption time; after a hard stop, it uses the next startup's detection time.
+
+`host.RESUME_AFTER_RESTART` defaults to `true`. The existing run start option
+`ragents.resume-after-restart` accepts `"on"` or `"off"`, defaulting to `"on"`; a profile-level
+`false` disables continuation for every run. A stopped or held actor and an unavailable run
+are not resumed by recovery.
+
+A continuation bound to a workstation waits before model calls and tools for that run's
+workstation and owner to reconnect. It uses the existing 15-minute workstation timeout and
+checks that the workspace is accessible there. A timeout or missing workspace fails the turn
+visibly; the host never substitutes a server folder. The wait observes cancellation.
 <!-- /guide:runtime -->
 
 ### Empty responses, tool calls, and toolset
@@ -262,6 +308,13 @@ the projection before every model request (`transformContext`), not from its own
 fails because the turn has ended in the meantime, the loop ends. A crash therefore leaves no half
 step behind: the turn ends as interrupted at the next start, and the next turn begins after the
 last presented input.
+
+At an interrupted or failed turn end, the context projection closes each native tool call whose
+result was not yet presented. If its completed or failed result was journaled, the model receives
+that actual result. Otherwise it receives an error result saying the call was interrupted and
+its effects may have happened. This repair derives only from the journal and never executes a
+tool again. Deterministic recovered tool-result entries can be retained during compaction;
+run forks rewrite their interruption-event references.
 
 ### Projection
 
@@ -592,8 +645,10 @@ in effect.
 - Run deletion: The scheduler stops the run. Its agent runtimes are then disposed and plugin
   deletion hooks run. The chat, recovery data, and journal are archived; run-bound plugin
   data, including its logs, is removed afterward.
-- Server shutdown: The scheduler interrupts running work and waits for it to finish. It then
-  shuts down all agent runtimes and plugin services. Persisted run data remains intact.
+- Server shutdown: The scheduler interrupts running work with `cause: "server-stop"` and waits
+  for it to finish. It then shuts down all agent runtimes and plugin services. Persisted run
+  data remains intact; the next startup applies restart recovery (section Continue after a
+  server restart).
 
 After active actor work ends and the first plugin cleanup completes, the host releases remaining
 resources. The run stays locked until this cleanup finishes, even if the stop request has already
@@ -836,6 +891,11 @@ for a human acting actor (the decision otherwise rejects with `input-origin-inva
 and never on a subscription input. The core evaluates it for the pause: a human input resumes a
 paused run and releases a held actor (section Pausing a run). Plugins read it too, for example
 `ragents.ask` uses it to close the open questions of the message's addressee (`plugins.md`).
+
+Restart recovery instead sets `origin: { kind: "restart", turnId }` in the same enqueue event
+and projection. This identifies a continuation and its interrupted source turn; it does not
+count as a human message, resume a paused run, or release a held actor. Only the recovery
+command creates this origin.
 
 ### Delivery of subscriptions
 
@@ -1345,7 +1405,7 @@ every LLM agent is part of the journal as well; working files are stored separat
 
 ### File format, write boundaries, and replay
 
-Every run has a readable `journal.jsonl` in file format 14 and, for large contents, a neighboring
+Every run has a readable `journal.jsonl` in file format 15 and, for large contents, a neighboring
 folder `payloads/`. A line contains one command with all the events that resulted from it. Format
 version, run ID, command, and timestamp are stored once in the shared envelope; actor and command
 ID as well as the internal event schema version are added when reading. The command holds
@@ -1388,7 +1448,7 @@ already have been written. The restart reads complete lines and discards an inco
 Other runs stay writable. Errors when preparing a content file before the journal append, in
 contrast, allow an immediate retry.
 
-The journal writes file format 14 and reads formats 7 to 14, all with internal event schema 3. Format
+The journal writes file format 15 and reads formats 7 to 15, all with internal event schema 3. Format
 7 brings the model context (`model.input.presented`, `model.step.completed`,
 `model.tool-result.presented`, `context.compacted`); older journals carry none and are rejected with
 this cause, without migration, for the affected run. Format 8 brings `origin` on
@@ -1397,9 +1457,11 @@ this cause, without migration, for the affected run. Format 8 brings `origin` on
 in detail), format 11 the events `run.paused` and `run.resumed` (section Pausing a run), format 12
 the event `room.opened` and `room` on `agent.spawned` and `script.created` (section Rooms), format
 13 the external execution kind and standalone output observations (section External runtimes),
-format 14 retained tool-result IDs on `context.compacted` (section Projection). A
+format 14 retained tool-result IDs on `context.compacted` (section Projection), format 15 restart
+origins, server-stop interruption causes, and `turn.restart-recovered` (section Continue after a
+server restart). A
 line of an older format never carries the respective addition and therefore stays readable; a
-format after 14 is rejected. The encoding has been unchanged since
+format after 15 is rejected. The encoding has been unchanged since
 4; the number increases as soon as an older version would reject newly written lines, so that it
 fails at the first such line with the format version instead of at a semantic contradiction. Every
 run is first completely checked and projected before its events, identifiers, and states are taken
@@ -1437,8 +1499,9 @@ without a host restart. An input already accepted by the run keeps its own execu
 The original files of a rejected run stay byte-identical. A torn last line is repaired only after
 all complete v4 records have been checked successfully. An empty or unrecognizable journal is not
 reinterpreted as a new run. Errors in the shared storage or an active foreign writer stay real
-infrastructure errors. On restart, open turns are completed as interrupted but never executed
-again. A journal write error that occurs in the process also isolates only this run and is
+infrastructure errors. On restart, open turns are completed as interrupted; eligible turns
+receive a new continuation input through restart recovery, without re-executing journaled
+steps. A journal write error that occurs in the process also isolates only this run and is
 reported. Events already journaled are not delivered again through subscriptions. Unclaimed inputs
 stay normal open work in their original order.
 
@@ -1519,11 +1582,11 @@ at the next tool call.
 
 ## Open limits
 
-1. External tool effects and the RAgents journal do not form an atomic transaction. RAgents does
-   NOT resolve this limit through automatic retries: a turn open at restart becomes `interrupted`,
-   and its claimed ActorInput stays assigned to this turn. If the task is to run again, a new
-   explicit ActorInput is needed. The same applies to external effects of TypeScript programs and
-   the journal progress.
+1. External tool effects and the RAgents journal do not form an atomic transaction. Restart
+   continuation supplies a new input and preserves completed journaled steps; it cannot know
+   whether an interrupted call changed an external system before its result was recorded.
+   Agents must inspect that state, and TypeScript programs need external idempotency where
+   applicable. External runtimes remain interrupted rather than receiving a fabricated task.
 2. The source event and the subscription input created from it are two journal commands. A crash
    exactly between the two can lose the delivery. On restart, there is deliberately no historical
    catch-up, because it could trigger the same external effect twice.

@@ -10,7 +10,7 @@ export interface StartupNoticeState {
 
 /** The one loading state for surface, run panel and its start: title, a progress bar while work is running, below it what is happening right now. */
 export function StartupNotice({ children, className, state }: { children?: ReactNode; className?: string; state: StartupNoticeState }) {
-  return <div aria-live="polite" className={cn("w-[min(360px,100%)] text-center text-foreground", className)} data-startup={state.kind}
+  return <div aria-live="polite" className={cn("w-[min(360px,100%)] text-center text-foreground", className)} data-slot="startup-notice" data-startup={state.kind}
     role={state.kind === "error" ? "alert" : "status"}>
     <strong className={state.kind === "error" ? "text-lg font-semibold text-destructive" : "text-lg font-semibold"}>{state.title}</strong>
     {state.kind === "working" && <div aria-label={state.title} className="mx-auto mt-4 h-[5px] overflow-hidden rounded-[5px] bg-border" role="progressbar">

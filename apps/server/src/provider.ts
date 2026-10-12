@@ -76,7 +76,9 @@ export class RunSessionProvider implements ChatSessionProvider {
   private readonly deleteFailures = new Map<string, JournalLoadFailure>();
   private readonly workspaceFailures = new Map<string, JournalLoadFailure>();
   private readonly deleted = new Set<string>();
-  private readonly workspaces = new SessionWorkspaces(() => this.plugins.service(sandboxServicesToken));
+  private readonly workspaces = new SessionWorkspaces(() => this.plugins.service(sandboxServicesToken), async (runId, signal) => {
+    await this.plugins.service(workspaceRuntimeToken).waitUntilReady?.(runId, signal);
+  });
   private readonly sessionWorkspaces = new Map<string, ReturnType<typeof sharedPreparation<SessionWorkspace>>>();
   private modelRuntime: Promise<ModelRuntime> | undefined;
   private readonly runPreparations = new Map<string, { controller: AbortController; done: Promise<RunPreparationResponse> }>();

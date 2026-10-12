@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { WandSparklesIcon } from "lucide-react";
+import { CodeIcon } from "lucide-react";
 import { coreContracts } from "@ragents/host/api/contracts";
 import type { RunScriptListing } from "../../../server/src/chat-handler";
 import { useAccess } from "../AccessContext";
@@ -38,7 +38,7 @@ export function RunScriptMenu({ runId }: { runId: string }) {
     <Separator className="my-3" orientation="vertical" />
     <HeaderDropdown label="Run script" onOpenChange={(next) => { if (next) listScripts(); else close(); }} open={open}
       trigger={<Button aria-label="Run script" className="flex-none self-center" size="lg" title="Run script" variant="ghost">
-        <WandSparklesIcon className="text-primary" /><span>Run script</span>
+        <CodeIcon className="text-primary" /><span>Run script</span>
       </Button>}>
         {scripts?.kind === "loading" && <p className={noticeClass}>Loading run scripts ...</p>}
         {scripts?.kind === "ready" && scripts.scripts.length === 0 && !error && <p className={noticeClass}>This profile has no run scripts for you.</p>}

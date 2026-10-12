@@ -2072,7 +2072,8 @@ copied into the source tree by CLI and styled with Tailwind: `Button`, `Badge`, 
 `DialogContent`, `TabsList`, and so on), plus `cn` and icons from `lucide-react`. Props, variants, and
 composition follow shadcn; `Badge` additionally accepts semantic `tone` (see below).
 The host's own building blocks on top are `DataGrid`, `InteractiveItem`, `ListDetail`, `OverflowTabs`,
-`SectionLabel`, `SvgEdge`, `HeaderDropdown`, and, only in the host, the page `Modal` in `modal.tsx`.
+`SectionLabel`, `SvgEdge`, `HeaderDropdown`, `RobotHeadIcon` (the filled robot head that marks an LLM agent,
+reduced from the product logo, 24 px grid, text color), and, only in the host, the page `Modal` in `modal.tsx`.
 The choice follows the role, not taste:
 
 - `Button` without a variant (`default`): the ONE main action of a surface or dialog
@@ -2338,8 +2339,10 @@ tables with a muted first column, code, quotes, and framed images.
 The frame puts preflight in a lower base sublayer and restores semantic HTML defaults with
 zero-specificity `:where(...)` selectors: shared heading roles, related block spacing (2 units),
 group spacing before headings and sections (3), list markers and indentation, and table cell padding.
-Component styles and Tailwind utilities override them. Mini-app layouts own their gaps and clear
-direct child margins: `AppLayout` uses 3 units for content rhythm and nested padding, `Stack`
+The defaults exclude library roots with `data-slot` or `data-chat` and their descendants; mini-app
+building blocks use `data-slot` like the shared host controls. Component styles and Tailwind utilities
+override the defaults on plain view content. Layouts and cards preserve explicit child margins while
+owning their gaps: `AppLayout` uses 3 units for content rhythm and nested padding, `Stack`
 defaults to 2, responsive `Grid` to 3. Cards retain equal padding and gaps (4, or 3 with `size="sm"`)
 and `Badge` remains compact and inline. Authoring guidance uses the existing wrapping
 `Stack direction="row"` for a title and badge, one muted metadata line for related facts, and no
@@ -3251,16 +3254,19 @@ the pan limits allow; the position is applied again on the first resize notifica
 popout has moved to fit its new size. `ActorGraph` (`ActorGraph.tsx`) is the only renderer, used by
 the recipient popout without a header (its label only names the dialog, the close button sits in
 the top right corner) and by the "Agents" workspace tab. The workspace graph measures its
-panel's available body dimensions and pans within them. Per
-card there are the handle, the state (`working` with a spinner, `waiting for input` for an open
-action of the actor, `waiting`, or `stopped`), a time, the short description (the actor's
-`description`, otherwise the first line of its first own input, shortened to 90 characters,
-otherwise a differing display name), and the number of pending inputs. The time of a running
-actor counts every second from `startedAt` of its running lifecycle, that is, the start of its
-current turn; otherwise it is "last turn" with `finishedAt - startedAt` of its last finished turn
-in `RunView.turns`, and without one there is none (`actorTimings`). A click chooses the recipient.
-The three text rows do not shrink; their card height follows root font changes through a rem
-probe and the same layout calculation, keeping task text inside the card.
+panel's available body dimensions and pans within them. Actor cards show only the shared
+`RunStateIcon` beside `@handle`, then the description. `graphActorState` maps working actors to
+`running`, open actions to `waiting`, otherwise waiting actors to `idle`, held or paused actors
+to `paused`, stopped actors to `cancelled`, and the latest failed or interrupted turn to `failed`
+or `cancelled`. Current work and open actions take precedence over old turn results; stopped
+actors retain their state during a pause. The ring's accessible label and tooltip name the state,
+with "stopped" for a stopped actor. Kind icons, status rows, times, and pending-input badges do
+not occupy actor cards; group cards retain their existing counts and controls. The description
+is the actor's `description`, otherwise its full first own input, otherwise a differing display
+name. Related padding (2 units) replaces the former 3-unit horizontal padding; three whole
+description lines fit inside the unchanged 216-pixel width and 5.5rem height, with the full text
+as a tooltip. The height still follows root font changes through the same rem probe and layout
+calculation. A click chooses the recipient.
 In browser runs, dragging an actor card in either graph or the addressee chip
 opens or moves that actor's separate chat window through `useDockPanelDrag`. These gestures
 use the dock's threshold, guides, and cancellation. Graph background and group-card drags still

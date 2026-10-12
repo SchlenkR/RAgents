@@ -23,6 +23,10 @@ anything. In the browser a new run always works on the server; only VS Code and 
 bind a run to a workstation. VS Code binds every new run to an open folder of its window unless
 the template sets its own workspace.
 
+Before starting, "After restart" defaults to "Continue": actors that were working when the
+server stopped receive a continuation on its next start. Choose "Stay interrupted" to turn
+this off for the run. A profile can disable continuation for all its runs.
+
 Before starting, "Sandbox protection" lets administrators restrict the run's server-side
 code execution. For other users, or when the server requires it, the switch is on and locked.
 The choice cannot change after the run starts. Workstation tools use that workstation's
@@ -41,6 +45,25 @@ Inside the run, the coordinator processes the task. Additional agents and mini-a
 the surface when the workflow creates them. The global coordinator in the header has its own
 conversation and can oversee several runs. The journal and "Executions" tab make events and
 TypeScript calls traceable.
+
+## Continue after a server restart
+
+An agent that was working when the server stopped continues in a new turn. Its chat shows
+"Server restarted. Continuing the interrupted task." It checks unfinished work before continuing,
+including missing tool results, partially written files, and processes that ended. Completed
+work stays recorded. Queued messages retain their order and reach the continuation through
+normal steering.
+
+Your "Stop work", "Stop run", or individual turn interruption does not trigger this recovery.
+Failures and turn timeouts do not either. A continuation interrupted again within 60 seconds
+of starting stays interrupted, with the reason shown in chat. External runtime actors also stay
+interrupted; TypeScript actors re-evaluate their original input from saved state.
+
+For a run on a workstation, continuation waits for the same workstation to reconnect and for
+its folder to be accessible. After the existing 15-minute timeout, a failed turn shows the
+cause. Reconnect the workstation before sending a new message if the wait has expired.
+
+See [Restart the server](operations.md#restart-the-server) for the profile setting.
 
 ## Use chat and mini-apps
 
@@ -1037,14 +1060,13 @@ While it names another actor than the run's first chat partner, usually the coor
 next to the name ("Back to @coordinator") returns to that actor at once without opening anything.
 Clicking the chip opens a graph of who created whom drawn from top to bottom, like the
 agent view of a coding assistant: the coordinator at the top, one level below and connected by
-lines the executable actors it started, below those their own subagents. Each card
-shows the handle, the state ("working" with a spinner, "waiting for input" when the actor waits
-for your answer, "waiting", or "stopped"), a time, and the task. A working actor shows how long
-its current turn has been running and counts up every second; the others show "last turn" with
-the duration of their last finished turn, or no time if they never finished one. The task is the
-description given when the actor was created, otherwise the first line of its first assignment,
-otherwise its display name. A badge counts the inputs waiting for the actor, and lines into
-working actors are highlighted. Four or more similar siblings, such as 37 rule reviewers named
+lines the executable actors it started, below those their own subagents. Each card shows a
+state ring beside `@handle`, followed by up to three lines of its task in the same card size.
+The ring spins while the actor works and also shows idle, waiting for your input, paused,
+stopped, or failed work; its tooltip and accessible label name the state. The task is the
+description given when the actor was created, otherwise its full first assignment, otherwise
+its display name. Hover over it to read the full text. Lines into working actors are highlighted.
+The same cards appear in the Agents window, this chooser, and VS Code. Four or more similar siblings, such as 37 rule reviewers named
 `review-...`, appear as one stacked group card with their shared handle prefix, their number,
 and a count per state; click it to show the members in a frame below it, click again to hide
 them. A group that contains the current addressee opens by itself. More children than fit side
@@ -1510,9 +1532,10 @@ until answered; dismissing it or interrupting the turn cancels the request. Turn
 also cancels the adapter's prompt and keeps its partial reply visible. Stopping the actor or
 run closes its adapter and terminals.
 
-The actor keeps one external session between turns. After a server restart it continues only
-when the adapter advertises session loading and can load that session. Otherwise it reports a
-blocking cause; no empty conversation silently replaces it. Text is always supported; images
+The actor keeps one external session between turns. Server restart recovery leaves its active
+turn interrupted without sending a replacement task. On your next message, its session can
+continue only when the adapter advertises session loading and can load it. Otherwise it reports
+a blocking cause; no empty conversation silently replaces it. Text is always supported; images
 and embedded resources require the adapter's advertised capabilities. Missing installation,
 sign-in, unsupported content, and workspace refusals show their causes in the actor's history.
 

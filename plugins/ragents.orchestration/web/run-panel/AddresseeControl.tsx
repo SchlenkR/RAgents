@@ -13,11 +13,10 @@ const backClass = "mr-1 grid size-5 flex-none cursor-pointer place-items-center 
 const busyClass = "flex h-7 min-w-0 flex-[0_1_auto] cursor-pointer items-center gap-1 rounded-md px-2 text-[0.7rem] text-active";
 
 /** The chat's addressee as a chip in the input bar; the pop-out shows the actors as a graph by creator, including stopped actors, and the x returns to the primary actor. */
-export function AddresseeControl({ actors, onSelect, selected, technical, view }: {
+export function AddresseeControl({ actors, onSelect, selected, view }: {
   actors: readonly RunActor[];
   onSelect: (actor: RunActor) => void;
   selected: RunActor;
-  technical: boolean;
   view: RunView;
 }) {
   const drag = useDockPanelDrag();
@@ -55,7 +54,7 @@ export function AddresseeControl({ actors, onSelect, selected, technical, view }
       <span className="tabular-nums">{working.length}</span>
     </InteractiveItem>}
     {open && <ActorPopout buttonRef={buttonRef} closeLabel="Close addressee" id={panelId} label="Addressee" onClose={close} open placement="top" role="dialog">
-      <ActorGraph actors={actors} onDragStart={() => close()} onPick={pick} selectedId={selected.id} technical={technical} view={view} />
+      <ActorGraph actors={actors} onDragStart={() => close()} onPick={pick} selectedId={selected.id} view={view} />
     </ActorPopout>}
   </>;
 }

@@ -410,12 +410,16 @@ lists, tables and other blocks have related spacing (2 units); headings and sect
 spacing (3 units). Lists retain markers and indentation, and table cells have token-based padding.
 These base selectors use `:where(...)` with zero specificity. Preflight occupies a lower base
 sublayer, so the defaults apply while component styles and Tailwind utilities always win.
+They apply only outside library boundaries: elements with `data-slot` (host and mini-app controls)
+or `data-chat` (chat controls), and all their descendants, keep their component styles and preflight
+defaults. Mini-app building blocks mark their roots with `data-slot`.
 
 `AppLayout` separates its header, content blocks and actions by 3 units and uses the same inset
 when nested; the frame supplies its root inset. `Stack` defaults to a 2-unit gap, `Grid` to 3;
-`gap="normal"` is 3 and `gap="large"` is 4. Layouts clear direct child margins to avoid adding
-semantic spacing to their gaps. Cards keep matching padding and gaps of 4 units, or 3 with
-`size="sm"`; `Badge` stays inline and compact. No layout props are needed for a usable rhythm.
+`gap="normal"` is 3 and `gap="large"` is 4. Layouts own their gaps without resetting child margins;
+explicit view utilities remain effective inside components. Cards keep matching padding and gaps
+of 4 units, or 3 with `size="sm"`; `Badge` stays inline and compact. No layout props are needed for
+a usable rhythm.
 Structured control lists retain marker-free rows; form hints, loading messages and diagram nodes
 keep their own utility spacing and type instead of inheriting semantic defaults.
 
@@ -428,6 +432,9 @@ plain and compact views through the client compiler and real frame bridge, check
 spacing and visual line counts, and writes screenshots only to the system temp directory.
 `RAGENTS_VIEW_SAMPLE` optionally supplies an unchanged external source for the plain view;
 without it the test uses the production sample's semantic structure with neutral English text.
+`access-browser.test.ts` uses the same flag to render the host sign-in page, checks visible spacing
+between its heading, description, fields and button, and writes screenshots to the system temp
+directory. Both tests cover light and dark themes at wide and narrow widths.
 
 The UI contract collector produces the same component names and declaration files in a checkout
 and in an installed npm package. Its TypeScript compiler host presents the package through a
@@ -841,6 +848,8 @@ restart continues without a client: an overdue trigger produces one occurrence a
 future time, without a catch-up backlog, and an occurrence that was accepted but not yet queued is
 queued once. A failed, interrupted, or timed-out input backs off the next automatic occurrence by 60
 seconds, doubling with every further failure up to one hour; a completed input ends the backoff.
+When engine recovery creates a restart continuation, trigger tracking follows its turn chain
+and settles the resumed outcome instead of finalizing the interrupted source turn.
 `actor_program_pause` pauses the automatic triggers and lets accepted work finish; resuming plans
 the next occurrence from now and clears the backoff and a problem, such as a failed folder watch,
 that blocked the triggers. Pausing or stopping the run holds them, and removing the program ends
@@ -977,6 +986,11 @@ that name waits and no other message to the program is on its way, and queues it
 to the program's own actor, recognized by the command that queued it as a start is. The evaluation
 it causes hands it to the waiting receive; a message that finds no waiting receive by then is
 dropped with a runtime line.
+
+A restart continuation follows its input ancestry to recover the original typed message,
+start, result, or trigger metadata. If its delivery envelope was already consumed, the host
+reads it from the historical journal projection without consuming it or recording the start
+again. Evaluation resumes from committed slots, preserving completed journaled steps.
 
 The host wakes the program through its triggers ([Triggers](#triggers)): at `wakeAt`, the earliest
 of its waiting time, a receive's timeout, the next recurring occurrence, and a retry after a

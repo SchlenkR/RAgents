@@ -8659,6 +8659,7 @@ export { Popover, PopoverContent, PopoverDescription, PopoverHeader, PopoverTitl
 export { Progress, ProgressIndicator, ProgressLabel, ProgressTrack, ProgressValue } from "./progress";
 export { RadioGroup, RadioGroupItem } from "./radio-group";
 export { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectScrollDownButton, SelectScrollUpButton, SelectSeparator, SelectTrigger, SelectValue, } from "./select";
+export { RobotHeadIcon } from "./robot-head-icon";
 export { Separator } from "./separator";
 export { Skeleton } from "./skeleton";
 export { Spinner } from "./spinner";
@@ -8823,6 +8824,15 @@ export { RadioGroup, RadioGroupItem };
 export declare const shortTime: (at: number, now?: number) => string;
 /** The same time written out; it appears only in the title of the compact time. */
 export declare const longTime: (at: number, now?: number) => string;
+```
+
+#### apps/web/src/ui/robot-head-icon.d.ts
+
+```typescript
+/** A filled robot head on the 24 px icon grid, reduced from the product logo; it takes the text color. */
+export declare function RobotHeadIcon({ className }: {
+    className?: string;
+}): import("react").JSX.Element;
 ```
 
 #### apps/web/src/ui/search-input.d.ts

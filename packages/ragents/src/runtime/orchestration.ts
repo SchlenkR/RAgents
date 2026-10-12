@@ -27,6 +27,7 @@ import * as actors from "./decisions/actors.ts";
 import * as artifacts from "./decisions/artifacts.ts";
 import * as inputs from "./decisions/inputs.ts";
 import * as pause from "./decisions/pause.ts";
+import { recoverTurn, type RestartPolicy } from "./decisions/restart.ts";
 import * as subscriptions from "./decisions/subscriptions.ts";
 import * as turns from "./decisions/turns.ts";
 import { DomainError } from "./domain-error.ts";
@@ -66,7 +67,7 @@ export class Orchestration {
     readonly #suppressedSubscriptionRuns = new Set<string>();
     readonly #modelContexts: ModelContexts;
 
-    constructor(journal: Journal, services: RuntimeServices, artifactContents: ArtifactContents = new MemoryArtifactContents(), eventVisible: (event: JournalEvent) => boolean = () => true) {
+    constructor(journal: Journal, services: RuntimeServices, artifactContents: ArtifactContents = new MemoryArtifactContents(), eventVisible: (event: JournalEvent) => boolean = () => true, restartPolicy: RestartPolicy = {}) {
         this.#journal = journal;
         this.#services = services;
         this.#artifactContents = artifactContents;
@@ -81,7 +82,7 @@ export class Orchestration {
             this.#dispatchSubscriptions(events.filter(this.#eventVisible));
             this.#dispatchCreatorAlerts(events);
         });
-        this.#interruptOpenTurns();
+        this.#recoverStoppedTurns(restartPolicy);
     }
 
     listRuns() {
@@ -297,8 +298,13 @@ export class Orchestration {
         const rewriteEventId = (value: string) => {
             const rewritten = eventIds.get(value);
 
-            if (!rewritten)
+            if (!rewritten) {
+                const source = kept.flatMap((record) => record.events).find((entry) =>
+                    (entry.type === "turn.interrupted" || entry.type === "turn.finished" && entry.payload.outcome === "failed")
+                    && value.startsWith(`${entry.eventId}:tool:`));
+                if (source) return `${eventIds.get(source.eventId)!}${value.slice(source.eventId.length)}`;
                 throw new Error(`Fork source event ${value} is not part of the inherited history.`);
+            }
 
             return rewritten;
         };
@@ -639,7 +645,7 @@ export class Orchestration {
         context: CommandContext,
         runId: string,
         actorId: string,
-        input: { turnId: string; reason: string },
+        input: { turnId: string; reason: string; cause?: "server-stop" },
     ) {
         return this.#run(context, runId, "turn.interrupt", { actorId, ...input }, turns.interruptTurn(actorId, input));
     }
@@ -885,22 +891,31 @@ export class Orchestration {
         }
     }
 
-    #interruptOpenTurns() {
+    #recoverStoppedTurns(policy: RestartPolicy) {
         for (const runId of this.#journal.runIds()) {
             try {
-                for (const actor of this.state(runId).actors.values()) {
-                    if (actor.kind === "human" || actor.lifecycle.kind !== "running")
+                const state = this.state(runId);
+                const latest = new Map([...state.turns.values()].map((turn) => [turn.actorId, turn]));
+                for (const actor of state.actors.values()) {
+                    const turn = latest.get(actor.id);
+                    if (actor.kind === "human" || actor.lifecycle.kind === "stopped" || !turn || turn.restartRecovery
+                        || (turn.status !== "running" && (turn.status !== "interrupted" || turn.interruptionCause !== "server-stop")))
                         continue;
 
-                    this.interruptTurn(
-                        { actorId: actor.id, commandId: `recover:${actor.lifecycle.turnId}` },
-                        runId,
-                        actor.id,
-                        {
-                            turnId: actor.lifecycle.turnId,
-                            reason: "The turn was interrupted by a restart of the runtime.",
-                        },
-                    );
+                    const original = state.inputs.get(turn.inputId)!;
+                    const presented = new Set<string>();
+                    if (actor.kind === "agent")
+                        for (const entry of this.recentEvents(runId)) {
+                            if (entry.type === "turn.started" && entry.payload.turnId === turn.id) break;
+                            if (entry.type === "model.input.presented" && entry.payload.turnId === turn.id && entry.payload.inputId)
+                                presented.add(entry.payload.inputId);
+                        }
+                    const unpresented = actor.kind === "agent" ? [...state.inputs.values()]
+                        .filter((input) => input.lifecycle.kind === "claimed" && input.lifecycle.turnId === turn.id && !presented.has(input.id))
+                        .sort((left, right) => left.sequence - right.sequence) : [];
+                    this.#run({ actorId: actor.kind === "script" && original.subscriptionId ? actor.id : state.ownerId,
+                        commandId: `recover:${turn.id}` }, runId, "turn.recover", { actorId: actor.id, turnId: turn.id },
+                        recoverTurn(actor.id, turn.id, policy, unpresented));
                 }
             } catch (error) {
                 if (!this.#journal.failureOf(runId))

@@ -15,6 +15,64 @@ is removed, the shared rule applies. This keeps surviving user arrangements inta
 restoring obsolete groups. Reset uses the same rule in catalog order. Sidebar previews and
 VS Code editor tabs retain their behavior.
 
+## 2026-10-12: LLM agents carry a robot head instead of Sparkles
+
+Chapter: `spec/plugins.md` (UI library).
+
+The generic sparkle icon marks "AI" in every product and says nothing about this one. The actor icon
+of the primary LLM agent is now `RobotHeadIcon`, a filled head with sunglasses reduced from the
+product logo; the line logo itself turns to mud below about 20 px. The run script menu trigger shows
+the code icon, the same one a script actor has, instead of the wand with sparkles. The robot head is
+the first custom icon of the UI library and lives in `apps/web/src/ui` so plugins import it from
+`@ragents/web/ui`.
+
+## 2026-10-12: Actor graph cards give their space to the task
+
+Chapter: `spec/plugins.md` (Run panel); usage: `usage.md` (Run panel and VS Code extension).
+
+Kind icons, state words, turn times, and input counts left only one truncated task line.
+Actor cards now pair the existing run state ring with the handle and use related padding
+for up to three task lines within their unchanged dimensions. The full description or first
+assignment stays available as a tooltip; the ring names its state accessibly. Group controls,
+selection, picking, dragging, and edges retain their behavior. Unit coverage checks state
+mapping and full tasks; browser coverage checks both hosts, the Agents view and chooser,
+larger root fonts, and page zoom.
+
+## 2026-10-12: Working actors continue after a server restart
+
+Chapters: `spec/core.md` (Scheduler and turns, stop paths, journal replay, Open limits),
+`spec/profiles.md` (Profiles), `spec/actor-programs.md` (Triggers, State-aware programs);
+usage: `usage.md` (Create your first run, Continue after a server
+restart); operations: `operations.md` (Restart the server, Global mini-apps).
+
+A server stop consumed working inputs without helping their actors continue. Startup now makes
+one atomic recovery decision per affected turn, including a permanent outcome for suppressed
+continuations. Built-in agents receive a new input to inspect unfinished effects before continuing;
+TypeScript actors re-evaluate their original input from journaled state, while external runtimes
+stay interrupted. Continuations take priority without changing the order of queued inputs. A
+60-second guard prevents a rapidly interrupted continuation from producing another one.
+Actor programs recover the original delivery metadata through continuation ancestry and a
+historical journal projection, preserving typed messages without repeating start bookkeeping.
+Trigger tracking follows the resumed turn chain and settles its outcome.
+
+Profile and existing run start options can disable recovery. Workstation continuations wait
+for their own connection and verify the folder before model or tool work. Explicit operator
+stops remain final. Journal format 15 records the server-stop cause, restart input origin, and
+recovery outcome; the chat shows a short system line instead of the internal recovery task.
+The additive run-event contract refreshes `extension-api.json` without changing extension
+interface version 1.
+
+## 2026-10-12: Frame defaults stop at library component boundaries
+
+Chapters: `spec/actor-programs.md` (Reusable UI building blocks), `spec/plugins.md` (UI library).
+
+The shared Card's child margin reset erased the host sign-in page's explicit spacing. Frame
+semantic defaults now exclude library roots marked with `data-slot` or `data-chat` and their
+descendants. Mini-app building blocks carry the same root marker as host controls. The compensating
+margin, list and typography resets are removed from cards, fields and mini-app controls; compact
+layout gaps remain. Browser coverage checks sign-in spacing, plain HTML rhythm, component interiors
+and explicit child margins, with screenshots kept in the system temp directory.
+
 ## 2026-10-12: Working subagent count uses tight spacing
 
 Chapter: `spec/plugins.md` (Run panel, Spacing).

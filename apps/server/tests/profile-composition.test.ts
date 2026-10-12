@@ -140,6 +140,7 @@ test("the neutral showcase fixture composes real plugins and folder contribution
     { id: "ragents.workspace.binding", owner: "ragents.workspace" },
     { id: "ragents.workspace.sandbox", owner: "ragents.workspace" },
     { id: "ragents.model", owner: "ragents.product" },
+    { id: "ragents.resume-after-restart", owner: "ragents.product" },
   ]);
   assert.equal(JSON.stringify(host.accessProjections.state(programState, restricted)), JSON.stringify({ ...programState, state: { version: 1, program: { name: "board", views: [] } } }), "actor programs bring their projection");
   assert.equal(host.service(workspaceRuntimeToken).describe().mode, "per-run");

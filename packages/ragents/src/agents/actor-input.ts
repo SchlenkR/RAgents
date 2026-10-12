@@ -78,6 +78,11 @@ const eventPayloads = {
     "turn.interrupted": payloadOf<"turn.interrupted">({
         turnId: Type.String({ description: "ID of the interrupted turn" }),
     }),
+    "turn.restart-recovered": payloadOf<"turn.restart-recovered">({
+        turnId: Type.String(),
+        outcome: Type.String(),
+        reason: Type.String(),
+    }),
     "model.input.presented": payloadOf<"model.input.presented">({
         turnId: Type.String({ description: "Turn in which the model was given the input" }),
     }),

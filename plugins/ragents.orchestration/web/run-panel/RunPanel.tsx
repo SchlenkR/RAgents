@@ -75,7 +75,6 @@ function RunPanel({ autoFocusChat, onAutoFocusChatSettled, surfaceElements, card
     actors={actors}
     onSelect={selectActor}
     selected={selectedActor}
-    technical={inspect}
     view={view}
   />{inspect && <Button aria-label={`Inspect @${actorAddress(selectedActor)}`} onClick={() => navigation.openTab(INSPECTION_TAB_ID, { type: "actor", id: selectedActor.id })} size="icon-sm" title="Inspect actor" variant="ghost"><SearchIcon /></Button>}</>;
 

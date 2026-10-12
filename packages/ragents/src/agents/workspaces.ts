@@ -1,5 +1,6 @@
 export interface Workspaces {
     ensure(runId: string, workspacePath: string | null): string;
+    waitUntilReady?(runId: string, signal: AbortSignal): Promise<void>;
     /** How the run's workspace is described to a model; undefined when nothing describes it. */
     description(runId: string): string | undefined;
     /** Stores an attached file under attachments/ of the workspace, on the machine where the workspace lies; returns its name there. */

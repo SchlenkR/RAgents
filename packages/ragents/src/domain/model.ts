@@ -96,8 +96,8 @@ export type ActorInput = {
     actorId: ActorId;
     content: string;
     presentation?: "background";
-    /** Set only on a person's own message, because system inputs are enqueued under the owner too. */
-    origin?: "human";
+    /** Distinguishes a person's message and a restart continuation from other automatic inputs. */
+    origin?: "human" | { kind: "restart"; turnId: TurnId };
     artifactIds: readonly ArtifactId[];
     enqueuedBy: ActorId;
     enqueuedAt: string;
@@ -135,10 +135,14 @@ export type Turn = {
     startedAt: string;
     finishedAt: string | null;
     reason: string | null;
+    interruptionCause?: "server-stop";
     usage: TurnUsage;
     outputs: readonly TurnOutput[];
     toolCalls: readonly TurnToolCall[];
+    restartRecovery?: { outcome: RestartRecoveryOutcome; reason: string };
 };
+
+export type RestartRecoveryOutcome = "continued" | "disabled" | "guarded" | "unsupported" | "paused" | "unavailable";
 
 export type EventSubscription = {
     id: SubscriptionId;

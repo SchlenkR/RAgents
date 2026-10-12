@@ -17,5 +17,5 @@ export function AgentsPanel({ session }: WorkspaceTabContext) {
   const selected = view && selectedRunPanelActor(view, actors, stored.actor);
   if (!view || !selected) return null;
   return <ActorGraph actors={actors} fill onPick={(actor) => saveRunPanelState(runId, { ...stored, actor: actor.id })}
-    selectedId={selected.id} technical={inspect} view={view} />;
+    selectedId={selected.id} view={view} />;
 }

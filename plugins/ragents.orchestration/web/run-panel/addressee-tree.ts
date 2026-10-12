@@ -19,7 +19,6 @@ export type AddresseeStatus = "running" | "input" | "waiting" | "stopped";
 
 /** From this many similar siblings on, the tree combines them into a group. */
 export const ADDRESSEE_GROUP_MIN = 4;
-const SUMMARY_LENGTH = 90;
 
 const STATUS_WORDS: Readonly<Record<AddresseeStatus, readonly [one: string, many: string]>> = {
   running: ["working", "working"],
@@ -30,14 +29,6 @@ const STATUS_WORDS: Readonly<Record<AddresseeStatus, readonly [one: string, many
 const STATUS_ORDER: readonly AddresseeStatus[] = ["running", "input", "waiting", "stopped"];
 
 const lower = (text: string) => text.toLocaleLowerCase("en-US");
-
-const shortened = (text: string): string => {
-  const line = text.split("\n").map((entry) => entry.replace(/\s+/g, " ").trim()).find((entry) => entry !== "") ?? "";
-  if (line.length <= SUMMARY_LENGTH) return line;
-  const cut = line.slice(0, SUMMARY_LENGTH - 3);
-  const space = cut.lastIndexOf(" ");
-  return `${(space > SUMMARY_LENGTH / 2 ? cut.slice(0, space) : cut).trimEnd()}...`;
-};
 
 export const addresseeStatus = (view: RunView, actor: RunActor): AddresseeStatus =>
   actor.lifecycle?.kind === "stopped" ? "stopped"
@@ -56,7 +47,7 @@ export const addresseeStatusCounts = (view: RunView, actors: readonly RunActor[]
   }).join(", ");
 };
 
-/** The short description per actor: the one set on creation, otherwise the shortened first task, otherwise a differing display name. */
+/** The full description per actor: the one set on creation, otherwise the first task, otherwise a differing display name. */
 export const addresseeSummaries = (view: RunView): ((actor: RunActor) => string | undefined) => {
   const firstInputs = new Map<string, { sequence: number; content: string }>();
   for (const input of view.inputs) {
@@ -68,7 +59,7 @@ export const addresseeSummaries = (view: RunView): ((actor: RunActor) => string 
     const described = actor.description?.trim();
     if (described) return described;
     const first = firstInputs.get(actor.id);
-    if (first) return shortened(first.content);
+    if (first) return first.content.trim();
     const name = actor.displayName.trim();
     return name !== "" && lower(name) !== lower(actor.handle) ? name : undefined;
   };

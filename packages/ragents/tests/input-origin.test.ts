@@ -21,25 +21,28 @@ const runningWorker = () => {
     return { ...setup, turn };
 };
 
-test("input event validation accepts a human origin or none and rejects other values and an origin on a subscription input", () => {
+test("input validation accepts human and restart origins but only a restart origin on a subscription input", () => {
     const payload = {
         inputId: "input-1", actorId: "coordinator", content: "Message",
         artifactIds: [], sourceEventIds: [], subscriptionId: null,
     };
     assert.doesNotThrow(() => validatedEventPayloadOf("actor.input.enqueued", payload, "input"));
     assert.doesNotThrow(() => validatedEventPayloadOf("actor.input.enqueued", { ...payload, origin: "human" }, "input"));
+    assert.doesNotThrow(() => validatedEventPayloadOf("actor.input.enqueued", { ...payload, origin: { kind: "restart", turnId: "turn-1" } }, "input"));
 
     for (const origin of ["system", "", true, null, {}])
-        assert.throws(() => validatedEventPayloadOf("actor.input.enqueued", { ...payload, origin }, "input"), /origin must be human/);
+        assert.throws(() => validatedEventPayloadOf("actor.input.enqueued", { ...payload, origin }, "input"), /input\.origin/);
+    assert.throws(() => validatedEventPayloadOf("actor.input.enqueued", { ...payload, origin: { kind: "other", turnId: "turn-1" } }, "input"), /origin.kind must be restart/);
 
     const subscriptionPayload = {
         inputId: "input-2", actorId: "coordinator", artifactIds: [],
         sourceEventIds: ["event-1"], subscriptionId: "subscription-1",
     };
     assert.doesNotThrow(() => validatedEventPayloadOf("actor.input.enqueued", subscriptionPayload, "input"));
+    assert.doesNotThrow(() => validatedEventPayloadOf("actor.input.enqueued", { ...subscriptionPayload, origin: { kind: "restart", turnId: "turn-1" } }, "input"));
     assert.throws(
         () => validatedEventPayloadOf("actor.input.enqueued", { ...subscriptionPayload, origin: "human" }, "input"),
-        /origin is not supported for a subscription input/,
+        /human origin is not supported for a subscription input/,
     );
 });
 

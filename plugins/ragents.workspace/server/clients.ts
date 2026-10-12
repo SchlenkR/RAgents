@@ -136,6 +136,7 @@ export class WorkspaceClientRegistry {
   /** Stops that have not reached the workstation yet, per workstation and run with the folder of the binding. */
   readonly #pendingStops = new Map<string, Map<string, string>>();
   readonly #stopRetries = new Map<string, NodeJS.Timeout>();
+  readonly #waiting = new Map<string, Set<(error?: Error) => void>>();
 
   constructor(contributions: readonly ExecutorContributionRevision[]) {
     this.contributions = contributions.map(({ plugin, revision }) => ({ plugin, revision }));
@@ -170,7 +171,31 @@ export class WorkspaceClientRegistry {
     this.#clients.set(key, entry);
     if (previous && !renewed) this.#abandon(previous);
     this.#deliverPendingStops(key);
+    for (const ready of this.#waiting.get(key) ?? []) ready();
     return info;
+  }
+
+  waitUntilConnected(owner: string | null, id: string, label: string, signal: AbortSignal): Promise<void> {
+    signal.throwIfAborted();
+    const key = keyOf(owner, id);
+    if (this.#clients.has(key)) return Promise.resolve();
+    return new Promise((resolve, reject) => {
+      const waiting = this.#waiting.get(key) ?? new Set<(error?: Error) => void>();
+      this.#waiting.set(key, waiting);
+      const finish = (error?: Error): void => {
+        clearTimeout(timeout);
+        signal.removeEventListener("abort", aborted);
+        waiting.delete(finish);
+        if (waiting.size === 0) this.#waiting.delete(key);
+        if (error) reject(error);
+        else resolve();
+      };
+      const aborted = (): void => finish(signal.reason);
+      const timeout = setTimeout(() => finish(new DomainError("workspace-client-timeout",
+        `The workstation ${label} did not connect within 15 minutes after the server restart.`, 504)), CLIENT_TIMEOUT_MS);
+      waiting.add(finish);
+      signal.addEventListener("abort", aborted, { once: true });
+    });
   }
 
   /** Only the connection that holds the entry signs it out; a sign-out without an entry is not an error after a disconnect. */
@@ -241,6 +266,8 @@ export class WorkspaceClientRegistry {
   }
 
   shutdown(): void {
+    for (const waiting of this.#waiting.values())
+      for (const finish of waiting) finish(new Error("The server stopped while waiting for the workstation."));
     for (const entry of this.#clients.values()) {
       entry.release();
       this.#abandon(entry);

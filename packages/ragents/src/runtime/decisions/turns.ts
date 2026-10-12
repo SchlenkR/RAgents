@@ -254,7 +254,7 @@ export const finishTurn =
     };
 
 export const interruptTurn =
-    (actorId: string, input: { turnId: string; reason: string }): Decision =>
+    (actorId: string, input: { turnId: string; reason: string; cause?: "server-stop" }): Decision =>
     (state, context) => {
         const caller = actorById(state, context.actorId);
         const target = executableActorOf(state, actorId);
@@ -267,6 +267,6 @@ export const interruptTurn =
 
         return [event(context, {
             type: "turn.interrupted",
-            payload: { turnId: input.turnId, reason: clean(input.reason, "reason") },
+            payload: { turnId: input.turnId, reason: clean(input.reason, "reason"), ...(input.cause ? { cause: input.cause } : {}) },
         })];
     };
