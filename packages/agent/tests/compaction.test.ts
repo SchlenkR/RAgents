@@ -1,7 +1,8 @@
 import assert from "node:assert/strict";
 import test, { type TestContext } from "node:test";
 import { createAssistantMessageEventStream, fauxAssistantMessage, fauxToolCall, registerFauxProvider, type AssistantMessage, type Context } from "../../ai/src/index.ts";
-import { compact, generateSummary, prepareCompaction } from "../src/core/compaction/compaction.ts";
+import { compact, compactionFailureReason, compactionProblem, effectiveCompactionThreshold, estimateTokens, generateSummary, modelOutputReserve, prepareCompaction, reasoningReserve } from "../src/core/compaction/compaction.ts";
+import { buildBaseOptions } from "../../ai/src/api/simple-options.ts";
 import { collectUserAttachments, computeFileLists, createFileOps, extractFileOpsFromMessage, serializeConversation } from "../src/core/compaction/utils.ts";
 import { activeContextEntries, contextMessages, type ContextLogEntry } from "../src/core/context-log.ts";
 import { contextToolResults } from "../src/core/tool-results.ts";
@@ -24,6 +25,24 @@ const streamFor = (response: AssistantMessage, requests: Context[] = [], budgets
 	stream.end(response);
 	return stream;
 };
+
+test("opaque reasoning counts without usage and a cut respects the whole retained suffix budget", () => {
+	const opaque = fauxAssistantMessage([{ type: "thinking", thinking: "", redacted: true,
+		thinkingSignature: JSON.stringify([{ type: "reasoning.encrypted", data: "x".repeat(100_000), format: "openai-responses-v1" }]) }]);
+	assert.ok(estimateTokens(opaque) > 24_000);
+	const entries = [user("task", "Task"), assistant("opaque", opaque),
+		assistant("next", fauxAssistantMessage("a".repeat(60_000))), user("recent", "b".repeat(40_000))];
+	const prepared = prepareCompaction(entries, { threshold: 250_000, keepRecentTokens: 24_000, summaryTokens: 12_000 })!;
+	assert.equal(prepared.firstKeptId, "recent");
+	assert.ok(estimateTokens(user("recent", "b".repeat(40_000)).message) <= 24_000);
+});
+
+test("native reasoning items remain opaque to generic context accounting", () => {
+	const responses = { ...fauxAssistantMessage([{ type: "thinking", thinking: "", thinkingSignature: JSON.stringify({ type: "reasoning", id: "item", encrypted_content: "x".repeat(12_000), summary: [] }) }]), api: "openai-responses" };
+	assert.ok(estimateTokens(responses) > 3_000);
+	const anthropic = { ...fauxAssistantMessage([{ type: "thinking", thinking: "", redacted: true, thinkingSignature: "x".repeat(12_000) }]), api: "anthropic-messages" };
+	assert.equal(estimateTokens(anthropic), 3_000);
+});
 
 test("summarization sees the complete original file result, including details past character 2000 and tool images", async (t) => {
 	const model = modelFor(t);
@@ -175,4 +194,68 @@ test("a multi-MB turn prefix and previous checkpoint fit the summarizer, with ex
 	await compact(prepared, model, "faux-key", undefined, undefined, undefined, undefined, stream);
 	assert.ok(requests.some((request) => JSON.stringify(request).includes("PREFIX of a turn")));
 	assert.deepEqual(collectUserAttachments(requests[0]!.messages), []);
+});
+
+test("the incident threshold fails validation and the request reserve respects thinking mappings and the output limit", (t) => {
+	const model = { ...modelFor(t), reasoning: true, thinkingLevelMap: { xhigh: "xhigh" }, contextWindow: 264_000, maxTokens: 131_072,
+		compaction: { threshold: 250_000, keepRecentTokens: 24_000, summaryTokens: 12_000 } };
+	assert.match(compactionProblem(model.compaction, model)!, /threshold \(250000\).*reasoning\/output reserve \(24576\).*at most 239424/);
+	assert.equal(effectiveCompactionThreshold(model, "xhigh"), 239_424);
+	assert.equal(modelOutputReserve(model, "xhigh"), 24_576);
+	assert.equal(modelOutputReserve({ ...model, maxTokens: 10_000 }, "xhigh"), 10_000);
+	assert.equal(reasoningReserve({ ...model, thinkingLevelMap: { xhigh: "low", off: "high" } }, "xhigh"), 2_048);
+	assert.equal(reasoningReserve({ ...model, thinkingLevelMap: { off: "high" } }, "off"), 8_192);
+	assert.equal(modelOutputReserve({ ...model, reasoning: false }, "xhigh"), 8_192);
+});
+
+for (const split of [false, true]) {
+	test(`xhigh recovery budgets reasoning separately from summary text through bounded chunks (${split ? "split turn" : "history"})`, async (t) => {
+		const model = { ...modelFor(t), reasoning: true, thinkingLevelMap: { xhigh: "xhigh" }, contextWindow: 264_000, maxTokens: 131_072 };
+		const entries = [user("old", "Earlier requirements. ".repeat(50_000)), assistant("answer", fauxAssistantMessage("Earlier answer.")),
+			user("task", "Current task."), assistant("lookup", fauxAssistantMessage([fauxToolCall("read", {}, { id: "read-1" })])),
+			result("large", "read-1", "search result\n".repeat(200_000)),
+			...(split ? [assistant("last-call", fauxAssistantMessage([fauxToolCall("read", {}, { id: "read-2" })])), result("recent", "read-2", "Done.")] : [user("recent", "Continue.")])];
+		const prepared = prepareCompaction(entries, { threshold: 250_000, keepRecentTokens: 100, summaryTokens: 12_000 })!;
+		assert.equal(prepared.isSplitTurn, split);
+		assert.ok(prepared.tokensBefore > model.contextWindow);
+		const requests: Context[] = [];
+		const budgets: number[] = [];
+		const fake = (_model: unknown, context: Context, options?: { maxTokens?: number; reasoning?: string }) => {
+			const input = Buffer.byteLength(context.systemPrompt ?? "") + Buffer.byteLength(serializeConversation(context.messages));
+			const limit = buildBaseOptions(model, context, options as never).maxTokens!;
+			assert.equal(limit, options?.maxTokens, "the provider adapter must preserve the summary's complete output budget");
+			assert.ok(input + limit < model.contextWindow, "fake provider enforces the shared input/output window");
+			const reasoning = options?.reasoning === "xhigh" ? 16_000 : 0;
+			const response = limit <= reasoning + 400
+				? fauxAssistantMessage([{ type: "thinking", thinking: "Reasoning." }], { stopReason: "length" })
+				: fauxAssistantMessage("Complete checkpoint.");
+			return streamFor(response, requests, budgets)(_model, context, options);
+		};
+		const oldOptions = { maxTokens: 12_000, reasoning: "xhigh" };
+		const reproduced = await fake(model, { messages: [{ role: "user", content: "Summarize.", timestamp: 1 }] }, oldOptions).result();
+		assert.equal(reproduced.stopReason, "length", "the former summary allowance is consumed by reasoning alone");
+		requests.length = 0;
+		budgets.length = 0;
+		const recovered = await compact(prepared, model, "faux-key", undefined, undefined, undefined, "xhigh", fake);
+		assert.match(recovered.summary, /Complete checkpoint/);
+		assert.ok(requests.length > 2, "the oversized history still uses chronological chunks");
+		assert.ok(budgets.every((budget) => budget > 16_000 && budget <= model.maxTokens));
+		assert.ok(requests.some((context) => JSON.stringify(context).includes("<previous-summary>")));
+	});
+}
+
+test("failed summaries expose readable length, overflow and empty reasons without provider JSON", async (t) => {
+	const model = modelFor(t);
+	for (const [response, reason] of [
+		[fauxAssistantMessage("Partial", { stopReason: "length" }), /output token limit \(length\)/],
+		[fauxAssistantMessage([], { stopReason: "error", errorMessage: '400 {"error":{"message":"maximum context length exceeded"}}' }), /exceeded the model context window/],
+		[fauxAssistantMessage([{ type: "thinking", thinking: "No text." }]), /empty summary/],
+	] as const) {
+		await assert.rejects(generateSummary([user("task", "Summarize.").message], model, 800, "faux-key",
+			undefined, undefined, undefined, undefined, "high", streamFor(response)), (error: unknown) => {
+			assert.match(compactionFailureReason(error), reason);
+			assert.doesNotMatch(compactionFailureReason(error), /\{|400/);
+			return true;
+		});
+	}
 });

@@ -27,13 +27,13 @@ test("file excerpts, pins, and recoverable originals survive compaction, restart
             fauxToolCall("context_recall", { reference: "result-1", offset: 2000 }, { id: "recall-1" }),
         ];
         const call = calls[step++];
-        return call ? withTokens(fauxAssistantMessage([call], { stopReason: "toolUse" }), step === 2 ? 5500 : 100)
+        return call ? withTokens(fauxAssistantMessage([call], { stopReason: "toolUse" }), step === 2 ? 5900 : 100)
             : withTokens(fauxAssistantMessage("Review complete."), 100);
     });
     const base = setup.faux.getModel();
     setup.modelRuntime.registerProvider(base.provider, {
         baseUrl: base.baseUrl, apiKey: "faux-key", api: setup.faux.api,
-        models: [{ id: base.id, name: base.name, reasoning: false, input: base.input, cost: base.cost, maxTokens: base.maxTokens,
+        models: [{ id: base.id, name: base.name, reasoning: false, input: base.input, cost: base.cost, maxTokens: 1_000,
             contextWindow: 8000, compaction: { threshold: 6000, keepRecentTokens: 1500, summaryTokens: 800 } }],
     });
     const directory = mkdtempSync(join(tmpdir(), "ragents-retained-context-"));

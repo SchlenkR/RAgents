@@ -1,4 +1,4 @@
-import { EXTENDED_THINKING_LEVELS, isModelSdk, MODEL_SDK_BASE_URLS, MODEL_SDKS, type Api, type InputModality, type Model, type ModelSdk } from "@ragents/ai";
+import { EXTENDED_THINKING_LEVELS, isModelSdk, MODEL_SDK_BASE_URLS, MODEL_SDKS, reasoningReplayProblem, type Api, type InputModality, type Model, type ModelSdk } from "@ragents/ai";
 import { builtinProviders } from "@ragents/ai/providers/all";
 import type { ModelProviderRegistration } from "@ragents/engine";
 import { excludeProcessEnvironment } from "@ragents/workspace-executor/src/safe-environment.ts";
@@ -18,7 +18,7 @@ const PROVIDER_KEYS: readonly string[] = ["id", "sdk", "baseUrl", "apiKey", "com
 const COMPAT_KEYS: readonly string[] = ["thinkingFormat", "requiresReasoningContentOnAssistantMessages", "openRouterRouting"];
 const ROUTING_KEYS: readonly string[] = ["zdr"];
 const THINKING_FORMATS: readonly string[] = ["qwen-chat-template"];
-const MODEL_KEYS: readonly string[] = ["id", "contextWindow", "maxTokens", "reasoning", "input", "thinkingLevelMap", "cost"];
+const MODEL_KEYS: readonly string[] = ["id", "contextWindow", "maxTokens", "reasoning", "input", "thinkingLevelMap", "cost", "reasoningReplay"];
 const COST_KEYS: readonly string[] = ["input", "output", "cacheRead", "cacheWrite"];
 const INPUTS: readonly InputModality[] = ["text", "image", "video", "file", "audio"];
 
@@ -135,6 +135,8 @@ const modelOf = (value: unknown, index: number, provider: { id: string; sdk: Mod
     throw new Error(`${at}.input needs "text" and optionally ${INPUTS.filter((kind) => kind !== "text").join(", ")}`);
   }
   const thinkingLevelMap = thinkingLevelMapOf(entry.thinkingLevelMap, entry.reasoning, at);
+  const replayProblem = reasoningReplayProblem(entry.reasoningReplay);
+  if (replayProblem) throw new Error(`${at}.${replayProblem}`);
   return {
     id: entry.id,
     name: entry.id,
@@ -148,6 +150,7 @@ const modelOf = (value: unknown, index: number, provider: { id: string; sdk: Mod
     contextWindow,
     maxTokens,
     ...(thinkingLevelMap ? { thinkingLevelMap } : {}),
+    ...(entry.reasoningReplay === undefined ? {} : { reasoningReplay: entry.reasoningReplay as Model<Api>["reasoningReplay"] }),
     ...(provider.compat ? { compat: provider.compat } : {}),
   };
 };

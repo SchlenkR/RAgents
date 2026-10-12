@@ -395,7 +395,7 @@
     {
       "role": "compactionSummary",
       "summary": "## Goal\nRunning summary 4.\n\n---\n\n**Turn Context (split turn):**\n\n## Goal\nRunning summary 5.",
-      "tokensBefore": 860
+      "tokensBefore": 907
     },
     {
       "role": "assistant",

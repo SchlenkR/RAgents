@@ -356,6 +356,29 @@ with the same model stay in `packages/ai/src/api/transform-messages.ts`. Model c
 level are not context: every step names its model itself. The runtime adds to what the projection
 delivers per request only the notes of the hooks (`AgentTurn` in `drivers/agent-turn.ts`).
 
+Only the latest checkpoint contributes a summary; older checkpoint entries inside a retained
+slice never reappear. Reasoning from the same model is replayed completely by default, in its
+original order, with signatures and redacted content. OpenRouter `reasoning_details` are assembled
+from raw stream fragments by index and restored after SDK serialization without deduplicating
+their entries or changing provider fields. Copies of the same full metadata list on multiple
+stored blocks are represented once. OpenAI-compatible SDK requests replay thinking as
+`reasoning_content`; Mistral requests replay it as thinking content. Native Anthropic Messages,
+OpenAI Responses and Gemini APIs are not registered transports here; their models use OpenRouter,
+which carries their signed or encrypted details. No transport infers permission to omit reasoning
+from the model name or thinking level.
+
+The binding continuity requirements are complete signed and redacted thinking for Anthropic,
+reasoning items with encrypted content for stateless Responses tool loops, all signed thought
+blocks for stateless Gemini, and previous `reasoning_content` for DeepSeek tool use. GLM requires
+interleaved reasoning with tool results, and preserves earlier turns when its endpoint enables
+preserved thinking. OpenRouter requires unchanged ordered details. The upstream API decides
+whether earlier reasoning remains in the rendered context: Anthropic's model version, Responses
+`reasoning.context`, DeepSeek's tool use and GLM's `clear_thinking` govern this, not a host heuristic.
+The optional model setting `reasoningReplay: "current-turn"` is only for models that ignore prior
+turns. It removes earlier RAgents turns' thinking and tool signatures from the outgoing projection,
+not the journal. All reasoning within the running turn remains, also after steering and transient
+hook notes. Its removed prefix usage is not reused for estimating the changed request.
+
 The identifier of a model context (`ToolScope.modelContext`, basis of the seen file state in
 `plugins.md`) is the run's `run.created` plus the actor's last compaction; it changes with every
 compaction. A run fork (`forkRun`) takes over the model contexts of its agents together with the
@@ -462,10 +485,19 @@ a retryable `Timeout` error.
 Compaction happens on the projection, with the values of the model that runs the turn
 (`Model.compaction`, type `ModelCompaction` in `packages/ai/src/types.ts`, evaluated by
 `compactionOf` in `packages/agent/src/core/compaction/compaction.ts`): before every model request,
-including requests within a turn, and after its final response when the projected context exceeds
-`threshold`, an absolute token count of this model. The estimate includes tool results and newly
-presented inputs. Retained usage from before the latest compaction does not measure the new context;
+including requests within a turn, and after its final response when the next request estimate exceeds
+the effective threshold. This is the smaller of the configured `threshold` and the context window
+minus `modelOutputReserve`: 8192 output tokens plus a reasoning allowance for the sent thinking
+level (minimal 1024, low 2048, medium 4096, high 8192, xhigh 16384, max 32768), bounded by `maxTokens`.
+Alias mappings apply, including `off` mapped to a reasoning level; a provider-specific effort uses
+the model's output limit as its reasoning allowance. The estimate includes tool results, newly
+presented inputs, system prompt and tools without usage, and transient hook notes for this request.
+It takes the larger of reported active usage plus additions and the estimated complete request.
+Retained usage from before the latest compaction does not measure the new context;
 until a new response reports usage, the runtime estimates the active summary and messages.
+The shared message estimator counts visible thinking, ordered reasoning metadata and opaque
+signatures, including signatures on tool calls. Native reported total usage is preferred over
+recomputed components; cache-read and reasoning tokens are included.
 An overflow error of the same model, or a `length` stop with at most eight output tokens and input
 plus cache-read tokens at least 98 percent of its window, compacts and retries that request once.
 A second overflow or an unavailable or failed recovery ends the turn as `failed`, never as a silent
@@ -474,16 +506,26 @@ in the journal and server diagnostic. A failed recovery does not retire the acto
 input can compact the preserved history again. Roughly `keepRecentTokens` of the most recent entries
 are kept, never starting from a tool result. An oversized entry is summarized when a later valid
 cut exists; a trailing tool result keeps its preceding call and reaches the model bounded.
+The cut measures the whole retained suffix. If even the last completed tool round exceeds the
+remaining recent budget, the runtime summarizes that whole round and journals a continuation input
+as the first kept event. Thus compaction can continue within a single long tool loop without
+retaining oversized reasoning or orphaning a result. This continuation is recorded only after
+successful summarization. Before recording any checkpoint, the runtime verifies that summary,
+retained results, request instructions and hook notes reduce the next request and leave its output
+reserve inside the model window. Failure preserves the original history.
 If that cuts into the middle of a turn, a second summary
-summarizes that turn's beginning separately. Both calls share `summaryTokens`: five eighths for
-the turn beginning and the rest for history, each limited by the model's output limit. If there
+summarizes that turn's beginning separately. Both calls share `summaryTokens` as their text target:
+five eighths for the turn beginning and the rest for history. Each request adds the reasoning
+allowance for its thinking level to that target and caps the total at the model's output limit;
+reasoning must not consume the text allowance. If there
 is only an existing checkpoint plus a new turn prefix, one call updates that checkpoint within
 the whole budget; a one-token budget also uses one call. The existing checkpoint reaches this
 call even when there is no additional history. Both summary paths use bounded chronological chunks
 and merge each completed checkpoint into the next request. Oversized single messages and previous
 checkpoints become explicitly marked excerpts; attachments that cannot fit are explicitly omitted.
 `SUMMARIZATION_WINDOW_FRACTION = 0.9` and `SUMMARIZATION_REQUEST_RESERVE_TOKENS = 256`
-bound each request to 90 percent of the model window minus its output budget and a 256-token
+bound each request to 90 percent of the model window remaining after its full output allowance,
+minus a 256-token
 reserve, including instructions, wrappers, the previous checkpoint and media allowances. UTF-8
 text bytes count conservatively as tokens, with attachments charged at least 4800 and otherwise
 their encoded size. A request is checked before dispatch. Only a normally completed, non-empty text summary
@@ -493,8 +535,12 @@ Whether a
 response lies before the last compaction is decided by its position in the journal. A retry and
 the continuation after a compaction start behind all error steps and truncated overflow responses
 at the end of the context, because the journal keeps every one of them unchanged. A failed proactive
-compaction is in the server log; the turn continues without it. A failed overflow compaction
-reports a short summary-failure notice as the turn's failure. Summaries use `context.compacted`; the journal preserves
+compaction is in the server log with the run and actor. The turn continues only if the next request
+still fits with its reasoning/output reserve; otherwise it fails before dispatch. A failed overflow
+compaction reports a short reason in the turn's failure (output limit, context window, empty summary,
+provider rejection or temporary unavailability), without raw provider JSON. Full compaction diagnostics
+stay in the server log. Cancellation produces no failed-compaction diagnostic.
+Summaries use `context.compacted`; the journal preserves
 all original events for replay and recovery.
 
 Before compaction, plugins can contribute retained tool-result IDs and bounded context notes
@@ -510,13 +556,16 @@ server's aliases, or through the model definition of a provider registered at ru
 (`ProviderConfigInput`). The model runtime checks them at registration (`compactionProblem`): three
 positive integers, `keepRecentTokens + summaryTokens` below `threshold`,
 `threshold + summaryTokens` below the context window, and `summaryTokens` at most the output
-limit; otherwise the registration fails and with it the start. A model without its own values, for
+limit, and enough space between threshold and window for the largest reasoning/output reserve of
+its offered levels; otherwise the registration fails and with it the start, naming a valid maximum
+threshold. A model without its own values, for
 example a catalog model without an alias, has the catalog default (`catalogCompaction`):
 `threshold` equal to `contextWindow - 16384`, `keepRecentTokens` 20000, and `summaryTokens` 13107,
 80 percent of 16384, so 8192 for the turn beginning. The catalog names as context window the
 largest across all providers of a model; the default threshold is therefore often above the window
 of most providers, and whoever does not want that gives the model its own values through an alias.
-Which values applied is in `context.compacted` (`threshold` with `source` `model` or `catalog`).
+Runtime checks also lower catalog thresholds for the selected thinking level.
+The configured values are in `context.compacted` (`threshold` with `source` `model` or `catalog`).
 The model of the turn is authoritative: a model change applies from the next turn, and already its
 check before the first step measures the existing context against the new model's threshold.
 

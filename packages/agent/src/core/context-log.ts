@@ -43,7 +43,7 @@ export function activeContextEntries(entries: readonly ContextLogEntry[], contex
 			const message = retainedToolResultMessage(result);
 			return { kind: "message", id: result.entryId, message: { ...message, content: boundedToolResult(message.content, contextWindow) } };
 		}),
-		...(firstKeptIndex < 0 ? [] : entries.slice(firstKeptIndex, compactionIndex)),
+		...(firstKeptIndex < 0 ? [] : entries.slice(firstKeptIndex, compactionIndex).filter((entry) => entry.kind === "message")),
 		...entries.slice(compactionIndex + 1),
 	];
 }

@@ -44,7 +44,11 @@ contents. An incomplete summary leaves the original active context intact.
 
 Oversized tool results carry a truncation notice and a workspace file containing the full text.
 The agent reads that file in parts. This also applies to old results after restart. If context
-recovery cannot finish a summary, the chat reports a short failure; send another message to retry.
+recovery cannot finish a summary, the chat reports its short cause, such as an output limit or an
+empty summary; send another message to retry. Compaction reserves room for the next model response,
+including reasoning, before requesting it.
+This also works within a long tool loop: completed work can move into the summary while the same
+turn continues. Its original results and reasoning remain in the journal.
 
 ## Selection controls and tables
 

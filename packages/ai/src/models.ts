@@ -21,6 +21,9 @@ import type {
 
 export { ModelsError, type ModelsErrorCode } from "./auth/resolve.ts";
 
+export const reasoningReplayProblem = (value: unknown): string | undefined =>
+	value === undefined || value === "all" || value === "current-turn" ? undefined : 'reasoningReplay must be "all" or "current-turn"';
+
 /**
  * A provider is the concrete runtime unit. It owns id/name/base metadata,
  * API-key auth, the model list, and stream behavior.
@@ -319,7 +322,7 @@ export function isModelSdk(value: unknown): value is ModelSdk {
 
 export const EXTENDED_THINKING_LEVELS: readonly ModelThinkingLevel[] = ["off", "minimal", "low", "medium", "high", "xhigh", "max"];
 
-export function getSupportedThinkingLevels<TApi extends Api>(model: Model<TApi>): ModelThinkingLevel[] {
+export function getSupportedThinkingLevels<TApi extends Api>(model: Pick<Model<TApi>, "reasoning" | "thinkingLevelMap">): ModelThinkingLevel[] {
 	if (!model.reasoning) return ["off"];
 
 	return EXTENDED_THINKING_LEVELS.filter((level) => {

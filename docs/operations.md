@@ -983,8 +983,10 @@ does not go through `bash`, but through a plugin workflow with its own time limi
 
 An agent's model context is stored in the journal (`docs/spec/core.md`, Model context and agent
 runtime). When it grows too large, the agent runtime compacts it: before each model request,
-including requests within a turn, after a final response above the model's threshold, and after
-an overflow error from the provider. Roughly
+including requests within a turn, when the estimated next request plus its reasoning/output reserve
+would exceed the model window or its configured threshold is crossed, after a final response, and
+after an overflow error from the provider. Profiles whose threshold leaves insufficient reserve
+fail startup with the alias and a valid maximum threshold. Roughly
 `keepRecentTokens` of the most recent entries are kept; the rest becomes a summary of at most
 `summaryTokens`. Every compaction is recorded as `context.compacted` in the journal, with the
 threshold that applied and its origin (`model` or `catalog`); the chat shows a system line,
@@ -994,8 +996,22 @@ Tool results are bounded before entering the model, including after replay; orig
 entries stay intact. Oversized text is also stored in the run workspace under `attachments/`
 for paged reads. Summary requests use bounded chunks even when the original history exceeds the
 model window. A failed overflow recovery leaves the actor available for the next message and
-keeps the detailed provider error in the journal and server diagnostic. The constants and budget
+shows a short cause in the chat. Failed compaction diagnostics, including provider details, reach
+the server log with run and actor. An unsafe request is never sent after a failed summary.
+Summary output allowances include reasoning in addition to the summary text target. The constants and budget
 formula are in `docs/spec/core.md`.
+
+Reasoning is returned complete by default, including signed or encrypted state. A single long
+tool loop can be summarized at a completed tool boundary and resume from a continuation input;
+even an oversized final tool round can leave the active context. The runtime checks the reduced
+request before committing its checkpoint. A failed summary replaces nothing, and calls belonging
+to another actor never affect this agent's compaction or usage estimate.
+
+Only for a model that ignores earlier turns, set `reasoningReplay: "current-turn"` explicitly on
+its alias or `MODEL_PROVIDERS.models` entry. The default is `"all"`. Current-turn reasoning remains
+complete through tool calls and steering, and originals stay loadable in the unchanged journal.
+Provider continuity requirements and restrictions are in `docs/spec/core.md`; the option and relay
+behavior are in `docs/spec/profiles.md`.
 
 `core`, `showcase`, and `developer` include `ragents.compaction`. It spends up to half of
 `keepRecentTokens` on pinned results and recent file excerpts, with bounded recovery notes and

@@ -1,5 +1,5 @@
 import { aliasedModel, compactionProblem, thinkingLevelsProblem, type ModelAlias as RuntimeModelAlias } from "@ragents/agent";
-import { getSupportedThinkingLevels, type Api, type Model } from "@ragents/ai";
+import { getSupportedThinkingLevels, reasoningReplayProblem, type Api, type Model } from "@ragents/ai";
 import { getBuiltinModels, type BuiltinProvider } from "@ragents/ai/providers/all";
 import { isThinkingLevel, type ThinkingLevel } from "@ragents/engine";
 import { configuredModelProviders } from "./model-providers.js";
@@ -18,7 +18,7 @@ export const modelAliasEnvDescriptors = [
 ] as const;
 
 const ALIAS = /^[a-z0-9][a-z0-9._-]{0,63}$/;
-const ENTRY_KEYS: readonly string[] = ["alias", "model", "thinking", "thinkingLevels", "compaction"];
+const ENTRY_KEYS: readonly string[] = ["alias", "model", "thinking", "thinkingLevels", "compaction", "reasoningReplay"];
 
 const aliasOf = (value: unknown, index: number): ModelAlias => {
   const location = `MODEL_ALIASES[${index}]`;
@@ -37,7 +37,7 @@ const aliasOf = (value: unknown, index: number): ModelAlias => {
   if (entry.thinking !== undefined && !isThinkingLevel(entry.thinking)) {
     throw new Error(`${location}.thinking of ${entry.alias} names the unknown thinking level "${String(entry.thinking)}"`);
   }
-  const problem = thinkingLevelsProblem(entry.thinkingLevels) ?? compactionProblem(entry.compaction);
+  const problem = reasoningReplayProblem(entry.reasoningReplay) ?? thinkingLevelsProblem(entry.thinkingLevels) ?? compactionProblem(entry.compaction);
   if (problem) throw new Error(`${location}, ${entry.alias}: ${problem}`);
   return {
     alias: entry.alias,
@@ -46,6 +46,7 @@ const aliasOf = (value: unknown, index: number): ModelAlias => {
     ...(entry.thinking === undefined ? {} : { thinking: entry.thinking }),
     ...(entry.thinkingLevels === undefined ? {} : { thinkingLevels: entry.thinkingLevels as ModelAlias["thinkingLevels"] }),
     compaction: entry.compaction as ModelAlias["compaction"],
+    ...(entry.reasoningReplay === undefined ? {} : { reasoningReplay: entry.reasoningReplay as ModelAlias["reasoningReplay"] }),
   };
 };
 
@@ -75,9 +76,9 @@ export const configuredModelAliases = (): readonly ModelAlias[] => {
 
 /** The model the alias offers over its target, checked against the target's thinking levels and limits; the default thinking level must be an offered level. */
 export const validatedAliasModel = (entry: ModelAlias, target: Model<Api>): Model<Api> => {
-  const problem = thinkingLevelsProblem(entry.thinkingLevels, target) ?? compactionProblem(entry.compaction, target);
-  if (problem) throw new Error(`MODEL_ALIASES: ${entry.alias} on ${entry.upstream}/${entry.model}: ${problem}`);
   const offered = aliasedModel(ALIAS_PROVIDER, entry, target);
+  const problem = thinkingLevelsProblem(entry.thinkingLevels, target) ?? compactionProblem(entry.compaction, offered);
+  if (problem) throw new Error(`MODEL_ALIASES: ${entry.alias} on ${entry.upstream}/${entry.model}: ${problem}`);
   const levels = getSupportedThinkingLevels(offered);
   if (entry.thinking !== undefined && !levels.includes(entry.thinking)) {
     throw new Error(`MODEL_ALIASES: the thinking level ${entry.thinking} does not exist for ${entry.alias} (valid: ${levels.join(", ")})`);

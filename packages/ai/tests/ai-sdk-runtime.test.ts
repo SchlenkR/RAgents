@@ -177,6 +177,76 @@ for (const encryptedOnly of [false, true]) {
 	});
 }
 
+for (const [name, details] of [
+	["Anthropic", [
+		{ type: "reasoning.text", text: "First thought", signature: "signature-a", format: "anthropic-claude-v1", index: 0 },
+		{ type: "reasoning.text", text: "Second thought", signature: "signature-b", format: "anthropic-claude-v1", index: 1 },
+		{ type: "reasoning.encrypted", data: "redacted", format: "anthropic-claude-v1", index: 2 },
+	]],
+	["Responses", [
+		{ type: "reasoning.encrypted", id: "item-a", data: "encrypted-content", format: "openai-responses-v1", index: 0 },
+		{ type: "reasoning.encrypted", id: "item-a", data: "encrypted-content", format: "openai-responses-v1", index: 1 },
+	]],
+	["Gemini", [
+		{ type: "reasoning.text", text: "Thought", signature: "signature", format: "google-gemini-v1", index: 0 },
+		{ type: "reasoning.encrypted", data: "tool-signature", format: "google-gemini-v1", index: 1 },
+	]],
+	["GLM and DeepSeek", [
+		{ type: "reasoning.text", text: "Repeated thought", format: "unknown", index: 0 },
+		{ type: "reasoning.text", text: "Repeated thought", format: "unknown", index: 1 },
+	]],
+] as const) {
+	test(`OpenRouter preserves complete ${name} details in order within a tool loop and across turns`, async (t) => {
+		const requests: Array<{ messages: Array<{ role: string; reasoning_details?: unknown }> }> = [];
+		t.mock.method(globalThis, "fetch", async (_input: unknown, init: RequestInit) => {
+			requests.push(JSON.parse(String(init.body)));
+			return response(requests.length <= 2 ? [
+				chunk({ reasoning_details: details }),
+				chunk({ tool_calls: [{ index: 0, id: `call-${requests.length}`, type: "function", function: { name: "echo", arguments: "{}" } }] }, "tool_calls"),
+			] : [chunk({ content: "Done" }, "stop")]);
+		});
+		const history = [...context.messages];
+		for (let step = 1; step <= 2; step++) {
+			const answer = await stream(model, { ...context, messages: history }, { apiKey: "test-only" }).result();
+			assert.equal(answer.errorMessage, undefined);
+			const block = answer.content.find((part) => part.type === "thinking");
+			const tool = answer.content.find((part) => part.type === "toolCall");
+			assert.ok(tool);
+			assert.deepEqual(JSON.parse(block?.thinkingSignature ?? tool.thoughtSignature!), details);
+			history.push(answer, { role: "toolResult", toolCallId: tool.id, toolName: tool.name, content: [{ type: "text", text: "Done" }], isError: false, timestamp: Date.now() });
+		}
+		history.push({ role: "user", content: "Continue", timestamp: Date.now() });
+		const original = structuredClone(history);
+		assert.equal((await stream(model, { ...context, messages: history }, { apiKey: "test-only" }).result()).errorMessage, undefined);
+		assert.deepEqual(requests[1]!.messages.filter((message) => message.role === "assistant").map((message) => message.reasoning_details), [details]);
+		assert.deepEqual(requests[2]!.messages.filter((message) => message.role === "assistant").map((message) => message.reasoning_details), [details, details]);
+		assert.deepEqual(history, original);
+	});
+}
+
+test("reasoning fragments retain separate indices, signatures and provider fields", async (t) => {
+	const details = [
+		{ type: "reasoning.text", text: "First part", signature: "signed", format: "anthropic-claude-v1", index: 0, providerField: "keep" },
+		{ type: "reasoning.text", text: "Second", signature: "other", format: "anthropic-claude-v1", index: 1 },
+	];
+	const bodies: Array<Record<string, any>> = [];
+	t.mock.method(globalThis, "fetch", async (_input: unknown, init: RequestInit) => {
+		bodies.push(JSON.parse(String(init.body)));
+		return response(bodies.length === 1 ? [
+			chunk({ reasoning_details: [{ ...details[0], text: "First ", signature: "sig" }] }),
+			chunk({ reasoning_details: [{ ...details[0], text: "part", signature: "ned" }, details[1]] }),
+			chunk({ content: "Done" }, "stop"),
+		] : [chunk({ content: "Done" }, "stop")]);
+	});
+	const answer = await stream(model, context, { apiKey: "test-only" }).result();
+	assert.equal(answer.errorMessage, undefined);
+	const thinking = answer.content.find((part) => part.type === "thinking");
+	assert.ok(thinking);
+	assert.deepEqual(JSON.parse(thinking.thinkingSignature!), details);
+	await stream(model, { messages: [...context.messages, answer, { role: "user", content: "Continue", timestamp: Date.now() }] }, { apiKey: "test-only" }).result();
+	assert.deepEqual(bodies[1]!.messages.find((message: { role: string }) => message.role === "assistant").reasoning_details, details);
+});
+
 test("usage includes cache and reasoning tokens and preserves actual response identity", async (t) => {
 	t.mock.method(globalThis, "fetch", async () => response([
 		chunk({ content: "Result" }, "length"),
@@ -207,6 +277,22 @@ test("usage includes cache and reasoning tokens and preserves actual response id
 	assert.ok(Math.abs(result.usage.cost.output - 30 * 4 / 1_000_000) < 1e-12);
 	assert.ok(Math.abs(result.usage.cost.cacheRead - 20 / 1_000_000) < 1e-12);
 	assert.ok(Math.abs(result.usage.cost.cacheWrite - 10 * 3 / 1_000_000) < 1e-12);
+});
+
+test("context accounting prefers the provider's total over recomputed components", async (t) => {
+	for (const totalTokens of [253_263, 254_000]) {
+		t.mock.method(globalThis, "fetch", async () => response([
+			chunk({ content: "Done" }, "stop"),
+			{ ...chunk({}), choices: [], usage: { prompt_tokens: 249_766, completion_tokens: 3_497, total_tokens: totalTokens,
+				prompt_tokens_details: { cached_tokens: 229_376 }, completion_tokens_details: { reasoning_tokens: 3_254 } } },
+		]));
+		const answer = await stream(model, context, { apiKey: "test-only" }).result();
+		assert.equal(answer.usage.totalTokens, totalTokens);
+		assert.equal(answer.usage.input, 20_390);
+		assert.equal(answer.usage.cacheRead, 229_376);
+		assert.equal(answer.usage.output, 3_497);
+		t.mock.restoreAll();
+	}
 });
 
 for (const field of ["reasoning_content", "reasoning_text"]) {

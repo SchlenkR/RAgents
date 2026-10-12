@@ -1,4 +1,5 @@
 import type { AssistantMessage, Context, Message, Tool, Usage, UserContent } from "../types.ts";
+import { storedReasoningDetails } from "../api/reasoning-details.ts";
 
 export interface ContextUsageEstimate {
 	/** Estimated total context tokens. */
@@ -59,6 +60,12 @@ export function estimateMessageTokens(message: Message): number {
 		} else {
 			chars += block.name.length + safeJsonStringify(block.arguments).length;
 		}
+	}
+	const details = message.api === "openai-completions" ? storedReasoningDetails(message) : [];
+	if (details.length > 0) chars += JSON.stringify(details).length;
+	else for (const block of message.content) {
+		if (block.type === "thinking") chars += block.thinkingSignature?.length ?? 0;
+		if (block.type === "toolCall") chars += block.thoughtSignature?.length ?? 0;
 	}
 	return Math.ceil(chars / CHARS_PER_TOKEN);
 }

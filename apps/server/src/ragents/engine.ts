@@ -236,6 +236,11 @@ export const createEngine = async (options: EngineOptions): Promise<Engine> => {
   });
   const agentRuntime = new AgentLoopDriver({
     modelRuntime: options.modelRuntime,
+    onDiagnostic: ({ type, message, context }) => {
+      const log = `Agent runtime ${context.runId}/${context.agentId}: ${message}`;
+      if (type === "error") console.error(log);
+      else console.warn(log);
+    },
     resolveSkills: async (context) => globalChat?.isCoordinator(context.runId) ? []
       : (await options.plugins.skills.resolve(contributionContextFor(context))).map(skillOfDirectory),
     resolveHooks: (context) => options.plugins.agentRuntime.resolve(contributionContextFor(context)),

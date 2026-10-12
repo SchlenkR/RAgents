@@ -2,8 +2,8 @@
 
 import type { AgentMessage, StreamFn, ThinkingLevel } from "../../loop/index.ts";
 import type { AssistantMessage, Context, Model, ModelCompaction, SimpleStreamOptions, Usage, UserAttachment } from "@ragents/ai";
-import { completeSimple } from "@ragents/ai";
-import { type ContextCompaction, type ContextLogEntry, contextEntryMessages, contextMessages, latestCompaction } from "../context-log.ts";
+import { completeSimple, estimateMessageTokens, getSupportedThinkingLevels, isContextOverflow, isRetryableAssistantError } from "@ragents/ai";
+import { type ContextCompaction, type ContextLogEntry, contextMessages, latestCompaction } from "../context-log.ts";
 import { convertToLlm } from "../messages.ts";
 import { contextToolResults, retainedToolResultMessage } from "../tool-results.ts";
 import { boundedText } from "../tool-result-limit.ts";
@@ -49,6 +49,26 @@ export interface CompactionResult {
 // ============================================================================
 
 const CATALOG_RESERVE_TOKENS = 16384;
+export const MODEL_OUTPUT_RESERVE_TOKENS = 8192;
+const THINKING_RESERVE_TOKENS = { minimal: 1024, low: 2048, medium: 4096, high: 8192, xhigh: 16384, max: 32768 };
+type CompactionModel = Pick<Model<any>, "contextWindow" | "maxTokens"> & Partial<Pick<Model<any>, "reasoning" | "thinkingLevelMap">>;
+
+export function reasoningReserve(model: CompactionModel, level: ThinkingLevel = "off"): number {
+	if (!model.reasoning) return 0;
+	const effort = model.thinkingLevelMap?.[level] ?? level;
+	if (effort === "off" || effort === "none") return 0;
+	return Object.hasOwn(THINKING_RESERVE_TOKENS, effort)
+		? THINKING_RESERVE_TOKENS[effort as keyof typeof THINKING_RESERVE_TOKENS]
+		: model.maxTokens;
+}
+
+export function modelOutputReserve(model: CompactionModel, level: ThinkingLevel = "off"): number {
+	return Math.min(MODEL_OUTPUT_RESERVE_TOKENS + reasoningReserve(model, level), model.maxTokens > 0 ? model.maxTokens : Infinity);
+}
+
+export function effectiveCompactionThreshold(model: Model<any>, level: ThinkingLevel = "off"): number {
+	return Math.min(compactionOf(model).values.threshold, model.contextWindow - modelOutputReserve(model, level));
+}
 
 /** The catalog standard of a model without own values: compact 16384 tokens below its context window. */
 export function catalogCompaction(model: Pick<Model<any>, "contextWindow">): ModelCompaction {
@@ -74,7 +94,7 @@ const COMPACTION_KEYS: readonly string[] = ["threshold", "keepRecentTokens", "su
 /** Why a value is no valid set of compaction values, or undefined; with a model also whether they fit its context window and output limit. */
 export function compactionProblem(
 	value: unknown,
-	model?: Pick<Model<any>, "contextWindow" | "maxTokens">,
+	model?: CompactionModel,
 ): string | undefined {
 	if (!value || typeof value !== "object" || Array.isArray(value)) {
 		return "compaction needs threshold, keepRecentTokens and summaryTokens";
@@ -94,6 +114,12 @@ export function compactionProblem(
 	}
 	if (model.maxTokens > 0 && summaryTokens > model.maxTokens) {
 		return `compaction.summaryTokens (${summaryTokens}) exceeds the output limit (${model.maxTokens})`;
+	}
+	const levels = getSupportedThinkingLevels({ reasoning: model.reasoning ?? false,
+		...(model.thinkingLevelMap ? { thinkingLevelMap: model.thinkingLevelMap } : {}) });
+	const reserve = Math.max(...levels.map((level) => modelOutputReserve(model, level)));
+	if (threshold + reserve > model.contextWindow) {
+		return `compaction.threshold (${threshold}) leaves less than the reasoning/output reserve (${reserve}) below the context window (${model.contextWindow}); use a threshold at most ${model.contextWindow - reserve}`;
 	}
 	return undefined;
 }
@@ -181,8 +207,8 @@ export function estimateContextTokens(messages: AgentMessage[], usageStartIndex 
 	};
 }
 
-export function estimateContextUsage(entries: readonly ContextLogEntry[]): ContextUsageEstimate {
-	const messages = contextMessages(entries);
+export function estimateContextUsage(entries: readonly ContextLogEntry[], contextWindow?: number): ContextUsageEstimate {
+	const messages = contextMessages(entries, contextWindow);
 	const compaction = latestCompaction(entries);
 	const compactionIndex = compaction ? entries.lastIndexOf(compaction) : -1;
 	const usageStartIndex = compactionIndex < 0 ? 0 : messages.length - (entries.length - compactionIndex - 1);
@@ -198,65 +224,9 @@ export function shouldCompact(contextTokens: number, compaction: ModelCompaction
 // Cut point detection
 // ============================================================================
 
-const ESTIMATED_IMAGE_CHARS = 4800;
-
-function estimateTextAndImageContentChars(content: string | Array<{ type: string; text?: string; data?: string }>): number {
-	if (typeof content === "string") {
-		return content.length;
-	}
-
-	let chars = 0;
-	for (const block of content) {
-		if (block.type === "text" && block.text) {
-			chars += block.text.length;
-		} else if (block.type === "image") {
-			chars += ESTIMATED_IMAGE_CHARS;
-		} else if (block.type === "video" || block.type === "file") {
-			chars += Math.max(ESTIMATED_IMAGE_CHARS, block.data?.length ?? 0);
-		}
-	}
-	return chars;
-}
-
-/**
- * Estimate token count for a message using chars/4 heuristic.
- * This is conservative (overestimates tokens).
- */
+/** Estimates the rendered message, including replayed reasoning metadata. */
 export function estimateTokens(message: AgentMessage): number {
-	let chars = 0;
-
-	switch (message.role) {
-		case "user": {
-			chars = estimateTextAndImageContentChars(
-				(message as { content: string | Array<{ type: string; text?: string; data?: string }> }).content,
-			);
-			return Math.ceil(chars / 4);
-		}
-		case "assistant": {
-			const assistant = message as AssistantMessage;
-			for (const block of assistant.content) {
-				if (block.type === "text") {
-					chars += block.text.length;
-				} else if (block.type === "thinking") {
-					chars += block.thinking.length;
-				} else if (block.type === "toolCall") {
-					chars += block.name.length + JSON.stringify(block.arguments).length;
-				}
-			}
-			return Math.ceil(chars / 4);
-		}
-		case "custom":
-		case "toolResult": {
-			chars = estimateTextAndImageContentChars(message.content);
-			return Math.ceil(chars / 4);
-		}
-		case "compactionSummary": {
-			chars = message.summary.length;
-			return Math.ceil(chars / 4);
-		}
-	}
-
-	return 0;
+	return convertToLlm([message]).reduce((sum, rendered) => sum + estimateMessageTokens(rendered), 0);
 }
 
 function isCutPointMessage(message: AgentMessage): boolean {
@@ -333,25 +303,14 @@ export function findCutPoint(
 		return { firstKeptEntryIndex: startIndex, turnStartIndex: -1, isSplitTurn: false };
 	}
 
+	const suffixTokens = new Map<number, number>();
 	let accumulatedTokens = 0;
-	let cutIndex = cutPoints[0];
-
-	for (let i = endIndex - 1; i >= startIndex; i--) {
-		const messageTokens = contextEntryMessages(entries[i]).reduce((sum, message) => sum + estimateTokens(message), 0);
-		if (messageTokens === 0) continue;
-		accumulatedTokens += messageTokens;
-
-		if (accumulatedTokens >= keepRecentTokens) {
-			cutIndex = cutPoints[cutPoints.length - 1];
-			for (let c = 0; c < cutPoints.length; c++) {
-				if (cutPoints[c] >= i && (messageTokens <= keepRecentTokens || cutPoints[c] > i)) {
-					cutIndex = cutPoints[c];
-					break;
-				}
-			}
-			break;
-		}
+	for (let index = endIndex - 1; index >= startIndex; index--) {
+		const entry = entries[index];
+		if (entry.kind === "message") accumulatedTokens += estimateTokens(entry.message);
+		suffixTokens.set(index, accumulatedTokens);
 	}
+	const cutIndex = cutPoints.find((index) => suffixTokens.get(index)! <= keepRecentTokens) ?? cutPoints.at(-1)!;
 
 	const cutEntry = entries[cutIndex];
 	const startsTurn = isTurnStartEntry(cutEntry);
@@ -449,7 +408,8 @@ function createSummarizationOptions(
 	signal: AbortSignal | undefined,
 	thinkingLevel: ThinkingLevel | undefined,
 ): SimpleStreamOptions {
-	const options: SimpleStreamOptions = { maxTokens, signal, apiKey, headers, env };
+	const outputBudget = Math.min(maxTokens + reasoningReserve(model, thinkingLevel), model.maxTokens > 0 ? model.maxTokens : Infinity);
+	const options: SimpleStreamOptions = { maxTokens: outputBudget, signal, apiKey, headers, env };
 	if (model.reasoning && thinkingLevel && thinkingLevel !== "off") {
 		options.reasoning = thinkingLevel;
 	}
@@ -483,8 +443,8 @@ async function summarizeInChunks(
 	name: string,
 	streamFn?: StreamFn,
 ): Promise<string> {
-	const inputBudget = Math.floor(model.contextWindow * SUMMARIZATION_WINDOW_FRACTION)
-		- (options.maxTokens ?? 0) - SUMMARIZATION_REQUEST_RESERVE_TOKENS;
+	const inputBudget = Math.floor((model.contextWindow - (options.maxTokens ?? 0)) * SUMMARIZATION_WINDOW_FRACTION)
+		- SUMMARIZATION_REQUEST_RESERVE_TOKENS;
 	const wrap = (conversation: string, previous?: string) => `<conversation>\n${conversation}\n</conversation>\n\n`
 		+ (previous ? `<previous-summary>\n${previous}\n</previous-summary>\n\nMerge this checkpoint with the next conversation chunk.\n\n` : "") + prompt;
 	const fixedBytes = textBytes(SUMMARIZATION_SYSTEM_PROMPT) + textBytes(wrap("", "checkpoint"));
@@ -525,7 +485,7 @@ async function summarizeInChunks(
 			+ part.attachments.reduce((sum, attachment) => sum + attachmentBytes(attachment), 0);
 		if (requestBytes > inputBudget) throw new Error("The summarization request exceeds its bounded input budget.");
 		const response = await completeSummarization(model, context, options, streamFn);
-		summary = completedSummary(response, name);
+		summary = completedSummary(response, name, model.contextWindow);
 	}
 	return summary!;
 }
@@ -555,16 +515,36 @@ export async function generateSummary(
 		basePrompt = `${basePrompt}\n\nAdditional focus: ${customInstructions}`;
 	}
 
+	basePrompt += `\n\nUse at most ${maxTokens} tokens for the summary text; the output allowance also includes reasoning.`;
 	const completionOptions = createSummarizationOptions(model, maxTokens, apiKey, headers, env, signal, thinkingLevel);
 	return summarizeInChunks(currentMessages, model, completionOptions, basePrompt, previousSummary, "Summarization", streamFn);
 }
 
-function completedSummary(response: AssistantMessage, name: string): string {
+export class CompactionError extends Error {
+	readonly reason: string;
+	constructor(message: string, reason: string) {
+		super(message);
+		this.reason = reason;
+	}
+}
+
+export function compactionFailureReason(error: unknown): string {
+	if (error instanceof CompactionError) return error.reason;
+	const message = error instanceof Error ? error.message : String(error);
+	return /[{}\[\]]/.test(message) ? "the compaction request failed." : message.replace(/\s+/g, " ").slice(0, 140);
+}
+
+function completedSummary(response: AssistantMessage, name: string, contextWindow: number): string {
 	if (response.stopReason !== "stop") {
-		throw new Error(`${name} failed: ${response.errorMessage || `incomplete response (${response.stopReason})`}`);
+		const reason = response.stopReason === "length" ? "the summary reached the output token limit (length)."
+			: isContextOverflow(response, contextWindow) ? "the summary request exceeded the model context window."
+			: isRetryableAssistantError(response) ? "the summary provider is temporarily unavailable."
+			: response.stopReason === "aborted" ? "the summary request was aborted."
+			: "the summary request was rejected by the provider.";
+		throw new CompactionError(`${name} failed: ${response.errorMessage || `incomplete response (${response.stopReason})`}`, reason);
 	}
 	const text = response.content.filter((part) => part.type === "text").map((part) => part.text).join("\n");
-	if (!text.trim()) throw new Error(`${name} failed: the model returned an empty summary.`);
+	if (!text.trim()) throw new CompactionError(`${name} failed: the model returned an empty summary.`, "the model returned an empty summary.");
 	return text;
 }
 
@@ -594,6 +574,7 @@ export interface CompactionPreparation {
 export interface CompactionRetention {
 	toolResultIds: readonly string[];
 	contextNotes?: string;
+	firstKeptId?: string;
 }
 
 /** Prepares a compaction of the whole context log; undefined when there is nothing to summarize. */
@@ -634,7 +615,12 @@ export function prepareCompaction(
 	const notesTokens = Math.ceil((retention?.contextNotes?.length ?? 0) / 4);
 	const recentBudget = compaction.keepRecentTokens - retentionTokens - notesTokens;
 	if (recentBudget < 1) throw new Error("Retained tool results and recovery notes exceed the recent context budget.");
-	const cutPoint = findCutPoint(entries, boundaryStart, boundaryEnd, recentBudget);
+	const forcedIndex = retention?.firstKeptId === undefined ? -1 : entries.findIndex((entry) => entry.id === retention.firstKeptId);
+	if (retention?.firstKeptId !== undefined && (forcedIndex < boundaryStart || !isTurnStartEntry(entries[forcedIndex])))
+		throw new Error("The compaction continuation must name an active user-like message.");
+	const cutPoint = forcedIndex < 0 ? findCutPoint(entries, boundaryStart, boundaryEnd, recentBudget) : {
+		firstKeptEntryIndex: forcedIndex, turnStartIndex: -1, isSplitTurn: false,
+	};
 	const firstKeptEntry = entries[cutPoint.firstKeptEntryIndex];
 	if (!firstKeptEntry) {
 		return undefined;
@@ -803,5 +789,5 @@ async function generateTurnPrefixSummary(
 ): Promise<string> {
 	const maxTokens = Math.min(budgetTokens, model.maxTokens > 0 ? model.maxTokens : Number.POSITIVE_INFINITY);
 	return summarizeInChunks(messages, model, createSummarizationOptions(model, maxTokens, apiKey, headers, env, signal, thinkingLevel),
-		TURN_PREFIX_SUMMARIZATION_PROMPT, undefined, "Turn prefix summarization", streamFn);
+		`${TURN_PREFIX_SUMMARIZATION_PROMPT}\n\nUse at most ${maxTokens} tokens for the summary text; the output allowance also includes reasoning.`, undefined, "Turn prefix summarization", streamFn);
 }

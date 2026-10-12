@@ -1,8 +1,8 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { ModelRuntime } from "@ragents/agent";
-import { getSupportedThinkingLevels, type AssistantMessage, type Context } from "@ragents/ai";
-import { ALIAS_PROVIDER, aliasCatalog, displayProvider, modelLabel, parseModelAliases } from "../src/plugin-support/model-aliases.ts";
+import { getSupportedThinkingLevels, registerFauxProvider, type AssistantMessage, type Context } from "@ragents/ai";
+import { ALIAS_PROVIDER, aliasCatalog, displayProvider, modelLabel, parseModelAliases, validatedAliasModel } from "../src/plugin-support/model-aliases.ts";
 import { modelChoiceEnvDescriptors, modelChoiceFromEnvironment } from "../src/plugin-support/model-choice.ts";
 import { modelStartOption } from "../src/plugin-support/product-start-options.ts";
 import { declaredEnvironment } from "../src/plugin-support/plugin-config.ts";
@@ -34,6 +34,31 @@ const runtime = (): ModelRuntime => {
 };
 
 const context = (messages: Context["messages"] = [{ role: "user", content: "Hello", timestamp: 1 }]): Context => ({ messages });
+
+test("reasoning replay is an explicit model alias option and rejects unknown policies", () => {
+  const entry = parseModelAliases([aliasEntry("worker", "openrouter/qwen/qwen3.8-27b", { reasoningReplay: "current-turn" })])[0]!;
+  assert.equal(aliasCatalog([entry])[0]!.reasoningReplay, "current-turn");
+  const models = ModelRuntime.create();
+  models.registerAliases(ALIAS_PROVIDER, [entry]);
+  assert.equal(models.getModel(ALIAS_PROVIDER, "worker")!.reasoningReplay, "current-turn");
+  assert.equal(aliasCatalog(aliases)[0]!.reasoningReplay, undefined);
+  assert.throws(() => parseModelAliases([aliasEntry("worker", "openrouter/qwen/qwen3.8-27b", { reasoningReplay: "none" })]), /reasoningReplay must be "all" or "current-turn"/);
+});
+
+test("startup rejects a threshold that cannot reserve the offered reasoning level and names a valid threshold", (t) => {
+  const faux = registerFauxProvider({ models: [{ id: "reserve-validation", reasoning: true, thinkingLevelMap: { xhigh: "xhigh" }, contextWindow: 264_000, maxTokens: 131_072 }] });
+  t.after(() => faux.unregister());
+  const target = { ...faux.getModel(), thinkingLevelMap: { xhigh: "xhigh" } };
+  const entry = parseModelAliases([{ alias: "worker", model: `${target.provider}/${target.id}`,
+    compaction: { threshold: 250_000, keepRecentTokens: 24_000, summaryTokens: 12_000 } }])[0]!;
+  assert.throws(() => validatedAliasModel(entry, target), /MODEL_ALIASES: worker.*reasoning\/output reserve \(24576\).*at most 239424/);
+  const models = ModelRuntime.create();
+  models.registerProvider(target.provider, { apiKey: "faux-key", api: faux.api, models: [target] });
+  assert.throws(() => models.registerAliases(ALIAS_PROVIDER, [entry]), /Alias worker:.*reasoning\/output reserve/);
+  const mapped = { ...entry, thinkingLevels: { off: "off" as const, xhigh: "low" as const } };
+  assert.doesNotThrow(() => validatedAliasModel(mapped, target));
+  models.registerAliases(ALIAS_PROVIDER, [mapped]);
+});
 
 const capturedPayload = async (models: ModelRuntime, alias: string, reasoning: string, history?: Context["messages"]) => {
   let payload: Record<string, unknown> | undefined;

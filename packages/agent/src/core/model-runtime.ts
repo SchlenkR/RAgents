@@ -10,6 +10,7 @@ import {
 	EXTENDED_THINKING_LEVELS,
 	getSupportedThinkingLevels,
 	lazyStream,
+	reasoningReplayProblem,
 	type Model,
 	type ModelCompaction,
 	type ModelThinkingLevel,
@@ -27,6 +28,7 @@ export interface ModelAlias {
 	readonly upstream: string;
 	readonly model: string;
 	readonly compaction: ModelCompaction;
+	readonly reasoningReplay?: Model<Api>["reasoningReplay"];
 	/** The levels the alias offers, each mapped to a level of the target; without it the alias offers the target's levels. */
 	readonly thinkingLevels?: Readonly<Partial<Record<ModelThinkingLevel, ModelThinkingLevel>>>;
 }
@@ -71,7 +73,8 @@ function withOfferedThinking(entry: ModelAlias, target: Model<Api>): Model<Api> 
 
 /** The metadata of the target under the alias as id and name, with the alias provider as provider, the alias's compaction values and the levels it offers. */
 export function aliasedModel(providerId: string, entry: ModelAlias, target: Model<Api>): Model<Api> {
-	return { ...withOfferedThinking(entry, target), id: entry.alias, name: entry.alias, provider: providerId, compaction: entry.compaction };
+	return { ...withOfferedThinking(entry, target), id: entry.alias, name: entry.alias, provider: providerId, compaction: entry.compaction,
+		...(entry.reasoningReplay === undefined ? {} : { reasoningReplay: entry.reasoningReplay }) };
 }
 
 /** The built-in providers plus the ones registered at runtime; a key comes from the registration or the environment. */
@@ -145,7 +148,7 @@ export class ModelRuntime {
 		if (missing) throw new Error(`Alias ${missing.alias}: model ${missing.upstream}/${missing.model} is not configured.`);
 		for (const entry of aliases) {
 			const target = this.models.getModel(entry.upstream, entry.model);
-			const problem = compactionProblem(entry.compaction, target) ?? thinkingLevelsProblem(entry.thinkingLevels, target);
+			const problem = reasoningReplayProblem(entry.reasoningReplay) ?? thinkingLevelsProblem(entry.thinkingLevels, target) ?? compactionProblem(entry.compaction, aliasedModel(providerId, entry, target!));
 			if (problem) throw new Error(`Alias ${entry.alias}: ${problem}.`);
 		}
 		this.aliasRegistration = { provider: providerId, aliases: new Map(aliases.map((entry) => [entry.alias, entry])) };

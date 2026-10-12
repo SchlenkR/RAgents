@@ -1,4 +1,4 @@
-import { jsonSchema, streamText, stepCountIs, type LanguageModelUsage, type ProviderMetadata } from "ai";
+import { jsonSchema, streamText, stepCountIs, type LanguageModelUsage, type ModelMessage, type ProviderMetadata } from "ai";
 import { calculateCost, clampThinkingLevel } from "../models.ts";
 import type { AssistantMessage, Context, Model, SimpleStreamOptions, StreamFunction, StreamOptions, ToolCall } from "../types.ts";
 import { formatProviderError, normalizeProviderError } from "../utils/error-body.ts";
@@ -8,6 +8,7 @@ import { getProviderEnvValue } from "../utils/provider-env.ts";
 import { convertMessages } from "./ai-sdk-messages.ts";
 import { createChatModel } from "./ai-sdk-transport.ts";
 import { buildBaseOptions } from "./simple-options.ts";
+import { ReasoningDetailsAccumulator } from "./reasoning-details.ts";
 
 export interface OpenRouterOptions extends StreamOptions {
 	toolChoice?: "auto" | "none" | "required" | { type: "function"; function: { name: string } };
@@ -58,6 +59,7 @@ async function runStream(model: Model<"openai-completions">, context: Context, o
 			...options,
 			headers: { ...(model.sdk === undefined && sessionId ? { "x-session-id": sessionId } : {}), ...options?.headers },
 			onPayload: async (payload, target) => {
+				if (model.sdk === undefined) restoreReasoningDetails(payload as RequestBody, messages);
 				applyRequestCompatibility(payload, model, cacheControl, reasoning);
 				return options?.onPayload?.(payload, target);
 			},
@@ -87,6 +89,7 @@ async function runStream(model: Model<"openai-completions">, context: Context, o
 		let rawThinkingIndex: number | undefined;
 		let hasFinishReason = false;
 		let finished = false;
+		const receivedDetails = new ReasoningDetailsAccumulator();
 		restartIdleTimer();
 		for await (const part of result.fullStream) {
 			restartIdleTimer();
@@ -102,6 +105,7 @@ async function runStream(model: Model<"openai-completions">, context: Context, o
 					// The sdk packages parse tool fragments and reasoning fields themselves.
 					if (model.sdk !== undefined) break;
 					const delta = chunk.choices?.[0]?.delta;
+					if (delta?.reasoning_details) receivedDetails.add(delta.reasoning_details as Record<string, unknown>[]);
 					for (const fragment of delta?.tool_calls ?? []) {
 						const tool = rawTools.get(fragment.index) ?? { input: "" };
 						tool.id ??= fragment.id;
@@ -216,6 +220,17 @@ async function runStream(model: Model<"openai-completions">, context: Context, o
 		}
 		if (signal.aborted) throw new Error("Request aborted");
 		if (!finished || !hasFinishReason) throw new Error("Provider stream ended without a finish reason");
+		if (receivedDetails.details.length > 0) {
+			for (const block of output.content) {
+				if (block.type === "thinking") delete block.thinkingSignature;
+				if (block.type === "toolCall") delete block.thoughtSignature;
+			}
+			const carrier = output.content.find((block) => block.type === "thinking" || block.type === "toolCall");
+			const signature = JSON.stringify(receivedDetails.details);
+			if (carrier?.type === "thinking") carrier.thinkingSignature = signature;
+			else if (carrier?.type === "toolCall") carrier.thoughtSignature = signature;
+			else output.content.push({ type: "thinking", thinking: "", redacted: true, thinkingSignature: signature });
+		}
 		if (rawThinkingIndex !== undefined) {
 			const block = output.content[rawThinkingIndex];
 			if (block.type === "thinking") events.push({ type: "thinking_end", contentIndex: rawThinkingIndex, content: block.thinking, partial: output });
@@ -245,6 +260,7 @@ function reasoningDetails(metadata: ProviderMetadata | undefined) {
 }
 
 type RawUsage = {
+	total_tokens?: unknown;
 	prompt_tokens_details?: { cache_write_tokens?: unknown } | null;
 	completion_tokens_details?: { reasoning_tokens?: unknown } | null;
 };
@@ -264,7 +280,7 @@ function convertUsage(usage: LanguageModelUsage, model: Model<"openai-completion
 		cacheRead,
 		cacheWrite,
 		reasoning: usage.outputTokenDetails.reasoningTokens ?? countOf(raw?.completion_tokens_details?.reasoning_tokens) ?? 0,
-		totalTokens: input + output + cacheRead + cacheWrite,
+		totalTokens: countOf((usage.raw as RawUsage | undefined)?.total_tokens) ?? usage.totalTokens ?? input + output + cacheRead + cacheWrite,
 		cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, total: 0 },
 	};
 	calculateCost(model, result);
@@ -301,6 +317,21 @@ type RequestBody = {
 	reasoning_effort?: string;
 	chat_template_kwargs?: Record<string, unknown>;
 };
+
+function restoreReasoningDetails(body: RequestBody, messages: ModelMessage[]) {
+	const assistants = messages.filter((message) => message.role === "assistant");
+	let index = 0;
+	for (const message of body.messages) {
+		if (message.role !== "assistant") continue;
+		const assistant = assistants[index++];
+		const details = assistant?.providerOptions?.openrouter?.reasoning_details;
+		if (details !== undefined) message.reasoning_details = details;
+		if (assistant && Array.isArray(assistant.content)) {
+			const text = assistant.content.flatMap((part) => part.type === "reasoning" ? [part.text] : []).join("");
+			if (text) message.reasoning = text;
+		}
+	}
+}
 
 /** Qwen chat templates read thinking only from chat_template_kwargs and earlier thinking only as reasoning_content. */
 function applyQwenChatTemplate(body: RequestBody, reasoning: Reasoning | undefined) {
