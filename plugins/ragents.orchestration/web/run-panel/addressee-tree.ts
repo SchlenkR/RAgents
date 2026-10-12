@@ -56,6 +56,7 @@ export const addresseeSummaries = (view: RunView): ((actor: RunActor) => string 
     if (!known || input.sequence < known.sequence) firstInputs.set(input.actorId, { sequence: input.sequence, content: input.content });
   }
   return (actor) => {
+    if (actor.kind === "script") return undefined;
     const described = actor.description?.trim();
     if (described) return described;
     const first = firstInputs.get(actor.id);

@@ -3,6 +3,8 @@ import { createAccessContext } from "../../../packages/ragents/src/access";
 import { webPlugin } from "../../../plugins/ragents.orchestration/web/index";
 import { AGENTS_TAB_ID } from "../../../plugins/ragents.orchestration/web/run-panel/AgentsPanel";
 import { OrchestrationRunPanel } from "../../../plugins/ragents.orchestration/web/run-panel/RunPanel";
+import { ActorProgramsProvider } from "../../../plugins/ragents.actor-programs/web/AppsPanel";
+import { createActorProgramsApi } from "../../../plugins/ragents.actor-programs/web/api";
 import { AccessContext } from "../src/AccessContext";
 import type { PluginActivationState } from "../src/PluginActivation";
 import { PluginRegistry } from "../src/PluginRegistry";
@@ -57,24 +59,34 @@ const view: RunView = {
     assignment("test-writer", 4, "Write tests for laying out the graph from the journal."),
     assignment("test-writer", 6, "Also cover wrapped rows.", true),
     assignment("summary", 5, "Summarize the findings of all reviewers once they are done."),
+    assignment("formatter", 7, '{"input":null,"options":{"ragents.workspace.binding":{"kind":"server"}}}'),
+    assignment("formatter", 8, "Please echo this message"),
   ],
   turns: [
     finished("test-writer", 400, 42),
     finished("formatter", 200, 3),
     ...reviewers.filter((reviewer) => reviewer.lifecycle?.kind !== "running").map((reviewer, index) => ({ ...finished(reviewer.id, 500 - index, 25 + (index * 7) % 90), status: reviewer.handle === "review-errors" ? "failed" as const : "completed" as const })),
   ],
-  subscriptions: [], pluginStates: [], actions: [question("review-dates")], artifacts: [],
+  subscriptions: [], pluginStates: [{
+    pluginId: "ragents.actor-programs", scope: { kind: "actor", actorId: "formatter" }, updatedAt: ago(600),
+    state: { version: 1, program: { name: "format-files", actorId: "formatter", actorHandle: "formatter", revision: "build",
+      functions: [{ id: "format" }, { id: "check" }], views: [{ id: "format-files--status", title: "Format status", visible: false }] } },
+  }], actions: [question("review-dates")], artifacts: [],
 };
 const conversation = (who: string): Message[] => [
   { key: `${who}-question`, role: "user", sender: "tester", text: `Please check the status, @${who}.`, closed: true, at: ago(800) },
   { key: `${who}-answer`, role: "assistant", sender: who, text: "I am on it.", closed: true, at: ago(790) },
 ];
 const conversations = Object.fromEntries(view.actors.map(({ id }) => [id, conversation(id)]));
+const programApi = createActorProgramsApi("/plugins/ragents.actor-programs");
 const registry = new PluginRegistry({
   brand: { title: "Agents" }, product: { id: "agents", title: "Agents" },
   plugins: [{
     id: "agents", needsRunView: true, surface: { RunPanel: OrchestrationRunPanel },
     workspaceTabs: webPlugin.workspaceTabs!.filter((tab) => tab.id === AGENTS_TAB_ID),
+  }, {
+    id: "ragents.actor-programs", needsRunView: true,
+    SessionProvider: ({ children, session }) => <ActorProgramsProvider api={programApi} session={session}>{children}</ActorProgramsProvider>,
   }],
   startEntries: [],
 });
@@ -94,6 +106,7 @@ const fixture = {
       case "ragents.chat.actorHistory": return { actors: conversations };
       case "ragents.chat.capabilities": return { input: ["text"], model: "demo-model" };
       case "ragents.chat.contextUsage": return null;
+      case "ragents.actor-programs.apps": return { apps: [], tools: [] };
       case "ragents.chat.sendToActor": {
         if (!params.runId || !params.actorId || !params.text) throw new Error("An actor message requires a run, actor, and text.");
         fixture.sent.push({ runId: params.runId, actorId: params.actorId, text: params.text });

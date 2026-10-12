@@ -30,7 +30,7 @@ import type { JsonValue } from "./bridge";
 import { actorProgramSourceView, ProgramSource } from "./ProgramSource";
 import { FunctionForm } from "./FunctionForm";
 import { actorProgramsRevision } from "./state-revision";
-import { actorProgramViews, currentActorListing } from "./program-state";
+import { actorProgramSummary, actorProgramViews, currentActorListing } from "./program-state";
 import { activeActorInvocations, readActorInvocation } from "./invocations";
 import { ActorProgramsContext, useActorPrograms, type ActorProgramsContextValue } from "./context";
 
@@ -196,6 +196,7 @@ export function ActorProgramsProvider({
   const slot = useMemo<ProgramSlot>(() => ({
     runId,
     source: (view, actorId) => actorProgramSourceView(api, view, actorId),
+    summary: actorProgramSummary,
   }), [api, runId]);
   return <ActorProgramsContext.Provider value={value}>
     <ProgramSlotContext.Provider value={slot}>{children}</ProgramSlotContext.Provider>

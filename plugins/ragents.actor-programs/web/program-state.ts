@@ -2,6 +2,7 @@ import { ACTOR_PROGRAMS_STATE_ID, ACTOR_STATE_ID } from "@ragents/host/plugin-su
 import { isRecord } from "@ragents/web/lib/guards";
 import { actorAddress, runViewFrom } from "@ragents/web/run-view";
 import type { ActorProgramsListing } from "./api";
+import type { ProgramSummary } from "@ragents/plugins/ragents.orchestration/web/program-slot";
 import { isJsonValue } from "./bridge";
 
 export interface ActorProgramView {
@@ -12,6 +13,20 @@ export interface ActorProgramView {
   revision: string;
   app: Record<string, unknown>;
 }
+
+export const actorProgramSummary = (runView: unknown, actorId: string): ProgramSummary | undefined => {
+  const view = runViewFrom(runView);
+  const entry = view?.pluginStates.find((entry) => entry.pluginId === ACTOR_PROGRAMS_STATE_ID
+    && entry.scope.kind === "actor" && entry.scope.actorId === actorId);
+  if (!entry) return undefined;
+  const program = isRecord(entry.state) ? entry.state.program : undefined;
+  if (program === null) return undefined;
+  if (!isRecord(program) || program.actorId !== actorId || typeof program.name !== "string"
+    || !Array.isArray(program.functions) || !Array.isArray(program.views)) {
+    throw new Error("The definition of the actor program is invalid.");
+  }
+  return { name: program.name, functionCount: program.functions.length, viewCount: program.views.length };
+};
 
 export const actorProgramSourceReference = (runView: unknown, actorId: string): { name: string; revision: string } | undefined => {
   const view = runViewFrom(runView);

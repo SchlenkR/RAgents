@@ -95,9 +95,14 @@ const assertCardRowsFit = async (dialog: Locator, label: string) => {
     const style = getComputedStyle(button);
     const root = document.documentElement;
     const description = button.querySelector<HTMLElement>("[data-actor-description]");
+    const icon = button.querySelector("[data-actor-state] svg")?.getBoundingClientRect();
+    const name = button.querySelector("[data-actor-name]")?.getBoundingClientRect();
     return {
       handle: button.getAttribute("data-actor-handle") ?? button.getAttribute("data-addressee-group"),
       group: button.hasAttribute("data-addressee-group"),
+      script: button.getAttribute("data-actor-kind") === "script",
+      program: button.querySelector("[data-actor-program]")?.textContent,
+      centerDifference: icon && name ? Math.abs(icon.top + icon.height / 2 - name.top - name.height / 2) : undefined,
       width: bounds.width,
       height: bounds.height,
       fontSize: parseFloat(getComputedStyle(root).fontSize),
@@ -132,14 +137,15 @@ const assertCardRowsFit = async (dialog: Locator, label: string) => {
   }));
   assert.ok(cards.length > 0, `${label} contains graph cards.`);
   for (const card of cards) {
-    assert.equal(card.rows.length, card.group ? 3 : card.description ? 2 : 1, `${label} @${card.handle} shows only its state ring, handle, and available description.`);
+    assert.equal(card.rows.length, card.group ? 3 : card.script ? card.program ? 4 : 3 : card.description ? 2 : 1, `${label} @${card.handle} shows its identity and available facts or task.`);
     assert.ok(near(card.width, 216 * card.zoom), `${label} @${card.handle} keeps its card width.`);
     assert.ok(near(card.height, 88 / 16 * card.fontSize * card.zoom), `${label} @${card.handle} keeps its root-scaled card height.`);
     if (!card.group) {
-      assert.ok(card.padding.every((padding) => Math.abs(padding - 2 * 0.235 * card.fontSize) < 0.01), `${label} @${card.handle} uses related padding on every side.`);
+      assert.ok(card.centerDifference !== undefined && card.centerDifference <= 1, `${label} @${card.handle} centers the state icon and name within 1 px (${card.centerDifference}).`);
+      assert.ok(card.padding.every((padding, index) => Math.abs(padding - (card.script && index === 0 ? 6 : 2) * 0.235 * card.fontSize) < 0.01), `${label} @${card.handle} uses related padding with room for a program band.`);
       if (card.description) {
         assert.equal(card.description.title, card.description.text, `${label} @${card.handle} exposes its full description as a tooltip.`);
-        assert.equal(card.description.clamp, "3");
+        assert.equal(card.description.clamp, card.script ? "none" : "3");
         const lines = card.description.height / (card.description.lineHeight * card.zoom);
         assert.ok(Math.abs(lines - Math.round(lines)) < 0.05 && lines >= 0.95 && lines <= 3.05, `${label} @${card.handle} fits whole description lines (${lines}).`);
         if (card.handle === "summary" || card.handle === "implementer") {
@@ -211,7 +217,9 @@ test("the addressee pop-out and the agents tool show who created whom as a graph
   assert.equal(await dialog.locator("g[data-active=true]").count(), 2, "edges into working actors and groups move");
 
   await card("implementer").getByText(/^Rebuild the chat's addressee list into a graph\./).waitFor();
-  await dialog.getByText("formats changed files after every step", { exact: true }).waitFor();
+  await card("formatter").getByText("Formatter", { exact: true }).waitFor();
+  await card("formatter").getByText("format-files", { exact: true }).waitFor();
+  await card("formatter").getByText("2 functions, 1 view", { exact: true }).waitFor();
   assert.equal(await card("implementer").getByRole("img", { name: "running", exact: true }).getAttribute("title"), "running");
   assert.equal(await card("test-writer").getByRole("img", { name: "idle", exact: true }).getAttribute("title"), "idle");
   assert.equal(await dialog.locator("[data-actor-duration], [data-addressee-status]").count(), 0, "actor cards have no state or timing row");
@@ -389,6 +397,88 @@ test("the VS Code stub opens Agents in the shared inspection popout at wide and 
       assert.equal(await panel.locator('ul[aria-label="Actors by creator"]').evaluate((element, original) => element === original, graph), true);
       await page.keyboard.press("Escape");
       await panel.waitFor({ state: "hidden" });
+      assert.deepEqual(errors, []);
+      assert.deepEqual(await page.evaluate(() => window.actorGraphFixture.unexpected), []);
+    } finally { await page.close(); }
+  }
+});
+
+test("script cards show program identity and their own frame in both graphs, hosts, and all palettes", {
+  skip: process.env.RAGENTS_BROWSER_TESTS !== "1", timeout: 120_000,
+}, async (context) => {
+  const directory = await mkdtemp(join(tmpdir(), "ragents-program-cards-"));
+  context.after(() => rm(directory, { recursive: true, force: true }));
+  const url = await buildFixture(directory);
+  const screenshots = join(tmpdir(), "ragents-browser-shots");
+  await mkdir(screenshots, { recursive: true });
+  for (const host of ["vscode", "browser"]) {
+    const errors: string[] = [];
+    const page = await openPage(`${url}?host=${host}`, errors, { width: 1280, height: 900 });
+    try {
+      await page.locator("[data-chat=composer]").waitFor();
+      await replayChat(page);
+      for (const palette of ["schichtwerk", "graphite", "midnight", "black"]) {
+        for (const theme of ["light", "dark"]) {
+          await page.evaluate(({ palette, theme }) => {
+            document.documentElement.dataset.palette = palette;
+            document.documentElement.dataset.theme = theme;
+          }, { palette, theme });
+          const label = `${host}, ${palette}, ${theme}`;
+          await page.getByRole("button", { name: "Agents", exact: true }).click();
+          const graph = host === "browser" ? page.locator('[data-dock-panel="tab:ragents.orchestration.agents"]') : page.locator("#run-panel-workspace");
+          const script = graph.locator('button[data-actor-handle="formatter"]');
+          const agent = graph.locator('button[data-actor-handle="implementer"]');
+          await script.waitFor();
+          await settlePopouts(page);
+          await assertCardRowsFit(graph, `${label}, Agents`);
+          assert.equal(await script.locator("[data-actor-name]").textContent(), "Formatter");
+          assert.equal(await script.locator("[data-actor-program]").textContent(), "format-files");
+          assert.equal(await script.locator("[data-actor-description]").textContent(), "2 functions, 1 view");
+          assert.doesNotMatch(await script.innerHTML(), /"input"|"options"|ragents\.workspace\.binding|Please echo|formats changed files/);
+          assert.equal(await script.getAttribute("title"), "Address messages to @formatter");
+          assert.match((await script.getAttribute("aria-label"))!, /@formatter.*Formatter.*format-files.*2 functions, 1 view/);
+          const appearance = await script.evaluate((element) => {
+            const style = getComputedStyle(element);
+            const band = element.querySelector<HTMLElement>("[data-actor-program-band]")!;
+            const probe = document.createElement("span");
+            probe.style.backgroundColor = "var(--glass-script)";
+            element.append(probe);
+            const scriptTone = getComputedStyle(probe).backgroundColor;
+            probe.remove();
+            return { borders: [style.borderTopStyle, style.borderRightStyle, style.borderBottomStyle, style.borderLeftStyle],
+              corners: [style.borderTopLeftRadius, style.borderTopRightRadius, style.borderBottomLeftRadius, style.borderBottomRightRadius],
+              bandTone: getComputedStyle(band).backgroundColor, scriptTone, code: band.querySelectorAll("svg").length };
+          });
+          assert.deepEqual(appearance.borders, ["dashed", "dashed", "dashed", "dashed"], `${label}, the program frame has dashed borders.`);
+          assert.deepEqual(appearance.corners, ["0px", "0px", "0px", "0px"], `${label}, the program frame has square corners.`);
+          assert.equal(appearance.bandTone, appearance.scriptTone, `${label}, the code band uses the existing script tone.`);
+          assert.equal(appearance.code, 1);
+          assert.equal(await agent.locator("[data-actor-program-band]").count(), 0);
+          assert.deepEqual(await agent.evaluate((element) => ({ border: getComputedStyle(element).borderTopStyle,
+            rounded: parseFloat(getComputedStyle(element).borderTopLeftRadius) > 0 })), { border: "solid", rounded: true });
+          await page.keyboard.press("Tab");
+          await script.focus();
+          assert.equal(await script.evaluate((element) => element === document.activeElement && element.matches(":focus-visible")), true);
+          await page.keyboard.press("Enter");
+          await graph.locator('button[data-actor-handle="formatter"][aria-current="true"]').waitFor();
+          await page.getByRole("button", { name: host === "browser" ? "Close Agents" : "Close sidebar", exact: true }).click();
+          await graph.waitFor({ state: "hidden" });
+          await page.locator('button[title^="Addressee: @formatter"]:visible').click();
+          const picker = page.getByRole("dialog", { name: "Addressee", exact: true });
+          const selected = picker.locator('button[data-actor-handle="formatter"][aria-current="true"]');
+          await selected.waitFor();
+          await settlePopouts(page);
+          await assertCardRowsFit(picker, `${label}, Addressee`);
+          assert.equal(await selected.locator("[data-actor-program-band] svg").count(), 1);
+          assert.equal(await selected.locator("[data-actor-program]").textContent(), "format-files");
+          assert.doesNotMatch(await selected.innerHTML(), /"input"|"options"|ragents\.workspace\.binding|Please echo|formats changed files/);
+          if (host === "browser") await picker.screenshot({ path: join(screenshots, `program-cards-${palette}-${theme}.png`) });
+          await picker.locator('button[data-actor-handle="coordinator"]').focus();
+          await page.keyboard.press("Enter");
+          await picker.waitFor({ state: "detached" });
+          await page.locator('button[title^="Addressee: @coordinator"]:visible').waitFor();
+        }
+      }
       assert.deepEqual(errors, []);
       assert.deepEqual(await page.evaluate(() => window.actorGraphFixture.unexpected), []);
     } finally { await page.close(); }
@@ -623,6 +713,12 @@ test("actors dragged from either graph or the addressee chip open bound chats an
   assert.deepEqual(restored.closed, layout.closed);
   await chip().waitFor();
   await page.screenshot({ path: join(screenshots, "actor-docking-restored.png") });
+  graph = await headerGraph();
+  await startDrag(graph.locator('button[data-actor-handle="formatter"]'), primary);
+  await dropGuide("group-right");
+  await panel("formatter").getByText("Please check the status, @formatter.", { exact: true }).waitFor();
+  assert.equal(await tab("formatter").count(), 1, "A program card uses the same docking gesture as an agent card.");
+  await chip().waitFor();
   assert.deepEqual(errors, []);
   assert.deepEqual(await page.evaluate(() => window.actorGraphFixture.unexpected), []);
 });
