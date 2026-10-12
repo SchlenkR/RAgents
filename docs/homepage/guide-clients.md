@@ -128,10 +128,12 @@ the chat as `@room.handle: ...`. If the start is refused,
 the list stays open and shows why. The same labeled button works in the VS Code run panel and
 wraps with the other header actions when space is short.
 
-At a workspace width of at least 1000 pixels, the browser places Chat on the left and mini-apps
-on the right, each taking half the space. This also happens when the first app appears later.
-Narrower workspaces use tabs in one area. The default adapts to width until you arrange windows
-yourself; saved custom layouts stay as you left them. The active tab is one square filled shape
+Opening a window without a remembered place splits the largest visible window other than the
+main Chat into equal halves. If only Chat is visible, it splits Chat. Wider windows split side
+by side, taller windows top and bottom; a square splits side by side. The new window takes the
+right or bottom half. This works at every workspace width for mini-apps, Agents, inspection
+tools, actor chats, and documents, including apps that appear later. Your dragged windows keep
+their places. The active tab is one square filled shape
 flush with the strip, without a border, holding its grip, maximize, and close buttons. The strip
 clips to the card's rounded top corners. Drag a tab to arrange windows, or drag
 the grip on the active tab to move only that window; the other tabs stay in their area.
@@ -150,8 +152,9 @@ Each tab's X closes that window. Only empty areas have an additional X, when ano
 remains. Chat can be closed too. By default, the run header lists Chat, every plugin view shown as a
 window, and every app as buttons with their existing icons, whether shown or not; the button of a
 visible window appears pressed.
-Clicking a closed window opens it beside the current area in a wide browser workspace, or as a
-tab when narrow. Clicking a window that waits as a background tab brings that tab to the front.
+Clicking a closed window restores it as a tab in its remembered group if that group still
+exists. If the group was removed, it splits the largest visible window by the same rule.
+Clicking a window that waits as a background tab brings that tab to the front.
 Clicking a visible window focuses its area. All window buttons, "Empty space", and "Reset layout" remain directly available. They fill
 the space between the fixed controls first, then continue across the full header width when
 needed. Adding apps keeps the title and actions such as "Share", Stop, and Settings
@@ -175,8 +178,8 @@ or in its current dock area. A rail button for an already docked window selects 
 it does not open a second copy.
 
 After the window buttons, "Empty space" is always directly available.
-Clicking it adds an empty pane beside the current area in a wide workspace, or as a tab when
-narrow; dragging the button places the pane on a docking guide. You can add several. An empty
+Clicking it adds an empty pane through the same largest-window rule; dragging the button
+places the pane on a docking guide. You can add several. An empty
 pane is a window like any other: move it, split beside it, merge it as a tab, maximize it, or
 close it with X, which removes it. It shows "Drag an app or actor here". Dropping a header
 button or a tab anywhere on a shown empty pane, or on the compass center labeled "Replace empty
@@ -193,8 +196,9 @@ that window, and a removed app or run is reported there the same calm way. The r
 stays as it is.
 
 The "Reset layout" icon after the window buttons and "Empty space"
-restores the automatic layout, default button positions and order, and the inspection rail,
-and removes empty panes. Maximize appears only with multiple areas, in the active tab just
+rebuilds the layout by opening windows in catalog order with the same placement rule, restores
+default button positions and order and the inspection rail, and removes empty panes.
+Maximize appears only with multiple areas, in the active tab just
 before its X; Restore or Escape returns to the split layout. Tabs support arrow
 keys, Home, and End, and focused dividers support arrow keys.
 
@@ -208,9 +212,9 @@ top right of a rail button means the view has content or new activity. Hover or 
 to see its tooltip immediately to the left, above the flyout and workspace panels. Hover a button to
 preview its view in a flyout; move away from both flyout and rail to hide it.
 Click a rail button to open or focus its flyout. X hides it. The flyout is 630 pixels wide,
-limited by the available space. Its keyboard-accessible "Move into layout" button places the
-view in a regular window at the workspace's right edge, just like dragging it onto the right
-outer guide; the new area takes 35 percent of the workspace width.
+limited by the available space. Its keyboard-accessible "Move into layout" button restores the
+view's remembered group when it still exists, otherwise it splits the largest visible window
+by the same rule. Dragging onto a guide uses your chosen target.
 Pressing a flyout grip keeps the preview open through the gesture, without making it sticky;
 after release it stays only while the pointer is over the flyout or rail. The rail and flyout
 share the card frame. The flyout has a drop shadow; layout cards stay flat.

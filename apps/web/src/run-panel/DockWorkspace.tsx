@@ -1,11 +1,11 @@
-import { createContext, useCallback, useContext, useEffect, useLayoutEffect, useRef, useState, type PointerEvent, type ReactNode, type RefObject } from "react";
+import { createContext, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState, type PointerEvent, type ReactNode, type RefObject } from "react";
 import { createPortal } from "react-dom";
 import { ArrowDownIcon, ArrowLeftIcon, ArrowRightIcon, ArrowUpIcon, LayoutGridIcon, MaximizeIcon, MinimizeIcon, PanelRightCloseIcon, PanelRightOpenIcon, PlusIcon, SquareDashedIcon, SquareIcon, UsersIcon, XIcon } from "lucide-react";
 import type { SessionContext, SessionNavigation, WorkspaceTabContribution } from "../PluginRegistry";
 import { RunAppView, useRunAppAddition, type RunApp, type RunAppAddition } from "../run-apps";
 import { Badge, InteractiveItem, Button, cn, Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "../ui";
-import { activateAvailableDockTabs, activeDockTool, addDockEmptyPane, addDockView, appPanelId, closeDockPanels, dockButtonPlacement, dockGroups, dockWindowOrder, emptyPanelId, focusedDockWindow, initialDockState, isEmptyPanel, isToolPanel, moveDockButton, moveDockPanels, moveDockWindow, reconcileDockState, resizeDockSplit, returnDockTool, revealDockPanel, transitionDockSide, selectDockPanel, tabWindowId, toolPanelId, viewPanelId, visibleDockState, workspaceTabPanelId, type DockGroup, type DockButtonPlacement, type DockState } from "./dock-state";
-import { DOCK_DIVIDER_SIZE, DOCK_HEADER_HEIGHT, containsPoint, dockGeometry, dockHitTest, type DockPoint, type DockRect } from "./dock-geometry";
+import { activateAvailableDockTabs, activeDockTool, addDockEmptyPane, addDockView, appPanelId, closeDockPanels, dockButtonPlacement, dockGroups, dockWindowOrder, emptyPanelId, focusedDockWindow, initialDockState, isEmptyPanel, isToolPanel, moveDockButton, moveDockPanels, moveDockWindow, reconcileDockState, resizeDockSplit, returnDockTool, revealDockPanel, transitionDockSide, selectDockPanel, tabWindowId, toolPanelId, viewPanelId, visibleDockState, workspaceTabPanelId, type DockGroup, type DockButtonPlacement, type DockPlacement, type DockState } from "./dock-state";
+import { DOCK_DIVIDER_SIZE, DOCK_HEADER_HEIGHT, containsPoint, dockGeometry, dockHitTest, dockWorkspaceRect, type DockPoint, type DockRect } from "./dock-geometry";
 import { usePointerDrag } from "../lib/pointer-drag";
 import { useDockStorage } from "./dock-storage";
 import { DockWindowActions } from "./DockWindowActions";
@@ -23,7 +23,8 @@ export interface DockPanel {
   readonly icon?: ReactNode;
   readonly content: ReactNode;
 }
-export const DockToolsContext = createContext<{ tabs: readonly WorkspaceTabContribution[]; pendingTabIds: readonly string[]; actionsContainer?: HTMLElement | null; panelDrag?: RefObject<DockPanelDrag | undefined> }>({ tabs: [], pendingTabIds: [] });
+export type DockPanelOpen = (id: string) => void;
+export const DockToolsContext = createContext<{ tabs: readonly WorkspaceTabContribution[]; pendingTabIds: readonly string[]; actionsContainer?: HTMLElement | null; panelDrag?: RefObject<DockPanelDrag | undefined>; openPanel?: RefObject<DockPanelOpen | undefined> }>({ tabs: [], pendingTabIds: [] });
 
 export function useDockPanelDrag(): DockPanelDrag | undefined {
   const { panelDrag } = useContext(DockToolsContext);
@@ -72,10 +73,10 @@ export function DockWorkspace({ additions = [], apps, chat, chatIcon = <UsersIco
   panels?: readonly DockPanel[];
   session: SessionContext;
 }) {
-  const { tabs, pendingTabIds, actionsContainer, panelDrag } = useContext(DockToolsContext);
+  const { tabs, pendingTabIds, actionsContainer, panelDrag, openPanel } = useContext(DockToolsContext);
   const { state: stored, error, update } = useDockStorage(session.session.id);
   const [size, setSize] = useState({ width: 0, height: 0 });
-  const splitApps = size.width >= 1000;
+  const [drag, setDrag] = useState<{ ids: readonly string[]; point: DockPoint; header?: boolean; slot?: number | null }>();
   const defaultPanels = ["chat", ...tabs.filter((tab) => tab.placement === "window").map((tab) => tabWindowId(tab.id)), ...apps.map((app) => appPanelId(app.layoutKey))];
   const panelIds = [...defaultPanels, ...panels.map(({ id }) => viewPanelId(id)).filter((id) => stored.known.includes(id))];
   const toolIds = tabs.filter((tab) => tab.placement !== "window").map((tab) => toolPanelId(tab.id));
@@ -83,11 +84,17 @@ export function DockWorkspace({ additions = [], apps, chat, chatIcon = <UsersIco
   const catalogKey = JSON.stringify([panelIds, toolIds]);
   // Until the first run snapshot arrives, panels it has not delivered yet keep their areas and selection.
   const loaded = session.runView !== undefined || apps.length > 0;
+  const railWidth = catalog.some((id) => dockButtonPlacement(stored, id) === "sidebar") || (drag?.header && drag.ids[0] !== EMPTY_PANE_ENTRY) ? 36 : 0;
+  const railSpace = railWidth ? railWidth + DOCK_DIVIDER_SIZE : 0;
+  const workspace = useMemo(() => dockWorkspaceRect(size, railWidth), [size, railWidth]);
+  const placement: DockPlacement = { bounds: workspace, available: catalog, loaded };
   const reconcile = useCallback((current: DockState, panels: readonly string[], tools: readonly string[]) => {
-    const next = reconcileDockState(current, panels, tools, splitApps);
-    return loaded ? activateAvailableDockTabs(next, [...panels, ...tools]) : next;
-  }, [loaded, splitApps]);
-  const addition = useRunAppAddition(apps, session, (app) => update((current) => revealDockPanel(reconcile(current, panelIds, toolIds), appPanelId(app.layoutKey), splitApps, newId)));
+    if (workspace.width === 0 || workspace.height === 0) return current;
+    const available = [...panels, ...tools];
+    const next = reconcileDockState(current, panels, tools, { bounds: workspace, available, loaded }, newId);
+    return loaded ? activateAvailableDockTabs(next, available) : next;
+  }, [loaded, workspace]);
+  const addition = useRunAppAddition(apps, session, (app) => update((current) => revealDockPanel(reconcile(current, panelIds, toolIds), appPanelId(app.layoutKey), placement, newId)));
   const reconciled = error ? stored : reconcile(stored, panelIds, toolIds);
   const state = visibleDockState(reconciled, catalog, loaded);
   useEffect(() => {
@@ -102,7 +109,6 @@ export function DockWorkspace({ additions = [], apps, chat, chatIcon = <UsersIco
   const windows = dockWindowOrder(state, catalog);
   const sideButtons = catalog.filter((id) => dockButtonPlacement(state, id) === "sidebar");
   const [visited, setVisited] = useState<readonly string[]>(["chat"]);
-  const [drag, setDrag] = useState<{ ids: readonly string[]; point: DockPoint; header?: boolean; slot?: number | null }>();
   const [resizing, setResizing] = useState<string>();
   const pointer = usePointerDrag();
   const leaveTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
@@ -119,11 +125,8 @@ export function DockWorkspace({ additions = [], apps, chat, chatIcon = <UsersIco
   const sideTab = state.side.tab;
   const sideVisible = sideTab !== null && state.bar.includes(sideTab) && catalog.includes(sideTab);
   const gap = DOCK_DIVIDER_SIZE;
-  const railWidth = sideButtons.length > 0 || (drag?.header && drag.ids[0] !== EMPTY_PANE_ENTRY) ? 36 : 0;
-  const railSpace = railWidth ? railWidth + gap : 0;
   const height = Math.max(0, size.height - gap * 2);
   const sideWidth = Math.min(630, Math.max(180, size.width - railSpace - gap * 3 - 80));
-  const workspace: DockRect = { left: gap, top: gap, width: Math.max(0, size.width - gap * 2 - railSpace), height };
   const sideRect: DockRect = { left: size.width - gap - railSpace - sideWidth, top: gap, width: sideWidth, height };
   const railRect: DockRect = { left: size.width - gap - railWidth, top: gap, width: railWidth, height };
   const barRect: DockRect = { left: sideVisible ? sideRect.left : railRect.left, top: gap, width: railWidth + (sideVisible ? sideWidth + gap : 0), height };
@@ -199,8 +202,8 @@ export function DockWorkspace({ additions = [], apps, chat, chatIcon = <UsersIco
         return;
       }
       const hit = dockHitTest(localPoint(point, bounds, zoom), workspace, geometry.groups, barRect, ids.every(isToolPanel));
-      if (hit.target) update((current) => ids[0] === EMPTY_PANE_ENTRY ? addDockEmptyPane(current, emptyPanelId(newId()), hit.target, splitApps, newId)
-        : panels.some((panel) => viewPanelId(panel.id) === ids[0]) ? addDockView(current, ids[0], hit.target!, newId) : moveDockPanels(current, ids, hit.target!, newId));
+      if (hit.target) update((current) => ids[0] === EMPTY_PANE_ENTRY ? addDockEmptyPane(current, emptyPanelId(newId()), hit.target, placement, newId)
+        : panels.some((panel) => viewPanelId(panel.id) === ids[0]) ? addDockView(current, ids[0], hit.target!, placement, newId) : moveDockPanels(current, ids, hit.target!, newId));
     }, captureElement);
   };
   useLayoutEffect(() => {
@@ -313,7 +316,13 @@ export function DockWorkspace({ additions = [], apps, chat, chatIcon = <UsersIco
     (strip?.querySelectorAll<HTMLElement>('[role="tab"]')[next])?.focus();
   };
 
-  const reveal = (id: string) => update((current) => id === EMPTY_PANE_ENTRY ? addDockEmptyPane(current, emptyPanelId(newId()), undefined, splitApps, newId) : revealDockPanel(current, id, splitApps, newId));
+  const reveal = (id: string) => update((current) => id === EMPTY_PANE_ENTRY ? addDockEmptyPane(current, emptyPanelId(newId()), undefined, placement, newId)
+    : panels.some((panel) => viewPanelId(panel.id) === id) ? addDockView(current, id, undefined, placement, newId) : revealDockPanel(current, id, placement, newId));
+  useLayoutEffect(() => {
+    if (!openPanel) return;
+    openPanel.current = reveal;
+    return () => { openPanel.current = undefined; };
+  });
   const actions = <DockWindowActions
     dragging={drag?.header ? drag.ids[0] : undefined}
     dropIndex={drag?.slot ?? undefined}
@@ -332,7 +341,8 @@ export function DockWorkspace({ additions = [], apps, chat, chatIcon = <UsersIco
       else reveal(id);
     }}
     onMoveToSidebar={(id) => moveButton(id, "sidebar")}
-    onReset={() => update(() => reconcileDockState(initialDockState(defaultPanels, toolIds), defaultPanels, toolIds, splitApps), true)}
+    onReset={() => update(() => reconcileDockState(initialDockState(), defaultPanels, toolIds,
+      { ...placement, bounds: dockWorkspaceRect(size, toolIds.length > 0 ? 36 : 0) }, newId), true)}
   />;
   return <div className="flex min-h-0 min-w-0 flex-1 flex-col bg-app" data-docking="workspace">
     {actionsContainer ? createPortal(actions, actionsContainer) : actions}
@@ -350,7 +360,7 @@ export function DockWorkspace({ additions = [], apps, chat, chatIcon = <UsersIco
             {id === group.active && <>
               {toolHeader(group.active)}
               {group.active && isToolPanel(group.active) && <Button aria-label={`Return ${title(group.active)} to sidebar`} onClick={() => update((current) => returnDockTool(current, group.active!))} size="icon-xs" title="Return to sidebar" variant="ghost"><PanelRightOpenIcon /></Button>}
-              {dockGroups(state.root).length > 1 && <Button aria-label={state.maximized === group.id ? "Restore area" : "Maximize area"} onClick={() => update((current) => ({ ...current, automatic: false, maximized: current.maximized === group.id ? null : group.id }))} size="icon-xs" variant="ghost">{state.maximized === group.id ? <MinimizeIcon /> : <MaximizeIcon />}</Button>}
+              {dockGroups(state.root).length > 1 && <Button aria-label={state.maximized === group.id ? "Restore area" : "Maximize area"} onClick={() => update((current) => ({ ...current, maximized: current.maximized === group.id ? null : group.id }))} size="icon-xs" variant="ghost">{state.maximized === group.id ? <MinimizeIcon /> : <MaximizeIcon />}</Button>}
             </>}
             <Button aria-label={`Close ${title(id)}`} className="flex-none" onClick={() => close([id])} size="icon-xs" variant="ghost"><XIcon /></Button>
           </div>)}
@@ -386,7 +396,7 @@ export function DockWorkspace({ additions = [], apps, chat, chatIcon = <UsersIco
           <Button aria-label="Move sidebar window" className={cn(gripClass, "touch-none cursor-grab active:cursor-grabbing")} onPointerDown={(event) => startDrag(event, [sideTab!])} size="icon-xs" variant="ghost"><DockGrip /></Button>
           <span className="min-w-0 flex-1 truncate px-1 text-xs font-semibold" id={`dock-side-${encodeURIComponent(sideTab!)}`}>{title(sideTab!)}</span>
           {toolHeader(sideTab)}
-          <Button aria-label="Move into layout" title="Move into layout" onClick={() => update((current) => transitionDockSide(current, { type: "layout", newId }))} size="icon-xs" variant="ghost"><PanelRightCloseIcon /></Button>
+          <Button aria-label="Move into layout" title="Move into layout" onClick={() => update((current) => transitionDockSide(current, { type: "layout", placement, newId }))} size="icon-xs" variant="ghost"><PanelRightCloseIcon /></Button>
           <Button aria-label="Close sidebar" onClick={hideSide} size="icon-xs" variant="ghost"><XIcon /></Button>
         </div>
       </>}

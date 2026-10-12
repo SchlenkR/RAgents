@@ -1,18 +1,23 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { activateAvailableDockTabs, activeDockTool, addDockEmptyPane, addDockView, closeDockPanels, dockButtonPlacement, dockGroups, dockWindowOrder, emptyPanelId, focusedDockWindow, initialDockState, moveDockButton, moveDockPanels, moveDockWindow, parseDockState, persistentDockState, reconcileDockState, resizeDockSplit, revealDockPanel, transitionDockSide, returnDockTool, selectDockPanel, viewPanelId, visibleDockState, workspaceTabPanelId, type DockState, type DockTarget } from "../src/run-panel/dock-state";
-import { dockGeometry, dockHitTest, dockPreview, dockingGuides } from "../src/run-panel/dock-geometry";
+import { activateAvailableDockTabs, activeDockTool, addDockEmptyPane, addDockView, closeDockPanels, dockButtonPlacement, dockGroups, dockWindowOrder, emptyPanelId, focusedDockWindow, initialDockState, moveDockButton, moveDockPanels, moveDockWindow, parseDockState, persistentDockState, reconcileDockState as reconcileDockStateWithPlacement, resizeDockSplit, revealDockPanel, transitionDockSide, returnDockTool, selectDockPanel, viewPanelId, visibleDockState, workspaceTabPanelId, type DockPlacement, type DockState, type DockTarget } from "../src/run-panel/dock-state";
+import { dockGeometry, dockOpeningTarget, dockHitTest, dockPreview, dockingGuides, type DockRect, type GroupRect } from "../src/run-panel/dock-geometry";
 import { dockStorageKey } from "../src/run-panel/dock-storage";
 
 const initial = () => initialDockState(["chat", "app:notes", "app:board"], ["tool:files", "tool:journal"]);
 let serial = 0;
+const newId = () => `node-${++serial}`;
+const bounds = { left: 0, top: 0, width: 1200, height: 700 };
+const placement = (state: DockState, rectangle: DockRect = bounds): DockPlacement => ({ bounds: rectangle, available: state.known, loaded: true });
+const reconcileDockState = (state: DockState, panels: readonly string[], tools: readonly string[], rectangle: DockRect = bounds) =>
+  reconcileDockStateWithPlacement(state, panels, tools, { bounds: rectangle, available: [...panels, ...tools], loaded: true }, newId);
 const move = (state: DockState, ids: readonly string[], target: DockTarget) => moveDockPanels(state, ids, target, () => `node-${++serial}`);
 const roundtrip = (state: DockState) => assert.deepEqual(parseDockState(JSON.stringify(state)), state);
 
 test("a dragged view joins only on a valid drop and keeps one window across moves and reopening", () => {
   const state = initialDockState();
   const id = viewPanelId("actor:worker");
-  const add = (current: DockState, target: DockTarget) => addDockView(current, id, target, () => `node-${++serial}`);
+  const add = (current: DockState, target: DockTarget) => addDockView(current, id, target, placement(current), () => `node-${++serial}`);
   assert.equal(add(state, { kind: "group", group: "missing", side: "center" }), state);
   assert.equal(add(state, { kind: "bar" }), state);
   const split = add(state, { kind: "group", group: "main", side: "right" });
@@ -31,50 +36,126 @@ test("a dragged view joins only on a valid drop and keeps one window across move
   roundtrip(reopened);
 });
 
+test("actor chats and documents without a drag target use the same largest-window placement", () => {
+  const start = reconcileDockState(initialDockState(), ["chat", "app:notes"], []);
+  for (const name of ["actor:worker", "document:report"] as const) {
+    const id = viewPanelId(name);
+    const added = addDockView(start, id, undefined, placement(start), newId);
+    assert.equal(added.root.kind, "split");
+    if (added.root.kind !== "split" || added.root.second.kind !== "split") throw new Error("Expected a nested split");
+    assert.deepEqual(added.root.first, start.root.kind === "split" && start.root.first, "Chat keeps its placement");
+    assert.equal(added.root.second.axis, "vertical");
+    assert.equal(added.root.second.ratio, 0.5);
+    assert.deepEqual(dockGroups(added.root.second.second).map((entry) => entry.tabs), [[id]]);
+    assert.equal(addDockView(added, id, undefined, placement(added), newId), added);
+    roundtrip(added);
+  }
+});
+
 test("a dragged view replaces an empty pane and keeps its location while unavailable", () => {
   const empty = emptyPanelId("placeholder");
-  const state = addDockEmptyPane(initialDockState(), empty, undefined, true, () => `node-${++serial}`);
+  const state = addDockEmptyPane(initialDockState(), empty, undefined, placement(initialDockState()), () => `node-${++serial}`);
   const area = dockGroups(state.root).find((entry) => entry.active === empty)!;
   const id = viewPanelId("actor:worker");
-  const added = addDockView(state, id, { kind: "group", group: area.id, side: "center" }, () => `node-${++serial}`);
+  const added = addDockView(state, id, { kind: "group", group: area.id, side: "center" }, placement(state), () => `node-${++serial}`);
   assert.equal(added.known.includes(empty), false);
   assert.deepEqual(dockGroups(added.root).find((entry) => entry.id === area.id)?.tabs, [id]);
   assert.equal(dockGroups(visibleDockState(added, ["chat"], true).root).length, 1);
-  assert.deepEqual(dockGroups(reconcileDockState(added, ["chat", id], [], true).root).find((entry) => entry.id === area.id)?.tabs, [id]);
+  assert.deepEqual(dockGroups(reconcileDockState(added, ["chat", id], []).root).find((entry) => entry.id === area.id)?.tabs, [id]);
   roundtrip(added);
 });
 
-test("automatic layouts split the first app beside chat and adapt to available width", () => {
+test("new catalog windows split one visible window at a time and resizing keeps the arrangement", () => {
   const panels = ["chat", "app:notes"];
-  const split = reconcileDockState(initialDockState(), panels, [], true);
+  const split = reconcileDockState(initialDockState(), panels, []);
   assert.deepEqual(dockGroups(split.root).map((entry) => entry.tabs), [["chat"], ["app:notes"]]);
   assert.equal(split.root.kind === "split" && split.root.ratio, 0.5);
   assert.equal(split.focused, "main");
-  const added = reconcileDockState(split, [...panels, "app:board"], [], true);
-  assert.deepEqual(dockGroups(added.root).map((entry) => entry.tabs), [["chat"], ["app:notes", "app:board"]]);
-  assert.equal(dockGroups(added.root)[1].active, "app:notes");
+  const added = reconcileDockState(split, [...panels, "app:board"], []);
+  assert.deepEqual(dockGroups(added.root).map((entry) => entry.tabs), [["chat"], ["app:notes"], ["app:board"]]);
+  assert.equal(added.root.kind === "split" && added.root.second.kind === "split" && added.root.second.axis, "vertical");
   const selected = selectDockPanel(added, "app:board");
-  const narrow = reconcileDockState(selected, [...panels, "app:board"], [], false);
-  assert.equal(narrow.root.kind, "group");
-  assert.equal(dockGroups(narrow.root)[0].active, "app:board");
-  const wide = reconcileDockState(narrow, [...panels, "app:board"], [], true);
-  assert.equal(dockGroups(wide.root)[1].active, "app:board");
-  assert.equal(reconcileDockState(wide, [...panels, "app:board"], [], true), wide);
-  roundtrip(wide);
+  const narrow = reconcileDockState(selected, [...panels, "app:board"], [], { ...bounds, width: 600 });
+  assert.equal(narrow, selected, "resizing does not merge existing windows");
+  assert.equal(reconcileDockState(narrow, [...panels, "app:board"], []), narrow);
+  roundtrip(narrow);
+});
+
+test("opening chooses the largest visible non-chat window by area", () => {
+  const area = (id: string, active: string | null, width: number, height: number): GroupRect =>
+    ({ group: { kind: "group", id, tabs: active === null ? [] : [active], active }, rect: { left: 0, top: 0, width, height } });
+  const chat = area("chat-area", "chat", 2000, 2000);
+  const notes = area("notes-area", "app:notes", 600, 400);
+  const board = area("board-area", "app:board", 400, 500);
+  assert.deepEqual(dockOpeningTarget([chat, board, notes]), { kind: "group", group: "notes-area", side: "right" });
+  assert.deepEqual(dockOpeningTarget([area("empty-area", null, 4000, 4000), notes, board]), { kind: "group", group: "notes-area", side: "right" });
+  assert.deepEqual(dockOpeningTarget([notes, area("equal-area", "tool:files", 400, 600)]), { kind: "group", group: "notes-area", side: "right" }, "equal areas keep tree order");
+  assert.deepEqual(dockOpeningTarget([area("hidden-area", "app:hidden", 0, 1000), board]), { kind: "group", group: "board-area", side: "bottom" });
+});
+
+test("opening splits wide and square windows side by side, tall windows stacked, with Chat as fallback", () => {
+  for (const [width, height, axis] of [[1200, 500, "horizontal"], [500, 1200, "vertical"], [600, 600, "horizontal"]] as const) {
+    const rectangle = { left: 23, top: 41, width, height };
+    const state = reconcileDockState(initialDockState(), ["chat", "app:notes"], [], rectangle);
+    assert.equal(state.root.kind, "split");
+    if (state.root.kind !== "split") throw new Error("Expected a split");
+    assert.equal(state.root.axis, axis);
+    assert.equal(state.root.ratio, 0.5);
+    assert.deepEqual(dockGroups(state.root.first).map((entry) => entry.tabs), [["chat"]]);
+    assert.deepEqual(dockGroups(state.root.second).map((entry) => entry.tabs), [["app:notes"]]);
+    const rectangles = dockGeometry(state.root, rectangle, null).groups;
+    assert.deepEqual(rectangles[1].rect, dockPreview(rectangle, axis === "horizontal" ? "right" : "bottom", 0.5));
+    roundtrip(state);
+  }
+});
+
+test("opening ignores unavailable and maximized-away windows when choosing rectangles", () => {
+  const notes = move(initial(), ["app:notes"], { kind: "edge", side: "left" });
+  const start = resizeDockSplit(selectDockPanel(notes, "app:board"), notes.root.id, 0.75);
+  const added = reconcileDockState(start, ["chat", "app:board", "app:new"], []);
+  const boardArea = dockGroups(start.root).find((entry) => entry.tabs.includes("app:board"))!;
+  const sibling = added.root.kind === "split" && added.root.second;
+  assert.equal(sibling && sibling.kind === "split" && sibling.first.id, boardArea.id);
+  assert.deepEqual(added.root.kind === "split" && added.root.first, start.root.kind === "split" && start.root.first, "the hidden largest app stays in place");
+  const maximized = { ...notes, maximized: "main" };
+  const opened = reconcileDockState(maximized, [...notes.known, "app:new"], []);
+  assert.equal(opened.root.kind === "split" && opened.root.second.kind === "split" && opened.root.second.axis, "horizontal", "the visible Chat uses the full measured workspace");
+  assert.equal(opened.maximized, null);
+  roundtrip(added);
+  roundtrip(opened);
+});
+
+test("reopening returns to a surviving remembered group, otherwise it splits the largest visible window", () => {
+  const closed = closeDockPanels(initial(), ["app:notes"]);
+  const restored = revealDockPanel(closed, "app:notes", placement(closed), newId);
+  assert.equal(restored.root.kind, "group");
+  assert.deepEqual(dockGroups(restored.root)[0].tabs, ["chat", "app:board", "app:notes"]);
+  assert.equal(restored.focused, "main");
+  assert.equal(revealDockPanel(restored, "app:notes", placement(restored), newId), restored);
+  const board = move(initial(), ["app:board"], { kind: "group", group: "main", side: "right" });
+  const separate = move(board, ["app:notes"], { kind: "edge", side: "bottom" });
+  const missing = closeDockPanels(separate, ["app:notes"]);
+  assert.ok(!dockGroups(missing.root).some((entry) => entry.id === missing.remembered?.["app:notes"]));
+  const reopened = revealDockPanel(missing, "app:notes", placement(missing), newId);
+  assert.deepEqual(reopened.root.kind === "split" && reopened.root.first, missing.root.kind === "split" && missing.root.first, "Chat retains its rectangle");
+  assert.equal(reopened.root.kind === "split" && reopened.root.second.kind === "split" && reopened.root.second.axis, "vertical");
+  assert.equal(dockGroups(reopened.root).filter((entry) => entry.tabs.includes("app:notes")).length, 1);
+  roundtrip(restored);
+  roundtrip(reopened);
 });
 
 test("manual and existing saved layouts keep their arrangement across width and catalog changes", () => {
   const panels = ["chat", "app:notes"];
-  const split = reconcileDockState(initialDockState(), panels, [], true);
+  const split = reconcileDockState(initialDockState(), panels, []);
   const resized = resizeDockSplit(split, split.root.id, 0.65);
-  const narrow = reconcileDockState(resized, panels, [], false);
+  const narrow = reconcileDockState(resized, panels, [], { ...bounds, width: 600 });
   assert.equal(narrow.root.kind === "split" && narrow.root.ratio, 0.65);
   const merged = move(split, ["app:notes"], { kind: "group", group: "main", side: "center" });
-  assert.equal(reconcileDockState(merged, [...panels, "app:board"], [], true).root.kind, "group");
-  const saved = parseDockState(JSON.stringify({ ...initialDockState(panels), automatic: undefined }));
-  assert.equal(reconcileDockState(saved, panels, [], true), saved);
+  assert.equal(reconcileDockState(merged, [...panels, "app:board"], []).root.kind, "split");
+  const saved = parseDockState(JSON.stringify(initialDockState(panels)));
+  assert.equal(reconcileDockState(saved, panels, []), saved);
   const closed = closeDockPanels(split, ["app:notes"]);
-  assert.deepEqual(reconcileDockState(closed, panels, [], true).closed, ["app:notes"]);
+  assert.deepEqual(reconcileDockState(closed, panels, []).closed, ["app:notes"]);
   roundtrip(narrow);
 });
 
@@ -124,7 +205,7 @@ test("outer guides wrap the entire workspace at 35 percent and retain a sole emp
 test("revealing a view opens a closed one, activates a background tab and focuses its existing area", () => {
   const split = move(initial(), ["app:notes"], { kind: "group", group: "main", side: "right" });
   const notes = dockGroups(split.root).find((g) => g.tabs.includes("app:notes"))!.id;
-  const reveal = (state: DockState, id: string, wide = true) => revealDockPanel(state, id, wide, () => `node-${++serial}`);
+  const reveal = (state: DockState, id: string) => revealDockPanel(state, id, placement(state), newId);
   const focusedChat = reveal(split, "chat");
   assert.equal(focusedChat.focused, "main");
   assert.deepEqual(focusedChat.root, split.root);
@@ -145,14 +226,11 @@ test("revealing a view opens a closed one, activates a background tab and focuse
 
   const closed = closeDockPanels(split, ["app:board"]);
   const beside = reveal(closed, "app:board");
-  assert.equal(dockGroups(beside.root).length, 3);
+  assert.equal(dockGroups(beside.root).length, 2, "the surviving remembered group takes the reopened tab");
   assert.equal(dockGroups(beside.root).find((g) => g.tabs.includes("app:board"))?.active, "app:board");
   assert.deepEqual(beside.closed, []);
   roundtrip(beside);
-  const narrow = reveal(closed, "app:board", false);
-  assert.deepEqual(dockGroups(narrow.root).find((g) => g.id === notes)?.tabs, ["app:notes", "app:board"]);
-  assert.equal(dockGroups(narrow.root).find((g) => g.id === notes)?.active, "app:board");
-  roundtrip(narrow);
+
 });
 
 test("closing an area closes all documents, returns tools, and preserves a final empty group", () => {
@@ -161,7 +239,7 @@ test("closing an area closes all documents, returns tools, and preserves a final
   assert.deepEqual(dockGroups(closed.root)[0].tabs, []);
   assert.deepEqual(closed.closed, ["chat", "app:notes", "app:board"]);
   assert.deepEqual(closed.bar, ["tool:journal", "tool:files"]);
-  const reopened = selectDockPanel(closed, "chat");
+  const reopened = revealDockPanel(closed, "chat", placement(closed), newId);
   assert.deepEqual(dockGroups(reopened.root)[0].tabs, ["chat"]);
   roundtrip(reopened);
 });
@@ -237,8 +315,8 @@ test("catalog reconciliation keeps closed windows and focus, keeps vanished apps
   const vanished = reconcileDockState(reconciled, ["chat", "app:new"], ["tool:files"]);
   assert.equal(vanished, reconciled, "an unavailable app or tool changes nothing that is stored");
   const shown = visibleDockState(vanished, ["chat", "app:new", "tool:files"], true);
-  assert.deepEqual(dockGroups(shown.root).map((g) => g.tabs), [["chat", "app:new"]], "the area of the missing app gives its space away");
-  assert.equal(shown.focused, "main");
+  assert.deepEqual(dockGroups(shown.root).map((g) => g.tabs), [["app:new"], ["chat"]], "the area of the missing app gives its space away");
+  assert.equal(focusedDockWindow(shown), "app:new");
   const returned = reconcileDockState(vanished, ["chat", "app:new", "app:notes"], ["tool:files"]);
   assert.equal(returned, reconciled);
   assert.deepEqual(visibleDockState(returned, ["chat", "app:new", "app:notes", "tool:files"], true).root, reconciled.root, "the app returns to its own area");
@@ -290,9 +368,9 @@ test("an area whose shown app goes missing selects another tab, so the app retur
   roundtrip(settled);
 });
 
-test("an automatic layout gives the app area away while its apps are missing and restores it", () => {
-  const split = reconcileDockState(initialDockState(), ["chat", "app:notes"], [], true);
-  const missing = reconcileDockState(split, ["chat"], [], true);
+test("a layout gives the app area away while its apps are missing and restores it", () => {
+  const split = reconcileDockState(initialDockState(), ["chat", "app:notes"], []);
+  const missing = reconcileDockState(split, ["chat"], []);
   assert.equal(missing, split);
   assert.equal(visibleDockState(missing, ["chat"], true).root.kind, "group");
   assert.deepEqual(visibleDockState(missing, ["chat", "app:notes"], true).root, split.root);
@@ -309,7 +387,8 @@ test("catalog changes preserve sizes, empty areas, closed apps and the flyout", 
   const next = reconcileDockState(preview, ["chat", "app:notes", "app:board", "app:new"], ["tool:files", "tool:journal"]);
   assert.equal(next.root.kind === "split" && next.root.ratio, 0.7);
   assert.deepEqual(next.closed, ["app:notes"]);
-  assert.deepEqual(dockGroups(next.root).find((g) => g.id === "main")?.tabs, ["app:new"]);
+  assert.deepEqual(dockGroups(next.root).find((g) => g.id === "main")?.tabs, [], "an explicitly empty area stays empty");
+  assert.ok(dockGroups(next.root).some((g) => g.tabs.includes("app:new")));
   assert.deepEqual(next.side, preview.side);
   roundtrip(next);
 });
@@ -328,6 +407,15 @@ test("layout storage rejects corrupt trees, duplicated panels and invalid side s
   assert.throws(() => parseDockState(JSON.stringify({ ...split, root: { ...split.root, ratio: -1 } })), /invalid/);
   assert.notEqual(dockStorageKey("https://example.com", "first"), dockStorageKey("https://other.example.com", "first"));
   assert.notEqual(dockStorageKey("https://example.com", "first"), dockStorageKey("https://example.com", "second"));
+});
+
+test("layout storage accepts a remembered removed group and rejects invalid remembered locations", () => {
+  roundtrip({ ...initial(), remembered: { "app:notes": "removed-group" } });
+  for (const remembered of [null, [], "main", { "app:missing": "main" }, { "app:notes": 1 }]) {
+    assert.throws(() => parseDockState(JSON.stringify({ ...initial(), remembered })), /invalid/);
+  }
+  const pane = addDockEmptyPane(initial(), "empty:one", undefined, placement(initial()), newId);
+  assert.throws(() => parseDockState(JSON.stringify({ ...pane, remembered: { "empty:one": "main" } })), /invalid/);
 });
 
 test("geometry conserves workspace space, separates dividers, and maximizes without editing the tree", () => {
@@ -415,22 +503,14 @@ test("sidebar transitions keep flyouts transient for hover, click and navigation
   roundtrip(returned);
 });
 
-test("Move into layout uses the right outer guide and creates an ordinary focused window", () => {
+test("Move into layout splits the largest visible window and creates an ordinary focused tool window", () => {
   const split = move(initial(), ["app:notes"], { kind: "edge", side: "left" });
-  const preview = transitionDockSide({ ...split, maximized: "main" }, { type: "hover", id: "tool:files" });
+  const preview = transitionDockSide(split, { type: "hover", id: "tool:files" });
+  const notes = dockGroups(split.root).find((entry) => entry.active === "app:notes")!;
   const ids = () => { let index = 0; return () => `layout-node-${++index}`; };
-  const layout = transitionDockSide(preview, { type: "layout", newId: ids() });
-  const dropped = moveDockPanels(preview, ["tool:files"], { kind: "edge", side: "right" }, ids());
+  const layout = transitionDockSide(preview, { type: "layout", placement: placement(preview), newId: ids() });
+  const dropped = moveDockPanels(preview, ["tool:files"], { kind: "group", group: notes.id, side: "bottom" }, ids());
   assert.deepEqual(layout, dropped);
-  assert.equal(layout.root.kind, "split");
-  if (layout.root.kind !== "split") throw new Error("Expected a workspace split");
-  assert.equal(layout.root.axis, "horizontal");
-  assert.equal(layout.root.ratio, 0.65);
-  assert.deepEqual(layout.root.first, split.root);
-  assert.deepEqual(dockGroups(layout.root.second).map((g) => g.tabs), [["tool:files"]]);
-  assert.equal(layout.focused, layout.root.second.id);
-  assert.equal(layout.maximized, null);
-  assert.equal(layout.automatic, false);
   assert.equal(activeDockTool(layout), "files");
   assert.deepEqual(layout.side, initial().side);
   assert.deepEqual(layout.bar, ["tool:journal"]);
@@ -440,7 +520,7 @@ test("Move into layout uses the right outer guide and creates an ordinary focuse
   assert.deepEqual(closed.root, split.root);
   assert.ok(closed.bar.includes("tool:files"));
   assert.deepEqual(closed.side, initial().side);
-  assert.equal(transitionDockSide(closed, { type: "layout", newId: () => "unused" }), closed);
+  assert.equal(transitionDockSide(closed, { type: "layout", placement: placement(closed), newId: () => "unused" }), closed);
 });
 
 test("persistent layouts exclude flyouts and retain windows moved into the layout", () => {
@@ -451,7 +531,7 @@ test("persistent layouts exclude flyouts and retain windows moved into the layou
   assert.deepEqual(saved.root, hovered.root);
   const clicked = transitionDockSide(initial(), { type: "click", id: "tool:files" });
   assert.deepEqual(persistentDockState(clicked).side, saved.side);
-  const docked = transitionDockSide(hovered, { type: "layout", newId: () => `node-${++serial}` });
+  const docked = transitionDockSide(hovered, { type: "layout", placement: placement(hovered), newId: () => `node-${++serial}` });
   assert.deepEqual(parseDockState(JSON.stringify(persistentDockState(docked))), docked);
 });
 
@@ -473,12 +553,11 @@ test("obsolete saved sidebar modes reconcile to a closed flyout without changing
 
 test("header window order moves a button before another one or to the end without touching the layout", () => {
   const panels = ["chat", "app:notes", "app:board"];
-  const start = reconcileDockState(initial(), panels, ["tool:files", "tool:journal"], true);
+  const start = reconcileDockState(initial(), panels, ["tool:files", "tool:journal"]);
   assert.deepEqual(dockWindowOrder(start, panels), panels);
   const first = moveDockWindow(start, "app:board", "chat");
   assert.deepEqual(dockWindowOrder(first, panels), ["app:board", "chat", "app:notes"]);
   assert.equal(first.root, start.root);
-  assert.equal(first.automatic, true, "arranging the header keeps the automatic layout");
   const last = moveDockWindow(first, "app:board", null);
   assert.deepEqual(dockWindowOrder(last, panels), panels);
   assert.equal(moveDockWindow(first, "app:board", "chat"), first, "a move to the current slot changes nothing");
@@ -514,12 +593,12 @@ test("header window order appends new windows, keeps the slots of vanished ones 
 
 test("the focused window is the active tab of the focused area, an empty pane included, and none for an empty area", () => {
   const panels = ["chat", "app:notes", "app:board"];
-  const start = reconcileDockState(initial(), panels, ["tool:files", "tool:journal"], true);
+  const start = reconcileDockState(initial(), panels, ["tool:files", "tool:journal"]);
   assert.equal(focusedDockWindow(start), "chat");
   const board = selectDockPanel(start, "app:board");
   assert.equal(focusedDockWindow(board), "app:board", "selecting a background tab focuses its area");
   assert.equal(focusedDockWindow(moveDockWindow(board, "app:board", "chat")), "app:board", "the header order does not change it");
-  const pane = addDockEmptyPane(board, emptyPanelId("one"), undefined, false, () => `node-${++serial}`);
+  const pane = addDockEmptyPane(board, emptyPanelId("one"), undefined, placement(board), () => `node-${++serial}`);
   assert.equal(focusedDockWindow(pane), "empty:one");
   assert.equal(focusedDockWindow(closeDockPanels(initialDockState(), ["chat"])), undefined);
 });
@@ -531,19 +610,18 @@ test("layout storage rejects an invalid header window order", () => {
   roundtrip({ ...initial(), order: [] });
 });
 
-test("empty panes open beside the focused area or as a tab, several at once, and leave for good when closed", () => {
+test("empty panes split visible windows, several at once, and leave for good when closed", () => {
   const panels = ["chat", "app:notes", "app:board"];
   const tools = ["tool:files", "tool:journal"];
-  const add = (state: DockState, id: string, target?: DockTarget, wide = true) => addDockEmptyPane(state, emptyPanelId(id), target, wide, () => `node-${++serial}`);
-  const start = reconcileDockState(initial(), panels, tools, true);
+  const add = (state: DockState, id: string, target?: DockTarget) => addDockEmptyPane(state, emptyPanelId(id), target, placement(state), () => `node-${++serial}`);
+  const start = reconcileDockState(initial(), panels, tools);
   const first = add(start, "one");
-  assert.equal(dockGroups(first.root).length, 3, "a wide workspace splits beside the focused area");
+  assert.equal(dockGroups(first.root).length, 2, "the pane splits the only visible window");
   assert.equal(dockGroups(first.root).find((g) => g.tabs.includes("empty:one"))?.active, "empty:one");
-  assert.equal(first.automatic, false);
-  const second = add(first, "two", undefined, false);
-  assert.deepEqual(dockGroups(second.root).find((g) => g.id === second.focused)?.tabs, ["empty:one", "empty:two"], "a narrow workspace adds a tab");
+  const second = add(first, "two");
+  assert.equal(dockGroups(second.root).length, 3, "the next pane splits the visible empty pane");
   assert.equal(add(second, "two"), second, "an existing pane is not added twice");
-  assert.equal(addDockEmptyPane(second, "app:other", undefined, true, () => "node"), second, "only empty pane IDs are added");
+  assert.equal(addDockEmptyPane(second, "app:other", undefined, placement(second), () => "node"), second, "only empty pane IDs are added");
   const edge = add(second, "three", { kind: "edge", side: "bottom" });
   assert.equal(dockGroups(edge.root).length, 4);
   assert.equal(add(second, "lost", { kind: "bar" }), second, "a pane that does not land is not added");
@@ -552,19 +630,19 @@ test("empty panes open beside the focused area or as a tab, several at once, and
   assert.ok(!closed.known.includes("empty:one") && !closed.known.includes("empty:three"));
   assert.deepEqual(closed.closed, [], "closed panes are not reopened from the header");
   roundtrip(closed);
-  const reconciled = reconcileDockState(closed, panels, tools, true);
+  const reconciled = reconcileDockState(closed, panels, tools);
   assert.ok(reconciled.known.includes("empty:two"), "catalog reconciliation keeps empty panes");
-  assert.equal(reconcileDockState(reconciled, panels, tools, true), reconciled);
+  assert.equal(reconcileDockState(reconciled, panels, tools), reconciled);
   assert.deepEqual(dockWindowOrder(moveDockWindow(reconciled, "app:board", "chat"), panels), ["app:board", "chat", "app:notes"], "empty panes are no header windows");
   roundtrip(moveDockWindow(reconciled, "app:board", "chat"));
-  assert.ok(!reconcileDockState(initialDockState(panels, tools), panels, tools, true).known.some((id) => id.startsWith("empty:")), "Reset layout removes empty panes");
+  assert.ok(!reconcileDockState(initialDockState(panels, tools), panels, tools).known.some((id) => id.startsWith("empty:")), "Reset layout removes empty panes");
 });
 
 test("a window dropped on the center of a shown empty pane replaces it, a hidden one is merged beside", () => {
   const panels = ["chat", "app:notes", "app:board"];
   const tools = ["tool:files", "tool:journal"];
-  const start = reconcileDockState(initial(), panels, tools, true);
-  const pane = addDockEmptyPane(start, emptyPanelId("one"), { kind: "edge", side: "bottom" }, true, () => `node-${++serial}`);
+  const start = reconcileDockState(initial(), panels, tools);
+  const pane = addDockEmptyPane(start, emptyPanelId("one"), { kind: "edge", side: "bottom" }, placement(start), () => `node-${++serial}`);
   const area = dockGroups(pane.root).find((g) => g.tabs.includes("empty:one"))!;
   const replaced = move(pane, ["app:board"], { kind: "group", group: area.id, side: "center" });
   assert.deepEqual(dockGroups(replaced.root).find((g) => g.id === area.id)?.tabs, ["app:board"]);
@@ -577,7 +655,7 @@ test("a window dropped on the center of a shown empty pane replaces it, a hidden
   assert.ok(split.known.includes("empty:one"), "a compass side splits beside the pane");
   const behind = selectDockPanel(move(pane, ["chat"], { kind: "group", group: area.id, side: "center" }), "chat");
   assert.deepEqual(dockGroups(behind.root).find((g) => g.id === area.id)?.tabs, ["chat"], "Chat replaced the shown pane");
-  const tabbed = addDockEmptyPane(behind, emptyPanelId("two"), { kind: "group", group: area.id, side: "center" }, true, () => `node-${++serial}`);
+  const tabbed = addDockEmptyPane(behind, emptyPanelId("two"), { kind: "group", group: area.id, side: "center" }, placement(behind), () => `node-${++serial}`);
   assert.deepEqual(dockGroups(tabbed.root).find((g) => g.id === area.id)?.tabs, ["chat", "empty:two"]);
   const background = selectDockPanel(tabbed, "chat");
   const merged = move(background, ["app:board"], { kind: "group", group: area.id, side: "center" });
@@ -591,7 +669,7 @@ test("a window dropped on the center of a shown empty pane replaces it, a hidden
 test("hit testing turns the whole content of a shown empty pane into its replace target", () => {
   const rect = { left: 0, top: 0, width: 900, height: 600 };
   const bar = { left: 900, top: 0, width: 36, height: 600 };
-  const pane = addDockEmptyPane(initialDockState(["chat"]), emptyPanelId("one"), { kind: "edge", side: "right" }, true, () => `node-${++serial}`);
+  const pane = addDockEmptyPane(initialDockState(["chat"]), emptyPanelId("one"), { kind: "edge", side: "right" }, placement(initialDockState()), () => `node-${++serial}`);
   const groups = dockGeometry(pane.root, rect, null).groups;
   const area = groups.find(({ group }) => group.active === "empty:one")!;
   const chat = groups.find(({ group }) => group.active === "chat")!;
@@ -604,7 +682,7 @@ test("hit testing turns the whole content of a shown empty pane into its replace
 });
 
 test("layout storage rejects closed or ordered empty panes", () => {
-  const pane = addDockEmptyPane(initial(), emptyPanelId("one"), { kind: "edge", side: "left" }, true, () => `node-${++serial}`);
+  const pane = addDockEmptyPane(initial(), emptyPanelId("one"), { kind: "edge", side: "left" }, placement(initial()), () => `node-${++serial}`);
   roundtrip(pane);
   for (const patch of [{ order: ["empty:one"] }, { known: pane.known.filter((id) => id !== "empty:one") }]) {
     assert.throws(() => parseDockState(JSON.stringify({ ...pane, ...patch })), /invalid/);
@@ -618,8 +696,8 @@ test("a workspace tab placed as a window defaults to a header window like an app
   assert.equal(workspaceTabPanelId({ id: "files", placement: "sidebar" }), "tool:files");
   const panels = ["chat", "tab:preview", "app:notes"];
   const tools = ["tool:files"];
-  const start = reconcileDockState(initialDockState(), panels, tools, true);
-  assert.deepEqual(dockGroups(start.root).map((g) => g.tabs), [["chat"], ["tab:preview", "app:notes"]], "it opens in the app area like the first app");
+  const start = reconcileDockState(initialDockState(), panels, tools);
+  assert.deepEqual(dockGroups(start.root).map((g) => g.tabs), [["chat"], ["tab:preview"], ["app:notes"]], "each new window uses the shared placement rule");
   assert.deepEqual(start.bar, ["tool:files"], "it never joins the rail");
   assert.deepEqual(dockWindowOrder(start, panels), panels);
   roundtrip(start);
@@ -629,7 +707,7 @@ test("a workspace tab placed as a window defaults to a header window like an app
   assert.equal(move(closed, ["tab:preview"], { kind: "bar" }), closed, "the rail takes no window");
   roundtrip({ ...closed, closed: [], bar: [...closed.bar, "tab:preview"] });
   roundtrip(closed);
-  const reopened = selectDockPanel(closed, "tab:preview");
+  const reopened = revealDockPanel(closed, "tab:preview", placement(closed), newId);
   assert.equal(focusedDockWindow(reopened), "tab:preview");
   assert.equal(activeDockTool(reopened), "preview", "navigation reports it as the active tab");
   assert.deepEqual(reopened.closed, []);
@@ -639,7 +717,7 @@ test("a workspace tab placed as a window defaults to a header window like an app
   const arranged = moveDockWindow(reopened, "tab:preview", "chat");
   assert.deepEqual(dockWindowOrder(arranged, panels), ["tab:preview", "chat", "app:notes"]);
   roundtrip(arranged);
-  const placed = reconcileDockState(start, [...panels, "tab:files"], [], true);
+  const placed = reconcileDockState(start, [...panels, "tab:files"], []);
   assert.deepEqual(placed.bar, ["tool:files"], "the former rail ID stays known; the rail lists only available tools");
   assert.ok(dockGroups(placed.root).some((g) => g.tabs.includes("tab:files")), "the tab joins the windows");
   roundtrip(placed);
@@ -656,7 +734,7 @@ test("button placement and header slots change without changing open, closed, or
   const returned = moveDockButton(closed, "tool:files", "sidebar");
   assert.deepEqual(dockWindowOrder(returned, returned.known), ["chat"]);
   for (const next of [header, side, closed, returned]) {
-    for (const key of ["root", "closed", "bar", "side", "focused", "maximized", "known", "automatic"] as const) assert.deepEqual(next[key], start[key], key);
+    for (const key of ["root", "closed", "bar", "side", "focused", "maximized", "known"] as const) assert.deepEqual(next[key], start[key], key);
     roundtrip(next);
   }
   assert.equal(dockButtonPlacement(returned, "app:notes"), "sidebar");
@@ -664,7 +742,7 @@ test("button placement and header slots change without changing open, closed, or
   assert.equal(moveDockButton(start, "missing", "sidebar"), start);
   assert.equal(moveDockButton(start, "tool:files", "window", "missing"), start);
   assert.equal(moveDockButton(start, "chat", "window", "chat"), start);
-  const pane = addDockEmptyPane(start, "empty:one", undefined, false, () => `node-${++serial}`);
+  const pane = addDockEmptyPane(start, "empty:one", undefined, placement(start), () => `node-${++serial}`);
   assert.equal(moveDockButton(pane, "empty:one", "sidebar"), pane);
 });
 
@@ -698,18 +776,18 @@ test("moved buttons open closed panels in their chosen place and preserve single
   assert.ok(!opened.closed.includes("app:notes"));
   roundtrip(opened);
   const header = moveDockButton(opened, "app:notes", "window");
-  assert.equal(revealDockPanel(header, "app:notes", true, () => `node-${++serial}`), header, "an open sidebar stays open after its button moves");
+  assert.equal(revealDockPanel(header, "app:notes", placement(header), () => `node-${++serial}`), header, "an open sidebar stays open after its button moves");
   const closed = closeDockPanels(header, ["app:notes"]);
   assert.ok(closed.closed.includes("app:notes"));
   assert.ok(!closed.bar.includes("app:notes"));
   roundtrip(closed);
   const tool = moveDockButton(initial(), "tool:files", "window");
-  const narrow = revealDockPanel(tool, "tool:files", false, () => `node-${++serial}`);
-  assert.ok(dockGroups(narrow.root)[0].tabs.includes("tool:files"));
+  const narrow = revealDockPanel(tool, "tool:files", placement(tool, { ...bounds, width: 500 }), () => `node-${++serial}`);
+  assert.equal(dockGroups(narrow.root).length, 2, "the tool still opens in its own window on a narrow workspace");
   assert.ok(!narrow.bar.includes("tool:files"));
   assert.equal(narrow.side.tab, null);
   roundtrip(narrow);
-  const wide = revealDockPanel(tool, "tool:files", true, () => `node-${++serial}`);
+  const wide = revealDockPanel(tool, "tool:files", placement(tool), () => `node-${++serial}`);
   assert.equal(dockGroups(wide.root).length, 2);
   const rail = moveDockButton(wide, "tool:files", "sidebar");
   assert.equal(transitionDockSide(rail, { type: "hover", id: "tool:files" }), rail, "hovering an open dock window does not open a second panel");
@@ -728,7 +806,7 @@ test("layout storage accepts old layouts and rejects invalid placement overrides
   for (const placements of [null, [], "sidebar", { chat: "header" }, { "app:missing": "sidebar" }, { "tool:files": 1 }]) {
     assert.throws(() => parseDockState(JSON.stringify({ ...initial(), placements })), /invalid/);
   }
-  const empty = addDockEmptyPane(initial(), "empty:one", undefined, false, () => `node-${++serial}`);
+  const empty = addDockEmptyPane(initial(), "empty:one", undefined, placement(initial()), () => `node-${++serial}`);
   assert.throws(() => parseDockState(JSON.stringify({ ...empty, placements: { "empty:one": "sidebar" } })), /invalid/);
   const sidebar = moveDockButton(initial(), "chat", "sidebar");
   assert.throws(() => parseDockState(JSON.stringify({ ...sidebar, order: ["chat"] })), /invalid/);
@@ -736,8 +814,8 @@ test("layout storage accepts old layouts and rejects invalid placement overrides
 
 test("the Agents window opens, focuses the same area, reveals hidden tabs and reopens once after closing", () => {
   const id = workspaceTabPanelId({ id: "ragents.orchestration.agents", placement: "window" });
-  const reveal = (state: DockState) => revealDockPanel(state, id, true, () => `node-${++serial}`);
-  const initial = reconcileDockState(initialDockState(), ["chat", id], [], true);
+  const reveal = (state: DockState) => revealDockPanel(state, id, placement(state), () => `node-${++serial}`);
+  const initial = reconcileDockState(initialDockState(), ["chat", id], []);
   const opened = reveal(initial);
   const area = dockGroups(opened.root).find((entry) => entry.tabs.includes(id))!;
   assert.equal(opened.focused, area.id);

@@ -10,6 +10,23 @@ export const DOCK_DIVIDER_SIZE = 6;
 export const containsPoint = (rect: DockRect, point: DockPoint) => point.x >= rect.left && point.x <= rect.left + rect.width && point.y >= rect.top && point.y <= rect.top + rect.height;
 const showsEmptyPane = (area: GroupRect) => area.group.active !== null && isEmptyPanel(area.group.active);
 
+export function dockWorkspaceRect(size: { readonly width: number; readonly height: number }, railWidth: number): DockRect {
+  return { left: DOCK_DIVIDER_SIZE, top: DOCK_DIVIDER_SIZE,
+    width: Math.max(0, size.width - DOCK_DIVIDER_SIZE * 2 - (railWidth ? railWidth + DOCK_DIVIDER_SIZE : 0)),
+    height: Math.max(0, size.height - DOCK_DIVIDER_SIZE * 2) };
+}
+
+export function dockOpeningTarget(groups: readonly GroupRect[]): DockTarget | undefined {
+  const measured = groups.filter(({ rect }) => rect.width > 0 && rect.height > 0);
+  const windows = measured.filter(({ group }) => group.active !== null);
+  const others = windows.filter(({ group }) => group.active !== "chat");
+  const candidates = others.length > 0 ? others : windows;
+  const largest = candidates.reduce<GroupRect | undefined>((best, area) =>
+    !best || area.rect.width * area.rect.height > best.rect.width * best.rect.height ? area : best, undefined);
+  return largest ? { kind: "group", group: largest.group.id, side: largest.rect.width >= largest.rect.height ? "right" : "bottom" }
+    : measured[0] ? { kind: "group", group: measured[0].group.id, side: "center" } : undefined;
+}
+
 export function dockGeometry(root: DockNode, rect: DockRect, maximized: string | null) {
   const groups: GroupRect[] = [];
   const dividers: DividerRect[] = [];

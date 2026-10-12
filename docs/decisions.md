@@ -1,5 +1,20 @@
 # Decisions
 
+## 2026-10-12: New dock windows split the largest visible window
+
+Chapter: `spec/plugins.md` (Docking workspace, Run panel); usage: `usage.md` (Run panel and VS Code
+extension); homepage: mini-app placement.
+
+Separate rules for new apps, header clicks, navigation, and moving a sidebar preview into the
+layout made placement depend on the opening path and workspace width. All unplaced windows now
+use one pure state/geometry rule with measured rectangles: split the largest visible window
+other than the main Chat, or Chat when it is the only visible window. Aspect ratio chooses the
+split direction, and the new window takes the second equal half. Explicit drag targets and
+existing places win. Reopening returns to a remembered group while it exists; once that group
+is removed, the shared rule applies. This keeps surviving user arrangements intact without
+restoring obsolete groups. Reset uses the same rule in catalog order. Sidebar previews and
+VS Code editor tabs retain their behavior.
+
 ## 2026-10-12: Working subagent count uses tight spacing
 
 Chapter: `spec/plugins.md` (Run panel, Spacing).

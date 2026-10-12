@@ -1,3 +1,5 @@
+import { dockGeometry, dockOpeningTarget, type DockRect } from "./dock-geometry";
+
 export interface DockGroup {
   readonly kind: "group";
   readonly id: string;
@@ -23,7 +25,6 @@ export type DockTarget = { readonly kind: "group"; readonly group: string; reado
 
 export interface DockState {
   readonly version: 1;
-  readonly automatic?: boolean;
   readonly root: DockNode;
   readonly known: readonly string[];
   readonly closed: readonly string[];
@@ -34,6 +35,13 @@ export interface DockState {
   /** The arranged order of the window buttons in the run header; windows missing from it follow in catalog order. */
   readonly order?: readonly string[];
   readonly placements?: Readonly<Record<string, DockButtonPlacement>>;
+  readonly remembered?: Readonly<Record<string, string>>;
+}
+
+export interface DockPlacement {
+  readonly bounds: DockRect;
+  readonly available: readonly string[];
+  readonly loaded: boolean;
 }
 
 export const appPanelId = (id: string) => `app:${id}`;
@@ -54,7 +62,7 @@ export const mapDockNode = (node: DockNode, id: string, update: (node: DockNode)
   node.id === id ? update(node) : node.kind === "group" ? node : { ...node, first: mapDockNode(node.first, id, update), second: mapDockNode(node.second, id, update) };
 
 export function initialDockState(panels: readonly string[] = ["chat"], tools: readonly string[] = []): DockState {
-  return { version: 1, automatic: true, root: group("main", panels), known: [...panels, ...tools], closed: [], bar: tools, focused: "main", maximized: null,
+  return { version: 1, root: group("main", panels), known: [...panels, ...tools], closed: [], bar: tools, focused: "main", maximized: null,
     side: { tab: null, mode: "hidden", focused: false } };
 }
 
@@ -93,16 +101,16 @@ function pruneEmptied(root: DockNode, before: DockNode, preserve?: string): Dock
 }
 
 /** Adds the available panels that were never known; a known panel that is unavailable keeps its place, `visibleDockState` hides it. */
-export function reconcileDockState(state: DockState, panels: readonly string[], tools: readonly string[], splitApps = false): DockState {
+export function reconcileDockState(state: DockState, panels: readonly string[], tools: readonly string[], placement: DockPlacement, newId: () => string): DockState {
   const added = panels.filter((id) => !state.known.includes(id));
   const addedTools = tools.filter((id) => !state.known.includes(id));
-  const first = dockGroups(state.root).find((g) => g.id === "main") ?? dockGroups(state.root)[0];
   const reconciled = normalize({ ...state,
-    root: mapDockNode(state.root, first.id, () => ({ ...first, tabs: [...first.tabs, ...added], active: first.active ?? added[0] ?? null })),
     known: [...state.known, ...added, ...addedTools],
+    closed: [...state.closed, ...added],
     bar: [...state.bar, ...addedTools],
   });
-  const result = state.automatic ? defaultDockLayout(reconciled, splitApps) : reconciled;
+  const opened = added.reduce((next, id) => revealDockPanel(next, id, placement, newId), reconciled);
+  const result = normalize({ ...opened, focused: reconciled.focused, side: { ...opened.side, focused: reconciled.side.focused } });
   return JSON.stringify(result) === JSON.stringify(state) ? state : result;
 }
 
@@ -125,63 +133,53 @@ export function visibleDockState(state: DockState, available: readonly string[],
   });
 }
 
-function defaultDockLayout(state: DockState, splitApps: boolean): DockState {
-  const groups = dockGroups(state.root);
-  const panels = state.known.filter((id) => groups.some((entry) => entry.tabs.includes(id)));
-  const apps = panels.filter((id) => id.startsWith("app:") || isTabWindow(id) || isEmptyPanel(id));
-  const active = groups.find((entry) => entry.id === state.focused)?.active;
-  if (!splitApps || !panels.includes("chat") || apps.length === 0) {
-    return { ...state, root: { ...group("main", panels), active: active ?? panels[0] ?? null }, focused: "main" };
-  }
-  const selectedApp = groups.find((entry) => entry.active && apps.includes(entry.active))?.active ?? apps[0];
-  return { ...state,
-    root: { kind: "split", id: "default-split", axis: "horizontal", ratio: 0.5,
-      first: group("main", ["chat"]), second: { ...group("apps", apps), active: selectedApp } },
-    focused: active && apps.includes(active) ? "apps" : "main",
-  };
-}
-
 export function selectDockPanel(state: DockState, id: string): DockState {
   const target = dockGroups(state.root).find((g) => g.tabs.includes(id));
   if (target) return { ...state, root: mapDockNode(state.root, target.id, () => ({ ...target, active: id })), focused: target.id, side: { ...state.side, focused: false },
     maximized: state.maximized === null ? null : target.id };
   if (!state.known.includes(id)) return state;
   if (state.side.tab === id || dockButtonPlacement(state, id) === "sidebar") return transitionDockSide(state, { type: "open", id });
-  const first = dockGroups(state.root).find((g) => g.id === state.focused) ?? dockGroups(state.root)[0];
-  return { ...state, automatic: false, closed: state.closed.filter((p) => p !== id), bar: state.bar.filter((p) => p !== id), side: { ...state.side, focused: false },
-    root: mapDockNode(state.root, first.id, () => ({ ...first, tabs: [...first.tabs, id], active: id })) };
+  return state;
 }
 
-export function revealDockPanel(state: DockState, id: string, split: boolean, newId: () => string): DockState {
+function placeDockPanel(state: DockState, id: string, placement: DockPlacement, newId: () => string): DockState {
+  const remembered = state.remembered?.[id];
+  const visible = visibleDockState(activateAvailableDockTabs(state, placement.available), placement.available, placement.loaded);
+  const target: DockTarget | undefined = remembered && dockGroups(state.root).some((entry) => entry.id === remembered)
+    ? { kind: "group", group: remembered, side: "center" }
+    : dockOpeningTarget(dockGeometry(visible.root, placement.bounds, visible.maximized).groups);
+  if (!target) throw new Error("Opening a dock window requires measured workspace rectangles.");
+  return moveDockPanels(state, [id], target, newId);
+}
+
+export function revealDockPanel(state: DockState, id: string, placement: DockPlacement, newId: () => string): DockState {
   const groups = dockGroups(state.root);
   const owner = groups.find((entry) => entry.tabs.includes(id));
   if (owner) return owner.active === id && state.focused === owner.id && !state.side.focused && (state.maximized === null || state.maximized === owner.id) ? state : selectDockPanel(state, id);
   if (state.side.tab === id) return state.side.focused ? state : transitionDockSide(state, { type: "open", id });
-  const target = groups.find((entry) => entry.id === state.focused) ?? groups[0];
-  const restored = { ...state, automatic: false, maximized: null };
-  return !split || target.tabs.length === 0
-    ? selectDockPanel(restored, id)
-    : moveDockPanels(restored, [id], { kind: "group", group: target.id, side: "right" }, newId);
+  if (!state.known.includes(id)) return state;
+  return dockButtonPlacement(state, id) === "sidebar" ? selectDockPanel(state, id) : placeDockPanel(state, id, placement, newId);
 }
 
-export function addDockEmptyPane(state: DockState, id: string, target: DockTarget | undefined, split: boolean, newId: () => string): DockState {
+export function addDockEmptyPane(state: DockState, id: string, target: DockTarget | undefined, placement: DockPlacement, newId: () => string): DockState {
   if (!isEmptyPanel(id) || state.known.includes(id)) return state;
   const known = { ...state, known: [...state.known, id] };
-  const next = target ? moveDockPanels(known, [id], target, newId) : revealDockPanel(known, id, split, newId);
+  const next = target ? moveDockPanels(known, [id], target, newId) : revealDockPanel(known, id, placement, newId);
   return dockGroups(next.root).some((g) => g.tabs.includes(id)) ? next : state;
 }
 
-export function addDockView(state: DockState, id: string, target: DockTarget, newId: () => string): DockState {
+export function addDockView(state: DockState, id: string, target: DockTarget | undefined, placement: DockPlacement, newId: () => string): DockState {
   if (!isViewPanel(id)) return state;
   const registered = state.known.includes(id) ? state : { ...state, known: [...state.known, id], closed: [...state.closed, id] };
-  const next = moveDockPanels(registered, [id], target, newId);
+  const next = target ? moveDockPanels(registered, [id], target, newId) : revealDockPanel(registered, id, placement, newId);
   return dockGroups(next.root).some((entry) => entry.tabs.includes(id)) ? next : state;
 }
 
 export function closeDockPanels(state: DockState, ids: readonly string[], area?: string): DockState {
   const root = filterPanels(state.root, (id) => !ids.includes(id));
   return normalize({ ...state,
-    automatic: false,
+    remembered: { ...state.remembered, ...Object.fromEntries(dockGroups(state.root).flatMap((entry) =>
+      entry.tabs.filter((id) => ids.includes(id) && !isEmptyPanel(id)).map((id) => [id, entry.id]))) },
     root: area ? removeGroup(root, area) : pruneEmptied(root, state.root),
     known: state.known.filter((id) => !isEmptyPanel(id) || !ids.includes(id)),
     closed: [...new Set([...state.closed, ...ids.filter((id) => !isToolPanel(id) && !isEmptyPanel(id))])],
@@ -214,7 +212,7 @@ export function moveDockPanels(state: DockState, ids: readonly string[], target:
       return { ...node, tabs: replaced ? node.tabs.flatMap((id) => id === replaced ? moving : [id]) : [...node.tabs, ...moving], active };
     });
   const preserve = target.kind === "group" ? target.group : dockGroups(state.root).length === 1 ? dockGroups(state.root)[0].id : undefined;
-  return normalize({ ...state, automatic: false, root: pruneEmptied(root, state.root, preserve), known: state.known.filter((id) => id !== replaced),
+  return normalize({ ...state, root: pruneEmptied(root, state.root, preserve), known: state.known.filter((id) => id !== replaced),
     closed: state.closed.filter((id) => !moving.includes(id)), bar: state.bar.filter((id) => !moving.includes(id)),
     focused: merged ? target.group : added.id, maximized: null,
     side: { ...state.side, focused: false, tab: state.side.tab !== null && moving.includes(state.side.tab) ? null : state.side.tab },
@@ -223,7 +221,7 @@ export function moveDockPanels(state: DockState, ids: readonly string[], target:
 
 export function resizeDockSplit(state: DockState, id: string, ratio: number): DockState {
   if (!Number.isFinite(ratio)) return state;
-  return { ...state, automatic: false, root: mapDockNode(state.root, id, (node) => node.kind === "split" ? { ...node, ratio: Math.max(0.1, Math.min(0.9, ratio)) } : node) };
+  return { ...state, root: mapDockNode(state.root, id, (node) => node.kind === "split" ? { ...node, ratio: Math.max(0.1, Math.min(0.9, ratio)) } : node) };
 }
 
 export function dockWindowOrder(state: DockState, panels: readonly string[]): readonly string[] {
@@ -282,9 +280,11 @@ export function parseDockState(raw: string | null): DockState {
     return node.kind === "split" && (node.axis === "horizontal" || node.axis === "vertical")
       && Number.isFinite(node.ratio) && node.ratio >= 0.1 && node.ratio <= 0.9 && validNode(node.first, depth + 1) && validNode(node.second, depth + 1);
   };
-  if (!state || state.version !== 1 || (state.automatic !== undefined && typeof state.automatic !== "boolean") || !validNode(state.root) || !strings(state.closed) || !uniquePanels(state.closed)
+  if (!state || state.version !== 1 || !validNode(state.root) || !strings(state.closed) || !uniquePanels(state.closed)
     || state.closed.some(isToolPanel) || state.closed.some(isEmptyPanel) || !strings(state.bar) || !uniquePanels(state.bar) || state.bar.some(isEmptyPanel)
     || !strings(state.known) || new Set(state.known).size !== state.known.length || state.known.length !== panels.size || !state.known.every((id) => panels.has(id))
+    || (state.remembered !== undefined && (!state.remembered || typeof state.remembered !== "object" || Array.isArray(state.remembered)
+      || !Object.entries(state.remembered).every(([id, group]) => state.known.includes(id) && !isEmptyPanel(id) && typeof group === "string")))
     || (state.placements !== undefined && (!state.placements || typeof state.placements !== "object" || Array.isArray(state.placements)
       || !Object.entries(state.placements).every(([id, placement]) => state.known.includes(id) && !isEmptyPanel(id) && (placement === "sidebar" || placement === "window"))))
     || (state.order !== undefined && (!strings(state.order) || new Set(state.order).size !== state.order.length || !state.order.every((id) => state.known.includes(id) && !isEmptyPanel(id) && dockButtonPlacement(state, id) === "window")))
@@ -298,7 +298,7 @@ export function parseDockState(raw: string | null): DockState {
 
 export type DockSideAction = { type: "hover" | "click" | "open"; id: string }
   | { type: "leave" | "close" }
-  | { type: "layout"; newId: () => string };
+  | { type: "layout"; placement: DockPlacement; newId: () => string };
 
 export function transitionDockSide(state: DockState, action: DockSideAction): DockState {
   const side = state.side;
@@ -315,7 +315,7 @@ export function transitionDockSide(state: DockState, action: DockSideAction): Do
       return show(action.id);
     case "leave": return side.mode === "hover-preview" ? hide() : state;
     case "close": return hide();
-    case "layout": return side.tab ? moveDockPanels(state, [side.tab], { kind: "edge", side: "right" }, action.newId) : state;
+    case "layout": return side.tab ? placeDockPanel(state, side.tab, action.placement, action.newId) : state;
   }
 }
 

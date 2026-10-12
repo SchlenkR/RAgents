@@ -1,8 +1,8 @@
 import { useEffect, useRef, useState } from "react";
 import { createRoot } from "react-dom/client";
 import { NetworkIcon } from "lucide-react";
-import { DockToolsContext, DockWorkspace, type DockPanelDrag } from "../src/run-panel/DockWorkspace";
-import { activeDockTool, selectDockPanel, workspaceTabPanelId } from "../src/run-panel/dock-state";
+import { DockToolsContext, DockWorkspace, type DockPanelDrag, type DockPanelOpen } from "../src/run-panel/DockWorkspace";
+import { activeDockTool, workspaceTabPanelId } from "../src/run-panel/dock-state";
 import { useDockStorage } from "../src/run-panel/dock-storage";
 import { RunPanelHeader } from "../src/run-panel/RunPanelHeader";
 import { RunHeader } from "../src/run-panel/RunHeader";
@@ -73,19 +73,20 @@ function AddDialog({ onClose }: SurfaceElementAdditionContext) {
 }
 const additions: readonly RunAppAddition[] = withAddition ? [{ id: "add:example", label: "Show app...", Dialog: AddDialog }] : [];
 function Run({ run, appIds }: { run: string; appIds: readonly string[] }) {
-  const { state, update } = useDockStorage(run);
+  const { state } = useDockStorage(run);
   const [actions, setActions] = useState<HTMLDivElement | null>(null);
   const [view, setView] = useState(graphView);
   const selected = useRunPanelState(run);
   const panelDrag = useRef<DockPanelDrag | undefined>(undefined);
+  const openPanel = useRef<DockPanelOpen | undefined>(undefined);
   const session: SessionContext = { session: { id: run, title: run, updatedAt: 0, canShare: true as const }, connected: true, runView: withAgents ? view : {}, messages: [], pluginEvents: [], running: false, send: async () => {}, start: async () => {} };
   const apps: readonly RunApp[] = appIds.map((id) => ({ runId: run, definition: { id, title: id[0].toUpperCase() + id.slice(1) }, Element: App, layoutKey: id }));
-  const navigation = { activeTabId: activeDockTool(state), openTab: (id: string) => update((current) => selectDockPanel(current, workspaceTabPanelId(tools.find((tool) => tool.id === id)!))), revealEntity: () => false, selectionFor: () => undefined };
+  const navigation = { activeTabId: activeDockTool(state), openTab: (id: string) => openPanel.current?.(workspaceTabPanelId(tools.find((tool) => tool.id === id)!)), revealEntity: () => false, selectionFor: () => undefined };
   useEffect(() => {
     window.dockingFixture.openTab = navigation.openTab;
     window.dockingFixture.startWorker = () => setView((current) => ({ ...current, revision: current.revision + 1, actors: current.actors.map((actor) => actor.id === "worker" ? { ...actor, lifecycle: { kind: "running", turnId: "turn", inputId: "input", startedAt: "2026-10-12T08:00:00.000Z" } } : actor) }));
   });
-  const workspace = <DockToolsContext.Provider value={{ tabs: tools, pendingTabIds: [], actionsContainer: withHeader ? actions : undefined, panelDrag }}><DockWorkspace additions={additions} apps={apps}
+  const workspace = <DockToolsContext.Provider value={{ tabs: tools, pendingTabIds: [], actionsContainer: withHeader ? actions : undefined, panelDrag, openPanel }}><DockWorkspace additions={additions} apps={apps}
     panels={withAgents ? view.actors.map((actor) => ({ id: `actor:${actor.id}`, title: `@${actor.handle}`, content: <textarea aria-label={`Message to @${actor.handle}`} /> })) : []}
     chat={<><button onClick={() => navigation.openTab("files")}>Reveal Files from chat</button>{withAgents && <output aria-label="Chat addressee">@{selected.actor ?? "coordinator"}</output>}<textarea aria-label="Chat draft" className="h-full" /></>} navigation={navigation} session={session} /></DockToolsContext.Provider>;
   return withHeader ? <div className="flex min-w-0 flex-1 flex-col">

@@ -1763,12 +1763,15 @@ Open actions are not a card contribution; they are in the chat's dock (section o
 `actionViews`). The sections stay scrollable above the actor chat and never change
 an actor's identity, capabilities, or tool selection.
 
-Browser runs automatically place Chat on the left and mini-app tabs on the right in equal
-areas when the workspace container is at least 1000 pixels wide. Narrower containers use one
-tab area. The first mini-app can arrive after the chat has opened. Automatic layouts adapt to
-width changes until the user moves, closes, resizes, maximizes, or explicitly opens a window.
-Previously saved layouts without automatic placement retain their arrangement. Chat, mini-apps,
-and inspection tools are equal windows in a user-controlled docking workspace (`DockWorkspace`
+Every browser window without an existing or remembered place splits the largest visible active
+window by measured area, excluding the main Chat. If Chat is the only visible window, it is
+split instead. A window at least as wide as tall splits side by side; a taller window splits
+top and bottom. Each half is equal, and the new window takes the right or bottom half. Equal-area
+candidates follow tree traversal order. Background tabs, unavailable panels, and areas hidden
+by maximization do not compete. This rule applies at every workspace width to mini-apps,
+Agents, inspection tools, actor-bound chats, documents, and empty panes. Existing places and
+explicit drag targets take precedence. Chat, mini-apps, and inspection tools are equal windows
+in a user-controlled docking workspace (`DockWorkspace`
 in `apps/web/src/run-panel/`). Areas form a binary split tree with draggable dividers. Tabs share
 the strip width equally, truncate long titles, and each have a close button. Every area header
 has a grip beside its active tab for moving only that window. Empty areas have no drag grip.
@@ -1780,9 +1783,9 @@ button; populated areas use the individual tab close buttons. Tabs use the exist
 mini-app, and inspection icons.
 
 `DockWorkspace` also accepts optional `panels` with an ID, title, icon, and content. They are
-registered as `view:<id>` only on a valid drop through `useDockPanelDrag`; cancelling or dropping
-outside a target changes nothing. `DockToolsContext` shares the drag controller with the run
-header and chat. Pointer capture belongs to the workspace so a source popup can close when the
+registered as `view:<id>` on a valid drop through `useDockPanelDrag` or when opened through the
+shared controller; cancelling or dropping outside a target changes nothing. `DockToolsContext`
+shares drag and opening controllers with the run header and chat. Pointer capture belongs to the workspace so a source popup can close when the
 drag starts. Registered views use the same placement, retention, close/reopen, and storage as
 other windows; Reset layout removes them. `useDockActivePanel` reports the focused panel.
 
@@ -1808,9 +1811,10 @@ Moving it to another area removes the emptied source. Closing the last tab remov
 when others exist; closing the sole area leaves it empty. Escape also restores a maximized area.
 By default, the run header lists every view (Chat, each window tab, and each app) as an icon-and-label button in a "Layout
 actions" group, whether shown or not; a visible view's button is pressed (`aria-pressed`).
-`revealDockPanel` decides the click: a closed view opens beside the focused area in wide browser
-workspaces or as a tab in narrow ones; a background tab or the active tab of an area hidden by
-another maximized area is revealed and its area focused; an already visible view focuses its area.
+`revealDockPanel` decides the click: a closed view returns as a tab to its remembered group if
+that group still exists, otherwise it uses the largest-window rule. A background tab or the
+active tab of an area hidden by another maximized area is revealed and its area focused; an
+already visible view focuses its area.
 The focused visible view keeps its layout unchanged.
 Every view button and the extra and reset actions remain directly available regardless of width
 or window count. Whole buttons wrap to further rows with flex layout; the run header grows with
@@ -1825,7 +1829,7 @@ position (a 2 px primary line marks the slot; no line and no change where the or
 would stay). A rail button dropped there joins at that slot. Dropping a header button on the
 rail moves its button there; when all buttons are in the header, a temporary empty rail appears
 during a button drag. These drops call `moveDockButton` and leave panel location, visibility,
-focus, and automatic layout unchanged. Right-click or Shift+F10 on either button opens the
+focus, and window placement unchanged. Right-click or Shift+F10 on either button opens the
 shared context menu with "Move to sidebar" or "Move to header"; the latter appends to the header,
 and focus follows the moved button. Elsewhere a button uses the same compass, edge guides, previews, and
 `moveDockPanels` as a tab drag, so the drop opens a closed view or moves an open one. Escape
@@ -1847,8 +1851,9 @@ The additions of surface contributions follow "Empty space" (`additions` of `Doc
 as "Show app..."): plain buttons with `PlusIcon` and `draggable: false`, without grip and outside
 `order`, whose click opens the contribution's dialog.
 "Reset layout" uses the standard header icon button directly after the views and extra actions,
-and restores the automatic layout, default button positions and order, and the inspection rail,
-and removes empty panes. Arrow keys, Home, and End select tabs; focused dividers resize with arrow keys.
+and rebuilds the layout with the same placement rule in catalog order, restores default button
+positions and order and the inspection rail, and removes empty panes. Arrow keys, Home, and End
+select tabs; focused dividers resize with arrow keys.
 
 A workspace tab with `placement: "window"` defaults to a header button and opens like an app.
 Its panel has the ID `tab:<tab id>` (`workspaceTabPanelId` in `dock-state.ts`; a default sidebar
@@ -1856,26 +1861,28 @@ tab is `tool:<tab id>`). Moving a button never changes this ID or the plugin con
 `dockButtonPlacement` resolves a user override before the default. Any entry, including Chat,
 apps, and both kinds of workspace tab, can have its button in either place. The catalog order is
 Chat, window tabs in tab order, then apps, so apps that arrive later still join at the end.
-Such a tab joins the layout like a new
-app (the automatic wide layout puts it into the app area; Reset layout opens it again), and its
-header button shows its `Icon` and `label` with grip and reordering like any view.
+Such a tab joins the layout like a new app through the largest-window rule; Reset layout opens
+it again. Its header button shows its `Icon` and `label` with grip and reordering like any view.
 Its `Badge` or pending activity is drawn as the same `bg-info` dot inside `BadgeDisplayProvider
 value="dot"` at the top right of its directly available header button. Its `Header` renders in the area
 header while it is the area's active tab, and its `Panel` receives `active` while it is visible. It
 has no panel return-to-sidebar control by default. `SessionNavigation.openTab`
 selects an existing docked panel, focuses an open sidebar panel, or opens a closed one in the
-button's chosen place (sidebar or the focused area)
-(`selectDockPanel`, which ignores IDs outside `known`), and `activeTabId` names it while it is the
+button's chosen place (sidebar preview or layout through the shared placement rule)
+(`revealDockPanel`, which ignores IDs outside `known`), and `activeTabId` names it while it is the
 active tab of the focused area or focused sidebar. A changed plugin default is reconciled through
 the catalog; a user's button move only changes local layout state.
 
-`dock-state.ts` holds the tree operations and catalog reconciliation; `dock-geometry.ts` calculates
-rectangles and drag targets. The layout including empty panes, split ratios, active tabs, closed
-windows, undocked panels (`bar`), maximized area, optional button overrides
+`dock-state.ts` holds the immutable tree operations and catalog reconciliation;
+`dock-geometry.ts` calculates rectangles, the largest visible window, and drag targets. Pure
+placement functions use measured rectangles for catalog arrivals, header opening, navigation,
+and "Move into layout". The layout including empty panes, split ratios, active tabs, closed
+windows, remembered groups (`remembered`, mapping panel IDs to their groups at the last close),
+undocked panels (`bar`), maximized area, optional button overrides
 (`placements`, mapping stable panel IDs to `"sidebar"` or `"window"`), and the optional header
 button order (`order`, applied by
-`dockWindowOrder` and changed by `moveDockWindow`, which never touches the tree or the automatic
-layout) are stored locally per server origin and run
+`dockWindowOrder` and changed by `moveDockWindow`, which never touches the tree or window
+placement) are stored locally per server origin and run
 (`ragents.docking:<encoded-origin>:<encoded-run>`). Views missing from `order` follow in catalog
 order; an unavailable view keeps its slot and override and takes them again when it returns. Flyout
 visibility is transient; no flyout width is stored. Older saved sidebar modes and widths
@@ -1893,9 +1900,11 @@ its neighbours until one of them returns, before that it stays as an empty card,
 moves an area. Once loaded, an area whose active panel is unavailable activates its first
 available one (`activateAvailableDockTabs`), so a returning panel appears in its area again
 without taking the selection back; the only panel of an area stays its active one.
-In automatic wide layouts, new apps join the right-hand app area. In user-arranged layouts,
-they enter the original group if it still exists, otherwise the first area, without changing
-focus or another selected tab.
+New catalog windows use the same largest-window rule without taking focus. A closed window's
+remembered group wins while that group exists; if it was removed, the largest-window rule
+places the reopened window. Neither a returning unavailable panel nor a new arrival relocates
+windows the user placed by dragging. With no visible window, opening fills the first visible
+empty area.
 
 Chat and visited app/tool containers are stable siblings positioned by rectangles, independent of
 the split tree. Hidden or closed panels are inert and use React `Activity` in hidden mode:
@@ -3088,9 +3097,9 @@ the inner chat keeps its own Chat region label.
 In the browser, the sidebar has exactly two runtime modes: `hidden` and `hover-preview`.
 Hovering a rail button previews the tool over the workspace; leaving both rail and flyout
 closes it after a short delay. Clicking a rail button opens or focuses its flyout; X hides it.
-The keyboard-accessible "Move into layout" button uses the same right outer-edge drop as a
-drag through `moveDockPanels`, creating an ordinary window area at 35 percent of workspace
-width. `transitionDockSide` handles flyout transitions. Moving the active tool into a group
+The keyboard-accessible "Move into layout" button uses the shared largest-window rule,
+returning to a remembered group first when it still exists. Explicit drags keep their chosen
+targets. `transitionDockSide` handles flyout transitions. Moving the active tool into a group
 clears sidebar visibility and focus. The flyout width is fixed at 630 pixels, limited by
 available space. Hover previews close when the workspace mounts; old saved sidebar modes and
 widths reconcile to a closed flyout without migration. Pointer presses cancel pending

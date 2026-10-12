@@ -46,7 +46,7 @@ test("browser tab grips split and move only their window from a group", options,
   assert.deepEqual(errors, []);
 });
 
-/** Builds the docking fixture and opens it with Chat, Notes and Board; the returned helpers act on the header and the dock. */
+/** Builds the docking fixture and manually merges the mini-apps to exercise tab gestures. */
 async function prepare(context: TestContext, search = "") {
   const directory = await mkdtemp(join(tmpdir(), "ragents-dock-windows-"));
   context.after(() => rm(directory, { recursive: true, force: true }));
@@ -95,6 +95,11 @@ async function prepare(context: TestContext, search = "") {
     await page.mouse.move(target.x + target.width / 2, target.y + target.height / 2, { steps: 3 });
     await finishDrop();
   };
+  const background = search.includes("window") ? "Preview" : "Notes";
+  const tab = (name: string) => page.getByRole("tab", { name, exact: true });
+  await dockOnto(tab("Board"), page.locator("[data-dock-group]").filter({ has: tab(background) }), "group-center");
+  if (background === "Preview") await dockOnto(tab("Notes"), page.locator("[data-dock-group]").filter({ has: tab("Preview") }), "group-center");
+  await tab(background).click();
   return {
     browser, errors, open, page, actions, view, drop, box, press, moveTo, finishDrop, dockOnto,
     tab: (name: string) => page.getByRole("tab", { name, exact: true }),
@@ -140,6 +145,7 @@ test("browser header window buttons show grips, reorder by drag and keyboard, do
   await page.waitForFunction(() => getComputedStyle(document.querySelector('[data-dock-window="app:notes"] [data-dock-window-grip]')!).opacity === "1");
   await page.screenshot({ path: join(shots, "dock-windows-hover.png") });
   await page.mouse.move(600, 400);
+  await page.keyboard.press("Tab");
   await view("Board").focus();
   await page.keyboard.press("Alt+ArrowLeft");
   await page.waitForFunction(() => document.activeElement?.getAttribute("aria-label") === "Board");
@@ -226,7 +232,7 @@ test("browser header window buttons show grips, reorder by drag and keyboard, do
   assert.deepEqual(await order(), ["Board", "Plan", "Notes", "Chat"], "header reordering follows the pointer under page zoom");
   const zoomedBefore = await groups.count();
   await dockOnto("Plan", groups.filter({ has: tab("Chat") }), "group-right");
-  assert.equal(await groups.count(), zoomedBefore + 1, "docking from the header follows the pointer under page zoom");
+  assert.equal(await groups.count(), zoomedBefore, "docking from the header under page zoom collapses the emptied source area");
   assert.equal(await groups.filter({ has: tab("Plan") }).getByRole("tab").count(), 1);
   await page.evaluate(() => { document.documentElement.style.zoom = ""; });
 
@@ -257,7 +263,7 @@ test("browser header window buttons show grips, reorder by drag and keyboard, do
   assert.deepEqual(errors, []);
 });
 
-test("the flyout button moves a tool into the right workspace edge as a regular window by pointer and keyboard", options, async (context) => {
+test("the flyout button splits the largest window as a regular tool window by pointer and keyboard", options, async (context) => {
   const { errors, page, view, tab, panel, groups, box, dockOnto, savedLayout } = await prepare(context);
   const rail = page.getByRole("navigation", { name: "Sidebar tabs" });
   const files = rail.getByRole("button", { name: "Files", exact: true });
@@ -274,13 +280,24 @@ test("the flyout button moves a tool into the right workspace edge as a regular 
     const top = Math.min(...rectangles.map((rect) => rect.top));
     return { left, top, right: Math.max(...rectangles.map((rect) => rect.right)), bottom: Math.max(...rectangles.map((rect) => rect.bottom)) };
   });
-  const assertRightEdge = async () => {
+  const notesBefore = await box(await card(groups.filter({ has: tab("Notes") })));
+  const chatBefore = await box(await card(groups.filter({ has: tab("Chat") })));
+  const assertPlacement = async (outer = false) => {
     const rect = await box(await card(filesArea));
-    const width = (bounds.right - bounds.left - 6) * 0.35;
-    assert.ok(Math.abs(rect.width - width) < 1, "the tool gets the outer guide's 35 percent workspace allocation");
-    assert.ok(Math.abs(rect.x + rect.width - bounds.right) < 1, "the window sits at the workspace's right edge");
-    assert.ok(Math.abs(rect.y - bounds.top) < 1);
-    assert.ok(Math.abs(rect.height - (bounds.bottom - bounds.top)) < 1, "the window spans the whole workspace height");
+    if (outer) {
+      const width = (bounds.right - bounds.left - 6) * 0.35;
+      assert.ok(Math.abs(rect.width - width) < 1, "an explicit outer guide keeps its allocation");
+      assert.ok(Math.abs(rect.x + rect.width - bounds.right) < 1);
+      assert.ok(Math.abs(rect.y - bounds.top) < 1);
+      assert.ok(Math.abs(rect.height - (bounds.bottom - bounds.top)) < 1);
+    } else {
+      const height = (notesBefore.height - 6) / 2;
+      assert.ok(Math.abs(rect.width - notesBefore.width) < 1);
+      assert.ok(Math.abs(rect.height - height) < 1, "the tall Notes rectangle is halved");
+      assert.ok(Math.abs(rect.x - notesBefore.x) < 1);
+      assert.ok(Math.abs(rect.y - notesBefore.y - height - 6) < 1, "the new tool takes the second half below Notes");
+      assert.deepEqual(await box(await card(groups.filter({ has: tab("Chat") }))), chatBefore, "Chat keeps its rectangle");
+    }
     assert.equal(await sidebar.count(), 0);
     assert.equal(await page.getByRole("separator", { name: "Resize sidebar", exact: true }).count(), 0);
     assert.equal(await files.count(), 1, "moving the panel leaves its button in the rail");
@@ -302,7 +319,7 @@ test("the flyout button moves a tool into the right workspace edge as a regular 
   await move.click();
   await tab("Files").waitFor();
   assert.equal(await groups.count(), 3);
-  const placed = await assertRightEdge();
+  const placed = await assertPlacement();
   assert.deepEqual(await filesArea.getByRole("button").evaluateAll((buttons) => buttons.map((button) => button.getAttribute("aria-label"))),
     ["Move Files", "Return Files to sidebar", "Maximize area", "Close Files"]);
   assert.equal(await panel("Files").getAttribute("aria-labelledby"), await tab("Files").getAttribute("id"));
@@ -311,7 +328,7 @@ test("the flyout button moves a tool into the right workspace edge as a regular 
   assert.equal(await groups.count(), 1);
   assert.equal(await panel("Files").isVisible(), true);
   await filesArea.getByRole("button", { name: "Restore area", exact: true }).click();
-  await assertRightEdge();
+  await assertPlacement();
   await page.screenshot({ path: join(shots, "dock-windows-move-into-layout.png") });
 
   await filesArea.getByRole("button", { name: "Return Files to sidebar", exact: true }).click();
@@ -324,11 +341,11 @@ test("the flyout button moves a tool into the right workspace edge as a regular 
   await move.focus();
   await page.keyboard.press("Space");
   await tab("Files").waitFor();
-  await assertRightEdge();
+  await assertPlacement();
   assert.equal(await draft.evaluate((element, original) => element === original, input), true, "placement and return keep the mounted tool");
   await page.reload();
   await tab("Files").waitFor();
-  await assertRightEdge();
+  await assertPlacement();
   assert.equal(await filesArea.getByRole("button", { name: "Close Files", exact: true }).isVisible(), true);
 
   await filesArea.getByRole("button", { name: "Close Files", exact: true }).click();
@@ -344,7 +361,7 @@ test("the flyout button moves a tool into the right workspace edge as a regular 
   await page.mouse.move(10, 100);
   await sidebar.waitFor({ state: "hidden" });
   await dockOnto(files, groups.filter({ has: tab("Chat") }), "edge-right");
-  assert.deepEqual(await assertRightEdge(), placed, "the button and the right outer guide produce the same geometry");
+  assert.notDeepEqual(await assertPlacement(true), placed, "an explicit drag keeps the chosen outer placement");
   await dockOnto(tab("Files"), groups.filter({ has: tab("Chat") }), "group-center");
   assert.equal(await groups.count(), 2, "the placed tool can move and merge as an ordinary tab");
   assert.equal(await groups.filter({ has: tab("Chat") }).getByRole("tab", { name: "Files", exact: true }).count(), 1);
@@ -404,7 +421,7 @@ test("browser empty panes come from the header, behave like windows, take a drop
   assert.equal(await entry.getAttribute("title"), "Add an empty pane");
   await entry.click();
   await empties.first().waitFor();
-  assert.equal(await groups.count(), 3, "a click adds an empty pane beside the focused area");
+  assert.equal(await groups.count(), 3, "a click splits the largest non-chat window for an empty pane");
   assert.equal(await hints.first().isVisible(), true);
   await entry.click();
   await page.waitForFunction(() => document.querySelectorAll("[data-dock-group]").length === 4);
@@ -580,8 +597,20 @@ test("a workspace tab placed as a window defaults to a header window that opens,
   assert.deepEqual((await savedLayout()).closed, ["tab:preview"]);
   await view("Preview").click();
   await tab("Preview").waitFor();
-  assert.equal(await groups.count(), 3, "reopening it splits beside the focused area like a closed app");
+  assert.equal(await groups.count(), 2, "reopening restores the surviving remembered tab group");
   assert.equal(await draft.inputValue(), "Kept", "its panel keeps its state like a visited app");
+  await dockOnto(tab("Preview"), groups.filter({ has: tab("Notes") }), "group-bottom");
+  await page.getByRole("button", { name: "Close Preview", exact: true }).click();
+  const card = async (name: string) => page.locator(`[data-dock-card="${await groups.filter({ has: tab(name) }).getAttribute("data-dock-group")}"]`);
+  const notesBefore = await box(await card("Notes"));
+  const chatBefore = await box(await card("Chat"));
+  await page.evaluate(() => window.dockingFixture.openTab!("preview"));
+  await tab("Preview").waitFor();
+  assert.equal(await groups.count(), 3, "navigation opens a window whose remembered group no longer exists");
+  const opened = await box(await card("Preview"));
+  assert.ok(Math.abs(opened.height - (notesBefore.height - 6) / 2) < 1, "navigation halves the tall Notes rectangle");
+  assert.ok(Math.abs(opened.y - notesBefore.y - (notesBefore.height - 6) / 2 - 6) < 1, "the window takes the second half");
+  assert.deepEqual(await box(await card("Chat")), chatBefore, "navigation uses the shared rule excluding Chat");
 
   await press(view("Preview"));
   await moveTo(view("Chat"), 0.25);
@@ -617,7 +646,7 @@ test("a workspace tab placed as a window defaults to a header window that opens,
   await page.getByRole("button", { name: "Close sidebar", exact: true }).click();
 
   await view("Reset layout").click();
-  await page.waitForFunction(() => document.querySelectorAll("[data-dock-group]").length === 2);
+  await page.waitForFunction(() => document.querySelectorAll("[data-dock-group]").length === 4);
   assert.deepEqual(await order(), ["Chat", "Preview", "Notes", "Board"], "Reset layout restores the catalog order");
   assert.equal(await view("Preview").getAttribute("aria-pressed"), "true", "and opens the window tab again like an app");
   assert.deepEqual(errors, []);
@@ -652,7 +681,7 @@ test("browser button drags move between header slots and the rail while preservi
   const order = () => actions.locator("[data-dock-window]").evaluateAll((buttons) => buttons.map((element) => element.getAttribute("aria-label")));
   const samePanels = async (before: Awaited<ReturnType<typeof savedLayout>>) => {
     const after = await savedLayout();
-    for (const key of ["root", "known", "closed", "bar", "side", "focused", "maximized", "automatic"]) assert.deepEqual(after[key], before[key], key);
+    for (const key of ["root", "known", "closed", "bar", "side", "focused", "maximized"]) assert.deepEqual(after[key], before[key], key);
   };
   const intoHeader = async (source: Locator, target: string, fraction = 0.25) => {
     await press(source);

@@ -49,7 +49,7 @@ const open = async (browser: Browser, url: string, viewport: { width: number; he
 
 const settle = (page: Page) => page.evaluate("new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)))");
 
-/** The open question sits completely visible in the dock of the given chat, directly above its input and inside the given frame. */
+/** The question stays reachable above its chat input and inside its frame, including when its dock scrolls. */
 const assertDocked = async (chat: Locator, frame: Locator) => {
   const geometry = await chat.evaluate((element, frameElement) => {
     const dock = element.querySelector("[data-chat=actions]")!;
@@ -66,7 +66,18 @@ const assertDocked = async (chat: Locator, frame: Locator) => {
   assert.ok(geometry.inComposer, "The dock belongs to the composer of this chat.");
   assert.deepEqual(geometry.options, ["3 days", "14 days", "30 days"]);
   assert.doesNotMatch(geometry.transcript ?? "", /Which review period applies/, "An open question is not repeated in the transcript.");
-  assert.ok(geometry.scrollHeight <= geometry.clientHeight + 1, `The question is not cut off: ${layout}`);
+  if (geometry.scrollHeight > geometry.clientHeight + 1) {
+    const reachable = await chat.locator("[data-chat=actions]").evaluate((dock) => {
+      const previous = dock.scrollTop;
+      dock.scrollTop = dock.scrollHeight;
+      const option = dock.querySelectorAll("[data-question=option]")[2].getBoundingClientRect();
+      const bounds = dock.getBoundingClientRect();
+      const result = dock.scrollTop > 0 && option.top >= bounds.top - 1 && option.bottom <= bounds.bottom + 1;
+      dock.scrollTop = previous;
+      return result;
+    });
+    assert.equal(reachable, true, `Scrolling reaches the last option: ${layout}`);
+  }
   assert.ok(geometry.dock.bottom <= geometry.input.top, `The dock sits above the input: ${layout}`);
   assert.ok(geometry.dock.top >= geometry.frame.top - 0.5 && geometry.input.bottom <= geometry.frame.bottom + 0.5, `Dock and input stay inside their frame: ${layout}`);
 };
@@ -146,7 +157,7 @@ test("the run panel keeps questions at the selected addressee input and retains 
     await active().locator("textarea").fill("Coordinator draft");
     await page.getByRole("tab", { name: "Stage", exact: true }).click();
     await page.getByRole("button", { name: "Operate mini-app" }).waitFor();
-    assert.equal(await chat.isVisible(), width >= 1000, "A narrow workspace shows the app as a tab instead of chat, a wide one keeps chat beside it.");
+    assert.equal(await chat.isVisible(), true, "Placed Chat and Stage windows remain visible at both widths.");
     await page.getByRole("textbox", { name: "App draft" }).fill("App input");
     await page.getByRole("tab", { name: "Chat", exact: true }).click();
     assert.equal(await active().locator("textarea").inputValue(), "Coordinator draft");

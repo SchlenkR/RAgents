@@ -11,6 +11,7 @@ import {
   useRef,
   useState,
   type ReactNode,
+  type RefObject,
 } from "react";
 import { createPortal } from "react-dom";
 import { ChatInputToolbar, ChatMessages, ChatPanel, type ChatAttachmentInput, type ChatEvent, type ToolInfo } from "quassel";
@@ -30,8 +31,8 @@ import { useAttachmentCapabilities } from "./chat/useAttachmentCapabilities";
 import { StartEntryDialog } from "./StartEntryDialog";
 import { StatusGroup } from "./StatusGroup";
 import { RunPanelHeader } from "./run-panel/RunPanelHeader";
-import { DockToolsContext, DockWorkspace, type DockPanelDrag } from "./run-panel/DockWorkspace";
-import { activeDockTool, selectDockPanel, workspaceTabPanelId } from "./run-panel/dock-state";
+import { DockToolsContext, DockWorkspace, type DockPanelDrag, type DockPanelOpen } from "./run-panel/DockWorkspace";
+import { activeDockTool, transitionDockSide, workspaceTabPanelId } from "./run-panel/dock-state";
 import { useDockStorage } from "./run-panel/dock-storage";
 import { useRunPanelHost } from "./run-panel/host";
 import { RunPanelRail } from "./run-panel/RunPanelRail";
@@ -87,6 +88,7 @@ interface PluginChatProps {
 }
 
 interface ChatWorkspaceProps {
+  openPanel: RefObject<DockPanelOpen | undefined>;
   autoFocusChat?: boolean;
   onAutoFocusChatSettled?: () => void;
   layout: ChatLayout;
@@ -170,7 +172,7 @@ export const PluginChat = memo(function PluginChat({ autoFocusChat, onAutoFocusC
 
   const registeredTabs = useMemo(() => registry.registeredTabs(sessionContext, access).filter((tab) => !tab.hosts || tab.hosts.includes(host.kind)), [access, host.kind, registry, sessionContext]);
   const availableTabs = useMemo(() => registry.availableTabs(sessionContext, access).filter((tab) => !tab.hosts || tab.hosts.includes(host.kind)), [access, host.kind, registry, sessionContext]);
-  const { activeTabId, panelState, showTab, togglePanel } = useWorkspaceTabs(session.id, availableTabs);
+  const { activeTabId, panelState, showTab, togglePanel, openPanel } = useWorkspaceTabs(session.id, availableTabs);
 
   const openTab = useCallback((tabId: string, selection?: unknown) => {
     if (!registeredTabs.some((tab) => tab.id === tabId)) {
@@ -237,6 +239,7 @@ export const PluginChat = memo(function PluginChat({ autoFocusChat, onAutoFocusC
           {!startOnly && onLocationChange && <UserLocationReporter activeTabId={navigation.activeTabId} onChange={onLocationChange}
             panelVisible={panelState === "expanded"} runId={session.id} tabs={availableTabs} />}
           <ChatWorkspace
+            openPanel={openPanel}
             autoFocusChat={autoFocusChat}
             onAutoFocusChatSettled={onAutoFocusChatSettled}
             layout={layout}
@@ -268,6 +271,7 @@ export const PluginChat = memo(function PluginChat({ autoFocusChat, onAutoFocusC
 
 function useWorkspaceTabs(runId: string, availableTabs: readonly WorkspaceTabContribution[]) {
   const host = useRunPanelHost();
+  const openPanel = useRef<DockPanelOpen | undefined>(undefined);
   const { state: dock, update: updateDock } = useDockStorage(runId);
   const stored = useRunPanelWorkspaceState(runId);
   const dockTab = activeDockTool(dock);
@@ -276,14 +280,14 @@ function useWorkspaceTabs(runId: string, availableTabs: readonly WorkspaceTabCon
   const firstTabId = availableTabs[0]?.id ?? null;
   const showTab = useCallback((tabId: string) => {
     const tab = availableTabs.find((entry) => entry.id === tabId);
-    if (host.kind === "browser") updateDock((state) => tab ? selectDockPanel(state, workspaceTabPanelId(tab)) : state);
-    else saveRunPanelWorkspaceState(runId, { ...stored, tab: tabId });
-  }, [availableTabs, updateDock, host.kind, runId, stored]);
+    if (host.kind === "vscode") saveRunPanelWorkspaceState(runId, { ...stored, tab: tabId });
+    else if (tab) openPanel.current?.(workspaceTabPanelId(tab));
+  }, [availableTabs, host.kind, runId, stored]);
   const togglePanel = useCallback(() => {
-    if (host.kind === "browser") updateDock((state) => ({ ...state, side: { ...state.side, tab: null, sticky: false } }));
+    if (host.kind === "browser") updateDock((state) => transitionDockSide(state, { type: "close" }));
     else saveRunPanelWorkspaceState(runId, { ...stored, tab: panelState === "expanded" ? null : stored.tab ?? firstTabId });
   }, [updateDock, host.kind, firstTabId, panelState, runId, stored]);
-  return { activeTabId, panelState, showTab, togglePanel } as const;
+  return { activeTabId, panelState, showTab, togglePanel, openPanel } as const;
 }
 
 function UserLocationReporter({ activeTabId, onChange, panelVisible, runId, tabs }: {
@@ -305,6 +309,7 @@ function UserLocationReporter({ activeTabId, onChange, panelVisible, runId, tabs
 }
 
 function ChatWorkspace({
+  openPanel,
   autoFocusChat,
   onAutoFocusChatSettled,
   layout,
@@ -328,7 +333,7 @@ function ChatWorkspace({
   const [dockActionsContainer, setDockActionsContainer] = useState<HTMLDivElement | null>(null);
   const host = useRunPanelHost();
   const panelDrag = useRef<DockPanelDrag | undefined>(undefined);
-  const dockTools = useMemo(() => ({ tabs, pendingTabIds, actionsContainer: dockActionsContainer, panelDrag: host.kind === "browser" && typeof layout !== "object" ? panelDrag : undefined }), [tabs, pendingTabIds, dockActionsContainer, host.kind, layout]);
+  const dockTools = useMemo(() => ({ tabs, pendingTabIds, actionsContainer: dockActionsContainer, openPanel, panelDrag: host.kind === "browser" && typeof layout !== "object" ? panelDrag : undefined }), [tabs, pendingTabIds, dockActionsContainer, openPanel, host.kind, layout]);
   const headerContributions = registry.headersFor(session, access);
   const startSession = useMemo<SessionContext>(() => {
     const attempt = async (work: () => Promise<void>) => {

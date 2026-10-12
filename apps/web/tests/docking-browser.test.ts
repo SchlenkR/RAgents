@@ -35,6 +35,58 @@ async function fixturePage(context: test.TestContext) {
   return { page, url: pathToFileURL(join(directory, "index.html")).href };
 }
 
+test("opening three windows in sequence splits the largest visible non-chat rectangle", browserOnly, async (context) => {
+  const { page, url } = await fixturePage(context);
+  const errors: string[] = [];
+  page.on("pageerror", (error) => errors.push(error.message));
+  await page.goto(url);
+  await page.getByRole("tab", { name: "Notes", exact: true }).waitFor();
+  await page.evaluate(() => { window.dockingFixture.setApps([]); window.dockingFixture.setRun("placement"); });
+  await page.waitForFunction(() => document.querySelectorAll("[data-dock-card]").length === 1);
+  const rectangle = async (name: string) => {
+    const id = await page.getByRole("tab", { name, exact: true }).evaluate((tab) => tab.closest<HTMLElement>("[data-dock-group]")!.dataset.dockGroup);
+    const rect = await page.locator(`[data-dock-card="${id}"]`).boundingBox();
+    assert.ok(rect);
+    return rect;
+  };
+  const closeTo = (actual: number, expected: number) => assert.ok(Math.abs(actual - expected) < 1, `${actual} differs from ${expected}`);
+  const workspace = await rectangle("Chat");
+  assert.ok(workspace.width > workspace.height);
+  await page.evaluate(() => window.dockingFixture.setApps(["notes"]));
+  await page.waitForFunction(() => document.querySelectorAll("[data-dock-card]").length === 2);
+  const chat = await rectangle("Chat");
+  const notes = await rectangle("Notes");
+  closeTo(chat.width, (workspace.width - 6) / 2);
+  closeTo(notes.width, chat.width);
+  closeTo(notes.x, chat.x + chat.width + 6);
+  closeTo(notes.height, workspace.height);
+  assert.ok(notes.height > notes.width);
+
+  await page.evaluate(() => window.dockingFixture.setApps(["notes", "board"]));
+  await page.waitForFunction(() => document.querySelectorAll("[data-dock-card]").length === 3);
+  assert.deepEqual(await rectangle("Chat"), chat, "the larger Chat rectangle is excluded");
+  const upper = await rectangle("Notes");
+  const lower = await rectangle("Board");
+  closeTo(upper.height, (notes.height - 6) / 2);
+  closeTo(lower.height, upper.height);
+  closeTo(lower.y, upper.y + upper.height + 6);
+  closeTo(lower.width, notes.width);
+  assert.ok(upper.width > upper.height);
+
+  await page.evaluate(() => window.dockingFixture.setApps(["notes", "board", "plan"]));
+  await page.waitForFunction(() => document.querySelectorAll("[data-dock-card]").length === 4);
+  assert.deepEqual(await rectangle("Chat"), chat);
+  assert.deepEqual(await rectangle("Board"), lower, "equal-area candidates retain tree order");
+  const left = await rectangle("Notes");
+  const right = await rectangle("Plan");
+  closeTo(left.width, (upper.width - 6) / 2);
+  closeTo(right.width, left.width);
+  closeTo(right.x, left.x + left.width + 6);
+  closeTo(right.height, upper.height);
+  closeTo(right.y, upper.y);
+  assert.deepEqual(errors, []);
+});
+
 test("a flyout that a click in the chat opens stays open until a later outside click", browserOnly, async (context) => {
   const { page, url } = await fixturePage(context);
   await page.goto(url);
@@ -118,9 +170,9 @@ test("browser docking preserves frames and drafts through split, merge, close, m
   assert.deepEqual(await groups.filter({ has: tab("Notes") }).getByRole("button").evaluateAll((buttons) => buttons.map((button) => button.getAttribute("aria-label"))),
     ["Move Notes", "Maximize area", "Close Notes"], "maximize sits where the close button was, the close button is outermost");
   await page.evaluate(() => { document.getElementById("root")!.style.width = "900px"; });
-  await page.waitForFunction(() => document.querySelectorAll("[data-dock-group]").length === 1);
-  assert.equal(await page.getByRole("button", { name: "Maximize area", exact: true }).count(), 0);
-  assert.equal(await groups.first().getByRole("tab").count(), 2, "a narrow container keeps apps beside chat as tabs");
+  await page.waitForFunction(() => document.querySelector("[data-dock-card]")!.getBoundingClientRect().width < 450);
+  assert.equal(await page.getByRole("button", { name: "Maximize area", exact: true }).count(), 2);
+  assert.equal(await groups.count(), 2, "a narrower container preserves placed windows");
   await page.evaluate(() => { document.getElementById("root")!.style.width = ""; });
   await page.waitForFunction(() => document.querySelectorAll("[data-dock-group]").length === 2);
   await page.evaluate(() => window.dockingFixture.setApps([]));
@@ -131,18 +183,20 @@ test("browser docking preserves frames and drafts through split, merge, close, m
   assert.equal(await page.getByRole("textbox", { name: "Chat draft" }).isVisible(), true, "a late mini-app opens alongside chat");
   await page.evaluate(() => window.dockingFixture.setApps(["notes", "board"]));
   await tab("Board").waitFor();
-  assert.equal(await groups.count(), 2);
-  assert.equal(await groups.filter({ has: tab("Notes") }).getByRole("tab", { name: "Board", exact: true }).count(), 1);
+  assert.equal(await groups.count(), 3, "a new app splits the visible Notes window");
+  assert.equal(await groups.filter({ has: tab("Notes") }).getByRole("tab", { name: "Board", exact: true }).count(), 0);
   await page.getByRole("button", { name: "Close Notes", exact: true }).click();
   await page.setViewportSize({ width: 900, height: 800 });
   await page.waitForFunction(() => document.querySelector("[data-dock-group]")!.getBoundingClientRect().width < 450);
   assert.equal(await groups.count(), 2, "manually changed layouts survive narrower containers");
   assert.equal(await tab("Notes").count(), 0, "responsive layout does not reopen closed tabs");
   await page.getByRole("button", { name: "Reset layout", exact: true }).click();
-  await page.waitForFunction(() => document.querySelectorAll("[data-dock-group]").length === 1);
+  await page.waitForFunction(() => document.querySelectorAll("[data-dock-group]").length === 3);
   assert.equal(await tab("Notes").count(), 1, "reset restores all available mini-apps");
   await page.setViewportSize({ width: 1200, height: 800 });
-  await page.waitForFunction(() => document.querySelectorAll("[data-dock-group]").length === 2);
+  await startDrag(tab("Board"), groups.filter({ has: tab("Notes") }));
+  await dropGuide("group-center");
+  await tab("Notes").click();
   assert.deepEqual(await actions.getByRole("button").evaluateAll((buttons) => buttons.map((button) => [button.getAttribute("aria-label"), button.getAttribute("aria-pressed")])),
     [["Chat", "true"], ["Notes", "true"], ["Board", "false"], ["Empty space", null], ["Reset layout", null]], "every view keeps its button, pressed while visible");
   await view("Board").click();
@@ -157,9 +211,9 @@ test("browser docking preserves frames and drafts through split, merge, close, m
   await page.getByRole("button", { name: "Close Board", exact: true }).click();
   assert.equal(await view("Board").getAttribute("aria-pressed"), "false");
   await view("Board").click();
-  assert.equal(await groups.count(), 3, "reopening a closed app creates a split when there is room");
+  assert.equal(await groups.count(), 2, "a closed app returns to its surviving remembered area");
   assert.equal(await page.getByRole("tabpanel", { name: "Chat", exact: true }).isVisible(), true);
-  assert.equal(await page.getByRole("tabpanel", { name: "Notes", exact: true }).isVisible(), true);
+  assert.equal(await page.getByRole("tabpanel", { name: "Notes", exact: true }).isVisible(), false);
   assert.equal(await page.getByRole("tabpanel", { name: "Board", exact: true }).isVisible(), true);
   await page.setViewportSize({ width: 400, height: 800 });
   await page.evaluate(() => window.dockingFixture.setApps(["notes", ...Array.from({ length: 30 }, (_, index) => `app${index}`)]));
@@ -171,11 +225,14 @@ test("browser docking preserves frames and drafts through split, merge, close, m
   assert.equal(await view("Chat").getAttribute("aria-pressed"), "true");
   await view("App29").click();
   assert.equal(await page.getByRole("tabpanel", { name: "App29", exact: true }).isVisible(), true);
-  assert.equal(await groups.count(), 1, "the direct window button selects a tab when space is narrow");
+  assert.equal(await groups.count(), 32, "narrow workspaces still place new windows by splitting");
   await page.setViewportSize({ width: 900, height: 800 });
   await page.reload();
   await tab("Chat").waitFor();
-  await page.waitForFunction(() => document.querySelectorAll("[data-dock-group]").length === 1);
+  await page.waitForFunction(() => document.querySelectorAll("[data-dock-group]").length === 2);
+  await startDrag(tab("Notes"), groups.filter({ has: tab("Chat") }));
+  await dropGuide("group-center");
+  await tab("Chat").click();
   assert.equal(await page.getByRole("tabpanel", { name: "Chat", exact: true }).getAttribute("aria-labelledby"), await tab("Chat").getAttribute("id"));
   assert.equal(await page.locator("section[aria-label=Chat]").count(), 0, "The dock wrapper does not duplicate its content's region label.");
   await page.getByRole("textbox", { name: "Chat draft" }).fill("Unsent chat");
@@ -305,6 +362,8 @@ test("browser docking preserves frames and drafts through split, merge, close, m
     await page.mouse.move(10, 100);
   }
   await page.getByRole("button", { name: "Reset layout", exact: true }).click();
+  await startDrag(tab("Notes"), groups.filter({ has: tab("Chat") }));
+  await dropGuide("group-center");
   await tab("Notes").click();
   const beforeFlyout = (await box(page.locator('[data-dock-panel="app:notes"]'))).width;
   await rail.getByRole("button", { name: "Files", exact: true }).click();
@@ -393,7 +452,7 @@ test("browser docking preserves frames and drafts through split, merge, close, m
   const boardArea = await box(groups.filter({ has: tab("Board") }));
   await page.evaluate(() => window.dockingFixture.setApps([]));
   await tab("Board").waitFor({ state: "hidden" });
-  assert.equal(await groups.count(), 1, "the area of a missing app gives its space away");
+  assert.equal(await groups.count(), 2, "the missing app gives its space away while the explicit empty area remains");
   await page.evaluate(() => window.dockingFixture.setApps(["notes", "board"]));
   await tab("Board").waitFor();
   assert.deepEqual(await box(groups.filter({ has: tab("Board") })), boardArea, "a returning app takes its own area again");
@@ -403,7 +462,7 @@ test("browser docking preserves frames and drafts through split, merge, close, m
   await page.evaluate(() => window.dockingFixture.setRun("second"));
   await page.waitForFunction(() => document.querySelectorAll("[data-dock-group]").length === 1);
   await page.evaluate(() => window.dockingFixture.setRun("first"));
-  await page.waitForFunction(() => document.querySelectorAll("[data-dock-group]").length === 1);
+  await page.waitForFunction(() => document.querySelectorAll("[data-dock-group]").length === 2);
   await page.getByRole("button", { name: "Reset layout", exact: true }).click();
   assert.equal(await groups.count(), 1);
   await page.evaluate(() => document.documentElement.setAttribute("data-theme", "dark"));
@@ -413,7 +472,7 @@ test("browser docking preserves frames and drafts through split, merge, close, m
   await tab("Files").waitFor();
   await page.reload();
   await tab("Files").waitFor();
-  assert.equal(await groups.count(), 2, "the regular tool window survives reload");
+  assert.equal(await groups.count(), 3, "the tool survives reload and the available Notes window opens beside it");
   assert.equal(await sidebar.count(), 0);
   await rail.getByRole("button", { name: "Files", exact: true }).click();
   assert.equal(await sidebar.count(), 0, "a docked tool's rail button selects its window");
