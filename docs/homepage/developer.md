@@ -592,11 +592,14 @@ Place of use: Inside register(host); text-review is a registered skill.
 host.startEntries({
   id: "ragents.example.start", title: "Review text",
   description: "Starts with a review task.", order: 100,
+  listed: true,
   tags: ["Use case", "Text review"],
   action: "skill", skill: "text-review", category: "Collaboration",
   prompt: "Please check my text for contradictions.",
 });
 ```
+
+listed defaults to true. Set listed: false for a template started by a plugin widget with fixed input: user-facing template lists, search, galleries, and run-script pickers omit it, while plugin lookup and permission-checked starts by ID remain available.
 
 For skill templates, category is exactly one free, non-empty text used to group examples in the reference; compact Start cards do not show it. Independently of that, tags is an optional list of keywords for search, filters, and the reference. Only the tags are given comma-separated in SKILL.md and RUN.md frontmatter. The reference plugin provides demos and possible high-level test cases. Their description explains the demonstration purpose; Use case, Concept demo, and product concepts are in tags. The public generation checks at least two different examples per product concept. UI controls have no example quota and do not have to appear completely in the demos. Pure operating concepts use separate walkthroughs from the reference plugin's walkthroughs.ts. These create no templates and do not extend the StartEntry contract.
 
@@ -606,7 +609,7 @@ fixedStartOptions sets start options for every run from the template, for exampl
 
 Use as task opens the preparation chat with the editable start task for every skill, even after a guide. Only Create run sends the task with the skill reference; for a script, the start value is passed to the prepared actor.
 
-Contract fields: host.startEntries, start.id, start.title, start.description, start.order, start.guide, start.tags, start.fixedStartOptions.
+Contract fields: host.startEntries, start.id, start.title, start.description, start.order, start.listed, start.guide, start.tags, start.fixedStartOptions.
 
 ### Share an actor package between run scripts
 
@@ -2676,6 +2679,8 @@ export interface StartEntryBase {
   title: string;
   description: string;
   order?: number;
+  /** Whether user-facing template lists include this entry; defaults to true, with ID lookup unchanged. */
+  listed?: boolean;
   guide?: string;
   /** Searchable labels supplied by the plugin, independent of the entry action. */
   tags?: readonly string[];

@@ -118,6 +118,20 @@ test("a start entry keeps the start options it fixes, so a new run preselects no
   }
 });
 
+test("the store keeps unlisted templates for ID lookup and carries their listing flag", async () => {
+  const profile = stubProfile();
+  const server = await startStubServer({ profile: { ...profile, startEntries: profile.startEntries.map((entry) => ({ ...entry, listed: entry.action !== "script" })) } });
+  const store = new RunStore(new ServerClient(server.url, undefined));
+  try {
+    await store.start();
+    assert.equal(store.startEntries.find((entry) => entry.action === "script")?.listed, false);
+    assert.equal(store.startEntries.find((entry) => entry.action === "skill")?.listed, true);
+  } finally {
+    store.dispose();
+    await server.close();
+  }
+});
+
 test("a start entry keeps its guide, so the panel can ask before the start", async () => {
   const profile = stubProfile();
   const server = await startStubServer({ profile: { ...profile, startEntries: profile.startEntries.map((entry) => entry.action === "script" ? { ...entry, guide: "ragents.reference.circle-guide" } : entry) } });

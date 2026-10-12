@@ -23,6 +23,10 @@ anything. In the browser a new run always works on the server; only VS Code and 
 bind a run to a workstation. VS Code binds every new run to an open folder of its window unless
 the template sets its own workspace.
 
+Plugins can reserve templates for their own widgets. These unlisted templates do not appear in
+"New", template search or galleries, Settings' template catalog, or run-script pickers.
+A plugin widget or a caller that knows the template ID can still start it with the usual permissions.
+
 Before starting, "After restart" defaults to "Continue": actors that were working when the
 server stopped receive a continuation on its next start. Choose "Stay interrupted" to turn
 this off for the run. A profile can disable continuation for all its runs.

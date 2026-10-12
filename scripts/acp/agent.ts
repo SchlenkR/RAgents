@@ -116,7 +116,7 @@ export class EditorAgent implements Agent {
   }
 
   async #commands(host: Host, runId: string): Promise<void> {
-    const skills = host.bootstrap.startEntries.filter((entry) => entry.action === "skill");
+    const skills = host.bootstrap.startEntries.filter((entry) => entry.action === "skill" && entry.listed !== false);
     const availableCommands = skills.length <= COMMAND_LIMIT ? skills.map((entry) => ({ name: entry.id, description: entry.description })) : [];
     await this.connection.sessionUpdate({ sessionId: runId, update: { sessionUpdate: "available_commands_update", availableCommands } });
   }
@@ -176,7 +176,7 @@ export class EditorAgent implements Agent {
         stream.submit();
         const command = /^\/([^\s]+)(?:\s|$)/.exec(message.text);
         const skills = host.bootstrap.startEntries.filter((entry) => entry.action === "skill");
-        const entry = skills.length <= COMMAND_LIMIT ? skills.find((entry) => entry.id === command?.[1]) : undefined;
+        const entry = skills.filter((entry) => entry.listed !== false).length <= COMMAND_LIMIT ? skills.find((entry) => entry.id === command?.[1]) : undefined;
         const text = entry ? promptMessage([{ type: "text", text: preparedRunInput([], [entry.prompt,
           message.text.slice(command![0].length).trim()].filter(Boolean).join("\n\n"), undefined, entry.skill).text }]).text : message.text;
         await host.rpc.call(coreContracts.chat.send, { runId: session.runId, ...message, text, ...entry ? { entry: entry.id } : {} });

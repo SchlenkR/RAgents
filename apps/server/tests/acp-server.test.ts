@@ -81,6 +81,8 @@ const fixture = async (t: TestContext) => {
     host.startOptions(...productStartOptions({ modelChoice: { options: faux.models.map(({ id }) => id), defaultModel: model.id, provider: model.provider, selectable: true, thinkingOptionsFor: () => ["off"] },
       coordinatorThinking: "off", systemPrompts: () => ({ mode: "fixed", options: [], defaultIds: [], shareDefault: false }) }));
     host.startEntries({ id: "test.product.review", title: "Review", description: "Review the project", action: "skill", skill: "review", category: "Project", prompt: "Review the project." });
+    for (let index = 0; index < 21; index++) host.startEntries({ id: `test.product.internal-${index}`, title: "Internal review", description: "A row action", listed: false,
+      action: "skill", skill: "review", category: "Project", prompt: "Review the project." });
   } }) };
   const modules = new Map([["ragents.workspace", workspace], ["test.product", product], ["ragents.mcp", mcp], ["ragents.todo", todo], ["ragents.ask", ask]]);
   const contribution = await loadExecutorContribution("ragents.mcp", path.join(root, "bundles/ragents.mcp", EXECUTOR_CONTRIBUTION_FILE));
@@ -176,6 +178,9 @@ test("ragents acp serves editor sessions, streams real native/MCP tools, plans, 
   assert.ok(session.sessionId);
   assert.equal(session.configOptions?.[0]?.currentValue, "acp-fast");
   assert.ok(editor.updates.some(({ update }) => update.sessionUpdate === "available_commands_update" && update.availableCommands[0]?.name === "test.product.review"));
+  for (const { update } of editor.updates) if (update.sessionUpdate === "available_commands_update") {
+    assert.deepEqual(update.availableCommands.map((command) => command.name), ["test.product.review"]);
+  }
   const config = await editor.connection.setSessionConfigOption({ sessionId: session.sessionId, configId: "ragents.model", value: "acp-deep" });
   assert.equal(config.configOptions[0]?.currentValue, "acp-deep");
   const contexts: Context[] = [];
@@ -280,13 +285,15 @@ test("ACP returns clear errors for missing auth, folders, sessions, and incompat
   const session = await editor.connection.newSession({ cwd: host.folder, mcpServers: [] });
   await assert.rejects(editor.connection.setSessionConfigOption({ sessionId: session.sessionId, configId: "ragents.model", value: "missing-model" }), /not available/);
   await assert.rejects(editor.connection.loadSession({ sessionId: session.sessionId, cwd: directory, mcpServers: [] }), /different folder/);
-  host.faux.setResponses([(context) => {
-    assert.doesNotMatch(context.systemPrompt ?? "", /preloaded_skill/);
-    assert.match(JSON.stringify(context.messages.at(-1)), /preloaded_skill name=\\"review\\"/);
-    assert.match(JSON.stringify(context.messages), /Review the project.*Focus on tests/s);
-    return fauxAssistantMessage("Review completed.");
-  }]);
-  assert.equal((await editor.connection.prompt({ sessionId: session.sessionId, prompt: [{ type: "text", text: "/test.product.review Focus on tests." }] })).stopReason, "end_turn");
+  for (const entryId of ["test.product.review", "test.product.internal-0"]) {
+    host.faux.setResponses([(context) => {
+      assert.doesNotMatch(context.systemPrompt ?? "", /preloaded_skill/);
+      assert.match(JSON.stringify(context.messages.at(-1)), /preloaded_skill name=\\"review\\"/);
+      assert.match(JSON.stringify(context.messages), /Review the project.*Focus on tests/s);
+      return fauxAssistantMessage("Review completed.");
+    }]);
+    assert.equal((await editor.connection.prompt({ sessionId: session.sessionId, prompt: [{ type: "text", text: `/${entryId} Focus on tests.` }] })).stopReason, "end_turn");
+  }
 });
 
 test("ACP falls back to question text, replays authenticated images, and loads history after reconnect", { timeout: 30_000 }, async (t) => {

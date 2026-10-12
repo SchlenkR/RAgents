@@ -39,7 +39,7 @@ export const connectionView = (snapshot: ConnectionSnapshot): ConnectionView => 
   route: routeOf(snapshot),
   state: stateOf(snapshot.status),
   runs: snapshot.runs.map(connectionRunOf),
-  entries: snapshot.entries.map(entryOf),
+  entries: snapshot.entries.filter((entry) => entry.listed !== false).map(entryOf),
   ...(snapshot.defaultEntry !== undefined ? { defaultEntry: snapshot.defaultEntry } : {}),
   canCreate: snapshot.canCreate,
   ...(snapshot.user !== undefined ? { user: snapshot.user } : {}),
@@ -108,7 +108,7 @@ const kindWord = (entry: StartEntrySummary): string => entry.action === "skill" 
 /** The first choice of a server: its default template, otherwise the free task. */
 const firstChoice = (snapshot: ConnectionSnapshot): NewRunChoice => {
   const name = snapshot.connection.name;
-  const entry = snapshot.entries.find((candidate) => candidate.id === snapshot.defaultEntry);
+  const entry = snapshot.entries.find((candidate) => candidate.id === snapshot.defaultEntry && candidate.listed !== false);
   return entry === undefined
     ? { connection: name, entryId: undefined, title: "New run", description: "no template", detail: undefined }
     : { connection: name, entryId: entry.id, title: entry.title, description: `${kindWord(entry)} \u00b7 Default`, detail: entry.description };
@@ -122,7 +122,7 @@ export const newRunChoices = (snapshots: readonly ConnectionSnapshot[]): Array<{
       group: snapshot.connection.name,
       choices: [
         firstChoice(snapshot),
-        ...snapshot.entries.filter((entry) => entry.id !== snapshot.defaultEntry).map((entry) => ({
+        ...snapshot.entries.filter((entry) => entry.id !== snapshot.defaultEntry && entry.listed !== false).map((entry) => ({
           connection: snapshot.connection.name,
           entryId: entry.id,
           title: entry.title,

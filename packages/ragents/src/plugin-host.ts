@@ -532,10 +532,13 @@ const validateFixedStartOptions = (entry: StartEntryContribution): void => {
 };
 
 const validateStartEntry = (entry: StartEntryContribution): void => {
-  const base = ["id", "title", "description", "order", "guide", "tags", "fixedStartOptions", "action"];
+  const base = ["id", "title", "description", "order", "listed", "guide", "tags", "fixedStartOptions", "action"];
   for (const field of ["id", "title", "description"] as const) requireText(entry, entry[field], field);
   if (entry.order !== undefined && (typeof entry.order !== "number" || !Number.isFinite(entry.order))) {
     throw new Error(`Template ${entry.id} has no valid order number`);
+  }
+  if (entry.listed !== undefined && typeof entry.listed !== "boolean") {
+    throw new Error(`Template ${entry.id}: listed must be true or false`);
   }
   if (entry.guide !== undefined && (typeof entry.guide !== "string" || !GUIDE_ID.test(entry.guide))) {
     throw new Error(`Template ${entry.id} names no valid guide id: ${String(entry.guide)}`);
@@ -641,6 +644,7 @@ export class StartEntryContributionRegistry {
           title: value.title,
           description: value.description,
           ...(value.order !== undefined ? { order: value.order } : {}),
+          ...(value.listed !== undefined ? { listed: value.listed } : {}),
           ...(value.guide !== undefined ? { guide: value.guide } : {}),
           ...(value.tags !== undefined ? { tags: [...value.tags] } : {}),
           ...(value.fixedStartOptions !== undefined ? { fixedStartOptions: structuredClone(value.fixedStartOptions) } : {}),

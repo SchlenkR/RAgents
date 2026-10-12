@@ -383,6 +383,7 @@ export class RunChatSession implements ChatSessionLike {
   runScripts(entries: readonly PublicStartEntry[], userId: string | null): RunScriptListing[] {
     const started = this.#runStarted();
     return entries.flatMap((entry) => {
+      if (entry.listed === false) return [];
       const found = this.#scriptEntryFor(entry.id);
       if (!found) return [];
       const reason = !started ? undefined

@@ -9,6 +9,7 @@ export interface StartEntryBase {
   title: string;
   description: string;
   order?: number;
+  listed?: boolean;
   guide?: string;
   tags?: readonly string[];
   /** Start options the template fixes: a run started from it runs with exactly these values. */
@@ -29,7 +30,7 @@ const isRecord = (value: unknown): value is Record<string, unknown> =>
 
 const text = (value: unknown): value is string => typeof value === "string" && value.length > 0;
 
-const BASE_FIELDS = ["id", "owner", "title", "description", "order", "guide", "tags", "fixedStartOptions", "action"];
+const BASE_FIELDS = ["id", "owner", "title", "description", "order", "listed", "guide", "tags", "fixedStartOptions", "action"];
 
 const invalid = (detail: string): Error => new Error(`The plugin configuration contains an invalid template: ${detail}`);
 
@@ -39,6 +40,7 @@ export const startEntryFrom = (value: unknown): StartEntry => {
   const id = value.id;
   if (!text(value.owner) || !text(value.title) || !text(value.description)) throw invalid(`${id}: owner, title and description are required`);
   if (value.order !== undefined && typeof value.order !== "number") throw invalid(`${id}: order is not a number`);
+  if (value.listed !== undefined && typeof value.listed !== "boolean") throw invalid(`${id}: listed must be true or false`);
   if (value.guide !== undefined && !text(value.guide)) throw invalid(`${id}: guide is empty`);
   if (value.tags !== undefined && (!Array.isArray(value.tags)
     || value.tags.some((tag) => !text(tag) || tag !== tag.trim())
@@ -54,6 +56,7 @@ export const startEntryFrom = (value: unknown): StartEntry => {
     title: value.title,
     description: value.description,
     ...(value.order !== undefined ? { order: value.order } : {}),
+    ...(value.listed !== undefined ? { listed: value.listed } : {}),
     ...(value.guide !== undefined ? { guide: value.guide } : {}),
     ...(value.tags !== undefined ? { tags: [...value.tags] as string[] } : {}),
     ...(value.fixedStartOptions !== undefined ? { fixedStartOptions: { ...value.fixedStartOptions as Record<string, JsonValue> } } : {}),

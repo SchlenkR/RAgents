@@ -1,5 +1,14 @@
 # Decisions
 
+## 2026-10-12: Templates can be unlisted without losing ID starts
+
+Chapter: `spec/plugins.md` (PluginHost registrations, start tiles); usage: `usage.md` (Create your first run).
+
+A plugin's row action also appeared as a generic template without its required input.
+Optional `listed` defaults to true; false removes a template from user-facing listings while
+preserving plugin lookup and permission-checked starts by ID. Both actions carry the flag through
+the public contract. The additive field requires no host API version increase.
+
 ## 2026-10-12: Table headers pad like their rows
 
 Chapter: `spec/plugins.md` (Theme tokens).

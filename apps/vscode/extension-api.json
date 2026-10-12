@@ -1,7 +1,7 @@
 {
   "version": 1,
   "contracts": {
-    "ragents.plugins.bootstrap": "ad866404b2ae58e6f786482803fefb02247b2b454c3d4fbf479383e3869a09e6",
+    "ragents.plugins.bootstrap": "55b41ff2dd988ca8e331f9eef3fbcd5fb2027df38df03d72f760684635e11da6",
     "ragents.runs.list": "e49c2ec6117a7cd7d34a1195abb6aa7e587991a07c0c335724c1172e6b902220",
     "ragents.runs.delete": "93f11a4d57642caa220a0dda9f9a21a53278a8e2ad47a70e95c4f3fb42b4144b",
     "ragents.runs.sharing": "c516a56442fd6dc91248e5bbca380e2dcb6fc03ad62ce0c0abbcd89947bc0429",

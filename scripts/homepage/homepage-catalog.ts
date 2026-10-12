@@ -107,8 +107,8 @@ async function collect(repoRoot: string) {
     plugins: host.publicManifests().map(({ id, requires }) => ({ id, requires })),
     tools: tools.sort((a, b) => a.name.localeCompare(b.name, "en")),
     operations: host.operations.describe(),
-    starts: host.startEntries.describe(),
-    scripts: host.startEntries.describe().filter((start) => start.action === "script").map((start) => {
+    starts: host.startEntries.describe().filter((start) => start.listed !== false),
+    scripts: host.startEntries.describe().filter((start) => start.listed !== false && start.action === "script").map((start) => {
       const script = host.startEntries.scriptPackage(start.id);
       if (!script) throw new Error(`Run script missing: ${start.id}`);
       const files = publicPackageFiles(path.join(pluginFolder(start.owner), "run-scripts", script.handle));

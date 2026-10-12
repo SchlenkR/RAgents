@@ -232,7 +232,8 @@ The server-side `PluginHost` has registries for:
 
 - agent hooks (`host.agentRuntime`, section Agent hooks), skill paths, and audiences
 - templates (`host.startEntries`): everything a plugin puts on the Start page, in ONE
-  contract with `id`, `title`, `description`, `order`, optional `guide` (ID of a web guide),
+  contract with `id`, `title`, `description`, `order`, optional `listed` (defaults to true),
+  optional `guide` (ID of a web guide),
   optional `tags` (unique search keywords), and the discriminator `action`: `skill` carries the
   registered skill name, a freely named `category`, and the editable starting task
   `prompt`; `script` carries a run script package (`handle`, `coordinator`, optional
@@ -242,6 +243,10 @@ The server-side `PluginHost` has registries for:
   checks that every skill is registered, every package is complete, and every fixed start option
   is registered and its value satisfies its schema; the web checks that an active plugin provides
   the guide.
+  `listed: false` omits the template from user-facing catalogs, search, galleries, Start's "New"
+  widget, and run-script pickers in every client. The registry and permission-filtered bootstrap
+  still include it for plugin lookup. Starting by ID uses the same permissions, validation,
+  fixed start options, and lifecycle as a listed template; the flag grants no access.
   A product plugin additionally reads `SKILLS_DIR`, so local skills including templates can be
   created without code and without a frontend build
 - shared actor packages (`host.actorPackages`): packages with `name` and `files` that the run
@@ -2718,8 +2723,10 @@ composer toolbar slot.
 
 Start tiles exist only on Start (`panel/StartPage.tsx` with the building block `StartTiles` in
 `apps/web/src/StartTiles.tsx`) and as single `StartTile` items in the run script list of an open
-run (`RunScriptMenu`); no dialog shows them. One path in `RunPanelApp` (`startNew`) handles a click
-on Start, a `newRun` from the host, and a Help sample, in the browser and in the VS Code panel alike.
+run (`RunScriptMenu`); no dialog shows them. These lists omit templates with `listed: false`.
+One path in `RunPanelApp` (`startNew`) handles a click on Start or in a plugin widget, a `newRun`
+from the host, and a Help sample, in the browser and in the VS Code panel alike. Unlisted
+templates remain available by ID through this path.
 "New chat" and a `newRun` without a template open a fresh empty run whose task is created in the
 chat, only with `runs.create`. A template without a guide starts right away (`startLaunch` with
 `startEntryDirectly` from `apps/web/src/chat/requests.ts`): a run script through `ragents.chat.start`

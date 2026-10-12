@@ -253,6 +253,8 @@ export interface StartEntryBase {
   title: string;
   description: string;
   order?: number;
+  /** Whether user-facing template lists include this entry; defaults to true, with ID lookup unchanged. */
+  listed?: boolean;
   guide?: string;
   /** Searchable labels supplied by the plugin, independent of the entry action. */
   tags?: readonly string[];

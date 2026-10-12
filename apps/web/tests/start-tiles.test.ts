@@ -2,7 +2,10 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
-import { StartTiles } from "../src/StartTiles.tsx";
+import { createAccessContext, unrestrictedAccess } from "../../../packages/ragents/src/access.ts";
+import { PluginRegistry, type StartEntry } from "../src/PluginRegistry.tsx";
+import { connectionEntriesOf, StartTiles } from "../src/StartTiles.tsx";
+import { HOST_START_WIDGETS, StartPageContext, type StartPageHost } from "../src/panel/host-start-widgets.tsx";
 import type { ConnectionEntry } from "../src/panel/contract.ts";
 
 const entry = (id: string, kind: "skill" | "script", category: string, guided = false): ConnectionEntry =>
@@ -12,6 +15,30 @@ const render = (props: Partial<Parameters<typeof StartTiles>[0]> = {}) => render
   entries, label: "Templates", onNewChat: () => {}, onStart: () => { throw new Error("Rendering starts nothing"); }, ...props,
 }));
 const titles = (html: string) => [...html.matchAll(/data-tile="([^"]+)"/g)].map((match) => match[1]);
+
+test("New omits unlisted skills and scripts while plugins keep them and permission checks still apply", () => {
+  const catalog: StartEntry[] = [
+    { id: "test.skill", owner: "test", title: "Skill", description: "A task", action: "skill", skill: "example", category: "Examples", prompt: "Task", listed: false },
+    { id: "test.internal", owner: "test", title: "Internal", description: "A row action", action: "script", coordinator: false, listed: false },
+    { id: "test.script", owner: "test", title: "Script", description: "A setup", action: "script", coordinator: false, listed: true },
+    { id: "test.default", owner: "test", title: "Default", description: "A setup", action: "script", coordinator: false },
+  ];
+  const registry = new PluginRegistry({ product: { id: "test", title: "Test" }, brand: { title: "Test" }, plugins: [{ id: "test" }], startEntries: catalog });
+  const visible = connectionEntriesOf(registry, unrestrictedAccess);
+  assert.deepEqual(visible.map((entry) => entry.id), ["test.script", "test.default"]);
+  assert.equal(registry.startEntries.find((entry) => entry.id === "test.internal")?.listed, false);
+  const restricted = createAccessContext({ enabled: true, user: { id: "alice", label: "Alice", rights: ["runs.write"], startEntries: ["test.internal", "test.default"] } });
+  assert.deepEqual(connectionEntriesOf(registry, restricted).map((entry) => entry.id), ["test.default"]);
+  const host: StartPageHost = {
+    connection: { name: "test", kind: "server", address: "http://localhost", route: { kind: "server", host: "localhost", localHost: true },
+      state: { kind: "connected" }, runs: [], canCreate: true, entries: visible, defaultEntry: "test.internal" },
+    sharing: undefined, starting: undefined, send: () => {}, startRun: () => {},
+  };
+  const widget = HOST_START_WIDGETS.find((widget) => widget.id === "start.new")!;
+  const html = renderToStaticMarkup(createElement(StartPageContext.Provider, { value: host },
+    widget.render({ runs: [], onOpenRun: () => {}, settings: { descriptions: true } as never })));
+  assert.deepEqual(titles(html), ["New chat", "Script", "Default"]);
+});
 
 test("without a default template New chat comes first, then the templates in their order", () => {
   const html = render();

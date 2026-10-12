@@ -199,7 +199,7 @@ function RunPanelPage({ connection, initialRunId, registry }: { connection: stri
   const settings = <>
     {settingsOpen && <SettingsModal onClose={() => setSettingsOpen(false)} registry={registry} />}
     {helpOpen && <HelpDialog onClose={() => setHelpOpen(false)}
-      sampleEntries={registry.scriptEntries.filter((entry) => canStartEntry(access, entry.id)).map((entry) => entry.id)}
+      sampleEntries={registry.scriptEntries.filter((entry) => entry.listed !== false && canStartEntry(access, entry.id)).map((entry) => entry.id)}
       onStartSample={(entryId) => {
         if (!canStartEntry(access, entryId)) return;
         setHelpOpen(false);

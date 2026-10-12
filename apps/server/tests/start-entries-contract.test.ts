@@ -16,6 +16,32 @@ void wireMatchesEngine;
 
 const base = { id: "x.one", owner: "x", title: "One", description: "A template" };
 
+test("listed survives publication and parsing without removing plugin lookup or permitted bootstrap entries", () => {
+  const host = new PluginHost({ product: { id: "test", title: "Test" }, dataDirectory: path.join(tmpdir(), "ragents-listed-host") });
+  host.register({ manifest: { id: "x" }, register: (registration) => {
+    for (const [id, listed] of [["default", undefined], ["listed", true], ["unlisted", false]] as const) {
+      registration.startEntries({ id: `x.${id}`, title: id, description: "A script", action: "script",
+        ...(listed !== undefined ? { listed } : {}),
+        script: { handle: id, coordinator: false, files: [{ path: "package.json", content: "{}" }], programs: [] } });
+    }
+  } });
+  const entries = host.publicProfile().startEntries.map(startEntryFrom);
+  assert.deepEqual(entries.map((entry) => [entry.id, entry.listed]), [["x.default", undefined], ["x.listed", true], ["x.unlisted", false]]);
+  assert.equal(host.startEntries.entry("x.unlisted")?.listed, false);
+  assert.equal(host.startEntries.scriptPackage("x.unlisted")?.handle, "unlisted");
+});
+
+test("listed rejects non-booleans at registration and at the web boundary for both actions", () => {
+  for (const listed of [null, "false", 0, [], {}]) {
+    for (const action of ["skill", "script"] as const) {
+      const entry = { ...base, action, listed, skill: "example", category: "Examples", prompt: "Task", coordinator: false };
+      assert.throws(() => startEntryFrom(entry), /listed must be true or false/);
+      const { owner: _, coordinator: __, ...contribution } = entry;
+      assert.throws(() => new StartEntryContributionRegistry().register("x", [contribution as never]), /listed must be true or false/);
+    }
+  }
+});
+
 test("example tags survive both asset loaders, publication and web parsing", () => {
   const scratch = mkdtempSync(path.join(tmpdir(), "ragents-entry-tags-"));
   try {

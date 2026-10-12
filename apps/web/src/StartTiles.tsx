@@ -48,7 +48,7 @@ export function StartTile({ title, description, action, standard, disabled, star
 
 /** The templates this user may start, as Start shows them in the browser and in the VS Code panel. */
 export const connectionEntriesOf = (registry: PluginRegistry, access: AccessContext): ConnectionEntry[] => registry.startEntries
-  .filter((entry) => canStartEntry(access, entry.id))
+  .filter((entry) => entry.listed !== false && canStartEntry(access, entry.id))
   .map((entry) => ({
     id: entry.id, title: entry.title, description: entry.description, kind: entry.action,
     category: entry.category ?? (access.can("runs.inspect") ? "Run scripts" : "Workflows"), guided: registry.guideFor(entry) !== undefined,

@@ -41,10 +41,11 @@ const create = async (context: ManagementContext, body: CreateInput, access: Acc
     }
     if ("script" in body) {
       const entries = context.root.startEntries.describe().filter((entry) => entry.action === "script");
+      const listed = entries.filter((entry) => entry.listed !== false);
       const wanted = body.script.trim().toLocaleLowerCase("en-US");
       const direct = entries.find((entry) => entry.id === body.script.trim());
-      const matching = direct ? [direct] : entries.filter((entry) => entry.title.toLocaleLowerCase("en-US") === wanted);
-      if (matching.length !== 1) throw new DomainError("invalid-script", `The run script is unknown or ambiguous. Valid titles and ids: ${entries.map((entry) => `${entry.title} (${entry.id})`).join(", ") || "none"}`, 400);
+      const matching = direct ? [direct] : listed.filter((entry) => entry.title.toLocaleLowerCase("en-US") === wanted);
+      if (matching.length !== 1) throw new DomainError("invalid-script", `The run script is unknown or ambiguous. Valid titles and ids: ${listed.map((entry) => `${entry.title} (${entry.id})`).join(", ") || "none"}`, 400);
       return context.management().create({ ...common, kind: "script", entryId: matching[0].id, input: (body.input ?? null) as JsonValue }, signal);
     }
     return context.management().create({ ...common, kind: "message", message: body.message.trim() }, signal);
@@ -80,7 +81,7 @@ export function managementMethods(context: ManagementContext): MethodContributio
       return { ...identity(found), stopped: true as const };
     }),
     implement(overseerContracts.readCatalog, (_input, { access }) => ({
-      entries: [...context.root.startEntries.describe()],
+      entries: context.root.startEntries.describe().filter((entry) => entry.listed !== false),
       options: context.root.startOptions.entries().map(({ option }) => {
         const scope = { runId: coordinatorRunIdOf(access), userId: access.user?.id ?? null };
         const value = context.root.startOptions.defaultValue(option.id, scope);

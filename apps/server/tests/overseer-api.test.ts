@@ -27,6 +27,7 @@ const hostWith = async (t: TestContext) => {
   host.register({ manifest: { id: "test" }, register: (registration) => {
     registration.startOptions({ id: "test.language", schema: Type.Union([Type.Literal("de"), Type.Literal("en")]), selectable: () => true, defaultValue: () => "de", accept: (value) => value, describe: (value) => ({ label: value }) });
     registration.startEntries({ id: "test.script", title: "Preparation", description: "Test", action: "script", script: { handle: "setup", coordinator: true, files: [{ path: "package.json", content: "{}" }], programs: [] } });
+    registration.startEntries({ id: "test.internal", title: "Preparation", description: "A row action", listed: false, action: "script", script: { handle: "internal", coordinator: false, files: [{ path: "package.json", content: "{}" }], programs: [] } });
   } });
   return { host, directory };
 };
@@ -141,7 +142,11 @@ test("the management methods validate input, resolve references, page events and
   const catalog = (await call(overseerContracts.readCatalog.id, {})).result as { entries: Array<{ id: string }>; options: Array<{ schema: unknown; value: unknown }> };
   assert.deepEqual(catalog.options[0].schema, JSON.parse(JSON.stringify(host.startOptions.entries()[0].option.schema)));
   assert.equal(catalog.options[0].value, "de");
-  assert.equal(catalog.entries[0].id, "test.script");
+  assert.deepEqual(catalog.entries.map((entry) => entry.id), ["test.script"]);
+  assert.ok((await call(overseerContracts.createRun.id, { title: "Row action", script: "test.internal", input: { row: 3 } })).result);
+  assert.deepEqual(starts[3], { kind: "script", title: "Row action", user: { id: "inspector", label: "Inspector" }, entryId: "test.internal", input: { row: 3 } });
+  const unknown = await call(overseerContracts.createRun.id, { title: "Unknown", script: "missing" });
+  assert.doesNotMatch(unknown.error?.message ?? "", /test.internal/);
   const reference = (await call(overseerContracts.readReference.id, {})).result as string;
   assert.match(reference, new RegExp(`## ${overseerContracts.listRuns.id}`));
   assert.deepEqual((await call(overseerContracts.readOpenRpc.id, {})).result, JSON.parse(JSON.stringify(openRpcDocument(host))));

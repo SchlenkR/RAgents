@@ -447,10 +447,12 @@ host.runCondition((runId) => domainRuns.has(runId));`, ["host.runCondition"], [
 host.startEntries({
   id: "ragents.example.start", title: "Review text",
   description: "Starts with a review task.", order: 100,
+  listed: true,
   tags: ["Use case", "Text review"],
   action: "skill", skill: "text-review", category: "Collaboration",
   prompt: "Please check my text for contradictions.",
-});`, ["host.startEntries", "start.id", "start.title", "start.description", "start.order", "start.guide", "start.tags", "start.fixedStartOptions"], [
+});`, ["host.startEntries", "start.id", "start.title", "start.description", "start.order", "start.listed", "start.guide", "start.tags", "start.fixedStartOptions"], [
+    "listed defaults to true. Set listed: false for a template started by a plugin widget with fixed input: user-facing template lists, search, galleries, and run-script pickers omit it, while plugin lookup and permission-checked starts by ID remain available.",
     "For skill templates, category is exactly one free, non-empty text used to group examples in the reference; compact Start cards do not show it. Independently of that, tags is an optional list of keywords for search, filters, and the reference. Only the tags are given comma-separated in SKILL.md and RUN.md frontmatter. The reference plugin provides demos and possible high-level test cases. Their description explains the demonstration purpose; Use case, Concept demo, and product concepts are in tags. The public generation checks at least two different examples per product concept. UI controls have no example quota and do not have to appear completely in the demos. Pure operating concepts use separate walkthroughs from the reference plugin's walkthroughs.ts. These create no templates and do not extend the StartEntry contract.",
     "action: skill uses the registered skill name. action: script contains a RunScriptPackage. guide refers to a web guide with the same name.",
     "fixedStartOptions sets start options for every run from the template, for example { \"ragents.workspace.binding\": { machine: \"server\", folder: \"fresh\" } }; in RUN.md the header line is called fixed-start-options. A different choice made beforehand is an error at start, and the Start page shows the option as fixed.",

@@ -190,6 +190,18 @@ const groupOf = (groups: readonly PluginGroup[], id: string): PluginGroup => {
   return found;
 };
 
+test("template catalogs and their search omit unlisted entries", () => {
+  const source = sourceWith({ startEntries: [
+    card("test.default", "test", "Default"),
+    { ...card("test.listed", "test", "Listed"), listed: true },
+    { ...card("test.internal", "test", "Internal"), listed: false },
+  ] });
+  const group = groupOf(groupContributions(settingsWith({}), source), "test");
+  assert.deepEqual(group.startEntries.map((entry) => entry.id), ["test.default", "test.listed"]);
+  assert.deepEqual(filterGroup(group, "startEntries", "Internal").startEntries, []);
+  assert.deepEqual(filterGroup(group, "startEntries", "Listed").startEntries.map((entry) => entry.id), ["test.listed"]);
+});
+
 test("contributions end up with their owner and the plugin order is kept", () => {
   const settings = settingsWith({
     plugins: [

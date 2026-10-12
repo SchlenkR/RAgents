@@ -39,6 +39,7 @@ export interface StartEntrySummary {
   title: string;
   description: string;
   action: "skill" | "script";
+  listed?: boolean;
   /** The group of templates; a run script without its own category is listed under "Run scripts". */
   category: string;
   /** Which start options the template fixes; "New run" presets none of them. */
@@ -172,6 +173,7 @@ export class RunStore {
         title: entry.title,
         description: entry.description,
         action: entry.action,
+        ...(entry.listed !== undefined ? { listed: entry.listed } : {}),
         category: entry.category ?? "Run scripts",
         ...(entry.fixedStartOptions !== undefined ? { fixedStartOptions: entry.fixedStartOptions } : {}),
         ...(entry.guide !== undefined ? { guide: entry.guide } : {}),

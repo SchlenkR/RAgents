@@ -370,6 +370,24 @@ test("a run script starts over HTTP with coordinator primary and the selected st
   } finally {fixture.journal.close(); rmSync(fixture.files, {recursive: true, force: true});}
 });
 
+test("unlisted scripts stay absent from run-script listings and start by ID only with permission", async (t) => {
+  const runId = "unlisted-script";
+  const script = packageOf({ coordinator: false }, { listed: false });
+  const fixture = createFixture(runId, [script]);
+  t.after(async () => { await fixture.session.drain(); fixture.session.dispose(); fixture.journal.close(); rmSync(fixture.files, { recursive: true, force: true }); });
+  assert.deepEqual(fixture.session.runScripts([script.entry], null), []);
+  const user = { id: "alice", label: "Alice", rights: ["runs.read", "runs.write"] };
+  const denied = createAccessContext({ enabled: true, user });
+  assert.equal(await startThroughChatHttp(fixture.session, runId, { entry: script.entry.id, input: { row: 3 } }, denied), 403);
+  assert.equal(fixture.session.started, false);
+  assert.deepEqual(fixture.imports, []);
+  const permitted = createAccessContext({ enabled: true, user: { ...user, startEntries: [script.entry.id] } });
+  assert.equal(await startThroughChatHttp(fixture.session, runId, { entry: script.entry.id, input: { row: 3 } }, permitted), 202);
+  assert.equal(fixture.session.started, true);
+  assert.equal(fixture.runtime.view(runId).actors.some((actor) => actor.kind === "script" && actor.handle === script.handle), true);
+  assert.deepEqual(fixture.session.runScripts([script.entry], user.id), []);
+});
+
 test("authenticated HTTP script starts use the trusted user's label despite Owner defaults and a forged request user", async (t) => {
   const access = createAccessContext({ enabled: true, user: {
     id: "operator-account", label: "Operator", rights: ["runs.read", "runs.write"], startEntries: ["test.example"],

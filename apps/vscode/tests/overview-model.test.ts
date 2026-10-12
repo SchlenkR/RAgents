@@ -39,6 +39,13 @@ const local = (overrides: Partial<ConnectionSnapshot> = {}): ConnectionSnapshot 
   ...overrides,
 });
 
+test("Start and New run omit unlisted templates, including an unlisted default", () => {
+  const source = snapshot({ entries: [entries[0]!, { ...entries[1]!, listed: false }], defaultEntry: entries[1]!.id });
+  assert.deepEqual(connectionView(source).entries.map((entry) => entry.id), [entries[0]!.id]);
+  assert.deepEqual(newRunChoices([source])[0]?.choices.map((entry) => entry.entryId), [undefined, entries[0]!.id]);
+  assert.equal(source.entries.find((entry) => entry.id === entries[1]!.id)?.listed, false);
+});
+
 test("connection management lists servers and local profiles with their own runs and templates", () => {
   const state = panelState({ theme: "dark", looks: defaultAppearance, page: "connections", connections: [snapshot(), local()], profileSuggestions: ["/x/ragents.config.core.ts"], missingSecrets: [], problem: undefined, pickedProfileFile: undefined });
   assert.deepEqual(state.connections.map((entry) => [entry.name, entry.kind, entry.state.kind, entry.runs.length, entry.entries.length]), [

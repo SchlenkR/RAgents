@@ -125,7 +125,7 @@ export const groupContributions = (
       webActive: activeIds.has(id),
       tools: settings.tools.filter((tool) => tool.owner === id),
       prompts: settings.promptContributions.filter((contribution) => contribution.owner === id),
-      startEntries: source.startEntries.filter((entry) => entry.owner === id),
+      startEntries: source.startEntries.filter((entry) => entry.owner === id && entry.listed !== false),
       skills: settings.skills.filter((skill) => skill.owner === id),
       hooks: hooks.filter((hook) => hook.owner === id),
       configuration: plugin?.configuration ?? [],
