@@ -1135,13 +1135,13 @@ The gear opens connection and profile management for all configured environments
 
 Start uses the full available width with wider side padding at desktop widths. Runs in both hosts and Server in
 VS Code share a centered content area up to 1280 pixels wide. The Runs search field and rows
-stay within this area, including on ultrawide displays. All panel pages leave 8 spacing units (`pb-8`,
-the block step, about 2.7 times the former space) below their last content, including narrow
+stay within this area, including on ultrawide displays. All panel pages leave 12 spacing units (`pb-12`,
+the page step, 45.12 px at a 16 px root) below their last content, including narrow
 Start tabs; this space scales with zoom. The outer header remains full width.
 All three pages begin their content at the same distance below the header, with more space at
 desktop widths, and on Start every
-widget stands well apart from
-its neighbors. In both hosts, logo, global coordinator button, Settings, and Help share
+widget stands 12 spacing units apart from its neighbors horizontally and vertically, including
+stacked regions in narrow tabs and the edit list. In both hosts, logo, global coordinator button, Settings, and Help share
 the header. The logo leads back to Start there, so the run header has no back arrow of its
 own; Runs keeps its back arrow ("Back to Start") next to its title in the browser as in VS Code. An open run places its layout actions in the run header, without a separate
 toolbar row. With an open run, the logo, global coordinator, run title, run controls, and

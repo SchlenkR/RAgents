@@ -575,7 +575,7 @@ export function StartDashboard({ widgets, preferences }: { widgets: readonly Das
     {toolbar}
     {saveError !== undefined && <p className="type-body text-destructive [overflow-wrap:anywhere]" role="alert">{saveError}</p>}
     <div aria-busy={state.kind === "loading" || undefined}
-      className={cn("relative grid min-w-0 [--start-gap-x:--spacing(6)]", mode === "list" ? "gap-3" : "gap-x-(--start-gap-x) gap-y-8", mode !== "grid" && "grid-cols-1 [&>[data-start-section]>*]:order-1",
+      className={cn("relative grid min-w-0 [--start-gap-x:--spacing(12)] gap-x-(--start-gap-x) gap-y-12", mode !== "grid" && "grid-cols-1 [&>[data-start-section]>*]:order-1",
         editing && "select-none", gesture?.kind === "resize" && "cursor-ew-resize", gesture?.kind === "move" && "cursor-grabbing", state.kind === "loading" && "invisible")}
       data-dashboard={mode} data-editing={editing || undefined} data-grid={mode === "grid" ? grid : undefined} inert={saving} ref={setElement}>
       <div aria-hidden className="pointer-events-none absolute inset-x-0 top-0 h-0" ref={setProbe} />

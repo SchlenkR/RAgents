@@ -2268,11 +2268,14 @@ surfaces meets WCAG AA contrast in both modes.
 
 **Spacing** follows one scale and one rule: the space between two things says how closely they belong together, so related things
 sit close and unrelated things far apart, and the space around a container is never smaller than the space inside it. The scale
-has seven steps, written as Tailwind numbers (one unit is `--spacing`, 4 px at 100 percent): 0.5 *hair* (lines of one text block),
+has eight steps, written as Tailwind numbers (one unit is `--spacing`, 0.235rem or 3.76 px at a 16 px root): 0.5 *hair* (lines of one text block),
 1 *tight* (parts of one compound element, such as icon and label), 2 *related* (siblings of one kind: controls of a group, chips,
 cards of a stack, rows of a list), 3 *group* (a heading and its content, the clusters inside one card, the padding of compact
 cards and tiles), 4 *gutter* (padding of panels and dialogs, gaps between tiles of a grid), 6 *section* (groups inside a section,
-a toolbar and the data it controls, story groups in a lane), and 8 *block* (independent sections of a page). A container pads
+a toolbar and the data it controls, story groups in a lane), 8 *block* (sections within one page region), and 12 *page*
+(independent regions of a page, including dashboard widgets in either axis, stacked regions, and the page's bottom clearance).
+Independent regions always use page spacing, larger than the block spacing within them, at every column count and width.
+A container pads
 all four sides equally, so a card never shows more space at its bottom than at its top: no empty trailing child, and a gap
 belongs to the parent instead of a margin on the first or last child. Controls take their paddings and heights from the control
 sizes instead; `apps/web/tests/spacing-scale.test.ts` scans the host and every plugin web part and rejects any other
@@ -3449,8 +3452,8 @@ work".
 **Shared page width.** `PanelPage` owns the content column with side padding. The Start dashboard
 uses the full available width in both hosts, with wider side padding at desktop widths. Runs
 in both hosts and Server in VS Code use a centered column of at most 1280 pixels. All panel
-pages have more top padding at desktop widths. The page scroller ends with 8 spacing units (`pb-8`,
-the block step, about 2.7 times the former `pb-3` space)
+pages have more top padding at desktop widths. The page scroller ends with 12 spacing units (`pb-12`,
+the page step, 45.12 px at a 16 px root)
 below the content in both hosts and at every width, including Start's
 tabs mode. This clearance follows the host's spacing unit and zoom.
 The browser
@@ -3470,7 +3473,9 @@ often narrow on a wide screen. `dashboardLayout` in `panel/dashboard-layout.ts` 
 1100 pixels (`DASHBOARD_WIDE_FROM`) the grid has six columns (`DASHBOARD_COLUMNS`) and every widget
 takes exactly its columns; from 700 pixels (`DASHBOARD_TABS_BELOW`) the grid has three columns and a
 widget takes half its columns, rounded up (`shownColumns`); a widget without a title always takes all
-columns. Widgets keep their own content heights and pack into free rectangles (`packWidgets`): in their
+columns. Both column and row gaps use the page step (12 units), also between stacked regions in tabs
+and the narrow edit list. Column lengths and resize guides share `--start-gap-x`; packing and resize
+snapping read the grid's computed gaps. Widgets keep their own content heights and pack into free rectangles (`packWidgets`): in their
 order, each takes the topmost place where its columns and its own height fit among the rectangles
 already placed, with a row gap above and below widgets in the same columns, then the leftmost place
 among equal tops (tops within half a pixel count as equal). Later widgets can fill room above a lower,

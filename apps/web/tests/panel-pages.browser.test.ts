@@ -337,7 +337,7 @@ for (const width of [380, 900, 1600, 2600]) {
         const rect = list.getBoundingClientRect();
         const main = document.querySelector("main")!;
         return {width:rect.width, left:rect.left, hostWidth:main.clientWidth, bottomPadding:parseFloat(getComputedStyle(main).paddingBottom),
-          expectedPadding:8 * parseFloat(getComputedStyle(main).getPropertyValue("--spacing")) * parseFloat(getComputedStyle(document.documentElement).fontSize),
+          expectedPadding:12 * parseFloat(getComputedStyle(main).getPropertyValue("--spacing")) * parseFloat(getComputedStyle(document.documentElement).fontSize),
           overflow:main.scrollWidth > main.clientWidth || document.documentElement.scrollWidth > innerWidth};
       });
       await mkdir(shots, {recursive:true});

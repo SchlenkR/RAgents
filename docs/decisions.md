@@ -1,5 +1,16 @@
 # Decisions
 
+## 2026-10-12: Page spacing separates independent dashboard regions
+
+Chapter: `spec/plugins.md` (Spacing, Shared page width, Start); usage: `usage.md` (Shared panel pages).
+
+Independent widgets were too close together. The spacing scale now adds page 12 above block 8:
+blocks group sections within a region, while page spacing separates independent regions. Start
+uses the page step for both grid axes and stacked narrow regions; panel pages use it below their
+last content. The scale guard accepts 12 across the host and plugins without new exceptions.
+Computed grid gaps remain the source for packing, column lengths, and resizing. Browser tests
+check the larger separation, resize guides, drop indicators, and bottom clearance.
+
 ## 2026-10-12: Panel pages leave more room at the scroll end
 
 Chapter: `spec/plugins.md` (Shared page width); usage: `usage.md` (Shared panel pages).

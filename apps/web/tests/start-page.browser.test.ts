@@ -370,7 +370,7 @@ for (const host of ["browser", "vscode"] as const) {
             main.scrollTop = main.scrollHeight;
             return {
               padding: parseFloat(getComputedStyle(main).paddingBottom),
-              expected: 8 * parseFloat(getComputedStyle(main).getPropertyValue("--spacing")) * parseFloat(getComputedStyle(document.documentElement).fontSize),
+              expected: 12 * parseFloat(getComputedStyle(main).getPropertyValue("--spacing")) * parseFloat(getComputedStyle(document.documentElement).fontSize),
               gap: main.getBoundingClientRect().bottom - main.firstElementChild!.getBoundingClientRect().bottom,
               scrollable: main.scrollHeight > main.clientHeight,
               overflow: main.scrollWidth > main.clientWidth,

@@ -79,16 +79,18 @@ const packedCells = (page: Page) => page.locator("[data-dashboard]").evaluate((g
   const columns = Number((grid as HTMLElement).dataset.grid);
   const gapX = parseFloat(style.columnGap);
   const gapY = parseFloat(style.rowGap);
+  const pageGap = 12 * parseFloat(style.getPropertyValue("--spacing")) * parseFloat(getComputedStyle(document.documentElement).fontSize);
   const column = (bounds.width - (columns - 1) * gapX) / columns;
   const cells = [...grid.querySelectorAll<HTMLElement>(":scope > [data-pack]")].map((cell) => ({ key: cell.dataset.pack!, box: cell.getBoundingClientRect() }))
     .filter(({ box }) => box.height > 0).map(({ key, box }) => ({ key, left: box.left - bounds.left, top: box.top - bounds.top, width: box.width, height: box.height }));
-  return { columns, gapX, gapY, column, pitch: column + gapX, height: bounds.height, cells };
+  return { columns, gapX, gapY, pageGap, column, pitch: column + gapX, height: bounds.height, cells };
 });
 
 type Packed = Awaited<ReturnType<typeof packedCells>>;
 
 /** Every cell takes its first free rectangle in order, keeps the gaps, and stands on whole columns; the grid ends at its lowest cell. */
 const checkPacked = (packed: Packed, label: string) => {
+  assert.ok(Math.abs(packed.gapX - packed.pageGap) < 0.01 && Math.abs(packed.gapY - packed.pageGap) < 0.01, `both axes separate independent regions with page spacing (${label})`);
   const cells = packed.cells.map((cell) => {
     const column = Math.round(cell.left / packed.pitch);
     const columns = Math.round((cell.width + packed.gapX) / packed.pitch);
@@ -115,6 +117,19 @@ const placeOf = (packed: Packed, key: string) => {
   const cell = packed.cells.find((entry) => entry.key === key);
   assert.ok(cell, `${key} is packed`);
   return { column: Math.round(cell.left / packed.pitch), top: cell.top, bottom: cell.top + cell.height };
+};
+
+const checkGuides = async (page: Page) => {
+  const packed = await packedCells(page);
+  const guides = await page.locator("[data-column-guides]").evaluate((element) => {
+    const grid = element.parentElement!.getBoundingClientRect();
+    return [...element.children].map((child) => {
+      const bounds = child.getBoundingClientRect();
+      return { left: bounds.left - grid.left, width: bounds.width };
+    });
+  });
+  assert.equal(guides.length, packed.columns);
+  assert.ok(guides.every((guide, column) => Math.abs(guide.left - column * packed.pitch) < 1 && Math.abs(guide.width - packed.column) < 1), "resize guides follow the grid's column lengths and page gaps");
 };
 
 const slides = (page: Page) => page.evaluate(() => document.getAnimations().filter((animation) => animation.id === "start-repack").length);
@@ -224,7 +239,9 @@ test("a narrow dashboard shows one widget at a time in tabs and remembers the ch
     assert.equal(await description.evaluate((element) => getComputedStyle(element).webkitLineClamp), "2", "a wide enough widget keeps its cards");
     assert.equal(await page.getByRole("region", { name: "Legacy notes" }).isVisible(), true, "a section without a title stays below the tabs");
     const legacy = await page.getByRole("region", { name: "Legacy notes" }).boundingBox();
-    assert.ok(legacy && panel && legacy.y > panel.y);
+    const spacing = await packedCells(page);
+    assert.ok(Math.abs(spacing.gapY - spacing.pageGap) < 0.01, "stacked tab regions use page spacing");
+    assert.ok(legacy && panel && Math.abs(legacy.y - panel.y - panel.height - spacing.pageGap) < 1, "the region below the tab panel keeps the page gap");
     const visible = await tabs.getByRole("tab").count();
     const target = visible > 1 ? page.getByRole("tab", { name: "Continue" }) : undefined;
     if (target) await target.click();
@@ -381,6 +398,11 @@ test("edit mode moves a widget by dragging, resizes Continue by its edge, remove
     await drag(page, await center(page, page.getByRole("button", { name: "Move Work board", exact: true })), { x: target!.x + 24, y: target!.y + 48 }, async () => {
       assert.equal((await order(page))[0], "demo.board", "the grid follows the pointer before the drop");
       assert.equal(await page.locator('[data-start-widget="demo.board"] [data-drop-indicator]').isVisible(), true, "the drop indicator marks the new place");
+      const indicator = await page.locator('[data-start-widget="demo.board"] [data-drop-indicator]').boundingBox();
+      const board = await box(page, "Work board");
+      const grid = await gridOf(page);
+      assert.ok(indicator && indicator.x + indicator.width < board.x && board.x - indicator.x <= grid.gap
+        && Math.abs(indicator.y - board.y) < 1 && Math.abs(indicator.height - board.height) < 1, "the drop indicator follows the widget's leading edge within the page gap");
       await mkdir(shots, { recursive: true });
       await page.screenshot({ path: join(shots, "start-dashboard-edit-drag-1280.png") });
     });
@@ -395,6 +417,7 @@ test("edit mode moves a widget by dragging, resizes Continue by its edge, remove
       assert.equal(await size(page, "start.continue"), 2, "the target width shows while dragging");
       assert.equal(await page.locator("[data-resize-label]").textContent(), "2 of 6 columns");
       assert.equal(await page.locator("[data-column-guides] > *").count(), 6, "the guides show the grid's columns");
+      await checkGuides(page);
       assert.ok(Math.abs((await box(page, "Continue")).width - spanWidth(grid, 2)) < 0.5, "the grid follows the width while dragging");
       await page.screenshot({ path: join(shots, "start-dashboard-edit-resize-1280.png") });
     });
@@ -451,6 +474,7 @@ for (const engine of ["chromium", "webkit"] as const) {
       await drag(page, continueEdge, { x: continueEdge.x - 2 * grid.pitch, y: continueEdge.y }, async () => {
         assert.equal(await page.locator("[data-resize-label]").textContent(), "2 of 6 columns");
         assert.equal(await page.locator("[data-column-guides] > *").count(), 6);
+        await checkGuides(page);
         assert.equal(await page.locator('[data-start-widget="start.continue"]').getAttribute("data-dragging"), "resize");
         assert.equal(await page.locator("[data-dragging=move]").count(), 0, "a resize never starts a move");
       });
@@ -518,6 +542,7 @@ test("at medium widths the edge snaps to the three columns shown and stores the 
     const edge = await center(page, grip(page, "start.new"));
     await drag(page, edge, { x: edge.x + grid.pitch, y: edge.y }, async () => {
       assert.equal(await page.locator("[data-column-guides] > *").count(), 3);
+      await checkGuides(page);
       assert.equal(await page.locator("[data-resize-label]").textContent(), "2 of 3 columns");
     });
     assert.equal(await size(page, "start.new"), 4);
@@ -653,8 +678,11 @@ test("a narrow Start edits a vertical list with handles, up and down, remove, an
     assert.equal(await page.locator("[data-resize-handle], [data-widget-columns]").count(), 0, "widths are not offered");
     assert.equal(await page.getByRole("list", { name: "Templates" }).isVisible(), false, "the rows show only the titles");
     assert.equal(await page.getByRole("region", { name: "Legacy notes" }).isVisible(), false, "a section without a title waits until editing ends");
-    const rows = await page.locator("[data-start-widget]").evaluateAll((cells) => cells.map((cell) => cell.getBoundingClientRect()).map(({ x, width }) => ({ x, width })));
+    const rows = await page.locator("[data-start-widget]").evaluateAll((cells) => cells.map((cell) => cell.getBoundingClientRect()).map(({ x, y, width, height }) => ({ x, y, width, height })));
     assert.ok(rows.every((row) => Math.abs(row.x - rows[0]!.x) < 1 && Math.abs(row.width - rows[0]!.width) < 1), "one row per widget in a single column");
+    const spacing = await packedCells(page);
+    assert.ok(Math.abs(spacing.gapY - spacing.pageGap) < 0.01, "the narrow edit list uses page spacing");
+    assert.ok(rows.every((row, index) => index === 0 || Math.abs(row.y - rows[index - 1]!.y - rows[index - 1]!.height - spacing.pageGap) < 1), "stacked widgets keep the page gap");
     assert.equal(await page.getByRole("button", { name: "Move New up", exact: true }).isDisabled(), true);
     await page.getByRole("button", { name: "Move Continue up", exact: true }).click();
     assert.deepEqual((await order(page)).slice(0, 2), ["start.continue", "start.new"]);
