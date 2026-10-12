@@ -87,6 +87,13 @@ folder. Native execution is not an additional language sandbox against arbitrary
 For nonadministrator owners, or when requested for the run or forced by the server, these
 processes use the operating system sandbox described in `plugins.md` (Server process sandbox).
 
+Every server-side snippet, actor backend, and actor test starts with the shared allowlisted
+process environment, also without a sandbox. It includes operating paths, locale, toolchain
+settings, and required run variables, but excludes profile `env("NAME")` inputs and their
+resolved values, configuration containing references or declared secrets, and provider credentials.
+A clean child environment
+does not isolate an unrestricted process from server files or other processes of the same account.
+
 Managed Node execution resolves build folders, package working directories, runner and entry
 modules, and the Node executable to their real paths before launch. Process contexts use the same
 paths for their folder rules, home, caches, registered roots, and temporary environment. A data or
@@ -104,14 +111,19 @@ An optional `isolated` execution request narrows the process policy to the packa
 temporary folders. A package copied with `isolated` requests it for every execution; global apps
 copy every app this way. It uses the existing
 process-sandbox runtime's operating system wrapper with direct networking denied, no network
-proxy, and no Unix socket allowances. Linux also uses separate network and PID namespaces.
-Only the package, build, and temporary folders are writable. Reads are allowed from those
-folders, read-only dependencies, the real Node binary, and these operating-system paths:
+proxy, and no Unix socket allowances. Both ordinary sandboxed and package-isolated execution hide
+other host processes: Linux uses a PID namespace with its own `/proc`; macOS restricts process
+information, denies Mach task ports, and blocks numeric sysctl calls and `kern.proc*` queries.
+Only the package, build, and temporary folders are writable. Reads cover those folders,
+read-only dependencies, the real Node binary, and the explicit operating-system paths below.
+macOS additionally imports the operating system's `dyld-support.sb` rules for runtime libraries,
+including Cryptex paths. Ancestor directories have only metadata and existence access, not
+additional content access.
 
 - macOS: `/System/Library`, `/usr/lib`, `/usr/bin/env`, `/bin/sh`, `/bin/bash`, `/dev/null`,
   `/dev/urandom`, `/dev/random`, and `/private/etc/localtime`.
 - Linux: `/usr/lib`, `/lib`, `/lib64`, `/proc`, `/etc/ld.so.cache`, `/usr/bin/env`, `/bin/sh`,
-  and `/bin/bash`.
+  and `/bin/bash`. `/proc` belongs to the child PID namespace, never the host process table.
 
 The server-checked permission functions `program_file_read`, `program_file_write`, and
 `program_http_request` provide explicitly granted external access ([Actor programs](actor-programs.md#permissions));
@@ -234,6 +246,10 @@ snippet-only functions available to it with names and short descriptions. This a
 coordinators and subagents. Both update even during a turn, including functions that an actor
 program activates. Neither grants additional functions or permissions; plain LLMs with
 `tools: []` receive neither.
+
+An explicit `tools` array with `exactTools: true` receives no automatic TypeScript tools.
+`typescript_api` and `typescript_eval` must be named explicitly to remain available; an omitted
+tool cannot be called. This selection does not change grants ([core.md](core.md#equipping-subagents)).
 
 ### Short descriptions and details
 

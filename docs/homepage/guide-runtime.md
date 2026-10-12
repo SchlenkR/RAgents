@@ -259,11 +259,17 @@ its `prompt` is the first queued task, as for an LLM actor.
 
 `agent_spawn` requires an explicit function selection in `tools` for built-in LLM agents:
 
-| Selection                            | Equipment                                                          |
-| ------------------------------------ | ------------------------------------------------------------------ |
-| `[]`                                 | Plain LLM without runtime, workspace, or host functions.           |
-| `["read", "write", "edit", "bash"]` | Exactly these functions, for example for a coding agent.           |
-| `null`                               | The full dynamic set, including access added later.                |
+| Selection                          | Equipment                                                |
+| ---------------------------------- | -------------------------------------------------------- |
+| `[]`                               | Plain LLM without runtime, workspace, or host functions.  |
+| `["read", "write", "edit", "bash"]` | Selected functions plus the automatic TypeScript tools.   |
+| `null`                             | The full dynamic set, including access added later.       |
+
+With an explicit array, `exactTools: true` suppresses the automatically added `typescript_api`
+and `typescript_eval`. They appear only if named in that array; without them they are absent
+from model requests and rejected on calls. `exactTools: true` with `tools: null` is invalid.
+The journal preserves the choice across replay and restarts. It changes only function selection,
+not spawn rights, grants, or delegation. Run scripts use the same `agent_spawn` field.
 
 A missing selection or unknown names are rejected before spawning. Actors created any other
 way, by the host, a run script, or an actor program, are checked by the scheduler: when an actor
@@ -283,7 +289,8 @@ reached the model, and not itself a fork, is rejected with `fork-without-turn`. 
 isolation or the turn is rejected.
 
 Equipped LLMs receive their available functions as native tools, plus `typescript_api` and
-`typescript_eval`; snippets call the same functions through `context.functions`. A generated
+`typescript_eval` unless their explicit list uses `exactTools: true`; snippets call the same
+functions through `context.functions`. A generated
 overview in the system prompt lists only the snippet-only functions (`nativeTool: false`) with
 names and short descriptions. Tools and overview stay current during the turn. Roles
 and work boundaries remain prompt instructions. Alongside a role (field `profile`), `agent_spawn` accepts

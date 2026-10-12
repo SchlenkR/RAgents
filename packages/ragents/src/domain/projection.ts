@@ -230,6 +230,7 @@ export function applyEvent(
                 execution: event.payload.execution,
                 grants: event.payload.grants,
                 toolNames: event.payload.toolNames,
+                ...(event.payload.exactTools === undefined ? {} : { exactTools: event.payload.exactTools }),
                 createdAt: event.occurredAt,
                 lifecycle: { kind: "idle", since: event.occurredAt },
                 usage: emptyUsage(),

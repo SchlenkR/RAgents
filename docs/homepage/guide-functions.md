@@ -39,6 +39,10 @@ coordinators and subagents. Both update even during a turn, including functions 
 program activates. Neither grants additional functions or permissions; plain LLMs with
 `tools: []` receive neither.
 
+An explicit `tools` array with `exactTools: true` receives no automatic TypeScript tools.
+`typescript_api` and `typescript_eval` must be named explicitly to remain available; an omitted
+tool cannot be called. This selection does not change grants ([core.md](../spec/core.md#equipping-subagents)).
+
 ### Short descriptions and details
 
 A function registered with `defineRunFunction` has a technical `name` for calls and a readable

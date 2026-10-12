@@ -107,7 +107,8 @@ own. Snippets and persistent actor programs use the same typed functions of the 
 `context.functions`. Equipped models automatically receive the available function names with short
 descriptions, load the details through `typescript_api`, and run snippets with `typescript_eval`.
 These two tools are part of the server's basic equipment, independent of the optional plugin for
-actor programs. Domain tasks describe the desired result; the model works out the technical
+actor programs; an explicit tool list with `exactTools: true` receives them only when named.
+Domain tasks describe the desired result; the model works out the technical
 implementation from the environment. A prepared setup can be built by a run script. Skills combine
 working instructions for agents with optional editable start tasks and supplementary files;
 TypeScript can define the setup and later handoffs while model responses stay variable. The product
@@ -420,9 +421,11 @@ and 2026-09-01):
   legacy paths. No redundancy: the same logic exists exactly once. Generalizations only once there
   are at least two real users. The mini-app and TypeScript platform is in place; it will not be
   expanded further until the first real domain case runs on it.
-- Security currently has low priority. Sandbox hardening and conceptual permissions (capabilities,
-  grants, delegation) are not an investment goal as long as the product does not call for them.
-  The hard boundaries remain file permissions and the operating system UID per run.
+- Model-code execution must not expose server credentials or other users' data. Server child
+  processes use a safe environment; operating-system process protection isolates files, processes,
+  and network access. Embedded and multi-user deployments require protection for every run.
+  Unrestricted execution remains an explicit choice for trusted local work, with the server
+  account's full access ([plugins.md](plugins.md#server-process-sandbox)).
 - No migrations, no legacy path compatibility. There is no migration extension point; the profile
   data under `~/.local/share/ragents/<profile>` counts as disposable development data. Old or
   corrupted journals are isolated with their cause; the server and other runs stay usable. Original

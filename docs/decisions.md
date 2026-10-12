@@ -8,6 +8,38 @@ The last widget sat too close to the scroll end. `PanelPage` now uses `pb-8`, th
 scale's largest block step, in both hosts and at narrow widths, following their zoom. This is
 about 2.7 times the previous `pb-3` space. The spacing scale and its guard remain unchanged.
 
+## 2026-10-12: Exact agent tools and server process isolation
+
+Chapters: `spec/core.md` (Equipping subagents), `spec/typescript-platform.md` (Build and process
+lifecycle, One-off snippets), `spec/actor-programs.md` (Permissions), `spec/profiles.md`
+(Profiles, Function selection and actor grants), `spec/plugins.md` (Web as plugin host, Server process sandbox),
+`spec/overview.md` (Course); operations: `operations.md` (Server process sandbox); usage:
+`usage.md` (Create your first run).
+
+A nonempty agent function list automatically enabled arbitrary TypeScript execution, and an
+owner with `*` could execute outside process protection. Prompt injection could then inspect the
+server environment and other users' run data. `exactTools: true` now keeps an explicit array
+without automatic TypeScript tools; rights and grants stay unchanged. All server-side model-code
+processes use one allowlisted environment excluding profile environment names and values,
+configuration containing references or declared secrets, and provider credentials. Allowlisted
+literal operational settings may remain. Trusted adapter credentials stay local to their launches.
+
+Sandboxed and package-isolated execution retain Linux PID isolation with a private `/proc`;
+weaker nested mode is disabled and startup verifies a separate proc mount. Real macOS probes
+exposed Mach memory access and raw `KERN_PROCARGS2` despite the library's named restrictions.
+The shared launcher now produces one version-3 Seatbelt profile denying Mach task ports,
+`kern.proc*` queries, and numeric sysctl syscall 202, with runtime library and ancestor metadata
+allowances that preserve ordinary execution. The sandbox library cannot restore ambient
+`JAVA_TOOL_OPTIONS`. Embedded and multi-user servers require the existing
+`ragents.workspace.PROCESS_SANDBOX: "on"`, including for service accounts with `*`; its start
+option is forced and enforced on the server. Default `"auto"` preserves trusted local unrestricted
+execution and its full server-account access, which a clean child environment alone cannot limit.
+
+The optional `exactTools` event and actor field is compatible with older extensions: they do not
+interpret or send it, and omission retains the existing behavior. The `ragents.runs.events`
+contract record is refreshed with `EXTENSION_API_VERSION` unchanged at 1; host API exports and
+version stay unchanged.
+
 ## 2026-10-12: Mini-app frames provide semantic defaults and compact fact rows
 
 Chapters: `spec/actor-programs.md` (Reusable UI building blocks), `spec/plugins.md` (UI library);
@@ -1167,7 +1199,6 @@ replaces `contextPrompt` with `inputOrientation`, which gets the input instead o
 person's message that joins a running turn now brings its own interface context, and inputs that
 no person sent get none. Older journals keep their inputs without these parts; nothing is migrated.
 
-
 ## 2026-10-06: Reasoning is chosen from a menu again
 
 Chapter: `docs/usage.md` (clients). The joined segmented control had also replaced the reasoning
@@ -1535,7 +1566,6 @@ to a text-only model. Reads are isolated by run, actor, and call, including para
 workstation reads. Hooks also apply to the global coordinator so its tools enforce the same image
 capability check. Text reads and TypeScript file access keep their existing result contracts.
 
-
 ## 2026-10-05: Deploy an unpublished host with its workstation package
 
 Chapter: `spec/plugins.md` (Web halves at runtime, Contributions to the executor, Provisioning
@@ -1578,7 +1608,6 @@ below the hero the rain is softened behind the content band. The dev server tile
 screenshot and the sharing screenshot is small. The intro logo looks toward the pointer, choosing
 one of nine head turns from a sprite; the export also publishes referenced images under `media/`.
 
-
 ## 2026-10-05: Homepage chapters carry their own diagrams
 
 Chapters: `spec/overview.md` (main page). Homepage: `docs/homepage/index.html`.
@@ -1598,7 +1627,6 @@ the agent graph, dev servers, and sharing and links the getting started guide; i
 in one framed code box each; the start and "built with"
 sections are gone; the integrations moved into "Drive RAgents from Outside"; the background
 animation now runs behind every section. Diagrams start in Fast; Play remains the slower option.
-
 
 ## 2026-10-05: Select the workstation host in each server's version
 
@@ -1632,7 +1660,6 @@ to clean up; only cleanup that reports `journal-unavailable` is inapplicable. Th
 and old chat files are archived unchanged. Other failures retain the intent and remaining files,
 show the cause on the locked run, and allow startup and shutdown to finish. Retrying deletion
 does not prepare or open the affected run, and other runs continue normally.
-
 
 ## 2026-10-04: Export the document store contract to web halves
 
@@ -2300,7 +2327,6 @@ and `apps/vscode/tests/service-tunnels.test.ts` (against the stub server with th
 real executor: TCP listener, HTTP, a WebSocket echo, server-sent events, a service that speaks
 first, 20 MiB each way, refusals, end by check, connection, and deactivation).
 
-
 ## 2026-10-03: The document store is the server root `@documents`; `copy` and one content route by reference replace `document_write`
 
 Chapters: `spec/plugins.md` (Ownership per facet; Workspace, sandbox tools, and processes; Browser
@@ -2440,7 +2466,6 @@ was the only way to get a working default.
 `ROSLYN_SOLUTION_ON_START` to `on`: one solution loads directly, several are offered as a question,
 none starts nothing. TypeScript and F# stay on demand. Without `BROWSER_EXECUTABLE_PATH` the
 browser is the provisioned Chromium, so the file names no machine path.
-
 
 ## 2026-10-02: Rooms delimit parts of a run; every run script start opens one
 
@@ -6936,7 +6961,6 @@ bound run. Actor programs have their own folder anyway; `typescript_eval` thus r
 workstation's folder and is no longer provided for on the server - that is the more honest
 statement than a second path nobody sees.
 
-
 ## A run belongs to the user who created it (22.09.2026)
 
 Chapters: `docs/spec/profiles.md` (Run ownership) and `docs/operations.md` (Sign-in and profile
@@ -10058,7 +10082,6 @@ Chapters: `docs/spec/actor-programs.md`.
 The actor list now opens downward via an icon next to files and the language tools.
 View, journal, and zoom stay in the bottom status bar. Search, inspector selection, and
 personal canvas visibility are kept. Chapters: `docs/spec/plugins.md`.
-
 
 Dated log, newest first. It says WHY something is the way it is. WHAT is, is in the chapters
 under `docs/spec/`; a new entry names the chapter it changed and is written together

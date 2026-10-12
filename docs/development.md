@@ -988,7 +988,7 @@ GitHub entry point and not a source of rules.
 ### Required reading in this order
 
 1. `docs/spec/overview.md` - guiding principle, terms, layers, course (consolidate instead of expanding;
-   security secondary; no migrations), and the binding rules.
+   required process isolation; no migrations), and the binding rules.
 2. The spec chapter for the task: `docs/spec/core.md` (run, actor, turn, event, journal),
    `typescript-platform.md`, `actor-programs.md` (actor programs, mini-apps), `plugins.md`
    (contract, folders, web host, language servers, skill templates), `profiles.md` (profiles,

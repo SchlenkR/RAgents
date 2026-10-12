@@ -4,6 +4,9 @@ Inbox for everything; the owner and the AI write here. One line per entry, newes
 
 ## Open
 
+- Actor backend idle lifecycle (12.10.2026): add configurable idle shutdown and restart on the next input without losing committed actor state; make `/health` report process and memory pressure or resource exhaustion.
+- Session cookies behind a TLS proxy (12.10.2026): add explicit trusted-proxy configuration and set `Secure` from the trusted forwarded protocol; reject untrusted forwarded headers.
+- Prompt cache boundaries (12.10.2026): keep per-run prompt contributions stable and define separate cache boundaries for static and changing content so a changed prompt fragment does not invalidate the whole conversation cache.
 - Check live (11.10.2026): the global coordinator builds the latest-run mini-app with a real model after an explicit conversation reset; verify its Start widget refreshes by last activity while chat is idle. The prompt guard, owner/access checks, and a real program with an interval and built React view are covered by server tests.
 - Tool descriptions per reader (11.10.2026): prompts name only functions their reader has, but the descriptions of native tools still name others, such as `agent_spawn` naming `run_script_start` and `actor_list` or `actor_program_ensure` naming `actor_program_activate`; render or phrase them for the actor's functions and extend `prompt-function-fit.test.ts` to the tool definitions.
 - App displays for agents beyond named apps (11.10.2026): `app_display_add` addresses global apps by name; an app of another run has no human-readable, unambiguous address a model could use without copying an ID, so only "Show app..." offers it. Decide whether runs get such an address before extending the tool.

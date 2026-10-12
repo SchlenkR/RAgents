@@ -4657,8 +4657,16 @@ the server, that is, also to a bash with an alias as `cwd` and to language serve
 server root; the workstation's executor itself gets no sandbox; there it remains the
 developer's bash. The core does not know the sandbox: the server's sandbox host
 (`WorkspaceSandboxHost`) passes it along with a run's process context (`WorkspaceProcessContext.sandbox`),
-and every place that starts a process wraps it with `sandboxedLaunch`; without a sandbox in the
-context it starts unchanged. The browser check has its own Chromium sandbox and network policy
+and every place that starts a process wraps it with `sandboxedLaunch`. With or without a sandbox,
+server launches use the shared safe environment allowlist plus required run variables, never an
+ambient copy of `process.env`. Profile `env("NAME")` sources and resolved values, configuration
+containing references or declared secrets, and provider credentials are excluded, including from
+environment additions.
+The sandbox library cannot reintroduce ambient `JAVA_TOOL_OPTIONS` at launch.
+This covers snippets, actor backends and tests, Bash and background commands, language servers,
+and executor contributions. Workstations keep their own machine environment. Explicit credentials
+configured for trusted MCP or ACP adapters belong to those adapters and are added only for their
+launch, not to the shared run environment. The browser check has its own Chromium sandbox and network policy
 (section Browser checks).
 
 Restriction is a property of the run's owner, obtained from the profile's current access
@@ -4672,6 +4680,23 @@ remain unrestricted. Neither a stored `false` nor an administrator's message can
 nonadministrator owner's policy; an invalid stored choice fails. The service
 `ragents.workspace.run-security` exposes the resulting `{ restricted }` to trusted plugins
 so their process launches and credential selection follow the same policy.
+
+An unrestricted run executes as the server account: arbitrary Node or shell code can read its
+files, other users' run folders, the server environment and memory through process inspection,
+and the network. Removing credentials from its own environment does not close that access.
+Embedded and multi-user deployments must use `PROCESS_SANDBOX: "on"`, including when their
+service account has `*`; the start option reports protection as forced and the server rejects
+an attempt to disable it ([operations.md](../operations.md#server-process-sandbox)).
+
+Ordinary and package-isolated sandboxed launches cannot inspect the server process or other
+processes outside their sandbox. Linux keeps `--unshare-pid` and a fresh `/proc` for the child
+namespace, explicitly disables weaker nested mode, and checks at sandbox startup that the proc
+mount has a different device from the server's. macOS uses one version-3 Seatbelt profile: process
+information stays within the sandbox, Mach task ports are denied, and `kern.proc*` sysctl
+allowances are removed. Numeric sysctl syscall 202 fails with `EPERM` because named filters alone
+do not stop `KERN_PROCARGS2`; safe named sysctl queries remain allowed. This prevents
+`/proc/<pid>/environ`, `/proc/<pid>/mem`, `ps eww`, or process-argument sysctl calls from revealing
+the server's environment or memory.
 
 The rules are created per run from its folders (`apps/server/src/plugin-support/process-sandbox.ts`).
 Blocked for reading are the server account's home, the other homes (`/Users`, on Linux `/home`
@@ -5760,6 +5785,8 @@ right) returns the archive; a different version is 404. The counterpart is `rage
   in the rail, and is reached by neither a later command, the browser, nor the forwarding; on macOS
   the profile allows no local binding, and `listen` fails with `EPERM`
   (`docs/concepts/sandbox-services.md`).
+- On macOS, tools requiring numeric sysctl calls receive `EPERM` inside process protection;
+  safe named sysctl queries remain allowed. There is no unrestricted retry.
 - On Windows, `scripts/start.sh` and the repository's other shell scripts need the developer's
   own bash (such as Git Bash); the bundled bash applies only to the runs' tool
   `bash`. A standalone server (`ragents start`) still needs `RAGENTS_BASH` pointing to

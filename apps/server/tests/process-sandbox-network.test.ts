@@ -1,4 +1,6 @@
 import assert from "node:assert/strict";
+import fs from "node:fs";
+import { syncBuiltinESMExports } from "node:module";
 import { tmpdir } from "node:os";
 import test from "node:test";
 import { SandboxManager, type SandboxRuntimeConfig } from "@anthropic-ai/sandbox-runtime";
@@ -10,6 +12,10 @@ test("shared public web grants allow web domains and expire with their holder", 
   const reset = context.mock.method(SandboxManager, "reset", async () => undefined);
   context.mock.method(SandboxManager, "checkDependencies", () => ({ errors: [], warnings: [] }));
   context.mock.method(SandboxManager, "wrapWithSandbox", async () => "true");
+  const statSync = fs.statSync;
+  context.mock.method(fs, "statSync", (file: fs.PathLike) => statSync(file === "/proc" ? tmpdir() : file));
+  syncBuiltinESMExports();
+  context.after(() => { context.mock.restoreAll(); syncBuiltinESMExports(); });
   const create = (network: readonly string[], serverAddress?: string) => new ServerProcessSandbox({
     network,
     serverAddress,

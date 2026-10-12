@@ -73,6 +73,7 @@ export type AgentActor = ExecutableActorBase & {
     kind: "agent";
     prompt: string;
     forkOf: ActorId | null;
+    exactTools?: boolean;
 };
 
 export const actorStatePluginId = "ragents.actor-state";

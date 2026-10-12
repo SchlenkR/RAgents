@@ -54,8 +54,9 @@ The values themselves come from ONE TypeScript configuration PER PROFILE
 (`ragents.config.<profile>.ts`, sections per plugin ID plus `host`; loaded by
 `apps/server/src/config-file.ts`, selected solely through `PRODUCT_PROFILE`): it is loaded before
 any other module and materialized in `process.env` only for keys that are not yet set - set
-environment variables therefore win per key, and every existing consumer (`declaredEnvironment`,
-`config.ts`, child environments) keeps reading from the environment unchanged. Service secrets are
+environment variables therefore win per key, and server configuration consumers (`declaredEnvironment`,
+`config.ts`) keep reading from the environment. Model-code child processes receive a separate
+allowlisted environment, not this configuration map. Service secrets are
 in the file as `env("ENV_NAME")` references. The separate `users` export also allows passwords in
 plain text on explicit request.
 
@@ -84,13 +85,21 @@ runtime), so that an unknown section, an unknown key, and a secret in plain text
 What remains at START: a missing reference, a duplicate key with a differing value, and the check
 of every plugin section after composition against the configuration declarations registered in the
 `PluginHost`; sections of known but inactive plugins are ignored with a notice. Lists are real
-arrays in the file and travel through the environment as JSON - `process.env` is a string map
-and remains the transport to sandbox bash, language servers, and the agent runtime.
+arrays in the file and travel through the server environment as JSON - `process.env` is a string
+map used by trusted server configuration, not inherited by model-code child processes.
 Plugin sections accept structured JSON: primitives, null, objects, and arrays of objects.
 Nested `env("NAME")` references are resolved while loading the profile; missing variables and
 plain-text keys ending in `_KEY`, `_TOKEN`, `_SECRET`, `_PASSWORD`, or `_PAT` fail at any depth.
 The plugin validates the shape of its own structured value at startup, including unknown fields.
 `MODEL_ALIASES` and `MODEL_PROVIDERS` retain their dedicated host validation and also travel as JSON.
+
+The server records every `env("NAME")` reference, including nested values and user credentials,
+and its resolved value. Its shared child-process allowlist excludes those names and values,
+configuration destinations containing references or declared secrets, and provider credentials
+even if a name would otherwise be allowed. Literal operational settings such as paths, locale,
+and toolchain settings may remain if allowlisted. This applies to snippets, actor backends and tests, workspace commands, Bash,
+background processes, language servers, and executor contributions on the server. Workstations
+use their own machine environment.
 
 The section is documentation and a validation frame, NOT a namespace: every key is materialized in
 `process.env` under its bare name. Two products with keys of the same name (`AGENT_MODEL`,
@@ -857,7 +866,12 @@ without revealing technical details.
 
 Settings and the global coordinator keep their own permissions. Native server execution uses the
 run owner's policy: nonadministrators always receive the process sandbox, administrators can
-select it before starting, and the server can force it for all runs. Neither sharing nor a
+select it before starting, and `ragents.workspace.PROCESS_SANDBOX: "on"` forces it for all runs,
+including owners with `*`. The start option then stays on and locked, and the server refuses a
+false choice. The default `"auto"` leaves administrator runs unrestricted unless selected:
+their native code can read the server account's files, other users' runs, environment and memory
+through other processes, and the network, despite a clean child environment. Embedded and
+multi-user deployments require `"on"` ([operations.md](../operations.md#server-process-sandbox)). Neither sharing nor a
 message from an administrator changes a restricted owner's policy
 ([plugins.md](plugins.md), Server process sandbox). The global coordinator has its own
 read and write permissions; changes to its model selection additionally require the permission to
@@ -875,7 +889,9 @@ an actor for the run or a workspace path and records whether the actor may use o
 User permissions such as `runs.write` instead control access to application routes.
 
 The `tools` value on spawn selects the actor's function API: `[]` for a plain LLM, a list of
-names for an exact selection, or `null` for the dynamic full set. The selection is not inherited
+names for selected functions plus automatic TypeScript tools, or `null` for the dynamic full set.
+`exactTools: true` requires an explicit array and adds no TypeScript tools; names explicitly
+included remain available. The selection is not inherited
 from the coordinator. Delegable engine capabilities are inherited as grants and can be reduced
 with `withoutCapabilities`. Prompt instructions describe a role but grant no technical access.
 Actor programs also declare required functions under `capabilities`; this limits calls but does
@@ -906,7 +922,8 @@ use the set allowed for this actor.
 - With users, the global coordinator has no host shell. A nonadministrator's TypeScript
   snippets receive the process sandbox and cannot read foreign journals or the server home;
   administrator code remains unrestricted unless the server forces protection. Unrestricted
-  code runs as the server account and can reach that account's files. Through the server API,
+  code runs as the server account and can reach that account's files, other runs, process
+  environment and memory, and network. Through the server API,
   the coordinator still reaches exactly its user's permissions.
 - When switching, the coordinators' model selection checks the attachments of all coordinator
   conversations, including those of a former shared user or a removed user.

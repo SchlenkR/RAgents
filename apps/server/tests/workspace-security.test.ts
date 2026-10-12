@@ -196,6 +196,18 @@ test("an administrator with a forced sandbox can still use an explicitly selecte
   assert.ok(f.folders.at(-1)!.value.writable.includes(project));
 });
 
+test("forced sandbox protection is visible and cannot be disabled by an administrator", async (t) => {
+  const f = await fixture(t, "on");
+  const context = { runId: "embedded", userId: "administrator" };
+  const option = f.host.startOptions.entry(WORKSPACE_SANDBOX_OPTION_ID)!.option;
+  assert.equal(await option.defaultValue(context), true);
+  assert.deepEqual(await option.describe(true, context), { kind: "process-sandbox", forced: true });
+  assert.throws(() => f.host.startOptions.accept(WORKSPACE_SANDBOX_OPTION_ID, false, context),
+    (error: unknown) => error instanceof DomainError && error.code === "workspace-sandbox-required" && error.status === 403);
+  f.createRun("embedded", "administrator", false);
+  assert.ok((await f.runtime.sandbox.serverProcessContextFor("embedded")).sandbox);
+});
+
 test("a supplied bootstrap workspace avoids resolver recursion and registered roots without changing the run's cached context", async (t) => {
   const f = await fixture(t);
   const runId = "bootstrap-workstation";

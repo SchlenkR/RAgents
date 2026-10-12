@@ -7,6 +7,7 @@ import type { Duplex } from "node:stream";
 import type { ChatSessionLike, ChatSessionProvider, ListedSession, RunListScope } from "./chat-handler.js";
 import { canStartEntry, createAccessContext, DomainError, isRunId, notShared, unrestrictedAccess, type AccessContext, type HttpRouteContribution, type Journal, type JournalLoadFailure, type MethodContribution, type PluginHost, type RunSharing, type ServiceToken, type SessionStartedContext } from "@ragents/engine";
 import { WORKSPACE_EXECUTOR_VERSION } from "@ragents/workspace-executor";
+import { excludeProcessEnvironment } from "@ragents/workspace-executor/src/safe-environment.ts";
 import { assertRunOperable, assertRunRights, assertRunWorkspaceAccess, runIdInPath, runListScope, runReachable, sharingUnavailable, type GlobalRunPolicy, type RunAccessPolicy } from "./api/rights.js";
 import type { RunSharingResult } from "./api/contracts.js";
 import { configuredAnonymousUser, configuredUsers } from "./config-file.js";
@@ -206,7 +207,10 @@ export class RunSessionProvider implements ChatSessionProvider {
       const profileProviders = configuredModelProviders().map(modelProviderRegistration);
       const taken = profileProviders.find((provider) => providers.some((other) => other.id === provider.id));
       if (taken) throw new Error(`MODEL_PROVIDERS: the provider ${taken.id} is already registered by a plugin`);
-      for (const provider of [...providers, ...profileProviders]) runtime.registerProvider(provider.id, provider.config);
+      for (const provider of [...providers, ...profileProviders]) {
+        excludeProcessEnvironment({ apiKey: provider.config.apiKey });
+        runtime.registerProvider(provider.id, provider.config);
+      }
       const aliases = validatedModelAliases();
       if (aliases.length > 0) runtime.registerAliases(ALIAS_PROVIDER, aliases);
       return runtime;

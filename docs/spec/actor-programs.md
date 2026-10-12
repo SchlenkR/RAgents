@@ -853,6 +853,14 @@ inputs; nothing is stored twice.
 
 ## Permissions
 
+Backends and domain tests use the same allowlisted server process environment as snippets,
+without server provider keys or profile environment references. With process protection they
+cannot inspect the environment or memory of the server or other processes outside their sandbox.
+Package isolation additionally narrows file and network access
+([TypeScript platform](typescript-platform.md#build-and-process-lifecycle)).
+Without process protection, native Node code runs with the server account's file, process, and
+network access; the declared function permissions do not restrict direct Node access.
+
 `ragents.permissions` grants a program bounded external access:
 
 ```json

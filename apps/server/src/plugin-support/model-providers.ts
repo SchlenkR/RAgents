@@ -1,6 +1,7 @@
 import { EXTENDED_THINKING_LEVELS, isModelSdk, MODEL_SDK_BASE_URLS, MODEL_SDKS, type Api, type InputModality, type Model, type ModelSdk } from "@ragents/ai";
 import { builtinProviders } from "@ragents/ai/providers/all";
 import type { ModelProviderRegistration } from "@ragents/engine";
+import { excludeProcessEnvironment } from "@ragents/workspace-executor/src/safe-environment.ts";
 import { isEnvironmentReference } from "../config-definition.js";
 import { MissingEnvironmentError } from "../missing-environment.js";
 import type { ModelUpstream } from "./model-upstreams.js";
@@ -60,6 +61,7 @@ const apiKeyOf = (value: unknown, location: string, environment: Readonly<Record
     throw new Error(`${location}.apiKey must be env("NAME"); a key never appears in plain text in the configuration`);
   }
   const key = environment[value.name];
+  excludeProcessEnvironment({ [value.name]: key });
   if (!key) {
     throw new MissingEnvironmentError({ variable: value.name, section: "host", key: "MODEL_PROVIDERS" },
       `${location}.apiKey refers with env("${value.name}") to an environment variable that is not set in this shell`);

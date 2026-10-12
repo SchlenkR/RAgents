@@ -52,6 +52,7 @@ import type { RunProcessSandboxes } from "./process-sandbox.js";
 import { SKILLS_ALIAS, skillRootAlias } from "./skills.js";
 import { alwaysAvailable } from "./tool-availability.js";
 import { syncWorkspaceOwnership } from "./workspace-ownership.js";
+import { withoutPrivateEnvironment } from "@ragents/workspace-executor/src/safe-environment.ts";
 
 export interface RegisteredWorkspaceRoot {
   id: string;
@@ -341,7 +342,7 @@ export class WorkspaceSandboxHost implements SandboxServices {
     const sandbox = processSandbox?.forRun({ writable, readable: dependencies, temporary, isolated: true });
     return {
       ...context, cwd: own, root: own, home: own,
-      env: { ...safeProcessEnvironment(context.env), HOME: own, USERPROFILE: own, TMPDIR: temporary, TMP: temporary, TEMP: temporary, CLAUDE_CODE_TMPDIR: temporary },
+      env: withoutPrivateEnvironment({ ...safeProcessEnvironment(context.env), HOME: own, USERPROFILE: own, TMPDIR: temporary, TMP: temporary, TEMP: temporary, CLAUDE_CODE_TMPDIR: temporary }),
       sandbox,
     };
   }

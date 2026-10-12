@@ -773,10 +773,11 @@ Credential Manager and over SSH.
 ## Server process sandbox
 
 What a restricted run starts on the server (Bash, commands, language servers, TypeScript snippets,
-actor programs) runs in a process sandbox: it reads and writes only the permitted folders of its run, sees
-neither other runs nor the home of the server account, and can reach public web domains by
-default. Rules and limits are in [plugins.md](spec/plugins.md) under "Server process sandbox". It
-does not apply on a workstation; there the run works with the developer's Bash and credentials.
+actor programs) runs in a process sandbox: it reads and writes only the permitted folders of its
+run, cannot inspect other runs or the server account's home, environment, and memory, and can
+reach public web domains by default. Rules and limits are in [plugins.md](spec/plugins.md) under
+"Server process sandbox". It does not apply on a workstation; there the run works with the
+developer's Bash and credentials.
 Only what such a run starts on the server, such as a Bash in `@actors`, runs inside it.
 
 Nonadministrators always get this protection. Administrators keep unrestricted execution by
@@ -785,6 +786,23 @@ everyone with `PROCESS_SANDBOX: "on"`. The setting is fixed after the start and 
 run's owner, including when someone else operates a shared run. Existing server folders can
 only be bound by administrators; nonadministrators use a new folder per run or their own
 workstation. Restricted runs have their own NuGet cache.
+
+Embedded chat and multi-user servers must set `ragents.workspace.PROCESS_SANDBOX: "on"`, even
+when conversations belong to a service account with `*`. Run the server under its own operating
+system account and use scoped provider keys with a credit limit. The forced "Sandbox protection"
+switch is on and locked; the server rejects attempts to turn it off. Limit permitted network
+destinations and extra folders to what the deployment needs.
+
+With the default `"auto"`, an owner with `*` can run unrestricted code. This is an explicit
+choice for trusted local work: native Node and shell code can read everything the server account
+can, including other users' runs, secrets through the server's environment or process memory,
+and the network. A prompt injection in a message or document has the same access. Every model-code
+child still starts with a clean allowlisted environment, including paths, home, temporary folder,
+locale, and required run variables; provider keys, profile `env("NAME")` sources and values, and
+configuration containing references or declared secrets are absent. Allowlisted literal
+operational settings may remain. That environment alone cannot protect unrestricted runs.
+Trusted MCP and ACP adapters receive only their explicitly configured credentials in addition
+to this environment. Workstations use their own credentials and permissions.
 
 The first restricted execution checks these prerequisites; `"on"` checks them at startup:
 
@@ -820,6 +838,8 @@ active for restricted runs. If isolation cannot be initialized, their execution 
 cause instead of starting without protection.
 On macOS, pnpm through corepack needs a `packageManager` in the workspace's
 `package.json`, because corepack otherwise aborts at a blocked folder above it.
+Tools requiring numeric sysctl calls receive `EPERM` on macOS; safe named sysctl queries remain
+allowed, and a failure never retries without protection.
 
 The browser check has a separate network policy for protected runs. It reaches public
 websites on ports 80 and 443; local or internal applications require exact permitted

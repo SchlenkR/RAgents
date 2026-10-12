@@ -109,6 +109,7 @@ export const spawnAgent =
         execution: AgentExecution;
         grants: readonly CapabilityGrant[];
         toolNames: readonly string[] | null;
+        exactTools?: boolean;
         forkOf?: string;
         description?: string;
         task?: string;
@@ -117,6 +118,9 @@ export const spawnAgent =
         const caller = commandActorOf(state, context);
         assertCapability(caller, "agent.spawn", { kind: "run" });
         assertDelegation(caller, input.grants);
+
+        if (input.exactTools !== undefined && input.toolNames === null)
+            throw new DomainError("exact-tools-invalid", "exactTools requires an explicit tools array; omit it with tools: null.", 400);
 
         if (input.execution.driver.kind === "external" && (input.forkOf !== undefined || input.toolNames !== null))
             throw new DomainError("external-equipment", "An external runtime requires toolNames: null and cannot fork a model context.", 400);
@@ -142,6 +146,7 @@ export const spawnAgent =
                     execution: input.execution,
                     grants: [...input.grants],
                     toolNames: selectedToolNames(input.toolNames),
+                    ...(input.exactTools === undefined ? {} : { exactTools: input.exactTools }),
                     ...(forkOf ? { forkOf } : {}),
                     ...descriptionOf(input.description),
                     ...(room === null ? {} : { room }),

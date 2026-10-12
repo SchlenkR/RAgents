@@ -780,7 +780,9 @@ per run or on their own workstation. Sharing does not change the owner&#39;s exe
 an actor for the run or a workspace path and records whether the actor may use or delegate it.
 User permissions such as <code>runs.write</code> instead control access to application routes.</p>
 <p>The <code>tools</code> value on spawn selects the actor&#39;s function API: <code>[]</code> for a plain LLM, a list of
-names for an exact selection, or <code>null</code> for the dynamic full set. The selection is not inherited
+names for selected functions plus automatic TypeScript tools, or <code>null</code> for the dynamic full set.
+<code>exactTools: true</code> requires an explicit array and adds no TypeScript tools; names explicitly
+included remain available. The selection is not inherited
 from the coordinator. Delegable engine capabilities are inherited as grants and can be reduced
 with <code>withoutCapabilities</code>. Prompt instructions describe a role but grant no technical access.
 Actor programs also declare required functions under <code>capabilities</code>; this limits calls but does
