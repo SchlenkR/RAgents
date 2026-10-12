@@ -64,9 +64,6 @@ const gridClass = (grid: number): string => {
 
 const messageOf = (cause: unknown): string => cause instanceof Error ? cause.message : String(cause);
 
-/** The key under which the "Add widget" tile packs after the widgets; widget IDs are never empty. */
-const ADD_TILE = "";
-
 const REPACK_MOTION = "start-repack";
 
 /** A length of whole columns of the grid: shares of its width less its gaps, plus the gaps between them. */
@@ -88,13 +85,21 @@ function packCells(element: HTMLElement, motion: Motion) {
   const packing = packWidgets(cells.map((cell) => {
     const height = parseFloat(getComputedStyle(cell).height);
     // A cell that is not rendered has no height and takes no place.
-    return { key: cell.dataset.pack!, columns: Number(cell.dataset.columns), height: Number.isFinite(height) ? height : 0 };
+    return { key: cell.dataset.pack!, columns: Number(cell.dataset.columns), maxColumns: Number(cell.dataset.maxColumns), height: Number.isFinite(height) ? height : 0 };
   }), grid, gap);
   const placed = new Map(packing.widgets.map((widget) => [widget.key, widget]));
   for (const cell of cells) {
     const at = placed.get(cell.dataset.pack!);
     cell.style.left = columnLength(grid, at?.column ?? 0, at?.column ?? 0);
     cell.style.top = `${at?.top ?? 0}px`;
+    const columns = at?.columns ?? Number(cell.dataset.columns);
+    cell.style.width = columnLength(grid, columns, columns - 1);
+    cell.dataset.shownColumns = String(columns);
+    const label = cell.querySelector<HTMLElement>("[data-widget-columns]");
+    if (label !== null) {
+      label.textContent = `${columns} of ${grid}`;
+      label.title = `${columns} of ${grid} columns`;
+    }
   }
   element.style.height = `${packing.height}px`;
   if (motion === "none" || window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
@@ -116,6 +121,7 @@ function unpackCells(element: HTMLElement) {
   for (const cell of element.querySelectorAll<HTMLElement>(":scope > [data-pack]")) {
     cell.style.removeProperty("left");
     cell.style.removeProperty("top");
+    delete cell.dataset.shownColumns;
     for (const animation of cell.getAnimations().filter((running) => running.id === REPACK_MOTION)) animation.cancel();
   }
 }
@@ -366,9 +372,15 @@ export function StartDashboard({ widgets, preferences }: { widgets: readonly Das
   const panelId = (key: string) => `${prefix}-panel-${encodeURIComponent(key)}`;
   const span = (key: string) => layout.mode === "grid" ? layout.columns.get(key) ?? grid : grid;
   const widthText = (columns: number) => `${shownColumns(columns, grid)} of ${grid} columns`;
-  const arrangement = [...placed.map((widget) => `${widget.key}:${span(widget.key)}`), ...editing ? [`${ADD_TILE}:${shownColumns(2, grid)}`] : []].join("\u0000");
+  const arrangement = placed.map((widget) => `${widget.key}:${span(widget.key)}`).join("\u0000");
   usePacking(element, mode === "grid" ? `${state.kind}:${grid}` : undefined, arrangement);
   const cellStyle = (key: string): CSSProperties | undefined => mode === "grid" ? cellWidth(grid, span(key)) : undefined;
+  const shownSpan = (key: string): number => {
+    const cell = element?.querySelector<HTMLElement>(`[data-start-widget="${CSS.escape(key)}"]`);
+    const columns = Number(cell?.dataset.shownColumns);
+    if (!Number.isInteger(columns) || columns < 1 || columns > grid) throw new Error(`Start widget ${key} has no shown width to resize.`);
+    return columns;
+  };
   const configured = editing ? shown.filter(isFramed).find((widget) => widget.key === configuring) : undefined;
 
   const leave = useCallback((message: string) => {
@@ -431,8 +443,9 @@ export function StartDashboard({ widgets, preferences }: { widgets: readonly Das
     }
     const item = itemOf.get(key)!;
     const current = draft.find((widget) => widget.key === key)!.columns;
-    const next = resizedColumns({ ...item, columns: current }, shownColumns(current, grid) + step, grid);
-    if (next === current) setAnnouncement(`${titleOf(key)} is already at its ${step > 0 ? "widest" : "narrowest"}.`);
+    const shown = shownSpan(key);
+    const next = resizedColumns({ ...item, columns: current }, shown + step, grid);
+    if (shownColumns(next, grid) === shown) setAnnouncement(`${titleOf(key)} is already at its ${step > 0 ? "widest" : "narrowest"}.`);
     else change(resizeWidget(draft, key, next, item), `${titleOf(key)} is now ${widthText(next)} wide.`, { kind: "control", key, control: "handle" });
   };
   const remove = (key: string) => {
@@ -497,9 +510,8 @@ export function StartDashboard({ widgets, preferences }: { widgets: readonly Das
       const bounds = element.getBoundingClientRect();
       // Pointer positions are in the page's zoomed pixels, the boxes of the cells in CSS pixels of the grid without a slide in progress.
       const zoom = bounds.width / element.offsetWidth || 1;
-      const add = element.querySelector<HTMLElement>(":scope > [data-add-widget]");
       return dropPlace(cells().map((cell) => boxOf(cell, cell.dataset.startWidget!)), key, { x: (point.x - bounds.left) / zoom, y: (point.y - bounds.top) / zoom },
-        element.clientWidth, add === null ? undefined : boxOf(add, ADD_TILE));
+        element.clientWidth);
     };
     const current = () => cells().findIndex((cell) => cell.dataset.startWidget === key);
     const place = (to: number) => setEdited((preferences) => preferences && preferencesOf(moveWidget(start, key, to), known, base));
@@ -529,24 +541,27 @@ export function StartDashboard({ widgets, preferences }: { widgets: readonly Das
     const base = effective;
     const item = itemOf.get(key)!;
     const from = start.find((widget) => widget.key === key)!.columns;
+    const shown = shownSpan(key);
+    const shownWidth = resizedColumns({ ...item, columns: from }, shown, grid);
     const startX = event.clientX;
     const bounds = element.getBoundingClientRect();
     // Pointer positions and the grid's box are both in the page's zoomed pixels, its gap in CSS pixels.
     const zoom = bounds.width / element.offsetWidth || 1;
     const pitch = (bounds.width + parseFloat(getComputedStyle(element).columnGap) * zoom) / grid;
-    const columnsAt = (point: PointerPoint) => draggedColumns({ ...item, columns: from }, grid, point.x - startX, pitch);
+    const columnsAt = (point: PointerPoint) => draggedColumns({ ...item, columns: from }, grid, point.x - startX, pitch, shown);
+    const targetAt = (point: PointerPoint) => resizedColumns({ ...item, columns: from }, shown + (point.x - startX) / pitch, grid);
     const size = (columns: number) => setEdited((current) => current && preferencesOf(resizeWidget(start, key, columns, item), known, base));
     pointer(event, (point) => {
       const columns = columnsAt(point);
       size(columns);
-      setGesture({ kind: "resize", key, columns, point });
+      setGesture({ kind: "resize", key, columns: targetAt(point), point });
     }, (point) => {
       const columns = point === null ? from : columnsAt(point);
       setGesture(undefined);
       size(columns);
-      setAnnouncement(point === null ? `Resizing ${titleOf(key)} was cancelled.` : `${titleOf(key)} is now ${widthText(columns)} wide.`);
+      setAnnouncement(point === null ? `Resizing ${titleOf(key)} was cancelled.` : `${titleOf(key)} is now ${widthText(columns === from ? shownWidth : columns)} wide.`);
     }, element);
-    setGesture({ kind: "resize", key, columns: from, point: { x: event.clientX, y: event.clientY } });
+    setGesture({ kind: "resize", key, columns: shownWidth, point: { x: event.clientX, y: event.clientY } });
   };
 
   const editButton = (compact: boolean) => <Button aria-label={compact ? "Edit" : undefined} className="flex-none text-muted-foreground" data-edit-start disabled={state.kind !== "ready"}
@@ -583,7 +598,7 @@ export function StartDashboard({ widgets, preferences }: { widgets: readonly Das
         {Array.from({ length: grid }, (_, index) => <div className="rounded-xl border border-dashed border-primary/50 bg-primary/5" key={index} />)}
       </div>}
       {shown.map((widget) => {
-        if (!isFramed(widget)) return <div className={cn(mode === "grid" ? "absolute" : "contents", editing && "[&>*]:opacity-60")} data-columns={mode === "grid" ? grid : undefined} data-pack={widget.key}
+        if (!isFramed(widget)) return <div className={cn(mode === "grid" ? "absolute" : "contents", editing && "[&>*]:opacity-60")} data-columns={mode === "grid" ? grid : undefined} data-max-columns={mode === "grid" ? grid : undefined} data-pack={widget.key}
           data-start-section={widget.key} hidden={mode === "list"} inert={editing} key={widget.key} style={cellStyle(widget.key)}>
           <RenderBoundary resetKeys={[]} title="A Start widget could not be displayed"><WidgetContent content={widget.content} settings={settingsOf(widget).values} /></RenderBoundary>
         </div>;
@@ -599,7 +614,8 @@ export function StartDashboard({ widgets, preferences }: { widgets: readonly Das
           className={cn("group/cell min-w-0", mode === "grid" ? "absolute" : editing && "relative", editing && "rounded-xl",
             editing && mode === "grid" && cn("outline-2 outline-offset-4", dragging === undefined ? "outline-dashed outline-border-strong" : "bg-primary/5 outline-primary"),
             mode === "list" && cn("border bg-card px-3 py-2", dragging === "move" ? "border-primary" : "border-dashed border-border-strong"))}
-          data-columns={mode === "grid" ? span(widget.key) : undefined} data-dragging={dragging} data-pack={widget.key} data-start-widget={widget.key}
+          data-columns={mode === "grid" ? span(widget.key) : undefined} data-max-columns={mode === "grid" ? shownColumns(widget.maxColumns, grid) : undefined}
+          data-dragging={dragging} data-pack={widget.key} data-start-widget={widget.key}
           hidden={!editing && (empty.has(widget.key) || (mode === "tabs" && widget.key !== active))} id={mode === "tabs" ? panelId(widget.key) : undefined} key={widget.key}
           role={mode === "tabs" ? "tabpanel" : undefined} style={cellStyle(widget.key)}>
           <WidgetFrame editing={editing} empty={empty.has(widget.key)} list={mode === "list"} settings={settingsOf(widget)} titleRow={titleRow} widget={widget} />
@@ -612,9 +628,9 @@ export function StartDashboard({ widgets, preferences }: { widgets: readonly Das
           {dragging === "move" && <div aria-hidden className={cn("absolute rounded-full bg-primary", mode === "list" ? "inset-x-0 -top-2 h-1" : "inset-y-0 -left-3.5 w-1")} data-drop-indicator />}
         </div>;
       })}
-      {editing && <Button className={cn("w-full rounded-xl border-dashed text-muted-foreground", mode === "grid" && "absolute h-24 transition-colors")} data-add-widget
-        data-columns={mode === "grid" ? shownColumns(2, grid) : undefined} data-pack={ADD_TILE} onClick={() => setGalleryOpen(true)} style={mode === "grid" ? cellWidth(grid, shownColumns(2, grid)) : undefined} variant="outline"><PlusIcon data-icon="inline-start" />Add widget</Button>}
     </div>
+    {editing && <Button className={cn("w-full rounded-xl border-dashed text-muted-foreground", mode === "grid" && "h-24 transition-colors")} data-add-widget
+      onClick={() => setGalleryOpen(true)} style={mode === "grid" ? cellWidth(grid, shownColumns(2, grid)) : undefined} variant="outline"><PlusIcon data-icon="inline-start" />Add widget</Button>}
     <p aria-live="polite" className="sr-only" role="status">{announcement}</p>
     {editing && <p className="sr-only" id={hint}>{mode === "list"
       ? "Arrow keys move the widget, Delete removes it."

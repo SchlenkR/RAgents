@@ -1,5 +1,16 @@
 # Decisions
 
+## 2026-10-12: Start widgets fill adjacent free columns
+
+Chapter: `spec/plugins.md` (Start widgets, Start, Arranging Start); usage: `usage.md` (Shared panel pages).
+
+Configured widths that did not add up to six left an empty column down Start. After packing,
+widgets now grow right into columns free for their full height, top to bottom and left to right,
+bounded by `maxColumns`. Configured widths remain the minimum and preferences stay unchanged.
+Edit mode shows the grown widths, and pointer and keyboard resizing start from them. The Add
+widget tile sits below the packed grid so it cannot block growth. Layout tests cover the reported
+case, maximum widths, lower blockers, unchanged narrow layouts, and resizing from the shown width.
+
 ## 2026-10-12: Run listings read summaries without cloning run states
 
 Chapter: `spec/core.md` (Journal and projection); no documented contract changes.

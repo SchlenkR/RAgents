@@ -61,20 +61,23 @@ export function resizedColumns(width: WidgetWidth, shown: number, grid: number):
 }
 
 /** The columns a resize drag reaches: the shown width at its start plus the columns the pointer moved, snapped to the nearest column edge. */
-export const draggedColumns = (width: WidgetWidth, grid: number, moved: number, pitch: number): number =>
-  resizedColumns(width, shownColumns(width.columns, grid) + moved / pitch, grid);
+export function draggedColumns(width: WidgetWidth, grid: number, moved: number, pitch: number, from: number): number {
+  const columns = resizedColumns(width, from + moved / pitch, grid);
+  return shownColumns(columns, grid) === from ? width.columns : columns;
+}
 
-/** How Start arranges its widgets at a container width: each framed widget takes its columns, a section without a title the whole row. */
+/** The minimum columns of framed widgets at a container width; a section without a title fills the row. */
 export function dashboardLayout(items: readonly DashboardItem[], width: number | undefined): DashboardLayout {
   const grid = gridColumnsAt(width);
   if (grid === 1 && items.filter((item) => item.framed).length > 1) return { mode: "tabs" };
   return { mode: "grid", grid, columns: new Map(items.map((item) => [item.key, item.framed ? shownColumns(item.columns, grid) : grid])) };
 }
 
-/** A widget to pack: the columns it takes in the grid shown and its measured height in pixels; a widget without height takes no place. */
+/** A widget's minimum and maximum shown columns and measured height; without height it takes no place. */
 export interface PackItem {
   readonly key: string;
   readonly columns: number;
+  readonly maxColumns: number;
   readonly height: number;
 }
 
@@ -96,10 +99,11 @@ export interface Packing {
 /** Tops closer than this count as equal, so that a fraction of a pixel never moves a widget away from the left. */
 const SAME_TOP = 0.5;
 
-/** Places widgets in order at their topmost free rectangle, leftmost among equal tops; empty widgets take no place. */
+/** Packs widgets at their topmost free rectangle, then grows them right into free columns within their range. */
 export function packWidgets(items: readonly PackItem[], grid: number, gap: number): Packing {
-  const packed = items.reduce<readonly (PackedWidget & { readonly bottom: number })[]>((occupied, item) => {
+  const packed = items.reduce<readonly (PackedWidget & { readonly bottom: number; readonly maxColumns: number })[]>((occupied, item) => {
     if (!Number.isInteger(item.columns) || item.columns < 1 || item.columns > grid) throw new Error(`Start widget ${item.key} cannot take ${item.columns} of ${grid} columns.`);
+    if (!Number.isInteger(item.maxColumns) || item.maxColumns < item.columns) throw new Error(`Start widget ${item.key} has maxColumns ${item.maxColumns} below its ${item.columns} columns or not a whole number.`);
     if (!(item.height > 0)) return occupied;
     const best = Array.from({ length: grid - item.columns + 1 }, (_, column) => ({
       column,
@@ -108,9 +112,15 @@ export function packWidgets(items: readonly PackItem[], grid: number, gap: numbe
         .reduce((top, widget) => top >= widget.bottom + gap || top + item.height + gap <= widget.top ? top : widget.bottom + gap, 0),
     }))
       .reduce((chosen, candidate) => candidate.top < chosen.top - SAME_TOP ? candidate : chosen);
-    return [...occupied, { key: item.key, column: best.column, columns: item.columns, top: best.top, bottom: best.top + item.height }];
+    return [...occupied, { key: item.key, column: best.column, columns: item.columns, maxColumns: item.maxColumns, top: best.top, bottom: best.top + item.height }];
   }, []);
-  return { widgets: packed.map(({ key, column, columns, top }) => ({ key, column, columns, top })), height: Math.max(0, ...packed.map((widget) => widget.bottom)) };
+  const grown = [...packed].sort((a, b) => a.top - b.top || a.column - b.column).reduce((occupied, widget) => {
+    const right = Math.min(grid, widget.column + widget.maxColumns, ...occupied
+      .filter((other) => other.column >= widget.column + widget.columns && widget.top < other.bottom + gap && other.top < widget.bottom + gap)
+      .map((other) => other.column));
+    return occupied.map((other) => other.key === widget.key ? { ...other, columns: right - widget.column } : other);
+  }, packed);
+  return { widgets: grown.map(({ key, column, columns, top }) => ({ key, column, columns, top })), height: Math.max(0, ...grown.map((widget) => widget.bottom)) };
 }
 
 /** A widget's box in the grid's own pixels, from its top left corner. */

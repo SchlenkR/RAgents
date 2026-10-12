@@ -117,12 +117,12 @@ test("a Start widget with a title gets a frame and its columns; without one it t
   const html = renderToStaticMarkup(createElement(PanelPage, { preferences, registry, state: page(), send: () => {} }));
   assert.match(html, /<section aria-label="Work board"[^>]*><div[^>]*><h2[^>]*>Work board<\/h2><\/div><div[^>]*data-start-widget-body="board"><p>Board content<\/p>/,
     "the host draws the title row above the content");
-  assert.match(html, /data-columns="6" data-pack="board" data-start-widget="board"/, "a widget without columns takes all six and is known by its contribution ID");
-  assert.match(html, /data-columns="2" data-pack="auto" data-start-widget="auto"/, "a widget alone in its row keeps its columns");
-  assert.match(html, /data-columns="2" data-pack="start.new" data-start-widget="start.new"/);
-  assert.match(html, /data-columns="4" data-pack="start.continue" data-start-widget="start.continue"/);
+  assert.match(html, /data-columns="6" data-max-columns="6" data-pack="board" data-start-widget="board"/, "a widget without columns starts at all six and is known by its contribution ID");
+  assert.match(html, /data-columns="2" data-max-columns="6" data-pack="auto" data-start-widget="auto"/, "packing starts at the configured columns and allows growth to the maximum");
+  assert.match(html, /data-columns="2" data-max-columns="6" data-pack="start.new" data-start-widget="start.new"/);
+  assert.match(html, /data-columns="4" data-max-columns="6" data-pack="start.continue" data-start-widget="start.continue"/);
   assert.match(html, /data-dashboard="grid"[^>]*data-grid="6"/, "the grid has six columns");
-  assert.match(html, /<div class="absolute" data-columns="6" data-pack="plain" data-start-section="plain" style="[^"]*"><section>Plain section<\/section><\/div>/,
+  assert.match(html, /<div class="absolute" data-columns="6" data-max-columns="6" data-pack="plain" data-start-section="plain" style="[^"]*"><section>Plain section<\/section><\/div>/,
     "a widget without a title has no frame of its own and takes the whole width");
   assert.ok(html.indexOf(">Work board<") < html.indexOf(">Auto items<") && html.indexOf(">Auto items<") < html.indexOf(">Plain section<"));
 });
