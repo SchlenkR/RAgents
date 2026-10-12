@@ -1862,13 +1862,17 @@ positions and order and the inspection rail, and removes empty panes. Arrow keys
 select tabs; focused dividers resize with arrow keys.
 
 A workspace tab with `placement: "window"` defaults to a header button and opens like an app.
+Its optional `openByDefault` defaults to true. With false, the window remains available in the
+header but stays closed on first availability and after "Reset layout". Explicit opening and
+saved places take precedence; changing the default never opens or closes a known window.
+This option has no effect on sidebar contributions or VS Code's inspection rail.
 Its panel has the ID `tab:<tab id>` (`workspaceTabPanelId` in `dock-state.ts`; a default sidebar
 tab is `tool:<tab id>`). Moving a button never changes this ID or the plugin contribution.
 `dockButtonPlacement` resolves a user override before the default. Any entry, including Chat,
 apps, and both kinds of workspace tab, can have its button in either place. The catalog order is
 Chat, window tabs in tab order, then apps, so apps that arrive later still join at the end.
-Such a tab joins the layout like a new app through the largest-window rule; Reset layout opens
-it again. Its header button shows its `Icon` and `label` with grip and reordering like any view.
+An automatically or explicitly opened tab joins the layout through the largest-window rule.
+Its header button shows its `Icon` and `label` with grip and reordering like any view.
 Its `Badge` or pending activity is drawn as the same `bg-info` dot inside `BadgeDisplayProvider
 value="dot"` at the top right of its directly available header button. Its `Header` renders in the area
 header while it is the area's active tab, and its `Panel` receives `active` while it is visible. It
@@ -1897,7 +1901,7 @@ panels are docked; their position is independent of `bar`.
 Older saved layouts without overrides use plugin defaults. Invalid storage or a failed
 write is reported; "Reset layout" explicitly replaces invalid state. No server function controls this layout.
 Catalog reconciliation (`reconcileDockState`) with the shared catalog from `run-apps.ts` only
-adds: a panel the layout never knew joins it, and a known panel that is unavailable, such as a
+adds: a panel the layout never knew is registered and opens unless it opts out, and a known panel that is unavailable, such as a
 stopped or hidden app or a window tab whose run metadata is missing, keeps its place in the tree,
 `known`, `closed`, `bar`, `order`, and `placements`. Only the user's close and "Reset layout"
 remove a place. `visibleDockState` derives what the dock shows: unavailable panels are hidden;
@@ -1916,7 +1920,9 @@ Chat and visited app/tool containers are stable siblings positioned by rectangle
 the split tree. Hidden or closed panels are inert and use React `Activity` in hidden mode:
 React state and DOM, including iframe identity, are retained, while effects are cleaned up.
 The host retains the panel's parent-fed props while hidden, so session updates do not render
-that panel. Revealing it supplies the latest props and resumes its effects. Moves, splits,
+that panel. Every visible area stays live independently of which window has focus; only an
+inactive tab, closed panel, or area hidden by maximization pauses effects. Revealing it supplies
+the latest props and resumes its effects. Moves, splits,
 merges, and maximization never reparent a frame. Removed or unavailable contributions, leaving a run,
 reloading the page, and an app's own rebuild can still unmount or reload its content. Persistence
 stores layout, not unsent input across a page reload. VS Code keeps chat in the panel and opens

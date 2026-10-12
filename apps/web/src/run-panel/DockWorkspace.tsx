@@ -77,29 +77,31 @@ export function DockWorkspace({ additions = [], apps, chat, chatIcon = <UsersIco
   const { state: stored, error, update } = useDockStorage(session.session.id);
   const [size, setSize] = useState({ width: 0, height: 0 });
   const [drag, setDrag] = useState<{ ids: readonly string[]; point: DockPoint; header?: boolean; slot?: number | null }>();
-  const defaultPanels = ["chat", ...tabs.filter((tab) => tab.placement === "window").map((tab) => tabWindowId(tab.id)), ...apps.map((app) => appPanelId(app.layoutKey))];
-  const panelIds = [...defaultPanels, ...panels.map(({ id }) => viewPanelId(id)).filter((id) => stored.known.includes(id))];
+  const windowTabs = tabs.filter((tab) => tab.placement === "window");
+  const appIds = apps.map((app) => appPanelId(app.layoutKey));
+  const defaultPanels = ["chat", ...windowTabs.filter((tab) => tab.openByDefault !== false).map((tab) => tabWindowId(tab.id)), ...appIds];
+  const panelIds = ["chat", ...windowTabs.map((tab) => tabWindowId(tab.id)), ...appIds, ...panels.map(({ id }) => viewPanelId(id)).filter((id) => stored.known.includes(id))];
   const toolIds = tabs.filter((tab) => tab.placement !== "window").map((tab) => toolPanelId(tab.id));
   const catalog = [...panelIds, ...toolIds];
-  const catalogKey = JSON.stringify([panelIds, toolIds]);
+  const catalogKey = JSON.stringify([panelIds, toolIds, defaultPanels]);
   // Until the first run snapshot arrives, panels it has not delivered yet keep their areas and selection.
   const loaded = session.runView !== undefined || apps.length > 0;
   const railWidth = catalog.some((id) => dockButtonPlacement(stored, id) === "sidebar") || (drag?.header && drag.ids[0] !== EMPTY_PANE_ENTRY) ? 36 : 0;
   const railSpace = railWidth ? railWidth + DOCK_DIVIDER_SIZE : 0;
   const workspace = useMemo(() => dockWorkspaceRect(size, railWidth), [size, railWidth]);
   const placement: DockPlacement = { bounds: workspace, available: catalog, loaded };
-  const reconcile = useCallback((current: DockState, panels: readonly string[], tools: readonly string[]) => {
+  const reconcile = useCallback((current: DockState, panels: readonly string[], tools: readonly string[], defaults: readonly string[]) => {
     if (workspace.width === 0 || workspace.height === 0) return current;
     const available = [...panels, ...tools];
-    const next = reconcileDockState(current, panels, tools, { bounds: workspace, available, loaded }, newId);
+    const next = reconcileDockState(current, panels, tools, { bounds: workspace, available, loaded }, newId, defaults);
     return loaded ? activateAvailableDockTabs(next, available) : next;
   }, [loaded, workspace]);
-  const addition = useRunAppAddition(apps, session, (app) => update((current) => revealDockPanel(reconcile(current, panelIds, toolIds), appPanelId(app.layoutKey), placement, newId)));
-  const reconciled = error ? stored : reconcile(stored, panelIds, toolIds);
+  const addition = useRunAppAddition(apps, session, (app) => update((current) => revealDockPanel(reconcile(current, panelIds, toolIds, defaultPanels), appPanelId(app.layoutKey), placement, newId)));
+  const reconciled = error ? stored : reconcile(stored, panelIds, toolIds, defaultPanels);
   const state = visibleDockState(reconciled, catalog, loaded);
   useEffect(() => {
-    const [panels, tools]: [string[], string[]] = JSON.parse(catalogKey);
-    if (!error && size.width > 0 && reconciled !== stored) update((current) => reconcile(current, panels, tools));
+    const [panels, tools, defaults]: [string[], string[], string[]] = JSON.parse(catalogKey);
+    if (!error && size.width > 0 && reconciled !== stored) update((current) => reconcile(current, panels, tools, defaults));
   }, [catalogKey, error, reconcile, reconciled, size.width, stored, update]);
   useLayoutEffect(() => {
     update((current) => current.side.mode === "hover-preview" ? transitionDockSide(current, { type: "close" }) : current);
@@ -341,8 +343,8 @@ export function DockWorkspace({ additions = [], apps, chat, chatIcon = <UsersIco
       else reveal(id);
     }}
     onMoveToSidebar={(id) => moveButton(id, "sidebar")}
-    onReset={() => update(() => reconcileDockState(initialDockState(), defaultPanels, toolIds,
-      { ...placement, bounds: dockWorkspaceRect(size, toolIds.length > 0 ? 36 : 0) }, newId), true)}
+    onReset={() => update(() => reconcileDockState(initialDockState(), ["chat", ...windowTabs.map((tab) => tabWindowId(tab.id)), ...appIds], toolIds,
+      { ...placement, bounds: dockWorkspaceRect(size, toolIds.length > 0 ? 36 : 0) }, newId, defaultPanels), true)}
   />;
   return <div className="flex min-h-0 min-w-0 flex-1 flex-col bg-app" data-docking="workspace">
     {actionsContainer ? createPortal(actions, actionsContainer) : actions}

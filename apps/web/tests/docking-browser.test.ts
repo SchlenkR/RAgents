@@ -32,8 +32,111 @@ async function fixturePage(context: test.TestContext) {
   const browser = await chromium.launch({ headless: true, executablePath: process.env.BROWSER_EXECUTABLE_PATH ?? "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome" });
   context.after(() => browser.close());
   const page = await browser.newPage({ viewport: { width: 1200, height: 800 } });
+  page.setDefaultTimeout(8000);
   return { page, url: pathToFileURL(join(directory, "index.html")).href };
 }
+
+test("optional workspace windows stay closed on first availability and reset, and remember an explicit opening", browserOnly, async (context) => {
+  const { page, url } = await fixturePage(context);
+  const errors: string[] = [];
+  page.on("pageerror", (error) => errors.push(error.message));
+  await page.goto(url + "?window&manual");
+  const tab = page.getByRole("tab", { name: "Preview", exact: true });
+  const actions = page.getByRole("group", { name: "Layout actions" });
+  const preview = actions.getByRole("button", { name: "Preview", exact: true });
+  const saved = () => page.evaluate(() => JSON.parse(Object.entries(localStorage).find(([key]) => key.startsWith("ragents.docking:"))![1]));
+  await page.getByRole("tab", { name: "Notes", exact: true }).waitFor();
+  assert.equal(await preview.getAttribute("aria-pressed"), "false");
+  assert.equal(await tab.count(), 0);
+  assert.deepEqual((await saved()).closed, ["tab:preview"]);
+  await preview.click();
+  await tab.waitFor();
+  const owner = await tab.evaluate((element) => element.closest<HTMLElement>("[data-dock-group]")!.dataset.dockGroup);
+  await page.evaluate(() => window.dockingFixture.setPreviewAvailable(false));
+  await tab.waitFor({ state: "detached" });
+  await page.evaluate(() => window.dockingFixture.setPreviewAvailable(true));
+  await tab.waitFor();
+  assert.equal(await tab.evaluate((element) => element.closest<HTMLElement>("[data-dock-group]")!.dataset.dockGroup), owner);
+  await page.reload();
+  await tab.waitFor();
+  assert.equal(await tab.evaluate((element) => element.closest<HTMLElement>("[data-dock-group]")!.dataset.dockGroup), owner);
+  await actions.getByRole("button", { name: "Reset layout", exact: true }).click();
+  await tab.waitFor({ state: "detached" });
+  assert.equal(await preview.getAttribute("aria-pressed"), "false");
+  await page.evaluate(() => { window.dockingFixture.setPreviewAvailable(false); window.dockingFixture.setRun("late-window"); });
+  await preview.waitFor({ state: "detached" });
+  await page.evaluate(() => window.dockingFixture.setPreviewAvailable(true));
+  await preview.waitFor();
+  assert.equal(await tab.count(), 0, "a newly available optional window does not open");
+  await page.evaluate(() => window.dockingFixture.openTab!("preview"));
+  await tab.waitFor();
+  assert.deepEqual(errors, []);
+});
+
+test("visible actor frames update while another window is focused and hidden frames catch up on reveal", browserOnly, async (context) => {
+  const { page, url } = await fixturePage(context);
+  const errors: string[] = [];
+  page.on("pageerror", (error) => errors.push(error.message));
+  await page.goto(url + "?window&live");
+  const notes = page.getByRole("tabpanel", { name: "Notes", exact: true });
+  const preview = page.getByRole("tabpanel", { name: "Preview", exact: true });
+  const frame = page.locator('[data-dock-panel="app:notes"]').frameLocator('iframe[aria-label="Notes"]');
+  const value = (count: number) => frame.getByText(String(count), { exact: true }).waitFor();
+  await value(1);
+  await preview.getByRole("textbox", { name: "Preview draft" }).fill("Keep this draft");
+  await frame.getByRole("textbox", { name: "Live frame draft" }).fill("Keep this frame");
+  const identity = await frame.locator("body").evaluate(() => Reflect.get(window, "identity"));
+  await preview.getByRole("textbox", { name: "Preview draft" }).focus();
+  for (const count of [2, 3]) {
+    await page.evaluate(() => window.dockingFixture.advanceState!());
+    await value(count);
+    await preview.getByText(String(count), { exact: true }).waitFor();
+    assert.equal(await notes.isVisible(), true);
+    assert.equal(await preview.isVisible(), true);
+  }
+  await frame.getByRole("textbox", { name: "Live frame draft" }).focus();
+  await page.evaluate(() => window.dockingFixture.advanceState!());
+  await value(4);
+  await preview.getByText("4", { exact: true }).waitFor();
+  const area = page.locator("[data-dock-group]").filter({ has: page.getByRole("tab", { name: "Preview", exact: true }) });
+  await area.getByRole("button", { name: "Maximize area", exact: true }).click();
+  await notes.waitFor({ state: "hidden" });
+  for (const count of [5, 6]) {
+    await page.evaluate(() => window.dockingFixture.advanceState!());
+    await preview.getByText(String(count), { exact: true }).waitFor();
+  }
+  assert.equal(await frame.getByLabel("Live frame state").textContent(), "4", "a truly hidden panel pauses forwarding");
+  await area.getByRole("button", { name: "Restore area", exact: true }).click();
+  await value(6);
+  assert.equal(await frame.getByRole("textbox", { name: "Live frame draft" }).inputValue(), "Keep this frame");
+  assert.equal(await frame.locator("body").evaluate(() => Reflect.get(window, "identity")), identity);
+  await page.getByRole("button", { name: "Close Preview", exact: true }).click();
+  await page.evaluate(() => window.dockingFixture.advanceState!());
+  await value(7);
+  await page.getByRole("group", { name: "Layout actions" }).getByRole("button", { name: "Preview", exact: true }).click();
+  await preview.getByText("7", { exact: true }).waitFor();
+  assert.equal(await preview.getByRole("textbox", { name: "Preview draft" }).inputValue(), "Keep this draft");
+  const notesTab = page.getByRole("tab", { name: "Notes", exact: true });
+  const source = await notesTab.boundingBox();
+  const target = await area.boundingBox();
+  assert.ok(source && target);
+  await page.mouse.move(source.x + source.width / 2, source.y + source.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(target.x + target.width / 2, target.y + target.height / 2 + 100, { steps: 8 });
+  const guide = await page.locator('[data-dock-guide="group-center"]').boundingBox();
+  assert.ok(guide);
+  await page.mouse.move(guide.x + guide.width / 2, guide.y + guide.height / 2, { steps: 3 });
+  await page.mouse.up();
+  await page.getByRole("tab", { name: "Preview", exact: true }).click();
+  await notes.waitFor({ state: "hidden" });
+  await page.evaluate(() => window.dockingFixture.advanceState!());
+  await preview.getByText("8", { exact: true }).waitFor();
+  assert.equal(await frame.getByLabel("Live frame state").textContent(), "7", "an inactive tab pauses forwarding");
+  await page.getByRole("button", { name: "Close Preview", exact: true }).click();
+  await value(8);
+  assert.equal(await frame.locator("body").evaluate(() => Reflect.get(window, "identity")), identity);
+  assert.deepEqual(errors, []);
+});
 
 test("opening three windows in sequence splits the largest visible non-chat rectangle", browserOnly, async (context) => {
   const { page, url } = await fixturePage(context);
@@ -549,7 +652,7 @@ test("Agents opens a movable dock window, focuses it without duplication, rememb
   assert.equal(await page.getByLabel("Chat addressee", { exact: true }).textContent(), "@worker");
   assert.equal(await agents.isVisible(), true);
   await page.evaluate(() => window.dockingFixture.startWorker!());
-  await agents.locator('button[data-actor-handle="worker"] [data-addressee-status="running"]').waitFor();
+  await agents.locator('button[data-actor-handle="worker"]').getByRole("img", { name: "running", exact: true }).waitFor();
   const layout = await saved();
   await page.reload();
   await agents.locator('button[data-actor-handle="worker"]').waitFor();
