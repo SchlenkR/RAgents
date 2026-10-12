@@ -2,13 +2,13 @@ import { runAppAdditions, runApps, useRunAppAddition } from "@ragents/web/run-ap
 import { DockWindowActions, DockWorkspace, useDockActivePanel } from "@ragents/web/run-panel/DockWorkspace";
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
-import { LayoutGridIcon, PlusIcon, SearchIcon } from "lucide-react";
+import { LayoutGridIcon, PlusIcon } from "lucide-react";
 import { useAccess } from "@ragents/web/AccessContext";
 import { ChatPanel } from "quassel";
 import { useRunPanelHost } from "@ragents/web/run-panel/host";
 import { useSurfaceController, type SurfaceCenterContext, type CardSectionContribution, type SessionContext, type SessionNavigation } from "@ragents/web/PluginRegistry";
 import { INSPECTION_TAB_ID } from "../InspectionPanel";
-import { Button, RobotHeadIcon, StartupNotice } from "@ragents/web/ui";
+import { RobotHeadIcon, StartupNotice } from "@ragents/web/ui";
 import { ActorChat } from "../ActorChat";
 import { ActorChatControls } from "../ActorChatControls";
 import { surfaceStartupState, type SurfaceStartupState } from "../surface-startup";
@@ -71,12 +71,12 @@ function RunPanel({ autoFocusChat, onAutoFocusChatSettled, surfaceElements, card
       : focusedActor ? { type: "actor", id: focusedActor.id } : undefined;
     if (surface?.selection?.type !== selection?.type || surface?.selection?.id !== selection?.id) surface?.acceptSelection(selection);
   }, [focusedActor, selectedElement, surface]);
-  const addressee = view && selectedActor && <><AddresseeControl
+  const addressee = view && selectedActor && <AddresseeControl
     actors={actors}
     onSelect={selectActor}
     selected={selectedActor}
     view={view}
-  />{inspect && <Button aria-label={`Inspect @${actorAddress(selectedActor)}`} onClick={() => navigation.openTab(INSPECTION_TAB_ID, { type: "actor", id: selectedActor.id })} size="icon-sm" title="Inspect actor" variant="ghost"><SearchIcon /></Button>}</>;
+  />;
 
   const chat = (
     <section aria-label="Chat" className={viewClass} data-view={primarySelected ? "chat" : "actor-chat"}>

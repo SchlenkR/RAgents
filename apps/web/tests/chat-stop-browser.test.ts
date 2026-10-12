@@ -7,7 +7,7 @@ import { fileURLToPath } from "node:url";
 import { build } from "esbuild";
 import { chromium } from "playwright-core";
 
-test("a chat's stop pauses the whole run while any actor works, the paused line resumes it, and a stopped actor's chat offers the restart", {
+test("a chat's stop interrupts only its partner's running turn, the paused line resumes the run, and a stopped actor's chat offers the restart", {
   skip: process.env.RAGENTS_BROWSER_TESTS !== "1", timeout: 120_000,
 }, async context => {
   await mkdir("/private/tmp/ragents-chat-stop", { recursive: true });
@@ -20,9 +20,8 @@ import React from 'react';
 import {createRoot} from 'react-dom/client';
 import {ChatInputToolbar} from 'quassel';
 import {QuasselHost} from './apps/web/src/chat/QuasselHost';
-import {runPausable} from './apps/web/src/chat/chat-target';
 import {PausedRunNotice} from './apps/web/src/chat/PausedRunNotice';
-import {pauseRun} from './apps/web/src/api';
+import {interruptActorTurn} from './apps/web/src/api';
 import {ActorChatControls} from './plugins/ragents.orchestration/web/ActorChatControls';
 import './apps/web/src/ui/tailwind.css';
 const running={kind:'running',turnId:'t',inputId:'i',startedAt:'now'};
@@ -36,7 +35,7 @@ function RunChat({name,view}) {
   return <section aria-label={name}>
     <PausedRunNotice runId={view.id} view={view}/>
     {error&&<p role="alert">{error}</p>}
-    <ChatInputToolbar running onSend={()=>{}} onStop={runPausable(view,view.id,false)?()=>void pauseRun(view.id).catch((cause)=>setError(cause.message)):undefined}/>
+    <ChatInputToolbar running onSend={()=>{}} onStop={view.actors.find((actor)=>actor.id===view.primaryActorId)?.lifecycle.kind==='running'?()=>void interruptActorTurn(view.id,view.primaryActorId).catch((cause)=>setError(cause.message)):undefined}/>
   </section>;
 }
 function Actor({run,id,lifecycle,others=[],presentation='surface'}) {
@@ -85,7 +84,7 @@ createRoot(document.getElementById('root')).render(<QuasselHost>
   const requests: string[] = [];
   await page.route("**/rpc", async route => {
     const message = route.request().postDataJSON() as { id: number; method: string; params: { runId: string; actorId?: string; reason?: string } };
-    if (!["ragents.runs.pause", "ragents.runs.resume", "ragents.runs.restartActor"].includes(message.method)) {
+    if (!["ragents.runs.interruptTurn", "ragents.runs.resume", "ragents.runs.restartActor"].includes(message.method)) {
       await route.fulfill({ contentType: "application/json", body: JSON.stringify({ jsonrpc: "2.0", id: message.id, error: { code: -32601, message: "Not available in the test" } }) });
       return;
     }
@@ -93,7 +92,7 @@ createRoot(document.getElementById('root')).render(<QuasselHost>
     await route.fulfill({
       contentType: "application/json",
       body: JSON.stringify(requests.length === 1
-        ? { jsonrpc: "2.0", id: message.id, error: { code: -32000, message: "Pause not possible" } }
+        ? { jsonrpc: "2.0", id: message.id, error: { code: -32000, message: "Stop not possible" } }
         : { jsonrpc: "2.0", id: message.id, result: { id: message.params.runId } }),
     });
   });
@@ -102,35 +101,31 @@ createRoot(document.getElementById('root')).render(<QuasselHost>
   const stop = (name: string) => chat(name).getByRole("button", { name: "Stop work", exact: true });
   await stop("run-a/implementer").waitFor();
   assert.equal(await stop("run-a/waiting").count(), 0, "without any running turn the input offers no stop");
-  assert.equal(await stop("run-chat-worker-busy").count(), 1, "another actor's turn is enough for the run chat's stop");
-  assert.equal(await stop("run-d/helper").count(), 1, "another actor's turn is enough for an actor chat's stop");
-  assert.equal(await stop("run-chat-paused").count(), 0, "a paused run is not paused again");
+  assert.equal(await stop("run-chat-worker-busy").count(), 0, "another actor's turn offers no stop in the run chat");
+  assert.equal(await stop("run-d/helper").count(), 0, "another actor's turn offers no stop in an actor chat");
+  assert.equal(await stop("run-chat-paused").count(), 0, "a paused run has no running turn of its partner");
   await chat("run-chat-paused").getByRole("status").filter({ hasText: "Paused - 1 input waiting" }).waitFor();
   assert.equal(await chat("run-chat").getByRole("status").count(), 0, "no paused line in a run that works");
   await chat("run-a/stopped").getByRole("status").filter({ hasText: "@stopped stopped: Stopped by mistake" }).waitFor();
   assert.equal(await chat("run-a/stopped").getByRole("textbox").count(), 0);
 
   await stop("run-a/implementer").click();
-  await chat("run-a/implementer").getByRole("alert").filter({ hasText: "Pause not possible" }).waitFor();
+  await chat("run-a/implementer").getByRole("alert").filter({ hasText: "Stop not possible" }).waitFor();
   assert.equal(await chat("run-b/implementer").getByRole("alert").count(), 0);
   await stop("run-a/implementer").click();
   await stop("run-b/implementer").click();
   await stop("run-chat").click();
-  await stop("run-chat-worker-busy").click();
-  await stop("run-d/helper").click();
   await chat("run-chat-paused").getByRole("button", { name: "Resume", exact: true }).click();
   await chat("run-a/implementer").getByRole("textbox").fill("Further instruction");
   assert.equal(await stop("run-a/implementer").count(), 0);
   assert.equal(await chat("run-a/implementer").getByRole("button", { name: "Send", exact: true }).isEnabled(), true);
   await chat("run-a/stopped").getByRole("button", { name: "Restart", exact: true }).click();
-  for (let attempt = 0; attempt < 50 && requests.length < 8; attempt += 1) await page.waitForTimeout(50);
+  for (let attempt = 0; attempt < 50 && requests.length < 6; attempt += 1) await page.waitForTimeout(50);
   assert.deepEqual(requests, [
-    "ragents.runs.pause run-a",
-    "ragents.runs.pause run-a",
-    "ragents.runs.pause run-b",
-    "ragents.runs.pause run-a",
-    "ragents.runs.pause run-c",
-    "ragents.runs.pause run-d",
+    "ragents.runs.interruptTurn run-a/implementer",
+    "ragents.runs.interruptTurn run-a/implementer",
+    "ragents.runs.interruptTurn run-b/implementer",
+    "ragents.runs.interruptTurn run-a/coordinator",
     "ragents.runs.resume run-p",
     "ragents.runs.restartActor run-a/stopped",
   ]);

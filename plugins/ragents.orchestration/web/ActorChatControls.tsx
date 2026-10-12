@@ -1,13 +1,13 @@
 import { useAccess } from "@ragents/web/AccessContext";
 import { useState, type ReactNode } from "react";
-import { pauseRun, sendActorMessage } from "@ragents/web/api";
+import { interruptActorTurn, sendActorMessage } from "@ragents/web/api";
 import { ChatViewSwitches, useChatViewSettings } from "@ragents/web/chat-view-settings";
 import { ChatInputToolbar } from "quassel";
 import { ChatContextUsage } from "@ragents/web/chat/ChatContextUsage";
 import { PausedRunNotice } from "@ragents/web/chat/PausedRunNotice";
 import { StoppedActorNotice } from "@ragents/web/chat/StoppedActorNotice";
 import { useAttachmentCapabilities } from "@ragents/web/chat/useAttachmentCapabilities";
-import { programChatNotice, runPausable } from "@ragents/web/chat/chat-target";
+import { programChatNotice } from "@ragents/web/chat/chat-target";
 import { actorAddress, type RunActor, type RunView } from "@ragents/web/run-view";
 
 const controlsClass = "flex flex-shrink-0 items-center gap-2 border-t border-border-soft px-workspace-inset pt-2 pb-3";
@@ -33,7 +33,7 @@ export function ActorChatControls({ actor, autoFocus, onAutoFocusSettled, view, 
   const attachments = useAttachmentCapabilities(view.id, actor.id, JSON.stringify(actor.execution?.driver.config));
   const disabledReason = !writable ? "You have read access to this run." : undefined;
   const placeholder = disabledReason ?? `Message to @${actorAddress(actor)} ...`;
-  const stoppable = (access.canStopRun ?? writable) && runPausable(view, view.id, running);
+  const stoppable = (access.canStopRun ?? writable) && running;
   const switches = <ChatViewSwitches settings={chatView} />;
   if (!composerVisible || actor.kind === "human") return <div className={controlsClass}>{toolbarLeft}{switches}</div>;
   if (actor.kind === "script") return <div className={controlsClass}><p className={noteClass}>{programChatNotice}</p>{toolbarLeft}{switches}</div>;
@@ -51,11 +51,11 @@ export function ActorChatControls({ actor, autoFocus, onAutoFocusSettled, view, 
       onSend={(text, files) => sendActorMessage(view.id, actor.id, text, files)}
       onStop={stoppable ? () => {
         setStopError(undefined);
-        void pauseRun(view.id).catch((error: unknown) =>
+        void interruptActorTurn(view.id, actor.id).catch((error: unknown) =>
           setStopError(error instanceof Error ? error.message : String(error)));
       } : undefined}
       rows={1}
-      running={running || stoppable}
+      running={running}
       texts={running ? { placeholder } : { placeholder, steeringPlaceholder: placeholder, sendIntoRun: "Send" }}
       toolbarLeft={<>
         {toolbarLeft}

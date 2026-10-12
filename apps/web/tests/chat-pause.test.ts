@@ -3,7 +3,7 @@ import test from "node:test";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { RunAccessScope } from "../src/AccessContext";
-import { pauseRun, resumeRun } from "../src/api";
+import { interruptActorTurn, pauseRun, resumeRun } from "../src/api";
 import { pausedRunText, runPausable, runPause } from "../src/chat/chat-target";
 import { PausedRunNotice } from "../src/chat/PausedRunNotice";
 import { RpcClient } from "../src/rpc/client";
@@ -99,16 +99,30 @@ test("while the run is paused, one line above the input says so and offers Resum
   assert.equal(notice(viewOf({})), "", "nothing while the run is not paused");
 });
 
-test("an actor chat stops the whole run while another actor works, and shows the paused line instead of a stop while paused", () => {
-  const controls = (view: RunView, operable = true) => renderToStaticMarkup(createElement(RunAccessScope, { operable },
-    createElement(ActorChatControls, { actor: view.actors.find((actor) => actor.id === "worker")!, view, presentation: "panel", running: false })));
-  const working = controls(viewOf({ coordinator: running }));
-  assert.match(working, /aria-label="Stop work"/);
-  assert.doesNotMatch(working, /Interject|Feed into the running turn/, "the idle actor's input does not claim its own turn runs");
-  assert.doesNotMatch(controls(viewOf({})), /aria-label="Stop work"/, "nothing works, nothing to stop");
-  assert.doesNotMatch(controls(viewOf({ coordinator: running }), false), /aria-label="Stop work"/, "without runs.write no stop");
-  const paused = controls(viewOf({ coordinator: running, paused: true, inputs: [input("a", "worker")] }));
+test("an actor chat stops only its own running turn; another actor's work offers no stop, and a paused run shows the paused line", () => {
+  const controls = (view: RunView, running: boolean, operable = true) => renderToStaticMarkup(createElement(RunAccessScope, { operable },
+    createElement(ActorChatControls, { actor: view.actors.find((actor) => actor.id === "worker")!, view, presentation: "panel", running })));
+  assert.match(controls(viewOf({ worker: running }), true), /aria-label="Stop work"/);
+  const other = controls(viewOf({ coordinator: running }), false);
+  assert.doesNotMatch(other, /aria-label="Stop work"/, "another actor's turn is not this chat's work");
+  assert.doesNotMatch(other, /Interject|Feed into the running turn/, "the idle actor's input does not claim its own turn runs");
+  assert.doesNotMatch(controls(viewOf({}), false), /aria-label="Stop work"/, "nothing works, nothing to stop");
+  assert.doesNotMatch(controls(viewOf({ worker: running }), true, false), /aria-label="Stop work"/, "without runs.write no stop");
+  const paused = controls(viewOf({ coordinator: running, paused: true, inputs: [input("a", "worker")] }), false);
   assert.doesNotMatch(paused, /aria-label="Stop work"/);
   assert.match(paused, /role="status"[^>]*>Paused - 1 input waiting</);
   assert.match(paused, /<button[^>]*>Resume<\/button>/);
+});
+
+test("the chat's stop interrupts the addressed actor's turn with a fresh command id", async () => {
+  const calls: Array<{ method: string; params: Record<string, unknown> }> = [];
+  const client = new RpcClient({ fetch: async (_url, init) => {
+    const call = JSON.parse(String(init?.body)) as { id: number; method: string; params: Record<string, unknown> };
+    calls.push({ method: call.method, params: call.params });
+    return Response.json({ jsonrpc: "2.0", id: call.id, result: viewOf({}) });
+  } });
+  await interruptActorTurn("run-a", "worker", client);
+  assert.deepEqual(calls.map(({ method, params }) => [method, Object.keys(params).sort(), params.runId, params.actorId]), [
+    ["ragents.runs.interruptTurn", ["actorId", "commandId", "runId"], "run-a", "worker"],
+  ]);
 });

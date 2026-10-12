@@ -15,7 +15,7 @@ import {
 } from "react";
 import { createPortal } from "react-dom";
 import { ChatInputToolbar, ChatMessages, ChatPanel, type ChatAttachmentInput, type ChatEvent, type ToolInfo } from "quassel";
-import { primaryChatState, primaryIsProgram, programChatNotice, runIsWorking, runPausable } from "./chat/chat-target";
+import { primaryChatState, primaryIsProgram, programChatNotice } from "./chat/chat-target";
 import { PausedRunNotice } from "./chat/PausedRunNotice";
 import { RunUrls, chatCodeBlocks } from "./chat/QuasselHost";
 import { StoppedActorNotice } from "./chat/StoppedActorNotice";
@@ -23,9 +23,10 @@ import { ChatViewSwitches, useChatViewSettings } from "./chat-view-settings";
 import { useChat } from "./chat/useChat";
 import { ChatContextUsage } from "./chat/ChatContextUsage";
 import { runUserLocation, type ChatRunLocation } from "./chat/user-location";
-import { dismissAction, pauseRun, type SessionInfo } from "./api";
+import { dismissAction, interruptActorTurn, type SessionInfo } from "./api";
 import { useRunStore } from "./RunStore";
 import { withToolSummaries } from "./toolLine";
+import { runViewFrom } from "./run-view";
 import { StartOptionControls, StartOptionPresetErrors, StartOptionsProvider, useStartOptions } from "./StartOptions";
 import { useAttachmentCapabilities } from "./chat/useAttachmentCapabilities";
 import { StartEntryDialog } from "./StartEntryDialog";
@@ -473,9 +474,14 @@ function ChatSurface({
   const startOptions = useStartOptions();
   const attachments = useAttachmentCapabilities(session.session.id, "primary", JSON.stringify(startOptions.options.map(({ id, value }) => [id, value])));
   const messages = useMemo(() => withToolSummaries(session.messages), [session.messages]);
-  const working = session.connected && (session.running || runIsWorking(session.runView, session.session.id));
+  const working = session.connected && session.running;
   const partner = primaryChatState(session.runView, session.session.id);
-  const stoppable = canStopRun(access) && session.connected && runPausable(session.runView, session.session.id, session.running);
+  const view = runViewFrom(session.runView);
+  const partnerId = view?.id === session.session.id ? view.primaryActorId ?? undefined : undefined;
+  const stop = canStopRun(access) && working && partnerId !== undefined ? () => {
+    setSendError(undefined);
+    void interruptActorTurn(session.session.id, partnerId).catch((error: unknown) => setSendError(error instanceof Error ? error.message : String(error)));
+  } : undefined;
   return (
     <ChatPanel
       className={cn(chatElementClass, options.chatElementClassName)}
@@ -502,10 +508,7 @@ function ChatSurface({
               setSendError(undefined);
               return session.send(text, attachments);
             }}
-            onStop={stoppable ? () => {
-              setSendError(undefined);
-              void pauseRun(session.session.id).catch((error: unknown) => setSendError(error instanceof Error ? error.message : String(error)));
-            } : undefined}
+            onStop={stop}
             rows={1}
             running={working}
             toolbarLeft={

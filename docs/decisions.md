@@ -1,5 +1,21 @@
 # Decisions
 
+## 2026-10-12: Stop in the chat interrupts only the chat partner's turn
+
+Chapters: `spec/core.md` (Interrupting a turn, stopping an actor, stopping a run),
+`spec/plugins.md` (run panel, working animation, chat composer); usage: `usage.md` (Run chat,
+Run panel and VS Code extension, Control RAgents as an agent).
+
+The run chat showed the working animation and "Stop work" while any actor of the run worked,
+so a coordinator that had ended its turn and only waited for a sub-agent looked busy. The
+animation, the input placeholder, and "Stop work" now follow only the turn of the chat's own
+actor, and "Stop work" calls `ragents.runs.interruptTurn` for that actor instead of pausing the
+run. Run-wide control stays with "Stop run" in the title bar; work of other actors shows in the
+working-agent count. This reverses the chat part of the 2026-10-02 pause decision on purpose: a
+sub-agent's later report starts a new coordinator turn again. `ragents.runs.pause` and
+`ragents stop <run>` stay. The "Inspect actor" button beside the addressee selector is removed;
+the Inspection rail tab remains.
+
 ## 2026-10-12: Bound tool-result projections and overflow summarization
 
 Chapters: `spec/core.md` (Model context and agent runtime, Retries and compaction),

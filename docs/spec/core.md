@@ -634,12 +634,11 @@ boundary is the sandbox per run. Bash is allowed within it.
 All stop paths follow the same principle: block new work first, then cancel, wait for running
 work, and only then release resources. The exact boundary differs:
 
-The stop button in a chat input ("Stop work") pauses the whole run: from that moment no turn of
-any actor starts, the running turns of all actors, the coordinator's sub-agents included, end as
-`interrupted`, and the run stays paused until a human continues it. Nothing is lost: what arrives
-in the meantime waits in the journal. The visible text of an unfinished answer stays, and every
-actor stays active. Interrupting the turn of a single actor only, stopping an actor for good, and
-stopping the whole run are separate, explicitly labeled actions.
+The stop button in a chat input ("Stop work") interrupts only the running turn of that chat's
+actor: the turn ends as `interrupted`, the visible text of an unfinished answer stays, and the
+actor, its sub-agents, and the run keep running. A later input, such as a sub-agent's report,
+starts a new turn of the actor. Pausing the run (`ragents stop <run>`), stopping an actor for
+good, and stopping the whole run are separate actions.
 
 In the run title bar, a user with write permission can request a complete stop through "Stop
 run" and a confirmation. The primary actor can also trigger it with `run_stop`. Both use the
@@ -648,10 +647,10 @@ the stop but does not wait for cleanup of its own turn. Acceptance is not proof 
 Cleanup errors are reported in the server log while the stop path's normal quarantine remains
 in effect.
 
-- Run pause (`ragents.runs.pause`, the chat's stop button, `ragents stop <run>`): No turn starts
+- Run pause (`ragents.runs.pause`, `ragents stop <run>`): No turn starts
   any more and the running turns of all actors end; inputs keep arriving and wait. A human input
   or `ragents.runs.resume` continues the run (section Pausing a run).
-- Turn interruption (`ragents.runs.interruptTurn`): Ends the running turn of one actor and
+- Turn interruption (`ragents.runs.interruptTurn`, the chat's stop button): Ends the running turn of one actor and
   nothing else; the actor, its model runtime, its children, and the run stay as they are.
 - `actor_stop`: Stops the actor, interrupts its running turn, and disposes its model runtime
   after the turn. Its active descendants are stopped in the same journal command, so a branch is

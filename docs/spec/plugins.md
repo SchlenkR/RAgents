@@ -1740,8 +1740,8 @@ A guided template opens only its guide as a dialog over Start. Browser runs use 
 The journal remains in the shared bottom status bar and is also a dockable browser tool.
 
 The shared panel defaults to the primary chat actor. The addressee selector below the input
-selects another actor and retains visited chat drafts. `Inspect actor` opens that actor in
-the Inspection rail tab, including sources, turns, inputs, subscriptions, and artifacts.
+selects another actor and retains visited chat drafts. The Inspection rail tab shows the selected
+actor's sources, turns, inputs, subscriptions, and artifacts.
 Inspection requires `runs.inspect`; read-only chats retain their existing restrictions.
 
 In the actor view (`FlowInspector` in Inspection), a
@@ -2011,9 +2011,9 @@ Earlier steps stay hidden. If a tool runs longer than three seconds, its step sh
 A following message, the tool result, or the end of the turn removes the display; normal
 messages and questions stay visible. Own inputs sent afterwards behind the
 running step do not remove the chip. The shared working animation additionally stays
-visible as long as the agent is running. The host's run chat shows it as long as any agent
-or program of the run executes a turn and the connection is up; the placeholder of its
-input follows the same signal, the stop button only the turn of its own actor (see below). Actor inspectors show the running state
+visible as long as the agent is running. The host's run chat shows it only while its primary
+actor executes a turn and the connection is up; the placeholder of its input and the stop button
+follow the same signal (see below). Work of other actors shows in the working-agent count. Actor inspectors show the running state
 of the respective actor. The previous levels of detail stay selectable; stored choices and
 explicit product defaults take precedence. The level of detail `grouped` ("grouped") combines all
 consecutive thinking and tool steps between two other messages into one
@@ -2684,18 +2684,18 @@ adjusts this visibility from outside, independently of pausing and resuming
 following. Small upward movements may therefore pause following without showing the button
 immediately.
 
-While any actor of the run works and the run is not paused, and the input is empty, the run chat
-(the partner is the primary actor) and the actor chats in the run panel show "Stop work"; the
-global coordinator shows it while its own turn runs. The button pauses the whole run through
-`ragents.runs.pause` (`pauseRun` from `@ragents/web/api`; offered by `runPausable` from
-`chat-target`): no turn of any actor starts any more and the running ones end (`core.md`, Pausing
-a run). While `RunView.pause` is set, `PausedRunNotice` shows one line above the input, "Paused",
+While the chat's own actor runs a turn and the input is empty, the run chat (the partner is the
+primary actor) and the actor chats in the run panel show "Stop work". The button interrupts only
+that turn through `ragents.runs.interruptTurn` (`interruptActorTurn` from `@ragents/web/api`); the
+actor, its sub-agents, and the run stay active, and work of other actors offers no stop in this
+chat. The global coordinator shows it while its own turn runs and pauses its own run through
+`ragents.runs.pause` (`pauseRun`). While `RunView.pause` is set, for example after
+`ragents stop <run>`, `PausedRunNotice` shows one line above the input, "Paused",
 "Paused - 1 input waiting", or "Paused - 3 inputs waiting" (the waiting inputs of all actors that
 are not stopped), with "Resume" (`ragents.runs.resume`, disabled without `runs.write`); a message
 from the input resumes the run as well. The global coordinator loads no RunView and shows no such
 line; its next message continues it. With text or attachments, the send action stays available.
-Errors while pausing appear in the chat concerned and allow a retry. Interrupting the turn of a
-single actor stays an API (`ragents.runs.interruptTurn`, `interruptActorTurn`); stopping an actor
+Errors while stopping appear in the chat concerned and allow a retry. Stopping an actor
 permanently is offered only by the actor card ("Stop"), stopping the whole run only by "Stop run"
 in the title bar; no chat input calls `ragents.chat.stop`.
 

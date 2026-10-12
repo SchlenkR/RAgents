@@ -557,16 +557,15 @@ slashed circle, ended a check mark, and idle or stopped an empty circle. Actual 
 run" in the run-panel header and run menu, "Stop work" beside the
 chat input, and the stop controls for run processes.
 
-"Stop work" pauses the whole run and is not the end of it. It appears in every chat input
-while any actor of the run is working: no turn of any actor starts any more, the running turns
-of all actors end, also those of the agents the coordinator started, and the text already written
-stays. Nothing is lost: what arrives in the meantime, such as a sub-agent's report, waits. Above
-the input one line says "Paused - 3 inputs waiting" with "Resume". "Resume" continues without a
-message; a message you send continues as well and reaches the coordinator together with
-everything that waited, your message last, so it is the current instruction. Agents the
-coordinator started continue only once it addresses them again. Every turn that no message of
-yours started carries a line about its trigger in the chat, such as "New turn, triggered by
-turn.finished of @implementer". To end everything, use "Stop run" with its
+"Stop work" interrupts only the running turn of the actor you chat with. It appears while that
+actor has a turn; the working animation in the chat follows the same signal. The text already
+written stays, and agents the coordinator started keep working; their next report starts a new
+turn of the coordinator. Other actors' work shows in the working-agent count below the input.
+Every turn that no message of yours started carries a line about its trigger in the chat, such as
+"New turn, triggered by turn.finished of @implementer". If the run was paused, for example with
+`ragents stop <run>`, one line above the input says "Paused - 3 inputs waiting" with "Resume";
+a message you send continues the run as well and reaches the coordinator together with
+everything that waited, your message last. To end everything, use "Stop run" with its
 confirmation; to stop a single actor for good, use "Stop" on its actor card. If a chat's actor has
 been stopped, the input is replaced by `@handle stopped: <reason>` and, with permission to operate
 and inspect the run, "Restart". Restarting the former primary actor makes it the
@@ -783,7 +782,7 @@ chooses its chat partner during setup, the task waits instead of failing. `send`
 same operation in an existing run. `journal` reads the history from the profile's data directory
 without a server, using the same code as `pnpm driver journal`; with `RAGENTS_URL` set, it reads it
 from the server through `ragents.runs.events`, which requires `runs.inspect`. `stop <runId>`
-pauses the whole run through `ragents.runs.pause`, exactly like the stop button in the chat: no
+pauses the whole run through `ragents.runs.pause`: no
 turn of any actor starts any more, the running turns of all actors end, and what arrives in the
 meantime waits. `resume <runId>` continues it through `ragents.runs.resume`; `send` continues it
 too, and its message reaches the primary actor last, after everything that waited. A sub-agent
